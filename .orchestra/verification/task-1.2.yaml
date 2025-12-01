@@ -1,0 +1,119 @@
+# Verification criteria for Task 1.2: Core Libraries
+# This is the CRITICAL task - full implementation of core modules
+
+task_id: "1.2"
+description: "Core libraries implementation verification"
+
+checks:
+  # File existence checks
+  - id: "errors-module"
+    description: "src/core/errors.ts exists and exports error classes"
+    type: "file_exists"
+    severity: "blocking"
+    params:
+      path: "src/core/errors.ts"
+
+  - id: "types-module"
+    description: "src/core/types.ts exists with Zod schemas"
+    type: "file_exists"
+    severity: "blocking"
+    params:
+      path: "src/core/types.ts"
+
+  - id: "yaml-module"
+    description: "src/core/yaml.ts exists"
+    type: "file_exists"
+    severity: "blocking"
+    params:
+      path: "src/core/yaml.ts"
+
+  - id: "config-module"
+    description: "src/core/config.ts exists"
+    type: "file_exists"
+    severity: "blocking"
+    params:
+      path: "src/core/config.ts"
+
+  - id: "manifest-module"
+    description: "src/core/manifest.ts exists"
+    type: "file_exists"
+    severity: "blocking"
+    params:
+      path: "src/core/manifest.ts"
+
+  - id: "progress-module"
+    description: "src/core/progress.ts exists"
+    type: "file_exists"
+    severity: "blocking"
+    params:
+      path: "src/core/progress.ts"
+
+  - id: "output-module"
+    description: "src/core/output.ts exists for console formatting"
+    type: "file_exists"
+    severity: "blocking"
+    params:
+      path: "src/core/output.ts"
+
+  # Content verification - ensure not just stubs
+  - id: "yaml-has-readYaml"
+    description: "yaml.ts has working readYaml function (not stub)"
+    type: "pattern_match"
+    severity: "blocking"
+    params:
+      path: "src/core/yaml.ts"
+      pattern: "fs\\.readFileSync|readFileSync"
+      inverse_pattern: "throw new Error\\('Not implemented'\\)"
+
+  - id: "config-has-findRoot"
+    description: "config.ts has findOrchestraRoot function (not stub)"
+    type: "pattern_match"
+    severity: "blocking"
+    params:
+      path: "src/core/config.ts"
+      pattern: "findOrchestraRoot"
+      inverse_pattern: "throw new Error\\('Not implemented'\\)"
+
+  - id: "manifest-has-loadManifest"
+    description: "manifest.ts has working loadManifest function (not stub)"
+    type: "pattern_match"
+    severity: "blocking"
+    params:
+      path: "src/core/manifest.ts"
+      pattern: "loadManifest"
+      inverse_pattern: "throw new Error\\('Not implemented'\\)"
+
+  - id: "progress-has-addEntry"
+    description: "progress.ts has working addProgressEntry function (not stub)"
+    type: "pattern_match"
+    severity: "blocking"
+    params:
+      path: "src/core/progress.ts"
+      pattern: "addProgressEntry"
+      inverse_pattern: "throw new Error\\('Not implemented'\\)"
+
+  # Build verification
+  - id: "typescript-compiles"
+    description: "TypeScript compiles without errors"
+    type: "command"
+    severity: "blocking"
+    params:
+      command: "npm run build"
+      expected_exit_code: 0
+
+  # Test verification
+  - id: "tests-pass"
+    description: "All unit tests pass"
+    type: "command"
+    severity: "blocking"
+    params:
+      command: "npm test"
+      expected_exit_code: 0
+
+  - id: "minimum-tests"
+    description: "At least 10 tests exist for core modules"
+    type: "test_count"
+    severity: "major"
+    params:
+      pattern: "test/core/**/*.test.ts"
+      minimum: 10

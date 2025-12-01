@@ -1,0 +1,50 @@
+# Verification criteria for Task 1.1: Project Setup
+# Status: COMPLETED (verified during scaffolding)
+
+task_id: "1.1"
+description: "Project setup verification"
+
+checks:
+  - id: "package-json-exists"
+    description: "package.json exists with required dependencies"
+    type: "file_exists"
+    severity: "blocking"
+    params:
+      path: "package.json"
+
+  - id: "tsconfig-exists"
+    description: "tsconfig.json exists"
+    type: "file_exists"
+    severity: "blocking"
+    params:
+      path: "tsconfig.json"
+
+  - id: "build-config-exists"
+    description: "tsup.config.ts exists"
+    type: "file_exists"
+    severity: "blocking"
+    params:
+      path: "tsup.config.ts"
+
+  - id: "test-config-exists"
+    description: "vitest.config.ts exists"
+    type: "file_exists"
+    severity: "blocking"
+    params:
+      path: "vitest.config.ts"
+
+  - id: "has-zod-dependency"
+    description: "Zod is in dependencies"
+    type: "file_contains"
+    severity: "blocking"
+    params:
+      path: "package.json"
+      pattern: '"zod"'
+
+  - id: "has-commander-dependency"
+    description: "Commander is in dependencies"
+    type: "file_contains"
+    severity: "blocking"
+    params:
+      path: "package.json"
+      pattern: '"commander"'
