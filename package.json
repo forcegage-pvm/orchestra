@@ -1,0 +1,74 @@
+{
+  "name": "orchestra",
+  "version": "0.1.0",
+  "description": "AI Agent Task Orchestration - CLI, MCP Server, and VS Code Extension",
+  "type": "module",
+  "main": "./dist/core/index.js",
+  "types": "./dist/core/index.d.ts",
+  "bin": {
+    "orchestra": "./dist/cli/index.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/core/index.d.ts",
+      "import": "./dist/core/index.js"
+    },
+    "./cli": {
+      "types": "./dist/cli/index.d.ts",
+      "import": "./dist/cli/index.js"
+    },
+    "./mcp": {
+      "types": "./dist/mcp/index.d.ts",
+      "import": "./dist/mcp/index.js"
+    }
+  },
+  "scripts": {
+    "dev": "tsx src/cli/index.ts",
+    "dev:mcp": "tsx src/mcp/index.ts",
+    "build": "tsup",
+    "build:extension": "tsup --config tsup.extension.config.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "lint": "eslint src --ext .ts",
+    "typecheck": "tsc --noEmit",
+    "clean": "rimraf dist"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "chalk": "^5.3.0",
+    "commander": "^12.1.0",
+    "handlebars": "^4.7.8",
+    "ora": "^8.0.1",
+    "yaml": "^2.4.5",
+    "zod": "^3.23.8",
+    "simple-git": "^3.22.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "eslint": "^9.4.0",
+    "rimraf": "^5.0.7",
+    "tsup": "^8.1.0",
+    "tsx": "^4.15.0",
+    "typescript": "^5.4.5",
+    "vitest": "^1.6.0",
+    "@vitest/coverage-v8": "^1.6.0"
+  },
+  "keywords": [
+    "orchestra",
+    "ai",
+    "agent",
+    "automation",
+    "cli",
+    "mcp",
+    "vscode"
+  ],
+  "author": "forcegage-pvm",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": ""
+  }
+}
