@@ -108,7 +108,7 @@ phases:
         title: "Init Command"
         description: "Initialize sprint from spec"
         category: "INFRASTRUCTURE"
-        status: "not-started"
+        status: "completed"
         depends_on: [2]
         spec_file: "spec/implementation/phase-1-cli/tasks/1.4-init-command.md"
         command_spec: "spec/implementation/phase-1-cli/commands/init.md"
@@ -259,14 +259,14 @@ phases:
 # TRACKING
 # ═══════════════════════════════════════════════════════════════════
 
-current_task: null
-current_phase: null
+current_task: 5
+current_phase: "commands"
 
 summary:
   total_tasks: 11
-  completed: 0
+  completed: 4
   in_progress: 0
-  pending: 11
+  pending: 7
   failed: 0
 
 # ═══════════════════════════════════════════════════════════════════

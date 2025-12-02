@@ -9,14 +9,14 @@ sprint: "orchestra-phase-1-cli"
 created: "2025-12-02"
 status: "in-progress"
 
-current_task: 4
+current_task: 5
 current_phase: "commands"
 
 summary:
   total: 11
-  completed: 3
+  completed: 4
   in_progress: 0
-  pending: 9
+  pending: 8
   failed: 0
 
 # Task-level tracking (populated as tasks complete)
@@ -73,3 +73,19 @@ tasks:
       - MINOR (3/3): JSDoc comments, multiple test cases, error handling
       - 137 tests passing (20 new tests for status command)
       - Full implementation with all view modes
+  4:
+    status: "completed"
+    attempts: 1
+    started_at: "2025-12-02T14:00:00Z"
+    completed_at: "2025-12-02T14:24:00Z"
+    completed_commit: "94f2899"
+    verification_result: "PASSED"
+    verification_summary: "All 16 verification criteria passed - 162 tests, init command + template system complete"
+    notes: |
+      Task 4 Init Command verified:
+      - BLOCKING (6/6): accept-signal check, file existence (init.ts, templates.ts), build, typecheck, tests (25/25)
+      - MAJOR (7/7): exports (initCommand, runInit, InitOptions, loadTemplate, renderTemplate, renderTemplateString, registerHelpers)
+      - MINOR (3/3): command description, helpers registered, JSON output
+      - 162 tests passing (25 new tests for init command)
+      - Template system with 12 custom Handlebars helpers
+      - Path validation script created (validate-verification-paths.ps1)
