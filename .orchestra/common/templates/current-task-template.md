@@ -18,26 +18,29 @@ Please read the spec file(s) for full implementation details including code samp
 ## Acceptance Criteria
 
 {{#each acceptance_criteria}}
+
 - [ ] {{this}}
-{{/each}}
+      {{/each}}
 
 {{#if depends_on}}
+
 ## Dependencies
 
 These tasks must be completed first:
 {{#each depends_on}}
+
 - {{this}}
-{{/each}}
-{{/if}}
+  {{/each}}
+  {{/if}}
 
 ## File Operations
 
 **IMPORTANT**: Use this exact table format for validation to pass:
 
-| Action | File Path | Purpose |
-|--------|-----------|---------|
-| UPDATE | `{{path/to/file1.ts}}` | {{What changes to make}} |
-| CREATE | `{{path/to/file2.test.ts}}` | {{What to create}} |
+| Action | File Path                   | Purpose                  |
+| ------ | --------------------------- | ------------------------ |
+| UPDATE | `{{path/to/file1.ts}}`      | {{What changes to make}} |
+| CREATE | `{{path/to/file2.test.ts}}` | {{What to create}}       |
 
 ## TDD Requirements
 
@@ -46,11 +49,13 @@ These tasks must be completed first:
 **Test File**: `{{test/path/xxx.test.ts}}`
 
 **Test Cases Required**:
+
 1. {{Test case 1}}
 2. {{Test case 2}}
 3. {{Test case 3}}
 
 **Sample Test Data**:
+
 ```typescript
 // Add sample data objects here for tests
 const mockData = {
@@ -67,10 +72,12 @@ const mockData = {
 **Current state**: {{What exists now}}
 
 **What to implement**:
+
 - {{Change 1}}
 - {{Change 2}}
 
 **Code scaffold**:
+
 ```typescript
 // Provide copy-paste ready code structure
 ```
@@ -80,10 +87,12 @@ const mockData = {
 #### {{File 2 path}}
 
 **What to create**:
+
 - {{Requirement 1}}
 - {{Requirement 2}}
 
 **Code scaffold**:
+
 ```typescript
 // Provide copy-paste ready starting code
 ```
@@ -106,11 +115,13 @@ Before signaling completion:
 When ready for review:
 
 1. Run pre-signal check:
+
    ```powershell
    .\.orchestra\implementor\.implementor-only\scripts\pre-signal-check.ps1 -TaskId {{task_id}}
    ```
 
 2. Update `.orchestra/handover/completion-signal.md` with:
+
    - Task ID and status
    - What was implemented
    - Test results
