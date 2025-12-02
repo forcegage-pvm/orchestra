@@ -66,6 +66,7 @@ export const TaskSchema = z.object({
   started_at: z.string().optional(),
   completed_at: z.string().optional(),
   last_failure: z.string().optional(),
+  speckit_task_ref: z.array(z.string()).optional(),
 });
 
 // Use z.output to get the type AFTER defaults are applied (required for exactOptionalPropertyTypes)
