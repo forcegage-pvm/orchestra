@@ -1,177 +1,300 @@
+````markdown
 # Task Lifecycle
 
 > **Navigation**: [Index](../readme.md) | **Prev**: [Templates](../03-components/templates.md) | **Next**: [Verification Protocol](verification-protocol.md)
+> 
+> **Authority**: [Orchestra Bible Section 7](../00-orchestra-bible.md#7-task-lifecycle)
 
 ---
 
 ## Overview
 
-Every task in Orchestra goes through a defined lifecycle from definition through completion. This document describes each state and transition.
+Every task in Orchestra goes through a defined lifecycle from definition through completion. This document describes each phase and transition.
 
-## Lifecycle Diagram
+---
+
+## Lifecycle Phases
+
+> **Per Bible Section 7.1**
 
 ```
-                    ┌─────────────────────────────────────────────┐
-                    │                  SPRINT SETUP                │
-                    │  (Orchestrator creates manifest + criteria)  │
-                    └─────────────────────────────────────────────┘
-                                          │
-                                          ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                           PENDING                                │
-│                     (Task defined, not started)                  │
-└─────────────────────────────────────────────────────────────────┘
-                                          │
-                        Orchestrator prepares handover
-                                          │
-                                          ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                         IN-PROGRESS                              │
-│                  (Implementor working on task)                   │
-└─────────────────────────────────────────────────────────────────┘
-                                          │
-                        Implementor signals completion
-                                          │
-                                          ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                     AWAITING-VERIFICATION                        │
-│                (Orchestrator verifying work)                     │
-└─────────────────────────────────────────────────────────────────┘
-                                          │
-                    ┌─────────────────────┴────────────────────┐
-                    │                                          │
-                PASS │                                          │ FAIL
-                    │                                          │
-                    ▼                                          ▼
-┌───────────────────────────┐            ┌───────────────────────────┐
-│        COMPLETED          │            │          FAILED           │
-│   (Archived, next task)   │            │    (Feedback, retry)      │
-└───────────────────────────┘            └───────────────────────────┘
-                                                      │
-                                                      │ Implementor fixes
-                                                      │
-                                                      ▼
-                                         Back to IN-PROGRESS
-                                         (up to 3 attempts)
+┌─────────┐    ┌─────────┐    ┌───────────┐    ┌───────────┐    ┌────────┐    ┌──────────┐
+│ PENDING │───►│ PREPARE │───►│ IMPLEMENT │───►│ GATE      │───►│ VERIFY │───►│ COMPLETE │
+└─────────┘    └─────────┘    └───────────┘    │ CHECK     │    └────────┘    └──────────┘
+                                               └───────────┘
+                                                    │
+                                                    │ FAIL
+                                                    ▼
+                                               ┌───────────┐
+                                               │  RETRY    │
+                                               │ (back to  │
+                                               │ IMPLEMENT)│
+                                               └───────────┘
+                                                    │
+                                                    │ Max attempts
+                                                    ▼
+                                               ┌───────────┐
+                                               │ ESCALATED │
+                                               └───────────┘
 ```
 
-## States
+---
 
-### PENDING
+## Phase Details
 
-**Definition**: Task is defined in manifest but work has not started.
+### PHASE: INITIALIZATION (One-time, before any tasks)
 
-**Entry conditions**:
-- Manifest created with task definition
-- Verification criteria created (hidden)
-- Previous task completed (or this is first task)
+**Actor**: Human / Orchestrator
 
-**What exists**:
-- `manifest.yaml` entry with `status: pending`
-- `task-NNN.yaml` in verification folder (hidden)
+**Entry condition**: Specification document exists, sprint not yet initialized.
 
-**Exit conditions**:
-- Orchestrator runs closeout check for previous task
-- Orchestrator prepares handover documents
-- Orchestrator sets `status: in-progress` in manifest
+**Actions**:
+1. Parse specification into task definitions
+2. Generate task manifest with success criteria
+3. Generate hidden verification criteria
+4. Initialize progress tracking
+5. Verify development environment
 
-### IN-PROGRESS
+**Script**: `sprint-init`
 
-**Definition**: Task has been handed to implementor who is actively working.
+**Exit condition**: Sprint is initialized and ready for first task.
 
-**Entry conditions**:
-- Handover folder populated with current-task.md
-- Task-context.md reflects current phase
-- completion-signal.md template ready
-- Manifest status updated
+---
 
-**What exists**:
-- `handover/current-task.md` - filled with task details
-- `handover/task-context.md` - sprint context
-- `handover/verification/` - empty, ready for artifacts
+### PHASE: PENDING
 
-**What implementor does**:
-1. Validates handover
-2. Implements per specification
-3. Creates tests, runs tests
-4. Creates visual artifacts (if required)
-5. Runs pre-signal check
-6. Writes completion-signal.md
-7. Signals "ready for review"
+**Actor**: None (waiting state)
 
-**Exit conditions**:
-- Implementor signals completion → AWAITING-VERIFICATION
+**Entry condition**: 
+- Task exists in manifest
+- All prerequisite tasks are `completed`
+- Previous task (if any) has been closed out
 
-### AWAITING-VERIFICATION
+**Actions**: (No actions - this is a waiting state)
 
-**Definition**: Implementation signaled complete, orchestrator verifying.
+**Exit condition**: Orchestrator selects this task and begins PREPARE phase.
 
-**Entry conditions**:
-- Implementor wrote completion-signal.md
-- Implementor ran pre-signal check (artifact exists)
-- Implementor signaled "ready for review"
+---
 
-**What exists**:
-- All handover artifacts (implementation, tests, screenshots)
-- Pre-signal artifact in `implementor/artifacts/`
-- Completion signal with summary
+### PHASE: PREPARE
 
-**What orchestrator does**:
-1. Checks pre-signal artifact
-2. Loads hidden verification criteria
-3. Executes all checks (structural, functional, adversarial, visual)
-4. Documents results
-5. Determines pass/fail
+**Actor**: Orchestrator
 
-**Exit conditions**:
-- All BLOCKING/MAJOR checks pass → COMPLETED
-- Any BLOCKING/MAJOR check fails → FAILED
+**Entry condition**: Task is in `pending` status, prerequisites met.
 
-### COMPLETED
+**Actions**:
+1. Verify previous task cleanly closed (`task-closeout-check`)
+2. Gather task definition and context
+3. Generate handover document (`prepare-handover`)
+4. Validate handover contains no hidden criteria (`validate-handover`)
+5. Update progress to `in_progress`
 
-**Definition**: Task passed verification, archived for audit trail.
+**Scripts**: `task-closeout-check` → `prepare-handover` → `validate-handover`
 
-**Entry conditions**:
-- All verification checks passed
-- Orchestrator documented results
+**Artifacts produced**:
+- `.orchestra/implementor/handovers/task-{id}-handover.md`
+- Updated `progress.yaml` (status: `in_progress`)
 
-**What orchestrator does**:
-1. Creates archive folder: `results/task-NNN/`
-2. Copies handover folder to archive
-3. Adds metadata.json
-4. Updates progress.yaml
-5. Updates SpecKit tasks.md (if applicable)
-6. Clears handover folder
-7. Prepares next task
+**Exit condition**: Handover document exists and passes validation.
 
-**What exists**:
-- `results/task-NNN/` with complete archive
-- Updated progress.yaml
-- Empty handover folder (ready for next task)
+---
 
-**This is a terminal state** - task does not change from here.
+### PHASE: IMPLEMENT
 
-### FAILED
+**Actor**: Implementor
 
-**Definition**: Task did not pass verification, implementor must retry.
+**Entry condition**: Valid handover document exists for current task.
 
-**Entry conditions**:
-- One or more BLOCKING/MAJOR checks failed
+**Actions**:
+1. Read and understand handover document
+2. Implement required changes per success criteria
+3. Run local checks (build, test, lint)
+4. Signal completion (`signal-complete`)
 
-**What orchestrator does**:
-1. Documents failure with specific feedback
-2. Updates attempt count
-3. Writes feedback to completion-signal.md
-4. Invokes implementor for retry
+**Scripts**: `pre-signal-check` (optional) → `signal-complete`
 
-**What exists**:
-- Verification results showing failures
-- Feedback in completion-signal.md
-- Attempt count incremented
+**Artifacts produced**:
+- Source files created/modified
+- Test files created/modified
+- `.orchestra/implementor/signals/task-{id}-signal.md`
+- Execution log (recommended)
 
-**Exit conditions**:
-- Implementor addresses feedback → back to IN-PROGRESS
-- 3 failed attempts → escalate to human
+**Exit condition**: Implementor signals completion.
+
+---
+
+### PHASE: GATE CHECK
+
+**Actor**: System (Orchestrator-initiated, automated)
+
+**Entry condition**: Signal file exists for current task.
+
+**Actions**:
+1. Verify signal received
+2. Run deterministic checks:
+   - Build succeeds
+   - Tests pass
+   - Static analysis passes
+   - Required files exist
+3. Record results
+
+**Script**: `gate-check`
+
+**Artifacts produced**:
+- `.orchestra/artifacts/task-{id}/gate-check.yaml`
+
+**Exit condition**: All gate checks pass → VERIFY phase. Any fail → RETRY phase.
+
+---
+
+### PHASE: VERIFY
+
+**Actor**: Orchestrator
+
+**Entry condition**: Gate check passed for current task.
+
+**Actions**:
+1. Execute hidden verification criteria (`verification-audit`)
+2. Check semantic requirements
+3. Validate against specification
+4. Record verification results
+
+**Script**: `verification-audit`
+
+**Artifacts produced**:
+- `.orchestra/artifacts/task-{id}/verification.yaml`
+
+**Exit condition**: All verification passes → COMPLETE phase. Any fail → RETRY phase.
+
+---
+
+### PHASE: COMPLETE
+
+**Actor**: Orchestrator
+
+**Entry condition**: Verification audit passed for current task.
+
+**Actions**:
+1. Archive task artifacts (`accept-signal-check`)
+2. Generate task summary
+3. Update progress to `completed`
+4. Verify clean state (`task-closeout-check`)
+5. Prepare next task (if any)
+
+**Scripts**: `accept-signal-check` → `task-closeout-check`
+
+**Artifacts produced**:
+- `.orchestra/artifacts/task-{id}/summary.md`
+- Updated `progress.yaml` (status: `completed`)
+
+**Exit condition**: Progress updated, artifacts archived, ready for next task.
+
+---
+
+### PHASE: RETRY
+
+**Actor**: Orchestrator
+
+**Trigger**: Gate check OR verification audit failed.
+
+**Entry condition**: Failure recorded, attempt count < max_attempts.
+
+**Actions**:
+1. Increment attempt counter
+2. Generate feedback document (`generate-feedback`)
+3. Check retry limits
+4. Return to IMPLEMENT phase OR escalate
+
+**Script**: `generate-feedback`
+
+**Artifacts produced**:
+- `.orchestra/implementor/feedback/task-{id}-feedback.md`
+- Updated `progress.yaml` (attempts incremented)
+
+**Exit condition**: Back to IMPLEMENT or escalated to human.
+
+---
+
+### PHASE: ESCALATED
+
+**Actor**: Orchestrator → Human Supervisor
+
+**Trigger**: Max retries exceeded OR same error repeated OR explicit escalation.
+
+**Entry condition**: Escalation trigger activated.
+
+**Actions**:
+1. Compile escalation report (`escalate-failure`)
+2. Notify human supervisor
+3. Mark task as escalated
+4. Halt workflow until human intervention
+
+**Script**: `escalate-failure`
+
+**Artifacts produced**:
+- `.orchestra/artifacts/task-{id}/escalation-report.md`
+- Updated `progress.yaml` (status: `escalated`)
+
+**Human resolution options**:
+- Fix the issue manually and mark task complete
+- Modify task specification and restart
+- Skip task and proceed (with documented justification)
+- Abort sprint
+
+---
+
+## State Transitions
+
+| From | To | Trigger | Script(s) |
+|------|----|---------|-----------|
+| — | PENDING | Sprint initialized | `sprint-init` |
+| PENDING | PREPARE | Orchestrator starts task | `task-closeout-check` |
+| PREPARE | IMPLEMENT | Handover validated | `prepare-handover`, `validate-handover` |
+| IMPLEMENT | GATE CHECK | Implementor signals | `signal-complete` |
+| GATE CHECK | VERIFY | Gate checks pass | `gate-check` |
+| GATE CHECK | RETRY | Gate checks fail | `generate-feedback` |
+| VERIFY | COMPLETE | Verification passes | `verification-audit` |
+| VERIFY | RETRY | Verification fails | `generate-feedback` |
+| COMPLETE | PENDING (next) | Task archived | `accept-signal-check`, `task-closeout-check` |
+| RETRY | IMPLEMENT | Feedback provided | — |
+| RETRY | ESCALATED | Max attempts | `escalate-failure` |
+
+---
+
+## State in Files
+
+### manifest.yaml
+
+```yaml
+tasks:
+  - id: "1"
+    name: "Create Configuration Loader"
+    status: "completed"
+    
+  - id: "2"
+    name: "Write Tests"
+    status: "in_progress"
+```
+
+### progress.yaml
+
+```yaml
+current_task: "2"
+status: "in_progress"
+
+tasks:
+  "1":
+    status: "completed"
+    attempts: 1
+    completed_at: "2025-12-02T10:30:00Z"
+    
+  "2":
+    status: "in_progress"
+    attempts: 1
+    started_at: "2025-12-02T11:00:00Z"
+```
+
+---
 
 ## Attempt Tracking
 
@@ -180,7 +303,7 @@ Each task can have multiple attempts before succeeding.
 | Attempt | On Failure | Action |
 |---------|------------|--------|
 | 1 | Specific feedback | Implementor retries |
-| 2 | Specific feedback | Implementor retries with guidance |
+| 2 | More specific feedback | Implementor retries with guidance |
 | 3 | Detailed failure analysis | Escalate to human |
 
 **After 3 failed attempts**:
@@ -188,157 +311,52 @@ Each task can have multiple attempts before succeeding.
 - May indicate: spec problem, impossible constraint, agent limitation
 - Human decides: fix spec, provide hints, or accept with notes
 
-## State in Files
-
-### manifest.yaml
-
-```yaml
-tasks:
-  - id: 1
-    title: "Create YAxisPosition Enum"
-    status: "completed"       # pending | in-progress | completed
-    commit: "abc1234"
-    
-  - id: 2
-    title: "Create YAxisConfig Model"
-    status: "in-progress"
-```
-
-### progress.yaml
-
-```yaml
-tasks:
-  - id: 1
-    status: "completed"
-    attempts: 1
-    completed_at: "2025-11-28"
-    commit: "abc1234"
-    
-  - id: 2
-    status: "in-progress"
-    attempts: 1
-    started_at: "2025-11-28"
-```
-
-## Transitions
-
-### PENDING → IN-PROGRESS
-
-**Trigger**: Orchestrator prepares handover
-
-**Script**: `prepare-handover.ps1`
-
-**Actions**:
-1. Verify previous task complete (`task-closeout-check.ps1`)
-2. Clear handover folder
-3. Copy templates
-4. Fill current-task.md
-5. Update manifest status
-6. Commit handover
-7. Invoke implementor
-
-### IN-PROGRESS → AWAITING-VERIFICATION
-
-**Trigger**: Implementor signals "ready for review"
-
-**Script**: `pre-signal-check.ps1` (implementor runs)
-
-**Actions**:
-1. Create pre-signal artifact
-2. Write completion-signal.md
-3. Stage changes
-4. Signal completion verbally
-
-### AWAITING-VERIFICATION → COMPLETED
-
-**Trigger**: All verification checks pass
-
-**Script**: `archive-and-close.ps1`
-
-**Actions**:
-1. Create results archive
-2. Copy handover to archive
-3. Add metadata
-4. Update progress.yaml
-5. Update SpecKit traceability
-6. Clear handover
-7. Prepare next task handover
-
-### AWAITING-VERIFICATION → FAILED
-
-**Trigger**: Any BLOCKING/MAJOR check fails
-
-**Script**: None (manual orchestrator action)
-
-**Actions**:
-1. Document failures
-2. Write feedback to completion-signal.md
-3. Increment attempt count
-4. Notify implementor
-
-### FAILED → IN-PROGRESS
-
-**Trigger**: Implementor acknowledges feedback
-
-**Script**: None (continuation of work)
-
-**Actions**:
-1. Implementor reads feedback
-2. Addresses specific issues
-3. Re-runs pre-signal check
-4. Re-signals completion
+---
 
 ## Lifecycle Rules
 
 ### Rule 1: No State Skipping
 
-Tasks must go through each state in order:
-- Cannot go from PENDING to COMPLETED
-- Cannot go from IN-PROGRESS to COMPLETED without AWAITING-VERIFICATION
+Tasks must go through each phase in order:
+- Cannot go from PENDING to COMPLETE
+- Cannot go from IMPLEMENT to COMPLETE without GATE CHECK and VERIFY
 
 ### Rule 2: Single Task Active
 
-Only one task should be IN-PROGRESS at a time:
+Only one task should be in IMPLEMENT at a time:
 - Prevents context pollution
 - Ensures focus on current work
 - Simplifies verification
 
 ### Rule 3: Complete Before Next
 
-Previous task must be COMPLETED before next task starts:
-- closeout-check.ps1 enforces this
+Previous task must be COMPLETE before next task starts:
+- `task-closeout-check` enforces this
 - Prevents accumulated issues
 
-### Rule 4: Archive Is Immutable
+### Rule 4: Artifacts Are Immutable
 
-Once in results/, task archive is never modified:
+Once in `artifacts/`, task archive is never modified:
 - Full audit trail preserved
 - Enables retrospective analysis
 - Prevents history rewriting
 
-## Phase Boundaries
+### Rule 5: Fresh Context Per Task
 
-When moving between phases:
+Each implementor session starts with zero prior knowledge:
+- Prevents context pollution
+- Handover is the only input
+- No "remembering" verification criteria
+
+---
+
+## Phase Boundaries (Sprints)
+
+When moving between phases within a sprint:
 
 1. **All phase tasks complete** before new phase starts
 2. **Task context updated** to reflect new phase
 3. **Consider fresh agent** to prevent context pollution
 4. **Phase retrospective** to capture learnings
 
-Example phase boundary:
-
-```yaml
-phases:
-  - id: 1
-    name: "Foundation"
-    tasks: [1, 2, 3, 4, 5]
-    
-  - id: 2
-    name: "Normalization"
-    tasks: [6, 7, 8]
-```
-
-When task 5 completes:
-- Update task-context.md for phase 2
-- Note: "Foundation phase complete, entering Normalization phase"
-- Consider: new agent session for fresh context
+````

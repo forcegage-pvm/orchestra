@@ -1,18 +1,20 @@
 # Visual Verification
 
 > **Navigation**: [Index](../readme.md) | **Prev**: [Verification Protocol](verification-protocol.md) | **Next**: [Failure Handling](failure-handling.md)
+>
+> Aligned with Orchestra Bible v0.7.0 - Section 9.3 (Visual Verification Criteria)
 
 ---
 
 ## Overview
 
-Visual verification is the process of confirming that rendered output matches expected visual criteria. This is critical for catching rendering bugs that tests cannot detect.
+Visual verification confirms that rendered output matches expected visual criteria. This is critical for catching rendering bugs that unit tests cannot detect.
 
 ## The Visual Verification Gap
 
-### The Incident (2025-12-01)
+### The Incident
 
-During Task 16 (final demo), human observer noticed both data series were NOT scaling correctly vertically. The normalization was visually broken.
+During a final demo task, human observer noticed both data series were NOT scaling correctly vertically. The normalization was visually broken.
 
 **What was true**:
 - App ran without errors
@@ -30,27 +32,31 @@ During Task 16 (final demo), human observer noticed both data series were NOT sc
 
 > **"Screenshot exists" ≠ "Screenshot is correct"**
 
-File existence checks cannot verify content. An implementor could create an empty, wrong, or placeholder image that passes all existence checks.
+File existence checks cannot verify content. An Implementor could create an empty, wrong, or placeholder image that passes all existence checks.
+
+---
 
 ## Two Phases of Visual Verification
 
 | Phase | Actor | Tool | Purpose |
 |-------|-------|------|---------|
-| CAPTURE | Implementor | `flutter_agent.py` | Run app, take screenshot |
-| VIEW | Orchestrator | Chrome DevTools MCP | View existing file, verify content |
+| **CAPTURE** | Implementor | `flutter_agent.py` | Run app, take screenshot |
+| **VIEW** | Orchestrator | Chrome DevTools MCP | View existing file, verify content |
 
 These are completely different operations with different tools.
+
+---
 
 ## Phase 1: Screenshot Capture (Implementor)
 
 ### When to Capture
 
 Capture screenshots for:
-- INTEGRATION tasks (proves wiring works)
-- VISUAL tasks (proves rendering correct)
+- **INTEGRATION tasks** (proves wiring works)
+- **VISUAL tasks** (proves rendering correct)
 
 Do NOT capture for:
-- INFRASTRUCTURE tasks (components not yet integrated)
+- **INFRASTRUCTURE tasks** (components not yet integrated)
 
 ### Tool: flutter_agent.py
 
@@ -69,7 +75,7 @@ Start-Process -FilePath "powershell" -ArgumentList "-NoExit", "-Command", `
 python tools/flutter_agent/flutter_agent.py wait --timeout 60
 
 # 3. Take screenshot
-python tools/flutter_agent/flutter_agent.py screenshot --output .orchestra/handover/verification/screenshots/task-NNN-feature.png
+python tools/flutter_agent/flutter_agent.py screenshot --output screenshots/task-NNN-feature.png
 
 # 4. Stop app
 python tools/flutter_agent/flutter_agent.py stop
@@ -84,21 +90,35 @@ If you run `flutter run` in the agent's terminal:
 
 Starting via `Start-Process` creates a completely separate PowerShell window.
 
+### flutter_agent.py Commands
+
+| Command | Description |
+|---------|-------------|
+| `run <target> -d <device>` | Start Flutter app |
+| `wait --timeout <secs>` | Wait for app ready |
+| `screenshot --output <path>` | Capture screenshot |
+| `reload` | Hot reload |
+| `restart` | Hot restart |
+| `stop` | Stop the app |
+| `status` | Check app status |
+
 ### Prohibited Approaches
 
 | Approach | Why It Fails |
 |----------|--------------|
 | `flutter run` in agent terminal | Commands kill the process |
 | `run_in_terminal` with Flutter | Same problem |
-| `tools/flutter_runner.py` | Deprecated, use flutter_agent.py |
 | Chrome DevTools MCP for capture | Can't connect to Flutter's Chrome instance |
+| Background processes | No way to control or stop |
+
+---
 
 ## Phase 2: Screenshot Viewing (Orchestrator)
 
 ### When to View
 
 View screenshots for:
-- All tasks with `screenshot.required: true`
+- All tasks with visual verification criteria
 - Any task where visual output matters
 
 ### Tool: Chrome DevTools MCP
@@ -122,16 +142,13 @@ mcp_chrome-devtoo_close_page(pageIdx: 1)
 
 ### What to Check
 
-The orchestrator must verify EACH criterion in `screenshot.verify`:
+The Orchestrator must verify EACH visual criterion:
 
-```yaml
-screenshot:
-  verify:
-    - "Multiple Y-axes visible (left and right)"
-    - "Each axis has distinct color matching its series"
-    - "All series span full vertical height"
-    - "Axis labels show original values (not 0-1)"
-```
+**Example criteria**:
+- "Multiple Y-axes visible (left and right)"
+- "Each axis has distinct color matching its series"
+- "All series span full vertical height"
+- "Axis labels show original values (not 0-1)"
 
 For EACH criterion:
 1. Look at the returned image
@@ -141,7 +158,7 @@ For EACH criterion:
 
 ### Documentation Example
 
-```
+```markdown
 VISUAL VERIFICATION: Task 16
 
 Criterion: "Multiple Y-axes visible (left and right)"
@@ -164,6 +181,8 @@ Criterion: "Axis labels show original values"
 OVERALL: FAILED - Criterion "All series span full vertical height" not met
 ```
 
+---
+
 ## Task Categories and Visual Requirements
 
 | Category | Screenshot Required | Rationale |
@@ -174,7 +193,7 @@ OVERALL: FAILED - Criterion "All series span full vertical height" not met
 
 ### Handling INFRASTRUCTURE Tasks
 
-For INFRASTRUCTURE tasks, use N/A with reason:
+For INFRASTRUCTURE tasks, mark visual verification as N/A:
 
 ```markdown
 ## Visual Verification
@@ -182,7 +201,7 @@ For INFRASTRUCTURE tasks, use N/A with reason:
 **[N/A - Reason: Infrastructure task]**
 
 This task creates foundational classes (MultiAxisPainter) but does NOT integrate 
-them into BravenChartPlus. Visual verification will occur when these components 
+them into the widget tree. Visual verification will occur when these components 
 are wired in (Task 10: Multi-Axis Integration).
 ```
 
@@ -207,9 +226,11 @@ Create: `example/lib/demos/task_010_demo.dart`
 - Both series should span the full vertical height
 ```
 
-## Designing Effective Screenshots
+---
 
-### Good Screenshot Criteria
+## Designing Effective Visual Criteria
+
+### Good vs Bad Criteria
 
 | Good | Bad |
 |------|-----|
@@ -239,13 +260,15 @@ final data1 = [0, 25, 50, 75, 100];
 final data2 = [0, 20, 40, 60, 80];
 ```
 
+---
+
 ## Error Handling
 
 ### Screenshot Doesn't Exist
 
 ```
 CHECK: screenshot_exists (BLOCKING)
-  Path: .orchestra/handover/verification/screenshots/task-016-*.png
+  Path: screenshots/task-016-*.png
   Result: FAIL - No matching files found
 
 TASK FAILED: Missing required screenshot artifact
@@ -272,43 +295,52 @@ VISUAL: "All series span full vertical height"
 TASK FAILED: Screenshot content does not match criteria
 ```
 
+---
+
 ## Integration with Verification Protocol
 
-Visual verification is Step 6 in the verification workflow:
+Visual verification is Step 7 in the verification workflow:
 
 1. Accept signal check
-2. Load verification criteria
-3. Structural checks
-4. Functional checks
-5. Adversarial checks
-6. **Visual verification** ← Here
-7. Determine result
-8. Document results
-9. Handle result
+2. Gate check (automated tests)
+3. Verification audit
+4. Structural checks
+5. Functional checks
+6. Adversarial checks
+7. **Visual verification** ← Here
+8. Determine result
+9. Document results
+10. Handle result
 
 Visual failure at severity BLOCKING or MAJOR fails the entire task.
 
-## Checklist
+---
 
-### Implementor (Capture)
+## Checklists
+
+### Implementor Checklist (Capture)
 
 - [ ] Task is INTEGRATION or VISUAL (not INFRASTRUCTURE)
 - [ ] Demo file created with diverse test data
 - [ ] flutter_agent.py started in SEPARATE window
 - [ ] Wait for app ready before screenshot
-- [ ] Screenshot saved to verification/screenshots/
+- [ ] Screenshot saved to appropriate location
 - [ ] App stopped after capture
-- [ ] Screenshot path noted in completion-signal.md
+- [ ] Screenshot path noted in completion signal
 
-### Orchestrator (View)
+### Orchestrator Checklist (View)
 
 - [ ] Screenshot file exists (Test-Path)
 - [ ] Screenshot file has content (not empty)
-- [ ] Opened via Chrome DevTools MCP (mcp_chrome-devtoo_new_page)
-- [ ] Captured via take_screenshot
-- [ ] For EACH criterion in screenshot.verify:
+- [ ] Opened via Chrome DevTools MCP (`mcp_chrome-devtoo_new_page`)
+- [ ] Captured via `mcp_chrome-devtoo_take_screenshot`
+- [ ] For EACH visual criterion:
   - [ ] Analyzed what's visible
   - [ ] Determined pass/fail
   - [ ] Documented observation
 - [ ] Browser page closed
-- [ ] Results documented in verification-results.md
+- [ ] Results documented in verification report
+
+---
+
+*Visual verification is the final quality gate that catches rendering issues invisible to automated tests. Both capture and viewing phases must be executed correctly.*

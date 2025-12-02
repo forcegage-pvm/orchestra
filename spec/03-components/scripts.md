@@ -1,292 +1,465 @@
-# Script Inventory
+````markdown
+# Script Specifications
 
 > **Navigation**: [Index](../readme.md) | **Prev**: [File Specifications](file-specifications.md) | **Next**: [Templates](templates.md)
+> 
+> **Authority**: [Orchestra Bible Section 8](../00-orchestra-bible.md#8-script-specifications)
 
 ---
 
 ## Overview
 
-Orchestra uses PowerShell scripts to enforce process and create structural gates. Scripts are organized by role.
+Orchestra uses scripts to enforce process and create structural gates. Scripts are mandatory at specific lifecycle transitions—they are NOT optional utilities.
 
-## Environment Setup
+> ⚠️ **CRITICAL**: Scripts are NOT optional. Each phase transition REQUIRES specific scripts to execute successfully before the transition is valid. See [Mandatory Script Matrix](#mandatory-script-matrix).
 
-### set-env.ps1
+## Script Categories
 
-**Location**: `common/scripts/set-env.ps1`  
-**Actor**: Both roles (run first in any session)  
-**Purpose**: Set environment variables for all other scripts
+| Category | Scripts | Mandatory? | Actor |
+|----------|---------|------------|-------|
+| **Sprint Management** | `sprint-init`, `sprint-status` | YES (init) / NO (status) | Orchestrator |
+| **Task Preparation** | `prepare-handover`, `validate-handover` | YES - Blocking | Orchestrator |
+| **Implementation** | `signal-complete`, `pre-signal-check` | YES / Recommended | Implementor |
+| **Verification** | `gate-check`, `verification-audit`, `accept-signal-check` | YES - Blocking | Orchestrator |
+| **Failure Handling** | `generate-feedback`, `escalate-failure` | YES - On failure path | Orchestrator |
+| **Utility** | `task-closeout-check`, `environment-check` | YES (closeout) / Recommended | Orchestrator |
 
-**Usage**:
-```powershell
-. .orchestra/common/scripts/set-env.ps1
-```
+---
 
-**Variables Set**:
-| Variable | Example Value | Purpose |
-|----------|---------------|---------|
-| `ORCHESTRA_ROOT` | `.orchestra` | Root path |
-| `ORCHESTRATOR_PATH` | `.orchestra/orchestrator` | Orchestrator domain |
-| `IMPLEMENTOR_PATH` | `.orchestra/implementor` | Implementor domain |
-| `HANDOVER_PATH` | `.orchestra/handover` | Exchange zone |
-| `MANIFEST_PATH` | `.orchestra/orchestrator/manifest.yaml` | Task list |
-| `PROGRESS_PATH` | `.orchestra/orchestrator/progress.yaml` | Progress tracking |
-| `CURRENT_TASK` | `10` | Current task number |
-| `SPRINT_TEST_PATH` | `test/unit/multi_axis/` | Sprint test location |
+## Mandatory Script Matrix
 
-### check-utils.ps1
+> **Cross-Reference**: [Bible Section 7.3](../00-orchestra-bible.md#73-mandatory-script-execution-matrix)
 
-**Location**: `common/scripts/check-utils.ps1`  
-**Actor**: Both roles (utility library)  
-**Purpose**: Shared PowerShell functions for all scripts
+| From Phase | To Phase | MANDATORY Script(s) | Blocking? | Actor |
+|------------|----------|---------------------|-----------|-------|
+| — | PENDING | `sprint-init` | YES | Human/Orchestrator |
+| PENDING | PREPARE | `task-closeout-check` (prev task) | YES | Orchestrator |
+| PREPARE | IMPLEMENT | `prepare-handover` → `validate-handover` | YES | Orchestrator |
+| IMPLEMENT | GATE CHECK | `signal-complete` | YES | Implementor |
+| GATE CHECK | VERIFY | `gate-check` | YES | System |
+| VERIFY | COMPLETE | `verification-audit` | YES | Orchestrator |
+| COMPLETE | (next task) | `accept-signal-check` → `task-closeout-check` | YES | Orchestrator |
+| Any | RETRY | `generate-feedback` | YES | Orchestrator |
+| RETRY (max) | ESCALATED | `escalate-failure` | YES | Orchestrator |
 
-**Functions Provided**:
-| Function | Purpose |
-|----------|---------|
-| `Write-Check` | Format check result output |
-| `Write-Pass` | Write green PASS message |
-| `Write-Fail` | Write red FAIL message |
-| `Get-YamlValue` | Parse simple YAML values |
-| `Test-FileContains` | Check if file contains string |
-| `Get-GitStatus` | Get current git state |
+---
 
-## Orchestrator Scripts
+## Sprint Management Scripts
 
-### task-closeout-check.ps1
+### sprint-init
 
-**Location**: `orchestrator/scripts/task-closeout-check.ps1`  
-**Actor**: Orchestrator  
-**Purpose**: Verify previous task is fully closed before preparing next  
-**When to Run**: MANDATORY before preparing any new task
+| Attribute | Value |
+|-----------|-------|
+| **Lifecycle Position** | BEFORE any task can begin |
+| **Mandatory** | YES - Blocking |
+| **Actor** | Human / Orchestrator |
 
-**Usage**:
-```powershell
-.orchestra/orchestrator/scripts/task-closeout-check.ps1
-.orchestra/orchestrator/scripts/task-closeout-check.ps1 -TaskToVerify 10
-```
+**Purpose**: Initialize a new sprint from a specification.
 
-**Checks**:
-- [x] Git status is clean (no uncommitted changes)
-- [x] On correct branch
-- [x] Previous task marked completed in progress.yaml
-- [x] Previous task has commit hash
-- [x] SpecKit tasks marked (if applicable)
-- [x] Verification results recorded
-- [x] Screenshot exists (if visual task)
-- [x] Sprint tests still pass
-- [x] completion-signal.md is clear
-
-**Exit Codes**:
-- `0`: All checks pass, proceed with next task
-- `1`: One or more checks failed, cannot proceed
-
-### prepare-handover.ps1
-
-**Location**: `orchestrator/scripts/prepare-handover.ps1`  
-**Actor**: Orchestrator  
-**Purpose**: Clear handover folder and populate from templates
-
-**Usage**:
-```powershell
-.orchestra/orchestrator/scripts/prepare-handover.ps1 -TaskNumber 11
-```
+**Inputs**:
+- Specification document path
+- Sprint configuration (optional)
 
 **Actions**:
-1. Delete all files in `handover/` except `.gitkeep`
-2. Create folder structure: `handover/verification/screenshots/`
-3. Copy templates:
-   - `current-task.md.template` → `current-task.md`
-   - `task-context.md.template` → `task-context.md`
-4. Create empty `verification/.gitkeep`
+1. Parse specification document
+2. Extract task definitions
+3. Generate `manifest.yaml`
+4. Generate hidden verification criteria per task
+5. Initialize `progress.yaml`
+6. Create folder structure
 
-### handover-validate.ps1
+**Outputs**:
+- `.orchestra/manifest.yaml`
+- `.orchestra/progress.yaml`
+- `.orchestra/orchestrator/.orchestrator-only/verification/task-{id}.yaml` (per task)
 
-**Location**: `orchestrator/scripts/handover-validate.ps1`  
-**Actor**: Orchestrator  
-**Purpose**: Validate handover document is complete before invoking implementor
-
-**Usage**:
-```powershell
-.orchestra/orchestrator/scripts/handover-validate.ps1
-```
-
-**Checks**:
-- [x] `current-task.md` exists
-- [x] All required sections present
-- [x] No `[TODO]` or `[TBD]` markers
-- [x] Task category specified (INFRASTRUCTURE/INTEGRATION/VISUAL)
-- [x] File paths are unambiguous
-- [x] TDD section complete (for TDD tasks)
-- [x] Visual section has demo path (for INTEGRATION/VISUAL)
-- [x] Matches current task in progress.yaml
+**Success Criteria**:
+- Manifest contains all tasks from specification
+- Each task has success criteria defined
+- Each task has hidden verification criteria defined
+- Progress shows all tasks as `pending`
 
 **Exit Codes**:
-- `0`: Handover is complete
-- `1`: Handover has issues
+- `0`: Success
+- `1`: Specification parsing failed
+- `2`: Invalid task structure
 
-### accept-signal-check.ps1
+---
 
-**Location**: `orchestrator/scripts/accept-signal-check.ps1`  
-**Actor**: Orchestrator  
-**Purpose**: Verify implementor ran pre-signal check before accepting completion
+### sprint-status
 
-**Usage**:
-```powershell
-.orchestra/orchestrator/scripts/accept-signal-check.ps1 -TaskNumber 10
-```
+| Attribute | Value |
+|-----------|-------|
+| **Lifecycle Position** | Any time (utility) |
+| **Mandatory** | NO - Utility |
+| **Actor** | Human / Orchestrator |
 
-**Checks**:
-- [x] Pre-signal artifact exists for task
-- [x] Artifact shows "PASSED" (not "FAILED")
-- [x] Artifact is recent (not stale from previous attempt)
+**Purpose**: Report current sprint progress.
 
-**Exit Codes**:
-- `0`: Artifact valid, proceed with verification
-- `1`: No artifact or failed artifact - cannot proceed
+**Inputs**: None (reads from `progress.yaml`)
 
-### archive-and-close.ps1
+**Outputs**: Status report (console or file)
 
-**Location**: `orchestrator/scripts/archive-and-close.ps1`  
-**Actor**: Orchestrator  
-**Purpose**: Archive completed task and clear handover for next task
+**Success Criteria**:
+- Accurate count of tasks by status
+- Current task clearly identified
+- Blockers/failures highlighted
 
-**Usage**:
-```powershell
-.orchestra/orchestrator/scripts/archive-and-close.ps1 -TaskNumber 10
-```
+---
+
+## Task Preparation Scripts
+
+### prepare-handover
+
+| Attribute | Value |
+|-----------|-------|
+| **Lifecycle Position** | PENDING → PREPARE transition |
+| **Mandatory** | YES - Blocking |
+| **Actor** | Orchestrator |
+
+**Purpose**: Generate a handover document for the implementor.
+
+**Inputs**:
+- Task ID
+- Manifest
+- Templates
 
 **Actions**:
-1. Create `results/task-NNN/`
-2. Copy entire `handover/` to archive
-3. Create `metadata.json` with timestamps and commit
-4. Create/update `verification-results.md`
-5. Delete all files in `handover/`
-6. Create `handover/.gitkeep`
-7. Update progress.yaml
+1. Read task definition from manifest
+2. Verify prerequisites are complete
+3. Gather context files
+4. Apply handover template
+5. Write handover document
+6. Update progress to `in_progress`
 
-### task-coverage.ps1
+**Outputs**:
+- `.orchestra/implementor/handovers/task-{id}-handover.md`
+- Updated `progress.yaml`
 
-**Location**: `orchestrator/scripts/task-coverage.ps1`  
-**Actor**: Orchestrator  
-**Purpose**: Bidirectional sync check between SpecKit and Orchestra tasks
+**Success Criteria**:
+- Handover contains all success criteria
+- Handover contains all context file references
+- Handover does NOT contain verification criteria
+- Progress updated correctly
 
-**Usage**:
-```powershell
-.orchestra/orchestrator/scripts/task-coverage.ps1
-```
+**What This Script MUST NOT Do**:
+- Include verification criteria in handover
+- Include details of other tasks
+- Include historical verification results
 
-**Checks**:
-- [x] All SpecKit tasks mapped to orchestrator tasks
-- [x] All orchestrator task mappings exist in SpecKit
-- [x] Completion status synchronized
+---
 
-## Implementor Scripts
+### validate-handover
 
-### validate-handover.ps1
+| Attribute | Value |
+|-----------|-------|
+| **Lifecycle Position** | After `prepare-handover`, before IMPLEMENT begins |
+| **Mandatory** | YES - Blocking |
+| **Actor** | Orchestrator |
 
-**Location**: `implementor/.implementor-only/scripts/validate-handover.ps1`  
-**Actor**: Implementor  
-**Purpose**: Validate orchestrator's handover before starting work
+**Purpose**: Verify handover document is complete and contains no hidden criteria leaks.
 
-**Usage**:
-```powershell
-.orchestra/implementor/.implementor-only/scripts/validate-handover.ps1
-```
+**Inputs**: Handover document path
 
-**Checks**:
-- [x] `current-task.md` exists
-- [x] Objective is clear and specific
-- [x] Deliverables section has content
-- [x] File paths are unambiguous
-- [x] No `[TODO]` or `[TBD]` placeholders
-- [x] Task category specified
-- [x] TDD section complete (if not N/A)
-- [x] Quality gates section has commands
+**Actions**:
+1. Parse handover document
+2. Verify required sections present
+3. Verify no forbidden content (verification criteria)
+4. Verify context files exist
 
-**Exit Codes**:
-- `0`: Handover is valid, proceed with implementation
-- `1`: Handover has defects, report to orchestrator
+**Outputs**: Validation result (pass/fail) with issues list
 
-**On Failure**: Implementor should NOT proceed. Write defects to completion-signal.md and report.
+**Success Criteria**:
+- All required sections present
+- No verification criteria leaked
+- All referenced files exist
+- Success criteria are actionable
 
-### pre-signal-check.ps1
+---
 
-**Location**: `implementor/.implementor-only/scripts/pre-signal-check.ps1`  
-**Actor**: Implementor  
-**Purpose**: Validate own work before signaling completion
+## Implementation Scripts
 
-**Usage**:
-```powershell
-.orchestra/implementor/.implementor-only/scripts/pre-signal-check.ps1 -TaskNumber 10
-```
+### signal-complete
 
-**Checks**:
-- [x] All CREATE files exist with content
-- [x] All UPDATE files were modified (git diff)
-- [x] Tests pass
-- [x] Static analysis clean
-- [x] No TODO markers in created code
-- [x] Demo exists (if INTEGRATION/VISUAL task)
-- [x] Screenshot exists (if visual task)
+| Attribute | Value |
+|-----------|-------|
+| **Lifecycle Position** | IMPLEMENT → GATE CHECK transition |
+| **Mandatory** | YES - Blocking |
+| **Actor** | Implementor |
 
-**Artifact Created**: `implementor/artifacts/pre-signal/task-NNN-YYYY-MM-DD_HHMMSS.txt`
+**Purpose**: Implementor signals task completion.
 
-**Exit Codes**:
-- `0`: All checks pass, artifact shows "PASSED"
-- `1`: One or more checks failed, artifact shows "FAILED"
+**Inputs**:
+- Task ID
+- Summary of changes (optional)
+- List of files modified
 
-**Critical**: Even on failure, artifact is created. Orchestrator's `accept-signal-check.ps1` will verify artifact status.
+**Actions**:
+1. Verify task is in `in_progress` state
+2. Verify signal format is correct
+3. Write signal file
+4. Trigger gate check
 
-## Script Execution Order
+**Outputs**:
+- `.orchestra/implementor/signals/task-{id}-signal.md`
+- Gate check initiated
 
-### Complete Task Workflow
+---
 
-```
-SESSION START
-│
-├── . .orchestra/common/scripts/set-env.ps1
-│
-ORCHESTRATOR: PREPARE TASK
-│
-├── .orchestra/orchestrator/scripts/task-closeout-check.ps1
-│   └── (verify previous task closed)
-│
-├── .orchestra/orchestrator/scripts/prepare-handover.ps1 -TaskNumber N
-│   └── (populate handover from templates)
-│
-├── [Fill current-task.md manually]
-│
-├── .orchestra/orchestrator/scripts/handover-validate.ps1
-│   └── (verify handover complete)
-│
-└── [Invoke implementor]
+### pre-signal-check
 
-IMPLEMENTOR: IMPLEMENT TASK
-│
-├── .orchestra/implementor/.implementor-only/scripts/validate-handover.ps1
-│   └── (verify orchestrator's work)
-│
-├── [Implement task]
-│
-├── .orchestra/implementor/.implementor-only/scripts/pre-signal-check.ps1 -TaskNumber N
-│   └── (creates artifact proving checks ran)
-│
-├── [Fill completion-signal.md]
-│
-└── "Ready for review"
+| Attribute | Value |
+|-----------|-------|
+| **Lifecycle Position** | During IMPLEMENT, before `signal-complete` |
+| **Mandatory** | NO - Recommended |
+| **Actor** | Implementor |
 
-ORCHESTRATOR: VERIFY TASK
-│
-├── .orchestra/orchestrator/scripts/accept-signal-check.ps1 -TaskNumber N
-│   └── (verify artifact exists and passed)
-│
-├── [Execute verification checks from hidden criteria]
-│
-├── IF PASS:
-│   └── .orchestra/orchestrator/scripts/archive-and-close.ps1 -TaskNumber N
-│
-└── IF FAIL:
-    └── [Write feedback, implementor retries]
-```
+**Purpose**: Implementor self-check before signaling (optional but recommended).
+
+**Actions**:
+1. Run build
+2. Run tests
+3. Run linting/formatting
+4. Check for common errors
+
+**Outputs**: Check results (pass/fail per category)
+
+**Note**: This is a convenience script for the implementor. It does NOT replace gate checks or verification.
+
+---
+
+## Verification Scripts
+
+### gate-check
+
+| Attribute | Value |
+|-----------|-------|
+| **Lifecycle Position** | GATE CHECK phase (after `signal-complete`) |
+| **Mandatory** | YES - Blocking |
+| **Actor** | System (Orchestrator-initiated) |
+
+**Purpose**: Deterministic verification after implementor signals.
+
+**Inputs**:
+- Task ID
+- Expected artifacts (from manifest)
+
+**Actions**:
+1. Verify signal file exists
+2. Verify required files exist
+3. Run project build
+4. Run project tests
+5. Run static analysis
+6. Record results
+
+**Outputs**:
+- Gate check results (pass/fail per check)
+- `.orchestra/artifacts/task-{id}/gate-check.yaml`
+
+**Success Criteria**:
+- All required files exist
+- Build succeeds with zero errors
+- All tests pass
+- Static analysis passes
+
+**What Gate Check DOES NOT Do**:
+- Semantic verification
+- Hidden criteria evaluation
+- Judgment calls
+
+---
+
+### verification-audit
+
+| Attribute | Value |
+|-----------|-------|
+| **Lifecycle Position** | VERIFY phase (after `gate-check` passes) |
+| **Mandatory** | YES - Blocking |
+| **Actor** | Orchestrator |
+
+**Purpose**: Execute hidden verification criteria.
+
+**Inputs**:
+- Task ID
+- Hidden verification criteria
+
+**Actions**:
+1. Load hidden criteria for task
+2. Execute each criterion:
+   - File existence checks
+   - Content validation checks
+   - Structural checks
+   - Behavioral checks
+   - Custom checks
+3. Record results
+
+**Outputs**:
+- Verification results (pass/fail per criterion)
+- `.orchestra/artifacts/task-{id}/verification.yaml`
+
+**Criteria Types**:
+
+| Type | Description |
+|------|-------------|
+| `file_exists` | File exists at path |
+| `file_not_exists` | File should not exist |
+| `content_contains` | File contains text |
+| `content_matches` | File matches regex |
+| `export_exists` | Module exports symbol |
+| `function_signature` | Function has signature |
+| `test_exists` | Test file exists for source |
+| `test_covers` | Test covers functionality |
+| `no_forbidden_patterns` | No forbidden code patterns |
+| `custom` | Custom verification script |
+
+---
+
+### accept-signal-check
+
+| Attribute | Value |
+|-----------|-------|
+| **Lifecycle Position** | VERIFY → COMPLETE transition |
+| **Mandatory** | YES - Blocking |
+| **Actor** | Orchestrator |
+
+**Purpose**: Final acceptance check before marking task complete.
+
+**Inputs**:
+- Task ID
+- Gate check results
+- Verification results
+
+**Actions**:
+1. Verify gate check passed
+2. Verify verification audit passed
+3. Verify all artifacts present
+4. Update progress to `completed`
+5. Archive task artifacts
+6. Prepare completion summary
+
+**Outputs**:
+- Updated `progress.yaml`
+- `.orchestra/artifacts/task-{id}/summary.md`
+- Task marked complete
+
+---
+
+## Failure Handling Scripts
+
+### generate-feedback
+
+| Attribute | Value |
+|-----------|-------|
+| **Lifecycle Position** | On GATE CHECK or VERIFY failure |
+| **Mandatory** | YES - On failure path |
+| **Actor** | Orchestrator |
+
+**Purpose**: Create feedback for implementor after failure.
+
+**Inputs**:
+- Task ID
+- Failure results
+- Attempt number
+
+**Actions**:
+1. Analyze failure results
+2. Generate actionable feedback
+3. Determine if retry or escalate
+4. Write feedback file
+
+**Outputs**:
+- `.orchestra/implementor/feedback/task-{id}-feedback.md`
+
+**Critical Constraint**: Feedback must tell implementor **what went wrong** without revealing **how it was detected**.
+
+**Examples**:
+- ✅ "The configuration loader does not handle missing files correctly"
+- ❌ "The test `config.test.ts:45` which checks missing file handling failed"
+
+---
+
+### escalate-failure
+
+| Attribute | Value |
+|-----------|-------|
+| **Lifecycle Position** | After max retries exceeded |
+| **Mandatory** | YES - On persistent failure |
+| **Actor** | Orchestrator |
+
+**Purpose**: Escalate persistent failures to human supervisor.
+
+**Inputs**:
+- Task ID
+- Failure history
+- All relevant context
+
+**Actions**:
+1. Compile failure summary
+2. Gather relevant artifacts
+3. Notify human supervisor
+4. Mark task as `escalated`
+
+**Outputs**:
+- `.orchestra/artifacts/task-{id}/escalation-report.md`
+- Updated `progress.yaml` (status: `escalated`)
+
+**Escalation Triggers**:
+- Max attempts exceeded (default: 3)
+- Same error twice consecutively
+- Implementor requests help
+- Orchestrator cannot proceed
+
+---
+
+## Utility Scripts
+
+### task-closeout-check
+
+| Attribute | Value |
+|-----------|-------|
+| **Lifecycle Position** | COMPLETE → next task PREPARE transition |
+| **Mandatory** | YES - Blocking |
+| **Actor** | Orchestrator |
+
+**Purpose**: Verify clean state before moving to next task.
+
+**Inputs**: Previous task ID (optional)
+
+**Actions**:
+1. Verify no uncommitted changes
+2. Verify no pending signals
+3. Verify previous task properly closed
+4. Verify progress state is consistent
+
+**Outputs**: Closeout result (pass/fail) with issues list
+
+**Success Criteria**:
+- Git working directory clean
+- No orphaned signals
+- Progress state consistent
+- Ready for next task
+
+---
+
+### environment-check
+
+| Attribute | Value |
+|-----------|-------|
+| **Lifecycle Position** | Sprint initialization (recommended) |
+| **Mandatory** | NO - Recommended |
+| **Actor** | Human / Orchestrator |
+
+**Purpose**: Verify development environment is correctly configured.
+
+**Actions**:
+1. Verify required tools installed
+2. Verify correct versions
+3. Verify project builds
+4. Verify tests can run
+
+**Outputs**: Environment check results with missing/incorrect items list
+
+---
 
 ## Script Design Principles
 
@@ -294,7 +467,7 @@ ORCHESTRATOR: VERIFY TASK
 
 No soft warnings. Every check is either PASS or FAIL, and FAIL means exit code 1.
 
-```powershell
+```
 # BAD: Warning that can be ignored
 Write-Warning "Task might not be complete"
 
@@ -307,45 +480,35 @@ exit 1
 
 Claims require proof. Scripts create artifacts, orchestrator verifies artifacts exist.
 
-```powershell
-# Create proof artifact
-$artifact = @"
-================================================================
-PRE-SIGNAL CHECK ARTIFACT
-Task: $TaskNumber
-Status: PASSED
-================================================================
-"@
-Set-Content -Path $artifactPath -Value $artifact
-```
+### 3. Descriptive Exit Codes
 
-### 3. Clear Output Formatting
+| Exit Code | Meaning |
+|-----------|---------|
+| `0` | Success |
+| `1` | Check failed (actionable) |
+| `2` | Configuration error |
+| `3` | Verification failed |
+| `4` | Git error |
 
-Use consistent formatting for scan-ability:
+### 4. Environment Dependency
 
-```powershell
-Write-Host "`n📋 Checking Git Status" -ForegroundColor Cyan
-Write-Host "  ✅ Working tree is clean" -ForegroundColor Green
-Write-Host "  ❌ Uncommitted changes detected" -ForegroundColor Red
-```
+All scripts require environment setup first.
 
-### 4. Descriptive Exit Codes
+---
 
-Return meaningful exit codes:
+## What Happens If a Script Is Skipped?
 
-```powershell
-# Exit 0: Success
-# Exit 1: Check failed (actionable)
-# Exit 2: Script error (unexpected)
-```
+| Skipped Script | Consequence |
+|----------------|-------------|
+| `sprint-init` | No manifest, nothing can run |
+| `prepare-handover` | Implementor has no instructions |
+| `validate-handover` | Verification criteria may leak |
+| `signal-complete` | Task stuck in IMPLEMENT forever |
+| `gate-check` | Broken code may reach verification |
+| `verification-audit` | Implementation theater passes undetected |
+| `accept-signal-check` | Incomplete tasks marked complete |
+| `task-closeout-check` | Dirty state pollutes next task |
+| `generate-feedback` | Implementor has no guidance for retry |
+| `escalate-failure` | Failed task blocks sprint silently |
 
-### 5. Environment Dependency
-
-All scripts require `set-env.ps1` to be sourced first:
-
-```powershell
-if (-not $env:ORCHESTRA_ROOT) {
-    Write-Error "Run '. .orchestra/common/scripts/set-env.ps1' first"
-    exit 2
-}
-```
+````

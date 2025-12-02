@@ -1,396 +1,505 @@
 # Core Workflows
 
-> **Navigation**: [Index](../readme.md) | **Prev**: [Roles](roles.md) | **Next**: [ADR-001](decisions/adr-001-translation-layer.md)
+> **Navigation**: [Index](../readme.md) | **Prev**: [Roles](roles.md) | **Next**: [Decisions](decisions/)
+>
+> Aligned with Orchestra Bible v0.7.0 - Section 5
 
 ---
 
 ## Overview
 
-This document defines the key workflows in Orchestra, with detailed steps and decision points.
+This document defines the key workflows in Orchestra. Each workflow corresponds to a specific phase of the task lifecycle and details the exact steps, decision points, and script invocations required.
 
-## Workflow 1: Sprint Setup
+All workflows assume:
+- Environment is initialized (`set-env.ps1` sourced)
+- Manifest is accessible at `.orchestra/manifest.yaml`
+- Scripts are available in their designated locations per Bible Section 8
 
-**Actor**: Orchestrator  
-**Trigger**: New sprint begins  
-**Outcome**: Manifest and verification criteria ready for all tasks
+---
 
-### Steps
-
-```
-1. ANALYZE SPECIFICATION
-   ├── Read spec artifacts (spec.md, tasks.md, contracts/)
-   ├── Understand user stories and acceptance criteria
-   └── Identify task categories and dependencies
-
-2. CREATE MANIFEST
-   ├── Consolidate granular spec tasks into orchestrator tasks
-   ├── Map each orchestrator task to spec task IDs
-   ├── Define task phases (foundation, core, rendering, etc.)
-   └── Write manifest.yaml with all tasks
-
-3. CREATE VERIFICATION CRITERIA
-   ├── For each task in manifest:
-   │   ├── Create task-NNN.yaml in .orchestrator-only/verification/
-   │   ├── Define structural checks (files exist, exports)
-   │   ├── Define functional checks (tests pass)
-   │   ├── Define adversarial checks (for critical tasks)
-   │   ├── Set severity levels (BLOCKING, MAJOR, MINOR, INFO)
-   │   └── Define visual criteria (for INTEGRATION/VISUAL tasks)
-   └── Commit verification files
-
-4. INITIALIZE PROGRESS
-   ├── Create progress.yaml with all tasks as "pending"
-   ├── Record baseline test count
-   └── Commit progress file
-
-5. PREPARE FIRST TASK
-   └── Proceed to Workflow 2 (Task Handover)
-```
-
-## Workflow 2: Task Handover (Orchestrator → Implementor)
+## Workflow 1: Sprint Initialization
 
 **Actor**: Orchestrator  
-**Trigger**: Previous task completed OR sprint just started  
-**Outcome**: Implementor receives complete task handover
+**Trigger**: New sprint begins or first use of Orchestra  
+**Lifecycle Phase**: INITIALIZATION  
+**Outcome**: Sprint configured, manifest ready, first task PENDING
 
 ### Pre-Conditions
 
-- [x] Previous task verified and archived (or this is first task)
-- [x] `task-closeout-check.ps1` passes
-- [x] Environment variables set (`set-env.ps1`)
+- [ ] `.orchestra/` directory structure exists
+- [ ] Environment scripts are in place
 
 ### Steps
 
 ```
-1. CLOSEOUT CHECK
+1. SOURCE ENVIRONMENT
+   └── Run: . .orchestra/common/scripts/set-env.ps1
+
+2. INITIALIZE SPRINT
+   └── Run: .orchestra/orchestrator/scripts/sprint-init.ps1
+       ├── Creates or updates manifest.yaml
+       ├── Sets sprint metadata (start_date, version)
+       ├── Enumerates tasks from spec sources
+       └── All tasks start in PENDING state
+
+3. VALIDATE SPRINT SETUP
+   └── Run: .orchestra/orchestrator/scripts/sprint-status.ps1
+       ├── Displays sprint progress summary
+       └── Confirms all tasks are registered
+
+4. PROCEED TO PREPARATION
+   └── Continue to Workflow 2 (Task Preparation)
+```
+
+### Script Sequence
+| Step | Script | Required |
+|------|--------|----------|
+| 1 | `set-env.ps1` | ✅ |
+| 2 | `sprint-init.ps1` | ✅ |
+| 3 | `sprint-status.ps1` | Optional |
+
+---
+
+## Workflow 2: Task Preparation (Orchestrator → Implementor)
+
+**Actor**: Orchestrator  
+**Trigger**: Task in PENDING state, previous task completed (or first task)  
+**Lifecycle Phase**: PREPARE  
+**Outcome**: Handover document ready, Implementor can begin
+
+### Pre-Conditions
+
+- [ ] Task closeout check passed for previous task (or this is first task)
+- [ ] Environment variables set
+- [ ] Orchestrator has read current manifest state
+
+### Steps
+
+```
+1. CLOSEOUT CHECK (if not first task)
    ├── Run: . .orchestra/common/scripts/set-env.ps1
    └── Run: .orchestra/orchestrator/scripts/task-closeout-check.ps1
-       ├── PASS: Continue
-       └── FAIL: Fix issues first (missing checkmarks, uncommitted changes)
+       ├── PASS: Continue to next task
+       └── FAIL: Fix issues (uncommitted changes, missing signals, etc.)
 
 2. IDENTIFY NEXT TASK
-   ├── Read manifest.yaml
-   ├── Find first task with status "pending"
-   └── Note task ID, SpecKit mappings, category
+   ├── Read: .orchestra/manifest.yaml
+   ├── Find first task with status: PENDING
+   ├── Note task ID, dependencies, category
+   └── Validate dependencies are satisfied (all deps COMPLETE)
 
-3. READ ORCHESTRATOR README
-   ├── Open: .orchestra/docs/readme.md (or orchestrator/readme.md)
-   └── Refresh on current process (do NOT work from memory)
+3. PREPARE HANDOVER DOCUMENT
+   ├── Create/clear: .orchestra/implementor/handovers/task-{id}.md
+   ├── Use template from: .orchestra/common/templates/handover.md.template
+   └── Fill ALL sections:
+       ├── Task Overview (objective, deliverables)
+       ├── Context (how this fits in the sprint)
+       ├── Technical Specification (exact requirements)
+       ├── Implementation Guidelines (patterns, locations)
+       ├── Verification Criteria (measurable conditions)
+       ├── Quality Gates (test commands, analysis commands)
+       └── Completion Protocol (how to signal done)
 
-4. PREPARE HANDOVER FOLDER
-   ├── Delete: handover/* (except .gitkeep)
-   ├── Create folder structure from template
-   └── Copy templates to handover/
-
-5. FILL TASK DOCUMENT
-   ├── Open: common/templates/current-task.md.template
-   ├── Copy to: handover/current-task.md
-   ├── Fill ALL sections:
-   │   ├── Task Overview (objective, deliverables)
-   │   ├── SpecKit Traceability (task IDs)
-   │   ├── Technical Context (dependencies, existing code)
-   │   ├── TDD Requirements (test expectations, sample data)
-   │   ├── Code Scaffolds (if helpful)
-   │   ├── Visual Verification (category + workflow OR N/A with reason)
-   │   ├── Quality Gates (commands, baselines)
-   │   └── Completion Protocol (how to signal done)
-   └── Verify: No [TODO] or [TBD] markers remain
-
-6. UPDATE TASK CONTEXT
-   ├── If phase changed: Update task-context.md
-   └── If same phase: Verify context is still accurate
-
-7. UPDATE MANIFEST
-   └── Set task status to "in-progress"
-
-8. VALIDATE HANDOVER
-   └── Run: .orchestra/orchestrator/scripts/handover-validate.ps1
+4. VALIDATE HANDOVER
+   └── Run: .orchestra/orchestrator/scripts/validate-handover.ps1
+       ├── Checks: No [TODO], [TBD], or placeholder markers
+       ├── Checks: All required sections present
+       ├── Checks: File paths are unambiguous
        ├── PASS: Continue
        └── FAIL: Fix handover document
 
-9. COMMIT AND INVOKE
-   ├── git add .orchestra/
-   ├── git commit -m "orchestra: prepare handover for task N"
-   └── Invoke implementor (new agent session or mode switch)
+5. UPDATE MANIFEST
+   ├── Set task status: PREPARE → IMPLEMENT (indicates handover ready)
+   └── Record preparation timestamp
+
+6. PREPARE HANDOVER
+   └── Run: .orchestra/orchestrator/scripts/prepare-handover.ps1
+       ├── Copies handover to implementor location
+       ├── Clears any previous feedback
+       └── Logs preparation in manifest
+
+7. INVOKE IMPLEMENTOR
+   ├── Signal that handover is ready
+   └── Implementor begins (new session or mode switch)
 ```
 
 ### Handover Completeness Checklist
 
-Before invoking implementor, verify:
+Before invoking Implementor, verify:
 
 - [ ] Can a fresh agent complete without asking questions?
 - [ ] Are file paths unambiguous (full relative paths)?
 - [ ] For UPDATE files: are specific changes listed?
-- [ ] For TDD: is sample test data provided?
-- [ ] For INTEGRATION/VISUAL: is demo scaffold provided?
-- [ ] Is export/barrel file location specified?
-- [ ] Is task category explicitly stated?
+- [ ] Are verification criteria measurable?
+- [ ] Is the completion protocol clear?
+
+### Script Sequence
+| Step | Script | Required |
+|------|--------|----------|
+| 1 | `task-closeout-check.ps1` | ✅ (if not first task) |
+| 4 | `validate-handover.ps1` | ✅ |
+| 6 | `prepare-handover.ps1` | ✅ |
+
+---
 
 ## Workflow 3: Task Implementation (Implementor)
 
 **Actor**: Implementor  
-**Trigger**: Handover prepared by orchestrator  
-**Outcome**: Implementation complete with artifacts
+**Trigger**: Handover document prepared by Orchestrator  
+**Lifecycle Phase**: IMPLEMENT  
+**Outcome**: Implementation complete, completion signal filed
 
 ### Pre-Conditions
 
-- [x] `handover/current-task.md` exists and is complete
-- [x] Environment variables set
+- [ ] Handover document exists at `.orchestra/implementor/handovers/task-{id}.md`
+- [ ] Implementor has NO context beyond handover document
+- [ ] Environment is ready for development
+
+### The Implementor Scope Statement
+
+> **"Your world is ONLY the handover document."**
+>
+> You do not have access to:
+> - Conversation history with the user
+> - The manifest or progress tracking
+> - Other handover documents
+> - Orchestrator-only directories
 
 ### Steps
 
 ```
 1. VALIDATE HANDOVER
-   ├── Run: .orchestra/implementor/.implementor-only/scripts/validate-handover.ps1
-   │   ├── PASS: Continue to implementation
-   │   └── FAIL: Stop, report defects in completion-signal.md
-   └── Read: handover/current-task.md thoroughly
+   └── Run: .orchestra/implementor/scripts/validate-handover.ps1
+       ├── Confirms handover document is complete
+       ├── PASS: Continue to implementation
+       └── FAIL: Stop, signal defect (cannot proceed)
 
 2. UNDERSTAND TASK
-   ├── Identify task category (INFRASTRUCTURE/INTEGRATION/VISUAL)
+   ├── Read handover document thoroughly
+   ├── Identify task category (infrastructure/integration/visual)
    ├── Note files to CREATE vs UPDATE
-   ├── Note TDD requirements
-   ├── Note "MUST USE" utilities (don't duplicate)
-   └── Note quality gates (test commands, baselines)
+   ├── Note verification criteria
+   └── Note quality gates (commands to run)
 
-3. IMPLEMENT (TDD if required)
-   ├── For TDD tasks:
-   │   ├── Create test file first
-   │   ├── Write failing tests
-   │   ├── Implement to make tests pass
-   │   └── Refactor if needed
-   ├── For non-TDD tasks:
-   │   └── Implement per specification
-   ├── Follow existing codebase patterns
-   └── Use existing utilities (per MUST USE section)
+3. IMPLEMENT
+   ├── Follow implementation guidelines exactly
+   ├── Use existing patterns from codebase
+   ├── Do not deviate from specification
+   └── Track which criteria will be satisfied
 
 4. QUALITY CHECKS
-   ├── Run static analysis: flutter analyze <affected_paths>
+   ├── Run static analysis on affected files
    │   └── Must show "No issues found!"
-   ├── Run task tests: flutter test <task_test_file>
-   ├── Run sprint tests: flutter test <sprint_test_path>
+   ├── Run tests specified in quality gates
+   │   └── All must pass
    └── Fix any failures before proceeding
 
-5. CREATE VISUAL ARTIFACTS (if INTEGRATION/VISUAL task)
-   ├── Create demo file: example/lib/demos/task_NNN_demo.dart
-   ├── Run via flutter_agent.py:
-   │   ├── Start-Process (separate window)
-   │   ├── Wait for ready
-   │   └── Take screenshot
-   ├── Save to: handover/verification/screenshots/
-   └── Stop the app
-
-6. CAPTURE TEST OUTPUT
-   └── Run tests, redirect output to: handover/verification/test-output.txt
-
-7. PRE-SIGNAL CHECK
-   └── Run: .orchestra/implementor/.implementor-only/scripts/pre-signal-check.ps1
-       ├── Creates artifact in: implementor/artifacts/pre-signal/
+5. PRE-SIGNAL CHECK
+   └── Run: .orchestra/implementor/scripts/pre-signal-check.ps1
+       ├── Validates implementation matches criteria
+       ├── Checks for uncommitted changes
+       ├── Creates verification artifact
        ├── PASS: Continue
        └── FAIL: Fix issues, re-run
 
-8. WRITE COMPLETION SIGNAL
-   ├── Fill: handover/verification/completion-signal.md
-   │   ├── Implementation summary
-   │   ├── Files created/modified
-   │   ├── Test results summary
-   │   └── Visual verification notes (if applicable)
-   └── Stage changes: git add -A
-
-9. SIGNAL COMPLETION
-   └── Say: "Ready for review"
+6. SIGNAL COMPLETION
+   └── Run: .orchestra/implementor/scripts/signal-complete.ps1
+       ├── Creates signal file: .orchestra/implementor/signals/task-{id}-complete.signal
+       ├── Updates manifest status: IMPLEMENT → GATE_CHECK
+       └── Logs completion timestamp
 ```
 
-## Workflow 4: Task Verification (Orchestrator)
+### Script Sequence
+| Step | Script | Required |
+|------|--------|----------|
+| 1 | `validate-handover.ps1` | ✅ |
+| 5 | `pre-signal-check.ps1` | ✅ |
+| 6 | `signal-complete.ps1` | ✅ |
+
+---
+
+## Workflow 4: Gate Check (Orchestrator)
 
 **Actor**: Orchestrator  
-**Trigger**: Implementor signals "ready for review"  
-**Outcome**: Task verified (PASS or FAIL)
+**Trigger**: Implementor signals completion  
+**Lifecycle Phase**: GATE_CHECK  
+**Outcome**: Automated verification complete, proceed to VERIFY or RETRY
+
+### Pre-Conditions
+
+- [ ] Completion signal exists
+- [ ] Pre-signal artifact exists
+- [ ] Environment ready for verification
 
 ### Steps
 
 ```
-1. CHECK PRE-SIGNAL ARTIFACT
-   ├── Look for: implementor/artifacts/pre-signal/task-NNN-*.txt
-   │   ├── EXISTS and shows PASSED: Continue
-   │   └── MISSING or FAILED: Task FAILS (implementor skipped checks)
-   └── This is a structural gate - cannot proceed without artifact
+1. ACCEPT SIGNAL
+   └── Run: .orchestra/orchestrator/scripts/accept-signal-check.ps1
+       ├── Validates signal file exists
+       ├── Validates pre-signal artifact exists
+       ├── PASS: Continue to gate check
+       └── FAIL: Signal invalid, task fails
 
-2. READ COMPLETION SIGNAL
-   └── Read: handover/verification/completion-signal.md
+2. RUN GATE CHECK
+   └── Run: .orchestra/orchestrator/scripts/gate-check.ps1
+       ├── Executes automated verification:
+       │   ├── Static analysis (flutter analyze)
+       │   ├── Test execution (flutter test)
+       │   ├── Schema validation (if applicable)
+       │   └── Custom checks per task
+       ├── PASS: Update status to VERIFY
+       └── FAIL: Determine if recoverable
 
-3. LOAD VERIFICATION CRITERIA
-   └── Read: .orchestrator-only/verification/task-NNN.yaml
+3. ON FAILURE
+   ├── If recoverable (test failures, lint errors):
+   │   ├── Generate feedback document
+   │   ├── Update status to RETRY
+   │   └── Continue to Workflow 6 (Retry)
+   └── If unrecoverable (missing files, wrong structure):
+       ├── Update status to ESCALATED
+       └── Continue to Workflow 7 (Escalation)
 
-4. EXECUTE STRUCTURAL CHECKS
-   ├── For each check in structural_checks:
-   │   ├── Execute (file exists, export present, etc.)
-   │   ├── Record PASS/FAIL with evidence
-   │   └── If BLOCKING/MAJOR fails: Task FAILS
-   └── Document in verification-results.md
-
-5. EXECUTE FUNCTIONAL CHECKS
-   ├── For each check in functional_checks:
-   │   ├── Run tests: flutter test <path>
-   │   ├── Verify test count meets minimum
-   │   ├── Record PASS/FAIL with evidence
-   │   └── If BLOCKING/MAJOR fails: Task FAILS
-   └── Document in verification-results.md
-
-6. EXECUTE ADVERSARIAL CHECKS (if present)
-   ├── For integration tasks:
-   │   ├── Verify existing files modified (not just new files)
-   │   ├── Grep for actual function calls
-   │   └── Confirm integration is real, not fake
-   └── Document in verification-results.md
-
-7. EXECUTE VISUAL VERIFICATION (if required)
-   ├── Verify screenshot exists
-   ├── View screenshot via Chrome DevTools MCP:
-   │   ├── mcp_chrome-devtoo_new_page(url: "file:///path/to/screenshot.png")
-   │   └── mcp_chrome-devtoo_take_screenshot()
-   ├── For EACH criterion in screenshot.verify:
-   │   ├── Analyze what's visible in returned image
-   │   ├── Determine if criterion is satisfied
-   │   └── Document finding (PASS/FAIL with observation)
-   ├── Close browser page
-   └── If ANY visual criterion fails: Task FAILS
-
-8. DETERMINE RESULT
-   ├── IF any BLOCKING or MAJOR check failed:
-   │   ├── Task status: FAILED
-   │   ├── Write feedback to completion-signal.md
-   │   └── Implementor must retry (up to 3 attempts)
-   └── IF all BLOCKING/MAJOR checks passed:
-       ├── Task status: PASSED
-       └── Proceed to archive
-
-9. COMMIT VERIFICATION
-   └── git commit with verification results
+4. ON SUCCESS
+   └── Proceed to Workflow 5 (Verification)
 ```
 
-## Workflow 5: Task Archive (Orchestrator)
+### Script Sequence
+| Step | Script | Required |
+|------|--------|----------|
+| 1 | `accept-signal-check.ps1` | ✅ |
+| 2 | `gate-check.ps1` | ✅ |
 
-**Actor**: Orchestrator  
-**Trigger**: Task verification PASSED  
-**Outcome**: Task archived, handover cleared
+---
+
+## Workflow 5: Verification (Orchestrator/Human)
+
+**Actor**: Orchestrator and/or Human Supervisor  
+**Trigger**: Gate check passed  
+**Lifecycle Phase**: VERIFY  
+**Outcome**: Task COMPLETE or RETRY
+
+### Pre-Conditions
+
+- [ ] Gate check passed
+- [ ] All automated verification complete
+- [ ] Artifacts available for review
 
 ### Steps
 
 ```
-1. CREATE ARCHIVE FOLDER
-   └── Create: orchestrator/results/task-NNN/
+1. VERIFICATION AUDIT
+   └── Run: .orchestra/orchestrator/scripts/verification-audit.ps1
+       ├── Compiles verification report
+       ├── Documents what passed/failed
+       └── Prepares for human review (if required)
 
-2. COPY HANDOVER
-   └── Copy entire handover/ to orchestrator/results/task-NNN/handover/
+2. HUMAN REVIEW (if checkpoint configured)
+   ├── Present verification report to human
+   ├── Allow human to:
+   │   ├── APPROVE: Task passes
+   │   ├── REJECT: Task fails with feedback
+   │   └── ESCALATE: Requires redesign
+   └── Record decision
 
-3. ADD VERIFICATION RESULTS
-   ├── Copy or create: verification-results.md
-   └── Add to archive folder
+3. DETERMINE RESULT
+   ├── IF approved:
+   │   ├── Update status: VERIFY → COMPLETE
+   │   ├── Archive task artifacts
+   │   └── Update manifest with completion
+   └── IF rejected:
+       ├── Generate feedback
+       └── Continue to Workflow 6 (Retry)
 
-4. ADD METADATA
-   └── Create: metadata.json
-       {
-         "task_id": N,
-         "archived_at": "YYYY-MM-DD HH:MM:SS",
-         "commit": "<hash>",
-         "verified_by": "orchestrator",
-         "attempt": 1,
-         "status": "completed"
-       }
-
-5. UPDATE PROGRESS
-   ├── Update progress.yaml:
-   │   ├── task status: "completed"
-   │   ├── commit_hash: "<hash>"
-   │   └── completed_at: "YYYY-MM-DD"
-   └── Update manifest.yaml status
-
-6. UPDATE SPECKIT TRACEABILITY (if applicable)
-   ├── Read manifest for speckit_tasks array
-   ├── For each SpecKit task ID:
-   │   └── Mark as [x] in specs/*/tasks.md with completion reference
-   └── Commit updates
-
-7. CLEAR HANDOVER
-   ├── Delete: handover/* (except .gitkeep)
-   └── Create: handover/.gitkeep
-
-8. COMMIT ARCHIVE
-   └── git commit -m "orchestra: archive task N, prepare for next"
-
-9. PREPARE NEXT TASK
-   └── Proceed to Workflow 2 (Task Handover)
+4. TASK CLOSEOUT
+   └── Run: .orchestra/orchestrator/scripts/task-closeout-check.ps1
+       ├── Verifies all artifacts archived
+       ├── Verifies manifest updated
+       └── Clears handover for next task
 ```
 
-## Workflow 6: Task Retry (On Failure)
+### Script Sequence
+| Step | Script | Required |
+|------|--------|----------|
+| 1 | `verification-audit.ps1` | ✅ |
+| 4 | `task-closeout-check.ps1` | ✅ |
+
+---
+
+## Workflow 6: Retry Loop
 
 **Actor**: Orchestrator (feedback) → Implementor (retry)  
-**Trigger**: Task verification FAILED  
-**Outcome**: Implementor receives specific feedback and retries
+**Trigger**: Verification failed with recoverable error  
+**Lifecycle Phase**: RETRY  
+**Outcome**: Implementor receives feedback and retries
+
+### Pre-Conditions
+
+- [ ] Task failed verification
+- [ ] Retry count < max_retries (default: 3)
+- [ ] Failure is recoverable
 
 ### Steps
 
 ```
-1. DOCUMENT FAILURE
-   ├── Record in verification-results.md:
-   │   ├── Failed check(s) with severity
-   │   ├── Evidence of failure
-   │   ├── Specific fix required
-   │   └── Attempt number (1, 2, or 3)
-   └── Do NOT archive (task still in progress)
+1. CHECK RETRY COUNT
+   ├── Read current retry count from manifest
+   ├── If count >= max_retries:
+   │   ├── Update status: RETRY → ESCALATED
+   │   └── Continue to Workflow 7 (Escalation)
+   └── Else: Continue
 
-2. WRITE FEEDBACK
-   ├── Update: handover/verification/completion-signal.md
-   │   ├── Clear previous content
-   │   ├── Add: "## Verification Failed - Attempt N"
-   │   ├── List specific failures
-   │   ├── Provide actionable fix instructions
-   │   └── Note what was correct (positive reinforcement)
-   └── Commit feedback
+2. GENERATE FEEDBACK
+   └── Run: .orchestra/orchestrator/scripts/generate-feedback.ps1
+       ├── Creates: .orchestra/implementor/feedback/task-{id}-feedback.md
+       ├── Documents specific failures
+       ├── Provides actionable fix instructions
+       └── Notes what was correct (positive reinforcement)
 
-3. INVOKE IMPLEMENTOR FOR RETRY
-   └── Implementor reads feedback, makes fixes, re-signals
+3. INCREMENT RETRY COUNT
+   └── Update manifest: retry_count += 1
 
-4. RE-VERIFY
-   └── Repeat Workflow 4 (Verification)
+4. INVOKE IMPLEMENTOR
+   ├── Implementor reads feedback
+   ├── Makes targeted fixes
+   └── Re-signals completion
 
-5. AFTER 3 FAILED ATTEMPTS
-   ├── Escalate to human
-   ├── Document blocking issue
-   └── Consider task redesign
+5. RE-VERIFY
+   └── Return to Workflow 4 (Gate Check)
 ```
 
-## Decision Points
+### Script Sequence
+| Step | Script | Required |
+|------|--------|----------|
+| 2 | `generate-feedback.ps1` | ✅ |
 
-### When to Create Visual Verification
+---
 
-```
-Is this an INFRASTRUCTURE task?
-├── YES → No screenshot required (N/A with reason)
-└── NO → Is this INTEGRATION or VISUAL?
-    ├── INTEGRATION → Screenshot REQUIRED (shows wiring works)
-    └── VISUAL → Screenshot REQUIRED (shows rendering correct)
-```
+## Workflow 7: Escalation
 
-### When to Require TDD
+**Actor**: Orchestrator → Human Supervisor  
+**Trigger**: Unrecoverable error or exceeded retry limit  
+**Lifecycle Phase**: ESCALATED  
+**Outcome**: Human intervention
 
-```
-Is this a simple model/enum task?
-├── YES → TDD optional (but tests required)
-└── NO → Does task involve algorithms or logic?
-    ├── YES → TDD REQUIRED (tests first)
-    └── NO → Is this an integration task?
-        ├── YES → Integration tests required (not strict TDD)
-        └── NO → Tests required but TDD optional
-```
+### Pre-Conditions
 
-### When to Use Adversarial Checks
+- [ ] Task cannot proceed automatically
+- [ ] Escalation is warranted
+
+### Steps
 
 ```
-Is this an integration task?
-├── YES → Adversarial check: "Verify existing files modified"
-└── NO → Is this a critical path component?
-    ├── YES → Adversarial check: "Verify component is actually called"
-    └── NO → Standard verification sufficient
+1. ESCALATE FAILURE
+   └── Run: .orchestra/orchestrator/scripts/escalate-failure.ps1
+       ├── Updates manifest status: → ESCALATED
+       ├── Creates escalation report
+       ├── Documents failure history
+       └── Notifies human (if configured)
+
+2. HUMAN INTERVENTION
+   ├── Human reviews escalation report
+   ├── Human chooses action (see Roles 4.3.1):
+   │   ├── Fix manually and mark complete
+   │   ├── Modify task specification
+   │   ├── Skip task (with justification)
+   │   ├── Split task into smaller pieces
+   │   └── Abort sprint
+   └── Record decision in manifest
+
+3. RESUME (if applicable)
+   ├── If task modified: Return to Workflow 2 (Preparation)
+   ├── If task skipped: Continue to next task
+   └── If sprint aborted: End workflows
 ```
+
+### Script Sequence
+| Step | Script | Required |
+|------|--------|----------|
+| 1 | `escalate-failure.ps1` | ✅ |
+
+---
+
+## Decision Trees
+
+### When to Escalate vs Retry
+
+```
+Is the error clearly described?
+├── NO → RETRY with clarifying feedback
+└── YES → Is the fix within Implementor capability?
+    ├── YES → Has retry limit been reached?
+    │   ├── YES → ESCALATE
+    │   └── NO → RETRY with specific feedback
+    └── NO → ESCALATE (requires human/redesign)
+```
+
+### When to Require Human Review
+
+```
+Is this a critical path task?
+├── YES → Human review at VERIFY phase
+└── NO → Is this the final task in sprint?
+    ├── YES → Human review at VERIFY phase
+    └── NO → Automated verification sufficient
+        (unless checkpoints configured)
+```
+
+### Retry vs Skip Decision
+
+```
+How many retries have occurred?
+├── 0-1 → RETRY (likely fixable)
+├── 2 → RETRY with enhanced feedback
+└── 3+ → ESCALATE (needs intervention)
+    └── Human decides: Fix, Modify, or Skip
+```
+
+---
+
+## Workflow Invariants
+
+These conditions must ALWAYS be true:
+
+1. **Single Active Task**: Only one task may be in IMPLEMENT, GATE_CHECK, or VERIFY state at a time
+2. **State Persistence**: All state is stored in files (manifest, signals, feedback), never in conversation
+3. **Script Authority**: State transitions only occur through script execution
+4. **Handover Completeness**: No task enters IMPLEMENT without validated handover
+5. **Signal Required**: No task enters GATE_CHECK without completion signal
+
+---
+
+## Workflow Integration
+
+```
+                    ┌─────────────────────┐
+                    │  Sprint Init (WF1)  │
+                    └─────────┬───────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────┐
+│                    TASK LOOP                            │
+│  ┌──────────────┐    ┌──────────────┐    ┌───────────┐ │
+│  │ Prepare(WF2) │───▶│Implement(WF3)│───▶│ Gate(WF4) │ │
+│  └──────────────┘    └──────────────┘    └─────┬─────┘ │
+│         ▲                                      │       │
+│         │         ┌────────────────────────────┤       │
+│         │         │                            │       │
+│         │         ▼                            ▼       │
+│         │  ┌──────────────┐           ┌─────────────┐  │
+│         │  │  Retry(WF6)  │           │ Verify(WF5) │  │
+│         │  └──────┬───────┘           └──────┬──────┘  │
+│         │         │                          │         │
+│         │         ▼                          │         │
+│         │  ┌──────────────┐                  │         │
+│         │  │Escalate(WF7) │                  │         │
+│         │  └──────────────┘                  │         │
+│         │                                    │         │
+│         └────────────────────────────────────┘         │
+│                    (next task)                         │
+└─────────────────────────────────────────────────────────┘
+```
+
+---
+
+*All workflows are designed for deterministic, resumable execution. Any interruption can be recovered by re-running the appropriate script for the current lifecycle phase.*

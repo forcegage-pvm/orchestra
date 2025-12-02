@@ -1,12 +1,14 @@
 # Failure Handling
 
 > **Navigation**: [Index](../readme.md) | **Prev**: [Visual Verification](visual-verification.md) | **Next**: [Handover Lifecycle](handover-lifecycle.md)
+>
+> Aligned with Orchestra Bible v0.7.0 - Section 7.7 (RETRY) and Section 7.8 (ESCALATED)
 
 ---
 
 ## Overview
 
-When verification fails, Orchestra has structured processes for feedback, retry, and escalation. This document describes how failures are handled at each level.
+When verification fails, Orchestra has structured processes for feedback, retry, and escalation. This document describes how failures are handled at each level, including the scripts involved and the decision criteria.
 
 ## Failure Categories
 
@@ -17,24 +19,55 @@ Tasks fail verification when checks don't pass:
 | Severity | Effect on Task |
 |----------|----------------|
 | BLOCKING | Immediate failure, must fix |
-| MAJOR | Accumulate; 2+ = failure |
+| MAJOR | Task fails |
 | MINOR | Noted but task can pass |
 | INFO | Suggestions only, no effect |
 
-### Process Failures
+### Recoverable vs Unrecoverable
 
-Non-task failures that interrupt the workflow:
+| Type | Examples | Handling |
+|------|----------|----------|
+| Recoverable | Test failures, lint errors, incomplete implementation | RETRY with feedback |
+| Unrecoverable | Missing critical files, wrong architecture, exceeded retries | ESCALATED to human |
 
-- Missing artifacts (files, screenshots)
-- Test failures (compile errors, assertion failures)
-- Script errors (PowerShell execution issues)
-- Git errors (merge conflicts, uncommitted changes)
+---
 
-## Feedback Protocol
+## RETRY Phase
 
-When a task fails, the orchestrator provides structured feedback.
+### Entry Conditions
 
-### Feedback Structure
+A task enters RETRY when:
+- Gate check or verification failed
+- Failure is recoverable
+- Retry count < max_retries (default: 3)
+
+### Retry Count Tracking
+
+The manifest tracks attempts:
+
+```yaml
+tasks:
+  - id: 5
+    title: "Create YAxisConfig Model"
+    status: RETRY
+    retry_count: 2
+    max_retries: 3
+    last_failure: "Missing validation tests"
+```
+
+### Feedback Generation Script
+
+```powershell
+.orchestra/orchestrator/scripts/generate-feedback.ps1
+```
+
+**What it does**:
+- Creates feedback file at `.orchestra/implementor/feedback/task-{id}-feedback.md`
+- Documents specific failures with evidence
+- Provides actionable fix instructions
+- Notes what was correct (positive reinforcement)
+
+### Feedback Document Structure
 
 ```markdown
 ## Verification Result: FAILED
@@ -70,11 +103,30 @@ When a task fails, the orchestrator provides structured feedback.
 3. **Bounded**: Only address actual failures
 4. **Honest**: No false positives or moving goalposts
 
-## Retry Mechanism
+### Retry Workflow
 
-### Attempt Limits
+```
+1. Orchestrator generates feedback
+   └── Run: generate-feedback.ps1
 
-Each task allows up to 3 attempts:
+2. Implementor reads feedback
+   └── File: .orchestra/implementor/feedback/task-{id}-feedback.md
+
+3. Implementor makes targeted fixes
+   └── Does NOT restart from scratch
+   └── Focuses only on failed checks
+
+4. Implementor re-runs pre-signal check
+   └── Run: pre-signal-check.ps1
+
+5. Implementor signals completion
+   └── Run: signal-complete.ps1
+
+6. Orchestrator verifies again
+   └── Return to GATE_CHECK phase
+```
+
+### Attempt-Based Guidance
 
 | Attempt | Guidance Level |
 |---------|----------------|
@@ -82,48 +134,30 @@ Each task allows up to 3 attempts:
 | 2 | Enhanced guidance with examples |
 | 3 | Maximum detail, consider spec issue |
 
-### Attempt Tracking
+---
 
-Progress file tracks attempts:
+## ESCALATED Phase
 
-```yaml
-tasks:
-  - id: 5
-    status: "in-progress"
-    attempts: 2
-    attempt_history:
-      - attempt: 1
-        result: "failed"
-        reason: "Missing validation tests"
-        timestamp: "2025-11-28T10:00:00Z"
-      - attempt: 2
-        result: "in-progress"
-        started: "2025-11-28T10:30:00Z"
+### Entry Conditions
+
+A task enters ESCALATED when:
+- Retry count >= max_retries (3 failed attempts)
+- Unrecoverable error detected
+- Orchestrator cannot resolve the issue
+
+### Escalation Script
+
+```powershell
+.orchestra/orchestrator/scripts/escalate-failure.ps1
 ```
 
-### Between Attempts
+**What it does**:
+- Updates manifest status: → ESCALATED
+- Creates escalation report
+- Documents failure history
+- Notifies human (if configured)
 
-What happens when retry begins:
-
-1. Implementor reads feedback (completion-signal.md)
-2. Implementor addresses specific issues
-3. Does NOT restart from scratch
-4. Focuses only on failed checks
-5. Re-runs pre-signal check
-6. Signals completion again
-
-## Escalation
-
-### When to Escalate
-
-Escalate to human when:
-
-1. **3 failed attempts**: Pattern indicates systemic issue
-2. **Impossible constraint**: Spec asks for contradictory things
-3. **Tooling limitation**: AI cannot perform required action
-4. **Ambiguous requirement**: Spec open to interpretation
-
-### Escalation Protocol
+### Escalation Report
 
 ```markdown
 ## Escalation Notice
@@ -157,16 +191,43 @@ a specification issue rather than implementation issue.
 - [ ] Other: _____________
 ```
 
-### Human Resolution Options
+### When to Escalate Immediately
 
-After escalation, human can:
+Some situations warrant immediate escalation (skip retries):
 
-1. **Fix the spec**: Clarify or adjust requirements
-2. **Provide hints**: Give implementation guidance
-3. **Accept with notes**: Document known limitation
-4. **Split task**: Break into smaller achievable tasks
-5. **Defer**: Move to later sprint
-6. **Cancel**: Remove from scope
+| Situation | Why |
+|-----------|-----|
+| Impossible constraint | Spec asks for contradictory things |
+| Tooling limitation | AI cannot perform required action |
+| Ambiguous requirement | Spec open to interpretation |
+| Architectural issue | Wrong approach, not fixable with patches |
+
+---
+
+## Human Intervention Actions
+
+Per Bible Section 4.3.1, humans can take these actions:
+
+| Action | Description | Manifest Update |
+|--------|-------------|-----------------|
+| Fix manually | Human fixes the code directly | status → COMPLETE |
+| Modify task spec | Adjust requirements | Reset retry_count, status → PENDING |
+| Skip task | Move past without completing | status → SKIPPED, add justification |
+| Split task | Break into smaller tasks | Create new task entries |
+| Abort sprint | Cancel remaining work | Sprint status → ABORTED |
+
+### Emergency Overrides
+
+Per Bible Section 4.3.2, for recovery situations:
+
+| Override | When to Use |
+|----------|-------------|
+| Direct Progress Manipulation | Correct manifest errors |
+| Clear Orphaned Signals | Remove stale signal files |
+| Force State Transition | Unstick blocked workflows |
+| Reset Retry Counter | Give fresh attempts after spec fix |
+
+---
 
 ## Common Failure Patterns
 
@@ -194,59 +255,21 @@ After escalation, human can:
 **Cause**: Dependency not completed
 **Fix**: Review task ordering, ensure prerequisites
 
-## Process Failure Handling
+### Pattern: Implementation Theater
 
-### Missing Artifacts
+**Symptom**: All tests pass but feature doesn't work
+**Cause**: Shallow tests that don't verify behavior
+**Fix**: Add adversarial checks, require visual verification
 
-When required files don't exist:
-
-```powershell
-# Pre-signal check detects
-if (-not (Test-Path "handover/verification/screenshot.png")) {
-    Write-Error "BLOCKING: Required screenshot not found"
-    exit 1
-}
-```
-
-**Resolution**: Create the missing artifact, re-run check
-
-### Test Failures
-
-When tests don't pass:
-
-```powershell
-# Pre-signal check runs tests
-$result = flutter test $testFile
-if ($LASTEXITCODE -ne 0) {
-    Write-Error "BLOCKING: Tests failed"
-    exit 1
-}
-```
-
-**Resolution**: Fix tests until passing, re-run check
-
-### Git Errors
-
-When git operations fail:
-
-```powershell
-# Closeout check verifies clean state
-$status = git status --porcelain
-if ($status) {
-    Write-Error "BLOCKING: Uncommitted changes exist"
-    exit 1
-}
-```
-
-**Resolution**: Commit or stash changes, re-run check
+---
 
 ## Recovery Procedures
 
 ### Starting Fresh
 
-When too much context pollution:
+When context pollution is severe:
 
-1. Run closeout check for current state
+1. Run task-closeout-check for current state
 2. Note what was attempted
 3. Start fresh agent session
 4. Provide summary of prior attempts
@@ -272,12 +295,14 @@ git revert <bad-commit>
 When stuck but need to move forward:
 
 1. Document the blocker in detail
-2. Add to TECHNICAL_DEBT.md
+2. Add to technical debt tracking
 3. Create workaround if possible
 4. Accept task with documented limitation
 5. Create follow-up task to address properly
 
-## Failure Prevention
+---
+
+## Prevention Strategies
 
 ### Before Starting Task
 
@@ -300,9 +325,11 @@ When stuck but need to move forward:
 3. Review against specification
 4. Consider adversarial scenarios
 
-## Metrics
+---
 
-Track failure patterns for process improvement:
+## Metrics for Process Improvement
+
+Track failure patterns:
 
 ```yaml
 sprint_metrics:
@@ -326,3 +353,17 @@ These metrics help identify:
 - Training needs
 - Tooling gaps
 - Process improvements
+
+---
+
+## Script Reference
+
+| Script | Purpose | Phase |
+|--------|---------|-------|
+| `generate-feedback.ps1` | Create feedback document for retry | RETRY |
+| `escalate-failure.ps1` | Create escalation report for human | ESCALATED |
+| `task-closeout-check.ps1` | Verify task is ready for next phase | Post-fix |
+
+---
+
+*Failure handling is designed to minimize wasted effort while ensuring quality. The retry loop provides focused feedback, and escalation ensures humans are involved when needed.*

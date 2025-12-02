@@ -1,221 +1,209 @@
-# Glossary
+# Appendix A: Glossary of Terms
 
-> **Navigation**: [Index](../readme.md) | **Prev**: [Sprint 011 Case Study](../05-research/sprint-011-case-study.md) | **Next**: [Checklist Templates](checklist-templates.md)
+> Aligned with Orchestra Bible v0.7.0 - Appendix A
+
+## Core Entities
+
+### Orchestrator
+The supervisory AI agent responsible for project management, task decomposition, progress tracking, and quality verification. The Orchestrator never writes production code directly. See [Roles Specification](../02-architecture/roles.md) Section 4.1.
+
+### Implementor  
+The AI agent invoked to execute specific, bounded tasks. Works exclusively from handover documents without access to broader project context. See [Roles Specification](../02-architecture/roles.md) Section 4.2.
+
+### Human Supervisor
+The human user who retains ultimate authority over the project. May intervene at checkpoints, approve escalations, or provide clarifications. See [Roles Specification](../02-architecture/roles.md) Section 4.3.
+
+### Manifest
+The `manifest.yaml` file at the root of `.orchestra/` that tracks sprint state, task statuses, timestamps, retry counts, and metadata. The single source of truth for project progress.
+
+### Handover Document
+A Markdown file prepared by the Orchestrator containing everything an Implementor needs to complete a task: context, specifications, implementation guidelines, and verification criteria. Stored in `.orchestra/implementor/handovers/`.
 
 ---
 
-## Terms
+## Task Lifecycle States
 
-### Artifact
-A file that proves an action occurred. Artifacts serve as structural gates—their existence is required to proceed, and they can only be created by running specific scripts.
+### INITIALIZATION
+The first phase where Orchestrator reads the manifest (or creates one for new sprints), validates the last known state, and determines what work to perform.
 
-**Example**: `pre-signal-001.json` proves the pre-signal check was run for task 1.
+### PENDING
+A task has been defined in the manifest but no work has begun. The task awaits preparation.
 
-### BLOCKING (Severity)
-The highest severity level for verification checks. Any BLOCKING check failure immediately fails the task. Cannot be downgraded after task definition.
+### PREPARE
+The Orchestrator creates the handover document containing full specifications, context, implementation guidelines, and verification criteria for the Implementor.
 
-**Example**: "Unit tests must pass" - if tests fail, task fails regardless of other factors.
+### IMPLEMENT
+The Implementor is actively working on the task using only the handover document as context. This phase ends when the Implementor signals completion.
 
-### Closeout Check
-A verification script run by the orchestrator to confirm a task is truly complete before proceeding to the next task. Validates artifacts, git state, and traceability.
+### GATE_CHECK
+Post-implementation validation phase. Orchestrator runs automated verification scripts (tests, linting, schema validation) before human review.
 
-**Script**: `task-closeout-check.ps1`
+### VERIFY
+Human and/or automated review of the completed work. May result in acceptance, feedback for revision, or escalation.
 
-### Completion Signal
-The formal indication from implementor to orchestrator that work is finished and ready for verification. Consists of:
-1. Pre-signal artifact (proving checks ran)
-2. Filled completion-signal.md
-3. Verbal/written "ready for review"
+### COMPLETE
+The task has passed all verification and is marked done. Artifacts are archived and the manifest is updated.
 
-### Context Pollution
-The degradation of AI agent understanding over long sessions. Old assumptions conflict with new information, leading to errors. Mitigated by fresh sessions with explicit handovers.
+### RETRY
+A task that failed verification and is being re-attempted. Retry count is tracked; exceeding max retries triggers escalation.
 
-### Deliverable
-A specific output required by a task. Listed explicitly in the handover to set clear expectations.
+### ESCALATED
+A task that has exceeded retry limits or encountered unrecoverable errors. Requires human intervention before proceeding.
 
-**Example**: "Create `y_axis_config.dart` with YAxisConfig class"
+---
 
-### Escalation
-The process of raising a task to human review when:
-- 3 attempts have failed
-- Specification is unclear or impossible
-- Agent cannot complete the work
+## File Artifacts
 
-### Fresh Context
-Starting a new agent session with explicit handover rather than continuing from accumulated context. Prevents context pollution.
+### Signal File
+A marker file created by the Implementor to indicate task completion. Stored in `.orchestra/implementor/signals/` with naming convention `task-{id}-complete.signal`.
 
-### Gate (Structural Gate)
-A checkpoint that cannot be passed without a required artifact. Unlike advisory instructions, gates are enforced by scripts checking for proof-of-execution.
+### Feedback File
+A document from the Orchestrator providing revision instructions when verification fails. Stored in `.orchestra/implementor/feedback/` with naming convention `task-{id}-feedback.md`.
 
-**Example**: Verification cannot start without pre-signal artifact existing.
+### Sprint Directory
+The `.orchestra/sprints/{sprint-id}/` folder containing all artifacts, logs, and metadata for a specific sprint.
 
-### Goodhart's Law
-"When a measure becomes a target, it ceases to be a good measure." The principle explaining why visible verification criteria get gamed. Orchestra addresses this with hidden criteria.
+### Verification Report
+Output from verification scripts documenting what passed, what failed, and recommended actions. Stored in sprint artifacts.
 
-### Handover
-The formal package of documents provided when starting a new task or session. Contains everything needed for cold start without prior context.
+---
 
-**Contents**: current-task.md, task-context.md, completion-signal.md template
+## Script Categories
 
-### Handover Zone
-The `.orchestra/handover/` folder serving as the transient exchange between orchestrator and implementor. Empty at rest, populated during active work.
+### Lifecycle Scripts
+Scripts that manage task state transitions: `sprint-init.ps1`, `prepare-handover.ps1`, `signal-complete.ps1`, `task-closeout-check.ps1`.
 
-### Hidden Verification
-Verification criteria kept in `.orchestrator-only/` where the implementor cannot see them. Prevents gaming by maintaining uncertainty about specific checks.
+### Validation Scripts
+Scripts that verify correctness without changing state: `validate-handover.ps1`, `pre-signal-check.ps1`, `accept-signal-check.ps1`.
 
-### Implementor
-The AI agent role responsible for:
-- Executing tasks per specification
-- Writing code and tests
-- Creating artifacts
-- Signaling completion
+### Gate Scripts
+Scripts that perform post-implementation verification: `gate-check.ps1`, `verification-audit.ps1`.
 
-**Access**: Public specifications, cannot see hidden verification criteria.
+### Support Scripts
+Scripts for monitoring, diagnostics, and error handling: `sprint-status.ps1`, `generate-feedback.ps1`, `escalate-failure.ps1`, `environment-check.ps1`.
 
-### INFO (Severity)
-The lowest severity level. Suggestions only, no effect on pass/fail. Used for style preferences or minor improvements.
+---
 
-### INFRASTRUCTURE (Task Category)
-Tasks focused on files, configuration, and setup rather than code functionality. Verification emphasizes existence, structure, and syntax correctness.
-
-**Example**: "Create manifest.yaml with sprint configuration"
-
-### INTEGRATION (Task Category)
-Tasks focused on code, tests, and functional integration. Verification emphasizes test passage and API correctness.
-
-**Example**: "Create YAxisConfig model with validation"
-
-### MAJOR (Severity)
-Second-highest severity. Multiple MAJOR failures (2+) fail the task. Single MAJOR failures may pass with notes.
-
-### Manifest
-The `manifest.yaml` file defining sprint configuration including:
-- Sprint metadata
-- Task definitions with dependencies
-- Phase organization
-- SpecKit traceability links
-
-### MINOR (Severity)
-Third-highest severity. Noted in verification but does not cause failure. Should be addressed but not required.
-
-### Mutual Verification
-The pattern where orchestrator verifies implementor's work AND implementor's artifacts verify to orchestrator that processes were followed. Neither role trusts the other without proof.
-
-### Orchestrator
-The AI agent role responsible for:
-- Preparing handovers
-- Verifying implementations
-- Managing task flow
-- Providing feedback on failures
-
-**Access**: Full access including hidden verification criteria.
-
-### Phase
-A grouping of related tasks within a sprint. Phase boundaries are good points for fresh context.
-
-**Example**: "Phase 2: Normalization" containing tasks 6-8.
-
-### Pre-Signal Check
-A script run by implementor before signaling completion. Creates an artifact proving tests passed and requirements verified.
-
-**Script**: `pre-signal-check.ps1`
-
-### Progress Tracking
-The `progress.yaml` file tracking:
-- Task completion status
-- Attempt counts
-- Timestamps
-- Commit references
-
-### Results Archive
-The `.orchestra/orchestrator/results/` folder containing archived completed tasks. Immutable after archival for audit trail.
-
-### Role Separation
-The deliberate division of implementation and verification into distinct roles (implementor and orchestrator) to prevent conflict of interest.
-
-### Severity Level
-The classification of verification check importance:
-- BLOCKING: Must pass
-- MAJOR: Accumulate; 2+ fail
-- MINOR: Noted, doesn't fail
-- INFO: Suggestions only
-
-### Signal
-See "Completion Signal"
-
-### SpecKit
-The specification toolkit used to define requirements. Tasks link to SpecKit items for traceability.
-
-**Location**: `specs/*/tasks.md`
+## Workflow Concepts
 
 ### Sprint
-A time-bounded effort to complete a set of related tasks. Typically 1-4 weeks.
+A bounded work period containing one or more related tasks. Each sprint has its own directory and manifest section.
 
-### Task
-A discrete unit of work with:
-- Clear objective
-- Defined deliverables
-- Verification criteria
-- Dependencies
+### Task Decomposition
+The process by which the Orchestrator breaks down user requests into specific, implementable tasks with clear boundaries.
 
-### Task Category
-Classification determining verification approach:
-- INFRASTRUCTURE: File/config focused
-- INTEGRATION: Code/test focused
-- VISUAL: Appearance focused
+### Context Boundary
+The principle that Implementors work exclusively from handover documents without access to broader project context, conversation history, or other tasks.
 
-### Task Lifecycle
-The states a task passes through:
-PENDING → IN-PROGRESS → AWAITING-VERIFICATION → COMPLETED/FAILED
+### Retry Loop
+The automatic process of re-attempting a failed task with feedback, up to a configured maximum number of retries before escalation.
 
-### Three-Strike Rule
-Maximum 3 attempts per task before escalation to human. Prevents infinite loops and forces quality feedback.
+### Escalation
+The process of flagging a task for human intervention when automated resolution is not possible.
 
-### Traceability
-The linking between:
-- Tasks and specification items
-- Implementation and requirements
-- Verification and criteria
+---
 
-Bidirectional traceability ensures completeness.
-
-### Transient
-Temporary, not persisted. The handover folder is transient—empty at rest, populated only during active work.
-
-### Verification
-The process of checking implementation against criteria. Performed by orchestrator after implementor signals completion.
+## Verification Concepts
 
 ### Verification Criteria
-The specific checks used to verify task completion. Hidden from implementor to prevent gaming.
+Specific, measurable conditions defined in the handover document that must be satisfied for a task to pass verification.
 
-**Location**: `.orchestrator-only/verification/task-NNN.yaml`
+### Gate Check
+Automated verification performed after implementation but before human review. Includes tests, linting, and schema validation.
 
-### VISUAL (Task Category)
-Tasks focused on UI, rendering, and appearance. Verification requires actual visual inspection via Chrome DevTools MCP.
+### Acceptance Criteria
+High-level conditions that define when a task is considered complete from a product perspective.
 
-**Example**: "Create demo showing multi-axis chart rendering"
+---
 
-### Visual Verification
-The process of actually viewing screenshots/visual artifacts to verify content correctness, not just file existence.
+## Document Types
 
-**Tool**: Chrome DevTools MCP with `file://` URLs
+### Task Specification
+A detailed description of what needs to be implemented, including requirements, constraints, and expected outcomes.
+
+### Implementation Guidelines
+Step-by-step guidance for how to approach the implementation, including code patterns, file locations, and best practices.
+
+### Context Section
+Background information in a handover document explaining the broader purpose and how the task fits into the project.
+
+---
+
+## Operational Terms
+
+### Cold Start
+Starting a sprint or task with no prior state. The system initializes fresh context.
+
+### Warm Continue
+Resuming work on an existing sprint or task using persisted state from the manifest.
+
+### State Persistence
+The practice of storing all progress in files (manifest.yaml, signals, feedback) rather than relying on conversation memory.
+
+### Checkpoint
+A defined point in the workflow where human review or intervention is possible.
+
+---
+
+## Error Handling Terms
+
+### Recoverable Error
+An error that can be addressed through retry with feedback (e.g., failed tests, incomplete implementation).
+
+### Unrecoverable Error
+An error requiring human intervention (e.g., ambiguous requirements, infrastructure failure, exceeded retry limit).
+
+### Graceful Degradation
+The system's ability to continue operating in a reduced capacity when errors occur, rather than failing completely.
+
+---
+
+## Quality Concepts
+
+### Code Quality Standards
+Automated checks including linting, formatting, type checking, and static analysis that must pass during gate check.
+
+### Test Coverage
+The requirement that new code include appropriate tests as part of verification criteria.
+
+### Documentation Debt
+Missing or incomplete documentation that should be addressed as part of task completion.
+
+---
 
 ## Abbreviations
 
-| Abbr | Meaning |
-|------|---------|
-| ADR | Architecture Decision Record |
+| Abbreviation | Full Term |
+|--------------|-----------|
+| DTD | Dart Tooling Daemon |
+| FOMO | Fear of Missing Output (anti-pattern: excessive context) |
+| GATE | Go/No-Go Automated Testing Evaluation |
 | MCP | Model Context Protocol |
 | PR | Pull Request |
-| SpecKit | Specification Toolkit |
-| yaml | YAML Ain't Markup Language |
+| QA | Quality Assurance |
+| SISO | Signal In, Signal Out (completion pattern) |
+| SoT | Source of Truth |
+| WIP | Work in Progress |
 
-## File Extensions
+---
 
-| Extension | Usage |
-|-----------|-------|
-| `.md` | Documentation, handover templates |
-| `.yaml` | Configuration, manifest, criteria |
-| `.json` | Artifacts, metadata |
-| `.ps1` | PowerShell scripts |
-| `.dart` | Dart source code |
+## Anti-Patterns
+
+### Context Bleed
+When an Implementor receives or uses information beyond their handover document.
+
+### State Drift
+When actual project state diverges from what's recorded in the manifest.
+
+### Over-Decomposition
+Breaking tasks into pieces so small that overhead exceeds implementation value.
+
+### Under-Specification
+Handover documents lacking sufficient detail for independent implementation.
+
+### Retry Storm
+Excessive retries that waste resources without resolving underlying issues.
+
+---
+
+*This glossary provides standardized terminology for the Orchestra system. Terms should be used consistently across all documentation and implementation.*

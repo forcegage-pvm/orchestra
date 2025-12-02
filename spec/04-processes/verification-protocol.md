@@ -1,25 +1,27 @@
 # Verification Protocol
 
 > **Navigation**: [Index](../readme.md) | **Prev**: [Task Lifecycle](task-lifecycle.md) | **Next**: [Visual Verification](visual-verification.md)
+>
+> Aligned with Orchestra Bible v0.7.0 - Section 7 (Task Lifecycle) and Section 9 (Verification Criteria)
 
 ---
 
 ## Overview
 
-Verification is the critical process where orchestrator validates implementor's work against hidden criteria. This document defines the complete verification procedure.
+Verification is the critical process where the Orchestrator validates the Implementor's work against defined criteria. This document describes the complete verification procedure including script execution, check types, and result handling.
 
 ## Principles
 
 ### 1. Hidden Criteria
 
-Verification criteria are defined BEFORE implementation and hidden from implementor. This prevents:
+Verification criteria are defined BEFORE implementation and stored in Orchestrator-only areas. This prevents:
 - Gaming metrics (Goodhart's Law)
 - Optimizing for checks rather than correctness
 - Shallow implementations that pass obvious tests
 
 ### 2. Immutable Severity
 
-Severity levels are set when criteria are created, NOT during verification. The orchestrator cannot rationalize failures as "minor" to avoid rework.
+Severity levels are set when criteria are created, NOT during verification. The Orchestrator cannot rationalize failures as "minor" to avoid rework.
 
 ### 3. Evidence-Based
 
@@ -29,34 +31,64 @@ Every check must produce evidence. "I ran the tests" is not enough; test output 
 
 All checks must be executed in order. Skipping checks is a process violation, even if the task "looks complete."
 
+---
+
 ## Verification Workflow
 
-### Step 1: Accept Signal Check
+### Phase 1: GATE_CHECK (Automated)
 
-Before any verification, confirm implementor ran their pre-signal check.
+This phase runs immediately after the Implementor signals completion.
+
+#### Step 1: Accept Signal Check
+
+Before any verification, confirm the Implementor ran their pre-signal check.
 
 ```powershell
-.orchestra/orchestrator/scripts/accept-signal-check.ps1 -TaskNumber N
+.orchestra/orchestrator/scripts/accept-signal-check.ps1
 ```
 
 **What it checks**:
-- Pre-signal artifact exists: `implementor/artifacts/pre-signal/task-N-*.txt`
-- Artifact shows "PASSED" (not "FAILED")
+- Signal file exists: `.orchestra/implementor/signals/task-{id}-complete.signal`
+- Pre-signal artifact exists and shows "PASSED"
 - Artifact timestamp is from current task attempt
 
 **If check fails**: STOP. Task cannot be verified. Implementor skipped required validation.
 
-### Step 2: Load Verification Criteria
-
-Read the hidden verification YAML for this task.
+#### Step 2: Gate Check Execution
 
 ```powershell
-$criteria = Get-Content ".orchestra/orchestrator/.orchestrator-only/verification/task-NNN.yaml" | ConvertFrom-Yaml
+.orchestra/orchestrator/scripts/gate-check.ps1
 ```
 
-**Never verify from memory**. Always read the YAML file fresh.
+**What it runs**:
+- Static analysis (`flutter analyze`)
+- Unit tests (`flutter test`)
+- Schema validation (if applicable)
+- Custom automated checks per task
 
-### Step 3: Execute Structural Checks
+**Outputs**:
+- `PASS`: Proceed to VERIFY phase
+- `FAIL` (recoverable): Generate feedback, status → RETRY
+- `FAIL` (unrecoverable): Status → ESCALATED
+
+---
+
+### Phase 2: VERIFY (Orchestrator Review)
+
+This phase involves Orchestrator and/or Human review.
+
+#### Step 3: Verification Audit
+
+```powershell
+.orchestra/orchestrator/scripts/verification-audit.ps1
+```
+
+**What it does**:
+- Compiles comprehensive verification report
+- Documents all automated check results
+- Prepares for human review (if configured)
+
+#### Step 4: Execute Structural Checks
 
 Verify files exist, exports are added, existing files modified.
 
@@ -74,7 +106,7 @@ CHECK: files_created (BLOCKING)
   - test/unit/config_test.dart: PASS (exists)
 ```
 
-### Step 4: Execute Functional Checks
+#### Step 5: Execute Functional Checks
 
 Verify tests pass, analysis clean, minimum coverage met.
 
@@ -91,7 +123,7 @@ flutter test test/unit/multi_axis/ 2>&1 | Tee-Object -Variable testOutput
 # Analyze $testOutput for pass/fail
 ```
 
-### Step 5: Execute Adversarial Checks
+#### Step 6: Execute Adversarial Checks
 
 For critical tasks, verify implementation is genuine.
 
@@ -110,65 +142,32 @@ if ($usages.Count -eq 0) {
 }
 ```
 
-### Step 6: Execute Visual Verification
+#### Step 7: Execute Visual Verification
 
 For INTEGRATION and VISUAL tasks, verify screenshot content.
 
-#### 6.1: Verify Screenshot Exists
+See [Visual Verification](visual-verification.md) for detailed procedures.
 
-```powershell
-Test-Path ".orchestra/handover/verification/screenshots/task-NNN-*.png"
+**Summary workflow**:
 ```
-
-#### 6.2: View Screenshot Content
-
-```
-# Open in browser via Chrome DevTools MCP
+# Open screenshot in browser via Chrome DevTools MCP
 mcp_chrome-devtoo_new_page(url: "file:///full/path/to/screenshot.png")
 
-# Capture what's displayed
+# Capture what's displayed (returns image to agent)
 mcp_chrome-devtoo_take_screenshot()
 
-# Agent now has the image and can analyze it
-```
+# Agent analyzes image against each verification criterion
+# Document findings: PASS or FAIL with observation
 
-#### 6.3: Verify Each Visual Criterion
-
-For EACH item in `screenshot.verify` array:
-
-```yaml
-screenshot:
-  verify:
-    - "Multiple Y-axes visible (left and right)"
-    - "Each axis has distinct color"
-    - "All series span full vertical height"
-```
-
-**For each criterion**:
-1. Look at the returned image
-2. Determine if criterion is satisfied
-3. Document finding: `PASS` or `FAIL` with observation
-
-**Example**:
-```
-VISUAL: "Multiple Y-axes visible (left and right)"
-  Observation: Left axis shows "Power (W)", right axis shows "Volume (L)"
-  Status: PASS
-
-VISUAL: "All series span full vertical height"
-  Observation: Power series spans 80% height, Volume series compressed to 20%
-  Status: FAIL - Volume series not using available space
-```
-
-#### 6.4: Close Browser
-
-```
+# Close browser page
 mcp_chrome-devtoo_close_page(pageIdx: 1)
 ```
 
-### Step 7: Determine Result
+---
 
-Apply severity rules to determine task outcome.
+### Phase 3: Result Determination
+
+#### Step 8: Apply Severity Rules
 
 ```
 For each check:
@@ -186,9 +185,9 @@ For each check:
 
 **Task FAILS if**: ANY BLOCKING or MAJOR check fails.
 
-### Step 8: Document Results
+#### Step 9: Document Results
 
-Create verification results document.
+Create verification results document:
 
 ```markdown
 # Verification Results: Task N
@@ -198,53 +197,69 @@ Create verification results document.
 **Result**: [PASSED | FAILED]
 
 ## Structural Checks
-
 | ID | Description | Severity | Status | Evidence |
 |----|-------------|----------|--------|----------|
 | files_created | Files exist | BLOCKING | PASS | Test-Path confirmed |
 
 ## Functional Checks
-
 | ID | Description | Severity | Status | Evidence |
 |----|-------------|----------|--------|----------|
 | tests_pass | Tests pass | BLOCKING | PASS | 25/25 tests passed |
 
 ## Adversarial Checks
-
 | ID | Description | Severity | Status | Evidence |
 |----|-------------|----------|--------|----------|
 | real_integration | Code is called | BLOCKING | PASS | 7 usages found |
 
 ## Visual Verification
-
 | Criterion | Status | Observation |
 |-----------|--------|-------------|
 | Multiple axes visible | PASS | Left and right axes present |
 | Series span full height | FAIL | Volume series compressed |
 
 ## Decision
-
 **FAILED**: Visual criterion "Series span full height" not met (MAJOR).
 
 ## Feedback for Retry
-
 [Specific instructions for implementor to fix the issue]
 ```
 
-### Step 9: Handle Result
+---
 
-**If PASSED**:
-1. Archive task: `archive-and-close.ps1 -TaskNumber N`
-2. Update progress.yaml
-3. Prepare next task handover
+### Phase 4: Result Handling
 
-**If FAILED**:
-1. Increment attempt count
-2. Write feedback to completion-signal.md
-3. Implementor addresses feedback and re-signals
-4. Repeat verification
+#### If PASSED (→ COMPLETE)
 
-## Severity Reference
+1. Run task closeout check:
+   ```powershell
+   .orchestra/orchestrator/scripts/task-closeout-check.ps1
+   ```
+2. Archive task artifacts to `.orchestra/artifacts/`
+3. Update manifest: status → COMPLETE
+4. Clear handover for next task
+5. Proceed to next PENDING task
+
+#### If FAILED (→ RETRY or ESCALATED)
+
+1. Check retry count against max_retries (default: 3)
+2. If count < max:
+   - Generate feedback:
+     ```powershell
+     .orchestra/orchestrator/scripts/generate-feedback.ps1
+     ```
+   - Update manifest: status → RETRY, increment retry_count
+   - Implementor addresses feedback and re-signals
+3. If count >= max:
+   - Escalate:
+     ```powershell
+     .orchestra/orchestrator/scripts/escalate-failure.ps1
+     ```
+   - Update manifest: status → ESCALATED
+   - Human intervention required
+
+---
+
+## Severity Levels
 
 | Level | When to Use | On Failure |
 |-------|-------------|------------|
@@ -265,12 +280,27 @@ Create verification results document.
 | Missing doc comment | MINOR | Can add later |
 | Verbose implementation | INFO | Style preference |
 
+---
+
+## Script Execution Matrix
+
+| Script | Phase | Required | Purpose |
+|--------|-------|----------|---------|
+| `accept-signal-check.ps1` | GATE_CHECK | ✅ | Validate signal file exists |
+| `gate-check.ps1` | GATE_CHECK | ✅ | Run automated verification |
+| `verification-audit.ps1` | VERIFY | ✅ | Compile verification report |
+| `generate-feedback.ps1` | On Failure | ✅ | Create feedback for retry |
+| `escalate-failure.ps1` | On Escalation | ✅ | Flag for human intervention |
+| `task-closeout-check.ps1` | COMPLETE | ✅ | Verify ready for archive |
+
+---
+
 ## Anti-Patterns to Avoid
 
 ### 1. Verifying from Memory
 
 **Wrong**: "I remember the criteria, let me check..."
-**Right**: Read `task-NNN.yaml` before every verification
+**Right**: Read verification criteria from file before every verification
 
 ### 2. Downgrading Severity
 
@@ -285,25 +315,33 @@ Create verification results document.
 ### 4. Partial Check Execution
 
 **Wrong**: "Tests pass, I'll skip the adversarial checks"
-**Right**: Execute ALL checks in the YAML
+**Right**: Execute ALL checks defined for the task
 
 ### 5. No Evidence
 
 **Wrong**: "Tests passed" (no output)
 **Right**: Captured output showing "25/25 tests passed"
 
+---
+
 ## Verification Checklist
 
 Before marking task as PASSED:
 
-- [ ] Accept-signal-check passed (artifact exists)
-- [ ] Read verification YAML (not from memory)
+- [ ] Accept-signal-check passed (signal file exists)
+- [ ] Gate-check passed (automated tests/analysis)
+- [ ] Verification-audit completed (report generated)
 - [ ] All structural checks executed with evidence
 - [ ] All functional checks executed with evidence
 - [ ] All adversarial checks executed with evidence
 - [ ] Visual verification completed (if required)
   - [ ] Screenshot viewed via Chrome DevTools MCP
-  - [ ] Each criterion in `screenshot.verify` checked
-  - [ ] Observations documented
+  - [ ] Each criterion checked and documented
+  - [ ] Observations recorded
 - [ ] Verification results document created
 - [ ] No BLOCKING or MAJOR failures
+- [ ] Task-closeout-check passed
+
+---
+
+*Verification is the quality gate that prevents "implementation theater." Follow this protocol rigorously to ensure genuine functionality.*
