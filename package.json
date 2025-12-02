@@ -1,32 +1,26 @@
 {
   "name": "orchestra",
-  "version": "0.1.0",
-  "description": "AI Agent Task Orchestration - CLI, MCP Server, and VS Code Extension",
+  "version": "1.0.0",
+  "description": "AI Agent Task Orchestration - Aligned with Orchestra Bible v0.7.0",
   "type": "module",
   "main": "./dist/core/index.js",
   "types": "./dist/core/index.d.ts",
   "bin": {
-    "orchestra": "./dist/cli/index.js"
+    "orchestra": "./dist/cli.js"
   },
   "exports": {
     ".": {
       "types": "./dist/core/index.d.ts",
       "import": "./dist/core/index.js"
     },
-    "./cli": {
-      "types": "./dist/cli/index.d.ts",
-      "import": "./dist/cli/index.js"
-    },
-    "./mcp": {
-      "types": "./dist/mcp/index.d.ts",
-      "import": "./dist/mcp/index.js"
+    "./core": {
+      "types": "./dist/core/index.d.ts",
+      "import": "./dist/core/index.js"
     }
   },
   "scripts": {
-    "dev": "tsx src/cli/index.ts",
-    "dev:mcp": "tsx src/mcp/index.ts",
-    "build": "tsup",
-    "build:extension": "tsup --config tsup.extension.config.ts",
+    "dev": "tsx src/cli.ts",
+    "build": "tsc",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",

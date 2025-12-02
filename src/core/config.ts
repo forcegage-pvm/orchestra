@@ -1,135 +1,110 @@
 /**
- * Configuration Management
+ * Orchestra Configuration Service
+ *
+ * Aligned with Orchestra Bible v0.7.0 Section 6.1
+ * Handles loading and validating Orchestra configuration.
  */
 
-import * as path from "node:path";
-import { ConfigurationError } from "./errors.js";
-import type { OrchestraConfig } from "./types.js";
-import { OrchestraConfigSchema } from "./types.js";
-import { readYaml, writeYaml, yamlExists } from "./yaml.js";
-
-const CONFIG_FILENAME = "orchestra.yaml";
-const DEFAULT_ORCHESTRA_DIR = ".orchestra";
+import { existsSync, readFileSync } from "fs";
+import { join } from "path";
+import { parse as parseYaml } from "yaml";
+import { DEFAULT_CONFIG, OrchestraConfig } from "./types.js";
 
 /**
- * Default configuration
+ * Find the .orchestra directory starting from a given path
  */
-export function getDefaultConfig(): OrchestraConfig {
-  return {
-    version: "1.0.0",
-    orchestra_dir: ".orchestra",
-    retry: {
-      max_attempts: 3,
-      backoff_enabled: false,
-    },
-    notifications: {
-      enabled: false,
-    },
-    defaults: {},
-    git: {
-      auto_commit: false,
-      commit_prefix: "orchestra",
-    },
-  };
-}
+export function findOrchestraRoot(
+  startPath: string = process.cwd()
+): string | null {
+  let currentPath = startPath;
 
-/**
- * Find the Orchestra root directory by searching up from startDir
- */
-export function findOrchestraRoot(startDir?: string): string | null {
-  let currentDir = path.resolve(startDir ?? process.cwd());
-  const root = path.parse(currentDir).root;
-
-  while (currentDir !== root) {
-    const configPath = path.join(
-      currentDir,
-      DEFAULT_ORCHESTRA_DIR,
-      CONFIG_FILENAME
-    );
-    if (yamlExists(configPath)) {
-      return currentDir;
+  while (currentPath !== "/") {
+    const orchestraPath = join(currentPath, ".orchestra");
+    if (existsSync(orchestraPath)) {
+      return orchestraPath;
     }
-    currentDir = path.dirname(currentDir);
-  }
-
-  // Check root directory too
-  const rootConfigPath = path.join(
-    root,
-    DEFAULT_ORCHESTRA_DIR,
-    CONFIG_FILENAME
-  );
-  if (yamlExists(rootConfigPath)) {
-    return root;
+    const parentPath = join(currentPath, "..");
+    if (parentPath === currentPath) break;
+    currentPath = parentPath;
   }
 
   return null;
 }
 
 /**
- * Load configuration from a directory
+ * Load Orchestra configuration from .orchestra/config.yaml
+ * Falls back to defaults if not found.
  */
-export function loadConfig(rootDir?: string): OrchestraConfig {
-  const root = rootDir ?? findOrchestraRoot();
+export function loadConfig(orchestraRoot: string): OrchestraConfig {
+  const configPath = join(orchestraRoot, "config.yaml");
 
-  if (!root) {
-    throw new ConfigurationError(
-      'Orchestra not initialized. Run "orchestra init" first.',
-      { searchedFrom: process.cwd() }
-    );
+  if (!existsSync(configPath)) {
+    return { ...DEFAULT_CONFIG };
   }
 
-  const configPath = path.join(root, DEFAULT_ORCHESTRA_DIR, CONFIG_FILENAME);
+  try {
+    const content = readFileSync(configPath, "utf-8");
+    const parsed = parseYaml(content) as {
+      orchestra?: Partial<OrchestraConfig>;
+    };
 
-  if (!yamlExists(configPath)) {
-    // If a specific rootDir was provided but has no orchestra config, throw
-    if (rootDir) {
-      throw new ConfigurationError(
-        'Orchestra not initialized in the specified directory.',
-        { directory: rootDir }
-      );
-    }
-    return getDefaultConfig();
+    // Deep merge with defaults
+    return mergeConfig(DEFAULT_CONFIG, parsed.orchestra || {});
+  } catch (error) {
+    console.warn(`Warning: Could not parse config.yaml, using defaults`);
+    return { ...DEFAULT_CONFIG };
   }
-
-  return readYaml(configPath, OrchestraConfigSchema);
 }
 
 /**
- * Save configuration to a directory
+ * Deep merge configuration objects
  */
-export function saveConfig(config: OrchestraConfig, rootDir: string): void {
-  const orchestraDir = path.join(
-    rootDir,
-    config.orchestra_dir ?? DEFAULT_ORCHESTRA_DIR
-  );
-  const configPath = path.join(orchestraDir, CONFIG_FILENAME);
-  writeYaml(configPath, config, { createDir: true });
+function mergeConfig(
+  defaults: OrchestraConfig,
+  overrides: Partial<OrchestraConfig>
+): OrchestraConfig {
+  return {
+    version: overrides.version ?? defaults.version,
+    paths: {
+      ...defaults.paths,
+      ...overrides.paths,
+    },
+    verification: {
+      ...defaults.verification,
+      ...overrides.verification,
+    },
+    retry: {
+      ...defaults.retry,
+      ...overrides.retry,
+    },
+    git: {
+      ...defaults.git,
+      ...overrides.git,
+    },
+  };
 }
 
 /**
- * Get path to a file within the Orchestra directory
+ * Resolve a config path to an absolute path
  */
-export function getOrchestraPath(
-  relativePath: string,
-  rootDir?: string
-): string {
-  const root = rootDir ?? findOrchestraRoot();
-
-  if (!root) {
-    throw new ConfigurationError("Orchestra not initialized.");
-  }
-
-  const config = loadConfig(root);
-  return path.join(
-    root,
-    config.orchestra_dir ?? DEFAULT_ORCHESTRA_DIR,
-    relativePath
-  );
+export function resolvePath(orchestraRoot: string, configPath: string): string {
+  return join(orchestraRoot, configPath);
 }
 
 /**
- * Check if Orchestra is initialized in a directory
+ * Get all resolved paths for the Orchestra system
  */
-export function isOrchestraInitialized(rootDir?: string): boolean {
-  return findOrchestraRoot(rootDir) !== null;
+export function getResolvedPaths(
+  orchestraRoot: string,
+  config: OrchestraConfig
+) {
+  return {
+    root: orchestraRoot,
+    manifest: resolvePath(orchestraRoot, config.paths.manifest),
+    handovers: resolvePath(orchestraRoot, config.paths.handovers),
+    signals: resolvePath(orchestraRoot, config.paths.signals),
+    feedback: resolvePath(orchestraRoot, config.paths.feedback),
+    artifacts: resolvePath(orchestraRoot, config.paths.artifacts),
+    templates: resolvePath(orchestraRoot, config.paths.templates),
+  };
 }

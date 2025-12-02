@@ -1,171 +1,235 @@
 /**
- * Orchestra Core Type Definitions
+ * Orchestra Core Types
+ *
+ * Aligned with Orchestra Bible v0.7.0
+ * All type definitions for the Orchestra system.
  */
 
-import { z } from "zod";
-
 // =============================================================================
-// Task Status
+// Task Lifecycle States (Bible Section 7)
 // =============================================================================
 
-export const TaskStatusSchema = z.enum([
-  "not-started",
-  "in-progress",
-  "blocked",
-  "completed",
-  "failed",
-  "skipped",
-]);
+/**
+ * Task lifecycle phases as defined in Bible Section 7
+ */
+export type TaskStatus =
+  | "PENDING" // Task defined but not started
+  | "PREPARE" // Orchestrator preparing handover
+  | "IMPLEMENT" // Implementor working
+  | "GATE_CHECK" // Automated verification running
+  | "VERIFY" // Orchestrator/human review
+  | "COMPLETE" // Task finished successfully
+  | "RETRY" // Failed verification, retrying
+  | "ESCALATED"; // Requires human intervention
 
-export type TaskStatus = z.infer<typeof TaskStatusSchema>;
-
-// =============================================================================
-// Task
-// =============================================================================
-
-export const TaskSchema = z.object({
-  id: z.string().min(1),
-  title: z.string().min(1),
-  description: z.string().optional(),
-  status: TaskStatusSchema.default("not-started"),
-  depends_on: z.array(z.string()).optional().default([]),
-  acceptance_criteria: z.array(z.string()).optional().default([]),
-  assignee: z.string().optional(),
-  started_at: z.string().datetime().optional(),
-  completed_at: z.string().datetime().optional(),
-  attempt_count: z.number().int().min(0).default(0),
-  max_attempts: z.number().int().min(1).default(3),
-  notes: z.string().optional(),
-});
-
-export type Task = z.infer<typeof TaskSchema>;
+/**
+ * Sprint-level states
+ */
+export type SprintStatus = "ACTIVE" | "COMPLETED" | "ABORTED";
 
 // =============================================================================
-// Manifest
+// Manifest Types (Bible Section 6.1)
 // =============================================================================
 
-export const ManifestMetadataSchema = z.object({
-  feature_id: z.string().min(1),
-  title: z.string().min(1),
-  description: z.string().optional(),
-  agent: z.string().optional(),
-  created_at: z.string().datetime().optional(),
-  updated_at: z.string().datetime().optional(),
-  target_files: z.array(z.string()).optional().default([]),
-});
+/**
+ * Task definition in manifest
+ */
+export interface Task {
+  id: number;
+  title: string;
+  description?: string;
+  status: TaskStatus;
+  category?: "INFRASTRUCTURE" | "INTEGRATION" | "VISUAL";
+  dependencies?: number[];
+  retry_count: number;
+  max_retries: number;
+  created_at?: string;
+  started_at?: string;
+  completed_at?: string;
+  last_failure?: string;
+}
 
-export type ManifestMetadata = z.infer<typeof ManifestMetadataSchema>;
+/**
+ * Sprint definition in manifest
+ */
+export interface Sprint {
+  id: string;
+  name: string;
+  status: SprintStatus;
+  created_at: string;
+  completed_at?: string;
+}
 
-export const ManifestSchema = z.object({
-  version: z.string().default("1.0.0"),
-  metadata: ManifestMetadataSchema,
-  tasks: z.array(TaskSchema).min(1),
-});
-
-export type Manifest = z.infer<typeof ManifestSchema>;
-
-// =============================================================================
-// Progress
-// =============================================================================
-
-export const ProgressEntrySchema = z.object({
-  task_id: z.string(),
-  status: TaskStatusSchema,
-  timestamp: z.string().datetime(),
-  agent: z.string().optional(),
-  notes: z.string().optional(),
-  duration_ms: z.number().optional(),
-});
-
-export type ProgressEntry = z.infer<typeof ProgressEntrySchema>;
-
-export const ProgressLogSchema = z.object({
-  manifest_id: z.string(),
-  entries: z.array(ProgressEntrySchema),
-  created_at: z.string().datetime(),
-  updated_at: z.string().datetime(),
-});
-
-export type ProgressLog = z.infer<typeof ProgressLogSchema>;
+/**
+ * The manifest.yaml structure (Bible Section 6.1)
+ * Located at: .orchestra/manifest.yaml
+ */
+export interface Manifest {
+  version: string;
+  sprint: Sprint;
+  tasks: Task[];
+  current_task_id?: number;
+  metadata?: Record<string, unknown>;
+}
 
 // =============================================================================
-// Configuration
+// Handover Types (Bible Section 6.1)
 // =============================================================================
 
-export const OrchestraConfigSchema = z.object({
-  version: z.string().default("1.0.0"),
-  orchestra_dir: z.string().default(".orchestra"),
-  templates_dir: z.string().optional(),
-  retry: z
-    .object({
-      max_attempts: z.number().int().min(1).default(3),
-      backoff_enabled: z.boolean().default(false),
-    })
-    .optional(),
-  notifications: z
-    .object({
-      enabled: z.boolean().default(false),
-      channels: z.array(z.string()).optional(),
-    })
-    .optional(),
-  defaults: z
-    .object({
-      agent: z.string().optional(),
-      assignee: z.string().optional(),
-    })
-    .optional(),
-  git: z
-    .object({
-      auto_commit: z.boolean().default(false),
-      commit_prefix: z.string().default("orchestra"),
-    })
-    .optional(),
-});
-
-export type OrchestraConfig = z.infer<typeof OrchestraConfigSchema>;
+/**
+ * Handover document metadata
+ * Files located at: .orchestra/implementor/handovers/
+ */
+export interface HandoverMetadata {
+  task_id: number;
+  created_at: string;
+  prepared_by: "orchestrator";
+}
 
 // =============================================================================
-// Verification
+// Signal Types (Bible Section 6.1)
 // =============================================================================
 
-export const VerificationSeveritySchema = z.enum([
-  "blocking",
-  "major",
-  "minor",
-  "info",
-]);
+/**
+ * Completion signal structure
+ * Files located at: .orchestra/implementor/signals/
+ */
+export interface CompletionSignal {
+  task_id: number;
+  signaled_at: string;
+  pre_signal_passed: boolean;
+  implementor_notes?: string;
+}
 
-export type VerificationSeverity = z.infer<typeof VerificationSeveritySchema>;
+// =============================================================================
+// Feedback Types (Bible Section 7.7)
+// =============================================================================
 
-export const VerificationCheckSchema = z.object({
-  id: z.string(),
-  description: z.string(),
-  type: z.enum([
-    "file_exists",
-    "file_contains",
-    "command",
-    "test_count",
-    "pattern_match",
-    "custom",
-  ]),
-  severity: VerificationSeveritySchema,
-  params: z.record(z.unknown()).optional(),
-});
+/**
+ * Feedback for retry attempts
+ * Files located at: .orchestra/implementor/feedback/
+ */
+export interface FeedbackDocument {
+  task_id: number;
+  attempt: number;
+  max_attempts: number;
+  failed_checks: FailedCheck[];
+  what_was_correct?: string[];
+  next_steps: string[];
+  created_at: string;
+}
 
-export type VerificationCheck = z.infer<typeof VerificationCheckSchema>;
+export interface FailedCheck {
+  name: string;
+  severity: "BLOCKING" | "MAJOR" | "MINOR" | "INFO";
+  expected: string;
+  actual: string;
+  fix: string;
+}
 
-export interface CheckResult {
+// =============================================================================
+// Verification Types (Bible Section 9)
+// =============================================================================
+
+/**
+ * Verification check definition
+ */
+export interface VerificationCheck {
   id: string;
   description: string;
-  severity: VerificationSeverity;
-  passed: boolean;
-  message?: string;
-  actual?: string;
+  severity: "BLOCKING" | "MAJOR" | "MINOR" | "INFO";
+  type: "structural" | "functional" | "adversarial" | "visual";
 }
 
+/**
+ * Verification result
+ */
 export interface VerificationResult {
-  taskId: string;
-  passed: boolean;
-  checks: CheckResult[];
-  timestamp: string;
+  check_id: string;
+  status: "PASS" | "FAIL";
+  evidence?: string;
+  observation?: string;
 }
+
+/**
+ * Complete verification report
+ */
+export interface VerificationReport {
+  task_id: number;
+  attempt: number;
+  result: "PASSED" | "FAILED";
+  checks: VerificationResult[];
+  created_at: string;
+}
+
+// =============================================================================
+// Script Result Types (Bible Section 8)
+// =============================================================================
+
+/**
+ * Standard result from any Orchestra script/command
+ */
+export interface ScriptResult<T = unknown> {
+  success: boolean;
+  message: string;
+  data?: T;
+  errors?: string[];
+}
+
+// =============================================================================
+// Configuration Types
+// =============================================================================
+
+/**
+ * Orchestra configuration
+ */
+export interface OrchestraConfig {
+  version: string;
+  paths: {
+    manifest: string;
+    handovers: string;
+    signals: string;
+    feedback: string;
+    artifacts: string;
+    templates: string;
+  };
+  verification: {
+    flutter_analyze: boolean;
+    flutter_test: boolean;
+    file_checks: boolean;
+  };
+  retry: {
+    max_retries: number;
+  };
+  git: {
+    auto_commit: boolean;
+    commit_prefix: string;
+  };
+}
+
+/**
+ * Default configuration values
+ */
+export const DEFAULT_CONFIG: OrchestraConfig = {
+  version: "1.0",
+  paths: {
+    manifest: "manifest.yaml",
+    handovers: "implementor/handovers",
+    signals: "implementor/signals",
+    feedback: "implementor/feedback",
+    artifacts: "artifacts",
+    templates: "common/templates",
+  },
+  verification: {
+    flutter_analyze: true,
+    flutter_test: true,
+    file_checks: true,
+  },
+  retry: {
+    max_retries: 3,
+  },
+  git: {
+    auto_commit: false,
+    commit_prefix: "orchestra",
+  },
+};

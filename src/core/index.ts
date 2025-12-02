@@ -1,16 +1,16 @@
 /**
- * Orchestra Core Library
+ * Orchestra Core - Public API
  *
- * Shared business logic for CLI, MCP, and VS Code Extension.
+ * Aligned with Orchestra Bible v0.7.0
+ * This module exports all core services for use by CLI, MCP, and Extension.
  */
 
-// Re-export all core modules
+// Types
+export * from "./types.js";
+
+// Services (to be implemented)
 export * from "./config.js";
-export * from "./errors.js";
 export * from "./git.js";
 export * from "./manifest.js";
-export * from "./progress.js";
-export * from "./templates.js";
-export * from "./types.js";
-export * from "./verification.js";
-export * from "./yaml.js";
+export * from "./output.js";
+export * from "./validation.js";
