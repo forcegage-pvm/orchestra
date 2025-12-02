@@ -70,9 +70,12 @@ else {
 }
 
 $currentBranch = Get-CurrentBranch
-Add-CheckResult $checks "On agent-research branch" ($currentBranch -eq "agent-research") `
-    "Current branch: $currentBranch" `
-    "Run: git checkout agent-research" `
+# Accept either master or main as valid default branches, or agent-research for feature work
+$validBranches = @("master", "main", "agent-research")
+$isValidBranch = $validBranches -contains $currentBranch
+Add-CheckResult $checks "On valid branch" $isValidBranch `
+    "Current branch: $currentBranch (expected: master, main, or agent-research)" `
+    "Run: git checkout master" `
     "Git branch"
 
 # ============================================================================
@@ -321,11 +324,19 @@ Write-Section "Test Suite Status"
 
 Write-Host "  Running sprint tests..." -ForegroundColor Gray
 
-# Ensure we run tests from repo root
-$repoRoot = (Get-Location).Path
+# Use configured test command from environment
+$testCommand = if ($env:TEST_COMMAND) { $env:TEST_COMMAND } else { "npm test" }
+$testPath = $env:SPRINT_TEST_PATH
+
 try {
-    $testOutput = flutter test $env:SPRINT_TEST_PATH --no-pub 2>&1 | Out-String
-    $allPassed = $testOutput -match "All tests passed"
+    # Run the configured test command
+    $testOutput = Invoke-Expression "$testCommand" 2>&1 | Out-String
+    
+    # Check for pass indicators (varies by test runner)
+    # npm test / vitest: "Tests  X passed" or "passed"
+    # flutter test: "All tests passed"
+    $allPassed = $testOutput -match "All tests passed|Tests\s+\d+ passed|passed \(\d+\)|✓" -and 
+                 $testOutput -notmatch "FAIL|failed|error"
     
     # Parse test count from output like "00:08 +237: All tests passed!"
     $testCount = "0"
@@ -347,7 +358,7 @@ try {
     
     Add-CheckResult $checks "Sprint tests pass" $allPassed `
         "Tests failed - fix before proceeding" `
-        "Run: flutter test $env:SPRINT_TEST_PATH" `
+        "Run: $testCommand" `
         $env:SPRINT_TEST_PATH
     
     if ($allPassed) {
