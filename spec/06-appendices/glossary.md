@@ -58,7 +58,7 @@ A task that has exceeded retry limits or encountered unrecoverable errors. Requi
 A marker file created by the Implementor to indicate task completion. Stored in `.orchestra/implementor/signals/` with naming convention `task-{id}-complete.signal`.
 
 ### Feedback File
-A document from the Orchestrator providing revision instructions when verification fails. Stored in `.orchestra/implementor/feedback/` with naming convention `task-{id}-feedback.md`.
+A document from the Orchestrator providing revision instructions when verification fails. Stored in `.orchestra/handover/feedback.md` (transient - cleared when task passes).
 
 ### Sprint Directory
 The `.orchestra/sprints/{sprint-id}/` folder containing all artifacts, logs, and metadata for a specific sprint.

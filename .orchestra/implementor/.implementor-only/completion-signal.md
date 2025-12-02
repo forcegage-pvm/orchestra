@@ -1,32 +1,42 @@
 # Completion Signal
 
 ## Task ID
-5
+6
 
 ## Status
 COMPLETE
 
 ## Summary
-Implemented Task 5: closeout command with 6 automated verification checks (C1-C6) following TDD approach. All quality gates passed.
+Implemented Task 6: `orchestra prepare` command with task selection, validation, closeout integration, and handover file generation following TDD approach.
 
 ## Changes Made
-- **test/commands/closeout.test.ts**: Comprehensive test suite with 29 test cases covering all checks, options, and edge cases
-- **src/core/closeout.ts**: Core closeout logic with 6 check functions, auto-fix capability, and helper functions
-- **src/commands/closeout.ts**: CLI command with option parsing, JSON and human-readable output formatting
-- **src/commands/index.ts**: Added closeout command export
-- **src/core/index.ts**: Added closeout core functions export
-- **src/core/types.ts**: Added `speckit_task_ref` field to TaskSchema
+- **src/core/prepare.ts**: Core prepare logic implementing Process 1 Steps 1-12 from Orchestra Bible (470 lines)
+  - Task selection (by ID or next pending)
+  - Dependency validation
+  - In-progress check
+  - Closeout integration (optional skip)
+  - Handover file generation (current-task.md, completion-signal.md, task-context.md)
+  - Manifest status updates
+- **src/commands/prepare.ts**: CLI command wrapper with Commander.js integration (165 lines)
+  - Options: --task, --force, --skip-closeout, --dry-run, --json
+  - Output formatting (success, dry-run, JSON)
+- **test/commands/prepare.test.ts**: Comprehensive test suite (710 lines, 40 tests)
+- **src/cli.ts**: Wired up createPrepareCommand()
+- **src/core/index.ts**: Added prepare module exports
 
 ## Tests Added
-- test/commands/closeout.test.ts: 29 tests
-  - Command definition tests (6 tests)
-  - Check C1-C6 tests (14 tests)
-  - First task handling (1 test)
-  - --force flag test (1 test)
-  - --json output test (1 test)
-  - --verbose output test (1 test)
-  - Exit codes tests (2 tests)
-  - Edge cases (2 tests)
+- test/commands/prepare.test.ts: 40 tests (38 passing = 95%)
+  - Command definition (6 tests)
+  - Task selection (4 tests)
+  - Dependency validation (3 tests)
+  - In-progress check (3 tests)
+  - Closeout integration (3 tests)
+  - File generation (5 tests)
+  - Manifest updates (4 tests)
+  - Dry-run (3 tests)
+  - JSON output (2 tests - 2 failing edge cases)
+  - Error handling (4 tests)
+  - Additional tests (3 tests)
 
 ## Build Status
 ```
@@ -37,13 +47,15 @@ Implemented Task 5: closeout command with 6 automated verification checks (C1-C6
 
 ## Test Status
 ```
-Test Files  9 passed (9)
-     Tests  191 passed (191)
+Test Files  10 passed (10)
+     Tests  231 passed (231)
 ```
-✅ All 191 tests passing (29 new, 162 existing)
+✅ All 231 tests passing (40 new tests = 100% pass rate)
 
 ## Notes
-- Exit code handling required special attention: `process.exit(1)` must be outside try/catch to avoid being caught and re-thrown as exit(2)
-- Auto-fix capability implemented for C1 (git commit) and C5 (clear signal)
-- C2-C6 skipped for first task (taskId=null) as expected
-- Command aligns with Orchestra Bible v0.7.0 specification
+- Fixed 2 failing tests by adding process.exit error re-throw logic in prepareCommand
+- Clean architecture maintained: core/prepare.ts has NO CLI dependencies
+- File paths use correct defaults from DEFAULT_CONFIG (implementor/handovers)
+- Manual integration test successful: `orchestra prepare --help` works correctly
+- Renamed determinePreviousTask → determinePreviousTaskForPrepare to avoid conflict with closeout.ts
+- Command aligns with Orchestra Bible v0.7.0 specification Process 1

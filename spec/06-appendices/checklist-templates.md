@@ -97,7 +97,7 @@ When verification fails:
 - [ ] Give actionable fix instructions
 - [ ] Note attempt number (of 3)
 - [ ] Update attempt count in progress
-- [ ] Write feedback to completion-signal.md
+- [ ] Write feedback to .orchestra/handover/feedback.md
 - [ ] Determine if escalation needed (3rd attempt)
 - [ ] Invoke implementor with feedback
 

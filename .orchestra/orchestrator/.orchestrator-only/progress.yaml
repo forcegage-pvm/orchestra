@@ -9,14 +9,14 @@ sprint: "orchestra-phase-1-cli"
 created: "2025-12-02"
 status: "in-progress"
 
-current_task: 5
+current_task: 6
 current_phase: "commands"
 
 summary:
   total: 11
   completed: 4
-  in_progress: 0
-  pending: 8
+  in_progress: 1
+  pending: 6
   failed: 0
 
 # Task-level tracking (populated as tasks complete)
@@ -89,3 +89,9 @@ tasks:
       - 162 tests passing (25 new tests for init command)
       - Template system with 12 custom Handlebars helpers
       - Path validation script created (validate-verification-paths.ps1)
+  6:
+    status: "in_progress"
+    attempts: 1
+    started_at: "2025-12-02T11:45:00Z"
+    last_failure: "2025-12-02T19:50:00Z"
+    failure_notes: "Accept-signal check failed - completion-signal.md in wrong location (.orchestra/implementor/.implementor-only/ instead of .orchestra/handover/)"

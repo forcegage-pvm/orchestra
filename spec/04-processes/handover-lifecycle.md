@@ -35,7 +35,7 @@ The file-based system ensures:
 │   │   ├── task-001-complete.signal
 │   │   └── ...
 │   └── feedback/                    # Retry feedback (Orchestrator → Implementor)
-│       ├── task-001-feedback.md
+│       ├── task-001-feedback.md    # Feedback from orchestrator if verification fails
 │       └── ...
 ├── artifacts/                       # Archived task artifacts
 │   ├── task-001/
@@ -101,11 +101,9 @@ implementor/signals/
 ### State 5: RETRY (Feedback Pending)
 
 ```
-implementor/handovers/
-└── task-005.md                      # Original handover
-
-implementor/feedback/
-└── task-005-feedback.md             # Feedback for retry
+handover/
+├── current-task.md                  # Original handover (unchanged)
+└── feedback.md                      # Feedback for retry
 ```
 
 **When**: Verification failed, retry allowed
@@ -243,7 +241,7 @@ artifacts/
 # 1. Create feedback document
 .orchestra/orchestrator/scripts/generate-feedback.ps1
 
-# Feedback file location: .orchestra/implementor/feedback/task-{id}-feedback.md
+# Feedback file location: .orchestra/handover/feedback.md
 
 # 2. Update manifest: increment retry_count, status → RETRY
 

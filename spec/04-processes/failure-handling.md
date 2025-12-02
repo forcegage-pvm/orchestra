@@ -62,7 +62,7 @@ tasks:
 ```
 
 **What it does**:
-- Creates feedback file at `.orchestra/implementor/feedback/task-{id}-feedback.md`
+- Creates feedback file at `.orchestra/handover/feedback.md`
 - Documents specific failures with evidence
 - Provides actionable fix instructions
 - Notes what was correct (positive reinforcement)
@@ -110,7 +110,7 @@ tasks:
    └── Run: generate-feedback.ps1
 
 2. Implementor reads feedback
-   └── File: .orchestra/implementor/feedback/task-{id}-feedback.md
+   └── File: .orchestra/handover/feedback.md
 
 3. Implementor makes targeted fixes
    └── Does NOT restart from scratch

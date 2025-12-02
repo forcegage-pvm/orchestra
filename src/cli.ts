@@ -10,6 +10,7 @@
 import { Command } from "commander";
 import { createCloseoutCommand } from "./commands/closeout.js";
 import { createInitCommand } from "./commands/init.js";
+import { createPrepareCommand } from "./commands/prepare.js";
 import { statusCommand } from "./commands/status.js";
 
 // Import commands (to be implemented)
@@ -57,14 +58,7 @@ program.addCommand(createInitCommand());
 program.addCommand(createCloseoutCommand());
 
 // Prepare command - prepare task handover
-program
-  .command("prepare")
-  .description("Prepare handover for next task")
-  .option("--task <id>", "Task ID to prepare")
-  .action(async () => {
-    console.log("Prepare command not yet implemented");
-    // TODO: Implement prepare command
-  });
+program.addCommand(createPrepareCommand());
 
 // Accept-signal command - verify implementor ran pre-signal check
 program

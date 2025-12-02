@@ -208,7 +208,7 @@ Every task in Orchestra goes through a defined lifecycle from definition through
 **Script**: `generate-feedback`
 
 **Artifacts produced**:
-- `.orchestra/implementor/feedback/task-{id}-feedback.md`
+- `.orchestra/handover/feedback.md`
 - Updated `progress.yaml` (attempts incremented)
 
 **Exit condition**: Back to IMPLEMENT or escalated to human.
