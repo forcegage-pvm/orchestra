@@ -1,12 +1,14 @@
 # Command: `orchestra init`
 
-> **Navigation**: [Phase 1 Index](../readme.md) | **Next**: [prepare](prepare.md)
+> **Navigation**: [Phase 1 Index](../readme.md) | **Next**: [closeout](closeout.md)
 
 ---
 
 ## Purpose
 
 Initialize a new Orchestra sprint from a SpecKit specification. Creates the `.orchestra/` folder structure, generates manifest from spec, and sets up verification criteria templates.
+
+This is a **supporting command** that runs once at sprint start, before Process 1 begins.
 
 ## Synopsis
 

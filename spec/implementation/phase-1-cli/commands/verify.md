@@ -1,12 +1,19 @@
 # Command: `orchestra verify`
 
-> **Navigation**: [Phase 1 Index](../readme.md) | **Prev**: [prepare](prepare.md) | **Next**: [complete](complete.md)
+> **Navigation**: [Phase 1 Index](../readme.md) | **Prev**: [accept-signal](accept-signal.md) | **Next**: [complete](complete.md)
 
 ---
 
 ## Purpose
 
 Run verification checks for the current task. Executes all checks defined in the task's verification criteria and produces a structured report.
+
+**This command is part of Process 2: Task Verification** and implements Steps 2-4 after accept-signal passes.
+
+## Process Reference
+
+This command implements **Process 2 (Task Verification), Steps 2-4** from:
+- `.orchestra/orchestrator/processes/02-TASK-VERIFICATION.md`
 
 ## Synopsis
 
@@ -22,14 +29,79 @@ orchestra verify [OPTIONS]
 | `--check` | STR | No | all | Run specific check ID only |
 | `--severity` | STR | No | all | Filter by severity (BLOCKING/MAJOR/MINOR/INFO) |
 | `--continue-on-error` | FLAG | No | false | Continue after failures |
+| `--skip-accept` | FLAG | No | false | Skip accept-signal check (not recommended) |
 | `--json` | FLAG | No | false | Output JSON format |
 | `--verbose` | FLAG | No | false | Show command output |
 
 ## Preconditions
 
-1. **Task in progress**: Task must have status "in_progress"
-2. **Verification criteria exist**: `verification/task-XXX.yaml` must exist
-3. **Pre-signal artifact**: Optional but recommended (proves implementor ran checks)
+1. **Accept-signal check passed**: `orchestra accept-signal` must pass (Step 1)
+2. **Task in progress**: Task must have status "in_progress"
+3. **Verification criteria exist**: `verification/task-XXX.yaml` must exist
+
+### Automatic Accept-Signal Check
+
+By default, `verify` runs `accept-signal` first:
+
+```typescript
+async function verifyTask(taskId: number, options: VerifyOptions): Promise<void> {
+  // Step 1: Run accept-signal check (unless skipped)
+  if (!options.skipAccept) {
+    const signalReport = await runAcceptSignalChecks(taskId, options.maxAge ?? 60);
+    
+    if (!signalReport.canVerify) {
+      console.error('Accept signal check failed.');
+      console.error('The implementor must run their pre-signal check before verification.');
+      console.error('Run "orchestra accept-signal" for details.');
+      console.error('Use --skip-accept to bypass (not recommended).');
+      process.exit(3);
+    }
+    console.log('✓ Accept signal check passed');
+  }
+  
+  // Proceed with Steps 2-4 (verification)...
+}
+```
+
+### Visual Verification (VISUAL Tasks)
+
+For VISUAL category tasks, additional steps apply:
+
+```typescript
+async function handleVisualVerification(taskId: number): Promise<void> {
+  const manifest = await loadManifest();
+  const task = manifest.tasks.find(t => t.id === taskId);
+  
+  if (task?.category !== 'VISUAL') {
+    return; // Not a visual task
+  }
+  
+  console.log('\n⚠️  VISUAL TASK - Manual Verification Required');
+  console.log('────────────────────────────────────────────────');
+  console.log('This task requires visual verification.');
+  console.log('');
+  console.log('Steps:');
+  console.log('  1. Screenshot should exist at: screenshots/task-XXX-verification.png');
+  console.log('  2. Open screenshot using Chrome DevTools MCP');
+  console.log('  3. Verify visual criteria match acceptance requirements');
+  console.log('  4. Document findings in verification report');
+  console.log('');
+  
+  // Check if screenshot exists
+  const screenshotPath = `screenshots/task-${String(taskId).padStart(3, '0')}-verification.png`;
+  if (!fs.existsSync(screenshotPath)) {
+    console.error(`Screenshot not found: ${screenshotPath}`);
+    console.error('Visual verification cannot proceed without screenshot.');
+    process.exit(1);
+  }
+  
+  console.log(`✓ Screenshot found: ${screenshotPath}`);
+  console.log('');
+  console.log('Use Chrome DevTools MCP to view:');
+  console.log(`  mcp_chrome-devtoo_new_page(url: "file:///${path.resolve(screenshotPath)}")`);
+  console.log('  mcp_chrome-devtoo_take_screenshot()');
+}
+```
 
 ## Behavior
 

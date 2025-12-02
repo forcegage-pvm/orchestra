@@ -6,7 +6,28 @@
 
 ## Purpose
 
-Complete the current task after successful verification. Archives task artifacts, updates progress, optionally commits changes, and prepares for the next task.
+Complete the current task after successful verification. This implements the **post-verification closeout** steps that ensure proper task closure, artifact archival, and preparation for the next task.
+
+**This command is part of Process 2: Task Verification** and implements Steps 5-7 (PASS flow closeout) from:
+- `.orchestra/orchestrator/processes/02-TASK-VERIFICATION.md`
+
+## Process Reference
+
+This command implements **Process 2 (Task Verification), Steps 5-7** - the post-verification closeout:
+
+| Step | Description | Implementation |
+|------|-------------|----------------|
+| 6a | Git commit all changes | Step 7 below |
+| 6b | Git push to remote | Step 7 below |
+| 6c | Create task results file | Step 2 below |
+| 6d | Update progress.yaml | Step 3 below |
+| 6e | Record commit hash | Step 3 below |
+| 6f | Update manifest status | Step 4 below |
+| 6g | Update SpecKit tasks.md | Step 5 below |
+| 6h | Archive handover folder | Step 6 below |
+| 6i | Clear completion signal | Step 6 below |
+| 6j | Clear pre-signal artifact | Step 6 below |
+| 6k | Prepare results for pre-flight | Step 8 below |
 
 ## Synopsis
 
@@ -37,7 +58,39 @@ orchestra complete [OPTIONS] [MESSAGE]
 
 1. **Task in progress**: Task must have status "in_progress"
 2. **Verification passed**: Latest verification must be PASSED (unless --force)
-3. **Clean git state**: No merge conflicts (if --commit)
+3. **Accept-signal passed**: Pre-signal artifact exists and passed
+4. **Clean git state**: No merge conflicts (if --commit)
+
+### Verification Requirement
+
+The complete command should only be called after `orchestra verify` passes:
+
+```typescript
+async function validateComplete(taskId: number, force: boolean): Promise<void> {
+  const reportPath = `.orchestra/orchestrator/results/task-${String(taskId).padStart(3, '0')}-verification.yaml`;
+  
+  if (!force) {
+    if (!fs.existsSync(reportPath)) {
+      throw new Error('No verification report found. Run "orchestra verify" first.');
+    }
+    
+    const report = loadYaml(reportPath);
+    if (report.overall !== 'PASSED') {
+      throw new VerificationNotPassedError(
+        `Verification status is ${report.overall}. Cannot complete task.`,
+        report.failed_checks
+      );
+    }
+    
+    // Check report is recent (within 30 minutes)
+    const reportAge = (Date.now() - new Date(report.timestamp).getTime()) / (1000 * 60);
+    if (reportAge > 30) {
+      console.warn(`⚠️  Verification report is ${Math.round(reportAge)} minutes old.`);
+      console.warn('   Consider re-running "orchestra verify" to ensure current state.');
+    }
+  }
+}
+```
 
 ## Behavior
 
@@ -158,17 +211,55 @@ async function updateSpeckitTasks(speckitTasks: string[]): Promise<void> {
 }
 ```
 
-### Step 6: Clear Handover
+### Step 6: Clear Handover (Post-Verification Closeout Steps 6h-6j)
 
-```bash
-# Remove handover files (archived already)
-rm .orchestra/handover/current-task.md
-rm .orchestra/handover/completion-signal.md
-rm -rf .orchestra/handover/verification/*
+Clear all handover artifacts to prepare for next task:
 
-# Keep templates
-# Keep task-context.md (will be updated by prepare)
+```typescript
+async function clearHandover(taskId: number, archivePath: string): Promise<void> {
+  // 6h: Archive handover folder first (already done in Step 2)
+  console.log('Clearing handover folder...');
+  
+  // 6i: Clear completion signal
+  const signalPath = '.orchestra/handover/completion-signal.md';
+  if (fs.existsSync(signalPath)) {
+    fs.unlinkSync(signalPath);
+    console.log('  ✓ Cleared completion-signal.md');
+  }
+  
+  // 6j: Clear pre-signal artifact (CRITICAL)
+  const preSignalPath = '.orchestra/handover/verification/pre-signal.yaml';
+  if (fs.existsSync(preSignalPath)) {
+    fs.unlinkSync(preSignalPath);
+    console.log('  ✓ Cleared pre-signal.yaml');
+  }
+  
+  // Clear current task
+  const taskPath = '.orchestra/handover/current-task.md';
+  if (fs.existsSync(taskPath)) {
+    fs.unlinkSync(taskPath);
+    console.log('  ✓ Cleared current-task.md');
+  }
+  
+  // Clear verification folder (except pre-signal which was already deleted)
+  const verificationDir = '.orchestra/handover/verification';
+  if (fs.existsSync(verificationDir)) {
+    const files = fs.readdirSync(verificationDir);
+    for (const file of files) {
+      fs.unlinkSync(path.join(verificationDir, file));
+    }
+    console.log(`  ✓ Cleared ${files.length} verification file(s)`);
+  }
+  
+  // Keep task-context.md (will be updated by prepare)
+  // Keep templates folder
+}
 ```
+
+**Why clearing pre-signal.yaml matters:**
+- Prevents stale artifacts from passing `accept-signal` on next task
+- Forces implementor to run fresh pre-signal check for each task
+- Part of the "trust but verify" workflow
 
 ### Step 7: Git Commit (if enabled)
 

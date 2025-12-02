@@ -1,12 +1,19 @@
 # Command: `orchestra prepare`
 
-> **Navigation**: [Phase 1 Index](../readme.md) | **Prev**: [init](init.md) | **Next**: [verify](verify.md)
+> **Navigation**: [Phase 1 Index](../readme.md) | **Prev**: [closeout](closeout.md) | **Next**: [accept-signal](accept-signal.md)
 
 ---
 
 ## Purpose
 
 Prepare the handover folder for a specific task. Generates `current-task.md` from templates, updates `task-context.md`, and prepares the handover for the implementor.
+
+**This command is part of Process 1: Handover Creation** and implements Steps 1-12 after closeout passes.
+
+## Process Reference
+
+This command implements **Process 1 (Handover Creation), Steps 1-12** from:
+- `.orchestra/orchestrator/processes/01-HANDOVER-CREATION.md`
 
 ## Synopsis
 
@@ -20,6 +27,7 @@ orchestra prepare [OPTIONS]
 |--------|------|----------|---------|-------------|
 | `--task` | INT | No | next | Task ID to prepare (default: next pending) |
 | `--force` | FLAG | No | false | Prepare even if previous task incomplete |
+| `--skip-closeout` | FLAG | No | false | Skip closeout check (not recommended) |
 | `--dry-run` | FLAG | No | false | Show what would be generated |
 | `--json` | FLAG | No | false | Output JSON format |
 
@@ -27,10 +35,34 @@ orchestra prepare [OPTIONS]
 
 Before preparing a task:
 
-1. **Previous task complete**: Unless `--force`, previous task must be completed
-2. **Dependencies met**: All dependency tasks must be complete
-3. **Task exists**: Task ID must exist in manifest
-4. **Task pending**: Task status must be "pending"
+1. **Closeout check passed**: `orchestra closeout` must pass (Step 0)
+2. **Previous task complete**: Unless `--force`, previous task must be completed
+3. **Dependencies met**: All dependency tasks must be complete
+4. **Task exists**: Task ID must exist in manifest
+5. **Task pending**: Task status must be "pending"
+
+### Automatic Closeout Check
+
+By default, `prepare` runs `closeout` first:
+
+```typescript
+async function prepareTask(taskId: number, options: PrepareOptions): Promise<void> {
+  // Step 0: Run closeout check (unless skipped)
+  if (!options.skipCloseout && !options.force) {
+    const closeoutReport = await runCloseoutChecks(taskId - 1);
+    
+    if (!closeoutReport.canProceed) {
+      console.error('Closeout check failed. Previous task not fully closed out.');
+      console.error('Run "orchestra closeout" for details.');
+      console.error('Use --skip-closeout to bypass (not recommended).');
+      process.exit(1);
+    }
+    console.log('✓ Closeout check passed');
+  }
+  
+  // Proceed with Steps 1-12...
+}
+```
 
 ## Behavior
 

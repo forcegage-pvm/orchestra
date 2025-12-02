@@ -20,7 +20,7 @@ The Orchestra CLI is a command-line tool that automates orchestrator operations.
 
 ## Success Criteria
 
-- [ ] All 5 commands implemented and tested
+- [ ] All 7 commands implemented and tested
 - [ ] Works on Windows (PowerShell) and Unix (bash)
 - [ ] Exit codes for scripting (0=success, 1=failure)
 - [ ] Structured output (JSON option for parsing)
@@ -29,13 +29,54 @@ The Orchestra CLI is a command-line tool that automates orchestrator operations.
 
 ## Commands
 
+The CLI commands map directly to the **two orchestrator processes** defined in `.orchestra/orchestrator/processes/`:
+
+### Process 1: Handover Creation (Preparing Next Task)
+
+| Command | Purpose | Document |
+|---------|---------|----------|
+| `orchestra closeout` | **NEW** Verify previous task fully closed | [closeout.md](commands/closeout.md) |
+| `orchestra prepare` | Prepare task handover | [prepare.md](commands/prepare.md) |
+
+### Process 2: Task Verification (Verifying Completion)
+
+| Command | Purpose | Document |
+|---------|---------|----------|
+| `orchestra accept-signal` | **NEW** Verify implementor ran pre-signal check | [accept-signal.md](commands/accept-signal.md) |
+| `orchestra verify` | Run verification checks | [verify.md](commands/verify.md) |
+| `orchestra complete` | Complete task + post-verification closeout | [complete.md](commands/complete.md) |
+
+### Supporting Commands
+
 | Command | Purpose | Document |
 |---------|---------|----------|
 | `orchestra init` | Initialize sprint from spec | [init.md](commands/init.md) |
-| `orchestra prepare` | Prepare task handover | [prepare.md](commands/prepare.md) |
-| `orchestra verify` | Run verification checks | [verify.md](commands/verify.md) |
-| `orchestra complete` | Complete task, advance | [complete.md](commands/complete.md) |
 | `orchestra status` | Show current state | [status.md](commands/status.md) |
+
+### Command Flow Diagram
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    PROCESS 1: Handover Creation                 │
+│                                                                 │
+│   orchestra closeout  ──►  orchestra prepare                    │
+│   (verify previous)       (generate handover)                   │
+│                                                                 │
+│   → Implementor works...                                        │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                    PROCESS 2: Task Verification                 │
+│                                                                 │
+│   orchestra accept-signal ──► orchestra verify ──► orchestra    │
+│   (check pre-signal)          (run checks)         complete     │
+│                                                    (closeout)   │
+│                                                                 │
+│   If PASS → Loop to Process 1                                   │
+│   If FAIL → Return to implementor                               │
+└─────────────────────────────────────────────────────────────────┘
+```
 
 ## Architecture
 
@@ -50,10 +91,12 @@ tools/orchestra/
 │   │
 │   ├── commands/             # CLI command implementations
 │   │   ├── init.ts           # orchestra init
+│   │   ├── status.ts         # orchestra status
+│   │   ├── closeout.ts       # orchestra closeout (NEW)
 │   │   ├── prepare.ts        # orchestra prepare
+│   │   ├── accept-signal.ts  # orchestra accept-signal (NEW)
 │   │   ├── verify.ts         # orchestra verify
-│   │   ├── complete.ts       # orchestra complete
-│   │   └── status.ts         # orchestra status
+│   │   └── complete.ts       # orchestra complete
 │   │
 │   └── core/                 # REUSABLE SERVICES (no CLI deps!)
 │       ├── index.ts          # Public API exports
@@ -62,6 +105,8 @@ tools/orchestra/
 │       ├── manifest.ts       # Manifest operations
 │       ├── progress.ts       # Progress tracking
 │       ├── verification.ts   # Verification engine
+│       ├── closeout.ts       # Closeout checks (NEW)
+│       ├── signal.ts         # Signal validation (NEW)
 │       ├── templates.ts      # Template rendering
 │       ├── git.ts            # Git operations
 │       └── output.ts         # Structured results
@@ -89,11 +134,20 @@ tools/orchestra/
 | 1.2 | Core libraries (types, config, manifest, progress) | Not Started | [tasks/1.2-core-libraries.md](tasks/1.2-core-libraries.md) |
 | 1.3 | `orchestra status` command | Not Started | [tasks/1.3-status-command.md](tasks/1.3-status-command.md) |
 | 1.4 | `orchestra init` command | Not Started | [tasks/1.4-init-command.md](tasks/1.4-init-command.md) |
+| **1.4a** | **`orchestra closeout` command (NEW)** | Not Started | [tasks/1.4a-closeout-command.md](tasks/1.4a-closeout-command.md) |
 | 1.5 | `orchestra prepare` command | Not Started | [tasks/1.5-prepare-command.md](tasks/1.5-prepare-command.md) |
+| **1.5a** | **`orchestra accept-signal` command (NEW)** | Not Started | [tasks/1.5a-accept-signal-command.md](tasks/1.5a-accept-signal-command.md) |
 | 1.6 | `orchestra verify` command | Not Started | [tasks/1.6-verify-command.md](tasks/1.6-verify-command.md) |
 | 1.7 | `orchestra complete` command | Not Started | [tasks/1.7-complete-command.md](tasks/1.7-complete-command.md) |
 | 1.8 | Integration testing (E2E workflow tests) | Not Started | [tasks/1.8-integration-testing.md](tasks/1.8-integration-testing.md) |
 | 1.9 | Documentation (README, guides, reference) | Not Started | [tasks/1.9-documentation.md](tasks/1.9-documentation.md) |
+
+### Process Alignment
+
+| Process | Steps | CLI Commands |
+|---------|-------|--------------|
+| **Process 1: Handover Creation** | Steps 0-12 | `closeout` → `prepare` |
+| **Process 2: Task Verification** | Steps 1-7 | `accept-signal` → `verify` → `complete` |
 
 ## Dependencies
 
@@ -230,22 +284,50 @@ orchestra init --spec specs/012-feature/spec.md
 # Check current status
 orchestra status
 
-# Prepare next task
-orchestra prepare --task 1
+# ══════════════════════════════════════════════════════════════
+# PROCESS 1: Handover Creation (Preparing next task)
+# ══════════════════════════════════════════════════════════════
 
-# Run verification
-orchestra verify
+# Step 0: Verify previous task is fully closed out (MANDATORY)
+orchestra closeout
 # Returns exit code 0 if all checks pass
 
-# Complete task and advance
-orchestra complete --message "feat: add YAxisConfig"
+# If closeout passes, prepare next task
+orchestra closeout && orchestra prepare --task 1
 
-# Full workflow
+# Or let prepare auto-run closeout
+orchestra prepare --task 1  # Runs closeout first by default
+
+# ══════════════════════════════════════════════════════════════
+# PROCESS 2: Task Verification (After implementor signals done)
+# ══════════════════════════════════════════════════════════════
+
+# Step 1: Verify implementor actually ran pre-signal check (MANDATORY)
+orchestra accept-signal
+# Returns exit code 0 if pre-signal artifact exists and passed
+
+# If accepted, run verification
+orchestra accept-signal && orchestra verify
+
+# If verification passes, complete the task
+orchestra verify && orchestra complete --message "feat: add YAxisConfig"
+
+# Or run the full verification pipeline
+orchestra accept-signal && orchestra verify && orchestra complete
+
+# ══════════════════════════════════════════════════════════════
+# FULL WORKFLOW (scripted)
+# ══════════════════════════════════════════════════════════════
+
 orchestra init --spec specs/012/spec.md
 for task in $(seq 1 16); do
-    orchestra prepare --task $task
-    # ... implementor does work ...
-    orchestra verify && orchestra complete --message "Task $task complete"
+    # Process 1: Prepare
+    orchestra closeout && orchestra prepare --task $task
+    
+    # ... implementor does work and signals completion ...
+    
+    # Process 2: Verify and Complete
+    orchestra accept-signal && orchestra verify && orchestra complete
 done
 ```
 
@@ -261,15 +343,25 @@ import {
   Progress,
   Task,
   VerificationResult,
+  CloseoutResult,
+  SignalResult,
   
   // Services
   loadConfig,
   loadManifest,
   loadProgress,
   updateProgress,
-  runVerification,
+  
+  // Process 1: Handover Creation
+  runCloseoutCheck,      // NEW: Verify previous task closed
   prepareHandover,
   renderTemplate,
+  validateHandover,
+  
+  // Process 2: Task Verification
+  checkAcceptSignal,     // NEW: Verify pre-signal artifact
+  runVerification,
+  completeTask,
   
   // Git
   commitChanges,
