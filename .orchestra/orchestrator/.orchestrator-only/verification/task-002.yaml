@@ -1,229 +1,53 @@
-# Verification Criteria: Task 2 - Core Libraries Implementation
-# ⚠️ HIDDEN FROM IMPLEMENTOR
-#
-# This file defines the acceptance criteria for Task 2.
-# The orchestrator uses this to verify task completion.
-# The implementor should NOT see these criteria (prevents gaming).
+# Task 2: Core Libraries - Verification Criteria
+
+## ⚠️ ORCHESTRATOR ONLY - DO NOT SHARE WITH IMPLEMENTOR
 
 task_id: 2
-title: "Core Libraries Implementation"
+title: "Core Libraries"
 category: "INFRASTRUCTURE"
 created: "2025-12-02"
 
-# ═══════════════════════════════════════════════════════════════════
-# VERIFICATION CHECKS
-# ═══════════════════════════════════════════════════════════════════
+## Verification Checks
 
-checks:
-  # ─────────────────────────────────────────────────────────────────
-  # BLOCKING CHECKS - Must all pass
-  # ─────────────────────────────────────────────────────────────────
-  
-  - id: "V2.1"
-    name: "yaml.ts implemented"
-    severity: "BLOCKING"
-    type: "pattern_match"
-    params:
-      file: "src/core/yaml.ts"
-      pattern: 'fs\.readFileSync'
-      must_not_contain: 'throw new Error\("Not implemented"\)'
-    expected: "yaml.ts has real implementation (no 'Not implemented' errors)"
+### BLOCKING (Must Pass)
 
-  - id: "V2.2"
-    name: "config.ts implemented"
-    severity: "BLOCKING"
-    type: "pattern_match"
-    params:
-      file: "src/core/config.ts"
-      pattern: 'findOrchestraRoot'
-      must_not_contain: 'throw new Error\("Not implemented"\)'
-    expected: "config.ts has real implementation"
+| ID | Check | Command/Method | Expected |
+|----|-------|----------------|----------|
+| V2.1 | TypeScript compiles | `npm run build` | Exit code 0 |
+| V2.2 | All tests pass | `npm test` | Exit code 0, no failures |
+| V2.3 | types.ts exports Zod schemas | `grep "z\." src/core/types.ts` | Contains Zod schema definitions |
+| V2.4 | errors.ts has OrchestraError | `grep "class OrchestraError" src/core/errors.ts` | Class exists |
+| V2.5 | No commander imports in core | `grep -r "commander" src/core/` | No matches |
+| V2.6 | index.ts exports all modules | Read `src/core/index.ts` | Re-exports errors, types, yaml, config, manifest, progress, output |
 
-  - id: "V2.3"
-    name: "manifest.ts implemented"
-    severity: "BLOCKING"
-    type: "pattern_match"
-    params:
-      file: "src/core/manifest.ts"
-      pattern: 'getTask|loadManifest'
-      must_not_contain: 'throw new Error\("Not implemented"\)'
-    expected: "manifest.ts has real implementation"
+### MAJOR (Should Pass)
 
-  - id: "V2.4"
-    name: "progress.ts implemented"
-    severity: "BLOCKING"
-    type: "pattern_match"
-    params:
-      file: "src/core/progress.ts"
-      pattern: 'addProgressEntry'
-      must_not_contain: 'throw new Error\("Not implemented"\)'
-    expected: "progress.ts has real implementation"
+| ID | Check | Command/Method | Expected |
+|----|-------|----------------|----------|
+| V2.7 | yaml.ts has readYaml | `grep "readYaml" src/core/yaml.ts` | Function exported |
+| V2.8 | yaml.ts has writeYaml | `grep "writeYaml" src/core/yaml.ts` | Function exported |
+| V2.9 | config.ts finds orchestra root | `grep "findOrchestraRoot" src/core/config.ts` | Function exists |
+| V2.10 | manifest.ts has loadManifest | `grep "loadManifest" src/core/manifest.ts` | Function exported |
+| V2.11 | manifest.ts has saveManifest | `grep "saveManifest" src/core/manifest.ts` | Function exported |
+| V2.12 | progress.ts tracks entries | `grep "addProgressEntry" src/core/progress.ts` | Function exists |
+| V2.13 | output.ts uses chalk | `grep "chalk" src/core/output.ts` | Import present |
 
-  - id: "V2.5"
-    name: "Build succeeds"
-    severity: "BLOCKING"
-    type: "command"
-    params:
-      command: "npm run build"
-      expected_exit: 0
-      timeout: 60
-    expected: "TypeScript compiles without errors"
+### MINOR (Nice to Have)
 
-  - id: "V2.6"
-    name: "Tests pass"
-    severity: "BLOCKING"
-    type: "command"
-    params:
-      command: "npm test"
-      expected_exit: 0
-      timeout: 120
-    expected: "All unit tests pass"
+| ID | Check | Command/Method | Expected |
+|----|-------|----------------|----------|
+| V2.14 | Error hierarchy exists | Check for ConfigurationError, ManifestError, TaskError, FileError | Classes exist |
+| V2.15 | Test files exist | Check `test/core/*.test.ts` | At least 3 test files |
+| V2.16 | Schemas use z.infer | `grep "z.infer" src/core/types.ts` | Type inference used |
 
-  - id: "V2.7"
-    name: "No CLI imports in core"
-    severity: "BLOCKING"
-    type: "command"
-    params:
-      command: "powershell -Command \"Get-Content src/core/*.ts | Select-String -Pattern 'from.*cli' -Quiet\""
-      expected_exit: 1
-    expected: "Core modules do not import from CLI (exit 1 = no matches)"
+## Decision Criteria
 
-  - id: "V2.8"
-    name: "yaml.test.ts exists"
-    severity: "BLOCKING"
-    type: "file_exists"
-    params:
-      path: "test/core/yaml.test.ts"
-    expected: "YAML tests file exists"
+- **PASS**: All BLOCKING checks pass, majority of MAJOR checks pass
+- **FAIL**: Any BLOCKING check fails
+- **NEEDS_WORK**: BLOCKING pass but multiple MAJOR fail
 
-  - id: "V2.9"
-    name: "config.test.ts exists"
-    severity: "BLOCKING"
-    type: "file_exists"
-    params:
-      path: "test/core/config.test.ts"
-    expected: "Config tests file exists"
+## Notes
 
-  - id: "V2.10"
-    name: "manifest.test.ts exists"
-    severity: "BLOCKING"
-    type: "file_exists"
-    params:
-      path: "test/core/manifest.test.ts"
-    expected: "Manifest tests file exists"
-
-  # ─────────────────────────────────────────────────────────────────
-  # MAJOR CHECKS - Should pass
-  # ─────────────────────────────────────────────────────────────────
-
-  - id: "V2.11"
-    name: "progress.test.ts exists"
-    severity: "MAJOR"
-    type: "file_exists"
-    params:
-      path: "test/core/progress.test.ts"
-    expected: "Progress tests file exists"
-
-  - id: "V2.12"
-    name: "Test count increased"
-    severity: "MAJOR"
-    type: "command"
-    params:
-      command: "npm test -- --reporter=verbose 2>&1"
-      expected_pattern: "Tests\\s+\\d{2,}"
-    expected: "At least 10+ tests exist (originally had 6)"
-
-  - id: "V2.13"
-    name: "readYaml validates with Zod"
-    severity: "MAJOR"
-    type: "pattern_match"
-    params:
-      file: "src/core/yaml.ts"
-      pattern: "safeParse|schema\\.parse"
-    expected: "readYaml uses Zod for validation"
-
-  - id: "V2.14"
-    name: "findOrchestraRoot searches upward"
-    severity: "MAJOR"
-    type: "pattern_match"
-    params:
-      file: "src/core/config.ts"
-      pattern: "dirname|parent"
-    expected: "findOrchestraRoot searches parent directories"
-
-  - id: "V2.15"
-    name: "updateTaskStatus is immutable"
-    severity: "MAJOR"
-    type: "pattern_match"
-    params:
-      file: "src/core/manifest.ts"
-      pattern: "\\.\\.\\.(manifest|tasks)"
-    expected: "updateTaskStatus uses spread operator (immutable)"
-
-  - id: "V2.16"
-    name: "TypeCheck passes"
-    severity: "MAJOR"
-    type: "command"
-    params:
-      command: "npm run typecheck"
-      expected_exit: 0
-      timeout: 60
-    expected: "TypeScript type checking passes"
-
-  # ─────────────────────────────────────────────────────────────────
-  # MINOR CHECKS - Nice to have
-  # ─────────────────────────────────────────────────────────────────
-
-  - id: "V2.17"
-    name: "Error messages are descriptive"
-    severity: "MINOR"
-    type: "pattern_match"
-    params:
-      file: "src/core/yaml.ts"
-      pattern: "FileError|ValidationError"
-    expected: "Uses typed errors for better debugging"
-
-  - id: "V2.18"
-    name: "Tests use temp directories"
-    severity: "MINOR"
-    type: "pattern_match"
-    params:
-      file: "test/core/yaml.test.ts"
-      pattern: "mkdtemp|tmpdir|temp"
-    expected: "Tests use temporary directories for isolation"
-
-  - id: "V2.19"
-    name: "Has setup file"
-    severity: "MINOR"
-    type: "file_exists"
-    params:
-      path: "test/setup.ts"
-    expected: "Test setup utilities exist"
-
-  - id: "V2.20"
-    name: "completion-signal.md exists"
-    severity: "MINOR"
-    type: "file_exists"
-    params:
-      path: ".orchestra/handover/completion-signal.md"
-    expected: "Implementor created completion signal"
-
-# ═══════════════════════════════════════════════════════════════════
-# PASS CRITERIA
-# ═══════════════════════════════════════════════════════════════════
-#
-# Task PASSES if:
-# - ALL BLOCKING checks pass (V2.1 - V2.10)
-# - At most 1 MAJOR check fails (V2.11 - V2.16)
-#
-# Task FAILS if:
-# - ANY BLOCKING check fails
-# - 2 or more MAJOR checks fail
-#
-# MINOR checks are noted but don't affect pass/fail.
-# ═══════════════════════════════════════════════════════════════════
-
-pass_criteria:
-  blocking_all_required: true
-  major_max_failures: 1
-  minor_informational: true
+- The spec file provides complete implementation code - check if implementor followed it
+- Focus on API surface area, not internal implementation details
+- Allow minor deviations if they achieve the same functionality
