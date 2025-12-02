@@ -1,0 +1,173 @@
+# Verification Criteria for Task 5: Closeout Command
+# Hidden from implementor - used by orchestrator to verify completion
+
+task_id: 5
+task_title: "Closeout Command"
+category: "INFRASTRUCTURE"
+
+verification_checks:
+  # File existence checks
+  - id: "V1"
+    type: "file_exists"
+    severity: "BLOCKING"
+    description: "Command file exists"
+    file: "src/commands/closeout.ts"
+    
+  - id: "V2"
+    type: "file_exists"
+    severity: "BLOCKING"
+    description: "Core closeout logic exists"
+    file: "src/core/closeout.ts"
+    
+  - id: "V3"
+    type: "file_exists"
+    severity: "BLOCKING"
+    description: "Test file exists"
+    file: "test/commands/closeout.test.ts"
+  
+  # Export checks
+  - id: "V4"
+    type: "export_exists"
+    severity: "BLOCKING"
+    description: "createCloseoutCommand exported from command file"
+    file: "src/commands/closeout.ts"
+    export: "createCloseoutCommand"
+    
+  - id: "V5"
+    type: "export_exists"
+    severity: "BLOCKING"
+    description: "runCloseout exported from command file"
+    file: "src/commands/closeout.ts"
+    export: "runCloseout"
+    
+  - id: "V6"
+    type: "export_exists"
+    severity: "BLOCKING"
+    description: "runCloseoutChecks exported from core"
+    file: "src/core/closeout.ts"
+    export: "runCloseoutChecks"
+    
+  - id: "V7"
+    type: "export_exists"
+    severity: "BLOCKING"
+    description: "attemptAutoFix exported from core"
+    file: "src/core/closeout.ts"
+    export: "attemptAutoFix"
+  
+  # Build check
+  - id: "V8"
+    type: "command"
+    severity: "BLOCKING"
+    description: "TypeScript compiles without errors"
+    command: "npx tsc --noEmit"
+    expected_exit_code: 0
+  
+  # Test checks
+  - id: "V9"
+    type: "command"
+    severity: "BLOCKING"
+    description: "All tests pass"
+    command: "npm test -- test/commands/closeout.test.ts"
+    expected_exit_code: 0
+    
+  - id: "V10"
+    type: "test_count"
+    severity: "MAJOR"
+    description: "At least 20 test cases"
+    file: "test/commands/closeout.test.ts"
+    min_tests: 20
+  
+  # Functional checks (in test environment)
+  - id: "V11"
+    type: "command_output"
+    severity: "BLOCKING"
+    description: "Command runs and shows 6 checks"
+    command: "npm run orchestra -- closeout --help"
+    expected_exit_code: 0
+    output_contains:
+      - "closeout"
+      - "--task"
+      - "--fix"
+      - "--force"
+      - "--json"
+      - "--verbose"
+  
+  # Code quality checks
+  - id: "V12"
+    type: "code_pattern"
+    severity: "MAJOR"
+    description: "Core closeout has no CLI dependencies"
+    file: "src/core/closeout.ts"
+    must_not_contain:
+      - "from 'commander'"
+      - "process.exit"
+      - "console.log"
+      - "console.error"
+    
+  - id: "V13"
+    type: "code_pattern"
+    severity: "MAJOR"
+    description: "All 6 check functions exist"
+    file: "src/core/closeout.ts"
+    must_contain:
+      - "checkUncommittedChanges"
+      - "checkPreviousTaskStatus"
+      - "checkCommitHashRecorded"
+      - "checkSpecKitTasks"
+      - "checkCompletionSignalCleared"
+      - "checkResultsFileExists"
+  
+  # Interface checks
+  - id: "V14"
+    type: "type_definition"
+    severity: "BLOCKING"
+    description: "CloseoutOptions interface defined"
+    file: "src/commands/closeout.ts"
+    interface: "CloseoutOptions"
+    required_fields:
+      - "task?: number"
+      - "fix?: boolean"
+      - "force?: boolean"
+      - "json?: boolean"
+      - "verbose?: boolean"
+      
+  - id: "V15"
+    type: "type_definition"
+    severity: "BLOCKING"
+    description: "CheckResult interface defined"
+    file: "src/core/closeout.ts"
+    interface: "CheckResult"
+    required_fields:
+      - "id: string"
+      - "check: string"
+      - "passed: boolean"
+      - "expected: string"
+      - "actual: string"
+      - "fix?: string"
+      
+  - id: "V16"
+    type: "type_definition"
+    severity: "BLOCKING"
+    description: "CloseoutReport interface defined"
+    file: "src/core/closeout.ts"
+    interface: "CloseoutReport"
+    required_fields:
+      - "taskId: number | null"
+      - "timestamp: string"
+      - "overall: 'PASSED' | 'FAILED'"
+      - "checks: CheckResult[]"
+      - "canProceed: boolean"
+
+# Visual verification
+visual_verification:
+  required: false
+  reason: "Infrastructure command - no UI component"
+
+# Success criteria summary
+success_criteria:
+  - "All 16 verification checks pass"
+  - "Tests cover all 6 closeout checks (C1-C6)"
+  - "Auto-fix works for C1 and C5"
+  - "First task handling works (no previous task)"
+  - "Exit codes correct (0=pass, 1=fail)"
+  - "Core library has NO CLI dependencies"
