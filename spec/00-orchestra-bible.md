@@ -1343,7 +1343,18 @@ Before running `sprint-init`, verify:
    ├── Initialize progress.yaml (all tasks: pending)
    └── Create .orchestra folder structure
 
-2. ► SCRIPT: environment-check (RECOMMENDED)
+2. ► SCRIPT: validate-verification-paths (MANDATORY for each task)
+   ├── Input: Task ID (run once per task)
+   ├── Validate all file paths in verification YAML exist in project
+   ├── Detect outdated/wrong paths from spec
+   ├── Suggest corrections (search filesystem for correct paths)
+   ├── Optional: Auto-fix with -Fix flag
+   └── ON FAIL: Update verification YAML with correct paths before proceeding
+   
+   CRITICAL: This prevents false verification failures from spec path errors.
+   Run for EACH task: validate-verification-paths.ps1 -TaskId N
+
+3. ► SCRIPT: environment-check (RECOMMENDED)
    ├── Verify required tools installed
    ├── Verify project builds
    └── Verify tests can run
@@ -1745,7 +1756,7 @@ Before running `sprint-init`, verify:
 
 | From Phase | To Phase | MANDATORY Script(s) | Blocking? | Actor |
 |------------|----------|---------------------|-----------|-------|
-| — | PENDING | `sprint-init` | YES | Human/Orchestrator |
+| — | PENDING | `sprint-init` → `validate-verification-paths` (per task) | YES | Human/Orchestrator |
 | PENDING | PREPARE | `task-closeout-check` (prev task) | YES | Orchestrator |
 | PREPARE | IMPLEMENT | `prepare-handover` → `validate-handover` | YES | Orchestrator |
 | IMPLEMENT | GATE CHECK | `signal-complete` | YES | Implementor |
@@ -1769,6 +1780,12 @@ Before running `sprint-init`, verify:
 │                              SPRINT INITIALIZATION                                   │
 │                                                                                      │
 │   Human provides spec ──► sprint-init ──► manifest.yaml + progress.yaml created    │
+│                              │                                                       │
+│                              ├──► validate-verification-paths (per task, MANDATORY) │
+│                              │     └──► Validates paths in verification YAML        │
+│                              │          ├──► Detects spec path errors               │
+│                              │          ├──► Suggests corrections                   │
+│                              │          └──► Auto-fix with -Fix flag                │
 │                              │                                                       │
 │                              └──► environment-check (optional but recommended)      │
 └─────────────────────────────────────────────────────────────────────────────────────┘

@@ -3,10 +3,10 @@
 # Run this AFTER creating verification YAML to catch path errors early
 
 param(
-    [Parameter(Mandatory=$false)]
+    [Parameter(Mandatory = $false)]
     [int]$TaskId,
     
-    [Parameter(Mandatory=$false)]
+    [Parameter(Mandatory = $false)]
     [switch]$Fix
 )
 
@@ -98,8 +98,8 @@ foreach ($path in $foundPaths) {
         # Try to find correct path
         $fileName = Split-Path -Leaf $path
         $searchResults = Get-ChildItem -Path . -Recurse -Filter $fileName -ErrorAction SilentlyContinue |
-            Where-Object { $_.FullName -notmatch 'node_modules|\.git|build|dist' } |
-            Select-Object -First 1
+        Where-Object { $_.FullName -notmatch 'node_modules|\.git|build|dist' } |
+        Select-Object -First 1
         
         if ($searchResults) {
             $correctPath = $searchResults.FullName -replace [regex]::Escape((Get-Location).Path + '\'), ''

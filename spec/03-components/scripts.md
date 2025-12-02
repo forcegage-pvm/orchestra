@@ -18,7 +18,7 @@ Orchestra uses scripts to enforce process and create structural gates. Scripts a
 | Category | Scripts | Mandatory? | Actor |
 |----------|---------|------------|-------|
 | **Sprint Management** | `sprint-init`, `sprint-status` | YES (init) / NO (status) | Orchestrator |
-| **Task Preparation** | `prepare-handover`, `validate-handover` | YES - Blocking | Orchestrator |
+| **Task Preparation** | `prepare-handover`, `validate-handover`, `validate-verification-paths` | YES - Blocking | Orchestrator |
 | **Implementation** | `signal-complete`, `pre-signal-check` | YES / Recommended | Implementor |
 | **Verification** | `gate-check`, `verification-audit`, `accept-signal-check` | YES - Blocking | Orchestrator |
 | **Failure Handling** | `generate-feedback`, `escalate-failure` | YES - On failure path | Orchestrator |
@@ -34,6 +34,7 @@ Orchestra uses scripts to enforce process and create structural gates. Scripts a
 |------------|----------|---------------------|-----------|-------|
 | — | PENDING | `sprint-init` | YES | Human/Orchestrator |
 | PENDING | PREPARE | `task-closeout-check` (prev task) | YES | Orchestrator |
+| PREPARE (Step 6a) | PREPARE (Step 7) | `validate-verification-paths` | YES | Orchestrator |
 | PREPARE | IMPLEMENT | `prepare-handover` → `validate-handover` | YES | Orchestrator |
 | IMPLEMENT | GATE CHECK | `signal-complete` | YES | Implementor |
 | GATE CHECK | VERIFY | `gate-check` | YES | System |
@@ -174,6 +175,118 @@ Orchestra uses scripts to enforce process and create structural gates. Scripts a
 - No verification criteria leaked
 - All referenced files exist
 - Success criteria are actionable
+
+---
+
+### validate-verification-paths
+
+| Attribute | Value |
+|-----------|-------|
+| **Lifecycle Position** | After creating verification YAML, before handover begins (Process 1, Step 6a) |
+| **Mandatory** | YES - Blocking |
+| **Actor** | Orchestrator |
+
+**Purpose**: Verify all file paths in verification YAML exist in actual project structure, preventing false failures from outdated/wrong paths in spec.
+
+**Inputs**:
+- `-TaskId <int>` - Task ID to validate
+- `-Fix` (optional) - Auto-fix detected path errors
+
+**Actions**:
+1. Parse verification YAML for task
+2. Extract all file paths using regex patterns:
+   - `path:` fields
+   - `file:` fields
+   - `pattern:` fields (if they contain paths)
+3. For each path, verify it exists in project
+4. If path doesn't exist:
+   - Search filesystem for correct path
+   - Suggest correction (filename match in correct location)
+   - If `-Fix` flag: automatically update YAML with correct path
+5. Report all validation results
+
+**Outputs**:
+- Console report: ✅ valid paths / ❌ invalid paths with suggestions
+- If `-Fix`: Updated verification YAML with corrected paths
+- Exit code 0 (all valid) or 1 (errors found)
+
+**Success Criteria**:
+- All paths in verification YAML exist in project
+- No outdated folder structures (e.g., `src/lib/` when actual is `src/core/`)
+- No test path errors (e.g., `tests/` when actual is `test/`)
+
+**Why This Exists**:
+
+**Problem**: Orchestrator blindly copies paths from spec file to verification YAML. If spec has wrong/outdated paths, verification will fail even though implementation is correct.
+
+**Example Failures**:
+- Spec says `src/lib/templates.ts`, but project uses `src/core/templates.ts`
+- Spec says `tests/commands/`, but project uses `test/commands/`
+- Implementor correctly follows project structure, but verification YAML has wrong paths from spec
+
+**Solution**: This script catches path errors BEFORE implementor starts work, preventing false failures and wasted implementation time.
+
+**When to Use**:
+- **MANDATORY**: After creating verification YAML (Process 1, Step 6a)
+- **RECOMMENDED**: After updating spec files with new paths
+- **TROUBLESHOOTING**: When verification fails with "file not found" errors
+
+**Script Location**: `.orchestra/orchestrator/scripts/validate-verification-paths.ps1`
+
+**Example Usage**:
+
+```powershell
+# Validate paths for Task 4
+.\.orchestra\orchestrator\scripts\validate-verification-paths.ps1 -TaskId 4
+
+# Output:
+# ❌ INVALID PATHS FOUND
+# Issues:
+#   - src/lib/templates.ts (should be: src/core/templates.ts)
+#   - tests/commands/init.test.ts (should be: test/commands/init.test.ts)
+
+# Auto-fix the errors
+.\.orchestra\orchestrator\scripts\validate-verification-paths.ps1 -TaskId 4 -Fix
+
+# Output:
+# ✅ Fixed 2 path(s)
+# Verification YAML updated
+
+# Re-validate
+.\.orchestra\orchestrator\scripts\validate-verification-paths.ps1 -TaskId 4
+
+# Output:
+# ✅ ALL PATHS VALID - Verification YAML is correct
+```
+
+**Integration with Process 1 (Handover Creation)**:
+
+Step 6a (NEW - MANDATORY):
+
+```
+6. Create verification YAML from spec success criteria
+   ↓
+6a. MANDATORY: Validate paths in verification YAML  ← NEW STEP
+    Command: validate-verification-paths.ps1 -TaskId N
+    If errors found:
+      - Review suggestions
+      - Run with -Fix to auto-correct
+      - Re-validate until ✅ ALL PATHS VALID
+    BLOCKING: Cannot proceed to Step 7 until paths valid
+   ↓
+7. Create handover document from spec + manifest
+```
+
+**Multi-Layered Defense**:
+
+This script is part of a multi-layered defense against path errors:
+
+1. **Layer 1 (Prevention)**: Spec authors write correct paths
+2. **Layer 2 (Detection)**: This script validates paths before handover
+3. **Layer 3 (Correction)**: Auto-fix with `-Fix` flag
+4. **Layer 4 (Process)**: Made mandatory in Process 1 documentation
+
+**Critical**: This does NOT excuse spec authors from writing correct paths. It's a safety net, not a replacement for diligence.
 
 ---
 
@@ -503,6 +616,7 @@ All scripts require environment setup first.
 | `sprint-init` | No manifest, nothing can run |
 | `prepare-handover` | Implementor has no instructions |
 | `validate-handover` | Verification criteria may leak |
+| `validate-verification-paths` | Verification fails with wrong paths, implementor wastes time fixing "correct" code |
 | `signal-complete` | Task stuck in IMPLEMENT forever |
 | `gate-check` | Broken code may reach verification |
 | `verification-audit` | Implementation theater passes undetected |
