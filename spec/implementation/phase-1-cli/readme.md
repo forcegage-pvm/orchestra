@@ -281,6 +281,19 @@ npx tsx src/cli.ts --version
 # Initialize sprint from spec
 orchestra init --spec specs/012-feature/spec.md
 
+# ⚠️ CRITICAL: After init, validate verification YAML paths (MANDATORY)
+# This must be done ONCE per task after creating verification YAMLs
+# Run from orchestrator scripts directory:
+.\.orchestra\orchestrator\scripts\validate-verification-paths.ps1 -TaskId 1
+.\.orchestra\orchestrator\scripts\validate-verification-paths.ps1 -TaskId 2
+# ... repeat for each task ...
+
+# Or auto-fix all detected path errors:
+.\.orchestra\orchestrator\scripts\validate-verification-paths.ps1 -TaskId 1 -Fix
+
+# Why: Prevents false verification failures from spec path errors
+# See: Orchestra Bible Section 7.2 (INITIALIZATION phase, Step 2)
+
 # Check current status
 orchestra status
 
