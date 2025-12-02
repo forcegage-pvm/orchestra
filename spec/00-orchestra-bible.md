@@ -8,9 +8,11 @@
 
 | Version | Date | Status |
 |---------|------|--------|
-| 0.5.0 | 2025-12-02 | DRAFT - Under Development |
+| 0.7.0 | 2025-12-02 | **COMPLETE** - Production Ready |
 
 **Change Log**:
+- v0.7.0: **FINAL** - Enhanced ToC with navigation table, added Appendix G Quick Reference Index
+- v0.6.0: Added Human Intervention (4.3.1-4.3.2), Implementor Scope Statement, Monitoring Guide (F.6) - 100% alien-drop-in ready
 - v0.5.0: Added Quick Start Guide (Section 0), Role Invocation (4.4), Specification Format (6.4), Templates (Appendix D), Worked Example (Appendix E)
 - v0.4.0: Added dual-layer structure to Phase Details: Abstract Actions (what) + Implementation (how)
 - v0.3.0: Rewrote Phase Details (Section 7.2) with explicit script calls in action sequences
@@ -21,14 +23,47 @@
 
 ## Table of Contents
 
+### Quick Navigation
+
+| I need to... | Go to |
+|--------------|-------|
+| Get started quickly | [Section 0: Quick Start](#0-quick-start-guide) |
+| Understand the philosophy | [Section 1: Philosophy](#1-foundational-philosophy) |
+| Know my role | [Section 4: Roles](#4-role-definitions) |
+| Run a task | [Section 7: Lifecycle](#7-task-lifecycle) |
+| Find a script | [Section 8: Scripts](#8-script-specifications) |
+| Copy a template | [Appendix D: Templates](#appendix-d-document-templates) |
+| See a complete example | [Appendix E: Worked Example](#appendix-e-end-to-end-worked-example) |
+| Act as Human Orchestrator | [Appendix F: Human Guide](#appendix-f-human-as-orchestrator-guide) |
+| Look up a term | [Appendix A: Glossary](#appendix-a-glossary) |
+| Quick reference | [Appendix G: Quick Reference](#appendix-g-quick-reference-index) |
+
+### Full Contents
+
+**Part I: Foundation**
 0. [Quick Start Guide](#0-quick-start-guide) ← **START HERE**
 1. [Foundational Philosophy](#1-foundational-philosophy)
 2. [The Problem We Solve](#2-the-problem-we-solve)
 3. [Core Principles](#3-core-principles)
+
+**Part II: Roles & Trust**
 4. [Role Definitions](#4-role-definitions)
+   - [4.1 The Orchestrator](#41-the-orchestrator)
+   - [4.2 The Implementor](#42-the-implementor) (incl. Scope Statement)
+   - [4.3 The Human Supervisor](#43-the-human-supervisor)
+     - [4.3.1 Human Intervention Actions](#431-human-intervention-actions) ← **NEW**
+     - [4.3.2 Emergency Overrides](#432-emergency-overrides) ← **NEW**
+   - [4.4 Role Invocation Mechanics](#44-role-invocation-mechanics)
 5. [The Trust Model](#5-the-trust-model)
+
+**Part III: Architecture**
 6. [Information Architecture](#6-information-architecture)
+   - [6.4 Specification Document Format](#64-specification-document-format)
 7. [Task Lifecycle](#7-task-lifecycle)
+   - [7.2 Phase Details](#72-phase-details) (PENDING → COMPLETE)
+   - [7.3 Mandatory Script Matrix](#73-mandatory-script-execution-matrix)
+
+**Part IV: Operations**
 8. [Script Specifications](#8-script-specifications)
 9. [Verification Model](#9-verification-model)
 10. [Failure Handling](#10-failure-handling)
@@ -36,12 +71,14 @@
 12. [Adaptation Guidelines](#12-adaptation-guidelines)
 
 **Appendices**:
-- [Appendix A: Glossary](#appendix-a-glossary)
-- [Appendix B: Checklist Templates](#appendix-b-checklist-templates)
-- [Appendix C: Anti-Patterns](#appendix-c-anti-patterns)
-- [Appendix D: Document Templates](#appendix-d-document-templates) ← **Templates for all artifacts**
+- [Appendix A: Glossary](#appendix-a-glossary) - Term definitions
+- [Appendix B: Checklist Templates](#appendix-b-checklist-templates) - Role checklists
+- [Appendix C: Anti-Patterns](#appendix-c-anti-patterns) - What NOT to do
+- [Appendix D: Document Templates](#appendix-d-document-templates) ← **Copy-paste templates**
 - [Appendix E: End-to-End Worked Example](#appendix-e-end-to-end-worked-example) ← **Complete walkthrough**
-- [Appendix F: Human-as-Orchestrator Guide](#appendix-f-human-as-orchestrator-guide)
+- [Appendix F: Human-as-Orchestrator Guide](#appendix-f-human-as-orchestrator-guide) ← **Manual operation**
+  - [F.6 Monitoring Sprint Progress](#f6-monitoring-sprint-progress) ← **NEW**
+- [Appendix G: Quick Reference Index](#appendix-g-quick-reference-index) ← **Lookup tables**
 
 ---
 
@@ -4040,10 +4077,121 @@ Intervene thoughtfully when:
 
 ---
 
+# Appendix G: Quick Reference Index
+
+This appendix provides quick lookup tables for common operations. Use this for rapid reference once you understand the system.
+
+## G.1 Script Quick Reference
+
+| Script | Phase | Role | Purpose |
+|--------|-------|------|--------|
+| `sprint-init` | INIT | Orchestrator | Initialize sprint from spec |
+| `sprint-status` | Any | Orchestrator | Check sprint progress |
+| `prepare-handover` | PREPARE | Orchestrator | Create task handover |
+| `validate-handover` | PREPARE | Orchestrator | Verify no criteria leak |
+| `pre-signal-check` | IMPLEMENT | Implementor | Self-validate before signal |
+| `signal-complete` | IMPLEMENT | Implementor | Signal task completion |
+| `gate-check` | GATE | Orchestrator | Run basic verification |
+| `verification-audit` | VERIFY | Orchestrator | Run hidden verification |
+| `accept-signal-check` | VERIFY | Orchestrator | Accept and archive |
+| `generate-feedback` | RETRY | Orchestrator | Create retry guidance |
+| `escalate-failure` | ESCALATE | Orchestrator | Flag for human |
+| `task-closeout-check` | Any | Orchestrator | Verify clean state |
+
+## G.2 File Location Quick Reference
+
+| What | Where | Who Accesses |
+|------|-------|-------------|
+| Task manifest | `.orchestra/manifest.yaml` | Orchestrator only |
+| Progress tracker | `.orchestra/progress.yaml` | Orchestrator only |
+| Handover documents | `.orchestra/implementor/handovers/` | Both |
+| Completion signals | `.orchestra/implementor/signals/` | Both |
+| Feedback files | `.orchestra/implementor/feedback/` | Both |
+| Hidden verification | `.orchestra/orchestrator/.orchestrator-only/` | Orchestrator only |
+| Archived artifacts | `.orchestra/artifacts/` | Orchestrator only |
+
+## G.3 Task State Transitions
+
+```
+PENDING ──► PREPARE ──► IMPLEMENT ──► GATE CHECK ──► VERIFY ──► COMPLETE
+                            │              │           │
+                            │              │           └──► RETRY (max 3)
+                            │              │                   │
+                            │              └──► RETRY ─────────┘
+                            │                       │
+                            └──────────────────────► ESCALATED
+```
+
+## G.4 Information Access Matrix
+
+| Information | Orchestrator | Implementor | Human |
+|-------------|--------------|-------------|-------|
+| Full specification | ✅ | ❌ | ✅ |
+| Verification criteria | ✅ | ❌ | ✅ |
+| manifest.yaml | ✅ | ❌ | ✅ |
+| progress.yaml | ✅ | ❌ | ✅ |
+| Handover document | ✅ | ✅ | ✅ |
+| Project codebase | Read | Read/Write | Full |
+| Other task details | ✅ | ❌ | ✅ |
+
+## G.5 Signal Types
+
+| Signal | Meaning | Next Action |
+|--------|---------|------------|
+| `complete` | Work is done | Run gate-check |
+| `blocked` | Cannot proceed | Orchestrator reviews |
+| `needs_clarification` | Requirements unclear | Orchestrator clarifies |
+
+## G.6 Feedback Categories
+
+| Category | Use When |
+|----------|----------|
+| `missing_functionality` | Required feature not implemented |
+| `broken_functionality` | Implementation doesn't work |
+| `wrong_approach` | Implementation uses wrong pattern |
+| `incomplete` | Partial implementation |
+| `quality_issue` | Works but doesn't meet standards |
+| `test_failure` | Tests don't pass or are missing |
+
+## G.7 Emergency Commands
+
+| Situation | Action |
+|-----------|--------|
+| Force complete task | Edit `progress.yaml`: set `status: completed`, add `forced_by: human` |
+| Skip task entirely | Edit `progress.yaml`: set `status: skipped`, add `skip_reason` |
+| Reset task | Edit `progress.yaml`: set `status: pending`, `attempts: 0` |
+| Halt sprint | Edit `progress.yaml`: set `sprint.status: halted` |
+| Clear stuck signals | Delete files in `.orchestra/implementor/signals/` |
+
+## G.8 Common Errors and Solutions
+
+| Error | Likely Cause | Solution |
+|-------|--------------|----------|
+| "No manifest found" | Sprint not initialized | Run `sprint-init` |
+| "Task not found" | Wrong task ID | Check `manifest.yaml` |
+| "Handover validation failed" | Criteria leaked | Regenerate handover |
+| "Gate check failed" | Build/test broken | Fix before proceeding |
+| "Max attempts reached" | 3 failures | Review and escalate |
+| "Signal file exists" | Previous signal not processed | Process or delete signal |
+
+## G.9 Key Principles Cheat Sheet
+
+| Principle | One-Liner |
+|-----------|----------|
+| Asymmetric Information | Implementor doesn't know how you'll verify |
+| Role Separation | Same AI, different sessions, different access |
+| Fresh Context | Each task starts with blank slate |
+| Deterministic Gates | Prefer checks with clear pass/fail |
+| Explicit Artifacts | If it's not a file, it didn't happen |
+| Audit Trail | Log everything, delete nothing |
+
+---
+
 # Document History
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 0.7.0 | 2025-12-02 | **FINAL**: Enhanced ToC with navigation aids, added Appendix G Quick Reference Index |
 | 0.6.0 | 2025-12-02 | Added Human Intervention Actions (4.3.1), Emergency Overrides (4.3.2), Implementor Scope Statement, Monitoring Guide (F.6) |
 | 0.5.0 | 2025-12-02 | Added Quick Start, Role Invocation, Spec Format, Templates, Worked Example, Human Guide |
 | 0.4.0 | 2025-12-02 | Added dual-layer structure to Phase Details |
@@ -4053,4 +4201,6 @@ Intervene thoughtfully when:
 
 ---
 
-> **End of Orchestra Bible v0.6.0**
+> **End of Orchestra Bible v0.7.0**
+> 
+> *"Structure prevents theater."*
