@@ -1,4 +1,4 @@
-# Task 1: Project Setup
+# Task 1.1: Project Setup
 
 ## Overview
 

@@ -1,0 +1,54 @@
+{
+  "checks": [
+    {
+      "output": [
+        "",
+        "> orchestra@0.1.0 build",
+        "> tsup",
+        "",
+        "\u001b[34mCLI\u001b[39m Building entry: src/core/index.ts",
+        "\u001b[34mCLI\u001b[39m Using tsconfig: tsconfig.json",
+        "\u001b[34mCLI\u001b[39m tsup v8.5.1",
+        "\u001b[34mCLI\u001b[39m Using tsup config: E:\\cloud services\\Dropbox\\Repositories\\Flutter\\braven_charts_v2.0\\tools\\orchestra\\tsup.config.ts",
+        "\u001b[34mCLI\u001b[39m Building entry: src/cli/index.ts",
+        "\u001b[34mCLI\u001b[39m Using tsconfig: tsconfig.json",
+        "\u001b[34mCLI\u001b[39m tsup v8.5.1",
+        "\u001b[34mCLI\u001b[39m Using tsup config: E:\\cloud services\\Dropbox\\Repositories\\Flutter\\braven_charts_v2.0\\tools\\orchestra\\tsup.config.ts",
+        "\u001b[34mCLI\u001b[39m Building entry: src/mcp/index.ts",
+        "\u001b[34mCLI\u001b[39m Using tsconfig: tsconfig.json",
+        "\u001b[34mCLI\u001b[39m tsup v8.5.1",
+        "\u001b[34mCLI\u001b[39m Using tsup config: E:\\cloud services\\Dropbox\\Repositories\\Flutter\\braven_charts_v2.0\\tools\\orchestra\\tsup.config.ts",
+        "\u001b[34mCLI\u001b[39m Target: node18",
+        "\u001b[34mCLI\u001b[39m Target: node18",
+        "\u001b[34mESM\u001b[39m Build start",
+        "\u001b[34mCLI\u001b[39m Target: node18",
+        "\u001b[34mESM\u001b[39m Build start",
+        "\u001b[34mCLI\u001b[39m Cleaning output folder",
+        "\u001b[34mESM\u001b[39m Build start",
+        "\u001b[32mESM\u001b[39m \u001b[1mdist\\mcp\\index.js     \u001b[22m\u001b[32m169.00 B\u001b[39m",
+        "\u001b[32mESM\u001b[39m \u001b[1mdist\\mcp\\index.js.map \u001b[22m\u001b[32m429.00 B\u001b[39m",
+        "\u001b[32mESM\u001b[39m ΓÜí∩╕Å Build success in 8ms",
+        "\u001b[32mESM\u001b[39m \u001b[1mdist\\cli\\index.js     \u001b[22m\u001b[32m3.14 KB\u001b[39m",
+        "\u001b[32mESM\u001b[39m \u001b[1mdist\\cli\\index.js.map \u001b[22m\u001b[32m6.36 KB\u001b[39m",
+        "\u001b[32mESM\u001b[39m ΓÜí∩╕Å Build success in 11ms",
+        "\u001b[32mESM\u001b[39m \u001b[1mdist\\core\\index.js     \u001b[22m\u001b[32m9.21 KB\u001b[39m",
+        "\u001b[32mESM\u001b[39m \u001b[1mdist\\core\\index.js.map \u001b[22m\u001b[32m21.78 KB\u001b[39m",
+        "\u001b[32mESM\u001b[39m ΓÜí∩╕Å Build success in 11ms"
+      ],
+      "check": "build",
+      "status": "FAIL"
+    },
+    {
+      "status": "PASS",
+      "check": "tests"
+    },
+    {
+      "output": "Unstaged changes",
+      "check": "git",
+      "status": "WARN"
+    }
+  ],
+  "timestamp": "2025-12-02T08:24:47.6123802+02:00",
+  "status": "FAILED",
+  "task_id": "1.1"
+}

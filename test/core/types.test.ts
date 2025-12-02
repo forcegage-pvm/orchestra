@@ -8,15 +8,16 @@ import {
   TaskStatusSchema,
   type Task,
   type TaskStatus,
-} from "../src/core/types.js";
+} from "../../src/core/types.js";
 
 describe("TaskStatusSchema", () => {
   it("should validate valid status values", () => {
     const validStatuses: TaskStatus[] = [
-      "pending",
+      "not-started",
       "in-progress",
       "completed",
       "blocked",
+      "failed",
       "skipped",
     ];
 
@@ -37,14 +38,12 @@ describe("TaskSchema", () => {
     const minimalTask = {
       id: "task-1",
       title: "Test Task",
-      description: "A test task",
-      status: "pending",
     };
 
     const result = TaskSchema.parse(minimalTask);
     expect(result.id).toBe("task-1");
     expect(result.title).toBe("Test Task");
-    expect(result.status).toBe("pending");
+    expect(result.status).toBe("not-started"); // default value
   });
 
   it("should validate a complete task", () => {
@@ -53,35 +52,36 @@ describe("TaskSchema", () => {
       title: "Complete Task",
       description: "A complete test task",
       status: "in-progress",
-      priority: "high",
-      dependencies: ["task-0"],
-      verification: [
-        {
-          type: "file-exists",
-          path: "src/test.ts",
-        },
-      ],
-      files: {
-        create: ["src/new.ts"],
-        modify: ["src/existing.ts"],
-        delete: ["src/old.ts"],
-      },
-      acceptanceCriteria: ["Code compiles", "Tests pass"],
-      estimatedEffort: "medium",
+      depends_on: ["task-0"],
+      acceptance_criteria: ["Code compiles", "Tests pass"],
       assignee: "ai-agent",
-      tags: ["core", "setup"],
+      attempt_count: 1,
+      max_attempts: 3,
+      notes: "Some notes",
     };
 
     const result = TaskSchema.parse(completeTask);
     expect(result.id).toBe("task-1");
-    expect(result.priority).toBe("high");
-    expect(result.dependencies).toHaveLength(1);
-    expect(result.verification).toHaveLength(1);
+    expect(result.status).toBe("in-progress");
+    expect(result.depends_on).toHaveLength(1);
+    expect(result.acceptance_criteria).toHaveLength(2);
   });
 
   it("should reject task without required fields", () => {
     expect(() => TaskSchema.parse({})).toThrow();
     expect(() => TaskSchema.parse({ id: "task-1" })).toThrow();
-    expect(() => TaskSchema.parse({ id: "task-1", title: "Test" })).toThrow();
+  });
+
+  it("should apply default values", () => {
+    const task = TaskSchema.parse({
+      id: "task-1",
+      title: "Test Task",
+    });
+
+    expect(task.status).toBe("not-started");
+    expect(task.depends_on).toEqual([]);
+    expect(task.acceptance_criteria).toEqual([]);
+    expect(task.attempt_count).toBe(0);
+    expect(task.max_attempts).toBe(3);
   });
 });

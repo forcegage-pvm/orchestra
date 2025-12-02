@@ -4,12 +4,12 @@
  * TODO: Implement in Task 1.6
  */
 
-import type { VerificationCriterion, VerificationResult } from "./types.js";
+import type { VerificationCheck, VerificationResult } from "./types.js";
 
 export interface VerificationContext {
   rootDir: string;
   taskId: string;
-  criteria: VerificationCriterion[];
+  criteria: VerificationCheck[];
 }
 
 export function verifyTask(
@@ -19,7 +19,7 @@ export function verifyTask(
 }
 
 export function verifyCriterion(
-  _criterion: VerificationCriterion,
+  _criterion: VerificationCheck,
   _rootDir: string
 ): Promise<{ passed: boolean; message: string }> {
   throw new Error("Not implemented");
