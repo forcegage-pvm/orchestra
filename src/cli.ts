@@ -8,6 +8,7 @@
  */
 
 import { Command } from "commander";
+import { createCloseoutCommand } from "./commands/closeout.js";
 import { findOrchestraRoot } from "./core/config.js";
 
 // Import commands (to be implemented)
@@ -16,7 +17,6 @@ import { findOrchestraRoot } from "./core/config.js";
 // import { prepareCommand } from './commands/prepare.js';
 // import { verifyCommand } from './commands/verify.js';
 // import { completeCommand } from './commands/complete.js';
-// import { closeoutCommand } from './commands/closeout.js';
 // import { acceptSignalCommand } from './commands/accept-signal.js';
 
 const program = new Command();
@@ -58,13 +58,7 @@ program
   });
 
 // Closeout command - verify previous task closed
-program
-  .command("closeout")
-  .description("Verify previous task is fully closed out")
-  .action(async () => {
-    console.log("Closeout command not yet implemented");
-    // TODO: Implement closeout command
-  });
+program.addCommand(createCloseoutCommand());
 
 // Prepare command - prepare task handover
 program

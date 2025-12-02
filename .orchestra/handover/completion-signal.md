@@ -7,7 +7,7 @@
 COMPLETE
 
 ## Summary
-Implemented Task 5: closeout command with 6 automated verification checks (C1-C6) following TDD approach. All quality gates passed.
+Implemented Task 5: closeout command with 6 automated verification checks (C1-C6) following TDD approach. All quality gates passed. CLI integration fix applied per verification feedback.
 
 ## Changes Made
 - **test/commands/closeout.test.ts**: Comprehensive test suite with 29 test cases covering all checks, options, and edge cases
@@ -16,6 +16,7 @@ Implemented Task 5: closeout command with 6 automated verification checks (C1-C6
 - **src/commands/index.ts**: Added closeout command export
 - **src/core/index.ts**: Added closeout core functions export
 - **src/core/types.ts**: Added `speckit_task_ref` field to TaskSchema
+- **src/cli.ts**: Integrated closeout command (fixed per V11 feedback)
 
 ## Tests Added
 - test/commands/closeout.test.ts: 29 tests
@@ -45,11 +46,19 @@ Test Files  9 passed (9)
 ## Quality Gates
 ✅ TypeScript compiles without errors
 ✅ Build successful
-✅ All tests pass (9 test files)
+✅ All 191 tests passing (29 new + 162 existing)
 ✅ Linting passes
+✅ CLI integration verified: `node dist/cli.js closeout --help` shows all 5 options
 
-## Pre-Signal Artifact
-📝 `.orchestra/implementor/artifacts/pre-signal/task-5-2025-12-02_151710.txt`
+## Pre-Signal Artifacts
+📝 `.orchestra/implementor/artifacts/pre-signal/task-5-2025-12-02_151710.txt` (initial)
+📝 `.orchestra/implementor/artifacts/pre-signal/task-5-2025-12-02_152345.txt` (after CLI fix)
+
+## Verification Feedback Response
+**V11 (Command integration)**: ✅ **FIXED**
+- Added import: `import { createCloseoutCommand } from "./commands/closeout.js";`
+- Replaced stub with: `program.addCommand(createCloseoutCommand());`
+- Verified all 5 options now display in help output
 
 ## Notes
 - Exit code handling required special attention: `process.exit(1)` must be outside try/catch to avoid being caught and re-thrown as exit(2)
