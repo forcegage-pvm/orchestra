@@ -115,16 +115,24 @@ Add-CheckResult $checks "Has file operations (CREATE/UPDATE)" $hasFileOps `
     "Add file operations table or list" `
     $currentTaskPath
 
-# Check for placeholders
-$hasPlaceholders = $content -match "\[TO BE DETERMINED\]|\[TBD\]|<path>|<file>"
-if ($hasPlaceholders) {
-    Add-CheckResult $checks "No file path placeholders" $false `
-        "Found placeholder paths like [TBD] or <path>" `
-        "Replace all placeholders with actual file paths" `
-        $currentTaskPath
+# Check for placeholders ONLY in file operations table (not in command examples)
+# Extract the file operations table section
+$fileOpsMatch = [regex]::Match($content, "(?s)##\s*File Operations.*?(?=##|\z)")
+if ($fileOpsMatch.Success) {
+    $fileOpsSection = $fileOpsMatch.Value
+    $hasPlaceholders = $fileOpsSection -match "\[TO BE DETERMINED\]|\[TBD\]|`path/to/"
+    if ($hasPlaceholders) {
+        Add-CheckResult $checks "No file path placeholders" $false `
+            "Found placeholder paths like [TBD] or `path/to/ in file operations table" `
+            "Replace all placeholders with actual file paths" `
+            $currentTaskPath
+    }
+    else {
+        Write-CheckPass "No placeholders in file paths"
+    }
 }
 else {
-    Write-CheckPass "No placeholders in file paths"
+    Write-CheckPass "No file operations table to check for placeholders"
 }
 
 # Validate paths are complete (skip complex regex for now - rely on other checks)
@@ -362,8 +370,8 @@ Add-CheckResult $checks "Verification YAML exists (task-$taskIdPadded.yaml)" $ve
 if ($verificationExists) {
     $yamlContent = Get-Content $verificationYamlPath -Raw
     
-    # Check for required sections
-    $hasSeverity = $yamlContent -match "severity:\s*(BLOCKING|MAJOR|MINOR|INFO)"
+    # Check for required sections (match with or without quotes)
+    $hasSeverity = $yamlContent -match "severity:\s*[`"']?(BLOCKING|MAJOR|MINOR|INFO)[`"']?"
     Add-CheckResult $checks "Verification has severity levels" $hasSeverity `
         "No severity levels defined" `
         "Add severity: BLOCKING/MAJOR/MINOR/INFO to each check" `

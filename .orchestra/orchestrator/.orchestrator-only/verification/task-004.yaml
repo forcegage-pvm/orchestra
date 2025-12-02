@@ -1,0 +1,171 @@
+# Task 4: Init Command - Verification Criteria
+# Category: INFRASTRUCTURE
+# Generated: 2025-12-06
+
+task_id: 4
+title: "Init Command"
+category: "INFRASTRUCTURE"
+
+# ═══════════════════════════════════════════════════════════════════
+# VERIFICATION CHECKS
+# ═══════════════════════════════════════════════════════════════════
+
+verification:
+  # ─────────────────────────────────────────────────────────────────
+  # BLOCKING: Fundamental Requirements
+  # ─────────────────────────────────────────────────────────────────
+  
+  - id: "V4.1"
+    check: "Init command file exists"
+    severity: "BLOCKING"
+    type: "file_exists"
+    path: "src/commands/init.ts"
+    reason: "Command implementation required"
+
+  - id: "V4.2"
+    check: "Templates library exists"
+    severity: "BLOCKING"
+    type: "file_exists"
+    path: "src/lib/templates.ts"
+    reason: "Template system required for handover generation"
+
+  - id: "V4.3"
+    check: "Init command builds without errors"
+    severity: "BLOCKING"
+    type: "command"
+    command: "npm run build"
+    expected_exit: 0
+    reason: "Code must compile"
+
+  - id: "V4.4"
+    check: "TypeScript type check passes"
+    severity: "BLOCKING"
+    type: "command"
+    command: "npx tsc --noEmit"
+    expected_exit: 0
+    reason: "No type errors"
+
+  - id: "V4.5"
+    check: "Test file exists"
+    severity: "BLOCKING"
+    type: "file_exists"
+    path: "tests/commands/init.test.ts"
+    reason: "Tests required for command"
+
+  - id: "V4.6"
+    check: "All tests pass"
+    severity: "BLOCKING"
+    type: "command"
+    command: "npm test -- init.test.ts"
+    expected_exit: 0
+    reason: "All unit tests must pass"
+
+  # ─────────────────────────────────────────────────────────────────
+  # MAJOR: Significant Quality Issues
+  # ─────────────────────────────────────────────────────────────────
+
+  - id: "V4.7"
+    check: "Init command exports createInitCommand"
+    severity: "MAJOR"
+    type: "pattern_match"
+    path: "src/commands/init.ts"
+    pattern: "export function createInitCommand"
+    reason: "Must export command builder"
+
+  - id: "V4.8"
+    check: "Init command accepts --spec option"
+    severity: "MAJOR"
+    type: "pattern_match"
+    path: "src/commands/init.ts"
+    pattern: "--spec"
+    reason: "Must support spec file input"
+
+  - id: "V4.9"
+    check: "Init command supports force mode"
+    severity: "MAJOR"
+    type: "pattern_match"
+    path: "src/commands/init.ts"
+    pattern: "--force"
+    reason: "Must support reinitialization"
+
+  - id: "V4.10"
+    check: "Templates library exports loadTemplate"
+    severity: "MAJOR"
+    type: "pattern_match"
+    path: "src/lib/templates.ts"
+    pattern: "export function loadTemplate"
+    reason: "Must export template loading function"
+
+  - id: "V4.11"
+    check: "Templates library exports renderTemplate"
+    severity: "MAJOR"
+    type: "pattern_match"
+    path: "src/lib/templates.ts"
+    pattern: "export function renderTemplate"
+    reason: "Must export template rendering function"
+
+  - id: "V4.12"
+    check: "Test suite has 8+ tests"
+    severity: "MAJOR"
+    type: "pattern_count"
+    path: "tests/commands/init.test.ts"
+    pattern: "it\\("
+    min_count: 8
+    reason: "Must have comprehensive test coverage"
+
+  - id: "V4.13"
+    check: "All sprint tests still pass"
+    severity: "MAJOR"
+    type: "command"
+    command: "npm test"
+    expected_exit: 0
+    reason: "Must not break existing tests"
+
+  # ─────────────────────────────────────────────────────────────────
+  # MINOR: Small Issues, Functional
+  # ─────────────────────────────────────────────────────────────────
+
+  - id: "V4.14"
+    check: "Init command has description"
+    severity: "MINOR"
+    type: "pattern_match"
+    path: "src/commands/init.ts"
+    pattern: "\\.description\\("
+    reason: "Should have helpful description"
+
+  - id: "V4.15"
+    check: "Templates library has Handlebars helpers"
+    severity: "MINOR"
+    type: "pattern_match"
+    path: "src/lib/templates.ts"
+    pattern: "registerHelper"
+    reason: "Should provide custom helpers"
+
+  - id: "V4.16"
+    check: "Init command supports JSON output"
+    severity: "MINOR"
+    type: "pattern_match"
+    path: "src/commands/init.ts"
+    pattern: "--json"
+    reason: "Should support JSON for scripting"
+
+# ═══════════════════════════════════════════════════════════════════
+# VISUAL VERIFICATION
+# ═══════════════════════════════════════════════════════════════════
+
+visual_verification:
+  required: false
+  reason: "INFRASTRUCTURE category - no visual output"
+
+# ═══════════════════════════════════════════════════════════════════
+# NOTES
+# ═══════════════════════════════════════════════════════════════════
+
+notes:
+  - "Task 4 implements the init command"
+  - "Creates complete .orchestra/ folder structure"
+  - "Parses SpecKit spec files to generate manifest/progress"
+  - "Supports force, dry-run, and JSON modes"
+  - "6 BLOCKING checks ensure fundamental correctness"
+  - "7 MAJOR checks ensure quality and completeness"
+  - "3 MINOR checks encourage best practices"
