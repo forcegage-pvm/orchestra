@@ -10,8 +10,9 @@ Verify previous task completion through 6 automated checks and provide auto-fix 
 
 ## Spec Files
 
-📄 **Task spec**: `spec/implementation/phase-1-cli/tasks/1.4a-closeout-command.md` (does not exist - use command spec)
-📄 **Command spec**: `spec/implementation/phase-1-cli/commands/closeout.md`
+📄 **Command spec**: `spec/implementation/phase-1-cli/commands/closeout.md` (PRIMARY REFERENCE - 507 lines)
+
+**Note**: Task spec file (`spec/implementation/phase-1-cli/tasks/1.4a-closeout-command.md`) does not exist. Use the command spec above which contains all implementation details, code samples, and the 6 check functions.
 
 Please read the spec file(s) for full implementation details including code samples.
 
