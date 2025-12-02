@@ -333,10 +333,13 @@ try {
     $testOutput = Invoke-Expression "$testCommand" 2>&1 | Out-String
     
     # Check for pass indicators (varies by test runner)
-    # npm test / vitest: "Tests  X passed" or "passed"
+    # npm test / vitest: "Tests  X passed" or "X passed (X)"
     # flutter test: "All tests passed"
-    $allPassed = $testOutput -match "All tests passed|Tests\s+\d+ passed|passed \(\d+\)|✓" -and 
-                 $testOutput -notmatch "FAIL|failed|error"
+    # The key is detecting explicit PASS indicators and explicit FAIL indicators
+    $hasPassIndicator = $testOutput -match "All tests passed|Tests\s+\d+\s+passed|\d+\s+passed\s+\(\d+\)|Test Files\s+\d+\s+passed"
+    $hasFailIndicator = $testOutput -match "FAIL(?:ED)?[\s:]|(?<!\w)failed(?!\w)|Tests?\s+\d+\s+failed|\d+\s+errors?"
+    
+    $allPassed = $hasPassIndicator -and (-not $hasFailIndicator)
     
     # Parse test count from output like "00:08 +237: All tests passed!"
     $testCount = "0"

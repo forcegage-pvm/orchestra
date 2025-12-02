@@ -27,7 +27,7 @@ $script:CONFIG = @{
     
     # Paths (relative to project root)
     OrchestraRoot             = ".orchestra"
-    SpeckitRoot               = "specs"
+    SpeckitRoot               = "spec"  # Specifications folder
     SprintTestPath            = "src"  # Test files are co-located with source
     SprintIntegrationTestPath = "test/integration"
     ScreenshotPath            = ".orchestra/orchestrator/results/screenshots"
