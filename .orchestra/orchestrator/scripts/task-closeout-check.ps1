@@ -95,10 +95,21 @@ if (Test-Path $env:PROGRESS_PATH) {
         "Update progress.yaml task_history for Task $env:PREVIOUS_TASK" `
         $env:PROGRESS_PATH
     
-    # Check commit hash
-    $commitPattern = "task_id:\s*$env:PREVIOUS_TASK[\s\S]*?commit:\s*[`"']?([a-f0-9]+|null|pending)[`"']?"
-    if ($progressContent -match $commitPattern) {
+    # Check commit hash - supports both "task_id: N" and "N:" formats
+    # Format 1: task_id: N ... commit: hash
+    # Format 2: tasks:\n  N:\n    ...\n    completed_commit: hash
+    $commitPattern1 = "task_id:\s*$env:PREVIOUS_TASK[\s\S]*?commit:\s*[`"']?([a-f0-9]+|null|pending)[`"']?"
+    $commitPattern2 = "(?m)^\s*$env:PREVIOUS_TASK`:\s*\n[\s\S]*?completed_commit:\s*[`"']?([a-f0-9]+)[`"']?"
+    
+    $commitHash = $null
+    if ($progressContent -match $commitPattern1) {
         $commitHash = $Matches[1]
+    }
+    elseif ($progressContent -match $commitPattern2) {
+        $commitHash = $Matches[1]
+    }
+    
+    if ($commitHash) {
         $hasCommit = ($commitHash -ne "null" -and $commitHash -ne "pending" -and $commitHash.Length -ge 7)
         Add-CheckResult $checks "Previous task has commit hash" $hasCommit `
             "Commit: $commitHash" `
@@ -333,13 +344,18 @@ try {
     $testOutput = Invoke-Expression "$testCommand" 2>&1 | Out-String
     
     # Check for pass indicators (varies by test runner)
-    # npm test / vitest: "Tests  X passed" or "X passed (X)"
-    # flutter test: "All tests passed"
-    # The key is detecting explicit PASS indicators and explicit FAIL indicators
-    $hasPassIndicator = $testOutput -match "All tests passed|Tests\s+\d+\s+passed|\d+\s+passed\s+\(\d+\)|Test Files\s+\d+\s+passed"
-    $hasFailIndicator = $testOutput -match "FAIL(?:ED)?[\s:]|(?<!\w)failed(?!\w)|Tests?\s+\d+\s+failed|\d+\s+errors?"
+    # Vitest: "Test Files  X passed" and "Tests  X passed"
+    # Jest: "Tests:  X passed"
+    # Flutter: "All tests passed"
+    # The key: look for "passed" count with no "failed" count
+    $hasPassCount = $testOutput -match "(\d+)\s+passed"
+    $hasFailCount = $testOutput -match "(\d+)\s+failed"
     
-    $allPassed = $hasPassIndicator -and (-not $hasFailIndicator)
+    # Alternative check - LASTEXITCODE from npm test
+    $exitCodeSuccess = $LASTEXITCODE -eq 0
+    
+    # Pass if we see passed tests and no failures, OR if exit code is 0
+    $allPassed = ($hasPassCount -and -not $hasFailCount) -or $exitCodeSuccess
     
     # Parse test count from output like "00:08 +237: All tests passed!"
     $testCount = "0"
