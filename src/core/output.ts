@@ -48,10 +48,7 @@ export function formatStatus(
  * Format a table of tasks
  * TODO: Implement in Task 1.2
  */
-export function formatTaskTable(
-  _tasks: Task[],
-  _format: OutputFormat
-): string {
+export function formatTaskTable(_tasks: Task[], _format: OutputFormat): string {
   throw new Error("TODO: Implement formatTaskTable in Task 1.2");
 }
 

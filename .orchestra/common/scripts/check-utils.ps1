@@ -1,6 +1,83 @@
 # Orchestra Check Utilities
 # Common functions for validation scripts
 
+# ============================================================================
+# GIT UTILITY FUNCTIONS
+# ============================================================================
+
+function Get-UncommittedFiles {
+    <#
+    .SYNOPSIS
+    Returns a list of uncommitted files (staged + unstaged + untracked)
+    #>
+    $files = @()
+    
+    # Staged changes
+    $staged = git diff --staged --name-only 2>$null
+    if ($staged) { $files += $staged }
+    
+    # Unstaged changes
+    $unstaged = git diff --name-only 2>$null
+    if ($unstaged) { $files += $unstaged }
+    
+    # Untracked files
+    $untracked = git ls-files --others --exclude-standard 2>$null
+    if ($untracked) { $files += $untracked }
+    
+    return $files | Select-Object -Unique
+}
+
+function Get-CurrentBranch {
+    <#
+    .SYNOPSIS
+    Returns the current git branch name
+    #>
+    $branch = git branch --show-current 2>$null
+    if (-not $branch) {
+        $branch = git rev-parse --abbrev-ref HEAD 2>$null
+    }
+    return $branch
+}
+
+function Get-ProgressTaskStatus {
+    <#
+    .SYNOPSIS
+    Gets the status of a specific task from progress.yaml
+    #>
+    param(
+        [string]$ProgressPath,
+        [int]$TaskId
+    )
+    
+    if (-not (Test-Path $ProgressPath)) {
+        return "unknown"
+    }
+    
+    $content = Get-Content $ProgressPath -Raw
+    
+    # Look for task entry in the tasks section
+    # Pattern: N:\n    status: "completed"
+    if ($content -match "(?m)^\s*$TaskId`:\s*\n\s*status:\s*[`"']?(\w+)[`"']?") {
+        return $Matches[1]
+    }
+    
+    # Fallback: task may not be in tasks section yet
+    return "not-started"
+}
+
+function Write-CheckPass {
+    <#
+    .SYNOPSIS
+    Write a passing check message (standalone, not using collector)
+    #>
+    param([string]$Message)
+    Write-Host "  ✅ $Message" -ForegroundColor Green
+}
+
+# ============================================================================
+# OUTPUT FORMATTING FUNCTIONS
+# ============================================================================
+
 function Write-OrchestraHeader {
     param([string]$Title)
     Write-Host ""

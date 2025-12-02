@@ -73,10 +73,10 @@ if (Test-Path $progressPath) {
     if ($TaskOverride) {
         $env:CURRENT_TASK = $TaskOverride
     }
-    elseif ($progressContent -match 'current_task_id:\s*"?(\d+(?:\.\d+)?)"?') {
+    elseif ($progressContent -match 'current_task:\s*"?(\d+(?:\.\d+)?)"?') {
         $env:CURRENT_TASK = $Matches[1]
     }
-    elseif ($progressContent -match 'current_task_id:\s*(\d+)') {
+    elseif ($progressContent -match 'current_task:\s*(\d+)') {
         $env:CURRENT_TASK = [int]$Matches[1]
     }
     else {
