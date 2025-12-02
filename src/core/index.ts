@@ -31,3 +31,6 @@ export * as output from "./output.js";
 
 // Validation
 export * from "./validation.js";
+
+// Templates
+export * from "./templates.js";

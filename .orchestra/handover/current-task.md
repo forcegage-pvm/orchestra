@@ -178,6 +178,23 @@ From Task 2 (Core Libraries):
 - `getDefaultConfig(): OrchestraConfig` - Get default configuration
 - `getOrchestraPath(relativePath: string): string` - Resolve orchestra paths
 
+## ⚠️ BEFORE YOU START - MANDATORY VALIDATION
+
+**STOP! Before implementing anything, validate this handover:**
+
+```powershell
+.\.orchestra\implementor\.implementor-only\scripts\validate-handover.ps1
+```
+
+If validation **FAILS**:
+- Document issues in `.orchestra/handover/completion-signal.md`
+- Say: "Task validation failed - see completion-signal.md"
+- **STOP** and wait for orchestrator to fix
+
+If validation **PASSES**: Proceed with implementation.
+
+---
+
 ## Quality Gates
 
 Before signaling completion:
