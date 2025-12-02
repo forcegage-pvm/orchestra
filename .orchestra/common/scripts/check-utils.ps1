@@ -20,7 +20,7 @@ function Write-OrchestraStep {
         "fail" { "❌" }
         "warn" { "⚠️" }
         "info" { "📋" }
-        "run"  { "🔄" }
+        "run" { "🔄" }
         default { "•" }
     }
     $color = switch ($Status) {
@@ -28,7 +28,7 @@ function Write-OrchestraStep {
         "fail" { "Red" }
         "warn" { "Yellow" }
         "info" { "Cyan" }
-        "run"  { "Magenta" }
+        "run" { "Magenta" }
         default { "White" }
     }
     Write-Host "$icon $Message" -ForegroundColor $color
@@ -107,11 +107,11 @@ function Test-FileModified {
 
 function New-CheckCollector {
     return @{
-        Passed = 0
-        Failed = 0
+        Passed   = 0
+        Failed   = 0
         Warnings = 0
         Failures = @()
-        All = @()
+        All      = @()
     }
 }
 
@@ -126,10 +126,10 @@ function Add-CheckResult {
     )
     
     $result = @{
-        Name = $Name
-        Passed = $Passed
-        Details = $Details
-        Fix = $Fix
+        Name     = $Name
+        Passed   = $Passed
+        Details  = $Details
+        Fix      = $Fix
         Location = $Location
     }
     
@@ -154,10 +154,10 @@ function Get-CheckSummary {
     
     return @{
         AllPassed = ($Collector.Failed -eq 0)
-        Passed = $Collector.Passed
-        Failed = $Collector.Failed
-        Failures = $Collector.Failures
-        Total = $Collector.Passed + $Collector.Failed
+        Passed    = $Collector.Passed
+        Failed    = $Collector.Failed
+        Failures  = $Collector.Failures
+        Total     = $Collector.Passed + $Collector.Failed
     }
 }
 
@@ -172,7 +172,8 @@ function Write-OrchestraResult {
         Write-Host "═══════════════════════════════════════════════════════════════" -ForegroundColor Green
         Write-Host " ✅ $SuccessMessage" -ForegroundColor Green
         Write-Host "═══════════════════════════════════════════════════════════════" -ForegroundColor Green
-    } else {
+    }
+    else {
         Write-Host "═══════════════════════════════════════════════════════════════" -ForegroundColor Red
         Write-Host " ❌ $FailMessage" -ForegroundColor Red
         Write-Host "═══════════════════════════════════════════════════════════════" -ForegroundColor Red

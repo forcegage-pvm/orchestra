@@ -1,0 +1,108 @@
+# Verification Criteria: Task [task-id]
+# ⚠️ ORCHESTRATOR ONLY - Never show to Implementor
+#
+# This file defines the hidden verification criteria for a task.
+# The implementor knows WHAT to achieve (success criteria in handover)
+# but NOT HOW it will be verified (this file).
+
+task_id: "[task-id]"
+task_name: "[Task Name]"
+created: "[ISO-8601 timestamp]"
+
+# Criteria are evaluated in order. All must pass.
+criteria:
+  # ==========================================================================
+  # STRUCTURAL CHECKS - Do required files exist with correct structure?
+  # ==========================================================================
+
+  - id: "struct-1"
+    type: "file_exists"
+    description: "Required file exists"
+    severity: "blocking"
+    check:
+      path: "src/module/file.ts"
+
+  - id: "struct-2"
+    type: "file_pattern"
+    description: "File contains required export"
+    severity: "blocking"
+    check:
+      path: "src/module/file.ts"
+      pattern: "export (function|class|const) \\w+"
+      min_matches: 1
+
+  # ==========================================================================
+  # BEHAVIORAL CHECKS - Does it work correctly?
+  # ==========================================================================
+
+  - id: "behav-1"
+    type: "command"
+    description: "Specific tests pass"
+    severity: "blocking"
+    check:
+      command: "npm test -- --grep 'feature name'"
+      expect_exit_code: 0
+
+  - id: "behav-2"
+    type: "command"
+    description: "Feature produces expected output"
+    severity: "major"
+    check:
+      command: "npx tsx src/cli.ts feature --input test"
+      expect_output_contains: "expected result"
+
+  # ==========================================================================
+  # QUALITY CHECKS - Does it meet quality standards?
+  # ==========================================================================
+
+  - id: "qual-1"
+    type: "command"
+    description: "No TypeScript errors"
+    severity: "blocking"
+    check:
+      command: "npx tsc --noEmit"
+      expect_exit_code: 0
+
+  - id: "qual-2"
+    type: "file_pattern"
+    description: "Has JSDoc comments"
+    severity: "minor"
+    check:
+      path: "src/module/file.ts"
+      pattern: "/\\*\\*[\\s\\S]*?\\*/"
+      min_matches: 1
+
+  # ==========================================================================
+  # INTEGRATION CHECKS - Does it work with the rest of the system?
+  # ==========================================================================
+
+  - id: "integ-1"
+    type: "command"
+    description: "Integration tests pass"
+    severity: "major"
+    check:
+      command: "npm run test:integration"
+      expect_exit_code: 0
+
+# ==========================================================================
+# SEVERITY LEVELS
+# ==========================================================================
+# blocking: Must pass or task fails immediately
+# major: Should pass; failure triggers feedback cycle
+# minor: Nice to have; logged but doesn't fail task
+
+# ==========================================================================
+# CHECK TYPES
+# ==========================================================================
+# file_exists: Verifies a file exists at the specified path
+# file_pattern: Searches for regex pattern in file content
+# command: Runs a shell command and checks result
+# json_schema: Validates JSON/YAML against a schema (future)
+
+# ==========================================================================
+# NOTES FOR ORCHESTRATOR
+# ==========================================================================
+notes: |
+  - Remember to check edge cases manually
+  - Visual inspection may be needed for UI tasks
+  - Consider performance if this is a hot path
