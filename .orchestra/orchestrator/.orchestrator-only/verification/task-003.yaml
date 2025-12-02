@@ -1,0 +1,187 @@
+# Task 3: Status Command - Verification Criteria
+# ⚠️ HIDDEN FROM IMPLEMENTOR
+# Created: 2025-12-02
+# Process: 01-HANDOVER-CREATION
+
+task_id: 3
+task_title: "Status Command"
+category: "INFRASTRUCTURE"
+
+# =============================================================================
+# BLOCKING CHECKS (Must pass or task FAILS)
+# =============================================================================
+
+blocking:
+  - id: V3.1
+    name: "TypeScript compiles"
+    command: "npx tsc --noEmit"
+    expected_exit_code: 0
+    severity: BLOCKING
+
+  - id: V3.2
+    name: "All tests pass"
+    command: "npm test"
+    expected_exit_code: 0
+    expected_output_contains: "Test Files"
+    severity: BLOCKING
+
+  - id: V3.3
+    name: "status.ts exports statusCommand"
+    type: file_content
+    file: "src/commands/status.ts"
+    must_contain:
+      - "export async function statusCommand"
+      - "StatusOptions"
+    must_not_contain:
+      - "TODO"
+      - "not yet implemented"
+    severity: BLOCKING
+
+  - id: V3.4
+    name: "status.test.ts exists with tests"
+    type: file_content
+    file: "test/commands/status.test.ts"
+    must_contain:
+      - "describe('status command'"
+      - "it("
+      - "expect("
+    severity: BLOCKING
+
+  - id: V3.5
+    name: "Uses core library functions"
+    type: file_content
+    file: "src/commands/status.ts"
+    must_contain:
+      - "from '../core/"
+      - "loadManifest"
+      - "isOrchestraInitialized"
+    severity: BLOCKING
+
+  - id: V3.6
+    name: "No commander imports in status command"
+    type: file_content
+    file: "src/commands/status.ts"
+    must_not_contain:
+      - "from 'commander'"
+      - "import { Command }"
+    reason: "Commands should not import commander directly - that's CLI layer's job"
+    severity: BLOCKING
+
+# =============================================================================
+# MAJOR CHECKS (Significant quality issues)
+# =============================================================================
+
+major:
+  - id: V3.7
+    name: "Handles not initialized scenario"
+    type: file_content
+    file: "src/commands/status.ts"
+    must_contain:
+      - "isOrchestraInitialized"
+      - "process.exit(1)"
+    severity: MAJOR
+
+  - id: V3.8
+    name: "Implements JSON output"
+    type: file_content
+    file: "src/commands/status.ts"
+    must_contain:
+      - "options.json"
+      - "JSON.stringify"
+    severity: MAJOR
+
+  - id: V3.9
+    name: "Implements brief output"
+    type: file_content
+    file: "src/commands/status.ts"
+    must_contain:
+      - "options.brief"
+    severity: MAJOR
+
+  - id: V3.10
+    name: "Handles task detail view"
+    type: file_content
+    file: "src/commands/status.ts"
+    must_contain:
+      - "options.task"
+      - "getTask"
+    severity: MAJOR
+
+  - id: V3.11
+    name: "Uses output formatting functions"
+    type: file_content
+    file: "src/commands/status.ts"
+    must_contain:
+      - "output.print"
+    severity: MAJOR
+
+  - id: V3.12
+    name: "Test coverage for not initialized"
+    type: file_content
+    file: "test/commands/status.test.ts"
+    must_contain:
+      - "not initialized"
+      - "exit"
+    severity: MAJOR
+
+  - id: V3.13
+    name: "Test coverage for JSON output"
+    type: file_content
+    file: "test/commands/status.test.ts"
+    must_contain:
+      - "json"
+      - "JSON.parse"
+    severity: MAJOR
+
+# =============================================================================
+# MINOR CHECKS (Small issues, task can still pass)
+# =============================================================================
+
+minor:
+  - id: V3.14
+    name: "Has JSDoc comments"
+    type: file_content
+    file: "src/commands/status.ts"
+    must_contain:
+      - "/**"
+      - "*/"
+    severity: MINOR
+
+  - id: V3.15
+    name: "Test file has multiple test cases"
+    type: file_content
+    file: "test/commands/status.test.ts"
+    must_contain:
+      - "it("
+      - "expect("
+    min_occurrences: 3
+    severity: MINOR
+
+  - id: V3.16
+    name: "Error handling with try/catch"
+    type: file_content
+    file: "src/commands/status.ts"
+    must_contain:
+      - "try"
+      - "catch"
+    severity: MINOR
+
+# =============================================================================
+# NOTES
+# =============================================================================
+
+notes: |
+  This is an INFRASTRUCTURE task - no screenshot required.
+  
+  The status command is read-only and should:
+  - Execute quickly (<100ms for reasonable manifest sizes)
+  - Never modify any state
+  - Support multiple output formats (human, brief, JSON)
+  - Handle missing/invalid data gracefully
+  
+  Key verification points:
+  1. Uses core library (no direct file I/O in command)
+  2. Proper exit codes (0=success, 1=not initialized, 2=not found)
+  3. JSON output is valid and parseable
+  4. Brief output is truly one line
+  5. All options work independently and in combination

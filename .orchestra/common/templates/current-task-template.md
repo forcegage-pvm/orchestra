@@ -4,46 +4,119 @@
 
 {{task_description}}
 
-## Spec File
+## Objective
 
-📄 **Detailed requirements**: `{{spec_file}}`
+{{Single sentence describing what this task accomplishes - be specific!}}
 
-Please read the spec file for full implementation details including code samples.
+## Spec Files
+
+📄 **Task spec**: `{{spec_file}}`
+📄 **Command spec**: `{{command_spec}}` (if applicable)
+
+Please read the spec file(s) for full implementation details including code samples.
 
 ## Acceptance Criteria
 
 {{#each acceptance_criteria}}
-
 - [ ] {{this}}
-      {{/each}}
+{{/each}}
 
 {{#if depends_on}}
-
 ## Dependencies
 
 These tasks must be completed first:
 {{#each depends_on}}
-
 - {{this}}
-  {{/each}}
-  {{/if}}
+{{/each}}
+{{/if}}
 
-## Files to Create/Modify
+## File Operations
 
-Based on the spec, you will likely need to work with:
-{{#each target_files}}
+**IMPORTANT**: Use this exact table format for validation to pass:
 
-- `{{this}}`
-  {{/each}}
+| Action | File Path | Purpose |
+|--------|-----------|---------|
+| UPDATE | `{{path/to/file1.ts}}` | {{What changes to make}} |
+| CREATE | `{{path/to/file2.test.ts}}` | {{What to create}} |
 
-## Getting Started
+## TDD Requirements
 
-1. Read the spec file linked above
-2. Understand the existing codebase patterns
-3. Implement the requirements
-4. Write tests
-5. Run `npm run build` and `npm test` to verify
-6. Write your completion signal
+**Test-First Approach**: Write tests before implementing.
+
+**Test File**: `{{test/path/xxx.test.ts}}`
+
+**Test Cases Required**:
+1. {{Test case 1}}
+2. {{Test case 2}}
+3. {{Test case 3}}
+
+**Sample Test Data**:
+```typescript
+// Add sample data objects here for tests
+const mockData = {
+  // ...
+};
+```
+
+## Implementation Details
+
+### Files to Update
+
+#### {{File 1 path}}
+
+**Current state**: {{What exists now}}
+
+**What to implement**:
+- {{Change 1}}
+- {{Change 2}}
+
+**Code scaffold**:
+```typescript
+// Provide copy-paste ready code structure
+```
+
+### Files to Create
+
+#### {{File 2 path}}
+
+**What to create**:
+- {{Requirement 1}}
+- {{Requirement 2}}
+
+**Code scaffold**:
+```typescript
+// Provide copy-paste ready starting code
+```
+
+## Core Functions Available
+
+{{List any relevant core library functions from previous tasks}}
+
+## Quality Gates
+
+Before signaling completion:
+
+1. **Build**: `npm run build` must succeed
+2. **Type check**: `npx tsc --noEmit` must pass
+3. **Tests**: `npm test` must pass all tests
+4. **Lint**: `npm run lint` must pass (if configured)
+
+## Completion Protocol
+
+When ready for review:
+
+1. Run pre-signal check:
+   ```powershell
+   .\.orchestra\implementor\.implementor-only\scripts\pre-signal-check.ps1 -TaskId {{task_id}}
+   ```
+
+2. Update `.orchestra/handover/completion-signal.md` with:
+   - Task ID and status
+   - What was implemented
+   - Test results
+   - Any notes
+
+3. Signal ready: Say "ready for review" or "task complete"
 
 ---
 

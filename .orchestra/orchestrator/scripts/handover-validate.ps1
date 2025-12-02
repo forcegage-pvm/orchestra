@@ -162,11 +162,25 @@ if ($hasTDD) {
         "Add specific test cases with expected behaviors" `
         $currentTaskPath
     
-    # Check test path is specified
-    $hasTestPath = $content -match "test/unit/|_test\.dart"
+    # Check test path is specified (pattern based on project type)
+    $testPathPattern = switch ($env:PROJECT_TYPE) {
+        "typescript" { "test/.*\.test\.ts|\.test\.ts" }
+        "dart" { "test/unit/|_test\.dart" }
+        "flutter" { "test/unit/|test/widget/|_test\.dart" }
+        default { "test/|_test\.|\.test\." }
+    }
+    
+    $hasTestPath = $content -match $testPathPattern
+    $examplePath = switch ($env:PROJECT_TYPE) {
+        "typescript" { "test/commands/xxx.test.ts" }
+        "dart" { "test/unit/core/xxx_test.dart" }
+        "flutter" { "test/unit/widgets/xxx_test.dart" }
+        default { "test/xxx_test.ext" }
+    }
+    
     Add-CheckResult $checks "Test file path specified" $hasTestPath `
         "No test file path specified" `
-        "Add path to test file (e.g., test/unit/multi_axis/xxx_test.dart)" `
+        "Add path to test file (e.g., $examplePath)" `
         $currentTaskPath
 }
 
@@ -278,7 +292,7 @@ Write-Section "Progress Alignment"
 $progressPath = "$env:PROGRESS_PATH"
 if (Test-Path $progressPath) {
     $progressContent = Get-Content $progressPath -Raw
-    $currentTaskInProgress = if ($progressContent -match "current_task_id:\s*(\d+)") { $Matches[1] } else { "?" }
+    $currentTaskInProgress = if ($progressContent -match "current_task:\s*(\d+)") { $Matches[1] } else { "?" }
     
     $matches = $taskNumber -eq $currentTaskInProgress
     Add-CheckResult $checks "Task matches progress.yaml" $matches `
