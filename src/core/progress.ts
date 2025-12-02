@@ -1,53 +1,103 @@
 /**
  * Progress Tracking
- *
- * TODO: Implement in Task 1.2
  */
 
+import { getOrchestraPath } from "./config.js";
 import type { ProgressEntry, ProgressLog } from "./types.js";
+import { ProgressLogSchema } from "./types.js";
+import { readYaml, writeYaml, yamlExists } from "./yaml.js";
 
-export function getProgressPath(_rootDir?: string): string {
-  throw new Error("Not implemented");
+const PROGRESS_FILENAME = "progress.yaml";
+
+/**
+ * Get path to the progress file
+ */
+export function getProgressPath(rootDir?: string): string {
+  return getOrchestraPath(PROGRESS_FILENAME, rootDir);
 }
 
-export function createProgressLog(_manifestId: string): ProgressLog {
+/**
+ * Create a new progress log
+ */
+export function createProgressLog(manifestId: string): ProgressLog {
   const now = new Date().toISOString();
   return {
-    manifest_id: _manifestId,
+    manifest_id: manifestId,
     entries: [],
     created_at: now,
     updated_at: now,
   };
 }
 
+/**
+ * Load or create progress log
+ */
 export function loadProgress(
-  _manifestId: string,
-  _rootDir?: string
+  manifestId: string,
+  rootDir?: string
 ): ProgressLog {
-  throw new Error("Not implemented");
+  const progressPath = getProgressPath(rootDir);
+
+  if (!yamlExists(progressPath)) {
+    return createProgressLog(manifestId);
+  }
+
+  const progress = readYaml(progressPath, ProgressLogSchema);
+
+  // If manifest ID changed, start fresh
+  if (progress.manifest_id !== manifestId) {
+    return createProgressLog(manifestId);
+  }
+
+  return progress;
 }
 
-export function saveProgress(_progress: ProgressLog, _rootDir?: string): void {
-  throw new Error("Not implemented");
+/**
+ * Save progress log
+ */
+export function saveProgress(progress: ProgressLog, rootDir?: string): void {
+  const progressPath = getProgressPath(rootDir);
+  progress.updated_at = new Date().toISOString();
+  writeYaml(progressPath, progress, { createDir: true });
 }
 
+/**
+ * Add a progress entry
+ */
 export function addProgressEntry(
-  _progress: ProgressLog,
-  _entry: Omit<ProgressEntry, "timestamp">
+  progress: ProgressLog,
+  entry: Omit<ProgressEntry, "timestamp">
 ): ProgressLog {
-  throw new Error("Not implemented");
+  const newEntry: ProgressEntry = {
+    ...entry,
+    timestamp: new Date().toISOString(),
+  };
+
+  return {
+    ...progress,
+    entries: [...progress.entries, newEntry],
+    updated_at: new Date().toISOString(),
+  };
 }
 
+/**
+ * Get the last entry for a task
+ */
 export function getLastEntryForTask(
-  _progress: ProgressLog,
-  _taskId: string
+  progress: ProgressLog,
+  taskId: string
 ): ProgressEntry | undefined {
-  throw new Error("Not implemented");
+  const taskEntries = progress.entries.filter((e) => e.task_id === taskId);
+  return taskEntries.length > 0
+    ? taskEntries[taskEntries.length - 1]
+    : undefined;
 }
 
-export function getAttemptCount(
-  _progress: ProgressLog,
-  _taskId: string
-): number {
-  throw new Error("Not implemented");
+/**
+ * Get attempt count for a task
+ */
+export function getAttemptCount(progress: ProgressLog, taskId: string): number {
+  return progress.entries.filter(
+    (e) => e.task_id === taskId && e.status === "in-progress"
+  ).length;
 }
