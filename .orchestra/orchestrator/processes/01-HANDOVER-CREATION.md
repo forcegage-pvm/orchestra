@@ -143,6 +143,28 @@ This file contains:
 
 ---
 
+### STEP 6a: Validate Verification Paths (MANDATORY)
+
+**After creating verification YAML, immediately validate all file paths:**
+
+```powershell
+.\.orchestra\orchestrator\scripts\validate-verification-paths.ps1 -TaskId XXX
+```
+
+**If validation FAILS:**
+- Script shows which paths are wrong
+- Script suggests correct paths if found
+- Run with `-Fix` to auto-correct: `.\.orchestra\orchestrator\scripts\validate-verification-paths.ps1 -TaskId XXX -Fix`
+
+**Why this matters:**
+- Specs may have outdated paths
+- Copy-paste errors happen
+- Saves time catching errors BEFORE implementor starts work
+
+**⛔ DO NOT PROCEED with handover if path validation fails**
+
+---
+
 ### STEP 7: Complete Pre-Flight Checklist
 
 The template contains a pre-flight checklist section. Complete it honestly:

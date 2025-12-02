@@ -26,7 +26,7 @@ verification:
     check: "Templates library exists"
     severity: "BLOCKING"
     type: "file_exists"
-    path: "src/lib/templates.ts"
+    path: "src/core/templates.ts"
     reason: "Template system required for handover generation"
 
   - id: "V4.3"
@@ -49,14 +49,14 @@ verification:
     check: "Test file exists"
     severity: "BLOCKING"
     type: "file_exists"
-    path: "tests/commands/init.test.ts"
+    path: "test/commands/init.test.ts"
     reason: "Tests required for command"
 
   - id: "V4.6"
     check: "All tests pass"
     severity: "BLOCKING"
     type: "command"
-    command: "npm test -- init.test.ts"
+    command: "npm test -- test/commands/init.test.ts"
     expected_exit: 0
     reason: "All unit tests must pass"
 
@@ -92,7 +92,7 @@ verification:
     check: "Templates library exports loadTemplate"
     severity: "MAJOR"
     type: "pattern_match"
-    path: "src/lib/templates.ts"
+    path: "src/core/templates.ts"
     pattern: "export function loadTemplate"
     reason: "Must export template loading function"
 
@@ -100,7 +100,7 @@ verification:
     check: "Templates library exports renderTemplate"
     severity: "MAJOR"
     type: "pattern_match"
-    path: "src/lib/templates.ts"
+    path: "src/core/templates.ts"
     pattern: "export function renderTemplate"
     reason: "Must export template rendering function"
 
@@ -108,7 +108,7 @@ verification:
     check: "Test suite has 8+ tests"
     severity: "MAJOR"
     type: "pattern_count"
-    path: "tests/commands/init.test.ts"
+    path: "test/commands/init.test.ts"
     pattern: "it\\("
     min_count: 8
     reason: "Must have comprehensive test coverage"
@@ -137,7 +137,7 @@ verification:
     check: "Templates library has Handlebars helpers"
     severity: "MINOR"
     type: "pattern_match"
-    path: "src/lib/templates.ts"
+    path: "src/core/templates.ts"
     pattern: "registerHelper"
     reason: "Should provide custom helpers"
 
