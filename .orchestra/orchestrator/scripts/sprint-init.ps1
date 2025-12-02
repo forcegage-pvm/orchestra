@@ -8,7 +8,7 @@
 # Reference: Orchestra Bible Section 8.1
 
 param(
-    [Parameter(Mandatory=$true)]
+    [Parameter(Mandatory = $true)]
     [string]$Spec,
     [switch]$Force  # Overwrite existing manifest/progress
 )

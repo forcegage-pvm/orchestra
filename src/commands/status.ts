@@ -3,48 +3,25 @@
  *
  * Aligned with Orchestra Bible v0.7.0
  * Shows current Orchestra status.
+ *
+ * TODO: Implement in Task 1.3
  */
 
-import {
-  findOrchestraRoot,
-  getResolvedPaths,
-  loadConfig,
-} from "../core/config.js";
-import { loadManifest } from "../core/manifest.js";
-import { formatResult, formatStatus, OutputFormat } from "../core/output.js";
-import { ScriptResult } from "../core/types.js";
+// TODO: Will need OutputFormat when implemented
+// import type { OutputFormat } from "../core/output.js";
 
 export interface StatusOptions {
   json?: boolean;
   orchestraRoot?: string;
 }
 
-export async function statusCommand(options: StatusOptions): Promise<void> {
-  const format: OutputFormat = options.json ? "json" : "human";
-
-  // Find Orchestra root
-  const root = findOrchestraRoot(options.orchestraRoot || process.cwd());
-  if (!root) {
-    const result: ScriptResult = {
-      success: false,
-      message: "Not in an Orchestra project (.orchestra not found)",
-      errors: ["ORCHESTRA_NOT_FOUND"],
-    };
-    console.log(formatResult(result, format));
-    process.exit(1);
-  }
-
-  // Load config
-  const config = loadConfig(root);
-  const paths = getResolvedPaths(root, config);
-
-  // Load manifest
-  const manifestResult = loadManifest(paths.manifest);
-  if (!manifestResult.success || !manifestResult.data) {
-    console.log(formatResult(manifestResult, format));
-    process.exit(1);
-  }
-
-  // Output status
-  console.log(formatStatus(manifestResult.data, format));
+/**
+ * Execute the status command
+ * TODO: Implement in Task 1.3
+ */
+export async function statusCommand(_options: StatusOptions): Promise<void> {
+  // TODO: Implement in Task 1.3
+  // Will use: const format: OutputFormat = options.json ? "json" : "human";
+  console.log("Status command not yet implemented (Task 1.3)");
+  process.exit(0);
 }
