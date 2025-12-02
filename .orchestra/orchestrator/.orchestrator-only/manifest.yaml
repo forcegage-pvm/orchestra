@@ -126,7 +126,8 @@ phases:
         title: "Closeout Command"
         description: "Verify previous task fully closed (Process 1, Step 0)"
         category: "INFRASTRUCTURE"
-        status: "not-started"
+        status: "completed"
+        commit: "55f73ff"
         depends_on: [2]
         spec_file: "spec/implementation/phase-1-cli/tasks/1.4a-closeout-command.md"
         command_spec: "spec/implementation/phase-1-cli/commands/closeout.md"
