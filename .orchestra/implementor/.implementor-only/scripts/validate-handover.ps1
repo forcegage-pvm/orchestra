@@ -49,7 +49,8 @@ if ($taskContent -match '## Acceptance Criteria') {
 # Check 5: Spec file referenced and exists
 if ($taskContent -match '`([^`]+\.md)`') {
     $specFile = $Matches[1]
-    $specPath = Join-Path $env:ORCHESTRA_ROOT $specFile
+    # Spec files are relative to project root, not .orchestra
+    $specPath = $specFile
     if (Test-Path $specPath) {
         Write-OrchestraStep "Spec file exists: $specFile" "pass"
     } else {
