@@ -1,0 +1,174 @@
+# Task 6 Verification Criteria
+# Command: orchestra prepare
+# Category: INFRASTRUCTURE (no visual verification)
+
+task_id: 6
+task_title: "Prepare Command"
+category: "INFRASTRUCTURE"
+visual_required: false
+
+# File existence checks
+checks:
+  - id: V1
+    type: file_exists
+    description: "Command file exists"
+    path: "src/commands/prepare.ts"
+    severity: BLOCKING
+    
+  - id: V2
+    type: file_exists
+    description: "Core prepare logic exists"
+    path: "src/core/prepare.ts"
+    severity: BLOCKING
+    
+  - id: V3
+    type: file_exists
+    description: "Test file exists"
+    path: "test/commands/prepare.test.ts"
+    severity: BLOCKING
+    
+  # Export checks
+  - id: V4
+    type: pattern_match
+    description: "createPrepareCommand exported"
+    path: "src/commands/prepare.ts"
+    pattern: "export.*createPrepareCommand"
+    severity: BLOCKING
+    
+  - id: V5
+    type: pattern_match
+    description: "runPrepare exported"
+    path: "src/core/prepare.ts"
+    pattern: "export.*runPrepare"
+    severity: BLOCKING
+    
+  - id: V6
+    type: pattern_match
+    description: "PrepareOptions exported"
+    path: "src/core/prepare.ts"
+    pattern: "export interface PrepareOptions"
+    severity: BLOCKING
+    
+  - id: V7
+    type: pattern_match
+    description: "PrepareResult exported"
+    path: "src/core/prepare.ts"
+    pattern: "export interface PrepareResult"
+    severity: BLOCKING
+    
+  # Build check
+  - id: V8
+    type: command
+    description: "TypeScript compiles without errors"
+    command: "npx tsc --noEmit"
+    working_dir: "."
+    expected_exit_code: 0
+    severity: BLOCKING
+    
+  # Test checks
+  - id: V9
+    type: command
+    description: "All tests pass"
+    command: "npm test -- prepare.test.ts"
+    working_dir: "."
+    expected_pattern: "✓.*passed"
+    severity: BLOCKING
+    
+  - id: V10
+    type: command
+    description: "Test count >= 37"
+    command: "npm test -- prepare.test.ts"
+    working_dir: "."
+    expected_pattern: "\\d+ passed"
+    min_count: 37
+    severity: MAJOR
+    notes: "Spec requires at least 37 tests covering all scenarios"
+    
+  # CLI integration
+  - id: V11
+    type: command
+    description: "Command runs and shows options"
+    command: "node dist/cli.js prepare --help"
+    working_dir: "."
+    expected_patterns:
+      - "Prepare handover"
+      - "--task"
+      - "--force"
+      - "--dry-run"
+      - "--json"
+      - "--skip-closeout"
+    severity: BLOCKING
+    notes: "All 5 options must be displayed"
+    
+  # Code quality checks
+  - id: V12
+    type: pattern_match
+    description: "Core has no CLI dependencies"
+    path: "src/core/prepare.ts"
+    pattern: "import.*(chalk|ora|commander)"
+    should_not_match: true
+    severity: BLOCKING
+    notes: "Core logic must not import CLI libraries"
+    
+  - id: V13
+    type: pattern_match
+    description: "Task selection function exists"
+    path: "src/core/prepare.ts"
+    pattern: "function selectTask"
+    severity: MAJOR
+    
+  - id: V14
+    type: pattern_match
+    description: "Validation function exists"
+    path: "src/core/prepare.ts"
+    pattern: "function validatePrepare"
+    severity: MAJOR
+    
+  - id: V15
+    type: pattern_match
+    description: "File generation function exists"
+    path: "src/core/prepare.ts"
+    pattern: "function generateHandoverFiles"
+    severity: MAJOR
+    
+  - id: V16
+    type: pattern_match
+    description: "Manifest update function exists"
+    path: "src/core/prepare.ts"
+    pattern: "function updateManifestForTask"
+    severity: MAJOR
+    
+  # Interface checks
+  - id: V17
+    type: pattern_match
+    description: "PrepareOptions has required fields"
+    path: "src/core/prepare.ts"
+    pattern: "task\\?:.*force\\?:.*skipCloseout\\?:.*dryRun\\?:.*json\\?:"
+    severity: BLOCKING
+    multiline: true
+    
+  - id: V18
+    type: pattern_match
+    description: "PrepareResult has required fields"
+    path: "src/core/prepare.ts"
+    pattern: "task:.*filesGenerated:.*statusUpdated:"
+    severity: BLOCKING
+    multiline: true
+
+# Notes for orchestrator
+notes: |
+  Task 6 creates the prepare command which is critical for Process 1 (Handover Creation).
+  
+  Key validation points:
+  - Command must be properly wired in cli.ts
+  - Core logic must have ZERO CLI dependencies
+  - Must support all 5 options (--task, --force, --dry-run, --json, --skip-closeout)
+  - Must integrate with closeout check (Task 5)
+  - Must use Handlebars templates for file generation
+  - Test count minimum: 37 tests
+  
+  Manual verification steps:
+  1. Run: orchestra prepare --help → Should show all options
+  2. Run: orchestra prepare --dry-run → Should show preview without modifying files
+  3. Check: src/core/prepare.ts has no chalk/ora/commander imports
+  4. Check: npm test shows at least 37 tests passing
