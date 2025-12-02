@@ -9,11 +9,10 @@
 
 import { Command } from "commander";
 import { createCloseoutCommand } from "./commands/closeout.js";
-import { findOrchestraRoot } from "./core/config.js";
+import { createInitCommand } from "./commands/init.js";
+import { statusCommand } from "./commands/status.js";
 
 // Import commands (to be implemented)
-// import { initCommand } from './commands/init.js';
-// import { statusCommand } from './commands/status.js';
 // import { prepareCommand } from './commands/prepare.js';
 // import { verifyCommand } from './commands/verify.js';
 // import { completeCommand } from './commands/complete.js';
@@ -35,27 +34,22 @@ program
 program
   .command("status")
   .description("Show current Orchestra status")
+  .option("--task <id>", "Show details for specific task")
+  .option("--phase <id>", "Show details for specific phase")
+  .option("--history", "Include full task history")
+  .option("--metrics", "Include sprint metrics")
+  .option("--brief", "One-line summary only")
   .action(async (options) => {
-    const root = findOrchestraRoot(options.orchestraRoot || process.cwd());
-    if (!root) {
-      console.error(
-        "Error: Not in an Orchestra project (.orchestra not found)"
-      );
+    try {
+      await statusCommand(options);
+    } catch (error) {
+      console.error(`Error: ${error instanceof Error ? error.message : String(error)}`);
       process.exit(1);
     }
-    console.log("Status command not yet implemented");
-    // TODO: Implement status command
   });
 
 // Init command - initialize sprint
-program
-  .command("init")
-  .description("Initialize a new sprint")
-  .option("--spec <path>", "Path to specification file")
-  .action(async () => {
-    console.log("Init command not yet implemented");
-    // TODO: Implement init command
-  });
+program.addCommand(createInitCommand());
 
 // Closeout command - verify previous task closed
 program.addCommand(createCloseoutCommand());
