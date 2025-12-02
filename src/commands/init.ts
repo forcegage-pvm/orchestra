@@ -158,7 +158,7 @@ export function initCommand(): Command {
  * Execute the init command
  */
 export async function runInit(options: InitOptions): Promise<void> {
-  const cwd = process.cwd();
+  const cwd = options.orchestraRoot ?? process.cwd();
   const orchestraDir = path.join(cwd, ".orchestra");
 
   // Check if already initialized

@@ -110,6 +110,7 @@ const mockData = {
 ```
 
 If validation **FAILS**:
+
 - Document issues in `.orchestra/handover/completion-signal.md`
 - Say: "Task validation failed - see completion-signal.md"
 - **STOP** and wait for orchestrator to fix

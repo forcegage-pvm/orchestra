@@ -16,13 +16,10 @@ describe("init command", () => {
   let consoleSpy: ReturnType<typeof vi.spyOn>;
   let consoleErrorSpy: ReturnType<typeof vi.spyOn>;
   let exitSpy: ReturnType<typeof vi.spyOn>;
-  let originalCwd: string;
 
   beforeEach(() => {
     // Create temp directory
     tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "init-test-"));
-    originalCwd = process.cwd();
-    process.chdir(tempDir);
 
     // Spy on console and process.exit
     consoleSpy = vi.spyOn(console, "log").mockImplementation(() => {});
@@ -33,9 +30,6 @@ describe("init command", () => {
   });
 
   afterEach(() => {
-    // Restore cwd
-    process.chdir(originalCwd);
-
     // Cleanup
     fs.rmSync(tempDir, { recursive: true, force: true });
 
@@ -45,7 +39,7 @@ describe("init command", () => {
 
   describe("directory creation", () => {
     it("should create .orchestra directory", async () => {
-      await runInit({});
+      await runInit({ orchestraRoot: tempDir });
 
       const orchestraDir = path.join(tempDir, ".orchestra");
       expect(fs.existsSync(orchestraDir)).toBe(true);
@@ -53,7 +47,7 @@ describe("init command", () => {
     });
 
     it("should create all default folders", async () => {
-      await runInit({});
+      await runInit({ orchestraRoot: tempDir });
 
       const expectedFolders = [
         ".orchestra/common/templates",
@@ -75,14 +69,14 @@ describe("init command", () => {
 
   describe("config file creation", () => {
     it("should create config file", async () => {
-      await runInit({});
+      await runInit({ orchestraRoot: tempDir });
 
       const configPath = path.join(tempDir, ".orchestra", "orchestra.yaml");
       expect(fs.existsSync(configPath)).toBe(true);
     });
 
     it("should create valid YAML config with defaults", async () => {
-      await runInit({});
+      await runInit({ orchestraRoot: tempDir });
 
       const configPath = path.join(tempDir, ".orchestra", "orchestra.yaml");
       const content = fs.readFileSync(configPath, "utf-8");
@@ -95,7 +89,7 @@ describe("init command", () => {
 
   describe("template files", () => {
     it("should create template files", async () => {
-      await runInit({});
+      await runInit({ orchestraRoot: tempDir });
 
       const templateDir = path.join(tempDir, ".orchestra", "common", "templates");
       expect(fs.existsSync(templateDir)).toBe(true);
@@ -103,21 +97,21 @@ describe("init command", () => {
     });
 
     it("should create current-task.md.hbs template", async () => {
-      await runInit({});
+      await runInit({ orchestraRoot: tempDir });
 
       const templatePath = path.join(tempDir, ".orchestra", "common", "templates", "current-task.md.hbs");
       expect(fs.existsSync(templatePath)).toBe(true);
     });
 
     it("should create completion-signal.md.hbs template", async () => {
-      await runInit({});
+      await runInit({ orchestraRoot: tempDir });
 
       const templatePath = path.join(tempDir, ".orchestra", "common", "templates", "completion-signal.md.hbs");
       expect(fs.existsSync(templatePath)).toBe(true);
     });
 
     it("should create task-context.md.hbs template", async () => {
-      await runInit({});
+      await runInit({ orchestraRoot: tempDir });
 
       const templatePath = path.join(tempDir, ".orchestra", "common", "templates", "task-context.md.hbs");
       expect(fs.existsSync(templatePath)).toBe(true);
@@ -127,23 +121,23 @@ describe("init command", () => {
   describe("already initialized", () => {
     it("should fail if already initialized without force", async () => {
       // First init
-      await runInit({});
+      await runInit({ orchestraRoot: tempDir });
 
       // Second init should fail
-      await expect(runInit({})).rejects.toThrow("process.exit(1)");
+      await expect(runInit({ orchestraRoot: tempDir })).rejects.toThrow("process.exit(1)");
       expect(exitSpy).toHaveBeenCalledWith(1);
     });
 
     it("should output error message when already initialized", async () => {
       // First init
-      await runInit({});
+      await runInit({ orchestraRoot: tempDir });
 
       // Reset spies
       consoleSpy.mockClear();
       consoleErrorSpy.mockClear();
 
       // Second init should show error
-      await expect(runInit({})).rejects.toThrow("process.exit(1)");
+      await expect(runInit({ orchestraRoot: tempDir })).rejects.toThrow("process.exit(1)");
 
       const allOutput = [
         ...consoleSpy.mock.calls.map((c) => c[0]),
@@ -157,14 +151,14 @@ describe("init command", () => {
   describe("force flag", () => {
     it("should reinitialize with force flag", async () => {
       // First init
-      await runInit({});
+      await runInit({ orchestraRoot: tempDir });
 
       // Add a marker file to verify overwrite
       const markerPath = path.join(tempDir, ".orchestra", "test-marker.txt");
       fs.writeFileSync(markerPath, "marker");
 
       // Second init with force should succeed
-      await expect(runInit({ force: true })).resolves.not.toThrow();
+      await expect(runInit({ force: true, orchestraRoot: tempDir })).resolves.not.toThrow();
 
       // .orchestra should still exist
       expect(fs.existsSync(path.join(tempDir, ".orchestra"))).toBe(true);
@@ -173,14 +167,14 @@ describe("init command", () => {
 
   describe("dry run", () => {
     it("should show dry run without creating files", async () => {
-      await runInit({ dryRun: true });
+      await runInit({ dryRun: true, orchestraRoot: tempDir });
 
       const orchestraDir = path.join(tempDir, ".orchestra");
       expect(fs.existsSync(orchestraDir)).toBe(false);
     });
 
     it("should output what would be created in dry run", async () => {
-      await runInit({ dryRun: true });
+      await runInit({ dryRun: true, orchestraRoot: tempDir });
 
       const output = consoleSpy.mock.calls.map((c) => c[0]).join("\n");
       expect(output.toLowerCase()).toMatch(/would|dry/);
@@ -189,7 +183,7 @@ describe("init command", () => {
 
   describe("JSON output", () => {
     it("should output JSON when requested", async () => {
-      await runInit({ json: true });
+      await runInit({ json: true, orchestraRoot: tempDir });
 
       // Find the JSON output call
       const jsonOutput = consoleSpy.mock.calls.find((c) => {
@@ -207,7 +201,7 @@ describe("init command", () => {
     });
 
     it("should include path in JSON output", async () => {
-      await runInit({ json: true });
+      await runInit({ json: true, orchestraRoot: tempDir });
 
       const jsonOutput = consoleSpy.mock.calls.find((c) => {
         try {
@@ -223,7 +217,7 @@ describe("init command", () => {
     });
 
     it("should include folders and files in JSON output", async () => {
-      await runInit({ json: true });
+      await runInit({ json: true, orchestraRoot: tempDir });
 
       const jsonOutput = consoleSpy.mock.calls.find((c) => {
         try {
@@ -243,13 +237,13 @@ describe("init command", () => {
 
     it("should output JSON error when already initialized", async () => {
       // First init
-      await runInit({});
+      await runInit({ orchestraRoot: tempDir });
 
       // Reset spies
       consoleSpy.mockClear();
 
       // Second init with JSON should output JSON error
-      await expect(runInit({ json: true })).rejects.toThrow("process.exit(1)");
+      await expect(runInit({ json: true, orchestraRoot: tempDir })).rejects.toThrow("process.exit(1)");
 
       const jsonOutput = consoleSpy.mock.calls.find((c) => {
         try {
@@ -269,7 +263,7 @@ describe("init command", () => {
 
   describe("complete folder structure", () => {
     it("should create all default folders and files", async () => {
-      await runInit({});
+      await runInit({ orchestraRoot: tempDir });
 
       // Check all required folders exist
       const requiredFolders = [
@@ -311,15 +305,15 @@ describe("init command", () => {
   describe("exit codes", () => {
     it("should exit with code 0 on success (implicit)", async () => {
       // If runInit completes without throwing, it's a success
-      await expect(runInit({})).resolves.not.toThrow();
+      await expect(runInit({ orchestraRoot: tempDir })).resolves.not.toThrow();
     });
 
     it("should exit with code 1 on failure", async () => {
       // First init
-      await runInit({});
+      await runInit({ orchestraRoot: tempDir });
 
       // Second init should fail with exit code 1
-      await expect(runInit({})).rejects.toThrow("process.exit(1)");
+      await expect(runInit({ orchestraRoot: tempDir })).rejects.toThrow("process.exit(1)");
       expect(exitSpy).toHaveBeenCalledWith(1);
     });
   });
