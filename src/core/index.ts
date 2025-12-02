@@ -5,12 +5,29 @@
  * This module exports all core services for use by CLI, MCP, and Extension.
  */
 
-// Types
+// Error handling
+export * from "./errors.js";
+
+// Types and schemas
 export * from "./types.js";
 
-// Services (to be implemented)
+// YAML utilities
+export * from "./yaml.js";
+
+// Configuration
 export * from "./config.js";
+
+// Git operations
 export * from "./git.js";
+
+// Manifest management
 export * from "./manifest.js";
-export * from "./output.js";
+
+// Progress tracking
+export * from "./progress.js";
+
+// Output formatting
+export * as output from "./output.js";
+
+// Validation
 export * from "./validation.js";

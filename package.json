@@ -36,19 +36,21 @@
     "commander": "^12.1.0",
     "handlebars": "^4.7.8",
     "ora": "^8.0.1",
+    "simple-git": "^3.22.0",
     "yaml": "^2.4.5",
-    "zod": "^3.23.8",
-    "simple-git": "^3.22.0"
+    "zod": "^3.23.8"
   },
   "devDependencies": {
+    "@eslint/js": "^9.39.1",
     "@types/node": "^20.14.0",
+    "@vitest/coverage-v8": "^1.6.0",
     "eslint": "^9.4.0",
     "rimraf": "^5.0.7",
     "tsup": "^8.1.0",
     "tsx": "^4.15.0",
     "typescript": "^5.4.5",
-    "vitest": "^1.6.0",
-    "@vitest/coverage-v8": "^1.6.0"
+    "typescript-eslint": "^8.48.1",
+    "vitest": "^1.6.0"
   },
   "keywords": [
     "orchestra",

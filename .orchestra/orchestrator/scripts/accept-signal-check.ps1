@@ -62,10 +62,10 @@ if (Test-Path $completionPath) {
         $completionPath
     
     if ($hasContent) {
-        # Check for required sections (allow markdown formatting like **Status**: or Status:)
-        $hasStatus = $signalContent -match "(?i)\*?\*?status\*?\*?:\s*[✅🟢]?\s*(COMPLETED|complete|done)"
+        # Check for required sections (allow markdown formatting like ## Status: COMPLETE or Status: COMPLETED)
+        $hasStatus = $signalContent -match "(?i)(status[:\s]+|##\s*status[:\s]+)(COMPLETE|COMPLETED|DONE|✅)"
         Add-CheckResult $checks "Signal contains COMPLETED status" $hasStatus `
-            "Missing 'status: COMPLETED' in signal" `
+            "Missing 'Status: COMPLETE' in signal" `
             "Implementor must include status in completion-signal.md" `
             $completionPath
         
@@ -181,16 +181,17 @@ if ($untrackedFiles) {
 
 Write-Section "Quick Sanity Checks"
 
-$testPath = $env:SPRINT_TEST_PATH
+# For TypeScript projects, tests are typically in test/ not src/
+$testPath = if ($env:PROJECT_TYPE -eq "typescript") { "test" } else { $env:SPRINT_TEST_PATH }
 $projectType = $env:PROJECT_TYPE
 
 if (Test-Path $testPath) {
     # Use appropriate test file pattern based on project type
     $testPattern = switch ($projectType) {
         "typescript" { "*.test.ts" }
-        "flutter"    { "*_test.dart" }
-        "python"     { "test_*.py" }
-        default      { "*.test.*" }
+        "flutter" { "*_test.dart" }
+        "python" { "test_*.py" }
+        default { "*.test.*" }
     }
     
     $testFiles = Get-ChildItem -Path $testPath -Filter $testPattern -Recurse -ErrorAction SilentlyContinue

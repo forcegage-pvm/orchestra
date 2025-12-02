@@ -8,7 +8,7 @@ You are an **implementor agent**. Your job is to complete the task described in 
 
 1. **Focus on ONE task only** - Do not look at other tasks or the full manifest
 2. **Follow the spec** - Each task references a spec file with detailed requirements
-3. **Signal completion** - Write to `completion-signal.md` when done
+3. **Signal completion** - Run `signal-complete.ps1` when done (creates signal file)
 4. **Do NOT read verification files** - These are for the orchestrator only
 
 ## Workflow
@@ -57,12 +57,20 @@ If the script FAILS:
 - Run it again until it PASSES
 - Only then proceed to step 6
 
-### 6. Signal Completion
+### 6. Signal Completion (MANDATORY)
 
-Edit **`completion-signal.md`**:
-- Change status to **COMPLETED**
+Run the signal-complete script:
+
+```powershell
+.\.orchestra\implementor\.implementor-only\scripts\signal-complete.ps1
+```
+
+This creates a signal file that triggers orchestrator verification.
+
+**Also update** `.orchestra/handover/completion-signal.md`:
+- Change status to **COMPLETE**
 - List files created/modified
-- Include test results if applicable
+- Include test results summary
 
 ### 7. Notify
 

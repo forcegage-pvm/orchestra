@@ -150,31 +150,31 @@ function global:Get-OrchestraEnv {
     Returns all orchestra environment variables as a hashtable
     #>
     @{
-        PROJECT_TYPE          = $env:PROJECT_TYPE
-        ORCHESTRA_ROOT        = $env:ORCHESTRA_ROOT
-        ORCHESTRA_COMMON      = $env:ORCHESTRA_COMMON
-        ORCHESTRA_HANDOVER    = $env:ORCHESTRA_HANDOVER
-        ORCHESTRA_ORCHESTRATOR= $env:ORCHESTRA_ORCHESTRATOR
-        ORCHESTRA_IMPLEMENTOR = $env:ORCHESTRA_IMPLEMENTOR
-        SPECKIT_ROOT          = $env:SPECKIT_ROOT
-        SPRINT_NAME           = $env:SPRINT_NAME
-        CURRENT_TASK          = $env:CURRENT_TASK
-        PREVIOUS_TASK         = $env:PREVIOUS_TASK
-        SPRINT_TEST_PATH      = $env:SPRINT_TEST_PATH
-        MANIFEST_PATH         = $env:MANIFEST_PATH
-        PROGRESS_PATH         = $env:PROGRESS_PATH
-        SPECKIT_TASKS_PATH    = $env:SPECKIT_TASKS_PATH
-        HANDOVER_PATH         = $env:HANDOVER_PATH
-        VERIFICATION_PATH     = $env:VERIFICATION_PATH
-        SCREENSHOT_PATH       = $env:SCREENSHOT_PATH
-        RESULTS_PATH          = $env:RESULTS_PATH
-        ORCHESTRATOR_SCRIPTS  = $env:ORCHESTRATOR_SCRIPTS
-        IMPLEMENTOR_PATH      = $env:IMPLEMENTOR_PATH
-        DOCS_PATH             = $env:DOCS_PATH
-        TEMPLATES_PATH        = $env:TEMPLATES_PATH
-        BUILD_COMMAND         = $env:BUILD_COMMAND
-        TEST_COMMAND          = $env:TEST_COMMAND
-        TYPECHECK_COMMAND     = $env:TYPECHECK_COMMAND
-        LINT_COMMAND          = $env:LINT_COMMAND
+        PROJECT_TYPE           = $env:PROJECT_TYPE
+        ORCHESTRA_ROOT         = $env:ORCHESTRA_ROOT
+        ORCHESTRA_COMMON       = $env:ORCHESTRA_COMMON
+        ORCHESTRA_HANDOVER     = $env:ORCHESTRA_HANDOVER
+        ORCHESTRA_ORCHESTRATOR = $env:ORCHESTRA_ORCHESTRATOR
+        ORCHESTRA_IMPLEMENTOR  = $env:ORCHESTRA_IMPLEMENTOR
+        SPECKIT_ROOT           = $env:SPECKIT_ROOT
+        SPRINT_NAME            = $env:SPRINT_NAME
+        CURRENT_TASK           = $env:CURRENT_TASK
+        PREVIOUS_TASK          = $env:PREVIOUS_TASK
+        SPRINT_TEST_PATH       = $env:SPRINT_TEST_PATH
+        MANIFEST_PATH          = $env:MANIFEST_PATH
+        PROGRESS_PATH          = $env:PROGRESS_PATH
+        SPECKIT_TASKS_PATH     = $env:SPECKIT_TASKS_PATH
+        HANDOVER_PATH          = $env:HANDOVER_PATH
+        VERIFICATION_PATH      = $env:VERIFICATION_PATH
+        SCREENSHOT_PATH        = $env:SCREENSHOT_PATH
+        RESULTS_PATH           = $env:RESULTS_PATH
+        ORCHESTRATOR_SCRIPTS   = $env:ORCHESTRATOR_SCRIPTS
+        IMPLEMENTOR_PATH       = $env:IMPLEMENTOR_PATH
+        DOCS_PATH              = $env:DOCS_PATH
+        TEMPLATES_PATH         = $env:TEMPLATES_PATH
+        BUILD_COMMAND          = $env:BUILD_COMMAND
+        TEST_COMMAND           = $env:TEST_COMMAND
+        TYPECHECK_COMMAND      = $env:TYPECHECK_COMMAND
+        LINT_COMMAND           = $env:LINT_COMMAND
     }
 }

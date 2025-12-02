@@ -14,7 +14,8 @@ $allPassed = $true
 $taskFile = Join-Path $env:ORCHESTRA_HANDOVER "current-task.md"
 if (Test-Path $taskFile) {
     Write-OrchestraStep "current-task.md exists" "pass"
-} else {
+}
+else {
     Write-OrchestraStep "current-task.md is MISSING" "fail"
     $allPassed = $false
 }
@@ -23,7 +24,8 @@ if (Test-Path $taskFile) {
 $contextFile = Join-Path $env:ORCHESTRA_HANDOVER "task-context.md"
 if (Test-Path $contextFile) {
     Write-OrchestraStep "task-context.md exists" "pass"
-} else {
+}
+else {
     Write-OrchestraStep "task-context.md is MISSING" "fail"
     $allPassed = $false
 }
@@ -32,7 +34,8 @@ if (Test-Path $contextFile) {
 $taskId = Get-CurrentTaskId
 if ($taskId) {
     Write-OrchestraStep "Task ID found: $taskId" "pass"
-} else {
+}
+else {
     Write-OrchestraStep "Could not parse Task ID from current-task.md" "fail"
     $allPassed = $false
 }
@@ -41,7 +44,8 @@ if ($taskId) {
 $taskContent = Get-Content $taskFile -Raw -ErrorAction SilentlyContinue
 if ($taskContent -match '## Acceptance Criteria') {
     Write-OrchestraStep "Acceptance criteria section found" "pass"
-} else {
+}
+else {
     Write-OrchestraStep "Missing acceptance criteria section" "fail"
     $allPassed = $false
 }
@@ -53,10 +57,12 @@ if ($taskContent -match '`([^`]+\.md)`') {
     $specPath = $specFile
     if (Test-Path $specPath) {
         Write-OrchestraStep "Spec file exists: $specFile" "pass"
-    } else {
+    }
+    else {
         Write-OrchestraStep "Spec file NOT FOUND: $specFile" "warn"
     }
-} else {
+}
+else {
     Write-OrchestraStep "No spec file reference found" "info"
 }
 

@@ -8,7 +8,7 @@
 # Reference: Orchestra Bible Section 8.4
 
 param(
-    [Parameter(Mandatory=$false)]
+    [Parameter(Mandatory = $false)]
     [string]$TaskId
 )
 
@@ -45,9 +45,26 @@ $signalDir = "$scriptRoot/implementor/signals"
 $taskIdClean = $TaskId -replace '\.', '-'
 $signals = Get-ChildItem -Path $signalDir -Filter "task-$taskIdClean-signal-*.yaml" -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending
 
+# Also check for markdown completion signal as fallback
+$handoverDir = "$scriptRoot/handover"
+$completionSignalPath = "$handoverDir/completion-signal.md"
+$hasMarkdownSignal = $false
+
+if (Test-Path $completionSignalPath) {
+    $signalContent = Get-Content $completionSignalPath -Raw
+    # Check if status is COMPLETE and task ID matches
+    if ($signalContent -match 'Status[:\s]+COMPLETE' -and $signalContent -match "Task ID[:\s#]*$TaskId") {
+        $hasMarkdownSignal = $true
+    }
+}
+
 if ($signals) {
     Add-CheckResult $checks "Signal file exists" $true $signals[0].Name
-} else {
+}
+elseif ($hasMarkdownSignal) {
+    Add-CheckResult $checks "Signal file exists" $true "completion-signal.md (markdown fallback)"
+}
+else {
     Add-CheckResult $checks "Signal file exists" $false `
         "No signal found for task $TaskId" `
         "Implementor must run signal-complete.ps1" `
@@ -67,9 +84,10 @@ if ($artifacts) {
     $artifactContent = Get-Content $artifacts[0].FullName -Raw
     $passed = $artifactContent -match 'status:\s*PASSED'
     Add-CheckResult $checks "Pre-signal check passed" $passed `
-        $(if ($passed) { $artifacts[0].Name } else { "Pre-signal check failed" }) `
+    $(if ($passed) { $artifacts[0].Name } else { "Pre-signal check failed" }) `
         "Implementor must fix issues and re-run pre-signal-check.ps1"
-} else {
+}
+else {
     Add-CheckResult $checks "Pre-signal artifact exists" $false `
         "No pre-signal artifact found" `
         "Implementor should run pre-signal-check.ps1 before signaling" `
@@ -93,9 +111,10 @@ try {
     }
     
     Add-CheckResult $checks "Build succeeds" $buildSuccess `
-        $(if ($buildSuccess) { "Build completed" } else { "Build failed" }) `
+    $(if ($buildSuccess) { "Build completed" } else { "Build failed" }) `
         "Fix build errors before verification"
-} catch {
+}
+catch {
     Add-CheckResult $checks "Build succeeds" $false `
         "Build command failed: $_" `
         "Check $env:BUILD_COMMAND"
@@ -112,9 +131,10 @@ try {
     $testSuccess = $LASTEXITCODE -eq 0
     
     Add-CheckResult $checks "Tests pass" $testSuccess `
-        $(if ($testSuccess) { "All tests passed" } else { "Tests failed" }) `
+    $(if ($testSuccess) { "All tests passed" } else { "Tests failed" }) `
         "Fix failing tests before verification"
-} catch {
+}
+catch {
     Add-CheckResult $checks "Tests pass" $false `
         "Test command failed: $_" `
         "Check $env:TEST_COMMAND"
@@ -131,9 +151,10 @@ try {
     $typeSuccess = $LASTEXITCODE -eq 0
     
     Add-CheckResult $checks "TypeScript compiles" $typeSuccess `
-        $(if ($typeSuccess) { "No type errors" } else { "Type errors found" }) `
+    $(if ($typeSuccess) { "No type errors" } else { "Type errors found" }) `
         "Fix TypeScript errors before verification"
-} catch {
+}
+catch {
     Add-CheckResult $checks "TypeScript compiles" $false `
         "Type check failed: $_" `
         "Check $env:TYPECHECK_COMMAND"
@@ -153,7 +174,8 @@ if ($summary.AllPassed) {
     Write-Host "═══════════════════════════════════════════════════════════════" -ForegroundColor Magenta
     Write-Host "`nNext: Run verification-audit.ps1 -TaskId $TaskId" -ForegroundColor Cyan
     exit 0
-} else {
+}
+else {
     Write-Host "❌ GATE CHECK FAILED - $($summary.Failed) gate(s) did not pass" -ForegroundColor Red
     Write-Host "═══════════════════════════════════════════════════════════════" -ForegroundColor Magenta
     
