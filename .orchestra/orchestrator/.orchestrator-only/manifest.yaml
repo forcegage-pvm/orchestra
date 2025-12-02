@@ -1,101 +1,289 @@
 # Orchestra Phase 1 CLI - Task Manifest
 # ⚠️ THIS FILE IS HIDDEN FROM IMPLEMENTOR AGENT
-# Only orchestrator (human) and verifier agent should access this folder
+# Only orchestrator should access this folder
+#
+# Source: spec/implementation/phase-1-cli/readme.md
+# Created: 2025-12-02
+# Process: 00-SPRINT-INITIALIZATION
 
 sprint: "orchestra-phase-1-cli"
 spec: "spec/implementation/phase-1-cli/readme.md"
-created: "2025-12-01"
-status: "in_progress"
+created: "2025-12-02"
+status: "not-started"
 
-# Task feeding strategy:
-# - Feed ONE task at a time to implementor
-# - No task counts visible to implementor
-# - Verification happens between tasks
-# - Next task only after verification passes
+# ═══════════════════════════════════════════════════════════════════
+# TASK ORGANIZATION
+# ═══════════════════════════════════════════════════════════════════
+# 
+# Phase 1 (Setup):      Foundation work
+# Phase 2 (Core):       Reusable library (no CLI deps)
+# Phase 3 (Commands):   CLI command implementations
+# Phase 4 (Testing):    Integration and documentation
+#
+# Total: 11 tasks
+# ═══════════════════════════════════════════════════════════════════
 
 phases:
+  # ─────────────────────────────────────────────────────────────────
+  # PHASE 1: SETUP
+  # Project scaffolding and configuration
+  # ─────────────────────────────────────────────────────────────────
   - id: "setup"
+    name: "Setup"
     description: "Project initialization and scaffolding"
     tasks:
-      - id: "1.1"
+      - id: 1
         title: "Project Setup"
-        status: "completed"
-        commit: "initial"
-        category: "infrastructure"
-        notes: "Completed during initial scaffolding session"
+        description: "Initialize Node.js project with TypeScript, ESM, and testing"
+        category: "INFRASTRUCTURE"
+        status: "not-started"
+        depends_on: []
+        spec_file: "spec/implementation/phase-1-cli/tasks/1.1-project-setup.md"
+        deliverables:
+          - "package.json"
+          - "tsconfig.json"
+          - "vitest.config.ts"
+          - "src/cli.ts (entry point stub)"
+        verification_criteria:
+          - "npm install succeeds"
+          - "npm run build succeeds"
+          - "npm test runs (can have 0 tests)"
+          - "npx tsx src/cli.ts --version outputs version"
 
+  # ─────────────────────────────────────────────────────────────────
+  # PHASE 2: CORE LIBRARIES
+  # Reusable modules with NO CLI dependencies
+  # ─────────────────────────────────────────────────────────────────
   - id: "core"
-    description: "Core library implementation"
+    name: "Core Libraries"
+    description: "Reusable library modules (no CLI dependencies)"
     tasks:
-      - id: "1.2"
+      - id: 2
         title: "Core Libraries"
-        status: "in-progress"
-        category: "infrastructure"
+        description: "Types, config loader, manifest/progress services"
+        category: "INFRASTRUCTURE"
+        status: "not-started"
+        depends_on: [1]
         spec_file: "spec/implementation/phase-1-cli/tasks/1.2-core-libraries.md"
-        notes: "Types and errors done, other modules are stubs"
+        deliverables:
+          - "src/core/index.ts"
+          - "src/core/types.ts"
+          - "src/core/config.ts"
+          - "src/core/manifest.ts"
+          - "src/core/progress.ts"
+          - "src/core/errors.ts"
+          - "tests/core/*.test.ts"
+        verification_criteria:
+          - "All core modules export clean API"
+          - "No CLI imports in src/core/"
+          - "Zod schemas validate correctly"
+          - "Unit tests pass"
 
+  # ─────────────────────────────────────────────────────────────────
+  # PHASE 3: CLI COMMANDS
+  # Command implementations using core library
+  # ─────────────────────────────────────────────────────────────────
   - id: "commands"
-    description: "CLI command implementation"
+    name: "CLI Commands"
+    description: "Command implementations"
     tasks:
-      - id: "1.3"
+      # Supporting commands first
+      - id: 3
         title: "Status Command"
+        description: "Display current sprint state"
+        category: "INFRASTRUCTURE"
         status: "not-started"
-        category: "infrastructure"
-        depends_on: ["1.2"]
+        depends_on: [2]
         spec_file: "spec/implementation/phase-1-cli/tasks/1.3-status-command.md"
+        command_spec: "spec/implementation/phase-1-cli/commands/status.md"
+        deliverables:
+          - "src/commands/status.ts"
+          - "tests/commands/status.test.ts"
+        verification_criteria:
+          - "orchestra status shows sprint info"
+          - "orchestra status --json outputs valid JSON"
+          - "Exit code 0 on success"
 
-      - id: "1.4"
+      - id: 4
         title: "Init Command"
+        description: "Initialize sprint from spec"
+        category: "INFRASTRUCTURE"
         status: "not-started"
-        category: "infrastructure"
-        depends_on: ["1.2"]
+        depends_on: [2]
         spec_file: "spec/implementation/phase-1-cli/tasks/1.4-init-command.md"
+        command_spec: "spec/implementation/phase-1-cli/commands/init.md"
+        deliverables:
+          - "src/commands/init.ts"
+          - "tests/commands/init.test.ts"
+        verification_criteria:
+          - "orchestra init --spec <path> creates .orchestra/"
+          - "Creates manifest.yaml from spec"
+          - "Creates progress.yaml"
+          - "Exit code 0 on success"
 
-      - id: "1.5"
+      # Process 1: Handover Creation commands
+      - id: 5
+        title: "Closeout Command"
+        description: "Verify previous task fully closed (Process 1, Step 0)"
+        category: "INFRASTRUCTURE"
+        status: "not-started"
+        depends_on: [2]
+        spec_file: "spec/implementation/phase-1-cli/tasks/1.4a-closeout-command.md"
+        command_spec: "spec/implementation/phase-1-cli/commands/closeout.md"
+        deliverables:
+          - "src/commands/closeout.ts"
+          - "src/core/closeout.ts"
+          - "tests/commands/closeout.test.ts"
+        verification_criteria:
+          - "orchestra closeout runs 6 checks"
+          - "Checks: uncommitted changes, task status, commit hash, speckit tasks, signal cleared, results file"
+          - "Exit code 0 if all pass, 1 if any fail"
+          - "--fix attempts auto-repair"
+
+      - id: 6
         title: "Prepare Command"
+        description: "Prepare task handover (Process 1, Steps 1-12)"
+        category: "INFRASTRUCTURE"
         status: "not-started"
-        category: "infrastructure"
-        depends_on: ["1.2"]
+        depends_on: [2, 5]
         spec_file: "spec/implementation/phase-1-cli/tasks/1.5-prepare-command.md"
+        command_spec: "spec/implementation/phase-1-cli/commands/prepare.md"
+        deliverables:
+          - "src/commands/prepare.ts"
+          - "src/core/templates.ts"
+          - "tests/commands/prepare.test.ts"
+        verification_criteria:
+          - "orchestra prepare --task N generates current-task.md"
+          - "Runs closeout check first (unless --skip-closeout)"
+          - "Updates progress.yaml"
+          - "Exit code 0 on success"
 
-      - id: "1.6"
+      # Process 2: Task Verification commands
+      - id: 7
+        title: "Accept-Signal Command"
+        description: "Verify pre-signal artifact exists (Process 2, Step 1)"
+        category: "INFRASTRUCTURE"
+        status: "not-started"
+        depends_on: [2]
+        spec_file: "spec/implementation/phase-1-cli/tasks/1.5a-accept-signal-command.md"
+        command_spec: "spec/implementation/phase-1-cli/commands/accept-signal.md"
+        deliverables:
+          - "src/commands/accept-signal.ts"
+          - "src/core/signal.ts"
+          - "tests/commands/accept-signal.test.ts"
+        verification_criteria:
+          - "orchestra accept-signal runs 6 checks"
+          - "Checks: artifact exists, passed, task ID, freshness, signal filled, deliverables"
+          - "Exit code 0 if accepted, 1 if rejected"
+          - "--max-age configures freshness threshold"
+
+      - id: 8
         title: "Verify Command"
+        description: "Run verification checks (Process 2, Steps 2-4)"
+        category: "INFRASTRUCTURE"
         status: "not-started"
-        category: "infrastructure"
-        depends_on: ["1.2"]
+        depends_on: [2, 7]
         spec_file: "spec/implementation/phase-1-cli/tasks/1.6-verify-command.md"
+        command_spec: "spec/implementation/phase-1-cli/commands/verify.md"
+        deliverables:
+          - "src/commands/verify.ts"
+          - "src/core/verification.ts"
+          - "tests/commands/verify.test.ts"
+        verification_criteria:
+          - "orchestra verify runs checks from verification YAML"
+          - "Runs accept-signal first (unless --skip-accept)"
+          - "Supports check types: file_exists, pattern_match, command"
+          - "Generates verification report"
+          - "Exit code 0 if passed, 1 if failed"
 
-      - id: "1.7"
+      - id: 9
         title: "Complete Command"
+        description: "Complete task + closeout (Process 2, Steps 5-7)"
+        category: "INFRASTRUCTURE"
         status: "not-started"
-        category: "infrastructure"
-        depends_on: ["1.6"]
+        depends_on: [2, 8]
         spec_file: "spec/implementation/phase-1-cli/tasks/1.7-complete-command.md"
+        command_spec: "spec/implementation/phase-1-cli/commands/complete.md"
+        deliverables:
+          - "src/commands/complete.ts"
+          - "tests/commands/complete.test.ts"
+        verification_criteria:
+          - "orchestra complete archives task"
+          - "Updates progress.yaml and manifest.yaml"
+          - "Clears handover folder (including pre-signal.yaml)"
+          - "Git commit if --commit"
+          - "Exit code 0 on success"
 
+  # ─────────────────────────────────────────────────────────────────
+  # PHASE 4: TESTING & DOCUMENTATION
+  # Integration tests and user documentation
+  # ─────────────────────────────────────────────────────────────────
   - id: "testing"
+    name: "Testing & Documentation"
     description: "Integration testing and documentation"
     tasks:
-      - id: "1.8"
+      - id: 10
         title: "Integration Testing"
+        description: "End-to-end workflow tests"
+        category: "INTEGRATION"
         status: "not-started"
-        category: "testing"
-        depends_on: ["1.3", "1.4", "1.5", "1.6", "1.7"]
+        depends_on: [3, 4, 5, 6, 7, 8, 9]
         spec_file: "spec/implementation/phase-1-cli/tasks/1.8-integration-testing.md"
+        deliverables:
+          - "tests/integration/workflow.test.ts"
+          - "tests/integration/fixtures/"
+        verification_criteria:
+          - "E2E test: init → prepare → verify → complete"
+          - "Tests both PASS and FAIL paths"
+          - "Tests error handling"
+          - "All tests pass"
 
-      - id: "1.9"
+      - id: 11
         title: "Documentation"
+        description: "README, usage guides, and reference"
+        category: "INFRASTRUCTURE"
         status: "not-started"
-        category: "documentation"
-        depends_on: ["1.8"]
+        depends_on: [10]
         spec_file: "spec/implementation/phase-1-cli/tasks/1.9-documentation.md"
+        deliverables:
+          - "README.md"
+          - "docs/usage.md"
+          - "docs/api.md"
+        verification_criteria:
+          - "README has installation and quick start"
+          - "All commands documented"
+          - "API reference for core library"
+          - "Examples for common workflows"
 
-current_task: "1.2"
-current_phase: "core"
+# ═══════════════════════════════════════════════════════════════════
+# TRACKING
+# ═══════════════════════════════════════════════════════════════════
 
-# Coverage summary
-coverage:
-  total_tasks: 9
-  completed_tasks: 1
-  in_progress_tasks: 1
-  remaining_tasks: 7
-  coverage_percent: 11
+current_task: null
+current_phase: null
+
+summary:
+  total_tasks: 11
+  completed: 0
+  in_progress: 0
+  pending: 11
+  failed: 0
+
+# ═══════════════════════════════════════════════════════════════════
+# NOTES
+# ═══════════════════════════════════════════════════════════════════
+#
+# Dependencies:
+# - Task 1 (setup) is standalone
+# - Task 2 (core) depends on 1
+# - Tasks 3-9 (commands) depend on 2
+# - Task 5 (closeout) blocks task 6 (prepare)
+# - Task 7 (accept-signal) blocks task 8 (verify)
+# - Task 8 (verify) blocks task 9 (complete)
+# - Task 10 (integration) depends on all commands
+# - Task 11 (docs) depends on integration
+#
+# Process Mapping:
+# - Process 1 (Handover): closeout → prepare
+# - Process 2 (Verify): accept-signal → verify → complete
+# - Supporting: init, status

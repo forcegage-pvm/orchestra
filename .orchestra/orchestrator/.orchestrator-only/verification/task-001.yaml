@@ -1,0 +1,237 @@
+# Verification Criteria: Task 1 - Project Setup
+# ⚠️ HIDDEN FROM IMPLEMENTOR
+#
+# This file defines the acceptance criteria for Task 1.
+# The orchestrator uses this to verify task completion.
+# The implementor should NOT see these criteria (prevents gaming).
+
+task_id: 1
+title: "Project Setup"
+category: "INFRASTRUCTURE"
+created: "2025-12-02"
+
+# ═══════════════════════════════════════════════════════════════════
+# VERIFICATION CHECKS
+# ═══════════════════════════════════════════════════════════════════
+#
+# Severity Levels:
+# - BLOCKING: Must pass. Task cannot be marked complete without this.
+# - MAJOR: Should pass. 1 failure acceptable, 2+ blocks completion.
+# - MINOR: Nice to have. Noted but doesn't block.
+# - INFO: Informational only.
+#
+# Check Types:
+# - file_exists: Check if file exists
+# - dir_exists: Check if directory exists
+# - pattern_match: Regex search in file content
+# - command: Run shell command, check exit code or output
+# - json_valid: Validate JSON file
+# - yaml_valid: Validate YAML file
+# ═══════════════════════════════════════════════════════════════════
+
+checks:
+  # ─────────────────────────────────────────────────────────────────
+  # BLOCKING CHECKS - Must all pass
+  # ─────────────────────────────────────────────────────────────────
+  
+  - id: "V1.1"
+    name: "package.json exists"
+    severity: "BLOCKING"
+    type: "file_exists"
+    params:
+      path: "package.json"
+    expected: "package.json exists in project root"
+
+  - id: "V1.2"
+    name: "package.json is valid JSON"
+    severity: "BLOCKING"
+    type: "json_valid"
+    params:
+      path: "package.json"
+    expected: "package.json is valid JSON"
+
+  - id: "V1.3"
+    name: "package.json has name"
+    severity: "BLOCKING"
+    type: "pattern_match"
+    params:
+      file: "package.json"
+      pattern: '"name":\\s*"@orchestra/cli"'
+    expected: "package.json has name field set to @orchestra/cli"
+
+  - id: "V1.4"
+    name: "package.json has type module"
+    severity: "BLOCKING"
+    type: "pattern_match"
+    params:
+      file: "package.json"
+      pattern: '"type":\\s*"module"'
+    expected: "package.json configured for ESM (type: module)"
+
+  - id: "V1.5"
+    name: "tsconfig.json exists"
+    severity: "BLOCKING"
+    type: "file_exists"
+    params:
+      path: "tsconfig.json"
+    expected: "tsconfig.json exists"
+
+  - id: "V1.6"
+    name: "tsconfig.json is valid JSON"
+    severity: "BLOCKING"
+    type: "json_valid"
+    params:
+      path: "tsconfig.json"
+    expected: "tsconfig.json is valid JSON"
+
+  - id: "V1.7"
+    name: "CLI entry point exists"
+    severity: "BLOCKING"
+    type: "file_exists"
+    params:
+      path: "src/cli.ts"
+    expected: "src/cli.ts exists"
+
+  - id: "V1.8"
+    name: "npm install succeeds"
+    severity: "BLOCKING"
+    type: "command"
+    params:
+      command: "npm install"
+      expected_exit: 0
+      timeout: 120
+    expected: "npm install completes without errors"
+
+  - id: "V1.9"
+    name: "TypeScript compiles"
+    severity: "BLOCKING"
+    type: "command"
+    params:
+      command: "npm run build"
+      expected_exit: 0
+      timeout: 60
+    expected: "npm run build succeeds (TypeScript compiles)"
+
+  - id: "V1.10"
+    name: "CLI runs with --version"
+    severity: "BLOCKING"
+    type: "command"
+    params:
+      command: "npx tsx src/cli.ts --version"
+      expected_exit: 0
+      expected_pattern: "\\d+\\.\\d+\\.\\d+"
+    expected: "CLI outputs version number"
+
+  # ─────────────────────────────────────────────────────────────────
+  # MAJOR CHECKS - Should pass
+  # ─────────────────────────────────────────────────────────────────
+
+  - id: "V1.11"
+    name: "vitest config exists"
+    severity: "MAJOR"
+    type: "file_exists"
+    params:
+      path: "vitest.config.ts"
+    expected: "vitest.config.ts exists for testing"
+
+  - id: "V1.12"
+    name: "Test command works"
+    severity: "MAJOR"
+    type: "command"
+    params:
+      command: "npm test"
+      expected_exit: 0
+      timeout: 60
+    expected: "npm test runs (even with 0 tests)"
+
+  - id: "V1.13"
+    name: "Has commander dependency"
+    severity: "MAJOR"
+    type: "pattern_match"
+    params:
+      file: "package.json"
+      pattern: '"commander"'
+    expected: "commander.js is a dependency"
+
+  - id: "V1.14"
+    name: "Has TypeScript dependency"
+    severity: "MAJOR"
+    type: "pattern_match"
+    params:
+      file: "package.json"
+      pattern: '"typescript"'
+    expected: "typescript is a dev dependency"
+
+  - id: "V1.15"
+    name: "src/core directory exists"
+    severity: "MAJOR"
+    type: "dir_exists"
+    params:
+      path: "src/core"
+    expected: "src/core/ directory exists for reusable modules"
+
+  - id: "V1.16"
+    name: "src/commands directory exists"
+    severity: "MAJOR"
+    type: "dir_exists"
+    params:
+      path: "src/commands"
+    expected: "src/commands/ directory exists for CLI commands"
+
+  # ─────────────────────────────────────────────────────────────────
+  # MINOR CHECKS - Nice to have
+  # ─────────────────────────────────────────────────────────────────
+
+  - id: "V1.17"
+    name: "Has .gitignore"
+    severity: "MINOR"
+    type: "file_exists"
+    params:
+      path: ".gitignore"
+    expected: ".gitignore exists"
+
+  - id: "V1.18"
+    name: "Ignores node_modules"
+    severity: "MINOR"
+    type: "pattern_match"
+    params:
+      file: ".gitignore"
+      pattern: "node_modules"
+    expected: "node_modules in .gitignore"
+
+  - id: "V1.19"
+    name: "Has README"
+    severity: "MINOR"
+    type: "file_exists"
+    params:
+      path: "README.md"
+    expected: "README.md exists"
+
+  - id: "V1.20"
+    name: "CLI has --help"
+    severity: "MINOR"
+    type: "command"
+    params:
+      command: "npx tsx src/cli.ts --help"
+      expected_exit: 0
+    expected: "CLI responds to --help"
+
+# ═══════════════════════════════════════════════════════════════════
+# PASS CRITERIA
+# ═══════════════════════════════════════════════════════════════════
+#
+# Task PASSES if:
+# - ALL BLOCKING checks pass (V1.1 - V1.10)
+# - At most 1 MAJOR check fails (V1.11 - V1.16)
+#
+# Task FAILS if:
+# - ANY BLOCKING check fails
+# - 2 or more MAJOR checks fail
+#
+# MINOR checks are noted but don't affect pass/fail.
+# ═══════════════════════════════════════════════════════════════════
+
+pass_criteria:
+  blocking_all_required: true
+  major_max_failures: 1
+  minor_informational: true
