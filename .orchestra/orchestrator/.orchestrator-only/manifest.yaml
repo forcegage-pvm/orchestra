@@ -1,0 +1,101 @@
+# Orchestra Phase 1 CLI - Task Manifest
+# ⚠️ THIS FILE IS HIDDEN FROM IMPLEMENTOR AGENT
+# Only orchestrator (human) and verifier agent should access this folder
+
+sprint: "orchestra-phase-1-cli"
+spec: "spec/implementation/phase-1-cli/readme.md"
+created: "2025-12-01"
+status: "in_progress"
+
+# Task feeding strategy:
+# - Feed ONE task at a time to implementor
+# - No task counts visible to implementor
+# - Verification happens between tasks
+# - Next task only after verification passes
+
+phases:
+  - id: "setup"
+    description: "Project initialization and scaffolding"
+    tasks:
+      - id: "1.1"
+        title: "Project Setup"
+        status: "completed"
+        commit: "initial"
+        category: "infrastructure"
+        notes: "Completed during initial scaffolding session"
+
+  - id: "core"
+    description: "Core library implementation"
+    tasks:
+      - id: "1.2"
+        title: "Core Libraries"
+        status: "in-progress"
+        category: "infrastructure"
+        spec_file: "spec/implementation/phase-1-cli/tasks/1.2-core-libraries.md"
+        notes: "Types and errors done, other modules are stubs"
+
+  - id: "commands"
+    description: "CLI command implementation"
+    tasks:
+      - id: "1.3"
+        title: "Status Command"
+        status: "not-started"
+        category: "infrastructure"
+        depends_on: ["1.2"]
+        spec_file: "spec/implementation/phase-1-cli/tasks/1.3-status-command.md"
+
+      - id: "1.4"
+        title: "Init Command"
+        status: "not-started"
+        category: "infrastructure"
+        depends_on: ["1.2"]
+        spec_file: "spec/implementation/phase-1-cli/tasks/1.4-init-command.md"
+
+      - id: "1.5"
+        title: "Prepare Command"
+        status: "not-started"
+        category: "infrastructure"
+        depends_on: ["1.2"]
+        spec_file: "spec/implementation/phase-1-cli/tasks/1.5-prepare-command.md"
+
+      - id: "1.6"
+        title: "Verify Command"
+        status: "not-started"
+        category: "infrastructure"
+        depends_on: ["1.2"]
+        spec_file: "spec/implementation/phase-1-cli/tasks/1.6-verify-command.md"
+
+      - id: "1.7"
+        title: "Complete Command"
+        status: "not-started"
+        category: "infrastructure"
+        depends_on: ["1.6"]
+        spec_file: "spec/implementation/phase-1-cli/tasks/1.7-complete-command.md"
+
+  - id: "testing"
+    description: "Integration testing and documentation"
+    tasks:
+      - id: "1.8"
+        title: "Integration Testing"
+        status: "not-started"
+        category: "testing"
+        depends_on: ["1.3", "1.4", "1.5", "1.6", "1.7"]
+        spec_file: "spec/implementation/phase-1-cli/tasks/1.8-integration-testing.md"
+
+      - id: "1.9"
+        title: "Documentation"
+        status: "not-started"
+        category: "documentation"
+        depends_on: ["1.8"]
+        spec_file: "spec/implementation/phase-1-cli/tasks/1.9-documentation.md"
+
+current_task: "1.2"
+current_phase: "core"
+
+# Coverage summary
+coverage:
+  total_tasks: 9
+  completed_tasks: 1
+  in_progress_tasks: 1
+  remaining_tasks: 7
+  coverage_percent: 11
