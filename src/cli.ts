@@ -10,13 +10,11 @@
 import { Command } from "commander";
 import { createAcceptSignalCommand } from "./commands/accept-signal.js";
 import { createCloseoutCommand } from "./commands/closeout.js";
+import { createCompleteCommand } from "./commands/complete.js";
 import { createInitCommand } from "./commands/init.js";
 import { createPrepareCommand } from "./commands/prepare.js";
 import { statusCommand } from "./commands/status.js";
 import { createVerifyCommand } from "./commands/verify.js";
-
-// Import commands (to be implemented)
-// import { completeCommand } from './commands/complete.js';
 
 const program = new Command();
 
@@ -66,14 +64,7 @@ program.addCommand(createAcceptSignalCommand());
 program.addCommand(createVerifyCommand());
 
 // Complete command - complete task and archive
-program
-  .command("complete")
-  .description("Complete current task and archive")
-  .option("--message <msg>", "Commit message")
-  .action(async () => {
-    console.log("Complete command not yet implemented");
-    // TODO: Implement complete command
-  });
+program.addCommand(createCompleteCommand());
 
 // Parse and run
 program.parse();
