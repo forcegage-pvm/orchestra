@@ -204,12 +204,14 @@ phases:
         title: "Complete Command"
         description: "Complete task + closeout (Process 2, Steps 5-7)"
         category: "INFRASTRUCTURE"
-        status: "not-started"
+        status: "completed"
+        commit: "7eb5f9c"
         depends_on: [2, 8]
         spec_file: "spec/implementation/phase-1-cli/tasks/1.7-complete-command.md"
         command_spec: "spec/implementation/phase-1-cli/commands/complete.md"
         deliverables:
           - "src/commands/complete.ts"
+          - "src/core/complete.ts"
           - "tests/commands/complete.test.ts"
         verification_criteria:
           - "orchestra complete archives task"
@@ -263,8 +265,8 @@ phases:
 # TRACKING
 # ═══════════════════════════════════════════════════════════════════
 
-current_task: 5
-current_phase: "commands"
+current_task: null
+current_phase: "testing"
 
 summary:
   total_tasks: 11
