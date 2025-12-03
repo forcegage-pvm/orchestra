@@ -184,7 +184,8 @@ phases:
         title: "Verify Command"
         description: "Run verification checks (Process 2, Steps 2-4)"
         category: "INFRASTRUCTURE"
-        status: "not-started"
+        status: "completed"
+        commit: "6f0ce77"
         depends_on: [2, 7]
         spec_file: "spec/implementation/phase-1-cli/tasks/1.6-verify-command.md"
         command_spec: "spec/implementation/phase-1-cli/commands/verify.md"
