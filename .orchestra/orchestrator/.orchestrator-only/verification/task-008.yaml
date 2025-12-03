@@ -1,0 +1,247 @@
+task_id: 8
+task_title: "Verify Command"
+created_at: "2025-01-13"
+
+# Deliverables to verify exist (files to be created by implementor)
+deliverables:
+  - path: "src/commands/verify.ts"
+    type: "source"
+    description: "CLI command wrapper"
+    severity: BLOCKING
+  
+  - path: "src/core/verification.ts"
+    type: "source"
+    description: "Core verification logic (executes check types from YAML)"
+    severity: BLOCKING
+  
+  - path: "test/commands/verify.test.ts"
+    type: "test"
+    description: "CLI and core verification tests"
+    severity: BLOCKING
+
+# Test requirements
+tests:
+  min_tests: 20
+  test_patterns:
+    - "test/commands/verify.test.ts"
+  
+  required_test_cases:
+    - "Command registered"
+    - "--task option"
+    - "--check option"
+    - "--severity option"
+    - "--skip-accept flag"
+    - "--continue-on-error flag"
+    - "file_exists check executes"
+    - "pattern_match check executes"
+    - "command check executes"
+    - "Runs accept-signal before verification"
+    - "Skips accept-signal with --skip-accept"
+    - "Generates verification report"
+    - "Exit code 0 when all pass"
+    - "Exit code 1 when any fail"
+    - "Exit code 2 when no task"
+    - "Exit code 3 when criteria not found"
+
+checks:
+  # ========================================
+  # FILE EXISTENCE CHECKS
+  # ========================================
+  - id: F1
+    type: file_exists
+    description: "Command file exists"
+    path: "src/commands/verify.ts"
+    severity: critical
+    
+  - id: F2
+    type: file_exists
+    description: "Core verification module exists"
+    path: "src/core/verification.ts"
+    severity: critical
+    
+  - id: F3
+    type: file_exists
+    description: "Test file exists"
+    path: "test/commands/verify.test.ts"
+    severity: critical
+
+  # ========================================
+  # PATTERN MATCH CHECKS - Command
+  # ========================================
+  - id: P1
+    type: pattern_match
+    description: "createVerifyCommand function exported"
+    file: "src/commands/verify.ts"
+    pattern: "export.*function.*createVerifyCommand"
+    severity: critical
+    
+  - id: P2
+    type: pattern_match
+    description: "Command has --task option"
+    file: "src/commands/verify.ts"
+    pattern: "option.*--task"
+    severity: critical
+    
+  - id: P3
+    type: pattern_match
+    description: "Command has --check option"
+    file: "src/commands/verify.ts"
+    pattern: "option.*--check"
+    severity: critical
+    
+  - id: P4
+    type: pattern_match
+    description: "Command has --skip-accept flag"
+    file: "src/commands/verify.ts"
+    pattern: "option.*--skip-accept"
+    severity: critical
+    
+  - id: P5
+    type: pattern_match
+    description: "Command has --continue-on-error flag"
+    file: "src/commands/verify.ts"
+    pattern: "option.*--continue-on-error"
+    severity: critical
+
+  # ========================================
+  # PATTERN MATCH CHECKS - Core Module
+  # ========================================
+  - id: P6
+    type: pattern_match
+    description: "runVerification function exported"
+    file: "src/core/verification.ts"
+    pattern: "export.*async.*function.*runVerification"
+    severity: critical
+    
+  - id: P7
+    type: pattern_match
+    description: "VerificationOptions interface exported"
+    file: "src/core/verification.ts"
+    pattern: "export.*interface.*VerificationOptions"
+    severity: critical
+    
+  - id: P8
+    type: pattern_match
+    description: "VerificationCheck interface exported"
+    file: "src/core/verification.ts"
+    pattern: "export.*interface.*VerificationCheck"
+    severity: critical
+    
+  - id: P9
+    type: pattern_match
+    description: "CheckResult interface exported"
+    file: "src/core/verification.ts"
+    pattern: "export.*interface.*CheckResult"
+    severity: critical
+    
+  - id: P10
+    type: pattern_match
+    description: "VerificationReport interface exported"
+    file: "src/core/verification.ts"
+    pattern: "export.*interface.*VerificationReport"
+    severity: critical
+
+  # ========================================
+  # PATTERN MATCH CHECKS - Check Types
+  # ========================================
+  - id: P11
+    type: pattern_match
+    description: "Supports file_exists check type"
+    file: "src/core/verification.ts"
+    pattern: "file_exists"
+    severity: critical
+    
+  - id: P12
+    type: pattern_match
+    description: "Supports pattern_match check type"
+    file: "src/core/verification.ts"
+    pattern: "pattern_match"
+    severity: critical
+    
+  - id: P13
+    type: pattern_match
+    description: "Supports command check type"
+    file: "src/core/verification.ts"
+    pattern: "'command'|\"command\""
+    severity: critical
+
+  # ========================================
+  # PATTERN MATCH CHECKS - Integration
+  # ========================================
+  - id: P14
+    type: pattern_match
+    description: "Imports runAcceptSignal from signal module"
+    file: "src/core/verification.ts"
+    pattern: "import.*runAcceptSignal.*from.*signal"
+    severity: critical
+
+  # ========================================
+  # PATTERN MATCH CHECKS - Tests
+  # ========================================
+  - id: P15
+    type: pattern_match
+    description: "Tests describe verify command"
+    file: "test/commands/verify.test.ts"
+    pattern: "describe.*verify"
+    severity: critical
+    
+  - id: P16
+    type: pattern_match
+    description: "Tests check execution"
+    file: "test/commands/verify.test.ts"
+    pattern: "check.*execution|execute.*check"
+    severity: warning
+    
+  - id: P17
+    type: pattern_match
+    description: "Tests accept-signal integration"
+    file: "test/commands/verify.test.ts"
+    pattern: "accept-signal|acceptSignal|skip-accept"
+    severity: warning
+
+  # ========================================
+  # COMMAND EXECUTION CHECKS
+  # ========================================
+  - id: C1
+    type: command
+    description: "TypeScript compiles without errors"
+    command: "npx tsc --noEmit"
+    expected_exit_code: 0
+    severity: critical
+    
+  - id: C2
+    type: command
+    description: "All tests pass"
+    command: "npm test"
+    expected_exit_code: 0
+    severity: critical
+    
+  - id: C3
+    type: command
+    description: "Verify command is registered"
+    command: "npx ts-node src/index.ts verify --help"
+    expected_exit_code: 0
+    severity: critical
+
+  # ========================================
+  # EXPORT CHECKS
+  # ========================================
+  - id: E1
+    type: export_exists
+    description: "Verify command exports"
+    module: "src/commands/verify.ts"
+    exports:
+      - "createVerifyCommand"
+    severity: critical
+    
+  - id: E2
+    type: export_exists
+    description: "Core verification exports"
+    module: "src/core/verification.ts"
+    exports:
+      - "runVerification"
+      - "VerificationOptions"
+      - "VerificationCheck"
+      - "CheckResult"
+      - "VerificationReport"
+    severity: critical
