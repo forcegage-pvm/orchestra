@@ -1,0 +1,240 @@
+task_id: 9
+task_title: "Complete Command"
+created_at: "2025-12-03"
+
+# Deliverables to verify exist (files to be created by implementor)
+deliverables:
+  - path: "src/commands/complete.ts"
+    type: "source"
+    description: "CLI command wrapper"
+    severity: BLOCKING
+  
+  - path: "src/core/complete.ts"
+    type: "source"
+    description: "Core completion logic (zero CLI deps)"
+    severity: BLOCKING
+  
+  - path: "test/commands/complete.test.ts"
+    type: "test"
+    description: "CLI and core completion tests"
+    severity: BLOCKING
+
+# Test requirements
+tests:
+  min_tests: 25
+  test_patterns:
+    - "test/commands/complete.test.ts"
+  
+  required_test_cases:
+    - "Command registered"
+    - "--task option"
+    - "--commit flag"
+    - "--push flag"
+    - "--force flag"
+    - "--no-next flag"
+    - "Requires verification passed"
+    - "Force bypasses verification"
+    - "Creates archive directory"
+    - "Updates progress.yaml"
+    - "Updates manifest.yaml"
+    - "Clears handover folder"
+    - "Commits when --commit"
+    - "Pushes when --push"
+    - "Exit code 0 on success"
+    - "Exit code 2 if verification not passed"
+
+checks:
+  # ========================================
+  # FILE EXISTENCE CHECKS
+  # ========================================
+  - id: F1
+    type: file_exists
+    description: "Command file exists"
+    path: "src/commands/complete.ts"
+    severity: critical
+    
+  - id: F2
+    type: file_exists
+    description: "Core complete module exists"
+    path: "src/core/complete.ts"
+    severity: critical
+    
+  - id: F3
+    type: file_exists
+    description: "Test file exists"
+    path: "test/commands/complete.test.ts"
+    severity: critical
+
+  # ========================================
+  # PATTERN MATCH CHECKS - Command
+  # ========================================
+  - id: P1
+    type: pattern_match
+    description: "createCompleteCommand function exported"
+    file: "src/commands/complete.ts"
+    pattern: "export.*function.*createCompleteCommand"
+    severity: critical
+    
+  - id: P2
+    type: pattern_match
+    description: "Command has --task option"
+    file: "src/commands/complete.ts"
+    pattern: "option.*--task"
+    severity: critical
+    
+  - id: P3
+    type: pattern_match
+    description: "Command has --commit flag"
+    file: "src/commands/complete.ts"
+    pattern: "option.*--commit"
+    severity: critical
+    
+  - id: P4
+    type: pattern_match
+    description: "Command has --push flag"
+    file: "src/commands/complete.ts"
+    pattern: "option.*--push"
+    severity: critical
+    
+  - id: P5
+    type: pattern_match
+    description: "Command has --force flag"
+    file: "src/commands/complete.ts"
+    pattern: "option.*--force"
+    severity: critical
+
+  # ========================================
+  # PATTERN MATCH CHECKS - Core Module
+  # ========================================
+  - id: P6
+    type: pattern_match
+    description: "runComplete function exported"
+    file: "src/core/complete.ts"
+    pattern: "export.*async.*function.*runComplete"
+    severity: critical
+    
+  - id: P7
+    type: pattern_match
+    description: "CompleteOptions interface exported"
+    file: "src/core/complete.ts"
+    pattern: "export.*interface.*CompleteOptions"
+    severity: critical
+    
+  - id: P8
+    type: pattern_match
+    description: "CompleteResult interface exported"
+    file: "src/core/complete.ts"
+    pattern: "export.*interface.*CompleteResult"
+    severity: critical
+
+  # ========================================
+  # PATTERN MATCH CHECKS - Core Features
+  # ========================================
+  - id: P9
+    type: pattern_match
+    description: "Archive creation function"
+    file: "src/core/complete.ts"
+    pattern: "createArchive|archiveTask"
+    severity: critical
+    
+  - id: P10
+    type: pattern_match
+    description: "Handover clearing function"
+    file: "src/core/complete.ts"
+    pattern: "clearHandover"
+    severity: critical
+    
+  - id: P11
+    type: pattern_match
+    description: "Git operations (simple-git)"
+    file: "src/core/complete.ts"
+    pattern: "simpleGit|simple-git"
+    severity: critical
+
+  # ========================================
+  # PATTERN MATCH CHECKS - No CLI in Core
+  # ========================================
+  - id: P12
+    type: pattern_match
+    description: "Core has no commander import"
+    file: "src/core/complete.ts"
+    pattern: "import.*from.*commander"
+    severity: critical
+    expected: false
+    
+  - id: P13
+    type: pattern_match
+    description: "Core has no chalk import"
+    file: "src/core/complete.ts"
+    pattern: "import.*chalk"
+    severity: warning
+    expected: false
+
+  # ========================================
+  # PATTERN MATCH CHECKS - Tests
+  # ========================================
+  - id: P14
+    type: pattern_match
+    description: "Tests describe complete command"
+    file: "test/commands/complete.test.ts"
+    pattern: "describe.*complete"
+    severity: critical
+    
+  - id: P15
+    type: pattern_match
+    description: "Tests archive creation"
+    file: "test/commands/complete.test.ts"
+    pattern: "archive|Archive"
+    severity: warning
+    
+  - id: P16
+    type: pattern_match
+    description: "Tests handover clearing"
+    file: "test/commands/complete.test.ts"
+    pattern: "clear.*handover|handover.*clear"
+    severity: warning
+
+  # ========================================
+  # COMMAND EXECUTION CHECKS
+  # ========================================
+  - id: C1
+    type: command
+    description: "TypeScript compiles without errors"
+    command: "npx tsc --noEmit"
+    expected_exit_code: 0
+    severity: critical
+    
+  - id: C2
+    type: command
+    description: "All tests pass"
+    command: "npm test"
+    expected_exit_code: 0
+    severity: critical
+    
+  - id: C3
+    type: command
+    description: "Complete command is registered"
+    command: "npx tsx src/cli.ts complete --help"
+    expected_exit_code: 0
+    severity: critical
+
+  # ========================================
+  # EXPORT CHECKS
+  # ========================================
+  - id: E1
+    type: export_exists
+    description: "Complete command exports"
+    module: "src/commands/complete.ts"
+    exports:
+      - "createCompleteCommand"
+    severity: critical
+    
+  - id: E2
+    type: export_exists
+    description: "Core complete exports"
+    module: "src/core/complete.ts"
+    exports:
+      - "runComplete"
+      - "CompleteOptions"
+      - "CompleteResult"
+    severity: critical
