@@ -13,9 +13,9 @@ import { createCloseoutCommand } from "./commands/closeout.js";
 import { createInitCommand } from "./commands/init.js";
 import { createPrepareCommand } from "./commands/prepare.js";
 import { statusCommand } from "./commands/status.js";
+import { createVerifyCommand } from "./commands/verify.js";
 
 // Import commands (to be implemented)
-// import { verifyCommand } from './commands/verify.js';
 // import { completeCommand } from './commands/complete.js';
 
 const program = new Command();
@@ -63,13 +63,7 @@ program.addCommand(createPrepareCommand());
 program.addCommand(createAcceptSignalCommand());
 
 // Verify command - run verification checks
-program
-  .command("verify")
-  .description("Run verification checks on current task")
-  .action(async () => {
-    console.log("Verify command not yet implemented");
-    // TODO: Implement verify command
-  });
+program.addCommand(createVerifyCommand());
 
 // Complete command - complete task and archive
 program

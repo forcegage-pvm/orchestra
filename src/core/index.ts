@@ -40,3 +40,24 @@ export * from "./closeout.js";
 
 // Prepare handover
 export * from "./prepare.js";
+
+// Signal verification (note: CheckResult conflicts with closeout.ts)
+export {
+  runAcceptSignal,
+  type AcceptSignalOptions,
+  type CheckResult as SignalCheckResult,
+  type SignalReport,
+} from "./signal.js";
+
+// Verification (note: exports with "Verify" prefix to avoid conflicts)
+export {
+  runVerification,
+  type AcceptSignalStatus,
+  type VerificationOptions,
+  type VerifyCheck,
+  type VerifyCheckResult,
+  type VerifyCheckType,
+  type VerifyReport,
+  type VerifyResult,
+  type VerifySeverity,
+} from "./verification.js";
