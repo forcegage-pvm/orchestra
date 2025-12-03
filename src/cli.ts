@@ -8,16 +8,15 @@
  */
 
 import { Command } from "commander";
+import { createAcceptSignalCommand } from "./commands/accept-signal.js";
 import { createCloseoutCommand } from "./commands/closeout.js";
 import { createInitCommand } from "./commands/init.js";
 import { createPrepareCommand } from "./commands/prepare.js";
 import { statusCommand } from "./commands/status.js";
 
 // Import commands (to be implemented)
-// import { prepareCommand } from './commands/prepare.js';
 // import { verifyCommand } from './commands/verify.js';
 // import { completeCommand } from './commands/complete.js';
-// import { acceptSignalCommand } from './commands/accept-signal.js';
 
 const program = new Command();
 
@@ -61,13 +60,7 @@ program.addCommand(createCloseoutCommand());
 program.addCommand(createPrepareCommand());
 
 // Accept-signal command - verify implementor ran pre-signal check
-program
-  .command("accept-signal")
-  .description("Verify implementor completion signal")
-  .action(async () => {
-    console.log("Accept-signal command not yet implemented");
-    // TODO: Implement accept-signal command
-  });
+program.addCommand(createAcceptSignalCommand());
 
 // Verify command - run verification checks
 program

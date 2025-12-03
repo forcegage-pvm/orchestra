@@ -1,0 +1,120 @@
+# Task 7 Verification Configuration
+# Generated for: Accept-Signal Command
+# Process 2 verification criteria
+
+task_id: 7
+task_title: "Accept-Signal Command"
+
+# Deliverables to verify exist
+deliverables:
+  - path: "src/commands/accept-signal.ts"
+    type: "source"
+    description: "CLI command wrapper"
+    severity: BLOCKING
+  
+  - path: "src/core/signal.ts"
+    type: "source"
+    description: "Core accept-signal logic (zero CLI deps)"
+    severity: BLOCKING
+  
+  - path: "test/commands/accept-signal.test.ts"
+    type: "test"
+    description: "CLI command tests"
+    severity: BLOCKING
+  
+  - path: "test/core/signal.test.ts"
+    type: "test"
+    description: "Core signal logic tests"
+    severity: BLOCKING
+
+# Test requirements
+tests:
+  min_tests: 23
+  test_patterns:
+    - "test/commands/accept-signal.test.ts"
+    - "test/core/signal.test.ts"
+  
+  required_test_cases:
+    - "Check S1: Pre-signal artifact exists - PASS"
+    - "Check S1: Pre-signal artifact missing - FAIL"
+    - "Check S2: Pre-signal status PASSED - PASS"
+    - "Check S2: Pre-signal status FAILED - FAIL"
+    - "Check S3: Task ID matches - PASS"
+    - "Check S3: Task ID mismatch - FAIL"
+    - "Check S4: Artifact fresh - PASS"
+    - "Check S4: Artifact stale - FAIL"
+    - "Check S5: Completion signal filled - PASS"
+    - "Check S5: Completion signal missing - FAIL"
+    - "Check S6: Deliverables check passed - PASS"
+    - "Check S6: Deliverables check failed - FAIL"
+    - "Overall: ACCEPTED when all pass"
+    - "Overall: REJECTED when any fails"
+    - "Force mode bypasses checks"
+    - "Command registered"
+    - "--task option"
+    - "--max-age option"
+    - "--force flag"
+    - "--json flag"
+    - "Exit code 0 (ACCEPTED)"
+    - "Exit code 1 (REJECTED)"
+
+# Build verification
+build:
+  command: "npm run build"
+  must_succeed: true
+  
+typecheck:
+  command: "npx tsc --noEmit"
+  must_succeed: true
+
+# Integration checks
+integration:
+  - check: "Command callable"
+    command: "node dist/cli.js accept-signal --help"
+    expect_exit: 0
+  
+  - check: "Options registered"
+    command: "node dist/cli.js accept-signal --help"
+    expect_output_contains:
+      - "--task"
+      - "--max-age"
+      - "--force"
+      - "--json"
+      - "--verbose"
+
+# Manual verification steps
+manual_checks:
+  - step: "Read command spec"
+    file: "spec/implementation/phase-1-cli/commands/accept-signal.md"
+    verify: "All 6 checks (S1-S6) are implemented"
+  
+  - step: "Verify CLI integration"
+    verify: "accept-signal command registered in src/cli.ts"
+  
+  - step: "Check output formats"
+    verify: "Both human-readable and JSON output work"
+  
+  - step: "Test error cases"
+    verify: "Proper exit codes for different failure scenarios"
+
+# Code quality checks
+quality:
+  - "No CLI dependencies in src/core/signal.ts"
+  - "All check functions return CheckResult interface"
+  - "SignalReport includes all required fields"
+  - "Exit codes: 0 (ACCEPTED), 1 (REJECTED), 2 (no task), 3 (no artifact)"
+  - "Force mode logs warning before bypassing"
+
+# Notes
+notes: |
+  This command implements Process 2, Step 1 (accept-signal check).
+  It must verify the implementor ran their pre-signal script before
+  the orchestrator proceeds with full verification.
+  
+  The 6 checks ensure:
+  1. Pre-signal artifact exists (implementor ran check)
+  2. Pre-signal status is PASSED (not FAILED)
+  3. Task ID matches (not stale from previous task)
+  4. Artifact is fresh (< max-age minutes old)
+  5. Completion signal filled out
+  6. Deliverables check passed in pre-signal

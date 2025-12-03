@@ -49,6 +49,20 @@ Write-Host ""
 # Load the YAML content
 $yamlContent = Get-Content $verificationPath -Raw
 
+# Extract deliverables (files to be created - should NOT exist yet)
+$deliverablePattern = 'deliverables:.*?(?=\n\w|\n#|\z)'
+$deliverablesMatch = [regex]::Match($yamlContent, $deliverablePattern, [System.Text.RegularExpressions.RegexOptions]::Singleline)
+$deliverablePaths = @()
+if ($deliverablesMatch.Success) {
+    $deliverablesSection = $deliverablesMatch.Value
+    $pathMatches = [regex]::Matches($deliverablesSection, 'path:\s*["'']?([^"''\s]+)["'']?')
+    foreach ($match in $pathMatches) {
+        if ($match.Groups.Count -gt 1) {
+            $deliverablePaths += $match.Groups[1].Value
+        }
+    }
+}
+
 # Extract all file paths from YAML (various formats)
 $pathPatterns = @(
     'path:\s*["'']?([^"''\s]+)["'']?',           # path: "file.ts"
@@ -66,13 +80,22 @@ foreach ($pattern in $pathPatterns) {
     }
 }
 
-# Remove duplicates
-$foundPaths = $foundPaths | Select-Object -Unique
+# Remove duplicates and exclude deliverables (files to be created)
+$foundPaths = $foundPaths | Select-Object -Unique | Where-Object { $_ -notin $deliverablePaths }
 
 Write-Host "───────────────────────────────────────────────────────────────" -ForegroundColor Gray
 Write-Host "  Path Validation" -ForegroundColor White
 Write-Host "───────────────────────────────────────────────────────────────" -ForegroundColor Gray
 Write-Host ""
+
+# Show skipped deliverables
+if ($deliverablePaths.Count -gt 0) {
+    Write-Host "  ℹ️  Skipping deliverables (files to be created):" -ForegroundColor Cyan
+    foreach ($path in $deliverablePaths) {
+        Write-Host "     📦 $path" -ForegroundColor Gray
+    }
+    Write-Host ""
+}
 
 $allValid = $true
 $invalidPaths = @()
