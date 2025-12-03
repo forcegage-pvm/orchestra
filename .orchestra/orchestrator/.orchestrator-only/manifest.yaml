@@ -165,7 +165,8 @@ phases:
         title: "Accept-Signal Command"
         description: "Verify pre-signal artifact exists (Process 2, Step 1)"
         category: "INFRASTRUCTURE"
-        status: "not-started"
+        status: "completed"
+        commit: "31c9029"
         depends_on: [2]
         spec_file: "spec/implementation/phase-1-cli/tasks/1.5a-accept-signal-command.md"
         command_spec: "spec/implementation/phase-1-cli/commands/accept-signal.md"
