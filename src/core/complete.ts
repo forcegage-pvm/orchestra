@@ -269,13 +269,10 @@ async function resolveTaskId(
     return explicitTaskId;
   }
 
-  // Try to read from current-task.md
-  const currentTaskPath = path.join(
-    orchestraRoot,
-    ".orchestra",
-    "handover",
-    "current-task.md"
-  );
+  // Try to read from current-task.md using config paths
+  const config = loadConfig(orchestraRoot);
+  const paths = getResolvedPaths(orchestraRoot, config);
+  const currentTaskPath = path.join(paths.handovers, "current-task.md");
 
   if (!fs.existsSync(currentTaskPath)) {
     return null;
@@ -283,8 +280,16 @@ async function resolveTaskId(
 
   try {
     const content = fs.readFileSync(currentTaskPath, "utf-8");
-    // Look for "Task ID | X" pattern in the table
-    const match = content.match(/\|\s*Task ID\s*\|\s*(\d+)\s*\|/i);
+    // Try multiple formats:
+    // 1. Table format: "| Task ID | X |"
+    // 2. Header format: "# Task X: Title"
+    let match = content.match(/\|\s*Task ID\s*\|\s*(\d+)\s*\|/i);
+    if (match && match[1]) {
+      return parseInt(match[1], 10);
+    }
+    
+    // Try header format
+    match = content.match(/^#\s*Task\s+(\d+)[:\s]/m);
     if (match && match[1]) {
       return parseInt(match[1], 10);
     }

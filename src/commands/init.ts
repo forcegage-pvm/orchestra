@@ -5,14 +5,14 @@
  * Initializes the Orchestra folder structure in a project.
  */
 
+import chalk from "chalk";
 import { Command } from "commander";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import chalk from "chalk";
 import ora from "ora";
 import { findOrchestraRoot, saveConfig } from "../core/config.js";
-import { DEFAULT_CONFIG } from "../core/types.js";
 import * as output from "../core/output.js";
+import { DEFAULT_CONFIG } from "../core/types.js";
 
 /**
  * Init command options
@@ -186,7 +186,9 @@ export async function runInit(options: InitOptions): Promise<void> {
     return;
   }
 
-  const spinner = options.json ? null : ora("Initializing Orchestra...").start();
+  const spinner = options.json
+    ? null
+    : ora("Initializing Orchestra...").start();
 
   try {
     // Create directory structure
@@ -256,7 +258,9 @@ function showDryRun(orchestraDir: string): void {
   }
 
   console.log(chalk.bold("\nConfiguration:"));
-  console.log(`  ${chalk.green("+")} ${path.join(orchestraDir, "orchestra.yaml")}`);
+  console.log(
+    `  ${chalk.green("+")} ${path.join(orchestraDir, "orchestra.yaml")}`
+  );
 }
 
 /**
@@ -282,9 +286,14 @@ function showSuccess(orchestraDir: string): void {
   console.log("");
   console.log(chalk.bold("Next steps:"));
   console.log(
-    "  1. Create a manifest: " + chalk.cyan("orchestra prepare --from-spec <spec-file>")
+    "  1. Create a manifest: " +
+      chalk.cyan("Create .orchestra/manifest.yaml manually")
   );
-  console.log("  2. Check status:      " + chalk.cyan("orchestra status"));
+  console.log("     (See docs/manifest-schema.md for format)");
+  console.log(
+    "  2. Prepare first task: " + chalk.cyan("orchestra prepare --task 1")
+  );
+  console.log("  3. Check status:       " + chalk.cyan("orchestra status"));
   console.log("");
 }
 

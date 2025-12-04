@@ -22,6 +22,7 @@ import {
   saveManifest,
   updateTaskStatus,
 } from "./manifest.js";
+import { addProgressEntry, loadProgress, saveProgress } from "./progress.js";
 import { renderTemplate } from "./templates.js";
 import type { Manifest, Task } from "./types.js";
 
@@ -136,6 +137,16 @@ export async function runPrepare(
   if (!saveResult.success) {
     throw new ManifestError(saveResult.message);
   }
+
+  // Update progress.yaml with PREPARE entry
+  const sprintId = manifest.sprint.id;
+  let progress = loadProgress(sprintId, root);
+  progress = addProgressEntry(progress, {
+    task_id: task.id,
+    status: "PREPARE",
+    notes: `Task ${task.id} prepared for implementation`,
+  });
+  saveProgress(progress, root);
 
   return {
     task,
