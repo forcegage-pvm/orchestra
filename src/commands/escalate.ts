@@ -65,7 +65,9 @@ export function createEscalateCommand(): Command {
           showSuccess(result);
         }
       } catch (error) {
-        output.print.error(error instanceof Error ? error.message : String(error));
+        output.print.error(
+          error instanceof Error ? error.message : String(error)
+        );
         process.exit(1);
       }
     });

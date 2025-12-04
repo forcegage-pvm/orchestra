@@ -9,7 +9,6 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import * as yaml from "yaml";
 
 let testTempDir: string;
 let mockManifestData: any;
@@ -57,7 +56,10 @@ vi.mock("../../src/core/progress.js", () => ({
   loadProgress: vi.fn(() => mockProgressData),
   addProgressEntry: vi.fn((progress, entry) => ({
     ...progress,
-    entries: [...progress.entries, { ...entry, timestamp: new Date().toISOString() }],
+    entries: [
+      ...progress.entries,
+      { ...entry, timestamp: new Date().toISOString() },
+    ],
   })),
   saveProgress: vi.fn(),
 }));
@@ -72,11 +74,7 @@ vi.mock("../../src/core/templates.js", () => ({
   ),
 }));
 
-import {
-  runFeedback,
-  type FeedbackOptions,
-  type FeedbackResult,
-} from "../../src/core/feedback.js";
+import { runFeedback, type FeedbackOptions } from "../../src/core/feedback.js";
 import type { VerifyResult } from "../../src/core/verification.js";
 
 describe("Feedback Generation (Orchestrator)", () => {
@@ -124,7 +122,11 @@ describe("Feedback Generation (Orchestrator)", () => {
     mockProgressData = {
       sprint_id: "test-sprint",
       entries: [
-        { task_id: 1, status: "IMPLEMENT", timestamp: new Date().toISOString() },
+        {
+          task_id: 1,
+          status: "IMPLEMENT",
+          timestamp: new Date().toISOString(),
+        },
       ],
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),

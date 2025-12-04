@@ -58,8 +58,8 @@ export {
 // Feedback generation
 export {
   runFeedback,
-  type FeedbackOptions,
   type FeedbackIssue,
+  type FeedbackOptions,
   type FeedbackResult,
 } from "./feedback.js";
 
@@ -79,7 +79,7 @@ export {
 // Escalation
 export {
   runEscalate,
+  type AttemptRecord,
   type EscalateOptions,
   type EscalateResult,
-  type AttemptRecord,
 } from "./escalate.js";

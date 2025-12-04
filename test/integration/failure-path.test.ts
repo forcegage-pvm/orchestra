@@ -11,7 +11,6 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import * as yaml from "yaml";
 
 // Test-specific mock variables
 let testTempDir: string;
@@ -62,40 +61,49 @@ vi.mock("../../src/core/progress.js", () => ({
   loadProgress: vi.fn(() => mockProgressData),
   addProgressEntry: vi.fn((progress, entry) => ({
     ...progress,
-    entries: [...progress.entries, { ...entry, timestamp: new Date().toISOString() }],
+    entries: [
+      ...progress.entries,
+      { ...entry, timestamp: new Date().toISOString() },
+    ],
   })),
   saveProgress: vi.fn(),
 }));
 
 // Mock templates module
 vi.mock("../../src/core/templates.js", () => ({
-  renderTemplate: vi.fn(
-    (templateName: string, context: any) => {
-      if (templateName === "feedback-template.md") {
-        return `# Feedback: Task ${context.taskId} - Attempt ${context.attempt}\n\n` +
-          `## Issues Found\n\n` +
-          (context.issues || []).map((i: any) => `- ${i.problem}: ${i.guidance}`).join("\n") +
-          `\n\nCan Retry: ${context.canRetry}`;
-      }
-      return `Template: ${templateName}`;
+  renderTemplate: vi.fn((templateName: string, context: any) => {
+    if (templateName === "feedback-template.md") {
+      return (
+        `# Feedback: Task ${context.taskId} - Attempt ${context.attempt}\n\n` +
+        `## Issues Found\n\n` +
+        (context.issues || [])
+          .map((i: any) => `- ${i.problem}: ${i.guidance}`)
+          .join("\n") +
+        `\n\nCan Retry: ${context.canRetry}`
+      );
     }
-  ),
+    return `Template: ${templateName}`;
+  }),
 }));
 
-import { runFeedback } from "../../src/core/feedback.js";
 import { runEscalate } from "../../src/core/escalate.js";
-import type { VerifyResult, VerifyReport } from "../../src/core/verification.js";
+import { runFeedback } from "../../src/core/feedback.js";
+import type { VerifyResult } from "../../src/core/verification.js";
 
 describe("Failure Path Integration", () => {
   beforeEach(() => {
     testTempDir = fs.mkdtempSync(path.join(os.tmpdir(), "orchestra-int-"));
-    
+
     // Create directories
-    fs.mkdirSync(path.join(testTempDir, ".orchestra/artifacts"), { recursive: true });
-    fs.mkdirSync(path.join(testTempDir, ".orchestra/implementor/feedback"), { recursive: true });
-    
+    fs.mkdirSync(path.join(testTempDir, ".orchestra/artifacts"), {
+      recursive: true,
+    });
+    fs.mkdirSync(path.join(testTempDir, ".orchestra/implementor/feedback"), {
+      recursive: true,
+    });
+
     feedbackCount = 0;
-    
+
     // Default mock data
     mockManifestData = {
       success: true,
@@ -103,16 +111,21 @@ describe("Failure Path Integration", () => {
         sprint: { id: "sprint-001", title: "Test Sprint" },
         current_task_id: 1,
         tasks: [
-          { id: 1, title: "Test Task", status: "IN_PROGRESS", description: "Test task description" },
+          {
+            id: 1,
+            title: "Test Task",
+            status: "IN_PROGRESS",
+            description: "Test task description",
+          },
         ],
       },
     };
-    
+
     mockProgressData = {
       sprint_id: "sprint-001",
       entries: [],
     };
-    
+
     // Default failing verification result
     mockVerificationResult = {
       report: {
@@ -135,7 +148,7 @@ describe("Failure Path Integration", () => {
       },
       exitCode: 1,
     } as VerifyResult;
-    
+
     vi.clearAllMocks();
   });
 
@@ -161,7 +174,7 @@ describe("Failure Path Integration", () => {
     it("increments attempt counter when passed explicitly", async () => {
       // Feedback uses the attempt option passed to it
       // In a real workflow, the caller tracks and passes the attempt number
-      
+
       const result1 = await runFeedback({
         task: "1",
         attempt: 1,
@@ -286,7 +299,10 @@ describe("Failure Path Integration", () => {
 
     it("generates escalation report with attempt history", async () => {
       // Create feedback files to simulate history
-      const feedbackPath = path.join(testTempDir, ".orchestra/implementor/feedback");
+      const feedbackPath = path.join(
+        testTempDir,
+        ".orchestra/implementor/feedback"
+      );
       fs.writeFileSync(
         path.join(feedbackPath, "task-1-attempt-1.md"),
         "# Feedback\n\n**Problem**: First issue\n"
@@ -377,10 +393,10 @@ describe("Failure Path Integration", () => {
   describe("Complete Failure Workflow", () => {
     it("runs full cycle: verify fail → feedback → retry loop → escalate", async () => {
       // This simulates the "3 strikes" scenario
-      
+
       // Track feedback attempts
       const feedbackResults: any[] = [];
-      
+
       for (let attempt = 1; attempt <= 3; attempt++) {
         // Generate feedback (simulating verify → feedback flow)
         const feedbackResult = await runFeedback({
@@ -389,12 +405,12 @@ describe("Failure Path Integration", () => {
           verificationResult: mockVerificationResult,
           orchestraRoot: testTempDir,
         });
-        
+
         feedbackResults.push(feedbackResult);
-        
+
         expect(feedbackResult.attempt).toBe(attempt);
         expect(feedbackResult.canRetry).toBe(attempt < 3);
-        
+
         // Simulate progress entry for next iteration
         mockProgressData.entries.push({
           task_id: 1,
@@ -403,20 +419,22 @@ describe("Failure Path Integration", () => {
           timestamp: new Date().toISOString(),
         });
       }
-      
+
       // After 3 attempts, canRetry should be false
       expect(feedbackResults[2].canRetry).toBe(false);
-      
+
       // Now escalate
       const escalateResult = await runEscalate({
         task: "1",
         reason: "Max attempts exceeded - all 3 retries failed",
         orchestraRoot: testTempDir,
       });
-      
+
       expect(escalateResult.success).toBe(true);
       expect(escalateResult.newStatus).toBe("ESCALATED");
-      expect(escalateResult.reason).toBe("Max attempts exceeded - all 3 retries failed");
+      expect(escalateResult.reason).toBe(
+        "Max attempts exceeded - all 3 retries failed"
+      );
     });
   });
 });

@@ -3,11 +3,10 @@
  * TDD: Tests written first before implementation
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import * as fs from "node:fs";
-import * as path from "node:path";
 import * as os from "node:os";
-import * as yaml from "yaml";
+import * as path from "node:path";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 let testTempDir: string;
 let mockManifestData: any;
@@ -49,16 +48,20 @@ vi.mock("../../src/core/manifest.js", () => ({
   }),
 }));
 
-import { runEscalate, type EscalateOptions, type EscalateResult } from "../../src/core/escalate.js";
+import { runEscalate } from "../../src/core/escalate.js";
 
 describe("Escalate Core Logic", () => {
   beforeEach(() => {
     testTempDir = fs.mkdtempSync(path.join(os.tmpdir(), "orchestra-escalate-"));
-    
+
     // Create directories
-    fs.mkdirSync(path.join(testTempDir, ".orchestra/artifacts"), { recursive: true });
-    fs.mkdirSync(path.join(testTempDir, ".orchestra/implementor/feedback"), { recursive: true });
-    
+    fs.mkdirSync(path.join(testTempDir, ".orchestra/artifacts"), {
+      recursive: true,
+    });
+    fs.mkdirSync(path.join(testTempDir, ".orchestra/implementor/feedback"), {
+      recursive: true,
+    });
+
     // Reset mock data
     mockManifestData = {
       success: true,
@@ -66,11 +69,16 @@ describe("Escalate Core Logic", () => {
         sprint: { id: "sprint-001", title: "Test Sprint" },
         current_task_id: 1,
         tasks: [
-          { id: 1, title: "Task 1", status: "IN_PROGRESS", description: "Test description" },
+          {
+            id: 1,
+            title: "Task 1",
+            status: "IN_PROGRESS",
+            description: "Test description",
+          },
         ],
       },
     };
-    
+
     vi.clearAllMocks();
   });
 
@@ -87,7 +95,7 @@ describe("Escalate Core Logic", () => {
 
     it("should throw if task is not found", async () => {
       mockManifestData.data.tasks = [];
-      
+
       await expect(
         runEscalate({
           task: "999",
@@ -101,7 +109,7 @@ describe("Escalate Core Logic", () => {
       mockManifestData.data.tasks = [
         { id: 1, title: "Task 1", status: "COMPLETE" },
       ];
-      
+
       await expect(
         runEscalate({
           task: "1",
@@ -115,7 +123,7 @@ describe("Escalate Core Logic", () => {
       mockManifestData.data.tasks = [
         { id: 1, title: "Task 1", status: "ESCALATED" },
       ];
-      
+
       const result = await runEscalate({
         task: "1",
         reason: "Test reason",
@@ -159,7 +167,10 @@ describe("Escalate Core Logic", () => {
 
     it("should compile attempt history from feedback files", async () => {
       // Create feedback files for task 1
-      const feedbackPath = path.join(testTempDir, ".orchestra/implementor/feedback");
+      const feedbackPath = path.join(
+        testTempDir,
+        ".orchestra/implementor/feedback"
+      );
       fs.writeFileSync(
         path.join(feedbackPath, "task-1-attempt-1.md"),
         "# Feedback\n\n**Problem**: Test file not found\n"
@@ -190,10 +201,14 @@ describe("Escalate Core Logic", () => {
         orchestraRoot: testTempDir,
       });
 
-      expect(result.context).toBe("External API is returning unexpected 500 errors");
+      expect(result.context).toBe(
+        "External API is returning unexpected 500 errors"
+      );
 
       const reportContent = fs.readFileSync(result.reportPath, "utf-8");
-      expect(reportContent).toContain("External API is returning unexpected 500 errors");
+      expect(reportContent).toContain(
+        "External API is returning unexpected 500 errors"
+      );
     });
 
     it("should include human options in result", async () => {
@@ -215,7 +230,7 @@ describe("Escalate Core Logic", () => {
         { id: 1, title: "Task 1", status: "COMPLETE" },
         { id: 2, title: "Task 2", status: "IN_PROGRESS" },
       ];
-      
+
       const result = await runEscalate({
         reason: "Need help with task 2",
         orchestraRoot: testTempDir,

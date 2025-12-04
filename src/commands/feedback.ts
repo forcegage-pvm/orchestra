@@ -32,9 +32,7 @@ interface FeedbackCommandOptions {
  */
 export function createFeedbackCommand(): Command {
   const cmd = new Command("feedback")
-    .description(
-      "Generate feedback for implementor after verification failure"
-    )
+    .description("Generate feedback for implementor after verification failure")
     .option("-t, --task <id>", "Task ID (defaults to current)")
     .option("-a, --attempt <n>", "Attempt number", parseInt)
     .option("--json", "Output as JSON")
@@ -125,8 +123,8 @@ async function feedbackCommand(options: FeedbackCommandOptions): Promise<void> {
     const message = isOrchestraError(error)
       ? error.message
       : error instanceof Error
-        ? error.message
-        : String(error);
+      ? error.message
+      : String(error);
 
     if (options.json) {
       console.log(

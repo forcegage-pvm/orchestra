@@ -17,9 +17,9 @@ import {
 } from "./config.js";
 import { OrchestraError } from "./errors.js";
 import { getTask, loadManifest } from "./manifest.js";
-import { loadProgress, addProgressEntry, saveProgress } from "./progress.js";
+import { addProgressEntry, loadProgress, saveProgress } from "./progress.js";
 import { renderTemplate } from "./templates.js";
-import type { VerifyResult, VerifyCheckResult } from "./verification.js";
+import type { VerifyCheckResult, VerifyResult } from "./verification.js";
 
 // =============================================================================
 // Types
@@ -234,7 +234,9 @@ function generateFallbackFeedback(
   if (issues.length > 0) {
     content += `## Issues Found\n\n`;
     issues.forEach((issue, i) => {
-      content += `### ${i + 1}. [${issue.severity.toUpperCase()}] ${issue.problem}\n\n`;
+      content += `### ${i + 1}. [${issue.severity.toUpperCase()}] ${
+        issue.problem
+      }\n\n`;
       content += `**Impact**: ${issue.impact}\n\n`;
       content += `**Guidance**: ${issue.guidance}\n\n`;
     });

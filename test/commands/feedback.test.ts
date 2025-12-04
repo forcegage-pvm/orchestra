@@ -55,7 +55,10 @@ vi.mock("../../src/core/progress.js", () => ({
   loadProgress: vi.fn(() => mockProgressData),
   addProgressEntry: vi.fn((progress, entry) => ({
     ...progress,
-    entries: [...progress.entries, { ...entry, timestamp: new Date().toISOString() }],
+    entries: [
+      ...progress.entries,
+      { ...entry, timestamp: new Date().toISOString() },
+    ],
   })),
   saveProgress: vi.fn(),
 }));
@@ -159,7 +162,11 @@ overallPassed: false
     mockProgressData = {
       sprint_id: "test-sprint",
       entries: [
-        { task_id: 1, status: "IMPLEMENT", timestamp: new Date().toISOString() },
+        {
+          task_id: 1,
+          status: "IMPLEMENT",
+          timestamp: new Date().toISOString(),
+        },
       ],
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),

@@ -7,9 +7,13 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { loadManifest, getTask } from "./manifest.js";
-import { loadConfig, getResolvedPaths, requireOrchestraRoot } from "./config.js";
+import {
+  getResolvedPaths,
+  loadConfig,
+  requireOrchestraRoot,
+} from "./config.js";
 import { OrchestraError } from "./errors.js";
+import { getTask, loadManifest } from "./manifest.js";
 import type { Task } from "./types.js";
 
 export interface EscalateOptions {
@@ -110,7 +114,9 @@ function generateEscalationReport(
 
   attemptHistory.forEach((a) => {
     lines.push(
-      `| ${a.attempt} | ${a.timestamp.split("T")[0]} | ${a.outcome} | ${a.issue || "-"} |`
+      `| ${a.attempt} | ${a.timestamp.split("T")[0]} | ${a.outcome} | ${
+        a.issue || "-"
+      } |`
     );
   });
 
@@ -118,12 +124,7 @@ function generateEscalationReport(
     lines.push("| - | - | - | No attempts recorded |");
   }
 
-  lines.push(
-    "",
-    "## Feedback Given",
-    "",
-    "See feedback files:"
-  );
+  lines.push("", "## Feedback Given", "", "See feedback files:");
 
   if (feedbackFiles.length > 0) {
     feedbackFiles.forEach((f) => lines.push(`- ${f}`));
@@ -163,7 +164,9 @@ export async function runEscalate(
   const manifestResult = loadManifest(paths.manifest);
   if (!manifestResult.success || !manifestResult.data) {
     throw new OrchestraError(
-      `Cannot load manifest: ${manifestResult.errors?.join(", ") || "Unknown error"}`,
+      `Cannot load manifest: ${
+        manifestResult.errors?.join(", ") || "Unknown error"
+      }`,
       "CONFIG_ERROR"
     );
   }
@@ -186,10 +189,7 @@ export async function runEscalate(
   // Get task
   const task = getTask(manifest, taskId);
   if (!task) {
-    throw new OrchestraError(
-      `Task ${taskId} not found`,
-      "VALIDATION_ERROR"
-    );
+    throw new OrchestraError(`Task ${taskId} not found`, "VALIDATION_ERROR");
   }
 
   // Check current status
@@ -212,9 +212,18 @@ export async function runEscalate(
       newStatus: "ESCALATED",
       reason: options.reason,
       escalatedAt: new Date().toISOString(),
-      reportPath: path.join(paths.artifacts, `task-${taskId}`, "escalation-report.md"),
+      reportPath: path.join(
+        paths.artifacts,
+        `task-${taskId}`,
+        "escalation-report.md"
+      ),
       attemptHistory: [],
-      humanOptions: ["fix_manually", "modify_spec", "skip_task", "abort_sprint"],
+      humanOptions: [
+        "fix_manually",
+        "modify_spec",
+        "skip_task",
+        "abort_sprint",
+      ],
     };
     if (options.context !== undefined) {
       escalatedResult.context = options.context;
