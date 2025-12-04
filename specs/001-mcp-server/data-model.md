@@ -155,7 +155,7 @@ AttemptTracker (1) ←──tracks──→ (1) Task
 | Entity | Storage | Format |
 |--------|---------|--------|
 | AttemptTracker | `.orchestra/orchestrator/.orchestrator-only/attempts/task-{id}.yaml` | YAML |
-| Lock file | `.orchestra/.lock` | Empty file (existence = locked) |
+| Lock file | `.orchestra/.lock` | JSON `{createdAt, pid}` for stale detection |
 
 All other data uses existing Phase 1 storage locations.
 

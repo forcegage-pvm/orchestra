@@ -81,15 +81,15 @@ function validateRole(toolName: string, role: string | undefined): void {
 - Consistent mapping enables client-side error handling
 
 **Mapping**:
-| OrchestraError Type | MCP Code | Description |
-|---------------------|----------|-------------|
-| ConfigurationError | -32001 | Config/setup issues |
-| FileError | -32000 | File not found, read/write failures |
-| ValidationError | -32600 | Invalid request/input |
-| ManifestError | -32000 | Manifest parsing/state issues |
-| TaskError | -32002 | Task state issues (no current task, etc.) |
-| RoleError (new) | -32003 | Role validation failures |
-| Generic Error | -32000 | Application error |
+| OrchestraError Type | MCP Code | MCP Name | Description |
+|---------------------|----------|----------|-------------|
+| ConfigurationError | -32001 | ConfigurationError | Config/setup issues |
+| FileError | -32000 | ApplicationError | File not found, read/write failures |
+| ValidationError | -32600 | InvalidRequest | Invalid request/input |
+| ManifestError | -32000 | ApplicationError | Manifest parsing/state issues |
+| TaskError | -32002 | StateError | Task state issues (no current task, etc.) |
+| RoleError (new) | -32003 | RoleError | Role validation failures |
+| Generic Error | -32000 | ApplicationError | Unhandled errors |
 
 ### 4. Concurrency Handling
 
@@ -204,10 +204,10 @@ async function withLock<T>(operation: () => Promise<T>): Promise<T> {
 | `orchestra accept-signal` | `runAcceptSignal()` | ✅ | Returns AcceptSignalResult |
 | `orchestra verify` | `runVerification()` | ✅ | Returns VerifyResult |
 | `orchestra complete` | `runComplete()` | ✅ | Returns CompleteResult |
-| `orchestra feedback` | ❌ | ❌ | Phase 1.2 - not yet implemented |
-| `orchestra escalate` | ❌ | ❌ | Phase 1.2 - not yet implemented |
+| `orchestra feedback` | `runFeedback()` | ✅ | Returns FeedbackResult (Phase 1.2 complete) |
+| `orchestra escalate` | `runEscalate()` | ✅ | Returns EscalateResult (Phase 1.2 complete) |
 
-**Dependency**: Phase 1.2 must complete `feedback` and `escalate` commands before MCP tools can wrap them.
+**Status**: ✅ Phase 1.2 complete - all commands ready for MCP wrapping.
 
 ## Resolved Unknowns
 
@@ -262,19 +262,18 @@ export async function runStatus(workspaceRoot: string): Promise<StatusResult> {
 
 ## Phase 1.2 Dependency Management
 
-**Blocking Commands**: `feedback`, `escalate` do not exist yet.
+**Status**: ✅ Phase 1.2 Complete (as of 2025-12-04)
 
-**If Phase 1.2 is delayed**:
-1. Implement MCP server with 8 working tools (exclude feedback, escalate)
-2. Tools return "not implemented" error with clear message: "requires Phase 1.2 completion"
-3. Update quickstart.md with known limitation
-4. Track as tech debt for Phase 2.1
+All blocking commands now exist with full test coverage:
+- `orchestra signal` - 17 core + 8 command tests
+- `orchestra feedback` - 14 core + 10 command tests  
+- `orchestra escalate` - 11 core + 10 command tests
 
 **Verification Criteria for Phase 1.2 Readiness**:
-- [ ] `orchestra signal --summary "test" --files src/test.ts` works
-- [ ] `orchestra feedback` generates feedback.md with guidance
-- [ ] `orchestra escalate` creates escalation report for human review
-- [ ] All three commands have corresponding `run*` functions in `src/core/`
+- [x] `orchestra signal --summary "test" --files src/test.ts` works
+- [x] `orchestra feedback` generates feedback.md with guidance
+- [x] `orchestra escalate` creates escalation report for human review
+- [x] All three commands have corresponding `run*` functions in `src/core/`
 
 ## Core Library API Stability
 
