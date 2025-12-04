@@ -5,6 +5,7 @@
 {{task_description}}
 
 {{#if spec_file}}
+
 ## Spec Files
 
 📄 **Task spec**: `{{spec_file}}`
@@ -16,13 +17,15 @@ Please read the spec file(s) for full implementation details including code samp
 {{/if}}
 
 {{#if depends_on.length}}
+
 ## Dependencies
 
 These tasks must be completed first:
 {{#each depends_on}}
+
 - {{this}}
-{{/each}}
-{{/if}}
+  {{/each}}
+  {{/if}}
 
 ## ⚠️ BEFORE YOU START - MANDATORY VALIDATION
 
@@ -33,6 +36,7 @@ orchestra status
 ```
 
 If validation **FAILS**:
+
 - Document issues in `.orchestra/handover/completion-signal.md`
 - Say: "Task validation failed - see completion-signal.md"
 - **STOP** and wait for orchestrator to fix
@@ -61,6 +65,7 @@ When ready for review:
    ```
 
 2. Update `.orchestra/handover/completion-signal.md` with:
+
    - Task ID and status
    - What was implemented
    - Test results

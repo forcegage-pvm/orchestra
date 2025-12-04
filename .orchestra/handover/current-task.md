@@ -1,12 +1,13 @@
-# Task 3: Add RoleError to errors.ts
+# Task 4: Add Role and AttemptTracker schemas
 
 ## Overview
 
-Add RoleError to src/core/errors.ts extending OrchestraError
+Add RoleSchema and AttemptTrackerSchema to src/core/types.ts
+
 
 ## Spec Files
 
-📄 **Task spec**: `001-mcp-server/tasks.md#T003`
+📄 **Task spec**: `001-mcp-server/tasks.md#T004`
 
 Please read the spec file(s) for full implementation details including code samples.
 
@@ -20,6 +21,7 @@ orchestra status
 ```
 
 If validation **FAILS**:
+
 - Document issues in `.orchestra/handover/completion-signal.md`
 - Say: "Task validation failed - see completion-signal.md"
 - **STOP** and wait for orchestrator to fix
@@ -48,6 +50,7 @@ When ready for review:
    ```
 
 2. Update `.orchestra/handover/completion-signal.md` with:
+
    - Task ID and status
    - What was implemented
    - Test results

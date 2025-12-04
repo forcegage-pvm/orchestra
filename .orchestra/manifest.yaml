@@ -43,17 +43,18 @@ phases:
         dependencies: []
         retry_count: 0
         max_retries: 3
-        speckit_task_ref: "001-mcp-server/tasks.md#T003"
         started_at: "2025-12-04T19:31:24.800Z"
+        speckit_task_ref: "001-mcp-server/tasks.md#T003"
       - task_id: 4
         title: "Add Role and AttemptTracker schemas"
         description: "Add RoleSchema and AttemptTrackerSchema to src/core/types.ts"
-        status: "PENDING"
+        status: "IMPLEMENT"
         category: "INFRASTRUCTURE"
         dependencies: []
         retry_count: 0
         max_retries: 3
         speckit_task_ref: "001-mcp-server/tasks.md#T004"
+        started_at: "2025-12-04T19:35:42.330Z"
       - task_id: 5
         title: "Export new types from core"
         description: "Export new types from src/core/index.ts"
@@ -689,4 +690,4 @@ phases:
         max_retries: 3
         speckit_task_ref: "001-mcp-server/tasks.md#T058"
 consolidations: []
-current_task_id: 3
+current_task_id: 4

@@ -61,7 +61,9 @@ Do NOT rely on memory. Re-read this process every time.
 
 ---
 
-### STEP 2: Delete Old Task Handover
+### STEP 2: Delete Old Task Handover (OPTIONAL)
+
+> **Note**: `orchestra prepare` handles this automatically. Only needed for manual recovery.
 
 ```bash
 rm -f .orchestra/handover/current-task.md
@@ -71,11 +73,18 @@ rm -f .orchestra/handover/current-task.md
 
 ---
 
-### STEP 3: Copy Template
+### STEP 3: Generate Handover Files
 
 ```bash
-cp .orchestra/common/templates/current-task-template.md .orchestra/handover/current-task.md
+orchestra prepare --task N
 ```
+
+This command:
+
+- Reads the manifest to find task details
+- Generates `current-task.md` from templates
+- Creates `task-context.md` with background info
+- Creates `completion-signal.md` template for implementor
 
 ---
 
@@ -83,7 +92,7 @@ cp .orchestra/common/templates/current-task-template.md .orchestra/handover/curr
 
 Read these files to understand the next task:
 
-1. **Manifest**: `.orchestra/orchestrator/.orchestrator-only/manifest.yaml`
+1. **Manifest**: `.orchestra/manifest.yaml`
 
    - Find the next pending task
    - Note the task ID, title, category, speckit_tasks

@@ -557,8 +557,8 @@ export function generateCurrentTask(
       Array.isArray(task.speckit_task_ref) && task.speckit_task_ref.length > 0
         ? task.speckit_task_ref[0]
         : typeof task.speckit_task_ref === "string"
-          ? task.speckit_task_ref
-          : "",
+        ? task.speckit_task_ref
+        : "",
     command_spec: "", // Optional, can be added if needed
     depends_on:
       task.dependencies?.map((id) => {
