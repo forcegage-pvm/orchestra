@@ -159,9 +159,7 @@ export async function runSignal(options: SignalOptions): Promise<SignalResult> {
   }
 
   // Verify task is in progress - check progress log or task status
-  const taskEntry = progress.entries
-    .filter((e) => e.task_id === taskId)
-    .pop();
+  const taskEntry = progress.entries.filter((e) => e.task_id === taskId).pop();
   const status = taskEntry?.status || task.status;
 
   // Accept IMPLEMENT status (from progress) - task must be in implementation phase

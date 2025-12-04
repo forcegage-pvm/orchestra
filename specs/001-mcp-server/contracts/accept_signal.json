@@ -1,0 +1,44 @@
+{
+  "name": "accept_signal",
+  "description": "Validate implementor's signal and run pre-verification checks (Orchestrator only)",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "role": {
+        "type": "string",
+        "enum": ["implementor", "orchestrator"],
+        "description": "Actor role - must be 'orchestrator' for this tool"
+      },
+      "taskId": {
+        "type": "number",
+        "description": "Task ID to accept signal for (optional - uses current if omitted)"
+      }
+    },
+    "required": ["role"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "accepted": { "type": "boolean" },
+      "taskId": { "type": "number" },
+      "signalPath": { "type": "string" },
+      "checks": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "name": { "type": "string" },
+            "passed": { "type": "boolean" },
+            "message": { "type": "string" }
+          },
+          "required": ["name", "passed"]
+        }
+      },
+      "nextStep": { 
+        "type": "string",
+        "enum": ["verify", "signal again"]
+      }
+    },
+    "required": ["accepted", "taskId", "checks", "nextStep"]
+  }
+}

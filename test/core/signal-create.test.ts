@@ -115,7 +115,11 @@ describe("Signal Creation (Implementor)", () => {
     mockProgressData = {
       sprint_id: "test-sprint",
       entries: [
-        { task_id: 1, status: "IMPLEMENT", timestamp: new Date().toISOString() },
+        {
+          task_id: 1,
+          status: "IMPLEMENT",
+          timestamp: new Date().toISOString(),
+        },
       ],
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
@@ -180,7 +184,11 @@ describe("Signal Creation (Implementor)", () => {
         status: "IMPLEMENT",
         category: "CORE",
       });
-      mockProgressData.entries.push({ task_id: 2, status: "IMPLEMENT", timestamp: new Date().toISOString() });
+      mockProgressData.entries.push({
+        task_id: 2,
+        status: "IMPLEMENT",
+        timestamp: new Date().toISOString(),
+      });
 
       const options: SignalOptions = {
         task: "2",

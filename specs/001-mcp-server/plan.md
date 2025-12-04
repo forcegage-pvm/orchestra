@@ -1,104 +1,112 @@
-# Implementation Plan: [FEATURE]
+# Implementation Plan: MCP Server for Orchestra
 
-**Branch**: `[###-feature-name]` | **Date**: [DATE] | **Spec**: [link]
-**Input**: Feature specification from `/specs/[###-feature-name]/spec.md`
-
-**Note**: This template is filled in by the `/speckit.plan` command. See `.specify/templates/commands/plan.md` for the execution workflow.
+**Branch**: `001-mcp-server` | **Date**: 2025-12-04 | **Spec**: [spec.md](./spec.md)
+**Input**: Feature specification from `/specs/001-mcp-server/spec.md`
 
 ## Summary
 
-[Extract from feature spec: primary requirement + technical approach from research]
+Expose Orchestra's task orchestration operations as an MCP (Model Context Protocol) server, enabling AI agents like GitHub Copilot to prepare tasks, signal completion, verify work, and complete tasks programmatically. The server wraps existing `src/core/` library functions with MCP tool definitions, enforcing role-based access (Implementor vs Orchestrator) via required `role` parameter.
 
 ## Technical Context
 
-<!--
-  ACTION REQUIRED: Replace the content in this section with the technical details
-  for the project. The structure here is presented in advisory capacity to guide
-  the iteration process.
--->
-
-**Language/Version**: [e.g., Python 3.11, Swift 5.9, Rust 1.75 or NEEDS CLARIFICATION]  
-**Primary Dependencies**: [e.g., FastAPI, UIKit, LLVM or NEEDS CLARIFICATION]  
-**Storage**: [if applicable, e.g., PostgreSQL, CoreData, files or N/A]  
-**Testing**: [e.g., pytest, XCTest, cargo test or NEEDS CLARIFICATION]  
-**Target Platform**: [e.g., Linux server, iOS 15+, WASM or NEEDS CLARIFICATION]
-**Project Type**: [single/web/mobile - determines source structure]  
-**Performance Goals**: [domain-specific, e.g., 1000 req/s, 10k lines/sec, 60 fps or NEEDS CLARIFICATION]  
-**Constraints**: [domain-specific, e.g., <200ms p95, <100MB memory, offline-capable or NEEDS CLARIFICATION]  
-**Scale/Scope**: [domain-specific, e.g., 10k users, 1M LOC, 50 screens or NEEDS CLARIFICATION]
+**Language/Version**: TypeScript 5.4+ (ESM modules, strict mode with `exactOptionalPropertyTypes`)  
+**Primary Dependencies**: @modelcontextprotocol/sdk ^0.6.0, existing Orchestra core (zod, yaml, handlebars, chalk, simple-git)  
+**Storage**: File-based (.orchestra/ folder structure from Phase 1)  
+**Testing**: Vitest (346+ existing tests to maintain)  
+**Target Platform**: Node.js 18+ (VS Code Copilot MCP integration)
+**Project Type**: Single project (extends existing CLI with MCP layer)  
+**Performance Goals**: Server startup <2s, tool responses <500ms  
+**Constraints**: STDIO transport only, fail-fast on concurrent access, 3 retry attempts before escalation  
+**Scale/Scope**: 10 MCP tools wrapping existing CLI commands
 
 ## Constitution Check
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-[Gates determined based on constitution file]
+### Pre-Research Check (2025-12-04)
+
+| Principle | Status | Notes |
+|-----------|--------|-------|
+| I. Core-First Architecture | ✅ PASS | MCP tools wrap `src/core/` functions; no business logic duplication |
+| II. Hidden Verification | ✅ PASS | Role enforcement prevents Implementor access to verification results |
+| III. Zod-Validated YAML | ✅ PASS | No new YAML schemas; uses existing core types |
+| IV. Structured Error Hierarchy | ✅ PASS | MCP errors wrap OrchestraError with appropriate error codes |
+| V. ESM with Strict TypeScript | ✅ PASS | All imports use .js extensions; exactOptionalPropertyTypes maintained |
+
+**Gate Result**: ✅ PASS - Proceed to Phase 0 research
+
+### Post-Design Check (2025-12-04)
+
+| Principle | Status | Notes |
+|-----------|--------|-------|
+| I. Core-First Architecture | ✅ PASS | MCP layer in `src/mcp/` wraps core; tool handlers delegate to `run*()` functions |
+| II. Hidden Verification | ✅ PASS | Role enforcement via required `role` param; AttemptTracker stored in `.orchestrator-only/` |
+| III. Zod-Validated YAML | ✅ PASS | New schemas (RoleSchema, AttemptTrackerSchema) follow pattern in `src/core/types.ts` |
+| IV. Structured Error Hierarchy | ✅ PASS | New RoleError extends OrchestraError; error-mapper.ts maps to MCP codes |
+| V. ESM with Strict TypeScript | ✅ PASS | All contracts and designs use strict patterns |
+
+**Gate Result**: ✅ PASS - Design phase complete
 
 ## Project Structure
 
 ### Documentation (this feature)
 
 ```text
-specs/[###-feature]/
-├── plan.md              # This file (/speckit.plan command output)
-├── research.md          # Phase 0 output (/speckit.plan command)
-├── data-model.md        # Phase 1 output (/speckit.plan command)
-├── quickstart.md        # Phase 1 output (/speckit.plan command)
-├── contracts/           # Phase 1 output (/speckit.plan command)
-└── tasks.md             # Phase 2 output (/speckit.tasks command - NOT created by /speckit.plan)
+specs/001-mcp-server/
+├── plan.md              # This file
+├── research.md          # Phase 0 output
+├── data-model.md        # Phase 1 output
+├── quickstart.md        # Phase 1 output
+├── contracts/           # Phase 1 output (MCP tool schemas)
+└── tasks.md             # Phase 2 output (created by /speckit.tasks)
 ```
 
 ### Source Code (repository root)
-<!--
-  ACTION REQUIRED: Replace the placeholder tree below with the concrete layout
-  for this feature. Delete unused options and expand the chosen structure with
-  real paths (e.g., apps/admin, packages/something). The delivered plan must
-  not include Option labels.
--->
 
 ```text
-# [REMOVE IF UNUSED] Option 1: Single project (DEFAULT)
 src/
-├── models/
-├── services/
-├── cli/
-└── lib/
+├── cli.ts                    # Existing CLI entry point
+├── commands/                 # Existing CLI commands
+├── core/                     # Existing core library (SHARED)
+│   ├── index.ts              # Re-exports all core functions
+│   ├── manifest.ts
+│   ├── progress.ts
+│   ├── verification.ts
+│   └── ...
+│
+└── mcp/                      # NEW - Phase 2 MCP Server
+    ├── server.ts             # MCP server entry point (STDIO transport)
+    ├── index.ts              # Exports for consumers
+    ├── role-guard.ts         # Role enforcement middleware
+    ├── error-mapper.ts       # OrchestraError → MCP error codes
+    └── tools/                # Tool definitions
+        ├── index.ts          # Tool registry
+        ├── init.ts
+        ├── status.ts
+        ├── closeout.ts
+        ├── prepare.ts
+        ├── signal.ts         # Implementor tool
+        ├── accept-signal.ts
+        ├── verify.ts
+        ├── complete.ts
+        ├── feedback.ts
+        └── escalate.ts
 
-tests/
-├── contract/
-├── integration/
-└── unit/
-
-# [REMOVE IF UNUSED] Option 2: Web application (when "frontend" + "backend" detected)
-backend/
-├── src/
-│   ├── models/
-│   ├── services/
-│   └── api/
-└── tests/
-
-frontend/
-├── src/
-│   ├── components/
-│   ├── pages/
-│   └── services/
-└── tests/
-
-# [REMOVE IF UNUSED] Option 3: Mobile + API (when "iOS/Android" detected)
-api/
-└── [same as backend above]
-
-ios/ or android/
-└── [platform-specific structure: feature modules, UI flows, platform tests]
+test/
+├── mcp/                      # NEW - MCP tests
+│   ├── server.test.ts        # Server lifecycle tests
+│   ├── role-guard.test.ts    # Role enforcement tests
+│   ├── error-mapper.test.ts  # Error mapping tests
+│   └── tools/                # Tool-specific tests
+│       ├── init.test.ts
+│       ├── status.test.ts
+│       └── ...
+└── integration/              # NEW - E2E MCP workflow tests
+    └── mcp-workflow.test.ts
 ```
 
-**Structure Decision**: [Document the selected structure and reference the real
-directories captured above]
+**Structure Decision**: Single project extension - MCP layer added under `src/mcp/` following existing patterns. No separate package; shares `src/core/` with CLI.
 
 ## Complexity Tracking
 
-> **Fill ONLY if Constitution Check has violations that must be justified**
-
-| Violation | Why Needed | Simpler Alternative Rejected Because |
-|-----------|------------|-------------------------------------|
-| [e.g., 4th project] | [current need] | [why 3 projects insufficient] |
-| [e.g., Repository pattern] | [specific problem] | [why direct DB access insufficient] |
+> No constitution violations requiring justification.

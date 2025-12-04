@@ -55,6 +55,14 @@ export {
   type SignalResult,
 } from "./signal.js";
 
+// Feedback generation
+export {
+  runFeedback,
+  type FeedbackOptions,
+  type FeedbackIssue,
+  type FeedbackResult,
+} from "./feedback.js";
+
 // Verification (note: exports with "Verify" prefix to avoid conflicts)
 export {
   runVerification,

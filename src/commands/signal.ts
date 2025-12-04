@@ -118,7 +118,9 @@ function showSuccess(result: SignalResult): void {
   }
 
   if (result.artifacts.modified.length > 0) {
-    output.print.info(`Files modified: ${result.artifacts.modified.join(", ")}`);
+    output.print.info(
+      `Files modified: ${result.artifacts.modified.join(", ")}`
+    );
   }
 
   output.print.info(`\nNext step: ${result.nextStep}`);

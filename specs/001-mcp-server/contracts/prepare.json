@@ -1,0 +1,35 @@
+{
+  "name": "prepare",
+  "description": "Prepare task handover for implementation (Orchestrator only)",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "role": {
+        "type": "string",
+        "enum": ["implementor", "orchestrator"],
+        "description": "Actor role - must be 'orchestrator' for this tool"
+      },
+      "taskId": {
+        "type": "number",
+        "description": "Specific task ID to prepare (optional - uses next pending if omitted)"
+      }
+    },
+    "required": ["role"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "success": { "type": "boolean" },
+      "taskId": { "type": "number" },
+      "title": { "type": "string" },
+      "description": { "type": "string" },
+      "handoverPath": { "type": "string" },
+      "verificationPath": { "type": "string", "description": "Orchestrator-only - hidden from Implementor" },
+      "dependencies": {
+        "type": "array",
+        "items": { "type": "number" }
+      }
+    },
+    "required": ["success", "taskId", "title", "handoverPath", "dependencies"]
+  }
+}

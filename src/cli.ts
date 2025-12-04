@@ -11,6 +11,7 @@ import { Command } from "commander";
 import { createAcceptSignalCommand } from "./commands/accept-signal.js";
 import { createCloseoutCommand } from "./commands/closeout.js";
 import { createCompleteCommand } from "./commands/complete.js";
+import { createFeedbackCommand } from "./commands/feedback.js";
 import { createInitCommand } from "./commands/init.js";
 import { createPrepareCommand } from "./commands/prepare.js";
 import { createSignalCommand } from "./commands/signal.js";
@@ -66,6 +67,9 @@ program.addCommand(createSignalCommand());
 
 // Verify command - run verification checks
 program.addCommand(createVerifyCommand());
+
+// Feedback command - generate feedback after verification failure
+program.addCommand(createFeedbackCommand());
 
 // Complete command - complete task and archive
 program.addCommand(createCompleteCommand());

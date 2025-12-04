@@ -1,0 +1,44 @@
+{
+  "name": "feedback",
+  "description": "Generate feedback for implementor after verification failure (Orchestrator only)",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "role": {
+        "type": "string",
+        "enum": ["implementor", "orchestrator"],
+        "description": "Actor role - must be 'orchestrator' for this tool"
+      },
+      "taskId": {
+        "type": "number",
+        "description": "Task ID to generate feedback for (optional - uses current if omitted)"
+      }
+    },
+    "required": ["role"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "success": { "type": "boolean" },
+      "taskId": { "type": "number" },
+      "attempt": { "type": "number", "description": "Current attempt number (1-3)" },
+      "feedbackPath": { "type": "string" },
+      "issues": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "area": { "type": "string" },
+            "guidance": { "type": "string", "description": "Actionable guidance WITHOUT revealing hidden criteria" }
+          },
+          "required": ["area", "guidance"]
+        }
+      },
+      "canRetry": { 
+        "type": "boolean",
+        "description": "false after 3 attempts - escalation required"
+      }
+    },
+    "required": ["success", "taskId", "attempt", "feedbackPath", "issues", "canRetry"]
+  }
+}

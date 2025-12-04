@@ -1,0 +1,54 @@
+{
+  "name": "status",
+  "description": "Get current task context and sprint status (Both roles)",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "role": {
+        "type": "string",
+        "enum": ["implementor", "orchestrator"],
+        "description": "Actor role - both roles can access this tool"
+      }
+    },
+    "required": ["role"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "sprint": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "name": { "type": "string" },
+          "status": { 
+            "type": "string",
+            "enum": ["pending", "in_progress", "completed"]
+          }
+        },
+        "required": ["id", "name", "status"]
+      },
+      "currentTask": {
+        "type": ["object", "null"],
+        "properties": {
+          "id": { "type": "number" },
+          "title": { "type": "string" },
+          "status": { 
+            "type": "string",
+            "enum": ["pending", "in_progress", "completed"]
+          },
+          "category": { "type": "string" }
+        }
+      },
+      "progress": {
+        "type": "object",
+        "properties": {
+          "completed": { "type": "number" },
+          "total": { "type": "number" },
+          "percentComplete": { "type": "number" }
+        },
+        "required": ["completed", "total", "percentComplete"]
+      }
+    },
+    "required": ["sprint", "currentTask", "progress"]
+  }
+}

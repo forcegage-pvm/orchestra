@@ -182,7 +182,7 @@ export async function runEscalate(options: EscalateOptions): Promise<EscalateRes
 | 1.2.1 | [Feedback Command](tasks/1.2.1-feedback-command.md) | Not Started | Implement `orchestra feedback` |
 | 1.2.2 | [Escalate Command](tasks/1.2.2-escalate-command.md) | Not Started | Implement `orchestra escalate` |
 | 1.2.3 | [Integration Testing](tasks/1.2.3-integration-testing.md) | Not Started | E2E failure path testing |
-| 1.2.4 | [Signal Command](tasks/1.2.4-signal-command.md) | Not Started | Implement `orchestra signal` |
+| 1.2.4 | [Signal Command](tasks/1.2.4-signal-command.md) | ✅ Complete | Implement `orchestra signal` |
 
 ## Dependencies
 

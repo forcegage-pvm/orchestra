@@ -1,0 +1,47 @@
+{
+  "name": "signal",
+  "description": "Signal that task is complete (Implementor only - creates signal file)",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "role": {
+        "type": "string",
+        "enum": ["implementor", "orchestrator"],
+        "description": "Actor role - must be 'implementor' for this tool"
+      },
+      "summary": {
+        "type": "string",
+        "description": "Brief description of what was implemented"
+      },
+      "files": {
+        "type": "array",
+        "items": { "type": "string" },
+        "description": "Files created or modified (auto-detected if omitted)"
+      },
+      "tests": {
+        "type": "array",
+        "items": { "type": "string" },
+        "description": "Test files added"
+      },
+      "notes": {
+        "type": "string",
+        "description": "Additional notes for orchestrator"
+      }
+    },
+    "required": ["role", "summary"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "success": { "type": "boolean" },
+      "taskId": { "type": "number" },
+      "signalPath": { "type": "string" },
+      "signaledAt": { "type": "string", "format": "date-time" },
+      "nextStep": { 
+        "type": "string",
+        "const": "Orchestrator runs accept_signal"
+      }
+    },
+    "required": ["success", "taskId", "signalPath", "signaledAt", "nextStep"]
+  }
+}

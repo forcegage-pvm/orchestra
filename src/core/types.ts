@@ -142,7 +142,8 @@ export const ManifestSchema = z
       return hasTasks || hasPhases;
     },
     {
-      message: "Either 'tasks' or 'phases' must be provided with at least one task",
+      message:
+        "Either 'tasks' or 'phases' must be provided with at least one task",
     }
   );
 
