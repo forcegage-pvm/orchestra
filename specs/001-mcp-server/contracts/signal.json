@@ -37,7 +37,7 @@
       "taskId": { "type": "number" },
       "signalPath": { "type": "string" },
       "signaledAt": { "type": "string", "format": "date-time" },
-      "nextStep": { 
+      "nextStep": {
         "type": "string",
         "const": "Orchestrator runs accept_signal"
       }

@@ -34,7 +34,7 @@
           "required": ["name", "passed"]
         }
       },
-      "nextStep": { 
+      "nextStep": {
         "type": "string",
         "enum": ["verify", "signal again"]
       }

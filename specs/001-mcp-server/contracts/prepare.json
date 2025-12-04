@@ -24,7 +24,10 @@
       "title": { "type": "string" },
       "description": { "type": "string" },
       "handoverPath": { "type": "string" },
-      "verificationPath": { "type": "string", "description": "Orchestrator-only - hidden from Implementor" },
+      "verificationPath": {
+        "type": "string",
+        "description": "Orchestrator-only - hidden from Implementor"
+      },
       "dependencies": {
         "type": "array",
         "items": { "type": "number" }

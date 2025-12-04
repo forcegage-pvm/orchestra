@@ -22,16 +22,23 @@
       "success": { "type": "boolean" },
       "taskId": { "type": "number" },
       "previousStatus": { "type": "string" },
-      "newStatus": { 
+      "newStatus": {
         "type": "string",
         "const": "completed"
       },
       "completedAt": { "type": "string", "format": "date-time" },
-      "nextTask": { 
+      "nextTask": {
         "type": ["number", "null"],
         "description": "Next pending task ID, or null if sprint complete"
       }
     },
-    "required": ["success", "taskId", "previousStatus", "newStatus", "completedAt", "nextTask"]
+    "required": [
+      "success",
+      "taskId",
+      "previousStatus",
+      "newStatus",
+      "completedAt",
+      "nextTask"
+    ]
   }
 }

@@ -11,6 +11,7 @@ import { Command } from "commander";
 import { createAcceptSignalCommand } from "./commands/accept-signal.js";
 import { createCloseoutCommand } from "./commands/closeout.js";
 import { createCompleteCommand } from "./commands/complete.js";
+import { createEscalateCommand } from "./commands/escalate.js";
 import { createFeedbackCommand } from "./commands/feedback.js";
 import { createInitCommand } from "./commands/init.js";
 import { createPrepareCommand } from "./commands/prepare.js";
@@ -70,6 +71,9 @@ program.addCommand(createVerifyCommand());
 
 // Feedback command - generate feedback after verification failure
 program.addCommand(createFeedbackCommand());
+
+// Escalate command - escalate persistent failures to human supervisor
+program.addCommand(createEscalateCommand());
 
 // Complete command - complete task and archive
 program.addCommand(createCompleteCommand());

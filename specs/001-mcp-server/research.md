@@ -95,29 +95,33 @@ function validateRole(toolName: string, role: string | undefined): void {
 
 **Task**: Design fail-fast concurrency strategy for file-based state.
 
-**Decision**: Use lockfile pattern with immediate failure on contention.
+**Decision**: Use lockfile pattern with immediate failure on contention and stale lock cleanup.
 
 **Rationale**:
 - File-based state (YAML) doesn't support transactions
 - Fail-fast is simpler than queuing and aligns with agent retry patterns
 - Lock acquisition should be atomic (fs.open with exclusive flag)
+- Stale lock cleanup prevents permanent blocking after crashes
 
 **Implementation Pattern**:
 ```typescript
 const LOCK_FILE = ".orchestra/.lock";
+const STALE_THRESHOLD_MS = 5 * 60 * 1000; // 5 minutes
 
-async function withLock<T>(operation: () => Promise<T>): Promise<T> {
-  const lockHandle = await acquireLock();
-  try {
-    return await operation();
-  } finally {
-    await releaseLock(lockHandle);
-  }
+interface LockInfo {
+  createdAt: number;
+  pid: number;
 }
 
 async function acquireLock(): Promise<fs.FileHandle> {
+  // Clean stale locks first
+  await cleanStaleLock();
+  
   try {
-    return await fs.open(LOCK_FILE, fs.constants.O_CREAT | fs.constants.O_EXCL | fs.constants.O_WRONLY);
+    const handle = await fs.open(LOCK_FILE, fs.constants.O_CREAT | fs.constants.O_EXCL | fs.constants.O_WRONLY);
+    // Write lock info for stale detection
+    await fs.writeFile(LOCK_FILE, JSON.stringify({ createdAt: Date.now(), pid: process.pid }));
+    return handle;
   } catch (e) {
     if (e.code === "EEXIST") {
       throw new ConcurrencyError("operation in progress, retry after brief delay");
@@ -125,7 +129,43 @@ async function acquireLock(): Promise<fs.FileHandle> {
     throw e;
   }
 }
+
+async function cleanStaleLock(): Promise<void> {
+  try {
+    const content = await fs.readFile(LOCK_FILE, 'utf-8');
+    const info: LockInfo = JSON.parse(content);
+    if (Date.now() - info.createdAt > STALE_THRESHOLD_MS) {
+      await fs.unlink(LOCK_FILE);
+    }
+  } catch {
+    // Lock doesn't exist or unreadable - ok to proceed
+  }
+}
+
+async function withLock<T>(operation: () => Promise<T>): Promise<T> {
+  const lockHandle = await acquireLock();
+  try {
+    return await operation();
+  } finally {
+    await lockHandle.close();
+    await fs.unlink(LOCK_FILE).catch(() => {});
+  }
+}
 ```
+
+**Operations Classification**:
+| Operation | Requires Lock | Reason |
+|-----------|---------------|--------|
+| init | Yes | Creates .orchestra/ structure |
+| prepare | Yes | Modifies manifest, creates handover |
+| signal | Yes | Creates signal file |
+| accept_signal | Yes | Validates and updates state |
+| verify | Yes | Updates verification results |
+| complete | Yes | Updates task status |
+| feedback | Yes | Creates feedback, updates attempts |
+| escalate | Yes | Updates task status |
+| status | No | Read-only |
+| closeout | No | Read-only checks |
 
 ### 5. VS Code Integration Configuration
 

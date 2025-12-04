@@ -27,14 +27,17 @@
         "items": {
           "type": "object",
           "properties": {
-            "criterion": { "type": "string", "description": "HIDDEN - DO NOT expose to implementor" },
+            "criterion": {
+              "type": "string",
+              "description": "HIDDEN - DO NOT expose to implementor"
+            },
             "passed": { "type": "boolean" },
             "details": { "type": "string" }
           },
           "required": ["criterion", "passed"]
         }
       },
-      "nextStep": { 
+      "nextStep": {
         "type": "string",
         "enum": ["complete", "feedback"]
       }

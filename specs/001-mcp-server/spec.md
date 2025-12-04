@@ -110,11 +110,17 @@ When verification fails, the Orchestrator agent needs to generate actionable fee
 - What happens when multiple agents try to access the same sprint concurrently?
   - Fail-fast: return error immediately with "operation in progress" message; caller is expected to retry after brief delay.
 - What happens if the Implementor agent tries to call Orchestrator-only tools (verify, complete)?
-  - Role separation is enforced; Implementor agents receive permission denied error.
+  - Role separation is enforced; Implementor agents receive permission denied error with tool name.
 - What happens if the .orchestra folder is corrupted or incomplete?
   - Validation errors returned with specific guidance on what's missing.
 - What happens during network interruption while MCP server is processing?
   - STDIO transport handles disconnect gracefully; state is persisted before response.
+- What happens if a lock file is abandoned (server crash)?
+  - Stale locks older than 5 minutes are automatically cleaned up on next operation.
+- What happens if role parameter has wrong type (number instead of string)?
+  - Validation error returned: "role must be string 'implementor' or 'orchestrator'".
+- What happens if hidden verification data appears in an error stack trace?
+  - Error sanitization removes any paths containing ".orchestrator-only" before returning to client.
 
 ## Requirements *(mandatory)*
 
@@ -138,18 +144,30 @@ When verification fails, the Orchestrator agent needs to generate actionable fee
 - **FR-011**: System MUST preserve role separation: Implementor tools (signal, status) vs Orchestrator tools (all others).
 
 #### Role Enforcement
-- **FR-012**: All tool calls MUST include a `role` parameter (value: "implementor" or "orchestrator"); calls without role MUST be rejected with descriptive error.
-- **FR-013**: Implementor role MUST only access signal and status tools; attempts to access other tools MUST return permission denied error.
-- **FR-014**: Orchestrator role MUST have access to all tools.
-- **FR-015**: Verification results and hidden criteria MUST never be exposed through Implementor-accessible responses.
+- **FR-012**: All tool calls MUST include a `role` parameter (value: "implementor" or "orchestrator", case-sensitive lowercase); calls without role MUST be rejected with error: "role parameter required".
+- **FR-013**: Implementor role MUST only access signal and status tools; attempts to access other tools MUST return error: "permission denied: [tool] requires orchestrator role".
+- **FR-014**: Orchestrator role MUST have access to all tools including Implementor tools (signal, status).
+- **FR-015**: Verification results and hidden criteria MUST never be exposed through any response, error message, or log accessible to Implementor role.
+- **FR-016**: Error messages MUST NOT include paths containing ".orchestrator-only" or verification criteria content.
+
+#### Concurrency Control
+- **FR-017**: Write operations (prepare, signal, accept_signal, verify, complete, feedback, escalate) MUST acquire exclusive lock before modifying state.
+- **FR-018**: Read operations (status, closeout) MUST NOT require lock acquisition.
+- **FR-019**: Lock file location: `.orchestra/.lock`; lock MUST be released after operation completes or fails.
+- **FR-020**: Stale locks (>5 minutes old) MUST be automatically cleaned up before acquisition.
+- **FR-021**: Lock contention MUST return error: "operation in progress, retry after brief delay" with code -32002.
 
 #### VS Code Integration
-- **FR-016**: System MUST work with VS Code's Copilot MCP integration configuration.
-- **FR-017**: System MUST be startable via node command for MCP client connections.
+- **FR-022**: System MUST work with VS Code's Copilot MCP integration configuration.
+- **FR-023**: System MUST be startable via node command for MCP client connections.
 
 #### Retry and Escalation
-- **FR-018**: System MUST track verification attempt count per task.
-- **FR-019**: After 3 failed verification attempts, `feedback` tool MUST return `canRetry: false` indicating escalation is required.
+- **FR-024**: System MUST track verification attempt count per task in `.orchestra/orchestrator/.orchestrator-only/attempts/`.
+- **FR-025**: After 3 failed verification attempts, `feedback` tool MUST return `canRetry: false` indicating escalation is required.
+
+#### Data Formats
+- **FR-026**: All timestamps in responses MUST use ISO 8601 format (e.g., "2025-12-04T14:30:00Z").
+- **FR-027**: Tool names MUST use underscore for multi-word names (accept_signal) to match MCP conventions, while CLI uses hyphen (accept-signal).
 
 ### Key Entities
 

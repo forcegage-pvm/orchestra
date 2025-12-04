@@ -20,7 +20,7 @@
         "properties": {
           "id": { "type": "string" },
           "name": { "type": "string" },
-          "status": { 
+          "status": {
             "type": "string",
             "enum": ["pending", "in_progress", "completed"]
           }
@@ -32,7 +32,7 @@
         "properties": {
           "id": { "type": "number" },
           "title": { "type": "string" },
-          "status": { 
+          "status": {
             "type": "string",
             "enum": ["pending", "in_progress", "completed"]
           },

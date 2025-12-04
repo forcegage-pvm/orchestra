@@ -89,6 +89,28 @@ Tracks verification attempts per task for retry/escalation logic.
 - When `attempts >= maxAttempts`: `canRetry` returns false
 - Reset on task completion or manual intervention
 
+### LockFile
+
+Controls concurrent access to sprint state.
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| path | string | Yes | Fixed: `.orchestra/.lock` |
+| createdAt | number | Yes | Unix timestamp (ms) when lock acquired |
+| pid | number | Yes | Process ID holding lock |
+
+**Behavior**:
+- Created atomically using `O_CREAT | O_EXCL` flags
+- Deleted on operation completion or failure (finally block)
+- Stale detection: `Date.now() - createdAt > 300000` (5 minutes)
+- Stale locks are deleted before new acquisition attempt
+
+**Operations Requiring Lock** (write operations):
+- init, prepare, signal, accept_signal, verify, complete, feedback, escalate
+
+**Operations NOT Requiring Lock** (read operations):
+- status, closeout
+
 ## Existing Entities (from Phase 1 Core)
 
 These entities are reused without modification:

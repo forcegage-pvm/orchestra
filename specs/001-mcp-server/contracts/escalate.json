@@ -30,14 +30,25 @@
       "success": { "type": "boolean" },
       "taskId": { "type": "number" },
       "previousStatus": { "type": "string" },
-      "newStatus": { 
+      "newStatus": {
         "type": "string",
         "const": "escalated"
       },
       "escalationPath": { "type": "string" },
       "reportPath": { "type": "string" },
-      "attempts": { "type": "number", "description": "Number of attempts before escalation" }
+      "attempts": {
+        "type": "number",
+        "description": "Number of attempts before escalation"
+      }
     },
-    "required": ["success", "taskId", "previousStatus", "newStatus", "escalationPath", "reportPath", "attempts"]
+    "required": [
+      "success",
+      "taskId",
+      "previousStatus",
+      "newStatus",
+      "escalationPath",
+      "reportPath",
+      "attempts"
+    ]
   }
 }

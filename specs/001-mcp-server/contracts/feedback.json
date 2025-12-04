@@ -21,7 +21,10 @@
     "properties": {
       "success": { "type": "boolean" },
       "taskId": { "type": "number" },
-      "attempt": { "type": "number", "description": "Current attempt number (1-3)" },
+      "attempt": {
+        "type": "number",
+        "description": "Current attempt number (1-3)"
+      },
       "feedbackPath": { "type": "string" },
       "issues": {
         "type": "array",
@@ -29,16 +32,26 @@
           "type": "object",
           "properties": {
             "area": { "type": "string" },
-            "guidance": { "type": "string", "description": "Actionable guidance WITHOUT revealing hidden criteria" }
+            "guidance": {
+              "type": "string",
+              "description": "Actionable guidance WITHOUT revealing hidden criteria"
+            }
           },
           "required": ["area", "guidance"]
         }
       },
-      "canRetry": { 
+      "canRetry": {
         "type": "boolean",
         "description": "false after 3 attempts - escalation required"
       }
     },
-    "required": ["success", "taskId", "attempt", "feedbackPath", "issues", "canRetry"]
+    "required": [
+      "success",
+      "taskId",
+      "attempt",
+      "feedbackPath",
+      "issues",
+      "canRetry"
+    ]
   }
 }

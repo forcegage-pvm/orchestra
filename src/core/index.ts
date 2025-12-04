@@ -75,3 +75,11 @@ export {
   type VerifyResult,
   type VerifySeverity,
 } from "./verification.js";
+
+// Escalation
+export {
+  runEscalate,
+  type EscalateOptions,
+  type EscalateResult,
+  type AttemptRecord,
+} from "./escalate.js";
