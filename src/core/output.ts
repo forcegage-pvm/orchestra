@@ -7,7 +7,7 @@
 
 import chalk from "chalk";
 import ora, { type Ora } from "ora";
-import { getSprintProgress } from "./manifest.js";
+import { getSprintProgress, getTaskId } from "./manifest.js";
 import type { Manifest, ScriptResult, Task, TaskStatus } from "./types.js";
 
 /**
@@ -83,7 +83,7 @@ export function formatTask(task: Task, format: OutputFormat): string {
   }
 
   const status = formatTaskStatus(task.status);
-  const id = chalk.cyan(`[${task.id}]`);
+  const id = chalk.cyan(`[${getTaskId(task)}]`);
   const title =
     task.status === "IMPLEMENT" ? chalk.bold(task.title) : task.title;
 
@@ -256,7 +256,7 @@ export function divider(char: string = "─", length: number = 40): string {
  */
 export function formatTaskCompact(task: Task): string {
   const status = formatTaskStatus(task.status);
-  const id = chalk.cyan(String(task.id).padStart(2));
+  const id = chalk.cyan(String(getTaskId(task)).padStart(2));
   return `${status} ${id}: ${task.title}`;
 }
 

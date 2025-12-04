@@ -367,10 +367,10 @@ export function generateHandoverFiles(
 
   // Generate YAML template if requested
   if (format === "yaml" || format === "both") {
-    const yamlPath = path.join(handoverPath, `task-${task.id}.yaml`);
+    const yamlPath = path.join(handoverPath, `task-${getTaskId(task)}.yaml`);
     const yamlContent = generateYamlHandover(task, context, root);
     fs.writeFileSync(yamlPath, yamlContent);
-    filesGenerated.push(`handover/task-${task.id}.yaml`);
+    filesGenerated.push(`handover/task-${getTaskId(task)}.yaml`);
   }
 
   // Generate markdown if requested
@@ -405,7 +405,7 @@ function buildHandoverContext(
   _root: string
 ): Record<string, unknown> {
   return {
-    task_id: task.id,
+    task_id: getTaskId(task),
     task_title: task.title,
     task_description: task.description ?? "",
     objective: "", // TODO: To be filled by orchestrator
@@ -551,7 +551,7 @@ export function generateCurrentTask(
   try {
     // Try to load template
     const context = {
-      task_id: task.id,
+      task_id: getTaskId(task),
       task_title: task.title,
       task_description: task.description ?? "",
       spec_file: task.speckit_task_ref?.[0] ?? "spec/task.md",
@@ -610,7 +610,7 @@ export function generateCompletionSignal(task: Task, root: string): string {
   try {
     // Try to load template
     const context = {
-      task_id: task.id,
+      task_id: getTaskId(task),
       task_title: task.title,
     };
 

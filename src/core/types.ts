@@ -36,12 +36,25 @@ export const SprintStatusSchema = z.enum(["ACTIVE", "COMPLETED", "ABORTED"]);
 export type SprintStatus = z.infer<typeof SprintStatusSchema>;
 
 /**
+ * Phase-level states (includes PENDING for phases not yet started)
+ */
+export const PhaseStatusSchema = z.enum([
+  "PENDING", // Phase not yet started
+  "ACTIVE", // Phase in progress
+  "COMPLETED", // Phase finished
+  "ABORTED", // Phase cancelled
+]);
+
+export type PhaseStatus = z.infer<typeof PhaseStatusSchema>;
+
+/**
  * Task category schema
  */
 export const TaskCategorySchema = z.enum([
   "INFRASTRUCTURE",
   "INTEGRATION",
   "VISUAL",
+  "REFACTOR",
 ]);
 
 export type TaskCategory = z.infer<typeof TaskCategorySchema>;
@@ -97,7 +110,7 @@ export type Sprint = z.output<typeof SprintSchema>;
 export const PhaseSchema = z.object({
   phase_id: z.string().min(1),
   phase_name: z.string().min(1),
-  status: SprintStatusSchema.default("ACTIVE"),
+  status: PhaseStatusSchema.default("PENDING"),
   speckit_tasks: z.array(z.string()).optional(),
   tasks: z.array(TaskSchema).min(1),
 });

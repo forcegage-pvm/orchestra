@@ -220,7 +220,7 @@ async function showFullStatus(
       },
       currentTask: current
         ? {
-            id: current.id,
+            id: getTaskId(current),
             title: current.title,
             status: current.status,
             retry_count: current.retry_count,
@@ -342,7 +342,7 @@ async function showTaskDetail(
   output.print.header("Task Details");
   output.print.divider("═", 60);
 
-  console.log(`\n${chalk.bold("Task:")} ${task.id}`);
+  console.log(`\n${chalk.bold("Task:")} ${getTaskId(task)}`);
   console.log(`${chalk.bold("Title:")} ${task.title}`);
   console.log(
     `${chalk.bold("Status:")} ${output.formatTaskStatus(task.status)}`

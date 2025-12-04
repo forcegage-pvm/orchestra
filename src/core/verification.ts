@@ -41,6 +41,7 @@ export interface VerificationOptions {
   severity?: VerifySeverity | "all" | undefined;
   continueOnError?: boolean | undefined;
   skipAccept?: boolean | undefined;
+  dryRun?: boolean | undefined; // Validate paths without running checks
   json?: boolean | undefined;
   verbose?: boolean | undefined;
 }
@@ -273,6 +274,32 @@ export async function runVerification(
     checksToRun = checksToRun.filter((c) => c.severity === options.severity);
   }
 
+  // 5a. Dry-run mode: validate paths without executing checks
+  if (options.dryRun) {
+    const dryRunResults = validateCheckPaths(checksToRun, orchestraRoot);
+    const passedCount = dryRunResults.filter((r) => r.passed).length;
+    const failedCount = dryRunResults.filter((r) => !r.passed).length;
+
+    return {
+      report: {
+        taskId,
+        taskTitle,
+        timestamp: new Date().toISOString(),
+        duration: Date.now() - startTime,
+        acceptSignal: acceptSignalStatus,
+        checks: {
+          total: checksToRun.length,
+          passed: passedCount,
+          failed: failedCount,
+          skipped: 0,
+        },
+        results: dryRunResults,
+        overallPassed: failedCount === 0,
+      },
+      exitCode: failedCount === 0 ? 0 : 1,
+    };
+  }
+
   // 5. Execute checks
   const results: VerifyCheckResult[] = [];
   let skippedCount = 0;
@@ -371,6 +398,117 @@ async function determineCurrentTask(explicitTaskId?: number): Promise<number> {
     throw new Error("No tasks in progress - progress log is empty");
   }
   return latestEntry.task_id;
+}
+
+// =============================================================================
+// Dry-Run Path Validation
+// =============================================================================
+
+/**
+ * Validate check paths without executing checks (dry-run mode)
+ * Returns validation results for path references in checks
+ */
+function validateCheckPaths(
+  checks: VerifyCheck[],
+  orchestraRoot: string
+): VerifyCheckResult[] {
+  const results: VerifyCheckResult[] = [];
+
+  for (const check of checks) {
+    const startTime = Date.now();
+    let passed = true;
+    let message = "";
+
+    switch (check.type) {
+      case "file_exists":
+      case "screenshot_exists":
+      case "json_valid":
+      case "yaml_valid": {
+        if (!check.path) {
+          passed = false;
+          message = `Missing 'path' property for ${check.type} check`;
+        } else {
+          const fullPath = path.isAbsolute(check.path)
+            ? check.path
+            : path.resolve(orchestraRoot, check.path);
+          message = `[DRY-RUN] Path to check: ${fullPath}`;
+        }
+        break;
+      }
+
+      case "dir_exists": {
+        if (!check.path) {
+          passed = false;
+          message = `Missing 'path' property for dir_exists check`;
+        } else {
+          const fullPath = path.isAbsolute(check.path)
+            ? check.path
+            : path.resolve(orchestraRoot, check.path);
+          message = `[DRY-RUN] Directory to check: ${fullPath}`;
+        }
+        break;
+      }
+
+      case "pattern_match": {
+        if (!check.file) {
+          passed = false;
+          message = `Missing 'file' property for pattern_match check`;
+        } else if (!check.pattern) {
+          passed = false;
+          message = `Missing 'pattern' property for pattern_match check`;
+        } else {
+          const fullPath = path.isAbsolute(check.file)
+            ? check.file
+            : path.resolve(orchestraRoot, check.file);
+          message = `[DRY-RUN] File to search: ${fullPath}, pattern: ${check.pattern}`;
+        }
+        break;
+      }
+
+      case "command": {
+        if (!check.command) {
+          passed = false;
+          message = `Missing 'command' property for command check`;
+        } else {
+          message = `[DRY-RUN] Command to run: ${check.command}`;
+        }
+        break;
+      }
+
+      case "export_exists": {
+        if (!check.module) {
+          passed = false;
+          message = `Missing 'module' property for export_exists check`;
+        } else if (!check.exports || check.exports.length === 0) {
+          passed = false;
+          message = `Missing 'exports' property for export_exists check`;
+        } else {
+          const fullPath = path.isAbsolute(check.module)
+            ? check.module
+            : path.resolve(orchestraRoot, check.module);
+          message = `[DRY-RUN] Module to check: ${fullPath}, exports: ${check.exports.join(", ")}`;
+        }
+        break;
+      }
+
+      default: {
+        passed = false;
+        message = `Unknown check type: ${check.type}`;
+      }
+    }
+
+    results.push({
+      checkId: check.id,
+      type: check.type,
+      description: check.description,
+      severity: check.severity,
+      passed,
+      message,
+      duration: Date.now() - startTime,
+    });
+  }
+
+  return results;
 }
 
 // =============================================================================
