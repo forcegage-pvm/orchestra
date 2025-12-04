@@ -62,16 +62,19 @@ function getTemplatesDir(): string {
 
 /**
  * Folders to create during initialization
+ *
+ * NOTE: No scripts folders - the CLI commands ARE the implementation.
+ * See Bible Section 7.3 "CLI Command Mapping" - abstract scripts map to CLI subcommands.
  */
 const DEFAULT_FOLDERS = [
   "common/templates",
-  "common/scripts",
   "orchestrator/.orchestrator-only/verification",
+  "orchestrator/.orchestrator-only/preflight",
   "orchestrator/processes",
   "orchestrator/results",
   "handover",
-  "implementor/.implementor-only",
-  "implementor/.implementor-only/scripts",
+  "implementor/signals",
+  "implementor/feedback",
   "implementor/artifacts",
 ];
 

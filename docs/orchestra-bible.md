@@ -138,17 +138,17 @@ your-project/
 │   ├── progress.yaml              # Progress tracker (created by orchestra init)
 │   ├── orchestra.yaml             # Configuration
 │   ├── common/
-│   │   ├── scripts/               # Put platform-specific scripts here
-│   │   └── templates/             # Document templates
+│   │   └── templates/             # Handlebars templates (.hbs)
 │   ├── orchestrator/
 │   │   ├── .orchestrator-only/    # HIDDEN - Only orchestrator reads this
 │   │   │   ├── verification/      # Hidden verification criteria
 │   │   │   └── preflight/         # Orchestrator audit trail
-│   │   └── processes/             # Orchestrator process docs
+│   │   ├── processes/             # Orchestrator process docs
+│   │   └── results/               # Verification results
 │   ├── implementor/
-│   │   ├── artifacts/             # Task artifacts
 │   │   ├── signals/               # Completion signals go here
-│   │   └── feedback/              # Retry feedback goes here
+│   │   ├── feedback/              # Retry feedback goes here
+│   │   └── artifacts/             # Task artifacts
 │   ├── handover/                  # Current task handover files
 │   │   ├── current-task.md        # Active task instructions
 │   │   ├── task-context.md        # Background context
@@ -928,10 +928,8 @@ Agent Claims "Task Complete"
 ├── orchestra.yaml             # Configuration (paths, retry settings)
 │
 ├── common/                    # Shared resources
-│   ├── scripts/               # Platform-specific script implementations
-│   │   └── {script-name}.{ext}
-│   └── templates/             # Document templates
-│       └── {template-name}.{ext}
+│   └── templates/             # Handlebars templates (.hbs files)
+│       └── {template-name}.{format}.hbs
 │
 ├── orchestrator/              # ORCHESTRATOR-ONLY ZONE
 │   ├── .orchestrator-only/    # Hidden from implementor
@@ -948,9 +946,7 @@ Agent Claims "Task Complete"
 │   ├── current-task.md        # What to do NOW (replaced each task)
 │   ├── task-context.md        # Background context and history
 │   ├── completion-signal.md   # Implementor fills this when done
-│   ├── agent_readme.md        # Implementor guide
-│   └── verification/          # Task verification YAMLs
-│       └── task-{id}.yaml
+│   └── agent_readme.md        # Implementor guide
 │
 ├── implementor/               # IMPLEMENTOR-ACCESSIBLE ZONE
 │   ├── signals/               # Completion signals (archive)
@@ -964,6 +960,9 @@ Agent Claims "Task Complete"
     └── task-{id}/
         └── ...
 ```
+
+> **Note**: No `scripts/` folder - the CLI commands ARE the script implementations.
+> See Section 7.3 "CLI Command Mapping" for how abstract scripts map to `orchestra` subcommands.
 
 ## 6.2 Information Flow
 

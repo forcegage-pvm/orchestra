@@ -17,6 +17,9 @@ The `.orchestra/` folder is the self-contained root of all Orchestra artifacts. 
 - **Complete audit trail** - All task artifacts archived
 - **Transportability** - Self-contained, works in any project
 
+> **Note**: No `scripts/` folders exist. The CLI commands ARE the script implementations.
+> See Bible Section 7.3 "CLI Command Mapping" for how abstract scripts map to `orchestra` subcommands.
+
 ---
 
 ## Canonical Structure
@@ -27,44 +30,46 @@ The `.orchestra/` folder is the self-contained root of all Orchestra artifacts. 
 .orchestra/
 ├── manifest.yaml                      # Task definitions, dependencies, ordering
 ├── progress.yaml                      # Current state, completion status
+├── orchestra.yaml                     # Configuration (paths, retry settings)
 │
 ├── common/                            # SHARED RESOURCES
-│   ├── scripts/                       # Platform-specific script implementations
-│   │   └── {script-name}.{ext}
-│   └── templates/                     # Document templates
-│       ├── handover-template.md
-│       ├── signal-template.md
-│       ├── verification-criteria-template.yaml
-│       └── feedback-template.md
+│   └── templates/                     # Handlebars templates (.hbs)
+│       ├── current-task.md.hbs
+│       ├── completion-signal.md.hbs
+│       ├── task-context.md.hbs
+│       ├── feedback.md.hbs
+│       └── verification-criteria.yaml.hbs
 │
 ├── orchestrator/                      # ORCHESTRATOR DOMAIN
 │   ├── .orchestrator-only/            # HIDDEN - Only orchestrator reads this
 │   │   ├── verification/              # Per-task verification specs
 │   │   │   └── task-{id}.yaml
-│   │   └── criteria/                  # Reusable criteria definitions
-│   │       └── {criteria-name}.yaml
+│   │   └── preflight/                 # Orchestrator audit trail
+│   │       └── orchestrator-preflight-{id}.md
 │   ├── processes/                     # Orchestrator process documentation
 │   │   └── {process-name}.md
-│   └── scripts/                       # Orchestrator-specific scripts
-│       └── {script-name}.{ext}
+│   └── results/                       # Verification results
+│       └── {timestamp}.yaml
+│
+├── handover/                          # CURRENT TASK HANDOVER
+│   ├── current-task.md                # Active task instructions
+│   ├── task-context.md                # Background context
+│   ├── completion-signal.md           # Implementor fills this
+│   └── agent_readme.md                # Implementor guide
 │
 ├── implementor/                       # IMPLEMENTOR DOMAIN
-│   ├── handovers/                     # Task handover documents
-│   │   └── task-{id}-handover.md
-│   ├── signals/                       # Completion signals
-│   │   └── task-{id}-signal.md
-│   └── feedback/                      # Orchestrator feedback
-│       └── task-{id}-feedback.md
+│   ├── signals/                       # Completion signals (archive)
+│   │   └── task-{id}-signal.yaml
+│   ├── feedback/                      # Orchestrator feedback
+│   │   └── task-{id}-feedback.md
+│   └── artifacts/                     # Task output artifacts
+│       └── task-{id}/
 │
-├── artifacts/                         # TASK OUTPUTS (archived)
-│   └── task-{id}/
-│       ├── execution-log.md           # Commands executed
-│       ├── gate-check.yaml            # Gate check results
-│       ├── verification.yaml          # Verification results
-│       └── summary.md                 # Task summary
-│
-└── docs/                              # PROCESS DOCUMENTATION
-    └── {doc-name}.md
+└── artifacts/                         # ARCHIVED OUTPUTS (optional)
+    └── task-{id}/
+        ├── gate-check.yaml            # Gate check results
+        ├── verification.yaml          # Verification results
+        └── summary.md                 # Task summary
 ```
 
 ---
@@ -75,8 +80,9 @@ The `.orchestra/` folder is the self-contained root of all Orchestra artifacts. 
 
 | File | Purpose | Visibility |
 |------|---------|------------|
-| `manifest.yaml` | Task definitions with success criteria | Orchestrator only |
-| `progress.yaml` | Sprint progress tracking | Orchestrator only |
+| `manifest.yaml` | Task definitions with success criteria | Both roles |
+| `progress.yaml` | Sprint progress tracking | Both roles |
+| `orchestra.yaml` | Configuration settings | Both roles |
 
 ### `common/`
 
@@ -84,8 +90,7 @@ Shared resources accessible to both roles.
 
 | Subfolder | Purpose |
 |-----------|---------|
-| `scripts/` | Platform-specific utility scripts |
-| `templates/` | Document templates for handovers, signals, etc. |
+| `templates/` | Handlebars templates for handovers, signals, etc. |
 
 ### `orchestrator/`
 
@@ -94,9 +99,9 @@ Everything the orchestrator needs to plan, verify, and track progress.
 | Subfolder | Purpose | Visibility |
 |-----------|---------|------------|
 | `.orchestrator-only/verification/` | Hidden verification criteria | Orchestrator ONLY |
-| `.orchestrator-only/criteria/` | Reusable criteria definitions | Orchestrator ONLY |
+| `.orchestrator-only/preflight/` | Orchestrator audit trail | Orchestrator ONLY |
 | `processes/` | Orchestrator process documentation | Public |
-| `scripts/` | Orchestrator-specific scripts | Public |
+| `results/` | Verification results | Orchestrator ONLY |
 
 ### `implementor/`
 
