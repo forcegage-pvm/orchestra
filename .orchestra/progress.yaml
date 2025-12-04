@@ -1,24 +1,14 @@
-sprint_id: "sprint-mcp-001"
-entries:
-  - task_id: 1
-    status: "PREPARE"
-    timestamp: "2025-12-04T18:33:49.963Z"
-    notes: "Task 1 prepared for implementation (format: markdown)"
-  - task_id: 1
-    status: "PREPARE"
-    timestamp: "2025-12-04T19:14:02.889Z"
-    notes: "Task 1 prepared for implementation (format: markdown)"
-  - task_id: 2
-    status: "PREPARE"
-    timestamp: "2025-12-04T19:15:01.406Z"
-    notes: "Task 2 prepared for implementation (format: markdown)"
-  - task_id: 3
-    status: "PREPARE"
-    timestamp: "2025-12-04T19:31:24.809Z"
-    notes: "Task 3 prepared for implementation (format: markdown)"
-  - task_id: 4
-    status: "PREPARE"
-    notes: "Task 4 prepared for implementation (format: markdown)"
-    timestamp: "2025-12-04T19:35:42.339Z"
-created_at: "2025-12-04T18:33:49.963Z"
-updated_at: "2025-12-04T19:35:42.340Z"
+# Orchestra Progress Tracker - Generated 2025-12-04
+# This file tracks task execution and completion
+
+sprint_id: "sprint-001"      # Must match manifest sprint.id
+created_at: "2025-12-04"
+
+# Progress entries added by orchestra prepare/complete
+entries: []
+  # Example entry:
+  # - task_id: 1
+  #   started_at: "2025-12-04T10:00:00Z"
+  #   completed_at: "2025-12-04T12:30:00Z"
+  #   status: COMPLETED
+  #   commit_hash: "abc1234"

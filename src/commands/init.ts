@@ -79,39 +79,42 @@ const DEFAULT_FOLDERS = [
  * Template files mapping: source path (in templates/) -> destination path (in .orchestra/)
  * Source paths are relative to tools/orchestra/templates/
  * Destination paths are relative to .orchestra/
+ *
+ * Templates in common/templates/ are Handlebars (.hbs) files - copied as-is.
+ * CLI commands render these templates to .md or .yaml output files.
  */
 const TEMPLATE_MAPPINGS: Array<{ src: string; dest: string }> = [
-  // Common templates (handover templates for tasks)
+  // Common templates (Handlebars .hbs files - copied directly)
   {
-    src: "common/templates/current-task-template.md",
+    src: "common/templates/current-task.md.hbs",
     dest: "common/templates/current-task.md.hbs",
   },
   {
-    src: "common/templates/completion-signal.md.template",
+    src: "common/templates/completion-signal.md.hbs",
     dest: "common/templates/completion-signal.md.hbs",
   },
   {
-    src: "common/templates/handover-template.md",
+    src: "common/templates/task-context.md.hbs",
     dest: "common/templates/task-context.md.hbs",
   },
   {
-    src: "common/templates/feedback-template.md",
+    src: "common/templates/feedback.md.hbs",
     dest: "common/templates/feedback.md.hbs",
   },
   {
-    src: "common/templates/signal-template.md",
+    src: "common/templates/signal.md.hbs",
     dest: "common/templates/signal.md.hbs",
   },
   {
-    src: "common/templates/task-results-template.md",
+    src: "common/templates/task-results.md.hbs",
     dest: "common/templates/task-results.md.hbs",
   },
   {
-    src: "common/templates/orchestrator-preflight-template.md",
+    src: "common/templates/orchestrator-preflight.md.hbs",
     dest: "common/templates/orchestrator-preflight.md.hbs",
   },
   {
-    src: "common/templates/verification-criteria-template.yaml",
+    src: "common/templates/verification-criteria.yaml.hbs",
     dest: "common/templates/verification-criteria.yaml.hbs",
   },
 
