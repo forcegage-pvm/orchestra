@@ -29,7 +29,11 @@ export function createVerifyCommand(): Command {
     )
     .option("--continue-on-error", "Continue after check failure", false)
     .option("--skip-accept", "Skip accept-signal check", false)
-    .option("--dry-run", "Validate verification paths without running checks", false)
+    .option(
+      "--dry-run",
+      "Validate verification paths without running checks",
+      false
+    )
     .option("--json", "Output JSON format", false)
     .option("-v, --verbose", "Verbose output", false)
     .action(async (options: VerificationOptions) => {

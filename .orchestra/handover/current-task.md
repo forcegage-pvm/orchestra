@@ -1,28 +1,15 @@
-# Task {{task_id}}: {{task_title}}
+# Task 3: Add RoleError to errors.ts
 
 ## Overview
 
-{{task_description}}
+Add RoleError to src/core/errors.ts extending OrchestraError
 
-{{#if spec_file}}
 ## Spec Files
 
-📄 **Task spec**: `{{spec_file}}`
-{{#if command_spec}}
-📄 **Command spec**: `{{command_spec}}`
-{{/if}}
+📄 **Task spec**: `001-mcp-server/tasks.md#T003`
 
 Please read the spec file(s) for full implementation details including code samples.
-{{/if}}
 
-{{#if depends_on.length}}
-## Dependencies
-
-These tasks must be completed first:
-{{#each depends_on}}
-- {{this}}
-{{/each}}
-{{/if}}
 
 ## ⚠️ BEFORE YOU START - MANDATORY VALIDATION
 

@@ -111,8 +111,8 @@ describe("prepare command", () => {
     // Create templates
     const templatesDir = path.join(orchestraDir, "common", "templates");
     fs.writeFileSync(
-      path.join(templatesDir, "current-task-template.hbs"),
-      "# Task {{task_id}}: {{task_title}}\n{{task_description}}"
+      path.join(templatesDir, "current-task.md.hbs"),
+      "# Task {{task_id}}: {{task_title}}\n\n{{task_description}}"
     );
     fs.writeFileSync(
       path.join(templatesDir, "completion-signal.md.hbs"),
@@ -622,7 +622,7 @@ describe("prepare command", () => {
       ).rejects.toThrow();
     });
 
-    it("should handle missing templates gracefully", async () => {
+    it("should fail when templates are missing", async () => {
       const manifestPath = path.join(tempDir, ".orchestra", "manifest.yaml");
       const manifest = createMockManifest();
       writeYaml(manifestPath, manifest);
@@ -636,9 +636,10 @@ describe("prepare command", () => {
       );
       fs.rmSync(templatesDir, { recursive: true });
 
-      // Should fall back to generating without templates
-      const result = await runPrepare({ skipCloseout: true });
-      expect(result.filesGenerated.length).toBeGreaterThan(0);
+      // Should fail when templates are missing (no silent fallback)
+      await expect(runPrepare({ skipCloseout: true })).rejects.toThrow(
+        /Template not found/
+      );
     });
 
     it("should handle file system errors", async () => {

@@ -548,93 +548,41 @@ export function generateCurrentTask(
   task: Task,
   root: string
 ): string {
-  try {
-    // Try to load template
-    const context = {
-      task_id: getTaskId(task),
-      task_title: task.title,
-      task_description: task.description ?? "",
-      spec_file: task.speckit_task_ref?.[0] ?? "spec/task.md",
-      command_spec: "", // Optional, can be added if needed
-      acceptance_criteria: [], // Task doesn't have this in schema
-      depends_on:
-        task.dependencies?.map((id) => {
-          const dep = getTask(manifest, id);
-          return `Task ${id}: ${dep?.title ?? "Unknown"}`;
-        }) ?? [],
-    };
+  // Build context for template
+  const context = {
+    task_id: getTaskId(task),
+    task_title: task.title,
+    task_description: task.description ?? "",
+    spec_file:
+      Array.isArray(task.speckit_task_ref) && task.speckit_task_ref.length > 0
+        ? task.speckit_task_ref[0]
+        : typeof task.speckit_task_ref === "string"
+          ? task.speckit_task_ref
+          : "",
+    command_spec: "", // Optional, can be added if needed
+    depends_on:
+      task.dependencies?.map((id) => {
+        const dep = getTask(manifest, id);
+        return `Task ${id}: ${dep?.title ?? "Unknown"}`;
+      }) ?? [],
+  };
 
-    return renderTemplate("current-task-template", context, root);
-  } catch {
-    // Fallback: generate without template
-    return generateCurrentTaskFallback(manifest, task);
-  }
-}
-
-/**
- * Generate current-task.md without template (fallback)
- */
-function generateCurrentTaskFallback(manifest: Manifest, task: Task): string {
-  let content = `# Task ${getTaskId(task)}: ${task.title}\n\n`;
-  content += `## Overview\n\n${task.description ?? ""}\n\n`;
-
-  if (task.dependencies && task.dependencies.length > 0) {
-    content += `## Dependencies\n\nThese tasks must be completed first:\n\n`;
-    for (const depId of task.dependencies) {
-      const dep = getTask(manifest, depId);
-      content += `- Task ${depId}: ${dep?.title ?? "Unknown"}\n`;
-    }
-    content += `\n`;
-  }
-
-  if (task.speckit_task_ref && task.speckit_task_ref.length > 0) {
-    content += `## Spec Files\n\n`;
-    content += `📄 **Task spec**: \`${task.speckit_task_ref[0]}\`\n\n`;
-  }
-
-  content += `## ⚠️ BEFORE YOU START - MANDATORY VALIDATION\n\n`;
-  content += `**STOP! Before implementing anything, validate this handover:**\n\n`;
-  content += `\`\`\`powershell\n`;
-  content += `.\\\\..orchestra\\\\implementor\\\\.implementor-only\\\\scripts\\\\validate-handover.ps1\n`;
-  content += `\`\`\`\n\n`;
-  content += `If validation **FAILS**: Document issues and STOP.\n`;
-  content += `If validation **PASSES**: Proceed with implementation.\n\n`;
-
-  return content;
+  // Template errors must fail the command - no silent fallback
+  return renderTemplate("current-task.md", context, root);
 }
 
 /**
  * Generate completion-signal.md content
  */
 export function generateCompletionSignal(task: Task, root: string): string {
-  try {
-    // Try to load template
-    const context = {
-      task_id: getTaskId(task),
-      task_title: task.title,
-    };
+  // Build context for template
+  const context = {
+    task_id: getTaskId(task),
+    task_title: task.title,
+  };
 
-    return renderTemplate("completion-signal.md", context, root);
-  } catch {
-    // Fallback: generate without template
-    return generateCompletionSignalFallback(task);
-  }
-}
-
-/**
- * Generate completion-signal.md without template (fallback)
- */
-function generateCompletionSignalFallback(task: Task): string {
-  let content = `# Completion Signal\n\n`;
-  content += `## Task ID\n${getTaskId(task)}\n\n`;
-  content += `## Status\nPENDING\n\n`;
-  content += `## Summary\n<!-- Brief description of what was implemented -->\n\n`;
-  content += `## Changes Made\n<!-- - File 1: Description -->\n\n`;
-  content += `## Tests Added\n<!-- - Test file and what it covers -->\n\n`;
-  content += `## Build Status\n<!-- npm run build result -->\n\n`;
-  content += `## Test Status\n<!-- npm test result -->\n\n`;
-  content += `## Notes\n<!-- Any issues, concerns, or suggestions -->\n\n`;
-  return content;
+  // Template errors must fail the command - no silent fallback
+  return renderTemplate("completion-signal.md", context, root);
 }
 
 /**

@@ -486,7 +486,9 @@ function validateCheckPaths(
           const fullPath = path.isAbsolute(check.module)
             ? check.module
             : path.resolve(orchestraRoot, check.module);
-          message = `[DRY-RUN] Module to check: ${fullPath}, exports: ${check.exports.join(", ")}`;
+          message = `[DRY-RUN] Module to check: ${fullPath}, exports: ${check.exports.join(
+            ", "
+          )}`;
         }
         break;
       }

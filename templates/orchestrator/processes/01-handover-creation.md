@@ -80,6 +80,7 @@ orchestra prepare --task N
 ```
 
 This command:
+
 - Reads the manifest to find task details
 - Generates `current-task.md` from templates
 - Creates `task-context.md` with background info
