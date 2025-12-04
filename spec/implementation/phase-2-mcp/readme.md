@@ -1,12 +1,16 @@
 # Phase 2: MCP Server
 
-> **Navigation**: [Implementation Index](../readme.md) | **Prev**: [Phase 1: CLI](../phase-1-cli/readme.md) | **Next**: Phase 3: VS Code Extension
+> **Navigation**: [Implementation Index](../readme.md) | **Prev**: [Phase 1.2: CLI Tech Debt](../phase-1.2-cli/readme.md) | **Next**: Phase 3: VS Code Extension
 
 ---
 
-## Status: 🔜 Next Phase
+## Status: 🔴 BLOCKED
 
-**Prerequisites**: Phase 1 CLI ✅ Complete
+**Prerequisites**: 
+- Phase 1 CLI ✅ Complete
+- Phase 1.2 CLI Tech Debt ❌ Not Started (BLOCKING)
+
+**See**: [Alignment Analysis](alignment-analysis.md) for details on decisions made.
 
 ---
 
@@ -29,20 +33,23 @@ The Orchestra MCP (Model Context Protocol) Server exposes Orchestra operations a
 ## Success Criteria
 
 - [ ] MCP server starts and registers with VS Code
-- [ ] All 6 core tools callable from Copilot agent mode
+- [ ] All 11 core tools callable from Copilot agent mode
 - [ ] Tools read/write `.orchestra/` state correctly
-- [ ] `signal_complete` triggers verification flow
+- [ ] Tool names match CLI commands exactly
+- [ ] Status values use lowercase (`pending`, `in_progress`, `completed`)
+- [ ] Role separation enforced (Orchestrator vs Implementor tools)
 - [ ] Error responses follow MCP conventions
 - [ ] Works with `copilot-instructions.md` MCP configuration
 
 ## Architecture
 
 ```
-tools/orchestra/
+orchestra/                     # Project root
 ├── src/
 │   ├── cli.ts                # Phase 1 CLI entry
 │   ├── commands/             # Phase 1 CLI commands
 │   ├── core/                 # SHARED - Phase 1 services
+│   │   ├── index.ts          # Re-exports all core functions
 │   │   ├── manifest.ts
 │   │   ├── progress.ts
 │   │   ├── verification.ts
@@ -51,13 +58,17 @@ tools/orchestra/
 │   └── mcp/                  # NEW - Phase 2
 │       ├── server.ts         # MCP server entry point
 │       ├── index.ts          # Exports
-│       └── tools/            # Tool definitions
-│           ├── prepare_task.ts
-│           ├── signal_complete.ts
-│           ├── get_context.ts
-│           ├── validate_handover.ts
-│           ├── log_issue.ts
-│           └── request_help.ts
+│       └── tools/            # Tool definitions (match CLI names)
+│           ├── init.ts           # orchestra init
+│           ├── status.ts         # orchestra status
+│           ├── closeout.ts       # orchestra closeout
+│           ├── prepare.ts        # orchestra prepare
+│           ├── signal.ts         # orchestra signal (Implementor)
+│           ├── accept_signal.ts  # orchestra accept-signal (Orchestrator)
+│           ├── verify.ts         # orchestra verify (Orchestrator)
+│           ├── complete.ts       # orchestra complete
+│           ├── feedback.ts       # orchestra feedback (Orchestrator)
+│           └── escalate.ts       # orchestra escalate (Orchestrator)
 │
 ├── package.json              # Add @modelcontextprotocol/sdk
 └── mcp.json                  # MCP server manifest
@@ -67,23 +78,132 @@ tools/orchestra/
 
 ### Core Tools (Mapped from CLI)
 
-| Tool | CLI Equivalent | Purpose | User |
-|------|---------------|---------|------|
-| `prepare_task` | `orchestra prepare` | Get task handover | Orchestrator |
-| `signal_complete` | `orchestra accept-signal` | Signal task completion | Implementor |
-| `get_context` | `orchestra status` | Get current task context | Both |
-| `validate_handover` | (internal) | Check handover before working | Implementor |
-| `log_issue` | (new) | Record issues/blockers | Both |
-| `request_help` | (new) | Escalate to human | Both |
+Tools are named to **match CLI commands exactly** per alignment decision Q3.
+
+| Tool | CLI Command | Bible Script | Actor | Status |
+|------|-------------|--------------|-------|--------|
+| `init` | `orchestra init` | `sprint-init` | Orchestrator | Phase 1 |
+| `status` | `orchestra status` | `sprint-status` | Both | Phase 1 |
+| `closeout` | `orchestra closeout` | `task-closeout-check` | Orchestrator | Phase 1 |
+| `prepare` | `orchestra prepare` | `prepare-handover` | Orchestrator | Phase 1 |
+| `signal` | `orchestra signal` | `signal-complete` | **Implementor** | Phase 1.2 |
+| `accept_signal` | `orchestra accept-signal` | `accept-signal-check` | Orchestrator | Phase 1 |
+| `verify` | `orchestra verify` | `verification-audit` | Orchestrator | Phase 1 |
+| `complete` | `orchestra complete` | (completes task) | Orchestrator | Phase 1 |
+| `feedback` | `orchestra feedback` | `generate-feedback` | Orchestrator | Phase 1.2 |
+| `escalate` | `orchestra escalate` | `escalate-failure` | Orchestrator | Phase 1.2 |
+
+### Role Separation (Q1 Decision)
+
+**Implementor Tools** (safe to expose):
+- `signal` - Create signal file claiming completion
+- `status` - View current task status (read-only)
+
+**Orchestrator Tools** (hidden verification access):
+- `init`, `closeout`, `prepare`, `accept_signal`, `verify`, `complete`, `feedback`, `escalate`
+
+The MCP server should enforce role separation by context or configuration.
 
 ### Tool Definitions
 
-#### prepare_task
+#### init
 
 ```typescript
 {
-  name: "prepare_task",
-  description: "Prepare the next task handover for implementation",
+  name: "init",
+  description: "Initialize a new sprint from specification (Orchestrator)",
+  inputSchema: {
+    type: "object",
+    properties: {
+      specPath: {
+        type: "string",
+        description: "Path to sprint specification file"
+      }
+    },
+    required: ["specPath"]
+  }
+}
+```
+
+**Returns:**
+```typescript
+{
+  success: boolean;
+  sprintId: string;
+  taskCount: number;
+  orchestraRoot: string;
+}
+```
+
+#### status
+
+```typescript
+{
+  name: "status",
+  description: "Get current task context and sprint status",
+  inputSchema: {
+    type: "object",
+    properties: {}
+  }
+}
+```
+
+**Returns:**
+```typescript
+{
+  sprint: {
+    id: string;
+    name: string;
+    status: "pending" | "in_progress" | "completed";  // lowercase per Q4
+  };
+  currentTask: {
+    id: number;
+    title: string;
+    status: "pending" | "in_progress" | "completed";  // lowercase per Q4
+    category: string;
+  } | null;
+  progress: {
+    completed: number;
+    total: number;
+    percentComplete: number;
+  };
+}
+```
+
+#### closeout
+
+```typescript
+{
+  name: "closeout",
+  description: "Verify previous task is properly closed before preparing next (Orchestrator)",
+  inputSchema: {
+    type: "object",
+    properties: {
+      taskId: {
+        type: "number",
+        description: "Task ID to verify closeout"
+      }
+    }
+  }
+}
+```
+
+**Returns:**
+```typescript
+{
+  success: boolean;
+  taskId: number;
+  checks: { name: string; passed: boolean; message?: string }[];
+  canProceed: boolean;
+}
+```
+
+#### prepare
+
+```typescript
+{
+  name: "prepare",
+  description: "Prepare task handover for implementation (Orchestrator)",
   inputSchema: {
     type: "object",
     properties: {
@@ -99,20 +219,22 @@ tools/orchestra/
 **Returns:**
 ```typescript
 {
+  success: boolean;
   taskId: number;
   title: string;
   description: string;
   handoverPath: string;
+  verificationPath: string;  // orchestrator-only
   dependencies: number[];
 }
 ```
 
-#### signal_complete
+#### signal
 
 ```typescript
 {
-  name: "signal_complete",
-  description: "Signal that the current task is complete and ready for verification",
+  name: "signal",
+  description: "Signal that task is complete (Implementor - creates signal file)",
   inputSchema: {
     type: "object",
     properties: {
@@ -120,18 +242,53 @@ tools/orchestra/
         type: "string",
         description: "Brief description of what was implemented"
       },
-      artifactsCreated: {
+      files: {
         type: "array",
         items: { type: "string" },
-        description: "List of files created or modified"
+        description: "Files created or modified (auto-detected if omitted)"
       },
-      testsAdded: {
+      tests: {
         type: "array",
         items: { type: "string" },
-        description: "List of test files added"
+        description: "Test files added"
+      },
+      notes: {
+        type: "string",
+        description: "Additional notes for orchestrator"
       }
     },
-    required: ["summary", "artifactsCreated"]
+    required: ["summary"]
+  }
+}
+```
+
+**Returns:**
+```typescript
+{
+  success: boolean;
+  taskId: number;
+  signalPath: string;
+  signaledAt: string;
+  nextStep: "Orchestrator runs accept_signal";
+}
+```
+
+**Note**: This is an **Implementor** tool. It creates the signal file but does NOT trigger verification (that's the Orchestrator's `accept_signal` tool).
+
+#### accept_signal
+
+```typescript
+{
+  name: "accept_signal",
+  description: "Validate implementor's signal and run pre-verification checks (Orchestrator)",
+  inputSchema: {
+    type: "object",
+    properties: {
+      taskId: {
+        type: "number",
+        description: "Task ID to accept signal for"
+      }
+    }
   }
 }
 ```
@@ -141,92 +298,26 @@ tools/orchestra/
 {
   accepted: boolean;
   taskId: number;
-  checks: CheckResult[];
-  nextStep: string;  // "verification" or "fix issues"
+  signalPath: string;
+  checks: { name: string; passed: boolean; message?: string }[];
+  nextStep: "verify" | "signal again";
 }
 ```
 
-#### get_context
+#### verify
 
 ```typescript
 {
-  name: "get_context",
-  description: "Get the current task context and sprint status",
-  inputSchema: {
-    type: "object",
-    properties: {}
-  }
-}
-```
-
-**Returns:**
-```typescript
-{
-  sprint: {
-    id: string;
-    name: string;
-    status: string;
-  };
-  currentTask: {
-    id: number;
-    title: string;
-    status: string;
-    category: string;
-  };
-  progress: {
-    completed: number;
-    total: number;
-    percentComplete: number;
-  };
-}
-```
-
-#### validate_handover
-
-```typescript
-{
-  name: "validate_handover",
-  description: "Validate that the handover document is complete before starting work",
-  inputSchema: {
-    type: "object",
-    properties: {}
-  }
-}
-```
-
-**Returns:**
-```typescript
-{
-  valid: boolean;
-  taskId: number;
-  issues: string[];  // Empty if valid
-}
-```
-
-#### log_issue
-
-```typescript
-{
-  name: "log_issue",
-  description: "Log an issue or blocker encountered during implementation",
+  name: "verify",
+  description: "Run hidden verification criteria against task (Orchestrator only)",
   inputSchema: {
     type: "object",
     properties: {
-      severity: {
-        type: "string",
-        enum: ["blocker", "major", "minor"],
-        description: "Issue severity"
-      },
-      description: {
-        type: "string",
-        description: "Description of the issue"
-      },
-      suggestedFix: {
-        type: "string",
-        description: "Optional suggested resolution"
+      taskId: {
+        type: "number",
+        description: "Task ID to verify"
       }
-    },
-    required: ["severity", "description"]
+    }
   }
 }
 ```
@@ -234,32 +325,113 @@ tools/orchestra/
 **Returns:**
 ```typescript
 {
-  logged: boolean;
-  issueId: string;
-  path: string;
+  success: boolean;
+  taskId: number;
+  passed: boolean;
+  results: {
+    criterion: string;  // Hidden - DO NOT expose to implementor
+    passed: boolean;
+    details?: string;
+  }[];
+  nextStep: "complete" | "feedback";
 }
 ```
 
-#### request_help
+**Warning**: Verification results contain hidden criteria. Never expose to Implementor.
+
+#### complete
 
 ```typescript
 {
-  name: "request_help",
-  description: "Request human intervention for stuck task",
+  name: "complete",
+  description: "Mark task as complete after successful verification (Orchestrator)",
   inputSchema: {
     type: "object",
     properties: {
+      taskId: {
+        type: "number",
+        description: "Task ID to complete"
+      }
+    }
+  }
+}
+```
+
+**Returns:**
+```typescript
+{
+  success: boolean;
+  taskId: number;
+  previousStatus: string;
+  newStatus: "completed";
+  completedAt: string;
+  nextTask: number | null;
+}
+```
+
+#### feedback
+
+```typescript
+{
+  name: "feedback",
+  description: "Generate feedback for implementor after verification failure (Orchestrator)",
+  inputSchema: {
+    type: "object",
+    properties: {
+      taskId: {
+        type: "number",
+        description: "Task ID to generate feedback for"
+      },
+      attempt: {
+        type: "number",
+        description: "Current attempt number"
+      }
+    }
+  }
+}
+```
+
+**Returns:**
+```typescript
+{
+  success: boolean;
+  taskId: number;
+  attempt: number;
+  feedbackPath: string;
+  issues: {
+    area: string;
+    guidance: string;  // Actionable without revealing criteria
+  }[];
+  canRetry: boolean;  // false if max attempts reached
+}
+```
+
+**Note**: Feedback must be actionable without revealing hidden verification criteria.
+
+#### escalate
+
+```typescript
+{
+  name: "escalate",
+  description: "Escalate persistent failures to human supervisor (Orchestrator)",
+  inputSchema: {
+    type: "object",
+    properties: {
+      taskId: {
+        type: "number",
+        description: "Task ID to escalate"
+      },
       reason: {
         type: "string",
-        description: "Why help is needed"
+        description: "Why escalation is needed"
       },
-      attemptsSoFar: {
+      attempts: {
         type: "number",
         description: "Number of attempts made"
       },
-      lastError: {
+      context: {
         type: "string",
-        description: "Last error encountered"
+        description: "Additional context for human"
       }
     },
     required: ["reason"]
@@ -270,9 +442,12 @@ tools/orchestra/
 **Returns:**
 ```typescript
 {
-  escalated: boolean;
+  success: boolean;
   taskId: number;
-  status: "ESCALATED";
+  previousStatus: string;
+  newStatus: "escalated";
+  escalationPath: string;
+  reportPath: string;
 }
 ```
 
@@ -282,19 +457,23 @@ tools/orchestra/
 |----|------|--------|-------------|
 | 2.1 | [Project Setup](tasks/2.1-project-setup.md) | Not Started | Add MCP SDK, create mcp/ folder structure |
 | 2.2 | [Server Core](tasks/2.2-server-core.md) | Not Started | MCP server entry point, tool registry |
-| 2.3 | [prepare_task Tool](tasks/2.3-prepare-task.md) | Not Started | Wrap prepare handover |
-| 2.4 | [signal_complete Tool](tasks/2.4-signal-complete.md) | Not Started | Wrap accept-signal flow |
-| 2.5 | [get_context Tool](tasks/2.5-get-context.md) | Not Started | Wrap status command |
-| 2.6 | [validate_handover Tool](tasks/2.6-validate-handover.md) | Not Started | Validate handover before work |
-| 2.7 | [complete_task Tool](tasks/2.7-complete-task.md) | Not Started | Mark task complete, archive |
-| 2.8 | [Integration Testing](tasks/2.8-integration-testing.md) | Not Started | E2E MCP testing |
+| 2.3 | [init Tool](tasks/2.3-init.md) | Not Started | Wrap `orchestra init` |
+| 2.4 | [status Tool](tasks/2.4-status.md) | Not Started | Wrap `orchestra status` |
+| 2.5 | [closeout Tool](tasks/2.5-closeout.md) | Not Started | Wrap `orchestra closeout` |
+| 2.6 | [prepare Tool](tasks/2.6-prepare.md) | Not Started | Wrap `orchestra prepare` |
+| 2.7 | [signal Tool](tasks/2.7-signal.md) | Not Started | Wrap `orchestra signal` (Implementor) |
+| 2.8 | [accept_signal Tool](tasks/2.8-accept-signal.md) | Not Started | Wrap `orchestra accept-signal` |
+| 2.9 | [verify Tool](tasks/2.9-verify.md) | Not Started | Wrap `orchestra verify` |
+| 2.10 | [complete Tool](tasks/2.10-complete.md) | Not Started | Wrap `orchestra complete` |
+| 2.11 | [feedback Tool](tasks/2.11-feedback.md) | Not Started | Wrap `orchestra feedback` |
+| 2.12 | [escalate Tool](tasks/2.12-escalate.md) | Not Started | Wrap `orchestra escalate` |
+| 2.13 | [Integration Testing](tasks/2.13-integration-testing.md) | Not Started | E2E MCP testing |
 
-### Future Tasks (Deferred)
+### Dependencies
 
-These tools will be added in a later iteration:
-- `log_issue` - Issue logging for blockers
-- `request_help` - Human escalation
-- Full documentation
+- Tasks 2.3-2.12 depend on 2.2 (Server Core)
+- Task 2.13 depends on all tool tasks (2.3-2.12)
+- Tasks 2.7, 2.11, 2.12 depend on Phase 1.2 CLI completion
 
 ## Dependencies
 
@@ -327,12 +506,16 @@ These tools will be added in a later iteration:
     "type": "stdio"
   },
   "tools": [
-    "prepare_task",
-    "signal_complete",
-    "get_context",
-    "validate_handover",
-    "log_issue",
-    "request_help"
+    "init",
+    "status",
+    "closeout",
+    "prepare",
+    "signal",
+    "accept_signal",
+    "verify",
+    "complete",
+    "feedback",
+    "escalate"
   ]
 }
 ```
@@ -346,7 +529,7 @@ Add to `.vscode/settings.json`:
   "github.copilot.chat.mcpServers": {
     "orchestra": {
       "command": "node",
-      "args": ["./tools/orchestra/dist/mcp/server.js"]
+      "args": ["./dist/mcp/server.js"]
     }
   }
 }
@@ -411,24 +594,47 @@ npx @modelcontextprotocol/inspector dist/mcp/server.js
 
 ## Core Library API Usage
 
-MCP tools wrap the core library:
+MCP tools wrap the core library (import from `src/core/index.js`):
 
 ```typescript
-// src/mcp/tools/prepare_task.ts
-import { prepareHandover, loadManifest } from '../../core';
+// src/mcp/tools/prepare.ts
+import { runPrepare, loadManifest } from '../../core/index.js';
 
-export async function handlePrepareTask(params: PrepareTaskParams) {
-  const manifest = loadManifest();
-  const result = await prepareHandover({
-    taskId: params.taskId,
-    // ... options
+export async function handlePrepare(params: PrepareParams) {
+  const result = await runPrepare({
+    task: params.taskId?.toString(),
+    // ... options from MCP params
   });
   
   return {
+    success: result.success,
     taskId: result.taskId,
     title: result.task.title,
     handoverPath: result.handoverPath,
+    verificationPath: result.verificationPath,
     // ... formatted for MCP response
+  };
+}
+```
+
+```typescript
+// src/mcp/tools/signal.ts (Implementor tool)
+import { runSignal } from '../../core/index.js';
+
+export async function handleSignal(params: SignalParams) {
+  const result = await runSignal({
+    summary: params.summary,
+    files: params.files,
+    tests: params.tests,
+    notes: params.notes,
+  });
+  
+  return {
+    success: result.success,
+    taskId: result.taskId,
+    signalPath: result.signalPath,
+    signaledAt: result.signaledAt,
+    nextStep: result.nextStep,
   };
 }
 ```
