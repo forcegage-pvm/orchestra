@@ -21,11 +21,7 @@ import {
   requireOrchestraRoot,
 } from "./config.js";
 import { getTask, loadManifest, saveManifest } from "./manifest.js";
-import {
-  addProgressEntry,
-  loadProgress,
-  saveProgress,
-} from "./progress.js";
+import { addProgressEntry, loadProgress, saveProgress } from "./progress.js";
 import { readYamlRaw, yamlExists } from "./yaml.js";
 
 // =============================================================================
@@ -246,11 +242,11 @@ export async function runComplete(
     handoverCleared,
     exitCode: 0,
   };
-  
+
   if (gitResult.commitHash) {
     result.commit = gitResult.commitHash;
   }
-  
+
   return result;
 }
 
@@ -287,7 +283,7 @@ async function resolveTaskId(
     if (match && match[1]) {
       return parseInt(match[1], 10);
     }
-    
+
     // Try header format
     match = content.match(/^#\s*Task\s+(\d+)[:\s]/m);
     if (match && match[1]) {
@@ -500,10 +496,7 @@ async function updateProgress(
       return false;
     }
 
-    const progress = loadProgress(
-      manifestResult.data.sprint.id,
-      orchestraRoot
-    );
+    const progress = loadProgress(manifestResult.data.sprint.id, orchestraRoot);
 
     // Add completion entry
     const updatedProgress = addProgressEntry(progress, {
