@@ -65,11 +65,13 @@ function getTemplatesDir(): string {
  */
 const DEFAULT_FOLDERS = [
   "common/templates",
+  "common/scripts",
   "orchestrator/.orchestrator-only/verification",
   "orchestrator/processes",
   "orchestrator/results",
   "handover",
   "implementor/.implementor-only",
+  "implementor/.implementor-only/scripts",
   "implementor/artifacts",
 ];
 

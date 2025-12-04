@@ -134,9 +134,17 @@ export const ManifestSchema = z
     current_task_id: z.number().int().positive().optional(),
     metadata: z.record(z.unknown()).optional(),
   })
-  .refine((data) => data.tasks !== undefined || data.phases !== undefined, {
-    message: "Either 'tasks' or 'phases' must be provided",
-  });
+  .refine(
+    (data) => {
+      // Must have either tasks or phases with at least one task
+      const hasTasks = data.tasks !== undefined && data.tasks.length > 0;
+      const hasPhases = data.phases !== undefined && data.phases.length > 0;
+      return hasTasks || hasPhases;
+    },
+    {
+      message: "Either 'tasks' or 'phases' must be provided with at least one task",
+    }
+  );
 
 export type Manifest = z.output<typeof ManifestSchema>;
 

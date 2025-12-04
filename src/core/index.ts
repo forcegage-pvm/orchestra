@@ -47,9 +47,12 @@ export * from "./prepare.js";
 // Signal verification (note: CheckResult conflicts with closeout.ts)
 export {
   runAcceptSignal,
+  runSignal,
   type AcceptSignalOptions,
   type CheckResult as SignalCheckResult,
+  type SignalOptions,
   type SignalReport,
+  type SignalResult,
 } from "./signal.js";
 
 // Verification (note: exports with "Verify" prefix to avoid conflicts)
