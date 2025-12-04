@@ -16,15 +16,18 @@ import {
 } from "./config.js";
 import { ManifestError, TaskError } from "./errors.js";
 import {
+  getAllTasks,
   getNextPendingTask,
   getTask,
+  getTaskId,
   loadManifest,
   saveManifest,
   updateTaskStatus,
 } from "./manifest.js";
 import { addProgressEntry, loadProgress, saveProgress } from "./progress.js";
+import { generateYamlTemplate, parseTemplate } from "./template-converter.js";
 import { renderTemplate } from "./templates.js";
-import type { Manifest, Task } from "./types.js";
+import type { Manifest, Task, TemplateFormat } from "./types.js";
 
 // =============================================================================
 // Types
@@ -44,6 +47,8 @@ export interface PrepareOptions {
   dryRun?: boolean;
   /** Output JSON format (for CLI) */
   json?: boolean;
+  /** Template output format: yaml, markdown, or both */
+  format?: TemplateFormat;
 }
 
 /**
@@ -60,6 +65,8 @@ export interface PrepareResult {
   dependencies?: Array<{ id: number; title: string; status: string }>;
   /** Whether this was a dry run */
   dryRun: boolean;
+  /** Format used for output */
+  format?: TemplateFormat;
 }
 
 // =============================================================================
@@ -75,6 +82,10 @@ export async function runPrepare(
 ): Promise<PrepareResult> {
   const root = requireOrchestraRoot();
 
+  // Load config to get default format
+  const config = loadConfig(root);
+  const format = options.format ?? config.template.default_format;
+
   // Load manifest
   const manifestResult = loadManifest();
   if (!manifestResult.success || !manifestResult.data) {
@@ -87,7 +98,10 @@ export async function runPrepare(
 
   // Run closeout check if not skipped
   if (!options.skipCloseout) {
-    const previousTaskId = determinePreviousTaskForPrepare(manifest, task.id);
+    const previousTaskId = determinePreviousTaskForPrepare(
+      manifest,
+      getTaskId(task)
+    );
     if (previousTaskId !== null) {
       const closeoutResult = await runCloseoutChecks(root, previousTaskId);
 
@@ -108,30 +122,36 @@ export async function runPrepare(
 
   // If dry run, return early
   if (options.dryRun) {
+    const expectedFiles = [
+      "handover/completion-signal.md",
+      "handover/task-context.md",
+    ];
+    if (format === "yaml" || format === "both") {
+      expectedFiles.push(`handover/task-${getTaskId(task)}.yaml`);
+    }
+    if (format === "markdown" || format === "both") {
+      expectedFiles.push("handover/current-task.md");
+    }
     return {
       task,
-      filesGenerated: [
-        "implementor/handovers/current-task.md",
-        "implementor/handovers/completion-signal.md",
-        "implementor/handovers/task-context.md",
-      ],
+      filesGenerated: expectedFiles,
       statusUpdated: false,
       dependencies,
       dryRun: true,
+      format,
     };
   }
 
-  // Generate handover files
-  const files = generateHandoverFiles(root, manifest, task);
+  // Generate handover files with specified format
+  const files = generateHandoverFiles(root, manifest, task, format);
 
   // Update manifest
-  const updateResult = updateTaskStatus(manifest, task.id, "IMPLEMENT");
+  const updateResult = updateTaskStatus(manifest, getTaskId(task), "IMPLEMENT");
   if (!updateResult.success || !updateResult.data) {
     throw new ManifestError(updateResult.message);
   }
 
   // Save manifest
-  const config = loadConfig(root);
   const paths = getResolvedPaths(root, config);
   const saveResult = saveManifest(paths.manifest, updateResult.data);
   if (!saveResult.success) {
@@ -142,9 +162,11 @@ export async function runPrepare(
   const sprintId = manifest.sprint.id;
   let progress = loadProgress(sprintId, root);
   progress = addProgressEntry(progress, {
-    task_id: task.id,
+    task_id: getTaskId(task),
     status: "PREPARE",
-    notes: `Task ${task.id} prepared for implementation`,
+    notes: `Task ${getTaskId(
+      task
+    )} prepared for implementation (format: ${format})`,
   });
   saveProgress(progress, root);
 
@@ -154,6 +176,7 @@ export async function runPrepare(
     statusUpdated: true,
     dependencies,
     dryRun: false,
+    format,
   };
 }
 
@@ -204,18 +227,22 @@ export function validatePrepare(
   // Check task status
   if (task.status !== "PENDING") {
     throw new TaskError(
-      `Task ${task.id} cannot be prepared: status is ${task.status}`,
-      { taskId: task.id, currentStatus: task.status }
+      `Task ${getTaskId(task)} cannot be prepared: status is ${task.status}`,
+      { taskId: getTaskId(task), currentStatus: task.status }
     );
   }
 
   // Check for in-progress task (unless forced)
   if (!force) {
-    const inProgress = manifest.tasks.find((t) => t.status === "IMPLEMENT");
+    const inProgress = getAllTasks(manifest).find(
+      (t) => t.status === "IMPLEMENT"
+    );
     if (inProgress) {
       throw new TaskError(
-        `Task ${inProgress.id} is already in progress. Complete it first or use --force.`,
-        { blockingTaskId: inProgress.id }
+        `Task ${getTaskId(
+          inProgress
+        )} is already in progress. Complete it first or use --force.`,
+        { blockingTaskId: getTaskId(inProgress) }
       );
     }
   }
@@ -235,7 +262,7 @@ export function validateDependencies(manifest: Manifest, task: Task): void {
 
     if (!depTask) {
       throw new TaskError(`Dependency not found: ${depId}`, {
-        taskId: task.id,
+        taskId: getTaskId(task),
         dependencyId: depId,
       });
     }
@@ -244,7 +271,7 @@ export function validateDependencies(manifest: Manifest, task: Task): void {
       throw new TaskError(
         `Dependency ${depId} is not complete (status: ${depTask.status})`,
         {
-          taskId: task.id,
+          taskId: getTaskId(task),
           dependencyId: depId,
           dependencyStatus: depTask.status,
         }
@@ -314,7 +341,8 @@ export function determinePreviousTaskForPrepare(
 export function generateHandoverFiles(
   root: string,
   manifest: Manifest,
-  task: Task
+  task: Task,
+  format: TemplateFormat = "markdown"
 ): string[] {
   const config = loadConfig(root);
   const paths = getResolvedPaths(root, config);
@@ -334,25 +362,179 @@ export function generateHandoverFiles(
 
   const filesGenerated: string[] = [];
 
-  // Generate current-task.md
-  const currentTaskPath = path.join(handoverPath, "current-task.md");
-  const currentTaskContent = generateCurrentTask(manifest, task, root);
-  fs.writeFileSync(currentTaskPath, currentTaskContent);
-  filesGenerated.push("implementor/handovers/current-task.md");
+  // Build context for templates
+  const context = buildHandoverContext(manifest, task, root);
 
-  // Generate completion-signal.md
-  const signalPath = path.join(handoverPath, "completion-signal.md");
-  const signalContent = generateCompletionSignal(task, root);
-  fs.writeFileSync(signalPath, signalContent);
-  filesGenerated.push("implementor/handovers/completion-signal.md");
+  // Generate YAML template if requested
+  if (format === "yaml" || format === "both") {
+    const yamlPath = path.join(handoverPath, `task-${task.id}.yaml`);
+    const yamlContent = generateYamlHandover(task, context, root);
+    fs.writeFileSync(yamlPath, yamlContent);
+    filesGenerated.push(`handover/task-${task.id}.yaml`);
+  }
 
-  // Generate task-context.md
+  // Generate markdown if requested
+  if (format === "markdown" || format === "both") {
+    const currentTaskPath = path.join(handoverPath, "current-task.md");
+    const currentTaskContent = generateCurrentTask(manifest, task, root);
+    fs.writeFileSync(currentTaskPath, currentTaskContent);
+    filesGenerated.push("handover/current-task.md");
+  }
+
+  // NOTE: completion-signal.md is NOT generated by prepare
+  // It exists as a template in common/templates/ for implementor to copy when done
+
+  // Always generate task-context.md
   const contextPath = path.join(handoverPath, "task-context.md");
   const contextContent = generateTaskContext(manifest, task, root);
   fs.writeFileSync(contextPath, contextContent);
-  filesGenerated.push("implementor/handovers/task-context.md");
+  filesGenerated.push("handover/task-context.md");
 
   return filesGenerated;
+}
+
+/**
+ * Build context object for handover templates
+ */
+function buildHandoverContext(
+  manifest: Manifest,
+  task: Task,
+  _root: string
+): Record<string, unknown> {
+  return {
+    task_id: task.id,
+    task_title: task.title,
+    task_description: task.description ?? "",
+    objective: "", // TODO: To be filled by orchestrator
+    spec_file: task.speckit_task_ref?.[0] ?? "",
+    command_spec: "",
+    acceptance_criteria: [],
+    dependencies:
+      task.dependencies?.map((id) => {
+        const dep = getTask(manifest, id);
+        return {
+          id,
+          title: dep?.title ?? "Unknown",
+          status: dep?.status ?? "UNKNOWN",
+        };
+      }) ?? [],
+    file_operations: [],
+    test_file: "",
+    min_test_count: 0,
+    test_cases: [],
+    sample_test_data: "",
+    implementation_files: [],
+    interfaces: "",
+    verification_checks: [],
+    format: "yaml",
+  };
+}
+
+/**
+ * Generate YAML handover template
+ */
+function generateYamlHandover(
+  _task: Task,
+  context: Record<string, unknown>,
+  root: string
+): string {
+  // Try to parse handover.hbs and generate YAML
+  const templatePath = path.join(
+    root,
+    ".orchestra",
+    "common",
+    "templates",
+    "handover.hbs"
+  );
+
+  let fields;
+  try {
+    const parsed = parseTemplate(templatePath);
+    fields = parsed.fields;
+  } catch {
+    // If template doesn't exist, use default fields
+    fields = getDefaultHandoverFields();
+  }
+
+  return generateYamlTemplate(fields, {
+    context,
+    includeComments: true,
+    markTodos: true,
+  });
+}
+
+/**
+ * Get default handover fields when template is not available
+ */
+function getDefaultHandoverFields() {
+  return [
+    {
+      name: "task_id",
+      type: "string" as const,
+      path: ["task_id"],
+      required: true,
+    },
+    {
+      name: "task_title",
+      type: "string" as const,
+      path: ["task_title"],
+      required: true,
+    },
+    {
+      name: "task_description",
+      type: "string" as const,
+      path: ["task_description"],
+      required: true,
+    },
+    {
+      name: "objective",
+      type: "string" as const,
+      path: ["objective"],
+      required: true,
+    },
+    {
+      name: "spec_file",
+      type: "string" as const,
+      path: ["spec_file"],
+      required: true,
+    },
+    {
+      name: "acceptance_criteria",
+      type: "array" as const,
+      path: ["acceptance_criteria"],
+      required: true,
+    },
+    {
+      name: "file_operations",
+      type: "array" as const,
+      path: ["file_operations"],
+      required: true,
+    },
+    {
+      name: "test_file",
+      type: "string" as const,
+      path: ["test_file"],
+      required: true,
+    },
+    {
+      name: "test_cases",
+      type: "array" as const,
+      path: ["test_cases"],
+      required: true,
+    },
+    {
+      name: "implementation_files",
+      type: "array" as const,
+      path: ["implementation_files"],
+      required: true,
+    },
+    {
+      name: "verification_checks",
+      type: "array" as const,
+      path: ["verification_checks"],
+      required: true,
+    },
+  ];
 }
 
 /**
@@ -390,7 +572,7 @@ export function generateCurrentTask(
  * Generate current-task.md without template (fallback)
  */
 function generateCurrentTaskFallback(manifest: Manifest, task: Task): string {
-  let content = `# Task ${task.id}: ${task.title}\n\n`;
+  let content = `# Task ${getTaskId(task)}: ${task.title}\n\n`;
   content += `## Overview\n\n${task.description ?? ""}\n\n`;
 
   if (task.dependencies && task.dependencies.length > 0) {
@@ -441,7 +623,7 @@ export function generateCompletionSignal(task: Task, root: string): string {
  */
 function generateCompletionSignalFallback(task: Task): string {
   let content = `# Completion Signal\n\n`;
-  content += `## Task ID\n${task.id}\n\n`;
+  content += `## Task ID\n${getTaskId(task)}\n\n`;
   content += `## Status\nPENDING\n\n`;
   content += `## Summary\n<!-- Brief description of what was implemented -->\n\n`;
   content += `## Changes Made\n<!-- - File 1: Description -->\n\n`;
@@ -465,10 +647,12 @@ export function generateTaskContext(
   let content = `# Task Context\n\n`;
   content += `## Sprint Information\n\n`;
   content += `- **Sprint**: ${manifest.sprint.id}\n`;
-  content += `- **Current Task**: ${task.id}\n`;
+  content += `- **Current Task**: ${getTaskId(task)}\n`;
   content += `- **Phase**: ${task.category ?? "unknown"}\n\n`;
   content += `## Background\n\n`;
-  content += `This is Task ${task.id} of the ${manifest.sprint.name} sprint`;
+  content += `This is Task ${getTaskId(task)} of the ${
+    manifest.sprint.name
+  } sprint`;
 
   if (task.category) {
     content += `, part of the "${task.category}" phase`;

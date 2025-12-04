@@ -53,21 +53,27 @@ export type TaskCategory = z.infer<typeof TaskCategorySchema>;
 /**
  * Task definition schema
  */
-export const TaskSchema = z.object({
-  id: z.number().int().positive(),
-  title: z.string().min(1),
-  description: z.string().optional(),
-  status: TaskStatusSchema.default("PENDING"),
-  category: TaskCategorySchema.optional(),
-  dependencies: z.array(z.number().int().positive()).optional().default([]),
-  retry_count: z.number().int().min(0).default(0),
-  max_retries: z.number().int().min(1).default(3),
-  created_at: z.string().optional(),
-  started_at: z.string().optional(),
-  completed_at: z.string().optional(),
-  last_failure: z.string().optional(),
-  speckit_task_ref: z.array(z.string()).optional(),
-});
+export const TaskSchema = z
+  .object({
+    id: z.number().int().positive().optional(), // Optional for new phase format (task_id instead)
+    task_id: z.number().int().positive().optional(), // New phase format
+    title: z.string().min(1),
+    description: z.string().optional(),
+    status: TaskStatusSchema.default("PENDING"),
+    category: TaskCategorySchema.optional(),
+    dependencies: z.array(z.number().int().positive()).optional().default([]),
+    retry_count: z.number().int().min(0).default(0),
+    max_retries: z.number().int().min(1).default(3),
+    created_at: z.string().optional(),
+    started_at: z.string().optional(),
+    completed_at: z.string().optional(),
+    last_failure: z.string().optional(),
+    speckit_task_ref: z.union([z.array(z.string()), z.string()]).optional(), // Support both array and string
+    assigned_to: z.string().nullable().optional(),
+  })
+  .refine((data) => data.id !== undefined || data.task_id !== undefined, {
+    message: "Either 'id' or 'task_id' must be provided",
+  });
 
 // Use z.output to get the type AFTER defaults are applied (required for exactOptionalPropertyTypes)
 export type Task = z.output<typeof TaskSchema>;
@@ -86,16 +92,51 @@ export const SprintSchema = z.object({
 export type Sprint = z.output<typeof SprintSchema>;
 
 /**
+ * Phase definition schema (new SpecKit format)
+ */
+export const PhaseSchema = z.object({
+  phase_id: z.string().min(1),
+  phase_name: z.string().min(1),
+  status: SprintStatusSchema.default("ACTIVE"),
+  speckit_tasks: z.array(z.string()).optional(),
+  tasks: z.array(TaskSchema).min(1),
+});
+
+export type Phase = z.output<typeof PhaseSchema>;
+
+/**
+ * Consolidation tracking schema
+ */
+export const ConsolidationSchema = z.object({
+  consolidated_task_id: z.number().int().positive(),
+  speckit_tasks: z.array(z.string()),
+  consolidation_rationale: z.string(),
+  verification_coverage: z.record(z.string()).optional(),
+});
+
+export type Consolidation = z.output<typeof ConsolidationSchema>;
+
+/**
  * The manifest.yaml structure (Bible Section 6.1)
  * Located at: .orchestra/manifest.yaml
+ * Supports both legacy (tasks array) and new (phases with tasks) formats
  */
-export const ManifestSchema = z.object({
-  version: z.string().default("1.0.0"),
-  sprint: SprintSchema,
-  tasks: z.array(TaskSchema).min(1),
-  current_task_id: z.number().int().positive().optional(),
-  metadata: z.record(z.unknown()).optional(),
-});
+export const ManifestSchema = z
+  .object({
+    version: z.string().default("1.0.0"),
+    sprint: SprintSchema,
+    // Legacy format support
+    tasks: z.array(TaskSchema).optional(),
+    // New SpecKit format
+    phases: z.array(PhaseSchema).optional(),
+    consolidations: z.array(ConsolidationSchema).optional(),
+    // Common fields
+    current_task_id: z.number().int().positive().optional(),
+    metadata: z.record(z.unknown()).optional(),
+  })
+  .refine((data) => data.tasks !== undefined || data.phases !== undefined, {
+    message: "Either 'tasks' or 'phases' must be provided",
+  });
 
 export type Manifest = z.output<typeof ManifestSchema>;
 
@@ -105,7 +146,7 @@ export type Manifest = z.output<typeof ManifestSchema>;
 
 /**
  * Handover document metadata schema
- * Files located at: .orchestra/implementor/handovers/
+ * Files located at: .orchestra/handover/
  */
 export const HandoverMetadataSchema = z.object({
   task_id: z.number().int().positive(),
@@ -328,7 +369,7 @@ export function failureResult(
  */
 export const PathsConfigSchema = z.object({
   manifest: z.string().default("manifest.yaml"),
-  handovers: z.string().default("implementor/handovers"),
+  handovers: z.string().default("handover"),
   signals: z.string().default("implementor/signals"),
   feedback: z.string().default("implementor/feedback"),
   artifacts: z.string().default("artifacts"),
@@ -369,14 +410,34 @@ export const GitConfigSchema = z.object({
 export type GitConfig = z.output<typeof GitConfigSchema>;
 
 /**
+ * Template format options
+ */
+export const TemplateFormatSchema = z.enum(["yaml", "markdown", "both"]);
+
+export type TemplateFormat = z.infer<typeof TemplateFormatSchema>;
+
+/**
+ * Template configuration schema
+ */
+export const TemplateConfigSchema = z.object({
+  default_format: TemplateFormatSchema.default("markdown"),
+  validate_on_render: z.boolean().default(true),
+  strict_mode: z.boolean().default(false),
+});
+
+export type TemplateConfig = z.output<typeof TemplateConfigSchema>;
+
+/**
  * Orchestra configuration schema
  */
 export const OrchestraConfigSchema = z.object({
   version: z.string().default("1.0"),
+  spec_path: z.string().optional(),
   paths: PathsConfigSchema.default({}),
   verification: VerificationConfigSchema.default({}),
   retry: RetryConfigSchema.default({}),
   git: GitConfigSchema.default({}),
+  template: TemplateConfigSchema.default({}),
 });
 
 export type OrchestraConfig = z.output<typeof OrchestraConfigSchema>;
@@ -388,7 +449,7 @@ export const DEFAULT_CONFIG: OrchestraConfig = {
   version: "1.0",
   paths: {
     manifest: "manifest.yaml",
-    handovers: "implementor/handovers",
+    handovers: "handover",
     signals: "implementor/signals",
     feedback: "implementor/feedback",
     artifacts: "artifacts",
@@ -405,5 +466,10 @@ export const DEFAULT_CONFIG: OrchestraConfig = {
   git: {
     auto_commit: false,
     commit_prefix: "orchestra",
+  },
+  template: {
+    default_format: "markdown",
+    validate_on_render: true,
+    strict_mode: false,
   },
 };

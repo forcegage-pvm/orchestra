@@ -35,6 +35,9 @@ export * from "./validation.js";
 // Templates
 export * from "./templates.js";
 
+// Template Converter (HBS → YAML/MD)
+export * from "./template-converter.js";
+
 // Closeout verification
 export * from "./closeout.js";
 

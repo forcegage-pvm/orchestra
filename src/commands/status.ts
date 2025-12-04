@@ -13,9 +13,11 @@ import {
   loadConfig,
 } from "../core/config.js";
 import {
+  getAllTasks,
   getCurrentTask,
   getSprintProgress,
   getTask,
+  getTaskId,
   loadManifest,
 } from "../core/manifest.js";
 import type { OutputFormat } from "../core/output.js";
@@ -93,10 +95,49 @@ export async function statusCommand(options: StatusOptions): Promise<void> {
     const manifestResult = loadManifest(paths.manifest);
 
     if (!manifestResult.success || !manifestResult.data) {
-      throw new Error(manifestResult.message);
+      // Show helpful guidance when manifest is missing or invalid
+      if (options.json) {
+        console.log(
+          JSON.stringify({
+            error: "Manifest needs configuration",
+            manifest_path: paths.manifest,
+            spec_path: config.spec_path ?? null,
+            next_step:
+              "Edit .orchestra/manifest.yaml to define your sprint and tasks",
+          })
+        );
+      } else {
+        showManifestGuidance(
+          paths.manifest,
+          config.spec_path,
+          manifestResult.message
+        );
+      }
+      process.exit(1);
     }
 
     const manifest = manifestResult.data;
+
+    // Check if manifest has only placeholder tasks
+    if (isManifestPlaceholder(manifest)) {
+      if (options.json) {
+        console.log(
+          JSON.stringify({
+            status: "needs_configuration",
+            manifest_path: paths.manifest,
+            spec_path: config.spec_path ?? null,
+            next_step: "Edit manifest.yaml to add real tasks from your spec",
+          })
+        );
+      } else {
+        showManifestGuidance(
+          paths.manifest,
+          config.spec_path,
+          "Manifest contains placeholder tasks"
+        );
+      }
+      process.exit(0);
+    }
 
     // Handle specific views
     if (options.task !== undefined) {
@@ -192,8 +233,8 @@ async function showFullStatus(
     }
 
     if (options.history) {
-      jsonOutput.history = manifest.tasks.map((t) => ({
-        id: t.id,
+      jsonOutput.history = getAllTasks(manifest).map((t) => ({
+        id: getTaskId(t),
         title: t.title,
         status: t.status,
         retry_count: t.retry_count,
@@ -266,9 +307,9 @@ async function showFullStatus(
 
   // History (if requested)
   if (options.history) {
-    console.log("\n" + chalk.bold("Full History"));
+    console.log("\\n" + chalk.bold("Full History"));
     output.print.divider("─", 40);
-    for (const task of manifest.tasks) {
+    for (const task of getAllTasks(manifest)) {
       console.log(output.formatTaskCompact(task));
     }
   }
@@ -363,7 +404,7 @@ async function showPhaseDetail(
  * Get recently completed tasks sorted by completion time
  */
 function getRecentCompletedTasks(manifest: Manifest, count: number): Task[] {
-  return manifest.tasks
+  return getAllTasks(manifest)
     .filter((t) => t.status === "COMPLETE")
     .sort((a, b) => {
       const aTime = a.completed_at ? new Date(a.completed_at).getTime() : 0;
@@ -377,7 +418,9 @@ function getRecentCompletedTasks(manifest: Manifest, count: number): Task[] {
  * Calculate sprint metrics
  */
 function calculateMetrics(manifest: Manifest): Metrics {
-  const completed = manifest.tasks.filter((t) => t.status === "COMPLETE");
+  const completed = getAllTasks(manifest).filter(
+    (t) => t.status === "COMPLETE"
+  );
   const firstAttemptPasses = completed.filter((t) => t.retry_count === 0);
 
   const totalAttempts = completed.reduce(
@@ -395,4 +438,77 @@ function calculateMetrics(manifest: Manifest): Metrics {
       completed.length > 0 ? totalAttempts / completed.length : 0,
     totalAttempts,
   };
+}
+
+/**
+ * Check if manifest contains only placeholder content
+ */
+function isManifestPlaceholder(manifest: Manifest): boolean {
+  // Check if it's using default placeholder values
+  if (
+    manifest.sprint.id === "sprint-001" &&
+    manifest.sprint.name === "Sprint Name"
+  ) {
+    return true;
+  }
+  // Check if tasks have placeholder content
+  const allTasks = getAllTasks(manifest);
+  const firstTask = allTasks[0];
+  if (allTasks.length === 1 && firstTask && firstTask.title === "First Task") {
+    return true;
+  }
+  return false;
+}
+
+/**
+ * Show guidance when manifest needs configuration
+ */
+function showManifestGuidance(
+  manifestPath: string,
+  specPath?: string,
+  errorMessage?: string
+): void {
+  output.print.header("Orchestra Status");
+  output.print.divider("═", 60);
+
+  console.log("");
+  console.log(chalk.yellow("⚠️  Setup Required"));
+  output.print.divider("─", 40);
+
+  if (errorMessage) {
+    console.log(chalk.dim(`Reason: ${errorMessage}`));
+    console.log("");
+  }
+
+  console.log(chalk.bold("Manifest needs configuration:"));
+  console.log(`  ${chalk.cyan(manifestPath)}`);
+  console.log("");
+
+  if (specPath) {
+    console.log(chalk.bold("Your spec is at:"));
+    console.log(`  ${chalk.cyan(specPath)}`);
+    console.log("");
+  }
+
+  console.log(chalk.bold("Next Steps:"));
+  console.log("");
+  console.log("  1. Open the manifest file and update:");
+  console.log(chalk.dim("     - sprint.id: Unique identifier for this sprint"));
+  console.log(chalk.dim("     - sprint.name: Human-readable name"));
+  console.log(chalk.dim("     - tasks: Add tasks from your spec"));
+  console.log("");
+  console.log("  2. For each task, provide:");
+  console.log(chalk.dim("     - id: Sequential number (1, 2, 3...)"));
+  console.log(chalk.dim("     - title: Short task name"));
+  console.log(chalk.dim("     - description: What needs to be done"));
+  console.log(chalk.dim("     - status: PENDING"));
+  console.log(
+    chalk.dim("     - category: INFRASTRUCTURE | INTEGRATION | VISUAL")
+  );
+  console.log(chalk.dim("     - dependencies: [task IDs this depends on]"));
+  console.log("");
+  console.log(
+    "  3. Run " + chalk.cyan("orchestra status") + " again to verify"
+  );
+  console.log("");
 }

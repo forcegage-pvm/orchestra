@@ -7,8 +7,12 @@
 
 import chalk from "chalk";
 import { Command } from "commander";
+import {
+  runComplete,
+  type CompleteOptions,
+  type CompleteResult,
+} from "../core/complete.js";
 import * as output from "../core/output.js";
-import { runComplete, type CompleteOptions, type CompleteResult } from "../core/complete.js";
 
 /**
  * Create the complete command
@@ -88,13 +92,13 @@ export async function completeCommand(options: CompleteOptions): Promise<void> {
  */
 function printCompleteResult(result: CompleteResult, _verbose: boolean): void {
   console.log("");
-  
+
   if (result.status === "completed") {
     console.log(chalk.green.bold(`✓ Task ${result.taskId} Completed`));
   } else {
     console.log(chalk.red.bold(`✗ Task ${result.taskId} Failed to Complete`));
   }
-  
+
   console.log("─".repeat(50));
   console.log(chalk.bold("Task:") + ` ${result.taskId} - ${result.taskTitle}`);
   console.log("");
@@ -132,7 +136,11 @@ function printCompleteResult(result: CompleteResult, _verbose: boolean): void {
   // Git info
   console.log(chalk.bold("Git:"));
   if (result.commit) {
-    console.log(`  ${chalk.green("✓")} Committed: ${chalk.cyan(result.commit.slice(0, 7))}`);
+    console.log(
+      `  ${chalk.green("✓")} Committed: ${chalk.cyan(
+        result.commit.slice(0, 7)
+      )}`
+    );
     if (result.pushed) {
       console.log(`  ${chalk.green("✓")} Pushed to remote`);
     } else {
@@ -146,7 +154,9 @@ function printCompleteResult(result: CompleteResult, _verbose: boolean): void {
   // Next steps
   console.log("─".repeat(50));
   if (result.status === "completed") {
-    console.log(chalk.bold("Next:") + " Run 'orchestra prepare' to start the next task");
+    console.log(
+      chalk.bold("Next:") + " Run 'orchestra prepare' to start the next task"
+    );
   } else {
     console.log(chalk.bold("Action Required:"));
     console.log("  Review the error above and fix any issues.");

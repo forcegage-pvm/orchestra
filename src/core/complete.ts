@@ -20,7 +20,7 @@ import {
   loadConfig,
   requireOrchestraRoot,
 } from "./config.js";
-import { getTask, loadManifest, saveManifest } from "./manifest.js";
+import { getTask, getTaskId, loadManifest, saveManifest } from "./manifest.js";
 import { addProgressEntry, loadProgress, saveProgress } from "./progress.js";
 import { readYamlRaw, yamlExists } from "./yaml.js";
 
@@ -529,25 +529,46 @@ async function updateManifest(
 
     const manifest = manifestResult.data;
 
-    // Update task status
-    const updatedTasks = manifest.tasks.map((t) => {
-      if (t.id !== taskId) {
-        return t;
-      }
+    // Update task status - handle both legacy and phase formats
+    let updatedManifest;
+    if (manifest.phases) {
+      // Phase format
+      const updatedPhases = manifest.phases.map((phase) => ({
+        ...phase,
+        tasks: phase.tasks.map((t) =>
+          getTaskId(t) !== taskId
+            ? t
+            : {
+                ...t,
+                status: "COMPLETE" as const,
+                completed_at: new Date().toISOString(),
+              }
+        ),
+      }));
 
-      return {
-        ...t,
-        status: "COMPLETE" as const,
-        completed_at: new Date().toISOString(),
+      updatedManifest = {
+        ...manifest,
+        phases: updatedPhases,
+        current_task_id: undefined,
       };
-    });
+    } else {
+      // Legacy format
+      const updatedTasks = (manifest.tasks || []).map((t) =>
+        getTaskId(t) !== taskId
+          ? t
+          : {
+              ...t,
+              status: "COMPLETE" as const,
+              completed_at: new Date().toISOString(),
+            }
+      );
 
-    // Clear current_task_id
-    const updatedManifest = {
-      ...manifest,
-      tasks: updatedTasks,
-      current_task_id: undefined,
-    };
+      updatedManifest = {
+        ...manifest,
+        tasks: updatedTasks,
+        current_task_id: undefined,
+      };
+    }
 
     saveManifest(paths.manifest, updatedManifest);
     return true;

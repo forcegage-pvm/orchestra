@@ -10,8 +10,8 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
-  createCompleteCommand,
   completeCommand,
+  createCompleteCommand,
 } from "../../src/commands/complete.js";
 
 // Mock core modules
@@ -469,7 +469,12 @@ describe("complete command", () => {
       );
 
       await expect(
-        completeCommand({ commit: true, push: true, json: true, verbose: false })
+        completeCommand({
+          commit: true,
+          push: true,
+          json: true,
+          verbose: false,
+        })
       ).rejects.toThrow("process.exit(0)");
 
       expect(runComplete).toHaveBeenCalledWith(
@@ -652,7 +657,9 @@ describe("complete command", () => {
 
       const output = consoleSpy.mock.calls[0][0];
       const parsed = JSON.parse(output);
-      expect(parsed.archive_path).toBe(".orchestra/orchestrator/results/task-009");
+      expect(parsed.archive_path).toBe(
+        ".orchestra/orchestrator/results/task-009"
+      );
     });
 
     it("shows next task suggestion", async () => {

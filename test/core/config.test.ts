@@ -126,7 +126,7 @@ describe("Configuration Service", () => {
         path.join(tempDir, ".orchestra", "manifest.yaml")
       );
       expect(paths.handovers).toBe(
-        path.join(tempDir, ".orchestra", "implementor/handovers")
+        path.join(tempDir, ".orchestra", "handover")
       );
       expect(paths.signals).toBe(
         path.join(tempDir, ".orchestra", "implementor/signals")
@@ -165,9 +165,9 @@ describe("Configuration Service", () => {
       const config = initializeOrchestra(tempDir);
 
       expect(fs.existsSync(path.join(tempDir, ".orchestra"))).toBe(true);
-      expect(
-        fs.existsSync(path.join(tempDir, ".orchestra", "implementor/handovers"))
-      ).toBe(true);
+      expect(fs.existsSync(path.join(tempDir, ".orchestra", "handover"))).toBe(
+        true
+      );
       expect(
         fs.existsSync(path.join(tempDir, ".orchestra", "implementor/signals"))
       ).toBe(true);

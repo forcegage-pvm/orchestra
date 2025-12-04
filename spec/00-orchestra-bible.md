@@ -1279,6 +1279,79 @@ SPECIFICATION DOCUMENT
 └─────────────────────────────────────────────────────────────┘
 ```
 
+## 6.5 Template System
+
+> **Authority**: See `docs/TEMPLATE_REGISTRY.md` for complete template mapping and format decisions.
+
+### 6.5.1 Purpose
+
+The template system ensures **every generated file traces to a source template** - no inline code generation. This provides:
+- Single source of truth for all generated content
+- Clear audit trail from template to output
+- Consistent formatting across all handover documents
+- Easy customization per project
+
+### 6.5.2 Template Registry
+
+All templates live in `common/templates/` and follow strict naming:
+
+| Template Source | Output File | Format | Use Case |
+|----------------|-------------|--------|----------|
+| `agent-readme.md.hbs` | `AGENT_README.md` | Markdown | Immutable agent onboarding |
+| `current-task.md.hbs` | `current-task.md` | Markdown | Task requirements (agent reads) |
+| `completion-signal.md.hbs` | (reference only) | YAML | Agent copies when done |
+| `task-context.md.hbs` | `task-context.yaml` | YAML | Orchestrator metadata |
+
+### 6.5.3 Format Decision Matrix
+
+**YAML** - When agents need to FILL OUT or UPDATE:
+- `manifest.yaml` - Agent updates task status
+- `completion-signal.yaml` - Agent fills structured fields
+- `task-context.yaml` - Orchestrator updates metadata
+
+**Markdown** - When agents need to READ and ACTION:
+- `current-task.md` - Agent reads and implements
+- `AGENT_README.md` - Immutable reference guide
+
+**Handlebars (HBS)** - Template source files only:
+- Never directly generated
+- Single source of truth
+- Compiled to YAML or MD at generation time
+
+### 6.5.4 File Naming Conventions
+
+**Single Active File** (not versioned):
+- `current-task.md` ✓ (NOT `task-1.md`, `task-2.md`)
+- Agent always knows exact filename
+
+**Timestamped Archives**:
+- `handover-T001-2025-12-04-143022.md`
+- Audit trail, multiple runs preserved
+
+### 6.5.5 Anti-Patterns
+
+❌ **Inline generation without templates**:
+```python
+# BAD - No traceability
+with open("current-task.md", "w") as f:
+    f.write(f"# Task {num}\n\n{desc}")
+```
+
+✅ **Template-based generation**:
+```python
+# GOOD - Clear source
+template = load_template("current-task.hbs")
+output = template.render(task_num=num)
+```
+
+❌ **Versioned active files** - Creates confusion about which is current
+
+✅ **Single active file** - Agent always uses `current-task.md`
+
+See **`docs/TEMPLATE_REGISTRY.md`** for complete implementation requirements and all template mappings.
+
+---
+
 ### 6.4.6 Specification Document Checklist
 
 Before running `sprint-init`, verify:

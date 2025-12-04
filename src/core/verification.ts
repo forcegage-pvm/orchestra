@@ -12,7 +12,7 @@ import * as path from "node:path";
 import { promisify } from "node:util";
 import { z } from "zod";
 import { requireOrchestraRoot } from "./config.js";
-import { loadManifest } from "./manifest.js";
+import { getAllTasks, getTaskId, loadManifest } from "./manifest.js";
 import { loadProgress } from "./progress.js";
 import { runAcceptSignal, type SignalReport } from "./signal.js";
 import { readYamlRaw, yamlExists } from "./yaml.js";
@@ -157,7 +157,9 @@ export async function runVerification(
   try {
     const manifestResult = loadManifest();
     if (manifestResult.success && manifestResult.data) {
-      const task = manifestResult.data.tasks.find((t) => t.id === taskId);
+      const task = getAllTasks(manifestResult.data).find(
+        (t) => getTaskId(t) === taskId
+      );
       if (task) {
         taskTitle = task.title;
       }

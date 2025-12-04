@@ -359,8 +359,7 @@ describe("prepare command", () => {
       const currentTaskPath = path.join(
         tempDir,
         ".orchestra",
-        "implementor",
-        "handovers",
+        "handover",
         "current-task.md"
       );
       expect(fs.existsSync(currentTaskPath)).toBe(true);
@@ -375,8 +374,7 @@ describe("prepare command", () => {
       const signalPath = path.join(
         tempDir,
         ".orchestra",
-        "implementor",
-        "handovers",
+        "handover",
         "completion-signal.md"
       );
       expect(fs.existsSync(signalPath)).toBe(true);
@@ -391,8 +389,7 @@ describe("prepare command", () => {
       const contextPath = path.join(
         tempDir,
         ".orchestra",
-        "implementor",
-        "handovers",
+        "handover",
         "task-context.md"
       );
       expect(fs.existsSync(contextPath)).toBe(true);
@@ -406,8 +403,7 @@ describe("prepare command", () => {
       const verificationPath = path.join(
         tempDir,
         ".orchestra",
-        "implementor",
-        "handovers",
+        "handover",
         "verification"
       );
       fs.mkdirSync(verificationPath, { recursive: true });

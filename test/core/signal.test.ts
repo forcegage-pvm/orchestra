@@ -19,7 +19,7 @@ vi.mock("../../src/core/config.js", () => ({
     version: "1.0",
     paths: {
       manifest: "manifest.yaml",
-      handovers: "implementor/handovers",
+      handovers: "handover",
       signals: "implementor/signals",
       feedback: "implementor/feedback",
       artifacts: "artifacts",

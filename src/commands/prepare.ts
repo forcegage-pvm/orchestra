@@ -13,6 +13,7 @@ import {
   type PrepareOptions,
   type PrepareResult,
 } from "../core/prepare.js";
+import type { TemplateFormat } from "../core/types.js";
 
 /**
  * Create the prepare command
@@ -31,18 +32,42 @@ export function createPrepareCommand(): Command {
       "Show what would be generated without executing",
       false
     )
+    .option(
+      "--format <format>",
+      "Output format: yaml, markdown, or both (default: from config)",
+      undefined
+    )
     .option("--json", "Output JSON format", false)
-    .action(async (options: PrepareOptions) => {
+    .action(async (options: PrepareCommandOptions) => {
       await prepareCommand(options);
     });
 }
 
 /**
+ * Extended options including format
+ */
+interface PrepareCommandOptions extends PrepareOptions {
+  format?: TemplateFormat;
+}
+
+/**
  * Execute prepare command
  */
-async function prepareCommand(options: PrepareOptions): Promise<void> {
+async function prepareCommand(options: PrepareCommandOptions): Promise<void> {
   try {
-    const result = await runPrepare(options);
+    // Build options object, conditionally including each property
+    // This is required by exactOptionalPropertyTypes
+    const prepareOptions: PrepareOptions = {};
+
+    if (options.task !== undefined) prepareOptions.task = options.task;
+    if (options.force !== undefined) prepareOptions.force = options.force;
+    if (options.skipCloseout !== undefined)
+      prepareOptions.skipCloseout = options.skipCloseout;
+    if (options.dryRun !== undefined) prepareOptions.dryRun = options.dryRun;
+    if (options.json !== undefined) prepareOptions.json = options.json;
+    if (options.format !== undefined) prepareOptions.format = options.format;
+
+    const result = await runPrepare(prepareOptions);
 
     if (options.json) {
       console.log(
@@ -153,7 +178,7 @@ function showSuccess(result: PrepareResult): void {
   result.filesGenerated.forEach((file) => {
     console.log(`  ✓ ${file}`);
   });
-  console.log(`  ✓ implementor/handovers/verification/ (cleared)`);
+  console.log(`  ✓ handover/verification/ (cleared)`);
   console.log("");
 
   if (result.dependencies && result.dependencies.length > 0) {

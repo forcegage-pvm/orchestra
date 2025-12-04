@@ -90,10 +90,30 @@ export function saveManifest(
 }
 
 /**
- * Get a task by ID
+ * Get all tasks from manifest (supports both legacy and phase formats)
+ */
+export function getAllTasks(manifest: Manifest): Task[] {
+  // New phase format
+  if (manifest.phases) {
+    return manifest.phases.flatMap((phase) => phase.tasks);
+  }
+  // Legacy format
+  return manifest.tasks || [];
+}
+
+/**
+ * Get task ID from task (handles both id and task_id)
+ */
+export function getTaskId(task: Task): number {
+  return (task.task_id || task.id)!;
+}
+
+/**
+ * Get a task by ID (supports both id and task_id fields)
  */
 export function getTask(manifest: Manifest, taskId: number): Task | undefined {
-  return manifest.tasks.find((t) => t.id === taskId);
+  const allTasks = getAllTasks(manifest);
+  return allTasks.find((t) => getTaskId(t) === taskId);
 }
 
 /**
@@ -109,7 +129,8 @@ export function getCurrentTask(manifest: Manifest): Task | undefined {
   }
 
   // Then check for in-progress task (IMPLEMENT status)
-  const inProgress = manifest.tasks.find((t) => t.status === "IMPLEMENT");
+  const allTasks = getAllTasks(manifest);
+  const inProgress = allTasks.find((t) => t.status === "IMPLEMENT");
   if (inProgress) {
     return inProgress;
   }
@@ -122,7 +143,8 @@ export function getCurrentTask(manifest: Manifest): Task | undefined {
  * Get the next pending task that has all dependencies satisfied
  */
 export function getNextPendingTask(manifest: Manifest): Task | undefined {
-  return manifest.tasks.find((t) => {
+  const allTasks = getAllTasks(manifest);
+  return allTasks.find((t) => {
     if (t.status !== "PENDING") {
       return false;
     }
@@ -172,44 +194,57 @@ export function updateTaskStatus(
 
   const now = new Date().toISOString();
 
-  // Update the task
-  const updatedTasks = manifest.tasks.map((t) => {
-    if (t.id !== taskId) {
-      return t;
-    }
+  // Build updates for the matching task
+  const updates: Partial<Task> = {
+    status,
+    ...additionalUpdates,
+  };
 
-    const updates: Partial<Task> = {
-      status,
-      ...additionalUpdates,
-    };
-
-    // Auto-set timestamps
-    if (status === "IMPLEMENT" && !t.started_at) {
-      updates.started_at = now;
-    }
-    if (status === "COMPLETE") {
-      updates.completed_at = now;
-    }
-    if (status === "RETRY") {
-      updates.last_failure = now;
-    }
-
-    return { ...t, ...updates };
-  });
-
-  // Update current_task_id if moving to IMPLEMENT
-  let currentTaskId = manifest.current_task_id;
-  if (status === "IMPLEMENT") {
-    currentTaskId = taskId;
-  } else if (status === "COMPLETE" && manifest.current_task_id === taskId) {
-    currentTaskId = undefined;
+  // Auto-set timestamps
+  if (status === "IMPLEMENT" && !task.started_at) {
+    updates.started_at = now;
+  }
+  if (status === "COMPLETE") {
+    updates.completed_at = now;
+  }
+  if (status === "RETRY") {
+    updates.last_failure = now;
   }
 
-  const updatedManifest: Manifest = {
-    ...manifest,
-    tasks: updatedTasks,
-    current_task_id: currentTaskId,
-  };
+  // Update the task in the appropriate structure
+  let updatedManifest: Manifest;
+
+  if (manifest.phases) {
+    // New phase format
+    const updatedPhases = manifest.phases.map((phase) => ({
+      ...phase,
+      tasks: phase.tasks.map((t) =>
+        getTaskId(t) === taskId ? { ...t, ...updates } : t
+      ),
+    }));
+
+    updatedManifest = {
+      ...manifest,
+      phases: updatedPhases,
+    };
+  } else {
+    // Legacy format
+    const updatedTasks = (manifest.tasks || []).map((t) =>
+      getTaskId(t) === taskId ? { ...t, ...updates } : t
+    );
+
+    updatedManifest = {
+      ...manifest,
+      tasks: updatedTasks,
+    };
+  }
+
+  // Update current_task_id if moving to IMPLEMENT
+  if (status === "IMPLEMENT") {
+    updatedManifest.current_task_id = taskId;
+  } else if (status === "COMPLETE" && manifest.current_task_id === taskId) {
+    updatedManifest.current_task_id = undefined;
+  }
 
   return successResult("Task status updated", updatedManifest);
 }
@@ -289,8 +324,10 @@ export function getSprintProgress(manifest: Manifest): {
   escalated: number;
   percentComplete: number;
 } {
+  const allTasks = getAllTasks(manifest);
+
   const stats = {
-    total: manifest.tasks.length,
+    total: allTasks.length,
     completed: 0,
     inProgress: 0,
     pending: 0,
@@ -300,7 +337,7 @@ export function getSprintProgress(manifest: Manifest): {
     percentComplete: 0,
   };
 
-  for (const task of manifest.tasks) {
+  for (const task of allTasks) {
     switch (task.status) {
       case "COMPLETE":
         stats.completed++;
@@ -336,18 +373,18 @@ export function getTasksByStatus(
   manifest: Manifest,
   status: TaskStatus
 ): Task[] {
-  return manifest.tasks.filter((t) => t.status === status);
+  return getAllTasks(manifest).filter((t) => t.status === status);
 }
 
 /**
  * Get blocked tasks (dependencies not satisfied)
  */
 export function getBlockedTasks(manifest: Manifest): Task[] {
-  return manifest.tasks.filter((t) => {
+  return getAllTasks(manifest).filter((t) => {
     if (t.status !== "PENDING") {
       return false;
     }
-    return !areDependenciesSatisfied(manifest, t.id);
+    return !areDependenciesSatisfied(manifest, getTaskId(t));
   });
 }
 
