@@ -35,12 +35,11 @@ export interface InitOptions {
  */
 const DEFAULT_FOLDERS = [
   "common/templates",
-  "common/scripts",
   "orchestrator/.orchestrator-only/verification",
   "orchestrator/processes",
   "orchestrator/results",
   "handover",
-  "implementor/.implementor-only/scripts",
+  "implementor/.implementor-only",
   "implementor/artifacts",
 ];
 
@@ -845,7 +844,6 @@ const DEFAULT_FILES: Record<string, string> = {
   "orchestrator/processes/02-task-verification.md":
     PROCESS_02_TASK_VERIFICATION_TEMPLATE,
   "implementor/readme.md": IMPLEMENTOR_README_TEMPLATE,
-  "common/scripts/.gitkeep": "",
 };
 
 /**
@@ -1052,49 +1050,45 @@ function showSuccess(orchestraDir: string, specPath?: string): void {
   console.log(`  ${orchestraDir}/`);
   console.log("    ├── orchestra.yaml      # Configuration");
   console.log("    ├── manifest.yaml       # Sprint/task definitions");
-  console.log("    ├── common/             # Shared resources");
-  console.log("    │   ├── templates/      # Handover templates");
-  console.log("    │   └── scripts/        # Automation scripts");
+  console.log("    ├── common/templates/   # Handover templates");
   console.log("    ├── orchestrator/       # Orchestrator workspace");
-  console.log("    │   ├── .orchestrator-only/  # Private orchestrator files");
+  console.log("    │   ├── readme.md       # Orchestrator entry point");
+  console.log("    │   ├── processes/      # Workflow documentation");
+  console.log("    │   ├── .orchestrator-only/  # Hidden verification");
   console.log("    │   └── results/        # Task archives");
   console.log("    ├── implementor/        # Implementor workspace");
-  console.log("    │   ├── .implementor-only/   # Private implementor files");
+  console.log("    │   ├── readme.md       # Points to agent_readme");
   console.log("    │   └── artifacts/      # Implementation artifacts");
   console.log("    └── handover/           # Active handover folder");
+  console.log("        └── agent_readme.md # Implementor instructions");
   console.log("");
 
   console.log(chalk.bold("Next steps:"));
-  if (specPath) {
-    console.log(
-      chalk.yellow("  ➤ ") + `Your spec is at: ${chalk.cyan(specPath)}`
-    );
-    console.log("");
-  }
+  console.log("");
   console.log(
     "  1. " +
-      chalk.bold("Edit manifest:") +
-      "     " +
-      chalk.cyan(".orchestra/manifest.yaml")
+      chalk.bold("Read orchestrator guide:") +
+      " " +
+      chalk.cyan(".orchestra/orchestrator/readme.md")
   );
-  console.log("     - Update sprint id and name");
-  console.log(
-    "     - Add tasks from your spec (id, title, description, category)"
-  );
-  console.log("     - Set dependencies between tasks");
   console.log("");
   console.log(
     "  2. " +
-      chalk.bold("Verify setup:") +
-      "     " +
-      chalk.cyan("orchestra status")
+      chalk.bold("Follow sprint init:") +
+      "   " +
+      chalk.cyan(".orchestra/orchestrator/processes/00-sprint-initialization.md")
   );
+  if (specPath) {
+    console.log(
+      chalk.dim("     Your spec is at: ") + chalk.cyan(specPath)
+    );
+  }
   console.log("");
   console.log(
     "  3. " +
-      chalk.bold("Start first task:") +
-      "  " +
-      chalk.cyan("orchestra prepare --task 1")
+      chalk.bold("Verify setup:") +
+      "        " +
+      chalk.cyan("orchestra status")
   );
   console.log("");
 }
