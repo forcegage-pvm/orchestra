@@ -121,6 +121,10 @@ When verification fails, the Orchestrator agent needs to generate actionable fee
   - Validation error returned: "role must be string 'implementor' or 'orchestrator'".
 - What happens if hidden verification data appears in an error stack trace?
   - Error sanitization removes any paths containing ".orchestrator-only" before returning to client.
+- What happens if the core library throws an unexpected error (not OrchestraError)?
+  - Wrap in generic MCP application error (-32000) with message: "internal error: [original message]"; do NOT expose stack trace; log full error server-side for debugging.
+- What happens if signal tool is called without specifying modified files?
+  - Auto-detect modified files from git working tree (staged + unstaged changes); if no changes detected, return warning with empty file list.
 
 ## Requirements *(mandatory)*
 

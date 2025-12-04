@@ -222,6 +222,74 @@ All NEEDS CLARIFICATION items from Technical Context resolved:
 
 ## Open Items for Phase 1
 
-1. Define exact input/output schemas for all 10 tools (→ contracts/)
-2. Design attempt tracking for retry/escalation logic
-3. Determine if status command needs extraction to core/
+1. ✅ Define exact input/output schemas for all 10 tools (→ contracts/)
+2. ✅ Design attempt tracking for retry/escalation logic (→ data-model.md)
+3. 🔄 Status command extraction - **Required before MCP implementation**
+
+## Status Command Extraction
+
+**Current State**: `statusCommand()` lives in `src/commands/status.ts` with CLI-specific dependencies.
+
+**Required**: Extract to `src/core/status.ts` as `runStatus()` that returns structured `StatusResult`.
+
+**Approach**:
+```typescript
+// src/core/status.ts
+export interface StatusResult {
+  sprint: {
+    id: string;
+    title: string;
+    status: "pending" | "in_progress" | "completed";
+    totalTasks: number;
+    completedTasks: number;
+    progress: number;
+  };
+  currentTask: {
+    id: number;
+    title: string;
+    status: string;
+    category: string;
+  } | null;
+  nextTask: { id: number; title: string } | null;
+}
+
+export async function runStatus(workspaceRoot: string): Promise<StatusResult> {
+  // Extract from commands/status.ts
+}
+```
+
+**Timing**: This should happen as first task in Phase 2 or late in Phase 1.2.
+
+## Phase 1.2 Dependency Management
+
+**Blocking Commands**: `feedback`, `escalate` do not exist yet.
+
+**If Phase 1.2 is delayed**:
+1. Implement MCP server with 8 working tools (exclude feedback, escalate)
+2. Tools return "not implemented" error with clear message: "requires Phase 1.2 completion"
+3. Update quickstart.md with known limitation
+4. Track as tech debt for Phase 2.1
+
+**Verification Criteria for Phase 1.2 Readiness**:
+- [ ] `orchestra signal --summary "test" --files src/test.ts` works
+- [ ] `orchestra feedback` generates feedback.md with guidance
+- [ ] `orchestra escalate` creates escalation report for human review
+- [ ] All three commands have corresponding `run*` functions in `src/core/`
+
+## Core Library API Stability
+
+**Pattern for Handling Core API Changes**:
+1. MCP tool handlers depend only on `src/core/index.ts` exports
+2. Core functions return Result objects (not throw for expected failures)
+3. Breaking changes require version bump of MCP server
+4. Integration tests verify core→MCP contract
+
+**Import Pattern** (per Constitution I):
+```typescript
+// ✅ Correct - import from core/index.js barrel
+import { runPrepare, runVerification, runComplete } from "../core/index.js";
+
+// ❌ Wrong - import from individual files
+import { runPrepare } from "../core/prepare.js";
+```
+

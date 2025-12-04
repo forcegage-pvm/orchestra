@@ -99,17 +99,63 @@ Calls without role or with wrong role for the tool will fail:
 ### Server won't start
 - Check Node.js version: `node --version` (need 18+)
 - Check build: `npm run build`
-- Check path in settings.json
+- Check path in settings.json matches actual build output location
 
 ### Tools not appearing in Copilot
-- Reload VS Code window
-- Check MCP server is running (no errors in Output panel)
-- Verify settings.json is in workspace `.vscode/` folder
+- Reload VS Code window (Ctrl/Cmd + Shift + P → "Developer: Reload Window")
+- Check MCP server is running (no errors in Output panel → "GitHub Copilot Chat")
+- Verify settings.json is in workspace `.vscode/` folder (not user settings)
 
 ### Permission denied errors
-- Ensure correct `role` parameter
+- Ensure correct `role` parameter: must be exactly `"implementor"` or `"orchestrator"` (case-sensitive, lowercase)
 - Implementor can only use `signal` and `status`
+- Orchestrator can use all 10 tools
 
 ### Concurrent access errors
-- Only one operation at a time
-- Wait and retry after "operation in progress" error
+- Only one write operation at a time
+- Wait 2-3 seconds and retry after "operation in progress" error
+- Lock is automatically released after operation completes
+- Stale locks (>5 min) are auto-cleaned
+
+### VS Code reload behavior
+- MCP server restarts when VS Code window reloads
+- In-progress operations are interrupted (lock is auto-cleaned on restart)
+- No persistent server state - all state in `.orchestra/` files
+
+### Lock file issues
+- Lock file location: `.orchestra/.lock`
+- If stuck, check if lock is stale (>5 min old) - will auto-clean
+- Manual cleanup: delete `.orchestra/.lock` (only if server is not running)
+
+### Debug logging
+```bash
+# Start server with debug output
+DEBUG=orchestra:* node dist/mcp/server.js
+```
+
+### Testing with MCP Inspector
+```bash
+# Interactive testing (recommended for debugging)
+npx @modelcontextprotocol/inspector dist/mcp/server.js
+
+# Test specific tool
+# In inspector: Call "status" with { "role": "orchestrator" }
+```
+
+### Phase 1.2 commands not working
+If `feedback` or `escalate` return "not implemented":
+- These require Phase 1.2 CLI completion
+- Check `orchestra --help` to verify commands exist
+- Upgrade Orchestra CLI if needed
+
+## Verification Checklist
+
+Before reporting issues, verify:
+
+- [ ] `node --version` shows 18.x or higher
+- [ ] `npm run build` completes without errors  
+- [ ] `.vscode/settings.json` exists with mcpServers config
+- [ ] VS Code reloaded after config change
+- [ ] No errors in Output → "GitHub Copilot Chat"
+- [ ] MCP Inspector shows 10 tools registered
+- [ ] `status` tool works with role "orchestrator"

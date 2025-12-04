@@ -107,6 +107,68 @@ test/
 
 **Structure Decision**: Single project extension - MCP layer added under `src/mcp/` following existing patterns. No separate package; shares `src/core/` with CLI.
 
+## Testing Strategy
+
+### Test Categories
+
+| Category | Location | Purpose | Coverage Target |
+|----------|----------|---------|-----------------|
+| Unit | `test/mcp/*.test.ts` | Individual components (role-guard, error-mapper) | 90%+ |
+| Tool | `test/mcp/tools/*.test.ts` | Each tool handler in isolation | 100% of tools |
+| Integration | `test/integration/mcp-workflow.test.ts` | Full workflows (prepare→signal→verify→complete) | Happy + error paths |
+| E2E | Manual with MCP Inspector | Real MCP client communication | Per release |
+
+### Test Patterns
+
+```typescript
+// Unit test pattern - role guard
+describe("role-guard", () => {
+  it("allows orchestrator access to all tools", () => { ... });
+  it("rejects implementor access to orchestrator tools", () => { ... });
+  it("throws on missing role parameter", () => { ... });
+});
+
+// Tool test pattern - mock core function
+describe("status tool", () => {
+  it("returns sprint status from core", async () => {
+    vi.mocked(runStatus).mockResolvedValue({ ... });
+    const result = await handleStatus({ role: "orchestrator" });
+    expect(result).toMatchObject({ sprint: { ... } });
+  });
+});
+
+// Integration test pattern - real file system
+describe("MCP workflow", () => {
+  it("completes full task lifecycle", async () => {
+    // Setup: init sprint, prepare task
+    // Act: signal, accept, verify, complete
+    // Assert: task marked completed
+  });
+});
+```
+
+### Regression Prevention
+
+- Existing 346+ tests MUST pass before/after MCP changes
+- CI runs full test suite on every PR
+- MCP tests run isolated from core tests (no side effects)
+
+### Manual Verification (E2E)
+
+1. Start MCP Inspector: `npx @modelcontextprotocol/inspector dist/mcp/server.js`
+2. Verify all 10 tools appear in tool list
+3. Test role enforcement: call `verify` with role="implementor" → expect error
+4. Test happy path: `status` → `prepare` → `signal` → `accept_signal` → `verify` → `complete`
+5. Test error path: call `complete` without verification → expect error
+
+### JSON-RPC 2.0 Compliance Verification
+
+Test against spec requirements:
+- Response has `jsonrpc: "2.0"`
+- Response has `id` matching request
+- Success: response has `result` (no `error`)
+- Failure: response has `error` with `code`, `message`, optional `data`
+
 ## Complexity Tracking
 
 > No constitution violations requiring justification.
