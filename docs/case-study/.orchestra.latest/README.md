@@ -1,6 +1,6 @@
 # Orchestra Implementation for TypeScript Projects
 
-This `.orchestra` folder is a **TypeScript-specific implementation** of the Orchestra pattern defined in the [Orchestra Bible](../spec/00-orchestra-bible.md).
+This `.orchestra` folder is a **TypeScript-specific implementation** of the Orchestra pattern defined in the [Orchestra Bible](../../orchestra-bible.md).
 
 ## Quick Reference
 
@@ -166,7 +166,7 @@ This implementation follows the **Orchestra Bible v0.7.0**:
 - **Appendix D**: Templates (all templates included)
 
 For the complete specification, see:
-`spec/00-orchestra-bible.md`
+`docs/orchestra-bible.md`
 
 ---
 

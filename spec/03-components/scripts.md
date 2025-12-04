@@ -3,7 +3,7 @@
 
 > **Navigation**: [Index](../readme.md) | **Prev**: [File Specifications](file-specifications.md) | **Next**: [Templates](templates.md)
 > 
-> **Authority**: [Orchestra Bible Section 8](../00-orchestra-bible.md#8-script-specifications)
+> **Authority**: [Orchestra Bible Section 8](../../docs/orchestra-bible.md#8-script-specifications)
 
 ---
 
@@ -28,7 +28,7 @@ Orchestra uses scripts to enforce process and create structural gates. Scripts a
 
 ## Mandatory Script Matrix
 
-> **Cross-Reference**: [Bible Section 7.3](../00-orchestra-bible.md#73-mandatory-script-execution-matrix)
+> **Cross-Reference**: [Bible Section 7.3](../../docs/orchestra-bible.md#73-mandatory-script-execution-matrix)
 
 | From Phase | To Phase | MANDATORY Script(s) | Blocking? | Actor |
 |------------|----------|---------------------|-----------|-------|

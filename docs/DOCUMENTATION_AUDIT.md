@@ -27,12 +27,12 @@ After comprehensive review of all Orchestra documentation, I found:
 ### Source of Truth: The Bible
 | Document | Version | Status |
 |----------|---------|--------|
-| `00-orchestra-bible.md` | v0.7.0 | ✅ Most current - **AUTHORITATIVE** |
+| `docs/orchestra-bible.md` | v0.7.0 | ✅ Most current - **AUTHORITATIVE** |
 
 ### Spec Folder Structure
 ```
-spec/
-├── 00-orchestra-bible.md     ← AUTHORITATIVE
+docs/
+├── orchestra-bible.md        ← AUTHORITATIVE (moved from spec/)
 ├── readme.md                  ← Outdated index
 ├── tasks.md                   ← Unknown status
 ├── implementation-plan.md     ← Partially outdated
@@ -425,7 +425,7 @@ For each check:
 
 | File | Status | Action |
 |------|--------|--------|
-| `spec/00-orchestra-bible.md` | ✅ Authoritative | Minor fixes needed |
+| `docs/orchestra-bible.md` | ✅ Authoritative | Minor fixes needed |
 | `spec/readme.md` | 🗑️ Outdated | Deprecate or update |
 | `spec/tasks.md` | ❓ Unknown | Review |
 | `spec/implementation-plan.md` | ⚠️ Partially outdated | Update status |

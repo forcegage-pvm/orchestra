@@ -3,7 +3,7 @@
 
 > **Navigation**: [Index](../readme.md) | **Prev**: [ADR-001](../02-architecture/decisions/adr-001-translation-layer.md) | **Next**: [File Specifications](file-specifications.md)
 > 
-> **Authority**: [Orchestra Bible Section 6.1](../00-orchestra-bible.md#61-folder-structure-abstract)
+> **Authority**: [Orchestra Bible Section 6.1](../../docs/orchestra-bible.md#61-folder-structure-abstract)
 
 ---
 

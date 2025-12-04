@@ -3,7 +3,7 @@
 
 > **Navigation**: [Index](../readme.md) | **Prev**: [Templates](../03-components/templates.md) | **Next**: [Verification Protocol](verification-protocol.md)
 > 
-> **Authority**: [Orchestra Bible Section 7](../00-orchestra-bible.md#7-task-lifecycle)
+> **Authority**: [Orchestra Bible Section 7](../../docs/orchestra-bible.md#7-task-lifecycle)
 
 ---
 

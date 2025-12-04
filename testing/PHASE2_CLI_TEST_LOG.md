@@ -47,7 +47,7 @@ Orchestra will have a **hard dependency on SpecKit** for v1.0. Generalization to
 | Change `spec_path` to `speckit.root` in config | `src/core/types.ts`, `src/commands/init.ts` | HIGH |
 | Update orchestra.yaml template | `src/commands/init.ts` | HIGH |
 | Update manifest.yaml template to match SpecKit format | `src/commands/init.ts` | HIGH |
-| Update Orchestra Bible with SpecKit-first decision | `spec/00-orchestra-bible.md` | HIGH |
+| Update Orchestra Bible with SpecKit-first decision | `docs/orchestra-bible.md` | HIGH |
 | Add `speckit_task_ref` to task schema | `src/core/types.ts` | MEDIUM |
 | Update tasks.md on task completion | `src/core/complete.ts` | MEDIUM |
 | Validate SpecKit structure exists | `src/commands/init.ts` | LOW (future) |
@@ -266,7 +266,7 @@ orchestra prepare --task 1 --format both
 5. [ ] **Issue 4**: Remove `--format` flag (defer template architecture)
 6. [ ] Add `speckit_task_ref` field to manifest task schema
 7. [ ] Update tasks.md on task completion
-8. [ ] Update Orchestra Bible (spec/00-orchestra-bible.md) with SpecKit-first decision
+8. [ ] Update Orchestra Bible (docs/orchestra-bible.md) with SpecKit-first decision
 
 ### Phase 2 Testing (After Tech Debt Fixed)
 1. [ ] Create proper SpecKit spec for Phase 2 MCP

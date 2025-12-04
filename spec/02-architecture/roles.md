@@ -3,7 +3,7 @@
 
 > **Navigation**: [Index](../readme.md) | **Prev**: [Architecture Overview](overview.md) | **Next**: [Workflows](workflows.md)
 > 
-> **Authority**: [Orchestra Bible Section 4](../00-orchestra-bible.md#4-role-definitions)
+> **Authority**: [Orchestra Bible Section 4](../../docs/orchestra-bible.md#4-role-definitions)
 
 ---
 
