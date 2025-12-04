@@ -1,26 +1,26 @@
-# Phase 1: CLI Tool ⚠️ INCOMPLETE
+# Phase 1: CLI Tool ✅ COMPLETE
 
-> **Navigation**: [Implementation Index](../readme.md) | **Next**: [Phase 1.2: Technical Debt](../phase-1.2-cli/readme.md) | [Phase 2: MCP Server](../phase-2-mcp/readme.md)
+> **Navigation**: [Implementation Index](../readme.md) | **Next**: [Phase 1.2: Technical Debt](../phase-1.2-cli/readme.md) ✅ | [Phase 2: MCP Server](../phase-2-mcp/readme.md)
 
 ---
 
-## Status: ⚠️ Incomplete (Missing Failure-Path Commands)
+## Status: ✅ Complete
 
-**Core functionality complete** (2025-12-04): 7 commands, 346 tests, reusable `src/core/`
+**Core functionality complete** (2025-12-04): 10 commands, 427 tests, reusable `src/core/`
 
-**Missing per Bible v0.7.0**:
+**Phase 1.2 Complete** (2025-01-14): Added missing failure-path commands:
+- `orchestra signal` - Create completion signal (implementor)
 - `orchestra feedback` - Generate feedback after verification failure
 - `orchestra escalate` - Escalate to human supervisor
 
-See **[Phase 1.2: CLI Technical Debt](../phase-1.2-cli/readme.md)** for completion plan.
-
 ---
 
-## Deliverables (Current)
+## Deliverables
 
-- 7 CLI commands: `init`, `status`, `prepare`, `accept-signal`, `verify`, `complete`, `closeout`
+- 10 CLI commands: `init`, `status`, `prepare`, `signal`, `accept-signal`, `verify`, `feedback`, `escalate`, `complete`, `closeout`
 - Reusable `src/core/` library (no CLI dependencies)
 - Full end-to-end workflow verified
+- Integration tests for failure path
 - Comprehensive README documentation
 
 ---
