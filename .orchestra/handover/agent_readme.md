@@ -14,15 +14,15 @@ Your job is to complete the task described in `current-task.md` following the re
 
 | File | Location | Purpose |
 |------|----------|----------|
-| **Your Task** | `.orchestra/current-task.md` | Complete task requirements, acceptance criteria |
-| **This Guide** | `.orchestra/AGENT_README.md` | Workflow reference (this file - immutable) |
+| **Your Task** | `.orchestra/handover/current-task.md` | Complete task requirements, acceptance criteria |
+| **This Guide** | `.orchestra/handover/agent_readme.md` | Workflow reference (this file - immutable) |
 
 ### Files You Should NOT Touch
 
 | Location | Purpose | Who Manages |
 |----------|---------|-------------|
 | `.orchestra/.orchestrator-only/*` | Orchestrator workspace | Orchestrator only |
-| `.orchestra/AGENT_README.md` | This guide | Immutable (do not edit) |
+| `.orchestra/handover/agent_readme.md` | This guide | Immutable (do not edit) |
 | `.orchestra/orchestra.yaml` | Project configuration | Orchestrator only |
 
 ---
@@ -31,7 +31,7 @@ Your job is to complete the task described in `current-task.md` following the re
 
 ### Step 1: Read Your Task
 
-Open and read: **`.orchestra/current-task.md`**
+Open and read: **`.orchestra/handover/current-task.md`**
 
 This file contains:
 - Task objectives
@@ -49,7 +49,7 @@ This file contains:
 
 ### Step 3: Verify Your Work
 
-Run all verification steps listed in `current-task.md`.
+Run all verification steps listed in `handover/current-task.md`.
 
 ### Step 4: Signal Completion
 
@@ -75,9 +75,9 @@ When implementation is complete and all tests pass:
 ## 🚫 Important Rules
 
 1. **ONE task only** - Do not look at manifest or other tasks
-2. **Follow the spec** - SpecKit references are in `current-task.md`
+2. **Follow the spec** - SpecKit references are in `handover/current-task.md`
 3. **No orchestrator files** - Stay out of `.orchestrator-only/`
 4. **Signal when done** - Complete the signal file and notify
-5. **Do not modify this file** - AGENT_README.md is immutable
+5. **Do not modify this file** - agent_readme.md is immutable
 
-**Ready to implement? Start with `.orchestra/current-task.md`** 🚀
+**Ready to implement? Start with `.orchestra/handover/current-task.md`** 🚀

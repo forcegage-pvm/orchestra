@@ -215,6 +215,145 @@ When implementation is complete and all tests pass:
 `;
 
 /**
+ * Orchestrator README template content
+ */
+const ORCHESTRATOR_README_TEMPLATE = `# Orchestrator Role
+
+⚠️ **THIS FOLDER IS FOR ORCHESTRATOR ONLY** ⚠️
+
+The implementor agent should NEVER read files in this folder.
+
+---
+
+## 🎯 THE THREE ORCHESTRATOR PROCESSES
+
+| Process | When | What |
+|---------|------|------|
+| **Process 0: Sprint Init** | Starting a new sprint | Parse spec → Create manifest → Create verification criteria |
+| **Process 1: Prepare Task** | Before each task | Closeout check → Generate handover → Validate → Invoke implementor |
+| **Process 2: Verify Task** | After implementor signals | Gate check → Run verification → Accept/Reject → Archive |
+
+---
+
+## 📂 Folder Structure
+
+\`\`\`
+orchestrator/
+├── readme.md                    # This file
+├── .orchestrator-only/          # HIDDEN from implementor
+│   └── verification/            # Per-task verification criteria
+├── results/                     # Verification results and archives
+│   └── task-NNN/                # Archived task artifacts
+└── scripts/                     # Orchestrator automation (future)
+\`\`\`
+
+---
+
+## 🔄 Process 1: Prepare Next Task
+
+**When**: After previous task completed OR starting first task
+
+### Steps:
+
+1. **Run closeout check** (if not first task):
+   \`\`\`powershell
+   orchestra complete --task <previous>
+   \`\`\`
+
+2. **Prepare handover**:
+   \`\`\`powershell
+   orchestra prepare --task <next>
+   \`\`\`
+
+3. **Start NEW session** for implementor role
+
+4. **Tell implementor**: "Read \`.orchestra/handover/agent_readme.md\` and begin"
+
+---
+
+## 🔍 Process 2: Verify Completion
+
+**When**: Implementor says "ready for review"
+
+### Steps:
+
+1. **Check completion signal exists**:
+   \`\`\`powershell
+   orchestra verify --task <id>
+   \`\`\`
+
+2. **Review verification results**
+
+3. **If PASS**:
+   \`\`\`powershell
+   orchestra complete --task <id>
+   \`\`\`
+
+4. **If FAIL**: Provide feedback (without revealing criteria)
+   - Say what failed, not how you detected it
+   - Implementor retries
+
+---
+
+## 🚫 Key Rules
+
+1. **Never show verification criteria to implementor** - Prevents gaming
+2. **Fresh context for each task** - Prevents learning patterns
+3. **Signals trigger verification, not claims** - "I'm done" means nothing without artifacts
+4. **Feedback guides without revealing** - Say what's wrong, not how you detected it
+
+---
+
+## 📋 Hidden Files (.orchestrator-only/)
+
+| File | Purpose |
+|------|---------|
+| \`verification/task-NNN.yaml\` | Hidden acceptance criteria per task |
+
+**Why hidden?** Prevents implementors from "gaming" the verification criteria.
+
+---
+
+## See Also
+
+- [Implementor Guide](../handover/agent_readme.md)
+- [Orchestra Bible](../../spec/00-orchestra-bible.md) - Section 4.1, 4.4.2
+`;
+
+/**
+ * Implementor folder README template content
+ */
+const IMPLEMENTOR_README_TEMPLATE = `# Implementor Role
+
+This folder contains implementor-specific files and artifacts.
+
+> **START HERE**: Read \`.orchestra/handover/agent_readme.md\` for full workflow instructions.
+> This readme is a folder structure overview only.
+
+## Folder Structure
+
+\`\`\`
+implementor/
+├── readme.md                    # This file
+├── .implementor-only/           # Private implementor workspace
+│   └── scripts/                 # Validation scripts (future)
+└── artifacts/                   # Implementation artifacts
+\`\`\`
+
+## Workflow Summary
+
+1. Read \`.orchestra/handover/agent_readme.md\`
+2. Read \`.orchestra/handover/current-task.md\`
+3. Implement the requirements
+4. Signal completion
+5. Wait for orchestrator verification
+
+## See Also
+
+- [Agent README](../handover/agent_readme.md) - Full workflow instructions
+`;
+
+/**
  * Default files to create with their content
  */
 const DEFAULT_FILES: Record<string, string> = {
@@ -223,8 +362,8 @@ const DEFAULT_FILES: Record<string, string> = {
   "common/templates/task-context.md.hbs": TASK_CONTEXT_TEMPLATE,
   "handover/agent_readme.md": AGENT_README_TEMPLATE,
   "handover/.gitkeep": "",
-  "orchestrator/.gitkeep": "",
-  "implementor/.gitkeep": "",
+  "orchestrator/readme.md": ORCHESTRATOR_README_TEMPLATE,
+  "implementor/readme.md": IMPLEMENTOR_README_TEMPLATE,
   "common/scripts/.gitkeep": "",
 };
 
