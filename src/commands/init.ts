@@ -238,6 +238,11 @@ export async function runInit(options: InitOptions): Promise<void> {
     const manifestContent = generateManifestTemplate(options.spec);
     fs.writeFileSync(manifestPath, manifestContent, "utf-8");
 
+    // Create empty progress.yaml
+    const progressPath = path.join(orchestraDir, "progress.yaml");
+    const progressContent = generateProgressTemplate();
+    fs.writeFileSync(progressPath, progressContent, "utf-8");
+
     spinner?.succeed("Orchestra initialized successfully");
 
     if (options.json) {
@@ -249,6 +254,7 @@ export async function runInit(options: InitOptions): Promise<void> {
           files: [
             ...TEMPLATE_MAPPINGS.map((m) => m.dest),
             "manifest.yaml",
+            "progress.yaml",
             "orchestra.yaml",
           ],
           spec_path: options.spec,
@@ -361,6 +367,29 @@ consolidations: []
 }
 
 /**
+ * Generate initial progress.yaml template content
+ */
+function generateProgressTemplate(): string {
+  const today = new Date().toISOString().split("T")[0];
+
+  return `# Orchestra Progress Tracker - Generated ${today}
+# This file tracks task execution and completion
+
+sprint_id: "sprint-001"      # Must match manifest sprint.id
+created_at: "${today}"
+
+# Progress entries added by orchestra prepare/complete
+entries: []
+  # Example entry:
+  # - task_id: 1
+  #   started_at: "2025-12-04T10:00:00Z"
+  #   completed_at: "2025-12-04T12:30:00Z"
+  #   status: COMPLETED
+  #   commit_hash: "abc1234"
+`;
+}
+
+/**
  * Show success message with created structure
  */
 function showSuccess(orchestraDir: string, specPath?: string): void {
@@ -371,6 +400,7 @@ function showSuccess(orchestraDir: string, specPath?: string): void {
   console.log(`  ${orchestraDir}/`);
   console.log("    ├── orchestra.yaml      # Configuration");
   console.log("    ├── manifest.yaml       # Sprint/task definitions");
+  console.log("    ├── progress.yaml       # Progress tracking");
   console.log("    ├── common/templates/   # Handover templates");
   console.log("    ├── orchestrator/       # Orchestrator workspace");
   console.log("    │   ├── readme.md       # Orchestrator entry point");

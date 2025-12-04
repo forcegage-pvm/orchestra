@@ -11,7 +11,7 @@
 | 0.7.0 | 2025-12-02 | **COMPLETE** - Production Ready |
 
 **Change Log**:
-- v0.7.0: **FINAL** - Enhanced ToC with navigation table, added Appendix G Quick Reference Index
+- v0.7.0: **FINAL** - Enhanced ToC with navigation table, added Appendix G Quick Refdocs\orchestra-bible.mderence Index
 - v0.6.0: Added Human Intervention (4.3.1-4.3.2), Implementor Scope Statement, Monitoring Guide (F.6) - 100% alien-drop-in ready
 - v0.5.0: Added Quick Start Guide (Section 0), Role Invocation (4.4), Specification Format (6.4), Templates (Appendix D), Worked Example (Appendix E)
 - v0.4.0: Added dual-layer structure to Phase Details: Abstract Actions (what) + Implementation (how)
@@ -134,20 +134,26 @@ Before starting, you need:
 ```
 your-project/
 ├── .orchestra/
+│   ├── manifest.yaml              # Task definitions (created by orchestra init)
+│   ├── progress.yaml              # Progress tracker (created by orchestra init)
+│   ├── orchestra.yaml             # Configuration
 │   ├── common/
 │   │   ├── scripts/               # Put platform-specific scripts here
 │   │   └── templates/             # Document templates
 │   ├── orchestrator/
 │   │   ├── .orchestrator-only/    # HIDDEN - Only orchestrator reads this
-│   │   │   ├── manifest.yaml      # Task definitions (created by sprint-init)
-│   │   │   ├── progress.yaml      # Progress tracker (created by sprint-init)
 │   │   │   ├── verification/      # Hidden verification criteria
-│   │   │   └── criteria/          # Reusable criteria
-│   │   └── scripts/               # Orchestrator scripts
+│   │   │   └── preflight/         # Orchestrator audit trail
+│   │   └── processes/             # Orchestrator process docs
 │   ├── implementor/
-│   │   ├── handovers/             # Task instructions go here
+│   │   ├── artifacts/             # Task artifacts
 │   │   ├── signals/               # Completion signals go here
 │   │   └── feedback/              # Retry feedback goes here
+│   ├── handover/                  # Current task handover files
+│   │   ├── current-task.md        # Active task instructions
+│   │   ├── task-context.md        # Background context
+│   │   ├── completion-signal.md   # Implementor fills this
+│   │   └── agent_readme.md        # Implementor guide
 │   └── artifacts/                 # Task outputs archived here
 └── your-code/
 ```
@@ -917,6 +923,10 @@ Agent Claims "Task Complete"
 
 ```
 .orchestra/
+├── manifest.yaml              # Task definitions, dependencies, ordering
+├── progress.yaml              # Current state, completion status
+├── orchestra.yaml             # Configuration (paths, retry settings)
+│
 ├── common/                    # Shared resources
 │   ├── scripts/               # Platform-specific script implementations
 │   │   └── {script-name}.{ext}
@@ -925,37 +935,34 @@ Agent Claims "Task Complete"
 │
 ├── orchestrator/              # ORCHESTRATOR-ONLY ZONE
 │   ├── .orchestrator-only/    # Hidden from implementor
-│   │   ├── manifest.yaml      # Task definitions, dependencies, ordering
-│   │   ├── progress.yaml      # Current state, completion status
 │   │   ├── verification/      # Per-task verification specs
 │   │   │   └── task-{id}.yaml
-│   │   └── criteria/          # Reusable criteria definitions
-│   │       └── {criteria-name}.yaml
+│   │   └── preflight/         # Orchestrator audit trail
+│   │       └── orchestrator-preflight-{id}.md
 │   ├── processes/             # Orchestrator process documentation
 │   │   └── {process-name}.md
-│   └── scripts/               # Orchestrator-specific scripts
-│       └── {script-name}.{ext}
+│   └── results/               # Verification results
+│       └── {timestamp}.yaml
+│
+├── handover/                  # Current task handover (single active files)
+│   ├── current-task.md        # What to do NOW (replaced each task)
+│   ├── task-context.md        # Background context and history
+│   ├── completion-signal.md   # Implementor fills this when done
+│   ├── agent_readme.md        # Implementor guide
+│   └── verification/          # Task verification YAMLs
+│       └── task-{id}.yaml
 │
 ├── implementor/               # IMPLEMENTOR-ACCESSIBLE ZONE
-│   ├── handover/              # Current task handover (single active files)
-│   │   ├── current-task.md    # What to do NOW (overwritten each task)
-│   │   └── task-context.md    # Background context and history
-│   ├── signals/               # Completion signals
+│   ├── signals/               # Completion signals (archive)
 │   │   └── task-{id}-signal.yaml
-│   └── feedback/              # Orchestrator feedback (on retry)
-│       └── task-{id}-feedback.md
+│   ├── feedback/              # Orchestrator feedback (on retry)
+│   │   └── task-{id}-feedback.md
+│   └── artifacts/             # Task output artifacts
+│       └── task-{id}/
 │
-├── handover/                  # LEGACY ALIAS - points to implementor/handover
-│
-├── docs/                      # Process documentation
-│   └── {doc-name}.md
-│
-└── artifacts/                 # Archived outputs (optional - git is primary archive)
+└── artifacts/                 # Archived outputs (optional)
     └── task-{id}/
         └── ...
-│
-└── docs/                      # Process documentation
-    └── {doc-name}.md
 ```
 
 ## 6.2 Information Flow

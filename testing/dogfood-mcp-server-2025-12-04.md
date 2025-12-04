@@ -89,15 +89,25 @@ cp .orchestra/common/templates/current-task-template.md .orchestra/handover/curr
 
 ---
 
-### Issue 7: No Progress.yaml Created
-**Severity**: INFO  
+### Issue 7: No Progress.yaml Created ✅ FIXED
+**Severity**: INFO → RESOLVED  
 **Context**: `orchestra init` doesn't create a `progress.yaml` file, but Process 0 (Sprint Initialization) mentions it should exist.
 
-**Observation**: The closeout command passed without progress.yaml existing because it's the first task.
+**Fix Applied**: Updated `src/commands/init.ts` to generate `progress.yaml` during initialization with empty entries array.
 
-**Recommendation**: Either:
-1. Create progress.yaml during init, OR
-2. Document that progress.yaml is created on first task completion
+---
+
+## All Issues Summary
+
+| # | Issue | Severity | Status | Fix |
+|---|-------|----------|--------|-----|
+| 1 | PhaseStatusSchema needs PENDING | BLOCKING | ✅ FIXED | Added PhaseStatusSchema |
+| 2 | TaskCategorySchema missing REFACTOR | BLOCKING | ✅ FIXED | Added REFACTOR enum |
+| 3 | verify --dry-run not implemented | MAJOR | ✅ FIXED | Added option + logic |
+| 4 | Template path wrong in docs | MINOR | ✅ FIXED | Updated process docs |
+| 5 | Task ID shows "undefined" | MINOR | ✅ FIXED | Fixed getTaskId() usage |
+| 6 | Manifest location ambiguity | INFO | ✅ FIXED | Updated Bible + Registry |
+| 7 | No progress.yaml created | INFO | ✅ FIXED | Added to init command |
 
 ---
 
@@ -135,12 +145,29 @@ cp .orchestra/common/templates/current-task-template.md .orchestra/handover/curr
 | Step | Command/Action | Result | Notes |
 |------|----------------|--------|-------|
 | Init | `orchestra init specs/001-mcp-server` | ✅ PASS | Created .orchestra structure |
-| Manifest | Manual creation with 57 tasks | ⚠️ ISSUES | Schema validation failures (Issues 1, 2) |
+| Manifest | Manual creation with 57 tasks | ✅ FIXED | Schema issues resolved |
 | Closeout | `orchestra closeout` | ✅ PASS | After committing init files |
-| Prepare | `orchestra prepare --task 1` | ⚠️ PARTIAL | Works but shows "undefined" (Issue 5) |
-| Verify dry-run | `orchestra verify --task 1 --dry-run` | ❌ FAIL | Option not implemented (Issue 3) |
+| Prepare | `orchestra prepare --task 1` | ✅ FIXED | Now shows correct task ID |
+| Verify dry-run | `orchestra verify --task 1 --dry-run` | ✅ FIXED | Option now implemented |
 | Handover | Manual creation of current-task.md | ✅ PASS | Followed template structure |
 | Verification YAML | Manual creation | ✅ PASS | Created task-001.yaml |
+
+---
+
+## Documentation Updates Made
+
+### Files Modified:
+1. **`templates/orchestrator/processes/01-handover-creation.md`**
+   - STEP 3: Changed from manual copy to `orchestra prepare --task N`
+   - STEP 4: Fixed manifest path from `.orchestrator-only/manifest.yaml` to `.orchestra/manifest.yaml`
+
+2. **`docs/TEMPLATE_REGISTRY.md`**
+   - Fixed manifest output path
+   - Added progress.yaml to init output
+
+3. **`docs/orchestra-bible.md`**
+   - Section 0.4: Updated folder structure diagram
+   - Section 6.1: Updated folder structure to match implementation
 
 ---
 
@@ -151,4 +178,4 @@ cp .orchestra/common/templates/current-task-template.md .orchestra/handover/curr
 
 ---
 
-_Last Updated: 2025-12-04_
+_Last Updated: 2025-12-04 (Session 2: All issues fixed)_
