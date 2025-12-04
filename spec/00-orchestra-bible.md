@@ -68,7 +68,8 @@
 9. [Verification Model](#9-verification-model)
 10. [Failure Handling](#10-failure-handling)
 11. [Artifact Specifications](#11-artifact-specifications)
-12. [Adaptation Guidelines](#12-adaptation-guidelines)
+12. [Configuration](#12-configuration) ← **orchestra.yaml**
+13. [Adaptation Guidelines](#13-adaptation-guidelines)
 
 **Appendices**:
 - [Appendix A: Glossary](#appendix-a-glossary) - Term definitions
@@ -133,13 +134,13 @@ Before starting, you need:
 ```
 your-project/
 ├── .orchestra/
-│   ├── manifest.yaml              # Will be created by sprint-init
-│   ├── progress.yaml              # Will be created by sprint-init
 │   ├── common/
 │   │   ├── scripts/               # Put platform-specific scripts here
 │   │   └── templates/             # Document templates
 │   ├── orchestrator/
 │   │   ├── .orchestrator-only/    # HIDDEN - Only orchestrator reads this
+│   │   │   ├── manifest.yaml      # Task definitions (created by sprint-init)
+│   │   │   ├── progress.yaml      # Progress tracker (created by sprint-init)
 │   │   │   ├── verification/      # Hidden verification criteria
 │   │   │   └── criteria/          # Reusable criteria
 │   │   └── scripts/               # Orchestrator scripts
@@ -215,7 +216,8 @@ This creates:
 
 1. **Read the handover**:
    ```
-   Read: .orchestra/implementor/handovers/task-1-handover.md
+   Read: .orchestra/handover/current-task.md
+   Read: .orchestra/handover/task-context.md (if needed for background)
    ```
 
 2. **Do the work** as specified in handover
@@ -585,10 +587,11 @@ The Implementor is the **tactical executor** focused on a single task. It knows 
 
 ### Scope Statement
 
-> **CRITICAL FOR IMPLEMENTORS**: Your world is ONLY the handover document.
+> **CRITICAL FOR IMPLEMENTORS**: Your world is ONLY the handover files.
 
 **You MUST read**:
-- The handover document given to you (`.orchestra/implementor/handovers/task-{id}-handover.md`)
+- `.orchestra/handover/current-task.md` - Your current task
+- `.orchestra/handover/task-context.md` - Background context (if needed)
 - Files explicitly listed in the handover's "Context Files" section
 - Project source code you need to modify
 
@@ -597,7 +600,6 @@ The Implementor is the **tactical executor** focused on a single task. It knows 
 - The `manifest.yaml` file
 - The `progress.yaml` file
 - Anything in `.orchestrator-only/` directory
-- Other task handovers
 - Verification criteria files
 - Previous feedback files (unless explicitly provided)
 
@@ -759,7 +761,7 @@ The Orchestrator and Implementor MUST operate in **separate contexts**. This mea
    - NEVER access orchestrator files or verification criteria
    
    You have access to:
-   - The handover document (in .orchestra/implementor/handovers/)
+   - The handover files (in .orchestra/handover/)
    - The project codebase
    - Context files listed in the handover
    
@@ -770,8 +772,9 @@ The Orchestrator and Implementor MUST operate in **separate contexts**. This mea
    - Previous verification results
    ```
 
-3. **Provide ONLY the handover document**:
-   - `.orchestra/implementor/handovers/task-{id}-handover.md`
+3. **Provide ONLY the handover files**:
+   - `.orchestra/handover/current-task.md`
+   - `.orchestra/handover/task-context.md` (if relevant)
    - Do NOT provide the specification
    - Do NOT provide verification criteria
 
@@ -782,10 +785,10 @@ The Orchestrator and Implementor MUST operate in **separate contexts**. This mea
 **Orchestrator → Implementor**:
 ```
 1. Orchestrator completes: prepare-handover, validate-handover
-2. Orchestrator confirms handover is in implementor/handovers/
+2. Orchestrator confirms handover files are in .orchestra/handover/
 3. CLOSE orchestrator session (or park it)
 4. OPEN new session for implementor
-5. Only provide handover to implementor
+5. Only provide handover files to implementor
 ```
 
 **Implementor → Orchestrator**:
@@ -914,9 +917,6 @@ Agent Claims "Task Complete"
 
 ```
 .orchestra/
-├── manifest.yaml              # Task definitions, dependencies, ordering
-├── progress.yaml              # Current state, completion status
-│
 ├── common/                    # Shared resources
 │   ├── scripts/               # Platform-specific script implementations
 │   │   └── {script-name}.{ext}
@@ -924,7 +924,9 @@ Agent Claims "Task Complete"
 │       └── {template-name}.{ext}
 │
 ├── orchestrator/              # ORCHESTRATOR-ONLY ZONE
-│   ├── .orchestrator-only/    # Hidden verification criteria
+│   ├── .orchestrator-only/    # Hidden from implementor
+│   │   ├── manifest.yaml      # Task definitions, dependencies, ordering
+│   │   ├── progress.yaml      # Current state, completion status
 │   │   ├── verification/      # Per-task verification specs
 │   │   │   └── task-{id}.yaml
 │   │   └── criteria/          # Reusable criteria definitions
@@ -935,18 +937,22 @@ Agent Claims "Task Complete"
 │       └── {script-name}.{ext}
 │
 ├── implementor/               # IMPLEMENTOR-ACCESSIBLE ZONE
-│   ├── handovers/             # Task handover documents
-│   │   └── task-{id}-handover.md
+│   ├── handover/              # Current task handover (single active files)
+│   │   ├── current-task.md    # What to do NOW (overwritten each task)
+│   │   └── task-context.md    # Background context and history
 │   ├── signals/               # Completion signals
-│   │   └── task-{id}-signal.md
-│   └── feedback/              # Orchestrator feedback
+│   │   └── task-{id}-signal.yaml
+│   └── feedback/              # Orchestrator feedback (on retry)
 │       └── task-{id}-feedback.md
 │
-├── artifacts/                 # Task outputs
-│   └── task-{id}/
-│       ├── execution-log.md   # Commands executed
-│       ├── verification.yaml  # Verification results
-│       └── summary.md         # Task summary
+├── handover/                  # LEGACY ALIAS - points to implementor/handover
+│
+├── docs/                      # Process documentation
+│   └── {doc-name}.md
+│
+└── artifacts/                 # Archived outputs (optional - git is primary archive)
+    └── task-{id}/
+        └── ...
 │
 └── docs/                      # Process documentation
     └── {doc-name}.md
@@ -1043,16 +1049,19 @@ tasks:
     failed_reason: "{reason}"          # If failed
 ```
 
-### task-{id}-handover.md
+### current-task.md
 
-**Purpose**: Everything the implementor needs to complete a task.
+**Purpose**: Everything the implementor needs to complete the CURRENT task.
+
+**Location**: `.orchestra/handover/current-task.md` (always this exact path)
 
 **Visibility**: Implementor
+
+**Lifecycle**: Overwritten by orchestrator when preparing each new task. Git history provides the archive.
 
 **Contents**:
 - Task identifier and name
 - Success criteria (what to achieve)
-- Context (relevant background)
 - Files to read
 - Files to create/modify
 - Constraints and requirements
@@ -1062,6 +1071,23 @@ tasks:
 - Verification criteria
 - How the orchestrator will check
 - Details of other tasks
+- Historical context (that goes in task-context.md)
+
+### task-context.md
+
+**Purpose**: Background context and relevant history for the implementor.
+
+**Location**: `.orchestra/handover/task-context.md`
+
+**Visibility**: Implementor
+
+**Lifecycle**: Updated by orchestrator with cumulative context. May reference prior task outcomes.
+
+**Contents**:
+- Project background
+- Relevant decisions from prior tasks
+- Technical context
+- Links to documentation
 
 ### Verification Criteria (Hidden)
 
@@ -1089,7 +1115,23 @@ criteria:
 
 The specification document describes **what needs to be built**. It is the source of truth that the Orchestrator processes into tasks, success criteria, and (hidden) verification criteria.
 
-### 6.4.2 Minimal Specification Format
+### 6.4.2 Format Agnosticism
+
+Orchestra is designed to be **specification-format agnostic**. The system can work with any structured document that contains:
+- Task definitions with unique identifiers
+- Success criteria per task
+- Context and dependency information
+
+**Current Default: SpecKit**
+
+The reference implementation uses **SpecKit** format - a structured Markdown specification format designed for AI-parseable task definitions. SpecKit provides:
+- Consistent task structure
+- Machine-readable success criteria
+- Clear dependency declarations
+
+> **Future Versions**: Support for additional specification formats (ad-hoc Markdown, YAML specs, issue trackers, etc.) is planned.
+
+### 6.4.3 Minimal Specification Format
 
 ```markdown
 # Specification: [Feature/Project Name]
@@ -1127,7 +1169,7 @@ The specification document describes **what needs to be built**. It is the sourc
 [... repeat for each task ...]
 ```
 
-### 6.4.3 Full Specification Format
+### 6.4.4 Full Specification Format
 
 For complex projects, use the full format:
 
@@ -1226,7 +1268,7 @@ For complex projects, use the full format:
 | 0.1.0 | [date] | [author] | Initial draft |
 ```
 
-### 6.4.4 Specification Best Practices
+### 6.4.5 Specification Best Practices
 
 **DO**:
 - Make success criteria specific and measurable
@@ -1242,7 +1284,7 @@ For complex projects, use the full format:
 - Make tasks too large (hard to verify) or too small (overhead)
 - Assume context - be explicit
 
-### 6.4.5 How the Specification Becomes Tasks
+### 6.4.6 How the Specification Becomes Tasks
 
 ```
 SPECIFICATION DOCUMENT
@@ -1293,14 +1335,16 @@ The template system ensures **every generated file traces to a source template**
 
 ### 6.5.2 Template Registry
 
-All templates live in `common/templates/` and follow strict naming:
+All templates live in `common/templates/`. Template names are **abstract identifiers** - implementations choose their own file extensions (e.g., `.hbs`, `.md.template`, `.jinja2`).
 
-| Template Source | Output File | Format | Use Case |
-|----------------|-------------|--------|----------|
-| `agent-readme.md.hbs` | `AGENT_README.md` | Markdown | Immutable agent onboarding |
-| `current-task.md.hbs` | `current-task.md` | Markdown | Task requirements (agent reads) |
-| `completion-signal.md.hbs` | (reference only) | YAML | Agent copies when done |
-| `task-context.md.hbs` | `task-context.yaml` | YAML | Orchestrator metadata |
+| Template Name | Output File | Format | Use Case |
+|---------------|-------------|--------|----------|
+| `agent-readme` | `AGENT_README.md` | Markdown | Immutable agent onboarding |
+| `current-task` | `current-task.md` | Markdown | Current task requirements |
+| `task-context` | `task-context.md` | Markdown | Background and history |
+| `completion-signal` | `task-{id}-signal.yaml` | YAML | Agent completion signal |
+| `feedback` | `task-{id}-feedback.md` | Markdown | Retry guidance |
+| `verification-criteria` | `task-{id}.yaml` | YAML | Hidden verification spec |
 
 ### 6.5.3 Format Decision Matrix
 
@@ -1313,8 +1357,9 @@ All templates live in `common/templates/` and follow strict naming:
 - `current-task.md` - Agent reads and implements
 - `AGENT_README.md` - Immutable reference guide
 
-**Handlebars (HBS)** - Template source files only:
-- Never directly generated
+**Template Sources** - Implementation-specific:
+- Template engine is implementation choice (Handlebars, Jinja2, simple substitution, etc.)
+- Never directly used by agents
 - Single source of truth
 - Compiled to YAML or MD at generation time
 
@@ -1340,7 +1385,7 @@ with open("current-task.md", "w") as f:
 ✅ **Template-based generation**:
 ```python
 # GOOD - Clear source
-template = load_template("current-task.hbs")
+template = load_template("current-task")  # Abstract name, impl chooses extension
 output = template.render(task_num=num)
 ```
 
@@ -1352,7 +1397,7 @@ See **`docs/TEMPLATE_REGISTRY.md`** for complete implementation requirements and
 
 ---
 
-### 6.4.6 Specification Document Checklist
+### 6.4.7 Specification Document Checklist
 
 Before running `sprint-init`, verify:
 
@@ -1490,15 +1535,16 @@ Before running `sprint-init`, verify:
 
 3. ► SCRIPT: prepare-handover
    ├── Input: Task ID, manifest, templates
-   ├── Load handover template
+   ├── Load current-task and task-context templates
    ├── Populate with success criteria (NOT verification criteria)
    ├── Include context file references
    ├── Include expected outputs
-   ├── Write to: .orchestra/implementor/handovers/task-{id}-handover.md
+   ├── Write to: .orchestra/handover/current-task.md
+   ├── Update: .orchestra/handover/task-context.md
    └── Update progress.yaml: status → in_progress
 
 4. ► SCRIPT: validate-handover
-   ├── Input: Handover document path
+   ├── Input: Handover files
    ├── Verify all required sections present
    ├── Verify success criteria are actionable
    ├── Verify NO verification criteria leaked
@@ -1507,7 +1553,8 @@ Before running `sprint-init`, verify:
 ```
 
 **Artifacts produced**:
-- `.orchestra/implementor/handovers/task-{id}-handover.md`
+- `.orchestra/handover/current-task.md`
+- `.orchestra/handover/task-context.md`
 - Updated `progress.yaml` (status: `in_progress`)
 
 ---
@@ -1950,6 +1997,42 @@ Before running `sprint-init`, verify:
 | **Self-Check** | `pre-signal-check` | RECOMMENDED | Implementor |
 | **Utility** | `sprint-status`, `environment-check` | OPTIONAL | Any |
 
+### CLI Command Mapping
+
+The abstract script names above map to CLI subcommands in the reference implementation:
+
+| Abstract Script | CLI Command | Description |
+|-----------------|-------------|-------------|
+| `sprint-init` | `orchestra init` | Initialize sprint from specification |
+| `sprint-status` | `orchestra status` | Show sprint progress |
+| `prepare-handover` | `orchestra prepare` | Generate handover for next task |
+| `validate-handover` | (part of `prepare`) | Validation runs automatically |
+| `signal-complete` | `orchestra signal` | Signal task completion |
+| `pre-signal-check` | `orchestra check` | Self-check before signaling |
+| `gate-check` | `orchestra gate` | Run deterministic checks |
+| `verification-audit` | `orchestra verify` | Run hidden verification |
+| `accept-signal-check` | `orchestra accept` | Accept and close task |
+| `task-closeout-check` | `orchestra closeout` | Verify clean state |
+| `generate-feedback` | `orchestra feedback` | Generate retry guidance |
+| `escalate-failure` | `orchestra escalate` | Escalate to human |
+
+**Usage examples**:
+```bash
+# Initialize a sprint
+orchestra init --spec specs/feature.md
+
+# Prepare next task (as orchestrator)
+orchestra prepare --task 1
+
+# Signal completion (as implementor)
+orchestra signal --task 1
+
+# Run verification (as orchestrator)
+orchestra verify --task 1
+```
+
+> **Note**: The CLI is one implementation. Other implementations (IDE plugins, CI/CD integrations) may expose these operations differently while maintaining the same abstract semantics.
+
 ### What Happens If a Script Is Skipped?
 
 | Skipped Script | Consequence |
@@ -2012,8 +2095,8 @@ This section defines what each script must accomplish **abstractly**. Platform-s
 6. Create folder structure
 
 **Outputs**:
-- `.orchestra/manifest.yaml`
-- `.orchestra/progress.yaml`
+- `.orchestra/orchestrator/.orchestrator-only/manifest.yaml`
+- `.orchestra/orchestrator/.orchestrator-only/progress.yaml`
 - `.orchestra/orchestrator/.orchestrator-only/verification/task-{id}.yaml` (per task)
 
 **Success criteria**:
@@ -2072,7 +2155,7 @@ This section defines what each script must accomplish **abstractly**. Platform-s
 | **Actor** | Orchestrator |
 | **Executes During** | Start of each task |
 
-**Purpose**: Generate a handover document for the implementor.
+**Purpose**: Generate handover files for the implementor.
 
 **Trigger**: Orchestrator preparing next task.
 
@@ -2085,24 +2168,27 @@ This section defines what each script must accomplish **abstractly**. Platform-s
 1. Read task definition from manifest
 2. Verify prerequisites are complete
 3. Gather context files
-4. Apply handover template
-5. Write handover document
+4. Apply current-task and task-context templates
+5. Write handover files (overwrites previous)
 6. Update progress to `in_progress`
 
 **Outputs**:
-- `.orchestra/implementor/handovers/task-{id}-handover.md`
+- `.orchestra/handover/current-task.md`
+- `.orchestra/handover/task-context.md`
 - Updated progress.yaml
 
 **Success criteria**:
-- Handover contains all success criteria
-- Handover contains all context file references
-- Handover does NOT contain verification criteria
+- current-task.md contains all success criteria
+- task-context.md contains relevant background
+- Handover files do NOT contain verification criteria
 - Progress updated correctly
 
 **What this script MUST NOT do**:
 - Include verification criteria in handover
 - Include details of other tasks
 - Include historical verification results
+
+**Note**: Previous handover content is overwritten. Git history provides the archive.
 
 ---
 
@@ -2684,51 +2770,112 @@ Attempt 3: "Configuration loading fails when the file is empty or malformed"
 
 ---
 
-# 12. Adaptation Guidelines
+# 12. Configuration
 
-## 12.1 Platform Adaptation
+## 12.1 orchestra.yaml
 
-Orchestra is platform-agnostic. To adapt for a specific platform:
+The `orchestra.yaml` file is the project-level configuration for Orchestra. It lives at `.orchestra/orchestra.yaml` and configures platform settings, paths, and behavior.
 
-### Required Adaptations
+### Location
 
-| Component | What to Adapt |
-|-----------|---------------|
-| Build commands | `npm run build`, `flutter build`, `cargo build`, etc. |
-| Test commands | `npm test`, `flutter test`, `pytest`, etc. |
-| Lint commands | `eslint`, `flutter analyze`, `clippy`, etc. |
-| File patterns | `*.ts`, `*.dart`, `*.py`, etc. |
-| Package manager | `npm`, `pub`, `pip`, `cargo`, etc. |
+```
+.orchestra/
+└── orchestra.yaml    # Project configuration
+```
 
-### Configuration Approach
-
-Create platform-specific configuration:
+### Schema
 
 ```yaml
-# .orchestra/config/platform.yaml
-platform: typescript  # or flutter, python, rust, etc.
+# .orchestra/orchestra.yaml
+version: "1.0"
 
+# Project identification
+project:
+  name: "my-project"
+  type: "typescript"  # typescript, flutter, python, rust, etc.
+
+# Platform-specific commands
 commands:
   build: "npm run build"
   test: "npm test"
   lint: "npm run lint"
-  typecheck: "npx tsc --noEmit"  # if applicable
+  typecheck: "npx tsc --noEmit"  # optional
 
+# File patterns for verification
 patterns:
   source: "src/**/*.ts"
   test: "test/**/*.test.ts"
   config: "*.config.{js,ts,json}"
 
+# Package manager configuration
 package_manager:
   name: "npm"
   install: "npm install"
   add_dep: "npm install {package}"
   add_dev_dep: "npm install -D {package}"
+
+# Orchestra behavior settings
+settings:
+  max_retries: 3                    # Default retry limit
+  require_tests: true               # Require tests to pass for gate check
+  require_lint: true                # Require lint to pass for gate check
+  auto_commit: false                # Auto-commit on task completion
+
+# Specification settings
+specification:
+  format: "speckit"                 # speckit, markdown, yaml (future)
+  path: "specs/"                    # Where specs are stored
 ```
+
+### Minimal Configuration
+
+For simple projects, a minimal configuration is sufficient:
+
+```yaml
+# .orchestra/orchestra.yaml
+version: "1.0"
+
+project:
+  name: "my-project"
+  type: "typescript"
+
+commands:
+  build: "npm run build"
+  test: "npm test"
+```
+
+### Created By
+
+- `orchestra init` - Creates initial configuration
+- Human - Can edit for customization
+
+### Used By
+
+- All Orchestra CLI commands read this configuration
+- Scripts use it for platform-specific behavior
+- Replaces environment variables for configuration
+
+---
+
+# 13. Adaptation Guidelines
+
+## 13.1 Platform Adaptation
+
+Orchestra is platform-agnostic. Adapt for a specific platform via `orchestra.yaml`:
+
+### Required Adaptations
+
+| Component | What to Adapt | Where |
+|-----------|---------------|-------|
+| Build commands | `npm run build`, `flutter build`, etc. | `commands.build` |
+| Test commands | `npm test`, `flutter test`, etc. | `commands.test` |
+| Lint commands | `eslint`, `flutter analyze`, etc. | `commands.lint` |
+| File patterns | `*.ts`, `*.dart`, `*.py`, etc. | `patterns.*` |
+| Package manager | `npm`, `pub`, `pip`, etc. | `package_manager.*` |
 
 ### Script Adaptation
 
-Scripts should read platform configuration and adapt behavior:
+Scripts read from `orchestra.yaml` and adapt behavior accordingly:
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -2736,6 +2883,7 @@ Scripts should read platform configuration and adapt behavior:
 │                    (Platform-agnostic)                           │
 │                                                                  │
 │   "Run tests and verify they pass"                              │
+│            ↓ reads orchestra.yaml ↓                             │
 └─────────────────────────────────────────────────────────────────┘
                               │
               ┌───────────────┼───────────────┐
@@ -2747,25 +2895,26 @@ Scripts should read platform configuration and adapt behavior:
        └───────────┘   └───────────┘   └───────────┘
 ```
 
-## 12.2 Project Adaptation
+## 13.2 Project Adaptation
 
 Each project using Orchestra should:
 
-1. **Define verification criteria** appropriate to the project
-2. **Configure platform settings** for build/test/lint
+1. **Configure `orchestra.yaml`** for platform settings
+2. **Define verification criteria** appropriate to the project
 3. **Customize templates** for project conventions
-4. **Set thresholds** for acceptable test coverage, lint warnings, etc.
+4. **Set thresholds** in settings for coverage, lint warnings, etc.
 
-## 12.3 Team Adaptation
+## 13.3 Team Adaptation
 
-Teams may customize:
+Teams may customize in `orchestra.yaml`:
 
-1. **Retry limits** (default: 3)
+1. **Retry limits** (`settings.max_retries`, default: 3)
 2. **Escalation triggers** 
-3. **Notification channels**
-4. **Approval workflows**
+3. **Gate check requirements** (`settings.require_tests`, `settings.require_lint`)
+4. **Notification channels**
+5. **Approval workflows**
 
-## 12.4 What MUST NOT Be Adapted
+## 13.4 What MUST NOT Be Adapted
 
 | Element | Why Fixed |
 |---------|-----------|
@@ -3472,7 +3621,7 @@ YAML files from disk with validation.
 ► sprint-init --spec spec/config-loader.md
 ```
 
-**Result**: Creates `.orchestra/manifest.yaml`:
+**Result**: Creates `.orchestra/orchestrator/.orchestrator-only/manifest.yaml`:
 
 ```yaml
 version: "1.0"
@@ -3624,10 +3773,10 @@ tasks:
 ► prepare-handover --task-id 1
 ```
 
-**Result**: Creates `.orchestra/implementor/handovers/task-1-handover.md`:
+**Result**: Creates `.orchestra/handover/current-task.md`:
 
 ```markdown
-# Task Handover: 1 - Create Configuration Loader
+# Task: 1 - Create Configuration Loader
 
 ## Metadata
 | Field | Value |
@@ -4192,8 +4341,8 @@ This appendix provides quick lookup tables for common operations. Use this for r
 
 | What | Where | Who Accesses |
 |------|-------|-------------|
-| Task manifest | `.orchestra/manifest.yaml` | Orchestrator only |
-| Progress tracker | `.orchestra/progress.yaml` | Orchestrator only |
+| Task manifest | `.orchestra/orchestrator/.orchestrator-only/manifest.yaml` | Orchestrator only |
+| Progress tracker | `.orchestra/orchestrator/.orchestrator-only/progress.yaml` | Orchestrator only |
 | Handover documents | `.orchestra/implementor/handovers/` | Both |
 | Completion signals | `.orchestra/implementor/signals/` | Both |
 | Feedback files | `.orchestra/implementor/feedback/` | Both |
