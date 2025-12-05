@@ -876,7 +876,12 @@ describe("prepare command", () => {
       it("should fail if checklist file does not exist", async () => {
         // Remove the checklist file
         fs.unlinkSync(
-          path.join(tempDir, ".orchestra", "handover", "preflight-checklist.yaml")
+          path.join(
+            tempDir,
+            ".orchestra",
+            "handover",
+            "preflight-checklist.yaml"
+          )
         );
 
         await expect(runFinalize()).rejects.toThrow(

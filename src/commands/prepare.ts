@@ -9,12 +9,12 @@ import chalk from "chalk";
 import { Command } from "commander";
 import * as output from "../core/output.js";
 import {
-  runPrepare,
   runFinalize,
-  type PrepareOptions,
-  type PrepareResult,
+  runPrepare,
   type FinalizeOptions,
   type FinalizeResult,
+  type PrepareOptions,
+  type PrepareResult,
 } from "../core/prepare.js";
 import type { TemplateFormat } from "../core/types.js";
 

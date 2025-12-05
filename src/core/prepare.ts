@@ -693,7 +693,10 @@ export async function runFinalize(
   const checklistSource = path.join(handoverDir, "preflight-checklist.yaml");
 
   const handoverDest = path.join(preflightDir, `task-${taskId}.md`);
-  const checklistDest = path.join(preflightDir, `preflight-task-${taskId}.yaml`);
+  const checklistDest = path.join(
+    preflightDir,
+    `preflight-task-${taskId}.yaml`
+  );
 
   // Validate source files exist
   if (!fs.existsSync(handoverSource)) {

@@ -15,6 +15,7 @@
 - [ ] [TD-006: Clarify SpecKit tasks.md Location and Purpose](#td-006-clarify-speckit-tasksmd-location-and-purpose)
 - [x] [TD-007: Pre-Flight Checklist Workflow](#td-007-pre-flight-checklist-workflow)
 - [ ] [TD-008: Handover Validation Command](#td-008-handover-validation-command)
+- [ ] [TD-009: Sync 01-handover-creation.md with prepare.md](#td-009-sync-01-handover-creationmd-with-preparemd)
 
 ---
 
@@ -495,10 +496,6 @@ This command performs two operations:
 | `test/commands/prepare.test.ts` | Added 7 finalize tests |
 | `docs/workflow/prepare.md` | Already documented as source of truth |
 
-### Remaining Work
-
-- [ ] Update `01-handover-creation.md` to match `prepare.md` (separate TD item)
-
 ---
 
 ## TD-008: Handover Validation Command
@@ -636,6 +633,61 @@ orchestra validate-handover
 
 ---
 
+## TD-009: Sync 01-handover-creation.md with prepare.md
+
+**Status**: 🔴 Not Started  
+**Priority**: Medium  
+**Identified**: 2025-12-05  
+**Source**: [TD-007](#td-007-pre-flight-checklist-workflow), [prepare.md](prepare.md)
+
+### Description
+
+The process guide `01-handover-creation.md` is out of sync with the authoritative workflow documentation in `prepare.md`. The process guide still references manual steps that are now CLI commands.
+
+### Current State
+
+| Aspect | `prepare.md` (Source of Truth) | `01-handover-creation.md` (Out of Sync) |
+|--------|--------------------------------|----------------------------------------|
+| Pre-flight archival | `orchestra prepare --finalize` | Manual `cp` command |
+| Action IDs | A-PREP-01 to A-PREP-14 | No action IDs |
+| Execution sequence | 9-step sequence | 12 manual steps |
+| Template names | `current-task.md.hbs`, etc. | `current-task-template.md` |
+
+### Proposed Solution
+
+Update `01-handover-creation.md` to:
+
+1. Reference `prepare.md` as the authoritative source
+2. Use correct template names
+3. Replace manual archive steps with `orchestra prepare --finalize`
+4. Add action ID references where applicable
+5. Remove redundant content that duplicates `prepare.md`
+
+**Option A: Full sync** - Make `01-handover-creation.md` a process guide that references `prepare.md`  
+**Option B: Deprecate** - Mark `01-handover-creation.md` as deprecated, point to `prepare.md`
+
+### Files to Update
+
+| File | Action |
+|------|--------|
+| `.orchestra/orchestrator/processes/01-handover-creation.md` | Sync or deprecate |
+| `templates/orchestrator/processes/01-handover-creation.md` | Same (if exists) |
+
+### Acceptance Criteria
+
+- [ ] `01-handover-creation.md` references `orchestra prepare --finalize`
+- [ ] Template names match actual templates
+- [ ] No conflicting information with `prepare.md`
+- [ ] Clear relationship between process guide and workflow doc
+
+### Related Files
+
+- `docs/workflow/prepare.md` - Source of truth
+- `.orchestra/orchestrator/processes/01-handover-creation.md` - To update
+- `templates/orchestrator/processes/01-handover-creation.md` - Template version
+
+---
+
 ## Template
 
 Use this template when adding new technical debt items:
@@ -686,3 +738,4 @@ How should it work?
 | 1.7.0 | 2025-12-05 | Added TD-008: Handover Validation Command (critical - lost during evolution) |
 | 1.8.0 | 2025-12-05 | TD-007 updated: Solution is `orchestra prepare --finalize`; prepare.md is source of truth |
 | 1.9.0 | 2025-12-05 | TD-007 complete: Implemented `orchestra prepare --finalize` command |
+| 1.10.0 | 2025-12-05 | Added TD-009: Sync 01-handover-creation.md with prepare.md |
