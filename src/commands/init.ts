@@ -17,6 +17,7 @@ import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import ora from "ora";
 import { findOrchestraRoot, loadConfig, saveConfig } from "../core/config.js";
+import { getCommandGitBehavior } from "../core/git-defaults.js";
 import { commit, stageFiles } from "../core/git.js";
 import * as output from "../core/output.js";
 import { DEFAULT_CONFIG } from "../core/types.js";
@@ -322,10 +323,19 @@ export async function runInit(options: InitOptions): Promise<void> {
     const progressContent = generateProgressTemplate();
     fs.writeFileSync(progressPath, progressContent, "utf-8");
 
-    // Git operations if requested
+    // Git operations: registry defaults → CLI flags
+    // Note: Config doesn't exist yet during init, so we can't check it
     let gitResult: GitOperationResult | undefined;
-    const shouldStage = options.gitStage === true || options.gitCommit === true;
-    const shouldCommit = options.gitCommit === true;
+    const registryDefaults = getCommandGitBehavior("init");
+
+    // Priority: CLI flag > registry default
+    const shouldStage =
+      options.gitStage === true ||
+      options.gitCommit === true ||
+      registryDefaults.autoStage ||
+      registryDefaults.autoCommit;
+    const shouldCommit =
+      options.gitCommit === true || registryDefaults.autoCommit;
 
     if (shouldStage) {
       gitResult = await performGitOperations(cwd, orchestraDir, {

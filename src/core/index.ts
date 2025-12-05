@@ -20,6 +20,9 @@ export * from "./config.js";
 // Git operations
 export * from "./git.js";
 
+// Git behavior defaults registry
+export * from "./git-defaults.js";
+
 // Manifest management
 export * from "./manifest.js";
 

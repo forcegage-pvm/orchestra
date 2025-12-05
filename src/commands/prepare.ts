@@ -7,6 +7,8 @@
 
 import chalk from "chalk";
 import { Command } from "commander";
+import { findOrchestraRoot, loadConfig } from "../core/config.js";
+import { getCommandGitBehavior } from "../core/git-defaults.js";
 import { commit, stageFiles } from "../core/git.js";
 import * as output from "../core/output.js";
 import {
@@ -176,12 +178,33 @@ async function prepareCommand(options: PrepareCommandOptions): Promise<void> {
 
     const result = await runPrepare(prepareOptions);
 
-    // Git operations if requested (skip for dry-run)
+    // Git operations: registry defaults → config overrides → CLI flags
     let gitResult: GitOperationResult | undefined;
+    const registryDefaults = getCommandGitBehavior("prepare");
+    let configAutoCommit = false;
+    try {
+      const root = findOrchestraRoot();
+      if (root) {
+        const config = loadConfig(root);
+        configAutoCommit = config.git?.auto_commit === true;
+      }
+    } catch {
+      // Config not available, use defaults
+    }
+
+    // Priority: CLI flag > config > registry default
     const shouldStage =
-      (options.gitStage === true || options.gitCommit === true) &&
+      (options.gitStage === true ||
+        options.gitCommit === true ||
+        configAutoCommit ||
+        registryDefaults.autoStage ||
+        registryDefaults.autoCommit) &&
       !result.dryRun;
-    const shouldCommit = options.gitCommit === true && !result.dryRun;
+    const shouldCommit =
+      (options.gitCommit === true ||
+        configAutoCommit ||
+        registryDefaults.autoCommit) &&
+      !result.dryRun;
 
     if (shouldStage && result.filesGenerated.length > 0) {
       const commitMessage = `orchestra: Prepare task ${result.task.id} - ${result.task.title}`;
@@ -295,7 +318,10 @@ function showDryRun(result: PrepareResult): void {
 /**
  * Show success message with details
  */
-function showSuccess(result: PrepareResult, gitResult?: GitOperationResult): void {
+function showSuccess(
+  result: PrepareResult,
+  gitResult?: GitOperationResult
+): void {
   console.log("");
   output.print.success("Task prepared!");
   console.log("");
@@ -333,7 +359,9 @@ function showSuccess(result: PrepareResult, gitResult?: GitOperationResult): voi
     } else if (gitResult.committed && gitResult.commitHash) {
       console.log(chalk.bold("Git:"));
       console.log(
-        `  ${chalk.green("✓")} Committed: ${chalk.cyan(gitResult.commitHash.substring(0, 7))}`
+        `  ${chalk.green("✓")} Committed: ${chalk.cyan(
+          gitResult.commitHash.substring(0, 7)
+        )}`
       );
       console.log("");
     } else if (gitResult.staged) {
