@@ -21,6 +21,7 @@ import {
   generateHandoverFiles,
   generateTaskContext,
   getDependenciesInfo,
+  runFinalize,
   runPrepare,
   selectTask,
   validateDependencies,
@@ -731,6 +732,179 @@ describe("prepare command", () => {
       const signal = generateCompletionSignal(task, tempDir);
 
       expect(signal).toContain(`Signal for ${task.id}`);
+    });
+  });
+
+  // ==========================================================================
+  // Finalize Tests (TD-007)
+  // ==========================================================================
+
+  describe("finalize command (--finalize)", () => {
+    it("should have --finalize option", () => {
+      const command = createPrepareCommand();
+      const option = command.options.find((o) => o.long === "--finalize");
+      expect(option).toBeDefined();
+      expect(option?.description).toContain("Archive handover");
+    });
+
+    describe("runFinalize", () => {
+      beforeEach(() => {
+        // Create manifest with task in IMPLEMENT status
+        const manifest = createMockManifest({
+          tasks: [
+            {
+              id: 1,
+              title: "First Task",
+              description: "Test task 1",
+              status: "COMPLETE",
+              category: "INFRASTRUCTURE",
+              dependencies: [],
+              retry_count: 0,
+              max_retries: 3,
+            },
+            {
+              id: 2,
+              title: "Second Task",
+              description: "Test task 2",
+              status: "IMPLEMENT", // Active task
+              category: "INFRASTRUCTURE",
+              dependencies: [1],
+              retry_count: 0,
+              max_retries: 3,
+            },
+          ],
+          current_task_id: 2,
+        });
+        writeYaml(path.join(tempDir, ".orchestra", "manifest.yaml"), manifest);
+
+        // Create handover directory and files
+        const handoverDir = path.join(tempDir, ".orchestra", "handover");
+        fs.mkdirSync(handoverDir, { recursive: true });
+        fs.writeFileSync(
+          path.join(handoverDir, "current-task.md"),
+          "# Task 2: Second Task\n\nTest content"
+        );
+        fs.writeFileSync(
+          path.join(handoverDir, "preflight-checklist.yaml"),
+          "checklist:\n  - item: test\n    completed: true"
+        );
+
+        // Create preflight directory
+        const preflightDir = path.join(
+          tempDir,
+          ".orchestra",
+          "orchestrator",
+          ".orchestrator-only",
+          "preflight"
+        );
+        fs.mkdirSync(preflightDir, { recursive: true });
+      });
+
+      it("should copy handover to preflight folder", async () => {
+        const result = await runFinalize();
+
+        expect(result.taskId).toBe(2);
+        expect(result.handoverCopied).toBe("task-2.md");
+        expect(result.dryRun).toBe(false);
+
+        // Verify file was copied
+        const destPath = path.join(
+          tempDir,
+          ".orchestra",
+          "orchestrator",
+          ".orchestrator-only",
+          "preflight",
+          "task-2.md"
+        );
+        expect(fs.existsSync(destPath)).toBe(true);
+        expect(fs.readFileSync(destPath, "utf-8")).toContain("Second Task");
+      });
+
+      it("should move checklist to preflight folder", async () => {
+        const result = await runFinalize();
+
+        expect(result.checklistArchived).toBe("preflight-task-2.yaml");
+
+        // Verify file was moved
+        const destPath = path.join(
+          tempDir,
+          ".orchestra",
+          "orchestrator",
+          ".orchestrator-only",
+          "preflight",
+          "preflight-task-2.yaml"
+        );
+        expect(fs.existsSync(destPath)).toBe(true);
+
+        // Verify source was removed
+        const sourcePath = path.join(
+          tempDir,
+          ".orchestra",
+          "handover",
+          "preflight-checklist.yaml"
+        );
+        expect(fs.existsSync(sourcePath)).toBe(false);
+      });
+
+      it("should support dry-run mode", async () => {
+        const result = await runFinalize({ dryRun: true });
+
+        expect(result.dryRun).toBe(true);
+        expect(result.taskId).toBe(2);
+
+        // Verify files were NOT copied/moved
+        const destPath = path.join(
+          tempDir,
+          ".orchestra",
+          "orchestrator",
+          ".orchestrator-only",
+          "preflight",
+          "task-2.md"
+        );
+        expect(fs.existsSync(destPath)).toBe(false);
+      });
+
+      it("should fail if handover file does not exist", async () => {
+        // Remove the handover file
+        fs.unlinkSync(
+          path.join(tempDir, ".orchestra", "handover", "current-task.md")
+        );
+
+        await expect(runFinalize()).rejects.toThrow("Handover file not found");
+      });
+
+      it("should fail if checklist file does not exist", async () => {
+        // Remove the checklist file
+        fs.unlinkSync(
+          path.join(tempDir, ".orchestra", "handover", "preflight-checklist.yaml")
+        );
+
+        await expect(runFinalize()).rejects.toThrow(
+          "Pre-flight checklist not found"
+        );
+      });
+
+      it("should fail if no active task (all complete)", async () => {
+        // Update manifest to have all tasks complete (no pending either)
+        const manifest = createMockManifest({
+          tasks: [
+            {
+              id: 1,
+              title: "First Task",
+              description: "Test task 1",
+              status: "COMPLETE",
+              category: "INFRASTRUCTURE",
+              dependencies: [],
+              retry_count: 0,
+              max_retries: 3,
+            },
+          ],
+          current_task_id: undefined,
+        });
+        writeYaml(path.join(tempDir, ".orchestra", "manifest.yaml"), manifest);
+
+        await expect(runFinalize()).rejects.toThrow("No active task found");
+      });
     });
   });
 });

@@ -10,8 +10,11 @@ import { Command } from "commander";
 import * as output from "../core/output.js";
 import {
   runPrepare,
+  runFinalize,
   type PrepareOptions,
   type PrepareResult,
+  type FinalizeOptions,
+  type FinalizeResult,
 } from "../core/prepare.js";
 import type { TemplateFormat } from "../core/types.js";
 
@@ -33,6 +36,11 @@ export function createPrepareCommand(): Command {
       false
     )
     .option(
+      "--finalize",
+      "Archive handover and pre-flight checklist to preflight folder",
+      false
+    )
+    .option(
       "--format <format>",
       "Output format: yaml, markdown, or both (default: from config)",
       undefined
@@ -44,10 +52,11 @@ export function createPrepareCommand(): Command {
 }
 
 /**
- * Extended options including format
+ * Extended options including format and finalize
  */
 interface PrepareCommandOptions extends PrepareOptions {
   format?: TemplateFormat;
+  finalize?: boolean;
 }
 
 /**
@@ -55,6 +64,39 @@ interface PrepareCommandOptions extends PrepareOptions {
  */
 async function prepareCommand(options: PrepareCommandOptions): Promise<void> {
   try {
+    // If finalize mode, run finalize logic
+    if (options.finalize) {
+      const finalizeOptions: FinalizeOptions = {};
+      if (options.dryRun !== undefined) finalizeOptions.dryRun = options.dryRun;
+      if (options.json !== undefined) finalizeOptions.json = options.json;
+
+      const result = await runFinalize(finalizeOptions);
+
+      if (options.json) {
+        console.log(
+          JSON.stringify(
+            {
+              success: true,
+              taskId: result.taskId,
+              handoverCopied: result.handoverCopied,
+              checklistArchived: result.checklistArchived,
+              dryRun: result.dryRun,
+            },
+            null,
+            2
+          )
+        );
+      } else {
+        if (result.dryRun) {
+          showFinalizeDryRun(result);
+        } else {
+          showFinalizeSuccess(result);
+        }
+      }
+
+      process.exit(0);
+    }
+
     // Build options object, conditionally including each property
     // This is required by exactOptionalPropertyTypes
     const prepareOptions: PrepareOptions = {};
@@ -190,6 +232,40 @@ function showSuccess(result: PrepareResult): void {
   }
 
   console.log(chalk.bold("Next:") + " Implementor can begin work");
+  console.log("");
+}
+
+/**
+ * Show finalize dry run results
+ */
+function showFinalizeDryRun(result: FinalizeResult): void {
+  console.log("");
+  output.print.header("Dry Run - Would Archive:");
+  console.log("");
+
+  console.log(chalk.bold(`Task: ${result.taskId}`));
+  console.log("");
+
+  console.log(chalk.bold("Operations:"));
+  console.log(`  ${chalk.cyan("copy")} ${result.handoverCopied}`);
+  console.log(`  ${chalk.cyan("move")} ${result.checklistArchived}`);
+  console.log("");
+}
+
+/**
+ * Show finalize success message
+ */
+function showFinalizeSuccess(result: FinalizeResult): void {
+  console.log("");
+  output.print.success(`Handover finalized for task ${result.taskId}!`);
+  console.log("");
+
+  console.log(chalk.bold("Archived to .orchestrator-only/preflight/:"));
+  console.log(`  ✓ ${result.handoverCopied} (handover audit)`);
+  console.log(`  ✓ ${result.checklistArchived} (pre-flight checklist)`);
+  console.log("");
+
+  console.log(chalk.bold("Next:") + " Hand off to implementor");
   console.log("");
 }
 

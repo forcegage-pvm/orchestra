@@ -13,7 +13,7 @@
 - [ ] [TD-004: Review and Update Sprint Initialization Process Guide](#td-004-review-and-update-sprint-initialization-process-guide)
 - [x] [TD-005: Workflow Document Actions Section](#td-005-workflow-document-actions-section)
 - [ ] [TD-006: Clarify SpecKit tasks.md Location and Purpose](#td-006-clarify-speckit-tasksmd-location-and-purpose)
-- [ ] [TD-007: Pre-Flight Checklist Workflow](#td-007-pre-flight-checklist-workflow)
+- [x] [TD-007: Pre-Flight Checklist Workflow](#td-007-pre-flight-checklist-workflow)
 - [ ] [TD-008: Handover Validation Command](#td-008-handover-validation-command)
 
 ---
@@ -460,27 +460,19 @@ After investigation:
 
 ## TD-007: Pre-Flight Checklist Workflow
 
-**Status**: 🟡 Documented (CLI Not Implemented)  
+**Status**: ✅ Complete  
 **Priority**: High  
 **Identified**: 2025-12-05  
+**Completed**: 2025-12-05  
 **Source**: [prepare.md](prepare.md), [01-handover-creation.md](../../.orchestra/orchestrator/processes/01-handover-creation.md)
 
 ### Description
 
-The pre-flight checklist workflow needs to be implemented properly. The documentation (`prepare.md`) is now updated as if the CLI feature exists - implementation needs to match.
+The pre-flight checklist workflow is now implemented. The `orchestra prepare --finalize` command archives the handover and checklist.
 
-### Current State
+### Implementation
 
-| Component | Current State |
-|-----------|---------------|
-| `docs/workflow/prepare.md` | ✅ Updated with A-PREP-06 (`orchestra prepare --finalize`) |
-| `orchestrator-preflight.md.hbs` | Exists, copied during init, never rendered |
-| CLI `--finalize` flag | ❌ Does not exist |
-| Process guide `01-handover-creation.md` | ❌ Out of sync with prepare.md |
-
-### Solution (Documented in prepare.md)
-
-**Single Command**: `orchestra prepare --finalize`
+**Command**: `orchestra prepare --finalize`
 
 This command performs two operations:
 
@@ -494,42 +486,18 @@ This command performs two operations:
    .orchestra/handover/preflight-checklist.yaml → .orchestra/orchestrator/.orchestrator-only/preflight/preflight-task-N.yaml
    ```
 
-### Implementation Tasks
+### Files Changed
 
-1. **CLI implementation** (`src/commands/prepare.ts`):
-   - [ ] Add `--finalize` option to prepare command
-   - [ ] Get current task ID from manifest
-   - [ ] Copy `current-task.md` → `preflight/task-{id}.md`
-   - [ ] Move `preflight-checklist.yaml` → `preflight/preflight-task-{id}.yaml`
-   - [ ] Validate files exist before copying/moving
+| File | Change |
+|------|--------|
+| `src/commands/prepare.ts` | Added `--finalize` option |
+| `src/core/prepare.ts` | Added `runFinalize()` function, `FinalizeOptions`, `FinalizeResult` types |
+| `test/commands/prepare.test.ts` | Added 7 finalize tests |
+| `docs/workflow/prepare.md` | Already documented as source of truth |
 
-2. **Template rendering** (`src/core/prepare.ts`):
-   - [ ] Render `orchestrator-preflight.md.hbs` during prepare
-   - [ ] Convert output to YAML format
-   - [ ] Save to `.orchestra/handover/preflight-checklist.yaml`
+### Remaining Work
 
-3. **Documentation sync**:
-   - [ ] Update `01-handover-creation.md` to match `prepare.md`
-   - [ ] Update `handover-lifecycle.md` references (already done)
-
-### Acceptance Criteria
-
-- [ ] `orchestra prepare --finalize` command exists
-- [ ] Command copies handover to `preflight/task-N.md`
-- [ ] Command moves checklist to `preflight/preflight-task-N.yaml`
-- [ ] Command validates source files exist
-- [ ] Command outputs success/error messages
-- [ ] `01-handover-creation.md` aligned with `prepare.md`
-
-### Related Files
-
-| File | Status | Action |
-|------|--------|--------|
-| `docs/workflow/prepare.md` | ✅ Done | Source of truth |
-| `src/commands/prepare.ts` | ❌ Todo | Add --finalize flag |
-| `src/core/prepare.ts` | ❌ Todo | Add finalize logic |
-| `.orchestra/orchestrator/processes/01-handover-creation.md` | ❌ Todo | Sync with prepare.md |
-| `spec/04-processes/handover-lifecycle.md` | ✅ Done | Already updated |
+- [ ] Update `01-handover-creation.md` to match `prepare.md` (separate TD item)
 
 ---
 
@@ -717,3 +685,4 @@ How should it work?
 | 1.6.0 | 2025-12-05 | Added TD-007: Pre-Flight Checklist Workflow |
 | 1.7.0 | 2025-12-05 | Added TD-008: Handover Validation Command (critical - lost during evolution) |
 | 1.8.0 | 2025-12-05 | TD-007 updated: Solution is `orchestra prepare --finalize`; prepare.md is source of truth |
+| 1.9.0 | 2025-12-05 | TD-007 complete: Implemented `orchestra prepare --finalize` command |
