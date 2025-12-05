@@ -1,53 +1,20 @@
 /**
- * Signal Core Logic
+ * Accept-Signal Core Logic
  *
- * Two main functions:
- * 1. runSignal() - Implementor creates signal file (Bible 8.3)
- * 2. runAcceptSignal() - Orchestrator validates signal (Bible 8.4)
+ * runAcceptSignal() - Orchestrator validates completion signal (Bible 8.4)
  *
  * ZERO CLI dependencies - pure logic functions.
  */
 
 import * as fs from "node:fs";
 import * as path from "node:path";
-import * as yaml from "yaml";
 import { z } from "zod";
 import {
-  getResolvedPaths,
-  loadConfig,
   requireOrchestraRoot,
 } from "./config.js";
-import { OrchestraError } from "./errors.js";
-import { getGitStatus } from "./git.js";
-import { getTask, loadManifest } from "./manifest.js";
+import { loadManifest } from "./manifest.js";
 import { loadProgress } from "./progress.js";
 import { readYaml } from "./yaml.js";
-
-// =============================================================================
-// Signal Creation Types (Implementor - Bible 8.3)
-// =============================================================================
-
-export interface SignalOptions {
-  task?: string;
-  summary: string;
-  files?: string[];
-  tests?: string[];
-  notes?: string;
-  orchestraRoot?: string;
-}
-
-export interface SignalResult {
-  success: boolean;
-  taskId: number;
-  summary: string;
-  signalPath: string;
-  artifacts: {
-    created: string[];
-    modified: string[];
-  };
-  signaledAt: string;
-  nextStep: string;
-}
 
 // =============================================================================
 // Accept-Signal Types (Orchestrator - Bible 8.4)
@@ -96,150 +63,6 @@ const PreSignalSchema = z.object({
 });
 
 type PreSignalArtifact = z.infer<typeof PreSignalSchema>;
-
-// =============================================================================
-// Signal Creation (Implementor - Bible 8.3)
-// =============================================================================
-
-/**
- * Create a signal file indicating task completion.
- * This is an IMPLEMENTOR action - creates signal for orchestrator to validate.
- */
-export async function runSignal(options: SignalOptions): Promise<SignalResult> {
-  // Validate required summary
-  if (!options.summary || options.summary.trim() === "") {
-    throw new OrchestraError("--summary is required", "VALIDATION_ERROR");
-  }
-
-  // Determine orchestra root
-  const orchestraRoot = options.orchestraRoot || requireOrchestraRoot();
-  const config = loadConfig(orchestraRoot);
-  const paths = getResolvedPaths(orchestraRoot, config);
-
-  // Load manifest
-  const manifestResult = loadManifest(paths.manifest);
-  if (!manifestResult.success || !manifestResult.data) {
-    throw new OrchestraError("Cannot load manifest", "CONFIG_ERROR");
-  }
-
-  const manifest = manifestResult.data;
-  const sprintId = manifest.sprint.id;
-
-  // Load progress
-  const progress = loadProgress(sprintId, orchestraRoot);
-
-  // Determine task ID from options, manifest, or progress
-  let taskId: number | undefined;
-  if (options.task) {
-    taskId = parseInt(options.task, 10);
-  } else if (manifest.current_task_id) {
-    taskId = manifest.current_task_id;
-  } else if (progress.entries.length > 0) {
-    // Get latest entry's task ID
-    const lastEntry = progress.entries[progress.entries.length - 1];
-    if (lastEntry) {
-      taskId = lastEntry.task_id;
-    }
-  }
-
-  if (!taskId) {
-    throw new OrchestraError(
-      "No task specified and no current task found",
-      "VALIDATION_ERROR"
-    );
-  }
-
-  // Get task from manifest
-  const task = getTask(manifest, taskId);
-  if (!task) {
-    throw new OrchestraError(
-      `Task ${taskId} not found in manifest`,
-      "VALIDATION_ERROR"
-    );
-  }
-
-  // Verify task is in progress - check progress log or task status
-  const taskEntry = progress.entries.filter((e) => e.task_id === taskId).pop();
-  const status = taskEntry?.status || task.status;
-
-  // Accept IMPLEMENT status (from progress) - task must be in implementation phase
-  if (status !== "IMPLEMENT") {
-    throw new OrchestraError(
-      `Task ${taskId} is not in progress. Current status: ${status}`,
-      "VALIDATION_ERROR"
-    );
-  }
-
-  // Verify handover exists
-  const handoverPath = path.join(paths.handovers, "current-task.md");
-  if (!fs.existsSync(handoverPath)) {
-    throw new OrchestraError(
-      `No handover found for task ${taskId}. The orchestrator must prepare the task first.`,
-      "VALIDATION_ERROR"
-    );
-  }
-
-  // Get or detect artifacts
-  let created: string[] = [];
-  let modified: string[] = [];
-
-  if (options.files && options.files.length > 0) {
-    // User specified - assume all are modified
-    modified = options.files;
-  } else {
-    // Auto-detect from git
-    try {
-      const gitStatusResult = await getGitStatus(orchestraRoot);
-      if (gitStatusResult.success && gitStatusResult.data) {
-        // Untracked files are "created"
-        created = gitStatusResult.data.untracked || [];
-        // Modified files are either staged or unstaged
-        modified = [
-          ...(gitStatusResult.data.staged || []),
-          ...(gitStatusResult.data.unstaged || []),
-        ];
-      }
-    } catch {
-      // Git not available or not a repo - continue without auto-detect
-    }
-  }
-
-  const tests = options.tests || [];
-
-  // Create signal file
-  const signaledAt = new Date().toISOString();
-  const signalData = {
-    version: "1.0",
-    task_id: taskId,
-    signaled_at: signaledAt,
-    summary: options.summary,
-    artifacts: {
-      created,
-      modified,
-    },
-    tests,
-    notes: options.notes || null,
-  };
-
-  // Ensure signals directory exists
-  const signalsDir =
-    paths.signals ||
-    path.join(orchestraRoot, ".orchestra", "implementor", "signals");
-  fs.mkdirSync(signalsDir, { recursive: true });
-
-  const signalPath = path.join(signalsDir, `task-${taskId}-signal.yaml`);
-  fs.writeFileSync(signalPath, yaml.stringify(signalData));
-
-  return {
-    success: true,
-    taskId,
-    summary: options.summary,
-    signalPath,
-    artifacts: { created, modified },
-    signaledAt,
-    nextStep: "Orchestrator runs accept-signal",
-  };
-}
 
 // =============================================================================
 // Accept-Signal (Orchestrator - Bible 8.4)

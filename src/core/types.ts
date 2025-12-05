@@ -184,7 +184,7 @@ export type HandoverMetadata = z.infer<typeof HandoverMetadataSchema>;
 
 /**
  * Completion signal schema
- * Files located at: .orchestra/implementor/signals/
+ * Files located at: .orchestra/handover/signals/
  */
 export const CompletionSignalSchema = z.object({
   task_id: z.number().int().positive(),
@@ -221,7 +221,7 @@ export type FailedCheck = z.infer<typeof FailedCheckSchema>;
 
 /**
  * Feedback document schema
- * Files located at: .orchestra/implementor/feedback/
+ * Files located at: .orchestra/handover/feedback/
  */
 export const FeedbackDocumentSchema = z.object({
   task_id: z.number().int().positive(),
@@ -392,8 +392,7 @@ export function failureResult(
 export const PathsConfigSchema = z.object({
   manifest: z.string().default("manifest.yaml"),
   handovers: z.string().default("handover"),
-  signals: z.string().default("implementor/signals"),
-  feedback: z.string().default("implementor/feedback"),
+  feedback: z.string().default("handover"),
   artifacts: z.string().default("artifacts"),
   templates: z.string().default("common/templates"),
 });
@@ -472,8 +471,7 @@ export const DEFAULT_CONFIG: OrchestraConfig = {
   paths: {
     manifest: "manifest.yaml",
     handovers: "handover",
-    signals: "implementor/signals",
-    feedback: "implementor/feedback",
+    feedback: "handover",
     artifacts: "artifacts",
     templates: "common/templates",
   },

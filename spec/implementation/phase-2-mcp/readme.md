@@ -63,7 +63,6 @@ orchestra/                     # Project root
 │           ├── status.ts         # orchestra status
 │           ├── closeout.ts       # orchestra closeout
 │           ├── prepare.ts        # orchestra prepare
-│           ├── signal.ts         # orchestra signal (Implementor)
 │           ├── accept_signal.ts  # orchestra accept-signal (Orchestrator)
 │           ├── verify.ts         # orchestra verify (Orchestrator)
 │           ├── complete.ts       # orchestra complete
@@ -73,6 +72,8 @@ orchestra/                     # Project root
 ├── package.json              # Add @modelcontextprotocol/sdk
 └── mcp.json                  # MCP server manifest
 ```
+
+> **Note**: No `signal.ts` tool - signaling is done by filling out the signal.md template. MCP can add a signal tool for convenience if needed.
 
 ## Tools
 
@@ -86,7 +87,6 @@ Tools are named to **match CLI commands exactly** per alignment decision Q3.
 | `status` | `orchestra status` | `sprint-status` | Both | Phase 1 |
 | `closeout` | `orchestra closeout` | `task-closeout-check` | Orchestrator | Phase 1 |
 | `prepare` | `orchestra prepare` | `prepare-handover` | Orchestrator | Phase 1 |
-| `signal` | `orchestra signal` | `signal-complete` | **Implementor** | Phase 1.2 |
 | `accept_signal` | `orchestra accept-signal` | `accept-signal-check` | Orchestrator | Phase 1 |
 | `verify` | `orchestra verify` | `verification-audit` | Orchestrator | Phase 1 |
 | `complete` | `orchestra complete` | (completes task) | Orchestrator | Phase 1 |
@@ -461,7 +461,7 @@ The MCP server should enforce role separation by context or configuration.
 | 2.4 | [status Tool](tasks/2.4-status.md) | Not Started | Wrap `orchestra status` |
 | 2.5 | [closeout Tool](tasks/2.5-closeout.md) | Not Started | Wrap `orchestra closeout` |
 | 2.6 | [prepare Tool](tasks/2.6-prepare.md) | Not Started | Wrap `orchestra prepare` |
-| 2.7 | [signal Tool](tasks/2.7-signal.md) | Not Started | Wrap `orchestra signal` (Implementor) |
+| 2.7 | ~~signal Tool~~ | Removed | No CLI command - signaling is manual file edit |
 | 2.8 | [accept_signal Tool](tasks/2.8-accept-signal.md) | Not Started | Wrap `orchestra accept-signal` |
 | 2.9 | [verify Tool](tasks/2.9-verify.md) | Not Started | Wrap `orchestra verify` |
 | 2.10 | [complete Tool](tasks/2.10-complete.md) | Not Started | Wrap `orchestra complete` |
@@ -471,9 +471,9 @@ The MCP server should enforce role separation by context or configuration.
 
 ### Dependencies
 
-- Tasks 2.3-2.12 depend on 2.2 (Server Core)
-- Task 2.13 depends on all tool tasks (2.3-2.12)
-- Tasks 2.7, 2.11, 2.12 depend on Phase 1.2 CLI completion
+- Tasks 2.3-2.12 (except 2.7) depend on 2.2 (Server Core)
+- Task 2.13 depends on all tool tasks
+- Tasks 2.11, 2.12 depend on Phase 1.2 CLI completion
 
 ## Dependencies
 

@@ -27,8 +27,7 @@ describe("Types", () => {
     it("should have correct default paths per Bible Section 6.1", () => {
       expect(DEFAULT_CONFIG.paths.manifest).toBe("manifest.yaml");
       expect(DEFAULT_CONFIG.paths.handovers).toBe("handover");
-      expect(DEFAULT_CONFIG.paths.signals).toBe("implementor/signals");
-      expect(DEFAULT_CONFIG.paths.feedback).toBe("implementor/feedback");
+      expect(DEFAULT_CONFIG.paths.feedback).toBe("handover");
       expect(DEFAULT_CONFIG.paths.artifacts).toBe("artifacts");
     });
 

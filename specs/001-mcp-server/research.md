@@ -200,12 +200,13 @@ async function withLock<T>(operation: () => Promise<T>): Promise<T> {
 | `orchestra status` | `statusCommand()` | ⚠️ | Currently in commands/, needs core extraction |
 | `orchestra closeout` | `runCloseoutChecks()` | ✅ | Returns CloseoutResult |
 | `orchestra prepare` | `runPrepare()` | ✅ | Returns PrepareResult |
-| `orchestra signal` | `runSignal()` | ✅ | Returns SignalResult |
 | `orchestra accept-signal` | `runAcceptSignal()` | ✅ | Returns AcceptSignalResult |
 | `orchestra verify` | `runVerification()` | ✅ | Returns VerifyResult |
 | `orchestra complete` | `runComplete()` | ✅ | Returns CompleteResult |
 | `orchestra feedback` | `runFeedback()` | ✅ | Returns FeedbackResult (Phase 1.2 complete) |
 | `orchestra escalate` | `runEscalate()` | ✅ | Returns EscalateResult (Phase 1.2 complete) |
+
+> **Note**: No `orchestra signal` command - signaling is done by filling out signal.md template.
 
 **Status**: ✅ Phase 1.2 complete - all commands ready for MCP wrapping.
 
@@ -265,15 +266,15 @@ export async function runStatus(workspaceRoot: string): Promise<StatusResult> {
 **Status**: ✅ Phase 1.2 Complete (as of 2025-12-04)
 
 All blocking commands now exist with full test coverage:
-- `orchestra signal` - 17 core + 8 command tests
 - `orchestra feedback` - 14 core + 10 command tests  
 - `orchestra escalate` - 11 core + 10 command tests
 
+> **Note**: `orchestra signal` was removed - the original design uses manual file editing for signaling.
+
 **Verification Criteria for Phase 1.2 Readiness**:
-- [x] `orchestra signal --summary "test" --files src/test.ts` works
 - [x] `orchestra feedback` generates feedback.md with guidance
 - [x] `orchestra escalate` creates escalation report for human review
-- [x] All three commands have corresponding `run*` functions in `src/core/`
+- [x] Both commands have corresponding `run*` functions in `src/core/`
 
 ## Core Library API Stability
 

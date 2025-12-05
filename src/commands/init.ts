@@ -73,8 +73,6 @@ const DEFAULT_FOLDERS = [
   "orchestrator/processes",
   "orchestrator/results",
   "handover",
-  "implementor/signals",
-  "implementor/feedback",
   "implementor/artifacts",
 ];
 
@@ -103,10 +101,6 @@ const TEMPLATE_MAPPINGS: Array<{ src: string; dest: string }> = [
   {
     src: "common/templates/feedback.md.hbs",
     dest: "common/templates/feedback.md.hbs",
-  },
-  {
-    src: "common/templates/signal.md.hbs",
-    dest: "common/templates/signal.md.hbs",
   },
   {
     src: "common/templates/task-results.md.hbs",

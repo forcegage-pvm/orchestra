@@ -47,18 +47,17 @@ The Phase 2 MCP specification was drafted before Phase 1 CLI was complete. Now t
 
 ### Analysis of Each Gap
 
-#### Gap 1: `signal-complete` (Implementor)
+#### Gap 1: `signal-complete` (Implementor) - RESOLVED
 
 **Bible Definition**: Implementor signals task completion, creates signal file.
 
-**Current State**: 
-- No CLI command `orchestra signal`
-- Bible Section 7.3 shows this maps to `orchestra signal`
-- Currently implementor just writes files manually
+**Resolution**: The original design has `orchestra prepare` create a `signal.md` template in `.orchestra/handover/`. The implementor fills this out manually. No CLI command needed.
 
-**Decision Needed**: Is this truly needed as a CLI command, or is manual file creation sufficient?
-
-**Recommendation**: Add `orchestra signal` command for consistency and to ensure proper signal file format.
+**Why No CLI Command**: 
+- The signal is a simple markdown file the implementor fills out
+- Adding a CLI command would encourage gaming the format
+- Manual editing is the original design intent
+- MCP Phase 2 may provide a `signal` tool for convenience
 
 #### Gap 2: `gate-check` (System)
 
@@ -107,9 +106,9 @@ Based on complete gap analysis:
 
 | Command | Priority | Status |
 |---------|----------|--------|
-| `orchestra feedback` | P0 - Blocking | Spec'd in Phase 1.2 |
-| `orchestra escalate` | P0 - Blocking | Spec'd in Phase 1.2 |
-| `orchestra signal` | P1 - Should have | **Not yet spec'd** |
+| `orchestra feedback` | P0 - Blocking | ✅ Implemented |
+| `orchestra escalate` | P0 - Blocking | ✅ Implemented |
+| Manual signal.md | N/A | ✅ Original design (no CLI command) |
 | `orchestra check` | P2 - Nice to have | Deferred |
 | `orchestra gate` | P3 - Optional | Covered by accept-signal |
 
@@ -278,15 +277,17 @@ Phase 1 uses lowercase status values (`pending`, `in_progress`, `completed`). MC
 
 **Decision**: Option A - Match Phase 1 exactly. One source of truth, no translation bugs.
 
-### Q5: `orchestra signal` Command
+### Q5: `signal-complete` Action - RESOLVED
 
-Bible specifies `signal-complete` as an Implementor action (CLI: `orchestra signal`). Currently not implemented.
+Bible specifies `signal-complete` as an Implementor action. 
 
-**Option A**: Add to Phase 1.2 scope ✅ **Decided**
-**Option B**: Defer (manual file creation) ❌ Rejected
-**Option C**: Part of Phase 2 MCP only ❌ Rejected
+**Resolution**: The original design has `orchestra prepare` create a `signal.md` template. The implementor fills this out manually. No CLI command needed.
 
-**Decision**: Option A - Add to Phase 1.2 to consolidate all tech debt. Implementor needs proper tooling.
+**Rationale**:
+- The signal is a simple markdown file the implementor fills out
+- Adding a CLI command would encourage gaming the format
+- Manual editing is the original design intent
+- MCP Phase 2 may provide a `signal` tool for convenience if needed
 
 ---
 

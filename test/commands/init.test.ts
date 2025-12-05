@@ -51,6 +51,7 @@ describe("init command", () => {
 
       // NOTE: No scripts folders - CLI commands ARE the implementation
       // See Bible Section 7.3 "CLI Command Mapping"
+      // No subfolders in handover - signal.md and feedback.md are transient files
       const expectedFolders = [
         ".orchestra/common/templates",
         ".orchestra/orchestrator/.orchestrator-only/verification",
@@ -58,8 +59,6 @@ describe("init command", () => {
         ".orchestra/orchestrator/processes",
         ".orchestra/orchestrator/results",
         ".orchestra/handover",
-        ".orchestra/implementor/signals",
-        ".orchestra/implementor/feedback",
         ".orchestra/implementor/artifacts",
       ];
 
@@ -308,6 +307,7 @@ describe("init command", () => {
       // Check all required folders exist
       // NOTE: No scripts folders - CLI commands ARE the implementation
       // See Bible Section 7.3 "CLI Command Mapping"
+      // No subfolders in handover - signal.md and feedback.md are transient files
       const requiredFolders = [
         ".orchestra",
         ".orchestra/common",
@@ -320,8 +320,6 @@ describe("init command", () => {
         ".orchestra/orchestrator/results",
         ".orchestra/handover",
         ".orchestra/implementor",
-        ".orchestra/implementor/signals",
-        ".orchestra/implementor/feedback",
         ".orchestra/implementor/artifacts",
       ];
 

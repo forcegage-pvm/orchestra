@@ -10,12 +10,13 @@ This directory contains the input/output schemas for all Orchestra MCP tools.
 | [status](./status.json) | Both | `orchestra status` | View sprint status |
 | [closeout](./closeout.json) | Orchestrator | `orchestra closeout` | Verify task closeout |
 | [prepare](./prepare.json) | Orchestrator | `orchestra prepare` | Prepare task handover |
-| [signal](./signal.json) | Implementor | `orchestra signal` | Signal completion |
 | [accept_signal](./accept_signal.json) | Orchestrator | `orchestra accept-signal` | Accept signal |
 | [verify](./verify.json) | Orchestrator | `orchestra verify` | Run verification |
 | [complete](./complete.json) | Orchestrator | `orchestra complete` | Complete task |
 | [feedback](./feedback.json) | Orchestrator | `orchestra feedback` | Generate feedback |
 | [escalate](./escalate.json) | Orchestrator | `orchestra escalate` | Escalate to human |
+
+> **Note**: No `signal` tool - signaling is done by filling out the signal.md template. MCP can add a signal tool for convenience if needed.
 
 ## Common Patterns
 

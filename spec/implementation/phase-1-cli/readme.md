@@ -9,15 +9,16 @@
 **Core functionality complete** (2025-12-04): 10 commands, 427 tests, reusable `src/core/`
 
 **Phase 1.2 Complete** (2025-01-14): Added missing failure-path commands:
-- `orchestra signal` - Create completion signal (implementor)
 - `orchestra feedback` - Generate feedback after verification failure
 - `orchestra escalate` - Escalate to human supervisor
+
+> **Note**: Signaling is done by filling out the `signal.md` template created by `orchestra prepare`. No separate CLI command.
 
 ---
 
 ## Deliverables
 
-- 10 CLI commands: `init`, `status`, `prepare`, `signal`, `accept-signal`, `verify`, `feedback`, `escalate`, `complete`, `closeout`
+- 9 CLI commands: `init`, `status`, `prepare`, `accept-signal`, `verify`, `feedback`, `escalate`, `complete`, `closeout`
 - Reusable `src/core/` library (no CLI dependencies)
 - Full end-to-end workflow verified
 - Integration tests for failure path

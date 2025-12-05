@@ -664,7 +664,7 @@ tasks:
 **2. Clear Orphaned Signals**
 ```bash
 # If signals directory has stale files
-rm .orchestra/implementor/signals/*
+rm .orchestra/handover/signals/*
 ```
 
 **3. Reset Task Attempts**
@@ -1608,14 +1608,14 @@ Before running `sprint-init`, verify:
    │   ├── Timestamp
    │   ├── Files created/modified
    │   └── Summary of changes
-   ├── Write to: .orchestra/implementor/signals/task-{id}-signal.md
+   ├── Write to: .orchestra/handover/signals/task-{id}-signal.md
    └── Trigger GATE CHECK phase
 ```
 
 **Artifacts produced**:
 - Source files created/modified
 - Test files created/modified
-- `.orchestra/implementor/signals/task-{id}-signal.md`
+- `.orchestra/handover/signals/task-{id}-signal.md`
 - Execution log (recommended)
 
 ---
@@ -1639,7 +1639,7 @@ Before running `sprint-init`, verify:
    ├── Input: Task ID, expected artifacts from manifest
    │
    ├── CHECK 1: Signal file exists
-   │   └── Verify .orchestra/implementor/signals/task-{id}-signal.md exists
+   │   └── Verify .orchestra/handover/signals/task-{id}-signal.md exists
    │
    ├── CHECK 2: Required files exist
    │   └── Verify all files listed in manifest.output_files exist
@@ -1803,7 +1803,7 @@ Before running `sprint-init`, verify:
    │   ├── Provide actionable guidance
    │   └── Increase specificity on repeated failures
    │
-   ├── Write to: .orchestra/implementor/feedback/task-{id}-attempt-{n}-feedback.md
+   ├── Write to: .orchestra/handover/feedback/task-{id}-attempt-{n}-feedback.md
    │
    └── Check escalation triggers:
        ├── IF attempts >= max_attempts → Trigger ESCALATE
@@ -1815,7 +1815,7 @@ Before running `sprint-init`, verify:
 ```
 
 **Artifacts produced**:
-- `.orchestra/implementor/feedback/task-{id}-attempt-{n}-feedback.md`
+- `.orchestra/handover/feedback/task-{id}-attempt-{n}-feedback.md`
 - Updated `progress.yaml` (attempts incremented)
 
 ---
@@ -2013,7 +2013,7 @@ The abstract script names above map to CLI subcommands in the reference implemen
 | `sprint-status` | `orchestra status` | Show sprint progress |
 | `prepare-handover` | `orchestra prepare` | Generate handover for next task |
 | `validate-handover` | (part of `prepare`) | Validation runs automatically |
-| `signal-complete` | `orchestra signal` | Signal task completion |
+| `signal-complete` | (manual file edit) | Implementor fills out signal.md template |
 | `pre-signal-check` | `orchestra check` | Self-check before signaling |
 | `gate-check` | `orchestra gate` | Run deterministic checks |
 | `verification-audit` | `orchestra verify` | Run hidden verification |
@@ -2031,7 +2031,7 @@ orchestra init --spec specs/feature.md
 orchestra prepare --task 1
 
 # Signal completion (as implementor)
-orchestra signal --task 1
+# Fill out .orchestra/handover/signal.md template created by prepare
 
 # Run verification (as orchestrator)
 orchestra verify --task 1
@@ -2046,7 +2046,7 @@ orchestra verify --task 1
 | `sprint-init` | No manifest, nothing can run |
 | `prepare-handover` | Implementor has no instructions |
 | `validate-handover` | Verification criteria may leak |
-| `signal-complete` | Task stuck in IMPLEMENT forever |
+| `signal-complete` (signal.md) | Task stuck in IMPLEMENT forever |
 | `gate-check` | Broken code may reach verification |
 | `verification-audit` | Implementation theater passes undetected |
 | `accept-signal-check` | Incomplete tasks marked complete |
@@ -2259,7 +2259,7 @@ This section defines what each script must accomplish **abstractly**. Platform-s
 4. Trigger gate check
 
 **Outputs**:
-- `.orchestra/implementor/signals/task-{id}-signal.md`
+- `.orchestra/handover/signals/task-{id}-signal.md`
 - Gate check initiated
 
 **Success criteria**:
@@ -2474,7 +2474,7 @@ This section defines what each script must accomplish **abstractly**. Platform-s
 4. Write feedback file
 
 **Outputs**:
-- `.orchestra/implementor/feedback/task-{id}-feedback.md`
+- `.orchestra/handover/feedback/task-{id}-feedback.md`
 
 **Success criteria**:
 - Feedback is actionable
@@ -3963,7 +3963,7 @@ Lint:  ✅ Passed
 ► signal-complete --task-id 1
 ```
 
-**Result**: Creates `.orchestra/implementor/signals/task-1-signal.md`:
+**Result**: Creates `.orchestra/handover/signals/task-1-signal.md`:
 
 ```markdown
 # Completion Signal: Task 1
@@ -4298,7 +4298,7 @@ grep -A5 "status: in_progress" .orchestra/orchestrator/progress.yaml
 
 # 3. Any signals waiting
 echo "=== Pending Signals ==="
-ls -la .orchestra/implementor/signals/ 2>/dev/null || echo "(none)"
+ls -la .orchestra/handover/signals/ 2>/dev/null || echo "(none)"
 
 # 4. Recent failures
 echo "=== Recent Failures ==="
@@ -4349,9 +4349,9 @@ This appendix provides quick lookup tables for common operations. Use this for r
 |------|-------|-------------|
 | Task manifest | `.orchestra/orchestrator/.orchestrator-only/manifest.yaml` | Orchestrator only |
 | Progress tracker | `.orchestra/orchestrator/.orchestrator-only/progress.yaml` | Orchestrator only |
-| Handover documents | `.orchestra/implementor/handovers/` | Both |
-| Completion signals | `.orchestra/implementor/signals/` | Both |
-| Feedback files | `.orchestra/implementor/feedback/` | Both |
+| Handover documents | `.orchestra/handover/` | Both |
+| Completion signals | `.orchestra/handover/signals/` | Both |
+| Feedback files | `.orchestra/handover/feedback/` | Both |
 | Hidden verification | `.orchestra/orchestrator/.orchestrator-only/` | Orchestrator only |
 | Archived artifacts | `.orchestra/artifacts/` | Orchestrator only |
 
@@ -4406,7 +4406,7 @@ PENDING ──► PREPARE ──► IMPLEMENT ──► GATE CHECK ──► VER
 | Skip task entirely | Edit `progress.yaml`: set `status: skipped`, add `skip_reason` |
 | Reset task | Edit `progress.yaml`: set `status: pending`, `attempts: 0` |
 | Halt sprint | Edit `progress.yaml`: set `sprint.status: halted` |
-| Clear stuck signals | Delete files in `.orchestra/implementor/signals/` |
+| Clear stuck signals | Delete files in `.orchestra/handover/signals/` |
 
 ## G.8 Common Errors and Solutions
 

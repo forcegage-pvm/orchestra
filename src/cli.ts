@@ -15,7 +15,6 @@ import { createEscalateCommand } from "./commands/escalate.js";
 import { createFeedbackCommand } from "./commands/feedback.js";
 import { createInitCommand } from "./commands/init.js";
 import { createPrepareCommand } from "./commands/prepare.js";
-import { createSignalCommand } from "./commands/signal.js";
 import { statusCommand } from "./commands/status.js";
 import { createVerifyCommand } from "./commands/verify.js";
 
@@ -62,9 +61,6 @@ program.addCommand(createPrepareCommand());
 
 // Accept-signal command - verify implementor ran pre-signal check
 program.addCommand(createAcceptSignalCommand());
-
-// Signal command - create completion signal (implementor)
-program.addCommand(createSignalCommand());
 
 // Verify command - run verification checks
 program.addCommand(createVerifyCommand());

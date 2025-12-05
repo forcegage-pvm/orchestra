@@ -7,25 +7,22 @@
 
 ## Tasks
 
-- [ ] T001 [P] Feedback Command - Implement `orchestra feedback` command
+- [x] T001 [P] Feedback Command - Implement `orchestra feedback` command
   - See: [1.2.1-feedback-command.md](tasks/1.2.1-feedback-command.md)
   - Category: INTEGRATION
   - Dependencies: none
 
-- [ ] T002 [P] Escalate Command - Implement `orchestra escalate` command
+- [x] T002 [P] Escalate Command - Implement `orchestra escalate` command
   - See: [1.2.2-escalate-command.md](tasks/1.2.2-escalate-command.md)
   - Category: INTEGRATION
   - Dependencies: none
 
-- [ ] T003 [P] Integration Testing - E2E failure path testing
+- [x] T003 [P] Integration Testing - E2E failure path testing
   - See: [1.2.3-integration-testing.md](tasks/1.2.3-integration-testing.md)
   - Category: INTEGRATION
-  - Dependencies: [1, 2, 4]
+  - Dependencies: [1, 2]
 
-- [ ] T004 [P] Signal Command - Implement `orchestra signal` command
-  - See: [1.2.4-signal-command.md](tasks/1.2.4-signal-command.md)
-  - Category: CORE
-  - Dependencies: none
+> **Removed**: T004 Signal Command - Removed because the original design uses manual file editing for signaling. See Phase 1.2 readme for clarification.
 
 ---
 

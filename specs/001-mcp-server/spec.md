@@ -204,7 +204,8 @@ When verification fails, the Orchestrator agent needs to generate actionable fee
 
 ## Assumptions
 
-- Phase 1.2 CLI Technical Debt is completed before Phase 2 begins (specifically: `orchestra signal`, `orchestra feedback`, `orchestra escalate` commands exist).
+- Phase 1.2 CLI Technical Debt is completed before Phase 2 begins (specifically: `orchestra feedback`, `orchestra escalate` commands exist).
+- Signaling is done by implementor filling out the signal.md template (no CLI command).
 - MCP SDK (@modelcontextprotocol/sdk) version 0.6.0+ is stable and supports STDIO transport.
 - VS Code Copilot supports MCP tool discovery and calling via `github.copilot.chat.mcpServers` configuration.
 - Core library functions (`runPrepare`, `runVerification`, etc.) have stable APIs that don't require modification for MCP wrapping.

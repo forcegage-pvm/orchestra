@@ -43,11 +43,14 @@ git add .
 
 ### 6. Signal Completion (MANDATORY)
 
-Update `.orchestra/handover/completion-signal.md`:
+Fill out the `signal.md` template in `.orchestra/handover/` that was created during task preparation.
 
-- Change status to **COMPLETE**
+The signal file includes:
+
+- Task ID and timestamp
+- Work summary and notes
 - List files created/modified
-- Include test results summary
+- Test results summary
 
 ### 7. Notify
 

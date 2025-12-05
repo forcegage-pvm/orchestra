@@ -51,17 +51,17 @@ The `.orchestra/` folder is the self-contained root of all Orchestra artifacts. 
 │   └── results/                       # Verification results
 │       └── {timestamp}.yaml
 │
-├── handover/                          # CURRENT TASK HANDOVER
+├── handover/                          # NEUTRAL ZONE (all communication)
 │   ├── current-task.md                # Active task instructions
 │   ├── task-context.md                # Background context
-│   ├── completion-signal.md           # Implementor fills this
-│   └── agent_readme.md                # Implementor guide
+│   ├── completion-signal.md           # Legacy (prefer signals/ folder)
+│   ├── agent_readme.md                # Implementor guide
+│   ├── signals/                       # Completion signals
+│   │   └── task-{id}-signal.yaml
+│   └── feedback/                      # Orchestrator feedback on failures
+│       └── task-{id}-feedback.md
 │
 ├── implementor/                       # IMPLEMENTOR DOMAIN
-│   ├── signals/                       # Completion signals (archive)
-│   │   └── task-{id}-signal.yaml
-│   ├── feedback/                      # Orchestrator feedback
-│   │   └── task-{id}-feedback.md
 │   └── artifacts/                     # Task output artifacts
 │       └── task-{id}/
 │
@@ -103,15 +103,23 @@ Everything the orchestrator needs to plan, verify, and track progress.
 | `processes/` | Orchestrator process documentation | Public |
 | `results/` | Verification results | Orchestrator ONLY |
 
-### `implementor/`
+### `handover/`
 
-Everything the implementor needs to receive work and signal completion.
+The **neutral zone** for all orchestrator-implementor communication.
 
 | Subfolder | Purpose | Visibility |
 |-----------|---------|------------|
-| `handovers/` | Task handover documents | Implementor reads |
-| `signals/` | Completion signal files | Implementor writes |
-| `feedback/` | Retry feedback from orchestrator | Implementor reads |
+| `signals/` | Completion signals from implementor | Both roles |
+| `feedback/` | Retry feedback from orchestrator | Both roles |
+| Root files | Task instructions, context | Both roles |
+
+### `implementor/`
+
+Implementor-specific artifacts and logs.
+
+| Subfolder | Purpose | Visibility |
+|-----------|---------|------------|
+| `artifacts/` | Task output artifacts | Both roles |
 
 ### `artifacts/`
 
@@ -173,10 +181,11 @@ Archived outputs from completed tasks.
 | `manifest.yaml` | ✅ Read/Write | ❌ NEVER | ✅ Full |
 | `progress.yaml` | ✅ Read/Write | ❌ NEVER | ✅ Full |
 | `.orchestrator-only/` | ✅ Read/Write | ❌ NEVER | ✅ Full |
-| `implementor/handovers/` | ✅ Read/Write | ✅ Read | ✅ Full |
-| `implementor/signals/` | ✅ Read | ✅ Read/Write | ✅ Full |
-| `implementor/feedback/` | ✅ Read/Write | ✅ Read | ✅ Full |
+| `handover/` | ✅ Read/Write | ✅ Read/Write | ✅ Full |
+| `handover/signals/` | ✅ Read | ✅ Read/Write | ✅ Full |
+| `handover/feedback/` | ✅ Read/Write | ✅ Read | ✅ Full |
 | `common/` | ✅ Read | ✅ Read | ✅ Full |
+| `implementor/artifacts/` | ✅ Read/Write | ✅ Read/Write | ✅ Full |
 | `artifacts/` | ✅ Read/Write | ⚠️ Read (after task) | ✅ Full |
 | `docs/` | ✅ Read/Write | ✅ Read | ✅ Full |
 

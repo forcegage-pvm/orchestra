@@ -128,8 +128,8 @@ describe("Configuration Service", () => {
       expect(paths.handovers).toBe(
         path.join(tempDir, ".orchestra", "handover")
       );
-      expect(paths.signals).toBe(
-        path.join(tempDir, ".orchestra", "implementor/signals")
+      expect(paths.feedback).toBe(
+        path.join(tempDir, ".orchestra", "handover")
       );
     });
   });
@@ -168,12 +168,7 @@ describe("Configuration Service", () => {
       expect(fs.existsSync(path.join(tempDir, ".orchestra", "handover"))).toBe(
         true
       );
-      expect(
-        fs.existsSync(path.join(tempDir, ".orchestra", "implementor/signals"))
-      ).toBe(true);
-      expect(
-        fs.existsSync(path.join(tempDir, ".orchestra", "implementor/feedback"))
-      ).toBe(true);
+      // feedback.md is a transient file, not a folder
       expect(config.version).toBe(DEFAULT_CONFIG.version);
     });
 
