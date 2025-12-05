@@ -16,7 +16,8 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import ora from "ora";
-import { findOrchestraRoot, saveConfig } from "../core/config.js";
+import { findOrchestraRoot, loadConfig, saveConfig } from "../core/config.js";
+import { commit, stageFiles } from "../core/git.js";
 import * as output from "../core/output.js";
 import { DEFAULT_CONFIG } from "../core/types.js";
 
@@ -34,6 +35,79 @@ export interface InitOptions {
   dryRun?: boolean;
   /** Override Orchestra root directory (for testing) */
   orchestraRoot?: string;
+  /** Stage generated files to git */
+  gitStage?: boolean;
+  /** Commit generated files to git (implies --git-stage) */
+  gitCommit?: boolean;
+}
+
+/**
+ * Result of git operations
+ */
+interface GitOperationResult {
+  staged: boolean;
+  committed: boolean;
+  commitHash?: string;
+  error?: string;
+}
+
+/**
+ * Perform git operations with graceful error handling
+ * Git failures are non-fatal - init succeeds even if git fails
+ */
+async function performGitOperations(
+  cwd: string,
+  orchestraDir: string,
+  options: { stage: boolean; commit: boolean }
+): Promise<GitOperationResult> {
+  const result: GitOperationResult = {
+    staged: false,
+    committed: false,
+  };
+
+  try {
+    // Stage the .orchestra directory
+    if (options.stage) {
+      const relativePath = path.relative(cwd, orchestraDir);
+      const stageResult = await stageFiles(cwd, [relativePath]);
+
+      if (!stageResult.success) {
+        result.error = `Git stage failed: ${stageResult.message}`;
+        return result;
+      }
+      result.staged = true;
+    }
+
+    // Commit if requested
+    if (options.commit && result.staged) {
+      // Try to load config to get commit prefix, use default if not available
+      let prefix = "orchestra";
+      try {
+        const existingConfig = loadConfig(cwd);
+        if (existingConfig?.git?.commit_prefix) {
+          prefix = existingConfig.git.commit_prefix;
+        }
+      } catch {
+        // Config doesn't exist yet during init, use default
+      }
+
+      const commitMessage = `${prefix}: Initialize Orchestra structure`;
+      const commitResult = await commit(cwd, commitMessage);
+
+      if (!commitResult.success) {
+        result.error = `Git commit failed: ${commitResult.message}`;
+        return result;
+      }
+      result.committed = true;
+      if (commitResult.data) {
+        result.commitHash = commitResult.data;
+      }
+    }
+  } catch (error) {
+    result.error = error instanceof Error ? error.message : "Unknown git error";
+  }
+
+  return result;
 }
 
 /**
@@ -147,6 +221,11 @@ export function initCommand(): Command {
     .option("-f, --force", "Overwrite existing configuration")
     .option("--json", "Output as JSON")
     .option("--dry-run", "Show what would be created without creating")
+    .option("--git-stage", "Stage generated files to git")
+    .option(
+      "--git-commit",
+      "Commit generated files to git (implies --git-stage)"
+    )
     .action(async (options: InitOptions) => {
       await runInit(options);
     });
@@ -243,25 +322,46 @@ export async function runInit(options: InitOptions): Promise<void> {
     const progressContent = generateProgressTemplate();
     fs.writeFileSync(progressPath, progressContent, "utf-8");
 
+    // Git operations if requested
+    let gitResult: GitOperationResult | undefined;
+    const shouldStage = options.gitStage === true || options.gitCommit === true;
+    const shouldCommit = options.gitCommit === true;
+
+    if (shouldStage) {
+      gitResult = await performGitOperations(cwd, orchestraDir, {
+        stage: shouldStage,
+        commit: shouldCommit,
+      });
+    }
+
     spinner?.succeed("Orchestra initialized successfully");
 
     if (options.json) {
-      console.log(
-        JSON.stringify({
-          success: true,
-          path: orchestraDir,
-          folders: DEFAULT_FOLDERS,
-          files: [
-            ...TEMPLATE_MAPPINGS.map((m) => m.dest),
-            "manifest.yaml",
-            "progress.yaml",
-            "orchestra.yaml",
-          ],
-          spec_path: options.spec,
-        })
-      );
+      const jsonOutput: Record<string, unknown> = {
+        success: true,
+        path: orchestraDir,
+        folders: DEFAULT_FOLDERS,
+        files: [
+          ...TEMPLATE_MAPPINGS.map((m) => m.dest),
+          "manifest.yaml",
+          "progress.yaml",
+          "orchestra.yaml",
+        ],
+        spec_path: options.spec,
+      };
+
+      if (gitResult) {
+        jsonOutput.git = {
+          staged: gitResult.staged,
+          committed: gitResult.committed,
+          commitHash: gitResult.commitHash,
+          error: gitResult.error,
+        };
+      }
+
+      console.log(JSON.stringify(jsonOutput));
     } else {
-      showSuccess(orchestraDir, options.spec);
+      showSuccess(orchestraDir, options.spec, gitResult);
     }
   } catch (error) {
     spinner?.fail("Failed to initialize Orchestra");
@@ -392,7 +492,11 @@ entries: []
 /**
  * Show success message with created structure
  */
-function showSuccess(orchestraDir: string, specPath?: string): void {
+function showSuccess(
+  orchestraDir: string,
+  specPath?: string,
+  gitResult?: GitOperationResult
+): void {
   console.log("");
   output.print.success("Orchestra initialized!");
   console.log("");
@@ -413,6 +517,32 @@ function showSuccess(orchestraDir: string, specPath?: string): void {
   console.log("    └── handover/           # Active handover folder");
   console.log("        └── agent_readme.md # Implementor instructions");
   console.log("");
+
+  // Show git results if operations were attempted
+  if (gitResult) {
+    if (gitResult.error) {
+      console.log(chalk.bold("Git:"));
+      console.log(`  ${chalk.yellow("⚠")} ${gitResult.error}`);
+      console.log(
+        chalk.dim(
+          "    (Orchestra initialized successfully, git operation failed)"
+        )
+      );
+      console.log("");
+    } else if (gitResult.committed && gitResult.commitHash) {
+      console.log(chalk.bold("Git:"));
+      console.log(
+        `  ${chalk.green("✓")} Committed: ${chalk.cyan(
+          gitResult.commitHash.substring(0, 7)
+        )}`
+      );
+      console.log("");
+    } else if (gitResult.staged) {
+      console.log(chalk.bold("Git:"));
+      console.log(`  ${chalk.green("✓")} Files staged`);
+      console.log("");
+    }
+  }
 
   console.log(chalk.bold("Next steps:"));
   console.log("");

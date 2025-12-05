@@ -7,7 +7,7 @@
 
 ## Index
 
-- [ ] [TD-001: Git Actions CLI Automation](#td-001-git-actions-cli-automation)
+- [x] [TD-001: Git Actions CLI Automation](#td-001-git-actions-cli-automation)
 - [ ] [TD-002: orchestra next Command](#td-002-orchestra-next-command)
 - [ ] [TD-003: Template-Based Config Generation](#td-003-template-based-config-generation)
 - [ ] [TD-004: Review and Update Sprint Initialization Process Guide](#td-004-review-and-update-sprint-initialization-process-guide)
@@ -22,49 +22,63 @@
 
 ## TD-001: Git Actions CLI Automation
 
-**Status**: 🔴 Not Started  
+**Status**: ✅ Complete  
 **Priority**: Medium  
 **Identified**: 2025-12-05  
+**Completed**: 2025-12-09  
 **Source**: [init.md - Git Actions](init.md#git-actions)
 
 ### Description
 
 The workflow documentation recommends git actions (commit, stage) after various CLI commands, but the CLI does not currently automate these actions.
 
-### Current State
+### Implementation Summary
 
-- Git actions are documented as manual steps
-- Users must remember to commit after `orchestra init`, `orchestra prepare`, etc.
-- No CLI flags for automatic git staging/committing
-
-### Proposed Solution
-
-Add optional git automation to CLI commands:
+Added git automation flags to `orchestra init` and `orchestra prepare` commands:
 
 ```bash
-# Option 1: Per-command flags
-orchestra init --git-commit
+# Stage generated files
+orchestra init --git-stage
 orchestra prepare --task 1 --git-stage
 
-# Option 2: Global configuration in orchestra.yaml
-git:
-  auto_stage: true
-  auto_commit: false
-  commit_prefix: "chore(orchestra):"
+# Commit generated files (implies --git-stage)
+orchestra init --git-commit
+orchestra prepare --task 1 --git-commit
 ```
+
+### Changes Made
+
+1. **`src/core/git.ts`**: Added `push()` function for consistency
+2. **`src/commands/init.ts`**: Added `--git-stage` and `--git-commit` flags
+   - Stages `.orchestra/` directory
+   - Commits with configurable prefix from `orchestra.yaml`
+3. **`src/commands/prepare.ts`**: Added `--git-stage` and `--git-commit` flags
+   - Stages generated handover files
+   - Commits with task ID and title in message
+4. **Tests**: Added 4 new tests for git flag options
+
+### Key Design Decisions
+
+- Git operations fail gracefully (non-fatal errors)
+- Git failures don't block successful command execution
+- Error messages are descriptive for troubleshooting
+- JSON output includes git operation results
+- Commit prefix read from `orchestra.yaml` config (`git.commit_prefix`)
 
 ### Acceptance Criteria
 
-- [ ] CLI can optionally stage files after creation
-- [ ] CLI can optionally commit with conventional commit message
-- [ ] Behavior is configurable in `orchestra.yaml`
-- [ ] Git operations fail gracefully if not in a git repo
+- [x] CLI can optionally stage files after creation
+- [x] CLI can optionally commit with conventional commit message
+- [x] Behavior is configurable in `orchestra.yaml`
+- [x] Git operations fail gracefully if not in a git repo
 
 ### Related Files
 
-- `src/core/git.ts` - Existing git utilities
-- `src/commands/init.ts` - Init command
-- `src/commands/prepare.ts` - Prepare command
+- `src/core/git.ts` - Git utilities (added `push()`)
+- `src/commands/init.ts` - Init command with git flags
+- `src/commands/prepare.ts` - Prepare command with git flags
+- `test/commands/init.test.ts` - Tests for git options
+- `test/commands/prepare.test.ts` - Tests for git options
 
 ---
 

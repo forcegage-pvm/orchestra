@@ -171,6 +171,18 @@ describe("prepare command", () => {
       const option = command.options.find((o) => o.long === "--skip-closeout");
       expect(option).toBeDefined();
     });
+
+    it("should have --git-stage option", () => {
+      const command = createPrepareCommand();
+      const option = command.options.find((o) => o.long === "--git-stage");
+      expect(option).toBeDefined();
+    });
+
+    it("should have --git-commit option", () => {
+      const command = createPrepareCommand();
+      const option = command.options.find((o) => o.long === "--git-commit");
+      expect(option).toBeDefined();
+    });
   });
 
   // ==========================================================================

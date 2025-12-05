@@ -129,6 +129,21 @@ export async function commit(
 }
 
 /**
+ * Push changes to remote
+ */
+export async function push(cwd: string): Promise<ScriptResult> {
+  try {
+    const git = getGit(cwd);
+    await git.push();
+    return successResult("Changes pushed to remote");
+  } catch (error) {
+    return failureResult(
+      error instanceof Error ? error.message : "Failed to push"
+    );
+  }
+}
+
+/**
  * Get current commit hash
  */
 export async function getCurrentCommit(

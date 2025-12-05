@@ -393,5 +393,19 @@ describe("init command", () => {
       const dryRunOpt = command.options.find((o) => o.long === "--dry-run");
       expect(dryRunOpt).toBeDefined();
     });
+
+    it("should have git-stage option", () => {
+      const command = initCommand();
+      const gitStageOpt = command.options.find((o) => o.long === "--git-stage");
+      expect(gitStageOpt).toBeDefined();
+    });
+
+    it("should have git-commit option", () => {
+      const command = initCommand();
+      const gitCommitOpt = command.options.find(
+        (o) => o.long === "--git-commit"
+      );
+      expect(gitCommitOpt).toBeDefined();
+    });
   });
 });
