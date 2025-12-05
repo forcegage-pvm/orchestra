@@ -26,22 +26,30 @@ The file-based system ensures:
 ```
 .orchestra/
 ├── manifest.yaml                    # Sprint state, task list, progress
+├── progress.yaml                    # Runtime state tracking
+├── handover/                        # Active handover documents (Orchestrator → Implementor)
+│   ├── current-task.md              # Main handover document
+│   ├── completion-signal.md         # Signal template for implementor
+│   ├── task-context.md              # Background context
+│   └── preflight-checklist.yaml     # Pre-flight checklist (until archived)
 ├── implementor/
-│   ├── handovers/                   # Handover documents (Orchestrator → Implementor)
-│   │   ├── task-001.md
-│   │   ├── task-002.md
-│   │   └── ...
 │   ├── signals/                     # Completion signals (Implementor → Orchestrator)
 │   │   ├── task-001-complete.signal
 │   │   └── ...
 │   └── feedback/                    # Retry feedback (Orchestrator → Implementor)
-│       ├── task-001-feedback.md    # Feedback from orchestrator if verification fails
+│       ├── task-001-feedback.md     # Feedback from orchestrator if verification fails
 │       └── ...
 ├── artifacts/                       # Archived task artifacts
 │   ├── task-001/
 │   ├── task-002/
 │   └── ...
 └── orchestrator/                    # Orchestrator-only area
+    ├── .orchestrator-only/          # Hidden from implementor
+    │   ├── verification/            # Hidden verification criteria
+    │   │   └── task-N.yaml
+    │   └── preflight/               # Handover audit trail
+    │       ├── task-N.md            # Copy of handover given to implementor
+    │       └── preflight-task-N.yaml # Completed pre-flight checklist
     └── scripts/                     # Orchestrator scripts
 ```
 
@@ -63,8 +71,11 @@ implementor/handovers/
 ### State 2: PREPARED (Task Ready)
 
 ```
-implementor/handovers/
-└── task-005.md         # Filled with task details
+handover/
+├── current-task.md         # Main handover document
+├── completion-signal.md    # Signal template
+├── task-context.md         # Background context
+└── preflight-checklist.yaml # Pre-flight checklist (before archival)
 ```
 
 **When**: Orchestrator has prepared handover
@@ -74,8 +85,10 @@ implementor/handovers/
 ### State 3: ACTIVE (Work In Progress)
 
 ```
-implementor/handovers/
-└── task-005.md         # Reference during implementation
+handover/
+├── current-task.md         # Reference during implementation
+├── completion-signal.md    # Template for signaling
+└── task-context.md         # Background reference
 ```
 
 **When**: Implementor actively working
@@ -85,8 +98,10 @@ implementor/handovers/
 ### State 4: SIGNALED (Awaiting Verification)
 
 ```
-implementor/handovers/
-└── task-005.md                      # Reference
+handover/
+├── current-task.md                  # Reference
+├── completion-signal.md             # Signal template
+└── task-context.md                  # Background reference
 
 implementor/signals/
 └── task-005-complete.signal         # Completion signal
@@ -103,7 +118,11 @@ implementor/signals/
 ```
 handover/
 ├── current-task.md                  # Original handover (unchanged)
-└── feedback.md                      # Feedback for retry
+├── completion-signal.md             # Signal template
+└── task-context.md                  # Background reference
+
+implementor/feedback/
+└── task-005-feedback.md             # Feedback for retry
 ```
 
 **When**: Verification failed, retry allowed
@@ -132,10 +151,13 @@ artifacts/
 
 | File | Location | Purpose |
 |------|----------|---------|
-| Handover documents | `implementor/handovers/` | Task specifications |
+| Handover documents | `handover/` | Task specifications |
 | Feedback documents | `implementor/feedback/` | Retry instructions |
 | Manifest | `manifest.yaml` | Sprint and task state |
-| Verification criteria | `orchestrator/` area | Hidden from Implementor |
+| Progress | `progress.yaml` | Runtime state tracking |
+| Verification criteria | `orchestrator/.orchestrator-only/verification/` | Hidden from Implementor |
+| Handover audit | `orchestrator/.orchestrator-only/preflight/task-N.md` | Accountability record |
+| Pre-flight audit | `orchestrator/.orchestrator-only/preflight/preflight-task-N.yaml` | Verification record |
 
 ### Implementor-Owned Files
 
@@ -152,98 +174,117 @@ artifacts/
 
 **Trigger**: Previous task complete or sprint start
 **Actor**: Orchestrator
-**Scripts**: `validate-handover.ps1`, `prepare-handover.ps1`
+**Command**: `orchestra prepare`
+**Reference**: [docs/workflow/prepare.md](../../docs/workflow/prepare.md)
 
 ```powershell
-# 1. Verify previous task closed (if not first task)
-.orchestra/orchestrator/scripts/task-closeout-check.ps1
+# 1. Run closeout check (verifies previous task closed)
+# Automatic in CLI
 
-# 2. Create handover document
-# Location: .orchestra/implementor/handovers/task-{id}.md
+# 2. Run prepare command
+orchestra prepare --task N
 
-# 3. Fill with task details from manifest
+# Generated files:
+#   .orchestra/handover/current-task.md
+#   .orchestra/handover/completion-signal.md
+#   .orchestra/handover/task-context.md
+#   .orchestra/handover/preflight-checklist.yaml
 
-# 4. Validate handover is complete
-.orchestra/orchestrator/scripts/validate-handover.ps1
+# 3. Orchestrator completes handover content (fills TODOs)
 
-# 5. Prepare handover for Implementor
-.orchestra/orchestrator/scripts/prepare-handover.ps1
+# 4. Orchestrator completes pre-flight checklist
 
-# 6. Update manifest status: PENDING → IMPLEMENT
+# 5. Verify handover is complete
+
+# 6. Save handover audit trail
+cp .orchestra/handover/current-task.md .orchestra/orchestrator/.orchestrator-only/preflight/task-N.md
+
+# 7. Archive pre-flight checklist
+mv .orchestra/handover/preflight-checklist.yaml .orchestra/orchestrator/.orchestrator-only/preflight/preflight-task-N.yaml
+
+# 8. Update manifest status: PENDING → IMPLEMENT
+# Automatic in CLI
 ```
 
 ### Signal Completion (ACTIVE → SIGNALED)
 
 **Trigger**: Implementor finished work
 **Actor**: Implementor
-**Scripts**: `pre-signal-check.ps1`, `signal-complete.ps1`
+**Reference**: implement.md (to be created)
 
 ```powershell
-# 1. Run pre-signal validation
-.orchestra/implementor/scripts/pre-signal-check.ps1
+# 1. Implementor fills completion-signal.md with:
+#    - Summary of work done
+#    - Files created/modified
+#    - Tests added
+#    - Any notes for verifier
 
-# 2. If passed, create signal file
-.orchestra/implementor/scripts/signal-complete.ps1
+# 2. Run accept-signal command
+orchestra accept-signal
 
-# Signal file location: .orchestra/implementor/signals/task-{id}-complete.signal
+# Signal file created: .orchestra/implementor/signals/task-{id}-complete.signal
 
 # 3. Manifest status: IMPLEMENT → GATE_CHECK
+# Automatic in CLI
 ```
 
 ### Accept Signal (SIGNALED → VERIFY)
 
 **Trigger**: Implementor signaled completion
 **Actor**: Orchestrator
-**Scripts**: `accept-signal-check.ps1`, `gate-check.ps1`
+**Command**: `orchestra verify`
+**Reference**: verify.md (to be created)
 
 ```powershell
-# 1. Check signal file exists
-.orchestra/orchestrator/scripts/accept-signal-check.ps1
+# 1. Verify signal file exists
+# Automatic in CLI
 
-# 2. Run automated verification
-.orchestra/orchestrator/scripts/gate-check.ps1
+# 2. Run verification checks
+orchestra verify
 
 # 3. Manifest status: GATE_CHECK → VERIFY (if passed)
+# Automatic in CLI
 ```
 
 ### Archive Task (VERIFY → COMPLETE)
 
 **Trigger**: Verification passed
 **Actor**: Orchestrator
-**Scripts**: `task-closeout-check.ps1`
+**Command**: `orchestra complete`
+**Reference**: complete.md (to be created)
 
 ```powershell
-# 1. Run verification audit
-.orchestra/orchestrator/scripts/verification-audit.ps1
+# 1. Run complete command
+orchestra complete
 
-# 2. Create archive folder
+# 2. Creates archive folder
 # Location: .orchestra/artifacts/task-{id}/
 
-# 3. Copy handover and artifacts to archive
+# 3. Copies handover and artifacts to archive
 
-# 4. Add verification results
+# 4. Adds verification results
 
-# 5. Verify ready for closeout
-.orchestra/orchestrator/scripts/task-closeout-check.ps1
+# 5. Clears current handover (handover/ folder)
 
 # 6. Update manifest status: VERIFY → COMPLETE
-
-# 7. Clear current handover (task-specific files)
+# Automatic in CLI
 ```
 
 ### Generate Feedback (VERIFY → RETRY)
 
 **Trigger**: Verification failed
 **Actor**: Orchestrator
-**Scripts**: `generate-feedback.ps1`
+**Command**: `orchestra feedback`
+**Reference**: feedback.md (to be created)
 
 ```powershell
-# 1. Create feedback document
-.orchestra/orchestrator/scripts/generate-feedback.ps1
+# 1. Run feedback command
+orchestra feedback
 
-# Feedback file location: .orchestra/handover/feedback.md
+# Feedback file location: .orchestra/implementor/feedback/task-{id}-feedback.md
 
 # 2. Update manifest: increment retry_count, status → RETRY
+# Automatic in CLI
 
 # 3. Implementor reads feedback, makes fixes, re-signals
 ```
@@ -251,6 +292,8 @@ artifacts/
 ---
 
 ## Handover Document Template
+
+The handover is generated from `current-task.md.hbs` template. Key sections:
 
 ```markdown
 # Task {id}: {title}
@@ -267,15 +310,19 @@ artifacts/
 ## Implementation Guidelines
 {Patterns to follow, files to modify, code locations}
 
-## Verification Criteria
-{Measurable conditions that must be satisfied}
+## Acceptance Criteria
+{Visible criteria implementor can verify - NOT the hidden verification}
 
 ## Quality Gates
 {Commands to run, expected results}
 
 ## Completion Protocol
-{How to signal done: run pre-signal-check, then signal-complete}
+{How to signal done: fill completion-signal.md}
 ```
+
+**Template location**: `.orchestra/common/templates/current-task.md.hbs`
+
+**Pre-flight checklist**: Generated from `orchestrator-preflight.md.hbs`, contains verification checklist for orchestrator to complete before handoff.
 
 ---
 
@@ -324,9 +371,10 @@ implementor_notes: "All tests passing, screenshot captured"
 ### Rule 1: No Orphaned Files
 
 Files must be in correct locations:
-- Handovers in `implementor/handovers/`
+- Active handover in `handover/`
 - Signals in `implementor/signals/`
 - Feedback in `implementor/feedback/`
+- Handover audit in `orchestrator/.orchestrator-only/preflight/`
 
 ### Rule 2: Signal Before Verify
 
@@ -341,12 +389,19 @@ if (-not (Test-Path ".orchestra/implementor/signals/task-$id-complete.signal")) 
 
 Cannot prepare next task until current is archived:
 ```powershell
-# task-closeout-check.ps1 verifies this
+# orchestra closeout verifies this
+orchestra closeout
 ```
 
 ### Rule 4: Single Active Task
 
 Only one task may be in IMPLEMENT, GATE_CHECK, VERIFY, or RETRY at a time.
+
+### Rule 5: Pre-Flight Audit Required (TD-007)
+
+Before handoff, orchestrator must:
+1. Copy handover to `preflight/task-N.md`
+2. Archive pre-flight checklist to `preflight/preflight-task-N.yaml`
 
 ---
 
@@ -356,16 +411,16 @@ Only one task may be in IMPLEMENT, GATE_CHECK, VERIFY, or RETRY at a time.
 
 If handover preparation failed:
 ```powershell
-# Re-run preparation
-.orchestra/orchestrator/scripts/prepare-handover.ps1
+# Re-run prepare command
+orchestra prepare --task N
 ```
 
 ### Missing Signal
 
 If Implementor forgot to signal:
 ```powershell
-# Implementor must run signal script
-.orchestra/implementor/scripts/signal-complete.ps1
+# Implementor must run accept-signal
+orchestra accept-signal
 ```
 
 ### Partial Archive
@@ -375,14 +430,17 @@ If archival failed partway:
 # Check archive state
 $archiveExists = Test-Path ".orchestra/artifacts/task-$id"
 
-# Re-run closeout check to complete
-.orchestra/orchestrator/scripts/task-closeout-check.ps1
+# Re-run complete to finish
+orchestra complete
 ```
 
 ### Corrupt State
 
 If state is unclear:
 ```powershell
+# Check status
+orchestra status
+
 # Use git to determine truth
 git status
 git log --oneline -5
@@ -399,7 +457,7 @@ Get-Content .orchestra/manifest.yaml
                     ┌─────────┐
                     │  EMPTY  │
                     └────┬────┘
-                         │ prepare-handover.ps1
+                         │ orchestra prepare
                          ▼
                     ┌─────────┐
                     │PREPARED │
@@ -409,12 +467,12 @@ Get-Content .orchestra/manifest.yaml
                     ┌─────────┐
                     │ ACTIVE  │
                     └────┬────┘
-                         │ signal-complete.ps1
+                         │ orchestra accept-signal
                          ▼
                     ┌─────────┐
                     │SIGNALED │
                     └────┬────┘
-                         │ accept-signal-check.ps1
+                         │ orchestra verify
                          ▼
             ┌────────────┴────────────┐
             │                         │
@@ -422,19 +480,28 @@ Get-Content .orchestra/manifest.yaml
       ┌──────────┐              ┌─────────┐
       │  VERIFY  │              │  RETRY  │
       └────┬─────┘              └────┬────┘
-           │                         │
+           │                         │ orchestra feedback
      ┌─────┴─────┐                   │
-     │           │                   │
-     ▼           ▼                   ▼
-┌────────┐ ┌──────────┐        (back to ACTIVE)
+     │           │                   ▼
+     ▼           ▼              (back to ACTIVE)
+┌────────┐ ┌──────────┐
 │COMPLETE│ │ESCALATED │
 └────────┘ └──────────┘
-     │
+     │ orchestra complete
      ▼
   ┌─────┐
   │EMPTY│ (next task)
   └─────┘
 ```
+
+---
+
+## Cross-References
+
+- **Prepare workflow**: [docs/workflow/prepare.md](../../docs/workflow/prepare.md)
+- **Technical Debt**: [docs/workflow/technical-debt.md](../../docs/workflow/technical-debt.md)
+- **TD-007**: Pre-Flight Checklist Workflow
+- **TD-008**: Handover Validation Command
 
 ---
 
