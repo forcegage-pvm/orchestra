@@ -16,6 +16,7 @@
 - [x] [TD-007: Pre-Flight Checklist Workflow](#td-007-pre-flight-checklist-workflow)
 - [ ] [TD-008: Handover Validation Command](#td-008-handover-validation-command)
 - [ ] [TD-009: Sync 01-handover-creation.md with prepare.md](#td-009-sync-01-handover-creationmd-with-preparemd)
+- [ ] [TD-010: Pre-Signal Check Command](#td-010-pre-signal-check-command)
 
 ---
 
@@ -501,19 +502,60 @@ This command performs two operations:
 ## TD-008: Handover Validation Command
 
 **Status**: 🔴 Not Started  
-**Priority**: Critical  
+**Priority**: 🚨 Critical  
 **Identified**: 2025-12-05  
-**Source**: [prepare.md](prepare.md), [Original Scripts](../../docs/case-study/.orchestra-original/implementor/.implementor-only/scripts/)
+**Source**: [prepare.md](prepare.md), [implement.md](implement.md), Original Scripts (see below)
 
 ### Description
 
-The handover validation step was lost during CLI evolution. Originally there were PowerShell scripts that validated handover completeness:
-- `validate-handover.ps1` - Implementor ran BEFORE starting work
-- `pre-signal-check.ps1` - Implementor ran BEFORE signaling completion
+The handover validation step was **severely degraded** during project evolution. Originally there were comprehensive PowerShell scripts (~220 lines with 15+ validation checks) that validated handover completeness. The latest version reduced this to ~50 lines with only 5 basic checks.
 
 This validation must be formalized as a CLI command that can be run by:
-1. **Orchestrator** - Before handoff (quality gate)
-2. **Implementor** - Before starting work (validation)
+1. **Orchestrator** - Before handoff (quality gate after prepare)
+2. **Implementor** - Before starting work (first step of implement phase)
+
+### ⚠️ VALIDATION DEGRADATION ANALYSIS
+
+**Evidence of systematic reduction in validation rigor over time:**
+
+| Check Category | Original Script | Latest Script | Status |
+|----------------|-----------------|---------------|--------|
+| **Task Structure** | | | |
+| Task title format | ✅ Regex validated | ❌ Not checked | **LOST** |
+| Objective section | ✅ Checked | ❌ Not checked | **LOST** |
+| Deliverables section | ✅ Checked | ❌ Not checked | **LOST** |
+| TDD/testing section | ✅ Checked | ❌ Not checked | **LOST** |
+| **File Path Validation** | | | |
+| CREATE paths extracted | ✅ Table + list format | ❌ Not checked | **LOST** |
+| CREATE files don't exist | ✅ Checked | ❌ Not checked | **LOST** |
+| UPDATE paths extracted | ✅ Table + list format | ❌ Not checked | **LOST** |
+| UPDATE files exist | ✅ Checked | ❌ Not checked | **LOST** |
+| **Completeness** | | | |
+| No TODO/TBD markers | ✅ Regex search | ❌ Not checked | **LOST** |
+| Code scaffold present | ✅ For CREATE files | ❌ Not checked | **LOST** |
+| Test sample data | ✅ Checked | ❌ Not checked | **LOST** |
+| **Integration Tasks** | | | |
+| MUST USE section | ✅ For integration tasks | ❌ Not checked | **LOST** |
+| Demo file requirement | ✅ For visual tasks | ❌ Not checked | **LOST** |
+| Task category detection | ✅ INFRASTRUCTURE/INTEGRATION/VISUAL | ❌ Not checked | **LOST** |
+| **Basic Checks** | | | |
+| current-task.md exists | ✅ | ✅ | Retained |
+| task-context.md exists | N/A | ✅ | Added |
+| Task ID parseable | ✅ | ✅ | Retained |
+| Acceptance criteria section | N/A | ✅ | Added |
+| Spec file reference | N/A | ✅ (optional) | Added |
+
+**Summary**: 13 validation checks were LOST, 5 basic checks retained/added.
+
+### Original Script Sources (MUST RESTORE)
+
+| File | Location | Lines | Purpose |
+|------|----------|-------|---------|
+| `validate-handover.ps1` (Original) | `docs/case-study/.orchestra-original/implementor/.implementor-only/scripts/` | ~220 | **Full validation** |
+| `task-validator.md` (Original) | `docs/case-study/.orchestra-original/implementor/.implementor-only/` | ~120 | Validation rules reference |
+| `validate-handover.ps1` (Latest) | `docs/case-study/.orchestra.latest/implementor/.implementor-only/scripts/` | ~50 | **Degraded version** |
+| `task-validator.md` (Latest) | `docs/case-study/.orchestra.latest/implementor/.implementor-only/` | ~40 | Minimal reference |
+| `check-utils.ps1` | `docs/case-study/.orchestra-original/common/scripts/` | N/A | Shared utilities |
 
 ### Current State
 
@@ -522,74 +564,121 @@ This validation must be formalized as a CLI command that can be run by:
 | Handover review | Optional human review (A-PREP-10) |
 | Validation enforcement | None - completely optional |
 | Original scripts | Exist in case-study folder, not integrated |
-| CLI command | Does not exist |
+| CLI command | **Does not exist** |
+| Validation rigor | Severely degraded from original |
 
-### Original Validation Checks (from validate-handover.ps1)
+### Original Validation Checks to Restore
 
-**Task Structure:**
-- Has task title (Task N: ...)
-- Has objective/overview section
-- Has deliverables section
-- Has TDD/testing section
+From `validate-handover.ps1` (Original ~220 lines):
 
-**File Paths:**
-- CREATE file paths specified and don't already exist
-- UPDATE file paths specified and DO exist
+**1. Task Structure Checks:**
+```powershell
+# Has task title
+$hasTitle = $content -match "^#\s*Task\s+\d+:|^##\s*Task\s+\d+:"
 
-**Completeness:**
-- No TODO/TBD/PLACEHOLDER markers
-- Has code scaffold (for CREATE files)
-- Has test sample data
+# Has objective/overview
+$hasObjective = $content -match "(?i)(objective|overview|goal|purpose)\s*[:\n]"
 
-**Integration Tasks:**
-- Has MUST USE section
-- Has demo file requirement
+# Has deliverables section
+$hasDeliverables = $content -match "(?i)(deliverables|file operations|files to create|files to modify)\s*[:\n]|## File|### File"
+
+# Has TDD section
+$hasTDD = $content -match "(?i)(tdd|test.?first|test requirements|testing)\s*[:\n]|## Test|### Test"
+```
+
+**2. File Path Validation:**
+```powershell
+# Extract CREATE file paths (table format)
+$tableCreateMatches = [regex]::Matches($content, '(?im)^\|\s*CREATE\s*\|\s*`?([^|`\n]+)`?\s*\|')
+
+# Extract CREATE file paths (list format)
+$listCreateMatches = [regex]::Matches($content, '(?im)^-\s*CREATE[:\s]+`?([^\n`]+)`?')
+
+# Check CREATE file doesn't already exist
+if (Test-Path $cleanPath) {
+    # Error: File already exists - should this be UPDATE instead?
+}
+
+# Similar for UPDATE paths - must exist
+```
+
+**3. Completeness Checks:**
+```powershell
+# No TODO/TBD markers
+$hasTodos = $content -match '\[TODO\]|\[TBD\]|\[PLACEHOLDER\]|XXX|FIXME'
+
+# Has code scaffold (for non-trivial tasks)
+$hasCodeScaffold = $content -match '```dart|```powershell|```' -or $content -match '(?i)##\s*Code\s*Scaffold'
+
+# Has test sample data
+$hasTestData = $content -match "(?i)test.*data|sample.*object|mock|stub|fixture"
+```
+
+**4. Integration Task Checks:**
+```powershell
+$isIntegration = $content -match "(?i)INTEGRATION|VISUAL|category:\s*integration"
+
+if ($isIntegration) {
+    # Should have MUST USE section
+    $hasMustUse = $content -match "(?i)MUST USE|Must Use|must-use"
+    
+    # Should have demo file specified
+    $hasDemo = $content -match "(?i)demo|example.*lib.*demo|visual.*verification"
+}
+```
 
 ### Proposed Solution
 
 **New CLI Command:** `orchestra validate-handover`
 
 ```bash
-# Orchestrator runs before handoff
+# Implementor runs before starting work (MANDATORY first step)
+orchestra validate-handover
+
+# Orchestrator runs before handoff (quality gate)
 orchestra validate-handover --task N
 
-# Or as flag on prepare
-orchestra prepare --task N --validate
+# Verbose output showing all checks
+orchestra validate-handover --verbose
 
-# Implementor runs before starting
-orchestra validate-handover
+# JSON output for scripting
+orchestra validate-handover --json
 ```
 
-**Validation Checks:**
+**Validation Check Matrix (Restore ALL Original Checks):**
 
-| Check | Category | Severity |
-|-------|----------|----------|
-| Has task title | Structure | BLOCKING |
-| Has objective | Structure | BLOCKING |
-| Has deliverables | Structure | BLOCKING |
-| Has TDD section | Structure | BLOCKING |
-| No TODO markers | Completeness | BLOCKING |
-| CREATE paths valid | Paths | BLOCKING |
-| UPDATE paths exist | Paths | BLOCKING |
-| Has code scaffold | Completeness | WARNING |
-| Has test data | Completeness | WARNING |
-| MUST USE section (integration) | Integration | WARNING |
+| ID | Check | Category | Severity | Original Script Line |
+|----|-------|----------|----------|---------------------|
+| V1 | Has task title | Structure | BLOCKING | ~47 |
+| V2 | Has objective section | Structure | BLOCKING | ~52 |
+| V3 | Has deliverables section | Structure | BLOCKING | ~56 |
+| V4 | Has TDD/testing section | Structure | BLOCKING | ~60 |
+| V5 | CREATE paths specified | Paths | BLOCKING | ~70-85 |
+| V6 | CREATE files don't exist | Paths | BLOCKING | ~88-93 |
+| V7 | UPDATE paths specified | Paths | WARNING | ~100-115 |
+| V8 | UPDATE files exist | Paths | BLOCKING | ~118-123 |
+| V9 | No TODO/TBD markers | Completeness | BLOCKING | ~133 |
+| V10 | Has code scaffold | Completeness | WARNING | ~140 |
+| V11 | Has test sample data | Completeness | WARNING | ~147 |
+| V12 | MUST USE section (integration) | Integration | WARNING | ~165 |
+| V13 | Demo file requirement (visual) | Integration | WARNING | ~170 |
 
 **Exit Codes:**
 - 0: All checks pass
-- 1: Blocking checks failed
+- 1: Blocking checks failed (cannot proceed)
 - 2: Warnings only (can proceed with caution)
 
 ### Workflow Integration
 
-**In prepare.md:**
-- Add A-PREP-XX: Validate handover (CLI, MANDATORY)
-- Change A-PREP-10 from optional to reference the CLI validation
-- Add to Execution Sequence before handoff
+**In prepare.md (Orchestrator side):**
+- Add A-PREP-15: Validate handover before handoff (CLI, Recommended)
+- After A-PREP-10 (verify handover complete)
+- Before A-PREP-11 (finalize)
 
-**In implement.md (future):**
-- Implementor runs `orchestra validate-handover` before starting
-- Blocks work if validation fails
+**In implement.md (Implementor side):**
+- Add A-IMPL-00: Validate handover (CLI, MANDATORY)
+- First action before reading handover
+- Blocks implementation if validation fails
 
 ### Implementation Tasks
 
@@ -597,39 +686,59 @@ orchestra validate-handover
    - `src/commands/validate-handover.ts`
    - `src/core/validate-handover.ts`
 
-2. **Port validation logic from scripts:**
-   - Parse `current-task.md` or `task-N.yaml`
-   - Check structure, paths, completeness
-   - Report findings with severity
+2. **Port ALL original validation logic:**
+   - Reference: `docs/case-study/.orchestra-original/implementor/.implementor-only/scripts/validate-handover.ps1`
+   - Port regex patterns for structure detection
+   - Port file path extraction (table + list formats)
+   - Port file existence checks
+   - Port completeness checks
+   - Port integration task detection
 
-3. **Integration with prepare:**
-   - Add `--validate` flag to `orchestra prepare`
-   - Or run validation automatically after prepare
+3. **Shared utilities:**
+   - Port relevant utilities from `check-utils.ps1`
+   - Create `src/core/validation-utils.ts` if needed
 
 4. **Documentation:**
-   - Update `prepare.md` with new action
-   - Create `implement.md` with validation step
-   - Update process guides
+   - Update `prepare.md` with A-PREP-15
+   - Update `implement.md` with A-IMPL-00
+   - Reference original scripts for implementation guidance
 
 ### Acceptance Criteria
 
 - [ ] `orchestra validate-handover` command exists
+- [ ] Restores ALL 13 original validation checks (V1-V13)
 - [ ] Validates task structure (title, objective, deliverables, TDD)
-- [ ] Validates file paths (CREATE don't exist, UPDATE do exist)
-- [ ] Validates completeness (no TODOs, has scaffolds)
-- [ ] Returns appropriate exit codes
-- [ ] JSON output for scripting
-- [ ] Integrated into prepare.md workflow
-- [ ] Documented in implement.md for implementor
+- [ ] Extracts and validates file paths (table + list formats)
+- [ ] Checks CREATE files don't exist, UPDATE files do exist
+- [ ] Validates completeness (no TODOs, has scaffolds, test data)
+- [ ] Detects integration/visual tasks and checks MUST USE + demo
+- [ ] Returns appropriate exit codes (0, 1, 2)
+- [ ] JSON output for scripting (`--json`)
+- [ ] Verbose output showing all checks (`--verbose`)
+- [ ] Integrated into prepare.md workflow (A-PREP-15)
+- [ ] Integrated into implement.md workflow (A-IMPL-00)
+- [ ] Tests cover all validation scenarios
 
 ### Related Files
 
-- `docs/case-study/.orchestra-original/implementor/.implementor-only/scripts/validate-handover.ps1` - Original script
-- `docs/case-study/.orchestra-original/implementor/.implementor-only/scripts/pre-signal-check.ps1` - Pre-signal script
-- New: `src/commands/validate-handover.ts`
-- New: `src/core/validate-handover.ts`
-- `docs/workflow/prepare.md` - Add validation action
-- `docs/workflow/implement.md` - Document implementor validation
+**Original Scripts (Reference for Implementation):**
+- `docs/case-study/.orchestra-original/implementor/.implementor-only/scripts/validate-handover.ps1` - **PRIMARY SOURCE**
+- `docs/case-study/.orchestra-original/implementor/.implementor-only/task-validator.md` - Validation rules
+- `docs/case-study/.orchestra-original/common/scripts/check-utils.ps1` - Shared utilities
+
+**Degraded Scripts (Do NOT Use as Reference):**
+- `docs/case-study/.orchestra.latest/implementor/.implementor-only/scripts/validate-handover.ps1` - Degraded
+- `docs/case-study/.orchestra.latest/implementor/.implementor-only/task-validator.md` - Minimal
+
+**New Files to Create:**
+- `src/commands/validate-handover.ts`
+- `src/core/validate-handover.ts`
+- `test/commands/validate-handover.test.ts`
+- `test/core/validate-handover.test.ts`
+
+**Documentation to Update:**
+- `docs/workflow/prepare.md` - Add A-PREP-15
+- `docs/workflow/implement.md` - Add A-IMPL-00
 
 ---
 
@@ -688,6 +797,297 @@ Update `01-handover-creation.md` to:
 
 ---
 
+## TD-010: Pre-Signal Check Command
+
+**Status**: 🔴 Not Started  
+**Priority**: 🚨 Critical  
+**Identified**: 2025-12-05  
+**Source**: [implement.md](implement.md), Original Scripts (see below)
+
+### Description
+
+The pre-signal check step was **severely degraded** during project evolution, following the EXACT same pattern as TD-008 (validate-handover). Originally there were comprehensive PowerShell scripts (~411 lines with 8+ check categories) that validated deliverables before signaling completion. The latest version reduced this to ~274 lines with simplified checks.
+
+This validation must be formalized as a CLI command that the implementor runs BEFORE signaling completion to the orchestrator.
+
+### ⚠️ VALIDATION DEGRADATION ANALYSIS
+
+**Evidence of systematic reduction in validation rigor over time:**
+
+| Check Category | Original Script (~411 lines) | Latest Script (~274 lines) | Status |
+|----------------|------------------------------|----------------------------|--------|
+| **File Creation Checks** | | | |
+| Extract CREATE paths (table+list) | ✅ Full regex extraction | ❌ Not checked | **LOST** |
+| Verify CREATE files exist | ✅ Checked | ❌ Not checked | **LOST** |
+| Verify CREATE files have content | ✅ Min 50 bytes | ❌ Not checked | **LOST** |
+| **File Modification Checks** | | | |
+| Extract UPDATE paths (table+list) | ✅ Full regex extraction | ❌ Not checked | **LOST** |
+| Verify UPDATE files modified (git) | ✅ Git diff check | ❌ Not checked | **LOST** |
+| **Test File Checks** | | | |
+| Extract test paths from task | ✅ Regex for test patterns | ❌ Not checked | **LOST** |
+| Infer test paths from impl files | ✅ Automatic inference | ❌ Not checked | **LOST** |
+| Verify test files exist | ✅ Checked | ❌ Not checked | **LOST** |
+| **Code Quality** | | | |
+| Analyzer on touched files | ✅ Per-file analysis | ❌ Not checked | **LOST** |
+| "You touch it, you own it" policy | ✅ Enforced | ❌ Not enforced | **LOST** |
+| No TODO/FIXME in new files | ✅ Checked | ❌ Not checked | **LOST** |
+| **Visual/Demo Checks** | | | |
+| Detect visual/integration task | ✅ Keyword detection | ❌ Not checked | **LOST** |
+| Demo file exists | ✅ Pattern matching | ❌ Not checked | **LOST** |
+| Demo has widget content | ✅ Content check | ❌ Not checked | **LOST** |
+| **Basic Checks** | | | |
+| TypeScript/build check | N/A (Dart project) | ✅ Generic npm | Changed |
+| Test execution | ✅ Sprint-specific tests | ✅ Generic npm test | Simplified |
+| Lint check | ✅ Flutter analyze | ✅ Generic npm lint | Simplified |
+| Git status | ✅ Detailed | ✅ Simplified | Retained |
+| Artifact creation | ✅ YAML + audit trail | ✅ YAML + audit trail | Retained |
+
+**Summary**: 12+ validation checks were LOST, remaining checks were simplified.
+
+### Original Script Sources (MUST RESTORE)
+
+| File | Location | Lines | Purpose |
+|------|----------|-------|---------|
+| `pre-signal-check.ps1` (Original) | `docs/case-study/.orchestra-original/implementor/.implementor-only/scripts/` | ~411 | **Full validation** |
+| `pre-signal-check.ps1` (Latest) | `docs/case-study/.orchestra.latest/implementor/.implementor-only/scripts/` | ~274 | **Degraded version** |
+| `check-utils.ps1` | `docs/case-study/.orchestra-original/common/scripts/` | N/A | Shared utilities |
+
+### Current State
+
+| Aspect | Current State |
+|--------|---------------|
+| Pre-signal check | Script reference in implement.md (A-IMPL-09) |
+| Enforcement | None - completely optional |
+| Original scripts | Exist in case-study folder, not integrated |
+| CLI command | **Does not exist** |
+| Validation rigor | Severely degraded from original |
+
+### Original Validation Checks to Restore
+
+From `pre-signal-check.ps1` (Original ~411 lines):
+
+**1. File Creation Checks:**
+```powershell
+# Extract CREATE file paths (table + list formats)
+$tableCreateMatches = [regex]::Matches($content, '(?im)^\|\s*CREATE\s*\|\s*`?([^|`\n]+)`?\s*\|')
+$listCreateMatches = [regex]::Matches($content, '(?im)^-\s*CREATE[:\s]+`?([^\n`]+)`?')
+
+# Verify file exists
+$exists = Test-Path $path
+
+# Check it has content (min 50 bytes)
+$hasContent = Test-FileHasContent $path 50
+```
+
+**2. File Modification Checks:**
+```powershell
+# Extract UPDATE file paths
+$tableUpdateMatches = [regex]::Matches($content, '(?im)^\|\s*UPDATE\s*\|\s*`?([^|`\n]+)`?\s*\|')
+
+# Check file was actually modified
+$isModified = Test-FileModified $path  # Uses git diff
+```
+
+**3. Test File Checks:**
+```powershell
+# Extract explicit test paths
+$testMatches = [regex]::Matches($content, "(?<!\bpackage:)test/(unit|widget|integration)[/\\][^\s`\)]+_test\.dart")
+
+# Infer test paths from implementation files
+if ($implPath -match "lib/src/(.+)\.dart$") {
+    $inferredTestPath = "test/unit/$relativePath`_test.dart"
+}
+```
+
+**4. Code Quality ("You Touch It, You Own It"):**
+```powershell
+# ╔════════════════════════════════════════════════════════════════════════════╗
+# ║  YOU TOUCH IT, YOU OWN IT - NO "PRE-EXISTING" EXCUSES                      ║
+# ║  Any file you CREATE or MODIFY must have ZERO analyzer issues.             ║
+# ╚════════════════════════════════════════════════════════════════════════════╝
+
+# Run analyzer on ONLY touched files
+$filesToAnalyze = ($createPaths + $updatePaths) | Where-Object { 
+    $_ -and (Test-Path $_) -and $_ -match "\.dart$"
+}
+
+# Check for TODO/FIXME in new files
+$hasTodos = $fileContent -match "//\s*TODO|//\s*FIXME|//\s*XXX"
+```
+
+**5. Demo/Visual Checks:**
+```powershell
+$isVisual = $content -match "(?i)VISUAL|INTEGRATION|demo"
+if ($isVisual) {
+    $demoFiles = Get-ChildItem -Path "example/lib/demos" -Filter "task_$($taskNumber.PadLeft(3,'0'))*.dart"
+    
+    # Check demo has meaningful content
+    $hasWidgets = $demoContent -match "Widget|Scaffold|build\("
+}
+```
+
+### Proposed Solution
+
+**New CLI Command:** `orchestra pre-signal-check`
+
+```bash
+# Implementor runs before signaling completion (MANDATORY)
+orchestra pre-signal-check
+
+# Verbose output showing all checks
+orchestra pre-signal-check --verbose
+
+# JSON output for scripting
+orchestra pre-signal-check --json
+
+# Force mode (skip checks, create artifact anyway - for emergencies)
+orchestra pre-signal-check --force
+```
+
+**Validation Check Matrix (Restore ALL Original Checks):**
+
+| ID | Check | Category | Severity |
+|----|-------|----------|----------|
+| P1 | CREATE files exist | Deliverables | BLOCKING |
+| P2 | CREATE files have content | Deliverables | BLOCKING |
+| P3 | UPDATE files modified (git) | Deliverables | BLOCKING |
+| P4 | Test files exist | Testing | BLOCKING |
+| P5 | Tests pass | Testing | BLOCKING |
+| P6 | TypeScript/Build succeeds | Quality | BLOCKING |
+| P7 | Lint passes | Quality | BLOCKING |
+| P8 | No analyzer issues in touched files | Quality | BLOCKING |
+| P9 | No TODO/FIXME in new files | Quality | WARNING |
+| P10 | Demo file exists (visual tasks) | Visual | WARNING |
+| P11 | Demo has widget content | Visual | WARNING |
+| P12 | Git has changes | Git | WARNING |
+
+**Exit Codes:**
+- 0: All checks pass → create PASSED artifact
+- 1: Blocking checks failed → create FAILED artifact
+- 2: Warnings only → create PASSED artifact with warnings
+
+**Artifact Created:**
+```yaml
+# .orchestra/handover/verification/pre-signal.yaml
+task_id: 3
+timestamp: "2025-12-05T10:30:00Z"
+status: "PASSED"  # or "FAILED"
+
+checks:
+  deliverables:
+    status: "PASS"
+  tests:
+    status: "PASS"
+    count: 15
+  build:
+    status: "PASS"
+  lint:
+    status: "PASS"
+  analyzer:
+    status: "PASS"
+```
+
+### Workflow Integration
+
+**In implement.md:**
+- Change A-IMPL-09 from Script to CLI
+- Command: `orchestra pre-signal-check`
+- Mandatory before A-IMPL-06 (complete completion signal)
+
+### Implementation Tasks
+
+1. **Create CLI command:**
+   - `src/commands/pre-signal-check.ts`
+   - `src/core/pre-signal-check.ts`
+
+2. **Port ALL original validation logic:**
+   - Reference: `docs/case-study/.orchestra-original/implementor/.implementor-only/scripts/pre-signal-check.ps1`
+   - Port CREATE/UPDATE file extraction (table + list formats)
+   - Port file existence and content checks
+   - Port test file detection and execution
+   - Port analyzer on touched files only
+   - Port TODO/FIXME detection
+   - Port demo/visual task detection
+
+3. **Artifact creation:**
+   - Write to `.orchestra/handover/verification/pre-signal.yaml`
+   - Also archive to `.orchestra/implementor/artifacts/pre-signal/`
+
+4. **Documentation:**
+   - Update `implement.md` A-IMPL-09 to CLI
+
+### Relationship to `orchestra accept-signal`
+
+**⚠️ ANALYSIS REQUIRED**: The existing `orchestra accept-signal` command may already provide some of this functionality. Review `spec/implementation/phase-1-cli/commands/accept-signal.md` and `src/commands/accept-signal.ts`.
+
+**Current Understanding:**
+
+| Aspect | `pre-signal-check` (TD-010) | `accept-signal` (Existing) |
+|--------|----------------------------|---------------------------|
+| **Actor** | Implementor | Orchestrator |
+| **Purpose** | CREATE pre-signal.yaml | VERIFY pre-signal.yaml exists |
+| **Phase** | IMPLEMENT (before signal) | GATE_CHECK (after signal) |
+| **Trust** | Implementor context | Orchestrator context |
+| **Action** | Run checks → Write artifact | Read artifact → Validate status |
+
+**Relationship Hypothesis:**
+These commands are **complementary**, not overlapping:
+1. Implementor runs `pre-signal-check` → creates `.orchestra/handover/verification/pre-signal.yaml`
+2. Implementor writes completion-signal.md
+3. Orchestrator runs `accept-signal` → checks pre-signal.yaml exists and status is PASSED
+
+**Analysis Questions:**
+1. Does `accept-signal` currently expect pre-signal.yaml to exist?
+2. What creates pre-signal.yaml if `pre-signal-check` command doesn't exist?
+3. Should `pre-signal-check` be a separate command or integrated into another?
+
+**Resolution Options:**
+- **Option A**: Keep as separate command (clear separation of concerns)
+- **Option B**: Integrate into `orchestra complete` (runs checks before creating signal)
+- **Option C**: Enhance `accept-signal` to handle both cases (but violates trust boundary)
+
+**Recommended**: Option A - separate `pre-signal-check` command maintains trust boundary and clear workflow.
+
+### Acceptance Criteria
+
+- [ ] `orchestra pre-signal-check` command exists
+- [ ] Restores ALL 12 original validation checks (P1-P12)
+- [ ] Extracts CREATE/UPDATE paths from handover (table + list formats)
+- [ ] Verifies CREATE files exist and have content
+- [ ] Verifies UPDATE files were modified (git diff)
+- [ ] Detects and verifies test files
+- [ ] Runs build and tests
+- [ ] Runs analyzer on touched files only ("you touch it, you own it")
+- [ ] Detects TODO/FIXME in new files
+- [ ] Handles visual/demo task detection
+- [ ] Creates YAML artifact for `orchestra accept-signal`
+- [ ] Creates audit trail artifact
+- [ ] Returns appropriate exit codes (0, 1, 2)
+- [ ] JSON output for scripting (`--json`)
+- [ ] Verbose output showing all checks (`--verbose`)
+- [ ] Tests cover all validation scenarios
+- [ ] Integrates with `accept-signal` workflow (artifact handoff)
+
+### Related Files
+
+**Original Scripts (Reference for Implementation):**
+- `docs/case-study/.orchestra-original/implementor/.implementor-only/scripts/pre-signal-check.ps1` - **PRIMARY SOURCE (~411 lines)**
+- `docs/case-study/.orchestra-original/common/scripts/check-utils.ps1` - Shared utilities
+
+**Degraded Scripts (Do NOT Use as Reference):**
+- `docs/case-study/.orchestra.latest/implementor/.implementor-only/scripts/pre-signal-check.ps1` - Degraded (~274 lines)
+
+**New Files to Create:**
+- `src/commands/pre-signal-check.ts`
+- `src/core/pre-signal-check.ts`
+- `test/commands/pre-signal-check.test.ts`
+- `test/core/pre-signal-check.test.ts`
+
+**Documentation to Update:**
+- `docs/workflow/implement.md` - Change A-IMPL-09 to CLI
+
+---
+
 ## Template
 
 Use this template when adding new technical debt items:
@@ -727,7 +1127,7 @@ How should it work?
 ## Version History
 
 | Version | Date | Changes |
-|---------|------|---------||
+|---------|------|---------|
 | 1.0.0 | 2025-12-05 | Initial creation with TD-001, TD-002 |
 | 1.1.0 | 2025-12-05 | Added TD-003: Template-Based Config Generation |
 | 1.2.0 | 2025-12-05 | Updated TD-003 to include progress.yaml; Added TD-004: Process Guide Review |
@@ -739,3 +1139,6 @@ How should it work?
 | 1.8.0 | 2025-12-05 | TD-007 updated: Solution is `orchestra prepare --finalize`; prepare.md is source of truth |
 | 1.9.0 | 2025-12-05 | TD-007 complete: Implemented `orchestra prepare --finalize` command |
 | 1.10.0 | 2025-12-05 | Added TD-009: Sync 01-handover-creation.md with prepare.md |
+| 1.11.0 | 2025-12-05 | TD-008 expanded: Added comprehensive validation degradation analysis, original script references, 13 lost checks documented |
+| 1.12.0 | 2025-12-05 | Added TD-010: Pre-Signal Check Command (critical - same degradation pattern as TD-008, 12+ checks lost) |
+| 1.13.0 | 2025-12-05 | TD-010 updated: Added "Relationship to accept-signal" section for analysis |
