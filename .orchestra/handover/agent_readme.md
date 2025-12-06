@@ -86,6 +86,29 @@ All code should follow these patterns:
 - **Clean architecture** - Core library has NO CLI dependencies
 - **Full documentation** - JSDoc comments on public APIs
 
+## You Touch It, You Own It
+
+**CRITICAL PRINCIPLE**: Any error, warning, or lint issue in the codebase is YOUR responsibility to fix.
+
+This means:
+
+- ❌ **NEVER** say "pre-existing error, not related to my task"
+- ❌ **NEVER** ignore test failures because "they were already failing"
+- ❌ **NEVER** skip lint errors because "someone else wrote that code"
+- ✅ **ALWAYS** fix ALL errors before signaling completion
+- ✅ **ALWAYS** leave the codebase cleaner than you found it
+
+Before signaling, ALL of these must pass with ZERO errors:
+
+```bash
+npm run build      # Build succeeds
+npm test           # All tests pass
+npm run typecheck  # TypeScript compiles
+npm run lint       # Lint is clean
+```
+
+If ANY of these fail, **YOU MUST FIX THEM** regardless of who introduced the issue.
+
 ## Completion Signal Format
 
 ```markdown

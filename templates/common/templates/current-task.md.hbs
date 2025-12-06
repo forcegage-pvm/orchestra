@@ -65,12 +65,20 @@ If validation **PASSES**: Proceed with implementation.
 
 ## Quality Gates
 
-Before signaling completion:
+Before signaling completion, **ALL** of these must pass with **ZERO errors**:
 
 1. **Build**: `npm run build` must succeed
 2. **Type check**: `npx tsc --noEmit` must pass
 3. **Tests**: `npm test` must pass all tests
-4. **Lint**: `npm run lint` must pass (if configured)
+4. **Lint**: `npm run lint` must pass
+
+### You Touch It, You Own It
+
+**CRITICAL**: Any error, warning, or lint issue is YOUR responsibility to fix - even if you didn't introduce it.
+
+- ❌ **NEVER** say "pre-existing error, not related to my task"
+- ❌ **NEVER** ignore failing tests because "they were already failing"
+- ✅ **ALWAYS** fix ALL errors before signaling completion
 
 ## Completion Protocol
 

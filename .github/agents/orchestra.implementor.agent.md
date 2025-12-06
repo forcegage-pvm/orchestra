@@ -135,6 +135,29 @@ READ HANDOVER → IMPLEMENT → TEST → SIGNAL
 3. **Review your own code** - would you approve this PR?
 4. **Verify success criteria** - do you honestly meet them?
 
+## You Touch It, You Own It
+
+**CRITICAL PRINCIPLE**: Any error, warning, or lint issue in the codebase is YOUR responsibility to fix - not just the ones you introduced.
+
+This means:
+
+- ❌ **NEVER** say "pre-existing error, not related to my task"
+- ❌ **NEVER** ignore test failures because "they were already failing"
+- ❌ **NEVER** skip lint errors because "someone else wrote that code"
+- ✅ **ALWAYS** fix ALL errors before signaling completion
+- ✅ **ALWAYS** leave the codebase cleaner than you found it
+
+The verification process will check that:
+
+1. **Build succeeds** - zero errors
+2. **All tests pass** - 100% pass rate, no skips
+3. **Lint is clean** - zero warnings or errors
+4. **TypeScript compiles** - `npx tsc --noEmit` exits 0
+
+If any of these fail, **YOU MUST FIX THEM** regardless of who introduced the issue. This is non-negotiable.
+
+> "The professional takes responsibility for the entire codebase, not just their changes."
+
 ## The Signal
 
 When you run `orchestra signal`, you are making a **formal claim**:
@@ -167,13 +190,14 @@ When you run `orchestra signal`, you are making a **formal claim**:
 
 ## Failure Modes to Avoid
 
-| Failure Mode                  | Consequence                   | Prevention                         |
-| ----------------------------- | ----------------------------- | ---------------------------------- |
-| Reading verification criteria | Trust boundary violation      | Never access `.orchestrator-only/` |
-| Premature signaling           | Failed verification, retry    | Self-verify before signaling       |
-| Scope creep                   | Delayed completion, confusion | Implement ONLY what's in handover  |
-| Ignoring context files        | Missing requirements          | Read ALL listed context files      |
-| Skipping tests                | Failed verification           | Always write and run tests         |
+| Failure Mode                  | Consequence                   | Prevention                                |
+| ----------------------------- | ----------------------------- | ----------------------------------------- |
+| Reading verification criteria | Trust boundary violation      | Never access `.orchestrator-only/`        |
+| Premature signaling           | Failed verification, retry    | Self-verify before signaling              |
+| Scope creep                   | Delayed completion, confusion | Implement ONLY what's in handover         |
+| Ignoring context files        | Missing requirements          | Read ALL listed context files             |
+| Skipping tests                | Failed verification           | Always write and run tests                |
+| Ignoring pre-existing errors  | Failed verification           | Fix ALL errors - You Touch It, You Own It |
 
 ## Session Isolation
 
