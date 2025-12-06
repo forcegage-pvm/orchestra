@@ -2,8 +2,8 @@
  * Validate Handover Command Tests
  */
 
-import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import { Command } from "commander";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createValidateHandoverCommand } from "../../src/commands/validate-handover.js";
 import type { ValidationReport } from "../../src/core/types.js";
 
@@ -121,9 +121,7 @@ describe("validate-handover command", () => {
     });
 
     it("should output error as JSON on failure", async () => {
-      vi.mocked(runValidateHandover).mockRejectedValue(
-        new Error("Test error")
-      );
+      vi.mocked(runValidateHandover).mockRejectedValue(new Error("Test error"));
 
       await runCommand(["--json"]);
 

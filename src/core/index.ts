@@ -98,6 +98,6 @@ export { runPreSignalCheck } from "./pre-signal-check.js";
 
 // Validate handover (validates handover document completeness)
 export {
-  runValidateHandover,
   extractFileOperations,
+  runValidateHandover,
 } from "./validate-handover.js";

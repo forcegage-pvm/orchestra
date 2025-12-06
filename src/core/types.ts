@@ -574,7 +574,9 @@ export const ValidationCheckResultSchema = z.object({
   file: z.string().optional(),
 });
 
-export type ValidationCheckResult = z.output<typeof ValidationCheckResultSchema>;
+export type ValidationCheckResult = z.output<
+  typeof ValidationCheckResultSchema
+>;
 
 /**
  * Validate handover report (returned by runValidateHandover)

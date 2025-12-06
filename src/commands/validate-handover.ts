@@ -10,14 +10,16 @@
  *   orchestra validate-handover --json   # JSON output
  */
 
-import { Command } from "commander";
 import chalk from "chalk";
-import { runValidateHandover } from "../core/validate-handover.js";
+import { Command } from "commander";
 import type { ValidationCheckResult, ValidationReport } from "../core/types.js";
+import { runValidateHandover } from "../core/validate-handover.js";
 
 export function createValidateHandoverCommand(): Command {
   const cmd = new Command("validate-handover")
-    .description("Validate handover document completeness before implementation")
+    .description(
+      "Validate handover document completeness before implementation"
+    )
     .option("-v, --verbose", "Show all validation checks")
     .option("-j, --json", "Output as JSON")
     .option("-t, --task <id>", "Task ID (uses current task if not specified)")
@@ -73,7 +75,9 @@ function displayResult(result: ValidationReport, verbose: boolean): void {
   // Header
   console.log();
   console.log(
-    chalk.blue("╔══════════════════════════════════════════════════════════════╗")
+    chalk.blue(
+      "╔══════════════════════════════════════════════════════════════╗"
+    )
   );
   console.log(
     chalk.blue("║") +
@@ -82,7 +86,9 @@ function displayResult(result: ValidationReport, verbose: boolean): void {
       chalk.blue("║")
   );
   console.log(
-    chalk.blue("╚══════════════════════════════════════════════════════════════╝")
+    chalk.blue(
+      "╚══════════════════════════════════════════════════════════════╝"
+    )
   );
 
   // Task info
@@ -140,22 +146,24 @@ function displayResult(result: ValidationReport, verbose: boolean): void {
   // Summary
   console.log();
   console.log(
-    chalk.blue("═══════════════════════════════════════════════════════════════")
+    chalk.blue(
+      "═══════════════════════════════════════════════════════════════"
+    )
   );
 
   const statusIcon =
     result.status === "PASSED"
       ? chalk.green("✅")
       : result.status === "WARNINGS"
-        ? chalk.yellow("⚠️")
-        : chalk.red("❌");
+      ? chalk.yellow("⚠️")
+      : chalk.red("❌");
 
   const statusText =
     result.status === "PASSED"
       ? chalk.green("VALIDATION PASSED")
       : result.status === "WARNINGS"
-        ? chalk.yellow("VALIDATION PASSED WITH WARNINGS")
-        : chalk.red("VALIDATION FAILED");
+      ? chalk.yellow("VALIDATION PASSED WITH WARNINGS")
+      : chalk.red("VALIDATION FAILED");
 
   console.log(`${statusIcon} ${statusText}`);
 
@@ -172,11 +180,17 @@ function displayResult(result: ValidationReport, verbose: boolean): void {
     console.log(chalk.white("  1. Read the full task instructions"));
     console.log(chalk.white("  2. Write tests first (TDD)"));
     console.log(chalk.white("  3. Implement to pass tests"));
-    console.log(chalk.white("  4. Run 'orchestra pre-signal-check' before signaling"));
+    console.log(
+      chalk.white("  4. Run 'orchestra pre-signal-check' before signaling")
+    );
   } else if (result.status === "WARNINGS") {
-    console.log(chalk.yellow("⚠️  Proceed with caution - review warnings above"));
+    console.log(
+      chalk.yellow("⚠️  Proceed with caution - review warnings above")
+    );
   } else {
-    console.log(chalk.red("⚠️  Do NOT start work until these issues are resolved:"));
+    console.log(
+      chalk.red("⚠️  Do NOT start work until these issues are resolved:")
+    );
     const failures = result.checks.filter(
       (c) => !c.passed && c.severity === "BLOCKING"
     );
@@ -198,14 +212,14 @@ function displayCheck(check: ValidationCheckResult): void {
   const icon = check.passed
     ? chalk.green("✓")
     : check.severity === "BLOCKING"
-      ? chalk.red("✗")
-      : chalk.yellow("⚠");
+    ? chalk.red("✗")
+    : chalk.yellow("⚠");
 
   const name = check.passed
     ? chalk.white(check.name)
     : check.severity === "BLOCKING"
-      ? chalk.red(check.name)
-      : chalk.yellow(check.name);
+    ? chalk.red(check.name)
+    : chalk.yellow(check.name);
 
   console.log(`    ${icon} ${name}`);
 

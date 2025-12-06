@@ -263,7 +263,9 @@ function checkTddSection(content: string): ValidationCheckResult {
     "BLOCKING",
     hasTdd,
     hasTdd ? undefined : "No testing section - what tests to write?",
-    hasTdd ? undefined : "Expected: ## TDD, ## Testing, or ## Test Requirements",
+    hasTdd
+      ? undefined
+      : "Expected: ## TDD, ## Testing, or ## Test Requirements",
     hasTdd ? undefined : "Add a TDD/testing section with test requirements"
   );
 }
@@ -394,15 +396,11 @@ function checkCodeScaffold(content: string): ValidationCheckResult {
     "completeness",
     "WARNING",
     hasScaffold,
-    hasScaffold
-      ? undefined
-      : "No code scaffold provided for new files",
+    hasScaffold ? undefined : "No code scaffold provided for new files",
     hasScaffold
       ? undefined
       : "Expected: code blocks with implementation scaffold",
-    hasScaffold
-      ? undefined
-      : "Add code scaffolds showing expected structure"
+    hasScaffold ? undefined : "Add code scaffolds showing expected structure"
   );
 }
 
@@ -426,9 +424,7 @@ function checkTestSampleData(content: string): ValidationCheckResult {
     hasTestData
       ? undefined
       : "Expected: concrete test examples, not just test names",
-    hasTestData
-      ? undefined
-      : "Add specific test data or example test cases"
+    hasTestData ? undefined : "Add specific test data or example test cases"
   );
 }
 
@@ -436,8 +432,8 @@ function checkTestSampleData(content: string): ValidationCheckResult {
  * V12: MUST USE section (for integration tasks)
  */
 function checkMustUseSection(content: string): ValidationCheckResult {
-  const hasMustUse = /(?:^|\n)##?\s*MUST\s*USE/im.test(content) ||
-    /must[\s-]use/i.test(content);
+  const hasMustUse =
+    /(?:^|\n)##?\s*MUST\s*USE/im.test(content) || /must[\s-]use/i.test(content);
 
   return createCheck(
     "V12",
