@@ -1,27 +1,48 @@
+# Verification Criteria: Task 10
+# Export runStatus from core/index.ts
+# HIDDEN: Implementor must NOT see this file
+
 task_id: 10
-title: "Export runStatus from core"
-category: "INFRASTRUCTURE"
-created_at: "2025-12-06"
+title: "Export runStatus from core/index.ts"
+speckit_ref: "001-mcp-server/tasks.md#T010"
 
-# Verification criteria for exporting runStatus
-
-checks:
-  - id: "V10.1"
+# Verification criteria (hidden from implementor)
+criteria:
+  - id: V10.1
     description: "runStatus is exported from src/core/index.ts"
-    severity: BLOCKING
-    type: structural
+    verification_type: FILE_CONTENT
+    target_file: "src/core/index.ts"
+    check: "Contains export of runStatus (from './status.js' or re-export)"
+    required: true
 
-  - id: "V10.2"
-    description: "StatusResult type (or equivalent) is exported"
-    severity: BLOCKING
-    type: structural
+  - id: V10.2
+    description: "StatusResult type is exported (if defined)"
+    verification_type: FILE_CONTENT
+    target_file: "src/core/index.ts"
+    check: "If StatusResult type exists, it should be exported"
+    required: false
 
-  - id: "V10.3"
-    description: "Can import { runStatus } from core module"
-    severity: BLOCKING
-    type: functional
+  - id: V10.3
+    description: "TypeScript compiles without errors"
+    verification_type: COMMAND
+    command: "npm run typecheck"
+    expected_exit_code: 0
+    required: true
 
-  - id: "V10.4"
-    description: "All existing tests pass"
-    severity: BLOCKING
-    type: functional
+  - id: V10.4
+    description: "Can import runStatus from core"
+    verification_type: CODE_CHECK
+    check: "Verify 'import { runStatus } from \"./core/index.js\"' works"
+    required: true
+
+# Quality gates
+quality_gates:
+  - "Export follows barrel pattern used in index.ts"
+  - "No circular dependency warnings"
+  - "Consistent with other function exports"
+
+# What implementor might skip (hidden checks)
+hidden_checks:
+  - "Verify status.ts is added to the export list in index.ts"
+  - "Check no duplicate exports"
+  - "Ensure proper .js extension in import"

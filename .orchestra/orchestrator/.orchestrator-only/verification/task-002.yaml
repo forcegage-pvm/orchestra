@@ -1,27 +1,49 @@
+# Verification Criteria: Task 2
+# Create src/mcp/ directory structure
+# HIDDEN: Implementor must NOT see this file
+
 task_id: 2
-title: "Create MCP directory structure"
-category: "INFRASTRUCTURE"
-created_at: "2025-12-06"
+title: "Create src/mcp/ directory structure"
+speckit_ref: "001-mcp-server/tasks.md#T002"
 
-# Verification criteria for creating src/mcp/ directory structure
-
-checks:
-  - id: "V2.1"
+# Verification criteria (hidden from implementor)
+criteria:
+  - id: V2.1
     description: "src/mcp/ directory exists"
-    severity: BLOCKING
-    type: structural
+    verification_type: DIRECTORY_EXISTS
+    target_path: "src/mcp/"
+    required: true
 
-  - id: "V2.2"
+  - id: V2.2
     description: "src/mcp/tools/ subdirectory exists"
-    severity: BLOCKING
-    type: structural
+    verification_type: DIRECTORY_EXISTS
+    target_path: "src/mcp/tools/"
+    required: true
 
-  - id: "V2.3"
-    description: "Directory structure matches plan.md specification"
-    severity: MAJOR
-    type: structural
+  - id: V2.3
+    description: "Placeholder or readme files exist"
+    verification_type: FILE_EXISTS
+    target_files:
+      - "src/mcp/.gitkeep OR src/mcp/readme.md OR src/mcp/index.ts"
+    check: "At least one file exists in src/mcp/ to confirm structure created"
+    required: true
 
-  - id: "V2.4"
-    description: ".gitkeep or placeholder files if directories are empty"
-    severity: MINOR
-    type: structural
+  - id: V2.4
+    description: "Directory structure matches plan.md"
+    verification_type: STRUCTURE_CHECK
+    expected_structure:
+      - "src/mcp/"
+      - "src/mcp/tools/"
+    required: true
+
+# Quality gates
+quality_gates:
+  - "No files created that aren't specified in plan.md"
+  - "Directory permissions are correct (if applicable)"
+  - "No accidental changes to existing src/ structure"
+
+# What implementor might skip (hidden checks)
+hidden_checks:
+  - "Verify tools/ subdirectory is created (often forgotten)"
+  - "Check that no untracked files were created outside spec"
+  - "Ensure no placeholder code that would fail typecheck"

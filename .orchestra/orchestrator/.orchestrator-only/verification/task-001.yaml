@@ -1,27 +1,48 @@
+# Verification Criteria: Task 1
+# Add @modelcontextprotocol/sdk dependency
+# HIDDEN: Implementor must NOT see this file
+
 task_id: 1
-title: "Add MCP SDK dependency"
-category: "INFRASTRUCTURE"
-created_at: "2025-12-06"
+title: "Add @modelcontextprotocol/sdk dependency"
+speckit_ref: "001-mcp-server/tasks.md#T001"
 
-# Verification criteria for adding @modelcontextprotocol/sdk dependency
+# Verification criteria (hidden from implementor)
+criteria:
+  - id: V1.1
+    description: "package.json contains @modelcontextprotocol/sdk dependency"
+    verification_type: FILE_CONTENT
+    target_file: "package.json"
+    check: "Contains '@modelcontextprotocol/sdk' in dependencies or devDependencies"
+    required: true
 
-checks:
-  - id: "V1.1"
-    description: "@modelcontextprotocol/sdk exists in package.json dependencies"
-    severity: BLOCKING
-    type: structural
-
-  - id: "V1.2"
+  - id: V1.2
     description: "SDK version is ^0.6.0 or higher"
-    severity: BLOCKING
-    type: structural
+    verification_type: FILE_CONTENT
+    target_file: "package.json"
+    check: "Version starts with ^0.6 or ^1. or higher (not older versions)"
+    required: true
 
-  - id: "V1.3"
-    description: "npm install succeeds without errors"
-    severity: BLOCKING
-    type: functional
+  - id: V1.3
+    description: "npm install runs successfully"
+    verification_type: COMMAND
+    command: "npm install"
+    expected_exit_code: 0
+    required: true
 
-  - id: "V1.4"
-    description: "No conflicting peer dependencies"
-    severity: MAJOR
-    type: functional
+  - id: V1.4
+    description: "SDK can be imported without errors"
+    verification_type: CODE_CHECK
+    check: "Verify @modelcontextprotocol/sdk is resolvable in node_modules"
+    required: true
+
+# Quality gates
+quality_gates:
+  - "No unrelated changes to package.json (version bump, other deps)"
+  - "Lock file (package-lock.json) updated correctly"
+  - "No breaking changes to existing dependencies"
+
+# What implementor might skip (hidden checks)
+hidden_checks:
+  - "Verify the SDK is in 'dependencies' not 'devDependencies' for runtime use"
+  - "Check no accidental version pinning (should use caret ^)"
+  - "Ensure no duplicate or conflicting zod versions introduced"

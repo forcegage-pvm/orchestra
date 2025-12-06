@@ -1,688 +1,579 @@
 version: "1.0.0"
 sprint:
-  id: "sprint-001-mcp-server"
+  id: "mcp-server-001"
   name: "MCP Server for Orchestra"
   status: "ACTIVE"
   created_at: "2025-12-06"
-phases:
-  - phase_id: "setup"
-    phase_name: "Phase 1: Setup (Shared Infrastructure)"
-    status: "ACTIVE"
-    speckit_tasks:
-      - "T001"
-      - "T002"
-      - "T003"
-      - "T004"
-      - "T005"
-    tasks:
-      - task_id: 1
-        title: "Add MCP SDK dependency"
-        description: "Add @modelcontextprotocol/sdk ^0.6.0 dependency to package.json"
-        status: "IMPLEMENT"
-        category: "INFRASTRUCTURE"
-        dependencies: []
-        retry_count: 0
-        max_retries: 3
-        speckit_task_ref: "tasks.md#T001"
-        started_at: "2025-12-06T11:55:59.940Z"
-      - task_id: 2
-        title: "Create MCP directory structure"
-        description: "Create src/mcp/ directory structure per plan.md"
-        status: "PENDING"
-        category: "INFRASTRUCTURE"
-        dependencies:
-          - 1
-        retry_count: 0
-        max_retries: 3
-        speckit_task_ref: "tasks.md#T002"
-      - task_id: 3
-        title: "Add RoleError to errors.ts"
-        description: "Add RoleError to src/core/errors.ts extending OrchestraError"
-        status: "PENDING"
-        category: "INFRASTRUCTURE"
-        dependencies:
-          - 1
-        retry_count: 0
-        max_retries: 3
-        speckit_task_ref: "tasks.md#T003"
-      - task_id: 4
-        title: "Add Role and AttemptTracker schemas"
-        description: "Add RoleSchema and AttemptTrackerSchema to src/core/types.ts"
-        status: "PENDING"
-        category: "INFRASTRUCTURE"
-        dependencies:
-          - 1
-        retry_count: 0
-        max_retries: 3
-        speckit_task_ref: "tasks.md#T004"
-      - task_id: 5
-        title: "Export new types from core"
-        description: "Export new types from src/core/index.ts"
-        status: "PENDING"
-        category: "INFRASTRUCTURE"
-        dependencies:
-          - 3
-          - 4
-        retry_count: 0
-        max_retries: 3
-        speckit_task_ref: "tasks.md#T005"
-  - phase_id: "foundational"
-    phase_name: "Phase 2: Foundational (Blocking Prerequisites)"
+tasks:
+  - task_id: 1
+    title: "Add @modelcontextprotocol/sdk dependency"
+    description: "Add @modelcontextprotocol/sdk ^0.6.0 dependency to package.json"
+    status: "IMPLEMENT"
+    category: "INFRASTRUCTURE"
+    dependencies: []
+    retry_count: 0
+    max_retries: 3
+    speckit_task_ref: "001-mcp-server/tasks.md#T001"
+    started_at: "2025-12-06T18:31:46.585Z"
+  - task_id: 2
+    title: "Create src/mcp/ directory structure"
+    description: "Create src/mcp/ directory structure per plan.md"
     status: "PENDING"
-    speckit_tasks:
-      - "T006"
-      - "T007"
-      - "T008"
-      - "T009"
-      - "T010"
-      - "T011"
-      - "T012"
-      - "T013"
-      - "T014"
-      - "T015"
-      - "T016"
-      - "T017"
-    tasks:
-      - task_id: 6
-        title: "Implement role-guard.ts"
-        description: "Implement role-guard.ts with validateRole() function in src/mcp/role-guard.ts"
-        status: "PENDING"
-        category: "INFRASTRUCTURE"
-        dependencies:
-          - 5
-        retry_count: 0
-        max_retries: 3
-        speckit_task_ref: "tasks.md#T006"
-      - task_id: 7
-        title: "Implement error-mapper.ts"
-        description: "Implement error-mapper.ts mapping OrchestraError to MCP codes in src/mcp/error-mapper.ts"
-        status: "PENDING"
-        category: "INFRASTRUCTURE"
-        dependencies:
-          - 5
-        retry_count: 0
-        max_retries: 3
-        speckit_task_ref: "tasks.md#T007"
-      - task_id: 8
-        title: "Implement lock.ts"
-        description: "Implement lock.ts with acquireLock(), releaseLock(), withLock() in src/mcp/lock.ts"
-        status: "PENDING"
-        category: "INFRASTRUCTURE"
-        dependencies:
-          - 5
-        retry_count: 0
-        max_retries: 3
-        speckit_task_ref: "tasks.md#T008"
-      - task_id: 9
-        title: "Extract runStatus from CLI"
-        description: "Extract runStatus() from commands/status.ts to src/core/status.ts"
-        status: "PENDING"
-        category: "REFACTOR"
-        dependencies:
-          - 5
-        retry_count: 0
-        max_retries: 3
-        speckit_task_ref: "tasks.md#T009"
-      - task_id: 10
-        title: "Export runStatus from core"
-        description: "Export runStatus from src/core/index.ts"
-        status: "PENDING"
-        category: "INFRASTRUCTURE"
-        dependencies:
-          - 9
-        retry_count: 0
-        max_retries: 3
-        speckit_task_ref: "tasks.md#T010"
-      - task_id: 11
-        title: "Create tool registry"
-        description: "Create tool registry in src/mcp/tools/index.ts with tool definitions array"
-        status: "PENDING"
-        category: "INFRASTRUCTURE"
-        dependencies:
-          - 6
-          - 7
-          - 8
-        retry_count: 0
-        max_retries: 3
-        speckit_task_ref: "tasks.md#T011"
-      - task_id: 12
-        title: "Implement MCP server entry point"
-        description: "Implement MCP server entry point in src/mcp/server.ts with STDIO transport"
-        status: "PENDING"
-        category: "INTEGRATION"
-        dependencies:
-          - 11
-        retry_count: 0
-        max_retries: 3
-        speckit_task_ref: "tasks.md#T012"
-      - task_id: 13
-        title: "Create MCP barrel export"
-        description: "Create src/mcp/index.ts barrel export for MCP module"
-        status: "PENDING"
-        category: "INFRASTRUCTURE"
-        dependencies:
-          - 12
-        retry_count: 0
-        max_retries: 3
-        speckit_task_ref: "tasks.md#T013"
-      - task_id: 14
-        title: "Create role-guard tests"
-        description: "Create test/mcp/role-guard.test.ts with role validation tests"
-        status: "PENDING"
-        category: "INFRASTRUCTURE"
-        dependencies:
-          - 6
-        retry_count: 0
-        max_retries: 3
-        speckit_task_ref: "tasks.md#T014"
-      - task_id: 15
-        title: "Create error-mapper tests"
-        description: "Create test/mcp/error-mapper.test.ts with error code mapping tests"
-        status: "PENDING"
-        category: "INFRASTRUCTURE"
-        dependencies:
-          - 7
-        retry_count: 0
-        max_retries: 3
-        speckit_task_ref: "tasks.md#T015"
-      - task_id: 16
-        title: "Create lock tests"
-        description: "Create test/mcp/lock.test.ts with lock acquisition/release/stale tests"
-        status: "PENDING"
-        category: "INFRASTRUCTURE"
-        dependencies:
-          - 8
-        retry_count: 0
-        max_retries: 3
-        speckit_task_ref: "tasks.md#T016"
-      - task_id: 17
-        title: "Add MCP server build script"
-        description: "Add build script for MCP server to package.json (dist/mcp/server.js output)"
-        status: "PENDING"
-        category: "INFRASTRUCTURE"
-        dependencies:
-          - 12
-        retry_count: 0
-        max_retries: 3
-        speckit_task_ref: "tasks.md#T017"
-  - phase_id: "us1-prepare"
-    phase_name: "Phase 3: User Story 1 - AI Agent Prepares Task (P1)"
+    category: "INFRASTRUCTURE"
+    dependencies: []
+    retry_count: 0
+    max_retries: 3
+    speckit_task_ref: "001-mcp-server/tasks.md#T002"
+  - task_id: 3
+    title: "Add RoleError to errors.ts"
+    description: "Add RoleError to src/core/errors.ts extending OrchestraError"
     status: "PENDING"
-    speckit_tasks:
-      - "T018"
-      - "T019"
-      - "T020"
-      - "T021"
-      - "T022"
-      - "T023"
-    tasks:
-      - task_id: 18
-        title: "Implement prepare tool handler"
-        description: "Implement prepare tool handler in src/mcp/tools/prepare.ts"
-        status: "PENDING"
-        category: "INTEGRATION"
-        dependencies:
-          - 13
-        retry_count: 0
-        max_retries: 3
-        speckit_task_ref: "tasks.md#T018"
-      - task_id: 19
-        title: "Register prepare tool"
-        description: "Register prepare tool in src/mcp/tools/index.ts with schema from contracts/prepare.json"
-        status: "PENDING"
-        category: "INTEGRATION"
-        dependencies:
-          - 18
-        retry_count: 0
-        max_retries: 3
-        speckit_task_ref: "tasks.md#T019"
-      - task_id: 20
-        title: "Create prepare tool tests"
-        description: "Create test/mcp/tools/prepare.test.ts with success and error cases"
-        status: "PENDING"
-        category: "INFRASTRUCTURE"
-        dependencies:
-          - 19
-        retry_count: 0
-        max_retries: 3
-        speckit_task_ref: "tasks.md#T020"
-      - task_id: 21
-        title: "Implement init tool handler"
-        description: "Implement init tool handler in src/mcp/tools/init.ts"
-        status: "PENDING"
-        category: "INTEGRATION"
-        dependencies:
-          - 13
-        retry_count: 0
-        max_retries: 3
-        speckit_task_ref: "tasks.md#T021"
-      - task_id: 22
-        title: "Register init tool"
-        description: "Register init tool in src/mcp/tools/index.ts with schema from contracts/init.json"
-        status: "PENDING"
-        category: "INTEGRATION"
-        dependencies:
-          - 21
-        retry_count: 0
-        max_retries: 3
-        speckit_task_ref: "tasks.md#T022"
-      - task_id: 23
-        title: "Create init tool tests"
-        description: "Create test/mcp/tools/init.test.ts with success and error cases"
-        status: "PENDING"
-        category: "INFRASTRUCTURE"
-        dependencies:
-          - 22
-        retry_count: 0
-        max_retries: 3
-        speckit_task_ref: "tasks.md#T023"
-  - phase_id: "us2-status"
-    phase_name: "Phase 4: User Story 2 - AI Agent Views Status (P1)"
+    category: "INFRASTRUCTURE"
+    dependencies: []
+    retry_count: 0
+    max_retries: 3
+    speckit_task_ref: "001-mcp-server/tasks.md#T003"
+  - task_id: 4
+    title: "Add RoleSchema and AttemptTrackerSchema to types.ts"
+    description: "Add RoleSchema and AttemptTrackerSchema to src/core/types.ts"
     status: "PENDING"
-    speckit_tasks:
-      - "T024"
-      - "T025"
-      - "T026"
-      - "T027"
-      - "T028"
-      - "T029"
-    tasks:
-      - task_id: 24
-        title: "Implement status tool handler"
-        description: "Implement status tool handler in src/mcp/tools/status.ts"
-        status: "PENDING"
-        category: "INTEGRATION"
-        dependencies:
-          - 10
-          - 13
-        retry_count: 0
-        max_retries: 3
-        speckit_task_ref: "tasks.md#T024"
-      - task_id: 25
-        title: "Register status tool"
-        description: "Register status tool in src/mcp/tools/index.ts with schema from contracts/status.json"
-        status: "PENDING"
-        category: "INTEGRATION"
-        dependencies:
-          - 24
-        retry_count: 0
-        max_retries: 3
-        speckit_task_ref: "tasks.md#T025"
-      - task_id: 26
-        title: "Create status tool tests"
-        description: "Create test/mcp/tools/status.test.ts with both role access tests"
-        status: "PENDING"
-        category: "INFRASTRUCTURE"
-        dependencies:
-          - 25
-        retry_count: 0
-        max_retries: 3
-        speckit_task_ref: "tasks.md#T026"
-      - task_id: 27
-        title: "Implement closeout tool handler"
-        description: "Implement closeout tool handler in src/mcp/tools/closeout.ts"
-        status: "PENDING"
-        category: "INTEGRATION"
-        dependencies:
-          - 13
-        retry_count: 0
-        max_retries: 3
-        speckit_task_ref: "tasks.md#T027"
-      - task_id: 28
-        title: "Register closeout tool"
-        description: "Register closeout tool in src/mcp/tools/index.ts with schema from contracts/closeout.json"
-        status: "PENDING"
-        category: "INTEGRATION"
-        dependencies:
-          - 27
-        retry_count: 0
-        max_retries: 3
-        speckit_task_ref: "tasks.md#T028"
-      - task_id: 29
-        title: "Create closeout tool tests"
-        description: "Create test/mcp/tools/closeout.test.ts with success and error cases"
-        status: "PENDING"
-        category: "INFRASTRUCTURE"
-        dependencies:
-          - 28
-        retry_count: 0
-        max_retries: 3
-        speckit_task_ref: "tasks.md#T029"
-  - phase_id: "us3-signal"
-    phase_name: "Phase 5: User Story 3 - Implementor Signals Completion (P2)"
+    category: "INFRASTRUCTURE"
+    dependencies: []
+    retry_count: 0
+    max_retries: 3
+    speckit_task_ref: "001-mcp-server/tasks.md#T004"
+  - task_id: 5
+    title: "Export new types from core/index.ts"
+    description: "Export new types from src/core/index.ts"
     status: "PENDING"
-    speckit_tasks:
-      - "T030"
-      - "T031"
-      - "T032"
-    tasks:
-      - task_id: 30
-        title: "Implement signal tool handler"
-        description: "Implement signal tool handler in src/mcp/tools/signal.ts with file auto-detection"
-        status: "PENDING"
-        category: "INTEGRATION"
-        dependencies:
-          - 13
-        retry_count: 0
-        max_retries: 3
-        speckit_task_ref: "tasks.md#T030"
-      - task_id: 31
-        title: "Register signal tool"
-        description: "Register signal tool in src/mcp/tools/index.ts with schema from contracts/signal.json"
-        status: "PENDING"
-        category: "INTEGRATION"
-        dependencies:
-          - 30
-        retry_count: 0
-        max_retries: 3
-        speckit_task_ref: "tasks.md#T031"
-      - task_id: 32
-        title: "Create signal tool tests"
-        description: "Create test/mcp/tools/signal.test.ts with role enforcement and file auto-detection tests"
-        status: "PENDING"
-        category: "INFRASTRUCTURE"
-        dependencies:
-          - 31
-        retry_count: 0
-        max_retries: 3
-        speckit_task_ref: "tasks.md#T032"
-  - phase_id: "us4-verify"
-    phase_name: "Phase 6: User Story 4 - Orchestrator Runs Verification (P2)"
+    category: "INFRASTRUCTURE"
+    dependencies:
+      - 3
+      - 4
+    retry_count: 0
+    max_retries: 3
+    speckit_task_ref: "001-mcp-server/tasks.md#T005"
+  - task_id: 6
+    title: "Implement role-guard.ts"
+    description: "Implement role-guard.ts with validateRole() function in src/mcp/role-guard.ts"
     status: "PENDING"
-    speckit_tasks:
-      - "T034"
-      - "T035"
-      - "T036"
-      - "T037"
-      - "T038"
-      - "T039"
-    tasks:
-      - task_id: 34
-        title: "Implement accept_signal tool handler"
-        description: "Implement accept_signal tool handler in src/mcp/tools/accept-signal.ts"
-        status: "PENDING"
-        category: "INTEGRATION"
-        dependencies:
-          - 13
-        retry_count: 0
-        max_retries: 3
-        speckit_task_ref: "tasks.md#T034"
-      - task_id: 35
-        title: "Register accept_signal tool"
-        description: "Register accept_signal tool in src/mcp/tools/index.ts with schema from contracts/accept_signal.json"
-        status: "PENDING"
-        category: "INTEGRATION"
-        dependencies:
-          - 34
-        retry_count: 0
-        max_retries: 3
-        speckit_task_ref: "tasks.md#T035"
-      - task_id: 36
-        title: "Create accept_signal tool tests"
-        description: "Create test/mcp/tools/accept-signal.test.ts with success and state validation tests"
-        status: "PENDING"
-        category: "INFRASTRUCTURE"
-        dependencies:
-          - 35
-        retry_count: 0
-        max_retries: 3
-        speckit_task_ref: "tasks.md#T036"
-      - task_id: 37
-        title: "Implement verify tool handler"
-        description: "Implement verify tool handler in src/mcp/tools/verify.ts with result sanitization"
-        status: "PENDING"
-        category: "INTEGRATION"
-        dependencies:
-          - 13
-        retry_count: 0
-        max_retries: 3
-        speckit_task_ref: "tasks.md#T037"
-      - task_id: 38
-        title: "Register verify tool"
-        description: "Register verify tool in src/mcp/tools/index.ts with schema from contracts/verify.json"
-        status: "PENDING"
-        category: "INTEGRATION"
-        dependencies:
-          - 37
-        retry_count: 0
-        max_retries: 3
-        speckit_task_ref: "tasks.md#T038"
-      - task_id: 39
-        title: "Create verify tool tests"
-        description: "Create test/mcp/tools/verify.test.ts with role enforcement and result sanitization tests"
-        status: "PENDING"
-        category: "INFRASTRUCTURE"
-        dependencies:
-          - 38
-        retry_count: 0
-        max_retries: 3
-        speckit_task_ref: "tasks.md#T039"
-  - phase_id: "us5-complete"
-    phase_name: "Phase 7: User Story 5 - Orchestrator Completes Task (P2)"
+    category: "INFRASTRUCTURE"
+    dependencies:
+      - 5
+    retry_count: 0
+    max_retries: 3
+    speckit_task_ref: "001-mcp-server/tasks.md#T006"
+  - task_id: 7
+    title: "Implement error-mapper.ts"
+    description: "Implement error-mapper.ts mapping OrchestraError to MCP codes in src/mcp/error-mapper.ts"
     status: "PENDING"
-    speckit_tasks:
-      - "T040"
-      - "T041"
-      - "T042"
-      - "T043"
-    tasks:
-      - task_id: 40
-        title: "Implement complete tool handler"
-        description: "Implement complete tool handler in src/mcp/tools/complete.ts"
-        status: "PENDING"
-        category: "INTEGRATION"
-        dependencies:
-          - 13
-        retry_count: 0
-        max_retries: 3
-        speckit_task_ref: "tasks.md#T040"
-      - task_id: 41
-        title: "Register complete tool"
-        description: "Register complete tool in src/mcp/tools/index.ts with schema from contracts/complete.json"
-        status: "PENDING"
-        category: "INTEGRATION"
-        dependencies:
-          - 40
-        retry_count: 0
-        max_retries: 3
-        speckit_task_ref: "tasks.md#T041"
-      - task_id: 42
-        title: "Create complete tool tests"
-        description: "Create test/mcp/tools/complete.test.ts with success and state validation tests"
-        status: "PENDING"
-        category: "INFRASTRUCTURE"
-        dependencies:
-          - 41
-        retry_count: 0
-        max_retries: 3
-        speckit_task_ref: "tasks.md#T042"
-      - task_id: 43
-        title: "Create MCP workflow integration test"
-        description: "Create test/integration/mcp-workflow.test.ts with full lifecycle test (prepare → signal → accept → verify → complete)"
-        status: "PENDING"
-        category: "INTEGRATION"
-        dependencies:
-          - 42
-          - 39
-          - 32
-        retry_count: 0
-        max_retries: 3
-        speckit_task_ref: "tasks.md#T043"
-  - phase_id: "us6-failures"
-    phase_name: "Phase 8: User Story 6 - Handle Verification Failures (P3)"
+    category: "INFRASTRUCTURE"
+    dependencies:
+      - 5
+    retry_count: 0
+    max_retries: 3
+    speckit_task_ref: "001-mcp-server/tasks.md#T007"
+  - task_id: 8
+    title: "Implement lock.ts"
+    description: "Implement lock.ts with acquireLock(), releaseLock(), withLock() in src/mcp/lock.ts"
     status: "PENDING"
-    speckit_tasks:
-      - "T044"
-      - "T045"
-      - "T046"
-      - "T047"
-      - "T048"
-      - "T049"
-      - "T050"
-      - "T051"
-      - "T052"
-    tasks:
-      - task_id: 44
-        title: "Implement AttemptTracker persistence"
-        description: "Implement AttemptTracker persistence in src/mcp/attempt-tracker.ts"
-        status: "PENDING"
-        category: "INFRASTRUCTURE"
-        dependencies:
-          - 13
-        retry_count: 0
-        max_retries: 3
-        speckit_task_ref: "tasks.md#T044"
-      - task_id: 45
-        title: "Create AttemptTracker tests"
-        description: "Create test/mcp/attempt-tracker.test.ts with increment and max attempts tests"
-        status: "PENDING"
-        category: "INFRASTRUCTURE"
-        dependencies:
-          - 44
-        retry_count: 0
-        max_retries: 3
-        speckit_task_ref: "tasks.md#T045"
-      - task_id: 46
-        title: "Implement feedback tool handler"
-        description: "Implement feedback tool handler in src/mcp/tools/feedback.ts with canRetry logic"
-        status: "PENDING"
-        category: "INTEGRATION"
-        dependencies:
-          - 44
-        retry_count: 0
-        max_retries: 3
-        speckit_task_ref: "tasks.md#T046"
-      - task_id: 47
-        title: "Register feedback tool"
-        description: "Register feedback tool in src/mcp/tools/index.ts with schema from contracts/feedback.json"
-        status: "PENDING"
-        category: "INTEGRATION"
-        dependencies:
-          - 46
-        retry_count: 0
-        max_retries: 3
-        speckit_task_ref: "tasks.md#T047"
-      - task_id: 48
-        title: "Create feedback tool tests"
-        description: "Create test/mcp/tools/feedback.test.ts with canRetry flag and criteria hiding tests"
-        status: "PENDING"
-        category: "INFRASTRUCTURE"
-        dependencies:
-          - 47
-        retry_count: 0
-        max_retries: 3
-        speckit_task_ref: "tasks.md#T048"
-      - task_id: 49
-        title: "Implement escalate tool handler"
-        description: "Implement escalate tool handler in src/mcp/tools/escalate.ts"
-        status: "PENDING"
-        category: "INTEGRATION"
-        dependencies:
-          - 44
-        retry_count: 0
-        max_retries: 3
-        speckit_task_ref: "tasks.md#T049"
-      - task_id: 50
-        title: "Register escalate tool"
-        description: "Register escalate tool in src/mcp/tools/index.ts with schema from contracts/escalate.json"
-        status: "PENDING"
-        category: "INTEGRATION"
-        dependencies:
-          - 49
-        retry_count: 0
-        max_retries: 3
-        speckit_task_ref: "tasks.md#T050"
-      - task_id: 51
-        title: "Create escalate tool tests"
-        description: "Create test/mcp/tools/escalate.test.ts with escalation report creation tests"
-        status: "PENDING"
-        category: "INFRASTRUCTURE"
-        dependencies:
-          - 50
-        retry_count: 0
-        max_retries: 3
-        speckit_task_ref: "tasks.md#T051"
-      - task_id: 52
-        title: "Add failure path integration test"
-        description: "Add failure path test to test/integration/mcp-workflow.test.ts (verify fail → feedback → escalate)"
-        status: "PENDING"
-        category: "INTEGRATION"
-        dependencies:
-          - 48
-          - 51
-        retry_count: 0
-        max_retries: 3
-        speckit_task_ref: "tasks.md#T052"
-  - phase_id: "polish"
-    phase_name: "Phase 9: Polish & Cross-Cutting Concerns"
+    category: "INFRASTRUCTURE"
+    dependencies:
+      - 5
+    retry_count: 0
+    max_retries: 3
+    speckit_task_ref: "001-mcp-server/tasks.md#T008"
+  - task_id: 9
+    title: "Extract runStatus to core/status.ts"
+    description: "Extract runStatus() from commands/status.ts to src/core/status.ts"
     status: "PENDING"
-    speckit_tasks:
-      - "T053"
-      - "T054"
-      - "T055"
-      - "T056"
-      - "T057"
-      - "T058"
-    tasks:
-      - task_id: 53
-        title: "Update MCP documentation"
-        description: "Update docs/ with MCP server documentation"
-        status: "PENDING"
-        category: "INFRASTRUCTURE"
-        dependencies:
-          - 43
-        retry_count: 0
-        max_retries: 3
-        speckit_task_ref: "tasks.md#T053"
-      - task_id: 54
-        title: "Create VS Code settings template"
-        description: "Create .vscode/settings.json template with mcpServers configuration"
-        status: "PENDING"
-        category: "INFRASTRUCTURE"
-        dependencies:
-          - 43
-        retry_count: 0
-        max_retries: 3
-        speckit_task_ref: "tasks.md#T054"
-      - task_id: 55
-        title: "Run regression tests"
-        description: "Run all existing tests (427+) to verify no regression"
-        status: "PENDING"
-        category: "INFRASTRUCTURE"
-        dependencies:
-          - 52
-        retry_count: 0
-        max_retries: 3
-        speckit_task_ref: "tasks.md#T055"
-      - task_id: 56
-        title: "Manual E2E test"
-        description: "Manual E2E test with MCP Inspector per quickstart.md"
-        status: "PENDING"
-        category: "VISUAL"
-        dependencies:
-          - 55
-        retry_count: 0
-        max_retries: 3
-        speckit_task_ref: "tasks.md#T056"
-      - task_id: 57
-        title: "Add error sanitization test"
-        description: "Add error sanitization test ensuring .orchestrator-only paths never appear in responses"
-        status: "PENDING"
-        category: "INFRASTRUCTURE"
-        dependencies:
-          - 43
-        retry_count: 0
-        max_retries: 3
-        speckit_task_ref: "tasks.md#T057"
-      - task_id: 58
-        title: "Update README with MCP usage"
-        description: "Update README.md with MCP server usage section"
-        status: "PENDING"
-        category: "INFRASTRUCTURE"
-        dependencies:
-          - 56
-        retry_count: 0
-        max_retries: 3
-        speckit_task_ref: "tasks.md#T058"
+    category: "REFACTOR"
+    dependencies:
+      - 5
+    retry_count: 0
+    max_retries: 3
+    speckit_task_ref: "001-mcp-server/tasks.md#T009"
+  - task_id: 10
+    title: "Export runStatus from core/index.ts"
+    description: "Export runStatus from src/core/index.ts"
+    status: "PENDING"
+    category: "INFRASTRUCTURE"
+    dependencies:
+      - 9
+    retry_count: 0
+    max_retries: 3
+    speckit_task_ref: "001-mcp-server/tasks.md#T010"
+  - task_id: 11
+    title: "Create tool registry in src/mcp/tools/index.ts"
+    description: "Create tool registry in src/mcp/tools/index.ts with tool definitions array"
+    status: "PENDING"
+    category: "INFRASTRUCTURE"
+    dependencies:
+      - 6
+      - 7
+      - 8
+    retry_count: 0
+    max_retries: 3
+    speckit_task_ref: "001-mcp-server/tasks.md#T011"
+  - task_id: 12
+    title: "Implement MCP server entry point"
+    description: "Implement MCP server entry point in src/mcp/server.ts with STDIO transport"
+    status: "PENDING"
+    category: "INFRASTRUCTURE"
+    dependencies:
+      - 11
+    retry_count: 0
+    max_retries: 3
+    speckit_task_ref: "001-mcp-server/tasks.md#T012"
+  - task_id: 13
+    title: "Create src/mcp/index.ts barrel export"
+    description: "Create src/mcp/index.ts barrel export for MCP module"
+    status: "PENDING"
+    category: "INFRASTRUCTURE"
+    dependencies:
+      - 12
+    retry_count: 0
+    max_retries: 3
+    speckit_task_ref: "001-mcp-server/tasks.md#T013"
+  - task_id: 14
+    title: "Create role-guard.test.ts"
+    description: "Create test/mcp/role-guard.test.ts with role validation tests"
+    status: "PENDING"
+    category: "INFRASTRUCTURE"
+    dependencies:
+      - 6
+    retry_count: 0
+    max_retries: 3
+    speckit_task_ref: "001-mcp-server/tasks.md#T014"
+  - task_id: 15
+    title: "Create error-mapper.test.ts"
+    description: "Create test/mcp/error-mapper.test.ts with error code mapping tests"
+    status: "PENDING"
+    category: "INFRASTRUCTURE"
+    dependencies:
+      - 7
+    retry_count: 0
+    max_retries: 3
+    speckit_task_ref: "001-mcp-server/tasks.md#T015"
+  - task_id: 16
+    title: "Create lock.test.ts"
+    description: "Create test/mcp/lock.test.ts with lock acquisition/release/stale tests"
+    status: "PENDING"
+    category: "INFRASTRUCTURE"
+    dependencies:
+      - 8
+    retry_count: 0
+    max_retries: 3
+    speckit_task_ref: "001-mcp-server/tasks.md#T016"
+  - task_id: 17
+    title: "Add MCP server build script"
+    description: "Add build script for MCP server to package.json (dist/mcp/server.js output)"
+    status: "PENDING"
+    category: "INFRASTRUCTURE"
+    dependencies:
+      - 13
+    retry_count: 0
+    max_retries: 3
+    speckit_task_ref: "001-mcp-server/tasks.md#T017"
+  - task_id: 18
+    title: "Implement prepare tool handler"
+    description: "Implement prepare tool handler in src/mcp/tools/prepare.ts"
+    status: "PENDING"
+    category: "INTEGRATION"
+    dependencies:
+      - 17
+    retry_count: 0
+    max_retries: 3
+    speckit_task_ref: "001-mcp-server/tasks.md#T018"
+  - task_id: 19
+    title: "Register prepare tool in registry"
+    description: "Register prepare tool in src/mcp/tools/index.ts with schema from contracts/prepare.json"
+    status: "PENDING"
+    category: "INTEGRATION"
+    dependencies:
+      - 18
+    retry_count: 0
+    max_retries: 3
+    speckit_task_ref: "001-mcp-server/tasks.md#T019"
+  - task_id: 20
+    title: "Create prepare.test.ts"
+    description: "Create test/mcp/tools/prepare.test.ts with success and error cases"
+    status: "PENDING"
+    category: "INTEGRATION"
+    dependencies:
+      - 19
+    retry_count: 0
+    max_retries: 3
+    speckit_task_ref: "001-mcp-server/tasks.md#T020"
+  - task_id: 21
+    title: "Implement init tool handler"
+    description: "Implement init tool handler in src/mcp/tools/init.ts"
+    status: "PENDING"
+    category: "INTEGRATION"
+    dependencies:
+      - 17
+    retry_count: 0
+    max_retries: 3
+    speckit_task_ref: "001-mcp-server/tasks.md#T021"
+  - task_id: 22
+    title: "Register init tool in registry"
+    description: "Register init tool in src/mcp/tools/index.ts with schema from contracts/init.json"
+    status: "PENDING"
+    category: "INTEGRATION"
+    dependencies:
+      - 21
+    retry_count: 0
+    max_retries: 3
+    speckit_task_ref: "001-mcp-server/tasks.md#T022"
+  - task_id: 23
+    title: "Create init.test.ts"
+    description: "Create test/mcp/tools/init.test.ts with success and error cases"
+    status: "PENDING"
+    category: "INTEGRATION"
+    dependencies:
+      - 22
+    retry_count: 0
+    max_retries: 3
+    speckit_task_ref: "001-mcp-server/tasks.md#T023"
+  - task_id: 24
+    title: "Implement status tool handler"
+    description: "Implement status tool handler in src/mcp/tools/status.ts"
+    status: "PENDING"
+    category: "INTEGRATION"
+    dependencies:
+      - 17
+    retry_count: 0
+    max_retries: 3
+    speckit_task_ref: "001-mcp-server/tasks.md#T024"
+  - task_id: 25
+    title: "Register status tool in registry"
+    description: "Register status tool in src/mcp/tools/index.ts with schema from contracts/status.json"
+    status: "PENDING"
+    category: "INTEGRATION"
+    dependencies:
+      - 24
+    retry_count: 0
+    max_retries: 3
+    speckit_task_ref: "001-mcp-server/tasks.md#T025"
+  - task_id: 26
+    title: "Create status.test.ts"
+    description: "Create test/mcp/tools/status.test.ts with both role access tests"
+    status: "PENDING"
+    category: "INTEGRATION"
+    dependencies:
+      - 25
+    retry_count: 0
+    max_retries: 3
+    speckit_task_ref: "001-mcp-server/tasks.md#T026"
+  - task_id: 27
+    title: "Implement closeout tool handler"
+    description: "Implement closeout tool handler in src/mcp/tools/closeout.ts"
+    status: "PENDING"
+    category: "INTEGRATION"
+    dependencies:
+      - 17
+    retry_count: 0
+    max_retries: 3
+    speckit_task_ref: "001-mcp-server/tasks.md#T027"
+  - task_id: 28
+    title: "Register closeout tool in registry"
+    description: "Register closeout tool in src/mcp/tools/index.ts with schema from contracts/closeout.json"
+    status: "PENDING"
+    category: "INTEGRATION"
+    dependencies:
+      - 27
+    retry_count: 0
+    max_retries: 3
+    speckit_task_ref: "001-mcp-server/tasks.md#T028"
+  - task_id: 29
+    title: "Create closeout.test.ts"
+    description: "Create test/mcp/tools/closeout.test.ts with success and error cases"
+    status: "PENDING"
+    category: "INTEGRATION"
+    dependencies:
+      - 28
+    retry_count: 0
+    max_retries: 3
+    speckit_task_ref: "001-mcp-server/tasks.md#T029"
+  - task_id: 30
+    title: "Implement signal tool handler"
+    description: "Implement signal tool handler in src/mcp/tools/signal.ts with file auto-detection"
+    status: "PENDING"
+    category: "INTEGRATION"
+    dependencies:
+      - 17
+    retry_count: 0
+    max_retries: 3
+    speckit_task_ref: "001-mcp-server/tasks.md#T030"
+  - task_id: 31
+    title: "Register signal tool in registry"
+    description: "Register signal tool in src/mcp/tools/index.ts with schema from contracts/signal.json"
+    status: "PENDING"
+    category: "INTEGRATION"
+    dependencies:
+      - 30
+    retry_count: 0
+    max_retries: 3
+    speckit_task_ref: "001-mcp-server/tasks.md#T031"
+  - task_id: 32
+    title: "Create signal.test.ts"
+    description: "Create test/mcp/tools/signal.test.ts with role enforcement and file auto-detection tests"
+    status: "PENDING"
+    category: "INTEGRATION"
+    dependencies:
+      - 31
+    retry_count: 0
+    max_retries: 3
+    speckit_task_ref: "001-mcp-server/tasks.md#T032"
+  - task_id: 34
+    title: "Implement accept_signal tool handler"
+    description: "Implement accept_signal tool handler in src/mcp/tools/accept-signal.ts"
+    status: "PENDING"
+    category: "INTEGRATION"
+    dependencies:
+      - 17
+    retry_count: 0
+    max_retries: 3
+    speckit_task_ref: "001-mcp-server/tasks.md#T034"
+  - task_id: 35
+    title: "Register accept_signal tool in registry"
+    description: "Register accept_signal tool in src/mcp/tools/index.ts with schema from contracts/accept_signal.json"
+    status: "PENDING"
+    category: "INTEGRATION"
+    dependencies:
+      - 34
+    retry_count: 0
+    max_retries: 3
+    speckit_task_ref: "001-mcp-server/tasks.md#T035"
+  - task_id: 36
+    title: "Create accept-signal.test.ts"
+    description: "Create test/mcp/tools/accept-signal.test.ts with success and state validation tests"
+    status: "PENDING"
+    category: "INTEGRATION"
+    dependencies:
+      - 35
+    retry_count: 0
+    max_retries: 3
+    speckit_task_ref: "001-mcp-server/tasks.md#T036"
+  - task_id: 37
+    title: "Implement verify tool handler"
+    description: "Implement verify tool handler in src/mcp/tools/verify.ts with result sanitization"
+    status: "PENDING"
+    category: "INTEGRATION"
+    dependencies:
+      - 17
+    retry_count: 0
+    max_retries: 3
+    speckit_task_ref: "001-mcp-server/tasks.md#T037"
+  - task_id: 38
+    title: "Register verify tool in registry"
+    description: "Register verify tool in src/mcp/tools/index.ts with schema from contracts/verify.json"
+    status: "PENDING"
+    category: "INTEGRATION"
+    dependencies:
+      - 37
+    retry_count: 0
+    max_retries: 3
+    speckit_task_ref: "001-mcp-server/tasks.md#T038"
+  - task_id: 39
+    title: "Create verify.test.ts"
+    description: "Create test/mcp/tools/verify.test.ts with role enforcement and result sanitization tests"
+    status: "PENDING"
+    category: "INTEGRATION"
+    dependencies:
+      - 38
+    retry_count: 0
+    max_retries: 3
+    speckit_task_ref: "001-mcp-server/tasks.md#T039"
+  - task_id: 40
+    title: "Implement complete tool handler"
+    description: "Implement complete tool handler in src/mcp/tools/complete.ts"
+    status: "PENDING"
+    category: "INTEGRATION"
+    dependencies:
+      - 17
+    retry_count: 0
+    max_retries: 3
+    speckit_task_ref: "001-mcp-server/tasks.md#T040"
+  - task_id: 41
+    title: "Register complete tool in registry"
+    description: "Register complete tool in src/mcp/tools/index.ts with schema from contracts/complete.json"
+    status: "PENDING"
+    category: "INTEGRATION"
+    dependencies:
+      - 40
+    retry_count: 0
+    max_retries: 3
+    speckit_task_ref: "001-mcp-server/tasks.md#T041"
+  - task_id: 42
+    title: "Create complete.test.ts"
+    description: "Create test/mcp/tools/complete.test.ts with success and state validation tests"
+    status: "PENDING"
+    category: "INTEGRATION"
+    dependencies:
+      - 41
+    retry_count: 0
+    max_retries: 3
+    speckit_task_ref: "001-mcp-server/tasks.md#T042"
+  - task_id: 43
+    title: "Create mcp-workflow.test.ts"
+    description: "Create test/integration/mcp-workflow.test.ts with full lifecycle test (prepare → signal → accept → verify → complete)"
+    status: "PENDING"
+    category: "INTEGRATION"
+    dependencies:
+      - 42
+    retry_count: 0
+    max_retries: 3
+    speckit_task_ref: "001-mcp-server/tasks.md#T043"
+  - task_id: 44
+    title: "Implement AttemptTracker persistence"
+    description: "Implement AttemptTracker persistence in src/mcp/attempt-tracker.ts"
+    status: "PENDING"
+    category: "INFRASTRUCTURE"
+    dependencies:
+      - 17
+    retry_count: 0
+    max_retries: 3
+    speckit_task_ref: "001-mcp-server/tasks.md#T044"
+  - task_id: 45
+    title: "Create attempt-tracker.test.ts"
+    description: "Create test/mcp/attempt-tracker.test.ts with increment and max attempts tests"
+    status: "PENDING"
+    category: "INFRASTRUCTURE"
+    dependencies:
+      - 44
+    retry_count: 0
+    max_retries: 3
+    speckit_task_ref: "001-mcp-server/tasks.md#T045"
+  - task_id: 46
+    title: "Implement feedback tool handler"
+    description: "Implement feedback tool handler in src/mcp/tools/feedback.ts with canRetry logic"
+    status: "PENDING"
+    category: "INTEGRATION"
+    dependencies:
+      - 44
+    retry_count: 0
+    max_retries: 3
+    speckit_task_ref: "001-mcp-server/tasks.md#T046"
+  - task_id: 47
+    title: "Register feedback tool in registry"
+    description: "Register feedback tool in src/mcp/tools/index.ts with schema from contracts/feedback.json"
+    status: "PENDING"
+    category: "INTEGRATION"
+    dependencies:
+      - 46
+    retry_count: 0
+    max_retries: 3
+    speckit_task_ref: "001-mcp-server/tasks.md#T047"
+  - task_id: 48
+    title: "Create feedback.test.ts"
+    description: "Create test/mcp/tools/feedback.test.ts with canRetry flag and criteria hiding tests"
+    status: "PENDING"
+    category: "INTEGRATION"
+    dependencies:
+      - 47
+    retry_count: 0
+    max_retries: 3
+    speckit_task_ref: "001-mcp-server/tasks.md#T048"
+  - task_id: 49
+    title: "Implement escalate tool handler"
+    description: "Implement escalate tool handler in src/mcp/tools/escalate.ts"
+    status: "PENDING"
+    category: "INTEGRATION"
+    dependencies:
+      - 17
+    retry_count: 0
+    max_retries: 3
+    speckit_task_ref: "001-mcp-server/tasks.md#T049"
+  - task_id: 50
+    title: "Register escalate tool in registry"
+    description: "Register escalate tool in src/mcp/tools/index.ts with schema from contracts/escalate.json"
+    status: "PENDING"
+    category: "INTEGRATION"
+    dependencies:
+      - 49
+    retry_count: 0
+    max_retries: 3
+    speckit_task_ref: "001-mcp-server/tasks.md#T050"
+  - task_id: 51
+    title: "Create escalate.test.ts"
+    description: "Create test/mcp/tools/escalate.test.ts with escalation report creation tests"
+    status: "PENDING"
+    category: "INTEGRATION"
+    dependencies:
+      - 50
+    retry_count: 0
+    max_retries: 3
+    speckit_task_ref: "001-mcp-server/tasks.md#T051"
+  - task_id: 52
+    title: "Add failure path to mcp-workflow.test.ts"
+    description: "Add failure path test to test/integration/mcp-workflow.test.ts (verify fail → feedback → escalate)"
+    status: "PENDING"
+    category: "INTEGRATION"
+    dependencies:
+      - 51
+    retry_count: 0
+    max_retries: 3
+    speckit_task_ref: "001-mcp-server/tasks.md#T052"
+  - task_id: 53
+    title: "Update docs with MCP documentation"
+    description: "Update docs/ with MCP server documentation"
+    status: "PENDING"
+    category: "INFRASTRUCTURE"
+    dependencies:
+      - 52
+    retry_count: 0
+    max_retries: 3
+    speckit_task_ref: "001-mcp-server/tasks.md#T053"
+  - task_id: 54
+    title: "Create VS Code mcpServers settings template"
+    description: "Create .vscode/settings.json template with mcpServers configuration"
+    status: "PENDING"
+    category: "INFRASTRUCTURE"
+    dependencies:
+      - 52
+    retry_count: 0
+    max_retries: 3
+    speckit_task_ref: "001-mcp-server/tasks.md#T054"
+  - task_id: 55
+    title: "Run all regression tests"
+    description: "Run all existing tests (427+) to verify no regression"
+    status: "PENDING"
+    category: "VISUAL"
+    dependencies:
+      - 52
+    retry_count: 0
+    max_retries: 3
+    speckit_task_ref: "001-mcp-server/tasks.md#T055"
+  - task_id: 56
+    title: "Manual E2E test with MCP Inspector"
+    description: "Manual E2E test with MCP Inspector per quickstart.md"
+    status: "PENDING"
+    category: "VISUAL"
+    dependencies:
+      - 55
+    retry_count: 0
+    max_retries: 3
+    speckit_task_ref: "001-mcp-server/tasks.md#T056"
+  - task_id: 57
+    title: "Add error sanitization test"
+    description: "Add error sanitization test ensuring .orchestrator-only paths never appear in responses"
+    status: "PENDING"
+    category: "INTEGRATION"
+    dependencies:
+      - 52
+    retry_count: 0
+    max_retries: 3
+    speckit_task_ref: "001-mcp-server/tasks.md#T057"
+  - task_id: 58
+    title: "Update README.md with MCP server usage"
+    description: "Update README.md with MCP server usage section"
+    status: "PENDING"
+    category: "INFRASTRUCTURE"
+    dependencies:
+      - 56
+    retry_count: 0
+    max_retries: 3
+    speckit_task_ref: "001-mcp-server/tasks.md#T058"
 consolidations: []
 current_task_id: 1

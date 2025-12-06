@@ -1,47 +1,71 @@
+# Verification Criteria: Task 9
+# Extract runStatus to core/status.ts
+# HIDDEN: Implementor must NOT see this file
+
 task_id: 9
-title: "Extract runStatus from CLI"
-category: "REFACTOR"
-created_at: "2025-12-06"
+title: "Extract runStatus to core/status.ts"
+speckit_ref: "001-mcp-server/tasks.md#T009"
 
-# Verification criteria for extracting runStatus to core
+# Verification criteria (hidden from implementor)
+criteria:
+  - id: V9.1
+    description: "core/status.ts file exists"
+    verification_type: FILE_EXISTS
+    target_file: "src/core/status.ts"
+    required: true
 
-checks:
-  - id: "V9.1"
-    description: "src/core/status.ts file exists"
-    severity: BLOCKING
-    type: structural
+  - id: V9.2
+    description: "runStatus function is exported from core/status.ts"
+    verification_type: FILE_CONTENT
+    target_file: "src/core/status.ts"
+    check: "Contains 'export function runStatus' or 'export async function runStatus'"
+    required: true
 
-  - id: "V9.2"
-    description: "runStatus() function is defined in src/core/status.ts"
-    severity: BLOCKING
-    type: structural
+  - id: V9.3
+    description: "commands/status.ts imports from core/status.ts"
+    verification_type: FILE_CONTENT
+    target_file: "src/commands/status.ts"
+    check: "Contains import from '../core/status.js' or similar"
+    required: true
 
-  - id: "V9.3"
-    description: "runStatus() returns structured data (not just console output)"
-    severity: BLOCKING
-    type: structural
+  - id: V9.4
+    description: "runStatus returns structured data (not just console output)"
+    verification_type: FILE_CONTENT
+    target_file: "src/core/status.ts"
+    check: "Function returns an object with sprint info, not just void"
+    required: true
 
-  - id: "V9.4"
-    description: "commands/status.ts imports from core"
-    severity: BLOCKING
-    type: structural
+  - id: V9.5
+    description: "Existing CLI status command still works"
+    verification_type: COMMAND
+    command: "npm run dev -- status"
+    expected_exit_code: 0
+    required: true
 
-  - id: "V9.5"
-    description: "CLI status command still works identically"
-    severity: BLOCKING
-    type: functional
-
-  - id: "V9.6"
-    description: "No business logic duplication between CLI and core"
-    severity: MAJOR
-    type: structural
-
-  - id: "V9.7"
-    description: "Existing status tests pass"
-    severity: BLOCKING
-    type: functional
-
-  - id: "V9.8"
+  - id: V9.6
     description: "TypeScript compiles without errors"
-    severity: BLOCKING
-    type: functional
+    verification_type: COMMAND
+    command: "npm run typecheck"
+    expected_exit_code: 0
+    required: true
+
+  - id: V9.7
+    description: "All tests pass (no regressions)"
+    verification_type: COMMAND
+    command: "npm test -- --run"
+    expected_exit_code: 0
+    required: true
+
+# Quality gates
+quality_gates:
+  - "Core function is pure (no console.log, no process.exit)"
+  - "Command wrapper handles console output"
+  - "Return type is well-defined (StatusResult or similar)"
+  - "No breaking changes to CLI behavior"
+
+# What implementor might skip (hidden checks)
+hidden_checks:
+  - "Verify runStatus does NOT call console.log directly"
+  - "Check return type includes all status fields needed by MCP"
+  - "Ensure commands/status.ts is a thin wrapper now"
+  - "No duplicate logic between core and command"

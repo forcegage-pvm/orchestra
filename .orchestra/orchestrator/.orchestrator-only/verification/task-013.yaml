@@ -1,42 +1,64 @@
+# Verification Criteria: Task 13
+# Create src/mcp/index.ts barrel export
+# HIDDEN: Implementor must NOT see this file
+
 task_id: 13
-title: "Create MCP barrel export"
-category: "INFRASTRUCTURE"
-created_at: "2025-12-06"
+title: "Create src/mcp/index.ts barrel export"
+speckit_ref: "001-mcp-server/tasks.md#T013"
 
-# Verification criteria for MCP barrel export
+# Verification criteria (hidden from implementor)
+criteria:
+  - id: V13.1
+    description: "index.ts file exists in src/mcp/"
+    verification_type: FILE_EXISTS
+    target_file: "src/mcp/index.ts"
+    required: true
 
-checks:
-  - id: "V13.1"
-    description: "src/mcp/index.ts file exists"
-    severity: BLOCKING
-    type: structural
+  - id: V13.2
+    description: "Exports role-guard functions"
+    verification_type: FILE_CONTENT
+    target_file: "src/mcp/index.ts"
+    check: "Contains export from './role-guard.js'"
+    required: true
 
-  - id: "V13.2"
-    description: "Exports server from ./server.js"
-    severity: BLOCKING
-    type: structural
+  - id: V13.3
+    description: "Exports error-mapper functions"
+    verification_type: FILE_CONTENT
+    target_file: "src/mcp/index.ts"
+    check: "Contains export from './error-mapper.js'"
+    required: true
 
-  - id: "V13.3"
-    description: "Exports validateRole from ./role-guard.js"
-    severity: BLOCKING
-    type: structural
+  - id: V13.4
+    description: "Exports lock functions"
+    verification_type: FILE_CONTENT
+    target_file: "src/mcp/index.ts"
+    check: "Contains export from './lock.js'"
+    required: true
 
-  - id: "V13.4"
-    description: "Exports error mapping utilities from ./error-mapper.js"
-    severity: BLOCKING
-    type: structural
+  - id: V13.5
+    description: "Exports tools registry"
+    verification_type: FILE_CONTENT
+    target_file: "src/mcp/index.ts"
+    check: "Contains export from './tools/index.js'"
+    required: true
 
-  - id: "V13.5"
-    description: "Exports lock utilities from ./lock.js"
-    severity: BLOCKING
-    type: structural
-
-  - id: "V13.6"
-    description: "All imports use .js extensions (ESM)"
-    severity: BLOCKING
-    type: structural
-
-  - id: "V13.7"
+  - id: V13.6
     description: "TypeScript compiles without errors"
-    severity: BLOCKING
-    type: functional
+    verification_type: COMMAND
+    command: "npm run typecheck"
+    expected_exit_code: 0
+    required: true
+
+# Quality gates
+quality_gates:
+  - "All MCP module exports accessible via single import"
+  - "No circular dependencies"
+  - "Uses .js extensions consistently"
+  - "Follows project barrel export conventions"
+
+# What implementor might skip (hidden checks)
+hidden_checks:
+  - "Verify server.ts is NOT exported (it's an entry point)"
+  - "Check all public functions are re-exported"
+  - "No wildcard exports that could leak internals"
+  - "Type exports included where needed"

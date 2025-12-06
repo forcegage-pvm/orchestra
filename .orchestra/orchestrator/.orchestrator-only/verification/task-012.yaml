@@ -1,47 +1,71 @@
+# Verification Criteria: Task 12
+# Implement MCP server entry point
+# HIDDEN: Implementor must NOT see this file
+
 task_id: 12
 title: "Implement MCP server entry point"
-category: "INTEGRATION"
-created_at: "2025-12-06"
+speckit_ref: "001-mcp-server/tasks.md#T012"
 
-# Verification criteria for MCP server implementation
+# Verification criteria (hidden from implementor)
+criteria:
+  - id: V12.1
+    description: "server.ts file exists in src/mcp/"
+    verification_type: FILE_EXISTS
+    target_file: "src/mcp/server.ts"
+    required: true
 
-checks:
-  - id: "V12.1"
-    description: "src/mcp/server.ts file exists"
-    severity: BLOCKING
-    type: structural
+  - id: V12.2
+    description: "Uses STDIO transport from MCP SDK"
+    verification_type: FILE_CONTENT
+    target_file: "src/mcp/server.ts"
+    check: "Imports StdioServerTransport or similar from @modelcontextprotocol/sdk"
+    required: true
 
-  - id: "V12.2"
-    description: "Uses STDIO transport from @modelcontextprotocol/sdk"
-    severity: BLOCKING
-    type: structural
+  - id: V12.3
+    description: "Creates MCP Server instance"
+    verification_type: FILE_CONTENT
+    target_file: "src/mcp/server.ts"
+    check: "Contains 'new Server' or 'createServer' from MCP SDK"
+    required: true
 
-  - id: "V12.3"
-    description: "Registers tool handlers from tools registry"
-    severity: BLOCKING
-    type: structural
+  - id: V12.4
+    description: "Registers tools from tool registry"
+    verification_type: FILE_CONTENT
+    target_file: "src/mcp/server.ts"
+    check: "Imports and uses tools from './tools/index.js'"
+    required: true
 
-  - id: "V12.4"
-    description: "Server can start without errors"
-    severity: BLOCKING
-    type: functional
+  - id: V12.5
+    description: "Server connects/runs when executed"
+    verification_type: FILE_CONTENT
+    target_file: "src/mcp/server.ts"
+    check: "Contains server.connect() or server.run() or transport.start()"
+    required: true
 
-  - id: "V12.5"
-    description: "Returns JSON-RPC 2.0 compliant responses"
-    severity: BLOCKING
-    type: functional
+  - id: V12.6
+    description: "Error handling for server lifecycle"
+    verification_type: FILE_CONTENT
+    target_file: "src/mcp/server.ts"
+    check: "Has try/catch or .catch() for server startup errors"
+    required: true
 
-  - id: "V12.6"
-    description: "Startup time <2 seconds"
-    severity: MAJOR
-    type: functional
-
-  - id: "V12.7"
-    description: "Handles errors with appropriate MCP error codes"
-    severity: BLOCKING
-    type: functional
-
-  - id: "V12.8"
+  - id: V12.7
     description: "TypeScript compiles without errors"
-    severity: BLOCKING
-    type: functional
+    verification_type: COMMAND
+    command: "npm run typecheck"
+    expected_exit_code: 0
+    required: true
+
+# Quality gates
+quality_gates:
+  - "Uses error-mapper for exception handling"
+  - "Proper async/await patterns"
+  - "Server name and version configured"
+  - "Graceful shutdown handling"
+
+# What implementor might skip (hidden checks)
+hidden_checks:
+  - "Verify server info includes Orchestra version"
+  - "Check all tool handlers are registered"
+  - "Ensure lock acquisition before tool execution"
+  - "Server listens on STDIO (not HTTP)"

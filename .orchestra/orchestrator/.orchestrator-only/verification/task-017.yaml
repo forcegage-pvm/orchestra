@@ -1,37 +1,64 @@
+# Verification Criteria: Task 17
+# Add MCP server build script
+# HIDDEN: Implementor must NOT see this file
+
 task_id: 17
 title: "Add MCP server build script"
-category: "INFRASTRUCTURE"
-created_at: "2025-12-06"
+speckit_ref: "001-mcp-server/tasks.md#T017"
 
-# Verification criteria for MCP server build script
+# Verification criteria (hidden from implementor)
+criteria:
+  - id: V17.1
+    description: "package.json has MCP build script"
+    verification_type: FILE_CONTENT
+    target_file: "package.json"
+    check: "Contains script for building MCP server (e.g., 'build:mcp')"
+    required: true
 
-checks:
-  - id: "V17.1"
-    description: "package.json contains mcp:build script"
-    severity: BLOCKING
-    type: structural
-
-  - id: "V17.2"
+  - id: V17.2
     description: "Build outputs to dist/mcp/server.js"
-    severity: BLOCKING
-    type: structural
+    verification_type: FILE_CONTENT
+    target_file: "package.json"
+    check: "Build script targets dist/mcp/ or build output includes server.js"
+    required: true
 
-  - id: "V17.3"
-    description: "npm run mcp:build succeeds"
-    severity: BLOCKING
-    type: functional
+  - id: V17.3
+    description: "Build script runs successfully"
+    verification_type: COMMAND
+    command: "npm run build"
+    expected_exit_code: 0
+    required: true
 
-  - id: "V17.4"
-    description: "dist/mcp/server.js is executable with node"
-    severity: BLOCKING
-    type: functional
+  - id: V17.4
+    description: "dist/mcp/server.js exists after build"
+    verification_type: FILE_EXISTS
+    target_file: "dist/mcp/server.js"
+    check: "Server entry point exists in build output"
+    required: true
 
-  - id: "V17.5"
-    description: "tsup.config.ts updated if needed for MCP entry point"
-    severity: MAJOR
-    type: structural
+  - id: V17.5
+    description: "Built server is executable"
+    verification_type: CODE_CHECK
+    check: "node dist/mcp/server.js should start without immediate crash"
+    required: true
 
-  - id: "V17.6"
-    description: "Build includes all MCP dependencies"
-    severity: BLOCKING
-    type: functional
+  - id: V17.6
+    description: "TypeScript compiles without errors"
+    verification_type: COMMAND
+    command: "npm run typecheck"
+    expected_exit_code: 0
+    required: true
+
+# Quality gates
+quality_gates:
+  - "Uses existing build toolchain (tsup or tsc)"
+  - "ESM output format"
+  - "Source maps generated"
+  - "No bundling of node_modules"
+
+# What implementor might skip (hidden checks)
+hidden_checks:
+  - "Verify dist/mcp/ directory structure matches src/mcp/"
+  - "Check all MCP module files are compiled"
+  - "Ensure shebang line if needed for direct execution"
+  - "No dev dependencies bundled"

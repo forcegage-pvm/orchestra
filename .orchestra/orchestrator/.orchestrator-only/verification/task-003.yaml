@@ -1,37 +1,58 @@
+# Verification Criteria: Task 3
+# Add RoleError to errors.ts
+# HIDDEN: Implementor must NOT see this file
+
 task_id: 3
 title: "Add RoleError to errors.ts"
-category: "INFRASTRUCTURE"
-created_at: "2025-12-06"
+speckit_ref: "001-mcp-server/tasks.md#T003"
 
-# Verification criteria for adding RoleError class
-
-checks:
-  - id: "V3.1"
+# Verification criteria (hidden from implementor)
+criteria:
+  - id: V3.1
     description: "RoleError class exists in src/core/errors.ts"
-    severity: BLOCKING
-    type: structural
+    verification_type: FILE_CONTENT
+    target_file: "src/core/errors.ts"
+    check: "Contains 'export class RoleError extends OrchestraError'"
+    required: true
 
-  - id: "V3.2"
-    description: "RoleError extends OrchestraError"
-    severity: BLOCKING
-    type: structural
+  - id: V3.2
+    description: "RoleError has correct error code"
+    verification_type: FILE_CONTENT
+    target_file: "src/core/errors.ts"
+    check: "RoleError uses code 'ROLE_ERROR' or similar unique identifier"
+    required: true
 
-  - id: "V3.3"
-    description: "RoleError has appropriate error code (e.g., 'ROLE_DENIED')"
-    severity: BLOCKING
-    type: structural
+  - id: V3.3
+    description: "RoleError accepts role and requiredRole context"
+    verification_type: FILE_CONTENT
+    target_file: "src/core/errors.ts"
+    check: "Constructor or context object includes role-related properties"
+    required: true
 
-  - id: "V3.4"
-    description: "RoleError includes role and requiredRole in context"
-    severity: MAJOR
-    type: structural
-
-  - id: "V3.5"
+  - id: V3.4
     description: "TypeScript compiles without errors"
-    severity: BLOCKING
-    type: functional
+    verification_type: COMMAND
+    command: "npm run typecheck"
+    expected_exit_code: 0
+    required: true
 
-  - id: "V3.6"
-    description: "Existing error tests still pass"
-    severity: BLOCKING
-    type: functional
+  - id: V3.5
+    description: "Existing tests still pass"
+    verification_type: COMMAND
+    command: "npm test -- --run"
+    expected_exit_code: 0
+    required: true
+
+# Quality gates
+quality_gates:
+  - "RoleError follows same pattern as existing error classes"
+  - "Error message is descriptive (mentions role mismatch)"
+  - "toJSON() method inherited or properly implemented"
+  - "Exported from module"
+
+# What implementor might skip (hidden checks)
+hidden_checks:
+  - "Verify RoleError is EXPORTED (not just defined)"
+  - "Check error code matches plan.md MCP error code mapping (-32003)"
+  - "Ensure context object pattern matches existing errors"
+  - "No breaking changes to existing error classes"
