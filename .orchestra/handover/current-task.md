@@ -17,7 +17,7 @@ Please read the spec file(s) for full implementation details including code samp
 **STOP! Before implementing anything, validate this handover:**
 
 ```bash
-orchestra status
+orchestra validate-handover
 ```
 
 If validation **FAILS**:
@@ -46,7 +46,7 @@ When ready for review:
 1. Run pre-signal check:
 
    ```bash
-   orchestra accept-signal
+   orchestra pre-signal-check
    ```
 
 2. Update `.orchestra/handover/completion-signal.md` with:
