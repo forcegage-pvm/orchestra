@@ -271,7 +271,7 @@ function extractTestFiles(
   const testPaths: string[] = [];
 
   // Explicit test file references
-  const testRegex = /test\/[^\s`\)]+\.(test|spec)\.(ts|js|dart)/gi;
+  const testRegex = /test\/[^\s`)]+\.(test|spec)\.(ts|js|dart)/gi;
   let match;
   while ((match = testRegex.exec(content)) !== null) {
     const testPath = match[0];

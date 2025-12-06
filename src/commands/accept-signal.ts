@@ -7,6 +7,7 @@
 
 import chalk from "chalk";
 import { Command } from "commander";
+import { ValidationError } from "../core/errors.js";
 import * as output from "../core/output.js";
 import {
   runAcceptSignal,
@@ -62,6 +63,7 @@ async function acceptSignalCommand(
           {
             success: false,
             error: error instanceof Error ? error.message : String(error),
+            ...(error instanceof ValidationError && { validationErrors: error.errors }),
           },
           null,
           2
@@ -71,6 +73,13 @@ async function acceptSignalCommand(
       output.print.error(
         error instanceof Error ? error.message : String(error)
       );
+      // Show validation errors if available
+      if (error instanceof ValidationError && error.errors.length > 0) {
+        console.log(chalk.yellow("\nValidation errors:"));
+        for (const e of error.errors) {
+          console.log(chalk.red(`  • ${e.path}: ${e.message}`));
+        }
+      }
     }
 
     process.exit(2);

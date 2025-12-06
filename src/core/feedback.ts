@@ -154,8 +154,7 @@ export async function runFeedback(
   }
 
   // Calculate attempt (use provided or default to 1)
-  const maxAttempts =
-    (config as any).verification?.maxAttempts || task.max_retries || 3;
+  const maxAttempts = config.retry?.max_retries || task.max_retries || 3;
   const currentAttempt = options.attempt || 1;
   const canRetry = currentAttempt < maxAttempts;
 

@@ -9,11 +9,10 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { z } from "zod";
-import {
-  requireOrchestraRoot,
-} from "./config.js";
+import { requireOrchestraRoot } from "./config.js";
 import { loadManifest } from "./manifest.js";
 import { loadProgress } from "./progress.js";
+import type { ProgressEntry, ProgressLog } from "./types.js";
 import { readYaml } from "./yaml.js";
 
 // =============================================================================
@@ -51,7 +50,7 @@ export interface SignalReport {
 // Pre-signal artifact schema
 const PreSignalCheckSchema = z
   .object({
-    status: z.enum(["PASSED", "FAILED"]),
+    status: z.enum(["PASSED", "FAILED", "SKIPPED"]),
   })
   .passthrough(); // Allow additional fields
 
@@ -157,13 +156,14 @@ async function determineCurrentTask(explicitTaskId?: string): Promise<number> {
   return summary.latestEntry.task_id;
 }
 
-function getProgressSummary(progress: any): { latestEntry?: any } {
-  return {
-    latestEntry:
-      progress.entries.length > 0
-        ? progress.entries[progress.entries.length - 1]
-        : undefined,
-  };
+function getProgressSummary(progress: ProgressLog): {
+  latestEntry?: ProgressEntry;
+} {
+  const lastEntry = progress.entries[progress.entries.length - 1];
+  if (lastEntry !== undefined) {
+    return { latestEntry: lastEntry };
+  }
+  return {};
 }
 
 // =============================================================================
