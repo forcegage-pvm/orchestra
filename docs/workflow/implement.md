@@ -452,7 +452,7 @@ orchestra pre-signal-check --json
 | 1 | Blocking checks failed | Fix issues, re-run check |
 | 2 | Warnings only | Can proceed with caution |
 
-**Validation Checks (P1-P12):**
+**Validation Checks (P1-P13):**
 
 | ID | Check | Severity |
 |----|-------|----------|
@@ -468,6 +468,7 @@ orchestra pre-signal-check --json
 | P10 | Demo file exists (visual) | WARNING |
 | P11 | Demo has widget content | WARNING |
 | P12 | Git has changes | WARNING |
+| P13 | Completion signal format valid | BLOCKING |
 
 **Artifact Created:**
 

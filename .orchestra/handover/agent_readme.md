@@ -92,6 +92,16 @@ orchestra pre-signal-check
 
 This validates your deliverables before signaling. Fix any failures before proceeding.
 
+**Checks include:**
+- P1-P2: All CREATE files exist and have content
+- P3: All UPDATE files show git modifications
+- P4-P8: Tests exist, pass, build succeeds, lint clean
+- P9: No TODO/FIXME markers in new code
+- P10-P12: Visual/demo file checks (warnings)
+- **P13: Completion signal format is valid (BLOCKING)**
+
+P13 verifies your completion-signal.md has the required sections: Summary, Artifacts Created, Tests.
+
 ### 6. Stage Your Changes
 
 ```bash
@@ -149,34 +159,42 @@ If ANY of these fail, **YOU MUST FIX THEM** regardless of who introduced the iss
 
 ## Completion Signal Format
 
+The `completion-signal.md` file MUST have these sections for P13 validation to pass:
+
 ```markdown
 # Completion Signal
 
 ## Task ID
-
 1.X
 
 ## Status
-
 COMPLETE | BLOCKED | NEEDS_REVIEW
 
 ## Summary
-
 Brief description of what was implemented.
 
-## Changes Made
+## Artifacts Created
+| Path | Type | Description |
+|------|------|-------------|
+| src/core/example.ts | CREATE | Main implementation |
+| test/core/example.test.ts | CREATE | Unit tests |
 
-- File 1: Description
-- File 2: Description
+## Tests
+| Test File | Coverage |
+|-----------|----------|
+| test/core/example.test.ts | Core functionality |
 
-## Tests Added
+## Build Status
+npm run build result
 
-- Test file and what it covers
+## Test Status
+npm test result
 
 ## Notes
-
 Any issues, concerns, or suggestions for the orchestrator.
 ```
+
+**Required sections**: Summary, Artifacts Created, Tests (P13 validates these exist)
 
 ## File Locations
 

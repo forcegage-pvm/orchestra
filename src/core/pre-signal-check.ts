@@ -854,7 +854,9 @@ function checkCompletionSignalFormat(
       severity: "BLOCKING",
       passed: false,
       message: `Missing sections: ${missingSections.join(", ")}`,
-      fix: `Add required sections to completion-signal.md: ${missingSections.join(", ")}`,
+      fix: `Add required sections to completion-signal.md: ${missingSections.join(
+        ", "
+      )}`,
     };
   }
 
