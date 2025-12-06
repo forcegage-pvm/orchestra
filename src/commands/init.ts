@@ -17,6 +17,11 @@ import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import ora from "ora";
 import { findOrchestraRoot, loadConfig, saveConfig } from "../core/config.js";
+import {
+  createDefaultContext,
+  generateManifestYaml,
+  generateProgressYaml,
+} from "../core/config-generator.js";
 import { getCommandGitBehavior } from "../core/git-defaults.js";
 import { commit, stageFiles } from "../core/git.js";
 import * as output from "../core/output.js";
@@ -189,6 +194,19 @@ const TEMPLATE_MAPPINGS: Array<{ src: string; dest: string }> = [
     src: "common/templates/verification-criteria.yaml.hbs",
     dest: "common/templates/verification-criteria.yaml.hbs",
   },
+  // Config templates (used during init, also available for reference)
+  {
+    src: "common/templates/manifest.yaml.hbs",
+    dest: "common/templates/manifest.yaml.hbs",
+  },
+  {
+    src: "common/templates/orchestra.yaml.hbs",
+    dest: "common/templates/orchestra.yaml.hbs",
+  },
+  {
+    src: "common/templates/progress.yaml.hbs",
+    dest: "common/templates/progress.yaml.hbs",
+  },
 
   // Handover folder
   { src: "handover/agent_readme.md", dest: "handover/agent_readme.md" },
@@ -313,14 +331,15 @@ export async function runInit(options: InitOptions): Promise<void> {
     }
     saveConfig(cwd, config);
 
-    // Create manifest template
+    // Create manifest and progress from templates
+    const templateContext = createDefaultContext(options.spec);
+
     const manifestPath = path.join(orchestraDir, "manifest.yaml");
-    const manifestContent = generateManifestTemplate(options.spec);
+    const manifestContent = generateManifestYaml(templateContext);
     fs.writeFileSync(manifestPath, manifestContent, "utf-8");
 
-    // Create empty progress.yaml
     const progressPath = path.join(orchestraDir, "progress.yaml");
-    const progressContent = generateProgressTemplate();
+    const progressContent = generateProgressYaml(templateContext);
     fs.writeFileSync(progressPath, progressContent, "utf-8");
 
     // Git operations: registry defaults → CLI flags
@@ -415,88 +434,6 @@ function showDryRun(orchestraDir: string): void {
   console.log(
     `  ${chalk.green("+")} ${path.join(orchestraDir, "manifest.yaml")}`
   );
-}
-
-/**
- * Generate manifest template content with SpecKit format
- */
-function generateManifestTemplate(specPath?: string): string {
-  const today = new Date().toISOString().split("T")[0];
-  const specNote = specPath
-    ? `# SpecKit Root: ${specPath}\n# This manifest tracks implementation of SpecKit tasks\n`
-    : "# TODO: Add speckit.root to orchestra.yaml\n";
-
-  return `# Orchestra Manifest - Generated ${today}
-${specNote}
-version: "1.0.0"
-
-sprint:
-  id: "sprint-001"           # REQUIRED: Unique sprint identifier
-  name: "Sprint Name"        # REQUIRED: Human-readable sprint name
-  status: ACTIVE             # ACTIVE | COMPLETE
-  created_at: "${today}"
-
-# SpecKit-aligned phase structure
-# Each phase groups related tasks from SpecKit specs
-phases:
-  - phase_id: "foundation"
-    phase_name: "Foundation Phase"
-    status: ACTIVE           # ACTIVE | COMPLETE
-    speckit_tasks:           # SpecKit task IDs implemented in this phase
-      - "T001"
-      - "T002"
-    tasks:
-      - task_id: 1
-        title: "First Task"
-        description: "TODO: Describe what needs to be done"
-        status: PENDING      # PENDING | IMPLEMENT | COMPLETE | BLOCKED
-        category: INFRASTRUCTURE  # INFRASTRUCTURE | INTEGRATION | VISUAL | REFACTOR
-        dependencies: []     # Array of task_ids this depends on
-        speckit_task_ref: "001-foundation/tasks.md#T001"  # Path to SpecKit task
-
-      - task_id: 2
-        title: "Second Task"
-        description: "TODO: Describe what needs to be done"
-        status: PENDING
-        category: INTEGRATION
-        dependencies: [1]    # Depends on task 1
-        speckit_task_ref: "001-foundation/tasks.md#T002"
-
-# Task consolidation tracking
-# When multiple SpecKit tasks are combined into one implementation task
-consolidations: []
-  # Example:
-  # - consolidated_task_id: 1
-  #   speckit_tasks: ["T001", "T002", "T003"]
-  #   consolidation_rationale: "All three tasks modify the same module"
-  #   verification_coverage:
-  #     T001: "Covered by unit tests in test_module.dart"
-  #     T002: "Integration test in test_integration.dart"
-  #     T003: "Visual verification screenshot in screenshots/"
-`;
-}
-
-/**
- * Generate initial progress.yaml template content
- */
-function generateProgressTemplate(): string {
-  const today = new Date().toISOString().split("T")[0];
-
-  return `# Orchestra Progress Tracker - Generated ${today}
-# This file tracks task execution and completion
-
-sprint_id: "sprint-001"      # Must match manifest sprint.id
-created_at: "${today}"
-
-# Progress entries added by orchestra prepare/complete
-entries: []
-  # Example entry:
-  # - task_id: 1
-  #   started_at: "2025-12-04T10:00:00Z"
-  #   completed_at: "2025-12-04T12:30:00Z"
-  #   status: COMPLETED
-  #   commit_hash: "abc1234"
-`;
 }
 
 /**

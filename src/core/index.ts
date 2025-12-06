@@ -89,3 +89,6 @@ export * from "./workflow-state.js";
 
 // Next workflow guidance
 export * from "./next.js";
+
+// Config generation from templates
+export * from "./config-generator.js";

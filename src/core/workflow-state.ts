@@ -7,11 +7,7 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
-import {
-  findOrchestraRoot,
-  getResolvedPaths,
-  loadConfig,
-} from "./config.js";
+import { findOrchestraRoot, getResolvedPaths, loadConfig } from "./config.js";
 import { getTask, loadManifest } from "./manifest.js";
 import type { Manifest, Task, TaskStatus, WorkflowStep } from "./types.js";
 import { readYamlRaw, writeYaml, yamlExists } from "./yaml.js";
@@ -63,7 +59,12 @@ export interface WorkflowState {
  * Workflow error/blocker
  */
 export interface WorkflowError {
-  type: "VALIDATION" | "MISSING_FILE" | "VERIFICATION_FAILED" | "DEPENDENCY" | "CONFIG";
+  type:
+    | "VALIDATION"
+    | "MISSING_FILE"
+    | "VERIFICATION_FAILED"
+    | "DEPENDENCY"
+    | "CONFIG";
   message: string;
   location?: string;
   resolution?: string[];
@@ -114,7 +115,10 @@ export function detectWorkflowState(orchestraRoot?: string): WorkflowState {
           type: "CONFIG",
           message: error instanceof Error ? error.message : "Config error",
           location: path.join(root, ".orchestra", "orchestra.yaml"),
-          resolution: ["Check orchestra.yaml syntax", "Run orchestra init --force"],
+          resolution: [
+            "Check orchestra.yaml syntax",
+            "Run orchestra init --force",
+          ],
         },
       ],
     };
@@ -131,7 +135,10 @@ export function detectWorkflowState(orchestraRoot?: string): WorkflowState {
           type: "CONFIG",
           message: manifestResult.errors?.join(", ") || "Cannot load manifest",
           location: paths.manifest,
-          resolution: ["Check manifest.yaml syntax", "Ensure valid YAML format"],
+          resolution: [
+            "Check manifest.yaml syntax",
+            "Ensure valid YAML format",
+          ],
         },
       ],
       inferredStep: "CONFIGURE",
@@ -145,11 +152,14 @@ export function detectWorkflowState(orchestraRoot?: string): WorkflowState {
   const configured = allTasks.length > 0;
 
   // Check sprint status
-  const sprintComplete = allTasks.length > 0 && allTasks.every((t) => t.status === "COMPLETE");
+  const sprintComplete =
+    allTasks.length > 0 && allTasks.every((t) => t.status === "COMPLETE");
 
   // Get current task
   const currentTaskId = manifest.current_task_id ?? null;
-  const currentTask = currentTaskId ? getTask(manifest, currentTaskId) ?? null : null;
+  const currentTask = currentTaskId
+    ? getTask(manifest, currentTaskId) ?? null
+    : null;
   const currentTaskStatus = currentTask?.status ?? null;
 
   // Check artifacts
@@ -190,7 +200,9 @@ export function detectWorkflowState(orchestraRoot?: string): WorkflowState {
   const maxRetries = currentTask?.max_retries ?? config.retry?.max_retries ?? 3;
 
   // Load explicit state from progress if available
-  const { explicitStep, lastCommand, lastCommandAt } = loadExplicitState(paths.orchestraDir);
+  const { explicitStep, lastCommand, lastCommandAt } = loadExplicitState(
+    paths.orchestraDir
+  );
 
   // Infer workflow step
   const inferredStep = inferWorkflowStep({

@@ -69,13 +69,17 @@ export interface NextResult {
 /**
  * Get guidance for a workflow step
  */
-function getGuidanceForStep(step: WorkflowStep, state: WorkflowState): StepGuidance {
+function getGuidanceForStep(
+  step: WorkflowStep,
+  state: WorkflowState
+): StepGuidance {
   switch (step) {
     case "INIT":
       return {
         action: "Initialize Orchestra",
         command: "orchestra init",
-        explanation: "Orchestra is not initialized in this directory. Run init to create the .orchestra folder structure.",
+        explanation:
+          "Orchestra is not initialized in this directory. Run init to create the .orchestra folder structure.",
         tips: [
           "Use --sprint-id to set a custom sprint identifier",
           "This creates the folder structure and manifest.yaml",
@@ -85,7 +89,8 @@ function getGuidanceForStep(step: WorkflowStep, state: WorkflowState): StepGuida
     case "CONFIGURE":
       return {
         action: "Configure Orchestra",
-        explanation: "Orchestra is initialized but configuration is incomplete. Edit orchestra.yaml to set up your workflow.",
+        explanation:
+          "Orchestra is initialized but configuration is incomplete. Edit orchestra.yaml to set up your workflow.",
         tips: [
           "Set roles.implementor and roles.orchestrator",
           "Configure verification settings",
@@ -97,7 +102,8 @@ function getGuidanceForStep(step: WorkflowStep, state: WorkflowState): StepGuida
       return {
         action: "Select a task to work on",
         command: "orchestra prepare",
-        explanation: "No task is currently in progress. Run prepare to select and prepare the next available task.",
+        explanation:
+          "No task is currently in progress. Run prepare to select and prepare the next available task.",
         tips: [
           "Use --task <id> to prepare a specific task",
           "Tasks are prepared in dependency order by default",
@@ -107,8 +113,11 @@ function getGuidanceForStep(step: WorkflowStep, state: WorkflowState): StepGuida
     case "PREPARE":
       return {
         action: "Prepare task handover",
-        command: `orchestra prepare${state.currentTaskId ? ` --task ${state.currentTaskId}` : ""}`,
-        explanation: "Current task needs handover preparation. Generate the handover document for the implementor.",
+        command: `orchestra prepare${
+          state.currentTaskId ? ` --task ${state.currentTaskId}` : ""
+        }`,
+        explanation:
+          "Current task needs handover preparation. Generate the handover document for the implementor.",
         tips: [
           "Handover will be created in .orchestra/implementor/handovers/",
           "Include clear acceptance criteria",
@@ -132,7 +141,8 @@ function getGuidanceForStep(step: WorkflowStep, state: WorkflowState): StepGuida
       return {
         action: "Signal task completion",
         command: "orchestra complete --signal",
-        explanation: "Implementation is complete. Signal that you're ready for verification.",
+        explanation:
+          "Implementation is complete. Signal that you're ready for verification.",
         tips: [
           "Review your changes before signaling",
           "The signal includes a summary of what was done",
@@ -142,8 +152,11 @@ function getGuidanceForStep(step: WorkflowStep, state: WorkflowState): StepGuida
     case "VERIFY":
       return {
         action: "Verify task completion",
-        command: `orchestra verify${state.currentTaskId ? ` --task ${state.currentTaskId}` : ""}`,
-        explanation: "Implementor has signaled completion. Verify the work against acceptance criteria.",
+        command: `orchestra verify${
+          state.currentTaskId ? ` --task ${state.currentTaskId}` : ""
+        }`,
+        explanation:
+          "Implementor has signaled completion. Verify the work against acceptance criteria.",
         tips: [
           "Check both automated and manual verification criteria",
           "Use --auto for automated checks only",
@@ -154,8 +167,11 @@ function getGuidanceForStep(step: WorkflowStep, state: WorkflowState): StepGuida
     case "COMPLETE":
       return {
         action: "Complete the task",
-        command: `orchestra complete${state.currentTaskId ? ` --task ${state.currentTaskId}` : ""}`,
-        explanation: "Verification passed. Complete the task to finalize and move to the next one.",
+        command: `orchestra complete${
+          state.currentTaskId ? ` --task ${state.currentTaskId}` : ""
+        }`,
+        explanation:
+          "Verification passed. Complete the task to finalize and move to the next one.",
         tips: [
           "This updates the manifest and progress",
           "The next task will be automatically identified",
@@ -178,7 +194,8 @@ function getGuidanceForStep(step: WorkflowStep, state: WorkflowState): StepGuida
     case "ESCALATED":
       return {
         action: "Handle escalated task",
-        explanation: "This task has been escalated and requires human intervention.",
+        explanation:
+          "This task has been escalated and requires human intervention.",
         tips: [
           "Review the escalation reason in the manifest",
           "Use orchestra escalate --resolve to mark as resolved",
@@ -190,7 +207,8 @@ function getGuidanceForStep(step: WorkflowStep, state: WorkflowState): StepGuida
       return {
         action: "Sprint complete!",
         command: "orchestra closeout",
-        explanation: "All tasks in the sprint are complete. Run closeout to finalize the sprint.",
+        explanation:
+          "All tasks in the sprint are complete. Run closeout to finalize the sprint.",
         tips: [
           "Review the sprint summary",
           "Archive completed handovers and signals",

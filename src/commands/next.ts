@@ -47,18 +47,24 @@ function formatHumanOutput(result: NextResult): void {
   console.log();
   console.log(
     chalk.bold(
-      `${stepDisplay.icon} Current Step: ${stepDisplay.color(stepDisplay.label)}`
+      `${stepDisplay.icon} Current Step: ${stepDisplay.color(
+        stepDisplay.label
+      )}`
     )
   );
   console.log();
 
   // Context
   if (result.sprint) {
-    console.log(chalk.dim(`Sprint: ${result.sprint.id} (${result.sprint.status})`));
+    console.log(
+      chalk.dim(`Sprint: ${result.sprint.id} (${result.sprint.status})`)
+    );
   }
   if (result.task) {
     console.log(
-      chalk.dim(`Task ${result.task.id}: ${result.task.title} [${result.task.status}]`)
+      chalk.dim(
+        `Task ${result.task.id}: ${result.task.title} [${result.task.status}]`
+      )
     );
   }
   if (result.sprint || result.task) {
