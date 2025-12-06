@@ -2,8 +2,7 @@ version: "1.0"
 paths:
   manifest: "manifest.yaml"
   handovers: "handover"
-  signals: "implementor/signals"
-  feedback: "implementor/feedback"
+  feedback: "handover"
   artifacts: "artifacts"
   templates: "common/templates"
 verification:
@@ -19,4 +18,6 @@ template:
   default_format: "markdown"
   validate_on_render: true
   strict_mode: false
-spec_path: "E:\\cloud services\\Dropbox\\Repositories\\vs code\\orchestra\\specs\\001-mcp-server"
+speckit:
+  root: "E:\\cloud services\\Dropbox\\Repositories\\vs code\\orchestra\\specs\\001-mcp-server"
+  tasks_file: "E:\\cloud services\\Dropbox\\Repositories\\vs code\\orchestra\\specs\\001-mcp-server\\tasks.md"

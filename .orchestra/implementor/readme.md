@@ -1,6 +1,6 @@
 # Implementor Role
 
-This folder contains implementor-specific files and artifacts.
+This folder contains implementor-specific artifacts.
 
 > **START HERE**: Read `.orchestra/handover/agent_readme.md` for full workflow instructions.
 > This readme is a folder structure overview only.
@@ -9,9 +9,6 @@ This folder contains implementor-specific files and artifacts.
 
 ```
 implementor/
-├── .implementor-only/       # Hidden from orchestrator during handover
-│   ├── completion-signal.md # Active completion signal (when signaling)
-│   └── task-validator.md    # Self-validation checklist
 └── artifacts/               # Persistent implementor artifacts
     └── logs/                # Task completion logs
 ```
@@ -32,18 +29,17 @@ Ensure all quality gates pass:
 
 ### Signaling Completion
 
-1. Write completion details to `.orchestra/handover/completion-signal.md`
+All communication goes through the **handover/** folder (neutral zone):
+
+1. Fill out the `signal.md` template in `.orchestra/handover/`
 2. Stage all changes: `git add -A`
 3. Signal: "ready for review"
 
 The orchestrator will run `orchestra accept-signal` to verify your work.
 
-## Hidden Files (.implementor-only/)
+### After Failed Verification
 
-The `.implementor-only/` folder contains files that support the implementor's work:
-
-- **completion-signal.md**: Where you write your completion signal
-- **task-validator.md**: Self-check before signaling
+Read feedback from `.orchestra/handover/feedback.md` and retry.
 
 ## Artifacts
 

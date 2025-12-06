@@ -156,7 +156,9 @@ describe("config-generator", () => {
       const configs = generateAllConfigs("my/spec/path");
 
       expect(configs.orchestra).toContain('root: "my/spec/path"');
-      expect(configs.orchestra).toContain('tasks_file: "my/spec/path/tasks.md"');
+      expect(configs.orchestra).toContain(
+        'tasks_file: "my/spec/path/tasks.md"'
+      );
     });
   });
 
