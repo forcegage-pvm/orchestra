@@ -15,7 +15,7 @@
 - [x] [TD-006: Clarify SpecKit tasks.md Location and Purpose](#td-006-clarify-speckit-tasksmd-location-and-purpose)
 - [x] [TD-007: Pre-Flight Checklist Workflow](#td-007-pre-flight-checklist-workflow)
 - [ ] [TD-008: Handover Validation Command](#td-008-handover-validation-command)
-- [ ] [TD-009: Sync 01-handover-creation.md with prepare.md](#td-009-sync-01-handover-creationmd-with-preparemd)
+- [x] [TD-009: Sync 01-handover-creation.md with prepare.md](#td-009-sync-01-handover-creationmd-with-preparemd)
 - [ ] [TD-010: Pre-Signal Check Command](#td-010-pre-signal-check-command)
 
 ---
@@ -739,56 +739,63 @@ orchestra validate-handover --json
 
 ## TD-009: Sync 01-handover-creation.md with prepare.md
 
-**Status**: 🔴 Not Started  
+**Status**: ✅ Complete  
 **Priority**: Medium  
 **Identified**: 2025-12-05  
+**Completed**: 2025-12-10  
 **Source**: [TD-007](#td-007-pre-flight-checklist-workflow), [prepare.md](prepare.md)
 
 ### Description
 
-The process guide `01-handover-creation.md` is out of sync with the authoritative workflow documentation in `prepare.md`. The process guide still references manual steps that are now CLI commands.
+The process guide `01-handover-creation.md` is deployed to `.orchestra/orchestrator/processes/` and is meant to be read by **agents** (not human documentation). It needed to be restructured as clear, actionable agent instructions that follow the same flow as `prepare.md`.
 
-### Current State
+### Implementation Summary
 
-| Aspect | `prepare.md` (Source of Truth) | `01-handover-creation.md` (Out of Sync) |
-|--------|--------------------------------|----------------------------------------|
-| Pre-flight archival | `orchestra prepare --finalize` | Manual `cp` command |
-| Action IDs | A-PREP-01 to A-PREP-14 | No action IDs |
-| Execution sequence | 9-step sequence | 12 manual steps |
-| Template names | `current-task.md.hbs`, etc. | `current-task-template.md` |
+Completely rewrote `templates/orchestrator/processes/01-handover-creation.md` (285 lines) as agent-facing instructions:
 
-### Proposed Solution
+1. **Quick Reference Table** - At-a-glance command lookup
+2. **7-Step Process** - Matching prepare.md flow:
+   - Step 1: Select Task (manifest.yaml)
+   - Step 2: Check Previous Task Archived (--finalize flow)
+   - Step 3: Validate Dependencies Complete
+   - Step 4: Gather Task Information
+   - Step 5: Create Verification Criteria (secret)
+   - Step 6: Generate Handover Document
+   - Step 7: Verify and Deliver
 
-Update `01-handover-creation.md` to:
+3. **Action Boxes** - Clear `DO:` and `DON'T:` guidance per step
+4. **CLI Commands** - All relevant `orchestra` commands documented
+5. **File Locations** - Exact paths for each artifact type
 
-1. Reference `prepare.md` as the authoritative source
-2. Use correct template names
-3. Replace manual archive steps with `orchestra prepare --finalize`
-4. Add action ID references where applicable
-5. Remove redundant content that duplicates `prepare.md`
+### Key Insight
 
-**Option A: Full sync** - Make `01-handover-creation.md` a process guide that references `prepare.md`  
-**Option B: Deprecate** - Mark `01-handover-creation.md` as deprecated, point to `prepare.md`
+`01-handover-creation.md` is for AGENTS reading from `.orchestra/` during execution.  
+`prepare.md` is INTERNAL documentation for project maintainers.
 
-### Files to Update
+### Changes Made
 
-| File | Action |
-|------|--------|
-| `.orchestra/orchestrator/processes/01-handover-creation.md` | Sync or deprecate |
-| `templates/orchestrator/processes/01-handover-creation.md` | Same (if exists) |
+1. **`templates/orchestrator/processes/01-handover-creation.md`**: Complete rewrite (285 lines)
+   - Quick Reference table with all commands
+   - 7-step structured process with clear actions
+   - Proper action IDs (A-PREP-01 to A-PREP-14)
+   - Correct template names and file paths
+
+2. **`templates/common/templates/manifest.yaml.hbs`**: Fixed formatting corruption
+
+3. **`test/core/config-generator.test.ts`**: Fixed hardcoded date in test assertion
 
 ### Acceptance Criteria
 
-- [ ] `01-handover-creation.md` references `orchestra prepare --finalize`
-- [ ] Template names match actual templates
-- [ ] No conflicting information with `prepare.md`
-- [ ] Clear relationship between process guide and workflow doc
+- [x] `01-handover-creation.md` references `orchestra prepare --finalize`
+- [x] Template names match actual templates
+- [x] No conflicting information with `prepare.md`
+- [x] Clear relationship between process guide and workflow doc
+- [x] Structured as agent-consumable instructions (not human docs)
 
 ### Related Files
 
-- `docs/workflow/prepare.md` - Source of truth
-- `.orchestra/orchestrator/processes/01-handover-creation.md` - To update
-- `templates/orchestrator/processes/01-handover-creation.md` - Template version
+- `docs/workflow/prepare.md` - Source of truth (internal documentation)
+- `templates/orchestrator/processes/01-handover-creation.md` - Template for agent guide
 
 ---
 
