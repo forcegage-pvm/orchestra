@@ -193,7 +193,7 @@ describe("config-generator", () => {
       const manifest = generateManifestYaml(context);
       expect(manifest).toContain('id: "sprint-custom"');
       expect(manifest).toContain('name: "Custom Sprint"');
-      expect(manifest).toContain("Generated 2025-12-06");
+      expect(manifest).toContain(`Generated ${context.today}`);
 
       const orchestra = generateOrchestraYaml(context);
       expect(orchestra).toContain('version: "2.0.0"');
