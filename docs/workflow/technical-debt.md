@@ -16,7 +16,7 @@
 - [x] [TD-007: Pre-Flight Checklist Workflow](#td-007-pre-flight-checklist-workflow)
 - [ ] [TD-008: Handover Validation Command](#td-008-handover-validation-command)
 - [x] [TD-009: Sync 01-handover-creation.md with prepare.md](#td-009-sync-01-handover-creationmd-with-preparemd)
-- [ ] [TD-010: Pre-Signal Check Command](#td-010-pre-signal-check-command)
+- [x] [TD-010: Pre-Signal Check Command](#td-010-pre-signal-check-command)
 
 ---
 
@@ -801,9 +801,10 @@ Completely rewrote `templates/orchestrator/processes/01-handover-creation.md` (2
 
 ## TD-010: Pre-Signal Check Command
 
-**Status**: 🔴 Not Started  
+**Status**: ✅ Complete  
 **Priority**: 🚨 Critical  
 **Identified**: 2025-12-05  
+**Completed**: 2025-12-06  
 **Source**: [implement.md](implement.md), Original Scripts (see below)
 
 ### Description
@@ -1050,25 +1051,49 @@ These commands are **complementary**, not overlapping:
 
 **Recommended**: Option A - separate `pre-signal-check` command maintains trust boundary and clear workflow.
 
+### ✅ Implementation Complete (2025-12-06)
+
+**Implemented as `orchestra pre-signal-check` command:**
+
+- **Core**: `src/core/pre-signal-check.ts` (~900 lines)
+- **Command**: `src/commands/pre-signal-check.ts`
+- **Tests**: 30 tests (9 command + 21 core)
+
+**Features:**
+- All 12 validation checks (P1-P12) restored
+- 5 check categories: deliverables, testing, quality, visual, git
+- Extracts CREATE/UPDATE paths from handover markdown
+- Options: `--verbose`, `--json`, `--force`, `--skip-tests`, `--skip-lint`, `--skip-analyzer`
+- Creates `pre-signal.yaml` artifact at `.orchestra/handover/verification/pre-signal.yaml`
+- Creates dated audit trail artifacts
+- Exit codes: 0 (pass), 1 (fail), 2 (warnings only)
+
+**Workflow Integration:**
+```
+Implementor: orchestra pre-signal-check → creates pre-signal.yaml
+Implementor: (writes completion signal)
+Orchestrator: orchestra accept-signal → validates pre-signal.yaml exists & PASSED
+```
+
 ### Acceptance Criteria
 
-- [ ] `orchestra pre-signal-check` command exists
-- [ ] Restores ALL 12 original validation checks (P1-P12)
-- [ ] Extracts CREATE/UPDATE paths from handover (table + list formats)
-- [ ] Verifies CREATE files exist and have content
-- [ ] Verifies UPDATE files were modified (git diff)
-- [ ] Detects and verifies test files
-- [ ] Runs build and tests
-- [ ] Runs analyzer on touched files only ("you touch it, you own it")
-- [ ] Detects TODO/FIXME in new files
-- [ ] Handles visual/demo task detection
-- [ ] Creates YAML artifact for `orchestra accept-signal`
-- [ ] Creates audit trail artifact
-- [ ] Returns appropriate exit codes (0, 1, 2)
-- [ ] JSON output for scripting (`--json`)
-- [ ] Verbose output showing all checks (`--verbose`)
-- [ ] Tests cover all validation scenarios
-- [ ] Integrates with `accept-signal` workflow (artifact handoff)
+- [x] `orchestra pre-signal-check` command exists
+- [x] Restores ALL 12 original validation checks (P1-P12)
+- [x] Extracts CREATE/UPDATE paths from handover (table + list formats)
+- [x] Verifies CREATE files exist and have content
+- [x] Verifies UPDATE files were modified (git diff)
+- [x] Detects and verifies test files
+- [x] Runs build and tests
+- [x] Runs analyzer on touched files only ("you touch it, you own it")
+- [x] Detects TODO/FIXME in new files
+- [x] Handles visual/demo task detection
+- [x] Creates YAML artifact for `orchestra accept-signal`
+- [x] Creates audit trail artifact
+- [x] Returns appropriate exit codes (0, 1, 2)
+- [x] JSON output for scripting (`--json`)
+- [x] Verbose output showing all checks (`--verbose`)
+- [x] Tests cover all validation scenarios
+- [x] Integrates with `accept-signal` workflow (artifact handoff)
 
 ### Related Files
 
@@ -1143,4 +1168,7 @@ How should it work?
 | 1.10.0 | 2025-12-05 | Added TD-009: Sync 01-handover-creation.md with prepare.md |
 | 1.11.0 | 2025-12-05 | TD-008 expanded: Added comprehensive validation degradation analysis, original script references, 13 lost checks documented |
 | 1.12.0 | 2025-12-05 | Added TD-010: Pre-Signal Check Command (critical - same degradation pattern as TD-008, 12+ checks lost) |
+| 1.13.0 | 2025-12-05 | TD-010 updated: Added "Relationship to accept-signal" section for analysis |
+| 1.14.0 | 2025-12-06 | TD-009 complete: Comprehensive rewrite of 01-handover-creation.md (403 lines) |
+| 1.15.0 | 2025-12-06 | TD-010 complete: Implemented `orchestra pre-signal-check` command (~900 lines core, 30 tests) |
 | 1.13.0 | 2025-12-05 | TD-010 updated: Added "Relationship to accept-signal" section for analysis |
