@@ -16,6 +16,7 @@
  * - P10: Demo file exists (visual tasks)
  * - P11: Demo has content (visual tasks)
  * - P12: Git has changes
+ * - P13: Completion signal format valid (BLOCKING - prevents malformed signals)
  *
  * ZERO CLI dependencies - pure logic functions.
  */
@@ -136,6 +137,9 @@ export async function runPreSignalCheck(
 
   // P12: Git has changes
   checks.push(checkGitHasChanges(repoRoot, "P12"));
+
+  // P13: Completion signal format valid (BLOCKING - prevents malformed signals reaching orchestrator)
+  checks.push(checkCompletionSignalFormat(orchestraRoot, "P13"));
 
   // Calculate summary
   const summary = calculateSummary(checks);
@@ -798,6 +802,103 @@ function checkGitHasChanges(
       fix: "Ensure you are in a git repository",
     };
   }
+}
+
+/**
+ * P13: Check completion signal format is valid
+ *
+ * BLOCKING: This check prevents malformed signals from reaching the orchestrator.
+ * The implementor should fix signal format issues BEFORE signaling, not after.
+ */
+function checkCompletionSignalFormat(
+  orchestraRoot: string,
+  checkId: string
+): PreSignalCheckResult {
+  const signalPath = path.join(
+    orchestraRoot,
+    ".orchestra",
+    "handover",
+    "completion-signal.md"
+  );
+
+  // Check file exists
+  if (!fs.existsSync(signalPath)) {
+    return {
+      id: checkId,
+      name: "Completion signal exists",
+      category: "signal",
+      severity: "BLOCKING",
+      passed: false,
+      message: "completion-signal.md not found",
+      fix: "Create .orchestra/handover/completion-signal.md from template",
+    };
+  }
+
+  const content = fs.readFileSync(signalPath, "utf-8");
+
+  // Check for required sections (same as accept-signal S5)
+  const requiredSections = ["## Summary", "## Artifacts Created", "## Tests"];
+  const missingSections: string[] = [];
+
+  for (const section of requiredSections) {
+    if (!content.includes(section)) {
+      missingSections.push(section);
+    }
+  }
+
+  if (missingSections.length > 0) {
+    return {
+      id: checkId,
+      name: "Completion signal format",
+      category: "signal",
+      severity: "BLOCKING",
+      passed: false,
+      message: `Missing sections: ${missingSections.join(", ")}`,
+      fix: `Add required sections to completion-signal.md: ${missingSections.join(", ")}`,
+    };
+  }
+
+  // Check for unfilled template markers
+  if (
+    content.includes("<!-- Implementor:") &&
+    content.match(/## Summary\s*\n\s*\n/)
+  ) {
+    return {
+      id: checkId,
+      name: "Completion signal filled",
+      category: "signal",
+      severity: "BLOCKING",
+      passed: false,
+      message: "Template not filled out - Summary section is empty",
+      fix: "Fill out all sections in completion-signal.md before signaling",
+    };
+  }
+
+  // Check Summary has actual content (not just the header)
+  const summaryMatch = content.match(/## Summary\s*\n([\s\S]*?)(?=\n##|$)/);
+  if (summaryMatch && summaryMatch[1]) {
+    const summaryContent = summaryMatch[1].trim();
+    if (summaryContent.length < 10) {
+      return {
+        id: checkId,
+        name: "Completion signal content",
+        category: "signal",
+        severity: "BLOCKING",
+        passed: false,
+        message: "Summary section is too short or empty",
+        fix: "Write a meaningful summary of what was implemented",
+      };
+    }
+  }
+
+  return {
+    id: checkId,
+    name: "Completion signal format",
+    category: "signal",
+    severity: "BLOCKING",
+    passed: true,
+    message: "Signal format valid",
+  };
 }
 
 // =============================================================================

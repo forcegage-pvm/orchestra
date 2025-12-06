@@ -63,7 +63,9 @@ async function acceptSignalCommand(
           {
             success: false,
             error: error instanceof Error ? error.message : String(error),
-            ...(error instanceof ValidationError && { validationErrors: error.errors }),
+            ...(error instanceof ValidationError && {
+              validationErrors: error.errors,
+            }),
           },
           null,
           2
