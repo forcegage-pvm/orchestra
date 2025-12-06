@@ -1,47 +1,116 @@
 # Task {{task_id}}: {{task_title}}
 
+> ⚠️ **Information Isolation**: This handover is your COMPLETE specification. You have no access to spec files, manifests, or other tasks. Everything you need is in this document.
+
+## Task Overview
+
+| Field | Value |
+|-------|-------|
+| Task ID | `{{task_id}}` |
+| Title | {{task_title}} |
+| Priority | {{#if priority}}{{priority}}{{else}}P1{{/if}} |
+
 ## Objective
 
 {{task_description}}
 
-{{#if spec_file}}
-## Spec Files
+## Acceptance Criteria
 
-📄 **Task spec**: `{{spec_file}}`
-{{#if command_spec}}
-📄 **Command spec**: `{{command_spec}}`
-{{/if}}
-
-Please read the spec file(s) for full implementation details including code samples.
+{{#if acceptance_criteria.length}}
+| # | Criterion | Verification Method |
+|---|-----------|---------------------|
+{{#each acceptance_criteria}}
+| {{@index}} | {{this.criterion}} | {{this.verification}} |
+{{/each}}
+{{else}}
+<!-- ORCHESTRATOR: You MUST fill in acceptance criteria. Do NOT leave this empty. -->
+| # | Criterion | Verification Method |
+|---|-----------|---------------------|
+| 1 | [REQUIRED: Specific measurable outcome] | [How to verify] |
+| 2 | [REQUIRED: Another outcome] | [How to verify] |
 {{/if}}
 
 {{#if depends_on.length}}
 ## Dependencies
 
-These tasks must be completed first:
+These tasks must be completed first (already verified complete):
 {{#each depends_on}}
 - {{this}}
 {{/each}}
 {{/if}}
 
-## Deliverables
+## File Operations
 
 {{#if file_operations.length}}
-| Operation | Path | Description |
-|-----------|------|-------------|
+| Operation | Path | Purpose |
+|-----------|------|---------|
 {{#each file_operations}}
 | {{this.operation}} | `{{this.path}}` | {{this.description}} |
 {{/each}}
 {{else}}
-See the task spec file (`{{spec_file}}`) for the complete list of files to CREATE and UPDATE.
+<!-- ORCHESTRATOR: You MUST list all file operations. Never say "see spec file". -->
+| Operation | Path | Purpose |
+|-----------|------|---------|
+| CREATE | `[REQUIRED: path/to/new/file.ts]` | [Purpose of this file] |
+| MODIFY | `[REQUIRED: path/to/existing/file.ts]` | [What changes needed] |
+{{/if}}
+
+## Deliverables
+
+{{#if deliverables.length}}
+{{#each deliverables}}
+- [ ] {{this}}
+{{/each}}
+{{else}}
+<!-- ORCHESTRATOR: You MUST list specific deliverables. -->
+- [ ] [REQUIRED: Specific file or artifact]
+- [ ] [REQUIRED: Tests passing]
+- [ ] [REQUIRED: Documentation if applicable]
 {{/if}}
 
 ## TDD / Testing
 
+{{#if test_file}}
+**Test File**: `{{test_file}}`
+{{/if}}
+
 {{#if test_requirements}}
 {{test_requirements}}
 {{else}}
-See the task spec file (`{{spec_file}}`) for test requirements, success criteria, and verification steps.
+<!-- ORCHESTRATOR: You MUST provide test structure with sample data. -->
+### Test Structure
+
+```typescript
+describe('[Component/Feature Name]', () => {
+  describe('[function/method name]', () => {
+    it('should [REQUIRED: specific behavior]', () => {
+      // Sample input
+      const input = { /* [REQUIRED: sample data] */ };
+      
+      // Expected output
+      const expected = { /* [REQUIRED: expected result] */ };
+      
+      // Test assertion
+    });
+    
+    it('should handle [REQUIRED: edge case]', () => {
+      // Edge case test
+    });
+  });
+});
+```
+{{/if}}
+
+{{#if implementation_context}}
+## Implementation Context
+
+{{implementation_context}}
+{{/if}}
+
+{{#if code_scaffolds}}
+## Code Scaffolds
+
+{{code_scaffolds}}
 {{/if}}
 
 ---

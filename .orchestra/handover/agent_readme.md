@@ -4,12 +4,49 @@
 
 You are an **implementor agent**. Your job is to complete the task described in `current-task.md`.
 
+## CRITICAL: Information Isolation Boundary
+
+**Your handover is your COMPLETE specification. There is no external reference.**
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│              INFORMATION ISOLATION BOUNDARY                       │
+├──────────────────────────────────────────────────────────────────┤
+│                                                                   │
+│   YOU MUST NEVER ACCESS:                                          │
+│   ─────────────────────                                           │
+│   ✗ spec/                         (Specification documents)       │
+│   ✗ .orchestra/manifest.yaml      (Task list and sprint info)     │
+│   ✗ .orchestra/progress.yaml      (Sprint progress tracking)      │
+│   ✗ .orchestra/orchestrator/      (Orchestrator workspace)        │
+│   ✗ .orchestrator-only/           (Hidden verification criteria)  │
+│   ✗ Other task handovers          (Not your current task)         │
+│                                                                   │
+│   YOUR COMPLETE WORLD:                                            │
+│   ────────────────────                                            │
+│   ✓ current-task.md               (Your COMPLETE specification)   │
+│   ✓ completion-signal.md          (Your signal document)          │
+│   ✓ task-context.md               (Background if present)         │
+│   ✓ Project source code           (What you implement)            │
+│                                                                   │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+### If Handover Seems Incomplete
+
+If your handover:
+- References "see spec file" → **STOP** - this is an Orchestrator error
+- Says "per requirements.md" → **STOP** - you cannot access this file
+- Has empty [REQUIRED] sections → **STOP** - Orchestrator must fill these
+
+**Action**: Document the gap in `completion-signal.md` and signal. Do NOT try to find missing info yourself.
+
 ## Important Rules
 
-1. **Focus on ONE task only** - Do not look at other tasks or the full manifest
-2. **Follow the spec** - Each task references a spec file with detailed requirements
+1. **Focus on ONE task only** - Do not look at other tasks or the manifest
+2. **Handover IS the spec** - Everything you need is in `current-task.md`
 3. **Signal completion** - Write to `completion-signal.md` when done
-4. **Do NOT read verification files** - These are for the orchestrator only
+4. **Do NOT read restricted files** - Verification files are for orchestrator only
 
 ## Workflow
 
@@ -171,8 +208,9 @@ git add .
 
 1. Re-read `current-task.md` carefully
 2. Check `task-context.md` for background
-3. Look at the spec file linked in the task
-4. Look at existing files for patterns
-5. Make a reasonable decision and proceed
+3. Look at existing files for patterns
+4. Make a reasonable decision and proceed
 
 Do NOT stop and ask - implement your best solution.
+
+**NEVER access spec/ files** - if the handover is incomplete, signal that issue instead.

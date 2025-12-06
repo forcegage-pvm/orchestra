@@ -140,24 +140,117 @@ PENDING → PREPARE → IMPLEMENT → VERIFY → COMPLETE
 
 When preparing a handover with `orchestra prepare`:
 
-1. **Analyze the task** from the manifest
+1. **Analyze the task** from the manifest and spec files
 2. **Create verification criteria** (stored in `.orchestrator-only/`)
 3. **Generate handover document** (what the implementor sees)
-4. **Validate completeness** with `orchestra validate-handover`
+4. **EXTRACT all requirements** - never reference external documents
+5. **Validate completeness** with `orchestra validate-handover`
 
-The handover must contain:
+## CRITICAL: Information Isolation Principle
 
-- Clear objective and success criteria (visible)
-- Required context files
-- Specific deliverables
-- Testing requirements
+**Your PRIMARY JOB is EXTRACTION.** The Implementor has ZERO access to:
+- Task lists or sprint manifests
+- Specification files in `spec/`
+- Other tasks in the sprint
+- Verification criteria
 
-The verification criteria (hidden) should include:
+Therefore, you MUST:
+
+| DO | DO NOT |
+|----|--------|
+| Extract ALL requirements into the handover | Say "see spec file for details" |
+| Write complete acceptance criteria | Reference "per requirements.md" |
+| Include exact file paths with purposes | Mention other tasks by ID |
+| Provide test cases with sample data | Leave sections empty or vague |
+| Add code scaffolds showing signatures | Assume Implementor has context |
+
+**The handover IS the specification. There is no external reference.**
+
+## Handover Content Requirements
+
+Every handover MUST contain these sections with COMPLETE content:
+
+### 1. Task Overview (Required)
+
+| Field | Value |
+|-------|-------|
+| Task ID | `TASK-XXX` |
+| Title | Brief descriptive title |
+| Objective | Clear statement of what to achieve |
+| Priority | P0/P1/P2/P3 |
+
+### 2. Acceptance Criteria (Required)
+
+| # | Criterion | Verification Method |
+|---|-----------|---------------------|
+| 1 | Specific measurable outcome | How to verify it |
+| 2 | Another outcome | How to verify it |
+
+### 3. File Operations (Required)
+
+| Operation | Path | Purpose |
+|-----------|------|---------|
+| CREATE | `src/path/to/file.ts` | Description of file purpose |
+| MODIFY | `src/existing/file.ts` | What changes are needed |
+| DELETE | `src/obsolete/file.ts` | Why it's being removed |
+
+### 4. Deliverables (Required)
+
+Explicit list of what must be produced:
+- [ ] File 1 with description
+- [ ] File 2 with description
+- [ ] Tests passing
+- [ ] Documentation updated
+
+### 5. TDD / Testing Requirements (Required)
+
+Include:
+- Test file location: `test/path/to/file.test.ts`
+- Test structure with describe/it blocks
+- Sample test data objects
+- Expected outcomes
+
+```typescript
+// Example test structure to include:
+describe('ComponentName', () => {
+  it('should do specific thing', () => {
+    const input = { /* sample data */ };
+    const expected = { /* expected result */ };
+    // Test implementation
+  });
+});
+```
+
+### 6. Implementation Context (Required)
+
+- Dependencies on other modules
+- Patterns to follow (reference existing code)
+- Constraints or limitations
+- Error handling requirements
+
+### 7. Code Scaffolds (Recommended)
+
+Provide function signatures and interfaces:
+
+```typescript
+export interface ExpectedInterface {
+  property: Type;
+}
+
+export function expectedFunction(param: Type): ReturnType {
+  // Implementor fills in
+}
+```
+
+## Verification Criteria (Hidden)
+
+The verification criteria (stored in `.orchestrator-only/`) should include:
 
 - Specific checks to verify claims
 - Edge cases to test
 - Quality gates to enforce
 - Technical requirements to validate
+- Things the Implementor might try to skip
 
 ## Verification Protocol
 

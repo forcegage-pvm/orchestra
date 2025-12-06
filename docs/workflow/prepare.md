@@ -57,6 +57,35 @@ The orchestrator agent **completes the handover** by filling in task-specific de
 
 Prepare creates the **communication bridge** between orchestrator and implementor.
 
+### CRITICAL: Information Isolation Principle
+
+> **Reference**: [spec/04-processes/information-isolation.md](../../spec/04-processes/information-isolation.md)
+
+The Implementor has **ZERO access** to:
+- Task lists or sprint manifests
+- Specification files in `spec/`
+- Other tasks in the sprint
+- Verification criteria (hidden or visible)
+
+**Your PRIMARY JOB as Orchestrator is EXTRACTION:**
+
+1. **READ** the specification files, task definitions, and requirements
+2. **EXTRACT** exactly what the Implementor needs to know
+3. **WRITE** a complete, self-contained handover document
+4. **NEVER** reference external documents the Implementor cannot access
+
+### Forbidden Patterns
+
+| NEVER Write This | Write This Instead |
+|-----------------|-------------------|
+| "See spec file for details" | Extract the details into the handover |
+| "Per requirements.md" | Copy the relevant requirements |
+| "Refer to task list for context" | Provide context directly |
+| "Check other tasks for examples" | Include examples in the handover |
+| Empty or [REQUIRED] sections | Fill in or remove the section |
+
+**The handover IS the specification. There is no "see also."**
+
 ### Why This Matters
 
 The handover documents are the **only information** the implementor receives about the task. Everything the implementor needs must be in these files:
@@ -72,6 +101,7 @@ The handover documents are the **only information** the implementor receives abo
 | Hidden verification criteria | Handover documents only |
 | Full manifest context | Task-specific context |
 | Verification YAML in `.orchestrator-only/` | Visible checks in handover |
+| All spec/ files | NOTHING - no access |
 
 The orchestrator creates **visible acceptance criteria** (what implementor sees) and **hidden verification criteria** (what verifier uses). These should align but the implementor cannot game the hidden checks.
 
@@ -80,6 +110,7 @@ The orchestrator creates **visible acceptance criteria** (what implementor sees)
 | Anti-Pattern | How Prepare Prevents It |
 |--------------|------------------------|
 | Incomplete handover | Template ensures all required fields |
+| External references | Validation catches "see spec file" patterns |
 | Context leakage | Handover contains only task-relevant info |
 | Dependency violations | Validates dependencies before generating |
 | Concurrent tasks | Blocks if another task in-progress |
@@ -157,18 +188,29 @@ The orchestrator agent prepares the handover for the implementor.
 
 ### A-PREP-08: Complete Handover Content
 
-After CLI generates the handover skeleton, fill in task-specific details:
+After CLI generates the handover skeleton, **EXTRACT and FILL IN** task-specific details:
 
-| Field | What to Add |
-|-------|-------------|
-| `objective` | Clear statement of what to accomplish |
-| `acceptance_criteria` | Visible criteria implementor can verify |
-| `file_operations` | Files to create, modify, or delete |
-| `test_file` | Path to test file |
-| `test_cases` | Specific tests to write |
-| `implementation_files` | Source files to implement |
+> ⚠️ **CRITICAL**: Never say "see spec file". Extract ALL information into the handover.
 
-**Template markers**: Look for `# TODO:` comments in the generated YAML.
+| Field | What to Extract & Write |
+|-------|-------------------------|
+| `objective` | Clear statement extracted from spec - fully self-contained |
+| `acceptance_criteria` | Visible criteria with verification methods - complete table |
+| `file_operations` | ALL files to create/modify/delete with exact paths and purposes |
+| `test_file` | Exact path to test file |
+| `test_cases` | Full test structure with describe/it blocks and sample data |
+| `implementation_files` | Source files with function signatures and interfaces |
+| `code_scaffolds` | TypeScript interfaces and function stubs |
+
+**Extraction Checklist**:
+- [ ] Read the task specification file completely
+- [ ] Extract every requirement into the handover
+- [ ] Include sample data for tests (not just test names)
+- [ ] Provide code scaffolds showing expected interfaces
+- [ ] Remove or fill all `[REQUIRED]` placeholders
+- [ ] No references to external spec files remain
+
+**Template markers**: Look for `<!-- ORCHESTRATOR: ... -->` comments in the generated template.
 
 ### A-PREP-09: Complete Pre-Flight Checklist
 
