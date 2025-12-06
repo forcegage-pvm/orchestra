@@ -58,7 +58,7 @@ describe("config-generator", () => {
       const manifest = generateManifestYaml(context);
 
       expect(manifest).toContain("# Orchestra Manifest");
-      expect(manifest).toContain("version: \"1.0.0\"");
+      expect(manifest).toContain('version: "1.0.0"');
       expect(manifest).toContain("sprint:");
       expect(manifest).toContain('id: "sprint-001"');
       expect(manifest).toContain("phases:");
@@ -100,7 +100,7 @@ describe("config-generator", () => {
       const config = generateOrchestraYaml(context);
 
       expect(config).toContain("# Orchestra Configuration");
-      expect(config).toContain("version: \"1.0.0\"");
+      expect(config).toContain('version: "1.0.0"');
       expect(config).toContain("paths:");
       expect(config).toContain("manifest: manifest.yaml");
       expect(config).toContain("git:");
@@ -191,7 +191,7 @@ describe("config-generator", () => {
       expect(manifest).toContain("Generated 2025-12-06");
 
       const orchestra = generateOrchestraYaml(context);
-      expect(orchestra).toContain("version: \"2.0.0\"");
+      expect(orchestra).toContain('version: "2.0.0"');
       expect(orchestra).toContain("manifest: custom-manifest.yaml");
       expect(orchestra).toContain("auto_commit: true");
       expect(orchestra).toContain('commit_prefix: "feat"');

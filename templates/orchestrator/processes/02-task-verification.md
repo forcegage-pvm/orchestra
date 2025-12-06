@@ -223,13 +223,12 @@ COPY screenshot to `.orchestra/orchestrator/results/screenshots/task-XXX-descrip
 ### 6e. Update progress.yaml
 
 ```yaml
-# In .orchestra/orchestrator/.orchestrator-only/progress.yaml
-tasks:
-  - id: XXX
-    status: completed
-    commit: <commit_hash>
-    completed_at: <timestamp>
-    verification_notes: "All checks passed"
+# In .orchestra/progress.yaml
+entries:
+  - task_id: XXX
+    status: COMPLETE
+    timestamp: <timestamp>
+    notes: "All checks passed"
 ```
 
 ### 6f. Update SpecKit tasks.md
@@ -243,10 +242,12 @@ Mark completed SpecKit tasks with:
 ### 6g. Update manifest.yaml
 
 ```yaml
-# In .orchestra/orchestrator/.orchestrator-only/manifest.yaml
-- id: XXX
-  status: completed
-  commit: <commit_hash>
+# In .orchestra/manifest.yaml - find the task and update status
+phases:
+  - phase_id: "..."
+    tasks:
+      - task_id: XXX
+        status: COMPLETE # Was IMPLEMENT, now COMPLETE
 ```
 
 ### 6h. Clear Completion Signal
@@ -355,12 +356,12 @@ feedback.md is separate. This allows them to see both their signal and your feed
 ### 7b. Update progress.yaml
 
 ```yaml
-# Increment fail count
-- id: XXX
-  status: in_progress
-  fail_count: N
-  last_failure: <timestamp>
-  failure_notes: "Brief summary of main issue(s)"
+# In .orchestra/progress.yaml - add failure entry
+entries:
+  - task_id: XXX
+    status: RETRY
+    timestamp: <timestamp>
+    notes: "Brief summary of main issue(s)"
 ```
 
 ### 7c. Notify Implementor
@@ -427,12 +428,14 @@ During verification, watch for these red flags:
 
 ## CLI Commands Reference
 
-| Command                       | Purpose                                     |
-| ----------------------------- | ------------------------------------------- |
-| `orchestra accept-signal`     | Verify implementor ran pre-signal check     |
-| `orchestra verify --task N`   | Run verification checks for task N          |
-| `orchestra closeout`          | Verify task fully closed before next        |
-| `orchestra complete --task N` | Complete task with optional --commit --push |
+| Command                       | Purpose                                    |
+| ----------------------------- | ------------------------------------------ |
+| `orchestra accept-signal`     | Verify implementor ran pre-signal check    |
+| `orchestra verify --task N`   | Run verification checks for task N         |
+| `orchestra feedback --task N` | Generate feedback document for failed task |
+| `orchestra escalate --task N` | Escalate task after max retries exceeded   |
+| `orchestra closeout`          | Verify task fully closed before next       |
+| `orchestra complete --task N` | Complete task and update manifest          |
 
 ---
 

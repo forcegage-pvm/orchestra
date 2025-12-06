@@ -16,12 +16,12 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import ora from "ora";
-import { findOrchestraRoot, loadConfig, saveConfig } from "../core/config.js";
 import {
   createDefaultContext,
   generateManifestYaml,
   generateProgressYaml,
 } from "../core/config-generator.js";
+import { findOrchestraRoot, loadConfig, saveConfig } from "../core/config.js";
 import { getCommandGitBehavior } from "../core/git-defaults.js";
 import { commit, stageFiles } from "../core/git.js";
 import * as output from "../core/output.js";

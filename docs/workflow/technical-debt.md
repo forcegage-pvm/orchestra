@@ -234,45 +234,52 @@ Created Handlebars templates for all configuration files and a new `config-gener
 
 ## TD-004: Review and Update Sprint Initialization Process Guide
 
-**Status**: 🔴 Not Started  
+**Status**: ✅ Complete  
 **Priority**: High  
 **Identified**: 2025-12-05  
+**Completed**: 2025-12-06  
 **Source**: [configure-manifest.md](configure-manifest.md)
 
 ### Description
 
 The orchestrator process guide `00-sprint-initialization.md` needs review and potential updates to align with current CLI implementation and workflow documentation.
 
-### Current State
+### Implementation Summary
 
-- Process guide exists at `templates/orchestrator/processes/00-sprint-initialization.md`
-- Referenced heavily by `configure-manifest.md` as the primary orchestrator agent guide
-- May have inconsistencies with current CLI commands and file structures
-- Uses some legacy patterns that may need updating
+Completely rewrote `00-sprint-initialization.md` to align with current CLI implementation. Also updated `02-task-verification.md` to fix incorrect file paths.
 
-### Proposed Solution
+### Key Issues Fixed
 
-1. Review `00-sprint-initialization.md` for accuracy
-2. Update to match current CLI commands and options
-3. Align file paths and structures with actual implementation
-4. Update examples to use current manifest/progress formats
-5. After review complete, update `configure-manifest.md` if needed
+**00-sprint-initialization.md** (complete rewrite):
+- Fixed manifest location: Was `.orchestra/orchestrator/.orchestrator-only/manifest.yaml`, now `.orchestra/manifest.yaml`
+- Fixed progress location: Was `.orchestrator-only/`, now `.orchestra/progress.yaml`
+- Updated manifest schema: Changed `id` to `task_id`, `depends_on` to `dependencies`, `spec_ref` to `speckit_task_ref`
+- Updated phase schema: Changed `id`/`name` to `phase_id`/`phase_name`, added `status` and `speckit_tasks`
+- Updated status values: Now uses correct enums (PENDING, IMPLEMENT, COMPLETE, etc.)
+- Added CLI commands: `orchestra init`, `orchestra status`, `orchestra next`, `orchestra prepare`
+- Added verification YAML schema matching current `VerificationCheckSchema`
+- Added CLI Commands Reference table
+
+**02-task-verification.md**:
+- Fixed progress.yaml path (was in `.orchestrator-only/`, now at `.orchestra/progress.yaml`)
+- Fixed manifest.yaml path (was in `.orchestrator-only/`, now at `.orchestra/manifest.yaml`)
+- Updated schema examples to use `task_id` instead of `id`
+- Updated status values to use correct enums (COMPLETE, RETRY)
+- Added `orchestra feedback` and `orchestra escalate` to CLI Commands Reference
 
 ### Acceptance Criteria
 
-- [ ] Review all 7 steps in process guide for accuracy
-- [ ] Verify file paths match actual `.orchestra/` structure
-- [ ] Update verification YAML examples to match current schema
-- [ ] Ensure CLI commands are current
-- [ ] Update SpecKit mapping examples if needed
-- [ ] Update `configure-manifest.md` after review if changes affect it
+- [x] Review all 7 steps in process guide for accuracy
+- [x] Verify file paths match actual `.orchestra/` structure
+- [x] Update verification YAML examples to match current schema
+- [x] Ensure CLI commands are current
+- [x] Update SpecKit mapping examples if needed
+- [x] Review and update 02-task-verification.md
 
 ### Related Files
 
-- `templates/orchestrator/processes/00-sprint-initialization.md` - Primary file to review
-- `templates/orchestrator/processes/01-handover-creation.md` - May also need review
-- `templates/orchestrator/processes/02-task-verification.md` - May also need review
-- `docs/workflow/configure-manifest.md` - References this process guide
+- `templates/orchestrator/processes/00-sprint-initialization.md` - Complete rewrite
+- `templates/orchestrator/processes/02-task-verification.md` - Path/schema fixes
 
 ---
 
