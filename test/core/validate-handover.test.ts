@@ -20,15 +20,15 @@ import { requireOrchestraRoot } from "../../src/core/config.js";
 
 describe("validate-handover core", () => {
   let tempDir: string;
-  let orchestraRoot: string;
+  let orchestraDir: string;
 
   beforeEach(() => {
     tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "orchestra-test-"));
-    orchestraRoot = path.join(tempDir, ".orchestra");
-    fs.mkdirSync(path.join(orchestraRoot, "handover"), { recursive: true });
+    orchestraDir = path.join(tempDir, ".orchestra");
+    fs.mkdirSync(path.join(orchestraDir, "handover"), { recursive: true });
 
-    // Mock requireOrchestraRoot to return our temp dir
-    vi.mocked(requireOrchestraRoot).mockReturnValue(orchestraRoot);
+    // Mock requireOrchestraRoot to return the repo root (tempDir), not .orchestra
+    vi.mocked(requireOrchestraRoot).mockReturnValue(tempDir);
   });
 
   afterEach(() => {
@@ -38,7 +38,7 @@ describe("validate-handover core", () => {
 
   function createHandover(content: string): void {
     fs.writeFileSync(
-      path.join(orchestraRoot, "handover", "current-task.md"),
+      path.join(orchestraDir, "handover", "current-task.md"),
       content
     );
   }
@@ -581,7 +581,7 @@ Tests
   describe("error handling", () => {
     it("should throw when handover not found", async () => {
       // Remove the handover file
-      fs.rmSync(path.join(orchestraRoot, "handover", "current-task.md"), {
+      fs.rmSync(path.join(orchestraDir, "handover", "current-task.md"), {
         force: true,
       });
 

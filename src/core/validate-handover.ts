@@ -43,10 +43,15 @@ export async function runValidateHandover(
   _options: ValidateHandoverOptions = {}
 ): Promise<ValidationReport> {
   const orchestraRoot = requireOrchestraRoot();
-  const repoRoot = path.resolve(orchestraRoot, "..");
+  const repoRoot = orchestraRoot; // orchestraRoot IS the repo root
 
   // Load current task handover
-  const handoverPath = path.join(orchestraRoot, "handover", "current-task.md");
+  const handoverPath = path.join(
+    orchestraRoot,
+    ".orchestra",
+    "handover",
+    "current-task.md"
+  );
 
   if (!fs.existsSync(handoverPath)) {
     throw new Error(

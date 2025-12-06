@@ -46,7 +46,7 @@ export async function runPreSignalCheck(
   options: PreSignalCheckOptions
 ): Promise<PreSignalReport> {
   const orchestraRoot = requireOrchestraRoot();
-  const repoRoot = path.resolve(orchestraRoot, "..");
+  const repoRoot = orchestraRoot; // orchestraRoot IS the repo root
 
   // Determine task ID
   const taskId = await determineCurrentTask(options.task, orchestraRoot);
