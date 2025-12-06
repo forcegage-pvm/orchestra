@@ -16,6 +16,7 @@ import { createFeedbackCommand } from "./commands/feedback.js";
 import { createInitCommand } from "./commands/init.js";
 import { createNextCommand } from "./commands/next.js";
 import { createPrepareCommand } from "./commands/prepare.js";
+import { createPreSignalCheckCommand } from "./commands/pre-signal-check.js";
 import { statusCommand } from "./commands/status.js";
 import { createVerifyCommand } from "./commands/verify.js";
 
@@ -62,6 +63,9 @@ program.addCommand(createCloseoutCommand());
 
 // Prepare command - prepare task handover
 program.addCommand(createPrepareCommand());
+
+// Pre-signal-check command - implementor validates deliverables before signaling
+program.addCommand(createPreSignalCheckCommand());
 
 // Accept-signal command - verify implementor ran pre-signal check
 program.addCommand(createAcceptSignalCommand());

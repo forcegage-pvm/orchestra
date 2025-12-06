@@ -92,3 +92,6 @@ export * from "./next.js";
 
 // Config generation from templates
 export * from "./config-generator.js";
+
+// Pre-signal check (implementor validates before signaling)
+export { runPreSignalCheck } from "./pre-signal-check.js";

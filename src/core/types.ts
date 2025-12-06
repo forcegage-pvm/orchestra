@@ -517,6 +517,91 @@ export const OrchestraConfigSchema = z.object({
 
 export type OrchestraConfig = z.output<typeof OrchestraConfigSchema>;
 
+// =============================================================================
+// Pre-Signal Check Types (TD-010)
+// =============================================================================
+
+/**
+ * Pre-signal check severity levels
+ */
+export const PreSignalSeveritySchema = z.enum([
+  "BLOCKING", // Must pass for check to succeed
+  "WARNING", // Report but don't fail
+]);
+
+export type PreSignalSeverity = z.output<typeof PreSignalSeveritySchema>;
+
+/**
+ * Individual check result
+ */
+export const PreSignalCheckResultSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  category: z.string(),
+  severity: PreSignalSeveritySchema,
+  passed: z.boolean(),
+  message: z.string().optional(),
+  details: z.string().optional(),
+  fix: z.string().optional(),
+  file: z.string().optional(),
+});
+
+export type PreSignalCheckResult = z.output<typeof PreSignalCheckResultSchema>;
+
+/**
+ * Pre-signal artifact written to .orchestra/handover/verification/pre-signal.yaml
+ */
+export const PreSignalArtifactSchema = z.object({
+  task_id: z.number(),
+  timestamp: z.string(),
+  status: z.enum(["PASSED", "FAILED"]),
+  checks: z.record(
+    z.object({
+      status: z.enum(["PASSED", "FAILED", "SKIPPED"]),
+      count: z.number().optional(),
+      details: z.string().optional(),
+    })
+  ),
+  summary: z.object({
+    total: z.number(),
+    passed: z.number(),
+    failed: z.number(),
+    warnings: z.number(),
+  }),
+});
+
+export type PreSignalArtifact = z.output<typeof PreSignalArtifactSchema>;
+
+/**
+ * Pre-signal check report (returned by runPreSignalCheck)
+ */
+export interface PreSignalReport {
+  taskId: number;
+  timestamp: string;
+  status: "PASSED" | "FAILED";
+  checks: PreSignalCheckResult[];
+  summary: {
+    total: number;
+    passed: number;
+    failed: number;
+    warnings: number;
+  };
+  artifact?: PreSignalArtifact;
+  artifactPath?: string;
+}
+
+/**
+ * Pre-signal check options
+ */
+export interface PreSignalCheckOptions {
+  task?: string;
+  force?: boolean;
+  json?: boolean;
+  verbose?: boolean;
+  skipTests?: boolean;
+  skipBuild?: boolean;
+}
+
 /**
  * Default configuration values
  */
