@@ -1,6 +1,6 @@
 task_id: 1
-timestamp: "2025-12-06T19:34:06.254Z"
-status: "PASSED"
+timestamp: "2025-12-06T19:33:41.864Z"
+status: "FAILED"
 checks:
   deliverables:
     status: "SKIPPED"
@@ -17,6 +17,6 @@ checks:
     count: 1
 summary:
   total: 6
-  passed: 5
-  failed: 0
+  passed: 4
+  failed: 1
   warnings: 0

@@ -93,6 +93,7 @@ orchestra pre-signal-check
 This validates your deliverables before signaling. Fix any failures before proceeding.
 
 **Checks include:**
+
 - P1-P2: All CREATE files exist and have content
 - P3: All UPDATE files show git modifications
 - P4-P8: Tests exist, pass, build succeeds, lint clean
@@ -165,32 +166,40 @@ The `completion-signal.md` file MUST have these sections for P13 validation to p
 # Completion Signal
 
 ## Task ID
+
 1.X
 
 ## Status
+
 COMPLETE | BLOCKED | NEEDS_REVIEW
 
 ## Summary
+
 Brief description of what was implemented.
 
 ## Artifacts Created
-| Path | Type | Description |
-|------|------|-------------|
-| src/core/example.ts | CREATE | Main implementation |
-| test/core/example.test.ts | CREATE | Unit tests |
+
+| Path                      | Type   | Description         |
+| ------------------------- | ------ | ------------------- |
+| src/core/example.ts       | CREATE | Main implementation |
+| test/core/example.test.ts | CREATE | Unit tests          |
 
 ## Tests
-| Test File | Coverage |
-|-----------|----------|
+
+| Test File                 | Coverage           |
+| ------------------------- | ------------------ |
 | test/core/example.test.ts | Core functionality |
 
 ## Build Status
+
 npm run build result
 
 ## Test Status
+
 npm test result
 
 ## Notes
+
 Any issues, concerns, or suggestions for the orchestrator.
 ```
 
