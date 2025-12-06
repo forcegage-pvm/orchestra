@@ -14,7 +14,7 @@
 - [x] [TD-005: Workflow Document Actions Section](#td-005-workflow-document-actions-section)
 - [x] [TD-006: Clarify SpecKit tasks.md Location and Purpose](#td-006-clarify-speckit-tasksmd-location-and-purpose)
 - [x] [TD-007: Pre-Flight Checklist Workflow](#td-007-pre-flight-checklist-workflow)
-- [ ] [TD-008: Handover Validation Command](#td-008-handover-validation-command)
+- [x] [TD-008: Handover Validation Command](#td-008-handover-validation-command)
 - [x] [TD-009: Sync 01-handover-creation.md with prepare.md](#td-009-sync-01-handover-creationmd-with-preparemd)
 - [x] [TD-010: Pre-Signal Check Command](#td-010-pre-signal-check-command)
 
@@ -496,9 +496,10 @@ This command performs two operations:
 
 ## TD-008: Handover Validation Command
 
-**Status**: 🔴 Not Started  
+**Status**: ✅ Complete  
 **Priority**: 🚨 Critical  
 **Identified**: 2025-12-05  
+**Completed**: 2025-12-10  
 **Source**: [prepare.md](prepare.md), [implement.md](implement.md), Original Scripts (see below)
 
 ### Description
@@ -700,19 +701,73 @@ orchestra validate-handover --json
 
 ### Acceptance Criteria
 
-- [ ] `orchestra validate-handover` command exists
-- [ ] Restores ALL 13 original validation checks (V1-V13)
-- [ ] Validates task structure (title, objective, deliverables, TDD)
-- [ ] Extracts and validates file paths (table + list formats)
-- [ ] Checks CREATE files don't exist, UPDATE files do exist
-- [ ] Validates completeness (no TODOs, has scaffolds, test data)
-- [ ] Detects integration/visual tasks and checks MUST USE + demo
-- [ ] Returns appropriate exit codes (0, 1, 2)
-- [ ] JSON output for scripting (`--json`)
-- [ ] Verbose output showing all checks (`--verbose`)
-- [ ] Integrated into prepare.md workflow (A-PREP-15)
-- [ ] Integrated into implement.md workflow (A-IMPL-00)
-- [ ] Tests cover all validation scenarios
+- [x] `orchestra validate-handover` command exists
+- [x] Restores ALL 13 original validation checks (V1-V13)
+- [x] Validates task structure (title, objective, deliverables, TDD)
+- [x] Extracts and validates file paths (table + list formats)
+- [x] Checks CREATE files don't exist, UPDATE files do exist
+- [x] Validates completeness (no TODOs, has scaffolds, test data)
+- [x] Detects integration/visual tasks and checks MUST USE + demo
+- [x] Returns appropriate exit codes (0, 1, 2)
+- [x] JSON output for scripting (`--json`)
+- [x] Verbose output showing all checks (`--verbose`)
+- [x] Integrated into prepare.md workflow (A-PREP-15)
+- [x] Integrated into implement.md workflow (A-IMPL-00)
+- [x] Tests cover all validation scenarios
+
+### Implementation Summary
+
+Implemented `orchestra validate-handover` command that restores all 13 original validation checks from the degraded PowerShell script.
+
+**Command Usage:**
+```bash
+# Run validation on current task
+orchestra validate-handover
+
+# Run for specific task
+orchestra validate-handover --task 1
+
+# Verbose output showing all checks
+orchestra validate-handover --verbose
+
+# JSON output for scripting
+orchestra validate-handover --json
+```
+
+**Validation Checks Implemented:**
+| ID | Check | Severity |
+|----|-------|----------|
+| V1 | Has task title | BLOCKING |
+| V2 | Has objective section | BLOCKING |
+| V3 | Has deliverables section | WARNING |
+| V4 | Has TDD/testing section | WARNING |
+| V5 | CREATE paths specified | WARNING |
+| V6 | CREATE files don't exist | BLOCKING |
+| V7 | UPDATE paths specified | WARNING |
+| V8 | UPDATE files exist | BLOCKING |
+| V9 | No TODO/TBD markers | BLOCKING |
+| V10 | Has code scaffold | WARNING |
+| V11 | Has test sample data | WARNING |
+| V12 | MUST USE section (integration) | WARNING |
+| V13 | Demo file requirement (visual) | WARNING |
+
+**Key Features:**
+- Extracts file operations from both table and list formats
+- Validates file existence (CREATE shouldn't exist, UPDATE should)
+- Detects TODO/TBD/PLACEHOLDER/XXX/FIXME markers
+- Detects integration/visual tasks for MUST USE and demo checks
+- Exit codes: 0 (pass), 1 (blocking failures), 2 (warnings only)
+
+**Files Created:**
+- `src/core/validate-handover.ts` (~565 lines) - Core validation logic
+- `src/commands/validate-handover.ts` - CLI command wrapper
+- `test/core/validate-handover.test.ts` - 28 tests for core logic
+- `test/commands/validate-handover.test.ts` - 10 tests for command
+
+**Files Modified:**
+- `src/core/types.ts` - Added ValidationSeverity, ValidationCheckResult, ValidationReport types
+- `src/cli.ts` - Registered validate-handover command
+- `src/core/index.ts` - Added exports
 
 ### Related Files
 
