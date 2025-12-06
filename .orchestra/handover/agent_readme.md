@@ -13,6 +13,17 @@ You are an **implementor agent**. Your job is to complete the task described in 
 
 ## Workflow
 
+### 0. Validate Handover (MANDATORY FIRST STEP)
+
+**Before doing anything else**, run:
+
+```bash
+orchestra validate-handover
+```
+
+If validation **FAILS**: Document issues in `completion-signal.md`, say "Task validation failed", and STOP.
+If validation **PASSES**: Proceed to step 1.
+
 ### 1. Read Your Task
 
 Your current task is in: **`current-task.md`** (this folder)
@@ -35,13 +46,21 @@ Before signaling completion, ensure:
 - Tests pass: `npm test` or `flutter test`
 - Analyzer is clean: `flutter analyze` (for Dart/Flutter)
 
-### 5. Stage Your Changes
+### 5. Run Pre-Signal Check (MANDATORY)
+
+```bash
+orchestra pre-signal-check
+```
+
+This validates your deliverables before signaling. Fix any failures before proceeding.
+
+### 6. Stage Your Changes
 
 ```bash
 git add .
 ```
 
-### 6. Signal Completion (MANDATORY)
+### 7. Signal Completion (MANDATORY)
 
 Fill out the `signal.md` template in `.orchestra/handover/` that was created during task preparation.
 
@@ -52,7 +71,7 @@ The signal file includes:
 - List files created/modified
 - Test results summary
 
-### 7. Notify
+### 8. Notify
 
 Say: **"ready for review"**
 

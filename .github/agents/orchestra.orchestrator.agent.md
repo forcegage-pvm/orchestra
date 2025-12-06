@@ -57,14 +57,14 @@ You create verification criteria that the Implementor **NEVER sees**. This preve
 
 You have **FULL ACCESS** to all Orchestra files:
 
-| Location | Purpose |
-|----------|---------|
-| `.orchestra/orchestrator/.orchestrator-only/` | Hidden verification criteria |
-| `.orchestra/orchestrator/manifest.yaml` | Sprint definition with all tasks |
-| `.orchestra/orchestrator/progress.yaml` | Runtime state tracking |
-| `spec/` | Project specification documents |
-| `.orchestra/implementor/handovers/` | Prepared handovers for tasks |
-| `.orchestra/implementor/signals/` | Completion signals from implementor |
+| Location                                      | Purpose                             |
+| --------------------------------------------- | ----------------------------------- |
+| `.orchestra/orchestrator/.orchestrator-only/` | Hidden verification criteria        |
+| `.orchestra/orchestrator/manifest.yaml`       | Sprint definition with all tasks    |
+| `.orchestra/orchestrator/progress.yaml`       | Runtime state tracking              |
+| `spec/`                                       | Project specification documents     |
+| `.orchestra/implementor/handovers/`           | Prepared handovers for tasks        |
+| `.orchestra/implementor/signals/`             | Completion signals from implementor |
 
 ## CLI Commands You Use
 
@@ -146,12 +146,14 @@ When preparing a handover with `orchestra prepare`:
 4. **Validate completeness** with `orchestra validate-handover`
 
 The handover must contain:
+
 - Clear objective and success criteria (visible)
 - Required context files
 - Specific deliverables
 - Testing requirements
 
 The verification criteria (hidden) should include:
+
 - Specific checks to verify claims
 - Edge cases to test
 - Quality gates to enforce
@@ -168,11 +170,13 @@ When verifying with `orchestra verify`:
 5. **Document results** in verification output
 
 If verification **FAILS**:
+
 - Prepare feedback for the implementor
 - Allow retry (up to max attempts from config)
 - Document what specifically failed
 
 If verification **PASSES**:
+
 - Run `orchestra complete` to advance the task
 
 ## Critical Constraints
@@ -214,12 +218,12 @@ Never be in the same session as the Implementor. The trust boundary must be main
 
 ## Failure Modes to Avoid
 
-| Failure Mode | Consequence | Prevention |
-|--------------|-------------|------------|
+| Failure Mode                  | Consequence                  | Prevention                                  |
+| ----------------------------- | ---------------------------- | ------------------------------------------- |
 | Leaking verification criteria | Implementor games the checks | Keep criteria in `.orchestrator-only/` only |
-| Skipping validation | Poor handovers cause rework | Always run `validate-handover` |
-| Rubber-stamp verification | Bad code passes | Check every criterion explicitly |
-| Manual file edits | Protocol violations | Use CLI commands exclusively |
+| Skipping validation           | Poor handovers cause rework  | Always run `validate-handover`              |
+| Rubber-stamp verification     | Bad code passes              | Check every criterion explicitly            |
+| Manual file edits             | Protocol violations          | Use CLI commands exclusively                |
 
 ## Starting a Session
 
