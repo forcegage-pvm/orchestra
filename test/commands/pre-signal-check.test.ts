@@ -4,8 +4,8 @@
  * Tests for the CLI command wrapper.
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { Command } from "commander";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createPreSignalCheckCommand } from "../../src/commands/pre-signal-check.js";
 import * as preSignalCheck from "../../src/core/pre-signal-check.js";
 import type { PreSignalReport } from "../../src/core/types.js";
@@ -85,7 +85,7 @@ describe("pre-signal-check command", () => {
   it("should have all expected options", () => {
     const cmd = createPreSignalCheckCommand();
     const options = cmd.options.map((o) => o.long);
-    
+
     expect(options).toContain("--task");
     expect(options).toContain("--force");
     expect(options).toContain("--json");
@@ -95,7 +95,9 @@ describe("pre-signal-check command", () => {
   });
 
   it("should exit 0 on PASSED status", async () => {
-    vi.mocked(preSignalCheck.runPreSignalCheck).mockResolvedValue(mockPassedReport);
+    vi.mocked(preSignalCheck.runPreSignalCheck).mockResolvedValue(
+      mockPassedReport
+    );
 
     await expect(
       program.parseAsync(["node", "test", "pre-signal-check"])
@@ -105,7 +107,9 @@ describe("pre-signal-check command", () => {
   });
 
   it("should exit 1 on FAILED status", async () => {
-    vi.mocked(preSignalCheck.runPreSignalCheck).mockResolvedValue(mockFailedReport);
+    vi.mocked(preSignalCheck.runPreSignalCheck).mockResolvedValue(
+      mockFailedReport
+    );
 
     await expect(
       program.parseAsync(["node", "test", "pre-signal-check"])
@@ -123,7 +127,9 @@ describe("pre-signal-check command", () => {
   });
 
   it("should output JSON when --json flag is used", async () => {
-    vi.mocked(preSignalCheck.runPreSignalCheck).mockResolvedValue(mockPassedReport);
+    vi.mocked(preSignalCheck.runPreSignalCheck).mockResolvedValue(
+      mockPassedReport
+    );
 
     await expect(
       program.parseAsync(["node", "test", "pre-signal-check", "--json"])
@@ -136,7 +142,9 @@ describe("pre-signal-check command", () => {
   });
 
   it("should pass --force option to core function", async () => {
-    vi.mocked(preSignalCheck.runPreSignalCheck).mockResolvedValue(mockPassedReport);
+    vi.mocked(preSignalCheck.runPreSignalCheck).mockResolvedValue(
+      mockPassedReport
+    );
 
     await expect(
       program.parseAsync(["node", "test", "pre-signal-check", "--force"])
@@ -148,7 +156,9 @@ describe("pre-signal-check command", () => {
   });
 
   it("should pass --task option to core function", async () => {
-    vi.mocked(preSignalCheck.runPreSignalCheck).mockResolvedValue(mockPassedReport);
+    vi.mocked(preSignalCheck.runPreSignalCheck).mockResolvedValue(
+      mockPassedReport
+    );
 
     await expect(
       program.parseAsync(["node", "test", "pre-signal-check", "--task", "5"])
@@ -160,7 +170,9 @@ describe("pre-signal-check command", () => {
   });
 
   it("should pass --skip-tests and --skip-build options", async () => {
-    vi.mocked(preSignalCheck.runPreSignalCheck).mockResolvedValue(mockPassedReport);
+    vi.mocked(preSignalCheck.runPreSignalCheck).mockResolvedValue(
+      mockPassedReport
+    );
 
     await expect(
       program.parseAsync([

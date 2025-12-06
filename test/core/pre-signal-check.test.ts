@@ -4,10 +4,10 @@
  * Tests for the core validation logic using mocks.
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import * as fs from "node:fs";
-import * as path from "node:path";
 import * as os from "node:os";
+import * as path from "node:path";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // Mock dependencies
 vi.mock("../../src/core/config.js", () => ({
@@ -23,9 +23,9 @@ vi.mock("../../src/core/progress.js", () => ({
   loadProgress: vi.fn(),
 }));
 
-import { runPreSignalCheck } from "../../src/core/pre-signal-check.js";
 import { requireOrchestraRoot } from "../../src/core/config.js";
 import { loadManifest } from "../../src/core/manifest.js";
+import { runPreSignalCheck } from "../../src/core/pre-signal-check.js";
 import { loadProgress } from "../../src/core/progress.js";
 
 describe("pre-signal-check core", () => {
@@ -42,7 +42,13 @@ describe("pre-signal-check core", () => {
       recursive: true,
     });
     fs.mkdirSync(
-      path.join(tempDir, ".orchestra", "implementor", "artifacts", "pre-signal"),
+      path.join(
+        tempDir,
+        ".orchestra",
+        "implementor",
+        "artifacts",
+        "pre-signal"
+      ),
       { recursive: true }
     );
 
@@ -59,7 +65,9 @@ describe("pre-signal-check core", () => {
 
     vi.mocked(loadProgress).mockReturnValue({
       sprint_id: "test-sprint",
-      entries: [{ task_id: 1, phase: "IMPLEMENT", timestamp: "2025-12-06T10:00:00Z" }],
+      entries: [
+        { task_id: 1, phase: "IMPLEMENT", timestamp: "2025-12-06T10:00:00Z" },
+      ],
     });
 
     // Create default handover

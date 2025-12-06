@@ -95,3 +95,9 @@ export * from "./config-generator.js";
 
 // Pre-signal check (implementor validates before signaling)
 export { runPreSignalCheck } from "./pre-signal-check.js";
+
+// Validate handover (validates handover document completeness)
+export {
+  runValidateHandover,
+  extractFileOperations,
+} from "./validate-handover.js";

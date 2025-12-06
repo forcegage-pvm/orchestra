@@ -9,22 +9,29 @@ import chalk from "chalk";
 import { Command } from "commander";
 import * as output from "../core/output.js";
 import { runPreSignalCheck } from "../core/pre-signal-check.js";
-import type {
-  PreSignalCheckOptions,
-  PreSignalReport,
-} from "../core/types.js";
+import type { PreSignalCheckOptions, PreSignalReport } from "../core/types.js";
 
 /**
  * Create the pre-signal-check command
  */
 export function createPreSignalCheckCommand(): Command {
   return new Command("pre-signal-check")
-    .description("Verify deliverables before signaling completion to orchestrator")
+    .description(
+      "Verify deliverables before signaling completion to orchestrator"
+    )
     .option("--task <id>", "Task ID to check (default: current IMPLEMENT task)")
-    .option("-f, --force", "Skip all checks and create PASSED artifact (emergency only)", false)
+    .option(
+      "-f, --force",
+      "Skip all checks and create PASSED artifact (emergency only)",
+      false
+    )
     .option("--json", "Output JSON format", false)
     .option("-v, --verbose", "Show detailed check output", false)
-    .option("--skip-tests", "Skip test execution (faster, less thorough)", false)
+    .option(
+      "--skip-tests",
+      "Skip test execution (faster, less thorough)",
+      false
+    )
     .option("--skip-build", "Skip build check", false)
     .action(async (options: PreSignalCheckOptions) => {
       await preSignalCheckCommand(options);
@@ -34,7 +41,9 @@ export function createPreSignalCheckCommand(): Command {
 /**
  * Execute pre-signal-check command
  */
-async function preSignalCheckCommand(options: PreSignalCheckOptions): Promise<void> {
+async function preSignalCheckCommand(
+  options: PreSignalCheckOptions
+): Promise<void> {
   try {
     const result = await runPreSignalCheck(options);
 
@@ -64,7 +73,9 @@ async function preSignalCheckCommand(options: PreSignalCheckOptions): Promise<vo
         )
       );
     } else {
-      output.print.error(error instanceof Error ? error.message : String(error));
+      output.print.error(
+        error instanceof Error ? error.message : String(error)
+      );
     }
 
     process.exit(2);
@@ -100,10 +111,26 @@ function formatJsonOutput(result: PreSignalReport): object {
  */
 function printPreSignalReport(result: PreSignalReport, verbose: boolean): void {
   console.log("");
-  console.log(chalk.blue("╔══════════════════════════════════════════════════════════════╗"));
-  console.log(chalk.blue("║          IMPLEMENTOR PRE-SIGNAL CHECK                        ║"));
-  console.log(chalk.blue("║   Verify deliverables before signaling completion            ║"));
-  console.log(chalk.blue("╚══════════════════════════════════════════════════════════════╝"));
+  console.log(
+    chalk.blue(
+      "╔══════════════════════════════════════════════════════════════╗"
+    )
+  );
+  console.log(
+    chalk.blue(
+      "║          IMPLEMENTOR PRE-SIGNAL CHECK                        ║"
+    )
+  );
+  console.log(
+    chalk.blue(
+      "║   Verify deliverables before signaling completion            ║"
+    )
+  );
+  console.log(
+    chalk.blue(
+      "╚══════════════════════════════════════════════════════════════╝"
+    )
+  );
   console.log("");
 
   console.log(chalk.bold("Task:") + ` ${result.taskId}`);
@@ -111,15 +138,21 @@ function printPreSignalReport(result: PreSignalReport, verbose: boolean): void {
 
   // Group checks by category
   const categories = ["deliverables", "testing", "quality", "visual", "git"];
-  
+
   for (const category of categories) {
     const categoryChecks = result.checks.filter((c) => c.category === category);
     if (categoryChecks.length === 0) continue;
 
-    const categoryPassed = categoryChecks.every((c) => c.passed || c.severity !== "BLOCKING");
+    const categoryPassed = categoryChecks.every(
+      (c) => c.passed || c.severity !== "BLOCKING"
+    );
     const icon = categoryPassed ? chalk.green("✓") : chalk.red("✗");
-    
-    console.log(`${icon} ${chalk.bold(category.charAt(0).toUpperCase() + category.slice(1))}`);
+
+    console.log(
+      `${icon} ${chalk.bold(
+        category.charAt(0).toUpperCase() + category.slice(1)
+      )}`
+    );
 
     if (verbose) {
       for (const check of categoryChecks) {
@@ -137,9 +170,10 @@ function printPreSignalReport(result: PreSignalReport, verbose: boolean): void {
       // Compact: just show failed checks
       const failed = categoryChecks.filter((c) => !c.passed);
       for (const check of failed) {
-        const checkIcon = check.severity === "BLOCKING"
-          ? chalk.red("  ✗")
-          : chalk.yellow("  ⚠");
+        const checkIcon =
+          check.severity === "BLOCKING"
+            ? chalk.red("  ✗")
+            : chalk.yellow("  ⚠");
         console.log(`${checkIcon} ${check.name}`);
       }
     }
@@ -147,31 +181,54 @@ function printPreSignalReport(result: PreSignalReport, verbose: boolean): void {
   }
 
   // Summary
-  console.log(chalk.blue("═══════════════════════════════════════════════════════════════"));
-  
+  console.log(
+    chalk.blue(
+      "═══════════════════════════════════════════════════════════════"
+    )
+  );
+
   if (result.status === "PASSED") {
-    console.log(chalk.green("✅ PRE-SIGNAL CHECK PASSED - Ready to signal completion"));
-    console.log(chalk.blue("═══════════════════════════════════════════════════════════════"));
+    console.log(
+      chalk.green("✅ PRE-SIGNAL CHECK PASSED - Ready to signal completion")
+    );
+    console.log(
+      chalk.blue(
+        "═══════════════════════════════════════════════════════════════"
+      )
+    );
     console.log("");
     console.log(chalk.cyan("📝 Artifact written:") + ` ${result.artifactPath}`);
     console.log("");
     console.log(chalk.cyan("Next steps:"));
     console.log("  1. Stage all changes: " + chalk.white("git add -A"));
-    console.log("  2. Fill completion signal: " + chalk.white(".orchestra/handover/completion-signal.md"));
+    console.log(
+      "  2. Fill completion signal: " +
+        chalk.white(".orchestra/handover/completion-signal.md")
+    );
     console.log("  3. Tell orchestrator: " + chalk.white('"Ready for review"'));
   } else {
-    console.log(chalk.red("❌ PRE-SIGNAL CHECK FAILED - Do NOT signal completion yet"));
-    console.log(chalk.blue("═══════════════════════════════════════════════════════════════"));
+    console.log(
+      chalk.red("❌ PRE-SIGNAL CHECK FAILED - Do NOT signal completion yet")
+    );
+    console.log(
+      chalk.blue(
+        "═══════════════════════════════════════════════════════════════"
+      )
+    );
     console.log("");
-    
+
     // Show failures with fixes
-    const failures = result.checks.filter((c) => !c.passed && c.severity === "BLOCKING");
+    const failures = result.checks.filter(
+      (c) => !c.passed && c.severity === "BLOCKING"
+    );
     if (failures.length > 0) {
       console.log(chalk.red("🚫 Fix these issues first:"));
       console.log("");
-      
+
       for (const failure of failures) {
-        console.log(chalk.gray("   ─────────────────────────────────────────────"));
+        console.log(
+          chalk.gray("   ─────────────────────────────────────────────")
+        );
         console.log(chalk.red(`   Check:    ${failure.name}`));
         if (failure.message) {
           console.log(chalk.yellow(`   Problem:  ${failure.message}`));
@@ -183,7 +240,9 @@ function printPreSignalReport(result: PreSignalReport, verbose: boolean): void {
     }
 
     // Show warnings
-    const warnings = result.checks.filter((c) => !c.passed && c.severity === "WARNING");
+    const warnings = result.checks.filter(
+      (c) => !c.passed && c.severity === "WARNING"
+    );
     if (warnings.length > 0) {
       console.log("");
       console.log(chalk.yellow("⚠️  Warnings (non-blocking):"));

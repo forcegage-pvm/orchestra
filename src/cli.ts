@@ -15,9 +15,10 @@ import { createEscalateCommand } from "./commands/escalate.js";
 import { createFeedbackCommand } from "./commands/feedback.js";
 import { createInitCommand } from "./commands/init.js";
 import { createNextCommand } from "./commands/next.js";
-import { createPrepareCommand } from "./commands/prepare.js";
 import { createPreSignalCheckCommand } from "./commands/pre-signal-check.js";
+import { createPrepareCommand } from "./commands/prepare.js";
 import { statusCommand } from "./commands/status.js";
+import { createValidateHandoverCommand } from "./commands/validate-handover.js";
 import { createVerifyCommand } from "./commands/verify.js";
 
 const program = new Command();
@@ -63,6 +64,9 @@ program.addCommand(createCloseoutCommand());
 
 // Prepare command - prepare task handover
 program.addCommand(createPrepareCommand());
+
+// Validate-handover command - validate handover completeness
+program.addCommand(createValidateHandoverCommand());
 
 // Pre-signal-check command - implementor validates deliverables before signaling
 program.addCommand(createPreSignalCheckCommand());

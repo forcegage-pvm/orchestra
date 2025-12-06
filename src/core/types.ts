@@ -548,6 +548,64 @@ export const PreSignalCheckResultSchema = z.object({
 
 export type PreSignalCheckResult = z.output<typeof PreSignalCheckResultSchema>;
 
+// =============================================================================
+// Validate Handover Types (TD-008)
+// =============================================================================
+
+/**
+ * Validation check severity
+ */
+export const ValidationSeveritySchema = z.enum(["BLOCKING", "WARNING", "INFO"]);
+
+export type ValidationSeverity = z.output<typeof ValidationSeveritySchema>;
+
+/**
+ * Individual validation check result
+ */
+export const ValidationCheckResultSchema = z.object({
+  id: z.string(), // V1, V2, etc.
+  name: z.string(),
+  category: z.string(), // structure, paths, completeness, integration
+  severity: ValidationSeveritySchema,
+  passed: z.boolean(),
+  message: z.string().optional(),
+  details: z.string().optional(),
+  fix: z.string().optional(),
+  file: z.string().optional(),
+});
+
+export type ValidationCheckResult = z.output<typeof ValidationCheckResultSchema>;
+
+/**
+ * Validate handover report (returned by runValidateHandover)
+ */
+export interface ValidationReport {
+  taskId: number | null;
+  taskTitle: string | null;
+  timestamp: string;
+  status: "PASSED" | "FAILED" | "WARNINGS";
+  checks: ValidationCheckResult[];
+  summary: {
+    total: number;
+    passed: number;
+    failed: number;
+    warnings: number;
+  };
+  createFiles: string[];
+  updateFiles: string[];
+  isIntegrationTask: boolean;
+  isVisualTask: boolean;
+}
+
+/**
+ * Validate handover options
+ */
+export interface ValidateHandoverOptions {
+  task?: string;
+  json?: boolean;
+  verbose?: boolean;
+}
+
 /**
  * Pre-signal artifact written to .orchestra/handover/verification/pre-signal.yaml
  */

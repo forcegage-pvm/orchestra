@@ -20,19 +20,19 @@
  * ZERO CLI dependencies - pure logic functions.
  */
 
+import { execSync } from "node:child_process";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { execSync } from "node:child_process";
 import { requireOrchestraRoot } from "./config.js";
 import { loadManifest } from "./manifest.js";
 import { loadProgress } from "./progress.js";
-import { writeYaml } from "./yaml.js";
 import type {
+  PreSignalArtifact,
   PreSignalCheckOptions,
   PreSignalCheckResult,
   PreSignalReport,
-  PreSignalArtifact,
 } from "./types.js";
+import { writeYaml } from "./yaml.js";
 
 // =============================================================================
 // Main Entry Point
@@ -644,7 +644,9 @@ function checkNoTodoComments(
     severity: "WARNING",
     passed: !hasTodos,
     message: hasTodos ? "Found TODO/FIXME comments" : "No TODO comments",
-    fix: hasTodos ? "Complete or remove TODO comments before submission" : undefined,
+    fix: hasTodos
+      ? "Complete or remove TODO comments before submission"
+      : undefined,
     file: filePath,
   };
 }
@@ -770,7 +772,9 @@ function checkGitHasChanges(
 
     const hasChanges = stagedOutput.length > 0 || unstagedOutput.length > 0;
     const stagedCount = stagedOutput ? stagedOutput.split("\n").length : 0;
-    const unstagedCount = unstagedOutput ? unstagedOutput.split("\n").length : 0;
+    const unstagedCount = unstagedOutput
+      ? unstagedOutput.split("\n").length
+      : 0;
 
     return {
       id: checkId,
@@ -880,16 +884,28 @@ async function writeArtifact(
 
 function groupChecksByCategory(
   checks: PreSignalCheckResult[]
-): Record<string, { status: "PASSED" | "FAILED" | "SKIPPED"; count?: number; details?: string }> {
+): Record<
+  string,
+  { status: "PASSED" | "FAILED" | "SKIPPED"; count?: number; details?: string }
+> {
   const categories = ["deliverables", "testing", "quality", "visual", "git"];
-  const result: Record<string, { status: "PASSED" | "FAILED" | "SKIPPED"; count?: number; details?: string }> = {};
+  const result: Record<
+    string,
+    {
+      status: "PASSED" | "FAILED" | "SKIPPED";
+      count?: number;
+      details?: string;
+    }
+  > = {};
 
   for (const category of categories) {
     const categoryChecks = checks.filter((c) => c.category === category);
     if (categoryChecks.length === 0) {
       result[category] = { status: "SKIPPED" };
     } else {
-      const allPassed = categoryChecks.every((c) => c.passed || c.severity !== "BLOCKING");
+      const allPassed = categoryChecks.every(
+        (c) => c.passed || c.severity !== "BLOCKING"
+      );
       result[category] = {
         status: allPassed ? "PASSED" : "FAILED",
         count: categoryChecks.length,
