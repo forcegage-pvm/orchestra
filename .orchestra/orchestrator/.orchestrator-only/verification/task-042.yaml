@@ -1,0 +1,42 @@
+task_id: 42
+title: "Create complete tool tests"
+category: "INFRASTRUCTURE"
+created_at: "2025-12-06"
+
+# Verification criteria for complete tool tests
+
+checks:
+  - id: "V42.1"
+    description: "test/mcp/tools/complete.test.ts file exists"
+    severity: BLOCKING
+    type: structural
+
+  - id: "V42.2"
+    description: "Tests complete with orchestrator role"
+    severity: BLOCKING
+    type: functional
+
+  - id: "V42.3"
+    description: "Tests complete fails with implementor role"
+    severity: BLOCKING
+    type: functional
+
+  - id: "V42.4"
+    description: "Tests complete fails without verification"
+    severity: BLOCKING
+    type: functional
+
+  - id: "V42.5"
+    description: "Tests complete returns next task"
+    severity: BLOCKING
+    type: functional
+
+  - id: "V42.6"
+    description: "Tests complete on last task"
+    severity: BLOCKING
+    type: functional
+
+  - id: "V42.7"
+    description: "All tests pass with npm test"
+    severity: BLOCKING
+    type: functional

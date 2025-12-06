@@ -1,0 +1,42 @@
+task_id: 56
+title: "Manual E2E test"
+category: "VISUAL"
+created_at: "2025-12-06"
+
+# Verification criteria for manual E2E testing
+
+checks:
+  - id: "V56.1"
+    description: "MCP server starts successfully via node dist/mcp/server.js"
+    severity: BLOCKING
+    type: functional
+
+  - id: "V56.2"
+    description: "MCP Inspector can connect to server"
+    severity: BLOCKING
+    type: visual
+
+  - id: "V56.3"
+    description: "All 10 tools visible in MCP Inspector"
+    severity: BLOCKING
+    type: visual
+
+  - id: "V56.4"
+    description: "init tool works via MCP Inspector"
+    severity: BLOCKING
+    type: functional
+
+  - id: "V56.5"
+    description: "status tool works via MCP Inspector"
+    severity: BLOCKING
+    type: functional
+
+  - id: "V56.6"
+    description: "prepare tool works via MCP Inspector"
+    severity: BLOCKING
+    type: functional
+
+  - id: "V56.7"
+    description: "Screenshot of MCP Inspector showing tools captured"
+    severity: MAJOR
+    type: visual

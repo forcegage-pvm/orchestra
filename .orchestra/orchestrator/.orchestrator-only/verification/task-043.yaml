@@ -1,0 +1,42 @@
+task_id: 43
+title: "Create MCP workflow integration test"
+category: "INTEGRATION"
+created_at: "2025-12-06"
+
+# Verification criteria for MCP workflow integration test
+
+checks:
+  - id: "V43.1"
+    description: "test/integration/mcp-workflow.test.ts file exists"
+    severity: BLOCKING
+    type: structural
+
+  - id: "V43.2"
+    description: "Tests full lifecycle: prepare → signal → accept → verify → complete"
+    severity: BLOCKING
+    type: functional
+
+  - id: "V43.3"
+    description: "Uses real MCP server (not mocks)"
+    severity: MAJOR
+    type: structural
+
+  - id: "V43.4"
+    description: "Creates and cleans up test Orchestra project"
+    severity: BLOCKING
+    type: functional
+
+  - id: "V43.5"
+    description: "Tests role enforcement throughout workflow"
+    severity: BLOCKING
+    type: functional
+
+  - id: "V43.6"
+    description: "Tests state transitions are correct"
+    severity: BLOCKING
+    type: functional
+
+  - id: "V43.7"
+    description: "All integration tests pass"
+    severity: BLOCKING
+    type: functional

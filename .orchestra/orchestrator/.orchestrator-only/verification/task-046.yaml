@@ -1,0 +1,42 @@
+task_id: 46
+title: "Implement feedback tool handler"
+category: "INTEGRATION"
+created_at: "2025-12-06"
+
+# Verification criteria for feedback tool handler
+
+checks:
+  - id: "V46.1"
+    description: "src/mcp/tools/feedback.ts file exists"
+    severity: BLOCKING
+    type: structural
+
+  - id: "V46.2"
+    description: "Handler wraps runFeedback from core"
+    severity: BLOCKING
+    type: structural
+
+  - id: "V46.3"
+    description: "Validates role is 'orchestrator'"
+    severity: BLOCKING
+    type: functional
+
+  - id: "V46.4"
+    description: "Returns actionable guidance without exposing criteria"
+    severity: BLOCKING
+    type: functional
+
+  - id: "V46.5"
+    description: "Includes canRetry flag based on attempt count"
+    severity: BLOCKING
+    type: functional
+
+  - id: "V46.6"
+    description: "canRetry is false when attempts >= 3"
+    severity: BLOCKING
+    type: functional
+
+  - id: "V46.7"
+    description: "TypeScript compiles without errors"
+    severity: BLOCKING
+    type: functional

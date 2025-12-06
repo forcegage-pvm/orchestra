@@ -1,0 +1,32 @@
+task_id: 31
+title: "Register signal tool"
+category: "INTEGRATION"
+created_at: "2025-12-06"
+
+# Verification criteria for signal tool registration
+
+checks:
+  - id: "V31.1"
+    description: "signal tool added to tools array in src/mcp/tools/index.ts"
+    severity: BLOCKING
+    type: structural
+
+  - id: "V31.2"
+    description: "Tool name is 'signal'"
+    severity: BLOCKING
+    type: structural
+
+  - id: "V31.3"
+    description: "inputSchema matches contracts/signal.json"
+    severity: BLOCKING
+    type: structural
+
+  - id: "V31.4"
+    description: "Handler points to signal.ts implementation"
+    severity: BLOCKING
+    type: structural
+
+  - id: "V31.5"
+    description: "TypeScript compiles without errors"
+    severity: BLOCKING
+    type: functional

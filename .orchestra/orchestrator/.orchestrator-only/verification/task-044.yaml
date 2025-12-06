@@ -1,0 +1,47 @@
+task_id: 44
+title: "Implement AttemptTracker persistence"
+category: "INFRASTRUCTURE"
+created_at: "2025-12-06"
+
+# Verification criteria for AttemptTracker implementation
+
+checks:
+  - id: "V44.1"
+    description: "src/mcp/attempt-tracker.ts file exists"
+    severity: BLOCKING
+    type: structural
+
+  - id: "V44.2"
+    description: "getAttempts() function is exported"
+    severity: BLOCKING
+    type: structural
+
+  - id: "V44.3"
+    description: "incrementAttempts() function is exported"
+    severity: BLOCKING
+    type: structural
+
+  - id: "V44.4"
+    description: "resetAttempts() function is exported"
+    severity: BLOCKING
+    type: structural
+
+  - id: "V44.5"
+    description: "Tracker file stored in .orchestrator-only/"
+    severity: BLOCKING
+    type: structural
+
+  - id: "V44.6"
+    description: "Uses AttemptTrackerSchema for validation"
+    severity: MAJOR
+    type: structural
+
+  - id: "V44.7"
+    description: "Default max_attempts is 3"
+    severity: BLOCKING
+    type: functional
+
+  - id: "V44.8"
+    description: "TypeScript compiles without errors"
+    severity: BLOCKING
+    type: functional

@@ -1,0 +1,32 @@
+task_id: 27
+title: "Implement closeout tool handler"
+category: "INTEGRATION"
+created_at: "2025-12-06"
+
+# Verification criteria for closeout tool handler
+
+checks:
+  - id: "V27.1"
+    description: "src/mcp/tools/closeout.ts file exists"
+    severity: BLOCKING
+    type: structural
+
+  - id: "V27.2"
+    description: "Handler wraps runCloseout from core"
+    severity: BLOCKING
+    type: structural
+
+  - id: "V27.3"
+    description: "Validates role is 'orchestrator'"
+    severity: BLOCKING
+    type: functional
+
+  - id: "V27.4"
+    description: "Returns closeout status and cleaned files"
+    severity: BLOCKING
+    type: functional
+
+  - id: "V27.5"
+    description: "TypeScript compiles without errors"
+    severity: BLOCKING
+    type: functional

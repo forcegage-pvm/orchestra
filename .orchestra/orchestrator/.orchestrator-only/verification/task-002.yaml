@@ -1,0 +1,27 @@
+task_id: 2
+title: "Create MCP directory structure"
+category: "INFRASTRUCTURE"
+created_at: "2025-12-06"
+
+# Verification criteria for creating src/mcp/ directory structure
+
+checks:
+  - id: "V2.1"
+    description: "src/mcp/ directory exists"
+    severity: BLOCKING
+    type: structural
+
+  - id: "V2.2"
+    description: "src/mcp/tools/ subdirectory exists"
+    severity: BLOCKING
+    type: structural
+
+  - id: "V2.3"
+    description: "Directory structure matches plan.md specification"
+    severity: MAJOR
+    type: structural
+
+  - id: "V2.4"
+    description: ".gitkeep or placeholder files if directories are empty"
+    severity: MINOR
+    type: structural

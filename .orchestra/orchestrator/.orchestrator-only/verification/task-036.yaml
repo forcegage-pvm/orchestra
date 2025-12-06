@@ -1,0 +1,37 @@
+task_id: 36
+title: "Create accept_signal tool tests"
+category: "INFRASTRUCTURE"
+created_at: "2025-12-06"
+
+# Verification criteria for accept_signal tool tests
+
+checks:
+  - id: "V36.1"
+    description: "test/mcp/tools/accept-signal.test.ts file exists"
+    severity: BLOCKING
+    type: structural
+
+  - id: "V36.2"
+    description: "Tests accept_signal with orchestrator role"
+    severity: BLOCKING
+    type: functional
+
+  - id: "V36.3"
+    description: "Tests accept_signal fails with implementor role"
+    severity: BLOCKING
+    type: functional
+
+  - id: "V36.4"
+    description: "Tests accept_signal transitions task state"
+    severity: BLOCKING
+    type: functional
+
+  - id: "V36.5"
+    description: "Tests accept_signal fails when no signal"
+    severity: BLOCKING
+    type: functional
+
+  - id: "V36.6"
+    description: "All tests pass with npm test"
+    severity: BLOCKING
+    type: functional

@@ -1,0 +1,37 @@
+task_id: 24
+title: "Implement status tool handler"
+category: "INTEGRATION"
+created_at: "2025-12-06"
+
+# Verification criteria for status tool handler
+
+checks:
+  - id: "V24.1"
+    description: "src/mcp/tools/status.ts file exists"
+    severity: BLOCKING
+    type: structural
+
+  - id: "V24.2"
+    description: "Handler uses runStatus from core"
+    severity: BLOCKING
+    type: structural
+
+  - id: "V24.3"
+    description: "Allows both 'orchestrator' and 'implementor' roles"
+    severity: BLOCKING
+    type: functional
+
+  - id: "V24.4"
+    description: "Returns sprint ID, current task, progress percentage"
+    severity: BLOCKING
+    type: functional
+
+  - id: "V24.5"
+    description: "Returns null for current task when none active"
+    severity: BLOCKING
+    type: functional
+
+  - id: "V24.6"
+    description: "TypeScript compiles without errors"
+    severity: BLOCKING
+    type: functional

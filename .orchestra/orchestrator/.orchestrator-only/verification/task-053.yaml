@@ -1,0 +1,37 @@
+task_id: 53
+title: "Update MCP documentation"
+category: "INFRASTRUCTURE"
+created_at: "2025-12-06"
+
+# Verification criteria for MCP documentation
+
+checks:
+  - id: "V53.1"
+    description: "docs/mcp-server.md file exists"
+    severity: BLOCKING
+    type: structural
+
+  - id: "V53.2"
+    description: "Documents all 10 MCP tools"
+    severity: BLOCKING
+    type: structural
+
+  - id: "V53.3"
+    description: "Includes usage examples"
+    severity: MAJOR
+    type: structural
+
+  - id: "V53.4"
+    description: "Documents role requirements for each tool"
+    severity: BLOCKING
+    type: structural
+
+  - id: "V53.5"
+    description: "Documents error codes and handling"
+    severity: MAJOR
+    type: structural
+
+  - id: "V53.6"
+    description: "Links to quickstart.md"
+    severity: MINOR
+    type: structural

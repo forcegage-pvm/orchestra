@@ -1,0 +1,37 @@
+task_id: 20
+title: "Create prepare tool tests"
+category: "INFRASTRUCTURE"
+created_at: "2025-12-06"
+
+# Verification criteria for prepare tool tests
+
+checks:
+  - id: "V20.1"
+    description: "test/mcp/tools/prepare.test.ts file exists"
+    severity: BLOCKING
+    type: structural
+
+  - id: "V20.2"
+    description: "Tests successful prepare with orchestrator role"
+    severity: BLOCKING
+    type: functional
+
+  - id: "V20.3"
+    description: "Tests prepare fails with implementor role"
+    severity: BLOCKING
+    type: functional
+
+  - id: "V20.4"
+    description: "Tests prepare with no Orchestra project"
+    severity: BLOCKING
+    type: functional
+
+  - id: "V20.5"
+    description: "Tests prepare with all tasks completed"
+    severity: BLOCKING
+    type: functional
+
+  - id: "V20.6"
+    description: "All tests pass with npm test"
+    severity: BLOCKING
+    type: functional

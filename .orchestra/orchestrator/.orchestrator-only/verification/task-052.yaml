@@ -1,0 +1,32 @@
+task_id: 52
+title: "Add failure path integration test"
+category: "INTEGRATION"
+created_at: "2025-12-06"
+
+# Verification criteria for failure path integration test
+
+checks:
+  - id: "V52.1"
+    description: "Failure path test added to test/integration/mcp-workflow.test.ts"
+    severity: BLOCKING
+    type: structural
+
+  - id: "V52.2"
+    description: "Tests verify fail → feedback → retry cycle"
+    severity: BLOCKING
+    type: functional
+
+  - id: "V52.3"
+    description: "Tests escalation after 3 failed attempts"
+    severity: BLOCKING
+    type: functional
+
+  - id: "V52.4"
+    description: "Tests canRetry flag decrements correctly"
+    severity: BLOCKING
+    type: functional
+
+  - id: "V52.5"
+    description: "All integration tests pass"
+    severity: BLOCKING
+    type: functional

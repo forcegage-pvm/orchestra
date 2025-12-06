@@ -1,0 +1,37 @@
+task_id: 51
+title: "Create escalate tool tests"
+category: "INFRASTRUCTURE"
+created_at: "2025-12-06"
+
+# Verification criteria for escalate tool tests
+
+checks:
+  - id: "V51.1"
+    description: "test/mcp/tools/escalate.test.ts file exists"
+    severity: BLOCKING
+    type: structural
+
+  - id: "V51.2"
+    description: "Tests escalate with orchestrator role"
+    severity: BLOCKING
+    type: functional
+
+  - id: "V51.3"
+    description: "Tests escalate fails with implementor role"
+    severity: BLOCKING
+    type: functional
+
+  - id: "V51.4"
+    description: "Tests escalation report is created"
+    severity: BLOCKING
+    type: functional
+
+  - id: "V51.5"
+    description: "Tests task status changes to ESCALATED"
+    severity: BLOCKING
+    type: functional
+
+  - id: "V51.6"
+    description: "All tests pass with npm test"
+    severity: BLOCKING
+    type: functional

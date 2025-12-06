@@ -1,0 +1,47 @@
+task_id: 9
+title: "Extract runStatus from CLI"
+category: "REFACTOR"
+created_at: "2025-12-06"
+
+# Verification criteria for extracting runStatus to core
+
+checks:
+  - id: "V9.1"
+    description: "src/core/status.ts file exists"
+    severity: BLOCKING
+    type: structural
+
+  - id: "V9.2"
+    description: "runStatus() function is defined in src/core/status.ts"
+    severity: BLOCKING
+    type: structural
+
+  - id: "V9.3"
+    description: "runStatus() returns structured data (not just console output)"
+    severity: BLOCKING
+    type: structural
+
+  - id: "V9.4"
+    description: "commands/status.ts imports from core"
+    severity: BLOCKING
+    type: structural
+
+  - id: "V9.5"
+    description: "CLI status command still works identically"
+    severity: BLOCKING
+    type: functional
+
+  - id: "V9.6"
+    description: "No business logic duplication between CLI and core"
+    severity: MAJOR
+    type: structural
+
+  - id: "V9.7"
+    description: "Existing status tests pass"
+    severity: BLOCKING
+    type: functional
+
+  - id: "V9.8"
+    description: "TypeScript compiles without errors"
+    severity: BLOCKING
+    type: functional

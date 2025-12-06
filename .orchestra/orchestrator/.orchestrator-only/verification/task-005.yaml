@@ -1,0 +1,42 @@
+task_id: 5
+title: "Export new types from core"
+category: "INFRASTRUCTURE"
+created_at: "2025-12-06"
+
+# Verification criteria for exporting new types from core index
+
+checks:
+  - id: "V5.1"
+    description: "RoleError is exported from src/core/index.ts"
+    severity: BLOCKING
+    type: structural
+
+  - id: "V5.2"
+    description: "RoleSchema is exported from src/core/index.ts"
+    severity: BLOCKING
+    type: structural
+
+  - id: "V5.3"
+    description: "AttemptTrackerSchema is exported from src/core/index.ts"
+    severity: BLOCKING
+    type: structural
+
+  - id: "V5.4"
+    description: "Role type (inferred from RoleSchema) is exported"
+    severity: BLOCKING
+    type: structural
+
+  - id: "V5.5"
+    description: "AttemptTracker type (inferred from AttemptTrackerSchema) is exported"
+    severity: BLOCKING
+    type: structural
+
+  - id: "V5.6"
+    description: "Import from '@orchestra/core' works in test file"
+    severity: BLOCKING
+    type: functional
+
+  - id: "V5.7"
+    description: "All existing tests pass"
+    severity: BLOCKING
+    type: functional
