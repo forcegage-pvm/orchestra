@@ -35,6 +35,7 @@ You are an **implementor agent**. Your job is to complete the task described in 
 ### If Handover Seems Incomplete
 
 If your handover:
+
 - References "see spec file" → **STOP** - this is an Orchestrator error
 - Says "per requirements.md" → **STOP** - you cannot access this file
 - Has empty [REQUIRED] sections → **STOP** - Orchestrator must fill these

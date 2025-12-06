@@ -121,11 +121,10 @@ describe("pre-signal-check core", () => {
 
   describe("file extraction", () => {
     it("should extract CREATE files from table format", async () => {
-      // Create the file so P1 passes
-      const repoRoot = path.resolve(tempDir, "..");
-      fs.mkdirSync(path.join(repoRoot, "src"), { recursive: true });
+      // tempDir is the repo root (contains .orchestra/)
+      fs.mkdirSync(path.join(tempDir, "src"), { recursive: true });
       fs.writeFileSync(
-        path.join(repoRoot, "src", "new-file.ts"),
+        path.join(tempDir, "src", "new-file.ts"),
         "export const x = 1;\n".repeat(5) // More than 50 bytes
       );
 
@@ -387,10 +386,10 @@ Implement the API endpoint.
 
   describe("TODO detection (P9)", () => {
     it("should detect TODO comments in new files", async () => {
-      const repoRoot = path.resolve(tempDir, "..");
-      fs.mkdirSync(path.join(repoRoot, "src"), { recursive: true });
+      // tempDir is the repo root (contains .orchestra/)
+      fs.mkdirSync(path.join(tempDir, "src"), { recursive: true });
       fs.writeFileSync(
-        path.join(repoRoot, "src", "new-file.ts"),
+        path.join(tempDir, "src", "new-file.ts"),
         `// TODO: implement this\nexport const x = 1;\n`.repeat(5)
       );
 
@@ -409,10 +408,10 @@ Implement the API endpoint.
     });
 
     it("should pass P9 for files without TODO comments", async () => {
-      const repoRoot = path.resolve(tempDir, "..");
-      fs.mkdirSync(path.join(repoRoot, "src"), { recursive: true });
+      // tempDir is the repo root (contains .orchestra/)
+      fs.mkdirSync(path.join(tempDir, "src"), { recursive: true });
       fs.writeFileSync(
-        path.join(repoRoot, "src", "new-file.ts"),
+        path.join(tempDir, "src", "new-file.ts"),
         `export const x = 1;\nexport const y = 2;\n`.repeat(5)
       );
 

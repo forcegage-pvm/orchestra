@@ -149,6 +149,7 @@ When preparing a handover with `orchestra prepare`:
 ## CRITICAL: Information Isolation Principle
 
 **Your PRIMARY JOB is EXTRACTION.** The Implementor has ZERO access to:
+
 - Task lists or sprint manifests
 - Specification files in `spec/`
 - Other tasks in the sprint
@@ -156,13 +157,13 @@ When preparing a handover with `orchestra prepare`:
 
 Therefore, you MUST:
 
-| DO | DO NOT |
-|----|--------|
+| DO                                         | DO NOT                          |
+| ------------------------------------------ | ------------------------------- |
 | Extract ALL requirements into the handover | Say "see spec file for details" |
-| Write complete acceptance criteria | Reference "per requirements.md" |
-| Include exact file paths with purposes | Mention other tasks by ID |
-| Provide test cases with sample data | Leave sections empty or vague |
-| Add code scaffolds showing signatures | Assume Implementor has context |
+| Write complete acceptance criteria         | Reference "per requirements.md" |
+| Include exact file paths with purposes     | Mention other tasks by ID       |
+| Provide test cases with sample data        | Leave sections empty or vague   |
+| Add code scaffolds showing signatures      | Assume Implementor has context  |
 
 **The handover IS the specification. There is no external reference.**
 
@@ -172,31 +173,32 @@ Every handover MUST contain these sections with COMPLETE content:
 
 ### 1. Task Overview (Required)
 
-| Field | Value |
-|-------|-------|
-| Task ID | `TASK-XXX` |
-| Title | Brief descriptive title |
+| Field     | Value                              |
+| --------- | ---------------------------------- |
+| Task ID   | `TASK-XXX`                         |
+| Title     | Brief descriptive title            |
 | Objective | Clear statement of what to achieve |
-| Priority | P0/P1/P2/P3 |
+| Priority  | P0/P1/P2/P3                        |
 
 ### 2. Acceptance Criteria (Required)
 
-| # | Criterion | Verification Method |
-|---|-----------|---------------------|
-| 1 | Specific measurable outcome | How to verify it |
-| 2 | Another outcome | How to verify it |
+| #   | Criterion                   | Verification Method |
+| --- | --------------------------- | ------------------- |
+| 1   | Specific measurable outcome | How to verify it    |
+| 2   | Another outcome             | How to verify it    |
 
 ### 3. File Operations (Required)
 
-| Operation | Path | Purpose |
-|-----------|------|---------|
-| CREATE | `src/path/to/file.ts` | Description of file purpose |
-| MODIFY | `src/existing/file.ts` | What changes are needed |
-| DELETE | `src/obsolete/file.ts` | Why it's being removed |
+| Operation | Path                   | Purpose                     |
+| --------- | ---------------------- | --------------------------- |
+| CREATE    | `src/path/to/file.ts`  | Description of file purpose |
+| MODIFY    | `src/existing/file.ts` | What changes are needed     |
+| DELETE    | `src/obsolete/file.ts` | Why it's being removed      |
 
 ### 4. Deliverables (Required)
 
 Explicit list of what must be produced:
+
 - [ ] File 1 with description
 - [ ] File 2 with description
 - [ ] Tests passing
@@ -205,6 +207,7 @@ Explicit list of what must be produced:
 ### 5. TDD / Testing Requirements (Required)
 
 Include:
+
 - Test file location: `test/path/to/file.test.ts`
 - Test structure with describe/it blocks
 - Sample test data objects
@@ -212,10 +215,14 @@ Include:
 
 ```typescript
 // Example test structure to include:
-describe('ComponentName', () => {
-  it('should do specific thing', () => {
-    const input = { /* sample data */ };
-    const expected = { /* expected result */ };
+describe("ComponentName", () => {
+  it("should do specific thing", () => {
+    const input = {
+      /* sample data */
+    };
+    const expected = {
+      /* expected result */
+    };
     // Test implementation
   });
 });
