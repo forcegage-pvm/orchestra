@@ -83,3 +83,9 @@ export {
   type EscalateOptions,
   type EscalateResult,
 } from "./escalate.js";
+
+// Workflow state detection
+export * from "./workflow-state.js";
+
+// Next workflow guidance
+export * from "./next.js";

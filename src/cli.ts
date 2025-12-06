@@ -14,6 +14,7 @@ import { createCompleteCommand } from "./commands/complete.js";
 import { createEscalateCommand } from "./commands/escalate.js";
 import { createFeedbackCommand } from "./commands/feedback.js";
 import { createInitCommand } from "./commands/init.js";
+import { createNextCommand } from "./commands/next.js";
 import { createPrepareCommand } from "./commands/prepare.js";
 import { statusCommand } from "./commands/status.js";
 import { createVerifyCommand } from "./commands/verify.js";
@@ -52,6 +53,9 @@ program
 
 // Init command - initialize sprint
 program.addCommand(createInitCommand());
+
+// Next command - show workflow guidance
+program.addCommand(createNextCommand());
 
 // Closeout command - verify previous task closed
 program.addCommand(createCloseoutCommand());

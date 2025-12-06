@@ -8,7 +8,7 @@
 ## Index
 
 - [x] [TD-001: Git Actions CLI Automation](#td-001-git-actions-cli-automation)
-- [ ] [TD-002: orchestra next Command](#td-002-orchestra-next-command)
+- [x] [TD-002: orchestra next Command](#td-002-orchestra-next-command)
 - [ ] [TD-003: Template-Based Config Generation](#td-003-template-based-config-generation)
 - [ ] [TD-004: Review and Update Sprint Initialization Process Guide](#td-004-review-and-update-sprint-initialization-process-guide)
 - [x] [TD-005: Workflow Document Actions Section](#td-005-workflow-document-actions-section)
@@ -84,88 +84,87 @@ orchestra prepare --task 1 --git-commit
 
 ## TD-002: orchestra next Command
 
-**Status**: 🔴 Not Started  
+**Status**: ✅ Complete  
 **Priority**: High  
 **Identified**: 2025-12-05  
+**Completed**: 2025-12-09  
 **Source**: [init.md - Next Step](init.md#next-step)
 
 ### Description
 
-Users and agents need guidance on what to do next at any point in the workflow. A dedicated `orchestra next` command would provide context-aware guidance.
+Users and agents need guidance on what to do next at any point in the workflow. The `orchestra next` command provides context-aware guidance based on the current workflow state.
 
-### Current State
+### Implementation Summary
 
-- Each CLI command outputs a "Next steps" message on success
-- No unified way to query what to do next
-- Error states don't provide recovery guidance
-- No mechanism for tracking "current position" in workflow
+Created `orchestra next` command that analyzes artifacts and manifest state to infer the current workflow step and provide actionable guidance.
 
-### Proposed Solution
+```bash
+$ orchestra next
 
-Create `orchestra next` command that:
+📋 Current Step: Select Task
 
-1. **Analyzes current state** via:
-   - `.orchestra/` existence (initialized?)
-   - `manifest.yaml` validity (configured?)
-   - `progress.yaml` state (active task?)
-   - Presence of errors/blockers
+Sprint: sprint-001 (ACTIVE)
 
-2. **Emits context-aware guidance**:
-   ```bash
-   $ orchestra next
-   
-   Current State: Sprint initialized, no tasks prepared
-   
-   Recommended Action: Prepare your first task
-     Command: orchestra prepare --task 1
-     Reason: Task 1 has no dependencies and is ready to start
-   
-   Alternative Actions:
-     - orchestra status    # View full sprint status
-     - Edit manifest.yaml  # Add or modify tasks
-   ```
+▸ Select a task to work on
 
-3. **Shows errors with resolution**:
-   ```bash
-   $ orchestra next
-   
-   ⚠ Error Detected: Invalid manifest.yaml
-   
-   Error: Task 3 depends on non-existent task 99
-   Location: .orchestra/manifest.yaml, line 45
-   
-   Resolution:
-     1. Edit manifest.yaml
-     2. Fix task 3 dependencies to reference valid task IDs
-     3. Run 'orchestra status' to verify
-   ```
+No task is currently in progress. Run prepare to select and prepare the next available task.
+
+Run:
+  orchestra prepare
+
+Tips:
+  • Use --task <id> to prepare a specific task
+  • Tasks are prepared in dependency order by default
+```
+
+### Changes Made
+
+1. **`src/core/types.ts`**: Added `WorkflowStep` type with 11 states
+   - Sprint-level: INIT, CONFIGURE, SELECT_TASK, SPRINT_COMPLETE
+   - Task-level: PREPARE, IMPLEMENT, SIGNAL, VERIFY, COMPLETE, RETRY, ESCALATED
+
+2. **`src/core/workflow-state.ts`**: State detection module
+   - `detectWorkflowState()` - Analyzes artifacts to infer current step
+   - `WorkflowState` interface - Complete state including artifacts, errors
+   - Artifact inference: handover, signal, verification, feedback existence
+
+3. **`src/core/next.ts`**: Core logic for next command
+   - `runNext()` - Gets guidance for current step
+   - `StepGuidance` interface - Action, command, explanation, tips
+   - Step guidance registry with per-step recommendations
+
+4. **`src/commands/next.ts`**: CLI command
+   - `--json` flag for JSON output
+   - `--verbose` flag for detailed state info
+   - Rich CLI output with icons and colors
+
+5. **`src/cli.ts`**: Registered the next command
+
+6. **Tests**: Added 6 tests in `test/core/workflow-state.test.ts`
+
+### Key Design Decisions
+
+- **Inference-first**: Determines step from artifacts, not explicit tracking
+- **Read-only**: Does not modify any state, purely observational
+- **Per-step guidance**: Each workflow step has tailored action and tips
+- **JSON support**: Structured output for agent consumption
 
 ### Acceptance Criteria
 
-- [ ] Command exists: `orchestra next`
-- [ ] Detects current workflow position
-- [ ] Provides actionable next step with command
-- [ ] Shows errors with file location and resolution steps
-- [ ] JSON output support for agent consumption
-- [ ] Handles all workflow phases (INIT → COMPLETE)
-
-### State Tracking Requirements
-
-Need to track:
-- Current phase (INIT, PREPARE, IMPLEMENT, VERIFY, COMPLETE)
-- Active task (if any)
-- Pending errors/blockers
-- Last completed action
-
-Possible implementation:
-- Add `state` section to `progress.yaml`
-- Or create new `.orchestra/state.yaml`
+- [x] Command exists: `orchestra next`
+- [x] Detects current workflow position
+- [x] Provides actionable next step with command
+- [x] Shows errors with file location and resolution steps
+- [x] JSON output support for agent consumption
+- [x] Handles all workflow phases (INIT → COMPLETE)
 
 ### Related Files
 
-- New: `src/commands/next.ts`
-- New: `src/core/next.ts`
-- `src/core/progress.ts` - May need state tracking additions
+- `src/core/types.ts` - WorkflowStep type
+- `src/core/workflow-state.ts` - State detection logic
+- `src/core/next.ts` - Core next command logic
+- `src/commands/next.ts` - CLI command
+- `test/core/workflow-state.test.ts` - State detection tests
 
 ---
 

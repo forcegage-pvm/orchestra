@@ -9,6 +9,47 @@
 import { z } from "zod";
 
 // =============================================================================
+// Workflow Steps (orchestra next command)
+// =============================================================================
+
+/**
+ * Workflow steps within a task lifecycle.
+ * These represent the internal actions/states, not the task status.
+ *
+ * Sprint-level steps (no active task):
+ * - INIT: Orchestra not initialized
+ * - CONFIGURE: Orchestra exists but no tasks defined
+ * - SELECT_TASK: Tasks exist but none active
+ * - SPRINT_COMPLETE: All tasks finished
+ *
+ * Task-level steps (task in progress):
+ * - PREPARE: Handover needs to be created
+ * - IMPLEMENT: Implementor working (handover exists)
+ * - SIGNAL: Implementor should signal completion
+ * - VERIFY: Orchestrator should verify
+ * - COMPLETE: Verification passed, complete the task
+ * - RETRY: Verification failed, retry with feedback
+ * - ESCALATED: Human intervention required
+ */
+export const WorkflowStepSchema = z.enum([
+  // Sprint-level
+  "INIT",
+  "CONFIGURE",
+  "SELECT_TASK",
+  "SPRINT_COMPLETE",
+  // Task-level
+  "PREPARE",
+  "IMPLEMENT",
+  "SIGNAL",
+  "VERIFY",
+  "COMPLETE",
+  "RETRY",
+  "ESCALATED",
+]);
+
+export type WorkflowStep = z.infer<typeof WorkflowStepSchema>;
+
+// =============================================================================
 // Task Lifecycle States (Bible Section 7)
 // =============================================================================
 
