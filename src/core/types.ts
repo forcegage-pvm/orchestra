@@ -479,6 +479,18 @@ export const TemplateFormatSchema = z.enum(["yaml", "markdown", "both"]);
 export type TemplateFormat = z.infer<typeof TemplateFormatSchema>;
 
 /**
+ * SpecKit integration configuration schema
+ */
+export const SpecKitConfigSchema = z.object({
+  /** Path to the SpecKit root directory */
+  root: z.string(),
+  /** Explicit path to the SpecKit tasks.md file */
+  tasks_file: z.string(),
+});
+
+export type SpecKitConfig = z.output<typeof SpecKitConfigSchema>;
+
+/**
  * Template configuration schema
  */
 export const TemplateConfigSchema = z.object({
@@ -494,7 +506,8 @@ export type TemplateConfig = z.output<typeof TemplateConfigSchema>;
  */
 export const OrchestraConfigSchema = z.object({
   version: z.string().default("1.0"),
-  spec_path: z.string().optional(),
+  /** SpecKit integration configuration (optional) */
+  speckit: SpecKitConfigSchema.optional(),
   paths: PathsConfigSchema.default({}),
   verification: VerificationConfigSchema.default({}),
   retry: RetryConfigSchema.default({}),

@@ -459,24 +459,28 @@ Previous task completed.
         task1CompletedCommit: "abc1234",
       });
 
-      // Create tasks.md with checked task
-      const orchestratorDir = path.join(
-        tempDir,
-        ".orchestra",
-        "orchestrator",
-        ".orchestrator-only"
-      );
-      fs.mkdirSync(orchestratorDir, { recursive: true });
+      // Create speckit tasks.md at external location
+      const speckitDir = path.join(tempDir, "specs", "test-sprint");
+      fs.mkdirSync(speckitDir, { recursive: true });
       fs.writeFileSync(
-        path.join(orchestratorDir, "tasks.md"),
-        "- [x] Task 1.1: Core setup\n- [x] Task 1.2: Testing\n"
+        path.join(speckitDir, "tasks.md"),
+        "- [x] T001 Task 1.1: Core setup\n- [x] T002 Task 1.2: Testing\n"
       );
 
-      // Add speckit_task_ref to manifest task
+      // Add speckit config to orchestra.yaml
       const yaml = require("yaml");
+      const orchestraPath = path.join(tempDir, ".orchestra", "orchestra.yaml");
+      const orchestraData = yaml.parse(fs.readFileSync(orchestraPath, "utf-8"));
+      orchestraData.speckit = {
+        root: "specs/test-sprint",
+        tasks_file: "specs/test-sprint/tasks.md",
+      };
+      fs.writeFileSync(orchestraPath, yaml.stringify(orchestraData));
+
+      // Add speckit_task_ref to manifest task
       const manifestPath = path.join(tempDir, ".orchestra", "manifest.yaml");
       const manifestData = yaml.parse(fs.readFileSync(manifestPath, "utf-8"));
-      manifestData.tasks[0].speckit_task_ref = ["1.1", "1.2"];
+      manifestData.tasks[0].speckit_task_ref = ["T001", "T002"];
       fs.writeFileSync(manifestPath, yaml.stringify(manifestData));
 
       const report = await runCloseoutChecks(tempDir, 1);
@@ -493,24 +497,28 @@ Previous task completed.
         task1CompletedCommit: "abc1234",
       });
 
-      // Create tasks.md with unchecked task
-      const orchestratorDir = path.join(
-        tempDir,
-        ".orchestra",
-        "orchestrator",
-        ".orchestrator-only"
-      );
-      fs.mkdirSync(orchestratorDir, { recursive: true });
+      // Create speckit tasks.md at external location with unchecked task
+      const speckitDir = path.join(tempDir, "specs", "test-sprint");
+      fs.mkdirSync(speckitDir, { recursive: true });
       fs.writeFileSync(
-        path.join(orchestratorDir, "tasks.md"),
-        "- [ ] Task 1.1: Core setup\n- [x] Task 1.2: Testing\n"
+        path.join(speckitDir, "tasks.md"),
+        "- [ ] T001 Task 1.1: Core setup\n- [x] T002 Task 1.2: Testing\n"
       );
 
-      // Add speckit_task_ref to manifest task
+      // Add speckit config to orchestra.yaml
       const yaml = require("yaml");
+      const orchestraPath = path.join(tempDir, ".orchestra", "orchestra.yaml");
+      const orchestraData = yaml.parse(fs.readFileSync(orchestraPath, "utf-8"));
+      orchestraData.speckit = {
+        root: "specs/test-sprint",
+        tasks_file: "specs/test-sprint/tasks.md",
+      };
+      fs.writeFileSync(orchestraPath, yaml.stringify(orchestraData));
+
+      // Add speckit_task_ref to manifest task
       const manifestPath = path.join(tempDir, ".orchestra", "manifest.yaml");
       const manifestData = yaml.parse(fs.readFileSync(manifestPath, "utf-8"));
-      manifestData.tasks[0].speckit_task_ref = ["1.1", "1.2"];
+      manifestData.tasks[0].speckit_task_ref = ["T001", "T002"];
       fs.writeFileSync(manifestPath, yaml.stringify(manifestData));
 
       const report = await runCloseoutChecks(tempDir, 1);

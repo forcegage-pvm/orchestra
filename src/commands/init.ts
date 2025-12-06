@@ -324,10 +324,16 @@ export async function runInit(options: InitOptions): Promise<void> {
       fs.writeFileSync(gitkeepPath, "", "utf-8");
     }
 
-    // Create configuration with spec_path if provided
+    // Create configuration with speckit if --spec provided
     const config = { ...DEFAULT_CONFIG };
     if (options.spec) {
-      (config as Record<string, unknown>).spec_path = options.spec;
+      // Build speckit config with explicit paths
+      const specPath = options.spec;
+      const tasksFile = path.join(specPath, "tasks.md");
+      (config as Record<string, unknown>).speckit = {
+        root: specPath,
+        tasks_file: tasksFile,
+      };
     }
     saveConfig(cwd, config);
 
@@ -376,8 +382,15 @@ export async function runInit(options: InitOptions): Promise<void> {
           "progress.yaml",
           "orchestra.yaml",
         ],
-        spec_path: options.spec,
       };
+
+      // Include speckit config if --spec was provided
+      if (options.spec) {
+        jsonOutput.speckit = {
+          root: options.spec,
+          tasks_file: path.join(options.spec, "tasks.md"),
+        };
+      }
 
       if (gitResult) {
         jsonOutput.git = {

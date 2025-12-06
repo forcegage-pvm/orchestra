@@ -1,5 +1,6 @@
 # Orchestra Manifest - Generated 2025-12-06
-# TODO: Add speckit.root to orchestra.yaml
+# SpecKit Root: E:\cloud services\Dropbox\Repositories\vs code\orchestra\specs\001-mcp-server
+# This manifest tracks implementation of SpecKit tasks
 
 version: "1.0.0"
 

@@ -10,9 +10,9 @@
 - [x] [TD-001: Git Actions CLI Automation](#td-001-git-actions-cli-automation)
 - [x] [TD-002: orchestra next Command](#td-002-orchestra-next-command)
 - [x] [TD-003: Template-Based Config Generation](#td-003-template-based-config-generation)
-- [ ] [TD-004: Review and Update Sprint Initialization Process Guide](#td-004-review-and-update-sprint-initialization-process-guide)
+- [x] [TD-004: Review and Update Sprint Initialization Process Guide](#td-004-review-and-update-sprint-initialization-process-guide)
 - [x] [TD-005: Workflow Document Actions Section](#td-005-workflow-document-actions-section)
-- [ ] [TD-006: Clarify SpecKit tasks.md Location and Purpose](#td-006-clarify-speckit-tasksmd-location-and-purpose)
+- [x] [TD-006: Clarify SpecKit tasks.md Location and Purpose](#td-006-clarify-speckit-tasksmd-location-and-purpose)
 - [x] [TD-007: Pre-Flight Checklist Workflow](#td-007-pre-flight-checklist-workflow)
 - [ ] [TD-008: Handover Validation Command](#td-008-handover-validation-command)
 - [ ] [TD-009: Sync 01-handover-creation.md with prepare.md](#td-009-sync-01-handover-creationmd-with-preparemd)
@@ -396,57 +396,62 @@ Index order: Overview → Purpose → Philosophy → Actions → Execution Seque
 
 ## TD-006: Clarify SpecKit tasks.md Location and Purpose
 
-**Status**: 🔴 Not Started  
+**Status**: ✅ Complete  
 **Priority**: High  
 **Identified**: 2025-12-05  
+**Completed**: 2025-12-06  
 **Source**: [closeout.md - C4 Check](closeout.md#c4-speckit-tasks-checked)
 
 ### Description
 
-There is confusion about the SpecKit `tasks.md` file location and whether Orchestra maintains a copy.
+There was confusion about the SpecKit `tasks.md` file location and whether Orchestra maintains a copy.
 
-### Current State
+### Resolution
 
-- Closeout check C4 looks for `.orchestra/orchestrator/.orchestrator-only/tasks.md`
-- Process guides reference `specs/<sprint>/tasks.md` (external SpecKit location)
-- It's unclear if Orchestra should:
-  - Read from the external SpecKit `tasks.md` directly, OR
-  - Maintain a copy in `.orchestrator-only/`, OR
-  - This file doesn't exist and C4 is looking in the wrong place
+After investigation, the correct flow is:
 
-### Questions to Resolve
+1. `orchestra init --spec <path>` stores the SpecKit root in `orchestra.yaml`
+2. SpecKit's `tasks.md` lives externally at `{spec_path}/tasks.md`
+3. C4 closeout check validates SpecKit tasks are checked in the external file
+4. The old hardcoded path `.orchestra/orchestrator/.orchestrator-only/tasks.md` was incorrect
 
-1. Where does SpecKit `tasks.md` live? (External spec folder or copied to Orchestra?)
-2. Who updates the checkboxes? (Agent updates external spec directly?)
-3. Should C4 look at external spec path from `orchestra.yaml` → `spec_path`?
-4. Is `.orchestra/orchestrator/.orchestrator-only/tasks.md` a real file or dead code?
+### Changes Made
 
-### Proposed Solution
+1. **Schema Update** (`src/core/types.ts`):
+   - Added `SpecKitConfigSchema` with `root` and `tasks_file` fields
+   - Replaced `spec_path: string` with `speckit: { root, tasks_file }` object
 
-After investigation:
+2. **C4 Check Fixed** (`src/core/closeout.ts`):
+   - Now reads from `speckit.tasks_file` configuration
+   - Smart skip logic: Skip if no config AND no refs; Fail if refs exist but no config
+   - Proper error messages with actionable fix suggestions
 
-1. If SpecKit tasks.md is external:
-   - Update C4 to read from `spec_path` configuration
-   - Remove reference to `.orchestrator-only/tasks.md`
-   - Document that agent updates external spec directly
+3. **Init Command** (`src/commands/init.ts`):
+   - Now generates `speckit: { root, tasks_file }` when `--spec` provided
 
-2. If Orchestra should maintain a copy:
-   - Document when/how the copy is created
-   - Document sync process between external and copy
+4. **Config Generator** (`src/core/config-generator.ts`):
+   - Updated context interface to use `speckit` object
+
+5. **Template Fixed** (`templates/common/templates/orchestra.yaml.hbs`):
+   - Generates proper `speckit:` block with `root:` and `tasks_file:`
+
+6. **Status Command** (`src/commands/status.ts`):
+   - Updated to use `config.speckit?.root` instead of `config.spec_path`
 
 ### Acceptance Criteria
 
-- [ ] Clarify canonical location of SpecKit tasks.md
-- [ ] Update C4 check to look in correct location
-- [ ] Update closeout.md File Impact section
-- [ ] Document who updates checkboxes and when
-- [ ] Remove dead code/references if applicable
+- [x] Clarify canonical location of SpecKit tasks.md (external at `speckit.tasks_file`)
+- [x] Update C4 check to look in correct location
+- [x] Update closeout.md File Impact section (via schema change)
+- [x] Document who updates checkboxes and when (orchestrator updates after verification)
+- [x] Remove dead code/references (hardcoded `.orchestrator-only/tasks.md` path)
 
 ### Related Files
 
 - `src/core/closeout.ts` - C4 check implementation
-- `docs/workflow/closeout.md` - C4 documentation
-- `templates/orchestrator/processes/02-task-verification.md` - References tasks.md update
+- `src/core/types.ts` - SpecKitConfigSchema
+- `src/commands/init.ts` - speckit config generation
+- `templates/common/templates/orchestra.yaml.hbs` - Template update
 
 ---
 

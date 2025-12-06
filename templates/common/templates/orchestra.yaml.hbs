@@ -1,23 +1,22 @@
-# Orchestra Configuration - Generated
-{{today}}
-# See documentation for all available options version: "{{version}}" paths:
-manifest:
-{{paths.manifest}}
-handovers:
-{{paths.handovers}}
-feedback:
-{{paths.feedback}}
-artifacts:
-{{paths.artifacts}}
-templates:
-{{paths.templates}}
+# Orchestra Configuration - Generated {{today}}
+# See documentation for all available options
 
-{{#if specPath}}
-  speckit: root: "{{specPath}}"
+version: "{{version}}"
 
+paths:
+  manifest: {{paths.manifest}}
+  handovers: {{paths.handovers}}
+  feedback: {{paths.feedback}}
+  artifacts: {{paths.artifacts}}
+  templates: {{paths.templates}}
+
+{{#if speckit}}
+speckit:
+  root: "{{speckit.root}}"
+  tasks_file: "{{speckit.tasks_file}}"
 {{/if}}
-git: auto_stage:
-{{git.auto_stage}}
-auto_commit:
-{{git.auto_commit}}
-commit_prefix: "{{git.commit_prefix}}"
+
+git:
+  auto_stage: {{git.auto_stage}}
+  auto_commit: {{git.auto_commit}}
+  commit_prefix: "{{git.commit_prefix}}"

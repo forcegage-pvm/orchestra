@@ -101,7 +101,7 @@ export async function statusCommand(options: StatusOptions): Promise<void> {
           JSON.stringify({
             error: "Manifest needs configuration",
             manifest_path: paths.manifest,
-            spec_path: config.spec_path ?? null,
+            speckit: config.speckit ?? null,
             next_step:
               "Edit .orchestra/manifest.yaml to define your sprint and tasks",
           })
@@ -109,7 +109,7 @@ export async function statusCommand(options: StatusOptions): Promise<void> {
       } else {
         showManifestGuidance(
           paths.manifest,
-          config.spec_path,
+          config.speckit?.root,
           manifestResult.message
         );
       }
@@ -125,14 +125,14 @@ export async function statusCommand(options: StatusOptions): Promise<void> {
           JSON.stringify({
             status: "needs_configuration",
             manifest_path: paths.manifest,
-            spec_path: config.spec_path ?? null,
+            speckit: config.speckit ?? null,
             next_step: "Edit manifest.yaml to add real tasks from your spec",
           })
         );
       } else {
         showManifestGuidance(
           paths.manifest,
-          config.spec_path,
+          config.speckit?.root,
           "Manifest contains placeholder tasks"
         );
       }

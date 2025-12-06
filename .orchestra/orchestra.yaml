@@ -19,3 +19,4 @@ template:
   default_format: "markdown"
   validate_on_render: true
   strict_mode: false
+spec_path: "E:\\cloud services\\Dropbox\\Repositories\\vs code\\orchestra\\specs\\001-mcp-server"

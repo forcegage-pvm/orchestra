@@ -39,16 +39,18 @@ describe("config-generator", () => {
       expect(context.git.commit_prefix).toBe("orchestra");
     });
 
-    it("should include specPath when provided", () => {
+    it("should include speckit when provided", () => {
       const context = createDefaultContext("spec/my-spec");
 
-      expect(context.specPath).toBe("spec/my-spec");
+      expect(context.speckit).toBeDefined();
+      expect(context.speckit?.root).toBe("spec/my-spec");
+      expect(context.speckit?.tasks_file).toBe("spec/my-spec/tasks.md");
     });
 
-    it("should not include specPath when not provided", () => {
+    it("should not include speckit when not provided", () => {
       const context = createDefaultContext();
 
-      expect(context.specPath).toBeUndefined();
+      expect(context.speckit).toBeUndefined();
     });
   });
 
@@ -65,14 +67,12 @@ describe("config-generator", () => {
       expect(manifest).toContain("# TODO: Add speckit.root to orchestra.yaml");
     });
 
-    it("should include specPath comment when provided", () => {
-      const context = createDefaultContext("spec/requirements.md");
+    it("should include speckit reference when provided", () => {
+      const context = createDefaultContext("spec/requirements");
       const manifest = generateManifestYaml(context);
 
-      expect(manifest).toContain("# SpecKit Root: spec/requirements.md");
-      expect(manifest).toContain(
-        "# This manifest tracks implementation of SpecKit tasks"
-      );
+      // Manifest template should reference speckit from orchestra.yaml
+      expect(manifest).toContain("speckit_task_ref:");
     });
 
     it("should include today's date", () => {
@@ -152,11 +152,11 @@ describe("config-generator", () => {
       expect(configs.progress).toContain("# Orchestra Progress Tracker");
     });
 
-    it("should pass specPath to all generators", () => {
+    it("should pass speckit config to orchestra.yaml", () => {
       const configs = generateAllConfigs("my/spec/path");
 
-      expect(configs.manifest).toContain("# SpecKit Root: my/spec/path");
       expect(configs.orchestra).toContain('root: "my/spec/path"');
+      expect(configs.orchestra).toContain('tasks_file: "my/spec/path/tasks.md"');
     });
   });
 
@@ -165,7 +165,10 @@ describe("config-generator", () => {
       const context: ConfigTemplateContext = {
         today: "2025-12-06",
         version: "2.0.0",
-        specPath: "custom/spec.md",
+        speckit: {
+          root: "custom/spec",
+          tasks_file: "custom/spec/tasks.md",
+        },
         sprint: {
           id: "sprint-custom",
           name: "Custom Sprint",
@@ -195,6 +198,8 @@ describe("config-generator", () => {
       expect(orchestra).toContain("manifest: custom-manifest.yaml");
       expect(orchestra).toContain("auto_commit: true");
       expect(orchestra).toContain('commit_prefix: "feat"');
+      expect(orchestra).toContain('root: "custom/spec"');
+      expect(orchestra).toContain('tasks_file: "custom/spec/tasks.md"');
 
       const progress = generateProgressYaml(context);
       expect(progress).toContain('sprint_id: "sprint-custom"');

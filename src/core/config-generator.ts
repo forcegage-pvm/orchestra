@@ -23,8 +23,11 @@ export interface ConfigTemplateContext {
   today: string;
   /** Config version */
   version: string;
-  /** Optional path to SpecKit spec file */
-  specPath?: string;
+  /** Optional SpecKit configuration */
+  speckit?: {
+    root: string;
+    tasks_file: string;
+  };
   /** Sprint configuration */
   sprint: {
     id: string;
@@ -108,7 +111,7 @@ export function renderPackageTemplate(
 /**
  * Create default context for config template rendering.
  *
- * @param specPath - Optional path to SpecKit spec file
+ * @param specPath - Optional path to SpecKit spec root directory
  * @returns Context object for Handlebars templates
  */
 export function createDefaultContext(specPath?: string): ConfigTemplateContext {
@@ -137,9 +140,12 @@ export function createDefaultContext(specPath?: string): ConfigTemplateContext {
     },
   };
 
-  // Only add specPath if provided (exactOptionalPropertyTypes compliance)
+  // Only add speckit if specPath provided (exactOptionalPropertyTypes compliance)
   if (specPath !== undefined) {
-    context.specPath = specPath;
+    context.speckit = {
+      root: specPath,
+      tasks_file: `${specPath}/tasks.md`,
+    };
   }
 
   return context;
