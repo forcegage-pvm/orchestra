@@ -59,13 +59,12 @@ vi.mock("../../src/core/manifest.js", () => ({
 // Mock progress module
 vi.mock("../../src/core/progress.js", () => ({
   loadProgress: vi.fn(() => mockProgressData),
-  addProgressEntry: vi.fn((progress, entry) => ({
-    ...progress,
-    entries: [
-      ...progress.entries,
-      { ...entry, timestamp: new Date().toISOString() },
-    ],
-  })),
+  addProgressEntry: vi.fn((progress, entry) => {
+    // Actually mutate mockProgressData so subsequent calls see the entry
+    const newEntry = { ...entry, timestamp: new Date().toISOString() };
+    mockProgressData.entries.push(newEntry);
+    return mockProgressData;
+  }),
   saveProgress: vi.fn(),
 }));
 
@@ -171,29 +170,29 @@ describe("Failure Path Integration", () => {
       expect(result.attempt).toBe(1);
     });
 
-    it("increments attempt counter when passed explicitly", async () => {
-      // Feedback uses the attempt option passed to it
-      // In a real workflow, the caller tracks and passes the attempt number
+    it("increments attempt counter based on progress entries", async () => {
+      // Feedback now calculates attempt from VERIFY_FAILED entries in progress
 
+      // First attempt - no prior failures
       const result1 = await runFeedback({
         task: "1",
-        attempt: 1,
         verificationResult: mockVerificationResult,
         orchestraRoot: testTempDir,
       });
       expect(result1.attempt).toBe(1);
+      // Note: runFeedback adds a VERIFY_FAILED entry to progress
 
+      // Second attempt - one prior failure now in progress
       const result2 = await runFeedback({
         task: "1",
-        attempt: 2,
         verificationResult: mockVerificationResult,
         orchestraRoot: testTempDir,
       });
       expect(result2.attempt).toBe(2);
 
+      // Third attempt - two prior failures now in progress
       const result3 = await runFeedback({
         task: "1",
-        attempt: 3,
         verificationResult: mockVerificationResult,
         orchestraRoot: testTempDir,
       });
@@ -274,10 +273,20 @@ describe("Failure Path Integration", () => {
 
   describe("Escalation Path", () => {
     it("escalates after max attempts exceeded", async () => {
-      // Pass attempt=3 to indicate this is the 3rd and final attempt
+      // Run feedback 3 times to reach max attempts
+      // Each call adds a VERIFY_FAILED entry to progress
+      await runFeedback({
+        task: "1",
+        verificationResult: mockVerificationResult,
+        orchestraRoot: testTempDir,
+      });
+      await runFeedback({
+        task: "1",
+        verificationResult: mockVerificationResult,
+        orchestraRoot: testTempDir,
+      });
       const feedbackResult = await runFeedback({
         task: "1",
-        attempt: 3, // Explicit 3rd attempt
         verificationResult: mockVerificationResult,
         orchestraRoot: testTempDir,
       });
@@ -393,15 +402,16 @@ describe("Failure Path Integration", () => {
   describe("Complete Failure Workflow", () => {
     it("runs full cycle: verify fail → feedback → retry loop → escalate", async () => {
       // This simulates the "3 strikes" scenario
+      // Each runFeedback call adds VERIFY_FAILED to progress, so attempt increments
 
       // Track feedback attempts
       const feedbackResults: any[] = [];
 
       for (let attempt = 1; attempt <= 3; attempt++) {
         // Generate feedback (simulating verify → feedback flow)
+        // Attempt is calculated from progress entries automatically
         const feedbackResult = await runFeedback({
           task: "1",
-          attempt: attempt,
           verificationResult: mockVerificationResult,
           orchestraRoot: testTempDir,
         });
@@ -410,14 +420,6 @@ describe("Failure Path Integration", () => {
 
         expect(feedbackResult.attempt).toBe(attempt);
         expect(feedbackResult.canRetry).toBe(attempt < 3);
-
-        // Simulate progress entry for next iteration
-        mockProgressData.entries.push({
-          task_id: 1,
-          event_type: "FEEDBACK_GENERATED",
-          attempt: attempt,
-          timestamp: new Date().toISOString(),
-        });
       }
 
       // After 3 attempts, canRetry should be false

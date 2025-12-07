@@ -54,13 +54,12 @@ vi.mock("../../src/core/manifest.js", () => ({
 // Mock progress module
 vi.mock("../../src/core/progress.js", () => ({
   loadProgress: vi.fn(() => mockProgressData),
-  addProgressEntry: vi.fn((progress, entry) => ({
-    ...progress,
-    entries: [
-      ...progress.entries,
-      { ...entry, timestamp: new Date().toISOString() },
-    ],
-  })),
+  addProgressEntry: vi.fn((progress, entry) => {
+    // Actually mutate mockProgressData so subsequent calls see the entry
+    const newEntry = { ...entry, timestamp: new Date().toISOString() };
+    mockProgressData.entries.push(newEntry);
+    return mockProgressData;
+  }),
   saveProgress: vi.fn(),
 }));
 
@@ -181,7 +180,9 @@ describe("Feedback Generation (Orchestrator)", () => {
 
       expect(result.success).toBe(true);
       expect(result.taskId).toBe(1);
-      expect(result.feedbackPath).toContain("task-1-feedback.md");
+      // New: feedback path is now standardized to handover/feedback.md
+      expect(result.feedbackPath).toContain("feedback.md");
+      expect(result.feedbackPath).toContain("handover");
       expect(fs.existsSync(result.feedbackPath)).toBe(true);
     });
 
@@ -311,7 +312,22 @@ describe("Feedback Generation (Orchestrator)", () => {
       expect(result.canRetry).toBe(true);
     });
 
-    it("should use explicit attempt when provided", async () => {
+    it("should calculate attempt from progress entries with VERIFY_FAILED status", async () => {
+      // Add a prior VERIFY_FAILED entry to mock progress data
+      mockProgressData.entries = [
+        {
+          task_id: 1,
+          status: "IMPLEMENT",
+          timestamp: "2024-01-01T10:00:00Z",
+        },
+        {
+          task_id: 1,
+          status: "VERIFY_FAILED",
+          timestamp: "2024-01-01T11:00:00Z",
+          notes: "Attempt 1: 2 issues found",
+        },
+      ];
+
       const verificationResult: VerifyResult = {
         report: {
           taskId: 1,
@@ -327,15 +343,36 @@ describe("Feedback Generation (Orchestrator)", () => {
 
       const result = await runFeedback({
         verificationResult,
-        attempt: 2,
         orchestraRoot: tempDir,
       });
 
+      // With 1 prior VERIFY_FAILED, current attempt should be 2
       expect(result.attempt).toBe(2);
       expect(result.canRetry).toBe(true);
     });
 
     it("should set canRetry=false when max attempts reached", async () => {
+      // Add 2 prior VERIFY_FAILED entries to mock progress data
+      mockProgressData.entries = [
+        {
+          task_id: 1,
+          status: "IMPLEMENT",
+          timestamp: "2024-01-01T10:00:00Z",
+        },
+        {
+          task_id: 1,
+          status: "VERIFY_FAILED",
+          timestamp: "2024-01-01T11:00:00Z",
+          notes: "Attempt 1: 2 issues found",
+        },
+        {
+          task_id: 1,
+          status: "VERIFY_FAILED",
+          timestamp: "2024-01-01T12:00:00Z",
+          notes: "Attempt 2: 1 issue found",
+        },
+      ];
+
       const verificationResult: VerifyResult = {
         report: {
           taskId: 1,
@@ -351,10 +388,10 @@ describe("Feedback Generation (Orchestrator)", () => {
 
       const result = await runFeedback({
         verificationResult,
-        attempt: 3,
         orchestraRoot: tempDir,
       });
 
+      // With 2 prior VERIFY_FAILED, current attempt is 3 (max)
       expect(result.attempt).toBe(3);
       expect(result.maxAttempts).toBe(3);
       expect(result.canRetry).toBe(false);
@@ -540,7 +577,7 @@ describe("Feedback Generation (Orchestrator)", () => {
       expect(fs.existsSync(result.feedbackPath)).toBe(true);
     });
 
-    it("should include task ID in feedback filename", async () => {
+    it("should write to standard feedback.md location in handover folder", async () => {
       const verificationResult: VerifyResult = {
         report: {
           taskId: 1,
@@ -559,7 +596,8 @@ describe("Feedback Generation (Orchestrator)", () => {
         orchestraRoot: tempDir,
       });
 
-      expect(result.feedbackPath).toMatch(/task-1-feedback\.md$/);
+      // New: feedback is always at handover/feedback.md
+      expect(result.feedbackPath).toMatch(/handover[/\\]feedback\.md$/);
     });
   });
 });

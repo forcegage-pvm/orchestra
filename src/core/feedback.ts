@@ -19,6 +19,7 @@ import { OrchestraError } from "./errors.js";
 import { getTask, loadManifest } from "./manifest.js";
 import { addProgressEntry, loadProgress, saveProgress } from "./progress.js";
 import { renderTemplate } from "./templates.js";
+import type { ProgressEntry, ProgressLog } from "./types.js";
 import type { VerifyCheckResult, VerifyResult } from "./verification.js";
 
 // =============================================================================
@@ -28,7 +29,6 @@ import type { VerifyCheckResult, VerifyResult } from "./verification.js";
 export interface FeedbackOptions {
   task?: string;
   verificationResult?: VerifyResult;
-  attempt?: number;
   orchestraRoot?: string;
 }
 
@@ -48,7 +48,125 @@ export interface FeedbackResult {
   canRetry: boolean;
   feedbackPath: string;
   issues: FeedbackIssue[];
+  passedChecks: string[];
   nextStep: "retry" | "escalate";
+}
+
+// =============================================================================
+// Verification Result Storage (for disk read/write)
+// =============================================================================
+
+/**
+ * Save full verification result to disk for feedback to read later.
+ * Location: .orchestra/orchestrator/results/task-{id}-verification-full.json
+ */
+export function saveVerificationResultForFeedback(
+  taskId: number,
+  result: VerifyResult,
+  orchestraRoot: string
+): string {
+  const resultsDir = path.join(
+    orchestraRoot,
+    ".orchestra",
+    "orchestrator",
+    "results"
+  );
+  fs.mkdirSync(resultsDir, { recursive: true });
+
+  const paddedId = String(taskId).padStart(3, "0");
+  const resultPath = path.join(resultsDir, `task-${paddedId}-verification-full.json`);
+
+  fs.writeFileSync(resultPath, JSON.stringify(result, null, 2), "utf-8");
+  return resultPath;
+}
+
+/**
+ * Load verification result from disk.
+ * Used when runFeedback is called standalone (not with in-memory result).
+ */
+export function loadVerificationResultFromDisk(
+  taskId: number,
+  orchestraRoot: string
+): VerifyResult | null {
+  const resultsDir = path.join(
+    orchestraRoot,
+    ".orchestra",
+    "orchestrator",
+    "results"
+  );
+
+  const paddedId = String(taskId).padStart(3, "0");
+  const resultPath = path.join(resultsDir, `task-${paddedId}-verification-full.json`);
+
+  if (!fs.existsSync(resultPath)) {
+    return null;
+  }
+
+  try {
+    const content = fs.readFileSync(resultPath, "utf-8");
+    return JSON.parse(content) as VerifyResult;
+  } catch {
+    return null;
+  }
+}
+
+// =============================================================================
+// Feedback Archive Logic
+// =============================================================================
+
+/**
+ * Get current attempt number by counting VERIFY_FAILED/RETRY entries for this task.
+ */
+export function getAttemptNumber(
+  progress: { entries: Array<{ task_id: number; status: string }> },
+  taskId: number
+): number {
+  const failedEntries = progress.entries.filter(
+    (e) =>
+      e.task_id === taskId &&
+      (e.status === "VERIFY_FAILED" || e.status === "RETRY")
+  );
+  return failedEntries.length + 1;
+}
+
+/**
+ * Calculate the current attempt number from progress entries.
+ * Counts entries with VERIFY_FAILED or RETRY status for this task.
+ */
+function calculateAttemptNumber(progress: ProgressLog, taskId: number): number {
+  const failureStatuses = ["VERIFY_FAILED", "RETRY"];
+  const failureCount = progress.entries.filter(
+    (e: ProgressEntry) => e.task_id === taskId && failureStatuses.includes(e.status)
+  ).length;
+  // Current attempt is failures + 1 (first attempt has 0 prior failures)
+  return failureCount + 1;
+}
+
+/**
+ * Archive existing feedback before creating new one.
+ * Archives to: .orchestra/handover/feedback-history/attempt-{N}.md
+ */
+function archivePreviousFeedback(
+  handoversDir: string,
+  attemptNumber: number
+): void {
+  const feedbackPath = path.join(handoversDir, "feedback.md");
+  
+  if (!fs.existsSync(feedbackPath)) {
+    return; // No existing feedback to archive
+  }
+
+  // Only archive if this is attempt 2 or later (attempt 1 has nothing to archive)
+  if (attemptNumber <= 1) {
+    return;
+  }
+
+  const historyDir = path.join(handoversDir, "feedback-history");
+  fs.mkdirSync(historyDir, { recursive: true });
+
+  // Archive the previous attempt (current attemptNumber - 1)
+  const archivePath = path.join(historyDir, `attempt-${attemptNumber - 1}.md`);
+  fs.renameSync(feedbackPath, archivePath);
 }
 
 // =============================================================================
@@ -153,13 +271,25 @@ export async function runFeedback(
     );
   }
 
-  // Calculate attempt (use provided or default to 1)
+  // Calculate attempt number from progress entries
+  const currentAttempt = calculateAttemptNumber(progress, taskId);
   const maxAttempts = config.retry?.max_retries || task.max_retries || 3;
-  const currentAttempt = options.attempt || 1;
   const canRetry = currentAttempt < maxAttempts;
 
   // Transform verification failures to feedback (strips hidden info)
   const issues = transformToFeedback(verifyResult.report.results);
+  
+  // Extract passed checks for "What Worked" section
+  const passedChecks = verifyResult.report.results
+    .filter((c) => c.passed)
+    .map((c) => c.description);
+
+  // Ensure handovers directory exists
+  const handoversDir = path.join(orchestraRoot, ".orchestra", "handover");
+  fs.mkdirSync(handoversDir, { recursive: true });
+
+  // Archive previous feedback if exists
+  archivePreviousFeedback(handoversDir, currentAttempt);
 
   // Render feedback template
   let feedbackContent: string;
@@ -172,6 +302,7 @@ export async function runFeedback(
         attempt: currentAttempt,
         maxAttempts,
         issues,
+        passedChecks,
         canRetry,
         timestamp: new Date().toISOString(),
         sprint: manifest.sprint,
@@ -189,17 +320,14 @@ export async function runFeedback(
     );
   }
 
-  // Ensure feedback directory exists
-  fs.mkdirSync(paths.feedback, { recursive: true });
-
-  // Write feedback file
-  const feedbackPath = path.join(paths.feedback, `task-${taskId}-feedback.md`);
+  // Write feedback to standard location
+  const feedbackPath = path.join(handoversDir, "feedback.md");
   fs.writeFileSync(feedbackPath, feedbackContent);
 
-  // Update progress with RETRY status
+  // Update progress with VERIFY_FAILED status
   const updatedProgress = addProgressEntry(progress, {
     task_id: taskId,
-    status: "RETRY",
+    status: "VERIFY_FAILED",
     notes: `Attempt ${currentAttempt}: ${issues.length} issues found`,
   });
   saveProgress(updatedProgress, orchestraRoot);
@@ -212,6 +340,7 @@ export async function runFeedback(
     canRetry,
     feedbackPath,
     issues,
+    passedChecks,
     nextStep: canRetry ? "retry" : "escalate",
   };
 }
