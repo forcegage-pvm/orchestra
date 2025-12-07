@@ -9,11 +9,19 @@ import chalk from "chalk";
 import { Command } from "commander";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { requireOrchestraRoot, getResolvedPaths, loadConfig } from "../core/config.js";
+import {
+  getResolvedPaths,
+  loadConfig,
+  requireOrchestraRoot,
+} from "../core/config.js";
 import { ValidationError } from "../core/errors.js";
-import * as output from "../core/output.js";
-import { addProgressEntry, loadProgress, saveProgress } from "../core/progress.js";
 import { loadManifest } from "../core/manifest.js";
+import * as output from "../core/output.js";
+import {
+  addProgressEntry,
+  loadProgress,
+  saveProgress,
+} from "../core/progress.js";
 import {
   runAcceptSignal,
   type AcceptSignalOptions,
@@ -265,7 +273,9 @@ async function generateSignalRejectionFeedback(
     // Load manifest to get sprint ID
     const manifestResult = loadManifest(paths.manifest);
     if (!manifestResult.success || !manifestResult.data) {
-      console.log(chalk.yellow("Could not load manifest for feedback generation"));
+      console.log(
+        chalk.yellow("Could not load manifest for feedback generation")
+      );
       return;
     }
 
@@ -274,9 +284,10 @@ async function generateSignalRejectionFeedback(
 
     // Calculate attempt number from VERIFY_FAILED entries
     const failureStatuses = ["VERIFY_FAILED", "RETRY"];
-    const attemptNumber = progress.entries.filter(
-      (e) => e.task_id === result.taskId && failureStatuses.includes(e.status)
-    ).length + 1;
+    const attemptNumber =
+      progress.entries.filter(
+        (e) => e.task_id === result.taskId && failureStatuses.includes(e.status)
+      ).length + 1;
 
     // Ensure handover directory exists
     const handoverDir = path.join(orchestraRoot, ".orchestra", "handover");
@@ -287,7 +298,10 @@ async function generateSignalRejectionFeedback(
     if (fs.existsSync(feedbackPath) && attemptNumber > 1) {
       const historyDir = path.join(handoverDir, "feedback-history");
       fs.mkdirSync(historyDir, { recursive: true });
-      const archivePath = path.join(historyDir, `attempt-${attemptNumber - 1}.md`);
+      const archivePath = path.join(
+        historyDir,
+        `attempt-${attemptNumber - 1}.md`
+      );
       fs.renameSync(feedbackPath, archivePath);
     }
 
@@ -346,11 +360,21 @@ async function generateSignalRejectionFeedback(
     console.log("");
     console.log(chalk.cyan(`Feedback written to: ${feedbackPath}`));
     if (attemptNumber >= 3) {
-      console.log(chalk.yellow(`Maximum attempts reached. Consider: orchestra escalate --task ${result.taskId}`));
+      console.log(
+        chalk.yellow(
+          `Maximum attempts reached. Consider: orchestra escalate --task ${result.taskId}`
+        )
+      );
     }
   } catch (error) {
-    console.log(chalk.yellow("Could not generate feedback file automatically."));
-    console.log(chalk.dim(`  Error: ${error instanceof Error ? error.message : String(error)}`));
+    console.log(
+      chalk.yellow("Could not generate feedback file automatically.")
+    );
+    console.log(
+      chalk.dim(
+        `  Error: ${error instanceof Error ? error.message : String(error)}`
+      )
+    );
   }
 }
 

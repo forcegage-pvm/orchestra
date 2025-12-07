@@ -74,7 +74,10 @@ export function saveVerificationResultForFeedback(
   fs.mkdirSync(resultsDir, { recursive: true });
 
   const paddedId = String(taskId).padStart(3, "0");
-  const resultPath = path.join(resultsDir, `task-${paddedId}-verification-full.json`);
+  const resultPath = path.join(
+    resultsDir,
+    `task-${paddedId}-verification-full.json`
+  );
 
   fs.writeFileSync(resultPath, JSON.stringify(result, null, 2), "utf-8");
   return resultPath;
@@ -96,7 +99,10 @@ export function loadVerificationResultFromDisk(
   );
 
   const paddedId = String(taskId).padStart(3, "0");
-  const resultPath = path.join(resultsDir, `task-${paddedId}-verification-full.json`);
+  const resultPath = path.join(
+    resultsDir,
+    `task-${paddedId}-verification-full.json`
+  );
 
   if (!fs.existsSync(resultPath)) {
     return null;
@@ -136,7 +142,8 @@ export function getAttemptNumber(
 function calculateAttemptNumber(progress: ProgressLog, taskId: number): number {
   const failureStatuses = ["VERIFY_FAILED", "RETRY"];
   const failureCount = progress.entries.filter(
-    (e: ProgressEntry) => e.task_id === taskId && failureStatuses.includes(e.status)
+    (e: ProgressEntry) =>
+      e.task_id === taskId && failureStatuses.includes(e.status)
   ).length;
   // Current attempt is failures + 1 (first attempt has 0 prior failures)
   return failureCount + 1;
@@ -151,7 +158,7 @@ function archivePreviousFeedback(
   attemptNumber: number
 ): void {
   const feedbackPath = path.join(handoversDir, "feedback.md");
-  
+
   if (!fs.existsSync(feedbackPath)) {
     return; // No existing feedback to archive
   }
@@ -278,7 +285,7 @@ export async function runFeedback(
 
   // Transform verification failures to feedback (strips hidden info)
   const issues = transformToFeedback(verifyResult.report.results);
-  
+
   // Extract passed checks for "What Worked" section
   const passedChecks = verifyResult.report.results
     .filter((c) => c.passed)
