@@ -1,5 +1,4 @@
 ---
-mode: agent
 agent: orchestra.orchestrator
 ---
 
