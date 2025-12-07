@@ -125,6 +125,35 @@ Say: **"ready for review"**
 
 Then STOP and wait. The orchestrator will run `orchestra accept-signal` to verify your work.
 
+## If Verification Fails
+
+When your signal is rejected or verification fails, feedback is automatically generated:
+
+**Location**: `.orchestra/handover/feedback.md`
+
+### Reading Feedback
+
+The feedback file contains:
+
+1. **What Went Wrong** - Specific issues that need to be fixed
+2. **What Worked** - Checks that passed (for context)
+3. **Next Steps** - Instructions for retry
+4. **Attempt Count** - How many attempts you have left
+
+### Retry Workflow
+
+1. **Read feedback.md carefully** - Understand all issues
+2. **Fix each issue** - Address all problems, not just some
+3. **Run pre-signal-check** - `orchestra pre-signal-check`
+4. **Re-signal completion** - Update `completion-signal.md`
+5. **Say "ready for review"** again
+
+### Important Notes
+
+- Previous feedback is archived to `feedback-history/attempt-N.md`
+- You have limited retry attempts (check feedback for count)
+- If max attempts reached, task will be escalated to human review
+
 ## Quality Standards
 
 All code should follow these patterns:

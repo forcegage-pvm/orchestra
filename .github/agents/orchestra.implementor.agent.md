@@ -248,20 +248,35 @@ If you somehow have access to Orchestrator files or context, **STOP** and alert 
 
 ## Handling Feedback
 
-If verification fails, you will receive feedback. When this happens:
+If verification fails, feedback is automatically generated at: `.orchestra/handover/feedback.md`
 
-1. Run `orchestra accept-signal` to acknowledge
-2. Read the feedback carefully
-3. Understand what specifically failed
-4. Fix the issues
-5. Re-verify your own work
-6. Signal again with `orchestra signal`
+### When This Happens
 
-Do not:
+1. **Read feedback.md** - Contains specific issues to fix
+2. **Review each issue** - Understand severity and guidance
+3. **Check "What Worked"** - For context on what passed
+4. **Fix ALL issues** - Not just some
+5. **Run pre-signal-check** - `orchestra pre-signal-check`
+6. **Signal again** - Update completion-signal.md and say "ready for review"
+
+### Feedback File Contents
+
+- **What Went Wrong**: Specific issues with severity, impact, and guidance
+- **What Worked**: Checks that passed (for context)
+- **Next Steps**: Instructions and remaining attempt count
+
+### Previous Attempts
+
+- Feedback is archived to `feedback-history/attempt-N.md`
+- You have limited retry attempts (check feedback.md for count)
+- If max attempts reached, task will be escalated
+
+### Do Not
 
 - Argue with the feedback
 - Try to discover why other criteria weren't mentioned
 - Assume the feedback is complete (there may be hidden checks)
+- Ignore the attempt count
 
 ## Starting a Session
 
