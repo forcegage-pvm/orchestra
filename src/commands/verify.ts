@@ -7,9 +7,9 @@
 
 import chalk from "chalk";
 import { Command } from "commander";
-import * as output from "../core/output.js";
-import { runFeedback } from "../core/feedback.js";
 import { requireOrchestraRoot } from "../core/config.js";
+import { runFeedback } from "../core/feedback.js";
+import * as output from "../core/output.js";
 import {
   runVerification,
   type VerificationOptions,
@@ -88,7 +88,11 @@ async function generateVerificationFeedback(
       console.log(chalk.yellow("⚠️  Could not auto-generate feedback:"));
       console.log(
         chalk.dim(
-          `   ${feedbackError instanceof Error ? feedbackError.message : String(feedbackError)}`
+          `   ${
+            feedbackError instanceof Error
+              ? feedbackError.message
+              : String(feedbackError)
+          }`
         )
       );
     }

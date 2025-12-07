@@ -338,12 +338,20 @@ async function showTaskDetail(
   }
 
   // Check for feedback file when task is in VERIFY_FAILED or RETRY status
-  const feedbackPath = path.join(orchestraRoot, ".orchestra", "handover", "feedback.md");
+  const feedbackPath = path.join(
+    orchestraRoot,
+    ".orchestra",
+    "handover",
+    "feedback.md"
+  );
   const feedbackExists = fs.existsSync(feedbackPath);
 
   if (json) {
     const result: Record<string, unknown> = { ...task };
-    if ((task.status === "VERIFY_FAILED" || task.status === "RETRY") && feedbackExists) {
+    if (
+      (task.status === "VERIFY_FAILED" || task.status === "RETRY") &&
+      feedbackExists
+    ) {
       result.feedbackPath = feedbackPath;
       result.feedbackAvailable = true;
     }
@@ -361,9 +369,14 @@ async function showTaskDetail(
   );
 
   // Show feedback indicator for failed/retry tasks
-  if ((task.status === "VERIFY_FAILED" || task.status === "RETRY") && feedbackExists) {
+  if (
+    (task.status === "VERIFY_FAILED" || task.status === "RETRY") &&
+    feedbackExists
+  ) {
     console.log(`${chalk.bold("Feedback:")} ${chalk.cyan(feedbackPath)}`);
-    console.log(chalk.dim("  Review feedback and address issues before retrying"));
+    console.log(
+      chalk.dim("  Review feedback and address issues before retrying")
+    );
   }
 
   if (task.description) {
