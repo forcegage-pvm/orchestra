@@ -444,11 +444,18 @@ export type PathsConfig = z.output<typeof PathsConfigSchema>;
 
 /**
  * Verification configuration schema
+ * These are project-agnostic verification toggles.
+ * The actual commands to run are determined by project type.
  */
 export const VerificationConfigSchema = z.object({
-  flutter_analyze: z.boolean().default(true),
-  flutter_test: z.boolean().default(true),
+  /** Run static analysis/linting (eslint, flutter analyze, etc.) */
+  run_linter: z.boolean().default(true),
+  /** Run tests (npm test, flutter test, pytest, etc.) */
+  run_tests: z.boolean().default(true),
+  /** Check that required files exist */
   file_checks: z.boolean().default(true),
+  /** Run type checking (tsc, mypy, etc.) */
+  run_typecheck: z.boolean().default(true),
 });
 
 export type VerificationConfig = z.output<typeof VerificationConfigSchema>;
@@ -676,9 +683,10 @@ export const DEFAULT_CONFIG: OrchestraConfig = {
     templates: "common/templates",
   },
   verification: {
-    flutter_analyze: true,
-    flutter_test: true,
+    run_linter: true,
+    run_tests: true,
     file_checks: true,
+    run_typecheck: true,
   },
   retry: {
     max_retries: 3,

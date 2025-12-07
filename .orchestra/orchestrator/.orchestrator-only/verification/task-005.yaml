@@ -1,0 +1,45 @@
+# Verification: Task 5 - Export New Types from Core
+# Created: 2025-12-07
+# Category: INFRASTRUCTURE
+
+task_id: 5
+title: "Export New Types from Core"
+category: "INFRASTRUCTURE"
+created_at: "2025-12-07"
+
+checks:
+  - id: "V5.1"
+    description: "RoleError is exported from src/core/index.ts"
+    severity: BLOCKING
+    type: structural
+    verification: "grep for RoleError export in index.ts"
+
+  - id: "V5.2"
+    description: "RoleSchema is exported from src/core/index.ts"
+    severity: BLOCKING
+    type: structural
+    verification: "grep for RoleSchema export in index.ts"
+
+  - id: "V5.3"
+    description: "AttemptTrackerSchema is exported from src/core/index.ts"
+    severity: BLOCKING
+    type: structural
+    verification: "grep for AttemptTrackerSchema export in index.ts"
+
+  - id: "V5.4"
+    description: "Role type is exported from src/core/index.ts"
+    severity: MAJOR
+    type: structural
+    verification: "grep for Role type export"
+
+  - id: "V5.5"
+    description: "AttemptTracker type is exported from src/core/index.ts"
+    severity: MAJOR
+    type: structural
+    verification: "grep for AttemptTracker type export"
+
+  - id: "V5.6"
+    description: "Imports from '@/core' or '../core' work correctly"
+    severity: BLOCKING
+    type: functional
+    verification: "TypeScript compiles and types are accessible"

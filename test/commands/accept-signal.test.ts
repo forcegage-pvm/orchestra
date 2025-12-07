@@ -291,7 +291,7 @@ describe("accept-signal command", () => {
           timestamp: new Date().toISOString(),
           status: "PASSED",
           checks: {
-            flutter_analyze: {
+            linter: {
               status: "PASSED",
               files_checked: 15,
               issues: 0,
@@ -306,7 +306,7 @@ describe("accept-signal command", () => {
 
       expect(consoleSpy).toHaveBeenCalled();
       const output = consoleSpy.mock.calls.map((call) => call[0]).join("\n");
-      expect(output).toContain("flutter_analyze");
+      expect(output).toContain("linter");
     });
   });
 });

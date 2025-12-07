@@ -1,0 +1,24 @@
+version: "1.0"
+paths:
+  manifest: "manifest.yaml"
+  handovers: "handover"
+  feedback: "handover"
+  artifacts: "artifacts"
+  templates: "common/templates"
+verification:
+  run_linter: true
+  run_tests: true
+  file_checks: true
+  run_typecheck: true
+retry:
+  max_retries: 3
+git:
+  auto_commit: true
+  commit_prefix: "orchestra"
+template:
+  default_format: "markdown"
+  validate_on_render: true
+  strict_mode: false
+speckit:
+  root: "E:\\cloud services\\Dropbox\\Repositories\\vs code\\orchestra\\specs\\001-mcp-server"
+  tasks_file: "E:\\cloud services\\Dropbox\\Repositories\\vs code\\orchestra\\specs\\001-mcp-server\\tasks.md"

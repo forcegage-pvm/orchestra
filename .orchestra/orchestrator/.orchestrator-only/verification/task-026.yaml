@@ -1,0 +1,51 @@
+# Verification: Task 26 - Create Status Tool Tests
+# Created: 2025-12-07
+# Category: INFRASTRUCTURE
+
+task_id: 26
+title: "Create Status Tool Tests"
+category: "INFRASTRUCTURE"
+created_at: "2025-12-07"
+
+checks:
+  - id: "V26.1"
+    description: "test/mcp/tools/status.test.ts file exists"
+    severity: BLOCKING
+    type: structural
+    verification: "Check file exists"
+
+  - id: "V26.2"
+    description: "Tests successful status with orchestrator role"
+    severity: BLOCKING
+    type: functional
+    verification: "Should return sprint and progress info"
+
+  - id: "V26.3"
+    description: "Tests successful status with implementor role"
+    severity: BLOCKING
+    type: functional
+    verification: "Implementor should have access per FR-013"
+
+  - id: "V26.4"
+    description: "Tests status with active task"
+    severity: BLOCKING
+    type: functional
+    verification: "Should include current task details"
+
+  - id: "V26.5"
+    description: "Tests status with no active task"
+    severity: MAJOR
+    type: functional
+    verification: "Should return null for currentTask"
+
+  - id: "V26.6"
+    description: "Tests status with no Orchestra project"
+    severity: MAJOR
+    type: adversarial
+    verification: "Should return clear error"
+
+  - id: "V26.7"
+    description: "All tests pass"
+    severity: BLOCKING
+    type: functional
+    verification: "Run npm test test/mcp/tools/status.test.ts"

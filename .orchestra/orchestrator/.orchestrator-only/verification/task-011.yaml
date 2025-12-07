@@ -1,0 +1,51 @@
+# Verification: Task 11 - Create Tool Registry
+# Created: 2025-12-07
+# Category: INFRASTRUCTURE
+
+task_id: 11
+title: "Create Tool Registry"
+category: "INFRASTRUCTURE"
+created_at: "2025-12-07"
+
+checks:
+  - id: "V11.1"
+    description: "src/mcp/tools/index.ts file exists"
+    severity: BLOCKING
+    type: structural
+    verification: "Check file exists"
+
+  - id: "V11.2"
+    description: "Tool definitions array is exported"
+    severity: BLOCKING
+    type: structural
+    verification: "grep for tools array export"
+
+  - id: "V11.3"
+    description: "Tool definitions follow MCP ToolDefinition structure"
+    severity: BLOCKING
+    type: structural
+    verification: |
+      Each tool should have:
+      - name: string
+      - description: string
+      - inputSchema: JSON Schema object
+
+  - id: "V11.4"
+    description: "All 10 tools are registered per FR-005"
+    severity: BLOCKING
+    type: structural
+    verification: |
+      Tools: init, status, closeout, prepare, signal,
+      accept_signal, verify, complete, feedback, escalate
+
+  - id: "V11.5"
+    description: "Tool names use underscore for multi-word (accept_signal) per FR-027"
+    severity: MAJOR
+    type: structural
+    verification: "Check naming convention"
+
+  - id: "V11.6"
+    description: "TypeScript compiles without errors"
+    severity: BLOCKING
+    type: functional
+    verification: "Run npm run typecheck"

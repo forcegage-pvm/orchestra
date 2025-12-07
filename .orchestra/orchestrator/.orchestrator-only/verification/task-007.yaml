@@ -1,0 +1,53 @@
+# Verification: Task 7 - Implement Error Mapper
+# Created: 2025-12-07
+# Category: INFRASTRUCTURE
+
+task_id: 7
+title: "Implement Error Mapper"
+category: "INFRASTRUCTURE"
+created_at: "2025-12-07"
+
+checks:
+  - id: "V7.1"
+    description: "src/mcp/error-mapper.ts file exists"
+    severity: BLOCKING
+    type: structural
+    verification: "Check file exists"
+
+  - id: "V7.2"
+    description: "mapErrorToMCP() function is exported"
+    severity: BLOCKING
+    type: structural
+    verification: "grep for export of mapErrorToMCP"
+
+  - id: "V7.3"
+    description: "Maps OrchestraError subclasses to correct MCP error codes"
+    severity: BLOCKING
+    type: functional
+    verification: |
+      Error code mapping per data-model.md:
+      - -32000: ApplicationError (FileError, ManifestError, generic)
+      - -32001: ConfigurationError
+      - -32002: StateError (TaskError)
+      - -32003: RoleError
+      - -32600: InvalidRequest (ValidationError)
+      - -32601: MethodNotFound (Unknown tool name)
+
+  - id: "V7.4"
+    description: "Returns MCP-compliant error structure"
+    severity: BLOCKING
+    type: structural
+    verification: |
+      Return structure: { code: number, message: string, data?: object }
+
+  - id: "V7.5"
+    description: "Error messages do NOT contain .orchestrator-only paths (FR-016)"
+    severity: BLOCKING
+    type: adversarial
+    verification: "Sanitize any paths containing '.orchestrator-only'"
+
+  - id: "V7.6"
+    description: "TypeScript compiles without errors"
+    severity: BLOCKING
+    type: functional
+    verification: "Run npm run typecheck"

@@ -1,0 +1,51 @@
+# Verification: Task 52 - Add Failure Path Integration Tests
+# Created: 2025-12-07
+# Category: INTEGRATION
+
+task_id: 52
+title: "Add Failure Path Integration Tests"
+category: "INTEGRATION"
+created_at: "2025-12-07"
+
+checks:
+  - id: "V52.1"
+    description: "Failure path tests added to test/integration/mcp-workflow.test.ts"
+    severity: BLOCKING
+    type: structural
+    verification: "Check for failure path describe block"
+
+  - id: "V52.2"
+    description: "Tests verify fail → feedback flow"
+    severity: BLOCKING
+    type: functional
+    verification: "Verification failure triggers feedback"
+
+  - id: "V52.3"
+    description: "Tests feedback → retry → verify flow"
+    severity: BLOCKING
+    type: functional
+    verification: "Retry after feedback"
+
+  - id: "V52.4"
+    description: "Tests feedback (3x) → escalate flow"
+    severity: BLOCKING
+    type: functional
+    verification: "Three failures trigger escalation per FR-025"
+
+  - id: "V52.5"
+    description: "Tests canRetry flag changes over attempts"
+    severity: MAJOR
+    type: functional
+    verification: "true → true → true → false"
+
+  - id: "V52.6"
+    description: "Tests isolation - failures don't affect other tasks"
+    severity: MAJOR
+    type: adversarial
+    verification: "Attempt counts are per-task"
+
+  - id: "V52.7"
+    description: "All tests pass"
+    severity: BLOCKING
+    type: functional
+    verification: "Run npm test test/integration/mcp-workflow.test.ts"

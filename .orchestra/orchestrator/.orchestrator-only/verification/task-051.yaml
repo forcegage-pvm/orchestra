@@ -1,0 +1,51 @@
+# Verification: Task 51 - Create Escalate Tool Tests
+# Created: 2025-12-07
+# Category: INFRASTRUCTURE
+
+task_id: 51
+title: "Create Escalate Tool Tests"
+category: "INFRASTRUCTURE"
+created_at: "2025-12-07"
+
+checks:
+  - id: "V51.1"
+    description: "test/mcp/tools/escalate.test.ts file exists"
+    severity: BLOCKING
+    type: structural
+    verification: "Check file exists"
+
+  - id: "V51.2"
+    description: "Tests successful escalate with orchestrator role"
+    severity: BLOCKING
+    type: functional
+    verification: "Should create escalation report"
+
+  - id: "V51.3"
+    description: "Tests escalate denied for implementor role"
+    severity: BLOCKING
+    type: functional
+    verification: "Should return permission denied error"
+
+  - id: "V51.4"
+    description: "Tests escalation report creation"
+    severity: BLOCKING
+    type: functional
+    verification: "Report file should be created"
+
+  - id: "V51.5"
+    description: "Tests escalation report content"
+    severity: MAJOR
+    type: structural
+    verification: "Report should include task details and history"
+
+  - id: "V51.6"
+    description: "Tests task state update after escalation"
+    severity: MAJOR
+    type: functional
+    verification: "Task should be in ESCALATED state"
+
+  - id: "V51.7"
+    description: "All tests pass"
+    severity: BLOCKING
+    type: functional
+    verification: "Run npm test test/mcp/tools/escalate.test.ts"

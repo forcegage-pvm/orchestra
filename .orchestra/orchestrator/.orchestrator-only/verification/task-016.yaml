@@ -1,0 +1,63 @@
+# Verification: Task 16 - Create Lock Module Tests
+# Created: 2025-12-07
+# Category: INFRASTRUCTURE
+
+task_id: 16
+title: "Create Lock Module Tests"
+category: "INFRASTRUCTURE"
+created_at: "2025-12-07"
+
+checks:
+  - id: "V16.1"
+    description: "test/mcp/lock.test.ts file exists"
+    severity: BLOCKING
+    type: structural
+    verification: "Check file exists"
+
+  - id: "V16.2"
+    description: "Tests acquireLock creates lock file"
+    severity: BLOCKING
+    type: functional
+    verification: "Lock file should be created at .orchestra/.lock"
+
+  - id: "V16.3"
+    description: "Tests releaseLock removes lock file"
+    severity: BLOCKING
+    type: functional
+    verification: "Lock file should be deleted"
+
+  - id: "V16.4"
+    description: "Tests withLock executes operation and releases"
+    severity: BLOCKING
+    type: functional
+    verification: "Operation runs, lock released after"
+
+  - id: "V16.5"
+    description: "Tests withLock releases on error"
+    severity: BLOCKING
+    type: adversarial
+    verification: "Lock released even if operation throws"
+
+  - id: "V16.6"
+    description: "Tests lock contention returns -32002"
+    severity: BLOCKING
+    type: functional
+    verification: "Second acquire attempt should fail with correct code"
+
+  - id: "V16.7"
+    description: "Tests stale lock cleanup (>5 minutes)"
+    severity: BLOCKING
+    type: functional
+    verification: "Old locks should be auto-deleted"
+
+  - id: "V16.8"
+    description: "Tests lock file contains createdAt and pid"
+    severity: MAJOR
+    type: structural
+    verification: "JSON structure validation"
+
+  - id: "V16.9"
+    description: "All tests pass"
+    severity: BLOCKING
+    type: functional
+    verification: "Run npm test test/mcp/lock.test.ts"

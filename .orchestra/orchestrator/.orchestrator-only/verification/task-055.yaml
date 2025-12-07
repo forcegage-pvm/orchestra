@@ -1,0 +1,51 @@
+# Verification: Task 55 - Run Regression Tests
+# Created: 2025-12-07
+# Category: INFRASTRUCTURE
+
+task_id: 55
+title: "Run Regression Tests"
+category: "INFRASTRUCTURE"
+created_at: "2025-12-07"
+
+checks:
+  - id: "V55.1"
+    description: "All existing tests pass (427+ tests)"
+    severity: BLOCKING
+    type: functional
+    verification: "Run npm test and verify all pass"
+
+  - id: "V55.2"
+    description: "No existing test files were broken"
+    severity: BLOCKING
+    type: functional
+    verification: "All test files run successfully"
+
+  - id: "V55.3"
+    description: "Test count is at least 427 per SC-007"
+    severity: BLOCKING
+    type: functional
+    verification: "npm test should show 427+ tests"
+
+  - id: "V55.4"
+    description: "New MCP tests are included in count"
+    severity: MAJOR
+    type: functional
+    verification: "MCP tests add to total"
+
+  - id: "V55.5"
+    description: "Coverage does not decrease"
+    severity: MAJOR
+    type: functional
+    verification: "npm run test:coverage"
+
+  - id: "V55.6"
+    description: "TypeScript compiles without errors"
+    severity: BLOCKING
+    type: functional
+    verification: "npm run typecheck"
+
+  - id: "V55.7"
+    description: "Lint passes without errors"
+    severity: MAJOR
+    type: functional
+    verification: "npm run lint"

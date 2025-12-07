@@ -1,0 +1,56 @@
+# Verification: Task 4 - Add Role and AttemptTracker Schemas
+# Created: 2025-12-07
+# Category: INFRASTRUCTURE
+
+task_id: 4
+title: "Add Role and AttemptTracker Schemas"
+category: "INFRASTRUCTURE"
+created_at: "2025-12-07"
+
+checks:
+  - id: "V4.1"
+    description: "RoleSchema exists in src/core/types.ts"
+    severity: BLOCKING
+    type: structural
+    verification: "grep for 'RoleSchema' in types.ts"
+
+  - id: "V4.2"
+    description: "RoleSchema validates 'implementor' and 'orchestrator' values"
+    severity: BLOCKING
+    type: structural
+    verification: "Schema should be z.enum(['implementor', 'orchestrator'])"
+
+  - id: "V4.3"
+    description: "AttemptTrackerSchema exists in src/core/types.ts"
+    severity: BLOCKING
+    type: structural
+    verification: "grep for 'AttemptTrackerSchema' in types.ts"
+
+  - id: "V4.4"
+    description: "AttemptTrackerSchema has required fields per data-model.md"
+    severity: BLOCKING
+    type: structural
+    verification: |
+      Required fields:
+      - taskId: z.number()
+      - attempts: z.number().default(0)
+      - lastAttemptAt: z.string().datetime()
+      - maxAttempts: z.number().default(3)
+
+  - id: "V4.5"
+    description: "Role type is exported (z.output<typeof RoleSchema>)"
+    severity: MAJOR
+    type: structural
+    verification: "Check type export follows project pattern"
+
+  - id: "V4.6"
+    description: "AttemptTracker type is exported"
+    severity: MAJOR
+    type: structural
+    verification: "Check type export follows project pattern"
+
+  - id: "V4.7"
+    description: "TypeScript compiles without errors"
+    severity: BLOCKING
+    type: functional
+    verification: "Run npm run typecheck"

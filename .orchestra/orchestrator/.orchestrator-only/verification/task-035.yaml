@@ -1,0 +1,45 @@
+# Verification: Task 35 - Register Accept Signal Tool
+# Created: 2025-12-07
+# Category: INTEGRATION
+
+task_id: 35
+title: "Register Accept Signal Tool"
+category: "INTEGRATION"
+created_at: "2025-12-07"
+
+checks:
+  - id: "V35.1"
+    description: "Accept signal tool is added to tools array in src/mcp/tools/index.ts"
+    severity: BLOCKING
+    type: structural
+    verification: "grep for accept_signal in tools array"
+
+  - id: "V35.2"
+    description: "Tool name is 'accept_signal' (underscore per FR-027)"
+    severity: BLOCKING
+    type: structural
+    verification: "Check name property uses underscore"
+
+  - id: "V35.3"
+    description: "Input schema matches contracts/accept_signal.json"
+    severity: BLOCKING
+    type: structural
+    verification: "Compare inputSchema with contract"
+
+  - id: "V35.4"
+    description: "Role parameter is required in schema"
+    severity: BLOCKING
+    type: structural
+    verification: "role should be in required array"
+
+  - id: "V35.5"
+    description: "Handler is wired to acceptSignal function"
+    severity: BLOCKING
+    type: functional
+    verification: "Tool invocation calls accept-signal handler"
+
+  - id: "V35.6"
+    description: "TypeScript compiles without errors"
+    severity: BLOCKING
+    type: functional
+    verification: "Run npm run typecheck"

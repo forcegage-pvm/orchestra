@@ -1,0 +1,69 @@
+# Verification: Task 8 - Implement Lock Module
+# Created: 2025-12-07
+# Category: INFRASTRUCTURE
+
+task_id: 8
+title: "Implement Lock Module"
+category: "INFRASTRUCTURE"
+created_at: "2025-12-07"
+
+checks:
+  - id: "V8.1"
+    description: "src/mcp/lock.ts file exists"
+    severity: BLOCKING
+    type: structural
+    verification: "Check file exists"
+
+  - id: "V8.2"
+    description: "acquireLock() function is exported"
+    severity: BLOCKING
+    type: structural
+    verification: "grep for acquireLock export"
+
+  - id: "V8.3"
+    description: "releaseLock() function is exported"
+    severity: BLOCKING
+    type: structural
+    verification: "grep for releaseLock export"
+
+  - id: "V8.4"
+    description: "withLock() wrapper function is exported"
+    severity: BLOCKING
+    type: structural
+    verification: "grep for withLock export - executes operation with lock"
+
+  - id: "V8.5"
+    description: "Lock file created at .orchestra/.lock per FR-019"
+    severity: BLOCKING
+    type: functional
+    verification: "Lock should be created at correct path"
+
+  - id: "V8.6"
+    description: "Lock file contains createdAt and pid per data-model.md"
+    severity: MAJOR
+    type: structural
+    verification: "JSON structure: { createdAt: number, pid: number }"
+
+  - id: "V8.7"
+    description: "Stale locks (>5 minutes) are cleaned up per FR-020"
+    severity: BLOCKING
+    type: functional
+    verification: "Locks older than 300000ms should be auto-deleted"
+
+  - id: "V8.8"
+    description: "Lock contention returns error code -32002 per FR-021"
+    severity: BLOCKING
+    type: functional
+    verification: "Error message: 'operation in progress, retry after brief delay'"
+
+  - id: "V8.9"
+    description: "Lock is released in finally block (even on error)"
+    severity: BLOCKING
+    type: adversarial
+    verification: "withLock should always release lock"
+
+  - id: "V8.10"
+    description: "TypeScript compiles without errors"
+    severity: BLOCKING
+    type: functional
+    verification: "Run npm run typecheck"

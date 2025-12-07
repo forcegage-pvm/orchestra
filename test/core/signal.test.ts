@@ -181,7 +181,7 @@ describe("Accept-Signal Core Logic", () => {
         timestamp: new Date().toISOString(),
         status: "FAILED",
         checks: {
-          flutter_analyze: { status: "FAILED", issues: 3 },
+          linter: { status: "FAILED", issues: 3 },
           deliverables: { status: "PASSED" },
         },
       };
@@ -535,8 +535,8 @@ All 23 tests passing`;
         timestamp: new Date(Date.now() - 5 * 60 * 1000).toISOString(),
         status: "PASSED",
         checks: {
-          flutter_analyze: { status: "PASSED", files_checked: 15, issues: 0 },
-          flutter_test: { status: "PASSED", tests_run: 42, tests_passed: 42 },
+          linter: { status: "PASSED", files_checked: 15, issues: 0 },
+          tests: { status: "PASSED", tests_run: 42, tests_passed: 42 },
           deliverables: { status: "PASSED", files_exist: ["file1.ts"] },
         },
       };
@@ -572,7 +572,7 @@ All 23 tests passing`;
         timestamp: new Date().toISOString(),
         status: "FAILED",
         checks: {
-          flutter_analyze: { status: "FAILED", issues: 3 },
+          linter: { status: "FAILED", issues: 3 },
           deliverables: { status: "PASSED" },
         },
       };

@@ -1,0 +1,57 @@
+# Verification: Task 31 - Register Signal Tool
+# Created: 2025-12-07
+# Category: INTEGRATION
+
+task_id: 31
+title: "Register Signal Tool"
+category: "INTEGRATION"
+created_at: "2025-12-07"
+
+checks:
+  - id: "V31.1"
+    description: "Signal tool is added to tools array in src/mcp/tools/index.ts"
+    severity: BLOCKING
+    type: structural
+    verification: "grep for signal in tools array"
+
+  - id: "V31.2"
+    description: "Tool name is 'signal'"
+    severity: BLOCKING
+    type: structural
+    verification: "Check name property"
+
+  - id: "V31.3"
+    description: "Input schema matches contracts/signal.json"
+    severity: BLOCKING
+    type: structural
+    verification: "Compare inputSchema with contract"
+
+  - id: "V31.4"
+    description: "Role parameter is required in schema"
+    severity: BLOCKING
+    type: structural
+    verification: "role should be in required array"
+
+  - id: "V31.5"
+    description: "Summary parameter is required in schema"
+    severity: BLOCKING
+    type: structural
+    verification: "summary should be in required array"
+
+  - id: "V31.6"
+    description: "Files parameter is optional"
+    severity: MAJOR
+    type: structural
+    verification: "files should NOT be in required array"
+
+  - id: "V31.7"
+    description: "Handler is wired to signal function"
+    severity: BLOCKING
+    type: functional
+    verification: "Tool invocation calls signal handler"
+
+  - id: "V31.8"
+    description: "TypeScript compiles without errors"
+    severity: BLOCKING
+    type: functional
+    verification: "Run npm run typecheck"

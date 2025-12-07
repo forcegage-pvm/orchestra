@@ -1,0 +1,63 @@
+# Verification: Task 37 - Implement Verify Tool Handler
+# Created: 2025-12-07
+# Category: INTEGRATION
+
+task_id: 37
+title: "Implement Verify Tool Handler"
+category: "INTEGRATION"
+created_at: "2025-12-07"
+
+checks:
+  - id: "V37.1"
+    description: "src/mcp/tools/verify.ts file exists"
+    severity: BLOCKING
+    type: structural
+    verification: "Check file exists"
+
+  - id: "V37.2"
+    description: "Handler exports verify function"
+    severity: BLOCKING
+    type: structural
+    verification: "grep for verify export"
+
+  - id: "V37.3"
+    description: "Handler calls core runVerify function"
+    severity: BLOCKING
+    type: structural
+    verification: "Should delegate to src/core/verify.ts"
+
+  - id: "V37.4"
+    description: "Handler validates role via role-guard"
+    severity: BLOCKING
+    type: functional
+    verification: "Only orchestrator role should have access"
+
+  - id: "V37.5"
+    description: "Handler uses withLock for write operation per FR-017"
+    severity: BLOCKING
+    type: functional
+    verification: "Verify modifies state, needs lock"
+
+  - id: "V37.6"
+    description: "Result sanitization removes hidden criteria per FR-015"
+    severity: BLOCKING
+    type: adversarial
+    verification: "Verification criteria NEVER exposed in response"
+
+  - id: "V37.7"
+    description: "Returns pass/fail summary without criteria details"
+    severity: BLOCKING
+    type: structural
+    verification: "Response should have pass count and fail count, not criteria text"
+
+  - id: "V37.8"
+    description: "Returns guidance on next steps"
+    severity: MAJOR
+    type: structural
+    verification: "Should indicate complete if pass, feedback if fail"
+
+  - id: "V37.9"
+    description: "TypeScript compiles without errors"
+    severity: BLOCKING
+    type: functional
+    verification: "Run npm run typecheck"

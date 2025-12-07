@@ -1,0 +1,45 @@
+# Verification: Task 25 - Register Status Tool
+# Created: 2025-12-07
+# Category: INTEGRATION
+
+task_id: 25
+title: "Register Status Tool"
+category: "INTEGRATION"
+created_at: "2025-12-07"
+
+checks:
+  - id: "V25.1"
+    description: "Status tool is added to tools array in src/mcp/tools/index.ts"
+    severity: BLOCKING
+    type: structural
+    verification: "grep for status in tools array"
+
+  - id: "V25.2"
+    description: "Tool name is 'status'"
+    severity: BLOCKING
+    type: structural
+    verification: "Check name property"
+
+  - id: "V25.3"
+    description: "Input schema matches contracts/status.json"
+    severity: BLOCKING
+    type: structural
+    verification: "Compare inputSchema with contract"
+
+  - id: "V25.4"
+    description: "Role parameter is required in schema"
+    severity: BLOCKING
+    type: structural
+    verification: "role should be in required array"
+
+  - id: "V25.5"
+    description: "Handler is wired to status function"
+    severity: BLOCKING
+    type: functional
+    verification: "Tool invocation calls status handler"
+
+  - id: "V25.6"
+    description: "TypeScript compiles without errors"
+    severity: BLOCKING
+    type: functional
+    verification: "Run npm run typecheck"
