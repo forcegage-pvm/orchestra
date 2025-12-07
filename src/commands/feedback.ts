@@ -23,7 +23,6 @@ import type { VerifyResult } from "../core/verification.js";
 
 interface FeedbackCommandOptions {
   task?: string;
-  attempt?: number;
   json?: boolean;
 }
 
@@ -34,7 +33,6 @@ export function createFeedbackCommand(): Command {
   const cmd = new Command("feedback")
     .description("Generate feedback for implementor after verification failure")
     .option("-t, --task <id>", "Task ID (defaults to current)")
-    .option("-a, --attempt <n>", "Attempt number", parseInt)
     .option("--json", "Output as JSON")
     .action(async (options: FeedbackCommandOptions) => {
       await feedbackCommand(options);
@@ -105,9 +103,7 @@ async function feedbackCommand(options: FeedbackCommandOptions): Promise<void> {
     if (options.task !== undefined) {
       feedbackOptions.task = options.task;
     }
-    if (options.attempt !== undefined) {
-      feedbackOptions.attempt = options.attempt;
-    }
+    // Note: attempt is now calculated from progress entries, not passed as option
     if (verificationResult !== undefined) {
       feedbackOptions.verificationResult = verificationResult;
     }

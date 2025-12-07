@@ -7,8 +7,13 @@
 
 import chalk from "chalk";
 import { Command } from "commander";
+import * as fs from "node:fs";
+import * as path from "node:path";
+import { requireOrchestraRoot, getResolvedPaths, loadConfig } from "../core/config.js";
 import { ValidationError } from "../core/errors.js";
 import * as output from "../core/output.js";
+import { addProgressEntry, loadProgress, saveProgress } from "../core/progress.js";
+import { loadManifest } from "../core/manifest.js";
 import {
   runAcceptSignal,
   type AcceptSignalOptions,
@@ -48,6 +53,11 @@ async function acceptSignalCommand(
       console.log(JSON.stringify(formatJsonOutput(result), null, 2));
     } else {
       printAcceptSignalReport(result, options.verbose ?? false);
+    }
+
+    // Generate feedback when signal is rejected
+    if (!result.canVerify) {
+      await generateSignalRejectionFeedback(result);
     }
 
     process.exit(result.canVerify ? 0 : 1);
@@ -238,6 +248,110 @@ function formatJsonOutput(result: SignalReport): Record<string, unknown> {
   }
 
   return output;
+}
+
+/**
+ * Generate feedback when signal is rejected.
+ * Creates a feedback.md file for implementor with gate check failures.
+ */
+async function generateSignalRejectionFeedback(
+  result: SignalReport
+): Promise<void> {
+  try {
+    const orchestraRoot = requireOrchestraRoot();
+    const config = loadConfig(orchestraRoot);
+    const paths = getResolvedPaths(orchestraRoot, config);
+
+    // Load manifest to get sprint ID
+    const manifestResult = loadManifest(paths.manifest);
+    if (!manifestResult.success || !manifestResult.data) {
+      console.log(chalk.yellow("Could not load manifest for feedback generation"));
+      return;
+    }
+
+    const sprintId = manifestResult.data.sprint.id;
+    const progress = loadProgress(sprintId, orchestraRoot);
+
+    // Calculate attempt number from VERIFY_FAILED entries
+    const failureStatuses = ["VERIFY_FAILED", "RETRY"];
+    const attemptNumber = progress.entries.filter(
+      (e) => e.task_id === result.taskId && failureStatuses.includes(e.status)
+    ).length + 1;
+
+    // Ensure handover directory exists
+    const handoverDir = path.join(orchestraRoot, ".orchestra", "handover");
+    fs.mkdirSync(handoverDir, { recursive: true });
+
+    // Archive previous feedback if exists
+    const feedbackPath = path.join(handoverDir, "feedback.md");
+    if (fs.existsSync(feedbackPath) && attemptNumber > 1) {
+      const historyDir = path.join(handoverDir, "feedback-history");
+      fs.mkdirSync(historyDir, { recursive: true });
+      const archivePath = path.join(historyDir, `attempt-${attemptNumber - 1}.md`);
+      fs.renameSync(feedbackPath, archivePath);
+    }
+
+    // Generate feedback content
+    const failedChecks = result.checks.filter((c) => !c.passed);
+    const passedChecks = result.checks.filter((c) => c.passed);
+
+    let content = `# Feedback: Task ${result.taskId}\n\n`;
+    content += `**Attempt**: ${attemptNumber}/3\n`;
+    content += `**Status**: Signal REJECTED\n`;
+    content += `**Timestamp**: ${result.timestamp}\n\n`;
+
+    content += `## Summary\n\n`;
+    content += `Your completion signal was rejected because pre-signal checks failed.\n`;
+    content += `Please address the issues below and re-submit your signal.\n\n`;
+
+    content += `## Issues Found (${failedChecks.length})\n\n`;
+    for (const check of failedChecks) {
+      content += `### ${check.check}\n\n`;
+      content += `- **Expected**: ${check.expected}\n`;
+      content += `- **Actual**: ${check.actual}\n`;
+      if (check.message) {
+        content += `- **Message**: ${check.message}\n`;
+      }
+      if (check.fix) {
+        content += `- **Fix**: ${check.fix}\n`;
+      }
+      content += `\n`;
+    }
+
+    if (passedChecks.length > 0) {
+      content += `## What Worked (${passedChecks.length})\n\n`;
+      for (const check of passedChecks) {
+        content += `- ✓ ${check.check}\n`;
+      }
+      content += `\n`;
+    }
+
+    content += `## Next Steps\n\n`;
+    content += `1. Fix the issues listed above\n`;
+    content += `2. Re-run: \`.orchestra/implementor/scripts/pre-signal-check.ps1\`\n`;
+    content += `3. Verify all checks pass\n`;
+    content += `4. Re-submit your completion signal\n`;
+
+    // Write feedback
+    fs.writeFileSync(feedbackPath, content);
+
+    // Update progress with VERIFY_FAILED
+    const updatedProgress = addProgressEntry(progress, {
+      task_id: result.taskId,
+      status: "VERIFY_FAILED",
+      notes: `Gate check failed (attempt ${attemptNumber}): ${failedChecks.length} issues`,
+    });
+    saveProgress(updatedProgress, orchestraRoot);
+
+    console.log("");
+    console.log(chalk.cyan(`Feedback written to: ${feedbackPath}`));
+    if (attemptNumber >= 3) {
+      console.log(chalk.yellow(`Maximum attempts reached. Consider: orchestra escalate --task ${result.taskId}`));
+    }
+  } catch (error) {
+    console.log(chalk.yellow("Could not generate feedback file automatically."));
+    console.log(chalk.dim(`  Error: ${error instanceof Error ? error.message : String(error)}`));
+  }
 }
 
 export { acceptSignalCommand };

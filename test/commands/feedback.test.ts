@@ -197,11 +197,7 @@ overallPassed: false
       expect(taskOption).toBeDefined();
     });
 
-    it("should have optional --attempt option", () => {
-      const command = createFeedbackCommand();
-      const attemptOption = command.options.find((o) => o.long === "--attempt");
-      expect(attemptOption).toBeDefined();
-    });
+    // Note: --attempt option was removed - attempt is now auto-calculated from progress entries
 
     it("should have optional --json option", () => {
       const command = createFeedbackCommand();
