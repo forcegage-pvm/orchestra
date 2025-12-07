@@ -17,6 +17,7 @@
 - [x] [TD-008: Handover Validation Command](#td-008-handover-validation-command)
 - [x] [TD-009: Sync 01-handover-creation.md with prepare.md](#td-009-sync-01-handover-creationmd-with-preparemd)
 - [x] [TD-010: Pre-Signal Check Command](#td-010-pre-signal-check-command)
+- [ ] [TD-011: Feedback Workflow Integration](TD-011-feedback-workflow.md) ← **NEW**
 
 ---
 

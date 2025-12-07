@@ -151,6 +151,8 @@ orchestra feedback
 
 | Document | Purpose |
 |----------|---------|
+| [failure-types.md](failure-types.md) | Taxonomy of all failure types |
+| [failures.md](failures.md) | Failure handling workflows |
 | [technical-debt.md](technical-debt.md) | Tracked technical debt items (TD-XXX) |
 
 ---
