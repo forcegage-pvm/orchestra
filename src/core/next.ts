@@ -181,13 +181,16 @@ function getGuidanceForStep(
     case "RETRY":
       return {
         action: "Address verification feedback and retry",
+        command: "cat .orchestra/handover/feedback.md",
         explanation: state.feedbackExists
-          ? "Verification failed. Review the feedback and make corrections."
+          ? "Verification failed. Review feedback at .orchestra/handover/feedback.md and make corrections."
           : "Verification failed. Check the verification report for what needs to be fixed.",
         tips: [
           `Current retry attempt: ${state.retryCount + 1}/${state.maxRetries}`,
-          "Address all feedback items before re-signaling",
-          "Use orchestra feedback --show to view detailed feedback",
+          state.feedbackExists
+            ? "Read feedback.md for specific issues to address"
+            : "Run 'orchestra feedback' to generate feedback from last verification",
+          "Run 'orchestra pre-signal-check' before signaling again",
         ],
       };
 

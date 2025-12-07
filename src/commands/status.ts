@@ -6,6 +6,8 @@
  */
 
 import chalk from "chalk";
+import * as fs from "node:fs";
+import * as path from "node:path";
 import {
   findOrchestraRoot,
   getResolvedPaths,
@@ -141,7 +143,7 @@ export async function statusCommand(options: StatusOptions): Promise<void> {
 
     // Handle specific views
     if (options.task !== undefined) {
-      await showTaskDetail(manifest, options.task, options.json);
+      await showTaskDetail(manifest, options.task, orchestraRoot, options.json);
       return;
     }
 
@@ -321,6 +323,7 @@ async function showFullStatus(
 async function showTaskDetail(
   manifest: Manifest,
   taskId: number,
+  orchestraRoot: string,
   json?: boolean
 ): Promise<void> {
   const task = getTask(manifest, taskId);
@@ -334,8 +337,17 @@ async function showTaskDetail(
     throw new ExitError(2, `Task not found: ${taskId}`);
   }
 
+  // Check for feedback file when task is in VERIFY_FAILED or RETRY status
+  const feedbackPath = path.join(orchestraRoot, ".orchestra", "handover", "feedback.md");
+  const feedbackExists = fs.existsSync(feedbackPath);
+
   if (json) {
-    console.log(JSON.stringify(task, null, 2));
+    const result: Record<string, unknown> = { ...task };
+    if ((task.status === "VERIFY_FAILED" || task.status === "RETRY") && feedbackExists) {
+      result.feedbackPath = feedbackPath;
+      result.feedbackAvailable = true;
+    }
+    console.log(JSON.stringify(result, null, 2));
     return;
   }
 
@@ -347,6 +359,12 @@ async function showTaskDetail(
   console.log(
     `${chalk.bold("Status:")} ${output.formatTaskStatus(task.status)}`
   );
+
+  // Show feedback indicator for failed/retry tasks
+  if ((task.status === "VERIFY_FAILED" || task.status === "RETRY") && feedbackExists) {
+    console.log(`${chalk.bold("Feedback:")} ${chalk.cyan(feedbackPath)}`);
+    console.log(chalk.dim("  Review feedback and address issues before retrying"));
+  }
 
   if (task.description) {
     console.log(`\n${chalk.bold("Description:")}`);
