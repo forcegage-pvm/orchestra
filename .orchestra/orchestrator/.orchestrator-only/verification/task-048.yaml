@@ -1,0 +1,25 @@
+# Verification Criteria for Task 48: Implement Next Tool Handler
+task_id: 48
+title: "Implement Next Tool Handler"
+category: "INTEGRATION"
+created_at: "2025-12-08"
+
+checks:
+  - id: "V48.1"
+    description: "src/mcp/tools/next.ts file exists"
+    severity: critical
+    type: file_exists
+    path: "src/mcp/tools/next.ts"
+
+  - id: "V48.2"
+    description: "handleNext function is exported"
+    severity: critical
+    type: pattern_match
+    path: "src/mcp/tools/next.ts"
+    pattern: "export.*handleNext"
+
+  - id: "V48.3"
+    description: "TypeScript compilation succeeds"
+    severity: critical
+    type: command
+    command: "npm run typecheck"

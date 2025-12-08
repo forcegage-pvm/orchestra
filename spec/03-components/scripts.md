@@ -177,45 +177,6 @@ Orchestra uses scripts to enforce process and create structural gates. Scripts a
 
 ---
 
-### finalize-handover (via `orchestra prepare --finalize`)
-
-| Attribute | Value |
-|-----------|-------|
-| **Lifecycle Position** | After handover completed, before handing to Implementor |
-| **Mandatory** | YES - Blocking |
-| **Actor** | Orchestrator |
-
-**Purpose**: Validate verification YAML and archive handover for accountability.
-
-**Inputs**:
-- Task ID (from manifest current task)
-- Verification YAML at `.orchestra/orchestrator/.orchestrator-only/verification/task-NNN.yaml`
-- Handover at `.orchestra/handover/current-task.md`
-- Pre-flight checklist at `.orchestra/handover/preflight-checklist.yaml`
-
-**Actions**:
-1. Validate verification YAML against `VerificationYamlSchema`
-2. Copy handover to audit trail
-3. Archive pre-flight checklist
-4. Copy verification to handover directory
-
-**Outputs**:
-- `.orchestra/orchestrator/.orchestrator-only/preflight/task-N.md` (handover copy)
-- `.orchestra/orchestrator/.orchestrator-only/preflight/preflight-task-N.yaml` (checklist archive)
-- `.orchestra/handover/verification/task-NNN.yaml` (verification for verify command)
-
-**Success Criteria**:
-- Verification YAML is valid against schema
-- All check types are machine-executable (`file_exists`, `dir_exists`, `pattern_match`, `command`, etc.)
-- All severities are valid (`critical`, `warning`, `info`)
-- Files copied/archived successfully
-
-**Exit Codes**:
-- `0`: Success
-- `1`: Verification YAML validation failed (schema error)
-
----
-
 ## Implementation Scripts
 
 ### signal-complete

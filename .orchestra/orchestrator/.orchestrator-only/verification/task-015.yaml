@@ -1,0 +1,18 @@
+# Verification Criteria for Task 15: Create Error Mapper Tests
+task_id: 15
+title: "Create Error Mapper Tests"
+category: "INFRASTRUCTURE"
+created_at: "2025-12-08"
+
+checks:
+  - id: "V15.1"
+    description: "test/mcp/error-mapper.test.ts file exists"
+    severity: critical
+    type: file_exists
+    path: "test/mcp/error-mapper.test.ts"
+
+  - id: "V15.2"
+    description: "All tests pass"
+    severity: critical
+    type: command
+    command: "npm test -- test/mcp/error-mapper.test.ts"

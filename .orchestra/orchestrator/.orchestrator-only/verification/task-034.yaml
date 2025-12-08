@@ -1,0 +1,19 @@
+# Verification Criteria for Task 34: Register Accept Signal Tool
+task_id: 34
+title: "Register Accept Signal Tool"
+category: "INTEGRATION"
+created_at: "2025-12-08"
+
+checks:
+  - id: "V34.1"
+    description: "accept_signal tool is registered in tool registry"
+    severity: critical
+    type: pattern_match
+    path: "src/mcp/tools/index.ts"
+    pattern: "accept_signal"
+
+  - id: "V34.2"
+    description: "TypeScript compilation succeeds"
+    severity: critical
+    type: command
+    command: "npm run typecheck"

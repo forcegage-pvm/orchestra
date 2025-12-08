@@ -33,7 +33,7 @@ All checks must be executed in order. Skipping checks is a process violation, ev
 
 ### 5. Schema-Enforced Criteria
 
-Verification YAML must conform to a strict schema. This is enforced during `orchestra prepare --finalize`:
+Verification YAML must conform to a strict schema. This is enforced during `orchestra verify`:
 
 **Valid Check Types**:
 - `file_exists` - Verify file exists at path
@@ -50,7 +50,7 @@ Verification YAML must conform to a strict schema. This is enforced during `orch
 - `warning` - Task passes with warning
 - `info` - Informational only
 
-> **Schema Validation**: Invalid types (e.g., `structural`) or severities (e.g., `BLOCKING`) are rejected during finalize.
+> **Schema Validation**: Invalid types (e.g., `structural`) or severities (e.g., `BLOCKING`) are rejected during verification.
 > This prevents implementation theater where verification criteria are defined but cannot be executed.
 
 ---

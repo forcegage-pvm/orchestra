@@ -264,6 +264,7 @@ orchestra next
 ```
 
 **`orchestra init --verify` checks:**
+
 - All required directories exist (common/templates, orchestrator, handover, etc.)
 - All required config files exist (orchestra.yaml, manifest.yaml, progress.yaml)
 - **All verification YAML files** in `.orchestrator-only/verification/` are schema-valid
@@ -442,15 +443,15 @@ Before proceeding to Process 1:
 
 ## CLI Commands Reference
 
-| Command                        | Purpose                                        |
-| ------------------------------ | ---------------------------------------------- |
-| `orchestra init`               | Initialize folder structure                    |
-| `orchestra init --spec <path>` | Initialize with SpecKit reference              |
+| Command                        | Purpose                                              |
+| ------------------------------ | ---------------------------------------------------- |
+| `orchestra init`               | Initialize folder structure                          |
+| `orchestra init --spec <path>` | Initialize with SpecKit reference                    |
 | `orchestra init --verify`      | **Verify initialization and all verification YAMLs** |
-| `orchestra status`             | Show current state                             |
-| `orchestra next`               | Show what to do next                           |
-| `orchestra prepare`            | Prepare handover for next task                 |
-| `orchestra prepare --task N`   | Prepare specific task                          |
+| `orchestra status`             | Show current state                                   |
+| `orchestra next`               | Show what to do next                                 |
+| `orchestra prepare`            | Prepare handover for next task                       |
+| `orchestra prepare --task N`   | Prepare specific task                                |
 
 ---
 

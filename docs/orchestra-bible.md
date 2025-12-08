@@ -1884,7 +1884,7 @@ Before running `sprint-init`, verify:
 |------------|----------|---------------------|-----------|-------|
 | — | PENDING | `sprint-init` → `validate-verification-paths` (per task) | YES | Human/Orchestrator |
 | PENDING | PREPARE | `task-closeout-check` (prev task) | YES | Orchestrator |
-| PREPARE | IMPLEMENT | `prepare-handover` → `validate-handover` → `finalize-handover` | YES | Orchestrator |
+| PREPARE | IMPLEMENT | `prepare-handover` → `validate-handover` | YES | Orchestrator |
 | IMPLEMENT | GATE CHECK | `signal-complete` | YES | Implementor |
 | GATE CHECK | VERIFY | `gate-check` | YES | System |
 | VERIFY | COMPLETE | `verification-audit` | YES | Orchestrator |
@@ -1892,7 +1892,7 @@ Before running `sprint-init`, verify:
 | Any | RETRY | `generate-feedback` | YES | Orchestrator |
 | RETRY (max) | ESCALATED | `escalate-failure` | YES | Orchestrator |
 
-> **Note**: `finalize-handover` (`orchestra prepare --finalize`) validates verification YAML against schema before archiving handover. This ensures verification criteria are machine-executable.
+> **Note**: Verification YAML schemas are validated via `orchestra init --verify` to ensure machine-executable criteria.
 
 ### Blocking Semantics
 
@@ -2231,51 +2231,6 @@ This section defines what each script must accomplish **abstractly**. Platform-s
 - No verification criteria leaked
 - All referenced files exist
 - Success criteria are actionable
-
----
-
-### `finalize-handover` (via `orchestra prepare --finalize`)
-
-| Attribute | Value |
-|-----------|-------|
-| **Lifecycle Position** | After handover completed, before handing to Implementor |
-| **Mandatory** | YES - Blocking |
-| **Actor** | Orchestrator |
-| **Executes During** | After orchestrator fills handover TODOs, before implementor receives |
-
-**Purpose**: Validate verification YAML schema and archive handover for accountability.
-
-**Trigger**: Orchestrator has completed handover content and pre-flight checklist.
-
-**Inputs**:
-- Task ID (from manifest current task)
-- Verification YAML at `.orchestra/orchestrator/.orchestrator-only/verification/task-NNN.yaml`
-- Handover at `.orchestra/handover/current-task.md`
-- Pre-flight checklist at `.orchestra/handover/preflight-checklist.yaml`
-
-**Actions**:
-1. **Validate verification YAML** against `VerificationYamlSchema`
-   - Valid types: `file_exists`, `dir_exists`, `pattern_match`, `command`, `screenshot_exists`, `json_valid`, `yaml_valid`, `export_exists`
-   - Valid severities: `critical`, `warning`, `info`
-   - **BLOCKS** if schema invalid with detailed error messages
-2. Copy handover to audit trail
-3. Archive pre-flight checklist
-4. Copy verification to handover directory for `orchestra verify`
-
-**Outputs**:
-- `.orchestra/orchestrator/.orchestrator-only/preflight/task-N.md` (handover copy)
-- `.orchestra/orchestrator/.orchestrator-only/preflight/preflight-task-N.yaml` (checklist archive)
-- `.orchestra/handover/verification/task-NNN.yaml` (verification for verify command)
-
-**Success criteria**:
-- Verification YAML is valid against schema (machine-executable checks)
-- All files copied/archived successfully
-
-**Why Schema Validation Matters**:
-
-This prevents "implementation theater" where verification criteria are defined but cannot be executed.
-Invalid types like `structural` or severities like `BLOCKING` are rejected, forcing the orchestrator
-to use machine-executable check types that `orchestra verify` can actually run.
 
 ---
 

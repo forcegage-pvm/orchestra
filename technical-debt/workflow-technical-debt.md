@@ -458,40 +458,31 @@ After investigation, the correct flow is:
 
 ## TD-007: Pre-Flight Checklist Workflow
 
-**Status**: ✅ Complete  
-**Priority**: High  
+**Status**: ⚠️ Deprecated (feature removed)  
+**Priority**: N/A  
 **Identified**: 2025-12-05  
-**Completed**: 2025-12-05  
-**Source**: [prepare.md](prepare.md), [01-handover-creation.md](../../.orchestra/orchestrator/processes/01-handover-creation.md)
+**Removed**: 2025-12-06  
+**Source**: Security review
 
 ### Description
 
-The pre-flight checklist workflow is now implemented. The `orchestra prepare --finalize` command archives the handover and checklist.
+The `orchestra prepare --finalize` command was implemented but later **removed** due to a critical security flaw:
+it copied verification criteria from the secret `.orchestrator-only/verification/` folder to the visible 
+`handover/verification/` folder, exposing hidden verification tests to the implementor.
 
-### Implementation
+### Resolution
 
-**Command**: `orchestra prepare --finalize`
+The `--finalize` command and all related functionality was completely removed. Verification criteria now 
+remains permanently in `.orchestra/orchestrator/.orchestrator-only/verification/` and is read directly by 
+`orchestra verify`. No copying or archiving of verification criteria occurs.
 
-This command performs two operations:
-
-1. **Copy handover to audit trail**:
-   ```
-   .orchestra/handover/current-task.md → .orchestra/orchestrator/.orchestrator-only/preflight/task-N.md
-   ```
-
-2. **Archive pre-flight checklist**:
-   ```
-   .orchestra/handover/preflight-checklist.yaml → .orchestra/orchestrator/.orchestrator-only/preflight/preflight-task-N.yaml
-   ```
-
-### Files Changed
+### Files Changed (Removed)
 
 | File | Change |
 |------|--------|
-| `src/commands/prepare.ts` | Added `--finalize` option |
-| `src/core/prepare.ts` | Added `runFinalize()` function, `FinalizeOptions`, `FinalizeResult` types |
-| `test/commands/prepare.test.ts` | Added 7 finalize tests |
-| `docs/workflow/prepare.md` | Already documented as source of truth |
+| `src/commands/prepare.ts` | Removed `--finalize` option |
+| `src/core/prepare.ts` | Removed `runFinalize()` function, `FinalizeOptions`, `FinalizeResult` types |
+| `test/commands/prepare.test.ts` | Removed finalize tests |
 
 ---
 

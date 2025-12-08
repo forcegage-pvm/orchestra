@@ -16,17 +16,16 @@ Every path must be explicit. Every expectation must be written. Every edge case 
 
 ## Quick Reference
 
-| Step | Action | Command | Output |
-|------|--------|---------|--------|
-| 0 | Check current state | `orchestra status` | Know where you are |
-| 1 | Verify previous task closed | `orchestra closeout` | Clean slate |
-| 2 | Generate handover files | `orchestra prepare --task N` | Scaffolded handover |
-| 3 | Complete handover content | Edit `current-task.md` | Filled TODO markers |
-| 4 | Create verification criteria | Create `task-N.yaml` | Hidden test spec |
-| 5 | Complete pre-flight checklist | Fill `preflight-checklist.yaml` | Self-validation |
-| 6 | Finalize and archive | `orchestra prepare --finalize` | Audit trail |
-| 7 | Commit changes | `git add -A && git commit` | Version control |
-| 8 | Hand off | Direct to `agent_readme.md` | Implementor starts |
+| Step | Action                        | Command                         | Output              |
+| ---- | ----------------------------- | ------------------------------- | ------------------- |
+| 0    | Check current state           | `orchestra status`              | Know where you are  |
+| 1    | Verify previous task closed   | `orchestra closeout`            | Clean slate         |
+| 2    | Generate handover files       | `orchestra prepare --task N`    | Scaffolded handover |
+| 3    | Complete handover content     | Edit `current-task.md`          | Filled TODO markers |
+| 4    | Create verification criteria  | Create `task-N.yaml`            | Hidden test spec    |
+| 5    | Complete pre-flight checklist | Fill `preflight-checklist.yaml` | Self-validation     |
+| 6    | Commit changes                | `git add -A && git commit`      | Version control     |
+| 7    | Hand off                      | Direct to `agent_readme.md`     | Implementor starts  |
 
 ---
 
@@ -48,21 +47,21 @@ All paths in this document are relative to the `.orchestra/` folder:
 └── orchestrator/
     └── .orchestrator-only/          ← HIDDEN from implementor
         ├── verification/            ← Secret acceptance tests
-        │   └── task-N.yaml          ← You create this
+        │   └── task-N.yaml          ← Created during sprint init
         └── preflight/               ← Archived handovers
-            └── task-N.md            ← Created by --finalize
 ```
 
 ### Prerequisites Checklist
 
 Before starting, verify ALL of these:
 
-| Check | How to Verify | If Not Ready |
-|-------|---------------|--------------|
-| Previous task complete (or first task) | `orchestra status` | Complete previous task first |
-| Manifest exists | `cat .orchestra/manifest.yaml` | Run `orchestra init` |
-| You know which task to prepare | Read `manifest.yaml` tasks section | Decide task ID |
-| You are the **Orchestrator** | You're creating work, not doing it | Switch roles if needed |
+| Check                                  | How to Verify                                       | If Not Ready                 |
+| -------------------------------------- | --------------------------------------------------- | ---------------------------- |
+| Previous task complete (or first task) | `orchestra status`                                  | Complete previous task first |
+| Manifest exists                        | `cat .orchestra/manifest.yaml`                      | Run `orchestra init`         |
+| Verification YAML exists               | Check `.orchestrator-only/verification/task-N.yaml` | Create during sprint init    |
+| You know which task to prepare         | Read `manifest.yaml` tasks section                  | Decide task ID               |
+| You are the **Orchestrator**           | You're creating work, not doing it                  | Switch roles if needed       |
 
 **First task of a sprint?** Skip to Step 2 — Step 1 will auto-pass.
 
@@ -81,6 +80,7 @@ orchestra status
 ```
 
 This shows:
+
 - Current sprint ID and status
 - Which tasks are PENDING, IMPLEMENT, or COMPLETE
 - Current workflow position
@@ -100,22 +100,22 @@ orchestra closeout
 
 **What this checks:**
 
-| Check | What It Validates | Why It Matters |
-|-------|-------------------|----------------|
-| C1 | No uncommitted changes | Clean git state |
-| C2 | Previous task status = COMPLETE | Task lifecycle complete |
-| C3 | Commit hash in progress.yaml | Traceability |
-| C4 | SpecKit tasks marked done | External tracking sync |
-| C5 | Completion signal cleared | No stale signals |
-| C6 | Handover archived | Audit trail exists |
+| Check | What It Validates               | Why It Matters          |
+| ----- | ------------------------------- | ----------------------- |
+| C1    | No uncommitted changes          | Clean git state         |
+| C2    | Previous task status = COMPLETE | Task lifecycle complete |
+| C3    | Commit hash in progress.yaml    | Traceability            |
+| C4    | SpecKit tasks marked done       | External tracking sync  |
+| C5    | Completion signal cleared       | No stale signals        |
+| C6    | Handover archived               | Audit trail exists      |
 
 **Expected outcomes:**
 
-| Scenario | What Happens | Your Action |
-|----------|--------------|-------------|
-| First task of sprint | All checks pass (no previous task) | Proceed to Step 2 |
-| Previous task complete | All checks pass | Proceed to Step 2 |
-| Checks fail | Error message with details | Fix each issue |
+| Scenario               | What Happens                       | Your Action       |
+| ---------------------- | ---------------------------------- | ----------------- |
+| First task of sprint   | All checks pass (no previous task) | Proceed to Step 2 |
+| Previous task complete | All checks pass                    | Proceed to Step 2 |
+| Checks fail            | Error message with details         | Fix each issue    |
 
 **If checks fail:**
 
@@ -152,14 +152,14 @@ orchestra prepare --task 3 --dry-run
 
 **What this command does:**
 
-| Action | Details |
-|--------|---------|
-| **Creates** `.orchestra/handover/current-task.md` | Main handover with TODO markers |
-| **Creates** `.orchestra/handover/completion-signal.md` | Template for implementor |
-| **Creates** `.orchestra/handover/task-context.md` | Background context |
-| **Creates** `.orchestra/handover/preflight-checklist.yaml` | Your quality checklist |
-| **Updates** `manifest.yaml` | Task status → `IMPLEMENT` |
-| **Updates** `progress.yaml` | Adds PREPARE timestamp |
+| Action                                                     | Details                         |
+| ---------------------------------------------------------- | ------------------------------- |
+| **Creates** `.orchestra/handover/current-task.md`          | Main handover with TODO markers |
+| **Creates** `.orchestra/handover/completion-signal.md`     | Template for implementor        |
+| **Creates** `.orchestra/handover/task-context.md`          | Background context              |
+| **Creates** `.orchestra/handover/preflight-checklist.yaml` | Your quality checklist          |
+| **Updates** `manifest.yaml`                                | Task status → `IMPLEMENT`       |
+| **Updates** `progress.yaml`                                | Adds PREPARE timestamp          |
 
 **Verify generation succeeded:**
 
@@ -188,23 +188,25 @@ Search for `# TODO:` — every single one must be replaced with real content.
 
 ```markdown
 <!-- BEFORE (generated) -->
+
 # TODO: Write clear objective statement
 
 <!-- AFTER (your work) -->
-Create a new CLI command `orchestra validate` that checks handover 
-completeness before finalization. The command should parse current-task.md 
-and verify all TODO markers are filled, all file paths exist or are marked 
+
+Create a new CLI command `orchestra validate` that checks handover
+completeness before finalization. The command should parse current-task.md
+and verify all TODO markers are filled, all file paths exist or are marked
 as CREATE, and all test requirements have concrete examples.
 ```
 
 #### Required Sections Checklist
 
-| Section | What You MUST Include | Bad Example | Good Example |
-|---------|----------------------|-------------|--------------|
-| **Objective** | One clear sentence of what to achieve | "Fix the bug" | "Fix the off-by-one error in `calculateTotal()` that causes negative totals when cart has exactly 10 items" |
-| **Acceptance Criteria** | Visible, testable conditions | "It should work" | "• `npm test` passes all 47 tests<br>• `calculateTotal([...10 items])` returns positive number<br>• No TypeScript errors" |
-| **File Operations** | Full paths + action + purpose | "Update the utils" | "**MODIFY** `src/utils/cart.ts` → Fix line 42: change `< 10` to `<= 10`" |
-| **Test Requirements** | File path + test name + sample data | "Add tests" | "**CREATE** `test/cart.test.ts`<br>Test: `handles exactly 10 items`<br>Input: `[{price: 10, qty: 1}, ...]` (10 items)<br>Expected: `100`" |
+| Section                 | What You MUST Include                 | Bad Example        | Good Example                                                                                                                              |
+| ----------------------- | ------------------------------------- | ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| **Objective**           | One clear sentence of what to achieve | "Fix the bug"      | "Fix the off-by-one error in `calculateTotal()` that causes negative totals when cart has exactly 10 items"                               |
+| **Acceptance Criteria** | Visible, testable conditions          | "It should work"   | "• `npm test` passes all 47 tests<br>• `calculateTotal([...10 items])` returns positive number<br>• No TypeScript errors"                 |
+| **File Operations**     | Full paths + action + purpose         | "Update the utils" | "**MODIFY** `src/utils/cart.ts` → Fix line 42: change `< 10` to `<= 10`"                                                                  |
+| **Test Requirements**   | File path + test name + sample data   | "Add tests"        | "**CREATE** `test/cart.test.ts`<br>Test: `handles exactly 10 items`<br>Input: `[{price: 10, qty: 1}, ...]` (10 items)<br>Expected: `100`" |
 
 #### File Operation Format
 
@@ -214,21 +216,24 @@ Be explicit about every file the implementor will touch:
 ## File Operations
 
 ### CREATE (new files)
-| File Path | Purpose | Exports |
-|-----------|---------|---------|
-| `src/commands/validate.ts` | CLI command implementation | `createValidateCommand()` |
-| `src/core/validate.ts` | Core validation logic | `runValidate()`, `ValidationResult` |
-| `test/commands/validate.test.ts` | Command tests | — |
+
+| File Path                        | Purpose                    | Exports                             |
+| -------------------------------- | -------------------------- | ----------------------------------- |
+| `src/commands/validate.ts`       | CLI command implementation | `createValidateCommand()`           |
+| `src/core/validate.ts`           | Core validation logic      | `runValidate()`, `ValidationResult` |
+| `test/commands/validate.test.ts` | Command tests              | —                                   |
 
 ### MODIFY (existing files)
-| File Path | Change Description |
-|-----------|-------------------|
-| `src/cli.ts` | Add `import { createValidateCommand }` and register with `program.addCommand()` |
-| `src/core/index.ts` | Add export for validate module |
+
+| File Path           | Change Description                                                              |
+| ------------------- | ------------------------------------------------------------------------------- |
+| `src/cli.ts`        | Add `import { createValidateCommand }` and register with `program.addCommand()` |
+| `src/core/index.ts` | Add export for validate module                                                  |
 
 ### DELETE (remove files)
-| File Path | Reason |
-|-----------|--------|
+
+| File Path                    | Reason                         |
+| ---------------------------- | ------------------------------ |
 | `src/legacy/old-validate.ts` | Replaced by new implementation |
 ```
 
@@ -236,26 +241,29 @@ Be explicit about every file the implementor will touch:
 
 Don't just name tests — provide concrete data:
 
-```markdown
+````markdown
 ## Test Requirements
 
 **Test file**: `test/commands/validate.test.ts`
 
-| Test Name | Input | Expected Output |
-|-----------|-------|-----------------|
+| Test Name                      | Input                             | Expected Output                                       |
+| ------------------------------ | --------------------------------- | ----------------------------------------------------- |
 | `detects missing TODO markers` | Handover with `# TODO:` on line 5 | `{ valid: false, errors: ["TODO marker at line 5"] }` |
-| `passes valid handover` | Complete handover, no TODOs | `{ valid: true, errors: [] }` |
-| `reports multiple errors` | 3 TODOs, 1 missing file | `{ valid: false, errors: [4 items] }` |
+| `passes valid handover`        | Complete handover, no TODOs       | `{ valid: true, errors: [] }`                         |
+| `reports multiple errors`      | 3 TODOs, 1 missing file           | `{ valid: false, errors: [4 items] }`                 |
 
 **Sample test object:**
+
 ```typescript
 const validHandover = {
   objective: "Create validate command",
   criteria: ["Tests pass", "No TODOs"],
-  files: { create: ["src/validate.ts"], modify: [] }
+  files: { create: ["src/validate.ts"], modify: [] },
 };
 ```
-```
+````
+
+````
 
 ---
 
@@ -271,7 +279,7 @@ mkdir -p .orchestra/orchestrator/.orchestrator-only/verification
 
 # Create the verification file
 code .orchestra/orchestrator/.orchestrator-only/verification/task-N.yaml
-```
+````
 
 Replace `N` with the task ID.
 
@@ -289,18 +297,18 @@ verification_checks:
     name: "Tests pass"
     command: "npm test"
     expected_exit_code: 0
-    
+
   - id: V2
     name: "New command exists"
     command: "orchestra validate --help"
     expected_exit_code: 0
     expected_output_contains: "validate"
-    
+
   - id: V3
     name: "Detects incomplete handover"
     command: "orchestra validate --file test/fixtures/incomplete.md"
     expected_output_contains: "TODO marker"
-    
+
   - id: V4
     name: "No TypeScript errors"
     command: "npm run typecheck"
@@ -336,39 +344,39 @@ code .orchestra/handover/preflight-checklist.yaml
 checklist:
   - id: PRE-01
     item: "Closeout check passed"
-    status: PASS          # PASS | FAIL | N/A
+    status: PASS # PASS | FAIL | N/A
     notes: ""
-    
+
   - id: PRE-02
     item: "All TODO markers filled in current-task.md"
     status: PASS
     notes: ""
-    
+
   - id: PRE-03
     item: "All file paths are relative to repo root"
     status: PASS
     notes: ""
-    
+
   - id: PRE-04
     item: "CREATE files have: path + purpose + exports"
     status: PASS
     notes: ""
-    
+
   - id: PRE-05
     item: "MODIFY files have: path + exact changes"
     status: PASS
     notes: ""
-    
+
   - id: PRE-06
     item: "Test requirements have concrete sample data"
     status: PASS
     notes: ""
-    
+
   - id: PRE-07
     item: "Hidden verification criteria created"
     status: PASS
     notes: "verification/task-3.yaml"
-    
+
   - id: PRE-08
     item: "A fresh agent could complete this without questions"
     status: PASS
@@ -380,35 +388,14 @@ prepared_at: "2025-12-06T10:30:00Z"
 ```
 
 **Rules:**
+
 - Every item must be `PASS` or `N/A` (with reason)
 - If ANY item is `FAIL`, go back and fix it
 - Be honest — this checklist protects YOU from failed handoffs
 
 ---
 
-### STEP 6: Finalize and Archive
-
-After completing the handover and pre-flight checklist:
-
-```bash
-orchestra prepare --finalize
-```
-
-**What this does:**
-
-| Action | From | To |
-|--------|------|-----|
-| Archive handover | `handover/current-task.md` | `orchestrator/.orchestrator-only/preflight/task-N.md` |
-| Archive checklist | `handover/preflight-checklist.yaml` | `orchestrator/.orchestrator-only/preflight/preflight-task-N.yaml` |
-
-**Why this matters:**
-- Creates audit trail of exactly what the implementor received
-- Enables post-mortem if task fails
-- Proves handover quality for accountability
-
----
-
-### STEP 7: Commit Changes
+### STEP 6: Commit Changes
 
 Stage and commit all handover files:
 
@@ -423,7 +410,7 @@ git commit -m "chore(orchestra): prepare task N handover
 
 ---
 
-### STEP 8: Hand Off to Implementor
+### STEP 7: Hand Off to Implementor
 
 Direct the implementor agent to the entry point:
 
@@ -432,6 +419,7 @@ Direct the implementor agent to the entry point:
 **⚠️ ALWAYS point to `agent_readme.md` first**, not directly to `current-task.md`.
 
 **Why?**
+
 - `agent_readme.md` provides orientation and workflow context
 - Ensures implementor follows the correct process
 - Prevents confusion from jumping into task details without context
@@ -457,6 +445,7 @@ Do NOT access any files in .orchestra/orchestrator/.orchestrator-only/
 > **85% complete is NOT complete.**
 
 If the implementor might ask:
+
 - "Where does this file go?"
 - "What should this function return?"
 - "Which test framework should I use?"
@@ -467,52 +456,50 @@ If the implementor might ask:
 
 Before handing off, ask yourself:
 
-| Question | If No... |
-|----------|----------|
-| Could a brand new agent complete this? | Add more context |
-| Are ALL file paths explicit? | Add full paths |
-| Are test inputs/outputs concrete? | Add sample data |
-| Are anti-patterns documented? | Add "Don't do X" section |
-| Is the objective crystal clear? | Rewrite it simpler |
+| Question                               | If No...                 |
+| -------------------------------------- | ------------------------ |
+| Could a brand new agent complete this? | Add more context         |
+| Are ALL file paths explicit?           | Add full paths           |
+| Are test inputs/outputs concrete?      | Add sample data          |
+| Are anti-patterns documented?          | Add "Don't do X" section |
+| Is the objective crystal clear?        | Rewrite it simpler       |
 
 ### What Makes a Good Handover
 
-| Aspect | ❌ Bad | ✅ Good |
-|--------|--------|---------|
-| Objective | "Implement the feature" | "Create `orchestra validate` command that checks handover completeness" |
-| Files | "Update the CLI" | "MODIFY `src/cli.ts` line 45: add import and register command" |
-| Tests | "Add unit tests" | "CREATE `test/validate.test.ts` with 3 tests: [table of inputs/outputs]" |
-| Criteria | "It should work" | "• `npm test` passes • `--help` shows validate • No TS errors" |
+| Aspect    | ❌ Bad                  | ✅ Good                                                                  |
+| --------- | ----------------------- | ------------------------------------------------------------------------ |
+| Objective | "Implement the feature" | "Create `orchestra validate` command that checks handover completeness"  |
+| Files     | "Update the CLI"        | "MODIFY `src/cli.ts` line 45: add import and register command"           |
+| Tests     | "Add unit tests"        | "CREATE `test/validate.test.ts` with 3 tests: [table of inputs/outputs]" |
+| Criteria  | "It should work"        | "• `npm test` passes • `--help` shows validate • No TS errors"           |
 
 ---
 
 ## Common Mistakes
 
-| Mistake | Why It Fails | How to Fix |
-|---------|--------------|------------|
-| Skip Step 1 (closeout) | Previous task incomplete, state corrupted | Always run `orchestra closeout` first |
-| Leave TODO markers | Implementor guesses wrong | Search and fill every `# TODO:` |
-| Vague file paths | Implementor creates file in wrong place | Use full paths: `src/core/validate.ts` |
-| "Add tests" without data | Implementor invents wrong test cases | Provide input → output tables |
-| "Create a demo" only | Implementor doesn't know where to start | Provide full code scaffold |
-| Skip verification criteria | No way to objectively verify completion | Always create `task-N.yaml` |
-| Skip --finalize | No audit trail, accountability lost | Always run before commit |
-| Point directly to current-task.md | Implementor misses workflow context | Point to `agent_readme.md` |
+| Mistake                           | Why It Fails                              | How to Fix                             |
+| --------------------------------- | ----------------------------------------- | -------------------------------------- |
+| Skip Step 1 (closeout)            | Previous task incomplete, state corrupted | Always run `orchestra closeout` first  |
+| Leave TODO markers                | Implementor guesses wrong                 | Search and fill every `# TODO:`        |
+| Vague file paths                  | Implementor creates file in wrong place   | Use full paths: `src/core/validate.ts` |
+| "Add tests" without data          | Implementor invents wrong test cases      | Provide input → output tables          |
+| "Create a demo" only              | Implementor doesn't know where to start   | Provide full code scaffold             |
+| Skip verification criteria        | No way to objectively verify completion   | Always create `task-N.yaml`            |
+| Point directly to current-task.md | Implementor misses workflow context       | Point to `agent_readme.md`             |
 
 ---
 
 ## CLI Commands Reference
 
-| Command | Purpose | When to Use |
-|---------|---------|-------------|
-| `orchestra status` | Show current state | Step 0 - orientation |
-| `orchestra closeout` | Verify previous task closed | Step 1 - before starting |
-| `orchestra closeout --verbose` | Detailed failure info | When closeout fails |
-| `orchestra closeout --fix` | Auto-fix common issues | When closeout fails |
-| `orchestra prepare` | Generate next task handover | Step 2 - auto-select task |
-| `orchestra prepare --task N` | Generate specific task handover | Step 2 - specific task |
-| `orchestra prepare --dry-run` | Preview without changes | Before committing to task |
-| `orchestra prepare --finalize` | Archive handover | Step 6 - after completing |
+| Command                        | Purpose                         | When to Use               |
+| ------------------------------ | ------------------------------- | ------------------------- |
+| `orchestra status`             | Show current state              | Step 0 - orientation      |
+| `orchestra closeout`           | Verify previous task closed     | Step 1 - before starting  |
+| `orchestra closeout --verbose` | Detailed failure info           | When closeout fails       |
+| `orchestra closeout --fix`     | Auto-fix common issues          | When closeout fails       |
+| `orchestra prepare`            | Generate next task handover     | Step 2 - auto-select task |
+| `orchestra prepare --task N`   | Generate specific task handover | Step 2 - specific task    |
+| `orchestra prepare --dry-run`  | Preview without changes         | Before committing to task |
 
 ---
 

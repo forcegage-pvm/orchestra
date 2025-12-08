@@ -196,22 +196,12 @@ orchestra prepare --task N
 
 # 5. Verify handover is complete
 
-# 6. Run finalize command (validates and archives)
-orchestra prepare --finalize
-
-# Finalize performs:
-#   a. Validates verification YAML against schema (blocks if invalid)
-#   b. Copies handover to audit trail: .orchestra/orchestrator/.orchestrator-only/preflight/task-N.md
-#   c. Archives pre-flight checklist: .orchestra/orchestrator/.orchestrator-only/preflight/preflight-task-N.yaml
-#   d. Copies verification to handover: .orchestra/handover/verification/task-NNN.yaml
-
-# 7. Update manifest status: PENDING → IMPLEMENT
+# 6. Update manifest status: PENDING → IMPLEMENT
 # Automatic in CLI
 ```
 
-> **Schema Validation**: The `--finalize` command validates verification YAML against `VerificationYamlSchema`. 
+> **Schema Validation**: Verification YAML is validated against `VerificationYamlSchema` when running `orchestra verify`.
 > Invalid check types or severities are rejected with detailed error messages.
-> Use `--skip-verification-validation` to bypass (not recommended).
 
 ### Signal Completion (ACTIVE → SIGNALED)
 

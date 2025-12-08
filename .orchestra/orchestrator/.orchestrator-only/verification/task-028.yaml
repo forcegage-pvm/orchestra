@@ -1,0 +1,19 @@
+# Verification Criteria for Task 28: Register Closeout Tool
+task_id: 28
+title: "Register Closeout Tool"
+category: "INTEGRATION"
+created_at: "2025-12-08"
+
+checks:
+  - id: "V28.1"
+    description: "closeout tool is registered in tool registry"
+    severity: critical
+    type: pattern_match
+    path: "src/mcp/tools/index.ts"
+    pattern: "closeout"
+
+  - id: "V28.2"
+    description: "TypeScript compilation succeeds"
+    severity: critical
+    type: command
+    command: "npm run typecheck"

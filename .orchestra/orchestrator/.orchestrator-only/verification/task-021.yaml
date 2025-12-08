@@ -1,0 +1,25 @@
+# Verification Criteria for Task 21: Implement Init Tool Handler
+task_id: 21
+title: "Implement Init Tool Handler"
+category: "INTEGRATION"
+created_at: "2025-12-08"
+
+checks:
+  - id: "V21.1"
+    description: "src/mcp/tools/init.ts file exists"
+    severity: critical
+    type: file_exists
+    path: "src/mcp/tools/init.ts"
+
+  - id: "V21.2"
+    description: "handleInit function is exported"
+    severity: critical
+    type: pattern_match
+    path: "src/mcp/tools/init.ts"
+    pattern: "export.*handleInit"
+
+  - id: "V21.3"
+    description: "TypeScript compilation succeeds"
+    severity: critical
+    type: command
+    command: "npm run typecheck"

@@ -12,10 +12,7 @@ import { getCommandGitBehavior } from "../core/git-defaults.js";
 import { commit, stageFiles } from "../core/git.js";
 import * as output from "../core/output.js";
 import {
-  runFinalize,
   runPrepare,
-  type FinalizeOptions,
-  type FinalizeResult,
   type PrepareOptions,
   type PrepareResult,
 } from "../core/prepare.js";
@@ -96,16 +93,6 @@ export function createPrepareCommand(): Command {
       false
     )
     .option(
-      "--finalize",
-      "Archive handover and pre-flight checklist to preflight folder",
-      false
-    )
-    .option(
-      "--skip-verification-validation",
-      "Skip verification YAML validation during finalize (not recommended)",
-      false
-    )
-    .option(
       "--format <format>",
       "Output format: yaml, markdown, or both (default: from config)",
       undefined
@@ -122,12 +109,10 @@ export function createPrepareCommand(): Command {
 }
 
 /**
- * Extended options including format, finalize, and git flags
+ * Extended options including format and git flags
  */
 interface PrepareCommandOptions extends PrepareOptions {
   format?: TemplateFormat;
-  finalize?: boolean;
-  skipVerificationValidation?: boolean;
   gitStage?: boolean;
   gitCommit?: boolean;
 }
@@ -137,43 +122,6 @@ interface PrepareCommandOptions extends PrepareOptions {
  */
 async function prepareCommand(options: PrepareCommandOptions): Promise<void> {
   try {
-    // If finalize mode, run finalize logic
-    if (options.finalize) {
-      const finalizeOptions: FinalizeOptions = {};
-      if (options.dryRun !== undefined) finalizeOptions.dryRun = options.dryRun;
-      if (options.json !== undefined) finalizeOptions.json = options.json;
-      if (options.skipVerificationValidation !== undefined)
-        finalizeOptions.skipVerificationValidation =
-          options.skipVerificationValidation;
-
-      const result = await runFinalize(finalizeOptions);
-
-      if (options.json) {
-        console.log(
-          JSON.stringify(
-            {
-              success: true,
-              taskId: result.taskId,
-              handoverCopied: result.handoverCopied,
-              checklistArchived: result.checklistArchived,
-              verificationCopied: result.verificationCopied,
-              dryRun: result.dryRun,
-            },
-            null,
-            2
-          )
-        );
-      } else {
-        if (result.dryRun) {
-          showFinalizeDryRun(result);
-        } else {
-          showFinalizeSuccess(result);
-        }
-      }
-
-      process.exit(0);
-    }
-
     // Build options object, conditionally including each property
     // This is required by exactOptionalPropertyTypes
     const prepareOptions: PrepareOptions = {};
@@ -346,7 +294,6 @@ function showSuccess(
   result.filesGenerated.forEach((file) => {
     console.log(`  ✓ ${file}`);
   });
-  console.log(`  ✓ handover/verification/ (cleared)`);
   console.log("");
 
   if (result.dependencies && result.dependencies.length > 0) {
@@ -382,49 +329,6 @@ function showSuccess(
   }
 
   console.log(chalk.bold("Next:") + " Implementor can begin work");
-  console.log("");
-}
-
-/**
- * Show finalize dry run results
- */
-function showFinalizeDryRun(result: FinalizeResult): void {
-  console.log("");
-  output.print.header("Dry Run - Would Archive:");
-  console.log("");
-
-  console.log(chalk.bold(`Task: ${result.taskId}`));
-  console.log("");
-
-  console.log(chalk.bold("Operations:"));
-  if (result.verificationCopied) {
-    console.log(`  ${chalk.cyan("copy")} ${result.verificationCopied}`);
-  }
-  console.log(`  ${chalk.cyan("copy")} ${result.handoverCopied}`);
-  console.log(`  ${chalk.cyan("move")} ${result.checklistArchived}`);
-  console.log("");
-}
-
-/**
- * Show finalize success message
- */
-function showFinalizeSuccess(result: FinalizeResult): void {
-  console.log("");
-  output.print.success(`Handover finalized for task ${result.taskId}!`);
-  console.log("");
-
-  if (result.verificationCopied) {
-    console.log(chalk.bold("Verification validated and copied:"));
-    console.log(`  ✓ ${result.verificationCopied} → handover/verification/`);
-    console.log("");
-  }
-
-  console.log(chalk.bold("Archived to .orchestrator-only/preflight/:"));
-  console.log(`  ✓ ${result.handoverCopied} (handover audit)`);
-  console.log(`  ✓ ${result.checklistArchived} (pre-flight checklist)`);
-  console.log("");
-
-  console.log(chalk.bold("Next:") + " Hand off to implementor");
   console.log("");
 }
 

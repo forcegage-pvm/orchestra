@@ -75,17 +75,19 @@ orchestrator/
 | ------------------------------ | ------------------------------------ | --------- |
 | `orchestra closeout`           | **FIRST** before preparing next task | Process 1 |
 | `orchestra prepare --task N`   | Prepare handover for task N          | Process 1 |
-| `orchestra prepare --finalize` | **LAST** after completing handover   | Process 1 |
+| `orchestra init --verify`      | Validate verification YAML schemas   | Process 0 |
 | `orchestra accept-signal`      | **FIRST** before verifying task      | Process 2 |
 | `orchestra verify --task N`    | Run verification checks              | Process 2 |
 | `orchestra complete --task N`  | Mark task complete                   | Process 2 |
 
-> ⚠️ **CRITICAL**: `orchestra prepare --finalize` is MANDATORY before handing off to implementor.
-> It validates verification YAML schema and copies it to handover folder for `orchestra verify`.
+> ⚠️ **CRITICAL**: Run `orchestra init --verify` after creating verification YAMLs to validate schemas.
 
 ### Command Examples
 
 ```bash
+# Process 0: Validate verification YAML schemas
+orchestra init --verify
+
 # Process 1: Before preparing next task
 orchestra closeout
 
@@ -93,9 +95,6 @@ orchestra closeout
 orchestra prepare --task 3
 
 # Process 1: [Complete handover content and verification YAML]
-
-# Process 1: MANDATORY - Finalize before handoff
-orchestra prepare --finalize
 
 # Process 2: Before verifying implementor's work
 orchestra accept-signal

@@ -1,0 +1,19 @@
+# Verification Criteria for Task 46: Register Feedback Tool
+task_id: 46
+title: "Register Feedback Tool"
+category: "INTEGRATION"
+created_at: "2025-12-08"
+
+checks:
+  - id: "V46.1"
+    description: "feedback tool is registered in tool registry"
+    severity: critical
+    type: pattern_match
+    path: "src/mcp/tools/index.ts"
+    pattern: "feedback"
+
+  - id: "V46.2"
+    description: "TypeScript compilation succeeds"
+    severity: critical
+    type: command
+    command: "npm run typecheck"

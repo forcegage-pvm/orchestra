@@ -1,0 +1,18 @@
+# Verification Criteria for Task 13: Create MCP Barrel Export
+task_id: 13
+title: "Create MCP Barrel Export"
+category: "INFRASTRUCTURE"
+created_at: "2025-12-08"
+
+checks:
+  - id: "V13.1"
+    description: "src/mcp/index.ts file exists"
+    severity: critical
+    type: file_exists
+    path: "src/mcp/index.ts"
+
+  - id: "V13.2"
+    description: "TypeScript compilation succeeds"
+    severity: critical
+    type: command
+    command: "npm run typecheck"

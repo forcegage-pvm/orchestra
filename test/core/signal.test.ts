@@ -60,9 +60,20 @@ describe("Accept-Signal Core Logic", () => {
     testTempDir = tempDir; // Set for mock
     orchestraRoot = path.join(tempDir, ".orchestra");
     fs.mkdirSync(orchestraRoot, { recursive: true });
+    // Pre-signal artifacts go to handover/verification
     fs.mkdirSync(path.join(orchestraRoot, "handover", "verification"), {
       recursive: true,
     });
+    // Verification criteria go to orchestrator-only (hidden from implementor)
+    fs.mkdirSync(
+      path.join(
+        orchestraRoot,
+        "orchestrator",
+        ".orchestrator-only",
+        "verification"
+      ),
+      { recursive: true }
+    );
 
     // Create minimal progress.yaml
     const progressPath = path.join(orchestraRoot, "progress.yaml");
@@ -116,10 +127,11 @@ describe("Accept-Signal Core Logic", () => {
         "## Summary\nDone\n## Artifacts Created\nFiles\n## Tests\nPassed"
       );
 
-      // Create verification criteria (S7 check)
+      // Create verification criteria in .orchestrator-only (S7 check)
       const verificationPath = path.join(
         orchestraRoot,
-        "handover",
+        "orchestrator",
+        ".orchestrator-only",
         "verification",
         "task-007.yaml"
       );
@@ -566,13 +578,15 @@ All 23 tests passing`;
         "## Summary\nDone\n## Artifacts Created\nFiles\n## Tests\nPassed"
       );
 
-      // Create verification criteria
-      const verificationPath = path.join(
+      // Create verification criteria in .orchestrator-only (hidden from implementor)
+      const verificationDir = path.join(
         orchestraRoot,
-        "handover",
-        "verification",
-        "task-007.yaml"
+        "orchestrator",
+        ".orchestrator-only",
+        "verification"
       );
+      fs.mkdirSync(verificationDir, { recursive: true });
+      const verificationPath = path.join(verificationDir, "task-007.yaml");
       fs.writeFileSync(
         verificationPath,
         yaml.stringify({
@@ -587,7 +601,7 @@ All 23 tests passing`;
       expect(s7Check?.passed).toBe(true);
     });
 
-    it("should fail when verification criteria file missing (finalize not run)", async () => {
+    it("should fail when verification criteria file missing (not created during init)", async () => {
       const preSignalPath = path.join(
         orchestraRoot,
         "handover",
@@ -621,7 +635,7 @@ All 23 tests passing`;
 
       const s7Check = result.checks.find((c) => c.id === "S7");
       expect(s7Check?.passed).toBe(false);
-      expect(s7Check?.fix).toContain("orchestra prepare --finalize");
+      expect(s7Check?.fix).toContain("sprint initialization");
     });
   });
 
@@ -655,10 +669,11 @@ All 23 tests passing`;
         "## Summary\nDone\n## Artifacts Created\nFiles\n## Tests\nPassed"
       );
 
-      // Create verification criteria (S7 check)
+      // Create verification criteria in .orchestrator-only (S7 check)
       const verificationPath = path.join(
         orchestraRoot,
-        "handover",
+        "orchestrator",
+        ".orchestrator-only",
         "verification",
         "task-007.yaml"
       );

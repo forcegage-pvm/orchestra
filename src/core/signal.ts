@@ -407,7 +407,7 @@ async function checkDeliverablesInPreSignal(
 }
 
 /**
- * Check 7: Verification criteria exists (finalize was run)
+ * Check 7: Verification criteria exists (created during sprint init)
  */
 async function checkVerificationCriteriaExists(
   taskId: number
@@ -416,7 +416,8 @@ async function checkVerificationCriteriaExists(
   const verificationPath = path.join(
     orchestraRoot,
     ".orchestra",
-    "handover",
+    "orchestrator",
+    ".orchestrator-only",
     "verification",
     `task-${String(taskId).padStart(3, "0")}.yaml`
   );
@@ -426,9 +427,9 @@ async function checkVerificationCriteriaExists(
       passed: false,
       id: "S7",
       check: "Verification criteria exists",
-      expected: "File at handover/verification/",
+      expected: "File at .orchestrator-only/verification/",
       actual: "Not found",
-      fix: "Orchestrator: Run 'orchestra prepare --finalize' to copy verification criteria",
+      fix: "Orchestrator: Create verification criteria during sprint initialization",
     };
   }
 

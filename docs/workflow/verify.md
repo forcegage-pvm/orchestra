@@ -932,8 +932,8 @@ Select-String -Path lib/src/models/config.dart -Pattern "class\s+ConfigModel"
 **Cause**: Verification YAML doesn't include `screenshot.verify` section.
 
 **Solution**:
-1. Add visual criteria to verification YAML during prepare phase
-2. Re-run prepare with `--finalize` if needed
+1. Add visual criteria to verification YAML in `.orchestra/orchestrator/.orchestrator-only/verification/`
+2. Validate with `orchestra init --verify`
 3. Document criteria in task handover
 
 ### Issue: All checks pass but implementation is wrong

@@ -51,9 +51,17 @@ describe("verification core", () => {
     vi.mocked(requireOrchestraRoot).mockReturnValue(tempDir);
 
     // Create necessary directories
-    fs.mkdirSync(path.join(tempDir, ".orchestra", "handover", "verification"), {
-      recursive: true,
-    });
+    // Verification criteria now lives in .orchestrator-only (hidden from implementor)
+    fs.mkdirSync(
+      path.join(
+        tempDir,
+        ".orchestra",
+        "orchestrator",
+        ".orchestrator-only",
+        "verification"
+      ),
+      { recursive: true }
+    );
     fs.mkdirSync(path.join(tempDir, ".orchestra", "reports", "verification"), {
       recursive: true,
     });
@@ -81,7 +89,8 @@ checks:
         path.join(
           tempDir,
           ".orchestra",
-          "handover",
+          "orchestrator",
+          ".orchestrator-only",
           "verification",
           "task-008.yaml"
         ),
@@ -116,7 +125,8 @@ checks:
         path.join(
           tempDir,
           ".orchestra",
-          "handover",
+          "orchestrator",
+          ".orchestrator-only",
           "verification",
           "task-008.yaml"
         ),
@@ -151,7 +161,8 @@ checks:
         path.join(
           tempDir,
           ".orchestra",
-          "handover",
+          "orchestrator",
+          ".orchestrator-only",
           "verification",
           "task-008.yaml"
         ),
@@ -188,7 +199,8 @@ checks:
         path.join(
           tempDir,
           ".orchestra",
-          "handover",
+          "orchestrator",
+          ".orchestrator-only",
           "verification",
           "task-008.yaml"
         ),
@@ -226,7 +238,8 @@ checks:
         path.join(
           tempDir,
           ".orchestra",
-          "handover",
+          "orchestrator",
+          ".orchestrator-only",
           "verification",
           "task-008.yaml"
         ),
@@ -265,7 +278,8 @@ checks:
         path.join(
           tempDir,
           ".orchestra",
-          "handover",
+          "orchestrator",
+          ".orchestrator-only",
           "verification",
           "task-008.yaml"
         ),
@@ -297,7 +311,8 @@ checks:
         path.join(
           tempDir,
           ".orchestra",
-          "handover",
+          "orchestrator",
+          ".orchestrator-only",
           "verification",
           "task-008.yaml"
         ),
@@ -332,7 +347,8 @@ checks:
         path.join(
           tempDir,
           ".orchestra",
-          "handover",
+          "orchestrator",
+          ".orchestrator-only",
           "verification",
           "task-008.yaml"
         ),
@@ -369,7 +385,8 @@ checks:
         path.join(
           tempDir,
           ".orchestra",
-          "handover",
+          "orchestrator",
+          ".orchestrator-only",
           "verification",
           "task-008.yaml"
         ),
@@ -409,7 +426,8 @@ checks:
         path.join(
           tempDir,
           ".orchestra",
-          "handover",
+          "orchestrator",
+          ".orchestrator-only",
           "verification",
           "task-008.yaml"
         ),
@@ -457,7 +475,8 @@ checks:
         path.join(
           tempDir,
           ".orchestra",
-          "handover",
+          "orchestrator",
+          ".orchestrator-only",
           "verification",
           "task-008.yaml"
         ),
@@ -499,7 +518,8 @@ checks:
         path.join(
           tempDir,
           ".orchestra",
-          "handover",
+          "orchestrator",
+          ".orchestrator-only",
           "verification",
           "task-008.yaml"
         ),
@@ -541,7 +561,8 @@ checks:
         path.join(
           tempDir,
           ".orchestra",
-          "handover",
+          "orchestrator",
+          ".orchestrator-only",
           "verification",
           "task-008.yaml"
         ),
@@ -579,7 +600,8 @@ checks:
         path.join(
           tempDir,
           ".orchestra",
-          "handover",
+          "orchestrator",
+          ".orchestrator-only",
           "verification",
           "task-008.yaml"
         ),
@@ -614,7 +636,8 @@ checks:
         path.join(
           tempDir,
           ".orchestra",
-          "handover",
+          "orchestrator",
+          ".orchestrator-only",
           "verification",
           "task-008.yaml"
         ),
@@ -642,7 +665,8 @@ checks:
         path.join(
           tempDir,
           ".orchestra",
-          "handover",
+          "orchestrator",
+          ".orchestrator-only",
           "verification",
           "task-008.yaml"
         ),
@@ -688,7 +712,8 @@ checks:
         path.join(
           tempDir,
           ".orchestra",
-          "handover",
+          "orchestrator",
+          ".orchestrator-only",
           "verification",
           "task-008.yaml"
         ),

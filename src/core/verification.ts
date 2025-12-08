@@ -340,28 +340,25 @@ export async function runVerification(
     // Ignore - title is optional
   }
 
-  // 2. Load verification YAML
+  // 2. Load verification YAML from .orchestrator-only (hidden from implementor)
   const verificationPath = path.join(
     orchestraRoot,
     ".orchestra",
-    "handover",
+    "orchestrator",
+    ".orchestrator-only",
     "verification",
     `task-${String(taskId).padStart(3, "0")}.yaml`
   );
 
   if (!yamlExists(verificationPath)) {
     // Exit code 3: Verification criteria not found
-    // Provide helpful message - this usually means finalize wasn't run
     return createErrorResult(
       taskId,
       taskTitle,
       `Verification criteria not found: ${verificationPath}\n\n` +
-        `This usually means 'orchestra prepare --finalize' was not run.\n` +
-        `The --finalize command copies verification YAML from:\n` +
-        `  .orchestra/orchestrator/.orchestrator-only/verification/\n` +
-        `to:\n` +
-        `  .orchestra/handover/verification/\n\n` +
-        `Run 'orchestra prepare --finalize' to fix this.`,
+        `The orchestrator must create verification criteria during sprint initialization.\n` +
+        `Location: .orchestra/orchestrator/.orchestrator-only/verification/task-NNN.yaml\n\n` +
+        `Run 'orchestra init --verify' to validate initialization.`,
       3,
       startTime
     );

@@ -24,9 +24,8 @@ Every path must be explicit. Every expectation must be written. Every edge case 
 | 3 | Complete handover content | Edit `current-task.md` | Filled TODO markers |
 | 4 | Create verification criteria | Create `task-N.yaml` | Hidden test spec |
 | 5 | Complete pre-flight checklist | Fill `preflight-checklist.yaml` | Self-validation |
-| 6 | Finalize and archive | `orchestra prepare --finalize` | Audit trail |
-| 7 | Commit changes | `git add -A && git commit` | Version control |
-| 8 | Hand off | Direct to `agent_readme.md` | Implementor starts |
+| 6 | Commit changes | `git add -A && git commit` | Version control |
+| 7 | Hand off | Direct to `agent_readme.md` | Implementor starts |
 
 ---
 
@@ -50,7 +49,6 @@ All paths in this document are relative to the `.orchestra/` folder:
         ├── verification/            ← Secret acceptance tests
         │   └── task-N.yaml          ← You create this
         └── preflight/               ← Archived handovers
-            └── task-N.md            ← Created by --finalize
 ```
 
 ### Prerequisites Checklist
@@ -386,29 +384,7 @@ prepared_at: "2025-12-06T10:30:00Z"
 
 ---
 
-### STEP 6: Finalize and Archive
-
-After completing the handover and pre-flight checklist:
-
-```bash
-orchestra prepare --finalize
-```
-
-**What this does:**
-
-| Action | From | To |
-|--------|------|-----|
-| Archive handover | `handover/current-task.md` | `orchestrator/.orchestrator-only/preflight/task-N.md` |
-| Archive checklist | `handover/preflight-checklist.yaml` | `orchestrator/.orchestrator-only/preflight/preflight-task-N.yaml` |
-
-**Why this matters:**
-- Creates audit trail of exactly what the implementor received
-- Enables post-mortem if task fails
-- Proves handover quality for accountability
-
----
-
-### STEP 7: Commit Changes
+### STEP 6: Commit Changes
 
 Stage and commit all handover files:
 
@@ -423,7 +399,7 @@ git commit -m "chore(orchestra): prepare task N handover
 
 ---
 
-### STEP 8: Hand Off to Implementor
+### STEP 7: Hand Off to Implementor
 
 Direct the implementor agent to the entry point:
 
@@ -496,7 +472,6 @@ Before handing off, ask yourself:
 | "Add tests" without data | Implementor invents wrong test cases | Provide input → output tables |
 | "Create a demo" only | Implementor doesn't know where to start | Provide full code scaffold |
 | Skip verification criteria | No way to objectively verify completion | Always create `task-N.yaml` |
-| Skip --finalize | No audit trail, accountability lost | Always run before commit |
 | Point directly to current-task.md | Implementor misses workflow context | Point to `agent_readme.md` |
 
 ---
@@ -512,7 +487,7 @@ Before handing off, ask yourself:
 | `orchestra prepare` | Generate next task handover | Step 2 - auto-select task |
 | `orchestra prepare --task N` | Generate specific task handover | Step 2 - specific task |
 | `orchestra prepare --dry-run` | Preview without changes | Before committing to task |
-| `orchestra prepare --finalize` | Archive handover | Step 6 - after completing |
+| `orchestra init --verify` | Validate verification YAML schemas | After creating verification YAMLs |
 
 ---
 

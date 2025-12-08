@@ -33,7 +33,7 @@
 |-----------|-------|
 | **Phase** | IMPLEMENT |
 | **Role** | Implementor Agent |
-| **Trigger** | After orchestrator runs `orchestra prepare --finalize` |
+| **Trigger** | After orchestrator runs `orchestra prepare` and completes handover |
 | **Preconditions** | Handover exists; task status is IMPLEMENT |
 
 ---

@@ -1,0 +1,20 @@
+# Verification Criteria for Task 53: Add MCP Dev Script
+task_id: 53
+title: "Add MCP Dev Script"
+category: "INFRASTRUCTURE"
+created_at: "2025-12-08"
+
+checks:
+  - id: "V53.1"
+    description: "package.json contains mcp:dev script"
+    severity: critical
+    type: pattern_match
+    path: "package.json"
+    pattern: "mcp:dev"
+
+  - id: "V53.2"
+    description: "Dev script uses tsx or ts-node for development"
+    severity: warning
+    type: pattern_match
+    path: "package.json"
+    pattern: "tsx|ts-node"

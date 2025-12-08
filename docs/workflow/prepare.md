@@ -132,7 +132,6 @@ The orchestrator creates **visible acceptance criteria** (what implementor sees)
 | A-PREP-03 | Force prepare | `orchestra prepare --force` |
 | A-PREP-04 | Preview prepare | `orchestra prepare --dry-run` |
 | A-PREP-05 | Skip closeout | `orchestra prepare --skip-closeout` |
-| A-PREP-06 | Finalize handover | `orchestra prepare --finalize` |
 
 ### Agent Actions
 
@@ -142,7 +141,6 @@ The orchestrator creates **visible acceptance criteria** (what implementor sees)
 | A-PREP-08 | Orchestrator | Complete handover content |
 | A-PREP-09 | Orchestrator | Complete pre-flight checklist |
 | A-PREP-10 | Orchestrator | Verify handover is complete |
-| A-PREP-11 | Orchestrator | Run finalize command |
 
 ### Manual Actions
 
@@ -170,10 +168,9 @@ The complete ordered execution of this workflow step:
 | 3 | A-PREP-08 | Agent | Complete handover content (fill TODOs) |
 | 4 | A-PREP-09 | Agent | Complete pre-flight checklist |
 | 5 | A-PREP-10 | Agent | Verify handover is complete |
-| 6 | A-PREP-06 | CLI | `orchestra prepare --finalize` (archives handover + checklist) |
-| 7 | A-PREP-12 | Manual | Review handover (optional) |
-| 8 | A-PREP-13 | Git | Stage handover files |
-| 9 | A-PREP-14 | Git | Commit handover |
+| 6 | A-PREP-12 | Manual | Review handover (optional) |
+| 7 | A-PREP-13 | Git | Stage handover files |
+| 8 | A-PREP-14 | Git | Commit handover |
 
 ---
 
@@ -237,42 +234,7 @@ Before handing off to implementor, verify:
 - [ ] Test cases are specific
 - [ ] Dependencies are documented
 - [ ] Pre-flight checklist completed
-
-### A-PREP-11: Run Finalize Command
-
-Run the finalize command to archive handover and checklist:
-
-```bash
-orchestra prepare --finalize
-```
-
-This command performs three operations:
-
-1. **Validates verification YAML** (schema enforcement):
-   - Reads `.orchestra/orchestrator/.orchestrator-only/verification/task-NNN.yaml`
-   - Validates against `VerificationYamlSchema` (Zod)
-   - **Fails if schema invalid** with detailed error messages
-   - Valid check types: `file_exists`, `dir_exists`, `pattern_match`, `command`, `screenshot_exists`, `json_valid`, `yaml_valid`, `export_exists`
-   - Valid severities: `critical`, `warning`, `info`
-
-2. **Copies handover to audit trail**:
-   ```
-   .orchestra/handover/current-task.md → .orchestra/orchestrator/.orchestrator-only/preflight/task-N.md
-   ```
-
-3. **Archives pre-flight checklist**:
-   ```
-   .orchestra/handover/preflight-checklist.yaml → .orchestra/orchestrator/.orchestrator-only/preflight/preflight-task-N.yaml
-   ```
-
-4. **Copies verification to handover** (for `orchestra verify`):
-   ```
-   .orchestra/orchestrator/.orchestrator-only/verification/task-NNN.yaml → .orchestra/handover/verification/task-NNN.yaml
-   ```
-
-This creates accountability records and validates verification criteria before the implementor receives the handover.
-
-> ⚠️ **Schema Validation Prevents Implementation Theater**: By validating verification YAML during finalize, we ensure the orchestrator creates machine-executable verification criteria. Invalid types like `structural` or severities like `BLOCKING` will be rejected.
+- [ ] Verification YAML validated with `orchestra init --verify`
 
 ---
 
@@ -290,8 +252,6 @@ orchestra prepare [options]
 | `--force` | boolean | false | Prepare even if another task in-progress |
 | `--skip-closeout` | boolean | false | Skip closeout check (not recommended) |
 | `--dry-run` | boolean | false | Show what would be generated |
-| `--finalize` | boolean | false | Archive handover and checklist to preflight folder |
-| `--skip-verification-validation` | boolean | false | Skip verification YAML schema validation during finalize (not recommended) |
 | `--format <fmt>` | string | from config | Output format: yaml, markdown, both |
 | `--json` | boolean | false | JSON output for scripting |
 
@@ -309,9 +269,6 @@ orchestra prepare --task 3 --force
 
 # Preview what would be generated
 orchestra prepare --dry-run
-
-# Finalize: archive handover and checklist after completing them
-orchestra prepare --finalize
 
 # Generate both YAML and markdown
 orchestra prepare --format both
