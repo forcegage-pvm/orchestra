@@ -801,6 +801,28 @@ describe("prepare command", () => {
           "checklist:\n  - item: test\n    completed: true"
         );
 
+        // Create verification directory and file
+        const verificationDir = path.join(
+          tempDir,
+          ".orchestra",
+          "orchestrator",
+          ".orchestrator-only",
+          "verification"
+        );
+        fs.mkdirSync(verificationDir, { recursive: true });
+        fs.writeFileSync(
+          path.join(verificationDir, "task-002.yaml"),
+          `task_id: 2
+task_title: "Second Task"
+checks:
+  - id: check-1
+    type: file_exists
+    description: "Test check"
+    severity: critical
+    path: "test.txt"
+`
+        );
+
         // Create preflight directory
         const preflightDir = path.join(
           tempDir,
@@ -817,6 +839,7 @@ describe("prepare command", () => {
 
         expect(result.taskId).toBe(2);
         expect(result.handoverCopied).toBe("task-2.md");
+        expect(result.verificationCopied).toBe("task-002.yaml");
         expect(result.dryRun).toBe(false);
 
         // Verify file was copied
@@ -921,6 +944,85 @@ describe("prepare command", () => {
         writeYaml(path.join(tempDir, ".orchestra", "manifest.yaml"), manifest);
 
         await expect(runFinalize()).rejects.toThrow("No active task found");
+      });
+
+      it("should fail if verification file does not exist", async () => {
+        // Remove the verification file
+        fs.unlinkSync(
+          path.join(
+            tempDir,
+            ".orchestra",
+            "orchestrator",
+            ".orchestrator-only",
+            "verification",
+            "task-002.yaml"
+          )
+        );
+
+        await expect(runFinalize()).rejects.toThrow(
+          "Verification criteria not found"
+        );
+      });
+
+      it("should fail if verification file has invalid schema", async () => {
+        // Write invalid verification file (wrong type value)
+        fs.writeFileSync(
+          path.join(
+            tempDir,
+            ".orchestra",
+            "orchestrator",
+            ".orchestrator-only",
+            "verification",
+            "task-002.yaml"
+          ),
+          `task_id: 2
+checks:
+  - id: check-1
+    type: structural
+    description: "Invalid type value"
+    severity: BLOCKING
+`
+        );
+
+        await expect(runFinalize()).rejects.toThrow(
+          "Verification YAML validation failed"
+        );
+      });
+
+      it("should skip verification validation when flag is set", async () => {
+        // Remove verification file
+        fs.unlinkSync(
+          path.join(
+            tempDir,
+            ".orchestra",
+            "orchestrator",
+            ".orchestrator-only",
+            "verification",
+            "task-002.yaml"
+          )
+        );
+
+        // Should succeed with skipVerificationValidation
+        const result = await runFinalize({ skipVerificationValidation: true });
+
+        expect(result.taskId).toBe(2);
+        expect(result.verificationCopied).toBeUndefined();
+      });
+
+      it("should copy verification file to handover directory", async () => {
+        const result = await runFinalize();
+
+        expect(result.verificationCopied).toBe("task-002.yaml");
+
+        // Verify file was copied
+        const destPath = path.join(
+          tempDir,
+          ".orchestra",
+          "handover",
+          "verification",
+          "task-002.yaml"
+        );
+        expect(fs.existsSync(destPath)).toBe(true);
       });
     });
   });

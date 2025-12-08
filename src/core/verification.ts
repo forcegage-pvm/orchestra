@@ -99,21 +99,37 @@ export interface VerifyResult {
   exitCode: number;
 }
 
-// Verification YAML schema
-const VerificationCheckSchema = z.object({
+// =============================================================================
+// Verification YAML Schema (exported for validation during prepare)
+// =============================================================================
+
+/**
+ * Valid verification check types
+ */
+export const VERIFICATION_CHECK_TYPES = [
+  "file_exists",
+  "dir_exists",
+  "pattern_match",
+  "command",
+  "screenshot_exists",
+  "json_valid",
+  "yaml_valid",
+  "export_exists",
+] as const;
+
+/**
+ * Valid severity levels
+ */
+export const VERIFICATION_SEVERITIES = ["critical", "warning", "info"] as const;
+
+/**
+ * Schema for a single verification check
+ */
+export const VerificationCheckSchema = z.object({
   id: z.string(),
-  type: z.enum([
-    "file_exists",
-    "dir_exists",
-    "pattern_match",
-    "command",
-    "screenshot_exists",
-    "json_valid",
-    "yaml_valid",
-    "export_exists",
-  ]),
+  type: z.enum(VERIFICATION_CHECK_TYPES),
   description: z.string(),
-  severity: z.enum(["critical", "warning", "info"]).default("critical"),
+  severity: z.enum(VERIFICATION_SEVERITIES).default("critical"),
   path: z.string().optional(),
   file: z.string().optional(),
   pattern: z.string().optional(),
@@ -123,12 +139,167 @@ const VerificationCheckSchema = z.object({
   exports: z.array(z.string()).optional(),
 });
 
-const VerificationYamlSchema = z.object({
+/**
+ * Schema for the full verification YAML file
+ */
+export const VerificationYamlSchema = z.object({
   task_id: z.number(),
   task_title: z.string().optional(),
   created_at: z.string().optional(),
   checks: z.array(VerificationCheckSchema),
 });
+
+/**
+ * TypeScript types derived from schemas
+ */
+export type VerificationCheck = z.infer<typeof VerificationCheckSchema>;
+export type VerificationYaml = z.infer<typeof VerificationYamlSchema>;
+
+/**
+ * Result of validating a verification YAML file
+ */
+export interface VerificationValidationResult {
+  valid: boolean;
+  errors: VerificationValidationError[];
+  data?: VerificationYaml;
+}
+
+/**
+ * A single validation error with helpful context
+ */
+export interface VerificationValidationError {
+  path: string;
+  message: string;
+  received?: unknown;
+  expected?: string;
+}
+
+/**
+ * Validate a verification YAML file against the schema.
+ * Returns detailed errors with suggestions for fixing.
+ *
+ * @param filePath - Path to the verification YAML file
+ * @returns Validation result with errors or parsed data
+ */
+export function validateVerificationYaml(
+  filePath: string
+): VerificationValidationResult {
+  if (!yamlExists(filePath)) {
+    return {
+      valid: false,
+      errors: [
+        {
+          path: "file",
+          message: `Verification file not found: ${filePath}`,
+        },
+      ],
+    };
+  }
+
+  try {
+    const rawYaml = readYamlRaw(filePath) as Record<string, unknown>;
+    const result = VerificationYamlSchema.safeParse(rawYaml);
+
+    if (result.success) {
+      return {
+        valid: true,
+        errors: [],
+        data: result.data,
+      };
+    }
+
+    // Convert Zod errors to helpful validation errors
+    const errors: VerificationValidationError[] = result.error.issues.map(
+      (issue) => {
+        const path = issue.path.join(".");
+        let expected: string | undefined;
+        let message = issue.message;
+
+        // Enhance error messages for common mistakes
+        if (issue.code === "invalid_enum_value") {
+          const options = (issue as { options?: unknown[] }).options;
+          if (path.includes("type")) {
+            expected = `One of: ${VERIFICATION_CHECK_TYPES.join(", ")}`;
+            message = `Invalid check type. ${expected}`;
+          } else if (path.includes("severity")) {
+            expected = `One of: ${VERIFICATION_SEVERITIES.join(", ")}`;
+            message = `Invalid severity. ${expected}`;
+          } else if (options) {
+            expected = `One of: ${options.join(", ")}`;
+          }
+        }
+
+        // Build result with exactOptionalPropertyTypes compliance
+        const errorResult: VerificationValidationError = {
+          path,
+          message,
+        };
+
+        const received = "received" in issue ? issue.received : undefined;
+        if (received !== undefined) {
+          errorResult.received = received;
+        }
+        if (expected !== undefined) {
+          errorResult.expected = expected;
+        }
+
+        return errorResult;
+      }
+    );
+
+    return {
+      valid: false,
+      errors,
+    };
+  } catch (error) {
+    return {
+      valid: false,
+      errors: [
+        {
+          path: "yaml",
+          message: `Failed to parse YAML: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        },
+      ],
+    };
+  }
+}
+
+/**
+ * Format validation errors as a human-readable string with examples
+ */
+export function formatVerificationErrors(
+  errors: VerificationValidationError[]
+): string {
+  const lines: string[] = ["Verification YAML validation failed:", ""];
+
+  for (const error of errors) {
+    lines.push(`  ❌ ${error.path}: ${error.message}`);
+    if (error.received !== undefined) {
+      lines.push(`     Received: ${JSON.stringify(error.received)}`);
+    }
+    if (error.expected) {
+      lines.push(`     Expected: ${error.expected}`);
+    }
+  }
+
+  lines.push("");
+  lines.push("Example of valid verification check:");
+  lines.push("  - id: check-file-exists");
+  lines.push(
+    "    type: file_exists       # Must be one of: " +
+      VERIFICATION_CHECK_TYPES.join(", ")
+  );
+  lines.push('    description: "Check that main file exists"');
+  lines.push(
+    "    severity: critical      # Must be one of: " +
+      VERIFICATION_SEVERITIES.join(", ")
+  );
+  lines.push('    path: "src/main.ts"');
+
+  return lines.join("\n");
+}
 
 // =============================================================================
 // Main Orchestration Function
@@ -180,10 +351,17 @@ export async function runVerification(
 
   if (!yamlExists(verificationPath)) {
     // Exit code 3: Verification criteria not found
+    // Provide helpful message - this usually means finalize wasn't run
     return createErrorResult(
       taskId,
       taskTitle,
-      `Verification criteria not found: ${verificationPath}`,
+      `Verification criteria not found: ${verificationPath}\n\n` +
+        `This usually means 'orchestra prepare --finalize' was not run.\n` +
+        `The --finalize command copies verification YAML from:\n` +
+        `  .orchestra/orchestrator/.orchestrator-only/verification/\n` +
+        `to:\n` +
+        `  .orchestra/handover/verification/\n\n` +
+        `Run 'orchestra prepare --finalize' to fix this.`,
       3,
       startTime
     );

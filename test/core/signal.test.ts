@@ -116,6 +116,21 @@ describe("Accept-Signal Core Logic", () => {
         "## Summary\nDone\n## Artifacts Created\nFiles\n## Tests\nPassed"
       );
 
+      // Create verification criteria (S7 check)
+      const verificationPath = path.join(
+        orchestraRoot,
+        "handover",
+        "verification",
+        "task-007.yaml"
+      );
+      fs.writeFileSync(
+        verificationPath,
+        yaml.stringify({
+          task_id: 7,
+          checks: [{ id: "v1", type: "file_exists", description: "test" }],
+        })
+      );
+
       const result = await runAcceptSignal({});
 
       expect(result.overall).toBe("ACCEPTED");
@@ -522,6 +537,94 @@ All 23 tests passing`;
     });
   });
 
+  describe("Check S7: Verification criteria exists", () => {
+    it("should pass when verification criteria file exists", async () => {
+      const preSignalPath = path.join(
+        orchestraRoot,
+        "handover",
+        "verification",
+        "pre-signal.yaml"
+      );
+      const artifact = {
+        task_id: 7,
+        timestamp: new Date().toISOString(),
+        status: "PASSED",
+        checks: {
+          deliverables: { status: "PASSED" },
+        },
+      };
+      fs.writeFileSync(preSignalPath, yaml.stringify(artifact));
+
+      // Create completion signal
+      const signalPath = path.join(
+        orchestraRoot,
+        "handover",
+        "completion-signal.md"
+      );
+      fs.writeFileSync(
+        signalPath,
+        "## Summary\nDone\n## Artifacts Created\nFiles\n## Tests\nPassed"
+      );
+
+      // Create verification criteria
+      const verificationPath = path.join(
+        orchestraRoot,
+        "handover",
+        "verification",
+        "task-007.yaml"
+      );
+      fs.writeFileSync(
+        verificationPath,
+        yaml.stringify({
+          task_id: 7,
+          checks: [{ id: "v1", type: "file_exists", description: "test" }],
+        })
+      );
+
+      const result = await runAcceptSignal({});
+
+      const s7Check = result.checks.find((c) => c.id === "S7");
+      expect(s7Check?.passed).toBe(true);
+    });
+
+    it("should fail when verification criteria file missing (finalize not run)", async () => {
+      const preSignalPath = path.join(
+        orchestraRoot,
+        "handover",
+        "verification",
+        "pre-signal.yaml"
+      );
+      const artifact = {
+        task_id: 7,
+        timestamp: new Date().toISOString(),
+        status: "PASSED",
+        checks: {
+          deliverables: { status: "PASSED" },
+        },
+      };
+      fs.writeFileSync(preSignalPath, yaml.stringify(artifact));
+
+      // Create completion signal
+      const signalPath = path.join(
+        orchestraRoot,
+        "handover",
+        "completion-signal.md"
+      );
+      fs.writeFileSync(
+        signalPath,
+        "## Summary\nDone\n## Artifacts Created\nFiles\n## Tests\nPassed"
+      );
+
+      // Note: intentionally NOT creating verification criteria file
+
+      const result = await runAcceptSignal({});
+
+      const s7Check = result.checks.find((c) => c.id === "S7");
+      expect(s7Check?.passed).toBe(false);
+      expect(s7Check?.fix).toContain("orchestra prepare --finalize");
+    });
+  });
+
   describe("runAcceptSignal orchestration", () => {
     it("should return ACCEPTED when all checks pass", async () => {
       const preSignalPath = path.join(
@@ -550,6 +653,21 @@ All 23 tests passing`;
       fs.writeFileSync(
         signalPath,
         "## Summary\nDone\n## Artifacts Created\nFiles\n## Tests\nPassed"
+      );
+
+      // Create verification criteria (S7 check)
+      const verificationPath = path.join(
+        orchestraRoot,
+        "handover",
+        "verification",
+        "task-007.yaml"
+      );
+      fs.writeFileSync(
+        verificationPath,
+        yaml.stringify({
+          task_id: 7,
+          checks: [{ id: "v1", type: "file_exists", description: "test" }],
+        })
       );
 
       const result = await runAcceptSignal({});

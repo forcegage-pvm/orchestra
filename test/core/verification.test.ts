@@ -713,3 +713,221 @@ checks:
     });
   });
 });
+
+// ============================================================================
+// validateVerificationYaml Tests (separate describe block with no mocks)
+// ============================================================================
+
+import {
+  formatVerificationErrors,
+  validateVerificationYaml,
+  VERIFICATION_CHECK_TYPES,
+  VERIFICATION_SEVERITIES,
+} from "../../src/core/verification.js";
+
+describe("validateVerificationYaml", () => {
+  let tempDir: string;
+
+  beforeEach(() => {
+    tempDir = fs.mkdtempSync(
+      path.join(os.tmpdir(), "verification-validate-test-")
+    );
+  });
+
+  afterEach(() => {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  });
+
+  it("should return valid=true for correct verification YAML", () => {
+    const validYaml = `
+task_id: 1
+task_title: "Test Task"
+checks:
+  - id: check-1
+    type: file_exists
+    description: "Check file exists"
+    severity: critical
+    path: "src/main.ts"
+  - id: check-2
+    type: pattern_match
+    description: "Check pattern"
+    severity: warning
+    file: "src/main.ts"
+    pattern: "export function"
+`;
+    const yamlPath = path.join(tempDir, "task-001.yaml");
+    fs.writeFileSync(yamlPath, validYaml);
+
+    const result = validateVerificationYaml(yamlPath);
+
+    expect(result.valid).toBe(true);
+    expect(result.errors).toHaveLength(0);
+    expect(result.data).toBeDefined();
+    expect(result.data?.task_id).toBe(1);
+    expect(result.data?.checks).toHaveLength(2);
+  });
+
+  it("should return valid=false when file does not exist", () => {
+    const result = validateVerificationYaml(
+      path.join(tempDir, "nonexistent.yaml")
+    );
+
+    expect(result.valid).toBe(false);
+    expect(result.errors).toHaveLength(1);
+    expect(result.errors[0].path).toBe("file");
+    expect(result.errors[0].message).toContain("not found");
+  });
+
+  it("should reject invalid type values", () => {
+    const invalidYaml = `
+task_id: 1
+checks:
+  - id: check-1
+    type: structural
+    description: "Wrong type"
+    severity: critical
+`;
+    const yamlPath = path.join(tempDir, "invalid-type.yaml");
+    fs.writeFileSync(yamlPath, invalidYaml);
+
+    const result = validateVerificationYaml(yamlPath);
+
+    expect(result.valid).toBe(false);
+    expect(result.errors.length).toBeGreaterThan(0);
+    const typeError = result.errors.find((e) => e.path.includes("type"));
+    expect(typeError).toBeDefined();
+    expect(typeError?.message).toContain("Invalid check type");
+  });
+
+  it("should reject invalid severity values", () => {
+    const invalidYaml = `
+task_id: 1
+checks:
+  - id: check-1
+    type: file_exists
+    description: "Wrong severity"
+    severity: BLOCKING
+    path: "test.txt"
+`;
+    const yamlPath = path.join(tempDir, "invalid-severity.yaml");
+    fs.writeFileSync(yamlPath, invalidYaml);
+
+    const result = validateVerificationYaml(yamlPath);
+
+    expect(result.valid).toBe(false);
+    expect(result.errors.length).toBeGreaterThan(0);
+    const severityError = result.errors.find((e) =>
+      e.path.includes("severity")
+    );
+    expect(severityError).toBeDefined();
+    expect(severityError?.message).toContain("Invalid severity");
+  });
+
+  it("should reject missing required fields", () => {
+    const invalidYaml = `
+checks:
+  - id: check-1
+    type: file_exists
+`;
+    const yamlPath = path.join(tempDir, "missing-fields.yaml");
+    fs.writeFileSync(yamlPath, invalidYaml);
+
+    const result = validateVerificationYaml(yamlPath);
+
+    expect(result.valid).toBe(false);
+    expect(result.errors.length).toBeGreaterThan(0);
+  });
+
+  it("should accept all valid check types", () => {
+    const checks = VERIFICATION_CHECK_TYPES.map(
+      (type, i) => `
+  - id: check-${i}
+    type: ${type}
+    description: "Test ${type}"
+    severity: info`
+    ).join("\n");
+
+    const validYaml = `
+task_id: 1
+checks:
+${checks}
+`;
+    const yamlPath = path.join(tempDir, "all-types.yaml");
+    fs.writeFileSync(yamlPath, validYaml);
+
+    const result = validateVerificationYaml(yamlPath);
+
+    expect(result.valid).toBe(true);
+    expect(result.data?.checks).toHaveLength(VERIFICATION_CHECK_TYPES.length);
+  });
+
+  it("should accept all valid severity levels", () => {
+    const checks = VERIFICATION_SEVERITIES.map(
+      (severity, i) => `
+  - id: check-${i}
+    type: file_exists
+    description: "Test ${severity}"
+    severity: ${severity}
+    path: "test.txt"`
+    ).join("\n");
+
+    const validYaml = `
+task_id: 1
+checks:
+${checks}
+`;
+    const yamlPath = path.join(tempDir, "all-severities.yaml");
+    fs.writeFileSync(yamlPath, validYaml);
+
+    const result = validateVerificationYaml(yamlPath);
+
+    expect(result.valid).toBe(true);
+    expect(result.data?.checks).toHaveLength(VERIFICATION_SEVERITIES.length);
+  });
+
+  it("should handle malformed YAML", () => {
+    const malformedYaml = `
+task_id: 1
+checks:
+  - id: check-1
+  type: file_exists  # Wrong indentation
+    description: "Bad YAML"
+`;
+    const yamlPath = path.join(tempDir, "malformed.yaml");
+    fs.writeFileSync(yamlPath, malformedYaml);
+
+    const result = validateVerificationYaml(yamlPath);
+
+    expect(result.valid).toBe(false);
+    expect(result.errors.length).toBeGreaterThan(0);
+  });
+});
+
+describe("formatVerificationErrors", () => {
+  it("should format errors with received and expected values", () => {
+    const errors = [
+      {
+        path: "checks.0.type",
+        message: "Invalid check type. One of: file_exists, ...",
+        received: "structural",
+        expected: "One of: file_exists, dir_exists, ...",
+      },
+    ];
+
+    const formatted = formatVerificationErrors(errors);
+
+    expect(formatted).toContain("Verification YAML validation failed");
+    expect(formatted).toContain("checks.0.type");
+    expect(formatted).toContain("structural");
+    expect(formatted).toContain("Example of valid verification check");
+  });
+
+  it("should include valid type and severity examples", () => {
+    const errors = [{ path: "test", message: "test error" }];
+
+    const formatted = formatVerificationErrors(errors);
+
+    expect(formatted).toContain("file_exists");
+    expect(formatted).toContain("critical");
+  });
+});

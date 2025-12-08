@@ -101,6 +101,11 @@ export function createPrepareCommand(): Command {
       false
     )
     .option(
+      "--skip-verification-validation",
+      "Skip verification YAML validation during finalize (not recommended)",
+      false
+    )
+    .option(
       "--format <format>",
       "Output format: yaml, markdown, or both (default: from config)",
       undefined
@@ -122,6 +127,7 @@ export function createPrepareCommand(): Command {
 interface PrepareCommandOptions extends PrepareOptions {
   format?: TemplateFormat;
   finalize?: boolean;
+  skipVerificationValidation?: boolean;
   gitStage?: boolean;
   gitCommit?: boolean;
 }
@@ -136,6 +142,9 @@ async function prepareCommand(options: PrepareCommandOptions): Promise<void> {
       const finalizeOptions: FinalizeOptions = {};
       if (options.dryRun !== undefined) finalizeOptions.dryRun = options.dryRun;
       if (options.json !== undefined) finalizeOptions.json = options.json;
+      if (options.skipVerificationValidation !== undefined)
+        finalizeOptions.skipVerificationValidation =
+          options.skipVerificationValidation;
 
       const result = await runFinalize(finalizeOptions);
 
@@ -147,6 +156,7 @@ async function prepareCommand(options: PrepareCommandOptions): Promise<void> {
               taskId: result.taskId,
               handoverCopied: result.handoverCopied,
               checklistArchived: result.checklistArchived,
+              verificationCopied: result.verificationCopied,
               dryRun: result.dryRun,
             },
             null,
@@ -387,6 +397,9 @@ function showFinalizeDryRun(result: FinalizeResult): void {
   console.log("");
 
   console.log(chalk.bold("Operations:"));
+  if (result.verificationCopied) {
+    console.log(`  ${chalk.cyan("copy")} ${result.verificationCopied}`);
+  }
   console.log(`  ${chalk.cyan("copy")} ${result.handoverCopied}`);
   console.log(`  ${chalk.cyan("move")} ${result.checklistArchived}`);
   console.log("");
@@ -399,6 +412,12 @@ function showFinalizeSuccess(result: FinalizeResult): void {
   console.log("");
   output.print.success(`Handover finalized for task ${result.taskId}!`);
   console.log("");
+
+  if (result.verificationCopied) {
+    console.log(chalk.bold("Verification validated and copied:"));
+    console.log(`  ✓ ${result.verificationCopied} → handover/verification/`);
+    console.log("");
+  }
 
   console.log(chalk.bold("Archived to .orchestrator-only/preflight/:"));
   console.log(`  ✓ ${result.handoverCopied} (handover audit)`);

@@ -96,6 +96,7 @@ Prepare a task for implementation.
 
 ```bash
 orchestra prepare [--task <id>] [--force] [--skip-closeout] [--dry-run]
+orchestra prepare --finalize [--skip-verification-validation]
 ```
 
 **Options:**
@@ -105,6 +106,9 @@ orchestra prepare [--task <id>] [--force] [--skip-closeout] [--dry-run]
 | `--force` | Prepare even if another task is in-progress |
 | `--skip-closeout` | Skip closeout check for previous task |
 | `--dry-run` | Show what would be generated |
+| `--finalize` | Archive handover to preflight, validate and copy verification YAML |
+| `--skip-verification-validation` | Skip verification schema validation during finalize |
+| `--format <fmt>` | Output format: yaml, markdown, or both |
 
 **Creates:**
 - `.orchestra/handover/current-task.md` - Task details for implementor
@@ -112,6 +116,14 @@ orchestra prepare [--task <id>] [--force] [--skip-closeout] [--dry-run]
 - `.orchestra/handover/task-context.md` - Additional context
 - Updates `manifest.yaml` task status to `IMPLEMENT`
 - Creates entry in `progress.yaml`
+
+**Finalize Mode (`--finalize`):**
+
+Archives handover and validates verification YAML before handing off to implementor:
+1. Validates verification YAML at `.orchestra/orchestrator/.orchestrator-only/verification/task-NNN.yaml` against schema
+2. Copies handover to audit trail at `.orchestra/orchestrator/.orchestrator-only/preflight/`
+3. Archives pre-flight checklist
+4. Copies verification YAML to `.orchestra/handover/verification/` for `orchestra verify`
 
 ---
 

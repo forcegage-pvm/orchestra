@@ -71,13 +71,17 @@ orchestrator/
 
 ## CLI Commands Quick Reference
 
-| Command                       | When to Run                          | Process   |
-| ----------------------------- | ------------------------------------ | --------- |
-| `orchestra closeout`          | **FIRST** before preparing next task | Process 1 |
-| `orchestra prepare --task N`  | Prepare handover for task N          | Process 1 |
-| `orchestra accept-signal`     | **FIRST** before verifying task      | Process 2 |
-| `orchestra verify --task N`   | Run verification checks              | Process 2 |
-| `orchestra complete --task N` | Mark task complete                   | Process 2 |
+| Command                        | When to Run                          | Process   |
+| ------------------------------ | ------------------------------------ | --------- |
+| `orchestra closeout`           | **FIRST** before preparing next task | Process 1 |
+| `orchestra prepare --task N`   | Prepare handover for task N          | Process 1 |
+| `orchestra prepare --finalize` | **LAST** after completing handover   | Process 1 |
+| `orchestra accept-signal`      | **FIRST** before verifying task      | Process 2 |
+| `orchestra verify --task N`    | Run verification checks              | Process 2 |
+| `orchestra complete --task N`  | Mark task complete                   | Process 2 |
+
+> ⚠️ **CRITICAL**: `orchestra prepare --finalize` is MANDATORY before handing off to implementor.
+> It validates verification YAML schema and copies it to handover folder for `orchestra verify`.
 
 ### Command Examples
 
@@ -85,8 +89,13 @@ orchestrator/
 # Process 1: Before preparing next task
 orchestra closeout
 
-# Process 1: Prepare handover
+# Process 1: Prepare handover scaffold
 orchestra prepare --task 3
+
+# Process 1: [Complete handover content and verification YAML]
+
+# Process 1: MANDATORY - Finalize before handoff
+orchestra prepare --finalize
 
 # Process 2: Before verifying implementor's work
 orchestra accept-signal

@@ -14,7 +14,7 @@ import {
   loadConfig,
   requireOrchestraRoot,
 } from "./config.js";
-import { ManifestError, TaskError } from "./errors.js";
+import { ManifestError, TaskError, ValidationError } from "./errors.js";
 import {
   getAllTasks,
   getCurrentTask,
@@ -29,6 +29,7 @@ import { addProgressEntry, loadProgress, saveProgress } from "./progress.js";
 import { generateYamlTemplate, parseTemplate } from "./template-converter.js";
 import { renderTemplate } from "./templates.js";
 import type { Manifest, Task, TemplateFormat } from "./types.js";
+import { validateVerificationYaml } from "./verification.js";
 
 // =============================================================================
 // Types
@@ -78,6 +79,8 @@ export interface FinalizeOptions {
   json?: boolean;
   /** Show what would be done without executing */
   dryRun?: boolean;
+  /** Skip verification YAML validation (not recommended) */
+  skipVerificationValidation?: boolean;
 }
 
 /**
@@ -90,6 +93,8 @@ export interface FinalizeResult {
   handoverCopied: string;
   /** Checklist file that was archived (moved) */
   checklistArchived: string;
+  /** Verification file that was validated and copied */
+  verificationCopied?: string;
   /** Whether this was a dry run */
   dryRun: boolean;
 }
@@ -651,9 +656,11 @@ export function generateTaskContext(
 /**
  * Finalize handover by archiving handover and pre-flight checklist.
  *
- * This performs two operations:
- * 1. Copies current-task.md → preflight/task-{id}.md (audit trail)
- * 2. Moves preflight-checklist.yaml → preflight/preflight-task-{id}.yaml (archive)
+ * This performs the following operations:
+ * 1. Validates verification YAML in .orchestrator-only/verification/
+ * 2. Copies verified verification file → handover/verification/task-{id}.yaml
+ * 3. Copies current-task.md → preflight/task-{id}.md (audit trail)
+ * 4. Moves preflight-checklist.yaml → preflight/preflight-task-{id}.yaml (archive)
  *
  * Per prepare.md A-PREP-06: `orchestra prepare --finalize`
  */
@@ -678,24 +685,35 @@ export async function runFinalize(
   }
 
   const taskId = getTaskId(currentTask);
+  const taskIdPadded = String(taskId).padStart(3, "0");
 
   // Define source and destination paths
   const handoverDir = path.join(root, ".orchestra", "handover");
-  const preflightDir = path.join(
+  const orchestratorDir = path.join(
     root,
     ".orchestra",
     "orchestrator",
-    ".orchestrator-only",
-    "preflight"
+    ".orchestrator-only"
   );
+  const preflightDir = path.join(orchestratorDir, "preflight");
 
   const handoverSource = path.join(handoverDir, "current-task.md");
   const checklistSource = path.join(handoverDir, "preflight-checklist.yaml");
+  const verificationSource = path.join(
+    orchestratorDir,
+    "verification",
+    `task-${taskIdPadded}.yaml`
+  );
 
   const handoverDest = path.join(preflightDir, `task-${taskId}.md`);
   const checklistDest = path.join(
     preflightDir,
     `preflight-task-${taskId}.yaml`
+  );
+  const verificationDest = path.join(
+    handoverDir,
+    "verification",
+    `task-${taskIdPadded}.yaml`
   );
 
   // Validate source files exist
@@ -713,19 +731,61 @@ export async function runFinalize(
     );
   }
 
+  // Validate verification YAML exists and matches schema
+  let verificationCopied: string | undefined;
+  if (!options.skipVerificationValidation) {
+    if (!fs.existsSync(verificationSource)) {
+      throw new TaskError(
+        `Verification criteria not found: ${verificationSource}\n\n` +
+          `Create the verification file before finalizing handover.\n` +
+          `Location: .orchestra/orchestrator/.orchestrator-only/verification/task-${taskIdPadded}.yaml`,
+        { path: verificationSource, taskId }
+      );
+    }
+
+    // Validate the verification YAML against schema
+    const validationResult = validateVerificationYaml(verificationSource);
+    if (!validationResult.valid) {
+      throw new ValidationError(
+        `Verification YAML validation failed for task ${taskId}`,
+        validationResult.errors.map((e) => ({
+          path: e.path,
+          message: e.message,
+        })),
+        { path: verificationSource }
+      );
+    }
+
+    verificationCopied = `task-${taskIdPadded}.yaml`;
+  }
+
   // If dry run, return what would be done
   if (options.dryRun) {
-    return {
+    const result: FinalizeResult = {
       taskId,
       handoverCopied: `${handoverSource} → ${handoverDest}`,
       checklistArchived: `${checklistSource} → ${checklistDest}`,
       dryRun: true,
     };
+    if (verificationCopied) {
+      result.verificationCopied = `${verificationSource} → ${verificationDest}`;
+    }
+    return result;
   }
 
-  // Ensure preflight directory exists
+  // Ensure directories exist
   if (!fs.existsSync(preflightDir)) {
     fs.mkdirSync(preflightDir, { recursive: true });
+  }
+
+  const verificationDestDir = path.dirname(verificationDest);
+  if (!fs.existsSync(verificationDestDir)) {
+    fs.mkdirSync(verificationDestDir, { recursive: true });
+  }
+
+  // Copy verification file to handover directory (if validated)
+  if (verificationCopied && fs.existsSync(verificationSource)) {
+    fs.copyFileSync(verificationSource, verificationDest);
   }
 
   // Copy handover to audit trail
@@ -734,10 +794,14 @@ export async function runFinalize(
   // Move (archive) pre-flight checklist
   fs.renameSync(checklistSource, checklistDest);
 
-  return {
+  const finalResult: FinalizeResult = {
     taskId,
     handoverCopied: `task-${taskId}.md`,
     checklistArchived: `preflight-task-${taskId}.yaml`,
     dryRun: false,
   };
+  if (verificationCopied) {
+    finalResult.verificationCopied = verificationCopied;
+  }
+  return finalResult;
 }

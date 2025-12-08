@@ -246,19 +246,33 @@ Run the finalize command to archive handover and checklist:
 orchestra prepare --finalize
 ```
 
-This command performs two operations:
+This command performs three operations:
 
-1. **Copies handover to audit trail**:
+1. **Validates verification YAML** (schema enforcement):
+   - Reads `.orchestra/orchestrator/.orchestrator-only/verification/task-NNN.yaml`
+   - Validates against `VerificationYamlSchema` (Zod)
+   - **Fails if schema invalid** with detailed error messages
+   - Valid check types: `file_exists`, `dir_exists`, `pattern_match`, `command`, `screenshot_exists`, `json_valid`, `yaml_valid`, `export_exists`
+   - Valid severities: `critical`, `warning`, `info`
+
+2. **Copies handover to audit trail**:
    ```
    .orchestra/handover/current-task.md → .orchestra/orchestrator/.orchestrator-only/preflight/task-N.md
    ```
 
-2. **Archives pre-flight checklist**:
+3. **Archives pre-flight checklist**:
    ```
    .orchestra/handover/preflight-checklist.yaml → .orchestra/orchestrator/.orchestrator-only/preflight/preflight-task-N.yaml
    ```
 
-This creates accountability records before the implementor receives the handover.
+4. **Copies verification to handover** (for `orchestra verify`):
+   ```
+   .orchestra/orchestrator/.orchestrator-only/verification/task-NNN.yaml → .orchestra/handover/verification/task-NNN.yaml
+   ```
+
+This creates accountability records and validates verification criteria before the implementor receives the handover.
+
+> ⚠️ **Schema Validation Prevents Implementation Theater**: By validating verification YAML during finalize, we ensure the orchestrator creates machine-executable verification criteria. Invalid types like `structural` or severities like `BLOCKING` will be rejected.
 
 ---
 
@@ -277,6 +291,7 @@ orchestra prepare [options]
 | `--skip-closeout` | boolean | false | Skip closeout check (not recommended) |
 | `--dry-run` | boolean | false | Show what would be generated |
 | `--finalize` | boolean | false | Archive handover and checklist to preflight folder |
+| `--skip-verification-validation` | boolean | false | Skip verification YAML schema validation during finalize (not recommended) |
 | `--format <fmt>` | string | from config | Output format: yaml, markdown, both |
 | `--json` | boolean | false | JSON output for scripting |
 

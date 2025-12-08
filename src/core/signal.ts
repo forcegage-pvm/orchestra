@@ -103,6 +103,7 @@ export async function runAcceptSignal(
     checks.push(await checkNotStale(maxAge, artifact));
     checks.push(await checkCompletionSignalFilled());
     checks.push(await checkDeliverablesInPreSignal(artifact));
+    checks.push(await checkVerificationCriteriaExists(taskId));
 
     const allPassed = checks.every((c) => c.passed);
 
@@ -402,5 +403,40 @@ async function checkDeliverablesInPreSignal(
     check: "Deliverables",
     expected: "All exist",
     actual: "PASSED",
+  };
+}
+
+/**
+ * Check 7: Verification criteria exists (finalize was run)
+ */
+async function checkVerificationCriteriaExists(
+  taskId: number
+): Promise<CheckResult> {
+  const orchestraRoot = requireOrchestraRoot();
+  const verificationPath = path.join(
+    orchestraRoot,
+    ".orchestra",
+    "handover",
+    "verification",
+    `task-${String(taskId).padStart(3, "0")}.yaml`
+  );
+
+  if (!fs.existsSync(verificationPath)) {
+    return {
+      passed: false,
+      id: "S7",
+      check: "Verification criteria exists",
+      expected: "File at handover/verification/",
+      actual: "Not found",
+      fix: "Orchestrator: Run 'orchestra prepare --finalize' to copy verification criteria",
+    };
+  }
+
+  return {
+    passed: true,
+    id: "S7",
+    check: "Verification criteria",
+    expected: "Exists",
+    actual: "Found",
   };
 }

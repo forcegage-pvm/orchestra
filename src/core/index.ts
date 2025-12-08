@@ -65,9 +65,19 @@ export {
 
 // Verification (note: exports with "Verify" prefix to avoid conflicts)
 export {
+  VERIFICATION_CHECK_TYPES,
+  VERIFICATION_SEVERITIES,
+  VerificationCheckSchema,
+  VerificationYamlSchema,
+  formatVerificationErrors,
   runVerification,
+  validateVerificationYaml,
   type AcceptSignalStatus,
+  type VerificationCheck,
   type VerificationOptions,
+  type VerificationValidationError,
+  type VerificationValidationResult,
+  type VerificationYaml,
   type VerifyCheck,
   type VerifyCheckResult,
   type VerifyCheckType,
