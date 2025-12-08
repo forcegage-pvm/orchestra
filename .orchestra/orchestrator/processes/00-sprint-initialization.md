@@ -253,55 +253,30 @@ checks:
 Run CLI commands to verify your configuration:
 
 ```bash
-# Verify initialization structure and all verification YAMLs
-orchestra init --verify
-
 # Check overall status
 orchestra status
 
 # See what step comes next
 orchestra next
+
+# Verify manifest is valid
+orchestra status --verbose
 ```
 
-**`orchestra init --verify` checks:**
-- All required directories exist (common/templates, orchestrator, handover, etc.)
-- All required config files exist (orchestra.yaml, manifest.yaml, progress.yaml)
-- **All verification YAML files** in `.orchestrator-only/verification/` are schema-valid
-
-Expected output when everything is correct:
+Expected output after proper setup:
 
 ```
-Init Verification
+📋 Current Step: Select Task
 
-  ✓ [DIR-common-templates] Directory: common/templates
-  ✓ [DIR-orchestrator--orchestrator-only-verification] Directory: orchestrator/.orchestrator-only/verification
-  ✓ [DIR-orchestrator-processes] Directory: orchestrator/processes
-  ✓ [DIR-handover] Directory: handover
-  ✓ [DIR-implementor] Directory: implementor
-  ✓ [FILE-orchestra-yaml] Configuration file
-  ✓ [FILE-manifest-yaml] Manifest file
-  ✓ [FILE-progress-yaml] Progress file
-  ✓ [VERIFY-task-001-yaml] Verification: task-001.yaml
-  ✓ [VERIFY-task-002-yaml] Verification: task-002.yaml
+Sprint: sprint-001 (ACTIVE)
 
-✓ All 10 checks passed. Initialization verified.
+▸ Select a task to work on
+
+No task is currently in progress. Run prepare to select and prepare the next available task.
+
+Run:
+  orchestra prepare
 ```
-
-**If verification fails**, fix the issues and re-run until all checks pass:
-
-```
-  ✗ [VERIFY-task-001-yaml] Verification: task-001.yaml
-      Expected: Valid schema
-      Actual:   Invalid: Required
-      Fix:      Verification YAML validation failed:
-
-  ❌ checks: Required
-     Received: "undefined"
-
-✗ 1 of 9 checks failed. Fix issues above.
-```
-
-> ⚠️ **IMPORTANT**: You MUST iterate until `orchestra init --verify` passes completely before proceeding to Process 1. This is the structural gate that ensures all verification YAMLs are correctly formatted.
 
 ### Step 6: Prepare Handover Folder
 
@@ -433,7 +408,6 @@ Before proceeding to Process 1:
 - [ ] Source requirements analyzed
 - [ ] All tasks identified and ordered in `manifest.yaml`
 - [ ] Verification YAML created for EACH task in `.orchestrator-only/verification/`
-- [ ] **`orchestra init --verify` passes with ALL checks green**
 - [ ] `orchestra status` shows valid configuration
 - [ ] Handover folder has no stale files
 - [ ] Ready to run `orchestra prepare --task 1`
@@ -442,15 +416,14 @@ Before proceeding to Process 1:
 
 ## CLI Commands Reference
 
-| Command                        | Purpose                                        |
-| ------------------------------ | ---------------------------------------------- |
-| `orchestra init`               | Initialize folder structure                    |
-| `orchestra init --spec <path>` | Initialize with SpecKit reference              |
-| `orchestra init --verify`      | **Verify initialization and all verification YAMLs** |
-| `orchestra status`             | Show current state                             |
-| `orchestra next`               | Show what to do next                           |
-| `orchestra prepare`            | Prepare handover for next task                 |
-| `orchestra prepare --task N`   | Prepare specific task                          |
+| Command                        | Purpose                           |
+| ------------------------------ | --------------------------------- |
+| `orchestra init`               | Initialize folder structure       |
+| `orchestra init --spec <path>` | Initialize with SpecKit reference |
+| `orchestra status`             | Show current state                |
+| `orchestra next`               | Show what to do next              |
+| `orchestra prepare`            | Prepare handover for next task    |
+| `orchestra prepare --task N`   | Prepare specific task             |
 
 ---
 

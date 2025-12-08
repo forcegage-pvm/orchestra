@@ -26,6 +26,11 @@ import { getCommandGitBehavior } from "../core/git-defaults.js";
 import { commit, stageFiles } from "../core/git.js";
 import * as output from "../core/output.js";
 import { DEFAULT_CONFIG } from "../core/types.js";
+import {
+  formatVerificationErrors,
+  validateVerificationYaml,
+  VerificationValidationError,
+} from "../core/verification.js";
 
 /**
  * Init command options
@@ -45,6 +50,8 @@ export interface InitOptions {
   gitStage?: boolean;
   /** Commit generated files to git (implies --git-stage) */
   gitCommit?: boolean;
+  /** Verify existing initialization */
+  verify?: boolean;
 }
 
 /**
@@ -245,8 +252,13 @@ export function initCommand(): Command {
       "--git-commit",
       "Commit generated files to git (implies --git-stage)"
     )
+    .option("--verify", "Verify existing initialization structure and files")
     .action(async (options: InitOptions) => {
-      await runInit(options);
+      if (options.verify) {
+        await runInitVerify(options);
+      } else {
+        await runInit(options);
+      }
     });
 }
 
@@ -529,9 +541,193 @@ function showSuccess(
     "  3. " +
       chalk.bold("Verify setup:") +
       "        " +
-      chalk.cyan("orchestra status")
+      chalk.cyan("orchestra init --verify")
   );
   console.log("");
+}
+
+/**
+ * Verification check result
+ */
+interface InitVerifyCheck {
+  id: string;
+  name: string;
+  passed: boolean;
+  expected?: string;
+  actual?: string;
+  fix?: string;
+}
+
+/**
+ * Verify existing Orchestra initialization
+ * Validates structure, required files, and verification YAML schemas
+ */
+export async function runInitVerify(options: InitOptions): Promise<void> {
+  const cwd = options.orchestraRoot ?? process.cwd();
+  const orchestraRoot = findOrchestraRoot(cwd);
+
+  if (!orchestraRoot) {
+    if (options.json) {
+      console.log(
+        JSON.stringify({
+          success: false,
+          error: "Orchestra not initialized",
+          hint: "Run 'orchestra init' first",
+        })
+      );
+    } else {
+      output.print.error("Orchestra not initialized in this directory.");
+      output.print.info("Run 'orchestra init' first.");
+    }
+    process.exit(1);
+  }
+
+  const orchestraDir = path.join(orchestraRoot, ".orchestra");
+  const checks: InitVerifyCheck[] = [];
+
+  // Check 1: Required folders exist
+  const requiredFolders = [
+    "common/templates",
+    "orchestrator/.orchestrator-only/verification",
+    "orchestrator/processes",
+    "handover",
+    "implementor",
+  ];
+
+  for (const folder of requiredFolders) {
+    const folderPath = path.join(orchestraDir, folder);
+    const exists = fs.existsSync(folderPath);
+    const check: InitVerifyCheck = {
+      id: `DIR-${folder.replace(/[/.]/g, "-")}`,
+      name: `Directory: ${folder}`,
+      passed: exists,
+      expected: "Exists",
+      actual: exists ? "Exists" : "Missing",
+    };
+    if (!exists) {
+      check.fix = `mkdir -p "${folderPath}"`;
+    }
+    checks.push(check);
+  }
+
+  // Check 2: Required config files exist
+  const requiredFiles = [
+    { path: "orchestra.yaml", name: "Configuration file" },
+    { path: "manifest.yaml", name: "Manifest file" },
+    { path: "progress.yaml", name: "Progress file" },
+  ];
+
+  for (const file of requiredFiles) {
+    const filePath = path.join(orchestraDir, file.path);
+    const exists = fs.existsSync(filePath);
+    const check: InitVerifyCheck = {
+      id: `FILE-${file.path.replace(/[/.]/g, "-")}`,
+      name: file.name,
+      passed: exists,
+      expected: "Exists",
+      actual: exists ? "Exists" : "Missing",
+    };
+    if (!exists) {
+      check.fix = `Run 'orchestra init --force' to regenerate`;
+    }
+    checks.push(check);
+  }
+
+  // Check 3: Validate all verification YAML files in orchestrator-only
+  const verificationDir = path.join(
+    orchestraDir,
+    "orchestrator",
+    ".orchestrator-only",
+    "verification"
+  );
+
+  if (fs.existsSync(verificationDir)) {
+    const verificationFiles = fs
+      .readdirSync(verificationDir)
+      .filter((f) => f.endsWith(".yaml") || f.endsWith(".yml"));
+
+    for (const file of verificationFiles) {
+      const filePath = path.join(verificationDir, file);
+      const result = validateVerificationYaml(filePath);
+
+      if (result.valid) {
+        checks.push({
+          id: `VERIFY-${file.replace(/[/.]/g, "-")}`,
+          name: `Verification: ${file}`,
+          passed: true,
+          expected: "Valid schema",
+          actual: "Valid",
+        });
+      } else {
+        const errorSummary = result.errors
+          .slice(0, 2)
+          .map((e: VerificationValidationError) => e.message)
+          .join("; ");
+        const check: InitVerifyCheck = {
+          id: `VERIFY-${file.replace(/[/.]/g, "-")}`,
+          name: `Verification: ${file}`,
+          passed: false,
+          expected: "Valid schema",
+          actual: `Invalid: ${errorSummary}`,
+          fix: formatVerificationErrors(result.errors),
+        };
+        checks.push(check);
+      }
+    }
+  }
+
+  // Calculate results
+  const passed = checks.filter((c) => c.passed).length;
+  const failed = checks.filter((c) => !c.passed).length;
+  const allPassed = failed === 0;
+
+  // Output results
+  if (options.json) {
+    console.log(
+      JSON.stringify({
+        success: allPassed,
+        checks,
+        summary: {
+          total: checks.length,
+          passed,
+          failed,
+        },
+      })
+    );
+  } else {
+    output.print.header("Init Verification");
+    console.log("");
+
+    for (const check of checks) {
+      if (check.passed) {
+        console.log(`  ${chalk.green("✓")} [${check.id}] ${check.name}`);
+      } else {
+        console.log(`  ${chalk.red("✗")} [${check.id}] ${check.name}`);
+        if (check.expected) {
+          console.log(chalk.dim(`      Expected: ${check.expected}`));
+        }
+        if (check.actual) {
+          console.log(chalk.dim(`      Actual:   ${check.actual}`));
+        }
+        if (check.fix) {
+          console.log(chalk.yellow(`      Fix:      ${check.fix}`));
+        }
+      }
+    }
+
+    console.log("");
+    if (allPassed) {
+      output.print.success(
+        `All ${checks.length} checks passed. Initialization verified.`
+      );
+    } else {
+      output.print.error(
+        `${failed} of ${checks.length} checks failed. Fix issues above.`
+      );
+    }
+  }
+
+  process.exit(allPassed ? 0 : 1);
 }
 
 export { initCommand as createInitCommand };
