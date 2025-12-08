@@ -9,67 +9,97 @@
 |-------|-------|
 | Task ID | `1` |
 | Title | Add MCP SDK Dependency |
-| Priority | P1 |
+| Category | INFRASTRUCTURE |
+| Priority | P1 (MVP Core) |
+| Dependencies | None |
 
 ## Objective
 
-Add @modelcontextprotocol/sdk ^0.6.0 dependency to package.json
+Add the Model Context Protocol (MCP) SDK as a project dependency to enable building an MCP server that exposes Orchestra operations as AI-accessible tools. This is the foundational step for the entire MCP Server feature.
 
 ## Acceptance Criteria
 
-<!-- ORCHESTRATOR: You MUST fill in acceptance criteria. Do NOT leave this empty. -->
-
 | # | Criterion | Verification Method |
 |---|-----------|---------------------|
-| 1 | [REQUIRED: Specific measurable outcome] | [How to verify] |
-| 2 | [REQUIRED: Another outcome] | [How to verify] |
-
+| 1 | `@modelcontextprotocol/sdk` version ^0.6.0 (or compatible) exists in package.json dependencies | Inspect `package.json` dependencies section |
+| 2 | `npm install` completes without errors | Run `npm install` |
+| 3 | TypeScript can resolve MCP SDK types | Run `npm run typecheck` |
 
 ## File Operations
 
-<!-- ORCHESTRATOR: You MUST list all file operations. Never say "see spec file". -->
-
 | Operation | Path | Purpose |
 |-----------|------|---------|
-| CREATE | `[REQUIRED: path/to/new/file.ts]` | [Purpose of this file] |
-| MODIFY | `[REQUIRED: path/to/existing/file.ts]` | [What changes needed] |
+| MODIFY | `package.json` | Add `@modelcontextprotocol/sdk` to dependencies with version `^0.6.0` |
+
+**Note**: If the dependency already exists with a compatible version (e.g., `^0.6.1`), no changes are needed.
 
 ## Deliverables
 
-<!-- ORCHESTRATOR: You MUST list specific deliverables. -->
-
-- [ ] [REQUIRED: Specific file or artifact]
-- [ ] [REQUIRED: Tests passing]
-- [ ] [REQUIRED: Documentation if applicable]
+- [ ] `@modelcontextprotocol/sdk` present in `package.json` dependencies
+- [ ] `npm install` succeeds without errors
+- [ ] `npm run typecheck` passes
+- [ ] `npm test` passes all existing tests
+- [ ] `npm run build` succeeds
 
 ## TDD / Testing
 
+### Testing Strategy
 
-<!-- ORCHESTRATOR: You MUST provide test structure with sample data. -->
+This task is a dependency-only change. No new unit tests are required.
 
-### Test Structure
+### Validation Commands
 
-```typescript
-describe('[Component/Feature Name]', () => {
-  describe('[function/method name]', () => {
-    it('should [REQUIRED: specific behavior]', () => {
-      // Sample input
-      const input = { /* [REQUIRED: sample data] */ };
-      
-      // Expected output
-      const expected = { /* [REQUIRED: expected result] */ };
-      
-      // Test assertion
-    });
+```bash
+# Verify dependency is installed and types resolve
+npm install
+npm run typecheck
 
-    it('should handle [REQUIRED: edge case]', () => {
-      // Edge case test
-    });
-  });
-});
+# Verify no regression
+npm test
+npm run build
 ```
 
+### Success Criteria
 
+| Command | Expected Result |
+|---------|-----------------|
+| `npm install` | Exit code 0, no errors |
+| `npm run typecheck` | Exit code 0, no type errors |
+| `npm test` | All existing tests pass |
+| `npm run build` | Exit code 0, build succeeds |
+
+## Implementation Notes
+
+### Current State Check
+
+First, check if the dependency already exists:
+
+```bash
+grep -i "modelcontextprotocol" package.json
+```
+
+If output shows `@modelcontextprotocol/sdk` with version `^0.6.x`, the task may already be complete.
+
+### Expected package.json Change
+
+If not present, add to dependencies section:
+
+```json
+{
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^0.6.0"
+  }
+}
+```
+
+### SDK Import Pattern (for verification)
+
+Once installed, these imports should resolve without errors:
+
+```typescript
+import { Server } from "@modelcontextprotocol/sdk/server/index.js";
+import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+```
 
 ---
 
