@@ -5,7 +5,7 @@ checklist:
   - id: PRE-01
     item: "Closeout check passed"
     status: PASS
-    notes: "orchestra closeout --fix passed"
+    notes: "First task of sprint - no previous task to closeout"
 
   - id: PRE-02
     item: "All TODO markers filled in current-task.md"
@@ -15,7 +15,7 @@ checklist:
   - id: PRE-03
     item: "All file paths are relative to repo root"
     status: PASS
-    notes: "package.json path is relative"
+    notes: "package.json path is relative to repo root"
 
   - id: PRE-04
     item: "CREATE files have: path + purpose + exports"
@@ -25,23 +25,23 @@ checklist:
   - id: PRE-05
     item: "MODIFY files have: path + exact changes"
     status: PASS
-    notes: "MODIFY package.json to add @modelcontextprotocol/sdk dependency"
+    notes: "MODIFY package.json to add @modelcontextprotocol/sdk dependency - exact JSON shown"
 
   - id: PRE-06
     item: "Test requirements have concrete sample data"
     status: PASS
-    notes: "Validation commands table with expected results provided"
+    notes: "Validation commands table with expected results provided - no unit tests needed for this task"
 
   - id: PRE-07
     item: "Hidden verification criteria created"
     status: PASS
-    notes: "verification/task-001.yaml exists with 3 checks"
+    notes: "verification/task-001.yaml exists with 6 comprehensive checks"
 
   - id: PRE-08
     item: "A fresh agent could complete this without questions"
     status: PASS
-    notes: "Clear objective, specific file operation, validation commands"
+    notes: "Clear objective, specific file operation, validation commands, exact JSON change shown"
 
 # Sign-off
 prepared_by: "orchestrator-agent"
-prepared_at: "2025-12-08T09:35:00Z"
+prepared_at: "2025-12-08T12:00:00Z"

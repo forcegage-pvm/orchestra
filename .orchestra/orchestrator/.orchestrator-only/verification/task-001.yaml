@@ -1,4 +1,5 @@
 # Verification Criteria for Task 1: Add MCP SDK Dependency
+# ⛔ NEVER show this to the implementor
 task_id: 1
 title: "Add MCP SDK Dependency"
 category: "INFRASTRUCTURE"
@@ -6,21 +7,48 @@ created_at: "2025-12-08"
 
 checks:
   - id: "V1.1"
-    description: "package.json contains @modelcontextprotocol/sdk dependency"
+    description: "package.json contains @modelcontextprotocol/sdk in dependencies section"
     severity: critical
     type: pattern_match
     path: "package.json"
-    pattern: "@modelcontextprotocol/sdk"
+    pattern: '"@modelcontextprotocol/sdk"'
+    notes: "Dependency must be in the 'dependencies' object, not devDependencies"
 
   - id: "V1.2"
-    description: "SDK version is ^0.6.0 or compatible"
+    description: "SDK version is ^0.6.x (0.6.0 or higher minor compatible)"
     severity: critical
     type: pattern_match
     path: "package.json"
-    pattern: "0\\.6\\."
+    pattern: '"\\^0\\.6\\.[0-9]+"'
+    notes: "Version must be semver ^0.6.x format"
 
   - id: "V1.3"
     description: "npm install completes without errors"
     severity: critical
     type: command
     command: "npm install"
+    expected_exit_code: 0
+
+  - id: "V1.4"
+    description: "Package directory exists in node_modules"
+    severity: critical
+    type: command
+    command: "test -d node_modules/@modelcontextprotocol/sdk"
+    expected_exit_code: 0
+    notes: "SDK must be physically installed"
+
+  - id: "V1.5"
+    description: "Existing tests still pass"
+    severity: critical
+    type: command
+    command: "npm test"
+    expected_exit_code: 0
+    notes: "No regression in existing functionality"
+
+  - id: "V1.6"
+    description: "TypeScript compilation succeeds"
+    severity: critical
+    type: command
+    command: "npm run typecheck"
+    expected_exit_code: 0
+    notes: "No type errors introduced"

@@ -13,8 +13,8 @@ tasks:
     dependencies: []
     retry_count: 0
     max_retries: 3
+    started_at: "2025-12-08T07:46:22.419Z"
     speckit_task_ref: "001-mcp-server/tasks.md#T001"
-    started_at: "2025-12-08T07:35:04.172Z"
   - task_id: 2
     title: "Create MCP Directory Structure"
     description: "Create src/mcp/ directory structure per plan.md"
