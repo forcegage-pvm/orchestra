@@ -211,7 +211,7 @@ After CLI generates the handover skeleton, **EXTRACT and FILL IN** task-specific
 
 ### A-PREP-09: Complete Pre-Flight Checklist
 
-The CLI generates `handover/preflight-checklist.yaml`. Complete all checklist items:
+Create your quality checklist in `.orchestra/orchestrator/.orchestrator-only/preflight/task-N-checklist.yaml`. Complete all checklist items:
 
 - [ ] Task closeout check passed
 - [ ] Read process documentation (not from memory)
@@ -312,12 +312,8 @@ orchestra prepare --json
 | Path | Purpose | Created By |
 |------|---------|------------|
 | `.orchestra/handover/current-task.md` | Main handover (markdown format) | CLI |
-| `.orchestra/orchestrator/.orchestrator-only/verification/task-N.md` | Verification (YAML format) | CLI |
 | `.orchestra/handover/completion-signal.md` | Signal template for implementor | CLI |
 | `.orchestra/handover/task-context.md` | Background context | CLI |
-| `.orchestra/handover/verification/` | Verification folder (cleared and recreated) | CLI |
-| `.orchestra/handover/preflight-checklist.yaml` | Pre-flight checklist for orchestrator | CLI |
-| `.orchestra/orchestrator/.orchestrator-only/verification/preflight-task-N.yaml` | Pre-flight checklist verification (YAML format) | CLI |
 
 ### Updated
 
@@ -355,7 +351,6 @@ orchestra prepare --json
 | `current-task.md.hbs` | `handover/current-task.md` | Markdown |
 | `completion-signal.md.hbs` | `handover/completion-signal.md` | Markdown |
 | `task-context.md.hbs` | `handover/task-context.md` | Markdown |
-| `orchestrator-preflight.md.hbs` | `handover/preflight-checklist.yaml` | YAML |
 
 ### Format Selection
 

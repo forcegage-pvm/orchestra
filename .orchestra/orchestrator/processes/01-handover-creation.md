@@ -42,13 +42,13 @@ All paths in this document are relative to the `.orchestra/` folder:
 ├── handover/                        ← Where you CREATE handover files
 │   ├── agent_readme.md              ← Implementor entry point
 │   ├── current-task.md              ← Main handover (you fill this)
-│   ├── completion-signal.md         ← For implementor to signal done
-│   └── preflight-checklist.yaml     ← Your quality checklist
+│   └── completion-signal.md         ← For implementor to signal done
 └── orchestrator/
     └── .orchestrator-only/          ← HIDDEN from implementor
         ├── verification/            ← Secret acceptance tests
         │   └── task-N.yaml          ← You create this
-        └── preflight/               ← Archived handovers
+        └── preflight/               ← Your quality checklists
+            └── task-N-checklist.yaml ← You create this
 ```
 
 ### Prerequisites Checklist
@@ -319,10 +319,10 @@ visual_verification:
 
 ### STEP 5: Complete Pre-Flight Checklist
 
-Open the generated checklist:
+Create your quality checklist in the hidden orchestrator folder:
 
 ```bash
-code .orchestra/handover/preflight-checklist.yaml
+code .orchestra/orchestrator/.orchestrator-only/preflight/task-N-checklist.yaml
 ```
 
 **Complete every item honestly:**
