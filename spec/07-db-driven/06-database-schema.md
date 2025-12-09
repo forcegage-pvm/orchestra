@@ -13,7 +13,7 @@ This document defines the database schema for Orchestra v2 using **Drizzle ORM**
 **Key Design Principles:**
 - **Normalized structure**: Separate tables for sprints, phases, tasks, verification, handovers, signals, feedback, progress
 - **Referential integrity**: Foreign keys enforce relationships
-- **Audit trail**: Timestamps and status transitions tracked
+- **Audit trail**: Comprehensive logging via progress, tool_executions, system_logs, git_commits
 - **Derived phase status**: Computed from task statuses (not stored)
 - **Role-based views**: Different queries for orchestrator vs implementor
 - **Auto-commit support**: System-wide + per-tool override stored in config
@@ -22,6 +22,8 @@ This document defines the database schema for Orchestra v2 using **Drizzle ORM**
 - **Database**: SQLite (Phase 1), PostgreSQL (Phase 2)
 - **ORM**: Drizzle ORM with TypeScript-first schema
 - **Migrations**: Drizzle Kit for schema versioning
+
+**Table Count**: 16 tables (11 core + 5 utility/audit)
 
 ---
 
@@ -59,12 +61,28 @@ This document defines the database schema for Orchestra v2 using **Drizzle ORM**
 └─────────────┘
 
 ┌─────────────┐
-│  progress   │  (audit trail)
+│  progress   │  (audit trail: task status changes)
 └─────────────┘
 
 ┌─────────────┐
 │   config    │  (system-wide settings)
 └─────────────┘
+
+┌──────────────┐
+│tool_executions│ (audit trail: all tool calls)
+└──────────────┘
+
+┌──────────────┐
+│ system_logs  │  (general logging)
+└──────────────┘
+
+┌──────────────┐
+│ git_commits  │  (git commit tracking)
+└──────────────┘
+
+┌──────────────┐
+│notifications │  (future: human supervisor alerts)
+└──────────────┘
 ```
 
 ---
@@ -507,6 +525,7 @@ export const progress = sqliteTable('progress', {
   
   // Change metadata
   workflow_step: text('workflow_step').notNull(), // Sprint-level workflow context
+  triggered_by: text('triggered_by').notNull(), // orchestrator | implementor | system
   notes: text('notes'),
   
   // Timestamps
@@ -520,6 +539,7 @@ export const progress = sqliteTable('progress', {
   sprintProgressIdx: index('sprint_progress_idx').on(progress.sprint_id),
   taskProgressIdx: index('task_progress_idx').on(progress.task_id),
   timestampIdx: index('timestamp_idx').on(progress.changed_at),
+  triggeredByIdx: index('triggered_by_idx').on(progress.triggered_by),
 }))
 ```
 
@@ -527,6 +547,7 @@ export const progress = sqliteTable('progress', {
 - Immutable audit trail (append-only)
 - Records every task status change
 - `from_status` is null for initial PENDING status
+- `triggered_by` tracks actor (orchestrator, implementor, or system)
 
 ---
 
@@ -559,12 +580,219 @@ export const config = sqliteTable('config', {
 // Per-tool overrides (null = use global)
 { key: 'tools.configure_sprint.auto_commit', value: 'null', description: 'Override for configure_sprint' }
 { key: 'tools.get_task.auto_commit', value: 'false', description: 'Read tools never commit' }
+
+// Pre-signal check commands
+{ key: 'pre_signal_checks.build', value: '{"command": "npm run build", "timeout_ms": 60000}' }
+{ key: 'pre_signal_checks.test', value: '{"command": "npm test", "timeout_ms": 120000}' }
+{ key: 'pre_signal_checks.lint', value: '{"command": "npm run lint", "timeout_ms": 30000}' }
+
+// Retry limits
+{ key: 'defaults.max_retries', value: '3' }
+{ key: 'defaults.priority', value: 'P1' }
 ```
 
 **Notes:**
 - Key-value store for system config
 - `value` is JSON-serialized for complex types
 - Per-tool auto-commit overrides stored here
+- Pre-signal check commands configurable
+
+---
+
+### 3.12 `tool_executions` Table
+
+Audit trail of all tool invocations (for debugging and analytics).
+
+```typescript
+export const toolExecutions = sqliteTable('tool_executions', {
+  // Primary key
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  
+  // Tool metadata
+  tool_name: text('tool_name').notNull(), // e.g., "configure_sprint"
+  role: text('role').notNull(), // orchestrator | implementor
+  
+  // Context
+  sprint_id: text('sprint_id').references(() => sprints.id, { onDelete: 'set null' }),
+  task_id: integer('task_id').references(() => tasks.id, { onDelete: 'set null' }),
+  
+  // Execution details
+  input: text('input').notNull(), // JSON: tool input parameters
+  output: text('output'), // JSON: tool output (null if error)
+  success: integer('success').notNull(), // 0 = false, 1 = true
+  error_message: text('error_message'), // Error details if failed
+  
+  // Performance
+  duration_ms: integer('duration_ms').notNull(),
+  
+  // Git commit (if auto-commit enabled)
+  git_commit_sha: text('git_commit_sha'),
+  
+  // Timestamps
+  executed_at: text('executed_at').notNull(),
+});
+```
+
+**Indexes:**
+```typescript
+.indexes((executions) => ({
+  toolNameIdx: index('tool_name_idx').on(executions.tool_name),
+  sprintToolIdx: index('sprint_tool_idx').on(executions.sprint_id, executions.tool_name),
+  timestampIdx: index('execution_timestamp_idx').on(executions.executed_at),
+  successIdx: index('success_idx').on(executions.success),
+}))
+```
+
+**Notes:**
+- Complete audit trail of all tool calls
+- Enables analytics (tool usage, success rates, performance)
+- Helps debugging (what input caused failure?)
+- Foreign keys use `onDelete: 'set null'` (preserve logs even if sprint/task deleted)
+
+---
+
+### 3.13 `system_logs` Table
+
+General system logs (errors, warnings, info).
+
+```typescript
+export const systemLogs = sqliteTable('system_logs', {
+  // Primary key
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  
+  // Log level
+  level: text('level').notNull(), // ERROR | WARN | INFO | DEBUG
+  
+  // Log data
+  category: text('category').notNull(), // validation | database | git | verification | mcp
+  message: text('message').notNull(),
+  details: text('details'), // JSON: additional context
+  
+  // Context (optional)
+  sprint_id: text('sprint_id').references(() => sprints.id, { onDelete: 'set null' }),
+  task_id: integer('task_id').references(() => tasks.id, { onDelete: 'set null' }),
+  tool_execution_id: integer('tool_execution_id').references(() => toolExecutions.id, { onDelete: 'set null' }),
+  
+  // Stack trace (for errors)
+  stack_trace: text('stack_trace'),
+  
+  // Timestamps
+  logged_at: text('logged_at').notNull(),
+});
+```
+
+**Indexes:**
+```typescript
+.indexes((logs) => ({
+  levelIdx: index('level_idx').on(logs.level),
+  categoryIdx: index('category_idx').on(logs.category),
+  timestampIdx: index('log_timestamp_idx').on(logs.logged_at),
+  sprintLogIdx: index('sprint_log_idx').on(logs.sprint_id),
+}))
+```
+
+**Notes:**
+- Centralized logging (not just console.log)
+- Queryable for debugging and monitoring
+- Links to sprint/task/tool execution for context
+- Use for system health monitoring
+
+---
+
+### 3.14 `git_commits` Table
+
+Track all git commits made by Orchestra (for audit and rollback).
+
+```typescript
+export const gitCommits = sqliteTable('git_commits', {
+  // Primary key
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  
+  // Commit metadata
+  commit_sha: text('commit_sha').notNull().unique(),
+  commit_message: text('commit_message').notNull(),
+  branch: text('branch').notNull(),
+  
+  // Context
+  sprint_id: text('sprint_id').references(() => sprints.id, { onDelete: 'set null' }),
+  task_id: integer('task_id').references(() => tasks.id, { onDelete: 'set null' }),
+  tool_execution_id: integer('tool_execution_id')
+    .notNull()
+    .references(() => toolExecutions.id, { onDelete: 'cascade' }),
+  
+  // Changes
+  files_changed: text('files_changed').notNull(), // JSON: [{ path, status, additions, deletions }]
+  total_additions: integer('total_additions').notNull(),
+  total_deletions: integer('total_deletions').notNull(),
+  
+  // Timestamps
+  committed_at: text('committed_at').notNull(),
+});
+```
+
+**Indexes:**
+```typescript
+.indexes((commits) => ({
+  commitShaIdx: index('commit_sha_idx').on(commits.commit_sha),
+  sprintCommitIdx: index('sprint_commit_idx').on(commits.sprint_id),
+  timestampIdx: index('commit_timestamp_idx').on(commits.committed_at),
+}))
+```
+
+**Notes:**
+- Track all Orchestra git commits
+- Enables rollback if needed
+- Links commit to tool execution that triggered it
+- Stores diff summary for audit
+
+---
+
+### 3.15 `notifications` Table (Future)
+
+For human supervisor notifications (escalations, errors).
+
+```typescript
+export const notifications = sqliteTable('notifications', {
+  // Primary key
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  
+  // Notification type
+  type: text('type').notNull(), // ESCALATION | ERROR | WARNING | INFO
+  
+  // Content
+  title: text('title').notNull(),
+  message: text('message').notNull(),
+  action_required: integer('action_required').notNull(), // 0 = false, 1 = true
+  
+  // Context
+  sprint_id: text('sprint_id').references(() => sprints.id, { onDelete: 'cascade' }),
+  task_id: integer('task_id').references(() => tasks.id, { onDelete: 'cascade' }),
+  
+  // Status
+  read: integer('read').notNull().default(0), // 0 = unread, 1 = read
+  acknowledged: integer('acknowledged').notNull().default(0), // 0 = false, 1 = true
+  
+  // Timestamps
+  created_at: text('created_at').notNull(),
+  read_at: text('read_at'),
+  acknowledged_at: text('acknowledged_at'),
+});
+```
+
+**Indexes:**
+```typescript
+.indexes((notifications) => ({
+  typeIdx: index('notification_type_idx').on(notifications.type),
+  readIdx: index('notification_read_idx').on(notifications.read),
+  timestampIdx: index('notification_timestamp_idx').on(notifications.created_at),
+}))
+```
+
+**Notes:**
+- Future feature for human supervisor workflow
+- Tracks escalations, errors, important events
+- Read/acknowledged status for notification management
+- Can be extended with delivery channels (email, webhook, etc.)
 
 ---
 
@@ -704,8 +932,11 @@ npm run drizzle-kit push:sqlite
 | `tasks` | `(status)` | Filter by status |
 | `verification_checks` | `(task_id)` | Get all checks for task |
 | `verification_results` | `(signal_id)` | Get results for signal |
-| `progress` | `(sprint_id)`, `(task_id)` | Audit trail queries |
+| `progress` | `(sprint_id)`, `(task_id)`, `(triggered_by)` | Audit trail queries |
 | `handovers` | `(task_id)` | Fast handover lookup |
+| `tool_executions` | `(tool_name)`, `(sprint_id, tool_name)`, `(success)` | Tool analytics |
+| `system_logs` | `(level)`, `(category)`, `(logged_at)` | Log filtering |
+| `git_commits` | `(commit_sha)`, `(sprint_id)` | Commit lookup |
 
 ### 7.2 Query Optimization
 
@@ -725,6 +956,33 @@ for (const task of tasks) {
   const checks = db.query.verificationChecks.findMany({ where: eq(verificationChecks.task_id, task.id) });
 }
 ```
+
+### 7.3 Retention Policies
+
+**Audit tables can grow large** - implement retention:
+
+```typescript
+// Delete old tool executions (keep last 90 days)
+db.delete(toolExecutions)
+  .where(lt(toolExecutions.executed_at, ninetyDaysAgo));
+
+// Delete old system logs (keep ERROR/WARN forever, INFO/DEBUG 30 days)
+db.delete(systemLogs)
+  .where(
+    and(
+      in(systemLogs.level, ['INFO', 'DEBUG']),
+      lt(systemLogs.logged_at, thirtyDaysAgo)
+    )
+  );
+
+// Archive completed sprints (move to separate archive table)
+// Keep active sprints in main tables for performance
+```
+
+**Notes:**
+- Run retention cleanup as background job
+- Consider partitioning audit tables by date (PostgreSQL)
+- Archive old sprints to separate database
 
 ---
 
@@ -792,18 +1050,45 @@ describe('configure_sprint workflow', () => {
 
 ## 10. Next Steps
 
-1. ✅ Database schema defined (Drizzle tables)
+1. ✅ Database schema defined (16 tables: 11 core + 5 utility/audit)
 2. ⏭️ Create Drizzle schema file (`src/db/schema.ts`)
 3. ⏭️ Generate Drizzle types (`npm run drizzle-kit`)
 4. ⏭️ Create Zod schemas for validation (next document)
 5. ⏭️ Implement MCP tools with database operations
+6. ⏭️ Implement audit log retention policies
 
 ---
 
-## Appendix: Complete Schema Export
+## Appendix A: Complete Table Summary
 
-See `src/db/schema.ts` for complete Drizzle schema with:
-- All 11 tables defined
-- Indexes configured
-- Foreign key relationships
-- TypeScript types inferred from schema
+### Core Tables (11)
+
+1. **sprints** - Sprint metadata with workflow_step
+2. **phases** - Sprint phases with display order
+3. **tasks** - Task definitions with status and dependencies
+4. **consolidations** - SpecKit consolidation mappings
+5. **verification_checks** - Verification criteria (3 types)
+6. **handovers** - Task handover data for implementor
+7. **signals** - Task completion signals with pre-checks
+8. **verification_results** - Check execution results
+9. **feedback** - Sanitized feedback for failures
+10. **progress** - Task status change audit trail
+11. **config** - System-wide configuration
+
+### Utility/Audit Tables (5)
+
+12. **tool_executions** - All tool invocation audit trail
+13. **system_logs** - General system logging (ERROR/WARN/INFO/DEBUG)
+14. **git_commits** - Git commit tracking with diffs
+15. **notifications** - Human supervisor alerts (future)
+16. _(Reserved for future: metrics, analytics aggregates)_
+
+### Total Storage Estimate (per sprint)
+
+Assuming 10 tasks per sprint, 3 verification checks per task, 2 retry attempts:
+
+- **Core data**: ~100 KB (tasks, checks, handovers, signals)
+- **Audit trails**: ~500 KB (progress, tool_executions, git_commits)
+- **Logs**: ~1-5 MB (system_logs, depends on verbosity)
+
+**Total**: ~1-5 MB per sprint (very manageable for SQLite)
