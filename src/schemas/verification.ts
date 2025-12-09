@@ -30,6 +30,9 @@ export const GetVerificationResultsOutputSchema = z.object({
   results: z.array(
     z.object({
       check_id: z.string(),
+      type: z.string(), // structural | behavioral | quality
+      description: z.string(),
+      severity: SeveritySchema,
       passed: z.boolean(),
       output: z.string().optional(),
       duration_ms: z.number().int().nonnegative(),
@@ -39,7 +42,13 @@ export const GetVerificationResultsOutputSchema = z.object({
     total_checks: z.number().int().nonnegative(),
     passed: z.number().int().nonnegative(),
     failed: z.number().int().nonnegative(),
-    overall_passed: z.boolean(),
+    overall_passed: z.boolean(), // Based on BLOCKING checks only
+    severity_breakdown: z.object({
+      BLOCKING: z.object({ passed: z.number(), failed: z.number() }),
+      MAJOR: z.object({ passed: z.number(), failed: z.number() }),
+      MINOR: z.object({ passed: z.number(), failed: z.number() }),
+      INFO: z.object({ passed: z.number(), failed: z.number() }),
+    }),
   }),
 });
 

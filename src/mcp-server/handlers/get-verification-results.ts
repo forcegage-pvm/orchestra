@@ -3,11 +3,21 @@
  *
  * Retrieves verification check execution results for the latest signal of a task.
  * Returns orchestrator view with full check details.
+ *
+ * Enhanced output (VER-024, VER-025, VER-026):
+ * - Includes check type, description, and severity per result
+ * - Includes severity breakdown in summary
+ * - overall_passed computed based on BLOCKING checks only
  */
 
 import { and, desc, eq } from "drizzle-orm";
 import { getActiveSprint, getDb } from "../../db/index.js";
-import { signals, tasks, verificationResults } from "../../db/schema.js";
+import {
+  signals,
+  tasks,
+  verificationChecks,
+  verificationResults,
+} from "../../db/schema.js";
 import { validateInput } from "../../schemas/utils.js";
 import {
   GetVerificationResultsInputSchema,
@@ -104,18 +114,76 @@ async function getVerificationResults(
     );
   }
 
-  // 5. Build output
-  const resultsOutput = results.map((r) => ({
-    check_id: r.check_id.toString(),
-    passed: r.passed === 1,
-    output: r.output || undefined,
-    duration_ms: r.duration_ms,
-  }));
+  // 5. Get check details to enrich results
+  const checks = await db
+    .select()
+    .from(verificationChecks)
+    .where(eq(verificationChecks.task_id, task.id));
+
+  const checkMap = new Map(checks.map((c) => [c.id, c]));
+
+  // Define severity type for type safety
+  type Severity = "BLOCKING" | "MAJOR" | "MINOR" | "INFO";
+  const validSeverities: Severity[] = ["BLOCKING", "MAJOR", "MINOR", "INFO"];
+
+  function isValidSeverity(s: string): s is Severity {
+    return validSeverities.includes(s as Severity);
+  }
+
+  // 6. Build enhanced output with check details
+  type ResultOutput = {
+    check_id: string;
+    type: string;
+    description: string;
+    severity: Severity;
+    passed: boolean;
+    duration_ms: number;
+    output?: string;
+  };
+
+  const resultsOutput: ResultOutput[] = results.map((r) => {
+    const check = checkMap.get(r.check_id);
+    const rawSeverity = check?.severity ?? "BLOCKING";
+    const severity: Severity = isValidSeverity(rawSeverity) ? rawSeverity : "BLOCKING";
+    
+    const result: ResultOutput = {
+      check_id: check?.check_id ?? r.check_id.toString(),
+      type: check?.check_type ?? "unknown",
+      description: check?.description ?? "Unknown check",
+      severity,
+      passed: r.passed === 1,
+      duration_ms: r.duration_ms,
+    };
+    if (r.output) {
+      result.output = r.output;
+    }
+    return result;
+  });
+
+  // 7. Compute severity breakdown
+  const severityBreakdown = {
+    BLOCKING: { passed: 0, failed: 0 },
+    MAJOR: { passed: 0, failed: 0 },
+    MINOR: { passed: 0, failed: 0 },
+    INFO: { passed: 0, failed: 0 },
+  };
+
+  for (const result of resultsOutput) {
+    const severity = result.severity;
+    if (result.passed) {
+      severityBreakdown[severity].passed++;
+    } else {
+      severityBreakdown[severity].failed++;
+    }
+  }
+
+  // 8. Compute overall_passed based on BLOCKING checks only
+  const blockingFailed = severityBreakdown.BLOCKING.failed;
+  const overallPassed = blockingFailed === 0;
 
   const totalChecks = results.length;
   const passed = results.filter((r) => r.passed === 1).length;
   const failed = totalChecks - passed;
-  const overallPassed = failed === 0;
 
   // Use run_at from first result (all should have same timestamp)
   const runAt = results[0]!.run_at;
@@ -129,6 +197,7 @@ async function getVerificationResults(
       passed,
       failed,
       overall_passed: overallPassed,
+      severity_breakdown: severityBreakdown,
     },
   };
 }
