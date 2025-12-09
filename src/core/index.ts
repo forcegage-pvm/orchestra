@@ -111,3 +111,10 @@ export {
   extractFileOperations,
   runValidateHandover,
 } from "./validate-handover.js";
+
+// Command execution utility
+export {
+  executeCommand,
+  type ExecuteOptions,
+  type ExecuteResult,
+} from "./command-executor.js";
