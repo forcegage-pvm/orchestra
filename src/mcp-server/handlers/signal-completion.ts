@@ -3,11 +3,17 @@
  *
  * Implementor signals task completion.
  * Runs pre-signal checks, creates signal record, transitions task to GATE_CHECK.
+ *
+ * GAP-01 FIX: Pre-signal checks now execute actual commands instead of trusting claims.
  */
 
 import { randomUUID } from "crypto";
-import { and, eq } from "drizzle-orm";
-import { getActiveSprint, getDb } from "../../db/index.js";
+import { and, eq, inArray } from "drizzle-orm";
+import {
+  runPreSignalChecks,
+  type PreSignalConfig,
+} from "../../core/pre-signal-executor.js";
+import { getActiveSprint, getDb, resolveWorkspacePath } from "../../db/index.js";
 import { config, progress, signals, sprints, tasks } from "../../db/schema.js";
 import {
   SignalCompletionInputSchema,
@@ -88,13 +94,11 @@ async function signalCompletion(
     );
   }
 
-  // 4. Run pre-signal checks
-  const preSignalChecks = runPreSignalChecks(input);
+  // 4. Run pre-signal checks (GAP-01: actually execute commands)
+  const preSignalConfig = await getPreSignalConfig();
+  const preSignalChecks = await runPreSignalChecks(preSignalConfig);
 
-  const allChecksPassed =
-    preSignalChecks.build.passed &&
-    preSignalChecks.test.passed &&
-    preSignalChecks.lint.passed;
+  const allChecksPassed = preSignalChecks.allPassed;
 
   if (!allChecksPassed) {
     const failures = [
@@ -179,39 +183,72 @@ async function signalCompletion(
 }
 
 /**
- * Run pre-signal validation checks
+ * Get pre-signal configuration from database
+ *
+ * Reads command configuration from the config table.
  */
-function runPreSignalChecks(
-  input: typeof SignalCompletionInputSchema._output
-): {
-  build: { passed: boolean; output?: string; duration_ms: number };
-  test: { passed: boolean; output?: string; duration_ms: number };
-  lint: { passed: boolean; output?: string; duration_ms: number };
-} {
-  const buildPassed = input.build_status === "PASS";
-  const testPassed = input.test_status === "PASS";
-  const artifactsPassed = input.artifacts_created.length > 0;
-  const summaryPassed = input.summary.length >= 10;
+async function getPreSignalConfig(): Promise<PreSignalConfig> {
+  const db = getDb();
+  const workspacePath = resolveWorkspacePath();
 
-  const lintOutput = !artifactsPassed
-    ? "No artifacts created"
-    : !summaryPassed
-    ? "Summary too short"
-    : undefined;
+  // Get all pre-signal config keys
+  const configKeys = [
+    "pre_signal_build_command",
+    "pre_signal_test_command",
+    "pre_signal_lint_command",
+    "pre_signal_timeout",
+    "pre_signal_skip_build",
+    "pre_signal_skip_test",
+    "pre_signal_skip_lint",
+  ];
 
-  return {
-    build: {
-      passed: buildPassed,
-      duration_ms: 0,
-    },
-    test: {
-      passed: testPassed,
-      duration_ms: 0,
-    },
-    lint: {
-      passed: artifactsPassed && summaryPassed,
-      ...(lintOutput ? { output: lintOutput } : {}),
-      duration_ms: 0,
-    },
+  const configRows = await db
+    .select()
+    .from(config)
+    .where(inArray(config.key, configKeys));
+
+  // Build config object from database values
+  const configMap = new Map(configRows.map((row) => [row.key, row.value]));
+
+  const preSignalConfig: PreSignalConfig = {
+    workspacePath,
   };
+
+  // Apply configured values
+  const buildCommand = configMap.get("pre_signal_build_command");
+  if (buildCommand) {
+    preSignalConfig.buildCommand = buildCommand;
+  }
+
+  const testCommand = configMap.get("pre_signal_test_command");
+  if (testCommand) {
+    preSignalConfig.testCommand = testCommand;
+  }
+
+  const lintCommand = configMap.get("pre_signal_lint_command");
+  if (lintCommand) {
+    preSignalConfig.lintCommand = lintCommand;
+  }
+
+  const timeout = configMap.get("pre_signal_timeout");
+  if (timeout) {
+    preSignalConfig.timeout = parseInt(timeout, 10);
+  }
+
+  const skipBuild = configMap.get("pre_signal_skip_build");
+  if (skipBuild === "true") {
+    preSignalConfig.skipBuild = true;
+  }
+
+  const skipTest = configMap.get("pre_signal_skip_test");
+  if (skipTest === "true") {
+    preSignalConfig.skipTest = true;
+  }
+
+  const skipLint = configMap.get("pre_signal_skip_lint");
+  if (skipLint === "true") {
+    preSignalConfig.skipLint = true;
+  }
+
+  return preSignalConfig;
 }

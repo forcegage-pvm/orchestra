@@ -118,3 +118,11 @@ export {
   type ExecuteOptions,
   type ExecuteResult,
 } from "./command-executor.js";
+
+// Pre-signal executor (runs actual build/test/lint commands)
+export {
+  runPreSignalChecks,
+  type PreSignalCheckResult,
+  type PreSignalConfig,
+  type PreSignalResult,
+} from "./pre-signal-executor.js";
