@@ -6,14 +6,9 @@
  */
 
 import { and, desc, eq } from "drizzle-orm";
-import { getDb } from "../../db/index.js";
-import {
-  signals,
-  sprints,
-  tasks,
-  verificationResults,
-} from "../../db/schema.js";
-import { createErrorResponse, validateInput } from "../../schemas/utils.js";
+import { getActiveSprint, getDb } from "../../db/index.js";
+import { signals, tasks, verificationResults } from "../../db/schema.js";
+import { validateInput } from "../../schemas/utils.js";
 import {
   GetVerificationResultsInputSchema,
   type GetVerificationResultsOutput,
@@ -22,7 +17,14 @@ import {
 export async function handleGetVerificationResults(input: unknown) {
   const validation = validateInput(GetVerificationResultsInputSchema, input);
   if (!validation.success) {
-    return createErrorResponse(validation.error);
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify(validation.error, null, 2),
+        },
+      ],
+    };
   }
 
   try {
@@ -31,9 +33,25 @@ export async function handleGetVerificationResults(input: unknown) {
       content: [{ type: "text" as const, text: JSON.stringify(output) }],
     };
   } catch (error) {
-    return createErrorResponse(
-      error instanceof Error ? error : new Error(String(error))
-    );
+    const err = error instanceof Error ? error : new Error(String(error));
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify(
+            {
+              success: false,
+              error: {
+                code: "SYSTEM_ERROR",
+                message: err.message,
+              },
+            },
+            null,
+            2
+          ),
+        },
+      ],
+    };
   }
 }
 
@@ -43,7 +61,7 @@ async function getVerificationResults(
   const db = getDb();
 
   // 1. Get active sprint
-  const [sprint] = await db.select().from(sprints).limit(1);
+  const sprint = await getActiveSprint();
 
   if (!sprint) {
     throw new Error("No active sprint");
@@ -100,7 +118,7 @@ async function getVerificationResults(
   const overallPassed = failed === 0;
 
   // Use run_at from first result (all should have same timestamp)
-  const runAt = results[0].run_at;
+  const runAt = results[0]!.run_at;
 
   return {
     task_id: input.task_id,

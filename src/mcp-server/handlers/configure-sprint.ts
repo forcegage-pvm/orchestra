@@ -34,9 +34,13 @@ export async function handleConfigureSprint(
 ): Promise<{ content: Array<{ type: "text"; text: string }> }> {
   const startTime = Date.now();
 
+  // Debug logging
+  console.error("DEBUG: Received input:", JSON.stringify(input, null, 2));
+
   // Validate input
   const validation = validateInput(ConfigureSprintInputSchema, input);
   if (!validation.success) {
+    console.error("DEBUG: Validation failed:", validation.error);
     return {
       content: [
         {

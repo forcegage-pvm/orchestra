@@ -28,7 +28,7 @@ export const ErrorResponseSchema = z.object({
   success: z.literal(false),
   error: z.object({
     code: ErrorCodeSchema,
-    message: z.string().min(1, 'Error message is required'),
+    message: z.string().min(1, "Error message is required"),
     details: z.record(z.unknown()).optional(),
     suggestions: z.array(z.string()).optional(),
   }),

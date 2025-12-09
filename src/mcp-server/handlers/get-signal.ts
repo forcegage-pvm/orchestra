@@ -6,18 +6,25 @@
  */
 
 import { and, desc, eq } from "drizzle-orm";
-import { getDb } from "../../db/index.js";
-import { signals, sprints, tasks } from "../../db/schema.js";
+import { getActiveSprint, getDb } from "../../db/index.js";
+import { signals, tasks } from "../../db/schema.js";
 import {
   GetSignalInputSchema,
   type GetSignalOutput,
 } from "../../schemas/signal.js";
-import { createErrorResponse, validateInput } from "../../schemas/utils.js";
+import { validateInput } from "../../schemas/utils.js";
 
 export async function handleGetSignal(input: unknown) {
   const validation = validateInput(GetSignalInputSchema, input);
   if (!validation.success) {
-    return createErrorResponse(validation.error);
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify(validation.error, null, 2),
+        },
+      ],
+    };
   }
 
   try {
@@ -26,9 +33,25 @@ export async function handleGetSignal(input: unknown) {
       content: [{ type: "text" as const, text: JSON.stringify(output) }],
     };
   } catch (error) {
-    return createErrorResponse(
-      error instanceof Error ? error : new Error(String(error))
-    );
+    const err = error instanceof Error ? error : new Error(String(error));
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify(
+            {
+              success: false,
+              error: {
+                code: "SYSTEM_ERROR",
+                message: err.message,
+              },
+            },
+            null,
+            2
+          ),
+        },
+      ],
+    };
   }
 }
 
@@ -38,7 +61,7 @@ async function getSignal(
   const db = getDb();
 
   // 1. Get active sprint
-  const [sprint] = await db.select().from(sprints).limit(1);
+  const sprint = await getActiveSprint();
 
   if (!sprint) {
     throw new Error("No active sprint");

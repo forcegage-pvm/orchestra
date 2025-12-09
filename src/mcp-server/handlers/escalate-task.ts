@@ -6,7 +6,7 @@
  */
 
 import { and, eq } from "drizzle-orm";
-import { getDb } from "../../db/index.js";
+import { getActiveSprint, getDb } from "../../db/index.js";
 import {
   notifications,
   progress as progressTable,
@@ -17,12 +17,19 @@ import {
   EscalateTaskInputSchema,
   type EscalateTaskOutput,
 } from "../../schemas/completion.js";
-import { createErrorResponse, validateInput } from "../../schemas/utils.js";
+import { validateInput } from "../../schemas/utils.js";
 
 export async function handleEscalateTask(input: unknown) {
   const validation = validateInput(EscalateTaskInputSchema, input);
   if (!validation.success) {
-    return createErrorResponse(validation.error);
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify(validation.error, null, 2),
+        },
+      ],
+    };
   }
 
   try {
@@ -31,9 +38,25 @@ export async function handleEscalateTask(input: unknown) {
       content: [{ type: "text" as const, text: JSON.stringify(output) }],
     };
   } catch (error) {
-    return createErrorResponse(
-      error instanceof Error ? error : new Error(String(error))
-    );
+    const err = error instanceof Error ? error : new Error(String(error));
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify(
+            {
+              success: false,
+              error: {
+                code: "SYSTEM_ERROR",
+                message: err.message,
+              },
+            },
+            null,
+            2
+          ),
+        },
+      ],
+    };
   }
 }
 
@@ -43,7 +66,7 @@ async function escalateTask(
   const db = getDb();
 
   // 1. Get active sprint
-  const [sprint] = await db.select().from(sprints).limit(1);
+  const sprint = await getActiveSprint();
 
   if (!sprint) {
     throw new Error("No active sprint");
@@ -82,8 +105,11 @@ async function escalateTask(
 
   // 5. Log progress
   await db.insert(progressTable).values({
+    sprint_id: sprint.id,
     task_id: task.id,
-    status: "ESCALATED",
+    from_status: task.status,
+    to_status: "ESCALATED",
+    workflow_step: sprint.workflow_step,
     triggered_by: "orchestrator",
     notes: `Escalated: ${input.reason}`,
     changed_at: now,
@@ -101,11 +127,14 @@ async function escalateTask(
   });
 
   await db.insert(notifications).values({
-    notification_type: "TASK_ESCALATION",
-    severity: "HIGH",
+    type: "ESCALATION",
+    title: `Task ${input.task_id} Escalated`,
     message: notificationMessage,
-    related_task_id: task.id,
-    is_read: 0,
+    action_required: 1,
+    sprint_id: sprint.id,
+    task_id: task.id,
+    read: 0,
+    acknowledged: 0,
     created_at: now,
   });
 
@@ -125,7 +154,6 @@ async function escalateTask(
 
   return {
     success: true,
-    message: `Task ${input.task_id} escalated to human supervisor`,
     task_id: input.task_id,
     status: "ESCALATED",
     escalated_at: now,

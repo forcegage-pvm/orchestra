@@ -5,18 +5,25 @@
  */
 
 import { eq } from "drizzle-orm";
-import { getDb } from "../../db/index.js";
-import { phases as phasesTable, sprints, tasks } from "../../db/schema.js";
+import { getDb, getMostRecentSprint } from "../../db/index.js";
+import { phases as phasesTable, tasks } from "../../db/schema.js";
 import {
   GetSprintStatusInputSchema,
   type GetSprintStatusOutput,
 } from "../../schemas/progress.js";
-import { createErrorResponse, validateInput } from "../../schemas/utils.js";
+import { validateInput } from "../../schemas/utils.js";
 
 export async function handleGetSprintStatus(input: unknown) {
   const validation = validateInput(GetSprintStatusInputSchema, input);
   if (!validation.success) {
-    return createErrorResponse(validation.error);
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify(validation.error, null, 2),
+        },
+      ],
+    };
   }
 
   try {
@@ -25,17 +32,33 @@ export async function handleGetSprintStatus(input: unknown) {
       content: [{ type: "text" as const, text: JSON.stringify(output) }],
     };
   } catch (error) {
-    return createErrorResponse(
-      error instanceof Error ? error : new Error(String(error))
-    );
+    const err = error instanceof Error ? error : new Error(String(error));
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify(
+            {
+              success: false,
+              error: {
+                code: "SYSTEM_ERROR",
+                message: err.message,
+              },
+            },
+            null,
+            2
+          ),
+        },
+      ],
+    };
   }
 }
 
 async function getSprintStatus(): Promise<GetSprintStatusOutput> {
   const db = getDb();
 
-  // 1. Get active sprint
-  const [sprint] = await db.select().from(sprints).limit(1);
+  // 1. Get most recent sprint (works on active or completed)
+  const sprint = await getMostRecentSprint();
 
   if (!sprint) {
     throw new Error("No active sprint");
@@ -71,16 +94,16 @@ async function getSprintStatus(): Promise<GetSprintStatusOutput> {
     ).length;
 
     // Derive phase status
-    let phaseStatus: "NOT_STARTED" | "IN_PROGRESS" | "COMPLETE";
+    let phaseStatus: "PENDING" | "ACTIVE" | "COMPLETED";
     if (completedCount === taskCount) {
-      phaseStatus = "COMPLETE";
+      phaseStatus = "COMPLETED";
     } else if (
       completedCount > 0 ||
       phaseTasks.some((t) => !["PENDING", "COMPLETE"].includes(t.status))
     ) {
-      phaseStatus = "IN_PROGRESS";
+      phaseStatus = "ACTIVE";
     } else {
-      phaseStatus = "NOT_STARTED";
+      phaseStatus = "PENDING";
     }
 
     return {

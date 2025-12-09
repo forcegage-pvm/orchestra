@@ -16,12 +16,19 @@ import {
   AddTaskInputSchema,
   type AddTaskOutput,
 } from "../../schemas/sprint-config.js";
-import { createErrorResponse, validateInput } from "../../schemas/utils.js";
+import { validateInput } from "../../schemas/utils.js";
 
 export async function handleAddTask(input: unknown) {
   const validation = validateInput(AddTaskInputSchema, input);
   if (!validation.success) {
-    return createErrorResponse(validation.error);
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify(validation.error, null, 2),
+        },
+      ],
+    };
   }
 
   try {
@@ -30,9 +37,25 @@ export async function handleAddTask(input: unknown) {
       content: [{ type: "text" as const, text: JSON.stringify(output) }],
     };
   } catch (error) {
-    return createErrorResponse(
-      error instanceof Error ? error : new Error(String(error))
-    );
+    const err = error instanceof Error ? error : new Error(String(error));
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify(
+            {
+              success: false,
+              error: {
+                code: "SYSTEM_ERROR",
+                message: err.message,
+              },
+            },
+            null,
+            2
+          ),
+        },
+      ],
+    };
   }
 }
 
@@ -58,7 +81,7 @@ async function addTask(
     .from(tasks)
     .where(eq(tasks.sprint_id, sprint.id));
 
-  const nextTaskId = (maxTaskResult?.maxId ?? 0) + 1;
+  const nextTaskId = (maxTaskResult?.maxId || 0) + 1;
 
   // 3. Resolve phase_id (lookup by phase_id string) - find internal id
   const db_phases = await db.query.phases.findMany({
@@ -70,7 +93,7 @@ async function addTask(
     throw new Error(`Phase not found: ${input.phase_id}`);
   }
 
-  const phaseInternalId = db_phases[0].id;
+  const phaseInternalId = db_phases[0]!.id;
 
   // 4. Validate dependencies reference existing tasks
   if (input.dependencies.length > 0) {
@@ -117,12 +140,16 @@ async function addTask(
     .returning();
 
   // 6. Insert verification checks
-  const structural = input.verification.structural || [];
-  const behavioral = input.verification.behavioral || [];
-  const quality = input.verification.quality || [];
+  const structural = input.verification.structural_checks || [];
+  const behavioral = input.verification.behavioral_checks || [];
+  const quality = input.verification.quality_checks || [];
+
+  if (!insertedTask) {
+    throw new Error("Failed to create task");
+  }
 
   const allChecks = [
-    ...structural.map((check, idx) => ({
+    ...structural.map((check: any, idx: number) => ({
       task_id: insertedTask.id,
       check_id: `struct-${idx}`,
       check_type: "structural" as const,
@@ -131,7 +158,7 @@ async function addTask(
       check_config: JSON.stringify(check.check_config),
       created_at: now,
     })),
-    ...behavioral.map((check, idx) => ({
+    ...behavioral.map((check: any, idx: number) => ({
       task_id: insertedTask.id,
       check_id: `behav-${idx}`,
       check_type: "behavioral" as const,
@@ -140,7 +167,7 @@ async function addTask(
       check_config: JSON.stringify(check.check_config),
       created_at: now,
     })),
-    ...quality.map((check, idx) => ({
+    ...quality.map((check: any, idx: number) => ({
       task_id: insertedTask.id,
       check_id: `qual-${idx}`,
       check_type: "quality" as const,
@@ -157,8 +184,11 @@ async function addTask(
 
   // 7. Insert progress entry
   await db.insert(progress).values({
+    sprint_id: sprint.id,
     task_id: insertedTask.id,
-    status: "PENDING",
+    from_status: null,
+    to_status: "PENDING",
+    workflow_step: sprint.workflow_step,
     triggered_by: "orchestrator",
     notes: `Task ${nextTaskId} created`,
     changed_at: now,
@@ -166,7 +196,6 @@ async function addTask(
 
   return {
     success: true,
-    message: `Task ${nextTaskId} created successfully`,
     task_id: nextTaskId,
   };
 }

@@ -3,7 +3,10 @@
  */
 
 import { ZodError, ZodSchema } from "zod";
-import { ErrorResponse, createErrorResponse as createStructuredError } from "./errors.js";
+import {
+  ErrorResponse,
+  createErrorResponse as createStructuredError,
+} from "./errors.js";
 
 // Re-export createErrorResponse for handlers
 export { createStructuredError as createErrorResponse };
@@ -18,7 +21,9 @@ export type ValidationResult<T> =
 /**
  * Convert Error object to ErrorResponse for MCP handlers
  */
-export function errorToResponse(error: Error): { content: Array<{ type: "text"; text: string }> } {
+export function errorToResponse(error: Error): {
+  content: Array<{ type: "text"; text: string }>;
+} {
   const errorResponse: ErrorResponse = {
     success: false,
     error: {
@@ -96,4 +101,3 @@ export function validateOutput<T>(schema: ZodSchema<T>, data: unknown): T {
  * (alias for validateInput for consistency)
  */
 export const safeParse = validateInput;
-

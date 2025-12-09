@@ -5,19 +5,26 @@
  * Includes feedback if task is in VERIFY_FAILED state.
  */
 
-import { eq } from "drizzle-orm";
-import { getDb } from "../../db/index.js";
-import { feedback, handovers, sprints, tasks } from "../../db/schema.js";
+import { eq, inArray } from "drizzle-orm";
+import { getActiveSprint, getDb } from "../../db/index.js";
+import { feedback, handovers, tasks } from "../../db/schema.js";
 import {
   GetCurrentTaskInputSchema,
   type GetCurrentTaskOutput,
 } from "../../schemas/handover.js";
-import { createErrorResponse, validateInput } from "../../schemas/utils.js";
+import { validateInput } from "../../schemas/utils.js";
 
 export async function handleGetCurrentTask(input: unknown) {
   const validation = validateInput(GetCurrentTaskInputSchema, input);
   if (!validation.success) {
-    return createErrorResponse(validation.error);
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify(validation.error, null, 2),
+        },
+      ],
+    };
   }
 
   try {
@@ -26,9 +33,25 @@ export async function handleGetCurrentTask(input: unknown) {
       content: [{ type: "text" as const, text: JSON.stringify(output) }],
     };
   } catch (error) {
-    return createErrorResponse(
-      error instanceof Error ? error : new Error(String(error))
-    );
+    const err = error instanceof Error ? error : new Error(String(error));
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify(
+            {
+              success: false,
+              error: {
+                code: "SYSTEM_ERROR",
+                message: err.message,
+              },
+            },
+            null,
+            2
+          ),
+        },
+      ],
+    };
   }
 }
 
@@ -36,21 +59,21 @@ async function getCurrentTask(): Promise<GetCurrentTaskOutput> {
   const db = getDb();
 
   // 1. Get active sprint
-  const [sprint] = await db.select().from(sprints).limit(1);
+  const sprint = await getActiveSprint();
 
   if (!sprint) {
     throw new Error("No active sprint");
   }
 
-  // 2. Find task in IMPLEMENT state (current task for implementor)
+  // 2. Find task in IMPLEMENT or VERIFY_FAILED state (current task for implementor)
   const [task] = await db
     .select()
     .from(tasks)
-    .where(eq(tasks.status, "IMPLEMENT"))
+    .where(inArray(tasks.status, ["IMPLEMENT", "VERIFY_FAILED"]))
     .limit(1);
 
   if (!task) {
-    throw new Error("No task in IMPLEMENT state");
+    throw new Error("No task in IMPLEMENT or VERIFY_FAILED state");
   }
 
   // 3. Get handover record
@@ -114,10 +137,6 @@ async function getCurrentTask(): Promise<GetCurrentTaskOutput> {
         passed_checks: passedChecks,
         next_steps: nextSteps,
       };
-
-      if (latestFeedback.additional_guidance) {
-        feedbackData.additional_guidance = latestFeedback.additional_guidance;
-      }
     }
   }
 
@@ -128,8 +147,8 @@ async function getCurrentTask(): Promise<GetCurrentTaskOutput> {
   const constraints = handover.constraints
     ? JSON.parse(handover.constraints)
     : undefined;
-  const references = handover.references
-    ? JSON.parse(handover.references)
+  const references = handover.reference_links
+    ? JSON.parse(handover.reference_links)
     : undefined;
 
   return {

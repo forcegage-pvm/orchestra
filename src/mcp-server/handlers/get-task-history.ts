@@ -5,18 +5,25 @@
  */
 
 import { and, asc, eq } from "drizzle-orm";
-import { getDb } from "../../db/index.js";
-import { progress as progressTable, sprints, tasks } from "../../db/schema.js";
+import { getActiveSprint, getDb } from "../../db/index.js";
+import { progress as progressTable, tasks } from "../../db/schema.js";
 import {
   GetTaskHistoryInputSchema,
   type GetTaskHistoryOutput,
 } from "../../schemas/progress.js";
-import { createErrorResponse, validateInput } from "../../schemas/utils.js";
+import { validateInput } from "../../schemas/utils.js";
 
 export async function handleGetTaskHistory(input: unknown) {
   const validation = validateInput(GetTaskHistoryInputSchema, input);
   if (!validation.success) {
-    return createErrorResponse(validation.error);
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify(validation.error, null, 2),
+        },
+      ],
+    };
   }
 
   try {
@@ -25,9 +32,25 @@ export async function handleGetTaskHistory(input: unknown) {
       content: [{ type: "text" as const, text: JSON.stringify(output) }],
     };
   } catch (error) {
-    return createErrorResponse(
-      error instanceof Error ? error : new Error(String(error))
-    );
+    const err = error instanceof Error ? error : new Error(String(error));
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify(
+            {
+              success: false,
+              error: {
+                code: "SYSTEM_ERROR",
+                message: err.message,
+              },
+            },
+            null,
+            2
+          ),
+        },
+      ],
+    };
   }
 }
 
@@ -37,7 +60,7 @@ async function getTaskHistory(
   const db = getDb();
 
   // 1. Get active sprint
-  const [sprint] = await db.select().from(sprints).limit(1);
+  const sprint = await getActiveSprint();
 
   if (!sprint) {
     throw new Error("No active sprint");
@@ -69,11 +92,12 @@ async function getTaskHistory(
 
   // 4. Build history with from_status (previous entry's status)
   const history = progressEntries.map((entry, idx) => {
-    const fromStatus = idx > 0 ? progressEntries[idx - 1].status : undefined;
+    const fromStatus =
+      idx > 0 ? progressEntries[idx - 1]!.to_status : undefined;
 
     return {
       from_status: fromStatus as any,
-      to_status: entry.status as any,
+      to_status: entry.to_status as any,
       workflow_step: sprint.workflow_step as any, // Would need to track workflow_step in progress for accurate history
       triggered_by: entry.triggered_by as
         | "orchestrator"

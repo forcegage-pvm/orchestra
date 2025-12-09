@@ -13,12 +13,19 @@ import {
   type GetTaskOutput,
   type GetTasksOutput,
 } from "../../schemas/sprint-config.js";
-import { createErrorResponse, validateInput } from "../../schemas/utils.js";
+import { validateInput } from "../../schemas/utils.js";
 
 export async function handleGetTasks(input: unknown) {
   const validation = validateInput(GetTasksInputSchema, input);
   if (!validation.success) {
-    return createErrorResponse(validation.error);
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify(validation.error, null, 2),
+        },
+      ],
+    };
   }
 
   try {
@@ -27,9 +34,25 @@ export async function handleGetTasks(input: unknown) {
       content: [{ type: "text" as const, text: JSON.stringify(output) }],
     };
   } catch (error) {
-    return createErrorResponse(
-      error instanceof Error ? error : new Error(String(error))
-    );
+    const err = error instanceof Error ? error : new Error(String(error));
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify(
+            {
+              success: false,
+              error: {
+                code: "SYSTEM_ERROR",
+                message: err.message,
+              },
+            },
+            null,
+            2
+          ),
+        },
+      ],
+    };
   }
 }
 
@@ -82,7 +105,7 @@ async function getTasks(
       throw new Error(`Phase not found: ${input.phase_id}`);
     }
 
-    const phaseInternalId = phaseResults[0].id;
+    const phaseInternalId = phaseResults[0]!.id;
     taskResults = taskResults.filter((t) => t.phase_id === phaseInternalId);
   }
 
@@ -104,27 +127,42 @@ async function getTasks(
 
       const structural = checks
         .filter((c) => c.check_type === "structural")
-        .map((c) => ({
-          description: c.description,
-          severity: c.severity as "BLOCKING" | "MAJOR" | "MINOR" | "INFO",
-          check_config: JSON.parse(c.check_config),
-        }));
+        .map((c) => {
+          const config = JSON.parse(c.check_config);
+          return {
+            description: c.description,
+            severity: c.severity as "BLOCKING" | "MAJOR" | "MINOR" | "INFO",
+            path: config.path,
+            pattern: config.pattern,
+            min_matches: config.min_matches,
+          };
+        });
 
       const behavioral = checks
         .filter((c) => c.check_type === "behavioral")
-        .map((c) => ({
-          description: c.description,
-          severity: c.severity as "BLOCKING" | "MAJOR" | "MINOR" | "INFO",
-          check_config: JSON.parse(c.check_config),
-        }));
+        .map((c) => {
+          const config = JSON.parse(c.check_config);
+          return {
+            description: c.description,
+            severity: c.severity as "BLOCKING" | "MAJOR" | "MINOR" | "INFO",
+            command: config.command,
+            expect_exit_code: config.expect_exit_code,
+            expect_output_contains: config.expect_output_contains,
+          };
+        });
 
       const quality = checks
         .filter((c) => c.check_type === "quality")
-        .map((c) => ({
-          description: c.description,
-          severity: c.severity as "BLOCKING" | "MAJOR" | "MINOR" | "INFO",
-          check_config: JSON.parse(c.check_config),
-        }));
+        .map((c) => {
+          const config = JSON.parse(c.check_config);
+          return {
+            description: c.description,
+            severity: c.severity as "BLOCKING" | "MAJOR" | "MINOR" | "INFO",
+            metrics: config.metrics,
+            threshold: config.threshold,
+            failure_message: config.failure_message,
+          };
+        });
 
       return {
         task_id: task.task_id,
@@ -136,7 +174,16 @@ async function getTasks(
           | "INTEGRATION"
           | "VISUAL"
           | "REFACTOR",
-        status: task.status as any, // TaskStatus enum
+        status: task.status as
+          | "PENDING"
+          | "PREPARE"
+          | "IMPLEMENT"
+          | "GATE_CHECK"
+          | "VERIFY"
+          | "VERIFY_FAILED"
+          | "RETRY"
+          | "ESCALATED"
+          | "COMPLETE",
         dependencies: JSON.parse(task.dependencies),
         speckit_task_ref: task.speckit_task_ref || undefined,
         created_at: task.created_at,
@@ -145,9 +192,9 @@ async function getTasks(
         retry_count: task.retry_count,
         max_retries: task.max_retries,
         verification: {
-          structural: structural.length > 0 ? structural : undefined,
-          behavioral: behavioral.length > 0 ? behavioral : undefined,
-          quality: quality.length > 0 ? quality : undefined,
+          structural_checks: structural.length > 0 ? structural : undefined,
+          behavioral_checks: behavioral.length > 0 ? behavioral : undefined,
+          quality_checks: quality.length > 0 ? quality : undefined,
         },
       };
     })

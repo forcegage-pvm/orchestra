@@ -6,23 +6,25 @@
  */
 
 import { and, eq } from "drizzle-orm";
-import { getDb } from "../../db/index.js";
-import {
-  feedback as feedbackTable,
-  progress,
-  sprints,
-  tasks,
-} from "../../db/schema.js";
+import { getActiveSprint, getDb } from "../../db/index.js";
+import { feedback as feedbackTable, progress, tasks } from "../../db/schema.js";
 import {
   EnhanceFeedbackInputSchema,
   type EnhanceFeedbackOutput,
 } from "../../schemas/feedback.js";
-import { createErrorResponse, validateInput } from "../../schemas/utils.js";
+import { validateInput } from "../../schemas/utils.js";
 
 export async function handleEnhanceFeedback(input: unknown) {
   const validation = validateInput(EnhanceFeedbackInputSchema, input);
   if (!validation.success) {
-    return createErrorResponse(validation.error);
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify(validation.error, null, 2),
+        },
+      ],
+    };
   }
 
   try {
@@ -31,9 +33,25 @@ export async function handleEnhanceFeedback(input: unknown) {
       content: [{ type: "text" as const, text: JSON.stringify(output) }],
     };
   } catch (error) {
-    return createErrorResponse(
-      error instanceof Error ? error : new Error(String(error))
-    );
+    const err = error instanceof Error ? error : new Error(String(error));
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify(
+            {
+              success: false,
+              error: {
+                code: "SYSTEM_ERROR",
+                message: err.message,
+              },
+            },
+            null,
+            2
+          ),
+        },
+      ],
+    };
   }
 }
 
@@ -43,7 +61,7 @@ async function enhanceFeedback(
   const db = getDb();
 
   // 1. Get active sprint
-  const [sprint] = await db.select().from(sprints).limit(1);
+  const sprint = await getActiveSprint();
 
   if (!sprint) {
     throw new Error("No active sprint");
@@ -93,8 +111,11 @@ async function enhanceFeedback(
 
   // 5. Log progress
   await db.insert(progress).values({
+    sprint_id: sprint.id,
     task_id: task.id,
-    status: task.status,
+    from_status: task.status,
+    to_status: task.status,
+    workflow_step: sprint.workflow_step,
     triggered_by: "orchestrator",
     notes: `Enhanced feedback for attempt ${input.attempt}`,
     changed_at: now,
@@ -102,7 +123,6 @@ async function enhanceFeedback(
 
   return {
     success: true,
-    message: `Feedback enhanced for task ${input.task_id} attempt ${input.attempt}`,
     task_id: input.task_id,
     attempt: input.attempt,
   };

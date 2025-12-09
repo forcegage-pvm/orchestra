@@ -6,29 +6,54 @@
  */
 
 import { and, eq } from "drizzle-orm";
-import { getDb } from "../../db/index.js";
+import { getActiveSprint, getDb } from "../../db/index.js";
 import { handovers, progress, sprints, tasks } from "../../db/schema.js";
 import {
   PrepareTaskInputSchema,
   type PrepareTaskOutput,
 } from "../../schemas/handover.js";
-import { createErrorResponse, validateInput } from "../../schemas/utils.js";
+import { validateInput } from "../../schemas/utils.js";
 
 export async function handlePrepareTask(input: unknown) {
   const validation = validateInput(PrepareTaskInputSchema, input);
   if (!validation.success) {
-    return createErrorResponse(validation.error);
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify(validation.error, null, 2),
+        },
+      ],
+    };
   }
 
   try {
-    const output = await prepareTask(validation.data);
+    const output = await prepareTask(
+      validation.data as typeof PrepareTaskInputSchema._output
+    );
     return {
       content: [{ type: "text" as const, text: JSON.stringify(output) }],
     };
   } catch (error) {
-    return createErrorResponse(
-      error instanceof Error ? error : new Error(String(error))
-    );
+    const err = error instanceof Error ? error : new Error(String(error));
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify(
+            {
+              success: false,
+              error: {
+                code: "SYSTEM_ERROR",
+                message: err.message,
+              },
+            },
+            null,
+            2
+          ),
+        },
+      ],
+    };
   }
 }
 
@@ -38,7 +63,7 @@ async function prepareTask(
   const db = getDb();
 
   // 1. Get active sprint
-  const [sprint] = await db.select().from(sprints).limit(1);
+  const sprint = await getActiveSprint();
 
   if (!sprint) {
     throw new Error("No active sprint");
@@ -112,10 +137,12 @@ async function prepareTask(
         constraints: input.constraints
           ? JSON.stringify(input.constraints)
           : null,
-        references: input.references ? JSON.stringify(input.references) : null,
+        reference_links: input.references
+          ? JSON.stringify(input.references)
+          : null,
         updated_at: now,
       })
-      .where(eq(handovers.id, existingHandover[0].id));
+      .where(eq(handovers.id, existingHandover[0]!.id));
   } else {
     // Create new
     await db.insert(handovers).values({
@@ -127,7 +154,9 @@ async function prepareTask(
       test_file: input.test_file,
       test_requirements: input.test_requirements,
       constraints: input.constraints ? JSON.stringify(input.constraints) : null,
-      references: input.references ? JSON.stringify(input.references) : null,
+      reference_links: input.references
+        ? JSON.stringify(input.references)
+        : null,
       created_at: now,
       updated_at: now,
     });
@@ -155,8 +184,11 @@ async function prepareTask(
 
   // 8. Log progress
   await db.insert(progress).values({
+    sprint_id: sprint.id,
     task_id: task.id,
-    status: "IMPLEMENT",
+    from_status: task.status,
+    to_status: "IMPLEMENT",
+    workflow_step: sprint.workflow_step,
     triggered_by: "orchestrator",
     notes: "Task prepared and handed over to implementor",
     changed_at: now,
@@ -164,7 +196,6 @@ async function prepareTask(
 
   return {
     success: true,
-    message: `Task ${input.task_id} prepared successfully`,
     task_id: input.task_id,
     status: "IMPLEMENT",
   };

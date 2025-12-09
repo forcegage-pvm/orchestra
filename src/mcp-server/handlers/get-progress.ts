@@ -5,18 +5,25 @@
  */
 
 import { eq } from "drizzle-orm";
-import { getDb } from "../../db/index.js";
-import { sprints, tasks } from "../../db/schema.js";
+import { getDb, getMostRecentSprint } from "../../db/index.js";
+import { tasks } from "../../db/schema.js";
 import {
   GetProgressInputSchema,
   type GetProgressOutput,
 } from "../../schemas/progress.js";
-import { createErrorResponse, validateInput } from "../../schemas/utils.js";
+import { validateInput } from "../../schemas/utils.js";
 
 export async function handleGetProgress(input: unknown) {
   const validation = validateInput(GetProgressInputSchema, input);
   if (!validation.success) {
-    return createErrorResponse(validation.error);
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify(validation.error, null, 2),
+        },
+      ],
+    };
   }
 
   try {
@@ -25,17 +32,33 @@ export async function handleGetProgress(input: unknown) {
       content: [{ type: "text" as const, text: JSON.stringify(output) }],
     };
   } catch (error) {
-    return createErrorResponse(
-      error instanceof Error ? error : new Error(String(error))
-    );
+    const err = error instanceof Error ? error : new Error(String(error));
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify(
+            {
+              success: false,
+              error: {
+                code: "SYSTEM_ERROR",
+                message: err.message,
+              },
+            },
+            null,
+            2
+          ),
+        },
+      ],
+    };
   }
 }
 
 async function getProgress(): Promise<GetProgressOutput> {
   const db = getDb();
 
-  // 1. Get active sprint
-  const [sprint] = await db.select().from(sprints).limit(1);
+  // 1. Get most recent sprint (works on active or completed)
+  const sprint = await getMostRecentSprint();
 
   if (!sprint) {
     throw new Error("No active sprint");

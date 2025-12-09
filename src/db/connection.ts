@@ -1,14 +1,14 @@
 /**
  * Database connection management
- * 
+ *
  * Provides singleton database connection using Drizzle ORM + better-sqlite3.
  */
 
-import { drizzle, BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
-import Database from 'better-sqlite3';
-import * as schema from './schema.js';
-import path from 'node:path';
-import fs from 'node:fs';
+import Database from "better-sqlite3";
+import { BetterSQLite3Database, drizzle } from "drizzle-orm/better-sqlite3";
+import fs from "node:fs";
+import path from "node:path";
+import * as schema from "./schema.js";
 
 /**
  * Database connection singleton
@@ -18,7 +18,7 @@ let sqliteInstance: Database.Database | null = null;
 
 /**
  * Get or create database connection
- * 
+ *
  * @param dbPath - Path to SQLite database file (default: .orchestra/db/orchestra.db)
  * @returns Drizzle database instance
  */
@@ -28,7 +28,8 @@ export function getDb(dbPath?: string): BetterSQLite3Database<typeof schema> {
   }
 
   // Default database path: .orchestra/db/orchestra.db
-  const finalPath = dbPath || path.join(process.cwd(), '.orchestra', 'db', 'orchestra.db');
+  const finalPath =
+    dbPath || path.join(process.cwd(), ".orchestra", "db", "orchestra.db");
 
   // Ensure directory exists
   const dbDir = path.dirname(finalPath);
@@ -40,7 +41,7 @@ export function getDb(dbPath?: string): BetterSQLite3Database<typeof schema> {
   sqliteInstance = new Database(finalPath);
 
   // Enable foreign keys (critical for referential integrity)
-  sqliteInstance.pragma('foreign_keys = ON');
+  sqliteInstance.pragma("foreign_keys = ON");
 
   // Create Drizzle instance
   dbInstance = drizzle(sqliteInstance, { schema });
@@ -50,7 +51,7 @@ export function getDb(dbPath?: string): BetterSQLite3Database<typeof schema> {
 
 /**
  * Close database connection
- * 
+ *
  * Should be called on process exit for clean shutdown.
  */
 export function closeDb(): void {
@@ -63,7 +64,7 @@ export function closeDb(): void {
 
 /**
  * Reset database connection (for testing)
- * 
+ *
  * Forces new connection on next getDb() call.
  */
 export function resetDb(): void {

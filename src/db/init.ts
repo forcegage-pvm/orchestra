@@ -1,15 +1,15 @@
 /**
  * Database initialization and migrations
- * 
+ *
  * Initializes database schema and populates default config.
  */
 
-import { getDb } from './connection.js';
-import { sql } from 'drizzle-orm';
+import { sql } from "drizzle-orm";
+import { getDb } from "./connection.js";
 
 /**
  * Initialize database schema
- * 
+ *
  * Creates all tables if they don't exist.
  * Should be called on first run or when schema changes.
  */
@@ -95,7 +95,7 @@ export async function initializeDb(): Promise<void> {
       test_file TEXT,
       test_requirements TEXT,
       constraints TEXT,
-      references TEXT,
+      reference_links TEXT,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
     )
@@ -250,63 +250,119 @@ async function createIndexes(): Promise<void> {
   const db = getDb();
 
   // Sprints indexes
-  await db.run(sql`CREATE INDEX IF NOT EXISTS workflow_step_idx ON sprints(workflow_step)`);
+  await db.run(
+    sql`CREATE INDEX IF NOT EXISTS workflow_step_idx ON sprints(workflow_step)`
+  );
 
   // Phases indexes
-  await db.run(sql`CREATE INDEX IF NOT EXISTS sprint_phase_idx ON phases(sprint_id, phase_id)`);
+  await db.run(
+    sql`CREATE INDEX IF NOT EXISTS sprint_phase_idx ON phases(sprint_id, phase_id)`
+  );
 
   // Tasks indexes
-  await db.run(sql`CREATE INDEX IF NOT EXISTS sprint_task_idx ON tasks(sprint_id, task_id)`);
+  await db.run(
+    sql`CREATE INDEX IF NOT EXISTS sprint_task_idx ON tasks(sprint_id, task_id)`
+  );
   await db.run(sql`CREATE INDEX IF NOT EXISTS status_idx ON tasks(status)`);
   await db.run(sql`CREATE INDEX IF NOT EXISTS phase_idx ON tasks(phase_id)`);
 
   // Consolidations indexes
-  await db.run(sql`CREATE INDEX IF NOT EXISTS sprint_consolidation_idx ON consolidations(sprint_id)`);
+  await db.run(
+    sql`CREATE INDEX IF NOT EXISTS sprint_consolidation_idx ON consolidations(sprint_id)`
+  );
 
   // Verification checks indexes
-  await db.run(sql`CREATE INDEX IF NOT EXISTS task_check_idx ON verification_checks(task_id)`);
+  await db.run(
+    sql`CREATE INDEX IF NOT EXISTS task_check_idx ON verification_checks(task_id)`
+  );
 
   // Handovers indexes
-  await db.run(sql`CREATE INDEX IF NOT EXISTS task_handover_idx ON handovers(task_id)`);
+  await db.run(
+    sql`CREATE INDEX IF NOT EXISTS task_handover_idx ON handovers(task_id)`
+  );
 
   // Signals indexes
-  await db.run(sql`CREATE INDEX IF NOT EXISTS task_signal_idx ON signals(task_id)`);
-  await db.run(sql`CREATE INDEX IF NOT EXISTS signal_id_idx ON signals(signal_id)`);
+  await db.run(
+    sql`CREATE INDEX IF NOT EXISTS task_signal_idx ON signals(task_id)`
+  );
+  await db.run(
+    sql`CREATE INDEX IF NOT EXISTS signal_id_idx ON signals(signal_id)`
+  );
 
   // Verification results indexes
-  await db.run(sql`CREATE INDEX IF NOT EXISTS task_result_idx ON verification_results(task_id)`);
-  await db.run(sql`CREATE INDEX IF NOT EXISTS signal_result_idx ON verification_results(signal_id)`);
+  await db.run(
+    sql`CREATE INDEX IF NOT EXISTS task_result_idx ON verification_results(task_id)`
+  );
+  await db.run(
+    sql`CREATE INDEX IF NOT EXISTS signal_result_idx ON verification_results(signal_id)`
+  );
 
   // Feedback indexes
-  await db.run(sql`CREATE INDEX IF NOT EXISTS task_feedback_idx ON feedback(task_id)`);
+  await db.run(
+    sql`CREATE INDEX IF NOT EXISTS task_feedback_idx ON feedback(task_id)`
+  );
 
   // Progress indexes
-  await db.run(sql`CREATE INDEX IF NOT EXISTS sprint_progress_idx ON progress(sprint_id)`);
-  await db.run(sql`CREATE INDEX IF NOT EXISTS task_progress_idx ON progress(task_id)`);
-  await db.run(sql`CREATE INDEX IF NOT EXISTS progress_timestamp_idx ON progress(changed_at)`);
-  await db.run(sql`CREATE INDEX IF NOT EXISTS triggered_by_idx ON progress(triggered_by)`);
+  await db.run(
+    sql`CREATE INDEX IF NOT EXISTS sprint_progress_idx ON progress(sprint_id)`
+  );
+  await db.run(
+    sql`CREATE INDEX IF NOT EXISTS task_progress_idx ON progress(task_id)`
+  );
+  await db.run(
+    sql`CREATE INDEX IF NOT EXISTS progress_timestamp_idx ON progress(changed_at)`
+  );
+  await db.run(
+    sql`CREATE INDEX IF NOT EXISTS triggered_by_idx ON progress(triggered_by)`
+  );
 
   // Tool executions indexes
-  await db.run(sql`CREATE INDEX IF NOT EXISTS tool_name_idx ON tool_executions(tool_name)`);
-  await db.run(sql`CREATE INDEX IF NOT EXISTS sprint_tool_idx ON tool_executions(sprint_id, tool_name)`);
-  await db.run(sql`CREATE INDEX IF NOT EXISTS execution_timestamp_idx ON tool_executions(executed_at)`);
-  await db.run(sql`CREATE INDEX IF NOT EXISTS success_idx ON tool_executions(success)`);
+  await db.run(
+    sql`CREATE INDEX IF NOT EXISTS tool_name_idx ON tool_executions(tool_name)`
+  );
+  await db.run(
+    sql`CREATE INDEX IF NOT EXISTS sprint_tool_idx ON tool_executions(sprint_id, tool_name)`
+  );
+  await db.run(
+    sql`CREATE INDEX IF NOT EXISTS execution_timestamp_idx ON tool_executions(executed_at)`
+  );
+  await db.run(
+    sql`CREATE INDEX IF NOT EXISTS success_idx ON tool_executions(success)`
+  );
 
   // System logs indexes
   await db.run(sql`CREATE INDEX IF NOT EXISTS level_idx ON system_logs(level)`);
-  await db.run(sql`CREATE INDEX IF NOT EXISTS category_idx ON system_logs(category)`);
-  await db.run(sql`CREATE INDEX IF NOT EXISTS log_timestamp_idx ON system_logs(logged_at)`);
-  await db.run(sql`CREATE INDEX IF NOT EXISTS sprint_log_idx ON system_logs(sprint_id)`);
+  await db.run(
+    sql`CREATE INDEX IF NOT EXISTS category_idx ON system_logs(category)`
+  );
+  await db.run(
+    sql`CREATE INDEX IF NOT EXISTS log_timestamp_idx ON system_logs(logged_at)`
+  );
+  await db.run(
+    sql`CREATE INDEX IF NOT EXISTS sprint_log_idx ON system_logs(sprint_id)`
+  );
 
   // Git commits indexes
-  await db.run(sql`CREATE INDEX IF NOT EXISTS commit_sha_idx ON git_commits(commit_sha)`);
-  await db.run(sql`CREATE INDEX IF NOT EXISTS sprint_commit_idx ON git_commits(sprint_id)`);
-  await db.run(sql`CREATE INDEX IF NOT EXISTS commit_timestamp_idx ON git_commits(committed_at)`);
+  await db.run(
+    sql`CREATE INDEX IF NOT EXISTS commit_sha_idx ON git_commits(commit_sha)`
+  );
+  await db.run(
+    sql`CREATE INDEX IF NOT EXISTS sprint_commit_idx ON git_commits(sprint_id)`
+  );
+  await db.run(
+    sql`CREATE INDEX IF NOT EXISTS commit_timestamp_idx ON git_commits(committed_at)`
+  );
 
   // Notifications indexes
-  await db.run(sql`CREATE INDEX IF NOT EXISTS notification_type_idx ON notifications(type)`);
-  await db.run(sql`CREATE INDEX IF NOT EXISTS notification_read_idx ON notifications(read)`);
-  await db.run(sql`CREATE INDEX IF NOT EXISTS notification_timestamp_idx ON notifications(created_at)`);
+  await db.run(
+    sql`CREATE INDEX IF NOT EXISTS notification_type_idx ON notifications(type)`
+  );
+  await db.run(
+    sql`CREATE INDEX IF NOT EXISTS notification_read_idx ON notifications(read)`
+  );
+  await db.run(
+    sql`CREATE INDEX IF NOT EXISTS notification_timestamp_idx ON notifications(created_at)`
+  );
 }
 
 /**
@@ -318,79 +374,79 @@ async function populateDefaultConfig(): Promise<void> {
 
   const defaultConfig = [
     {
-      key: 'git.auto_commit',
-      value: 'true',
-      description: 'System-wide auto-commit default',
+      key: "git.auto_commit",
+      value: "true",
+      description: "System-wide auto-commit default",
     },
     {
-      key: 'tools.get_task.auto_commit',
-      value: 'false',
-      description: 'Read tools never commit',
+      key: "tools.get_task.auto_commit",
+      value: "false",
+      description: "Read tools never commit",
     },
     {
-      key: 'tools.get_tasks.auto_commit',
-      value: 'false',
-      description: 'Read tools never commit',
+      key: "tools.get_tasks.auto_commit",
+      value: "false",
+      description: "Read tools never commit",
     },
     {
-      key: 'tools.get_current_task.auto_commit',
-      value: 'false',
-      description: 'Read tools never commit',
+      key: "tools.get_current_task.auto_commit",
+      value: "false",
+      description: "Read tools never commit",
     },
     {
-      key: 'tools.get_verification_results.auto_commit',
-      value: 'false',
-      description: 'Read tools never commit',
+      key: "tools.get_verification_results.auto_commit",
+      value: "false",
+      description: "Read tools never commit",
     },
     {
-      key: 'tools.get_feedback.auto_commit',
-      value: 'false',
-      description: 'Read tools never commit',
+      key: "tools.get_feedback.auto_commit",
+      value: "false",
+      description: "Read tools never commit",
     },
     {
-      key: 'tools.get_progress.auto_commit',
-      value: 'false',
-      description: 'Read tools never commit',
+      key: "tools.get_progress.auto_commit",
+      value: "false",
+      description: "Read tools never commit",
     },
     {
-      key: 'tools.get_sprint_status.auto_commit',
-      value: 'false',
-      description: 'Read tools never commit',
+      key: "tools.get_sprint_status.auto_commit",
+      value: "false",
+      description: "Read tools never commit",
     },
     {
-      key: 'tools.get_task_history.auto_commit',
-      value: 'false',
-      description: 'Read tools never commit',
+      key: "tools.get_task_history.auto_commit",
+      value: "false",
+      description: "Read tools never commit",
     },
     {
-      key: 'tools.get_signal.auto_commit',
-      value: 'false',
-      description: 'Read tools never commit',
+      key: "tools.get_signal.auto_commit",
+      value: "false",
+      description: "Read tools never commit",
     },
     {
-      key: 'pre_signal_checks.build',
-      value: JSON.stringify({ command: 'npm run build', timeout_ms: 60000 }),
-      description: 'Build check command and timeout',
+      key: "pre_signal_checks.build",
+      value: JSON.stringify({ command: "npm run build", timeout_ms: 60000 }),
+      description: "Build check command and timeout",
     },
     {
-      key: 'pre_signal_checks.test',
-      value: JSON.stringify({ command: 'npm test', timeout_ms: 120000 }),
-      description: 'Test check command and timeout',
+      key: "pre_signal_checks.test",
+      value: JSON.stringify({ command: "npm test", timeout_ms: 120000 }),
+      description: "Test check command and timeout",
     },
     {
-      key: 'pre_signal_checks.lint',
-      value: JSON.stringify({ command: 'npm run lint', timeout_ms: 30000 }),
-      description: 'Lint check command and timeout',
+      key: "pre_signal_checks.lint",
+      value: JSON.stringify({ command: "npm run lint", timeout_ms: 30000 }),
+      description: "Lint check command and timeout",
     },
     {
-      key: 'defaults.max_retries',
-      value: '3',
-      description: 'Default maximum retry attempts',
+      key: "defaults.max_retries",
+      value: "3",
+      description: "Default maximum retry attempts",
     },
     {
-      key: 'defaults.priority',
-      value: 'P1',
-      description: 'Default task priority',
+      key: "defaults.priority",
+      value: "P1",
+      description: "Default task priority",
     },
   ];
 

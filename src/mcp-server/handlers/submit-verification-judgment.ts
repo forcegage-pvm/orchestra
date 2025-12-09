@@ -7,9 +7,9 @@
  */
 
 import { and, eq } from "drizzle-orm";
-import { getDb } from "../../db/index.js";
-import { feedback, progress, sprints, tasks } from "../../db/schema.js";
-import { createErrorResponse, validateInput } from "../../schemas/utils.js";
+import { getActiveSprint, getDb } from "../../db/index.js";
+import { feedback, progress, tasks } from "../../db/schema.js";
+import { validateInput } from "../../schemas/utils.js";
 import {
   SubmitVerificationJudgmentInputSchema,
   type SubmitVerificationJudgmentOutput,
@@ -21,7 +21,14 @@ export async function handleSubmitVerificationJudgment(input: unknown) {
     input
   );
   if (!validation.success) {
-    return createErrorResponse(validation.error);
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify(validation.error, null, 2),
+        },
+      ],
+    };
   }
 
   try {
@@ -30,9 +37,25 @@ export async function handleSubmitVerificationJudgment(input: unknown) {
       content: [{ type: "text" as const, text: JSON.stringify(output) }],
     };
   } catch (error) {
-    return createErrorResponse(
-      error instanceof Error ? error : new Error(String(error))
-    );
+    const err = error instanceof Error ? error : new Error(String(error));
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify(
+            {
+              success: false,
+              error: {
+                code: "SYSTEM_ERROR",
+                message: err.message,
+              },
+            },
+            null,
+            2
+          ),
+        },
+      ],
+    };
   }
 }
 
@@ -42,7 +65,7 @@ async function submitVerificationJudgment(
   const db = getDb();
 
   // 1. Get active sprint
-  const [sprint] = await db.select().from(sprints).limit(1);
+  const sprint = await getActiveSprint();
 
   if (!sprint) {
     throw new Error("No active sprint");
@@ -83,8 +106,11 @@ async function submitVerificationJudgment(
 
     // Log progress
     await db.insert(progress).values({
+      sprint_id: sprint.id,
       task_id: task.id,
-      status: "VERIFY",
+      from_status: "GATE_CHECK",
+      to_status: "VERIFY",
+      workflow_step: sprint.workflow_step,
       triggered_by: "orchestrator",
       notes: `Verification passed (attempt ${attempt}): ${input.rationale}`,
       changed_at: now,
@@ -92,7 +118,6 @@ async function submitVerificationJudgment(
 
     return {
       success: true,
-      message: `Verification passed for task ${input.task_id}`,
       judgment: "PASS",
       status: "VERIFY",
       retry_count: task.retry_count,
@@ -119,14 +144,13 @@ async function submitVerificationJudgment(
     // Create feedback record with sanitized issues
     const issues = input.failures!.map((f) => ({
       check_id: f.check_id,
-      severity: f.severity,
-      issue: f.issue,
-      location: f.location,
-      suggestion: f.suggestion,
+      reason: f.reason,
+      priority: f.priority,
+      guidance: f.guidance,
     }));
 
     const passedChecks = input
-      .failures!.filter((f) => f.severity === "INFO")
+      .failures!.filter((f) => f.priority === "low")
       .map((f) => f.check_id);
 
     const nextSteps = canRetry
@@ -155,8 +179,11 @@ async function submitVerificationJudgment(
 
     // Log progress
     await db.insert(progress).values({
+      sprint_id: sprint.id,
       task_id: task.id,
-      status: newStatus,
+      from_status: "GATE_CHECK",
+      to_status: newStatus,
+      workflow_step: sprint.workflow_step,
       triggered_by: "orchestrator",
       notes: `Verification failed (attempt ${newRetryCount}): ${
         input.rationale
@@ -166,11 +193,8 @@ async function submitVerificationJudgment(
 
     return {
       success: true,
-      message: `Verification failed for task ${input.task_id}${
-        canRetry ? ", feedback generated" : ", task escalated"
-      }`,
       judgment: "FAIL",
-      status: newStatus,
+      status: newStatus as "VERIFY_FAILED" | "VERIFY",
       retry_count: newRetryCount,
       max_retries: task.max_retries,
       can_retry: canRetry,

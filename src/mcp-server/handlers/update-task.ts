@@ -12,12 +12,19 @@ import {
   UpdateTaskInputSchema,
   type UpdateTaskOutput,
 } from "../../schemas/sprint-config.js";
-import { createErrorResponse, validateInput } from "../../schemas/utils.js";
+import { validateInput } from "../../schemas/utils.js";
 
 export async function handleUpdateTask(input: unknown) {
   const validation = validateInput(UpdateTaskInputSchema, input);
   if (!validation.success) {
-    return createErrorResponse(validation.error);
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify(validation.error, null, 2),
+        },
+      ],
+    };
   }
 
   try {
@@ -26,9 +33,25 @@ export async function handleUpdateTask(input: unknown) {
       content: [{ type: "text" as const, text: JSON.stringify(output) }],
     };
   } catch (error) {
-    return createErrorResponse(
-      error instanceof Error ? error : new Error(String(error))
-    );
+    const err = error instanceof Error ? error : new Error(String(error));
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify(
+            {
+              success: false,
+              error: {
+                code: "SYSTEM_ERROR",
+                message: err.message,
+              },
+            },
+            null,
+            2
+          ),
+        },
+      ],
+    };
   }
 }
 
@@ -94,7 +117,7 @@ async function updateTask(
       where: (phases, { eq, and }) =>
         and(
           eq(phases.sprint_id, sprint.id),
-          eq(phases.phase_id, input.phase_id)
+          eq(phases.phase_id, input.phase_id!)
         ),
     });
 
@@ -102,7 +125,7 @@ async function updateTask(
       throw new Error(`Phase not found: ${input.phase_id}`);
     }
 
-    phaseInternalId = db_phases[0].id;
+    phaseInternalId = db_phases[0]!.id;
   }
 
   // 5. Build update object
@@ -142,8 +165,11 @@ async function updateTask(
 
   // 7. Log progress
   await db.insert(progress).values({
+    sprint_id: sprint.id,
     task_id: task.id,
-    status: task.status,
+    from_status: task.status,
+    to_status: task.status,
+    workflow_step: sprint.workflow_step,
     triggered_by: "orchestrator",
     notes: `Updated fields: ${updatedFieldNames.join(", ")}`,
     changed_at: updateFields.updated_at as string,
@@ -151,7 +177,6 @@ async function updateTask(
 
   return {
     success: true,
-    message: `Task ${input.task_id} updated successfully`,
     task_id: input.task_id,
     updated_fields: updatedFieldNames,
   };

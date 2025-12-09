@@ -1,19 +1,19 @@
 /**
  * Feedback tool schemas
- * 
+ *
  * Tools: get_feedback, enhance_feedback
  */
 
-import { z } from 'zod';
-import { FeedbackIssueSchema } from './shared.js';
-import { SuccessResponseSchema } from './errors.js';
+import { z } from "zod";
+import { SuccessResponseSchema } from "./errors.js";
+import { FeedbackIssueSchema } from "./shared.js";
 
 // ============================================================================
 // get_feedback
 // ============================================================================
 
 export const GetFeedbackInputSchema = z.object({
-  task_id: z.number().int().positive('Task ID must be positive'),
+  task_id: z.number().int().positive("Task ID must be positive"),
   attempt: z.number().int().positive().optional(), // Get specific attempt, default to latest
 });
 
@@ -37,9 +37,11 @@ export type GetFeedbackOutput = z.output<typeof GetFeedbackOutputSchema>;
 // ============================================================================
 
 export const EnhanceFeedbackInputSchema = z.object({
-  task_id: z.number().int().positive('Task ID must be positive'),
-  attempt: z.number().int().positive('Attempt number is required'),
-  additional_guidance: z.string().min(10, 'Additional guidance must be at least 10 characters'),
+  task_id: z.number().int().positive("Task ID must be positive"),
+  attempt: z.number().int().positive("Attempt number is required"),
+  additional_guidance: z
+    .string()
+    .min(10, "Additional guidance must be at least 10 characters"),
 });
 
 export type EnhanceFeedbackInput = z.output<typeof EnhanceFeedbackInputSchema>;
@@ -49,4 +51,6 @@ export const EnhanceFeedbackOutputSchema = SuccessResponseSchema.extend({
   attempt: z.number().int().positive(),
 });
 
-export type EnhanceFeedbackOutput = z.output<typeof EnhanceFeedbackOutputSchema>;
+export type EnhanceFeedbackOutput = z.output<
+  typeof EnhanceFeedbackOutputSchema
+>;

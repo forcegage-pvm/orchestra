@@ -11,12 +11,19 @@ import {
   RemoveTaskInputSchema,
   type RemoveTaskOutput,
 } from "../../schemas/sprint-config.js";
-import { createErrorResponse, validateInput } from "../../schemas/utils.js";
+import { validateInput } from "../../schemas/utils.js";
 
 export async function handleRemoveTask(input: unknown) {
   const validation = validateInput(RemoveTaskInputSchema, input);
   if (!validation.success) {
-    return createErrorResponse(validation.error);
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify(validation.error, null, 2),
+        },
+      ],
+    };
   }
 
   try {
@@ -25,9 +32,21 @@ export async function handleRemoveTask(input: unknown) {
       content: [{ type: "text" as const, text: JSON.stringify(output) }],
     };
   } catch (error) {
-    return createErrorResponse(
-      error instanceof Error ? error : new Error(String(error))
-    );
+    const err = error instanceof Error ? error : new Error(String(error));
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify({
+            success: false,
+            error: {
+              code: "SYSTEM_ERROR",
+              message: err.message,
+            },
+          }, null, 2),
+        },
+      ],
+    };
   }
 }
 
@@ -83,7 +102,6 @@ async function removeTask(
 
   return {
     success: true,
-    message: `Task ${input.task_id} removed successfully`,
     task_id: input.task_id,
   };
 }

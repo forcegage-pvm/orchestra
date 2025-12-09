@@ -17,12 +17,19 @@ import {
   UpdateVerificationInputSchema,
   type UpdateVerificationOutput,
 } from "../../schemas/sprint-config.js";
-import { createErrorResponse, validateInput } from "../../schemas/utils.js";
+import { validateInput } from "../../schemas/utils.js";
 
 export async function handleUpdateVerification(input: unknown) {
   const validation = validateInput(UpdateVerificationInputSchema, input);
   if (!validation.success) {
-    return createErrorResponse(validation.error);
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify(validation.error, null, 2),
+        },
+      ],
+    };
   }
 
   try {
@@ -31,9 +38,25 @@ export async function handleUpdateVerification(input: unknown) {
       content: [{ type: "text" as const, text: JSON.stringify(output) }],
     };
   } catch (error) {
-    return createErrorResponse(
-      error instanceof Error ? error : new Error(String(error))
-    );
+    const err = error instanceof Error ? error : new Error(String(error));
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify(
+            {
+              success: false,
+              error: {
+                code: "SYSTEM_ERROR",
+                message: err.message,
+              },
+            },
+            null,
+            2
+          ),
+        },
+      ],
+    };
   }
 }
 
@@ -74,12 +97,12 @@ async function updateVerification(
     .where(eq(verificationChecks.task_id, task.id));
 
   // 4. Insert new verification checks
-  const structural = input.verification.structural || [];
-  const behavioral = input.verification.behavioral || [];
-  const quality = input.verification.quality || [];
+  const structural = input.verification.structural_checks || [];
+  const behavioral = input.verification.behavioral_checks || [];
+  const quality = input.verification.quality_checks || [];
 
   const allChecks = [
-    ...structural.map((check, idx) => ({
+    ...structural.map((check: any, idx: number) => ({
       task_id: task.id,
       check_id: `struct-${idx}`,
       check_type: "structural" as const,
@@ -88,7 +111,7 @@ async function updateVerification(
       check_config: JSON.stringify(check.check_config),
       created_at: now,
     })),
-    ...behavioral.map((check, idx) => ({
+    ...behavioral.map((check: any, idx: number) => ({
       task_id: task.id,
       check_id: `behav-${idx}`,
       check_type: "behavioral" as const,
@@ -97,7 +120,7 @@ async function updateVerification(
       check_config: JSON.stringify(check.check_config),
       created_at: now,
     })),
-    ...quality.map((check, idx) => ({
+    ...quality.map((check: any, idx: number) => ({
       task_id: task.id,
       check_id: `qual-${idx}`,
       check_type: "quality" as const,
@@ -119,8 +142,11 @@ async function updateVerification(
 
   // 6. Log progress
   await db.insert(progress).values({
+    sprint_id: sprint.id,
     task_id: task.id,
-    status: task.status,
+    from_status: task.status,
+    to_status: task.status,
+    workflow_step: sprint.workflow_step,
     triggered_by: "orchestrator",
     notes: `Updated verification checks: ${totalChecks} total (${structural.length} structural, ${behavioral.length} behavioral, ${quality.length} quality)`,
     changed_at: now,
@@ -128,13 +154,7 @@ async function updateVerification(
 
   return {
     success: true,
-    message: `Verification criteria updated for task ${input.task_id}`,
     task_id: input.task_id,
     total_checks: totalChecks,
-    checks_by_type: {
-      structural: structural.length,
-      behavioral: behavioral.length,
-      quality: quality.length,
-    },
   };
 }

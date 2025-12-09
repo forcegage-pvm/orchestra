@@ -6,18 +6,25 @@
  */
 
 import { and, eq } from "drizzle-orm";
-import { getDb } from "../../db/index.js";
+import { getActiveSprint, getDb } from "../../db/index.js";
 import { progress as progressTable, sprints, tasks } from "../../db/schema.js";
 import {
   CompleteTaskInputSchema,
   type CompleteTaskOutput,
 } from "../../schemas/completion.js";
-import { createErrorResponse, validateInput } from "../../schemas/utils.js";
+import { validateInput } from "../../schemas/utils.js";
 
 export async function handleCompleteTask(input: unknown) {
   const validation = validateInput(CompleteTaskInputSchema, input);
   if (!validation.success) {
-    return createErrorResponse(validation.error);
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify(validation.error, null, 2),
+        },
+      ],
+    };
   }
 
   try {
@@ -26,9 +33,25 @@ export async function handleCompleteTask(input: unknown) {
       content: [{ type: "text" as const, text: JSON.stringify(output) }],
     };
   } catch (error) {
-    return createErrorResponse(
-      error instanceof Error ? error : new Error(String(error))
-    );
+    const err = error instanceof Error ? error : new Error(String(error));
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify(
+            {
+              success: false,
+              error: {
+                code: "SYSTEM_ERROR",
+                message: err.message,
+              },
+            },
+            null,
+            2
+          ),
+        },
+      ],
+    };
   }
 }
 
@@ -38,7 +61,7 @@ async function completeTask(
   const db = getDb();
 
   // 1. Get active sprint
-  const [sprint] = await db.select().from(sprints).limit(1);
+  const sprint = await getActiveSprint();
 
   if (!sprint) {
     throw new Error("No active sprint");
@@ -78,8 +101,11 @@ async function completeTask(
 
   // 5. Log progress
   await db.insert(progressTable).values({
+    sprint_id: sprint.id,
     task_id: task.id,
-    status: "COMPLETE",
+    from_status: task.status,
+    to_status: "COMPLETE",
+    workflow_step: sprint.workflow_step,
     triggered_by: "orchestrator",
     notes: input.notes || "Task completed successfully",
     changed_at: now,
@@ -142,7 +168,6 @@ async function completeTask(
 
   return {
     success: true,
-    message: `Task ${input.task_id} completed successfully`,
     task_id: input.task_id,
     status: "COMPLETE",
     completed_at: now,

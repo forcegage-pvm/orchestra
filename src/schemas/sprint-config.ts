@@ -21,10 +21,7 @@ import {
 export const ConfigureSprintInputSchema = z
   .object({
     sprint: z.object({
-      id: z
-        .string()
-        .min(1, "Sprint ID is required")
-        .regex(/^sprint-\d+$/, "Sprint ID must match pattern: sprint-NNN"),
+      id: z.string().min(1, "Sprint ID is required"),
       name: z.string().min(1, "Sprint name is required"),
     }),
 
