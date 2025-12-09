@@ -8,6 +8,7 @@
  */
 
 import { and, eq } from "drizzle-orm";
+import { validateAcceptSignal } from "../../core/accept-signal-validator.js";
 import {
   executeCheck,
   type CheckConfig,
@@ -88,13 +89,26 @@ async function runVerificationChecks(
   const startTime = Date.now();
   const timestamp = new Date().toISOString();
 
-  // 1. Get active sprint
+  // 1. Run accept-signal validation (FR-ASV-001)
+  // This validates: signal exists, pre-signal passed, not stale, GATE_CHECK status, checks exist
+  const acceptResult = await validateAcceptSignal(input.task_id);
+  
+  if (acceptResult.status === "REJECTED") {
+    // Return early with accept-signal failure details
+    const failedChecks = acceptResult.checks.filter(c => !c.passed);
+    const failureMessage = failedChecks
+      .map(c => `${c.check_id}: ${c.message}`)
+      .join("; ");
+    throw new Error(`Accept-signal validation failed: ${failureMessage}`);
+  }
+
+  // 2. Get active sprint (needed for queries below)
   const sprint = await getActiveSprint();
   if (!sprint) {
     throw new Error("No active sprint");
   }
 
-  // 2. Find task
+  // 3. Find task (validated by accept-signal but we need the record)
   const [task] = await db
     .select()
     .from(tasks)
@@ -107,14 +121,7 @@ async function runVerificationChecks(
     throw new Error(`Task ${input.task_id} not found`);
   }
 
-  // 3. Validate task is in GATE_CHECK status
-  if (task.status !== "GATE_CHECK") {
-    throw new Error(
-      `Task must be in GATE_CHECK status to run verification. Current status: ${task.status}`
-    );
-  }
-
-  // 4. Get latest signal for this task
+  // 4. Get latest signal for this task (validated by accept-signal)
   const [signal] = await db
     .select()
     .from(signals)
