@@ -126,3 +126,11 @@ export {
   type PreSignalConfig,
   type PreSignalResult,
 } from "./pre-signal-executor.js";
+
+// Artifact validator (verifies claimed files exist)
+export {
+  validateArtifacts,
+  type Artifact,
+  type ArtifactValidationDetail,
+  type ArtifactValidationResult,
+} from "./artifact-validator.js";

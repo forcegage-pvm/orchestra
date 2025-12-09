@@ -5,15 +5,24 @@
  * Runs pre-signal checks, creates signal record, transitions task to GATE_CHECK.
  *
  * GAP-01 FIX: Pre-signal checks now execute actual commands instead of trusting claims.
+ * VER-003: Artifact path validation added.
  */
 
 import { randomUUID } from "crypto";
 import { and, eq, inArray } from "drizzle-orm";
 import {
+  validateArtifacts,
+  type Artifact,
+} from "../../core/artifact-validator.js";
+import {
   runPreSignalChecks,
   type PreSignalConfig,
 } from "../../core/pre-signal-executor.js";
-import { getActiveSprint, getDb, resolveWorkspacePath } from "../../db/index.js";
+import {
+  getActiveSprint,
+  getDb,
+  resolveWorkspacePath,
+} from "../../db/index.js";
 import { config, progress, signals, sprints, tasks } from "../../db/schema.js";
 import {
   SignalCompletionInputSchema,
@@ -98,16 +107,43 @@ async function signalCompletion(
   const preSignalConfig = await getPreSignalConfig();
   const preSignalChecks = await runPreSignalChecks(preSignalConfig);
 
-  const allChecksPassed = preSignalChecks.allPassed;
+  // 4b. Validate artifacts exist (VER-003)
+  const artifacts: Artifact[] = input.artifacts_created.map((a) => ({
+    path: a.path,
+    type: a.type,
+    description: a.description,
+  }));
+  const artifactValidation = await validateArtifacts(
+    artifacts,
+    preSignalConfig.workspacePath
+  );
+
+  const allChecksPassed =
+    preSignalChecks.allPassed && artifactValidation.allValid;
 
   if (!allChecksPassed) {
-    const failures = [
-      !preSignalChecks.build.passed && "Build did not pass",
-      !preSignalChecks.test.passed && "Tests did not pass",
-      !preSignalChecks.lint.passed && preSignalChecks.lint.output,
-    ].filter(Boolean);
+    const failures: string[] = [];
 
-    throw new Error(`Pre-signal checks failed: ${failures.join(", ")}`);
+    if (!preSignalChecks.build.passed) {
+      failures.push(
+        `Build failed${preSignalChecks.build.output ? `: ${preSignalChecks.build.output}` : ""}`
+      );
+    }
+    if (!preSignalChecks.test.passed) {
+      failures.push(
+        `Tests failed${preSignalChecks.test.output ? `: ${preSignalChecks.test.output}` : ""}`
+      );
+    }
+    if (!preSignalChecks.lint.passed) {
+      failures.push(
+        `Lint failed${preSignalChecks.lint.output ? `: ${preSignalChecks.lint.output}` : ""}`
+      );
+    }
+    if (!artifactValidation.allValid) {
+      failures.push(`Missing artifacts: ${artifactValidation.missing.join(", ")}`);
+    }
+
+    throw new Error(`Pre-signal checks failed: ${failures.join("; ")}`);
   }
 
   // 5. Get configuration for auto-commit setting
