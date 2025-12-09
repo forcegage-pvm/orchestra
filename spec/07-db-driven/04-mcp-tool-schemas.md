@@ -1198,19 +1198,94 @@ These templates are **views** of data, not input structures:
 
 ---
 
-## 6. Open Questions
+## 6. Design Decisions
 
-1. **Status enum names**: Keep v1 names (GATE_CHECK, VERIFY_FAILED) or simplify (SIGNALED, FAILED)?
-   
-2. **Consolidation tracking**: Keep SpecKit consolidation feature in v2?
+All open questions have been resolved. Below are the finalized design decisions:
 
-3. **Phase status**: Should phases have status (PENDING/ACTIVE/COMPLETED)?
+### 6.1 Status Enum Names
+**Decision**: Keep V1 verbose names (GATE_CHECK, VERIFY_FAILED, VERIFY)
 
-4. **WorkflowStep**: Keep v1's WorkflowStep separate from TaskStatus, or merge?
+**Rationale**:
+- Maximum clarity for what each status represents
+- Matches existing V1 codebase patterns
+- Explicit states reduce ambiguity in workflow state machine
+- Examples: `GATE_CHECK` (pre-signal checks running), `VERIFY_FAILED` (verification failed), `VERIFY` (passed verification, awaiting completion)
 
-5. **Verification result format**: Keep v1's `status: "PASS"|"FAIL"` enum, or use `passed: boolean`?
+### 6.2 Consolidation Tracking
+**Decision**: Keep SpecKit consolidation feature
 
-6. **Auto-commit config**: Per-tool override + system-wide default (decided: YES from tech assessment)?
+**Rationale**:
+- Maintains traceability from consolidated tasks to original SpecKit tasks
+- Optional field - doesn't add complexity if not used
+- Already well-defined in V1 with consolidation_rationale and verification_coverage
+- Supports use case where multiple SpecKit tasks are combined into single Orchestra task
+
+**Schema**:
+```typescript
+consolidations?: Array<{
+  consolidated_task_id: number,
+  speckit_tasks: string[],
+  consolidation_rationale: string,
+  verification_coverage?: Record<string, string>,
+}>
+```
+
+### 6.3 Phase Status
+**Decision**: Derived status only (computed from task statuses)
+
+**Rationale**:
+- Simple derivation rule eliminates redundant state
+- Phase status is always accurate (can't get out of sync)
+- Reduces database complexity (no stored phase status field)
+- Computed in `get_sprint_status` and `get_progress` tools
+
+**Derivation Logic**:
+- **PENDING**: All tasks in phase are PENDING
+- **ACTIVE**: At least one task is PREPARE, IMPLEMENT, GATE_CHECK, VERIFY, VERIFY_FAILED, or RETRY
+- **COMPLETED**: All tasks in phase are COMPLETE
+
+### 6.4 WorkflowStep vs TaskStatus
+**Decision**: Keep both separate (dual-enum architecture)
+
+**Rationale**:
+- **WorkflowStep**: Tracks sprint-level workflow state and orchestrator context (INIT, CONFIGURE, SELECT_TASK, PREPARE, IMPLEMENT, SIGNAL, VERIFY, COMPLETE, RETRY, ESCALATED, SPRINT_COMPLETE)
+- **TaskStatus**: Tracks individual task lifecycle state (PENDING, PREPARE, IMPLEMENT, GATE_CHECK, VERIFY, VERIFY_FAILED, COMPLETE, RETRY, ESCALATED)
+- Separation maintains clear distinction between workflow orchestration and task state
+- Both fields serve different purposes with minimal overlap
+
+### 6.5 Verification Result Format
+**Decision**: Boolean-based (`passed: boolean`)
+
+**Rationale**:
+- Simple and concise
+- Standard convention for test results
+- Easy to aggregate (`results.every(r => r.passed)`)
+- Sufficient for V1 needs (binary pass/fail)
+
+**Schema**:
+```typescript
+results: Array<{
+  check_id: string,
+  passed: boolean,
+  output?: string,
+  duration_ms: number,
+}>
+```
+
+### 6.6 Auto-Commit Configuration
+**Decision**: System-wide + per-tool override, both configurable in database
+
+**Rationale**:
+- **System-wide default**: Global `auto_commit` setting in sprint/system config table
+- **Per-tool override**: Tool metadata or execution config with `auto_commit_override` field
+- **Runtime configurable**: Both settings stored in database, no code changes needed
+- **Flexibility**: Write tools commit by default, read tools never commit, with per-tool exceptions
+
+**Implementation**:
+- Global setting: `sprint_config.auto_commit: boolean`
+- Per-tool override: `tool_config.auto_commit_override: boolean | null` (null = use global)
+- Read tools: Auto-commit always false (hardcoded)
+- Write tools: Check override first, then fall back to global setting
 
 ---
 
@@ -1218,7 +1293,7 @@ These templates are **views** of data, not input structures:
 
 1. ✅ Tool schemas defined from templates
 2. ✅ Missing tools added (`get_verification_results`, `get_sprint_status`)
-3. ⏭️ Resolve open questions (6 above)
+3. ✅ Design decisions finalized (all 6 questions resolved)
 4. ⏭️ Create Zod schemas for runtime validation
 5. ⏭️ Database schema design (map tools to tables)
 6. ⏭️ MCP server implementation
