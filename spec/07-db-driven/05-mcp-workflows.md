@@ -29,27 +29,29 @@ Below is the complete workflow in typical execution order:
 |---|------|-------------------|------|-------------------|---------------------|
 | **Sprint Initialization** |
 | 1 | `configure_sprint` | Define sprint with all tasks, phases, dependencies, and verification criteria | Orchestrator | Sprint metadata + tasks array + verification checks | Sprint created, task IDs assigned |
-| 2 | `get_progress` | Verify sprint configuration | Orchestrator | None | Sprint summary, task counts |
-| 3 | `get_tasks` | Review all tasks (optional) | Orchestrator | Filters (phase, status) | Task list |
+| 2 | `get_sprint_status` | Verify sprint configuration | Orchestrator | None | Sprint status, phase summaries, task counts |
+| 3 | `get_progress` | Check detailed progress | Orchestrator | None | Sprint summary, completed tasks list |
+| 4 | `get_tasks` | Review all tasks (optional) | Orchestrator | Filters (phase, status) | Task list |
 | **Task Preparation** |
-| 4 | `get_task` | Get task context before preparing handover | Orchestrator | Task ID | Task details + verification criteria |
-| 5 | `prepare_task` | Create handover for implementor | Orchestrator | Task ID + acceptance criteria + file operations + deliverables | Task status → IMPLEMENT |
+| 5 | `get_task` | Get task context before preparing handover | Orchestrator | Task ID | Task details + verification criteria |
+| 6 | `prepare_task` | Create handover for implementor | Orchestrator | Task ID + acceptance criteria + file operations + deliverables | Task status → IMPLEMENT |
 | **Implementation** |
-| 6 | `get_current_task` | Implementor retrieves their assigned task | Implementor | None | Handover details (no verification criteria) |
-| 7 | `signal_completion` | Implementor claims task complete, triggers pre-signal checks | Implementor | Task ID + summary + artifacts + build/test status | Pre-checks run, task → GATE_CHECK |
+| 7 | `get_current_task` | Implementor retrieves their assigned task | Implementor | None | Handover details (no verification criteria) |
+| 8 | `signal_completion` | Implementor claims task complete, triggers pre-signal checks | Implementor | Task ID + summary + artifacts + build/test status | Pre-checks run, task → GATE_CHECK |
 | **Verification** |
-| 8 | `get_signal` | Orchestrator reviews completion signal | Orchestrator | Task ID | Signal details, artifacts, test results |
-| 9 | `get_verification_results` | Orchestrator reviews verification check results | Orchestrator | Task ID | Verification pass/fail for each check |
-| 10 | `submit_verification_judgment` | Orchestrator judges pass or fail | Orchestrator | Task ID + judgment + rationale + failures (if any) | Task → VERIFY (pass) or VERIFY_FAILED (fail) |
+| 9 | `get_signal` | Orchestrator reviews completion signal | Orchestrator | Task ID | Signal details, artifacts, test results |
+| 10 | `get_verification_results` | Orchestrator reviews verification check results | Orchestrator | Task ID | Verification pass/fail for each check |
+| 11 | `submit_verification_judgment` | Orchestrator judges pass or fail | Orchestrator | Task ID + judgment + rationale + failures (if any) | Task → VERIFY (pass) or VERIFY_FAILED (fail) |
 | **Completion or Retry** |
-| 11a | `complete_task` | Mark task complete and advance | Orchestrator | Task ID + notes | Task → COMPLETE, next task ID returned |
-| 11b | `get_feedback` | Implementor retrieves failure feedback (if failed) | Implementor | Task ID | Sanitized feedback with guidance |
-| 11c | `get_current_task` | Implementor gets task again (retry) | Implementor | None | Handover + feedback embedded |
-| 11d | `signal_completion` | Implementor re-signals after fixes (retry loop) | Implementor | Task ID + updated summary | Re-runs pre-checks, task → GATE_CHECK |
+| 12a | `complete_task` | Mark task complete and advance | Orchestrator | Task ID + notes | Task → COMPLETE, next task ID returned |
+| 12b | `get_feedback` | Implementor retrieves failure feedback (if failed) | Implementor | Task ID | Sanitized feedback with guidance |
+| 12c | `get_current_task` | Implementor gets task again (retry) | Implementor | None | Handover + feedback embedded |
+| 12d | `signal_completion` | Implementor re-signals after fixes (retry loop) | Implementor | Task ID + updated summary | Re-runs pre-checks, task → GATE_CHECK |
 | **Escalation (Exception Path)** |
-| 12 | `escalate_task` | Escalate stuck task to human | Orchestrator | Task ID + reason + attempts summary | Task → ESCALATED |
+| 13 | `escalate_task` | Escalate stuck task to human | Orchestrator | Task ID + reason + attempts summary | Task → ESCALATED |
 | **Progress Tracking (Anytime)** |
-| * | `get_progress` | Check overall sprint progress | Orchestrator | None | Sprint summary, counts, current task |
+| * | `get_sprint_status` | Check sprint status and phase progress | Orchestrator | None | Sprint metadata, phase summaries |
+| * | `get_progress` | Check detailed progress | Orchestrator | None | Sprint summary, counts, current task, completed list |
 | * | `get_task_history` | Review task audit trail | Orchestrator | Task ID | Timeline of status changes, attempts |
 | **Task Management (CRUD Operations)** |
 | * | `add_task` | Add task to existing sprint | Orchestrator | Task details + verification | New task created |
@@ -60,11 +62,12 @@ Below is the complete workflow in typical execution order:
 | * | `enhance_feedback` | Add guidance to feedback | Orchestrator | Task ID + additional guidance | Feedback enhanced |
 
 **Notes:**
-- **Typical flow**: 1 → 2/3 → 4 → 5 → 6 → 7 → 8 → 9 → 10 → 11a (success) or 11b → 11c → 11d (retry)
-- **Retry loop**: Steps 11b → 11c → 11d → 8 → 9 → 10 repeat until pass or max retries
-- **Escalation**: Step 12 triggered when max retries exceeded or hard blocker
+- **Typical flow**: 1 → 2 → 5 → 6 → 7 → 8 → 9 → 10 → 11 → 12a (success) or 12b → 12c → 12d (retry)
+- **Retry loop**: Steps 12b → 12c → 12d → 9 → 10 → 11 repeat until pass or max retries
+- **Escalation**: Step 13 triggered when max retries exceeded or hard blocker
 - **CRUD tools**: Used as needed for sprint management
 - **Role enforcement**: System blocks implementor from calling orchestrator-only tools
+- **Total tools**: 21 tools
 
 ---
 
@@ -116,8 +119,11 @@ System:
 │ Phase 3: Verify Configuration (Optional)                     │
 └─────────────────────────────────────────────────────────────┘
 
+Tool: get_sprint_status
+→ Returns: Sprint status, phase summaries, task counts
+
 Tool: get_progress
-→ Returns: Sprint summary, task counts
+→ Returns: Detailed progress, completed tasks list
 
 Tool: get_tasks (optional)
 → Returns: List of all tasks for review
@@ -396,7 +402,7 @@ Output: {
   }
 }
 
-NOTE: This tool is missing from current schema — needs to be added
+NOTE: This tool was missing from initial schema — now added as tool #20
 
 ┌─────────────────────────────────────────────────────────────┐
 │ Phase 3: Agent Judgment (Internal)                           │
@@ -618,6 +624,7 @@ Input: { task_id: 3 }
 - Single tool call completes task
 - System returns next task ID automatically
 - Orchestrator can immediately prepare next task
+- Use `get_sprint_status` for high-level sprint overview
 
 ---
 
@@ -665,9 +672,11 @@ Output: {
 
 ## 3. Missing Tools Identified
 
-While documenting workflows, identified **missing tools** from current schema:
+~~While documenting workflows, identified **missing tools** from current schema:~~
 
-### 3.1 `get_verification_results`
+**UPDATE**: Both missing tools have been added to `04-mcp-tool-schemas.md`:
+
+### 3.1 `get_verification_results` ✅ ADDED
 
 **Purpose**: Orchestrator retrieves verification run results
 
@@ -700,11 +709,11 @@ While documenting workflows, identified **missing tools** from current schema:
 }
 ```
 
-**Status**: ❌ NOT in current schema, MUST ADD
+**Status**: ✅ Added to tool schemas as tool #20
 
 ---
 
-### 3.2 `get_sprint_status`
+### 3.2 `get_sprint_status` ✅ ADDED
 
 **Purpose**: Get overall sprint status
 
@@ -733,7 +742,7 @@ While documenting workflows, identified **missing tools** from current schema:
 }
 ```
 
-**Status**: Mentioned in open questions but not formally defined
+**Status**: ✅ Added to tool schemas as tool #21
 
 ---
 
@@ -938,7 +947,7 @@ Orchestrator provides feedback (sanitized)
 ## 9. Next Steps
 
 1. ✅ MCP workflows documented
-2. ⏭️ Add missing tools (`get_verification_results`, `get_sprint_status`)
+2. ✅ Missing tools added to tool schemas (`get_verification_results`, `get_sprint_status`)
 3. ⏭️ Resolve open questions from tool schemas document
 4. ⏭️ Database schema design
 5. ⏭️ Zod schema implementation
