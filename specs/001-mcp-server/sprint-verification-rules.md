@@ -61,22 +61,22 @@ Implement verification rules alignment between the Orchestra specification and t
 
 ---
 
-## Phase 3: Accept-Signal Validation (GAP-05)
+## Phase 3: Accept-Signal Validation (GAP-05) ✅ COMPLETE
 
 > **Goal**: Implement `accept-signal` validation that runs before orchestrator sees signal.
 
 | ID | Task | Status | Notes |
 |----|------|--------|-------|
-| VER-016 | Implement accept-signal validation checks | ⬜ | Structural validation of signal content |
-| VER-017 | Implement signal staleness check | ⬜ | Reject signals older than task's last modification |
-| VER-018 | Enforce accept-signal gate | ⬜ | Block `get_signal` if validation fails |
-| VER-019 | Unit tests for accept-signal validation | ⬜ | Test validation scenarios |
+| VER-016 | Implement accept-signal validation checks | ✅ | `accept-signal-validator.ts` with 5 ASV checks |
+| VER-017 | Implement signal staleness check | ✅ | Configurable maxAgeMinutes (default 60) |
+| VER-018 | Enforce accept-signal gate | ✅ | Integrated into `run_verification_checks` |
+| VER-019 | Unit tests for accept-signal validation | ✅ | 12 tests covering all ASV checks |
 
 **Acceptance Criteria**:
-- [ ] Signals with missing required fields are rejected
-- [ ] Stale signals (pre-dating task changes) are rejected
-- [ ] `get_signal` only returns validated signals
-- [ ] Clear error messages for validation failures
+- [x] Signals with missing required fields are rejected (ASV-1)
+- [x] Stale signals (pre-dating task changes) are rejected (ASV-3)
+- [x] `run_verification_checks` only proceeds with validated signals
+- [x] Clear error messages for validation failures
 
 ---
 
