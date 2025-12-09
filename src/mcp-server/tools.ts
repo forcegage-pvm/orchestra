@@ -213,10 +213,102 @@ export function registerTools(server: Server): void {
 
     // Route to appropriate handler
     switch (toolName) {
+      // Sprint Config (6 tools)
       case "configure_sprint":
         return await handleConfigureSprint(args);
+      case "add_task":
+        return await (await import("./handlers/add-task.js")).handleAddTask(
+          args
+        );
+      case "update_task":
+        return await (
+          await import("./handlers/update-task.js")
+        ).handleUpdateTask(args);
+      case "update_verification":
+        return await (
+          await import("./handlers/update-verification.js")
+        ).handleUpdateVerification(args);
+      case "get_task":
+        return await (await import("./handlers/get-task.js")).handleGetTask(
+          args
+        );
+      case "get_tasks":
+        return await (await import("./handlers/get-tasks.js")).handleGetTasks(
+          args
+        );
+      case "remove_task":
+        return await (
+          await import("./handlers/remove-task.js")
+        ).handleRemoveTask(args);
 
-      // Placeholder for other tools
+      // Handover (3 tools)
+      case "prepare_task":
+        return await (
+          await import("./handlers/prepare-task.js")
+        ).handlePrepareTask(args);
+      case "get_current_task":
+        return await (
+          await import("./handlers/get-current-task.js")
+        ).handleGetCurrentTask(args);
+      case "update_handover":
+        return await (
+          await import("./handlers/update-handover.js")
+        ).handleUpdateHandover(args);
+
+      // Signal (2 tools)
+      case "signal_completion":
+        return await (
+          await import("./handlers/signal-completion.js")
+        ).handleSignalCompletion(args);
+      case "get_signal":
+        return await (await import("./handlers/get-signal.js")).handleGetSignal(
+          args
+        );
+
+      // Verification (2 tools)
+      case "get_verification_results":
+        return await (
+          await import("./handlers/get-verification-results.js")
+        ).handleGetVerificationResults(args);
+      case "submit_verification_judgment":
+        return await (
+          await import("./handlers/submit-verification-judgment.js")
+        ).handleSubmitVerificationJudgment(args);
+
+      // Feedback (2 tools)
+      case "get_feedback":
+        return await (
+          await import("./handlers/get-feedback.js")
+        ).handleGetFeedback(args);
+      case "enhance_feedback":
+        return await (
+          await import("./handlers/enhance-feedback.js")
+        ).handleEnhanceFeedback(args);
+
+      // Completion (2 tools)
+      case "complete_task":
+        return await (
+          await import("./handlers/complete-task.js")
+        ).handleCompleteTask(args);
+      case "escalate_task":
+        return await (
+          await import("./handlers/escalate-task.js")
+        ).handleEscalateTask(args);
+
+      // Progress (3 tools)
+      case "get_progress":
+        return await (
+          await import("./handlers/get-progress.js")
+        ).handleGetProgress(args);
+      case "get_sprint_status":
+        return await (
+          await import("./handlers/get-sprint-status.js")
+        ).handleGetSprintStatus(args);
+      case "get_task_history":
+        return await (
+          await import("./handlers/get-task-history.js")
+        ).handleGetTaskHistory(args);
+
       default:
         return {
           content: [
@@ -226,8 +318,8 @@ export function registerTools(server: Server): void {
                 {
                   success: false,
                   error: {
-                    code: "NOT_IMPLEMENTED",
-                    message: `Tool "${toolName}" not yet implemented`,
+                    code: "UNKNOWN_TOOL",
+                    message: `Tool "${toolName}" not recognized`,
                   },
                 },
                 null,

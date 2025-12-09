@@ -3,7 +3,10 @@
  */
 
 import { ZodError, ZodSchema } from "zod";
-import { ErrorResponse, createErrorResponse } from "./errors.js";
+import { ErrorResponse, createErrorResponse as createStructuredError } from "./errors.js";
+
+// Re-export createErrorResponse for handlers
+export { createStructuredError as createErrorResponse };
 
 /**
  * Validation result type
@@ -11,6 +14,28 @@ import { ErrorResponse, createErrorResponse } from "./errors.js";
 export type ValidationResult<T> =
   | { success: true; data: T }
   | { success: false; error: ErrorResponse };
+
+/**
+ * Convert Error object to ErrorResponse for MCP handlers
+ */
+export function errorToResponse(error: Error): { content: Array<{ type: "text"; text: string }> } {
+  const errorResponse: ErrorResponse = {
+    success: false,
+    error: {
+      code: "SYSTEM_ERROR",
+      message: error.message,
+    },
+  };
+
+  return {
+    content: [
+      {
+        type: "text",
+        text: JSON.stringify(errorResponse, null, 2),
+      },
+    ],
+  };
+}
 
 /**
  * Validate input data against a Zod schema
@@ -29,7 +54,7 @@ export function validateInput<T>(
     if (error instanceof ZodError) {
       return {
         success: false,
-        error: createErrorResponse(
+        error: createStructuredError(
           "VALIDATION_ERROR",
           "Input validation failed",
           {
@@ -71,3 +96,4 @@ export function validateOutput<T>(schema: ZodSchema<T>, data: unknown): T {
  * (alias for validateInput for consistency)
  */
 export const safeParse = validateInput;
+
