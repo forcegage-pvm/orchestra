@@ -286,7 +286,41 @@ const TOOLS: Tool[] = [
     },
   },
 
-  // Verification Tools (2)
+  // Verification Tools (3)
+  {
+    name: "run_verification_checks",
+    description:
+      "Execute verification checks from database and record results (orchestrator only)",
+    inputSchema: {
+      type: "object",
+      properties: {
+        task_id: {
+          type: "number",
+          description: "The task ID to verify",
+        },
+        check_ids: {
+          type: "array",
+          items: { type: "string" },
+          description: "Optional: Specific check IDs to run",
+        },
+        severity_filter: {
+          type: "string",
+          enum: ["BLOCKING", "MAJOR", "MINOR", "INFO", "all"],
+          description: "Optional: Filter by severity level",
+        },
+        continue_on_error: {
+          type: "boolean",
+          description:
+            "Continue running checks even if one fails (default: false)",
+        },
+        dry_run: {
+          type: "boolean",
+          description: "List checks without executing (default: false)",
+        },
+      },
+      required: ["task_id"],
+    },
+  },
   {
     name: "get_verification_results",
     description: "Get verification check results (orchestrator only)",
@@ -427,13 +461,17 @@ const TOOLS: Tool[] = [
   // Configuration Tools (1)
   {
     name: "set_config",
-    description: "Set a configuration value (e.g., pre_signal_build_command, pre_signal_timeout)",
+    description:
+      "Set a configuration value (e.g., pre_signal_build_command, pre_signal_timeout)",
     inputSchema: {
       type: "object",
       properties: {
         key: { type: "string", description: "Configuration key" },
         value: { type: "string", description: "Configuration value" },
-        description: { type: "string", description: "Optional description of the configuration" },
+        description: {
+          type: "string",
+          description: "Optional description of the configuration",
+        },
       },
       required: ["key", "value"],
     },
@@ -512,7 +550,11 @@ export function registerTools(server: Server): void {
             await import("./handlers/get-signal.js")
           ).handleGetSignal(args);
 
-        // Verification (2 tools)
+        // Verification (3 tools)
+        case "run_verification_checks":
+          return await (
+            await import("./handlers/run-verification-checks.js")
+          ).handleRunVerificationChecks(args);
         case "get_verification_results":
           return await (
             await import("./handlers/get-verification-results.js")

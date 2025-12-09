@@ -6,7 +6,7 @@
 
 import { z } from "zod";
 import { SuccessResponseSchema } from "./errors.js";
-import { JudgmentSchema, VerificationFailureSchema } from "./shared.js";
+import { JudgmentSchema, VerificationFailureSchema, SeveritySchema } from "./shared.js";
 
 // ============================================================================
 // get_verification_results
@@ -88,4 +88,79 @@ export const SubmitVerificationJudgmentOutputSchema =
 
 export type SubmitVerificationJudgmentOutput = z.output<
   typeof SubmitVerificationJudgmentOutputSchema
+>;
+
+// ============================================================================
+// run_verification_checks
+// ============================================================================
+
+export const RunVerificationChecksInputSchema = z.object({
+  task_id: z.number().int().positive("Task ID must be positive"),
+  check_ids: z.array(z.string()).optional(),
+  severity_filter: z.union([SeveritySchema, z.literal("all")]).optional(),
+  continue_on_error: z.boolean().default(false),
+  dry_run: z.boolean().default(false),
+});
+
+export type RunVerificationChecksInput = z.output<
+  typeof RunVerificationChecksInputSchema
+>;
+
+export const CheckResultSchema = z.object({
+  check_id: z.string(),
+  type: z.enum(["structural", "behavioral", "quality"]),
+  description: z.string(),
+  severity: SeveritySchema,
+  passed: z.boolean(),
+  message: z.string(),
+  output: z.string().optional(),
+  duration_ms: z.number().int().nonnegative(),
+});
+
+export const SeverityBreakdownSchema = z.object({
+  blocking: z.object({ passed: z.number(), failed: z.number() }),
+  major: z.object({ passed: z.number(), failed: z.number() }),
+  minor: z.object({ passed: z.number(), failed: z.number() }),
+  info: z.object({ passed: z.number(), failed: z.number() }),
+});
+
+export const RunVerificationChecksOutputSchema = z.object({
+  success: z.boolean(),
+  task_id: z.number().int().positive(),
+  task_title: z.string(),
+  timestamp: z.string(),
+  duration_ms: z.number().int().nonnegative(),
+  summary: z.object({
+    total_checks: z.number().int().nonnegative(),
+    passed: z.number().int().nonnegative(),
+    failed: z.number().int().nonnegative(),
+    skipped: z.number().int().nonnegative(),
+  }),
+  severity_breakdown: SeverityBreakdownSchema,
+  results: z.array(CheckResultSchema),
+  overall_passed: z.boolean(),
+  next_step: z.string(),
+  // Dry run specific
+  dry_run: z.boolean().optional(),
+  checks_to_run: z
+    .array(
+      z.object({
+        check_id: z.string(),
+        type: z.string(),
+        description: z.string(),
+        severity: SeveritySchema,
+      })
+    )
+    .optional(),
+  // Error case
+  error: z
+    .object({
+      code: z.string(),
+      message: z.string(),
+    })
+    .optional(),
+});
+
+export type RunVerificationChecksOutput = z.output<
+  typeof RunVerificationChecksOutputSchema
 >;

@@ -137,10 +137,10 @@ export {
 
 // Check executor (runs verification checks)
 export {
-  executeCheck,
-  executeStructuralCheck,
   executeBehavioralCheck,
+  executeCheck,
   executeQualityCheck,
+  executeStructuralCheck,
   type CheckConfig,
   type CheckResult as ExecutorCheckResult,
 } from "./check-executor.js";

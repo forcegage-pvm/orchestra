@@ -126,21 +126,31 @@ async function signalCompletion(
 
     if (!preSignalChecks.build.passed) {
       failures.push(
-        `Build failed${preSignalChecks.build.output ? `: ${preSignalChecks.build.output}` : ""}`
+        `Build failed${
+          preSignalChecks.build.output
+            ? `: ${preSignalChecks.build.output}`
+            : ""
+        }`
       );
     }
     if (!preSignalChecks.test.passed) {
       failures.push(
-        `Tests failed${preSignalChecks.test.output ? `: ${preSignalChecks.test.output}` : ""}`
+        `Tests failed${
+          preSignalChecks.test.output ? `: ${preSignalChecks.test.output}` : ""
+        }`
       );
     }
     if (!preSignalChecks.lint.passed) {
       failures.push(
-        `Lint failed${preSignalChecks.lint.output ? `: ${preSignalChecks.lint.output}` : ""}`
+        `Lint failed${
+          preSignalChecks.lint.output ? `: ${preSignalChecks.lint.output}` : ""
+        }`
       );
     }
     if (!artifactValidation.allValid) {
-      failures.push(`Missing artifacts: ${artifactValidation.missing.join(", ")}`);
+      failures.push(
+        `Missing artifacts: ${artifactValidation.missing.join(", ")}`
+      );
     }
 
     throw new Error(`Pre-signal checks failed: ${failures.join("; ")}`);

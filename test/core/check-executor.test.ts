@@ -5,17 +5,16 @@
  * structural, behavioral, and quality checks.
  */
 
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import fs from "node:fs";
-import path from "node:path";
 import os from "node:os";
+import path from "node:path";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
-  executeCheck,
-  executeStructuralCheck,
-  executeBehavioralCheck,
-  executeQualityCheck,
   CheckConfig,
-  CheckResult,
+  executeBehavioralCheck,
+  executeCheck,
+  executeQualityCheck,
+  executeStructuralCheck,
 } from "../../src/core/check-executor.js";
 import * as commandExecutor from "../../src/core/command-executor.js";
 
@@ -102,7 +101,10 @@ describe("Check Executor", () => {
 
     it("should validate JSON schema", async () => {
       const filePath = path.join(tempDir, "config.json");
-      fs.writeFileSync(filePath, JSON.stringify({ name: "test", version: "1.0" }));
+      fs.writeFileSync(
+        filePath,
+        JSON.stringify({ name: "test", version: "1.0" })
+      );
 
       const config: CheckConfig = {
         type: "structural",
@@ -154,7 +156,10 @@ describe("Check Executor", () => {
 
       expect(result.passed).toBe(true);
       expect(result.output).toContain("10 tests passed");
-      expect(mockExecuteCommand).toHaveBeenCalledWith("npm test", expect.any(Object));
+      expect(mockExecuteCommand).toHaveBeenCalledWith(
+        "npm test",
+        expect.any(Object)
+      );
     });
 
     it("should fail when tests fail", async () => {

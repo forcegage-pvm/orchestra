@@ -5,8 +5,8 @@
  * configuration values like pre-signal commands.
  */
 
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { eq } from "drizzle-orm";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { getDb, resetDb } from "../../src/db/index.js";
 import { config } from "../../src/db/schema.js";
 import { handleSetConfig } from "../../src/mcp-server/handlers/set-config.js";

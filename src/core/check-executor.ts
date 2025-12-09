@@ -114,13 +114,25 @@ export async function executeStructuralCheck(
   try {
     switch (config.subtype) {
       case "file_exists":
-        return executeFileExistsCheck(config as FileExistsConfig, workspacePath, startTime);
+        return executeFileExistsCheck(
+          config as FileExistsConfig,
+          workspacePath,
+          startTime
+        );
 
       case "exports":
-        return executeExportsCheck(config as ExportsConfig, workspacePath, startTime);
+        return executeExportsCheck(
+          config as ExportsConfig,
+          workspacePath,
+          startTime
+        );
 
       case "json_schema":
-        return executeJsonSchemaCheck(config as JsonSchemaConfig, workspacePath, startTime);
+        return executeJsonSchemaCheck(
+          config as JsonSchemaConfig,
+          workspacePath,
+          startTime
+        );
 
       default:
         return {
@@ -132,7 +144,9 @@ export async function executeStructuralCheck(
   } catch (error) {
     return {
       passed: false,
-      message: `Structural check error: ${error instanceof Error ? error.message : String(error)}`,
+      message: `Structural check error: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
       duration_ms: Date.now() - startTime,
     };
   }
@@ -148,7 +162,9 @@ function executeFileExistsCheck(
 
   return {
     passed: exists,
-    message: exists ? `File exists: ${filePath}` : `File not found: ${filePath}`,
+    message: exists
+      ? `File exists: ${filePath}`
+      : `File not found: ${filePath}`,
     duration_ms: Date.now() - startTime,
   };
 }
@@ -179,7 +195,9 @@ function executeExportsCheck(
     // - export { foo }
     // - export default foo (when looking for 'default')
     const patterns = [
-      new RegExp(`export\\s+(?:function|const|let|var|class)\\s+${exportName}\\b`),
+      new RegExp(
+        `export\\s+(?:function|const|let|var|class)\\s+${exportName}\\b`
+      ),
       new RegExp(`export\\s*\\{[^}]*\\b${exportName}\\b[^}]*\\}`),
       new RegExp(`export\\s+default\\s+${exportName}\\b`),
     ];
@@ -241,13 +259,17 @@ function executeJsonSchemaCheck(
 
     return {
       passed: true,
-      message: `All required fields present: ${config.required_fields.join(", ")}`,
+      message: `All required fields present: ${config.required_fields.join(
+        ", "
+      )}`,
       duration_ms: Date.now() - startTime,
     };
   } catch (error) {
     return {
       passed: false,
-      message: `Invalid JSON: ${error instanceof Error ? error.message : String(error)}`,
+      message: `Invalid JSON: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
       duration_ms: Date.now() - startTime,
     };
   }
@@ -309,7 +331,9 @@ export async function executeBehavioralCheck(
   } catch (error) {
     return {
       passed: false,
-      message: `Behavioral check error: ${error instanceof Error ? error.message : String(error)}`,
+      message: `Behavioral check error: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
       duration_ms: Date.now() - startTime,
     };
   }
@@ -353,7 +377,9 @@ export async function executeQualityCheck(
   } catch (error) {
     return {
       passed: false,
-      message: `Quality check error: ${error instanceof Error ? error.message : String(error)}`,
+      message: `Quality check error: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
       duration_ms: Date.now() - startTime,
     };
   }
