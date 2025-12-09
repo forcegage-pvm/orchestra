@@ -3,7 +3,7 @@
 **Sprint ID**: VER-001  
 **Created**: 2025-12-09  
 **Source Spec**: `spec/07-db-driven/08-verification-rules-spec.md`  
-**Status**: 🟡 In Progress
+**Status**: 🟡 In Progress (15/31 tasks complete)
 
 ---
 
@@ -15,23 +15,23 @@ Implement verification rules alignment between the Orchestra specification and t
 
 ---
 
-## Phase 1: Pre-Signal Checks Fix (GAP-01)
+## Phase 1: Pre-Signal Checks Fix (GAP-01) ✅ COMPLETE
 
 > **Goal**: Make `signal_completion` actually execute build/test/lint commands instead of trusting agent claims.
 
 | ID | Task | Status | Notes |
 |----|------|--------|-------|
-| VER-001 | Create command executor utility | ✅ | `src/core/command-executor.ts` - Execute shell commands with timeout, capture stdout/stderr |
-| VER-002 | Refactor `runPreSignalChecks` to execute commands | ✅ | Replace claim-based checks with actual command execution |
-| VER-003 | Add artifact path validation | ✅ | Verify files in `artifacts_created` actually exist |
-| VER-004 | Add pre-signal configuration support | ✅ | Read build/test/lint commands from task or sprint config |
-| VER-005 | Unit tests for pre-signal execution | ✅ | Mock command execution, test all scenarios |
+| VER-001 | Create command executor utility | ✅ | `src/core/command-executor.ts` - 14 tests |
+| VER-002 | Refactor `runPreSignalChecks` to execute commands | ✅ | Uses async command execution - 11 tests |
+| VER-003 | Add artifact path validation | ✅ | `src/core/artifact-validator.ts` - 10 tests |
+| VER-004 | Add pre-signal configuration support | ✅ | `set_config` MCP tool - 6 tests |
+| VER-005 | Unit tests for pre-signal execution | ✅ | 41 tests total in Phase 1 |
 
 **Acceptance Criteria**:
-- [ ] `signal_completion` runs actual `npm run build` (or configured command)
-- [ ] `signal_completion` runs actual `npm test` (or configured command)
-- [ ] `signal_completion` validates artifact paths exist on filesystem
-- [ ] Failed commands block signal with actionable error messages
+- [x] `signal_completion` runs actual `npm run build` (or configured command)
+- [x] `signal_completion` runs actual `npm test` (or configured command)
+- [x] `signal_completion` validates artifact paths exist on filesystem
+- [x] Failed commands block signal with actionable error messages
 
 ---
 
@@ -41,23 +41,23 @@ Implement verification rules alignment between the Orchestra specification and t
 
 | ID | Task | Status | Notes |
 |----|------|--------|-------|
-| VER-006 | Create check executor module | ⬜ | `src/core/check-executor.ts` - Framework for running checks |
-| VER-007 | Implement structural check execution | ⬜ | File existence, export verification, schema validation |
-| VER-008 | Implement behavioral check execution | ⬜ | Test execution, coverage thresholds |
-| VER-009 | Implement quality check execution | ⬜ | Lint, type-check, documentation checks |
-| VER-010 | Create `run_verification_checks` handler | ⬜ | MCP tool handler in `src/mcp-server/handlers/` |
-| VER-011 | Add Zod schemas for `run_verification_checks` | ⬜ | Input/output schemas in `src/schemas/` |
-| VER-012 | Register `run_verification_checks` tool | ⬜ | Add to MCP server tool registry |
-| VER-013 | Implement evidence storage | ⬜ | Store execution evidence in `verification_results` table |
-| VER-014 | Unit tests for check executor | ⬜ | Test each check type with mocked filesystem/commands |
-| VER-015 | Integration tests for verification flow | ⬜ | End-to-end verification scenarios |
+| VER-006 | Create check executor module | ✅ | `src/core/check-executor.ts` - 17 tests |
+| VER-007 | Implement structural check execution | ✅ | file_exists, exports, json_schema in check-executor.ts |
+| VER-008 | Implement behavioral check execution | ✅ | tests, coverage in check-executor.ts |
+| VER-009 | Implement quality check execution | ✅ | lint, typecheck in check-executor.ts |
+| VER-010 | Create `run_verification_checks` handler | ✅ | `src/mcp-server/handlers/run-verification-checks.ts` |
+| VER-011 | Add Zod schemas for `run_verification_checks` | ✅ | Input/output schemas in `src/schemas/verification.ts` |
+| VER-012 | Register `run_verification_checks` tool | ✅ | MCP server now has 22 tools |
+| VER-013 | Implement evidence storage | ✅ | Results stored in `verification_results` table |
+| VER-014 | Unit tests for check executor | ✅ | 17 tests in check-executor.test.ts |
+| VER-015 | Integration tests for verification flow | ✅ | 13 tests in run-verification-checks.test.ts |
 
 **Acceptance Criteria**:
-- [ ] `run_verification_checks` tool exists and is callable
-- [ ] Structural checks verify file existence and exports
-- [ ] Behavioral checks run tests and check coverage
-- [ ] Quality checks run linters and type-checkers
-- [ ] Evidence (command output, timestamps) stored in database
+- [x] `run_verification_checks` tool exists and is callable
+- [x] Structural checks verify file existence and exports
+- [x] Behavioral checks run tests and check coverage
+- [x] Quality checks run linters and type-checkers
+- [x] Evidence (command output, timestamps) stored in database
 
 ---
 

@@ -144,3 +144,11 @@ export {
   type CheckConfig,
   type CheckResult as ExecutorCheckResult,
 } from "./check-executor.js";
+
+// Accept-signal validator (validates signals before verification)
+export {
+  validateAcceptSignal,
+  type AcceptSignalCheck,
+  type AcceptSignalValidatorOptions,
+  type AcceptSignalResult,
+} from "./accept-signal-validator.js";
