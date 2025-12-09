@@ -13,6 +13,7 @@ import {
 
 // Import tool handlers
 import { handleConfigureSprint } from "./handlers/configure-sprint.js";
+import { handleSetConfig } from "./handlers/set-config.js";
 
 /**
  * Define all 21 tools
@@ -422,6 +423,21 @@ const TOOLS: Tool[] = [
       required: ["task_id"],
     },
   },
+
+  // Configuration Tools (1)
+  {
+    name: "set_config",
+    description: "Set a configuration value (e.g., pre_signal_build_command, pre_signal_timeout)",
+    inputSchema: {
+      type: "object",
+      properties: {
+        key: { type: "string", description: "Configuration key" },
+        value: { type: "string", description: "Configuration value" },
+        description: { type: "string", description: "Optional description of the configuration" },
+      },
+      required: ["key", "value"],
+    },
+  },
 ];
 
 /**
@@ -539,6 +555,10 @@ export function registerTools(server: Server): void {
           return await (
             await import("./handlers/get-task-history.js")
           ).handleGetTaskHistory(args);
+
+        // Configuration (1 tool)
+        case "set_config":
+          return await handleSetConfig(args);
 
         default:
           return {
