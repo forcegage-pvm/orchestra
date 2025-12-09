@@ -4,9 +4,15 @@
  * Orchestrator submits PASS/FAIL judgment after reviewing verification results.
  * - PASS: Updates task to VERIFY status (ready for completion)
  * - FAIL: Updates task to VERIFY_FAILED, creates feedback record, increments retry_count
+ *
+ * Enforces judgment constraints (VER-020, VER-021, VER-022):
+ * - JVC-1: Verification results must exist before judgment
+ * - JVC-2: PASS not allowed with BLOCKING failures
+ * - JVC-3: Rationale must be adequate for audit trail
  */
 
 import { and, eq } from "drizzle-orm";
+import { validateJudgment } from "../../core/judgment-validator.js";
 import { getActiveSprint, getDb } from "../../db/index.js";
 import { feedback, progress, tasks } from "../../db/schema.js";
 import { validateInput } from "../../schemas/utils.js";
@@ -89,6 +95,31 @@ async function submitVerificationJudgment(
     throw new Error(
       `Task ${input.task_id} is in ${task.status} state, expected GATE_CHECK`
     );
+  }
+
+  // 4. Validate judgment constraints (JVC-1, JVC-2, JVC-3)
+  const judgmentValidation = await validateJudgment(
+    task.id,
+    input.judgment,
+    input.rationale
+  );
+
+  if (!judgmentValidation.valid) {
+    const failedChecks = judgmentValidation.checks.filter((c) => !c.passed);
+    const errorDetails = failedChecks
+      .map((c) => `${c.check_id}: ${c.reason}`)
+      .join("; ");
+
+    // Return structured error instead of throwing
+    return {
+      success: false,
+      error: {
+        code: "JUDGMENT_VALIDATION_FAILED",
+        message: `Judgment validation failed: ${errorDetails}`,
+        checks: judgmentValidation.checks,
+        blocking_failures: judgmentValidation.blocking_failures,
+      },
+    } as SubmitVerificationJudgmentOutput;
   }
 
   const now = new Date().toISOString();

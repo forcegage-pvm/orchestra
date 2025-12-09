@@ -6,7 +6,11 @@
 
 import { z } from "zod";
 import { SuccessResponseSchema } from "./errors.js";
-import { JudgmentSchema, VerificationFailureSchema, SeveritySchema } from "./shared.js";
+import {
+  JudgmentSchema,
+  SeveritySchema,
+  VerificationFailureSchema,
+} from "./shared.js";
 
 // ============================================================================
 // get_verification_results
@@ -76,15 +80,57 @@ export type SubmitVerificationJudgmentInput = z.output<
   typeof SubmitVerificationJudgmentInputSchema
 >;
 
-export const SubmitVerificationJudgmentOutputSchema =
-  SuccessResponseSchema.extend({
-    judgment: JudgmentSchema,
-    status: z.enum(["VERIFY", "VERIFY_FAILED"]),
-    retry_count: z.number().int().nonnegative(),
-    max_retries: z.number().int().positive(),
-    can_retry: z.boolean(),
-    next_step: z.string(),
-  });
+/**
+ * Judgment validation check result
+ */
+const JudgmentCheckSchema = z.object({
+  check_id: z.string(),
+  description: z.string(),
+  passed: z.boolean(),
+  reason: z.string().optional(),
+});
+
+/**
+ * Blocking failure detail
+ */
+const BlockingFailureSchema = z.object({
+  check_id: z.string(),
+  description: z.string(),
+  output: z.string().optional(),
+});
+
+/**
+ * Success response for judgment submission
+ */
+const JudgmentSuccessSchema = SuccessResponseSchema.extend({
+  judgment: JudgmentSchema,
+  status: z.enum(["VERIFY", "VERIFY_FAILED"]),
+  retry_count: z.number().int().nonnegative(),
+  max_retries: z.number().int().positive(),
+  can_retry: z.boolean(),
+  next_step: z.string(),
+});
+
+/**
+ * Error response for judgment validation failures
+ */
+const JudgmentErrorSchema = z.object({
+  success: z.literal(false),
+  error: z.object({
+    code: z.string(),
+    message: z.string(),
+    checks: z.array(JudgmentCheckSchema),
+    blocking_failures: z.array(BlockingFailureSchema).optional(),
+  }),
+});
+
+/**
+ * Union of success and error responses
+ */
+export const SubmitVerificationJudgmentOutputSchema = z.union([
+  JudgmentSuccessSchema,
+  JudgmentErrorSchema,
+]);
 
 export type SubmitVerificationJudgmentOutput = z.output<
   typeof SubmitVerificationJudgmentOutputSchema

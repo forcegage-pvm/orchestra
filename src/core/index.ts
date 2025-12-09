@@ -149,6 +149,15 @@ export {
 export {
   validateAcceptSignal,
   type AcceptSignalCheck,
-  type AcceptSignalValidatorOptions,
   type AcceptSignalResult,
+  type AcceptSignalValidatorOptions,
 } from "./accept-signal-validator.js";
+
+// Judgment validator (validates judgment constraints)
+export {
+  JVC,
+  validateJudgment,
+  type BlockingFailure,
+  type JudgmentCheck,
+  type JudgmentValidationResult,
+} from "./judgment-validator.js";
