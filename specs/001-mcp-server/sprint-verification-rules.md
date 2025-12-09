@@ -25,7 +25,7 @@ Implement verification rules alignment between the Orchestra specification and t
 | VER-002 | Refactor `runPreSignalChecks` to execute commands | ✅ | Replace claim-based checks with actual command execution |
 | VER-003 | Add artifact path validation | ✅ | Verify files in `artifacts_created` actually exist |
 | VER-004 | Add pre-signal configuration support | ✅ | Read build/test/lint commands from task or sprint config |
-| VER-005 | Unit tests for pre-signal execution | ⬜ | Mock command execution, test all scenarios |
+| VER-005 | Unit tests for pre-signal execution | ✅ | Mock command execution, test all scenarios |
 
 **Acceptance Criteria**:
 - [ ] `signal_completion` runs actual `npm run build` (or configured command)
@@ -158,13 +158,13 @@ Implement verification rules alignment between the Orchestra specification and t
 
 | Phase | Tasks | Complete | Progress |
 |-------|-------|----------|-----------|
-| Phase 1 | 5 | 4 | 80% |
+| Phase 1 | 5 | 5 | 100% |
 | Phase 2 | 10 | 0 | 0% |
 | Phase 3 | 4 | 0 | 0% |
 | Phase 4 | 4 | 0 | 0% |
 | Phase 5 | 4 | 0 | 0% |
 | Phase 6 | 4 | 0 | 0% |
-| **Total** | **31** | **4** | **13%** |
+| **Total** | **31** | **5** | **16%** |
 
 ---
 
