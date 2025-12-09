@@ -3,19 +3,38 @@
  *
  * stdio-based Model Context Protocol server for Orchestra V2.
  * Exposes 21 tools for sprint configuration, handover, signals, verification, etc.
+ *
+ * USAGE:
+ *   node dist/mcp-server/index.js --workspace /path/to/workspace
+ *   ORCHESTRA_WORKSPACE=/path/to/workspace node dist/mcp-server/index.js
+ *
+ * The workspace path determines where .orchestra/db/orchestra.db is located.
+ * Each workspace MUST have its own isolated database.
  */
 
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import { closeDb, initializeDb } from "../db/index.js";
+import {
+  closeDb,
+  getDbPath,
+  initializeDb,
+  resolveWorkspacePath,
+} from "../db/index.js";
 import { registerTools } from "./tools.js";
 
 /**
  * Start the MCP server
  */
 async function main() {
-  // Initialize database
+  // Log workspace path for debugging (to stderr so it doesn't interfere with MCP protocol)
+  const workspacePath = resolveWorkspacePath();
+  console.error(`[orchestra-mcp] Workspace: ${workspacePath}`);
+
+  // Initialize database in the workspace
   await initializeDb();
+
+  // Log resolved database path
+  console.error(`[orchestra-mcp] Database: ${getDbPath()}`);
 
   // Create MCP server
   const server = new Server(

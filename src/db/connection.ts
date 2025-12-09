@@ -2,6 +2,14 @@
  * Database connection management
  *
  * Provides singleton database connection using Drizzle ORM + better-sqlite3.
+ *
+ * CRITICAL: Database path is resolved in this order:
+ * 1. Explicit dbPath parameter
+ * 2. ORCHESTRA_WORKSPACE environment variable
+ * 3. --workspace CLI argument
+ * 4. Current working directory (fallback)
+ *
+ * This ensures each workspace has isolated data.
  */
 
 import Database from "better-sqlite3";
@@ -15,11 +23,49 @@ import * as schema from "./schema.js";
  */
 let dbInstance: BetterSQLite3Database<typeof schema> | null = null;
 let sqliteInstance: Database.Database | null = null;
+let resolvedDbPath: string | null = null;
+
+/**
+ * Resolve the workspace root directory
+ *
+ * Priority:
+ * 1. ORCHESTRA_WORKSPACE environment variable
+ * 2. --workspace CLI argument
+ * 3. Current working directory
+ */
+export function resolveWorkspacePath(): string {
+  // Check environment variable first (most reliable for MCP)
+  if (process.env.ORCHESTRA_WORKSPACE) {
+    return process.env.ORCHESTRA_WORKSPACE;
+  }
+
+  // Check CLI arguments for --workspace
+  const args = process.argv;
+  const workspaceArgIndex = args.findIndex(
+    (arg) => arg === "--workspace" || arg === "-w"
+  );
+  if (workspaceArgIndex !== -1) {
+    const workspaceArg = args[workspaceArgIndex + 1];
+    if (workspaceArg) {
+      return workspaceArg;
+    }
+  }
+
+  // Fallback to current working directory
+  return process.cwd();
+}
+
+/**
+ * Get the resolved database path
+ */
+export function getDbPath(): string | null {
+  return resolvedDbPath;
+}
 
 /**
  * Get or create database connection
  *
- * @param dbPath - Path to SQLite database file (default: .orchestra/db/orchestra.db)
+ * @param dbPath - Path to SQLite database file (default: .orchestra/db/orchestra.db in workspace)
  * @returns Drizzle database instance
  */
 export function getDb(dbPath?: string): BetterSQLite3Database<typeof schema> {
@@ -27,9 +73,13 @@ export function getDb(dbPath?: string): BetterSQLite3Database<typeof schema> {
     return dbInstance;
   }
 
-  // Default database path: .orchestra/db/orchestra.db
+  // Resolve workspace and database path
+  const workspacePath = resolveWorkspacePath();
   const finalPath =
-    dbPath || path.join(process.cwd(), ".orchestra", "db", "orchestra.db");
+    dbPath || path.join(workspacePath, ".orchestra", "db", "orchestra.db");
+
+  // Store resolved path for debugging
+  resolvedDbPath = finalPath;
 
   // Ensure directory exists
   const dbDir = path.dirname(finalPath);

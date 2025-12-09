@@ -166,7 +166,8 @@ function mapExecuteResult(result: ExecuteResult): PreSignalCheckResult {
   // Include output on failure
   if (!result.success) {
     // Prefer stderr, fall back to stdout
-    const output = result.stderr?.trim() || result.stdout?.trim() || result.error;
+    const output =
+      result.stderr?.trim() || result.stdout?.trim() || result.error;
     if (output) {
       checkResult.output = output;
     }

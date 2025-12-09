@@ -20,6 +20,42 @@ npm run build
 npm link  # Makes 'orchestra' command available globally
 ```
 
+## MCP Server Configuration
+
+Orchestra includes an MCP (Model Context Protocol) server for AI agent integration. 
+
+### VS Code Configuration
+
+Add to your user or workspace MCP settings (`.vscode/mcp.json` or VS Code settings):
+
+```json
+{
+  "mcpServers": {
+    "orchestra": {
+      "command": "node",
+      "args": [
+        "/path/to/orchestra/dist/mcp-server/index.js",
+        "--workspace",
+        "${workspaceFolder}"
+      ],
+      "env": {
+        "ORCHESTRA_WORKSPACE": "${workspaceFolder}"
+      }
+    }
+  }
+}
+```
+
+**⚠️ CRITICAL**: The `--workspace` argument or `ORCHESTRA_WORKSPACE` environment variable **MUST** be set to the project workspace path. This ensures each project uses its own `.orchestra/db/orchestra.db` database. Without this, all projects would share a global database in the user's home directory!
+
+### Alternative: Environment Variable
+
+You can also set the workspace path via environment variable:
+
+```bash
+ORCHESTRA_WORKSPACE=/path/to/your/project node dist/mcp-server/index.js
+```
+
 ## Quick Start
 
 ```bash

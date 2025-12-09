@@ -5,8 +5,8 @@
  * with timeout support and output capture.
  */
 
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { executeCommand, ExecuteOptions, ExecuteResult } from "../../src/core/command-executor.js";
+import { describe, expect, it } from "vitest";
+import { executeCommand } from "../../src/core/command-executor.js";
 
 describe("Command Executor", () => {
   describe("executeCommand", () => {
@@ -21,13 +21,15 @@ describe("Command Executor", () => {
 
     it("should capture stderr from commands", async () => {
       // Use node to write to stderr
-      const result = await executeCommand('node -e "console.error(\'error output\')"');
+      const result = await executeCommand(
+        "node -e \"console.error('error output')\""
+      );
 
       expect(result.stderr.trim()).toBe("error output");
     });
 
     it("should return non-zero exit code for failing commands", async () => {
-      const result = await executeCommand("node -e \"process.exit(1)\"");
+      const result = await executeCommand('node -e "process.exit(1)"');
 
       expect(result.success).toBe(false);
       expect(result.exitCode).toBe(1);
@@ -35,7 +37,7 @@ describe("Command Executor", () => {
 
     it("should handle commands that output to both stdout and stderr", async () => {
       const result = await executeCommand(
-        'node -e "console.log(\'out\'); console.error(\'err\')"'
+        "node -e \"console.log('out'); console.error('err')\""
       );
 
       expect(result.stdout.trim()).toBe("out");
@@ -53,9 +55,12 @@ describe("Command Executor", () => {
     });
 
     it("should use custom working directory", async () => {
-      const result = await executeCommand("node -e \"console.log(process.cwd())\"", {
-        cwd: process.cwd(),
-      });
+      const result = await executeCommand(
+        'node -e "console.log(process.cwd())"',
+        {
+          cwd: process.cwd(),
+        }
+      );
 
       expect(result.success).toBe(true);
       expect(result.stdout.trim()).toBe(process.cwd());
@@ -79,7 +84,9 @@ describe("Command Executor", () => {
     });
 
     it("should handle commands with special characters", async () => {
-      const result = await executeCommand('node -e "console.log(\'hello world\')"');
+      const result = await executeCommand(
+        "node -e \"console.log('hello world')\""
+      );
 
       expect(result.success).toBe(true);
       expect(result.stdout.trim()).toBe("hello world");
