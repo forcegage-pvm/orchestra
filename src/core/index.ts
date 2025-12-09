@@ -134,3 +134,13 @@ export {
   type ArtifactValidationDetail,
   type ArtifactValidationResult,
 } from "./artifact-validator.js";
+
+// Check executor (runs verification checks)
+export {
+  executeCheck,
+  executeStructuralCheck,
+  executeBehavioralCheck,
+  executeQualityCheck,
+  type CheckConfig,
+  type CheckResult as ExecutorCheckResult,
+} from "./check-executor.js";
