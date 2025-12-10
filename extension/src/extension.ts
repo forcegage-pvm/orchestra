@@ -5,6 +5,8 @@
  * database initialization, view registration, and MCP server lifecycle.
  */
 
+import * as fs from "fs";
+import * as path from "path";
 import * as vscode from "vscode";
 import { OrchestraDB } from "./database/client.js";
 import { DatabaseWatcher } from "./database/watcher.js";
@@ -23,6 +25,85 @@ import {
 let logger: OrchestraLogger;
 let dbWatcher: DatabaseWatcher | undefined;
 let mcpManager: MCPServerManager | undefined;
+
+/**
+ * Install MCP servers to .vscode/mcp.json
+ * Merges with existing configuration, preserving other servers
+ */
+async function installMcpServers(
+  orchestraRoot: string,
+  extensionPath: string
+): Promise<void> {
+  const workspaceFolders = vscode.workspace.workspaceFolders;
+  if (!workspaceFolders || workspaceFolders.length === 0) {
+    throw new Error("No workspace folder open");
+  }
+
+  const workspaceFolder = workspaceFolders[0];
+  if (!workspaceFolder) {
+    throw new Error("No workspace folder found");
+  }
+  const workspaceRoot = workspaceFolder.uri.fsPath;
+  const vscodeDir = path.join(workspaceRoot, ".vscode");
+  const mcpJsonPath = path.join(vscodeDir, "mcp.json");
+
+  // Get bundled MCP server path
+  const serverPath = path.join(extensionPath, "dist", "mcp-server", "index.js");
+  if (!fs.existsSync(serverPath)) {
+    throw new Error(
+      "Bundled MCP server not found. Extension may be corrupted."
+    );
+  }
+
+  // Read existing config or create new
+  let existingConfig: { servers?: Record<string, unknown> } = { servers: {} };
+  if (fs.existsSync(mcpJsonPath)) {
+    try {
+      const content = fs.readFileSync(mcpJsonPath, "utf-8");
+      existingConfig = JSON.parse(content);
+      if (!existingConfig.servers) {
+        existingConfig.servers = {};
+      }
+    } catch (error) {
+      throw new Error(
+        `Failed to parse existing mcp.json: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`
+      );
+    }
+  }
+
+  // Add/update Orchestra servers
+  existingConfig.servers = existingConfig.servers || {};
+  existingConfig.servers["orchestra-orchestrator"] = {
+    type: "stdio",
+    command: "node",
+    args: [serverPath, "--role=orchestrator"],
+    env: {
+      ORCHESTRA_WORKSPACE: orchestraRoot,
+    },
+  };
+  existingConfig.servers["orchestra-implementor"] = {
+    type: "stdio",
+    command: "node",
+    args: [serverPath, "--role=implementor"],
+    env: {
+      ORCHESTRA_WORKSPACE: orchestraRoot,
+    },
+  };
+
+  // Ensure .vscode directory exists
+  if (!fs.existsSync(vscodeDir)) {
+    fs.mkdirSync(vscodeDir, { recursive: true });
+  }
+
+  // Write updated config
+  fs.writeFileSync(
+    mcpJsonPath,
+    JSON.stringify(existingConfig, null, 2),
+    "utf-8"
+  );
+}
 
 /**
  * Extension activation
@@ -115,6 +196,25 @@ export async function activate(
             vscode.window.showErrorMessage(
               "Orchestra: Database watcher not initialized"
             );
+          }
+        }
+      ),
+      vscode.commands.registerCommand(
+        "orchestra.installMcpServers",
+        async () => {
+          try {
+            await installMcpServers(orchestraRoot, context.extensionPath);
+            vscode.window.showInformationMessage(
+              "Orchestra: MCP servers installed successfully to .vscode/mcp.json"
+            );
+            logger.info("MCP servers installed to .vscode/mcp.json");
+          } catch (error) {
+            const message =
+              error instanceof Error ? error.message : "Unknown error";
+            vscode.window.showErrorMessage(
+              `Orchestra: Failed to install MCP servers - ${message}`
+            );
+            logger.error("Failed to install MCP servers", error);
           }
         }
       )

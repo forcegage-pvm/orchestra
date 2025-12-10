@@ -74,6 +74,11 @@
         "command": "orchestra.invokeImplementor",
         "title": "Orchestra: Invoke Implementor Agent",
         "icon": "$(tools)"
+      },
+      {
+        "command": "orchestra.installMcpServers",
+        "title": "Orchestra: Install MCP Servers",
+        "icon": "$(plug)"
       }
     ],
     "viewsContainers": {
