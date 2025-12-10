@@ -11,4 +11,4 @@
  */
 
 // Re-export commonly used Drizzle types for convenience
-export type { InferSelectModel, InferInsertModel } from "drizzle-orm";
+export type { InferInsertModel, InferSelectModel } from "drizzle-orm";
