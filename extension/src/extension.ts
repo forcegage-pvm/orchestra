@@ -8,6 +8,7 @@
 import * as vscode from "vscode";
 import { OrchestraDB } from "./database/client.js";
 import { DatabaseWatcher } from "./database/watcher.js";
+import { ConfigGenerator } from "./mcp/ConfigGenerator.js";
 import { MCPServerManager } from "./mcp/ServerManager.js";
 import { OrchestraLogger } from "./utils/logger.js";
 import { DashboardPanel } from "./views/dashboard/DashboardPanel.js";
@@ -55,15 +56,26 @@ export async function activate(
   }
 
   try {
-    // 3. Initialize database client
+    // 3. Generate MCP config
+    const extensionVersion = context.extension.packageJSON.version || "0.0.0";
+    const configGenerator = new ConfigGenerator(
+      orchestraRoot,
+      context.extensionPath,
+      extensionVersion,
+      logger
+    );
+    await configGenerator.generateConfig();
+    logger.info("MCP config generation complete");
+
+    // 4. Initialize database client
     const db = OrchestraDB.getInstance(orchestraRoot);
     logger.info("Database client initialized");
 
-    // 4. Setup database watcher for reactive updates
+    // 5. Setup database watcher for reactive updates
     dbWatcher = new DatabaseWatcher(orchestraRoot);
     context.subscriptions.push(dbWatcher);
 
-    // 5. Register TreeView
+    // 6. Register TreeView
     const treeProvider = new SprintTreeProvider(db, dbWatcher);
     const treeView = vscode.window.createTreeView("orchestraSprintExplorer", {
       treeDataProvider: treeProvider,
