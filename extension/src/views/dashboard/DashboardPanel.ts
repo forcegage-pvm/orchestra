@@ -10,6 +10,7 @@ import * as fs from "fs";
 import * as path from "path";
 import * as vscode from "vscode";
 import type { DatabaseWatcher } from "../../database/watcher.js";
+import { getCurrentSprint } from "../../database/queries.js";
 import { OrchestraLogger } from "../../utils/logger.js";
 
 const logger = new OrchestraLogger();
@@ -22,6 +23,18 @@ interface DashboardData {
   };
   taskCounts?: {
     total: number;
+    completed: number;
+    percentage: number;
+  };
+  phaseBreakdown?: Array<{
+    phaseId: string;
+    phaseName: string;
+    total: number;
+    completed: number;
+  }>;
+  statusDistribution?: {
+    pending: number;
+    inProgress: number;
     completed: number;
   };
   currentTask?: {
@@ -141,12 +154,17 @@ export class DashboardPanel {
   private fetchDashboardData(): DashboardData {
     const data: DashboardData = {};
 
-    // Get sprint information
-    const sprint = this._db
-      .prepare(
-        "SELECT id, name, workflow_step FROM sprints ORDER BY created_at DESC LIMIT 1"
-      )
-      .get() as { id: string; name: string; workflow_step: string } | undefined;
+    // Get workspace root for query layer
+    const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+    if (!workspaceRoot) {
+      return data;
+    }
+
+    // Get sprint information using query layer
+    const currentSprint = getCurrentSprint(workspaceRoot);
+    const sprint = currentSprint
+      ? { id: currentSprint.id, name: currentSprint.name, workflow_step: currentSprint.workflow_step }
+      : undefined;
 
     if (sprint) {
       data.sprint = {
@@ -170,8 +188,62 @@ export class DashboardPanel {
         data.taskCounts = {
           total: counts.total,
           completed: counts.completed,
+          percentage:
+            counts.total > 0
+              ? Math.round((counts.completed / counts.total) * 100)
+              : 0,
         };
       }
+
+      // Get status distribution
+      const statusCounts = this._db
+        .prepare(
+          `SELECT 
+            SUM(CASE WHEN status = 'PENDING' OR status = 'PREPARED' THEN 1 ELSE 0 END) as pending,
+            SUM(CASE WHEN status = 'IMPLEMENT' OR status = 'VERIFY' THEN 1 ELSE 0 END) as in_progress,
+            SUM(CASE WHEN status = 'COMPLETE' THEN 1 ELSE 0 END) as completed
+          FROM tasks 
+          WHERE sprint_id = ?`
+        )
+        .get(sprint.id) as
+        | { pending: number; in_progress: number; completed: number }
+        | undefined;
+
+      if (statusCounts) {
+        data.statusDistribution = {
+          pending: statusCounts.pending || 0,
+          inProgress: statusCounts.in_progress || 0,
+          completed: statusCounts.completed || 0,
+        };
+      }
+
+      // Get phase breakdown
+      const phaseBreakdown = this._db
+        .prepare(
+          `SELECT 
+            p.phase_id,
+            p.phase_name,
+            COUNT(t.id) as total,
+            SUM(CASE WHEN t.status = 'COMPLETE' THEN 1 ELSE 0 END) as completed
+          FROM phases p
+          LEFT JOIN tasks t ON t.phase_id = p.phase_id AND t.sprint_id = p.sprint_id
+          WHERE p.sprint_id = ?
+          GROUP BY p.phase_id, p.phase_name
+          ORDER BY p.phase_id`
+        )
+        .all(sprint.id) as Array<{
+        phase_id: string;
+        phase_name: string;
+        total: number;
+        completed: number;
+      }>;
+
+      data.phaseBreakdown = phaseBreakdown.map((phase) => ({
+        phaseId: phase.phase_id,
+        phaseName: phase.phase_name,
+        total: phase.total,
+        completed: phase.completed,
+      }));
 
       // Get current task (in progress)
       const currentTask = this._db
