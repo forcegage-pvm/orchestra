@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src {{cspSource}} 'unsafe-inline'; script-src 'nonce-{{nonce}}';">
+  <title>Orchestra Dashboard</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: var(--vscode-font-family);
+      font-size: var(--vscode-font-size);
+      color: var(--vscode-foreground);
+      background-color: var(--vscode-editor-background);
+      padding: 20px;
+      line-height: 1.6;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    h1 {
+      color: var(--vscode-textLink-foreground);
+      font-size: 2em;
+      margin-bottom: 20px;
+      border-bottom: 2px solid var(--vscode-textLink-foreground);
+      padding-bottom: 10px;
+    }
+
+    h2 {
+      color: var(--vscode-foreground);
+      font-size: 1.5em;
+      margin-top: 30px;
+      margin-bottom: 15px;
+    }
+
+    .section {
+      background-color: var(--vscode-editor-background);
+      border: 1px solid var(--vscode-panel-border);
+      border-radius: 4px;
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+
+    .info-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 15px;
+      margin-bottom: 20px;
+    }
+
+    .info-card {
+      background-color: var(--vscode-sideBar-background);
+      border: 1px solid var(--vscode-widget-border);
+      border-radius: 4px;
+      padding: 15px;
+    }
+
+    .info-card-label {
+      color: var(--vscode-descriptionForeground);
+      font-size: 0.9em;
+      margin-bottom: 5px;
+    }
+
+    .info-card-value {
+      color: var(--vscode-foreground);
+      font-size: 1.2em;
+      font-weight: bold;
+    }
+
+    .status {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 12px;
+      font-size: 0.85em;
+      font-weight: 500;
+    }
+
+    .status-active {
+      background-color: var(--vscode-testing-iconPassed);
+      color: var(--vscode-editor-background);
+    }
+
+    .status-pending {
+      background-color: var(--vscode-testing-iconQueued);
+      color: var(--vscode-editor-background);
+    }
+
+    .status-complete {
+      background-color: var(--vscode-charts-blue);
+      color: var(--vscode-editor-background);
+    }
+
+    .task-list {
+      list-style: none;
+      padding: 0;
+    }
+
+    .task-item {
+      background-color: var(--vscode-list-hoverBackground);
+      border: 1px solid var(--vscode-widget-border);
+      border-radius: 4px;
+      padding: 12px;
+      margin-bottom: 10px;
+      cursor: pointer;
+      transition: background-color 0.2s;
+    }
+
+    .task-item:hover {
+      background-color: var(--vscode-list-activeSelectionBackground);
+    }
+
+    .task-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 5px;
+    }
+
+    .task-id {
+      color: var(--vscode-descriptionForeground);
+      font-weight: bold;
+      margin-right: 10px;
+    }
+
+    .task-title {
+      color: var(--vscode-foreground);
+      flex-grow: 1;
+    }
+
+    .task-priority {
+      padding: 2px 8px;
+      border-radius: 8px;
+      font-size: 0.8em;
+      font-weight: 500;
+    }
+
+    .priority-p0 {
+      background-color: var(--vscode-testing-iconFailed);
+      color: var(--vscode-editor-background);
+    }
+
+    .priority-p1 {
+      background-color: var(--vscode-testing-iconQueued);
+      color: var(--vscode-editor-background);
+    }
+
+    .priority-p2 {
+      background-color: var(--vscode-charts-blue);
+      color: var(--vscode-editor-background);
+    }
+
+    .error {
+      background-color: var(--vscode-inputValidation-errorBackground);
+      border: 1px solid var(--vscode-inputValidation-errorBorder);
+      color: var(--vscode-errorForeground);
+      padding: 15px;
+      border-radius: 4px;
+      margin-bottom: 20px;
+    }
+
+    .loading {
+      text-align: center;
+      padding: 40px;
+      color: var(--vscode-descriptionForeground);
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 40px;
+      color: var(--vscode-descriptionForeground);
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Orchestra Dashboard</h1>
+    
+    <div id="error" class="error" style="display: none;"></div>
+    <div id="loading" class="loading">Loading dashboard...</div>
+    <div id="content" style="display: none;">
+      
+      <!-- Sprint Overview Section -->
+      <div class="section">
+        <h2>Sprint Overview</h2>
+        <div class="info-grid">
+          <div class="info-card">
+            <div class="info-card-label">Sprint ID</div>
+            <div class="info-card-value" id="sprint-id">-</div>
+          </div>
+          <div class="info-card">
+            <div class="info-card-label">Status</div>
+            <div class="info-card-value" id="sprint-status">-</div>
+          </div>
+          <div class="info-card">
+            <div class="info-card-label">Total Tasks</div>
+            <div class="info-card-value" id="total-tasks">0</div>
+          </div>
+          <div class="info-card">
+            <div class="info-card-label">Completed</div>
+            <div class="info-card-value" id="completed-tasks">0</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Current Task Section -->
+      <div class="section">
+        <h2>Current Task</h2>
+        <div id="current-task-content">
+          <div class="empty-state">No task currently in progress</div>
+        </div>
+      </div>
+
+      <!-- Recent Tasks Section -->
+      <div class="section">
+        <h2>Recent Tasks</h2>
+        <ul id="recent-tasks" class="task-list">
+          <li class="empty-state">No tasks available</li>
+        </ul>
+      </div>
+
+    </div>
+  </div>
+
+  <script nonce="{{nonce}}">
+    const vscode = acquireVsCodeApi();
+
+    // Handle messages from extension
+    window.addEventListener('message', event => {
+      const message = event.data;
+      
+      switch (message.type) {
+        case 'update':
+          updateDashboard(message.data);
+          break;
+        case 'error':
+          showError(message.error);
+          break;
+      }
+    });
+
+    function updateDashboard(data) {
+      // Hide loading, show content
+      document.getElementById('loading').style.display = 'none';
+      document.getElementById('content').style.display = 'block';
+      document.getElementById('error').style.display = 'none';
+
+      // Update sprint overview
+      if (data.sprint) {
+        document.getElementById('sprint-id').textContent = data.sprint.id || '-';
+        
+        const statusElement = document.getElementById('sprint-status');
+        statusElement.innerHTML = `<span class="status status-${data.sprint.status?.toLowerCase() || 'pending'}">${data.sprint.status || 'Unknown'}</span>`;
+      }
+
+      // Update task counts
+      if (data.taskCounts) {
+        document.getElementById('total-tasks').textContent = data.taskCounts.total || 0;
+        document.getElementById('completed-tasks').textContent = data.taskCounts.completed || 0;
+      }
+
+      // Update current task
+      const currentTaskDiv = document.getElementById('current-task-content');
+      if (data.currentTask) {
+        currentTaskDiv.innerHTML = renderTask(data.currentTask, true);
+      } else {
+        currentTaskDiv.innerHTML = '<div class="empty-state">No task currently in progress</div>';
+      }
+
+      // Update recent tasks
+      const recentTasksList = document.getElementById('recent-tasks');
+      if (data.recentTasks && data.recentTasks.length > 0) {
+        recentTasksList.innerHTML = data.recentTasks.map(task => 
+          `<li class="task-item" onclick="openTask(${task.id})">${renderTask(task, false)}</li>`
+        ).join('');
+      } else {
+        recentTasksList.innerHTML = '<li class="empty-state">No tasks available</li>';
+      }
+    }
+
+    function renderTask(task, isDetailed) {
+      const priorityClass = `priority-${task.priority?.toLowerCase() || 'p2'}`;
+      
+      let html = `
+        <div class="task-header">
+          <span class="task-id">Task ${task.id}</span>
+          <span class="task-title">${task.title || 'Untitled Task'}</span>
+          <span class="task-priority ${priorityClass}">${task.priority || 'P2'}</span>
+        </div>
+      `;
+
+      if (isDetailed && task.description) {
+        html += `<div style="margin-top: 10px; color: var(--vscode-descriptionForeground);">${task.description}</div>`;
+      }
+
+      return html;
+    }
+
+    function showError(error) {
+      const errorDiv = document.getElementById('error');
+      errorDiv.textContent = error;
+      errorDiv.style.display = 'block';
+      document.getElementById('loading').style.display = 'none';
+    }
+
+    function openTask(taskId) {
+      vscode.postMessage({
+        type: 'openTask',
+        taskId: taskId
+      });
+    }
+
+    // Request initial data
+    vscode.postMessage({ type: 'ready' });
+  </script>
+</body>
+</html>
