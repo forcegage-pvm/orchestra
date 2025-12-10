@@ -1,6 +1,6 @@
 /**
  * Copy MCP Server to Extension Bundle
- * 
+ *
  * This script copies the built MCP server from the root project's dist/mcp-server/
  * directory into the extension's dist/mcp-server/ directory, enabling the extension
  * to bundle and spawn the MCP server without requiring separate installation.
