@@ -2,11 +2,18 @@
  * MCP Server Entry Point
  *
  * stdio-based Model Context Protocol server for Orchestra V2.
- * Exposes 21 tools for sprint configuration, handover, signals, verification, etc.
+ * Supports role-based tool filtering via --role flag.
  *
  * USAGE:
  *   node dist/mcp-server/index.js --workspace /path/to/workspace
+ *   node dist/mcp-server/index.js --role=orchestrator
+ *   node dist/mcp-server/index.js --role=implementor
  *   ORCHESTRA_WORKSPACE=/path/to/workspace node dist/mcp-server/index.js
+ *
+ * ROLES:
+ *   orchestrator - Tools for task preparation, verification, judgment
+ *   implementor  - Tools for task execution, signaling completion
+ *   full         - All tools (default, for development/testing)
  *
  * The workspace path determines where .orchestra/db/orchestra.db is located.
  * Each workspace MUST have its own isolated database.
@@ -20,15 +27,37 @@ import {
   initializeDb,
   resolveWorkspacePath,
 } from "../db/index.js";
-import { registerTools } from "./tools.js";
+import { registerTools, type ServerRole } from "./tools.js";
+
+/**
+ * Parse --role flag from command line arguments
+ */
+function parseRole(): ServerRole {
+  const roleArg = process.argv.find((arg) => arg.startsWith("--role="));
+  if (!roleArg) {
+    return "full";
+  }
+  const role = roleArg.split("=")[1];
+  if (role === "orchestrator" || role === "implementor" || role === "full") {
+    return role;
+  }
+  console.error(
+    `[orchestra-mcp] Invalid role "${role}", using "full". Valid: orchestrator, implementor, full`
+  );
+  return "full";
+}
 
 /**
  * Start the MCP server
  */
 async function main() {
+  // Parse role from CLI
+  const role = parseRole();
+
   // Log workspace path for debugging (to stderr so it doesn't interfere with MCP protocol)
   const workspacePath = resolveWorkspacePath();
   console.error(`[orchestra-mcp] Workspace: ${workspacePath}`);
+  console.error(`[orchestra-mcp] Role: ${role}`);
 
   // Initialize database in the workspace
   await initializeDb();
@@ -36,10 +65,12 @@ async function main() {
   // Log resolved database path
   console.error(`[orchestra-mcp] Database: ${getDbPath()}`);
 
-  // Create MCP server
+  // Create MCP server with role-specific name
+  const serverName =
+    role === "full" ? "orchestra-mcp-server" : `orchestra-${role}`;
   const server = new Server(
     {
-      name: "orchestra-mcp-server",
+      name: serverName,
       version: "2.0.0",
     },
     {
@@ -49,8 +80,8 @@ async function main() {
     }
   );
 
-  // Register all tools
-  registerTools(server);
+  // Register tools filtered by role
+  registerTools(server, role);
 
   // Start stdio transport
   const transport = new StdioServerTransport();

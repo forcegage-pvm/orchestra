@@ -1,7 +1,12 @@
 /**
  * MCP Tool Registration
  *
- * Registers all 21 Orchestra MCP tools with the server.
+ * Registers Orchestra MCP tools with the server, filtered by role.
+ *
+ * ROLES:
+ *   orchestrator - Task preparation, verification, judgment, configuration
+ *   implementor  - Task execution, signal completion, get feedback
+ *   full         - All tools (default, for development/testing)
  */
 
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
@@ -16,11 +21,29 @@ import { handleConfigureSprint } from "./handlers/configure-sprint.js";
 import { handleSetConfig } from "./handlers/set-config.js";
 
 /**
- * Define all 21 tools
+ * Server role type
  */
-const TOOLS: Tool[] = [
-  // Sprint Configuration Tools (6)
+export type ServerRole = "orchestrator" | "implementor" | "full";
+
+/**
+ * Tool role assignments
+ * - orchestrator: Tools only the orchestrator should access
+ * - implementor: Tools only the implementor should access
+ * - shared: Tools both roles can access
+ */
+type ToolRole = "orchestrator" | "implementor" | "shared";
+
+interface ToolWithRole extends Tool {
+  role: ToolRole;
+}
+
+/**
+ * Define all tools with role assignments
+ */
+const TOOLS_WITH_ROLES: ToolWithRole[] = [
+  // Sprint Configuration Tools - ORCHESTRATOR ONLY
   {
+    role: "orchestrator",
     name: "configure_sprint",
     description:
       "Configure a new sprint with tasks, phases, dependencies, and verification criteria",
@@ -100,22 +123,26 @@ const TOOLS: Tool[] = [
     },
   },
   {
+    role: "orchestrator",
     name: "add_task",
     description: "Add a new task to an existing sprint",
     inputSchema: { type: "object", properties: {} },
   },
   {
+    role: "orchestrator",
     name: "update_task",
     description:
       "Update task metadata (title, description, category, dependencies)",
     inputSchema: { type: "object", properties: {} },
   },
   {
+    role: "orchestrator",
     name: "update_verification",
     description: "Update verification criteria for a task",
     inputSchema: { type: "object", properties: {} },
   },
   {
+    role: "orchestrator",
     name: "get_task",
     description:
       "Get task details including verification criteria (orchestrator only)",
@@ -128,6 +155,7 @@ const TOOLS: Tool[] = [
     },
   },
   {
+    role: "orchestrator",
     name: "get_tasks",
     description: "List tasks with optional filters (phase, status, category)",
     inputSchema: {
@@ -140,6 +168,7 @@ const TOOLS: Tool[] = [
     },
   },
   {
+    role: "orchestrator",
     name: "remove_task",
     description: "Remove a pending task from the sprint",
     inputSchema: {
@@ -151,8 +180,9 @@ const TOOLS: Tool[] = [
     },
   },
 
-  // Handover Tools (3)
+  // Handover Tools
   {
+    role: "orchestrator",
     name: "prepare_task",
     description:
       "Create handover for implementor with acceptance criteria and file operations",
@@ -210,11 +240,13 @@ const TOOLS: Tool[] = [
     },
   },
   {
+    role: "implementor",
     name: "get_current_task",
     description: "Get current task handover (implementor only)",
     inputSchema: { type: "object", properties: {} },
   },
   {
+    role: "orchestrator",
     name: "update_handover",
     description: "Update handover details for a task",
     inputSchema: {
@@ -226,8 +258,9 @@ const TOOLS: Tool[] = [
     },
   },
 
-  // Signal Tools (2)
+  // Signal Tools - IMPLEMENTOR
   {
+    role: "implementor",
     name: "signal_completion",
     description:
       "Signal task completion with artifacts (runs pre-signal checks)",
@@ -274,6 +307,7 @@ const TOOLS: Tool[] = [
     },
   },
   {
+    role: "shared",
     name: "get_signal",
     description: "Get signal details for a task attempt",
     inputSchema: {
@@ -286,8 +320,9 @@ const TOOLS: Tool[] = [
     },
   },
 
-  // Verification Tools (3)
+  // Verification Tools - ORCHESTRATOR ONLY
   {
+    role: "orchestrator",
     name: "run_verification_checks",
     description:
       "Execute verification checks from database and record results (orchestrator only)",
@@ -322,6 +357,7 @@ const TOOLS: Tool[] = [
     },
   },
   {
+    role: "orchestrator",
     name: "get_verification_results",
     description: "Get verification check results (orchestrator only)",
     inputSchema: {
@@ -334,6 +370,7 @@ const TOOLS: Tool[] = [
     },
   },
   {
+    role: "orchestrator",
     name: "submit_verification_judgment",
     description: "Submit verification judgment (PASS or FAIL) with feedback",
     inputSchema: {
@@ -372,8 +409,9 @@ const TOOLS: Tool[] = [
     },
   },
 
-  // Feedback Tools (2)
+  // Feedback Tools - IMPLEMENTOR gets feedback, ORCHESTRATOR enhances
   {
+    role: "implementor",
     name: "get_feedback",
     description: "Get verification failure feedback for a task attempt",
     inputSchema: {
@@ -386,6 +424,7 @@ const TOOLS: Tool[] = [
     },
   },
   {
+    role: "orchestrator",
     name: "enhance_feedback",
     description: "Add additional guidance to existing feedback",
     inputSchema: {
@@ -399,8 +438,9 @@ const TOOLS: Tool[] = [
     },
   },
 
-  // Completion Tools (2)
+  // Completion Tools - ORCHESTRATOR ONLY
   {
+    role: "orchestrator",
     name: "complete_task",
     description: "Mark task as complete and advance sprint",
     inputSchema: {
@@ -412,6 +452,7 @@ const TOOLS: Tool[] = [
     },
   },
   {
+    role: "shared",
     name: "escalate_task",
     description: "Escalate stuck task to human supervisor",
     inputSchema: {
@@ -435,18 +476,21 @@ const TOOLS: Tool[] = [
     },
   },
 
-  // Progress Tools (3)
+  // Progress Tools - SHARED (both roles can view progress)
   {
+    role: "shared",
     name: "get_progress",
     description: "Get sprint progress summary with task counts",
     inputSchema: { type: "object", properties: {} },
   },
   {
+    role: "shared",
     name: "get_sprint_status",
     description: "Get sprint status with phase summaries",
     inputSchema: { type: "object", properties: {} },
   },
   {
+    role: "shared",
     name: "get_task_history",
     description: "Get audit trail of task status changes",
     inputSchema: {
@@ -458,8 +502,9 @@ const TOOLS: Tool[] = [
     },
   },
 
-  // Configuration Tools (1)
+  // Configuration Tools - ORCHESTRATOR ONLY
   {
+    role: "orchestrator",
     name: "set_config",
     description:
       "Set a configuration value (e.g., pre_signal_build_command, pre_signal_timeout)",
@@ -479,12 +524,45 @@ const TOOLS: Tool[] = [
 ];
 
 /**
- * Register all MCP tools
+ * Get tools filtered by role
  */
-export function registerTools(server: Server): void {
-  // List tools handler
+function getToolsForRole(role: ServerRole): Tool[] {
+  if (role === "full") {
+    // Return all tools (strip role property)
+    return TOOLS_WITH_ROLES.map(({ role: _role, ...tool }) => tool);
+  }
+
+  // Filter to role-specific + shared tools
+  return TOOLS_WITH_ROLES.filter(
+    (tool) => tool.role === role || tool.role === "shared"
+  ).map(({ role: _role, ...tool }) => tool);
+}
+
+/**
+ * Check if a tool is available for a role
+ */
+function isToolAvailableForRole(toolName: string, role: ServerRole): boolean {
+  if (role === "full") return true;
+
+  const tool = TOOLS_WITH_ROLES.find((t) => t.name === toolName);
+  if (!tool) return false;
+
+  return tool.role === role || tool.role === "shared";
+}
+
+/**
+ * Register MCP tools filtered by role
+ */
+export function registerTools(server: Server, role: ServerRole = "full"): void {
+  const availableTools = getToolsForRole(role);
+
+  console.error(
+    `[orchestra-mcp] Registering ${availableTools.length} tools for role: ${role}`
+  );
+
+  // List tools handler - returns only role-appropriate tools
   server.setRequestHandler(ListToolsRequestSchema, async () => {
-    return { tools: TOOLS };
+    return { tools: availableTools };
   });
 
   // Call tool handler
@@ -492,8 +570,33 @@ export function registerTools(server: Server): void {
     const toolName = request.params.name;
     const args = request.params.arguments || {};
 
+    // Check role access before executing
+    if (!isToolAvailableForRole(toolName, role)) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify(
+              {
+                success: false,
+                error: {
+                  code: "ROLE_ACCESS_DENIED",
+                  message: `Tool "${toolName}" is not available for role "${role}"`,
+                  available_roles: TOOLS_WITH_ROLES.find(
+                    (t) => t.name === toolName
+                  )?.role,
+                },
+              },
+              null,
+              2
+            ),
+          },
+        ],
+      };
+    }
+
     try {
-      console.error(`[MCP] Tool called: ${toolName}`);
+      console.error(`[MCP] Tool called: ${toolName} (role: ${role})`);
       console.error(`[MCP] Arguments:`, JSON.stringify(args, null, 2));
 
       // Route to appropriate handler
