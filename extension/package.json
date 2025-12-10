@@ -106,6 +106,7 @@
   "scripts": {
     "vscode:prepublish": "npm run build",
     "build": "node esbuild.config.js --production",
+    "postbuild": "node scripts/copy-mcp-server.js",
     "watch": "node esbuild.config.js --watch",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src --ext ts",
