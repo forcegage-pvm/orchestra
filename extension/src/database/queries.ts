@@ -360,3 +360,143 @@ export function getVerificationResults(
     };
   });
 }
+
+/**
+ * Timeline event types
+ */
+export type TimelineEventType =
+  | "task_started"
+  | "signal_received"
+  | "verification_passed"
+  | "verification_failed"
+  | "feedback_sent"
+  | "status_changed";
+
+/**
+ * Timeline event for dashboard
+ */
+export interface TimelineEvent {
+  id: number;
+  timestamp: string;
+  eventType: TimelineEventType;
+  taskId: number;
+  taskTitle?: string;
+  description: string;
+  triggeredBy?: string;
+  metadata?: {
+    fromStatus?: string | null;
+    toStatus?: string;
+    notes?: string | null;
+  };
+}
+
+/**
+ * Get sprint timeline events (combined from progress and signals tables)
+ *
+ * Returns up to 20 most recent events in reverse chronological order.
+ * Events include status changes from progress table and signal/verification events.
+ *
+ * @param workspaceRoot Absolute path to workspace root
+ * @param sprintId Sprint ID (e.g., "sprint-015")
+ * @returns Array of timeline events (max 20, newest first)
+ */
+export function getSprintTimeline(
+  workspaceRoot: string,
+  sprintId: string
+): TimelineEvent[] {
+  const db = getDB(workspaceRoot);
+
+  // Get progress events with task titles
+  const progressEvents = db
+    .select({
+      id: schema.progress.id,
+      timestamp: schema.progress.changed_at,
+      task_id: schema.progress.task_id,
+      from_status: schema.progress.from_status,
+      to_status: schema.progress.to_status,
+      triggered_by: schema.progress.triggered_by,
+      notes: schema.progress.notes,
+      task_title: schema.tasks.title,
+    })
+    .from(schema.progress as unknown as typeof schema.progress)
+    .innerJoin(
+      schema.tasks as unknown as typeof schema.tasks,
+      eq(
+        schema.progress.task_id as unknown as typeof schema.progress.task_id,
+        schema.tasks.id as unknown as typeof schema.tasks.id
+      )
+    )
+    .where(
+      eq(
+        schema.progress
+          .sprint_id as unknown as typeof schema.progress.sprint_id,
+        sprintId
+      )
+    )
+    .orderBy(
+      desc(
+        schema.progress
+          .changed_at as unknown as typeof schema.progress.changed_at
+      )
+    )
+    .limit(20)
+    .all() as Array<{
+    id: number;
+    timestamp: string;
+    task_id: number;
+    from_status: string | null;
+    to_status: string;
+    triggered_by: string;
+    notes: string | null;
+    task_title: string;
+  }>;
+
+  // Convert progress events to timeline events
+  const events: TimelineEvent[] = progressEvents.map((event) => {
+    let eventType: TimelineEventType = "status_changed";
+    let description = `Task ${event.task_id}: ${
+      event.from_status || "NONE"
+    } → ${event.to_status}`;
+
+    // Determine specific event type based on status transition
+    if (event.to_status === "IMPLEMENT" && !event.from_status) {
+      eventType = "task_started";
+      description = `Task ${event.task_id} started: ${event.task_title}`;
+    } else if (event.to_status === "GATE_CHECK") {
+      eventType = "signal_received";
+      description = `Signal received for Task ${event.task_id}: ${event.task_title}`;
+    } else if (event.to_status === "COMPLETE") {
+      eventType = "verification_passed";
+      description = `Task ${event.task_id} completed: ${event.task_title}`;
+    } else if (
+      event.to_status === "IMPLEMENT" &&
+      event.from_status === "GATE_CHECK"
+    ) {
+      eventType = "verification_failed";
+      description = `Verification failed for Task ${event.task_id}: ${event.task_title}`;
+    } else if (
+      event.to_status === "IMPLEMENT" &&
+      event.from_status === "VERIFY"
+    ) {
+      eventType = "feedback_sent";
+      description = `Feedback sent for Task ${event.task_id}: ${event.task_title}`;
+    }
+
+    return {
+      id: event.id,
+      timestamp: event.timestamp,
+      eventType,
+      taskId: event.task_id,
+      taskTitle: event.task_title,
+      description,
+      triggeredBy: event.triggered_by,
+      metadata: {
+        fromStatus: event.from_status ?? null,
+        toStatus: event.to_status,
+        notes: event.notes ?? null,
+      },
+    };
+  });
+
+  return events;
+}

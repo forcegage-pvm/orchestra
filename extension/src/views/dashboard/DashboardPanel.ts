@@ -9,7 +9,12 @@ import type Database from "better-sqlite3";
 import * as fs from "fs";
 import * as path from "path";
 import * as vscode from "vscode";
-import { getCurrentSprint, getCurrentTask } from "../../database/queries.js";
+import {
+  getCurrentSprint,
+  getCurrentTask,
+  getSprintTimeline,
+  type TimelineEvent,
+} from "../../database/queries.js";
 import type { DatabaseWatcher } from "../../database/watcher.js";
 import { OrchestraLogger } from "../../utils/logger.js";
 
@@ -52,6 +57,7 @@ interface DashboardData {
     priority: string;
     status: string;
   }>;
+  timeline?: TimelineEvent[];
 }
 
 export class DashboardPanel {
@@ -289,6 +295,10 @@ export class DashboardPanel {
         priority: task.category,
         status: task.status,
       }));
+
+      // Get timeline events (last 20 events)
+      const timeline = getSprintTimeline(workspaceRoot, sprint.id);
+      data.timeline = timeline;
     }
 
     return data;
