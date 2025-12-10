@@ -9,7 +9,7 @@ import type Database from "better-sqlite3";
 import * as fs from "fs";
 import * as path from "path";
 import * as vscode from "vscode";
-import { getCurrentSprint } from "../../database/queries.js";
+import { getCurrentSprint, getCurrentTask } from "../../database/queries.js";
 import type { DatabaseWatcher } from "../../database/watcher.js";
 import { OrchestraLogger } from "../../utils/logger.js";
 
@@ -43,6 +43,8 @@ interface DashboardData {
     description: string;
     priority: string;
     status: string;
+    category: string;
+    updated_at: string;
   };
   recentTasks?: Array<{
     id: number;
@@ -249,33 +251,18 @@ export class DashboardPanel {
         completed: phase.completed,
       }));
 
-      // Get current task (in progress)
-      const currentTask = this._db
-        .prepare(
-          `SELECT id, task_id, title, description, category, status
-          FROM tasks 
-          WHERE sprint_id = ? AND status = 'IMPLEMENT'
-          ORDER BY task_id ASC
-          LIMIT 1`
-        )
-        .get(sprint.id) as
-        | {
-            id: number;
-            task_id: number;
-            title: string;
-            description: string;
-            category: string;
-            status: string;
-          }
-        | undefined;
+      // Get current task (in progress) using query layer
+      const currentTaskData = getCurrentTask(workspaceRoot);
 
-      if (currentTask) {
+      if (currentTaskData) {
         data.currentTask = {
-          id: currentTask.task_id,
-          title: currentTask.title,
-          description: currentTask.description,
-          priority: currentTask.category,
-          status: currentTask.status,
+          id: currentTaskData.task_id,
+          title: currentTaskData.title,
+          description: currentTaskData.description,
+          priority: currentTaskData.handover.priority,
+          status: currentTaskData.status,
+          category: currentTaskData.category,
+          updated_at: currentTaskData.updated_at,
         };
       }
 

@@ -101,6 +101,31 @@
         color: var(--vscode-editor-background);
       }
 
+      .status-pending {
+        background-color: var(--vscode-testing-iconQueued);
+        color: var(--vscode-editor-background);
+      }
+
+      .status-prepared {
+        background-color: var(--vscode-charts-yellow);
+        color: var(--vscode-editor-background);
+      }
+
+      .status-implement {
+        background-color: var(--vscode-charts-blue);
+        color: var(--vscode-editor-background);
+      }
+
+      .status-gate_check {
+        background-color: var(--vscode-charts-orange);
+        color: var(--vscode-editor-background);
+      }
+
+      .status-verify {
+        background-color: var(--vscode-charts-purple);
+        color: var(--vscode-editor-background);
+      }
+
       .task-list {
         list-style: none;
         padding: 0;
@@ -160,6 +185,37 @@
         color: var(--vscode-editor-background);
       }
 
+      /* Category Badge Styles */
+      .category-badge {
+        padding: 2px 8px;
+        border-radius: 8px;
+        font-size: 0.8em;
+        font-weight: 500;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+      }
+
+      .category-infrastructure {
+        background-color: var(--vscode-charts-purple);
+        color: var(--vscode-editor-background);
+      }
+
+      .category-integration {
+        background-color: var(--vscode-charts-blue);
+        color: var(--vscode-editor-background);
+      }
+
+      .category-visual {
+        background-color: var(--vscode-charts-green);
+        color: var(--vscode-editor-background);
+      }
+
+      .category-refactor {
+        background-color: var(--vscode-charts-orange);
+        color: var(--vscode-editor-background);
+      }
+
       .error {
         background-color: var(--vscode-inputValidation-errorBackground);
         border: 1px solid var(--vscode-inputValidation-errorBorder);
@@ -179,6 +235,91 @@
         text-align: center;
         padding: 40px;
         color: var(--vscode-descriptionForeground);
+      }
+
+      /* Current Task Card Styles */
+      .current-task-card {
+        background-color: var(--vscode-sideBar-background);
+        border: 2px solid var(--vscode-focusBorder);
+        border-radius: 6px;
+        padding: 20px;
+      }
+
+      .current-task-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 12px;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+
+      .current-task-title-section {
+        flex: 1;
+        min-width: 200px;
+      }
+
+      .current-task-id {
+        color: var(--vscode-descriptionForeground);
+        font-weight: bold;
+        font-size: 1.1em;
+        margin-bottom: 4px;
+      }
+
+      .current-task-title {
+        color: var(--vscode-foreground);
+        font-size: 1.3em;
+        font-weight: 600;
+        margin-bottom: 8px;
+      }
+
+      .current-task-badges {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        align-items: center;
+      }
+
+      .current-task-description {
+        color: var(--vscode-descriptionForeground);
+        margin-top: 12px;
+        line-height: 1.6;
+      }
+
+      .current-task-footer {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-top: 16px;
+        padding-top: 12px;
+        border-top: 1px solid var(--vscode-widget-border);
+        flex-wrap: wrap;
+        gap: 10px;
+      }
+
+      .current-task-timestamp {
+        color: var(--vscode-descriptionForeground);
+        font-size: 0.85em;
+      }
+
+      .btn-view-details {
+        background-color: var(--vscode-button-background);
+        color: var(--vscode-button-foreground);
+        border: none;
+        border-radius: 4px;
+        padding: 8px 16px;
+        font-size: 0.9em;
+        font-weight: 500;
+        cursor: pointer;
+        transition: background-color 0.2s;
+      }
+
+      .btn-view-details:hover {
+        background-color: var(--vscode-button-hoverBackground);
+      }
+
+      .btn-view-details:active {
+        background-color: var(--vscode-button-activeBackground);
       }
 
       /* Sprint Header Styles */
@@ -640,7 +781,7 @@
         // Update current task
         const currentTaskDiv = document.getElementById("current-task-content");
         if (data.currentTask) {
-          currentTaskDiv.innerHTML = renderTask(data.currentTask, true);
+          currentTaskDiv.innerHTML = renderCurrentTask(data.currentTask);
         } else {
           currentTaskDiv.innerHTML =
             '<div class="empty-state">No task currently in progress</div>';
@@ -660,6 +801,95 @@
         } else {
           recentTasksList.innerHTML =
             '<li class="empty-state">No tasks available</li>';
+        }
+      }
+
+      function renderCurrentTask(task) {
+        const statusClass = `status-${
+          task.status?.toLowerCase().replace("_", "-") || "pending"
+        }`;
+        const categoryClass = `category-${
+          task.category?.toLowerCase() || "integration"
+        }`;
+        const priorityClass = `priority-${
+          task.priority?.toLowerCase() || "p2"
+        }`;
+
+        // Format timestamp
+        const timestamp = formatTimestamp(task.updated_at);
+
+        return `
+          <div class="current-task-card">
+            <div class="current-task-header">
+              <div class="current-task-title-section">
+                <div class="current-task-id">Task ${task.id}</div>
+                <div class="current-task-title">${
+                  task.title || "Untitled Task"
+                }</div>
+                <div class="current-task-badges">
+                  <span class="status ${statusClass}">${formatStatus(
+          task.status
+        )}</span>
+                  <span class="category-badge ${categoryClass}">${formatCategory(
+          task.category
+        )}</span>
+                  <span class="task-priority ${priorityClass}">${
+          task.priority || "P2"
+        }</span>
+                </div>
+              </div>
+            </div>
+            ${
+              task.description
+                ? `<div class="current-task-description">${task.description}</div>`
+                : ""
+            }
+            <div class="current-task-footer">
+              <div class="current-task-timestamp">Last updated: ${timestamp}</div>
+              <button class="btn-view-details" onclick="openTask(${
+                task.id
+              })">View Details</button>
+            </div>
+          </div>
+        `;
+      }
+
+      function formatStatus(status) {
+        if (!status) return "PENDING";
+        // Convert GATE_CHECK to "Gate Check", IMPLEMENT to "Implement", etc.
+        return status
+          .replace(/_/g, " ")
+          .replace(/\b\w/g, (l) => l.toUpperCase());
+      }
+
+      function formatCategory(category) {
+        if (!category) return "INTEGRATION";
+        return category.toUpperCase();
+      }
+
+      function formatTimestamp(timestamp) {
+        if (!timestamp) return "Unknown";
+
+        try {
+          const date = new Date(timestamp);
+          const now = new Date();
+          const diffMs = now - date;
+          const diffMins = Math.floor(diffMs / 60000);
+          const diffHours = Math.floor(diffMs / 3600000);
+          const diffDays = Math.floor(diffMs / 86400000);
+
+          if (diffMins < 1) return "Just now";
+          if (diffMins < 60)
+            return `${diffMins} minute${diffMins !== 1 ? "s" : ""} ago`;
+          if (diffHours < 24)
+            return `${diffHours} hour${diffHours !== 1 ? "s" : ""} ago`;
+          if (diffDays < 7)
+            return `${diffDays} day${diffDays !== 1 ? "s" : ""} ago`;
+
+          // Format as date string for older timestamps
+          return date.toLocaleDateString();
+        } catch (e) {
+          return timestamp;
         }
       }
 
