@@ -36,6 +36,7 @@ export class SprintTreeProvider
   }
 
   getChildren(_element?: vscode.TreeItem): vscode.TreeItem[] {
+    void _element; // Reserved for Task 14 implementation
     // Stub: Return empty array (implemented in Task 14)
     return [];
   }
