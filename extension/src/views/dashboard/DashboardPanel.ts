@@ -9,8 +9,8 @@ import type Database from "better-sqlite3";
 import * as fs from "fs";
 import * as path from "path";
 import * as vscode from "vscode";
-import type { DatabaseWatcher } from "../../database/watcher.js";
 import { getCurrentSprint } from "../../database/queries.js";
+import type { DatabaseWatcher } from "../../database/watcher.js";
 import { OrchestraLogger } from "../../utils/logger.js";
 
 const logger = new OrchestraLogger();
@@ -163,7 +163,11 @@ export class DashboardPanel {
     // Get sprint information using query layer
     const currentSprint = getCurrentSprint(workspaceRoot);
     const sprint = currentSprint
-      ? { id: currentSprint.id, name: currentSprint.name, workflow_step: currentSprint.workflow_step }
+      ? {
+          id: currentSprint.id,
+          name: currentSprint.name,
+          workflow_step: currentSprint.workflow_step,
+        }
       : undefined;
 
     if (sprint) {

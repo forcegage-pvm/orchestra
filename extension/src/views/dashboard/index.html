@@ -1,637 +1,706 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src {{cspSource}} 'unsafe-inline'; script-src 'nonce-{{nonce}}';">
-  <title>Orchestra Dashboard</title>
-  <style>
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-    }
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; style-src {{cspSource}} 'unsafe-inline'; script-src 'nonce-{{nonce}}';"
+    />
+    <title>Orchestra Dashboard</title>
+    <style>
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
 
-    body {
-      font-family: var(--vscode-font-family);
-      font-size: var(--vscode-font-size);
-      color: var(--vscode-foreground);
-      background-color: var(--vscode-editor-background);
-      padding: 20px;
-      line-height: 1.6;
-    }
+      body {
+        font-family: var(--vscode-font-family);
+        font-size: var(--vscode-font-size);
+        color: var(--vscode-foreground);
+        background-color: var(--vscode-editor-background);
+        padding: 20px;
+        line-height: 1.6;
+      }
 
-    .container {
-      max-width: 1200px;
-      margin: 0 auto;
-    }
+      .container {
+        max-width: 1200px;
+        margin: 0 auto;
+      }
 
-    h1 {
-      color: var(--vscode-textLink-foreground);
-      font-size: 2em;
-      margin-bottom: 20px;
-      border-bottom: 2px solid var(--vscode-textLink-foreground);
-      padding-bottom: 10px;
-    }
+      h1 {
+        color: var(--vscode-textLink-foreground);
+        font-size: 2em;
+        margin-bottom: 20px;
+        border-bottom: 2px solid var(--vscode-textLink-foreground);
+        padding-bottom: 10px;
+      }
 
-    h2 {
-      color: var(--vscode-foreground);
-      font-size: 1.5em;
-      margin-top: 30px;
-      margin-bottom: 15px;
-    }
+      h2 {
+        color: var(--vscode-foreground);
+        font-size: 1.5em;
+        margin-top: 30px;
+        margin-bottom: 15px;
+      }
 
-    .section {
-      background-color: var(--vscode-editor-background);
-      border: 1px solid var(--vscode-panel-border);
-      border-radius: 4px;
-      padding: 20px;
-      margin-bottom: 20px;
-    }
+      .section {
+        background-color: var(--vscode-editor-background);
+        border: 1px solid var(--vscode-panel-border);
+        border-radius: 4px;
+        padding: 20px;
+        margin-bottom: 20px;
+      }
 
-    .info-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-      gap: 15px;
-      margin-bottom: 20px;
-    }
+      .info-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 15px;
+        margin-bottom: 20px;
+      }
 
-    .info-card {
-      background-color: var(--vscode-sideBar-background);
-      border: 1px solid var(--vscode-widget-border);
-      border-radius: 4px;
-      padding: 15px;
-    }
+      .info-card {
+        background-color: var(--vscode-sideBar-background);
+        border: 1px solid var(--vscode-widget-border);
+        border-radius: 4px;
+        padding: 15px;
+      }
 
-    .info-card-label {
-      color: var(--vscode-descriptionForeground);
-      font-size: 0.9em;
-      margin-bottom: 5px;
-    }
+      .info-card-label {
+        color: var(--vscode-descriptionForeground);
+        font-size: 0.9em;
+        margin-bottom: 5px;
+      }
 
-    .info-card-value {
-      color: var(--vscode-foreground);
-      font-size: 1.2em;
-      font-weight: bold;
-    }
+      .info-card-value {
+        color: var(--vscode-foreground);
+        font-size: 1.2em;
+        font-weight: bold;
+      }
 
-    .status {
-      display: inline-block;
-      padding: 4px 12px;
-      border-radius: 12px;
-      font-size: 0.85em;
-      font-weight: 500;
-    }
+      .status {
+        display: inline-block;
+        padding: 4px 12px;
+        border-radius: 12px;
+        font-size: 0.85em;
+        font-weight: 500;
+      }
 
-    .status-active {
-      background-color: var(--vscode-testing-iconPassed);
-      color: var(--vscode-editor-background);
-    }
+      .status-active {
+        background-color: var(--vscode-testing-iconPassed);
+        color: var(--vscode-editor-background);
+      }
 
-    .status-pending {
-      background-color: var(--vscode-testing-iconQueued);
-      color: var(--vscode-editor-background);
-    }
+      .status-pending {
+        background-color: var(--vscode-testing-iconQueued);
+        color: var(--vscode-editor-background);
+      }
 
-    .status-complete {
-      background-color: var(--vscode-charts-blue);
-      color: var(--vscode-editor-background);
-    }
+      .status-complete {
+        background-color: var(--vscode-charts-blue);
+        color: var(--vscode-editor-background);
+      }
 
-    .task-list {
-      list-style: none;
-      padding: 0;
-    }
+      .task-list {
+        list-style: none;
+        padding: 0;
+      }
 
-    .task-item {
-      background-color: var(--vscode-list-hoverBackground);
-      border: 1px solid var(--vscode-widget-border);
-      border-radius: 4px;
-      padding: 12px;
-      margin-bottom: 10px;
-      cursor: pointer;
-      transition: background-color 0.2s;
-    }
+      .task-item {
+        background-color: var(--vscode-list-hoverBackground);
+        border: 1px solid var(--vscode-widget-border);
+        border-radius: 4px;
+        padding: 12px;
+        margin-bottom: 10px;
+        cursor: pointer;
+        transition: background-color 0.2s;
+      }
 
-    .task-item:hover {
-      background-color: var(--vscode-list-activeSelectionBackground);
-    }
+      .task-item:hover {
+        background-color: var(--vscode-list-activeSelectionBackground);
+      }
 
-    .task-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 5px;
-    }
-
-    .task-id {
-      color: var(--vscode-descriptionForeground);
-      font-weight: bold;
-      margin-right: 10px;
-    }
-
-    .task-title {
-      color: var(--vscode-foreground);
-      flex-grow: 1;
-    }
-
-    .task-priority {
-      padding: 2px 8px;
-      border-radius: 8px;
-      font-size: 0.8em;
-      font-weight: 500;
-    }
-
-    .priority-p0 {
-      background-color: var(--vscode-testing-iconFailed);
-      color: var(--vscode-editor-background);
-    }
-
-    .priority-p1 {
-      background-color: var(--vscode-testing-iconQueued);
-      color: var(--vscode-editor-background);
-    }
-
-    .priority-p2 {
-      background-color: var(--vscode-charts-blue);
-      color: var(--vscode-editor-background);
-    }
-
-    .error {
-      background-color: var(--vscode-inputValidation-errorBackground);
-      border: 1px solid var(--vscode-inputValidation-errorBorder);
-      color: var(--vscode-errorForeground);
-      padding: 15px;
-      border-radius: 4px;
-      margin-bottom: 20px;
-    }
-
-    .loading {
-      text-align: center;
-      padding: 40px;
-      color: var(--vscode-descriptionForeground);
-    }
-
-    .empty-state {
-      text-align: center;
-      padding: 40px;
-      color: var(--vscode-descriptionForeground);
-    }
-
-    /* Sprint Header Styles */
-    .sprint-header {
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-      margin-bottom: 20px;
-    }
-
-    .sprint-name {
-      font-size: 1.8em;
-      font-weight: bold;
-      color: var(--vscode-foreground);
-    }
-
-    .sprint-meta {
-      display: flex;
-      align-items: center;
-      gap: 15px;
-      flex-wrap: wrap;
-    }
-
-    .sprint-id-badge {
-      color: var(--vscode-descriptionForeground);
-      font-size: 0.9em;
-      font-family: var(--vscode-editor-font-family);
-    }
-
-    /* Progress Bar Styles */
-    .progress-section {
-      margin-bottom: 20px;
-    }
-
-    .progress-label {
-      display: flex;
-      justify-content: space-between;
-      margin-bottom: 8px;
-      font-size: 0.9em;
-    }
-
-    .progress-text {
-      color: var(--vscode-foreground);
-    }
-
-    .progress-percentage {
-      color: var(--vscode-descriptionForeground);
-      font-weight: bold;
-    }
-
-    .progress-bar {
-      height: 24px;
-      background-color: var(--vscode-input-background);
-      border-radius: 12px;
-      overflow: hidden;
-      border: 1px solid var(--vscode-widget-border);
-    }
-
-    .progress-fill {
-      height: 100%;
-      background: linear-gradient(90deg, var(--vscode-testing-iconPassed), var(--vscode-charts-green));
-      border-radius: 12px;
-      transition: width 0.3s ease;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      min-width: fit-content;
-    }
-
-    .progress-fill-text {
-      color: var(--vscode-editor-background);
-      font-size: 0.8em;
-      font-weight: bold;
-      padding: 0 10px;
-    }
-
-    /* Phase Breakdown Styles */
-    .phase-grid {
-      display: grid;
-      grid-template-columns: 1fr;
-      gap: 12px;
-    }
-
-    .phase-item {
-      background-color: var(--vscode-sideBar-background);
-      border: 1px solid var(--vscode-widget-border);
-      border-radius: 4px;
-      padding: 12px;
-    }
-
-    .phase-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 8px;
-    }
-
-    .phase-name {
-      color: var(--vscode-foreground);
-      font-weight: 500;
-    }
-
-    .phase-count {
-      color: var(--vscode-descriptionForeground);
-      font-size: 0.9em;
-    }
-
-    .phase-progress {
-      height: 6px;
-      background-color: var(--vscode-input-background);
-      border-radius: 3px;
-      overflow: hidden;
-    }
-
-    .phase-progress-fill {
-      height: 100%;
-      background-color: var(--vscode-testing-iconPassed);
-      border-radius: 3px;
-      transition: width 0.3s ease;
-    }
-
-    /* Status Distribution Styles */
-    .status-distribution {
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-    }
-
-    .status-row {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-
-    .status-indicator {
-      width: 16px;
-      height: 16px;
-      border-radius: 4px;
-      flex-shrink: 0;
-    }
-
-    .status-indicator-pending {
-      background-color: var(--vscode-testing-iconQueued);
-    }
-
-    .status-indicator-inprogress {
-      background-color: var(--vscode-charts-yellow);
-    }
-
-    .status-indicator-completed {
-      background-color: var(--vscode-testing-iconPassed);
-    }
-
-    .status-label {
-      flex: 1;
-      color: var(--vscode-foreground);
-    }
-
-    .status-count {
-      font-weight: bold;
-      color: var(--vscode-foreground);
-      min-width: 30px;
-      text-align: right;
-    }
-
-    .status-bar-container {
-      flex: 2;
-      height: 8px;
-      background-color: var(--vscode-input-background);
-      border-radius: 4px;
-      overflow: hidden;
-    }
-
-    .status-bar-fill {
-      height: 100%;
-      border-radius: 4px;
-      transition: width 0.3s ease;
-    }
-
-    .status-bar-pending {
-      background-color: var(--vscode-testing-iconQueued);
-    }
-
-    .status-bar-inprogress {
-      background-color: var(--vscode-charts-yellow);
-    }
-
-    .status-bar-completed {
-      background-color: var(--vscode-testing-iconPassed);
-    }
-
-    /* Responsive Layout */
-    @media (min-width: 600px) {
-      .sprint-header {
-        flex-direction: row;
+      .task-header {
+        display: flex;
         justify-content: space-between;
         align-items: center;
+        margin-bottom: 5px;
       }
 
+      .task-id {
+        color: var(--vscode-descriptionForeground);
+        font-weight: bold;
+        margin-right: 10px;
+      }
+
+      .task-title {
+        color: var(--vscode-foreground);
+        flex-grow: 1;
+      }
+
+      .task-priority {
+        padding: 2px 8px;
+        border-radius: 8px;
+        font-size: 0.8em;
+        font-weight: 500;
+      }
+
+      .priority-p0 {
+        background-color: var(--vscode-testing-iconFailed);
+        color: var(--vscode-editor-background);
+      }
+
+      .priority-p1 {
+        background-color: var(--vscode-testing-iconQueued);
+        color: var(--vscode-editor-background);
+      }
+
+      .priority-p2 {
+        background-color: var(--vscode-charts-blue);
+        color: var(--vscode-editor-background);
+      }
+
+      .error {
+        background-color: var(--vscode-inputValidation-errorBackground);
+        border: 1px solid var(--vscode-inputValidation-errorBorder);
+        color: var(--vscode-errorForeground);
+        padding: 15px;
+        border-radius: 4px;
+        margin-bottom: 20px;
+      }
+
+      .loading {
+        text-align: center;
+        padding: 40px;
+        color: var(--vscode-descriptionForeground);
+      }
+
+      .empty-state {
+        text-align: center;
+        padding: 40px;
+        color: var(--vscode-descriptionForeground);
+      }
+
+      /* Sprint Header Styles */
+      .sprint-header {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        margin-bottom: 20px;
+      }
+
+      .sprint-name {
+        font-size: 1.8em;
+        font-weight: bold;
+        color: var(--vscode-foreground);
+      }
+
+      .sprint-meta {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        flex-wrap: wrap;
+      }
+
+      .sprint-id-badge {
+        color: var(--vscode-descriptionForeground);
+        font-size: 0.9em;
+        font-family: var(--vscode-editor-font-family);
+      }
+
+      /* Progress Bar Styles */
+      .progress-section {
+        margin-bottom: 20px;
+      }
+
+      .progress-label {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 8px;
+        font-size: 0.9em;
+      }
+
+      .progress-text {
+        color: var(--vscode-foreground);
+      }
+
+      .progress-percentage {
+        color: var(--vscode-descriptionForeground);
+        font-weight: bold;
+      }
+
+      .progress-bar {
+        height: 24px;
+        background-color: var(--vscode-input-background);
+        border-radius: 12px;
+        overflow: hidden;
+        border: 1px solid var(--vscode-widget-border);
+      }
+
+      .progress-fill {
+        height: 100%;
+        background: linear-gradient(
+          90deg,
+          var(--vscode-testing-iconPassed),
+          var(--vscode-charts-green)
+        );
+        border-radius: 12px;
+        transition: width 0.3s ease;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-width: fit-content;
+      }
+
+      .progress-fill-text {
+        color: var(--vscode-editor-background);
+        font-size: 0.8em;
+        font-weight: bold;
+        padding: 0 10px;
+      }
+
+      /* Phase Breakdown Styles */
       .phase-grid {
-        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 12px;
       }
 
+      .phase-item {
+        background-color: var(--vscode-sideBar-background);
+        border: 1px solid var(--vscode-widget-border);
+        border-radius: 4px;
+        padding: 12px;
+      }
+
+      .phase-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 8px;
+      }
+
+      .phase-name {
+        color: var(--vscode-foreground);
+        font-weight: 500;
+      }
+
+      .phase-count {
+        color: var(--vscode-descriptionForeground);
+        font-size: 0.9em;
+      }
+
+      .phase-progress {
+        height: 6px;
+        background-color: var(--vscode-input-background);
+        border-radius: 3px;
+        overflow: hidden;
+      }
+
+      .phase-progress-fill {
+        height: 100%;
+        background-color: var(--vscode-testing-iconPassed);
+        border-radius: 3px;
+        transition: width 0.3s ease;
+      }
+
+      /* Status Distribution Styles */
       .status-distribution {
-        flex-direction: row;
-        justify-content: space-around;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
       }
 
       .status-row {
-        flex-direction: column;
+        display: flex;
         align-items: center;
-        gap: 8px;
+        gap: 12px;
       }
 
-      .status-bar-container {
-        display: none;
+      .status-indicator {
+        width: 16px;
+        height: 16px;
+        border-radius: 4px;
+        flex-shrink: 0;
+      }
+
+      .status-indicator-pending {
+        background-color: var(--vscode-testing-iconQueued);
+      }
+
+      .status-indicator-inprogress {
+        background-color: var(--vscode-charts-yellow);
+      }
+
+      .status-indicator-completed {
+        background-color: var(--vscode-testing-iconPassed);
+      }
+
+      .status-label {
+        flex: 1;
+        color: var(--vscode-foreground);
       }
 
       .status-count {
-        font-size: 2em;
-        min-width: auto;
+        font-weight: bold;
+        color: var(--vscode-foreground);
+        min-width: 30px;
+        text-align: right;
       }
-    }
-  </style>
-</head>
-<body>
-  <div class="container">
-    <h1>Orchestra Dashboard</h1>
-    
-    <div id="error" class="error" style="display: none;"></div>
-    <div id="loading" class="loading">Loading dashboard...</div>
-    <div id="content" style="display: none;">
-      
-      <!-- Sprint Header Section -->
-      <div class="section">
-        <div class="sprint-header">
-          <div>
-            <div class="sprint-name" id="sprint-name">Sprint Name</div>
-            <div class="sprint-meta">
-              <span class="sprint-id-badge" id="sprint-id-badge">sprint-id</span>
+
+      .status-bar-container {
+        flex: 2;
+        height: 8px;
+        background-color: var(--vscode-input-background);
+        border-radius: 4px;
+        overflow: hidden;
+      }
+
+      .status-bar-fill {
+        height: 100%;
+        border-radius: 4px;
+        transition: width 0.3s ease;
+      }
+
+      .status-bar-pending {
+        background-color: var(--vscode-testing-iconQueued);
+      }
+
+      .status-bar-inprogress {
+        background-color: var(--vscode-charts-yellow);
+      }
+
+      .status-bar-completed {
+        background-color: var(--vscode-testing-iconPassed);
+      }
+
+      /* Responsive Layout */
+      @media (min-width: 600px) {
+        .sprint-header {
+          flex-direction: row;
+          justify-content: space-between;
+          align-items: center;
+        }
+
+        .phase-grid {
+          grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        }
+
+        .status-distribution {
+          flex-direction: row;
+          justify-content: space-around;
+        }
+
+        .status-row {
+          flex-direction: column;
+          align-items: center;
+          gap: 8px;
+        }
+
+        .status-bar-container {
+          display: none;
+        }
+
+        .status-count {
+          font-size: 2em;
+          min-width: auto;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>Orchestra Dashboard</h1>
+
+      <div id="error" class="error" style="display: none"></div>
+      <div id="loading" class="loading">Loading dashboard...</div>
+      <div id="content" style="display: none">
+        <!-- Sprint Header Section -->
+        <div class="section">
+          <div class="sprint-header">
+            <div>
+              <div class="sprint-name" id="sprint-name">Sprint Name</div>
+              <div class="sprint-meta">
+                <span class="sprint-id-badge" id="sprint-id-badge"
+                  >sprint-id</span
+                >
+              </div>
+            </div>
+            <div id="sprint-status-badge">
+              <span class="status status-pending">Loading...</span>
             </div>
           </div>
-          <div id="sprint-status-badge">
-            <span class="status status-pending">Loading...</span>
+
+          <!-- Progress Bar -->
+          <div class="progress-section">
+            <div class="progress-label">
+              <span class="progress-text">Progress</span>
+              <span class="progress-percentage" id="progress-percentage"
+                >0%</span
+              >
+            </div>
+            <div class="progress-bar">
+              <div class="progress-fill" id="progress-fill" style="width: 0%">
+                <span class="progress-fill-text" id="progress-fill-text"
+                  >0 / 0</span
+                >
+              </div>
+            </div>
           </div>
         </div>
 
-        <!-- Progress Bar -->
-        <div class="progress-section">
-          <div class="progress-label">
-            <span class="progress-text">Progress</span>
-            <span class="progress-percentage" id="progress-percentage">0%</span>
+        <!-- Phase Breakdown Section -->
+        <div class="section">
+          <h2>Phase Breakdown</h2>
+          <div class="phase-grid" id="phase-breakdown">
+            <div class="empty-state">No phases available</div>
           </div>
-          <div class="progress-bar">
-            <div class="progress-fill" id="progress-fill" style="width: 0%">
-              <span class="progress-fill-text" id="progress-fill-text">0 / 0</span>
+        </div>
+
+        <!-- Status Distribution Section -->
+        <div class="section">
+          <h2>Task Status</h2>
+          <div class="status-distribution" id="status-distribution">
+            <div class="status-row">
+              <div class="status-indicator status-indicator-pending"></div>
+              <span class="status-label">Pending</span>
+              <span class="status-count" id="status-pending">0</span>
+              <div class="status-bar-container">
+                <div
+                  class="status-bar-fill status-bar-pending"
+                  id="status-bar-pending"
+                  style="width: 0%"
+                ></div>
+              </div>
+            </div>
+            <div class="status-row">
+              <div class="status-indicator status-indicator-inprogress"></div>
+              <span class="status-label">In Progress</span>
+              <span class="status-count" id="status-inprogress">0</span>
+              <div class="status-bar-container">
+                <div
+                  class="status-bar-fill status-bar-inprogress"
+                  id="status-bar-inprogress"
+                  style="width: 0%"
+                ></div>
+              </div>
+            </div>
+            <div class="status-row">
+              <div class="status-indicator status-indicator-completed"></div>
+              <span class="status-label">Completed</span>
+              <span class="status-count" id="status-completed">0</span>
+              <div class="status-bar-container">
+                <div
+                  class="status-bar-fill status-bar-completed"
+                  id="status-bar-completed"
+                  style="width: 0%"
+                ></div>
+              </div>
             </div>
           </div>
         </div>
-      </div>
 
-      <!-- Phase Breakdown Section -->
-      <div class="section">
-        <h2>Phase Breakdown</h2>
-        <div class="phase-grid" id="phase-breakdown">
-          <div class="empty-state">No phases available</div>
-        </div>
-      </div>
-
-      <!-- Status Distribution Section -->
-      <div class="section">
-        <h2>Task Status</h2>
-        <div class="status-distribution" id="status-distribution">
-          <div class="status-row">
-            <div class="status-indicator status-indicator-pending"></div>
-            <span class="status-label">Pending</span>
-            <span class="status-count" id="status-pending">0</span>
-            <div class="status-bar-container">
-              <div class="status-bar-fill status-bar-pending" id="status-bar-pending" style="width: 0%"></div>
-            </div>
-          </div>
-          <div class="status-row">
-            <div class="status-indicator status-indicator-inprogress"></div>
-            <span class="status-label">In Progress</span>
-            <span class="status-count" id="status-inprogress">0</span>
-            <div class="status-bar-container">
-              <div class="status-bar-fill status-bar-inprogress" id="status-bar-inprogress" style="width: 0%"></div>
-            </div>
-          </div>
-          <div class="status-row">
-            <div class="status-indicator status-indicator-completed"></div>
-            <span class="status-label">Completed</span>
-            <span class="status-count" id="status-completed">0</span>
-            <div class="status-bar-container">
-              <div class="status-bar-fill status-bar-completed" id="status-bar-completed" style="width: 0%"></div>
-            </div>
+        <!-- Current Task Section -->
+        <div class="section">
+          <h2>Current Task</h2>
+          <div id="current-task-content">
+            <div class="empty-state">No task currently in progress</div>
           </div>
         </div>
-      </div>
 
-      <!-- Current Task Section -->
-      <div class="section">
-        <h2>Current Task</h2>
-        <div id="current-task-content">
-          <div class="empty-state">No task currently in progress</div>
+        <!-- Recent Tasks Section -->
+        <div class="section">
+          <h2>Recent Tasks</h2>
+          <ul id="recent-tasks" class="task-list">
+            <li class="empty-state">No tasks available</li>
+          </ul>
         </div>
       </div>
-
-      <!-- Recent Tasks Section -->
-      <div class="section">
-        <h2>Recent Tasks</h2>
-        <ul id="recent-tasks" class="task-list">
-          <li class="empty-state">No tasks available</li>
-        </ul>
-      </div>
-
     </div>
-  </div>
 
-  <script nonce="{{nonce}}">
-    const vscode = acquireVsCodeApi();
+    <script nonce="{{nonce}}">
+      const vscode = acquireVsCodeApi();
 
-    // Handle messages from extension
-    window.addEventListener('message', event => {
-      const message = event.data;
-      
-      switch (message.type) {
-        case 'update':
-          updateDashboard(message.data);
-          break;
-        case 'error':
-          showError(message.error);
-          break;
-      }
-    });
+      // Handle messages from extension
+      window.addEventListener("message", (event) => {
+        const message = event.data;
 
-    function updateDashboard(data) {
-      // Hide loading, show content
-      document.getElementById('loading').style.display = 'none';
-      document.getElementById('content').style.display = 'block';
-      document.getElementById('error').style.display = 'none';
+        switch (message.type) {
+          case "update":
+            updateDashboard(message.data);
+            break;
+          case "error":
+            showError(message.error);
+            break;
+        }
+      });
 
-      // Update sprint header
-      if (data.sprint) {
-        document.getElementById('sprint-name').textContent = data.sprint.name || 'Unnamed Sprint';
-        document.getElementById('sprint-id-badge').textContent = data.sprint.id || '-';
-        
-        const statusBadge = document.getElementById('sprint-status-badge');
-        const statusClass = data.sprint.status?.toLowerCase().replace('_', '-') || 'pending';
-        statusBadge.innerHTML = `<span class="status status-${statusClass}">${data.sprint.status || 'Unknown'}</span>`;
-      }
+      function updateDashboard(data) {
+        // Hide loading, show content
+        document.getElementById("loading").style.display = "none";
+        document.getElementById("content").style.display = "block";
+        document.getElementById("error").style.display = "none";
 
-      // Update progress bar
-      if (data.taskCounts) {
-        const percentage = data.taskCounts.percentage || 0;
-        const completed = data.taskCounts.completed || 0;
-        const total = data.taskCounts.total || 0;
+        // Update sprint header
+        if (data.sprint) {
+          document.getElementById("sprint-name").textContent =
+            data.sprint.name || "Unnamed Sprint";
+          document.getElementById("sprint-id-badge").textContent =
+            data.sprint.id || "-";
 
-        document.getElementById('progress-percentage').textContent = `${percentage}%`;
-        document.getElementById('progress-fill').style.width = `${Math.max(percentage, percentage > 0 ? 15 : 0)}%`;
-        document.getElementById('progress-fill-text').textContent = `${completed} / ${total}`;
-      }
+          const statusBadge = document.getElementById("sprint-status-badge");
+          const statusClass =
+            data.sprint.status?.toLowerCase().replace("_", "-") || "pending";
+          statusBadge.innerHTML = `<span class="status status-${statusClass}">${
+            data.sprint.status || "Unknown"
+          }</span>`;
+        }
 
-      // Update phase breakdown
-      const phaseGrid = document.getElementById('phase-breakdown');
-      if (data.phaseBreakdown && data.phaseBreakdown.length > 0) {
-        phaseGrid.innerHTML = data.phaseBreakdown.map(phase => {
-          const phasePercentage = phase.total > 0 ? Math.round((phase.completed / phase.total) * 100) : 0;
-          return `
+        // Update progress bar
+        if (data.taskCounts) {
+          const percentage = data.taskCounts.percentage || 0;
+          const completed = data.taskCounts.completed || 0;
+          const total = data.taskCounts.total || 0;
+
+          document.getElementById(
+            "progress-percentage"
+          ).textContent = `${percentage}%`;
+          document.getElementById("progress-fill").style.width = `${Math.max(
+            percentage,
+            percentage > 0 ? 15 : 0
+          )}%`;
+          document.getElementById(
+            "progress-fill-text"
+          ).textContent = `${completed} / ${total}`;
+        }
+
+        // Update phase breakdown
+        const phaseGrid = document.getElementById("phase-breakdown");
+        if (data.phaseBreakdown && data.phaseBreakdown.length > 0) {
+          phaseGrid.innerHTML = data.phaseBreakdown
+            .map((phase) => {
+              const phasePercentage =
+                phase.total > 0
+                  ? Math.round((phase.completed / phase.total) * 100)
+                  : 0;
+              return `
             <div class="phase-item">
               <div class="phase-header">
-                <span class="phase-name">${phase.phaseName || phase.phaseId}</span>
-                <span class="phase-count">${phase.completed}/${phase.total}</span>
+                <span class="phase-name">${
+                  phase.phaseName || phase.phaseId
+                }</span>
+                <span class="phase-count">${phase.completed}/${
+                phase.total
+              }</span>
               </div>
               <div class="phase-progress">
                 <div class="phase-progress-fill" style="width: ${phasePercentage}%"></div>
               </div>
             </div>
           `;
-        }).join('');
-      } else {
-        phaseGrid.innerHTML = '<div class="empty-state">No phases available</div>';
+            })
+            .join("");
+        } else {
+          phaseGrid.innerHTML =
+            '<div class="empty-state">No phases available</div>';
+        }
+
+        // Update status distribution
+        if (data.statusDistribution) {
+          const total =
+            (data.statusDistribution.pending || 0) +
+            (data.statusDistribution.inProgress || 0) +
+            (data.statusDistribution.completed || 0);
+
+          const pendingPct =
+            total > 0 ? (data.statusDistribution.pending / total) * 100 : 0;
+          const inProgressPct =
+            total > 0 ? (data.statusDistribution.inProgress / total) * 100 : 0;
+          const completedPct =
+            total > 0 ? (data.statusDistribution.completed / total) * 100 : 0;
+
+          document.getElementById("status-pending").textContent =
+            data.statusDistribution.pending || 0;
+          document.getElementById("status-inprogress").textContent =
+            data.statusDistribution.inProgress || 0;
+          document.getElementById("status-completed").textContent =
+            data.statusDistribution.completed || 0;
+
+          document.getElementById(
+            "status-bar-pending"
+          ).style.width = `${pendingPct}%`;
+          document.getElementById(
+            "status-bar-inprogress"
+          ).style.width = `${inProgressPct}%`;
+          document.getElementById(
+            "status-bar-completed"
+          ).style.width = `${completedPct}%`;
+        }
+
+        // Update current task
+        const currentTaskDiv = document.getElementById("current-task-content");
+        if (data.currentTask) {
+          currentTaskDiv.innerHTML = renderTask(data.currentTask, true);
+        } else {
+          currentTaskDiv.innerHTML =
+            '<div class="empty-state">No task currently in progress</div>';
+        }
+
+        // Update recent tasks
+        const recentTasksList = document.getElementById("recent-tasks");
+        if (data.recentTasks && data.recentTasks.length > 0) {
+          recentTasksList.innerHTML = data.recentTasks
+            .map(
+              (task) =>
+                `<li class="task-item" onclick="openTask(${
+                  task.id
+                })">${renderTask(task, false)}</li>`
+            )
+            .join("");
+        } else {
+          recentTasksList.innerHTML =
+            '<li class="empty-state">No tasks available</li>';
+        }
       }
 
-      // Update status distribution
-      if (data.statusDistribution) {
-        const total = (data.statusDistribution.pending || 0) + 
-                      (data.statusDistribution.inProgress || 0) + 
-                      (data.statusDistribution.completed || 0);
+      function renderTask(task, isDetailed) {
+        const priorityClass = `priority-${
+          task.priority?.toLowerCase() || "p2"
+        }`;
 
-        const pendingPct = total > 0 ? (data.statusDistribution.pending / total) * 100 : 0;
-        const inProgressPct = total > 0 ? (data.statusDistribution.inProgress / total) * 100 : 0;
-        const completedPct = total > 0 ? (data.statusDistribution.completed / total) * 100 : 0;
-
-        document.getElementById('status-pending').textContent = data.statusDistribution.pending || 0;
-        document.getElementById('status-inprogress').textContent = data.statusDistribution.inProgress || 0;
-        document.getElementById('status-completed').textContent = data.statusDistribution.completed || 0;
-
-        document.getElementById('status-bar-pending').style.width = `${pendingPct}%`;
-        document.getElementById('status-bar-inprogress').style.width = `${inProgressPct}%`;
-        document.getElementById('status-bar-completed').style.width = `${completedPct}%`;
-      }
-
-      // Update current task
-      const currentTaskDiv = document.getElementById('current-task-content');
-      if (data.currentTask) {
-        currentTaskDiv.innerHTML = renderTask(data.currentTask, true);
-      } else {
-        currentTaskDiv.innerHTML = '<div class="empty-state">No task currently in progress</div>';
-      }
-
-      // Update recent tasks
-      const recentTasksList = document.getElementById('recent-tasks');
-      if (data.recentTasks && data.recentTasks.length > 0) {
-        recentTasksList.innerHTML = data.recentTasks.map(task => 
-          `<li class="task-item" onclick="openTask(${task.id})">${renderTask(task, false)}</li>`
-        ).join('');
-      } else {
-        recentTasksList.innerHTML = '<li class="empty-state">No tasks available</li>';
-      }
-    }
-
-    function renderTask(task, isDetailed) {
-      const priorityClass = `priority-${task.priority?.toLowerCase() || 'p2'}`;
-      
-      let html = `
+        let html = `
         <div class="task-header">
           <span class="task-id">Task ${task.id}</span>
-          <span class="task-title">${task.title || 'Untitled Task'}</span>
-          <span class="task-priority ${priorityClass}">${task.priority || 'P2'}</span>
+          <span class="task-title">${task.title || "Untitled Task"}</span>
+          <span class="task-priority ${priorityClass}">${
+          task.priority || "P2"
+        }</span>
         </div>
       `;
 
-      if (isDetailed && task.description) {
-        html += `<div style="margin-top: 10px; color: var(--vscode-descriptionForeground);">${task.description}</div>`;
+        if (isDetailed && task.description) {
+          html += `<div style="margin-top: 10px; color: var(--vscode-descriptionForeground);">${task.description}</div>`;
+        }
+
+        return html;
       }
 
-      return html;
-    }
+      function showError(error) {
+        const errorDiv = document.getElementById("error");
+        errorDiv.textContent = error;
+        errorDiv.style.display = "block";
+        document.getElementById("loading").style.display = "none";
+      }
 
-    function showError(error) {
-      const errorDiv = document.getElementById('error');
-      errorDiv.textContent = error;
-      errorDiv.style.display = 'block';
-      document.getElementById('loading').style.display = 'none';
-    }
+      function openTask(taskId) {
+        vscode.postMessage({
+          type: "openTask",
+          taskId: taskId,
+        });
+      }
 
-    function openTask(taskId) {
-      vscode.postMessage({
-        type: 'openTask',
-        taskId: taskId
-      });
-    }
-
-    // Request initial data
-    vscode.postMessage({ type: 'ready' });
-  </script>
-</body>
+      // Request initial data
+      vscode.postMessage({ type: "ready" });
+    </script>
+  </body>
 </html>
