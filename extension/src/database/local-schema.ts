@@ -190,6 +190,31 @@ export const verificationResults = sqliteTable(
 );
 
 /**
+ * Feedback table - Verification failure feedback (sanitized for implementor)
+ */
+export const feedback = sqliteTable(
+  "feedback",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    task_id: integer("task_id")
+      .notNull()
+      .references(() => tasks.id, { onDelete: "cascade" }),
+    attempt: integer("attempt").notNull(),
+    max_attempts: integer("max_attempts").notNull(),
+    can_retry: integer("can_retry").notNull(),
+    issues: text("issues").notNull(),
+    passed_checks: text("passed_checks").notNull(),
+    next_steps: text("next_steps").notNull(),
+    additional_guidance: text("additional_guidance"),
+    created_at: text("created_at").notNull(),
+    updated_at: text("updated_at").notNull(),
+  },
+  (feedback) => ({
+    taskFeedbackIdx: index("task_feedback_idx").on(feedback.task_id),
+  })
+);
+
+/**
  * Progress table - Audit trail of task status changes
  */
 export const progress = sqliteTable(

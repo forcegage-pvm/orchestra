@@ -105,6 +105,20 @@ export interface VerificationCheck {
   created_at: string;
 }
 
+export interface Feedback {
+  id: number;
+  task_id: number;
+  attempt: number;
+  max_attempts: number;
+  can_retry: number;
+  issues: string;
+  passed_checks: string;
+  next_steps: string;
+  additional_guidance: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 /**
  * Get the Drizzle database instance for the current workspace
  * Helper to reduce boilerplate in query functions
@@ -500,4 +514,93 @@ export function getSprintTimeline(
   });
 
   return events;
+}
+
+/**
+ * Get a task by its ID
+ *
+ * Returns the task with the given ID (primary key).
+ *
+ * @param workspaceRoot Absolute path to workspace root
+ * @param taskId Task ID (numeric primary key)
+ * @returns Task or null if not found
+ */
+export function getTaskById(
+  workspaceRoot: string,
+  taskId: number
+): Task | null {
+  const db = getDB(workspaceRoot);
+
+  const results = db
+    .select()
+    .from(schema.tasks as unknown as typeof schema.tasks)
+    .where(eq(schema.tasks.id as unknown as typeof schema.tasks.id, taskId))
+    .limit(1)
+    .all() as Task[];
+
+  return results[0] ?? null;
+}
+
+/**
+ * Get handover for a specific task
+ *
+ * Returns the handover data (acceptance criteria, deliverables, etc.) for the task.
+ *
+ * @param workspaceRoot Absolute path to workspace root
+ * @param taskId Task ID (numeric primary key)
+ * @returns Handover or null if not found
+ */
+export function getHandover(
+  workspaceRoot: string,
+  taskId: number
+): Handover | null {
+  const db = getDB(workspaceRoot);
+
+  const results = db
+    .select()
+    .from(schema.handovers as unknown as typeof schema.handovers)
+    .where(
+      eq(
+        schema.handovers.task_id as unknown as typeof schema.handovers.task_id,
+        taskId
+      )
+    )
+    .limit(1)
+    .all() as Handover[];
+
+  return results[0] ?? null;
+}
+
+/**
+ * Get the latest feedback for a task
+ *
+ * Returns the most recent feedback (verification failure feedback) for the task.
+ * If no feedback exists, returns null (task hasn't received feedback yet).
+ *
+ * @param workspaceRoot Absolute path to workspace root
+ * @param taskId Task ID (numeric primary key)
+ * @returns Latest feedback or null if none exists
+ */
+export function getFeedback(
+  workspaceRoot: string,
+  taskId: number
+): Feedback | null {
+  const db = getDB(workspaceRoot);
+
+  const results = db
+    .select()
+    .from(schema.feedback as unknown as typeof schema.feedback)
+    .where(
+      eq(
+        schema.feedback.task_id as unknown as typeof schema.feedback.task_id,
+        taskId
+      )
+    )
+    .orderBy(
+      desc(schema.feedback.attempt as unknown as typeof schema.feedback.attempt)
+    )
+    .limit(1)
+    .all() as Feedback[];
+
+  return results[0] ?? null;
 }

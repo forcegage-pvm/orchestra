@@ -12,6 +12,7 @@ import { MCPServerManager } from "./mcp/ServerManager.js";
 import { OrchestraLogger } from "./utils/logger.js";
 import { DashboardPanel } from "./views/dashboard/DashboardPanel.js";
 import { StatusBarManager } from "./views/statusbar/StatusBarItem.js";
+import { TaskDetailPanel } from "./views/task/TaskDetailPanel.js";
 import { SprintTreeProvider } from "./views/treeview/SprintTreeProvider.js";
 import {
   findOrchestraRoot,
@@ -91,9 +92,18 @@ export async function activate(
       vscode.commands.registerCommand(
         "orchestra.openTaskDetail",
         (taskId: number) => {
-          vscode.window.showInformationMessage(
-            `Opening task ${taskId} (not yet implemented)`
-          );
+          if (dbWatcher) {
+            TaskDetailPanel.createOrShow(
+              context.extensionUri,
+              db,
+              dbWatcher,
+              taskId
+            );
+          } else {
+            vscode.window.showErrorMessage(
+              "Orchestra: Database watcher not initialized"
+            );
+          }
         }
       )
     );
