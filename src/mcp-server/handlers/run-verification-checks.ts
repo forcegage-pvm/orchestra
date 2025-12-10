@@ -7,7 +7,7 @@
  * Part of VER-010: Create run_verification_checks handler
  */
 
-import { and, eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { validateAcceptSignal } from "../../core/accept-signal-validator.js";
 import {
   executeCheck,
@@ -126,6 +126,7 @@ async function runVerificationChecks(
     .select()
     .from(signals)
     .where(eq(signals.task_id, task.id))
+    .orderBy(desc(signals.attempt))
     .limit(1);
 
   if (!signal) {

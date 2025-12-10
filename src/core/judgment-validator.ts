@@ -9,9 +9,13 @@
  * Implements GAP-06 and GAP-08 from verification rules audit.
  */
 
-import { eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { getDb } from "../db/index.js";
-import { verificationChecks, verificationResults } from "../db/schema.js";
+import {
+  signals,
+  verificationChecks,
+  verificationResults,
+} from "../db/schema.js";
 
 /**
  * Judgment Validation Check identifiers
@@ -69,16 +73,32 @@ export async function validateJudgment(
   const checks: JudgmentCheck[] = [];
   const blockingFailures: BlockingFailure[] = [];
 
+  // Get the most recent signal for this task (to filter results by current attempt)
+  const [latestSignal] = await db
+    .select({ signal_id: signals.signal_id })
+    .from(signals)
+    .where(eq(signals.task_id, taskId))
+    .orderBy(desc(signals.attempt))
+    .limit(1);
+
   // JVC-1: Verification results must exist
-  const results = await db
-    .select({
-      resultId: verificationResults.id,
-      checkId: verificationResults.check_id,
-      passed: verificationResults.passed,
-      output: verificationResults.output,
-    })
-    .from(verificationResults)
-    .where(eq(verificationResults.task_id, taskId));
+  // Only look at results for the latest signal (current attempt)
+  const results = latestSignal
+    ? await db
+        .select({
+          resultId: verificationResults.id,
+          checkId: verificationResults.check_id,
+          passed: verificationResults.passed,
+          output: verificationResults.output,
+        })
+        .from(verificationResults)
+        .where(
+          and(
+            eq(verificationResults.task_id, taskId),
+            eq(verificationResults.signal_id, latestSignal.signal_id)
+          )
+        )
+    : [];
 
   const resultsExist = results.length > 0;
   checks.push({
