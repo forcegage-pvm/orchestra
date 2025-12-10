@@ -140,7 +140,12 @@ async function getSprintStatus(): Promise<GetSprintStatusOutput> {
       ? {
           task_id: currentTask.task_id,
           title: currentTask.title,
-          status: currentTask.status as any,
+          status:
+            currentTask.status as GetSprintStatusOutput["current_task"] extends {
+              status: infer S;
+            }
+              ? S
+              : never,
         }
       : undefined,
   };

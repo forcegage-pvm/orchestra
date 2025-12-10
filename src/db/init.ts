@@ -89,6 +89,8 @@ export async function initializeDb(): Promise<void> {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       task_id INTEGER NOT NULL UNIQUE REFERENCES tasks(id) ON DELETE CASCADE,
       priority TEXT NOT NULL DEFAULT 'P1',
+      context TEXT,
+      context_files TEXT,
       acceptance_criteria TEXT NOT NULL,
       file_operations TEXT NOT NULL,
       deliverables TEXT NOT NULL,
@@ -236,11 +238,39 @@ export async function initializeDb(): Promise<void> {
     )
   `);
 
+  // Run migrations for existing databases
+  await runMigrations();
+
   // Create indexes
   await createIndexes();
 
   // Populate default config
   await populateDefaultConfig();
+}
+
+/**
+ * Run database migrations for schema changes
+ *
+ * Each migration checks if it needs to be applied (column exists check)
+ * and applies it only if necessary.
+ */
+async function runMigrations(): Promise<void> {
+  const db = getDb();
+
+  // Migration: Add context and context_files to handovers table
+  try {
+    // Check if context column exists
+    const result = await db.all(sql`PRAGMA table_info(handovers)`);
+    const columns = result as { name: string }[];
+    const hasContext = columns.some((col) => col.name === "context");
+
+    if (!hasContext) {
+      await db.run(sql`ALTER TABLE handovers ADD COLUMN context TEXT`);
+      await db.run(sql`ALTER TABLE handovers ADD COLUMN context_files TEXT`);
+    }
+  } catch {
+    // Table might not exist yet, which is fine - CREATE TABLE will handle it
+  }
 }
 
 /**
@@ -378,6 +408,23 @@ async function populateDefaultConfig(): Promise<void> {
       value: "true",
       description: "System-wide auto-commit default",
     },
+    // Write tools - inherit global default (true)
+    {
+      key: "tools.prepare_task.auto_commit",
+      value: "true",
+      description: "Auto-commit handover files after prepare",
+    },
+    {
+      key: "tools.signal_completion.auto_commit",
+      value: "true",
+      description: "Auto-commit implementation after signal",
+    },
+    {
+      key: "tools.complete_task.auto_commit",
+      value: "true",
+      description: "Auto-commit after task completion",
+    },
+    // Read tools never commit
     {
       key: "tools.get_task.auto_commit",
       value: "false",

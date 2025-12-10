@@ -46,10 +46,15 @@ const TOOLS_WITH_ROLES: ToolWithRole[] = [
     role: "orchestrator",
     name: "configure_sprint",
     description:
-      "Configure a new sprint with tasks, phases, dependencies, and verification criteria",
+      "Configure a new sprint with tasks, phases, dependencies, and verification criteria. Can accept inline data OR a config_file path to load configuration from filesystem.",
     inputSchema: {
       type: "object",
       properties: {
+        config_file: {
+          type: "string",
+          description:
+            "Path to JSON config file (relative to workspace root). If provided, other parameters are ignored and config is loaded from file.",
+        },
         sprint: {
           type: "object",
           properties: {
@@ -119,14 +124,103 @@ const TOOLS_WITH_ROLES: ToolWithRole[] = [
           },
         },
       },
-      required: ["sprint", "phases", "tasks"],
     },
   },
   {
     role: "orchestrator",
     name: "add_task",
-    description: "Add a new task to an existing sprint",
-    inputSchema: { type: "object", properties: {} },
+    description:
+      "Add a new task to an existing sprint. Task ID will be auto-assigned as max(existing_task_ids) + 1.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        phase_id: {
+          type: "string",
+          description: "Phase ID this task belongs to",
+        },
+        title: { type: "string", description: "Task title" },
+        description: { type: "string", description: "Task description" },
+        category: {
+          type: "string",
+          enum: ["INFRASTRUCTURE", "INTEGRATION", "VISUAL", "REFACTOR"],
+          description: "Task category",
+        },
+        dependencies: {
+          type: "array",
+          items: { type: "number" },
+          description: "Array of task IDs this task depends on",
+        },
+        speckit_task_ref: {
+          type: "string",
+          description: "Optional speckit task reference",
+        },
+        verification: {
+          type: "object",
+          properties: {
+            structural_checks: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  description: { type: "string" },
+                  severity: {
+                    type: "string",
+                    enum: ["BLOCKING", "MAJOR", "MINOR", "INFO"],
+                  },
+                  path: { type: "string" },
+                  pattern: { type: "string" },
+                  min_matches: { type: "number" },
+                },
+                required: ["description", "severity"],
+              },
+            },
+            behavioral_checks: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  description: { type: "string" },
+                  severity: {
+                    type: "string",
+                    enum: ["BLOCKING", "MAJOR", "MINOR", "INFO"],
+                  },
+                  command: { type: "string" },
+                  expect_exit_code: { type: "number" },
+                  expect_output_contains: { type: "string" },
+                },
+                required: ["description", "severity"],
+              },
+            },
+            quality_checks: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  description: { type: "string" },
+                  severity: {
+                    type: "string",
+                    enum: ["BLOCKING", "MAJOR", "MINOR", "INFO"],
+                  },
+                  path: { type: "string" },
+                  pattern: { type: "string" },
+                  min_matches: { type: "number" },
+                  command: { type: "string" },
+                },
+                required: ["description", "severity"],
+              },
+            },
+          },
+        },
+      },
+      required: [
+        "phase_id",
+        "title",
+        "description",
+        "category",
+        "dependencies",
+        "verification",
+      ],
+    },
   },
   {
     role: "orchestrator",
@@ -229,6 +323,18 @@ const TOOLS_WITH_ROLES: ToolWithRole[] = [
           description:
             "Task priority (P0=Critical, P1=High, P2=Medium, P3=Low)",
         },
+        context: {
+          type: "string",
+          minLength: 50,
+          description:
+            "REQUIRED: Background explaining WHY this task exists, architectural decisions, and how it fits the larger goal (min 50 chars)",
+        },
+        context_files: {
+          type: "array",
+          items: { type: "string" },
+          description:
+            "File paths the implementor should read for additional context (specs, related code, etc.)",
+        },
       },
       required: [
         "task_id",
@@ -236,6 +342,7 @@ const TOOLS_WITH_ROLES: ToolWithRole[] = [
         "file_operations",
         "deliverables",
         "priority",
+        "context",
       ],
     },
   },
@@ -253,6 +360,75 @@ const TOOLS_WITH_ROLES: ToolWithRole[] = [
       type: "object",
       properties: {
         task_id: { type: "number", description: "The task ID" },
+        acceptance_criteria: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              criterion: { type: "string" },
+              verification: { type: "string" },
+            },
+            required: ["criterion", "verification"],
+          },
+          description: "Updated acceptance criteria",
+        },
+        file_operations: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              operation: {
+                type: "string",
+                enum: ["CREATE", "UPDATE", "DELETE"],
+              },
+              path: { type: "string" },
+              description: { type: "string" },
+            },
+            required: ["operation", "path", "description"],
+          },
+          description: "Updated file operations",
+        },
+        deliverables: {
+          type: "array",
+          items: { type: "string" },
+          description: "Updated deliverables",
+        },
+        priority: {
+          type: "string",
+          enum: ["P0", "P1", "P2", "P3"],
+          description: "Updated priority",
+        },
+        context: {
+          type: "string",
+          description: "Updated context/background information",
+        },
+        context_files: {
+          type: "array",
+          items: { type: "string" },
+          description: "Updated context file paths",
+        },
+        test_file: { type: "string", description: "Updated test file path" },
+        test_requirements: {
+          type: "string",
+          description: "Updated test requirements",
+        },
+        constraints: {
+          type: "array",
+          items: { type: "string" },
+          description: "Updated constraints",
+        },
+        references: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              title: { type: "string" },
+              url: { type: "string" },
+            },
+            required: ["title", "url"],
+          },
+          description: "Updated reference links",
+        },
       },
       required: ["task_id"],
     },
@@ -384,7 +560,36 @@ const TOOLS_WITH_ROLES: ToolWithRole[] = [
         },
         rationale: {
           type: "string",
-          description: "Rationale for the judgment (min 10 chars)",
+          minLength: 50,
+          description:
+            "Rationale for the judgment - explain your decision (min 50 chars)",
+        },
+        manual_review: {
+          type: "object",
+          description:
+            "REQUIRED: Evidence that you actually reviewed the implementation code. Prevents rubber-stamping.",
+          properties: {
+            files_reviewed: {
+              type: "array",
+              items: { type: "string" },
+              minItems: 1,
+              description:
+                "File paths you actually read and reviewed (not just checked existence)",
+            },
+            observations: {
+              type: "string",
+              minLength: 100,
+              description:
+                "What you observed in the code - specific details proving you read it (min 100 chars)",
+            },
+            quality_assessment: {
+              type: "string",
+              minLength: 50,
+              description:
+                "Your assessment of code quality, patterns used, potential issues (min 50 chars)",
+            },
+          },
+          required: ["files_reviewed", "observations", "quality_assessment"],
         },
         failures: {
           type: "array",
@@ -405,7 +610,7 @@ const TOOLS_WITH_ROLES: ToolWithRole[] = [
         },
         feedback: { type: "string", description: "Optional feedback message" },
       },
-      required: ["task_id", "judgment", "rationale"],
+      required: ["task_id", "judgment", "rationale", "manual_review"],
     },
   },
 
@@ -470,6 +675,11 @@ const TOOLS_WITH_ROLES: ToolWithRole[] = [
         recommended_action: {
           type: "string",
           description: "Optional recommended action",
+        },
+        early_escalation_reason: {
+          type: "string",
+          description:
+            "Required when retry_count=0. Justify why immediate escalation is needed (e.g., external blocker, access issue). Min 10 chars.",
         },
       },
       required: ["task_id", "reason", "attempts_summary"],

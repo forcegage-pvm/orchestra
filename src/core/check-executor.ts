@@ -2,9 +2,12 @@
  * Check Executor
  *
  * Executes verification checks (structural, behavioral, quality)
- * and returns results for storage in the verification_results table.
+ * with a simple schema aligned with MCP tool definitions.
  *
- * Part of VER-006: Check executor module
+ * Schema:
+ * - structural: path, pattern?, min_matches?
+ * - behavioral: command, expect_exit_code?, expect_output_contains?
+ * - quality: command? OR (path + pattern + min_matches?)
  */
 
 import fs from "node:fs";
@@ -12,82 +15,47 @@ import path from "node:path";
 import { executeCommand } from "./command-executor.js";
 
 // ============================================================================
-// Types
+// Types - Aligned with MCP tool schemas
 // ============================================================================
 
 /**
- * Base configuration for all check types
+ * Structural check: file exists + optional pattern matching
  */
-interface BaseCheckConfig {
-  type: "structural" | "behavioral" | "quality";
-  subtype: string;
+export interface StructuralCheckConfig {
+  type: "structural";
+  path: string;
+  pattern?: string;
+  min_matches?: number;
 }
 
 /**
- * Structural check configurations
+ * Behavioral check: run command + check exit/output
  */
-interface FileExistsConfig extends BaseCheckConfig {
-  type: "structural";
-  subtype: "file_exists";
-  path: string;
-}
-
-interface ExportsConfig extends BaseCheckConfig {
-  type: "structural";
-  subtype: "exports";
-  path: string;
-  exports: string[];
-}
-
-interface JsonSchemaConfig extends BaseCheckConfig {
-  type: "structural";
-  subtype: "json_schema";
-  path: string;
-  required_fields: string[];
-}
-
-/**
- * Behavioral check configurations
- */
-interface TestsConfig extends BaseCheckConfig {
+export interface BehavioralCheckConfig {
   type: "behavioral";
-  subtype: "tests";
   command: string;
-}
-
-interface CoverageConfig extends BaseCheckConfig {
-  type: "behavioral";
-  subtype: "coverage";
-  command: string;
-  threshold: number;
+  expect_exit_code?: number;
+  expect_output_contains?: string;
 }
 
 /**
- * Quality check configurations
+ * Quality check: command OR file pattern matching
  */
-interface LintConfig extends BaseCheckConfig {
+export interface QualityCheckConfig {
   type: "quality";
-  subtype: "lint";
-  command: string;
-}
-
-interface TypecheckConfig extends BaseCheckConfig {
-  type: "quality";
-  subtype: "typecheck";
-  command: string;
+  command?: string;
+  path?: string;
+  pattern?: string;
+  min_matches?: number;
 }
 
 /**
  * Union of all check configurations
  */
 export type CheckConfig =
-  | FileExistsConfig
-  | ExportsConfig
-  | JsonSchemaConfig
-  | TestsConfig
-  | CoverageConfig
-  | LintConfig
-  | TypecheckConfig;
+  | StructuralCheckConfig
+  | BehavioralCheckConfig
+  | QualityCheckConfig;
 
 /**
  * Result of executing a check
@@ -103,245 +71,110 @@ export interface CheckResult {
 // Structural Checks
 // ============================================================================
 
-/**
- * Execute a structural check (file existence, exports, JSON schema)
- */
 export async function executeStructuralCheck(
-  config: CheckConfig,
+  config: StructuralCheckConfig,
   workspacePath: string
 ): Promise<CheckResult> {
   const startTime = Date.now();
 
-  try {
-    switch (config.subtype) {
-      case "file_exists":
-        return executeFileExistsCheck(
-          config as FileExistsConfig,
-          workspacePath,
-          startTime
-        );
-
-      case "exports":
-        return executeExportsCheck(
-          config as ExportsConfig,
-          workspacePath,
-          startTime
-        );
-
-      case "json_schema":
-        return executeJsonSchemaCheck(
-          config as JsonSchemaConfig,
-          workspacePath,
-          startTime
-        );
-
-      default:
-        return {
-          passed: false,
-          message: `Unknown structural check subtype: ${config.subtype}`,
-          duration_ms: Date.now() - startTime,
-        };
-    }
-  } catch (error) {
-    return {
-      passed: false,
-      message: `Structural check error: ${
-        error instanceof Error ? error.message : String(error)
-      }`,
-      duration_ms: Date.now() - startTime,
-    };
-  }
-}
-
-function executeFileExistsCheck(
-  config: FileExistsConfig,
-  workspacePath: string,
-  startTime: number
-): CheckResult {
-  // Resolve relative paths against workspace
-  const filePath = path.isAbsolute(config.path)
-    ? config.path
-    : path.join(workspacePath, config.path);
-  const exists = fs.existsSync(filePath);
-
-  return {
-    passed: exists,
-    message: exists
-      ? `File exists: ${filePath}`
-      : `File not found: ${filePath}`,
-    duration_ms: Date.now() - startTime,
-  };
-}
-
-function executeExportsCheck(
-  config: ExportsConfig,
-  workspacePath: string,
-  startTime: number
-): CheckResult {
-  // Resolve relative paths against workspace
+  // Resolve path
   const filePath = path.isAbsolute(config.path)
     ? config.path
     : path.join(workspacePath, config.path);
 
+  // Check file exists
   if (!fs.existsSync(filePath)) {
     return {
       passed: false,
-      message: `File not found: ${filePath}`,
+      message: `File not found: ${config.path}`,
       duration_ms: Date.now() - startTime,
     };
   }
 
-  const content = fs.readFileSync(filePath, "utf-8");
-  const missingExports: string[] = [];
+  // If pattern specified, check file contents
+  if (config.pattern) {
+    const content = fs.readFileSync(filePath, "utf-8");
+    const matches = content.match(new RegExp(config.pattern, "g"));
+    const minMatches = config.min_matches ?? 1;
 
-  for (const exportName of config.exports) {
-    // Check for various export patterns:
-    // - export function foo
-    // - export const foo
-    // - export class foo
-    // - export { foo }
-    // - export default foo (when looking for 'default')
-    const patterns = [
-      new RegExp(
-        `export\\s+(?:function|const|let|var|class)\\s+${exportName}\\b`
-      ),
-      new RegExp(`export\\s*\\{[^}]*\\b${exportName}\\b[^}]*\\}`),
-      new RegExp(`export\\s+default\\s+${exportName}\\b`),
-    ];
-
-    const found = patterns.some((pattern) => pattern.test(content));
-    if (!found) {
-      missingExports.push(exportName);
+    if (!matches || matches.length < minMatches) {
+      return {
+        passed: false,
+        message: `Pattern not found in ${
+          config.path
+        }: expected ${minMatches} match(es), found ${matches?.length ?? 0}`,
+        duration_ms: Date.now() - startTime,
+      };
     }
-  }
-
-  if (missingExports.length > 0) {
-    return {
-      passed: false,
-      message: `Missing exports: ${missingExports.join(", ")}`,
-      duration_ms: Date.now() - startTime,
-    };
   }
 
   return {
     passed: true,
-    message: `All exports found: ${config.exports.join(", ")}`,
+    message: `File exists${config.pattern ? " and matches pattern" : ""}: ${
+      config.path
+    }`,
     duration_ms: Date.now() - startTime,
   };
-}
-
-function executeJsonSchemaCheck(
-  config: JsonSchemaConfig,
-  workspacePath: string,
-  startTime: number
-): CheckResult {
-  // Resolve relative paths against workspace
-  const filePath = path.isAbsolute(config.path)
-    ? config.path
-    : path.join(workspacePath, config.path);
-
-  if (!fs.existsSync(filePath)) {
-    return {
-      passed: false,
-      message: `File not found: ${filePath}`,
-      duration_ms: Date.now() - startTime,
-    };
-  }
-
-  try {
-    const content = fs.readFileSync(filePath, "utf-8");
-    const json = JSON.parse(content) as Record<string, unknown>;
-    const missingFields: string[] = [];
-
-    for (const field of config.required_fields) {
-      if (!(field in json)) {
-        missingFields.push(field);
-      }
-    }
-
-    if (missingFields.length > 0) {
-      return {
-        passed: false,
-        message: `Missing required fields: ${missingFields.join(", ")}`,
-        duration_ms: Date.now() - startTime,
-      };
-    }
-
-    return {
-      passed: true,
-      message: `All required fields present: ${config.required_fields.join(
-        ", "
-      )}`,
-      duration_ms: Date.now() - startTime,
-    };
-  } catch (error) {
-    return {
-      passed: false,
-      message: `Invalid JSON: ${
-        error instanceof Error ? error.message : String(error)
-      }`,
-      duration_ms: Date.now() - startTime,
-    };
-  }
 }
 
 // ============================================================================
 // Behavioral Checks
 // ============================================================================
 
-/**
- * Execute a behavioral check (tests, coverage)
- */
 export async function executeBehavioralCheck(
-  config: CheckConfig,
+  config: BehavioralCheckConfig,
   workspacePath: string
 ): Promise<CheckResult> {
   const startTime = Date.now();
 
   try {
-    if (!("command" in config)) {
-      return {
-        passed: false,
-        message: "Behavioral check requires a command",
-        duration_ms: Date.now() - startTime,
-      };
-    }
-
     const result = await executeCommand(config.command, {
       cwd: workspacePath,
-      timeout: 300000, // 5 minute timeout for tests
+      timeout: 300000, // 5 minute timeout
     });
 
     const output = result.stdout + (result.stderr ? `\n${result.stderr}` : "");
 
-    // For coverage checks, verify threshold
-    if (config.subtype === "coverage" && "threshold" in config) {
-      const coverageConfig = config as CoverageConfig;
-      // Try to extract coverage percentage from output
-      const coverageMatch = output.match(/Coverage:\s*(\d+(?:\.\d+)?)/i);
-      if (coverageMatch && coverageMatch[1] !== undefined) {
-        const coverage = parseFloat(coverageMatch[1]);
-        if (coverage < coverageConfig.threshold) {
-          return {
-            passed: false,
-            message: `Coverage ${coverage}% is below threshold ${coverageConfig.threshold}%`,
-            output,
-            duration_ms: Date.now() - startTime,
-          };
-        }
+    // Check exit code if specified
+    if (config.expect_exit_code !== undefined) {
+      if (result.exitCode !== config.expect_exit_code) {
+        return {
+          passed: false,
+          message: `Command exited with code ${result.exitCode}, expected ${config.expect_exit_code}`,
+          output,
+          duration_ms: Date.now() - startTime,
+        };
       }
     }
 
+    // Check output contains if specified
+    if (config.expect_output_contains) {
+      if (!output.includes(config.expect_output_contains)) {
+        return {
+          passed: false,
+          message: `Output does not contain: ${config.expect_output_contains}`,
+          output,
+          duration_ms: Date.now() - startTime,
+        };
+      }
+    }
+
+    // Default: success based on exit code
+    const passed =
+      config.expect_exit_code !== undefined
+        ? result.exitCode === config.expect_exit_code
+        : result.success;
+
     return {
-      passed: result.success,
-      message: result.success ? "Check passed" : "Check failed",
+      passed,
+      message: passed ? "Command passed" : "Command failed",
       output,
       duration_ms: Date.now() - startTime,
     };
   } catch (error) {
     return {
       passed: false,
-      message: `Behavioral check error: ${
+      message: `Command error: ${
         error instanceof Error ? error.message : String(error)
       }`,
       duration_ms: Date.now() - startTime,
@@ -353,50 +186,86 @@ export async function executeBehavioralCheck(
 // Quality Checks
 // ============================================================================
 
-/**
- * Execute a quality check (lint, typecheck)
- */
 export async function executeQualityCheck(
-  config: CheckConfig,
+  config: QualityCheckConfig,
   workspacePath: string
 ): Promise<CheckResult> {
   const startTime = Date.now();
 
-  try {
-    if (!("command" in config)) {
+  // Command-based quality check
+  if (config.command) {
+    try {
+      const result = await executeCommand(config.command, {
+        cwd: workspacePath,
+        timeout: 300000,
+      });
+
+      const output =
+        result.stdout + (result.stderr ? `\n${result.stderr}` : "");
+
+      return {
+        passed: result.success,
+        message: result.success
+          ? "Quality check passed"
+          : "Quality check failed",
+        output,
+        duration_ms: Date.now() - startTime,
+      };
+    } catch (error) {
       return {
         passed: false,
-        message: "Quality check requires a command",
+        message: `Command error: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+        duration_ms: Date.now() - startTime,
+      };
+    }
+  }
+
+  // Pattern-based quality check
+  if (config.path && config.pattern) {
+    const filePath = path.isAbsolute(config.path)
+      ? config.path
+      : path.join(workspacePath, config.path);
+
+    if (!fs.existsSync(filePath)) {
+      return {
+        passed: false,
+        message: `File not found: ${config.path}`,
         duration_ms: Date.now() - startTime,
       };
     }
 
-    const result = await executeCommand(config.command, {
-      cwd: workspacePath,
-      timeout: 120000, // 2 minute timeout for lint/typecheck
-    });
+    const content = fs.readFileSync(filePath, "utf-8");
+    const matches = content.match(new RegExp(config.pattern, "g"));
+    const minMatches = config.min_matches ?? 1;
 
-    const output = result.stdout + (result.stderr ? `\n${result.stderr}` : "");
+    if (!matches || matches.length < minMatches) {
+      return {
+        passed: false,
+        message: `Pattern not found: expected ${minMatches} match(es), found ${
+          matches?.length ?? 0
+        }`,
+        duration_ms: Date.now() - startTime,
+      };
+    }
 
     return {
-      passed: result.success,
-      message: result.success ? "Check passed" : "Check failed",
-      output,
-      duration_ms: Date.now() - startTime,
-    };
-  } catch (error) {
-    return {
-      passed: false,
-      message: `Quality check error: ${
-        error instanceof Error ? error.message : String(error)
-      }`,
+      passed: true,
+      message: "Quality check passed",
       duration_ms: Date.now() - startTime,
     };
   }
+
+  return {
+    passed: false,
+    message: "Quality check requires either command or path+pattern",
+    duration_ms: Date.now() - startTime,
+  };
 }
 
 // ============================================================================
-// Main Dispatcher
+// Main Entry Point
 // ============================================================================
 
 /**
@@ -419,7 +288,7 @@ export async function executeCheck(
     default:
       return {
         passed: false,
-        message: `Unknown check type: ${(config as BaseCheckConfig).type}`,
+        message: `Unknown check type: ${(config as { type: string }).type}`,
         duration_ms: 0,
       };
   }

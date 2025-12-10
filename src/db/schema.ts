@@ -143,6 +143,8 @@ export const handovers = sqliteTable(
       .unique()
       .references(() => tasks.id, { onDelete: "cascade" }),
     priority: text("priority").notNull().default("P1"),
+    context: text("context"), // Why this task exists, background, decisions
+    context_files: text("context_files"), // JSON array of file paths for reference
     acceptance_criteria: text("acceptance_criteria").notNull(), // JSON
     file_operations: text("file_operations").notNull(), // JSON
     deliverables: text("deliverables").notNull(), // JSON

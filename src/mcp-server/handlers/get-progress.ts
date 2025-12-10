@@ -103,7 +103,8 @@ async function getProgress(): Promise<GetProgressOutput> {
       id: sprint.id,
       name: sprint.name,
       started_at: sprint.created_at,
-      workflow_step: sprint.workflow_step as any,
+      workflow_step:
+        sprint.workflow_step as GetProgressOutput["sprint"]["workflow_step"],
     },
     summary: {
       total_tasks: totalTasks,
@@ -117,7 +118,12 @@ async function getProgress(): Promise<GetProgressOutput> {
       ? {
           task_id: currentTask.task_id,
           title: currentTask.title,
-          status: currentTask.status as any,
+          status:
+            currentTask.status as GetProgressOutput["current_task"] extends {
+              status: infer S;
+            }
+              ? S
+              : never,
         }
       : undefined,
     completed_tasks: completedTasks,

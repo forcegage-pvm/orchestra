@@ -148,32 +148,38 @@ async function addTask(
     throw new Error("Failed to create task");
   }
 
+  // Extract config from check objects (everything except description/severity)
+  const extractConfig = (check: Record<string, unknown>): string => {
+    const { description: _d, severity: _s, ...config } = check;
+    return JSON.stringify(config);
+  };
+
   const allChecks = [
-    ...structural.map((check: any, idx: number) => ({
+    ...structural.map((check, idx) => ({
       task_id: insertedTask.id,
       check_id: `struct-${idx}`,
       check_type: "structural" as const,
       description: check.description,
       severity: check.severity,
-      check_config: JSON.stringify(check.check_config),
+      check_config: extractConfig(check as unknown as Record<string, unknown>),
       created_at: now,
     })),
-    ...behavioral.map((check: any, idx: number) => ({
+    ...behavioral.map((check, idx) => ({
       task_id: insertedTask.id,
       check_id: `behav-${idx}`,
       check_type: "behavioral" as const,
       description: check.description,
       severity: check.severity,
-      check_config: JSON.stringify(check.check_config),
+      check_config: extractConfig(check as unknown as Record<string, unknown>),
       created_at: now,
     })),
-    ...quality.map((check: any, idx: number) => ({
+    ...quality.map((check, idx) => ({
       task_id: insertedTask.id,
       check_id: `qual-${idx}`,
       check_type: "quality" as const,
       description: check.description,
       severity: check.severity,
-      check_config: JSON.stringify(check.check_config),
+      check_config: extractConfig(check as unknown as Record<string, unknown>),
       created_at: now,
     })),
   ];

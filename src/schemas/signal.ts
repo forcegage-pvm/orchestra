@@ -38,6 +38,10 @@ export const SignalCompletionOutputSchema = SuccessResponseSchema.extend({
   status: z.literal("GATE_CHECK"),
   pre_signal_checks: PreSignalChecksSchema,
   next_step: z.string(),
+  git_commit: z
+    .string()
+    .optional()
+    .describe("Git commit SHA if auto-commit was performed"),
 });
 
 export type SignalCompletionOutput = z.output<

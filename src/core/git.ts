@@ -5,7 +5,10 @@
  * Handles git operations for Orchestra.
  */
 
+import { eq } from "drizzle-orm";
 import { simpleGit, type SimpleGit, type StatusResult } from "simple-git";
+import { getDb } from "../db/index.js";
+import { config, gitCommits, toolExecutions } from "../db/schema.js";
 import { GitError } from "./errors.js";
 import type { ScriptResult } from "./types.js";
 import { failureResult, successResult } from "./types.js";
@@ -316,4 +319,260 @@ export async function popStash(cwd: string): Promise<ScriptResult> {
       error instanceof Error ? error.message : "Failed to pop stash"
     );
   }
+}
+
+// ============================================================================
+// Configuration Helpers
+// ============================================================================
+
+export interface GitAutoCommitConfig {
+  autoCommitEnabled: boolean;
+  toolAutoCommit: boolean | null; // null means use global default
+}
+
+/**
+ * Get git configuration from database
+ */
+export async function getGitConfig(
+  toolName?: string
+): Promise<GitAutoCommitConfig> {
+  const db = getDb();
+
+  // Get global auto_commit setting
+  const [globalConfig] = await db
+    .select()
+    .from(config)
+    .where(eq(config.key, "git.auto_commit"))
+    .limit(1);
+
+  const autoCommitEnabled = globalConfig?.value === "true";
+
+  // Get tool-specific override if provided
+  let toolAutoCommit: boolean | null = null;
+  if (toolName) {
+    const [toolConfig] = await db
+      .select()
+      .from(config)
+      .where(eq(config.key, `tools.${toolName}.auto_commit`))
+      .limit(1);
+
+    if (toolConfig) {
+      toolAutoCommit = toolConfig.value === "true";
+    }
+  }
+
+  return {
+    autoCommitEnabled,
+    toolAutoCommit,
+  };
+}
+
+/**
+ * Determine if auto-commit should occur for a tool
+ */
+export async function shouldAutoCommit(toolName: string): Promise<boolean> {
+  const gitConfig = await getGitConfig(toolName);
+
+  // Tool-specific config takes precedence
+  if (gitConfig.toolAutoCommit !== null) {
+    return gitConfig.toolAutoCommit;
+  }
+
+  // Fall back to global default
+  return gitConfig.autoCommitEnabled;
+}
+
+// ============================================================================
+// Database Recording
+// ============================================================================
+
+export interface GitCommitRecord {
+  sha: string;
+  message: string;
+  filesChanged: string[];
+  additions: number;
+  deletions: number;
+}
+
+/**
+ * Record a git commit in the database
+ */
+export async function recordGitCommit(params: {
+  commitRecord: GitCommitRecord;
+  sprintId: string | null;
+  taskInternalId: number | null;
+  toolName: string;
+  branch: string;
+}): Promise<number | null> {
+  const db = getDb();
+  const now = new Date().toISOString();
+
+  // First, create a tool execution record
+  const [toolExec] = await db
+    .insert(toolExecutions)
+    .values({
+      tool_name: params.toolName,
+      role: "orchestrator", // Git commits are typically orchestrator actions
+      input: JSON.stringify({ action: "git_commit" }),
+      output: JSON.stringify(params.commitRecord),
+      duration_ms: 0,
+      success: 1, // SQLite stores boolean as integer
+      executed_at: now,
+    })
+    .returning();
+
+  if (!toolExec) {
+    return null;
+  }
+
+  // Record commit
+  const [gitCommit] = await db
+    .insert(gitCommits)
+    .values({
+      commit_sha: params.commitRecord.sha,
+      commit_message: params.commitRecord.message,
+      branch: params.branch,
+      sprint_id: params.sprintId,
+      task_id: params.taskInternalId,
+      tool_execution_id: toolExec.id,
+      files_changed: JSON.stringify(params.commitRecord.filesChanged),
+      total_additions: params.commitRecord.additions,
+      total_deletions: params.commitRecord.deletions,
+      committed_at: now,
+    })
+    .returning();
+
+  return gitCommit?.id ?? null;
+}
+
+// ============================================================================
+// High-Level Operations for Handlers
+// ============================================================================
+
+export interface AutoCommitResult {
+  committed: boolean;
+  sha: string | null;
+  message: string;
+  filesChanged: string[];
+}
+
+/**
+ * Perform auto-commit if enabled for the tool
+ * Returns commit result or null if auto-commit disabled/not applicable
+ */
+export async function autoCommitIfEnabled(params: {
+  toolName: string;
+  commitMessage: string;
+  sprintId: string | null;
+  taskInternalId: number | null;
+  cwd: string;
+}): Promise<AutoCommitResult> {
+  // Check if auto-commit is enabled for this tool
+  const shouldCommit = await shouldAutoCommit(params.toolName);
+  if (!shouldCommit) {
+    return {
+      committed: false,
+      sha: null,
+      message: "Auto-commit disabled for this tool",
+      filesChanged: [],
+    };
+  }
+
+  // Check git status
+  const statusResult = await getGitStatus(params.cwd);
+  if (!statusResult.success || !statusResult.data) {
+    return {
+      committed: false,
+      sha: null,
+      message: "Not in a git repository or failed to get status",
+      filesChanged: [],
+    };
+  }
+
+  const status = statusResult.data;
+  if (status.clean) {
+    return {
+      committed: false,
+      sha: null,
+      message: "Working tree is clean, nothing to commit",
+      filesChanged: [],
+    };
+  }
+
+  // Stage all changes
+  const stageResult = await stageFiles(params.cwd, ["."]);
+  if (!stageResult.success) {
+    return {
+      committed: false,
+      sha: null,
+      message: `Failed to stage files: ${stageResult.message}`,
+      filesChanged: [],
+    };
+  }
+
+  // Get list of staged files before commit
+  const preCommitStatus = await getGitStatus(params.cwd);
+  const stagedFiles = preCommitStatus.data?.staged || [];
+
+  // Commit
+  const commitResult = await commit(params.cwd, params.commitMessage);
+  if (!commitResult.success || !commitResult.data) {
+    return {
+      committed: false,
+      sha: null,
+      message: `Failed to commit: ${commitResult.message}`,
+      filesChanged: [],
+    };
+  }
+
+  const sha = commitResult.data;
+
+  // Get branch name
+  const branchResult = await getCurrentBranch(params.cwd);
+  const branch = branchResult.data || "unknown";
+
+  // Get diff stats
+  const changedFilesResult = await getChangedFiles(params.cwd, sha);
+  const filesChanged = changedFilesResult.data || stagedFiles;
+
+  // Record in database
+  await recordGitCommit({
+    commitRecord: {
+      sha,
+      message: params.commitMessage,
+      filesChanged,
+      additions: 0, // Would need to parse diff to get these
+      deletions: 0,
+    },
+    sprintId: params.sprintId,
+    taskInternalId: params.taskInternalId,
+    toolName: params.toolName,
+    branch,
+  });
+
+  return {
+    committed: true,
+    sha,
+    message: `Committed: ${params.commitMessage}`,
+    filesChanged,
+  };
+}
+
+/**
+ * Generate a standardized commit message for task operations
+ */
+export function generateCommitMessage(params: {
+  operation: "prepare" | "signal" | "complete" | "verify";
+  taskId: number;
+  taskTitle?: string;
+}): string {
+  const prefix = {
+    prepare: "chore(orchestra): prepare task",
+    signal: "feat(orchestra): implement task",
+    complete: "chore(orchestra): complete task",
+    verify: "chore(orchestra): verify task",
+  }[params.operation];
+
+  const title = params.taskTitle ? ` - ${params.taskTitle}` : "";
+  return `${prefix} ${params.taskId}${title}`;
 }

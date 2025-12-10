@@ -133,7 +133,7 @@ async function runVerificationChecks(
   }
 
   // 5. Load verification checks
-  let checksQuery = db
+  const checksQuery = db
     .select()
     .from(verificationChecks)
     .where(eq(verificationChecks.task_id, task.id));
@@ -205,7 +205,12 @@ async function runVerificationChecks(
 
   for (const check of checks) {
     let checkResult: CheckResult;
-    const checkConfig = JSON.parse(check.check_config) as CheckConfig;
+    // Parse check_config and merge with type from check_type column
+    const parsedConfig = JSON.parse(check.check_config);
+    const checkConfig: CheckConfig = {
+      type: check.check_type as "structural" | "behavioral" | "quality",
+      ...parsedConfig,
+    };
 
     try {
       checkResult = await executeCheck(checkConfig, workspacePath);

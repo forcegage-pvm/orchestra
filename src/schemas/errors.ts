@@ -16,6 +16,7 @@ export const ErrorCodeSchema = z.enum([
   "BUSINESS_LOGIC_ERROR",
   "DATABASE_ERROR",
   "GIT_ERROR",
+  "FILE_ERROR",
   "SYSTEM_ERROR",
 ]);
 
@@ -119,6 +120,15 @@ export const ERROR_TEMPLATES = {
       "Ensure git repository is initialized",
       "Check git configuration",
       "Verify write permissions",
+    ],
+  },
+
+  FILE_ERROR: {
+    message: "File operation failed",
+    suggestions: [
+      "Check file path is valid",
+      "Verify file permissions",
+      "Ensure file exists and is readable",
     ],
   },
 

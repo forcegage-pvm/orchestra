@@ -65,7 +65,7 @@ export function getDbPath(): string | null {
 /**
  * Get or create database connection
  *
- * @param dbPath - Path to SQLite database file (default: .orchestra/db/orchestra.db in workspace)
+ * @param dbPath - Path to SQLite database file (default: .orchestra/orchestra.db in workspace)
  * @returns Drizzle database instance
  */
 export function getDb(dbPath?: string): BetterSQLite3Database<typeof schema> {
@@ -76,7 +76,7 @@ export function getDb(dbPath?: string): BetterSQLite3Database<typeof schema> {
   // Resolve workspace and database path
   const workspacePath = resolveWorkspacePath();
   const finalPath =
-    dbPath || path.join(workspacePath, ".orchestra", "db", "orchestra.db");
+    dbPath || path.join(workspacePath, ".orchestra", "orchestra.db");
 
   // Store resolved path for debugging
   resolvedDbPath = finalPath;

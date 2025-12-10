@@ -6,6 +6,7 @@
  */
 
 import { and, eq } from "drizzle-orm";
+import { autoCommitIfEnabled, generateCommitMessage } from "../../core/git.js";
 import { getActiveSprint, getDb } from "../../db/index.js";
 import { handovers, progress, sprints, tasks } from "../../db/schema.js";
 import {
@@ -82,13 +83,13 @@ async function prepareTask(
     throw new Error(`Task ${input.task_id} not found`);
   }
 
-  // 3. Validate task can be prepared (status should be PENDING or VERIFY_FAILED)
-  const validStatuses = ["PENDING", "VERIFY_FAILED"];
+  // 3. Validate task can be prepared (PENDING, VERIFY_FAILED, or ESCALATED for retry)
+  const validStatuses = ["PENDING", "VERIFY_FAILED", "ESCALATED"];
   if (!validStatuses.includes(task.status)) {
     throw new Error(
       `Task ${input.task_id} is in ${
         task.status
-      } state and cannot be prepared. Expected: ${validStatuses.join(" or ")}`
+      } state and cannot be prepared. Expected: ${validStatuses.join(", ")}`
     );
   }
 
@@ -129,6 +130,10 @@ async function prepareTask(
       .update(handovers)
       .set({
         priority: input.priority,
+        context: input.context || null,
+        context_files: input.context_files
+          ? JSON.stringify(input.context_files)
+          : null,
         acceptance_criteria: JSON.stringify(input.acceptance_criteria),
         file_operations: JSON.stringify(input.file_operations),
         deliverables: JSON.stringify(input.deliverables),
@@ -148,6 +153,10 @@ async function prepareTask(
     await db.insert(handovers).values({
       task_id: task.id,
       priority: input.priority,
+      context: input.context || null,
+      context_files: input.context_files
+        ? JSON.stringify(input.context_files)
+        : null,
       acceptance_criteria: JSON.stringify(input.acceptance_criteria),
       file_operations: JSON.stringify(input.file_operations),
       deliverables: JSON.stringify(input.deliverables),
@@ -194,9 +203,25 @@ async function prepareTask(
     changed_at: now,
   });
 
+  // 9. Auto-commit if enabled
+  const commitMessage = generateCommitMessage({
+    operation: "prepare",
+    taskId: input.task_id,
+    taskTitle: task.title,
+  });
+
+  const gitResult = await autoCommitIfEnabled({
+    toolName: "prepare_task",
+    commitMessage,
+    sprintId: sprint.id,
+    taskInternalId: task.id,
+    cwd: process.cwd(),
+  });
+
   return {
     success: true,
     task_id: input.task_id,
     status: "IMPLEMENT",
+    git_commit: gitResult.committed ? gitResult.sha ?? undefined : undefined,
   };
 }

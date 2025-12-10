@@ -96,9 +96,12 @@ async function getTaskHistory(
       idx > 0 ? progressEntries[idx - 1]!.to_status : undefined;
 
     return {
-      from_status: fromStatus as any,
-      to_status: entry.to_status as any,
-      workflow_step: sprint.workflow_step as any, // Would need to track workflow_step in progress for accurate history
+      from_status:
+        fromStatus as GetTaskHistoryOutput["history"][number]["from_status"],
+      to_status:
+        entry.to_status as GetTaskHistoryOutput["history"][number]["to_status"],
+      workflow_step:
+        sprint.workflow_step as GetTaskHistoryOutput["history"][number]["workflow_step"], // Would need to track workflow_step in progress for accurate history
       triggered_by: entry.triggered_by as
         | "orchestrator"
         | "implementor"

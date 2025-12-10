@@ -20,10 +20,17 @@ import {
 
 export const ConfigureSprintInputSchema = z
   .object({
-    sprint: z.object({
-      id: z.string().min(1, "Sprint ID is required"),
-      name: z.string().min(1, "Sprint name is required"),
-    }),
+    config_file: z
+      .string()
+      .min(1, "Config file path must not be empty")
+      .optional(),
+
+    sprint: z
+      .object({
+        id: z.string().min(1, "Sprint ID is required"),
+        name: z.string().min(1, "Sprint name is required"),
+      })
+      .optional(),
 
     phases: z
       .array(
@@ -33,7 +40,7 @@ export const ConfigureSprintInputSchema = z
           speckit_tasks: z.array(z.string()).optional(),
         })
       )
-      .min(1, "At least one phase is required"),
+      .optional(),
 
     tasks: z
       .array(
@@ -48,11 +55,48 @@ export const ConfigureSprintInputSchema = z
           verification: VerificationCriteriaSchema,
         })
       )
-      .min(1, "At least one task is required"),
+      .optional(),
 
     consolidations: z.array(ConsolidationSchema).optional(),
   })
   .superRefine((data, ctx) => {
+    // If config_file provided, skip other validations (will be loaded from file)
+    if (data.config_file) {
+      return;
+    }
+
+    // Otherwise, sprint, phases, and tasks are required
+    if (!data.sprint) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "sprint is required when config_file is not provided",
+        path: ["sprint"],
+      });
+    }
+
+    if (!data.phases || data.phases.length === 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message:
+          "phases array is required when config_file is not provided (min 1 phase)",
+        path: ["phases"],
+      });
+    }
+
+    if (!data.tasks || data.tasks.length === 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message:
+          "tasks array is required when config_file is not provided (min 1 task)",
+        path: ["tasks"],
+      });
+    }
+
+    // Skip further validation if required fields missing
+    if (!data.sprint || !data.phases || !data.tasks) {
+      return;
+    }
+
     // Validate phase_id references
     const phaseIds = new Set(data.phases.map((p) => p.phase_id));
     data.tasks.forEach((task, idx) => {

@@ -7,8 +7,14 @@
  * - Database operations
  * - Error handling
  * - Logging/audit
+ *
+ * Supports two modes:
+ * 1. Inline data: Pass sprint/phases/tasks directly in MCP call
+ * 2. File-based: Pass config_file path to load JSON from filesystem
  */
 
+import * as fs from "node:fs";
+import * as path from "node:path";
 import { getDb } from "../../db/index.js";
 import {
   consolidations,
@@ -37,8 +43,74 @@ export async function handleConfigureSprint(
   // Debug logging
   console.error("DEBUG: Received input:", JSON.stringify(input, null, 2));
 
+  // If config_file is provided, load from filesystem
+  let configData: unknown = input;
+
+  if (
+    input &&
+    typeof input === "object" &&
+    "config_file" in input &&
+    input.config_file
+  ) {
+    const configFilePath = input.config_file as string;
+    console.error(`DEBUG: Loading config from file: ${configFilePath}`);
+
+    try {
+      // Security: Resolve to absolute path and ensure it's within workspace
+      const workspaceRoot = process.cwd();
+      const absolutePath = path.resolve(workspaceRoot, configFilePath);
+
+      // Ensure path is within workspace (prevent directory traversal)
+      if (!absolutePath.startsWith(workspaceRoot)) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify(
+                createErrorResponse(
+                  "VALIDATION_ERROR",
+                  "Config file path must be within workspace",
+                  { config_file: configFilePath }
+                ),
+                null,
+                2
+              ),
+            },
+          ],
+        };
+      }
+
+      // Read and parse JSON
+      const fileContent = fs.readFileSync(absolutePath, "utf-8");
+      const fileData = JSON.parse(fileContent);
+
+      // Replace input with file data
+      configData = fileData;
+      console.error(
+        `DEBUG: Loaded config from file (${fileData.tasks?.length || 0} tasks)`
+      );
+    } catch (error) {
+      const err = error instanceof Error ? error : new Error(String(error));
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify(
+              createErrorResponse("FILE_ERROR", err.message, {
+                config_file: configFilePath,
+                duration_ms: Date.now() - startTime,
+              }),
+              null,
+              2
+            ),
+          },
+        ],
+      };
+    }
+  }
+
   // Validate input
-  const validation = validateInput(ConfigureSprintInputSchema, input);
+  const validation = validateInput(ConfigureSprintInputSchema, configData);
   if (!validation.success) {
     console.error("DEBUG: Validation failed:", validation.error);
     return {
@@ -103,10 +175,22 @@ async function configureSprint(input: ConfigureSprintInput): Promise<{
   const db = getDb();
   const now = new Date().toISOString();
 
+  // Ensure required fields are present (should be validated by schema, but check anyway)
+  if (!input.sprint || !input.phases || !input.tasks) {
+    throw new Error(
+      "sprint, phases, and tasks are required (should have been validated by schema)"
+    );
+  }
+
+  // Type guard: After this check, TypeScript knows these are defined
+  const sprint = input.sprint;
+  const phasesData = input.phases;
+  const tasksData = input.tasks;
+
   // 1. Create sprint
   await db.insert(sprints).values({
-    id: input.sprint.id,
-    name: input.sprint.name,
+    id: sprint.id,
+    name: sprint.name,
     workflow_step: "CONFIGURE",
     created_at: now,
     updated_at: now,
@@ -114,8 +198,8 @@ async function configureSprint(input: ConfigureSprintInput): Promise<{
   });
 
   // 2. Create phases
-  const phaseRecords = input.phases.map((phase, index) => ({
-    sprint_id: input.sprint.id,
+  const phaseRecords = phasesData.map((phase, index) => ({
+    sprint_id: sprint.id,
     phase_id: phase.phase_id,
     phase_name: phase.phase_name,
     speckit_tasks: phase.speckit_tasks
@@ -130,12 +214,12 @@ async function configureSprint(input: ConfigureSprintInput): Promise<{
   const phaseRows = await db
     .select()
     .from(phases)
-    .where(eq(phases.sprint_id, input.sprint.id));
+    .where(eq(phases.sprint_id, sprint.id));
   const phaseIdMap = new Map(phaseRows.map((p) => [p.phase_id, p.id]));
 
   // 4. Create tasks
-  const taskRecords = input.tasks.map((task) => ({
-    sprint_id: input.sprint.id,
+  const taskRecords = tasksData.map((task) => ({
+    sprint_id: sprint.id,
     phase_id: phaseIdMap.get(task.phase_id)!,
     task_id: task.task_id,
     title: task.title,
@@ -157,11 +241,11 @@ async function configureSprint(input: ConfigureSprintInput): Promise<{
   const taskRows = await db
     .select()
     .from(tasks)
-    .where(eq(tasks.sprint_id, input.sprint.id));
+    .where(eq(tasks.sprint_id, sprint.id));
   const taskIdMap = new Map(taskRows.map((t) => [t.task_id, t.id]));
 
   // 6. Create verification checks for each task
-  const checkRecords = input.tasks.flatMap((task) => {
+  const checkRecords = tasksData.flatMap((task) => {
     const taskDbId = taskIdMap.get(task.task_id)!;
     const checks = [];
 
@@ -233,7 +317,7 @@ async function configureSprint(input: ConfigureSprintInput): Promise<{
   // 7. Create consolidations (if provided)
   if (input.consolidations && input.consolidations.length > 0) {
     const consolidationRecords = input.consolidations.map((cons) => ({
-      sprint_id: input.sprint.id,
+      sprint_id: sprint.id,
       consolidated_task_id: cons.consolidated_task_id,
       speckit_tasks: JSON.stringify(cons.speckit_tasks),
       consolidation_rationale: cons.consolidation_rationale,
@@ -247,7 +331,7 @@ async function configureSprint(input: ConfigureSprintInput): Promise<{
 
   // 8. Create progress entries for all tasks (initial PENDING status)
   const progressRecords = taskRows.map((task) => ({
-    sprint_id: input.sprint.id,
+    sprint_id: sprint.id,
     task_id: task.id,
     from_status: null,
     to_status: "PENDING",
@@ -263,14 +347,14 @@ async function configureSprint(input: ConfigureSprintInput): Promise<{
   await db
     .update(sprints)
     .set({ workflow_step: "SELECT_TASK", updated_at: now })
-    .where(eq(sprints.id, input.sprint.id));
+    .where(eq(sprints.id, sprint.id));
 
   return {
-    sprint_id: input.sprint.id,
-    tasks_created: input.tasks.length,
+    sprint_id: sprint.id,
+    tasks_created: tasksData.length,
     summary: {
-      phases: input.phases.length,
-      total_tasks: input.tasks.length,
+      phases: phasesData.length,
+      total_tasks: tasksData.length,
     },
   };
 }

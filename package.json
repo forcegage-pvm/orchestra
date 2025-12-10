@@ -21,6 +21,8 @@
   "scripts": {
     "dev": "tsx src/cli.ts",
     "build": "tsc",
+    "build:extension": "cd extension && npm run build",
+    "watch:extension": "cd extension && npm run watch",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",

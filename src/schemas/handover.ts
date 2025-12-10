@@ -30,6 +30,21 @@ export const PrepareTaskInputSchema = z.object({
     .array(z.string().min(1))
     .min(1, "At least one deliverable is required"),
   priority: PrioritySchema,
+  context: z
+    .string()
+    .min(
+      50,
+      "Context must be at least 50 characters - explain WHY this task exists, its background, and relevant decisions"
+    )
+    .describe(
+      "Required background explaining WHY this task exists, architectural decisions, and how it fits into the larger goal"
+    ),
+  context_files: z
+    .array(z.string().min(1))
+    .describe(
+      "File paths the implementor should read for background (specs, related code, docs)"
+    )
+    .optional(),
   test_file: z.string().optional(),
   test_requirements: z.string().optional(),
   constraints: z.array(z.string().min(1)).optional(),
@@ -41,6 +56,10 @@ export type PrepareTaskInput = z.output<typeof PrepareTaskInputSchema>;
 export const PrepareTaskOutputSchema = SuccessResponseSchema.extend({
   task_id: z.number().int().positive(),
   status: z.literal("IMPLEMENT"),
+  git_commit: z
+    .string()
+    .optional()
+    .describe("Git commit SHA if auto-commit was performed"),
 });
 
 export type PrepareTaskOutput = z.output<typeof PrepareTaskOutputSchema>;
@@ -58,6 +77,8 @@ export const GetCurrentTaskOutputSchema = z.object({
   title: z.string(),
   priority: PrioritySchema,
   description: z.string(),
+  context: z.string().optional(), // Why this task exists, background, decisions
+  context_files: z.array(z.string()).optional(), // File paths for reference
   acceptance_criteria: z.array(AcceptanceCriterionSchema),
   dependencies: z.array(z.string()), // Human-readable: "Task 1: Title (COMPLETE)"
   file_operations: z.array(FileOperationSchema),
@@ -91,6 +112,8 @@ export const UpdateHandoverInputSchema = z
     file_operations: z.array(FileOperationSchema).optional(),
     deliverables: z.array(z.string().min(1)).optional(),
     priority: PrioritySchema.optional(),
+    context: z.string().min(10).optional(),
+    context_files: z.array(z.string().min(1)).optional(),
     test_file: z.string().optional(),
     test_requirements: z.string().optional(),
     constraints: z.array(z.string().min(1)).optional(),

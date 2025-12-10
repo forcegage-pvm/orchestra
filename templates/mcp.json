@@ -3,7 +3,10 @@
     "orchestra-orchestrator": {
       "type": "stdio",
       "command": "node",
-      "args": ["node_modules/orchestra/dist/mcp-server/index.js", "--role=orchestrator"],
+      "args": [
+        "node_modules/orchestra/dist/mcp-server/index.js",
+        "--role=orchestrator"
+      ],
       "env": {
         "ORCHESTRA_WORKSPACE": "${workspaceFolder}"
       }
@@ -11,7 +14,10 @@
     "orchestra-implementor": {
       "type": "stdio",
       "command": "node",
-      "args": ["node_modules/orchestra/dist/mcp-server/index.js", "--role=implementor"],
+      "args": [
+        "node_modules/orchestra/dist/mcp-server/index.js",
+        "--role=implementor"
+      ],
       "env": {
         "ORCHESTRA_WORKSPACE": "${workspaceFolder}"
       }

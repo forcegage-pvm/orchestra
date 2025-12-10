@@ -1,7 +1,7 @@
 ---
 description: "Expert-level software engineering agent. Deliver production-ready, maintainable code. Execute systematically and specification-driven. Document comprehensively. Operate autonomously and adaptively."
 tools:
-  ['edit', 'search', 'new', 'runCommands', 'runTasks', 'orchestra-mcp-server/*', 'usages', 'vscodeAPI', 'problems', 'changes', 'testFailure', 'openSimpleBrowser', 'fetch', 'githubRepo', 'extensions', 'todos', 'runTests']
+  ['edit', 'search', 'new', 'runCommands', 'runTasks', 'orchestra-orchestrator/*', 'usages', 'vscodeAPI', 'problems', 'changes', 'testFailure', 'openSimpleBrowser', 'fetch', 'githubRepo', 'extensions', 'todos', 'runTests']
 ---
 
 # Software Engineer Agent v1

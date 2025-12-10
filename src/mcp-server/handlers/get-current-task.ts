@@ -150,12 +150,17 @@ async function getCurrentTask(): Promise<GetCurrentTaskOutput> {
   const references = handover.reference_links
     ? JSON.parse(handover.reference_links)
     : undefined;
+  const contextFiles = handover.context_files
+    ? JSON.parse(handover.context_files)
+    : undefined;
 
   return {
     task_id: task.task_id,
     title: task.title,
     priority: handover.priority as "P0" | "P1" | "P2" | "P3",
     description: task.description,
+    context: handover.context || undefined,
+    context_files: contextFiles,
     acceptance_criteria: acceptanceCriteria,
     dependencies: dependencyStrings,
     file_operations: fileOperations,

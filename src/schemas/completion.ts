@@ -28,6 +28,10 @@ export const CompleteTaskOutputSchema = SuccessResponseSchema.extend({
     remaining: z.number().int().nonnegative(),
     next_task_id: z.number().int().positive().optional(),
   }),
+  git_commit: z
+    .string()
+    .optional()
+    .describe("Git commit SHA if auto-commit was performed"),
 });
 
 export type CompleteTaskOutput = z.output<typeof CompleteTaskOutputSchema>;
@@ -43,6 +47,11 @@ export const EscalateTaskInputSchema = z.object({
     .string()
     .min(10, "Attempts summary must be at least 10 characters"),
   recommended_action: z.string().optional(),
+  /**
+   * TD-014: Required when escalating before any retry attempts.
+   * Provides justification for early escalation (e.g., external blocker, access issue).
+   */
+  early_escalation_reason: z.string().min(10).optional(),
 });
 
 export type EscalateTaskInput = z.output<typeof EscalateTaskInputSchema>;

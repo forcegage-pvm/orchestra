@@ -60,11 +60,45 @@ export type GetVerificationResultsOutput = z.output<
 // submit_verification_judgment
 // ============================================================================
 
+/**
+ * Evidence of manual code review by orchestrator.
+ * Prevents rubber-stamping - orchestrator must demonstrate they actually reviewed the code.
+ */
+const ManualReviewEvidenceSchema = z.object({
+  files_reviewed: z
+    .array(z.string().min(1))
+    .describe(
+      "File paths you actually read and reviewed. For PASS, must review at least one file."
+    ),
+  observations: z
+    .string()
+    .min(
+      100,
+      "Observations must be at least 100 characters - describe what you actually saw in the code or why files are missing"
+    ),
+  quality_assessment: z
+    .string()
+    .min(
+      50,
+      "Quality assessment must be at least 50 characters - evaluate code quality, patterns, potential issues"
+    ),
+});
+
 export const SubmitVerificationJudgmentInputSchema = z
   .object({
     task_id: z.number().int().positive("Task ID must be positive"),
     judgment: JudgmentSchema,
-    rationale: z.string().min(10, "Rationale must be at least 10 characters"),
+    rationale: z
+      .string()
+      .min(
+        50,
+        "Rationale must be at least 50 characters - explain your judgment decision"
+      ),
+    /**
+     * REQUIRED: Evidence that orchestrator actually reviewed the implementation.
+     * This prevents rubber-stamping automated check results.
+     */
+    manual_review: ManualReviewEvidenceSchema,
     failures: z.array(VerificationFailureSchema).optional(),
     feedback: z.string().optional(),
   })
@@ -82,6 +116,23 @@ export const SubmitVerificationJudgmentInputSchema = z
     {
       message: "failures array is required when judgment is FAIL",
       path: ["failures"],
+    }
+  )
+  .refine(
+    (data) => {
+      // If judgment is PASS, must have reviewed at least one file
+      if (
+        data.judgment === "PASS" &&
+        data.manual_review.files_reviewed.length === 0
+      ) {
+        return false;
+      }
+      return true;
+    },
+    {
+      message:
+        "PASS judgment requires reviewing at least one file - cannot rubber-stamp without evidence",
+      path: ["manual_review", "files_reviewed"],
     }
   );
 

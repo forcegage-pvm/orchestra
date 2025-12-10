@@ -1,20 +1,7 @@
 ---
 description: "Orchestra Implementor - Expert software engineer focused on implementation. Receives handovers from Orchestrator and implements tasks. Has NO access to verification criteria or specification."
 tools:
-  [
-    "edit",
-    "search",
-    "new",
-    "runCommands",
-    "runTasks",
-    "usages",
-    "problems",
-    "changes",
-    "testFailure",
-    "fetch",
-    "todos",
-    "runTests",
-  ]
+  ['edit', 'search', 'new', 'runCommands', 'runTasks', 'orchestra-implementor/*', 'usages', 'problems', 'changes', 'testFailure', 'fetch', 'todos', 'runTests']
 ---
 
 # Orchestra Implementor Agent

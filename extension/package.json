@@ -1,0 +1,128 @@
+{
+  "name": "orchestra-extension",
+  "displayName": "Orchestra",
+  "description": "AI agent task orchestration for VS Code",
+  "version": "0.1.0",
+  "publisher": "forcegage",
+  "engines": {
+    "vscode": "^1.95.0"
+  },
+  "categories": [
+    "Other",
+    "Visualization"
+  ],
+  "keywords": [
+    "orchestration",
+    "ai",
+    "agents",
+    "task management",
+    "mcp"
+  ],
+  "activationEvents": [
+    "workspaceContains:**/.orchestra/orchestra.db"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "configuration": {
+      "title": "Orchestra",
+      "properties": {
+        "orchestra.autoStartMCP": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically start MCP servers on extension activation"
+        },
+        "orchestra.updateInterval": {
+          "type": "number",
+          "default": 500,
+          "description": "Database update debounce interval in milliseconds"
+        },
+        "orchestra.logLevel": {
+          "type": "string",
+          "enum": [
+            "debug",
+            "info",
+            "warn",
+            "error"
+          ],
+          "default": "info",
+          "description": "Logging level for Orchestra output channel"
+        }
+      }
+    },
+    "commands": [
+      {
+        "command": "orchestra.openDashboard",
+        "title": "Orchestra: Open Dashboard",
+        "icon": "$(dashboard)"
+      },
+      {
+        "command": "orchestra.refreshStatus",
+        "title": "Orchestra: Refresh Status",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "orchestra.openTaskDetail",
+        "title": "Orchestra: Open Task Detail",
+        "icon": "$(file-text)"
+      },
+      {
+        "command": "orchestra.invokeOrchestrator",
+        "title": "Orchestra: Invoke Orchestrator Agent",
+        "icon": "$(robot)"
+      },
+      {
+        "command": "orchestra.invokeImplementor",
+        "title": "Orchestra: Invoke Implementor Agent",
+        "icon": "$(tools)"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "orchestra-explorer",
+          "title": "Orchestra",
+          "icon": "resources/orchestra-icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "orchestra-explorer": [
+        {
+          "id": "orchestraSprintExplorer",
+          "name": "Sprint Explorer"
+        }
+      ]
+    },
+    "menus": {
+      "view/title": [
+        {
+          "command": "orchestra.refreshStatus",
+          "when": "view == orchestraSprintExplorer",
+          "group": "navigation"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run build",
+    "build": "node esbuild.config.js --production",
+    "watch": "node esbuild.config.js --watch",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src --ext ts",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.7.0",
+    "drizzle-orm": "^0.37.0"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.12",
+    "@types/node": "^20.x",
+    "@types/vscode": "^1.95.0",
+    "@vscode/test-electron": "^2.4.1",
+    "esbuild": "^0.24.0",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  }
+}

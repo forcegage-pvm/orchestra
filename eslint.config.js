@@ -17,8 +17,8 @@ export default tseslint.config(
         "error",
         { argsIgnorePattern: "^_", varsIgnorePattern: "^_" },
       ],
-      // Allow explicit any in specific cases (we use it sparingly)
-      "@typescript-eslint/no-explicit-any": "warn",
+      // No any allowed - use proper types or unknown
+      "@typescript-eslint/no-explicit-any": "error",
     },
   },
   {

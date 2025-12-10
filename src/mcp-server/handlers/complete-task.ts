@@ -6,6 +6,7 @@
  */
 
 import { and, eq } from "drizzle-orm";
+import { autoCommitIfEnabled, generateCommitMessage } from "../../core/git.js";
 import { getActiveSprint, getDb } from "../../db/index.js";
 import { progress as progressTable, sprints, tasks } from "../../db/schema.js";
 import {
@@ -166,6 +167,21 @@ async function completeTask(
       .where(eq(sprints.id, sprint.id));
   }
 
+  // 9. Auto-commit task completion if enabled
+  const commitMessage = generateCommitMessage({
+    operation: "complete",
+    taskId: input.task_id,
+    taskTitle: task.title,
+  });
+
+  const gitResult = await autoCommitIfEnabled({
+    toolName: "complete_task",
+    commitMessage,
+    sprintId: sprint.id,
+    taskInternalId: task.id,
+    cwd: process.cwd(),
+  });
+
   return {
     success: true,
     task_id: input.task_id,
@@ -177,5 +193,6 @@ async function completeTask(
       remaining,
       next_task_id: nextTaskId,
     },
+    git_commit: gitResult.committed ? gitResult.sha ?? undefined : undefined,
   };
 }

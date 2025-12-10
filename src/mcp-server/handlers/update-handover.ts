@@ -115,6 +115,14 @@ async function updateHandover(
     updateFields.priority = input.priority;
     updatedFieldNames.push("priority");
   }
+  if (input.context !== undefined) {
+    updateFields.context = input.context;
+    updatedFieldNames.push("context");
+  }
+  if (input.context_files !== undefined) {
+    updateFields.context_files = JSON.stringify(input.context_files);
+    updatedFieldNames.push("context_files");
+  }
   if (input.test_file !== undefined) {
     updateFields.test_file = input.test_file;
     updatedFieldNames.push("test_file");

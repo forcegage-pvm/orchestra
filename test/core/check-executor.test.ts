@@ -1,8 +1,13 @@
 /**
  * Check Executor Tests
  *
- * TDD tests for the verification check executor that runs
+ * Tests for the verification check executor that runs
  * structural, behavioral, and quality checks.
+ *
+ * Schema aligned with MCP tool definitions:
+ * - structural: path, pattern?, min_matches?
+ * - behavioral: command, expect_exit_code?, expect_output_contains?
+ * - quality: command? OR (path + pattern + min_matches?)
  */
 
 import fs from "node:fs";
@@ -10,7 +15,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
-  CheckConfig,
+  type CheckConfig,
   executeBehavioralCheck,
   executeCheck,
   executeQualityCheck,
@@ -43,7 +48,6 @@ describe("Check Executor", () => {
 
       const config: CheckConfig = {
         type: "structural",
-        subtype: "file_exists",
         path: filePath,
       };
 
@@ -56,7 +60,6 @@ describe("Check Executor", () => {
     it("should fail when file does not exist", async () => {
       const config: CheckConfig = {
         type: "structural",
-        subtype: "file_exists",
         path: path.join(tempDir, "nonexistent.ts"),
       };
 
@@ -66,51 +69,52 @@ describe("Check Executor", () => {
       expect(result.message).toContain("not found");
     });
 
-    it("should check file contains expected export", async () => {
+    it("should pass when pattern matches in file", async () => {
       const filePath = path.join(tempDir, "module.ts");
       fs.writeFileSync(filePath, "export function myFunction() {}");
 
       const config: CheckConfig = {
         type: "structural",
-        subtype: "exports",
         path: filePath,
-        exports: ["myFunction"],
+        pattern: "export\\s+function\\s+myFunction",
+        min_matches: 1,
       };
 
       const result = await executeStructuralCheck(config, tempDir);
 
       expect(result.passed).toBe(true);
+      expect(result.message).toContain("matches pattern");
     });
 
-    it("should fail when export is missing", async () => {
+    it("should fail when pattern does not match", async () => {
       const filePath = path.join(tempDir, "module.ts");
       fs.writeFileSync(filePath, "export function otherFunction() {}");
 
       const config: CheckConfig = {
         type: "structural",
-        subtype: "exports",
         path: filePath,
-        exports: ["myFunction"],
+        pattern: "export\\s+function\\s+myFunction",
+        min_matches: 1,
       };
 
       const result = await executeStructuralCheck(config, tempDir);
 
       expect(result.passed).toBe(false);
-      expect(result.message).toContain("myFunction");
+      expect(result.message).toContain("Pattern not found");
     });
 
-    it("should validate JSON schema", async () => {
-      const filePath = path.join(tempDir, "config.json");
+    it("should check minimum matches count", async () => {
+      const filePath = path.join(tempDir, "module.ts");
       fs.writeFileSync(
         filePath,
-        JSON.stringify({ name: "test", version: "1.0" })
+        "export function foo() {}\nexport function bar() {}"
       );
 
       const config: CheckConfig = {
         type: "structural",
-        subtype: "json_schema",
         path: filePath,
-        required_fields: ["name", "version"],
+        pattern: "export\\s+function",
+        min_matches: 2,
       };
 
       const result = await executeStructuralCheck(config, tempDir);
@@ -118,26 +122,40 @@ describe("Check Executor", () => {
       expect(result.passed).toBe(true);
     });
 
-    it("should fail JSON schema when field missing", async () => {
-      const filePath = path.join(tempDir, "config.json");
-      fs.writeFileSync(filePath, JSON.stringify({ name: "test" }));
+    it("should fail when not enough matches", async () => {
+      const filePath = path.join(tempDir, "module.ts");
+      fs.writeFileSync(filePath, "export function foo() {}");
 
       const config: CheckConfig = {
         type: "structural",
-        subtype: "json_schema",
         path: filePath,
-        required_fields: ["name", "version"],
+        pattern: "export\\s+function",
+        min_matches: 3,
       };
 
       const result = await executeStructuralCheck(config, tempDir);
 
       expect(result.passed).toBe(false);
-      expect(result.message).toContain("version");
+      expect(result.message).toContain("expected 3");
+    });
+
+    it("should handle relative paths", async () => {
+      const filePath = "test.ts";
+      fs.writeFileSync(path.join(tempDir, filePath), "content");
+
+      const config: CheckConfig = {
+        type: "structural",
+        path: filePath,
+      };
+
+      const result = await executeStructuralCheck(config, tempDir);
+
+      expect(result.passed).toBe(true);
     });
   });
 
   describe("executeBehavioralCheck", () => {
-    it("should run test command and pass", async () => {
+    it("should run command and pass on success", async () => {
       mockExecuteCommand.mockResolvedValueOnce({
         success: true,
         exitCode: 0,
@@ -148,7 +166,6 @@ describe("Check Executor", () => {
 
       const config: CheckConfig = {
         type: "behavioral",
-        subtype: "tests",
         command: "npm test",
       };
 
@@ -162,7 +179,7 @@ describe("Check Executor", () => {
       );
     });
 
-    it("should fail when tests fail", async () => {
+    it("should fail when command fails", async () => {
       mockExecuteCommand.mockResolvedValueOnce({
         success: false,
         exitCode: 1,
@@ -173,7 +190,6 @@ describe("Check Executor", () => {
 
       const config: CheckConfig = {
         type: "behavioral",
-        subtype: "tests",
         command: "npm test",
       };
 
@@ -183,25 +199,101 @@ describe("Check Executor", () => {
       expect(result.output).toContain("FAIL");
     });
 
-    it("should check coverage threshold", async () => {
+    it("should check expected exit code", async () => {
       mockExecuteCommand.mockResolvedValueOnce({
-        success: true,
-        exitCode: 0,
-        stdout: "Coverage: 85%",
+        success: false,
+        exitCode: 2,
+        stdout: "Some output",
         stderr: "",
-        duration: 3000,
+        duration: 1000,
       });
 
       const config: CheckConfig = {
         type: "behavioral",
-        subtype: "coverage",
-        command: "npm run test:coverage",
-        threshold: 80,
+        command: "some-command",
+        expect_exit_code: 2,
       };
 
       const result = await executeBehavioralCheck(config, tempDir);
 
       expect(result.passed).toBe(true);
+    });
+
+    it("should fail when exit code does not match", async () => {
+      mockExecuteCommand.mockResolvedValueOnce({
+        success: false,
+        exitCode: 1,
+        stdout: "",
+        stderr: "Error",
+        duration: 1000,
+      });
+
+      const config: CheckConfig = {
+        type: "behavioral",
+        command: "some-command",
+        expect_exit_code: 0,
+      };
+
+      const result = await executeBehavioralCheck(config, tempDir);
+
+      expect(result.passed).toBe(false);
+      expect(result.message).toContain("exited with code 1");
+      expect(result.message).toContain("expected 0");
+    });
+
+    it("should check output contains expected string", async () => {
+      mockExecuteCommand.mockResolvedValueOnce({
+        success: true,
+        exitCode: 0,
+        stdout: "Build complete: SUCCESS",
+        stderr: "",
+        duration: 1000,
+      });
+
+      const config: CheckConfig = {
+        type: "behavioral",
+        command: "npm run build",
+        expect_output_contains: "SUCCESS",
+      };
+
+      const result = await executeBehavioralCheck(config, tempDir);
+
+      expect(result.passed).toBe(true);
+    });
+
+    it("should fail when output does not contain expected string", async () => {
+      mockExecuteCommand.mockResolvedValueOnce({
+        success: true,
+        exitCode: 0,
+        stdout: "Build complete",
+        stderr: "",
+        duration: 1000,
+      });
+
+      const config: CheckConfig = {
+        type: "behavioral",
+        command: "npm run build",
+        expect_output_contains: "SUCCESS",
+      };
+
+      const result = await executeBehavioralCheck(config, tempDir);
+
+      expect(result.passed).toBe(false);
+      expect(result.message).toContain("does not contain");
+    });
+
+    it("should handle command execution errors", async () => {
+      mockExecuteCommand.mockRejectedValueOnce(new Error("Command not found"));
+
+      const config: CheckConfig = {
+        type: "behavioral",
+        command: "nonexistent-command",
+      };
+
+      const result = await executeBehavioralCheck(config, tempDir);
+
+      expect(result.passed).toBe(false);
+      expect(result.message).toContain("Command error");
     });
   });
 
@@ -217,65 +309,104 @@ describe("Check Executor", () => {
 
       const config: CheckConfig = {
         type: "quality",
-        subtype: "lint",
         command: "npm run lint",
       };
 
       const result = await executeQualityCheck(config, tempDir);
 
       expect(result.passed).toBe(true);
+      expect(result.message).toBe("Quality check passed");
     });
 
-    it("should fail when lint errors exist", async () => {
+    it("should fail when lint command fails", async () => {
       mockExecuteCommand.mockResolvedValueOnce({
         success: false,
         exitCode: 1,
         stdout: "",
-        stderr: "Error: unused variable 'x'",
-        duration: 500,
+        stderr: "5 lint errors found",
+        duration: 1000,
       });
 
       const config: CheckConfig = {
         type: "quality",
-        subtype: "lint",
         command: "npm run lint",
       };
 
       const result = await executeQualityCheck(config, tempDir);
 
       expect(result.passed).toBe(false);
-      expect(result.output).toContain("unused variable");
+      expect(result.output).toContain("lint errors");
     });
 
-    it("should run typecheck command", async () => {
-      mockExecuteCommand.mockResolvedValueOnce({
-        success: true,
-        exitCode: 0,
-        stdout: "",
-        stderr: "",
-        duration: 2000,
-      });
+    it("should check file pattern for quality", async () => {
+      const filePath = path.join(tempDir, "code.ts");
+      fs.writeFileSync(
+        filePath,
+        "// TODO: fix this\nfunction good() {}\n// TODO: also this"
+      );
 
       const config: CheckConfig = {
         type: "quality",
-        subtype: "typecheck",
-        command: "npm run typecheck",
+        path: filePath,
+        pattern: "TODO",
+        min_matches: 2,
       };
 
       const result = await executeQualityCheck(config, tempDir);
 
       expect(result.passed).toBe(true);
     });
+
+    it("should fail when quality pattern requirement not met", async () => {
+      const filePath = path.join(tempDir, "code.ts");
+      fs.writeFileSync(filePath, "function clean() {}");
+
+      const config: CheckConfig = {
+        type: "quality",
+        path: filePath,
+        pattern: "jsdoc|@param|@returns",
+        min_matches: 1,
+      };
+
+      const result = await executeQualityCheck(config, tempDir);
+
+      expect(result.passed).toBe(false);
+    });
+
+    it("should fail when quality file not found", async () => {
+      const config: CheckConfig = {
+        type: "quality",
+        path: "nonexistent.ts",
+        pattern: "something",
+      };
+
+      const result = await executeQualityCheck(config, tempDir);
+
+      expect(result.passed).toBe(false);
+      expect(result.message).toContain("not found");
+    });
+
+    it("should fail when no command or path+pattern provided", async () => {
+      const config: CheckConfig = {
+        type: "quality",
+      };
+
+      const result = await executeQualityCheck(config, tempDir);
+
+      expect(result.passed).toBe(false);
+      expect(result.message).toContain(
+        "requires either command or path+pattern"
+      );
+    });
   });
 
-  describe("executeCheck (dispatcher)", () => {
-    it("should dispatch to structural check", async () => {
-      const filePath = path.join(tempDir, "file.ts");
+  describe("executeCheck", () => {
+    it("should route to structural check", async () => {
+      const filePath = path.join(tempDir, "test.ts");
       fs.writeFileSync(filePath, "content");
 
       const config: CheckConfig = {
         type: "structural",
-        subtype: "file_exists",
         path: filePath,
       };
 
@@ -284,7 +415,7 @@ describe("Check Executor", () => {
       expect(result.passed).toBe(true);
     });
 
-    it("should dispatch to behavioral check", async () => {
+    it("should route to behavioral check", async () => {
       mockExecuteCommand.mockResolvedValueOnce({
         success: true,
         exitCode: 0,
@@ -295,8 +426,7 @@ describe("Check Executor", () => {
 
       const config: CheckConfig = {
         type: "behavioral",
-        subtype: "tests",
-        command: "npm test",
+        command: "echo OK",
       };
 
       const result = await executeCheck(config, tempDir);
@@ -304,7 +434,7 @@ describe("Check Executor", () => {
       expect(result.passed).toBe(true);
     });
 
-    it("should dispatch to quality check", async () => {
+    it("should route to quality check", async () => {
       mockExecuteCommand.mockResolvedValueOnce({
         success: true,
         exitCode: 0,
@@ -315,7 +445,6 @@ describe("Check Executor", () => {
 
       const config: CheckConfig = {
         type: "quality",
-        subtype: "lint",
         command: "npm run lint",
       };
 
@@ -327,28 +456,12 @@ describe("Check Executor", () => {
     it("should return error for unknown check type", async () => {
       const config = {
         type: "unknown",
-        subtype: "test",
       } as unknown as CheckConfig;
 
       const result = await executeCheck(config, tempDir);
 
       expect(result.passed).toBe(false);
       expect(result.message).toContain("Unknown check type");
-    });
-
-    it("should include duration in result", async () => {
-      const filePath = path.join(tempDir, "file.ts");
-      fs.writeFileSync(filePath, "content");
-
-      const config: CheckConfig = {
-        type: "structural",
-        subtype: "file_exists",
-        path: filePath,
-      };
-
-      const result = await executeCheck(config, tempDir);
-
-      expect(result.duration_ms).toBeGreaterThanOrEqual(0);
     });
   });
 });

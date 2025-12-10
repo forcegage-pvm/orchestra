@@ -14,6 +14,7 @@ import {
   validateArtifacts,
   type Artifact,
 } from "../../core/artifact-validator.js";
+import { autoCommitIfEnabled, generateCommitMessage } from "../../core/git.js";
 import {
   runPreSignalChecks,
   type PreSignalConfig,
@@ -29,8 +30,10 @@ import {
   type SignalCompletionOutput,
 } from "../../schemas/signal.js";
 import { validateInput } from "../../schemas/utils.js";
+import { logToolExecution } from "./audit-logging.js";
 
 export async function handleSignalCompletion(input: unknown) {
+  const startTime = performance.now();
   const validation = validateInput(SignalCompletionInputSchema, input);
   if (!validation.success) {
     return {
@@ -45,11 +48,39 @@ export async function handleSignalCompletion(input: unknown) {
 
   try {
     const output = await signalCompletion(validation.data);
+    const durationMs = Math.round(performance.now() - startTime);
+
+    // Log successful signal
+    await logToolExecution(
+      {
+        toolName: "signal_completion",
+        role: "implementor",
+        input: validation.data,
+        taskId: validation.data.task_id,
+      },
+      { success: true, output },
+      durationMs
+    );
+
     return {
       content: [{ type: "text" as const, text: JSON.stringify(output) }],
     };
   } catch (error) {
+    const durationMs = Math.round(performance.now() - startTime);
     const err = error instanceof Error ? error : new Error(String(error));
+
+    // Log failed signal attempt (TD-013: Even failures should be recorded)
+    await logToolExecution(
+      {
+        toolName: "signal_completion",
+        role: "implementor",
+        input: validation.data,
+        taskId: validation.data.task_id,
+      },
+      { success: false, errorMessage: err.message },
+      durationMs
+    );
+
     return {
       content: [
         {
@@ -103,11 +134,32 @@ async function signalCompletion(
     );
   }
 
-  // 4. Run pre-signal checks (GAP-01: actually execute commands)
+  // TD-013 FIX: Record signal BEFORE running pre-signal checks
+  // This ensures we have evidence of the attempt even if checks fail
+  const now = new Date().toISOString();
+  const signalId = randomUUID();
+  const attempt = task.retry_count + 1;
+
+  // 4. Create signal record FIRST (with PENDING status)
+  await db.insert(signals).values({
+    task_id: task.id,
+    signal_id: signalId,
+    attempt,
+    summary: input.summary,
+    artifacts_created: JSON.stringify(input.artifacts_created),
+    tests: input.tests ? JSON.stringify(input.tests) : JSON.stringify([]),
+    build_status: "PENDING", // Will be updated after checks
+    test_status: "PENDING", // Will be updated after checks
+    pre_signal_checks: JSON.stringify({ status: "PENDING" }),
+    notes: input.notes,
+    signaled_at: now,
+  });
+
+  // 5. Run pre-signal checks (GAP-01: actually execute commands)
   const preSignalConfig = await getPreSignalConfig();
   const preSignalChecks = await runPreSignalChecks(preSignalConfig);
 
-  // 4b. Validate artifacts exist (VER-003)
+  // 5b. Validate artifacts exist (VER-003)
   const artifacts: Artifact[] = input.artifacts_created.map((a) => ({
     path: a.path,
     type: a.type,
@@ -120,6 +172,19 @@ async function signalCompletion(
 
   const allChecksPassed =
     preSignalChecks.allPassed && artifactValidation.allValid;
+
+  // 6. Update signal with check results regardless of pass/fail
+  await db
+    .update(signals)
+    .set({
+      build_status: preSignalChecks.build.passed ? "PASS" : "FAIL",
+      test_status: preSignalChecks.test.passed ? "PASS" : "FAIL",
+      pre_signal_checks: JSON.stringify({
+        ...preSignalChecks,
+        artifact_validation: artifactValidation,
+      }),
+    })
+    .where(eq(signals.signal_id, signalId));
 
   if (!allChecksPassed) {
     const failures: string[] = [];
@@ -153,39 +218,29 @@ async function signalCompletion(
       );
     }
 
-    throw new Error(`Pre-signal checks failed: ${failures.join("; ")}`);
+    throw new Error(
+      `Pre-signal checks failed (signal_id: ${signalId}): ${failures.join(
+        "; "
+      )}`
+    );
   }
 
-  // 5. Get configuration for auto-commit setting
-  const [autoCommitConfig] = await db
-    .select()
-    .from(config)
-    .where(eq(config.key, "auto_commit_enabled"))
-    .limit(1);
-
-  const autoCommitEnabled =
-    autoCommitConfig && autoCommitConfig.value === "true";
-
-  const now = new Date().toISOString();
-  const signalId = randomUUID();
-  const attempt = task.retry_count + 1;
-
-  // 6. Create signal record
-  await db.insert(signals).values({
-    task_id: task.id,
-    signal_id: signalId,
-    attempt,
-    summary: input.summary,
-    artifacts_created: JSON.stringify(input.artifacts_created),
-    tests: input.tests ? JSON.stringify(input.tests) : JSON.stringify([]),
-    build_status: input.build_status,
-    test_status: input.test_status,
-    pre_signal_checks: JSON.stringify(preSignalChecks),
-    notes: input.notes,
-    signaled_at: now,
+  // 7. Auto-commit implementation changes if enabled
+  const commitMessage = generateCommitMessage({
+    operation: "signal",
+    taskId: task.task_id,
+    taskTitle: task.title,
   });
 
-  // 7. Update task status to GATE_CHECK
+  const gitResult = await autoCommitIfEnabled({
+    toolName: "signal_completion",
+    commitMessage,
+    sprintId: sprint.id,
+    taskInternalId: task.id,
+    cwd: process.cwd(),
+  });
+
+  // 8. Update task status to GATE_CHECK
   await db
     .update(tasks)
     .set({
@@ -194,7 +249,7 @@ async function signalCompletion(
     })
     .where(eq(tasks.id, task.id));
 
-  // 8. Update sprint workflow_step if needed
+  // 9. Update sprint workflow_step if needed
   if (sprint.workflow_step === "IMPLEMENT") {
     await db
       .update(sprints)
@@ -205,16 +260,16 @@ async function signalCompletion(
       .where(eq(sprints.id, sprint.id));
   }
 
-  // 9. Log progress
+  // 10. Log progress
   await db.insert(progress).values({
     sprint_id: sprint.id,
     task_id: task.id,
-    from_status: "IMPLEMENT",
+    from_status: task.status,
     to_status: "GATE_CHECK",
     workflow_step: sprint.workflow_step,
     triggered_by: "implementor",
     notes: `Completion signaled (attempt ${attempt})${
-      autoCommitEnabled ? ", auto-commit: enabled" : ""
+      gitResult.committed ? `, committed: ${gitResult.sha}` : ""
     }`,
     changed_at: now,
   });
@@ -225,6 +280,7 @@ async function signalCompletion(
     status: "GATE_CHECK",
     pre_signal_checks: preSignalChecks,
     next_step: "Orchestrator will run verification checks",
+    git_commit: gitResult.committed ? gitResult.sha ?? undefined : undefined,
   };
 }
 

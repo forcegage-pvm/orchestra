@@ -5,7 +5,7 @@
  * Returns orchestrator view with verification criteria.
  */
 
-import { and, eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import { getDb } from "../../db/index.js";
 import { phases, sprints, tasks, verificationChecks } from "../../db/schema.js";
 import {
@@ -61,15 +61,15 @@ async function getTasks(
 ): Promise<GetTasksOutput> {
   const db = getDb();
 
-  // 1. Get active sprint
+  // 1. Get active sprint (any sprint that's not completed)
   const [sprint] = await db
     .select()
     .from(sprints)
-    .where(eq(sprints.workflow_step, "CONFIGURE"))
+    .where(isNull(sprints.completed_at))
     .limit(1);
 
   if (!sprint) {
-    throw new Error("No active sprint in CONFIGURE state");
+    throw new Error("No active sprint found");
   }
 
   // 2. Build query with filters

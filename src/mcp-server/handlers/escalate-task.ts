@@ -3,6 +3,8 @@
  *
  * Manually escalates a task to human supervisor.
  * Used when task reaches max retries or orchestrator determines manual intervention needed.
+ *
+ * TD-014: Added soft gate for early escalations (0 retry attempts).
  */
 
 import { and, eq } from "drizzle-orm";
@@ -18,8 +20,10 @@ import {
   type EscalateTaskOutput,
 } from "../../schemas/completion.js";
 import { validateInput } from "../../schemas/utils.js";
+import { logSystemEvent, logToolExecution } from "./audit-logging.js";
 
 export async function handleEscalateTask(input: unknown) {
+  const startTime = performance.now();
   const validation = validateInput(EscalateTaskInputSchema, input);
   if (!validation.success) {
     return {
@@ -34,11 +38,39 @@ export async function handleEscalateTask(input: unknown) {
 
   try {
     const output = await escalateTask(validation.data);
+    const durationMs = Math.round(performance.now() - startTime);
+
+    // Log successful execution
+    await logToolExecution(
+      {
+        toolName: "escalate_task",
+        role: "implementor", // Escalation can be called by either role
+        input: validation.data,
+        taskId: validation.data.task_id,
+      },
+      { success: true, output },
+      durationMs
+    );
+
     return {
       content: [{ type: "text" as const, text: JSON.stringify(output) }],
     };
   } catch (error) {
+    const durationMs = Math.round(performance.now() - startTime);
     const err = error instanceof Error ? error : new Error(String(error));
+
+    // Log failed execution
+    await logToolExecution(
+      {
+        toolName: "escalate_task",
+        role: "implementor",
+        input: validation.data,
+        taskId: validation.data.task_id,
+      },
+      { success: false, errorMessage: err.message },
+      durationMs
+    );
+
     return {
       content: [
         {
@@ -90,6 +122,32 @@ async function escalateTask(
     throw new Error(
       `Task ${input.task_id} is already COMPLETE and cannot be escalated`
     );
+  }
+
+  // TD-014: Soft gate for early escalations
+  // If no retry attempts have been made, require early_escalation_reason
+  if (task.retry_count === 0 && !input.early_escalation_reason) {
+    throw new Error(
+      `Early escalation detected: Task ${input.task_id} has 0 retry attempts. ` +
+        `Either make at least one retry attempt, or provide 'early_escalation_reason' ` +
+        `explaining why immediate escalation is justified (e.g., external blocker, access issue, technical impossibility).`
+    );
+  }
+
+  // Log early escalation for tracking
+  if (task.retry_count === 0 && input.early_escalation_reason) {
+    await logSystemEvent({
+      level: "WARN",
+      category: "escalation",
+      message: `Early escalation for task ${input.task_id}: ${input.early_escalation_reason}`,
+      details: {
+        task_id: input.task_id,
+        retry_count: task.retry_count,
+        reason: input.reason,
+        early_escalation_reason: input.early_escalation_reason,
+      },
+      taskId: input.task_id,
+    });
   }
 
   const now = new Date().toISOString();

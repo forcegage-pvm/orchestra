@@ -25,6 +25,20 @@ import { handleGetVerificationResults } from "../../src/mcp-server/handlers/get-
 import { handleRunVerificationChecks } from "../../src/mcp-server/handlers/run-verification-checks.js";
 import { handleSubmitVerificationJudgment } from "../../src/mcp-server/handlers/submit-verification-judgment.js";
 
+/**
+ * Helper to create valid manual review evidence for tests.
+ * This prevents tests from failing due to missing required manual_review field.
+ */
+function createValidManualReview(filesReviewed: string[] = ["src/feature.ts"]) {
+  return {
+    files_reviewed: filesReviewed,
+    observations:
+      "Reviewed the implementation code. The file exists and contains the expected export. Code structure follows project patterns with proper TypeScript typing.",
+    quality_assessment:
+      "Code quality is acceptable. Follows established patterns and conventions.",
+  };
+}
+
 describe("Verification Lifecycle Integration", () => {
   let tempDir: string;
 
@@ -157,7 +171,8 @@ describe("Verification Lifecycle Integration", () => {
         task_id: 1,
         judgment: "PASS",
         rationale:
-          "All verification checks passed. Implementation is complete.",
+          "All verification checks passed. Implementation is complete and follows expected patterns.",
+        manual_review: createValidManualReview(),
       });
       const judgmentOutput = JSON.parse(
         (judgmentResponse.content[0] as { text: string }).text
@@ -195,7 +210,9 @@ describe("Verification Lifecycle Integration", () => {
       const judgmentResponse = await handleSubmitVerificationJudgment({
         task_id: 1,
         judgment: "PASS",
-        rationale: "Trying to pass anyway despite failures",
+        rationale:
+          "Trying to pass anyway despite failures - this should be rejected by validation",
+        manual_review: createValidManualReview(),
       });
       const judgmentOutput = JSON.parse(
         (judgmentResponse.content[0] as { text: string }).text
@@ -216,7 +233,15 @@ describe("Verification Lifecycle Integration", () => {
       const judgmentResponse = await handleSubmitVerificationJudgment({
         task_id: 1,
         judgment: "FAIL",
-        rationale: "BLOCKING check failed - file not created",
+        rationale:
+          "BLOCKING check failed - required file not created. Implementation incomplete.",
+        manual_review: {
+          files_reviewed: [], // No files to review since they don't exist
+          observations:
+            "Attempted to review src/feature.ts but file does not exist. The structural check correctly identified this as a BLOCKING failure. Implementation is missing.",
+          quality_assessment:
+            "Cannot assess quality - required files are missing from implementation.",
+        },
         failures: [
           {
             check_id: "blocking-check",
@@ -244,7 +269,9 @@ describe("Verification Lifecycle Integration", () => {
       const judgmentResponse = await handleSubmitVerificationJudgment({
         task_id: 1,
         judgment: "PASS",
-        rationale: "Attempting judgment without verification",
+        rationale:
+          "Attempting judgment without verification - this should be rejected",
+        manual_review: createValidManualReview(),
       });
       const judgmentOutput = JSON.parse(
         (judgmentResponse.content[0] as { text: string }).text
@@ -268,11 +295,12 @@ describe("Verification Lifecycle Integration", () => {
       );
       await handleRunVerificationChecks({ task_id: 1 });
 
-      // Submit with short rationale (less than 10 chars)
+      // Submit with short rationale (less than 50 chars now)
       const judgmentResponse = await handleSubmitVerificationJudgment({
         task_id: 1,
         judgment: "PASS",
-        rationale: "ok", // Too short - fails schema validation
+        rationale: "ok", // Too short - fails schema validation (min 50 chars)
+        manual_review: createValidManualReview(),
       });
       const judgmentOutput = JSON.parse(
         (judgmentResponse.content[0] as { text: string }).text
@@ -282,8 +310,43 @@ describe("Verification Lifecycle Integration", () => {
       // Schema validation catches it first with VALIDATION_ERROR
       expect(judgmentOutput.success).toBe(false);
       expect(judgmentOutput.error.code).toBe("VALIDATION_ERROR");
-      expect(judgmentOutput.error.details.issues[0].path).toBe("rationale");
+      expect(judgmentOutput.error.details.issues[0].path).toContain(
+        "rationale"
+      );
       expect(judgmentOutput.error.details.issues[0].code).toBe("too_small");
+    });
+
+    it("should reject judgment without manual_review evidence", async () => {
+      // Run verification first
+      fs.mkdirSync(path.join(tempDir, "src"), { recursive: true });
+      fs.writeFileSync(
+        path.join(tempDir, "src", "feature.ts"),
+        "export const feature = true;"
+      );
+      await handleRunVerificationChecks({ task_id: 1 });
+
+      // Submit without manual_review (missing required field)
+      const judgmentResponse = await handleSubmitVerificationJudgment({
+        task_id: 1,
+        judgment: "PASS",
+        rationale:
+          "Attempting to pass without manual review evidence - should be rejected",
+        // No manual_review field!
+      });
+      const judgmentOutput = JSON.parse(
+        (judgmentResponse.content[0] as { text: string }).text
+      );
+
+      expect(judgmentOutput.success).toBe(false);
+      expect(judgmentOutput.error.code).toBe("VALIDATION_ERROR");
+      // Should complain about missing manual_review
+      expect(
+        judgmentOutput.error.details.issues.some(
+          (i: { path: string[] }) =>
+            i.path.includes("manual_review") ||
+            JSON.stringify(i.path).includes("manual_review")
+        )
+      ).toBe(true);
     });
   });
 
