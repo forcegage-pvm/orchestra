@@ -97,11 +97,12 @@ async function submitVerificationJudgment(
     );
   }
 
-  // 4. Validate judgment constraints (JVC-1, JVC-2, JVC-3)
+  // 4. Validate judgment constraints (JVC-1, JVC-2, JVC-3, JVC-4)
   const judgmentValidation = await validateJudgment(
     task.id,
     input.judgment,
-    input.rationale
+    input.rationale,
+    input.manual_review
   );
 
   if (!judgmentValidation.valid) {

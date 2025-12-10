@@ -24,6 +24,7 @@ export const JVC = {
   RESULTS_EXIST: "JVC-1",
   NO_BLOCKING_FAILURES: "JVC-2",
   RATIONALE_REQUIRED: "JVC-3",
+  MANUAL_REVIEW_EVIDENCE: "JVC-4",
 } as const;
 
 /**
@@ -57,17 +58,28 @@ export interface JudgmentValidationResult {
 const MIN_RATIONALE_LENGTH = 10;
 
 /**
+ * Manual review evidence structure
+ */
+export interface ManualReviewEvidence {
+  files_reviewed: string[];
+  observations: string;
+  quality_assessment: string;
+}
+
+/**
  * Validate judgment constraints before allowing submission
  *
  * @param taskId - Internal task ID
  * @param judgment - PASS or FAIL
  * @param rationale - Justification for judgment
+ * @param manualReview - Evidence of manual code review (optional for backward compat)
  * @returns Validation result with checks and any blocking failures
  */
 export async function validateJudgment(
   taskId: number,
   judgment: "PASS" | "FAIL",
-  rationale: string
+  rationale: string,
+  manualReview?: ManualReviewEvidence
 ): Promise<JudgmentValidationResult> {
   const db = getDb();
   const checks: JudgmentCheck[] = [];
@@ -160,6 +172,64 @@ export async function validateJudgment(
     reason: rationaleValid
       ? "Rationale is adequate"
       : `Rationale too short (${rationale.length} chars, minimum ${MIN_RATIONALE_LENGTH})`,
+  });
+
+  // JVC-4: Manual review evidence must be substantive (for PASS judgments)
+  let manualReviewValid = true;
+  let manualReviewReason = "Manual review not required for FAIL judgment";
+
+  if (judgment === "PASS" && manualReview) {
+    const issues: string[] = [];
+
+    // Must have reviewed at least one file
+    if (manualReview.files_reviewed.length === 0) {
+      issues.push("No files reviewed");
+    }
+
+    // Observations must mention at least one reviewed file's basename
+    const fileBasenames = manualReview.files_reviewed
+      .map((f) => {
+        const parts = f.replace(/\\/g, "/").split("/");
+        return parts[parts.length - 1];
+      })
+      .filter((b): b is string => b !== undefined);
+    const observationsMentionsFile = fileBasenames.some((basename) =>
+      manualReview.observations.toLowerCase().includes(basename.toLowerCase())
+    );
+    if (!observationsMentionsFile && manualReview.files_reviewed.length > 0) {
+      issues.push(
+        `Observations must mention reviewed file(s): ${fileBasenames.join(
+          ", "
+        )}`
+      );
+    }
+
+    // Observations must include specific code details (line count, function names, etc.)
+    const hasCodeDetails =
+      /\d+\s*(lines?|chars?|methods?|functions?|class)/i.test(
+        manualReview.observations
+      ) ||
+      /(function|method|class|interface|export|import|const|let|var)\s+\w+/i.test(
+        manualReview.observations
+      );
+    if (!hasCodeDetails) {
+      issues.push(
+        "Observations must include specific code details (e.g., line counts, function/class names)"
+      );
+    }
+
+    manualReviewValid = issues.length === 0;
+    manualReviewReason =
+      issues.length === 0
+        ? "Manual review evidence is substantive"
+        : issues.join("; ");
+  }
+
+  checks.push({
+    check_id: JVC.MANUAL_REVIEW_EVIDENCE,
+    description: "PASS judgment requires substantive manual review evidence",
+    passed: manualReviewValid,
+    reason: manualReviewReason,
   });
 
   // Overall validation

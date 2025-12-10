@@ -26,14 +26,14 @@ import { handleRunVerificationChecks } from "../../src/mcp-server/handlers/run-v
 import { handleSubmitVerificationJudgment } from "../../src/mcp-server/handlers/submit-verification-judgment.js";
 
 /**
- * Helper to create valid manual review evidence for tests.
+ * Helper function to create valid manual review evidence.
  * This prevents tests from failing due to missing required manual_review field.
  */
 function createValidManualReview(filesReviewed: string[] = ["src/feature.ts"]) {
+  const filename = filesReviewed[0]?.split("/").pop() || "feature.ts";
   return {
     files_reviewed: filesReviewed,
-    observations:
-      "Reviewed the implementation code. The file exists and contains the expected export. Code structure follows project patterns with proper TypeScript typing.",
+    observations: `Reviewed ${filename} (45 lines). The file exists and contains the expected export class Feature. Code structure follows project patterns with proper TypeScript typing and interface definitions.`,
     quality_assessment:
       "Code quality is acceptable. Follows established patterns and conventions.",
   };
