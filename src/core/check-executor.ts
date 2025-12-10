@@ -8,6 +8,7 @@
  */
 
 import fs from "node:fs";
+import path from "node:path";
 import { executeCommand } from "./command-executor.js";
 
 // ============================================================================
@@ -154,10 +155,13 @@ export async function executeStructuralCheck(
 
 function executeFileExistsCheck(
   config: FileExistsConfig,
-  _workspacePath: string,
+  workspacePath: string,
   startTime: number
 ): CheckResult {
-  const filePath = config.path;
+  // Resolve relative paths against workspace
+  const filePath = path.isAbsolute(config.path)
+    ? config.path
+    : path.join(workspacePath, config.path);
   const exists = fs.existsSync(filePath);
 
   return {
@@ -171,10 +175,13 @@ function executeFileExistsCheck(
 
 function executeExportsCheck(
   config: ExportsConfig,
-  _workspacePath: string,
+  workspacePath: string,
   startTime: number
 ): CheckResult {
-  const filePath = config.path;
+  // Resolve relative paths against workspace
+  const filePath = path.isAbsolute(config.path)
+    ? config.path
+    : path.join(workspacePath, config.path);
 
   if (!fs.existsSync(filePath)) {
     return {
@@ -225,10 +232,13 @@ function executeExportsCheck(
 
 function executeJsonSchemaCheck(
   config: JsonSchemaConfig,
-  _workspacePath: string,
+  workspacePath: string,
   startTime: number
 ): CheckResult {
-  const filePath = config.path;
+  // Resolve relative paths against workspace
+  const filePath = path.isAbsolute(config.path)
+    ? config.path
+    : path.join(workspacePath, config.path);
 
   if (!fs.existsSync(filePath)) {
     return {
