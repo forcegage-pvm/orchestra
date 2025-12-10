@@ -9,7 +9,7 @@
  * Uses better-sqlite3's synchronous API (not async) as Drizzle with better-sqlite3 is synchronous.
  */
 
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull } from "drizzle-orm";
 import { OrchestraDB } from "./client.js";
 // Use local schema copy to avoid CommonJS/ESM module conflicts
 import * as schema from "./local-schema.js";
@@ -128,7 +128,12 @@ export function getCurrentSprint(workspaceRoot: string): Sprint | null {
   const results = db
     .select()
     .from(schema.sprints as unknown as typeof schema.sprints)
-    .where(eq(schema.sprints.completed_at as unknown as typeof schema.sprints.completed_at, null))
+    .where(
+      isNull(
+        schema.sprints
+          .completed_at as unknown as typeof schema.sprints.completed_at
+      )
+    )
     .limit(1)
     .all() as Sprint[];
 
@@ -155,10 +160,17 @@ export function getCurrentTask(
     .from(schema.tasks as unknown as typeof schema.tasks)
     .innerJoin(
       schema.handovers as unknown as typeof schema.handovers,
-      eq(schema.tasks.id as unknown as typeof schema.tasks.id, schema.handovers.task_id as unknown as typeof schema.handovers.task_id)
+      eq(
+        schema.tasks.id as unknown as typeof schema.tasks.id,
+        schema.handovers.task_id as unknown as typeof schema.handovers.task_id
+      )
     )
     .where(
-      inArray(schema.tasks.status as unknown as typeof schema.tasks.status, ["IMPLEMENT", "GATE_CHECK", "VERIFY"])
+      inArray(schema.tasks.status as unknown as typeof schema.tasks.status, [
+        "IMPLEMENT",
+        "GATE_CHECK",
+        "VERIFY",
+      ])
     )
     .limit(1)
     .all() as unknown[];
@@ -168,7 +180,7 @@ export function getCurrentTask(
   }
 
   // Combine task and handover into single object
-  const result = results[0];
+  const result = results[0] as { tasks: Task; handovers: Handover };
   return {
     ...result.tasks,
     handover: result.handovers,
@@ -193,7 +205,12 @@ export function getTasksForSprint(
   return db
     .select()
     .from(schema.tasks as unknown as typeof schema.tasks)
-    .where(eq(schema.tasks.sprint_id as unknown as typeof schema.tasks.sprint_id, sprintId))
+    .where(
+      eq(
+        schema.tasks.sprint_id as unknown as typeof schema.tasks.sprint_id,
+        sprintId
+      )
+    )
     .orderBy(schema.tasks.task_id as unknown as typeof schema.tasks.task_id)
     .all() as Task[];
 }
@@ -213,7 +230,12 @@ export function getPhases(workspaceRoot: string, sprintId: string): Phase[] {
   return db
     .select()
     .from(schema.phases as unknown as typeof schema.phases)
-    .where(eq(schema.phases.sprint_id as unknown as typeof schema.phases.sprint_id, sprintId))
+    .where(
+      eq(
+        schema.phases.sprint_id as unknown as typeof schema.phases.sprint_id,
+        sprintId
+      )
+    )
     .orderBy(schema.phases.order as unknown as typeof schema.phases.order)
     .all() as Phase[];
 }
@@ -237,8 +259,18 @@ export function getTaskHistory(
   return db
     .select()
     .from(schema.progress as unknown as typeof schema.progress)
-    .where(eq(schema.progress.task_id as unknown as typeof schema.progress.task_id, taskId))
-    .orderBy(desc(schema.progress.changed_at as unknown as typeof schema.progress.changed_at))
+    .where(
+      eq(
+        schema.progress.task_id as unknown as typeof schema.progress.task_id,
+        taskId
+      )
+    )
+    .orderBy(
+      desc(
+        schema.progress
+          .changed_at as unknown as typeof schema.progress.changed_at
+      )
+    )
     .all() as Progress[];
 }
 
@@ -266,8 +298,14 @@ export function getVerificationResults(
     .from(schema.signals as unknown as typeof schema.signals)
     .where(
       and(
-        eq(schema.signals.task_id as unknown as typeof schema.signals.task_id, taskId),
-        eq(schema.signals.attempt as unknown as typeof schema.signals.attempt, attempt)
+        eq(
+          schema.signals.task_id as unknown as typeof schema.signals.task_id,
+          taskId
+        ),
+        eq(
+          schema.signals.attempt as unknown as typeof schema.signals.attempt,
+          attempt
+        )
       )
     )
     .limit(1)
@@ -277,30 +315,48 @@ export function getVerificationResults(
     return [];
   }
 
-  const signalId = signals[0].signal_id;
+  const signalId = (signals[0] as { signal_id: string }).signal_id;
 
   // Get verification results joined with check definitions
   const results = db
     .select()
-    .from(schema.verificationResults as unknown as typeof schema.verificationResults)
+    .from(
+      schema.verificationResults as unknown as typeof schema.verificationResults
+    )
     .innerJoin(
       schema.verificationChecks as unknown as typeof schema.verificationChecks,
       eq(
-        schema.verificationResults.check_id as unknown as typeof schema.verificationResults.check_id,
-        schema.verificationChecks.id as unknown as typeof schema.verificationChecks.id
+        schema.verificationResults
+          .check_id as unknown as typeof schema.verificationResults.check_id,
+        schema.verificationChecks
+          .id as unknown as typeof schema.verificationChecks.id
       )
     )
     .where(
       and(
-        eq(schema.verificationResults.task_id as unknown as typeof schema.verificationResults.task_id, taskId),
-        eq(schema.verificationResults.signal_id as unknown as typeof schema.verificationResults.signal_id, signalId)
+        eq(
+          schema.verificationResults
+            .task_id as unknown as typeof schema.verificationResults.task_id,
+          taskId
+        ),
+        eq(
+          schema.verificationResults
+            .signal_id as unknown as typeof schema.verificationResults.signal_id,
+          signalId
+        )
       )
     )
     .all() as unknown[];
 
   // Combine result and check into single object
-  return results.map((result) => ({
-    ...result.verification_results,
-    check: result.verification_checks,
-  }));
+  return results.map((result) => {
+    const typedResult = result as {
+      verification_results: VerificationResult;
+      verification_checks: VerificationCheck;
+    };
+    return {
+      ...typedResult.verification_results,
+      check: typedResult.verification_checks,
+    };
+  });
 }
