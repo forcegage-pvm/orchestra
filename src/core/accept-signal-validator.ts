@@ -11,11 +11,7 @@
 
 import { and, desc, eq } from "drizzle-orm";
 import { getActiveSprint, getDb } from "../db/index.js";
-import {
-  signals,
-  tasks,
-  verificationChecks,
-} from "../db/schema.js";
+import { signals, tasks, verificationChecks } from "../db/schema.js";
 
 /**
  * Individual check result
@@ -165,7 +161,9 @@ export async function validateAcceptSignal(
     description: `Signal is fresh (< ${maxAgeMinutes} minutes old)`,
     passed: !isStale,
     message: isStale
-      ? `Signal is ${Math.round(ageMinutes)} minutes old, max allowed is ${maxAgeMinutes}`
+      ? `Signal is ${Math.round(
+          ageMinutes
+        )} minutes old, max allowed is ${maxAgeMinutes}`
       : `Signal is ${Math.round(ageMinutes)} minutes old`,
   });
 

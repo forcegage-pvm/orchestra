@@ -7,20 +7,20 @@
  * - VER-026: System-computed overall_passed based on BLOCKING only
  */
 
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import fs from "node:fs";
-import path from "node:path";
 import os from "node:os";
-import { handleGetVerificationResults } from "../../src/mcp-server/handlers/get-verification-results.js";
-import { getDb, resetDb, initializeDb, getActiveSprint } from "../../src/db/index.js";
+import path from "node:path";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { getDb, initializeDb, resetDb } from "../../src/db/index.js";
 import {
-  sprints,
   phases,
-  tasks,
   signals,
+  sprints,
+  tasks,
   verificationChecks,
   verificationResults,
 } from "../../src/db/schema.js";
+import { handleGetVerificationResults } from "../../src/mcp-server/handlers/get-verification-results.js";
 
 describe("Enhanced Verification Results", () => {
   let tempDir: string;
@@ -118,9 +118,7 @@ describe("Enhanced Verification Results", () => {
       });
 
       const response = await handleGetVerificationResults({ task_id: 1 });
-      const output = JSON.parse(
-        (response.content[0] as { text: string }).text
-      );
+      const output = JSON.parse((response.content[0] as { text: string }).text);
 
       expect(output.results[0].type).toBe("structural");
     });
@@ -151,9 +149,7 @@ describe("Enhanced Verification Results", () => {
       });
 
       const response = await handleGetVerificationResults({ task_id: 1 });
-      const output = JSON.parse(
-        (response.content[0] as { text: string }).text
-      );
+      const output = JSON.parse((response.content[0] as { text: string }).text);
 
       expect(output.results[0].description).toBe("Tests pass");
     });
@@ -184,9 +180,7 @@ describe("Enhanced Verification Results", () => {
       });
 
       const response = await handleGetVerificationResults({ task_id: 1 });
-      const output = JSON.parse(
-        (response.content[0] as { text: string }).text
-      );
+      const output = JSON.parse((response.content[0] as { text: string }).text);
 
       expect(output.results[0].severity).toBe("MINOR");
     });
@@ -281,9 +275,7 @@ describe("Enhanced Verification Results", () => {
       ]);
 
       const response = await handleGetVerificationResults({ task_id: 1 });
-      const output = JSON.parse(
-        (response.content[0] as { text: string }).text
-      );
+      const output = JSON.parse((response.content[0] as { text: string }).text);
 
       expect(output.summary.severity_breakdown).toBeDefined();
       expect(output.summary.severity_breakdown.BLOCKING).toEqual({
@@ -355,9 +347,7 @@ describe("Enhanced Verification Results", () => {
       ]);
 
       const response = await handleGetVerificationResults({ task_id: 1 });
-      const output = JSON.parse(
-        (response.content[0] as { text: string }).text
-      );
+      const output = JSON.parse((response.content[0] as { text: string }).text);
 
       // overall_passed based on BLOCKING only
       expect(output.summary.overall_passed).toBe(true);
@@ -388,9 +378,7 @@ describe("Enhanced Verification Results", () => {
       });
 
       const response = await handleGetVerificationResults({ task_id: 1 });
-      const output = JSON.parse(
-        (response.content[0] as { text: string }).text
-      );
+      const output = JSON.parse((response.content[0] as { text: string }).text);
 
       expect(output.summary.overall_passed).toBe(false);
     });
@@ -421,9 +409,7 @@ describe("Enhanced Verification Results", () => {
       });
 
       const response = await handleGetVerificationResults({ task_id: 1 });
-      const output = JSON.parse(
-        (response.content[0] as { text: string }).text
-      );
+      const output = JSON.parse((response.content[0] as { text: string }).text);
 
       // No BLOCKING checks, so overall passes
       expect(output.summary.overall_passed).toBe(true);

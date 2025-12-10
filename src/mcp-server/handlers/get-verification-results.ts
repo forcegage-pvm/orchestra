@@ -144,8 +144,10 @@ async function getVerificationResults(
   const resultsOutput: ResultOutput[] = results.map((r) => {
     const check = checkMap.get(r.check_id);
     const rawSeverity = check?.severity ?? "BLOCKING";
-    const severity: Severity = isValidSeverity(rawSeverity) ? rawSeverity : "BLOCKING";
-    
+    const severity: Severity = isValidSeverity(rawSeverity)
+      ? rawSeverity
+      : "BLOCKING";
+
     const result: ResultOutput = {
       check_id: check?.check_id ?? r.check_id.toString(),
       type: check?.check_type ?? "unknown",

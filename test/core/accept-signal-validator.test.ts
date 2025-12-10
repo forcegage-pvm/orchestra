@@ -5,21 +5,17 @@
  * before verification checks can proceed.
  */
 
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import fs from "node:fs";
-import path from "node:path";
 import os from "node:os";
+import path from "node:path";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { validateAcceptSignal } from "../../src/core/accept-signal-validator.js";
+import { getDb, initializeDb, resetDb } from "../../src/db/index.js";
 import {
-  validateAcceptSignal,
-  AcceptSignalResult,
-  AcceptSignalCheck,
-} from "../../src/core/accept-signal-validator.js";
-import { getDb, resetDb, initializeDb } from "../../src/db/index.js";
-import {
-  sprints,
   phases,
-  tasks,
   signals,
+  sprints,
+  tasks,
   verificationChecks,
 } from "../../src/db/schema.js";
 
@@ -186,7 +182,9 @@ describe("Accept Signal Validator", () => {
       const db = getDb();
 
       // Create signal that's 2 hours old
-      const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
+      const twoHoursAgo = new Date(
+        Date.now() - 2 * 60 * 60 * 1000
+      ).toISOString();
       await db.insert(signals).values({
         id: 1,
         task_id: 1,

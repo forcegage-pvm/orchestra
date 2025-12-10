@@ -92,12 +92,12 @@ async function runVerificationChecks(
   // 1. Run accept-signal validation (FR-ASV-001)
   // This validates: signal exists, pre-signal passed, not stale, GATE_CHECK status, checks exist
   const acceptResult = await validateAcceptSignal(input.task_id);
-  
+
   if (acceptResult.status === "REJECTED") {
     // Return early with accept-signal failure details
-    const failedChecks = acceptResult.checks.filter(c => !c.passed);
+    const failedChecks = acceptResult.checks.filter((c) => !c.passed);
     const failureMessage = failedChecks
-      .map(c => `${c.check_id}: ${c.message}`)
+      .map((c) => `${c.check_id}: ${c.message}`)
       .join("; ");
     throw new Error(`Accept-signal validation failed: ${failureMessage}`);
   }

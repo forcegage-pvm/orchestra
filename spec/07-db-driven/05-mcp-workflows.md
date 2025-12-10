@@ -40,7 +40,8 @@ Below is the complete workflow in typical execution order:
 | 8 | `signal_completion` | Implementor claims task complete, triggers pre-signal checks | Implementor | Task ID + summary + artifacts + build/test status | Pre-checks run, task → GATE_CHECK |
 | **Verification** |
 | 9 | `get_signal` | Orchestrator reviews completion signal | Orchestrator | Task ID | Signal details, artifacts, test results |
-| 10 | `get_verification_results` | Orchestrator reviews verification check results | Orchestrator | Task ID | Verification pass/fail for each check |
+| 9b | `run_verification_checks` | Execute verification checks (auto or manual) | System/Orchestrator | Task ID + optional filters | Check results stored, accept-signal validated |
+| 10 | `get_verification_results` | Orchestrator reviews verification check results | Orchestrator | Task ID | Verification pass/fail for each check with severity breakdown |
 | 11 | `submit_verification_judgment` | Orchestrator judges pass or fail | Orchestrator | Task ID + judgment + rationale + failures (if any) | Task → VERIFY (pass) or VERIFY_FAILED (fail) |
 | **Completion or Retry** |
 | 12a | `complete_task` | Mark task complete and advance | Orchestrator | Task ID + notes | Task → COMPLETE, next task ID returned |
@@ -67,7 +68,7 @@ Below is the complete workflow in typical execution order:
 - **Escalation**: Step 13 triggered when max retries exceeded or hard blocker
 - **CRUD tools**: Used as needed for sprint management
 - **Role enforcement**: System blocks implementor from calling orchestrator-only tools
-- **Total tools**: 21 tools
+- **Total tools**: 23 tools (21 original + run_verification_checks + set_config)
 
 ---
 
@@ -676,9 +677,9 @@ Output: {
 
 **UPDATE**: Both missing tools have been added to `04-mcp-tool-schemas.md`:
 
-### 3.1 `get_verification_results` ✅ ADDED
+### 3.1 `get_verification_results` ✅ ADDED (Enhanced v1.1.0)
 
-**Purpose**: Orchestrator retrieves verification run results
+**Purpose**: Orchestrator retrieves verification run results with full check details
 
 **Input**:
 ```typescript
@@ -687,7 +688,7 @@ Output: {
 }
 ```
 
-**Output**:
+**Output** (Enhanced v1.1.0 - VER-024/025/026):
 ```typescript
 {
   task_id: number,
@@ -695,6 +696,9 @@ Output: {
   
   results: Array<{
     check_id: string,
+    type: "structural" | "behavioral" | "quality",  // NEW: check type
+    description: string,                             // NEW: check description
+    severity: "BLOCKING" | "MAJOR" | "MINOR" | "INFO", // NEW: severity
     passed: boolean,
     output?: string,
     duration_ms: number,
@@ -704,12 +708,23 @@ Output: {
     total_checks: number,
     passed: number,
     failed: number,
-    overall_passed: boolean,
+    overall_passed: boolean,  // Based on BLOCKING checks only
+    severity_breakdown: {     // NEW: breakdown by severity
+      BLOCKING: { passed: number, failed: number },
+      MAJOR: { passed: number, failed: number },
+      MINOR: { passed: number, failed: number },
+      INFO: { passed: number, failed: number },
+    },
   },
 }
 ```
 
-**Status**: ✅ Added to tool schemas as tool #20
+**Key Behaviors (v1.1.0)**:
+- `overall_passed` is **system-computed** based on BLOCKING checks only
+- Results include full check context (type, description, severity)
+- Severity breakdown enables granular pass/fail analysis
+
+**Status**: ✅ Added to tool schemas as tool #20, enhanced v1.1.0
 
 ---
 
@@ -743,6 +758,90 @@ Output: {
 ```
 
 **Status**: ✅ Added to tool schemas as tool #21
+
+---
+
+### 3.3 `run_verification_checks` ✅ ADDED (v1.1.0)
+
+**Purpose**: Execute verification checks for a task (called automatically after signal, can also run manually)
+
+**Input**:
+```typescript
+{
+  task_id: number,
+  check_ids?: string[],        // Optional: run specific checks only
+  severity_filter?: "BLOCKING" | "MAJOR" | "MINOR" | "INFO" | "all",
+  continue_on_error?: boolean, // Default: false
+  dry_run?: boolean,           // Default: false (preview checks without running)
+}
+```
+
+**Output**:
+```typescript
+{
+  status: "COMPLETED" | "PARTIAL" | "REJECTED",
+  task_id: number,
+  accept_signal_status: "ACCEPTED" | "REJECTED",  // Pre-flight validation
+  accept_signal_checks: Array<{
+    check_id: string,
+    description: string,
+    passed: boolean,
+    reason?: string,
+  }>,
+  checks_run: number,
+  checks_passed: number,
+  checks_failed: number,
+  results: Array<{
+    check_id: string,
+    type: "structural" | "behavioral" | "quality",
+    description: string,
+    severity: "BLOCKING" | "MAJOR" | "MINOR" | "INFO",
+    passed: boolean,
+    message: string,
+    output?: string,
+    duration_ms: number,
+  }>,
+}
+```
+
+**Key Behaviors (v1.1.0)**:
+- **Accept-Signal Validation**: Validates signal before running checks (ASV-1 through ASV-5)
+  - ASV-1: Signal exists for task
+  - ASV-2: Pre-signal checks passed (build/test status)
+  - ASV-3: Signal not stale (default 60 min timeout)
+  - ASV-4: Task in GATE_CHECK status
+  - ASV-5: Verification checks exist for task
+- Returns REJECTED if accept-signal validation fails
+- Executes structural, behavioral, and quality checks
+- Stores results in database for retrieval via `get_verification_results`
+
+**Status**: ✅ Added to tool schemas as tool #22
+
+---
+
+### 3.4 `set_config` ✅ ADDED (v1.1.0)
+
+**Purpose**: Set configuration values in database (e.g., pre_signal commands)
+
+**Input**:
+```typescript
+{
+  key: string,
+  value: unknown,  // JSON-serializable value
+  description?: string,
+}
+```
+
+**Output**:
+```typescript
+{
+  success: true,
+  key: string,
+  message: string,
+}
+```
+
+**Status**: ✅ Added to tool schemas as tool #23
 
 ---
 

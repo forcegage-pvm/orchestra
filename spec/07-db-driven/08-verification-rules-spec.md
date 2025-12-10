@@ -896,12 +896,110 @@ This can be adapted for MCP's v2 check type structure (structural/behavioral/qua
 
 ---
 
+## 10. Implementation Notes (v1.1.0)
+
+### Sprint Completion Summary
+
+Implementation completed December 2025 via sprint `sprint-verification-rules.md`.
+
+### Phase 1: Pre-Signal Checks (COMPLETE ✅)
+
+| Task | Status | Actual Implementation |
+|------|--------|----------------------|
+| VER-001 | ✅ | `src/core/command-executor.ts` - Shell command execution with timeout |
+| VER-002 | ✅ | `src/core/pre-signal-executor.ts` - Refactored pre-signal checks |
+| VER-003 | ✅ | `src/core/artifact-validator.ts` - Artifact path validation |
+| VER-004 | ✅ | `src/mcp-server/handlers/set-config.ts` - Config storage for build/test commands |
+| VER-005 | ✅ | 41 unit tests across command-executor, pre-signal, artifact modules |
+
+### Phase 2: Verification Check Execution (COMPLETE ✅)
+
+| Task | Status | Actual Implementation |
+|------|--------|----------------------|
+| VER-006 | ✅ | `src/core/check-executor.ts` - 17 tests for check execution |
+| VER-010/011/012 | ✅ | `src/mcp-server/handlers/run-verification-checks.ts` - Handler with 13 tests |
+
+### Phase 3: Accept-Signal Validation (COMPLETE ✅)
+
+| Task | Status | Actual Implementation |
+|------|--------|----------------------|
+| VER-016 | ✅ | `src/core/accept-signal-validator.ts` - 5 ASV checks |
+| VER-017 | ✅ | Configurable staleness (default 60 min) |
+| VER-018 | ✅ | Integrated into `run_verification_checks` |
+| VER-019 | ✅ | 12 unit tests for accept-signal validation |
+
+### Phase 4: Judgment Constraints (COMPLETE ✅)
+
+| Task | Status | Actual Implementation |
+|------|--------|----------------------|
+| VER-020 | ✅ | `src/core/judgment-validator.ts` - JVC-1: Results must exist |
+| VER-021 | ✅ | JVC-2: PASS blocked with BLOCKING failures |
+| VER-022 | ✅ | JVC-3: Rationale validation (min 10 chars) |
+| VER-023 | ✅ | 12 unit tests for judgment validation |
+
+### Phase 5: Enhanced Results (COMPLETE ✅)
+
+| Task | Status | Actual Implementation |
+|------|--------|----------------------|
+| VER-024 | ✅ | Enhanced output with type, description, severity per result |
+| VER-025 | ✅ | Severity breakdown in summary |
+| VER-026 | ✅ | `overall_passed` computed from BLOCKING checks only |
+| VER-027 | ✅ | 7 unit tests for enhanced results |
+
+### Key Files Created
+
+```
+src/core/
+├── command-executor.ts      # Shell command execution
+├── pre-signal-executor.ts   # Pre-signal check runner
+├── artifact-validator.ts    # Artifact path validation
+├── check-executor.ts        # Verification check execution
+├── accept-signal-validator.ts # ASV checks
+└── judgment-validator.ts    # JVC checks
+
+src/mcp-server/handlers/
+├── run-verification-checks.ts # New tool handler
+├── set-config.ts             # Config management
+├── get-verification-results.ts # Enhanced output
+└── submit-verification-judgment.ts # Judgment constraints
+
+test/
+├── core/
+│   ├── command-executor.test.ts
+│   ├── pre-signal-executor.test.ts
+│   ├── artifact-validator.test.ts
+│   ├── check-executor.test.ts
+│   ├── accept-signal-validator.test.ts
+│   └── judgment-validator.test.ts
+└── mcp-server/
+    ├── run-verification-checks.test.ts
+    └── get-verification-results.test.ts
+```
+
+### Test Coverage
+
+| Module | Tests | Status |
+|--------|-------|--------|
+| command-executor | 14 | ✅ |
+| pre-signal-executor | 11 | ✅ |
+| artifact-validator | 10 | ✅ |
+| set-config | 6 | ✅ |
+| check-executor | 17 | ✅ |
+| run-verification-checks | 13 | ✅ |
+| accept-signal-validator | 12 | ✅ |
+| judgment-validator | 12 | ✅ |
+| get-verification-results | 7 | ✅ |
+| **Total** | **102** | ✅ |
+
+---
+
 ## Revision History
 
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
 | 0.1.0 | 2025-12-09 | Gap Analysis | Initial draft from audit findings |
 | 0.2.0 | 2025-12-10 | Gap Analysis | Aligned with v2 db-driven architecture; reframed gaps as spec vs implementation |
+| 1.1.0 | 2025-12-11 | Implementation | Added implementation notes; Phases 1-5 complete |
 
 ---
 
