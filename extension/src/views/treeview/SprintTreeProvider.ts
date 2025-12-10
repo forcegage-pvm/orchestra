@@ -7,7 +7,6 @@
 
 import type Database from "better-sqlite3";
 import * as vscode from "vscode";
-import type { DatabaseWatcher } from "../../database/watcher.js";
 import {
   getCurrentSprint,
   getPhases,
@@ -16,6 +15,7 @@ import {
   type Sprint,
   type Task,
 } from "../../database/queries.js";
+import type { DatabaseWatcher } from "../../database/watcher.js";
 import { findOrchestraRoot } from "../../workspace/detector.js";
 
 /**

@@ -224,6 +224,37 @@ const TOOLS_WITH_ROLES: ToolWithRole[] = [
   },
   {
     role: "orchestrator",
+    name: "add_phase",
+    description:
+      "Add a new phase to the active sprint. Use this before add_task if the phase doesn't exist.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        phase_id: {
+          type: "string",
+          description:
+            "Unique phase identifier (lowercase alphanumeric with hyphens, e.g., 'phase-2.1')",
+        },
+        phase_name: {
+          type: "string",
+          description: "Human-readable phase name (e.g., 'Hotfix Phase')",
+        },
+        order: {
+          type: "number",
+          description:
+            "Phase display order (auto-assigned as max+1 if not provided)",
+        },
+        speckit_tasks: {
+          type: "array",
+          items: { type: "string" },
+          description: "Optional speckit task references",
+        },
+      },
+      required: ["phase_id", "phase_name"],
+    },
+  },
+  {
+    role: "orchestrator",
     name: "update_task",
     description:
       "Update task metadata (title, description, category, dependencies)",
@@ -811,9 +842,13 @@ export function registerTools(server: Server, role: ServerRole = "full"): void {
 
       // Route to appropriate handler
       switch (toolName) {
-        // Sprint Config (6 tools)
+        // Sprint Config (7 tools)
         case "configure_sprint":
           return await handleConfigureSprint(args);
+        case "add_phase":
+          return await (
+            await import("./handlers/add-phase.js")
+          ).handleAddPhase(args);
         case "add_task":
           return await (
             await import("./handlers/add-task.js")

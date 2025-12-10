@@ -13,6 +13,7 @@ describe("Role-based Tool Filtering", () => {
   // Tool categorization expectations
   const ORCHESTRATOR_ONLY_TOOLS = [
     "configure_sprint",
+    "add_phase",
     "add_task",
     "update_task",
     "update_verification",
@@ -45,7 +46,7 @@ describe("Role-based Tool Filtering", () => {
 
   describe("Tool categorization", () => {
     it("should have correct orchestrator tool count", () => {
-      expect(ORCHESTRATOR_ONLY_TOOLS.length).toBe(15);
+      expect(ORCHESTRATOR_ONLY_TOOLS.length).toBe(16);
     });
 
     it("should have correct implementor tool count", () => {
@@ -61,14 +62,14 @@ describe("Role-based Tool Filtering", () => {
         ORCHESTRATOR_ONLY_TOOLS.length +
         IMPLEMENTOR_ONLY_TOOLS.length +
         SHARED_TOOLS.length;
-      expect(total).toBe(23);
+      expect(total).toBe(24);
     });
   });
 
   describe("Role access expectations", () => {
     it("orchestrator should have access to orchestrator + shared tools", () => {
       const expectedTools = [...ORCHESTRATOR_ONLY_TOOLS, ...SHARED_TOOLS];
-      expect(expectedTools.length).toBe(20);
+      expect(expectedTools.length).toBe(21);
     });
 
     it("implementor should have access to implementor + shared tools", () => {
@@ -82,7 +83,7 @@ describe("Role-based Tool Filtering", () => {
         ...IMPLEMENTOR_ONLY_TOOLS,
         ...SHARED_TOOLS,
       ];
-      expect(allTools.length).toBe(23);
+      expect(allTools.length).toBe(24);
     });
   });
 
