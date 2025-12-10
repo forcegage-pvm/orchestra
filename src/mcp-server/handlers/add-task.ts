@@ -64,29 +64,70 @@ async function addTask(
 ): Promise<AddTaskOutput> {
   const db = getDb();
 
-  // 1. Get active sprint
-  const [sprint] = await db
+  // 1. Get active sprint - check CONFIGURE first, then any in-progress workflow step
+  const [configureSprint] = await db
     .select()
     .from(sprints)
     .where(eq(sprints.workflow_step, "CONFIGURE"))
     .limit(1);
 
-  if (!sprint) {
-    throw new Error("No active sprint in CONFIGURE state");
+  // If no CONFIGURE sprint, find any sprint that's actively running
+  // (workflow_step is SELECT_TASK, PREPARE_TASK, IMPLEMENT, VERIFY, etc.)
+  const activeSprint =
+    configureSprint ??
+    (
+      await db
+        .select()
+        .from(sprints)
+        .where(eq(sprints.workflow_step, "SELECT_TASK"))
+        .limit(1)
+    )[0] ??
+    (
+      await db
+        .select()
+        .from(sprints)
+        .where(eq(sprints.workflow_step, "PREPARE_TASK"))
+        .limit(1)
+    )[0] ??
+    (
+      await db
+        .select()
+        .from(sprints)
+        .where(eq(sprints.workflow_step, "IMPLEMENT"))
+        .limit(1)
+    )[0] ??
+    (
+      await db
+        .select()
+        .from(sprints)
+        .where(eq(sprints.workflow_step, "VERIFY"))
+        .limit(1)
+    )[0];
+
+  if (!activeSprint) {
+    throw new Error(
+      "No active sprint found (CONFIGURE, SELECT_TASK, PREPARE_TASK, IMPLEMENT, or VERIFY)"
+    );
   }
+
+  // Use activeSprint from here on
+  const sprintToUse = activeSprint;
 
   // 2. Get next task_id (max + 1)
   const [maxTaskResult] = await db
     .select({ maxId: max(tasks.task_id) })
     .from(tasks)
-    .where(eq(tasks.sprint_id, sprint.id));
+    .where(eq(tasks.sprint_id, sprintToUse.id));
 
   const nextTaskId = (maxTaskResult?.maxId || 0) + 1;
 
   // 3. Resolve phase_id (lookup by phase_id string) - find internal id
   const db_phases = await db.query.phases.findMany({
     where: (phases, { eq, and }) =>
-      and(eq(phases.sprint_id, sprint.id), eq(phases.phase_id, input.phase_id)),
+      and(
+        eq(phases.sprint_id, sprintToUse.id),
+        eq(phases.phase_id, input.phase_id)
+      ),
   });
 
   if (db_phases.length === 0) {
@@ -100,7 +141,7 @@ async function addTask(
     const existingTasks = await db
       .select({ task_id: tasks.task_id })
       .from(tasks)
-      .where(eq(tasks.sprint_id, sprint.id));
+      .where(eq(tasks.sprint_id, sprintToUse.id));
 
     const taskIdSet = new Set(existingTasks.map((t) => t.task_id));
     const invalidDeps = input.dependencies.filter((dep) => !taskIdSet.has(dep));
@@ -123,7 +164,7 @@ async function addTask(
   const [insertedTask] = await db
     .insert(tasks)
     .values({
-      sprint_id: sprint.id,
+      sprint_id: sprintToUse.id,
       phase_id: phaseInternalId,
       task_id: nextTaskId,
       title: input.title,
@@ -190,11 +231,11 @@ async function addTask(
 
   // 7. Insert progress entry
   await db.insert(progress).values({
-    sprint_id: sprint.id,
+    sprint_id: sprintToUse.id,
     task_id: insertedTask.id,
     from_status: null,
     to_status: "PENDING",
-    workflow_step: sprint.workflow_step,
+    workflow_step: sprintToUse.workflow_step,
     triggered_by: "orchestrator",
     notes: `Task ${nextTaskId} created`,
     changed_at: now,
