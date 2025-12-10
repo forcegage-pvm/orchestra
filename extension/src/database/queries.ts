@@ -383,6 +383,7 @@ export interface TimelineEvent {
   taskTitle?: string;
   description: string;
   triggeredBy?: string;
+  formattedTimestamp?: string; // Added for server-side timestamp formatting
   metadata?: {
     fromStatus?: string | null;
     toStatus?: string;

@@ -1087,9 +1087,10 @@
                     ${escapeHtml(event.description)}
                   </div>
                   <div class="timeline-meta">
-                    <span class="timeline-timestamp">${formatTimestamp(
-                      event.timestamp
-                    )}</span>
+                    <span class="timeline-timestamp">${
+                      event.formattedTimestamp ||
+                      formatTimestamp(event.timestamp)
+                    }</span>
                     ${
                       event.triggeredBy
                         ? `<span class="timeline-triggered-by">by ${event.triggeredBy}</span>`

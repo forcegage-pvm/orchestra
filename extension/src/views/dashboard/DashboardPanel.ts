@@ -20,6 +20,34 @@ import { OrchestraLogger } from "../../utils/logger.js";
 
 const logger = new OrchestraLogger();
 
+/**
+ * Format timestamp to human-readable relative time
+ * @param timestamp ISO 8601 timestamp string
+ * @returns Formatted relative time string (e.g., "2 hours ago")
+ */
+function formatRelativeTime(timestamp: string): string {
+  try {
+    const date = new Date(timestamp);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMins < 1) return "Just now";
+    if (diffMins < 60)
+      return `${diffMins} minute${diffMins !== 1 ? "s" : ""} ago`;
+    if (diffHours < 24)
+      return `${diffHours} hour${diffHours !== 1 ? "s" : ""} ago`;
+    if (diffDays < 7) return `${diffDays} day${diffDays !== 1 ? "s" : ""} ago`;
+
+    // For older timestamps, use toLocaleString
+    return date.toLocaleDateString();
+  } catch {
+    return timestamp;
+  }
+}
+
 interface DashboardData {
   sprint?: {
     id: string;
@@ -298,7 +326,11 @@ export class DashboardPanel {
 
       // Get timeline events (last 20 events)
       const timeline = getSprintTimeline(workspaceRoot, sprint.id);
-      data.timeline = timeline;
+      // Format timestamps for display
+      data.timeline = timeline.map((event) => ({
+        ...event,
+        formattedTimestamp: formatRelativeTime(event.timestamp),
+      }));
     }
 
     return data;
