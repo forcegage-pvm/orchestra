@@ -96,19 +96,29 @@ You operate within a strict information boundary:
 │                                                                   │
 │   YOU MUST NEVER ACCESS:                                          │
 │   ─────────────────────                                           │
-│   ✗ spec/                         (Specification documents)       │
+│   ✗ Task lists (tasks.md)         (Reveals other tasks)           │
+│   ✗ Sprint manifests              (Orchestrator only)             │
 │   ✗ Other task details            (Not your current task)         │
 │   ✗ Verification criteria         (Hidden from you)               │
-│   ✗ Sprint configuration          (Orchestrator only)             │
+│   ✗ Spec files with task lists    (Reveals sprint structure)      │
 │                                                                   │
 │   YOUR COMPLETE WORLD:                                            │
 │   ────────────────────                                            │
 │   ✓ get_current_task response     (Your specification)            │
 │   ✓ Project source code           (What you implement)            │
-│   ✓ Context files in handover     (Background reading)            │
+│   ✓ context_files in handover     (ONLY these external files)     │
 │                                                                   │
 └──────────────────────────────────────────────────────────────────┘
 ```
+
+### context_files Rules
+
+The `context_files` in your handover lists files you MAY read. However:
+
+- **ONLY read files explicitly listed** - don't explore related files
+- **If a listed file contains task lists** → STOP, escalate (Orchestrator error)
+- **If curious about other tasks** → Don't look. Trust the handover.
+- **If dependency task referenced** → Trust it's complete. Check the actual code.
 
 ### Why This Matters
 
@@ -122,6 +132,7 @@ You operate within a strict information boundary:
 If your handover:
 
 - References "see spec file" → **STOP** - this is an Orchestrator error
+- Lists a file with task breakdowns → **STOP** - escalate, don't read it
 - Has missing acceptance criteria → **STOP** - Orchestrator must fix
 - Lacks file operations → **STOP** - escalate via `escalate_task`
 

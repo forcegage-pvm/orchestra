@@ -42,7 +42,10 @@ export const PrepareTaskInputSchema = z.object({
   context_files: z
     .array(z.string().min(1))
     .describe(
-      "File paths the implementor should read for background (specs, related code, docs)"
+      "TRUST BOUNDARY: Files the implementor may read for context. " +
+        "ALLOWED: Source code to modify/reference, completed task handovers, architecture docs. " +
+        "FORBIDDEN: Task lists (tasks.md), sprint manifests, pending task details, verification criteria. " +
+        "IMPORTANT: Extract key requirements into the context field - do not rely on implementor reading specs."
     )
     .optional(),
   test_file: z.string().optional(),

@@ -179,8 +179,8 @@ When preparing a handover with `prepare_task`:
 **Your PRIMARY JOB is EXTRACTION.** The Implementor has ZERO access to:
 
 - Task lists or sprint manifests
-- Specification files
-- Other tasks in the sprint
+- Specification files (unless you include them in context_files)
+- Other PENDING/IN-PROGRESS tasks in the sprint
 - Verification criteria
 
 Therefore, when preparing handovers, you MUST:
@@ -192,6 +192,40 @@ Therefore, when preparing handovers, you MUST:
 | Include exact file paths with purposes            | Mention other tasks by ID       |
 | Provide test cases with sample data               | Leave sections empty or vague   |
 | Add implementation context                        | Assume Implementor has context  |
+
+## CRITICAL: context_files Trust Boundary
+
+The `context_files` parameter determines what files the Implementor can read. This is a **trust boundary**:
+
+### ✅ ALLOWED in context_files
+
+| Category | Examples | Rationale |
+|----------|----------|-----------|
+| Source code to modify | `src/db/client.ts` | They need to edit these |
+| Related source code | `src/db/schema.ts` | Reference for patterns |
+| Architecture docs | `docs/architecture.md` | High-level understanding |
+| **COMPLETED** task handovers | Handover from verified Task 4 | Prior work context |
+| Requirement specs (extracted) | Only if NO task breakdown | Requirements without tasks |
+
+### ❌ FORBIDDEN in context_files
+
+| Category | Examples | Why Forbidden |
+|----------|----------|-----------|
+| Task lists | `tasks.md`, `sprint-tasks.yaml` | Exposes other tasks |
+| Sprint manifests | `manifest.yaml` | Contains all task details |
+| Pending task details | Handover for Task 6 (not started) | Information isolation |
+| Verification criteria | `.orchestrator-only/*` | Hidden verification |
+| Spec files WITH task breakdowns | `spec/tasks/*.md` | Reveals sprint structure |
+
+### Best Practice
+
+**EXTRACT, don't reference.** Even if a spec file is "allowed", you should:
+
+1. Read the spec yourself
+2. Extract the relevant requirements into `context` and `acceptance_criteria`
+3. Only add source code files to `context_files`
+
+The Implementor's handover should be **self-contained** - they shouldn't need to read external specs to understand their task.
 
 ## Verification Protocol
 
