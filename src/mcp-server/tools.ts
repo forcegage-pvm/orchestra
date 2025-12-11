@@ -263,8 +263,81 @@ const TOOLS_WITH_ROLES: ToolWithRole[] = [
   {
     role: "orchestrator",
     name: "update_verification",
-    description: "Update verification criteria for a task",
-    inputSchema: { type: "object", properties: {} },
+    description:
+      "Update verification criteria for a task. Allowed during CONFIGURE (initial setup) or PREPARE (spec error corrections). When called during PREPARE, creates an amendment record with full audit trail.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        task_id: {
+          type: "number",
+          description: "The task ID to update verification for",
+        },
+        verification: {
+          type: "object",
+          description: "New verification criteria",
+          properties: {
+            structural_checks: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  description: { type: "string" },
+                  severity: {
+                    type: "string",
+                    enum: ["BLOCKING", "MAJOR", "MINOR", "INFO"],
+                  },
+                  path: { type: "string" },
+                  pattern: { type: "string" },
+                  min_matches: { type: "number" },
+                },
+                required: ["description", "severity"],
+              },
+            },
+            behavioral_checks: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  description: { type: "string" },
+                  severity: {
+                    type: "string",
+                    enum: ["BLOCKING", "MAJOR", "MINOR", "INFO"],
+                  },
+                  command: { type: "string" },
+                  expect_exit_code: { type: "number" },
+                  expect_output_contains: { type: "string" },
+                },
+                required: ["description", "severity"],
+              },
+            },
+            quality_checks: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  description: { type: "string" },
+                  severity: {
+                    type: "string",
+                    enum: ["BLOCKING", "MAJOR", "MINOR", "INFO"],
+                  },
+                  path: { type: "string" },
+                  pattern: { type: "string" },
+                  min_matches: { type: "number" },
+                  command: { type: "string" },
+                },
+                required: ["description", "severity"],
+              },
+            },
+          },
+        },
+        rationale: {
+          type: "string",
+          description:
+            "Required when updating during PREPARE phase. Explains why the verification criteria are being amended (min 10 chars).",
+        },
+      },
+      required: ["task_id", "verification"],
+    },
   },
   {
     role: "orchestrator",
@@ -742,6 +815,32 @@ const TOOLS_WITH_ROLES: ToolWithRole[] = [
       required: ["task_id"],
     },
   },
+  {
+    role: "orchestrator",
+    name: "get_amendments",
+    description:
+      "List all amendments made to tasks after initial configuration. Shows verification criteria changes, task metadata updates, and handover modifications with full before/after audit trail.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        task_id: {
+          type: "number",
+          description:
+            "Filter by task ID. If omitted, returns all amendments for the sprint.",
+        },
+        tool_name: {
+          type: "string",
+          description:
+            "Filter by tool name (e.g., 'update_verification', 'update_task', 'update_handover')",
+        },
+        amendment_type: {
+          type: "string",
+          enum: ["VERIFICATION", "TASK_METADATA", "HANDOVER"],
+          description: "Filter by amendment type",
+        },
+      },
+    },
+  },
 
   // Configuration Tools - ORCHESTRATOR ONLY
   {
@@ -945,6 +1044,10 @@ export function registerTools(server: Server, role: ServerRole = "full"): void {
           return await (
             await import("./handlers/get-task-history.js")
           ).handleGetTaskHistory(args);
+        case "get_amendments":
+          return await (
+            await import("./handlers/get-amendments.js")
+          ).handleGetAmendments(args);
 
         // Configuration (1 tool)
         case "set_config":

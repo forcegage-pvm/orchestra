@@ -239,6 +239,13 @@ export type UpdateTaskOutput = z.output<typeof UpdateTaskOutputSchema>;
 export const UpdateVerificationInputSchema = z.object({
   task_id: z.number().int().positive("Task ID must be positive"),
   verification: VerificationCriteriaSchema,
+  rationale: z
+    .string()
+    .min(10, "Rationale must be at least 10 characters")
+    .optional()
+    .describe(
+      "Required when updating during PREPARE phase. Explains why the verification criteria are being amended."
+    ),
 });
 
 export type UpdateVerificationInput = z.output<

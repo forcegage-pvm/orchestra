@@ -120,3 +120,71 @@ export const GetTaskHistoryOutputSchema = z.object({
 });
 
 export type GetTaskHistoryOutput = z.output<typeof GetTaskHistoryOutputSchema>;
+
+// ============================================================================
+// get_amendments
+// ============================================================================
+
+/**
+ * Amendment type enum
+ */
+export const AmendmentTypeSchema = z.enum([
+  "VERIFICATION",
+  "TASK_METADATA",
+  "HANDOVER",
+]);
+
+export type AmendmentType = z.output<typeof AmendmentTypeSchema>;
+
+export const GetAmendmentsInputSchema = z
+  .object({
+    task_id: z
+      .number()
+      .int()
+      .positive("Task ID must be positive")
+      .optional()
+      .describe(
+        "Filter amendments by task ID. If omitted, returns all amendments for the sprint."
+      ),
+    tool_name: z
+      .string()
+      .optional()
+      .describe(
+        "Filter by tool name (e.g., 'update_verification', 'update_task', 'update_handover')"
+      ),
+    amendment_type: AmendmentTypeSchema.optional().describe(
+      "Filter by amendment type"
+    ),
+  })
+  .optional();
+
+export type GetAmendmentsInput = z.output<typeof GetAmendmentsInputSchema>;
+
+export const AmendmentRecordSchema = z.object({
+  id: z.number().int().positive(),
+  task_id: z.number().int().positive(),
+  tool_name: z.string(),
+  amendment_type: AmendmentTypeSchema,
+  workflow_step_at_amendment: WorkflowStepSchema,
+  rationale: z.string(),
+  before_state: z.unknown(), // JSON parsed
+  after_state: z.unknown(), // JSON parsed
+  changed_fields: z.array(z.string()),
+  amended_by: z.string(),
+  amended_at: z.string(), // ISO 8601
+});
+
+export type AmendmentRecord = z.output<typeof AmendmentRecordSchema>;
+
+export const GetAmendmentsOutputSchema = z.object({
+  sprint_id: z.string(),
+  amendments: z.array(AmendmentRecordSchema),
+  total: z.number().int().nonnegative(),
+  summary: z.object({
+    by_task: z.record(z.string(), z.number()), // task_id -> count
+    by_tool: z.record(z.string(), z.number()), // tool_name -> count
+    by_type: z.record(z.string(), z.number()), // amendment_type -> count
+  }),
+});
+
+export type GetAmendmentsOutput = z.output<typeof GetAmendmentsOutputSchema>;

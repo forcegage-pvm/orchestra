@@ -4,6 +4,10 @@
   "description": "AI agent task orchestration for VS Code",
   "version": "0.1.0",
   "publisher": "forcegage",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/forcegage-pvm/orchestra.git"
+  },
   "engines": {
     "vscode": "^1.95.0"
   },
@@ -136,7 +140,7 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "better-sqlite3": "^11.10.0",
+    "better-sqlite3": "^12.5.0",
     "drizzle-orm": "^0.37.0"
   },
   "devDependencies": {

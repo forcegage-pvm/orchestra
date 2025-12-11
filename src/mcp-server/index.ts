@@ -26,6 +26,7 @@ import {
   getDbPath,
   initializeDb,
   resolveWorkspacePath,
+  runMigrationsV2,
 } from "../db/index.js";
 import { registerTools, type ServerRole } from "./tools.js";
 
@@ -61,6 +62,12 @@ async function main() {
 
   // Initialize database in the workspace
   await initializeDb();
+
+  // Run any pending migrations
+  const migrations = await runMigrationsV2();
+  if (migrations.applied > 0) {
+    console.error(`[orchestra-mcp] Applied ${migrations.applied} migration(s)`);
+  }
 
   // Log resolved database path
   console.error(`[orchestra-mcp] Database: ${getDbPath()}`);

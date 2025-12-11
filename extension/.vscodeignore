@@ -12,6 +12,12 @@ vsc-extension-quickstart.md
 !dist/**/*.js
 !agents/**
 !resources/**
-node_modules/**
+# Exclude all node_modules EXCEPT better-sqlite3 (native module required by extension)
+node_modules/*
+!node_modules/better-sqlite3/**
+!node_modules/bindings/**
+!node_modules/file-uri-to-path/**
+!node_modules/node-addon-api/**
+!node_modules/prebuild-install/**
 .DS_Store
 *.vsix

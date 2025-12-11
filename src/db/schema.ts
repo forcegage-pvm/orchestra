@@ -410,3 +410,40 @@ export const notifications = sqliteTable(
     ),
   })
 );
+
+/**
+ * Amendments table - Track all modifications to tasks after initial configuration
+ *
+ * This table provides full audit trail for any update_* tool that modifies
+ * a task from its original configured state. Critical for:
+ * - Accountability: Know exactly what changed and why
+ * - Debugging: Trace specification errors discovered during execution
+ * - Compliance: Maintain integrity of the hidden verification pattern
+ */
+export const amendments = sqliteTable(
+  "amendments",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    sprint_id: text("sprint_id")
+      .notNull()
+      .references(() => sprints.id, { onDelete: "cascade" }),
+    task_id: integer("task_id")
+      .notNull()
+      .references(() => tasks.id, { onDelete: "cascade" }),
+    tool_name: text("tool_name").notNull(), // update_verification | update_task | update_handover
+    amendment_type: text("amendment_type").notNull(), // VERIFICATION | TASK_METADATA | HANDOVER
+    workflow_step_at_amendment: text("workflow_step_at_amendment").notNull(), // CONFIGURE | PREPARE | etc.
+    rationale: text("rationale").notNull(), // Why the amendment was made
+    before_state: text("before_state").notNull(), // JSON snapshot of state before change
+    after_state: text("after_state").notNull(), // JSON snapshot of state after change
+    changed_fields: text("changed_fields").notNull(), // JSON array of field names that changed
+    amended_by: text("amended_by").notNull(), // orchestrator | system
+    amended_at: text("amended_at").notNull(),
+  },
+  (amendments) => ({
+    sprintAmendmentIdx: index("sprint_amendment_idx").on(amendments.sprint_id),
+    taskAmendmentIdx: index("task_amendment_idx").on(amendments.task_id),
+    toolAmendmentIdx: index("tool_amendment_idx").on(amendments.tool_name),
+    timestampIdx: index("amendment_timestamp_idx").on(amendments.amended_at),
+  })
+);

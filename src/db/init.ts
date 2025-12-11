@@ -238,6 +238,23 @@ export async function initializeDb(): Promise<void> {
     )
   `);
 
+  await db.run(sql`
+    CREATE TABLE IF NOT EXISTS amendments (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      sprint_id TEXT NOT NULL REFERENCES sprints(id) ON DELETE CASCADE,
+      task_id INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+      tool_name TEXT NOT NULL,
+      amendment_type TEXT NOT NULL,
+      workflow_step_at_amendment TEXT NOT NULL,
+      rationale TEXT NOT NULL,
+      before_state TEXT NOT NULL,
+      after_state TEXT NOT NULL,
+      changed_fields TEXT NOT NULL,
+      amended_by TEXT NOT NULL,
+      amended_at TEXT NOT NULL
+    )
+  `);
+
   // Run migrations for existing databases
   await runMigrations();
 
@@ -270,6 +287,46 @@ async function runMigrations(): Promise<void> {
     }
   } catch {
     // Table might not exist yet, which is fine - CREATE TABLE will handle it
+  }
+
+  // Migration: Add amendments table for tracking task modifications
+  try {
+    const tables = await db.all(
+      sql`SELECT name FROM sqlite_master WHERE type='table' AND name='amendments'`
+    );
+    if ((tables as { name: string }[]).length === 0) {
+      await db.run(sql`
+        CREATE TABLE IF NOT EXISTS amendments (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          sprint_id TEXT NOT NULL REFERENCES sprints(id) ON DELETE CASCADE,
+          task_id INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+          tool_name TEXT NOT NULL,
+          amendment_type TEXT NOT NULL,
+          workflow_step_at_amendment TEXT NOT NULL,
+          rationale TEXT NOT NULL,
+          before_state TEXT NOT NULL,
+          after_state TEXT NOT NULL,
+          changed_fields TEXT NOT NULL,
+          amended_by TEXT NOT NULL,
+          amended_at TEXT NOT NULL
+        )
+      `);
+      // Create indexes for new table
+      await db.run(
+        sql`CREATE INDEX IF NOT EXISTS sprint_amendment_idx ON amendments(sprint_id)`
+      );
+      await db.run(
+        sql`CREATE INDEX IF NOT EXISTS task_amendment_idx ON amendments(task_id)`
+      );
+      await db.run(
+        sql`CREATE INDEX IF NOT EXISTS tool_amendment_idx ON amendments(tool_name)`
+      );
+      await db.run(
+        sql`CREATE INDEX IF NOT EXISTS amendment_timestamp_idx ON amendments(amended_at)`
+      );
+    }
+  } catch {
+    // Migration may fail on fresh DB - CREATE TABLE will handle it
   }
 }
 
@@ -392,6 +449,20 @@ async function createIndexes(): Promise<void> {
   );
   await db.run(
     sql`CREATE INDEX IF NOT EXISTS notification_timestamp_idx ON notifications(created_at)`
+  );
+
+  // Amendments indexes
+  await db.run(
+    sql`CREATE INDEX IF NOT EXISTS sprint_amendment_idx ON amendments(sprint_id)`
+  );
+  await db.run(
+    sql`CREATE INDEX IF NOT EXISTS task_amendment_idx ON amendments(task_id)`
+  );
+  await db.run(
+    sql`CREATE INDEX IF NOT EXISTS tool_amendment_idx ON amendments(tool_name)`
+  );
+  await db.run(
+    sql`CREATE INDEX IF NOT EXISTS amendment_timestamp_idx ON amendments(amended_at)`
   );
 }
 

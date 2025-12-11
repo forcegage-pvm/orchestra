@@ -3,11 +3,20 @@
  *
  * Replaces ALL verification checks for a task with new criteria.
  * Deletes existing checks and inserts new ones.
+ *
+ * ALLOWED STATES:
+ * - CONFIGURE: Initial sprint configuration
+ * - PREPARE: During task preparation (spec error corrections)
+ *
+ * AUDIT TRAIL:
+ * When called during PREPARE, creates an amendment record with full
+ * before/after state for accountability and debugging.
  */
 
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { getDb } from "../../db/index.js";
 import {
+  amendments,
   progress,
   sprints,
   tasks,
@@ -62,18 +71,21 @@ export async function handleUpdateVerification(input: unknown) {
 
 async function updateVerification(
   input: typeof UpdateVerificationInputSchema._output
-): Promise<UpdateVerificationOutput> {
+): Promise<UpdateVerificationOutput & { amendment_id?: number }> {
   const db = getDb();
 
-  // 1. Get active sprint
+  // 1. Get active sprint - allow CONFIGURE or PREPARE states
   const [sprint] = await db
     .select()
     .from(sprints)
-    .where(eq(sprints.workflow_step, "CONFIGURE"))
+    .where(inArray(sprints.workflow_step, ["CONFIGURE", "PREPARE"]))
     .limit(1);
 
   if (!sprint) {
-    throw new Error("No active sprint in CONFIGURE state");
+    throw new Error(
+      "No active sprint in CONFIGURE or PREPARE state. " +
+        "Verification criteria can only be updated before the task is handed to the implementor."
+    );
   }
 
   // 2. Find task
@@ -91,12 +103,33 @@ async function updateVerification(
 
   const now = new Date().toISOString();
 
-  // 3. Delete existing verification checks
+  // 3. Capture BEFORE state for amendment tracking (if not in CONFIGURE)
+  const isAmendment = sprint.workflow_step !== "CONFIGURE";
+  let beforeState: Record<string, unknown>[] = [];
+  let amendmentId: number | undefined;
+
+  if (isAmendment) {
+    // Fetch existing checks for audit trail
+    const existingChecks = await db
+      .select()
+      .from(verificationChecks)
+      .where(eq(verificationChecks.task_id, task.id));
+
+    beforeState = existingChecks.map((check) => ({
+      check_id: check.check_id,
+      check_type: check.check_type,
+      description: check.description,
+      severity: check.severity,
+      check_config: check.check_config,
+    }));
+  }
+
+  // 4. Delete existing verification checks
   await db
     .delete(verificationChecks)
     .where(eq(verificationChecks.task_id, task.id));
 
-  // 4. Insert new verification checks
+  // 5. Insert new verification checks
   const structural = input.verification.structural_checks || [];
   const behavioral = input.verification.behavioral_checks || [];
   const quality = input.verification.quality_checks || [];
@@ -143,10 +176,97 @@ async function updateVerification(
     await db.insert(verificationChecks).values(allChecks);
   }
 
-  // 5. Update task timestamp
+  // 6. Create amendment record if modifying during PREPARE
+  if (isAmendment) {
+    const afterState = allChecks.map((check) => ({
+      check_id: check.check_id,
+      check_type: check.check_type,
+      description: check.description,
+      severity: check.severity,
+      check_config: check.check_config,
+    }));
+
+    // Determine what fields changed
+    const changedFields: string[] = [];
+    const beforeCount = beforeState.length;
+    const afterCount = afterState.length;
+
+    if (beforeCount !== afterCount) {
+      changedFields.push("check_count");
+    }
+
+    // Compare check types distribution
+    const beforeTypes: Record<string, number> = {};
+    for (const c of beforeState) {
+      const key = c.check_type as string;
+      beforeTypes[key] = (beforeTypes[key] || 0) + 1;
+    }
+    const afterTypes: Record<string, number> = {};
+    for (const c of afterState) {
+      const key = c.check_type as string;
+      afterTypes[key] = (afterTypes[key] || 0) + 1;
+    }
+
+    if (JSON.stringify(beforeTypes) !== JSON.stringify(afterTypes)) {
+      changedFields.push("check_types");
+    }
+
+    // Check for description/severity changes
+    const beforeDescs = beforeState.map((c) => c.description).sort();
+    const afterDescs = afterState.map((c) => c.description).sort();
+    if (JSON.stringify(beforeDescs) !== JSON.stringify(afterDescs)) {
+      changedFields.push("descriptions");
+    }
+
+    const beforeSevs = beforeState.map((c) => c.severity).sort();
+    const afterSevs = afterState.map((c) => c.severity).sort();
+    if (JSON.stringify(beforeSevs) !== JSON.stringify(afterSevs)) {
+      changedFields.push("severities");
+    }
+
+    // Check for config changes (the actual check patterns/commands)
+    const beforeConfigs = beforeState.map((c) => c.check_config).sort();
+    const afterConfigs = afterState.map((c) => c.check_config).sort();
+    if (JSON.stringify(beforeConfigs) !== JSON.stringify(afterConfigs)) {
+      changedFields.push("check_configs");
+    }
+
+    // Generate rationale from input or use default
+    const rationale =
+      input.rationale ||
+      `Verification criteria updated during ${sprint.workflow_step} phase. ` +
+        `Changed: ${changedFields.join(", ") || "structure"}.`;
+
+    const [insertResult] = await db
+      .insert(amendments)
+      .values({
+        sprint_id: sprint.id,
+        task_id: task.id,
+        tool_name: "update_verification",
+        amendment_type: "VERIFICATION",
+        workflow_step_at_amendment: sprint.workflow_step,
+        rationale,
+        before_state: JSON.stringify(beforeState),
+        after_state: JSON.stringify(afterState),
+        changed_fields: JSON.stringify(changedFields),
+        amended_by: "orchestrator",
+        amended_at: now,
+      })
+      .returning({ id: amendments.id });
+
+    amendmentId = insertResult?.id;
+  }
+
+  // 7. Update task timestamp
   await db.update(tasks).set({ updated_at: now }).where(eq(tasks.id, task.id));
 
-  // 6. Log progress
+  // 8. Log progress with amendment note if applicable
+  const progressNote = isAmendment
+    ? `AMENDMENT: Updated verification checks during ${sprint.workflow_step}: ` +
+      `${totalChecks} total (${structural.length} structural, ${behavioral.length} behavioral, ${quality.length} quality). ` +
+      `Amendment ID: ${amendmentId}`
+    : `Updated verification checks: ${totalChecks} total (${structural.length} structural, ${behavioral.length} behavioral, ${quality.length} quality)`;
+
   await db.insert(progress).values({
     sprint_id: sprint.id,
     task_id: task.id,
@@ -154,13 +274,19 @@ async function updateVerification(
     to_status: task.status,
     workflow_step: sprint.workflow_step,
     triggered_by: "orchestrator",
-    notes: `Updated verification checks: ${totalChecks} total (${structural.length} structural, ${behavioral.length} behavioral, ${quality.length} quality)`,
+    notes: progressNote,
     changed_at: now,
   });
 
-  return {
+  const result: UpdateVerificationOutput & { amendment_id?: number } = {
     success: true,
     task_id: input.task_id,
     total_checks: totalChecks,
   };
+
+  if (amendmentId !== undefined) {
+    result.amendment_id = amendmentId;
+  }
+
+  return result;
 }
