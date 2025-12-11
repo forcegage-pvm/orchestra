@@ -17,7 +17,6 @@ import { eq, sql } from "drizzle-orm";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { getDb } from "../../db/index.js";
-import { logToolExecution } from "./audit-logging.js";
 import {
   consolidations,
   phases,
@@ -33,6 +32,7 @@ import {
   type ConfigureSprintInput,
 } from "../../schemas/index.js";
 import { validateInput } from "../../schemas/utils.js";
+import { logToolExecution } from "./audit-logging.js";
 
 /**
  * Handle configure_sprint tool call
@@ -176,11 +176,9 @@ export async function handleConfigureSprint(
     );
 
     // Handle errors
-    const errorResponse = createErrorResponse(
-      "DATABASE_ERROR",
-      err.message,
-      { duration_ms: durationMs }
-    );
+    const errorResponse = createErrorResponse("DATABASE_ERROR", err.message, {
+      duration_ms: durationMs,
+    });
 
     return {
       content: [
@@ -381,6 +379,37 @@ async function configureSprint(input: ConfigureSprintInput): Promise<{
     .update(sprints)
     .set({ workflow_step: "SELECT_TASK", updated_at: now })
     .where(eq(sprints.id, sprint.id));
+
+  // 10. Insert TDD config defaults (preserve existing values with INSERT OR IGNORE)
+  const tddConfigDefaults = [
+    {
+      key: "tdd.require_tests",
+      value: "true",
+      description: "Require tests for new code (TDD enforcement)",
+    },
+    {
+      key: "tdd.require_tests_categories",
+      value: "INFRASTRUCTURE,INTEGRATION",
+      description: "Task categories that require test coverage",
+    },
+    {
+      key: "tdd.test_file_pattern",
+      value: "test/**/*.test.ts",
+      description: "Glob pattern for test files",
+    },
+    {
+      key: "tdd.test_pattern",
+      value: "describe|test|it",
+      description: "Regex pattern to validate test content",
+    },
+  ];
+
+  for (const cfg of tddConfigDefaults) {
+    await db.run(sql`
+      INSERT OR IGNORE INTO config (key, value, description, created_at, updated_at)
+      VALUES (${cfg.key}, ${cfg.value}, ${cfg.description}, ${now}, ${now})
+    `);
+  }
 
   return {
     sprint_id: sprint.id,
