@@ -15,7 +15,6 @@ import {
   type CheckResult,
 } from "../../core/check-executor.js";
 import { getActiveSprint, getDb } from "../../db/index.js";
-import { logToolExecution } from "./audit-logging.js";
 import {
   config,
   signals,
@@ -28,6 +27,7 @@ import {
   RunVerificationChecksInputSchema,
   type RunVerificationChecksOutput,
 } from "../../schemas/verification.js";
+import { logToolExecution } from "./audit-logging.js";
 
 export async function handleRunVerificationChecks(input: unknown) {
   const startTime = performance.now();
@@ -128,7 +128,9 @@ async function runVerificationChecks(
 
   // 1. Run accept-signal validation (FR-ASV-001)
   // This validates: signal exists, pre-signal passed, not stale, GATE_CHECK status, checks exist
-  const acceptResult = await validateAcceptSignal(input.task_id, { maxAgeMinutes });
+  const acceptResult = await validateAcceptSignal(input.task_id, {
+    maxAgeMinutes,
+  });
 
   if (acceptResult.status === "REJECTED") {
     // Return early with accept-signal failure details
