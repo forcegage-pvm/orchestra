@@ -13,10 +13,11 @@ import * as vscode from "vscode";
 import {
   getCurrentSprint,
   getCurrentTask,
-  getTasksForSprint,
   getPhases,
+  getTasksForSprint,
 } from "../database/queries.js";
 import { OrchestraLogger } from "../utils/logger.js";
+import { getSprintContext } from "./context.js";
 
 /**
  * Register the Orchestra chat participant
@@ -67,6 +68,11 @@ function handleChatRequest(
     _token: vscode.CancellationToken
   ): Promise<void> => {
     try {
+      // Context provider integration: Sprint, task, and handover context
+      // is fetched via getSprintContext(), getTaskContext(), and getHandoverContext()
+      // from context.ts. These functions format Orchestra data as Markdown
+      // for enriched chat responses and agent prompts.
+
       // Get command from the request
       const command = request.command?.toLowerCase() || "";
       const prompt = request.prompt.toLowerCase();
@@ -87,7 +93,12 @@ function handleChatRequest(
         prompt.includes("start") ||
         prompt.includes("task")
       ) {
-        await handleStartTaskCommand(request.prompt, orchestraRoot, stream, logger);
+        await handleStartTaskCommand(
+          request.prompt,
+          orchestraRoot,
+          stream,
+          logger
+        );
         return;
       }
 
@@ -123,9 +134,9 @@ async function handleStatusCommand(
 ): Promise<void> {
   logger.info("Handling status command");
 
-  // Get current sprint
-  const sprint = getCurrentSprint(orchestraRoot);
-  if (!sprint) {
+  // Get sprint context using context provider
+  const sprintContext = getSprintContext(orchestraRoot);
+  if (!sprintContext) {
     stream.markdown("❌ **No active sprint found**\n\n");
     stream.markdown(
       "Use the MCP Orchestrator agent to configure a sprint first.\n"
@@ -133,18 +144,14 @@ async function handleStatusCommand(
     return;
   }
 
+  const { sprint, totalTasks, completedTasks, progressPercent } = sprintContext;
+
   // Get current task
   const currentTask = getCurrentTask(orchestraRoot);
 
-  // Get all tasks for progress calculation
+  // Get all tasks for phase breakdown
   const tasks = getTasksForSprint(orchestraRoot, sprint.id);
   const phases = getPhases(orchestraRoot, sprint.id);
-
-  // Calculate progress
-  const completedTasks = tasks.filter((t) => t.status === "COMPLETE").length;
-  const totalTasks = tasks.length;
-  const progressPercent =
-    totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
 
   // Format response
   stream.markdown(`# 📊 Sprint Status\n\n`);
@@ -164,7 +171,9 @@ async function handleStatusCommand(
 
     // Add link to task detail
     stream.markdown(
-      `[View Task Details](command:orchestra.openTaskDetail?${encodeURIComponent(JSON.stringify([currentTask.id]))})\n\n`
+      `[View Task Details](command:orchestra.openTaskDetail?${encodeURIComponent(
+        JSON.stringify([currentTask.id])
+      )})\n\n`
     );
   } else {
     stream.markdown(`## 🎯 Current Task\n\n`);
@@ -229,7 +238,9 @@ async function handleStartTaskCommand(
 
   if (!task) {
     stream.markdown(`❌ **Task ${taskId} not found in current sprint**\n\n`);
-    stream.markdown(`Available tasks: ${tasks.map((t) => t.task_id).join(", ")}\n`);
+    stream.markdown(
+      `Available tasks: ${tasks.map((t) => t.task_id).join(", ")}\n`
+    );
     return;
   }
 
@@ -254,7 +265,9 @@ async function handleStartTaskCommand(
     );
     stream.markdown(`2. Invoke the Implementor agent to work on the task\n\n`);
     stream.markdown(
-      `[View Task Details](command:orchestra.openTaskDetail?${encodeURIComponent(JSON.stringify([task.id]))})\n`
+      `[View Task Details](command:orchestra.openTaskDetail?${encodeURIComponent(
+        JSON.stringify([task.id])
+      )})\n`
     );
   } else if (task.status === "IMPLEMENT") {
     stream.markdown(`## 🛠️ Task In Progress\n\n`);
@@ -265,18 +278,24 @@ async function handleStartTaskCommand(
       `Invoke the [Implementor Agent](command:orchestra.invokeImplementor) to work on this task.\n\n`
     );
     stream.markdown(
-      `[View Task Details](command:orchestra.openTaskDetail?${encodeURIComponent(JSON.stringify([task.id]))})\n`
+      `[View Task Details](command:orchestra.openTaskDetail?${encodeURIComponent(
+        JSON.stringify([task.id])
+      )})\n`
     );
   } else if (task.status === "COMPLETE") {
     stream.markdown(`## ✅ Task Complete\n\n`);
     stream.markdown(`This task has been completed.\n\n`);
     stream.markdown(
-      `[View Task Details](command:orchestra.openTaskDetail?${encodeURIComponent(JSON.stringify([task.id]))})\n`
+      `[View Task Details](command:orchestra.openTaskDetail?${encodeURIComponent(
+        JSON.stringify([task.id])
+      )})\n`
     );
   } else {
     stream.markdown(`## 📋 Task Status: ${task.status}\n\n`);
     stream.markdown(
-      `[View Task Details](command:orchestra.openTaskDetail?${encodeURIComponent(JSON.stringify([task.id]))})\n`
+      `[View Task Details](command:orchestra.openTaskDetail?${encodeURIComponent(
+        JSON.stringify([task.id])
+      )})\n`
     );
   }
 
