@@ -219,7 +219,8 @@ async function handleMoveToGateCheck(
     createResolutionSignal(
       workspaceRoot,
       taskId,
-      "Escalation resolved - moving to Gate Check for re-verification"
+      "Escalation resolved - moving to Gate Check for re-verification",
+      dbWatcher // Pass watcher for immediate UI update
     );
 
     // Update task status
@@ -227,7 +228,8 @@ async function handleMoveToGateCheck(
       workspaceRoot,
       taskId,
       "GATE_CHECK",
-      "Escalation resolved by human supervisor - re-verification requested"
+      "Escalation resolved by human supervisor - re-verification requested",
+      dbWatcher // Pass watcher for immediate UI update
     );
 
     treeProvider.refresh();
@@ -269,7 +271,8 @@ async function handleMoveToImplement(
       workspaceRoot,
       taskId,
       "IMPLEMENT",
-      "Escalation resolved by human supervisor - re-implementation requested"
+      "Escalation resolved by human supervisor - re-implementation requested",
+      dbWatcher // Pass watcher for immediate UI update
     );
 
     treeProvider.refresh();
@@ -298,7 +301,8 @@ async function handleForceComplete(
 
   const justification = await vscode.window.showInputBox({
     prompt: "Provide justification for force-completing this task",
-    placeHolder: "e.g., Verification criteria were incorrect, implementation is valid",
+    placeHolder:
+      "e.g., Verification criteria were incorrect, implementation is valid",
     validateInput: (value) => {
       if (!value || value.length < 20) {
         return "Justification must be at least 20 characters";
@@ -326,7 +330,8 @@ async function handleForceComplete(
       workspaceRoot,
       taskId,
       "COMPLETE",
-      `Force completed by human supervisor: ${justification}`
+      `Force completed by human supervisor: ${justification}`,
+      dbWatcher // Pass watcher for immediate UI update
     );
 
     treeProvider.refresh();
@@ -570,7 +575,11 @@ export async function activate(
         "orchestra.moveToGateCheck",
         async (element: { type: string; task?: { task_id: number } }) => {
           if (element?.task?.task_id) {
-            await handleMoveToGateCheck(orchestraRoot, element.task.task_id, treeProvider);
+            await handleMoveToGateCheck(
+              orchestraRoot,
+              element.task.task_id,
+              treeProvider
+            );
           }
         }
       ),
@@ -578,7 +587,11 @@ export async function activate(
         "orchestra.moveToImplement",
         async (element: { type: string; task?: { task_id: number } }) => {
           if (element?.task?.task_id) {
-            await handleMoveToImplement(orchestraRoot, element.task.task_id, treeProvider);
+            await handleMoveToImplement(
+              orchestraRoot,
+              element.task.task_id,
+              treeProvider
+            );
           }
         }
       ),
@@ -586,7 +599,11 @@ export async function activate(
         "orchestra.forceComplete",
         async (element: { type: string; task?: { task_id: number } }) => {
           if (element?.task?.task_id) {
-            await handleForceComplete(orchestraRoot, element.task.task_id, treeProvider);
+            await handleForceComplete(
+              orchestraRoot,
+              element.task.task_id,
+              treeProvider
+            );
           }
         }
       )

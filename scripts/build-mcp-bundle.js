@@ -23,9 +23,11 @@ async function buildMcpBundle() {
     external: [
       "better-sqlite3", // Native module - must be external
     ],
-    // Add banner to make it executable
+    // Add banner to make it executable and provide require shim for CJS dependencies
     banner: {
-      js: "#!/usr/bin/env node",
+      js: `#!/usr/bin/env node
+import { createRequire } from 'module';
+const require = createRequire(import.meta.url);`,
     },
   });
 

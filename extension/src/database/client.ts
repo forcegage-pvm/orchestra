@@ -1,13 +1,14 @@
 /**
  * Orchestra Database Client Singleton
  *
- * Provides read-only access to Orchestra's SQLite database using better-sqlite3
+ * Provides full read-write access to Orchestra's SQLite database using better-sqlite3
  * and Drizzle ORM. The singleton pattern ensures only one database connection
  * exists per workspace, with lazy initialization to avoid connecting until needed.
  *
- * CRITICAL: This client is READ-ONLY. The extension must never modify the database.
- * Only the MCP server has write access. This is a security boundary that prevents
- * the extension from accidentally corrupting orchestration state.
+ * CRITICAL: This client is for HUMAN SUPERVISOR use only (via the VS Code extension).
+ * AI agents must use the MCP server for controlled access. The human supervisor has
+ * zero restrictions and needs full database access to resolve escalations, override
+ * decisions, and perform manual interventions when the automated workflow fails.
  */
 
 import Database from "better-sqlite3";
@@ -93,16 +94,16 @@ export class OrchestraDB {
     const dbPath = getOrchestraDBPath(workspaceRoot);
 
     try {
-      // Open database in read-only mode - CRITICAL: extension must never write
+      // Open database with full read-write access for human supervisor
       OrchestraDB.sqliteConnection = new Database(dbPath, {
-        readonly: true,
         fileMustExist: true,
       });
 
-      // Configure SQLite for optimal read performance (read-only safe pragmas only)
+      // Configure SQLite for optimal performance
       OrchestraDB.sqliteConnection.pragma("cache_size = -64000"); // 64MB cache
       OrchestraDB.sqliteConnection.pragma("temp_store = MEMORY");
-      // Note: journal_mode and synchronous are write operations, skipped for read-only
+      OrchestraDB.sqliteConnection.pragma("journal_mode = WAL"); // Write-Ahead Logging
+      OrchestraDB.sqliteConnection.pragma("synchronous = NORMAL"); // Balance safety/speed
 
       // Create Drizzle ORM instance for type-safe queries
       // Schema is loaded at runtime to avoid module system conflicts

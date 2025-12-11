@@ -5,8 +5,9 @@
  * All queries use Drizzle ORM with proper joins and return types matching
  * the database schema (Zod inferred).
  *
- * CRITICAL: All functions are READ-ONLY. The extension never writes to the database.
- * Uses better-sqlite3's synchronous API (not async) as Drizzle with better-sqlite3 is synchronous.
+ * NOTE: These are read-only queries. For write operations (human supervisor only),
+ * see mutations.ts. Uses better-sqlite3's synchronous API (not async) as Drizzle
+ * with better-sqlite3 is synchronous.
  */
 
 import { and, desc, eq, inArray, isNull } from "drizzle-orm";

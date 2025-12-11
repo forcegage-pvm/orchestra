@@ -4,11 +4,15 @@
  * Write operations for the Orchestra database.
  * Used by the extension to update task status, resolve escalations, etc.
  *
- * NOTE: These are supervisor-only operations that bypass the normal
- * MCP workflow when human intervention is needed.
+ * CRITICAL: These operations are HUMAN SUPERVISOR ONLY. The extension is
+ * operated exclusively by the human, who has zero restrictions in the
+ * Orchestra model. These mutations allow manual intervention when the
+ * automated workflow fails or requires human judgment (e.g., resolving
+ * escalations, forcing task completion, overriding verification).
  */
 
 import { OrchestraDB } from "./client.js";
+import type { DatabaseWatcher } from "./watcher.js";
 
 /**
  * Update task status with progress tracking
@@ -17,13 +21,15 @@ import { OrchestraDB } from "./client.js";
  * @param taskId Numeric task ID (task_id column, not primary key)
  * @param newStatus New task status
  * @param notes Optional notes for the status change
+ * @param watcher Optional database watcher to trigger UI updates
  * @returns Success status
  */
 export function updateTaskStatus(
   workspaceRoot: string,
   taskId: number,
   newStatus: string,
-  notes?: string
+  notes?: string,
+  watcher?: DatabaseWatcher
 ): boolean {
   const db = OrchestraDB.getInstance(workspaceRoot);
   const now = new Date().toISOString();
@@ -91,6 +97,15 @@ export function updateTaskStatus(
       WHERE id = ?
     `
     ).run(now, task.sprint_id);
+    // Trigger watcher to update UI immediately
+    if (watcher) {
+      watcher.trigger();
+    }
+  }
+
+  // Trigger watcher to update UI immediately
+  if (watcher) {
+    watcher.trigger();
   }
 
   return true;
@@ -102,12 +117,14 @@ export function updateTaskStatus(
  * @param workspaceRoot Absolute path to workspace root
  * @param taskId Numeric task ID
  * @param summary Summary of the resolution
+ * @param watcher Optional database watcher to trigger UI updates
  * @returns Signal ID
  */
 export function createResolutionSignal(
   workspaceRoot: string,
   taskId: number,
-  summary: string
+  summary: string,
+  watcher?: DatabaseWatcher
 ): string {
   const db = OrchestraDB.getInstance(workspaceRoot);
   const now = new Date().toISOString();
@@ -144,8 +161,8 @@ export function createResolutionSignal(
   // Insert new signal
   db.prepare(
     `
-    INSERT INTO signals (task_id, signal_id, attempt, summary, artifacts_created, build_status, test_status, notes, signaled_at, pre_signal_checks)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO signals (task_id, signal_id, attempt, summary, artifacts_created, tests, build_status, test_status, notes, signaled_at, pre_signal_checks)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `
   ).run(
     task.id,
@@ -153,12 +170,18 @@ export function createResolutionSignal(
     task.retry_count + 1,
     summary,
     lastSignal?.artifacts_created || "[]",
+    "[]", // Empty tests array for resolution signal
     "PASS",
     "PASS",
     `Resolution signal for re-verification`,
     now,
     JSON.stringify({ escalation_resolution: true })
   );
+
+  // Trigger watcher to update UI immediately
+  if (watcher) {
+    watcher.trigger();
+  }
 
   return signalId;
 }
