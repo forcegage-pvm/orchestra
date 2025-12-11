@@ -475,4 +475,89 @@ describe("Judgment Validator", () => {
       expect(JVC.RATIONALE_REQUIRED).toBe("JVC-3");
     });
   });
+
+  describe("Multi-attempt scenarios", () => {
+    it("should allow PASS when previous attempt failed but current attempt passes", async () => {
+      const db = getDb();
+
+      // Create BLOCKING verification check
+      await db.insert(verificationChecks).values({
+        id: 1,
+        task_id: 1,
+        check_id: "blocking-check",
+        check_type: "structural",
+        description: "Critical check",
+        severity: "BLOCKING",
+        check_config: "{}",
+        created_at: new Date().toISOString(),
+      });
+
+      // Create first signal (attempt 1) - this one failed
+      await db.insert(signals).values({
+        id: 2,
+        task_id: 1,
+        signal_id: "signal-jv-2-attempt1",
+        attempt: 1,
+        summary: "First attempt completion",
+        artifacts_created: "[]",
+        tests: "[]",
+        build_status: "PASS",
+        test_status: "PASS",
+        pre_signal_checks: JSON.stringify({ build: true, test: true }),
+        signaled_at: new Date(Date.now() - 1000).toISOString(), // Earlier
+      });
+
+      // Create FAILED verification result for attempt 1
+      await db.insert(verificationResults).values({
+        id: 2,
+        task_id: 1,
+        check_id: 1,
+        signal_id: "signal-jv-2-attempt1",
+        passed: 0, // Failed
+        output: "Check failed on first attempt",
+        duration_ms: 100,
+        run_at: new Date(Date.now() - 1000).toISOString(),
+      });
+
+      // Create second signal (attempt 2) - this one passed
+      await db.insert(signals).values({
+        id: 3,
+        task_id: 1,
+        signal_id: "signal-jv-2-attempt2",
+        attempt: 2,
+        summary: "Second attempt completion",
+        artifacts_created: "[]",
+        tests: "[]",
+        build_status: "PASS",
+        test_status: "PASS",
+        pre_signal_checks: JSON.stringify({ build: true, test: true }),
+        signaled_at: new Date().toISOString(), // Later
+      });
+
+      // Create PASSED verification result for attempt 2
+      await db.insert(verificationResults).values({
+        id: 3,
+        task_id: 1,
+        check_id: 1,
+        signal_id: "signal-jv-2-attempt2",
+        passed: 1, // Passed
+        output: "Check passed on second attempt",
+        duration_ms: 100,
+        run_at: new Date().toISOString(),
+      });
+
+      // Should allow PASS judgment because current attempt (attempt 2) has no failures
+      const result = await validateJudgment(
+        1,
+        "PASS",
+        "All checks passed on retry"
+      );
+
+      expect(result.valid).toBe(true);
+      expect(result.checks.find((c) => c.check_id === "JVC-2")?.passed).toBe(
+        true
+      );
+      expect(result.blocking_failures).toBeUndefined();
+    });
+  });
 });
