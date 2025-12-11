@@ -9,6 +9,7 @@ import Database from "better-sqlite3";
 import * as fs from "fs";
 import * as path from "path";
 import * as vscode from "vscode";
+import { registerChatParticipant } from "./chat/participant.js";
 import { OrchestraDB } from "./database/client.js";
 import { DatabaseWatcher } from "./database/watcher.js";
 import { ConfigGenerator } from "./mcp/ConfigGenerator.js";
@@ -22,7 +23,6 @@ import {
   findOrchestraRoot,
   validateOrchestraWorkspace,
 } from "./workspace/detector.js";
-import { registerChatParticipant } from "./chat/participant.js";
 
 let logger: OrchestraLogger;
 let dbWatcher: DatabaseWatcher | undefined;
