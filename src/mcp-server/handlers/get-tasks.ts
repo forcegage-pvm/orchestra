@@ -5,9 +5,10 @@
  * Returns orchestrator view with verification criteria.
  */
 
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { getDb } from "../../db/index.js";
-import { phases, sprints, tasks, verificationChecks } from "../../db/schema.js";
+import { getActiveSprint } from "../../db/queries.js";
+import { phases, tasks, verificationChecks } from "../../db/schema.js";
 import {
   GetTasksInputSchema,
   type GetTaskOutput,
@@ -61,12 +62,8 @@ async function getTasks(
 ): Promise<GetTasksOutput> {
   const db = getDb();
 
-  // 1. Get active sprint (any sprint that's not completed)
-  const [sprint] = await db
-    .select()
-    .from(sprints)
-    .where(isNull(sprints.completed_at))
-    .limit(1);
+  // 1. Get explicitly active sprint
+  const sprint = await getActiveSprint();
 
   if (!sprint) {
     throw new Error("No active sprint found");

@@ -92,6 +92,45 @@ const MIGRATIONS: Migration[] = [
       await db.run(sql`ALTER TABLE handovers ADD COLUMN context_files TEXT`);
     },
   },
+  {
+    id: "20251211_003_add_sprint_is_active",
+    description:
+      "Add is_active column to sprints table for explicit active sprint selection",
+    up: async () => {
+      const db = getDb();
+
+      // Check if column already exists (idempotent)
+      const result = await db.all(sql`PRAGMA table_info(sprints)`);
+      const columns = result as { name: string }[];
+      const hasIsActive = columns.some((col) => col.name === "is_active");
+
+      if (hasIsActive) {
+        return; // Already exists
+      }
+
+      // Add column with default false
+      await db.run(
+        sql`ALTER TABLE sprints ADD COLUMN is_active INTEGER NOT NULL DEFAULT 0`
+      );
+
+      // Create index for fast lookups
+      await db.run(
+        sql`CREATE INDEX IF NOT EXISTS is_active_idx ON sprints(is_active)`
+      );
+
+      // Set the most recently created incomplete sprint as active
+      await db.run(sql`
+        UPDATE sprints 
+        SET is_active = 1 
+        WHERE id = (
+          SELECT id FROM sprints 
+          WHERE completed_at IS NULL 
+          ORDER BY created_at DESC 
+          LIMIT 1
+        )
+      `);
+    },
+  },
 ];
 
 /**

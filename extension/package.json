@@ -108,6 +108,11 @@
         "command": "orchestra.forceComplete",
         "title": "Force Complete (Override)",
         "icon": "$(check-all)"
+      },
+      {
+        "command": "orchestra.setActiveSprint",
+        "title": "Set as Active Sprint",
+        "icon": "$(star)"
       }
     ],
     "viewsContainers": {
@@ -148,6 +153,16 @@
         }
       ],
       "view/item/context": [
+        {
+          "command": "orchestra.setActiveSprint",
+          "when": "view == orchestraSprintExplorer && viewItem == sprint-inactive",
+          "group": "inline"
+        },
+        {
+          "command": "orchestra.setActiveSprint",
+          "when": "view == orchestraSprintExplorer && viewItem == sprint-inactive",
+          "group": "navigation"
+        },
         {
           "command": "orchestra.openTaskDetail",
           "when": "view == orchestraSprintExplorer && viewItem =~ /^task-/",

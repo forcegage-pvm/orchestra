@@ -86,11 +86,12 @@ export async function validateJudgment(
   const blockingFailures: BlockingFailure[] = [];
 
   // Get the most recent signal for this task (to filter results by current attempt)
+  // TD-FIX: Order by id (auto-increment) instead of attempt - attempt numbers aren't reliable
   const [latestSignal] = await db
     .select({ signal_id: signals.signal_id })
     .from(signals)
     .where(eq(signals.task_id, taskId))
-    .orderBy(desc(signals.attempt))
+    .orderBy(desc(signals.id))
     .limit(1);
 
   // JVC-1: Verification results must exist

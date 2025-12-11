@@ -445,6 +445,34 @@ async function handleForceComplete(
 }
 
 /**
+ * Handle setting a sprint as active
+ */
+async function handleSetActiveSprint(
+  workspaceRoot: string,
+  sprintId: string,
+  sprintName: string,
+  treeProvider: SprintTreeProvider,
+  watcher: DatabaseWatcher
+): Promise<void> {
+  const { setActiveSprint } = await import("./database/mutations.js");
+
+  try {
+    const result = setActiveSprint(workspaceRoot, sprintId, watcher);
+    treeProvider.refresh();
+    vscode.window.showInformationMessage(
+      `Orchestra: "${result.sprintName}" is now the active sprint.`
+    );
+    logger.info(`Set active sprint: ${sprintId} (${sprintName})`);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    vscode.window.showErrorMessage(
+      `Orchestra: Failed to set active sprint - ${message}`
+    );
+    logger.error(`Failed to set active sprint ${sprintId}`, error);
+  }
+}
+
+/**
  * Extension activation
  * Triggered when .orchestra/orchestra.db is found in workspace
  */
@@ -718,6 +746,23 @@ export async function activate(
               orchestraRoot,
               element.task.task_id,
               treeProvider
+            );
+          }
+        }
+      ),
+      vscode.commands.registerCommand(
+        "orchestra.setActiveSprint",
+        async (element: {
+          type: string;
+          sprint?: { id: string; name: string };
+        }) => {
+          if (element?.sprint?.id && dbWatcher) {
+            await handleSetActiveSprint(
+              orchestraRoot,
+              element.sprint.id,
+              element.sprint.name,
+              treeProvider,
+              dbWatcher
             );
           }
         }

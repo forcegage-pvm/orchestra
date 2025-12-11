@@ -6,12 +6,8 @@
 
 import { eq, max } from "drizzle-orm";
 import { getDb } from "../../db/index.js";
-import {
-  progress,
-  sprints,
-  tasks,
-  verificationChecks,
-} from "../../db/schema.js";
+import { getActiveSprint } from "../../db/queries.js";
+import { progress, tasks, verificationChecks } from "../../db/schema.js";
 import {
   AddTaskInputSchema,
   type AddTaskOutput,
@@ -64,54 +60,27 @@ async function addTask(
 ): Promise<AddTaskOutput> {
   const db = getDb();
 
-  // 1. Get active sprint - check CONFIGURE first, then any in-progress workflow step
-  const [configureSprint] = await db
-    .select()
-    .from(sprints)
-    .where(eq(sprints.workflow_step, "CONFIGURE"))
-    .limit(1);
+  // 1. Get explicitly active sprint
+  const sprintToUse = await getActiveSprint();
 
-  // If no CONFIGURE sprint, find any sprint that's actively running
-  // (workflow_step is SELECT_TASK, PREPARE_TASK, IMPLEMENT, VERIFY, etc.)
-  const activeSprint =
-    configureSprint ??
-    (
-      await db
-        .select()
-        .from(sprints)
-        .where(eq(sprints.workflow_step, "SELECT_TASK"))
-        .limit(1)
-    )[0] ??
-    (
-      await db
-        .select()
-        .from(sprints)
-        .where(eq(sprints.workflow_step, "PREPARE_TASK"))
-        .limit(1)
-    )[0] ??
-    (
-      await db
-        .select()
-        .from(sprints)
-        .where(eq(sprints.workflow_step, "IMPLEMENT"))
-        .limit(1)
-    )[0] ??
-    (
-      await db
-        .select()
-        .from(sprints)
-        .where(eq(sprints.workflow_step, "VERIFY"))
-        .limit(1)
-    )[0];
-
-  if (!activeSprint) {
-    throw new Error(
-      "No active sprint found (CONFIGURE, SELECT_TASK, PREPARE_TASK, IMPLEMENT, or VERIFY)"
-    );
+  if (!sprintToUse) {
+    throw new Error("No active sprint found");
   }
 
-  // Use activeSprint from here on
-  const sprintToUse = activeSprint;
+  // Validate sprint is in an allowed state for adding tasks
+  const allowedStates = [
+    "CONFIGURE",
+    "SELECT_TASK",
+    "PREPARE_TASK",
+    "IMPLEMENT",
+    "VERIFY",
+  ];
+  if (!allowedStates.includes(sprintToUse.workflow_step)) {
+    throw new Error(
+      `Cannot add task: sprint is in ${sprintToUse.workflow_step} state. ` +
+        `Allowed states: ${allowedStates.join(", ")}`
+    );
+  }
 
   // 2. Get next task_id (max + 1)
   const [maxTaskResult] = await db

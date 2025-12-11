@@ -4,23 +4,33 @@
  * Shared query helpers to ensure consistent behavior across handlers.
  */
 
-import { and, desc, ne } from "drizzle-orm";
+import { and, desc, eq, ne } from "drizzle-orm";
 import { getDb } from "./connection.js";
 import { sprints } from "./schema.js";
 
 /**
- * Get the active (non-completed) sprint
+ * Get the explicitly active sprint
  *
- * An active sprint is one whose workflow_step is NOT:
- * - SPRINT_COMPLETE (finished successfully)
- * - CLOSEOUT (in closing state after all tasks done)
- *
- * If multiple active sprints exist, returns the most recently created one.
+ * Returns the sprint with is_active = true.
+ * Only one sprint should be active at a time.
+ * Falls back to most recently created non-completed sprint if no active flag set.
  */
 export async function getActiveSprint() {
   const db = getDb();
 
-  const [sprint] = await db
+  // First, try to get the explicitly active sprint
+  const [activeSprint] = await db
+    .select()
+    .from(sprints)
+    .where(eq(sprints.is_active, true))
+    .limit(1);
+
+  if (activeSprint) {
+    return activeSprint;
+  }
+
+  // Fallback: get most recent non-completed sprint (for backward compatibility)
+  const [fallbackSprint] = await db
     .select()
     .from(sprints)
     .where(
@@ -32,7 +42,7 @@ export async function getActiveSprint() {
     .orderBy(desc(sprints.created_at))
     .limit(1);
 
-  return sprint;
+  return fallbackSprint;
 }
 
 /**

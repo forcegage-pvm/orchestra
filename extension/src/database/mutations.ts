@@ -185,3 +185,66 @@ export function createResolutionSignal(
 
   return signalId;
 }
+
+/**
+ * Set a sprint as the active sprint
+ *
+ * Deactivates all sprints and activates the specified one.
+ * Used to switch between sprints when working on multiple sprints.
+ *
+ * @param workspaceRoot Absolute path to workspace root
+ * @param sprintId Sprint ID to set as active
+ * @param watcher Optional database watcher to trigger UI updates
+ * @returns Success status with sprint name
+ */
+export function setActiveSprint(
+  workspaceRoot: string,
+  sprintId: string,
+  watcher?: DatabaseWatcher
+): { success: boolean; sprintName: string } {
+  const db = OrchestraDB.getInstance(workspaceRoot);
+  const now = new Date().toISOString();
+
+  // Verify sprint exists and is not completed
+  const sprint = db
+    .prepare(
+      `
+    SELECT id, name, completed_at 
+    FROM sprints 
+    WHERE id = ?
+  `
+    )
+    .get(sprintId) as
+    | { id: string; name: string; completed_at: string | null }
+    | undefined;
+
+  if (!sprint) {
+    throw new Error(`Sprint not found: ${sprintId}`);
+  }
+
+  if (sprint.completed_at) {
+    throw new Error(
+      `Cannot activate completed sprint: ${sprintId}. ` +
+        `Sprint was completed at ${sprint.completed_at}.`
+    );
+  }
+
+  // Deactivate all sprints
+  db.prepare(`UPDATE sprints SET is_active = 0`).run();
+
+  // Activate the target sprint
+  db.prepare(
+    `
+    UPDATE sprints 
+    SET is_active = 1, updated_at = ?
+    WHERE id = ?
+  `
+  ).run(now, sprintId);
+
+  // Trigger watcher to update UI immediately
+  if (watcher) {
+    watcher.trigger();
+  }
+
+  return { success: true, sprintName: sprint.name };
+}

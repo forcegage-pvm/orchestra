@@ -22,12 +22,16 @@ export const sprints = sqliteTable(
     id: text("id").primaryKey(), // e.g., "sprint-015"
     name: text("name").notNull(),
     workflow_step: text("workflow_step").notNull(), // WorkflowStep enum
+    is_active: integer("is_active", { mode: "boolean" })
+      .notNull()
+      .default(false), // Only one sprint active at a time
     created_at: text("created_at").notNull(),
     updated_at: text("updated_at").notNull(),
     completed_at: text("completed_at"),
   },
   (sprints) => ({
     workflowStepIdx: index("workflow_step_idx").on(sprints.workflow_step),
+    isActiveIdx: index("is_active_idx").on(sprints.is_active),
   })
 );
 

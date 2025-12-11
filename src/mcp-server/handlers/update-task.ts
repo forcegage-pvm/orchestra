@@ -7,7 +7,8 @@
 
 import { and, eq } from "drizzle-orm";
 import { getDb } from "../../db/index.js";
-import { progress, sprints, tasks } from "../../db/schema.js";
+import { getActiveSprint } from "../../db/queries.js";
+import { progress, tasks } from "../../db/schema.js";
 import {
   UpdateTaskInputSchema,
   type UpdateTaskOutput,
@@ -60,15 +61,19 @@ async function updateTask(
 ): Promise<UpdateTaskOutput> {
   const db = getDb();
 
-  // 1. Get active sprint
-  const [sprint] = await db
-    .select()
-    .from(sprints)
-    .where(eq(sprints.workflow_step, "CONFIGURE"))
-    .limit(1);
+  // 1. Get explicitly active sprint
+  const sprint = await getActiveSprint();
 
   if (!sprint) {
-    throw new Error("No active sprint in CONFIGURE state");
+    throw new Error("No active sprint found");
+  }
+
+  // Check sprint is in CONFIGURE state
+  if (sprint.workflow_step !== "CONFIGURE") {
+    throw new Error(
+      `Cannot update task metadata: sprint is in ${sprint.workflow_step} state. ` +
+        `Task metadata can only be updated during CONFIGURE.`
+    );
   }
 
   // 2. Find task

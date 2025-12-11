@@ -13,6 +13,7 @@
  * 2. File-based: Pass config_file path to load JSON from filesystem
  */
 
+import { eq, sql } from "drizzle-orm";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { getDb } from "../../db/index.js";
@@ -187,17 +188,21 @@ async function configureSprint(input: ConfigureSprintInput): Promise<{
   const phasesData = input.phases;
   const tasksData = input.tasks;
 
-  // 1. Create sprint
+  // 1. Deactivate all existing sprints before creating new one
+  await db.run(sql`UPDATE sprints SET is_active = 0`);
+
+  // 2. Create sprint (marked as active)
   await db.insert(sprints).values({
     id: sprint.id,
     name: sprint.name,
     workflow_step: "CONFIGURE",
+    is_active: true,
     created_at: now,
     updated_at: now,
     completed_at: null,
   });
 
-  // 2. Create phases
+  // 3. Create phases
   const phaseRecords = phasesData.map((phase, index) => ({
     sprint_id: sprint.id,
     phase_id: phase.phase_id,
@@ -210,14 +215,14 @@ async function configureSprint(input: ConfigureSprintInput): Promise<{
 
   await db.insert(phases).values(phaseRecords);
 
-  // 3. Get phase internal IDs (need for foreign keys)
+  // 4. Get phase internal IDs (need for foreign keys)
   const phaseRows = await db
     .select()
     .from(phases)
     .where(eq(phases.sprint_id, sprint.id));
   const phaseIdMap = new Map(phaseRows.map((p) => [p.phase_id, p.id]));
 
-  // 4. Create tasks
+  // 5. Create tasks
   const taskRecords = tasksData.map((task) => ({
     sprint_id: sprint.id,
     phase_id: phaseIdMap.get(task.phase_id)!,
@@ -237,7 +242,7 @@ async function configureSprint(input: ConfigureSprintInput): Promise<{
 
   await db.insert(tasks).values(taskRecords);
 
-  // 5. Get task internal IDs
+  // 6. Get task internal IDs
   const taskRows = await db
     .select()
     .from(tasks)
@@ -360,4 +365,3 @@ async function configureSprint(input: ConfigureSprintInput): Promise<{
 }
 
 // Import eq helper
-import { eq } from "drizzle-orm";

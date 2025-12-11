@@ -8,7 +8,7 @@
 import type Database from "better-sqlite3";
 import * as vscode from "vscode";
 import {
-  getCurrentSprint,
+  getAllSprints,
   getPhases,
   getTasksForSprint,
   type Phase,
@@ -90,13 +90,13 @@ export class SprintTreeProvider
         return [this._createMessageItem("No Orchestra workspace", "info")];
       }
 
-      // Root level: return sprint
+      // Root level: return all sprints
       if (!element) {
-        const sprint = getCurrentSprint(workspaceRoot);
-        if (!sprint) {
-          return [this._createMessageItem("No active sprint", "empty")];
+        const sprints = getAllSprints(workspaceRoot);
+        if (sprints.length === 0) {
+          return [this._createMessageItem("No sprints found", "empty")];
         }
-        return [{ type: "sprint", sprint }];
+        return sprints.map((sprint) => ({ type: "sprint", sprint }));
       }
 
       // Sprint level: return phases
@@ -133,13 +133,32 @@ export class SprintTreeProvider
   }
 
   private _createSprintItem(sprint: Sprint): vscode.TreeItem {
+    const isActive = sprint.is_active;
     const item = new vscode.TreeItem(
       sprint.name,
-      vscode.TreeItemCollapsibleState.Expanded
+      isActive
+        ? vscode.TreeItemCollapsibleState.Expanded
+        : vscode.TreeItemCollapsibleState.Collapsed
     );
-    item.iconPath = new vscode.ThemeIcon("rocket");
-    item.tooltip = `Sprint: ${sprint.name}\nStatus: ${sprint.workflow_step}`;
-    item.contextValue = "sprint";
+
+    if (isActive) {
+      // Active: green circle-filled icon, clean look
+      item.iconPath = new vscode.ThemeIcon(
+        "circle-filled",
+        new vscode.ThemeColor("terminal.ansiGreen")
+      );
+    } else {
+      // Inactive: no icon, greyed out description
+      item.iconPath = undefined;
+      item.description = "(inactive)";
+    }
+
+    item.tooltip = `Sprint: ${sprint.name}\nStatus: ${sprint.workflow_step}\n${
+      isActive
+        ? "✓ Active Sprint"
+        : "Right-click → 'Set as Active Sprint' to switch"
+    }`;
+    item.contextValue = isActive ? "sprint-active" : "sprint-inactive";
     return item;
   }
 

@@ -845,6 +845,24 @@ const TOOLS_WITH_ROLES: ToolWithRole[] = [
   // Configuration Tools - ORCHESTRATOR ONLY
   {
     role: "orchestrator",
+    name: "set_active_sprint",
+    description:
+      "Set a sprint as the active sprint. Only one sprint can be active at a time. " +
+      "All other sprints are deactivated when this is called. " +
+      "Use this to switch between sprints when working on multiple sprints.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        sprint_id: {
+          type: "string",
+          description: "The ID of the sprint to set as active",
+        },
+      },
+      required: ["sprint_id"],
+    },
+  },
+  {
+    role: "orchestrator",
     name: "set_config",
     description:
       "Set a configuration value (e.g., pre_signal_build_command, pre_signal_timeout)",
@@ -1049,7 +1067,11 @@ export function registerTools(server: Server, role: ServerRole = "full"): void {
             await import("./handlers/get-amendments.js")
           ).handleGetAmendments(args);
 
-        // Configuration (1 tool)
+        // Configuration (2 tools)
+        case "set_active_sprint":
+          return await (
+            await import("./handlers/set-active-sprint.js")
+          ).handleSetActiveSprint(args);
         case "set_config":
           return await handleSetConfig(args);
 

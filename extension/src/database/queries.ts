@@ -23,6 +23,7 @@ export interface Sprint {
   id: string;
   name: string;
   workflow_step: string;
+  is_active: boolean;
   created_at: string;
   updated_at: string;
   completed_at: string | null;
@@ -131,8 +132,8 @@ function getDB(workspaceRoot: string) {
 /**
  * Get the currently active sprint
  *
- * Returns the sprint that is not completed (completed_at is null).
- * In practice there should only be one active sprint at a time.
+ * Returns the sprint that has is_active = true.
+ * Falls back to most recently created non-completed sprint if no active flag set.
  *
  * @param workspaceRoot Absolute path to workspace root
  * @returns Active sprint or null if none exists
@@ -140,7 +141,25 @@ function getDB(workspaceRoot: string) {
 export function getCurrentSprint(workspaceRoot: string): Sprint | null {
   const db = getDB(workspaceRoot);
 
-  const results = db
+  // First, try to get the explicitly active sprint
+  const activeResults = db
+    .select()
+    .from(schema.sprints as unknown as typeof schema.sprints)
+    .where(
+      eq(
+        schema.sprints.is_active as unknown as typeof schema.sprints.is_active,
+        true
+      )
+    )
+    .limit(1)
+    .all() as Sprint[];
+
+  if (activeResults.length > 0) {
+    return activeResults[0] ?? null;
+  }
+
+  // Fallback: get most recently created non-completed sprint (for backward compatibility)
+  const fallbackResults = db
     .select()
     .from(schema.sprints as unknown as typeof schema.sprints)
     .where(
@@ -149,10 +168,35 @@ export function getCurrentSprint(workspaceRoot: string): Sprint | null {
           .completed_at as unknown as typeof schema.sprints.completed_at
       )
     )
+    .orderBy(
+      desc(
+        schema.sprints.created_at as unknown as typeof schema.sprints.created_at
+      )
+    )
     .limit(1)
     .all() as Sprint[];
 
-  return results[0] ?? null;
+  return fallbackResults[0] ?? null;
+}
+
+/**
+ * Get all sprints ordered by creation date (newest first)
+ *
+ * @param workspaceRoot Absolute path to workspace root
+ * @returns All sprints, newest first
+ */
+export function getAllSprints(workspaceRoot: string): Sprint[] {
+  const db = getDB(workspaceRoot);
+
+  return db
+    .select()
+    .from(schema.sprints as unknown as typeof schema.sprints)
+    .orderBy(
+      desc(
+        schema.sprints.created_at as unknown as typeof schema.sprints.created_at
+      )
+    )
+    .all() as Sprint[];
 }
 
 /**

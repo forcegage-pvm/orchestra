@@ -14,12 +14,12 @@
  * before/after state for accountability and debugging.
  */
 
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { getDb } from "../../db/index.js";
+import { getActiveSprint } from "../../db/queries.js";
 import {
   amendments,
   progress,
-  sprints,
   tasks,
   verificationChecks,
 } from "../../db/schema.js";
@@ -75,30 +75,31 @@ async function updateVerification(
 ): Promise<UpdateVerificationOutput & { amendment_id?: number }> {
   const db = getDb();
 
-  // 1. Get active sprint (any active state except SPRINT_COMPLETE)
-  const [sprint] = await db
-    .select()
-    .from(sprints)
-    .where(
-      and(
-        inArray(sprints.workflow_step, [
-          "CONFIGURE",
-          "PREPARE",
-          "SELECT_TASK",
-          "IMPLEMENT",
-          "SIGNAL",
-          "VERIFY",
-          "RETRY",
-          "ESCALATED",
-        ])
-      )
-    )
-    .limit(1);
+  // 1. Get explicitly active sprint
+  const sprint = await getActiveSprint();
 
   if (!sprint) {
     throw new Error(
       "No active sprint found. " +
         "Verification criteria can only be updated during active sprints."
+    );
+  }
+
+  // Validate sprint is in an allowed workflow state
+  const allowedStates = [
+    "CONFIGURE",
+    "PREPARE",
+    "SELECT_TASK",
+    "IMPLEMENT",
+    "SIGNAL",
+    "VERIFY",
+    "RETRY",
+    "ESCALATED",
+  ];
+  if (!allowedStates.includes(sprint.workflow_step)) {
+    throw new Error(
+      `Cannot update verification in workflow state: ${sprint.workflow_step}. ` +
+        `Allowed states: ${allowedStates.join(", ")}`
     );
   }
 

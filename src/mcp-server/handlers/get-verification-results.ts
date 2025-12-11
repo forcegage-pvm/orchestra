@@ -91,11 +91,12 @@ async function getVerificationResults(
   }
 
   // 3. Get latest signal
+  // TD-FIX: Order by id (auto-increment) instead of attempt - attempt numbers aren't reliable
   const [signal] = await db
     .select()
     .from(signals)
     .where(eq(signals.task_id, task.id))
-    .orderBy(desc(signals.attempt))
+    .orderBy(desc(signals.id))
     .limit(1);
 
   if (!signal) {

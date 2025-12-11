@@ -98,12 +98,13 @@ async function getSignal(
       );
     }
   } else {
-    // Get latest (highest attempt number)
+    // Get latest signal by id (auto-increment)
+    // TD-FIX: Order by id instead of attempt - attempt numbers aren't reliable
     [signal] = await db
       .select()
       .from(signals)
       .where(eq(signals.task_id, task.id))
-      .orderBy(desc(signals.attempt))
+      .orderBy(desc(signals.id))
       .limit(1);
 
     if (!signal) {

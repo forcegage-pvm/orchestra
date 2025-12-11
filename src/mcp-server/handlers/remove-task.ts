@@ -6,7 +6,8 @@
 
 import { and, eq } from "drizzle-orm";
 import { getDb } from "../../db/index.js";
-import { sprints, tasks } from "../../db/schema.js";
+import { getActiveSprint } from "../../db/queries.js";
+import { tasks } from "../../db/schema.js";
 import {
   RemoveTaskInputSchema,
   type RemoveTaskOutput,
@@ -37,13 +38,17 @@ export async function handleRemoveTask(input: unknown) {
       content: [
         {
           type: "text",
-          text: JSON.stringify({
-            success: false,
-            error: {
-              code: "SYSTEM_ERROR",
-              message: err.message,
+          text: JSON.stringify(
+            {
+              success: false,
+              error: {
+                code: "SYSTEM_ERROR",
+                message: err.message,
+              },
             },
-          }, null, 2),
+            null,
+            2
+          ),
         },
       ],
     };
@@ -55,15 +60,19 @@ async function removeTask(
 ): Promise<RemoveTaskOutput> {
   const db = getDb();
 
-  // 1. Get active sprint
-  const [sprint] = await db
-    .select()
-    .from(sprints)
-    .where(eq(sprints.workflow_step, "CONFIGURE"))
-    .limit(1);
+  // 1. Get explicitly active sprint
+  const sprint = await getActiveSprint();
 
   if (!sprint) {
-    throw new Error("No active sprint in CONFIGURE state");
+    throw new Error("No active sprint found");
+  }
+
+  // Check sprint is in CONFIGURE state
+  if (sprint.workflow_step !== "CONFIGURE") {
+    throw new Error(
+      `Cannot remove task: sprint is in ${sprint.workflow_step} state. ` +
+        `Tasks can only be removed during CONFIGURE.`
+    );
   }
 
   // 2. Find task

@@ -24,7 +24,8 @@ export async function initializeDb(): Promise<void> {
       workflow_step TEXT NOT NULL,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL,
-      completed_at TEXT
+      completed_at TEXT,
+      is_active INTEGER NOT NULL DEFAULT 0
     )
   `);
 
