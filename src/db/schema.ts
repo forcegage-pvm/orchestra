@@ -451,3 +451,54 @@ export const amendments = sqliteTable(
     timestampIdx: index("amendment_timestamp_idx").on(amendments.amended_at),
   })
 );
+
+/**
+ * Escalations table - Full history of task escalations (TD-016)
+ *
+ * Records each escalation event with full context for human supervisor review.
+ * Supports the de-escalation workflow by tracking resolution state.
+ *
+ * Key fields:
+ * - recommended_target_status: Orchestrator's suggestion for where to resume
+ * - resolved_*: Populated when human supervisor de-escalates
+ */
+export const escalations = sqliteTable(
+  "escalations",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    task_id: integer("task_id")
+      .notNull()
+      .references(() => tasks.id, { onDelete: "cascade" }),
+    sprint_id: text("sprint_id")
+      .notNull()
+      .references(() => sprints.id, { onDelete: "cascade" }),
+    // Escalation details
+    reason: text("reason").notNull(), // Clear explanation of why escalated
+    attempts_summary: text("attempts_summary").notNull(), // What was tried before escalating
+    recommended_action: text("recommended_action"), // Suggested fix for supervisor
+    recommended_target_status: text("recommended_target_status").notNull(), // PENDING | VERIFY_FAILED
+    // Context at escalation time
+    from_status: text("from_status").notNull(), // Status before escalation
+    retry_count: integer("retry_count").notNull(),
+    max_retries: integer("max_retries").notNull(),
+    escalated_by: text("escalated_by").notNull(), // orchestrator | implementor
+    escalated_at: text("escalated_at").notNull(),
+    // Resolution (populated by human supervisor via VS Code command)
+    resolved_at: text("resolved_at"),
+    resolved_by: text("resolved_by"), // human_supervisor
+    resolution_target_status: text("resolution_target_status"), // Actual status chosen
+    resolution_notes: text("resolution_notes"),
+  },
+  (escalations) => ({
+    taskEscalationIdx: index("task_escalation_idx").on(escalations.task_id),
+    sprintEscalationIdx: index("sprint_escalation_idx").on(
+      escalations.sprint_id
+    ),
+    unresolvedIdx: index("unresolved_escalation_idx").on(
+      escalations.resolved_at
+    ),
+    timestampIdx: index("escalation_timestamp_idx").on(
+      escalations.escalated_at
+    ),
+  })
+);

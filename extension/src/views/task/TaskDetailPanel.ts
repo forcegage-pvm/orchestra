@@ -11,11 +11,13 @@ import * as fs from "fs";
 import * as path from "path";
 import * as vscode from "vscode";
 import {
+  getEscalation,
   getFeedback,
   getHandover,
   getTaskById,
   getTaskHistory,
   getVerificationResults,
+  type Escalation,
   type Feedback,
   type Handover,
   type Progress,
@@ -64,6 +66,7 @@ interface TaskDetailData {
   >;
   feedback?: Feedback;
   history?: Array<Progress & { formattedTimestamp: string }>;
+  escalation?: Escalation; // TD-016: Escalation data when task is ESCALATED
 }
 
 export class TaskDetailPanel {
@@ -211,6 +214,14 @@ export class TaskDetailPanel {
     const feedback = getFeedback(workspaceRoot, this.taskId);
     if (feedback) {
       data.feedback = feedback;
+    }
+
+    // TD-016: Get escalation data when task is ESCALATED
+    if (task.status === "ESCALATED") {
+      const escalation = getEscalation(workspaceRoot, this.taskId);
+      if (escalation) {
+        data.escalation = escalation;
+      }
     }
 
     // Get history timeline

@@ -131,6 +131,50 @@ const MIGRATIONS: Migration[] = [
       `);
     },
   },
+  {
+    id: "20251211_004_add_escalations_table",
+    description:
+      "Add escalations table for tracking task escalations and resolutions (TD-016)",
+    up: async () => {
+      const db = getDb();
+
+      // Check if table already exists (idempotent)
+      const tables = await db.all(
+        sql`SELECT name FROM sqlite_master WHERE type='table' AND name='escalations'`
+      );
+      if ((tables as { name: string }[]).length > 0) {
+        return; // Already exists
+      }
+
+      await db.run(sql`
+        CREATE TABLE escalations (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          task_id INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+          sprint_id TEXT NOT NULL REFERENCES sprints(id) ON DELETE CASCADE,
+          reason TEXT NOT NULL,
+          attempts_summary TEXT NOT NULL,
+          recommended_action TEXT,
+          recommended_target_status TEXT NOT NULL,
+          from_status TEXT NOT NULL,
+          retry_count INTEGER NOT NULL,
+          max_retries INTEGER NOT NULL,
+          escalated_by TEXT NOT NULL,
+          escalated_at TEXT NOT NULL,
+          resolved_at TEXT,
+          resolved_by TEXT,
+          resolution_target_status TEXT,
+          resolution_notes TEXT
+        )
+      `);
+
+      await db.run(
+        sql`CREATE INDEX IF NOT EXISTS task_escalation_idx ON escalations(task_id)`
+      );
+      await db.run(
+        sql`CREATE INDEX IF NOT EXISTS active_escalation_idx ON escalations(task_id, resolved_at)`
+      );
+    },
+  },
 ];
 
 /**

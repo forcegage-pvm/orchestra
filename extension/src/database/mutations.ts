@@ -248,3 +248,181 @@ export function setActiveSprint(
 
   return { success: true, sprintName: sprint.name };
 }
+
+/**
+ * TD-016: Resolve escalation and update escalations table
+ *
+ * Records the resolution in the escalations table and updates task status.
+ * This is a HUMAN SUPERVISOR ONLY operation via VS Code extension.
+ *
+ * @param workspaceRoot Absolute path to workspace root
+ * @param taskId Numeric task ID (task_id column, not primary key)
+ * @param targetStatus Target status (PENDING | VERIFY_FAILED | GATE_CHECK | IMPLEMENT)
+ * @param notes Resolution notes from supervisor
+ * @param watcher Optional database watcher to trigger UI updates
+ * @returns Success status
+ */
+export function resolveEscalation(
+  workspaceRoot: string,
+  taskId: number,
+  targetStatus: "PENDING" | "VERIFY_FAILED" | "GATE_CHECK" | "IMPLEMENT",
+  notes: string,
+  watcher?: DatabaseWatcher
+): boolean {
+  const db = OrchestraDB.getInstance(workspaceRoot);
+  const now = new Date().toISOString();
+
+  // Get the task first to validate
+  const task = db
+    .prepare(
+      `
+    SELECT t.id, t.status, t.sprint_id 
+    FROM tasks t
+    JOIN sprints s ON t.sprint_id = s.id
+    WHERE t.task_id = ?
+  `
+    )
+    .get(taskId) as
+    | { id: number; status: string; sprint_id: string }
+    | undefined;
+
+  if (!task) {
+    throw new Error(`Task ${taskId} not found`);
+  }
+
+  if (task.status !== "ESCALATED") {
+    throw new Error(
+      `Task ${taskId} is not ESCALATED (current: ${task.status})`
+    );
+  }
+
+  // Find the most recent unresolved escalation for this task
+  const escalation = db
+    .prepare(
+      `
+    SELECT id FROM escalations 
+    WHERE task_id = ? AND resolved_at IS NULL 
+    ORDER BY escalated_at DESC 
+    LIMIT 1
+  `
+    )
+    .get(task.id) as { id: number } | undefined;
+
+  if (escalation) {
+    // Update escalations table with resolution
+    db.prepare(
+      `
+      UPDATE escalations 
+      SET resolved_at = ?,
+          resolved_by = 'human_supervisor',
+          resolution_target_status = ?,
+          resolution_notes = ?
+      WHERE id = ?
+    `
+    ).run(now, targetStatus, notes, escalation.id);
+  }
+
+  // Update task status
+  db.prepare(
+    `
+    UPDATE tasks 
+    SET status = ?, updated_at = ?
+    WHERE id = ?
+  `
+  ).run(targetStatus, now, task.id);
+
+  // Insert progress record
+  db.prepare(
+    `
+    INSERT INTO progress (sprint_id, task_id, from_status, to_status, workflow_step, triggered_by, notes, changed_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  `
+  ).run(
+    task.sprint_id,
+    task.id,
+    "ESCALATED",
+    targetStatus,
+    targetStatus === "PENDING" ? "SELECT_TASK" : "IMPLEMENT",
+    "human_supervisor",
+    `De-escalated by supervisor: ${notes}`,
+    now
+  );
+
+  // Update sprint workflow step
+  const newWorkflowStep =
+    targetStatus === "PENDING"
+      ? "SELECT_TASK"
+      : targetStatus === "GATE_CHECK"
+      ? "VERIFY"
+      : "IMPLEMENT";
+
+  db.prepare(
+    `
+    UPDATE sprints 
+    SET workflow_step = ?, updated_at = ?
+    WHERE id = ?
+  `
+  ).run(newWorkflowStep, now, task.sprint_id);
+
+  // Trigger watcher to update UI immediately
+  if (watcher) {
+    watcher.trigger();
+  }
+
+  return true;
+}
+
+/**
+ * Get escalation details for a task
+ *
+ * Returns the most recent escalation record for display in UI.
+ *
+ * @param workspaceRoot Absolute path to workspace root
+ * @param taskId Numeric task ID
+ * @returns Escalation details or undefined
+ */
+export function getEscalationDetails(
+  workspaceRoot: string,
+  taskId: number
+):
+  | {
+      reason: string;
+      attempts_summary: string;
+      recommended_action: string | null;
+      recommended_target_status: string;
+      escalated_at: string;
+    }
+  | undefined {
+  const db = OrchestraDB.getInstance(workspaceRoot);
+
+  // Get task internal ID first
+  const task = db
+    .prepare(`SELECT id FROM tasks WHERE task_id = ?`)
+    .get(taskId) as { id: number } | undefined;
+
+  if (!task) {
+    return undefined;
+  }
+
+  const escalation = db
+    .prepare(
+      `
+    SELECT reason, attempts_summary, recommended_action, recommended_target_status, escalated_at
+    FROM escalations 
+    WHERE task_id = ? AND resolved_at IS NULL 
+    ORDER BY escalated_at DESC 
+    LIMIT 1
+  `
+    )
+    .get(task.id) as
+    | {
+        reason: string;
+        attempts_summary: string;
+        recommended_action: string | null;
+        recommended_target_status: string;
+        escalated_at: string;
+      }
+    | undefined;
+
+  return escalation;
+}

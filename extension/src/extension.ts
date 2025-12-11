@@ -16,6 +16,7 @@ import { ConfigGenerator } from "./mcp/ConfigGenerator.js";
 import { MCPServerManager } from "./mcp/ServerManager.js";
 import { OrchestraLogger } from "./utils/logger.js";
 import { DashboardPanel } from "./views/dashboard/DashboardPanel.js";
+import { OrchestraViewDecorationProvider } from "./views/providers/ViewDecorationProvider.js";
 import { StatusBarManager } from "./views/statusbar/StatusBarItem.js";
 import { TaskDetailPanel } from "./views/task/TaskDetailPanel.js";
 import { SprintTreeProvider } from "./views/treeview/SprintTreeProvider.js";
@@ -283,6 +284,120 @@ async function handleStartTask(
       `Orchestra: Failed to start task - ${message}`
     );
     logger.error(`Failed to start task ${taskId}`, error);
+  }
+}
+
+/**
+ * TD-016: Handle de-escalating a task with proper workflow
+ *
+ * Shows escalation details and lets supervisor choose target status.
+ * Updates the escalations table with resolution info.
+ */
+async function handleDeEscalateTask(
+  workspaceRoot: string,
+  taskId: number,
+  treeProvider: SprintTreeProvider
+): Promise<void> {
+  const { resolveEscalation, getEscalationDetails } = await import(
+    "./database/mutations.js"
+  );
+
+  try {
+    // Get escalation details to show to supervisor
+    const escalation = getEscalationDetails(workspaceRoot, taskId);
+
+    if (!escalation) {
+      vscode.window.showErrorMessage(
+        `Orchestra: No escalation record found for Task ${taskId}`
+      );
+      return;
+    }
+
+    // Build escalation context summary for display
+    const escalationSummary = [
+      `Reason: ${escalation.reason}`,
+      `Attempts: ${escalation.attempts_summary}`,
+      escalation.recommended_action
+        ? `Recommended: ${escalation.recommended_action}`
+        : "",
+    ]
+      .filter(Boolean)
+      .join(" | ");
+
+    // Let supervisor choose target status
+    const choices: vscode.QuickPickItem[] = [
+      {
+        label: "$(debug-restart) VERIFY_FAILED",
+        description: "Retry implementation with feedback",
+        detail: "Task goes back to implementor for another attempt",
+        picked: escalation.recommended_target_status === "VERIFY_FAILED",
+      },
+      {
+        label: "$(refresh) PENDING",
+        description: "Full restart from preparation",
+        detail: "Task restarts from scratch with new handover",
+        picked: escalation.recommended_target_status === "PENDING",
+      },
+      {
+        label: "$(eye) GATE_CHECK",
+        description: "Re-run verification checks",
+        detail: "Skip to verification (e.g., if spec was fixed)",
+        picked: false,
+      },
+    ];
+
+    // Show escalation context in quick pick
+    const selected = await vscode.window.showQuickPick(choices, {
+      title: `De-escalate Task ${taskId}`,
+      placeHolder: escalationSummary.substring(0, 150),
+      ignoreFocusOut: true,
+    });
+
+    if (!selected) {
+      return; // User cancelled
+    }
+
+    // Extract status from selection
+    const statusMatch = selected.label.match(/\) (\w+)$/);
+    const targetStatus = statusMatch?.[1] as
+      | "VERIFY_FAILED"
+      | "PENDING"
+      | "GATE_CHECK"
+      | undefined;
+
+    if (!targetStatus) {
+      return;
+    }
+
+    // Get resolution notes from supervisor
+    const notes = await vscode.window.showInputBox({
+      title: "Resolution Notes",
+      prompt: "Provide notes explaining how the escalation was resolved",
+      placeHolder: "e.g., Fixed verification criteria, implementation is valid",
+      validateInput: (value) =>
+        value.length < 10 ? "Notes must be at least 10 characters" : undefined,
+    });
+
+    if (!notes) {
+      return; // User cancelled
+    }
+
+    // Resolve the escalation
+    resolveEscalation(workspaceRoot, taskId, targetStatus, notes, dbWatcher);
+
+    treeProvider.refresh();
+    vscode.window.showInformationMessage(
+      `Orchestra: Task ${taskId} de-escalated to ${targetStatus}`
+    );
+    logger.info(
+      `Task ${taskId} de-escalated to ${targetStatus} by human supervisor: ${notes}`
+    );
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    vscode.window.showErrorMessage(
+      `Orchestra: Failed to de-escalate task - ${message}`
+    );
+    logger.error(`Failed to de-escalate task ${taskId}`, error);
   }
 }
 
@@ -630,6 +745,13 @@ export async function activate(
     context.subscriptions.push(treeView);
     logger.info("Sprint Explorer TreeView registered");
 
+    // 6b. Register FileDecorationProvider for status-based styling (TD-016 DD-4)
+    const decorationProvider = new OrchestraViewDecorationProvider();
+    context.subscriptions.push(
+      vscode.window.registerFileDecorationProvider(decorationProvider)
+    );
+    logger.info("View decoration provider registered");
+
     // 6. Register Status Bar
     const statusBar = new StatusBarManager(db, dbWatcher);
     context.subscriptions.push(statusBar);
@@ -714,6 +836,18 @@ export async function activate(
         }
       ),
       // Task remediation commands
+      vscode.commands.registerCommand(
+        "orchestra.deEscalateTask",
+        async (element: { type: string; task?: { task_id: number } }) => {
+          if (element?.task?.task_id) {
+            await handleDeEscalateTask(
+              orchestraRoot,
+              element.task.task_id,
+              treeProvider
+            );
+          }
+        }
+      ),
       vscode.commands.registerCommand(
         "orchestra.moveToGateCheck",
         async (element: { type: string; task?: { task_id: number } }) => {

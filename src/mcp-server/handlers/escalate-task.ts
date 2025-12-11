@@ -5,11 +5,13 @@
  * Used when task reaches max retries or orchestrator determines manual intervention needed.
  *
  * TD-014: Added soft gate for early escalations (0 retry attempts).
+ * TD-016: Writes to escalations table with full context for de-escalation workflow.
  */
 
 import { and, eq } from "drizzle-orm";
 import { getActiveSprint, getDb } from "../../db/index.js";
 import {
+  escalations,
   notifications,
   progress as progressTable,
   sprints,
@@ -17,6 +19,7 @@ import {
 } from "../../db/schema.js";
 import {
   EscalateTaskInputSchema,
+  type EscalateTaskInput,
   type EscalateTaskOutput,
 } from "../../schemas/completion.js";
 import { validateInput } from "../../schemas/utils.js";
@@ -37,7 +40,8 @@ export async function handleEscalateTask(input: unknown) {
   }
 
   try {
-    const output = await escalateTask(validation.data);
+    // Type assertion is safe: validateInput uses schema.parse() which applies defaults
+    const output = await escalateTask(validation.data as EscalateTaskInput);
     const durationMs = Math.round(performance.now() - startTime);
 
     // Log successful execution
@@ -93,7 +97,7 @@ export async function handleEscalateTask(input: unknown) {
 }
 
 async function escalateTask(
-  input: typeof EscalateTaskInputSchema._output
+  input: EscalateTaskInput
 ): Promise<EscalateTaskOutput> {
   const db = getDb();
 
@@ -173,13 +177,34 @@ async function escalateTask(
     changed_at: now,
   });
 
-  // 6. Create notification for human supervisor
+  // 6. TD-016: Write to escalations table for de-escalation workflow
+  await db.insert(escalations).values({
+    task_id: task.id,
+    sprint_id: sprint.id,
+    reason: input.reason,
+    attempts_summary: input.attempts_summary,
+    recommended_action: input.recommended_action || null,
+    recommended_target_status: input.recommended_target_status,
+    from_status: task.status,
+    retry_count: task.retry_count,
+    max_retries: task.max_retries,
+    escalated_by: "orchestrator",
+    escalated_at: now,
+    // Resolution fields start null - populated by VS Code de-escalate command
+    resolved_at: null,
+    resolved_by: null,
+    resolution_target_status: null,
+    resolution_notes: null,
+  });
+
+  // 7. Create notification for human supervisor (legacy, keep for backwards compat)
   const notificationMessage = JSON.stringify({
     task_id: input.task_id,
     title: task.title,
     reason: input.reason,
     attempts_summary: input.attempts_summary,
     recommended_action: input.recommended_action,
+    recommended_target_status: input.recommended_target_status,
     retry_count: task.retry_count,
     max_retries: task.max_retries,
   });
@@ -196,7 +221,7 @@ async function escalateTask(
     created_at: now,
   });
 
-  // 7. Update sprint workflow_step if needed
+  // 8. Update sprint workflow_step if needed
   if (
     sprint.workflow_step === "VERIFY" ||
     sprint.workflow_step === "IMPLEMENT"

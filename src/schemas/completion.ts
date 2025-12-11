@@ -48,6 +48,14 @@ export const EscalateTaskInputSchema = z.object({
     .min(10, "Attempts summary must be at least 10 characters"),
   recommended_action: z.string().optional(),
   /**
+   * TD-016: Orchestrator's recommendation for where task should resume after de-escalation.
+   * Human supervisor can override this choice.
+   */
+  recommended_target_status: z
+    .enum(["PENDING", "VERIFY_FAILED"])
+    .default("VERIFY_FAILED")
+    .describe("Recommended status to resume after de-escalation"),
+  /**
    * TD-014: Required when escalating before any retry attempts.
    * Provides justification for early escalation (e.g., external blocker, access issue).
    */

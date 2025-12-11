@@ -95,7 +95,8 @@ export async function logSystemEvent(params: {
     | "git"
     | "verification"
     | "mcp"
-    | "escalation";
+    | "escalation"
+    | "security";
   message: string;
   details?: Record<string, unknown>;
   taskId?: number;

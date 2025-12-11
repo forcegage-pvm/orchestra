@@ -28,6 +28,7 @@ import {
   type UpdateVerificationOutput,
 } from "../../schemas/sprint-config.js";
 import { validateInput } from "../../schemas/utils.js";
+import { logSystemEvent } from "./audit-logging.js";
 
 export async function handleUpdateVerification(input: unknown) {
   const validation = validateInput(UpdateVerificationInputSchema, input);
@@ -140,6 +141,24 @@ async function updateVerification(
           "Explain why the verification criteria need correction."
       );
     }
+
+    // TD-016 (DD-3): Explicit audit log for ESCALATED task spec modifications
+    await logSystemEvent({
+      level: "WARN",
+      category: "security",
+      message: `Verification criteria modified for ESCALATED task ${input.task_id}`,
+      details: {
+        task_id: input.task_id,
+        task_title: task.title,
+        task_status: task.status,
+        workflow_step: sprint.workflow_step,
+        rationale: input.rationale,
+        structural_checks: input.verification.structural_checks?.length || 0,
+        behavioral_checks: input.verification.behavioral_checks?.length || 0,
+        quality_checks: input.verification.quality_checks?.length || 0,
+      },
+      taskId: input.task_id,
+    });
   }
 
   const now = new Date().toISOString();

@@ -122,6 +122,28 @@ export interface Feedback {
 }
 
 /**
+ * Escalation record - task escalation details (TD-016)
+ */
+export interface Escalation {
+  id: number;
+  task_id: number;
+  sprint_id: string;
+  reason: string;
+  attempts_summary: string;
+  recommended_action: string | null;
+  recommended_target_status: string;
+  from_status: string;
+  retry_count: number;
+  max_retries: number;
+  escalated_by: string;
+  escalated_at: string;
+  resolved_at: string | null;
+  resolved_by: string | null;
+  resolution_target_status: string | null;
+  resolution_notes: string | null;
+}
+
+/**
  * Get the Drizzle database instance for the current workspace
  * Helper to reduce boilerplate in query functions
  */
@@ -646,6 +668,50 @@ export function getFeedback(
     )
     .limit(1)
     .all() as Feedback[];
+
+  return results[0] ?? null;
+}
+
+/**
+ * Get the active (unresolved) escalation for a task (TD-016)
+ *
+ * Returns the most recent unresolved escalation for the task.
+ * If no active escalation exists, returns null.
+ *
+ * @param workspaceRoot Absolute path to workspace root
+ * @param taskId Task ID (numeric primary key)
+ * @returns Active escalation or null if none exists
+ */
+export function getEscalation(
+  workspaceRoot: string,
+  taskId: number
+): Escalation | null {
+  const db = getDB(workspaceRoot);
+
+  const results = db
+    .select()
+    .from(schema.escalations as unknown as typeof schema.escalations)
+    .where(
+      and(
+        eq(
+          schema.escalations
+            .task_id as unknown as typeof schema.escalations.task_id,
+          taskId
+        ),
+        isNull(
+          schema.escalations
+            .resolved_at as unknown as typeof schema.escalations.resolved_at
+        )
+      )
+    )
+    .orderBy(
+      desc(
+        schema.escalations
+          .escalated_at as unknown as typeof schema.escalations.escalated_at
+      )
+    )
+    .limit(1)
+    .all() as Escalation[];
 
   return results[0] ?? null;
 }

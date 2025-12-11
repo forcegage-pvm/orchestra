@@ -3,6 +3,7 @@
  *
  * Implements TreeDataProvider for Sprint → Phase → Task hierarchy.
  * Shows sprint structure in VS Code's activity bar with status-based icons.
+ * TD-016: Uses FileDecorationProvider for rich status styling.
  */
 
 import type Database from "better-sqlite3";
@@ -17,6 +18,7 @@ import {
 } from "../../database/queries.js";
 import type { DatabaseWatcher } from "../../database/watcher.js";
 import { findOrchestraRoot } from "../../workspace/detector.js";
+import { createTaskDecorationUri } from "../providers/ViewDecorationProvider.js";
 
 /**
  * Tree item types for hierarchy
@@ -148,8 +150,7 @@ export class SprintTreeProvider
         new vscode.ThemeColor("terminal.ansiGreen")
       );
     } else {
-      // Inactive: no icon, greyed out description
-      item.iconPath = undefined;
+      // Inactive: no icon (default), greyed out description
       item.description = "(inactive)";
     }
 
@@ -182,6 +183,14 @@ export class SprintTreeProvider
     // Status-based icons
     item.iconPath = this._getIconForStatus(task.status);
 
+    // TD-016: Set resourceUri for FileDecorationProvider styling
+    item.resourceUri = createTaskDecorationUri(
+      task.task_id,
+      task.status,
+      task.retry_count,
+      task.max_retries
+    );
+
     // Tooltip shows description and status
     item.tooltip = new vscode.MarkdownString();
     item.tooltip.appendMarkdown(`**${task.title}**\n\n`);
@@ -203,11 +212,11 @@ export class SprintTreeProvider
     // Context value for menus - include status for conditional menus
     item.contextValue = `task-${task.status.toLowerCase()}`;
 
-    // Add warning color for escalated/failed tasks
+    // Add description for escalated/failed tasks (kept for accessibility)
     if (task.status === "ESCALATED") {
-      item.description = "⚠️ ESCALATED";
+      item.description = "ESCALATED";
     } else if (task.status === "VERIFY_FAILED") {
-      item.description = "❌ FAILED";
+      item.description = "FAILED";
     }
 
     return item;

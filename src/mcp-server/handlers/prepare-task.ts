@@ -83,13 +83,19 @@ async function prepareTask(
     throw new Error(`Task ${input.task_id} not found`);
   }
 
-  // 3. Validate task can be prepared (PENDING, VERIFY_FAILED, or ESCALATED for retry)
-  const validStatuses = ["PENDING", "VERIFY_FAILED", "ESCALATED"];
+  // 3. Validate task can be prepared (PENDING or VERIFY_FAILED only)
+  // SECURITY: ESCALATED tasks require human supervisor de-escalation first (TD-016)
+  const validStatuses = ["PENDING", "VERIFY_FAILED"];
   if (!validStatuses.includes(task.status)) {
+    if (task.status === "ESCALATED") {
+      throw new Error(
+        `Task ${input.task_id} is ESCALATED and cannot be prepared. ` +
+          `Human supervisor must de-escalate the task first using VS Code.`
+      );
+    }
     throw new Error(
-      `Task ${input.task_id} is in ${
-        task.status
-      } state and cannot be prepared. Expected: ${validStatuses.join(", ")}`
+      `Task ${input.task_id} is in ${task.status} state and cannot be prepared. ` +
+        `Expected: ${validStatuses.join(", ")}`
     );
   }
 

@@ -79,6 +79,14 @@ async function updateHandover(
     throw new Error(`Task ${input.task_id} not found`);
   }
 
+  // SECURITY: ESCALATED tasks cannot be modified (TD-016)
+  if (task.status === "ESCALATED") {
+    throw new Error(
+      `Task ${input.task_id} is ESCALATED and cannot be modified. ` +
+        `Human supervisor must de-escalate the task first using VS Code.`
+    );
+  }
+
   // 3. Get handover record
   const [handover] = await db
     .select()

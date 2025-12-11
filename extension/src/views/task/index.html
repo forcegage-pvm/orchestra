@@ -123,6 +123,22 @@
         color: var(--vscode-editor-background);
       }
 
+      .status-escalated {
+        background-color: var(--vscode-testing-iconFailed);
+        color: var(--vscode-editor-background);
+        animation: escalated-pulse 2s ease-in-out infinite;
+      }
+
+      @keyframes escalated-pulse {
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.7;
+        }
+      }
+
       .priority-badge {
         padding: 2px 8px;
         border-radius: 8px;
@@ -386,6 +402,82 @@
         padding: 40px;
         color: var(--vscode-descriptionForeground);
       }
+
+      /* Escalation Alert (TD-016) */
+      .escalation-alert {
+        background-color: var(--vscode-inputValidation-errorBackground);
+        border: 2px solid var(--vscode-testing-iconFailed);
+        border-radius: 8px;
+        padding: 20px;
+        margin-bottom: 20px;
+      }
+
+      .escalation-header {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 15px;
+        border-bottom: 1px solid var(--vscode-testing-iconFailed);
+        padding-bottom: 10px;
+      }
+
+      .escalation-header h2 {
+        margin: 0;
+        color: var(--vscode-testing-iconFailed);
+        font-size: 1.2em;
+      }
+
+      .escalation-icon {
+        font-size: 1.5em;
+      }
+
+      .escalation-content {
+        display: flex;
+        flex-direction: column;
+        gap: 15px;
+      }
+
+      .escalation-field {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+      }
+
+      .escalation-field label {
+        color: var(--vscode-descriptionForeground);
+        font-size: 0.9em;
+        font-weight: 500;
+        text-transform: uppercase;
+      }
+
+      .escalation-field p {
+        margin: 0;
+        color: var(--vscode-foreground);
+        white-space: pre-wrap;
+      }
+
+      .escalation-meta {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        margin-top: 10px;
+        padding-top: 10px;
+        border-top: 1px solid var(--vscode-widget-border);
+      }
+
+      .escalation-badge {
+        background-color: var(--vscode-charts-orange);
+        color: var(--vscode-editor-background);
+        padding: 4px 12px;
+        border-radius: 12px;
+        font-size: 0.85em;
+        font-weight: 500;
+      }
+
+      .escalation-timestamp {
+        color: var(--vscode-descriptionForeground);
+        font-size: 0.85em;
+      }
     </style>
   </head>
   <body>
@@ -443,6 +535,40 @@
           <div>
             <h3>Dependencies</h3>
             <p id="taskDependencies">None</p>
+          </div>
+        </div>
+
+        <!-- Escalation Alert Section (TD-016) - shown when task is ESCALATED -->
+        <div
+          id="escalation-section"
+          class="escalation-alert"
+          style="display: none"
+        >
+          <div class="escalation-header">
+            <span class="escalation-icon">⚠️</span>
+            <h2>Task Escalated - Human Supervisor Required</h2>
+          </div>
+          <div class="escalation-content">
+            <div class="escalation-field">
+              <label>Escalation Reason</label>
+              <p id="escalationReason">-</p>
+            </div>
+            <div class="escalation-field">
+              <label>Attempts Summary</label>
+              <p id="escalationAttemptsSummary">-</p>
+            </div>
+            <div class="escalation-field">
+              <label>Recommended Action</label>
+              <p id="escalationRecommendedAction">-</p>
+            </div>
+            <div class="escalation-meta">
+              <span id="escalationRecommendedStatus" class="escalation-badge"
+                >-</span
+              >
+              <span id="escalationTimestamp" class="escalation-timestamp"
+                >-</span
+              >
+            </div>
           </div>
         </div>
 
@@ -623,6 +749,9 @@
         if (data.history && data.history.length > 0) {
           updateHistory(data.history);
         }
+
+        // TD-016: Update escalation section
+        updateEscalation(data.escalation, task.status);
       }
 
       function updateHandover(handover) {
@@ -887,6 +1016,43 @@
           `;
           timeline.appendChild(li);
         });
+      }
+
+      // TD-016: Update escalation section
+      function updateEscalation(escalation, taskStatus) {
+        const section = document.getElementById("escalation-section");
+
+        // Show section only if task is ESCALATED and we have escalation data
+        if (taskStatus === "ESCALATED" && escalation) {
+          section.style.display = "block";
+
+          document.getElementById("escalationReason").textContent =
+            escalation.reason || "No reason provided";
+          document.getElementById("escalationAttemptsSummary").textContent =
+            escalation.attempts_summary || "No attempts summary";
+          document.getElementById("escalationRecommendedAction").textContent =
+            escalation.recommended_action || "No recommendation provided";
+
+          // Format recommended status badge
+          const statusBadge = document.getElementById(
+            "escalationRecommendedStatus"
+          );
+          statusBadge.textContent = `Recommended: ${
+            escalation.recommended_target_status || "PENDING"
+          }`;
+
+          // Format timestamp
+          const timestamp = document.getElementById("escalationTimestamp");
+          if (escalation.escalated_at) {
+            const date = new Date(escalation.escalated_at);
+            timestamp.textContent = `Escalated: ${date.toLocaleString()}`;
+          } else {
+            timestamp.textContent = "";
+          }
+        } else {
+          // Hide escalation section for non-escalated tasks
+          section.style.display = "none";
+        }
       }
 
       function showError(error) {

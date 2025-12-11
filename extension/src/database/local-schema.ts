@@ -245,3 +245,39 @@ export const progress = sqliteTable(
     triggeredByIdx: index("triggered_by_idx").on(progress.triggered_by),
   })
 );
+
+/**
+ * Escalations table - Full escalation history and resolution (TD-016)
+ */
+export const escalations = sqliteTable(
+  "escalations",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    task_id: integer("task_id")
+      .notNull()
+      .references(() => tasks.id, { onDelete: "cascade" }),
+    sprint_id: text("sprint_id")
+      .notNull()
+      .references(() => sprints.id, { onDelete: "cascade" }),
+    reason: text("reason").notNull(),
+    attempts_summary: text("attempts_summary").notNull(),
+    recommended_action: text("recommended_action"),
+    recommended_target_status: text("recommended_target_status").notNull(),
+    from_status: text("from_status").notNull(),
+    retry_count: integer("retry_count").notNull(),
+    max_retries: integer("max_retries").notNull(),
+    escalated_by: text("escalated_by").notNull(),
+    escalated_at: text("escalated_at").notNull(),
+    resolved_at: text("resolved_at"),
+    resolved_by: text("resolved_by"),
+    resolution_target_status: text("resolution_target_status"),
+    resolution_notes: text("resolution_notes"),
+  },
+  (escalations) => ({
+    taskEscalationIdx: index("task_escalation_idx").on(escalations.task_id),
+    activeEscalationIdx: index("active_escalation_idx").on(
+      escalations.task_id,
+      escalations.resolved_at
+    ),
+  })
+);
