@@ -193,6 +193,159 @@ async function initializeWorkspace(
 }
 
 /**
+ * Handle moving a task to GATE_CHECK for re-verification
+ */
+async function handleMoveToGateCheck(
+  workspaceRoot: string,
+  taskId: number,
+  treeProvider: SprintTreeProvider
+): Promise<void> {
+  const { updateTaskStatus, createResolutionSignal } = await import(
+    "./database/mutations.js"
+  );
+
+  const confirm = await vscode.window.showWarningMessage(
+    `Move Task ${taskId} to Gate Check? This will trigger re-verification with current criteria.`,
+    { modal: true },
+    "Move to Gate Check"
+  );
+
+  if (confirm !== "Move to Gate Check") {
+    return;
+  }
+
+  try {
+    // Create a resolution signal for re-verification
+    createResolutionSignal(
+      workspaceRoot,
+      taskId,
+      "Escalation resolved - moving to Gate Check for re-verification"
+    );
+
+    // Update task status
+    updateTaskStatus(
+      workspaceRoot,
+      taskId,
+      "GATE_CHECK",
+      "Escalation resolved by human supervisor - re-verification requested"
+    );
+
+    treeProvider.refresh();
+    vscode.window.showInformationMessage(
+      `Orchestra: Task ${taskId} moved to Gate Check. Run verification via MCP.`
+    );
+    logger.info(`Task ${taskId} moved to GATE_CHECK by human supervisor`);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    vscode.window.showErrorMessage(
+      `Orchestra: Failed to move task - ${message}`
+    );
+    logger.error(`Failed to move task ${taskId} to GATE_CHECK`, error);
+  }
+}
+
+/**
+ * Handle moving a task back to IMPLEMENT for re-implementation
+ */
+async function handleMoveToImplement(
+  workspaceRoot: string,
+  taskId: number,
+  treeProvider: SprintTreeProvider
+): Promise<void> {
+  const { updateTaskStatus } = await import("./database/mutations.js");
+
+  const confirm = await vscode.window.showWarningMessage(
+    `Move Task ${taskId} back to Implement? The task will need to be re-implemented.`,
+    { modal: true },
+    "Move to Implement"
+  );
+
+  if (confirm !== "Move to Implement") {
+    return;
+  }
+
+  try {
+    updateTaskStatus(
+      workspaceRoot,
+      taskId,
+      "IMPLEMENT",
+      "Escalation resolved by human supervisor - re-implementation requested"
+    );
+
+    treeProvider.refresh();
+    vscode.window.showInformationMessage(
+      `Orchestra: Task ${taskId} moved to Implement. Ready for implementor.`
+    );
+    logger.info(`Task ${taskId} moved to IMPLEMENT by human supervisor`);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    vscode.window.showErrorMessage(
+      `Orchestra: Failed to move task - ${message}`
+    );
+    logger.error(`Failed to move task ${taskId} to IMPLEMENT`, error);
+  }
+}
+
+/**
+ * Handle force-completing a task (override)
+ */
+async function handleForceComplete(
+  workspaceRoot: string,
+  taskId: number,
+  treeProvider: SprintTreeProvider
+): Promise<void> {
+  const { updateTaskStatus } = await import("./database/mutations.js");
+
+  const justification = await vscode.window.showInputBox({
+    prompt: "Provide justification for force-completing this task",
+    placeHolder: "e.g., Verification criteria were incorrect, implementation is valid",
+    validateInput: (value) => {
+      if (!value || value.length < 20) {
+        return "Justification must be at least 20 characters";
+      }
+      return null;
+    },
+  });
+
+  if (!justification) {
+    return;
+  }
+
+  const confirm = await vscode.window.showWarningMessage(
+    `Force complete Task ${taskId}? This bypasses verification.`,
+    { modal: true },
+    "Force Complete"
+  );
+
+  if (confirm !== "Force Complete") {
+    return;
+  }
+
+  try {
+    updateTaskStatus(
+      workspaceRoot,
+      taskId,
+      "COMPLETE",
+      `Force completed by human supervisor: ${justification}`
+    );
+
+    treeProvider.refresh();
+    vscode.window.showInformationMessage(
+      `Orchestra: Task ${taskId} force-completed.`
+    );
+    logger.info(
+      `Task ${taskId} force-completed by human supervisor: ${justification}`
+    );
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    vscode.window.showErrorMessage(
+      `Orchestra: Failed to complete task - ${message}`
+    );
+    logger.error(`Failed to force-complete task ${taskId}`, error);
+  }
+}
+
+/**
  * Extension activation
  * Triggered when .orchestra/orchestra.db is found in workspace
  */
@@ -409,6 +562,31 @@ export async function activate(
               `Orchestra: Failed to install MCP servers - ${message}`
             );
             logger.error("Failed to install MCP servers", error);
+          }
+        }
+      ),
+      // Task remediation commands
+      vscode.commands.registerCommand(
+        "orchestra.moveToGateCheck",
+        async (element: { type: string; task?: { task_id: number } }) => {
+          if (element?.task?.task_id) {
+            await handleMoveToGateCheck(orchestraRoot, element.task.task_id, treeProvider);
+          }
+        }
+      ),
+      vscode.commands.registerCommand(
+        "orchestra.moveToImplement",
+        async (element: { type: string; task?: { task_id: number } }) => {
+          if (element?.task?.task_id) {
+            await handleMoveToImplement(orchestraRoot, element.task.task_id, treeProvider);
+          }
+        }
+      ),
+      vscode.commands.registerCommand(
+        "orchestra.forceComplete",
+        async (element: { type: string; task?: { task_id: number } }) => {
+          if (element?.task?.task_id) {
+            await handleForceComplete(orchestraRoot, element.task.task_id, treeProvider);
           }
         }
       )

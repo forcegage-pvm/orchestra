@@ -88,6 +88,21 @@
         "command": "orchestra.initializeWorkspace",
         "title": "Orchestra: Initialize Workspace",
         "icon": "$(add)"
+      },
+      {
+        "command": "orchestra.moveToGateCheck",
+        "title": "Move to Gate Check (Re-verify)",
+        "icon": "$(debug-restart)"
+      },
+      {
+        "command": "orchestra.moveToImplement",
+        "title": "Move to Implement (Re-do)",
+        "icon": "$(debug-step-back)"
+      },
+      {
+        "command": "orchestra.forceComplete",
+        "title": "Force Complete (Override)",
+        "icon": "$(check-all)"
       }
     ],
     "viewsContainers": {
@@ -125,6 +140,28 @@
           "command": "orchestra.refreshStatus",
           "when": "view == orchestraSprintExplorer",
           "group": "navigation"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "orchestra.openTaskDetail",
+          "when": "view == orchestraSprintExplorer && viewItem =~ /^task-/",
+          "group": "navigation"
+        },
+        {
+          "command": "orchestra.moveToGateCheck",
+          "when": "view == orchestraSprintExplorer && viewItem =~ /^task-(escalated|verify_failed)$/",
+          "group": "1_remediation@1"
+        },
+        {
+          "command": "orchestra.moveToImplement",
+          "when": "view == orchestraSprintExplorer && viewItem =~ /^task-(escalated|verify_failed)$/",
+          "group": "1_remediation@2"
+        },
+        {
+          "command": "orchestra.forceComplete",
+          "when": "view == orchestraSprintExplorer && viewItem == task-escalated",
+          "group": "2_override"
         }
       ]
     }

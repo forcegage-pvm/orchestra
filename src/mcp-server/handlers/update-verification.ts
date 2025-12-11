@@ -7,9 +7,10 @@
  * ALLOWED STATES:
  * - CONFIGURE: Initial sprint configuration
  * - PREPARE: During task preparation (spec error corrections)
+ * - VERIFY (with ESCALATED task): Human supervisor correcting spec errors
  *
  * AUDIT TRAIL:
- * When called during PREPARE, creates an amendment record with full
+ * When called outside CONFIGURE, creates an amendment record with full
  * before/after state for accountability and debugging.
  */
 
@@ -74,17 +75,30 @@ async function updateVerification(
 ): Promise<UpdateVerificationOutput & { amendment_id?: number }> {
   const db = getDb();
 
-  // 1. Get active sprint - allow CONFIGURE or PREPARE states
+  // 1. Get active sprint (any active state except SPRINT_COMPLETE)
   const [sprint] = await db
     .select()
     .from(sprints)
-    .where(inArray(sprints.workflow_step, ["CONFIGURE", "PREPARE"]))
+    .where(
+      and(
+        inArray(sprints.workflow_step, [
+          "CONFIGURE",
+          "PREPARE",
+          "SELECT_TASK",
+          "IMPLEMENT",
+          "SIGNAL",
+          "VERIFY",
+          "RETRY",
+          "ESCALATED",
+        ])
+      )
+    )
     .limit(1);
 
   if (!sprint) {
     throw new Error(
-      "No active sprint in CONFIGURE or PREPARE state. " +
-        "Verification criteria can only be updated before the task is handed to the implementor."
+      "No active sprint found. " +
+        "Verification criteria can only be updated during active sprints."
     );
   }
 
@@ -101,9 +115,35 @@ async function updateVerification(
     throw new Error(`Task ${input.task_id} not found in active sprint`);
   }
 
+  // 3. Validate state-based permission
+  // - CONFIGURE: always allowed (initial setup)
+  // - PREPARE: always allowed (spec refinement before handover)
+  // - Other states: only allowed if task is ESCALATED (human supervisor correction)
+  const allowedSprintStates = ["CONFIGURE", "PREPARE"];
+  const isInAllowedSprintState = allowedSprintStates.includes(
+    sprint.workflow_step
+  );
+
+  if (!isInAllowedSprintState) {
+    if (task.status !== "ESCALATED") {
+      throw new Error(
+        `Task ${input.task_id} is in ${task.status} state. ` +
+          `During ${sprint.workflow_step} phase, verification criteria can only be updated for ESCALATED tasks. ` +
+          "Escalate the task first if spec corrections are needed."
+      );
+    }
+    // Require rationale for ESCALATED task updates
+    if (!input.rationale || input.rationale.length < 10) {
+      throw new Error(
+        "Rationale is required when updating verification for ESCALATED tasks (min 10 chars). " +
+          "Explain why the verification criteria need correction."
+      );
+    }
+  }
+
   const now = new Date().toISOString();
 
-  // 3. Capture BEFORE state for amendment tracking (if not in CONFIGURE)
+  // 4. Capture BEFORE state for amendment tracking (if not in CONFIGURE)
   const isAmendment = sprint.workflow_step !== "CONFIGURE";
   let beforeState: Record<string, unknown>[] = [];
   let amendmentId: number | undefined;

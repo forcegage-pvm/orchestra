@@ -142,8 +142,16 @@ export class SprintTreeProvider
     // Status-based icons
     item.iconPath = this._getIconForStatus(task.status);
 
-    // Tooltip shows description
-    item.tooltip = task.description;
+    // Tooltip shows description and status
+    item.tooltip = new vscode.MarkdownString();
+    item.tooltip.appendMarkdown(`**${task.title}**\n\n`);
+    item.tooltip.appendMarkdown(`Status: \`${task.status}\`\n\n`);
+    if (task.status === "ESCALATED" || task.status === "VERIFY_FAILED") {
+      item.tooltip.appendMarkdown(
+        `⚠️ *Right-click for remediation options*\n\n`
+      );
+    }
+    item.tooltip.appendMarkdown(task.description);
 
     // Click opens task detail
     item.command = {
@@ -152,7 +160,16 @@ export class SprintTreeProvider
       arguments: [task.task_id],
     };
 
-    item.contextValue = "task";
+    // Context value for menus - include status for conditional menus
+    item.contextValue = `task-${task.status.toLowerCase()}`;
+
+    // Add warning color for escalated/failed tasks
+    if (task.status === "ESCALATED") {
+      item.description = "⚠️ ESCALATED";
+    } else if (task.status === "VERIFY_FAILED") {
+      item.description = "❌ FAILED";
+    }
+
     return item;
   }
 
@@ -168,6 +185,16 @@ export class SprintTreeProvider
         return new vscode.ThemeIcon("eye");
       case "COMPLETE":
         return new vscode.ThemeIcon("check");
+      case "ESCALATED":
+        return new vscode.ThemeIcon(
+          "warning",
+          new vscode.ThemeColor("editorWarning.foreground")
+        );
+      case "VERIFY_FAILED":
+        return new vscode.ThemeIcon(
+          "error",
+          new vscode.ThemeColor("editorError.foreground")
+        );
       default:
         return new vscode.ThemeIcon("question");
     }
