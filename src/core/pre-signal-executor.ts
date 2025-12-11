@@ -7,6 +7,8 @@
  * Per GAP-01: Pre-signal checks must execute real commands, not trust claims.
  */
 
+import * as fs from "node:fs";
+import * as path from "node:path";
 import { executeCommand, ExecuteResult } from "./command-executor.js";
 
 /**
@@ -71,6 +73,70 @@ const DEFAULT_TEST_COMMAND = "npm test";
 const DEFAULT_TIMEOUT = 300000;
 
 /**
+ * Detected project type for auto-configuring commands
+ */
+type ProjectType = "flutter" | "node" | "python" | "rust" | "go" | "unknown";
+
+/**
+ * Detect project type based on files present in workspace
+ */
+function detectProjectType(workspacePath: string): ProjectType {
+  const exists = (file: string) =>
+    fs.existsSync(path.join(workspacePath, file));
+
+  if (exists("pubspec.yaml")) return "flutter";
+  if (exists("package.json")) return "node";
+  if (exists("pyproject.toml") || exists("setup.py") || exists("requirements.txt"))
+    return "python";
+  if (exists("Cargo.toml")) return "rust";
+  if (exists("go.mod")) return "go";
+
+  return "unknown";
+}
+
+/**
+ * Get default commands for a project type
+ */
+function getDefaultCommands(projectType: ProjectType): {
+  build: string;
+  test: string;
+  lint?: string;
+} {
+  switch (projectType) {
+    case "flutter":
+      return {
+        build: "flutter analyze",
+        test: "flutter test",
+        lint: "dart format --set-exit-if-changed .",
+      };
+    case "python":
+      return {
+        build: "python -m py_compile .", // Basic syntax check
+        test: "pytest",
+        lint: "ruff check .",
+      };
+    case "rust":
+      return {
+        build: "cargo build",
+        test: "cargo test",
+        lint: "cargo clippy",
+      };
+    case "go":
+      return {
+        build: "go build ./...",
+        test: "go test ./...",
+        lint: "golangci-lint run",
+      };
+    case "node":
+    default:
+      return {
+        build: DEFAULT_BUILD_COMMAND,
+        test: DEFAULT_TEST_COMMAND,
+      };
+  }
+}
+
+/**
  * Run pre-signal checks by executing actual commands
  *
  * @param config - Configuration for pre-signal checks
@@ -100,25 +166,30 @@ export async function runPreSignalChecks(
     timeout,
   };
 
+  // Auto-detect project type if no commands specified
+  const projectType = detectProjectType(config.workspacePath);
+  const defaults = getDefaultCommands(projectType);
+
   // Run build check
   const buildResult = await runCheck(
-    config.buildCommand ?? DEFAULT_BUILD_COMMAND,
+    config.buildCommand ?? defaults.build,
     execOptions,
     config.skipBuild
   );
 
   // Run test check
   const testResult = await runCheck(
-    config.testCommand ?? DEFAULT_TEST_COMMAND,
+    config.testCommand ?? defaults.test,
     execOptions,
     config.skipTest
   );
 
-  // Run lint check (only if command is specified and not skipped)
+  // Run lint check (use detected default if available, or explicit config)
+  const lintCommand = config.lintCommand ?? defaults.lint;
   const lintResult = await runCheck(
-    config.lintCommand,
+    lintCommand,
     execOptions,
-    config.skipLint || !config.lintCommand
+    config.skipLint || !lintCommand
   );
 
   const allPassed =
