@@ -202,11 +202,11 @@ export class SprintTreeProvider
     }
     item.tooltip.appendMarkdown(task.description);
 
-    // Click opens task detail
+    // Click opens task detail (use internal id, not task_id)
     item.command = {
       command: "orchestra.openTaskDetail",
       title: "Open Task Detail",
-      arguments: [task.task_id],
+      arguments: [task.id],
     };
 
     // Context value for menus - include status for conditional menus

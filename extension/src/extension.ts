@@ -829,20 +829,20 @@ export async function activate(
       ),
       vscode.commands.registerCommand(
         "orchestra.startTask",
-        async (element: { type: string; task?: { task_id: number } }) => {
-          if (element?.task?.task_id) {
-            await handleStartTask(orchestraRoot, element.task.task_id);
+        async (element: { type: string; task?: { id: number } }) => {
+          if (element?.task?.id) {
+            await handleStartTask(orchestraRoot, element.task.id);
           }
         }
       ),
       // Task remediation commands
       vscode.commands.registerCommand(
         "orchestra.deEscalateTask",
-        async (element: { type: string; task?: { task_id: number } }) => {
-          if (element?.task?.task_id) {
+        async (element: { type: string; task?: { id: number } }) => {
+          if (element?.task?.id) {
             await handleDeEscalateTask(
               orchestraRoot,
-              element.task.task_id,
+              element.task.id,
               treeProvider
             );
           }
@@ -850,11 +850,11 @@ export async function activate(
       ),
       vscode.commands.registerCommand(
         "orchestra.moveToGateCheck",
-        async (element: { type: string; task?: { task_id: number } }) => {
-          if (element?.task?.task_id) {
+        async (element: { type: string; task?: { id: number } }) => {
+          if (element?.task?.id) {
             await handleMoveToGateCheck(
               orchestraRoot,
-              element.task.task_id,
+              element.task.id,
               treeProvider
             );
           }
@@ -862,11 +862,11 @@ export async function activate(
       ),
       vscode.commands.registerCommand(
         "orchestra.moveToImplement",
-        async (element: { type: string; task?: { task_id: number } }) => {
-          if (element?.task?.task_id) {
+        async (element: { type: string; task?: { id: number } }) => {
+          if (element?.task?.id) {
             await handleMoveToImplement(
               orchestraRoot,
-              element.task.task_id,
+              element.task.id,
               treeProvider
             );
           }
@@ -874,11 +874,11 @@ export async function activate(
       ),
       vscode.commands.registerCommand(
         "orchestra.forceComplete",
-        async (element: { type: string; task?: { task_id: number } }) => {
-          if (element?.task?.task_id) {
-            await handleForceComplete(
+        async (element: { type: string; task?: { id: number } }) => {
+          if (element?.task?.id) {
+            await handleForceCompleteTask(
               orchestraRoot,
-              element.task.task_id,
+              element.task.id,
               treeProvider
             );
           }

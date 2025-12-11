@@ -41,7 +41,7 @@ export function updateTaskStatus(
     SELECT t.id, t.status, t.sprint_id 
     FROM tasks t
     JOIN sprints s ON t.sprint_id = s.id
-    WHERE t.task_id = ?
+    WHERE t.id = ?
   `
     )
     .get(taskId) as
@@ -136,7 +136,7 @@ export function createResolutionSignal(
       `
     SELECT id, retry_count 
     FROM tasks 
-    WHERE task_id = ?
+    WHERE id = ?
   `
     )
     .get(taskId) as { id: number; retry_count: number } | undefined;
@@ -279,7 +279,7 @@ export function resolveEscalation(
     SELECT t.id, t.status, t.sprint_id 
     FROM tasks t
     JOIN sprints s ON t.sprint_id = s.id
-    WHERE t.task_id = ?
+    WHERE t.id = ?
   `
     )
     .get(taskId) as
@@ -395,15 +395,7 @@ export function getEscalationDetails(
   | undefined {
   const db = OrchestraDB.getInstance(workspaceRoot);
 
-  // Get task internal ID first
-  const task = db
-    .prepare(`SELECT id FROM tasks WHERE task_id = ?`)
-    .get(taskId) as { id: number } | undefined;
-
-  if (!task) {
-    return undefined;
-  }
-
+  // Get escalation using internal task ID
   const escalation = db
     .prepare(
       `
@@ -414,7 +406,7 @@ export function getEscalationDetails(
     LIMIT 1
   `
     )
-    .get(task.id) as
+    .get(taskId) as
     | {
         reason: string;
         attempts_summary: string;
