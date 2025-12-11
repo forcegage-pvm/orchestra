@@ -22,6 +22,7 @@ import {
   findOrchestraRoot,
   validateOrchestraWorkspace,
 } from "./workspace/detector.js";
+import { registerChatParticipant } from "./chat/participant.js";
 
 let logger: OrchestraLogger;
 let dbWatcher: DatabaseWatcher | undefined;
@@ -354,7 +355,16 @@ export async function activate(
     context.subscriptions.push(statusBar);
     logger.info("Status bar item registered");
 
-    // 7. Register commands
+    // 7. Register Chat Participant
+    const chatParticipant = registerChatParticipant(
+      context,
+      orchestraRoot,
+      logger
+    );
+    context.subscriptions.push(chatParticipant);
+    logger.info("Chat participant registered");
+
+    // 8. Register commands
     context.subscriptions.push(
       vscode.commands.registerCommand("orchestra.openDashboard", () => {
         if (dbWatcher) {
@@ -405,7 +415,7 @@ export async function activate(
     );
     logger.info("Commands registered");
 
-    // 8. Start MCP servers (if enabled)
+    // 9. Start MCP servers (if enabled)
     const config = vscode.workspace.getConfiguration("orchestra");
     const autoStartMCP = config.get<boolean>("autoStartMCP", true);
 
