@@ -160,6 +160,15 @@ If your handover:
 
 **CRITICAL SECURITY BOUNDARY**: You must **NEVER** attempt to read, access, or infer the contents of any restricted file. This protects the integrity of the Orchestra verification model.
 
+### context_files Rules
+
+The `context_files` in your handover lists files you MAY read. However:
+
+- **ONLY read files explicitly listed** - don't explore related files
+- **If a listed file contains task lists** → STOP, escalate (Orchestrator error)
+- **If curious about other tasks** → Don't look. Trust the handover.
+- **If dependency task referenced** → Trust it's complete. Check the actual code.
+
 ## Workflow: Your Lifecycle
 
 ```
