@@ -86,7 +86,11 @@ function detectProjectType(workspacePath: string): ProjectType {
 
   if (exists("pubspec.yaml")) return "flutter";
   if (exists("package.json")) return "node";
-  if (exists("pyproject.toml") || exists("setup.py") || exists("requirements.txt"))
+  if (
+    exists("pyproject.toml") ||
+    exists("setup.py") ||
+    exists("requirements.txt")
+  )
     return "python";
   if (exists("Cargo.toml")) return "rust";
   if (exists("go.mod")) return "go";

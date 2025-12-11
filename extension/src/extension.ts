@@ -193,6 +193,100 @@ async function initializeWorkspace(
 }
 
 /**
+ * Handle invoking the orchestrator agent
+ * Opens chat with @orchestra participant and orchestrator agent context
+ */
+async function handleInvokeOrchestrator(_workspaceRoot: string): Promise<void> {
+  try {
+    // Open chat and send a message to invoke orchestrator agent
+    await vscode.commands.executeCommand("workbench.action.chat.open", {
+      query: "@orchestra I'm ready to work as the orchestrator agent.",
+    });
+    logger.info("Orchestrator agent invoked via chat");
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    vscode.window.showErrorMessage(
+      `Orchestra: Failed to open chat - ${message}`
+    );
+    logger.error("Failed to invoke orchestrator", error);
+  }
+}
+
+/**
+ * Handle invoking the implementor agent
+ * Opens chat with @orchestra participant and implementor agent context
+ */
+async function handleInvokeImplementor(_workspaceRoot: string): Promise<void> {
+  try {
+    // Open chat and send a message to invoke implementor agent
+    await vscode.commands.executeCommand("workbench.action.chat.open", {
+      query: "@orchestra I'm ready to work as the implementor agent.",
+    });
+    logger.info("Implementor agent invoked via chat");
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    vscode.window.showErrorMessage(
+      `Orchestra: Failed to open chat - ${message}`
+    );
+    logger.error("Failed to invoke implementor", error);
+  }
+}
+
+/**
+ * Handle starting a task
+ * Opens chat with implementor agent and task context pre-filled
+ */
+async function handleStartTask(
+  workspaceRoot: string,
+  taskId: number
+): Promise<void> {
+  const { getHandover, getTasksForSprint, getCurrentSprint } = await import(
+    "./database/queries.js"
+  );
+
+  try {
+    // Get task details
+    const sprint = getCurrentSprint(workspaceRoot);
+    if (!sprint) {
+      vscode.window.showErrorMessage("Orchestra: No active sprint found");
+      return;
+    }
+
+    const tasks = getTasksForSprint(workspaceRoot, sprint.id);
+    const task = tasks.find((t) => t.task_id === taskId);
+
+    if (!task) {
+      vscode.window.showErrorMessage(
+        `Orchestra: Task ${taskId} not found in current sprint`
+      );
+      return;
+    }
+
+    // Check if task has a handover
+    const handover = getHandover(workspaceRoot, task.id);
+    if (!handover) {
+      vscode.window.showWarningMessage(
+        `Orchestra: Task ${taskId} has no handover yet. Use the orchestrator to prepare it first.`
+      );
+      return;
+    }
+
+    // Open chat with task context pre-filled
+    await vscode.commands.executeCommand("workbench.action.chat.open", {
+      query: `@orchestra Start working on Task ${taskId}: ${task.title}. The handover has been prepared and I'm ready to implement.`,
+    });
+
+    logger.info(`Task ${taskId} started via chat invocation`);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    vscode.window.showErrorMessage(
+      `Orchestra: Failed to start task - ${message}`
+    );
+    logger.error(`Failed to start task ${taskId}`, error);
+  }
+}
+
+/**
  * Handle moving a task to GATE_CHECK for re-verification
  */
 async function handleMoveToGateCheck(
@@ -567,6 +661,27 @@ export async function activate(
               `Orchestra: Failed to install MCP servers - ${message}`
             );
             logger.error("Failed to install MCP servers", error);
+          }
+        }
+      ),
+      // Agent invocation commands
+      vscode.commands.registerCommand(
+        "orchestra.invokeOrchestrator",
+        async () => {
+          await handleInvokeOrchestrator(orchestraRoot);
+        }
+      ),
+      vscode.commands.registerCommand(
+        "orchestra.invokeImplementor",
+        async () => {
+          await handleInvokeImplementor(orchestraRoot);
+        }
+      ),
+      vscode.commands.registerCommand(
+        "orchestra.startTask",
+        async (element: { type: string; task?: { task_id: number } }) => {
+          if (element?.task?.task_id) {
+            await handleStartTask(orchestraRoot, element.task.task_id);
           }
         }
       ),
