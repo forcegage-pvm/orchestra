@@ -21,6 +21,7 @@
   "scripts": {
     "dev": "tsx src/cli.ts",
     "build": "tsc",
+    "build:mcp-bundle": "node scripts/build-mcp-bundle.js",
     "build:extension": "cd extension && npm run build",
     "watch:extension": "cd extension && npm run watch",
     "test": "vitest run",

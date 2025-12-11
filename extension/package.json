@@ -19,7 +19,7 @@
     "mcp"
   ],
   "activationEvents": [
-    "workspaceContains:**/.orchestra/orchestra.db"
+    "onStartupFinished"
   ],
   "main": "./dist/extension.js",
   "contributes": {
@@ -79,6 +79,11 @@
         "command": "orchestra.installMcpServers",
         "title": "Orchestra: Install MCP Servers",
         "icon": "$(plug)"
+      },
+      {
+        "command": "orchestra.initializeWorkspace",
+        "title": "Orchestra: Initialize Workspace",
+        "icon": "$(add)"
       }
     ],
     "viewsContainers": {
@@ -86,7 +91,7 @@
         {
           "id": "orchestra-explorer",
           "title": "Orchestra",
-          "icon": "resources/orchestra-icon.svg"
+          "icon": "$(symbol-misc)"
         }
       ]
     },
@@ -98,6 +103,18 @@
         }
       ]
     },
+    "viewsWelcome": [
+      {
+        "view": "orchestraSprintExplorer",
+        "contents": "No Orchestra workspace detected.\n\n[Initialize Workspace](command:orchestra.initializeWorkspace)\n\nThis will create the .orchestra folder and database for AI agent task orchestration.",
+        "when": "!orchestra.hasWorkspace"
+      },
+      {
+        "view": "orchestraSprintExplorer",
+        "contents": "No active sprint.\n\nUse the Orchestra MCP server to configure a sprint, or create one manually.\n\n[Install MCP Servers](command:orchestra.installMcpServers)",
+        "when": "orchestra.hasWorkspace && !orchestra.hasActiveSprint"
+      }
+    ],
     "menus": {
       "view/title": [
         {
@@ -119,7 +136,7 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "better-sqlite3": "^11.7.0",
+    "better-sqlite3": "^11.10.0",
     "drizzle-orm": "^0.37.0"
   },
   "devDependencies": {

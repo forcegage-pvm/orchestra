@@ -99,11 +99,10 @@ export class OrchestraDB {
         fileMustExist: true,
       });
 
-      // Configure SQLite for optimal read performance
-      OrchestraDB.sqliteConnection.pragma("journal_mode = WAL");
-      OrchestraDB.sqliteConnection.pragma("synchronous = NORMAL");
+      // Configure SQLite for optimal read performance (read-only safe pragmas only)
       OrchestraDB.sqliteConnection.pragma("cache_size = -64000"); // 64MB cache
       OrchestraDB.sqliteConnection.pragma("temp_store = MEMORY");
+      // Note: journal_mode and synchronous are write operations, skipped for read-only
 
       // Create Drizzle ORM instance for type-safe queries
       // Schema is loaded at runtime to avoid module system conflicts
@@ -138,12 +137,17 @@ export class OrchestraDB {
         );
       }
 
-      // Re-throw other errors with context
-      throw new DatabaseError("Failed to open Orchestra database", {
-        workspaceRoot,
-        dbPath,
-        error,
-      });
+      // Re-throw other errors with context - include original message
+      const originalMessage =
+        error instanceof Error ? error.message : String(error);
+      throw new DatabaseError(
+        `Failed to open Orchestra database: ${originalMessage}`,
+        {
+          workspaceRoot,
+          dbPath,
+          error,
+        }
+      );
     }
   }
 

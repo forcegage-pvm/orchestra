@@ -5,6 +5,7 @@
  * database initialization, view registration, and MCP server lifecycle.
  */
 
+import Database from "better-sqlite3";
 import * as fs from "fs";
 import * as path from "path";
 import * as vscode from "vscode";
@@ -106,6 +107,91 @@ async function installMcpServers(
 }
 
 /**
+ * Initialize Orchestra workspace
+ * Creates .orchestra folder and empty database
+ */
+async function initializeWorkspace(
+  context: vscode.ExtensionContext
+): Promise<void> {
+  const workspaceFolders = vscode.workspace.workspaceFolders;
+  if (!workspaceFolders || workspaceFolders.length === 0) {
+    vscode.window.showErrorMessage("Orchestra: No workspace folder open");
+    return;
+  }
+
+  const workspaceRoot = workspaceFolders[0]?.uri.fsPath;
+  if (!workspaceRoot) {
+    vscode.window.showErrorMessage(
+      "Orchestra: Unable to determine workspace root"
+    );
+    return;
+  }
+
+  const orchestraDir = path.join(workspaceRoot, ".orchestra");
+
+  // Check if already initialized
+  if (fs.existsSync(orchestraDir)) {
+    const dbPath = path.join(orchestraDir, "orchestra.db");
+    if (fs.existsSync(dbPath)) {
+      vscode.window.showInformationMessage(
+        "Orchestra: Workspace already initialized. Reloading..."
+      );
+      // Reload the window to pick up the workspace
+      vscode.commands.executeCommand("workbench.action.reloadWindow");
+      return;
+    }
+  }
+
+  try {
+    // Create .orchestra directory
+    fs.mkdirSync(orchestraDir, { recursive: true });
+    logger.info(`Created .orchestra directory at ${orchestraDir}`);
+
+    // NOTE: Don't create database file - MCP server will create it with proper schema
+    // when configure_sprint is called
+
+    // Create .github/agents directory and agent instruction files
+    const agentsDir = path.join(workspaceRoot, ".github", "agents");
+    fs.mkdirSync(agentsDir, { recursive: true });
+
+    // Copy agent instruction files from extension bundle
+    const agentFiles = [
+      "orchestra.orchestrator.agent.md",
+      "orchestra.implementor.agent.md",
+    ];
+
+    for (const agentFile of agentFiles) {
+      const sourcePath = path.join(context.extensionPath, "agents", agentFile);
+      const targetPath = path.join(agentsDir, agentFile);
+
+      // Only copy if source exists and target doesn't (don't overwrite user customizations)
+      if (fs.existsSync(sourcePath) && !fs.existsSync(targetPath)) {
+        fs.copyFileSync(sourcePath, targetPath);
+        logger.info(`Created agent file: ${agentFile}`);
+      }
+    }
+    logger.info("Created .github/agents directory with agent instructions");
+
+    // Automatically install MCP servers
+    await installMcpServers(orchestraDir, context.extensionPath);
+    logger.info("MCP servers installed to .vscode/mcp.json");
+
+    vscode.window.showInformationMessage(
+      "Orchestra: Workspace initialized with MCP servers. Reloading window..."
+    );
+
+    // Reload window to activate extension with the new workspace
+    vscode.commands.executeCommand("workbench.action.reloadWindow");
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    logger.error("Failed to initialize workspace", error);
+    vscode.window.showErrorMessage(
+      `Orchestra: Failed to initialize workspace - ${message}`
+    );
+  }
+}
+
+/**
  * Extension activation
  * Triggered when .orchestra/orchestra.db is found in workspace
  */
@@ -117,41 +203,139 @@ export async function activate(
 
   // 1. Detect Orchestra workspace
   const orchestraRoot = findOrchestraRoot();
+
+  // Set context for welcome view
+  vscode.commands.executeCommand(
+    "setContext",
+    "orchestra.hasWorkspace",
+    !!orchestraRoot
+  );
+
+  // Always register the initialize command (available even without workspace)
+  context.subscriptions.push(
+    vscode.commands.registerCommand(
+      "orchestra.initializeWorkspace",
+      async () => {
+        await initializeWorkspace(context);
+      }
+    )
+  );
+
   if (!orchestraRoot) {
     logger.warn("No .orchestra/ folder found in workspace");
-    vscode.window.showInformationMessage(
-      "Orchestra: No .orchestra/ workspace detected. Initialize a sprint to get started."
-    );
+
+    // Register empty tree provider for welcome view
+    const emptyProvider: vscode.TreeDataProvider<never> = {
+      getTreeItem: () => {
+        throw new Error("No items");
+      },
+      getChildren: () => [],
+    };
+    const treeView = vscode.window.createTreeView("orchestraSprintExplorer", {
+      treeDataProvider: emptyProvider,
+    });
+    context.subscriptions.push(treeView);
+
+    logger.info("Orchestra extension activated (no workspace mode)");
     return;
   }
 
   logger.info(`Orchestra workspace detected: ${orchestraRoot}`);
 
-  // 2. Validate workspace
+  // 2. Validate workspace - check if database exists
   if (!validateOrchestraWorkspace(orchestraRoot)) {
-    logger.error("Invalid Orchestra workspace: orchestra.db not found");
-    vscode.window.showErrorMessage(
-      "Orchestra: Invalid workspace. Missing orchestra.db file."
+    logger.info("Orchestra workspace found but no database yet");
+
+    // Set context for "no sprint" welcome view
+    vscode.commands.executeCommand(
+      "setContext",
+      "orchestra.hasActiveSprint",
+      false
+    );
+
+    // Register empty tree provider for welcome view
+    const emptyProvider: vscode.TreeDataProvider<never> = {
+      getTreeItem: () => {
+        throw new Error("No items");
+      },
+      getChildren: () => [],
+    };
+    const treeView = vscode.window.createTreeView("orchestraSprintExplorer", {
+      treeDataProvider: emptyProvider,
+    });
+    context.subscriptions.push(treeView);
+
+    // Register install MCP command
+    context.subscriptions.push(
+      vscode.commands.registerCommand(
+        "orchestra.installMcpServers",
+        async () => {
+          try {
+            await installMcpServers(orchestraRoot, context.extensionPath);
+            vscode.window.showInformationMessage(
+              "Orchestra: MCP servers installed to .vscode/mcp.json"
+            );
+          } catch (error) {
+            const message =
+              error instanceof Error ? error.message : "Unknown error";
+            vscode.window.showErrorMessage(
+              `Orchestra: Failed to install MCP servers - ${message}`
+            );
+          }
+        }
+      )
+    );
+
+    logger.info(
+      "Orchestra extension activated (no database mode - use MCP to configure sprint)"
     );
     return;
   }
 
+  // 3. Generate MCP config (safe to do even if database fails)
+  const extensionVersion = context.extension.packageJSON.version || "0.0.0";
+  const configGenerator = new ConfigGenerator(
+    orchestraRoot,
+    context.extensionPath,
+    extensionVersion,
+    logger
+  );
+  await configGenerator.generateConfig();
+  logger.info("MCP config generation complete");
+
+  // 4. Initialize database client - wrap in try-catch for graceful degradation
+  let db: Database.Database;
   try {
-    // 3. Generate MCP config
-    const extensionVersion = context.extension.packageJSON.version || "0.0.0";
-    const configGenerator = new ConfigGenerator(
-      orchestraRoot,
-      context.extensionPath,
-      extensionVersion,
-      logger
-    );
-    await configGenerator.generateConfig();
-    logger.info("MCP config generation complete");
-
-    // 4. Initialize database client
-    const db = OrchestraDB.getInstance(orchestraRoot);
+    db = OrchestraDB.getInstance(orchestraRoot);
     logger.info("Database client initialized");
+  } catch (error) {
+    logger.error("Failed to initialize database", error);
 
+    // Show error to user with helpful context
+    const errorMsg = error instanceof Error ? error.message : "Unknown error";
+    vscode.window.showErrorMessage(
+      `Orchestra: Cannot open database - ${errorMsg}. ` +
+        `The database may be locked by another process or corrupted. ` +
+        `Try: 1) Close other VS Code windows, 2) Restart VS Code, 3) Check if MCP servers are running.`
+    );
+
+    // Register empty tree provider for graceful degradation
+    const emptyProvider: vscode.TreeDataProvider<never> = {
+      getTreeItem: () => {
+        throw new Error("No items");
+      },
+      getChildren: () => [],
+    };
+    const treeView = vscode.window.createTreeView("orchestraSprintExplorer", {
+      treeDataProvider: emptyProvider,
+    });
+    context.subscriptions.push(treeView);
+
+    logger.info("Orchestra extension activated (database error mode)");
+    return;
+  }
+
+  try {
     // 5. Setup database watcher for reactive updates
     dbWatcher = new DatabaseWatcher(orchestraRoot);
     context.subscriptions.push(dbWatcher);

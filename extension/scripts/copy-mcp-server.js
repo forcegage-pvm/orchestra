@@ -1,16 +1,17 @@
 /**
  * Copy MCP Server to Extension Bundle
  *
- * This script copies the built MCP server from the root project's dist/mcp-server/
- * directory into the extension's dist/mcp-server/ directory, enabling the extension
- * to bundle and spawn the MCP server without requiring separate installation.
+ * This script copies the bundled MCP server from the root project's
+ * dist/mcp-server-bundle/ directory into the extension's dist/mcp-server/
+ * directory, enabling the extension to bundle and spawn the MCP server
+ * without requiring separate installation.
  */
 
 const fs = require("fs");
 const path = require("path");
 
 // Paths relative to extension directory
-const SOURCE_DIR = path.resolve(__dirname, "../../dist/mcp-server");
+const SOURCE_DIR = path.resolve(__dirname, "../../dist/mcp-server-bundle");
 const TARGET_DIR = path.resolve(__dirname, "../dist/mcp-server");
 
 function copyMcpServer() {

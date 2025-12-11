@@ -1,0 +1,449 @@
+event.ts:888 [1066] potential listener LEAK detected, having 175 listeners already. MOST frequent listener (1):
+check @ event.ts:888
+event.ts:889 Error
+    at pFi.create (vscode-file://vscode-app/c:/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/out/vs/workbench/workbench.desktop.main.js:27:12071)
+    at ost.u [as onDidChange] (vscode-file://vscode-app/c:/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/out/vs/workbench/workbench.desktop.main.js:29:1377)
+    at new z1e (vscode-file://vscode-app/c:/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/out/vs/workbench/workbench.desktop.main.js:1932:2201)
+    at vscode-file://vscode-app/c:/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/out/vs/workbench/workbench.desktop.main.js:1933:3216
+    at Array.map (<anonymous>)
+    at ost.N (vscode-file://vscode-app/c:/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/out/vs/workbench/workbench.desktop.main.js:1933:2656)
+    at new ost (vscode-file://vscode-app/c:/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/out/vs/workbench/workbench.desktop.main.js:1933:1488)
+    at ETt.o (vscode-file://vscode-app/c:/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/out/vs/workbench/workbench.desktop.main.js:1399:1716)
+    at ETt.createInstance (vscode-file://vscode-app/c:/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/out/vs/workbench/workbench.desktop.main.js:1399:1213)
+    at pct.W (vscode-file://vscode-app/c:/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/out/vs/workbench/workbench.desktop.main.js:2183:12698)
+check @ event.ts:889
+log.ts:460   ERR [1066] potential listener LEAK detected, having 175 listeners already. MOST frequent listener (1):: Error
+    at pFi.create (vscode-file://vscode-app/c:/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/out/vs/workbench/workbench.desktop.main.js:27:12071)
+    at ost.u [as onDidChange] (vscode-file://vscode-app/c:/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/out/vs/workbench/workbench.desktop.main.js:29:1377)
+    at new z1e (vscode-file://vscode-app/c:/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/out/vs/workbench/workbench.desktop.main.js:1932:2201)
+    at vscode-file://vscode-app/c:/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/out/vs/workbench/workbench.desktop.main.js:1933:3216
+    at Array.map (<anonymous>)
+    at ost.N (vscode-file://vscode-app/c:/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/out/vs/workbench/workbench.desktop.main.js:1933:2656)
+    at new ost (vscode-file://vscode-app/c:/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/out/vs/workbench/workbench.desktop.main.js:1933:1488)
+    at ETt.o (vscode-file://vscode-app/c:/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/out/vs/workbench/workbench.desktop.main.js:1399:1716)
+    at ETt.createInstance (vscode-file://vscode-app/c:/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/out/vs/workbench/workbench.desktop.main.js:1399:1213)
+    at pct.W (vscode-file://vscode-app/c:/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/out/vs/workbench/workbench.desktop.main.js:2183:12698)
+error @ log.ts:460
+event.ts:888 [43a] potential listener LEAK detected, having 175 listeners already. MOST frequent listener (1):
+check @ event.ts:888
+event.ts:889 Error
+    at pFi.create (vscode-file://vscode-app/c:/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/out/vs/workbench/workbench.desktop.main.js:27:12071)
+    at K2e.u [as onDidChange] (vscode-file://vscode-app/c:/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/out/vs/workbench/workbench.desktop.main.js:29:1377)
+    at new sg (vscode-file://vscode-app/c:/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/out/vs/workbench/workbench.desktop.main.js:275:31449)
+    at ETt.o (vscode-file://vscode-app/c:/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/out/vs/workbench/workbench.desktop.main.js:1399:1716)
+    at ETt.createInstance (vscode-file://vscode-app/c:/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/out/vs/workbench/workbench.desktop.main.js:1399:1213)
+    at BYe.I (vscode-file://vscode-app/c:/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/out/vs/workbench/workbench.desktop.main.js:1337:1910)
+    at BYe.createModel (vscode-file://vscode-app/c:/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/out/vs/workbench/workbench.desktop.main.js:1338:888)
+    at Dst.provideTextContent (vscode-file://vscode-app/c:/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/out/vs/workbench/workbench.desktop.main.js:1942:13412)
+    at kYe.u (vscode-file://vscode-app/c:/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/out/vs/workbench/workbench.desktop.main.js:1313:22428)
+    at kYe.r (vscode-file://vscode-app/c:/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/out/vs/workbench/workbench.desktop.main.js:1313:21511)
+check @ event.ts:889
+log.ts:460   ERR [43a] potential listener LEAK detected, having 175 listeners already. MOST frequent listener (1):: Error
+    at pFi.create (vscode-file://vscode-app/c:/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/out/vs/workbench/workbench.desktop.main.js:27:12071)
+    at K2e.u [as onDidChange] (vscode-file://vscode-app/c:/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/out/vs/workbench/workbench.desktop.main.js:29:1377)
+    at new sg (vscode-file://vscode-app/c:/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/out/vs/workbench/workbench.desktop.main.js:275:31449)
+    at ETt.o (vscode-file://vscode-app/c:/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/out/vs/workbench/workbench.desktop.main.js:1399:1716)
+    at ETt.createInstance (vscode-file://vscode-app/c:/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/out/vs/workbench/workbench.desktop.main.js:1399:1213)
+    at BYe.I (vscode-file://vscode-app/c:/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/out/vs/workbench/workbench.desktop.main.js:1337:1910)
+    at BYe.createModel (vscode-file://vscode-app/c:/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/out/vs/workbench/workbench.desktop.main.js:1338:888)
+    at Dst.provideTextContent (vscode-file://vscode-app/c:/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/out/vs/workbench/workbench.desktop.main.js:1942:13412)
+    at kYe.u (vscode-file://vscode-app/c:/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/out/vs/workbench/workbench.desktop.main.js:1313:22428)
+    at kYe.r (vscode-file://vscode-app/c:/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/out/vs/workbench/workbench.desktop.main.js:1313:21511)
+error @ log.ts:460
+event.ts:888 [43a] potential listener LEAK detected, having 263 listeners already. MOST frequent listener (89):
+check @ event.ts:888
+event.ts:889 Error
+    at pFi.create (vscode-file://vscode-app/c:/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/out/vs/workbench/workbench.desktop.main.js:27:12071)
+    at K2e.u [as onDidChange] (vscode-file://vscode-app/c:/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/out/vs/workbench/workbench.desktop.main.js:29:1377)
+    at new sg (vscode-file://vscode-app/c:/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/out/vs/workbench/workbench.desktop.main.js:275:31449)
+    at ETt.o (vscode-file://vscode-app/c:/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/out/vs/workbench/workbench.desktop.main.js:1399:1716)
+    at ETt.createInstance (vscode-file://vscode-app/c:/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/out/vs/workbench/workbench.desktop.main.js:1399:1213)
+    at BYe.I (vscode-file://vscode-app/c:/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/out/vs/workbench/workbench.desktop.main.js:1337:1910)
+    at BYe.createModel (vscode-file://vscode-app/c:/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/out/vs/workbench/workbench.desktop.main.js:1338:888)
+    at Dst.provideTextContent (vscode-file://vscode-app/c:/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/out/vs/workbench/workbench.desktop.main.js:1942:13412)
+    at kYe.u (vscode-file://vscode-app/c:/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/out/vs/workbench/workbench.desktop.main.js:1313:22428)
+    at kYe.r (vscode-file://vscode-app/c:/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/out/vs/workbench/workbench.desktop.main.js:1313:21511)
+check @ event.ts:889
+log.ts:460   ERR [43a] potential listener LEAK detected, having 263 listeners already. MOST frequent listener (89):: Error
+    at pFi.create (vscode-file://vscode-app/c:/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/out/vs/workbench/workbench.desktop.main.js:27:12071)
+    at K2e.u [as onDidChange] (vscode-file://vscode-app/c:/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/out/vs/workbench/workbench.desktop.main.js:29:1377)
+    at new sg (vscode-file://vscode-app/c:/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/out/vs/workbench/workbench.desktop.main.js:275:31449)
+    at ETt.o (vscode-file://vscode-app/c:/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/out/vs/workbench/workbench.desktop.main.js:1399:1716)
+    at ETt.createInstance (vscode-file://vscode-app/c:/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/out/vs/workbench/workbench.desktop.main.js:1399:1213)
+    at BYe.I (vscode-file://vscode-app/c:/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/out/vs/workbench/workbench.desktop.main.js:1337:1910)
+    at BYe.createModel (vscode-file://vscode-app/c:/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/out/vs/workbench/workbench.desktop.main.js:1338:888)
+    at Dst.provideTextContent (vscode-file://vscode-app/c:/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/out/vs/workbench/workbench.desktop.main.js:1942:13412)
+    at kYe.u (vscode-file://vscode-app/c:/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/out/vs/workbench/workbench.desktop.main.js:1313:22428)
+    at kYe.r (vscode-file://vscode-app/c:/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/out/vs/workbench/workbench.desktop.main.js:1313:21511)
+error @ log.ts:460
+log.ts:440  INFO Started local extension host with pid 18552.
+log.ts:440  INFO [cmstead.js-codeformer]: Command `cmstead.jscodeformer.introduceFunction` already registered by JS CodeFormer: Javascript Refactoring & Code Automation (cmstead.js-codeformer)
+log.ts:440  INFO [vinicioslc.adb-interface-vscode]: Command `adbInterface.adbResetPorts` already registered by ADB Interface for VSCode (vinicioslc.adb-interface-vscode)
+log.ts:450  WARN [redhat.vscode-commons]: Cannot register 'redhat.telemetry.enabled'. This property is already registered.
+warn @ log.ts:450
+log.ts:450  WARN [redhat.vscode-yaml]: Cannot register 'redhat.telemetry.enabled'. This property is already registered.
+warn @ log.ts:450
+log.ts:460   ERR [timheuer.awesome-copilot]: property `icon` is mandatory and must be of type `string`
+error @ log.ts:460
+log.ts:440  INFO Resolving chat session type 'copilot-swe-agent' to alternative type 'copilot-cloud-agent'
+TMScopeRegistry.ts:46 Overwriting grammar scope name to file mapping for scope source.dart.
+Old grammar file: file:///c%3A/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/extensions/dart/syntaxes/dart.tmLanguage.json.
+New grammar file: file:///c%3A/Users/Marius/.vscode/extensions/dart-code.dart-code-3.124.1/syntaxes/dart.json
+register @ TMScopeRegistry.ts:46
+TMScopeRegistry.ts:46 Overwriting grammar scope name to file mapping for scope source.kv.
+Old grammar file: file:///c%3A/Users/Marius/.vscode/extensions/battlebas.kivy-vscode-0.5.5/syntaxes/kv.tmLanguage.json.
+New grammar file: file:///c%3A/Users/Marius/.vscode/extensions/haddiebakrie.material-kv-1.0.0/syntaxes/kv.tmLanguage.json
+register @ TMScopeRegistry.ts:46
+TMScopeRegistry.ts:46 Overwriting grammar scope name to file mapping for scope styled.
+Old grammar file: file:///c%3A/Users/Marius/.vscode/extensions/battlebas.kivy-vscode-0.5.5/syntaxes/kv.json.
+New grammar file: file:///c%3A/Users/Marius/.vscode/extensions/haddiebakrie.material-kv-1.0.0/syntaxes/injection.json
+register @ TMScopeRegistry.ts:46
+TMScopeRegistry.ts:46 Overwriting grammar scope name to file mapping for scope source.cpp.embedded.macro.
+Old grammar file: file:///c%3A/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/extensions/cpp/syntaxes/cpp.embedded.macro.tmLanguage.json.
+New grammar file: file:///c%3A/Users/Marius/.vscode/extensions/jeff-hykin.better-cpp-syntax-1.27.1/autogenerated/cpp.embedded.macro.tmLanguage.json
+register @ TMScopeRegistry.ts:46
+TMScopeRegistry.ts:46 Overwriting grammar scope name to file mapping for scope source.cpp.
+Old grammar file: file:///c%3A/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/extensions/cpp/syntaxes/cpp.tmLanguage.json.
+New grammar file: file:///c%3A/Users/Marius/.vscode/extensions/jeff-hykin.better-cpp-syntax-1.27.1/autogenerated/cpp.tmLanguage.json
+register @ TMScopeRegistry.ts:46
+TMScopeRegistry.ts:46 Overwriting grammar scope name to file mapping for scope source.kotlin.
+Old grammar file: file:///c%3A/Users/Marius/.vscode/extensions/fwcd.kotlin-0.2.36/syntaxes/kotlin.tmLanguage.json.
+New grammar file: file:///c%3A/Users/Marius/.vscode/extensions/mathiasfrohlich.kotlin-1.7.1/syntaxes/Kotlin.tmLanguage
+register @ TMScopeRegistry.ts:46
+TMScopeRegistry.ts:46 Overwriting grammar scope name to file mapping for scope markdown.kotlin.codeblock.
+Old grammar file: file:///c%3A/Users/Marius/.vscode/extensions/fwcd.kotlin-0.2.36/syntaxes/kotlin-codeblock.json.
+New grammar file: file:///c%3A/Users/Marius/.vscode/extensions/mathiasfrohlich.kotlin-1.7.1/syntaxes/codeblock.json
+register @ TMScopeRegistry.ts:46
+TMScopeRegistry.ts:46 Overwriting grammar scope name to file mapping for scope source.kv.
+Old grammar file: file:///c%3A/Users/Marius/.vscode/extensions/haddiebakrie.material-kv-1.0.0/syntaxes/kv.tmLanguage.json.
+New grammar file: file:///c%3A/Users/Marius/.vscode/extensions/monk3ydev.kvlang-0.0.6/syntaxes/kv.tmLanguage.json
+register @ TMScopeRegistry.ts:46
+TMScopeRegistry.ts:46 Overwriting grammar scope name to file mapping for scope source.sql.
+Old grammar file: file:///c%3A/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/extensions/sql/syntaxes/sql.tmLanguage.json.
+New grammar file: file:///c%3A/Users/Marius/.vscode/extensions/ms-mssql.mssql-1.37.1/syntaxes/SQL.plist
+register @ TMScopeRegistry.ts:46
+TMScopeRegistry.ts:46 Overwriting grammar scope name to file mapping for scope source.python.
+Old grammar file: file:///c%3A/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/extensions/python/syntaxes/MagicPython.tmLanguage.json.
+New grammar file: file:///c%3A/Users/Marius/.vscode/extensions/ms-python.vscode-pylance-2025.10.4/grammars/PylancePython.tmLanguage
+register @ TMScopeRegistry.ts:46
+TMScopeRegistry.ts:46 Overwriting grammar scope name to file mapping for scope source.groovy.
+Old grammar file: file:///c%3A/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/extensions/groovy/syntaxes/groovy.tmLanguage.json.
+New grammar file: file:///c%3A/Users/Marius/.vscode/extensions/naco-siren.gradle-language-0.2.3/syntaxes/groovy.tmLanguage.json
+register @ TMScopeRegistry.ts:46
+TMScopeRegistry.ts:46 Overwriting grammar scope name to file mapping for scope source.java.
+Old grammar file: file:///c%3A/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/extensions/java/syntaxes/java.tmLanguage.json.
+New grammar file: file:///c%3A/Users/Marius/.vscode/extensions/redhat.java-1.50.0-win32-x64/language-support/java/java.tmLanguage.json
+register @ TMScopeRegistry.ts:46
+TMScopeRegistry.ts:46 Overwriting grammar scope name to file mapping for scope source.yaml.
+Old grammar file: file:///c%3A/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/extensions/yaml/syntaxes/yaml.tmLanguage.json.
+New grammar file: file:///c%3A/Users/Marius/.vscode/extensions/redhat.vscode-yaml-1.19.1/syntaxes/yaml.tmLanguage.json
+register @ TMScopeRegistry.ts:46
+TMScopeRegistry.ts:46 Overwriting grammar scope name to file mapping for scope text.html.django.
+Old grammar file: file:///c%3A/Users/Marius/.vscode/extensions/batisteo.vscode-django-1.15.0/syntaxes/django-html.tmLanguage.json.
+New grammar file: file:///c%3A/Users/Marius/.vscode/extensions/thebarkman.vscode-djaneiro-1.4.2/syntaxes/django-html.json
+register @ TMScopeRegistry.ts:46
+TMScopeRegistry.ts:46 Overwriting grammar scope name to file mapping for scope source.groovy.
+Old grammar file: file:///c%3A/Users/Marius/.vscode/extensions/naco-siren.gradle-language-0.2.3/syntaxes/groovy.tmLanguage.json.
+New grammar file: file:///c%3A/Users/Marius/.vscode/extensions/vscjava.vscode-gradle-3.17.1/syntaxes/groovy.tmLanguage.json
+register @ TMScopeRegistry.ts:46
+TMScopeRegistry.ts:46 Overwriting grammar scope name to file mapping for scope source.kv.
+Old grammar file: file:///c%3A/Users/Marius/.vscode/extensions/monk3ydev.kvlang-0.0.6/syntaxes/kv.tmLanguage.json.
+New grammar file: file:///c%3A/Users/Marius/.vscode/extensions/watchakorn-18k.kivy-snippets-1.0.6/syntaxes/kv.tmLanguage.json
+register @ TMScopeRegistry.ts:46
+TMScopeRegistry.ts:46 Overwriting grammar scope name to file mapping for scope source.dart.
+Old grammar file: file:///c%3A/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/extensions/dart/syntaxes/dart.tmLanguage.json.
+New grammar file: file:///c%3A/Users/Marius/.vscode/extensions/dart-code.dart-code-3.124.1/syntaxes/dart.json
+register @ TMScopeRegistry.ts:46
+TMScopeRegistry.ts:46 Overwriting grammar scope name to file mapping for scope source.kv.
+Old grammar file: file:///c%3A/Users/Marius/.vscode/extensions/battlebas.kivy-vscode-0.5.5/syntaxes/kv.tmLanguage.json.
+New grammar file: file:///c%3A/Users/Marius/.vscode/extensions/haddiebakrie.material-kv-1.0.0/syntaxes/kv.tmLanguage.json
+register @ TMScopeRegistry.ts:46
+TMScopeRegistry.ts:46 Overwriting grammar scope name to file mapping for scope styled.
+Old grammar file: file:///c%3A/Users/Marius/.vscode/extensions/battlebas.kivy-vscode-0.5.5/syntaxes/kv.json.
+New grammar file: file:///c%3A/Users/Marius/.vscode/extensions/haddiebakrie.material-kv-1.0.0/syntaxes/injection.json
+register @ TMScopeRegistry.ts:46
+TMScopeRegistry.ts:46 Overwriting grammar scope name to file mapping for scope source.cpp.embedded.macro.
+Old grammar file: file:///c%3A/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/extensions/cpp/syntaxes/cpp.embedded.macro.tmLanguage.json.
+New grammar file: file:///c%3A/Users/Marius/.vscode/extensions/jeff-hykin.better-cpp-syntax-1.27.1/autogenerated/cpp.embedded.macro.tmLanguage.json
+register @ TMScopeRegistry.ts:46
+TMScopeRegistry.ts:46 Overwriting grammar scope name to file mapping for scope source.cpp.
+Old grammar file: file:///c%3A/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/extensions/cpp/syntaxes/cpp.tmLanguage.json.
+New grammar file: file:///c%3A/Users/Marius/.vscode/extensions/jeff-hykin.better-cpp-syntax-1.27.1/autogenerated/cpp.tmLanguage.json
+register @ TMScopeRegistry.ts:46
+TMScopeRegistry.ts:46 Overwriting grammar scope name to file mapping for scope source.kotlin.
+Old grammar file: file:///c%3A/Users/Marius/.vscode/extensions/fwcd.kotlin-0.2.36/syntaxes/kotlin.tmLanguage.json.
+New grammar file: file:///c%3A/Users/Marius/.vscode/extensions/mathiasfrohlich.kotlin-1.7.1/syntaxes/Kotlin.tmLanguage
+register @ TMScopeRegistry.ts:46
+TMScopeRegistry.ts:46 Overwriting grammar scope name to file mapping for scope markdown.kotlin.codeblock.
+Old grammar file: file:///c%3A/Users/Marius/.vscode/extensions/fwcd.kotlin-0.2.36/syntaxes/kotlin-codeblock.json.
+New grammar file: file:///c%3A/Users/Marius/.vscode/extensions/mathiasfrohlich.kotlin-1.7.1/syntaxes/codeblock.json
+register @ TMScopeRegistry.ts:46
+TMScopeRegistry.ts:46 Overwriting grammar scope name to file mapping for scope source.kv.
+Old grammar file: file:///c%3A/Users/Marius/.vscode/extensions/haddiebakrie.material-kv-1.0.0/syntaxes/kv.tmLanguage.json.
+New grammar file: file:///c%3A/Users/Marius/.vscode/extensions/monk3ydev.kvlang-0.0.6/syntaxes/kv.tmLanguage.json
+register @ TMScopeRegistry.ts:46
+TMScopeRegistry.ts:46 Overwriting grammar scope name to file mapping for scope source.sql.
+Old grammar file: file:///c%3A/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/extensions/sql/syntaxes/sql.tmLanguage.json.
+New grammar file: file:///c%3A/Users/Marius/.vscode/extensions/ms-mssql.mssql-1.37.1/syntaxes/SQL.plist
+register @ TMScopeRegistry.ts:46
+TMScopeRegistry.ts:46 Overwriting grammar scope name to file mapping for scope source.python.
+Old grammar file: file:///c%3A/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/extensions/python/syntaxes/MagicPython.tmLanguage.json.
+New grammar file: file:///c%3A/Users/Marius/.vscode/extensions/ms-python.vscode-pylance-2025.10.4/grammars/PylancePython.tmLanguage
+register @ TMScopeRegistry.ts:46
+TMScopeRegistry.ts:46 Overwriting grammar scope name to file mapping for scope source.groovy.
+Old grammar file: file:///c%3A/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/extensions/groovy/syntaxes/groovy.tmLanguage.json.
+New grammar file: file:///c%3A/Users/Marius/.vscode/extensions/naco-siren.gradle-language-0.2.3/syntaxes/groovy.tmLanguage.json
+register @ TMScopeRegistry.ts:46
+TMScopeRegistry.ts:46 Overwriting grammar scope name to file mapping for scope source.java.
+Old grammar file: file:///c%3A/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/extensions/java/syntaxes/java.tmLanguage.json.
+New grammar file: file:///c%3A/Users/Marius/.vscode/extensions/redhat.java-1.50.0-win32-x64/language-support/java/java.tmLanguage.json
+register @ TMScopeRegistry.ts:46
+TMScopeRegistry.ts:46 Overwriting grammar scope name to file mapping for scope source.yaml.
+Old grammar file: file:///c%3A/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/extensions/yaml/syntaxes/yaml.tmLanguage.json.
+New grammar file: file:///c%3A/Users/Marius/.vscode/extensions/redhat.vscode-yaml-1.19.1/syntaxes/yaml.tmLanguage.json
+register @ TMScopeRegistry.ts:46
+TMScopeRegistry.ts:46 Overwriting grammar scope name to file mapping for scope text.html.django.
+Old grammar file: file:///c%3A/Users/Marius/.vscode/extensions/batisteo.vscode-django-1.15.0/syntaxes/django-html.tmLanguage.json.
+New grammar file: file:///c%3A/Users/Marius/.vscode/extensions/thebarkman.vscode-djaneiro-1.4.2/syntaxes/django-html.json
+register @ TMScopeRegistry.ts:46
+TMScopeRegistry.ts:46 Overwriting grammar scope name to file mapping for scope source.groovy.
+Old grammar file: file:///c%3A/Users/Marius/.vscode/extensions/naco-siren.gradle-language-0.2.3/syntaxes/groovy.tmLanguage.json.
+New grammar file: file:///c%3A/Users/Marius/.vscode/extensions/vscjava.vscode-gradle-3.17.1/syntaxes/groovy.tmLanguage.json
+register @ TMScopeRegistry.ts:46
+TMScopeRegistry.ts:46 Overwriting grammar scope name to file mapping for scope source.kv.
+Old grammar file: file:///c%3A/Users/Marius/.vscode/extensions/monk3ydev.kvlang-0.0.6/syntaxes/kv.tmLanguage.json.
+New grammar file: file:///c%3A/Users/Marius/.vscode/extensions/watchakorn-18k.kivy-snippets-1.0.6/syntaxes/kv.tmLanguage.json
+register @ TMScopeRegistry.ts:46
+log.ts:440  INFO MCP Registry configured: https://api.mcp.github.com
+log.ts:460   ERR [Extension Host] (node:18552) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+(Use `Code --trace-deprecation ...` to show where the warning was created)
+error @ log.ts:460
+console.ts:139 [Extension Host] (node:18552) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+(Use `Code --trace-deprecation ...` to show where the warning was created)
+gCs @ console.ts:139
+log.ts:460   ERR [Extension Host] (node:18552) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+error @ log.ts:460
+console.ts:139 [Extension Host] (node:18552) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+gCs @ console.ts:139
+marketplace.visualstudio.com/_apis/public/gallery/vscode/forcegage/orchestra-extension/latest:1  Failed to load resource: the server responded with a status of 404 ()
+log.ts:440  INFO [perf] Render performance baseline is 13ms
+api.mcp.github.com/v0.1/servers/github%2Fgithub-mcp-server/versions/latest:1  Failed to load resource: the server responded with a status of 404 ()
+event.ts:888 [43a] potential listener LEAK detected, having 182 listeners already. MOST frequent listener (95):
+check @ event.ts:888
+event.ts:889 Error
+    at pFi.create (vscode-file://vscode-app/c:/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/out/vs/workbench/workbench.desktop.main.js:27:12071)
+    at K2e.u [as onDidChange] (vscode-file://vscode-app/c:/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/out/vs/workbench/workbench.desktop.main.js:29:1377)
+    at new sg (vscode-file://vscode-app/c:/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/out/vs/workbench/workbench.desktop.main.js:275:31449)
+    at ETt.o (vscode-file://vscode-app/c:/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/out/vs/workbench/workbench.desktop.main.js:1399:1716)
+    at ETt.createInstance (vscode-file://vscode-app/c:/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/out/vs/workbench/workbench.desktop.main.js:1399:1213)
+    at BYe.I (vscode-file://vscode-app/c:/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/out/vs/workbench/workbench.desktop.main.js:1337:1910)
+    at BYe.createModel (vscode-file://vscode-app/c:/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/out/vs/workbench/workbench.desktop.main.js:1338:888)
+    at Dst.provideTextContent (vscode-file://vscode-app/c:/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/out/vs/workbench/workbench.desktop.main.js:1942:13412)
+    at kYe.u (vscode-file://vscode-app/c:/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/out/vs/workbench/workbench.desktop.main.js:1313:22428)
+    at kYe.r (vscode-file://vscode-app/c:/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/out/vs/workbench/workbench.desktop.main.js:1313:21511)
+check @ event.ts:889
+log.ts:460   ERR [43a] potential listener LEAK detected, having 182 listeners already. MOST frequent listener (95):: Error
+    at pFi.create (vscode-file://vscode-app/c:/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/out/vs/workbench/workbench.desktop.main.js:27:12071)
+    at K2e.u [as onDidChange] (vscode-file://vscode-app/c:/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/out/vs/workbench/workbench.desktop.main.js:29:1377)
+    at new sg (vscode-file://vscode-app/c:/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/out/vs/workbench/workbench.desktop.main.js:275:31449)
+    at ETt.o (vscode-file://vscode-app/c:/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/out/vs/workbench/workbench.desktop.main.js:1399:1716)
+    at ETt.createInstance (vscode-file://vscode-app/c:/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/out/vs/workbench/workbench.desktop.main.js:1399:1213)
+    at BYe.I (vscode-file://vscode-app/c:/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/out/vs/workbench/workbench.desktop.main.js:1337:1910)
+    at BYe.createModel (vscode-file://vscode-app/c:/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/out/vs/workbench/workbench.desktop.main.js:1338:888)
+    at Dst.provideTextContent (vscode-file://vscode-app/c:/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/out/vs/workbench/workbench.desktop.main.js:1942:13412)
+    at kYe.u (vscode-file://vscode-app/c:/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/out/vs/workbench/workbench.desktop.main.js:1313:22428)
+    at kYe.r (vscode-file://vscode-app/c:/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/out/vs/workbench/workbench.desktop.main.js:1313:21511)
+error @ log.ts:460
+api.mcp.github.com/v0.1/servers/by-name/github/github-mcp-server:1  Failed to load resource: the server responded with a status of 404 ()
+console.ts:139 [Extension Host] Curl Comment Runner is now active!
+console.ts:139 [Extension Host] Congratulations, your extension "sql-beautify" is now active!
+log.ts:460   ERR [/c:/Users/Marius/.vscode/extensions/github.vscode-pull-request-github-0.124.0]: Extension is not compatible with Code 1.106.3. Extension requires: ^1.107.0.
+error @ log.ts:460
+log.ts:460   ERR [/c:/Users/Marius/.vscode/extensions/ms-vscode-remote.remote-ssh-0.122.0]: Extension is not compatible with Code 1.106.3. Extension requires: ^1.107.0.
+error @ log.ts:460
+log.ts:460   ERR [/c:/Users/Marius/.vscode/extensions/github.copilot-chat-0.35.0]: Extension is not compatible with Code 1.106.3. Extension requires: ^1.107.0-20251119.
+error @ log.ts:460
+event.ts:888 [43a] potential listener LEAK detected, having 270 listeners already. MOST frequent listener (95):
+check @ event.ts:888
+event.ts:889 Error
+    at pFi.create (vscode-file://vscode-app/c:/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/out/vs/workbench/workbench.desktop.main.js:27:12071)
+    at K2e.u [as onDidChange] (vscode-file://vscode-app/c:/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/out/vs/workbench/workbench.desktop.main.js:29:1377)
+    at new sg (vscode-file://vscode-app/c:/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/out/vs/workbench/workbench.desktop.main.js:275:31449)
+    at ETt.o (vscode-file://vscode-app/c:/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/out/vs/workbench/workbench.desktop.main.js:1399:1716)
+    at ETt.createInstance (vscode-file://vscode-app/c:/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/out/vs/workbench/workbench.desktop.main.js:1399:1213)
+    at BYe.I (vscode-file://vscode-app/c:/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/out/vs/workbench/workbench.desktop.main.js:1337:1910)
+    at BYe.createModel (vscode-file://vscode-app/c:/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/out/vs/workbench/workbench.desktop.main.js:1338:888)
+    at Dst.provideTextContent (vscode-file://vscode-app/c:/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/out/vs/workbench/workbench.desktop.main.js:1942:13412)
+    at kYe.u (vscode-file://vscode-app/c:/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/out/vs/workbench/workbench.desktop.main.js:1313:22428)
+    at kYe.r (vscode-file://vscode-app/c:/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/out/vs/workbench/workbench.desktop.main.js:1313:21511)
+check @ event.ts:889
+log.ts:460   ERR [43a] potential listener LEAK detected, having 270 listeners already. MOST frequent listener (95):: Error
+    at pFi.create (vscode-file://vscode-app/c:/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/out/vs/workbench/workbench.desktop.main.js:27:12071)
+    at K2e.u [as onDidChange] (vscode-file://vscode-app/c:/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/out/vs/workbench/workbench.desktop.main.js:29:1377)
+    at new sg (vscode-file://vscode-app/c:/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/out/vs/workbench/workbench.desktop.main.js:275:31449)
+    at ETt.o (vscode-file://vscode-app/c:/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/out/vs/workbench/workbench.desktop.main.js:1399:1716)
+    at ETt.createInstance (vscode-file://vscode-app/c:/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/out/vs/workbench/workbench.desktop.main.js:1399:1213)
+    at BYe.I (vscode-file://vscode-app/c:/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/out/vs/workbench/workbench.desktop.main.js:1337:1910)
+    at BYe.createModel (vscode-file://vscode-app/c:/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/out/vs/workbench/workbench.desktop.main.js:1338:888)
+    at Dst.provideTextContent (vscode-file://vscode-app/c:/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/out/vs/workbench/workbench.desktop.main.js:1942:13412)
+    at kYe.u (vscode-file://vscode-app/c:/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/out/vs/workbench/workbench.desktop.main.js:1313:22428)
+    at kYe.r (vscode-file://vscode-app/c:/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/out/vs/workbench/workbench.desktop.main.js:1313:21511)
+error @ log.ts:460
+event.ts:888 [03f] potential listener LEAK detected, having 200 listeners already. MOST frequent listener (1):
+check @ event.ts:888
+event.ts:889 Error
+    at pFi.create (vscode-file://vscode-app/c:/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/out/vs/workbench/workbench.desktop.main.js:27:12071)
+    at ZI.u [as i] (vscode-file://vscode-app/c:/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/out/vs/workbench/workbench.desktop.main.js:29:1377)
+    at ZI.g (vscode-file://vscode-app/c:/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/out/vs/workbench/workbench.desktop.main.js:31:15488)
+    at ZI.addObserver (vscode-file://vscode-app/c:/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/out/vs/workbench/workbench.desktop.main.js:31:1469)
+    at Object.onWillAddFirstListener (vscode-file://vscode-app/c:/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/out/vs/workbench/workbench.desktop.main.js:27:10034)
+    at __e.u [as onDidChange] (vscode-file://vscode-app/c:/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/out/vs/workbench/workbench.desktop.main.js:29:1565)
+    at new sg (vscode-file://vscode-app/c:/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/out/vs/workbench/workbench.desktop.main.js:275:30879)
+    at ETt.o (vscode-file://vscode-app/c:/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/out/vs/workbench/workbench.desktop.main.js:1399:1716)
+    at ETt.createInstance (vscode-file://vscode-app/c:/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/out/vs/workbench/workbench.desktop.main.js:1399:1213)
+    at BYe.I (vscode-file://vscode-app/c:/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/out/vs/workbench/workbench.desktop.main.js:1337:1910)
+check @ event.ts:889
+log.ts:460   ERR [03f] potential listener LEAK detected, having 200 listeners already. MOST frequent listener (1):: Error
+    at pFi.create (vscode-file://vscode-app/c:/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/out/vs/workbench/workbench.desktop.main.js:27:12071)
+    at ZI.u [as i] (vscode-file://vscode-app/c:/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/out/vs/workbench/workbench.desktop.main.js:29:1377)
+    at ZI.g (vscode-file://vscode-app/c:/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/out/vs/workbench/workbench.desktop.main.js:31:15488)
+    at ZI.addObserver (vscode-file://vscode-app/c:/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/out/vs/workbench/workbench.desktop.main.js:31:1469)
+    at Object.onWillAddFirstListener (vscode-file://vscode-app/c:/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/out/vs/workbench/workbench.desktop.main.js:27:10034)
+    at __e.u [as onDidChange] (vscode-file://vscode-app/c:/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/out/vs/workbench/workbench.desktop.main.js:29:1565)
+    at new sg (vscode-file://vscode-app/c:/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/out/vs/workbench/workbench.desktop.main.js:275:30879)
+    at ETt.o (vscode-file://vscode-app/c:/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/out/vs/workbench/workbench.desktop.main.js:1399:1716)
+    at ETt.createInstance (vscode-file://vscode-app/c:/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/out/vs/workbench/workbench.desktop.main.js:1399:1213)
+    at BYe.I (vscode-file://vscode-app/c:/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/out/vs/workbench/workbench.desktop.main.js:1337:1910)
+error @ log.ts:460
+log.ts:440  INFO Settings Sync: Account status changed from uninitialized to available
+console.ts:139 [Extension Host] Activated pip-updater extension
+console.ts:139 [Extension Host] Activating Copilot Terminal Tools extension...
+console.ts:139 [Extension Host] Ensuring shell integration is on...
+console.ts:139 [Extension Host] Shell integration is enabled.
+console.ts:139 [Extension Host] Registering language model tools...
+console.ts:139 [Extension Host]    Registering tool: terminal-tools_listTerminals...
+console.ts:139 [Extension Host]    ✅ Successfully registered: terminal-tools_listTerminals
+console.ts:139 [Extension Host]    Registering tool: terminal-tools_createTerminal...
+console.ts:139 [Extension Host]    ✅ Successfully registered: terminal-tools_createTerminal
+console.ts:139 [Extension Host]    Registering tool: terminal-tools_sendCommand...
+console.ts:139 [Extension Host]    ✅ Successfully registered: terminal-tools_sendCommand
+console.ts:139 [Extension Host]    Registering tool: terminal-tools_deleteTerminal...
+console.ts:139 [Extension Host]    ✅ Successfully registered: terminal-tools_deleteTerminal
+console.ts:139 [Extension Host]    Registering tool: terminal-tools_cancelCommand...
+console.ts:139 [Extension Host]    ✅ Successfully registered: terminal-tools_cancelCommand
+console.ts:139 [Extension Host] Copilot Terminal Tools: Registered 5/5 language model tools
+console.ts:139 [Extension Host] ✅ All language model tools registered successfully!
+console.ts:139 [Extension Host] Copilot Terminal Tools extension is now active!
+console.ts:139 [Extension Host] Looking for parseable documents...
+console.ts:139 [Extension Host] sucrase/types e:\cloud services\Dropbox\Repositories\vs code\orchestra\node_modules\sucrase\dist\types\transformers
+console.ts:139 [Extension Host] sucrase/types e:\cloud services\Dropbox\Repositories\vs code\orchestra\node_modules\sucrase\dist\types\transformers
+console.ts:139 [Extension Host] sucrase/types e:\cloud services\Dropbox\Repositories\vs code\orchestra\node_modules\sucrase\dist\types\transformers
+console.ts:139 [Extension Host] sucrase/types e:\cloud services\Dropbox\Repositories\vs code\orchestra\node_modules\sucrase\dist\types\transformers
+console.ts:139 [Extension Host] sucrase/types e:\cloud services\Dropbox\Repositories\vs code\orchestra\node_modules\sucrase\dist\types\transformers
+console.ts:139 [Extension Host] sucrase/types e:\cloud services\Dropbox\Repositories\vs code\orchestra\node_modules\sucrase\dist\types\transformers
+console.ts:139 [Extension Host] sucrase/types e:\cloud services\Dropbox\Repositories\vs code\orchestra\node_modules\sucrase\dist\types\transformers
+console.ts:139 [Extension Host] sucrase/types e:\cloud services\Dropbox\Repositories\vs code\orchestra\node_modules\sucrase\dist\types\transformers
+console.ts:139 [Extension Host] sucrase/types e:\cloud services\Dropbox\Repositories\vs code\orchestra\node_modules\sucrase\dist\types\transformers
+console.ts:139 [Extension Host] sucrase/types e:\cloud services\Dropbox\Repositories\vs code\orchestra\node_modules\sucrase\dist\types\transformers
+console.ts:139 [Extension Host] sucrase/types e:\cloud services\Dropbox\Repositories\vs code\orchestra\node_modules\sucrase\dist\types\transformers
+console.ts:139 [Extension Host] sucrase/types e:\cloud services\Dropbox\Repositories\vs code\orchestra\node_modules\sucrase\dist\types\transformers
+console.ts:139 [Extension Host] sucrase/types e:\cloud services\Dropbox\Repositories\vs code\orchestra\node_modules\sucrase\dist\types\transformers
+api.github.com/copilot/mcp_registry:1  Failed to load resource: the server responded with a status of 404 ()
+log.ts:460   ERR Failed to fetch MCP registry providers Server returned 404
+error @ log.ts:460
+console.ts:139 [Extension Host] processWorkspaceFiles Array(217) true false
+console.ts:139 [Extension Host] logFile for MicrosoftSqlToolsServiceLayer.exe is c:\Users\Marius\AppData\Roaming\Code\logs\20251210T075902\window39\exthost\ms-mssql.mssql\sqltools.log
+console.ts:139 [Extension Host] Old log files deletion report: {}
+console.ts:139 [Extension Host] This process (ui Extenstion Host) for MicrosoftSqlToolsServiceLayer.exe is pid: 18552
+console.ts:139 [Extension Host] logFile for SqlToolsResourceProviderService.exe is c:\Users\Marius\AppData\Roaming\Code\logs\20251210T075902\window39\exthost\ms-mssql.mssql\resourceprovider.log
+console.ts:139 [Extension Host] Old log files deletion report: {}
+console.ts:139 [Extension Host] This process (ui Extenstion Host) for SqlToolsResourceProviderService.exe is pid: 18552
+console.ts:139 [Extension Host] Found all parseable documents.
+console.ts:139 [Extension Host] Parsing documents and looking for CSS class definitions...
+console.ts:139 [Extension Host] Summary:
+console.ts:139 [Extension Host]% 6 parseable documents found
+console.ts:139 [Extension Host]% 393 CSS class definitions found
+console.ts:139 [Extension Host]% 210 unique CSS class definitions found
+console.ts:139 [Extension Host]% 0 failed attempts to parse. List of the documents:
+console.ts:139 [Extension Host] 
+console.ts:139 [Extension Host] Created lock file at C:\Users\Marius\.claude\ide\30686.lock
+console.ts:139 [Extension Host] Set CLAUDE_CODE_SSE_PORT=30686 in terminal environment (in-memory)
+console.ts:139 [Extension Host] Set ENABLE_IDE_INTEGRATION=true in terminal environment (in-memory)
+console.ts:139 [Extension Host] [INFO] 2025-12-11T06:56:04.585Z - Translations initialized.
+console.ts:139 [Extension Host] [INFO] 2025-12-11T06:56:04.587Z - Extension activated!
+log.ts:460   ERR [Extension Host] (node:18552) [DEP0051] DeprecationWarning: The `util.isNullOrUndefined` API is deprecated. Please use `arg === null || arg === undefined` instead.
+error @ log.ts:460
+console.ts:139 [Extension Host] (node:18552) [DEP0051] DeprecationWarning: The `util.isNullOrUndefined` API is deprecated. Please use `arg === null || arg === undefined` instead.
+gCs @ console.ts:139
+log.ts:460   ERR chatParticipant must be declared in package.json: claude-code
+error @ log.ts:460
+console.ts:139 [Extension Host] Attempted to write message but webview is not set
+gCs @ console.ts:139
+log.ts:440  INFO Resolving chat session type 'copilot-swe-agent' to alternative type 'copilot-cloud-agent'
+log.ts:440  INFO Resolving chat session type 'copilot-swe-agent' to alternative type 'copilot-cloud-agent'
+log.ts:460   ERR Unknown agent: "copilot-swe-agent"
+error @ log.ts:460
+console.ts:139 [Extension Host] [vscode-icons] v12.15.0 activated!
+log.ts:440  INFO Resolving chat session type 'copilot-swe-agent' to alternative type 'copilot-cloud-agent'
+console.ts:139 [Extension Host] Copilot MCP extension activation started
+console.ts:139 [Extension Host] Configuring Copilot MCP LM Provider
+console.ts:139 [Extension Host] TelemetryService is not provided, using default telemetry service
+gCs @ console.ts:139
+console.ts:139 [Extension Host] Path C:\Users\Marius\.ghcp-appmod-java\custom-formula does not exist
+console.ts:139 [Extension Host] Initializing CloudMCP indexer
+console.ts:139 [Extension Host] Copilot MCP extension is now active! Object
+console.ts:139 [Extension Host] Webview provider registered
+console.ts:139 [Extension Host] MCP chat participant registered
+console.ts:139 [Extension Host] octokit.rest.search.issuesAndPullRequests() is deprecated, see https://docs.github.com/rest/search/search#search-issues-and-pull-requests
+gCs @ console.ts:139
+log.ts:460   ERR [UriError]: Scheme contains illegal characters.: Error: [UriError]: Scheme contains illegal characters.
+    at Q6 (file:///C:/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/out/main.js:30:64382)
+    at new cd (file:///C:/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/out/main.js:30:67762)
+    at new zr (file:///C:/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/out/main.js:30:69200)
+    at cd.revive (file:///C:/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/out/main.js:30:68977)
+    at d2.call (file:///C:/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/out/main.js:88:106862)
+    at Wf.s (file:///C:/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/out/main.js:31:14859)
+    at Wf.q (file:///C:/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/out/main.js:31:14382)
+    at ta.value (file:///C:/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/out/main.js:31:13784)
+    at P.C (file:///C:/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/out/main.js:30:2373)
+    at P.D (file:///C:/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/out/main.js:30:2443)
+    at P.fire (file:///C:/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/out/main.js:30:2660)
+    at ta.value (file:///C:/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/out/main.js:28:5145)
+    at P.C (file:///C:/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/out/main.js:30:2373)
+    at P.fire (file:///C:/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/out/main.js:30:2591)
+    at ta.value (file:///C:/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/out/main.js:28:5333)
+    at P.C (file:///C:/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/out/main.js:30:2373)
+    at P.fire (file:///C:/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/out/main.js:30:2591)
+    at F (file:///C:/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/out/main.js:28:7627)
+    at IpcMainImpl.i (file:///C:/Users/Marius/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/out/main.js:36:10815)
+    at IpcMainImpl.emit (node:events:531:35)
+    at Session.<anonymous> (node:electron/js2c/browser_init:2:106419)
+    at Session.emit (node:events:519:28)
+error @ log.ts:460
+log.ts:440  INFO Extension host (LocalProcess pid: 18552) is unresponsive.
+localProcessExtensionHost.ts:280 Extension Host
+localProcessExtensionHost.ts:281 Debugger attached.
+log.ts:440  INFO UNRESPONSIVE extension host: starting to profile NOW
+log.ts:440  INFO Extension host (LocalProcess pid: 18552) is responsive.
+log.ts:440  INFO UNRESPONSIVE extension host: received responsive event and cancelling profiling session
+log.ts:450  WARN UNRESPONSIVE extension host: 'wix.vscode-import-cost' took 77.46885847119471% of 1862.246ms, saved PROFILE here: 'file:///c%3A/Users/Marius/AppData/Local/Temp/exthost-f79aed.cpuprofile'
+warn @ log.ts:450
+warn @ log.ts:559
+warn @ logService.ts:47
+r @ extensionsAutoProfiler.ts:181
+await in r
+q @ extensionsAutoProfiler.ts:120
+await in q
+C @ event.ts:1201
+fire @ event.ts:1232
+(anonymous) @ abstractExtensionService.ts:811
+C @ event.ts:1201
+fire @ event.ts:1232
+(anonymous) @ extensionHostManager.ts:255
+C @ event.ts:1201
+fire @ event.ts:1232
+I @ rpcProtocol.ts:229
+H @ rpcProtocol.ts:216
+(anonymous) @ rpcProtocol.ts:160
+h @ async.ts:1172
+g @ async.ts:1167

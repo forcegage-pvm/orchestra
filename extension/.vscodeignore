@@ -1,6 +1,7 @@
 .vscode/**
 .vscode-test/**
 src/**
+scripts/**
 .gitignore
 .yarnrc
 vsc-extension-quickstart.md
@@ -9,6 +10,8 @@ vsc-extension-quickstart.md
 **/*.map
 **/*.ts
 !dist/**/*.js
+!agents/**
+!resources/**
 node_modules/**
 .DS_Store
 *.vsix
