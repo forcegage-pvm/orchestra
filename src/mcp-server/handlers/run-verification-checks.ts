@@ -17,6 +17,7 @@ import {
 import { getActiveSprint, getDb } from "../../db/index.js";
 import { logToolExecution } from "./audit-logging.js";
 import {
+  config,
   signals,
   tasks,
   verificationChecks,
@@ -117,9 +118,17 @@ async function runVerificationChecks(
   const startTime = Date.now();
   const timestamp = new Date().toISOString();
 
+  // Read signal_max_age_minutes from config (default: 60)
+  const [maxAgeConfig] = await db
+    .select()
+    .from(config)
+    .where(eq(config.key, "signal_max_age_minutes"))
+    .limit(1);
+  const maxAgeMinutes = maxAgeConfig ? parseInt(maxAgeConfig.value, 10) : 60;
+
   // 1. Run accept-signal validation (FR-ASV-001)
   // This validates: signal exists, pre-signal passed, not stale, GATE_CHECK status, checks exist
-  const acceptResult = await validateAcceptSignal(input.task_id);
+  const acceptResult = await validateAcceptSignal(input.task_id, { maxAgeMinutes });
 
   if (acceptResult.status === "REJECTED") {
     // Return early with accept-signal failure details
