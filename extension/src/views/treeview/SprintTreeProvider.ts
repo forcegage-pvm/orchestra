@@ -21,7 +21,7 @@ import { findOrchestraRoot } from "../../workspace/detector.js";
 /**
  * Tree item types for hierarchy
  */
-type TreeElement = SprintItem | PhaseItem | TaskItem;
+type TreeElement = SprintItem | PhaseItem | TaskItem | MessageItem;
 
 interface SprintItem {
   type: "sprint";
@@ -37,6 +37,12 @@ interface PhaseItem {
 interface TaskItem {
   type: "task";
   task: Task;
+}
+
+interface MessageItem {
+  type: "message";
+  message: string;
+  messageType: "empty" | "error" | "info";
 }
 
 export class SprintTreeProvider
@@ -69,46 +75,61 @@ export class SprintTreeProvider
         return this._createPhaseItem(element.phase);
       case "task":
         return this._createTaskItem(element.task);
+      case "message":
+        return this._createMessageTreeItem(
+          element.message,
+          element.messageType
+        );
     }
   }
 
   getChildren(element?: TreeElement): TreeElement[] {
-    const workspaceRoot = findOrchestraRoot();
-    if (!workspaceRoot) {
-      return [];
-    }
-
-    // Root level: return sprint
-    if (!element) {
-      const sprint = getCurrentSprint(workspaceRoot);
-      if (!sprint) {
-        return [];
+    try {
+      const workspaceRoot = findOrchestraRoot();
+      if (!workspaceRoot) {
+        return [this._createMessageItem("No Orchestra workspace", "info")];
       }
-      return [{ type: "sprint", sprint }];
-    }
 
-    // Sprint level: return phases
-    if (element.type === "sprint") {
-      const phases = getPhases(workspaceRoot, element.sprint.id);
-      return phases.map((phase) => ({
-        type: "phase",
-        phase,
-        sprintId: element.sprint.id,
-      }));
-    }
+      // Root level: return sprint
+      if (!element) {
+        const sprint = getCurrentSprint(workspaceRoot);
+        if (!sprint) {
+          return [this._createMessageItem("No active sprint", "empty")];
+        }
+        return [{ type: "sprint", sprint }];
+      }
 
-    // Phase level: return tasks for this phase
-    if (element.type === "phase") {
-      const allTasks = getTasksForSprint(workspaceRoot, element.sprintId);
-      // Filter tasks that belong to this phase
-      const phaseTasks = allTasks.filter(
-        (task) => task.phase_id === element.phase.id
-      );
-      return phaseTasks.map((task) => ({ type: "task", task }));
-    }
+      // Sprint level: return phases
+      if (element.type === "sprint") {
+        const phases = getPhases(workspaceRoot, element.sprint.id);
+        return phases.map((phase) => ({
+          type: "phase",
+          phase,
+          sprintId: element.sprint.id,
+        }));
+      }
 
-    // Task level: no children
-    return [];
+      // Phase level: return tasks for this phase
+      if (element.type === "phase") {
+        const allTasks = getTasksForSprint(workspaceRoot, element.sprintId);
+        // Filter tasks that belong to this phase
+        const phaseTasks = allTasks.filter(
+          (task) => task.phase_id === element.phase.id
+        );
+        if (phaseTasks.length === 0) {
+          return [this._createMessageItem("No tasks in this phase", "empty")];
+        }
+        return phaseTasks.map((task) => ({ type: "task", task }));
+      }
+
+      // Task level: no children
+      return [];
+    } catch (error) {
+      // Handle database errors gracefully
+      const errorMessage =
+        error instanceof Error ? error.message : "Unknown error";
+      return [this._createMessageItem(`Error: ${errorMessage}`, "error")];
+    }
   }
 
   private _createSprintItem(sprint: Sprint): vscode.TreeItem {
@@ -198,5 +219,43 @@ export class SprintTreeProvider
       default:
         return new vscode.ThemeIcon("question");
     }
+  }
+
+  private _createMessageItem(
+    message: string,
+    messageType: "empty" | "error" | "info"
+  ): MessageItem {
+    return { type: "message", message, messageType };
+  }
+
+  private _createMessageTreeItem(
+    message: string,
+    messageType: "empty" | "error" | "info"
+  ): vscode.TreeItem {
+    const item = new vscode.TreeItem(
+      message,
+      vscode.TreeItemCollapsibleState.None
+    );
+
+    switch (messageType) {
+      case "error":
+        item.iconPath = new vscode.ThemeIcon(
+          "error",
+          new vscode.ThemeColor("editorError.foreground")
+        );
+        break;
+      case "empty":
+        item.iconPath = new vscode.ThemeIcon(
+          "info",
+          new vscode.ThemeColor("descriptionForeground")
+        );
+        break;
+      case "info":
+        item.iconPath = new vscode.ThemeIcon("info");
+        break;
+    }
+
+    item.contextValue = `message-${messageType}`;
+    return item;
   }
 }

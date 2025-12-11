@@ -121,6 +121,14 @@ export class DashboardPanel {
               message.taskId
             );
             break;
+          case "retry":
+            // Handle retry request after error
+            this.update();
+            break;
+          case "initSprint":
+            // Handle init sprint request from empty state
+            void vscode.commands.executeCommand("orchestra.init");
+            break;
         }
       },
       null,
@@ -176,10 +184,17 @@ export class DashboardPanel {
       this._panel.webview.postMessage({ type: "update", data });
     } catch (error) {
       logger.error("Failed to update dashboard", error);
+      const errorMessage =
+        error instanceof Error ? error.message : "Failed to load data";
+      const isDatabaseError =
+        errorMessage.toLowerCase().includes("database") ||
+        errorMessage.toLowerCase().includes("sqlite") ||
+        errorMessage.toLowerCase().includes("connection");
+
       this._panel.webview.postMessage({
         type: "error",
-        error:
-          error instanceof Error ? error.message : "Failed to load dashboard",
+        error: errorMessage,
+        errorType: isDatabaseError ? "database" : "query",
       });
     }
   }

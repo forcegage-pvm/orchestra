@@ -198,6 +198,104 @@
 
       .category-infrastructure {
         background-color: var(--vscode-charts-purple);
+      }
+
+      /* Empty State Styles */
+      .empty-state-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 60px 20px;
+        text-align: center;
+        color: var(--vscode-descriptionForeground);
+      }
+
+      .empty-state-icon {
+        font-size: 48px;
+        margin-bottom: 20px;
+        opacity: 0.6;
+      }
+
+      .empty-state-title {
+        font-size: 1.5em;
+        color: var(--vscode-foreground);
+        margin-bottom: 10px;
+        font-weight: 600;
+      }
+
+      .empty-state-message {
+        font-size: 1em;
+        margin-bottom: 20px;
+        max-width: 400px;
+      }
+
+      .empty-state-action {
+        background-color: var(--vscode-button-background);
+        color: var(--vscode-button-foreground);
+        border: none;
+        padding: 10px 24px;
+        border-radius: 4px;
+        font-size: 0.95em;
+        cursor: pointer;
+        font-family: var(--vscode-font-family);
+        transition: background-color 0.2s;
+      }
+
+      .empty-state-action:hover {
+        background-color: var(--vscode-button-hoverBackground);
+      }
+
+      .empty-state-action:active {
+        background-color: var(--vscode-button-background);
+        opacity: 0.8;
+      }
+
+      /* Error State Styles */
+      .error-state-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 60px 20px;
+        text-align: center;
+      }
+
+      .error-state-icon {
+        font-size: 48px;
+        margin-bottom: 20px;
+        color: var(--vscode-errorForeground);
+      }
+
+      .error-state-title {
+        font-size: 1.5em;
+        color: var(--vscode-errorForeground);
+        margin-bottom: 10px;
+        font-weight: 600;
+      }
+
+      .error-state-message {
+        font-size: 1em;
+        color: var(--vscode-descriptionForeground);
+        margin-bottom: 20px;
+        max-width: 500px;
+      }
+
+      .error-state-details {
+        background-color: var(--vscode-textCodeBlock-background);
+        border: 1px solid var(--vscode-widget-border);
+        border-radius: 4px;
+        padding: 12px;
+        margin-bottom: 20px;
+        max-width: 600px;
+        text-align: left;
+        font-family: var(--vscode-editor-font-family);
+        font-size: 0.9em;
+        color: var(--vscode-descriptionForeground);
+        word-break: break-word;
+      }
+
+      .category-infrastructure {
         color: var(--vscode-editor-background);
       }
 
@@ -805,16 +903,49 @@
             updateDashboard(message.data);
             break;
           case "error":
-            showError(message.error);
+            showError(message.error, message.errorType);
             break;
         }
       });
 
       function updateDashboard(data) {
-        // Hide loading, show content
+        // Hide loading and error
         document.getElementById("loading").style.display = "none";
-        document.getElementById("content").style.display = "block";
         document.getElementById("error").style.display = "none";
+
+        // Check for no sprint - show empty state
+        if (!data.sprint) {
+          document.getElementById("content").innerHTML = `
+            <div class="empty-state-container">
+              <div class="empty-state-icon">📋</div>
+              <div class="empty-state-title">No Active Sprint</div>
+              <div class="empty-state-message">
+                Initialize a sprint to get started with Orchestra task orchestration.
+              </div>
+              <button class="empty-state-action" onclick="initSprint()">Initialize Sprint</button>
+            </div>
+          `;
+          document.getElementById("content").style.display = "block";
+          return;
+        }
+
+        // Check for no tasks in sprint
+        if (data.taskCounts && data.taskCounts.total === 0) {
+          document.getElementById("content").innerHTML = `
+            <div class="empty-state-container">
+              <div class="empty-state-icon">📝</div>
+              <div class="empty-state-title">No Tasks in Sprint</div>
+              <div class="empty-state-message">
+                Sprint "${data.sprint.name}" has no tasks. Add tasks to begin orchestration.
+              </div>
+            </div>
+          `;
+          document.getElementById("content").style.display = "block";
+          return;
+        }
+
+        // Normal display - show content
+        document.getElementById("content").style.display = "block";
 
         // Update sprint header
         if (data.sprint) {
@@ -1058,11 +1189,44 @@
         return html;
       }
 
-      function showError(error) {
+      function showError(errorMessage, errorType = "query") {
         const errorDiv = document.getElementById("error");
-        errorDiv.textContent = error;
-        errorDiv.style.display = "block";
         document.getElementById("loading").style.display = "none";
+        document.getElementById("content").style.display = "none";
+
+        let title, message, icon;
+        if (errorType === "database") {
+          title = "Could not connect to Orchestra database";
+          message =
+            "The database connection failed. Please check that Orchestra is properly initialized.";
+          icon = "🔌";
+        } else {
+          title = "Failed to load data";
+          message =
+            "An error occurred while loading dashboard data. This may be temporary.";
+          icon = "⚠️";
+        }
+
+        errorDiv.innerHTML = `
+          <div class="error-state-container">
+            <div class="error-state-icon">${icon}</div>
+            <div class="error-state-title">${title}</div>
+            <div class="error-state-message">${message}</div>
+            <div class="error-state-details">${escapeHtml(errorMessage)}</div>
+            <button class="empty-state-action" onclick="retryLoad()">Retry</button>
+          </div>
+        `;
+        errorDiv.style.display = "block";
+      }
+
+      function retryLoad() {
+        document.getElementById("error").style.display = "none";
+        document.getElementById("loading").style.display = "block";
+        vscode.postMessage({ type: "retry" });
+      }
+
+      function initSprint() {
+        vscode.postMessage({ type: "initSprint" });
       }
 
       function renderTimeline(events) {
