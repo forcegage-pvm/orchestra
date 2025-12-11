@@ -7,6 +7,7 @@
 
 import { eq, inArray } from "drizzle-orm";
 import { getActiveSprint, getDb } from "../../db/index.js";
+import { logToolExecution } from "./audit-logging.js";
 import { feedback, handovers, tasks } from "../../db/schema.js";
 import {
   GetCurrentTaskInputSchema,
@@ -15,6 +16,7 @@ import {
 import { validateInput } from "../../schemas/utils.js";
 
 export async function handleGetCurrentTask(input: unknown) {
+  const startTime = performance.now();
   const validation = validateInput(GetCurrentTaskInputSchema, input);
   if (!validation.success) {
     return {
@@ -29,11 +31,36 @@ export async function handleGetCurrentTask(input: unknown) {
 
   try {
     const output = await getCurrentTask();
+    const durationMs = Math.round(performance.now() - startTime);
+
+    await logToolExecution(
+      {
+        toolName: "get_current_task",
+        role: "implementor",
+        input: validation.data,
+        taskId: output.task_id,
+      },
+      { success: true, output },
+      durationMs
+    );
+
     return {
       content: [{ type: "text" as const, text: JSON.stringify(output) }],
     };
   } catch (error) {
+    const durationMs = Math.round(performance.now() - startTime);
     const err = error instanceof Error ? error : new Error(String(error));
+
+    await logToolExecution(
+      {
+        toolName: "get_current_task",
+        role: "implementor",
+        input: validation.data,
+      },
+      { success: false, errorMessage: err.message },
+      durationMs
+    );
+
     return {
       content: [
         {

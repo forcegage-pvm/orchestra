@@ -12,6 +12,7 @@
 
 import { and, desc, eq } from "drizzle-orm";
 import { getActiveSprint, getDb } from "../../db/index.js";
+import { logToolExecution } from "./audit-logging.js";
 import {
   signals,
   tasks,
@@ -25,6 +26,7 @@ import {
 } from "../../schemas/verification.js";
 
 export async function handleGetVerificationResults(input: unknown) {
+  const startTime = performance.now();
   const validation = validateInput(GetVerificationResultsInputSchema, input);
   if (!validation.success) {
     return {
@@ -39,11 +41,37 @@ export async function handleGetVerificationResults(input: unknown) {
 
   try {
     const output = await getVerificationResults(validation.data);
+    const durationMs = Math.round(performance.now() - startTime);
+
+    await logToolExecution(
+      {
+        toolName: "get_verification_results",
+        role: "orchestrator",
+        input: validation.data,
+        taskId: validation.data.task_id,
+      },
+      { success: true, output },
+      durationMs
+    );
+
     return {
       content: [{ type: "text" as const, text: JSON.stringify(output) }],
     };
   } catch (error) {
+    const durationMs = Math.round(performance.now() - startTime);
     const err = error instanceof Error ? error : new Error(String(error));
+
+    await logToolExecution(
+      {
+        toolName: "get_verification_results",
+        role: "orchestrator",
+        input: validation.data,
+        taskId: validation.data.task_id,
+      },
+      { success: false, errorMessage: err.message },
+      durationMs
+    );
+
     return {
       content: [
         {

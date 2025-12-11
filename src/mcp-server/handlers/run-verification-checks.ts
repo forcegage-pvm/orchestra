@@ -15,6 +15,7 @@ import {
   type CheckResult,
 } from "../../core/check-executor.js";
 import { getActiveSprint, getDb } from "../../db/index.js";
+import { logToolExecution } from "./audit-logging.js";
 import {
   signals,
   tasks,
@@ -28,6 +29,7 @@ import {
 } from "../../schemas/verification.js";
 
 export async function handleRunVerificationChecks(input: unknown) {
+  const startTime = performance.now();
   const validation = validateInput(RunVerificationChecksInputSchema, input);
   if (!validation.success) {
     return {
@@ -56,11 +58,37 @@ export async function handleRunVerificationChecks(input: unknown) {
       continue_on_error: data.continue_on_error ?? false,
       dry_run: data.dry_run ?? false,
     });
+    const durationMs = Math.round(performance.now() - startTime);
+
+    await logToolExecution(
+      {
+        toolName: "run_verification_checks",
+        role: "orchestrator",
+        input: validation.data,
+        taskId: validation.data.task_id,
+      },
+      { success: true, output },
+      durationMs
+    );
+
     return {
       content: [{ type: "text" as const, text: JSON.stringify(output) }],
     };
   } catch (error) {
+    const durationMs = Math.round(performance.now() - startTime);
     const err = error instanceof Error ? error : new Error(String(error));
+
+    await logToolExecution(
+      {
+        toolName: "run_verification_checks",
+        role: "orchestrator",
+        input: validation.data,
+        taskId: validation.data.task_id,
+      },
+      { success: false, errorMessage: err.message },
+      durationMs
+    );
+
     return {
       content: [
         {

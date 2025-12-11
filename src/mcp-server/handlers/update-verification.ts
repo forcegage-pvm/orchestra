@@ -28,9 +28,10 @@ import {
   type UpdateVerificationOutput,
 } from "../../schemas/sprint-config.js";
 import { validateInput } from "../../schemas/utils.js";
-import { logSystemEvent } from "./audit-logging.js";
+import { logSystemEvent, logToolExecution } from "./audit-logging.js";
 
 export async function handleUpdateVerification(input: unknown) {
+  const startTime = performance.now();
   const validation = validateInput(UpdateVerificationInputSchema, input);
   if (!validation.success) {
     return {
@@ -45,11 +46,37 @@ export async function handleUpdateVerification(input: unknown) {
 
   try {
     const output = await updateVerification(validation.data);
+    const durationMs = Math.round(performance.now() - startTime);
+
+    await logToolExecution(
+      {
+        toolName: "update_verification",
+        role: "orchestrator",
+        input: validation.data,
+        taskId: validation.data.task_id,
+      },
+      { success: true, output },
+      durationMs
+    );
+
     return {
       content: [{ type: "text" as const, text: JSON.stringify(output) }],
     };
   } catch (error) {
+    const durationMs = Math.round(performance.now() - startTime);
     const err = error instanceof Error ? error : new Error(String(error));
+
+    await logToolExecution(
+      {
+        toolName: "update_verification",
+        role: "orchestrator",
+        input: validation.data,
+        taskId: validation.data.task_id,
+      },
+      { success: false, errorMessage: err.message },
+      durationMs
+    );
+
     return {
       content: [
         {

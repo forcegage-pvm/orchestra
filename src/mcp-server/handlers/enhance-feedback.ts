@@ -7,6 +7,7 @@
 
 import { and, eq } from "drizzle-orm";
 import { getActiveSprint, getDb } from "../../db/index.js";
+import { logToolExecution } from "./audit-logging.js";
 import { feedback as feedbackTable, progress, tasks } from "../../db/schema.js";
 import {
   EnhanceFeedbackInputSchema,
@@ -15,6 +16,7 @@ import {
 import { validateInput } from "../../schemas/utils.js";
 
 export async function handleEnhanceFeedback(input: unknown) {
+  const startTime = performance.now();
   const validation = validateInput(EnhanceFeedbackInputSchema, input);
   if (!validation.success) {
     return {
@@ -29,11 +31,37 @@ export async function handleEnhanceFeedback(input: unknown) {
 
   try {
     const output = await enhanceFeedback(validation.data);
+    const durationMs = Math.round(performance.now() - startTime);
+
+    await logToolExecution(
+      {
+        toolName: "enhance_feedback",
+        role: "orchestrator",
+        input: validation.data,
+        taskId: validation.data.task_id,
+      },
+      { success: true, output },
+      durationMs
+    );
+
     return {
       content: [{ type: "text" as const, text: JSON.stringify(output) }],
     };
   } catch (error) {
+    const durationMs = Math.round(performance.now() - startTime);
     const err = error instanceof Error ? error : new Error(String(error));
+
+    await logToolExecution(
+      {
+        toolName: "enhance_feedback",
+        role: "orchestrator",
+        input: validation.data,
+        taskId: validation.data.task_id,
+      },
+      { success: false, errorMessage: err.message },
+      durationMs
+    );
+
     return {
       content: [
         {

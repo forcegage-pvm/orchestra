@@ -7,6 +7,7 @@
 import { and, eq } from "drizzle-orm";
 import { getDb } from "../../db/index.js";
 import { getActiveSprint } from "../../db/queries.js";
+import { logToolExecution } from "./audit-logging.js";
 import { tasks } from "../../db/schema.js";
 import {
   RemoveTaskInputSchema,
@@ -15,6 +16,7 @@ import {
 import { validateInput } from "../../schemas/utils.js";
 
 export async function handleRemoveTask(input: unknown) {
+  const startTime = performance.now();
   const validation = validateInput(RemoveTaskInputSchema, input);
   if (!validation.success) {
     return {
@@ -29,11 +31,37 @@ export async function handleRemoveTask(input: unknown) {
 
   try {
     const output = await removeTask(validation.data);
+    const durationMs = Math.round(performance.now() - startTime);
+
+    await logToolExecution(
+      {
+        toolName: "remove_task",
+        role: "orchestrator",
+        input: validation.data,
+        taskId: validation.data.task_id,
+      },
+      { success: true, output },
+      durationMs
+    );
+
     return {
       content: [{ type: "text" as const, text: JSON.stringify(output) }],
     };
   } catch (error) {
+    const durationMs = Math.round(performance.now() - startTime);
     const err = error instanceof Error ? error : new Error(String(error));
+
+    await logToolExecution(
+      {
+        toolName: "remove_task",
+        role: "orchestrator",
+        input: validation.data,
+        taskId: validation.data.task_id,
+      },
+      { success: false, errorMessage: err.message },
+      durationMs
+    );
+
     return {
       content: [
         {

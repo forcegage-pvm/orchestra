@@ -6,6 +6,7 @@
 
 import { eq } from "drizzle-orm";
 import { getDb, getMostRecentSprint } from "../../db/index.js";
+import { logToolExecution } from "./audit-logging.js";
 import { tasks } from "../../db/schema.js";
 import {
   GetProgressInputSchema,
@@ -14,6 +15,7 @@ import {
 import { validateInput } from "../../schemas/utils.js";
 
 export async function handleGetProgress(input: unknown) {
+  const startTime = performance.now();
   const validation = validateInput(GetProgressInputSchema, input);
   if (!validation.success) {
     return {
@@ -28,11 +30,35 @@ export async function handleGetProgress(input: unknown) {
 
   try {
     const output = await getProgress();
+    const durationMs = Math.round(performance.now() - startTime);
+
+    await logToolExecution(
+      {
+        toolName: "get_progress",
+        role: "implementor",
+        input: validation.data,
+      },
+      { success: true, output },
+      durationMs
+    );
+
     return {
       content: [{ type: "text" as const, text: JSON.stringify(output) }],
     };
   } catch (error) {
+    const durationMs = Math.round(performance.now() - startTime);
     const err = error instanceof Error ? error : new Error(String(error));
+
+    await logToolExecution(
+      {
+        toolName: "get_progress",
+        role: "implementor",
+        input: validation.data,
+      },
+      { success: false, errorMessage: err.message },
+      durationMs
+    );
+
     return {
       content: [
         {

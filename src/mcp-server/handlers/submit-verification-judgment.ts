@@ -14,6 +14,7 @@
 import { and, eq } from "drizzle-orm";
 import { validateJudgment } from "../../core/judgment-validator.js";
 import { getActiveSprint, getDb } from "../../db/index.js";
+import { logToolExecution } from "./audit-logging.js";
 import { feedback, progress, tasks } from "../../db/schema.js";
 import { validateInput } from "../../schemas/utils.js";
 import {
@@ -22,6 +23,7 @@ import {
 } from "../../schemas/verification.js";
 
 export async function handleSubmitVerificationJudgment(input: unknown) {
+  const startTime = performance.now();
   const validation = validateInput(
     SubmitVerificationJudgmentInputSchema,
     input
@@ -39,11 +41,37 @@ export async function handleSubmitVerificationJudgment(input: unknown) {
 
   try {
     const output = await submitVerificationJudgment(validation.data);
+    const durationMs = Math.round(performance.now() - startTime);
+
+    await logToolExecution(
+      {
+        toolName: "submit_verification_judgment",
+        role: "orchestrator",
+        input: validation.data,
+        taskId: validation.data.task_id,
+      },
+      { success: true, output },
+      durationMs
+    );
+
     return {
       content: [{ type: "text" as const, text: JSON.stringify(output) }],
     };
   } catch (error) {
+    const durationMs = Math.round(performance.now() - startTime);
     const err = error instanceof Error ? error : new Error(String(error));
+
+    await logToolExecution(
+      {
+        toolName: "submit_verification_judgment",
+        role: "orchestrator",
+        input: validation.data,
+        taskId: validation.data.task_id,
+      },
+      { success: false, errorMessage: err.message },
+      durationMs
+    );
+
     return {
       content: [
         {

@@ -8,6 +8,7 @@
 import { and, eq } from "drizzle-orm";
 import { autoCommitIfEnabled, generateCommitMessage } from "../../core/git.js";
 import { getActiveSprint, getDb } from "../../db/index.js";
+import { logToolExecution } from "./audit-logging.js";
 import { progress as progressTable, sprints, tasks } from "../../db/schema.js";
 import {
   CompleteTaskInputSchema,
@@ -16,6 +17,7 @@ import {
 import { validateInput } from "../../schemas/utils.js";
 
 export async function handleCompleteTask(input: unknown) {
+  const startTime = performance.now();
   const validation = validateInput(CompleteTaskInputSchema, input);
   if (!validation.success) {
     return {
@@ -30,11 +32,39 @@ export async function handleCompleteTask(input: unknown) {
 
   try {
     const output = await completeTask(validation.data);
+    const durationMs = Math.round(performance.now() - startTime);
+
+    // Log successful execution
+    await logToolExecution(
+      {
+        toolName: "complete_task",
+        role: "orchestrator",
+        input: validation.data,
+        taskId: validation.data.task_id,
+      },
+      { success: true, output },
+      durationMs
+    );
+
     return {
       content: [{ type: "text" as const, text: JSON.stringify(output) }],
     };
   } catch (error) {
+    const durationMs = Math.round(performance.now() - startTime);
     const err = error instanceof Error ? error : new Error(String(error));
+
+    // Log failed execution
+    await logToolExecution(
+      {
+        toolName: "complete_task",
+        role: "orchestrator",
+        input: validation.data,
+        taskId: validation.data.task_id,
+      },
+      { success: false, errorMessage: err.message },
+      durationMs
+    );
+
     return {
       content: [
         {

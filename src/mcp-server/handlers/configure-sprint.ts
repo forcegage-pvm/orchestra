@@ -17,6 +17,7 @@ import { eq, sql } from "drizzle-orm";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { getDb } from "../../db/index.js";
+import { logToolExecution } from "./audit-logging.js";
 import {
   consolidations,
   phases,
@@ -39,7 +40,7 @@ import { validateInput } from "../../schemas/utils.js";
 export async function handleConfigureSprint(
   input: unknown
 ): Promise<{ content: Array<{ type: "text"; text: string }> }> {
-  const startTime = Date.now();
+  const startTime = performance.now();
 
   // Debug logging
   console.error("DEBUG: Received input:", JSON.stringify(input, null, 2));
@@ -138,6 +139,19 @@ export async function handleConfigureSprint(
       summary: result.summary,
     };
 
+    const durationMs = Math.round(performance.now() - startTime);
+
+    // Log successful execution
+    await logToolExecution(
+      {
+        toolName: "configure_sprint",
+        role: "orchestrator",
+        input: data,
+      },
+      { success: true, output },
+      durationMs
+    );
+
     return {
       content: [
         {
@@ -147,11 +161,25 @@ export async function handleConfigureSprint(
       ],
     };
   } catch (error) {
+    const durationMs = Math.round(performance.now() - startTime);
+    const err = error instanceof Error ? error : new Error(String(error));
+
+    // Log failed execution
+    await logToolExecution(
+      {
+        toolName: "configure_sprint",
+        role: "orchestrator",
+        input: validation.data,
+      },
+      { success: false, errorMessage: err.message },
+      durationMs
+    );
+
     // Handle errors
     const errorResponse = createErrorResponse(
       "DATABASE_ERROR",
-      error instanceof Error ? error.message : "Unknown error",
-      { duration_ms: Date.now() - startTime }
+      err.message,
+      { duration_ms: durationMs }
     );
 
     return {

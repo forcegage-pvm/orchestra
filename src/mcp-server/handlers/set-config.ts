@@ -8,6 +8,7 @@
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { getDb } from "../../db/index.js";
+import { logToolExecution } from "./audit-logging.js";
 import { config } from "../../db/schema.js";
 import { validateInput } from "../../schemas/utils.js";
 
@@ -41,6 +42,7 @@ export interface SetConfigOutput {
 export async function handleSetConfig(
   input: unknown
 ): Promise<{ content: Array<{ type: "text"; text: string }> }> {
+  const startTime = performance.now();
   // Validate input
   const validation = validateInput(SetConfigInputSchema, input);
   if (!validation.success) {
@@ -58,6 +60,17 @@ export async function handleSetConfig(
 
   try {
     const result = await setConfig(key, value, description);
+    const durationMs = Math.round(performance.now() - startTime);
+
+    await logToolExecution(
+      {
+        toolName: "set_config",
+        role: "orchestrator",
+        input: validation.data,
+      },
+      { success: true, output: result },
+      durationMs
+    );
 
     return {
       content: [
@@ -68,7 +81,19 @@ export async function handleSetConfig(
       ],
     };
   } catch (error) {
+    const durationMs = Math.round(performance.now() - startTime);
     const err = error instanceof Error ? error : new Error(String(error));
+
+    await logToolExecution(
+      {
+        toolName: "set_config",
+        role: "orchestrator",
+        input: validation.data,
+      },
+      { success: false, errorMessage: err.message },
+      durationMs
+    );
+
     return {
       content: [
         {

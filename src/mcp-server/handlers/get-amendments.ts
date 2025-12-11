@@ -8,6 +8,7 @@
 
 import { and, eq } from "drizzle-orm";
 import { getActiveSprint, getDb } from "../../db/index.js";
+import { logToolExecution } from "./audit-logging.js";
 import { amendments, tasks } from "../../db/schema.js";
 import {
   GetAmendmentsInputSchema,
@@ -16,6 +17,7 @@ import {
 import { validateInput } from "../../schemas/utils.js";
 
 export async function handleGetAmendments(input: unknown) {
+  const startTime = performance.now();
   const validation = validateInput(GetAmendmentsInputSchema, input ?? {});
   if (!validation.success) {
     return {
@@ -30,11 +32,35 @@ export async function handleGetAmendments(input: unknown) {
 
   try {
     const output = await getAmendments(validation.data ?? {});
+    const durationMs = Math.round(performance.now() - startTime);
+
+    await logToolExecution(
+      {
+        toolName: "get_amendments",
+        role: "orchestrator",
+        input: validation.data,
+      },
+      { success: true, output },
+      durationMs
+    );
+
     return {
       content: [{ type: "text" as const, text: JSON.stringify(output) }],
     };
   } catch (error) {
+    const durationMs = Math.round(performance.now() - startTime);
     const err = error instanceof Error ? error : new Error(String(error));
+
+    await logToolExecution(
+      {
+        toolName: "get_amendments",
+        role: "orchestrator",
+        input: validation.data,
+      },
+      { success: false, errorMessage: err.message },
+      durationMs
+    );
+
     return {
       content: [
         {

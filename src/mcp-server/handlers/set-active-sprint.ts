@@ -8,6 +8,7 @@
 import { eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import { getDb } from "../../db/index.js";
+import { logToolExecution } from "./audit-logging.js";
 import { sprints } from "../../db/schema.js";
 import { validateInput } from "../../schemas/utils.js";
 
@@ -26,6 +27,7 @@ interface SetActiveSprintOutput {
 }
 
 export async function handleSetActiveSprint(input: unknown) {
+  const startTime = performance.now();
   const validation = validateInput(SetActiveSprintInputSchema, input);
   if (!validation.success) {
     return {
@@ -40,11 +42,35 @@ export async function handleSetActiveSprint(input: unknown) {
 
   try {
     const output = await setActiveSprint(validation.data);
+    const durationMs = Math.round(performance.now() - startTime);
+
+    await logToolExecution(
+      {
+        toolName: "set_active_sprint",
+        role: "orchestrator",
+        input: validation.data,
+      },
+      { success: true, output },
+      durationMs
+    );
+
     return {
       content: [{ type: "text" as const, text: JSON.stringify(output) }],
     };
   } catch (error) {
+    const durationMs = Math.round(performance.now() - startTime);
     const err = error instanceof Error ? error : new Error(String(error));
+
+    await logToolExecution(
+      {
+        toolName: "set_active_sprint",
+        role: "orchestrator",
+        input: validation.data,
+      },
+      { success: false, errorMessage: err.message },
+      durationMs
+    );
+
     return {
       content: [
         {

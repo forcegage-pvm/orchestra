@@ -6,6 +6,7 @@
 
 import { eq } from "drizzle-orm";
 import { getDb, getMostRecentSprint } from "../../db/index.js";
+import { logToolExecution } from "./audit-logging.js";
 import { phases as phasesTable, tasks } from "../../db/schema.js";
 import {
   GetSprintStatusInputSchema,
@@ -14,6 +15,7 @@ import {
 import { validateInput } from "../../schemas/utils.js";
 
 export async function handleGetSprintStatus(input: unknown) {
+  const startTime = performance.now();
   const validation = validateInput(GetSprintStatusInputSchema, input);
   if (!validation.success) {
     return {
@@ -28,11 +30,35 @@ export async function handleGetSprintStatus(input: unknown) {
 
   try {
     const output = await getSprintStatus();
+    const durationMs = Math.round(performance.now() - startTime);
+
+    await logToolExecution(
+      {
+        toolName: "get_sprint_status",
+        role: "orchestrator",
+        input: validation.data,
+      },
+      { success: true, output },
+      durationMs
+    );
+
     return {
       content: [{ type: "text" as const, text: JSON.stringify(output) }],
     };
   } catch (error) {
+    const durationMs = Math.round(performance.now() - startTime);
     const err = error instanceof Error ? error : new Error(String(error));
+
+    await logToolExecution(
+      {
+        toolName: "get_sprint_status",
+        role: "orchestrator",
+        input: validation.data,
+      },
+      { success: false, errorMessage: err.message },
+      durationMs
+    );
+
     return {
       content: [
         {

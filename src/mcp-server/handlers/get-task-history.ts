@@ -6,6 +6,7 @@
 
 import { and, asc, eq } from "drizzle-orm";
 import { getActiveSprint, getDb } from "../../db/index.js";
+import { logToolExecution } from "./audit-logging.js";
 import { progress as progressTable, tasks } from "../../db/schema.js";
 import {
   GetTaskHistoryInputSchema,
@@ -14,6 +15,7 @@ import {
 import { validateInput } from "../../schemas/utils.js";
 
 export async function handleGetTaskHistory(input: unknown) {
+  const startTime = performance.now();
   const validation = validateInput(GetTaskHistoryInputSchema, input);
   if (!validation.success) {
     return {
@@ -28,11 +30,37 @@ export async function handleGetTaskHistory(input: unknown) {
 
   try {
     const output = await getTaskHistory(validation.data);
+    const durationMs = Math.round(performance.now() - startTime);
+
+    await logToolExecution(
+      {
+        toolName: "get_task_history",
+        role: "orchestrator",
+        input: validation.data,
+        taskId: validation.data.task_id,
+      },
+      { success: true, output },
+      durationMs
+    );
+
     return {
       content: [{ type: "text" as const, text: JSON.stringify(output) }],
     };
   } catch (error) {
+    const durationMs = Math.round(performance.now() - startTime);
     const err = error instanceof Error ? error : new Error(String(error));
+
+    await logToolExecution(
+      {
+        toolName: "get_task_history",
+        role: "orchestrator",
+        input: validation.data,
+        taskId: validation.data.task_id,
+      },
+      { success: false, errorMessage: err.message },
+      durationMs
+    );
+
     return {
       content: [
         {
