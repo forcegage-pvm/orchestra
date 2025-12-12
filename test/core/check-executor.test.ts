@@ -152,6 +152,32 @@ describe("Check Executor", () => {
 
       expect(result.passed).toBe(true);
     });
+
+    it("should match patterns across multiple lines", async () => {
+      const filePath = path.join(tempDir, "error-handler.ts");
+      fs.writeFileSync(
+        filePath,
+        `function handleError() {
+  try {
+    riskyOperation();
+  } catch (error) {
+    logError(error);
+  }
+}`
+      );
+
+      const config: CheckConfig = {
+        type: "structural",
+        path: filePath,
+        pattern: "try.*catch",
+        min_matches: 1,
+      };
+
+      const result = await executeStructuralCheck(config, tempDir);
+
+      expect(result.passed).toBe(true);
+      expect(result.message).toContain("matches pattern");
+    });
   });
 
   describe("executeBehavioralCheck", () => {

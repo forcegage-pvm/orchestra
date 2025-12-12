@@ -94,7 +94,9 @@ export async function executeStructuralCheck(
   // If pattern specified, check file contents
   if (config.pattern) {
     const content = fs.readFileSync(filePath, "utf-8");
-    const matches = content.match(new RegExp(config.pattern, "g"));
+    // Use 'gms' flags: g=global, m=multiline (^$ match line boundaries), s=dotall (.matches newlines)
+    // This enables patterns like 'try.*catch' to match across multiple lines
+    const matches = content.match(new RegExp(config.pattern, "gms"));
     const minMatches = config.min_matches ?? 1;
 
     if (!matches || matches.length < minMatches) {
