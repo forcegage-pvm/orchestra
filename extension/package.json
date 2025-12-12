@@ -65,6 +65,11 @@
         "icon": "$(refresh)"
       },
       {
+        "command": "orchestra.openSprintSettings",
+        "title": "Orchestra: Open Sprint Settings",
+        "icon": "$(settings-gear)"
+      },
+      {
         "command": "orchestra.openTaskDetail",
         "title": "Orchestra: Open Task Detail",
         "icon": "$(file-text)"
@@ -137,6 +142,29 @@
         }
       ]
     },
+    "chatParticipants": [
+      {
+        "id": "orchestra",
+        "name": "orchestra",
+        "fullName": "Orchestra Agent",
+        "description": "AI agent task orchestration - get status, start tasks, and manage sprints",
+        "isSticky": false,
+        "commands": [
+          {
+            "name": "status",
+            "description": "Show current sprint and task progress"
+          },
+          {
+            "name": "start",
+            "description": "Start working on a specific task"
+          },
+          {
+            "name": "context",
+            "description": "Get context for the current task or sprint"
+          }
+        ]
+      }
+    ],
     "viewsWelcome": [
       {
         "view": "orchestraSprintExplorer",

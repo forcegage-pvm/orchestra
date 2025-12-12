@@ -17,6 +17,7 @@ import { MCPServerManager } from "./mcp/ServerManager.js";
 import { OrchestraLogger } from "./utils/logger.js";
 import { DashboardPanel } from "./views/dashboard/DashboardPanel.js";
 import { OrchestraViewDecorationProvider } from "./views/providers/ViewDecorationProvider.js";
+import { SprintSettingsPanel } from "./views/settings/SprintSettingsPanel.js";
 import { StatusBarManager } from "./views/statusbar/StatusBarItem.js";
 import { TaskDetailPanel } from "./views/task/TaskDetailPanel.js";
 import { SprintTreeProvider } from "./views/treeview/SprintTreeProvider.js";
@@ -778,6 +779,9 @@ export async function activate(
         treeProvider.refresh();
         statusBar.refresh();
         logger.info("Manual refresh triggered");
+      }),
+      vscode.commands.registerCommand("orchestra.openSprintSettings", () => {
+        SprintSettingsPanel.show(context.extensionUri, orchestraRoot, logger);
       }),
       vscode.commands.registerCommand(
         "orchestra.openTaskDetail",

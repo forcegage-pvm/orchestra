@@ -281,3 +281,14 @@ export const escalations = sqliteTable(
     ),
   })
 );
+
+/**
+ * Config table - System-wide configuration (key-value store)
+ */
+export const config = sqliteTable("config", {
+  key: text("key").primaryKey(),
+  value: text("value").notNull(),
+  description: text("description"),
+  created_at: text("created_at").notNull(),
+  updated_at: text("updated_at").notNull(),
+});

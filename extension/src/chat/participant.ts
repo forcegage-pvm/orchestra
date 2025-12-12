@@ -102,6 +102,12 @@ function handleChatRequest(
         return;
       }
 
+      // Handle 'context' command - provide sprint/task context for agents
+      if (command === "context" || prompt.includes("context")) {
+        await handleContextCommand(orchestraRoot, stream, logger);
+        return;
+      }
+
       // Default help message
       stream.markdown("## Orchestra Commands\n\n");
       stream.markdown("I can help you with:\n\n");
@@ -110,6 +116,9 @@ function handleChatRequest(
       );
       stream.markdown(
         "- **@orchestra start task &lt;id&gt;** - Begin work on a specific task\n"
+      );
+      stream.markdown(
+        "- **@orchestra context** - Get context for the current task or sprint\n"
       );
       stream.markdown("\n");
       stream.markdown(
@@ -300,4 +309,82 @@ async function handleStartTaskCommand(
   }
 
   logger.info(`Start task command completed for task ${taskId}`);
+}
+
+/**
+ * Handle the 'context' command
+ * Provides rich context for agents about current sprint/task
+ */
+async function handleContextCommand(
+  orchestraRoot: string,
+  stream: vscode.ChatResponseStream,
+  logger: OrchestraLogger
+): Promise<void> {
+  logger.info("Handling context command");
+
+  // Get sprint context
+  const sprintContext = getSprintContext(orchestraRoot);
+  if (!sprintContext) {
+    stream.markdown("❌ **No active sprint found**\n\n");
+    stream.markdown(
+      "Configure a sprint using the MCP Orchestrator agent first.\n"
+    );
+    return;
+  }
+
+  const { sprint, totalTasks, completedTasks, progressPercent } = sprintContext;
+
+  // Get current task
+  const currentTask = getCurrentTask(orchestraRoot);
+
+  // Get all tasks for full context
+  const tasks = getTasksForSprint(orchestraRoot, sprint.id);
+  const phases = getPhases(orchestraRoot, sprint.id);
+
+  stream.markdown(`# 🎯 Orchestra Context\n\n`);
+  stream.markdown(`## Sprint: ${sprint.name}\n\n`);
+  stream.markdown(`- **ID**: \`${sprint.id}\`\n`);
+  stream.markdown(`- **Workflow Step**: ${sprint.workflow_step}\n`);
+  stream.markdown(`- **Progress**: ${completedTasks}/${totalTasks} tasks (${progressPercent}%)\n\n`);
+
+  if (currentTask) {
+    stream.markdown(`## Current Task\n\n`);
+    stream.markdown(`- **Task ID**: ${currentTask.task_id}\n`);
+    stream.markdown(`- **Title**: ${currentTask.title}\n`);
+    stream.markdown(`- **Status**: ${currentTask.status}\n`);
+    stream.markdown(`- **Category**: ${currentTask.category}\n`);
+    stream.markdown(`- **Phase**: ${currentTask.phase_id}\n\n`);
+    stream.markdown(`### Description\n\n${currentTask.description}\n\n`);
+
+    if (currentTask.dependencies && currentTask.dependencies !== "[]") {
+      stream.markdown(`### Dependencies\n\n${currentTask.dependencies}\n\n`);
+    }
+  } else {
+    stream.markdown(`## Current Task\n\n*No task currently in progress*\n\n`);
+
+    // Show next available tasks
+    const pendingTasks = tasks.filter((t) => t.status === "PENDING" || t.status === "IMPLEMENT");
+    if (pendingTasks.length > 0) {
+      stream.markdown(`### Available Tasks\n\n`);
+      for (const task of pendingTasks.slice(0, 5)) {
+        stream.markdown(`- **Task ${task.task_id}**: ${task.title} (${task.status})\n`);
+      }
+      stream.markdown("\n");
+    }
+  }
+
+  // Phase overview
+  if (phases.length > 0) {
+    stream.markdown(`## Phases\n\n`);
+    for (const phase of phases) {
+      const phaseTasks = tasks.filter((t) => t.phase_id === phase.id);
+      const phaseComplete = phaseTasks.filter((t) => t.status === "COMPLETE").length;
+      const phaseStatus = phaseComplete === phaseTasks.length ? "✅" : 
+                          phaseComplete > 0 ? "🔄" : "⏳";
+      stream.markdown(`- ${phaseStatus} **${phase.phase_name}**: ${phaseComplete}/${phaseTasks.length}\n`);
+    }
+    stream.markdown("\n");
+  }
+
+  logger.info("Context command completed");
 }
