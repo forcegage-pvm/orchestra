@@ -181,7 +181,6 @@ function getGuidanceForStep(
     case "RETRY":
       return {
         action: "Address verification feedback and retry",
-        command: "cat .orchestra/handover/feedback.md",
         explanation: state.feedbackExists
           ? "Verification failed. Review feedback at .orchestra/handover/feedback.md and make corrections."
           : "Verification failed. Check the verification report for what needs to be fixed.",
