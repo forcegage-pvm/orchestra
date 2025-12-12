@@ -5,10 +5,17 @@
  * Updates sprint workflow_step to IMPLEMENT if coming from SELECT_TASK.
  */
 
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { autoCommitIfEnabled, generateCommitMessage } from "../../core/git.js";
 import { getActiveSprint, getDb } from "../../db/index.js";
-import { handovers, progress, sprints, tasks } from "../../db/schema.js";
+import {
+  config,
+  handovers,
+  progress,
+  sprints,
+  tasks,
+  verificationChecks,
+} from "../../db/schema.js";
 import {
   PrepareTaskInputSchema,
   type PrepareTaskOutput,
@@ -207,6 +214,20 @@ async function prepareTask(
     });
   }
 
+  // 5b. Auto-inject TDD test verification check if enabled for this category
+  const tddInjectionResult = await injectTestVerificationIfRequired(
+    db,
+    task.id,
+    task.category,
+    task.title,
+    now
+  );
+  if (tddInjectionResult.injected) {
+    console.error(
+      `[TDD] Auto-injected test verification check for task ${input.task_id} (${task.category}): ${tddInjectionResult.checkDescription}`
+    );
+  }
+
   // 6. Update task status to IMPLEMENT
   await db
     .update(tasks)
@@ -260,4 +281,86 @@ async function prepareTask(
     status: "IMPLEMENT",
     git_commit: gitResult.committed ? gitResult.sha ?? undefined : undefined,
   };
+}
+
+/**
+ * Auto-inject test verification check if TDD is enabled for the task category.
+ *
+ * Reads TDD config from database: require_tests, require_tests_categories,
+ * test_file_pattern, and test_pattern.
+ *
+ * When enabled and category matches, inserts a BLOCKING structural check.
+ */
+async function injectTestVerificationIfRequired(
+  db: ReturnType<typeof getDb>,
+  taskInternalId: number,
+  taskCategory: string,
+  taskTitle: string,
+  now: string
+): Promise<{ injected: boolean; checkDescription?: string }> {
+  // Read TDD config from database
+  const tddConfigKeys = [
+    "tdd.require_tests",
+    "tdd.require_tests_categories",
+    "tdd.test_file_pattern",
+    "tdd.test_pattern",
+  ];
+
+  const configRows = await db
+    .select()
+    .from(config)
+    .where(inArray(config.key, tddConfigKeys));
+
+  const configMap = new Map(configRows.map((row) => [row.key, row.value]));
+
+  // Check if TDD is enabled (default to false if not configured)
+  const requireTests = configMap.get("tdd.require_tests") === "true";
+  if (!requireTests) {
+    return { injected: false };
+  }
+
+  // Check if task category requires tests
+  const categoriesStr =
+    configMap.get("tdd.require_tests_categories") ||
+    "INFRASTRUCTURE,INTEGRATION";
+  const requiredCategories = categoriesStr.split(",").map((c) => c.trim());
+
+  if (!requiredCategories.includes(taskCategory)) {
+    return { injected: false };
+  }
+
+  // Get test file pattern and content pattern from config
+  const testFilePattern =
+    configMap.get("tdd.test_file_pattern") || "test/**/*.test.ts";
+  const testContentPattern =
+    configMap.get("tdd.test_pattern") || "describe|test|it";
+
+  // Count existing checks to generate unique check_id
+  const existingChecks = await db
+    .select({ check_id: verificationChecks.check_id })
+    .from(verificationChecks)
+    .where(eq(verificationChecks.task_id, taskInternalId));
+
+  const structCheckCount = existingChecks.filter((c) =>
+    c.check_id.startsWith("struct-")
+  ).length;
+
+  const checkDescription = `[TDD] Test file required for "${taskTitle}" (${taskCategory})`;
+
+  // Insert TDD structural check
+  await db.insert(verificationChecks).values({
+    task_id: taskInternalId,
+    check_id: `struct-tdd-${structCheckCount}`,
+    check_type: "structural",
+    description: checkDescription,
+    severity: "BLOCKING",
+    check_config: JSON.stringify({
+      path: testFilePattern,
+      pattern: testContentPattern,
+      min_matches: 1,
+    }),
+    created_at: now,
+  });
+
+  return { injected: true, checkDescription };
 }

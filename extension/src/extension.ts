@@ -254,7 +254,8 @@ async function handleStartTask(
     }
 
     const tasks = getTasksForSprint(workspaceRoot, sprint.id);
-    const task = tasks.find((t) => t.task_id === taskId);
+    // taskId is the internal database id (task.id), not task_id
+    const task = tasks.find((t) => t.id === taskId);
 
     if (!task) {
       vscode.window.showErrorMessage(
@@ -267,17 +268,17 @@ async function handleStartTask(
     const handover = getHandover(workspaceRoot, task.id);
     if (!handover) {
       vscode.window.showWarningMessage(
-        `Orchestra: Task ${taskId} has no handover yet. Use the orchestrator to prepare it first.`
+        `Orchestra: Task ${task.task_id} has no handover yet. Use the orchestrator to prepare it first.`
       );
       return;
     }
 
     // Open chat with task context pre-filled
     await vscode.commands.executeCommand("workbench.action.chat.open", {
-      query: `@orchestra Start working on Task ${taskId}: ${task.title}. The handover has been prepared and I'm ready to implement.`,
+      query: `@orchestra Start working on Task ${task.task_id}: ${task.title}. The handover has been prepared and I'm ready to implement.`,
     });
 
-    logger.info(`Task ${taskId} started via chat invocation`);
+    logger.info(`Task ${task.task_id} started via chat invocation`);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
     vscode.window.showErrorMessage(
@@ -876,7 +877,7 @@ export async function activate(
         "orchestra.forceComplete",
         async (element: { type: string; task?: { id: number } }) => {
           if (element?.task?.id) {
-            await handleForceCompleteTask(
+            await handleForceComplete(
               orchestraRoot,
               element.task.id,
               treeProvider
