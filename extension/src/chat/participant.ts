@@ -345,7 +345,9 @@ async function handleContextCommand(
   stream.markdown(`## Sprint: ${sprint.name}\n\n`);
   stream.markdown(`- **ID**: \`${sprint.id}\`\n`);
   stream.markdown(`- **Workflow Step**: ${sprint.workflow_step}\n`);
-  stream.markdown(`- **Progress**: ${completedTasks}/${totalTasks} tasks (${progressPercent}%)\n\n`);
+  stream.markdown(
+    `- **Progress**: ${completedTasks}/${totalTasks} tasks (${progressPercent}%)\n\n`
+  );
 
   if (currentTask) {
     stream.markdown(`## Current Task\n\n`);
@@ -363,11 +365,15 @@ async function handleContextCommand(
     stream.markdown(`## Current Task\n\n*No task currently in progress*\n\n`);
 
     // Show next available tasks
-    const pendingTasks = tasks.filter((t) => t.status === "PENDING" || t.status === "IMPLEMENT");
+    const pendingTasks = tasks.filter(
+      (t) => t.status === "PENDING" || t.status === "IMPLEMENT"
+    );
     if (pendingTasks.length > 0) {
       stream.markdown(`### Available Tasks\n\n`);
       for (const task of pendingTasks.slice(0, 5)) {
-        stream.markdown(`- **Task ${task.task_id}**: ${task.title} (${task.status})\n`);
+        stream.markdown(
+          `- **Task ${task.task_id}**: ${task.title} (${task.status})\n`
+        );
       }
       stream.markdown("\n");
     }
@@ -378,10 +384,18 @@ async function handleContextCommand(
     stream.markdown(`## Phases\n\n`);
     for (const phase of phases) {
       const phaseTasks = tasks.filter((t) => t.phase_id === phase.id);
-      const phaseComplete = phaseTasks.filter((t) => t.status === "COMPLETE").length;
-      const phaseStatus = phaseComplete === phaseTasks.length ? "✅" : 
-                          phaseComplete > 0 ? "🔄" : "⏳";
-      stream.markdown(`- ${phaseStatus} **${phase.phase_name}**: ${phaseComplete}/${phaseTasks.length}\n`);
+      const phaseComplete = phaseTasks.filter(
+        (t) => t.status === "COMPLETE"
+      ).length;
+      const phaseStatus =
+        phaseComplete === phaseTasks.length
+          ? "✅"
+          : phaseComplete > 0
+          ? "🔄"
+          : "⏳";
+      stream.markdown(
+        `- ${phaseStatus} **${phase.phase_name}**: ${phaseComplete}/${phaseTasks.length}\n`
+      );
     }
     stream.markdown("\n");
   }

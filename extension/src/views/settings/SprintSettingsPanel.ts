@@ -106,7 +106,10 @@ export class SprintSettingsPanel {
   /**
    * Handle messages from the webview
    */
-  private async _handleMessage(message: { type: string; settings?: SprintSettings }): Promise<void> {
+  private async _handleMessage(message: {
+    type: string;
+    settings?: SprintSettings;
+  }): Promise<void> {
     switch (message.type) {
       case "load":
         await this._loadSettings();
@@ -127,7 +130,7 @@ export class SprintSettingsPanel {
   private async _loadSettings(): Promise<void> {
     try {
       const db = OrchestraDB.getDrizzleInstance(this._workspaceRoot);
-      
+
       // Query all config entries
       const configRows = db
         .select()
@@ -139,8 +142,11 @@ export class SprintSettingsPanel {
       // Build settings object with defaults
       const settings: SprintSettings = {
         requireTests: configMap.get("tdd.require_tests") === "true",
-        requireTestsCategories: configMap.get("tdd.require_tests_categories") || "INFRASTRUCTURE,INTEGRATION",
-        testFilePattern: configMap.get("tdd.test_file_pattern") || "test/**/*.test.ts",
+        requireTestsCategories:
+          configMap.get("tdd.require_tests_categories") ||
+          "INFRASTRUCTURE,INTEGRATION",
+        testFilePattern:
+          configMap.get("tdd.test_file_pattern") || "test/**/*.test.ts",
         testPattern: configMap.get("tdd.test_pattern") || "describe|test|it",
         preSignalBuildCommand: configMap.get("pre_signal_build_command") || "",
         preSignalTestCommand: configMap.get("pre_signal_test_command") || "",
@@ -154,7 +160,9 @@ export class SprintSettingsPanel {
       this._logger.error("Failed to load settings", error);
       await this._panel.webview.postMessage({
         type: "error",
-        message: `Failed to load settings: ${error instanceof Error ? error.message : "Unknown error"}`,
+        message: `Failed to load settings: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`,
       });
     }
   }
@@ -215,19 +223,27 @@ export class SprintSettingsPanel {
       }
 
       this._logger.info("Sprint settings saved successfully");
-      
+
       await this._panel.webview.postMessage({
         type: "saved",
       });
 
-      vscode.window.showInformationMessage("Sprint settings saved successfully");
+      vscode.window.showInformationMessage(
+        "Sprint settings saved successfully"
+      );
     } catch (error) {
       this._logger.error("Failed to save settings", error);
       await this._panel.webview.postMessage({
         type: "error",
-        message: `Failed to save settings: ${error instanceof Error ? error.message : "Unknown error"}`,
+        message: `Failed to save settings: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`,
       });
-      vscode.window.showErrorMessage(`Failed to save settings: ${error instanceof Error ? error.message : "Unknown error"}`);
+      vscode.window.showErrorMessage(
+        `Failed to save settings: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`
+      );
     }
   }
 
