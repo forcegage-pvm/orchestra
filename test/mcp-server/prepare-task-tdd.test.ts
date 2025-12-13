@@ -421,4 +421,3 @@ describe("prepare_task TDD Auto-Injection", () => {
     expect(checkConfig.pattern).toBe("suite|test|expect");
   });
 });
-
