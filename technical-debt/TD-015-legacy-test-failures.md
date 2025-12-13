@@ -1,14 +1,17 @@
 # TD-015: Legacy CLI Test Failures
 
-## Status: COMPLETE
+## Status: COMPLETE (Updated 2025-01-XX)
 
 ## Problem
 
 24 legacy CLI tests failing, causing pre-signal `npm test` to fail even when task-specific work is correct.
 
+**Additional Issue (discovered 2025-01-XX):** Tests would exit with code 1 despite all tests showing as passed (✓). The `run-verification-checks.test.ts` would hang with dots (·) showing pending state.
+
 ## Root Cause
 
-CLI tests were written for the original YAML/filesystem implementation before the MCP server refactor. The tests mock/expect different behavior than current SQLite-based implementation.
+1. CLI tests were written for the original YAML/filesystem implementation before the MCP server refactor.
+2. **Threading Issue:** Vitest's default `threads` pool is incompatible with SQLite/better-sqlite3. The native module hangs when shared across worker threads.
 
 ## Solution Applied
 
@@ -41,11 +44,18 @@ CLI tests were written for the original YAML/filesystem implementation before th
 - `artifact-validator.test.ts` - Artifact validation
 - `judgment-validator.test.ts` - Judgment validation
 
+### Added vitest.config.ts fix (2025-01-XX)
+```typescript
+// Use forks pool to avoid threading issues with SQLite/better-sqlite3
+pool: "forks",
+```
+
 ## Result
 
-- Tests: 225 passed, 47 skipped (from deprecated integration tests)
+- Tests: 240 passed, 47 skipped (from deprecated integration tests)
 - Build: Clean compilation
 - Pre-signal checks can now use `npm test` without false failures
+- Exit code 0 on all test runs
 
 ## Priority
 
@@ -58,3 +68,4 @@ P3 - Low priority (was a testing infrastructure issue, not functionality)
 ## Completed
 
 2025-12-10 - Deleted obsolete tests, all remaining tests pass
+2025-01-XX - Added `pool: "forks"` to vitest.config.ts to fix SQLite/threads incompatibility
