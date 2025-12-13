@@ -137,8 +137,20 @@
     "views": {
       "orchestra-explorer": [
         {
-          "id": "orchestraSprintExplorer",
-          "name": "Sprint Explorer"
+          "id": "orchestra.currentTask",
+          "name": "Current Task",
+          "type": "webview"
+        },
+        {
+          "id": "orchestra.sprintExplorer",
+          "name": "Sprint Explorer",
+          "type": "tree"
+        },
+        {
+          "id": "orchestra.workflowControls",
+          "name": "Workflow Controls",
+          "type": "webview",
+          "visibility": "collapsed"
         }
       ]
     },
