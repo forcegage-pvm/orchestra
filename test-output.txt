@@ -21,3 +21,4 @@
 stderr | test/mcp-server/prepare-task-tdd.test.ts > prepare_task TDD Auto-Injection > should inject TDD check when require_tests=true and category matches
 [TDD] Auto-injected test verification check for task 1 (INFRASTRUCTURE): [TDD] Test file required for "Database Migration" (INFRASTRUCTURE)
 
+ [32mΓ£ô[39m test/core/pre-signal-check.test.ts [2m ([22m[2m21 tests[22m[2m)[22m[33m 7097[2mms[22m[39m
