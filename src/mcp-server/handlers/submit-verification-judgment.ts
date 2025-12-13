@@ -139,6 +139,33 @@ async function submitVerificationJudgment(
       .map((c) => `${c.check_id}: ${c.reason}`)
       .join("; ");
 
+    // Determine if this is likely a spec error vs implementation error
+    const hasBlockingFailures =
+      judgmentValidation.blocking_failures &&
+      judgmentValidation.blocking_failures.length > 0;
+    const isSpecError =
+      hasBlockingFailures &&
+      judgmentValidation.blocking_failures!.some(
+        (f) =>
+          f.description.includes("path") ||
+          f.description.includes("pattern") ||
+          f.output?.includes("requires either command or path")
+      );
+
+    // Provide actionable next_step guidance
+    let next_step =
+      "Review failures and submit FAIL judgment with improvement guidance";
+    if (isSpecError) {
+      next_step =
+        "SPEC ERROR DETECTED: Cannot update verification in GATE_CHECK state. " +
+        "Call escalate_task first, then update_verification to fix the check configuration, " +
+        "then run_verification_checks again.";
+    } else if (hasBlockingFailures) {
+      next_step =
+        "BLOCKING failures present. Either: (1) Submit FAIL judgment with guidance for implementor, " +
+        "OR if this is a spec error, call escalate_task then update_verification.";
+    }
+
     // Return structured error instead of throwing
     return {
       success: false,
@@ -147,6 +174,7 @@ async function submitVerificationJudgment(
         message: `Judgment validation failed: ${errorDetails}`,
         checks: judgmentValidation.checks,
         blocking_failures: judgmentValidation.blocking_failures,
+        next_step,
       },
     } as SubmitVerificationJudgmentOutput;
   }

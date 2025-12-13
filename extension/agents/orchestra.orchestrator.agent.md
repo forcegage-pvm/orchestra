@@ -285,6 +285,45 @@ When submitting a FAIL judgment, provide specific feedback:
 }
 ```
 
+### If Verification Fails Due to SPEC ERROR
+
+**IMPORTANT**: If verification checks fail due to a specification error (e.g., incorrect path, missing pattern, wrong check configuration) rather than an implementation problem, you CANNOT:
+- Submit a PASS judgment (blocked by JVC-2)
+- Update verification criteria (blocked during GATE_CHECK state)
+
+**You MUST escalate the task first:**
+
+1. Call `escalate_task` with reason explaining the spec error
+2. After escalation, call `update_verification` to fix the criteria
+3. Run verification again
+4. Then submit judgment
+
+```json
+// Step 1: Escalate due to spec error
+// Call: escalate_task
+{
+  "task_id": 6,
+  "reason": "Verification check spec error: quality check missing required 'path' and 'pattern' properties",
+  "attempts_summary": "Implementation correct but check configuration incomplete"
+}
+
+// Step 2: Fix verification (now allowed after escalation)
+// Call: update_verification
+{
+  "task_id": 6,
+  "rationale": "Adding missing path and pattern to quality check",
+  "verification": {
+    "quality_checks": [{
+      "description": "Uses VS Code CSS variables",
+      "severity": "MAJOR",
+      "path": "extension/src/views/webview/currentTaskTemplate.ts",
+      "pattern": "--vscode-",
+      "min_matches": 3
+    }]
+  }
+}
+```
+
 ## Critical Constraints
 
 ### DO

@@ -159,9 +159,10 @@ async function getTask(
       return {
         description: c.description,
         severity: c.severity as "BLOCKING" | "MAJOR" | "MINOR" | "INFO",
-        metrics: config.metrics,
-        threshold: config.threshold,
-        failure_message: config.failure_message,
+        command: config.command,
+        path: config.path,
+        pattern: config.pattern,
+        min_matches: config.min_matches,
       };
     });
 

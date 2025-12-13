@@ -177,6 +177,10 @@ export type BehavioralCheck = z.output<typeof BehavioralCheckSchema>;
 
 /**
  * Quality verification check
+ * 
+ * Must have EITHER:
+ * - command: for command-based checks (e.g., run a linter)
+ * - path + pattern: for file content pattern matching
  */
 export const QualityCheckSchema = z
   .object({
@@ -187,9 +191,22 @@ export const QualityCheckSchema = z
     pattern: z.string().optional(),
     min_matches: z.number().int().positive().optional(),
   })
-  .refine((data) => data.command !== undefined || data.path !== undefined, {
-    message: "Quality check must have either command or path",
-  });
+  .refine(
+    (data) => {
+      // Must have command OR (path AND pattern)
+      const hasCommand = data.command !== undefined && data.command.length > 0;
+      const hasPathPattern =
+        data.path !== undefined &&
+        data.path.length > 0 &&
+        data.pattern !== undefined &&
+        data.pattern.length > 0;
+      return hasCommand || hasPathPattern;
+    },
+    {
+      message:
+        "Quality check must have either 'command' OR both 'path' and 'pattern'",
+    }
+  );
 
 export type QualityCheck = z.output<typeof QualityCheckSchema>;
 
