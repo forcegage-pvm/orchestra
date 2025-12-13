@@ -18,3 +18,6 @@
  [32mΓ£ô[39m test/mcp-server/set-config.test.ts [2m ([22m[2m6 tests[22m[2m)[22m[90m 30[2mms[22m[39m
  [32mΓ£ô[39m test/core/command-executor.test.ts [2m ([22m[2m14 tests[22m[2m)[22m[33m 921[2mms[22m[39m
  [32mΓ£ô[39m test/db/connection.test.ts [2m ([22m[2m6 tests[22m[2m)[22m[33m 471[2mms[22m[39m
+stderr | test/mcp-server/prepare-task-tdd.test.ts > prepare_task TDD Auto-Injection > should inject TDD check when require_tests=true and category matches
+[TDD] Auto-injected test verification check for task 1 (INFRASTRUCTURE): [TDD] Test file required for "Database Migration" (INFRASTRUCTURE)
+
