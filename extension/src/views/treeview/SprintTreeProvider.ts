@@ -19,6 +19,7 @@ import {
 import type { DatabaseWatcher } from "../../database/watcher.js";
 import { findOrchestraRoot } from "../../workspace/detector.js";
 import { createTaskDecorationUri } from "../providers/ViewDecorationProvider.js";
+import { getStatusDisplay } from "../statusTranslation.js";
 
 /**
  * Tree item types for hierarchy
@@ -144,13 +145,17 @@ export class SprintTreeProvider
     );
 
     if (isActive) {
-      // Active: green circle-filled icon, clean look
+      // Active: rocket icon with green color for active sprint
       item.iconPath = new vscode.ThemeIcon(
-        "circle-filled",
-        new vscode.ThemeColor("terminal.ansiGreen")
+        "rocket",
+        new vscode.ThemeColor("charts.green")
       );
     } else {
-      // Inactive: no icon (default), greyed out description
+      // Inactive: project icon with muted color
+      item.iconPath = new vscode.ThemeIcon(
+        "project",
+        new vscode.ThemeColor("descriptionForeground")
+      );
       item.description = "(inactive)";
     }
 
@@ -168,7 +173,10 @@ export class SprintTreeProvider
       phase.phase_name,
       vscode.TreeItemCollapsibleState.Expanded
     );
-    item.iconPath = new vscode.ThemeIcon("folder");
+    item.iconPath = new vscode.ThemeIcon(
+      "layers",
+      new vscode.ThemeColor("symbolIcon.namespaceForeground")
+    );
     item.tooltip = `Phase ${phase.phase_id}: ${phase.phase_name}`;
     item.contextValue = "phase";
     return item;
@@ -223,30 +231,8 @@ export class SprintTreeProvider
   }
 
   private _getIconForStatus(status: string): vscode.ThemeIcon {
-    switch (status) {
-      case "PENDING":
-        return new vscode.ThemeIcon("circle-outline");
-      case "IMPLEMENT":
-        return new vscode.ThemeIcon("sync~spin");
-      case "GATE_CHECK":
-        return new vscode.ThemeIcon("clock");
-      case "VERIFY":
-        return new vscode.ThemeIcon("eye");
-      case "COMPLETE":
-        return new vscode.ThemeIcon("check");
-      case "ESCALATED":
-        return new vscode.ThemeIcon(
-          "warning",
-          new vscode.ThemeColor("editorWarning.foreground")
-        );
-      case "VERIFY_FAILED":
-        return new vscode.ThemeIcon(
-          "error",
-          new vscode.ThemeColor("editorError.foreground")
-        );
-      default:
-        return new vscode.ThemeIcon("question");
-    }
+    const display = getStatusDisplay(status);
+    return new vscode.ThemeIcon(display.icon, display.color);
   }
 
   private _createMessageItem(
