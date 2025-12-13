@@ -379,6 +379,7 @@ function checkFileModified(
     const diffOutput = execSync(`git diff --name-only HEAD -- "${filePath}"`, {
       cwd: repoRoot,
       encoding: "utf-8",
+      stdio: ["pipe", "pipe", "pipe"],
     }).trim();
 
     const stagedOutput = execSync(
@@ -386,6 +387,7 @@ function checkFileModified(
       {
         cwd: repoRoot,
         encoding: "utf-8",
+        stdio: ["pipe", "pipe", "pipe"],
       }
     ).trim();
 
@@ -767,11 +769,13 @@ function checkGitHasChanges(
     const stagedOutput = execSync("git diff --staged --name-only", {
       cwd: repoRoot,
       encoding: "utf-8",
+      stdio: ["pipe", "pipe", "pipe"],
     }).trim();
 
     const unstagedOutput = execSync("git diff --name-only", {
       cwd: repoRoot,
       encoding: "utf-8",
+      stdio: ["pipe", "pipe", "pipe"],
     }).trim();
 
     const hasChanges = stagedOutput.length > 0 || unstagedOutput.length > 0;
