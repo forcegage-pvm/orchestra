@@ -167,7 +167,9 @@ async function prepareTask(
     task.id,
     task.category,
     task.title,
-    now
+    now,
+    input.file_operations,
+    input.test_file
   );
 
   // Determine effective test_requirements - auto-generate if TDD injected but none provided
@@ -316,13 +318,22 @@ async function prepareTask(
  *
  * When enabled and category matches, inserts a BLOCKING structural check.
  * Also returns info needed to update handover with test requirements.
+ *
+ * Infers test location from file_operations - if files are in extension/,
+ * uses extension/test/ pattern instead of test/.
  */
 async function injectTestVerificationIfRequired(
   db: ReturnType<typeof getDb>,
   taskInternalId: number,
   taskCategory: string,
   taskTitle: string,
-  now: string
+  now: string,
+  fileOperations: Array<{
+    operation: string;
+    path: string;
+    description: string;
+  }>,
+  explicitTestFile?: string
 ): Promise<{
   injected: boolean;
   checkDescription?: string;
@@ -360,11 +371,34 @@ async function injectTestVerificationIfRequired(
     return { injected: false };
   }
 
-  // Get test file pattern and content pattern from config
-  const testFilePattern =
-    configMap.get("tdd.test_file_pattern") || "test/**/*.test.ts";
+  // Get test file pattern from config or infer from file operations
+  const configTestPattern = configMap.get("tdd.test_file_pattern");
   const testContentPattern =
     configMap.get("tdd.test_pattern") || "describe|test|it";
+
+  // Determine test file pattern:
+  // 1. If explicit test_file provided, use that exact path
+  // 2. If file_operations target extension/, use extension/test/**/*.test.ts
+  // 3. Otherwise use config or default test/**/*.test.ts
+  let testFilePattern: string;
+
+  if (explicitTestFile) {
+    // Use the exact test file specified by orchestrator
+    testFilePattern = explicitTestFile;
+  } else {
+    // Infer from file operations - check if any files are in extension/
+    const hasExtensionFiles = fileOperations.some((op) =>
+      op.path.startsWith("extension/")
+    );
+
+    if (hasExtensionFiles) {
+      testFilePattern =
+        configTestPattern?.replace(/^test\//, "extension/test/") ||
+        "extension/test/**/*.test.ts";
+    } else {
+      testFilePattern = configTestPattern || "test/**/*.test.ts";
+    }
+  }
 
   // Count existing checks to generate unique check_id
   const existingChecks = await db
