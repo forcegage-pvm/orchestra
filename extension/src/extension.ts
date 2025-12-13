@@ -781,7 +781,7 @@ export async function activate(
         logger.info("Manual refresh triggered");
       }),
       vscode.commands.registerCommand("orchestra.openSprintSettings", () => {
-        SprintSettingsPanel.show(context.extensionUri, orchestraRoot, logger);
+        SprintSettingsPanel.show(orchestraRoot, logger);
       }),
       vscode.commands.registerCommand(
         "orchestra.openTaskDetail",

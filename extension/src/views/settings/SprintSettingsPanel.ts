@@ -22,19 +22,16 @@ interface SprintSettings {
 export class SprintSettingsPanel {
   public static currentPanel: SprintSettingsPanel | undefined;
   private readonly _panel: vscode.WebviewPanel;
-  private readonly _extensionUri: vscode.Uri;
   private readonly _workspaceRoot: string;
   private readonly _logger: OrchestraLogger;
   private _disposables: vscode.Disposable[] = [];
 
   private constructor(
     panel: vscode.WebviewPanel,
-    extensionUri: vscode.Uri,
     workspaceRoot: string,
     logger: OrchestraLogger
   ) {
     this._panel = panel;
-    this._extensionUri = extensionUri;
     this._workspaceRoot = workspaceRoot;
     this._logger = logger;
 
@@ -56,7 +53,6 @@ export class SprintSettingsPanel {
    * Show or create the settings panel
    */
   public static show(
-    extensionUri: vscode.Uri,
     workspaceRoot: string,
     logger: OrchestraLogger
   ): void {
@@ -81,7 +77,6 @@ export class SprintSettingsPanel {
 
     SprintSettingsPanel.currentPanel = new SprintSettingsPanel(
       panel,
-      extensionUri,
       workspaceRoot,
       logger
     );
