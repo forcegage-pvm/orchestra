@@ -110,17 +110,17 @@ export class OrchestraViewDecorationProvider
   private _getDecorationForStatus(
     state: TaskStatusDecoration
   ): vscode.FileDecoration | undefined {
+    // Icons-only design: status is shown via ThemeIcon, not badges.
+    // Only color and tooltip are returned to avoid double indicators.
     switch (state.status) {
       case "ESCALATED":
         return {
-          badge: "⚠",
           color: new vscode.ThemeColor("errorForeground"),
           tooltip: "Escalated - Requires human supervisor intervention",
         };
 
       case "VERIFY_FAILED":
         return {
-          badge: "✗",
           color: new vscode.ThemeColor("errorForeground"),
           tooltip: `Verification failed (attempt ${state.retryCount || "?"}/${
             state.maxRetries || "?"
@@ -129,35 +129,30 @@ export class OrchestraViewDecorationProvider
 
       case "GATE_CHECK":
         return {
-          badge: "◎",
           color: new vscode.ThemeColor("editorWarning.foreground"),
           tooltip: "Awaiting verification",
         };
 
       case "VERIFY":
         return {
-          badge: "✓",
           color: new vscode.ThemeColor("gitDecoration.addedResourceForeground"),
           tooltip: "Verification passed - Ready to complete",
         };
 
       case "COMPLETE":
         return {
-          badge: "✓",
           color: new vscode.ThemeColor("gitDecoration.addedResourceForeground"),
           tooltip: "Completed",
         };
 
       case "IMPLEMENT":
         return {
-          badge: "⟳",
           color: new vscode.ThemeColor("editorInfo.foreground"),
           tooltip: "In progress",
         };
 
       case "PENDING":
         return {
-          badge: "○",
           tooltip: "Not started",
         };
 
