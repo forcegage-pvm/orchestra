@@ -187,7 +187,9 @@ async function prepareTask(
         `1. All acceptance criteria are met\n` +
         `2. Core functionality works as expected\n` +
         `3. Edge cases and error conditions are handled\n\n` +
-        `Test file pattern: ${tddInjectionResult.testFilePattern || "test/**/*.test.ts"}\n` +
+        `Test file pattern: ${
+          tddInjectionResult.testFilePattern || "test/**/*.test.ts"
+        }\n` +
         `Tests must include describe/test/it blocks.`;
     }
 
