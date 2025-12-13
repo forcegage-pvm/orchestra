@@ -10,9 +10,17 @@
  * - quality: command? OR (path + pattern + min_matches?)
  */
 
+import { glob } from "glob";
 import fs from "node:fs";
 import path from "node:path";
 import { executeCommand } from "./command-executor.js";
+
+/**
+ * Check if a path contains glob wildcard characters
+ */
+function isGlobPattern(pathStr: string): boolean {
+  return /[*?[\]{}]/.test(pathStr);
+}
 
 // ============================================================================
 // Types - Aligned with MCP tool schemas
@@ -77,7 +85,54 @@ export async function executeStructuralCheck(
 ): Promise<CheckResult> {
   const startTime = Date.now();
 
-  // Resolve path
+  // Check if path is a glob pattern
+  if (isGlobPattern(config.path)) {
+    // Use glob to find matching files
+    const matches = await glob(config.path, {
+      cwd: workspacePath,
+      absolute: false,
+    });
+
+    const minMatches = config.min_matches ?? 1;
+
+    if (matches.length < minMatches) {
+      return {
+        passed: false,
+        message: `Glob pattern matched ${matches.length} file(s), expected at least ${minMatches}: ${config.path}`,
+        duration_ms: Date.now() - startTime,
+      };
+    }
+
+    // If pattern specified, check file contents of all matched files
+    if (config.pattern) {
+      for (const matchedPath of matches) {
+        const fullPath = path.join(workspacePath, matchedPath);
+        const content = fs.readFileSync(fullPath, "utf-8");
+        const contentMatches = content.match(new RegExp(config.pattern, "gms"));
+        const patternMinMatches = config.min_matches ?? 1;
+
+        if (!contentMatches || contentMatches.length < patternMinMatches) {
+          return {
+            passed: false,
+            message: `Pattern not found in ${matchedPath}: expected ${patternMinMatches} match(es), found ${
+              contentMatches?.length ?? 0
+            }`,
+            duration_ms: Date.now() - startTime,
+          };
+        }
+      }
+    }
+
+    return {
+      passed: true,
+      message: `Glob matched ${matches.length} file(s)${
+        config.pattern ? " and all match pattern" : ""
+      }: ${config.path}`,
+      duration_ms: Date.now() - startTime,
+    };
+  }
+
+  // Non-glob path: resolve and check existence
   const filePath = path.isAbsolute(config.path)
     ? config.path
     : path.join(workspacePath, config.path);

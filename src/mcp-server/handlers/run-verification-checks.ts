@@ -224,6 +224,12 @@ async function runVerificationChecks(
     };
   }
 
+  // 6.5 Clear old verification results for this signal before inserting new ones
+  // This prevents result accumulation when verification is run multiple times
+  await db
+    .delete(verificationResults)
+    .where(eq(verificationResults.signal_id, signal.signal_id));
+
   // 7. Execute checks
   const workspacePath = process.env.ORCHESTRA_WORKSPACE || process.cwd();
   const results: Array<{
