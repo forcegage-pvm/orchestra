@@ -160,7 +160,44 @@ async function prepareTask(
 
   const now = new Date().toISOString();
 
-  // 5. Create or update handover record
+  // 5. Check TDD requirements BEFORE creating handover
+  // This ensures test requirements are communicated to implementor when TDD is enabled
+  const tddInjectionResult = await injectTestVerificationIfRequired(
+    db,
+    task.id,
+    task.category,
+    task.title,
+    now
+  );
+
+  // Determine effective test_requirements - auto-generate if TDD injected but none provided
+  let effectiveTestRequirements = input.test_requirements;
+  let effectiveTestFile = input.test_file;
+
+  if (tddInjectionResult.injected) {
+    console.error(
+      `[TDD] Auto-injected test verification check for task ${input.task_id} (${task.category}): ${tddInjectionResult.checkDescription}`
+    );
+
+    // Auto-generate test requirements if not provided by orchestrator
+    if (!effectiveTestRequirements) {
+      effectiveTestRequirements =
+        `[TDD REQUIRED] This task requires test coverage.\n\n` +
+        `Create tests that verify:\n` +
+        `1. All acceptance criteria are met\n` +
+        `2. Core functionality works as expected\n` +
+        `3. Edge cases and error conditions are handled\n\n` +
+        `Test file pattern: ${tddInjectionResult.testFilePattern || "test/**/*.test.ts"}\n` +
+        `Tests must include describe/test/it blocks.`;
+    }
+
+    // Suggest test file path if not provided
+    if (!effectiveTestFile && tddInjectionResult.suggestedTestFile) {
+      effectiveTestFile = tddInjectionResult.suggestedTestFile;
+    }
+  }
+
+  // 5b. Create or update handover record (now includes TDD requirements)
   const existingHandover = await db
     .select()
     .from(handovers)
@@ -180,8 +217,8 @@ async function prepareTask(
         acceptance_criteria: JSON.stringify(input.acceptance_criteria),
         file_operations: JSON.stringify(input.file_operations),
         deliverables: JSON.stringify(input.deliverables),
-        test_file: input.test_file,
-        test_requirements: input.test_requirements,
+        test_file: effectiveTestFile,
+        test_requirements: effectiveTestRequirements,
         constraints: input.constraints
           ? JSON.stringify(input.constraints)
           : null,
@@ -203,8 +240,8 @@ async function prepareTask(
       acceptance_criteria: JSON.stringify(input.acceptance_criteria),
       file_operations: JSON.stringify(input.file_operations),
       deliverables: JSON.stringify(input.deliverables),
-      test_file: input.test_file,
-      test_requirements: input.test_requirements,
+      test_file: effectiveTestFile,
+      test_requirements: effectiveTestRequirements,
       constraints: input.constraints ? JSON.stringify(input.constraints) : null,
       reference_links: input.references
         ? JSON.stringify(input.references)
@@ -212,20 +249,6 @@ async function prepareTask(
       created_at: now,
       updated_at: now,
     });
-  }
-
-  // 5b. Auto-inject TDD test verification check if enabled for this category
-  const tddInjectionResult = await injectTestVerificationIfRequired(
-    db,
-    task.id,
-    task.category,
-    task.title,
-    now
-  );
-  if (tddInjectionResult.injected) {
-    console.error(
-      `[TDD] Auto-injected test verification check for task ${input.task_id} (${task.category}): ${tddInjectionResult.checkDescription}`
-    );
   }
 
   // 6. Update task status to IMPLEMENT
@@ -290,6 +313,7 @@ async function prepareTask(
  * test_file_pattern, and test_pattern.
  *
  * When enabled and category matches, inserts a BLOCKING structural check.
+ * Also returns info needed to update handover with test requirements.
  */
 async function injectTestVerificationIfRequired(
   db: ReturnType<typeof getDb>,
@@ -297,7 +321,12 @@ async function injectTestVerificationIfRequired(
   taskCategory: string,
   taskTitle: string,
   now: string
-): Promise<{ injected: boolean; checkDescription?: string }> {
+): Promise<{
+  injected: boolean;
+  checkDescription?: string;
+  testFilePattern?: string;
+  suggestedTestFile?: string;
+}> {
   // Read TDD config from database
   const tddConfigKeys = [
     "tdd.require_tests",
@@ -362,5 +391,21 @@ async function injectTestVerificationIfRequired(
     created_at: now,
   });
 
-  return { injected: true, checkDescription };
+  const result: {
+    injected: boolean;
+    checkDescription?: string;
+    testFilePattern?: string;
+    suggestedTestFile?: string;
+  } = {
+    injected: true,
+    checkDescription,
+    testFilePattern,
+  };
+
+  // Only add suggestedTestFile if pattern is not a glob
+  if (!testFilePattern.includes("*")) {
+    result.suggestedTestFile = testFilePattern;
+  }
+
+  return result;
 }
