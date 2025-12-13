@@ -52,10 +52,7 @@ export class SprintSettingsPanel {
   /**
    * Show or create the settings panel
    */
-  public static show(
-    workspaceRoot: string,
-    logger: OrchestraLogger
-  ): void {
+  public static show(workspaceRoot: string, logger: OrchestraLogger): void {
     const column = vscode.ViewColumn.One;
 
     // If panel already exists, reveal it
