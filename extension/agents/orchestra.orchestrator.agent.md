@@ -199,23 +199,23 @@ The `context_files` parameter determines what files the Implementor can read. Th
 
 ### ✅ ALLOWED in context_files
 
-| Category | Examples | Rationale |
-|----------|----------|-----------|
-| Source code to modify | `src/db/client.ts` | They need to edit these |
-| Related source code | `src/db/schema.ts` | Reference for patterns |
-| Architecture docs | `docs/architecture.md` | High-level understanding |
-| **COMPLETED** task handovers | Handover from verified Task 4 | Prior work context |
-| Requirement specs (extracted) | Only if NO task breakdown | Requirements without tasks |
+| Category                      | Examples                      | Rationale                  |
+| ----------------------------- | ----------------------------- | -------------------------- |
+| Source code to modify         | `src/db/client.ts`            | They need to edit these    |
+| Related source code           | `src/db/schema.ts`            | Reference for patterns     |
+| Architecture docs             | `docs/architecture.md`        | High-level understanding   |
+| **COMPLETED** task handovers  | Handover from verified Task 4 | Prior work context         |
+| Requirement specs (extracted) | Only if NO task breakdown     | Requirements without tasks |
 
 ### ❌ FORBIDDEN in context_files
 
-| Category | Examples | Why Forbidden |
-|----------|----------|-----------|
-| Task lists | `tasks.md`, `sprint-tasks.yaml` | Exposes other tasks |
-| Sprint manifests | `manifest.yaml` | Contains all task details |
-| Pending task details | Handover for Task 6 (not started) | Information isolation |
-| Verification criteria | `.orchestrator-only/*` | Hidden verification |
-| Spec files WITH task breakdowns | `spec/tasks/*.md` | Reveals sprint structure |
+| Category                        | Examples                          | Why Forbidden             |
+| ------------------------------- | --------------------------------- | ------------------------- |
+| Task lists                      | `tasks.md`, `sprint-tasks.yaml`   | Exposes other tasks       |
+| Sprint manifests                | `manifest.yaml`                   | Contains all task details |
+| Pending task details            | Handover for Task 6 (not started) | Information isolation     |
+| Verification criteria           | `.orchestrator-only/*`            | Hidden verification       |
+| Spec files WITH task breakdowns | `spec/tasks/*.md`                 | Reveals sprint structure  |
 
 ### Best Practice
 
@@ -288,6 +288,7 @@ When submitting a FAIL judgment, provide specific feedback:
 ### If Verification Fails Due to SPEC ERROR
 
 **IMPORTANT**: If verification checks fail due to a specification error (e.g., incorrect path, missing pattern, wrong check configuration) rather than an implementation problem, you CANNOT:
+
 - Submit a PASS judgment (blocked by JVC-2)
 - Update verification criteria (blocked during GATE_CHECK state)
 

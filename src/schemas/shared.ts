@@ -177,7 +177,7 @@ export type BehavioralCheck = z.output<typeof BehavioralCheckSchema>;
 
 /**
  * Quality verification check
- * 
+ *
  * Must have EITHER:
  * - command: for command-based checks (e.g., run a linter)
  * - path + pattern: for file content pattern matching

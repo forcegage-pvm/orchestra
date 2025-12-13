@@ -14,13 +14,13 @@
 import { and, eq } from "drizzle-orm";
 import { validateJudgment } from "../../core/judgment-validator.js";
 import { getActiveSprint, getDb } from "../../db/index.js";
-import { logToolExecution } from "./audit-logging.js";
 import { feedback, progress, tasks } from "../../db/schema.js";
 import { validateInput } from "../../schemas/utils.js";
 import {
   SubmitVerificationJudgmentInputSchema,
   type SubmitVerificationJudgmentOutput,
 } from "../../schemas/verification.js";
+import { logToolExecution } from "./audit-logging.js";
 
 export async function handleSubmitVerificationJudgment(input: unknown) {
   const startTime = performance.now();
