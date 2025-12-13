@@ -21,6 +21,7 @@ import { SprintSettingsPanel } from "./views/settings/SprintSettingsPanel.js";
 import { StatusBarManager } from "./views/statusbar/StatusBarItem.js";
 import { TaskDetailPanel } from "./views/task/TaskDetailPanel.js";
 import { SprintTreeProvider } from "./views/treeview/SprintTreeProvider.js";
+import { CurrentTaskViewProvider } from "./views/webview/CurrentTaskViewProvider.js";
 import {
   findOrchestraRoot,
   validateOrchestraWorkspace,
@@ -737,6 +738,20 @@ export async function activate(
     // 5. Setup database watcher for reactive updates
     dbWatcher = new DatabaseWatcher(orchestraRoot);
     context.subscriptions.push(dbWatcher);
+
+    // 5b. Register Current Task WebviewView (Task 7)
+    const currentTaskProvider = new CurrentTaskViewProvider(
+      context.extensionUri,
+      orchestraRoot,
+      dbWatcher
+    );
+    context.subscriptions.push(
+      vscode.window.registerWebviewViewProvider(
+        "orchestra.currentTask",
+        currentTaskProvider
+      )
+    );
+    logger.info("Current Task WebviewView registered");
 
     // 6. Register TreeView
     const treeProvider = new SprintTreeProvider(db, dbWatcher);
