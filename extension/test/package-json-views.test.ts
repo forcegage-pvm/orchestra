@@ -124,4 +124,82 @@ describe("package.json views configuration", () => {
       expect(anyButtonUsesOldId).toBe(false);
     });
   });
+
+  describe("view/item/context inline actions", () => {
+    const contextMenus =
+      packageJson.contributes?.menus?.["view/item/context"] || [];
+
+    it("should have view/item/context menu items", () => {
+      expect(contextMenus.length).toBeGreaterThan(0);
+    });
+
+    describe("startTask inline button", () => {
+      const startTaskInline = contextMenus.find(
+        (menu: any) =>
+          menu.command === "orchestra.startTask" &&
+          menu.group?.startsWith("inline")
+      );
+
+      it("should exist in inline group", () => {
+        expect(startTaskInline).toBeDefined();
+      });
+
+      it("should have correct when clause for playable task statuses", () => {
+        expect(startTaskInline?.when).toBeDefined();
+        expect(startTaskInline?.when).toContain("orchestra.sprintExplorer");
+        expect(startTaskInline?.when).toContain("task-");
+      });
+
+      it("should use correct view ID (orchestra.sprintExplorer) not orchestraSprintExplorer", () => {
+        expect(startTaskInline?.when).toContain("orchestra.sprintExplorer");
+        expect(startTaskInline?.when).not.toContain("orchestraSprintExplorer");
+      });
+
+      it("should be in inline group with ordering", () => {
+        expect(startTaskInline?.group).toMatch(/^inline/);
+      });
+    });
+
+    describe("openTaskDetail context menu item", () => {
+      const openTaskDetail = contextMenus.find(
+        (menu: any) => menu.command === "orchestra.openTaskDetail"
+      );
+
+      it("should be registered", () => {
+        expect(openTaskDetail).toBeDefined();
+      });
+
+      it("should have when clause for task items", () => {
+        expect(openTaskDetail?.when).toBeDefined();
+        expect(openTaskDetail?.when).toContain("orchestra.sprintExplorer");
+        expect(openTaskDetail?.when).toContain("task-");
+      });
+
+      it("should use correct view ID (orchestra.sprintExplorer)", () => {
+        expect(openTaskDetail?.when).toContain("orchestra.sprintExplorer");
+        expect(openTaskDetail?.when).not.toContain("orchestraSprintExplorer");
+      });
+
+      it("should be in navigation group", () => {
+        expect(openTaskDetail?.group).toBe("navigation");
+      });
+    });
+
+    it("should not use old view ID (orchestraSprintExplorer) in any menu items", () => {
+      const anyMenuUsesOldId = contextMenus.some(
+        (menu: any) => menu.when?.includes("orchestraSprintExplorer")
+      );
+      expect(anyMenuUsesOldId).toBe(false);
+    });
+
+    it("should use correct view ID (orchestra.sprintExplorer) in all menus", () => {
+      const menusWithWhen = contextMenus.filter((menu: any) => menu.when);
+      const allUseCorrectId = menusWithWhen.every(
+        (menu: any) =>
+          !menu.when.includes("sprintExplorer") ||
+          menu.when.includes("orchestra.sprintExplorer")
+      );
+      expect(allUseCorrectId).toBe(true);
+    });
+  });
 });

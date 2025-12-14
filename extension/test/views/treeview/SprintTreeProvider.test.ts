@@ -109,20 +109,34 @@ describe("SprintTreeProvider", () => {
     vi.clearAllMocks();
   });
 
+  // Helper to create mock Task objects for testing
+  const createMockTask = (overrides: Partial<Task>): Task => ({
+    id: 1,
+    sprint_id: "sprint-001",
+    phase_id: 1,
+    task_id: 1,
+    title: "Mock Task",
+    description: "Mock description",
+    category: "FEATURE",
+    dependencies: "",
+    speckit_task_ref: null,
+    status: "PENDING",
+    retry_count: 0,
+    max_retries: 3,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    completed_at: null,
+    ...overrides,
+  });
+
   describe("getTreeItem - Task Tooltips", () => {
     it("should create MarkdownString tooltip for task items", () => {
-      const mockTask: Task = {
+      const mockTask = createMockTask({
         task_id: 1,
         title: "Test Task",
         description: "This is a test task description",
         status: "IMPLEMENT",
-        phase: "Phase 1",
-        dependencies: [],
-        priority: "P1",
-        category: "FEATURE",
-        retry_count: 0,
-        max_retries: 3,
-      };
+      });
 
       const taskElement = { type: "task" as const, task: mockTask };
       const treeItem = provider.getTreeItem(taskElement);
@@ -132,18 +146,12 @@ describe("SprintTreeProvider", () => {
     });
 
     it("should include task title in tooltip with markdown formatting", () => {
-      const mockTask: Task = {
+      const mockTask = createMockTask({
         task_id: 2,
         title: "My Important Task",
         description: "Description here",
         status: "PENDING",
-        phase: "Phase 1",
-        dependencies: [],
-        priority: "P1",
-        category: "FEATURE",
-        retry_count: 0,
-        max_retries: 3,
-      };
+      });
 
       const taskElement = { type: "task" as const, task: mockTask };
       const treeItem = provider.getTreeItem(taskElement);
@@ -153,18 +161,12 @@ describe("SprintTreeProvider", () => {
     });
 
     it("should include current status in tooltip", () => {
-      const mockTask: Task = {
+      const mockTask = createMockTask({
         task_id: 3,
         title: "Status Test Task",
         description: "Testing status display",
         status: "VERIFY",
-        phase: "Phase 1",
-        dependencies: [],
-        priority: "P1",
-        category: "FEATURE",
-        retry_count: 0,
-        max_retries: 3,
-      };
+      });
 
       const taskElement = { type: "task" as const, task: mockTask };
       const treeItem = provider.getTreeItem(taskElement);
@@ -175,18 +177,12 @@ describe("SprintTreeProvider", () => {
     });
 
     it("should include task description in tooltip", () => {
-      const mockTask: Task = {
+      const mockTask = createMockTask({
         task_id: 4,
         title: "Description Test",
         description: "This is my detailed task description with important info",
         status: "COMPLETE",
-        phase: "Phase 1",
-        dependencies: [],
-        priority: "P1",
-        category: "FEATURE",
-        retry_count: 0,
-        max_retries: 3,
-      };
+      });
 
       const taskElement = { type: "task" as const, task: mockTask };
       const treeItem = provider.getTreeItem(taskElement);
@@ -198,18 +194,13 @@ describe("SprintTreeProvider", () => {
     });
 
     it("should show remediation hint for ESCALATED status", () => {
-      const mockTask: Task = {
+      const mockTask = createMockTask({
         task_id: 5,
         title: "Escalated Task",
         description: "Task that needs attention",
         status: "ESCALATED",
-        phase: "Phase 1",
-        dependencies: [],
-        priority: "P1",
-        category: "FEATURE",
         retry_count: 3,
-        max_retries: 3,
-      };
+      });
 
       const taskElement = { type: "task" as const, task: mockTask };
       const treeItem = provider.getTreeItem(taskElement);
@@ -219,18 +210,13 @@ describe("SprintTreeProvider", () => {
     });
 
     it("should show remediation hint for VERIFY_FAILED status", () => {
-      const mockTask: Task = {
+      const mockTask = createMockTask({
         task_id: 6,
         title: "Failed Verification",
         description: "Task that failed verification",
         status: "VERIFY_FAILED",
-        phase: "Phase 1",
-        dependencies: [],
-        priority: "P1",
-        category: "FEATURE",
         retry_count: 1,
-        max_retries: 3,
-      };
+      });
 
       const taskElement = { type: "task" as const, task: mockTask };
       const treeItem = provider.getTreeItem(taskElement);
@@ -248,18 +234,12 @@ describe("SprintTreeProvider", () => {
       ];
 
       statuses.forEach((status) => {
-        const mockTask: Task = {
+        const mockTask = createMockTask({
           task_id: 7,
           title: "Normal Task",
           description: "Regular task",
           status,
-          phase: "Phase 1",
-          dependencies: [],
-          priority: "P1",
-          category: "FEATURE",
-          retry_count: 0,
-          max_retries: 3,
-        };
+        });
 
         const taskElement = { type: "task" as const, task: mockTask };
         const treeItem = provider.getTreeItem(taskElement);
@@ -270,18 +250,12 @@ describe("SprintTreeProvider", () => {
     });
 
     it("should format tooltip with proper markdown structure", () => {
-      const mockTask: Task = {
+      const mockTask = createMockTask({
         task_id: 8,
         title: "Well Formatted Task",
         description: "Clean formatting test",
         status: "IMPLEMENT",
-        phase: "Phase 1",
-        dependencies: [],
-        priority: "P1",
-        category: "FEATURE",
-        retry_count: 0,
-        max_retries: 3,
-      };
+      });
 
       const taskElement = { type: "task" as const, task: mockTask };
       const treeItem = provider.getTreeItem(taskElement);
@@ -316,10 +290,13 @@ describe("SprintTreeProvider", () => {
     it("should return sprints at root level", () => {
       const mockSprints: Sprint[] = [
         {
-          sprint_id: "sprint-001",
+          id: "sprint-001",
           name: "Test Sprint",
-          status: "ACTIVE",
+          workflow_step: "ACTIVE",
+          is_active: true,
           created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          completed_at: null,
         },
       ];
 
