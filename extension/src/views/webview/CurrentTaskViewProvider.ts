@@ -214,41 +214,41 @@ export class CurrentTaskViewProvider implements vscode.WebviewViewProvider {
 
       case "resolveEscalation":
         if (typeof message.taskId === "number") {
-          // Invoke de-escalate command
-          void vscode.commands.executeCommand(
-            "orchestra.deEscalateTask",
-            message.taskId
-          );
+          // Invoke de-escalate command with TreeItem-like structure
+          void vscode.commands.executeCommand("orchestra.deEscalateTask", {
+            type: "task",
+            task: { id: message.taskId },
+          });
         }
         break;
 
       case "moveToGateCheck":
         if (typeof message.taskId === "number") {
-          // Invoke move to gate check command
-          void vscode.commands.executeCommand(
-            "orchestra.moveToGateCheck",
-            message.taskId
-          );
+          // Invoke move to gate check command with TreeItem-like structure
+          void vscode.commands.executeCommand("orchestra.moveToGateCheck", {
+            type: "task",
+            task: { id: message.taskId },
+          });
         }
         break;
 
       case "moveToImplement":
         if (typeof message.taskId === "number") {
-          // Invoke move to implement command
-          void vscode.commands.executeCommand(
-            "orchestra.moveToImplement",
-            message.taskId
-          );
+          // Invoke move to implement command with TreeItem-like structure
+          void vscode.commands.executeCommand("orchestra.moveToImplement", {
+            type: "task",
+            task: { id: message.taskId },
+          });
         }
         break;
 
       case "forceComplete":
         if (typeof message.taskId === "number") {
-          // Invoke force complete command
-          void vscode.commands.executeCommand(
-            "orchestra.forceComplete",
-            message.taskId
-          );
+          // Invoke force complete command with TreeItem-like structure
+          void vscode.commands.executeCommand("orchestra.forceComplete", {
+            type: "task",
+            task: { id: message.taskId },
+          });
         }
         break;
 
