@@ -721,20 +721,21 @@ export function getEscalation(
  *
  * Returns the first task with status 'PENDING' ordered by task_id.
  * Used when no task is currently in progress.
+ * Note: Pending tasks may not have handovers yet (created during prepare).
  *
  * @param workspaceRoot Absolute path to workspace root
- * @returns Next pending task with handover or null if none exists
+ * @returns Next pending task (with optional handover) or null if none exists
  */
 export function getNextPendingTask(
   workspaceRoot: string
-): (Task & { handover: Handover }) | null {
+): (Task & { handover: Handover | null }) | null {
   const db = getDB(workspaceRoot);
 
-  // Query for first PENDING task
+  // Query for first PENDING task (LEFT JOIN since handover may not exist yet)
   const results = db
     .select()
     .from(schema.tasks as unknown as typeof schema.tasks)
-    .innerJoin(
+    .leftJoin(
       schema.handovers as unknown as typeof schema.handovers,
       eq(
         schema.tasks.id as unknown as typeof schema.tasks.id,
@@ -755,7 +756,7 @@ export function getNextPendingTask(
     return null;
   }
 
-  const result = results[0] as { tasks: Task; handovers: Handover };
+  const result = results[0] as { tasks: Task; handovers: Handover | null };
   return {
     ...result.tasks,
     handover: result.handovers,

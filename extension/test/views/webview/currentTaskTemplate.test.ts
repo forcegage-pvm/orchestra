@@ -4,10 +4,10 @@
  * Validates HTML generation, CSS variables, and template structure.
  */
 
-import { describe, it, expect } from "vitest";
-import { generateCurrentTaskHtml } from "../../../src/views/webview/currentTaskTemplate.js";
+import { describe, expect, it } from "vitest";
 import { ThemeColor } from "vscode";
 import type { TaskData } from "../../../src/views/webview/currentTaskTemplate.js";
+import { generateCurrentTaskHtml } from "../../../src/views/webview/currentTaskTemplate.js";
 
 describe("currentTaskTemplate", () => {
   const mockTaskData: TaskData = {
@@ -35,7 +35,7 @@ describe("currentTaskTemplate", () => {
       const html = generateCurrentTaskHtml(mockTaskData, cspSource);
 
       expect(html).toContain("<!DOCTYPE html>");
-      expect(html).toContain("<html lang=\"en\">");
+      expect(html).toContain('<html lang="en">');
       expect(html).toContain("<head>");
       expect(html).toContain("<body>");
       expect(html).toContain("</html>");

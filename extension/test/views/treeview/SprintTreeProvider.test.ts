@@ -2,12 +2,12 @@
  * Tests for SprintTreeProvider
  */
 
+import type Database from "better-sqlite3";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as vscode from "vscode";
-import type Database from "better-sqlite3";
+import type { Sprint, Task } from "../../../src/database/queries.js";
 import type { DatabaseWatcher } from "../../../src/database/watcher.js";
 import { SprintTreeProvider } from "../../../src/views/treeview/SprintTreeProvider.js";
-import type { Sprint, Phase, Task } from "../../../src/database/queries.js";
 
 // Mock vscode module
 vi.mock("vscode", () => ({
@@ -16,7 +16,11 @@ vi.mock("vscode", () => ({
     Collapsed: 1,
     Expanded: 2,
   },
-  TreeItem: vi.fn(function (this: any, label: string, collapsibleState: number) {
+  TreeItem: vi.fn(function (
+    this: any,
+    label: string,
+    collapsibleState: number
+  ) {
     this.label = label;
     this.collapsibleState = collapsibleState;
     this.iconPath = undefined;
@@ -85,12 +89,12 @@ vi.mock("../../../src/views/statusTranslation.js", () => ({
 }));
 
 // Import mocked modules
-import { findOrchestraRoot } from "../../../src/workspace/detector.js";
 import {
   getAllSprints,
   getPhases,
   getTasksForSprint,
 } from "../../../src/database/queries.js";
+import { findOrchestraRoot } from "../../../src/workspace/detector.js";
 
 describe("SprintTreeProvider", () => {
   let provider: SprintTreeProvider;

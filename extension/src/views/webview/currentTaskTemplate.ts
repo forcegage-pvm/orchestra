@@ -270,7 +270,9 @@ function renderTaskCard(task: TaskData): string {
         <button class="action-button" onclick="openTask(${task.id})">
           View Details
         </button>
-        <button class="action-button secondary" onclick="signalCompletion(${task.id})">
+        <button class="action-button secondary" onclick="signalCompletion(${
+          task.id
+        })">
           Signal Completion
         </button>
       </div>

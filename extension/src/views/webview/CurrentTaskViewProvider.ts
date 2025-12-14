@@ -11,7 +11,10 @@ import { getCurrentTask, getNextPendingTask } from "../../database/queries.js";
 import type { DatabaseWatcher } from "../../database/watcher.js";
 import { OrchestraLogger } from "../../utils/logger.js";
 import { getStatusDisplay } from "../statusTranslation.js";
-import { generateCurrentTaskHtml, type TaskData } from "./currentTaskTemplate.js";
+import {
+  generateCurrentTaskHtml,
+  type TaskData,
+} from "./currentTaskTemplate.js";
 
 const logger = new OrchestraLogger();
 
@@ -110,7 +113,9 @@ export class CurrentTaskViewProvider implements vscode.WebviewViewProvider {
    * Convert database task to TaskData for template
    */
   private _getTaskData(
-    currentTask: ReturnType<typeof getCurrentTask>,
+    currentTask:
+      | ReturnType<typeof getCurrentTask>
+      | ReturnType<typeof getNextPendingTask>,
     isNextPending: boolean = false
   ): TaskData | null {
     if (!currentTask) {
@@ -123,7 +128,7 @@ export class CurrentTaskViewProvider implements vscode.WebviewViewProvider {
       title: currentTask.title,
       description: currentTask.description,
       status: currentTask.status,
-      priority: currentTask.handover.priority,
+      priority: currentTask.handover?.priority ?? "P2", // Default priority if no handover
       category: currentTask.category,
       updated_at: currentTask.updated_at,
       statusDisplay: getStatusDisplay(currentTask.status),
@@ -134,7 +139,10 @@ export class CurrentTaskViewProvider implements vscode.WebviewViewProvider {
   /**
    * Handle messages received from the webview
    */
-  private _handleMessage(message: { command: string; [key: string]: unknown }): void {
+  private _handleMessage(message: {
+    command: string;
+    [key: string]: unknown;
+  }): void {
     switch (message.command) {
       case "refresh":
         this._refresh();
@@ -168,7 +176,7 @@ export class CurrentTaskViewProvider implements vscode.WebviewViewProvider {
    */
   private _getHtmlContent(webview: vscode.Webview): string {
     const cspSource = webview.cspSource;
-    
+
     // Try to get current in-progress task first
     let currentTask = getCurrentTask(this._workspaceRoot);
     let isNextPending = false;
@@ -178,7 +186,7 @@ export class CurrentTaskViewProvider implements vscode.WebviewViewProvider {
       currentTask = getNextPendingTask(this._workspaceRoot);
       isNextPending = currentTask !== null;
     }
-    
+
     const taskData = this._getTaskData(currentTask, isNextPending);
 
     return generateCurrentTaskHtml(taskData, cspSource);
