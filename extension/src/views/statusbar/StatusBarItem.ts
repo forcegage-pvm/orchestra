@@ -10,6 +10,7 @@ import * as vscode from "vscode";
 import { getCurrentSprint, getCurrentTask } from "../../database/queries.js";
 import type { DatabaseWatcher } from "../../database/watcher.js";
 import { findOrchestraRoot } from "../../workspace/detector.js";
+import { getStatusDisplay } from "../statusTranslation.js";
 
 export class StatusBarManager implements vscode.Disposable {
   private readonly statusBarItem: vscode.StatusBarItem;
@@ -67,14 +68,15 @@ export class StatusBarManager implements vscode.Disposable {
       // Format status bar text: $(task) Task N: STATUS
       const taskNum = currentTask.task_id;
       const status = currentTask.status;
-      this.statusBarItem.text = `$(task) Task ${taskNum}: ${status}`;
+      const statusDisplay = getStatusDisplay(status);
+      this.statusBarItem.text = `$(task) Task ${taskNum}: ${statusDisplay.label}`;
 
       // Set color based on status
-      this.statusBarItem.backgroundColor = this.getStatusColor(status);
+      this.statusBarItem.backgroundColor = statusDisplay.color;
 
       // Set tooltip with task title and phase
       const phaseName = this.getPhaseNameFromTaskId(currentTask.phase_id);
-      this.statusBarItem.tooltip = `${currentTask.title}\nPhase: ${phaseName}\nStatus: ${status}`;
+      this.statusBarItem.tooltip = `${currentTask.title}\nPhase: ${phaseName}\nStatus: ${statusDisplay.label}`;
 
       this.statusBarItem.show();
     } catch (error) {
@@ -88,24 +90,6 @@ export class StatusBarManager implements vscode.Disposable {
         "statusBarItem.errorBackground"
       );
       this.statusBarItem.show();
-    }
-  }
-
-  /**
-   * Get status bar color based on task status
-   */
-  private getStatusColor(status: string): vscode.ThemeColor | undefined {
-    switch (status) {
-      case "COMPLETE":
-        return new vscode.ThemeColor("statusBarItem.prominentBackground"); // Green
-      case "IMPLEMENT":
-      case "GATE_CHECK":
-        return new vscode.ThemeColor("statusBarItem.warningBackground"); // Yellow
-      case "PENDING":
-      case "VERIFY":
-        return undefined; // White (default)
-      default:
-        return undefined;
     }
   }
 
