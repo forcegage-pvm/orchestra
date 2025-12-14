@@ -1,14 +1,242 @@
 /**
- * Tests for extension.ts - CurrentTaskViewProvider registration
+ * Tests for extension.ts - Command registration and CurrentTaskViewProvider
  *
  * Verifies Task 7: CurrentTaskViewProvider is properly registered with required dependencies
+ * Verifies Task 15: All commands are properly registered and consistent with package.json
  */
 
 import * as fs from "fs";
 import * as path from "path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-describe("Extension registration - CurrentTaskViewProvider", () => {
+/**
+ * Parse commands from package.json contributes.commands
+ */
+function extractPackageJsonCommands(packageJson: {
+  contributes?: { commands?: Array<{ command: string }> };
+}): string[] {
+  const commands = packageJson.contributes?.commands || [];
+  return commands.map((cmd) => cmd.command).filter((id) => id.startsWith("orchestra."));
+}
+
+/**
+ * Extract registerCommand calls from extension.ts source code
+ */
+function extractRegisteredCommands(code: string): string[] {
+  const commandPattern = /vscode\.commands\.registerCommand\(\s*["']([^"']+)["']/g;
+  const matches: string[] = [];
+  let match;
+  while ((match = commandPattern.exec(code)) !== null) {
+    matches.push(match[1] || "");
+  }
+  return matches.filter((id) => id.startsWith("orchestra."));
+}
+
+describe("Extension registration - Command registration (Task 15)", () => {
+  let extensionCode: string;
+  let packageJson: { contributes?: { commands?: Array<{ command: string }> } };
+
+  beforeEach(() => {
+    // Read the actual extension.ts file
+    const extensionPath = path.join(__dirname, "..", "src", "extension.ts");
+    extensionCode = fs.readFileSync(extensionPath, "utf-8");
+
+    // Read package.json
+    const packageJsonPath = path.join(__dirname, "..", "package.json");
+    packageJson = JSON.parse(fs.readFileSync(packageJsonPath, "utf-8")) as {
+      contributes?: { commands?: Array<{ command: string }> };
+    };
+  });
+
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
+
+  describe("TDD tests for command registration", () => {
+    it("should have at least 5 registerCommand calls", () => {
+      const registrations = extensionCode.match(
+        /vscode\.commands\.registerCommand\(/g
+      );
+      expect(registrations).toBeTruthy();
+      expect(registrations!.length).toBeGreaterThanOrEqual(5);
+    });
+
+    it("should have registerCommand patterns in extension.ts", () => {
+      expect(extensionCode).toContain("vscode.commands.registerCommand(");
+    });
+
+    it("should register all commands with orchestra.* prefix", () => {
+      const registeredCommands = extractRegisteredCommands(extensionCode);
+      expect(registeredCommands.length).toBeGreaterThan(0);
+      
+      for (const commandId of registeredCommands) {
+        expect(commandId).toMatch(/^orchestra\./);
+      }
+    });
+
+    it("should have context.subscriptions.push for command registrations", () => {
+      // Check that commands are added to subscriptions
+      expect(extensionCode).toContain("context.subscriptions.push(");
+      expect(extensionCode).toMatch(
+        /context\.subscriptions\.push\([^)]*vscode\.commands\.registerCommand/
+      );
+    });
+  });
+
+  describe("Consistency between package.json and extension.ts", () => {
+    it("should register all commands declared in package.json", () => {
+      const packageCommands = extractPackageJsonCommands(packageJson);
+      const registeredCommands = extractRegisteredCommands(extensionCode);
+
+      expect(packageCommands.length).toBeGreaterThan(0);
+
+      // Every command in package.json should be registered
+      for (const commandId of packageCommands) {
+        expect(
+          registeredCommands,
+          `Command ${commandId} from package.json should be registered in extension.ts`
+        ).toContain(commandId);
+      }
+    });
+
+    it("should not register commands not in package.json", () => {
+      const packageCommands = extractPackageJsonCommands(packageJson);
+      const registeredCommands = extractRegisteredCommands(extensionCode);
+
+      // Every registered orchestra.* command should be in package.json
+      for (const commandId of registeredCommands) {
+        expect(
+          packageCommands,
+          `Registered command ${commandId} should be declared in package.json`
+        ).toContain(commandId);
+      }
+    });
+
+    it("should have all package.json commands registered (may have extras)", () => {
+      const packageCommands = extractPackageJsonCommands(packageJson);
+      const registeredCommands = extractRegisteredCommands(extensionCode);
+
+      // Should have at least as many registered as in package.json
+      // (Note: orchestra.initializeWorkspace may be registered multiple times for different modes)
+      expect(registeredCommands.length).toBeGreaterThanOrEqual(packageCommands.length);
+    });
+  });
+
+  describe("Specific command registrations", () => {
+    it('should register "orchestra.openDashboard"', () => {
+      expect(extensionCode).toContain(
+        'vscode.commands.registerCommand("orchestra.openDashboard"'
+      );
+    });
+
+    it('should register "orchestra.refreshStatus"', () => {
+      expect(extensionCode).toContain(
+        'vscode.commands.registerCommand("orchestra.refreshStatus"'
+      );
+    });
+
+    it('should register "orchestra.openSprintSettings"', () => {
+      expect(extensionCode).toContain(
+        'vscode.commands.registerCommand("orchestra.openSprintSettings"'
+      );
+    });
+
+    it('should register "orchestra.openTaskDetail"', () => {
+      expect(extensionCode).toContain(
+        '"orchestra.openTaskDetail"'
+      );
+    });
+
+    it('should register "orchestra.installMcpServers"', () => {
+      expect(extensionCode).toContain(
+        '"orchestra.installMcpServers"'
+      );
+    });
+
+    it('should register "orchestra.initializeWorkspace"', () => {
+      expect(extensionCode).toContain(
+        '"orchestra.initializeWorkspace"'
+      );
+    });
+
+    it('should register "orchestra.invokeOrchestrator"', () => {
+      expect(extensionCode).toContain(
+        '"orchestra.invokeOrchestrator"'
+      );
+    });
+
+    it('should register "orchestra.invokeImplementor"', () => {
+      expect(extensionCode).toContain(
+        '"orchestra.invokeImplementor"'
+      );
+    });
+
+    it('should register "orchestra.startTask"', () => {
+      expect(extensionCode).toContain(
+        '"orchestra.startTask"'
+      );
+    });
+
+    it('should register "orchestra.deEscalateTask"', () => {
+      expect(extensionCode).toContain(
+        '"orchestra.deEscalateTask"'
+      );
+    });
+
+    it('should register "orchestra.moveToGateCheck"', () => {
+      expect(extensionCode).toContain(
+        '"orchestra.moveToGateCheck"'
+      );
+    });
+
+    it('should register "orchestra.moveToImplement"', () => {
+      expect(extensionCode).toContain(
+        '"orchestra.moveToImplement"'
+      );
+    });
+
+    it('should register "orchestra.forceComplete"', () => {
+      expect(extensionCode).toContain(
+        '"orchestra.forceComplete"'
+      );
+    });
+
+    it('should register "orchestra.setActiveSprint"', () => {
+      expect(extensionCode).toContain(
+        '"orchestra.setActiveSprint"'
+      );
+    });
+  });
+
+  describe("Command registration patterns", () => {
+    it("should use proper registerCommand syntax", () => {
+      // Should not have syntax errors in command registrations
+      const commandBlocks = extensionCode.match(
+        /vscode\.commands\.registerCommand\([^)]+\)/g
+      );
+      expect(commandBlocks).toBeTruthy();
+      expect(commandBlocks!.length).toBeGreaterThan(0);
+    });
+
+    it("should log command registration completion", () => {
+      expect(extensionCode).toContain('logger.info("Commands registered")');
+    });
+
+    it("should register commands within activate function", () => {
+      // Check that activate function exists and contains registerCommand
+      expect(extensionCode).toContain("export async function activate(");
+      
+      // Find the section with command registrations
+      const hasCommandRegistrations = extensionCode.includes(
+        "vscode.commands.registerCommand"
+      ) && extensionCode.includes("export async function activate");
+      
+      expect(hasCommandRegistrations).toBe(true);
+    });
+  });
+});
+
+describe("Extension registration - CurrentTaskViewProvider (Task 7)", () => {
   let extensionCode: string;
 
   beforeEach(() => {
