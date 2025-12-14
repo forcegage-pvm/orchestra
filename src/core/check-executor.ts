@@ -103,24 +103,41 @@ export async function executeStructuralCheck(
       };
     }
 
-    // If pattern specified, check file contents of all matched files
+    // If pattern specified, check if ANY file matches the pattern
+    // (not ALL files - we want to find at least one file containing the pattern)
     if (config.pattern) {
+      let totalPatternMatches = 0;
+      const patternMinMatches = config.min_matches ?? 1;
+      const filesWithMatches: string[] = [];
+
       for (const matchedPath of matches) {
         const fullPath = path.join(workspacePath, matchedPath);
         const content = fs.readFileSync(fullPath, "utf-8");
         const contentMatches = content.match(new RegExp(config.pattern, "gms"));
-        const patternMinMatches = config.min_matches ?? 1;
 
-        if (!contentMatches || contentMatches.length < patternMinMatches) {
-          return {
-            passed: false,
-            message: `Pattern not found in ${matchedPath}: expected ${patternMinMatches} match(es), found ${
-              contentMatches?.length ?? 0
-            }`,
-            duration_ms: Date.now() - startTime,
-          };
+        if (contentMatches && contentMatches.length > 0) {
+          totalPatternMatches += contentMatches.length;
+          filesWithMatches.push(matchedPath);
         }
       }
+
+      if (totalPatternMatches < patternMinMatches) {
+        return {
+          passed: false,
+          message: `Pattern not found in any of ${matches.length} file(s): expected ${patternMinMatches} match(es), found ${totalPatternMatches}`,
+          duration_ms: Date.now() - startTime,
+        };
+      }
+
+      return {
+        passed: true,
+        message: `Pattern found in ${
+          filesWithMatches.length
+        } file(s) with ${totalPatternMatches} total match(es): ${filesWithMatches
+          .slice(0, 3)
+          .join(", ")}${filesWithMatches.length > 3 ? "..." : ""}`,
+        duration_ms: Date.now() - startTime,
+      };
     }
 
     return {
@@ -281,6 +298,54 @@ export async function executeQualityCheck(
 
   // Pattern-based quality check
   if (config.path && config.pattern) {
+    // Check if path is a glob pattern
+    if (isGlobPattern(config.path)) {
+      // Use glob to find matching files
+      const matches = await glob(config.path, {
+        cwd: workspacePath,
+        absolute: false,
+      });
+
+      if (matches.length === 0) {
+        return {
+          passed: false,
+          message: `No files found matching glob: ${config.path}`,
+          duration_ms: Date.now() - startTime,
+        };
+      }
+
+      // Check if ANY file matches the pattern (aggregate across all files)
+      let totalPatternMatches = 0;
+      const filesWithMatches: string[] = [];
+      const minMatches = config.min_matches ?? 1;
+
+      for (const matchedPath of matches) {
+        const fullPath = path.join(workspacePath, matchedPath);
+        const content = fs.readFileSync(fullPath, "utf-8");
+        const contentMatches = content.match(new RegExp(config.pattern, "gms"));
+
+        if (contentMatches && contentMatches.length > 0) {
+          totalPatternMatches += contentMatches.length;
+          filesWithMatches.push(matchedPath);
+        }
+      }
+
+      if (totalPatternMatches < minMatches) {
+        return {
+          passed: false,
+          message: `Pattern not found in any of ${matches.length} file(s): expected ${minMatches} match(es), found ${totalPatternMatches}`,
+          duration_ms: Date.now() - startTime,
+        };
+      }
+
+      return {
+        passed: true,
+        message: `Quality check passed: found ${totalPatternMatches} match(es) in ${filesWithMatches.length} file(s)`,
+        duration_ms: Date.now() - startTime,
+      };
+    }
+
+    // Non-glob path: resolve and check existence
     const filePath = path.isAbsolute(config.path)
       ? config.path
       : path.join(workspacePath, config.path);
@@ -294,7 +359,7 @@ export async function executeQualityCheck(
     }
 
     const content = fs.readFileSync(filePath, "utf-8");
-    const matches = content.match(new RegExp(config.pattern, "g"));
+    const matches = content.match(new RegExp(config.pattern, "gms"));
     const minMatches = config.min_matches ?? 1;
 
     if (!matches || matches.length < minMatches) {

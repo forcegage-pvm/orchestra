@@ -178,6 +178,114 @@ describe("Check Executor", () => {
       expect(result.passed).toBe(true);
       expect(result.message).toContain("matches pattern");
     });
+
+    // ==========================================================================
+    // Glob pattern tests - critical for TDD verification checks
+    // ==========================================================================
+
+    it("should pass when glob pattern finds file with matching content", async () => {
+      // Create nested directory structure
+      const testDir = path.join(tempDir, "test", "views");
+      fs.mkdirSync(testDir, { recursive: true });
+
+      // Create a test file that DOES match
+      fs.writeFileSync(
+        path.join(testDir, "component.test.ts"),
+        'describe("Component", () => { it("should render tooltip", () => {}); });'
+      );
+
+      const config: CheckConfig = {
+        type: "structural",
+        path: "test/**/*.test.ts",
+        pattern: "tooltip",
+        min_matches: 1,
+      };
+
+      const result = await executeStructuralCheck(config, tempDir);
+
+      expect(result.passed).toBe(true);
+      expect(result.message).toContain("Pattern found");
+    });
+
+    it("should pass when pattern found in ANY file (not require ALL files)", async () => {
+      // Create nested directory structure
+      const testDir = path.join(tempDir, "test", "views");
+      fs.mkdirSync(testDir, { recursive: true });
+
+      // Create file WITHOUT the pattern
+      fs.writeFileSync(
+        path.join(testDir, "other.test.ts"),
+        'describe("Other", () => { it("does something else", () => {}); });'
+      );
+
+      // Create file WITH the pattern
+      fs.writeFileSync(
+        path.join(testDir, "tooltip.test.ts"),
+        'describe("Tooltip", () => { it("uses MarkdownString", () => {}); });'
+      );
+
+      const config: CheckConfig = {
+        type: "structural",
+        path: "test/**/*.test.ts",
+        pattern: "MarkdownString",
+        min_matches: 1,
+      };
+
+      const result = await executeStructuralCheck(config, tempDir);
+
+      // Should PASS because at least ONE file contains the pattern
+      expect(result.passed).toBe(true);
+      expect(result.message).toContain("Pattern found");
+    });
+
+    it("should fail when pattern not found in any glob-matched file", async () => {
+      // Create nested directory structure
+      const testDir = path.join(tempDir, "test", "views");
+      fs.mkdirSync(testDir, { recursive: true });
+
+      // Create files that don't contain the pattern
+      fs.writeFileSync(
+        path.join(testDir, "a.test.ts"),
+        'describe("A", () => {});'
+      );
+      fs.writeFileSync(
+        path.join(testDir, "b.test.ts"),
+        'describe("B", () => {});'
+      );
+
+      const config: CheckConfig = {
+        type: "structural",
+        path: "test/**/*.test.ts",
+        pattern: "nonexistent_pattern",
+        min_matches: 1,
+      };
+
+      const result = await executeStructuralCheck(config, tempDir);
+
+      expect(result.passed).toBe(false);
+      expect(result.message).toContain("Pattern not found");
+    });
+
+    it("should aggregate pattern matches across multiple files", async () => {
+      // Create nested directory structure
+      const testDir = path.join(tempDir, "src");
+      fs.mkdirSync(testDir, { recursive: true });
+
+      // Create files with the pattern
+      fs.writeFileSync(path.join(testDir, "a.ts"), "ThemeIcon usage 1");
+      fs.writeFileSync(path.join(testDir, "b.ts"), "ThemeIcon usage 2");
+
+      const config: CheckConfig = {
+        type: "structural",
+        path: "src/**/*.ts",
+        pattern: "ThemeIcon",
+        min_matches: 2, // Require 2 matches total across all files
+      };
+
+      const result = await executeStructuralCheck(config, tempDir);
+
+      expect(result.passed).toBe(true);
+    });
   });
 
   describe("executeBehavioralCheck", () => {
@@ -423,6 +531,96 @@ describe("Check Executor", () => {
       expect(result.message).toContain(
         "requires either command or path+pattern"
       );
+    });
+
+    // ==========================================================================
+    // Glob pattern tests for quality checks
+    // ==========================================================================
+
+    it("should support glob patterns in path for quality checks", async () => {
+      // Create nested directory structure
+      const srcDir = path.join(tempDir, "src", "components");
+      fs.mkdirSync(srcDir, { recursive: true });
+
+      // Create a file with the pattern
+      fs.writeFileSync(
+        path.join(srcDir, "button.ts"),
+        "export class Button { render() { return new ThemeIcon(); } }"
+      );
+
+      const config: CheckConfig = {
+        type: "quality",
+        path: "src/**/*.ts",
+        pattern: "ThemeIcon",
+        min_matches: 1,
+      };
+
+      const result = await executeQualityCheck(config, tempDir);
+
+      expect(result.passed).toBe(true);
+      expect(result.message).toContain("match");
+    });
+
+    it("should aggregate quality pattern matches across multiple glob files", async () => {
+      // Create nested directory structure
+      const srcDir = path.join(tempDir, "src");
+      fs.mkdirSync(srcDir, { recursive: true });
+
+      // Create two files each with one match
+      fs.writeFileSync(path.join(srcDir, "a.ts"), "first ThemeIcon usage");
+      fs.writeFileSync(path.join(srcDir, "b.ts"), "second ThemeIcon usage");
+
+      const config: CheckConfig = {
+        type: "quality",
+        path: "src/**/*.ts",
+        pattern: "ThemeIcon",
+        min_matches: 2, // Require 2 total matches across all files
+      };
+
+      const result = await executeQualityCheck(config, tempDir);
+
+      expect(result.passed).toBe(true);
+    });
+
+    it("should fail when glob pattern matches no files", async () => {
+      const config: CheckConfig = {
+        type: "quality",
+        path: "nonexistent/**/*.ts",
+        pattern: "something",
+        min_matches: 1,
+      };
+
+      const result = await executeQualityCheck(config, tempDir);
+
+      expect(result.passed).toBe(false);
+      expect(result.message).toContain("No files found matching glob");
+    });
+
+    it("should pass quality check when pattern in ANY file (not all)", async () => {
+      // Create nested directory structure
+      const srcDir = path.join(tempDir, "src");
+      fs.mkdirSync(srcDir, { recursive: true });
+
+      // Create file WITHOUT the pattern
+      fs.writeFileSync(path.join(srcDir, "empty.ts"), "export const x = 1;");
+
+      // Create file WITH the pattern
+      fs.writeFileSync(
+        path.join(srcDir, "themed.ts"),
+        "import { ThemeIcon } from 'vscode';"
+      );
+
+      const config: CheckConfig = {
+        type: "quality",
+        path: "src/**/*.ts",
+        pattern: "ThemeIcon",
+        min_matches: 1,
+      };
+
+      const result = await executeQualityCheck(config, tempDir);
+
+      // Should PASS because at least ONE file contains the pattern
+      expect(result.passed).toBe(true);
     });
   });
 
