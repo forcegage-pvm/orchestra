@@ -202,4 +202,209 @@ describe("package.json views configuration", () => {
       expect(allUseCorrectId).toBe(true);
     });
   });
+
+  describe("viewItem regex patterns for status-specific menus", () => {
+    const contextMenus =
+      packageJson.contributes?.menus?.["view/item/context"] || [];
+
+    describe("task-specific menu items", () => {
+      it("should use viewItem pattern for all task context menus", () => {
+        const taskMenus = contextMenus.filter(
+          (menu: any) =>
+            menu.when?.includes("viewItem") &&
+            menu.when?.includes("task-")
+        );
+
+        expect(taskMenus.length).toBeGreaterThan(0);
+
+        taskMenus.forEach((menu: any) => {
+          // Should have either == or =~ operator for viewItem matching
+          expect(menu.when).toMatch(/viewItem\s*(==|=~)/);
+          expect(menu.when).toContain("task-");
+        });
+      });
+
+      it("should have openTaskDetail for all task items using task- prefix regex", () => {
+        const openTaskDetail = contextMenus.find(
+          (menu: any) => menu.command === "orchestra.openTaskDetail"
+        );
+
+        expect(openTaskDetail).toBeDefined();
+        expect(openTaskDetail?.when).toContain("viewItem =~");
+        expect(openTaskDetail?.when).toContain("/^task-/");
+      });
+
+      it("should have startTask only for pending and implement statuses", () => {
+        const startTaskMenus = contextMenus.filter(
+          (menu: any) => menu.command === "orchestra.startTask"
+        );
+
+        // Should have at least one startTask menu item
+        expect(startTaskMenus.length).toBeGreaterThan(0);
+
+        // Find the one with status restriction
+        const statusRestrictedMenu = startTaskMenus.find(
+          (menu: any) =>
+            menu.when?.includes("viewItem") && menu.when?.includes("task-")
+        );
+
+        expect(statusRestrictedMenu).toBeDefined();
+        expect(statusRestrictedMenu?.when).toContain("viewItem =~");
+        // Should match task-pending or task-implement
+        expect(statusRestrictedMenu?.when).toMatch(/task-\(pending\|implement\)/);
+      });
+
+      it("should have deEscalateTask only for escalated status", () => {
+        const deEscalateMenus = contextMenus.filter(
+          (menu: any) => menu.command === "orchestra.deEscalateTask"
+        );
+
+        expect(deEscalateMenus.length).toBeGreaterThan(0);
+
+        deEscalateMenus.forEach((menu: any) => {
+          expect(menu.when).toContain("viewItem");
+          expect(menu.when).toContain("task-escalated");
+        });
+      });
+
+      it("should have moveToGateCheck for escalated and verify_failed statuses", () => {
+        const moveToGateCheckMenus = contextMenus.filter(
+          (menu: any) => menu.command === "orchestra.moveToGateCheck"
+        );
+
+        expect(moveToGateCheckMenus.length).toBeGreaterThan(0);
+
+        const statusRestrictedMenu = moveToGateCheckMenus.find(
+          (menu: any) =>
+            menu.when?.includes("viewItem") && menu.when?.includes("task-")
+        );
+
+        expect(statusRestrictedMenu).toBeDefined();
+        expect(statusRestrictedMenu?.when).toContain("viewItem =~");
+        // Should match task-escalated or task-verify_failed
+        expect(statusRestrictedMenu?.when).toMatch(
+          /task-\(escalated\|verify_failed\)/
+        );
+      });
+
+      it("should have moveToImplement for escalated and verify_failed statuses", () => {
+        const moveToImplementMenus = contextMenus.filter(
+          (menu: any) => menu.command === "orchestra.moveToImplement"
+        );
+
+        expect(moveToImplementMenus.length).toBeGreaterThan(0);
+
+        const statusRestrictedMenu = moveToImplementMenus.find(
+          (menu: any) =>
+            menu.when?.includes("viewItem") && menu.when?.includes("task-")
+        );
+
+        expect(statusRestrictedMenu).toBeDefined();
+        expect(statusRestrictedMenu?.when).toContain("viewItem =~");
+        // Should match task-escalated or task-verify_failed
+        expect(statusRestrictedMenu?.when).toMatch(
+          /task-\(escalated\|verify_failed\)/
+        );
+      });
+
+      it("should have forceComplete only for escalated status", () => {
+        const forceCompleteMenus = contextMenus.filter(
+          (menu: any) => menu.command === "orchestra.forceComplete"
+        );
+
+        expect(forceCompleteMenus.length).toBeGreaterThan(0);
+
+        forceCompleteMenus.forEach((menu: any) => {
+          expect(menu.when).toContain("viewItem");
+          expect(menu.when).toContain("task-escalated");
+        });
+      });
+    });
+
+    describe("viewItem regex pattern structure", () => {
+      it("should use proper regex syntax with =~ operator", () => {
+        const taskMenusWithRegex = contextMenus.filter(
+          (menu: any) =>
+            menu.when?.includes("viewItem") &&
+            menu.when?.includes("=~") &&
+            menu.when?.includes("task-")
+        );
+
+        expect(taskMenusWithRegex.length).toBeGreaterThan(0);
+
+        taskMenusWithRegex.forEach((menu: any) => {
+          // Should have format: viewItem =~ /pattern/
+          expect(menu.when).toMatch(/viewItem\s*=~\s*\/[^/]+\//);
+        });
+      });
+
+      it("should anchor task- patterns at the start with ^", () => {
+        const taskMenusWithRegex = contextMenus.filter(
+          (menu: any) =>
+            menu.when?.includes("viewItem =~") &&
+            menu.when?.includes("task-")
+        );
+
+        taskMenusWithRegex.forEach((menu: any) => {
+          // Patterns should start with ^ to anchor at the beginning
+          expect(menu.when).toMatch(/viewItem\s*=~\s*\/\^task-/);
+        });
+      });
+
+      it("should use proper alternation syntax for multiple statuses", () => {
+        const multiStatusMenus = contextMenus.filter(
+          (menu: any) =>
+            menu.when?.includes("viewItem =~") &&
+            menu.when?.includes("|")
+        );
+
+        multiStatusMenus.forEach((menu: any) => {
+          // Should have format like (status1|status2)
+          expect(menu.when).toMatch(/\([^)]+\|[^)]+\)/);
+        });
+      });
+    });
+
+    describe("status coverage", () => {
+      it("should have menu items for PENDING status", () => {
+        const pendingMenus = contextMenus.filter(
+          (menu: any) =>
+            menu.when?.includes("viewItem") &&
+            menu.when?.includes("pending")
+        );
+
+        expect(pendingMenus.length).toBeGreaterThan(0);
+      });
+
+      it("should have menu items for IMPLEMENT status", () => {
+        const implementMenus = contextMenus.filter(
+          (menu: any) =>
+            menu.when?.includes("viewItem") &&
+            menu.when?.includes("implement")
+        );
+
+        expect(implementMenus.length).toBeGreaterThan(0);
+      });
+
+      it("should have menu items for ESCALATED status", () => {
+        const escalatedMenus = contextMenus.filter(
+          (menu: any) =>
+            menu.when?.includes("viewItem") &&
+            menu.when?.includes("escalated")
+        );
+
+        expect(escalatedMenus.length).toBeGreaterThan(0);
+      });
+
+      it("should have menu items for VERIFY_FAILED status", () => {
+        const verifyFailedMenus = contextMenus.filter(
+          (menu: any) =>
+            menu.when?.includes("viewItem") &&
+            menu.when?.includes("verify_failed")
+        );
+
+        expect(verifyFailedMenus.length).toBeGreaterThan(0);
+      });
+    });
+  });
 });

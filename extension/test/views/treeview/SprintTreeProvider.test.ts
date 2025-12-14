@@ -24,7 +24,8 @@ vi.mock("vscode", () => ({
     this.resourceUri = undefined;
     return this;
   }),
-  ThemeIcon: vi.fn((id: string) => ({ id })),
+  ThemeIcon: vi.fn((id: string, color?: any) => ({ id, color })),
+  ThemeColor: vi.fn((id: string) => ({ id })),
   MarkdownString: vi.fn(function (this: any, value?: string) {
     this.value = value || "";
     this.isTrusted = false;
@@ -319,6 +320,144 @@ describe("SprintTreeProvider", () => {
       provider.refresh();
 
       expect(firespy).toHaveBeenCalled();
+    });
+  });
+
+  describe("contextValue for status-based menus", () => {
+    it("should set contextValue with task- prefix for all task items", () => {
+      const mockTask = createMockTask({
+        task_id: 1,
+        title: "Test Task",
+        status: "PENDING",
+      });
+
+      const taskElement = { type: "task" as const, task: mockTask };
+      const treeItem = provider.getTreeItem(taskElement);
+
+      expect(treeItem.contextValue).toBeDefined();
+      expect(treeItem.contextValue).toMatch(/^task-/);
+    });
+
+    it("should set contextValue to task-pending for PENDING status", () => {
+      const mockTask = createMockTask({
+        task_id: 1,
+        title: "Pending Task",
+        status: "PENDING",
+      });
+
+      const taskElement = { type: "task" as const, task: mockTask };
+      const treeItem = provider.getTreeItem(taskElement);
+
+      expect(treeItem.contextValue).toBe("task-pending");
+    });
+
+    it("should set contextValue to task-implement for IMPLEMENT status", () => {
+      const mockTask = createMockTask({
+        task_id: 2,
+        title: "Implementation Task",
+        status: "IMPLEMENT",
+      });
+
+      const taskElement = { type: "task" as const, task: mockTask };
+      const treeItem = provider.getTreeItem(taskElement);
+
+      expect(treeItem.contextValue).toBe("task-implement");
+    });
+
+    it("should set contextValue to task-escalated for ESCALATED status", () => {
+      const mockTask = createMockTask({
+        task_id: 3,
+        title: "Escalated Task",
+        status: "ESCALATED",
+      });
+
+      const taskElement = { type: "task" as const, task: mockTask };
+      const treeItem = provider.getTreeItem(taskElement);
+
+      expect(treeItem.contextValue).toBe("task-escalated");
+    });
+
+    it("should set contextValue to task-verify_failed for VERIFY_FAILED status", () => {
+      const mockTask = createMockTask({
+        task_id: 4,
+        title: "Failed Task",
+        status: "VERIFY_FAILED",
+      });
+
+      const taskElement = { type: "task" as const, task: mockTask };
+      const treeItem = provider.getTreeItem(taskElement);
+
+      expect(treeItem.contextValue).toBe("task-verify_failed");
+    });
+
+    it("should set contextValue to task-verify for VERIFY status", () => {
+      const mockTask = createMockTask({
+        task_id: 5,
+        title: "Verifying Task",
+        status: "VERIFY",
+      });
+
+      const taskElement = { type: "task" as const, task: mockTask };
+      const treeItem = provider.getTreeItem(taskElement);
+
+      expect(treeItem.contextValue).toBe("task-verify");
+    });
+
+    it("should set contextValue to task-verify_passed for VERIFY_PASSED status", () => {
+      const mockTask = createMockTask({
+        task_id: 6,
+        title: "Completed Task",
+        status: "VERIFY_PASSED",
+      });
+
+      const taskElement = { type: "task" as const, task: mockTask };
+      const treeItem = provider.getTreeItem(taskElement);
+
+      expect(treeItem.contextValue).toBe("task-verify_passed");
+    });
+
+    it("should lowercase status in contextValue", () => {
+      const statuses: Task["status"][] = [
+        "PENDING",
+        "IMPLEMENT",
+        "VERIFY",
+        "VERIFY_FAILED",
+        "ESCALATED",
+        "VERIFY_PASSED",
+      ];
+
+      statuses.forEach((status) => {
+        const mockTask = createMockTask({
+          task_id: 7,
+          title: "Status Test",
+          status,
+        });
+
+        const taskElement = { type: "task" as const, task: mockTask };
+        const treeItem = provider.getTreeItem(taskElement);
+
+        // ContextValue should be lowercase
+        expect(treeItem.contextValue).toBe(`task-${status.toLowerCase()}`);
+      });
+    });
+
+    it("should not set contextValue for non-task items", () => {
+      const mockSprint: Sprint = {
+        id: "sprint-001",
+        name: "Test Sprint",
+        workflow_step: "ACTIVE",
+        is_active: true,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        completed_at: null,
+      };
+
+      const sprintElement = { type: "sprint" as const, sprint: mockSprint };
+      const treeItem = provider.getTreeItem(sprintElement);
+
+      // Sprint should have contextValue but not with task- prefix
+      expect(treeItem.contextValue).toBeDefined();
+      expect(treeItem.contextValue).not.toMatch(/^task-/);
     });
   });
 });
