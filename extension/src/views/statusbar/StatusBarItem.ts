@@ -65,11 +65,11 @@ export class StatusBarManager implements vscode.Disposable {
         return;
       }
 
-      // Format status bar text: $(task) Task N: STATUS
+      // Format status bar text: $(icon) Task N: STATUS
       const taskNum = currentTask.task_id;
       const status = currentTask.status;
       const statusDisplay = getStatusDisplay(status);
-      this.statusBarItem.text = `$(task) Task ${taskNum}: ${statusDisplay.label}`;
+      this.statusBarItem.text = `$(${statusDisplay.icon}) Task ${taskNum}: ${statusDisplay.label}`;
 
       // Set color based on status
       this.statusBarItem.backgroundColor = statusDisplay.color;
