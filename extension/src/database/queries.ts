@@ -269,6 +269,52 @@ export function getCurrentTask(
 }
 
 /**
+ * Get the first escalated task from the active sprint
+ *
+ * Escalated tasks require human supervisor attention and should be
+ * prominently displayed in the Current Task panel.
+ *
+ * @param workspaceRoot Absolute path to workspace root
+ * @returns Escalated task with handover or null if none exists
+ */
+export function getEscalatedTask(
+  workspaceRoot: string
+): (Task & { handover: Handover | null }) | null {
+  const db = getDB(workspaceRoot);
+
+  // Query for escalated tasks in active sprint
+  const results = db
+    .select()
+    .from(schema.tasks as unknown as typeof schema.tasks)
+    .leftJoin(
+      schema.handovers as unknown as typeof schema.handovers,
+      eq(
+        schema.tasks.id as unknown as typeof schema.tasks.id,
+        schema.handovers.task_id as unknown as typeof schema.handovers.task_id
+      )
+    )
+    .where(
+      eq(
+        schema.tasks.status as unknown as typeof schema.tasks.status,
+        "ESCALATED"
+      )
+    )
+    .limit(1)
+    .all() as unknown[];
+
+  if (results.length === 0 || !results[0]) {
+    return null;
+  }
+
+  // Combine task and handover into single object
+  const result = results[0] as { tasks: Task; handovers: Handover | null };
+  return {
+    ...result.tasks,
+    handover: result.handovers,
+  };
+}
+
+/**
  * Get all tasks for a given sprint
  *
  * Returns tasks ordered by task_id (sequential order within sprint).

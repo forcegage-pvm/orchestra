@@ -9,9 +9,11 @@
 import * as vscode from "vscode";
 import {
   getCurrentTask,
+  getEscalatedTask,
+  getEscalation,
   getNextPendingTask,
-  type Task,
   type Handover,
+  type Task,
 } from "../../database/queries.js";
 import type { DatabaseWatcher } from "../../database/watcher.js";
 import { OrchestraLogger } from "../../utils/logger.js";
@@ -126,18 +128,49 @@ export class CurrentTaskViewProvider implements vscode.WebviewViewProvider {
       return null;
     }
 
+    const priority = currentTask.handover?.priority ?? "P2";
+
+    // Get escalation details if task is escalated
+    let escalation: TaskData["escalation"] = null;
+    if (currentTask.status === "ESCALATED") {
+      const esc = getEscalation(this._workspaceRoot, currentTask.id);
+      if (esc) {
+        escalation = {
+          reason: esc.reason,
+          attempts_summary: esc.attempts_summary,
+          recommended_action: esc.recommended_action,
+          escalated_at: esc.escalated_at,
+        };
+      }
+    }
+
     return {
       id: currentTask.id,
       task_id: currentTask.task_id,
       title: currentTask.title,
       description: currentTask.description,
       status: currentTask.status,
-      priority: currentTask.handover?.priority ?? "P2", // Default priority if no handover
+      priority,
+      priorityLabel: this._getPriorityLabel(priority),
       category: currentTask.category,
       updated_at: currentTask.updated_at,
       statusDisplay: getStatusDisplay(currentTask.status),
       isNextPending,
+      escalation,
     };
+  }
+
+  /**
+   * Get human-readable priority label
+   */
+  private _getPriorityLabel(priority: string): string {
+    const labels: Record<string, string> = {
+      P0: "Critical",
+      P1: "High Priority",
+      P2: "Medium Priority",
+      P3: "Low Priority",
+    };
+    return labels[priority] ?? priority;
   }
 
   /**
@@ -170,6 +203,55 @@ export class CurrentTaskViewProvider implements vscode.WebviewViewProvider {
         }
         break;
 
+      case "signalCompletion":
+        if (typeof message.taskId === "number") {
+          // TODO: Implement signal completion via MCP or CLI
+          void vscode.window.showInformationMessage(
+            `Signaling completion for task ${message.taskId}... (MCP integration pending)`
+          );
+        }
+        break;
+
+      case "resolveEscalation":
+        if (typeof message.taskId === "number") {
+          // Invoke de-escalate command
+          void vscode.commands.executeCommand(
+            "orchestra.deEscalateTask",
+            message.taskId
+          );
+        }
+        break;
+
+      case "moveToGateCheck":
+        if (typeof message.taskId === "number") {
+          // Invoke move to gate check command
+          void vscode.commands.executeCommand(
+            "orchestra.moveToGateCheck",
+            message.taskId
+          );
+        }
+        break;
+
+      case "moveToImplement":
+        if (typeof message.taskId === "number") {
+          // Invoke move to implement command
+          void vscode.commands.executeCommand(
+            "orchestra.moveToImplement",
+            message.taskId
+          );
+        }
+        break;
+
+      case "forceComplete":
+        if (typeof message.taskId === "number") {
+          // Invoke force complete command
+          void vscode.commands.executeCommand(
+            "orchestra.forceComplete",
+            message.taskId
+          );
+        }
+        break;
+
       default:
         logger.warn(`Unknown webview command: ${message.command}`);
     }
@@ -181,18 +263,57 @@ export class CurrentTaskViewProvider implements vscode.WebviewViewProvider {
   private _getHtmlContent(webview: vscode.Webview): string {
     const cspSource = webview.cspSource;
 
-    // Try to get current in-progress task first
-    let currentTask: (Task & { handover: Handover | null }) | null =
-      getCurrentTask(this._workspaceRoot);
+    // Priority order:
+    // 1. Escalated tasks (need human attention)
+    // 2. Current in-progress task
+    // 3. Next pending task
+    let currentTask: (Task & { handover: Handover | null }) | null = null;
     let isNextPending = false;
+
+    // First check for escalated tasks - these need attention
+    const escalatedTask = getEscalatedTask(this._workspaceRoot);
+    logger.info(
+      `getEscalatedTask returned: ${
+        escalatedTask
+          ? `Task ${escalatedTask.task_id} (${escalatedTask.status})`
+          : "null"
+      }`
+    );
+    if (escalatedTask) {
+      currentTask = escalatedTask;
+    }
+
+    // Then check for in-progress tasks
+    if (!currentTask) {
+      currentTask = getCurrentTask(this._workspaceRoot);
+      logger.info(
+        `getCurrentTask returned: ${
+          currentTask
+            ? `Task ${currentTask.task_id} (${currentTask.status})`
+            : "null"
+        }`
+      );
+    }
 
     // If no task in progress, get the next pending task
     if (!currentTask) {
       currentTask = getNextPendingTask(this._workspaceRoot);
       isNextPending = currentTask !== null;
+      logger.info(
+        `getNextPendingTask returned: ${
+          currentTask
+            ? `Task ${currentTask.task_id} (${currentTask.status})`
+            : "null"
+        }`
+      );
     }
 
     const taskData = this._getTaskData(currentTask, isNextPending);
+    logger.info(
+      `Rendering task: ${
+        taskData ? `Task ${taskData.task_id} (${taskData.status})` : "null"
+      }`
+    );
 
     return generateCurrentTaskHtml(taskData, cspSource);
   }

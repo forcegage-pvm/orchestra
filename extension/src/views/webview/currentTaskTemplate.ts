@@ -18,10 +18,17 @@ export interface TaskData {
   description: string;
   status: string;
   priority: string;
+  priorityLabel: string; // Human-readable priority (e.g., "High Priority")
   category: string;
   updated_at: string;
   statusDisplay: StatusDisplay;
   isNextPending?: boolean; // True if this is the next pending task (not in progress)
+  escalation?: {
+    reason: string;
+    attempts_summary: string;
+    recommended_action: string | null;
+    escalated_at: string;
+  } | null;
 }
 
 /**
@@ -54,81 +61,179 @@ function getStyles(): string {
     }
     .task-card {
       border: 1px solid var(--vscode-panel-border);
-      border-radius: 4px;
-      padding: 12px;
+      border-radius: 6px;
+      padding: 14px;
       background: var(--vscode-editor-background);
     }
     .task-header {
       display: flex;
+      flex-wrap: wrap;
       align-items: center;
-      gap: 8px;
-      margin-bottom: 8px;
+      gap: 6px;
+      margin-bottom: 10px;
     }
     .task-id {
       font-weight: 600;
+      font-size: 13px;
       color: var(--vscode-textLink-foreground);
     }
-    .task-status {
+    .pill {
       display: inline-flex;
       align-items: center;
       gap: 4px;
       padding: 2px 8px;
-      border-radius: 3px;
-      font-size: 11px;
+      border-radius: 12px;
+      font-size: 10px;
       font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+    }
+    .pill-status {
+      background: var(--vscode-badge-background);
+      color: var(--vscode-badge-foreground);
+    }
+    .pill-status.pending { background: var(--vscode-charts-blue); color: #fff; }
+    .pill-status.implement { background: var(--vscode-charts-purple); color: #fff; }
+    .pill-status.verify { background: var(--vscode-charts-yellow); color: #000; }
+    .pill-status.complete { background: var(--vscode-charts-green); color: #fff; }
+    .pill-status.escalated { background: var(--vscode-charts-red); color: #fff; }
+    .pill-status.verify_failed { background: var(--vscode-charts-orange); color: #000; }
+    .pill-priority {
+      background: var(--vscode-button-secondaryBackground);
+      color: var(--vscode-button-secondaryForeground);
+    }
+    .pill-priority.p0 { background: var(--vscode-charts-red); color: #fff; }
+    .pill-priority.p1 { background: var(--vscode-charts-orange); color: #000; }
+    .pill-priority.p2 { background: var(--vscode-charts-blue); color: #fff; }
+    .pill-priority.p3 { background: var(--vscode-descriptionForeground); color: var(--vscode-editor-background); }
+    .pill-category {
+      background: var(--vscode-textBlockQuote-background);
+      color: var(--vscode-textBlockQuote-border);
+      border: 1px solid var(--vscode-textBlockQuote-border);
     }
     .task-title {
       font-size: 14px;
       font-weight: 600;
       margin-bottom: 8px;
+      line-height: 1.3;
     }
     .task-description {
       font-size: 12px;
       color: var(--vscode-descriptionForeground);
-      margin-bottom: 12px;
-      line-height: 1.4;
+      margin-bottom: 14px;
+      line-height: 1.5;
     }
-    .task-meta {
+    .escalation-banner {
+      background: var(--vscode-inputValidation-errorBackground);
+      border: 2px solid var(--vscode-charts-red);
+      border-radius: 4px;
+      padding: 10px 12px;
+      margin-bottom: 14px;
+    }
+    .escalation-header {
       display: flex;
-      gap: 12px;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+      font-weight: 600;
+      font-size: 12px;
+      color: var(--vscode-errorForeground);
+      margin-bottom: 6px;
+    }
+    .escalation-header-title {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .escalation-actions {
+      display: flex;
+      justify-content: flex-start;
+      gap: 2px;
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px solid var(--vscode-charts-red);
+    }
+    .escalation-actions .btn-icon {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 22px;
+      height: 22px;
+      padding: 0;
+      background: transparent;
+      border: none;
+      border-radius: 3px;
+      color: var(--vscode-errorForeground);
+      cursor: pointer;
+      font-size: 14px;
+      opacity: 0.9;
+    }
+    .escalation-actions .btn-icon:hover {
+      background: var(--vscode-toolbar-hoverBackground);
+      opacity: 1;
+    }
+    .escalation-reason {
+      font-size: 12px;
+      line-height: 1.4;
+      margin-bottom: 8px;
+    }
+    .escalation-details {
       font-size: 11px;
       color: var(--vscode-descriptionForeground);
     }
-    .meta-item {
-      display: flex;
-      align-items: center;
-      gap: 4px;
+    .escalation-details summary {
+      cursor: pointer;
+      font-weight: 500;
+    }
+    .escalation-details pre {
+      margin: 6px 0 0 0;
+      padding: 8px;
+      background: var(--vscode-textBlockQuote-background);
+      border-radius: 3px;
+      white-space: pre-wrap;
+      font-family: var(--vscode-editor-font-family);
+      font-size: 11px;
     }
     .no-task {
-      padding: 12px;
+      padding: 20px 12px;
       text-align: center;
       color: var(--vscode-descriptionForeground);
       font-size: 12px;
     }
     .action-buttons {
       display: flex;
+      justify-content: flex-end;
       gap: 8px;
-      margin-top: 12px;
+      margin-top: 14px;
     }
-    .action-button {
-      padding: 6px 12px;
-      background: var(--vscode-button-background);
-      color: var(--vscode-button-foreground);
+    .btn {
+      padding: 5px 12px;
       border: none;
       border-radius: 3px;
       cursor: pointer;
-      font-size: 12px;
-      flex: 1;
+      font-size: 11px;
+      font-weight: 500;
     }
-    .action-button:hover {
+    .btn-secondary {
+      background: transparent;
+      color: var(--vscode-textLink-foreground);
+      border: 1px solid var(--vscode-textLink-foreground);
+    }
+    .btn-secondary:hover {
+      background: var(--vscode-textLink-foreground);
+      color: var(--vscode-editor-background);
+    }
+    .btn-primary {
+      background: var(--vscode-button-background);
+      color: var(--vscode-button-foreground);
+      padding: 6px 16px;
+      font-size: 12px;
+    }
+    .btn-primary:hover {
       background: var(--vscode-button-hoverBackground);
     }
-    .action-button.secondary {
-      background: var(--vscode-button-secondaryBackground);
-      color: var(--vscode-button-secondaryForeground);
-    }
-    .action-button.secondary:hover {
-      background: var(--vscode-button-secondaryHoverBackground);
+    .btn-primary.escalated {
+      background: var(--vscode-charts-red);
     }
   `;
 }
@@ -151,41 +256,70 @@ function getScript(): string {
     });
     
     function escapeHtml(text) {
+      if (!text) return '';
       const div = document.createElement('div');
       div.textContent = text;
       return div.innerHTML;
     }
     
     function renderTaskCard(task) {
-      const actionButton = task.isNextPending
-        ? \`<button class="action-button" onclick="prepareTask(\${task.id})">Prepare Task</button>\`
-        : \`<button class="action-button secondary" onclick="signalCompletion(\${task.id})">Signal Completion</button>\`;
+      const statusClass = task.status.toLowerCase().replace('_', '-');
+      const priorityClass = task.priority.toLowerCase();
+      
+      // Determine action button based on task state
+      let actionButton = '';
+      const btnClass = 'btn btn-primary';
+      if (task.isNextPending) {
+        actionButton = \`<button class="\${btnClass}" onclick="prepareTask(\${task.id})">Prepare Task</button>\`;
+      } else if (task.status === 'ESCALATED') {
+        actionButton = \`<button class="\${btnClass} escalated" onclick="resolveEscalation(\${task.id})">Resolve Escalation</button>\`;
+      } else {
+        actionButton = \`<button class="\${btnClass}" onclick="signalCompletion(\${task.id})">Signal Completion</button>\`;
+      }
+
+      // Render escalation banner if escalated
+      let escalationBanner = '';
+      if (task.escalation) {
+        escalationBanner = \`
+          <div class="escalation-banner">
+            <div class="escalation-header">
+              <span class="escalation-header-title">
+                <span class="codicon codicon-warning"></span>
+                Task Escalated - Requires Supervisor Action
+              </span>
+            </div>
+            <div class="escalation-reason">\${escapeHtml(task.escalation.reason)}</div>
+            <details class="escalation-details">
+              <summary>View Details</summary>
+              <pre>\${escapeHtml(task.escalation.attempts_summary)}</pre>
+              \${task.escalation.recommended_action ? \`<p><strong>Recommended:</strong> \${escapeHtml(task.escalation.recommended_action)}</p>\` : ''}
+            </details>
+            <div class="escalation-actions">
+              <button class="btn-icon" onclick="resolveEscalation(\${task.id})" title="De-escalate: Return task to previous state with supervisor notes">↩</button>
+              <button class="btn-icon" onclick="moveToGateCheck(\${task.id})" title="Re-verify: Run verification checks again">⟳</button>
+              <button class="btn-icon" onclick="moveToImplement(\${task.id})" title="Re-do: Send task back to implementation phase">↺</button>
+              <button class="btn-icon" onclick="forceComplete(\${task.id})" title="Force Complete: Override and mark task as complete">✓</button>
+            </div>
+          </div>
+        \`;
+      }
       
       return \`
         <div class="task-card">
           <div class="task-header">
             <span class="task-id">Task \${task.task_id}</span>
-            <span class="task-status">
+            <span class="pill pill-status \${statusClass}">
               <span class="codicon codicon-\${task.statusDisplay.icon}"></span>
               \${task.statusDisplay.label}
             </span>
+            <span class="pill pill-priority \${priorityClass}" title="\${task.priorityLabel}">\${task.priority}</span>
+            <span class="pill pill-category">\${task.category}</span>
           </div>
           <div class="task-title">\${escapeHtml(task.title)}</div>
+          \${escalationBanner}
           <div class="task-description">\${escapeHtml(task.description)}</div>
-          <div class="task-meta">
-            <div class="meta-item">
-              <span class="codicon codicon-tag"></span>
-              \${escapeHtml(task.priority)}
-            </div>
-            <div class="meta-item">
-              <span class="codicon codicon-folder"></span>
-              \${escapeHtml(task.category)}
-            </div>
-          </div>
           <div class="action-buttons">
-            <button class="action-button" onclick="openTask(\${task.id})">
-              View Details
-            </button>
+            <button class="btn btn-secondary" onclick="openTask(\${task.id})">View Details</button>
             \${actionButton}
           </div>
         </div>
@@ -196,9 +330,7 @@ function getScript(): string {
       return \`
         <div class="no-task">
           <p>No task currently in progress</p>
-          <button class="action-button" onclick="refresh()">
-            Refresh
-          </button>
+          <button class="btn btn-secondary" onclick="refresh()">Refresh</button>
         </div>
       \`;
     }
@@ -233,6 +365,34 @@ function getScript(): string {
       });
     }
     
+    function resolveEscalation(taskId) {
+      vscode.postMessage({
+        command: 'resolveEscalation',
+        taskId: taskId
+      });
+    }
+    
+    function moveToGateCheck(taskId) {
+      vscode.postMessage({
+        command: 'moveToGateCheck',
+        taskId: taskId
+      });
+    }
+    
+    function moveToImplement(taskId) {
+      vscode.postMessage({
+        command: 'moveToImplement',
+        taskId: taskId
+      });
+    }
+    
+    function forceComplete(taskId) {
+      vscode.postMessage({
+        command: 'forceComplete',
+        taskId: taskId
+      });
+    }
+    
     function refresh() {
       vscode.postMessage({
         command: 'refresh'
@@ -245,36 +405,81 @@ function getScript(): string {
  * Render a task card with all task information
  */
 function renderTaskCard(task: TaskData): string {
+  const statusClass = task.status.toLowerCase().replace("_", "-");
+  const priorityClass = task.priority.toLowerCase();
+
+  // Determine action button based on task state
+  let actionButton = "";
+  let actionButtonClass = "btn btn-primary";
+  if (task.isNextPending) {
+    actionButton = `<button class="${actionButtonClass}" onclick="prepareTask(${task.id})">Prepare Task</button>`;
+  } else if (task.status === "ESCALATED") {
+    actionButton = `<button class="${actionButtonClass} escalated" onclick="resolveEscalation(${task.id})">Resolve Escalation</button>`;
+  } else {
+    actionButton = `<button class="${actionButtonClass}" onclick="signalCompletion(${task.id})">Signal Completion</button>`;
+  }
+
+  // Render escalation banner if escalated
+  const escalationBanner = task.escalation
+    ? `
+    <div class="escalation-banner">
+      <div class="escalation-header">
+        <span class="escalation-header-title">
+          <span class="codicon codicon-warning"></span>
+          Task Escalated - Requires Supervisor Action
+        </span>
+      </div>
+      <div class="escalation-reason">${escapeHtml(task.escalation.reason)}</div>
+      <details class="escalation-details">
+        <summary>View Details</summary>
+        <pre>${escapeHtml(task.escalation.attempts_summary)}</pre>
+        ${
+          task.escalation.recommended_action
+            ? `<p><strong>Recommended:</strong> ${escapeHtml(
+                task.escalation.recommended_action
+              )}</p>`
+            : ""
+        }
+      </details>
+      <div class="escalation-actions">
+        <button class="btn-icon" onclick="resolveEscalation(${
+          task.id
+        })" title="De-escalate: Return task to previous state with supervisor notes">↩</button>
+        <button class="btn-icon" onclick="moveToGateCheck(${
+          task.id
+        })" title="Re-verify: Run verification checks again">⟳</button>
+        <button class="btn-icon" onclick="moveToImplement(${
+          task.id
+        })" title="Re-do: Send task back to implementation phase">↺</button>
+        <button class="btn-icon" onclick="forceComplete(${
+          task.id
+        })" title="Force Complete: Override and mark task as complete">✓</button>
+      </div>
+    </div>
+  `
+    : "";
+
   return `
     <div class="task-card">
       <div class="task-header">
         <span class="task-id">Task ${task.task_id}</span>
-        <span class="task-status">
+        <span class="pill pill-status ${statusClass}">
           <span class="codicon codicon-${task.statusDisplay.icon}"></span>
           ${task.statusDisplay.label}
         </span>
+        <span class="pill pill-priority ${priorityClass}" title="${escapeHtml(
+    task.priorityLabel
+  )}">${escapeHtml(task.priority)}</span>
+        <span class="pill pill-category">${escapeHtml(task.category)}</span>
       </div>
       <div class="task-title">${escapeHtml(task.title)}</div>
+      ${escalationBanner}
       <div class="task-description">${escapeHtml(task.description)}</div>
-      <div class="task-meta">
-        <div class="meta-item">
-          <span class="codicon codicon-tag"></span>
-          ${escapeHtml(task.priority)}
-        </div>
-        <div class="meta-item">
-          <span class="codicon codicon-folder"></span>
-          ${escapeHtml(task.category)}
-        </div>
-      </div>
       <div class="action-buttons">
-        <button class="action-button" onclick="openTask(${task.id})">
-          View Details
-        </button>
-        <button class="action-button secondary" onclick="signalCompletion(${
+        <button class="btn btn-secondary" onclick="openTask(${
           task.id
-        })">
-          Signal Completion
-        </button>
+        })">View Details</button>
+        ${actionButton}
       </div>
     </div>
   `;
@@ -287,9 +492,7 @@ function renderNoTask(): string {
   return `
     <div class="no-task">
       <p>No task currently in progress</p>
-      <button class="action-button" onclick="refresh()">
-        Refresh
-      </button>
+      <button class="btn btn-secondary" onclick="refresh()">Refresh</button>
     </div>
   `;
 }

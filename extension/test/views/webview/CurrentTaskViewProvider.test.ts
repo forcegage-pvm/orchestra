@@ -40,6 +40,8 @@ vi.mock("vscode", () => ({
 vi.mock("../../../src/database/queries.js", () => ({
   getCurrentTask: vi.fn(() => null), // Default to no task
   getNextPendingTask: vi.fn(() => null), // Default to no pending task
+  getEscalatedTask: vi.fn(() => null), // Default to no escalated task
+  getEscalation: vi.fn(() => null), // Default to no escalation
 }));
 
 describe("CurrentTaskViewProvider", () => {

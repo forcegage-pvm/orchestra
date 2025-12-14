@@ -17,6 +17,7 @@ describe("currentTaskTemplate", () => {
     description: "This is a detailed description of the task",
     status: "IMPLEMENT",
     priority: "P1",
+    priorityLabel: "High Priority",
     category: "feature",
     updated_at: "2025-12-13T10:00:00Z",
     statusDisplay: {
@@ -76,13 +77,14 @@ describe("currentTaskTemplate", () => {
       expect(html).toContain("codicon-play-circle");
     });
 
-    it("should include task metadata", () => {
+    it("should include task metadata as pills", () => {
       const html = generateCurrentTaskHtml(mockTaskData, cspSource);
 
-      expect(html).toContain("P1");
+      // Priority pill shows human-readable label, not P1
+      expect(html).toContain("High Priority");
       expect(html).toContain("feature");
-      expect(html).toContain("codicon-tag");
-      expect(html).toContain("codicon-folder");
+      expect(html).toContain('class="pill pill-priority');
+      expect(html).toContain('class="pill pill-category');
     });
 
     it("should include action buttons", () => {
@@ -182,9 +184,9 @@ describe("currentTaskTemplate", () => {
     it("should use secondary button variables", () => {
       const html = generateCurrentTaskHtml(mockTaskData, cspSource);
 
+      // Secondary button uses textLink-foreground for border and hover background
       expect(html).toContain("--vscode-button-secondaryBackground");
       expect(html).toContain("--vscode-button-secondaryForeground");
-      expect(html).toContain("--vscode-button-secondaryHoverBackground");
     });
   });
 
@@ -201,12 +203,12 @@ describe("currentTaskTemplate", () => {
       expect(html).toContain('<div class="task-card">');
     });
 
-    it("should have task-header with task ID and status", () => {
+    it("should have task-header with task ID and status pill", () => {
       const html = generateCurrentTaskHtml(mockTaskData, cspSource);
 
       expect(html).toContain('<div class="task-header">');
       expect(html).toContain('<span class="task-id">');
-      expect(html).toContain('<span class="task-status">');
+      expect(html).toContain('class="pill pill-status');
     });
 
     it("should have task-title div", () => {
@@ -221,11 +223,11 @@ describe("currentTaskTemplate", () => {
       expect(html).toContain('<div class="task-description">');
     });
 
-    it("should have task-meta div with meta items", () => {
+    it("should have task header with pills", () => {
       const html = generateCurrentTaskHtml(mockTaskData, cspSource);
 
-      expect(html).toContain('<div class="task-meta">');
-      expect(html).toContain('<div class="meta-item">');
+      expect(html).toContain('<div class="task-header">');
+      expect(html).toContain('class="pill');
     });
 
     it("should have action-buttons container", () => {

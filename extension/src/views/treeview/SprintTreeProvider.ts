@@ -238,9 +238,7 @@ export class SprintTreeProvider
     item.tooltip.appendMarkdown(`**${task.title}**\n\n`);
     item.tooltip.appendMarkdown(`Status: ${statusDisplay.label}\n\n`);
     if (task.status === "ESCALATED" || task.status === "VERIFY_FAILED") {
-      item.tooltip.appendMarkdown(
-        `*Right-click for remediation options*\n\n`
-      );
+      item.tooltip.appendMarkdown(`*Right-click for remediation options*\n\n`);
     }
     item.tooltip.appendMarkdown(task.description);
 
