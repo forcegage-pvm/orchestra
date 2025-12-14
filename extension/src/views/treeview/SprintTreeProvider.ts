@@ -35,6 +35,7 @@ interface PhaseItem {
   type: "phase";
   phase: Phase;
   sprintId: string;
+  tasks: Task[];
 }
 
 interface TaskItem {
@@ -75,7 +76,7 @@ export class SprintTreeProvider
       case "sprint":
         return this._createSprintItem(element.sprint);
       case "phase":
-        return this._createPhaseItem(element.phase);
+        return this._createPhaseItem(element.phase, element.tasks);
       case "task":
         return this._createTaskItem(element.task);
       case "message":
@@ -105,10 +106,12 @@ export class SprintTreeProvider
       // Sprint level: return phases
       if (element.type === "sprint") {
         const phases = getPhases(workspaceRoot, element.sprint.id);
+        const allTasks = getTasksForSprint(workspaceRoot, element.sprint.id);
         return phases.map((phase) => ({
           type: "phase",
           phase,
           sprintId: element.sprint.id,
+          tasks: allTasks.filter((task) => task.phase_id === phase.id),
         }));
       }
 
@@ -168,16 +171,46 @@ export class SprintTreeProvider
     return item;
   }
 
-  private _createPhaseItem(phase: Phase): vscode.TreeItem {
+  private _createPhaseItem(phase: Phase, tasks: Task[]): vscode.TreeItem {
     const item = new vscode.TreeItem(
       phase.phase_name,
       vscode.TreeItemCollapsibleState.Expanded
     );
-    item.iconPath = new vscode.ThemeIcon(
-      "layers",
-      new vscode.ThemeColor("symbolIcon.namespaceForeground")
-    );
-    item.tooltip = `Phase ${phase.phase_id}: ${phase.phase_name}`;
+
+    // Calculate progress
+    const totalTasks = tasks.length;
+    const completedTasks = tasks.filter(
+      (task) => task.status === "VERIFY_PASSED"
+    ).length;
+    const hasEscalated = tasks.some((task) => task.status === "ESCALATED");
+
+    // Set icon based on phase state
+    if (totalTasks > 0 && completedTasks === totalTasks) {
+      // All tasks complete: check icon with success color
+      item.iconPath = new vscode.ThemeIcon(
+        "pass",
+        new vscode.ThemeColor("testing.iconPassed")
+      );
+    } else if (hasEscalated) {
+      // Has escalated tasks: warning icon with warning color
+      item.iconPath = new vscode.ThemeIcon(
+        "warning",
+        new vscode.ThemeColor("editorWarning.foreground")
+      );
+    } else {
+      // In progress: layers icon with namespace color
+      item.iconPath = new vscode.ThemeIcon(
+        "layers",
+        new vscode.ThemeColor("symbolIcon.namespaceForeground")
+      );
+    }
+
+    // Set progress in description
+    if (totalTasks > 0) {
+      item.description = `${completedTasks}/${totalTasks} complete`;
+    }
+
+    item.tooltip = `Phase ${phase.phase_id}: ${phase.phase_name}\n${completedTasks}/${totalTasks} tasks complete`;
     item.contextValue = "phase";
     return item;
   }
