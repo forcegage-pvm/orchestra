@@ -83,4 +83,45 @@ describe("package.json views configuration", () => {
       expect(oldView).toBeUndefined();
     });
   });
+
+  describe("view/title menu configuration", () => {
+    const viewTitleMenus = packageJson.contributes?.menus?.["view/title"] || [];
+
+    it("should have view/title menu items", () => {
+      expect(viewTitleMenus.length).toBeGreaterThan(0);
+    });
+
+    it("should have refresh button in Sprint Explorer", () => {
+      const refreshButton = viewTitleMenus.find(
+        (menu: any) => menu.command === "orchestra.refreshStatus"
+      );
+      expect(refreshButton).toBeDefined();
+      expect(refreshButton?.when).toBe("view == orchestra.sprintExplorer");
+      expect(refreshButton?.group).toBe("navigation");
+    });
+
+    it("should have settings button in Sprint Explorer", () => {
+      const settingsButton = viewTitleMenus.find(
+        (menu: any) => menu.command === "orchestra.openSprintSettings"
+      );
+      expect(settingsButton).toBeDefined();
+      expect(settingsButton?.when).toBe("view == orchestra.sprintExplorer");
+      expect(settingsButton?.group).toBe("navigation");
+    });
+
+    it("should use correct view ID (orchestra.sprintExplorer) in when clauses", () => {
+      const allButtonsUseCorrectId = viewTitleMenus.every(
+        (menu: any) =>
+          !menu.when || menu.when.includes("orchestra.sprintExplorer")
+      );
+      expect(allButtonsUseCorrectId).toBe(true);
+    });
+
+    it("should not use old camelCase view ID (orchestraSprintExplorer)", () => {
+      const anyButtonUsesOldId = viewTitleMenus.some(
+        (menu: any) => menu.when?.includes("orchestraSprintExplorer")
+      );
+      expect(anyButtonUsesOldId).toBe(false);
+    });
+  });
 });
