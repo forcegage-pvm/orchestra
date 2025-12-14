@@ -164,7 +164,7 @@ export class SprintTreeProvider
 
     item.tooltip = `Sprint: ${sprint.name}\nStatus: ${sprint.workflow_step}\n${
       isActive
-        ? "✓ Active Sprint"
+        ? "Active Sprint"
         : "Right-click → 'Set as Active Sprint' to switch"
     }`;
     item.contextValue = isActive ? "sprint-active" : "sprint-inactive";
@@ -239,7 +239,7 @@ export class SprintTreeProvider
     item.tooltip.appendMarkdown(`Status: ${statusDisplay.label}\n\n`);
     if (task.status === "ESCALATED" || task.status === "VERIFY_FAILED") {
       item.tooltip.appendMarkdown(
-        `⚠️ *Right-click for remediation options*\n\n`
+        `*Right-click for remediation options*\n\n`
       );
     }
     item.tooltip.appendMarkdown(task.description);

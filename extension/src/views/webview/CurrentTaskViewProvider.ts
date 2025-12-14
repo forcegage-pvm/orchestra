@@ -7,7 +7,12 @@
  */
 
 import * as vscode from "vscode";
-import { getCurrentTask, getNextPendingTask } from "../../database/queries.js";
+import {
+  getCurrentTask,
+  getNextPendingTask,
+  type Task,
+  type Handover,
+} from "../../database/queries.js";
 import type { DatabaseWatcher } from "../../database/watcher.js";
 import { OrchestraLogger } from "../../utils/logger.js";
 import { getStatusDisplay } from "../statusTranslation.js";
@@ -88,7 +93,8 @@ export class CurrentTaskViewProvider implements vscode.WebviewViewProvider {
 
     try {
       // Try to get current in-progress task first
-      let currentTask = getCurrentTask(this._workspaceRoot);
+      let currentTask: (Task & { handover: Handover | null }) | null =
+        getCurrentTask(this._workspaceRoot);
       let isNextPending = false;
 
       // If no task in progress, get the next pending task
@@ -113,9 +119,7 @@ export class CurrentTaskViewProvider implements vscode.WebviewViewProvider {
    * Convert database task to TaskData for template
    */
   private _getTaskData(
-    currentTask:
-      | ReturnType<typeof getCurrentTask>
-      | ReturnType<typeof getNextPendingTask>,
+    currentTask: (Task & { handover: Handover | null }) | null,
     isNextPending: boolean = false
   ): TaskData | null {
     if (!currentTask) {
@@ -178,7 +182,8 @@ export class CurrentTaskViewProvider implements vscode.WebviewViewProvider {
     const cspSource = webview.cspSource;
 
     // Try to get current in-progress task first
-    let currentTask = getCurrentTask(this._workspaceRoot);
+    let currentTask: (Task & { handover: Handover | null }) | null =
+      getCurrentTask(this._workspaceRoot);
     let isNextPending = false;
 
     // If no task in progress, get the next pending task

@@ -127,7 +127,7 @@ function handleChatRequest(
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unknown error";
       logger.error("Chat request failed", error);
-      stream.markdown(`❌ **Error**: ${message}\n`);
+      stream.markdown(`**Error**: ${message}\n`);
     }
   };
 }
@@ -146,7 +146,7 @@ async function handleStatusCommand(
   // Get sprint context using context provider
   const sprintContext = getSprintContext(orchestraRoot);
   if (!sprintContext) {
-    stream.markdown("❌ **No active sprint found**\n\n");
+    stream.markdown("**No active sprint found**\n\n");
     stream.markdown(
       "Use the MCP Orchestrator agent to configure a sprint first.\n"
     );
@@ -163,7 +163,7 @@ async function handleStatusCommand(
   const phases = getPhases(orchestraRoot, sprint.id);
 
   // Format response
-  stream.markdown(`# 📊 Sprint Status\n\n`);
+  stream.markdown(`# Sprint Status\n\n`);
   stream.markdown(`**Sprint**: ${sprint.name}\n\n`);
   stream.markdown(`**Workflow Step**: ${sprint.workflow_step}\n\n`);
   stream.markdown(
@@ -171,7 +171,7 @@ async function handleStatusCommand(
   );
 
   if (currentTask) {
-    stream.markdown(`## 🎯 Current Task\n\n`);
+    stream.markdown(`## Current Task\n\n`);
     stream.markdown(
       `**Task ${currentTask.task_id}**: ${currentTask.title}\n\n`
     );
@@ -185,13 +185,13 @@ async function handleStatusCommand(
       )})\n\n`
     );
   } else {
-    stream.markdown(`## 🎯 Current Task\n\n`);
+    stream.markdown(`## Current Task\n\n`);
     stream.markdown(`*No task currently in progress*\n\n`);
   }
 
   // Show phase breakdown
   if (phases.length > 0) {
-    stream.markdown(`## 📋 Phases\n\n`);
+    stream.markdown(`## Phases\n\n`);
     for (const phase of phases) {
       const phaseTasks = tasks.filter((t) => t.phase_id === phase.id);
       const phaseComplete = phaseTasks.filter(
@@ -227,7 +227,7 @@ async function handleStartTaskCommand(
   // Extract task ID from prompt
   const match = prompt.match(/\b(\d+)\b/);
   if (!match) {
-    stream.markdown("❌ **Please specify a task ID**\n\n");
+    stream.markdown("**Please specify a task ID**\n\n");
     stream.markdown("Example: `@orchestra start task 5`\n");
     return;
   }
@@ -237,7 +237,7 @@ async function handleStartTaskCommand(
   // Get current sprint
   const sprint = getCurrentSprint(orchestraRoot);
   if (!sprint) {
-    stream.markdown("❌ **No active sprint found**\n\n");
+    stream.markdown("**No active sprint found**\n\n");
     return;
   }
 
@@ -246,7 +246,7 @@ async function handleStartTaskCommand(
   const task = tasks.find((t) => t.task_id === taskId);
 
   if (!task) {
-    stream.markdown(`❌ **Task ${taskId} not found in current sprint**\n\n`);
+    stream.markdown(`**Task ${taskId} not found in current sprint**\n\n`);
     stream.markdown(
       `Available tasks: ${tasks.map((t) => t.task_id).join(", ")}\n`
     );
@@ -254,7 +254,7 @@ async function handleStartTaskCommand(
   }
 
   // Show task details
-  stream.markdown(`# 🚀 Task ${task.task_id}: ${task.title}\n\n`);
+  stream.markdown(`# Task ${task.task_id}: ${task.title}\n\n`);
   stream.markdown(`**Status**: ${task.status}\n\n`);
   stream.markdown(`**Category**: ${task.category}\n\n`);
   stream.markdown(`**Description**: ${task.description}\n\n`);
@@ -265,7 +265,7 @@ async function handleStartTaskCommand(
 
   // Provide guidance based on status
   if (task.status === "PENDING") {
-    stream.markdown(`## ⚙️ Next Steps\n\n`);
+    stream.markdown(`## Next Steps\n\n`);
     stream.markdown(
       `This task is in PENDING status. To start working on it:\n\n`
     );
@@ -279,7 +279,7 @@ async function handleStartTaskCommand(
       )})\n`
     );
   } else if (task.status === "IMPLEMENT") {
-    stream.markdown(`## 🛠️ Task In Progress\n\n`);
+    stream.markdown(`## Task In Progress\n\n`);
     stream.markdown(
       `This task is ready for implementation. The handover has been prepared.\n\n`
     );
@@ -292,7 +292,7 @@ async function handleStartTaskCommand(
       )})\n`
     );
   } else if (task.status === "COMPLETE") {
-    stream.markdown(`## ✅ Task Complete\n\n`);
+    stream.markdown(`## Task Complete\n\n`);
     stream.markdown(`This task has been completed.\n\n`);
     stream.markdown(
       `[View Task Details](command:orchestra.openTaskDetail?${encodeURIComponent(
@@ -300,7 +300,7 @@ async function handleStartTaskCommand(
       )})\n`
     );
   } else {
-    stream.markdown(`## 📋 Task Status: ${task.status}\n\n`);
+    stream.markdown(`## Task Status: ${task.status}\n\n`);
     stream.markdown(
       `[View Task Details](command:orchestra.openTaskDetail?${encodeURIComponent(
         JSON.stringify([task.id])
@@ -325,7 +325,7 @@ async function handleContextCommand(
   // Get sprint context
   const sprintContext = getSprintContext(orchestraRoot);
   if (!sprintContext) {
-    stream.markdown("❌ **No active sprint found**\n\n");
+    stream.markdown("**No active sprint found**\n\n");
     stream.markdown(
       "Configure a sprint using the MCP Orchestrator agent first.\n"
     );
@@ -341,7 +341,7 @@ async function handleContextCommand(
   const tasks = getTasksForSprint(orchestraRoot, sprint.id);
   const phases = getPhases(orchestraRoot, sprint.id);
 
-  stream.markdown(`# 🎯 Orchestra Context\n\n`);
+  stream.markdown(`# Orchestra Context\n\n`);
   stream.markdown(`## Sprint: ${sprint.name}\n\n`);
   stream.markdown(`- **ID**: \`${sprint.id}\`\n`);
   stream.markdown(`- **Workflow Step**: ${sprint.workflow_step}\n`);
@@ -389,10 +389,10 @@ async function handleContextCommand(
       ).length;
       const phaseStatus =
         phaseComplete === phaseTasks.length
-          ? "✅"
+          ? "[Complete]"
           : phaseComplete > 0
-          ? "🔄"
-          : "⏳";
+          ? "[In Progress]"
+          : "[Pending]";
       stream.markdown(
         `- ${phaseStatus} **${phase.phase_name}**: ${phaseComplete}/${phaseTasks.length}\n`
       );
