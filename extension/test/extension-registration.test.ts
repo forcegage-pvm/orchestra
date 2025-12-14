@@ -16,14 +16,17 @@ function extractPackageJsonCommands(packageJson: {
   contributes?: { commands?: Array<{ command: string }> };
 }): string[] {
   const commands = packageJson.contributes?.commands || [];
-  return commands.map((cmd) => cmd.command).filter((id) => id.startsWith("orchestra."));
+  return commands
+    .map((cmd) => cmd.command)
+    .filter((id) => id.startsWith("orchestra."));
 }
 
 /**
  * Extract registerCommand calls from extension.ts source code
  */
 function extractRegisteredCommands(code: string): string[] {
-  const commandPattern = /vscode\.commands\.registerCommand\(\s*["']([^"']+)["']/g;
+  const commandPattern =
+    /vscode\.commands\.registerCommand\(\s*["']([^"']+)["']/g;
   const matches: string[] = [];
   let match;
   while ((match = commandPattern.exec(code)) !== null) {
@@ -68,7 +71,7 @@ describe("Extension registration - Command registration (Task 15)", () => {
     it("should register all commands with orchestra.* prefix", () => {
       const registeredCommands = extractRegisteredCommands(extensionCode);
       expect(registeredCommands.length).toBeGreaterThan(0);
-      
+
       for (const commandId of registeredCommands) {
         expect(commandId).toMatch(/^orchestra\./);
       }
@@ -118,7 +121,9 @@ describe("Extension registration - Command registration (Task 15)", () => {
 
       // Should have at least as many registered as in package.json
       // (Note: orchestra.initializeWorkspace may be registered multiple times for different modes)
-      expect(registeredCommands.length).toBeGreaterThanOrEqual(packageCommands.length);
+      expect(registeredCommands.length).toBeGreaterThanOrEqual(
+        packageCommands.length
+      );
     });
   });
 
@@ -142,69 +147,47 @@ describe("Extension registration - Command registration (Task 15)", () => {
     });
 
     it('should register "orchestra.openTaskDetail"', () => {
-      expect(extensionCode).toContain(
-        '"orchestra.openTaskDetail"'
-      );
+      expect(extensionCode).toContain('"orchestra.openTaskDetail"');
     });
 
     it('should register "orchestra.installMcpServers"', () => {
-      expect(extensionCode).toContain(
-        '"orchestra.installMcpServers"'
-      );
+      expect(extensionCode).toContain('"orchestra.installMcpServers"');
     });
 
     it('should register "orchestra.initializeWorkspace"', () => {
-      expect(extensionCode).toContain(
-        '"orchestra.initializeWorkspace"'
-      );
+      expect(extensionCode).toContain('"orchestra.initializeWorkspace"');
     });
 
     it('should register "orchestra.invokeOrchestrator"', () => {
-      expect(extensionCode).toContain(
-        '"orchestra.invokeOrchestrator"'
-      );
+      expect(extensionCode).toContain('"orchestra.invokeOrchestrator"');
     });
 
     it('should register "orchestra.invokeImplementor"', () => {
-      expect(extensionCode).toContain(
-        '"orchestra.invokeImplementor"'
-      );
+      expect(extensionCode).toContain('"orchestra.invokeImplementor"');
     });
 
     it('should register "orchestra.startTask"', () => {
-      expect(extensionCode).toContain(
-        '"orchestra.startTask"'
-      );
+      expect(extensionCode).toContain('"orchestra.startTask"');
     });
 
     it('should register "orchestra.deEscalateTask"', () => {
-      expect(extensionCode).toContain(
-        '"orchestra.deEscalateTask"'
-      );
+      expect(extensionCode).toContain('"orchestra.deEscalateTask"');
     });
 
     it('should register "orchestra.moveToGateCheck"', () => {
-      expect(extensionCode).toContain(
-        '"orchestra.moveToGateCheck"'
-      );
+      expect(extensionCode).toContain('"orchestra.moveToGateCheck"');
     });
 
     it('should register "orchestra.moveToImplement"', () => {
-      expect(extensionCode).toContain(
-        '"orchestra.moveToImplement"'
-      );
+      expect(extensionCode).toContain('"orchestra.moveToImplement"');
     });
 
     it('should register "orchestra.forceComplete"', () => {
-      expect(extensionCode).toContain(
-        '"orchestra.forceComplete"'
-      );
+      expect(extensionCode).toContain('"orchestra.forceComplete"');
     });
 
     it('should register "orchestra.setActiveSprint"', () => {
-      expect(extensionCode).toContain(
-        '"orchestra.setActiveSprint"'
-      );
+      expect(extensionCode).toContain('"orchestra.setActiveSprint"');
     });
   });
 
@@ -225,12 +208,12 @@ describe("Extension registration - Command registration (Task 15)", () => {
     it("should register commands within activate function", () => {
       // Check that activate function exists and contains registerCommand
       expect(extensionCode).toContain("export async function activate(");
-      
+
       // Find the section with command registrations
-      const hasCommandRegistrations = extensionCode.includes(
-        "vscode.commands.registerCommand"
-      ) && extensionCode.includes("export async function activate");
-      
+      const hasCommandRegistrations =
+        extensionCode.includes("vscode.commands.registerCommand") &&
+        extensionCode.includes("export async function activate");
+
       expect(hasCommandRegistrations).toBe(true);
     });
   });
