@@ -335,6 +335,7 @@ When submitting a FAIL judgment, provide specific feedback:
 - ✅ Document your decisions and reasoning
 - ✅ Check dependencies are complete before preparing a task
 - ✅ Actually READ implementation code during verification (manual_review required)
+- ✅ Design cross-reference checks for identifier consistency (see below)
 
 ### DO NOT
 
@@ -344,6 +345,93 @@ When submitting a FAIL judgment, provide specific feedback:
 - ❌ Reveal how you will verify to the Implementor
 - ❌ Work on implementation yourself (that's the Implementor's job)
 - ❌ Rubber-stamp verification without reading code
+
+## Verification Design: Cross-Reference Consistency
+
+**CRITICAL**: Single-file pattern checks are INSUFFICIENT for tasks that define identifiers used across multiple files.
+
+### The Problem
+
+If a task registers an ID in one file but references it in another, simple pattern checks will pass even if the IDs don't match:
+
+```json
+// BAD: This check passes even if references use different IDs
+{
+  "quality_checks": [
+    { "path": "package.json", "pattern": "orchestra.sprintExplorer" }
+  ]
+}
+// Result: PASSES because ID exists in one place
+// Bug: Other files use "orchestraSprintExplorer" (different ID)
+```
+
+### Solution: Multi-Pattern Cross-Reference Verification
+
+When designing verification for identifier registrations (view IDs, command IDs, config keys, etc.):
+
+1. **Check the definition exists** - Pattern in the defining file
+2. **Check all references match** - Same pattern in referencing files
+3. **Check for WRONG patterns** - Negative check for common mistakes
+
+```json
+// GOOD: Comprehensive cross-reference checks
+{
+  "quality_checks": [
+    {
+      "description": "View ID registered correctly",
+      "path": "extension/package.json",
+      "pattern": "\"id\":\\s*\"orchestra\\.sprintExplorer\"",
+      "min_matches": 1
+    },
+    {
+      "description": "View ID in menus matches registration",
+      "path": "extension/package.json",
+      "pattern": "\"view\":\\s*\"orchestra\\.sprintExplorer\"",
+      "min_matches": 1
+    },
+    {
+      "description": "View ID in when clauses matches",
+      "path": "extension/package.json",
+      "pattern": "view == orchestra\\.sprintExplorer",
+      "min_matches": 1
+    },
+    {
+      "description": "createTreeView uses correct ID",
+      "path": "extension/src/**/*.ts",
+      "pattern": "createTreeView\\(\"orchestra\\.sprintExplorer\"",
+      "min_matches": 1
+    }
+  ],
+  "behavioral_checks": [
+    {
+      "description": "No inconsistent view ID references",
+      "command": "grep -r 'orchestraSprintExplorer' extension/src extension/package.json | wc -l",
+      "expect_output_contains": "0"
+    }
+  ]
+}
+```
+
+### Cross-Reference Verification Checklist
+
+When task involves defining identifiers, ensure checks cover:
+
+| Identifier Type | Definition Location                      | Reference Locations to Check                                   |
+| --------------- | ---------------------------------------- | -------------------------------------------------------------- |
+| VS Code view ID | `contributes.views.*.id`                 | `viewsWelcome.view`, `menus.*.when`, source `createTreeView()` |
+| VS Code command | `contributes.commands.command`           | `menus.*.command`, source `registerCommand()`                  |
+| Config setting  | `contributes.configuration.*.properties` | source `getConfiguration()` reads                              |
+| CSS classes     | Style definitions                        | Template HTML usage                                            |
+| Export names    | Module exports                           | Import statements                                              |
+
+### Red Flags During Verification
+
+During manual review, look for these cross-reference inconsistency patterns:
+
+- **Camel vs dot notation**: `orchestraSprintExplorer` vs `orchestra.sprintExplorer`
+- **Typos in identifiers**: `sprintExploer` vs `sprintExplorer`
+- **Outdated references**: Old ID still used after rename
+- **Copy-paste errors**: ID from similar component used incorrectly
 
 ## Session Management
 

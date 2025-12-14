@@ -147,17 +147,22 @@ async function updateVerification(
   // 3. Validate state-based permission
   // - CONFIGURE: always allowed (initial setup)
   // - PREPARE: always allowed (spec refinement before handover)
+  // - SELECT_TASK + PENDING task: allowed (strengthening criteria before preparation)
   // - Other states: only allowed if task is ESCALATED (human supervisor correction)
   const allowedSprintStates = ["CONFIGURE", "PREPARE"];
   const isInAllowedSprintState = allowedSprintStates.includes(
     sprint.workflow_step
   );
 
-  if (!isInAllowedSprintState) {
+  // Also allow updating PENDING tasks during SELECT_TASK (pre-preparation strengthening)
+  const isPendingDuringSelectTask =
+    sprint.workflow_step === "SELECT_TASK" && task.status === "PENDING";
+
+  if (!isInAllowedSprintState && !isPendingDuringSelectTask) {
     if (task.status !== "ESCALATED") {
       throw new Error(
         `Task ${input.task_id} is in ${task.status} state. ` +
-          `During ${sprint.workflow_step} phase, verification criteria can only be updated for ESCALATED tasks. ` +
+          `During ${sprint.workflow_step} phase, verification criteria can only be updated for PENDING or ESCALATED tasks. ` +
           "Escalate the task first if spec corrections are needed."
       );
     }

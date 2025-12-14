@@ -630,7 +630,7 @@ export async function activate(
       },
       getChildren: () => [],
     };
-    const treeView = vscode.window.createTreeView("orchestraSprintExplorer", {
+    const treeView = vscode.window.createTreeView("orchestra.sprintExplorer", {
       treeDataProvider: emptyProvider,
     });
     context.subscriptions.push(treeView);
@@ -659,7 +659,7 @@ export async function activate(
       },
       getChildren: () => [],
     };
-    const treeView = vscode.window.createTreeView("orchestraSprintExplorer", {
+    const treeView = vscode.window.createTreeView("orchestra.sprintExplorer", {
       treeDataProvider: emptyProvider,
     });
     context.subscriptions.push(treeView);
@@ -725,7 +725,7 @@ export async function activate(
       },
       getChildren: () => [],
     };
-    const treeView = vscode.window.createTreeView("orchestraSprintExplorer", {
+    const treeView = vscode.window.createTreeView("orchestra.sprintExplorer", {
       treeDataProvider: emptyProvider,
     });
     context.subscriptions.push(treeView);
@@ -755,7 +755,7 @@ export async function activate(
 
     // 6. Register TreeView
     const treeProvider = new SprintTreeProvider(db, dbWatcher);
-    const treeView = vscode.window.createTreeView("orchestraSprintExplorer", {
+    const treeView = vscode.window.createTreeView("orchestra.sprintExplorer", {
       treeDataProvider: treeProvider,
       showCollapseAll: true,
     });
