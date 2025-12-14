@@ -12,6 +12,7 @@ import type { TaskData } from "../../../src/views/webview/currentTaskTemplate.js
 describe("currentTaskTemplate", () => {
   const mockTaskData: TaskData = {
     id: 1,
+    task_id: 1, // Sprint-relative task number
     title: "Implement feature X",
     description: "This is a detailed description of the task",
     status: "IMPLEMENT",

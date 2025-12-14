@@ -180,7 +180,7 @@ export class SprintTreeProvider
     // Calculate progress
     const totalTasks = tasks.length;
     const completedTasks = tasks.filter(
-      (task) => task.status === "VERIFY_PASSED"
+      (task) => task.status === "COMPLETE"
     ).length;
     const hasEscalated = tasks.some((task) => task.status === "ESCALATED");
 
@@ -232,10 +232,11 @@ export class SprintTreeProvider
       task.max_retries
     );
 
-    // Tooltip shows description and status
+    // Tooltip shows description and status (using translated label)
+    const statusDisplay = getStatusDisplay(task.status);
     item.tooltip = new vscode.MarkdownString();
     item.tooltip.appendMarkdown(`**${task.title}**\n\n`);
-    item.tooltip.appendMarkdown(`Status: \`${task.status}\`\n\n`);
+    item.tooltip.appendMarkdown(`Status: ${statusDisplay.label}\n\n`);
     if (task.status === "ESCALATED" || task.status === "VERIFY_FAILED") {
       item.tooltip.appendMarkdown(
         `⚠️ *Right-click for remediation options*\n\n`

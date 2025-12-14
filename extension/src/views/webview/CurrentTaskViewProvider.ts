@@ -7,7 +7,7 @@
  */
 
 import * as vscode from "vscode";
-import { getCurrentTask } from "../../database/queries.js";
+import { getCurrentTask, getNextPendingTask } from "../../database/queries.js";
 import type { DatabaseWatcher } from "../../database/watcher.js";
 import { OrchestraLogger } from "../../utils/logger.js";
 import { getStatusDisplay } from "../statusTranslation.js";
@@ -84,12 +84,20 @@ export class CurrentTaskViewProvider implements vscode.WebviewViewProvider {
     }
 
     try {
-      const currentTask = getCurrentTask(this._workspaceRoot);
+      // Try to get current in-progress task first
+      let currentTask = getCurrentTask(this._workspaceRoot);
+      let isNextPending = false;
+
+      // If no task in progress, get the next pending task
+      if (!currentTask) {
+        currentTask = getNextPendingTask(this._workspaceRoot);
+        isNextPending = currentTask !== null;
+      }
 
       // Send updated data to webview
       void this._view.webview.postMessage({
         command: "update",
-        data: this._getTaskData(currentTask),
+        data: this._getTaskData(currentTask, isNextPending),
       });
 
       logger.debug("CurrentTaskViewProvider refreshed");
@@ -102,7 +110,8 @@ export class CurrentTaskViewProvider implements vscode.WebviewViewProvider {
    * Convert database task to TaskData for template
    */
   private _getTaskData(
-    currentTask: ReturnType<typeof getCurrentTask>
+    currentTask: ReturnType<typeof getCurrentTask>,
+    isNextPending: boolean = false
   ): TaskData | null {
     if (!currentTask) {
       return null;
@@ -110,6 +119,7 @@ export class CurrentTaskViewProvider implements vscode.WebviewViewProvider {
 
     return {
       id: currentTask.id,
+      task_id: currentTask.task_id,
       title: currentTask.title,
       description: currentTask.description,
       status: currentTask.status,
@@ -117,6 +127,7 @@ export class CurrentTaskViewProvider implements vscode.WebviewViewProvider {
       category: currentTask.category,
       updated_at: currentTask.updated_at,
       statusDisplay: getStatusDisplay(currentTask.status),
+      isNextPending,
     };
   }
 
@@ -138,6 +149,15 @@ export class CurrentTaskViewProvider implements vscode.WebviewViewProvider {
         }
         break;
 
+      case "prepareTask":
+        if (typeof message.taskId === "number") {
+          // TODO: Implement prepare task command via MCP or CLI
+          void vscode.window.showInformationMessage(
+            `Preparing task ${message.taskId}... (MCP integration pending)`
+          );
+        }
+        break;
+
       default:
         logger.warn(`Unknown webview command: ${message.command}`);
     }
@@ -148,8 +168,18 @@ export class CurrentTaskViewProvider implements vscode.WebviewViewProvider {
    */
   private _getHtmlContent(webview: vscode.Webview): string {
     const cspSource = webview.cspSource;
-    const currentTask = getCurrentTask(this._workspaceRoot);
-    const taskData = this._getTaskData(currentTask);
+    
+    // Try to get current in-progress task first
+    let currentTask = getCurrentTask(this._workspaceRoot);
+    let isNextPending = false;
+
+    // If no task in progress, get the next pending task
+    if (!currentTask) {
+      currentTask = getNextPendingTask(this._workspaceRoot);
+      isNextPending = currentTask !== null;
+    }
+    
+    const taskData = this._getTaskData(currentTask, isNextPending);
 
     return generateCurrentTaskHtml(taskData, cspSource);
   }

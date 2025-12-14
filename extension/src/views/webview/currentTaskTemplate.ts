@@ -13,6 +13,7 @@ import type { StatusDisplay } from "../statusTranslation.js";
  */
 export interface TaskData {
   id: number;
+  task_id: number; // Sprint-relative task number for display
   title: string;
   description: string;
   status: string;
@@ -20,6 +21,7 @@ export interface TaskData {
   category: string;
   updated_at: string;
   statusDisplay: StatusDisplay;
+  isNextPending?: boolean; // True if this is the next pending task (not in progress)
 }
 
 /**
@@ -155,10 +157,14 @@ function getScript(): string {
     }
     
     function renderTaskCard(task) {
+      const actionButton = task.isNextPending
+        ? \`<button class="action-button" onclick="prepareTask(\${task.id})">Prepare Task</button>\`
+        : \`<button class="action-button secondary" onclick="signalCompletion(\${task.id})">Signal Completion</button>\`;
+      
       return \`
         <div class="task-card">
           <div class="task-header">
-            <span class="task-id">Task \${task.id}</span>
+            <span class="task-id">Task \${task.task_id}</span>
             <span class="task-status">
               <span class="codicon codicon-\${task.statusDisplay.icon}"></span>
               \${task.statusDisplay.label}
@@ -180,9 +186,7 @@ function getScript(): string {
             <button class="action-button" onclick="openTask(\${task.id})">
               View Details
             </button>
-            <button class="action-button secondary" onclick="signalCompletion(\${task.id})">
-              Signal Completion
-            </button>
+            \${actionButton}
           </div>
         </div>
       \`;
@@ -222,6 +226,13 @@ function getScript(): string {
       });
     }
     
+    function prepareTask(taskId) {
+      vscode.postMessage({
+        command: 'prepareTask',
+        taskId: taskId
+      });
+    }
+    
     function refresh() {
       vscode.postMessage({
         command: 'refresh'
@@ -237,7 +248,7 @@ function renderTaskCard(task: TaskData): string {
   return `
     <div class="task-card">
       <div class="task-header">
-        <span class="task-id">Task ${task.id}</span>
+        <span class="task-id">Task ${task.task_id}</span>
         <span class="task-status">
           <span class="codicon codicon-${task.statusDisplay.icon}"></span>
           ${task.statusDisplay.label}

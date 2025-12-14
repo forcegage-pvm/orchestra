@@ -715,3 +715,49 @@ export function getEscalation(
 
   return results[0] ?? null;
 }
+
+/**
+ * Get the next pending task that needs to be prepared
+ *
+ * Returns the first task with status 'PENDING' ordered by task_id.
+ * Used when no task is currently in progress.
+ *
+ * @param workspaceRoot Absolute path to workspace root
+ * @returns Next pending task with handover or null if none exists
+ */
+export function getNextPendingTask(
+  workspaceRoot: string
+): (Task & { handover: Handover }) | null {
+  const db = getDB(workspaceRoot);
+
+  // Query for first PENDING task
+  const results = db
+    .select()
+    .from(schema.tasks as unknown as typeof schema.tasks)
+    .innerJoin(
+      schema.handovers as unknown as typeof schema.handovers,
+      eq(
+        schema.tasks.id as unknown as typeof schema.tasks.id,
+        schema.handovers.task_id as unknown as typeof schema.handovers.task_id
+      )
+    )
+    .where(
+      eq(
+        schema.tasks.status as unknown as typeof schema.tasks.status,
+        "PENDING"
+      )
+    )
+    .orderBy(schema.tasks.task_id as unknown as typeof schema.tasks.task_id)
+    .limit(1)
+    .all() as unknown[];
+
+  if (results.length === 0 || !results[0]) {
+    return null;
+  }
+
+  const result = results[0] as { tasks: Task; handovers: Handover };
+  return {
+    ...result.tasks,
+    handover: result.handovers,
+  };
+}

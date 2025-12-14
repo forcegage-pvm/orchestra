@@ -39,6 +39,7 @@ vi.mock("vscode", () => ({
 // Mock queries module
 vi.mock("../../../src/database/queries.js", () => ({
   getCurrentTask: vi.fn(() => null), // Default to no task
+  getNextPendingTask: vi.fn(() => null), // Default to no pending task
 }));
 
 describe("CurrentTaskViewProvider", () => {

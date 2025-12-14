@@ -65,11 +65,22 @@ vi.mock("../../../src/views/providers/ViewDecorationProvider.js", () => ({
   })),
 }));
 
-// Mock statusTranslation
+// Mock statusTranslation with proper label mapping
+const STATUS_LABELS: Record<string, string> = {
+  PENDING: "Ready",
+  IMPLEMENT: "In Progress",
+  VERIFY: "Verifying",
+  VERIFY_FAILED: "Needs Attention",
+  GATE_CHECK: "Pending Review",
+  ESCALATED: "Escalated",
+  COMPLETE: "Complete",
+};
+
 vi.mock("../../../src/views/statusTranslation.js", () => ({
   getStatusDisplay: vi.fn((status: string) => ({
     icon: "circle",
-    label: status,
+    label: STATUS_LABELS[status] || status,
+    color: { id: "charts.blue" },
   })),
 }));
 
@@ -174,7 +185,8 @@ describe("SprintTreeProvider", () => {
 
       const tooltip = treeItem.tooltip as vscode.MarkdownString;
       expect(tooltip.value).toContain("Status:");
-      expect(tooltip.value).toContain("VERIFY");
+      // Status is now translated to user-friendly label
+      expect(tooltip.value).toContain("Verifying");
     });
 
     it("should include task description in tooltip", () => {
@@ -266,8 +278,8 @@ describe("SprintTreeProvider", () => {
       // Should have title in bold
       expect(tooltip.value).toMatch(/\*\*Well Formatted Task\*\*/);
 
-      // Should have status in code formatting
-      expect(tooltip.value).toMatch(/`IMPLEMENT`/);
+      // Should have user-friendly status label (translated from IMPLEMENT)
+      expect(tooltip.value).toMatch(/Status: In Progress/);
 
       // Should have proper line breaks
       expect(tooltip.value).toContain("\n\n");

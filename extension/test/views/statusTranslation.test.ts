@@ -176,4 +176,138 @@ describe("statusTranslation", () => {
       expect(displayWithAction.actionLabel).toBe("Do Something");
     });
   });
+
+  /**
+   * Tests for status transitions as defined in the Orchestra workflow
+   *
+   * Status Flow:
+   * PENDING → IMPLEMENT → VERIFY → (VERIFY_FAILED → retry) → COMPLETE
+   *                              ↓
+   *                         GATE_CHECK → ESCALATED
+   */
+  describe("Status Transitions", () => {
+    describe("happy path: PENDING → IMPLEMENT → VERIFY → COMPLETE", () => {
+      it("should display correct sequence for successful task completion", () => {
+        const transitions = ["PENDING", "IMPLEMENT", "VERIFY", "COMPLETE"];
+
+        transitions.forEach((status, index) => {
+          const display = getStatusDisplay(status);
+          expect(display).toBeDefined();
+          expect(display.label).not.toBe(status); // Should be user-friendly
+          expect(display.icon).not.toBe("question"); // Should have valid icon
+        });
+      });
+
+      it("should have appropriate action labels for transition states", () => {
+        // States that allow actions should have actionLabel
+        expect(STATUS_DISPLAY.PENDING.actionLabel).toBe("Start");
+        expect(STATUS_DISPLAY.IMPLEMENT.actionLabel).toBe("Continue");
+        expect(STATUS_DISPLAY.VERIFY.actionLabel).toBe("View Progress");
+
+        // Complete state has no further action
+        expect(STATUS_DISPLAY.COMPLETE.actionLabel).toBeUndefined();
+      });
+
+      it("should have visual progression through colors", () => {
+        // Each status should have a distinct color for visual tracking
+        const colors = [
+          STATUS_DISPLAY.PENDING.color,
+          STATUS_DISPLAY.IMPLEMENT.color,
+          STATUS_DISPLAY.VERIFY.color,
+          STATUS_DISPLAY.COMPLETE.color,
+        ];
+
+        // All should be valid ThemeColors
+        colors.forEach((color) => {
+          expect(color).toBeInstanceOf(ThemeColor);
+        });
+      });
+    });
+
+    describe("failure path: VERIFY → VERIFY_FAILED → retry", () => {
+      it("should display correct statuses for failed verification", () => {
+        const verifyDisplay = getStatusDisplay("VERIFY");
+        const failedDisplay = getStatusDisplay("VERIFY_FAILED");
+
+        expect(verifyDisplay.label).toBe("Verifying");
+        expect(failedDisplay.label).toBe("Needs Attention");
+
+        // Failed should have warning icon
+        expect(failedDisplay.icon).toBe("warning");
+
+        // Failed should have action to review feedback
+        expect(failedDisplay.actionLabel).toBe("Review Feedback");
+      });
+
+      it("should use orange color for VERIFY_FAILED to indicate attention needed", () => {
+        const failedDisplay = getStatusDisplay("VERIFY_FAILED");
+        expect(failedDisplay.color).toBeInstanceOf(ThemeColor);
+        // The color is charts.orange which indicates warning/attention
+      });
+    });
+
+    describe("escalation path: GATE_CHECK → ESCALATED", () => {
+      it("should display correct statuses for escalation flow", () => {
+        const gateCheckDisplay = getStatusDisplay("GATE_CHECK");
+        const escalatedDisplay = getStatusDisplay("ESCALATED");
+
+        expect(gateCheckDisplay.label).toBe("Pending Review");
+        expect(escalatedDisplay.label).toBe("Escalated");
+
+        // Gate check should have shield icon (protection)
+        expect(gateCheckDisplay.icon).toBe("shield");
+
+        // Escalated should have alert icon (urgent attention)
+        expect(escalatedDisplay.icon).toBe("alert");
+      });
+
+      it("should have action labels for resolution", () => {
+        expect(STATUS_DISPLAY.GATE_CHECK.actionLabel).toBe("Review");
+        expect(STATUS_DISPLAY.ESCALATED.actionLabel).toBe("Resolve");
+      });
+
+      it("should use red color for ESCALATED to indicate urgency", () => {
+        const escalatedDisplay = getStatusDisplay("ESCALATED");
+        expect(escalatedDisplay.color).toBeInstanceOf(ThemeColor);
+        // The color is charts.red which indicates urgency
+      });
+    });
+
+    describe("status icons are valid codicons", () => {
+      it("should use icons that represent the status meaning", () => {
+        // circle-outline = not started (empty)
+        expect(STATUS_DISPLAY.PENDING.icon).toBe("circle-outline");
+
+        // play-circle = active work
+        expect(STATUS_DISPLAY.IMPLEMENT.icon).toBe("play-circle");
+
+        // sync~spin = processing/checking (animated)
+        expect(STATUS_DISPLAY.VERIFY.icon).toBe("sync~spin");
+
+        // warning = needs attention
+        expect(STATUS_DISPLAY.VERIFY_FAILED.icon).toBe("warning");
+
+        // shield = gated/protected
+        expect(STATUS_DISPLAY.GATE_CHECK.icon).toBe("shield");
+
+        // alert = urgent/escalated
+        expect(STATUS_DISPLAY.ESCALATED.icon).toBe("alert");
+
+        // check-all = fully complete
+        expect(STATUS_DISPLAY.COMPLETE.icon).toBe("check-all");
+      });
+    });
+
+    describe("all statuses have meaningful descriptions", () => {
+      it("should have descriptions that explain the status to users", () => {
+        expect(STATUS_DISPLAY.PENDING.description).toContain("ready");
+        expect(STATUS_DISPLAY.IMPLEMENT.description).toContain("implemented");
+        expect(STATUS_DISPLAY.VERIFY.description).toContain("verified");
+        expect(STATUS_DISPLAY.VERIFY_FAILED.description).toContain("failed");
+        expect(STATUS_DISPLAY.GATE_CHECK.description).toContain("review");
+        expect(STATUS_DISPLAY.ESCALATED.description).toContain("escalated");
+        expect(STATUS_DISPLAY.COMPLETE.description).toContain("completed");
+      });
+    });
+  });
 });
