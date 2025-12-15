@@ -50,6 +50,26 @@
           ],
           "default": "info",
           "description": "Logging level for Orchestra output channel"
+        },
+        "orchestra.models.orchestrator": {
+          "type": "string",
+          "default": "claude-sonnet-4",
+          "description": "AI model to use for the Orchestrator agent (e.g., claude-sonnet-4, gpt-4)"
+        },
+        "orchestra.models.implementor": {
+          "type": "string",
+          "default": "claude-sonnet-4",
+          "description": "AI model to use for the Implementor agent (e.g., claude-sonnet-4, gpt-4)"
+        },
+        "orchestra.agents.orchestrator": {
+          "type": "string",
+          "default": "orchestra.orchestrator.agent",
+          "description": "Agent mode identifier for the Orchestrator role"
+        },
+        "orchestra.agents.implementor": {
+          "type": "string",
+          "default": "orchestra.implementor.agent",
+          "description": "Agent mode identifier for the Implementor role"
         }
       }
     },
