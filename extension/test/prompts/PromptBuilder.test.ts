@@ -9,8 +9,8 @@ import { describe, expect, it } from "vitest";
 import {
   PromptBuilder,
   type PromptContext,
-  type Task,
   type Sprint,
+  type Task,
 } from "../../src/prompts/PromptBuilder.js";
 
 describe("PromptBuilder", () => {
@@ -166,7 +166,8 @@ describe("PromptBuilder", () => {
         task: {
           task_id: 1,
           title: "Test Task",
-          description: "This is a detailed task description with specific requirements",
+          description:
+            "This is a detailed task description with specific requirements",
         },
         sprint: {
           sprint_id: "001",
@@ -175,7 +176,9 @@ describe("PromptBuilder", () => {
       };
 
       const prompt = builder.buildPreparePrompt(context);
-      expect(prompt).toContain("This is a detailed task description with specific requirements");
+      expect(prompt).toContain(
+        "This is a detailed task description with specific requirements"
+      );
     });
 
     it("should instruct to use get_task MCP tool", () => {

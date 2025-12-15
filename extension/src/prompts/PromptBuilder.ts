@@ -30,16 +30,16 @@ export interface Sprint {
 export interface PromptContext {
   /** The task being worked on */
   task: Task;
-  
+
   /** The sprint the task belongs to */
   sprint: Sprint;
-  
+
   /** Path to the task handover file (for IMPLEMENT/VERIFY stages) */
   handoverPath?: string;
-  
+
   /** Path to feedback file (for RETRY stage) */
   feedbackPath?: string;
-  
+
   /** Number of retry attempts made (for RETRY stage) */
   retryCount?: number;
 }
@@ -50,16 +50,16 @@ export interface PromptContext {
 export class PromptBuilder {
   /**
    * Build a PREPARE stage prompt for the orchestrator
-   * 
+   *
    * Instructs the orchestrator to use MCP tools (get_task, prepare_task)
    * to prepare the task with handover and hidden verification criteria.
-   * 
+   *
    * @param context - The prompt context containing task and sprint details
    * @returns A structured prompt string for the orchestrator
    */
   buildPreparePrompt(context: PromptContext): string {
     const { task, sprint } = context;
-    
+
     return `As Orchestrator, prepare Task ${task.task_id}: "${task.title}".
 
 ## Your Task
@@ -75,7 +75,9 @@ Use your MCP tools to prepare this task for implementation:
 ## Task Details
 - **ID**: ${task.task_id}
 - **Title**: ${task.title}
-${task.category ? `- **Category**: ${task.category}\n` : ''}${task.phase_id ? `- **Phase**: ${task.phase_id}\n` : ''}
+${task.category ? `- **Category**: ${task.category}\n` : ""}${
+      task.phase_id ? `- **Phase**: ${task.phase_id}\n` : ""
+    }
 ## Sprint Context
 - **Sprint ID**: ${sprint.sprint_id}
 - **Sprint Title**: ${sprint.title}

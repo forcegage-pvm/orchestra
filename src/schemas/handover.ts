@@ -63,6 +63,10 @@ export const PrepareTaskOutputSchema = SuccessResponseSchema.extend({
     .string()
     .optional()
     .describe("Git commit SHA if auto-commit was performed"),
+  warnings: z
+    .array(z.string())
+    .optional()
+    .describe("Trust boundary warnings about context_files"),
 });
 
 export type PrepareTaskOutput = z.output<typeof PrepareTaskOutputSchema>;

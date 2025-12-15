@@ -158,6 +158,34 @@ async function prepareTask(
     }
   }
 
+  // 4b. Validate context_files don't contain spec/task breakdown files (trust boundary)
+  const warnings: string[] = [];
+  if (input.context_files && input.context_files.length > 0) {
+    const forbiddenPatterns = [
+      /spec[\/\\].*sprint/i,
+      /spec[\/\\].*task/i,
+      /manifest\.yaml/i,
+      /\.orchestrator-only/i,
+      /task[-_]?breakdown/i,
+      /implementation[-_]?plan/i,
+    ];
+
+    const violatingFiles = input.context_files.filter((file) =>
+      forbiddenPatterns.some((pattern) => pattern.test(file))
+    );
+
+    if (violatingFiles.length > 0) {
+      warnings.push(
+        `WARNING: context_files contains potential spec/task breakdown files that may violate trust boundary: ${violatingFiles.join(
+          ", "
+        )}. ` +
+          `Implementor should NOT see sprint structure, other tasks, or verification criteria. ` +
+          `EXTRACT relevant content into the handover context instead of referencing spec files.`
+      );
+      console.error(`[TRUST_BOUNDARY] ${warnings[0]}`);
+    }
+  }
+
   const now = new Date().toISOString();
 
   // 5. Check TDD requirements BEFORE creating handover
@@ -307,6 +335,7 @@ async function prepareTask(
     task_id: input.task_id,
     status: "IMPLEMENT",
     git_commit: gitResult.committed ? gitResult.sha ?? undefined : undefined,
+    warnings: warnings.length > 0 ? warnings : undefined,
   };
 }
 
