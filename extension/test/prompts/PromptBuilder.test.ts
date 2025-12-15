@@ -373,4 +373,308 @@ describe("PromptBuilder", () => {
       expect(prompt).toContain("Refactoring Sprint");
     });
   });
+
+  describe("buildImplementPrompt", () => {
+    it("should return a string prompt", () => {
+      const builder = new PromptBuilder();
+      const context: PromptContext = {
+        task: {
+          task_id: 1,
+          title: "Test Task",
+          description: "Test description",
+        },
+        sprint: {
+          sprint_id: "001",
+          title: "Test Sprint",
+        },
+      };
+
+      const prompt = builder.buildImplementPrompt(context);
+      expect(typeof prompt).toBe("string");
+      expect(prompt.length).toBeGreaterThan(0);
+    });
+
+    it("should include task_id in the prompt", () => {
+      const builder = new PromptBuilder();
+      const context: PromptContext = {
+        task: {
+          task_id: 42,
+          title: "Test Task",
+          description: "Test description",
+        },
+        sprint: {
+          sprint_id: "001",
+          title: "Test Sprint",
+        },
+      };
+
+      const prompt = builder.buildImplementPrompt(context);
+      expect(prompt).toContain("42");
+    });
+
+    it("should include task title in the prompt", () => {
+      const builder = new PromptBuilder();
+      const context: PromptContext = {
+        task: {
+          task_id: 1,
+          title: "Implement Feature Y",
+          description: "Test description",
+        },
+        sprint: {
+          sprint_id: "001",
+          title: "Test Sprint",
+        },
+      };
+
+      const prompt = builder.buildImplementPrompt(context);
+      expect(prompt).toContain("Implement Feature Y");
+    });
+
+    it("should instruct to use get_current_task MCP tool", () => {
+      const builder = new PromptBuilder();
+      const context: PromptContext = {
+        task: {
+          task_id: 1,
+          title: "Test Task",
+          description: "Test description",
+        },
+        sprint: {
+          sprint_id: "001",
+          title: "Test Sprint",
+        },
+      };
+
+      const prompt = builder.buildImplementPrompt(context);
+      expect(prompt).toContain("get_current_task");
+    });
+
+    it("should instruct to use signal_completion MCP tool", () => {
+      const builder = new PromptBuilder();
+      const context: PromptContext = {
+        task: {
+          task_id: 1,
+          title: "Test Task",
+          description: "Test description",
+        },
+        sprint: {
+          sprint_id: "001",
+          title: "Test Sprint",
+        },
+      };
+
+      const prompt = builder.buildImplementPrompt(context);
+      expect(prompt).toContain("signal_completion");
+    });
+
+    it("should include handoverPath when provided", () => {
+      const builder = new PromptBuilder();
+      const context: PromptContext = {
+        task: {
+          task_id: 1,
+          title: "Test Task",
+          description: "Test description",
+        },
+        sprint: {
+          sprint_id: "001",
+          title: "Test Sprint",
+        },
+        handoverPath: "/path/to/task-handover.md",
+      };
+
+      const prompt = builder.buildImplementPrompt(context);
+      expect(prompt).toContain("/path/to/task-handover.md");
+      expect(prompt).toContain("Handover");
+    });
+
+    it("should not show handoverPath placeholder when not provided", () => {
+      const builder = new PromptBuilder();
+      const context: PromptContext = {
+        task: {
+          task_id: 1,
+          title: "Test Task",
+          description: "Test description",
+        },
+        sprint: {
+          sprint_id: "001",
+          title: "Test Sprint",
+        },
+      };
+
+      const prompt = builder.buildImplementPrompt(context);
+      expect(prompt).not.toContain("undefined");
+    });
+
+    it("should mention acceptance criteria in instructions", () => {
+      const builder = new PromptBuilder();
+      const context: PromptContext = {
+        task: {
+          task_id: 1,
+          title: "Test Task",
+          description: "Test description",
+        },
+        sprint: {
+          sprint_id: "001",
+          title: "Test Sprint",
+        },
+      };
+
+      const prompt = builder.buildImplementPrompt(context);
+      expect(prompt).toContain("acceptance criteria");
+      expect(prompt.toLowerCase()).toContain("acceptance criteria");
+    });
+
+    it("should mention file operations in instructions", () => {
+      const builder = new PromptBuilder();
+      const context: PromptContext = {
+        task: {
+          task_id: 1,
+          title: "Test Task",
+          description: "Test description",
+        },
+        sprint: {
+          sprint_id: "001",
+          title: "Test Sprint",
+        },
+      };
+
+      const prompt = builder.buildImplementPrompt(context);
+      expect(prompt).toContain("File operations");
+    });
+
+    it("should mention deliverables in instructions", () => {
+      const builder = new PromptBuilder();
+      const context: PromptContext = {
+        task: {
+          task_id: 1,
+          title: "Test Task",
+          description: "Test description",
+        },
+        sprint: {
+          sprint_id: "001",
+          title: "Test Sprint",
+        },
+      };
+
+      const prompt = builder.buildImplementPrompt(context);
+      expect(prompt).toContain("Deliverables");
+    });
+
+    it("should mention artifacts in signal_completion instructions", () => {
+      const builder = new PromptBuilder();
+      const context: PromptContext = {
+        task: {
+          task_id: 1,
+          title: "Test Task",
+          description: "Test description",
+        },
+        sprint: {
+          sprint_id: "001",
+          title: "Test Sprint",
+        },
+      };
+
+      const prompt = builder.buildImplementPrompt(context);
+      expect(prompt).toContain("artifacts");
+    });
+
+    it("should instruct to follow handover specifications", () => {
+      const builder = new PromptBuilder();
+      const context: PromptContext = {
+        task: {
+          task_id: 1,
+          title: "Test Task",
+          description: "Test description",
+        },
+        sprint: {
+          sprint_id: "001",
+          title: "Test Sprint",
+        },
+      };
+
+      const prompt = builder.buildImplementPrompt(context);
+      expect(prompt).toContain("Follow the handover");
+    });
+
+    it("should remind to test implementation", () => {
+      const builder = new PromptBuilder();
+      const context: PromptContext = {
+        task: {
+          task_id: 1,
+          title: "Test Task",
+          description: "Test description",
+        },
+        sprint: {
+          sprint_id: "001",
+          title: "Test Sprint",
+        },
+      };
+
+      const prompt = builder.buildImplementPrompt(context);
+      expect(prompt).toContain("Test your implementation");
+    });
+
+    it("should warn about hidden verification criteria", () => {
+      const builder = new PromptBuilder();
+      const context: PromptContext = {
+        task: {
+          task_id: 1,
+          title: "Test Task",
+          description: "Test description",
+        },
+        sprint: {
+          sprint_id: "001",
+          title: "Test Sprint",
+        },
+      };
+
+      const prompt = builder.buildImplementPrompt(context);
+      expect(prompt).toContain("verified against criteria you cannot see");
+    });
+
+    it("should instruct to signal only when all criteria are met", () => {
+      const builder = new PromptBuilder();
+      const context: PromptContext = {
+        task: {
+          task_id: 1,
+          title: "Test Task",
+          description: "Test description",
+        },
+        sprint: {
+          sprint_id: "001",
+          title: "Test Sprint",
+        },
+      };
+
+      const prompt = builder.buildImplementPrompt(context);
+      expect(prompt).toContain("ALL criteria are met");
+    });
+
+    it("should handle context with all optional properties", () => {
+      const builder = new PromptBuilder();
+      const context: PromptContext = {
+        task: {
+          task_id: 99,
+          title: "Complex Implementation Task",
+          category: "feature",
+          phase_id: "beta",
+          description: "A complex task with all properties",
+        },
+        sprint: {
+          sprint_id: "005",
+          title: "Feature Sprint",
+        },
+        handoverPath:
+          ".orchestra/implementor/handovers/task-99-handover.md",
+        feedbackPath: ".orchestra/implementor/feedback/task-99-feedback.md",
+        retryCount: 2,
+      };
+
+      const prompt = builder.buildImplementPrompt(context);
+      expect(prompt).toContain("99");
+      expect(prompt).toContain("Complex Implementation Task");
+      expect(prompt).toContain(
+        ".orchestra/implementor/handovers/task-99-handover.md"
+      );
+    });
+  });
 });

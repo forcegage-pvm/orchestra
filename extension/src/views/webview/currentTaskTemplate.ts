@@ -410,7 +410,7 @@ function renderTaskCard(task: TaskData): string {
 
   // Determine action button based on task state
   let actionButton = "";
-  let actionButtonClass = "btn btn-primary";
+  const actionButtonClass = "btn btn-primary";
   if (task.isNextPending) {
     actionButton = `<button class="${actionButtonClass}" onclick="prepareTask(${task.id})">Prepare Task</button>`;
   } else if (task.status === "ESCALATED") {

@@ -91,4 +91,48 @@ ${task.description}
 - Include test requirements
 - Reference relevant context files from the codebase`;
   }
+
+  /**
+   * Build an IMPLEMENT stage prompt for the implementor
+   *
+   * Instructs the implementor to use MCP tools (get_current_task, signal_completion)
+   * to receive their handover and complete the task implementation.
+   *
+   * @param context - The prompt context containing task and handover details
+   * @returns A structured prompt string for the implementor
+   */
+  buildImplementPrompt(context: PromptContext): string {
+    const { task, handoverPath } = context;
+
+    return `As Implementor, you are assigned Task ${task.task_id}: "${task.title}".
+
+## Your Task
+Use your MCP tools to implement this task:
+
+1. \`get_current_task\` - Get your task handover with:
+   - Acceptance criteria (what defines success)
+   - File operations (CREATE/UPDATE/DELETE)
+   - Deliverables (what you must produce)
+   - Context files (background information)
+
+2. Follow the handover instructions carefully${handoverPath ? `\n   - **Handover**: ${handoverPath}` : ""}
+
+3. Implement the task following all acceptance criteria
+
+4. \`signal_completion\` - Signal when done with:
+   - List of artifacts (files created/modified)
+   - Summary of work completed
+   - Build and test status
+
+## Task Details
+- **ID**: ${task.task_id}
+- **Title**: ${task.title}
+
+## Remember
+- Read ALL acceptance criteria before starting
+- Follow the handover specifications exactly
+- Test your implementation thoroughly
+- Signal completion only when ALL criteria are met
+- You will be verified against criteria you cannot see`;
+  }
 }
