@@ -162,8 +162,8 @@ async function prepareTask(
   const warnings: string[] = [];
   if (input.context_files && input.context_files.length > 0) {
     const forbiddenPatterns = [
-      /spec[\/\\].*sprint/i,
-      /spec[\/\\].*task/i,
+      /spec[/\\].*sprint/i,
+      /spec[/\\].*task/i,
       /manifest\.yaml/i,
       /\.orchestrator-only/i,
       /task[-_]?breakdown/i,
