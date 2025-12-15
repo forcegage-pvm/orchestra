@@ -225,7 +225,7 @@ export function getAllSprints(workspaceRoot: string): Sprint[] {
  * Get the current in-progress task with its handover data
  *
  * The "current task" is the one with status in ['IMPLEMENT', 'GATE_CHECK', 'VERIFY']
- * (not PENDING or COMPLETE). Returns the task joined with its handover data.
+ * (not PENDING or COMPLETE) from the ACTIVE SPRINT. Returns the task joined with its handover data.
  *
  * @param workspaceRoot Absolute path to workspace root
  * @returns Current task with handover or null if none exists
@@ -235,7 +235,13 @@ export function getCurrentTask(
 ): (Task & { handover: Handover }) | null {
   const db = getDB(workspaceRoot);
 
-  // Query for tasks in active states
+  // Get the active sprint first
+  const activeSprint = getCurrentSprint(workspaceRoot);
+  if (!activeSprint) {
+    return null;
+  }
+
+  // Query for tasks in active states within the active sprint
   const results = db
     .select()
     .from(schema.tasks as unknown as typeof schema.tasks)
@@ -247,11 +253,17 @@ export function getCurrentTask(
       )
     )
     .where(
-      inArray(schema.tasks.status as unknown as typeof schema.tasks.status, [
-        "IMPLEMENT",
-        "GATE_CHECK",
-        "VERIFY",
-      ])
+      and(
+        eq(
+          schema.tasks.sprint_id as unknown as typeof schema.tasks.sprint_id,
+          activeSprint.id
+        ),
+        inArray(schema.tasks.status as unknown as typeof schema.tasks.status, [
+          "IMPLEMENT",
+          "GATE_CHECK",
+          "VERIFY",
+        ])
+      )
     )
     .limit(1)
     .all() as unknown[];
@@ -282,6 +294,12 @@ export function getEscalatedTask(
 ): (Task & { handover: Handover | null }) | null {
   const db = getDB(workspaceRoot);
 
+  // Get the active sprint first
+  const activeSprint = getCurrentSprint(workspaceRoot);
+  if (!activeSprint) {
+    return null;
+  }
+
   // Query for escalated tasks in active sprint
   const results = db
     .select()
@@ -294,9 +312,15 @@ export function getEscalatedTask(
       )
     )
     .where(
-      eq(
-        schema.tasks.status as unknown as typeof schema.tasks.status,
-        "ESCALATED"
+      and(
+        eq(
+          schema.tasks.sprint_id as unknown as typeof schema.tasks.sprint_id,
+          activeSprint.id
+        ),
+        eq(
+          schema.tasks.status as unknown as typeof schema.tasks.status,
+          "ESCALATED"
+        )
       )
     )
     .limit(1)
@@ -765,7 +789,7 @@ export function getEscalation(
 /**
  * Get the next pending task that needs to be prepared
  *
- * Returns the first task with status 'PENDING' ordered by task_id.
+ * Returns the first task with status 'PENDING' from the ACTIVE SPRINT ordered by task_id.
  * Used when no task is currently in progress.
  * Note: Pending tasks may not have handovers yet (created during prepare).
  *
@@ -777,7 +801,13 @@ export function getNextPendingTask(
 ): (Task & { handover: Handover | null }) | null {
   const db = getDB(workspaceRoot);
 
-  // Query for first PENDING task (LEFT JOIN since handover may not exist yet)
+  // Get the active sprint first
+  const activeSprint = getCurrentSprint(workspaceRoot);
+  if (!activeSprint) {
+    return null;
+  }
+
+  // Query for first PENDING task in active sprint (LEFT JOIN since handover may not exist yet)
   const results = db
     .select()
     .from(schema.tasks as unknown as typeof schema.tasks)
@@ -789,9 +819,15 @@ export function getNextPendingTask(
       )
     )
     .where(
-      eq(
-        schema.tasks.status as unknown as typeof schema.tasks.status,
-        "PENDING"
+      and(
+        eq(
+          schema.tasks.sprint_id as unknown as typeof schema.tasks.sprint_id,
+          activeSprint.id
+        ),
+        eq(
+          schema.tasks.status as unknown as typeof schema.tasks.status,
+          "PENDING"
+        )
       )
     )
     .orderBy(schema.tasks.task_id as unknown as typeof schema.tasks.task_id)
