@@ -10,6 +10,7 @@ import * as fs from "fs";
 import * as path from "path";
 import * as vscode from "vscode";
 import { registerChatParticipant } from "./chat/participant.js";
+import { ConfigService } from "./config/ConfigService.js";
 import { OrchestraDB } from "./database/client.js";
 import { DatabaseWatcher } from "./database/watcher.js";
 import { ConfigGenerator } from "./mcp/ConfigGenerator.js";
@@ -28,8 +29,20 @@ import {
 } from "./workspace/detector.js";
 
 let logger: OrchestraLogger;
+let configService: ConfigService;
 let dbWatcher: DatabaseWatcher | undefined;
 let mcpManager: MCPServerManager | undefined;
+
+/**
+ * Get the ConfigService instance
+ * @returns The ConfigService instance or throws if not initialized
+ */
+export function getConfigService(): ConfigService {
+  if (!configService) {
+    throw new Error("ConfigService not initialized. Extension not activated.");
+  }
+  return configService;
+}
 
 /**
  * Install MCP servers to .vscode/mcp.json
@@ -600,6 +613,10 @@ export async function activate(
   logger = new OrchestraLogger();
   logger.info("Orchestra extension activating...");
 
+  // Initialize ConfigService
+  configService = new ConfigService();
+  logger.info("ConfigService initialized");
+
   // 1. Detect Orchestra workspace
   const orchestraRoot = findOrchestraRoot();
 
@@ -958,6 +975,9 @@ export async function activate(
  */
 export function deactivate(): void {
   logger?.info("Orchestra extension deactivating...");
+
+  // ConfigService has no disposal required - it only provides access to workspace config
+  // Any onConfigChange listeners created by consumers are their responsibility to dispose
 
   // Database watcher disposed via subscriptions
   dbWatcher = undefined;
