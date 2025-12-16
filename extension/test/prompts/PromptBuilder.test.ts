@@ -663,8 +663,7 @@ describe("PromptBuilder", () => {
           sprint_id: "005",
           title: "Feature Sprint",
         },
-        handoverPath:
-          ".orchestra/implementor/handovers/task-99-handover.md",
+        handoverPath: ".orchestra/implementor/handovers/task-99-handover.md",
         feedbackPath: ".orchestra/implementor/feedback/task-99-feedback.md",
         retryCount: 2,
       };
@@ -675,6 +674,343 @@ describe("PromptBuilder", () => {
       expect(prompt).toContain(
         ".orchestra/implementor/handovers/task-99-handover.md"
       );
+    });
+  });
+
+  describe("buildVerifyPrompt", () => {
+    it("should return a string prompt", () => {
+      const builder = new PromptBuilder();
+      const context: PromptContext = {
+        task: {
+          task_id: 1,
+          title: "Test Task",
+          description: "Test description",
+        },
+        sprint: {
+          sprint_id: "001",
+          title: "Test Sprint",
+        },
+      };
+
+      const prompt = builder.buildVerifyPrompt(context);
+      expect(typeof prompt).toBe("string");
+      expect(prompt.length).toBeGreaterThan(0);
+    });
+
+    it("should include task_id in the prompt", () => {
+      const builder = new PromptBuilder();
+      const context: PromptContext = {
+        task: {
+          task_id: 42,
+          title: "Test Task",
+          description: "Test description",
+        },
+        sprint: {
+          sprint_id: "001",
+          title: "Test Sprint",
+        },
+      };
+
+      const prompt = builder.buildVerifyPrompt(context);
+      expect(prompt).toContain("42");
+    });
+
+    it("should include task title in the prompt", () => {
+      const builder = new PromptBuilder();
+      const context: PromptContext = {
+        task: {
+          task_id: 1,
+          title: "Verify Feature Z",
+          description: "Test description",
+        },
+        sprint: {
+          sprint_id: "001",
+          title: "Test Sprint",
+        },
+      };
+
+      const prompt = builder.buildVerifyPrompt(context);
+      expect(prompt).toContain("Verify Feature Z");
+    });
+
+    it("should instruct to use get_signal MCP tool", () => {
+      const builder = new PromptBuilder();
+      const context: PromptContext = {
+        task: {
+          task_id: 1,
+          title: "Test Task",
+          description: "Test description",
+        },
+        sprint: {
+          sprint_id: "001",
+          title: "Test Sprint",
+        },
+      };
+
+      const prompt = builder.buildVerifyPrompt(context);
+      expect(prompt).toContain("get_signal");
+    });
+
+    it("should explain get_signal retrieves completion signal", () => {
+      const builder = new PromptBuilder();
+      const context: PromptContext = {
+        task: {
+          task_id: 1,
+          title: "Test Task",
+          description: "Test description",
+        },
+        sprint: {
+          sprint_id: "001",
+          title: "Test Sprint",
+        },
+      };
+
+      const prompt = builder.buildVerifyPrompt(context);
+      expect(prompt).toContain("get_signal");
+      expect(prompt).toContain("completion signal");
+    });
+
+    it("should instruct to use run_verification_checks MCP tool", () => {
+      const builder = new PromptBuilder();
+      const context: PromptContext = {
+        task: {
+          task_id: 1,
+          title: "Test Task",
+          description: "Test description",
+        },
+        sprint: {
+          sprint_id: "001",
+          title: "Test Sprint",
+        },
+      };
+
+      const prompt = builder.buildVerifyPrompt(context);
+      expect(prompt).toContain("run_verification_checks");
+    });
+
+    it("should explain run_verification_checks executes automated checks", () => {
+      const builder = new PromptBuilder();
+      const context: PromptContext = {
+        task: {
+          task_id: 1,
+          title: "Test Task",
+          description: "Test description",
+        },
+        sprint: {
+          sprint_id: "001",
+          title: "Test Sprint",
+        },
+      };
+
+      const prompt = builder.buildVerifyPrompt(context);
+      expect(prompt).toContain("run_verification_checks");
+      expect(prompt).toContain("automated verification checks");
+    });
+
+    it("should instruct to use submit_verification_judgment MCP tool", () => {
+      const builder = new PromptBuilder();
+      const context: PromptContext = {
+        task: {
+          task_id: 1,
+          title: "Test Task",
+          description: "Test description",
+        },
+        sprint: {
+          sprint_id: "001",
+          title: "Test Sprint",
+        },
+      };
+
+      const prompt = builder.buildVerifyPrompt(context);
+      expect(prompt).toContain("submit_verification_judgment");
+    });
+
+    it("should explain submit_verification_judgment records PASS or FAIL", () => {
+      const builder = new PromptBuilder();
+      const context: PromptContext = {
+        task: {
+          task_id: 1,
+          title: "Test Task",
+          description: "Test description",
+        },
+        sprint: {
+          sprint_id: "001",
+          title: "Test Sprint",
+        },
+      };
+
+      const prompt = builder.buildVerifyPrompt(context);
+      expect(prompt).toContain("submit_verification_judgment");
+      expect(prompt).toContain("PASS or FAIL");
+    });
+
+    it("should mention hidden verification criteria", () => {
+      const builder = new PromptBuilder();
+      const context: PromptContext = {
+        task: {
+          task_id: 1,
+          title: "Test Task",
+          description: "Test description",
+        },
+        sprint: {
+          sprint_id: "001",
+          title: "Test Sprint",
+        },
+      };
+
+      const prompt = builder.buildVerifyPrompt(context);
+      expect(prompt).toContain("Hidden verification criteria");
+    });
+
+    it("should remind that implementor cannot see verification criteria", () => {
+      const builder = new PromptBuilder();
+      const context: PromptContext = {
+        task: {
+          task_id: 1,
+          title: "Test Task",
+          description: "Test description",
+        },
+        sprint: {
+          sprint_id: "001",
+          title: "Test Sprint",
+        },
+      };
+
+      const prompt = builder.buildVerifyPrompt(context);
+      expect(prompt).toContain("criteria they cannot see");
+    });
+
+    it("should mention artifacts in get_signal instructions", () => {
+      const builder = new PromptBuilder();
+      const context: PromptContext = {
+        task: {
+          task_id: 1,
+          title: "Test Task",
+          description: "Test description",
+        },
+        sprint: {
+          sprint_id: "001",
+          title: "Test Sprint",
+        },
+      };
+
+      const prompt = builder.buildVerifyPrompt(context);
+      expect(prompt).toContain("artifacts");
+    });
+
+    it("should mention build and test status", () => {
+      const builder = new PromptBuilder();
+      const context: PromptContext = {
+        task: {
+          task_id: 1,
+          title: "Test Task",
+          description: "Test description",
+        },
+        sprint: {
+          sprint_id: "001",
+          title: "Test Sprint",
+        },
+      };
+
+      const prompt = builder.buildVerifyPrompt(context);
+      expect(prompt).toContain("Build and test");
+    });
+
+    it("should mention file operations verification", () => {
+      const builder = new PromptBuilder();
+      const context: PromptContext = {
+        task: {
+          task_id: 1,
+          title: "Test Task",
+          description: "Test description",
+        },
+        sprint: {
+          sprint_id: "001",
+          title: "Test Sprint",
+        },
+      };
+
+      const prompt = builder.buildVerifyPrompt(context);
+      expect(prompt).toContain("File operations");
+    });
+
+    it("should instruct to provide clear rationale", () => {
+      const builder = new PromptBuilder();
+      const context: PromptContext = {
+        task: {
+          task_id: 1,
+          title: "Test Task",
+          description: "Test description",
+        },
+        sprint: {
+          sprint_id: "001",
+          title: "Test Sprint",
+        },
+      };
+
+      const prompt = builder.buildVerifyPrompt(context);
+      expect(prompt).toContain("rationale");
+    });
+
+    it("should mention providing feedback if verification fails", () => {
+      const builder = new PromptBuilder();
+      const context: PromptContext = {
+        task: {
+          task_id: 1,
+          title: "Test Task",
+          description: "Test description",
+        },
+        sprint: {
+          sprint_id: "001",
+          title: "Test Sprint",
+        },
+      };
+
+      const prompt = builder.buildVerifyPrompt(context);
+      expect(prompt).toContain("feedback");
+      expect(prompt).toContain("verification fails");
+    });
+
+    it("should mention acceptance criteria compliance", () => {
+      const builder = new PromptBuilder();
+      const context: PromptContext = {
+        task: {
+          task_id: 1,
+          title: "Test Task",
+          description: "Test description",
+        },
+        sprint: {
+          sprint_id: "001",
+          title: "Test Sprint",
+        },
+      };
+
+      const prompt = builder.buildVerifyPrompt(context);
+      expect(prompt).toContain("Acceptance criteria");
+    });
+
+    it("should handle context with all optional properties", () => {
+      const builder = new PromptBuilder();
+      const context: PromptContext = {
+        task: {
+          task_id: 99,
+          title: "Complex Verification Task",
+          category: "verification",
+          phase_id: "production",
+          description: "A complex verification task",
+        },
+        sprint: {
+          sprint_id: "005",
+          title: "Verification Sprint",
+        },
+        handoverPath: ".orchestra/implementor/handovers/task-99-handover.md",
+        feedbackPath: ".orchestra/implementor/feedback/task-99-feedback.md",
+        retryCount: 2,
+      };
+
+      const prompt = builder.buildVerifyPrompt(context);
+      expect(prompt).toContain("99");
+      expect(prompt).toContain("Complex Verification Task");
     });
   });
 });

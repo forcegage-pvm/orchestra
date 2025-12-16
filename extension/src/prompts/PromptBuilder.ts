@@ -104,7 +104,9 @@ ${task.description}
   buildImplementPrompt(context: PromptContext): string {
     const { task, handoverPath } = context;
 
-    return `As Implementor, you are assigned Task ${task.task_id}: "${task.title}".
+    return `As Implementor, you are assigned Task ${task.task_id}: "${
+      task.title
+    }".
 
 ## Your Task
 Use your MCP tools to implement this task:
@@ -115,7 +117,9 @@ Use your MCP tools to implement this task:
    - Deliverables (what you must produce)
    - Context files (background information)
 
-2. Follow the handover instructions carefully${handoverPath ? `\n   - **Handover**: ${handoverPath}` : ""}
+2. Follow the handover instructions carefully${
+      handoverPath ? `\n   - **Handover**: ${handoverPath}` : ""
+    }
 
 3. Implement the task following all acceptance criteria
 
@@ -134,5 +138,51 @@ Use your MCP tools to implement this task:
 - Test your implementation thoroughly
 - Signal completion only when ALL criteria are met
 - You will be verified against criteria you cannot see`;
+  }
+
+  /**
+   * Build a VERIFY stage prompt for the orchestrator
+   *
+   * Instructs the orchestrator to use MCP tools (get_signal, run_verification_checks,
+   * submit_verification_judgment) to retrieve the implementor's completion signal,
+   * run automated verification checks, and record a PASS or FAIL judgment.
+   *
+   * @param context - The prompt context containing task details
+   * @returns A structured prompt string for the orchestrator
+   */
+  buildVerifyPrompt(context: PromptContext): string {
+    const { task } = context;
+
+    return `As Orchestrator, verify Task ${task.task_id}: "${task.title}".
+
+## Your Task
+Use your MCP tools to verify the implementor's work:
+
+1. \`get_signal\` - Retrieve the implementor's completion signal with:
+   - List of artifacts (files created/modified)
+   - Summary of work completed
+   - Build and test status
+
+2. \`run_verification_checks\` - Execute automated verification checks against:
+   - Hidden verification criteria (defined during PREPARE)
+   - Acceptance criteria compliance
+   - File operations (CREATE/UPDATE/DELETE)
+   - Build and test requirements
+
+3. \`submit_verification_judgment\` - Record your judgment (PASS or FAIL) with:
+   - Clear rationale for the decision
+   - Specific issues found (if FAIL)
+   - Feedback for the implementor
+
+## Task Details
+- **ID**: ${task.task_id}
+- **Title**: ${task.title}
+
+## Remember
+- The implementor was verified against criteria they cannot see
+- Hidden verification criteria ensure genuine implementation quality
+- Be thorough and objective in your assessment
+- Provide clear, actionable feedback if verification fails
+- Your judgment determines if the task moves to COMPLETE or RETRY`;
   }
 }
