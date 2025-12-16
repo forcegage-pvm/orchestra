@@ -334,8 +334,10 @@ export class WorkflowEngine {
   private async invokeImplement(task: Task): Promise<void> {
     await this.config.sessionManager.clearImplementorSession();
     const prompt = this.config.promptBuilder.buildImplementPrompt({ task, sprint: getCurrentSprint() });
-    const handoverPath = getHandoverPath(this.config.orchestraRoot, task.task_id);
-    await this.config.sessionManager.invokeImplementor(prompt, [vscode.Uri.file(handoverPath)]);
+    // NOTE: Handover data comes from database via get_current_task MCP tool.
+    // context_files from handover are workspace-relative paths the implementor should read.
+    const contextFiles = await this.config.attachmentResolver.getContextFiles(task.task_id);
+    await this.config.sessionManager.invokeImplementor(prompt, contextFiles);
   }
 }
 ```

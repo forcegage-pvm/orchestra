@@ -16,15 +16,17 @@ Enable users to configure preferred models/modes for orchestrator and implemento
 
 - No way to configure which model to use per role
 - Prompts are ad-hoc, not structured per workflow stage
-- No automatic file attachment (handovers, context files)
+- No automatic resolution of context files from handover
 - Users must manually construct prompts with context
 
 ### The Solution
 
 - VS Code settings for model configuration
-- PromptBuilder service with templates per stage
-- File attachment logic based on task handover
+- PromptBuilder service with templates per stage (prompts instruct agents to use MCP tools)
+- Context file resolution: convert `context_files` from handover DB to workspace URIs
 - Settings UI panel (optional enhancement)
+
+**IMPORTANT**: Handovers are stored in the database (`handovers` table), not as files. The implementor retrieves handover data via the `get_current_task` MCP tool.
 
 ---
 
@@ -33,8 +35,8 @@ Enable users to configure preferred models/modes for orchestrator and implemento
 ### Primary Goals
 
 1. **Model Configuration**: Users can set preferred models per role
-2. **Prompt Templates**: Stage-specific prompts with proper structure
-3. **File Attachments**: Automatic attachment of relevant files
+2. **Prompt Templates**: Stage-specific prompts that instruct agents to use MCP tools
+3. **Context File Resolution**: Resolve `context_files` from handover DB to workspace URIs for chat attachments
 
 ### Non-Goals
 
@@ -178,66 +180,60 @@ buildImplementPrompt(context: PromptContext): string {
 }
 ```
 
-### Feature 3: File Attachment Logic
+### Feature 3: Context File Resolution
 
-**AttachmentResolver**:
+**ContextFileResolver** (renamed from AttachmentResolver):
+
+Resolves `context_files` from the handover database record to workspace URIs.
+
+**IMPORTANT**: Handovers are NOT files. They are rows in the `handovers` SQLite table. The implementor receives handover data via the `get_current_task` MCP tool. The `context_files` column contains a JSON array of workspace-relative paths that the implementor should read.
 
 ```typescript
-export interface AttachmentSet {
+export interface ContextFileSet {
   files: vscode.Uri[];
   description: string;
 }
 
-export class AttachmentResolver {
-  constructor(private readonly orchestraRoot: string) {}
+export class ContextFileResolver {
+  constructor(
+    private readonly workspaceRoot: string,
+    private readonly db: OrchestraDB
+  ) {}
   
   /**
-   * Get files to attach for PREPARE stage
+   * Get context files for IMPLEMENT stage
+   * Resolves context_files from handover DB to workspace URIs
    */
-  getPreparAttachments(task: Task): AttachmentSet {
-    // Attach task spec if exists
-    return { files: [], description: 'Task specification' };
-  }
-  
-  /**
-   * Get files to attach for IMPLEMENT stage
-   */
-  getImplementAttachments(task: Task): AttachmentSet {
+  async getImplementContextFiles(taskId: number): Promise<ContextFileSet> {
     const files: vscode.Uri[] = [];
     
-    // Always attach handover
-    const handoverPath = this.getHandoverPath(task.task_id);
-    if (fs.existsSync(handoverPath)) {
-      files.push(vscode.Uri.file(handoverPath));
+    // Query handover from database
+    const handover = await this.db.getHandover(taskId);
+    if (!handover) {
+      return { files: [], description: 'No handover found' };
     }
     
-    // Attach context files from handover
-    const handover = this.getHandover(task.task_id);
-    if (handover?.context_files) {
-      for (const contextFile of handover.context_files) {
-        const fullPath = path.join(this.orchestraRoot, '..', contextFile);
+    // Resolve context_files to workspace URIs
+    if (handover.context_files) {
+      const contextPaths = JSON.parse(handover.context_files) as string[];
+      for (const relativePath of contextPaths) {
+        const fullPath = path.join(this.workspaceRoot, relativePath);
         if (fs.existsSync(fullPath)) {
           files.push(vscode.Uri.file(fullPath));
         }
       }
     }
     
-    return { files, description: 'Handover and context files' };
+    return { files, description: 'Context files from handover' };
   }
   
   /**
-   * Get files to attach for RETRY stage
+   * Get context files for RETRY stage
+   * Same as implement, feedback comes from database not files
    */
-  getRetryAttachments(task: Task): AttachmentSet {
-    const files = this.getImplementAttachments(task).files;
-    
-    // Also attach feedback if exists
-    const feedbackPath = this.getFeedbackPath(task.task_id);
-    if (fs.existsSync(feedbackPath)) {
-      files.push(vscode.Uri.file(feedbackPath));
-    }
-    
-    return { files, description: 'Handover, context, and feedback' };
+  async getRetryContextFiles(taskId: number): Promise<ContextFileSet> {
+    // Same as implement - feedback is in database, not a file
+    return this.getImplementContextFiles(taskId);
   }
 }
 ```
@@ -344,10 +340,14 @@ export class ConfigService {
 
 - [ ] VS Code settings show Orchestra configuration options
 - [ ] ConfigService correctly reads settings
-- [ ] PromptBuilder generates appropriate prompts per stage
-- [ ] AttachmentResolver finds and returns correct files
+- [ ] PromptBuilder generates appropriate prompts per stage (instructing use of MCP tools)
+- [ ] ContextFileResolver resolves context_files from handover DB to workspace URIs
 - [ ] Configuration changes are detected and applied
 - [ ] Unit tests pass for all new services
+
+**Architecture Verification**:
+- [ ] No references to "handover files" - handovers are DB rows
+- [ ] Prompts instruct agents to use MCP tools (get_task, get_current_task, signal_completion, etc.)
 
 ---
 
@@ -355,21 +355,23 @@ export class ConfigService {
 
 1. Add configuration contribution to package.json
 2. Create ConfigService class
-3. Create PromptBuilder with prepare template
-4. Add implement template to PromptBuilder
-5. Add verify and retry templates
-6. Create AttachmentResolver class
-7. Implement handover file resolution
-8. Implement context file resolution
+3. Register ConfigService in extension.ts
+4. Create PromptBuilder with prepare template
+5. Add implement template to PromptBuilder
+6. Add verify and retry templates
+7. Create ContextFileResolver class (queries handover from DB)
+8. Implement context_files resolution (JSON array → workspace URIs)
 9. Write unit tests for ConfigService
 10. Write unit tests for PromptBuilder
-11. Write unit tests for AttachmentResolver
+11. Write unit tests for ContextFileResolver
 12. Integration testing
+
+**NOTE**: No "handover file resolution" task - handovers are database rows, not files.
 
 ---
 
 ## Dependencies
 
 - Sprint 003A complete (TreeView and status bar)
-- Handover files stored in known location
-- Database queries for task/handover data
+- Database schema with `handovers` table (already exists)
+- Database queries for task/handover data (already exist in extension)

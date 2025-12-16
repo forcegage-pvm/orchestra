@@ -237,13 +237,13 @@ async function runAutonomousMode(sprintId: string): Promise<void> {
 | Implement | "As implementor, implement Task {id}: {title}. Follow the handover instructions. Signal when complete." |
 | Verify | "As orchestrator, verify Task {id}: {title}. Run verification checks and submit judgment." |
 
-**File Attachments by Stage**:
+**Context by Stage**:
 
-| Stage | Attached Files |
-|-------|---------------|
-| Prepare | Task spec, sprint config |
-| Implement | Handover file, context files from handover |
-| Verify | Implementation files, verification criteria |
+| Stage | Context Source | Notes |
+|-------|----------------|-------|
+| Prepare | Task from DB | Orchestrator uses `get_task` MCP tool |
+| Implement | Handover from DB | Implementor uses `get_current_task` MCP tool, which returns handover data. `context_files` are workspace paths to read. |
+| Verify | Signal + verification from DB | Orchestrator uses `get_signal` and `run_verification_checks` MCP tools |
 
 ### Feature 5: Autonomous Mode Controls
 
