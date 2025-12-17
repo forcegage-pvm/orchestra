@@ -185,4 +185,61 @@ Use your MCP tools to verify the implementor's work:
 - Provide clear, actionable feedback if verification fails
 - Your judgment determines if the task moves to COMPLETE or RETRY`;
   }
+
+  /**
+   * Build a RETRY stage prompt for the implementor
+   *
+   * Instructs the implementor to use MCP tools (get_current_task, get_feedback,
+   * signal_completion) to retrieve their original handover, read verification
+   * failure feedback, fix ALL issues, and re-signal completion.
+   *
+   * @param context - The prompt context containing task, feedback path, and retry count
+   * @returns A structured prompt string for the implementor
+   */
+  buildRetryPrompt(context: PromptContext): string {
+    const { task, feedbackPath, retryCount = 1 } = context;
+
+    return `As Implementor, your work on Task ${task.task_id}: "${task.title}" did not pass verification. You must fix the issues and retry.
+
+## Retry Attempt ${retryCount}
+
+## Your Task
+Use your MCP tools to address the verification failures:
+
+1. \`get_current_task\` - Get your original task handover with:
+   - Acceptance criteria (what defines success)
+   - File operations (CREATE/UPDATE/DELETE)
+   - Deliverables (what you must produce)
+   - Context files (background information)
+
+2. \`get_feedback\` - Retrieve verification failure feedback explaining:
+   - What went wrong (specific issues found)
+   - What worked (checks that passed)
+   - Guidance on how to fix the issues${
+     feedbackPath ? `\n   - **Feedback**: ${feedbackPath}` : ""
+   }
+
+3. Read the feedback CAREFULLY and address ALL issues
+
+4. Fix your implementation based on the feedback
+
+5. \`signal_completion\` - Re-signal when done with:
+   - List of artifacts (files created/modified)
+   - Summary of fixes applied
+   - Build and test status
+
+## Task Details
+- **ID**: ${task.task_id}
+- **Title**: ${task.title}
+
+## CRITICAL: Read and Fix ALL Feedback
+The orchestrator found specific issues with your implementation. You must:
+- Read the entire feedback document carefully
+- Understand what failed and why
+- Address EVERY issue mentioned in the feedback
+- Test your fixes thoroughly before re-signaling
+- Remember you are still verified against criteria you cannot see
+
+Do not skip any feedback items. Incomplete fixes will result in another FAIL.`;
+  }
 }

@@ -1013,4 +1013,559 @@ describe("PromptBuilder", () => {
       expect(prompt).toContain("Complex Verification Task");
     });
   });
+
+  describe("buildRetryPrompt", () => {
+    it("should return a string prompt", () => {
+      const builder = new PromptBuilder();
+      const context: PromptContext = {
+        task: {
+          task_id: 1,
+          title: "Test Task",
+          description: "Test description",
+        },
+        sprint: {
+          sprint_id: "001",
+          title: "Test Sprint",
+        },
+        retryCount: 1,
+      };
+
+      const prompt = builder.buildRetryPrompt(context);
+      expect(typeof prompt).toBe("string");
+      expect(prompt.length).toBeGreaterThan(0);
+    });
+
+    it("should include task_id in the prompt", () => {
+      const builder = new PromptBuilder();
+      const context: PromptContext = {
+        task: {
+          task_id: 42,
+          title: "Test Task",
+          description: "Test description",
+        },
+        sprint: {
+          sprint_id: "001",
+          title: "Test Sprint",
+        },
+        retryCount: 1,
+      };
+
+      const prompt = builder.buildRetryPrompt(context);
+      expect(prompt).toContain("42");
+    });
+
+    it("should include task title in the prompt", () => {
+      const builder = new PromptBuilder();
+      const context: PromptContext = {
+        task: {
+          task_id: 1,
+          title: "Retry Feature Y",
+          description: "Test description",
+        },
+        sprint: {
+          sprint_id: "001",
+          title: "Test Sprint",
+        },
+        retryCount: 1,
+      };
+
+      const prompt = builder.buildRetryPrompt(context);
+      expect(prompt).toContain("Retry Feature Y");
+    });
+
+    it("should instruct to use get_current_task MCP tool", () => {
+      const builder = new PromptBuilder();
+      const context: PromptContext = {
+        task: {
+          task_id: 1,
+          title: "Test Task",
+          description: "Test description",
+        },
+        sprint: {
+          sprint_id: "001",
+          title: "Test Sprint",
+        },
+        retryCount: 1,
+      };
+
+      const prompt = builder.buildRetryPrompt(context);
+      expect(prompt).toContain("get_current_task");
+    });
+
+    it("should explain get_current_task retrieves handover", () => {
+      const builder = new PromptBuilder();
+      const context: PromptContext = {
+        task: {
+          task_id: 1,
+          title: "Test Task",
+          description: "Test description",
+        },
+        sprint: {
+          sprint_id: "001",
+          title: "Test Sprint",
+        },
+        retryCount: 1,
+      };
+
+      const prompt = builder.buildRetryPrompt(context);
+      expect(prompt).toContain("get_current_task");
+      expect(prompt).toContain("handover");
+    });
+
+    it("should instruct to use get_feedback MCP tool", () => {
+      const builder = new PromptBuilder();
+      const context: PromptContext = {
+        task: {
+          task_id: 1,
+          title: "Test Task",
+          description: "Test description",
+        },
+        sprint: {
+          sprint_id: "001",
+          title: "Test Sprint",
+        },
+        retryCount: 1,
+      };
+
+      const prompt = builder.buildRetryPrompt(context);
+      expect(prompt).toContain("get_feedback");
+    });
+
+    it("should explain get_feedback retrieves verification failure feedback", () => {
+      const builder = new PromptBuilder();
+      const context: PromptContext = {
+        task: {
+          task_id: 1,
+          title: "Test Task",
+          description: "Test description",
+        },
+        sprint: {
+          sprint_id: "001",
+          title: "Test Sprint",
+        },
+        retryCount: 1,
+      };
+
+      const prompt = builder.buildRetryPrompt(context);
+      expect(prompt).toContain("get_feedback");
+      expect(prompt).toContain("verification failure feedback");
+    });
+
+    it("should instruct to use signal_completion MCP tool", () => {
+      const builder = new PromptBuilder();
+      const context: PromptContext = {
+        task: {
+          task_id: 1,
+          title: "Test Task",
+          description: "Test description",
+        },
+        sprint: {
+          sprint_id: "001",
+          title: "Test Sprint",
+        },
+        retryCount: 1,
+      };
+
+      const prompt = builder.buildRetryPrompt(context);
+      expect(prompt).toContain("signal_completion");
+    });
+
+    it("should explain signal_completion for re-signaling after fixes", () => {
+      const builder = new PromptBuilder();
+      const context: PromptContext = {
+        task: {
+          task_id: 1,
+          title: "Test Task",
+          description: "Test description",
+        },
+        sprint: {
+          sprint_id: "001",
+          title: "Test Sprint",
+        },
+        retryCount: 1,
+      };
+
+      const prompt = builder.buildRetryPrompt(context);
+      expect(prompt).toContain("signal_completion");
+      expect(prompt).toContain("Re-signal");
+    });
+
+    it("should display retry count from context", () => {
+      const builder = new PromptBuilder();
+      const context: PromptContext = {
+        task: {
+          task_id: 1,
+          title: "Test Task",
+          description: "Test description",
+        },
+        sprint: {
+          sprint_id: "001",
+          title: "Test Sprint",
+        },
+        retryCount: 2,
+      };
+
+      const prompt = builder.buildRetryPrompt(context);
+      expect(prompt).toContain("Retry Attempt 2");
+    });
+
+    it("should default to retry count 1 if not provided", () => {
+      const builder = new PromptBuilder();
+      const context: PromptContext = {
+        task: {
+          task_id: 1,
+          title: "Test Task",
+          description: "Test description",
+        },
+        sprint: {
+          sprint_id: "001",
+          title: "Test Sprint",
+        },
+      };
+
+      const prompt = builder.buildRetryPrompt(context);
+      expect(prompt).toContain("Retry Attempt 1");
+    });
+
+    it("should emphasize reading feedback carefully", () => {
+      const builder = new PromptBuilder();
+      const context: PromptContext = {
+        task: {
+          task_id: 1,
+          title: "Test Task",
+          description: "Test description",
+        },
+        sprint: {
+          sprint_id: "001",
+          title: "Test Sprint",
+        },
+        retryCount: 1,
+      };
+
+      const prompt = builder.buildRetryPrompt(context);
+      expect(prompt).toContain("CAREFULLY");
+      expect(prompt).toContain("Read");
+    });
+
+    it("should emphasize addressing ALL feedback issues", () => {
+      const builder = new PromptBuilder();
+      const context: PromptContext = {
+        task: {
+          task_id: 1,
+          title: "Test Task",
+          description: "Test description",
+        },
+        sprint: {
+          sprint_id: "001",
+          title: "Test Sprint",
+        },
+        retryCount: 1,
+      };
+
+      const prompt = builder.buildRetryPrompt(context);
+      expect(prompt).toContain("ALL");
+      expect(prompt).toContain("address");
+    });
+
+    it("should include feedback path when provided", () => {
+      const builder = new PromptBuilder();
+      const context: PromptContext = {
+        task: {
+          task_id: 1,
+          title: "Test Task",
+          description: "Test description",
+        },
+        sprint: {
+          sprint_id: "001",
+          title: "Test Sprint",
+        },
+        feedbackPath: ".orchestra/implementor/feedback/task-1-feedback.md",
+        retryCount: 1,
+      };
+
+      const prompt = builder.buildRetryPrompt(context);
+      expect(prompt).toContain(
+        ".orchestra/implementor/feedback/task-1-feedback.md"
+      );
+      expect(prompt).toContain("Feedback");
+    });
+
+    it("should mention what went wrong in feedback description", () => {
+      const builder = new PromptBuilder();
+      const context: PromptContext = {
+        task: {
+          task_id: 1,
+          title: "Test Task",
+          description: "Test description",
+        },
+        sprint: {
+          sprint_id: "001",
+          title: "Test Sprint",
+        },
+        retryCount: 1,
+      };
+
+      const prompt = builder.buildRetryPrompt(context);
+      expect(prompt).toContain("What went wrong");
+    });
+
+    it("should mention what worked in feedback description", () => {
+      const builder = new PromptBuilder();
+      const context: PromptContext = {
+        task: {
+          task_id: 1,
+          title: "Test Task",
+          description: "Test description",
+        },
+        sprint: {
+          sprint_id: "001",
+          title: "Test Sprint",
+        },
+        retryCount: 1,
+      };
+
+      const prompt = builder.buildRetryPrompt(context);
+      expect(prompt).toContain("What worked");
+    });
+
+    it("should mention guidance on fixing issues", () => {
+      const builder = new PromptBuilder();
+      const context: PromptContext = {
+        task: {
+          task_id: 1,
+          title: "Test Task",
+          description: "Test description",
+        },
+        sprint: {
+          sprint_id: "001",
+          title: "Test Sprint",
+        },
+        retryCount: 1,
+      };
+
+      const prompt = builder.buildRetryPrompt(context);
+      expect(prompt).toContain("Guidance");
+      expect(prompt).toContain("fix");
+    });
+
+    it("should mention artifacts in signal_completion instructions", () => {
+      const builder = new PromptBuilder();
+      const context: PromptContext = {
+        task: {
+          task_id: 1,
+          title: "Test Task",
+          description: "Test description",
+        },
+        sprint: {
+          sprint_id: "001",
+          title: "Test Sprint",
+        },
+        retryCount: 1,
+      };
+
+      const prompt = builder.buildRetryPrompt(context);
+      expect(prompt).toContain("artifacts");
+    });
+
+    it("should mention summary of fixes applied", () => {
+      const builder = new PromptBuilder();
+      const context: PromptContext = {
+        task: {
+          task_id: 1,
+          title: "Test Task",
+          description: "Test description",
+        },
+        sprint: {
+          sprint_id: "001",
+          title: "Test Sprint",
+        },
+        retryCount: 1,
+      };
+
+      const prompt = builder.buildRetryPrompt(context);
+      expect(prompt).toContain("Summary");
+      expect(prompt).toContain("fixes");
+    });
+
+    it("should mention build and test status", () => {
+      const builder = new PromptBuilder();
+      const context: PromptContext = {
+        task: {
+          task_id: 1,
+          title: "Test Task",
+          description: "Test description",
+        },
+        sprint: {
+          sprint_id: "001",
+          title: "Test Sprint",
+        },
+        retryCount: 1,
+      };
+
+      const prompt = builder.buildRetryPrompt(context);
+      expect(prompt).toContain("Build and test status");
+    });
+
+    it("should remind that implementor cannot see verification criteria", () => {
+      const builder = new PromptBuilder();
+      const context: PromptContext = {
+        task: {
+          task_id: 1,
+          title: "Test Task",
+          description: "Test description",
+        },
+        sprint: {
+          sprint_id: "001",
+          title: "Test Sprint",
+        },
+        retryCount: 1,
+      };
+
+      const prompt = builder.buildRetryPrompt(context);
+      expect(prompt).toContain("criteria you cannot see");
+    });
+
+    it("should warn about incomplete fixes", () => {
+      const builder = new PromptBuilder();
+      const context: PromptContext = {
+        task: {
+          task_id: 1,
+          title: "Test Task",
+          description: "Test description",
+        },
+        sprint: {
+          sprint_id: "001",
+          title: "Test Sprint",
+        },
+        retryCount: 1,
+      };
+
+      const prompt = builder.buildRetryPrompt(context);
+      expect(prompt).toContain("Incomplete fixes");
+      expect(prompt).toContain("FAIL");
+    });
+
+    it("should instruct not to skip feedback items", () => {
+      const builder = new PromptBuilder();
+      const context: PromptContext = {
+        task: {
+          task_id: 1,
+          title: "Test Task",
+          description: "Test description",
+        },
+        sprint: {
+          sprint_id: "001",
+          title: "Test Sprint",
+        },
+        retryCount: 1,
+      };
+
+      const prompt = builder.buildRetryPrompt(context);
+      expect(prompt).toContain("Do not skip");
+    });
+
+    it("should mention acceptance criteria", () => {
+      const builder = new PromptBuilder();
+      const context: PromptContext = {
+        task: {
+          task_id: 1,
+          title: "Test Task",
+          description: "Test description",
+        },
+        sprint: {
+          sprint_id: "001",
+          title: "Test Sprint",
+        },
+        retryCount: 1,
+      };
+
+      const prompt = builder.buildRetryPrompt(context);
+      expect(prompt).toContain("Acceptance criteria");
+    });
+
+    it("should mention file operations", () => {
+      const builder = new PromptBuilder();
+      const context: PromptContext = {
+        task: {
+          task_id: 1,
+          title: "Test Task",
+          description: "Test description",
+        },
+        sprint: {
+          sprint_id: "001",
+          title: "Test Sprint",
+        },
+        retryCount: 1,
+      };
+
+      const prompt = builder.buildRetryPrompt(context);
+      expect(prompt).toContain("File operations");
+    });
+
+    it("should mention deliverables", () => {
+      const builder = new PromptBuilder();
+      const context: PromptContext = {
+        task: {
+          task_id: 1,
+          title: "Test Task",
+          description: "Test description",
+        },
+        sprint: {
+          sprint_id: "001",
+          title: "Test Sprint",
+        },
+        retryCount: 1,
+      };
+
+      const prompt = builder.buildRetryPrompt(context);
+      expect(prompt).toContain("Deliverables");
+    });
+
+    it("should mention context files", () => {
+      const builder = new PromptBuilder();
+      const context: PromptContext = {
+        task: {
+          task_id: 1,
+          title: "Test Task",
+          description: "Test description",
+        },
+        sprint: {
+          sprint_id: "001",
+          title: "Test Sprint",
+        },
+        retryCount: 1,
+      };
+
+      const prompt = builder.buildRetryPrompt(context);
+      expect(prompt).toContain("Context files");
+    });
+
+    it("should handle context with all optional properties", () => {
+      const builder = new PromptBuilder();
+      const context: PromptContext = {
+        task: {
+          task_id: 99,
+          title: "Complex Retry Task",
+          category: "bugfix",
+          phase_id: "production",
+          description: "A complex retry task",
+        },
+        sprint: {
+          sprint_id: "005",
+          title: "Retry Sprint",
+        },
+        handoverPath: ".orchestra/implementor/handovers/task-99-handover.md",
+        feedbackPath: ".orchestra/implementor/feedback/task-99-feedback.md",
+        retryCount: 3,
+      };
+
+      const prompt = builder.buildRetryPrompt(context);
+      expect(prompt).toContain("99");
+      expect(prompt).toContain("Complex Retry Task");
+      expect(prompt).toContain("Retry Attempt 3");
+      expect(prompt).toContain(
+        ".orchestra/implementor/feedback/task-99-feedback.md"
+      );
+    });
+  });
 });
