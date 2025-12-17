@@ -62,6 +62,30 @@ describe("PromptBuilder", () => {
       expect(context.feedbackPath).toBe("/path/to/feedback.md");
       expect(context.retryCount).toBe(2);
     });
+
+    it("should accept context with maxRetries property", () => {
+      const task: Task = {
+        task_id: 3,
+        title: "Retry Task",
+        description: "Task with retry limit",
+      };
+
+      const sprint: Sprint = {
+        sprint_id: "003",
+        title: "Retry Sprint",
+      };
+
+      const context: PromptContext = {
+        task,
+        sprint,
+        feedbackPath: "/path/to/feedback.md",
+        retryCount: 2,
+        maxRetries: 3,
+      };
+
+      expect(context.retryCount).toBe(2);
+      expect(context.maxRetries).toBe(3);
+    });
   });
 
   describe("buildPreparePrompt", () => {

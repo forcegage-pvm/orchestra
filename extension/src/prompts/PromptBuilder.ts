@@ -40,8 +40,11 @@ export interface PromptContext {
   /** Path to feedback file (for RETRY stage) */
   feedbackPath?: string;
 
-  /** Number of retry attempts made (for RETRY stage) */
+  /** Current retry attempt number (for RETRY stage, used with maxRetries for 'N of M' display) */
   retryCount?: number;
+
+  /** Maximum retry attempts allowed (for RETRY stage, enables 'Attempt N of M' messaging) */
+  maxRetries?: number;
 }
 
 /**
