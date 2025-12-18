@@ -9,6 +9,7 @@ import { describe, expect, it, beforeEach, afterEach, vi } from "vitest";
 import { ContextFileResolver } from "../../src/prompts/ContextFileResolver.js";
 import * as vscode from "vscode";
 import * as path from "path";
+import * as fs from "fs";
 import type { Handover } from "../../src/database/queries.js";
 
 // Mock the queries module
@@ -16,9 +17,15 @@ vi.mock("../../src/database/queries.js", () => ({
   getHandover: vi.fn(),
 }));
 
+// Mock the fs module
+vi.mock("fs", () => ({
+  existsSync: vi.fn(),
+}));
+
 describe("ContextFileResolver", () => {
   let workspaceRoot: string;
   let getHandoverMock: ReturnType<typeof vi.fn>;
+  let existsSyncMock: ReturnType<typeof vi.fn>;
 
   beforeEach(async () => {
     // Set workspace root for tests (use Windows-style path for tests on Windows)
@@ -28,8 +35,15 @@ describe("ContextFileResolver", () => {
     const queries = await import("../../src/database/queries.js");
     getHandoverMock = queries.getHandover as ReturnType<typeof vi.fn>;
     
-    // Reset mock before each test
+    // Get the fs mock
+    existsSyncMock = fs.existsSync as ReturnType<typeof vi.fn>;
+    
+    // Reset mocks before each test
     getHandoverMock.mockReset();
+    existsSyncMock.mockReset();
+    
+    // Default: all files exist
+    existsSyncMock.mockReturnValue(true);
   });
 
   afterEach(() => {
@@ -438,6 +452,377 @@ describe("ContextFileResolver", () => {
       
       expect(getHandoverMock).toHaveBeenCalledWith(workspace1, 13);
       expect(getHandoverMock).toHaveBeenCalledWith(workspace2, 13);
+    });
+  });
+
+  describe("getContextFilesWithStatus", () => {
+    it("should return array of objects with uri and exists properties", () => {
+      const resolver = new ContextFileResolver(workspaceRoot);
+
+      getHandoverMock.mockReturnValue({
+        id: 1,
+        task_id: 1,
+        priority: "P1",
+        context: "Test",
+        context_files: '["src/config.ts"]',
+        acceptance_criteria: "[]",
+        file_operations: "[]",
+        deliverables: "[]",
+        test_file: null,
+        test_requirements: null,
+        constraints: null,
+        reference_links: null,
+        created_at: "2023-01-01",
+        updated_at: "2023-01-01",
+      } as Handover);
+
+      existsSyncMock.mockReturnValue(true);
+
+      const result = resolver.getContextFilesWithStatus(1);
+
+      expect(Array.isArray(result)).toBe(true);
+      expect(result.length).toBe(1);
+      expect(result[0]).toHaveProperty("uri");
+      expect(result[0]).toHaveProperty("exists");
+      expect(result[0].uri).toBeInstanceOf(vscode.Uri);
+      expect(typeof result[0].exists).toBe("boolean");
+    });
+
+    it("should return exists: true when file exists", () => {
+      const resolver = new ContextFileResolver(workspaceRoot);
+
+      getHandoverMock.mockReturnValue({
+        id: 1,
+        task_id: 1,
+        priority: "P1",
+        context: null,
+        context_files: '["src/existing.ts"]',
+        acceptance_criteria: "[]",
+        file_operations: "[]",
+        deliverables: "[]",
+        test_file: null,
+        test_requirements: null,
+        constraints: null,
+        reference_links: null,
+        created_at: "2023-01-01",
+        updated_at: "2023-01-01",
+      } as Handover);
+
+      existsSyncMock.mockReturnValue(true);
+
+      const result = resolver.getContextFilesWithStatus(1);
+
+      expect(result.length).toBe(1);
+      expect(result[0].exists).toBe(true);
+    });
+
+    it("should return exists: false when file does not exist", () => {
+      const resolver = new ContextFileResolver(workspaceRoot);
+
+      getHandoverMock.mockReturnValue({
+        id: 1,
+        task_id: 1,
+        priority: "P1",
+        context: null,
+        context_files: '["src/missing.ts"]',
+        acceptance_criteria: "[]",
+        file_operations: "[]",
+        deliverables: "[]",
+        test_file: null,
+        test_requirements: null,
+        constraints: null,
+        reference_links: null,
+        created_at: "2023-01-01",
+        updated_at: "2023-01-01",
+      } as Handover);
+
+      existsSyncMock.mockReturnValue(false);
+
+      const result = resolver.getContextFilesWithStatus(1);
+
+      expect(result.length).toBe(1);
+      expect(result[0].exists).toBe(false);
+    });
+
+    it("should call fs.existsSync for each file path", () => {
+      const resolver = new ContextFileResolver(workspaceRoot);
+
+      getHandoverMock.mockReturnValue({
+        id: 1,
+        task_id: 1,
+        priority: "P1",
+        context: null,
+        context_files: '["src/file1.ts", "src/file2.ts"]',
+        acceptance_criteria: "[]",
+        file_operations: "[]",
+        deliverables: "[]",
+        test_file: null,
+        test_requirements: null,
+        constraints: null,
+        reference_links: null,
+        created_at: "2023-01-01",
+        updated_at: "2023-01-01",
+      } as Handover);
+
+      existsSyncMock.mockReturnValue(true);
+
+      resolver.getContextFilesWithStatus(1);
+
+      expect(existsSyncMock).toHaveBeenCalledTimes(2);
+      expect(existsSyncMock).toHaveBeenCalledWith(path.join(workspaceRoot, "src", "file1.ts"));
+      expect(existsSyncMock).toHaveBeenCalledWith(path.join(workspaceRoot, "src", "file2.ts"));
+    });
+
+    it("should log console.warn for missing files", () => {
+      const resolver = new ContextFileResolver(workspaceRoot);
+      const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+      getHandoverMock.mockReturnValue({
+        id: 1,
+        task_id: 1,
+        priority: "P1",
+        context: null,
+        context_files: '["src/missing.ts"]',
+        acceptance_criteria: "[]",
+        file_operations: "[]",
+        deliverables: "[]",
+        test_file: null,
+        test_requirements: null,
+        constraints: null,
+        reference_links: null,
+        created_at: "2023-01-01",
+        updated_at: "2023-01-01",
+      } as Handover);
+
+      existsSyncMock.mockReturnValue(false);
+
+      resolver.getContextFilesWithStatus(1);
+
+      expect(warnSpy).toHaveBeenCalledTimes(1);
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.stringContaining("Context file not found")
+      );
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.stringContaining("missing.ts")
+      );
+
+      warnSpy.mockRestore();
+    });
+
+    it("should not log console.warn for existing files", () => {
+      const resolver = new ContextFileResolver(workspaceRoot);
+      const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+      getHandoverMock.mockReturnValue({
+        id: 1,
+        task_id: 1,
+        priority: "P1",
+        context: null,
+        context_files: '["src/existing.ts"]',
+        acceptance_criteria: "[]",
+        file_operations: "[]",
+        deliverables: "[]",
+        test_file: null,
+        test_requirements: null,
+        constraints: null,
+        reference_links: null,
+        created_at: "2023-01-01",
+        updated_at: "2023-01-01",
+      } as Handover);
+
+      existsSyncMock.mockReturnValue(true);
+
+      resolver.getContextFilesWithStatus(1);
+
+      expect(warnSpy).not.toHaveBeenCalled();
+
+      warnSpy.mockRestore();
+    });
+
+    it("should handle mixed existing and missing files", () => {
+      const resolver = new ContextFileResolver(workspaceRoot);
+      const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+      getHandoverMock.mockReturnValue({
+        id: 1,
+        task_id: 1,
+        priority: "P1",
+        context: null,
+        context_files: '["src/existing.ts", "src/missing.ts", "src/another.ts"]',
+        acceptance_criteria: "[]",
+        file_operations: "[]",
+        deliverables: "[]",
+        test_file: null,
+        test_requirements: null,
+        constraints: null,
+        reference_links: null,
+        created_at: "2023-01-01",
+        updated_at: "2023-01-01",
+      } as Handover);
+
+      // First and third files exist, second doesn't
+      existsSyncMock
+        .mockReturnValueOnce(true)
+        .mockReturnValueOnce(false)
+        .mockReturnValueOnce(true);
+
+      const result = resolver.getContextFilesWithStatus(1);
+
+      expect(result.length).toBe(3);
+      expect(result[0].exists).toBe(true);
+      expect(result[1].exists).toBe(false);
+      expect(result[2].exists).toBe(true);
+
+      // Only one warning for the missing file
+      expect(warnSpy).toHaveBeenCalledTimes(1);
+
+      warnSpy.mockRestore();
+    });
+
+    it("should return empty array for null handover", () => {
+      const resolver = new ContextFileResolver(workspaceRoot);
+
+      getHandoverMock.mockReturnValue(null);
+
+      const result = resolver.getContextFilesWithStatus(999);
+
+      expect(result).toEqual([]);
+    });
+
+    it("should return empty array for null context_files", () => {
+      const resolver = new ContextFileResolver(workspaceRoot);
+
+      getHandoverMock.mockReturnValue({
+        id: 1,
+        task_id: 1,
+        priority: "P1",
+        context: null,
+        context_files: null,
+        acceptance_criteria: "[]",
+        file_operations: "[]",
+        deliverables: "[]",
+        test_file: null,
+        test_requirements: null,
+        constraints: null,
+        reference_links: null,
+        created_at: "2023-01-01",
+        updated_at: "2023-01-01",
+      } as Handover);
+
+      const result = resolver.getContextFilesWithStatus(1);
+
+      expect(result).toEqual([]);
+    });
+
+    it("should return empty array for invalid JSON", () => {
+      const resolver = new ContextFileResolver(workspaceRoot);
+
+      getHandoverMock.mockReturnValue({
+        id: 1,
+        task_id: 1,
+        priority: "P1",
+        context: null,
+        context_files: "not valid json",
+        acceptance_criteria: "[]",
+        file_operations: "[]",
+        deliverables: "[]",
+        test_file: null,
+        test_requirements: null,
+        constraints: null,
+        reference_links: null,
+        created_at: "2023-01-01",
+        updated_at: "2023-01-01",
+      } as Handover);
+
+      const result = resolver.getContextFilesWithStatus(1);
+
+      expect(result).toEqual([]);
+    });
+  });
+
+  describe("getContextFiles with file existence filtering", () => {
+    it("should only return URIs for existing files", () => {
+      const resolver = new ContextFileResolver(workspaceRoot);
+
+      getHandoverMock.mockReturnValue({
+        id: 1,
+        task_id: 1,
+        priority: "P1",
+        context: null,
+        context_files: '["src/existing.ts", "src/missing.ts"]',
+        acceptance_criteria: "[]",
+        file_operations: "[]",
+        deliverables: "[]",
+        test_file: null,
+        test_requirements: null,
+        constraints: null,
+        reference_links: null,
+        created_at: "2023-01-01",
+        updated_at: "2023-01-01",
+      } as Handover);
+
+      existsSyncMock
+        .mockReturnValueOnce(true)
+        .mockReturnValueOnce(false);
+
+      const result = resolver.getContextFiles(1);
+
+      expect(result.length).toBe(1);
+      expect(result[0].path).toContain("existing.ts");
+    });
+
+    it("should return empty array when no files exist", () => {
+      const resolver = new ContextFileResolver(workspaceRoot);
+
+      getHandoverMock.mockReturnValue({
+        id: 1,
+        task_id: 1,
+        priority: "P1",
+        context: null,
+        context_files: '["src/missing1.ts", "src/missing2.ts"]',
+        acceptance_criteria: "[]",
+        file_operations: "[]",
+        deliverables: "[]",
+        test_file: null,
+        test_requirements: null,
+        constraints: null,
+        reference_links: null,
+        created_at: "2023-01-01",
+        updated_at: "2023-01-01",
+      } as Handover);
+
+      existsSyncMock.mockReturnValue(false);
+
+      const result = resolver.getContextFiles(1);
+
+      expect(result).toEqual([]);
+    });
+
+    it("should return all URIs when all files exist", () => {
+      const resolver = new ContextFileResolver(workspaceRoot);
+
+      getHandoverMock.mockReturnValue({
+        id: 1,
+        task_id: 1,
+        priority: "P1",
+        context: null,
+        context_files: '["src/file1.ts", "src/file2.ts", "src/file3.ts"]',
+        acceptance_criteria: "[]",
+        file_operations: "[]",
+        deliverables: "[]",
+        test_file: null,
+        test_requirements: null,
+        constraints: null,
+        reference_links: null,
+        created_at: "2023-01-01",
+        updated_at: "2023-01-01",
+      } as Handover);
+
+      existsSyncMock.mockReturnValue(true);
+
+      const result = resolver.getContextFiles(1);
+
+      expect(result.length).toBe(3);
     });
   });
 });

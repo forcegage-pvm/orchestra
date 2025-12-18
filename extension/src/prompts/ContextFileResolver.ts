@@ -12,6 +12,7 @@
 
 import * as vscode from "vscode";
 import * as path from "path";
+import * as fs from "fs";
 import { getHandover } from "../database/queries.js";
 
 /**
@@ -37,16 +38,15 @@ export class ContextFileResolver {
   }
 
   /**
-   * Get context files for a task as vscode.Uri array
+   * Get context files with existence status
    *
-   * Queries the handover database for the given task ID, parses the
-   * context_files JSON array, resolves each path relative to workspaceRoot,
-   * and returns an array of vscode.Uri objects.
+   * Returns all context files with their existence status, useful for UI display.
+   * Logs a warning to console for each file that doesn't exist.
    *
    * @param taskId Task ID (numeric primary key from database)
-   * @returns Array of vscode.Uri for context files (empty if handover not found or no context files)
+   * @returns Array of { uri, exists } objects
    */
-  getContextFiles(taskId: number): vscode.Uri[] {
+  getContextFilesWithStatus(taskId: number): { uri: vscode.Uri; exists: boolean }[] {
     // Query handover from database
     const handover = getHandover(this.workspaceRoot, taskId);
 
@@ -74,12 +74,36 @@ export class ContextFileResolver {
       return [];
     }
 
-    // Resolve each path relative to workspaceRoot and convert to vscode.Uri
-    const uris: vscode.Uri[] = contextFilePaths.map((relativePath) => {
-      const absolutePath = path.join(this.workspaceRoot, relativePath);
-      return vscode.Uri.file(absolutePath);
-    });
+    // Resolve each path and check existence
+    const filesWithStatus: { uri: vscode.Uri; exists: boolean }[] = contextFilePaths.map(
+      (relativePath) => {
+        const absolutePath = path.join(this.workspaceRoot, relativePath);
+        const uri = vscode.Uri.file(absolutePath);
+        const exists = fs.existsSync(absolutePath);
 
-    return uris;
+        if (!exists) {
+          console.warn(`Context file not found: ${absolutePath}`);
+        }
+
+        return { uri, exists };
+      }
+    );
+
+    return filesWithStatus;
+  }
+
+  /**
+   * Get context files for a task as vscode.Uri array
+   *
+   * Queries the handover database for the given task ID, parses the
+   * context_files JSON array, resolves each path relative to workspaceRoot,
+   * and returns an array of vscode.Uri objects for files that exist.
+   *
+   * @param taskId Task ID (numeric primary key from database)
+   * @returns Array of vscode.Uri for existing context files (empty if handover not found or no context files)
+   */
+  getContextFiles(taskId: number): vscode.Uri[] {
+    const filesWithStatus = this.getContextFilesWithStatus(taskId);
+    return filesWithStatus.filter((f) => f.exists).map((f) => f.uri);
   }
 }
