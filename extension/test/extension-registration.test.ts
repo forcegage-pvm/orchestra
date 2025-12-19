@@ -398,3 +398,78 @@ describe("Extension registration - CurrentTaskViewProvider (Task 7)", () => {
     });
   });
 });
+
+describe("Extension registration - ContextFileResolver (Task 8)", () => {
+  let extensionCode: string;
+
+  beforeEach(() => {
+    const extensionPath = path.join(__dirname, "..", "src", "extension.ts");
+    extensionCode = fs.readFileSync(extensionPath, "utf-8");
+  });
+
+  describe("import statement", () => {
+    it("should import ContextFileResolver from prompts/ContextFileResolver.js", () => {
+      expect(extensionCode).toContain("import { ContextFileResolver } from \"./prompts/ContextFileResolver.js\"");
+    });
+  });
+
+  describe("module-level variable", () => {
+    it("should declare contextFileResolver variable with optional type", () => {
+      expect(extensionCode).toMatch(/let contextFileResolver:\s*ContextFileResolver\s*\|\s*undefined/);
+    });
+  });
+
+  describe("getContextFileResolver export function", () => {
+    it("should export getContextFileResolver function", () => {
+      expect(extensionCode).toContain("export function getContextFileResolver()");
+    });
+
+    it("should return ContextFileResolver type", () => {
+      expect(extensionCode).toMatch(/export function getContextFileResolver\(\):\s*ContextFileResolver/);
+    });
+
+    it("should throw error if not initialized", () => {
+      expect(extensionCode).toContain("if (!contextFileResolver)");
+      expect(extensionCode).toContain('throw new Error("ContextFileResolver not initialized');
+    });
+
+    it("should return contextFileResolver instance when initialized", () => {
+      const functionMatch = extensionCode.match(
+        /export function getContextFileResolver\(\):[^{]+{([\s\S]*?)\n}/
+      );
+      expect(functionMatch).toBeTruthy();
+      if (functionMatch) {
+        const body = functionMatch[1] || "";
+        expect(body).toContain("return contextFileResolver");
+      }
+    });
+  });
+
+  describe("activation and instantiation", () => {
+    it("should instantiate ContextFileResolver in activate function", () => {
+      expect(extensionCode).toMatch(/contextFileResolver\s*=\s*new ContextFileResolver\(/);
+    });
+
+    it("should pass orchestraRoot as constructor parameter", () => {
+      expect(extensionCode).toMatch(/new ContextFileResolver\(orchestraRoot\)/);
+    });
+
+    it("should initialize after orchestraRoot is detected", () => {
+      const orchestraRootIndex = extensionCode.indexOf("Orchestra workspace detected:");
+      const initIndex = extensionCode.indexOf("new ContextFileResolver(");
+      expect(initIndex).toBeGreaterThan(orchestraRootIndex);
+      expect(initIndex).toBeGreaterThan(-1);
+    });
+
+    it("should log initialization", () => {
+      expect(extensionCode).toContain('logger.info("ContextFileResolver initialized")');
+    });
+
+    it("should include Task 8 reference in comment", () => {
+      const initMatch = extensionCode.match(
+        /\/\/.*ContextFileResolver.*Task 8/i
+      );
+      expect(initMatch).toBeTruthy();
+    });
+  });
+});

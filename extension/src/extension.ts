@@ -12,6 +12,7 @@ import * as vscode from "vscode";
 import { registerChatParticipant } from "./chat/participant.js";
 import { ConfigService } from "./config/ConfigService.js";
 import { OrchestraDB } from "./database/client.js";
+import { ContextFileResolver } from "./prompts/ContextFileResolver.js";
 import { DatabaseWatcher } from "./database/watcher.js";
 import { ConfigGenerator } from "./mcp/ConfigGenerator.js";
 import { MCPServerManager } from "./mcp/ServerManager.js";
@@ -30,6 +31,7 @@ import {
 
 let logger: OrchestraLogger;
 let configService: ConfigService;
+let contextFileResolver: ContextFileResolver | undefined;
 let dbWatcher: DatabaseWatcher | undefined;
 let mcpManager: MCPServerManager | undefined;
 
@@ -42,6 +44,17 @@ export function getConfigService(): ConfigService {
     throw new Error("ConfigService not initialized. Extension not activated.");
   }
   return configService;
+}
+
+/**
+ * Get the ContextFileResolver instance
+ * @returns The ContextFileResolver instance or throws if not initialized
+ */
+export function getContextFileResolver(): ContextFileResolver {
+  if (!contextFileResolver) {
+    throw new Error("ContextFileResolver not initialized. Orchestra workspace not detected.");
+  }
+  return contextFileResolver;
 }
 
 /**
@@ -657,6 +670,10 @@ export async function activate(
   }
 
   logger.info(`Orchestra workspace detected: ${orchestraRoot}`);
+
+  // Initialize ContextFileResolver (Task 8)
+  contextFileResolver = new ContextFileResolver(orchestraRoot);
+  logger.info("ContextFileResolver initialized");
 
   // 2. Validate workspace - check if database exists
   if (!validateOrchestraWorkspace(orchestraRoot)) {
