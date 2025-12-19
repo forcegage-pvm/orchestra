@@ -5,16 +5,16 @@
  * in a full workflow simulation (PREPARE → IMPLEMENT → VERIFY → RETRY).
  */
 
-import { describe, expect, it, beforeEach, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import * as vscode from "vscode";
+import type { Handover } from "../../src/database/queries.js";
+import { ContextFileResolver } from "../../src/prompts/ContextFileResolver.js";
 import {
   PromptBuilder,
   type PromptContext,
-  type Task,
   type Sprint,
+  type Task,
 } from "../../src/prompts/PromptBuilder.js";
-import { ContextFileResolver } from "../../src/prompts/ContextFileResolver.js";
-import type { Handover } from "../../src/database/queries.js";
-import * as vscode from "vscode";
 
 // Mock database queries
 vi.mock("../../src/database/queries.js", () => ({
@@ -51,7 +51,8 @@ describe("Prompt System Integration", () => {
     id: 1,
     task_id: 42,
     priority: "P1",
-    context: "Authentication is critical for the app. Use JWT tokens with RS256 signing.",
+    context:
+      "Authentication is critical for the app. Use JWT tokens with RS256 signing.",
     context_files: JSON.stringify([
       "src/auth/types.ts",
       "src/auth/jwt.ts",
@@ -460,7 +461,11 @@ describe("Prompt System Integration", () => {
       ];
 
       // Implementor-only tools
-      const implementorTools = ["get_current_task", "signal_completion", "get_feedback"];
+      const implementorTools = [
+        "get_current_task",
+        "signal_completion",
+        "get_feedback",
+      ];
 
       // Prepare and Verify are orchestrator stages
       for (const tool of orchestratorTools) {
