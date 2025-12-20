@@ -4,10 +4,10 @@
  * Tests the ChatInvoker utility class with mocked VS Code APIs
  */
 
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import * as vscode from "vscode";
-import { ChatInvoker } from "../../src/chat/ChatInvoker.js";
 import type { ChatInvocationOptions } from "../../src/chat/ChatInvoker.js";
+import { ChatInvoker } from "../../src/chat/ChatInvoker.js";
 import { OrchestraLogger } from "../../src/utils/logger.js";
 
 // Mock VS Code API
@@ -185,7 +185,9 @@ describe("ChatInvoker", () => {
         agentMode: "orchestrator",
       };
 
-      await expect(invoker.invokeChat(options)).rejects.toThrow("Command failed");
+      await expect(invoker.invokeChat(options)).rejects.toThrow(
+        "Command failed"
+      );
 
       // Verify error was logged
       expect(mockLogger.error).toHaveBeenCalledWith(
@@ -200,7 +202,9 @@ describe("ChatInvoker", () => {
     });
 
     it("should handle non-Error exceptions", async () => {
-      vi.mocked(vscode.commands.executeCommand).mockRejectedValue("String error");
+      vi.mocked(vscode.commands.executeCommand).mockRejectedValue(
+        "String error"
+      );
 
       const options: ChatInvocationOptions = {
         prompt: "Test query",

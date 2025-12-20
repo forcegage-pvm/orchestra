@@ -5,6 +5,6 @@
  */
 
 export { ChatInvoker } from "./ChatInvoker.js";
-export type { ChatInvocationOptions, AgentMode } from "./ChatInvoker.js";
-export { registerChatParticipant } from "./participant.js";
+export type { AgentMode, ChatInvocationOptions } from "./ChatInvoker.js";
 export { getSprintContext } from "./context.js";
+export { registerChatParticipant } from "./participant.js";
