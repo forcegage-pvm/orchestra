@@ -7,7 +7,11 @@
  */
 
 import * as vscode from "vscode";
-import { getTaskById } from "../database/queries.js";
+import { ChatInvoker } from "../chat/ChatInvoker.js";
+import { getConfigService } from "../extension.js";
+import { getTaskById, getCurrentSprint } from "../database/queries.js";
+import { PromptBuilder } from "../prompts/PromptBuilder.js";
+import { OrchestraLogger } from "../utils/logger.js";
 
 /**
  * Handle Play button click for a task
@@ -67,19 +71,77 @@ export async function handlePlayTask(
 /**
  * Invoke orchestrator to prepare a PENDING task
  *
- * TODO: Implement using ChatInvoker with orchestrator mode
+ * Builds a PREPARE prompt with task context and opens chat with orchestrator agent.
+ * Uses PromptBuilder to generate structured prompt and ChatInvoker to open chat.
  *
- * @param _workspaceRoot Absolute path to workspace root
+ * @param workspaceRoot Absolute path to workspace root
  * @param taskId Task ID (numeric primary key)
  */
 async function invokePrepare(
-  _workspaceRoot: string,
+  workspaceRoot: string,
   taskId: number
 ): Promise<void> {
-  // TODO: Task 5 - Implement with ChatInvoker
-  vscode.window.showInformationMessage(
-    `[STUB] Would invoke orchestrator to prepare task ${taskId}`
-  );
+  try {
+    // Get task and sprint data from database
+    const task = getTaskById(workspaceRoot, taskId);
+    const sprint = getCurrentSprint(workspaceRoot);
+
+    if (!task) {
+      vscode.window.showErrorMessage(`Task ${taskId} not found`);
+      return;
+    }
+
+    if (!sprint) {
+      vscode.window.showErrorMessage(
+        "No active sprint found. Cannot prepare task."
+      );
+      return;
+    }
+
+    // Build prompt context
+    const context = {
+      task: {
+        task_id: task.id,
+        title: task.title,
+        description: task.description,
+        category: task.category,
+        phase_id: `phase-${task.phase_id}`,
+      },
+      sprint: {
+        sprint_id: sprint.id,
+        title: sprint.name,
+      },
+    };
+
+    // Create instances
+    const logger = new OrchestraLogger();
+    const promptBuilder = new PromptBuilder();
+    const chatInvoker = new ChatInvoker(logger);
+
+    // Build the prepare prompt
+    const prompt = promptBuilder.buildPreparePrompt(context);
+
+    // Get orchestrator model configuration
+    const model = getConfigService().getModelForRole("orchestrator");
+
+    // Invoke chat with orchestrator agent
+    await chatInvoker.invokeChat({
+      prompt,
+      agentMode: "orchestrator",
+      model,
+    });
+
+    logger.info(`Invoked orchestrator to prepare task ${taskId}`, {
+      taskId,
+      taskTitle: task.title,
+      sprintId: sprint.id,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    vscode.window.showErrorMessage(
+      `Orchestra: Failed to prepare task ${taskId} - ${message}`
+    );
+  }
 }
 
 /**
