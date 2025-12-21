@@ -119,6 +119,154 @@ Without this fix:
 - Human supervisors have no visibility into spec coverage
 - Trust in the orchestration system is undermined
 
+## 4. Handover Information Isolation Enforcement
+
+**CRITICAL**: The information isolation principle is being violated during handover preparation.
+
+### Problem
+
+When calling `prepare_task`, orchestrators are including:
+- Spec file references in context: "from spec lines 133-140, 572-578"
+- Spec file paths in context_files: "sprint-003-autonomous-orchestration.md"
+- References to other tasks: "Task 6 (not started)"
+- Sprint structure information: "after Sprint 003D"
+
+This violates the trust boundary - implementors must NEVER see:
+- Where requirements came from (spec file paths/lines)
+- What other tasks exist in the sprint
+- Sprint configuration or manifest structure
+
+### Required Solution
+
+Add validation to `prepare_task` MCP tool:
+
+```typescript
+// Validate context field for forbidden patterns
+const FORBIDDEN_PATTERNS = [
+  /spec[\/\\].*\.md/i,           // spec file paths
+  /lines?\s+\d+/i,                // line number references
+  /from spec/i,                   // "from spec" phrases
+  /task\s+\d+.*\(not\s+started\)/i,  // references to other tasks
+  /sprint\s+\d{3}/i,              // sprint IDs
+  /see\s+.*\.md/i,                // "see [file]" references
+  /per\s+requirements\.md/i,      // "per requirements.md"
+];
+
+function validateHandoverContext(context: string): ValidationResult {
+  const violations: string[] = [];
+  
+  for (const pattern of FORBIDDEN_PATTERNS) {
+    if (pattern.test(context)) {
+      violations.push(`Forbidden pattern detected: ${pattern}`);
+    }
+  }
+  
+  return {
+    valid: violations.length === 0,
+    violations
+  };
+}
+```
+
+Add to `prepare_task` handler:
+```typescript
+const validation = validateHandoverContext(acceptance_criteria.context);
+if (!validation.valid) {
+  throw new Error(
+    `Information isolation violation in handover context:\n${validation.violations.join('\n')}`
+  );
+}
+```
+
+### Context Files Validation
+
+Add similar validation for `context_files` parameter:
+
+```typescript
+const FORBIDDEN_FILE_PATTERNS = [
+  /spec[\/\\]/i,              // spec directory
+  /tasks?\.md$/i,             // task lists
+  /manifest\.ya?ml$/i,        // sprint manifests
+  /\.orchestrator-only/i,     // orchestrator secrets
+];
+
+function validateContextFiles(files: string[]): ValidationResult {
+  const violations: string[] = [];
+  
+  for (const file of files) {
+    for (const pattern of FORBIDDEN_FILE_PATTERNS) {
+      if (pattern.test(file)) {
+        violations.push(`Forbidden file in context_files: ${file}`);
+      }
+    }
+  }
+  
+  return {
+    valid: violations.length === 0,
+    violations
+  };
+}
+```
+
+### Orchestrator Mode Instructions
+
+Update `.github/copilot-instructions.md` or agent mode files to include PRE-FLIGHT checklist before calling `prepare_task`:
+
+```markdown
+## Handover Preparation Checklist
+
+Before calling prepare_task, verify:
+
+- [ ] Context contains NO spec file references (no "spec/", no "lines 123-456")
+- [ ] Context contains NO references to other tasks by ID
+- [ ] Context contains NO sprint structure information
+- [ ] Context_files contains ONLY source code files (no spec/, no tasks.md, no manifest.yaml)
+- [ ] All requirements are EXTRACTED into acceptance_criteria (not referenced externally)
+- [ ] All code examples are COMPLETE (no "see file X for details")
+```
+
+### Update Handover Workflow Violation
+
+**Problem**: `update_handover` can currently be called at ANY time, including after the task has transitioned to IMPLEMENT status. This creates a workflow loophole where:
+- Orchestrator can modify handover after implementor has already read it
+- Post-hoc changes can hide mistakes or violations
+- Breaks the immutability of the handover once implementation begins
+- Undermines audit trail integrity
+
+**Example violation**: Task 2 was in IMPLEMENT status, but `update_handover` was successfully called to fix information isolation violations.
+
+**Required Solution**:
+
+Add status gate to `update_handover` MCP tool:
+
+```typescript
+// In update_handover handler
+const task = await getTask(task_id);
+
+const ALLOWED_STATUSES = ['PENDING', 'PREPARE'];
+if (!ALLOWED_STATUSES.includes(task.status)) {
+  throw new Error(
+    `Cannot update handover: Task ${task_id} is in ${task.status} status. ` +
+    `Handover updates are only allowed in PENDING or PREPARE status. ` +
+    `Once a task reaches IMPLEMENT, the handover is immutable.`
+  );
+}
+
+// Proceed with update...
+```
+
+**Rationale**:
+- PENDING: Task not yet prepared, no handover exists yet (edge case)
+- PREPARE: Task being prepared, handover is work-in-progress
+- IMPLEMENT: Handover is locked - implementor may have already read it
+- VERIFY/COMPLETE: Handover is historical record
+
+**Exception**: The only way to fix a bad handover after IMPLEMENT is to:
+1. Fail verification with specific feedback
+2. Task returns to PREPARE status (retry)
+3. Orchestrator can then update_handover with corrections
+4. Task returns to IMPLEMENT with updated handover
+
 ## Acceptance Criteria
 
 1. [ ] Sprint configuration requires spec file references
@@ -127,6 +275,12 @@ Without this fix:
 4. [ ] Human supervisor can view full sprint summary
 5. [ ] Sprints with gaps require explicit approval
 6. [ ] Gap analysis results are auditable
+7. [ ] `prepare_task` validates context for information isolation violations
+8. [ ] `prepare_task` validates context_files for forbidden file patterns
+9. [ ] Violations throw errors with clear messages before handover is created
+10. [ ] Orchestrator mode instructions include pre-flight checklist
+11. [ ] `update_handover` validates task status (only PENDING/PREPARE allowed)
+12. [ ] `update_handover` throws error if task is in IMPLEMENT or later status
 
 ## Related
 

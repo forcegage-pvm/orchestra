@@ -73,12 +73,25 @@ describe("SessionManager", () => {
 
       await sessionManager.invokeOrchestrator(prompt, files);
 
+      // Verify VS Code command was called with correct parameters
+      expect(vscode.commands.executeCommand).toHaveBeenCalledWith(
+        "workbench.action.chat.open",
+        expect.objectContaining({
+          query: prompt,
+          isPartialQuery: false,
+          mode: "agent",
+          modelSelector: "claude-sonnet-4",
+          attachFiles: files,
+        })
+      );
+
       // Verify logging
       expect(mockLogger.info).toHaveBeenCalledWith(
         "Invoking orchestrator session",
         expect.objectContaining({
           hasFiles: true,
           fileCount: 1,
+          model: "claude-sonnet-4",
         })
       );
       expect(mockLogger.info).toHaveBeenCalledWith(
@@ -92,6 +105,15 @@ describe("SessionManager", () => {
 
       await sessionManager.invokeOrchestrator(prompt, files);
 
+      // Verify command was called with empty attachFiles
+      expect(vscode.commands.executeCommand).toHaveBeenCalledWith(
+        "workbench.action.chat.open",
+        expect.objectContaining({
+          query: prompt,
+          attachFiles: [],
+        })
+      );
+
       expect(mockLogger.info).toHaveBeenCalledWith(
         "Invoking orchestrator session",
         expect.objectContaining({
@@ -101,14 +123,68 @@ describe("SessionManager", () => {
       );
     });
 
+    it("should use configured model from ConfigService", async () => {
+      const prompt = "Test prompt";
+      const files: vscode.Uri[] = [];
+      const customModel = "claude-opus-4";
+
+      // Mock custom model
+      vi.spyOn(mockConfigService, "getModelForRole").mockReturnValue(
+        customModel
+      );
+
+      await sessionManager.invokeOrchestrator(prompt, files);
+
+      // Verify model was retrieved for orchestrator role
+      expect(mockConfigService.getModelForRole).toHaveBeenCalledWith(
+        "orchestrator"
+      );
+
+      // Verify command was called with custom model
+      expect(vscode.commands.executeCommand).toHaveBeenCalledWith(
+        "workbench.action.chat.open",
+        expect.objectContaining({
+          modelSelector: customModel,
+        })
+      );
+    });
+
+    it("should pass mode: 'agent' to enable agent mode", async () => {
+      const prompt = "Test prompt";
+      const files: vscode.Uri[] = [];
+
+      await sessionManager.invokeOrchestrator(prompt, files);
+
+      expect(vscode.commands.executeCommand).toHaveBeenCalledWith(
+        "workbench.action.chat.open",
+        expect.objectContaining({
+          mode: "agent",
+        })
+      );
+    });
+
+    it("should pass isPartialQuery: false to auto-send prompt", async () => {
+      const prompt = "Test prompt";
+      const files: vscode.Uri[] = [];
+
+      await sessionManager.invokeOrchestrator(prompt, files);
+
+      expect(vscode.commands.executeCommand).toHaveBeenCalledWith(
+        "workbench.action.chat.open",
+        expect.objectContaining({
+          isPartialQuery: false,
+        })
+      );
+    });
+
     it("should handle errors gracefully", async () => {
       const prompt = "Test prompt";
       const files: vscode.Uri[] = [];
 
-      // Mock an error by spying on logger and throwing
-      vi.spyOn(mockLogger, "info").mockImplementationOnce(() => {
-        throw new Error("Test error");
-      });
+      // Mock command execution failure
+      vi.spyOn(vscode.commands, "executeCommand").mockRejectedValueOnce(
+        new Error("Test error")
+      );
 
       await expect(
         sessionManager.invokeOrchestrator(prompt, files)

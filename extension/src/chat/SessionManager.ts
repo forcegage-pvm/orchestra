@@ -44,7 +44,7 @@ export class SessionManager {
    * @returns Promise that resolves when the session is invoked
    */
   async invokeOrchestrator(
-    _prompt: string,
+    prompt: string,
     files: vscode.Uri[]
   ): Promise<void> {
     try {
@@ -56,9 +56,14 @@ export class SessionManager {
         wasActive: this._orchestratorActive,
       });
 
-      // TODO: Implement orchestrator invocation
-      // - Use workbench.action.chat.open for Chat Panel
-      // - Format prompt with @orchestra prefix
+      // Execute VS Code command to open chat with orchestrator agent
+      await vscode.commands.executeCommand("workbench.action.chat.open", {
+        query: prompt,
+        isPartialQuery: false,
+        mode: "agent",
+        modelSelector: model,
+        attachFiles: files,
+      });
 
       this._orchestratorActive = true;
       this.logger.info("Orchestrator session invoked successfully");
