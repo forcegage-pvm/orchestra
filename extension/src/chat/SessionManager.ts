@@ -7,8 +7,8 @@
  */
 
 import * as vscode from "vscode";
-import { OrchestraLogger } from "../utils/logger.js";
 import { ConfigService } from "../config/ConfigService.js";
+import { OrchestraLogger } from "../utils/logger.js";
 
 /**
  * SessionManager manages dual chat sessions for Orchestra agents
@@ -43,7 +43,10 @@ export class SessionManager {
    * @param files - Files to attach to the chat context
    * @returns Promise that resolves when the session is invoked
    */
-  async invokeOrchestrator(_prompt: string, files: vscode.Uri[]): Promise<void> {
+  async invokeOrchestrator(
+    _prompt: string,
+    files: vscode.Uri[]
+  ): Promise<void> {
     try {
       const model = this._configService.getModelForRole("orchestrator");
       this.logger.info("Invoking orchestrator session", {

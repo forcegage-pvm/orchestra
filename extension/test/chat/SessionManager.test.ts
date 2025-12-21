@@ -7,8 +7,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import * as vscode from "vscode";
 import { SessionManager } from "../../src/chat/SessionManager.js";
-import { OrchestraLogger } from "../../src/utils/logger.js";
 import { ConfigService } from "../../src/config/ConfigService.js";
+import { OrchestraLogger } from "../../src/utils/logger.js";
 
 // Mock VS Code API
 vi.mock("vscode", () => ({
