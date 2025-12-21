@@ -44,7 +44,8 @@ export class ConfigService {
    */
   getModelForRole(role: Role): string {
     const config = this.getWorkspaceConfig();
-    return config.get<string>(`models.${role}`, "claude-sonnet-4");
+    const defaultModel = role === "orchestrator" ? "claude-opus-4" : "claude-sonnet-4";
+    return config.get<string>(`models.${role}`, defaultModel);
   }
 
   /**

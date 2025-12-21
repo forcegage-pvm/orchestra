@@ -65,10 +65,16 @@ vi.mock("../../src/prompts/ContextFileResolver.js", () => ({
 // Mock extension
 vi.mock("../../src/extension.js", () => ({
   getConfigService: vi.fn(() => ({
-    getModelForRole: vi.fn(() => "claude-sonnet-4"),
+    getModelForRole: vi.fn((role: string) => 
+      role === "orchestrator" ? "claude-opus-4" : "claude-sonnet-4"
+    ),
   })),
   getContextFileResolver: vi.fn(() => ({
     getContextFiles: vi.fn(() => []),
+  })),
+  getSessionManager: vi.fn(() => ({
+    invokeOrchestrator: vi.fn(),
+    invokeImplementor: vi.fn(),
   })),
 }));
 
@@ -176,7 +182,7 @@ describe("PlayTaskHandler", () => {
         expect(mockInvokeChat).toHaveBeenCalledWith({
           prompt: "Mock prepare prompt",
           agentMode: "orchestrator",
-          model: "claude-sonnet-4",
+          model: "claude-opus-4",
         });
       });
 

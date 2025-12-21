@@ -32,7 +32,7 @@ describe("ConfigService", () => {
     mockConfig = {
       get: vi.fn((key: string, defaultValue?: any) => {
         const config: Record<string, any> = {
-          "models.orchestrator": "claude-sonnet-4",
+          "models.orchestrator": "claude-opus-4",
           "models.implementor": "claude-sonnet-4",
           "agents.orchestrator": "orchestra.orchestrator.agent",
           "agents.implementor": "orchestra.implementor.agent",
@@ -49,10 +49,10 @@ describe("ConfigService", () => {
   describe("getModelForRole", () => {
     it("returns orchestrator model when role is orchestrator", () => {
       const model = service.getModelForRole("orchestrator");
-      expect(model).toBe("claude-sonnet-4");
+      expect(model).toBe("claude-opus-4");
       expect(mockConfig.get).toHaveBeenCalledWith(
         "models.orchestrator",
-        "claude-sonnet-4"
+        "claude-opus-4"
       );
     });
 
@@ -112,7 +112,7 @@ describe("ConfigService", () => {
 
       expect(config).toEqual({
         models: {
-          orchestrator: "claude-sonnet-4",
+          orchestrator: "claude-opus-4",
           implementor: "claude-sonnet-4",
         },
         agents: {

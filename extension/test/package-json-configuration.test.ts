@@ -16,8 +16,8 @@ describe("package.json configuration settings", () => {
         expect(setting?.type).toBe("string");
       });
 
-      it("should have default value 'claude-sonnet-4'", () => {
-        expect(setting?.default).toBe("claude-sonnet-4");
+      it("should have default value 'claude-opus-4'", () => {
+        expect(setting?.default).toBe("claude-opus-4");
       });
 
       it("should have a descriptive text", () => {
