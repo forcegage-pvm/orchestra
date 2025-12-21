@@ -13,10 +13,10 @@ import { registerChatParticipant } from "./chat/participant.js";
 import { handlePlayTask } from "./commands/PlayTaskHandler.js";
 import { ConfigService } from "./config/ConfigService.js";
 import { OrchestraDB } from "./database/client.js";
-import { ContextFileResolver } from "./prompts/ContextFileResolver.js";
 import { DatabaseWatcher } from "./database/watcher.js";
 import { ConfigGenerator } from "./mcp/ConfigGenerator.js";
 import { MCPServerManager } from "./mcp/ServerManager.js";
+import { ContextFileResolver } from "./prompts/ContextFileResolver.js";
 import { OrchestraLogger } from "./utils/logger.js";
 import { DashboardPanel } from "./views/dashboard/DashboardPanel.js";
 import { OrchestraViewDecorationProvider } from "./views/providers/ViewDecorationProvider.js";
@@ -53,7 +53,9 @@ export function getConfigService(): ConfigService {
  */
 export function getContextFileResolver(): ContextFileResolver {
   if (!contextFileResolver) {
-    throw new Error("ContextFileResolver not initialized. Orchestra workspace not detected.");
+    throw new Error(
+      "ContextFileResolver not initialized. Orchestra workspace not detected."
+    );
   }
   return contextFileResolver;
 }

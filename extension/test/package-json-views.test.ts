@@ -118,8 +118,8 @@ describe("package.json views configuration", () => {
     });
 
     it("should not use old camelCase view ID (orchestraSprintExplorer)", () => {
-      const anyButtonUsesOldId = viewTitleMenus.some(
-        (menu: any) => menu.when?.includes("orchestraSprintExplorer")
+      const anyButtonUsesOldId = viewTitleMenus.some((menu: any) =>
+        menu.when?.includes("orchestraSprintExplorer")
       );
       expect(anyButtonUsesOldId).toBe(false);
     });
@@ -223,8 +223,8 @@ describe("package.json views configuration", () => {
     });
 
     it("should not use old view ID (orchestraSprintExplorer) in any menu items", () => {
-      const anyMenuUsesOldId = contextMenus.some(
-        (menu: any) => menu.when?.includes("orchestraSprintExplorer")
+      const anyMenuUsesOldId = contextMenus.some((menu: any) =>
+        menu.when?.includes("orchestraSprintExplorer")
       );
       expect(anyMenuUsesOldId).toBe(false);
     });
@@ -268,7 +268,9 @@ describe("package.json views configuration", () => {
 
       it("should use correct view ID (orchestra.sprintExplorer)", () => {
         expect(playTaskKeybinding?.when).toContain("orchestra.sprintExplorer");
-        expect(playTaskKeybinding?.when).not.toContain("orchestraSprintExplorer");
+        expect(playTaskKeybinding?.when).not.toContain(
+          "orchestraSprintExplorer"
+        );
       });
     });
   });
@@ -303,8 +305,7 @@ describe("package.json views configuration", () => {
       it("should use viewItem pattern for all task context menus", () => {
         const taskMenus = contextMenus.filter(
           (menu: any) =>
-            menu.when?.includes("viewItem") &&
-            menu.when?.includes("task-")
+            menu.when?.includes("viewItem") && menu.when?.includes("task-")
         );
 
         expect(taskMenus.length).toBeGreaterThan(0);
@@ -343,7 +344,9 @@ describe("package.json views configuration", () => {
         expect(statusRestrictedMenu).toBeDefined();
         expect(statusRestrictedMenu?.when).toContain("viewItem =~");
         // Should match task-pending or task-implement
-        expect(statusRestrictedMenu?.when).toMatch(/task-\(pending\|implement\)/);
+        expect(statusRestrictedMenu?.when).toMatch(
+          /task-\(pending\|implement\)/
+        );
       });
 
       it("should have deEscalateTask only for escalated status", () => {
@@ -433,8 +436,7 @@ describe("package.json views configuration", () => {
       it("should anchor task- patterns at the start with ^", () => {
         const taskMenusWithRegex = contextMenus.filter(
           (menu: any) =>
-            menu.when?.includes("viewItem =~") &&
-            menu.when?.includes("task-")
+            menu.when?.includes("viewItem =~") && menu.when?.includes("task-")
         );
 
         taskMenusWithRegex.forEach((menu: any) => {
@@ -446,8 +448,7 @@ describe("package.json views configuration", () => {
       it("should use proper alternation syntax for multiple statuses", () => {
         const multiStatusMenus = contextMenus.filter(
           (menu: any) =>
-            menu.when?.includes("viewItem =~") &&
-            menu.when?.includes("|")
+            menu.when?.includes("viewItem =~") && menu.when?.includes("|")
         );
 
         multiStatusMenus.forEach((menu: any) => {
@@ -461,8 +462,7 @@ describe("package.json views configuration", () => {
       it("should have menu items for PENDING status", () => {
         const pendingMenus = contextMenus.filter(
           (menu: any) =>
-            menu.when?.includes("viewItem") &&
-            menu.when?.includes("pending")
+            menu.when?.includes("viewItem") && menu.when?.includes("pending")
         );
 
         expect(pendingMenus.length).toBeGreaterThan(0);
@@ -471,8 +471,7 @@ describe("package.json views configuration", () => {
       it("should have menu items for IMPLEMENT status", () => {
         const implementMenus = contextMenus.filter(
           (menu: any) =>
-            menu.when?.includes("viewItem") &&
-            menu.when?.includes("implement")
+            menu.when?.includes("viewItem") && menu.when?.includes("implement")
         );
 
         expect(implementMenus.length).toBeGreaterThan(0);
@@ -481,8 +480,7 @@ describe("package.json views configuration", () => {
       it("should have menu items for ESCALATED status", () => {
         const escalatedMenus = contextMenus.filter(
           (menu: any) =>
-            menu.when?.includes("viewItem") &&
-            menu.when?.includes("escalated")
+            menu.when?.includes("viewItem") && menu.when?.includes("escalated")
         );
 
         expect(escalatedMenus.length).toBeGreaterThan(0);
