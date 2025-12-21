@@ -6,11 +6,11 @@
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import * as vscode from "vscode";
+import { ChatInvoker } from "../../src/chat/ChatInvoker.js";
 import { handlePlayTask } from "../../src/commands/PlayTaskHandler.js";
 import * as queries from "../../src/database/queries.js";
-import { ChatInvoker } from "../../src/chat/ChatInvoker.js";
-import { PromptBuilder } from "../../src/prompts/PromptBuilder.js";
 import * as extension from "../../src/extension.js";
+import { PromptBuilder } from "../../src/prompts/PromptBuilder.js";
 
 // Mock VS Code API
 vi.mock("vscode", () => ({
@@ -37,6 +37,7 @@ vi.mock("vscode", () => ({
 vi.mock("../../src/database/queries.js", () => ({
   getTaskById: vi.fn(),
   getCurrentSprint: vi.fn(),
+  getFeedback: vi.fn(),
 }));
 
 // Mock ChatInvoker
@@ -134,14 +135,14 @@ describe("PlayTaskHandler", () => {
           () =>
             ({
               invokeChat: mockInvokeChat,
-            }) as unknown as ChatInvoker
+            } as unknown as ChatInvoker)
         );
 
         vi.mocked(PromptBuilder).mockImplementation(
           () =>
             ({
               buildPreparePrompt: mockBuildPreparePrompt,
-            }) as unknown as PromptBuilder
+            } as unknown as PromptBuilder)
         );
 
         await handlePlayTask(mockWorkspaceRoot, mockTaskId);
@@ -151,7 +152,9 @@ describe("PlayTaskHandler", () => {
           mockWorkspaceRoot,
           mockTaskId
         );
-        expect(queries.getCurrentSprint).toHaveBeenCalledWith(mockWorkspaceRoot);
+        expect(queries.getCurrentSprint).toHaveBeenCalledWith(
+          mockWorkspaceRoot
+        );
 
         // Verify PromptBuilder was called with correct context
         expect(mockBuildPreparePrompt).toHaveBeenCalledWith({
@@ -237,14 +240,14 @@ describe("PlayTaskHandler", () => {
           () =>
             ({
               invokeChat: mockInvokeChat,
-            }) as unknown as ChatInvoker
+            } as unknown as ChatInvoker)
         );
 
         vi.mocked(PromptBuilder).mockImplementation(
           () =>
             ({
               buildImplementPrompt: mockBuildImplementPrompt,
-            }) as unknown as PromptBuilder
+            } as unknown as PromptBuilder)
         );
 
         vi.mocked(extension.getContextFileResolver).mockReturnValue({
@@ -300,14 +303,14 @@ describe("PlayTaskHandler", () => {
           () =>
             ({
               invokeChat: mockInvokeChat,
-            }) as unknown as ChatInvoker
+            } as unknown as ChatInvoker)
         );
 
         vi.mocked(PromptBuilder).mockImplementation(
           () =>
             ({
               buildImplementPrompt: mockBuildImplementPrompt,
-            }) as unknown as PromptBuilder
+            } as unknown as PromptBuilder)
         );
 
         vi.mocked(extension.getContextFileResolver).mockReturnValue({
@@ -346,14 +349,14 @@ describe("PlayTaskHandler", () => {
           () =>
             ({
               invokeChat: mockInvokeChat,
-            }) as unknown as ChatInvoker
+            } as unknown as ChatInvoker)
         );
 
         vi.mocked(PromptBuilder).mockImplementation(
           () =>
             ({
               buildImplementPrompt: mockBuildImplementPrompt,
-            }) as unknown as PromptBuilder
+            } as unknown as PromptBuilder)
         );
 
         vi.mocked(extension.getContextFileResolver).mockReturnValue({
@@ -398,7 +401,7 @@ describe("PlayTaskHandler", () => {
       });
     });
 
-    it("should invoke retry stub for VERIFY_FAILED task", async () => {
+    describe("VERIFY_FAILED task", () => {
       const mockTask = {
         id: mockTaskId,
         sprint_id: "sprint-1",
@@ -417,17 +420,135 @@ describe("PlayTaskHandler", () => {
         completed_at: null,
       };
 
-      vi.mocked(queries.getTaskById).mockReturnValue(mockTask);
+      const mockFeedback = {
+        id: 1,
+        task_id: mockTaskId,
+        attempt: 1,
+        max_attempts: 3,
+        can_retry: 1,
+        issues: JSON.stringify([
+          {
+            severity: "CRITICAL",
+            issue: "Tests failed",
+            impact: "Implementation incomplete",
+            guidance: "Fix test failures",
+          },
+        ]),
+        passed_checks: JSON.stringify(["Build passed"]),
+        next_steps: "Fix the failing tests and re-signal",
+        additional_guidance: null,
+        created_at: "2025-01-01T01:00:00Z",
+        updated_at: "2025-01-01T01:00:00Z",
+      };
 
-      await handlePlayTask(mockWorkspaceRoot, mockTaskId);
+      it("should invoke implementor to retry with feedback", async () => {
+        vi.mocked(queries.getTaskById).mockReturnValue(mockTask);
+        vi.mocked(queries.getFeedback).mockReturnValue(mockFeedback);
 
-      expect(queries.getTaskById).toHaveBeenCalledWith(
-        mockWorkspaceRoot,
-        mockTaskId
-      );
-      expect(vscode.window.showInformationMessage).toHaveBeenCalledWith(
-        `[STUB] Would invoke implementor to retry task ${mockTaskId} with feedback`
-      );
+        const mockInvokeChat = vi.fn();
+        const mockBuildRetryPrompt = vi.fn(() => "Mock retry prompt");
+        const mockGetContextFiles = vi.fn(() => [
+          { fsPath: "/workspace/src/file1.ts" },
+        ]);
+
+        vi.mocked(ChatInvoker).mockImplementation(
+          () =>
+            ({
+              invokeChat: mockInvokeChat,
+            } as unknown as ChatInvoker)
+        );
+
+        vi.mocked(PromptBuilder).mockImplementation(
+          () =>
+            ({
+              buildRetryPrompt: mockBuildRetryPrompt,
+            } as unknown as PromptBuilder)
+        );
+
+        vi.mocked(extension.getContextFileResolver).mockReturnValue({
+          getContextFiles: mockGetContextFiles,
+        } as never);
+
+        await handlePlayTask(mockWorkspaceRoot, mockTaskId);
+
+        // Verify task and feedback queries
+        expect(queries.getTaskById).toHaveBeenCalledWith(
+          mockWorkspaceRoot,
+          mockTaskId
+        );
+        expect(queries.getFeedback).toHaveBeenCalledWith(
+          mockWorkspaceRoot,
+          mockTaskId
+        );
+
+        // Verify PromptBuilder was called with retry context
+        expect(mockBuildRetryPrompt).toHaveBeenCalledWith({
+          task: {
+            task_id: mockTask.id,
+            title: mockTask.title,
+            description: mockTask.description,
+            category: mockTask.category,
+            phase_id: "phase-1",
+          },
+          sprint: {
+            sprint_id: mockTask.sprint_id,
+            title: "Current Sprint",
+          },
+          retryCount: mockTask.retry_count,
+        });
+
+        // Verify context files were resolved
+        expect(mockGetContextFiles).toHaveBeenCalledWith(mockTaskId);
+
+        // Verify ChatInvoker was called with retry prompt
+        expect(mockInvokeChat).toHaveBeenCalledWith({
+          prompt: "Mock retry prompt",
+          agentMode: "implementor",
+          model: "claude-sonnet-4",
+          files: [{ fsPath: "/workspace/src/file1.ts" }],
+        });
+      });
+
+      it("should show error when task not found", async () => {
+        vi.mocked(queries.getTaskById).mockReturnValue(null);
+
+        await handlePlayTask(mockWorkspaceRoot, mockTaskId);
+
+        expect(vscode.window.showErrorMessage).toHaveBeenCalledWith(
+          `Task ${mockTaskId} not found`
+        );
+      });
+
+      it("should show error when feedback not found", async () => {
+        vi.mocked(queries.getTaskById).mockReturnValue(mockTask);
+        vi.mocked(queries.getFeedback).mockReturnValue(null);
+
+        await handlePlayTask(mockWorkspaceRoot, mockTaskId);
+
+        expect(queries.getFeedback).toHaveBeenCalledWith(
+          mockWorkspaceRoot,
+          mockTaskId
+        );
+        expect(vscode.window.showErrorMessage).toHaveBeenCalledWith(
+          `Orchestra: No feedback found for task ${mockTaskId}. Cannot retry.`
+        );
+      });
+
+      it("should handle errors gracefully", async () => {
+        vi.mocked(queries.getTaskById).mockReturnValue(mockTask);
+        vi.mocked(queries.getFeedback).mockImplementation(() => {
+          throw new Error("Database error");
+        });
+
+        await handlePlayTask(mockWorkspaceRoot, mockTaskId);
+
+        expect(vscode.window.showErrorMessage).toHaveBeenCalledWith(
+          expect.stringContaining("Failed to retry task")
+        );
+        expect(vscode.window.showErrorMessage).toHaveBeenCalledWith(
+          expect.stringContaining("Database error")
+        );
+      });
     });
 
     it("should show escalation stub for ESCALATED task", async () => {

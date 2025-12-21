@@ -8,8 +8,12 @@
 
 import * as vscode from "vscode";
 import { ChatInvoker } from "../chat/ChatInvoker.js";
+import {
+  getCurrentSprint,
+  getFeedback,
+  getTaskById,
+} from "../database/queries.js";
 import { getConfigService, getContextFileResolver } from "../extension.js";
-import { getTaskById, getCurrentSprint } from "../database/queries.js";
 import { PromptBuilder } from "../prompts/PromptBuilder.js";
 import { OrchestraLogger } from "../utils/logger.js";
 
@@ -222,19 +226,91 @@ async function invokeImplement(
 /**
  * Invoke implementor to retry a VERIFY_FAILED task with feedback
  *
- * TODO: Implement using ChatInvoker with implementor mode and feedback context
+ * Builds a RETRY prompt with task context and feedback path, resolves context files,
+ * and opens chat with implementor agent. Uses getFeedback to retrieve the latest
+ * verification failure feedback.
  *
- * @param _workspaceRoot Absolute path to workspace root
+ * @param workspaceRoot Absolute path to workspace root
  * @param taskId Task ID (numeric primary key)
  */
 async function invokeRetry(
-  _workspaceRoot: string,
+  workspaceRoot: string,
   taskId: number
 ): Promise<void> {
-  // TODO: Task 6 - Implement with ChatInvoker and feedback
-  vscode.window.showInformationMessage(
-    `[STUB] Would invoke implementor to retry task ${taskId} with feedback`
-  );
+  try {
+    // Get task from database
+    const task = getTaskById(workspaceRoot, taskId);
+
+    if (!task) {
+      vscode.window.showErrorMessage(`Task ${taskId} not found`);
+      return;
+    }
+
+    // Get latest feedback from database
+    const feedback = getFeedback(workspaceRoot, taskId);
+
+    if (!feedback) {
+      vscode.window.showErrorMessage(
+        `Orchestra: No feedback found for task ${taskId}. Cannot retry.`
+      );
+      return;
+    }
+
+    // Build prompt context with retry count from task
+    const context = {
+      task: {
+        task_id: task.id,
+        title: task.title,
+        description: task.description,
+        category: task.category,
+        phase_id: `phase-${task.phase_id}`,
+      },
+      sprint: {
+        sprint_id: task.sprint_id,
+        title: "Current Sprint",
+      },
+      retryCount: task.retry_count,
+      // feedbackPath is optional - implementor will use MCP tools to get feedback
+    };
+
+    // Create instances
+    const logger = new OrchestraLogger();
+    const promptBuilder = new PromptBuilder();
+    const chatInvoker = new ChatInvoker(logger);
+
+    // Get context file resolver from extension
+    const contextFileResolver = getContextFileResolver();
+
+    // Resolve context files from handover
+    const contextFiles = contextFileResolver.getContextFiles(taskId);
+
+    // Build the retry prompt
+    const prompt = promptBuilder.buildRetryPrompt(context);
+
+    // Get implementor model configuration
+    const model = getConfigService().getModelForRole("implementor");
+
+    // Invoke chat with implementor agent and context files
+    await chatInvoker.invokeChat({
+      prompt,
+      agentMode: "implementor",
+      model,
+      files: contextFiles,
+    });
+
+    logger.info(`Invoked implementor to retry task ${taskId}`, {
+      taskId,
+      taskTitle: task.title,
+      retryCount: task.retry_count,
+      feedbackAttempt: feedback.attempt,
+      contextFileCount: contextFiles.length,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    vscode.window.showErrorMessage(
+      `Orchestra: Failed to retry task ${taskId} - ${message}`
+    );
+  }
 }
 
 /**
