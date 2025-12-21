@@ -2,11 +2,12 @@
  * ChatInvoker - Utility for invoking VS Code Chat with Orchestra agents
  *
  * Centralizes the pattern for programmatically opening VS Code Chat
- * with the @orchestra participant and appropriate agent context.
+ * with Orchestra agents via SessionManager.
  */
 
 import * as vscode from "vscode";
 import { OrchestraLogger } from "../utils/logger.js";
+import { SessionManager } from "./SessionManager.js";
 
 /**
  * Agent mode for chat invocation
@@ -33,55 +34,44 @@ export interface ChatInvocationOptions {
 /**
  * ChatInvoker - Invokes VS Code Chat with Orchestra agents
  *
- * Encapsulates the pattern for opening chat with the @orchestra participant
- * and prefixing queries to indicate agent mode. Based on spike findings
- * (see extension/docs/spike-results.md).
+ * Thin wrapper that delegates to SessionManager for actual chat invocation.
+ * Preserves backward compatibility with existing callers.
  */
 export class ChatInvoker {
   private readonly logger: OrchestraLogger;
+  private readonly sessionManager: SessionManager;
 
-  constructor(logger: OrchestraLogger) {
+  constructor(logger: OrchestraLogger, sessionManager: SessionManager) {
     this.logger = logger;
+    this.sessionManager = sessionManager;
   }
 
   /**
    * Invoke VS Code Chat with the specified options
    *
-   * Opens the chat panel with @orchestra participant and formats
-   * the query to indicate the desired agent mode.
+   * Delegates to SessionManager to invoke either the orchestrator or
+   * implementor agent based on the agentMode parameter.
    *
    * @param options Chat invocation options
    * @returns Promise that resolves when chat is opened
    */
   async invokeChat(options: ChatInvocationOptions): Promise<void> {
-    const { prompt, agentMode, files, model } = options;
+    const { prompt, agentMode, files = [] } = options;
 
     try {
-      // Format query with @orchestra prefix
-      // The participant determines agent mode from the query content
-      const query = `@orchestra ${prompt}`;
-
       // Log the invocation
       this.logger.info(`Invoking chat with ${agentMode} agent`, {
         agentMode,
-        hasFiles: !!files && files.length > 0,
-        model,
+        hasFiles: files.length > 0,
+        fileCount: files.length,
       });
 
-      // Build command options
-      const commandOptions: { query: string; isPartialQuery: boolean } = {
-        query,
-        isPartialQuery: false, // Complete query, ready to send
-      };
-
-      // Note: attachFiles parameter exists but is not yet production-tested
-      // We rely on ContextFileResolver for file access instead
-
-      // Execute VS Code command to open chat
-      await vscode.commands.executeCommand(
-        "workbench.action.chat.open",
-        commandOptions
-      );
+      // Delegate to SessionManager based on agent mode
+      if (agentMode === "orchestrator") {
+        await this.sessionManager.invokeOrchestrator(prompt, files);
+      } else {
+        await this.sessionManager.invokeImplementor(prompt, files);
+      }
 
       this.logger.info(`Chat opened successfully for ${agentMode} agent`);
     } catch (error) {

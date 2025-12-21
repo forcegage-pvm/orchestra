@@ -1,13 +1,14 @@
 /**
  * ChatInvoker Unit Tests
  *
- * Tests the ChatInvoker utility class with mocked VS Code APIs
+ * Tests the ChatInvoker utility class with mocked SessionManager
  */
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import * as vscode from "vscode";
 import type { ChatInvocationOptions } from "../../src/chat/ChatInvoker.js";
 import { ChatInvoker } from "../../src/chat/ChatInvoker.js";
+import { SessionManager } from "../../src/chat/SessionManager.js";
 import { OrchestraLogger } from "../../src/utils/logger.js";
 
 // Mock VS Code API
@@ -35,6 +36,7 @@ vi.mock("vscode", () => ({
 describe("ChatInvoker", () => {
   let invoker: ChatInvoker;
   let mockLogger: OrchestraLogger;
+  let mockSessionManager: SessionManager;
 
   beforeEach(() => {
     // Clear all mocks before each test
@@ -45,12 +47,19 @@ describe("ChatInvoker", () => {
     vi.spyOn(mockLogger, "info");
     vi.spyOn(mockLogger, "error");
 
+    // Create a mock SessionManager
+    mockSessionManager = {
+      invokeOrchestrator: vi.fn().mockResolvedValue(undefined),
+      invokeImplementor: vi.fn().mockResolvedValue(undefined),
+      clearImplementorSession: vi.fn().mockResolvedValue(undefined),
+    } as unknown as SessionManager;
+
     // Create ChatInvoker instance
-    invoker = new ChatInvoker(mockLogger);
+    invoker = new ChatInvoker(mockLogger, mockSessionManager);
   });
 
   describe("invokeChat", () => {
-    it("should invoke chat with orchestrator agent mode", async () => {
+    it("should delegate to SessionManager.invokeOrchestrator for orchestrator agent", async () => {
       const options: ChatInvocationOptions = {
         prompt: "I'm ready to work as the orchestrator agent.",
         agentMode: "orchestrator",
@@ -58,13 +67,10 @@ describe("ChatInvoker", () => {
 
       await invoker.invokeChat(options);
 
-      // Verify VS Code command was called
-      expect(vscode.commands.executeCommand).toHaveBeenCalledWith(
-        "workbench.action.chat.open",
-        {
-          query: "@orchestra I'm ready to work as the orchestrator agent.",
-          isPartialQuery: false,
-        }
+      // Verify SessionManager.invokeOrchestrator was called
+      expect(mockSessionManager.invokeOrchestrator).toHaveBeenCalledWith(
+        "I'm ready to work as the orchestrator agent.",
+        []
       );
 
       // Verify logging
@@ -79,7 +85,7 @@ describe("ChatInvoker", () => {
       );
     });
 
-    it("should invoke chat with implementor agent mode", async () => {
+    it("should delegate to SessionManager.invokeImplementor for implementor agent", async () => {
       const options: ChatInvocationOptions = {
         prompt: "I'm ready to work as the implementor agent.",
         agentMode: "implementor",
@@ -87,13 +93,10 @@ describe("ChatInvoker", () => {
 
       await invoker.invokeChat(options);
 
-      // Verify VS Code command was called
-      expect(vscode.commands.executeCommand).toHaveBeenCalledWith(
-        "workbench.action.chat.open",
-        {
-          query: "@orchestra I'm ready to work as the implementor agent.",
-          isPartialQuery: false,
-        }
+      // Verify SessionManager.invokeImplementor was called
+      expect(mockSessionManager.invokeImplementor).toHaveBeenCalledWith(
+        "I'm ready to work as the implementor agent.",
+        []
       );
 
       // Verify logging
@@ -105,7 +108,7 @@ describe("ChatInvoker", () => {
       );
     });
 
-    it("should prefix prompt with @orchestra", async () => {
+    it("should pass prompt directly to SessionManager without @orchestra prefix", async () => {
       const options: ChatInvocationOptions = {
         prompt: "Start working on Task 9",
         agentMode: "implementor",
@@ -113,27 +116,31 @@ describe("ChatInvoker", () => {
 
       await invoker.invokeChat(options);
 
-      expect(vscode.commands.executeCommand).toHaveBeenCalledWith(
-        "workbench.action.chat.open",
-        expect.objectContaining({
-          query: "@orchestra Start working on Task 9",
-        })
+      // Verify the prompt is passed directly without @orchestra prefix
+      expect(mockSessionManager.invokeImplementor).toHaveBeenCalledWith(
+        "Start working on Task 9",
+        []
       );
     });
 
-    it("should set isPartialQuery to false", async () => {
+    it("should pass files to SessionManager", async () => {
+      const mockFiles = [
+        vscode.Uri.file("/path/to/file1.ts"),
+        vscode.Uri.file("/path/to/file2.ts"),
+      ];
+
       const options: ChatInvocationOptions = {
-        prompt: "Test query",
+        prompt: "Analyze these files",
         agentMode: "orchestrator",
+        files: mockFiles,
       };
 
       await invoker.invokeChat(options);
 
-      expect(vscode.commands.executeCommand).toHaveBeenCalledWith(
-        "workbench.action.chat.open",
-        expect.objectContaining({
-          isPartialQuery: false,
-        })
+      // Verify files are passed to SessionManager
+      expect(mockSessionManager.invokeOrchestrator).toHaveBeenCalledWith(
+        "Analyze these files",
+        mockFiles
       );
     });
 
@@ -155,30 +162,16 @@ describe("ChatInvoker", () => {
         "Invoking chat with orchestrator agent",
         expect.objectContaining({
           hasFiles: true,
+          fileCount: 2,
         })
       );
     });
 
-    it("should log when model is specified", async () => {
-      const options: ChatInvocationOptions = {
-        prompt: "Test query",
-        agentMode: "orchestrator",
-        model: "gpt-4",
-      };
-
-      await invoker.invokeChat(options);
-
-      expect(mockLogger.info).toHaveBeenCalledWith(
-        "Invoking chat with orchestrator agent",
-        expect.objectContaining({
-          model: "gpt-4",
-        })
+    it("should handle SessionManager errors", async () => {
+      const testError = new Error("SessionManager failed");
+      vi.mocked(mockSessionManager.invokeOrchestrator).mockRejectedValue(
+        testError
       );
-    });
-
-    it("should handle VS Code command errors", async () => {
-      const testError = new Error("Command failed");
-      vi.mocked(vscode.commands.executeCommand).mockRejectedValue(testError);
 
       const options: ChatInvocationOptions = {
         prompt: "Test query",
@@ -186,7 +179,7 @@ describe("ChatInvoker", () => {
       };
 
       await expect(invoker.invokeChat(options)).rejects.toThrow(
-        "Command failed"
+        "SessionManager failed"
       );
 
       // Verify error was logged
@@ -197,12 +190,12 @@ describe("ChatInvoker", () => {
 
       // Verify user-facing error was shown
       expect(vscode.window.showErrorMessage).toHaveBeenCalledWith(
-        "Orchestra: Failed to open chat - Command failed"
+        "Orchestra: Failed to open chat - SessionManager failed"
       );
     });
 
     it("should handle non-Error exceptions", async () => {
-      vi.mocked(vscode.commands.executeCommand).mockRejectedValue(
+      vi.mocked(mockSessionManager.invokeImplementor).mockRejectedValue(
         "String error"
       );
 
@@ -219,10 +212,7 @@ describe("ChatInvoker", () => {
       );
     });
 
-    it("should work with minimal options (no files or model)", async () => {
-      // Reset mock to resolve successfully for this test
-      vi.mocked(vscode.commands.executeCommand).mockResolvedValue(undefined);
-
+    it("should work with minimal options (no files)", async () => {
       const options: ChatInvocationOptions = {
         prompt: "Simple query",
         agentMode: "orchestrator",
@@ -230,19 +220,17 @@ describe("ChatInvoker", () => {
 
       await invoker.invokeChat(options);
 
-      expect(vscode.commands.executeCommand).toHaveBeenCalledWith(
-        "workbench.action.chat.open",
-        {
-          query: "@orchestra Simple query",
-          isPartialQuery: false,
-        }
+      // Verify SessionManager was called with empty files array
+      expect(mockSessionManager.invokeOrchestrator).toHaveBeenCalledWith(
+        "Simple query",
+        []
       );
 
       expect(mockLogger.info).toHaveBeenCalledWith(
         "Invoking chat with orchestrator agent",
         expect.objectContaining({
           hasFiles: false,
-          model: undefined,
+          fileCount: 0,
         })
       );
     });

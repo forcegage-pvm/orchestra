@@ -14,7 +14,11 @@ import {
   getFeedback,
   getTaskById,
 } from "../database/queries.js";
-import { getConfigService, getContextFileResolver } from "../extension.js";
+import {
+  getConfigService,
+  getContextFileResolver,
+  getSessionManager,
+} from "../extension.js";
 import { PromptBuilder } from "../prompts/PromptBuilder.js";
 import { OrchestraLogger } from "../utils/logger.js";
 
@@ -121,7 +125,8 @@ async function invokePrepare(
     // Create instances
     const logger = new OrchestraLogger();
     const promptBuilder = new PromptBuilder();
-    const chatInvoker = new ChatInvoker(logger);
+    const sessionManager = getSessionManager();
+    const chatInvoker = new ChatInvoker(logger, sessionManager);
 
     // Build the prepare prompt
     const prompt = promptBuilder.buildPreparePrompt(context);
@@ -189,7 +194,8 @@ async function invokeImplement(
     // Create instances
     const logger = new OrchestraLogger();
     const promptBuilder = new PromptBuilder();
-    const chatInvoker = new ChatInvoker(logger);
+    const sessionManager = getSessionManager();
+    const chatInvoker = new ChatInvoker(logger, sessionManager);
 
     // Get context file resolver from extension
     const contextFileResolver = getContextFileResolver();
@@ -277,7 +283,8 @@ async function invokeRetry(
     // Create instances
     const logger = new OrchestraLogger();
     const promptBuilder = new PromptBuilder();
-    const chatInvoker = new ChatInvoker(logger);
+    const sessionManager = getSessionManager();
+    const chatInvoker = new ChatInvoker(logger, sessionManager);
 
     // Get context file resolver from extension
     const contextFileResolver = getContextFileResolver();
@@ -363,10 +370,7 @@ async function showEscalation(
 
     // If user clicks the button, open task detail panel
     if (action === "View Task Details") {
-      await vscode.commands.executeCommand(
-        "orchestra.openTaskDetail",
-        taskId
-      );
+      await vscode.commands.executeCommand("orchestra.openTaskDetail", taskId);
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";

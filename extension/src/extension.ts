@@ -10,6 +10,7 @@ import * as fs from "fs";
 import * as path from "path";
 import * as vscode from "vscode";
 import { registerChatParticipant } from "./chat/participant.js";
+import { SessionManager } from "./chat/SessionManager.js";
 import { handlePlayTask } from "./commands/PlayTaskHandler.js";
 import { ConfigService } from "./config/ConfigService.js";
 import { OrchestraDB } from "./database/client.js";
@@ -32,6 +33,7 @@ import {
 
 let logger: OrchestraLogger;
 let configService: ConfigService;
+let sessionManager: SessionManager | undefined;
 let contextFileResolver: ContextFileResolver | undefined;
 let dbWatcher: DatabaseWatcher | undefined;
 let mcpManager: MCPServerManager | undefined;
@@ -45,6 +47,17 @@ export function getConfigService(): ConfigService {
     throw new Error("ConfigService not initialized. Extension not activated.");
   }
   return configService;
+}
+
+/**
+ * Get the SessionManager instance
+ * @returns The SessionManager instance or throws if not initialized
+ */
+export function getSessionManager(): SessionManager {
+  if (!sessionManager) {
+    throw new Error("SessionManager not initialized. Extension not activated.");
+  }
+  return sessionManager;
 }
 
 /**
@@ -632,6 +645,10 @@ export async function activate(
   // Initialize ConfigService
   configService = new ConfigService();
   logger.info("ConfigService initialized");
+
+  // Initialize SessionManager
+  sessionManager = new SessionManager(logger, configService);
+  logger.info("SessionManager initialized");
 
   // 1. Detect Orchestra workspace
   const orchestraRoot = findOrchestraRoot();
