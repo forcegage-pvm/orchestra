@@ -9,7 +9,6 @@ import Database from "better-sqlite3";
 import * as fs from "fs";
 import * as path from "path";
 import * as vscode from "vscode";
-import { registerChatParticipant } from "./chat/participant.js";
 import { SessionManager } from "./chat/SessionManager.js";
 import { handlePlayTask } from "./commands/PlayTaskHandler.js";
 import { ConfigService } from "./config/ConfigService.js";
@@ -828,16 +827,7 @@ export async function activate(
     context.subscriptions.push(statusBar);
     logger.info("Status bar item registered");
 
-    // 7. Register Chat Participant
-    const chatParticipant = registerChatParticipant(
-      context,
-      orchestraRoot,
-      logger
-    );
-    context.subscriptions.push(chatParticipant);
-    logger.info("Chat participant registered");
-
-    // 8. Register commands
+    // 7. Register commands
     context.subscriptions.push(
       vscode.commands.registerCommand("orchestra.openDashboard", () => {
         if (dbWatcher) {

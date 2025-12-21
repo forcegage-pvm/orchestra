@@ -98,7 +98,7 @@ describe("Extension - ConfigService integration (Task 3)", () => {
 });
 
 describe("Extension structure - Imports order (Task 3)", () => {
-  it("should have ConfigService imported after chat participant and before database", () => {
+  it("should have ConfigService imported before database", () => {
     const extensionPath = path.join(__dirname, "..", "src", "extension.ts");
     const extensionCode = fs.readFileSync(extensionPath, "utf-8");
 
@@ -106,9 +106,6 @@ describe("Extension structure - Imports order (Task 3)", () => {
       return line.trim().startsWith("import") && !line.includes("//");
     });
 
-    const chatParticipantIdx = imports.findIndex((line) =>
-      line.includes("chat/participant")
-    );
     const configServiceIdx = imports.findIndex((line) =>
       line.includes("config/ConfigService")
     );
@@ -116,12 +113,9 @@ describe("Extension structure - Imports order (Task 3)", () => {
       line.includes("database/client")
     );
 
-    expect(chatParticipantIdx).toBeGreaterThanOrEqual(0);
     expect(configServiceIdx).toBeGreaterThanOrEqual(0);
     expect(databaseClientIdx).toBeGreaterThanOrEqual(0);
 
-    // ConfigService should be after chat participant
-    expect(configServiceIdx).toBeGreaterThan(chatParticipantIdx);
     // ConfigService should be before database client
     expect(configServiceIdx).toBeLessThan(databaseClientIdx);
   });
