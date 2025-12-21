@@ -7,7 +7,6 @@
  */
 
 import * as vscode from "vscode";
-import { ChatInvoker } from "../chat/ChatInvoker.js";
 import {
   getCurrentSprint,
   getEscalation,
@@ -15,7 +14,6 @@ import {
   getTaskById,
 } from "../database/queries.js";
 import {
-  getConfigService,
   getContextFileResolver,
   getSessionManager,
 } from "../extension.js";
@@ -126,20 +124,12 @@ async function invokePrepare(
     const logger = new OrchestraLogger();
     const promptBuilder = new PromptBuilder();
     const sessionManager = getSessionManager();
-    const chatInvoker = new ChatInvoker(logger, sessionManager);
 
     // Build the prepare prompt
     const prompt = promptBuilder.buildPreparePrompt(context);
 
-    // Get orchestrator model configuration
-    const model = getConfigService().getModelForRole("orchestrator");
-
-    // Invoke chat with orchestrator agent
-    await chatInvoker.invokeChat({
-      prompt,
-      agentMode: "orchestrator",
-      model,
-    });
+    // Invoke orchestrator agent directly via SessionManager
+    await sessionManager.invokeOrchestrator(prompt, []);
 
     logger.info(`Invoked orchestrator to prepare task ${taskId}`, {
       taskId,
@@ -195,7 +185,6 @@ async function invokeImplement(
     const logger = new OrchestraLogger();
     const promptBuilder = new PromptBuilder();
     const sessionManager = getSessionManager();
-    const chatInvoker = new ChatInvoker(logger, sessionManager);
 
     // Get context file resolver from extension
     const contextFileResolver = getContextFileResolver();
@@ -206,16 +195,8 @@ async function invokeImplement(
     // Build the implement prompt
     const prompt = promptBuilder.buildImplementPrompt(context);
 
-    // Get implementor model configuration
-    const model = getConfigService().getModelForRole("implementor");
-
-    // Invoke chat with implementor agent and context files
-    await chatInvoker.invokeChat({
-      prompt,
-      agentMode: "implementor",
-      model,
-      files: contextFiles,
-    });
+    // Invoke implementor agent directly via SessionManager
+    await sessionManager.invokeImplementor(prompt, contextFiles);
 
     logger.info(`Invoked implementor to work on task ${taskId}`, {
       taskId,
@@ -284,7 +265,6 @@ async function invokeRetry(
     const logger = new OrchestraLogger();
     const promptBuilder = new PromptBuilder();
     const sessionManager = getSessionManager();
-    const chatInvoker = new ChatInvoker(logger, sessionManager);
 
     // Get context file resolver from extension
     const contextFileResolver = getContextFileResolver();
@@ -295,16 +275,8 @@ async function invokeRetry(
     // Build the retry prompt
     const prompt = promptBuilder.buildRetryPrompt(context);
 
-    // Get implementor model configuration
-    const model = getConfigService().getModelForRole("implementor");
-
-    // Invoke chat with implementor agent and context files
-    await chatInvoker.invokeChat({
-      prompt,
-      agentMode: "implementor",
-      model,
-      files: contextFiles,
-    });
+    // Invoke implementor agent directly via SessionManager
+    await sessionManager.invokeImplementor(prompt, contextFiles);
 
     logger.info(`Invoked implementor to retry task ${taskId}`, {
       taskId,

@@ -6,7 +6,6 @@
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import * as vscode from "vscode";
-import { ChatInvoker } from "../../src/chat/ChatInvoker.js";
 import { handlePlayTask } from "../../src/commands/PlayTaskHandler.js";
 import * as queries from "../../src/database/queries.js";
 import * as extension from "../../src/extension.js";
@@ -39,13 +38,6 @@ vi.mock("../../src/database/queries.js", () => ({
   getCurrentSprint: vi.fn(),
   getFeedback: vi.fn(),
   getEscalation: vi.fn(),
-}));
-
-// Mock ChatInvoker
-vi.mock("../../src/chat/ChatInvoker.js", () => ({
-  ChatInvoker: vi.fn().mockImplementation(() => ({
-    invokeChat: vi.fn(),
-  })),
 }));
 
 // Mock PromptBuilder
@@ -135,15 +127,13 @@ describe("PlayTaskHandler", () => {
         vi.mocked(queries.getTaskById).mockReturnValue(mockTask);
         vi.mocked(queries.getCurrentSprint).mockReturnValue(mockSprint);
 
-        const mockInvokeChat = vi.fn();
+        const mockInvokeOrchestrator = vi.fn();
         const mockBuildPreparePrompt = vi.fn(() => "Mock prepare prompt");
 
-        vi.mocked(ChatInvoker).mockImplementation(
-          () =>
-            ({
-              invokeChat: mockInvokeChat,
-            } as unknown as ChatInvoker)
-        );
+        vi.mocked(extension.getSessionManager).mockReturnValue({
+          invokeOrchestrator: mockInvokeOrchestrator,
+          invokeImplementor: vi.fn(),
+        } as never);
 
         vi.mocked(PromptBuilder).mockImplementation(
           () =>
@@ -178,12 +168,11 @@ describe("PlayTaskHandler", () => {
           },
         });
 
-        // Verify ChatInvoker was called with correct options
-        expect(mockInvokeChat).toHaveBeenCalledWith({
-          prompt: "Mock prepare prompt",
-          agentMode: "orchestrator",
-          model: "claude-opus-4",
-        });
+        // Verify SessionManager.invokeOrchestrator was called with correct options
+        expect(mockInvokeOrchestrator).toHaveBeenCalledWith(
+          "Mock prepare prompt",
+          []
+        );
       });
 
       it("should show error when sprint not found", async () => {
@@ -236,19 +225,17 @@ describe("PlayTaskHandler", () => {
       it("should invoke implementor with correct context and files", async () => {
         vi.mocked(queries.getTaskById).mockReturnValue(mockTask);
 
-        const mockInvokeChat = vi.fn();
+        const mockInvokeImplementor = vi.fn();
         const mockBuildImplementPrompt = vi.fn(() => "Mock implement prompt");
         const mockGetContextFiles = vi.fn(() => [
           { fsPath: "/workspace/src/file1.ts" },
           { fsPath: "/workspace/src/file2.ts" },
         ]);
 
-        vi.mocked(ChatInvoker).mockImplementation(
-          () =>
-            ({
-              invokeChat: mockInvokeChat,
-            } as unknown as ChatInvoker)
-        );
+        vi.mocked(extension.getSessionManager).mockReturnValue({
+          invokeOrchestrator: vi.fn(),
+          invokeImplementor: mockInvokeImplementor,
+        } as never);
 
         vi.mocked(PromptBuilder).mockImplementation(
           () =>
@@ -287,31 +274,27 @@ describe("PlayTaskHandler", () => {
         // Verify context files were resolved
         expect(mockGetContextFiles).toHaveBeenCalledWith(mockTaskId);
 
-        // Verify ChatInvoker was called with correct options including files
-        expect(mockInvokeChat).toHaveBeenCalledWith({
-          prompt: "Mock implement prompt",
-          agentMode: "implementor",
-          model: "claude-sonnet-4",
-          files: [
+        // Verify SessionManager.invokeImplementor was called with correct options including files
+        expect(mockInvokeImplementor).toHaveBeenCalledWith(
+          "Mock implement prompt",
+          [
             { fsPath: "/workspace/src/file1.ts" },
             { fsPath: "/workspace/src/file2.ts" },
-          ],
-        });
+          ]
+        );
       });
 
       it("should work when handover is null (no handover exists yet)", async () => {
         vi.mocked(queries.getTaskById).mockReturnValue(mockTask);
 
-        const mockInvokeChat = vi.fn();
+        const mockInvokeImplementor = vi.fn();
         const mockBuildImplementPrompt = vi.fn(() => "Mock implement prompt");
         const mockGetContextFiles = vi.fn(() => []);
 
-        vi.mocked(ChatInvoker).mockImplementation(
-          () =>
-            ({
-              invokeChat: mockInvokeChat,
-            } as unknown as ChatInvoker)
-        );
+        vi.mocked(extension.getSessionManager).mockReturnValue({
+          invokeOrchestrator: vi.fn(),
+          invokeImplementor: mockInvokeImplementor,
+        } as never);
 
         vi.mocked(PromptBuilder).mockImplementation(
           () =>
@@ -341,23 +324,21 @@ describe("PlayTaskHandler", () => {
           },
         });
 
-        // Should still invoke chat successfully
-        expect(mockInvokeChat).toHaveBeenCalled();
+        // Should still invoke implementor successfully
+        expect(mockInvokeImplementor).toHaveBeenCalled();
       });
 
       it("should work when no context files exist", async () => {
         vi.mocked(queries.getTaskById).mockReturnValue(mockTask);
 
-        const mockInvokeChat = vi.fn();
+        const mockInvokeImplementor = vi.fn();
         const mockBuildImplementPrompt = vi.fn(() => "Mock implement prompt");
         const mockGetContextFiles = vi.fn(() => []); // No files
 
-        vi.mocked(ChatInvoker).mockImplementation(
-          () =>
-            ({
-              invokeChat: mockInvokeChat,
-            } as unknown as ChatInvoker)
-        );
+        vi.mocked(extension.getSessionManager).mockReturnValue({
+          invokeOrchestrator: vi.fn(),
+          invokeImplementor: mockInvokeImplementor,
+        } as never);
 
         vi.mocked(PromptBuilder).mockImplementation(
           () =>
@@ -372,13 +353,11 @@ describe("PlayTaskHandler", () => {
 
         await handlePlayTask(mockWorkspaceRoot, mockTaskId);
 
-        // Should invoke chat with empty files array
-        expect(mockInvokeChat).toHaveBeenCalledWith({
-          prompt: "Mock implement prompt",
-          agentMode: "implementor",
-          model: "claude-sonnet-4",
-          files: [],
-        });
+        // Should invoke implementor with empty files array
+        expect(mockInvokeImplementor).toHaveBeenCalledWith(
+          "Mock implement prompt",
+          []
+        );
       });
 
       it("should handle errors gracefully", async () => {
@@ -452,18 +431,16 @@ describe("PlayTaskHandler", () => {
         vi.mocked(queries.getTaskById).mockReturnValue(mockTask);
         vi.mocked(queries.getFeedback).mockReturnValue(mockFeedback);
 
-        const mockInvokeChat = vi.fn();
+        const mockInvokeImplementor = vi.fn();
         const mockBuildRetryPrompt = vi.fn(() => "Mock retry prompt");
         const mockGetContextFiles = vi.fn(() => [
           { fsPath: "/workspace/src/file1.ts" },
         ]);
 
-        vi.mocked(ChatInvoker).mockImplementation(
-          () =>
-            ({
-              invokeChat: mockInvokeChat,
-            } as unknown as ChatInvoker)
-        );
+        vi.mocked(extension.getSessionManager).mockReturnValue({
+          invokeOrchestrator: vi.fn(),
+          invokeImplementor: mockInvokeImplementor,
+        } as never);
 
         vi.mocked(PromptBuilder).mockImplementation(
           () =>
@@ -507,13 +484,11 @@ describe("PlayTaskHandler", () => {
         // Verify context files were resolved
         expect(mockGetContextFiles).toHaveBeenCalledWith(mockTaskId);
 
-        // Verify ChatInvoker was called with retry prompt
-        expect(mockInvokeChat).toHaveBeenCalledWith({
-          prompt: "Mock retry prompt",
-          agentMode: "implementor",
-          model: "claude-sonnet-4",
-          files: [{ fsPath: "/workspace/src/file1.ts" }],
-        });
+        // Verify SessionManager.invokeImplementor was called with retry prompt
+        expect(mockInvokeImplementor).toHaveBeenCalledWith(
+          "Mock retry prompt",
+          [{ fsPath: "/workspace/src/file1.ts" }]
+        );
       });
 
       it("should show error when task not found", async () => {
