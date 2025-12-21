@@ -557,4 +557,154 @@ describe("StatusBarManager", () => {
       expect(mockStatusBarItem.dispose).toHaveBeenCalled();
     });
   });
+
+  describe("command configuration for Play action", () => {
+    it("should set command to playTask when current task exists", () => {
+      const mockSprint: Sprint = {
+        sprint_id: 1,
+        title: "Test Sprint",
+        started_at: "2025-01-01T00:00:00Z",
+        status: "ACTIVE",
+      };
+
+      const mockTask: Task = {
+        id: 42,
+        task_id: 1,
+        title: "Test Task",
+        status: "IMPLEMENT",
+        phase_id: 1,
+        dependencies: null,
+        sprint_id: 1,
+        priority: "P1",
+        started_at: "2025-01-01T00:00:00Z",
+        completed_at: null,
+      };
+
+      vi.mocked(getCurrentSprint).mockReturnValue(mockSprint);
+      vi.mocked(getCurrentTask).mockReturnValue(mockTask);
+
+      manager = new StatusBarManager(mockDb, mockDbWatcher);
+
+      expect(mockStatusBarItem.command).toEqual({
+        command: "orchestra.playTask",
+        title: "Play Task",
+        arguments: [{ type: "task", task: { id: 42 } }],
+      });
+    });
+
+    it("should pass current task ID as argument to playTask command", () => {
+      const mockSprint: Sprint = {
+        sprint_id: 1,
+        title: "Test Sprint",
+        started_at: "2025-01-01T00:00:00Z",
+        status: "ACTIVE",
+      };
+
+      const mockTask: Task = {
+        id: 99,
+        task_id: 5,
+        title: "Another Task",
+        status: "PENDING",
+        phase_id: 2,
+        dependencies: null,
+        sprint_id: 1,
+        priority: "P2",
+        started_at: null,
+        completed_at: null,
+      };
+
+      vi.mocked(getCurrentSprint).mockReturnValue(mockSprint);
+      vi.mocked(getCurrentTask).mockReturnValue(mockTask);
+
+      manager = new StatusBarManager(mockDb, mockDbWatcher);
+
+      const command = mockStatusBarItem.command;
+      expect(command.arguments).toBeDefined();
+      expect(command.arguments[0]).toEqual({ type: "task", task: { id: 99 } });
+    });
+
+    it("should set command to openDashboard when no current task", () => {
+      const mockSprint: Sprint = {
+        sprint_id: 1,
+        title: "Test Sprint",
+        started_at: "2025-01-01T00:00:00Z",
+        status: "ACTIVE",
+      };
+
+      vi.mocked(getCurrentSprint).mockReturnValue(mockSprint);
+      vi.mocked(getCurrentTask).mockReturnValue(null);
+
+      manager = new StatusBarManager(mockDb, mockDbWatcher);
+
+      expect(mockStatusBarItem.command).toBe("orchestra.openDashboard");
+    });
+
+    it("should include Play action in tooltip when current task exists", () => {
+      const mockSprint: Sprint = {
+        sprint_id: 1,
+        title: "Test Sprint",
+        started_at: "2025-01-01T00:00:00Z",
+        status: "ACTIVE",
+      };
+
+      const mockTask: Task = {
+        id: 1,
+        task_id: 1,
+        title: "Test Task",
+        status: "IMPLEMENT",
+        phase_id: 1,
+        dependencies: null,
+        sprint_id: 1,
+        priority: "P1",
+        started_at: "2025-01-01T00:00:00Z",
+        completed_at: null,
+      };
+
+      vi.mocked(getCurrentSprint).mockReturnValue(mockSprint);
+      vi.mocked(getCurrentTask).mockReturnValue(mockTask);
+
+      manager = new StatusBarManager(mockDb, mockDbWatcher);
+
+      expect(mockStatusBarItem.tooltip).toContain("Click to Play task");
+    });
+
+    it("should update command when task changes during refresh", () => {
+      const mockSprint: Sprint = {
+        sprint_id: 1,
+        title: "Test Sprint",
+        started_at: "2025-01-01T00:00:00Z",
+        status: "ACTIVE",
+      };
+
+      // Start with no current task
+      vi.mocked(getCurrentSprint).mockReturnValue(mockSprint);
+      vi.mocked(getCurrentTask).mockReturnValue(null);
+
+      manager = new StatusBarManager(mockDb, mockDbWatcher);
+      expect(mockStatusBarItem.command).toBe("orchestra.openDashboard");
+
+      // Now a task becomes active
+      const mockTask: Task = {
+        id: 50,
+        task_id: 3,
+        title: "New Task",
+        status: "IMPLEMENT",
+        phase_id: 1,
+        dependencies: null,
+        sprint_id: 1,
+        priority: "P1",
+        started_at: "2025-01-01T00:00:00Z",
+        completed_at: null,
+      };
+      vi.mocked(getCurrentTask).mockReturnValue(mockTask);
+
+      manager.refresh();
+
+      expect(mockStatusBarItem.command).toEqual({
+        command: "orchestra.playTask",
+        title: "Play Task",
+        arguments: [{ type: "task", task: { id: 50 } }],
+      });
+    });
+  });
 });

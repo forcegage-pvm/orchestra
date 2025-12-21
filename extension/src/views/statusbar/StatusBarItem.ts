@@ -61,6 +61,7 @@ export class StatusBarManager implements vscode.Disposable {
         this.statusBarItem.tooltip =
           "No task currently in progress\nClick to open Dashboard";
         this.statusBarItem.backgroundColor = undefined;
+        this.statusBarItem.command = "orchestra.openDashboard";
         this.statusBarItem.show();
         return;
       }
@@ -74,9 +75,16 @@ export class StatusBarManager implements vscode.Disposable {
       // Set color based on status
       this.statusBarItem.backgroundColor = statusDisplay.color;
 
-      // Set tooltip with task title and phase
+      // Set tooltip with task title and phase, including Play action hint
       const phaseName = this.getPhaseNameFromTaskId(currentTask.phase_id);
-      this.statusBarItem.tooltip = `${currentTask.title}\nPhase: ${phaseName}\nStatus: ${statusDisplay.label}`;
+      this.statusBarItem.tooltip = `${currentTask.title}\nPhase: ${phaseName}\nStatus: ${statusDisplay.label}\n\nClick to Play task`;
+
+      // Set command to playTask with current task context
+      this.statusBarItem.command = {
+        command: "orchestra.playTask",
+        title: "Play Task",
+        arguments: [{ type: "task", task: { id: currentTask.id } }],
+      };
 
       this.statusBarItem.show();
     } catch (error) {
