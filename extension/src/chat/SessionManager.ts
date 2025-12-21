@@ -43,10 +43,7 @@ export class SessionManager {
    * @param files - Files to attach to the chat context
    * @returns Promise that resolves when the session is invoked
    */
-  async invokeOrchestrator(
-    prompt: string,
-    files: vscode.Uri[]
-  ): Promise<void> {
+  async invokeOrchestrator(prompt: string, files: vscode.Uri[]): Promise<void> {
     try {
       const model = this._configService.getModelForRole("orchestrator");
       this.logger.info("Invoking orchestrator session", {

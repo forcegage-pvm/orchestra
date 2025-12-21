@@ -255,9 +255,8 @@ describe("SessionManager", () => {
 
       // Verify it was called before executeCommand
       const clearCallOrder = clearSpy.mock.invocationCallOrder[0];
-      const executeCommandCallOrder = (
-        vscode.commands.executeCommand as any
-      ).mock.invocationCallOrder[0];
+      const executeCommandCallOrder = (vscode.commands.executeCommand as any)
+        .mock.invocationCallOrder[0];
       expect(clearCallOrder).toBeLessThan(executeCommandCallOrder);
     });
 
