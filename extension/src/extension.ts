@@ -10,6 +10,7 @@ import * as fs from "fs";
 import * as path from "path";
 import * as vscode from "vscode";
 import { registerChatParticipant } from "./chat/participant.js";
+import { handlePlayTask } from "./commands/PlayTaskHandler.js";
 import { ConfigService } from "./config/ConfigService.js";
 import { OrchestraDB } from "./database/client.js";
 import { ContextFileResolver } from "./prompts/ContextFileResolver.js";
@@ -886,6 +887,14 @@ export async function activate(
         async (element: { type: string; task?: { id: number } }) => {
           if (element?.task?.id) {
             await handleStartTask(orchestraRoot, element.task.id);
+          }
+        }
+      ),
+      vscode.commands.registerCommand(
+        "orchestra.playTask",
+        async (element: { type: string; task?: { id: number } }) => {
+          if (element?.task?.id) {
+            await handlePlayTask(orchestraRoot, element.task.id);
           }
         }
       ),

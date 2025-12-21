@@ -160,6 +160,43 @@ describe("package.json views configuration", () => {
       });
     });
 
+    describe("playTask inline button", () => {
+      const playTaskInline = contextMenus.find(
+        (menu: any) =>
+          menu.command === "orchestra.playTask" &&
+          menu.group?.startsWith("inline")
+      );
+
+      it("should exist in inline group", () => {
+        expect(playTaskInline).toBeDefined();
+      });
+
+      it("should have correct when clause for playable task statuses", () => {
+        expect(playTaskInline?.when).toBeDefined();
+        expect(playTaskInline?.when).toContain("orchestra.sprintExplorer");
+        expect(playTaskInline?.when).toContain("task-");
+      });
+
+      it("should include pending, implement, and verify_failed statuses", () => {
+        expect(playTaskInline?.when).toContain("pending");
+        expect(playTaskInline?.when).toContain("implement");
+        expect(playTaskInline?.when).toContain("verify_failed");
+      });
+
+      it("should use correct view ID (orchestra.sprintExplorer)", () => {
+        expect(playTaskInline?.when).toContain("orchestra.sprintExplorer");
+        expect(playTaskInline?.when).not.toContain("orchestraSprintExplorer");
+      });
+
+      it("should be in inline group with ordering", () => {
+        expect(playTaskInline?.group).toMatch(/^inline/);
+      });
+
+      it("should use proper regex pattern with viewItem =~", () => {
+        expect(playTaskInline?.when).toMatch(/viewItem\s*=~\s*\/\^task-/);
+      });
+    });
+
     describe("openTaskDetail context menu item", () => {
       const openTaskDetail = contextMenus.find(
         (menu: any) => menu.command === "orchestra.openTaskDetail"
@@ -200,6 +237,61 @@ describe("package.json views configuration", () => {
           menu.when.includes("orchestra.sprintExplorer")
       );
       expect(allUseCorrectId).toBe(true);
+    });
+  });
+
+  describe("keybindings configuration", () => {
+    const keybindings = packageJson.contributes?.keybindings || [];
+
+    it("should have keybindings registered", () => {
+      expect(keybindings.length).toBeGreaterThan(0);
+    });
+
+    describe("playTask Enter keybinding", () => {
+      const playTaskKeybinding = keybindings.find(
+        (kb: any) => kb.command === "orchestra.playTask"
+      );
+
+      it("should be registered", () => {
+        expect(playTaskKeybinding).toBeDefined();
+      });
+
+      it("should use Enter key", () => {
+        expect(playTaskKeybinding?.key).toBe("enter");
+      });
+
+      it("should have when clause for sprint explorer with list focus", () => {
+        expect(playTaskKeybinding?.when).toBeDefined();
+        expect(playTaskKeybinding?.when).toContain("orchestra.sprintExplorer");
+        expect(playTaskKeybinding?.when).toContain("listFocus");
+      });
+
+      it("should use correct view ID (orchestra.sprintExplorer)", () => {
+        expect(playTaskKeybinding?.when).toContain("orchestra.sprintExplorer");
+        expect(playTaskKeybinding?.when).not.toContain("orchestraSprintExplorer");
+      });
+    });
+  });
+
+  describe("commands configuration", () => {
+    const commands = packageJson.contributes?.commands || [];
+
+    describe("orchestra.playTask command", () => {
+      const playTaskCommand = commands.find(
+        (cmd: any) => cmd.command === "orchestra.playTask"
+      );
+
+      it("should be registered", () => {
+        expect(playTaskCommand).toBeDefined();
+      });
+
+      it("should have title 'Play Task'", () => {
+        expect(playTaskCommand?.title).toBe("Play Task");
+      });
+
+      it("should have play icon", () => {
+        expect(playTaskCommand?.icon).toBe("$(play)");
+      });
     });
   });
 
