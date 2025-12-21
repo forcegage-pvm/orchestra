@@ -8,7 +8,7 @@
 
 import * as vscode from "vscode";
 import { ChatInvoker } from "../chat/ChatInvoker.js";
-import { getConfigService } from "../extension.js";
+import { getConfigService, getContextFileResolver } from "../extension.js";
 import { getTaskById, getCurrentSprint } from "../database/queries.js";
 import { PromptBuilder } from "../prompts/PromptBuilder.js";
 import { OrchestraLogger } from "../utils/logger.js";
@@ -147,19 +147,76 @@ async function invokePrepare(
 /**
  * Invoke implementor to work on an IMPLEMENT task
  *
- * TODO: Implement using ChatInvoker with implementor mode
+ * Builds an IMPLEMENT prompt with task context and handover path, resolves context files,
+ * and opens chat with implementor agent.
  *
- * @param _workspaceRoot Absolute path to workspace root
+ * @param workspaceRoot Absolute path to workspace root
  * @param taskId Task ID (numeric primary key)
  */
 async function invokeImplement(
-  _workspaceRoot: string,
+  workspaceRoot: string,
   taskId: number
 ): Promise<void> {
-  // TODO: Task 6 - Implement with ChatInvoker
-  vscode.window.showInformationMessage(
-    `[STUB] Would invoke implementor to work on task ${taskId}`
-  );
+  try {
+    // Get task from database
+    const task = getTaskById(workspaceRoot, taskId);
+
+    if (!task) {
+      vscode.window.showErrorMessage(`Task ${taskId} not found`);
+      return;
+    }
+
+    // Build prompt context (no handoverPath field in database)
+    const context = {
+      task: {
+        task_id: task.id,
+        title: task.title,
+        description: task.description,
+        category: task.category,
+        phase_id: `phase-${task.phase_id}`,
+      },
+      sprint: {
+        sprint_id: task.sprint_id,
+        title: "Current Sprint",
+      },
+    };
+
+    // Create instances
+    const logger = new OrchestraLogger();
+    const promptBuilder = new PromptBuilder();
+    const chatInvoker = new ChatInvoker(logger);
+
+    // Get context file resolver from extension
+    const contextFileResolver = getContextFileResolver();
+
+    // Resolve context files from handover
+    const contextFiles = contextFileResolver.getContextFiles(taskId);
+
+    // Build the implement prompt
+    const prompt = promptBuilder.buildImplementPrompt(context);
+
+    // Get implementor model configuration
+    const model = getConfigService().getModelForRole("implementor");
+
+    // Invoke chat with implementor agent and context files
+    await chatInvoker.invokeChat({
+      prompt,
+      agentMode: "implementor",
+      model,
+      files: contextFiles,
+    });
+
+    logger.info(`Invoked implementor to work on task ${taskId}`, {
+      taskId,
+      taskTitle: task.title,
+      contextFileCount: contextFiles.length,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    vscode.window.showErrorMessage(
+      `Orchestra: Failed to invoke implementor for task ${taskId} - ${message}`
+    );
+  }
 }
 
 /**

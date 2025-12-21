@@ -53,10 +53,20 @@ vi.mock("../../src/prompts/PromptBuilder.js", () => ({
   })),
 }));
 
+// Mock ContextFileResolver
+vi.mock("../../src/prompts/ContextFileResolver.js", () => ({
+  ContextFileResolver: vi.fn().mockImplementation(() => ({
+    getContextFiles: vi.fn(() => []),
+  })),
+}));
+
 // Mock extension
 vi.mock("../../src/extension.js", () => ({
   getConfigService: vi.fn(() => ({
     getModelForRole: vi.fn(() => "claude-sonnet-4"),
+  })),
+  getContextFileResolver: vi.fn(() => ({
+    getContextFiles: vi.fn(() => []),
   })),
 }));
 
@@ -194,14 +204,14 @@ describe("PlayTaskHandler", () => {
       });
     });
 
-    it("should invoke implement stub for IMPLEMENT task", async () => {
+    describe("IMPLEMENT task", () => {
       const mockTask = {
         id: mockTaskId,
         sprint_id: "sprint-1",
         phase_id: 1,
         task_id: 1,
-        title: "Test Task",
-        description: "Test description",
+        title: "Implement Feature X",
+        description: "Test description for implement task",
         category: "feature",
         dependencies: "[]",
         speckit_task_ref: null,
@@ -213,17 +223,179 @@ describe("PlayTaskHandler", () => {
         completed_at: null,
       };
 
-      vi.mocked(queries.getTaskById).mockReturnValue(mockTask);
+      it("should invoke implementor with correct context and files", async () => {
+        vi.mocked(queries.getTaskById).mockReturnValue(mockTask);
 
-      await handlePlayTask(mockWorkspaceRoot, mockTaskId);
+        const mockInvokeChat = vi.fn();
+        const mockBuildImplementPrompt = vi.fn(() => "Mock implement prompt");
+        const mockGetContextFiles = vi.fn(() => [
+          { fsPath: "/workspace/src/file1.ts" },
+          { fsPath: "/workspace/src/file2.ts" },
+        ]);
 
-      expect(queries.getTaskById).toHaveBeenCalledWith(
-        mockWorkspaceRoot,
-        mockTaskId
-      );
-      expect(vscode.window.showInformationMessage).toHaveBeenCalledWith(
-        `[STUB] Would invoke implementor to work on task ${mockTaskId}`
-      );
+        vi.mocked(ChatInvoker).mockImplementation(
+          () =>
+            ({
+              invokeChat: mockInvokeChat,
+            }) as unknown as ChatInvoker
+        );
+
+        vi.mocked(PromptBuilder).mockImplementation(
+          () =>
+            ({
+              buildImplementPrompt: mockBuildImplementPrompt,
+            }) as unknown as PromptBuilder
+        );
+
+        vi.mocked(extension.getContextFileResolver).mockReturnValue({
+          getContextFiles: mockGetContextFiles,
+        } as never);
+
+        await handlePlayTask(mockWorkspaceRoot, mockTaskId);
+
+        // Verify task query
+        expect(queries.getTaskById).toHaveBeenCalledWith(
+          mockWorkspaceRoot,
+          mockTaskId
+        );
+
+        // Verify PromptBuilder was called with correct context (no handoverPath field exists)
+        expect(mockBuildImplementPrompt).toHaveBeenCalledWith({
+          task: {
+            task_id: mockTask.id,
+            title: mockTask.title,
+            description: mockTask.description,
+            category: mockTask.category,
+            phase_id: "phase-1",
+          },
+          sprint: {
+            sprint_id: mockTask.sprint_id,
+            title: "Current Sprint",
+          },
+        });
+
+        // Verify context files were resolved
+        expect(mockGetContextFiles).toHaveBeenCalledWith(mockTaskId);
+
+        // Verify ChatInvoker was called with correct options including files
+        expect(mockInvokeChat).toHaveBeenCalledWith({
+          prompt: "Mock implement prompt",
+          agentMode: "implementor",
+          model: "claude-sonnet-4",
+          files: [
+            { fsPath: "/workspace/src/file1.ts" },
+            { fsPath: "/workspace/src/file2.ts" },
+          ],
+        });
+      });
+
+      it("should work when handover is null (no handover exists yet)", async () => {
+        vi.mocked(queries.getTaskById).mockReturnValue(mockTask);
+
+        const mockInvokeChat = vi.fn();
+        const mockBuildImplementPrompt = vi.fn(() => "Mock implement prompt");
+        const mockGetContextFiles = vi.fn(() => []);
+
+        vi.mocked(ChatInvoker).mockImplementation(
+          () =>
+            ({
+              invokeChat: mockInvokeChat,
+            }) as unknown as ChatInvoker
+        );
+
+        vi.mocked(PromptBuilder).mockImplementation(
+          () =>
+            ({
+              buildImplementPrompt: mockBuildImplementPrompt,
+            }) as unknown as PromptBuilder
+        );
+
+        vi.mocked(extension.getContextFileResolver).mockReturnValue({
+          getContextFiles: mockGetContextFiles,
+        } as never);
+
+        await handlePlayTask(mockWorkspaceRoot, mockTaskId);
+
+        // Verify PromptBuilder was called with context
+        expect(mockBuildImplementPrompt).toHaveBeenCalledWith({
+          task: {
+            task_id: mockTask.id,
+            title: mockTask.title,
+            description: mockTask.description,
+            category: mockTask.category,
+            phase_id: "phase-1",
+          },
+          sprint: {
+            sprint_id: mockTask.sprint_id,
+            title: "Current Sprint",
+          },
+        });
+
+        // Should still invoke chat successfully
+        expect(mockInvokeChat).toHaveBeenCalled();
+      });
+
+      it("should work when no context files exist", async () => {
+        vi.mocked(queries.getTaskById).mockReturnValue(mockTask);
+
+        const mockInvokeChat = vi.fn();
+        const mockBuildImplementPrompt = vi.fn(() => "Mock implement prompt");
+        const mockGetContextFiles = vi.fn(() => []); // No files
+
+        vi.mocked(ChatInvoker).mockImplementation(
+          () =>
+            ({
+              invokeChat: mockInvokeChat,
+            }) as unknown as ChatInvoker
+        );
+
+        vi.mocked(PromptBuilder).mockImplementation(
+          () =>
+            ({
+              buildImplementPrompt: mockBuildImplementPrompt,
+            }) as unknown as PromptBuilder
+        );
+
+        vi.mocked(extension.getContextFileResolver).mockReturnValue({
+          getContextFiles: mockGetContextFiles,
+        } as never);
+
+        await handlePlayTask(mockWorkspaceRoot, mockTaskId);
+
+        // Should invoke chat with empty files array
+        expect(mockInvokeChat).toHaveBeenCalledWith({
+          prompt: "Mock implement prompt",
+          agentMode: "implementor",
+          model: "claude-sonnet-4",
+          files: [],
+        });
+      });
+
+      it("should handle errors gracefully", async () => {
+        vi.mocked(queries.getTaskById).mockReturnValue(mockTask);
+        vi.mocked(extension.getContextFileResolver).mockImplementation(() => {
+          throw new Error("Context resolver error");
+        });
+
+        await handlePlayTask(mockWorkspaceRoot, mockTaskId);
+
+        expect(vscode.window.showErrorMessage).toHaveBeenCalledWith(
+          expect.stringContaining("Failed to invoke implementor")
+        );
+        expect(vscode.window.showErrorMessage).toHaveBeenCalledWith(
+          expect.stringContaining("Context resolver error")
+        );
+      });
+
+      it("should show error when task not found", async () => {
+        vi.mocked(queries.getTaskById).mockReturnValue(null);
+
+        await handlePlayTask(mockWorkspaceRoot, mockTaskId);
+
+        expect(vscode.window.showErrorMessage).toHaveBeenCalledWith(
+          `Task ${mockTaskId} not found`
+        );
+      });
     });
 
     it("should invoke retry stub for VERIFY_FAILED task", async () => {
