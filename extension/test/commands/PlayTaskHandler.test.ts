@@ -65,7 +65,7 @@ vi.mock("../../src/prompts/ContextFileResolver.js", () => ({
 // Mock extension
 vi.mock("../../src/extension.js", () => ({
   getConfigService: vi.fn(() => ({
-    getModelForRole: vi.fn((role: string) => 
+    getModelForRole: vi.fn((role: string) =>
       role === "orchestrator" ? "claude-opus-4" : "claude-sonnet-4"
     ),
   })),
@@ -584,7 +584,8 @@ describe("PlayTaskHandler", () => {
           sprint_id: "sprint-1",
           reason: "Max retries exceeded",
           attempts_summary: "Failed verification 3 times due to missing tests",
-          recommended_action: "Review test requirements and add comprehensive tests",
+          recommended_action:
+            "Review test requirements and add comprehensive tests",
           recommended_target_status: "IMPLEMENT",
           from_status: "VERIFY_FAILED",
           retry_count: 3,
@@ -599,7 +600,9 @@ describe("PlayTaskHandler", () => {
 
         vi.mocked(queries.getTaskById).mockReturnValue(mockTask);
         vi.mocked(queries.getEscalation).mockReturnValue(mockEscalation);
-        vi.mocked(vscode.window.showWarningMessage).mockResolvedValue(undefined);
+        vi.mocked(vscode.window.showWarningMessage).mockResolvedValue(
+          undefined
+        );
 
         await handlePlayTask(mockWorkspaceRoot, mockTaskId);
 
@@ -620,11 +623,15 @@ describe("PlayTaskHandler", () => {
           "View Task Details"
         );
         expect(vscode.window.showWarningMessage).toHaveBeenCalledWith(
-          expect.stringContaining("Attempts Summary: Failed verification 3 times due to missing tests"),
+          expect.stringContaining(
+            "Attempts Summary: Failed verification 3 times due to missing tests"
+          ),
           "View Task Details"
         );
         expect(vscode.window.showWarningMessage).toHaveBeenCalledWith(
-          expect.stringContaining("Recommended Action: Review test requirements and add comprehensive tests"),
+          expect.stringContaining(
+            "Recommended Action: Review test requirements and add comprehensive tests"
+          ),
           "View Task Details"
         );
       });
@@ -651,7 +658,9 @@ describe("PlayTaskHandler", () => {
 
         vi.mocked(queries.getTaskById).mockReturnValue(mockTask);
         vi.mocked(queries.getEscalation).mockReturnValue(mockEscalation);
-        vi.mocked(vscode.window.showWarningMessage).mockResolvedValue("View Task Details" as any);
+        vi.mocked(vscode.window.showWarningMessage).mockResolvedValue(
+          "View Task Details" as any
+        );
 
         await handlePlayTask(mockWorkspaceRoot, mockTaskId);
 
@@ -683,7 +692,9 @@ describe("PlayTaskHandler", () => {
 
         vi.mocked(queries.getTaskById).mockReturnValue(mockTask);
         vi.mocked(queries.getEscalation).mockReturnValue(mockEscalation);
-        vi.mocked(vscode.window.showWarningMessage).mockResolvedValue(undefined);
+        vi.mocked(vscode.window.showWarningMessage).mockResolvedValue(
+          undefined
+        );
 
         await handlePlayTask(mockWorkspaceRoot, mockTaskId);
 
