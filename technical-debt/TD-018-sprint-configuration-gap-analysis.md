@@ -288,6 +288,84 @@ if (!ALLOWED_STATUSES.includes(task.status)) {
 - Sprint 003D: SessionManager Implementation (fix for 003C gaps)
 - [sprint-003-autonomous-orchestration.md](../spec/sprints/003-autonomous-orchestration/sprint-003-autonomous-orchestration.md): Original specification
 
+## Section 5: Verification Pattern Specificity Failure (Sprint 003D)
+
+**Discovered**: 2025-12-21 during Sprint 003D execution
+
+### Failure Chain
+
+Sprint 003D Task 2 "Implement invokeOrchestrator method" was verified as COMPLETE, but the implementation had a critical bug: `mode: "agent"` instead of `mode: getAgentForRole("orchestrator")`.
+
+| Layer | What Existed | What Was Missing |
+|-------|--------------|------------------|
+| **Spec** | `getAgentForRole()` → `"orchestra.orchestrator.agent"` | ✅ Correct |
+| **ConfigService** | `getAgentForRole()` implemented correctly | ✅ Correct |
+| **Task Description** | "mode: 'agent'" | ❌ **Wrong literal value** |
+| **Verification Pattern** | `mode.*agent\|agent.*mode` | ❌ **Matches "agent" anywhere** |
+| **Implementation** | `mode: "agent"` hardcoded | ❌ **Per task description** |
+| **Tests** | `expect(mode).toBe("agent")` | ❌ **Verified wrong behavior** |
+| **Verification Pass** | Regex matched | ❌ **Pattern too loose** |
+
+### Root Causes
+
+1. **Task description diverged from spec**: Orchestrator wrote "mode: 'agent'" instead of "mode from getAgentForRole()"
+2. **Loose regex verification**: Pattern `mode.*agent` matches both wrong (`mode: "agent"`) and right (`mode: agentMode`)
+3. **Tests verify implementation, not spec**: Implementor tests matched their code, not the requirement
+4. **No service integration verification**: No check that SessionManager actually CALLS ConfigService.getAgentForRole()
+
+### Required Fixes
+
+1. **Verification patterns must be specific**:
+   ```javascript
+   // BAD - matches wrong implementation
+   pattern: "mode.*agent"
+   
+   // GOOD - verifies correct integration
+   pattern: "getAgentForRole.*orchestrator"
+   pattern: "mode.*agentMode|agentMode.*mode"
+   ```
+
+2. **Task descriptions must reference service methods, not literal values**:
+   ```
+   // BAD
+   "Uses mode: 'agent' parameter"
+   
+   // GOOD
+   "Uses mode from ConfigService.getAgentForRole('orchestrator')"
+   ```
+
+3. **Behavioral checks should assert actual values**:
+   ```javascript
+   // Add grep check for integration
+   {
+     description: "SessionManager calls ConfigService.getAgentForRole",
+     command: "grep -n 'getAgentForRole' extension/src/chat/SessionManager.ts",
+     expect_output_contains: "getAgentForRole"
+   }
+   ```
+
+4. **Cross-service integration tests required**:
+   ```typescript
+   it("should get agent mode from ConfigService", async () => {
+     expect(mockConfigService.getAgentForRole).toHaveBeenCalledWith("orchestrator");
+     expect(vscode.commands.executeCommand).toHaveBeenCalledWith(
+       "workbench.action.chat.open",
+       expect.objectContaining({
+         mode: "orchestra.orchestrator.agent" // Exact expected value
+       })
+     );
+   });
+   ```
+
+### Updated Acceptance Criteria
+
+13. [ ] Verification patterns must not use loose regexes that match partial/wrong values
+14. [ ] Task descriptions must reference service methods, not hardcoded values
+15. [ ] Behavioral checks must assert exact expected values where possible
+16. [ ] Integration tests must verify cross-service calls
+
 ## Notes
 
 This is a systemic process failure, not a one-time bug. The orchestration system's core value proposition is **preventing implementation theater** - but if sprint configuration itself can deviate from spec undetected, we've just moved the theater upstream.
+
+**Sprint 003D Addendum**: Even when the spec is correct and ConfigService is correctly implemented, if the task description contains a wrong literal value and verification patterns are loose, the bug passes through undetected. The orchestra process has multiple failure modes that compound.

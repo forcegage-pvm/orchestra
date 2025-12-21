@@ -46,19 +46,22 @@ export class SessionManager {
   async invokeOrchestrator(prompt: string, files: vscode.Uri[]): Promise<void> {
     try {
       const model = this._configService.getModelForRole("orchestrator");
+      const agentMode = this._configService.getAgentForRole("orchestrator");
       this.logger.info("Invoking orchestrator session", {
         hasFiles: files.length > 0,
         fileCount: files.length,
         model,
+        agentMode,
         wasActive: this._orchestratorActive,
       });
 
       // Execute VS Code command to open chat with orchestrator agent
+      // mode: custom agent ID (e.g., 'orchestra.orchestrator'), modelSelector must be an object with id property
       await vscode.commands.executeCommand("workbench.action.chat.open", {
         query: prompt,
         isPartialQuery: false,
-        mode: "agent",
-        modelSelector: model,
+        mode: agentMode,
+        modelSelector: { id: model },
         attachFiles: files,
       });
 
@@ -87,10 +90,12 @@ export class SessionManager {
   async invokeImplementor(prompt: string, files: vscode.Uri[]): Promise<void> {
     try {
       const model = this._configService.getModelForRole("implementor");
+      const agentMode = this._configService.getAgentForRole("implementor");
       this.logger.info("Invoking implementor session", {
         hasFiles: files.length > 0,
         fileCount: files.length,
         model,
+        agentMode,
       });
 
       // Clear any previous implementor session to prevent context contamination
@@ -102,11 +107,12 @@ export class SessionManager {
       );
 
       // Send the prompt to the Chat Editor Tab with implementor configuration
+      // mode: custom agent ID (e.g., 'orchestra.implementor'), modelSelector must be an object with id property
       await vscode.commands.executeCommand("workbench.action.chat.open", {
         query: prompt,
         isPartialQuery: false,
-        mode: "agent",
-        modelSelector: model,
+        mode: agentMode,
+        modelSelector: { id: model },
         attachFiles: files,
       });
 

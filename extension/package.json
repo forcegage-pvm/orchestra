@@ -53,22 +53,22 @@
         },
         "orchestra.models.orchestrator": {
           "type": "string",
-          "default": "claude-opus-4",
-          "description": "AI model to use for the Orchestrator agent (e.g., claude-opus-4, gpt-4)"
+          "default": "claude-opus-4.5",
+          "description": "AI model to use for the Orchestrator agent (e.g., claude-opus-4.5, gpt-4o)"
         },
         "orchestra.models.implementor": {
           "type": "string",
-          "default": "claude-sonnet-4",
-          "description": "AI model to use for the Implementor agent (e.g., claude-sonnet-4, gpt-4)"
+          "default": "claude-sonnet-4.5",
+          "description": "AI model to use for the Implementor agent (e.g., claude-sonnet-4.5, gpt-4o)"
         },
         "orchestra.agents.orchestrator": {
           "type": "string",
-          "default": "orchestra.orchestrator.agent",
+          "default": "orchestra.orchestrator",
           "description": "Agent mode identifier for the Orchestrator role"
         },
         "orchestra.agents.implementor": {
           "type": "string",
-          "default": "orchestra.implementor.agent",
+          "default": "orchestra.implementor",
           "description": "Agent mode identifier for the Implementor role"
         }
       }

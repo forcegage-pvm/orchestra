@@ -80,7 +80,7 @@ describe("SessionManager", () => {
           query: prompt,
           isPartialQuery: false,
           mode: "agent",
-          modelSelector: "claude-sonnet-4",
+          modelSelector: { id: "claude-sonnet-4" },
           attachFiles: files,
         })
       );
@@ -144,7 +144,7 @@ describe("SessionManager", () => {
       expect(vscode.commands.executeCommand).toHaveBeenCalledWith(
         "workbench.action.chat.open",
         expect.objectContaining({
-          modelSelector: customModel,
+          modelSelector: { id: customModel },
         })
       );
     });
@@ -222,7 +222,7 @@ describe("SessionManager", () => {
           query: prompt,
           isPartialQuery: false,
           mode: "agent",
-          modelSelector: "claude-sonnet-4",
+          modelSelector: { id: "claude-sonnet-4" },
           attachFiles: files,
         })
       );
@@ -293,7 +293,7 @@ describe("SessionManager", () => {
       expect(chatOpenIndex).toBeGreaterThan(newChatEditorIndex);
     });
 
-    it("should pass mode: 'agent' parameter", async () => {
+    it("should pass mode: 'agent' for implementor agent", async () => {
       const prompt = "Test prompt";
       const files: vscode.Uri[] = [];
 
@@ -328,7 +328,7 @@ describe("SessionManager", () => {
       expect(vscode.commands.executeCommand).toHaveBeenCalledWith(
         "workbench.action.chat.open",
         expect.objectContaining({
-          modelSelector: customModel,
+          modelSelector: { id: customModel },
         })
       );
     });

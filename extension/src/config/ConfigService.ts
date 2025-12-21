@@ -40,23 +40,23 @@ export class ConfigService {
   /**
    * Get the configured AI model for a specific role
    * @param role - The role to get the model for (orchestrator or implementor)
-   * @returns The model identifier (e.g., "claude-sonnet-4", "gpt-4o")
+   * @returns The model identifier (e.g., "claude-sonnet-4.5", "gpt-4o")
    */
   getModelForRole(role: Role): string {
     const config = this.getWorkspaceConfig();
     const defaultModel =
-      role === "orchestrator" ? "claude-opus-4" : "claude-sonnet-4";
+      role === "orchestrator" ? "claude-opus-4.5" : "claude-sonnet-4.5";
     return config.get<string>(`models.${role}`, defaultModel);
   }
 
   /**
    * Get the configured agent mode identifier for a specific role
    * @param role - The role to get the agent for (orchestrator or implementor)
-   * @returns The agent mode identifier (e.g., "orchestra.orchestrator.agent")
+   * @returns The agent mode identifier (e.g., "orchestra.orchestrator")
    */
   getAgentForRole(role: Role): string {
     const config = this.getWorkspaceConfig();
-    const defaultAgent = `orchestra.${role}.agent`;
+    const defaultAgent = `orchestra.${role}`;
     return config.get<string>(`agents.${role}`, defaultAgent);
   }
 
