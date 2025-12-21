@@ -30,23 +30,16 @@ describe("Chat invocation commands (Task 1 - Spike)", () => {
       );
     });
 
-    it("should call workbench.action.chat.open", () => {
+    it("should call SessionManager.invokeOrchestrator", () => {
       const functionCode = extensionCode.match(
         /async function handleInvokeOrchestrator[\s\S]*?^}/m
       ) as RegExpMatchArray;
       expect(functionCode).toBeTruthy();
-      expect(functionCode[0]).toContain("workbench.action.chat.open");
+      expect(functionCode[0]).toContain("getSessionManager()");
+      expect(functionCode[0]).toContain("invokeOrchestrator");
     });
 
-    it("should include @orchestra prefix in query", () => {
-      const functionCode = extensionCode.match(
-        /async function handleInvokeOrchestrator[\s\S]*?^}/m
-      ) as RegExpMatchArray;
-      expect(functionCode).toBeTruthy();
-      expect(functionCode[0]).toContain("@orchestra");
-    });
-
-    it("should mention orchestrator agent in query", () => {
+it("should mention orchestrator agent in query", () => {
       const functionCode = extensionCode.match(
         /async function handleInvokeOrchestrator[\s\S]*?^}/m
       ) as RegExpMatchArray;
@@ -87,23 +80,16 @@ describe("Chat invocation commands (Task 1 - Spike)", () => {
       );
     });
 
-    it("should call workbench.action.chat.open", () => {
+    it("should call SessionManager.invokeImplementor", () => {
       const functionCode = extensionCode.match(
         /async function handleInvokeImplementor[\s\S]*?^}/m
       ) as RegExpMatchArray;
       expect(functionCode).toBeTruthy();
-      expect(functionCode[0]).toContain("workbench.action.chat.open");
+      expect(functionCode[0]).toContain("getSessionManager()");
+      expect(functionCode[0]).toContain("invokeImplementor");
     });
 
-    it("should include @orchestra prefix in query", () => {
-      const functionCode = extensionCode.match(
-        /async function handleInvokeImplementor[\s\S]*?^}/m
-      ) as RegExpMatchArray;
-      expect(functionCode).toBeTruthy();
-      expect(functionCode[0]).toContain("@orchestra");
-    });
-
-    it("should mention implementor agent in query", () => {
+it("should mention implementor agent in query", () => {
       const functionCode = extensionCode.match(
         /async function handleInvokeImplementor[\s\S]*?^}/m
       ) as RegExpMatchArray;
@@ -142,13 +128,14 @@ describe("Chat invocation commands (Task 1 - Spike)", () => {
       expect(extensionCode).toContain("async function handleStartTask");
     });
 
-    it("should include @orchestra prefix in query", () => {
+    it("should use SessionManager.invokeImplementor", () => {
       // Check the handleStartTask function
       const functionCode = extensionCode.match(
         /async function handleStartTask[\s\S]*?(?=\n\/\*\*|\nasync function)/
       ) as RegExpMatchArray;
       expect(functionCode).toBeTruthy();
-      expect(functionCode[0]).toContain("@orchestra");
+      expect(functionCode[0]).toContain("getSessionManager()");
+      expect(functionCode[0]).toContain("invokeImplementor");
     });
 
     it("should include task ID in query", () => {
@@ -223,17 +210,20 @@ describe("Chat invocation commands (Task 1 - Spike)", () => {
       }
     });
 
-    it("should use query parameter consistently", () => {
-      const chatOpenCalls = extensionCode.match(
-        /workbench\.action\.chat\.open[\s\S]{0,200}\}/g
+    it("should use SessionManager consistently", () => {
+      // Check that functions use SessionManager pattern
+      const orchestratorCode = extensionCode.match(
+        /async function handleInvokeOrchestrator[\s\S]*?^}/m
       ) as RegExpMatchArray;
-      expect(chatOpenCalls).toBeTruthy();
-      expect(chatOpenCalls.length).toBeGreaterThan(0);
-
-      // All chat.open calls should have query parameter
-      for (const call of chatOpenCalls) {
-        expect(call).toMatch(/query:\s*["'`]/);
-      }
+      const implementorCode = extensionCode.match(
+        /async function handleInvokeImplementor[\s\S]*?^}/m
+      ) as RegExpMatchArray;
+      
+      expect(orchestratorCode).toBeTruthy();
+      expect(orchestratorCode[0]).toContain("getSessionManager()");
+      
+      expect(implementorCode).toBeTruthy();
+      expect(implementorCode[0]).toContain("getSessionManager()");
     });
   });
 

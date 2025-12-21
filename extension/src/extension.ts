@@ -238,15 +238,13 @@ async function initializeWorkspace(
 
 /**
  * Handle invoking the orchestrator agent
- * Opens chat with @orchestra participant and orchestrator agent context
+ * Opens chat with orchestrator agent context using SessionManager
  */
 async function handleInvokeOrchestrator(_workspaceRoot: string): Promise<void> {
   try {
-    // Open chat and send a message to invoke orchestrator agent
-    await vscode.commands.executeCommand("workbench.action.chat.open", {
-      query: "@orchestra I'm ready to work as the orchestrator agent.",
-    });
-    logger.info("Orchestrator agent invoked via chat");
+    const sm = getSessionManager();
+    await sm.invokeOrchestrator("I'm ready to work as the orchestrator agent.", []);
+    logger.info("Orchestrator agent invoked via SessionManager");
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
     vscode.window.showErrorMessage(
@@ -258,15 +256,13 @@ async function handleInvokeOrchestrator(_workspaceRoot: string): Promise<void> {
 
 /**
  * Handle invoking the implementor agent
- * Opens chat with @orchestra participant and implementor agent context
+ * Opens chat with implementor agent context using SessionManager
  */
 async function handleInvokeImplementor(_workspaceRoot: string): Promise<void> {
   try {
-    // Open chat and send a message to invoke implementor agent
-    await vscode.commands.executeCommand("workbench.action.chat.open", {
-      query: "@orchestra I'm ready to work as the implementor agent.",
-    });
-    logger.info("Implementor agent invoked via chat");
+    const sm = getSessionManager();
+    await sm.invokeImplementor("I'm ready to work as the implementor agent.", []);
+    logger.info("Implementor agent invoked via SessionManager");
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
     vscode.window.showErrorMessage(
@@ -316,12 +312,14 @@ async function handleStartTask(
       return;
     }
 
-    // Open chat with task context pre-filled
-    await vscode.commands.executeCommand("workbench.action.chat.open", {
-      query: `@orchestra Start working on Task ${task.task_id}: ${task.title}. The handover has been prepared and I'm ready to implement.`,
-    });
+    // Open chat with task context pre-filled using SessionManager
+    const sm = getSessionManager();
+    await sm.invokeImplementor(
+      `Start working on Task ${task.task_id}: ${task.title}. The handover has been prepared and I'm ready to implement.`,
+      []
+    );
 
-    logger.info(`Task ${task.task_id} started via chat invocation`);
+    logger.info(`Task ${task.task_id} started via SessionManager`);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
     vscode.window.showErrorMessage(
