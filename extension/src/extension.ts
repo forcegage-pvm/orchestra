@@ -243,7 +243,10 @@ async function initializeWorkspace(
 async function handleInvokeOrchestrator(_workspaceRoot: string): Promise<void> {
   try {
     const sm = getSessionManager();
-    await sm.invokeOrchestrator("I'm ready to work as the orchestrator agent.", []);
+    await sm.invokeOrchestrator(
+      "I'm ready to work as the orchestrator agent.",
+      []
+    );
     logger.info("Orchestrator agent invoked via SessionManager");
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
@@ -261,7 +264,10 @@ async function handleInvokeOrchestrator(_workspaceRoot: string): Promise<void> {
 async function handleInvokeImplementor(_workspaceRoot: string): Promise<void> {
   try {
     const sm = getSessionManager();
-    await sm.invokeImplementor("I'm ready to work as the implementor agent.", []);
+    await sm.invokeImplementor(
+      "I'm ready to work as the implementor agent.",
+      []
+    );
     logger.info("Implementor agent invoked via SessionManager");
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
