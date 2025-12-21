@@ -38,6 +38,7 @@ vi.mock("../../src/database/queries.js", () => ({
   getTaskById: vi.fn(),
   getCurrentSprint: vi.fn(),
   getFeedback: vi.fn(),
+  getEscalation: vi.fn(),
 }));
 
 // Mock ChatInvoker
@@ -551,7 +552,7 @@ describe("PlayTaskHandler", () => {
       });
     });
 
-    it("should show escalation stub for ESCALATED task", async () => {
+    describe("ESCALATED task", () => {
       const mockTask = {
         id: mockTaskId,
         sprint_id: "sprint-1",
@@ -570,17 +571,159 @@ describe("PlayTaskHandler", () => {
         completed_at: null,
       };
 
-      vi.mocked(queries.getTaskById).mockReturnValue(mockTask);
+      it("should show escalation details with warning message", async () => {
+        const mockEscalation = {
+          id: 1,
+          task_id: mockTaskId,
+          sprint_id: "sprint-1",
+          reason: "Max retries exceeded",
+          attempts_summary: "Failed verification 3 times due to missing tests",
+          recommended_action: "Review test requirements and add comprehensive tests",
+          recommended_target_status: "IMPLEMENT",
+          from_status: "VERIFY_FAILED",
+          retry_count: 3,
+          max_retries: 3,
+          escalated_by: "system",
+          escalated_at: "2025-01-02T00:00:00Z",
+          resolved_at: null,
+          resolved_by: null,
+          resolution_target_status: null,
+          resolution_notes: null,
+        };
 
-      await handlePlayTask(mockWorkspaceRoot, mockTaskId);
+        vi.mocked(queries.getTaskById).mockReturnValue(mockTask);
+        vi.mocked(queries.getEscalation).mockReturnValue(mockEscalation);
+        vi.mocked(vscode.window.showWarningMessage).mockResolvedValue(undefined);
 
-      expect(queries.getTaskById).toHaveBeenCalledWith(
-        mockWorkspaceRoot,
-        mockTaskId
-      );
-      expect(vscode.window.showWarningMessage).toHaveBeenCalledWith(
-        `[STUB] Task ${mockTaskId} is escalated - would show escalation details`
-      );
+        await handlePlayTask(mockWorkspaceRoot, mockTaskId);
+
+        expect(queries.getTaskById).toHaveBeenCalledWith(
+          mockWorkspaceRoot,
+          mockTaskId
+        );
+        expect(queries.getEscalation).toHaveBeenCalledWith(
+          mockWorkspaceRoot,
+          mockTaskId
+        );
+        expect(vscode.window.showWarningMessage).toHaveBeenCalledWith(
+          expect.stringContaining("Test Task is escalated"),
+          "View Task Details"
+        );
+        expect(vscode.window.showWarningMessage).toHaveBeenCalledWith(
+          expect.stringContaining("Reason: Max retries exceeded"),
+          "View Task Details"
+        );
+        expect(vscode.window.showWarningMessage).toHaveBeenCalledWith(
+          expect.stringContaining("Attempts Summary: Failed verification 3 times due to missing tests"),
+          "View Task Details"
+        );
+        expect(vscode.window.showWarningMessage).toHaveBeenCalledWith(
+          expect.stringContaining("Recommended Action: Review test requirements and add comprehensive tests"),
+          "View Task Details"
+        );
+      });
+
+      it("should open task detail panel when user clicks button", async () => {
+        const mockEscalation = {
+          id: 1,
+          task_id: mockTaskId,
+          sprint_id: "sprint-1",
+          reason: "Max retries exceeded",
+          attempts_summary: "Failed verification 3 times",
+          recommended_action: null,
+          recommended_target_status: "IMPLEMENT",
+          from_status: "VERIFY_FAILED",
+          retry_count: 3,
+          max_retries: 3,
+          escalated_by: "system",
+          escalated_at: "2025-01-02T00:00:00Z",
+          resolved_at: null,
+          resolved_by: null,
+          resolution_target_status: null,
+          resolution_notes: null,
+        };
+
+        vi.mocked(queries.getTaskById).mockReturnValue(mockTask);
+        vi.mocked(queries.getEscalation).mockReturnValue(mockEscalation);
+        vi.mocked(vscode.window.showWarningMessage).mockResolvedValue("View Task Details" as any);
+
+        await handlePlayTask(mockWorkspaceRoot, mockTaskId);
+
+        expect(vscode.commands.executeCommand).toHaveBeenCalledWith(
+          "orchestra.openTaskDetail",
+          mockTaskId
+        );
+      });
+
+      it("should not open task detail panel when user dismisses message", async () => {
+        const mockEscalation = {
+          id: 1,
+          task_id: mockTaskId,
+          sprint_id: "sprint-1",
+          reason: "Max retries exceeded",
+          attempts_summary: "Failed verification 3 times",
+          recommended_action: null,
+          recommended_target_status: "IMPLEMENT",
+          from_status: "VERIFY_FAILED",
+          retry_count: 3,
+          max_retries: 3,
+          escalated_by: "system",
+          escalated_at: "2025-01-02T00:00:00Z",
+          resolved_at: null,
+          resolved_by: null,
+          resolution_target_status: null,
+          resolution_notes: null,
+        };
+
+        vi.mocked(queries.getTaskById).mockReturnValue(mockTask);
+        vi.mocked(queries.getEscalation).mockReturnValue(mockEscalation);
+        vi.mocked(vscode.window.showWarningMessage).mockResolvedValue(undefined);
+
+        await handlePlayTask(mockWorkspaceRoot, mockTaskId);
+
+        expect(vscode.commands.executeCommand).not.toHaveBeenCalled();
+      });
+
+      it("should show error when task not found", async () => {
+        vi.mocked(queries.getTaskById).mockReturnValue(null);
+
+        await handlePlayTask(mockWorkspaceRoot, mockTaskId);
+
+        expect(vscode.window.showErrorMessage).toHaveBeenCalledWith(
+          `Task ${mockTaskId} not found`
+        );
+      });
+
+      it("should show error when escalation not found", async () => {
+        vi.mocked(queries.getTaskById).mockReturnValue(mockTask);
+        vi.mocked(queries.getEscalation).mockReturnValue(null);
+
+        await handlePlayTask(mockWorkspaceRoot, mockTaskId);
+
+        expect(queries.getEscalation).toHaveBeenCalledWith(
+          mockWorkspaceRoot,
+          mockTaskId
+        );
+        expect(vscode.window.showErrorMessage).toHaveBeenCalledWith(
+          expect.stringContaining("No escalation found for task")
+        );
+      });
+
+      it("should handle errors gracefully", async () => {
+        vi.mocked(queries.getTaskById).mockReturnValue(mockTask);
+        vi.mocked(queries.getEscalation).mockImplementation(() => {
+          throw new Error("Database error");
+        });
+
+        await handlePlayTask(mockWorkspaceRoot, mockTaskId);
+
+        expect(vscode.window.showErrorMessage).toHaveBeenCalledWith(
+          expect.stringContaining("Failed to show escalation")
+        );
+        expect(vscode.window.showErrorMessage).toHaveBeenCalledWith(
+          expect.stringContaining("Database error")
+        );
+      });
     });
 
     it("should show info message for VERIFY task", async () => {

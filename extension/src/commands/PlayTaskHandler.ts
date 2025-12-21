@@ -10,6 +10,7 @@ import * as vscode from "vscode";
 import { ChatInvoker } from "../chat/ChatInvoker.js";
 import {
   getCurrentSprint,
+  getEscalation,
   getFeedback,
   getTaskById,
 } from "../database/queries.js";
@@ -316,17 +317,61 @@ async function invokeRetry(
 /**
  * Show escalation details for an ESCALATED task
  *
- * TODO: Display escalation reason, attempts summary, and recommended action
+ * Retrieves escalation details and displays them in a warning message.
+ * Opens the task detail panel for supervisor review.
  *
- * @param _workspaceRoot Absolute path to workspace root
+ * @param workspaceRoot Absolute path to workspace root
  * @param taskId Task ID (numeric primary key)
  */
 async function showEscalation(
-  _workspaceRoot: string,
+  workspaceRoot: string,
   taskId: number
 ): Promise<void> {
-  // TODO: Implement escalation details display
-  vscode.window.showWarningMessage(
-    `[STUB] Task ${taskId} is escalated - would show escalation details`
-  );
+  try {
+    // Get task from database
+    const task = getTaskById(workspaceRoot, taskId);
+
+    if (!task) {
+      vscode.window.showErrorMessage(`Task ${taskId} not found`);
+      return;
+    }
+
+    // Get escalation details from database
+    const escalation = getEscalation(workspaceRoot, taskId);
+
+    if (!escalation) {
+      vscode.window.showErrorMessage(
+        `Orchestra: No escalation found for task ${taskId}. Task may have been marked as escalated but escalation record is missing.`
+      );
+      return;
+    }
+
+    // Build escalation details message
+    let message = `Task ${taskId}: ${task.title} is escalated\n\n`;
+    message += `Reason: ${escalation.reason}\n\n`;
+    message += `Attempts Summary: ${escalation.attempts_summary}`;
+
+    if (escalation.recommended_action) {
+      message += `\n\nRecommended Action: ${escalation.recommended_action}`;
+    }
+
+    // Show warning message with action button
+    const action = await vscode.window.showWarningMessage(
+      message,
+      "View Task Details"
+    );
+
+    // If user clicks the button, open task detail panel
+    if (action === "View Task Details") {
+      await vscode.commands.executeCommand(
+        "orchestra.openTaskDetail",
+        taskId
+      );
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    vscode.window.showErrorMessage(
+      `Orchestra: Failed to show escalation for task ${taskId} - ${message}`
+    );
+  }
 }
