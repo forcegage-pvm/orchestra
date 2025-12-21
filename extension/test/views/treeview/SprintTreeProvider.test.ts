@@ -432,14 +432,42 @@ describe("SprintTreeProvider", () => {
       expect(treeItem.contextValue).toBe("task-verify_passed");
     });
 
+    it("should set contextValue to task-gate_check for GATE_CHECK status", () => {
+      const mockTask = createMockTask({
+        task_id: 7,
+        title: "Gated Task",
+        status: "GATE_CHECK",
+      });
+
+      const taskElement = { type: "task" as const, task: mockTask };
+      const treeItem = provider.getTreeItem(taskElement);
+
+      expect(treeItem.contextValue).toBe("task-gate_check");
+    });
+
+    it("should set contextValue to task-complete for COMPLETE status", () => {
+      const mockTask = createMockTask({
+        task_id: 8,
+        title: "Complete Task",
+        status: "COMPLETE",
+      });
+
+      const taskElement = { type: "task" as const, task: mockTask };
+      const treeItem = provider.getTreeItem(taskElement);
+
+      expect(treeItem.contextValue).toBe("task-complete");
+    });
+
     it("should lowercase status in contextValue", () => {
       const statuses: Task["status"][] = [
         "PENDING",
         "IMPLEMENT",
         "VERIFY",
         "VERIFY_FAILED",
+        "GATE_CHECK",
         "ESCALATED",
         "VERIFY_PASSED",
+        "COMPLETE",
       ];
 
       statuses.forEach((status) => {
