@@ -170,6 +170,10 @@ describe("Extension registration - Command registration (Task 15)", () => {
       expect(extensionCode).toContain('"orchestra.startTask"');
     });
 
+    it('should register "orchestra.playTask"', () => {
+      expect(extensionCode).toContain('"orchestra.playTask"');
+    });
+
     it('should register "orchestra.deEscalateTask"', () => {
       expect(extensionCode).toContain('"orchestra.deEscalateTask"');
     });
@@ -430,7 +434,7 @@ describe("Extension registration - ContextFileResolver (Task 8)", () => {
 
     it("should throw error if not initialized", () => {
       expect(extensionCode).toContain("if (!contextFileResolver)");
-      expect(extensionCode).toContain('throw new Error("ContextFileResolver not initialized');
+      expect(extensionCode).toMatch(/throw new Error\([^)]*"ContextFileResolver not initialized/s);
     });
 
     it("should return contextFileResolver instance when initialized", () => {
