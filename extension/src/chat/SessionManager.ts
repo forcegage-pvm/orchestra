@@ -136,9 +136,8 @@ export class SessionManager {
         wasActive: this._implementorActive,
       });
 
-      // Note: VS Code doesn't provide a direct API to clear a chat session.
-      // The newChatEditor command in invokeImplementor creates a fresh session.
-      // This method is primarily for state tracking and future extensibility.
+      // Execute the newChat command to clear the conversation history
+      await vscode.commands.executeCommand("workbench.action.chat.newChat");
 
       this._implementorActive = false;
       this.logger.info("Implementor session cleared successfully");

@@ -436,6 +436,15 @@ describe("SessionManager", () => {
   });
 
   describe("clearImplementorSession", () => {
+    it("should call workbench.action.chat.newChat command", async () => {
+      await sessionManager.clearImplementorSession();
+
+      // Verify VS Code command was called
+      expect(vscode.commands.executeCommand).toHaveBeenCalledWith(
+        "workbench.action.chat.newChat"
+      );
+    });
+
     it("should clear implementor session", async () => {
       await sessionManager.clearImplementorSession();
 
@@ -451,11 +460,32 @@ describe("SessionManager", () => {
       );
     });
 
+    it("should set implementorActive flag to false", async () => {
+      // First invoke implementor to set active state
+      await sessionManager.invokeImplementor("Test", []);
+
+      // Clear all previous mocks
+      vi.clearAllMocks();
+
+      // Then clear the session
+      await sessionManager.clearImplementorSession();
+
+      // Verify newChat was called
+      expect(vscode.commands.executeCommand).toHaveBeenCalledWith(
+        "workbench.action.chat.newChat"
+      );
+
+      // Verify logging shows success (which only happens if flag was set to false)
+      expect(mockLogger.info).toHaveBeenCalledWith(
+        "Implementor session cleared successfully"
+      );
+    });
+
     it("should handle errors gracefully", async () => {
-      // Mock an error by spying on logger and throwing
-      vi.spyOn(mockLogger, "info").mockImplementationOnce(() => {
-        throw new Error("Test error");
-      });
+      // Mock command execution failure
+      vi.spyOn(vscode.commands, "executeCommand").mockRejectedValueOnce(
+        new Error("Test error")
+      );
 
       await expect(sessionManager.clearImplementorSession()).rejects.toThrow(
         "Test error"
@@ -467,6 +497,24 @@ describe("SessionManager", () => {
       );
       expect(vscode.window.showErrorMessage).toHaveBeenCalledWith(
         "Orchestra: Failed to clear implementor session - Test error"
+      );
+    });
+
+    it("should include wasActive state in logging", async () => {
+      // First invoke implementor
+      await sessionManager.invokeImplementor("Test", []);
+
+      // Clear mocks to isolate clearImplementorSession logging
+      vi.clearAllMocks();
+
+      await sessionManager.clearImplementorSession();
+
+      // Verify logging includes wasActive flag
+      expect(mockLogger.info).toHaveBeenCalledWith(
+        "Clearing implementor session",
+        expect.objectContaining({
+          wasActive: true,
+        })
       );
     });
   });
