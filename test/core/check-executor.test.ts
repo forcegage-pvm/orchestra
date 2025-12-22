@@ -429,6 +429,177 @@ describe("Check Executor", () => {
       expect(result.passed).toBe(false);
       expect(result.message).toContain("Command error");
     });
+
+    // ==========================================================================
+    // Path resolution tests - TD-019
+    // ==========================================================================
+
+    it("should transform cd <directory>; patterns to absolute paths", async () => {
+      // Create subdirectory
+      const subDir = path.join(tempDir, "extension");
+      fs.mkdirSync(subDir);
+
+      mockExecuteCommand.mockResolvedValueOnce({
+        success: true,
+        exitCode: 0,
+        stdout: "OK",
+        stderr: "",
+        duration: 1000,
+      });
+
+      const config: CheckConfig = {
+        type: "behavioral",
+        command: "cd extension; npm test",
+      };
+
+      await executeBehavioralCheck(config, tempDir);
+
+      // Verify the command was transformed to use absolute path with quotes
+      expect(mockExecuteCommand).toHaveBeenCalledWith(
+        expect.stringContaining(`cd "${path.join(tempDir, "extension")}"`),
+        expect.any(Object)
+      );
+    });
+
+    it("should properly quote paths containing spaces", async () => {
+      // Create a temp directory with spaces in the path
+      const spacedDir = fs.mkdtempSync(
+        path.join(os.tmpdir(), "check exec test ")
+      );
+
+      try {
+        const subDir = path.join(spacedDir, "my project");
+        fs.mkdirSync(subDir);
+
+        mockExecuteCommand.mockResolvedValueOnce({
+          success: true,
+          exitCode: 0,
+          stdout: "OK",
+          stderr: "",
+          duration: 1000,
+        });
+
+        const config: CheckConfig = {
+          type: "behavioral",
+          command: "cd my project; npm test",
+        };
+
+        await executeBehavioralCheck(config, spacedDir);
+
+        // Verify the path is properly quoted
+        const expectedPath = path.join(spacedDir, "my project");
+        expect(mockExecuteCommand).toHaveBeenCalledWith(
+          `cd "${expectedPath}"; npm test`,
+          expect.any(Object)
+        );
+      } finally {
+        fs.rmSync(spacedDir, { recursive: true, force: true });
+      }
+    });
+
+    it("should handle multiple cd patterns in a command", async () => {
+      const subDir1 = path.join(tempDir, "dir1");
+      const subDir2 = path.join(tempDir, "dir2");
+      fs.mkdirSync(subDir1);
+      fs.mkdirSync(subDir2);
+
+      mockExecuteCommand.mockResolvedValueOnce({
+        success: true,
+        exitCode: 0,
+        stdout: "OK",
+        stderr: "",
+        duration: 1000,
+      });
+
+      const config: CheckConfig = {
+        type: "behavioral",
+        command: "cd dir1; echo test; cd dir2; npm run check",
+      };
+
+      await executeBehavioralCheck(config, tempDir);
+
+      // Verify both paths are transformed
+      expect(mockExecuteCommand).toHaveBeenCalledWith(
+        expect.stringContaining(`cd "${path.join(tempDir, "dir1")}"`),
+        expect.any(Object)
+      );
+      expect(mockExecuteCommand).toHaveBeenCalledWith(
+        expect.stringContaining(`cd "${path.join(tempDir, "dir2")}"`),
+        expect.any(Object)
+      );
+    });
+
+    it("should not transform cd patterns that are not at statement start", async () => {
+      mockExecuteCommand.mockResolvedValueOnce({
+        success: true,
+        exitCode: 0,
+        stdout: "OK",
+        stderr: "",
+        duration: 1000,
+      });
+
+      const config: CheckConfig = {
+        type: "behavioral",
+        command: 'echo "cd extension"; npm test',
+      };
+
+      await executeBehavioralCheck(config, tempDir);
+
+      // Verify the echo statement is not transformed (cd is in quotes)
+      expect(mockExecuteCommand).toHaveBeenCalledWith(
+        'echo "cd extension"; npm test',
+        expect.any(Object)
+      );
+    });
+
+    it("should handle cd patterns with various spacing", async () => {
+      const subDir = path.join(tempDir, "extension");
+      fs.mkdirSync(subDir);
+
+      mockExecuteCommand.mockResolvedValueOnce({
+        success: true,
+        exitCode: 0,
+        stdout: "OK",
+        stderr: "",
+        duration: 1000,
+      });
+
+      const config: CheckConfig = {
+        type: "behavioral",
+        command: "cd  extension ; npm test", // Extra spaces
+      };
+
+      await executeBehavioralCheck(config, tempDir);
+
+      // Verify transformation handles extra spacing
+      expect(mockExecuteCommand).toHaveBeenCalledWith(
+        expect.stringContaining(`cd "${path.join(tempDir, "extension")}"`),
+        expect.any(Object)
+      );
+    });
+
+    it("should leave commands without cd patterns unchanged", async () => {
+      mockExecuteCommand.mockResolvedValueOnce({
+        success: true,
+        exitCode: 0,
+        stdout: "OK",
+        stderr: "",
+        duration: 1000,
+      });
+
+      const config: CheckConfig = {
+        type: "behavioral",
+        command: "npm test",
+      };
+
+      await executeBehavioralCheck(config, tempDir);
+
+      // Verify command is passed through unchanged
+      expect(mockExecuteCommand).toHaveBeenCalledWith(
+        "npm test",
+        expect.any(Object)
+      );
+    });
   });
 
   describe("executeQualityCheck", () => {

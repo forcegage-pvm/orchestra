@@ -22,6 +22,52 @@ function isGlobPattern(pathStr: string): boolean {
   return /[*?[\]{}]/.test(pathStr);
 }
 
+/**
+ * Transform 'cd <directory>;' patterns in commands to use absolute paths with proper quoting
+ *
+ * This fixes TD-019: Behavioral checks failing on Windows with spaces in paths.
+ * Commands like 'cd extension; npm test' are transformed to 'cd "<workspace>/extension"; npm test'
+ *
+ * @param command - Command string potentially containing cd patterns
+ * @param workspacePath - Workspace root path to resolve relative directories against
+ * @returns Transformed command with absolute paths
+ *
+ * @example
+ * ```typescript
+ * resolveCommandPaths("cd extension; npm test", "/workspace")
+ * // Returns: cd "/workspace/extension"; npm test
+ *
+ * resolveCommandPaths("cd my project; npm test", "/workspace")
+ * // Returns: cd "/workspace/my project"; npm test
+ * ```
+ */
+function resolveCommandPaths(
+  command: string,
+  workspacePath: string
+): string {
+  // Match 'cd <dirname>;' pattern at statement boundaries
+  // Handles directories with and without spaces
+  // Pattern explanation:
+  // - (^|;)\s* : Start of string or semicolon, followed by optional whitespace
+  // - cd\s+ : 'cd' followed by required whitespace
+  // - ([^;]+?) : Capture directory name (everything up to semicolon, non-greedy)
+  // - \s*; : Optional whitespace, then semicolon
+  const cdPattern = /(^|;)\s*cd\s+([^;]+?)\s*;/g;
+
+  return command.replace(cdPattern, (match, prefix, directory) => {
+    // Trim the directory name and remove any existing quotes
+    const cleanDirectory = directory.trim().replace(/^["']|["']$/g, "");
+
+    // Resolve directory relative to workspace
+    const absolutePath = path.join(workspacePath, cleanDirectory);
+
+    // Quote the path to handle spaces
+    // Only add space after prefix if prefix is not empty (i.e., it's a semicolon)
+    const spacing = prefix === ";" ? " " : "";
+    return `${prefix}${spacing}cd "${absolutePath}";`;
+  });
+}
+
 // ============================================================================
 // Types - Aligned with MCP tool schemas
 // ============================================================================
@@ -202,7 +248,13 @@ export async function executeBehavioralCheck(
   const startTime = Date.now();
 
   try {
-    const result = await executeCommand(config.command, {
+    // Transform cd patterns to absolute paths (fixes TD-019)
+    const transformedCommand = resolveCommandPaths(
+      config.command,
+      workspacePath
+    );
+
+    const result = await executeCommand(transformedCommand, {
       cwd: workspacePath,
       timeout: 300000, // 5 minute timeout
     });
