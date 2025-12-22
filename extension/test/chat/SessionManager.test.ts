@@ -213,12 +213,7 @@ describe("SessionManager", () => {
 
       await sessionManager.invokeImplementor(prompt, files);
 
-      // Verify newChat command was called first
-      expect(vscode.commands.executeCommand).toHaveBeenCalledWith(
-        "workbench.action.chat.newChat"
-      );
-
-      // Verify chat.open command was called with correct parameters
+      // Verify openChat command was called with correct parameters
       expect(vscode.commands.executeCommand).toHaveBeenCalledWith(
         "workbench.action.chat.open",
         expect.objectContaining({
@@ -240,60 +235,36 @@ describe("SessionManager", () => {
         })
       );
       expect(mockLogger.info).toHaveBeenCalledWith(
-        "Implementor session invoked successfully"
+        "Implementor session invoked successfully in editor tab"
       );
     });
 
-    it("should call clearImplementorSession before opening chat", async () => {
-      const prompt = "Test prompt";
-      const files: vscode.Uri[] = [];
-
-      // Spy on clearImplementorSession
-      const clearSpy = vi.spyOn(sessionManager, "clearImplementorSession");
-
-      await sessionManager.invokeImplementor(prompt, files);
-
-      // Verify clearImplementorSession was called
-      expect(clearSpy).toHaveBeenCalled();
-
-      // Verify it was called before executeCommand
-      const clearCallOrder = clearSpy.mock.invocationCallOrder[0];
-      const executeCommandCallOrder = (vscode.commands.executeCommand as any)
-        .mock.invocationCallOrder[0];
-      expect(clearCallOrder).toBeLessThan(executeCommandCallOrder);
-    });
-
-    it("should use workbench.action.chat.newChat command", async () => {
+    it("should use workbench.action.chat.open command", async () => {
       const prompt = "Test prompt";
       const files: vscode.Uri[] = [];
 
       await sessionManager.invokeImplementor(prompt, files);
 
       expect(vscode.commands.executeCommand).toHaveBeenCalledWith(
-        "workbench.action.chat.newChat"
+        "workbench.action.chat.open",
+        expect.any(Object)
       );
     });
 
-    it("should call chat.open after newChat", async () => {
+    it("should open a fresh chat editor tab", async () => {
       const prompt = "Test prompt";
       const files: vscode.Uri[] = [];
 
       await sessionManager.invokeImplementor(prompt, files);
 
-      // Get all calls to executeCommand
-      const calls = (vscode.commands.executeCommand as any).mock.calls;
-
-      // Find the indices of newChat and chat.open calls
-      const newChatIndex = calls.findIndex(
-        (call: any[]) => call[0] === "workbench.action.chat.newChat"
+      // Verify openChat command opens a new editor tab
+      expect(vscode.commands.executeCommand).toHaveBeenCalledWith(
+        "workbench.action.chat.open",
+        expect.objectContaining({
+          query: prompt,
+          isPartialQuery: false,
+        })
       );
-      const chatOpenIndex = calls.findIndex(
-        (call: any[]) => call[0] === "workbench.action.chat.open"
-      );
-
-      // Verify newChat was called before chat.open
-      expect(newChatIndex).toBeGreaterThanOrEqual(0);
-      expect(chatOpenIndex).toBeGreaterThan(newChatIndex);
     });
 
     it("should pass mode with implementor agent identifier", async () => {
@@ -411,7 +382,7 @@ describe("SessionManager", () => {
 
       // Verify success logging which indicates flag was set
       expect(mockLogger.info).toHaveBeenCalledWith(
-        "Implementor session invoked successfully"
+        "Implementor session invoked successfully in editor tab"
       );
     });
 
@@ -439,31 +410,34 @@ describe("SessionManager", () => {
   });
 
   describe("clearImplementorSession", () => {
-    it("should call workbench.action.chat.newChat command", async () => {
+    it("should clear implementor session without calling VS Code commands", async () => {
       await sessionManager.clearImplementorSession();
 
-      // Verify VS Code command was called
-      expect(vscode.commands.executeCommand).toHaveBeenCalledWith(
-        "workbench.action.chat.newChat"
-      );
-    });
+      // Verify no VS Code command was called (new behavior: just resets flag)
+      expect(vscode.commands.executeCommand).not.toHaveBeenCalled();
 
-    it("should clear implementor session", async () => {
-      await sessionManager.clearImplementorSession();
-
-      // Verify logging
+      // Verify logging shows clear was requested
       expect(mockLogger.info).toHaveBeenCalledWith(
-        "Clearing implementor session",
+        "Implementor session clear requested",
         expect.objectContaining({
           wasActive: expect.any(Boolean),
         })
       );
+    });
+
+    it("should reset implementorActive flag to false", async () => {
+      await sessionManager.clearImplementorSession();
+
+      // Verify logging shows clear was requested
       expect(mockLogger.info).toHaveBeenCalledWith(
-        "Implementor session cleared successfully"
+        "Implementor session clear requested",
+        expect.objectContaining({
+          wasActive: expect.any(Boolean),
+        })
       );
     });
 
-    it("should set implementorActive flag to false", async () => {
+    it("should track wasActive state when clearing", async () => {
       // First invoke implementor to set active state
       await sessionManager.invokeImplementor("Test", []);
 
@@ -473,33 +447,28 @@ describe("SessionManager", () => {
       // Then clear the session
       await sessionManager.clearImplementorSession();
 
-      // Verify newChat was called
-      expect(vscode.commands.executeCommand).toHaveBeenCalledWith(
-        "workbench.action.chat.newChat"
-      );
+      // Verify no command was called (new behavior)
+      expect(vscode.commands.executeCommand).not.toHaveBeenCalled();
 
-      // Verify logging shows success (which only happens if flag was set to false)
+      // Verify logging shows wasActive was true
       expect(mockLogger.info).toHaveBeenCalledWith(
-        "Implementor session cleared successfully"
+        "Implementor session clear requested",
+        expect.objectContaining({
+          wasActive: true,
+        })
       );
     });
 
-    it("should handle errors gracefully", async () => {
-      // Mock command execution failure
-      vi.spyOn(vscode.commands, "executeCommand").mockRejectedValueOnce(
-        new Error("Test error")
-      );
+    it("should complete synchronously without errors", async () => {
+      // clearImplementorSession no longer calls VS Code commands, so it can't throw
+      await expect(
+        sessionManager.clearImplementorSession()
+      ).resolves.toBeUndefined();
 
-      await expect(sessionManager.clearImplementorSession()).rejects.toThrow(
-        "Test error"
-      );
-
-      expect(mockLogger.error).toHaveBeenCalledWith(
-        "Failed to clear implementor session",
-        expect.any(Error)
-      );
-      expect(vscode.window.showErrorMessage).toHaveBeenCalledWith(
-        "Orchestra: Failed to clear implementor session - Test error"
+      // Verify logging occurred
+      expect(mockLogger.info).toHaveBeenCalledWith(
+        "Implementor session clear requested",
+        expect.any(Object)
       );
     });
 
@@ -514,7 +483,7 @@ describe("SessionManager", () => {
 
       // Verify logging includes wasActive flag
       expect(mockLogger.info).toHaveBeenCalledWith(
-        "Clearing implementor session",
+        "Implementor session clear requested",
         expect.objectContaining({
           wasActive: true,
         })
@@ -543,7 +512,7 @@ describe("SessionManager", () => {
 
       // Session state is private, but we can verify behavior through logging
       expect(mockLogger.info).toHaveBeenCalledWith(
-        "Implementor session invoked successfully"
+        "Implementor session invoked successfully in editor tab"
       );
     });
 
@@ -559,7 +528,10 @@ describe("SessionManager", () => {
 
       // Session state is private, but we can verify behavior through logging
       expect(mockLogger.info).toHaveBeenCalledWith(
-        "Implementor session cleared successfully"
+        "Implementor session clear requested",
+        expect.objectContaining({
+          wasActive: true,
+        })
       );
     });
   });

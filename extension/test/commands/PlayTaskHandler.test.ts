@@ -156,7 +156,7 @@ describe("PlayTaskHandler", () => {
         // Verify PromptBuilder was called with correct context
         expect(mockBuildPreparePrompt).toHaveBeenCalledWith({
           task: {
-            task_id: mockTask.id,
+            task_id: mockTask.task_id,
             title: mockTask.title,
             description: mockTask.description,
             category: mockTask.category,
@@ -259,7 +259,7 @@ describe("PlayTaskHandler", () => {
         // Verify PromptBuilder was called with correct context (no handoverPath field exists)
         expect(mockBuildImplementPrompt).toHaveBeenCalledWith({
           task: {
-            task_id: mockTask.id,
+            task_id: mockTask.task_id,
             title: mockTask.title,
             description: mockTask.description,
             category: mockTask.category,
@@ -312,7 +312,7 @@ describe("PlayTaskHandler", () => {
         // Verify PromptBuilder was called with context
         expect(mockBuildImplementPrompt).toHaveBeenCalledWith({
           task: {
-            task_id: mockTask.id,
+            task_id: mockTask.task_id,
             title: mockTask.title,
             description: mockTask.description,
             category: mockTask.category,
@@ -468,7 +468,7 @@ describe("PlayTaskHandler", () => {
         // Verify PromptBuilder was called with retry context
         expect(mockBuildRetryPrompt).toHaveBeenCalledWith({
           task: {
-            task_id: mockTask.id,
+            task_id: mockTask.task_id,
             title: mockTask.title,
             description: mockTask.description,
             category: mockTask.category,
@@ -692,7 +692,7 @@ describe("PlayTaskHandler", () => {
       // Verify PromptBuilder was called with correct context
       expect(mockBuildVerifyPrompt).toHaveBeenCalledWith({
         task: {
-          task_id: mockTask.id,
+          task_id: mockTask.task_id,
           title: mockTask.title,
           description: mockTask.description,
           category: mockTask.category,
@@ -776,3 +776,4 @@ describe("PlayTaskHandler", () => {
     });
   });
 });
+

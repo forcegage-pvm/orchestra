@@ -110,7 +110,7 @@ async function invokePrepare(
     // Build prompt context
     const context = {
       task: {
-        task_id: task.id,
+        task_id: task.task_id,
         title: task.title,
         description: task.description,
         category: task.category,
@@ -171,7 +171,7 @@ async function invokeImplement(
     // Build prompt context (no handoverPath field in database)
     const context = {
       task: {
-        task_id: task.id,
+        task_id: task.task_id,
         title: task.title,
         description: task.description,
         category: task.category,
@@ -249,7 +249,7 @@ async function invokeRetry(
     // Build prompt context with retry count from task
     const context = {
       task: {
-        task_id: task.id,
+        task_id: task.task_id,
         title: task.title,
         description: task.description,
         category: task.category,
@@ -320,7 +320,7 @@ async function invokeVerify(
     // Build prompt context
     const context = {
       task: {
-        task_id: task.id,
+        task_id: task.task_id,
         title: task.title,
         description: task.description,
         category: task.category,
@@ -393,9 +393,9 @@ async function invokeEscalationReview(
     const sessionManager = getSessionManager();
 
     // Build the escalation review prompt
-    const prompt = `As Orchestrator, review the escalated Task ${task.id}: "${
-      task.title
-    }".
+    const prompt = `As Orchestrator, review the escalated Task ${
+      task.task_id
+    }: "${task.title}".
 
 ## Escalation Details
 - **Reason**: ${escalation.reason}
@@ -428,4 +428,3 @@ Use your MCP tools to investigate and resolve this escalation.`;
     );
   }
 }
-

@@ -99,9 +99,11 @@ export class SessionManager {
         agentMode,
       });
 
-      // Open a NEW chat editor (separate window from the sidebar panel)
-      // workbench.action.openChat opens a fresh chat editor tab
-      await vscode.commands.executeCommand("workbench.action.openChat", {
+      // Open chat with implementor configuration
+      // Using workbench.action.chat.open which supports full parameters
+      // Note: Both orchestrator and implementor use the same command for now
+      // Future: Could use workbench.action.chat.openInEditor for separate editor tabs
+      await vscode.commands.executeCommand("workbench.action.chat.open", {
         query: prompt,
         isPartialQuery: false,
         mode: agentMode,
