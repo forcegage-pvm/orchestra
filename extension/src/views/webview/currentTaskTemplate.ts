@@ -266,16 +266,42 @@ function getScript(): string {
       const statusClass = task.status.toLowerCase().replace('_', '-');
       const priorityClass = task.priority.toLowerCase();
       
-      // Determine action button based on task state
-      let actionButton = '';
-      const btnClass = 'btn btn-primary';
-      if (task.isNextPending) {
-        actionButton = \`<button class="\${btnClass}" onclick="prepareTask(\${task.id})">Prepare Task</button>\`;
-      } else if (task.status === 'ESCALATED') {
-        actionButton = \`<button class="\${btnClass} escalated" onclick="resolveEscalation(\${task.id})">Resolve Escalation</button>\`;
-      } else {
-        actionButton = \`<button class="\${btnClass}" onclick="signalCompletion(\${task.id})">Signal Completion</button>\`;
+      // Determine action button label and handler based on task status
+      // Mirrors the PlayTaskHandler logic exactly
+      let actionLabel = '';
+      let actionDisabled = false;
+      
+      switch (task.status) {
+        case 'PENDING':
+          actionLabel = 'Prepare Task';
+          break;
+        case 'PREPARE':
+          actionLabel = 'Continue Preparation';
+          break;
+        case 'IMPLEMENT':
+          actionLabel = 'Start Implementation';
+          break;
+        case 'VERIFY_FAILED':
+          actionLabel = 'Retry Task';
+          break;
+        case 'VERIFY':
+        case 'GATE_CHECK':
+          actionLabel = 'Verify Task';
+          break;
+        case 'ESCALATED':
+          actionLabel = 'Review Escalation';
+          break;
+        case 'COMPLETE':
+          actionLabel = 'Completed';
+          actionDisabled = true;
+          break;
+        default:
+          actionLabel = 'Continue Task';
       }
+      
+      const btnClass = 'btn btn-primary' + (task.status === 'ESCALATED' ? ' escalated' : '');
+      const disabledAttr = actionDisabled ? ' disabled' : '';
+      const actionButton = \`<button class="\${btnClass}"\${disabledAttr} onclick="playTask(\${task.id})">\${actionLabel}</button>\`;
 
       // Render escalation banner if escalated
       let escalationBanner = '';
