@@ -32,10 +32,10 @@ describe("ConfigService", () => {
     mockConfig = {
       get: vi.fn((key: string, defaultValue?: any) => {
         const config: Record<string, any> = {
-          "models.orchestrator": "claude-opus-4",
-          "models.implementor": "claude-sonnet-4",
-          "agents.orchestrator": "orchestra.orchestrator.agent",
-          "agents.implementor": "orchestra.implementor.agent",
+          "models.orchestrator": "claude-opus-4.5",
+          "models.implementor": "claude-sonnet-4.5",
+          "agents.orchestrator": "orchestra.orchestrator",
+          "agents.implementor": "orchestra.implementor",
         };
         return config[key] ?? defaultValue;
       }),
@@ -49,19 +49,19 @@ describe("ConfigService", () => {
   describe("getModelForRole", () => {
     it("returns orchestrator model when role is orchestrator", () => {
       const model = service.getModelForRole("orchestrator");
-      expect(model).toBe("claude-opus-4");
+      expect(model).toBe("claude-opus-4.5");
       expect(mockConfig.get).toHaveBeenCalledWith(
         "models.orchestrator",
-        "claude-opus-4"
+        "claude-opus-4.5"
       );
     });
 
     it("returns implementor model when role is implementor", () => {
       const model = service.getModelForRole("implementor");
-      expect(model).toBe("claude-sonnet-4");
+      expect(model).toBe("claude-sonnet-4.5");
       expect(mockConfig.get).toHaveBeenCalledWith(
         "models.implementor",
-        "claude-sonnet-4"
+        "claude-sonnet-4.5"
       );
     });
 
@@ -79,19 +79,19 @@ describe("ConfigService", () => {
   describe("getAgentForRole", () => {
     it("returns orchestrator agent when role is orchestrator", () => {
       const agent = service.getAgentForRole("orchestrator");
-      expect(agent).toBe("orchestra.orchestrator.agent");
+      expect(agent).toBe("orchestra.orchestrator");
       expect(mockConfig.get).toHaveBeenCalledWith(
         "agents.orchestrator",
-        "orchestra.orchestrator.agent"
+        "orchestra.orchestrator"
       );
     });
 
     it("returns implementor agent when role is implementor", () => {
       const agent = service.getAgentForRole("implementor");
-      expect(agent).toBe("orchestra.implementor.agent");
+      expect(agent).toBe("orchestra.implementor");
       expect(mockConfig.get).toHaveBeenCalledWith(
         "agents.implementor",
-        "orchestra.implementor.agent"
+        "orchestra.implementor"
       );
     });
 
@@ -112,12 +112,12 @@ describe("ConfigService", () => {
 
       expect(config).toEqual({
         models: {
-          orchestrator: "claude-opus-4",
-          implementor: "claude-sonnet-4",
+          orchestrator: "claude-opus-4.5",
+          implementor: "claude-sonnet-4.5",
         },
         agents: {
-          orchestrator: "orchestra.orchestrator.agent",
-          implementor: "orchestra.implementor.agent",
+          orchestrator: "orchestra.orchestrator",
+          implementor: "orchestra.implementor",
         },
       });
     });

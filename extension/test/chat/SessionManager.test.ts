@@ -50,6 +50,9 @@ describe("SessionManager", () => {
     vi.spyOn(mockConfigService, "getModelForRole").mockReturnValue(
       "claude-sonnet-4"
     );
+    vi.spyOn(mockConfigService, "getAgentForRole").mockImplementation(
+      (role) => `orchestra.${role}`
+    );
 
     // Create SessionManager instance
     sessionManager = new SessionManager(mockLogger, mockConfigService);
@@ -79,7 +82,7 @@ describe("SessionManager", () => {
         expect.objectContaining({
           query: prompt,
           isPartialQuery: false,
-          mode: "agent",
+          mode: "orchestra.orchestrator",
           modelSelector: { id: "claude-sonnet-4" },
           attachFiles: files,
         })
@@ -149,7 +152,7 @@ describe("SessionManager", () => {
       );
     });
 
-    it("should pass mode: 'agent' to enable agent mode", async () => {
+    it("should pass mode with agent identifier to enable agent mode", async () => {
       const prompt = "Test prompt";
       const files: vscode.Uri[] = [];
 
@@ -158,7 +161,7 @@ describe("SessionManager", () => {
       expect(vscode.commands.executeCommand).toHaveBeenCalledWith(
         "workbench.action.chat.open",
         expect.objectContaining({
-          mode: "agent",
+          mode: "orchestra.orchestrator",
         })
       );
     });
@@ -210,9 +213,9 @@ describe("SessionManager", () => {
 
       await sessionManager.invokeImplementor(prompt, files);
 
-      // Verify newChatEditor command was called first
+      // Verify newChat command was called first
       expect(vscode.commands.executeCommand).toHaveBeenCalledWith(
-        "workbench.action.chat.newChatEditor"
+        "workbench.action.chat.newChat"
       );
 
       // Verify chat.open command was called with correct parameters
@@ -221,7 +224,7 @@ describe("SessionManager", () => {
         expect.objectContaining({
           query: prompt,
           isPartialQuery: false,
-          mode: "agent",
+          mode: "orchestra.implementor",
           modelSelector: { id: "claude-sonnet-4" },
           attachFiles: files,
         })
@@ -260,18 +263,18 @@ describe("SessionManager", () => {
       expect(clearCallOrder).toBeLessThan(executeCommandCallOrder);
     });
 
-    it("should use workbench.action.chat.newChatEditor command", async () => {
+    it("should use workbench.action.chat.newChat command", async () => {
       const prompt = "Test prompt";
       const files: vscode.Uri[] = [];
 
       await sessionManager.invokeImplementor(prompt, files);
 
       expect(vscode.commands.executeCommand).toHaveBeenCalledWith(
-        "workbench.action.chat.newChatEditor"
+        "workbench.action.chat.newChat"
       );
     });
 
-    it("should call chat.open after newChatEditor", async () => {
+    it("should call chat.open after newChat", async () => {
       const prompt = "Test prompt";
       const files: vscode.Uri[] = [];
 
@@ -280,20 +283,20 @@ describe("SessionManager", () => {
       // Get all calls to executeCommand
       const calls = (vscode.commands.executeCommand as any).mock.calls;
 
-      // Find the indices of newChatEditor and chat.open calls
-      const newChatEditorIndex = calls.findIndex(
-        (call: any[]) => call[0] === "workbench.action.chat.newChatEditor"
+      // Find the indices of newChat and chat.open calls
+      const newChatIndex = calls.findIndex(
+        (call: any[]) => call[0] === "workbench.action.chat.newChat"
       );
       const chatOpenIndex = calls.findIndex(
         (call: any[]) => call[0] === "workbench.action.chat.open"
       );
 
-      // Verify newChatEditor was called before chat.open
-      expect(newChatEditorIndex).toBeGreaterThanOrEqual(0);
-      expect(chatOpenIndex).toBeGreaterThan(newChatEditorIndex);
+      // Verify newChat was called before chat.open
+      expect(newChatIndex).toBeGreaterThanOrEqual(0);
+      expect(chatOpenIndex).toBeGreaterThan(newChatIndex);
     });
 
-    it("should pass mode: 'agent' for implementor agent", async () => {
+    it("should pass mode with implementor agent identifier", async () => {
       const prompt = "Test prompt";
       const files: vscode.Uri[] = [];
 
@@ -302,7 +305,7 @@ describe("SessionManager", () => {
       expect(vscode.commands.executeCommand).toHaveBeenCalledWith(
         "workbench.action.chat.open",
         expect.objectContaining({
-          mode: "agent",
+          mode: "orchestra.implementor",
         })
       );
     });

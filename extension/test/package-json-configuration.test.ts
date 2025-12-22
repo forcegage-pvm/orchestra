@@ -16,8 +16,8 @@ describe("package.json configuration settings", () => {
         expect(setting?.type).toBe("string");
       });
 
-      it("should have default value 'claude-opus-4'", () => {
-        expect(setting?.default).toBe("claude-opus-4");
+      it("should have default value 'claude-opus-4.5'", () => {
+        expect(setting?.default).toBe("claude-opus-4.5");
       });
 
       it("should have a descriptive text", () => {
@@ -38,8 +38,8 @@ describe("package.json configuration settings", () => {
         expect(setting?.type).toBe("string");
       });
 
-      it("should have default value 'claude-sonnet-4'", () => {
-        expect(setting?.default).toBe("claude-sonnet-4");
+      it("should have default value 'claude-sonnet-4.5'", () => {
+        expect(setting?.default).toBe("claude-sonnet-4.5");
       });
 
       it("should have a descriptive text", () => {
@@ -62,8 +62,8 @@ describe("package.json configuration settings", () => {
         expect(setting?.type).toBe("string");
       });
 
-      it("should have default value 'orchestra.orchestrator.agent'", () => {
-        expect(setting?.default).toBe("orchestra.orchestrator.agent");
+      it("should have default value 'orchestra.orchestrator'", () => {
+        expect(setting?.default).toBe("orchestra.orchestrator");
       });
 
       it("should have a descriptive text", () => {
@@ -84,8 +84,8 @@ describe("package.json configuration settings", () => {
         expect(setting?.type).toBe("string");
       });
 
-      it("should have default value 'orchestra.implementor.agent'", () => {
-        expect(setting?.default).toBe("orchestra.implementor.agent");
+      it("should have default value 'orchestra.implementor'", () => {
+        expect(setting?.default).toBe("orchestra.implementor");
       });
 
       it("should have a descriptive text", () => {
