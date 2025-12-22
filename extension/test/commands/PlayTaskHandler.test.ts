@@ -592,7 +592,7 @@ describe("PlayTaskHandler", () => {
           mockWorkspaceRoot,
           mockTaskId
         );
-        
+
         // Verify orchestrator was invoked with escalation review prompt
         expect(mockInvokeOrchestrator).toHaveBeenCalledWith(
           expect.stringContaining("review the escalated Task"),
@@ -603,8 +603,6 @@ describe("PlayTaskHandler", () => {
           []
         );
       });
-
-
 
       it("should show error when task not found", async () => {
         vi.mocked(queries.getTaskById).mockReturnValue(null);
