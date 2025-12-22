@@ -384,6 +384,13 @@ function getScript(): string {
       });
     }
     
+    function playTask(taskId) {
+      vscode.postMessage({
+        command: 'playTask',
+        taskId: taskId
+      });
+    }
+    
     function prepareTask(taskId) {
       vscode.postMessage({
         command: 'prepareTask',
