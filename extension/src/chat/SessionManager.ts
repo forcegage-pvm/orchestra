@@ -80,8 +80,9 @@ export class SessionManager {
   /**
    * Invoke the Implementor agent in a Chat Editor Tab session
    *
-   * Opens a new Chat Editor Tab (or focuses existing) and invokes the
+   * Opens a new Chat Editor Tab (separate from the panel) and invokes the
    * implementor agent with the provided prompt and file context.
+   * Each invocation opens a fresh editor tab to prevent context contamination.
    *
    * @param prompt - The query/instruction to send to the implementor
    * @param files - Files to attach to the chat context
@@ -98,12 +99,9 @@ export class SessionManager {
         agentMode,
       });
 
-      // Clear any previous implementor session to prevent context contamination
-      await this.clearImplementorSession();
-
-      // Invoke the implementor agent with the prompt and configuration
-      // mode: custom agent ID (e.g., 'orchestra.implementor'), modelSelector must be an object with id property
-      await vscode.commands.executeCommand("workbench.action.chat.open", {
+      // Open a NEW chat editor (separate window from the sidebar panel)
+      // workbench.action.openChat opens a fresh chat editor tab
+      await vscode.commands.executeCommand("workbench.action.openChat", {
         query: prompt,
         isPartialQuery: false,
         mode: agentMode,
@@ -112,7 +110,9 @@ export class SessionManager {
       });
 
       this._implementorActive = true;
-      this.logger.info("Implementor session invoked successfully");
+      this.logger.info(
+        "Implementor session invoked successfully in editor tab"
+      );
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unknown error";
       this.logger.error("Failed to invoke implementor session", error);
@@ -126,29 +126,18 @@ export class SessionManager {
   /**
    * Clear the Implementor session
    *
-   * Clears the implementor's Chat Editor Tab session to prevent
-   * context contamination between tasks.
+   * Note: With the new approach of using separate chat editor tabs,
+   * clearing is less critical as each invocation opens a fresh editor.
+   * This method is kept for API compatibility.
    *
    * @returns Promise that resolves when the session is cleared
    */
   async clearImplementorSession(): Promise<void> {
-    try {
-      this.logger.info("Clearing implementor session", {
-        wasActive: this._implementorActive,
-      });
-
-      // Execute the newChat command to clear the conversation history
-      await vscode.commands.executeCommand("workbench.action.chat.newChat");
-
-      this._implementorActive = false;
-      this.logger.info("Implementor session cleared successfully");
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Unknown error";
-      this.logger.error("Failed to clear implementor session", error);
-      vscode.window.showErrorMessage(
-        `Orchestra: Failed to clear implementor session - ${message}`
-      );
-      throw error;
-    }
+    this.logger.info("Implementor session clear requested", {
+      wasActive: this._implementorActive,
+    });
+    // With separate editor tabs, we don't need to explicitly clear
+    // Each invokeImplementor opens a fresh editor
+    this._implementorActive = false;
   }
 }

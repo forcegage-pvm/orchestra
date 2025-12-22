@@ -13,10 +13,7 @@ import {
   getFeedback,
   getTaskById,
 } from "../database/queries.js";
-import {
-  getContextFileResolver,
-  getSessionManager,
-} from "../extension.js";
+import { getContextFileResolver, getSessionManager } from "../extension.js";
 import { PromptBuilder } from "../prompts/PromptBuilder.js";
 import { OrchestraLogger } from "../utils/logger.js";
 
@@ -27,8 +24,9 @@ import { OrchestraLogger } from "../utils/logger.js";
  * - PENDING → invokePrepare (orchestrator prepares the task)
  * - IMPLEMENT → invokeImplement (implementor works on the task)
  * - VERIFY_FAILED → invokeRetry (implementor retries with feedback)
- * - ESCALATED → showEscalation (show escalation details)
- * - VERIFY/COMPLETE → showInfoMessage (task already done)
+ * - VERIFY/GATE_CHECK → invokeVerify (orchestrator runs verification)
+ * - ESCALATED → invokeEscalationReview (orchestrator reviews escalation)
+ * - COMPLETE → showInfoMessage (task already done)
  *
  * @param workspaceRoot Absolute path to workspace root
  * @param taskId Task ID (numeric primary key)
@@ -57,14 +55,18 @@ export async function handlePlayTask(
       await invokeRetry(workspaceRoot, taskId);
       break;
 
-    case "ESCALATED":
-      await showEscalation(workspaceRoot, taskId);
+    case "VERIFY":
+    case "GATE_CHECK":
+      await invokeVerify(workspaceRoot, taskId);
       break;
 
-    case "VERIFY":
+    case "ESCALATED":
+      await invokeEscalationReview(workspaceRoot, taskId);
+      break;
+
     case "COMPLETE":
       vscode.window.showInformationMessage(
-        `Task ${taskId}: ${task.title} is already ${task.status.toLowerCase()}`
+        `Task ${taskId}: ${task.title} is already complete`
       );
       break;
 
@@ -294,15 +296,15 @@ async function invokeRetry(
 }
 
 /**
- * Show escalation details for an ESCALATED task
+ * Invoke orchestrator to verify a VERIFY or GATE_CHECK task
  *
- * Retrieves escalation details and displays them in a warning message.
- * Opens the task detail panel for supervisor review.
+ * Builds a VERIFY prompt with task context and opens chat with orchestrator agent.
+ * The orchestrator will run verification checks and submit judgment.
  *
  * @param workspaceRoot Absolute path to workspace root
  * @param taskId Task ID (numeric primary key)
  */
-async function showEscalation(
+async function invokeVerify(
   workspaceRoot: string,
   taskId: number
 ): Promise<void> {
@@ -315,39 +317,115 @@ async function showEscalation(
       return;
     }
 
-    // Get escalation details from database
+    // Build prompt context
+    const context = {
+      task: {
+        task_id: task.id,
+        title: task.title,
+        description: task.description,
+        category: task.category,
+        phase_id: `phase-${task.phase_id}`,
+      },
+      sprint: {
+        sprint_id: task.sprint_id,
+        title: "Current Sprint",
+      },
+    };
+
+    // Create instances
+    const logger = new OrchestraLogger();
+    const promptBuilder = new PromptBuilder();
+    const sessionManager = getSessionManager();
+
+    // Build the verify prompt
+    const prompt = promptBuilder.buildVerifyPrompt(context);
+
+    // Invoke orchestrator agent for verification
+    await sessionManager.invokeOrchestrator(prompt, []);
+
+    logger.info(`Invoked orchestrator to verify task ${taskId}`, {
+      taskId,
+      taskTitle: task.title,
+      taskStatus: task.status,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    vscode.window.showErrorMessage(
+      `Orchestra: Failed to invoke verification for task ${taskId} - ${message}`
+    );
+  }
+}
+
+/**
+ * Invoke orchestrator to review an ESCALATED task
+ *
+ * Builds a prompt with escalation context and opens chat with orchestrator agent.
+ * The orchestrator can then decide to de-escalate, provide guidance, or escalate further.
+ *
+ * @param workspaceRoot Absolute path to workspace root
+ * @param taskId Task ID (numeric primary key)
+ */
+async function invokeEscalationReview(
+  workspaceRoot: string,
+  taskId: number
+): Promise<void> {
+  try {
+    // Get task from database
+    const task = getTaskById(workspaceRoot, taskId);
+
+    if (!task) {
+      vscode.window.showErrorMessage(`Task ${taskId} not found`);
+      return;
+    }
+
+    // Get escalation details
     const escalation = getEscalation(workspaceRoot, taskId);
 
     if (!escalation) {
       vscode.window.showErrorMessage(
-        `Orchestra: No escalation found for task ${taskId}. Task may have been marked as escalated but escalation record is missing.`
+        `Orchestra: No escalation found for task ${taskId}`
       );
       return;
     }
 
-    // Build escalation details message
-    let message = `Task ${taskId}: ${task.title} is escalated\n\n`;
-    message += `Reason: ${escalation.reason}\n\n`;
-    message += `Attempts Summary: ${escalation.attempts_summary}`;
+    // Create instances
+    const logger = new OrchestraLogger();
+    const sessionManager = getSessionManager();
 
-    if (escalation.recommended_action) {
-      message += `\n\nRecommended Action: ${escalation.recommended_action}`;
-    }
+    // Build the escalation review prompt
+    const prompt = `As Orchestrator, review the escalated Task ${task.id}: "${
+      task.title
+    }".
 
-    // Show warning message with action button
-    const action = await vscode.window.showWarningMessage(
-      message,
-      "View Task Details"
-    );
+## Escalation Details
+- **Reason**: ${escalation.reason}
+- **Attempts Summary**: ${escalation.attempts_summary}
+${
+  escalation.recommended_action
+    ? `- **Recommended Action**: ${escalation.recommended_action}`
+    : ""
+}
 
-    // If user clicks the button, open task detail panel
-    if (action === "View Task Details") {
-      await vscode.commands.executeCommand("orchestra.openTaskDetail", taskId);
-    }
+## Your Options
+1. **De-escalate**: If you can resolve the blocker, use \`orchestra.moveToImplement\` to return to implementation
+2. **Provide Guidance**: Add enhanced feedback to help the implementor
+3. **Request Human Help**: If this requires human intervention, explain what is needed
+
+Use your MCP tools to investigate and resolve this escalation.`;
+
+    // Invoke orchestrator agent for escalation review
+    await sessionManager.invokeOrchestrator(prompt, []);
+
+    logger.info(`Invoked orchestrator to review escalated task ${taskId}`, {
+      taskId,
+      taskTitle: task.title,
+      escalationReason: escalation.reason,
+    });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
     vscode.window.showErrorMessage(
-      `Orchestra: Failed to show escalation for task ${taskId} - ${message}`
+      `Orchestra: Failed to invoke escalation review for task ${taskId} - ${message}`
     );
   }
 }
+

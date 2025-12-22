@@ -552,7 +552,7 @@ describe("PlayTaskHandler", () => {
         completed_at: null,
       };
 
-      it("should show escalation details with warning message", async () => {
+      it("should invoke orchestrator to review escalated task", async () => {
         const mockEscalation = {
           id: 1,
           task_id: mockTaskId,
@@ -575,9 +575,12 @@ describe("PlayTaskHandler", () => {
 
         vi.mocked(queries.getTaskById).mockReturnValue(mockTask);
         vi.mocked(queries.getEscalation).mockReturnValue(mockEscalation);
-        vi.mocked(vscode.window.showWarningMessage).mockResolvedValue(
-          undefined
-        );
+
+        const mockInvokeOrchestrator = vi.fn();
+        vi.mocked(extension.getSessionManager).mockReturnValue({
+          invokeOrchestrator: mockInvokeOrchestrator,
+          invokeImplementor: vi.fn(),
+        } as never);
 
         await handlePlayTask(mockWorkspaceRoot, mockTaskId);
 
@@ -589,92 +592,19 @@ describe("PlayTaskHandler", () => {
           mockWorkspaceRoot,
           mockTaskId
         );
-        expect(vscode.window.showWarningMessage).toHaveBeenCalledWith(
-          expect.stringContaining("Test Task is escalated"),
-          "View Task Details"
+        
+        // Verify orchestrator was invoked with escalation review prompt
+        expect(mockInvokeOrchestrator).toHaveBeenCalledWith(
+          expect.stringContaining("review the escalated Task"),
+          []
         );
-        expect(vscode.window.showWarningMessage).toHaveBeenCalledWith(
-          expect.stringContaining("Reason: Max retries exceeded"),
-          "View Task Details"
-        );
-        expect(vscode.window.showWarningMessage).toHaveBeenCalledWith(
-          expect.stringContaining(
-            "Attempts Summary: Failed verification 3 times due to missing tests"
-          ),
-          "View Task Details"
-        );
-        expect(vscode.window.showWarningMessage).toHaveBeenCalledWith(
-          expect.stringContaining(
-            "Recommended Action: Review test requirements and add comprehensive tests"
-          ),
-          "View Task Details"
+        expect(mockInvokeOrchestrator).toHaveBeenCalledWith(
+          expect.stringContaining("Max retries exceeded"),
+          []
         );
       });
 
-      it("should open task detail panel when user clicks button", async () => {
-        const mockEscalation = {
-          id: 1,
-          task_id: mockTaskId,
-          sprint_id: "sprint-1",
-          reason: "Max retries exceeded",
-          attempts_summary: "Failed verification 3 times",
-          recommended_action: null,
-          recommended_target_status: "IMPLEMENT",
-          from_status: "VERIFY_FAILED",
-          retry_count: 3,
-          max_retries: 3,
-          escalated_by: "system",
-          escalated_at: "2025-01-02T00:00:00Z",
-          resolved_at: null,
-          resolved_by: null,
-          resolution_target_status: null,
-          resolution_notes: null,
-        };
 
-        vi.mocked(queries.getTaskById).mockReturnValue(mockTask);
-        vi.mocked(queries.getEscalation).mockReturnValue(mockEscalation);
-        vi.mocked(vscode.window.showWarningMessage).mockResolvedValue(
-          "View Task Details" as any
-        );
-
-        await handlePlayTask(mockWorkspaceRoot, mockTaskId);
-
-        expect(vscode.commands.executeCommand).toHaveBeenCalledWith(
-          "orchestra.openTaskDetail",
-          mockTaskId
-        );
-      });
-
-      it("should not open task detail panel when user dismisses message", async () => {
-        const mockEscalation = {
-          id: 1,
-          task_id: mockTaskId,
-          sprint_id: "sprint-1",
-          reason: "Max retries exceeded",
-          attempts_summary: "Failed verification 3 times",
-          recommended_action: null,
-          recommended_target_status: "IMPLEMENT",
-          from_status: "VERIFY_FAILED",
-          retry_count: 3,
-          max_retries: 3,
-          escalated_by: "system",
-          escalated_at: "2025-01-02T00:00:00Z",
-          resolved_at: null,
-          resolved_by: null,
-          resolution_target_status: null,
-          resolution_notes: null,
-        };
-
-        vi.mocked(queries.getTaskById).mockReturnValue(mockTask);
-        vi.mocked(queries.getEscalation).mockReturnValue(mockEscalation);
-        vi.mocked(vscode.window.showWarningMessage).mockResolvedValue(
-          undefined
-        );
-
-        await handlePlayTask(mockWorkspaceRoot, mockTaskId);
-
-        expect(vscode.commands.executeCommand).not.toHaveBeenCalled();
-      });
 
       it("should show error when task not found", async () => {
         vi.mocked(queries.getTaskById).mockReturnValue(null);
@@ -710,7 +640,7 @@ describe("PlayTaskHandler", () => {
         await handlePlayTask(mockWorkspaceRoot, mockTaskId);
 
         expect(vscode.window.showErrorMessage).toHaveBeenCalledWith(
-          expect.stringContaining("Failed to show escalation")
+          expect.stringContaining("Failed to invoke escalation review")
         );
         expect(vscode.window.showErrorMessage).toHaveBeenCalledWith(
           expect.stringContaining("Database error")
@@ -718,7 +648,7 @@ describe("PlayTaskHandler", () => {
       });
     });
 
-    it("should show info message for VERIFY task", async () => {
+    it("should invoke orchestrator to verify task", async () => {
       const mockTask = {
         id: mockTaskId,
         sprint_id: "sprint-1",
@@ -739,14 +669,47 @@ describe("PlayTaskHandler", () => {
 
       vi.mocked(queries.getTaskById).mockReturnValue(mockTask);
 
+      const mockInvokeOrchestrator = vi.fn();
+      const mockBuildVerifyPrompt = vi.fn(() => "Mock verify prompt");
+
+      vi.mocked(extension.getSessionManager).mockReturnValue({
+        invokeOrchestrator: mockInvokeOrchestrator,
+        invokeImplementor: vi.fn(),
+      } as never);
+
+      vi.mocked(PromptBuilder).mockImplementation(
+        () =>
+          ({
+            buildVerifyPrompt: mockBuildVerifyPrompt,
+          } as unknown as PromptBuilder)
+      );
+
       await handlePlayTask(mockWorkspaceRoot, mockTaskId);
 
       expect(queries.getTaskById).toHaveBeenCalledWith(
         mockWorkspaceRoot,
         mockTaskId
       );
-      expect(vscode.window.showInformationMessage).toHaveBeenCalledWith(
-        `Task ${mockTaskId}: Test Task is already verify`
+
+      // Verify PromptBuilder was called with correct context
+      expect(mockBuildVerifyPrompt).toHaveBeenCalledWith({
+        task: {
+          task_id: mockTask.id,
+          title: mockTask.title,
+          description: mockTask.description,
+          category: mockTask.category,
+          phase_id: "phase-1",
+        },
+        sprint: {
+          sprint_id: mockTask.sprint_id,
+          title: "Current Sprint",
+        },
+      });
+
+      // Verify SessionManager.invokeOrchestrator was called
+      expect(mockInvokeOrchestrator).toHaveBeenCalledWith(
+        "Mock verify prompt",
+        []
       );
     });
 
