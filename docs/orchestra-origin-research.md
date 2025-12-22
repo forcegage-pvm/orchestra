@@ -25,6 +25,7 @@ By separating the **orchestrator** (who holds verification criteria) from the **
 1. Prevent gaming/reward-hacking of completion signals
 2. Catch incomplete work before it accumulates
 3. Force genuine integration rather than parallel file creation
+4. 
 
 ---
 
