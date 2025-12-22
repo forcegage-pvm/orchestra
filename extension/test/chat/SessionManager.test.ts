@@ -28,7 +28,13 @@ vi.mock("vscode", () => ({
     })),
   },
   Uri: {
-    file: vi.fn((path: string) => ({ fsPath: path })),
+    file: vi.fn((path: string) => ({ fsPath: path, scheme: "file", path })),
+    from: vi.fn((components: { scheme: string; path: string }) => ({
+      scheme: components.scheme,
+      path: components.path,
+      fsPath: components.path,
+      toString: () => `${components.scheme}://${components.path}`,
+    })),
   },
 }));
 
@@ -98,7 +104,10 @@ describe("SessionManager", () => {
         })
       );
       expect(mockLogger.info).toHaveBeenCalledWith(
-        "Orchestrator session invoked successfully"
+        "Orchestrator session invoked successfully",
+        expect.objectContaining({
+          wasNewWindow: true,
+        })
       );
     });
 
@@ -184,10 +193,10 @@ describe("SessionManager", () => {
       const prompt = "Test prompt";
       const files: vscode.Uri[] = [];
 
-      // Mock command execution failure
-      vi.spyOn(vscode.commands, "executeCommand").mockRejectedValueOnce(
-        new Error("Test error")
-      );
+      // Mock command execution failure - both the primary and fallback must fail
+      vi.spyOn(vscode.commands, "executeCommand")
+        .mockRejectedValueOnce(new Error("Test error")) // newChatWindow fails
+        .mockRejectedValueOnce(new Error("Test error")); // fallback chat.open also fails
 
       await expect(
         sessionManager.invokeOrchestrator(prompt, files)
@@ -235,7 +244,7 @@ describe("SessionManager", () => {
         })
       );
       expect(mockLogger.info).toHaveBeenCalledWith(
-        "Implementor session invoked successfully in editor tab"
+        "Implementor session invoked successfully in new editor tab"
       );
     });
 
@@ -382,7 +391,7 @@ describe("SessionManager", () => {
 
       // Verify success logging which indicates flag was set
       expect(mockLogger.info).toHaveBeenCalledWith(
-        "Implementor session invoked successfully in editor tab"
+        "Implementor session invoked successfully in new editor tab"
       );
     });
 
@@ -500,7 +509,10 @@ describe("SessionManager", () => {
 
       // Session state is private, but we can verify behavior through logging
       expect(mockLogger.info).toHaveBeenCalledWith(
-        "Orchestrator session invoked successfully"
+        "Orchestrator session invoked successfully",
+        expect.objectContaining({
+          wasNewWindow: true,
+        })
       );
     });
 
@@ -512,7 +524,7 @@ describe("SessionManager", () => {
 
       // Session state is private, but we can verify behavior through logging
       expect(mockLogger.info).toHaveBeenCalledWith(
-        "Implementor session invoked successfully in editor tab"
+        "Implementor session invoked successfully in new editor tab"
       );
     });
 
