@@ -59,7 +59,7 @@ describe("deEscalation handlers", () => {
   beforeEach(() => {
     // Reset all mocks first
     vi.clearAllMocks();
-    
+
     // Reset database mutation mocks
     mockResolveEscalation.mockReset();
     mockGetEscalationDetails.mockReset();
