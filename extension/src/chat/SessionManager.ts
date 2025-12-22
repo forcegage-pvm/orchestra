@@ -99,21 +99,32 @@ export class SessionManager {
         agentMode,
         sessionUri: sessionUri.toString(),
         wasActive: this._orchestratorActive,
-        reusingSesion: this._orchestratorActive,
+        reusingSession: this._orchestratorActive,
       });
 
-      // Try to use the internal openSession command which supports target groups
-      // This opens in AUX_WINDOW_GROUP (separate floating window)
-      // The session URI is reused for persistence
+      // Orchestrator session strategy:
+      // - First invocation: Create new chat window, then send prompt
+      // - Subsequent invocations: Reuse existing window by just sending prompt
+      //
+      // workbench.action.chat.open automatically uses the most recently focused
+      // chat panel, so we only need to create a new window once.
       try {
-        // First, try to open a new chat window with the correct mode/model
-        // workbench.action.newChatWindow opens a floating chat window
-        await vscode.commands.executeCommand("workbench.action.newChatWindow");
+        if (!this._orchestratorActive) {
+          // First time: Create a new chat window
+          this.logger.info("Creating new orchestrator chat window");
+          await vscode.commands.executeCommand(
+            "workbench.action.newChatWindow"
+          );
 
-        // Small delay to ensure window is ready
-        await new Promise((resolve) => setTimeout(resolve, 100));
+          // Small delay to ensure window is ready
+          await new Promise((resolve) => setTimeout(resolve, 100));
+        } else {
+          // Subsequent times: Focus the existing chat window without creating new
+          this.logger.info("Reusing existing orchestrator chat window");
+          // workbench.action.chat.open will send to the active chat
+        }
 
-        // Now send the prompt with mode and model to the active chat
+        // Send the prompt with mode and model to the active chat
         await vscode.commands.executeCommand("workbench.action.chat.open", {
           query: prompt,
           isPartialQuery: false,
@@ -135,8 +146,11 @@ export class SessionManager {
         });
       }
 
+      const wasNewWindow = !this._orchestratorActive;
       this._orchestratorActive = true;
-      this.logger.info("Orchestrator session invoked successfully in window");
+      this.logger.info("Orchestrator session invoked successfully", {
+        wasNewWindow,
+      });
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unknown error";
       this.logger.error("Failed to invoke orchestrator session", error);
