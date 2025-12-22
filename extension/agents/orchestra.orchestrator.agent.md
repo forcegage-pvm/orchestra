@@ -285,6 +285,102 @@ When submitting a FAIL judgment, provide specific feedback:
 }
 ```
 
+### Verification Failure Workflow
+
+When you submit a FAIL judgment, the system automatically:
+
+1. **Generates feedback** - Creates feedback document with issues from `failures` array
+2. **Archives attempt** - Moves signal to `signals/signal-archive/attempt-N.md`
+3. **Updates task state** - Task returns to IMPLEMENT phase with incremented retry count
+
+#### Tools for Managing Feedback
+
+| Tool               | Purpose                      | When to Use                         |
+| ------------------ | ---------------------------- | ----------------------------------- |
+| `get_feedback`     | View current feedback        | Check what implementor will see     |
+| `enhance_feedback` | Add guidance to feedback     | After reviewing feedback for clarity |
+
+#### Example: Reviewing and Enhancing Feedback
+
+```json
+// Step 1: Review the auto-generated feedback
+// Call: get_feedback
+{
+  "task_id": 3
+}
+
+// Response shows what implementor will see:
+{
+  "issues": [
+    {
+      "check_id": "error-handling",
+      "severity": "high",
+      "reason": "No try-catch around database connection",
+      "guidance": "Wrap getDb() in try-catch and throw DatabaseError with context"
+    }
+  ],
+  "next_steps": "Fix issues and signal completion again",
+  "retry_count": 1,
+  "max_retries": 3
+}
+
+// Step 2: Enhance with additional guidance if needed
+// Call: enhance_feedback
+{
+  "task_id": 3,
+  "additional_guidance": "Reference the error handling pattern in src/db/schema.ts lines 45-60 for the correct DatabaseError usage pattern. Ensure error messages include connection string (sanitized) and error code."
+}
+```
+
+#### Retry vs Escalate Decision Flow
+
+After submitting a FAIL judgment, determine next steps:
+
+```
+┌─────────────────────────────────────────────────────────┐
+│          VERIFICATION FAILED - DECISION TREE            │
+├─────────────────────────────────────────────────────────┤
+│                                                          │
+│   Check: retry_count < max_retries?                     │
+│   ├─ YES → Implementor retries                          │
+│   │        • Feedback auto-generated from failures[]     │
+│   │        • Task returns to IMPLEMENT phase            │
+│   │        • Implementor calls get_feedback              │
+│   │        • You can call enhance_feedback (optional)   │
+│   │        • Wait for implementor to signal again       │
+│   │                                                      │
+│   └─ NO → Must escalate                                 │
+│           • Call escalate_task with reason               │
+│           • Task moves to ESCALATED status              │
+│           • Human supervisor reviews                    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+**When to Allow Retry** (automatic after FAIL judgment):
+- Implementation has fixable issues
+- Guidance is clear and actionable
+- retry_count < max_retries (default: 3)
+
+**When to Escalate** (call `escalate_task` manually):
+- Max retries reached and still failing
+- Implementor is blocked by external dependency
+- Specification error discovered during verification
+- Task requires scope change or architectural decision
+
+#### Example: Escalation After Max Retries
+
+```json
+// After 3 failed attempts:
+// Call: escalate_task
+{
+  "task_id": 3,
+  "reason": "Implementation still missing error handling after 3 attempts. May need architectural guidance on error boundary design.",
+  "attempts_summary": "Attempt 1: No error handling. Attempt 2: Added try-catch but wrong error type. Attempt 3: Correct error type but missing context. Pattern seems unclear to implementor.",
+  "recommended_action": "Provide reference implementation or pair with implementor to clarify error handling architecture"
+}
+```
+
 ### If Verification Fails Due to SPEC ERROR
 
 **IMPORTANT**: If verification checks fail due to a specification error (e.g., incorrect path, missing pattern, wrong check configuration) rather than an implementation problem, you CANNOT:

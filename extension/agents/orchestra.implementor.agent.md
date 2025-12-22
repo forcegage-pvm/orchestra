@@ -216,28 +216,153 @@ When you call `signal_completion`, you are making a **formal claim**:
 
 ## Handling Feedback
 
-If verification fails, call `get_feedback` to see what went wrong.
+If verification fails, you'll receive feedback explaining what needs to be fixed.
 
 ### When Verification Fails
 
 1. **Call `get_feedback`** - Get specific issues to fix
-2. **Review each issue** - Understand severity and guidance
-3. **Fix ALL issues** - Not just some
-4. **Run builds/tests locally** - Verify fixes work
-5. **Signal again** - Call `signal_completion`
+2. **Review each issue** - Understand severity, impact, and guidance
+3. **Check "What Worked"** - For context on what passed
+4. **Fix ALL issues** - Not just some
+5. **Run builds/tests locally** - Verify fixes work
+6. **Signal again** - Call `signal_completion` with updated artifacts
 
-### Feedback Contains
+### Example: Getting Feedback
 
-- **What Went Wrong**: Specific issues with severity, impact, and guidance
-- **What Worked**: Checks that passed (for context)
-- **Next Steps**: Instructions and remaining attempt count
+```json
+// Call: get_feedback
+// Response:
+{
+  "task_id": 3,
+  "retry_count": 1,
+  "max_retries": 3,
+  "issues": [
+    {
+      "check_id": "error-handling",
+      "severity": "MAJOR",
+      "impact": "Application will crash on database connection failures",
+      "reason": "No try-catch around database connection in getDb() method",
+      "guidance": "Wrap getDb() in try-catch and throw DatabaseError with context. Reference error handling pattern in src/db/schema.ts lines 45-60."
+    },
+    {
+      "check_id": "test-coverage",
+      "severity": "MINOR",
+      "impact": "Edge cases not validated",
+      "reason": "Missing tests for connection timeout scenario",
+      "guidance": "Add test case: 'should throw DatabaseError when connection times out'"
+    }
+  ],
+  "what_worked": [
+    "DatabaseClient class structure is correct",
+    "Query methods follow proper patterns",
+    "TypeScript types are well-defined"
+  ],
+  "next_steps": "Fix the 2 issues listed above and signal completion again. You have 2 attempts remaining."
+}
+```
 
-### Do Not
+### Feedback Structure
 
-- Argue with the feedback
-- Try to discover why other criteria weren't mentioned
-- Assume the feedback is complete (there may be hidden checks)
-- Ignore the attempt count
+Each issue in the feedback includes:
+
+| Field      | Description                              | Example                                        |
+| ---------- | ---------------------------------------- | ---------------------------------------------- |
+| `check_id` | Identifier for the verification check    | `"error-handling"`, `"test-coverage"`         |
+| `severity` | Impact level: CRITICAL, MAJOR, MINOR     | `"MAJOR"` - must fix; `"MINOR"` - should fix  |
+| `impact`   | What breaks if not fixed                 | `"Application will crash on failures"`        |
+| `reason`   | Specific problem found                   | `"No try-catch around database connection"`   |
+| `guidance` | How to fix it                            | `"Wrap getDb() in try-catch and throw Error"` |
+
+### Retry Workflow: Step by Step
+
+After receiving feedback:
+
+```
+1. ANALYZE FEEDBACK
+   └─> Read each issue carefully
+   └─> Note severity levels (CRITICAL/MAJOR/MINOR)
+   └─> Understand the guidance provided
+
+2. PRIORITIZE FIXES
+   └─> Fix CRITICAL issues first
+   └─> Then MAJOR issues
+   └─> Then MINOR issues
+   └─> Fix ALL issues, not just high priority
+
+3. IMPLEMENT FIXES
+   └─> Make targeted changes to address each issue
+   └─> Follow the guidance provided
+   └─> Don't introduce new problems
+
+4. TEST LOCALLY
+   └─> npm test (all tests must pass)
+   └─> npx tsc --noEmit (TypeScript must compile)
+   └─> Manual verification of the fixes
+
+5. SIGNAL AGAIN
+   └─> Call signal_completion with updated artifacts
+   └─> Include summary of what was fixed
+   └─> Set build_passed and test_passed to true
+```
+
+### Example: Signaling After Fixes
+
+```json
+// After fixing the issues from feedback:
+// Call: signal_completion
+{
+  "task_id": 3,
+  "artifacts": [
+    "src/db/client.ts",
+    "test/db/client.test.ts"
+  ],
+  "summary": "Fixed error handling in getDb() with try-catch and DatabaseError. Added connection timeout test case. All verification issues resolved.",
+  "build_passed": true,
+  "test_passed": true,
+  "notes": "Applied error handling pattern from schema.ts as suggested in feedback."
+}
+```
+
+### When to Escalate
+
+If you're stuck and cannot make progress, call `escalate_task`:
+
+**Escalation Triggers**:
+- You've reached max retries (check `retry_count` in feedback)
+- Feedback guidance is unclear or contradictory
+- You're blocked by external dependency (missing API, unclear spec)
+- The acceptance criteria seem impossible to meet
+- You need architectural clarification
+
+### Example: Escalating When Stuck
+
+```json
+// Call: escalate_task
+{
+  "task_id": 3,
+  "reason": "Error handling pattern in schema.ts referenced in feedback uses a DatabaseError class that doesn't exist in the codebase. Cannot implement the suggested fix without this dependency.",
+  "attempts_summary": "Attempt 1: Implemented basic error handling but failed verification. Attempt 2: Reviewed feedback guidance referencing schema.ts but the referenced error class is not found.",
+  "recommended_action": "Need clarification on where DatabaseError class should come from, or if it should be created as part of this task."
+}
+```
+
+### Feedback Best Practices
+
+**Do:**
+- ✅ Read ALL issues before starting fixes
+- ✅ Follow guidance exactly as provided
+- ✅ Fix every issue, even MINOR ones
+- ✅ Test thoroughly before re-signaling
+- ✅ Reference what worked to avoid breaking it
+- ✅ Escalate early if truly blocked
+
+**Do Not:**
+- ❌ Argue with the feedback
+- ❌ Fix only some issues and hope it passes
+- ❌ Try to discover why other criteria weren't mentioned
+- ❌ Assume the feedback is complete (there may be hidden checks)
+- ❌ Ignore the retry count
+- ❌ Re-signal without actually fixing the issues
 
 ## Critical Constraints
 

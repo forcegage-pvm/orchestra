@@ -37,6 +37,9 @@ export class SessionManager {
   // Track implementor session URI (may be cleared/recreated)
   private _implementorSessionUri: vscode.Uri | undefined;
 
+  // Track the implementor tab so we can close it
+  private _implementorTab: vscode.Tab | undefined;
+
   /**
    * Create a new SessionManager
    * @param logger - Logger instance for structured logging
@@ -45,6 +48,42 @@ export class SessionManager {
   constructor(logger: OrchestraLogger, configService: ConfigService) {
     this.logger = logger;
     this._configService = configService;
+  }
+
+  /**
+   * Close all chat editor tabs in the main editor area
+   * This ensures the orchestrator window receives focus when we send prompts
+   */
+  private async closeChatEditorTabs(): Promise<void> {
+    const tabsToClose: vscode.Tab[] = [];
+
+    for (const tabGroup of vscode.window.tabGroups.all) {
+      for (const tab of tabGroup.tabs) {
+        // Chat editor tabs have labels like "Chat" or start with "Copilot"
+        // and their input is of unknown type (not standard TabInput types)
+        const isLikelyChatTab =
+          tab.label === "Chat" ||
+          tab.label.startsWith("Copilot") ||
+          tab.label.includes("Chat");
+
+        if (isLikelyChatTab) {
+          tabsToClose.push(tab);
+        }
+      }
+    }
+
+    if (tabsToClose.length > 0) {
+      this.logger.info(`Closing ${tabsToClose.length} chat editor tab(s)`);
+      try {
+        await vscode.window.tabGroups.close(tabsToClose, true);
+      } catch (error) {
+        this.logger.warn("Failed to close some chat tabs", error);
+      }
+    }
+
+    // Clear implementor tracking since we closed its tab
+    this._implementorTab = undefined;
+    this._implementorActive = false;
   }
 
   /**
@@ -104,11 +143,14 @@ export class SessionManager {
 
       // Orchestrator session strategy:
       // - First invocation: Create new chat window, then send prompt
-      // - Subsequent invocations: Reuse existing window by just sending prompt
+      // - Subsequent invocations: Close any chat editor tabs (implementor), then send to orchestrator window
       //
-      // workbench.action.chat.open automatically uses the most recently focused
-      // chat panel, so we only need to create a new window once.
+      // CRITICAL: We must close chat editor tabs before sending to orchestrator,
+      // otherwise workbench.action.chat.open may send to the wrong chat.
       try {
+        // Always close chat editor tabs to ensure orchestrator window gets focus
+        await this.closeChatEditorTabs();
+
         if (!this._orchestratorActive) {
           // First time: Create a new chat window
           this.logger.info("Creating new orchestrator chat window");
@@ -117,11 +159,12 @@ export class SessionManager {
           );
 
           // Small delay to ensure window is ready
-          await new Promise((resolve) => setTimeout(resolve, 100));
+          await new Promise((resolve) => setTimeout(resolve, 150));
         } else {
-          // Subsequent times: Focus the existing chat window without creating new
+          // Subsequent times: The orchestrator window should now be the only chat
           this.logger.info("Reusing existing orchestrator chat window");
-          // workbench.action.chat.open will send to the active chat
+          // Small delay to ensure focus is correct
+          await new Promise((resolve) => setTimeout(resolve, 50));
         }
 
         // Send the prompt with mode and model to the active chat
@@ -196,6 +239,16 @@ export class SessionManager {
 
       // Small delay to ensure editor is ready
       await new Promise((resolve) => setTimeout(resolve, 100));
+
+      // Track the newly created tab so we can close it later
+      // The active tab in the active group should be our new chat tab
+      const activeTab = vscode.window.tabGroups.activeTabGroup.activeTab;
+      if (activeTab) {
+        this._implementorTab = activeTab;
+        this.logger.info("Tracked implementor tab", {
+          label: activeTab.label,
+        });
+      }
 
       // Now send the prompt with mode and model
       await vscode.commands.executeCommand("workbench.action.chat.open", {

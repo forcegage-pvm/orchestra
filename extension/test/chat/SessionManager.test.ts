@@ -21,6 +21,14 @@ vi.mock("vscode", () => ({
       appendLine: vi.fn(),
       show: vi.fn(),
     })),
+    tabGroups: {
+      all: [],
+      activeTabGroup: {
+        activeTab: { label: "Chat", isActive: true },
+        tabs: [],
+      },
+      close: vi.fn().mockResolvedValue(true),
+    },
   },
   workspace: {
     getConfiguration: vi.fn(() => ({
