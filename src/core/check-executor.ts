@@ -54,7 +54,7 @@ function resolveCommandPaths(
   // - \s*; : Optional whitespace, then semicolon
   const cdPattern = /(^|;)\s*cd\s+([^;]+?)\s*;/g;
 
-  return command.replace(cdPattern, (match, prefix, directory) => {
+  return command.replace(cdPattern, (_match, prefix, directory) => {
     // Trim the directory name and remove any existing quotes
     const cleanDirectory = directory.trim().replace(/^["']|["']$/g, "");
 
