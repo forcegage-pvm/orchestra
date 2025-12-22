@@ -285,6 +285,7 @@
     "@types/node": "^20.x",
     "@types/vscode": "^1.95.0",
     "@vscode/test-electron": "^2.4.1",
+    "electron-rebuild": "^3.2.9",
     "esbuild": "^0.24.0",
     "eslint": "^9.17.0",
     "typescript": "^5.7.2",
