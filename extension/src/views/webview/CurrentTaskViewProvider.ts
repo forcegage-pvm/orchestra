@@ -196,10 +196,11 @@ export class CurrentTaskViewProvider implements vscode.WebviewViewProvider {
 
       case "prepareTask":
         if (typeof message.taskId === "number") {
-          // TODO: Implement prepare task command via MCP or CLI
-          void vscode.window.showInformationMessage(
-            `Preparing task ${message.taskId}... (MCP integration pending)`
-          );
+          // Invoke playTask which handles preparation for PENDING tasks
+          void vscode.commands.executeCommand("orchestra.playTask", {
+            type: "task",
+            task: { id: message.taskId },
+          });
         }
         break;
 
@@ -209,6 +210,17 @@ export class CurrentTaskViewProvider implements vscode.WebviewViewProvider {
           void vscode.window.showInformationMessage(
             `Signaling completion for task ${message.taskId}... (MCP integration pending)`
           );
+        }
+        break;
+
+      case "playTask":
+        if (typeof message.taskId === "number") {
+          // Invoke the playTask command which routes based on task status
+          // This is the same command used by the tree view play button
+          void vscode.commands.executeCommand("orchestra.playTask", {
+            type: "task",
+            task: { id: message.taskId },
+          });
         }
         break;
 

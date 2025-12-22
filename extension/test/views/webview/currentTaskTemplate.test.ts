@@ -87,13 +87,14 @@ describe("currentTaskTemplate", () => {
       expect(html).toContain('class="pill pill-category');
     });
 
-    it("should include action buttons", () => {
+    it("should include action buttons with context-sensitive label", () => {
       const html = generateCurrentTaskHtml(mockTaskData, cspSource);
 
       expect(html).toContain("View Details");
-      expect(html).toContain("Signal Completion");
+      // IMPLEMENT status shows "Start Implementation" button
+      expect(html).toContain("Start Implementation");
       expect(html).toContain('onclick="openTask(1)"');
-      expect(html).toContain('onclick="signalCompletion(1)"');
+      expect(html).toContain('onclick="playTask(1)"');
     });
 
     it("should render no-task placeholder when taskData is null", () => {
