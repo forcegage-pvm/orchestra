@@ -101,12 +101,7 @@ export class SessionManager {
       // Clear any previous implementor session to prevent context contamination
       await this.clearImplementorSession();
 
-      // Open a new Chat Editor Tab
-      await vscode.commands.executeCommand(
-        "workbench.action.chat.newChatEditor"
-      );
-
-      // Send the prompt to the Chat Editor Tab with implementor configuration
+      // Invoke the implementor agent with the prompt and configuration
       // mode: custom agent ID (e.g., 'orchestra.implementor'), modelSelector must be an object with id property
       await vscode.commands.executeCommand("workbench.action.chat.open", {
         query: prompt,
