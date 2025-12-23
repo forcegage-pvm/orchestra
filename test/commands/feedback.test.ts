@@ -7,8 +7,8 @@
  * - Command structure is correct
  */
 
-import { describe, test, expect } from "vitest";
 import { Command } from "commander";
+import { describe, expect, test } from "vitest";
 import { createFeedbackCommand } from "../../src/commands/feedback.js";
 
 describe("Feedback Command", () => {

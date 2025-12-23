@@ -9,22 +9,21 @@
  * - Hidden verification criteria are NOT exposed in feedback
  */
 
-import { describe, test, expect, beforeEach, afterEach } from "vitest";
 import * as fs from "node:fs";
-import * as path from "node:path";
 import * as os from "node:os";
+import * as path from "node:path";
+import { afterEach, beforeEach, describe, expect, test } from "vitest";
+import * as yaml from "yaml";
 import {
+  getAttemptNumber,
+  loadVerificationResultFromDisk,
   runFeedback,
   saveVerificationResultForFeedback,
-  loadVerificationResultFromDisk,
-  getAttemptNumber,
-  type FeedbackResult,
   type FeedbackIssue,
-  type FeedbackOptions,
+  type FeedbackResult,
 } from "../../src/core/feedback.js";
-import type { VerifyResult, VerifyCheckResult } from "../../src/core/verification.js";
 import type { Manifest, ProgressLog } from "../../src/core/types.js";
-import * as yaml from "yaml";
+import type { VerifyResult } from "../../src/core/verification.js";
 
 describe("Feedback Core Module", () => {
   let tempDir: string;
@@ -32,7 +31,9 @@ describe("Feedback Core Module", () => {
 
   beforeEach(() => {
     // Create temp directory for testing
-    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "orchestra-feedback-test-"));
+    tempDir = fs.mkdtempSync(
+      path.join(os.tmpdir(), "orchestra-feedback-test-")
+    );
     orchestraRoot = path.join(tempDir, "project");
 
     // Create orchestra directory structure
@@ -337,7 +338,9 @@ describe("Feedback Core Module", () => {
         ".orchestra",
         "progress.yaml"
       );
-      const progress = yaml.parse(fs.readFileSync(progressPath, "utf-8")) as ProgressLog;
+      const progress = yaml.parse(
+        fs.readFileSync(progressPath, "utf-8")
+      ) as ProgressLog;
 
       expect(progress.entries).toHaveLength(1);
       expect(progress.entries[0]?.status).toBe("VERIFY_FAILED");
@@ -351,7 +354,9 @@ describe("Feedback Core Module", () => {
         ".orchestra",
         "progress.yaml"
       );
-      const progress = yaml.parse(fs.readFileSync(progressPath, "utf-8")) as ProgressLog;
+      const progress = yaml.parse(
+        fs.readFileSync(progressPath, "utf-8")
+      ) as ProgressLog;
 
       // Add 2 previous failures (next will be attempt 3 of 3)
       progress.entries.push(
@@ -479,8 +484,14 @@ describe("Feedback Core Module", () => {
 
     test("throws error when no task specified and no current task found", async () => {
       // Remove current_task_id from manifest
-      const manifestPath = path.join(orchestraRoot, ".orchestra", "manifest.yaml");
-      const manifest = yaml.parse(fs.readFileSync(manifestPath, "utf-8")) as Manifest;
+      const manifestPath = path.join(
+        orchestraRoot,
+        ".orchestra",
+        "manifest.yaml"
+      );
+      const manifest = yaml.parse(
+        fs.readFileSync(manifestPath, "utf-8")
+      ) as Manifest;
       delete manifest.current_task_id;
       fs.writeFileSync(manifestPath, yaml.stringify(manifest));
 
@@ -524,7 +535,11 @@ describe("Feedback Core Module", () => {
         exitCode: 1,
       };
 
-      const resultPath = saveVerificationResultForFeedback(5, verifyResult, orchestraRoot);
+      const resultPath = saveVerificationResultForFeedback(
+        5,
+        verifyResult,
+        orchestraRoot
+      );
 
       expect(resultPath).toContain("task-005-verification-full.json");
       expect(fs.existsSync(resultPath)).toBe(true);
