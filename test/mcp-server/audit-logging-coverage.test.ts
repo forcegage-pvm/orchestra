@@ -5,17 +5,12 @@
  * Tests acceptance criteria for Task 9: Complete Audit Logging Coverage.
  */
 
-import { describe, expect, it } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
+import { describe, expect, it } from "vitest";
 
 describe("Audit Logging Coverage", () => {
-  const handlersDir = path.join(
-    process.cwd(),
-    "src",
-    "mcp-server",
-    "handlers"
-  );
+  const handlersDir = path.join(process.cwd(), "src", "mcp-server", "handlers");
 
   // Utility files that should not have audit logging
   const utilityFiles = ["audit-logging.ts", "handover-validation.ts"];
@@ -138,12 +133,16 @@ describe("Audit Logging Coverage", () => {
       // Assert no handlers are missing logging
       expect(
         handlersWithoutLogging,
-        `Handlers missing logToolExecution import: ${handlersWithoutLogging.join(", ")}`
+        `Handlers missing logToolExecution import: ${handlersWithoutLogging.join(
+          ", "
+        )}`
       ).toHaveLength(0);
 
       expect(
         handlersWithIncompleteLogging,
-        `Handlers with incomplete logging: ${handlersWithIncompleteLogging.join(", ")}`
+        `Handlers with incomplete logging: ${handlersWithIncompleteLogging.join(
+          ", "
+        )}`
       ).toHaveLength(0);
     });
 
@@ -164,13 +163,17 @@ describe("Audit Logging Coverage", () => {
           const missing = [];
           if (!hasSuccessPath) missing.push("success path");
           if (!hasErrorPath) missing.push("error path");
-          handlersWithMissingPaths.push(`${file} (missing: ${missing.join(", ")})`);
+          handlersWithMissingPaths.push(
+            `${file} (missing: ${missing.join(", ")})`
+          );
         }
       }
 
       expect(
         handlersWithMissingPaths,
-        `Handlers with missing logging paths: ${handlersWithMissingPaths.join(", ")}`
+        `Handlers with missing logging paths: ${handlersWithMissingPaths.join(
+          ", "
+        )}`
       ).toHaveLength(0);
     });
   });
@@ -220,7 +223,9 @@ describe("Audit Logging Coverage", () => {
 
       expect(
         handlersWithWrongToolName,
-        `Handlers with incorrect tool_name: ${handlersWithWrongToolName.join(", ")}`
+        `Handlers with incorrect tool_name: ${handlersWithWrongToolName.join(
+          ", "
+        )}`
       ).toHaveLength(0);
     });
 

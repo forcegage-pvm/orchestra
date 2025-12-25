@@ -8,13 +8,13 @@
 
 import { and, eq } from "drizzle-orm";
 import { getActiveSprint, getDb } from "../../db/index.js";
-import { logToolExecution } from "./audit-logging.js";
 import { amendments, tasks } from "../../db/schema.js";
 import {
   GetAmendmentsInputSchema,
   type GetAmendmentsOutput,
 } from "../../schemas/progress.js";
 import { validateInput } from "../../schemas/utils.js";
+import { logToolExecution } from "./audit-logging.js";
 
 export async function handleGetAmendments(input: unknown) {
   const startTime = performance.now();
