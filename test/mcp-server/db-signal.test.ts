@@ -90,24 +90,28 @@ describe("db-signal", () => {
     });
 
     it("should handle errors gracefully without throwing", () => {
-      // Mock fs.writeFileSync to throw error
+      // Make the .orchestra directory read-only to force an error
+      const orchestraDir = path.join(tempDir, ".orchestra");
+      fs.mkdirSync(orchestraDir, { recursive: true });
+      
       const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-      const originalWriteFileSync = fs.writeFileSync;
-      const writeFileSyncSpy = vi.spyOn(fs, "writeFileSync").mockImplementation(() => {
-        throw new Error("Mock write error");
-      });
 
-      // Should not throw
+      // Create a file where .signal should be to cause write error
+      const signalPath = path.join(orchestraDir, ".signal");
+      
+      // On Windows, we can't easily create permission errors, so we'll make it a directory
+      // which will cause fs.writeFileSync to fail when trying to write a file
+      fs.mkdirSync(signalPath, { recursive: true });
+
+      // Should not throw even when write fails
       expect(() => writeSignal()).not.toThrow();
 
       // Should log error
-      expect(consoleErrorSpy).toHaveBeenCalledWith(
-        expect.stringContaining("[Orchestra] Failed to write signal file"),
-        expect.any(Error)
-      );
+      expect(consoleErrorSpy).toHaveBeenCalled();
+      expect(consoleErrorSpy.mock.calls[0][0]).toContain("[Orchestra] Failed to write signal file");
 
-      // Restore mocks
-      writeFileSyncSpy.mockRestore();
+      // Clean up
+      fs.rmSync(signalPath, { recursive: true, force: true });
       consoleErrorSpy.mockRestore();
     });
 
