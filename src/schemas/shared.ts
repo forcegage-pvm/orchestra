@@ -211,6 +211,54 @@ export const QualityCheckSchema = z
 export type QualityCheck = z.output<typeof QualityCheckSchema>;
 
 /**
+ * Cross-reference verification check
+ *
+ * Validates that identifiers/values are consistent across multiple files.
+ * Example: VS Code view IDs in package.json must match createTreeView() calls in code.
+ *
+ * Must have definition with EITHER:
+ * - pattern (with optional capture_group): for extracting values from code files
+ * - json_path: for extracting values from JSON files (e.g., JSONPath syntax)
+ *
+ * Match modes:
+ * - exact: Reference values must exactly equal definition values (sets are equal)
+ * - subset: Reference values must be subset of definition values (all references are valid definitions)
+ * - superset: Reference values must be superset of definition values (all definitions are referenced)
+ */
+export const CrossReferenceCheckSchema = z.object({
+  description: z.string().min(1, "Description is required"),
+  severity: SeveritySchema,
+  
+  // Definition: where the canonical values are declared
+  definition: z.object({
+    path: z.string().min(1, "Path is required"),
+    pattern: z.string().optional(),
+    capture_group: z.number().int().min(0).optional(),
+    json_path: z.string().optional(),
+  }).refine(
+    (data) => {
+      // Must have pattern OR json_path
+      const hasPattern = data.pattern !== undefined && data.pattern.length > 0;
+      const hasJsonPath = data.json_path !== undefined && data.json_path.length > 0;
+      return hasPattern || hasJsonPath;
+    },
+    { message: "Definition must have either 'pattern' OR 'json_path'" }
+  ),
+  
+  // References: where the values must be used consistently
+  references: z.array(z.object({
+    path: z.string().min(1, "Path is required"),
+    pattern: z.string().min(1, "Pattern is required"),
+    capture_group: z.number().int().min(0).optional(),
+  })).min(1, "At least one reference is required"),
+  
+  // How to compare definition values to reference values
+  match_mode: z.enum(["exact", "subset", "superset"]).optional(),
+});
+
+export type CrossReferenceCheck = z.output<typeof CrossReferenceCheckSchema>;
+
+/**
  * Complete verification criteria
  */
 export const VerificationCriteriaSchema = z
@@ -218,13 +266,15 @@ export const VerificationCriteriaSchema = z
     structural_checks: z.array(StructuralCheckSchema).optional(),
     behavioral_checks: z.array(BehavioralCheckSchema).optional(),
     quality_checks: z.array(QualityCheckSchema).optional(),
+    cross_reference_checks: z.array(CrossReferenceCheckSchema).optional(),
   })
   .refine(
     (data) => {
       const hasChecks =
         (data.structural_checks && data.structural_checks.length > 0) ||
         (data.behavioral_checks && data.behavioral_checks.length > 0) ||
-        (data.quality_checks && data.quality_checks.length > 0);
+        (data.quality_checks && data.quality_checks.length > 0) ||
+        (data.cross_reference_checks && data.cross_reference_checks.length > 0);
       return hasChecks;
     },
     { message: "At least one verification check is required" }

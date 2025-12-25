@@ -104,12 +104,32 @@ export interface QualityCheckConfig {
 }
 
 /**
+ * Cross-reference check: validate identifiers match across multiple files
+ */
+export interface CrossReferenceCheckConfig {
+  type: "cross-reference";
+  definition: {
+    path: string;
+    pattern?: string;
+    capture_group?: number;
+    json_path?: string;
+  };
+  references: Array<{
+    path: string;
+    pattern: string;
+    capture_group?: number;
+  }>;
+  match_mode?: "exact" | "subset" | "superset";
+}
+
+/**
  * Union of all check configurations
  */
 export type CheckConfig =
   | StructuralCheckConfig
   | BehavioralCheckConfig
-  | QualityCheckConfig;
+  | QualityCheckConfig
+  | CrossReferenceCheckConfig;
 
 /**
  * Result of executing a check
@@ -439,6 +459,311 @@ export async function executeQualityCheck(
 }
 
 // ============================================================================
+// Cross-Reference Checks
+// ============================================================================
+
+/**
+ * Extract values from a file using regex pattern with optional capture group
+ * @param filePath - Absolute path to file
+ * @param pattern - Regex pattern (can contain capture groups)
+ * @param captureGroup - Which capture group to extract (0 = entire match, 1+ = specific group)
+ * @returns Array of extracted values
+ */
+function extractValuesFromPattern(
+  filePath: string,
+  pattern: string,
+  captureGroup: number = 0
+): string[] {
+  const content = fs.readFileSync(filePath, "utf-8");
+  const regex = new RegExp(pattern, "gms");
+  const values: string[] = [];
+  
+  let match;
+  while ((match = regex.exec(content)) !== null) {
+    // Capture group 0 = entire match, 1+ = specific groups
+    const value = match[captureGroup] ?? match[0];
+    if (value && !values.includes(value)) {
+      values.push(value);
+    }
+  }
+  
+  return values;
+}
+
+/**
+ * Extract values from definition source (pattern or JSON path)
+ */
+async function extractDefinitionValues(
+  definition: CrossReferenceCheckConfig["definition"],
+  workspacePath: string
+): Promise<string[]> {
+  const definitionPath = path.isAbsolute(definition.path)
+    ? definition.path
+    : path.join(workspacePath, definition.path);
+
+  if (!fs.existsSync(definitionPath)) {
+    throw new Error(`Definition file not found: ${definition.path}`);
+  }
+
+  // Pattern-based extraction
+  if (definition.pattern) {
+    const captureGroup = definition.capture_group ?? 0;
+    return extractValuesFromPattern(definitionPath, definition.pattern, captureGroup);
+  }
+
+  // JSON path extraction (simple implementation - full JSONPath would require a library)
+  if (definition.json_path) {
+    // For now, support simple JSON path like "$.contributes.views.orchestra[*].id"
+    // This is a minimal implementation - a full JSONPath library could be added later
+    const content = fs.readFileSync(definitionPath, "utf-8");
+    const json = JSON.parse(content);
+    
+    // Simple path traversal (not full JSONPath spec)
+    const pathParts = definition.json_path.replace(/^\$\./, "").split(".");
+    let current: unknown = json;
+    
+    for (const part of pathParts) {
+      // Handle array wildcard: "views[*]" or just "[*]"
+      const arrayMatch = part.match(/^(.+)?\[\*\]$/);
+      if (arrayMatch) {
+        const key = arrayMatch[1];
+        if (key) {
+          current = (current as Record<string, unknown>)[key];
+        }
+        // Current should now be an array - extract remaining path from all elements
+        if (!Array.isArray(current)) {
+          throw new Error(`Expected array at ${part} in JSON path`);
+        }
+        // If this is the last part, return the array items
+        const remainingPath = pathParts.slice(pathParts.indexOf(part) + 1);
+        if (remainingPath.length === 0) {
+          return current.filter((item): item is string => typeof item === "string");
+        }
+        // Otherwise, extract from each array element
+        const values: string[] = [];
+        for (const item of current) {
+          let subCurrent: unknown = item;
+          for (const subPart of remainingPath) {
+            subCurrent = (subCurrent as Record<string, unknown>)[subPart];
+          }
+          if (typeof subCurrent === "string" && !values.includes(subCurrent)) {
+            values.push(subCurrent);
+          }
+        }
+        return values;
+      } else {
+        // Regular property access
+        current = (current as Record<string, unknown>)[part];
+      }
+    }
+    
+    // Final value should be a string or array of strings
+    if (typeof current === "string") {
+      return [current];
+    } else if (Array.isArray(current)) {
+      return current.filter((item): item is string => typeof item === "string");
+    } else {
+      throw new Error(`JSON path did not resolve to string or array: ${definition.json_path}`);
+    }
+  }
+
+  throw new Error("Definition must have either pattern or json_path");
+}
+
+/**
+ * Extract values from all reference sources (supports glob patterns)
+ */
+async function extractReferenceValues(
+  references: CrossReferenceCheckConfig["references"],
+  workspacePath: string
+): Promise<{ values: string[]; fileCount: number }> {
+  const allValues: string[] = [];
+  let fileCount = 0;
+
+  for (const reference of references) {
+    // Check if reference path is a glob pattern
+    if (isGlobPattern(reference.path)) {
+      // Expand glob to multiple files
+      const matches = await glob(reference.path, {
+        cwd: workspacePath,
+        absolute: false,
+      });
+
+      for (const matchPath of matches) {
+        const absolutePath = path.join(workspacePath, matchPath);
+        const captureGroup = reference.capture_group ?? 0;
+        const values = extractValuesFromPattern(absolutePath, reference.pattern, captureGroup);
+        for (const value of values) {
+          if (!allValues.includes(value)) {
+            allValues.push(value);
+          }
+        }
+        fileCount++;
+      }
+    } else {
+      // Single file
+      const referencePath = path.isAbsolute(reference.path)
+        ? reference.path
+        : path.join(workspacePath, reference.path);
+
+      if (!fs.existsSync(referencePath)) {
+        throw new Error(`Reference file not found: ${reference.path}`);
+      }
+
+      const captureGroup = reference.capture_group ?? 0;
+      const values = extractValuesFromPattern(referencePath, reference.pattern, captureGroup);
+      for (const value of values) {
+        if (!allValues.includes(value)) {
+          allValues.push(value);
+        }
+      }
+      fileCount++;
+    }
+  }
+
+  return { values: allValues, fileCount };
+}
+
+/**
+ * Compare definition and reference values according to match mode
+ */
+function compareValues(
+  definitionValues: string[],
+  referenceValues: string[],
+  matchMode: "exact" | "subset" | "superset"
+): { passed: boolean; message: string } {
+  const defSet = new Set(definitionValues);
+  const refSet = new Set(referenceValues);
+
+  switch (matchMode) {
+    case "exact": {
+      // Sets must be equal (same values)
+      if (defSet.size !== refSet.size) {
+        const onlyInDef = [...defSet].filter(v => !refSet.has(v));
+        const onlyInRef = [...refSet].filter(v => !defSet.has(v));
+        return {
+          passed: false,
+          message: `Exact match failed: definitions=${defSet.size}, references=${refSet.size}. Only in definitions: [${onlyInDef.join(", ")}]. Only in references: [${onlyInRef.join(", ")}]`,
+        };
+      }
+      for (const value of defSet) {
+        if (!refSet.has(value)) {
+          return {
+            passed: false,
+            message: `Exact match failed: '${value}' in definitions but not in references`,
+          };
+        }
+      }
+      return {
+        passed: true,
+        message: `Exact match: ${defSet.size} value(s) matched`,
+      };
+    }
+
+    case "subset": {
+      // Reference values must be subset of definition values (all references are valid)
+      const invalid: string[] = [];
+      for (const value of refSet) {
+        if (!defSet.has(value)) {
+          invalid.push(value);
+        }
+      }
+      if (invalid.length > 0) {
+        return {
+          passed: false,
+          message: `Subset check failed: ${invalid.length} reference value(s) not in definitions: [${invalid.join(", ")}]`,
+        };
+      }
+      return {
+        passed: true,
+        message: `Subset check passed: all ${refSet.size} reference value(s) found in definitions`,
+      };
+    }
+
+    case "superset": {
+      // Reference values must be superset of definition values (all definitions are referenced)
+      const missing: string[] = [];
+      for (const value of defSet) {
+        if (!refSet.has(value)) {
+          missing.push(value);
+        }
+      }
+      if (missing.length > 0) {
+        return {
+          passed: false,
+          message: `Superset check failed: ${missing.length} definition value(s) not in references: [${missing.join(", ")}]`,
+        };
+      }
+      return {
+        passed: true,
+        message: `Superset check passed: all ${defSet.size} definition value(s) found in references`,
+      };
+    }
+
+    default:
+      return {
+        passed: false,
+        message: `Unknown match mode: ${matchMode}`,
+      };
+  }
+}
+
+export async function executeCrossReferenceCheck(
+  config: CrossReferenceCheckConfig,
+  workspacePath: string
+): Promise<CheckResult> {
+  const startTime = Date.now();
+
+  try {
+    // Apply default match_mode if not specified
+    const matchMode = config.match_mode ?? "subset";
+    
+    // Extract definition values
+    const definitionValues = await extractDefinitionValues(config.definition, workspacePath);
+    
+    if (definitionValues.length === 0) {
+      return {
+        passed: false,
+        message: "No values extracted from definition",
+        duration_ms: Date.now() - startTime,
+      };
+    }
+
+    // Extract reference values
+    const { values: referenceValues, fileCount } = await extractReferenceValues(
+      config.references,
+      workspacePath
+    );
+
+    if (referenceValues.length === 0) {
+      return {
+        passed: false,
+        message: `No values extracted from ${fileCount} reference file(s)`,
+        duration_ms: Date.now() - startTime,
+      };
+    }
+
+    // Compare values according to match mode
+    const comparison = compareValues(definitionValues, referenceValues, matchMode);
+
+    return {
+      passed: comparison.passed,
+      message: comparison.message,
+      output: `Definitions: [${definitionValues.join(", ")}]\nReferences (${fileCount} file(s)): [${referenceValues.join(", ")}]`,
+      duration_ms: Date.now() - startTime,
+    };
+  } catch (error) {
+    return {
+      passed: false,
+      message: `Cross-reference check error: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+      duration_ms: Date.now() - startTime,
+    };
+  }
+}
+
+// ============================================================================
 // Main Entry Point
 // ============================================================================
 
@@ -458,6 +783,9 @@ export async function executeCheck(
 
     case "quality":
       return executeQualityCheck(config, workspacePath);
+
+    case "cross-reference":
+      return executeCrossReferenceCheck(config, workspacePath);
 
     default:
       return {

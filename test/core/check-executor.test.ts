@@ -18,6 +18,7 @@ import {
   type CheckConfig,
   executeBehavioralCheck,
   executeCheck,
+  executeCrossReferenceCheck,
   executeQualityCheck,
   executeStructuralCheck,
 } from "../../src/core/check-executor.js";
@@ -857,6 +858,571 @@ describe("Check Executor", () => {
 
       expect(result.passed).toBe(false);
       expect(result.message).toContain("Unknown check type");
+    });
+  });
+
+  describe("executeCrossReferenceCheck", () => {
+    it("should pass when reference values match definition values (subset mode)", async () => {
+      // Create definition file with view IDs
+      const packageJson = path.join(tempDir, "package.json");
+      fs.writeFileSync(
+        packageJson,
+        JSON.stringify({
+          contributes: {
+            views: {
+              orchestra: [
+                { id: "orchestra.sprintExplorer" },
+                { id: "orchestra.taskList" },
+                { id: "orchestra.verificationLog" },
+              ],
+            },
+          },
+        })
+      );
+
+      // Create reference file with matching IDs
+      const extensionTs = path.join(tempDir, "extension.ts");
+      fs.writeFileSync(
+        extensionTs,
+        `vscode.window.createTreeView("orchestra.sprintExplorer", {...});
+vscode.window.createTreeView("orchestra.taskList", {...});`
+      );
+
+      const config: CheckConfig = {
+        type: "cross-reference",
+        definition: {
+          path: "package.json",
+          json_path: "$.contributes.views.orchestra[*].id",
+        },
+        references: [
+          {
+            path: "extension.ts",
+            pattern: 'createTreeView\\("([^"]+)"',
+            capture_group: 1,
+          },
+        ],
+        match_mode: "subset",
+      };
+
+      const result = await executeCrossReferenceCheck(config, tempDir);
+
+      expect(result.passed).toBe(true);
+      expect(result.message).toContain("Subset check passed");
+    });
+
+    it("should fail when reference has invalid value (subset mode)", async () => {
+      const packageJson = path.join(tempDir, "package.json");
+      fs.writeFileSync(
+        packageJson,
+        JSON.stringify({
+          contributes: {
+            views: {
+              orchestra: [{ id: "orchestra.sprintExplorer" }],
+            },
+          },
+        })
+      );
+
+      const extensionTs = path.join(tempDir, "extension.ts");
+      fs.writeFileSync(
+        extensionTs,
+        `vscode.window.createTreeView("orchestra.invalidView", {...});`
+      );
+
+      const config: CheckConfig = {
+        type: "cross-reference",
+        definition: {
+          path: "package.json",
+          json_path: "$.contributes.views.orchestra[*].id",
+        },
+        references: [
+          {
+            path: "extension.ts",
+            pattern: 'createTreeView\\("([^"]+)"',
+            capture_group: 1,
+          },
+        ],
+        match_mode: "subset",
+      };
+
+      const result = await executeCrossReferenceCheck(config, tempDir);
+
+      expect(result.passed).toBe(false);
+      expect(result.message).toContain("Subset check failed");
+      expect(result.message).toContain("orchestra.invalidView");
+    });
+
+    it("should pass exact mode when values match exactly", async () => {
+      const definitionFile = path.join(tempDir, "definition.ts");
+      fs.writeFileSync(
+        definitionFile,
+        `export const VALID_COLORS = ["red", "blue", "green"];`
+      );
+
+      const referenceFile = path.join(tempDir, "reference.ts");
+      fs.writeFileSync(
+        referenceFile,
+        `const color1 = "red";
+const color2 = "blue";
+const color3 = "green";`
+      );
+
+      const config: CheckConfig = {
+        type: "cross-reference",
+        definition: {
+          path: "definition.ts",
+          pattern: '"(red|blue|green)"',
+          capture_group: 1,
+        },
+        references: [
+          {
+            path: "reference.ts",
+            pattern: '"(red|blue|green)"',
+            capture_group: 1,
+          },
+        ],
+        match_mode: "exact",
+      };
+
+      const result = await executeCrossReferenceCheck(config, tempDir);
+
+      expect(result.passed).toBe(true);
+      expect(result.message).toContain("Exact match");
+    });
+
+    it("should fail exact mode when values don't match", async () => {
+      const definitionFile = path.join(tempDir, "definition.ts");
+      fs.writeFileSync(
+        definitionFile,
+        `export const COLORS = ["red", "blue"];`
+      );
+
+      const referenceFile = path.join(tempDir, "reference.ts");
+      fs.writeFileSync(referenceFile, `const color = "red";`);
+
+      const config: CheckConfig = {
+        type: "cross-reference",
+        definition: {
+          path: "definition.ts",
+          pattern: '"(red|blue|green)"',
+          capture_group: 1,
+        },
+        references: [
+          {
+            path: "reference.ts",
+            pattern: '"(red|blue|green)"',
+            capture_group: 1,
+          },
+        ],
+        match_mode: "exact",
+      };
+
+      const result = await executeCrossReferenceCheck(config, tempDir);
+
+      expect(result.passed).toBe(false);
+      expect(result.message).toContain("Exact match failed");
+    });
+
+    it("should pass superset mode when all definitions are referenced", async () => {
+      const definitionFile = path.join(tempDir, "definition.ts");
+      fs.writeFileSync(
+        definitionFile,
+        `export const REQUIRED = ["funcA", "funcB"];`
+      );
+
+      const referenceFile = path.join(tempDir, "reference.ts");
+      fs.writeFileSync(
+        referenceFile,
+        `funcA();
+funcB();
+funcC();`
+      );
+
+      const config: CheckConfig = {
+        type: "cross-reference",
+        definition: {
+          path: "definition.ts",
+          pattern: '"(funcA|funcB|funcC)"',
+          capture_group: 1,
+        },
+        references: [
+          {
+            path: "reference.ts",
+            pattern: "(funcA|funcB|funcC)\\(",
+            capture_group: 1,
+          },
+        ],
+        match_mode: "superset",
+      };
+
+      const result = await executeCrossReferenceCheck(config, tempDir);
+
+      expect(result.passed).toBe(true);
+      expect(result.message).toContain("Superset check passed");
+    });
+
+    it("should fail superset mode when definition not referenced", async () => {
+      const definitionFile = path.join(tempDir, "definition.ts");
+      fs.writeFileSync(
+        definitionFile,
+        `export const REQUIRED = ["funcA", "funcB"];`
+      );
+
+      const referenceFile = path.join(tempDir, "reference.ts");
+      fs.writeFileSync(referenceFile, `funcA();`);
+
+      const config: CheckConfig = {
+        type: "cross-reference",
+        definition: {
+          path: "definition.ts",
+          pattern: '"(funcA|funcB)"',
+          capture_group: 1,
+        },
+        references: [
+          {
+            path: "reference.ts",
+            pattern: "(funcA|funcB)\\(",
+            capture_group: 1,
+          },
+        ],
+        match_mode: "superset",
+      };
+
+      const result = await executeCrossReferenceCheck(config, tempDir);
+
+      expect(result.passed).toBe(false);
+      expect(result.message).toContain("Superset check failed");
+      expect(result.message).toContain("funcB");
+    });
+
+    it("should support glob patterns in reference paths", async () => {
+      const packageJson = path.join(tempDir, "package.json");
+      fs.writeFileSync(
+        packageJson,
+        JSON.stringify({
+          contributes: {
+            views: {
+              orchestra: [
+                { id: "orchestra.sprintExplorer" },
+                { id: "orchestra.taskList" },
+              ],
+            },
+          },
+        })
+      );
+
+      // Create multiple reference files
+      const srcDir = path.join(tempDir, "src");
+      fs.mkdirSync(srcDir, { recursive: true });
+      fs.writeFileSync(
+        path.join(srcDir, "views.ts"),
+        `createTreeView("orchestra.sprintExplorer", {...});`
+      );
+      fs.writeFileSync(
+        path.join(srcDir, "panels.ts"),
+        `createTreeView("orchestra.taskList", {...});`
+      );
+
+      const config: CheckConfig = {
+        type: "cross-reference",
+        definition: {
+          path: "package.json",
+          json_path: "$.contributes.views.orchestra[*].id",
+        },
+        references: [
+          {
+            path: "src/**/*.ts",
+            pattern: 'createTreeView\\("([^"]+)"',
+            capture_group: 1,
+          },
+        ],
+        match_mode: "subset",
+      };
+
+      const result = await executeCrossReferenceCheck(config, tempDir);
+
+      expect(result.passed).toBe(true);
+      expect(result.output).toContain("2 file(s)");
+    });
+
+    it("should handle capture group 0 (entire match)", async () => {
+      const definitionFile = path.join(tempDir, "definition.ts");
+      fs.writeFileSync(definitionFile, `COMMAND_A\nCOMMAND_B`);
+
+      const referenceFile = path.join(tempDir, "reference.ts");
+      fs.writeFileSync(referenceFile, `COMMAND_A\nCOMMAND_B`);
+
+      const config: CheckConfig = {
+        type: "cross-reference",
+        definition: {
+          path: "definition.ts",
+          pattern: "COMMAND_[A-Z]",
+          // capture_group defaults to 0
+        },
+        references: [
+          {
+            path: "reference.ts",
+            pattern: "COMMAND_[A-Z]",
+          },
+        ],
+        match_mode: "exact",
+      };
+
+      const result = await executeCrossReferenceCheck(config, tempDir);
+
+      expect(result.passed).toBe(true);
+    });
+
+    it("should handle multiple capture groups correctly", async () => {
+      const definitionFile = path.join(tempDir, "definition.ts");
+      fs.writeFileSync(
+        definitionFile,
+        `const ID_ONE = "id1";
+const ID_TWO = "id2";`
+      );
+
+      const referenceFile = path.join(tempDir, "reference.ts");
+      fs.writeFileSync(
+        referenceFile,
+        `useId("id1");
+useId("id2");`
+      );
+
+      const config: CheckConfig = {
+        type: "cross-reference",
+        definition: {
+          path: "definition.ts",
+          pattern: 'ID_(?:ONE|TWO)\\s*=\\s*"([^"]+)"',
+          capture_group: 1,
+        },
+        references: [
+          {
+            path: "reference.ts",
+            pattern: 'useId\\("([^"]+)"\\)',
+            capture_group: 1,
+          },
+        ],
+        match_mode: "exact",
+      };
+
+      const result = await executeCrossReferenceCheck(config, tempDir);
+
+      expect(result.passed).toBe(true);
+    });
+
+    it("should fail when definition file not found", async () => {
+      const config: CheckConfig = {
+        type: "cross-reference",
+        definition: {
+          path: "nonexistent.json",
+          json_path: "$.test",
+        },
+        references: [
+          {
+            path: "reference.ts",
+            pattern: "test",
+          },
+        ],
+        match_mode: "subset",
+      };
+
+      const result = await executeCrossReferenceCheck(config, tempDir);
+
+      expect(result.passed).toBe(false);
+      expect(result.message).toContain("Definition file not found");
+    });
+
+    it("should fail when reference file not found", async () => {
+      const definitionFile = path.join(tempDir, "definition.ts");
+      fs.writeFileSync(definitionFile, `const ID = "test";`);
+
+      const config: CheckConfig = {
+        type: "cross-reference",
+        definition: {
+          path: "definition.ts",
+          pattern: '"([^"]+)"',
+          capture_group: 1,
+        },
+        references: [
+          {
+            path: "nonexistent.ts",
+            pattern: "test",
+          },
+        ],
+        match_mode: "subset",
+      };
+
+      const result = await executeCrossReferenceCheck(config, tempDir);
+
+      expect(result.passed).toBe(false);
+      expect(result.message).toContain("Reference file not found");
+    });
+
+    it("should fail when no values extracted from definition", async () => {
+      const definitionFile = path.join(tempDir, "definition.ts");
+      fs.writeFileSync(definitionFile, `const FOO = "bar";`);
+
+      const config: CheckConfig = {
+        type: "cross-reference",
+        definition: {
+          path: "definition.ts",
+          pattern: '"nonexistent"',
+        },
+        references: [
+          {
+            path: "definition.ts",
+            pattern: "test",
+          },
+        ],
+        match_mode: "subset",
+      };
+
+      const result = await executeCrossReferenceCheck(config, tempDir);
+
+      expect(result.passed).toBe(false);
+      expect(result.message).toContain("No values extracted from definition");
+    });
+
+    it("should fail when no values extracted from references", async () => {
+      const definitionFile = path.join(tempDir, "definition.ts");
+      fs.writeFileSync(definitionFile, `const ID = "test";`);
+
+      const referenceFile = path.join(tempDir, "reference.ts");
+      fs.writeFileSync(referenceFile, `const OTHER = "value";`);
+
+      const config: CheckConfig = {
+        type: "cross-reference",
+        definition: {
+          path: "definition.ts",
+          pattern: '"([^"]+)"',
+          capture_group: 1,
+        },
+        references: [
+          {
+            path: "reference.ts",
+            pattern: '"nonexistent"',
+          },
+        ],
+        match_mode: "subset",
+      };
+
+      const result = await executeCrossReferenceCheck(config, tempDir);
+
+      expect(result.passed).toBe(false);
+      expect(result.message).toContain("No values extracted from");
+    });
+
+    it("should deduplicate extracted values", async () => {
+      const definitionFile = path.join(tempDir, "definition.ts");
+      fs.writeFileSync(
+        definitionFile,
+        `const ID1 = "duplicate";
+const ID2 = "duplicate";
+const ID3 = "unique";`
+      );
+
+      const referenceFile = path.join(tempDir, "reference.ts");
+      fs.writeFileSync(
+        referenceFile,
+        `use("duplicate");
+use("duplicate");
+use("unique");`
+      );
+
+      const config: CheckConfig = {
+        type: "cross-reference",
+        definition: {
+          path: "definition.ts",
+          pattern: '"([^"]+)"',
+          capture_group: 1,
+        },
+        references: [
+          {
+            path: "reference.ts",
+            pattern: 'use\\("([^"]+)"\\)',
+            capture_group: 1,
+          },
+        ],
+        match_mode: "exact",
+      };
+
+      const result = await executeCrossReferenceCheck(config, tempDir);
+
+      expect(result.passed).toBe(true);
+      expect(result.output).toContain("duplicate");
+      expect(result.output).toContain("unique");
+    });
+
+    it("should handle nested JSON path with array wildcard", async () => {
+      const configFile = path.join(tempDir, "config.json");
+      fs.writeFileSync(
+        configFile,
+        JSON.stringify({
+          settings: {
+            plugins: [
+              { name: "plugin-a" },
+              { name: "plugin-b" },
+              { name: "plugin-c" },
+            ],
+          },
+        })
+      );
+
+      const codeFile = path.join(tempDir, "code.ts");
+      fs.writeFileSync(
+        codeFile,
+        `loadPlugin("plugin-a");
+loadPlugin("plugin-b");`
+      );
+
+      const config: CheckConfig = {
+        type: "cross-reference",
+        definition: {
+          path: "config.json",
+          json_path: "$.settings.plugins[*].name",
+        },
+        references: [
+          {
+            path: "code.ts",
+            pattern: 'loadPlugin\\("([^"]+)"\\)',
+            capture_group: 1,
+          },
+        ],
+        match_mode: "subset",
+      };
+
+      const result = await executeCrossReferenceCheck(config, tempDir);
+
+      expect(result.passed).toBe(true);
+    });
+
+    it("should route through executeCheck", async () => {
+      const definitionFile = path.join(tempDir, "definition.ts");
+      fs.writeFileSync(definitionFile, `const ID = "test";`);
+
+      const referenceFile = path.join(tempDir, "reference.ts");
+      fs.writeFileSync(referenceFile, `use("test");`);
+
+      const config: CheckConfig = {
+        type: "cross-reference",
+        definition: {
+          path: "definition.ts",
+          pattern: '"([^"]+)"',
+          capture_group: 1,
+        },
+        references: [
+          {
+            path: "reference.ts",
+            pattern: 'use\\("([^"]+)"\\)',
+            capture_group: 1,
+          },
+        ],
+        match_mode: "subset",
+      };
+
+      const result = await executeCheck(config, tempDir);
+
+      expect(result.passed).toBe(true);
     });
   });
 });
