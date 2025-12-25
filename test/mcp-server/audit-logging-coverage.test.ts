@@ -237,8 +237,10 @@ describe("Audit Logging Coverage", () => {
 
         if (hasTaskIdInput) {
           taskscopedHandlers.push(file);
-          // Verify taskId is passed to logToolExecution
-          const hasTaskIdInLog = content.match(/taskId:\s*.*\.task_id/);
+          // Verify taskId is passed to logToolExecution (handles both inline and conditional patterns)
+          const hasTaskIdInLog =
+            content.match(/taskId:\s*.*\.task_id/) ||
+            content.match(/context\.taskId\s*=.*\.task_id/);
           expect(
             hasTaskIdInLog,
             `${file} accepts task_id but doesn't pass it to logToolExecution`
