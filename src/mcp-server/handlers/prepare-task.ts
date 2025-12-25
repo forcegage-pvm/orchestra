@@ -8,6 +8,7 @@
 import { and, eq, inArray } from "drizzle-orm";
 import { autoCommitIfEnabled, generateCommitMessage } from "../../core/git.js";
 import { getActiveSprint, getDb } from "../../db/index.js";
+import { writeSignal } from "../db-signal.js";
 import {
   config,
   handovers,
@@ -306,6 +307,9 @@ async function prepareTask(
     taskInternalId: task.id,
     cwd: process.cwd(),
   });
+
+  // Notify extension of database changes
+  writeSignal();
 
   return {
     success: true,

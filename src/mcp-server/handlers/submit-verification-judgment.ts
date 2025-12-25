@@ -21,6 +21,7 @@ import {
   type SubmitVerificationJudgmentOutput,
 } from "../../schemas/verification.js";
 import { logToolExecution } from "./audit-logging.js";
+import { writeSignal } from "../db-signal.js";
 
 export async function handleSubmitVerificationJudgment(input: unknown) {
   const startTime = performance.now();
@@ -204,6 +205,9 @@ async function submitVerificationJudgment(
       changed_at: now,
     });
 
+    // Notify extension of database changes
+    writeSignal();
+
     return {
       success: true,
       judgment: "PASS",
@@ -278,6 +282,9 @@ async function submitVerificationJudgment(
       }${canRetry ? "" : " - escalated"}`,
       changed_at: now,
     });
+
+    // Notify extension of database changes
+    writeSignal();
 
     return {
       success: true,

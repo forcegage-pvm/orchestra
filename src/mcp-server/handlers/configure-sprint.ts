@@ -33,6 +33,7 @@ import {
 } from "../../schemas/index.js";
 import { validateInput } from "../../schemas/utils.js";
 import { logToolExecution } from "./audit-logging.js";
+import { writeSignal } from "../db-signal.js";
 
 /**
  * Handle configure_sprint tool call
@@ -410,6 +411,9 @@ async function configureSprint(input: ConfigureSprintInput): Promise<{
       VALUES (${cfg.key}, ${cfg.value}, ${cfg.description}, ${now}, ${now})
     `);
   }
+
+  // Notify extension of database changes
+  writeSignal();
 
   return {
     sprint_id: sprint.id,

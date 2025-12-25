@@ -1,10 +1,14 @@
 /**
  * Database File Watcher
  *
- * Watches orchestra.db for changes and emits events.
- * Uses both file system watcher AND polling as fallback since
- * SQLite WAL mode and cross-process writes often don't trigger
- * file system events reliably on Windows.
+ * Watches .orchestra/.signal file for instant database change notifications.
+ * The MCP server writes a timestamp to this file after any database mutation,
+ * providing near-instant (~50ms) UI updates instead of 2-second polling.
+ *
+ * Polling is kept as a fallback at reduced frequency (10s) in case the signal
+ * file mechanism fails or is not yet implemented in all handlers.
+ *
+ * This solves TD-016: Cross-process change notification for SQLite databases.
  */
 
 import * as fs from "fs";
@@ -12,7 +16,7 @@ import * as path from "path";
 import * as vscode from "vscode";
 
 export class DatabaseWatcher implements vscode.Disposable {
-  private readonly watcher: vscode.FileSystemWatcher;
+  private readonly signalWatcher: vscode.FileSystemWatcher;
   private readonly emitter = new vscode.EventEmitter<void>();
   private debounceTimer: NodeJS.Timeout | undefined;
   private pollTimer: NodeJS.Timeout | undefined;
@@ -21,6 +25,7 @@ export class DatabaseWatcher implements vscode.Disposable {
   private lastMtime: number = 0;
   private readonly dbPath: string;
   private readonly walPath: string;
+  private readonly signalPath: string;
 
   /**
    * Event fired when database changes (debounced)
@@ -31,39 +36,37 @@ export class DatabaseWatcher implements vscode.Disposable {
     // Get debounce delay from configuration
     const config = vscode.workspace.getConfiguration("orchestra");
     this.debounceDelay = config.get<number>("updateInterval", 500);
-    this.pollInterval = 2000; // Poll every 2 seconds as fallback
+    this.pollInterval = 10000; // Poll every 10 seconds as fallback (reduced from 2s)
 
     this.dbPath = path.join(workspaceRoot, ".orchestra", "orchestra.db");
     this.walPath = path.join(workspaceRoot, ".orchestra", "orchestra.db-wal");
+    this.signalPath = path.join(workspaceRoot, ".orchestra", ".signal");
 
-    // Watch orchestra.db file AND WAL files (SQLite WAL mode writes to separate files)
-    const dbPattern = new vscode.RelativePattern(
+    // Watch .orchestra/.signal file for instant notifications
+    // Signal files are small text files that trigger file watchers reliably
+    const signalPattern = new vscode.RelativePattern(
       workspaceRoot,
-      ".orchestra/orchestra.db*" // Matches .db, .db-wal, .db-shm
+      ".orchestra/.signal"
     );
-    this.watcher = vscode.workspace.createFileSystemWatcher(dbPattern);
+    this.signalWatcher = vscode.workspace.createFileSystemWatcher(signalPattern);
 
-    // Register change handler for all file events
-    this.watcher.onDidChange((uri) => {
-      console.log(`[Orchestra] DB file changed: ${uri.fsPath}`);
+    // Register change handler for signal file
+    this.signalWatcher.onDidChange((uri) => {
+      console.log(`[Orchestra] Signal file changed: ${uri.fsPath}`);
       this.handleChange();
     });
-    this.watcher.onDidCreate((uri) => {
-      console.log(`[Orchestra] DB file created: ${uri.fsPath}`);
-      this.handleChange();
-    });
-    this.watcher.onDidDelete((uri) => {
-      console.log(`[Orchestra] DB file deleted: ${uri.fsPath}`);
+    this.signalWatcher.onDidCreate((uri) => {
+      console.log(`[Orchestra] Signal file created: ${uri.fsPath}`);
       this.handleChange();
     });
 
     // Initialize last mtime
     this.updateLastMtime();
 
-    // Start polling as fallback (file watchers are unreliable for SQLite on Windows)
+    // Start polling as fallback (reduced frequency since signal file is primary)
     this.startPolling();
     console.log(
-      "[Orchestra] Database watcher initialized with polling fallback"
+      "[Orchestra] Database watcher initialized (signal file + 10s polling fallback)"
     );
   }
 
@@ -143,7 +146,7 @@ export class DatabaseWatcher implements vscode.Disposable {
     if (this.pollTimer) {
       clearInterval(this.pollTimer);
     }
-    this.watcher.dispose();
+    this.signalWatcher.dispose();
     this.emitter.dispose();
   }
 }

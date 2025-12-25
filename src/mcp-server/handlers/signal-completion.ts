@@ -31,6 +31,7 @@ import {
 } from "../../schemas/signal.js";
 import { validateInput } from "../../schemas/utils.js";
 import { logToolExecution } from "./audit-logging.js";
+import { writeSignal } from "../db-signal.js";
 
 export async function handleSignalCompletion(input: unknown) {
   const startTime = performance.now();
@@ -273,6 +274,9 @@ async function signalCompletion(
     }`,
     changed_at: now,
   });
+
+  // Notify extension of database changes
+  writeSignal();
 
   return {
     success: true,
