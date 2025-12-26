@@ -175,6 +175,27 @@ export async function initializeDb(): Promise<void> {
   `);
 
   await db.run(sql`
+    CREATE TABLE IF NOT EXISTS sprint_settings (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      sprint_id TEXT NOT NULL,
+      key TEXT NOT NULL,
+      value TEXT NOT NULL,
+      description TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      FOREIGN KEY (sprint_id) REFERENCES sprints(id) ON DELETE CASCADE
+    )
+  `);
+
+  await db.run(sql`
+    CREATE UNIQUE INDEX IF NOT EXISTS sprint_key_idx ON sprint_settings(sprint_id, key)
+  `);
+
+  await db.run(sql`
+    CREATE INDEX IF NOT EXISTS sprint_idx ON sprint_settings(sprint_id)
+  `);
+
+  await db.run(sql`
     CREATE TABLE IF NOT EXISTS tool_executions (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       tool_name TEXT NOT NULL,
