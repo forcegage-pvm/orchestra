@@ -7,7 +7,13 @@
  * - 5 utility tables: tool_executions, system_logs, git_commits, notifications
  */
 
-import { index, integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import {
+  index,
+  integer,
+  sqliteTable,
+  text,
+  uniqueIndex,
+} from "drizzle-orm/sqlite-core";
 
 // ============================================================================
 // Core Tables (11)
@@ -281,6 +287,33 @@ export const config = sqliteTable("config", {
   created_at: text("created_at").notNull(),
   updated_at: text("updated_at").notNull(),
 });
+
+/**
+ * Sprint-specific configuration table
+ * Overrides global config values on a per-sprint basis
+ * Falls back to global config if sprint-specific value not found
+ */
+export const sprintSettings = sqliteTable(
+  "sprint_settings",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    sprint_id: text("sprint_id")
+      .notNull()
+      .references(() => sprints.id, { onDelete: "cascade" }),
+    key: text("key").notNull(),
+    value: text("value").notNull(), // JSON-serialized
+    description: text("description"),
+    created_at: text("created_at").notNull(),
+    updated_at: text("updated_at").notNull(),
+  },
+  (sprintSettings) => ({
+    sprintKeyIdx: uniqueIndex("sprint_key_idx").on(
+      sprintSettings.sprint_id,
+      sprintSettings.key
+    ),
+    sprintIdx: index("sprint_idx").on(sprintSettings.sprint_id),
+  })
+);
 
 // ============================================================================
 // Utility Tables (5)

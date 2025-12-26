@@ -19,6 +19,8 @@ import {
 // Import tool handlers
 import { handleConfigureSprint } from "./handlers/configure-sprint.js";
 import { handleSetConfig } from "./handlers/set-config.js";
+import { handleGetSprintConfig } from "./handlers/get-sprint-config.js";
+import { handleSetSprintConfig } from "./handlers/set-sprint-config.js";
 
 /**
  * Server role type
@@ -879,6 +881,45 @@ const TOOLS_WITH_ROLES: ToolWithRole[] = [
       required: ["key", "value"],
     },
   },
+  {
+    role: "orchestrator",
+    name: "get_sprint_config",
+    description:
+      "Get a sprint-specific configuration value with fallback to global config. If no sprint_id provided, uses active sprint.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        key: { type: "string", description: "Configuration key" },
+        sprint_id: {
+          type: "string",
+          description: "Sprint ID (optional, defaults to active sprint)",
+        },
+      },
+      required: ["key"],
+    },
+  },
+  {
+    role: "orchestrator",
+    name: "set_sprint_config",
+    description:
+      "Set a sprint-specific configuration value. If no sprint_id provided, uses active sprint.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        key: { type: "string", description: "Configuration key" },
+        value: { type: "string", description: "Configuration value" },
+        description: {
+          type: "string",
+          description: "Optional description of the configuration",
+        },
+        sprint_id: {
+          type: "string",
+          description: "Sprint ID (optional, defaults to active sprint)",
+        },
+      },
+      required: ["key", "value"],
+    },
+  },
 ];
 
 /**
@@ -1067,13 +1108,17 @@ export function registerTools(server: Server, role: ServerRole = "full"): void {
             await import("./handlers/get-amendments.js")
           ).handleGetAmendments(args);
 
-        // Configuration (2 tools)
+        // Configuration (4 tools)
         case "set_active_sprint":
           return await (
             await import("./handlers/set-active-sprint.js")
           ).handleSetActiveSprint(args);
         case "set_config":
           return await handleSetConfig(args);
+        case "get_sprint_config":
+          return await handleGetSprintConfig(args);
+        case "set_sprint_config":
+          return await handleSetSprintConfig(args);
 
         default:
           return {
