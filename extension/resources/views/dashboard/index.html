@@ -1,0 +1,1292 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; style-src {{cspSource}} 'unsafe-inline'; script-src 'nonce-{{nonce}}';"
+    />
+    <title>Orchestra Dashboard</title>
+    <style>
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      body {
+        font-family: var(--vscode-font-family);
+        font-size: var(--vscode-font-size);
+        color: var(--vscode-foreground);
+        background-color: var(--vscode-editor-background);
+        padding: 20px;
+        line-height: 1.6;
+      }
+
+      .container {
+        max-width: 1200px;
+        margin: 0 auto;
+      }
+
+      h1 {
+        color: var(--vscode-textLink-foreground);
+        font-size: 2em;
+        margin-bottom: 20px;
+        border-bottom: 2px solid var(--vscode-textLink-foreground);
+        padding-bottom: 10px;
+      }
+
+      h2 {
+        color: var(--vscode-foreground);
+        font-size: 1.5em;
+        margin-top: 30px;
+        margin-bottom: 15px;
+      }
+
+      .section {
+        background-color: var(--vscode-editor-background);
+        border: 1px solid var(--vscode-panel-border);
+        border-radius: 4px;
+        padding: 20px;
+        margin-bottom: 20px;
+      }
+
+      .info-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 15px;
+        margin-bottom: 20px;
+      }
+
+      .info-card {
+        background-color: var(--vscode-sideBar-background);
+        border: 1px solid var(--vscode-widget-border);
+        border-radius: 4px;
+        padding: 15px;
+      }
+
+      .info-card-label {
+        color: var(--vscode-descriptionForeground);
+        font-size: 0.9em;
+        margin-bottom: 5px;
+      }
+
+      .info-card-value {
+        color: var(--vscode-foreground);
+        font-size: 1.2em;
+        font-weight: bold;
+      }
+
+      .status {
+        display: inline-block;
+        padding: 4px 12px;
+        border-radius: 12px;
+        font-size: 0.85em;
+        font-weight: 500;
+      }
+
+      .status-active {
+        background-color: var(--vscode-testing-iconPassed);
+        color: var(--vscode-editor-background);
+      }
+
+      .status-pending {
+        background-color: var(--vscode-testing-iconQueued);
+        color: var(--vscode-editor-background);
+      }
+
+      .status-complete {
+        background-color: var(--vscode-charts-blue);
+        color: var(--vscode-editor-background);
+      }
+
+      .status-pending {
+        background-color: var(--vscode-testing-iconQueued);
+        color: var(--vscode-editor-background);
+      }
+
+      .status-prepared {
+        background-color: var(--vscode-charts-yellow);
+        color: var(--vscode-editor-background);
+      }
+
+      .status-implement {
+        background-color: var(--vscode-charts-blue);
+        color: var(--vscode-editor-background);
+      }
+
+      .status-gate_check {
+        background-color: var(--vscode-charts-orange);
+        color: var(--vscode-editor-background);
+      }
+
+      .status-verify {
+        background-color: var(--vscode-charts-purple);
+        color: var(--vscode-editor-background);
+      }
+
+      .task-list {
+        list-style: none;
+        padding: 0;
+      }
+
+      .task-item {
+        background-color: var(--vscode-list-hoverBackground);
+        border: 1px solid var(--vscode-widget-border);
+        border-radius: 4px;
+        padding: 12px;
+        margin-bottom: 10px;
+        cursor: pointer;
+        transition: background-color 0.2s;
+      }
+
+      .task-item:hover {
+        background-color: var(--vscode-list-activeSelectionBackground);
+      }
+
+      .task-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 5px;
+      }
+
+      .task-id {
+        color: var(--vscode-descriptionForeground);
+        font-weight: bold;
+        margin-right: 10px;
+      }
+
+      .task-title {
+        color: var(--vscode-foreground);
+        flex-grow: 1;
+      }
+
+      .task-priority {
+        padding: 2px 8px;
+        border-radius: 8px;
+        font-size: 0.8em;
+        font-weight: 500;
+      }
+
+      .priority-p0 {
+        background-color: var(--vscode-testing-iconFailed);
+        color: var(--vscode-editor-background);
+      }
+
+      .priority-p1 {
+        background-color: var(--vscode-testing-iconQueued);
+        color: var(--vscode-editor-background);
+      }
+
+      .priority-p2 {
+        background-color: var(--vscode-charts-blue);
+        color: var(--vscode-editor-background);
+      }
+
+      /* Category Badge Styles */
+      .category-badge {
+        padding: 2px 8px;
+        border-radius: 8px;
+        font-size: 0.8em;
+        font-weight: 500;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+      }
+
+      .category-infrastructure {
+        background-color: var(--vscode-charts-purple);
+      }
+
+      /* Empty State Styles */
+      .empty-state-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 60px 20px;
+        text-align: center;
+        color: var(--vscode-descriptionForeground);
+      }
+
+      .empty-state-icon {
+        font-size: 48px;
+        margin-bottom: 20px;
+        opacity: 0.6;
+      }
+
+      .empty-state-title {
+        font-size: 1.5em;
+        color: var(--vscode-foreground);
+        margin-bottom: 10px;
+        font-weight: 600;
+      }
+
+      .empty-state-message {
+        font-size: 1em;
+        margin-bottom: 20px;
+        max-width: 400px;
+      }
+
+      .empty-state-action {
+        background-color: var(--vscode-button-background);
+        color: var(--vscode-button-foreground);
+        border: none;
+        padding: 10px 24px;
+        border-radius: 4px;
+        font-size: 0.95em;
+        cursor: pointer;
+        font-family: var(--vscode-font-family);
+        transition: background-color 0.2s;
+      }
+
+      .empty-state-action:hover {
+        background-color: var(--vscode-button-hoverBackground);
+      }
+
+      .empty-state-action:active {
+        background-color: var(--vscode-button-background);
+        opacity: 0.8;
+      }
+
+      /* Error State Styles */
+      .error-state-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 60px 20px;
+        text-align: center;
+      }
+
+      .error-state-icon {
+        font-size: 48px;
+        margin-bottom: 20px;
+        color: var(--vscode-errorForeground);
+      }
+
+      .error-state-title {
+        font-size: 1.5em;
+        color: var(--vscode-errorForeground);
+        margin-bottom: 10px;
+        font-weight: 600;
+      }
+
+      .error-state-message {
+        font-size: 1em;
+        color: var(--vscode-descriptionForeground);
+        margin-bottom: 20px;
+        max-width: 500px;
+      }
+
+      .error-state-details {
+        background-color: var(--vscode-textCodeBlock-background);
+        border: 1px solid var(--vscode-widget-border);
+        border-radius: 4px;
+        padding: 12px;
+        margin-bottom: 20px;
+        max-width: 600px;
+        text-align: left;
+        font-family: var(--vscode-editor-font-family);
+        font-size: 0.9em;
+        color: var(--vscode-descriptionForeground);
+        word-break: break-word;
+      }
+
+      .category-infrastructure {
+        color: var(--vscode-editor-background);
+      }
+
+      .category-integration {
+        background-color: var(--vscode-charts-blue);
+        color: var(--vscode-editor-background);
+      }
+
+      .category-visual {
+        background-color: var(--vscode-charts-green);
+        color: var(--vscode-editor-background);
+      }
+
+      .category-refactor {
+        background-color: var(--vscode-charts-orange);
+        color: var(--vscode-editor-background);
+      }
+
+      .error {
+        background-color: var(--vscode-inputValidation-errorBackground);
+        border: 1px solid var(--vscode-inputValidation-errorBorder);
+        color: var(--vscode-errorForeground);
+        padding: 15px;
+        border-radius: 4px;
+        margin-bottom: 20px;
+      }
+
+      .loading {
+        text-align: center;
+        padding: 40px;
+        color: var(--vscode-descriptionForeground);
+      }
+
+      .empty-state {
+        text-align: center;
+        padding: 40px;
+        color: var(--vscode-descriptionForeground);
+      }
+
+      /* Current Task Card Styles */
+      .current-task-card {
+        background-color: var(--vscode-sideBar-background);
+        border: 2px solid var(--vscode-focusBorder);
+        border-radius: 6px;
+        padding: 20px;
+      }
+
+      .current-task-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 12px;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+
+      .current-task-title-section {
+        flex: 1;
+        min-width: 200px;
+      }
+
+      .current-task-id {
+        color: var(--vscode-descriptionForeground);
+        font-weight: bold;
+        font-size: 1.1em;
+        margin-bottom: 4px;
+      }
+
+      .current-task-title {
+        color: var(--vscode-foreground);
+        font-size: 1.3em;
+        font-weight: 600;
+        margin-bottom: 8px;
+      }
+
+      .current-task-badges {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        align-items: center;
+      }
+
+      .current-task-description {
+        color: var(--vscode-descriptionForeground);
+        margin-top: 12px;
+        line-height: 1.6;
+      }
+
+      .current-task-footer {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-top: 16px;
+        padding-top: 12px;
+        border-top: 1px solid var(--vscode-widget-border);
+        flex-wrap: wrap;
+        gap: 10px;
+      }
+
+      .current-task-timestamp {
+        color: var(--vscode-descriptionForeground);
+        font-size: 0.85em;
+      }
+
+      .btn-view-details {
+        background-color: var(--vscode-button-background);
+        color: var(--vscode-button-foreground);
+        border: none;
+        border-radius: 4px;
+        padding: 8px 16px;
+        font-size: 0.9em;
+        font-weight: 500;
+        cursor: pointer;
+        transition: background-color 0.2s;
+      }
+
+      .btn-view-details:hover {
+        background-color: var(--vscode-button-hoverBackground);
+      }
+
+      .btn-view-details:active {
+        background-color: var(--vscode-button-activeBackground);
+      }
+
+      /* Sprint Header Styles */
+      .sprint-header {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        margin-bottom: 20px;
+      }
+
+      .sprint-name {
+        font-size: 1.8em;
+        font-weight: bold;
+        color: var(--vscode-foreground);
+      }
+
+      .sprint-meta {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        flex-wrap: wrap;
+      }
+
+      .sprint-id-badge {
+        color: var(--vscode-descriptionForeground);
+        font-size: 0.9em;
+        font-family: var(--vscode-editor-font-family);
+      }
+
+      /* Progress Bar Styles */
+      .progress-section {
+        margin-bottom: 20px;
+      }
+
+      .progress-label {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 8px;
+        font-size: 0.9em;
+      }
+
+      .progress-text {
+        color: var(--vscode-foreground);
+      }
+
+      .progress-percentage {
+        color: var(--vscode-descriptionForeground);
+        font-weight: bold;
+      }
+
+      .progress-bar {
+        height: 24px;
+        background-color: var(--vscode-input-background);
+        border-radius: 12px;
+        overflow: hidden;
+        border: 1px solid var(--vscode-widget-border);
+      }
+
+      .progress-fill {
+        height: 100%;
+        background: linear-gradient(
+          90deg,
+          var(--vscode-testing-iconPassed),
+          var(--vscode-charts-green)
+        );
+        border-radius: 12px;
+        transition: width 0.3s ease;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-width: fit-content;
+      }
+
+      .progress-fill-text {
+        color: var(--vscode-editor-background);
+        font-size: 0.8em;
+        font-weight: bold;
+        padding: 0 10px;
+      }
+
+      /* Phase Breakdown Styles */
+      .phase-grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 12px;
+      }
+
+      .phase-item {
+        background-color: var(--vscode-sideBar-background);
+        border: 1px solid var(--vscode-widget-border);
+        border-radius: 4px;
+        padding: 12px;
+      }
+
+      .phase-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 8px;
+      }
+
+      .phase-name {
+        color: var(--vscode-foreground);
+        font-weight: 500;
+      }
+
+      .phase-count {
+        color: var(--vscode-descriptionForeground);
+        font-size: 0.9em;
+      }
+
+      .phase-progress {
+        height: 6px;
+        background-color: var(--vscode-input-background);
+        border-radius: 3px;
+        overflow: hidden;
+      }
+
+      .phase-progress-fill {
+        height: 100%;
+        background-color: var(--vscode-testing-iconPassed);
+        border-radius: 3px;
+        transition: width 0.3s ease;
+      }
+
+      /* Status Distribution Styles */
+      .status-distribution {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+
+      .status-row {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+
+      .status-indicator {
+        width: 16px;
+        height: 16px;
+        border-radius: 4px;
+        flex-shrink: 0;
+      }
+
+      .status-indicator-pending {
+        background-color: var(--vscode-testing-iconQueued);
+      }
+
+      .status-indicator-inprogress {
+        background-color: var(--vscode-charts-yellow);
+      }
+
+      .status-indicator-completed {
+        background-color: var(--vscode-testing-iconPassed);
+      }
+
+      .status-label {
+        flex: 1;
+        color: var(--vscode-foreground);
+      }
+
+      .status-count {
+        font-weight: bold;
+        color: var(--vscode-foreground);
+        min-width: 30px;
+        text-align: right;
+      }
+
+      .status-bar-container {
+        flex: 2;
+        height: 8px;
+        background-color: var(--vscode-input-background);
+        border-radius: 4px;
+        overflow: hidden;
+      }
+
+      .status-bar-fill {
+        height: 100%;
+        border-radius: 4px;
+        transition: width 0.3s ease;
+      }
+
+      .status-bar-pending {
+        background-color: var(--vscode-testing-iconQueued);
+      }
+
+      .status-bar-inprogress {
+        background-color: var(--vscode-charts-yellow);
+      }
+
+      .status-bar-completed {
+        background-color: var(--vscode-testing-iconPassed);
+      }
+
+      /* Responsive Layout */
+      @media (min-width: 600px) {
+        .sprint-header {
+          flex-direction: row;
+          justify-content: space-between;
+          align-items: center;
+        }
+
+        .phase-grid {
+          grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        }
+
+        .status-distribution {
+          flex-direction: row;
+          justify-content: space-around;
+        }
+
+        .status-row {
+          flex-direction: column;
+          align-items: center;
+          gap: 8px;
+        }
+
+        .status-bar-container {
+          display: none;
+        }
+
+        .status-count {
+          font-size: 2em;
+          min-width: auto;
+        }
+      }
+
+      /* Timeline Styles */
+      .timeline-list {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+      }
+
+      .timeline-item {
+        display: flex;
+        gap: 12px;
+        padding: 12px;
+        border-left: 2px solid var(--vscode-widget-border);
+        margin-left: 10px;
+        position: relative;
+      }
+
+      .timeline-item:last-child {
+        border-left-color: transparent;
+      }
+
+      .timeline-icon {
+        flex-shrink: 0;
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 12px;
+        font-weight: bold;
+        position: relative;
+        z-index: 1;
+        margin-left: -11px;
+      }
+
+      .timeline-icon-task-started {
+        background-color: var(--vscode-charts-blue);
+        color: var(--vscode-editor-background);
+      }
+
+      .timeline-icon-task-started::before {
+        content: "▶";
+      }
+
+      .timeline-icon-signal-received {
+        background-color: var(--vscode-charts-yellow);
+        color: var(--vscode-editor-background);
+      }
+
+      .timeline-icon-signal-received::before {
+        content: "📤";
+        font-size: 10px;
+      }
+
+      .timeline-icon-verification-passed {
+        background-color: var(--vscode-testing-iconPassed);
+        color: var(--vscode-editor-background);
+      }
+
+      .timeline-icon-verification-passed::before {
+        content: "✓";
+      }
+
+      .timeline-icon-verification-failed {
+        background-color: var(--vscode-testing-iconFailed);
+        color: var(--vscode-editor-background);
+      }
+
+      .timeline-icon-verification-failed::before {
+        content: "✗";
+      }
+
+      .timeline-icon-feedback-sent {
+        background-color: var(--vscode-charts-orange);
+        color: var(--vscode-editor-background);
+      }
+
+      .timeline-icon-feedback-sent::before {
+        content: "💬";
+        font-size: 10px;
+      }
+
+      .timeline-icon-status-changed {
+        background-color: var(--vscode-charts-purple);
+        color: var(--vscode-editor-background);
+      }
+
+      .timeline-icon-status-changed::before {
+        content: "⟳";
+      }
+
+      .timeline-content {
+        flex: 1;
+        min-width: 0;
+      }
+
+      .timeline-description {
+        color: var(--vscode-foreground);
+        margin-bottom: 4px;
+        cursor: pointer;
+      }
+
+      .timeline-description:hover {
+        color: var(--vscode-textLink-activeForeground);
+      }
+
+      .timeline-meta {
+        display: flex;
+        gap: 12px;
+        font-size: 0.85em;
+        color: var(--vscode-descriptionForeground);
+        flex-wrap: wrap;
+      }
+
+      .timeline-timestamp {
+        display: inline-block;
+      }
+
+      .timeline-triggered-by {
+        display: inline-block;
+      }
+
+      .timeline-triggered-by::before {
+        content: "• ";
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>Orchestra Dashboard</h1>
+
+      <div id="error" class="error" style="display: none"></div>
+      <div id="loading" class="loading">Loading dashboard...</div>
+      <div id="content" style="display: none">
+        <!-- Sprint Header Section -->
+        <div class="section">
+          <div class="sprint-header">
+            <div>
+              <div class="sprint-name" id="sprint-name">Sprint Name</div>
+              <div class="sprint-meta">
+                <span class="sprint-id-badge" id="sprint-id-badge"
+                  >sprint-id</span
+                >
+              </div>
+            </div>
+            <div id="sprint-status-badge">
+              <span class="status status-pending">Loading...</span>
+            </div>
+          </div>
+
+          <!-- Progress Bar -->
+          <div class="progress-section">
+            <div class="progress-label">
+              <span class="progress-text">Progress</span>
+              <span class="progress-percentage" id="progress-percentage"
+                >0%</span
+              >
+            </div>
+            <div class="progress-bar">
+              <div class="progress-fill" id="progress-fill" style="width: 0%">
+                <span class="progress-fill-text" id="progress-fill-text"
+                  >0 / 0</span
+                >
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Phase Breakdown Section -->
+        <div class="section">
+          <h2>Phase Breakdown</h2>
+          <div class="phase-grid" id="phase-breakdown">
+            <div class="empty-state">No phases available</div>
+          </div>
+        </div>
+
+        <!-- Status Distribution Section -->
+        <div class="section">
+          <h2>Task Status</h2>
+          <div class="status-distribution" id="status-distribution">
+            <div class="status-row">
+              <div class="status-indicator status-indicator-pending"></div>
+              <span class="status-label">Pending</span>
+              <span class="status-count" id="status-pending">0</span>
+              <div class="status-bar-container">
+                <div
+                  class="status-bar-fill status-bar-pending"
+                  id="status-bar-pending"
+                  style="width: 0%"
+                ></div>
+              </div>
+            </div>
+            <div class="status-row">
+              <div class="status-indicator status-indicator-inprogress"></div>
+              <span class="status-label">In Progress</span>
+              <span class="status-count" id="status-inprogress">0</span>
+              <div class="status-bar-container">
+                <div
+                  class="status-bar-fill status-bar-inprogress"
+                  id="status-bar-inprogress"
+                  style="width: 0%"
+                ></div>
+              </div>
+            </div>
+            <div class="status-row">
+              <div class="status-indicator status-indicator-completed"></div>
+              <span class="status-label">Completed</span>
+              <span class="status-count" id="status-completed">0</span>
+              <div class="status-bar-container">
+                <div
+                  class="status-bar-fill status-bar-completed"
+                  id="status-bar-completed"
+                  style="width: 0%"
+                ></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Current Task Section -->
+        <div class="section">
+          <h2>Current Task</h2>
+          <div id="current-task-content">
+            <div class="empty-state">No task currently in progress</div>
+          </div>
+        </div>
+
+        <!-- Recent Tasks Section -->
+        <div class="section">
+          <h2>Recent Tasks</h2>
+          <ul id="recent-tasks" class="task-list">
+            <li class="empty-state">No tasks available</li>
+          </ul>
+        </div>
+
+        <!-- Timeline Section -->
+        <div class="section">
+          <h2>Timeline</h2>
+          <div id="timeline-container">
+            <div class="empty-state">No recent activity</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script nonce="{{nonce}}">
+      const vscode = acquireVsCodeApi();
+
+      // Handle messages from extension
+      window.addEventListener("message", (event) => {
+        const message = event.data;
+
+        switch (message.type) {
+          case "update":
+            updateDashboard(message.data);
+            break;
+          case "error":
+            showError(message.error, message.errorType);
+            break;
+        }
+      });
+
+      function updateDashboard(data) {
+        // Hide loading and error
+        document.getElementById("loading").style.display = "none";
+        document.getElementById("error").style.display = "none";
+
+        // Check for no sprint - show empty state
+        if (!data.sprint) {
+          document.getElementById("content").innerHTML = `
+            <div class="empty-state-container">
+              <div class="empty-state-icon">📋</div>
+              <div class="empty-state-title">No Active Sprint</div>
+              <div class="empty-state-message">
+                Initialize a sprint to get started with Orchestra task orchestration.
+              </div>
+              <button class="empty-state-action" onclick="initSprint()">Initialize Sprint</button>
+            </div>
+          `;
+          document.getElementById("content").style.display = "block";
+          return;
+        }
+
+        // Check for no tasks in sprint
+        if (data.taskCounts && data.taskCounts.total === 0) {
+          document.getElementById("content").innerHTML = `
+            <div class="empty-state-container">
+              <div class="empty-state-icon">📝</div>
+              <div class="empty-state-title">No Tasks in Sprint</div>
+              <div class="empty-state-message">
+                Sprint "${data.sprint.name}" has no tasks. Add tasks to begin orchestration.
+              </div>
+            </div>
+          `;
+          document.getElementById("content").style.display = "block";
+          return;
+        }
+
+        // Normal display - show content
+        document.getElementById("content").style.display = "block";
+
+        // Update sprint header
+        if (data.sprint) {
+          document.getElementById("sprint-name").textContent =
+            data.sprint.name || "Unnamed Sprint";
+          document.getElementById("sprint-id-badge").textContent =
+            data.sprint.id || "-";
+
+          const statusBadge = document.getElementById("sprint-status-badge");
+          const statusClass =
+            data.sprint.status?.toLowerCase().replace("_", "-") || "pending";
+          statusBadge.innerHTML = `<span class="status status-${statusClass}">${
+            data.sprint.status || "Unknown"
+          }</span>`;
+        }
+
+        // Update progress bar
+        if (data.taskCounts) {
+          const percentage = data.taskCounts.percentage || 0;
+          const completed = data.taskCounts.completed || 0;
+          const total = data.taskCounts.total || 0;
+
+          document.getElementById(
+            "progress-percentage"
+          ).textContent = `${percentage}%`;
+          document.getElementById("progress-fill").style.width = `${Math.max(
+            percentage,
+            percentage > 0 ? 15 : 0
+          )}%`;
+          document.getElementById(
+            "progress-fill-text"
+          ).textContent = `${completed} / ${total}`;
+        }
+
+        // Update phase breakdown
+        const phaseGrid = document.getElementById("phase-breakdown");
+        if (data.phaseBreakdown && data.phaseBreakdown.length > 0) {
+          phaseGrid.innerHTML = data.phaseBreakdown
+            .map((phase) => {
+              const phasePercentage =
+                phase.total > 0
+                  ? Math.round((phase.completed / phase.total) * 100)
+                  : 0;
+              return `
+            <div class="phase-item">
+              <div class="phase-header">
+                <span class="phase-name">${
+                  phase.phaseName || phase.phaseId
+                }</span>
+                <span class="phase-count">${phase.completed}/${
+                phase.total
+              }</span>
+              </div>
+              <div class="phase-progress">
+                <div class="phase-progress-fill" style="width: ${phasePercentage}%"></div>
+              </div>
+            </div>
+          `;
+            })
+            .join("");
+        } else {
+          phaseGrid.innerHTML =
+            '<div class="empty-state">No phases available</div>';
+        }
+
+        // Update status distribution
+        if (data.statusDistribution) {
+          const total =
+            (data.statusDistribution.pending || 0) +
+            (data.statusDistribution.inProgress || 0) +
+            (data.statusDistribution.completed || 0);
+
+          const pendingPct =
+            total > 0 ? (data.statusDistribution.pending / total) * 100 : 0;
+          const inProgressPct =
+            total > 0 ? (data.statusDistribution.inProgress / total) * 100 : 0;
+          const completedPct =
+            total > 0 ? (data.statusDistribution.completed / total) * 100 : 0;
+
+          document.getElementById("status-pending").textContent =
+            data.statusDistribution.pending || 0;
+          document.getElementById("status-inprogress").textContent =
+            data.statusDistribution.inProgress || 0;
+          document.getElementById("status-completed").textContent =
+            data.statusDistribution.completed || 0;
+
+          document.getElementById(
+            "status-bar-pending"
+          ).style.width = `${pendingPct}%`;
+          document.getElementById(
+            "status-bar-inprogress"
+          ).style.width = `${inProgressPct}%`;
+          document.getElementById(
+            "status-bar-completed"
+          ).style.width = `${completedPct}%`;
+        }
+
+        // Update current task
+        const currentTaskDiv = document.getElementById("current-task-content");
+        if (data.currentTask) {
+          currentTaskDiv.innerHTML = renderCurrentTask(data.currentTask);
+        } else {
+          currentTaskDiv.innerHTML =
+            '<div class="empty-state">No task currently in progress</div>';
+        }
+
+        // Update recent tasks
+        const recentTasksList = document.getElementById("recent-tasks");
+        if (data.recentTasks && data.recentTasks.length > 0) {
+          recentTasksList.innerHTML = data.recentTasks
+            .map(
+              (task) =>
+                `<li class="task-item" onclick="openTask(${
+                  task.id
+                })">${renderTask(task, false)}</li>`
+            )
+            .join("");
+        } else {
+          recentTasksList.innerHTML =
+            '<li class="empty-state">No tasks available</li>';
+        }
+
+        // Update timeline
+        const timelineContainer = document.getElementById("timeline-container");
+        if (data.timeline && data.timeline.length > 0) {
+          timelineContainer.innerHTML = renderTimeline(data.timeline);
+        } else {
+          timelineContainer.innerHTML =
+            '<div class="empty-state">No recent activity</div>';
+        }
+      }
+
+      function renderCurrentTask(task) {
+        const statusClass = `status-${
+          task.status?.toLowerCase().replace("_", "-") || "pending"
+        }`;
+        const categoryClass = `category-${
+          task.category?.toLowerCase() || "integration"
+        }`;
+        const priorityClass = `priority-${
+          task.priority?.toLowerCase() || "p2"
+        }`;
+
+        // Format timestamp
+        const timestamp = formatTimestamp(task.updated_at);
+
+        return `
+          <div class="current-task-card">
+            <div class="current-task-header">
+              <div class="current-task-title-section">
+                <div class="current-task-id">Task ${task.id}</div>
+                <div class="current-task-title">${
+                  task.title || "Untitled Task"
+                }</div>
+                <div class="current-task-badges">
+                  <span class="status ${statusClass}">${formatStatus(
+          task.status
+        )}</span>
+                  <span class="category-badge ${categoryClass}">${formatCategory(
+          task.category
+        )}</span>
+                  <span class="task-priority ${priorityClass}">${
+          task.priority || "P2"
+        }</span>
+                </div>
+              </div>
+            </div>
+            ${
+              task.description
+                ? `<div class="current-task-description">${task.description}</div>`
+                : ""
+            }
+            <div class="current-task-footer">
+              <div class="current-task-timestamp">Last updated: ${timestamp}</div>
+              <button class="btn-view-details" onclick="openTask(${
+                task.id
+              })">View Details</button>
+            </div>
+          </div>
+        `;
+      }
+
+      function formatStatus(status) {
+        if (!status) return "PENDING";
+        // Convert GATE_CHECK to "Gate Check", IMPLEMENT to "Implement", etc.
+        return status
+          .replace(/_/g, " ")
+          .replace(/\b\w/g, (l) => l.toUpperCase());
+      }
+
+      function formatCategory(category) {
+        if (!category) return "INTEGRATION";
+        return category.toUpperCase();
+      }
+
+      function formatTimestamp(timestamp) {
+        if (!timestamp) return "Unknown";
+
+        try {
+          const date = new Date(timestamp);
+          const now = new Date();
+          const diffMs = now - date;
+          const diffMins = Math.floor(diffMs / 60000);
+          const diffHours = Math.floor(diffMs / 3600000);
+          const diffDays = Math.floor(diffMs / 86400000);
+
+          if (diffMins < 1) return "Just now";
+          if (diffMins < 60)
+            return `${diffMins} minute${diffMins !== 1 ? "s" : ""} ago`;
+          if (diffHours < 24)
+            return `${diffHours} hour${diffHours !== 1 ? "s" : ""} ago`;
+          if (diffDays < 7)
+            return `${diffDays} day${diffDays !== 1 ? "s" : ""} ago`;
+
+          // Format as date string for older timestamps
+          return date.toLocaleDateString();
+        } catch (e) {
+          return timestamp;
+        }
+      }
+
+      function renderTask(task, isDetailed) {
+        const priorityClass = `priority-${
+          task.priority?.toLowerCase() || "p2"
+        }`;
+
+        let html = `
+        <div class="task-header">
+          <span class="task-id">Task ${task.id}</span>
+          <span class="task-title">${task.title || "Untitled Task"}</span>
+          <span class="task-priority ${priorityClass}">${
+          task.priority || "P2"
+        }</span>
+        </div>
+      `;
+
+        if (isDetailed && task.description) {
+          html += `<div style="margin-top: 10px; color: var(--vscode-descriptionForeground);">${task.description}</div>`;
+        }
+
+        return html;
+      }
+
+      function showError(errorMessage, errorType = "query") {
+        const errorDiv = document.getElementById("error");
+        document.getElementById("loading").style.display = "none";
+        document.getElementById("content").style.display = "none";
+
+        let title, message, icon;
+        if (errorType === "database") {
+          title = "Could not connect to Orchestra database";
+          message =
+            "The database connection failed. Please check that Orchestra is properly initialized.";
+          icon = "🔌";
+        } else {
+          title = "Failed to load data";
+          message =
+            "An error occurred while loading dashboard data. This may be temporary.";
+          icon = "⚠️";
+        }
+
+        errorDiv.innerHTML = `
+          <div class="error-state-container">
+            <div class="error-state-icon">${icon}</div>
+            <div class="error-state-title">${title}</div>
+            <div class="error-state-message">${message}</div>
+            <div class="error-state-details">${escapeHtml(errorMessage)}</div>
+            <button class="empty-state-action" onclick="retryLoad()">Retry</button>
+          </div>
+        `;
+        errorDiv.style.display = "block";
+      }
+
+      function retryLoad() {
+        document.getElementById("error").style.display = "none";
+        document.getElementById("loading").style.display = "block";
+        vscode.postMessage({ type: "retry" });
+      }
+
+      function initSprint() {
+        vscode.postMessage({ type: "initSprint" });
+      }
+
+      function renderTimeline(events) {
+        if (!events || events.length === 0) {
+          return '<div class="empty-state">No recent activity</div>';
+        }
+
+        const timelineHtml = `
+          <ul class="timeline-list">
+            ${events
+              .map(
+                (event) => `
+              <li class="timeline-item">
+                <div class="timeline-icon timeline-icon-${event.eventType.replace(
+                  /_/g,
+                  "-"
+                )}"></div>
+                <div class="timeline-content">
+                  <div class="timeline-description" onclick="openTask(${
+                    event.taskId
+                  })">
+                    ${escapeHtml(event.description)}
+                  </div>
+                  <div class="timeline-meta">
+                    <span class="timeline-timestamp">${
+                      event.formattedTimestamp ||
+                      formatTimestamp(event.timestamp)
+                    }</span>
+                    ${
+                      event.triggeredBy
+                        ? `<span class="timeline-triggered-by">by ${event.triggeredBy}</span>`
+                        : ""
+                    }
+                  </div>
+                </div>
+              </li>
+            `
+              )
+              .join("")}
+          </ul>
+        `;
+
+        return timelineHtml;
+      }
+
+      function escapeHtml(text) {
+        const div = document.createElement("div");
+        div.textContent = text;
+        return div.innerHTML;
+      }
+
+      function openTask(taskId) {
+        vscode.postMessage({
+          type: "openTask",
+          taskId: taskId,
+        });
+      }
+
+      // Request initial data
+      vscode.postMessage({ type: "ready" });
+    </script>
+  </body>
+</html>

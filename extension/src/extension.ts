@@ -158,6 +158,42 @@ async function installMcpServers(
 }
 
 /**
+ * Ensure agent instruction files are synced from extension bundle
+ * Always overwrites to ensure users have the latest agent definitions
+ */
+function ensureAgentFiles(
+  context: vscode.ExtensionContext,
+  workspaceRoot: string
+): void {
+  const agentsDir = path.join(workspaceRoot, ".github", "agents");
+
+  // Create .github/agents directory if it doesn't exist
+  if (!fs.existsSync(agentsDir)) {
+    fs.mkdirSync(agentsDir, { recursive: true });
+    logger.info(`Created .github/agents directory at ${agentsDir}`);
+  }
+
+  // Copy agent instruction files from extension bundle
+  // Always overwrite to ensure latest definitions on extension update
+  const agentFiles = [
+    "orchestra.orchestrator.agent.md",
+    "orchestra.implementor.agent.md",
+  ];
+
+  for (const agentFile of agentFiles) {
+    const sourcePath = path.join(context.extensionPath, "agents", agentFile);
+    const targetPath = path.join(agentsDir, agentFile);
+
+    if (fs.existsSync(sourcePath)) {
+      fs.copyFileSync(sourcePath, targetPath);
+      logger.info(`Synced agent file: ${agentFile}`);
+    } else {
+      logger.warn(`Agent file not found in extension bundle: ${agentFile}`);
+    }
+  }
+}
+
+/**
  * Initialize Orchestra workspace
  * Creates .orchestra folder and empty database
  */
@@ -201,27 +237,9 @@ async function initializeWorkspace(
     // NOTE: Don't create database file - MCP server will create it with proper schema
     // when configure_sprint is called
 
-    // Create .github/agents directory and agent instruction files
-    const agentsDir = path.join(workspaceRoot, ".github", "agents");
-    fs.mkdirSync(agentsDir, { recursive: true });
-
-    // Copy agent instruction files from extension bundle
-    const agentFiles = [
-      "orchestra.orchestrator.agent.md",
-      "orchestra.implementor.agent.md",
-    ];
-
-    for (const agentFile of agentFiles) {
-      const sourcePath = path.join(context.extensionPath, "agents", agentFile);
-      const targetPath = path.join(agentsDir, agentFile);
-
-      // Only copy if source exists and target doesn't (don't overwrite user customizations)
-      if (fs.existsSync(sourcePath) && !fs.existsSync(targetPath)) {
-        fs.copyFileSync(sourcePath, targetPath);
-        logger.info(`Created agent file: ${agentFile}`);
-      }
-    }
-    logger.info("Created .github/agents directory with agent instructions");
+    // Sync agent instruction files from extension bundle
+    ensureAgentFiles(context, workspaceRoot);
+    logger.info("Synced .github/agents directory with agent instructions");
 
     // Automatically install MCP servers
     await installMcpServers(orchestraDir, context.extensionPath);
@@ -377,7 +395,10 @@ export async function activate(
   context: vscode.ExtensionContext
 ): Promise<void> {
   logger = new OrchestraLogger();
-  logger.info("Orchestra extension activating...");
+
+  // Log version prominently on activation
+  const extensionVersion = context.extension.packageJSON.version || "0.0.0";
+  logger.info(`Orchestra extension v${extensionVersion} activating...`);
 
   // Initialize ConfigService
   configService = new ConfigService();
@@ -407,6 +428,76 @@ export async function activate(
     )
   );
 
+  // Register show version command (always available)
+  context.subscriptions.push(
+    vscode.commands.registerCommand("orchestra.showVersion", async () => {
+      const version = context.extension.packageJSON.version || "0.0.0";
+      const workspaceRoot = findOrchestraRoot();
+
+      let message = `Orchestra Extension v${version}`;
+      let details = [`Extension Version: ${version}`];
+
+      if (workspaceRoot) {
+        const dbPath = path.join(workspaceRoot, "orchestra.db");
+        if (fs.existsSync(dbPath)) {
+          try {
+            // Query migrations from database
+            const sqlite3 = await import("better-sqlite3");
+            const db = new sqlite3.default(dbPath, { readonly: true });
+            const migrations = db
+              .prepare(
+                "SELECT id, description, applied_at FROM schema_migrations ORDER BY applied_at"
+              )
+              .all() as Array<{
+              id: string;
+              description: string;
+              applied_at: string;
+            }>;
+            db.close();
+
+            details.push(`Database: ${dbPath}`);
+            details.push(`Migrations Applied: ${migrations.length}`);
+            if (migrations.length > 0) {
+              details.push("");
+              details.push("Applied Migrations:");
+              for (const m of migrations) {
+                details.push(`  • ${m.id}`);
+              }
+            }
+          } catch (err) {
+            details.push(
+              `Database: Error reading - ${
+                err instanceof Error ? err.message : "Unknown"
+              }`
+            );
+          }
+        } else {
+          details.push(
+            "Database: Not yet created (run configure_sprint via MCP)"
+          );
+        }
+      } else {
+        details.push("Workspace: No Orchestra workspace detected");
+      }
+
+      // Show in output channel
+      logger.info("=== Orchestra Version Info ===");
+      for (const line of details) {
+        logger.info(line);
+      }
+      logger.info("==============================");
+      logger.show();
+
+      vscode.window
+        .showInformationMessage(message, "Show Details")
+        .then((selection) => {
+          if (selection === "Show Details") {
+            logger.show();
+          }
+        });
+    })
+  );
+
   if (!orchestraRoot) {
     logger.warn("No .orchestra/ folder found in workspace");
 
@@ -427,6 +518,25 @@ export async function activate(
   }
 
   logger.info(`Orchestra workspace detected: ${orchestraRoot}`);
+
+  // Sync agent files and MCP config on every activation to ensure latest definitions
+  const workspaceFolders = vscode.workspace.workspaceFolders;
+  if (workspaceFolders && workspaceFolders[0]) {
+    const workspaceRoot = workspaceFolders[0].uri.fsPath;
+    ensureAgentFiles(context, workspaceRoot);
+
+    // Also ensure MCP servers are configured with latest extension path
+    try {
+      await installMcpServers(orchestraRoot, context.extensionPath);
+      logger.info("MCP server config updated");
+    } catch (err) {
+      logger.warn(
+        `Failed to update MCP config: ${
+          err instanceof Error ? err.message : "Unknown"
+        }`
+      );
+    }
+  }
 
   // Initialize ContextFileResolver (Task 8)
   contextFileResolver = new ContextFileResolver(orchestraRoot);
@@ -483,7 +593,7 @@ export async function activate(
   }
 
   // 3. Generate MCP config (safe to do even if database fails)
-  const extensionVersion = context.extension.packageJSON.version || "0.0.0";
+  // Note: extensionVersion already declared at activation start
   const configGenerator = new ConfigGenerator(
     orchestraRoot,
     context.extensionPath,

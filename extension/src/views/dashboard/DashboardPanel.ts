@@ -355,10 +355,10 @@ export class DashboardPanel {
    * Get HTML content for webview
    */
   private getHtmlContent(): string {
-    // Read HTML template from file
+    // Read HTML template from resources folder (bundled with extension)
     const htmlPath = path.join(
       this._extensionUri.fsPath,
-      "src",
+      "resources",
       "views",
       "dashboard",
       "index.html"

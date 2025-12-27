@@ -8,7 +8,6 @@
 import { and, eq, inArray } from "drizzle-orm";
 import { autoCommitIfEnabled, generateCommitMessage } from "../../core/git.js";
 import { getActiveSprint, getDb } from "../../db/index.js";
-import { writeSignal } from "../db-signal.js";
 import {
   config,
   handovers,
@@ -22,6 +21,7 @@ import {
   type PrepareTaskOutput,
 } from "../../schemas/handover.js";
 import { validateInput } from "../../schemas/utils.js";
+import { writeSignal } from "../db-signal.js";
 import { logToolExecution } from "./audit-logging.js";
 import { validateHandoverIsolation } from "./handover-validation.js";
 
