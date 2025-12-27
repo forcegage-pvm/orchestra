@@ -18,6 +18,11 @@
 - [x] [TD-009: Sync 01-handover-creation.md with prepare.md](#td-009-sync-01-handover-creationmd-with-preparemd)
 - [x] [TD-010: Pre-Signal Check Command](#td-010-pre-signal-check-command)
 - [ ] [TD-011: Feedback Workflow Integration](TD-011-feedback-workflow.md) ← **NEW**
+- [x] [TD-013: Signal Recording on Pre-Signal Failure](#td-013-signal-recording-on-pre-signal-failure)
+- [x] [TD-014: Escalation Soft Gate](#td-014-escalation-soft-gate)
+- [x] [TD-015: Legacy Test Failures](#td-015-legacy-test-failures)
+- [x] [TD-016: ESCALATED Status Bypass](#td-016-escalated-status-bypass)
+- [x] [TD-019: Behavioral Check Path Resolution](#td-019-behavioral-check-path-resolution)
 
 ---
 
@@ -1198,6 +1203,187 @@ How should it work?
 
 ---
 
+## TD-013: Signal Recording on Pre-Signal Failure
+
+**Status**: ✅ Complete  
+**Priority**: Medium  
+**Identified**: Sprint 002  
+**Completed**: 2025-12-27  
+**Source**: Sprint 002 Technical Debt Resolution
+
+### Description
+
+When pre-signal checks failed, the implementor's signal was not being recorded before failure, making it difficult to debug what the implementor actually submitted.
+
+### Implementation Summary
+
+Fixed `signal-completion.ts` in the MCP server to record signals even when pre-signal checks fail. The signal is now written to the signals folder before validation occurs, ensuring complete audit trail.
+
+### Changes Made
+
+1. **`src/mcp-server/tools/signal-completion.ts`**: Updated to write signal file before running pre-signal checks
+2. Pre-signal check failures now preserve the original signal for debugging
+3. Signal timestamp and content always recorded regardless of validation outcome
+
+### Acceptance Criteria
+
+- [x] Signal file written before pre-signal validation
+- [x] Failed signals preserved in signals folder
+- [x] Signal content available for debugging
+
+### Related Files
+
+- `src/mcp-server/tools/signal-completion.ts` - Signal recording logic
+- `src/core/signal.ts` - Core signal handling
+
+---
+
+## TD-014: Escalation Soft Gate
+
+**Status**: ✅ Complete  
+**Priority**: High  
+**Identified**: Sprint 002  
+**Completed**: 2025-12-27  
+**Source**: Sprint 002 Technical Debt Resolution
+
+### Description
+
+Agents were able to escalate tasks immediately without attempting implementation (retry_count=0), bypassing the designed workflow that requires genuine implementation attempts before escalation.
+
+### Implementation Summary
+
+Added required `early_escalation_reason` parameter to the escalate-task MCP tool when retry_count=0. This forces agents to justify why immediate escalation is needed (e.g., external blocker, access issue) rather than allowing lazy escalation.
+
+### Changes Made
+
+1. **`src/mcp-server/tools/escalate-task.ts`**: Added validation requiring `early_escalation_reason` when retry_count=0
+2. Updated error messages to guide agents on proper escalation justification
+3. Schema updated to reflect the conditional requirement
+
+### Acceptance Criteria
+
+- [x] `early_escalation_reason` required when retry_count=0
+- [x] Clear error message when missing
+- [x] Normal escalation flow preserved for retry_count > 0
+
+### Related Files
+
+- `src/mcp-server/tools/escalate-task.ts` - Escalation validation
+- `src/schemas/mcp-schemas.ts` - Tool schema definition
+
+---
+
+## TD-015: Legacy Test Failures
+
+**Status**: ✅ Complete  
+**Priority**: High  
+**Identified**: Sprint 002  
+**Completed**: 2025-12-27  
+**Source**: Sprint 002 Technical Debt Resolution
+
+### Description
+
+Multiple test suites had failing tests that were being skipped or ignored, creating technical debt and reducing confidence in the test suite.
+
+### Implementation Summary
+
+Systematically fixed all legacy test failures across the codebase. All tests now pass with 100% success rate.
+
+### Changes Made
+
+1. Fixed database-related tests by ensuring proper setup/teardown
+2. Fixed path resolution issues in verification tests
+3. Updated test fixtures to match current schema
+4. Removed `.skip()` calls from previously failing tests
+
+### Acceptance Criteria
+
+- [x] All tests in test suite pass
+- [x] No skipped tests due to failures
+- [x] Test coverage maintained or improved
+- [x] CI/CD pipeline clean
+
+### Related Files
+
+- `test/` - All test files updated
+- Various implementation files fixed based on test failures
+
+---
+
+## TD-016: ESCALATED Status Bypass
+
+**Status**: ✅ Complete  
+**Priority**: Critical  
+**Identified**: Sprint 002  
+**Completed**: 2025-12-27  
+**Source**: Sprint 002 Technical Debt Resolution
+
+### Description
+
+Tasks in ESCALATED status could be prepared again, allowing implementors to bypass the escalation and continue working without human supervisor review.
+
+### Implementation Summary
+
+Added ESCALATED status check to `prepare-task.ts` and created de-escalation commands in the VS Code extension. Tasks must be explicitly de-escalated by a supervisor before they can be prepared again.
+
+### Changes Made
+
+1. **`src/core/prepare-task.ts`**: Added check blocking ESCALATED tasks from being prepared
+2. **Extension de-escalation commands**: Added UI commands for supervisors to de-escalate tasks
+3. **`scripts/de-escalate.js`**: Created CLI script for de-escalation
+4. Error messages guide users to de-escalation process
+
+### Acceptance Criteria
+
+- [x] ESCALATED tasks cannot be prepared
+- [x] De-escalation command available
+- [x] Supervisor approval required to continue
+- [x] Audit trail of de-escalation preserved
+
+### Related Files
+
+- `src/core/prepare-task.ts` - Status validation
+- `extension/src/commands/de-escalate.ts` - Extension command
+- `scripts/de-escalate.js` - CLI script
+
+---
+
+## TD-019: Behavioral Check Path Resolution
+
+**Status**: ✅ Complete  
+**Priority**: High  
+**Identified**: Sprint 002  
+**Completed**: 2025-12-27  
+**Source**: Sprint 002 Technical Debt Resolution
+
+### Description
+
+Behavioral verification checks were failing because they expected workspace-relative paths but were receiving absolute paths, causing path resolution mismatches.
+
+### Implementation Summary
+
+Fixed `check-executor.ts` to normalize all paths to workspace-relative format before executing behavioral checks, ensuring consistent path handling across all verification types.
+
+### Changes Made
+
+1. **`src/core/verification/check-executor.ts`**: Added path normalization for behavioral checks
+2. Paths converted to workspace-relative format using `path.relative()`
+3. Both absolute and relative paths now handled correctly
+
+### Acceptance Criteria
+
+- [x] Behavioral checks work with absolute paths
+- [x] Behavioral checks work with relative paths
+- [x] Path resolution consistent across all check types
+- [x] No false failures due to path format
+
+### Related Files
+
+- `src/core/verification/check-executor.ts` - Path normalization
+- `test/core/verification/check-executor.test.ts` - Tests for path handling
+
+---
+
 ## Version History
 
 | Version | Date | Changes |
@@ -1219,3 +1405,4 @@ How should it work?
 | 1.14.0 | 2025-12-06 | TD-009 complete: Comprehensive rewrite of 01-handover-creation.md (403 lines) |
 | 1.15.0 | 2025-12-06 | TD-010 complete: Implemented `orchestra pre-signal-check` command (~900 lines core, 30 tests) |
 | 1.13.0 | 2025-12-05 | TD-010 updated: Added "Relationship to accept-signal" section for analysis |
+| 1.16.0 | 2025-12-27 | Added TD-013, TD-014, TD-015, TD-016, TD-019: Sprint 002 technical debt resolutions documented and files cleaned up |
