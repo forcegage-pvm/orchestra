@@ -25,7 +25,6 @@ export class DatabaseWatcher implements vscode.Disposable {
   private lastMtime: number = 0;
   private readonly dbPath: string;
   private readonly walPath: string;
-  private readonly signalPath: string;
 
   /**
    * Event fired when database changes (debounced)
@@ -40,7 +39,6 @@ export class DatabaseWatcher implements vscode.Disposable {
 
     this.dbPath = path.join(workspaceRoot, ".orchestra", "orchestra.db");
     this.walPath = path.join(workspaceRoot, ".orchestra", "orchestra.db-wal");
-    this.signalPath = path.join(workspaceRoot, ".orchestra", ".signal");
 
     // Watch .orchestra/.signal file for instant notifications
     // Signal files are small text files that trigger file watchers reliably

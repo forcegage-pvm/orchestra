@@ -292,3 +292,14 @@ export const config = sqliteTable("config", {
   created_at: text("created_at").notNull(),
   updated_at: text("updated_at").notNull(),
 });
+
+/**
+ * Chat sessions table - Global chat session labels for role-based sessions
+ */
+export const chatSessions = sqliteTable("chat_sessions", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  role: text("role").notNull().unique(),
+  tab_label: text("tab_label").notNull(),
+  created_at: text("created_at").notNull(),
+  last_used_at: text("last_used_at").notNull(),
+});

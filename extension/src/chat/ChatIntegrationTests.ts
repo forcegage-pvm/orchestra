@@ -1389,7 +1389,9 @@ export async function testAgentSessionMessaging(): Promise<void> {
 
   if (backgroundAgentTabs.length > 0) {
     const bgTab = backgroundAgentTabs[0];
-    log(`Attempting to focus tab: "${bgTab.label}"`);
+    if (bgTab) {
+      log(`Attempting to focus tab: "${bgTab.label}"`);
+    }
 
     // Try different focus approaches
     try {
@@ -1430,7 +1432,9 @@ export async function testAgentSessionMessaging(): Promise<void> {
 
   if (cloudAgentTabs.length > 0) {
     const cloudTab = cloudAgentTabs[0];
-    log(`Attempting to switch to: "${cloudTab.label}"`);
+    if (cloudTab) {
+      log(`Attempting to switch to: "${cloudTab.label}"`);
+    }
 
     try {
       // Find the tab's position and switch to it
@@ -2193,8 +2197,9 @@ export async function testLabelCapture(): Promise<void> {
   ): { tab: vscode.Tab; index: number } | null {
     const tabs = vscode.window.tabGroups.activeTabGroup.tabs;
     for (let i = 0; i < tabs.length; i++) {
-      if (tabs[i].label === label) {
-        return { tab: tabs[i], index: i };
+      const tab = tabs[i];
+      if (tab && tab.label === label) {
+        return { tab, index: i };
       }
     }
     return null;
@@ -2528,8 +2533,11 @@ export async function testSessionRestoration(): Promise<void> {
   const tabs = vscode.window.tabGroups.activeTabGroup.tabs;
   log(`Total tabs: ${tabs.length}`);
   for (let i = 0; i < tabs.length; i++) {
-    const active = tabs[i].isActive ? " (ACTIVE)" : "";
-    log(`  [${i}] "${tabs[i].label}"${active}`);
+    const tab = tabs[i];
+    if (tab) {
+      const active = tab.isActive ? " (ACTIVE)" : "";
+      log(`  [${i}] "${tab.label}"${active}`);
+    }
   }
 
   // Step 4: Document what we found
