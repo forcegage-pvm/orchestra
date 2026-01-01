@@ -24,7 +24,7 @@ import {
   getDb,
   resolveWorkspacePath,
 } from "../../db/index.js";
-import { config, progress, signals, sprints, tasks } from "../../db/schema.js";
+import { config, progress, signals, sprintSettings, sprints, tasks } from "../../db/schema.js";
 import {
   SignalCompletionInputSchema,
   type SignalCompletionOutput,
@@ -291,7 +291,8 @@ async function signalCompletion(
 /**
  * Get pre-signal configuration from database
  *
- * Reads command configuration from the config table.
+ * Reads command configuration from sprint_settings first (for sprint-specific overrides),
+ * then falls back to global config table.
  */
 async function getPreSignalConfig(): Promise<PreSignalConfig> {
   const db = getDb();
@@ -308,13 +309,38 @@ async function getPreSignalConfig(): Promise<PreSignalConfig> {
     "pre_signal_skip_lint",
   ];
 
-  const configRows = await db
+  // First, try to get sprint-specific config from active sprint
+  const activeSprint = await getActiveSprint();
+  const configMap = new Map<string, string>();
+
+  if (activeSprint) {
+    // Get sprint-specific settings first (higher priority)
+    const sprintConfigRows = await db
+      .select()
+      .from(sprintSettings)
+      .where(
+        and(
+          eq(sprintSettings.sprint_id, activeSprint.id),
+          inArray(sprintSettings.key, configKeys)
+        )
+      );
+
+    for (const row of sprintConfigRows) {
+      configMap.set(row.key, row.value);
+    }
+  }
+
+  // Then get global config (lower priority - only for keys not already set)
+  const globalConfigRows = await db
     .select()
     .from(config)
     .where(inArray(config.key, configKeys));
 
-  // Build config object from database values
-  const configMap = new Map(configRows.map((row) => [row.key, row.value]));
+  for (const row of globalConfigRows) {
+    if (!configMap.has(row.key)) {
+      configMap.set(row.key, row.value);
+    }
+  }
 
   const preSignalConfig: PreSignalConfig = {
     workspacePath,
