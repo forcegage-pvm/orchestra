@@ -46,7 +46,8 @@ export class DatabaseWatcher implements vscode.Disposable {
       workspaceRoot,
       ".orchestra/.signal"
     );
-    this.signalWatcher = vscode.workspace.createFileSystemWatcher(signalPattern);
+    this.signalWatcher =
+      vscode.workspace.createFileSystemWatcher(signalPattern);
 
     // Register change handler for signal file
     this.signalWatcher.onDidChange((uri) => {
