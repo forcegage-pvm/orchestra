@@ -4,22 +4,22 @@
       "type": "stdio",
       "command": "node",
       "args": [
-        "${workspaceFolder}\\dist\\mcp-server\\index.js",
+        "c:\\Users\\Marius\\.vscode\\extensions\\forcegage.orchestra-extension-0.2.4\\dist\\mcp-server\\index.js",
         "--role=orchestrator"
       ],
       "env": {
-        "ORCHESTRA_WORKSPACE": "${workspaceFolder}"
+        "ORCHESTRA_WORKSPACE": "x:\\Cloud Storage\\Dropbox\\Repositories\\vs code\\orchestra"
       }
     },
     "orchestra-implementor": {
       "type": "stdio",
       "command": "node",
       "args": [
-        "${workspaceFolder}\\dist\\mcp-server\\index.js",
+        "c:\\Users\\Marius\\.vscode\\extensions\\forcegage.orchestra-extension-0.2.4\\dist\\mcp-server\\index.js",
         "--role=implementor"
       ],
       "env": {
-        "ORCHESTRA_WORKSPACE": "${workspaceFolder}"
+        "ORCHESTRA_WORKSPACE": "x:\\Cloud Storage\\Dropbox\\Repositories\\vs code\\orchestra"
       }
     }
   }

@@ -44,13 +44,39 @@ function copyMcpServer() {
     fs.mkdirSync(targetParent, { recursive: true });
   }
 
-  // Remove existing target directory if it exists
+  // Remove existing target directory if it exists (with retry for file locks)
   if (fs.existsSync(TARGET_DIR)) {
-    fs.rmSync(TARGET_DIR, { recursive: true, force: true });
+    let retries = 3;
+    while (retries > 0) {
+      try {
+        fs.rmSync(TARGET_DIR, { recursive: true, force: true });
+        break;
+      } catch (err) {
+        retries--;
+        if (retries === 0) {
+          console.warn(
+            "⚠ Warning: Could not remove existing mcp-server folder (file lock)"
+          );
+          console.warn("   Continuing with incremental copy...");
+          // Don't exit, just continue - we'll overwrite files in place
+          break;
+        }
+        // Wait a bit before retrying
+        const waitMs = 500;
+        const start = Date.now();
+        while (Date.now() - start < waitMs) {
+          // Busy wait
+        }
+      }
+    }
   }
 
   // Copy the entire directory recursively
-  fs.cpSync(SOURCE_DIR, TARGET_DIR, { recursive: true });
+  try {
+    fs.cpSync(SOURCE_DIR, TARGET_DIR, { recursive: true, force: true });
+  } catch (err) {
+    console.warn("⚠ Warning: Some files could not be copied (file lock)");
+  }
 
   // Verify the copy succeeded
   const indexPath = path.join(TARGET_DIR, "index.js");
@@ -93,6 +119,27 @@ function copyMcpServer() {
     console.error("   Expected at:", nativeModulePath);
     process.exit(1);
   }
+
+  // Also copy better-sqlite3 to extension's root node_modules for the extension itself
+  // (The extension.js also requires better-sqlite3, not just the MCP server)
+  console.log("📦 Copying better-sqlite3 to extension node_modules...");
+  const extNodeModules = path.resolve(__dirname, "../node_modules");
+
+  for (const moduleName of NATIVE_MODULES) {
+    const sourceModule = path.join(ROOT_NODE_MODULES, moduleName);
+    const targetModule = path.join(extNodeModules, moduleName);
+
+    if (fs.existsSync(sourceModule)) {
+      // Only copy if source is newer or target doesn't exist
+      if (!fs.existsSync(targetModule)) {
+        fs.cpSync(sourceModule, targetModule, { recursive: true });
+        console.log(`   ✓ ${moduleName} (copied to extension)`);
+      } else {
+        console.log(`   ✓ ${moduleName} (already exists in extension)`);
+      }
+    }
+  }
+  console.log("✅ Extension native modules ready!");
 }
 
 copyMcpServer();

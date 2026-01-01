@@ -218,31 +218,6 @@
         "command": "orchestra.testModeParameter",
         "title": "Orchestra: Test Mode Parameter",
         "icon": "$(beaker)"
-      },
-      {
-        "command": "orchestra.testLabelCapture",
-        "title": "Orchestra: Test Label Capture",
-        "icon": "$(beaker)"
-      },
-      {
-        "command": "orchestra.testClearCommand",
-        "title": "Orchestra: Test Clear Command",
-        "icon": "$(beaker)"
-      },
-      {
-        "command": "orchestra.discoverChatHistoryCommands",
-        "title": "Orchestra: Discover Chat History Commands",
-        "icon": "$(beaker)"
-      },
-      {
-        "command": "orchestra.testSessionRestoration",
-        "title": "Orchestra: Test Session Restoration",
-        "icon": "$(beaker)"
-      },
-      {
-        "command": "orchestra.testSessionRenameAndReopen",
-        "title": "Orchestra: Test Session Rename and Reopen",
-        "icon": "$(beaker)"
       }
     ],
     "keybindings": [

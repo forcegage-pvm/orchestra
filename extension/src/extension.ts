@@ -5,10 +5,29 @@
  * database initialization, view registration, and MCP server lifecycle.
  */
 
-import Database from "better-sqlite3";
 import * as fs from "fs";
 import * as path from "path";
 import * as vscode from "vscode";
+import {
+  discoverChatHistoryCommands,
+  discoverOrchestraSessionCommands,
+  exploreBackgroundAgents,
+  runAgentCommandTests,
+  runBackgroundAgentTests,
+  runChatIntegrationTests,
+  runSessionResourceTests,
+  testAgentSessionMessaging,
+  testBackgroundAgentSessions,
+  testClearCommand,
+  testImplementorOnly,
+  testLabelCapture,
+  testModeParameter,
+  testOrchestraChatTabs,
+  testOrchestratorOnly,
+  testPreciseTabFocus,
+  testSessionRenameAndReopen,
+  testSessionRestoration,
+} from "./chat/ChatIntegrationTests.js";
 import { SessionManager } from "./chat/SessionManager.js";
 import { handlePlayTask } from "./commands/PlayTaskHandler.js";
 import {
@@ -498,6 +517,82 @@ export async function activate(
     })
   );
 
+  // Register development/debug commands (always available)
+  context.subscriptions.push(
+    vscode.commands.registerCommand(
+      "orchestra.runChatIntegrationTests",
+      runChatIntegrationTests
+    ),
+    vscode.commands.registerCommand(
+      "orchestra.exploreBackgroundAgents",
+      exploreBackgroundAgents
+    ),
+    vscode.commands.registerCommand(
+      "orchestra.runAgentCommandTests",
+      runAgentCommandTests
+    ),
+    vscode.commands.registerCommand(
+      "orchestra.runBackgroundAgentTests",
+      runBackgroundAgentTests
+    ),
+    vscode.commands.registerCommand(
+      "orchestra.testOrchestratorOnly",
+      testOrchestratorOnly
+    ),
+    vscode.commands.registerCommand(
+      "orchestra.testImplementorOnly",
+      testImplementorOnly
+    ),
+    vscode.commands.registerCommand(
+      "orchestra.runSessionResourceTests",
+      runSessionResourceTests
+    ),
+    vscode.commands.registerCommand(
+      "orchestra.testBackgroundAgentSessions",
+      testBackgroundAgentSessions
+    ),
+    vscode.commands.registerCommand(
+      "orchestra.testAgentSessionMessaging",
+      testAgentSessionMessaging
+    ),
+    vscode.commands.registerCommand(
+      "orchestra.testPreciseTabFocus",
+      testPreciseTabFocus
+    ),
+    vscode.commands.registerCommand(
+      "orchestra.discoverSessionCommands",
+      discoverOrchestraSessionCommands
+    ),
+    vscode.commands.registerCommand(
+      "orchestra.testOrchestraChatTabs",
+      testOrchestraChatTabs
+    ),
+    vscode.commands.registerCommand(
+      "orchestra.testModeParameter",
+      testModeParameter
+    ),
+    vscode.commands.registerCommand(
+      "orchestra.testLabelCapture",
+      testLabelCapture
+    ),
+    vscode.commands.registerCommand(
+      "orchestra.testClearCommand",
+      testClearCommand
+    ),
+    vscode.commands.registerCommand(
+      "orchestra.discoverChatHistoryCommands",
+      discoverChatHistoryCommands
+    ),
+    vscode.commands.registerCommand(
+      "orchestra.testSessionRestoration",
+      testSessionRestoration
+    ),
+    vscode.commands.registerCommand(
+      "orchestra.testSessionRenameAndReopen",
+      testSessionRenameAndReopen
+    )
+  );
+
   if (!orchestraRoot) {
     logger.warn("No .orchestra/ folder found in workspace");
 
@@ -604,7 +699,7 @@ export async function activate(
   logger.info("MCP config generation complete");
 
   // 4. Initialize database client - wrap in try-catch for graceful degradation
-  let db: Database.Database;
+  let db: ReturnType<typeof OrchestraDB.getInstance>;
   try {
     db = OrchestraDB.getInstance(orchestraRoot);
     logger.info("Database client initialized");

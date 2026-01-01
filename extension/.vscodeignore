@@ -9,15 +9,12 @@ vsc-extension-quickstart.md
 **/.eslintrc.json
 **/*.map
 **/*.ts
-!dist/**/*.js
+!dist/**
 !agents/**
 !resources/**
-# Exclude all node_modules EXCEPT better-sqlite3 (native module required by extension)
-node_modules/*
-!node_modules/better-sqlite3/**
-!node_modules/bindings/**
-!node_modules/file-uri-to-path/**
-!node_modules/node-addon-api/**
-!node_modules/prebuild-install/**
+# Dev dependencies are excluded automatically by vsce when bundledDependencies is used
+# Only production dependencies (better-sqlite3, drizzle-orm) will be included
 .DS_Store
 *.vsix
+vsix-contents/**
+vsix-contents-*/**

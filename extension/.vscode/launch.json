@@ -7,7 +7,7 @@
       "request": "launch",
       "args": [
         "--extensionDevelopmentPath=${workspaceFolder}",
-        "E:\\cloud services\\Dropbox\\Repositories\\Flutter\\NatureLens"
+        "${workspaceFolder}/.."
       ],
       "outFiles": ["${workspaceFolder}/dist/**/*.js"],
       "preLaunchTask": "npm: build"
@@ -18,7 +18,7 @@
       "request": "launch",
       "args": [
         "--extensionDevelopmentPath=${workspaceFolder}",
-        "E:\\cloud services\\Dropbox\\Repositories\\Flutter\\NatureLens"
+        "${workspaceFolder}/.."
       ],
       "outFiles": ["${workspaceFolder}/dist/**/*.js"]
     }
