@@ -24,14 +24,21 @@ import {
   getDb,
   resolveWorkspacePath,
 } from "../../db/index.js";
-import { config, progress, signals, sprintSettings, sprints, tasks } from "../../db/schema.js";
+import {
+  config,
+  progress,
+  signals,
+  sprintSettings,
+  sprints,
+  tasks,
+} from "../../db/schema.js";
 import {
   SignalCompletionInputSchema,
   type SignalCompletionOutput,
 } from "../../schemas/signal.js";
 import { validateInput } from "../../schemas/utils.js";
-import { logToolExecution } from "./audit-logging.js";
 import { writeSignal } from "../db-signal.js";
+import { logToolExecution } from "./audit-logging.js";
 
 export async function handleSignalCompletion(input: unknown) {
   const startTime = performance.now();
