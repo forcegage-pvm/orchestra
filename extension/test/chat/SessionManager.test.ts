@@ -10,6 +10,17 @@ import { SessionManager } from "../../src/chat/SessionManager.js";
 import { ConfigService } from "../../src/config/ConfigService.js";
 import { OrchestraLogger } from "../../src/utils/logger.js";
 
+// Mock database mutations - must be hoisted to avoid initialization errors
+const { mockSaveSessionLabel, mockClearSessionLabel } = vi.hoisted(() => ({
+  mockSaveSessionLabel: vi.fn(),
+  mockClearSessionLabel: vi.fn(),
+}));
+
+vi.mock("../../src/database/mutations.js", () => ({
+  saveSessionLabel: mockSaveSessionLabel,
+  clearSessionLabel: mockClearSessionLabel,
+}));
+
 // Mock VS Code API
 vi.mock("vscode", () => ({
   commands: {
@@ -17,6 +28,7 @@ vi.mock("vscode", () => ({
   },
   window: {
     showErrorMessage: vi.fn(),
+    showInformationMessage: vi.fn(),
     createOutputChannel: vi.fn(() => ({
       appendLine: vi.fn(),
       show: vi.fn(),
@@ -34,6 +46,7 @@ vi.mock("vscode", () => ({
     getConfiguration: vi.fn(() => ({
       get: vi.fn(() => "info"),
     })),
+    workspaceFolders: [],
   },
   Uri: {
     file: vi.fn((path: string) => ({ fsPath: path, scheme: "file", path })),
@@ -57,6 +70,10 @@ describe("SessionManager", () => {
 
     // Reset the mock to default behavior
     vi.mocked(vscode.commands.executeCommand).mockResolvedValue(undefined);
+
+    // Reset database mocks
+    mockSaveSessionLabel.mockClear();
+    mockClearSessionLabel.mockClear();
 
     // Create mock dependencies
     mockLogger = new OrchestraLogger();
@@ -572,6 +589,304 @@ describe("SessionManager", () => {
       const result = sessionManager.findTabByLabel("Any Label");
 
       expect(result).toBeNull();
+    });
+  });
+
+  describe("promptUserToSelectSession", () => {
+    beforeEach(() => {
+      // Mock workspace folders for workspaceRoot access
+      vi.mocked(vscode.workspace).workspaceFolders = [
+        {
+          uri: vscode.Uri.file("/test/workspace"),
+          name: "test-workspace",
+          index: 0,
+        },
+      ] as unknown as readonly vscode.WorkspaceFolder[];
+
+      // Reset showInformationMessage mock
+      vi.mocked(vscode.window).showInformationMessage = vi
+        .fn()
+        .mockResolvedValue(undefined);
+    });
+
+    it("should show initial info message to user", async () => {
+      await sessionManager.promptUserToSelectSession("orchestrator");
+
+      expect(vscode.window.showInformationMessage).toHaveBeenCalledWith(
+        "Orchestrator session not found. Please select from chat history.",
+        "Open Chat History",
+        "Cancel"
+      );
+    });
+
+    it("should execute chat history command", async () => {
+      // Mock user clicking OK on info message
+      vi.mocked(vscode.window.showInformationMessage).mockResolvedValueOnce(
+        "Open Chat History" as never
+      );
+
+      // Mock user confirming selection
+      vi.mocked(vscode.window.showInformationMessage).mockResolvedValueOnce(
+        "OK" as never
+      );
+
+      // Mock active tab
+      vi.mocked(vscode.window.tabGroups).activeTabGroup = {
+        activeTab: { label: "Selected Chat", isActive: true },
+        tabs: [],
+        viewColumn: 1,
+        isActive: true,
+      } as unknown as vscode.TabGroup;
+
+      await sessionManager.promptUserToSelectSession("implementor");
+
+      expect(vscode.commands.executeCommand).toHaveBeenCalledWith(
+        "workbench.action.chat.history"
+      );
+    });
+
+    it("should show modal confirmation dialog", async () => {
+      // Mock user clicking OK on info message
+      vi.mocked(vscode.window.showInformationMessage).mockResolvedValueOnce(
+        "Open Chat History" as never
+      );
+
+      // Mock user confirming selection
+      vi.mocked(vscode.window.showInformationMessage).mockResolvedValueOnce(
+        "OK" as never
+      );
+
+      // Mock active tab
+      vi.mocked(vscode.window.tabGroups).activeTabGroup = {
+        activeTab: { label: "Chat Session", isActive: true },
+        tabs: [],
+        viewColumn: 1,
+        isActive: true,
+      } as unknown as vscode.TabGroup;
+
+      await sessionManager.promptUserToSelectSession("orchestrator");
+
+      // Second call should be the modal confirmation
+      expect(vscode.window.showInformationMessage).toHaveBeenCalledWith(
+        expect.stringContaining("Click OK after selecting"),
+        { modal: true },
+        "OK",
+        "Cancel"
+      );
+    });
+
+    it("should capture and return selected tab label on success", async () => {
+      const expectedLabel = "My Chat Session";
+
+      // Ensure workspace is set up
+      const mockWorkspaceFolder = {
+        uri: { fsPath: "/test/workspace" },
+        name: "test-workspace",
+        index: 0,
+      };
+      Object.defineProperty(vscode.workspace, "workspaceFolders", {
+        value: [mockWorkspaceFolder],
+        writable: true,
+        configurable: true,
+      });
+
+      // Mock user clicking OK on info message
+      vi.mocked(vscode.window.showInformationMessage).mockResolvedValueOnce(
+        "Open Chat History" as never
+      );
+
+      // Mock user confirming selection
+      vi.mocked(vscode.window.showInformationMessage).mockResolvedValueOnce(
+        "OK" as never
+      );
+
+      // Mock active tab with expected label
+      vi.mocked(vscode.window.tabGroups).activeTabGroup = {
+        activeTab: { label: expectedLabel, isActive: true },
+        tabs: [],
+        viewColumn: 1,
+        isActive: true,
+      } as unknown as vscode.TabGroup;
+
+      const result = await sessionManager.promptUserToSelectSession(
+        "orchestrator"
+      );
+
+      expect(result).toBe(expectedLabel);
+    });
+
+    it("should return null when user cancels initial dialog", async () => {
+      // Mock user dismissing the info message
+      vi.mocked(vscode.window.showInformationMessage).mockResolvedValueOnce(
+        undefined
+      );
+
+      const result = await sessionManager.promptUserToSelectSession(
+        "implementor"
+      );
+
+      expect(result).toBeNull();
+      // Should not execute chat history command
+      expect(vscode.commands.executeCommand).not.toHaveBeenCalledWith(
+        "workbench.action.chat.history"
+      );
+    });
+
+    it("should return null when user cancels confirmation dialog", async () => {
+      // Mock user clicking OK on info message
+      vi.mocked(vscode.window.showInformationMessage).mockResolvedValueOnce(
+        "Open Chat History" as never
+      );
+
+      // Mock user clicking Cancel on confirmation dialog
+      vi.mocked(vscode.window.showInformationMessage).mockResolvedValueOnce(
+        "Cancel" as never
+      );
+
+      const result = await sessionManager.promptUserToSelectSession(
+        "orchestrator"
+      );
+
+      expect(result).toBeNull();
+    });
+
+    it("should return null when user dismisses confirmation dialog", async () => {
+      // Mock user clicking OK on info message
+      vi.mocked(vscode.window.showInformationMessage).mockResolvedValueOnce(
+        "Open Chat History" as never
+      );
+
+      // Mock user dismissing confirmation dialog (undefined)
+      vi.mocked(vscode.window.showInformationMessage).mockResolvedValueOnce(
+        undefined
+      );
+
+      const result = await sessionManager.promptUserToSelectSession(
+        "implementor"
+      );
+
+      expect(result).toBeNull();
+    });
+
+    it("should return null when no active tab is available", async () => {
+      // Mock user clicking OK on info message
+      vi.mocked(vscode.window.showInformationMessage).mockResolvedValueOnce(
+        "Open Chat History" as never
+      );
+
+      // Mock user confirming selection
+      vi.mocked(vscode.window.showInformationMessage).mockResolvedValueOnce(
+        "OK" as never
+      );
+
+      // Mock no active tab
+      vi.mocked(vscode.window.tabGroups).activeTabGroup = {
+        activeTab: null,
+        tabs: [],
+        viewColumn: 1,
+        isActive: true,
+      } as unknown as vscode.TabGroup;
+
+      const result = await sessionManager.promptUserToSelectSession(
+        "orchestrator"
+      );
+
+      expect(result).toBeNull();
+    });
+
+    it("should save label to database on successful selection", async () => {
+      const expectedLabel = "Chat for Orchestrator";
+
+      // Ensure workspace is set up
+      const mockWorkspaceFolder = {
+        uri: { fsPath: "/test/workspace" },
+        name: "test-workspace",
+        index: 0,
+      };
+      Object.defineProperty(vscode.workspace, "workspaceFolders", {
+        value: [mockWorkspaceFolder],
+        writable: true,
+        configurable: true,
+      });
+
+      // Mock user clicking OK on info message
+      vi.mocked(vscode.window.showInformationMessage).mockResolvedValueOnce(
+        "Open Chat History" as never
+      );
+
+      // Mock user confirming selection
+      vi.mocked(vscode.window.showInformationMessage).mockResolvedValueOnce(
+        "OK" as never
+      );
+
+      // Mock active tab
+      vi.mocked(vscode.window.tabGroups).activeTabGroup = {
+        activeTab: { label: expectedLabel, isActive: true },
+        tabs: [],
+        viewColumn: 1,
+        isActive: true,
+      } as unknown as vscode.TabGroup;
+
+      const result = await sessionManager.promptUserToSelectSession(
+        "orchestrator"
+      );
+
+      expect(result).toBe(expectedLabel);
+      expect(mockSaveSessionLabel).toHaveBeenCalledWith(
+        "/test/workspace",
+        "orchestrator",
+        expectedLabel
+      );
+    });
+
+    it("should handle both orchestrator and implementor roles", async () => {
+      const roles: Array<"orchestrator" | "implementor"> = [
+        "orchestrator",
+        "implementor",
+      ];
+
+      for (const role of roles) {
+        vi.clearAllMocks();
+
+        // Ensure workspace is set up
+        const mockWorkspaceFolder = {
+          uri: { fsPath: "/test/workspace" },
+          name: "test-workspace",
+          index: 0,
+        };
+        Object.defineProperty(vscode.workspace, "workspaceFolders", {
+          value: [mockWorkspaceFolder],
+          writable: true,
+          configurable: true,
+        });
+
+        // Mock user clicking OK on info message
+        vi.mocked(vscode.window.showInformationMessage).mockResolvedValueOnce(
+          "Open Chat History" as never
+        );
+
+        // Mock user confirming selection
+        vi.mocked(vscode.window.showInformationMessage).mockResolvedValueOnce(
+          "OK" as never
+        );
+
+        // Mock active tab
+        vi.mocked(vscode.window.tabGroups).activeTabGroup = {
+          activeTab: { label: `Chat for ${role}`, isActive: true },
+          tabs: [],
+          viewColumn: 1,
+          isActive: true,
+        } as unknown as vscode.TabGroup;
+
+        const result = await sessionManager.promptUserToSelectSession(role);
+
+        expect(result).toBe(`Chat for ${role}`);
+        expect(vscode.window.showInformationMessage).toHaveBeenCalledWith(
+          expect.stringContaining(role.charAt(0).toUpperCase() + role.slice(1)),
+          expect.anything(),
+          expect.anything()
+        );
+      }
     });
   });
 });

@@ -19,6 +19,7 @@
 
 import * as vscode from "vscode";
 import { ConfigService } from "../config/ConfigService.js";
+import { saveSessionLabel } from "../database/mutations.js";
 import { OrchestraLogger } from "../utils/logger.js";
 
 /**
@@ -231,6 +232,111 @@ export class SessionManager {
     });
     // Note: We don't close tabs here - they'll be closed next orchestrator call
     this._implementorActive = false;
+  }
+
+  /**
+   * Prompt user to manually select a session from chat history
+   *
+   * Guides the user through selecting an existing chat tab to associate with
+   * an Orchestra role (orchestrator or implementor). This is used when automatic
+   * session tracking fails or a session label is lost.
+   *
+   * WORKFLOW:
+   * 1. Show info message explaining what the user needs to do
+   * 2. Open chat history panel
+   * 3. Show modal dialog asking user to confirm they've selected a chat
+   * 4. Capture the active tab's label
+   * 5. Save the label to the database
+   * 6. Return the label
+   *
+   * @param role - The role to associate the selected session with ('orchestrator' | 'implementor')
+   * @returns Promise<string | null> - The captured tab label on success, null if user cancels
+   *
+   * @example
+   * ```typescript
+   * const label = await sessionManager.promptUserToSelectSession('orchestrator');
+   * if (label) {
+   *   console.log(`Orchestrator session set to: ${label}`);
+   * } else {
+   *   console.log('User cancelled session selection');
+   * }
+   * ```
+   */
+  async promptUserToSelectSession(
+    role: "orchestrator" | "implementor"
+  ): Promise<string | null> {
+    try {
+      this.logger.info(`Prompting user to select ${role} session`);
+
+      // Step 1: Show initial info message
+      const initialChoice = await vscode.window.showInformationMessage(
+        `${
+          role.charAt(0).toUpperCase() + role.slice(1)
+        } session not found. Please select from chat history.`,
+        "Open Chat History",
+        "Cancel"
+      );
+
+      if (initialChoice !== "Open Chat History") {
+        this.logger.info(`User cancelled ${role} session selection`);
+        return null;
+      }
+
+      // Step 2: Execute chat history command
+      await vscode.commands.executeCommand("workbench.action.chat.history");
+      await this.delay(500); // Wait for history panel to open
+
+      // Step 3: Show modal confirmation dialog
+      const confirmation = await vscode.window.showInformationMessage(
+        `Click OK after selecting the ${role} session from the chat history.`,
+        { modal: true },
+        "OK",
+        "Cancel"
+      );
+
+      if (confirmation !== "OK") {
+        this.logger.info(`User cancelled ${role} session confirmation`);
+        return null;
+      }
+
+      // Step 4: Capture active tab label
+      const activeTab = vscode.window.tabGroups.activeTabGroup.activeTab;
+
+      if (!activeTab || !activeTab.label) {
+        this.logger.warn(`No active tab found after ${role} session selection`);
+        vscode.window.showWarningMessage(
+          "Orchestra: No chat tab is currently active. Please try again."
+        );
+        return null;
+      }
+
+      const label = activeTab.label;
+      this.logger.info(`Captured ${role} session label: ${label}`);
+
+      // Step 5: Save to database
+      const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+
+      if (!workspaceRoot) {
+        this.logger.error("No workspace folder found");
+        vscode.window.showErrorMessage(
+          "Orchestra: No workspace folder is open."
+        );
+        return null;
+      }
+
+      saveSessionLabel(workspaceRoot, role, label);
+      this.logger.info(`Saved ${role} session label to database: ${label}`);
+
+      // Step 6: Return the label
+      return label;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unknown error";
+      this.logger.error(`Failed to prompt user for ${role} session`, error);
+      vscode.window.showErrorMessage(
+        `Orchestra: Failed to select session - ${message}`
+      );
+      return null;
+    }
   }
 
   /**
