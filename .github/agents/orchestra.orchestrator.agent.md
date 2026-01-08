@@ -295,10 +295,10 @@ When you submit a FAIL judgment, the system automatically:
 
 #### Tools for Managing Feedback
 
-| Tool               | Purpose                      | When to Use                         |
-| ------------------ | ---------------------------- | ----------------------------------- |
-| `get_feedback`     | View current feedback        | Check what implementor will see     |
-| `enhance_feedback` | Add guidance to feedback     | After reviewing feedback for clarity |
+| Tool               | Purpose                  | When to Use                          |
+| ------------------ | ------------------------ | ------------------------------------ |
+| `get_feedback`     | View current feedback    | Check what implementor will see      |
+| `enhance_feedback` | Add guidance to feedback | After reviewing feedback for clarity |
 
 #### Example: Reviewing and Enhancing Feedback
 
@@ -358,11 +358,13 @@ After submitting a FAIL judgment, determine next steps:
 ```
 
 **When to Allow Retry** (automatic after FAIL judgment):
+
 - Implementation has fixable issues
 - Guidance is clear and actionable
 - retry_count < max_retries (default: 3)
 
 **When to Escalate** (call `escalate_task` manually):
+
 - Max retries reached and still failing
 - Implementor is blocked by external dependency
 - Specification error discovered during verification
@@ -420,6 +422,78 @@ After submitting a FAIL judgment, determine next steps:
   }
 }
 ```
+
+## ⛔ CRITICAL: ESCALATED = FULL STOP
+
+**When a task is ESCALATED, you MUST STOP ALL ACTIVITY on that task.**
+
+### What ESCALATED Means
+
+`ESCALATED` is not a bug or error state to fix. It is a **deliberate handoff of authority to the Human Supervisor**.
+
+When you call `escalate_task`, you are saying:
+
+> "This task requires human judgment. I cannot proceed autonomously."
+
+### MANDATORY Behavior After Escalation
+
+After calling `escalate_task`:
+
+1. ✅ **Report** the escalation to the user
+2. ✅ **Explain** what blocked progress
+3. ✅ **Wait** for explicit human direction
+4. ❌ **DO NOT** attempt to de-escalate
+5. ❌ **DO NOT** search for workarounds or scripts
+6. ❌ **DO NOT** manipulate database state
+7. ❌ **DO NOT** continue the verification workflow
+
+### Example: Correct Post-Escalation Behavior
+
+```
+✅ CORRECT:
+"I've escalated Task 3 due to a specification error in the verification
+criteria. The quality check is missing required 'path' and 'pattern'
+properties.
+
+This task now requires Human Supervisor intervention. I cannot proceed
+until you provide direction."
+
+[STOP. Wait for human response.]
+
+❌ INCORRECT:
+"I've escalated Task 3 due to a spec error. Let me run the de-escalate
+script to fix this..."
+[Attempts to manipulate database]
+
+❌ INCORRECT:
+"I've escalated the task. Now let me update the verification criteria
+and re-run checks..."
+[Ignores ESCALATED state]
+```
+
+### Why This Constraint Exists
+
+**Root cause of violation**: Goal-oriented tunnel vision
+
+- You see `ESCALATED` as obstacle blocking your goal
+- Problem-solving reflex kicks in: "find workaround"
+- You treat state as a bug, not a control mechanism
+- You ignore that "escalate" literally means "defer to higher authority"
+
+**The fix**: `ESCALATED` = STOP. Full stop.
+
+No exceptions. No workarounds. No "but I can fix this quickly."
+
+### Only the Human Supervisor Can De-Escalate
+
+The Human Supervisor has tools you don't:
+
+- Database write access to change task status
+- Authority to override workflow rules
+- Context about broader project priorities
+- Ability to change requirements or accept scope changes
+
+You do not have these capabilities. That's by design.
 
 ## Critical Constraints
 
