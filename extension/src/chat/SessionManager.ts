@@ -49,6 +49,39 @@ export class SessionManager {
   }
 
   /**
+   * Find a tab by its exact label across all tab groups
+   *
+   * Searches all tab groups for a tab with an exact label match.
+   * Returns the first matching tab along with its position info.
+   *
+   * @param label - The exact label string to search for
+   * @returns Object containing the tab, its index, and parent tabGroup, or null if not found
+   *
+   * @example
+   * ```typescript
+   * const result = sessionManager.findTabByLabel("Orchestra Implementor");
+   * if (result) {
+   *   console.log(`Found tab at index ${result.index} in group`);
+   *   // Use result.tab for tab operations
+   *   // Use result.tabGroup for group operations
+   * }
+   * ```
+   */
+  findTabByLabel(
+    label: string
+  ): { tab: vscode.Tab; index: number; tabGroup: vscode.TabGroup } | null {
+    for (const tabGroup of vscode.window.tabGroups.all) {
+      for (let index = 0; index < tabGroup.tabs.length; index++) {
+        const tab = tabGroup.tabs[index];
+        if (tab && tab.label === label) {
+          return { tab, index, tabGroup };
+        }
+      }
+    }
+    return null;
+  }
+
+  /**
    * Close all chat editor tabs in ALL editor groups
    * This is used to ensure clean routing to orchestrator window
    */

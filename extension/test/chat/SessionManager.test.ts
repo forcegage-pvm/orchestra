@@ -421,4 +421,157 @@ describe("SessionManager", () => {
       expect(sessionManager.isImplementorActive()).toBe(true);
     });
   });
+
+  describe("findTabByLabel", () => {
+    it("should find tab by exact label match", () => {
+      // Set up mock with test tabs
+      vi.mocked(vscode.window.tabGroups).all = [
+        {
+          tabs: [
+            { label: "index.ts", isActive: false },
+            { label: "Orchestra Orchestrator", isActive: true },
+            { label: "package.json", isActive: false },
+          ],
+          activeTab: null,
+          viewColumn: 1,
+          isActive: true,
+        } as unknown as vscode.TabGroup,
+      ];
+
+      const result = sessionManager.findTabByLabel("Orchestra Orchestrator");
+
+      expect(result).not.toBeNull();
+      expect(result?.tab.label).toBe("Orchestra Orchestrator");
+      expect(result?.index).toBe(1);
+      expect(result?.tabGroup).toBeDefined();
+    });
+
+    it("should return null when tab is not found", () => {
+      // Set up mock with test tabs
+      vi.mocked(vscode.window.tabGroups).all = [
+        {
+          tabs: [
+            { label: "index.ts", isActive: false },
+            { label: "package.json", isActive: false },
+          ],
+          activeTab: null,
+          viewColumn: 1,
+          isActive: true,
+        } as unknown as vscode.TabGroup,
+      ];
+
+      const result = sessionManager.findTabByLabel("NonExistent Tab");
+
+      expect(result).toBeNull();
+    });
+
+    it("should search across multiple tab groups", () => {
+      // Set up mock with multiple tab groups
+      vi.mocked(vscode.window.tabGroups).all = [
+        {
+          tabs: [
+            { label: "index.ts", isActive: false },
+            { label: "README.md", isActive: false },
+          ],
+          activeTab: null,
+          viewColumn: 1,
+          isActive: false,
+        } as unknown as vscode.TabGroup,
+        {
+          tabs: [
+            { label: "test.ts", isActive: false },
+            { label: "Orchestra Implementor", isActive: true },
+          ],
+          activeTab: null,
+          viewColumn: 2,
+          isActive: true,
+        } as unknown as vscode.TabGroup,
+      ];
+
+      const result = sessionManager.findTabByLabel("Orchestra Implementor");
+
+      expect(result).not.toBeNull();
+      expect(result?.tab.label).toBe("Orchestra Implementor");
+      expect(result?.index).toBe(1);
+      expect(result?.tabGroup.viewColumn).toBe(2);
+    });
+
+    it("should return first match when multiple tabs have same label", () => {
+      // Set up mock with duplicate labels
+      vi.mocked(vscode.window.tabGroups).all = [
+        {
+          tabs: [
+            { label: "Chat", isActive: false },
+            { label: "index.ts", isActive: false },
+          ],
+          activeTab: null,
+          viewColumn: 1,
+          isActive: false,
+        } as unknown as vscode.TabGroup,
+        {
+          tabs: [
+            { label: "Chat", isActive: true },
+            { label: "package.json", isActive: false },
+          ],
+          activeTab: null,
+          viewColumn: 2,
+          isActive: true,
+        } as unknown as vscode.TabGroup,
+      ];
+
+      const result = sessionManager.findTabByLabel("Chat");
+
+      expect(result).not.toBeNull();
+      expect(result?.tab.label).toBe("Chat");
+      expect(result?.index).toBe(0);
+      expect(result?.tabGroup.viewColumn).toBe(1); // First match from first group
+    });
+
+    it("should use exact match, not partial match", () => {
+      // Set up mock with similar but different labels
+      vi.mocked(vscode.window.tabGroups).all = [
+        {
+          tabs: [
+            { label: "Orchestra Orchestrator", isActive: false },
+            { label: "Orchestra Implementor", isActive: false },
+            { label: "Orchestra", isActive: false },
+          ],
+          activeTab: null,
+          viewColumn: 1,
+          isActive: true,
+        } as unknown as vscode.TabGroup,
+      ];
+
+      const result = sessionManager.findTabByLabel("Orchestra");
+
+      expect(result).not.toBeNull();
+      expect(result?.tab.label).toBe("Orchestra");
+      expect(result?.index).toBe(2); // Third tab is exact match
+    });
+
+    it("should return null when tabGroups.all is empty", () => {
+      // Empty tab groups
+      vi.mocked(vscode.window.tabGroups).all = [];
+
+      const result = sessionManager.findTabByLabel("Any Label");
+
+      expect(result).toBeNull();
+    });
+
+    it("should return null when all tab groups have empty tabs", () => {
+      // Tab groups with no tabs
+      vi.mocked(vscode.window.tabGroups).all = [
+        {
+          tabs: [],
+          activeTab: null,
+          viewColumn: 1,
+          isActive: true,
+        } as unknown as vscode.TabGroup,
+      ];
+
+      const result = sessionManager.findTabByLabel("Any Label");
+
+      expect(result).toBeNull();
+    });
+  });
 });
