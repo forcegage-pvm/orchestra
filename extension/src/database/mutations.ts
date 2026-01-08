@@ -418,3 +418,67 @@ export function getEscalationDetails(
 
   return escalation;
 }
+
+/**
+ * Save or update a session label for a given role
+ *
+ * Uses INSERT OR REPLACE (SQLite upsert) to handle both insert and update.
+ * Since role has a UNIQUE constraint, this will replace an existing row
+ * or create a new one.
+ *
+ * @param workspaceRoot Absolute path to workspace root
+ * @param role Role identifier ('orchestrator' | 'implementor')
+ * @param label Tab label to save
+ * @param watcher Optional database watcher to trigger UI updates
+ */
+export function saveSessionLabel(
+  workspaceRoot: string,
+  role: "orchestrator" | "implementor",
+  label: string,
+  watcher?: DatabaseWatcher
+): void {
+  const db = OrchestraDB.getInstance(workspaceRoot);
+  const now = new Date().toISOString();
+
+  // Use INSERT OR REPLACE for upsert behavior
+  db.prepare(
+    `
+    INSERT OR REPLACE INTO chat_sessions (role, tab_label, created_at, last_used_at)
+    VALUES (?, ?, ?, ?)
+  `
+  ).run(role, label, now, now);
+
+  // Trigger watcher to update UI immediately
+  if (watcher) {
+    watcher.trigger();
+  }
+}
+
+/**
+ * Clear (delete) a session label for a given role
+ *
+ * Removes the session record from the database.
+ *
+ * @param workspaceRoot Absolute path to workspace root
+ * @param role Role identifier ('orchestrator' | 'implementor')
+ * @param watcher Optional database watcher to trigger UI updates
+ */
+export function clearSessionLabel(
+  workspaceRoot: string,
+  role: "orchestrator" | "implementor",
+  watcher?: DatabaseWatcher
+): void {
+  const db = OrchestraDB.getInstance(workspaceRoot);
+
+  db.prepare(
+    `
+    DELETE FROM chat_sessions 
+    WHERE role = ?
+  `
+  ).run(role);
+
+  // Trigger watcher to update UI immediately
+  if (watcher) {
+    watcher.trigger();
+  }
+}

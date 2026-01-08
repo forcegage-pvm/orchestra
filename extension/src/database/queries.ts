@@ -844,3 +844,34 @@ export function getNextPendingTask(
     handover: result.handovers,
   };
 }
+
+/**
+ * Get the session label for a given role
+ *
+ * Returns the tab label associated with the role, or null if no session exists.
+ * Sessions are global (not sprint-specific).
+ *
+ * @param workspaceRoot Absolute path to workspace root
+ * @param role Role identifier ('orchestrator' | 'implementor')
+ * @returns Session label or null if not found
+ */
+export function getSessionLabel(
+  workspaceRoot: string,
+  role: "orchestrator" | "implementor"
+): string | null {
+  const db = getDB(workspaceRoot);
+
+  const results = db
+    .select()
+    .from(schema.chatSessions as unknown as typeof schema.chatSessions)
+    .where(
+      eq(
+        schema.chatSessions.role as unknown as typeof schema.chatSessions.role,
+        role
+      )
+    )
+    .limit(1)
+    .all() as { tab_label: string }[];
+
+  return results[0]?.tab_label ?? null;
+}
