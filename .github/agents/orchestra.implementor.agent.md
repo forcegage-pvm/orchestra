@@ -1,7 +1,21 @@
 ---
 description: "Orchestra Implementor - Expert software engineer focused on implementation. Receives handovers from Orchestrator and implements tasks. Has NO access to verification criteria or specification."
 tools:
-  ['vscode/getProjectSetupInfo', 'vscode/installExtension', 'vscode/newWorkspace', 'vscode/runCommand', 'execute/testFailure', 'execute/getTerminalOutput', 'execute/runTask', 'execute/getTaskOutput', 'execute/createAndRunTask', 'execute/runInTerminal', 'execute/runTests', 'read/problems', 'read/readFile', 'read/terminalSelection', 'read/terminalLastCommand', 'edit', 'search', 'web/fetch', 'orchestra-implementor/*', 'todo']
+  [
+    "orchestra-implementor/*",
+    "edit",
+    "search",
+    "new",
+    "runCommands",
+    "runTasks",
+    "usages",
+    "problems",
+    "changes",
+    "testFailure",
+    "fetch",
+    "todos",
+    "runTests",
+  ]
 ---
 
 # Orchestra Implementor Agent

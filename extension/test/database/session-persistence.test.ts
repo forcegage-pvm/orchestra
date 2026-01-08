@@ -8,21 +8,17 @@
  * without requiring a full Orchestra workspace setup.
  */
 
-import { beforeEach, describe, expect, it, afterEach } from "vitest";
 import Database from "better-sqlite3";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import {
-  getSessionLabel,
-  type Task,
-  type Handover,
-} from "../../src/database/queries.js";
-import {
-  saveSessionLabel,
-  clearSessionLabel,
-} from "../../src/database/mutations.js";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { OrchestraDB } from "../../src/database/client.js";
+import {
+  clearSessionLabel,
+  saveSessionLabel,
+} from "../../src/database/mutations.js";
+import { getSessionLabel } from "../../src/database/queries.js";
 
 // Test fixtures
 let testWorkspaceRoot: string;
@@ -97,7 +93,12 @@ describe("Session Persistence Functions", () => {
       const db = new Database(testDbPath);
       db.prepare(
         `INSERT INTO chat_sessions (role, tab_label, created_at, last_used_at) VALUES (?, ?, ?, ?)`
-      ).run("orchestrator", "Copilot Chat 1", "2026-01-08T12:00:00Z", "2026-01-08T12:00:00Z");
+      ).run(
+        "orchestrator",
+        "Copilot Chat 1",
+        "2026-01-08T12:00:00Z",
+        "2026-01-08T12:00:00Z"
+      );
       db.close();
 
       const label = getSessionLabel(testWorkspaceRoot, "orchestrator");
@@ -109,7 +110,12 @@ describe("Session Persistence Functions", () => {
       const db = new Database(testDbPath);
       db.prepare(
         `INSERT INTO chat_sessions (role, tab_label, created_at, last_used_at) VALUES (?, ?, ?, ?)`
-      ).run("implementor", "Copilot Chat 2", "2026-01-08T13:00:00Z", "2026-01-08T13:00:00Z");
+      ).run(
+        "implementor",
+        "Copilot Chat 2",
+        "2026-01-08T13:00:00Z",
+        "2026-01-08T13:00:00Z"
+      );
       db.close();
 
       const label = getSessionLabel(testWorkspaceRoot, "implementor");
@@ -121,14 +127,30 @@ describe("Session Persistence Functions", () => {
       const db = new Database(testDbPath);
       db.prepare(
         `INSERT INTO chat_sessions (role, tab_label, created_at, last_used_at) VALUES (?, ?, ?, ?)`
-      ).run("orchestrator", "Copilot Chat 1", "2026-01-08T12:00:00Z", "2026-01-08T12:00:00Z");
+      ).run(
+        "orchestrator",
+        "Copilot Chat 1",
+        "2026-01-08T12:00:00Z",
+        "2026-01-08T12:00:00Z"
+      );
       db.prepare(
         `INSERT INTO chat_sessions (role, tab_label, created_at, last_used_at) VALUES (?, ?, ?, ?)`
-      ).run("implementor", "Copilot Chat 2", "2026-01-08T13:00:00Z", "2026-01-08T13:00:00Z");
+      ).run(
+        "implementor",
+        "Copilot Chat 2",
+        "2026-01-08T13:00:00Z",
+        "2026-01-08T13:00:00Z"
+      );
       db.close();
 
-      const orchestratorLabel = getSessionLabel(testWorkspaceRoot, "orchestrator");
-      const implementorLabel = getSessionLabel(testWorkspaceRoot, "implementor");
+      const orchestratorLabel = getSessionLabel(
+        testWorkspaceRoot,
+        "orchestrator"
+      );
+      const implementorLabel = getSessionLabel(
+        testWorkspaceRoot,
+        "implementor"
+      );
 
       expect(orchestratorLabel).toBe("Copilot Chat 1");
       expect(implementorLabel).toBe("Copilot Chat 2");
