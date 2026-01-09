@@ -11,14 +11,20 @@ import { ConfigService } from "../../src/config/ConfigService.js";
 import { OrchestraLogger } from "../../src/utils/logger.js";
 
 // Mock database mutations - must be hoisted to avoid initialization errors
-const { mockSaveSessionLabel, mockClearSessionLabel } = vi.hoisted(() => ({
-  mockSaveSessionLabel: vi.fn(),
-  mockClearSessionLabel: vi.fn(),
-}));
+const { mockSaveSessionLabel, mockClearSessionLabel, mockGetSessionLabel } =
+  vi.hoisted(() => ({
+    mockSaveSessionLabel: vi.fn(),
+    mockClearSessionLabel: vi.fn(),
+    mockGetSessionLabel: vi.fn(),
+  }));
 
 vi.mock("../../src/database/mutations.js", () => ({
   saveSessionLabel: mockSaveSessionLabel,
   clearSessionLabel: mockClearSessionLabel,
+}));
+
+vi.mock("../../src/database/queries.js", () => ({
+  getSessionLabel: mockGetSessionLabel,
 }));
 
 // Mock VS Code API
@@ -74,6 +80,7 @@ describe("SessionManager", () => {
     // Reset database mocks
     mockSaveSessionLabel.mockClear();
     mockClearSessionLabel.mockClear();
+    mockGetSessionLabel.mockClear();
 
     // Create mock dependencies
     mockLogger = new OrchestraLogger();
@@ -887,6 +894,322 @@ describe("SessionManager", () => {
           expect.anything()
         );
       }
+    });
+  });
+
+  describe("initSession", () => {
+    beforeEach(() => {
+      // Setup workspace folders
+      const mockWorkspaceFolder = {
+        uri: { fsPath: "/test/workspace" },
+        name: "test-workspace",
+        index: 0,
+      };
+      Object.defineProperty(vscode.workspace, "workspaceFolders", {
+        value: [mockWorkspaceFolder],
+        writable: true,
+        configurable: true,
+      });
+    });
+
+    it("should initialize session when label and tab are found", async () => {
+      // Mock: label exists in DB
+      mockGetSessionLabel.mockReturnValue("Orchestra Chat");
+
+      // Mock: tab exists
+      vi.mocked(vscode.window.tabGroups).all = [
+        {
+          tabs: [
+            { label: "Orchestra Chat", isActive: false },
+            { label: "Other Tab", isActive: false },
+          ],
+          activeTab: null,
+          viewColumn: 1,
+          isActive: true,
+        } as unknown as vscode.TabGroup,
+      ];
+
+      const result = await sessionManager.initSession("orchestrator");
+
+      expect(result).toBe(true);
+      expect(mockGetSessionLabel).toHaveBeenCalledWith(
+        "/test/workspace",
+        "orchestrator"
+      );
+      expect(vscode.commands.executeCommand).toHaveBeenCalledWith(
+        "workbench.action.openEditorAtIndex",
+        0
+      );
+      expect(mockLogger.info).toHaveBeenCalledWith(
+        "orchestrator session initialized successfully"
+      );
+    });
+
+    it("should NOT send /clear for orchestrator role", async () => {
+      mockGetSessionLabel.mockReturnValue("Orchestra Chat");
+
+      vi.mocked(vscode.window.tabGroups).all = [
+        {
+          tabs: [{ label: "Orchestra Chat", isActive: false }],
+          activeTab: null,
+          viewColumn: 1,
+          isActive: true,
+        } as unknown as vscode.TabGroup,
+      ];
+
+      await sessionManager.initSession("orchestrator");
+
+      // Verify /clear was NOT sent
+      const chatOpenCalls = vi
+        .mocked(vscode.commands.executeCommand)
+        .mock.calls.filter((call) => call[0] === "workbench.action.chat.open");
+
+      expect(chatOpenCalls).toHaveLength(0);
+    });
+
+    it("should send /clear for implementor role after focusing tab", async () => {
+      mockGetSessionLabel.mockReturnValue("Implementor Chat");
+
+      vi.mocked(vscode.window.tabGroups).all = [
+        {
+          tabs: [{ label: "Implementor Chat", isActive: false }],
+          activeTab: null,
+          viewColumn: 1,
+          isActive: true,
+        } as unknown as vscode.TabGroup,
+      ];
+
+      await sessionManager.initSession("implementor");
+
+      // Verify openEditorAtIndex was called first
+      expect(vscode.commands.executeCommand).toHaveBeenCalledWith(
+        "workbench.action.openEditorAtIndex",
+        0
+      );
+
+      // Verify /clear was sent
+      expect(vscode.commands.executeCommand).toHaveBeenCalledWith(
+        "workbench.action.chat.open",
+        {
+          query: "/clear",
+          isPartialQuery: false,
+        }
+      );
+    });
+
+    it("should prompt user when no previous label exists", async () => {
+      // Mock: no label in DB
+      mockGetSessionLabel.mockReturnValue(null);
+
+      // Mock: user selects a chat
+      vi.mocked(vscode.window.showInformationMessage)
+        .mockResolvedValueOnce("Open Chat History" as never)
+        .mockResolvedValueOnce("OK" as never);
+
+      vi.mocked(vscode.window.tabGroups).activeTabGroup = {
+        activeTab: { label: "Selected Chat", isActive: true },
+        tabs: [],
+        viewColumn: 1,
+        isActive: true,
+      } as unknown as vscode.TabGroup;
+
+      // Mock: tab exists after selection
+      vi.mocked(vscode.window.tabGroups).all = [
+        {
+          tabs: [{ label: "Selected Chat", isActive: false }],
+          activeTab: null,
+          viewColumn: 1,
+          isActive: true,
+        } as unknown as vscode.TabGroup,
+      ];
+
+      const result = await sessionManager.initSession("orchestrator");
+
+      expect(result).toBe(true);
+      expect(mockLogger.info).toHaveBeenCalledWith(
+        "No previous orchestrator label found, prompting user"
+      );
+      expect(mockSaveSessionLabel).toHaveBeenCalledWith(
+        "/test/workspace",
+        "orchestrator",
+        "Selected Chat"
+      );
+    });
+
+    it("should return false when user cancels initial selection", async () => {
+      // Mock: no label in DB
+      mockGetSessionLabel.mockReturnValue(null);
+
+      // Mock: user cancels
+      vi.mocked(vscode.window.showInformationMessage).mockResolvedValueOnce(
+        "Cancel" as never
+      );
+
+      const result = await sessionManager.initSession("orchestrator");
+
+      expect(result).toBe(false);
+      expect(mockLogger.info).toHaveBeenCalledWith(
+        "User cancelled orchestrator session selection"
+      );
+    });
+
+    it("should prompt user when label exists but tab not found", async () => {
+      // Mock: label exists in DB
+      mockGetSessionLabel.mockReturnValue("Old Chat Label");
+
+      // Mock: tab does NOT exist (empty tab groups)
+      vi.mocked(vscode.window.tabGroups).all = [];
+
+      // Mock: user selects a new chat
+      vi.mocked(vscode.window.showInformationMessage)
+        .mockResolvedValueOnce("Open Chat History" as never)
+        .mockResolvedValueOnce("OK" as never);
+
+      vi.mocked(vscode.window.tabGroups).activeTabGroup = {
+        activeTab: { label: "New Chat", isActive: true },
+        tabs: [],
+        viewColumn: 1,
+        isActive: true,
+      } as unknown as vscode.TabGroup;
+
+      // Mock: new tab exists after selection
+      vi.mocked(vscode.window.tabGroups).all = [
+        {
+          tabs: [{ label: "New Chat", isActive: false }],
+          activeTab: null,
+          viewColumn: 1,
+          isActive: true,
+        } as unknown as vscode.TabGroup,
+      ];
+
+      const result = await sessionManager.initSession("implementor");
+
+      expect(result).toBe(true);
+      expect(mockLogger.warn).toHaveBeenCalledWith(
+        "Tab not found for implementor label: Old Chat Label, prompting user to select"
+      );
+      expect(mockSaveSessionLabel).toHaveBeenCalledWith(
+        "/test/workspace",
+        "implementor",
+        "New Chat"
+      );
+    });
+
+    it("should return false when user cancels after tab not found", async () => {
+      // Mock: label exists but tab not found
+      mockGetSessionLabel.mockReturnValue("Missing Chat");
+      vi.mocked(vscode.window.tabGroups).all = [];
+
+      // Mock: user cancels re-selection
+      vi.mocked(vscode.window.showInformationMessage).mockResolvedValueOnce(
+        "Cancel" as never
+      );
+
+      const result = await sessionManager.initSession("orchestrator");
+
+      expect(result).toBe(false);
+      expect(mockLogger.info).toHaveBeenCalledWith(
+        "User cancelled orchestrator session re-selection"
+      );
+    });
+
+    it("should return false when no workspace folders exist", async () => {
+      // Remove workspace folders
+      Object.defineProperty(vscode.workspace, "workspaceFolders", {
+        value: undefined,
+        writable: true,
+        configurable: true,
+      });
+
+      const result = await sessionManager.initSession("orchestrator");
+
+      expect(result).toBe(false);
+      expect(mockLogger.error).toHaveBeenCalledWith(
+        "No workspace folder found"
+      );
+      expect(vscode.window.showErrorMessage).toHaveBeenCalledWith(
+        "Orchestra: No workspace folder is open."
+      );
+    });
+
+    it("should return false when tab still not found after user selection", async () => {
+      // Mock: label exists but tab not found
+      mockGetSessionLabel.mockReturnValue("Missing Chat");
+      vi.mocked(vscode.window.tabGroups).all = [];
+
+      // Mock: user selects but tab still doesn't exist
+      vi.mocked(vscode.window.showInformationMessage)
+        .mockResolvedValueOnce("Open Chat History" as never)
+        .mockResolvedValueOnce("OK" as never);
+
+      vi.mocked(vscode.window.tabGroups).activeTabGroup = {
+        activeTab: { label: "Ghost Chat", isActive: true },
+        tabs: [],
+        viewColumn: 1,
+        isActive: true,
+      } as unknown as vscode.TabGroup;
+
+      // Tab still doesn't exist after selection
+      vi.mocked(vscode.window.tabGroups).all = [];
+
+      const result = await sessionManager.initSession("orchestrator");
+
+      expect(result).toBe(false);
+      expect(mockLogger.error).toHaveBeenCalledWith(
+        "Tab still not found after user selection"
+      );
+      expect(vscode.window.showErrorMessage).toHaveBeenCalledWith(
+        "Orchestra: Could not find the selected chat tab."
+      );
+    });
+
+    it("should handle errors gracefully", async () => {
+      // Mock getSessionLabel to throw error
+      mockGetSessionLabel.mockImplementation(() => {
+        throw new Error("Database error");
+      });
+
+      const result = await sessionManager.initSession("orchestrator");
+
+      expect(result).toBe(false);
+      expect(mockLogger.error).toHaveBeenCalledWith(
+        "Failed to initialize orchestrator session",
+        expect.any(Error)
+      );
+      expect(vscode.window.showErrorMessage).toHaveBeenCalledWith(
+        "Orchestra: Failed to initialize orchestrator session - Database error"
+      );
+    });
+
+    it("should focus tab at correct index when found in second tab group", async () => {
+      mockGetSessionLabel.mockReturnValue("Orchestra Chat");
+
+      // Mock: tab in second group at index 1
+      vi.mocked(vscode.window.tabGroups).all = [
+        {
+          tabs: [{ label: "Other Tab 1", isActive: false }],
+          activeTab: null,
+          viewColumn: 1,
+          isActive: true,
+        } as unknown as vscode.TabGroup,
+        {
+          tabs: [
+            { label: "Other Tab 2", isActive: false },
+            { label: "Orchestra Chat", isActive: false },
+          ],
+          activeTab: null,
+          viewColumn: 2,
+          isActive: false,
+        } as unknown as vscode.TabGroup,
+      ];
+
+      const result = await sessionManager.initSession("orchestrator");
+
+      expect(result).toBe(true);
+      expect(vscode.commands.executeCommand).toHaveBeenCalledWith(
+        "workbench.action.openEditorAtIndex",
+        1 // Index within the group where it was found
+      );
     });
   });
 });

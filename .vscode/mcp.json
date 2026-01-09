@@ -1,25 +1,31 @@
 {
+  // NOTE: This file is a FALLBACK for VS Code < 1.102 which doesn't support
+  // McpServerDefinitionProvider. The Orchestra extension automatically provides
+  // MCP servers on VS Code 1.102+.
+  //
+  // If you need to use this file, update the version number to match your
+  // installed extension version (check Extensions panel for current version).
   "servers": {
     "orchestra-orchestrator": {
       "type": "stdio",
       "command": "node",
       "args": [
-        "x:\\Cloud Storage\\Dropbox\\Repositories\\vs code\\orchestra\\extension\\dist\\mcp-server\\index.js",
+        "${userHome}/.vscode/extensions/forcegage.orchestra-extension-0.2.4/dist/mcp-server/index.js",
         "--role=orchestrator"
       ],
       "env": {
-        "ORCHESTRA_WORKSPACE": "x:\\Cloud Storage\\Dropbox\\Repositories\\vs code\\orchestra"
+        "ORCHESTRA_WORKSPACE": "${workspaceFolder}"
       }
     },
     "orchestra-implementor": {
       "type": "stdio",
       "command": "node",
       "args": [
-        "x:\\Cloud Storage\\Dropbox\\Repositories\\vs code\\orchestra\\extension\\dist\\mcp-server\\index.js",
+        "${userHome}/.vscode/extensions/forcegage.orchestra-extension-0.2.4/dist/mcp-server/index.js",
         "--role=implementor"
       ],
       "env": {
-        "ORCHESTRA_WORKSPACE": "x:\\Cloud Storage\\Dropbox\\Repositories\\vs code\\orchestra"
+        "ORCHESTRA_WORKSPACE": "${workspaceFolder}"
       }
     }
   }

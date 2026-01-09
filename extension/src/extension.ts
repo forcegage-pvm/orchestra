@@ -40,6 +40,7 @@ import { ConfigService } from "./config/ConfigService.js";
 import { OrchestraDB } from "./database/client.js";
 import { DatabaseWatcher } from "./database/watcher.js";
 import { ConfigGenerator } from "./mcp/ConfigGenerator.js";
+import { registerMcpServerProvider } from "./mcp/McpServerProvider.js";
 import { MCPServerManager } from "./mcp/ServerManager.js";
 import { ContextFileResolver } from "./prompts/ContextFileResolver.js";
 import { OrchestraLogger } from "./utils/logger.js";
@@ -613,6 +614,24 @@ export async function activate(
   }
 
   logger.info(`Orchestra workspace detected: ${orchestraRoot}`);
+
+  // Register MCP server definition provider (provides servers dynamically to VS Code)
+  // This eliminates the need for hardcoded paths in .vscode/mcp.json
+  try {
+    const mcpProviderDisposable = registerMcpServerProvider(
+      context,
+      orchestraRoot
+    );
+    context.subscriptions.push(mcpProviderDisposable);
+    logger.info("MCP server definition provider registered");
+  } catch (err) {
+    // This may fail if VS Code version doesn't support McpServerDefinitionProvider
+    logger.warn(
+      `Failed to register MCP provider (may require VS Code 1.102+): ${
+        err instanceof Error ? err.message : "Unknown"
+      }`
+    );
+  }
 
   // Sync agent files and MCP config on every activation to ensure latest definitions
   const workspaceFolders = vscode.workspace.workspaceFolders;

@@ -5,15 +5,15 @@
  * Includes feedback if task is in VERIFY_FAILED state.
  */
 
-import { and, eq, inArray } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { getActiveSprint, getDb } from "../../db/index.js";
+import { logToolExecution } from "./audit-logging.js";
 import { feedback, handovers, tasks } from "../../db/schema.js";
 import {
   GetCurrentTaskInputSchema,
   type GetCurrentTaskOutput,
 } from "../../schemas/handover.js";
 import { validateInput } from "../../schemas/utils.js";
-import { logToolExecution } from "./audit-logging.js";
 
 export async function handleGetCurrentTask(input: unknown) {
   const startTime = performance.now();
@@ -93,16 +93,10 @@ async function getCurrentTask(): Promise<GetCurrentTaskOutput> {
   }
 
   // 2. Find task in IMPLEMENT or VERIFY_FAILED state (current task for implementor)
-  // BUG FIX: Must filter by sprint_id to only get tasks from active sprint
   const [task] = await db
     .select()
     .from(tasks)
-    .where(
-      and(
-        eq(tasks.sprint_id, sprint.id),
-        inArray(tasks.status, ["IMPLEMENT", "VERIFY_FAILED"])
-      )
-    )
+    .where(inArray(tasks.status, ["IMPLEMENT", "VERIFY_FAILED"]))
     .limit(1);
 
   if (!task) {

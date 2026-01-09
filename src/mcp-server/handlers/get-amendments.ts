@@ -8,13 +8,13 @@
 
 import { and, eq } from "drizzle-orm";
 import { getActiveSprint, getDb } from "../../db/index.js";
+import { logToolExecution } from "./audit-logging.js";
 import { amendments, tasks } from "../../db/schema.js";
 import {
   GetAmendmentsInputSchema,
   type GetAmendmentsOutput,
 } from "../../schemas/progress.js";
 import { validateInput } from "../../schemas/utils.js";
-import { logToolExecution } from "./audit-logging.js";
 
 export async function handleGetAmendments(input: unknown) {
   const startTime = performance.now();
@@ -34,22 +34,15 @@ export async function handleGetAmendments(input: unknown) {
     const output = await getAmendments(validation.data ?? {});
     const durationMs = Math.round(performance.now() - startTime);
 
-    // Build context conditionally for exactOptionalPropertyTypes
-    const context: {
-      toolName: string;
-      role: "orchestrator";
-      input: unknown;
-      taskId?: number;
-    } = {
-      toolName: "get_amendments",
-      role: "orchestrator",
-      input: validation.data,
-    };
-    if (validation.data?.task_id !== undefined) {
-      context.taskId = validation.data.task_id;
-    }
-
-    await logToolExecution(context, { success: true, output }, durationMs);
+    await logToolExecution(
+      {
+        toolName: "get_amendments",
+        role: "orchestrator",
+        input: validation.data,
+      },
+      { success: true, output },
+      durationMs
+    );
 
     return {
       content: [{ type: "text" as const, text: JSON.stringify(output) }],
@@ -58,23 +51,12 @@ export async function handleGetAmendments(input: unknown) {
     const durationMs = Math.round(performance.now() - startTime);
     const err = error instanceof Error ? error : new Error(String(error));
 
-    // Build context conditionally for exactOptionalPropertyTypes
-    const context: {
-      toolName: string;
-      role: "orchestrator";
-      input: unknown;
-      taskId?: number;
-    } = {
-      toolName: "get_amendments",
-      role: "orchestrator",
-      input: validation.data,
-    };
-    if (validation.data?.task_id !== undefined) {
-      context.taskId = validation.data.task_id;
-    }
-
     await logToolExecution(
-      context,
+      {
+        toolName: "get_amendments",
+        role: "orchestrator",
+        input: validation.data,
+      },
       { success: false, errorMessage: err.message },
       durationMs
     );

@@ -20,6 +20,7 @@
 import * as vscode from "vscode";
 import { ConfigService } from "../config/ConfigService.js";
 import { saveSessionLabel } from "../database/mutations.js";
+import { getSessionLabel } from "../database/queries.js";
 import { OrchestraLogger } from "../utils/logger.js";
 
 /**
@@ -47,6 +48,126 @@ export class SessionManager {
   constructor(logger: OrchestraLogger, configService: ConfigService) {
     this.logger = logger;
     this._configService = configService;
+  }
+
+  /**
+   * Initialize a session for the specified role (orchestrator or implementor)
+   *
+   * This is the main entry point for initializing an Orchestra agent session.
+   * It ties together database label loading, tab discovery, and user prompting
+   * into a cohesive workflow.
+   *
+   * WORKFLOW:
+   * 1. Load stored label from database
+   * 2. If label exists, find the corresponding tab
+   * 3. If tab found, focus it
+   * 4. If tab not found (or no label), prompt user to select
+   * 5. For implementor role: send /clear command to reset context
+   *
+   * @param role - The role to initialize ('orchestrator' | 'implementor')
+   * @returns Promise<boolean> - true if session is ready to use, false on failure/cancel
+   *
+   * @example
+   * ```typescript
+   * const ready = await sessionManager.initSession('implementor');
+   * if (ready) {
+   *   // Session is initialized and tab is focused
+   *   await sessionManager.invokeImplementor(prompt, files);
+   * } else {
+   *   // User cancelled or error occurred
+   *   console.log('Session initialization cancelled');
+   * }
+   * ```
+   */
+  async initSession(role: "orchestrator" | "implementor"): Promise<boolean> {
+    try {
+      this.logger.info(`Initializing ${role} session`);
+
+      // Get workspace root
+      const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+      if (!workspaceRoot) {
+        this.logger.error("No workspace folder found");
+        vscode.window.showErrorMessage(
+          "Orchestra: No workspace folder is open."
+        );
+        return false;
+      }
+
+      // Step 1: Load stored label from database
+      let label = getSessionLabel(workspaceRoot, role);
+      this.logger.info(`Loaded ${role} label from database`, { label });
+
+      // Step 2: Handle case where no label exists (first run)
+      if (!label) {
+        this.logger.info(`No previous ${role} label found, prompting user`);
+        label = await this.promptUserToSelectSession(role);
+
+        if (!label) {
+          this.logger.info(`User cancelled ${role} session selection`);
+          return false;
+        }
+      }
+
+      // Step 3: Find the tab by label
+      const tabResult = this.findTabByLabel(label);
+
+      if (!tabResult) {
+        // Tab not found even though label exists - prompt user to select
+        this.logger.warn(
+          `Tab not found for ${role} label: ${label}, prompting user to select`
+        );
+        const newLabel = await this.promptUserToSelectSession(role);
+
+        if (!newLabel) {
+          this.logger.info(`User cancelled ${role} session re-selection`);
+          return false;
+        }
+
+        // After user selects, try to find the tab again
+        const newTabResult = this.findTabByLabel(newLabel);
+        if (!newTabResult) {
+          this.logger.error(`Tab still not found after user selection`);
+          vscode.window.showErrorMessage(
+            "Orchestra: Could not find the selected chat tab."
+          );
+          return false;
+        }
+
+        // Focus the newly selected tab
+        await vscode.commands.executeCommand(
+          "workbench.action.openEditorAtIndex",
+          newTabResult.index
+        );
+        this.logger.info(`Focused ${role} tab at index ${newTabResult.index}`);
+      } else {
+        // Step 4: Focus the tab
+        await vscode.commands.executeCommand(
+          "workbench.action.openEditorAtIndex",
+          tabResult.index
+        );
+        this.logger.info(`Focused ${role} tab at index ${tabResult.index}`);
+      }
+
+      // Step 5: For implementor, send /clear to reset context
+      if (role === "implementor") {
+        this.logger.info("Sending /clear command to implementor chat");
+        await this.delay(200); // Wait for tab to be fully focused
+        await vscode.commands.executeCommand("workbench.action.chat.open", {
+          query: "/clear",
+          isPartialQuery: false,
+        });
+      }
+
+      this.logger.info(`${role} session initialized successfully`);
+      return true;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unknown error";
+      this.logger.error(`Failed to initialize ${role} session`, error);
+      vscode.window.showErrorMessage(
+        `Orchestra: Failed to initialize ${role} session - ${message}`
+      );
+      return false;
+    }
   }
 
   /**
