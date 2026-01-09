@@ -120,26 +120,10 @@ function copyMcpServer() {
     process.exit(1);
   }
 
-  // Also copy better-sqlite3 to extension's root node_modules for the extension itself
-  // (The extension.js also requires better-sqlite3, not just the MCP server)
-  console.log("📦 Copying better-sqlite3 to extension node_modules...");
-  const extNodeModules = path.resolve(__dirname, "../node_modules");
-
-  for (const moduleName of NATIVE_MODULES) {
-    const sourceModule = path.join(ROOT_NODE_MODULES, moduleName);
-    const targetModule = path.join(extNodeModules, moduleName);
-
-    if (fs.existsSync(sourceModule)) {
-      // Only copy if source is newer or target doesn't exist
-      if (!fs.existsSync(targetModule)) {
-        fs.cpSync(sourceModule, targetModule, { recursive: true });
-        console.log(`   ✓ ${moduleName} (copied to extension)`);
-      } else {
-        console.log(`   ✓ ${moduleName} (already exists in extension)`);
-      }
-    }
-  }
-  console.log("✅ Extension native modules ready!");
+  // NOTE: Extension's own node_modules needs Electron-compiled native modules,
+  // which are managed separately via @electron/rebuild. The MCP server uses
+  // Node.js-compiled modules from dist/mcp-server/node_modules.
+  // DO NOT copy root's Node.js modules to extension/node_modules!
 }
 
 copyMcpServer();
