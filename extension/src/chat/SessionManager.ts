@@ -407,10 +407,10 @@ export class SessionManager {
       await vscode.commands.executeCommand("workbench.action.chat.history");
       await this.delay(500); // Wait for history panel to open
 
-      // Step 3: Show modal confirmation dialog
+      // Step 3: Show NON-modal confirmation dialog so user can interact with chat history
+      // The dialog stays visible while user clicks on a chat session in the history
       const confirmation = await vscode.window.showInformationMessage(
         `Click OK after selecting the ${role} session from the chat history.`,
-        { modal: true },
         "OK",
         "Cancel"
       );

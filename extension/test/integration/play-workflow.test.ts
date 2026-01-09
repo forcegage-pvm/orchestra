@@ -201,7 +201,7 @@ describe("Play Workflow Integration Tests", () => {
   });
 
   describe("IMPLEMENT task routing", () => {
-    it("should route IMPLEMENT task to implementor session", async () => {
+    it("should route IMPLEMENT task to a fresh chat editor tab", async () => {
       const mockTask = {
         id: mockTaskId,
         sprint_id: "sprint-1",
@@ -224,12 +224,15 @@ describe("Play Workflow Integration Tests", () => {
 
       await handlePlayTask(mockWorkspaceRoot, mockTaskId);
 
-      // Verify implementor was invoked (not orchestrator)
-      expect(mockInvokeImplementor).toHaveBeenCalledTimes(1);
+      // Verify a new chat editor tab was created (not using SessionManager)
+      expect(vscode.commands.executeCommand).toHaveBeenCalledWith(
+        "workbench.action.openChat"
+      );
+      // Orchestrator should NOT be invoked
       expect(mockInvokeOrchestrator).not.toHaveBeenCalled();
     });
 
-    it("should pass implement prompt to implementor session", async () => {
+    it("should pass implement prompt to fresh chat tab", async () => {
       const mockTask = {
         id: mockTaskId,
         sprint_id: "sprint-1",
@@ -252,10 +255,13 @@ describe("Play Workflow Integration Tests", () => {
 
       await handlePlayTask(mockWorkspaceRoot, mockTaskId);
 
-      // Verify implementor was invoked with implement prompt
-      expect(mockInvokeImplementor).toHaveBeenCalledWith(
-        "Mock implement prompt",
-        []
+      // Verify chat was opened with correct prompt
+      expect(vscode.commands.executeCommand).toHaveBeenCalledWith(
+        "workbench.action.chat.open",
+        expect.objectContaining({
+          query: "Mock implement prompt",
+          mode: "orchestra.implementor",
+        })
       );
     });
   });
@@ -321,7 +327,7 @@ describe("Play Workflow Integration Tests", () => {
   });
 
   describe("VERIFY_FAILED task routing (retry)", () => {
-    it("should route VERIFY_FAILED task to implementor session for retry", async () => {
+    it("should route VERIFY_FAILED task to fresh chat editor tab for retry", async () => {
       const mockTask = {
         id: mockTaskId,
         sprint_id: "sprint-1",
@@ -366,12 +372,15 @@ describe("Play Workflow Integration Tests", () => {
 
       await handlePlayTask(mockWorkspaceRoot, mockTaskId);
 
-      // Verify implementor was invoked (not orchestrator) for retry
-      expect(mockInvokeImplementor).toHaveBeenCalledTimes(1);
+      // Verify a new chat editor tab was created (not using SessionManager)
+      expect(vscode.commands.executeCommand).toHaveBeenCalledWith(
+        "workbench.action.openChat"
+      );
+      // Orchestrator should NOT be invoked
       expect(mockInvokeOrchestrator).not.toHaveBeenCalled();
     });
 
-    it("should pass retry prompt to implementor session", async () => {
+    it("should pass retry prompt to fresh chat tab", async () => {
       const mockTask = {
         id: mockTaskId,
         sprint_id: "sprint-1",
@@ -409,10 +418,13 @@ describe("Play Workflow Integration Tests", () => {
 
       await handlePlayTask(mockWorkspaceRoot, mockTaskId);
 
-      // Verify implementor was invoked with retry prompt
-      expect(mockInvokeImplementor).toHaveBeenCalledWith(
-        "Mock retry prompt",
-        []
+      // Verify chat was opened with correct retry prompt
+      expect(vscode.commands.executeCommand).toHaveBeenCalledWith(
+        "workbench.action.chat.open",
+        expect.objectContaining({
+          query: "Mock retry prompt",
+          mode: "orchestra.implementor",
+        })
       );
     });
   });
@@ -448,7 +460,7 @@ describe("Play Workflow Integration Tests", () => {
       expect(mockInvokeOrchestrator).toHaveBeenCalledTimes(1);
     });
 
-    it("should use SessionManager with proper agent routing for implementor", async () => {
+    it("should use ConfigService for implementor model/agent configuration", async () => {
       const mockTask = {
         id: mockTaskId,
         sprint_id: "sprint-1",
@@ -471,16 +483,21 @@ describe("Play Workflow Integration Tests", () => {
 
       await handlePlayTask(mockWorkspaceRoot, mockTaskId);
 
-      // Verify SessionManager was retrieved for implementor flow
-      expect(extension.getSessionManager).toHaveBeenCalled();
+      // Verify ConfigService was retrieved for implementor config
+      expect(extension.getConfigService).toHaveBeenCalled();
 
-      // Verify implementor session was invoked
-      expect(mockInvokeImplementor).toHaveBeenCalledTimes(1);
+      // Verify chat was opened with configured agent mode
+      expect(vscode.commands.executeCommand).toHaveBeenCalledWith(
+        "workbench.action.chat.open",
+        expect.objectContaining({
+          mode: "orchestra.implementor",
+        })
+      );
     });
   });
 
   describe("Context file resolution", () => {
-    it("should resolve and pass context files to implementor session", async () => {
+    it("should resolve and pass context files to implementor chat", async () => {
       const mockTask = {
         id: mockTaskId,
         sprint_id: "sprint-1",
@@ -512,14 +529,16 @@ describe("Play Workflow Integration Tests", () => {
 
       await handlePlayTask(mockWorkspaceRoot, mockTaskId);
 
-      // Verify implementor was invoked with context files
-      expect(mockInvokeImplementor).toHaveBeenCalledWith(
-        "Mock implement prompt",
-        mockContextFiles
+      // Verify chat was opened with context files attached
+      expect(vscode.commands.executeCommand).toHaveBeenCalledWith(
+        "workbench.action.chat.open",
+        expect.objectContaining({
+          attachFiles: mockContextFiles,
+        })
       );
     });
 
-    it("should resolve and pass context files to implementor retry session", async () => {
+    it("should resolve and pass context files to implementor retry chat", async () => {
       const mockTask = {
         id: mockTaskId,
         sprint_id: "sprint-1",
@@ -566,10 +585,12 @@ describe("Play Workflow Integration Tests", () => {
 
       await handlePlayTask(mockWorkspaceRoot, mockTaskId);
 
-      // Verify implementor was invoked with context files
-      expect(mockInvokeImplementor).toHaveBeenCalledWith(
-        "Mock retry prompt",
-        mockContextFiles
+      // Verify chat was opened with context files attached
+      expect(vscode.commands.executeCommand).toHaveBeenCalledWith(
+        "workbench.action.chat.open",
+        expect.objectContaining({
+          attachFiles: mockContextFiles,
+        })
       );
     });
   });
@@ -605,10 +626,9 @@ describe("Play Workflow Integration Tests", () => {
       );
       expect(queries.getCurrentSprint).toHaveBeenCalledWith(mockWorkspaceRoot);
       expect(mockInvokeOrchestrator).toHaveBeenCalledTimes(1);
-      expect(mockInvokeImplementor).not.toHaveBeenCalled();
     });
 
-    it("should complete full IMPLEMENT → implementor flow with all components", async () => {
+    it("should complete full IMPLEMENT → fresh chat tab flow with all components", async () => {
       const mockTask = {
         id: mockTaskId,
         sprint_id: "sprint-1",
@@ -631,12 +651,20 @@ describe("Play Workflow Integration Tests", () => {
 
       await handlePlayTask(mockWorkspaceRoot, mockTaskId);
 
-      // Verify complete flow
+      // Verify complete flow - uses fresh chat tab, not SessionManager
       expect(queries.getTaskById).toHaveBeenCalledWith(
         mockWorkspaceRoot,
         mockTaskId
       );
-      expect(mockInvokeImplementor).toHaveBeenCalledTimes(1);
+      expect(vscode.commands.executeCommand).toHaveBeenCalledWith(
+        "workbench.action.openChat"
+      );
+      expect(vscode.commands.executeCommand).toHaveBeenCalledWith(
+        "workbench.action.chat.open",
+        expect.objectContaining({
+          mode: "orchestra.implementor",
+        })
+      );
       expect(mockInvokeOrchestrator).not.toHaveBeenCalled();
     });
 
@@ -669,10 +697,9 @@ describe("Play Workflow Integration Tests", () => {
         mockTaskId
       );
       expect(mockInvokeOrchestrator).toHaveBeenCalledTimes(1);
-      expect(mockInvokeImplementor).not.toHaveBeenCalled();
     });
 
-    it("should complete full VERIFY_FAILED → implementor retry flow with all components", async () => {
+    it("should complete full VERIFY_FAILED → fresh chat tab retry flow with all components", async () => {
       const mockTask = {
         id: mockTaskId,
         sprint_id: "sprint-1",
@@ -710,7 +737,7 @@ describe("Play Workflow Integration Tests", () => {
 
       await handlePlayTask(mockWorkspaceRoot, mockTaskId);
 
-      // Verify complete flow
+      // Verify complete flow - uses fresh chat tab, not SessionManager
       expect(queries.getTaskById).toHaveBeenCalledWith(
         mockWorkspaceRoot,
         mockTaskId
@@ -719,7 +746,15 @@ describe("Play Workflow Integration Tests", () => {
         mockWorkspaceRoot,
         mockTaskId
       );
-      expect(mockInvokeImplementor).toHaveBeenCalledTimes(1);
+      expect(vscode.commands.executeCommand).toHaveBeenCalledWith(
+        "workbench.action.openChat"
+      );
+      expect(vscode.commands.executeCommand).toHaveBeenCalledWith(
+        "workbench.action.chat.open",
+        expect.objectContaining({
+          mode: "orchestra.implementor",
+        })
+      );
       expect(mockInvokeOrchestrator).not.toHaveBeenCalled();
     });
   });

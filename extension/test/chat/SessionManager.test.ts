@@ -652,7 +652,7 @@ describe("SessionManager", () => {
       );
     });
 
-    it("should show modal confirmation dialog", async () => {
+    it("should show non-modal confirmation dialog to allow user interaction", async () => {
       // Mock user clicking OK on info message
       vi.mocked(vscode.window.showInformationMessage).mockResolvedValueOnce(
         "Open Chat History" as never
@@ -673,10 +673,9 @@ describe("SessionManager", () => {
 
       await sessionManager.promptUserToSelectSession("orchestrator");
 
-      // Second call should be the modal confirmation
+      // Second call should be NON-modal confirmation (to allow user to interact with chat history)
       expect(vscode.window.showInformationMessage).toHaveBeenCalledWith(
         expect.stringContaining("Click OK after selecting"),
-        { modal: true },
         "OK",
         "Cancel"
       );

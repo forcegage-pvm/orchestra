@@ -60,6 +60,7 @@ vi.mock("../../src/extension.js", () => ({
     getModelForRole: vi.fn((role: string) =>
       role === "orchestrator" ? "claude-opus-4" : "claude-sonnet-4"
     ),
+    getAgentForRole: vi.fn((role: string) => `orchestra.${role}`),
   })),
   getContextFileResolver: vi.fn(() => ({
     getContextFiles: vi.fn(() => []),
@@ -229,18 +230,11 @@ describe("PlayTaskHandler", () => {
       it("should invoke implementor with correct context and files", async () => {
         vi.mocked(queries.getTaskById).mockReturnValue(mockTask);
 
-        const mockSendMessage = vi.fn().mockResolvedValue(true);
-        const mockClearImplementorContext = vi.fn().mockResolvedValue(true);
         const mockBuildImplementPrompt = vi.fn(() => "Mock implement prompt");
         const mockGetContextFiles = vi.fn(() => [
           { fsPath: "/workspace/src/file1.ts" },
           { fsPath: "/workspace/src/file2.ts" },
         ]);
-
-        vi.mocked(extension.getSessionManager).mockReturnValue({
-          sendMessage: mockSendMessage,
-          clearImplementorContext: mockClearImplementorContext,
-        } as never);
 
         vi.mocked(PromptBuilder).mockImplementation(
           () =>
@@ -279,32 +273,28 @@ describe("PlayTaskHandler", () => {
         // Verify context files were resolved
         expect(mockGetContextFiles).toHaveBeenCalledWith(mockTaskId);
 
-        // Verify clearImplementorContext was called before sendMessage
-        expect(mockClearImplementorContext).toHaveBeenCalled();
+        // Verify a new chat editor tab was created
+        expect(vscode.commands.executeCommand).toHaveBeenCalledWith(
+          "workbench.action.openChat"
+        );
 
-        // Verify SessionManager.sendMessage was called with implementor role and files
-        expect(mockSendMessage).toHaveBeenCalledWith(
-          "implementor",
-          "Mock implement prompt",
-          [
-            { fsPath: "/workspace/src/file1.ts" },
-            { fsPath: "/workspace/src/file2.ts" },
-          ]
+        // Verify the message was sent to the chat
+        expect(vscode.commands.executeCommand).toHaveBeenCalledWith(
+          "workbench.action.chat.open",
+          expect.objectContaining({
+            query: "Mock implement prompt",
+            isPartialQuery: false,
+            mode: "orchestra.implementor",
+            modelSelector: { id: "claude-sonnet-4" },
+          })
         );
       });
 
       it("should work when handover is null (no handover exists yet)", async () => {
         vi.mocked(queries.getTaskById).mockReturnValue(mockTask);
 
-        const mockSendMessage = vi.fn().mockResolvedValue(true);
-        const mockClearImplementorContext = vi.fn().mockResolvedValue(true);
         const mockBuildImplementPrompt = vi.fn(() => "Mock implement prompt");
         const mockGetContextFiles = vi.fn(() => []);
-
-        vi.mocked(extension.getSessionManager).mockReturnValue({
-          sendMessage: mockSendMessage,
-          clearImplementorContext: mockClearImplementorContext,
-        } as never);
 
         vi.mocked(PromptBuilder).mockImplementation(
           () =>
@@ -334,23 +324,23 @@ describe("PlayTaskHandler", () => {
           },
         });
 
-        // Should still invoke implementor successfully
-        expect(mockClearImplementorContext).toHaveBeenCalled();
-        expect(mockSendMessage).toHaveBeenCalled();
+        // Should still create chat and send message
+        expect(vscode.commands.executeCommand).toHaveBeenCalledWith(
+          "workbench.action.openChat"
+        );
+        expect(vscode.commands.executeCommand).toHaveBeenCalledWith(
+          "workbench.action.chat.open",
+          expect.objectContaining({
+            query: "Mock implement prompt",
+          })
+        );
       });
 
       it("should work when no context files exist", async () => {
         vi.mocked(queries.getTaskById).mockReturnValue(mockTask);
 
-        const mockSendMessage = vi.fn().mockResolvedValue(true);
-        const mockClearImplementorContext = vi.fn().mockResolvedValue(true);
         const mockBuildImplementPrompt = vi.fn(() => "Mock implement prompt");
         const mockGetContextFiles = vi.fn(() => []); // No files
-
-        vi.mocked(extension.getSessionManager).mockReturnValue({
-          sendMessage: mockSendMessage,
-          clearImplementorContext: mockClearImplementorContext,
-        } as never);
 
         vi.mocked(PromptBuilder).mockImplementation(
           () =>
@@ -365,12 +355,13 @@ describe("PlayTaskHandler", () => {
 
         await handlePlayTask(mockWorkspaceRoot, mockTaskId);
 
-        // Should invoke implementor with empty files array
-        expect(mockClearImplementorContext).toHaveBeenCalled();
-        expect(mockSendMessage).toHaveBeenCalledWith(
-          "implementor",
-          "Mock implement prompt",
-          []
+        // Should invoke chat with empty files array
+        expect(vscode.commands.executeCommand).toHaveBeenCalledWith(
+          "workbench.action.chat.open",
+          expect.objectContaining({
+            query: "Mock implement prompt",
+            attachFiles: [],
+          })
         );
       });
 
@@ -445,17 +436,10 @@ describe("PlayTaskHandler", () => {
         vi.mocked(queries.getTaskById).mockReturnValue(mockTask);
         vi.mocked(queries.getFeedback).mockReturnValue(mockFeedback);
 
-        const mockSendMessage = vi.fn().mockResolvedValue(true);
-        const mockClearImplementorContext = vi.fn().mockResolvedValue(true);
         const mockBuildRetryPrompt = vi.fn(() => "Mock retry prompt");
         const mockGetContextFiles = vi.fn(() => [
           { fsPath: "/workspace/src/file1.ts" },
         ]);
-
-        vi.mocked(extension.getSessionManager).mockReturnValue({
-          sendMessage: mockSendMessage,
-          clearImplementorContext: mockClearImplementorContext,
-        } as never);
 
         vi.mocked(PromptBuilder).mockImplementation(
           () =>
@@ -499,14 +483,20 @@ describe("PlayTaskHandler", () => {
         // Verify context files were resolved
         expect(mockGetContextFiles).toHaveBeenCalledWith(mockTaskId);
 
-        // Verify clearImplementorContext was called before retry
-        expect(mockClearImplementorContext).toHaveBeenCalled();
+        // Verify a new chat editor tab was created
+        expect(vscode.commands.executeCommand).toHaveBeenCalledWith(
+          "workbench.action.openChat"
+        );
 
-        // Verify SessionManager.sendMessage was called with implementor role
-        expect(mockSendMessage).toHaveBeenCalledWith(
-          "implementor",
-          "Mock retry prompt",
-          [{ fsPath: "/workspace/src/file1.ts" }]
+        // Verify the message was sent to the chat
+        expect(vscode.commands.executeCommand).toHaveBeenCalledWith(
+          "workbench.action.chat.open",
+          expect.objectContaining({
+            query: "Mock retry prompt",
+            isPartialQuery: false,
+            mode: "orchestra.implementor",
+            modelSelector: { id: "claude-sonnet-4" },
+          })
         );
       });
 
