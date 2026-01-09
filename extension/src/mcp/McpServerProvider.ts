@@ -61,13 +61,13 @@ class OrchestraMcpServerProvider
 
     return [
       new vscode.McpStdioServerDefinition(
-        "Orchestra Orchestrator",
+        "orchestra-orc",
         "node",
         [mcpServerPath, "--role=orchestrator"],
         { ORCHESTRA_WORKSPACE: this.workspaceRoot }
       ),
       new vscode.McpStdioServerDefinition(
-        "Orchestra Implementor",
+        "orchestra-imp",
         "node",
         [mcpServerPath, "--role=implementor"],
         { ORCHESTRA_WORKSPACE: this.workspaceRoot }

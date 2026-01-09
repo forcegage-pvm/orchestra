@@ -1,6 +1,6 @@
 {
   "servers": {
-    "orchestra-orchestrator": {
+    "orchestra-orc": {
       "type": "stdio",
       "command": "node",
       "args": [
@@ -11,7 +11,7 @@
         "ORCHESTRA_WORKSPACE": "${workspaceFolder}"
       }
     },
-    "orchestra-implementor": {
+    "orchestra-imp": {
       "type": "stdio",
       "command": "node",
       "args": [

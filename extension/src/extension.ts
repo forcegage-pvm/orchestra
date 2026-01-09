@@ -147,7 +147,7 @@ async function installMcpServers(
 
   // Add/update Orchestra servers
   existingConfig.servers = existingConfig.servers || {};
-  existingConfig.servers["orchestra-orchestrator"] = {
+  existingConfig.servers["orchestra-orc"] = {
     type: "stdio",
     command: "node",
     args: [serverPath, "--role=orchestrator"],
@@ -155,7 +155,7 @@ async function installMcpServers(
       ORCHESTRA_WORKSPACE: orchestraRoot,
     },
   };
-  existingConfig.servers["orchestra-implementor"] = {
+  existingConfig.servers["orchestra-imp"] = {
     type: "stdio",
     command: "node",
     args: [serverPath, "--role=implementor"],
@@ -287,7 +287,8 @@ async function initializeWorkspace(
 async function handleInvokeOrchestrator(_workspaceRoot: string): Promise<void> {
   try {
     const sm = getSessionManager();
-    await sm.invokeOrchestrator(
+    await sm.sendMessage(
+      "orchestrator",
       "I'm ready to work as the orchestrator agent.",
       []
     );
@@ -308,7 +309,8 @@ async function handleInvokeOrchestrator(_workspaceRoot: string): Promise<void> {
 async function handleInvokeImplementor(_workspaceRoot: string): Promise<void> {
   try {
     const sm = getSessionManager();
-    await sm.invokeImplementor(
+    await sm.sendMessage(
+      "implementor",
       "I'm ready to work as the implementor agent.",
       []
     );
@@ -364,7 +366,12 @@ async function handleStartTask(
 
     // Open chat with task context pre-filled using SessionManager
     const sm = getSessionManager();
-    await sm.invokeImplementor(
+
+    // Clear implementor context before starting new task
+    await sm.clearImplementorContext();
+
+    await sm.sendMessage(
+      "implementor",
       `Start working on Task ${task.task_id}: ${task.title}. The handover has been prepared and I'm ready to implement.`,
       []
     );

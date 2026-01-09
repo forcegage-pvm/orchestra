@@ -1212,4 +1212,1051 @@ describe("SessionManager", () => {
       );
     });
   });
+
+  describe("sendMessage", () => {
+    beforeEach(() => {
+      // Reset tabGroups mock
+      vi.mocked(vscode.window.tabGroups).all = [];
+      vi.mocked(vscode.window.tabGroups).activeTabGroup = {
+        activeTab: null,
+        tabs: [],
+      } as any;
+
+      // Setup workspace folders for sendMessage tests
+      Object.defineProperty(vscode.workspace, "workspaceFolders", {
+        value: [{ uri: { fsPath: "/test/workspace" } }],
+        configurable: true,
+      });
+
+      // Restore all mocks to clear spies from previous tests
+      vi.restoreAllMocks();
+      // Re-spy on logger methods after restore
+      vi.spyOn(mockLogger, "info");
+      vi.spyOn(mockLogger, "error");
+      vi.spyOn(mockLogger, "warn");
+      // Re-spy on config service
+      vi.spyOn(mockConfigService, "getModelForRole").mockReturnValue(
+        "claude-sonnet-4"
+      );
+      vi.spyOn(mockConfigService, "getAgentForRole").mockImplementation(
+        (role) => `orchestra.${role}`
+      );
+    });
+
+    it("should send message to orchestrator when label is found and tab exists", async () => {
+      // Arrange
+      mockGetSessionLabel.mockReturnValue("Chat - Orchestrator");
+      vi.mocked(vscode.window.tabGroups).all = [
+        {
+          tabs: [{ label: "Chat - Orchestrator", isActive: false } as any],
+        } as any,
+      ];
+
+      const files = [vscode.Uri.file("/test/file.ts")];
+
+      // Act
+      const result = await sessionManager.sendMessage(
+        "orchestrator",
+        "Prepare next task",
+        files
+      );
+
+      // Assert
+      expect(result).toBe(true);
+      expect(mockGetSessionLabel).toHaveBeenCalledWith(
+        "/test/workspace",
+        "orchestrator"
+      );
+
+      // Check that the chat was opened with correct API
+      const chatOpenCalls = vi
+        .mocked(vscode.commands.executeCommand)
+        .mock.calls.filter((call) => call[0] === "workbench.action.chat.open");
+      expect(chatOpenCalls.length).toBeGreaterThan(0);
+      expect(chatOpenCalls[0][1]).toMatchObject({
+        query: "Prepare next task",
+        attachFiles: files,
+        modelSelector: { id: "claude-sonnet-4" },
+        mode: "orchestra.orchestrator",
+      });
+    });
+
+    it("should auto-reinit when label exists but tab not found", async () => {
+      // Arrange - This tests the failure path when tab is never found
+      mockGetSessionLabel
+        .mockReturnValueOnce("Chat - Old") // sendMessage: initial load
+        .mockReturnValueOnce("Chat - Old"); // initSession: load
+
+      // Tab never found
+      vi.mocked(vscode.window.tabGroups).all = [];
+
+      // Mock user cancelling the prompt (no new session selected)
+      vi.mocked(vscode.window.showInformationMessage)
+        .mockResolvedValueOnce("Select Session" as any)
+        .mockResolvedValueOnce(undefined); // User cancels confirmation
+
+      const files = [vscode.Uri.file("/test/file.ts")];
+
+      // Act
+      const result = await sessionManager.sendMessage(
+        "implementor",
+        "Implement feature",
+        files
+      );
+
+      // Assert - should return false when user cancels or tab not found
+      expect(result).toBe(false);
+      expect(mockLogger.warn).toHaveBeenCalled();
+    });
+
+    it("should return false when auto-reinit is cancelled by user", async () => {
+      // Arrange
+      mockGetSessionLabel.mockReturnValue("Chat - Old");
+      vi.mocked(vscode.window.tabGroups).all = [];
+
+      // Mock user cancelling session selection
+      vi.mocked(vscode.window.showInformationMessage).mockResolvedValueOnce(
+        undefined
+      );
+
+      // Act
+      const result = await sessionManager.sendMessage(
+        "orchestrator",
+        "Prepare task",
+        []
+      );
+
+      // Assert
+      expect(result).toBe(false);
+      expect(mockLogger.warn).toHaveBeenCalledWith(
+        "Session init cancelled by user",
+        { role: "orchestrator" }
+      );
+    });
+
+    it("should return false when no label exists and init fails", async () => {
+      // Arrange - Test when there's no stored label
+      mockGetSessionLabel.mockReturnValue(null);
+
+      // No tabs available
+      vi.mocked(vscode.window.tabGroups).all = [];
+
+      const files = [vscode.Uri.file("/test/file.ts")];
+
+      // Act
+      const result = await sessionManager.sendMessage(
+        "implementor",
+        "Start work",
+        files
+      );
+
+      // Assert - should return false when no label and tab not found
+      expect(result).toBe(false);
+      expect(mockLogger.warn).toHaveBeenCalledWith(
+        "Session init cancelled by user",
+        expect.any(Object)
+      );
+    });
+
+    it("should send /clear command for implementor role", async () => {
+      // Arrange
+      mockGetSessionLabel.mockReturnValue("Chat - Impl");
+      vi.mocked(vscode.window.tabGroups).all = [
+        {
+          tabs: [{ label: "Chat - Impl", isActive: false } as any],
+        } as any,
+      ];
+
+      // Act
+      await sessionManager.sendMessage("implementor", "Build feature", []);
+
+      // Assert - sendMessage does NOT send /clear, it just sends the message
+      // The /clear is handled by initSession when role is implementor
+      const chatOpenCalls = vi
+        .mocked(vscode.commands.executeCommand)
+        .mock.calls.filter((call) => call[0] === "workbench.action.chat.open");
+      expect(chatOpenCalls.length).toBe(1);
+      expect(chatOpenCalls[0][1]).toMatchObject({
+        query: "Build feature",
+        attachFiles: [],
+        modelSelector: { id: "claude-sonnet-4" },
+        mode: "orchestra.implementor",
+      });
+    });
+
+    it("should NOT send /clear for orchestrator role", async () => {
+      // Arrange
+      mockGetSessionLabel.mockReturnValue("Chat - Orch");
+      vi.mocked(vscode.window.tabGroups).all = [
+        {
+          tabs: [{ label: "Chat - Orch", isActive: false } as any],
+        } as any,
+      ];
+
+      // Act
+      await sessionManager.sendMessage("orchestrator", "Prepare task", []);
+
+      // Assert - should NOT send /clear for orchestrator
+      const calls = vi.mocked(vscode.commands.executeCommand).mock.calls;
+      const clearCall = calls.find(
+        (call) =>
+          call[0] === "workbench.action.chat.open" &&
+          (call[1] as any)?.query === "/clear"
+      );
+      expect(clearCall).toBeUndefined();
+
+      // Should send message directly with new API
+      const chatOpenCalls = calls.filter(
+        (call) => call[0] === "workbench.action.chat.open"
+      );
+      expect(chatOpenCalls.length).toBe(1);
+      expect(chatOpenCalls[0][1]).toMatchObject({
+        query: "Prepare task",
+        attachFiles: [],
+        modelSelector: { id: "claude-sonnet-4" },
+        mode: "orchestra.orchestrator",
+      });
+    });
+
+    it("should use correct model from ConfigService", async () => {
+      // Arrange
+      mockGetSessionLabel.mockReturnValue("Chat - Test");
+      vi.mocked(vscode.window.tabGroups).all = [
+        {
+          tabs: [{ label: "Chat - Test", isActive: false } as any],
+        } as any,
+      ];
+      vi.spyOn(mockConfigService, "getModelForRole").mockReturnValue(
+        "gpt-4-turbo"
+      );
+
+      // Act
+      await sessionManager.sendMessage("orchestrator", "Test query", []);
+
+      // Assert
+      expect(mockConfigService.getModelForRole).toHaveBeenCalledWith(
+        "orchestrator"
+      );
+      const chatOpenCalls = vi
+        .mocked(vscode.commands.executeCommand)
+        .mock.calls.filter((call) => call[0] === "workbench.action.chat.open");
+      expect(chatOpenCalls[0][1]).toMatchObject({
+        modelSelector: { id: "gpt-4-turbo" },
+      });
+    });
+
+    it("should use correct agent from ConfigService", async () => {
+      // Arrange
+      mockGetSessionLabel.mockReturnValue("Chat - Test");
+      vi.mocked(vscode.window.tabGroups).all = [
+        {
+          tabs: [{ label: "Chat - Test", isActive: false } as any],
+        } as any,
+      ];
+      vi.spyOn(mockConfigService, "getAgentForRole").mockReturnValue(
+        "custom.agent"
+      );
+
+      // Act
+      await sessionManager.sendMessage("implementor", "Test query", []);
+
+      // Assert
+      expect(mockConfigService.getAgentForRole).toHaveBeenCalledWith(
+        "implementor"
+      );
+      const calls = vi.mocked(vscode.commands.executeCommand).mock.calls;
+      const messageCall = calls.find(
+        (call) =>
+          call[0] === "workbench.action.chat.open" &&
+          (call[1] as any)?.query === "Test query"
+      );
+      expect(messageCall).toBeDefined();
+      expect((messageCall![1] as any).mode).toBe("custom.agent");
+    });
+
+    it("should handle errors during message send", async () => {
+      // Arrange
+      mockGetSessionLabel.mockReturnValue("Chat - Error");
+      vi.mocked(vscode.window.tabGroups).all = [
+        {
+          tabs: [{ label: "Chat - Error", isActive: false } as any],
+        } as any,
+      ];
+      vi.mocked(vscode.commands.executeCommand).mockRejectedValueOnce(
+        new Error("Send failed")
+      );
+
+      // Act
+      const result = await sessionManager.sendMessage(
+        "orchestrator",
+        "This will fail",
+        []
+      );
+
+      // Assert
+      expect(result).toBe(false);
+      expect(mockLogger.error).toHaveBeenCalledWith(
+        "Failed to send message",
+        expect.objectContaining({
+          role: "orchestrator",
+          error: "Send failed",
+        })
+      );
+    });
+
+    it("should log successful message send", async () => {
+      // Arrange
+      mockGetSessionLabel.mockReturnValue("Chat - Success");
+      vi.mocked(vscode.window.tabGroups).all = [
+        {
+          tabs: [{ label: "Chat - Success", isActive: false } as any],
+        } as any,
+      ];
+
+      // Act
+      await sessionManager.sendMessage("orchestrator", "Success message", []);
+
+      // Assert
+      expect(mockLogger.info).toHaveBeenCalledWith(
+        "Message sent successfully",
+        expect.objectContaining({
+          role: "orchestrator",
+          label: "Chat - Success",
+        })
+      );
+    });
+
+    it("should handle empty file attachments", async () => {
+      // Arrange
+      mockGetSessionLabel.mockReturnValue("Chat - NoFiles");
+      vi.mocked(vscode.window.tabGroups).all = [
+        {
+          tabs: [{ label: "Chat - NoFiles", isActive: false } as any],
+        } as any,
+      ];
+
+      // Act
+      const result = await sessionManager.sendMessage(
+        "orchestrator",
+        "Message without files",
+        []
+      );
+
+      // Assert
+      expect(result).toBe(true);
+      const chatOpenCalls = vi
+        .mocked(vscode.commands.executeCommand)
+        .mock.calls.filter((call) => call[0] === "workbench.action.chat.open");
+      expect(chatOpenCalls[0][1]).toMatchObject({
+        attachFiles: [],
+      });
+    });
+
+    it("should handle multiple file attachments", async () => {
+      // Arrange
+      mockGetSessionLabel.mockReturnValue("Chat - MultiFiles");
+      vi.mocked(vscode.window.tabGroups).all = [
+        {
+          tabs: [{ label: "Chat - MultiFiles", isActive: false } as any],
+        } as any,
+      ];
+
+      const files = [
+        vscode.Uri.file("/test/file1.ts"),
+        vscode.Uri.file("/test/file2.ts"),
+        vscode.Uri.file("/test/file3.ts"),
+      ];
+
+      // Act
+      const result = await sessionManager.sendMessage(
+        "implementor",
+        "Process these files",
+        files
+      );
+
+      // Assert
+      expect(result).toBe(true);
+      const calls = vi.mocked(vscode.commands.executeCommand).mock.calls;
+      const messageCall = calls.find(
+        (call) =>
+          call[0] === "workbench.action.chat.open" &&
+          (call[1] as any)?.query === "Process these files"
+      );
+      expect(messageCall).toBeDefined();
+      expect((messageCall![1] as any).attachFiles).toEqual(files);
+    });
+
+    it("should respect workspace root from context", async () => {
+      // Arrange
+      mockGetSessionLabel.mockReturnValue("Chat - Test");
+      vi.mocked(vscode.window.tabGroups).all = [
+        {
+          tabs: [{ label: "Chat - Test", isActive: false } as any],
+        } as any,
+      ];
+
+      // Act
+      await sessionManager.sendMessage("orchestrator", "Test", []);
+
+      // Assert - getSessionLabel should be called with workspace root
+      expect(mockGetSessionLabel).toHaveBeenCalledWith(
+        "/test/workspace",
+        "orchestrator"
+      );
+    });
+
+    it("should follow complete 10-step workflow for implementor", async () => {
+      // Arrange
+      mockGetSessionLabel.mockReturnValue("Chat - Impl");
+      vi.mocked(vscode.window.tabGroups).all = [
+        {
+          tabs: [{ label: "Chat - Impl", isActive: false } as any],
+        } as any,
+      ];
+
+      const files = [vscode.Uri.file("/test/file.ts")];
+
+      // Act
+      await sessionManager.sendMessage("implementor", "Test message", files);
+
+      // Assert - verify 10-step workflow
+      // 1. Load label from DB
+      expect(mockGetSessionLabel).toHaveBeenCalledWith(
+        "/test/workspace",
+        "implementor"
+      );
+
+      // 2-3. Find tab (mocked to exist)
+      // 4. Focus tab with openEditorAtIndex
+      const calls = vi.mocked(vscode.commands.executeCommand).mock.calls;
+      expect(calls[0]).toEqual(["workbench.action.openEditorAtIndex", 0]);
+
+      // 5-9. Send message (no separate /clear in sendMessage)
+      const chatOpenCalls = calls.filter(
+        (call) => call[0] === "workbench.action.chat.open"
+      );
+      expect(chatOpenCalls.length).toBe(1);
+      expect(chatOpenCalls[0][1]).toMatchObject({
+        query: "Test message",
+        attachFiles: files,
+        mode: "orchestra.implementor",
+      });
+
+      // 10. Log success
+      expect(mockLogger.info).toHaveBeenCalledWith(
+        "Message sent successfully",
+        expect.any(Object)
+      );
+    });
+
+    it("should follow complete 10-step workflow for orchestrator", async () => {
+      // Arrange
+      mockGetSessionLabel.mockReturnValue("Chat - Orch");
+      vi.mocked(vscode.window.tabGroups).all = [
+        {
+          tabs: [{ label: "Chat - Orch", isActive: false } as any],
+        } as any,
+      ];
+
+      const files = [vscode.Uri.file("/test/file.ts")];
+
+      // Act
+      await sessionManager.sendMessage("orchestrator", "Prepare", files);
+
+      // Assert - verify 10-step workflow
+      // 1. Load label from DB
+      expect(mockGetSessionLabel).toHaveBeenCalledWith(
+        "/test/workspace",
+        "orchestrator"
+      );
+
+      // 2-4. Find and focus tab
+      const calls = vi.mocked(vscode.commands.executeCommand).mock.calls;
+      expect(calls[0]).toEqual(["workbench.action.openEditorAtIndex", 0]);
+
+      // 5-6. Skip /clear for orchestrator (verify NOT sent)
+      const clearCall = calls.find(
+        (call) =>
+          call[0] === "workbench.action.chat.open" &&
+          (call[1] as any)?.query === "/clear"
+      );
+      expect(clearCall).toBeUndefined();
+
+      // 7-9. Send message with files
+      const chatOpenCalls = calls.filter(
+        (call) => call[0] === "workbench.action.chat.open"
+      );
+      expect(chatOpenCalls.length).toBe(1);
+      expect(chatOpenCalls[0][1]).toMatchObject({
+        query: "Prepare",
+        attachFiles: files,
+        mode: "orchestra.orchestrator",
+      });
+
+      // 10. Log success
+      expect(mockLogger.info).toHaveBeenCalledWith(
+        "Message sent successfully",
+        expect.any(Object)
+      );
+    });
+  });
+
+  describe("clearImplementorContext", () => {
+    beforeEach(() => {
+      // Reset tabGroups mock
+      vi.mocked(vscode.window.tabGroups).all = [];
+      vi.mocked(vscode.window.tabGroups).activeTabGroup = {
+        activeTab: { label: "Chat", isActive: true },
+        tabs: [],
+      };
+
+      // Reset workspace mock
+      vi.mocked(vscode.workspace).workspaceFolders = [
+        { uri: { fsPath: "/workspace/root" } } as any,
+      ];
+
+      // Reset command mock
+      vi.mocked(vscode.commands.executeCommand).mockResolvedValue(undefined);
+    });
+
+    it("should successfully clear implementor context when tab is found", async () => {
+      // Setup: label exists, tab exists
+      mockGetSessionLabel.mockReturnValue("Orchestra Implementor");
+      vi.mocked(vscode.window.tabGroups).all = [
+        {
+          activeTab: { label: "Orchestra Implementor", isActive: true },
+          tabs: [
+            { label: "File1.ts", isActive: false },
+            { label: "Orchestra Implementor", isActive: true },
+          ],
+        } as any,
+      ];
+
+      const result = await sessionManager.clearImplementorContext();
+
+      // Verify result
+      expect(result).toBe(true);
+
+      // Verify database query
+      expect(mockGetSessionLabel).toHaveBeenCalledWith(
+        "/workspace/root",
+        "implementor"
+      );
+
+      // Verify tab focus
+      expect(vscode.commands.executeCommand).toHaveBeenCalledWith(
+        "workbench.action.openEditorAtIndex",
+        1
+      );
+
+      // Verify /clear command sent
+      const chatOpenCalls = vi
+        .mocked(vscode.commands.executeCommand)
+        .mock.calls.filter((call) => call[0] === "workbench.action.chat.open");
+      expect(chatOpenCalls).toHaveLength(1);
+      expect(chatOpenCalls[0][1]).toMatchObject({
+        query: "/clear",
+        isPartialQuery: false,
+      });
+
+      // Verify success logged
+      expect(mockLogger.info).toHaveBeenCalledWith(
+        "Implementor context cleared successfully"
+      );
+    });
+
+    it("should auto-reinit when label exists but tab not found", async () => {
+      // Setup: label exists initially, but no tab
+      mockGetSessionLabel
+        .mockReturnValueOnce("Orchestra Implementor") // First call
+        .mockReturnValueOnce("Orchestra Implementor"); // After initSession
+
+      // Mock initSession to succeed and add the tab
+      vi.spyOn(sessionManager, "initSession").mockImplementation(
+        async (role) => {
+          // Simulate user selecting a tab - update tabGroups mock
+          vi.mocked(vscode.window.tabGroups).all = [
+            {
+              activeTab: { label: "Orchestra Implementor", isActive: true },
+              tabs: [{ label: "Orchestra Implementor", isActive: true }],
+            } as any,
+          ];
+          return true;
+        }
+      );
+
+      const result = await sessionManager.clearImplementorContext();
+
+      expect(result).toBe(true);
+      expect(sessionManager.initSession).toHaveBeenCalledWith("implementor");
+
+      // Verify /clear was sent
+      const chatOpenCalls = vi
+        .mocked(vscode.commands.executeCommand)
+        .mock.calls.filter((call) => call[0] === "workbench.action.chat.open");
+      expect(chatOpenCalls).toHaveLength(1);
+      expect(chatOpenCalls[0][1]).toMatchObject({
+        query: "/clear",
+        isPartialQuery: false,
+      });
+    });
+
+    it("should return false when user cancels initSession", async () => {
+      // Setup: no label
+      mockGetSessionLabel.mockReturnValue(null);
+
+      // Mock initSession to return false (user cancelled)
+      vi.spyOn(sessionManager, "initSession").mockResolvedValue(false);
+
+      const result = await sessionManager.clearImplementorContext();
+
+      expect(result).toBe(false);
+      expect(sessionManager.initSession).toHaveBeenCalledWith("implementor");
+      expect(mockLogger.warn).toHaveBeenCalledWith(
+        "Session init cancelled by user",
+        { role: "implementor" }
+      );
+    });
+
+    it("should return false when no workspace folder exists", async () => {
+      // Setup: no workspace
+      vi.mocked(vscode.workspace).workspaceFolders = undefined;
+
+      const result = await sessionManager.clearImplementorContext();
+
+      expect(result).toBe(false);
+      expect(mockLogger.error).toHaveBeenCalledWith(
+        "No workspace folder found"
+      );
+      expect(vscode.window.showErrorMessage).toHaveBeenCalledWith(
+        "Orchestra: No workspace folder is open."
+      );
+    });
+
+    it("should return false when tab still not found after initSession", async () => {
+      // Setup: no label initially
+      mockGetSessionLabel.mockReturnValue(null);
+
+      // Mock initSession to succeed but tab still not found
+      vi.spyOn(sessionManager, "initSession").mockResolvedValue(true);
+
+      const result = await sessionManager.clearImplementorContext();
+
+      expect(result).toBe(false);
+      expect(mockLogger.error).toHaveBeenCalledWith(
+        "Tab still not found after initSession for implementor"
+      );
+      expect(vscode.window.showErrorMessage).toHaveBeenCalledWith(
+        "Orchestra: Failed to locate implementor chat session. Please try again."
+      );
+    });
+
+    it("should handle errors gracefully", async () => {
+      // Setup: label exists, tab exists
+      mockGetSessionLabel.mockReturnValue("Orchestra Implementor");
+      vi.mocked(vscode.window.tabGroups).all = [
+        {
+          tabs: [{ label: "Orchestra Implementor", isActive: true }],
+        } as any,
+      ];
+
+      // Mock command to throw error
+      vi.mocked(vscode.commands.executeCommand).mockRejectedValue(
+        new Error("Command failed")
+      );
+
+      const result = await sessionManager.clearImplementorContext();
+
+      expect(result).toBe(false);
+      expect(mockLogger.error).toHaveBeenCalledWith(
+        "Failed to clear implementor context",
+        { error: "Command failed" }
+      );
+      expect(vscode.window.showErrorMessage).toHaveBeenCalledWith(
+        "Orchestra: Failed to clear implementor context - Command failed"
+      );
+    });
+
+    it("should send /clear command with correct parameters", async () => {
+      // Setup: label exists, tab exists
+      mockGetSessionLabel.mockReturnValue("Orchestra Implementor");
+      vi.mocked(vscode.window.tabGroups).all = [
+        {
+          tabs: [{ label: "Orchestra Implementor", isActive: true }],
+        } as any,
+      ];
+
+      await sessionManager.clearImplementorContext();
+
+      // Find the chat.open call
+      const chatOpenCalls = vi
+        .mocked(vscode.commands.executeCommand)
+        .mock.calls.filter((call) => call[0] === "workbench.action.chat.open");
+
+      expect(chatOpenCalls).toHaveLength(1);
+      expect(chatOpenCalls[0][1]).toEqual({
+        query: "/clear",
+        isPartialQuery: false,
+      });
+    });
+
+    it("should wait 500ms after sending /clear command", async () => {
+      // Setup: label exists, tab exists
+      mockGetSessionLabel.mockReturnValue("Orchestra Implementor");
+      vi.mocked(vscode.window.tabGroups).all = [
+        {
+          tabs: [{ label: "Orchestra Implementor", isActive: true }],
+        } as any,
+      ];
+
+      // Spy on the delay method
+      const delaySpy = vi.spyOn(
+        sessionManager as any,
+        "delay"
+      ) as unknown as ReturnType<typeof vi.spyOn>;
+
+      await sessionManager.clearImplementorContext();
+
+      // Verify delays were called
+      const delayCalls = delaySpy.mock.calls;
+      expect(delayCalls.length).toBeGreaterThanOrEqual(2);
+
+      // Check for the 200ms delay (tab focus) and 500ms delay (clear completion)
+      expect(delayCalls.some((call) => call[0] === 200)).toBe(true);
+      expect(delayCalls.some((call) => call[0] === 500)).toBe(true);
+    });
+
+    it("should log all steps during execution", async () => {
+      // Setup: label exists, tab exists
+      mockGetSessionLabel.mockReturnValue("Orchestra Implementor");
+      vi.mocked(vscode.window.tabGroups).all = [
+        {
+          tabs: [{ label: "Orchestra Implementor", isActive: true }],
+        } as any,
+      ];
+
+      vi.clearAllMocks();
+
+      await sessionManager.clearImplementorContext();
+
+      // Verify logging steps
+      expect(mockLogger.info).toHaveBeenCalledWith(
+        "Clearing implementor context"
+      );
+      expect(mockLogger.info).toHaveBeenCalledWith(
+        "Retrieved implementor label from database",
+        { label: "Orchestra Implementor" }
+      );
+      expect(mockLogger.info).toHaveBeenCalledWith(
+        "Focusing implementor tab at index 0"
+      );
+      expect(mockLogger.info).toHaveBeenCalledWith(
+        "Sending /clear command to implementor chat"
+      );
+      expect(mockLogger.info).toHaveBeenCalledWith(
+        "Implementor context cleared successfully"
+      );
+    });
+
+    it("should focus the tab at correct index", async () => {
+      // Setup: tab at index 2
+      mockGetSessionLabel.mockReturnValue("Orchestra Implementor");
+      vi.mocked(vscode.window.tabGroups).all = [
+        {
+          tabs: [
+            { label: "File1.ts", isActive: false },
+            { label: "File2.ts", isActive: false },
+            { label: "Orchestra Implementor", isActive: true },
+          ],
+        } as any,
+      ];
+
+      await sessionManager.clearImplementorContext();
+
+      expect(vscode.commands.executeCommand).toHaveBeenCalledWith(
+        "workbench.action.openEditorAtIndex",
+        2
+      );
+    });
+
+    it("should wait 200ms after focusing tab", async () => {
+      // Setup: label exists, tab exists
+      mockGetSessionLabel.mockReturnValue("Orchestra Implementor");
+      vi.mocked(vscode.window.tabGroups).all = [
+        {
+          tabs: [{ label: "Orchestra Implementor", isActive: true }],
+        } as any,
+      ];
+
+      // Spy on the delay method
+      const delaySpy = vi.spyOn(
+        sessionManager as any,
+        "delay"
+      ) as unknown as ReturnType<typeof vi.spyOn>;
+
+      await sessionManager.clearImplementorContext();
+
+      // Verify 200ms delay was called (for tab focus)
+      expect(delaySpy).toHaveBeenCalledWith(200);
+    });
+  });
+
+  describe("isSessionReady", () => {
+    beforeEach(() => {
+      // Reset workspace folders for each test
+      vi.mocked(vscode.workspace).workspaceFolders = [
+        {
+          uri: { fsPath: "/test/workspace" } as vscode.Uri,
+          name: "test-workspace",
+          index: 0,
+        },
+      ];
+    });
+
+    it("should return false when no workspace folder exists", () => {
+      vi.mocked(vscode.workspace).workspaceFolders = undefined;
+
+      const result = sessionManager.isSessionReady("orchestrator");
+
+      expect(result).toBe(false);
+      // Should not query database if no workspace
+      expect(mockGetSessionLabel).not.toHaveBeenCalled();
+    });
+
+    it("should return false when no label exists in database", () => {
+      mockGetSessionLabel.mockReturnValue(null);
+
+      const result = sessionManager.isSessionReady("orchestrator");
+
+      expect(result).toBe(false);
+      expect(mockGetSessionLabel).toHaveBeenCalledWith(
+        "/test/workspace",
+        "orchestrator"
+      );
+    });
+
+    it("should return false when label exists but tab not found", () => {
+      mockGetSessionLabel.mockReturnValue("Orchestra Orchestrator");
+
+      // Mock tabGroups with no matching tabs
+      vi.mocked(vscode.window.tabGroups).all = [
+        {
+          tabs: [
+            { label: "Some Other Tab", isActive: true },
+            { label: "Another Tab", isActive: false },
+          ],
+        } as unknown as vscode.TabGroup,
+      ];
+
+      const result = sessionManager.isSessionReady("orchestrator");
+
+      expect(result).toBe(false);
+      expect(mockGetSessionLabel).toHaveBeenCalledWith(
+        "/test/workspace",
+        "orchestrator"
+      );
+    });
+
+    it("should return true when both label and tab exist", () => {
+      mockGetSessionLabel.mockReturnValue("Orchestra Orchestrator");
+
+      // Mock tabGroups with matching tab
+      vi.mocked(vscode.window.tabGroups).all = [
+        {
+          tabs: [
+            { label: "Some Other Tab", isActive: true },
+            { label: "Orchestra Orchestrator", isActive: false },
+          ],
+        } as unknown as vscode.TabGroup,
+      ];
+
+      const result = sessionManager.isSessionReady("orchestrator");
+
+      expect(result).toBe(true);
+      expect(mockGetSessionLabel).toHaveBeenCalledWith(
+        "/test/workspace",
+        "orchestrator"
+      );
+    });
+
+    it("should check implementor role correctly", () => {
+      mockGetSessionLabel.mockReturnValue("Orchestra Implementor");
+
+      // Mock tabGroups with matching tab
+      vi.mocked(vscode.window.tabGroups).all = [
+        {
+          tabs: [{ label: "Orchestra Implementor", isActive: true }],
+        } as unknown as vscode.TabGroup,
+      ];
+
+      const result = sessionManager.isSessionReady("implementor");
+
+      expect(result).toBe(true);
+      expect(mockGetSessionLabel).toHaveBeenCalledWith(
+        "/test/workspace",
+        "implementor"
+      );
+    });
+
+    it("should be synchronous (not return Promise)", () => {
+      mockGetSessionLabel.mockReturnValue("Orchestra Orchestrator");
+
+      const result = sessionManager.isSessionReady("orchestrator");
+
+      // Verify it returns boolean, not Promise
+      expect(typeof result).toBe("boolean");
+      expect(result).not.toBeInstanceOf(Promise);
+    });
+  });
+
+  describe("getSessionInfo", () => {
+    beforeEach(() => {
+      // Reset workspace folders for each test
+      vi.mocked(vscode.workspace).workspaceFolders = [
+        {
+          uri: { fsPath: "/test/workspace" } as vscode.Uri,
+          name: "test-workspace",
+          index: 0,
+        },
+      ];
+    });
+
+    it("should return both sessions not ready when no workspace exists", () => {
+      vi.mocked(vscode.workspace).workspaceFolders = undefined;
+
+      const result = sessionManager.getSessionInfo();
+
+      expect(result).toEqual({
+        orchestrator: { label: null, ready: false },
+        implementor: { label: null, ready: false },
+      });
+      // Should not query database if no workspace
+      expect(mockGetSessionLabel).not.toHaveBeenCalled();
+    });
+
+    it("should return correct labels from database", () => {
+      mockGetSessionLabel.mockImplementation((_, role) => {
+        if (role === "orchestrator") return "Orchestra Orchestrator";
+        if (role === "implementor") return "Orchestra Implementor";
+        return null;
+      });
+
+      // Mock tabs so ready checks fail (to focus on label retrieval)
+      vi.mocked(vscode.window.tabGroups).all = [];
+
+      const result = sessionManager.getSessionInfo();
+
+      expect(result.orchestrator.label).toBe("Orchestra Orchestrator");
+      expect(result.implementor.label).toBe("Orchestra Implementor");
+      expect(mockGetSessionLabel).toHaveBeenCalledWith(
+        "/test/workspace",
+        "orchestrator"
+      );
+      expect(mockGetSessionLabel).toHaveBeenCalledWith(
+        "/test/workspace",
+        "implementor"
+      );
+    });
+
+    it("should return ready status from isSessionReady checks", () => {
+      mockGetSessionLabel.mockImplementation((_, role) => {
+        if (role === "orchestrator") return "Orchestra Orchestrator";
+        if (role === "implementor") return "Orchestra Implementor";
+        return null;
+      });
+
+      // Mock tabs: orchestrator ready, implementor not ready
+      vi.mocked(vscode.window.tabGroups).all = [
+        {
+          tabs: [
+            { label: "Orchestra Orchestrator", isActive: true },
+            { label: "Some Other Tab", isActive: false },
+          ],
+        } as unknown as vscode.TabGroup,
+      ];
+
+      const result = sessionManager.getSessionInfo();
+
+      expect(result.orchestrator.ready).toBe(true);
+      expect(result.implementor.ready).toBe(false);
+    });
+
+    it("should return null labels when no session stored", () => {
+      mockGetSessionLabel.mockReturnValue(null);
+
+      const result = sessionManager.getSessionInfo();
+
+      expect(result.orchestrator.label).toBe(null);
+      expect(result.implementor.label).toBe(null);
+      expect(result.orchestrator.ready).toBe(false);
+      expect(result.implementor.ready).toBe(false);
+    });
+
+    it("should return correct structure with all required properties", () => {
+      mockGetSessionLabel.mockReturnValue(null);
+
+      const result = sessionManager.getSessionInfo();
+
+      // Verify structure
+      expect(result).toHaveProperty("orchestrator");
+      expect(result).toHaveProperty("implementor");
+      expect(result.orchestrator).toHaveProperty("label");
+      expect(result.orchestrator).toHaveProperty("ready");
+      expect(result.implementor).toHaveProperty("label");
+      expect(result.implementor).toHaveProperty("ready");
+
+      // Verify types
+      expect(
+        result.orchestrator.label === null ||
+          typeof result.orchestrator.label === "string"
+      ).toBe(true);
+      expect(typeof result.orchestrator.ready).toBe("boolean");
+      expect(
+        result.implementor.label === null ||
+          typeof result.implementor.label === "string"
+      ).toBe(true);
+      expect(typeof result.implementor.ready).toBe("boolean");
+    });
+
+    it("should be synchronous (not return Promise)", () => {
+      mockGetSessionLabel.mockReturnValue(null);
+
+      const result = sessionManager.getSessionInfo();
+
+      // Verify it returns object, not Promise
+      expect(typeof result).toBe("object");
+      expect(result).not.toBeInstanceOf(Promise);
+    });
+
+    it("should handle both sessions ready", () => {
+      mockGetSessionLabel.mockImplementation((_, role) => {
+        if (role === "orchestrator") return "Orchestra Orchestrator";
+        if (role === "implementor") return "Orchestra Implementor";
+        return null;
+      });
+
+      // Mock tabs: both ready
+      vi.mocked(vscode.window.tabGroups).all = [
+        {
+          tabs: [
+            { label: "Orchestra Orchestrator", isActive: true },
+            { label: "Orchestra Implementor", isActive: false },
+          ],
+        } as unknown as vscode.TabGroup,
+      ];
+
+      const result = sessionManager.getSessionInfo();
+
+      expect(result).toEqual({
+        orchestrator: {
+          label: "Orchestra Orchestrator",
+          ready: true,
+        },
+        implementor: {
+          label: "Orchestra Implementor",
+          ready: true,
+        },
+      });
+    });
+  });
 });

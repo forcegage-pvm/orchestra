@@ -49,6 +49,9 @@ describe("ChatInvoker", () => {
 
     // Create a mock SessionManager
     mockSessionManager = {
+      sendMessage: vi.fn().mockResolvedValue(true),
+      clearImplementorContext: vi.fn().mockResolvedValue(true),
+      // Keep deprecated methods for backward compatibility during transition
       invokeOrchestrator: vi.fn().mockResolvedValue(undefined),
       invokeImplementor: vi.fn().mockResolvedValue(undefined),
       clearImplementorSession: vi.fn().mockResolvedValue(undefined),
@@ -67,8 +70,9 @@ describe("ChatInvoker", () => {
 
       await invoker.invokeChat(options);
 
-      // Verify SessionManager.invokeOrchestrator was called
-      expect(mockSessionManager.invokeOrchestrator).toHaveBeenCalledWith(
+      // Verify SessionManager.sendMessage was called with orchestrator role
+      expect(mockSessionManager.sendMessage).toHaveBeenCalledWith(
+        "orchestrator",
         "I'm ready to work as the orchestrator agent.",
         []
       );
@@ -93,8 +97,9 @@ describe("ChatInvoker", () => {
 
       await invoker.invokeChat(options);
 
-      // Verify SessionManager.invokeImplementor was called
-      expect(mockSessionManager.invokeImplementor).toHaveBeenCalledWith(
+      // Verify SessionManager.sendMessage was called with implementor role
+      expect(mockSessionManager.sendMessage).toHaveBeenCalledWith(
+        "implementor",
         "I'm ready to work as the implementor agent.",
         []
       );
@@ -117,7 +122,8 @@ describe("ChatInvoker", () => {
       await invoker.invokeChat(options);
 
       // Verify the prompt is passed directly without @orchestra prefix
-      expect(mockSessionManager.invokeImplementor).toHaveBeenCalledWith(
+      expect(mockSessionManager.sendMessage).toHaveBeenCalledWith(
+        "implementor",
         "Start working on Task 9",
         []
       );
@@ -138,7 +144,8 @@ describe("ChatInvoker", () => {
       await invoker.invokeChat(options);
 
       // Verify files are passed to SessionManager
-      expect(mockSessionManager.invokeOrchestrator).toHaveBeenCalledWith(
+      expect(mockSessionManager.sendMessage).toHaveBeenCalledWith(
+        "orchestrator",
         "Analyze these files",
         mockFiles
       );
@@ -169,9 +176,7 @@ describe("ChatInvoker", () => {
 
     it("should handle SessionManager errors", async () => {
       const testError = new Error("SessionManager failed");
-      vi.mocked(mockSessionManager.invokeOrchestrator).mockRejectedValue(
-        testError
-      );
+      vi.mocked(mockSessionManager.sendMessage).mockRejectedValue(testError);
 
       const options: ChatInvocationOptions = {
         prompt: "Test query",
@@ -195,7 +200,7 @@ describe("ChatInvoker", () => {
     });
 
     it("should handle non-Error exceptions", async () => {
-      vi.mocked(mockSessionManager.invokeImplementor).mockRejectedValue(
+      vi.mocked(mockSessionManager.sendMessage).mockRejectedValue(
         "String error"
       );
 
@@ -221,7 +226,8 @@ describe("ChatInvoker", () => {
       await invoker.invokeChat(options);
 
       // Verify SessionManager was called with empty files array
-      expect(mockSessionManager.invokeOrchestrator).toHaveBeenCalledWith(
+      expect(mockSessionManager.sendMessage).toHaveBeenCalledWith(
+        "orchestrator",
         "Simple query",
         []
       );

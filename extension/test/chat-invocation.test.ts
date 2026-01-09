@@ -30,13 +30,13 @@ describe("Chat invocation commands (Task 1 - Spike)", () => {
       );
     });
 
-    it("should call SessionManager.invokeOrchestrator", () => {
+    it("should call SessionManager.sendMessage", () => {
       const functionCode = extensionCode.match(
         /async function handleInvokeOrchestrator[\s\S]*?^}/m
       ) as RegExpMatchArray;
       expect(functionCode).toBeTruthy();
       expect(functionCode[0]).toContain("getSessionManager()");
-      expect(functionCode[0]).toContain("invokeOrchestrator");
+      expect(functionCode[0]).toContain("sendMessage");
     });
 
     it("should mention orchestrator agent in query", () => {
@@ -78,13 +78,13 @@ describe("Chat invocation commands (Task 1 - Spike)", () => {
       expect(extensionCode).toContain("async function handleInvokeImplementor");
     });
 
-    it("should call SessionManager.invokeImplementor", () => {
+    it("should call SessionManager.sendMessage", () => {
       const functionCode = extensionCode.match(
         /async function handleInvokeImplementor[\s\S]*?^}/m
       ) as RegExpMatchArray;
       expect(functionCode).toBeTruthy();
       expect(functionCode[0]).toContain("getSessionManager()");
-      expect(functionCode[0]).toContain("invokeImplementor");
+      expect(functionCode[0]).toContain("sendMessage");
     });
 
     it("should mention implementor agent in query", () => {
@@ -133,7 +133,7 @@ describe("Chat invocation commands (Task 1 - Spike)", () => {
       ) as RegExpMatchArray;
       expect(functionCode).toBeTruthy();
       expect(functionCode[0]).toContain("getSessionManager()");
-      expect(functionCode[0]).toContain("invokeImplementor");
+      expect(functionCode[0]).toContain("sendMessage");
     });
 
     it("should include task ID in query", () => {

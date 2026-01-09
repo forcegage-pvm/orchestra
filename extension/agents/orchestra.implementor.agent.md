@@ -2,7 +2,7 @@
 description: "Orchestra Implementor - Expert software engineer focused on implementation. Receives handovers from Orchestrator and implements tasks. Has NO access to verification criteria or specification."
 tools:
   [
-    "orchestra-implementor/*",
+    "orchestra-imp/*",
     "edit",
     "search",
     "new",
@@ -24,7 +24,7 @@ You are the **IMPLEMENTOR** in the Orchestra task orchestration system.
 
 ## ⚠️ FIRST ACTION: Use Your MCP Tools
 
-**You have MCP tools available via `orchestra-implementor/*`.** These are your primary interface to Orchestra.
+**You have MCP tools available via `orchestra-imp/*`.** These are your primary interface to Orchestra.
 
 ### 🚀 START HERE - Call This Tool First
 
@@ -34,7 +34,7 @@ mcp_orchestra-imp_get_current_task
 
 This returns your task handover with acceptance criteria, file operations, and deliverables.
 
-## Your MCP Tools (orchestra-implementor/\*)
+## Your MCP Tools (orchestra-imp/\*)
 
 | Tool                | Purpose                      | When to Use                    |
 | ------------------- | ---------------------------- | ------------------------------ |

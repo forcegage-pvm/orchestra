@@ -66,12 +66,8 @@ export class ChatInvoker {
         fileCount: files.length,
       });
 
-      // Delegate to SessionManager based on agent mode
-      if (agentMode === "orchestrator") {
-        await this.sessionManager.invokeOrchestrator(prompt, files);
-      } else {
-        await this.sessionManager.invokeImplementor(prompt, files);
-      }
+      // Delegate to SessionManager using sendMessage
+      await this.sessionManager.sendMessage(agentMode, prompt, files);
 
       this.logger.info(`Chat opened successfully for ${agentMode} agent`);
     } catch (error) {

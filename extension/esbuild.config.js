@@ -13,7 +13,7 @@ const baseConfig = {
   minify: production,
   sourcemap: !production,
   logLevel: "info",
-  external: ["vscode", "better-sqlite3"], // VS Code and native modules
+  external: ["vscode", "better-sqlite3", "drizzle-orm"], // VS Code and native modules
   platform: "node",
   target: "node20",
   format: "cjs",

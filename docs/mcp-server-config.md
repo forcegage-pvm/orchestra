@@ -8,8 +8,8 @@ Orchestra uses **two MCP server instances** with role-based tool filtering:
 
 | Server | Role | Tools | Purpose |
 |--------|------|-------|---------|
-| `orchestra-orchestrator` | orchestrator | 20 | Task preparation, verification, judgment |
-| `orchestra-implementor` | implementor | 8 | Task execution, signaling, feedback |
+| `orchestra-orc` | orchestrator | 20 | Task preparation, verification, judgment |
+| `orchestra-imp` | implementor | 8 | Task execution, signaling, feedback |
 
 This structural separation ensures:
 - Implementor cannot see verification criteria
@@ -35,7 +35,7 @@ Copy the template configuration to your project:
 ```json
 {
   "servers": {
-    "orchestra-orchestrator": {
+    "orchestra-orc": {
       "type": "stdio",
       "command": "node",
       "args": ["node_modules/orchestra/dist/mcp-server/index.js", "--role=orchestrator"],
@@ -43,7 +43,7 @@ Copy the template configuration to your project:
         "ORCHESTRA_WORKSPACE": "${workspaceFolder}"
       }
     },
-    "orchestra-implementor": {
+    "orchestra-imp": {
       "type": "stdio",
       "command": "node",
       "args": ["node_modules/orchestra/dist/mcp-server/index.js", "--role=implementor"],
@@ -59,14 +59,14 @@ Copy the template configuration to your project:
 ```json
 {
   "mcpServers": {
-    "orchestra-orchestrator": {
+    "orchestra-orc": {
       "command": "node",
       "args": ["/path/to/orchestra/dist/mcp-server/index.js", "--role=orchestrator"],
       "env": {
         "ORCHESTRA_WORKSPACE": "/path/to/your/project"
       }
     },
-    "orchestra-implementor": {
+    "orchestra-imp": {
       "command": "node",
       "args": ["/path/to/orchestra/dist/mcp-server/index.js", "--role=implementor"],
       "env": {
@@ -103,8 +103,8 @@ These files provide role-specific instructions and tool restrictions.
 If not using custom agents, specify which MCP server to use:
 
 ```
-Use the orchestra-orchestrator tools to verify task 5
-Use the orchestra-implementor tools to signal completion
+Use the orchestra-orc tools to verify task 5
+Use the orchestra-imp tools to signal completion
 ```
 
 ## Role Tool Reference

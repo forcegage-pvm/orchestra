@@ -222,8 +222,8 @@ async function invokeAgent(
   model: string
 ): Promise<void> {
   const agentId = role === 'orchestrator' 
-    ? 'orchestra-orchestrator' 
-    : 'orchestra-implementor';
+    ? 'orchestra-orc' 
+    : 'orchestra-imp';
   
   await vscode.commands.executeCommand('workbench.action.chat.open', {
     query: prompt,
@@ -290,7 +290,7 @@ await vscode.commands.executeCommand('workbench.action.chat.open', {
   query: 'Hello, which agent are you?',
   isPartialQuery: false,
   mode: 'agent',
-  agentId: 'orchestra-orchestrator',  // Test this
+  agentId: 'orchestra-orc',  // Test this
 });
 ```
 

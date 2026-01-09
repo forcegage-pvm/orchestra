@@ -52,8 +52,8 @@ extension/src/
 
 | File | Description |
 |------|-------------|
-| `extension/agents/orchestra.orchestrator.agent.md` | Orchestrator role with `orchestra-orchestrator/*` MCP tools |
-| `extension/agents/orchestra.implementor.agent.md` | Implementor role with `orchestra-implementor/*` MCP tools |
+| `extension/agents/orchestra.orchestrator.agent.md` | Orchestrator role with `orchestra-orc/*` MCP tools |
+| `extension/agents/orchestra.implementor.agent.md` | Implementor role with `orchestra-imp/*` MCP tools |
 
 ### 2.3 Current Chat Participant
 
@@ -133,7 +133,7 @@ const prompt = `@orchestra.orchestrator.agent Prepare task ${taskId}`;
 await vscode.commands.executeCommand('workbench.action.chat.open', {
   query: prompt,
   mode: 'agent',
-  agentId: 'orchestra-orchestrator',  // Registered in package.json
+  agentId: 'orchestra-orc',  // Registered in package.json
 });
 ```
 

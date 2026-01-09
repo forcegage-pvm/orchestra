@@ -461,6 +461,253 @@ export class SessionManager {
   }
 
   /**
+   * Send a message to the specified agent role's chat session
+   *
+   * This is the unified message sending API that replaces invokeOrchestrator() and invokeImplementor().
+   * It uses label-based session tracking with automatic re-initialization when tabs are not found.
+   *
+   * WORKFLOW:
+   * 1. Get workspace root (abort if not available)
+   * 2. Load stored label from database via getSessionLabel(workspaceRoot, role)
+   * 3. If label exists, find tab via findTabByLabel(label)
+   * 4. If tab NOT found (or no label), call initSession(role) to prompt user
+   * 5. If initSession returns false, abort (user cancelled)
+   * 6. After initSession, try findTabByLabel again with refreshed label from DB
+   * 7. If still no tab, show error and return false
+   * 8. Focus tab via workbench.action.openEditorAtIndex with the tab index
+   * 9. Get model and agent mode from ConfigService
+   * 10. Execute workbench.action.chat.open with: query=message, mode=agentMode, isPartialQuery=false, attachFiles=files
+   *
+   * @param role - The role to send the message to ('orchestrator' | 'implementor')
+   * @param message - The message/query to send to the chat
+   * @param files - Optional files to attach to the chat context
+   * @returns Promise<boolean> - true if message sent successfully, false if cancelled or failed
+   *
+   * @example
+   * ```typescript
+   * // Send to orchestrator
+   * const success = await sessionManager.sendMessage('orchestrator', 'Prepare the next task', []);
+   *
+   * // Send to implementor with file attachments
+   * const files = [vscode.Uri.file('/path/to/file.ts')];
+   * await sessionManager.sendMessage('implementor', 'Implement this feature', files);
+   * ```
+   */
+  async sendMessage(
+    role: "orchestrator" | "implementor",
+    message: string,
+    files: vscode.Uri[] = []
+  ): Promise<boolean> {
+    try {
+      this.logger.info(`Sending message to ${role}`, {
+        hasFiles: files.length > 0,
+        fileCount: files.length,
+      });
+
+      // Step 1: Get workspace root
+      const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+      if (!workspaceRoot) {
+        this.logger.error("No workspace folder found");
+        vscode.window.showErrorMessage(
+          "Orchestra: No workspace folder is open."
+        );
+        return false;
+      }
+
+      // Step 2: Load stored label from database
+      let label = getSessionLabel(workspaceRoot, role);
+      this.logger.info(`Retrieved ${role} label from database`, { label });
+
+      // Step 3: If label exists, try to find the tab
+      let tabResult = label ? this.findTabByLabel(label) : null;
+
+      // Step 4: If tab NOT found (or no label), call initSession
+      if (!tabResult) {
+        this.logger.info(
+          `Tab not found for ${role}, initiating session initialization`
+        );
+        const initSuccess = await this.initSession(role);
+
+        // Step 5: If initSession returns false, abort (user cancelled)
+        if (!initSuccess) {
+          this.logger.warn("Session init cancelled by user", { role });
+          return false;
+        }
+
+        // Step 6: After initSession, try findTabByLabel again with refreshed label
+        label = getSessionLabel(workspaceRoot, role);
+        tabResult = label ? this.findTabByLabel(label) : null;
+
+        // Step 7: If still no tab, show error and return false
+        if (!tabResult) {
+          this.logger.error(
+            `Tab still not found after initSession for ${role}`
+          );
+          vscode.window.showErrorMessage(
+            `Orchestra: Failed to locate ${role} chat session. Please try again.`
+          );
+          return false;
+        }
+      }
+
+      // Step 8: Focus the tab
+      this.logger.info(`Focusing ${role} tab at index ${tabResult.index}`);
+      await vscode.commands.executeCommand(
+        "workbench.action.openEditorAtIndex",
+        tabResult.index
+      );
+      await this.delay(200); // Wait for tab to be fully focused
+
+      // Step 9: Get model and agent mode from ConfigService
+      const model = this._configService.getModelForRole(role);
+      const agentMode = this._configService.getAgentForRole(role);
+
+      // Step 10: Execute workbench.action.chat.open
+      this.logger.info(`Sending message to ${role} chat`, {
+        model,
+        agentMode,
+      });
+      await vscode.commands.executeCommand("workbench.action.chat.open", {
+        query: message,
+        isPartialQuery: false,
+        mode: agentMode,
+        modelSelector: { id: model },
+        attachFiles: files,
+      });
+
+      this.logger.info("Message sent successfully", { role, label });
+      return true;
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : "Unknown error";
+      this.logger.error("Failed to send message", {
+        role,
+        error: errorMessage,
+      });
+      vscode.window.showErrorMessage(
+        `Orchestra: Failed to send message to ${role} - ${errorMessage}`
+      );
+      return false;
+    }
+  }
+
+  /**
+   * Clear the implementor chat session context by sending /clear command
+   *
+   * This method is called before each new task to reset the implementor's context
+   * and prevent context bleed between tasks. It reuses the same chat session but
+   * clears the conversation history.
+   *
+   * WORKFLOW:
+   * 1. Get workspace root (abort if not available)
+   * 2. Load stored implementor label from database via getSessionLabel(workspaceRoot, 'implementor')
+   * 3. If label exists, find tab via findTabByLabel(label)
+   * 4. If tab NOT found (or no label), call initSession('implementor') to prompt user
+   * 5. If initSession returns false, abort (user cancelled)
+   * 6. After initSession, try findTabByLabel again with refreshed label from DB
+   * 7. If still no tab, show error and return false
+   * 8. Focus tab via workbench.action.openEditorAtIndex with the tab index
+   * 9. Send /clear command via workbench.action.chat.open with query: '/clear'
+   * 10. Wait 500ms for clear command to complete
+   *
+   * @returns Promise<boolean> - true if clear succeeded, false if cancelled or failed
+   *
+   * @example
+   * ```typescript
+   * // Before starting a new task
+   * const cleared = await sessionManager.clearImplementorContext();
+   * if (cleared) {
+   *   // Context cleared, ready for new task
+   *   await sessionManager.sendMessage('implementor', 'Start new task', []);
+   * }
+   * ```
+   */
+  async clearImplementorContext(): Promise<boolean> {
+    try {
+      this.logger.info("Clearing implementor context");
+
+      // Step 1: Get workspace root
+      const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+      if (!workspaceRoot) {
+        this.logger.error("No workspace folder found");
+        vscode.window.showErrorMessage(
+          "Orchestra: No workspace folder is open."
+        );
+        return false;
+      }
+
+      // Step 2: Load stored implementor label from database
+      let label = getSessionLabel(workspaceRoot, "implementor");
+      this.logger.info("Retrieved implementor label from database", { label });
+
+      // Step 3: If label exists, try to find the tab
+      let tabResult = label ? this.findTabByLabel(label) : null;
+
+      // Step 4: If tab NOT found (or no label), call initSession
+      if (!tabResult) {
+        this.logger.info(
+          "Tab not found for implementor, initiating session initialization"
+        );
+        const initSuccess = await this.initSession("implementor");
+
+        // Step 5: If initSession returns false, abort (user cancelled)
+        if (!initSuccess) {
+          this.logger.warn("Session init cancelled by user", {
+            role: "implementor",
+          });
+          return false;
+        }
+
+        // Step 6: After initSession, try findTabByLabel again with refreshed label
+        label = getSessionLabel(workspaceRoot, "implementor");
+        tabResult = label ? this.findTabByLabel(label) : null;
+
+        // Step 7: If still no tab, show error and return false
+        if (!tabResult) {
+          this.logger.error(
+            "Tab still not found after initSession for implementor"
+          );
+          vscode.window.showErrorMessage(
+            "Orchestra: Failed to locate implementor chat session. Please try again."
+          );
+          return false;
+        }
+      }
+
+      // Step 8: Focus the tab
+      this.logger.info(`Focusing implementor tab at index ${tabResult.index}`);
+      await vscode.commands.executeCommand(
+        "workbench.action.openEditorAtIndex",
+        tabResult.index
+      );
+      await this.delay(200); // Wait for tab to be fully focused
+
+      // Step 9: Send /clear command
+      this.logger.info("Sending /clear command to implementor chat");
+      await vscode.commands.executeCommand("workbench.action.chat.open", {
+        query: "/clear",
+        isPartialQuery: false,
+      });
+
+      // Step 10: Wait for clear to complete
+      await this.delay(500);
+
+      this.logger.info("Implementor context cleared successfully");
+      return true;
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : "Unknown error";
+      this.logger.error("Failed to clear implementor context", {
+        error: errorMessage,
+      });
+      vscode.window.showErrorMessage(
+        `Orchestra: Failed to clear implementor context - ${errorMessage}`
+      );
+      return false;
+    }
+  }
+
+  /**
    * Check if orchestrator session is active
    */
   isOrchestratorActive(): boolean {
@@ -472,6 +719,74 @@ export class SessionManager {
    */
   isImplementorActive(): boolean {
     return this._implementorActive;
+  }
+
+  /**
+   * Check if a session is ready to receive messages
+   *
+   * A session is ready when:
+   * 1. A label is stored in the database for this role
+   * 2. A tab with that label currently exists in the editor
+   *
+   * This is a synchronous check - it does NOT prompt the user or
+   * initialize the session, just reports current state.
+   *
+   * @param role - The role to check ('orchestrator' | 'implementor')
+   * @returns true if session is ready, false otherwise
+   */
+  isSessionReady(role: "orchestrator" | "implementor"): boolean {
+    // Get workspace root - if not available, session can't be ready
+    const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+    if (!workspaceRoot) {
+      return false;
+    }
+
+    // Check if label exists in database
+    const label = getSessionLabel(workspaceRoot, role);
+    if (!label) {
+      return false;
+    }
+
+    // Check if tab with that label exists
+    const tabResult = this.findTabByLabel(label);
+    return tabResult !== null;
+  }
+
+  /**
+   * Get status information for both sessions
+   *
+   * Returns the current state of orchestrator and implementor sessions,
+   * useful for UI status indicators.
+   *
+   * @returns Object with status for both sessions
+   */
+  getSessionInfo(): {
+    orchestrator: { label: string | null; ready: boolean };
+    implementor: { label: string | null; ready: boolean };
+  } {
+    const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+
+    // If no workspace, both sessions are not ready
+    if (!workspaceRoot) {
+      return {
+        orchestrator: { label: null, ready: false },
+        implementor: { label: null, ready: false },
+      };
+    }
+
+    const orchestratorLabel = getSessionLabel(workspaceRoot, "orchestrator");
+    const implementorLabel = getSessionLabel(workspaceRoot, "implementor");
+
+    return {
+      orchestrator: {
+        label: orchestratorLabel,
+        ready: this.isSessionReady("orchestrator"),
+      },
+      implementor: {
+        label: implementorLabel,
+        ready: this.isSessionReady("implementor"),
+      },
+    };
   }
 
   /**

@@ -65,6 +65,9 @@ vi.mock("../../src/extension.js", () => ({
     getContextFiles: vi.fn(() => []),
   })),
   getSessionManager: vi.fn(() => ({
+    sendMessage: vi.fn().mockResolvedValue(true),
+    clearImplementorContext: vi.fn().mockResolvedValue(true),
+    // Keep deprecated methods for backward compatibility during transition
     invokeOrchestrator: vi.fn(),
     invokeImplementor: vi.fn(),
   })),
@@ -127,12 +130,12 @@ describe("PlayTaskHandler", () => {
         vi.mocked(queries.getTaskById).mockReturnValue(mockTask);
         vi.mocked(queries.getCurrentSprint).mockReturnValue(mockSprint);
 
-        const mockInvokeOrchestrator = vi.fn();
+        const mockSendMessage = vi.fn().mockResolvedValue(true);
         const mockBuildPreparePrompt = vi.fn(() => "Mock prepare prompt");
 
         vi.mocked(extension.getSessionManager).mockReturnValue({
-          invokeOrchestrator: mockInvokeOrchestrator,
-          invokeImplementor: vi.fn(),
+          sendMessage: mockSendMessage,
+          clearImplementorContext: vi.fn().mockResolvedValue(true),
         } as never);
 
         vi.mocked(PromptBuilder).mockImplementation(
@@ -168,8 +171,9 @@ describe("PlayTaskHandler", () => {
           },
         });
 
-        // Verify SessionManager.invokeOrchestrator was called with correct options
-        expect(mockInvokeOrchestrator).toHaveBeenCalledWith(
+        // Verify SessionManager.sendMessage was called with orchestrator role
+        expect(mockSendMessage).toHaveBeenCalledWith(
+          "orchestrator",
           "Mock prepare prompt",
           []
         );
@@ -225,7 +229,8 @@ describe("PlayTaskHandler", () => {
       it("should invoke implementor with correct context and files", async () => {
         vi.mocked(queries.getTaskById).mockReturnValue(mockTask);
 
-        const mockInvokeImplementor = vi.fn();
+        const mockSendMessage = vi.fn().mockResolvedValue(true);
+        const mockClearImplementorContext = vi.fn().mockResolvedValue(true);
         const mockBuildImplementPrompt = vi.fn(() => "Mock implement prompt");
         const mockGetContextFiles = vi.fn(() => [
           { fsPath: "/workspace/src/file1.ts" },
@@ -233,8 +238,8 @@ describe("PlayTaskHandler", () => {
         ]);
 
         vi.mocked(extension.getSessionManager).mockReturnValue({
-          invokeOrchestrator: vi.fn(),
-          invokeImplementor: mockInvokeImplementor,
+          sendMessage: mockSendMessage,
+          clearImplementorContext: mockClearImplementorContext,
         } as never);
 
         vi.mocked(PromptBuilder).mockImplementation(
@@ -274,8 +279,12 @@ describe("PlayTaskHandler", () => {
         // Verify context files were resolved
         expect(mockGetContextFiles).toHaveBeenCalledWith(mockTaskId);
 
-        // Verify SessionManager.invokeImplementor was called with correct options including files
-        expect(mockInvokeImplementor).toHaveBeenCalledWith(
+        // Verify clearImplementorContext was called before sendMessage
+        expect(mockClearImplementorContext).toHaveBeenCalled();
+
+        // Verify SessionManager.sendMessage was called with implementor role and files
+        expect(mockSendMessage).toHaveBeenCalledWith(
+          "implementor",
           "Mock implement prompt",
           [
             { fsPath: "/workspace/src/file1.ts" },
@@ -287,13 +296,14 @@ describe("PlayTaskHandler", () => {
       it("should work when handover is null (no handover exists yet)", async () => {
         vi.mocked(queries.getTaskById).mockReturnValue(mockTask);
 
-        const mockInvokeImplementor = vi.fn();
+        const mockSendMessage = vi.fn().mockResolvedValue(true);
+        const mockClearImplementorContext = vi.fn().mockResolvedValue(true);
         const mockBuildImplementPrompt = vi.fn(() => "Mock implement prompt");
         const mockGetContextFiles = vi.fn(() => []);
 
         vi.mocked(extension.getSessionManager).mockReturnValue({
-          invokeOrchestrator: vi.fn(),
-          invokeImplementor: mockInvokeImplementor,
+          sendMessage: mockSendMessage,
+          clearImplementorContext: mockClearImplementorContext,
         } as never);
 
         vi.mocked(PromptBuilder).mockImplementation(
@@ -325,19 +335,21 @@ describe("PlayTaskHandler", () => {
         });
 
         // Should still invoke implementor successfully
-        expect(mockInvokeImplementor).toHaveBeenCalled();
+        expect(mockClearImplementorContext).toHaveBeenCalled();
+        expect(mockSendMessage).toHaveBeenCalled();
       });
 
       it("should work when no context files exist", async () => {
         vi.mocked(queries.getTaskById).mockReturnValue(mockTask);
 
-        const mockInvokeImplementor = vi.fn();
+        const mockSendMessage = vi.fn().mockResolvedValue(true);
+        const mockClearImplementorContext = vi.fn().mockResolvedValue(true);
         const mockBuildImplementPrompt = vi.fn(() => "Mock implement prompt");
         const mockGetContextFiles = vi.fn(() => []); // No files
 
         vi.mocked(extension.getSessionManager).mockReturnValue({
-          invokeOrchestrator: vi.fn(),
-          invokeImplementor: mockInvokeImplementor,
+          sendMessage: mockSendMessage,
+          clearImplementorContext: mockClearImplementorContext,
         } as never);
 
         vi.mocked(PromptBuilder).mockImplementation(
@@ -354,7 +366,9 @@ describe("PlayTaskHandler", () => {
         await handlePlayTask(mockWorkspaceRoot, mockTaskId);
 
         // Should invoke implementor with empty files array
-        expect(mockInvokeImplementor).toHaveBeenCalledWith(
+        expect(mockClearImplementorContext).toHaveBeenCalled();
+        expect(mockSendMessage).toHaveBeenCalledWith(
+          "implementor",
           "Mock implement prompt",
           []
         );
@@ -431,15 +445,16 @@ describe("PlayTaskHandler", () => {
         vi.mocked(queries.getTaskById).mockReturnValue(mockTask);
         vi.mocked(queries.getFeedback).mockReturnValue(mockFeedback);
 
-        const mockInvokeImplementor = vi.fn();
+        const mockSendMessage = vi.fn().mockResolvedValue(true);
+        const mockClearImplementorContext = vi.fn().mockResolvedValue(true);
         const mockBuildRetryPrompt = vi.fn(() => "Mock retry prompt");
         const mockGetContextFiles = vi.fn(() => [
           { fsPath: "/workspace/src/file1.ts" },
         ]);
 
         vi.mocked(extension.getSessionManager).mockReturnValue({
-          invokeOrchestrator: vi.fn(),
-          invokeImplementor: mockInvokeImplementor,
+          sendMessage: mockSendMessage,
+          clearImplementorContext: mockClearImplementorContext,
         } as never);
 
         vi.mocked(PromptBuilder).mockImplementation(
@@ -484,8 +499,12 @@ describe("PlayTaskHandler", () => {
         // Verify context files were resolved
         expect(mockGetContextFiles).toHaveBeenCalledWith(mockTaskId);
 
-        // Verify SessionManager.invokeImplementor was called with retry prompt
-        expect(mockInvokeImplementor).toHaveBeenCalledWith(
+        // Verify clearImplementorContext was called before retry
+        expect(mockClearImplementorContext).toHaveBeenCalled();
+
+        // Verify SessionManager.sendMessage was called with implementor role
+        expect(mockSendMessage).toHaveBeenCalledWith(
+          "implementor",
           "Mock retry prompt",
           [{ fsPath: "/workspace/src/file1.ts" }]
         );
@@ -576,10 +595,10 @@ describe("PlayTaskHandler", () => {
         vi.mocked(queries.getTaskById).mockReturnValue(mockTask);
         vi.mocked(queries.getEscalation).mockReturnValue(mockEscalation);
 
-        const mockInvokeOrchestrator = vi.fn();
+        const mockSendMessage = vi.fn().mockResolvedValue(true);
         vi.mocked(extension.getSessionManager).mockReturnValue({
-          invokeOrchestrator: mockInvokeOrchestrator,
-          invokeImplementor: vi.fn(),
+          sendMessage: mockSendMessage,
+          clearImplementorContext: vi.fn().mockResolvedValue(true),
         } as never);
 
         await handlePlayTask(mockWorkspaceRoot, mockTaskId);
@@ -594,11 +613,13 @@ describe("PlayTaskHandler", () => {
         );
 
         // Verify orchestrator was invoked with escalation review prompt
-        expect(mockInvokeOrchestrator).toHaveBeenCalledWith(
+        expect(mockSendMessage).toHaveBeenCalledWith(
+          "orchestrator",
           expect.stringContaining("review the escalated Task"),
           []
         );
-        expect(mockInvokeOrchestrator).toHaveBeenCalledWith(
+        expect(mockSendMessage).toHaveBeenCalledWith(
+          "orchestrator",
           expect.stringContaining("Max retries exceeded"),
           []
         );
@@ -667,12 +688,12 @@ describe("PlayTaskHandler", () => {
 
       vi.mocked(queries.getTaskById).mockReturnValue(mockTask);
 
-      const mockInvokeOrchestrator = vi.fn();
+      const mockSendMessage = vi.fn().mockResolvedValue(true);
       const mockBuildVerifyPrompt = vi.fn(() => "Mock verify prompt");
 
       vi.mocked(extension.getSessionManager).mockReturnValue({
-        invokeOrchestrator: mockInvokeOrchestrator,
-        invokeImplementor: vi.fn(),
+        sendMessage: mockSendMessage,
+        clearImplementorContext: vi.fn().mockResolvedValue(true),
       } as never);
 
       vi.mocked(PromptBuilder).mockImplementation(
@@ -704,8 +725,9 @@ describe("PlayTaskHandler", () => {
         },
       });
 
-      // Verify SessionManager.invokeOrchestrator was called
-      expect(mockInvokeOrchestrator).toHaveBeenCalledWith(
+      // Verify SessionManager.sendMessage was called with orchestrator role
+      expect(mockSendMessage).toHaveBeenCalledWith(
+        "orchestrator",
         "Mock verify prompt",
         []
       );
@@ -776,4 +798,3 @@ describe("PlayTaskHandler", () => {
     });
   });
 });
-

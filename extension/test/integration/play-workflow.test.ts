@@ -13,12 +13,11 @@
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import * as vscode from "vscode";
+import type { SessionManager } from "../../src/chat/SessionManager.js";
 import { handlePlayTask } from "../../src/commands/PlayTaskHandler.js";
+import type { ConfigService } from "../../src/config/ConfigService.js";
 import * as queries from "../../src/database/queries.js";
 import * as extension from "../../src/extension.js";
-import { PromptBuilder } from "../../src/prompts/PromptBuilder.js";
-import type { ConfigService } from "../../src/config/ConfigService.js";
-import type { SessionManager } from "../../src/chat/SessionManager.js";
 
 // Mock VS Code API
 vi.mock("vscode", () => ({
@@ -96,6 +95,15 @@ describe("Play Workflow Integration Tests", () => {
     mockInvokeImplementor = vi.fn();
 
     const mockSessionManager = {
+      sendMessage: vi.fn((role: string, message: string, files: unknown[]) => {
+        // Delegate to old mocks based on role for backward compatibility with test assertions
+        if (role === "orchestrator") {
+          return mockInvokeOrchestrator(message, files);
+        } else {
+          return mockInvokeImplementor(message, files);
+        }
+      }),
+      clearImplementorContext: vi.fn().mockResolvedValue(true),
       invokeOrchestrator: mockInvokeOrchestrator,
       invokeImplementor: mockInvokeImplementor,
       clearImplementorSession: vi.fn(),

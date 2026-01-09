@@ -109,7 +109,7 @@ export class ConfigGenerator {
     // Build config
     const config: MCPConfig = {
       mcpServers: {
-        "orchestra-orchestrator": {
+        "orchestra-orc": {
           type: "stdio",
           command: "node",
           args: [serverPath, "--role=orchestrator"],
@@ -117,7 +117,7 @@ export class ConfigGenerator {
             ORCHESTRA_WORKSPACE: this.workspaceRoot,
           },
         },
-        "orchestra-implementor": {
+        "orchestra-imp": {
           type: "stdio",
           command: "node",
           args: [serverPath, "--role=implementor"],

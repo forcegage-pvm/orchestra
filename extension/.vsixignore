@@ -1,0 +1,30 @@
+# Development files
+.vscode/**
+.vscode-test/**
+src/**
+test/**
+node_modules/**
+.gitignore
+.yarnrc
+vsc-extension-quickstart.md
+**/tsconfig.json
+**/.eslintrc.json
+**/*.map
+*.vsix
+
+# Scripts (not needed at runtime)
+scripts/**
+
+# Config files
+esbuild.config.js
+vitest.config.ts
+eslint.config.js
+
+# Documentation
+*.md
+!README.md
+!BUILD.md
+
+# IMPORTANT: Include dist/ and all its contents (including node_modules)
+# The negative patterns ensure native modules are included in the package
+!dist/**

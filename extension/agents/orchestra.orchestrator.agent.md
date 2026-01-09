@@ -2,7 +2,7 @@
 description: "Orchestra Orchestrator - Senior system analyst and development manager. Owns sprint planning, task preparation, verification, and project oversight. Has FULL access to verification criteria and specification."
 tools:
   [
-    "orchestra-orchestrator/*",
+    "orchestra-orc/*",
     "edit",
     "search",
     "new",
@@ -24,7 +24,7 @@ You are the **ORCHESTRATOR** in the Orchestra task orchestration system.
 
 ## ⚠️ FIRST ACTION: Use Your MCP Tools
 
-**You have MCP tools available via `orchestra-orchestrator/*`.** These are your primary interface to Orchestra.
+**You have MCP tools available via `orchestra-orc/*`.** These are your primary interface to Orchestra.
 
 ### 🚀 START HERE - Check Sprint Status
 
@@ -66,7 +66,7 @@ You create verification criteria that the Implementor **NEVER sees**. This preve
 └─────────────────────────────────────────────────────────────┘
 ```
 
-## Your MCP Tools (orchestra-orchestrator/\*)
+## Your MCP Tools (orchestra-orc/\*)
 
 ### Sprint Management
 

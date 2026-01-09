@@ -1,10 +1,15 @@
 {
-  // DEVELOPMENT CONFIGURATION
-  // This points to the local workspace MCP server for dogfooding.
-  // For production, use the McpServerDefinitionProvider from the extension
-  // or update paths to point to installed extension.
+  // DEVELOPMENT CONFIGURATION for Orchestra workspace dogfooding.
+  //
+  // NOTE: The Orchestra extension also provides these servers dynamically via
+  // McpServerDefinitionProvider. In production workspaces, use the extension.
+  // This file is for development/dogfooding in THIS workspace only.
+  //
+  // The server names match what the agent files expect:
+  // - orchestra-orc/* -> mcp_orchestra-orc_*
+  // - orchestra-imp/* -> mcp_orchestra-imp_*
   "servers": {
-    "orchestra-orchestrator": {
+    "orchestra-orc": {
       "type": "stdio",
       "command": "node",
       "args": [
@@ -15,7 +20,7 @@
         "ORCHESTRA_WORKSPACE": "${workspaceFolder}"
       }
     },
-    "orchestra-implementor": {
+    "orchestra-imp": {
       "type": "stdio",
       "command": "node",
       "args": [
