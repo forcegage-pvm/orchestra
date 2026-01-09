@@ -153,6 +153,29 @@ cd extension
 npx @electron/rebuild -f -w better-sqlite3 -v 39.2.3
 ```
 
+### @electron/rebuild Uses Cached Prebuilt (Not Actually Compiling)
+
+If `@electron/rebuild` completes instantly but the `.node` file timestamp doesn't change, it's using a cached prebuilt binary instead of compiling from source.
+
+**Symptoms**:
+- `npx @electron/rebuild` says "Rebuild Complete" but the error persists
+- The `.node` file has an old timestamp after rebuild
+- MODULE_VERSION still mismatches
+
+**Fix**: Manually invoke node-gyp with Electron headers:
+```bash
+cd extension/node_modules/better-sqlite3
+npm run build-release -- --target=39.2.3 --arch=x64 --dist-url=https://electronjs.org/headers
+```
+
+This forces a from-source compilation using the correct Electron version's Node headers.
+
+**Verify the fix**:
+```powershell
+# Check the timestamp is fresh (should be today)
+Get-ChildItem "node_modules\better-sqlite3\build\Release\*.node" | Select-Object Name, LastWriteTime
+```
+
 ### Finding the Correct Electron Version
 
 1. Check your VS Code version: `code --version`
