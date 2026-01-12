@@ -4,26 +4,26 @@
       "type": "stdio",
       "command": "node",
       "args": [
-        "c:\\Users\\Marius\\.vscode\\extensions\\forcegage.orchestra-extension-0.2.6\\dist\\mcp-server\\index.js",
+        "c:\\Users\\Marius\\.vscode\\extensions\\forcegage.orchestra-extension-0.2.5\\dist\\mcp-server\\index.js",
         "--role=orchestrator"
       ],
       "env": {
-        "ORCHESTRA_WORKSPACE": "f:\\cloud services\\Dropbox\\Repositories\\vs code\\orchestra"
+        "ORCHESTRA_WORKSPACE": "x:\\Cloud Storage\\Dropbox\\Repositories\\vs code\\orchestra"
       }
     },
     "orchestra-imp": {
       "type": "stdio",
       "command": "node",
       "args": [
-        "c:\\Users\\Marius\\.vscode\\extensions\\forcegage.orchestra-extension-0.2.6\\dist\\mcp-server\\index.js",
+        "c:\\Users\\Marius\\.vscode\\extensions\\forcegage.orchestra-extension-0.2.5\\dist\\mcp-server\\index.js",
         "--role=implementor"
       ],
       "env": {
-        "ORCHESTRA_WORKSPACE": "f:\\cloud services\\Dropbox\\Repositories\\vs code\\orchestra"
+        "ORCHESTRA_WORKSPACE": "x:\\Cloud Storage\\Dropbox\\Repositories\\vs code\\orchestra"
       }
     }
   },
   "generatedBy": "Orchestra VS Code Extension",
-  "version": "0.2.6",
-  "timestamp": "2026-01-12T14:30:54.931Z"
+  "version": "0.2.5",
+  "timestamp": "2026-01-12T16:06:22.556Z"
 }
