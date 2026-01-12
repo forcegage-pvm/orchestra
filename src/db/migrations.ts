@@ -175,6 +175,36 @@ const MIGRATIONS: Migration[] = [
       );
     },
   },
+  {
+    id: "20260112_001_add_chat_sessions_table",
+    description:
+      "Add chat_sessions table for extension chat session management",
+    up: async () => {
+      const db = getDb();
+
+      // Check if table already exists (idempotent)
+      const tables = await db.all(
+        sql`SELECT name FROM sqlite_master WHERE type='table' AND name='chat_sessions'`
+      );
+      if ((tables as { name: string }[]).length > 0) {
+        return; // Already exists
+      }
+
+      await db.run(sql`
+        CREATE TABLE chat_sessions (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          role TEXT NOT NULL UNIQUE,
+          tab_label TEXT NOT NULL,
+          created_at TEXT NOT NULL,
+          last_used_at TEXT NOT NULL
+        )
+      `);
+
+      await db.run(
+        sql`CREATE INDEX IF NOT EXISTS chat_session_role_idx ON chat_sessions(role)`
+      );
+    },
+  },
 ];
 
 /**
