@@ -277,6 +277,16 @@ export async function initializeDb(): Promise<void> {
     )
   `);
 
+  await db.run(sql`
+    CREATE TABLE IF NOT EXISTS chat_sessions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      role TEXT NOT NULL UNIQUE,
+      tab_label TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      last_used_at TEXT NOT NULL
+    )
+  `);
+
   // Run migrations for existing databases
   await runMigrations();
 
@@ -485,6 +495,11 @@ async function createIndexes(): Promise<void> {
   );
   await db.run(
     sql`CREATE INDEX IF NOT EXISTS amendment_timestamp_idx ON amendments(amended_at)`
+  );
+
+  // Chat sessions indexes
+  await db.run(
+    sql`CREATE INDEX IF NOT EXISTS chat_session_role_idx ON chat_sessions(role)`
   );
 }
 

@@ -23,6 +23,46 @@ const NATIVE_MODULES = [
   "drizzle-orm",
 ];
 
+/**
+ * Remove directory with retry logic for handling file locks (Dropbox, antivirus, etc.)
+ */
+function removeWithRetry(targetPath, maxRetries = 5, delayMs = 500) {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      fs.rmSync(targetPath, {
+        recursive: true,
+        force: true,
+        maxRetries: 3,
+        retryDelay: 100,
+      });
+      return true;
+    } catch (err) {
+      if (
+        err.code === "EPERM" ||
+        err.code === "EBUSY" ||
+        err.code === "ENOTEMPTY"
+      ) {
+        if (attempt < maxRetries) {
+          // Wait before retry
+          const waitMs = delayMs * attempt;
+          console.log(
+            `   ⏳ File locked, retrying in ${waitMs}ms (attempt ${attempt}/${maxRetries})...`
+          );
+          const start = Date.now();
+          while (Date.now() - start < waitMs) {
+            // Busy wait (sync delay)
+          }
+        } else {
+          throw err;
+        }
+      } else {
+        throw err;
+      }
+    }
+  }
+  return false;
+}
+
 function copyNativeModules() {
   console.log("📦 Copying native modules for extension runtime...");
   console.log(`   Source: ${SOURCE_NODE_MODULES}`);
@@ -38,7 +78,7 @@ function copyNativeModules() {
     if (fs.existsSync(sourceModule)) {
       // Remove existing target if it exists
       if (fs.existsSync(targetModule)) {
-        fs.rmSync(targetModule, { recursive: true, force: true });
+        removeWithRetry(targetModule);
       }
 
       // Copy the module

@@ -469,8 +469,11 @@ export async function activate(
         if (fs.existsSync(dbPath)) {
           try {
             // Query migrations from database
-            const sqlite3 = await import("better-sqlite3");
-            const db = new sqlite3.default(dbPath, { readonly: true });
+            const { loadBetterSqlite3 } = await import(
+              "./database/native-loader.js"
+            );
+            const Database = loadBetterSqlite3();
+            const db = new Database(dbPath, { readonly: true });
             const migrations = db
               .prepare(
                 "SELECT id, description, applied_at FROM schema_migrations ORDER BY applied_at"
@@ -729,6 +732,19 @@ export async function activate(
   try {
     db = OrchestraDB.getInstance(orchestraRoot);
     logger.info("Database client initialized");
+
+    // 4a. Run any pending migrations
+    const { runExtensionMigrations } = await import("./database/migrations.js");
+    const migrationResult = runExtensionMigrations(db);
+    if (migrationResult.applied > 0) {
+      logger.info(
+        `Applied ${
+          migrationResult.applied
+        } database migration(s): ${migrationResult.migrations.join(", ")}`
+      );
+    } else {
+      logger.info("Database schema is up to date");
+    }
   } catch (error) {
     logger.error("Failed to initialize database", error);
 

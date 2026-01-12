@@ -11,13 +11,10 @@
  * decisions, and perform manual interventions when the automated workflow fails.
  */
 
-import Database from "better-sqlite3";
-import {
-  drizzle,
-  type BetterSQLite3Database,
-} from "drizzle-orm/better-sqlite3";
+import type { BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
 import { DatabaseError } from "../utils/errors.js";
 import { getOrchestraDBPath } from "../workspace/detector.js";
+import { loadBetterSqlite3, loadDrizzleOrm } from "./native-loader.js";
 
 // Type for the Drizzle instance (schema is loaded dynamically to avoid module conflicts)
 type DrizzleInstance = BetterSQLite3Database<Record<string, never>>;
@@ -94,6 +91,10 @@ export class OrchestraDB {
     const dbPath = getOrchestraDBPath(workspaceRoot);
 
     try {
+      // Load native modules from bundled location
+      const Database = loadBetterSqlite3();
+      const { drizzle } = loadDrizzleOrm();
+
       // Open database with full read-write access for human supervisor
       OrchestraDB.sqliteConnection = new Database(dbPath, {
         fileMustExist: true,
