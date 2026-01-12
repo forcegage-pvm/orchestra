@@ -39,6 +39,7 @@ export async function handleGetAmendments(input: unknown) {
         toolName: "get_amendments",
         role: "orchestrator",
         input: validation.data,
+        taskId: validation.data?.task_id,
       },
       { success: true, output },
       durationMs
@@ -56,6 +57,7 @@ export async function handleGetAmendments(input: unknown) {
         toolName: "get_amendments",
         role: "orchestrator",
         input: validation.data,
+        taskId: validation.data?.task_id,
       },
       { success: false, errorMessage: err.message },
       durationMs
