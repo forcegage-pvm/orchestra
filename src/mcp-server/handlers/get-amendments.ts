@@ -48,11 +48,7 @@ export async function handleGetAmendments(input: unknown) {
       context.taskId = validation.data.task_id;
     }
 
-    await logToolExecution(
-      context,
-      { success: true, output },
-      durationMs
-    );
+    await logToolExecution(context, { success: true, output }, durationMs);
 
     return {
       content: [{ type: "text" as const, text: JSON.stringify(output) }],
