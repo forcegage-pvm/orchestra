@@ -189,15 +189,16 @@ async function prepareTask(
 
     // Auto-generate test requirements if not provided by orchestrator
     if (!effectiveTestRequirements) {
+      const detectedPatterns = detectTestPatterns(input.file_operations);
+      const patternToDisplay = tddInjectionResult.testFilePattern || detectedPatterns.testFilePattern;
+      
       effectiveTestRequirements =
         `[TDD REQUIRED] This task requires test coverage.\n\n` +
         `Create tests that verify:\n` +
         `1. All acceptance criteria are met\n` +
         `2. Core functionality works as expected\n` +
         `3. Edge cases and error conditions are handled\n\n` +
-        `Test file pattern: ${
-          tddInjectionResult.testFilePattern || "test/**/*.test.ts"
-        }\n` +
+        `Test file pattern: ${patternToDisplay}\n` +
         `Tests must include describe/test/it blocks.`;
     }
 
@@ -320,6 +321,110 @@ async function prepareTask(
 }
 
 /**
+ * Detect project language and return appropriate test patterns.
+ */
+function detectTestPatterns(
+  fileOperations: Array<{
+    operation: string;
+    path: string;
+    description: string;
+  }>
+): { testFilePattern: string; testContentPattern: string } {
+  // Check file extensions in file_operations
+  const extensions = new Set<string>();
+  for (const op of fileOperations) {
+    const match = op.path.match(/\.([^.]+)$/);
+    if (match) {
+      extensions.add(match[1]);
+    }
+  }
+
+  // Dart project
+  if (extensions.has("dart")) {
+    return {
+      testFilePattern: "test/**/*_test.dart",
+      testContentPattern: "test\\(|testWidgets\\(|group\\(",
+    };
+  }
+
+  // Python project
+  if (extensions.has("py")) {
+    return {
+      testFilePattern: "test/**/test_*.py",
+      testContentPattern: "def test_|class Test",
+    };
+  }
+
+  // Rust project
+  if (extensions.has("rs")) {
+    return {
+      testFilePattern: "tests/**/*.rs",
+      testContentPattern: "#\\[test\\]|#\\[cfg\\(test\\)\\]",
+    };
+  }
+
+  // Go project
+  if (extensions.has("go")) {
+    return {
+      testFilePattern: "**/*_test.go",
+      testContentPattern: "func Test",
+    };
+  }
+
+  // C/C++ project
+  if (
+    extensions.has("c") ||
+    extensions.has("cpp") ||
+    extensions.has("cc") ||
+    extensions.has("h") ||
+    extensions.has("hpp")
+  ) {
+    return {
+      testFilePattern: "test/**/*_test.{c,cpp}",
+      testContentPattern: "TEST\\(|TEST_F\\(|ASSERT_|EXPECT_",
+    };
+  }
+
+  // Java project
+  if (extensions.has("java")) {
+    return {
+      testFilePattern: "src/test/**/*Test.java",
+      testContentPattern: "@Test|@RunWith",
+    };
+  }
+
+  // C# project
+  if (extensions.has("cs")) {
+    return {
+      testFilePattern: "**/*.Tests/**/*Tests.cs",
+      testContentPattern: "\\[Test\\]|\\[Fact\\]|\\[Theory\\]",
+    };
+  }
+
+  // Ruby project
+  if (extensions.has("rb")) {
+    return {
+      testFilePattern: "test/**/*_test.rb",
+      testContentPattern: "describe |it |test |RSpec",
+    };
+  }
+
+  // PHP project
+  if (extensions.has("php")) {
+    return {
+      testFilePattern: "tests/**/*Test.php",
+      testContentPattern: "public function test|@test",
+    };
+  }
+
+  // Default to TypeScript/JavaScript
+  return {
+    testFilePattern: "test/**/*.test.ts",
+    testContentPattern: "describe|test|it",
+  };
+}
+
+/**
  * Auto-inject test verification check if TDD is enabled for the task category.
  *
  * Reads TDD config from database: require_tests, require_tests_categories,
@@ -330,6 +435,7 @@ async function prepareTask(
  *
  * Infers test location from file_operations - if files are in extension/,
  * uses extension/test/ pattern instead of test/.
+ * Detects project language from file extensions and uses appropriate test patterns.
  */
 async function injectTestVerificationIfRequired(
   db: ReturnType<typeof getDb>,
@@ -380,32 +486,39 @@ async function injectTestVerificationIfRequired(
     return { injected: false };
   }
 
-  // Get test file pattern from config or infer from file operations
+  // Get test file pattern from config or detect from file operations
   const configTestPattern = configMap.get("tdd.test_file_pattern");
-  const testContentPattern =
-    configMap.get("tdd.test_pattern") || "describe|test|it";
+  const configContentPattern = configMap.get("tdd.test_pattern");
+
+  // Detect language-appropriate test patterns from file operations
+  const detectedPatterns = detectTestPatterns(fileOperations);
+
+  // Use config patterns if provided, otherwise use detected patterns
+  const testContentPattern = configContentPattern || detectedPatterns.testContentPattern;
 
   // Determine test file pattern:
   // 1. If explicit test_file provided, use that exact path
-  // 2. If file_operations target extension/, use extension/test/**/*.test.ts
-  // 3. Otherwise use config or default test/**/*.test.ts
+  // 2. If config provides pattern, use that
+  // 3. If file_operations target extension/, adapt detected pattern for extension/
+  // 4. Otherwise use detected pattern
   let testFilePattern: string;
 
   if (explicitTestFile) {
     // Use the exact test file specified by orchestrator
     testFilePattern = explicitTestFile;
+  } else if (configTestPattern) {
+    // Use configured pattern (manual override)
+    testFilePattern = configTestPattern;
   } else {
-    // Infer from file operations - check if any files are in extension/
+    // Use detected pattern, adapt for extension/ if needed
     const hasExtensionFiles = fileOperations.some((op) =>
       op.path.startsWith("extension/")
     );
 
     if (hasExtensionFiles) {
-      testFilePattern =
-        configTestPattern?.replace(/^test\//, "extension/test/") ||
-        "extension/test/**/*.test.ts";
+      testFilePattern = detectedPatterns.testFilePattern.replace(/^test\//, "extension/test/");
     } else {
-      testFilePattern = configTestPattern || "test/**/*.test.ts";
+      testFilePattern = detectedPatterns.testFilePattern;
     }
   }
 

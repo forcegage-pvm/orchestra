@@ -368,15 +368,15 @@ export class SprintSettingsPanel {
   </div>
   
   <div class="form-group">
-    <label for="testFilePattern">Test file pattern</label>
+    <label for="testFilePattern">Test file pattern (auto-detected if empty)</label>
     <input type="text" id="testFilePattern" placeholder="test/**/*.test.ts">
-    <div class="help-text">Glob pattern to match test files</div>
+    <div class="help-text">Glob pattern to match test files. If empty, Orchestra auto-detects based on project language (Dart, Python, Go, Rust, etc.)</div>
   </div>
   
   <div class="form-group">
-    <label for="testPattern">Test content pattern</label>
+    <label for="testPattern">Test content pattern (auto-detected if empty)</label>
     <input type="text" id="testPattern" placeholder="describe|test|it">
-    <div class="help-text">Regex pattern to match test declarations in files</div>
+    <div class="help-text">Regex pattern to match test declarations. If empty, Orchestra auto-detects based on project language</div>
   </div>
   
   <h2>Pre-Signal Commands</h2>
