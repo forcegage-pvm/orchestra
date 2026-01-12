@@ -190,8 +190,9 @@ async function prepareTask(
     // Auto-generate test requirements if not provided by orchestrator
     if (!effectiveTestRequirements) {
       const detectedPatterns = detectTestPatterns(input.file_operations);
-      const patternToDisplay = tddInjectionResult.testFilePattern || detectedPatterns.testFilePattern;
-      
+      const patternToDisplay =
+        tddInjectionResult.testFilePattern || detectedPatterns.testFilePattern;
+
       effectiveTestRequirements =
         `[TDD REQUIRED] This task requires test coverage.\n\n` +
         `Create tests that verify:\n` +
@@ -334,7 +335,7 @@ function detectTestPatterns(
   const extensions = new Set<string>();
   for (const op of fileOperations) {
     const match = op.path.match(/\.([^.]+)$/);
-    if (match) {
+    if (match && match[1]) {
       extensions.add(match[1]);
     }
   }
@@ -494,7 +495,8 @@ async function injectTestVerificationIfRequired(
   const detectedPatterns = detectTestPatterns(fileOperations);
 
   // Use config patterns if provided, otherwise use detected patterns
-  const testContentPattern = configContentPattern || detectedPatterns.testContentPattern;
+  const testContentPattern =
+    configContentPattern || detectedPatterns.testContentPattern;
 
   // Determine test file pattern:
   // 1. If explicit test_file provided, use that exact path
@@ -516,7 +518,10 @@ async function injectTestVerificationIfRequired(
     );
 
     if (hasExtensionFiles) {
-      testFilePattern = detectedPatterns.testFilePattern.replace(/^test\//, "extension/test/");
+      testFilePattern = detectedPatterns.testFilePattern.replace(
+        /^test\//,
+        "extension/test/"
+      );
     } else {
       testFilePattern = detectedPatterns.testFilePattern;
     }
