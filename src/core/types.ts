@@ -692,7 +692,7 @@ export const DEFAULT_CONFIG: OrchestraConfig = {
     max_retries: 3,
   },
   git: {
-    auto_commit: true,
+    auto_commit: false,
     commit_prefix: "orchestra",
   },
   template: {

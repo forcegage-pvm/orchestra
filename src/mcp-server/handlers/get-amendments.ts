@@ -8,13 +8,13 @@
 
 import { and, eq } from "drizzle-orm";
 import { getActiveSprint, getDb } from "../../db/index.js";
-import { logToolExecution } from "./audit-logging.js";
 import { amendments, tasks } from "../../db/schema.js";
 import {
   GetAmendmentsInputSchema,
   type GetAmendmentsOutput,
 } from "../../schemas/progress.js";
 import { validateInput } from "../../schemas/utils.js";
+import { logToolExecution } from "./audit-logging.js";
 
 export async function handleGetAmendments(input: unknown) {
   const startTime = performance.now();
@@ -34,12 +34,22 @@ export async function handleGetAmendments(input: unknown) {
     const output = await getAmendments(validation.data ?? {});
     const durationMs = Math.round(performance.now() - startTime);
 
+    const successContext: {
+      toolName: string;
+      role: "orchestrator";
+      input: unknown;
+      taskId?: number;
+    } = {
+      toolName: "get_amendments",
+      role: "orchestrator",
+      input: validation.data,
+    };
+    if (validation.data?.task_id !== undefined) {
+      successContext.taskId = validation.data.task_id;
+    }
+
     await logToolExecution(
-      {
-        toolName: "get_amendments",
-        role: "orchestrator",
-        input: validation.data,
-      },
+      successContext,
       { success: true, output },
       durationMs
     );
@@ -51,12 +61,22 @@ export async function handleGetAmendments(input: unknown) {
     const durationMs = Math.round(performance.now() - startTime);
     const err = error instanceof Error ? error : new Error(String(error));
 
+    const errorContext: {
+      toolName: string;
+      role: "orchestrator";
+      input: unknown;
+      taskId?: number;
+    } = {
+      toolName: "get_amendments",
+      role: "orchestrator",
+      input: validation.data,
+    };
+    if (validation.data?.task_id !== undefined) {
+      errorContext.taskId = validation.data.task_id;
+    }
+
     await logToolExecution(
-      {
-        toolName: "get_amendments",
-        role: "orchestrator",
-        input: validation.data,
-      },
+      errorContext,
       { success: false, errorMessage: err.message },
       durationMs
     );
