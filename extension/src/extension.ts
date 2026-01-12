@@ -954,7 +954,11 @@ export async function activate(
     const autoStartMCP = config.get<boolean>("autoStartMCP", true);
 
     if (autoStartMCP) {
-      mcpManager = new MCPServerManager(orchestraRoot, logger);
+      mcpManager = new MCPServerManager(
+        orchestraRoot,
+        context.extensionPath,
+        logger
+      );
       mcpManager.startServer("orchestrator");
       mcpManager.startServer("implementor");
       context.subscriptions.push({

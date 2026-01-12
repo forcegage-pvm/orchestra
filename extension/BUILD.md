@@ -58,6 +58,23 @@ npm run build              # Builds extension + copies MCP server with native mo
 
 ## Production Build (VSIX)
 
+### ⚠️ CRITICAL: Electron Native Module Rebuild
+
+**Before every VSIX build**, you MUST ensure `better-sqlite3` is compiled for VS Code's Electron version. Failure to do this causes `NODE_MODULE_VERSION` mismatch errors at runtime.
+
+**Quick check for your VS Code version:**
+```bash
+code --version  # e.g., 1.108.0
+```
+
+Then find the Electron version at https://github.com/microsoft/vscode/blob/release/1.108/package.json (look for `devDependencies.electron`).
+
+| VS Code Version | Electron Version | NODE_MODULE_VERSION |
+|-----------------|------------------|---------------------|
+| 1.108.x | 39.2.7 | 140 |
+| 1.107.x | 39.2.3 | 140 |
+| 1.95.x | 32.x | 128 |
+
 ### Full Build Process
 
 ```bash
@@ -68,11 +85,38 @@ npm run build:mcp-bundle
 # 2. Build extension with Electron-compiled native module
 cd extension
 npm install
-npx @electron/rebuild -f -w better-sqlite3 -v 39.2.3
+
+# CRITICAL: Download/rebuild better-sqlite3 for Electron
+# Option A: Use prebuild-install (more reliable - downloads exact prebuilt binary)
+cd node_modules/better-sqlite3
+npx prebuild-install -r electron -t 39.2.7 --force
+cd ../..
+
+# Option B: Use @electron/rebuild (may use cached/wrong binary)
+# npx @electron/rebuild -f -w better-sqlite3 -v 39.2.7
+
+# Clear dist/node_modules to ensure fresh copy
+Remove-Item -Recurse -Force dist/node_modules -ErrorAction SilentlyContinue  # PowerShell
+# rm -rf dist/node_modules  # Unix
+
+# Build (postbuild copies native modules to dist/)
 npm run build
 
 # 3. Package VSIX
-npx vsce package --no-yarn
+npx @vscode/vsce package --no-yarn
+```
+
+### Verify Before Packaging
+
+Always verify the native module version before packaging:
+```powershell
+# Check node_modules has Electron binary (source for extension)
+Get-ChildItem node_modules\better-sqlite3\build\Release\*.node | Select Name, LastWriteTime, Length
+
+# Check dist/node_modules has same binary (what gets packaged)
+Get-ChildItem dist\node_modules\better-sqlite3\build\Release\*.node | Select Name, LastWriteTime, Length
+
+# Both should have same timestamp and size!
 ```
 
 This produces `orchestra-extension-X.Y.Z.vsix` containing:
@@ -142,15 +186,41 @@ node_modules/*
 
 ```
 Error: The module was compiled against a different Node.js version
-Expected: 140, got: 127
+NODE_MODULE_VERSION 137. This version of Node.js requires NODE_MODULE_VERSION 140.
 ```
 
-**Cause**: Native module compiled for wrong runtime.
+**Cause**: The native module in the VSIX was compiled for the wrong runtime. This happens when:
+1. `better-sqlite3` was installed with `npm install` (compiles for Node.js, not Electron)
+2. The `dist/node_modules` wasn't cleared before rebuild
+3. `@electron/rebuild` used a cached wrong binary
 
-**Fix**: Rebuild for the correct Electron version:
-```bash
+**Fix - Complete rebuild sequence:**
+```powershell
 cd extension
-npx @electron/rebuild -f -w better-sqlite3 -v 39.2.3
+
+# 1. Clear everything
+Remove-Item -Recurse -Force node_modules/better-sqlite3 -ErrorAction SilentlyContinue
+Remove-Item -Recurse -Force dist/node_modules -ErrorAction SilentlyContinue
+
+# 2. Fresh install
+npm install better-sqlite3
+
+# 3. Download Electron prebuilt (most reliable method)
+cd node_modules/better-sqlite3
+npx prebuild-install -r electron -t 39.2.7 --force --verbose
+cd ../..
+
+# 4. Verify the binary
+Get-ChildItem node_modules\better-sqlite3\build\Release\*.node | Select Name, LastWriteTime
+
+# 5. Rebuild extension (copies to dist/)
+npm run build
+
+# 6. Verify dist has same binary
+Get-ChildItem dist\node_modules\better-sqlite3\build\Release\*.node | Select Name, LastWriteTime
+
+# 7. Repackage
+npx @vscode/vsce package --no-yarn
 ```
 
 ### @electron/rebuild Uses Cached Prebuilt (Not Actually Compiling)
@@ -162,13 +232,19 @@ If `@electron/rebuild` completes instantly but the `.node` file timestamp doesn'
 - The `.node` file has an old timestamp after rebuild
 - MODULE_VERSION still mismatches
 
-**Fix**: Manually invoke node-gyp with Electron headers:
+**Better alternative - use prebuild-install directly:**
 ```bash
 cd extension/node_modules/better-sqlite3
-npm run build-release -- --target=39.2.3 --arch=x64 --dist-url=https://electronjs.org/headers
+npx prebuild-install -r electron -t 39.2.7 --force --verbose
 ```
 
-This forces a from-source compilation using the correct Electron version's Node headers.
+This downloads the exact prebuilt binary for the specified Electron version.
+
+**If prebuilt not available - compile from source (requires Python + C++ build tools):**
+```bash
+cd extension/node_modules/better-sqlite3
+npm run build-release -- --target=39.2.7 --arch=x64 --dist-url=https://electronjs.org/headers
+```
 
 **Verify the fix**:
 ```powershell

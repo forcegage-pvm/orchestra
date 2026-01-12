@@ -277,16 +277,6 @@ export async function initializeDb(): Promise<void> {
     )
   `);
 
-  await db.run(sql`
-    CREATE TABLE IF NOT EXISTS chat_sessions (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      role TEXT NOT NULL UNIQUE,
-      tab_label TEXT NOT NULL,
-      created_at TEXT NOT NULL,
-      last_used_at TEXT NOT NULL
-    )
-  `);
-
   // Run migrations for existing databases
   await runMigrations();
 
@@ -355,30 +345,6 @@ async function runMigrations(): Promise<void> {
       );
       await db.run(
         sql`CREATE INDEX IF NOT EXISTS amendment_timestamp_idx ON amendments(amended_at)`
-      );
-    }
-  } catch {
-    // Migration may fail on fresh DB - CREATE TABLE will handle it
-  }
-
-  // Migration: Add chat_sessions table for label-based session tracking
-  try {
-    const tables = await db.all(
-      sql`SELECT name FROM sqlite_master WHERE type='table' AND name='chat_sessions'`
-    );
-    if ((tables as { name: string }[]).length === 0) {
-      await db.run(sql`
-        CREATE TABLE IF NOT EXISTS chat_sessions (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          role TEXT NOT NULL UNIQUE,
-          tab_label TEXT NOT NULL,
-          created_at TEXT NOT NULL,
-          last_used_at TEXT NOT NULL
-        )
-      `);
-      // Create index for role lookups
-      await db.run(
-        sql`CREATE INDEX IF NOT EXISTS chat_session_role_idx ON chat_sessions(role)`
       );
     }
   } catch {

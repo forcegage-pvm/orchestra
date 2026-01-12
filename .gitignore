@@ -7,15 +7,3 @@ coverage/
 .env
 .env.local
 tsup.config.bundled_*.mjs
-
-# Orchestra runtime state (local-only)
-.orchestra/
-
-# Local MCP configuration (workspace-specific)
-.vscode/mcp.json
-
-# Extension packaging artifacts
-extension/*.vsix
-
-# Conflicted copies (e.g., AV/Dropbox conflict files)
-*conflicted copy*

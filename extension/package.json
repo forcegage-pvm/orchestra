@@ -377,7 +377,7 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "better-sqlite3": "^12.5.0",
+    "better-sqlite3": "^12.6.0",
     "drizzle-orm": "^0.37.0"
   },
   "bundledDependencies": [

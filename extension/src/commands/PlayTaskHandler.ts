@@ -13,20 +13,9 @@ import {
   getFeedback,
   getTaskById,
 } from "../database/queries.js";
-import {
-  getConfigService,
-  getContextFileResolver,
-  getSessionManager,
-} from "../extension.js";
+import { getContextFileResolver, getSessionManager } from "../extension.js";
 import { PromptBuilder } from "../prompts/PromptBuilder.js";
 import { OrchestraLogger } from "../utils/logger.js";
-
-/**
- * Utility function to wait for a specified duration
- */
-function delay(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
 
 /**
  * Handle Play button click for a task
@@ -142,7 +131,7 @@ async function invokePrepare(
     const prompt = promptBuilder.buildPreparePrompt(context);
 
     // Invoke orchestrator agent directly via SessionManager
-    await sessionManager.sendMessage("orchestrator", prompt, []);
+    await sessionManager.invokeOrchestrator(prompt, []);
 
     logger.info(`Invoked orchestrator to prepare task ${taskId}`, {
       taskId,
@@ -161,7 +150,7 @@ async function invokePrepare(
  * Invoke implementor to work on an IMPLEMENT task
  *
  * Builds an IMPLEMENT prompt with task context and handover path, resolves context files,
- * and opens chat with implementor agent in a fresh editor tab.
+ * and opens chat with implementor agent.
  *
  * @param workspaceRoot Absolute path to workspace root
  * @param taskId Task ID (numeric primary key)
@@ -197,7 +186,7 @@ async function invokeImplement(
     // Create instances
     const logger = new OrchestraLogger();
     const promptBuilder = new PromptBuilder();
-    const configService = getConfigService();
+    const sessionManager = getSessionManager();
 
     // Get context file resolver from extension
     const contextFileResolver = getContextFileResolver();
@@ -208,22 +197,8 @@ async function invokeImplement(
     // Build the implement prompt
     const prompt = promptBuilder.buildImplementPrompt(context);
 
-    // Get configured model and agent mode
-    const model = configService.getModelForRole("implementor");
-    const agentMode = configService.getAgentForRole("implementor");
-
-    // Create a fresh chat editor tab
-    await vscode.commands.executeCommand("workbench.action.openChat");
-    await delay(200); // Wait for tab to be ready
-
-    // Send prompt to the newly created chat
-    await vscode.commands.executeCommand("workbench.action.chat.open", {
-      query: prompt,
-      isPartialQuery: false,
-      mode: agentMode,
-      modelSelector: { id: model },
-      attachFiles: contextFiles,
-    });
+    // Invoke implementor agent directly via SessionManager
+    await sessionManager.invokeImplementor(prompt, contextFiles);
 
     logger.info(`Invoked implementor to work on task ${taskId}`, {
       taskId,
@@ -242,8 +217,8 @@ async function invokeImplement(
  * Invoke implementor to retry a VERIFY_FAILED task with feedback
  *
  * Builds a RETRY prompt with task context and feedback path, resolves context files,
- * and opens chat with implementor agent in a fresh editor tab. Uses getFeedback to
- * retrieve the latest verification failure feedback.
+ * and opens chat with implementor agent. Uses getFeedback to retrieve the latest
+ * verification failure feedback.
  *
  * @param workspaceRoot Absolute path to workspace root
  * @param taskId Task ID (numeric primary key)
@@ -291,7 +266,7 @@ async function invokeRetry(
     // Create instances
     const logger = new OrchestraLogger();
     const promptBuilder = new PromptBuilder();
-    const configService = getConfigService();
+    const sessionManager = getSessionManager();
 
     // Get context file resolver from extension
     const contextFileResolver = getContextFileResolver();
@@ -302,22 +277,8 @@ async function invokeRetry(
     // Build the retry prompt
     const prompt = promptBuilder.buildRetryPrompt(context);
 
-    // Get configured model and agent mode
-    const model = configService.getModelForRole("implementor");
-    const agentMode = configService.getAgentForRole("implementor");
-
-    // Create a fresh chat editor tab
-    await vscode.commands.executeCommand("workbench.action.openChat");
-    await delay(200); // Wait for tab to be ready
-
-    // Send prompt to the newly created chat
-    await vscode.commands.executeCommand("workbench.action.chat.open", {
-      query: prompt,
-      isPartialQuery: false,
-      mode: agentMode,
-      modelSelector: { id: model },
-      attachFiles: contextFiles,
-    });
+    // Invoke implementor agent directly via SessionManager
+    await sessionManager.invokeImplementor(prompt, contextFiles);
 
     logger.info(`Invoked implementor to retry task ${taskId}`, {
       taskId,
@@ -380,7 +341,7 @@ async function invokeVerify(
     const prompt = promptBuilder.buildVerifyPrompt(context);
 
     // Invoke orchestrator agent for verification
-    await sessionManager.sendMessage("orchestrator", prompt, []);
+    await sessionManager.invokeOrchestrator(prompt, []);
 
     logger.info(`Invoked orchestrator to verify task ${taskId}`, {
       taskId,
@@ -453,7 +414,7 @@ ${
 Use your MCP tools to investigate and resolve this escalation.`;
 
     // Invoke orchestrator agent for escalation review
-    await sessionManager.sendMessage("orchestrator", prompt, []);
+    await sessionManager.invokeOrchestrator(prompt, []);
 
     logger.info(`Invoked orchestrator to review escalated task ${taskId}`, {
       taskId,

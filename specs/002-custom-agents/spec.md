@@ -159,7 +159,7 @@ Users can choose which Copilot model each agent uses. The Orchestrator might use
 - **FR-003**: System MUST implement all required coding tools: edit, read_file, new (create file), delete, search, grep_search, problems, runTests, runCommands, runTasks, usages, changes, test_failure, fetch, todos, list_directory.
 - **FR-004**: System MUST implement Orchestra-specific tools for Implementor: get_current_task, signal_completion, get_feedback, get_progress, escalate_task.
 - **FR-005**: System MUST implement Orchestra-specific tools for Orchestrator: get_sprint_status, prepare_task, run_verification_checks, submit_verification_judgment.
-- **FR-006**: System MUST display real-time agent output (thinking, tool calls, results) in an Agent Output Panel.
+- **FR-006**: System MUST display real-time agent output (thinking, tool calls, results) in a dedicated Webview Panel in the editor area with rich formatting (collapsible cards for tool results).
 - **FR-007**: System MUST provide Pause, Resume, and Stop controls that correctly manage agent state.
 - **FR-008**: System MUST allow users to inject new instructions via a Redirect mechanism.
 - **FR-009**: System MUST track all file changes (create/modify/delete) made by agent tools.
@@ -168,7 +168,7 @@ Users can choose which Copilot model each agent uses. The Orchestrator might use
 - **FR-012**: System MUST restore agent sessions from persisted state.
 - **FR-013**: System MUST maintain sprint-level memory for the Orchestrator across tasks.
 - **FR-014**: System MUST inject relevant sprint context when Orchestrator starts a new task.
-- **FR-015**: System MUST compact sprint memory when it grows too large while preserving key insights.
+- **FR-015**: System MUST compact sprint memory after every 5 completed tasks, summarizing older task entries while preserving key insights.
 - **FR-016**: System MUST support configurable verbosity levels (MINIMAL, NORMAL, DETAILED, DEBUG).
 - **FR-017**: System MUST allow per-agent model selection (Orchestrator and Implementor can use different models).
 - **FR-018**: System MUST enforce maximum iteration limits to prevent infinite loops.
@@ -226,3 +226,12 @@ Users can choose which Copilot model each agent uses. The Orchestrator might use
 - Per-tool consent dialogs - user consents by invoking the agent.
 - Thumbs up/down feedback on agent responses - not critical for initial release.
 - Automatic learning from user feedback to improve agent behavior.
+- Tool execution sandboxing or command restrictions - user consent at agent invocation implies trust for all tool operations.
+
+## Clarifications
+
+### Session 2026-01-12
+
+- Q: When the agent executes potentially dangerous tools (like `runCommands`, `delete`, or `runTasks`), what restrictions should apply? → A: No restrictions—user consents by invoking agent, all commands allowed.
+- Q: What threshold triggers sprint memory compaction? → A: Task count—compact after every 5 completed tasks.
+- Q: Where should the Agent Output Panel appear in VS Code's layout? → A: Webview Panel in the editor area with rich formatting (collapsible cards).
