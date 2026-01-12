@@ -86,6 +86,9 @@ export const tasks = sqliteTable(
     status: text("status").notNull(), // TaskStatus enum
     retry_count: integer("retry_count").notNull().default(0),
     max_retries: integer("max_retries").notNull().default(3),
+    tdd_red_phase: integer("tdd_red_phase", { mode: "boolean" })
+      .notNull()
+      .default(false),
     created_at: text("created_at").notNull(),
     updated_at: text("updated_at").notNull(),
     completed_at: text("completed_at"),

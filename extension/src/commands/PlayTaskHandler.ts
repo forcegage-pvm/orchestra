@@ -130,8 +130,8 @@ async function invokePrepare(
     // Build the prepare prompt
     const prompt = promptBuilder.buildPreparePrompt(context);
 
-    // Invoke orchestrator agent directly via SessionManager
-    await sessionManager.invokeOrchestrator(prompt, []);
+    // Send message to orchestrator session
+    await sessionManager.sendMessage("orchestrator", prompt, []);
 
     logger.info(`Invoked orchestrator to prepare task ${taskId}`, {
       taskId,
@@ -197,7 +197,7 @@ async function invokeImplement(
     // Build the implement prompt
     const prompt = promptBuilder.buildImplementPrompt(context);
 
-    // Invoke implementor agent directly via SessionManager
+    // Invoke implementor - always creates a new editor chat session per task
     await sessionManager.invokeImplementor(prompt, contextFiles);
 
     logger.info(`Invoked implementor to work on task ${taskId}`, {
@@ -277,7 +277,7 @@ async function invokeRetry(
     // Build the retry prompt
     const prompt = promptBuilder.buildRetryPrompt(context);
 
-    // Invoke implementor agent directly via SessionManager
+    // Invoke implementor - always creates a new editor chat session per retry
     await sessionManager.invokeImplementor(prompt, contextFiles);
 
     logger.info(`Invoked implementor to retry task ${taskId}`, {
@@ -340,8 +340,8 @@ async function invokeVerify(
     // Build the verify prompt
     const prompt = promptBuilder.buildVerifyPrompt(context);
 
-    // Invoke orchestrator agent for verification
-    await sessionManager.invokeOrchestrator(prompt, []);
+    // Send message to orchestrator session for verification
+    await sessionManager.sendMessage("orchestrator", prompt, []);
 
     logger.info(`Invoked orchestrator to verify task ${taskId}`, {
       taskId,
@@ -413,8 +413,8 @@ ${
 
 Use your MCP tools to investigate and resolve this escalation.`;
 
-    // Invoke orchestrator agent for escalation review
-    await sessionManager.invokeOrchestrator(prompt, []);
+    // Send message to orchestrator session for escalation review
+    await sessionManager.sendMessage("orchestrator", prompt, []);
 
     logger.info(`Invoked orchestrator to review escalated task ${taskId}`, {
       taskId,

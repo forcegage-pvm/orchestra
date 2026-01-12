@@ -17,6 +17,7 @@ interface SprintSettings {
   testPattern: string;
   preSignalBuildCommand: string;
   preSignalTestCommand: string;
+  autoCommit: boolean;
 }
 
 export class SprintSettingsPanel {
@@ -142,6 +143,7 @@ export class SprintSettingsPanel {
         testPattern: configMap.get("tdd.test_pattern") || "describe|test|it",
         preSignalBuildCommand: configMap.get("pre_signal_build_command") || "",
         preSignalTestCommand: configMap.get("pre_signal_test_command") || "",
+        autoCommit: configMap.get("git.auto_commit") === "true",
       };
 
       await this._panel.webview.postMessage({
@@ -207,6 +209,11 @@ export class SprintSettingsPanel {
           key: "pre_signal_test_command",
           value: settings.preSignalTestCommand,
           description: "Command to run before signal (test)",
+        },
+        {
+          key: "git.auto_commit",
+          value: settings.autoCommit.toString(),
+          description: "Enable automatic git commits after task operations",
         },
       ];
 
@@ -393,6 +400,16 @@ export class SprintSettingsPanel {
     <div class="help-text">Command to run before signal completion (test step)</div>
   </div>
   
+  <h2>Git Automation</h2>
+  
+  <div class="form-group">
+    <label class="checkbox-label">
+      <input type="checkbox" id="autoCommit">
+      <span>Auto-commit after task operations</span>
+    </label>
+    <div class="help-text">When enabled, automatically create git commits after prepare_task, signal_completion, and complete_task</div>
+  </div>
+  
   <div class="button-group">
     <button id="saveButton">Save Settings</button>
     <button id="cancelButton">Cancel</button>
@@ -410,6 +427,7 @@ export class SprintSettingsPanel {
     const testPattern = document.getElementById('testPattern');
     const preSignalBuildCommand = document.getElementById('preSignalBuildCommand');
     const preSignalTestCommand = document.getElementById('preSignalTestCommand');
+    const autoCommit = document.getElementById('autoCommit');
     const saveButton = document.getElementById('saveButton');
     const cancelButton = document.getElementById('cancelButton');
     const messageDiv = document.getElementById('message');
@@ -442,6 +460,7 @@ export class SprintSettingsPanel {
       testPattern.value = settings.testPattern;
       preSignalBuildCommand.value = settings.preSignalBuildCommand;
       preSignalTestCommand.value = settings.preSignalTestCommand;
+      autoCommit.checked = settings.autoCommit;
     }
     
     // Save button handler
@@ -453,6 +472,7 @@ export class SprintSettingsPanel {
         testPattern: testPattern.value.trim(),
         preSignalBuildCommand: preSignalBuildCommand.value.trim(),
         preSignalTestCommand: preSignalTestCommand.value.trim(),
+        autoCommit: autoCommit.checked,
       };
       
       vscode.postMessage({ type: 'save', settings });
