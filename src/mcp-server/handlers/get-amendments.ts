@@ -34,7 +34,7 @@ export async function handleGetAmendments(input: unknown) {
     const output = await getAmendments(validation.data ?? {});
     const durationMs = Math.round(performance.now() - startTime);
 
-    const successContext: {
+    const context: {
       toolName: string;
       role: "orchestrator";
       input: unknown;
@@ -45,11 +45,11 @@ export async function handleGetAmendments(input: unknown) {
       input: validation.data,
     };
     if (validation.data?.task_id !== undefined) {
-      successContext.taskId = validation.data.task_id;
+      context.taskId = validation.data.task_id;
     }
 
     await logToolExecution(
-      successContext,
+      context,
       { success: true, output },
       durationMs
     );
@@ -61,7 +61,7 @@ export async function handleGetAmendments(input: unknown) {
     const durationMs = Math.round(performance.now() - startTime);
     const err = error instanceof Error ? error : new Error(String(error));
 
-    const errorContext: {
+    const context: {
       toolName: string;
       role: "orchestrator";
       input: unknown;
@@ -72,11 +72,11 @@ export async function handleGetAmendments(input: unknown) {
       input: validation.data,
     };
     if (validation.data?.task_id !== undefined) {
-      errorContext.taskId = validation.data.task_id;
+      context.taskId = validation.data.task_id;
     }
 
     await logToolExecution(
-      errorContext,
+      context,
       { success: false, errorMessage: err.message },
       durationMs
     );
