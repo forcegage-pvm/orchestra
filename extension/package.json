@@ -371,6 +371,7 @@
     "build": "node esbuild.config.js --production",
     "postbuild": "node scripts/copy-native-modules.js && node scripts/copy-mcp-server.js",
     "watch": "node esbuild.config.js --watch",
+    "package": "npx @vscode/vsce package --no-yarn --out artifacts/",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src --ext ts",
     "test": "vitest run",
