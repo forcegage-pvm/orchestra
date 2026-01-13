@@ -7,6 +7,7 @@
 
 import { and, eq, inArray } from "drizzle-orm";
 import { autoCommitIfEnabled, generateCommitMessage } from "../../core/git.js";
+import { cleanupTddRedMarkers } from "../../core/tdd-cleanup.js";
 import {
   getActiveSprint,
   getDb,
@@ -105,6 +106,21 @@ async function prepareTask(
   input: typeof PrepareTaskInputSchema._output
 ): Promise<PrepareTaskOutput> {
   const db = getDb();
+
+  // 0. Clean up TDD red-phase markers from previous tasks
+  const workspaceRoot = resolveWorkspacePath();
+  const cleanupResult = await cleanupTddRedMarkers(workspaceRoot);
+
+  // Auto-commit cleanup if files were cleaned
+  if (cleanupResult.cleaned) {
+    await autoCommitIfEnabled({
+      toolName: "prepare_task",
+      commitMessage: "chore(orchestra): cleanup tdd-red markers",
+      sprintId: null, // No specific sprint context for cleanup
+      taskInternalId: null, // No specific task context for cleanup
+      cwd: workspaceRoot,
+    });
+  }
 
   // 1. Get active sprint
   const sprint = await getActiveSprint();
