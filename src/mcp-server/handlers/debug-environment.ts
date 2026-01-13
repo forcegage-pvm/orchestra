@@ -7,7 +7,7 @@
 
 import { executeCommand } from "../../core/command-executor.js";
 import { resolveWorkspacePath } from "../../db/connection.js";
-import { logToolExecution } from "../audit-logging.js";
+import { logToolExecution } from "./audit-logging.js";
 
 export const debugEnvironmentSchema = {
   name: "debug_environment",
@@ -41,6 +41,8 @@ export async function handleDebugEnvironment(input: {
     error?: string;
   };
 }> {
+  const startTime = performance.now();
+
   try {
     const workspacePath = resolveWorkspacePath();
     const command = input.command ?? "npm test";
@@ -98,10 +100,32 @@ export async function handleDebugEnvironment(input: {
         : testResultBase,
     };
 
-    logToolExecution("debug_environment", input, true);
+    const durationMs = Math.round(performance.now() - startTime);
+    await logToolExecution(
+      {
+        toolName: "debug_environment",
+        role: "orchestrator",
+        input,
+      },
+      { success: true, output: result },
+      durationMs
+    );
+
     return result;
   } catch (error) {
-    logToolExecution("debug_environment", input, false, error);
+    const durationMs = Math.round(performance.now() - startTime);
+    await logToolExecution(
+      {
+        toolName: "debug_environment",
+        role: "orchestrator",
+        input,
+      },
+      {
+        success: false,
+        errorMessage: error instanceof Error ? error.message : String(error),
+      },
+      durationMs
+    );
     throw error;
   }
 }
