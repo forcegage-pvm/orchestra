@@ -4,15 +4,10 @@
  * Tests the tdd_red_phase migration for idempotency and correctness.
  */
 
-import { sql } from "drizzle-orm";
 import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import {
-  getMigrationStatus,
-  runMigrationsV2,
-} from "../../src/db/migrations.js";
 
 describe("tdd_red_phase Migration", () => {
   let tempDir: string;
@@ -102,7 +97,9 @@ describe("tdd_red_phase Migration", () => {
     const migrationCode = migrationMatch![0];
 
     // Verify ALTER TABLE statement
-    expect(migrationCode).toContain("ALTER TABLE tasks ADD COLUMN tdd_red_phase");
+    expect(migrationCode).toContain(
+      "ALTER TABLE tasks ADD COLUMN tdd_red_phase"
+    );
     expect(migrationCode).toContain("INTEGER NOT NULL DEFAULT 0");
   });
 
@@ -141,11 +138,11 @@ describe("tdd_red_phase Migration", () => {
     const migrationCode = migrationMatch![0];
 
     // Verify it has required properties
-    expect(migrationCode).toContain('id:');
-    expect(migrationCode).toContain('description:');
-    expect(migrationCode).toContain('up: async ()');
+    expect(migrationCode).toContain("id:");
+    expect(migrationCode).toContain("description:");
+    expect(migrationCode).toContain("up: async ()");
 
     // Verify it calls getDb()
-    expect(migrationCode).toContain('const db = getDb()');
+    expect(migrationCode).toContain("const db = getDb()");
   });
 });
