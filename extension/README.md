@@ -28,6 +28,8 @@ npm install
 npm run build
 ```
 
+If you are packaging/deploying the extension (VSIX) or troubleshooting native module issues, follow the authoritative guide: [build.md](build.md).
+
 ### Development
 
 ```bash

@@ -52,6 +52,7 @@ export const ConfigureSprintInputSchema = z
           category: TaskCategorySchema,
           dependencies: z.array(z.number().int().positive()),
           speckit_task_ref: z.string().optional(),
+          tdd_red_phase: z.boolean().optional(),
           verification: VerificationCriteriaSchema,
         })
       )
@@ -189,6 +190,7 @@ export const AddTaskInputSchema = z.object({
   category: TaskCategorySchema,
   dependencies: z.array(z.number().int().positive()),
   speckit_task_ref: z.string().optional(),
+  tdd_red_phase: z.boolean().optional(),
   verification: VerificationCriteriaSchema,
 });
 
@@ -213,6 +215,7 @@ export const UpdateTaskInputSchema = z
     dependencies: z.array(z.number().int().positive()).optional(),
     phase_id: z.string().min(1).optional(),
     speckit_task_ref: z.string().optional(),
+    tdd_red_phase: z.boolean().optional(),
   })
   .refine(
     (data) => {

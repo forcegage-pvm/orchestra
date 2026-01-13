@@ -1,20 +1,26 @@
 <!--
 Sync Impact Report
 ==================
-Version change: N/A → 1.0.0
-Modified principles: N/A (initial creation)
-Added sections: Core Principles (5), Trust Architecture, Development Standards, Governance
-Removed sections: N/A
-Templates requiring updates: ✅ N/A (initial constitution)
+Version change: 1.0.0 → 1.1.0
+Modified principles:
+- I. Core-First Architecture (clarified multi-surface boundaries)
+Added sections:
+- VI. Extension Build & Packaging Discipline
+Removed sections: None
+Templates requiring updates:
+- ⚠ Pending: .github/prompts/speckit.constitution.prompt.md (if it references "CLI" wording)
 Follow-up TODOs: None
 -->
 
-# Orchestra CLI Constitution
+# Orchestra Constitution
 
 ## Core Principles
 
 ### I. Core-First Architecture
-All business logic MUST reside in `src/core/` as stateless, testable functions. Commands in `src/commands/` are thin wrappers that parse options and delegate to `run*` functions. This enables reuse across CLI (Phase 1), MCP Server (Phase 2), and VS Code Extension (Phase 3). No feature logic in command files.
+Reusable business logic MUST reside in `src/core/` as stateless, testable functions.
+
+- MCP server handlers (`src/mcp-server/handlers/`) MUST be thin and delegate to `src/core/` or `src/db/`.
+- The VS Code extension (`extension/src/`) MUST keep entrypoints thin and avoid duplicating core logic when it can be shared.
 
 **Rationale**: Orchestra is designed for three consumption layers. Centralizing logic ensures consistency and testability regardless of entry point.
 
@@ -37,6 +43,15 @@ All errors MUST extend `OrchestraError` with a `code` string and optional `conte
 All imports MUST use `.js` extensions even for `.ts` files. The `exactOptionalPropertyTypes: true` setting is enabled—NEVER assign `undefined` to optional properties; use conditional property addition instead. Unused variables MUST be prefixed with `_`.
 
 **Rationale**: ESM requires explicit extensions. Strict optional properties prevent subtle bugs where `undefined` differs from "property not present".
+
+### VI. Extension Build & Packaging Discipline (NON-NEGOTIABLE)
+The VS Code extension build and packaging process MUST follow `extension/build.md`.
+
+- The extension uses `better-sqlite3` (native module) and MUST be compiled for **Electron** (VS Code) when building the extension.
+- The bundled MCP server runs on **Node.js** and MUST include a Node.js-compiled native module in the bundle output.
+- Any task that produces a VSIX MUST validate that packaged native binaries match the target runtime to prevent `NODE_MODULE_VERSION` mismatches.
+
+**Rationale**: A “successful build” that crashes at runtime is equivalent to a failed build. Native module targets must be correct.
 
 ## Trust Architecture
 
@@ -81,4 +96,4 @@ This constitution is the authoritative source for Orchestra development practice
 - Version follows semver: MAJOR (breaking governance), MINOR (new principles), PATCH (clarifications)
 - Runtime guidance in `.github/copilot-instructions.md` supplements but does not override this constitution
 
-**Version**: 1.0.0 | **Ratified**: 2025-12-04 | **Last Amended**: 2025-12-04
+**Version**: 1.1.0 | **Ratified**: 2025-12-04 | **Last Amended**: 2026-01-13
