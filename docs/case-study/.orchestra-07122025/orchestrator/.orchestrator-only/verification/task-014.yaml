@@ -1,0 +1,64 @@
+# Verification Criteria: Task 14
+# Create role-guard.test.ts
+# HIDDEN: Implementor must NOT see this file
+
+task_id: 14
+title: "Create role-guard.test.ts"
+speckit_ref: "001-mcp-server/tasks.md#T014"
+
+# Verification criteria (hidden from implementor)
+criteria:
+  - id: V14.1
+    description: "Test file exists at test/mcp/role-guard.test.ts"
+    verification_type: FILE_EXISTS
+    target_file: "test/mcp/role-guard.test.ts"
+    required: true
+
+  - id: V14.2
+    description: "Test for valid orchestrator role"
+    verification_type: FILE_CONTENT
+    target_file: "test/mcp/role-guard.test.ts"
+    check: "Has test case for 'orchestrator' role being accepted"
+    required: true
+
+  - id: V14.3
+    description: "Test for valid implementor role"
+    verification_type: FILE_CONTENT
+    target_file: "test/mcp/role-guard.test.ts"
+    check: "Has test case for 'implementor' role being accepted"
+    required: true
+
+  - id: V14.4
+    description: "Test for invalid role throwing RoleError"
+    verification_type: FILE_CONTENT
+    target_file: "test/mcp/role-guard.test.ts"
+    check: "Has test case for invalid role throwing RoleError"
+    required: true
+
+  - id: V14.5
+    description: "Test for role not in allowed list"
+    verification_type: FILE_CONTENT
+    target_file: "test/mcp/role-guard.test.ts"
+    check: "Has test case for role not matching allowed roles"
+    required: true
+
+  - id: V14.6
+    description: "All tests pass"
+    verification_type: COMMAND
+    command: "npm test -- --run test/mcp/role-guard.test.ts"
+    expected_exit_code: 0
+    required: true
+
+# Quality gates
+quality_gates:
+  - "Uses vitest describe/it pattern"
+  - "Tests cover edge cases (empty string, undefined, case sensitivity)"
+  - "Error assertions check for RoleError specifically"
+  - "Imports from src/mcp/ not duplicating code"
+
+# What implementor might skip (hidden checks)
+hidden_checks:
+  - "Verify case sensitivity test (ORCHESTRATOR vs orchestrator)"
+  - "Check test for missing role parameter"
+  - "Ensure error message content is verified"
+  - "Test that valid role + not allowed still throws"

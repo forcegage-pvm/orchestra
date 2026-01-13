@@ -71,21 +71,28 @@ orchestrator/
 
 ## CLI Commands Quick Reference
 
-| Command                       | When to Run                          | Process   |
-| ----------------------------- | ------------------------------------ | --------- |
-| `orchestra closeout`          | **FIRST** before preparing next task | Process 1 |
-| `orchestra prepare --task N`  | Prepare handover for task N          | Process 1 |
-| `orchestra accept-signal`     | **FIRST** before verifying task      | Process 2 |
-| `orchestra verify --task N`   | Run verification checks              | Process 2 |
-| `orchestra complete --task N` | Mark task complete                   | Process 2 |
+| Command                       | When to Run                           | Process   |
+| ----------------------------- | ------------------------------------- | --------- |
+| `orchestra init --verify`     | Validate setup and verification YAMLs | Process 0 |
+| `orchestra closeout`          | **FIRST** before preparing next task  | Process 1 |
+| `orchestra prepare --task N`  | Prepare handover for task N           | Process 1 |
+| `orchestra accept-signal`     | **FIRST** before verifying task       | Process 2 |
+| `orchestra verify --task N`   | Run verification checks               | Process 2 |
+| `orchestra complete --task N` | Mark task complete                    | Process 2 |
+
+> ⚠️ **CRITICAL**: Verification YAML must be created during sprint initialization in
+> `.orchestrator-only/verification/task-NNN.yaml`. Run `orchestra init --verify` to validate.
 
 ### Command Examples
 
 ```bash
+# Process 0: Validate initialization
+orchestra init --verify
+
 # Process 1: Before preparing next task
 orchestra closeout
 
-# Process 1: Prepare handover
+# Process 1: Prepare handover scaffold
 orchestra prepare --task 3
 
 # Process 2: Before verifying implementor's work

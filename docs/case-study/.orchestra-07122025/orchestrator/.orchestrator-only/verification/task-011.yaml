@@ -1,0 +1,57 @@
+# Verification Criteria: Task 11
+# Create tool registry in src/mcp/tools/index.ts
+# HIDDEN: Implementor must NOT see this file
+
+task_id: 11
+title: "Create tool registry in src/mcp/tools/index.ts"
+speckit_ref: "001-mcp-server/tasks.md#T011"
+
+# Verification criteria (hidden from implementor)
+criteria:
+  - id: V11.1
+    description: "tools/index.ts file exists"
+    verification_type: FILE_EXISTS
+    target_file: "src/mcp/tools/index.ts"
+    required: true
+
+  - id: V11.2
+    description: "Tool registry array is exported"
+    verification_type: FILE_CONTENT
+    target_file: "src/mcp/tools/index.ts"
+    check: "Contains 'export const tools' or 'export const toolRegistry' array"
+    required: true
+
+  - id: V11.3
+    description: "Tool definition structure follows MCP SDK pattern"
+    verification_type: FILE_CONTENT
+    target_file: "src/mcp/tools/index.ts"
+    check: "Tool objects have name, description, inputSchema, handler properties"
+    required: true
+
+  - id: V11.4
+    description: "Registry is initially empty or has placeholder"
+    verification_type: FILE_CONTENT
+    target_file: "src/mcp/tools/index.ts"
+    check: "Array exists (can be empty at this stage)"
+    required: true
+
+  - id: V11.5
+    description: "TypeScript compiles without errors"
+    verification_type: COMMAND
+    command: "npm run typecheck"
+    expected_exit_code: 0
+    required: true
+
+# Quality gates
+quality_gates:
+  - "Uses MCP SDK types for tool definition"
+  - "Proper typing for handler functions"
+  - "Clear pattern for adding new tools"
+  - "Comments explaining registry structure"
+
+# What implementor might skip (hidden checks)
+hidden_checks:
+  - "Verify tool handler type signature is correct for MCP SDK"
+  - "Check inputSchema matches JSON Schema format"
+  - "Ensure registry is a proper array (not object)"
+  - "Type definitions for Tool interface if custom"

@@ -1,0 +1,64 @@
+# Verification Criteria: Task 6
+# Implement role-guard.ts
+# HIDDEN: Implementor must NOT see this file
+
+task_id: 6
+title: "Implement role-guard.ts"
+speckit_ref: "001-mcp-server/tasks.md#T006"
+
+# Verification criteria (hidden from implementor)
+criteria:
+  - id: V6.1
+    description: "role-guard.ts file exists in src/mcp/"
+    verification_type: FILE_EXISTS
+    target_file: "src/mcp/role-guard.ts"
+    required: true
+
+  - id: V6.2
+    description: "validateRole function is exported"
+    verification_type: FILE_CONTENT
+    target_file: "src/mcp/role-guard.ts"
+    check: "Contains 'export function validateRole' or 'export const validateRole'"
+    required: true
+
+  - id: V6.3
+    description: "validateRole throws RoleError for unauthorized access"
+    verification_type: FILE_CONTENT
+    target_file: "src/mcp/role-guard.ts"
+    check: "Function throws RoleError when role doesn't match required role"
+    required: true
+
+  - id: V6.4
+    description: "validateRole uses RoleSchema for validation"
+    verification_type: FILE_CONTENT
+    target_file: "src/mcp/role-guard.ts"
+    check: "Imports and uses RoleSchema from core for role validation"
+    required: true
+
+  - id: V6.5
+    description: "Function signature matches expected pattern"
+    verification_type: FILE_CONTENT
+    target_file: "src/mcp/role-guard.ts"
+    check: "Function takes (role: string, allowedRoles: Role[]) or similar signature"
+    required: true
+
+  - id: V6.6
+    description: "TypeScript compiles without errors"
+    verification_type: COMMAND
+    command: "npm run typecheck"
+    expected_exit_code: 0
+    required: true
+
+# Quality gates
+quality_gates:
+  - "Uses RoleError from core/errors.ts"
+  - "Imports use .js extensions (ESM)"
+  - "Handles case-sensitivity of role values"
+  - "Clear error messages explaining role mismatch"
+
+# What implementor might skip (hidden checks)
+hidden_checks:
+  - "Verify function validates role IS a valid role (not just allowed)"
+  - "Check lowercase comparison for role values"
+  - "Ensure proper error context (current role, required roles)"
+  - "No hardcoded role values - should use Role type"

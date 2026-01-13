@@ -38,10 +38,7 @@
   - Category: INTEGRATION
   - Dependencies: [2]
 
-- [ ] T007 [P] signal Tool - Wrap `orchestra signal` as MCP tool (Implementor)
-  - See: [2.7-signal.md](tasks/2.7-signal.md)
-  - Category: INTEGRATION
-  - Dependencies: [2], Phase 1.2 T004
+> **Removed**: T007 signal Tool - No CLI command exists. Signaling is done via manual file editing.
 
 - [ ] T008 [P] accept_signal Tool - Wrap `orchestra accept-signal` as MCP tool
   - See: [2.8-accept-signal.md](tasks/2.8-accept-signal.md)

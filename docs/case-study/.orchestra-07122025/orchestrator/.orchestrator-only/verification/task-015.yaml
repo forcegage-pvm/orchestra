@@ -1,0 +1,71 @@
+# Verification Criteria: Task 15
+# Create error-mapper.test.ts
+# HIDDEN: Implementor must NOT see this file
+
+task_id: 15
+title: "Create error-mapper.test.ts"
+speckit_ref: "001-mcp-server/tasks.md#T015"
+
+# Verification criteria (hidden from implementor)
+criteria:
+  - id: V15.1
+    description: "Test file exists at test/mcp/error-mapper.test.ts"
+    verification_type: FILE_EXISTS
+    target_file: "test/mcp/error-mapper.test.ts"
+    required: true
+
+  - id: V15.2
+    description: "Test for FileError mapping to -32000"
+    verification_type: FILE_CONTENT
+    target_file: "test/mcp/error-mapper.test.ts"
+    check: "Has test case for FileError → -32000"
+    required: true
+
+  - id: V15.3
+    description: "Test for RoleError mapping to -32003"
+    verification_type: FILE_CONTENT
+    target_file: "test/mcp/error-mapper.test.ts"
+    check: "Has test case for RoleError → -32003"
+    required: true
+
+  - id: V15.4
+    description: "Test for ValidationError mapping to -32600"
+    verification_type: FILE_CONTENT
+    target_file: "test/mcp/error-mapper.test.ts"
+    check: "Has test case for ValidationError → -32600"
+    required: true
+
+  - id: V15.5
+    description: "Test for unknown error fallback"
+    verification_type: FILE_CONTENT
+    target_file: "test/mcp/error-mapper.test.ts"
+    check: "Has test case for generic Error fallback to -32000"
+    required: true
+
+  - id: V15.6
+    description: "Test error context preservation"
+    verification_type: FILE_CONTENT
+    target_file: "test/mcp/error-mapper.test.ts"
+    check: "Has test verifying context/data is preserved in MCP error"
+    required: true
+
+  - id: V15.7
+    description: "All tests pass"
+    verification_type: COMMAND
+    command: "npm test -- --run test/mcp/error-mapper.test.ts"
+    expected_exit_code: 0
+    required: true
+
+# Quality gates
+quality_gates:
+  - "All error types from data-model.md are tested"
+  - "Error message preservation verified"
+  - "Tests are isolated (no shared state)"
+  - "Uses vitest expect matchers correctly"
+
+# What implementor might skip (hidden checks)
+hidden_checks:
+  - "Verify ConfigurationError → -32001 mapping test"
+  - "Check TaskError → -32002 mapping test"
+  - "Test error message is human-readable"
+  - "Ensure no sensitive path leak in mapped error"

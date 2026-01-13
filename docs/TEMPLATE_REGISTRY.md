@@ -24,8 +24,9 @@
 | Template Source | Output File | Format | Mutability | Purpose |
 |----------------|-------------|--------|------------|---------|
 | `common/templates/orchestra-config.hbs` | `.orchestra/orchestra.yaml` | YAML | Immutable | Project configuration with SpecKit path |
-| `common/templates/manifest.hbs` | `.orchestra/.orchestrator-only/manifest.yaml` | YAML | Agent-writable | Sprint tracking, task status, SpecKit refs |
+| `common/templates/manifest.hbs` | `.orchestra/manifest.yaml` | YAML | Agent-writable | Sprint tracking, task status, SpecKit refs |
 | `common/templates/agent-readme.hbs` | `.orchestra/AGENT_README.md` | Markdown | Immutable | Agent onboarding, file locations, workflow |
+| N/A (generated) | `.orchestra/progress.yaml` | YAML | Agent-writable | Progress tracking per sprint |
 
 **Key Decisions**:
 - `orchestra.yaml`: YAML (config file standard)

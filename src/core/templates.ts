@@ -169,6 +169,16 @@ export function registerHelpers(): void {
     return Array.isArray(arr) ? arr.length : 0;
   });
 
+  // Math: add two numbers
+  Handlebars.registerHelper("add", (a: number, b: number) => {
+    return (a ?? 0) + (b ?? 0);
+  });
+
+  // Math: subtract two numbers
+  Handlebars.registerHelper("subtract", (a: number, b: number) => {
+    return (a ?? 0) - (b ?? 0);
+  });
+
   // Pluralize
   Handlebars.registerHelper(
     "pluralize",

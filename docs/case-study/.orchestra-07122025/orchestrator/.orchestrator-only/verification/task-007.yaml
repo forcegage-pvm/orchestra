@@ -1,0 +1,64 @@
+# Verification Criteria: Task 7
+# Implement error-mapper.ts
+# HIDDEN: Implementor must NOT see this file
+
+task_id: 7
+title: "Implement error-mapper.ts"
+speckit_ref: "001-mcp-server/tasks.md#T007"
+
+# Verification criteria (hidden from implementor)
+criteria:
+  - id: V7.1
+    description: "error-mapper.ts file exists in src/mcp/"
+    verification_type: FILE_EXISTS
+    target_file: "src/mcp/error-mapper.ts"
+    required: true
+
+  - id: V7.2
+    description: "mapToMCPError function is exported"
+    verification_type: FILE_CONTENT
+    target_file: "src/mcp/error-mapper.ts"
+    check: "Contains 'export function mapToMCPError' or similar"
+    required: true
+
+  - id: V7.3
+    description: "Correct error code mappings per data-model.md"
+    verification_type: FILE_CONTENT
+    target_file: "src/mcp/error-mapper.ts"
+    check: "Maps: FileError→-32000, ConfigurationError→-32001, TaskError→-32002, RoleError→-32003, ValidationError→-32600"
+    required: true
+
+  - id: V7.4
+    description: "Handles unknown errors gracefully"
+    verification_type: FILE_CONTENT
+    target_file: "src/mcp/error-mapper.ts"
+    check: "Has fallback/default case for non-OrchestraError exceptions"
+    required: true
+
+  - id: V7.5
+    description: "Preserves error context in MCP error data"
+    verification_type: FILE_CONTENT
+    target_file: "src/mcp/error-mapper.ts"
+    check: "Copies OrchestraError.context to MCP error data field"
+    required: true
+
+  - id: V7.6
+    description: "TypeScript compiles without errors"
+    verification_type: COMMAND
+    command: "npm run typecheck"
+    expected_exit_code: 0
+    required: true
+
+# Quality gates
+quality_gates:
+  - "All error codes match data-model.md exactly"
+  - "Error messages are preserved"
+  - "Stack traces handled appropriately (not exposed in production)"
+  - "MCPError structure matches MCP protocol spec"
+
+# What implementor might skip (hidden checks)
+hidden_checks:
+  - "Verify -32003 is used for RoleError (unique code)"
+  - "Check ManifestError maps to ApplicationError (-32000)"
+  - "Ensure error data doesn't leak sensitive paths"
+  - "Sanitize .orchestrator-only paths from error messages"

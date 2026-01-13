@@ -100,7 +100,6 @@ export function getResolvedPaths(
   orchestraDir: string;
   manifest: string;
   handovers: string;
-  signals: string;
   feedback: string;
   artifacts: string;
   templates: string;
@@ -110,7 +109,6 @@ export function getResolvedPaths(
     orchestraDir,
     manifest: path.join(orchestraDir, config.paths.manifest),
     handovers: path.join(orchestraDir, config.paths.handovers),
-    signals: path.join(orchestraDir, config.paths.signals),
     feedback: path.join(orchestraDir, config.paths.feedback),
     artifacts: path.join(orchestraDir, config.paths.artifacts),
     templates: path.join(orchestraDir, config.paths.templates),
@@ -166,7 +164,6 @@ export function initializeOrchestra(
   // Create subdirectories
   const paths = getResolvedPaths(rootDir, fullConfig);
   fs.mkdirSync(paths.handovers, { recursive: true });
-  fs.mkdirSync(paths.signals, { recursive: true });
   fs.mkdirSync(paths.feedback, { recursive: true });
   fs.mkdirSync(paths.artifacts, { recursive: true });
   fs.mkdirSync(paths.templates, { recursive: true });

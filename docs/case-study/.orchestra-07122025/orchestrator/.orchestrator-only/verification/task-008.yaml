@@ -1,0 +1,78 @@
+# Verification Criteria: Task 8
+# Implement lock.ts
+# HIDDEN: Implementor must NOT see this file
+
+task_id: 8
+title: "Implement lock.ts"
+speckit_ref: "001-mcp-server/tasks.md#T008"
+
+# Verification criteria (hidden from implementor)
+criteria:
+  - id: V8.1
+    description: "lock.ts file exists in src/mcp/"
+    verification_type: FILE_EXISTS
+    target_file: "src/mcp/lock.ts"
+    required: true
+
+  - id: V8.2
+    description: "acquireLock function is exported"
+    verification_type: FILE_CONTENT
+    target_file: "src/mcp/lock.ts"
+    check: "Contains 'export function acquireLock' or 'export async function acquireLock'"
+    required: true
+
+  - id: V8.3
+    description: "releaseLock function is exported"
+    verification_type: FILE_CONTENT
+    target_file: "src/mcp/lock.ts"
+    check: "Contains 'export function releaseLock' or 'export async function releaseLock'"
+    required: true
+
+  - id: V8.4
+    description: "withLock function is exported"
+    verification_type: FILE_CONTENT
+    target_file: "src/mcp/lock.ts"
+    check: "Contains 'export function withLock' or 'export async function withLock'"
+    required: true
+
+  - id: V8.5
+    description: "Lock file path is .orchestra/.lock"
+    verification_type: FILE_CONTENT
+    target_file: "src/mcp/lock.ts"
+    check: "Lock file path references '.orchestra/.lock' or similar constant"
+    required: true
+
+  - id: V8.6
+    description: "Stale lock detection implemented"
+    verification_type: FILE_CONTENT
+    target_file: "src/mcp/lock.ts"
+    check: "Contains logic to check if lock is stale (timeout-based or PID check)"
+    required: true
+
+  - id: V8.7
+    description: "withLock handles cleanup on error"
+    verification_type: FILE_CONTENT
+    target_file: "src/mcp/lock.ts"
+    check: "withLock uses try/finally to ensure lock release"
+    required: true
+
+  - id: V8.8
+    description: "TypeScript compiles without errors"
+    verification_type: COMMAND
+    command: "npm run typecheck"
+    expected_exit_code: 0
+    required: true
+
+# Quality gates
+quality_gates:
+  - "Lock file contains createdAt and pid as per data-model.md"
+  - "Async/await used correctly"
+  - "File operations use fs/promises"
+  - "Errors wrapped in OrchestraError subclass"
+
+# What implementor might skip (hidden checks)
+hidden_checks:
+  - "Verify stale lock timeout is reasonable (e.g., 30s)"
+  - "Check PID validation for lock ownership"
+  - "Ensure atomic lock file creation (exclusive flag)"
+  - "Lock file cleanup on process exit (SIGINT handler)"

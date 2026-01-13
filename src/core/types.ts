@@ -9,6 +9,47 @@
 import { z } from "zod";
 
 // =============================================================================
+// Workflow Steps (orchestra next command)
+// =============================================================================
+
+/**
+ * Workflow steps within a task lifecycle.
+ * These represent the internal actions/states, not the task status.
+ *
+ * Sprint-level steps (no active task):
+ * - INIT: Orchestra not initialized
+ * - CONFIGURE: Orchestra exists but no tasks defined
+ * - SELECT_TASK: Tasks exist but none active
+ * - SPRINT_COMPLETE: All tasks finished
+ *
+ * Task-level steps (task in progress):
+ * - PREPARE: Handover needs to be created
+ * - IMPLEMENT: Implementor working (handover exists)
+ * - SIGNAL: Implementor should signal completion
+ * - VERIFY: Orchestrator should verify
+ * - COMPLETE: Verification passed, complete the task
+ * - RETRY: Verification failed, retry with feedback
+ * - ESCALATED: Human intervention required
+ */
+export const WorkflowStepSchema = z.enum([
+  // Sprint-level
+  "INIT",
+  "CONFIGURE",
+  "SELECT_TASK",
+  "SPRINT_COMPLETE",
+  // Task-level
+  "PREPARE",
+  "IMPLEMENT",
+  "SIGNAL",
+  "VERIFY",
+  "COMPLETE",
+  "RETRY",
+  "ESCALATED",
+]);
+
+export type WorkflowStep = z.infer<typeof WorkflowStepSchema>;
+
+// =============================================================================
 // Task Lifecycle States (Bible Section 7)
 // =============================================================================
 
@@ -21,6 +62,7 @@ export const TaskStatusSchema = z.enum([
   "IMPLEMENT", // Implementor working
   "GATE_CHECK", // Automated verification running
   "VERIFY", // Orchestrator/human review
+  "VERIFY_FAILED", // Verification failed, feedback generated
   "COMPLETE", // Task finished successfully
   "RETRY", // Failed verification, retrying
   "ESCALATED", // Requires human intervention
@@ -36,12 +78,25 @@ export const SprintStatusSchema = z.enum(["ACTIVE", "COMPLETED", "ABORTED"]);
 export type SprintStatus = z.infer<typeof SprintStatusSchema>;
 
 /**
+ * Phase-level states (includes PENDING for phases not yet started)
+ */
+export const PhaseStatusSchema = z.enum([
+  "PENDING", // Phase not yet started
+  "ACTIVE", // Phase in progress
+  "COMPLETED", // Phase finished
+  "ABORTED", // Phase cancelled
+]);
+
+export type PhaseStatus = z.infer<typeof PhaseStatusSchema>;
+
+/**
  * Task category schema
  */
 export const TaskCategorySchema = z.enum([
   "INFRASTRUCTURE",
   "INTEGRATION",
   "VISUAL",
+  "REFACTOR",
 ]);
 
 export type TaskCategory = z.infer<typeof TaskCategorySchema>;
@@ -64,6 +119,7 @@ export const TaskSchema = z
     dependencies: z.array(z.number().int().positive()).optional().default([]),
     retry_count: z.number().int().min(0).default(0),
     max_retries: z.number().int().min(1).default(3),
+    tdd_red_phase: z.boolean().default(false),
     created_at: z.string().optional(),
     started_at: z.string().optional(),
     completed_at: z.string().optional(),
@@ -97,7 +153,7 @@ export type Sprint = z.output<typeof SprintSchema>;
 export const PhaseSchema = z.object({
   phase_id: z.string().min(1),
   phase_name: z.string().min(1),
-  status: SprintStatusSchema.default("ACTIVE"),
+  status: PhaseStatusSchema.default("PENDING"),
   speckit_tasks: z.array(z.string()).optional(),
   tasks: z.array(TaskSchema).min(1),
 });
@@ -134,9 +190,18 @@ export const ManifestSchema = z
     current_task_id: z.number().int().positive().optional(),
     metadata: z.record(z.unknown()).optional(),
   })
-  .refine((data) => data.tasks !== undefined || data.phases !== undefined, {
-    message: "Either 'tasks' or 'phases' must be provided",
-  });
+  .refine(
+    (data) => {
+      // Must have either tasks or phases with at least one task
+      const hasTasks = data.tasks !== undefined && data.tasks.length > 0;
+      const hasPhases = data.phases !== undefined && data.phases.length > 0;
+      return hasTasks || hasPhases;
+    },
+    {
+      message:
+        "Either 'tasks' or 'phases' must be provided with at least one task",
+    }
+  );
 
 export type Manifest = z.output<typeof ManifestSchema>;
 
@@ -162,7 +227,7 @@ export type HandoverMetadata = z.infer<typeof HandoverMetadataSchema>;
 
 /**
  * Completion signal schema
- * Files located at: .orchestra/implementor/signals/
+ * Files located at: .orchestra/handover/signals/
  */
 export const CompletionSignalSchema = z.object({
   task_id: z.number().int().positive(),
@@ -199,7 +264,7 @@ export type FailedCheck = z.infer<typeof FailedCheckSchema>;
 
 /**
  * Feedback document schema
- * Files located at: .orchestra/implementor/feedback/
+ * Files located at: .orchestra/handover/feedback/
  */
 export const FeedbackDocumentSchema = z.object({
   task_id: z.number().int().positive(),
@@ -370,8 +435,7 @@ export function failureResult(
 export const PathsConfigSchema = z.object({
   manifest: z.string().default("manifest.yaml"),
   handovers: z.string().default("handover"),
-  signals: z.string().default("implementor/signals"),
-  feedback: z.string().default("implementor/feedback"),
+  feedback: z.string().default("handover"),
   artifacts: z.string().default("artifacts"),
   templates: z.string().default("common/templates"),
 });
@@ -381,11 +445,18 @@ export type PathsConfig = z.output<typeof PathsConfigSchema>;
 
 /**
  * Verification configuration schema
+ * These are project-agnostic verification toggles.
+ * The actual commands to run are determined by project type.
  */
 export const VerificationConfigSchema = z.object({
-  flutter_analyze: z.boolean().default(true),
-  flutter_test: z.boolean().default(true),
+  /** Run static analysis/linting (eslint, flutter analyze, etc.) */
+  run_linter: z.boolean().default(true),
+  /** Run tests (npm test, flutter test, pytest, etc.) */
+  run_tests: z.boolean().default(true),
+  /** Check that required files exist */
   file_checks: z.boolean().default(true),
+  /** Run type checking (tsc, mypy, etc.) */
+  run_typecheck: z.boolean().default(true),
 });
 
 export type VerificationConfig = z.output<typeof VerificationConfigSchema>;
@@ -417,6 +488,18 @@ export const TemplateFormatSchema = z.enum(["yaml", "markdown", "both"]);
 export type TemplateFormat = z.infer<typeof TemplateFormatSchema>;
 
 /**
+ * SpecKit integration configuration schema
+ */
+export const SpecKitConfigSchema = z.object({
+  /** Path to the SpecKit root directory */
+  root: z.string(),
+  /** Explicit path to the SpecKit tasks.md file */
+  tasks_file: z.string(),
+});
+
+export type SpecKitConfig = z.output<typeof SpecKitConfigSchema>;
+
+/**
  * Template configuration schema
  */
 export const TemplateConfigSchema = z.object({
@@ -432,7 +515,8 @@ export type TemplateConfig = z.output<typeof TemplateConfigSchema>;
  */
 export const OrchestraConfigSchema = z.object({
   version: z.string().default("1.0"),
-  spec_path: z.string().optional(),
+  /** SpecKit integration configuration (optional) */
+  speckit: SpecKitConfigSchema.optional(),
   paths: PathsConfigSchema.default({}),
   verification: VerificationConfigSchema.default({}),
   retry: RetryConfigSchema.default({}),
@@ -442,6 +526,151 @@ export const OrchestraConfigSchema = z.object({
 
 export type OrchestraConfig = z.output<typeof OrchestraConfigSchema>;
 
+// =============================================================================
+// Pre-Signal Check Types (TD-010)
+// =============================================================================
+
+/**
+ * Pre-signal check severity levels
+ */
+export const PreSignalSeveritySchema = z.enum([
+  "BLOCKING", // Must pass for check to succeed
+  "WARNING", // Report but don't fail
+]);
+
+export type PreSignalSeverity = z.output<typeof PreSignalSeveritySchema>;
+
+/**
+ * Individual check result
+ */
+export const PreSignalCheckResultSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  category: z.string(),
+  severity: PreSignalSeveritySchema,
+  passed: z.boolean(),
+  message: z.string().optional(),
+  details: z.string().optional(),
+  fix: z.string().optional(),
+  file: z.string().optional(),
+});
+
+export type PreSignalCheckResult = z.output<typeof PreSignalCheckResultSchema>;
+
+// =============================================================================
+// Validate Handover Types (TD-008)
+// =============================================================================
+
+/**
+ * Validation check severity
+ */
+export const ValidationSeveritySchema = z.enum(["BLOCKING", "WARNING", "INFO"]);
+
+export type ValidationSeverity = z.output<typeof ValidationSeveritySchema>;
+
+/**
+ * Individual validation check result
+ */
+export const ValidationCheckResultSchema = z.object({
+  id: z.string(), // V1, V2, etc.
+  name: z.string(),
+  category: z.string(), // structure, paths, completeness, integration
+  severity: ValidationSeveritySchema,
+  passed: z.boolean(),
+  message: z.string().optional(),
+  details: z.string().optional(),
+  fix: z.string().optional(),
+  file: z.string().optional(),
+});
+
+export type ValidationCheckResult = z.output<
+  typeof ValidationCheckResultSchema
+>;
+
+/**
+ * Validate handover report (returned by runValidateHandover)
+ */
+export interface ValidationReport {
+  taskId: number | null;
+  taskTitle: string | null;
+  timestamp: string;
+  status: "PASSED" | "FAILED" | "WARNINGS";
+  checks: ValidationCheckResult[];
+  summary: {
+    total: number;
+    passed: number;
+    failed: number;
+    warnings: number;
+  };
+  createFiles: string[];
+  updateFiles: string[];
+  isIntegrationTask: boolean;
+  isVisualTask: boolean;
+}
+
+/**
+ * Validate handover options
+ */
+export interface ValidateHandoverOptions {
+  task?: string;
+  json?: boolean;
+  verbose?: boolean;
+}
+
+/**
+ * Pre-signal artifact written to .orchestra/handover/verification/pre-signal.yaml
+ */
+export const PreSignalArtifactSchema = z.object({
+  task_id: z.number(),
+  timestamp: z.string(),
+  status: z.enum(["PASSED", "FAILED"]),
+  checks: z.record(
+    z.object({
+      status: z.enum(["PASSED", "FAILED", "SKIPPED"]),
+      count: z.number().optional(),
+      details: z.string().optional(),
+    })
+  ),
+  summary: z.object({
+    total: z.number(),
+    passed: z.number(),
+    failed: z.number(),
+    warnings: z.number(),
+  }),
+});
+
+export type PreSignalArtifact = z.output<typeof PreSignalArtifactSchema>;
+
+/**
+ * Pre-signal check report (returned by runPreSignalCheck)
+ */
+export interface PreSignalReport {
+  taskId: number;
+  timestamp: string;
+  status: "PASSED" | "FAILED";
+  checks: PreSignalCheckResult[];
+  summary: {
+    total: number;
+    passed: number;
+    failed: number;
+    warnings: number;
+  };
+  artifact?: PreSignalArtifact;
+  artifactPath?: string;
+}
+
+/**
+ * Pre-signal check options
+ */
+export interface PreSignalCheckOptions {
+  task?: string;
+  force?: boolean;
+  json?: boolean;
+  verbose?: boolean;
+  skipTests?: boolean;
+  skipBuild?: boolean;
+}
+
 /**
  * Default configuration values
  */
@@ -450,15 +679,15 @@ export const DEFAULT_CONFIG: OrchestraConfig = {
   paths: {
     manifest: "manifest.yaml",
     handovers: "handover",
-    signals: "implementor/signals",
-    feedback: "implementor/feedback",
+    feedback: "handover",
     artifacts: "artifacts",
     templates: "common/templates",
   },
   verification: {
-    flutter_analyze: true,
-    flutter_test: true,
+    run_linter: true,
+    run_tests: true,
     file_checks: true,
+    run_typecheck: true,
   },
   retry: {
     max_retries: 3,

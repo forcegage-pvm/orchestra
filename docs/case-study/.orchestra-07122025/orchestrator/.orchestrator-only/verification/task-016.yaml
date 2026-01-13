@@ -1,0 +1,78 @@
+# Verification Criteria: Task 16
+# Create lock.test.ts
+# HIDDEN: Implementor must NOT see this file
+
+task_id: 16
+title: "Create lock.test.ts"
+speckit_ref: "001-mcp-server/tasks.md#T016"
+
+# Verification criteria (hidden from implementor)
+criteria:
+  - id: V16.1
+    description: "Test file exists at test/mcp/lock.test.ts"
+    verification_type: FILE_EXISTS
+    target_file: "test/mcp/lock.test.ts"
+    required: true
+
+  - id: V16.2
+    description: "Test for acquiring lock successfully"
+    verification_type: FILE_CONTENT
+    target_file: "test/mcp/lock.test.ts"
+    check: "Has test case for successful lock acquisition"
+    required: true
+
+  - id: V16.3
+    description: "Test for releasing lock successfully"
+    verification_type: FILE_CONTENT
+    target_file: "test/mcp/lock.test.ts"
+    check: "Has test case for successful lock release"
+    required: true
+
+  - id: V16.4
+    description: "Test for lock contention (second acquire fails)"
+    verification_type: FILE_CONTENT
+    target_file: "test/mcp/lock.test.ts"
+    check: "Has test case for failed acquire when lock held"
+    required: true
+
+  - id: V16.5
+    description: "Test for stale lock detection"
+    verification_type: FILE_CONTENT
+    target_file: "test/mcp/lock.test.ts"
+    check: "Has test case for stale lock being overwritten"
+    required: true
+
+  - id: V16.6
+    description: "Test for withLock cleanup on error"
+    verification_type: FILE_CONTENT
+    target_file: "test/mcp/lock.test.ts"
+    check: "Has test case for withLock releasing lock even on exception"
+    required: true
+
+  - id: V16.7
+    description: "Test for withLock cleanup on success"
+    verification_type: FILE_CONTENT
+    target_file: "test/mcp/lock.test.ts"
+    check: "Has test case for withLock releasing lock after success"
+    required: true
+
+  - id: V16.8
+    description: "All tests pass"
+    verification_type: COMMAND
+    command: "npm test -- --run test/mcp/lock.test.ts"
+    expected_exit_code: 0
+    required: true
+
+# Quality gates
+quality_gates:
+  - "Tests use temp directories to avoid pollution"
+  - "Cleanup in afterEach/afterAll"
+  - "Tests are not timing-dependent (mock timers if needed)"
+  - "Lock file structure verified"
+
+# What implementor might skip (hidden checks)
+hidden_checks:
+  - "Verify stale timeout threshold is testable"
+  - "Check PID mismatch handling"
+  - "Ensure lock file is deleted after release"
+  - "Test concurrent access simulation"

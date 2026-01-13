@@ -41,6 +41,7 @@ export interface VerificationOptions {
   severity?: VerifySeverity | "all" | undefined;
   continueOnError?: boolean | undefined;
   skipAccept?: boolean | undefined;
+  dryRun?: boolean | undefined; // Validate paths without running checks
   json?: boolean | undefined;
   verbose?: boolean | undefined;
 }
@@ -98,21 +99,37 @@ export interface VerifyResult {
   exitCode: number;
 }
 
-// Verification YAML schema
-const VerificationCheckSchema = z.object({
+// =============================================================================
+// Verification YAML Schema (exported for validation during prepare)
+// =============================================================================
+
+/**
+ * Valid verification check types
+ */
+export const VERIFICATION_CHECK_TYPES = [
+  "file_exists",
+  "dir_exists",
+  "pattern_match",
+  "command",
+  "screenshot_exists",
+  "json_valid",
+  "yaml_valid",
+  "export_exists",
+] as const;
+
+/**
+ * Valid severity levels
+ */
+export const VERIFICATION_SEVERITIES = ["critical", "warning", "info"] as const;
+
+/**
+ * Schema for a single verification check
+ */
+export const VerificationCheckSchema = z.object({
   id: z.string(),
-  type: z.enum([
-    "file_exists",
-    "dir_exists",
-    "pattern_match",
-    "command",
-    "screenshot_exists",
-    "json_valid",
-    "yaml_valid",
-    "export_exists",
-  ]),
+  type: z.enum(VERIFICATION_CHECK_TYPES),
   description: z.string(),
-  severity: z.enum(["critical", "warning", "info"]).default("critical"),
+  severity: z.enum(VERIFICATION_SEVERITIES).default("critical"),
   path: z.string().optional(),
   file: z.string().optional(),
   pattern: z.string().optional(),
@@ -122,12 +139,167 @@ const VerificationCheckSchema = z.object({
   exports: z.array(z.string()).optional(),
 });
 
-const VerificationYamlSchema = z.object({
+/**
+ * Schema for the full verification YAML file
+ */
+export const VerificationYamlSchema = z.object({
   task_id: z.number(),
   task_title: z.string().optional(),
   created_at: z.string().optional(),
   checks: z.array(VerificationCheckSchema),
 });
+
+/**
+ * TypeScript types derived from schemas
+ */
+export type VerificationCheck = z.infer<typeof VerificationCheckSchema>;
+export type VerificationYaml = z.infer<typeof VerificationYamlSchema>;
+
+/**
+ * Result of validating a verification YAML file
+ */
+export interface VerificationValidationResult {
+  valid: boolean;
+  errors: VerificationValidationError[];
+  data?: VerificationYaml;
+}
+
+/**
+ * A single validation error with helpful context
+ */
+export interface VerificationValidationError {
+  path: string;
+  message: string;
+  received?: unknown;
+  expected?: string;
+}
+
+/**
+ * Validate a verification YAML file against the schema.
+ * Returns detailed errors with suggestions for fixing.
+ *
+ * @param filePath - Path to the verification YAML file
+ * @returns Validation result with errors or parsed data
+ */
+export function validateVerificationYaml(
+  filePath: string
+): VerificationValidationResult {
+  if (!yamlExists(filePath)) {
+    return {
+      valid: false,
+      errors: [
+        {
+          path: "file",
+          message: `Verification file not found: ${filePath}`,
+        },
+      ],
+    };
+  }
+
+  try {
+    const rawYaml = readYamlRaw(filePath) as Record<string, unknown>;
+    const result = VerificationYamlSchema.safeParse(rawYaml);
+
+    if (result.success) {
+      return {
+        valid: true,
+        errors: [],
+        data: result.data,
+      };
+    }
+
+    // Convert Zod errors to helpful validation errors
+    const errors: VerificationValidationError[] = result.error.issues.map(
+      (issue) => {
+        const path = issue.path.join(".");
+        let expected: string | undefined;
+        let message = issue.message;
+
+        // Enhance error messages for common mistakes
+        if (issue.code === "invalid_enum_value") {
+          const options = (issue as { options?: unknown[] }).options;
+          if (path.includes("type")) {
+            expected = `One of: ${VERIFICATION_CHECK_TYPES.join(", ")}`;
+            message = `Invalid check type. ${expected}`;
+          } else if (path.includes("severity")) {
+            expected = `One of: ${VERIFICATION_SEVERITIES.join(", ")}`;
+            message = `Invalid severity. ${expected}`;
+          } else if (options) {
+            expected = `One of: ${options.join(", ")}`;
+          }
+        }
+
+        // Build result with exactOptionalPropertyTypes compliance
+        const errorResult: VerificationValidationError = {
+          path,
+          message,
+        };
+
+        const received = "received" in issue ? issue.received : undefined;
+        if (received !== undefined) {
+          errorResult.received = received;
+        }
+        if (expected !== undefined) {
+          errorResult.expected = expected;
+        }
+
+        return errorResult;
+      }
+    );
+
+    return {
+      valid: false,
+      errors,
+    };
+  } catch (error) {
+    return {
+      valid: false,
+      errors: [
+        {
+          path: "yaml",
+          message: `Failed to parse YAML: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        },
+      ],
+    };
+  }
+}
+
+/**
+ * Format validation errors as a human-readable string with examples
+ */
+export function formatVerificationErrors(
+  errors: VerificationValidationError[]
+): string {
+  const lines: string[] = ["Verification YAML validation failed:", ""];
+
+  for (const error of errors) {
+    lines.push(`  ❌ ${error.path}: ${error.message}`);
+    if (error.received !== undefined) {
+      lines.push(`     Received: ${JSON.stringify(error.received)}`);
+    }
+    if (error.expected) {
+      lines.push(`     Expected: ${error.expected}`);
+    }
+  }
+
+  lines.push("");
+  lines.push("Example of valid verification check:");
+  lines.push("  - id: check-file-exists");
+  lines.push(
+    "    type: file_exists       # Must be one of: " +
+      VERIFICATION_CHECK_TYPES.join(", ")
+  );
+  lines.push('    description: "Check that main file exists"');
+  lines.push(
+    "    severity: critical      # Must be one of: " +
+      VERIFICATION_SEVERITIES.join(", ")
+  );
+  lines.push('    path: "src/main.ts"');
+
+  return lines.join("\n");
+}
 
 // =============================================================================
 // Main Orchestration Function
@@ -168,11 +340,12 @@ export async function runVerification(
     // Ignore - title is optional
   }
 
-  // 2. Load verification YAML
+  // 2. Load verification YAML from .orchestrator-only (hidden from implementor)
   const verificationPath = path.join(
     orchestraRoot,
     ".orchestra",
-    "handover",
+    "orchestrator",
+    ".orchestrator-only",
     "verification",
     `task-${String(taskId).padStart(3, "0")}.yaml`
   );
@@ -182,7 +355,10 @@ export async function runVerification(
     return createErrorResult(
       taskId,
       taskTitle,
-      `Verification criteria not found: ${verificationPath}`,
+      `Verification criteria not found: ${verificationPath}\n\n` +
+        `The orchestrator must create verification criteria during sprint initialization.\n` +
+        `Location: .orchestra/orchestrator/.orchestrator-only/verification/task-NNN.yaml\n\n` +
+        `Run 'orchestra init --verify' to validate initialization.`,
       3,
       startTime
     );
@@ -271,6 +447,32 @@ export async function runVerification(
   // Filter by severity
   if (options.severity && options.severity !== "all") {
     checksToRun = checksToRun.filter((c) => c.severity === options.severity);
+  }
+
+  // 5a. Dry-run mode: validate paths without executing checks
+  if (options.dryRun) {
+    const dryRunResults = validateCheckPaths(checksToRun, orchestraRoot);
+    const passedCount = dryRunResults.filter((r) => r.passed).length;
+    const failedCount = dryRunResults.filter((r) => !r.passed).length;
+
+    return {
+      report: {
+        taskId,
+        taskTitle,
+        timestamp: new Date().toISOString(),
+        duration: Date.now() - startTime,
+        acceptSignal: acceptSignalStatus,
+        checks: {
+          total: checksToRun.length,
+          passed: passedCount,
+          failed: failedCount,
+          skipped: 0,
+        },
+        results: dryRunResults,
+        overallPassed: failedCount === 0,
+      },
+      exitCode: failedCount === 0 ? 0 : 1,
+    };
   }
 
   // 5. Execute checks
@@ -371,6 +573,119 @@ async function determineCurrentTask(explicitTaskId?: number): Promise<number> {
     throw new Error("No tasks in progress - progress log is empty");
   }
   return latestEntry.task_id;
+}
+
+// =============================================================================
+// Dry-Run Path Validation
+// =============================================================================
+
+/**
+ * Validate check paths without executing checks (dry-run mode)
+ * Returns validation results for path references in checks
+ */
+function validateCheckPaths(
+  checks: VerifyCheck[],
+  orchestraRoot: string
+): VerifyCheckResult[] {
+  const results: VerifyCheckResult[] = [];
+
+  for (const check of checks) {
+    const startTime = Date.now();
+    let passed = true;
+    let message = "";
+
+    switch (check.type) {
+      case "file_exists":
+      case "screenshot_exists":
+      case "json_valid":
+      case "yaml_valid": {
+        if (!check.path) {
+          passed = false;
+          message = `Missing 'path' property for ${check.type} check`;
+        } else {
+          const fullPath = path.isAbsolute(check.path)
+            ? check.path
+            : path.resolve(orchestraRoot, check.path);
+          message = `[DRY-RUN] Path to check: ${fullPath}`;
+        }
+        break;
+      }
+
+      case "dir_exists": {
+        if (!check.path) {
+          passed = false;
+          message = `Missing 'path' property for dir_exists check`;
+        } else {
+          const fullPath = path.isAbsolute(check.path)
+            ? check.path
+            : path.resolve(orchestraRoot, check.path);
+          message = `[DRY-RUN] Directory to check: ${fullPath}`;
+        }
+        break;
+      }
+
+      case "pattern_match": {
+        if (!check.file) {
+          passed = false;
+          message = `Missing 'file' property for pattern_match check`;
+        } else if (!check.pattern) {
+          passed = false;
+          message = `Missing 'pattern' property for pattern_match check`;
+        } else {
+          const fullPath = path.isAbsolute(check.file)
+            ? check.file
+            : path.resolve(orchestraRoot, check.file);
+          message = `[DRY-RUN] File to search: ${fullPath}, pattern: ${check.pattern}`;
+        }
+        break;
+      }
+
+      case "command": {
+        if (!check.command) {
+          passed = false;
+          message = `Missing 'command' property for command check`;
+        } else {
+          message = `[DRY-RUN] Command to run: ${check.command}`;
+        }
+        break;
+      }
+
+      case "export_exists": {
+        if (!check.module) {
+          passed = false;
+          message = `Missing 'module' property for export_exists check`;
+        } else if (!check.exports || check.exports.length === 0) {
+          passed = false;
+          message = `Missing 'exports' property for export_exists check`;
+        } else {
+          const fullPath = path.isAbsolute(check.module)
+            ? check.module
+            : path.resolve(orchestraRoot, check.module);
+          message = `[DRY-RUN] Module to check: ${fullPath}, exports: ${check.exports.join(
+            ", "
+          )}`;
+        }
+        break;
+      }
+
+      default: {
+        passed = false;
+        message = `Unknown check type: ${check.type}`;
+      }
+    }
+
+    results.push({
+      checkId: check.id,
+      type: check.type,
+      description: check.description,
+      severity: check.severity,
+      passed,
+      message,
+      duration: Date.now() - startTime,
+    });
+  }
+
+  return results;
 }
 
 // =============================================================================

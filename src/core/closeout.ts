@@ -269,6 +269,11 @@ export async function checkCommitHashRecorded(
 
 /**
  * Check C4: SpecKit tasks.md checkboxes are checked
+ *
+ * Logic:
+ * - No speckit config AND no speckit_task_ref → Skip (N/A)
+ * - Has speckit_task_ref but no speckit config → Fail with error
+ * - Has both → Verify tasks are checked in speckit.tasks_file
  */
 export async function checkSpecKitTasks(
   orchestraRoot: string,
@@ -303,13 +308,18 @@ export async function checkSpecKitTasks(
 
     // Check for speckit_task_ref property
     const taskWithRef = task as typeof task & {
-      speckit_task_ref?: string[];
+      speckit_task_ref?: string | string[];
     };
 
-    if (
-      !taskWithRef.speckit_task_ref ||
-      taskWithRef.speckit_task_ref.length === 0
-    ) {
+    // Normalize speckit_task_ref to array
+    const refs = taskWithRef.speckit_task_ref
+      ? Array.isArray(taskWithRef.speckit_task_ref)
+        ? taskWithRef.speckit_task_ref
+        : [taskWithRef.speckit_task_ref]
+      : [];
+
+    // No speckit refs → Skip check
+    if (refs.length === 0) {
       return {
         id: "C4",
         check: "SpecKit tasks",
@@ -319,32 +329,45 @@ export async function checkSpecKitTasks(
       };
     }
 
-    // Read tasks.md
-    const tasksPath = path.join(
-      orchestraRoot,
-      ".orchestra",
-      "orchestrator",
-      ".orchestrator-only",
-      "tasks.md"
-    );
+    // Has refs but no speckit config → Fail with actionable error
+    if (!config.speckit) {
+      return {
+        id: "C4",
+        check: "SpecKit tasks",
+        passed: false,
+        expected: "speckit.tasks_file configured in orchestra.yaml",
+        actual: "Task has speckit_task_ref but no speckit config",
+        fix: 'Add speckit config to orchestra.yaml: speckit: { root: "<path>", tasks_file: "<path>/tasks.md" }',
+      };
+    }
+
+    // Resolve the tasks.md path from config
+    const tasksPath = path.isAbsolute(config.speckit.tasks_file)
+      ? config.speckit.tasks_file
+      : path.join(orchestraRoot, config.speckit.tasks_file);
 
     if (!fs.existsSync(tasksPath)) {
       return {
         id: "C4",
         check: "SpecKit tasks",
-        passed: true,
-        expected: "N/A",
-        actual: "No tasks.md file",
+        passed: false,
+        expected: `SpecKit tasks file at ${config.speckit.tasks_file}`,
+        actual: "File not found",
+        fix: `Create tasks.md at ${tasksPath} or update speckit.tasks_file in orchestra.yaml`,
       };
     }
 
     const content = fs.readFileSync(tasksPath, "utf-8");
 
     // Check each referenced task
-    for (const ref of taskWithRef.speckit_task_ref) {
+    for (const ref of refs) {
+      // Extract task ID from ref (e.g., "001-foundation/tasks.md#T001" → "T001")
+      const taskIdMatch = ref.match(/#?(T\d+)$/i) ?? ref.match(/(T\d+)/i);
+      const searchTerm = taskIdMatch?.[1] ?? ref;
+
       // Match [x] followed by task reference
       const pattern = new RegExp(
-        `\\[x\\].*${ref.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`,
+        `\\[x\\].*${searchTerm.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`,
         "i"
       );
       if (!pattern.test(content)) {
@@ -352,9 +375,9 @@ export async function checkSpecKitTasks(
           id: "C4",
           check: "SpecKit tasks complete",
           passed: false,
-          expected: `Task ${ref} checked in tasks.md`,
-          actual: `Task ${ref} not checked`,
-          fix: `Edit tasks.md: Change "[ ]" to "[x]" for task ${ref}`,
+          expected: `Task ${searchTerm} checked in ${config.speckit.tasks_file}`,
+          actual: `Task ${searchTerm} not checked`,
+          fix: `Edit ${config.speckit.tasks_file}: Change "[ ]" to "[x]" for task ${searchTerm}`,
         };
       }
     }

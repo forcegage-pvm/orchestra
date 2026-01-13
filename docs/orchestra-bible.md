@@ -11,7 +11,7 @@
 | 0.7.0 | 2025-12-02 | **COMPLETE** - Production Ready |
 
 **Change Log**:
-- v0.7.0: **FINAL** - Enhanced ToC with navigation table, added Appendix G Quick Reference Index
+- v0.7.0: **FINAL** - Enhanced ToC with navigation table, added Appendix G Quick Refdocs\orchestra-bible.mderence Index
 - v0.6.0: Added Human Intervention (4.3.1-4.3.2), Implementor Scope Statement, Monitoring Guide (F.6) - 100% alien-drop-in ready
 - v0.5.0: Added Quick Start Guide (Section 0), Role Invocation (4.4), Specification Format (6.4), Templates (Appendix D), Worked Example (Appendix E)
 - v0.4.0: Added dual-layer structure to Phase Details: Abstract Actions (what) + Implementation (how)
@@ -66,6 +66,7 @@
 **Part IV: Operations**
 8. [Script Specifications](#8-script-specifications)
 9. [Verification Model](#9-verification-model)
+   - [9.5 TDD Red-Green Verification](#95-tdd-red-green-verification)
 10. [Failure Handling](#10-failure-handling)
 11. [Artifact Specifications](#11-artifact-specifications)
 12. [Configuration](#12-configuration) ← **orchestra.yaml**
@@ -134,20 +135,26 @@ Before starting, you need:
 ```
 your-project/
 ├── .orchestra/
+│   ├── manifest.yaml              # Task definitions (created by orchestra init)
+│   ├── progress.yaml              # Progress tracker (created by orchestra init)
+│   ├── orchestra.yaml             # Configuration
 │   ├── common/
-│   │   ├── scripts/               # Put platform-specific scripts here
-│   │   └── templates/             # Document templates
+│   │   └── templates/             # Handlebars templates (.hbs)
 │   ├── orchestrator/
 │   │   ├── .orchestrator-only/    # HIDDEN - Only orchestrator reads this
-│   │   │   ├── manifest.yaml      # Task definitions (created by sprint-init)
-│   │   │   ├── progress.yaml      # Progress tracker (created by sprint-init)
 │   │   │   ├── verification/      # Hidden verification criteria
-│   │   │   └── criteria/          # Reusable criteria
-│   │   └── scripts/               # Orchestrator scripts
+│   │   │   └── preflight/         # Orchestrator audit trail
+│   │   ├── processes/             # Orchestrator process docs
+│   │   └── results/               # Verification results
 │   ├── implementor/
-│   │   ├── handovers/             # Task instructions go here
 │   │   ├── signals/               # Completion signals go here
-│   │   └── feedback/              # Retry feedback goes here
+│   │   ├── feedback/              # Retry feedback goes here
+│   │   └── artifacts/             # Task artifacts
+│   ├── handover/                  # Current task handover files
+│   │   ├── current-task.md        # Active task instructions
+│   │   ├── task-context.md        # Background context
+│   │   ├── completion-signal.md   # Implementor fills this
+│   │   └── agent_readme.md        # Implementor guide
 │   └── artifacts/                 # Task outputs archived here
 └── your-code/
 ```
@@ -658,7 +665,7 @@ tasks:
 **2. Clear Orphaned Signals**
 ```bash
 # If signals directory has stale files
-rm .orchestra/implementor/signals/*
+rm .orchestra/handover/signals/*
 ```
 
 **3. Reset Task Attempts**
@@ -917,46 +924,46 @@ Agent Claims "Task Complete"
 
 ```
 .orchestra/
+├── manifest.yaml              # Task definitions, dependencies, ordering
+├── progress.yaml              # Current state, completion status
+├── orchestra.yaml             # Configuration (paths, retry settings)
+│
 ├── common/                    # Shared resources
-│   ├── scripts/               # Platform-specific script implementations
-│   │   └── {script-name}.{ext}
-│   └── templates/             # Document templates
-│       └── {template-name}.{ext}
+│   └── templates/             # Handlebars templates (.hbs files)
+│       └── {template-name}.{format}.hbs
 │
 ├── orchestrator/              # ORCHESTRATOR-ONLY ZONE
 │   ├── .orchestrator-only/    # Hidden from implementor
-│   │   ├── manifest.yaml      # Task definitions, dependencies, ordering
-│   │   ├── progress.yaml      # Current state, completion status
 │   │   ├── verification/      # Per-task verification specs
 │   │   │   └── task-{id}.yaml
-│   │   └── criteria/          # Reusable criteria definitions
-│   │       └── {criteria-name}.yaml
+│   │   └── preflight/         # Orchestrator audit trail
+│   │       └── orchestrator-preflight-{id}.md
 │   ├── processes/             # Orchestrator process documentation
 │   │   └── {process-name}.md
-│   └── scripts/               # Orchestrator-specific scripts
-│       └── {script-name}.{ext}
+│   └── results/               # Verification results
+│       └── {timestamp}.yaml
+│
+├── handover/                  # Current task handover (single active files)
+│   ├── current-task.md        # What to do NOW (replaced each task)
+│   ├── task-context.md        # Background context and history
+│   ├── completion-signal.md   # Implementor fills this when done
+│   └── agent_readme.md        # Implementor guide
 │
 ├── implementor/               # IMPLEMENTOR-ACCESSIBLE ZONE
-│   ├── handover/              # Current task handover (single active files)
-│   │   ├── current-task.md    # What to do NOW (overwritten each task)
-│   │   └── task-context.md    # Background context and history
-│   ├── signals/               # Completion signals
+│   ├── signals/               # Completion signals (archive)
 │   │   └── task-{id}-signal.yaml
-│   └── feedback/              # Orchestrator feedback (on retry)
-│       └── task-{id}-feedback.md
+│   ├── feedback/              # Orchestrator feedback (on retry)
+│   │   └── task-{id}-feedback.md
+│   └── artifacts/             # Task output artifacts
+│       └── task-{id}/
 │
-├── handover/                  # LEGACY ALIAS - points to implementor/handover
-│
-├── docs/                      # Process documentation
-│   └── {doc-name}.md
-│
-└── artifacts/                 # Archived outputs (optional - git is primary archive)
+└── artifacts/                 # Archived outputs (optional)
     └── task-{id}/
         └── ...
-│
-└── docs/                      # Process documentation
-    └── {doc-name}.md
 ```
+
+> **Note**: No `scripts/` folder - the CLI commands ARE the script implementations.
+> See Section 7.3 "CLI Command Mapping" for how abstract scripts map to `orchestra` subcommands.
 
 ## 6.2 Information Flow
 
@@ -1602,14 +1609,14 @@ Before running `sprint-init`, verify:
    │   ├── Timestamp
    │   ├── Files created/modified
    │   └── Summary of changes
-   ├── Write to: .orchestra/implementor/signals/task-{id}-signal.md
+   ├── Write to: .orchestra/handover/signals/task-{id}-signal.md
    └── Trigger GATE CHECK phase
 ```
 
 **Artifacts produced**:
 - Source files created/modified
 - Test files created/modified
-- `.orchestra/implementor/signals/task-{id}-signal.md`
+- `.orchestra/handover/signals/task-{id}-signal.md`
 - Execution log (recommended)
 
 ---
@@ -1633,7 +1640,7 @@ Before running `sprint-init`, verify:
    ├── Input: Task ID, expected artifacts from manifest
    │
    ├── CHECK 1: Signal file exists
-   │   └── Verify .orchestra/implementor/signals/task-{id}-signal.md exists
+   │   └── Verify .orchestra/handover/signals/task-{id}-signal.md exists
    │
    ├── CHECK 2: Required files exist
    │   └── Verify all files listed in manifest.output_files exist
@@ -1797,7 +1804,7 @@ Before running `sprint-init`, verify:
    │   ├── Provide actionable guidance
    │   └── Increase specificity on repeated failures
    │
-   ├── Write to: .orchestra/implementor/feedback/task-{id}-attempt-{n}-feedback.md
+   ├── Write to: .orchestra/handover/feedback/task-{id}-attempt-{n}-feedback.md
    │
    └── Check escalation triggers:
        ├── IF attempts >= max_attempts → Trigger ESCALATE
@@ -1809,7 +1816,7 @@ Before running `sprint-init`, verify:
 ```
 
 **Artifacts produced**:
-- `.orchestra/implementor/feedback/task-{id}-attempt-{n}-feedback.md`
+- `.orchestra/handover/feedback/task-{id}-attempt-{n}-feedback.md`
 - Updated `progress.yaml` (attempts incremented)
 
 ---
@@ -1885,6 +1892,8 @@ Before running `sprint-init`, verify:
 | COMPLETE | (next task) | `accept-signal-check` → `task-closeout-check` | YES | Orchestrator |
 | Any | RETRY | `generate-feedback` | YES | Orchestrator |
 | RETRY (max) | ESCALATED | `escalate-failure` | YES | Orchestrator |
+
+> **Note**: Verification YAML schemas are validated via `orchestra init --verify` to ensure machine-executable criteria.
 
 ### Blocking Semantics
 
@@ -2007,7 +2016,7 @@ The abstract script names above map to CLI subcommands in the reference implemen
 | `sprint-status` | `orchestra status` | Show sprint progress |
 | `prepare-handover` | `orchestra prepare` | Generate handover for next task |
 | `validate-handover` | (part of `prepare`) | Validation runs automatically |
-| `signal-complete` | `orchestra signal` | Signal task completion |
+| `signal-complete` | (manual file edit) | Implementor fills out signal.md template |
 | `pre-signal-check` | `orchestra check` | Self-check before signaling |
 | `gate-check` | `orchestra gate` | Run deterministic checks |
 | `verification-audit` | `orchestra verify` | Run hidden verification |
@@ -2025,7 +2034,7 @@ orchestra init --spec specs/feature.md
 orchestra prepare --task 1
 
 # Signal completion (as implementor)
-orchestra signal --task 1
+# Fill out .orchestra/handover/signal.md template created by prepare
 
 # Run verification (as orchestrator)
 orchestra verify --task 1
@@ -2040,7 +2049,7 @@ orchestra verify --task 1
 | `sprint-init` | No manifest, nothing can run |
 | `prepare-handover` | Implementor has no instructions |
 | `validate-handover` | Verification criteria may leak |
-| `signal-complete` | Task stuck in IMPLEMENT forever |
+| `signal-complete` (signal.md) | Task stuck in IMPLEMENT forever |
 | `gate-check` | Broken code may reach verification |
 | `verification-audit` | Implementation theater passes undetected |
 | `accept-signal-check` | Incomplete tasks marked complete |
@@ -2253,7 +2262,7 @@ This section defines what each script must accomplish **abstractly**. Platform-s
 4. Trigger gate check
 
 **Outputs**:
-- `.orchestra/implementor/signals/task-{id}-signal.md`
+- `.orchestra/handover/signals/task-{id}-signal.md`
 - Gate check initiated
 
 **Success criteria**:
@@ -2468,7 +2477,7 @@ This section defines what each script must accomplish **abstractly**. Platform-s
 4. Write feedback file
 
 **Outputs**:
-- `.orchestra/implementor/feedback/task-{id}-feedback.md`
+- `.orchestra/handover/feedback/task-{id}-feedback.md`
 
 **Success criteria**:
 - Feedback is actionable
@@ -2710,6 +2719,104 @@ Attempt 1: "Configuration loading has issues"
 Attempt 2: "Configuration loading does not handle edge cases correctly"
 Attempt 3: "Configuration loading fails when the file is empty or malformed"
 ```
+
+## 9.5 TDD Red-Green Verification
+
+Orchestra supports **Test-Driven Development (TDD)** workflows with explicit red-phase and green-phase task separation using the `tdd_red_phase` flag.
+
+### 9.5.1 The TDD Red-Phase Challenge
+
+Traditional verification requires ALL tests to pass. This conflicts with TDD red-phase tasks where:
+- The task is explicitly to write a test that MUST fail
+- Pre-signal checks would reject because tests don't pass
+- Cannot distinguish "intentional failure" from "broken code"
+
+### 9.5.2 Solution: Dual Verification Mode
+
+When `tdd_red_phase: true`, verification runs two separate test commands:
+
+| Command | Purpose | Expected Result |
+|---------|---------|-----------------|
+| Test red-phase tests | Verify test fails correctly | Exit code 1 (MUST fail) |
+| Test all other tests | Verify no regressions | Exit code 0 (MUST pass) |
+
+**Test Isolation Mechanisms**:
+- **Dart**: `@Tags(['tdd-red'])` annotation
+- **TypeScript**: `test/tdd-red/` directory
+- **Other**: Framework-specific tagging/filtering
+
+### 9.5.3 Red-Green Workflow Pattern
+
+```
+┌────────────────────────────────────────────────────────────────┐
+│  Task N (RED): tdd_red_phase = true                            │
+│  ├─ Implementor adds failing test with marker                  │
+│  ├─ Pre-signal: Dual verification                              │
+│  │   ✅ Red test fails (exit 1)                                │
+│  │   ✅ Other tests pass (exit 0)                              │
+│  └─ COMPLETE (marker remains in codebase)                      │
+│                                                                 │
+│  Task N+1 (GREEN): tdd_red_phase = false                       │
+│  ├─ Orchestrator auto-removes markers before prepare           │
+│  ├─ Implementor implements feature                             │
+│  ├─ Pre-signal: Normal verification                            │
+│  │   ✅ ALL tests pass (exit 0)                                │
+│  └─ COMPLETE                                                   │
+└────────────────────────────────────────────────────────────────┘
+```
+
+### 9.5.4 Automatic Marker Cleanup
+
+**Orchestrator** automatically cleans stale TDD markers during `prepare_task`:
+1. Detects markers in workspace (any task prepare)
+2. Removes markers from files
+3. Commits cleanup: `"chore: remove tdd-red markers before task N"`
+4. Generates handover with clean workspace
+
+This ensures:
+- ✅ No stale markers from previous sprints
+- ✅ Green-phase tasks start clean
+- ✅ Orchestrator owns marker lifecycle
+- ✅ Implementor can't forget cleanup
+
+### 9.5.5 Handover TDD Instructions
+
+When `tdd_red_phase: true`, handover includes:
+
+```markdown
+## TDD Red-Phase Instructions
+
+This is a **TDD red-phase task**. Your test MUST fail.
+
+### Tagging Mechanism
+[Language-specific instructions for markers]
+
+### Verification Commands
+- **Red test**: [command] (MUST exit 1)
+- **Green tests**: [command] (MUST exit 0)
+
+### Expected Behavior
+The tagged test MUST fail (exit code 1).
+All other tests MUST pass (exit code 0).
+```
+
+### 9.5.6 Hidden Verification for TDD Tasks
+
+**Red-phase verification** (hidden):
+- [x] At least one file contains tdd-red marker
+- [x] Marked test fails with correct error type
+- [x] Test validates intended behavior (not syntax error)
+- [x] No regression failures in other tests
+
+**Green-phase verification** (hidden):
+- [x] No tdd-red markers exist in workspace
+- [x] Previously-failing test now passes
+- [x] Implementation matches test expectations
+- [x] No new regressions introduced
+
+**See also**: `docs/workflow/tdd-red-green-workflow.md` for complete workflow guide.
+
+---
 
 ## 10.4 Escalation Protocol
 
@@ -3957,7 +4064,7 @@ Lint:  ✅ Passed
 ► signal-complete --task-id 1
 ```
 
-**Result**: Creates `.orchestra/implementor/signals/task-1-signal.md`:
+**Result**: Creates `.orchestra/handover/signals/task-1-signal.md`:
 
 ```markdown
 # Completion Signal: Task 1
@@ -4292,7 +4399,7 @@ grep -A5 "status: in_progress" .orchestra/orchestrator/progress.yaml
 
 # 3. Any signals waiting
 echo "=== Pending Signals ==="
-ls -la .orchestra/implementor/signals/ 2>/dev/null || echo "(none)"
+ls -la .orchestra/handover/signals/ 2>/dev/null || echo "(none)"
 
 # 4. Recent failures
 echo "=== Recent Failures ==="
@@ -4343,9 +4450,9 @@ This appendix provides quick lookup tables for common operations. Use this for r
 |------|-------|-------------|
 | Task manifest | `.orchestra/orchestrator/.orchestrator-only/manifest.yaml` | Orchestrator only |
 | Progress tracker | `.orchestra/orchestrator/.orchestrator-only/progress.yaml` | Orchestrator only |
-| Handover documents | `.orchestra/implementor/handovers/` | Both |
-| Completion signals | `.orchestra/implementor/signals/` | Both |
-| Feedback files | `.orchestra/implementor/feedback/` | Both |
+| Handover documents | `.orchestra/handover/` | Both |
+| Completion signals | `.orchestra/handover/signals/` | Both |
+| Feedback files | `.orchestra/handover/feedback/` | Both |
 | Hidden verification | `.orchestra/orchestrator/.orchestrator-only/` | Orchestrator only |
 | Archived artifacts | `.orchestra/artifacts/` | Orchestrator only |
 
@@ -4400,7 +4507,7 @@ PENDING ──► PREPARE ──► IMPLEMENT ──► GATE CHECK ──► VER
 | Skip task entirely | Edit `progress.yaml`: set `status: skipped`, add `skip_reason` |
 | Reset task | Edit `progress.yaml`: set `status: pending`, `attempts: 0` |
 | Halt sprint | Edit `progress.yaml`: set `sprint.status: halted` |
-| Clear stuck signals | Delete files in `.orchestra/implementor/signals/` |
+| Clear stuck signals | Delete files in `.orchestra/handover/signals/` |
 
 ## G.8 Common Errors and Solutions
 

@@ -31,6 +31,28 @@ Every check must produce evidence. "I ran the tests" is not enough; test output 
 
 All checks must be executed in order. Skipping checks is a process violation, even if the task "looks complete."
 
+### 5. Schema-Enforced Criteria
+
+Verification YAML must conform to a strict schema. This is enforced during `orchestra verify`:
+
+**Valid Check Types**:
+- `file_exists` - Verify file exists at path
+- `dir_exists` - Verify directory exists
+- `pattern_match` - Verify pattern exists in file
+- `command` - Run command and check exit code
+- `screenshot_exists` - Verify screenshot file exists
+- `json_valid` - Verify JSON file is valid
+- `yaml_valid` - Verify YAML file is valid
+- `export_exists` - Verify export exists in module
+
+**Valid Severities**:
+- `critical` - Task fails if check fails
+- `warning` - Task passes with warning
+- `info` - Informational only
+
+> **Schema Validation**: Invalid types (e.g., `structural`) or severities (e.g., `BLOCKING`) are rejected during verification.
+> This prevents implementation theater where verification criteria are defined but cannot be executed.
+
 ---
 
 ## Verification Workflow

@@ -1,26 +1,89 @@
-# Orchestra CLI
+# Orchestra
 
-AI Agent Task Orchestration System - Preventing "implementation theater" through structured workflows and hidden verification.
+VS Code extension + MCP server for AI agent task orchestration, preventing "implementation theater" through structured workflows, role separation, and hidden verification.
 
 ## Overview
 
-Orchestra implements a **file-based orchestrator/implementor pattern** where:
+This repository is primarily a **VS Code extension** (in `extension/`) that:
+
+- Provides UI for sprint/task orchestration (dashboard, tree, task detail)
+- Manages and auto-installs **role-separated MCP servers** (`orchestra-orc`, `orchestra-imp`)
+- Is evolving toward **custom autonomous coding agents** that orchestrate the SDLC
+
+Orchestra implements an **orchestrator/implementor pattern** where:
 - **Orchestrator** prepares tasks with hidden verification criteria
 - **Implementor** works on tasks and signals completion
 - **Verification** happens against criteria the implementor never sees
 
 This prevents AI agents from gaming acceptance criteria while still providing clear task definitions.
 
+## New Agent Orientation (Canonical)
+
+If you’re a new agent (or a new contributor), start here:
+
+- Orientation doc: [docs/AGENT_ONBOARDING.md](docs/AGENT_ONBOARDING.md)
+- Extension build + VSIX packaging guide (CRITICAL): [extension/build.md](extension/build.md)
+- Canonical code entrypoints:
+  - Extension activation + MCP install/sync: [extension/src/extension.ts](extension/src/extension.ts)
+  - MCP server entrypoint: [src/mcp-server/index.ts](src/mcp-server/index.ts)
+  - MCP tool contracts + role filtering: [src/mcp-server/tools.ts](src/mcp-server/tools.ts)
+  - Agent role prompts: [extension/agents/](extension/agents/)
+
 ## Installation
 
+### Root package (MCP server + CLI)
+
 ```bash
-cd tools/orchestra
 npm install
 npm run build
-npm link  # Makes 'orchestra' command available globally
 ```
 
-## Quick Start
+### Extension
+
+```bash
+cd extension
+npm install
+npm run build
+```
+
+## MCP Server Configuration
+
+Orchestra includes an MCP (Model Context Protocol) server for AI agent integration.
+
+### VS Code Configuration
+
+Add to your user or workspace MCP settings (`.vscode/mcp.json`):
+
+```json
+{
+  "servers": {
+    "orchestra-orc": {
+      "type": "stdio",
+      "command": "node",
+      "args": ["/path/to/orchestra/dist/mcp-server/index.js", "--role=orchestrator"],
+      "env": { "ORCHESTRA_WORKSPACE": "${workspaceFolder}" }
+    },
+    "orchestra-imp": {
+      "type": "stdio",
+      "command": "node",
+      "args": ["/path/to/orchestra/dist/mcp-server/index.js", "--role=implementor"],
+      "env": { "ORCHESTRA_WORKSPACE": "${workspaceFolder}" }
+    }
+  }
+}
+```
+
+**⚠️ CRITICAL**: The `--workspace` argument or `ORCHESTRA_WORKSPACE` environment variable **MUST** be set to the project workspace path. This ensures each project uses its own `.orchestra/db/orchestra.db` database. Without this, all projects would share a global database in the user's home directory!
+
+### Alternative: Environment Variable
+
+You can also set the workspace path via environment variable:
+
+```bash
+ORCHESTRA_WORKSPACE=/path/to/your/project node dist/mcp-server/index.js
+```
+
+## Quick Start (CLI)
 
 ```bash
 # 1. Initialize Orchestra in your project
@@ -105,6 +168,7 @@ orchestra prepare [--task <id>] [--force] [--skip-closeout] [--dry-run]
 | `--force` | Prepare even if another task is in-progress |
 | `--skip-closeout` | Skip closeout check for previous task |
 | `--dry-run` | Show what would be generated |
+| `--format <fmt>` | Output format: yaml, markdown, or both |
 
 **Creates:**
 - `.orchestra/handover/current-task.md` - Task details for implementor

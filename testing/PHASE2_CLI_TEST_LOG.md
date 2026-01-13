@@ -379,3 +379,266 @@ After Phase 1.2 fixes:
 
 *Log created: 2025-12-04*
 *Updated: 2025-12-04 - SpecKit-First Decision, Template Registry*
+
+---
+
+## Test Session: 2025-12-06
+
+### Issue 7: Feedback Not Visible to Implementor
+
+**Severity**: HIGH  
+**Status**: OPEN  
+**Found In**: Verification failure workflow
+
+**Problem**: When orchestrator generates feedback via `orchestra feedback --task 1`, the feedback file is created at `.orchestra/handover/feedback/task-001-signal-rejected.md` (or similar). However:
+
+1. **`orchestra next` doesn't show feedback state** - Still shows "Current Step: Verify" even after feedback exists
+2. **`orchestra status` shows "Verify"** instead of "Retry" or "Feedback Available"
+3. **Implementor doesn't know where to find feedback** - The workflow doesn't guide them to the feedback file
+
+**Root Cause Analysis**:
+
+1. `workflow-state.ts` line 168 checks for `feedback.md` at `paths.handovers + "feedback.md"`:
+   ```typescript
+   const feedbackPath = path.join(paths.handovers, "feedback.md");
+   const feedbackExists = fs.existsSync(feedbackPath);
+   ```
+   But feedback is actually created in a `feedback/` subdirectory with task-specific names.
+
+2. `feedback.ts` line 193 writes to:
+   ```typescript
+   const feedbackPath = path.join(paths.feedback, `task-${taskId}-feedback.md`);
+   ```
+   Which creates `.orchestra/handover/task-1-feedback.md` (with paths.feedback = "handover")
+
+3. The actual file observed was manually created at:
+   `.orchestra/handover/feedback/task-001-signal-rejected.md`
+
+**Three Sub-Issues**:
+
+| # | Issue | Impact |
+|---|-------|--------|
+| 7a | `workflow-state.ts` looks for wrong feedback path | `orchestra next` never shows RETRY step |
+| 7b | `feedback.ts` writes different filename than state expects | State detection broken |
+| 7c | No documentation tells implementor where feedback is | Implementor lost after rejection |
+
+**Expected Behavior**:
+
+1. When feedback exists, `orchestra next` should show:
+   ```
+   🔍 Current Step: Retry
+   
+   Sprint: mcp-server-001 (ACTIVE)
+   Task 1: Add @modelcontextprotocol/sdk dependency [IMPLEMENT]
+   
+   ▸ Address feedback and retry
+   
+   Verification failed. Feedback is available.
+   
+   Read feedback:
+     cat .orchestra/handover/feedback.md
+   
+   After addressing issues:
+     orchestra complete --signal
+   ```
+
+2. Feedback should be at a known, documented location (e.g., `.orchestra/handover/feedback.md`)
+
+**Proposed Fix Options**:
+
+| Option | Description | Pros | Cons |
+|--------|-------------|------|------|
+| A | Change `feedback.ts` to always write to `feedback.md` | Simple, matches state detection | Loses history per-attempt |
+| B | Change `workflow-state.ts` to scan `feedback/` directory | Keeps history | More complex detection |
+| C | Keep per-attempt files, symlink/copy to `feedback.md` | Both history AND simple detection | Extra file operation |
+
+**Recommendation**: Option C - Create feedback files with attempt number for history, but also create/overwrite `.orchestra/handover/feedback.md` as the "current feedback" file that implementor always checks.
+
+---
+
+### Issue 8: progress.yaml Not Updated After Verification Failure
+
+**Severity**: MEDIUM  
+**Status**: OPEN  
+**Found In**: `orchestra feedback` workflow
+
+**Problem**: After running `orchestra accept-signal` (which failed), the progress.yaml still shows:
+```yaml
+entries:
+  - task_id: 1
+    status: "PREPARE"
+```
+
+Expected: Status should be "IMPLEMENT" after implementor signaled, then "RETRY" after feedback.
+
+**Root Cause**: The progress state transitions are not being recorded consistently through the workflow.
+
+**Fix**: Ensure `accept-signal` and `feedback` commands update progress.yaml appropriately.
+
+---
+
+### Issue 9: agent_readme.md Missing Feedback Workflow
+
+**Severity**: MEDIUM  
+**Status**: OPEN  
+**Found In**: `templates/handover/agent_readme.md`
+
+**Problem**: The agent readme tells implementor what to do for completion signal, but doesn't explain:
+- What happens if verification fails
+- Where to find feedback
+- How to re-signal after addressing feedback
+
+**Fix**: Add "If Your Signal is Rejected" section to agent_readme.md with:
+1. How to find feedback file
+2. How to address issues
+3. How to re-run pre-signal check
+4. How to re-signal
+
+---
+
+### Issue 10: `orchestra feedback` Command Not Standalone
+
+**Severity**: HIGH  
+**Status**: OPEN  
+**Found In**: `src/core/feedback.ts`
+
+**Problem**: The `orchestra feedback` command requires a verification result to be passed in programmatically. It cannot be run standalone after verification fails.
+
+```typescript
+// feedback.ts line 147-151
+const verifyResult = options.verificationResult;
+if (!verifyResult) {
+  throw new OrchestraError(
+    "No verification results provided. Run 'orchestra verify' first.",
+```
+
+**Impact**: Orchestrator cannot run `orchestra feedback --task 1` after `orchestra accept-signal` fails - the commands are disconnected.
+
+**Current State**:
+- `accept-signal` runs verification and saves result to `.orchestra/orchestrator/results/task-001-verification.yaml`
+- `feedback` expects verification result passed in memory, not read from disk
+- Orchestrator has to manually create feedback file
+
+**Fix Options**:
+
+| Option | Description |
+|--------|-------------|
+| A | Make `feedback` read verification result from disk if not provided |
+| B | Have `accept-signal` automatically generate feedback on failure |
+| C | Both A and B |
+
+**Recommendation**: Option C - `accept-signal` should auto-generate feedback on failure AND `feedback` should work standalone by reading from disk.
+
+---
+
+### Issue 11: `accept-signal` Doesn't Update Progress on Failure
+
+**Severity**: HIGH  
+**Status**: OPEN  
+**Found In**: `src/commands/accept-signal.ts`
+
+**Problem**: When `orchestra accept-signal` fails verification, it doesn't:
+1. Update progress.yaml to RETRY status
+2. Generate feedback for implementor
+3. Guide orchestrator on next steps
+
+**Current progress.yaml after verification failure**:
+```yaml
+entries:
+  - task_id: 1
+    status: "PREPARE"  # Should be RETRY or VERIFY_FAILED
+```
+
+**Expected Workflow**:
+```
+accept-signal (fail) →
+  1. Write verification result (✓ done)
+  2. Update progress to VERIFY_FAILED
+  3. Auto-generate feedback to known location
+  4. Output: "Feedback written to .orchestra/handover/feedback.md"
+  5. Output: "Run 'orchestra next' for guidance"
+```
+
+**Fix**: Add failure handling to `accept-signal` that:
+1. Updates progress.yaml with RETRY/VERIFY_FAILED status
+2. Calls feedback generation automatically
+3. Writes feedback to canonical location
+
+---
+
+### Issue 12: Feedback File Location Inconsistency
+
+**Severity**: MEDIUM  
+**Status**: OPEN  
+**Found In**: `src/core/feedback.ts` vs `src/core/workflow-state.ts`
+
+**Problem**: Three different locations for feedback files:
+
+| Component | Expected Location |
+|-----------|-------------------|
+| `workflow-state.ts` | `.orchestra/handover/feedback.md` |
+| `feedback.ts` | `.orchestra/handover/task-${id}-feedback.md` |
+| Manual (observed) | `.orchestra/handover/feedback/task-001-signal-rejected.md` |
+
+**Impact**: `orchestra next` never detects feedback exists, so never shows RETRY step.
+
+**Fix**: Standardize on single canonical location:
+- `.orchestra/handover/feedback.md` = current/active feedback (always check here)
+- `.orchestra/handover/feedback/task-{id}-attempt-{n}.md` = history (optional)
+
+---
+
+## Feedback Workflow Analysis
+
+### Current State (Broken)
+
+```
+Implementor signals → accept-signal fails → ??? → Implementor stuck
+
+  1. orchestra accept-signal
+     ├── Runs verification ✓
+     ├── Writes verification result to orchestrator/results/ ✓
+     ├── Outputs "FAILED" message ✓
+     ├── Updates progress.yaml ✗ (still shows PREPARE)
+     ├── Generates feedback ✗ (not called)
+     └── Guides next step ✗ (just exits)
+     
+  2. Orchestrator manually creates feedback file
+     └── Implementor doesn't know where to look
+     
+  3. Implementor runs orchestra next
+     └── Shows "Verify" step (wrong - should show RETRY)
+```
+
+### Expected State (Fixed)
+
+```
+Implementor signals → accept-signal fails → feedback generated → Implementor reads feedback → retries
+
+  1. orchestra accept-signal
+     ├── Runs verification ✓
+     ├── Writes verification result ✓
+     ├── Updates progress.yaml to VERIFY_FAILED ← FIX
+     ├── Auto-generates feedback to handover/feedback.md ← FIX
+     └── Outputs: "Feedback at .orchestra/handover/feedback.md" ← FIX
+     
+  2. Implementor runs orchestra next
+     ├── Detects feedback exists ✓ (if file location fixed)
+     └── Shows "RETRY" step with guidance ✓
+     
+  3. Implementor reads feedback.md
+     ├── Fixes issues
+     ├── Re-runs pre-signal-check
+     └── Re-signals with orchestra complete --signal
+```
+
+### Commands Involved
+
+| Command | Role | Current | Needed |
+|---------|------|---------|--------|
+| `accept-signal` | Orchestrator | Verify only | Verify + feedback on fail |
+| `feedback` | Orchestrator | Requires programmatic input | Read from disk |
+| `next` | Both | Checks wrong path | Check correct path |
+| `status` | Both | Shows VERIFY | Show RETRY when feedback exists |
+
+---

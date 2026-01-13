@@ -1,0 +1,2 @@
+# This folder stores packaged VSIX files
+# VSIX files are excluded from git via .gitignore

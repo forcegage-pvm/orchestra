@@ -1,0 +1,1073 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; style-src {{cspSource}} 'unsafe-inline'; script-src 'nonce-{{nonce}}';"
+    />
+    <title>Task Detail</title>
+    <style>
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      body {
+        font-family: var(--vscode-font-family);
+        font-size: var(--vscode-font-size);
+        color: var(--vscode-foreground);
+        background-color: var(--vscode-editor-background);
+        padding: 20px;
+        line-height: 1.6;
+      }
+
+      .container {
+        max-width: 1200px;
+        margin: 0 auto;
+      }
+
+      h1 {
+        color: var(--vscode-textLink-foreground);
+        font-size: 2em;
+        margin-bottom: 20px;
+        border-bottom: 2px solid var(--vscode-textLink-foreground);
+        padding-bottom: 10px;
+      }
+
+      h2 {
+        color: var(--vscode-foreground);
+        font-size: 1.5em;
+        margin-top: 30px;
+        margin-bottom: 15px;
+      }
+
+      h3 {
+        color: var(--vscode-foreground);
+        font-size: 1.2em;
+        margin-top: 20px;
+        margin-bottom: 10px;
+      }
+
+      .section {
+        background-color: var(--vscode-editor-background);
+        border: 1px solid var(--vscode-panel-border);
+        border-radius: 4px;
+        padding: 20px;
+        margin-bottom: 20px;
+      }
+
+      .info-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 15px;
+        margin-bottom: 20px;
+      }
+
+      .info-card {
+        background-color: var(--vscode-sideBar-background);
+        border: 1px solid var(--vscode-widget-border);
+        border-radius: 4px;
+        padding: 15px;
+      }
+
+      .info-card-label {
+        color: var(--vscode-descriptionForeground);
+        font-size: 0.9em;
+        margin-bottom: 5px;
+      }
+
+      .info-card-value {
+        color: var(--vscode-foreground);
+        font-size: 1.1em;
+        font-weight: 500;
+      }
+
+      .status {
+        display: inline-block;
+        padding: 4px 12px;
+        border-radius: 12px;
+        font-size: 0.85em;
+        font-weight: 500;
+      }
+
+      .status-pending {
+        background-color: var(--vscode-testing-iconQueued);
+        color: var(--vscode-editor-background);
+      }
+
+      .status-prepared {
+        background-color: var(--vscode-charts-yellow);
+        color: var(--vscode-editor-background);
+      }
+
+      .status-implement {
+        background-color: var(--vscode-charts-blue);
+        color: var(--vscode-editor-background);
+      }
+
+      .status-gate_check {
+        background-color: var(--vscode-charts-orange);
+        color: var(--vscode-editor-background);
+      }
+
+      .status-verify {
+        background-color: var(--vscode-charts-purple);
+        color: var(--vscode-editor-background);
+      }
+
+      .status-complete {
+        background-color: var(--vscode-testing-iconPassed);
+        color: var(--vscode-editor-background);
+      }
+
+      .status-escalated {
+        background-color: var(--vscode-testing-iconFailed);
+        color: var(--vscode-editor-background);
+        animation: escalated-pulse 2s ease-in-out infinite;
+      }
+
+      @keyframes escalated-pulse {
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.7;
+        }
+      }
+
+      .priority-badge {
+        padding: 2px 8px;
+        border-radius: 8px;
+        font-size: 0.8em;
+        font-weight: 500;
+      }
+
+      .priority-p0 {
+        background-color: var(--vscode-testing-iconFailed);
+        color: var(--vscode-editor-background);
+      }
+
+      .priority-p1 {
+        background-color: var(--vscode-testing-iconQueued);
+        color: var(--vscode-editor-background);
+      }
+
+      .priority-p2 {
+        background-color: var(--vscode-charts-blue);
+        color: var(--vscode-editor-background);
+      }
+
+      .category-badge {
+        padding: 4px 10px;
+        border-radius: 12px;
+        font-size: 0.85em;
+        font-weight: 500;
+        background-color: var(--vscode-charts-purple);
+        color: var(--vscode-editor-background);
+      }
+
+      /* Tabs */
+      .tabs {
+        display: flex;
+        gap: 10px;
+        border-bottom: 2px solid var(--vscode-panel-border);
+        margin-bottom: 20px;
+      }
+
+      .tab {
+        padding: 10px 20px;
+        cursor: pointer;
+        border: none;
+        background: none;
+        color: var(--vscode-descriptionForeground);
+        font-size: 1em;
+        transition: all 0.2s;
+      }
+
+      .tab:hover {
+        color: var(--vscode-foreground);
+      }
+
+      .tab.active {
+        color: var(--vscode-textLink-foreground);
+        border-bottom: 2px solid var(--vscode-textLink-foreground);
+        margin-bottom: -2px;
+      }
+
+      .tab-content {
+        display: none;
+      }
+
+      .tab-content.active {
+        display: block;
+      }
+
+      /* Lists */
+      .list {
+        list-style: none;
+        padding: 0;
+      }
+
+      .list-item {
+        background-color: var(--vscode-list-hoverBackground);
+        border: 1px solid var(--vscode-widget-border);
+        border-radius: 4px;
+        padding: 12px;
+        margin-bottom: 10px;
+      }
+
+      .list-item-header {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 5px;
+      }
+
+      .list-item-icon {
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 12px;
+        flex-shrink: 0;
+      }
+
+      .icon-pass {
+        background-color: var(--vscode-testing-iconPassed);
+        color: var(--vscode-editor-background);
+      }
+
+      .icon-pass::before {
+        content: "✓";
+      }
+
+      .icon-fail {
+        background-color: var(--vscode-testing-iconFailed);
+        color: var(--vscode-editor-background);
+      }
+
+      .icon-fail::before {
+        content: "✗";
+      }
+
+      .list-item-title {
+        flex: 1;
+        color: var(--vscode-foreground);
+        font-weight: 500;
+      }
+
+      .list-item-body {
+        color: var(--vscode-descriptionForeground);
+        margin-left: 30px;
+        font-size: 0.9em;
+      }
+
+      /* Collapsible sections */
+      .collapsible {
+        cursor: pointer;
+        padding: 10px;
+        background-color: var(--vscode-sideBar-background);
+        border: 1px solid var(--vscode-widget-border);
+        border-radius: 4px;
+        margin-bottom: 10px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+
+      .collapsible:hover {
+        background-color: var(--vscode-list-hoverBackground);
+      }
+
+      .collapsible-content {
+        display: none;
+        padding: 15px;
+        background-color: var(--vscode-editor-background);
+        border: 1px solid var(--vscode-widget-border);
+        border-top: none;
+        border-radius: 0 0 4px 4px;
+        margin-top: -10px;
+        margin-bottom: 10px;
+      }
+
+      .collapsible-content.active {
+        display: block;
+      }
+
+      .collapsible-arrow {
+        transition: transform 0.2s;
+      }
+
+      .collapsible.active .collapsible-arrow {
+        transform: rotate(90deg);
+      }
+
+      /* Timeline */
+      .timeline-list {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+      }
+
+      .timeline-item {
+        display: flex;
+        gap: 12px;
+        padding: 12px;
+        border-left: 2px solid var(--vscode-widget-border);
+        margin-left: 10px;
+        position: relative;
+      }
+
+      .timeline-item:last-child {
+        border-left-color: transparent;
+      }
+
+      .timeline-icon {
+        flex-shrink: 0;
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 12px;
+        font-weight: bold;
+        position: relative;
+        z-index: 1;
+        margin-left: -11px;
+        background-color: var(--vscode-charts-blue);
+        color: var(--vscode-editor-background);
+      }
+
+      .timeline-content {
+        flex: 1;
+      }
+
+      .timeline-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 5px;
+      }
+
+      .timeline-description {
+        color: var(--vscode-foreground);
+        font-weight: 500;
+      }
+
+      .timeline-timestamp {
+        color: var(--vscode-descriptionForeground);
+        font-size: 0.85em;
+      }
+
+      .timeline-metadata {
+        color: var(--vscode-descriptionForeground);
+        font-size: 0.9em;
+      }
+
+      /* Code blocks */
+      pre {
+        background-color: var(--vscode-textCodeBlock-background);
+        padding: 10px;
+        border-radius: 4px;
+        overflow-x: auto;
+        font-size: 0.9em;
+      }
+
+      code {
+        font-family: var(--vscode-editor-font-family);
+      }
+
+      /* Empty state */
+      .empty-state {
+        text-align: center;
+        padding: 40px;
+        color: var(--vscode-descriptionForeground);
+      }
+
+      .empty-state-icon {
+        font-size: 3em;
+        margin-bottom: 10px;
+      }
+
+      /* Loading state */
+      .loading {
+        text-align: center;
+        padding: 40px;
+        color: var(--vscode-descriptionForeground);
+      }
+
+      /* Escalation Alert (TD-016) */
+      .escalation-alert {
+        background-color: var(--vscode-inputValidation-errorBackground);
+        border: 2px solid var(--vscode-testing-iconFailed);
+        border-radius: 8px;
+        padding: 20px;
+        margin-bottom: 20px;
+      }
+
+      .escalation-header {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 15px;
+        border-bottom: 1px solid var(--vscode-testing-iconFailed);
+        padding-bottom: 10px;
+      }
+
+      .escalation-header h2 {
+        margin: 0;
+        color: var(--vscode-testing-iconFailed);
+        font-size: 1.2em;
+      }
+
+      .escalation-icon {
+        font-size: 1.5em;
+      }
+
+      .escalation-content {
+        display: flex;
+        flex-direction: column;
+        gap: 15px;
+      }
+
+      .escalation-field {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+      }
+
+      .escalation-field label {
+        color: var(--vscode-descriptionForeground);
+        font-size: 0.9em;
+        font-weight: 500;
+        text-transform: uppercase;
+      }
+
+      .escalation-field p {
+        margin: 0;
+        color: var(--vscode-foreground);
+        white-space: pre-wrap;
+      }
+
+      .escalation-meta {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        margin-top: 10px;
+        padding-top: 10px;
+        border-top: 1px solid var(--vscode-widget-border);
+      }
+
+      .escalation-badge {
+        background-color: var(--vscode-charts-orange);
+        color: var(--vscode-editor-background);
+        padding: 4px 12px;
+        border-radius: 12px;
+        font-size: 0.85em;
+        font-weight: 500;
+      }
+
+      .escalation-timestamp {
+        color: var(--vscode-descriptionForeground);
+        font-size: 0.85em;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div id="loading" class="loading">
+        <p>Loading task details...</p>
+      </div>
+
+      <div id="content" style="display: none">
+        <!-- Task Header -->
+        <h1 id="taskTitle">Task Details</h1>
+
+        <!-- Task Info Section -->
+        <div class="section">
+          <div class="info-grid">
+            <div class="info-card">
+              <div class="info-card-label">Task ID</div>
+              <div class="info-card-value" id="taskId">-</div>
+            </div>
+            <div class="info-card">
+              <div class="info-card-label">Status</div>
+              <div class="info-card-value">
+                <span id="taskStatus" class="status">-</span>
+              </div>
+            </div>
+            <div class="info-card">
+              <div class="info-card-label">Priority</div>
+              <div class="info-card-value">
+                <span id="taskPriority" class="priority-badge">-</span>
+              </div>
+            </div>
+            <div class="info-card">
+              <div class="info-card-label">Category</div>
+              <div class="info-card-value">
+                <span id="taskCategory" class="category-badge">-</span>
+              </div>
+            </div>
+            <div class="info-card">
+              <div class="info-card-label">Phase</div>
+              <div class="info-card-value" id="taskPhase">-</div>
+            </div>
+            <div class="info-card">
+              <div class="info-card-label">Retry Count</div>
+              <div class="info-card-value">
+                <span id="retryCount">0</span> / <span id="maxRetries">3</span>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <h3>Description</h3>
+            <p id="taskDescription">-</p>
+          </div>
+
+          <div>
+            <h3>Dependencies</h3>
+            <p id="taskDependencies">None</p>
+          </div>
+        </div>
+
+        <!-- Escalation Alert Section (TD-016) - shown when task is ESCALATED -->
+        <div
+          id="escalation-section"
+          class="escalation-alert"
+          style="display: none"
+        >
+          <div class="escalation-header">
+            <span class="escalation-icon">⚠️</span>
+            <h2>Task Escalated - Human Supervisor Required</h2>
+          </div>
+          <div class="escalation-content">
+            <div class="escalation-field">
+              <label>Escalation Reason</label>
+              <p id="escalationReason">-</p>
+            </div>
+            <div class="escalation-field">
+              <label>Attempts Summary</label>
+              <p id="escalationAttemptsSummary">-</p>
+            </div>
+            <div class="escalation-field">
+              <label>Recommended Action</label>
+              <p id="escalationRecommendedAction">-</p>
+            </div>
+            <div class="escalation-meta">
+              <span id="escalationRecommendedStatus" class="escalation-badge"
+                >-</span
+              >
+              <span id="escalationTimestamp" class="escalation-timestamp"
+                >-</span
+              >
+            </div>
+          </div>
+        </div>
+
+        <!-- Tabs -->
+        <div class="tabs">
+          <button class="tab active" data-tab="handover">Handover</button>
+          <button class="tab" data-tab="verification">
+            Verification Results
+          </button>
+          <button class="tab" data-tab="feedback">Feedback</button>
+          <button class="tab" data-tab="history">History</button>
+        </div>
+
+        <!-- Handover Tab -->
+        <div id="tab-handover" class="tab-content active">
+          <div class="section">
+            <h2>Handover Details</h2>
+
+            <h3>Context</h3>
+            <p id="handoverContext">-</p>
+
+            <h3>Context Files</h3>
+            <ul id="handoverContextFiles" class="list"></ul>
+
+            <h3>Acceptance Criteria</h3>
+            <ul id="handoverAcceptanceCriteria" class="list"></ul>
+
+            <h3>File Operations</h3>
+            <ul id="handoverFileOperations" class="list"></ul>
+
+            <h3>Deliverables</h3>
+            <ul id="handoverDeliverables" class="list"></ul>
+
+            <h3>Test Requirements</h3>
+            <p id="handoverTestRequirements">-</p>
+          </div>
+        </div>
+
+        <!-- Verification Results Tab -->
+        <div id="tab-verification" class="tab-content">
+          <div class="section">
+            <h2>Verification Results</h2>
+            <div id="verificationResults">
+              <div class="empty-state">
+                <div class="empty-state-icon">📋</div>
+                <p>No verification results available</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Feedback Tab -->
+        <div id="tab-feedback" class="tab-content">
+          <div class="section">
+            <h2>Feedback</h2>
+            <div id="feedbackContent">
+              <div class="empty-state">
+                <div class="empty-state-icon">💬</div>
+                <p>No feedback available</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- History Tab -->
+        <div id="tab-history" class="tab-content">
+          <div class="section">
+            <h2>Task History</h2>
+            <ul id="historyTimeline" class="timeline-list">
+              <div class="empty-state">
+                <div class="empty-state-icon">📅</div>
+                <p>No history available</p>
+              </div>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script nonce="{{nonce}}">
+      const vscode = acquireVsCodeApi();
+
+      // Tab switching
+      document.querySelectorAll(".tab").forEach((tab) => {
+        tab.addEventListener("click", () => {
+          const tabName = tab.dataset.tab;
+
+          // Update active tab
+          document.querySelectorAll(".tab").forEach((t) => {
+            t.classList.remove("active");
+          });
+          tab.classList.add("active");
+
+          // Update active content
+          document.querySelectorAll(".tab-content").forEach((content) => {
+            content.classList.remove("active");
+          });
+          document.getElementById(`tab-${tabName}`).classList.add("active");
+        });
+      });
+
+      // Collapsible sections
+      document.addEventListener("click", (e) => {
+        if (e.target.classList.contains("collapsible")) {
+          e.target.classList.toggle("active");
+          e.target.nextElementSibling.classList.toggle("active");
+        }
+      });
+
+      // Handle messages from extension
+      window.addEventListener("message", (event) => {
+        const message = event.data;
+
+        switch (message.type) {
+          case "update":
+            updateContent(message.data);
+            break;
+          case "error":
+            showError(message.error);
+            break;
+        }
+      });
+
+      function updateContent(data) {
+        document.getElementById("loading").style.display = "none";
+        document.getElementById("content").style.display = "block";
+
+        if (!data.task) {
+          showError("Task not found");
+          return;
+        }
+
+        // Update task info
+        const task = data.task;
+        document.getElementById(
+          "taskTitle"
+        ).textContent = `Task ${task.task_id}: ${task.title}`;
+        document.getElementById("taskId").textContent = task.task_id;
+        document.getElementById("taskStatus").textContent = task.status;
+        document.getElementById(
+          "taskStatus"
+        ).className = `status status-${task.status.toLowerCase()}`;
+        document.getElementById("taskDescription").textContent =
+          task.description || "No description";
+        document.getElementById("taskCategory").textContent = task.category;
+        document.getElementById("taskPhase").textContent = task.phase_id;
+        document.getElementById("retryCount").textContent = task.retry_count;
+        document.getElementById("maxRetries").textContent = task.max_retries;
+
+        // Update dependencies
+        if (task.dependencies && task.dependencies !== "[]") {
+          try {
+            const deps = JSON.parse(task.dependencies);
+            document.getElementById("taskDependencies").textContent =
+              deps.length > 0 ? deps.join(", ") : "None";
+          } catch {
+            document.getElementById("taskDependencies").textContent =
+              task.dependencies;
+          }
+        }
+
+        // Update handover
+        if (data.handover) {
+          updateHandover(data.handover);
+        }
+
+        // Update verification results
+        if (data.verificationResults && data.verificationResults.length > 0) {
+          updateVerificationResults(data.verificationResults);
+        }
+
+        // Update feedback
+        if (data.feedback) {
+          updateFeedback(data.feedback);
+        }
+
+        // Update history
+        if (data.history && data.history.length > 0) {
+          updateHistory(data.history);
+        }
+
+        // TD-016: Update escalation section
+        updateEscalation(data.escalation, task.status);
+      }
+
+      function updateHandover(handover) {
+        document.getElementById("taskPriority").textContent = handover.priority;
+        document.getElementById(
+          "taskPriority"
+        ).className = `priority-badge priority-${handover.priority.toLowerCase()}`;
+
+        document.getElementById("handoverContext").textContent =
+          handover.context || "No context provided";
+
+        // Context files
+        const contextFilesList = document.getElementById(
+          "handoverContextFiles"
+        );
+        contextFilesList.innerHTML = "";
+        if (handover.context_files) {
+          try {
+            const files = JSON.parse(handover.context_files);
+            files.forEach((file) => {
+              const li = document.createElement("li");
+              li.className = "list-item";
+              li.textContent = file;
+              contextFilesList.appendChild(li);
+            });
+          } catch {
+            contextFilesList.innerHTML =
+              '<li class="list-item">Error parsing context files</li>';
+          }
+        } else {
+          contextFilesList.innerHTML =
+            '<li class="list-item">No context files</li>';
+        }
+
+        // Acceptance criteria
+        const criteriaList = document.getElementById(
+          "handoverAcceptanceCriteria"
+        );
+        criteriaList.innerHTML = "";
+        try {
+          const criteria = JSON.parse(handover.acceptance_criteria);
+          criteria.forEach((criterion) => {
+            const li = document.createElement("li");
+            li.className = "list-item";
+            li.innerHTML = `
+              <div class="list-item-header">
+                <span class="list-item-title">${
+                  criterion.criterion || criterion
+                }</span>
+              </div>
+              ${
+                criterion.verification
+                  ? `<div class="list-item-body">Verification: ${criterion.verification}</div>`
+                  : ""
+              }
+            `;
+            criteriaList.appendChild(li);
+          });
+        } catch {
+          criteriaList.innerHTML =
+            '<li class="list-item">Error parsing acceptance criteria</li>';
+        }
+
+        // File operations
+        const fileOpsList = document.getElementById("handoverFileOperations");
+        fileOpsList.innerHTML = "";
+        try {
+          const fileOps = JSON.parse(handover.file_operations);
+          fileOps.forEach((op) => {
+            const li = document.createElement("li");
+            li.className = "list-item";
+            li.innerHTML = `
+              <div class="list-item-header">
+                <span class="list-item-title">${op.operation}: ${op.path}</span>
+              </div>
+              ${
+                op.description
+                  ? `<div class="list-item-body">${op.description}</div>`
+                  : ""
+              }
+            `;
+            fileOpsList.appendChild(li);
+          });
+        } catch {
+          fileOpsList.innerHTML =
+            '<li class="list-item">Error parsing file operations</li>';
+        }
+
+        // Deliverables
+        const deliverablesList = document.getElementById(
+          "handoverDeliverables"
+        );
+        deliverablesList.innerHTML = "";
+        try {
+          const deliverables = JSON.parse(handover.deliverables);
+          deliverables.forEach((deliverable) => {
+            const li = document.createElement("li");
+            li.className = "list-item";
+            li.textContent = deliverable;
+            deliverablesList.appendChild(li);
+          });
+        } catch {
+          deliverablesList.innerHTML =
+            '<li class="list-item">Error parsing deliverables</li>';
+        }
+
+        document.getElementById("handoverTestRequirements").textContent =
+          handover.test_requirements || "No specific test requirements";
+      }
+
+      function updateVerificationResults(results) {
+        const container = document.getElementById("verificationResults");
+        container.innerHTML = "";
+
+        results.forEach((result) => {
+          const div = document.createElement("div");
+          div.className = "collapsible";
+          div.innerHTML = `
+            <div class="list-item-header" style="flex: 1; margin: 0;">
+              <span class="list-item-icon ${
+                result.passed ? "icon-pass" : "icon-fail"
+              }"></span>
+              <span class="list-item-title">${result.check.description}</span>
+            </div>
+            <span class="collapsible-arrow">▶</span>
+          `;
+
+          const content = document.createElement("div");
+          content.className = "collapsible-content";
+          content.innerHTML = `
+            <p><strong>Check Type:</strong> ${result.check.check_type}</p>
+            <p><strong>Severity:</strong> ${result.check.severity}</p>
+            <p><strong>Status:</strong> ${
+              result.passed ? "PASSED" : "FAILED"
+            }</p>
+            <p><strong>Duration:</strong> ${result.duration_ms}ms</p>
+            ${result.output ? `<pre><code>${result.output}</code></pre>` : ""}
+          `;
+
+          container.appendChild(div);
+          container.appendChild(content);
+        });
+      }
+
+      function updateFeedback(feedback) {
+        const container = document.getElementById("feedbackContent");
+        container.innerHTML = "";
+
+        const div = document.createElement("div");
+        div.innerHTML = `
+          <p><strong>Attempt:</strong> ${feedback.attempt} of ${
+          feedback.max_attempts
+        }</p>
+          <p><strong>Can Retry:</strong> ${
+            feedback.can_retry ? "Yes" : "No"
+          }</p>
+          
+          <h3>Issues</h3>
+          <ul class="list" id="feedbackIssues"></ul>
+          
+          <h3>Passed Checks</h3>
+          <ul class="list" id="feedbackPassed"></ul>
+          
+          <h3>Next Steps</h3>
+          <ul class="list" id="feedbackNextSteps"></ul>
+          
+          ${
+            feedback.additional_guidance
+              ? `<h3>Additional Guidance</h3><p>${feedback.additional_guidance}</p>`
+              : ""
+          }
+        `;
+
+        container.appendChild(div);
+
+        // Parse and display issues
+        try {
+          const issues = JSON.parse(feedback.issues);
+          const issuesList = document.getElementById("feedbackIssues");
+          issues.forEach((issue) => {
+            const li = document.createElement("li");
+            li.className = "list-item";
+            li.innerHTML = `
+              <div class="list-item-header">
+                <span class="list-item-icon icon-fail"></span>
+                <span class="list-item-title">${issue.issue || issue}</span>
+              </div>
+              ${
+                issue.severity
+                  ? `<div class="list-item-body">Severity: ${issue.severity}</div>`
+                  : ""
+              }
+              ${
+                issue.guidance
+                  ? `<div class="list-item-body">${issue.guidance}</div>`
+                  : ""
+              }
+            `;
+            issuesList.appendChild(li);
+          });
+        } catch (e) {
+          console.error("Error parsing issues:", e);
+        }
+
+        // Parse and display passed checks
+        try {
+          const passed = JSON.parse(feedback.passed_checks);
+          const passedList = document.getElementById("feedbackPassed");
+          passed.forEach((check) => {
+            const li = document.createElement("li");
+            li.className = "list-item";
+            li.innerHTML = `
+              <div class="list-item-header">
+                <span class="list-item-icon icon-pass"></span>
+                <span class="list-item-title">${check}</span>
+              </div>
+            `;
+            passedList.appendChild(li);
+          });
+        } catch (e) {
+          console.error("Error parsing passed checks:", e);
+        }
+
+        // Parse and display next steps
+        try {
+          const nextSteps = JSON.parse(feedback.next_steps);
+          const nextStepsList = document.getElementById("feedbackNextSteps");
+          nextSteps.forEach((step) => {
+            const li = document.createElement("li");
+            li.className = "list-item";
+            li.textContent = step;
+            nextStepsList.appendChild(li);
+          });
+        } catch (e) {
+          console.error("Error parsing next steps:", e);
+        }
+      }
+
+      function updateHistory(history) {
+        const timeline = document.getElementById("historyTimeline");
+        timeline.innerHTML = "";
+
+        history.forEach((event) => {
+          const li = document.createElement("li");
+          li.className = "timeline-item";
+          li.innerHTML = `
+            <div class="timeline-icon"></div>
+            <div class="timeline-content">
+              <div class="timeline-header">
+                <span class="timeline-description">${
+                  event.from_status || "START"
+                } → ${event.to_status}</span>
+                <span class="timeline-timestamp">${
+                  event.formattedTimestamp
+                }</span>
+              </div>
+              <div class="timeline-metadata">
+                Triggered by: ${event.triggered_by}
+                ${event.notes ? ` • ${event.notes}` : ""}
+              </div>
+            </div>
+          `;
+          timeline.appendChild(li);
+        });
+      }
+
+      // TD-016: Update escalation section
+      function updateEscalation(escalation, taskStatus) {
+        const section = document.getElementById("escalation-section");
+
+        // Show section only if task is ESCALATED and we have escalation data
+        if (taskStatus === "ESCALATED" && escalation) {
+          section.style.display = "block";
+
+          document.getElementById("escalationReason").textContent =
+            escalation.reason || "No reason provided";
+          document.getElementById("escalationAttemptsSummary").textContent =
+            escalation.attempts_summary || "No attempts summary";
+          document.getElementById("escalationRecommendedAction").textContent =
+            escalation.recommended_action || "No recommendation provided";
+
+          // Format recommended status badge
+          const statusBadge = document.getElementById(
+            "escalationRecommendedStatus"
+          );
+          statusBadge.textContent = `Recommended: ${
+            escalation.recommended_target_status || "PENDING"
+          }`;
+
+          // Format timestamp
+          const timestamp = document.getElementById("escalationTimestamp");
+          if (escalation.escalated_at) {
+            const date = new Date(escalation.escalated_at);
+            timestamp.textContent = `Escalated: ${date.toLocaleString()}`;
+          } else {
+            timestamp.textContent = "";
+          }
+        } else {
+          // Hide escalation section for non-escalated tasks
+          section.style.display = "none";
+        }
+      }
+
+      function showError(error) {
+        document.getElementById("loading").style.display = "none";
+        document.getElementById("content").innerHTML = `
+          <div class="empty-state">
+            <div class="empty-state-icon">⚠️</div>
+            <p>${error}</p>
+          </div>
+        `;
+        document.getElementById("content").style.display = "block";
+      }
+
+      // Signal ready to extension
+      vscode.postMessage({ type: "ready" });
+    </script>
+  </body>
+</html>

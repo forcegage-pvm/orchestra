@@ -1,7 +1,8 @@
 /**
  * Accept-Signal Core Logic
  *
- * Process 2, Step 1: Verify implementor completion signal
+ * runAcceptSignal() - Orchestrator validates completion signal (Bible 8.4)
+ *
  * ZERO CLI dependencies - pure logic functions.
  */
 
@@ -11,10 +12,11 @@ import { z } from "zod";
 import { requireOrchestraRoot } from "./config.js";
 import { loadManifest } from "./manifest.js";
 import { loadProgress } from "./progress.js";
+import type { ProgressEntry, ProgressLog } from "./types.js";
 import { readYaml } from "./yaml.js";
 
 // =============================================================================
-// Types
+// Accept-Signal Types (Orchestrator - Bible 8.4)
 // =============================================================================
 
 export interface AcceptSignalOptions {
@@ -48,7 +50,7 @@ export interface SignalReport {
 // Pre-signal artifact schema
 const PreSignalCheckSchema = z
   .object({
-    status: z.enum(["PASSED", "FAILED"]),
+    status: z.enum(["PASSED", "FAILED", "SKIPPED"]),
   })
   .passthrough(); // Allow additional fields
 
@@ -62,7 +64,7 @@ const PreSignalSchema = z.object({
 type PreSignalArtifact = z.infer<typeof PreSignalSchema>;
 
 // =============================================================================
-// Main Orchestration Function
+// Accept-Signal (Orchestrator - Bible 8.4)
 // =============================================================================
 
 /**
@@ -101,6 +103,7 @@ export async function runAcceptSignal(
     checks.push(await checkNotStale(maxAge, artifact));
     checks.push(await checkCompletionSignalFilled());
     checks.push(await checkDeliverablesInPreSignal(artifact));
+    checks.push(await checkVerificationCriteriaExists(taskId));
 
     const allPassed = checks.every((c) => c.passed);
 
@@ -154,13 +157,14 @@ async function determineCurrentTask(explicitTaskId?: string): Promise<number> {
   return summary.latestEntry.task_id;
 }
 
-function getProgressSummary(progress: any): { latestEntry?: any } {
-  return {
-    latestEntry:
-      progress.entries.length > 0
-        ? progress.entries[progress.entries.length - 1]
-        : undefined,
-  };
+function getProgressSummary(progress: ProgressLog): {
+  latestEntry?: ProgressEntry;
+} {
+  const lastEntry = progress.entries[progress.entries.length - 1];
+  if (lastEntry !== undefined) {
+    return { latestEntry: lastEntry };
+  }
+  return {};
 }
 
 // =============================================================================
@@ -399,5 +403,41 @@ async function checkDeliverablesInPreSignal(
     check: "Deliverables",
     expected: "All exist",
     actual: "PASSED",
+  };
+}
+
+/**
+ * Check 7: Verification criteria exists (created during sprint init)
+ */
+async function checkVerificationCriteriaExists(
+  taskId: number
+): Promise<CheckResult> {
+  const orchestraRoot = requireOrchestraRoot();
+  const verificationPath = path.join(
+    orchestraRoot,
+    ".orchestra",
+    "orchestrator",
+    ".orchestrator-only",
+    "verification",
+    `task-${String(taskId).padStart(3, "0")}.yaml`
+  );
+
+  if (!fs.existsSync(verificationPath)) {
+    return {
+      passed: false,
+      id: "S7",
+      check: "Verification criteria exists",
+      expected: "File at .orchestrator-only/verification/",
+      actual: "Not found",
+      fix: "Orchestrator: Create verification criteria during sprint initialization",
+    };
+  }
+
+  return {
+    passed: true,
+    id: "S7",
+    check: "Verification criteria",
+    expected: "Exists",
+    actual: "Found",
   };
 }

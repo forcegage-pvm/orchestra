@@ -12,20 +12,21 @@
 
 Sprint Initialization is the setup phase where you:
 
-1. Analyze the source requirements (SpecKit spec, feature doc, etc.)
-2. Create the Orchestra manifest with tasks, phases, and dependencies
-3. Create verification criteria YAML for each task
-4. Initialize progress tracking
-5. Prepare for the first task handover
+1. Run `orchestra init` to create the folder structure
+2. Analyze source requirements (SpecKit spec, feature doc, etc.)
+3. Configure the manifest with tasks, phases, and dependencies
+4. Create verification criteria YAML for each task
+5. Run `orchestra status` to validate setup
+6. Prepare for the first task handover with `orchestra prepare`
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
 │                     PROCESS 0: Sprint Initialization                    │
 │                                                                         │
-│   Requirements  →  Manifest  →  Verification YAMLs  →  Progress Init   │
-│   (SpecKit/Doc)    (tasks)      (per task)             (tracking)      │
+│   orchestra init  →  Configure Manifest  →  Verification YAMLs         │
+│                      (phases & tasks)       (per task)                  │
 │                                                                         │
-│   THEN: Proceed to Process 1 (Handover Creation) for first task        │
+│   THEN: orchestra prepare --task 1 for first task handover             │
 └─────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -36,15 +37,52 @@ Sprint Initialization is the setup phase where you:
 Before starting:
 
 - [ ] Source requirements document exists (SpecKit spec.md, feature doc, etc.)
-- [ ] `.orchestra/` folder structure exists (use template if needed)
+- [ ] Orchestra CLI installed (`npm install -g @orchestra/cli` or local dev)
 - [ ] You understand the feature/sprint scope
-- [ ] You have identified task categories (INFRASTRUCTURE, INTEGRATION, VISUAL)
+- [ ] You have identified task categories (INFRASTRUCTURE, INTEGRATION, VISUAL, REFACTOR)
 
 ---
 
 ## Step-by-Step Process
 
-### Step 1: Analyze Source Requirements
+### Step 1: Initialize Orchestra
+
+Run the CLI to create the folder structure:
+
+```bash
+# Initialize in current directory
+orchestra init
+
+# With SpecKit spec path
+orchestra init --spec spec/requirements.md
+
+# Reinitialize (overwrites existing)
+orchestra init --force
+```
+
+This creates:
+
+```
+.orchestra/
+├── orchestra.yaml       # Configuration
+├── manifest.yaml        # Sprint/task definitions (edit this!)
+├── progress.yaml        # Progress tracking
+├── common/templates/    # Handover templates
+├── orchestrator/
+│   ├── readme.md
+│   ├── processes/       # This document
+│   ├── .orchestrator-only/
+│   │   ├── verification/   # Hidden verification YAMLs
+│   │   └── preflight/      # Preflight checklists
+│   └── results/         # Task archives
+├── implementor/
+│   ├── readme.md
+│   └── artifacts/       # Implementation artifacts
+└── handover/
+    └── agent_readme.md  # Implementor instructions
+```
+
+### Step 2: Analyze Source Requirements
 
 Read and understand the source document:
 
@@ -65,9 +103,9 @@ Source Types:
 - Dependencies between work items
 - Success criteria / acceptance requirements
 
-### Step 2: Define Tasks
+### Step 3: Define Tasks in Manifest
 
-Break down the work into Orchestra tasks:
+Edit `.orchestra/manifest.yaml` to define your tasks:
 
 #### Task Granularity Guidelines
 
@@ -76,21 +114,74 @@ Break down the work into Orchestra tasks:
 | INFRASTRUCTURE | 1-2 hours        | Create enum, model class, utility function  |
 | INTEGRATION    | 2-4 hours        | Wire components together, implement feature |
 | VISUAL         | 1-2 hours        | Create demo, verify rendering               |
+| REFACTOR       | 1-3 hours        | Code cleanup, pattern updates               |
 
-#### Task Structure
-
-Each task should have:
+#### Current Manifest Schema
 
 ```yaml
-- id: "1.1" # Unique ID (phase.task)
-  title: "Create YAxisPosition Enum" # Clear, action-oriented title
-  category: "INFRASTRUCTURE" # INFRASTRUCTURE | INTEGRATION | VISUAL
-  status: "not-started" # Always start as not-started
-  depends_on: [] # Task IDs this depends on
-  spec_ref: "SPEC-011-1.1" # Reference to source requirement
-  deliverables: # Concrete outputs
-    - "lib/src/models/y_axis_position.dart"
-    - "test/unit/y_axis_position_test.dart"
+# .orchestra/manifest.yaml
+version: "1.0.0"
+
+sprint:
+  id: "sprint-001" # Unique sprint identifier
+  name: "Multi-Axis Normalization"
+  status: ACTIVE # ACTIVE | COMPLETED | ABORTED
+  created_at: "2025-12-06"
+
+phases:
+  - phase_id: "foundation"
+    phase_name: "Foundation Phase"
+    status: ACTIVE # PENDING | ACTIVE | COMPLETED | ABORTED
+    speckit_tasks: # SpecKit task IDs in this phase
+      - "T001"
+      - "T002"
+    tasks:
+      - task_id: 1
+        title: "Create YAxisPosition Enum"
+        description: "Define enum with left/right values for axis positioning"
+        status: PENDING # PENDING | PREPARE | IMPLEMENT | GATE_CHECK | VERIFY | COMPLETE | RETRY | ESCALATED
+        category: INFRASTRUCTURE
+        dependencies: [] # Array of task_ids this depends on
+        speckit_task_ref: "001-foundation/tasks.md#T001"
+
+      - task_id: 2
+        title: "Create YAxisScaleType Enum"
+        description: "Define enum for linear/logarithmic scale types"
+        status: PENDING
+        category: INFRASTRUCTURE
+        dependencies: [1] # Depends on task 1
+        speckit_task_ref: "001-foundation/tasks.md#T002"
+
+  - phase_id: "integration"
+    phase_name: "Integration Phase"
+    status: PENDING
+    speckit_tasks:
+      - "T003"
+    tasks:
+      - task_id: 3
+        title: "Create YAxisConfig Model"
+        description: "Combine enums into configuration model"
+        status: PENDING
+        category: INTEGRATION
+        dependencies: [1, 2]
+        speckit_task_ref: "002-integration/tasks.md#T003"
+
+  - phase_id: "visual"
+    phase_name: "Visual Verification"
+    status: PENDING
+    speckit_tasks:
+      - "T004"
+    tasks:
+      - task_id: 4
+        title: "Multi-axis Demo"
+        description: "Create demo showing multi-axis functionality"
+        status: PENDING
+        category: VISUAL
+        dependencies: [3]
+        speckit_task_ref: "003-visual/tasks.md#T004"
+
+# Optional: Track task consolidation
+consolidations: []
 ```
 
 #### Ordering Strategy
@@ -99,84 +190,6 @@ Each task should have:
 2. **Building blocks second**: Models, utilities
 3. **Integration third**: Connecting components
 4. **Visual last**: Demos, visual verification
-
-### Step 3: Create Manifest
-
-Create/update `.orchestra/orchestrator/.orchestrator-only/manifest.yaml`:
-
-```yaml
-# Sprint Manifest
-# ⚠️ HIDDEN FROM IMPLEMENTOR
-
-sprint: "011-multi-axis-normalization"
-spec: "specs/011-multi-axis-normalization/spec.md"
-created: "2025-12-01"
-status: "not-started"
-
-phases:
-  - id: "foundation"
-    name: "Foundation"
-    description: "Core types and enums"
-    tasks:
-      - id: "1"
-        title: "Create YAxisPosition Enum"
-        category: "INFRASTRUCTURE"
-        status: "not-started"
-        depends_on: []
-        spec_ref: "SPEC-011-1.1"
-        deliverables:
-          - "lib/src/models/y_axis_position.dart"
-          - "test/unit/y_axis_position_test.dart"
-
-      - id: "2"
-        title: "Create YAxisScaleType Enum"
-        category: "INFRASTRUCTURE"
-        status: "not-started"
-        depends_on: ["1"]
-        spec_ref: "SPEC-011-1.2"
-        deliverables:
-          - "lib/src/models/y_axis_scale_type.dart"
-          - "test/unit/y_axis_scale_type_test.dart"
-
-  - id: "integration"
-    name: "Integration"
-    description: "Component wiring"
-    tasks:
-      - id: "3"
-        title: "Create YAxisConfig Model"
-        category: "INTEGRATION"
-        status: "not-started"
-        depends_on: ["1", "2"]
-        spec_ref: "SPEC-011-2.1"
-        deliverables:
-          - "lib/src/models/y_axis_config.dart"
-          - "test/unit/y_axis_config_test.dart"
-
-  - id: "visual"
-    name: "Visual Verification"
-    description: "Demos and visual tests"
-    tasks:
-      - id: "4"
-        title: "Multi-axis Demo"
-        category: "VISUAL"
-        status: "not-started"
-        depends_on: ["3"]
-        spec_ref: "SPEC-011-3.1"
-        deliverables:
-          - "example/lib/demos/multi_axis_demo.dart"
-          - "screenshots/multi_axis_demo.png"
-
-# Tracking
-current_task: null
-current_phase: null
-
-# Summary (update as sprint progresses)
-summary:
-  total_tasks: 4
-  completed: 0
-  in_progress: 0
-  pending: 4
-```
 
 ### Step 4: Create Verification YAMLs
 
@@ -187,148 +200,151 @@ For EACH task, create verification criteria in `.orchestra/orchestrator/.orchest
 task_id: 1
 title: "Create YAxisPosition Enum"
 category: "INFRASTRUCTURE"
-created: "2025-12-01"
+created_at: "2025-12-06"
 
 # Severity levels:
-# - BLOCKING: Must pass (file exists, tests pass)
+# - BLOCKING: Must pass (test failures, missing files)
 # - MAJOR: Should pass (documentation, patterns)
 # - MINOR: Nice to have (style, extras)
 # - INFO: Informational only
 
+# Verification types:
+# - structural: File/folder existence, structure validation
+# - functional: Tests pass, commands succeed
+# - adversarial: Edge cases, error handling
+# - visual: Screenshots, UI verification
+
 checks:
   - id: "V1.1"
-    name: "File exists"
-    severity: "BLOCKING"
-    type: "file_exists"
-    params:
-      path: "lib/src/models/y_axis_position.dart"
-    expected: "File exists"
+    description: "Source file exists"
+    severity: BLOCKING
+    type: structural
 
   - id: "V1.2"
-    name: "Enum defined"
-    severity: "BLOCKING"
-    type: "pattern_match"
-    params:
-      file: "lib/src/models/y_axis_position.dart"
-      pattern: "enum YAxisPosition"
-    expected: "Enum YAxisPosition is defined"
+    description: "Enum has required values (left, right)"
+    severity: BLOCKING
+    type: structural
 
   - id: "V1.3"
-    name: "Has left/right values"
-    severity: "BLOCKING"
-    type: "pattern_match"
-    params:
-      file: "lib/src/models/y_axis_position.dart"
-      pattern: "(left|right)"
-    expected: "Contains left and right values"
+    description: "Test file exists"
+    severity: BLOCKING
+    type: structural
 
   - id: "V1.4"
-    name: "Test file exists"
-    severity: "BLOCKING"
-    type: "file_exists"
-    params:
-      path: "test/unit/y_axis_position_test.dart"
-    expected: "Test file exists"
+    description: "All tests pass"
+    severity: BLOCKING
+    type: functional
 
   - id: "V1.5"
-    name: "Tests pass"
-    severity: "BLOCKING"
-    type: "command"
-    params:
-      command: "flutter test test/unit/y_axis_position_test.dart"
-      expected_exit: 0
-    expected: "All tests pass"
+    description: "Static analysis clean"
+    severity: MAJOR
+    type: functional
 
   - id: "V1.6"
-    name: "Analyzer clean"
-    severity: "MAJOR"
-    type: "command"
-    params:
-      command: "flutter analyze lib/src/models/y_axis_position.dart"
-      expected_pattern: "No issues found"
-    expected: "No analyzer issues"
-
-  - id: "V1.7"
-    name: "Documentation"
-    severity: "MINOR"
-    type: "pattern_match"
-    params:
-      file: "lib/src/models/y_axis_position.dart"
-      pattern: "///"
-    expected: "Has doc comments"
+    description: "Has documentation comments"
+    severity: MINOR
+    type: structural
 ```
 
-#### Verification Types
+> ⚠️ **IMPORTANT**: Verification YAMLs are in `.orchestrator-only/` and are NEVER shown to the implementor. This prevents gaming of acceptance criteria.
 
-| Type                | Purpose                | Parameters                                     |
-| ------------------- | ---------------------- | ---------------------------------------------- |
-| `file_exists`       | Check file exists      | `path`                                         |
-| `dir_exists`        | Check directory exists | `path`                                         |
-| `pattern_match`     | Regex in file          | `file`, `pattern`                              |
-| `command`           | Run shell command      | `command`, `expected_exit`, `expected_pattern` |
-| `json_valid`        | Validate JSON          | `path`                                         |
-| `yaml_valid`        | Validate YAML          | `path`                                         |
-| `screenshot_exists` | Check screenshot       | `path`, `min_size`                             |
+### Step 5: Validate Setup
 
-### Step 5: Initialize Progress
+Run CLI commands to verify your configuration:
 
-Create/reset `.orchestra/orchestrator/.orchestrator-only/progress.yaml`:
+```bash
+# Verify initialization structure and all verification YAMLs
+orchestra init --verify
 
-```yaml
-# Sprint Progress
-# Updated by orchestrator after each task
+# Check overall status
+orchestra status
 
-sprint: "011-multi-axis-normalization"
-created: "2025-12-01"
-status: "not-started"
-
-current_task: null
-current_phase: null
-
-summary:
-  total: 4
-  completed: 0
-  in_progress: 0
-  pending: 4
-  failed: 0
-
-# Task-level tracking (populated as tasks complete)
-tasks: {}
+# See what step comes next
+orchestra next
 ```
+
+**`orchestra init --verify` checks:**
+
+- All required directories exist (common/templates, orchestrator, handover, etc.)
+- All required config files exist (orchestra.yaml, manifest.yaml, progress.yaml)
+- **All verification YAML files** in `.orchestrator-only/verification/` are schema-valid
+
+Expected output when everything is correct:
+
+```
+Init Verification
+
+  ✓ [DIR-common-templates] Directory: common/templates
+  ✓ [DIR-orchestrator--orchestrator-only-verification] Directory: orchestrator/.orchestrator-only/verification
+  ✓ [DIR-orchestrator-processes] Directory: orchestrator/processes
+  ✓ [DIR-handover] Directory: handover
+  ✓ [DIR-implementor] Directory: implementor
+  ✓ [FILE-orchestra-yaml] Configuration file
+  ✓ [FILE-manifest-yaml] Manifest file
+  ✓ [FILE-progress-yaml] Progress file
+  ✓ [VERIFY-task-001-yaml] Verification: task-001.yaml
+  ✓ [VERIFY-task-002-yaml] Verification: task-002.yaml
+
+✓ All 10 checks passed. Initialization verified.
+```
+
+**If verification fails**, fix the issues and re-run until all checks pass:
+
+```
+  ✗ [VERIFY-task-001-yaml] Verification: task-001.yaml
+      Expected: Valid schema
+      Actual:   Invalid: Required
+      Fix:      Verification YAML validation failed:
+
+  ❌ checks: Required
+     Received: "undefined"
+
+✗ 1 of 9 checks failed. Fix issues above.
+```
+
+> ⚠️ **IMPORTANT**: You MUST iterate until `orchestra init --verify` passes completely before proceeding to Process 1. This is the structural gate that ensures all verification YAMLs are correctly formatted.
 
 ### Step 6: Prepare Handover Folder
 
-Clear/prepare the handover folder:
+The handover folder should be clean before starting:
 
-```powershell
-# Clear any stale files
-Remove-Item .orchestra/handover/current-task.md -ErrorAction SilentlyContinue
-Remove-Item .orchestra/handover/completion-signal.md -ErrorAction SilentlyContinue
-Remove-Item .orchestra/handover/verification/* -ErrorAction SilentlyContinue
+```bash
+# Check handover folder is empty (except agent_readme.md)
+ls .orchestra/handover/
 
-# Keep templates and context files
-# - agent_readme.md (static)
-# - task-context.md (will be updated)
+# Should show:
+# agent_readme.md    # Static file - keep this
 ```
 
-### Step 7: Validate Setup
-
-Run validation checks:
+If there are stale files from previous work:
 
 ```powershell
-# Check all verification YAMLs exist
-$manifest = Get-Content .orchestra/orchestrator/.orchestrator-only/manifest.yaml | ConvertFrom-Yaml
-$tasks = $manifest.phases | ForEach-Object { $_.tasks } | ForEach-Object { $_ }
-foreach ($task in $tasks) {
-    $yamlPath = ".orchestra/orchestrator/.orchestrator-only/verification/task-$($task.id.PadLeft(3,'0')).yaml"
-    if (!(Test-Path $yamlPath)) {
-        Write-Warning "Missing verification YAML: $yamlPath"
-    }
-}
-
-# Verify progress.yaml matches manifest
-# Verify folder structure is complete
+# PowerShell: Clear stale files
+Remove-Item .orchestra/handover/task-*.md -ErrorAction SilentlyContinue
+Remove-Item .orchestra/handover/signal-*.yaml -ErrorAction SilentlyContinue
+Remove-Item .orchestra/handover/feedback-*.md -ErrorAction SilentlyContinue
 ```
+
+```bash
+# Bash: Clear stale files
+rm -f .orchestra/handover/task-*.md
+rm -f .orchestra/handover/signal-*.yaml
+rm -f .orchestra/handover/feedback-*.md
+```
+
+### Step 7: Prepare First Task
+
+When ready to start, prepare the first task:
+
+```bash
+# Prepare task 1 (or next available task by dependency order)
+orchestra prepare --task 1
+
+# Or let Orchestra pick the next available task
+orchestra prepare
+```
+
+This generates the handover document and transitions the task to IMPLEMENT status.
 
 ---
 
@@ -336,13 +352,14 @@ foreach ($task in $tasks) {
 
 If your source is a SpecKit spec, here's how to map:
 
-| SpecKit Element     | Orchestra Element            |
-| ------------------- | ---------------------------- |
-| `spec.md` phases    | `manifest.yaml` phases       |
-| `tasks.md` items    | `manifest.yaml` tasks        |
-| Task checkboxes     | `deliverables` list          |
-| Acceptance criteria | `verification/*.yaml` checks |
-| Phase descriptions  | Phase `description` field    |
+| SpecKit Element     | Orchestra Element               |
+| ------------------- | ------------------------------- |
+| `spec.md` phases    | `phases` array in manifest      |
+| `tasks.md` items    | `tasks` array within each phase |
+| Task checkboxes     | `description` + verification    |
+| Acceptance criteria | `verification/*.yaml` checks    |
+| Phase descriptions  | `phase_name` field              |
+| Task IDs            | `speckit_task_ref` field        |
 
 ### Example SpecKit → Orchestra Mapping
 
@@ -351,7 +368,7 @@ If your source is a SpecKit spec, here's how to map:
 ```markdown
 ## Phase 1: Foundation
 
-### 1.1 Create YAxisPosition Enum
+### T001: Create YAxisPosition Enum
 
 - [ ] Create `lib/src/models/y_axis_position.dart`
 - [ ] Add `left` and `right` values
@@ -363,29 +380,48 @@ If your source is a SpecKit spec, here's how to map:
 
 ```yaml
 phases:
-  - id: "foundation"
-    name: "Phase 1: Foundation"
+  - phase_id: "foundation"
+    phase_name: "Phase 1: Foundation"
+    status: ACTIVE
+    speckit_tasks:
+      - "T001"
     tasks:
-      - id: "1"
+      - task_id: 1
         title: "Create YAxisPosition Enum"
-        category: "INFRASTRUCTURE"
-        status: "not-started"
-        spec_ref: "SPEC-011-1.1"
-        deliverables:
-          - "lib/src/models/y_axis_position.dart"
-          - "test/unit/y_axis_position_test.dart"
+        description: "Create enum with left/right values, tests, and exports"
+        status: PENDING
+        category: INFRASTRUCTURE
+        dependencies: []
+        speckit_task_ref: "001-foundation/tasks.md#T001"
 ```
 
 **Orchestra verification/task-001.yaml:**
 
 ```yaml
+task_id: 1
+title: "Create YAxisPosition Enum"
+created_at: "2025-12-06"
+
 checks:
   - id: "V1.1"
-    name: "File exists"
-    severity: "BLOCKING"
-    type: "file_exists"
-    params:
-      path: "lib/src/models/y_axis_position.dart"
+    description: "File lib/src/models/y_axis_position.dart exists"
+    severity: BLOCKING
+    type: structural
+
+  - id: "V1.2"
+    description: "Enum has left and right values"
+    severity: BLOCKING
+    type: structural
+
+  - id: "V1.3"
+    description: "Unit tests exist and pass"
+    severity: BLOCKING
+    type: functional
+
+  - id: "V1.4"
+    description: "Exported from barrel file"
+    severity: MAJOR
+    type: structural
 ```
 
 ---
@@ -394,13 +430,28 @@ checks:
 
 Before proceeding to Process 1:
 
+- [ ] `orchestra init` has been run
 - [ ] Source requirements analyzed
-- [ ] All tasks identified and ordered
-- [ ] `manifest.yaml` created with all phases/tasks
-- [ ] Verification YAML created for EACH task
-- [ ] `progress.yaml` initialized
-- [ ] Handover folder cleared
-- [ ] No stale files from previous sprints
+- [ ] All tasks identified and ordered in `manifest.yaml`
+- [ ] Verification YAML created for EACH task in `.orchestrator-only/verification/`
+- [ ] **`orchestra init --verify` passes with ALL checks green**
+- [ ] `orchestra status` shows valid configuration
+- [ ] Handover folder has no stale files
+- [ ] Ready to run `orchestra prepare --task 1`
+
+---
+
+## CLI Commands Reference
+
+| Command                        | Purpose                                              |
+| ------------------------------ | ---------------------------------------------------- |
+| `orchestra init`               | Initialize folder structure                          |
+| `orchestra init --spec <path>` | Initialize with SpecKit reference                    |
+| `orchestra init --verify`      | **Verify initialization and all verification YAMLs** |
+| `orchestra status`             | Show current state                                   |
+| `orchestra next`               | Show what to do next                                 |
+| `orchestra prepare`            | Prepare handover for next task                       |
+| `orchestra prepare --task N`   | Prepare specific task                                |
 
 ---
 
@@ -408,39 +459,56 @@ Before proceeding to Process 1:
 
 After completing Process 0:
 
-1. **Proceed to Process 1**: [Handover Creation](./01-handover-creation.md)
-2. **Prepare first task**: Fill `current-task.md` for task 1
+1. **Run `orchestra prepare`**: Generate handover for task 1
+2. **Proceed to Process 1**: [Handover Creation](./01-handover-creation.md)
 3. **Invoke implementor**: Hand over to implementor agent
 
 ---
 
 ## Common Mistakes
 
-❌ **Creating manifest without verification YAMLs**
+❌ **Editing manifest in wrong location**
 
-- Every task needs verification criteria
+- Manifest is at `.orchestra/manifest.yaml` (root level)
+- NOT in `.orchestrator-only/`
+
+❌ **Missing verification YAMLs**
+
+- Every task needs a verification file in `.orchestrator-only/verification/`
+- Filename: `task-001.yaml`, `task-002.yaml`, etc.
 
 ❌ **Leaving stale files in handover/**
 
-- Always clear before new sprint
+- Always clear task/signal/feedback files before new sprint
+- Keep `agent_readme.md` (static reference)
 
 ❌ **Dependencies pointing to non-existent tasks**
 
-- Validate all `depends_on` references
+- Validate all `dependencies` array values exist
 
 ❌ **Missing category assignment**
 
-- Every task needs INFRASTRUCTURE, INTEGRATION, or VISUAL
+- Every task needs: INFRASTRUCTURE, INTEGRATION, VISUAL, or REFACTOR
 
 ❌ **Inconsistent task IDs**
 
-- Use consistent numbering (1, 2, 3 or 1.1, 1.2, 2.1)
+- Use integer IDs (1, 2, 3, ...)
+- Field name is `task_id` not `id`
+
+❌ **Wrong status values**
+
+- Task status: PENDING | PREPARE | IMPLEMENT | GATE_CHECK | VERIFY | COMPLETE | RETRY | ESCALATED
+- Sprint status: ACTIVE | COMPLETED | ABORTED
+- Phase status: PENDING | ACTIVE | COMPLETED | ABORTED
 
 ---
 
 ## Reference Files
 
-- Manifest: `.orchestra/orchestrator/.orchestrator-only/manifest.yaml`
-- Progress: `.orchestra/orchestrator/.orchestrator-only/progress.yaml`
-- Verification: `.orchestra/orchestrator/.orchestrator-only/verification/task-XXX.yaml`
-- Handover: `.orchestra/handover/`
+| File         | Location                                                   | Purpose               |
+| ------------ | ---------------------------------------------------------- | --------------------- |
+| Manifest     | `.orchestra/manifest.yaml`                                 | Task definitions      |
+| Config       | `.orchestra/orchestra.yaml`                                | CLI configuration     |
+| Progress     | `.orchestra/progress.yaml`                                 | Progress tracking     |
+| Verification | `.orchestra/orchestrator/.orchestrator-only/verification/` | Hidden criteria       |
+| Handover     | `.orchestra/handover/`                                     | Implementor workspace |

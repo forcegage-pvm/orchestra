@@ -27,8 +27,7 @@ describe("Types", () => {
     it("should have correct default paths per Bible Section 6.1", () => {
       expect(DEFAULT_CONFIG.paths.manifest).toBe("manifest.yaml");
       expect(DEFAULT_CONFIG.paths.handovers).toBe("handover");
-      expect(DEFAULT_CONFIG.paths.signals).toBe("implementor/signals");
-      expect(DEFAULT_CONFIG.paths.feedback).toBe("implementor/feedback");
+      expect(DEFAULT_CONFIG.paths.feedback).toBe("handover");
       expect(DEFAULT_CONFIG.paths.artifacts).toBe("artifacts");
     });
 
@@ -82,6 +81,26 @@ describe("Types", () => {
       expect(task.retry_count).toBe(0);
       expect(task.max_retries).toBe(3);
       expect(task.dependencies).toEqual([]);
+      expect(task.tdd_red_phase).toBe(false);
+    });
+
+    it("should default tdd_red_phase to false when not provided", () => {
+      const task = TaskSchema.parse({
+        id: 1,
+        title: "Test Task",
+      });
+
+      expect(task.tdd_red_phase).toBe(false);
+    });
+
+    it("should preserve explicit tdd_red_phase value", () => {
+      const taskWithTdd = TaskSchema.parse({
+        id: 1,
+        title: "TDD Task",
+        tdd_red_phase: true,
+      });
+
+      expect(taskWithTdd.tdd_red_phase).toBe(true);
     });
 
     it("should reject invalid task", () => {

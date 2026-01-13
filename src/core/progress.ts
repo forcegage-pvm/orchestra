@@ -172,6 +172,7 @@ export function getProgressSummary(progress: ProgressLog): {
     IMPLEMENT: 0,
     GATE_CHECK: 0,
     VERIFY: 0,
+    VERIFY_FAILED: 0,
     COMPLETE: 0,
     RETRY: 0,
     ESCALATED: 0,

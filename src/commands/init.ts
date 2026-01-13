@@ -16,9 +16,21 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import ora from "ora";
-import { findOrchestraRoot, saveConfig } from "../core/config.js";
+import {
+  createDefaultContext,
+  generateManifestYaml,
+  generateProgressYaml,
+} from "../core/config-generator.js";
+import { findOrchestraRoot, loadConfig, saveConfig } from "../core/config.js";
+import { getCommandGitBehavior } from "../core/git-defaults.js";
+import { commit, stageFiles } from "../core/git.js";
 import * as output from "../core/output.js";
 import { DEFAULT_CONFIG } from "../core/types.js";
+import {
+  formatVerificationErrors,
+  validateVerificationYaml,
+  VerificationValidationError,
+} from "../core/verification.js";
 
 /**
  * Init command options
@@ -34,6 +46,81 @@ export interface InitOptions {
   dryRun?: boolean;
   /** Override Orchestra root directory (for testing) */
   orchestraRoot?: string;
+  /** Stage generated files to git */
+  gitStage?: boolean;
+  /** Commit generated files to git (implies --git-stage) */
+  gitCommit?: boolean;
+  /** Verify existing initialization */
+  verify?: boolean;
+}
+
+/**
+ * Result of git operations
+ */
+interface GitOperationResult {
+  staged: boolean;
+  committed: boolean;
+  commitHash?: string;
+  error?: string;
+}
+
+/**
+ * Perform git operations with graceful error handling
+ * Git failures are non-fatal - init succeeds even if git fails
+ */
+async function performGitOperations(
+  cwd: string,
+  orchestraDir: string,
+  options: { stage: boolean; commit: boolean }
+): Promise<GitOperationResult> {
+  const result: GitOperationResult = {
+    staged: false,
+    committed: false,
+  };
+
+  try {
+    // Stage the .orchestra directory
+    if (options.stage) {
+      const relativePath = path.relative(cwd, orchestraDir);
+      const stageResult = await stageFiles(cwd, [relativePath]);
+
+      if (!stageResult.success) {
+        result.error = `Git stage failed: ${stageResult.message}`;
+        return result;
+      }
+      result.staged = true;
+    }
+
+    // Commit if requested
+    if (options.commit && result.staged) {
+      // Try to load config to get commit prefix, use default if not available
+      let prefix = "orchestra";
+      try {
+        const existingConfig = loadConfig(cwd);
+        if (existingConfig?.git?.commit_prefix) {
+          prefix = existingConfig.git.commit_prefix;
+        }
+      } catch {
+        // Config doesn't exist yet during init, use default
+      }
+
+      const commitMessage = `${prefix}: Initialize Orchestra structure`;
+      const commitResult = await commit(cwd, commitMessage);
+
+      if (!commitResult.success) {
+        result.error = `Git commit failed: ${commitResult.message}`;
+        return result;
+      }
+      result.committed = true;
+      if (commitResult.data) {
+        result.commitHash = commitResult.data;
+      }
+    }
+  } catch (error) {
+    result.error = error instanceof Error ? error.message : "Unknown git error";
+  }
+
+  return result;
 }
 
 /**
@@ -62,14 +149,17 @@ function getTemplatesDir(): string {
 
 /**
  * Folders to create during initialization
+ *
+ * NOTE: No scripts folders - the CLI commands ARE the implementation.
+ * See Bible Section 7.3 "CLI Command Mapping" - abstract scripts map to CLI subcommands.
  */
 const DEFAULT_FOLDERS = [
   "common/templates",
   "orchestrator/.orchestrator-only/verification",
+  "orchestrator/.orchestrator-only/preflight",
   "orchestrator/processes",
   "orchestrator/results",
   "handover",
-  "implementor/.implementor-only",
   "implementor/artifacts",
 ];
 
@@ -77,40 +167,52 @@ const DEFAULT_FOLDERS = [
  * Template files mapping: source path (in templates/) -> destination path (in .orchestra/)
  * Source paths are relative to tools/orchestra/templates/
  * Destination paths are relative to .orchestra/
+ *
+ * Templates in common/templates/ are Handlebars (.hbs) files - copied as-is.
+ * CLI commands render these templates to .md or .yaml output files.
  */
 const TEMPLATE_MAPPINGS: Array<{ src: string; dest: string }> = [
-  // Common templates (handover templates for tasks)
+  // Common templates (Handlebars .hbs files - copied directly)
   {
-    src: "common/templates/current-task-template.md",
+    src: "common/templates/current-task.md.hbs",
     dest: "common/templates/current-task.md.hbs",
   },
   {
-    src: "common/templates/completion-signal.md.template",
+    src: "common/templates/completion-signal.md.hbs",
     dest: "common/templates/completion-signal.md.hbs",
   },
   {
-    src: "common/templates/handover-template.md",
+    src: "common/templates/task-context.md.hbs",
     dest: "common/templates/task-context.md.hbs",
   },
   {
-    src: "common/templates/feedback-template.md",
+    src: "common/templates/feedback.md.hbs",
     dest: "common/templates/feedback.md.hbs",
   },
   {
-    src: "common/templates/signal-template.md",
-    dest: "common/templates/signal.md.hbs",
-  },
-  {
-    src: "common/templates/task-results-template.md",
+    src: "common/templates/task-results.md.hbs",
     dest: "common/templates/task-results.md.hbs",
   },
   {
-    src: "common/templates/orchestrator-preflight-template.md",
+    src: "common/templates/orchestrator-preflight.md.hbs",
     dest: "common/templates/orchestrator-preflight.md.hbs",
   },
   {
-    src: "common/templates/verification-criteria-template.yaml",
+    src: "common/templates/verification-criteria.yaml.hbs",
     dest: "common/templates/verification-criteria.yaml.hbs",
+  },
+  // Config templates (used during init, also available for reference)
+  {
+    src: "common/templates/manifest.yaml.hbs",
+    dest: "common/templates/manifest.yaml.hbs",
+  },
+  {
+    src: "common/templates/orchestra.yaml.hbs",
+    dest: "common/templates/orchestra.yaml.hbs",
+  },
+  {
+    src: "common/templates/progress.yaml.hbs",
+    dest: "common/templates/progress.yaml.hbs",
   },
 
   // Handover folder
@@ -145,8 +247,18 @@ export function initCommand(): Command {
     .option("-f, --force", "Overwrite existing configuration")
     .option("--json", "Output as JSON")
     .option("--dry-run", "Show what would be created without creating")
+    .option("--git-stage", "Stage generated files to git")
+    .option(
+      "--git-commit",
+      "Commit generated files to git (implies --git-stage)"
+    )
+    .option("--verify", "Verify existing initialization structure and files")
     .action(async (options: InitOptions) => {
-      await runInit(options);
+      if (options.verify) {
+        await runInitVerify(options);
+      } else {
+        await runInit(options);
+      }
     });
 }
 
@@ -224,36 +336,86 @@ export async function runInit(options: InitOptions): Promise<void> {
       fs.writeFileSync(gitkeepPath, "", "utf-8");
     }
 
-    // Create configuration with spec_path if provided
+    // Create configuration with speckit if --spec provided
     const config = { ...DEFAULT_CONFIG };
     if (options.spec) {
-      (config as Record<string, unknown>).spec_path = options.spec;
+      // Build speckit config with explicit paths
+      const specPath = options.spec;
+      const tasksFile = path.join(specPath, "tasks.md");
+      (config as Record<string, unknown>).speckit = {
+        root: specPath,
+        tasks_file: tasksFile,
+      };
     }
     saveConfig(cwd, config);
 
-    // Create manifest template
+    // Create manifest and progress from templates
+    const templateContext = createDefaultContext(options.spec);
+
     const manifestPath = path.join(orchestraDir, "manifest.yaml");
-    const manifestContent = generateManifestTemplate(options.spec);
+    const manifestContent = generateManifestYaml(templateContext);
     fs.writeFileSync(manifestPath, manifestContent, "utf-8");
+
+    const progressPath = path.join(orchestraDir, "progress.yaml");
+    const progressContent = generateProgressYaml(templateContext);
+    fs.writeFileSync(progressPath, progressContent, "utf-8");
+
+    // Git operations: registry defaults → CLI flags
+    // Note: Config doesn't exist yet during init, so we can't check it
+    let gitResult: GitOperationResult | undefined;
+    const registryDefaults = getCommandGitBehavior("init");
+
+    // Priority: CLI flag > registry default
+    const shouldStage =
+      options.gitStage === true ||
+      options.gitCommit === true ||
+      registryDefaults.autoStage ||
+      registryDefaults.autoCommit;
+    const shouldCommit =
+      options.gitCommit === true || registryDefaults.autoCommit;
+
+    if (shouldStage) {
+      gitResult = await performGitOperations(cwd, orchestraDir, {
+        stage: shouldStage,
+        commit: shouldCommit,
+      });
+    }
 
     spinner?.succeed("Orchestra initialized successfully");
 
     if (options.json) {
-      console.log(
-        JSON.stringify({
-          success: true,
-          path: orchestraDir,
-          folders: DEFAULT_FOLDERS,
-          files: [
-            ...TEMPLATE_MAPPINGS.map((m) => m.dest),
-            "manifest.yaml",
-            "orchestra.yaml",
-          ],
-          spec_path: options.spec,
-        })
-      );
+      const jsonOutput: Record<string, unknown> = {
+        success: true,
+        path: orchestraDir,
+        folders: DEFAULT_FOLDERS,
+        files: [
+          ...TEMPLATE_MAPPINGS.map((m) => m.dest),
+          "manifest.yaml",
+          "progress.yaml",
+          "orchestra.yaml",
+        ],
+      };
+
+      // Include speckit config if --spec was provided
+      if (options.spec) {
+        jsonOutput.speckit = {
+          root: options.spec,
+          tasks_file: path.join(options.spec, "tasks.md"),
+        };
+      }
+
+      if (gitResult) {
+        jsonOutput.git = {
+          staged: gitResult.staged,
+          committed: gitResult.committed,
+          commitHash: gitResult.commitHash,
+          error: gitResult.error,
+        };
+      }
+
+      console.log(JSON.stringify(jsonOutput));
     } else {
-      showSuccess(orchestraDir, options.spec);
+      showSuccess(orchestraDir, options.spec, gitResult);
     }
   } catch (error) {
     spinner?.fail("Failed to initialize Orchestra");
@@ -300,68 +462,13 @@ function showDryRun(orchestraDir: string): void {
 }
 
 /**
- * Generate manifest template content with SpecKit format
- */
-function generateManifestTemplate(specPath?: string): string {
-  const today = new Date().toISOString().split("T")[0];
-  const specNote = specPath
-    ? `# SpecKit Root: ${specPath}\n# This manifest tracks implementation of SpecKit tasks\n`
-    : "# TODO: Add speckit.root to orchestra.yaml\n";
-
-  return `# Orchestra Manifest - Generated ${today}
-${specNote}
-version: "1.0.0"
-
-sprint:
-  id: "sprint-001"           # REQUIRED: Unique sprint identifier
-  name: "Sprint Name"        # REQUIRED: Human-readable sprint name
-  status: ACTIVE             # ACTIVE | COMPLETE
-  created_at: "${today}"
-
-# SpecKit-aligned phase structure
-# Each phase groups related tasks from SpecKit specs
-phases:
-  - phase_id: "foundation"
-    phase_name: "Foundation Phase"
-    status: ACTIVE           # ACTIVE | COMPLETE
-    speckit_tasks:           # SpecKit task IDs implemented in this phase
-      - "T001"
-      - "T002"
-    tasks:
-      - task_id: 1
-        title: "First Task"
-        description: "TODO: Describe what needs to be done"
-        status: PENDING      # PENDING | IMPLEMENT | COMPLETE | BLOCKED
-        category: INFRASTRUCTURE  # INFRASTRUCTURE | INTEGRATION | VISUAL | REFACTOR
-        dependencies: []     # Array of task_ids this depends on
-        speckit_task_ref: "001-foundation/tasks.md#T001"  # Path to SpecKit task
-
-      - task_id: 2
-        title: "Second Task"
-        description: "TODO: Describe what needs to be done"
-        status: PENDING
-        category: INTEGRATION
-        dependencies: [1]    # Depends on task 1
-        speckit_task_ref: "001-foundation/tasks.md#T002"
-
-# Task consolidation tracking
-# When multiple SpecKit tasks are combined into one implementation task
-consolidations: []
-  # Example:
-  # - consolidated_task_id: 1
-  #   speckit_tasks: ["T001", "T002", "T003"]
-  #   consolidation_rationale: "All three tasks modify the same module"
-  #   verification_coverage:
-  #     T001: "Covered by unit tests in test_module.dart"
-  #     T002: "Integration test in test_integration.dart"
-  #     T003: "Visual verification screenshot in screenshots/"
-`;
-}
-
-/**
  * Show success message with created structure
  */
-function showSuccess(orchestraDir: string, specPath?: string): void {
+function showSuccess(
+  orchestraDir: string,
+  specPath?: string,
+  gitResult?: GitOperationResult
+): void {
   console.log("");
   output.print.success("Orchestra initialized!");
   console.log("");
@@ -369,6 +476,7 @@ function showSuccess(orchestraDir: string, specPath?: string): void {
   console.log(`  ${orchestraDir}/`);
   console.log("    ├── orchestra.yaml      # Configuration");
   console.log("    ├── manifest.yaml       # Sprint/task definitions");
+  console.log("    ├── progress.yaml       # Progress tracking");
   console.log("    ├── common/templates/   # Handover templates");
   console.log("    ├── orchestrator/       # Orchestrator workspace");
   console.log("    │   ├── readme.md       # Orchestrator entry point");
@@ -381,6 +489,32 @@ function showSuccess(orchestraDir: string, specPath?: string): void {
   console.log("    └── handover/           # Active handover folder");
   console.log("        └── agent_readme.md # Implementor instructions");
   console.log("");
+
+  // Show git results if operations were attempted
+  if (gitResult) {
+    if (gitResult.error) {
+      console.log(chalk.bold("Git:"));
+      console.log(`  ${chalk.yellow("⚠")} ${gitResult.error}`);
+      console.log(
+        chalk.dim(
+          "    (Orchestra initialized successfully, git operation failed)"
+        )
+      );
+      console.log("");
+    } else if (gitResult.committed && gitResult.commitHash) {
+      console.log(chalk.bold("Git:"));
+      console.log(
+        `  ${chalk.green("✓")} Committed: ${chalk.cyan(
+          gitResult.commitHash.substring(0, 7)
+        )}`
+      );
+      console.log("");
+    } else if (gitResult.staged) {
+      console.log(chalk.bold("Git:"));
+      console.log(`  ${chalk.green("✓")} Files staged`);
+      console.log("");
+    }
+  }
 
   console.log(chalk.bold("Next steps:"));
   console.log("");
@@ -407,9 +541,193 @@ function showSuccess(orchestraDir: string, specPath?: string): void {
     "  3. " +
       chalk.bold("Verify setup:") +
       "        " +
-      chalk.cyan("orchestra status")
+      chalk.cyan("orchestra init --verify")
   );
   console.log("");
+}
+
+/**
+ * Verification check result
+ */
+interface InitVerifyCheck {
+  id: string;
+  name: string;
+  passed: boolean;
+  expected?: string;
+  actual?: string;
+  fix?: string;
+}
+
+/**
+ * Verify existing Orchestra initialization
+ * Validates structure, required files, and verification YAML schemas
+ */
+export async function runInitVerify(options: InitOptions): Promise<void> {
+  const cwd = options.orchestraRoot ?? process.cwd();
+  const orchestraRoot = findOrchestraRoot(cwd);
+
+  if (!orchestraRoot) {
+    if (options.json) {
+      console.log(
+        JSON.stringify({
+          success: false,
+          error: "Orchestra not initialized",
+          hint: "Run 'orchestra init' first",
+        })
+      );
+    } else {
+      output.print.error("Orchestra not initialized in this directory.");
+      output.print.info("Run 'orchestra init' first.");
+    }
+    process.exit(1);
+  }
+
+  const orchestraDir = path.join(orchestraRoot, ".orchestra");
+  const checks: InitVerifyCheck[] = [];
+
+  // Check 1: Required folders exist
+  const requiredFolders = [
+    "common/templates",
+    "orchestrator/.orchestrator-only/verification",
+    "orchestrator/processes",
+    "handover",
+    "implementor",
+  ];
+
+  for (const folder of requiredFolders) {
+    const folderPath = path.join(orchestraDir, folder);
+    const exists = fs.existsSync(folderPath);
+    const check: InitVerifyCheck = {
+      id: `DIR-${folder.replace(/[/.]/g, "-")}`,
+      name: `Directory: ${folder}`,
+      passed: exists,
+      expected: "Exists",
+      actual: exists ? "Exists" : "Missing",
+    };
+    if (!exists) {
+      check.fix = `mkdir -p "${folderPath}"`;
+    }
+    checks.push(check);
+  }
+
+  // Check 2: Required config files exist
+  const requiredFiles = [
+    { path: "orchestra.yaml", name: "Configuration file" },
+    { path: "manifest.yaml", name: "Manifest file" },
+    { path: "progress.yaml", name: "Progress file" },
+  ];
+
+  for (const file of requiredFiles) {
+    const filePath = path.join(orchestraDir, file.path);
+    const exists = fs.existsSync(filePath);
+    const check: InitVerifyCheck = {
+      id: `FILE-${file.path.replace(/[/.]/g, "-")}`,
+      name: file.name,
+      passed: exists,
+      expected: "Exists",
+      actual: exists ? "Exists" : "Missing",
+    };
+    if (!exists) {
+      check.fix = `Run 'orchestra init --force' to regenerate`;
+    }
+    checks.push(check);
+  }
+
+  // Check 3: Validate all verification YAML files in orchestrator-only
+  const verificationDir = path.join(
+    orchestraDir,
+    "orchestrator",
+    ".orchestrator-only",
+    "verification"
+  );
+
+  if (fs.existsSync(verificationDir)) {
+    const verificationFiles = fs
+      .readdirSync(verificationDir)
+      .filter((f) => f.endsWith(".yaml") || f.endsWith(".yml"));
+
+    for (const file of verificationFiles) {
+      const filePath = path.join(verificationDir, file);
+      const result = validateVerificationYaml(filePath);
+
+      if (result.valid) {
+        checks.push({
+          id: `VERIFY-${file.replace(/[/.]/g, "-")}`,
+          name: `Verification: ${file}`,
+          passed: true,
+          expected: "Valid schema",
+          actual: "Valid",
+        });
+      } else {
+        const errorSummary = result.errors
+          .slice(0, 2)
+          .map((e: VerificationValidationError) => e.message)
+          .join("; ");
+        const check: InitVerifyCheck = {
+          id: `VERIFY-${file.replace(/[/.]/g, "-")}`,
+          name: `Verification: ${file}`,
+          passed: false,
+          expected: "Valid schema",
+          actual: `Invalid: ${errorSummary}`,
+          fix: formatVerificationErrors(result.errors),
+        };
+        checks.push(check);
+      }
+    }
+  }
+
+  // Calculate results
+  const passed = checks.filter((c) => c.passed).length;
+  const failed = checks.filter((c) => !c.passed).length;
+  const allPassed = failed === 0;
+
+  // Output results
+  if (options.json) {
+    console.log(
+      JSON.stringify({
+        success: allPassed,
+        checks,
+        summary: {
+          total: checks.length,
+          passed,
+          failed,
+        },
+      })
+    );
+  } else {
+    output.print.header("Init Verification");
+    console.log("");
+
+    for (const check of checks) {
+      if (check.passed) {
+        console.log(`  ${chalk.green("✓")} [${check.id}] ${check.name}`);
+      } else {
+        console.log(`  ${chalk.red("✗")} [${check.id}] ${check.name}`);
+        if (check.expected) {
+          console.log(chalk.dim(`      Expected: ${check.expected}`));
+        }
+        if (check.actual) {
+          console.log(chalk.dim(`      Actual:   ${check.actual}`));
+        }
+        if (check.fix) {
+          console.log(chalk.yellow(`      Fix:      ${check.fix}`));
+        }
+      }
+    }
+
+    console.log("");
+    if (allPassed) {
+      output.print.success(
+        `All ${checks.length} checks passed. Initialization verified.`
+      );
+    } else {
+      output.print.error(
+        `${failed} of ${checks.length} checks failed. Fix issues above.`
+      );
+    }
+  }
+
+  process.exit(allPassed ? 0 : 1);
 }
 
 export { initCommand as createInitCommand };

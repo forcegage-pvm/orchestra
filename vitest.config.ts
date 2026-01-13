@@ -14,5 +14,7 @@ export default defineConfig({
     },
     testTimeout: 30000,
     hookTimeout: 10000,
+    // Use forks pool to avoid threading issues with SQLite/better-sqlite3
+    pool: "forks",
   },
 });

@@ -7,11 +7,14 @@
 
 import chalk from "chalk";
 import { Command } from "commander";
+import { requireOrchestraRoot } from "../core/config.js";
+import { runFeedback } from "../core/feedback.js";
 import * as output from "../core/output.js";
 import {
   runVerification,
   type VerificationOptions,
   type VerifyReport,
+  type VerifyResult,
 } from "../core/verification.js";
 
 /**
@@ -29,18 +32,78 @@ export function createVerifyCommand(): Command {
     )
     .option("--continue-on-error", "Continue after check failure", false)
     .option("--skip-accept", "Skip accept-signal check", false)
+    .option(
+      "--dry-run",
+      "Validate verification paths without running checks",
+      false
+    )
+    .option("--no-feedback", "Skip auto-generating feedback on failure", false)
     .option("--json", "Output JSON format", false)
     .option("-v, --verbose", "Verbose output", false)
-    .action(async (options: VerificationOptions) => {
+    .action(async (options: VerificationOptions & { feedback?: boolean }) => {
       await verifyCommand(options);
     });
+}
+
+/**
+ * Auto-generate feedback when verification fails.
+ * This is called automatically unless --no-feedback is specified.
+ */
+async function generateVerificationFeedback(
+  result: VerifyResult,
+  taskId: number,
+  json: boolean
+): Promise<void> {
+  try {
+    const orchestraRoot = requireOrchestraRoot();
+    const feedbackResult = await runFeedback({
+      task: String(taskId),
+      verificationResult: result,
+      orchestraRoot,
+    });
+
+    if (!json) {
+      console.log("");
+      console.log(chalk.cyan("📝 Feedback auto-generated:"));
+      console.log(chalk.dim(`   ${feedbackResult.feedbackPath}`));
+      console.log(
+        chalk.dim(
+          `   Attempt ${feedbackResult.attempt} of ${feedbackResult.maxAttempts}`
+        )
+      );
+      if (feedbackResult.canRetry) {
+        console.log(
+          chalk.dim("   Review feedback.md and retry the implementation")
+        );
+      } else {
+        console.log(
+          chalk.yellow("   ⚠️  Maximum attempts reached - consider escalation")
+        );
+      }
+    }
+  } catch (feedbackError) {
+    // Log feedback generation error but don't fail the verification
+    if (!json) {
+      console.log("");
+      console.log(chalk.yellow("⚠️  Could not auto-generate feedback:"));
+      console.log(
+        chalk.dim(
+          `   ${
+            feedbackError instanceof Error
+              ? feedbackError.message
+              : String(feedbackError)
+          }`
+        )
+      );
+    }
+  }
 }
 
 /**
  * Execute verify command
  */
 export async function verifyCommand(
-  options: VerificationOptions
+  options: VerificationOptions & { feedback?: boolean }
 ): Promise<void> {
   try {
     const result = await runVerification({
@@ -49,6 +112,7 @@ export async function verifyCommand(
       severity: options.severity,
       continueOnError: options.continueOnError,
       skipAccept: options.skipAccept,
+      dryRun: options.dryRun,
       json: options.json,
       verbose: options.verbose,
     });
@@ -57,6 +121,20 @@ export async function verifyCommand(
       console.log(JSON.stringify(formatJsonOutput(result.report), null, 2));
     } else {
       printVerificationReport(result.report, options.verbose ?? false);
+    }
+
+    // Auto-generate feedback on failure (unless --no-feedback or dry-run)
+    const shouldGenerateFeedback =
+      !result.report.overallPassed &&
+      options.feedback !== false &&
+      !options.dryRun;
+
+    if (shouldGenerateFeedback) {
+      await generateVerificationFeedback(
+        result,
+        result.report.taskId,
+        options.json ?? false
+      );
     }
 
     process.exit(result.exitCode);

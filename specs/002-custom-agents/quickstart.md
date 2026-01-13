@@ -1,0 +1,233 @@
+# Quickstart: Custom AI Coding Agents Development
+
+**Feature**: 002-custom-agents | **Date**: 2026-01-12
+
+---
+
+## Prerequisites
+
+- VS Code 1.95+ with GitHub Copilot extension
+- Node.js 20+
+- Orchestra extension development environment set up
+
+## Getting Started
+
+### 1. Build the Extension
+
+```bash
+cd extension
+npm install
+npm run build
+```
+
+### 2. Launch Extension Development Host
+
+Press `F5` in VS Code to launch the Extension Development Host with the Orchestra extension loaded.
+
+### 3. Open a Workspace with Orchestra
+
+The extension activates when it detects an `.orchestra/` directory in the workspace.
+
+---
+
+## Architecture Overview
+
+```
+extension/src/agents/
+├── AgentRunner.ts          # Main agent loop
+├── AgentSession.ts         # Session state management
+├── ContextManager.ts       # Token/context handling
+├── ToolRegistry.ts         # Tool registration
+├── types.ts                # Type definitions
+├── tools/
+│   ├── coding/             # edit, read_file, new, delete, etc.
+│   ├── orchestra/          # get_current_task, signal_completion, etc.
+│   └── system/             # runCommands, runTasks, fetch, etc.
+├── memory/
+│   ├── SprintMemory.ts     # Cross-task context
+│   └── TaskSummary.ts      # Task summarization
+└── views/
+    ├── AgentOutputPanel.ts # Output webview
+    └── ChangedFilesPanel.ts # File change tracking
+```
+
+---
+
+## Key Components
+
+### AgentRunner
+
+The core autonomous loop:
+
+```typescript
+import { AgentRunner } from './agents/AgentRunner';
+
+const runner = new AgentRunner(config, logger, db);
+
+// Start an implementor agent
+const session = await runner.start('implementor', 'Implement task 5');
+
+// Control execution
+await runner.pause();
+await runner.resume();
+await runner.stop();
+
+// Listen to events
+runner.onOutput((output) => {
+  // Handle thinking, tool calls, results
+});
+
+runner.onStateChange((state) => {
+  // Handle status changes
+});
+```
+
+### ToolRegistry
+
+Register and execute tools:
+
+```typescript
+import { ToolRegistry } from './agents/ToolRegistry';
+
+const registry = new ToolRegistry();
+
+registry.register({
+  name: 'read_file',
+  description: 'Read the contents of a file',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      path: { type: 'string', description: 'File path' }
+    },
+    required: ['path']
+  },
+  execute: async (input, context) => {
+    const content = await vscode.workspace.fs.readFile(
+      vscode.Uri.file(input.path)
+    );
+    return {
+      success: true,
+      output: new TextDecoder().decode(content)
+    };
+  }
+});
+```
+
+### Using vscode.lm API
+
+```typescript
+import * as vscode from 'vscode';
+
+// Select a model
+const [model] = await vscode.lm.selectChatModels({ 
+  vendor: 'copilot', 
+  family: 'gpt-4o' 
+});
+
+// Build messages
+const messages = [
+  vscode.LanguageModelChatMessage.User(prompt)
+];
+
+// Get tool definitions
+const tools = registry.getToolDefinitions();
+
+// Send request with streaming
+const response = await model.sendRequest(
+  messages,
+  { tools },
+  cancellationToken
+);
+
+// Process stream
+for await (const part of response.stream) {
+  if (part instanceof vscode.LanguageModelTextPart) {
+    // Agent thinking
+    emit('thinking', part.value);
+  } else if (part instanceof vscode.LanguageModelToolCallPart) {
+    // Execute tool
+    const result = await registry.execute(
+      part.name, 
+      part.input, 
+      context
+    );
+    // Add result to messages and continue
+  }
+}
+```
+
+---
+
+## Testing
+
+### Unit Tests
+
+```bash
+cd extension
+npm test
+```
+
+### Integration Tests
+
+```bash
+npm run test:integration
+```
+
+### Manual Testing
+
+1. Open a workspace with Orchestra configured
+2. Click Play on an IMPLEMENT-phase task
+3. Observe the Agent Output Panel
+4. Test Pause/Resume/Stop controls
+5. Check Changed Files panel for modifications
+
+---
+
+## Configuration
+
+Settings in VS Code:
+
+```json
+{
+  "orchestra.models.orchestrator": "claude-opus-4.5",
+  "orchestra.models.implementor": "claude-sonnet-4.5",
+  "orchestra.agents.maxIterations": 50,
+  "orchestra.agents.verbosity": "normal"
+}
+```
+
+---
+
+## Common Tasks
+
+### Adding a New Tool
+
+1. Create tool file in `extension/src/agents/tools/{category}/`
+2. Implement the `AgentTool` interface
+3. Register in `ToolRegistry` initialization
+4. Add tests in `extension/test/agents/tools/`
+
+### Modifying Agent Prompts
+
+System prompts are in `extension/agents/`:
+- `orchestra.implementor.agent.md`
+- `orchestra.orchestrator.agent.md`
+
+### Debugging Agent Execution
+
+1. Set verbosity to "debug" in settings
+2. Check Output panel → Orchestra channel
+3. Use VS Code debugger with breakpoints in AgentRunner
+
+---
+
+## Resources
+
+- [spec.md](spec.md) - Feature specification
+- [research.md](research.md) - API research findings
+- [data-model.md](data-model.md) - Entity definitions
+- [plan.md](plan.md) - Implementation plan
+
+---
+
+*Quickstart generated by /speckit.plan on 2026-01-12*

@@ -11,9 +11,14 @@ import { Command } from "commander";
 import { createAcceptSignalCommand } from "./commands/accept-signal.js";
 import { createCloseoutCommand } from "./commands/closeout.js";
 import { createCompleteCommand } from "./commands/complete.js";
+import { createEscalateCommand } from "./commands/escalate.js";
+import { createFeedbackCommand } from "./commands/feedback.js";
 import { createInitCommand } from "./commands/init.js";
+import { createNextCommand } from "./commands/next.js";
+import { createPreSignalCheckCommand } from "./commands/pre-signal-check.js";
 import { createPrepareCommand } from "./commands/prepare.js";
 import { statusCommand } from "./commands/status.js";
+import { createValidateHandoverCommand } from "./commands/validate-handover.js";
 import { createVerifyCommand } from "./commands/verify.js";
 
 const program = new Command();
@@ -51,17 +56,32 @@ program
 // Init command - initialize sprint
 program.addCommand(createInitCommand());
 
+// Next command - show workflow guidance
+program.addCommand(createNextCommand());
+
 // Closeout command - verify previous task closed
 program.addCommand(createCloseoutCommand());
 
 // Prepare command - prepare task handover
 program.addCommand(createPrepareCommand());
 
+// Validate-handover command - validate handover completeness
+program.addCommand(createValidateHandoverCommand());
+
+// Pre-signal-check command - implementor validates deliverables before signaling
+program.addCommand(createPreSignalCheckCommand());
+
 // Accept-signal command - verify implementor ran pre-signal check
 program.addCommand(createAcceptSignalCommand());
 
 // Verify command - run verification checks
 program.addCommand(createVerifyCommand());
+
+// Feedback command - generate feedback after verification failure
+program.addCommand(createFeedbackCommand());
+
+// Escalate command - escalate persistent failures to human supervisor
+program.addCommand(createEscalateCommand());
 
 // Complete command - complete task and archive
 program.addCommand(createCompleteCommand());

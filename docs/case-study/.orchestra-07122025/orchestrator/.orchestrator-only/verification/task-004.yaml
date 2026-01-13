@@ -1,0 +1,72 @@
+# Verification Criteria: Task 4
+# Add RoleSchema and AttemptTrackerSchema to types.ts
+# HIDDEN: Implementor must NOT see this file
+
+task_id: 4
+title: "Add RoleSchema and AttemptTrackerSchema to types.ts"
+speckit_ref: "001-mcp-server/tasks.md#T004"
+
+# Verification criteria (hidden from implementor)
+criteria:
+  - id: V4.1
+    description: "RoleSchema exists in src/core/types.ts"
+    verification_type: FILE_CONTENT
+    target_file: "src/core/types.ts"
+    check: "Contains 'export const RoleSchema = z.'"
+    required: true
+
+  - id: V4.2
+    description: "RoleSchema defines implementor and orchestrator roles"
+    verification_type: FILE_CONTENT
+    target_file: "src/core/types.ts"
+    check: "RoleSchema uses z.enum or z.union with 'implementor' and 'orchestrator'"
+    required: true
+
+  - id: V4.3
+    description: "Role type is exported"
+    verification_type: FILE_CONTENT
+    target_file: "src/core/types.ts"
+    check: "Contains 'export type Role = z.output<typeof RoleSchema>' or z.infer"
+    required: true
+
+  - id: V4.4
+    description: "AttemptTrackerSchema exists in src/core/types.ts"
+    verification_type: FILE_CONTENT
+    target_file: "src/core/types.ts"
+    check: "Contains 'export const AttemptTrackerSchema = z.'"
+    required: true
+
+  - id: V4.5
+    description: "AttemptTrackerSchema has required fields"
+    verification_type: FILE_CONTENT
+    target_file: "src/core/types.ts"
+    check: "Schema includes: taskId (number), attempts (number), lastAttemptAt (string), maxAttempts (number)"
+    required: true
+
+  - id: V4.6
+    description: "AttemptTracker type is exported"
+    verification_type: FILE_CONTENT
+    target_file: "src/core/types.ts"
+    check: "Contains 'export type AttemptTracker = z.output<typeof AttemptTrackerSchema>'"
+    required: true
+
+  - id: V4.7
+    description: "TypeScript compiles without errors"
+    verification_type: COMMAND
+    command: "npm run typecheck"
+    expected_exit_code: 0
+    required: true
+
+# Quality gates
+quality_gates:
+  - "Uses z.output<> not z.infer<> per project convention"
+  - "Field names match data-model.md exactly (taskId not task_id for AttemptTracker)"
+  - "Default values set appropriately (maxAttempts: 3)"
+  - "Follows existing type definition patterns in file"
+
+# What implementor might skip (hidden checks)
+hidden_checks:
+  - "Verify Role values are LOWERCASE ('implementor' not 'Implementor')"
+  - "Check AttemptTrackerSchema field names match data-model.md"
+  - "Ensure proper use of z.output vs z.infer for exactOptionalPropertyTypes"
+  - "No duplicate or conflicting schema names"

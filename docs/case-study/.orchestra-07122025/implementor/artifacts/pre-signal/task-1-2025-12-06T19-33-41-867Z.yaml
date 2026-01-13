@@ -1,0 +1,22 @@
+task_id: 1
+timestamp: "2025-12-06T19:33:41.864Z"
+status: "FAILED"
+checks:
+  deliverables:
+    status: "SKIPPED"
+  testing:
+    status: "PASSED"
+    count: 1
+  quality:
+    status: "PASSED"
+    count: 3
+  visual:
+    status: "SKIPPED"
+  git:
+    status: "PASSED"
+    count: 1
+summary:
+  total: 6
+  passed: 4
+  failed: 1
+  warnings: 0

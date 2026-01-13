@@ -1,0 +1,26 @@
+{
+  "servers": {
+    "orchestra-orc": {
+      "type": "stdio",
+      "command": "node",
+      "args": [
+        "node_modules/orchestra/dist/mcp-server/index.js",
+        "--role=orchestrator"
+      ],
+      "env": {
+        "ORCHESTRA_WORKSPACE": "${workspaceFolder}"
+      }
+    },
+    "orchestra-imp": {
+      "type": "stdio",
+      "command": "node",
+      "args": [
+        "node_modules/orchestra/dist/mcp-server/index.js",
+        "--role=implementor"
+      ],
+      "env": {
+        "ORCHESTRA_WORKSPACE": "${workspaceFolder}"
+      }
+    }
+  }
+}

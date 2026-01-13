@@ -1,29 +1,36 @@
-# Orchestra CLI - Copilot Instructions
+# Orchestra - Copilot Instructions
 
 ## Project Overview
 
-Orchestra is a CLI tool for AI agent task orchestration that prevents "implementation theater" through **hidden verification criteria**. The core concept: orchestrator agents prepare tasks with secret verification specs that implementor agents never see, preventing gaming of acceptance criteria.
+Orchestra is primarily a **VS Code extension** (in `extension/`) that embeds/controls an **MCP server** and is evolving toward **custom autonomous coding agents** for orchestrating the SDLC.
+
+The core concept remains: **Orchestrator** prepares tasks with hidden verification criteria; **Implementor** executes tasks without seeing verification; **Orchestrator** verifies and judges.
+
+### Canonical Sources of Truth (read these first)
+
+- Extension activation + MCP install/sync: `extension/src/extension.ts`
+- MCP server entrypoint (role filtering, DB init/migrations): `src/mcp-server/index.ts`
+- MCP tool contracts + role assignments: `src/mcp-server/tools.ts`
+- Agent role prompts shipped with the extension: `extension/agents/*.agent.md`
+- Extension build/VSIX packaging (CRITICAL): `extension/build.md`
 
 ## Architecture
 
 ```
 src/
-├── cli.ts                 # Entry point - Commander.js CLI
-├── commands/              # CLI commands (thin wrappers calling core services)
-└── core/                  # Business logic - all stateless, testable functions
-    ├── types.ts           # Zod schemas + inferred TypeScript types
-    ├── errors.ts          # OrchestraError hierarchy (code + context pattern)
-    ├── yaml.ts            # YAML I/O with Zod validation
-    ├── config.ts          # Configuration loading/discovery
-    ├── manifest.ts        # Task/sprint manifest operations
-    ├── templates.ts       # Handlebars template rendering
-    └── output.ts          # Chalk-based CLI output formatting
+├── mcp-server/            # MCP server entrypoint + tool handlers (role-filtered)
+├── db/                    # SQLite + migrations for MCP tools
+├── core/                  # Shared business logic (stateless, testable)
+└── cli.ts                 # CLI entry point (dev/ops)
+
+extension/
+└── src/                   # VS Code extension: UI, DB reactivity, MCP lifecycle, agent invocation
 ```
 
 Key patterns:
 
-- **Commands are thin**: Commands in `src/commands/` only parse options and call `run*` functions from `src/core/`
-- **Core exports all**: `src/core/index.ts` re-exports everything for CLI, MCP, and Extension consumers
+- **Core-first** (when applicable): Keep reusable logic in `src/core/` and keep extension entrypoints thin.
+- **Role separation is structural**: MCP tools are filtered by `--role=orchestrator|implementor`.
 - **Types from Zod**: Define `z.object()` schemas, infer types via `z.output<typeof Schema>` (not `z.infer`)
 
 ## TypeScript Configuration
@@ -88,19 +95,18 @@ npm run lint            # ESLint
 
 ## Domain Concepts
 
-- **Manifest** (`manifest.yaml`): Sprint definition with tasks, dependencies, status
-- **Progress** (`progress.yaml`): Runtime state tracking
-- **Handover**: Task instructions given to implementor (visible)
-- **Verification criteria**: Hidden specs in `.orchestrator-only/` (never expose to implementor)
-- **Signal**: Implementor's completion claim that triggers verification
+- **Sprint/Tasks**: Stored in SQLite and accessed via MCP tools.
+- **Handover**: What implementor sees via `get_current_task`.
+- **Verification criteria**: Stored server-side and only accessible to orchestrator-role tools.
+- **Signal**: Implementor's completion claim via `signal_completion`.
 
-## Adding a New Command
+## Adding/Changing Tooling
 
-1. Create `src/commands/new-command.ts` with `createNewCommand()` factory
-2. Add core logic in `src/core/new-command.ts` with `runNewCommand()` function
-3. Export from `src/core/index.ts`
-4. Register in `src/cli.ts` via `program.addCommand()`
-5. Add tests in `test/commands/new-command.test.ts`
+When adding a new capability, decide which surface it belongs to:
+
+- **MCP tool**: add handler in `src/mcp-server/handlers/` and register it in `src/mcp-server/tools.ts` with the correct role.
+- **Extension UI/command**: implement under `extension/src/` and keep it thin (call into MCP/tools/core).
+- **Shared logic**: put stateless functions under `src/core/`.
 
 ## Common Gotchas
 
@@ -163,11 +169,9 @@ To add a template:
 
 When acting as **Implementor**:
 
-- ❌ NEVER read `.orchestra/orchestrator/.orchestrator-only/`
-- ❌ NEVER read `verification/task-*.yaml` files
-- ❌ NEVER read `manifest.yaml` verification criteria
-- ✅ ONLY read files in `.orchestra/implementor/handovers/`
-- ✅ Write signals to `.orchestra/implementor/signals/`
+- ❌ NEVER access verification criteria or sprint-wide task lists
+- ✅ Treat `get_current_task` as the complete specification
+- ✅ Use only implementor-role tools (`orchestra-imp/*`)
 
 When acting as **Orchestrator**:
 
@@ -175,4 +179,8 @@ When acting as **Orchestrator**:
 - ✅ Create verification criteria BEFORE generating handover
 - ✅ Verify against hidden criteria after implementor signals
 
-The folder structure enforces this: `orchestrator/.orchestrator-only/` contains secrets the implementor must never see.
+Role separation is enforced by the MCP server (`--role=orchestrator|implementor`) and tool filtering in `src/mcp-server/tools.ts`.
+
+## Extension Build (Deployment)
+
+If a task involves packaging/deploying the VS Code extension (VSIX) or native module issues, use `extension/build.md` as the authoritative guide. The `better-sqlite3` native module must be built for both Electron (extension) and Node.js (MCP server bundle).

@@ -225,3 +225,81 @@ Orchestrator/Implementor split:
 - SpecKit (specification generation)
 - CI/CD pipelines (automated checks)
 - Test frameworks (project-specific)
+
+## VS Code Extension Deployment
+
+### Native Dependency Strategy
+
+The Orchestra MCP server uses `better-sqlite3` for database operations, which is a native Node.js addon requiring platform-specific compilation. Rather than pre-packaging binaries for all platforms (complex CI/CD, edge cases), the extension bootstraps dependencies on first activation.
+
+**Target User Assumption**: Developers using Orchestra will have Node.js and npm installed. This is a reasonable assumption for an AI-assisted development tool.
+
+### First-Run Bootstrapping
+
+```typescript
+// Extension activation sequence
+export async function activate(context: vscode.ExtensionContext) {
+  const storagePath = context.globalStorageUri.fsPath;
+  
+  // 1. Check for required native dependencies
+  try {
+    require.resolve('better-sqlite3');
+  } catch {
+    // 2. Install on first run with user feedback
+    const installed = await vscode.window.withProgress({
+      location: vscode.ProgressLocation.Notification,
+      title: "Orchestra: Installing dependencies...",
+      cancellable: false
+    }, async (progress) => {
+      progress.report({ message: "Running npm install..." });
+      try {
+        await execAsync('npm install better-sqlite3', { cwd: storagePath });
+        return true;
+      } catch (error) {
+        return false;
+      }
+    });
+    
+    // 3. Handle failure gracefully
+    if (!installed) {
+      vscode.window.showErrorMessage(
+        "Orchestra: Failed to install dependencies. Please run: npm install better-sqlite3",
+        "Open Terminal"
+      ).then(choice => {
+        if (choice === "Open Terminal") {
+          vscode.commands.executeCommand('workbench.action.terminal.new');
+        }
+      });
+      return;
+    }
+  }
+  
+  // 4. Initialize Orchestra
+  const { initDb } = await import('./db/index.js');
+  initDb();
+}
+```
+
+### Platform Compatibility
+
+| Platform | Approach | Notes |
+|----------|----------|-------|
+| Windows x64 | npm install at runtime | Most common, well-tested |
+| macOS x64/arm64 | npm install at runtime | Requires Xcode CLI tools |
+| Linux x64 | npm install at runtime | Requires build-essential |
+
+### Error Scenarios
+
+| Scenario | User Experience |
+|----------|-----------------|
+| No Node.js/npm | Error message with install instructions |
+| npm install fails | Error with manual command to run |
+| Missing build tools | Platform-specific instructions (Xcode, build-essential) |
+| Subsequent runs | Instant - deps already installed |
+
+### Why This Approach
+
+1. **Simplicity**: Single extension package for all platforms
+2. **Reliability**: npm handles platform detection and native compilation
+3. **User autonomy**: Developers can troubleshoot with familiar tools
+4. **No CI/CD complexity**: No build matrix for 5+ platform variants

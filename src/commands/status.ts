@@ -6,6 +6,8 @@
  */
 
 import chalk from "chalk";
+import * as fs from "node:fs";
+import * as path from "node:path";
 import {
   findOrchestraRoot,
   getResolvedPaths,
@@ -101,7 +103,7 @@ export async function statusCommand(options: StatusOptions): Promise<void> {
           JSON.stringify({
             error: "Manifest needs configuration",
             manifest_path: paths.manifest,
-            spec_path: config.spec_path ?? null,
+            speckit: config.speckit ?? null,
             next_step:
               "Edit .orchestra/manifest.yaml to define your sprint and tasks",
           })
@@ -109,7 +111,7 @@ export async function statusCommand(options: StatusOptions): Promise<void> {
       } else {
         showManifestGuidance(
           paths.manifest,
-          config.spec_path,
+          config.speckit?.root,
           manifestResult.message
         );
       }
@@ -125,14 +127,14 @@ export async function statusCommand(options: StatusOptions): Promise<void> {
           JSON.stringify({
             status: "needs_configuration",
             manifest_path: paths.manifest,
-            spec_path: config.spec_path ?? null,
+            speckit: config.speckit ?? null,
             next_step: "Edit manifest.yaml to add real tasks from your spec",
           })
         );
       } else {
         showManifestGuidance(
           paths.manifest,
-          config.spec_path,
+          config.speckit?.root,
           "Manifest contains placeholder tasks"
         );
       }
@@ -141,7 +143,7 @@ export async function statusCommand(options: StatusOptions): Promise<void> {
 
     // Handle specific views
     if (options.task !== undefined) {
-      await showTaskDetail(manifest, options.task, options.json);
+      await showTaskDetail(manifest, options.task, orchestraRoot, options.json);
       return;
     }
 
@@ -220,7 +222,7 @@ async function showFullStatus(
       },
       currentTask: current
         ? {
-            id: current.id,
+            id: getTaskId(current),
             title: current.title,
             status: current.status,
             retry_count: current.retry_count,
@@ -321,6 +323,7 @@ async function showFullStatus(
 async function showTaskDetail(
   manifest: Manifest,
   taskId: number,
+  orchestraRoot: string,
   json?: boolean
 ): Promise<void> {
   const task = getTask(manifest, taskId);
@@ -334,19 +337,47 @@ async function showTaskDetail(
     throw new ExitError(2, `Task not found: ${taskId}`);
   }
 
+  // Check for feedback file when task is in VERIFY_FAILED or RETRY status
+  const feedbackPath = path.join(
+    orchestraRoot,
+    ".orchestra",
+    "handover",
+    "feedback.md"
+  );
+  const feedbackExists = fs.existsSync(feedbackPath);
+
   if (json) {
-    console.log(JSON.stringify(task, null, 2));
+    const result: Record<string, unknown> = { ...task };
+    if (
+      (task.status === "VERIFY_FAILED" || task.status === "RETRY") &&
+      feedbackExists
+    ) {
+      result.feedbackPath = feedbackPath;
+      result.feedbackAvailable = true;
+    }
+    console.log(JSON.stringify(result, null, 2));
     return;
   }
 
   output.print.header("Task Details");
   output.print.divider("═", 60);
 
-  console.log(`\n${chalk.bold("Task:")} ${task.id}`);
+  console.log(`\n${chalk.bold("Task:")} ${getTaskId(task)}`);
   console.log(`${chalk.bold("Title:")} ${task.title}`);
   console.log(
     `${chalk.bold("Status:")} ${output.formatTaskStatus(task.status)}`
   );
+
+  // Show feedback indicator for failed/retry tasks
+  if (
+    (task.status === "VERIFY_FAILED" || task.status === "RETRY") &&
+    feedbackExists
+  ) {
+    console.log(`${chalk.bold("Feedback:")} ${chalk.cyan(feedbackPath)}`);
+    console.log(
+      chalk.dim("  Review feedback and address issues before retrying")
+    );
+  }
 
   if (task.description) {
     console.log(`\n${chalk.bold("Description:")}`);
