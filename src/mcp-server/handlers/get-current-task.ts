@@ -237,9 +237,11 @@ function generateTddInstructions(
       green_test_command: "flutter test --exclude-tags tdd-red",
       expected_behavior:
         "The tagged test MUST fail (exit code 1). All other tests MUST pass (exit code 0).",
+      cleanup_instruction:
+        "When implementing the GREEN phase: remove @Tags(['tdd-red']) annotation AFTER making the test pass.",
       example: `import 'package:flutter_test/flutter_test.dart';
 
-@Tags(['tdd-red'])  // <-- Add this annotation
+@Tags(['tdd-red'])  // <-- Add this annotation (remove in GREEN phase after test passes)
 void main() {
   test('feature should work', () {
     // This test MUST fail - we haven't implemented the feature yet
@@ -256,13 +258,16 @@ void main() {
       green_test_command: "npm test -- --testPathIgnorePatterns=tdd-red",
       expected_behavior:
         "Tests in tdd-red/ MUST fail (exit code 1). All other tests MUST pass (exit code 0).",
+      cleanup_instruction:
+        "When implementing the GREEN phase: move test files from test/tdd-red/ to test/unit/ AFTER making them pass.",
       example: `// File: test/tdd-red/feature.test.ts
 describe('Feature', () => {
   it('should work', () => {
     // This test MUST fail - we haven't implemented the feature yet
     expect(actual).toBe(expected);
   });
-});`,
+});
+// GREEN PHASE: After implementation, move this file to test/unit/feature.test.ts`,
     };
   }
 

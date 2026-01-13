@@ -330,35 +330,10 @@ async function prepareTask(
     console.error(
       `[TDD RED] Auto-injected ${redPhaseChecks.length} red-phase verification checks for task ${input.task_id}`
     );
-  } else {
-    // Generate and insert cleanup verification checks
-    const cleanupChecks = generateTddCleanupChecks(workspaceRoot, task.title);
-
-    for (const check of cleanupChecks) {
-      const checkIdPrefix =
-        check.check_type === "behavioral" ? "behav" : "struct";
-      const checkIdNumber =
-        check.check_type === "behavioral"
-          ? behavCheckCount++
-          : structCheckCount++;
-
-      await db.insert(verificationChecks).values({
-        task_id: task.id,
-        check_id: `${checkIdPrefix}-tdd-cleanup-${checkIdNumber}`,
-        check_type: check.check_type,
-        description: check.description,
-        severity: check.severity,
-        check_config: JSON.stringify(check.check_config),
-        created_at: now,
-      });
-    }
-
-    if (cleanupChecks.length > 0) {
-      console.error(
-        `[TDD] Auto-injected ${cleanupChecks.length} cleanup verification checks for task ${input.task_id}`
-      );
-    }
   }
+  // Note: Cleanup of tdd-red markers is the implementor's responsibility during
+  // the GREEN phase. The orchestrator should add explicit cleanup verification
+  // criteria to GREEN phase tasks when preparing them.
 
   // 6. Update task status to IMPLEMENT
   await db
@@ -773,62 +748,6 @@ function generateTddRedPhaseChecks(
         path: "test/tdd-red/**/*.test.ts",
         pattern: "test\\(|it\\(|describe\\(",
         min_matches: 1,
-      },
-    });
-  }
-
-  return checks;
-}
-
-/**
- * Generate TDD cleanup verification checks
- *
- * When a task is NOT a red-phase task (tdd_red_phase=false), verify that
- * no stale tdd-red markers remain in the codebase.
- *
- * @param workspaceRoot - Root directory of the workspace
- * @param taskTitle - Task title for check descriptions
- * @returns Array of verification check configs
- */
-function generateTddCleanupChecks(
-  workspaceRoot: string,
-  taskTitle: string
-): Array<{
-  check_type: "behavioral" | "structural";
-  description: string;
-  severity: "BLOCKING" | "MAJOR" | "MINOR";
-  check_config: Record<string, unknown>;
-}> {
-  const language = detectProjectLanguage(workspaceRoot);
-  const checks: Array<{
-    check_type: "behavioral" | "structural";
-    description: string;
-    severity: "BLOCKING" | "MAJOR" | "MINOR";
-    check_config: Record<string, unknown>;
-  }> = [];
-
-  if (language === "dart") {
-    // Structural: No tdd-red tags should remain
-    checks.push({
-      check_type: "structural",
-      description: `[TDD] No red-phase markers for "${taskTitle}"`,
-      severity: "BLOCKING",
-      check_config: {
-        path: "test/**/*.dart",
-        pattern: "@Tags\\(\\['tdd-red'\\]\\)",
-        max_matches: 0,
-      },
-    });
-  } else if (language === "typescript") {
-    // Structural: tdd-red directory should not exist or be empty
-    checks.push({
-      check_type: "structural",
-      description: `[TDD] No red-phase test files for "${taskTitle}"`,
-      severity: "BLOCKING",
-      check_config: {
-        path: "test/tdd-red/**/*.test.ts",
-        pattern: ".*",
-        max_matches: 0,
       },
     });
   }

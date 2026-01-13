@@ -111,6 +111,7 @@ export const GetCurrentTaskOutputSchema = z.object({
       red_test_command: z.string(),
       green_test_command: z.string(),
       expected_behavior: z.string(),
+      cleanup_instruction: z.string(),
       example: z.string(),
     })
     .nullable(),

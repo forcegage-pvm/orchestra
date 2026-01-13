@@ -39,18 +39,22 @@ export class MCPServerManager {
     }
 
     try {
-      // Path to MCP server entry point
+      // Path to MCP server entry point (bundled with extension)
       const serverScript = path.join(
-        this.workspaceRoot,
+        this._extensionPath,
         "dist",
         "mcp-server",
         "index.js"
       );
 
-      // Spawn server process
+      // Spawn server process with workspace as env var
       const proc = cp.spawn("node", [serverScript, "--role", role], {
         cwd: this.workspaceRoot,
         stdio: ["pipe", "pipe", "pipe"],
+        env: {
+          ...process.env,
+          ORCHESTRA_WORKSPACE: this.workspaceRoot,
+        },
       });
 
       this.logger.info(`MCP server started: ${role}`, { pid: proc.pid });

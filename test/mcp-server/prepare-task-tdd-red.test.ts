@@ -156,7 +156,7 @@ describe("prepare_task TDD Red-Phase Verification Auto-Injection", () => {
       expect(structConfig.min_matches).toBe(1);
     });
 
-    it("should inject cleanup checks when tdd_red_phase=false", async () => {
+    it("should NOT inject cleanup checks when tdd_red_phase=false (cleanup is implementor responsibility)", async () => {
       const db = getDb();
       const now = new Date().toISOString();
 
@@ -181,12 +181,16 @@ describe("prepare_task TDD Red-Phase Verification Auto-Injection", () => {
         task_id: 1,
         priority: "P0",
         context:
-          "Test task for TDD cleanup verification. No red-phase markers should remain.",
+          "Test task for TDD cleanup verification. Cleanup is the implementor's responsibility during the GREEN phase.",
         acceptance_criteria: [
           { criterion: "Test criterion", verification: "Manual check" },
         ],
         file_operations: [
-          { operation: "CREATE", path: "src/feature.ts", description: "Feature" },
+          {
+            operation: "CREATE",
+            path: "src/feature.ts",
+            description: "Feature",
+          },
         ],
         deliverables: ["feature.ts"],
       });
@@ -195,25 +199,20 @@ describe("prepare_task TDD Red-Phase Verification Auto-Injection", () => {
       const resultObj = JSON.parse(result.content[0].text);
       expect(resultObj.success).toBe(true);
 
-      // Verify cleanup check was injected
+      // Verify NO cleanup check was auto-injected (cleanup is now implementor responsibility)
       const checks = await db
         .select()
         .from(verificationChecks)
         .where(eq(verificationChecks.task_id, 1));
-
-      // Should have 1 structural check
-      expect(checks.length).toBeGreaterThanOrEqual(1);
 
       const cleanupCheck = checks.find(
         (c) =>
           c.check_type === "structural" &&
           c.description.includes("No red-phase")
       );
-      expect(cleanupCheck).toBeDefined();
-      expect(cleanupCheck!.severity).toBe("BLOCKING");
-      const config = JSON.parse(cleanupCheck!.check_config);
-      expect(config.path).toBe("test/tdd-red/**/*.test.ts");
-      expect(config.max_matches).toBe(0);
+      // Cleanup checks should NOT be auto-injected - orchestrator explicitly adds them
+      // to GREEN phase tasks when appropriate
+      expect(cleanupCheck).toBeUndefined();
     });
   });
 
@@ -297,7 +296,9 @@ describe("prepare_task TDD Red-Phase Verification Auto-Injection", () => {
       );
       expect(nonTaggedCheck).toBeDefined();
       const nonTaggedConfig = JSON.parse(nonTaggedCheck!.check_config);
-      expect(nonTaggedConfig.command).toBe("flutter test --exclude-tags tdd-red");
+      expect(nonTaggedConfig.command).toBe(
+        "flutter test --exclude-tags tdd-red"
+      );
       expect(nonTaggedConfig.expect_exit_code).toBe(0);
 
       // Check 3: Structural check for tag presence
@@ -309,7 +310,7 @@ describe("prepare_task TDD Red-Phase Verification Auto-Injection", () => {
       expect(structConfig.min_matches).toBe(1);
     });
 
-    it("should inject Dart-specific cleanup checks when tdd_red_phase=false", async () => {
+    it("should NOT inject Dart-specific cleanup checks when tdd_red_phase=false (cleanup is implementor responsibility)", async () => {
       const db = getDb();
       const now = new Date().toISOString();
 
@@ -334,12 +335,16 @@ describe("prepare_task TDD Red-Phase Verification Auto-Injection", () => {
         task_id: 1,
         priority: "P0",
         context:
-          "Test task for Dart cleanup verification. No tdd-red tags should remain.",
+          "Test task for Dart cleanup verification. Cleanup is the implementor's responsibility during the GREEN phase.",
         acceptance_criteria: [
           { criterion: "Test criterion", verification: "Manual check" },
         ],
         file_operations: [
-          { operation: "CREATE", path: "lib/widget.dart", description: "Widget" },
+          {
+            operation: "CREATE",
+            path: "lib/widget.dart",
+            description: "Widget",
+          },
         ],
         deliverables: ["widget.dart"],
       });
@@ -348,7 +353,7 @@ describe("prepare_task TDD Red-Phase Verification Auto-Injection", () => {
       const resultObj = JSON.parse(result.content[0].text);
       expect(resultObj.success).toBe(true);
 
-      // Verify cleanup check was injected
+      // Verify NO cleanup check was auto-injected (cleanup is now implementor responsibility)
       const checks = await db
         .select()
         .from(verificationChecks)
@@ -359,11 +364,9 @@ describe("prepare_task TDD Red-Phase Verification Auto-Injection", () => {
           c.check_type === "structural" &&
           c.description.includes("No red-phase markers")
       );
-      expect(cleanupCheck).toBeDefined();
-      const config = JSON.parse(cleanupCheck!.check_config);
-      expect(config.path).toBe("test/**/*.dart");
-      expect(config.pattern).toContain("@Tags");
-      expect(config.max_matches).toBe(0);
+      // Cleanup checks should NOT be auto-injected - orchestrator explicitly adds them
+      // to GREEN phase tasks when appropriate
+      expect(cleanupCheck).toBeUndefined();
     });
   });
 

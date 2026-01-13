@@ -68,8 +68,9 @@ export interface PreSignalResult {
 /** Default build command */
 const DEFAULT_BUILD_COMMAND = "npm run build";
 
-/** Default test command */
-const DEFAULT_TEST_COMMAND = "npm test";
+/** Default test command - excludes tdd-red directory for TDD red-phase support */
+const DEFAULT_TEST_COMMAND =
+  "npm test -- --testPathIgnorePatterns=test/tdd-red";
 
 /** Default timeout (5 minutes) */
 const DEFAULT_TIMEOUT = 300000;
@@ -112,7 +113,9 @@ function getDefaultCommands(projectType: ProjectType): {
     case "flutter":
       return {
         build: "flutter analyze",
-        test: "flutter test",
+        // Always exclude tdd-red tests from normal test runs
+        // TDD red-phase tests are only run explicitly via runTddRedPhaseTests
+        test: "flutter test --exclude-tags tdd-red",
         lint: "dart format --set-exit-if-changed .",
       };
     case "python":
@@ -183,22 +186,20 @@ export async function runPreSignalChecks(
     config.skipBuild
   );
 
-  // Run test check - handle TDD red-phase dual-command mode
-  let testResult: PreSignalCheckResult;
-  if (config.tddRedPhase) {
-    testResult = await runTddRedPhaseTests(
-      projectType,
-      config.testCommand,
-      execOptions,
-      config.skipTest
-    );
-  } else {
-    testResult = await runCheck(
-      config.testCommand ?? defaults.test,
-      execOptions,
-      config.skipTest
-    );
-  }
+  // Run test check - ALWAYS use dual-command mode for TDD verification
+  // This ensures:
+  // 1. tdd-red tagged tests FAIL (they should be red phase tests)
+  // 2. non-tdd-red tests PASS (all regular tests must pass)
+  //
+  // For tdd_red_phase=true: Implementor is creating failing tests (mandatory)
+  // For tdd_red_phase=false: Any leftover tdd-red tests must still fail
+  //                          (if they pass, tag should be removed)
+  const testResult = await runTddRedPhaseTests(
+    projectType,
+    config.testCommand,
+    execOptions,
+    config.skipTest
+  );
 
   // Run lint check (use detected default if available, or explicit config)
   const lintCommand = config.lintCommand ?? defaults.lint;
@@ -269,13 +270,65 @@ function mapExecuteResult(result: ExecuteResult): PreSignalCheckResult {
 }
 
 /**
+ * Check if test output indicates no tests were found
+ *
+ * This handles the case where tagged tests don't exist (which is OK).
+ * Different test frameworks have different output for "no tests found".
+ *
+ * @param result - Execution result from running tests
+ * @param projectType - Project type for framework-specific detection
+ * @returns true if the output indicates no tests were found
+ */
+function isNoTestsFoundOutput(
+  result: ExecuteResult,
+  projectType: ProjectType
+): boolean {
+  const output = (result.stdout || "") + (result.stderr || "");
+  const outputLower = output.toLowerCase();
+
+  switch (projectType) {
+    case "flutter":
+      // Flutter: "No tests ran" or "0 tests passed"
+      return (
+        outputLower.includes("no tests ran") ||
+        outputLower.includes("no test files found") ||
+        /0 tests? passed/i.test(output) ||
+        /all tests passed.*0 tests/i.test(output)
+      );
+
+    case "node":
+      // Jest/Vitest: "No tests found" or similar
+      return (
+        outputLower.includes("no tests found") ||
+        outputLower.includes("no test files found") ||
+        outputLower.includes("no tests to run") ||
+        /tests?:\s*0\s*(passed|total)/i.test(output)
+      );
+
+    case "python":
+      // Pytest: "no tests ran" or "collected 0 items"
+      return (
+        outputLower.includes("no tests ran") ||
+        outputLower.includes("collected 0 items")
+      );
+
+    default:
+      // Generic check for common patterns
+      return (
+        outputLower.includes("no tests") || outputLower.includes("0 tests")
+      );
+  }
+}
+
+/**
  * Run TDD red-phase tests with dual-command execution
  *
  * Executes two test commands:
- * 1. Tagged tests (expect FAILURE - exit code 1)
+ * 1. Tagged tests (expect FAILURE - exit code 1, OR no tests found)
  * 2. Non-tagged tests (expect SUCCESS - exit code 0)
  *
- * Both must match expectations for the test phase to pass.
+ * The key invariant: tdd-red tagged tests must FAIL if they exist.
+ * If they pass, verification fails (tag should be removed or test is wrong).
  *
  * @param projectType - Detected project type (determines commands)
  * @param customTestCommand - Optional custom test command (overrides defaults)
@@ -301,14 +354,19 @@ async function runTddRedPhaseTests(
   // Get TDD-specific commands for the project type
   const tddCommands = getTddCommands(projectType, customTestCommand);
 
-  // Run tagged tests (expect FAILURE)
+  // Run tagged tests (expect FAILURE or no tests found)
   const taggedResult = await executeCommand(tddCommands.tagged, options);
 
   // Run non-tagged tests (expect SUCCESS)
   const nonTaggedResult = await executeCommand(tddCommands.nonTagged, options);
 
   // Validate results match expectations
-  const taggedExpectation = !taggedResult.success; // Expect failure (exit code 1)
+  // Tagged tests: MUST fail OR have no tests (exit 0 with "no tests" output is OK)
+  // The key rule: if tdd-red tests PASS (with actual tests), that's a verification failure
+  const taggedTestsPassed =
+    taggedResult.success && !isNoTestsFoundOutput(taggedResult, projectType);
+  const taggedExpectation = !taggedTestsPassed; // Expect failure OR no tests
+
   const nonTaggedExpectation = nonTaggedResult.success; // Expect success (exit code 0)
 
   const passed = taggedExpectation && nonTaggedExpectation;
@@ -321,21 +379,26 @@ async function runTddRedPhaseTests(
 
     if (!taggedExpectation) {
       messages.push(
-        `TDD red-phase validation failed: Tagged tests PASSED but should FAIL.\nCommand: ${
-          tddCommands.tagged
-        }\nOutput: ${
-          taggedResult.stdout || taggedResult.stderr || "(no output)"
-        }`
+        `TDD verification failed: Tests tagged with 'tdd-red' PASSED but should FAIL.\n` +
+          `This indicates either:\n` +
+          `  - The test was implemented but the tdd-red tag wasn't removed\n` +
+          `  - The test was written incorrectly (passes when it shouldn't)\n` +
+          `Action: Remove the tdd-red tag from tests that pass, or fix the test.\n` +
+          `Command: ${tddCommands.tagged}\n` +
+          `Output: ${
+            taggedResult.stdout || taggedResult.stderr || "(no output)"
+          }`
       );
     }
 
     if (!nonTaggedExpectation) {
       messages.push(
-        `TDD red-phase validation failed: Non-tagged tests FAILED but should PASS.\nCommand: ${
-          tddCommands.nonTagged
-        }\nOutput: ${
-          nonTaggedResult.stderr || nonTaggedResult.stdout || "(no output)"
-        }`
+        `Test verification failed: Non-tagged tests FAILED but should PASS.\n` +
+          `Action: Fix the failing tests or add tdd-red tag if creating RED phase tests.\n` +
+          `Command: ${tddCommands.nonTagged}\n` +
+          `Output: ${
+            nonTaggedResult.stderr || nonTaggedResult.stdout || "(no output)"
+          }`
       );
     }
 

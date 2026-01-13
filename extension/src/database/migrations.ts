@@ -197,6 +197,29 @@ const MIGRATIONS: Migration[] = [
       );
     },
   },
+  {
+    id: "20260112_002_add_tdd_red_phase",
+    description:
+      "Add tdd_red_phase column to tasks table for red-phase verification support",
+    up: (db) => {
+      // Check if column already exists (idempotent)
+      const columns = db.prepare(`PRAGMA table_info(tasks)`).all() as {
+        name: string;
+      }[];
+      const hasTddRedPhase = columns.some(
+        (col) => col.name === "tdd_red_phase"
+      );
+
+      if (hasTddRedPhase) {
+        return;
+      }
+
+      // Add column with default false
+      db.exec(
+        `ALTER TABLE tasks ADD COLUMN tdd_red_phase INTEGER NOT NULL DEFAULT 0`
+      );
+    },
+  },
 ];
 
 /**

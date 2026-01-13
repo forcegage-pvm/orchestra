@@ -66,6 +66,7 @@
 **Part IV: Operations**
 8. [Script Specifications](#8-script-specifications)
 9. [Verification Model](#9-verification-model)
+   - [9.5 TDD Red-Green Verification](#95-tdd-red-green-verification)
 10. [Failure Handling](#10-failure-handling)
 11. [Artifact Specifications](#11-artifact-specifications)
 12. [Configuration](#12-configuration) ← **orchestra.yaml**
@@ -2718,6 +2719,104 @@ Attempt 1: "Configuration loading has issues"
 Attempt 2: "Configuration loading does not handle edge cases correctly"
 Attempt 3: "Configuration loading fails when the file is empty or malformed"
 ```
+
+## 9.5 TDD Red-Green Verification
+
+Orchestra supports **Test-Driven Development (TDD)** workflows with explicit red-phase and green-phase task separation using the `tdd_red_phase` flag.
+
+### 9.5.1 The TDD Red-Phase Challenge
+
+Traditional verification requires ALL tests to pass. This conflicts with TDD red-phase tasks where:
+- The task is explicitly to write a test that MUST fail
+- Pre-signal checks would reject because tests don't pass
+- Cannot distinguish "intentional failure" from "broken code"
+
+### 9.5.2 Solution: Dual Verification Mode
+
+When `tdd_red_phase: true`, verification runs two separate test commands:
+
+| Command | Purpose | Expected Result |
+|---------|---------|-----------------|
+| Test red-phase tests | Verify test fails correctly | Exit code 1 (MUST fail) |
+| Test all other tests | Verify no regressions | Exit code 0 (MUST pass) |
+
+**Test Isolation Mechanisms**:
+- **Dart**: `@Tags(['tdd-red'])` annotation
+- **TypeScript**: `test/tdd-red/` directory
+- **Other**: Framework-specific tagging/filtering
+
+### 9.5.3 Red-Green Workflow Pattern
+
+```
+┌────────────────────────────────────────────────────────────────┐
+│  Task N (RED): tdd_red_phase = true                            │
+│  ├─ Implementor adds failing test with marker                  │
+│  ├─ Pre-signal: Dual verification                              │
+│  │   ✅ Red test fails (exit 1)                                │
+│  │   ✅ Other tests pass (exit 0)                              │
+│  └─ COMPLETE (marker remains in codebase)                      │
+│                                                                 │
+│  Task N+1 (GREEN): tdd_red_phase = false                       │
+│  ├─ Orchestrator auto-removes markers before prepare           │
+│  ├─ Implementor implements feature                             │
+│  ├─ Pre-signal: Normal verification                            │
+│  │   ✅ ALL tests pass (exit 0)                                │
+│  └─ COMPLETE                                                   │
+└────────────────────────────────────────────────────────────────┘
+```
+
+### 9.5.4 Automatic Marker Cleanup
+
+**Orchestrator** automatically cleans stale TDD markers during `prepare_task`:
+1. Detects markers in workspace (any task prepare)
+2. Removes markers from files
+3. Commits cleanup: `"chore: remove tdd-red markers before task N"`
+4. Generates handover with clean workspace
+
+This ensures:
+- ✅ No stale markers from previous sprints
+- ✅ Green-phase tasks start clean
+- ✅ Orchestrator owns marker lifecycle
+- ✅ Implementor can't forget cleanup
+
+### 9.5.5 Handover TDD Instructions
+
+When `tdd_red_phase: true`, handover includes:
+
+```markdown
+## TDD Red-Phase Instructions
+
+This is a **TDD red-phase task**. Your test MUST fail.
+
+### Tagging Mechanism
+[Language-specific instructions for markers]
+
+### Verification Commands
+- **Red test**: [command] (MUST exit 1)
+- **Green tests**: [command] (MUST exit 0)
+
+### Expected Behavior
+The tagged test MUST fail (exit code 1).
+All other tests MUST pass (exit code 0).
+```
+
+### 9.5.6 Hidden Verification for TDD Tasks
+
+**Red-phase verification** (hidden):
+- [x] At least one file contains tdd-red marker
+- [x] Marked test fails with correct error type
+- [x] Test validates intended behavior (not syntax error)
+- [x] No regression failures in other tests
+
+**Green-phase verification** (hidden):
+- [x] No tdd-red markers exist in workspace
+- [x] Previously-failing test now passes
+- [x] Implementation matches test expectations
+- [x] No new regressions introduced
+
+**See also**: `docs/workflow/tdd-red-green-workflow.md` for complete workflow guide.
+
+---
 
 ## 10.4 Escalation Protocol
 
