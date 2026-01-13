@@ -196,16 +196,16 @@ describe("get_current_task handler", () => {
       // Verify tdd_instructions contains TypeScript-specific information
       expect(output.tdd_instructions).not.toBeNull();
       expect(output.tdd_instructions.tagging_mechanism).toBe(
-        "Place test file in test/tdd-red/ directory"
+        "Place test in test/tdd-red/ directory OR add [tdd-red] to test name"
       );
       expect(output.tdd_instructions.red_test_command).toBe(
-        "npm test -- test/tdd-red"
+        'npm test -- --testNamePattern="[tdd-red]" OR npm test -- test/tdd-red'
       );
       expect(output.tdd_instructions.green_test_command).toBe(
-        "npm test -- --testPathIgnorePatterns=tdd-red"
+        'npm test -- --exclude="**/tdd-red/**" --testNamePattern="^(?!.*[tdd-red])"'
       );
       expect(output.tdd_instructions.expected_behavior).toContain(
-        "Tests in tdd-red/ MUST fail"
+        "Tests with [tdd-red] tag or in tdd-red/ MUST fail"
       );
       expect(output.tdd_instructions.example).toContain(
         "test/tdd-red/feature.test.ts"

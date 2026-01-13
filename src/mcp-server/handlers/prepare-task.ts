@@ -744,7 +744,7 @@ function generateTddRedPhaseChecks(
       severity: "BLOCKING",
       check_config: {
         command:
-          'npm test -- --testPathIgnorePatterns=tdd-red --testNamePattern="^(?!.*\\[tdd-red\\])"',
+          'npm test -- --exclude="**/tdd-red/**" --testNamePattern="^(?!.*\\[tdd-red\\])"',
         expect_exit_code: 0,
         success_message: "Non-red tests passed (no regressions)",
         failure_message: "Non-red tests failed - regressions detected",

@@ -268,7 +268,7 @@ test('feature should work', tags: 'tdd-red', () {  // <-- Remove tags in GREEN p
       red_test_command:
         'npm test -- --testNamePattern="[tdd-red]" OR npm test -- test/tdd-red',
       green_test_command:
-        'npm test -- --testPathIgnorePatterns=tdd-red --testNamePattern="^(?!.*[tdd-red])"',
+        'npm test -- --exclude="**/tdd-red/**" --testNamePattern="^(?!.*[tdd-red])"',
       expected_behavior:
         "Tests with [tdd-red] tag or in tdd-red/ MUST fail (exit code 1). All other tests MUST pass (exit code 0).",
       cleanup_instruction:

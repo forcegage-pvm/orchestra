@@ -132,7 +132,9 @@ describe("prepare_task TDD Red-Phase Verification Auto-Injection", () => {
       expect(redFailCheck).toBeDefined();
       expect(redFailCheck!.severity).toBe("BLOCKING");
       const redFailConfig = JSON.parse(redFailCheck!.check_config);
-      expect(redFailConfig.command).toBe("npm test test/tdd-red");
+      expect(redFailConfig.command).toBe(
+        'npm test -- --testNamePattern="\\[tdd-red\\]" 2>/dev/null || npm test -- test/tdd-red'
+      );
       expect(redFailConfig.expect_exit_code).toBe(1);
 
       // Check 2: Non-red tests must pass
@@ -144,7 +146,7 @@ describe("prepare_task TDD Red-Phase Verification Auto-Injection", () => {
       expect(greenPassCheck).toBeDefined();
       expect(greenPassCheck!.severity).toBe("BLOCKING");
       const greenPassConfig = JSON.parse(greenPassCheck!.check_config);
-      expect(greenPassConfig.command).toContain("testPathIgnorePatterns");
+      expect(greenPassConfig.command).toContain("--exclude");
       expect(greenPassConfig.expect_exit_code).toBe(0);
 
       // Check 3: Structural check for test files
@@ -152,7 +154,7 @@ describe("prepare_task TDD Red-Phase Verification Auto-Injection", () => {
       expect(structCheck).toBeDefined();
       expect(structCheck!.severity).toBe("BLOCKING");
       const structConfig = JSON.parse(structCheck!.check_config);
-      expect(structConfig.path).toBe("test/tdd-red/**/*.test.ts");
+      expect(structConfig.path).toBe("test/**/*.test.ts");
       expect(structConfig.min_matches).toBe(1);
     });
 

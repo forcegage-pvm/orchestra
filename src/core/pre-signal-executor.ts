@@ -69,8 +69,7 @@ export interface PreSignalResult {
 const DEFAULT_BUILD_COMMAND = "npm run build";
 
 /** Default test command - excludes tdd-red directory for TDD red-phase support */
-const DEFAULT_TEST_COMMAND =
-  "npm test -- --testPathIgnorePatterns=test/tdd-red";
+const DEFAULT_TEST_COMMAND = 'npm test -- --exclude="**/tdd-red/**"';
 
 /** Default timeout (5 minutes) */
 const DEFAULT_TIMEOUT = 300000;
@@ -448,13 +447,13 @@ function getTddCommands(
       // If custom command provided, use it as base
       if (customTestCommand) {
         return {
-          tagged: `${customTestCommand} test/tdd-red`,
-          nonTagged: `${customTestCommand} --testPathIgnorePatterns=tdd-red`,
+          tagged: `${customTestCommand} --testNamePattern="\\[tdd-red\\]"`,
+          nonTagged: `${customTestCommand} --exclude="**/tdd-red/**"`,
         };
       }
       return {
-        tagged: "npm test -- test/tdd-red",
-        nonTagged: "npm test -- --testPathIgnorePatterns=tdd-red",
+        tagged: 'npm test -- --testNamePattern="\\[tdd-red\\]"',
+        nonTagged: 'npm test -- --exclude="**/tdd-red/**"',
       };
 
     case "python":
@@ -477,10 +476,10 @@ function getTddCommands(
 
     case "unknown":
     default:
-      // Fallback to Node.js pattern
+      // Fallback to Node.js pattern (Vitest compatible)
       return {
-        tagged: "npm test -- test/tdd-red",
-        nonTagged: "npm test -- --testPathIgnorePatterns=tdd-red",
+        tagged: 'npm test -- --testNamePattern="\\[tdd-red\\]"',
+        nonTagged: 'npm test -- --exclude="**/tdd-red/**"',
       };
   }
 }
