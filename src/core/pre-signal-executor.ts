@@ -297,11 +297,17 @@ function isNoTestsFoundOutput(
 
     case "node":
       // Jest/Vitest: "No tests found" or similar
+      // Also handle Vitest pattern where ALL tests are skipped (none matched the filter)
+      // e.g., "Tests  490 skipped (490)" means no tests matched the pattern
+      // Note: Vitest output has leading whitespace before "Tests" so we use \s* prefix
       return (
         outputLower.includes("no tests found") ||
         outputLower.includes("no test files found") ||
         outputLower.includes("no tests to run") ||
-        /tests?:\s*0\s*(passed|total)/i.test(output)
+        /tests?:\s*0\s*(passed|total)/i.test(output) ||
+        // Vitest: "Tests  X skipped (X)" with 0 passed - check for skipped without passed
+        // The key pattern: if we see "X skipped" but no "X passed", no tests actually ran
+        (outputLower.includes("skipped") && !outputLower.includes("passed"))
       );
 
     case "python":
