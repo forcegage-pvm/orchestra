@@ -2,7 +2,7 @@
   "name": "orchestra-extension",
   "displayName": "Orchestra",
   "description": "AI agent task orchestration for VS Code",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "publisher": "forcegage",
   "repository": {
     "type": "git",
@@ -159,96 +159,6 @@
         "command": "orchestra.setActiveSprint",
         "title": "Set as Active Sprint",
         "icon": "$(star)"
-      },
-      {
-        "command": "orchestra.runChatIntegrationTests",
-        "title": "Orchestra: Run Chat Integration Tests",
-        "icon": "$(beaker)"
-      },
-      {
-        "command": "orchestra.exploreBackgroundAgents",
-        "title": "Orchestra: Explore Background Agents",
-        "icon": "$(search)"
-      },
-      {
-        "command": "orchestra.runAgentCommandTests",
-        "title": "Orchestra: Test Agent-Specific Commands",
-        "icon": "$(beaker)"
-      },
-      {
-        "command": "orchestra.runBackgroundAgentTests",
-        "title": "Orchestra: Investigate Background Agents",
-        "icon": "$(beaker)"
-      },
-      {
-        "command": "orchestra.testOrchestratorOnly",
-        "title": "Orchestra: Test Orchestrator Command (Isolated)",
-        "icon": "$(beaker)"
-      },
-      {
-        "command": "orchestra.testImplementorOnly",
-        "title": "Orchestra: Test Implementor Command (Isolated)",
-        "icon": "$(beaker)"
-      },
-      {
-        "command": "orchestra.runSessionResourceTests",
-        "title": "Orchestra: Test Session Resource API",
-        "icon": "$(beaker)"
-      },
-      {
-        "command": "orchestra.testBackgroundAgentSessions",
-        "title": "Orchestra: Test Background Agent Sessions",
-        "icon": "$(beaker)"
-      },
-      {
-        "command": "orchestra.testAgentSessionMessaging",
-        "title": "Orchestra: Test Agent Session Messaging",
-        "icon": "$(beaker)"
-      },
-      {
-        "command": "orchestra.testPreciseTabFocus",
-        "title": "Orchestra: Test Precise Tab Focus",
-        "icon": "$(beaker)"
-      },
-      {
-        "command": "orchestra.discoverSessionCommands",
-        "title": "Orchestra: Discover Session Commands",
-        "icon": "$(beaker)"
-      },
-      {
-        "command": "orchestra.testOrchestraChatTabs",
-        "title": "Orchestra: Test Orchestra Chat Tabs",
-        "icon": "$(beaker)"
-      },
-      {
-        "command": "orchestra.testModeParameter",
-        "title": "Orchestra: Test Mode Parameter",
-        "icon": "$(beaker)"
-      },
-      {
-        "command": "orchestra.testLabelCapture",
-        "title": "Orchestra: Test Label Capture",
-        "icon": "$(beaker)"
-      },
-      {
-        "command": "orchestra.testClearCommand",
-        "title": "Orchestra: Test Clear Command",
-        "icon": "$(beaker)"
-      },
-      {
-        "command": "orchestra.discoverChatHistoryCommands",
-        "title": "Orchestra: Discover Chat History Commands",
-        "icon": "$(beaker)"
-      },
-      {
-        "command": "orchestra.testSessionRestoration",
-        "title": "Orchestra: Test Session Restoration",
-        "icon": "$(beaker)"
-      },
-      {
-        "command": "orchestra.testSessionRenameAndReopen",
-        "title": "Orchestra: Test Session Rename and Reopen",
-        "icon": "$(beaker)"
       }
     ],
     "keybindings": [

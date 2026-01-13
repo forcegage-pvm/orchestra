@@ -777,24 +777,11 @@ If physical isolation proves too cumbersome, consider:
 
 ---
 
-## Test Commands Available
-
-| Command | Purpose |
-|---------|---------|
-| `orchestra.runChatIntegrationTests` | Basic chat command behavior |
-| `orchestra.runAgentCommandTests` | Agent-specific command tests |
-| `orchestra.runSessionResourceTests` | Session targeting investigation |
-| `orchestra.testOrchestratorOnly` | Isolated orchestrator test |
-| `orchestra.testImplementorOnly` | Isolated implementor test |
-| `orchestra.testBackgroundAgentSessions` | Background agent session creation |
-
----
-
 ## 🎯 BREAKTHROUGH: Background Agent Sessions (2025-12-30)
 
 ### Test Results
 
-Running `orchestra.testBackgroundAgentSessions` created **3 visible editor tabs**:
+Running the background-agent session experiment created **3 visible editor tabs**:
 
 | Tab # | Label | Created By |
 |-------|-------|------------|
@@ -889,4 +876,4 @@ class SessionManager {
 - [VS Code Chat Actions](https://github.com/microsoft/vscode/blob/main/src/vs/workbench/contrib/chat/browser/actions/chatActions.ts)
 - [Chat Widget Service](https://github.com/microsoft/vscode/blob/main/src/vs/workbench/contrib/chat/browser/chatWidgetService.ts)
 - [Agent Sessions Model](https://github.com/microsoft/vscode/blob/main/src/vs/workbench/contrib/chat/browser/agentSessions/agentSessionsModel.ts)
-- [ChatIntegrationTests.ts](./ChatIntegrationTests.ts) - Local integration test file
+
