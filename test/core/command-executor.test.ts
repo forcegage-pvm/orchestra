@@ -8,6 +8,16 @@
 import { describe, expect, it } from "vitest";
 import { executeCommand } from "../../src/core/command-executor.js";
 
+/**
+ * Strip ANSI escape codes and PowerShell shell integration sequences
+ * from output to get clean text for assertions
+ */
+function stripControlSequences(text: string): string {
+  // Remove ANSI escape codes and OSC sequences (like PowerShell shell integration)
+  // eslint-disable-next-line no-control-regex
+  return text.replace(/\x1b\][^\x07]*\x07/g, "").trim();
+}
+
 describe("Command Executor", () => {
   describe("executeCommand", () => {
     it("should execute a simple command and return stdout", async () => {
@@ -15,7 +25,7 @@ describe("Command Executor", () => {
 
       expect(result.success).toBe(true);
       expect(result.exitCode).toBe(0);
-      expect(result.stdout.trim()).toBe("hello");
+      expect(stripControlSequences(result.stdout)).toBe("hello");
       expect(result.stderr).toBe("");
     });
 
@@ -40,7 +50,7 @@ describe("Command Executor", () => {
         "node -e \"console.log('out'); console.error('err')\""
       );
 
-      expect(result.stdout.trim()).toBe("out");
+      expect(stripControlSequences(result.stdout)).toBe("out");
       expect(result.stderr.trim()).toBe("err");
     });
 
@@ -63,7 +73,7 @@ describe("Command Executor", () => {
       );
 
       expect(result.success).toBe(true);
-      expect(result.stdout.trim()).toBe(process.cwd());
+      expect(stripControlSequences(result.stdout)).toBe(process.cwd());
     });
 
     it("should pass environment variables", async () => {
@@ -73,7 +83,7 @@ describe("Command Executor", () => {
       );
 
       expect(result.success).toBe(true);
-      expect(result.stdout.trim()).toBe("test_value");
+      expect(stripControlSequences(result.stdout)).toBe("test_value");
     });
 
     it("should include duration in result", async () => {
@@ -89,7 +99,7 @@ describe("Command Executor", () => {
       );
 
       expect(result.success).toBe(true);
-      expect(result.stdout.trim()).toBe("hello world");
+      expect(stripControlSequences(result.stdout)).toBe("hello world");
     });
 
     it("should handle empty command gracefully", async () => {
