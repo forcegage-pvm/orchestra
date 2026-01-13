@@ -232,42 +232,55 @@ function generateTddInstructions(
   if (language === "dart") {
     return {
       tagging_mechanism:
-        "Add @Tags(['tdd-red']) annotation to test class or function",
+        "Use @Tags(['tdd-red']) annotation OR inline tags: 'tdd-red' parameter",
       red_test_command: "flutter test --tags tdd-red",
       green_test_command: "flutter test --exclude-tags tdd-red",
       expected_behavior:
         "The tagged test MUST fail (exit code 1). All other tests MUST pass (exit code 0).",
       cleanup_instruction:
-        "When implementing the GREEN phase: remove @Tags(['tdd-red']) annotation AFTER making the test pass.",
-      example: `import 'package:flutter_test/flutter_test.dart';
+        "When implementing the GREEN phase: remove the tdd-red tag (annotation or parameter) AFTER making the test pass.",
+      example: `// Option 1: Library-level annotation
+import 'package:flutter_test/flutter_test.dart';
 
-@Tags(['tdd-red'])  // <-- Add this annotation (remove in GREEN phase after test passes)
+@Tags(['tdd-red'])  // <-- Add this annotation (remove in GREEN phase)
 void main() {
   test('feature should work', () {
-    // This test MUST fail - we haven't implemented the feature yet
     expect(actualValue, expectedValue);
   });
-}`,
+}
+
+// Option 2: Inline tags parameter (preferred for single tests)
+test('feature should work', tags: 'tdd-red', () {  // <-- Remove tags in GREEN phase
+  expect(actualValue, expectedValue);
+});`,
     };
   }
 
   if (language === "typescript") {
     return {
-      tagging_mechanism: "Place test file in test/tdd-red/ directory",
-      red_test_command: "npm test -- test/tdd-red",
-      green_test_command: "npm test -- --testPathIgnorePatterns=tdd-red",
+      tagging_mechanism:
+        "Place test in test/tdd-red/ directory OR add [tdd-red] to test name",
+      red_test_command:
+        'npm test -- --testNamePattern="[tdd-red]" OR npm test -- test/tdd-red',
+      green_test_command:
+        'npm test -- --testPathIgnorePatterns=tdd-red --testNamePattern="^(?!.*[tdd-red])"',
       expected_behavior:
-        "Tests in tdd-red/ MUST fail (exit code 1). All other tests MUST pass (exit code 0).",
+        "Tests with [tdd-red] tag or in tdd-red/ MUST fail (exit code 1). All other tests MUST pass (exit code 0).",
       cleanup_instruction:
-        "When implementing the GREEN phase: move test files from test/tdd-red/ to test/unit/ AFTER making them pass.",
-      example: `// File: test/tdd-red/feature.test.ts
+        "When implementing the GREEN phase: remove [tdd-red] from test name OR move file from test/tdd-red/ to test/unit/ AFTER making the test pass.",
+      example: `// Option 1: Directory-based (place file in test/tdd-red/)
+// File: test/tdd-red/feature.test.ts
 describe('Feature', () => {
   it('should work', () => {
-    // This test MUST fail - we haven't implemented the feature yet
     expect(actual).toBe(expected);
   });
 });
-// GREEN PHASE: After implementation, move this file to test/unit/feature.test.ts`,
+// GREEN PHASE: Move to test/unit/feature.test.ts
+
+// Option 2: Inline tag in test name (preferred for single tests)
+it('[tdd-red] should calculate total correctly', () => {  // <-- Remove [tdd-red] in GREEN phase
+  expect(calculateTotal([1, 2, 3])).toBe(6);
+});`,
     };
   }
 

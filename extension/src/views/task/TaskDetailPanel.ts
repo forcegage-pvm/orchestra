@@ -14,13 +14,16 @@ import {
   getEscalation,
   getFeedback,
   getHandover,
+  getSignal,
   getTaskById,
   getTaskHistory,
+  getVerificationChecks,
   getVerificationResults,
   type Escalation,
   type Feedback,
   type Handover,
   type Progress,
+  type Signal,
   type Task,
   type VerificationCheck,
   type VerificationResult,
@@ -61,10 +64,12 @@ function formatRelativeTime(timestamp: string): string {
 interface TaskDetailData {
   task?: Task;
   handover?: Handover;
+  verificationChecks?: VerificationCheck[]; // Criteria (always shown)
   verificationResults?: Array<
     VerificationResult & { check: VerificationCheck }
-  >;
+  >; // Results (when run)
   feedback?: Feedback;
+  signal?: Signal; // Implementor's completion signal
   history?: Array<Progress & { formattedTimestamp: string }>;
   escalation?: Escalation; // TD-016: Escalation data when task is ESCALATED
 }
@@ -200,6 +205,15 @@ export class TaskDetailPanel {
       data.handover = handover;
     }
 
+    // Get verification checks (criteria) - always fetch
+    const verificationChecks = getVerificationChecks(
+      workspaceRoot,
+      this.taskId
+    );
+    if (verificationChecks.length > 0) {
+      data.verificationChecks = verificationChecks;
+    }
+
     // Get verification results (for latest attempt)
     const verificationResults = getVerificationResults(
       workspaceRoot,
@@ -214,6 +228,12 @@ export class TaskDetailPanel {
     const feedback = getFeedback(workspaceRoot, this.taskId);
     if (feedback) {
       data.feedback = feedback;
+    }
+
+    // Get signal data (implementor's completion claim)
+    const signal = getSignal(workspaceRoot, this.taskId);
+    if (signal) {
+      data.signal = signal;
     }
 
     // TD-016: Get escalation data when task is ESCALATED

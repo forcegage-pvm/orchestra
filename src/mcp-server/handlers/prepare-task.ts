@@ -702,24 +702,35 @@ function generateTddRedPhaseChecks(
     });
 
     // Structural: At least one tdd-red marker exists
+    // Flutter supports two syntaxes:
+    //   1. Library-level: @Tags(['tdd-red'])
+    //   2. Inline parameter: tags: 'tdd-red' in test() call
     checks.push({
       check_type: "structural",
       description: `[TDD RED] Red-phase marker present for "${taskTitle}"`,
       severity: "BLOCKING",
       check_config: {
         path: "test/**/*.dart",
-        pattern: "@Tags\\(\\['tdd-red'\\]\\)",
+        pattern:
+          "@Tags\\(\\['tdd-red'\\]\\)|tags:\\s*['\"]tdd-red['\"]|tags:\\s*\\['tdd-red'\\]",
         min_matches: 1,
       },
     });
   } else if (language === "typescript") {
+    // TypeScript supports two TDD approaches:
+    //   1. Directory-based: test/tdd-red/*.test.ts
+    //   2. Tag-based: @vitest-environment or test name includes [tdd-red]
+    // We check for both to be flexible
+
     // Behavioral: tdd-red tests must fail
+    // Vitest: use --testNamePattern for tag filtering, or directory path
     checks.push({
       check_type: "behavioral",
       description: `[TDD RED] Red-phase tests must fail for "${taskTitle}"`,
       severity: "BLOCKING",
       check_config: {
-        command: "npm test test/tdd-red",
+        command:
+          'npm test -- --testNamePattern="\\[tdd-red\\]" 2>/dev/null || npm test -- test/tdd-red',
         expect_exit_code: 1,
         success_message: "Red-phase tests failed as expected",
         failure_message: "Red-phase tests must fail",
@@ -732,21 +743,22 @@ function generateTddRedPhaseChecks(
       description: `[TDD RED] Non-red tests must pass for "${taskTitle}"`,
       severity: "BLOCKING",
       check_config: {
-        command: "npm test -- --testPathIgnorePatterns=test/tdd-red",
+        command:
+          'npm test -- --testPathIgnorePatterns=tdd-red --testNamePattern="^(?!.*\\[tdd-red\\])"',
         expect_exit_code: 0,
         success_message: "Non-red tests passed (no regressions)",
         failure_message: "Non-red tests failed - regressions detected",
       },
     });
 
-    // Structural: tdd-red directory exists with test files
+    // Structural: tdd-red marker exists (directory or inline tag)
     checks.push({
       check_type: "structural",
-      description: `[TDD RED] Red-phase test files present for "${taskTitle}"`,
+      description: `[TDD RED] Red-phase test marker present for "${taskTitle}"`,
       severity: "BLOCKING",
       check_config: {
-        path: "test/tdd-red/**/*.test.ts",
-        pattern: "test\\(|it\\(|describe\\(",
+        path: "test/**/*.test.ts",
+        pattern: "test/tdd-red/|\\[tdd-red\\]",
         min_matches: 1,
       },
     });

@@ -743,6 +743,91 @@ export function getFeedback(
 }
 
 /**
+ * Get all verification checks (criteria) for a task
+ *
+ * Returns all verification criteria defined for the task, regardless of
+ * whether verification has been run yet. Useful for showing what will be
+ * checked before the implementor signals completion.
+ *
+ * @param workspaceRoot Absolute path to workspace root
+ * @param taskId Task ID (numeric primary key)
+ * @returns Array of verification checks or empty array if none defined
+ */
+export function getVerificationChecks(
+  workspaceRoot: string,
+  taskId: number
+): VerificationCheck[] {
+  const db = getDB(workspaceRoot);
+
+  const results = db
+    .select()
+    .from(
+      schema.verificationChecks as unknown as typeof schema.verificationChecks
+    )
+    .where(
+      eq(
+        schema.verificationChecks
+          .task_id as unknown as typeof schema.verificationChecks.task_id,
+        taskId
+      )
+    )
+    .orderBy(
+      schema.verificationChecks
+        .id as unknown as typeof schema.verificationChecks.id
+    )
+    .all() as VerificationCheck[];
+
+  return results;
+}
+
+/**
+ * Signal data structure
+ */
+export interface Signal {
+  id: number;
+  task_id: number;
+  signal_id: string;
+  attempt: number;
+  artifact_paths: string | null;
+  description: string | null;
+  created_at: string;
+}
+
+/**
+ * Get the latest signal for a task
+ *
+ * Returns the most recent signal (implementation completion claim) for the task.
+ * If no signal exists, returns null (implementor hasn't signaled yet).
+ *
+ * @param workspaceRoot Absolute path to workspace root
+ * @param taskId Task ID (numeric primary key)
+ * @returns Latest signal or null if none exists
+ */
+export function getSignal(
+  workspaceRoot: string,
+  taskId: number
+): Signal | null {
+  const db = getDB(workspaceRoot);
+
+  const results = db
+    .select()
+    .from(schema.signals as unknown as typeof schema.signals)
+    .where(
+      eq(
+        schema.signals.task_id as unknown as typeof schema.signals.task_id,
+        taskId
+      )
+    )
+    .orderBy(
+      desc(schema.signals.attempt as unknown as typeof schema.signals.attempt)
+    )
+    .limit(1)
+    .all() as Signal[];
+
+  return results[0] ?? null;
+}
+
+/**
  * Get the active (unresolved) escalation for a task (TD-016)
  *
  * Returns the most recent unresolved escalation for the task.

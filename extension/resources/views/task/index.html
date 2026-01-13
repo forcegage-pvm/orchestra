@@ -478,6 +478,481 @@
         color: var(--vscode-descriptionForeground);
         font-size: 0.85em;
       }
+
+      /* Enhanced formatting styles */
+      .code-path {
+        font-family: var(--vscode-editor-font-family);
+        font-size: 0.9em;
+        background-color: var(--vscode-textCodeBlock-background);
+        padding: 2px 6px;
+        border-radius: 3px;
+        color: var(--vscode-textPreformat-foreground);
+        word-break: break-all;
+      }
+
+      .context-text {
+        white-space: pre-wrap;
+        line-height: 1.7;
+        font-size: 0.95em;
+      }
+
+      .context-text strong,
+      .context-text b {
+        color: var(--vscode-textLink-foreground);
+      }
+
+      .collapsible-section {
+        border: 1px solid var(--vscode-widget-border);
+        border-radius: 4px;
+        margin-bottom: 15px;
+        overflow: hidden;
+      }
+
+      .collapsible-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 12px 15px;
+        background-color: var(--vscode-sideBar-background);
+        cursor: pointer;
+        user-select: none;
+      }
+
+      .collapsible-header:hover {
+        background-color: var(--vscode-list-hoverBackground);
+      }
+
+      .collapsible-header h3 {
+        margin: 0;
+        font-size: 1em;
+      }
+
+      .collapsible-body {
+        padding: 15px;
+        display: none;
+      }
+
+      .collapsible-body.expanded {
+        display: block;
+      }
+
+      .config-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+        gap: 12px;
+      }
+
+      .config-item {
+        background-color: var(--vscode-sideBar-background);
+        border: 1px solid var(--vscode-widget-border);
+        border-radius: 4px;
+        padding: 12px;
+      }
+
+      .config-label {
+        color: var(--vscode-descriptionForeground);
+        font-size: 0.85em;
+        margin-bottom: 4px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+
+      .config-value {
+        color: var(--vscode-foreground);
+        font-weight: 500;
+      }
+
+      .config-value.highlight {
+        color: var(--vscode-textLink-foreground);
+      }
+
+      .tdd-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 4px 10px;
+        border-radius: 12px;
+        font-size: 0.85em;
+        font-weight: 500;
+      }
+
+      .tdd-badge.red-phase {
+        background-color: var(--vscode-testing-iconFailed);
+        color: var(--vscode-editor-background);
+      }
+
+      .tdd-badge.green-phase {
+        background-color: var(--vscode-testing-iconPassed);
+        color: var(--vscode-editor-background);
+      }
+
+      .severity-badge {
+        padding: 2px 8px;
+        border-radius: 8px;
+        font-size: 0.75em;
+        font-weight: 500;
+        text-transform: uppercase;
+      }
+
+      .severity-blocking {
+        background-color: var(--vscode-testing-iconFailed);
+        color: var(--vscode-editor-background);
+      }
+
+      .severity-major {
+        background-color: var(--vscode-charts-orange);
+        color: var(--vscode-editor-background);
+      }
+
+      .severity-minor {
+        background-color: var(--vscode-charts-yellow);
+        color: var(--vscode-editor-background);
+      }
+
+      .severity-info {
+        background-color: var(--vscode-charts-blue);
+        color: var(--vscode-editor-background);
+      }
+
+      .check-type-badge {
+        padding: 2px 8px;
+        border-radius: 8px;
+        font-size: 0.75em;
+        font-weight: 500;
+        background-color: var(--vscode-button-secondaryBackground);
+        color: var(--vscode-button-secondaryForeground);
+      }
+
+      .signal-section {
+        background-color: var(--vscode-textBlockQuote-background);
+        border-left: 4px solid var(--vscode-textLink-foreground);
+        padding: 15px;
+        border-radius: 0 4px 4px 0;
+        margin-bottom: 15px;
+      }
+
+      .signal-header {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 10px;
+      }
+
+      .signal-header h3 {
+        margin: 0;
+        color: var(--vscode-textLink-foreground);
+      }
+
+      .artifact-list {
+        list-style: none;
+        padding: 0;
+        margin: 10px 0;
+      }
+
+      .artifact-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 12px;
+        background-color: var(--vscode-editor-background);
+        border: 1px solid var(--vscode-widget-border);
+        border-radius: 4px;
+        margin-bottom: 6px;
+      }
+
+      .artifact-icon {
+        color: var(--vscode-textLink-foreground);
+      }
+
+      .check-details {
+        font-size: 0.9em;
+        color: var(--vscode-descriptionForeground);
+        margin-top: 8px;
+        padding: 10px;
+        background-color: var(--vscode-textBlockQuote-background);
+        border-radius: 4px;
+      }
+
+      .check-details code {
+        display: block;
+        margin-top: 5px;
+        padding: 8px;
+        background-color: var(--vscode-editor-background);
+        border-radius: 3px;
+        white-space: pre-wrap;
+        font-size: 0.9em;
+      }
+
+      .tab-badge {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 18px;
+        height: 18px;
+        padding: 0 5px;
+        background-color: var(--vscode-badge-background);
+        color: var(--vscode-badge-foreground);
+        border-radius: 9px;
+        font-size: 0.75em;
+        margin-left: 6px;
+      }
+
+      .acceptance-criterion {
+        background-color: var(--vscode-list-hoverBackground);
+        border: 1px solid var(--vscode-widget-border);
+        border-radius: 4px;
+        padding: 12px;
+        margin-bottom: 10px;
+      }
+
+      .criterion-header {
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+        margin-bottom: 8px;
+      }
+
+      .criterion-number {
+        flex-shrink: 0;
+        width: 24px;
+        height: 24px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background-color: var(--vscode-textLink-foreground);
+        color: var(--vscode-editor-background);
+        border-radius: 50%;
+        font-size: 0.8em;
+        font-weight: 600;
+      }
+
+      .criterion-text {
+        flex: 1;
+        font-weight: 500;
+      }
+
+      .criterion-verification {
+        margin-left: 34px;
+        padding: 8px 12px;
+        background-color: var(--vscode-textBlockQuote-background);
+        border-left: 3px solid var(--vscode-charts-green);
+        border-radius: 0 4px 4px 0;
+        font-size: 0.9em;
+        color: var(--vscode-descriptionForeground);
+      }
+
+      .file-operation {
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+        padding: 12px;
+        background-color: var(--vscode-list-hoverBackground);
+        border: 1px solid var(--vscode-widget-border);
+        border-radius: 4px;
+        margin-bottom: 10px;
+      }
+
+      .operation-badge {
+        flex-shrink: 0;
+        padding: 3px 8px;
+        border-radius: 4px;
+        font-size: 0.75em;
+        font-weight: 600;
+        text-transform: uppercase;
+      }
+
+      .operation-create {
+        background-color: var(--vscode-testing-iconPassed);
+        color: var(--vscode-editor-background);
+      }
+
+      .operation-update {
+        background-color: var(--vscode-charts-blue);
+        color: var(--vscode-editor-background);
+      }
+
+      .operation-delete {
+        background-color: var(--vscode-testing-iconFailed);
+        color: var(--vscode-editor-background);
+      }
+
+      .operation-content {
+        flex: 1;
+      }
+
+      .operation-path {
+        font-family: var(--vscode-editor-font-family);
+        font-size: 0.9em;
+        color: var(--vscode-textLink-foreground);
+        word-break: break-all;
+      }
+
+      .operation-description {
+        margin-top: 4px;
+        font-size: 0.9em;
+        color: var(--vscode-descriptionForeground);
+      }
+
+      .deliverable-item {
+        display: flex;
+        align-items: flex-start;
+        gap: 8px;
+        padding: 10px 12px;
+        background-color: var(--vscode-list-hoverBackground);
+        border: 1px solid var(--vscode-widget-border);
+        border-radius: 4px;
+        margin-bottom: 8px;
+      }
+
+      .deliverable-check {
+        color: var(--vscode-testing-iconPassed);
+        flex-shrink: 0;
+      }
+
+      .no-data-message {
+        color: var(--vscode-descriptionForeground);
+        font-style: italic;
+        padding: 10px 0;
+      }
+
+      /* Verification check styles */
+      .verification-check {
+        background-color: var(--vscode-list-hoverBackground);
+        border: 1px solid var(--vscode-widget-border);
+        border-radius: 4px;
+        padding: 12px;
+        margin-bottom: 10px;
+      }
+
+      .check-header {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 8px;
+      }
+
+      .check-description {
+        font-weight: 500;
+        flex: 1;
+      }
+
+      .check-detail {
+        margin-bottom: 4px;
+      }
+
+      .check-detail code {
+        background-color: var(--vscode-editor-background);
+        padding: 2px 6px;
+        border-radius: 3px;
+        font-size: 0.9em;
+      }
+
+      /* Signal styles */
+      .signal-icon {
+        font-size: 1.5em;
+      }
+
+      .signal-title {
+        font-weight: 600;
+        font-size: 1.1em;
+      }
+
+      .signal-timestamp {
+        margin-left: auto;
+        color: var(--vscode-descriptionForeground);
+        font-size: 0.9em;
+      }
+
+      .signal-body {
+        margin-top: 15px;
+      }
+
+      .signal-field {
+        margin-bottom: 12px;
+      }
+
+      .signal-field label {
+        display: block;
+        font-weight: 500;
+        margin-bottom: 4px;
+        color: var(--vscode-descriptionForeground);
+      }
+
+      /* Config styles */
+      .config-section {
+        margin-bottom: 20px;
+      }
+
+      .config-section h3 {
+        margin: 0 0 12px 0;
+        color: var(--vscode-foreground);
+        border-bottom: 1px solid var(--vscode-widget-border);
+        padding-bottom: 6px;
+      }
+
+      .config-items {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+      }
+
+      .config-item {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        background-color: var(--vscode-list-hoverBackground);
+        padding: 8px 12px;
+        border-radius: 4px;
+        border: 1px solid var(--vscode-widget-border);
+      }
+
+      .config-icon {
+        flex-shrink: 0;
+      }
+
+      .config-label {
+        color: var(--vscode-descriptionForeground);
+        font-size: 0.9em;
+      }
+
+      .config-value {
+        font-weight: 500;
+      }
+
+      .dependency-badge {
+        display: inline-block;
+        padding: 4px 10px;
+        background-color: var(--vscode-badge-background);
+        color: var(--vscode-badge-foreground);
+        border-radius: 12px;
+        font-size: 0.85em;
+        margin-right: 6px;
+      }
+
+      /* File operation layout fix */
+      .file-op-header {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+
+      .file-op-description {
+        margin-top: 8px;
+        color: var(--vscode-descriptionForeground);
+        font-size: 0.9em;
+      }
+
+      .empty-hint {
+        color: var(--vscode-descriptionForeground);
+        font-style: italic;
+        margin: 8px 0;
+      }
+
+      .context-text {
+        white-space: pre-wrap;
+        line-height: 1.6;
+      }
     </style>
   </head>
   <body>
@@ -576,9 +1051,16 @@
         <div class="tabs">
           <button class="tab active" data-tab="handover">Handover</button>
           <button class="tab" data-tab="verification">
-            Verification Results
+            Verification<span
+              id="verificationBadge"
+              class="tab-badge"
+              style="display: none"
+              >0</span
+            >
           </button>
+          <button class="tab" data-tab="signal">Signal</button>
           <button class="tab" data-tab="feedback">Feedback</button>
+          <button class="tab" data-tab="config">Configuration</button>
           <button class="tab" data-tab="history">History</button>
         </div>
 
@@ -587,34 +1069,113 @@
           <div class="section">
             <h2>Handover Details</h2>
 
-            <h3>Context</h3>
-            <p id="handoverContext">-</p>
+            <!-- Context Section - Collapsible -->
+            <div class="collapsible-section">
+              <div class="collapsible-header" onclick="toggleSection(this)">
+                <h3>📋 Context</h3>
+                <span class="collapsible-arrow">▼</span>
+              </div>
+              <div class="collapsible-body expanded">
+                <p id="handoverContext" class="context-text">-</p>
+              </div>
+            </div>
 
-            <h3>Context Files</h3>
-            <ul id="handoverContextFiles" class="list"></ul>
+            <!-- Context Files Section -->
+            <div class="collapsible-section">
+              <div class="collapsible-header" onclick="toggleSection(this)">
+                <h3>📁 Context Files</h3>
+                <span class="collapsible-arrow">▼</span>
+              </div>
+              <div class="collapsible-body expanded">
+                <div id="handoverContextFiles"></div>
+              </div>
+            </div>
 
-            <h3>Acceptance Criteria</h3>
-            <ul id="handoverAcceptanceCriteria" class="list"></ul>
+            <!-- Acceptance Criteria Section -->
+            <div class="collapsible-section">
+              <div class="collapsible-header" onclick="toggleSection(this)">
+                <h3>✅ Acceptance Criteria</h3>
+                <span class="collapsible-arrow">▼</span>
+              </div>
+              <div class="collapsible-body expanded">
+                <div id="handoverAcceptanceCriteria"></div>
+              </div>
+            </div>
 
-            <h3>File Operations</h3>
-            <ul id="handoverFileOperations" class="list"></ul>
+            <!-- File Operations Section -->
+            <div class="collapsible-section">
+              <div class="collapsible-header" onclick="toggleSection(this)">
+                <h3>📝 File Operations</h3>
+                <span class="collapsible-arrow">▼</span>
+              </div>
+              <div class="collapsible-body expanded">
+                <div id="handoverFileOperations"></div>
+              </div>
+            </div>
 
-            <h3>Deliverables</h3>
-            <ul id="handoverDeliverables" class="list"></ul>
+            <!-- Deliverables Section -->
+            <div class="collapsible-section">
+              <div class="collapsible-header" onclick="toggleSection(this)">
+                <h3>📦 Deliverables</h3>
+                <span class="collapsible-arrow">▼</span>
+              </div>
+              <div class="collapsible-body expanded">
+                <div id="handoverDeliverables"></div>
+              </div>
+            </div>
 
-            <h3>Test Requirements</h3>
-            <p id="handoverTestRequirements">-</p>
+            <!-- Test Requirements Section -->
+            <div class="collapsible-section">
+              <div class="collapsible-header" onclick="toggleSection(this)">
+                <h3>🧪 Test Requirements</h3>
+                <span class="collapsible-arrow">▼</span>
+              </div>
+              <div class="collapsible-body expanded">
+                <p id="handoverTestRequirements" class="context-text">-</p>
+              </div>
+            </div>
           </div>
         </div>
 
-        <!-- Verification Results Tab -->
+        <!-- Verification Tab -->
         <div id="tab-verification" class="tab-content">
           <div class="section">
-            <h2>Verification Results</h2>
-            <div id="verificationResults">
+            <h2>Verification Criteria</h2>
+            <p
+              style="
+                color: var(--vscode-descriptionForeground);
+                margin-bottom: 15px;
+              "
+            >
+              These checks will be run when the implementor signals completion.
+            </p>
+            <div id="verificationChecks">
               <div class="empty-state">
                 <div class="empty-state-icon">📋</div>
-                <p>No verification results available</p>
+                <p>No verification criteria defined</p>
+              </div>
+            </div>
+
+            <h2 style="margin-top: 30px">Verification Results</h2>
+            <div id="verificationResults">
+              <div class="empty-state">
+                <div class="empty-state-icon">⏳</div>
+                <p>Verification has not been run yet</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Signal Tab -->
+        <div id="tab-signal" class="tab-content">
+          <div class="section">
+            <h2>Implementor Signal</h2>
+            <div id="signalContent">
+              <div class="empty-state">
+                <div class="empty-state-icon">📡</div>
+                <p>
+                  No signal received - implementor has not signaled completion
+                </p>
               </div>
             </div>
           </div>
@@ -629,6 +1190,16 @@
                 <div class="empty-state-icon">💬</div>
                 <p>No feedback available</p>
               </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Configuration Tab -->
+        <div id="tab-config" class="tab-content">
+          <div class="section">
+            <h2>Task Configuration</h2>
+            <div id="taskConfig" class="config-grid">
+              <!-- Will be populated by JavaScript -->
             </div>
           </div>
         </div>
@@ -670,7 +1241,22 @@
         });
       });
 
-      // Collapsible sections
+      // Toggle collapsible sections
+      function toggleSection(headerElement) {
+        const section = headerElement.parentElement;
+        const body = section.querySelector(".collapsible-body");
+        const arrow = headerElement.querySelector(".collapsible-arrow");
+
+        if (body.classList.contains("expanded")) {
+          body.classList.remove("expanded");
+          arrow.textContent = "▶";
+        } else {
+          body.classList.add("expanded");
+          arrow.textContent = "▼";
+        }
+      }
+
+      // Collapsible sections (for verification results)
       document.addEventListener("click", (e) => {
         if (e.target.classList.contains("collapsible")) {
           e.target.classList.toggle("active");
@@ -735,15 +1321,28 @@
           updateHandover(data.handover);
         }
 
+        // Update verification checks (criteria) - Orchestrator only
+        if (data.verificationChecks && data.verificationChecks.length > 0) {
+          updateVerificationChecks(data.verificationChecks);
+        }
+
         // Update verification results
         if (data.verificationResults && data.verificationResults.length > 0) {
           updateVerificationResults(data.verificationResults);
+        }
+
+        // Update signal
+        if (data.signal) {
+          updateSignal(data.signal);
         }
 
         // Update feedback
         if (data.feedback) {
           updateFeedback(data.feedback);
         }
+
+        // Update configuration
+        updateConfig(task, data.handover);
 
         // Update history
         if (data.history && data.history.length > 0) {
@@ -763,103 +1362,402 @@
         document.getElementById("handoverContext").textContent =
           handover.context || "No context provided";
 
-        // Context files
-        const contextFilesList = document.getElementById(
+        // Context files - styled as code paths
+        const contextFilesContainer = document.getElementById(
           "handoverContextFiles"
         );
-        contextFilesList.innerHTML = "";
+        contextFilesContainer.innerHTML = "";
         if (handover.context_files) {
           try {
             const files = JSON.parse(handover.context_files);
-            files.forEach((file) => {
-              const li = document.createElement("li");
-              li.className = "list-item";
-              li.textContent = file;
-              contextFilesList.appendChild(li);
-            });
+            if (files.length > 0) {
+              files.forEach((file) => {
+                const div = document.createElement("div");
+                div.className = "code-path";
+                div.textContent = file;
+                contextFilesContainer.appendChild(div);
+              });
+            } else {
+              contextFilesContainer.innerHTML =
+                '<p class="empty-hint">No context files specified</p>';
+            }
           } catch {
-            contextFilesList.innerHTML =
-              '<li class="list-item">Error parsing context files</li>';
+            contextFilesContainer.innerHTML =
+              '<p class="empty-hint">Error parsing context files</p>';
           }
         } else {
-          contextFilesList.innerHTML =
-            '<li class="list-item">No context files</li>';
+          contextFilesContainer.innerHTML =
+            '<p class="empty-hint">No context files specified</p>';
         }
 
-        // Acceptance criteria
-        const criteriaList = document.getElementById(
+        // Acceptance criteria - styled as criterion cards
+        const criteriaContainer = document.getElementById(
           "handoverAcceptanceCriteria"
         );
-        criteriaList.innerHTML = "";
+        criteriaContainer.innerHTML = "";
         try {
           const criteria = JSON.parse(handover.acceptance_criteria);
-          criteria.forEach((criterion) => {
-            const li = document.createElement("li");
-            li.className = "list-item";
-            li.innerHTML = `
-              <div class="list-item-header">
-                <span class="list-item-title">${
-                  criterion.criterion || criterion
-                }</span>
-              </div>
-              ${
-                criterion.verification
-                  ? `<div class="list-item-body">Verification: ${criterion.verification}</div>`
-                  : ""
-              }
-            `;
-            criteriaList.appendChild(li);
-          });
+          if (criteria.length > 0) {
+            criteria.forEach((criterion, index) => {
+              const div = document.createElement("div");
+              div.className = "acceptance-criterion";
+              div.innerHTML = `
+                <div class="criterion-header">
+                  <span class="criterion-number">${index + 1}</span>
+                  <span class="criterion-text">${
+                    criterion.criterion || criterion
+                  }</span>
+                </div>
+                ${
+                  criterion.verification
+                    ? `<div class="criterion-verification">✓ ${criterion.verification}</div>`
+                    : ""
+                }
+              `;
+              criteriaContainer.appendChild(div);
+            });
+          } else {
+            criteriaContainer.innerHTML =
+              '<p class="empty-hint">No acceptance criteria defined</p>';
+          }
         } catch {
-          criteriaList.innerHTML =
-            '<li class="list-item">Error parsing acceptance criteria</li>';
+          criteriaContainer.innerHTML =
+            '<p class="empty-hint">Error parsing acceptance criteria</p>';
         }
 
-        // File operations
-        const fileOpsList = document.getElementById("handoverFileOperations");
-        fileOpsList.innerHTML = "";
+        // File operations - styled as operation cards
+        const fileOpsContainer = document.getElementById(
+          "handoverFileOperations"
+        );
+        fileOpsContainer.innerHTML = "";
         try {
           const fileOps = JSON.parse(handover.file_operations);
-          fileOps.forEach((op) => {
-            const li = document.createElement("li");
-            li.className = "list-item";
-            li.innerHTML = `
-              <div class="list-item-header">
-                <span class="list-item-title">${op.operation}: ${op.path}</span>
-              </div>
-              ${
-                op.description
-                  ? `<div class="list-item-body">${op.description}</div>`
-                  : ""
-              }
-            `;
-            fileOpsList.appendChild(li);
-          });
+          if (fileOps.length > 0) {
+            fileOps.forEach((op) => {
+              const div = document.createElement("div");
+              div.className = "file-operation";
+              const opClass = op.operation.toLowerCase();
+              div.innerHTML = `
+                <div class="file-op-header">
+                  <span class="operation-badge operation-${opClass}">${
+                op.operation
+              }</span>
+                  <span class="code-path">${op.path}</span>
+                </div>
+                ${
+                  op.description
+                    ? `<div class="file-op-description">${op.description}</div>`
+                    : ""
+                }
+              `;
+              fileOpsContainer.appendChild(div);
+            });
+          } else {
+            fileOpsContainer.innerHTML =
+              '<p class="empty-hint">No file operations specified</p>';
+          }
         } catch {
-          fileOpsList.innerHTML =
-            '<li class="list-item">Error parsing file operations</li>';
+          fileOpsContainer.innerHTML =
+            '<p class="empty-hint">Error parsing file operations</p>';
         }
 
-        // Deliverables
-        const deliverablesList = document.getElementById(
+        // Deliverables - styled as deliverable items
+        const deliverablesContainer = document.getElementById(
           "handoverDeliverables"
         );
-        deliverablesList.innerHTML = "";
+        deliverablesContainer.innerHTML = "";
         try {
           const deliverables = JSON.parse(handover.deliverables);
-          deliverables.forEach((deliverable) => {
-            const li = document.createElement("li");
-            li.className = "list-item";
-            li.textContent = deliverable;
-            deliverablesList.appendChild(li);
-          });
+          if (deliverables.length > 0) {
+            deliverables.forEach((deliverable) => {
+              const div = document.createElement("div");
+              div.className = "deliverable-item";
+              div.innerHTML = `<span class="deliverable-icon">📦</span><span>${deliverable}</span>`;
+              deliverablesContainer.appendChild(div);
+            });
+          } else {
+            deliverablesContainer.innerHTML =
+              '<p class="empty-hint">No deliverables specified</p>';
+          }
         } catch {
-          deliverablesList.innerHTML =
-            '<li class="list-item">Error parsing deliverables</li>';
+          deliverablesContainer.innerHTML =
+            '<p class="empty-hint">Error parsing deliverables</p>';
         }
 
         document.getElementById("handoverTestRequirements").textContent =
           handover.test_requirements || "No specific test requirements";
+      }
+
+      function updateVerificationChecks(checks) {
+        const container = document.getElementById("verificationChecks");
+        container.innerHTML = "";
+
+        // Group checks by type
+        const structural = checks.filter((c) => c.check_type === "structural");
+        const behavioral = checks.filter((c) => c.check_type === "behavioral");
+        const quality = checks.filter((c) => c.check_type === "quality");
+
+        // Update badge count
+        const badge = document.getElementById("verificationBadge");
+        badge.textContent = checks.length;
+        badge.style.display = checks.length > 0 ? "inline-block" : "none";
+
+        function renderCheckGroup(title, icon, checksArray) {
+          if (checksArray.length === 0) return "";
+
+          let html = `<h3 style="margin-top: 15px; margin-bottom: 10px;">${icon} ${title}</h3>`;
+          checksArray.forEach((check) => {
+            const severityClass = check.severity.toLowerCase();
+            html += `
+              <div class="verification-check">
+                <div class="check-header">
+                  <span class="severity-badge severity-${severityClass}">${
+              check.severity
+            }</span>
+                  <span class="check-description">${check.description}</span>
+                </div>
+                <div class="check-details">
+                  ${
+                    check.path
+                      ? `<div class="check-detail"><strong>Path:</strong> <span class="code-path">${check.path}</span></div>`
+                      : ""
+                  }
+                  ${
+                    check.pattern
+                      ? `<div class="check-detail"><strong>Pattern:</strong> <code>${escapeHtml(
+                          check.pattern
+                        )}</code></div>`
+                      : ""
+                  }
+                  ${
+                    check.command
+                      ? `<div class="check-detail"><strong>Command:</strong> <code>${escapeHtml(
+                          check.command
+                        )}</code></div>`
+                      : ""
+                  }
+                  ${
+                    check.expect_exit_code !== null &&
+                    check.expect_exit_code !== undefined
+                      ? `<div class="check-detail"><strong>Expected Exit Code:</strong> ${check.expect_exit_code}</div>`
+                      : ""
+                  }
+                  ${
+                    check.expect_output_contains
+                      ? `<div class="check-detail"><strong>Expected Output Contains:</strong> <code>${escapeHtml(
+                          check.expect_output_contains
+                        )}</code></div>`
+                      : ""
+                  }
+                  ${
+                    check.min_matches
+                      ? `<div class="check-detail"><strong>Min Matches:</strong> ${check.min_matches}</div>`
+                      : ""
+                  }
+                </div>
+              </div>
+            `;
+          });
+          return html;
+        }
+
+        container.innerHTML =
+          renderCheckGroup("Structural Checks", "🏗️", structural) +
+          renderCheckGroup("Behavioral Checks", "⚙️", behavioral) +
+          renderCheckGroup("Quality Checks", "✨", quality);
+
+        if (checks.length === 0) {
+          container.innerHTML = `
+            <div class="empty-state">
+              <div class="empty-state-icon">📋</div>
+              <p>No verification criteria defined</p>
+            </div>
+          `;
+        }
+      }
+
+      function updateSignal(signal) {
+        const container = document.getElementById("signalContent");
+
+        const signalDate = new Date(signal.created_at);
+        const formattedDate = signalDate.toLocaleString();
+
+        let artifactPaths = [];
+        if (signal.artifact_paths) {
+          try {
+            artifactPaths = JSON.parse(signal.artifact_paths);
+          } catch {
+            artifactPaths = [signal.artifact_paths];
+          }
+        }
+
+        container.innerHTML = `
+          <div class="signal-section">
+            <div class="signal-header">
+              <span class="signal-icon">📡</span>
+              <span class="signal-title">Signal #${signal.attempt}</span>
+              <span class="signal-timestamp">${formattedDate}</span>
+            </div>
+            
+            <div class="signal-body">
+              <div class="signal-field">
+                <label>Signal ID:</label>
+                <span class="code-path">${signal.signal_id}</span>
+              </div>
+              
+              <div class="signal-field">
+                <label>Attempt:</label>
+                <span>${signal.attempt}</span>
+              </div>
+              
+              ${
+                signal.description
+                  ? `
+                <div class="signal-field">
+                  <label>Description:</label>
+                  <p class="context-text">${signal.description}</p>
+                </div>
+              `
+                  : ""
+              }
+              
+              ${
+                artifactPaths.length > 0
+                  ? `
+                <div class="signal-field">
+                  <label>Artifact Paths:</label>
+                  <div class="artifact-list">
+                    ${artifactPaths
+                      .map((p) => `<div class="code-path">${p}</div>`)
+                      .join("")}
+                  </div>
+                </div>
+              `
+                  : ""
+              }
+            </div>
+          </div>
+        `;
+      }
+
+      function updateConfig(task, handover) {
+        const container = document.getElementById("taskConfig");
+
+        const configItems = [
+          { label: "Task ID", value: task.task_id, icon: "🆔" },
+          { label: "Phase", value: task.phase_id, icon: "📍" },
+          { label: "Category", value: task.category, icon: "📂" },
+          { label: "Status", value: task.status, icon: "📊" },
+          {
+            label: "Priority",
+            value: handover?.priority || "Not set",
+            icon: "🎯",
+          },
+          {
+            label: "Retry Count",
+            value: `${task.retry_count} / ${task.max_retries}`,
+            icon: "🔄",
+          },
+          {
+            label: "TDD Red Phase",
+            value: task.tdd_red_phase ? "Enabled" : "Disabled",
+            icon: "🧪",
+          },
+          {
+            label: "SpecKit Task Ref",
+            value: task.speckit_task_ref || "None",
+            icon: "📋",
+          },
+        ];
+
+        // Add timestamps
+        const timestamps = [];
+        if (task.created_at) {
+          timestamps.push({
+            label: "Created",
+            value: new Date(task.created_at).toLocaleString(),
+            icon: "📅",
+          });
+        }
+        if (task.updated_at) {
+          timestamps.push({
+            label: "Updated",
+            value: new Date(task.updated_at).toLocaleString(),
+            icon: "🔄",
+          });
+        }
+
+        container.innerHTML = `
+          <div class="config-section">
+            <h3>Task Settings</h3>
+            <div class="config-items">
+              ${configItems
+                .map(
+                  (item) => `
+                <div class="config-item">
+                  <span class="config-icon">${item.icon}</span>
+                  <span class="config-label">${item.label}:</span>
+                  <span class="config-value">${item.value}</span>
+                </div>
+              `
+                )
+                .join("")}
+            </div>
+          </div>
+          
+          ${
+            timestamps.length > 0
+              ? `
+            <div class="config-section">
+              <h3>Timestamps</h3>
+              <div class="config-items">
+                ${timestamps
+                  .map(
+                    (item) => `
+                  <div class="config-item">
+                    <span class="config-icon">${item.icon}</span>
+                    <span class="config-label">${item.label}:</span>
+                    <span class="config-value">${item.value}</span>
+                  </div>
+                `
+                  )
+                  .join("")}
+              </div>
+            </div>
+          `
+              : ""
+          }
+          
+          ${
+            task.dependencies && task.dependencies !== "[]"
+              ? `
+            <div class="config-section">
+              <h3>Dependencies</h3>
+              <div class="config-items">
+                ${(() => {
+                  try {
+                    const deps = JSON.parse(task.dependencies);
+                    return deps
+                      .map(
+                        (d) => `<span class="dependency-badge">Task ${d}</span>`
+                      )
+                      .join(" ");
+                  } catch {
+                    return `<span>${task.dependencies}</span>`;
+                  }
+                })()}
+              </div>
+            </div>
+          `
+              : ""
+          }
+        `;
+      }
+
+      function escapeHtml(text) {
+        const div = document.createElement("div");
+        div.textContent = text;
+        return div.innerHTML;
       }
 
       function updateVerificationResults(results) {

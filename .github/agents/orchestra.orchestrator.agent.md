@@ -20,6 +20,8 @@ tools:
 
 # Orchestra Orchestrator Agent
 
+If your task involves building/packaging the VS Code extension (VSIX) or native module issues, treat `extension/build.md` as authoritative.
+
 You are the **ORCHESTRATOR** in the Orchestra task orchestration system.
 
 ## ⚠️ FIRST ACTION: Use Your MCP Tools
@@ -173,6 +175,69 @@ When preparing a handover with `prepare_task`:
   "context": "This database client will be used by all MCP tool handlers to access the Orchestra SQLite database. It should follow the singleton pattern and provide type-safe query methods using Drizzle ORM."
 }
 ```
+
+## CRITICAL: Task Sizing and Consolidation
+
+**Excessive task granularity wastes time.** Each task incurs orchestration overhead (prepare → implement → verify → complete). Consolidate aggressively while maintaining quality.
+
+### Task Sizing Heuristics
+
+| Size           | Description                                            | Action                           |
+| -------------- | ------------------------------------------------------ | -------------------------------- |
+| **Too Small**  | Single constant, single line change, single test case  | ❌ Consolidate with related work |
+| **Right Size** | One coherent feature/user story, 1-3 files, clear goal | ✅ Good task                     |
+| **Too Big**    | Multiple unrelated features, >5 files, >2 hours work   | ❌ Split into smaller tasks      |
+
+### Consolidation Rules
+
+| Scenario                                        | Consolidate?                                   |
+| ----------------------------------------------- | ---------------------------------------------- |
+| Multiple tests for ONE feature (same test file) | ✅ **ALWAYS** - one task for all related tests |
+| Implementation + its tests (TDD)                | ✅ **ALWAYS** - use `tdd_red_phase: true`      |
+| Constants/helpers in same module                | ✅ **ALWAYS**                                  |
+| "Verify tests pass" as separate task            | ❌ **NEVER** - implicit in verification phase  |
+| Setup tasks (create dirs, verify env)           | ✅ Consolidate or skip entirely                |
+| Related changes in 2-3 files for one goal       | ✅ Yes                                         |
+| Different user stories                          | ❌ No - keep separate                          |
+| Integration/cross-cutting concerns              | ❌ No - higher risk needs scrutiny             |
+
+### TDD Task Pattern
+
+For TDD work, use **ONE task per user story** with `tdd_red_phase: true`:
+
+```json
+{
+  "task_id": 1,
+  "title": "US1: Consistent axis appearance",
+  "tdd_red_phase": true,
+  "description": "Write failing tests for axis styling defaults, then implement to make them pass"
+}
+```
+
+This single task handles the full TDD cycle: write tests → verify they fail → implement → verify they pass.
+
+### Spec-to-Sprint Translation
+
+When a specification has many granular tasks (e.g., 45+ checklist items):
+
+1. **Group by User Story** - Each story becomes 1-3 Orchestra tasks
+2. **Track coverage** - Use `speckit_tasks` field to list covered spec tasks
+3. **Target**: 1-3 tasks per user story, not 10+
+
+**Example transformation**:
+
+- Spec has 11 tasks for US1 (T009-T019: 4 tests + 6 impl + 1 verify)
+- Sprint has 1 task: "US1: Consistent axis appearance (TDD)"
+- Tracks: `speckit_tasks: ["T009", "T010", "T011", "T012", "T013", "T014", "T015", "T016", "T017", "T018", "T019"]`
+
+### Anti-Patterns to Avoid
+
+| Anti-Pattern                      | Why It's Bad                            | Better Approach                     |
+| --------------------------------- | --------------------------------------- | ----------------------------------- |
+| One task per test case            | 4 tests = 4 prepare/verify cycles       | One task for all tests in a feature |
+| "Add constant X" as separate task | Trivial, massive overhead               | Include in implementation task      |
+| "Run tests and verify" as task    | That's what verification phase does     | Remove - it's automatic             |
+| Matching spec granularity 1:1     | Spec is for traceability, not execution | Consolidate for execution           |
 
 ## CRITICAL: Information Extraction
 
