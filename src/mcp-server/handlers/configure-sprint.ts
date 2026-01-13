@@ -32,8 +32,8 @@ import {
   type ConfigureSprintInput,
 } from "../../schemas/index.js";
 import { validateInput } from "../../schemas/utils.js";
-import { logToolExecution } from "./audit-logging.js";
 import { writeSignal } from "../db-signal.js";
+import { logToolExecution } from "./audit-logging.js";
 
 /**
  * Handle configure_sprint tool call
@@ -262,6 +262,7 @@ async function configureSprint(input: ConfigureSprintInput): Promise<{
     status: "PENDING",
     retry_count: 0,
     max_retries: 3,
+    tdd_red_phase: task.tdd_red_phase ?? false,
     created_at: now,
     updated_at: now,
     completed_at: null,

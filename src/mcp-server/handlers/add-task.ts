@@ -7,13 +7,13 @@
 import { eq, max } from "drizzle-orm";
 import { getDb } from "../../db/index.js";
 import { getActiveSprint } from "../../db/queries.js";
-import { logToolExecution } from "./audit-logging.js";
 import { progress, tasks, verificationChecks } from "../../db/schema.js";
 import {
   AddTaskInputSchema,
   type AddTaskOutput,
 } from "../../schemas/sprint-config.js";
 import { validateInput } from "../../schemas/utils.js";
+import { logToolExecution } from "./audit-logging.js";
 
 export async function handleAddTask(input: unknown) {
   const startTime = performance.now();
@@ -170,6 +170,7 @@ async function addTask(
       status: "PENDING",
       retry_count: 0,
       max_retries: 3,
+      tdd_red_phase: input.tdd_red_phase ?? false,
       created_at: now,
       updated_at: now,
     })

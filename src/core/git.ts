@@ -114,6 +114,24 @@ export async function stageFiles(
 }
 
 /**
+ * Stage all changes in the repository.
+ *
+ * Uses `git add -A` (no pathspec) so changes outside the current directory
+ * are still staged when cwd is a subdirectory of the repo.
+ */
+export async function stageAll(cwd: string): Promise<ScriptResult> {
+  try {
+    const git = getGit(cwd);
+    await git.add(["-A"]);
+    return successResult("Staged all changes");
+  } catch (error) {
+    return failureResult(
+      error instanceof Error ? error.message : "Failed to stage all changes"
+    );
+  }
+}
+
+/**
  * Commit staged changes
  */
 export async function commit(
@@ -484,7 +502,9 @@ export async function autoCommitIfEnabled(params: {
     return {
       committed: false,
       sha: null,
-      message: "Not in a git repository or failed to get status",
+      message:
+        statusResult.message ||
+        "Not in a git repository or failed to get status",
       filesChanged: [],
     };
   }
@@ -499,8 +519,8 @@ export async function autoCommitIfEnabled(params: {
     };
   }
 
-  // Stage all changes
-  const stageResult = await stageFiles(params.cwd, ["."]);
+  // Stage all changes across the repo (robust even when cwd is a subdirectory)
+  const stageResult = await stageAll(params.cwd);
   if (!stageResult.success) {
     return {
       committed: false,
