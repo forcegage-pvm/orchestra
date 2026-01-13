@@ -288,6 +288,7 @@ export const GetTaskOutputSchema = z.object({
   completed_at: z.string().optional(),
   retry_count: z.number().int().nonnegative(),
   max_retries: z.number().int().positive(),
+  tdd_red_phase: z.boolean(),
   verification: VerificationCriteriaSchema,
 });
 

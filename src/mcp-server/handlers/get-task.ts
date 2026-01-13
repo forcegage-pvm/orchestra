@@ -184,6 +184,7 @@ async function getTask(
     completed_at: task.completed_at || undefined,
     retry_count: task.retry_count,
     max_retries: task.max_retries,
+    tdd_red_phase: task.tdd_red_phase,
     verification: {
       structural_checks: structural.length > 0 ? structural : undefined,
       behavioral_checks: behavioral.length > 0 ? behavioral : undefined,
