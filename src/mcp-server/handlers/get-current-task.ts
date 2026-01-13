@@ -6,14 +6,22 @@
  */
 
 import { eq, inArray } from "drizzle-orm";
-import { getActiveSprint, getDb } from "../../db/index.js";
-import { logToolExecution } from "./audit-logging.js";
+import {
+  detectProjectLanguage,
+  type ProjectLanguage,
+} from "../../core/tdd-cleanup.js";
+import {
+  getActiveSprint,
+  getDb,
+  resolveWorkspacePath,
+} from "../../db/index.js";
 import { feedback, handovers, tasks } from "../../db/schema.js";
 import {
   GetCurrentTaskInputSchema,
   type GetCurrentTaskOutput,
 } from "../../schemas/handover.js";
 import { validateInput } from "../../schemas/utils.js";
+import { logToolExecution } from "./audit-logging.js";
 
 export async function handleGetCurrentTask(input: unknown) {
   const startTime = performance.now();
@@ -181,6 +189,16 @@ async function getCurrentTask(): Promise<GetCurrentTaskOutput> {
     ? JSON.parse(handover.context_files)
     : undefined;
 
+  // 7. Get TDD red-phase information
+  const tddRedPhase = task.tdd_red_phase ?? false;
+  let tddInstructions: GetCurrentTaskOutput["tdd_instructions"] = null;
+
+  if (tddRedPhase) {
+    const workspacePath = resolveWorkspacePath();
+    const language = detectProjectLanguage(workspacePath);
+    tddInstructions = generateTddInstructions(language);
+  }
+
   return {
     task_id: task.task_id,
     title: task.title,
@@ -197,5 +215,56 @@ async function getCurrentTask(): Promise<GetCurrentTaskOutput> {
     constraints,
     references,
     feedback: feedbackData,
+    tdd_red_phase: tddRedPhase,
+    tdd_instructions: tddInstructions,
   };
+}
+
+/**
+ * Generate TDD instructions based on project language
+ *
+ * @param language - Detected project language ("dart", "typescript", or "unknown")
+ * @returns TDD instructions object or null for unknown languages
+ */
+function generateTddInstructions(
+  language: ProjectLanguage
+): GetCurrentTaskOutput["tdd_instructions"] {
+  if (language === "dart") {
+    return {
+      tagging_mechanism:
+        "Add @Tags(['tdd-red']) annotation to test class or function",
+      red_test_command: "flutter test --tags tdd-red",
+      green_test_command: "flutter test --exclude-tags tdd-red",
+      expected_behavior:
+        "The tagged test MUST fail (exit code 1). All other tests MUST pass (exit code 0).",
+      example: `import 'package:flutter_test/flutter_test.dart';
+
+@Tags(['tdd-red'])  // <-- Add this annotation
+void main() {
+  test('feature should work', () {
+    // This test MUST fail - we haven't implemented the feature yet
+    expect(actualValue, expectedValue);
+  });
+}`,
+    };
+  }
+
+  if (language === "typescript") {
+    return {
+      tagging_mechanism: "Place test file in test/tdd-red/ directory",
+      red_test_command: "npm test -- test/tdd-red",
+      green_test_command: "npm test -- --testPathIgnorePatterns=tdd-red",
+      expected_behavior:
+        "Tests in tdd-red/ MUST fail (exit code 1). All other tests MUST pass (exit code 0).",
+      example: `// File: test/tdd-red/feature.test.ts
+describe('Feature', () => {
+  it('should work', () => {
+    // This test MUST fail - we haven't implemented the feature yet
+    expect(actual).toBe(expected);
+  });
+});`,
+    };
+  }
+
+  return null;
 }

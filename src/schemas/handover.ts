@@ -104,6 +104,16 @@ export const GetCurrentTaskOutputSchema = z.object({
       next_steps: z.array(z.string()),
     })
     .optional(),
+  tdd_red_phase: z.boolean(),
+  tdd_instructions: z
+    .object({
+      tagging_mechanism: z.string(),
+      red_test_command: z.string(),
+      green_test_command: z.string(),
+      expected_behavior: z.string(),
+      example: z.string(),
+    })
+    .nullable(),
 });
 
 export type GetCurrentTaskOutput = z.output<typeof GetCurrentTaskOutputSchema>;
