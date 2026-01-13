@@ -353,6 +353,27 @@ describe("Check Executor", () => {
       expect(result.passed).toBe(true);
     });
 
+    it("should pass when expect_exit_code is 1 and command fails with exit code 1 (TDD red-phase validation)", async () => {
+      mockExecuteCommand.mockResolvedValueOnce({
+        success: false,
+        exitCode: 1,
+        stdout: "",
+        stderr: "FAIL: 1 test failed",
+        duration: 1000,
+      });
+
+      const config: CheckConfig = {
+        type: "behavioral",
+        command: "npm test",
+        expect_exit_code: 1,
+      };
+
+      const result = await executeBehavioralCheck(config, tempDir);
+
+      expect(result.passed).toBe(true);
+      expect(result.message).toBe("Command passed");
+    });
+
     it("should fail when exit code does not match", async () => {
       mockExecuteCommand.mockResolvedValueOnce({
         success: false,
