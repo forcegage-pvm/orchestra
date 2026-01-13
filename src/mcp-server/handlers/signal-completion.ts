@@ -165,6 +165,10 @@ async function signalCompletion(
 
   // 5. Run pre-signal checks (GAP-01: actually execute commands)
   const preSignalConfig = await getPreSignalConfig();
+  // Pass tdd_red_phase from task to executor (Task 19)
+  if (task.tdd_red_phase) {
+    preSignalConfig.tddRedPhase = true;
+  }
   const preSignalChecks = await runPreSignalChecks(preSignalConfig);
 
   // 5b. Validate artifacts exist (VER-003)
