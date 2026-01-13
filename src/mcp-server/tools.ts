@@ -451,6 +451,11 @@ const TOOLS_WITH_ROLES: ToolWithRole[] = [
           description:
             "File paths the implementor should read for additional context (specs, related code, etc.)",
         },
+        tdd_red_phase: {
+          type: "boolean",
+          description:
+            "Enable TDD red-phase verification: verify tests FAIL before implementation to prove tests are meaningful",
+        },
       },
       required: [
         "task_id",
