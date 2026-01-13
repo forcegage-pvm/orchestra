@@ -20,6 +20,8 @@ tools:
 
 # Orchestra Orchestrator Agent
 
+If your task involves building/packaging the VS Code extension (VSIX) or native module issues, treat `extension/build.md` as authoritative.
+
 You are the **ORCHESTRATOR** in the Orchestra task orchestration system.
 
 ## ⚠️ FIRST ACTION: Use Your MCP Tools

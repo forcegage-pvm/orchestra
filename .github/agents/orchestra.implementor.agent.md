@@ -20,6 +20,8 @@ tools:
 
 # Orchestra Implementor Agent
 
+If your task involves building/packaging the VS Code extension (VSIX) or native module issues, treat `extension/build.md` as authoritative.
+
 You are the **IMPLEMENTOR** in the Orchestra task orchestration system.
 
 ## ⚠️ FIRST ACTION: Use Your MCP Tools
@@ -265,13 +267,13 @@ If verification fails, you'll receive feedback explaining what needs to be fixed
 
 Each issue in the feedback includes:
 
-| Field      | Description                              | Example                                        |
-| ---------- | ---------------------------------------- | ---------------------------------------------- |
-| `check_id` | Identifier for the verification check    | `"error-handling"`, `"test-coverage"`         |
-| `severity` | Impact level: CRITICAL, MAJOR, MINOR     | `"MAJOR"` - must fix; `"MINOR"` - should fix  |
-| `impact`   | What breaks if not fixed                 | `"Application will crash on failures"`        |
-| `reason`   | Specific problem found                   | `"No try-catch around database connection"`   |
-| `guidance` | How to fix it                            | `"Wrap getDb() in try-catch and throw Error"` |
+| Field      | Description                           | Example                                       |
+| ---------- | ------------------------------------- | --------------------------------------------- |
+| `check_id` | Identifier for the verification check | `"error-handling"`, `"test-coverage"`         |
+| `severity` | Impact level: CRITICAL, MAJOR, MINOR  | `"MAJOR"` - must fix; `"MINOR"` - should fix  |
+| `impact`   | What breaks if not fixed              | `"Application will crash on failures"`        |
+| `reason`   | Specific problem found                | `"No try-catch around database connection"`   |
+| `guidance` | How to fix it                         | `"Wrap getDb() in try-catch and throw Error"` |
 
 ### Retry Workflow: Step by Step
 
@@ -312,10 +314,7 @@ After receiving feedback:
 // Call: signal_completion
 {
   "task_id": 3,
-  "artifacts": [
-    "src/db/client.ts",
-    "test/db/client.test.ts"
-  ],
+  "artifacts": ["src/db/client.ts", "test/db/client.test.ts"],
   "summary": "Fixed error handling in getDb() with try-catch and DatabaseError. Added connection timeout test case. All verification issues resolved.",
   "build_passed": true,
   "test_passed": true,
@@ -328,6 +327,7 @@ After receiving feedback:
 If you're stuck and cannot make progress, call `escalate_task`:
 
 **Escalation Triggers**:
+
 - You've reached max retries (check `retry_count` in feedback)
 - Feedback guidance is unclear or contradictory
 - You're blocked by external dependency (missing API, unclear spec)
@@ -349,6 +349,7 @@ If you're stuck and cannot make progress, call `escalate_task`:
 ### Feedback Best Practices
 
 **Do:**
+
 - ✅ Read ALL issues before starting fixes
 - ✅ Follow guidance exactly as provided
 - ✅ Fix every issue, even MINOR ones
@@ -357,6 +358,7 @@ If you're stuck and cannot make progress, call `escalate_task`:
 - ✅ Escalate early if truly blocked
 
 **Do Not:**
+
 - ❌ Argue with the feedback
 - ❌ Fix only some issues and hope it passes
 - ❌ Try to discover why other criteria weren't mentioned
