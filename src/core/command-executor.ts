@@ -84,6 +84,11 @@ export async function executeCommand(
     cwd: options.cwd,
     maxBuffer: options.maxBuffer ?? 10 * 1024 * 1024, // 10MB default
     windowsHide: true,
+    // CRITICAL: Explicit shell is required for cwd to work correctly on Windows
+    // when the parent process cwd differs from the target cwd.
+    // Without this, npm/vitest fail to find test suites even though files are found.
+    // On Windows, we use cmd.exe; on Unix, we use /bin/sh.
+    shell: process.platform === "win32" ? "cmd.exe" : "/bin/sh",
   };
 
   // Merge environment variables with current process env
