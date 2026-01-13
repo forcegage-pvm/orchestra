@@ -18,8 +18,8 @@ import {
 
 // Import tool handlers
 import { handleConfigureSprint } from "./handlers/configure-sprint.js";
-import { handleSetConfig } from "./handlers/set-config.js";
 import { handleGetSprintConfig } from "./handlers/get-sprint-config.js";
+import { handleSetConfig } from "./handlers/set-config.js";
 import { handleSetSprintConfig } from "./handlers/set-sprint-config.js";
 
 /**
@@ -920,6 +920,23 @@ const TOOLS_WITH_ROLES: ToolWithRole[] = [
       required: ["key", "value"],
     },
   },
+  // Debug tool - available to all
+  {
+    role: "shared",
+    name: "debug_environment",
+    description:
+      "DEBUG: Show MCP server environment and test command execution. Use to diagnose pre-signal check failures.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        command: {
+          type: "string",
+          description: "Command to test (default: npm test)",
+        },
+      },
+      required: [],
+    },
+  },
 ];
 
 /**
@@ -1119,6 +1136,17 @@ export function registerTools(server: Server, role: ServerRole = "full"): void {
           return await handleGetSprintConfig(args);
         case "set_sprint_config":
           return await handleSetSprintConfig(args);
+
+        // Debug tool
+        case "debug_environment": {
+          const { handleDebugEnvironment } = await import(
+            "./handlers/debug-environment.js"
+          );
+          const result = await handleDebugEnvironment(args);
+          return {
+            content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
+          };
+        }
 
         default:
           return {
