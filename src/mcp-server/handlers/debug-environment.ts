@@ -91,7 +91,7 @@ export async function handleDebugEnvironment(input: {
     workspace: workspacePath,
     node_version: nodeVersionResult.stdout.trim(),
     cwd: process.cwd(),
-    test_result: testResult.error 
+    test_result: testResult.error
       ? { ...testResultBase, error: testResult.error }
       : testResultBase,
   };
