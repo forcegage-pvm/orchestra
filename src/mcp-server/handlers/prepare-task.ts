@@ -7,7 +7,10 @@
 
 import { and, eq, inArray } from "drizzle-orm";
 import { autoCommitIfEnabled, generateCommitMessage } from "../../core/git.js";
-import { cleanupTddRedMarkers } from "../../core/tdd-cleanup.js";
+import {
+  cleanupTddRedMarkers,
+  detectProjectLanguage,
+} from "../../core/tdd-cleanup.js";
 import {
   getActiveSprint,
   getDb,
@@ -281,6 +284,80 @@ async function prepareTask(
       created_at: now,
       updated_at: now,
     });
+  }
+
+  // 5c. Auto-inject TDD red-phase verification checks
+  // When tdd_red_phase=true: inject checks for tagged tests fail, others pass
+  // When tdd_red_phase=false: inject check that no markers remain
+  const tddRedPhase = Boolean(task.tdd_red_phase);
+
+  // Count existing checks for unique IDs
+  const existingChecks = await db
+    .select({ check_id: verificationChecks.check_id })
+    .from(verificationChecks)
+    .where(eq(verificationChecks.task_id, task.id));
+
+  let behavCheckCount = existingChecks.filter((c) =>
+    c.check_id.startsWith("behav-")
+  ).length;
+  let structCheckCount = existingChecks.filter((c) =>
+    c.check_id.startsWith("struct-")
+  ).length;
+
+  if (tddRedPhase) {
+    // Generate and insert red-phase checks
+    const redPhaseChecks = generateTddRedPhaseChecks(workspaceRoot, task.title);
+
+    for (const check of redPhaseChecks) {
+      const checkIdPrefix =
+        check.check_type === "behavioral" ? "behav" : "struct";
+      const checkIdNumber =
+        check.check_type === "behavioral"
+          ? behavCheckCount++
+          : structCheckCount++;
+
+      await db.insert(verificationChecks).values({
+        task_id: task.id,
+        check_id: `${checkIdPrefix}-tdd-red-${checkIdNumber}`,
+        check_type: check.check_type,
+        description: check.description,
+        severity: check.severity,
+        check_config: JSON.stringify(check.check_config),
+        created_at: now,
+      });
+    }
+
+    console.error(
+      `[TDD RED] Auto-injected ${redPhaseChecks.length} red-phase verification checks for task ${input.task_id}`
+    );
+  } else {
+    // Generate and insert cleanup verification checks
+    const cleanupChecks = generateTddCleanupChecks(workspaceRoot, task.title);
+
+    for (const check of cleanupChecks) {
+      const checkIdPrefix =
+        check.check_type === "behavioral" ? "behav" : "struct";
+      const checkIdNumber =
+        check.check_type === "behavioral"
+          ? behavCheckCount++
+          : structCheckCount++;
+
+      await db.insert(verificationChecks).values({
+        task_id: task.id,
+        check_id: `${checkIdPrefix}-tdd-cleanup-${checkIdNumber}`,
+        check_type: check.check_type,
+        description: check.description,
+        severity: check.severity,
+        check_config: JSON.stringify(check.check_config),
+        created_at: now,
+      });
+    }
+
+    if (cleanupChecks.length > 0) {
+      console.error(
+        `[TDD] Auto-injected ${cleanupChecks.length} cleanup verification checks for task ${input.task_id}`
+      );
+    }
   }
 
   // 6. Update task status to IMPLEMENT
@@ -591,4 +668,170 @@ async function injectTestVerificationIfRequired(
   }
 
   return result;
+}
+
+/**
+ * Generate TDD red-phase verification checks
+ *
+ * When a task is marked as tdd_red_phase=true, it requires:
+ * 1. Tagged tests MUST fail (exit code 1)
+ * 2. Non-tagged tests MUST pass (exit code 0)
+ * 3. At least one tdd-red marker exists
+ *
+ * @param workspaceRoot - Root directory of the workspace
+ * @param taskTitle - Task title for check descriptions
+ * @returns Array of verification check configs
+ */
+function generateTddRedPhaseChecks(
+  workspaceRoot: string,
+  taskTitle: string
+): Array<{
+  check_type: "behavioral" | "structural";
+  description: string;
+  severity: "BLOCKING" | "MAJOR" | "MINOR";
+  check_config: Record<string, unknown>;
+}> {
+  const language = detectProjectLanguage(workspaceRoot);
+  const checks: Array<{
+    check_type: "behavioral" | "structural";
+    description: string;
+    severity: "BLOCKING" | "MAJOR" | "MINOR";
+    check_config: Record<string, unknown>;
+  }> = [];
+
+  if (language === "dart") {
+    // Behavioral: Tagged tests must fail
+    checks.push({
+      check_type: "behavioral",
+      description: `[TDD RED] Tagged tests must fail for "${taskTitle}"`,
+      severity: "BLOCKING",
+      check_config: {
+        command: "flutter test --tags tdd-red",
+        expect_exit_code: 1,
+        success_message: "Tagged tests failed as expected (red phase)",
+        failure_message: "Tagged tests must fail in red phase",
+      },
+    });
+
+    // Behavioral: Non-tagged tests must pass
+    checks.push({
+      check_type: "behavioral",
+      description: `[TDD RED] Non-tagged tests must pass for "${taskTitle}"`,
+      severity: "BLOCKING",
+      check_config: {
+        command: "flutter test --exclude-tags tdd-red",
+        expect_exit_code: 0,
+        success_message: "Non-tagged tests passed (no regressions)",
+        failure_message: "Non-tagged tests failed - regressions detected",
+      },
+    });
+
+    // Structural: At least one tdd-red marker exists
+    checks.push({
+      check_type: "structural",
+      description: `[TDD RED] Red-phase marker present for "${taskTitle}"`,
+      severity: "BLOCKING",
+      check_config: {
+        path: "test/**/*.dart",
+        pattern: "@Tags\\(\\['tdd-red'\\]\\)",
+        min_matches: 1,
+      },
+    });
+  } else if (language === "typescript") {
+    // Behavioral: tdd-red tests must fail
+    checks.push({
+      check_type: "behavioral",
+      description: `[TDD RED] Red-phase tests must fail for "${taskTitle}"`,
+      severity: "BLOCKING",
+      check_config: {
+        command: "npm test test/tdd-red",
+        expect_exit_code: 1,
+        success_message: "Red-phase tests failed as expected",
+        failure_message: "Red-phase tests must fail",
+      },
+    });
+
+    // Behavioral: Non-red tests must pass
+    checks.push({
+      check_type: "behavioral",
+      description: `[TDD RED] Non-red tests must pass for "${taskTitle}"`,
+      severity: "BLOCKING",
+      check_config: {
+        command: "npm test -- --testPathIgnorePatterns=test/tdd-red",
+        expect_exit_code: 0,
+        success_message: "Non-red tests passed (no regressions)",
+        failure_message: "Non-red tests failed - regressions detected",
+      },
+    });
+
+    // Structural: tdd-red directory exists with test files
+    checks.push({
+      check_type: "structural",
+      description: `[TDD RED] Red-phase test files present for "${taskTitle}"`,
+      severity: "BLOCKING",
+      check_config: {
+        path: "test/tdd-red/**/*.test.ts",
+        pattern: "test\\(|it\\(|describe\\(",
+        min_matches: 1,
+      },
+    });
+  }
+
+  return checks;
+}
+
+/**
+ * Generate TDD cleanup verification checks
+ *
+ * When a task is NOT a red-phase task (tdd_red_phase=false), verify that
+ * no stale tdd-red markers remain in the codebase.
+ *
+ * @param workspaceRoot - Root directory of the workspace
+ * @param taskTitle - Task title for check descriptions
+ * @returns Array of verification check configs
+ */
+function generateTddCleanupChecks(
+  workspaceRoot: string,
+  taskTitle: string
+): Array<{
+  check_type: "behavioral" | "structural";
+  description: string;
+  severity: "BLOCKING" | "MAJOR" | "MINOR";
+  check_config: Record<string, unknown>;
+}> {
+  const language = detectProjectLanguage(workspaceRoot);
+  const checks: Array<{
+    check_type: "behavioral" | "structural";
+    description: string;
+    severity: "BLOCKING" | "MAJOR" | "MINOR";
+    check_config: Record<string, unknown>;
+  }> = [];
+
+  if (language === "dart") {
+    // Structural: No tdd-red tags should remain
+    checks.push({
+      check_type: "structural",
+      description: `[TDD] No red-phase markers for "${taskTitle}"`,
+      severity: "BLOCKING",
+      check_config: {
+        path: "test/**/*.dart",
+        pattern: "@Tags\\(\\['tdd-red'\\]\\)",
+        max_matches: 0,
+      },
+    });
+  } else if (language === "typescript") {
+    // Structural: tdd-red directory should not exist or be empty
+    checks.push({
+      check_type: "structural",
+      description: `[TDD] No red-phase test files for "${taskTitle}"`,
+      severity: "BLOCKING",
+      check_config: {
+        path: "test/tdd-red/**/*.test.ts",
+        pattern: ".*",
+        max_matches: 0,
+      },
+    });
+  }
+
+  return checks;
 }

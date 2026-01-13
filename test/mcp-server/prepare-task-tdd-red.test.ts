@@ -1,0 +1,514 @@
+/**
+ * prepare_task TDD Red-Phase Verification Auto-Injection Tests
+ *
+ * Tests for auto-injection of TDD red-phase verification checks in prepare_task.
+ * Validates that checks are correctly injected based on tdd_red_phase flag.
+ */
+
+import { eq } from "drizzle-orm";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { getDb, initializeDb, resetDb } from "../../src/db/index.js";
+import {
+  phases,
+  sprints,
+  tasks,
+  verificationChecks,
+} from "../../src/db/schema.js";
+import { handlePrepareTask } from "../../src/mcp-server/handlers/prepare-task.js";
+
+describe("prepare_task TDD Red-Phase Verification Auto-Injection", () => {
+  const testSprintId = "test-sprint-tdd-red";
+  let currentPhaseId: number;
+  let tempDir: string;
+
+  beforeEach(async () => {
+    // Create temp directory for isolated DB
+    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "tdd-red-test-"));
+    process.env.ORCHESTRA_WORKSPACE = tempDir;
+
+    resetDb();
+    await initializeDb();
+    const db = getDb();
+
+    // Create test sprint
+    await db.insert(sprints).values({
+      id: testSprintId,
+      name: "TDD Red Test Sprint",
+      workflow_step: "SELECT_TASK",
+      is_active: 1,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    });
+
+    // Create test phase
+    await db.insert(phases).values({
+      id: 1,
+      sprint_id: testSprintId,
+      phase_id: "phase-tdd-red",
+      phase_name: "TDD Red Phase",
+      speckit_tasks: "[]",
+      order: 1,
+    });
+
+    currentPhaseId = 1;
+  });
+
+  afterEach(async () => {
+    resetDb();
+    fs.rmSync(tempDir, { recursive: true, force: true });
+    delete process.env.ORCHESTRA_WORKSPACE;
+  });
+
+  describe("TypeScript projects", () => {
+    beforeEach(() => {
+      // Mark as TypeScript project
+      fs.writeFileSync(
+        path.join(tempDir, "package.json"),
+        JSON.stringify({ name: "test-project" })
+      );
+    });
+
+    it("should inject red-phase checks when tdd_red_phase=true", async () => {
+      const db = getDb();
+      const now = new Date().toISOString();
+
+      // Create task with tdd_red_phase=true
+      await db.insert(tasks).values({
+        id: 1,
+        sprint_id: testSprintId,
+        phase_id: currentPhaseId,
+        task_id: 1,
+        title: "Add failing test",
+        category: "INFRASTRUCTURE",
+        status: "PENDING",
+        description: "Create red-phase test",
+        dependencies: "[]",
+        tdd_red_phase: true,
+        created_at: now,
+        updated_at: now,
+      });
+
+      // Prepare task
+      const result = await handlePrepareTask({
+        task_id: 1,
+        priority: "P0",
+        context:
+          "Test task for TDD red-phase verification. This validates auto-injection of checks.",
+        acceptance_criteria: [
+          { criterion: "Test criterion", verification: "Manual check" },
+        ],
+        file_operations: [
+          {
+            operation: "CREATE",
+            path: "test/tdd-red/feature.test.ts",
+            description: "Failing test",
+          },
+        ],
+        deliverables: ["feature.test.ts"],
+      });
+
+      // Verify task prepared successfully
+      const resultObj = JSON.parse(result.content[0].text);
+      expect(resultObj.success).toBe(true);
+
+      // Verify checks were injected
+      const checks = await db
+        .select()
+        .from(verificationChecks)
+        .where(eq(verificationChecks.task_id, 1));
+
+      // Should have 3 checks: 2 behavioral + 1 structural
+      expect(checks).toHaveLength(3);
+
+      // Check 1: Red tests must fail
+      const redFailCheck = checks.find(
+        (c) =>
+          c.check_type === "behavioral" &&
+          c.description.includes("Red-phase tests must fail")
+      );
+      expect(redFailCheck).toBeDefined();
+      expect(redFailCheck!.severity).toBe("BLOCKING");
+      const redFailConfig = JSON.parse(redFailCheck!.check_config);
+      expect(redFailConfig.command).toBe("npm test test/tdd-red");
+      expect(redFailConfig.expect_exit_code).toBe(1);
+
+      // Check 2: Non-red tests must pass
+      const greenPassCheck = checks.find(
+        (c) =>
+          c.check_type === "behavioral" &&
+          c.description.includes("Non-red tests must pass")
+      );
+      expect(greenPassCheck).toBeDefined();
+      expect(greenPassCheck!.severity).toBe("BLOCKING");
+      const greenPassConfig = JSON.parse(greenPassCheck!.check_config);
+      expect(greenPassConfig.command).toContain("testPathIgnorePatterns");
+      expect(greenPassConfig.expect_exit_code).toBe(0);
+
+      // Check 3: Structural check for test files
+      const structCheck = checks.find((c) => c.check_type === "structural");
+      expect(structCheck).toBeDefined();
+      expect(structCheck!.severity).toBe("BLOCKING");
+      const structConfig = JSON.parse(structCheck!.check_config);
+      expect(structConfig.path).toBe("test/tdd-red/**/*.test.ts");
+      expect(structConfig.min_matches).toBe(1);
+    });
+
+    it("should inject cleanup checks when tdd_red_phase=false", async () => {
+      const db = getDb();
+      const now = new Date().toISOString();
+
+      // Create task with tdd_red_phase=false (default)
+      await db.insert(tasks).values({
+        id: 1,
+        sprint_id: testSprintId,
+        phase_id: currentPhaseId,
+        task_id: 1,
+        title: "Implement feature",
+        category: "FEATURE",
+        status: "PENDING",
+        description: "Green phase implementation",
+        dependencies: "[]",
+        tdd_red_phase: false,
+        created_at: now,
+        updated_at: now,
+      });
+
+      // Prepare task
+      const result = await handlePrepareTask({
+        task_id: 1,
+        priority: "P0",
+        context:
+          "Test task for TDD cleanup verification. No red-phase markers should remain.",
+        acceptance_criteria: [
+          { criterion: "Test criterion", verification: "Manual check" },
+        ],
+        file_operations: [
+          { operation: "CREATE", path: "src/feature.ts", description: "Feature" },
+        ],
+        deliverables: ["feature.ts"],
+      });
+
+      // Verify task prepared successfully
+      const resultObj = JSON.parse(result.content[0].text);
+      expect(resultObj.success).toBe(true);
+
+      // Verify cleanup check was injected
+      const checks = await db
+        .select()
+        .from(verificationChecks)
+        .where(eq(verificationChecks.task_id, 1));
+
+      // Should have 1 structural check
+      expect(checks.length).toBeGreaterThanOrEqual(1);
+
+      const cleanupCheck = checks.find(
+        (c) =>
+          c.check_type === "structural" &&
+          c.description.includes("No red-phase")
+      );
+      expect(cleanupCheck).toBeDefined();
+      expect(cleanupCheck!.severity).toBe("BLOCKING");
+      const config = JSON.parse(cleanupCheck!.check_config);
+      expect(config.path).toBe("test/tdd-red/**/*.test.ts");
+      expect(config.max_matches).toBe(0);
+    });
+  });
+
+  describe("Dart projects", () => {
+    beforeEach(() => {
+      // Mark as Dart project
+      fs.writeFileSync(
+        path.join(tempDir, "pubspec.yaml"),
+        "name: test_project\n"
+      );
+    });
+
+    it("should inject Dart-specific red-phase checks when tdd_red_phase=true", async () => {
+      const db = getDb();
+      const now = new Date().toISOString();
+
+      // Create task with tdd_red_phase=true
+      await db.insert(tasks).values({
+        id: 1,
+        sprint_id: testSprintId,
+        phase_id: currentPhaseId,
+        task_id: 1,
+        title: "Add failing widget test",
+        category: "INTEGRATION",
+        status: "PENDING",
+        description: "Create red-phase test",
+        dependencies: "[]",
+        tdd_red_phase: true,
+        created_at: now,
+        updated_at: now,
+      });
+
+      // Prepare task
+      const result = await handlePrepareTask({
+        task_id: 1,
+        priority: "P0",
+        context:
+          "Test task for Dart TDD red-phase verification. Uses flutter test commands.",
+        acceptance_criteria: [
+          { criterion: "Test criterion", verification: "Manual check" },
+        ],
+        file_operations: [
+          {
+            operation: "CREATE",
+            path: "test/widget_test.dart",
+            description: "Failing test",
+          },
+        ],
+        deliverables: ["widget_test.dart"],
+      });
+
+      // Verify task prepared successfully
+      const resultObj = JSON.parse(result.content[0].text);
+      expect(resultObj.success).toBe(true);
+
+      // Verify checks were injected
+      const checks = await db
+        .select()
+        .from(verificationChecks)
+        .where(eq(verificationChecks.task_id, 1));
+
+      // Should have 3 checks: 2 behavioral + 1 structural
+      expect(checks).toHaveLength(3);
+
+      // Check 1: Tagged tests must fail
+      const taggedFailCheck = checks.find(
+        (c) =>
+          c.check_type === "behavioral" &&
+          c.description.includes("Tagged tests must fail")
+      );
+      expect(taggedFailCheck).toBeDefined();
+      const taggedConfig = JSON.parse(taggedFailCheck!.check_config);
+      expect(taggedConfig.command).toBe("flutter test --tags tdd-red");
+      expect(taggedConfig.expect_exit_code).toBe(1);
+
+      // Check 2: Non-tagged tests must pass
+      const nonTaggedCheck = checks.find(
+        (c) =>
+          c.check_type === "behavioral" &&
+          c.description.includes("Non-tagged tests must pass")
+      );
+      expect(nonTaggedCheck).toBeDefined();
+      const nonTaggedConfig = JSON.parse(nonTaggedCheck!.check_config);
+      expect(nonTaggedConfig.command).toBe("flutter test --exclude-tags tdd-red");
+      expect(nonTaggedConfig.expect_exit_code).toBe(0);
+
+      // Check 3: Structural check for tag presence
+      const structCheck = checks.find((c) => c.check_type === "structural");
+      expect(structCheck).toBeDefined();
+      const structConfig = JSON.parse(structCheck!.check_config);
+      expect(structConfig.path).toBe("test/**/*.dart");
+      expect(structConfig.pattern).toContain("@Tags");
+      expect(structConfig.min_matches).toBe(1);
+    });
+
+    it("should inject Dart-specific cleanup checks when tdd_red_phase=false", async () => {
+      const db = getDb();
+      const now = new Date().toISOString();
+
+      // Create task with tdd_red_phase=false
+      await db.insert(tasks).values({
+        id: 1,
+        sprint_id: testSprintId,
+        phase_id: currentPhaseId,
+        task_id: 1,
+        title: "Implement widget",
+        category: "VISUAL",
+        status: "PENDING",
+        description: "Green phase implementation",
+        dependencies: "[]",
+        tdd_red_phase: false,
+        created_at: now,
+        updated_at: now,
+      });
+
+      // Prepare task
+      const result = await handlePrepareTask({
+        task_id: 1,
+        priority: "P0",
+        context:
+          "Test task for Dart cleanup verification. No tdd-red tags should remain.",
+        acceptance_criteria: [
+          { criterion: "Test criterion", verification: "Manual check" },
+        ],
+        file_operations: [
+          { operation: "CREATE", path: "lib/widget.dart", description: "Widget" },
+        ],
+        deliverables: ["widget.dart"],
+      });
+
+      // Verify task prepared successfully
+      const resultObj = JSON.parse(result.content[0].text);
+      expect(resultObj.success).toBe(true);
+
+      // Verify cleanup check was injected
+      const checks = await db
+        .select()
+        .from(verificationChecks)
+        .where(eq(verificationChecks.task_id, 1));
+
+      const cleanupCheck = checks.find(
+        (c) =>
+          c.check_type === "structural" &&
+          c.description.includes("No red-phase markers")
+      );
+      expect(cleanupCheck).toBeDefined();
+      const config = JSON.parse(cleanupCheck!.check_config);
+      expect(config.path).toBe("test/**/*.dart");
+      expect(config.pattern).toContain("@Tags");
+      expect(config.max_matches).toBe(0);
+    });
+  });
+
+  describe("Unknown project types", () => {
+    it("should not inject checks for unknown project types", async () => {
+      const db = getDb();
+      const now = new Date().toISOString();
+
+      // No package.json or pubspec.yaml - unknown project type
+
+      // Create task with tdd_red_phase=true
+      await db.insert(tasks).values({
+        id: 1,
+        sprint_id: testSprintId,
+        phase_id: currentPhaseId,
+        task_id: 1,
+        title: "Unknown project task",
+        category: "INFRASTRUCTURE",
+        status: "PENDING",
+        description: "Task in unknown project",
+        dependencies: "[]",
+        tdd_red_phase: true,
+        created_at: now,
+        updated_at: now,
+      });
+
+      // Prepare task
+      const result = await handlePrepareTask({
+        task_id: 1,
+        priority: "P0",
+        context:
+          "Test task for unknown project type. Should not inject language-specific checks.",
+        acceptance_criteria: [
+          { criterion: "Test criterion", verification: "Manual check" },
+        ],
+        file_operations: [
+          { operation: "CREATE", path: "src/feature.c", description: "C file" },
+        ],
+        deliverables: ["feature.c"],
+      });
+
+      // Verify task prepared successfully
+      const resultObj = JSON.parse(result.content[0].text);
+      expect(resultObj.success).toBe(true);
+
+      // Verify NO TDD checks were injected (unknown language)
+      const checks = await db
+        .select()
+        .from(verificationChecks)
+        .where(eq(verificationChecks.task_id, 1));
+
+      // Should not have TDD-specific checks
+      const tddChecks = checks.filter((c) =>
+        c.description.toLowerCase().includes("tdd")
+      );
+      expect(tddChecks).toHaveLength(0);
+    });
+  });
+
+  describe("Check ID generation", () => {
+    beforeEach(() => {
+      // Mark as TypeScript project
+      fs.writeFileSync(
+        path.join(tempDir, "package.json"),
+        JSON.stringify({ name: "test-project" })
+      );
+    });
+
+    it("should generate unique check IDs when multiple checks exist", async () => {
+      const db = getDb();
+      const now = new Date().toISOString();
+
+      // Create task
+      await db.insert(tasks).values({
+        id: 1,
+        sprint_id: testSprintId,
+        phase_id: currentPhaseId,
+        task_id: 1,
+        title: "Task with existing checks",
+        category: "INFRASTRUCTURE",
+        status: "PENDING",
+        description: "Test",
+        dependencies: "[]",
+        tdd_red_phase: true,
+        created_at: now,
+        updated_at: now,
+      });
+
+      // Insert existing checks
+      await db.insert(verificationChecks).values([
+        {
+          task_id: 1,
+          check_id: "behav-0",
+          check_type: "behavioral",
+          description: "Existing behavioral check",
+          severity: "MAJOR",
+          check_config: "{}",
+          created_at: now,
+        },
+        {
+          task_id: 1,
+          check_id: "struct-0",
+          check_type: "structural",
+          description: "Existing structural check",
+          severity: "MAJOR",
+          check_config: "{}",
+          created_at: now,
+        },
+      ]);
+
+      // Prepare task
+      await handlePrepareTask({
+        task_id: 1,
+        priority: "P0",
+        context:
+          "Test task for verifying unique check ID generation with existing checks.",
+        acceptance_criteria: [
+          { criterion: "Test criterion", verification: "Manual check" },
+        ],
+        file_operations: [
+          {
+            operation: "CREATE",
+            path: "test/tdd-red/feature.test.ts",
+            description: "Test",
+          },
+        ],
+        deliverables: ["feature.test.ts"],
+      });
+
+      // Verify check IDs are unique
+      const checks = await db
+        .select()
+        .from(verificationChecks)
+        .where(eq(verificationChecks.task_id, 1));
+
+      const checkIds = checks.map((c) => c.check_id);
+      const uniqueIds = new Set(checkIds);
+      expect(uniqueIds.size).toBe(checkIds.length); // All IDs are unique
+
+      // Verify TDD checks have correct ID format
+      const tddChecks = checks.filter((c) => c.check_id.includes("tdd-red"));
+      expect(tddChecks.length).toBeGreaterThan(0);
+      tddChecks.forEach((check) => {
+        expect(check.check_id).toMatch(/^(behav|struct)-tdd-red-\d+$/);
+      });
+    });
+  });
+});

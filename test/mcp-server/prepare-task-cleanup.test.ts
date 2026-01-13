@@ -146,7 +146,11 @@ describe("prepare_task TDD Cleanup Integration", () => {
         { criterion: "Test criterion", verification: "Manual check" },
       ],
       file_operations: [
-        { operation: "CREATE", path: "src/feature.ts", description: "New file" },
+        {
+          operation: "CREATE",
+          path: "src/feature.ts",
+          description: "New file",
+        },
       ],
       deliverables: ["feature.ts"],
     });
@@ -213,7 +217,11 @@ describe("prepare_task TDD Cleanup Integration", () => {
         { criterion: "Test criterion", verification: "Manual check" },
       ],
       file_operations: [
-        { operation: "CREATE", path: "lib/widget.dart", description: "New widget" },
+        {
+          operation: "CREATE",
+          path: "lib/widget.dart",
+          description: "New widget",
+        },
       ],
       deliverables: ["widget.dart"],
     });
@@ -269,7 +277,11 @@ describe("prepare_task TDD Cleanup Integration", () => {
         { criterion: "Test criterion", verification: "Manual check" },
       ],
       file_operations: [
-        { operation: "CREATE", path: "src/feature.ts", description: "New file" },
+        {
+          operation: "CREATE",
+          path: "src/feature.ts",
+          description: "New file",
+        },
       ],
       deliverables: ["feature.ts"],
     });
@@ -282,7 +294,12 @@ describe("prepare_task TDD Cleanup Integration", () => {
     const commits = await db
       .select()
       .from(gitCommits)
-      .where(eq(gitCommits.commit_message, "chore(orchestra): cleanup tdd-red markers"));
+      .where(
+        eq(
+          gitCommits.commit_message,
+          "chore(orchestra): cleanup tdd-red markers"
+        )
+      );
 
     expect(commits).toHaveLength(0);
   });
@@ -335,7 +352,11 @@ describe("prepare_task TDD Cleanup Integration", () => {
         { criterion: "Test criterion", verification: "Manual check" },
       ],
       file_operations: [
-        { operation: "CREATE", path: "src/feature.ts", description: "New file" },
+        {
+          operation: "CREATE",
+          path: "src/feature.ts",
+          description: "New file",
+        },
       ],
       deliverables: ["feature.ts"],
     });
@@ -454,7 +475,12 @@ describe("prepare_task TDD Cleanup Integration", () => {
     const commits = await db
       .select()
       .from(gitCommits)
-      .where(eq(gitCommits.commit_message, "chore(orchestra): cleanup tdd-red markers"));
+      .where(
+        eq(
+          gitCommits.commit_message,
+          "chore(orchestra): cleanup tdd-red markers"
+        )
+      );
 
     expect(commits).toHaveLength(0);
   });
