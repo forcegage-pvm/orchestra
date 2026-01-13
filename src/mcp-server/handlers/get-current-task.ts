@@ -5,7 +5,7 @@
  * Includes feedback if task is in VERIFY_FAILED state.
  */
 
-import { eq, inArray } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import {
   detectProjectLanguage,
   type ProjectLanguage,
@@ -100,11 +100,16 @@ async function getCurrentTask(): Promise<GetCurrentTaskOutput> {
     throw new Error("No active sprint");
   }
 
-  // 2. Find task in IMPLEMENT or VERIFY_FAILED state (current task for implementor)
+  // 2. Find task in IMPLEMENT or VERIFY_FAILED state FOR THE ACTIVE SPRINT
   const [task] = await db
     .select()
     .from(tasks)
-    .where(inArray(tasks.status, ["IMPLEMENT", "VERIFY_FAILED"]))
+    .where(
+      and(
+        eq(tasks.sprint_id, sprint.id),
+        inArray(tasks.status, ["IMPLEMENT", "VERIFY_FAILED"])
+      )
+    )
     .limit(1);
 
   if (!task) {

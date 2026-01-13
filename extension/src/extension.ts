@@ -441,8 +441,8 @@ export async function activate(
       const version = context.extension.packageJSON.version || "0.0.0";
       const workspaceRoot = findOrchestraRoot();
 
-      let message = `Orchestra Extension v${version}`;
-      let details = [`Extension Version: ${version}`];
+      const message = `Orchestra Extension v${version}`;
+      const details = [`Extension Version: ${version}`];
 
       if (workspaceRoot) {
         const dbPath = path.join(workspaceRoot, "orchestra.db");

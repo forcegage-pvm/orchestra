@@ -788,9 +788,14 @@ export interface Signal {
   task_id: number;
   signal_id: string;
   attempt: number;
-  artifact_paths: string | null;
-  description: string | null;
-  created_at: string;
+  summary: string;
+  artifacts_created: string;
+  tests: string;
+  build_status: string;
+  test_status: string;
+  pre_signal_checks: string;
+  notes: string | null;
+  signaled_at: string;
 }
 
 /**
