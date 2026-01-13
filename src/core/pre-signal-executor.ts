@@ -183,12 +183,22 @@ export async function runPreSignalChecks(
     config.skipBuild
   );
 
-  // Run test check
-  const testResult = await runCheck(
-    config.testCommand ?? defaults.test,
-    execOptions,
-    config.skipTest
-  );
+  // Run test check - handle TDD red-phase dual-command mode
+  let testResult: PreSignalCheckResult;
+  if (config.tddRedPhase) {
+    testResult = await runTddRedPhaseTests(
+      projectType,
+      config.testCommand,
+      execOptions,
+      config.skipTest
+    );
+  } else {
+    testResult = await runCheck(
+      config.testCommand ?? defaults.test,
+      execOptions,
+      config.skipTest
+    );
+  }
 
   // Run lint check (use detected default if available, or explicit config)
   const lintCommand = config.lintCommand ?? defaults.lint;
@@ -256,4 +266,158 @@ function mapExecuteResult(result: ExecuteResult): PreSignalCheckResult {
   }
 
   return checkResult;
+}
+
+/**
+ * Run TDD red-phase tests with dual-command execution
+ *
+ * Executes two test commands:
+ * 1. Tagged tests (expect FAILURE - exit code 1)
+ * 2. Non-tagged tests (expect SUCCESS - exit code 0)
+ *
+ * Both must match expectations for the test phase to pass.
+ *
+ * @param projectType - Detected project type (determines commands)
+ * @param customTestCommand - Optional custom test command (overrides defaults)
+ * @param options - Execution options (cwd, timeout)
+ * @param skip - Whether to skip test execution
+ * @returns Test check result (passed only if both commands match expectations)
+ */
+async function runTddRedPhaseTests(
+  projectType: ProjectType,
+  customTestCommand: string | undefined,
+  options: { cwd: string; timeout: number },
+  skip?: boolean
+): Promise<PreSignalCheckResult> {
+  // Skip if requested
+  if (skip) {
+    return {
+      passed: true,
+      duration_ms: 0,
+      skipped: true,
+    };
+  }
+
+  // Get TDD-specific commands for the project type
+  const tddCommands = getTddCommands(projectType, customTestCommand);
+
+  // Run tagged tests (expect FAILURE)
+  const taggedResult = await executeCommand(tddCommands.tagged, options);
+
+  // Run non-tagged tests (expect SUCCESS)
+  const nonTaggedResult = await executeCommand(tddCommands.nonTagged, options);
+
+  // Validate results match expectations
+  const taggedExpectation = !taggedResult.success; // Expect failure (exit code 1)
+  const nonTaggedExpectation = nonTaggedResult.success; // Expect success (exit code 0)
+
+  const passed = taggedExpectation && nonTaggedExpectation;
+  const totalDuration = taggedResult.duration + nonTaggedResult.duration;
+
+  // Build output message on failure
+  let output: string | undefined;
+  if (!passed) {
+    const messages: string[] = [];
+
+    if (!taggedExpectation) {
+      messages.push(
+        `TDD red-phase validation failed: Tagged tests PASSED but should FAIL.\nCommand: ${
+          tddCommands.tagged
+        }\nOutput: ${
+          taggedResult.stdout || taggedResult.stderr || "(no output)"
+        }`
+      );
+    }
+
+    if (!nonTaggedExpectation) {
+      messages.push(
+        `TDD red-phase validation failed: Non-tagged tests FAILED but should PASS.\nCommand: ${
+          tddCommands.nonTagged
+        }\nOutput: ${
+          nonTaggedResult.stderr || nonTaggedResult.stdout || "(no output)"
+        }`
+      );
+    }
+
+    output = messages.join("\n\n");
+  }
+
+  // Build result object conditionally to comply with exactOptionalPropertyTypes
+  const result: PreSignalCheckResult = {
+    passed,
+    duration_ms: totalDuration,
+  };
+
+  if (output !== undefined) {
+    result.output = output;
+  }
+
+  if (taggedResult.timedOut || nonTaggedResult.timedOut) {
+    result.timedOut = true;
+  }
+
+  return result;
+}
+
+/**
+ * Get TDD-specific test commands for a project type
+ *
+ * Returns commands for:
+ * - Tagged tests (run TDD red-phase tests only)
+ * - Non-tagged tests (run all tests except TDD red-phase)
+ *
+ * @param projectType - Detected project type
+ * @param customTestCommand - Optional custom base test command
+ * @returns Object with tagged and nonTagged command strings
+ */
+function getTddCommands(
+  projectType: ProjectType,
+  customTestCommand?: string
+): { tagged: string; nonTagged: string } {
+  switch (projectType) {
+    case "flutter":
+      return {
+        tagged: "flutter test --tags tdd-red",
+        nonTagged: "flutter test --exclude-tags tdd-red",
+      };
+
+    case "node":
+      // If custom command provided, use it as base
+      if (customTestCommand) {
+        return {
+          tagged: `${customTestCommand} test/tdd-red`,
+          nonTagged: `${customTestCommand} --testPathIgnorePatterns=tdd-red`,
+        };
+      }
+      return {
+        tagged: "npm test -- test/tdd-red",
+        nonTagged: "npm test -- --testPathIgnorePatterns=tdd-red",
+      };
+
+    case "python":
+      return {
+        tagged: "pytest tests/tdd_red",
+        nonTagged: "pytest --ignore=tests/tdd_red",
+      };
+
+    case "rust":
+      return {
+        tagged: "cargo test tdd_red",
+        nonTagged: "cargo test --exclude tdd_red",
+      };
+
+    case "go":
+      return {
+        tagged: "go test ./tdd-red/...",
+        nonTagged: "go test $(go list ./... | grep -v tdd-red)",
+      };
+
+    case "unknown":
+    default:
+      // Fallback to Node.js pattern
+      return {
+        tagged: "npm test -- test/tdd-red",
+        nonTagged: "npm test -- --testPathIgnorePatterns=tdd-red",
+      };
+  }
 }

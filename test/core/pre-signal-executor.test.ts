@@ -340,10 +340,27 @@ describe("Pre-Signal Executor", () => {
     });
 
     it("should accept tddRedPhase as optional property", async () => {
-      mockExecuteCommand.mockResolvedValue({
+      // Build
+      mockExecuteCommand.mockResolvedValueOnce({
         success: true,
         exitCode: 0,
-        stdout: "OK",
+        stdout: "Build OK",
+        stderr: "",
+        duration: 100,
+      });
+      // Tagged tests (should fail)
+      mockExecuteCommand.mockResolvedValueOnce({
+        success: false,
+        exitCode: 1,
+        stdout: "1 test failed",
+        stderr: "",
+        duration: 100,
+      });
+      // Non-tagged tests (should pass)
+      mockExecuteCommand.mockResolvedValueOnce({
+        success: true,
+        exitCode: 0,
+        stdout: "Tests passed",
         stderr: "",
         duration: 100,
       });
@@ -401,6 +418,361 @@ describe("Pre-Signal Executor", () => {
 
       // Should accept explicit false value
       expect(result).toBeDefined();
+      expect(result.allPassed).toBe(true);
+    });
+  });
+
+  describe("TDD Red-Phase Dual-Command Execution", () => {
+    it("should run dual commands when tddRedPhase is true", async () => {
+      // Build passes
+      mockExecuteCommand.mockResolvedValueOnce({
+        success: true,
+        exitCode: 0,
+        stdout: "Build OK",
+        stderr: "",
+        duration: 500,
+      });
+      // Tagged tests fail (expected)
+      mockExecuteCommand.mockResolvedValueOnce({
+        success: false,
+        exitCode: 1,
+        stdout: "1 test failed",
+        stderr: "",
+        duration: 1000,
+      });
+      // Non-tagged tests pass (expected)
+      mockExecuteCommand.mockResolvedValueOnce({
+        success: true,
+        exitCode: 0,
+        stdout: "10 tests passed",
+        stderr: "",
+        duration: 2000,
+      });
+
+      const config: PreSignalConfig = {
+        workspacePath: "/test/workspace",
+        tddRedPhase: true,
+        skipLint: true,
+      };
+
+      const result = await runPreSignalChecks(config);
+
+      // Should call 3 commands: build, tagged tests, non-tagged tests
+      expect(mockExecuteCommand).toHaveBeenCalledTimes(3);
+      expect(result.test.passed).toBe(true);
+      expect(result.test.duration_ms).toBe(3000); // 1000 + 2000
+      expect(result.allPassed).toBe(true);
+    });
+
+    it("should fail if tagged tests pass (should fail)", async () => {
+      // Build passes
+      mockExecuteCommand.mockResolvedValueOnce({
+        success: true,
+        exitCode: 0,
+        stdout: "Build OK",
+        stderr: "",
+        duration: 500,
+      });
+      // Tagged tests pass (WRONG - should fail!)
+      mockExecuteCommand.mockResolvedValueOnce({
+        success: true,
+        exitCode: 0,
+        stdout: "All tests passed",
+        stderr: "",
+        duration: 1000,
+      });
+      // Non-tagged tests pass
+      mockExecuteCommand.mockResolvedValueOnce({
+        success: true,
+        exitCode: 0,
+        stdout: "10 tests passed",
+        stderr: "",
+        duration: 2000,
+      });
+
+      const config: PreSignalConfig = {
+        workspacePath: "/test/workspace",
+        tddRedPhase: true,
+        skipLint: true,
+      };
+
+      const result = await runPreSignalChecks(config);
+
+      expect(result.test.passed).toBe(false);
+      expect(result.test.output).toContain(
+        "Tagged tests PASSED but should FAIL"
+      );
+      expect(result.allPassed).toBe(false);
+    });
+
+    it("should fail if non-tagged tests fail (should pass)", async () => {
+      // Build passes
+      mockExecuteCommand.mockResolvedValueOnce({
+        success: true,
+        exitCode: 0,
+        stdout: "Build OK",
+        stderr: "",
+        duration: 500,
+      });
+      // Tagged tests fail (expected)
+      mockExecuteCommand.mockResolvedValueOnce({
+        success: false,
+        exitCode: 1,
+        stdout: "1 test failed",
+        stderr: "",
+        duration: 1000,
+      });
+      // Non-tagged tests fail (WRONG - should pass!)
+      mockExecuteCommand.mockResolvedValueOnce({
+        success: false,
+        exitCode: 1,
+        stdout: "",
+        stderr: "Test error",
+        duration: 2000,
+      });
+
+      const config: PreSignalConfig = {
+        workspacePath: "/test/workspace",
+        tddRedPhase: true,
+        skipLint: true,
+      };
+
+      const result = await runPreSignalChecks(config);
+
+      expect(result.test.passed).toBe(false);
+      expect(result.test.output).toContain(
+        "Non-tagged tests FAILED but should PASS"
+      );
+      expect(result.allPassed).toBe(false);
+    });
+
+    it("should fail if both expectations are wrong", async () => {
+      // Build passes
+      mockExecuteCommand.mockResolvedValueOnce({
+        success: true,
+        exitCode: 0,
+        stdout: "Build OK",
+        stderr: "",
+        duration: 500,
+      });
+      // Tagged tests pass (should fail)
+      mockExecuteCommand.mockResolvedValueOnce({
+        success: true,
+        exitCode: 0,
+        stdout: "All tests passed",
+        stderr: "",
+        duration: 1000,
+      });
+      // Non-tagged tests fail (should pass)
+      mockExecuteCommand.mockResolvedValueOnce({
+        success: false,
+        exitCode: 1,
+        stdout: "",
+        stderr: "Test error",
+        duration: 2000,
+      });
+
+      const config: PreSignalConfig = {
+        workspacePath: "/test/workspace",
+        tddRedPhase: true,
+        skipLint: true,
+      };
+
+      const result = await runPreSignalChecks(config);
+
+      expect(result.test.passed).toBe(false);
+      expect(result.test.output).toContain(
+        "Tagged tests PASSED but should FAIL"
+      );
+      expect(result.test.output).toContain(
+        "Non-tagged tests FAILED but should PASS"
+      );
+      expect(result.allPassed).toBe(false);
+    });
+
+    it("should use Node.js/TypeScript commands by default", async () => {
+      // Build
+      mockExecuteCommand.mockResolvedValueOnce({
+        success: true,
+        exitCode: 0,
+        stdout: "Build OK",
+        stderr: "",
+        duration: 500,
+      });
+      // Tagged tests
+      mockExecuteCommand.mockResolvedValueOnce({
+        success: false,
+        exitCode: 1,
+        stdout: "1 test failed",
+        stderr: "",
+        duration: 1000,
+      });
+      // Non-tagged tests
+      mockExecuteCommand.mockResolvedValueOnce({
+        success: true,
+        exitCode: 0,
+        stdout: "10 tests passed",
+        stderr: "",
+        duration: 2000,
+      });
+
+      const config: PreSignalConfig = {
+        workspacePath: "/test/workspace",
+        tddRedPhase: true,
+        skipLint: true,
+      };
+
+      await runPreSignalChecks(config);
+
+      // Check that Node.js TDD commands were used
+      expect(mockExecuteCommand).toHaveBeenNthCalledWith(
+        2,
+        "npm test -- test/tdd-red",
+        {
+          cwd: "/test/workspace",
+          timeout: expect.any(Number),
+        }
+      );
+      expect(mockExecuteCommand).toHaveBeenNthCalledWith(
+        3,
+        "npm test -- --testPathIgnorePatterns=tdd-red",
+        {
+          cwd: "/test/workspace",
+          timeout: expect.any(Number),
+        }
+      );
+    });
+
+    it("should respect skipTest flag in TDD mode", async () => {
+      // Build only
+      mockExecuteCommand.mockResolvedValueOnce({
+        success: true,
+        exitCode: 0,
+        stdout: "Build OK",
+        stderr: "",
+        duration: 500,
+      });
+
+      const config: PreSignalConfig = {
+        workspacePath: "/test/workspace",
+        tddRedPhase: true,
+        skipTest: true,
+        skipLint: true,
+      };
+
+      const result = await runPreSignalChecks(config);
+
+      // Should only call build, not tests
+      expect(mockExecuteCommand).toHaveBeenCalledTimes(1);
+      expect(result.test.passed).toBe(true);
+      expect(result.test.skipped).toBe(true);
+      expect(result.allPassed).toBe(true);
+    });
+
+    it("should handle timeout in TDD mode", async () => {
+      // Build
+      mockExecuteCommand.mockResolvedValueOnce({
+        success: true,
+        exitCode: 0,
+        stdout: "Build OK",
+        stderr: "",
+        duration: 500,
+      });
+      // Tagged tests timeout
+      mockExecuteCommand.mockResolvedValueOnce({
+        success: false,
+        exitCode: 1,
+        stdout: "",
+        stderr: "",
+        duration: 60000,
+        timedOut: true,
+      });
+      // Non-tagged tests
+      mockExecuteCommand.mockResolvedValueOnce({
+        success: true,
+        exitCode: 0,
+        stdout: "10 tests passed",
+        stderr: "",
+        duration: 2000,
+      });
+
+      const config: PreSignalConfig = {
+        workspacePath: "/test/workspace",
+        tddRedPhase: true,
+        timeout: 60000,
+        skipLint: true,
+      };
+
+      const result = await runPreSignalChecks(config);
+
+      expect(result.test.timedOut).toBe(true);
+    });
+
+    it("should preserve normal behavior when tddRedPhase is false", async () => {
+      // Build
+      mockExecuteCommand.mockResolvedValueOnce({
+        success: true,
+        exitCode: 0,
+        stdout: "Build OK",
+        stderr: "",
+        duration: 500,
+      });
+      // Single test command
+      mockExecuteCommand.mockResolvedValueOnce({
+        success: true,
+        exitCode: 0,
+        stdout: "All tests passed",
+        stderr: "",
+        duration: 2000,
+      });
+
+      const config: PreSignalConfig = {
+        workspacePath: "/test/workspace",
+        tddRedPhase: false,
+        skipLint: true,
+      };
+
+      const result = await runPreSignalChecks(config);
+
+      // Should only call 2 commands: build and single test
+      expect(mockExecuteCommand).toHaveBeenCalledTimes(2);
+      expect(mockExecuteCommand).toHaveBeenNthCalledWith(2, "npm test", {
+        cwd: "/test/workspace",
+        timeout: expect.any(Number),
+      });
+      expect(result.test.passed).toBe(true);
+      expect(result.allPassed).toBe(true);
+    });
+
+    it("should preserve normal behavior when tddRedPhase is undefined", async () => {
+      // Build
+      mockExecuteCommand.mockResolvedValueOnce({
+        success: true,
+        exitCode: 0,
+        stdout: "Build OK",
+        stderr: "",
+        duration: 500,
+      });
+      // Single test command
+      mockExecuteCommand.mockResolvedValueOnce({
+        success: true,
+        exitCode: 0,
+        stdout: "All tests passed",
+        stderr: "",
+        duration: 2000,
+      });
+
+      const config: PreSignalConfig = {
+        workspacePath: "/test/workspace",
+        // tddRedPhase omitted
+        skipLint: true,
+      };
+
+      const result = await runPreSignalChecks(config);
+
+      // Should only call 2 commands: build and single test
+      expect(mockExecuteCommand).toHaveBeenCalledTimes(2);
+      expect(result.test.passed).toBe(true);
       expect(result.allPassed).toBe(true);
     });
   });
