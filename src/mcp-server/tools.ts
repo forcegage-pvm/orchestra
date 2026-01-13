@@ -92,6 +92,11 @@ const TOOLS_WITH_ROLES: ToolWithRole[] = [
               },
               dependencies: { type: "array", items: { type: "number" } },
               speckit_task_ref: { type: "string" },
+              tdd_red_phase: {
+                type: "boolean",
+                description:
+                  "Enable TDD red-phase verification: verify tests FAIL before implementation to prove tests are meaningful",
+              },
               verification: {
                 type: "object",
                 properties: {
@@ -155,6 +160,11 @@ const TOOLS_WITH_ROLES: ToolWithRole[] = [
         speckit_task_ref: {
           type: "string",
           description: "Optional speckit task reference",
+        },
+        tdd_red_phase: {
+          type: "boolean",
+          description:
+            "Enable TDD red-phase verification: verify tests FAIL before implementation to prove tests are meaningful",
         },
         verification: {
           type: "object",
