@@ -8,7 +8,6 @@
 import { and, eq } from "drizzle-orm";
 import { getDb } from "../../db/index.js";
 import { getActiveSprint } from "../../db/queries.js";
-import { logToolExecution } from "./audit-logging.js";
 import { phases, tasks, verificationChecks } from "../../db/schema.js";
 import {
   GetTasksInputSchema,
@@ -16,6 +15,7 @@ import {
   type GetTasksOutput,
 } from "../../schemas/sprint-config.js";
 import { validateInput } from "../../schemas/utils.js";
+import { logToolExecution } from "./audit-logging.js";
 
 export async function handleGetTasks(input: unknown) {
   const startTime = performance.now();
