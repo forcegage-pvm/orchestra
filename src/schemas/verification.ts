@@ -234,6 +234,7 @@ export const RunVerificationChecksOutputSchema = z.object({
   success: z.boolean(),
   task_id: z.number().int().positive(),
   task_title: z.string(),
+  tdd_red_phase: z.boolean(),
   timestamp: z.string(),
   duration_ms: z.number().int().nonnegative(),
   summary: z.object({

@@ -341,4 +341,72 @@ describe("handleRunVerificationChecks", () => {
       expect(response.error.message).toContain("crashed");
     });
   });
+
+  describe("tdd_red_phase field", () => {
+    it("should include tdd_red_phase in normal verification output", async () => {
+      mockExecuteCheck.mockResolvedValue({
+        passed: true,
+        message: "Check passed",
+        duration_ms: 100,
+      });
+
+      const result = await handleRunVerificationChecks({ task_id: 1 });
+
+      const response = JSON.parse(result.content[0].text);
+      expect(response.success).toBe(true);
+      expect(response).toHaveProperty("tdd_red_phase");
+      expect(typeof response.tdd_red_phase).toBe("boolean");
+      expect(response.tdd_red_phase).toBe(false);
+    });
+
+    it("should include tdd_red_phase in dry_run output", async () => {
+      const result = await handleRunVerificationChecks({
+        task_id: 1,
+        dry_run: true,
+      });
+
+      const response = JSON.parse(result.content[0].text);
+      expect(response.success).toBe(true);
+      expect(response.dry_run).toBe(true);
+      expect(response).toHaveProperty("tdd_red_phase");
+      expect(typeof response.tdd_red_phase).toBe("boolean");
+      expect(response.tdd_red_phase).toBe(false);
+    });
+
+    it("should return true when task has tdd_red_phase enabled", async () => {
+      const db = getDb();
+      // Update task to enable tdd_red_phase
+      await db.update(tasks).set({ tdd_red_phase: 1 }).where(eq(tasks.id, 1));
+
+      mockExecuteCheck.mockResolvedValue({
+        passed: true,
+        message: "Check passed",
+        duration_ms: 100,
+      });
+
+      const result = await handleRunVerificationChecks({ task_id: 1 });
+
+      const response = JSON.parse(result.content[0].text);
+      expect(response.success).toBe(true);
+      expect(response.tdd_red_phase).toBe(true);
+    });
+
+    it("should return false when task has tdd_red_phase disabled", async () => {
+      const db = getDb();
+      // Explicitly set tdd_red_phase to 0
+      await db.update(tasks).set({ tdd_red_phase: 0 }).where(eq(tasks.id, 1));
+
+      mockExecuteCheck.mockResolvedValue({
+        passed: true,
+        message: "Check passed",
+        duration_ms: 100,
+      });
+
+      const result = await handleRunVerificationChecks({ task_id: 1 });
+
+      const response = JSON.parse(result.content[0].text);
+      expect(response.success).toBe(true);
+      expect(response.tdd_red_phase).toBe(false);
+    });
+  });
 });

@@ -197,6 +197,7 @@ async function runVerificationChecks(
       success: true,
       task_id: input.task_id,
       task_title: task.title,
+      tdd_red_phase: Boolean(task.tdd_red_phase),
       timestamp,
       duration_ms: Date.now() - startTime,
       dry_run: true,
@@ -355,6 +356,7 @@ async function runVerificationChecks(
     success: true,
     task_id: input.task_id,
     task_title: task.title,
+    tdd_red_phase: Boolean(task.tdd_red_phase),
     timestamp,
     duration_ms: Date.now() - startTime,
     summary: {
