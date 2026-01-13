@@ -338,5 +338,70 @@ describe("Pre-Signal Executor", () => {
       expect(result.test.passed).toBe(true);
       expect(result.test.skipped).toBe(true);
     });
+
+    it("should accept tddRedPhase as optional property", async () => {
+      mockExecuteCommand.mockResolvedValue({
+        success: true,
+        exitCode: 0,
+        stdout: "OK",
+        stderr: "",
+        duration: 100,
+      });
+
+      const config: PreSignalConfig = {
+        workspacePath: "/test/workspace",
+        tddRedPhase: true,
+        skipLint: true,
+      };
+
+      const result = await runPreSignalChecks(config);
+
+      // Property should be accepted without errors
+      expect(result).toBeDefined();
+      expect(result.allPassed).toBe(true);
+    });
+
+    it("should work without tddRedPhase property", async () => {
+      mockExecuteCommand.mockResolvedValue({
+        success: true,
+        exitCode: 0,
+        stdout: "OK",
+        stderr: "",
+        duration: 100,
+      });
+
+      const config: PreSignalConfig = {
+        workspacePath: "/test/workspace",
+        skipLint: true,
+      };
+
+      const result = await runPreSignalChecks(config);
+
+      // Should work fine without tddRedPhase
+      expect(result).toBeDefined();
+      expect(result.allPassed).toBe(true);
+    });
+
+    it("should accept tddRedPhase: false", async () => {
+      mockExecuteCommand.mockResolvedValue({
+        success: true,
+        exitCode: 0,
+        stdout: "OK",
+        stderr: "",
+        duration: 100,
+      });
+
+      const config: PreSignalConfig = {
+        workspacePath: "/test/workspace",
+        tddRedPhase: false,
+        skipLint: true,
+      };
+
+      const result = await runPreSignalChecks(config);
+
+      // Should accept explicit false value
+      expect(result).toBeDefined();
+      expect(result.allPassed).toBe(true);
+    });
   });
 });

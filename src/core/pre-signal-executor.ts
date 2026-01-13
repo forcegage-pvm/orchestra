@@ -31,6 +31,8 @@ export interface PreSignalConfig {
   skipTest?: boolean;
   /** Skip lint check */
   skipLint?: boolean;
+  /** Enable TDD red-phase test validation mode (expects test failures) */
+  tddRedPhase?: boolean;
 }
 
 /**
