@@ -514,23 +514,23 @@ async function populateDefaultConfig(): Promise<void> {
   const defaultConfig = [
     {
       key: "git.auto_commit",
-      value: "true",
+      value: "false",
       description: "System-wide auto-commit default",
     },
-    // Write tools - inherit global default (true)
+    // Write tools - disabled by default to prevent noise
     {
       key: "tools.prepare_task.auto_commit",
-      value: "true",
+      value: "false",
       description: "Auto-commit handover files after prepare",
     },
     {
       key: "tools.signal_completion.auto_commit",
-      value: "true",
+      value: "false",
       description: "Auto-commit implementation after signal",
     },
     {
       key: "tools.complete_task.auto_commit",
-      value: "true",
+      value: "false",
       description: "Auto-commit after task completion",
     },
     // Read tools never commit

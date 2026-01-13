@@ -81,6 +81,26 @@ describe("Types", () => {
       expect(task.retry_count).toBe(0);
       expect(task.max_retries).toBe(3);
       expect(task.dependencies).toEqual([]);
+      expect(task.tdd_red_phase).toBe(false);
+    });
+
+    it("should default tdd_red_phase to false when not provided", () => {
+      const task = TaskSchema.parse({
+        id: 1,
+        title: "Test Task",
+      });
+
+      expect(task.tdd_red_phase).toBe(false);
+    });
+
+    it("should preserve explicit tdd_red_phase value", () => {
+      const taskWithTdd = TaskSchema.parse({
+        id: 1,
+        title: "TDD Task",
+        tdd_red_phase: true,
+      });
+
+      expect(taskWithTdd.tdd_red_phase).toBe(true);
     });
 
     it("should reject invalid task", () => {

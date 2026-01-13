@@ -245,7 +245,7 @@ async function signalCompletion(
     commitMessage,
     sprintId: sprint.id,
     taskInternalId: task.id,
-    cwd: process.cwd(),
+    cwd: resolveWorkspacePath(),
   });
 
   // 8. Update task status to GATE_CHECK

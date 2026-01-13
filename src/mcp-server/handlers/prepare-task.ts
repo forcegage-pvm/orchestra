@@ -7,7 +7,11 @@
 
 import { and, eq, inArray } from "drizzle-orm";
 import { autoCommitIfEnabled, generateCommitMessage } from "../../core/git.js";
-import { getActiveSprint, getDb } from "../../db/index.js";
+import {
+  getActiveSprint,
+  getDb,
+  resolveWorkspacePath,
+} from "../../db/index.js";
 import {
   config,
   handovers,
@@ -307,7 +311,7 @@ async function prepareTask(
     commitMessage,
     sprintId: sprint.id,
     taskInternalId: task.id,
-    cwd: process.cwd(),
+    cwd: resolveWorkspacePath(),
   });
 
   // Notify extension of database changes

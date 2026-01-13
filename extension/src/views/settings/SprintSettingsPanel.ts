@@ -215,6 +215,21 @@ export class SprintSettingsPanel {
           value: settings.autoCommit.toString(),
           description: "Enable automatic git commits after task operations",
         },
+        {
+          key: "tools.prepare_task.auto_commit",
+          value: settings.autoCommit.toString(),
+          description: "Auto-commit handover files after prepare",
+        },
+        {
+          key: "tools.signal_completion.auto_commit",
+          value: settings.autoCommit.toString(),
+          description: "Auto-commit implementation after signal",
+        },
+        {
+          key: "tools.complete_task.auto_commit",
+          value: settings.autoCommit.toString(),
+          description: "Auto-commit after task completion",
+        },
       ];
 
       for (const entry of configEntries) {

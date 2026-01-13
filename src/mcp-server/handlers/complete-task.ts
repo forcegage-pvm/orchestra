@@ -7,14 +7,18 @@
 
 import { and, eq } from "drizzle-orm";
 import { autoCommitIfEnabled, generateCommitMessage } from "../../core/git.js";
-import { getActiveSprint, getDb } from "../../db/index.js";
-import { logToolExecution } from "./audit-logging.js";
+import {
+  getActiveSprint,
+  getDb,
+  resolveWorkspacePath,
+} from "../../db/index.js";
 import { progress as progressTable, sprints, tasks } from "../../db/schema.js";
 import {
   CompleteTaskInputSchema,
   type CompleteTaskOutput,
 } from "../../schemas/completion.js";
 import { validateInput } from "../../schemas/utils.js";
+import { logToolExecution } from "./audit-logging.js";
 
 export async function handleCompleteTask(input: unknown) {
   const startTime = performance.now();
@@ -209,7 +213,7 @@ async function completeTask(
     commitMessage,
     sprintId: sprint.id,
     taskInternalId: task.id,
-    cwd: process.cwd(),
+    cwd: resolveWorkspacePath(),
   });
 
   return {

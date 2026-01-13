@@ -119,6 +119,7 @@ export const TaskSchema = z
     dependencies: z.array(z.number().int().positive()).optional().default([]),
     retry_count: z.number().int().min(0).default(0),
     max_retries: z.number().int().min(1).default(3),
+    tdd_red_phase: z.boolean().default(false),
     created_at: z.string().optional(),
     started_at: z.string().optional(),
     completed_at: z.string().optional(),
