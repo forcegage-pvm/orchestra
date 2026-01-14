@@ -203,18 +203,52 @@ When preparing a handover with `prepare_task`:
 
 ### TDD Task Pattern
 
-For TDD work, use **ONE task per user story** with `tdd_red_phase: true`:
+For TDD work, declare **red-green task pairs** with `tdd_relationships` in `configure_sprint`:
 
 ```json
 {
-  "task_id": 1,
-  "title": "US1: Consistent axis appearance",
-  "tdd_red_phase": true,
-  "description": "Write failing tests for axis styling defaults, then implement to make them pass"
+  "sprint": { "id": "sprint-001", "name": "Feature Sprint" },
+  "tasks": [
+    {
+      "task_id": 1,
+      "title": "Red: Write failing tests for auth",
+      "tdd_red_phase": true,
+      "description": "Write failing tests that define auth requirements"
+    },
+    {
+      "task_id": 2,
+      "title": "Green: Implement auth feature",
+      "dependencies": [1],
+      "description": "Implement auth to make tests pass"
+    }
+  ],
+  "tdd_relationships": [{ "red_task_id": 1, "green_task_id": 2 }]
 }
 ```
 
-This single task handles the full TDD cycle: write tests → verify they fail → implement → verify they pass.
+**TDD Workflow**:
+
+1. **Red phase** (Task 1): Implementor writes failing tests, registers them with `register_tdd_red_test`
+2. **Validation**: System verifies test markers exist in codebase
+3. **Green phase** (Task 2): Implementor implements feature, removes markers, makes tests pass
+4. **Closeout gate**: Sprint cannot close until all tests are GREEN
+
+**Key fields**:
+
+- `tdd_red_phase: true` - Marks task as red phase (required for `register_tdd_red_test`)
+- `tdd_relationships` - Declares which green task will make which red task's tests pass
+
+**Check TDD status** via `get_sprint_status`:
+
+```json
+{
+  "tdd_summary": {
+    "total": 5,
+    "by_status": { "green": 3, "pending_green": 2 },
+    "blocking_closeout": true
+  }
+}
+```
 
 ### Spec-to-Sprint Translation
 
