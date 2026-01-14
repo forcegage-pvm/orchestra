@@ -419,6 +419,11 @@ export class AgentRunner implements vscode.Disposable {
           this.cancellationTokenSource!.token
         );
 
+        // Check if paused or stopped after request
+        if (this.isPaused || this.isStopped) {
+          break;
+        }
+
         // If no tool calls, we're done
         if (!hadToolCalls) {
           this.session.complete();
