@@ -1,9 +1,31 @@
 # TD-020: TDD Red Phase Verification Support
 
-**Status**: DRAFT  
-**Priority**: P1 (Blocks TDD workflow)  
+**Status**: PARTIALLY IMPLEMENTED - WORKFLOW BROKEN  
+**Priority**: P0 (Caused sprint failure)  
 **Category**: Feature Enhancement  
-**Created**: 2026-01-12
+**Created**: 2026-01-12  
+**Updated**: 2026-01-14
+
+---
+
+> ⚠️ **CRITICAL INCIDENT**: This feature was partially implemented but caused a catastrophic sprint failure. See [TD-020-addendum-workflow-analysis.md](TD-020-addendum-workflow-analysis.md) for forensic analysis.
+>
+> **Key Issue**: Automatic cleanup at `prepare_task` assumes linear red→green execution. Sprints with scattered red-phase tasks (not immediately followed by green) have their tags removed prematurely.
+
+---
+
+## Current Implementation Status
+
+| Component | Status | Issue |
+|-----------|--------|-------|
+| `tdd_red_phase` database column | ✅ Complete | None |
+| Task storage/retrieval of flag | ✅ Complete | None |
+| `cleanupTddRedMarkers()` function | ✅ Complete | None |
+| Cleanup at `prepare_task` | ⚠️ PROBLEMATIC | Runs unconditionally - see addendum |
+| Red-phase check injection | ✅ Complete | None |
+| Pre-signal dual-command | ⚠️ ALWAYS RUNS | Different from design (more aggressive) |
+| Zero-markers check for non-red tasks | ❌ Not implemented | Gap |
+| `tdd_red_phase` input on `prepare_task` | ❌ Not implemented | Gap |
 
 ---
 
@@ -31,7 +53,54 @@ We need **surgical test isolation**, not blanket "allow all failures".
 
 ---
 
-## Proposed Solution: Tagged Test Exclusion
+## Actual Current Code Behavior (as of 2026-01-14)
+
+> **WARNING**: This section documents what the code ACTUALLY does, which differs from the original design below.
+
+### Pre-Signal Executor Behavior
+
+**File**: `src/core/pre-signal-executor.ts`
+
+The pre-signal executor **ALWAYS** runs dual-command mode for ALL tasks (not conditional on `tdd_red_phase`):
+
+```typescript
+// Always runs for every task:
+1. flutter test --tags tdd-red      → expects FAIL or "no tests found"
+2. flutter test --exclude-tags tdd-red → expects PASS (exit 0)
+```
+
+This means:
+- If any `tdd-red` tagged tests PASS, verification fails
+- If any non-tagged tests FAIL, verification fails
+- If no tagged tests exist, the tagged command returns "no tests found" (OK)
+
+### Cleanup at Prepare Time
+
+**File**: `src/mcp-server/handlers/prepare-task.ts:113-123`
+
+```typescript
+// Runs UNCONDITIONALLY on every prepare_task call
+const cleanupResult = await cleanupTddRedMarkers(workspaceRoot);
+if (cleanupResult.cleaned) {
+  await autoCommitIfEnabled({ commitMessage: "chore(orchestra): cleanup tdd-red markers" });
+}
+```
+
+**Problem**: This removes tags BEFORE the green-phase implementation exists.
+
+### The Broken Workflow
+
+```
+Task N (RED):   Creates test with @Tags(['tdd-red']) ✅
+Task N+1 (ANY): prepare_task runs cleanup ❌ (removes tag prematurely)
+                Test now runs without tag
+                Test FAILS (no implementation yet)
+                Task is blocked
+```
+
+---
+
+## Original Proposed Solution: Tagged Test Exclusion
 
 Use test framework tagging to isolate intentionally-failing tests from regression checks.
 
@@ -47,9 +116,11 @@ Use test framework tagging to isolate intentionally-failing tests from regressio
 
 ### State Machine
 
+> ⚠️ **FLAWED ASSUMPTION**: This state machine assumes Task N+1 is always the green phase for Task N. Sprints with multiple red-phase tasks followed by implementation tasks (not green phases) break this model. See addendum.
+
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                     TDD RED-GREEN LIFECYCLE                     │
+│         TDD RED-GREEN LIFECYCLE (FLAWED - SEE ADDENDUM)         │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                 │
 │  EVERY TASK PREPARE (regardless of tdd_red_phase):              │
