@@ -23,6 +23,7 @@ import {
   progress,
   sprints,
   tasks,
+  tddTaskRelationships,
   verificationChecks,
 } from "../../db/schema.js";
 import { createErrorResponse } from "../../schemas/errors.js";
@@ -360,6 +361,30 @@ async function configureSprint(input: ConfigureSprintInput): Promise<{
     }));
 
     await db.insert(consolidations).values(consolidationRecords);
+  }
+
+  // 7b. Create TDD task relationships (if provided)
+  if (input.tdd_relationships && input.tdd_relationships.length > 0) {
+    const relationshipRecords = input.tdd_relationships.map((rel) => {
+      const redTaskDbId = taskIdMap.get(rel.red_task_id);
+      const greenTaskDbId = taskIdMap.get(rel.green_task_id);
+
+      if (!redTaskDbId || !greenTaskDbId) {
+        throw new Error(
+          `Task ID not found in database: red=${rel.red_task_id}, green=${rel.green_task_id}`
+        );
+      }
+
+      return {
+        sprint_id: sprint.id,
+        red_task_id: redTaskDbId,
+        green_task_id: greenTaskDbId,
+        declared_at: "configure_sprint",
+        created_at: now,
+      };
+    });
+
+    await db.insert(tddTaskRelationships).values(relationshipRecords);
   }
 
   // 8. Create progress entries for all tasks (initial PENDING status)

@@ -11,7 +11,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { getDb, initializeDb, resetDb } from "../../src/db/index.js";
-import { sprints, tasks } from "../../src/db/schema.js";
+import { sprints, tasks, tddTaskRelationships } from "../../src/db/schema.js";
 import { handleConfigureSprint } from "../../src/mcp-server/handlers/configure-sprint.js";
 import type { ConfigureSprintInput } from "../../src/schemas/index.js";
 
@@ -364,6 +364,451 @@ describe("configure_sprint handler", () => {
       const newSprint = allSprints.find((s) => s.id === "new-sprint");
       expect(newSprint?.is_active).toBe(true);
       expect(newSprint?.workflow_step).toBe("SELECT_TASK");
+    });
+  });
+
+  describe("tdd_relationships", () => {
+    it("should store TDD relationships with declared_at='configure_sprint'", async () => {
+      const input: ConfigureSprintInput = {
+        sprint: {
+          id: "test-sprint-tdd-001",
+          name: "Test Sprint with TDD Relationships",
+        },
+        phases: [
+          {
+            phase_id: "phase-1",
+            phase_name: "Phase 1",
+            speckit_tasks: ["spec-1"],
+          },
+        ],
+        tasks: [
+          {
+            task_id: 1,
+            phase_id: "phase-1",
+            title: "Red Task - Write Failing Tests",
+            description: "Create failing tests for feature",
+            category: "INFRASTRUCTURE",
+            dependencies: [],
+            tdd_red_phase: true,
+            verification: {
+              structural_checks: [
+                {
+                  description: "Test file exists",
+                  severity: "MAJOR",
+                  path: "test/feature.test.ts",
+                  pattern: ".*",
+                  min_matches: 1,
+                },
+              ],
+            },
+          },
+          {
+            task_id: 2,
+            phase_id: "phase-1",
+            title: "Green Task - Implement Feature",
+            description: "Implement feature to make tests pass",
+            category: "INFRASTRUCTURE",
+            dependencies: [1],
+            tdd_red_phase: false,
+            verification: {
+              structural_checks: [
+                {
+                  description: "Feature file exists",
+                  severity: "MAJOR",
+                  path: "src/feature.ts",
+                  pattern: ".*",
+                  min_matches: 1,
+                },
+              ],
+            },
+          },
+        ],
+        tdd_relationships: [
+          {
+            red_task_id: 1,
+            green_task_id: 2,
+          },
+        ],
+      };
+
+      const result = await handleConfigureSprint(input);
+      const parsed = JSON.parse(result.content[0].text);
+
+      expect(parsed.success).toBe(true);
+      expect(parsed.sprint_id).toBe("test-sprint-tdd-001");
+
+      // Verify relationship is stored in database
+      const db = getDb();
+      const relationships = await db
+        .select()
+        .from(tddTaskRelationships)
+        .where(eq(tddTaskRelationships.sprint_id, "test-sprint-tdd-001"));
+
+      expect(relationships).toHaveLength(1);
+      expect(relationships[0].declared_at).toBe("configure_sprint");
+
+      // Verify task IDs match (need to get internal IDs)
+      const allTasks = await db
+        .select()
+        .from(tasks)
+        .where(eq(tasks.sprint_id, "test-sprint-tdd-001"))
+        .orderBy(tasks.task_id);
+
+      expect(relationships[0].red_task_id).toBe(allTasks[0].id);
+      expect(relationships[0].green_task_id).toBe(allTasks[1].id);
+    });
+
+    it("should reject relationship where red_task_id does not have tdd_red_phase=true", async () => {
+      const input: ConfigureSprintInput = {
+        sprint: {
+          id: "test-sprint-tdd-002",
+          name: "Test Sprint - Invalid Red Task",
+        },
+        phases: [
+          {
+            phase_id: "phase-1",
+            phase_name: "Phase 1",
+          },
+        ],
+        tasks: [
+          {
+            task_id: 1,
+            phase_id: "phase-1",
+            title: "Not a Red Task",
+            description: "Description",
+            category: "INFRASTRUCTURE",
+            dependencies: [],
+            tdd_red_phase: false, // NOT a red phase task
+            verification: {
+              structural_checks: [
+                {
+                  description: "Check",
+                  severity: "MAJOR",
+                  path: "src/test.ts",
+                  pattern: ".*",
+                  min_matches: 1,
+                },
+              ],
+            },
+          },
+          {
+            task_id: 2,
+            phase_id: "phase-1",
+            title: "Green Task",
+            description: "Description",
+            category: "INFRASTRUCTURE",
+            dependencies: [],
+            tdd_red_phase: false,
+            verification: {
+              structural_checks: [
+                {
+                  description: "Check",
+                  severity: "MAJOR",
+                  path: "src/test.ts",
+                  pattern: ".*",
+                  min_matches: 1,
+                },
+              ],
+            },
+          },
+        ],
+        tdd_relationships: [
+          {
+            red_task_id: 1, // References task without tdd_red_phase=true
+            green_task_id: 2,
+          },
+        ],
+      };
+
+      const result = await handleConfigureSprint(input);
+      const parsed = JSON.parse(result.content[0].text);
+
+      expect(parsed.success).toBe(false);
+      expect(parsed.error.code).toBe("VALIDATION_ERROR");
+      
+      // Check that validation issues contain the expected error about tdd_red_phase
+      const issuesText = JSON.stringify(parsed.error.details.issues);
+      expect(issuesText).toContain("tdd_red_phase=true");
+    });
+
+    it("should reject relationship where red_task_id equals green_task_id", async () => {
+      const input: ConfigureSprintInput = {
+        sprint: {
+          id: "test-sprint-tdd-003",
+          name: "Test Sprint - Same Task IDs",
+        },
+        phases: [
+          {
+            phase_id: "phase-1",
+            phase_name: "Phase 1",
+          },
+        ],
+        tasks: [
+          {
+            task_id: 1,
+            phase_id: "phase-1",
+            title: "Red Task",
+            description: "Description",
+            category: "INFRASTRUCTURE",
+            dependencies: [],
+            tdd_red_phase: true,
+            verification: {
+              structural_checks: [
+                {
+                  description: "Check",
+                  severity: "MAJOR",
+                  path: "src/test.ts",
+                  pattern: ".*",
+                  min_matches: 1,
+                },
+              ],
+            },
+          },
+        ],
+        tdd_relationships: [
+          {
+            red_task_id: 1,
+            green_task_id: 1, // Same as red_task_id
+          },
+        ],
+      };
+
+      const result = await handleConfigureSprint(input);
+      const parsed = JSON.parse(result.content[0].text);
+
+      expect(parsed.success).toBe(false);
+      expect(parsed.error.code).toBe("VALIDATION_ERROR");
+      
+      // Check that validation issues contain the expected error
+      const issuesText = JSON.stringify(parsed.error.details.issues);
+      expect(issuesText).toContain("must be different");
+    });
+
+    it("should reject relationship with non-existent red_task_id", async () => {
+      const input: ConfigureSprintInput = {
+        sprint: {
+          id: "test-sprint-tdd-004",
+          name: "Test Sprint - Invalid Red Task ID",
+        },
+        phases: [
+          {
+            phase_id: "phase-1",
+            phase_name: "Phase 1",
+          },
+        ],
+        tasks: [
+          {
+            task_id: 1,
+            phase_id: "phase-1",
+            title: "Green Task",
+            description: "Description",
+            category: "INFRASTRUCTURE",
+            dependencies: [],
+            verification: {
+              structural_checks: [
+                {
+                  description: "Check",
+                  severity: "MAJOR",
+                  path: "src/test.ts",
+                  pattern: ".*",
+                  min_matches: 1,
+                },
+              ],
+            },
+          },
+        ],
+        tdd_relationships: [
+          {
+            red_task_id: 999, // Does not exist
+            green_task_id: 1,
+          },
+        ],
+      };
+
+      const result = await handleConfigureSprint(input);
+      const parsed = JSON.parse(result.content[0].text);
+
+      expect(parsed.success).toBe(false);
+      expect(parsed.error.code).toBe("VALIDATION_ERROR");
+      
+      // Check that validation issues contain the expected error
+      const issuesText = JSON.stringify(parsed.error.details.issues);
+      expect(issuesText).toContain("non-existent red task");
+    });
+
+    it("should reject relationship with non-existent green_task_id", async () => {
+      const input: ConfigureSprintInput = {
+        sprint: {
+          id: "test-sprint-tdd-005",
+          name: "Test Sprint - Invalid Green Task ID",
+        },
+        phases: [
+          {
+            phase_id: "phase-1",
+            phase_name: "Phase 1",
+          },
+        ],
+        tasks: [
+          {
+            task_id: 1,
+            phase_id: "phase-1",
+            title: "Red Task",
+            description: "Description",
+            category: "INFRASTRUCTURE",
+            dependencies: [],
+            tdd_red_phase: true,
+            verification: {
+              structural_checks: [
+                {
+                  description: "Check",
+                  severity: "MAJOR",
+                  path: "src/test.ts",
+                  pattern: ".*",
+                  min_matches: 1,
+                },
+              ],
+            },
+          },
+        ],
+        tdd_relationships: [
+          {
+            red_task_id: 1,
+            green_task_id: 999, // Does not exist
+          },
+        ],
+      };
+
+      const result = await handleConfigureSprint(input);
+      const parsed = JSON.parse(result.content[0].text);
+
+      expect(parsed.success).toBe(false);
+      expect(parsed.error.code).toBe("VALIDATION_ERROR");
+      
+      // Check that validation issues contain the expected error
+      const issuesText = JSON.stringify(parsed.error.details.issues);
+      expect(issuesText).toContain("non-existent green task");
+    });
+
+    it("should handle multiple TDD relationships in one sprint", async () => {
+      const input: ConfigureSprintInput = {
+        sprint: {
+          id: "test-sprint-tdd-006",
+          name: "Test Sprint - Multiple Relationships",
+        },
+        phases: [
+          {
+            phase_id: "phase-1",
+            phase_name: "Phase 1",
+          },
+        ],
+        tasks: [
+          {
+            task_id: 1,
+            phase_id: "phase-1",
+            title: "Red Task 1",
+            description: "First red task",
+            category: "INFRASTRUCTURE",
+            dependencies: [],
+            tdd_red_phase: true,
+            verification: {
+              structural_checks: [
+                {
+                  description: "Check",
+                  severity: "MAJOR",
+                  path: "test/test1.ts",
+                  pattern: ".*",
+                  min_matches: 1,
+                },
+              ],
+            },
+          },
+          {
+            task_id: 2,
+            phase_id: "phase-1",
+            title: "Green Task 1",
+            description: "First green task",
+            category: "INFRASTRUCTURE",
+            dependencies: [1],
+            verification: {
+              structural_checks: [
+                {
+                  description: "Check",
+                  severity: "MAJOR",
+                  path: "src/impl1.ts",
+                  pattern: ".*",
+                  min_matches: 1,
+                },
+              ],
+            },
+          },
+          {
+            task_id: 3,
+            phase_id: "phase-1",
+            title: "Red Task 2",
+            description: "Second red task",
+            category: "INFRASTRUCTURE",
+            dependencies: [],
+            tdd_red_phase: true,
+            verification: {
+              structural_checks: [
+                {
+                  description: "Check",
+                  severity: "MAJOR",
+                  path: "test/test2.ts",
+                  pattern: ".*",
+                  min_matches: 1,
+                },
+              ],
+            },
+          },
+          {
+            task_id: 4,
+            phase_id: "phase-1",
+            title: "Green Task 2",
+            description: "Second green task",
+            category: "INFRASTRUCTURE",
+            dependencies: [3],
+            verification: {
+              structural_checks: [
+                {
+                  description: "Check",
+                  severity: "MAJOR",
+                  path: "src/impl2.ts",
+                  pattern: ".*",
+                  min_matches: 1,
+                },
+              ],
+            },
+          },
+        ],
+        tdd_relationships: [
+          {
+            red_task_id: 1,
+            green_task_id: 2,
+          },
+          {
+            red_task_id: 3,
+            green_task_id: 4,
+          },
+        ],
+      };
+
+      const result = await handleConfigureSprint(input);
+      const parsed = JSON.parse(result.content[0].text);
+
+      expect(parsed.success).toBe(true);
+      expect(parsed.tasks_created).toBe(4);
+
+      // Verify both relationships are stored
+      const db = getDb();
+      const relationships = await db
+        .select()
+        .from(tddTaskRelationships)
+        .where(eq(tddTaskRelationships.sprint_id, "test-sprint-tdd-006"));
+
+      expect(relationships).toHaveLength(2);
+      expect(relationships[0].declared_at).toBe("configure_sprint");
+      expect(relationships[1].declared_at).toBe("configure_sprint");
     });
   });
 });

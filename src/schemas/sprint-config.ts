@@ -59,6 +59,21 @@ export const ConfigureSprintInputSchema = z
       .optional(),
 
     consolidations: z.array(ConsolidationSchema).optional(),
+
+    tdd_relationships: z
+      .array(
+        z.object({
+          red_task_id: z
+            .number()
+            .int()
+            .positive("Red task ID must be positive"),
+          green_task_id: z
+            .number()
+            .int()
+            .positive("Green task ID must be positive"),
+        })
+      )
+      .optional(),
   })
   .superRefine((data, ctx) => {
     // If config_file provided, skip other validations (will be loaded from file)
@@ -158,6 +173,47 @@ export const ConfigureSprintInputSchema = z
             code: z.ZodIssueCode.custom,
             message: `Consolidation references non-existent task: ${cons.consolidated_task_id}`,
             path: ["consolidations", idx, "consolidated_task_id"],
+          });
+        }
+      });
+    }
+
+    // Validate tdd_relationships
+    if (data.tdd_relationships && data.tasks) {
+      data.tdd_relationships.forEach((rel, idx) => {
+        // Both task IDs must exist in the sprint
+        if (!taskIdSet.has(rel.red_task_id)) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: `TDD relationship references non-existent red task: ${rel.red_task_id}`,
+            path: ["tdd_relationships", idx, "red_task_id"],
+          });
+        }
+
+        if (!taskIdSet.has(rel.green_task_id)) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: `TDD relationship references non-existent green task: ${rel.green_task_id}`,
+            path: ["tdd_relationships", idx, "green_task_id"],
+          });
+        }
+
+        // red_task_id and green_task_id must be different
+        if (rel.red_task_id === rel.green_task_id) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: `TDD relationship red_task_id and green_task_id must be different (both are ${rel.red_task_id})`,
+            path: ["tdd_relationships", idx],
+          });
+        }
+
+        // red_task_id must reference a task with tdd_red_phase=true
+        const redTask = data.tasks!.find((t) => t.task_id === rel.red_task_id);
+        if (redTask && !redTask.tdd_red_phase) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: `TDD relationship red_task_id ${rel.red_task_id} must reference a task with tdd_red_phase=true`,
+            path: ["tdd_relationships", idx, "red_task_id"],
           });
         }
       });
