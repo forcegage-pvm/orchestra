@@ -161,3 +161,26 @@ export {
   type JudgmentCheck,
   type JudgmentValidationResult,
 } from "./judgment-validator.js";
+
+// TDD Registry (CRUD operations for TDD red test registry)
+export {
+  getTestsByTask,
+  registerTest,
+  updateStatus,
+  type RegisterTestOptions,
+  type RegisterTestResult,
+} from "./tdd-registry.js";
+
+// TDD Marker Scanner (scans test files for TDD red markers)
+export {
+  scanForTddRedMarkers,
+  type TddRedMarker,
+} from "./tdd-marker-scanner.js";
+
+// TDD Red Phase Validation (bidirectional validation before signal)
+export {
+  validateTddRedPhase,
+  type ValidateTddRedPhaseOptions,
+  type ValidationError,
+  type ValidationResult,
+} from "./tdd-validation.js";
