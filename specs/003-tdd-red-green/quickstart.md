@@ -54,15 +54,14 @@ When working on a task with `tdd_red_phase: true`:
 
 3. **Register each test** via MCP tool:
 
+   Call `register_tdd_red_test` for each failing test:
+
    ```json
    {
      "task_id": 5,
-     "tests": [
-       {
-         "test_identifier": "test/widget_test.dart::WidgetTests::shows loading spinner",
-         "description": "Verifies spinner appears during load"
-       }
-     ]
+     "test_identifier": "test/widget_test.dart::WidgetTests::shows loading spinner",
+     "description": "Verifies spinner appears during load",
+     "marker_type": "@Tags(['tdd-red'])"
    }
    ```
 
@@ -89,10 +88,34 @@ When configuring a sprint, you can declare red-green relationships:
 
 ```json
 {
-  "sprint": { "id": "sprint-016" },
+  "sprint": {
+    "id": "sprint-016",
+    "name": "Widget Implementation Sprint"
+  },
   "tasks": [
-    { "task_id": 1, "title": "Write widget tests", "tdd_red_phase": true },
-    { "task_id": 2, "title": "Implement widget" }
+    {
+      "task_id": 1,
+      "phase_id": "phase-1",
+      "title": "Write widget tests",
+      "description": "Create failing tests for widget functionality",
+      "category": "INFRASTRUCTURE",
+      "dependencies": [],
+      "tdd_red_phase": true,
+      "verification": {
+        "success_criteria": ["Tests created and failing"]
+      }
+    },
+    {
+      "task_id": 2,
+      "phase_id": "phase-1",
+      "title": "Implement widget",
+      "description": "Implement widget to make tests pass",
+      "category": "INFRASTRUCTURE",
+      "dependencies": [1],
+      "verification": {
+        "success_criteria": ["All tests passing"]
+      }
+    }
   ],
   "tdd_relationships": [
     { "red_task_id": 1, "green_task_id": 2 }
@@ -107,16 +130,9 @@ Benefits:
 
 ### At Complete Time (Alternative)
 
-If not declared upfront, you must provide `green_task_id` when completing:
+If not declared upfront, the orchestrator must assign a green task before the red task can be completed. The system will block task completion with error `GREEN_TASK_REQUIRED` until a green task is assigned.
 
-```json
-{
-  "task_id": 1,
-  "green_task_id": 2
-}
-```
-
-If missing: **BLOCKED** with error `GREEN_TASK_REQUIRED`
+Note: The relationship is managed by the orchestrator via backend operations, not through the `complete_task` tool parameters.
 
 ### Sprint Closeout Gate
 

@@ -135,6 +135,142 @@ Use the orchestra-imp tools to signal completion
 **Shared:**
 - `get_signal`, `escalate_task`, `get_progress`, `get_sprint_status`, `get_task_history`
 
+**TDD Red Phase:**
+- `register_tdd_red_test`
+
+## TDD Red-Green Enforcement
+
+Orchestra includes built-in TDD enforcement that ensures all failing tests created during "red phase" tasks are eventually made to pass in corresponding "green phase" tasks. This prevents sprints from closing with incomplete functionality.
+
+### How It Works
+
+The TDD workflow consists of two phases:
+
+1. **Red Phase** (Implementor): Create failing tests that define expected behavior
+2. **Green Phase** (Implementor): Implement functionality to make those tests pass
+
+The orchestrator declares the relationship between red and green tasks, and the system enforces that:
+- Red phase tasks cannot be completed without a green task assignment
+- Sprints cannot close until all registered tests are GREEN
+- Test markers are validated against registrations at signal time
+
+### Configuration (Orchestrator)
+
+#### Declaring Relationships Upfront
+
+When configuring a sprint with `configure_sprint`, include the `tdd_relationships` array:
+
+```json
+{
+  "sprint": {
+    "id": "sprint-016",
+    "name": "Widget Implementation Sprint"
+  },
+  "tasks": [
+    {
+      "task_id": 1,
+      "phase_id": "phase-1",
+      "title": "Write widget tests",
+      "tdd_red_phase": true,
+      "...": "other task fields"
+    },
+    {
+      "task_id": 2,
+      "phase_id": "phase-1",
+      "title": "Implement widget",
+      "...": "other task fields"
+    }
+  ],
+  "tdd_relationships": [
+    { "red_task_id": 1, "green_task_id": 2 }
+  ]
+}
+```
+
+Key fields:
+- **`tdd_red_phase`**: Boolean flag on tasks that marks them as red-phase tasks
+- **`tdd_relationships`**: Array of `{red_task_id, green_task_id}` pairs declaring which green task will make which red task's tests pass
+
+Benefits of upfront declaration:
+- Clear intent from sprint start
+- Implementor doesn't need to specify at completion time
+- Better sprint planning visibility
+
+### Implementation (Implementor)
+
+#### Red Phase: Registering Tests
+
+When working on a task with `tdd_red_phase: true`:
+
+1. Write failing tests with appropriate markers (e.g., `@Tags(['tdd-red'])`, `it.skip`, or place in `test/tdd-red/` directory)
+2. Register each test using `register_tdd_red_test`:
+
+```json
+{
+  "task_id": 5,
+  "test_identifier": "test/widget_test.dart::WidgetTests::shows loading spinner",
+  "description": "Verifies spinner appears during load",
+  "marker_type": "@Tags(['tdd-red'])"
+}
+```
+
+3. Signal completion as normal - the system will validate that all registered tests have markers in the codebase
+
+#### Green Phase: Making Tests Pass
+
+When working on the corresponding green task:
+
+1. Implement functionality to make the tests pass
+2. Remove the tdd-red markers (e.g., change `it.skip` to `it`, remove `@Tags(['tdd-red'])`)
+3. Verify all tests pass locally
+4. Signal completion - the system will verify tests are passing and markers are removed
+
+### Sprint Closeout Gate
+
+The orchestrator can check TDD status via `get_sprint_status`:
+
+```json
+{
+  "sprint": { "id": "sprint-016", "name": "..." },
+  "phases": [...],
+  "tasks_summary": {...},
+  "tdd_summary": {
+    "total_registered": 5,
+    "by_status": {
+      "GREEN": 3,
+      "PENDING_GREEN": 2
+    },
+    "blocking_closeout": true,
+    "orphaned_count": 0
+  }
+}
+```
+
+The sprint **cannot close** if `blocking_closeout` is `true`, which happens when any tests are not in GREEN status.
+
+### Test Status Lifecycle
+
+| Status | Meaning | Set By |
+|--------|---------|--------|
+| `REGISTERED` | Test registered by implementor | `register_tdd_red_test` |
+| `VALIDATED` | Marker found in codebase | Pre-signal validation (red phase) |
+| `PENDING_GREEN` | Red task complete, awaiting green | `signal_completion` (red phase) |
+| `GREEN` | Test passes, markers removed | `signal_completion` (green phase) |
+
+### Test Identifier Format
+
+Format: `{file_path}::{group}::{test_name}`
+
+Examples:
+- `test/widget_test.dart::WidgetTests::shows loading spinner`
+- `src/features/auth/__tests__/login.test.ts::LoginForm::validates email format`
+
+Rules:
+- Use `::` as separator
+- File path relative to project root
+- Group = describe/group name
+- Test = individual test/it name
+
 ## Security Model
 
 The role separation is **structural, not advisory**:
