@@ -183,6 +183,29 @@ export async function initializeDb(): Promise<void> {
   `);
 
   await db.run(sql`
+    CREATE TABLE IF NOT EXISTS tdd_task_relationships (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      sprint_id TEXT NOT NULL REFERENCES sprints(id) ON DELETE CASCADE,
+      red_task_id INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+      green_task_id INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+      declared_at TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    )
+  `);
+
+  await db.run(sql`
+    CREATE INDEX IF NOT EXISTS tdd_rel_sprint_idx ON tdd_task_relationships(sprint_id)
+  `);
+
+  await db.run(sql`
+    CREATE INDEX IF NOT EXISTS tdd_rel_red_task_idx ON tdd_task_relationships(red_task_id)
+  `);
+
+  await db.run(sql`
+    CREATE UNIQUE INDEX IF NOT EXISTS tdd_rel_unique_idx ON tdd_task_relationships(sprint_id, red_task_id, green_task_id)
+  `);
+
+  await db.run(sql`
     CREATE TABLE IF NOT EXISTS config (
       key TEXT PRIMARY KEY,
       value TEXT NOT NULL,

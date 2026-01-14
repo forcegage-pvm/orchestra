@@ -7,10 +7,13 @@
  * - updateStatus: Update entry status with timestamps
  */
 
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { getActiveSprint, getDb } from "../db/index.js";
-import { tddRedRegistry, tasks } from "../db/schema.js";
-import type { TddRegistryEntry, TddRegistryStatus } from "../schemas/tdd-registry.js";
+import { tasks, tddRedRegistry } from "../db/schema.js";
+import type {
+  TddRegistryEntry,
+  TddRegistryStatus,
+} from "../schemas/tdd-registry.js";
 
 /**
  * Options for registering a new TDD red test
@@ -98,7 +101,9 @@ export async function registerTest(
  * @returns Array of registry entries
  * @throws Error if task not found
  */
-export async function getTestsByTask(taskId: number): Promise<TddRegistryEntry[]> {
+export async function getTestsByTask(
+  taskId: number
+): Promise<TddRegistryEntry[]> {
   const db = getDb();
 
   // Get task's internal ID
@@ -199,4 +204,40 @@ export async function updateStatus(
     assigned_at: updated.assigned_at ?? undefined,
     greened_at: updated.greened_at ?? undefined,
   };
+}
+
+/**
+ * Assign VALIDATED tests to a green-phase task
+ *
+ * Transitions all VALIDATED registry entries for a red task to PENDING_GREEN,
+ * setting the green_task_id and assigned_at timestamp.
+ *
+ * @param redTaskId - Internal ID of the red-phase task
+ * @param greenTaskInternalId - Internal ID of the green-phase task
+ * @returns Number of entries transitioned
+ */
+export async function assignToGreenTask(
+  redTaskId: number,
+  greenTaskInternalId: number
+): Promise<number> {
+  const db = getDb();
+  const now = new Date().toISOString();
+
+  // Update all VALIDATED entries for this red task
+  const result = await db
+    .update(tddRedRegistry)
+    .set({
+      status: "PENDING_GREEN",
+      green_task_id: greenTaskInternalId,
+      assigned_at: now,
+    })
+    .where(
+      and(
+        eq(tddRedRegistry.red_task_id, redTaskId),
+        eq(tddRedRegistry.status, "VALIDATED")
+      )
+    );
+
+  // Return the number of rows updated
+  return result.changes;
 }

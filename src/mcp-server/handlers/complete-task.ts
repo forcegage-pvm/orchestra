@@ -7,12 +7,18 @@
 
 import { and, eq } from "drizzle-orm";
 import { autoCommitIfEnabled, generateCommitMessage } from "../../core/git.js";
+import { assignToGreenTask } from "../../core/tdd-registry.js";
 import {
   getActiveSprint,
   getDb,
   resolveWorkspacePath,
 } from "../../db/index.js";
-import { progress as progressTable, sprints, tasks } from "../../db/schema.js";
+import {
+  progress as progressTable,
+  sprints,
+  tasks,
+  tddTaskRelationships,
+} from "../../db/schema.js";
 import {
   CompleteTaskInputSchema,
   type CompleteTaskOutput,
@@ -120,6 +126,66 @@ async function completeTask(
     throw new Error(
       `Task ${input.task_id} is in ${task.status} state, expected VERIFY`
     );
+  }
+
+  // 3a. Handle TDD red-phase task completion
+  if (task.tdd_red_phase) {
+    let greenTaskInternalId: number | null = null;
+
+    // Check if green_task_id provided in input
+    if (input.green_task_id !== undefined) {
+      // Validate that the green task exists
+      const [greenTask] = await db
+        .select({ id: tasks.id })
+        .from(tasks)
+        .where(
+          and(
+            eq(tasks.sprint_id, sprint.id),
+            eq(tasks.task_id, input.green_task_id)
+          )
+        )
+        .limit(1);
+
+      if (!greenTask) {
+        throw new Error(`Green task ${input.green_task_id} not found`);
+      }
+
+      greenTaskInternalId = greenTask.id;
+
+      // Create relationship in tdd_task_relationships if not already exists
+      const now = new Date().toISOString();
+      await db
+        .insert(tddTaskRelationships)
+        .values({
+          sprint_id: sprint.id,
+          red_task_id: task.id,
+          green_task_id: greenTaskInternalId,
+          declared_at: "complete_task",
+          created_at: now,
+        })
+        .onConflictDoNothing();
+    } else {
+      // Look up existing relationship
+      const [relationship] = await db
+        .select({ green_task_id: tddTaskRelationships.green_task_id })
+        .from(tddTaskRelationships)
+        .where(eq(tddTaskRelationships.red_task_id, task.id))
+        .limit(1);
+
+      if (relationship) {
+        greenTaskInternalId = relationship.green_task_id;
+      }
+    }
+
+    // Block if no green task found
+    if (greenTaskInternalId === null) {
+      throw new Error(
+        `GREEN_TASK_REQUIRED: TDD red-phase task ${input.task_id} cannot be completed without a green task assignment. Provide green_task_id parameter.`
+      );
+    }
+
+    // Transition VALIDATED entries to PENDING_GREEN
+    await assignToGreenTask(task.id, greenTaskInternalId);
   }
 
   const now = new Date().toISOString();

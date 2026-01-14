@@ -14,6 +14,14 @@ import { SuccessResponseSchema } from "./errors.js";
 export const CompleteTaskInputSchema = z.object({
   task_id: z.number().int().positive("Task ID must be positive"),
   notes: z.string().optional(),
+  green_task_id: z
+    .number()
+    .int()
+    .positive("Green task ID must be positive")
+    .optional()
+    .describe(
+      "For TDD red-phase tasks: ID of the green-phase task that will implement the tests"
+    ),
 });
 
 export type CompleteTaskInput = z.output<typeof CompleteTaskInputSchema>;
