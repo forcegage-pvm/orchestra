@@ -46,14 +46,15 @@
 
 ### Implementation for User Story 1
 
-- [ ] T010 [US1] Create RegisterTddRedTestInputSchema in src/mcp-server/handlers/register-tdd-red-test.ts
-- [ ] T011 [US1] Create RegisterTddRedTestOutputSchema in src/mcp-server/handlers/register-tdd-red-test.ts
+- [ ] T010 [US1] Import and re-export RegisterTddRedTestInputSchema from src/schemas/tdd-registry.ts in handler
+- [ ] T011 [US1] Import and re-export RegisterTddRedTestOutputSchema from src/schemas/tdd-registry.ts in handler
 - [ ] T012 [US1] Implement handleRegisterTddRedTest handler in src/mcp-server/handlers/register-tdd-red-test.ts
 - [ ] T013 [US1] Add validation: task must have tdd_red_phase=true
 - [ ] T014 [US1] Add validation: task must not be already complete
 - [ ] T015 [US1] Add validation: test_identifier format check (file::group::test)
 - [ ] T016 [US1] Add duplicate detection returning existing task info
 - [ ] T017 [US1] Register tool in src/mcp-server/tools.ts with role: implementor
+- [ ] T017a [US1] Add role enforcement test: orchestrator role MUST NOT access register_tdd_red_test
 - [ ] T018 [US1] Create handler tests in test/mcp-server/handlers/register-tdd-red-test.test.ts
 
 **Checkpoint**: Implementors can register tests via MCP tool
@@ -71,9 +72,9 @@
 - [ ] T019 [US2] Implement bidirectional cross-check in src/core/tdd-validation.ts
 - [ ] T020 [US2] Add check: registered test has tdd-red marker in codebase
 - [ ] T021 [US2] Add check: marked test is registered in registry
-- [ ] T022 [US2] Add check: registered tests are FAILING (not passing)
+- [ ] T022 [US2] Add check: registered tests are FAILING (not passing) using vitest API or exit code
 - [ ] T023 [US2] Implement status transition REGISTERED → VALIDATED on success
-- [ ] T024 [US2] Create unit tests for validation logic in test/core/tdd-validation.test.ts
+- [ ] T024 [US2] Create unit tests for validation logic in test/core/tdd-validation.test.ts (MUST include: passing test blocks with specific error)
 - [ ] T025 [US2] Integrate validation into pre-signal executor in src/core/pre-signal-executor.ts
 - [ ] T026 [US2] Create integration test for pre-signal with TDD validation in test/integration/tdd-pre-signal.test.ts
 
@@ -110,7 +111,7 @@
 ### Implementation for User Story 4
 
 - [ ] T034 [US4] Implement green task detection (has PENDING_GREEN entries) in src/core/tdd-validation.ts
-- [ ] T035 [US4] Add test pass verification: run tests and check exit code
+- [ ] T035 [US4] Add test pass verification: run `vitest run --reporter=json <test-files>` and check exit code + JSON output
 - [ ] T036 [US4] Add marker removal verification: scan for remaining tdd-red markers
 - [ ] T037 [US4] Implement status transition PENDING_GREEN → GREEN
 - [ ] T038 [US4] Set greened_at timestamp on registry entries
@@ -133,6 +134,7 @@
 - [ ] T042 [US5] Implement closeout gate check in sprint closeout handler
 - [ ] T043 [US5] Generate actionable report: pending tests with assigned green tasks
 - [ ] T044 [US5] Add blocking_closeout flag to sprint status response
+- [ ] T044a [US5] Detect orphaned green_task_id (assigned task deleted/removed) and block with specific error
 - [ ] T045 [US5] Create tests for closeout blocking in test/mcp-server/handlers/sprint-closeout-tdd.test.ts
 
 **Checkpoint**: Sprint closeout is blocked until all tests GREEN
@@ -247,17 +249,17 @@ T053 [P] docs update
 
 | Metric | Count |
 |--------|-------|
-| Total Tasks | 56 |
+| Total Tasks | 58 |
 | Phase 1 (Setup) | 4 |
 | Phase 2 (Foundational) | 5 |
-| US1 Tasks | 9 |
+| US1 Tasks | 10 |
 | US2 Tasks | 8 |
 | US3 Tasks | 7 |
 | US4 Tasks | 7 |
-| US5 Tasks | 5 |
+| US5 Tasks | 6 |
 | US6 Tasks | 6 |
 | Phase 9 (Polish) | 5 |
 | Parallel Opportunities | 8 tasks marked [P] |
 
-**MVP Scope**: Phases 1-6 (US1-4) = 40 tasks
-**Full Scope**: All phases = 56 tasks
+**MVP Scope**: Phases 1-6 (US1-4) = 41 tasks
+**Full Scope**: All phases = 58 tasks

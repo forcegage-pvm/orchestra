@@ -62,7 +62,8 @@ specs/003-tdd-red-green/
 src/
 ├── core/
 │   ├── tdd-registry.ts          # NEW: Registry CRUD operations
-│   └── tdd-validation.ts        # NEW: Pre-signal validation logic
+│   ├── tdd-marker-scanner.ts    # NEW: Dart + TS marker detection (used by validation)
+│   └── tdd-validation.ts        # NEW: Pre-signal validation logic (uses marker-scanner)
 ├── db/
 │   ├── schema.ts                # MODIFY: Add tdd_task_relationships, tdd_red_registry tables
 │   └── migrations/              # NEW: Migration for new tables
@@ -126,7 +127,7 @@ Research questions resolved:
 | tasks.md | ✅ Created | [tasks.md](tasks.md) |
 
 **Summary**:
-- Total tasks: 56
-- MVP scope (US1-4): 40 tasks
+- Total tasks: 58 (after analysis remediation)
+- MVP scope (US1-4): 41 tasks
 - Parallel opportunities: 8 tasks marked [P]
 - User stories: 6 (P1×4, P2×1, P3×1)

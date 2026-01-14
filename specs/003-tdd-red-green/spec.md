@@ -107,7 +107,7 @@ As an Orchestrator configuring a sprint, I can declare red-to-green task relatio
 
 **Acceptance Scenarios**:
 
-1. **Given** I configure a sprint with task 15 having `tdd_green_for_tasks: [10, 11]`, **When** configuration completes, **Then** relationships are created: T10→T15, T11→T15.
+1. **Given** I configure a sprint with `tdd_relationships: [{ red_task_id: 10, green_task_id: 15 }, { red_task_id: 11, green_task_id: 15 }]`, **When** configuration completes, **Then** relationships are created: T10→T15, T11→T15.
 
 2. **Given** relationships exist, **When** red task 10 completes with validated tests, **Then** entries are automatically assigned to task 15 without needing green_task_id parameter.
 
@@ -115,10 +115,10 @@ As an Orchestrator configuring a sprint, I can declare red-to-green task relatio
 
 ### Edge Cases
 
-- What happens when a test identifier format doesn't match the scanning pattern? System should warn but not block.
-- How does the system handle tests that are renamed between red and green phases? Implementor must update registration.
-- What if the assigned green task is deleted or removed from sprint? Block sprint closeout with specific error.
-- What if an implementor registers a test for a non-red-phase task? Tool should reject with error.
+- What happens when a test identifier format doesn't match the scanning pattern? System logs warning to output and includes `warnings` array in response, but does NOT block.
+- How does the system handle tests that are renamed between red and green phases? Implementor uses `update_tdd_red_test` tool to modify test_identifier (status must be REGISTERED or VALIDATED).
+- What if the assigned green task is deleted or removed from sprint? Block sprint closeout with error: "Green task {id} assigned to {count} tests no longer exists."
+- What if an implementor registers a test for a non-red-phase task? Tool rejects with error: "Task {id} does not have tdd_red_phase=true."
 
 ## Requirements *(mandatory)*
 
@@ -158,3 +158,5 @@ As an Orchestrator configuring a sprint, I can declare red-to-green task relatio
 - TypeScript tests use `test/tdd-red/` directory or `[tdd-red]` in test name for marking
 - The pre-signal executor infrastructure exists and can be extended
 - SQLite database with drizzle ORM is the persistence layer
+- Test execution uses vitest with JSON reporter (`vitest run --reporter=json`); exit code 0 = pass, non-zero = fail
+- marker_type is inferred during validation scan; NULL in registry means "not yet validated" and is acceptable until pre-signal
