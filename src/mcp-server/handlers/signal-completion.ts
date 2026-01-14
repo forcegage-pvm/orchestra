@@ -168,6 +168,7 @@ async function signalCompletion(
   // Pass tdd_red_phase from task to executor (Task 19)
   if (task.tdd_red_phase) {
     preSignalConfig.tddRedPhase = true;
+    preSignalConfig.taskId = task.task_id;
   }
   const preSignalChecks = await runPreSignalChecks(preSignalConfig);
 

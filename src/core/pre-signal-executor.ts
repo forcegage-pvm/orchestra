@@ -10,6 +10,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { executeCommand, ExecuteResult } from "./command-executor.js";
+import { validateTddRedPhase } from "./tdd-validation.js";
 
 /**
  * Configuration for pre-signal checks
@@ -33,6 +34,8 @@ export interface PreSignalConfig {
   skipLint?: boolean;
   /** Enable TDD red-phase test validation mode (expects test failures) */
   tddRedPhase?: boolean;
+  /** Task ID for TDD validation (required when tddRedPhase=true) */
+  taskId?: number;
 }
 
 /**
@@ -61,6 +64,17 @@ export interface PreSignalResult {
   test: PreSignalCheckResult;
   /** Lint check result */
   lint: PreSignalCheckResult;
+  /** TDD validation result (only present when tddRedPhase=true) */
+  tddValidation?: {
+    success: boolean;
+    errors: Array<{
+      type: string;
+      message: string;
+      testIdentifier?: string;
+      details?: string;
+    }>;
+    validatedCount: number;
+  };
   /** Whether all checks passed */
   allPassed: boolean;
 }
@@ -208,15 +222,34 @@ export async function runPreSignalChecks(
     config.skipLint || !lintCommand
   );
 
-  const allPassed =
-    buildResult.passed && testResult.passed && lintResult.passed;
+  // Run TDD validation if tddRedPhase is enabled
+  let tddValidation: PreSignalResult["tddValidation"];
+  if (config.tddRedPhase && config.taskId !== undefined) {
+    const tddResult = await validateTddRedPhase({
+      taskId: config.taskId,
+      workspaceRoot: config.workspacePath,
+    });
+    tddValidation = tddResult;
+  }
 
-  return {
+  const allPassed =
+    buildResult.passed &&
+    testResult.passed &&
+    lintResult.passed &&
+    (tddValidation?.success ?? true);
+
+  const result: PreSignalResult = {
     build: buildResult,
     test: testResult,
     lint: lintResult,
     allPassed,
   };
+
+  if (tddValidation !== undefined) {
+    result.tddValidation = tddValidation;
+  }
+
+  return result;
 }
 
 /**
