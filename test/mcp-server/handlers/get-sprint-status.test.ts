@@ -8,12 +8,16 @@
  * 4. Orphaned green_task_id detection
  */
 
-import { eq } from "drizzle-orm";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { getDb, getRawDb, initializeDb, resetDb } from "../../../src/db/index.js";
+import {
+  getDb,
+  getRawDb,
+  initializeDb,
+  resetDb,
+} from "../../../src/db/index.js";
 import {
   phases,
   sprints,
