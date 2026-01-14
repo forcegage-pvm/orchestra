@@ -179,7 +179,9 @@ export {
 
 // TDD Red Phase Validation (bidirectional validation before signal)
 export {
+  validateTddGreenPhase,
   validateTddRedPhase,
+  type ValidateTddGreenPhaseOptions,
   type ValidateTddRedPhaseOptions,
   type ValidationError,
   type ValidationResult,
