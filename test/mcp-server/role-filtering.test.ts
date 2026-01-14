@@ -34,6 +34,7 @@ describe("Role-based Tool Filtering", () => {
     "get_current_task",
     "signal_completion",
     "get_feedback",
+    "register_tdd_red_test",
   ];
 
   const SHARED_TOOLS = [
@@ -50,7 +51,7 @@ describe("Role-based Tool Filtering", () => {
     });
 
     it("should have correct implementor tool count", () => {
-      expect(IMPLEMENTOR_ONLY_TOOLS.length).toBe(3);
+      expect(IMPLEMENTOR_ONLY_TOOLS.length).toBe(4);
     });
 
     it("should have correct shared tool count", () => {
@@ -62,7 +63,7 @@ describe("Role-based Tool Filtering", () => {
         ORCHESTRATOR_ONLY_TOOLS.length +
         IMPLEMENTOR_ONLY_TOOLS.length +
         SHARED_TOOLS.length;
-      expect(total).toBe(24);
+      expect(total).toBe(25);
     });
   });
 
@@ -74,7 +75,7 @@ describe("Role-based Tool Filtering", () => {
 
     it("implementor should have access to implementor + shared tools", () => {
       const expectedTools = [...IMPLEMENTOR_ONLY_TOOLS, ...SHARED_TOOLS];
-      expect(expectedTools.length).toBe(8);
+      expect(expectedTools.length).toBe(9);
     });
 
     it("full role should have access to all tools", () => {
@@ -83,7 +84,7 @@ describe("Role-based Tool Filtering", () => {
         ...IMPLEMENTOR_ONLY_TOOLS,
         ...SHARED_TOOLS,
       ];
-      expect(allTools.length).toBe(24);
+      expect(allTools.length).toBe(25);
     });
   });
 
@@ -116,6 +117,12 @@ describe("Role-based Tool Filtering", () => {
       // get_current_task is the implementor's view (no verification criteria)
       expect(IMPLEMENTOR_ONLY_TOOLS).toContain("get_current_task");
       expect(ORCHESTRATOR_ONLY_TOOLS).not.toContain("get_current_task");
+    });
+
+    it("orchestrator should NOT be able to register TDD red tests", () => {
+      // Only implementor registers red tests during TDD red-phase
+      expect(IMPLEMENTOR_ONLY_TOOLS).toContain("register_tdd_red_test");
+      expect(ORCHESTRATOR_ONLY_TOOLS).not.toContain("register_tdd_red_test");
     });
   });
 });
