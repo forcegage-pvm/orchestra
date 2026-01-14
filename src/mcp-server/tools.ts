@@ -807,6 +807,38 @@ const TOOLS_WITH_ROLES: ToolWithRole[] = [
     },
   },
 
+  // TDD Registry Tools - IMPLEMENTOR (red-phase test registration)
+  {
+    role: "implementor",
+    name: "register_tdd_red_test",
+    description:
+      "Register a failing (red) test during TDD red-phase development. Validates task is in TDD red-phase and test is not already registered.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        task_id: {
+          type: "number",
+          description: "Task ID (must be a TDD red-phase task)",
+        },
+        test_identifier: {
+          type: "string",
+          description:
+            'Test identifier in format "file::group::test" (e.g., "auth.test.ts::User Login::should reject invalid credentials")',
+        },
+        description: {
+          type: "string",
+          description: "Optional description of what the test validates",
+        },
+        marker_type: {
+          type: "string",
+          description:
+            'Optional marker type used to skip the test (e.g., "it.skip", "test.todo", "@Tags([\'tdd-red\'])")',
+        },
+      },
+      required: ["task_id", "test_identifier"],
+    },
+  },
+
   // Progress Tools - SHARED (both roles can view progress)
   {
     role: "shared",
@@ -1121,6 +1153,12 @@ export function registerTools(server: Server, role: ServerRole = "full"): void {
           return await (
             await import("./handlers/escalate-task.js")
           ).handleEscalateTask(args);
+
+        // TDD Registry (1 tool)
+        case "register_tdd_red_test":
+          return await (
+            await import("./handlers/register-tdd-red-test.js")
+          ).handleRegisterTddRedTest(args);
 
         // Progress (3 tools)
         case "get_progress":
