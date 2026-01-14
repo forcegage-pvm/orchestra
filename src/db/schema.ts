@@ -538,3 +538,88 @@ export const escalations = sqliteTable(
     ),
   })
 );
+
+/**
+ * TDD Task Relationships table - Links red-phase tasks to green-phase tasks
+ *
+ * Tracks which green-phase tasks are responsible for greening the tests
+ * created in red-phase tasks. This is the foundation of TDD enforcement,
+ * ensuring failing tests eventually pass.
+ */
+export const tddTaskRelationships = sqliteTable(
+  "tdd_task_relationships",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    sprint_id: text("sprint_id")
+      .notNull()
+      .references(() => sprints.id, { onDelete: "cascade" }),
+    red_task_id: integer("red_task_id")
+      .notNull()
+      .references(() => tasks.id, { onDelete: "cascade" }),
+    green_task_id: integer("green_task_id")
+      .notNull()
+      .references(() => tasks.id, { onDelete: "cascade" }),
+    declared_at: text("declared_at").notNull(), // 'configure_sprint' or 'complete_task'
+    created_at: text("created_at").notNull(),
+  },
+  (tddTaskRelationships) => ({
+    tddRelSprintIdx: index("tdd_rel_sprint_idx").on(
+      tddTaskRelationships.sprint_id
+    ),
+    tddRelRedTaskIdx: index("tdd_rel_red_task_idx").on(
+      tddTaskRelationships.red_task_id
+    ),
+    uniqueRelationship: uniqueIndex("tdd_rel_unique_idx").on(
+      tddTaskRelationships.sprint_id,
+      tddTaskRelationships.red_task_id,
+      tddTaskRelationships.green_task_id
+    ),
+  })
+);
+
+/**
+ * TDD Red Registry table - Individual test entries from red-phase tasks
+ *
+ * Tracks each failing test created during red-phase development, its validation,
+ * assignment to a green-phase task, and eventual greening. The status field
+ * tracks progression: REGISTERED → VALIDATED → PENDING_GREEN → GREEN.
+ */
+export const tddRedRegistry = sqliteTable(
+  "tdd_red_registry",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    sprint_id: text("sprint_id")
+      .notNull()
+      .references(() => sprints.id, { onDelete: "cascade" }),
+    red_task_id: integer("red_task_id")
+      .notNull()
+      .references(() => tasks.id, { onDelete: "cascade" }),
+    test_identifier: text("test_identifier").notNull(), // Format: "file::group::test"
+    description: text("description"),
+    marker_type: text("marker_type"),
+    status: text("status").notNull().default("REGISTERED"), // REGISTERED | VALIDATED | PENDING_GREEN | GREEN
+    green_task_id: integer("green_task_id").references(() => tasks.id, {
+      onDelete: "cascade",
+    }),
+    created_at: text("created_at").notNull(),
+    validated_at: text("validated_at"),
+    assigned_at: text("assigned_at"),
+    greened_at: text("greened_at"),
+  },
+  (tddRedRegistry) => ({
+    tddRegSprintIdx: index("tdd_reg_sprint_idx").on(
+      tddRedRegistry.sprint_id
+    ),
+    tddRegRedTaskIdx: index("tdd_reg_red_task_idx").on(
+      tddRedRegistry.red_task_id
+    ),
+    tddRegGreenTaskIdx: index("tdd_reg_green_task_idx").on(
+      tddRedRegistry.green_task_id
+    ),
+    tddRegStatusIdx: index("tdd_reg_status_idx").on(tddRedRegistry.status),
+    uniqueTest: uniqueIndex("tdd_reg_unique_test_idx").on(
+      tddRedRegistry.sprint_id,
+      tddRedRegistry.test_identifier
+    ),
+  })
+);
