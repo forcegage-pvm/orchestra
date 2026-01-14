@@ -159,6 +159,26 @@
         "command": "orchestra.setActiveSprint",
         "title": "Set as Active Sprint",
         "icon": "$(star)"
+      },
+      {
+        "command": "orchestra.startAgent",
+        "title": "Orchestra: Start Agent",
+        "icon": "$(play)"
+      },
+      {
+        "command": "orchestra.pauseAgent",
+        "title": "Orchestra: Pause Agent",
+        "icon": "$(debug-pause)"
+      },
+      {
+        "command": "orchestra.stopAgent",
+        "title": "Orchestra: Stop Agent",
+        "icon": "$(debug-stop)"
+      },
+      {
+        "command": "orchestra.resumeAgent",
+        "title": "Orchestra: Resume Agent",
+        "icon": "$(debug-continue)"
       }
     ],
     "keybindings": [

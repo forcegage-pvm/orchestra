@@ -8,6 +8,7 @@
 import * as fs from "fs";
 import * as path from "path";
 import * as vscode from "vscode";
+import { AgentRunner, ToolRegistry } from "./agents/index.js";
 import { SessionManager } from "./chat/SessionManager.js";
 import { handlePlayTask } from "./commands/PlayTaskHandler.js";
 import {
@@ -42,6 +43,7 @@ let sessionManager: SessionManager | undefined;
 let contextFileResolver: ContextFileResolver | undefined;
 let dbWatcher: DatabaseWatcher | undefined;
 let mcpManager: MCPServerManager | undefined;
+let agentRunner: AgentRunner | undefined;
 
 /**
  * Get the ConfigService instance
@@ -865,7 +867,143 @@ export async function activate(
             );
           }
         }
-      )
+      ),
+      // Agent execution commands
+      vscode.commands.registerCommand("orchestra.startAgent", async () => {
+        try {
+          if (agentRunner) {
+            vscode.window.showErrorMessage(
+              "Orchestra: Agent is already running. Stop or pause the current agent first."
+            );
+            return;
+          }
+
+          // Prompt for role
+          const role = await vscode.window.showQuickPick(
+            [
+              { label: "Orchestrator", value: "orchestrator" },
+              { label: "Implementor", value: "implementor" },
+            ],
+            { placeHolder: "Select agent role" }
+          );
+
+          if (!role) {
+            return; // User cancelled
+          }
+
+          // Prompt for initial prompt
+          const prompt = await vscode.window.showInputBox({
+            prompt: "Enter initial instruction for the agent",
+            placeHolder: "e.g., Prepare task 5 or Implement task 3",
+          });
+
+          if (!prompt) {
+            return; // User cancelled
+          }
+
+          // Create ToolRegistry and AgentRunner
+          const toolRegistry = new ToolRegistry();
+          // TODO: Register tools here in future work
+
+          agentRunner = new AgentRunner(toolRegistry, {
+            maxIterations: 50,
+            maxContextTokens: 100000,
+          });
+
+          // Start the agent
+          await agentRunner.start(
+            role.value as "orchestrator" | "implementor",
+            {
+              prompt,
+              maxIterations: 50,
+            }
+          );
+
+          vscode.window.showInformationMessage(
+            `Orchestra: ${role.label} agent started successfully`
+          );
+          logger.info(`Agent started: ${role.value}`);
+        } catch (error) {
+          const message =
+            error instanceof Error ? error.message : "Unknown error";
+          vscode.window.showErrorMessage(
+            `Orchestra: Failed to start agent - ${message}`
+          );
+          logger.error("Failed to start agent", error);
+        }
+      }),
+      vscode.commands.registerCommand("orchestra.pauseAgent", async () => {
+        try {
+          if (!agentRunner) {
+            vscode.window.showErrorMessage(
+              "Orchestra: No agent is currently running"
+            );
+            return;
+          }
+
+          await agentRunner.pause();
+          vscode.window.showInformationMessage(
+            "Orchestra: Agent paused successfully"
+          );
+          logger.info("Agent paused");
+        } catch (error) {
+          const message =
+            error instanceof Error ? error.message : "Unknown error";
+          vscode.window.showErrorMessage(
+            `Orchestra: Failed to pause agent - ${message}`
+          );
+          logger.error("Failed to pause agent", error);
+        }
+      }),
+      vscode.commands.registerCommand("orchestra.stopAgent", async () => {
+        try {
+          if (!agentRunner) {
+            vscode.window.showErrorMessage(
+              "Orchestra: No agent is currently running"
+            );
+            return;
+          }
+
+          await agentRunner.stop();
+          agentRunner.dispose();
+          agentRunner = undefined;
+
+          vscode.window.showInformationMessage(
+            "Orchestra: Agent stopped successfully"
+          );
+          logger.info("Agent stopped");
+        } catch (error) {
+          const message =
+            error instanceof Error ? error.message : "Unknown error";
+          vscode.window.showErrorMessage(
+            `Orchestra: Failed to stop agent - ${message}`
+          );
+          logger.error("Failed to stop agent", error);
+        }
+      }),
+      vscode.commands.registerCommand("orchestra.resumeAgent", async () => {
+        try {
+          if (!agentRunner) {
+            vscode.window.showErrorMessage(
+              "Orchestra: No agent to resume. Start a new agent first."
+            );
+            return;
+          }
+
+          await agentRunner.resume();
+          vscode.window.showInformationMessage(
+            "Orchestra: Agent resumed successfully"
+          );
+          logger.info("Agent resumed");
+        } catch (error) {
+          const message =
+            error instanceof Error ? error.message : "Unknown error";
+          vscode.window.showErrorMessage(
+            `Orchestra: Failed to resume agent - ${message}`
+          );
+          logger.error("Failed to resume agent", error);
+        }
+      })
     );
     logger.info("Commands registered");
 
@@ -910,6 +1048,12 @@ export function deactivate(): void {
 
   // ConfigService has no disposal required - it only provides access to workspace config
   // Any onConfigChange listeners created by consumers are their responsibility to dispose
+
+  // Clean up agent runner
+  if (agentRunner) {
+    agentRunner.dispose();
+    agentRunner = undefined;
+  }
 
   // Database watcher disposed via subscriptions
   dbWatcher = undefined;
