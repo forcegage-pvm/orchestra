@@ -220,6 +220,82 @@ const MIGRATIONS: Migration[] = [
       );
     },
   },
+  {
+    id: "20260126_001_add_tdd_tables",
+    description:
+      "Add tdd_task_relationships and tdd_red_registry tables for TDD workflow support",
+    up: (db) => {
+      // Check if tdd_task_relationships table already exists (idempotent)
+      const relationshipsTable = db
+        .prepare(
+          `SELECT name FROM sqlite_master WHERE type='table' AND name='tdd_task_relationships'`
+        )
+        .all();
+      if (relationshipsTable.length === 0) {
+        db.exec(`
+          CREATE TABLE tdd_task_relationships (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            sprint_id TEXT NOT NULL REFERENCES sprints(id) ON DELETE CASCADE,
+            red_task_id INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+            green_task_id INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+            declared_at TEXT NOT NULL,
+            created_at TEXT NOT NULL
+          )
+        `);
+
+        db.exec(
+          `CREATE INDEX IF NOT EXISTS tdd_rel_sprint_idx ON tdd_task_relationships(sprint_id)`
+        );
+        db.exec(
+          `CREATE INDEX IF NOT EXISTS tdd_rel_red_task_idx ON tdd_task_relationships(red_task_id)`
+        );
+        db.exec(
+          `CREATE UNIQUE INDEX IF NOT EXISTS tdd_rel_unique_idx ON tdd_task_relationships(sprint_id, red_task_id, green_task_id)`
+        );
+      }
+
+      // Check if tdd_red_registry table already exists (idempotent)
+      const registryTable = db
+        .prepare(
+          `SELECT name FROM sqlite_master WHERE type='table' AND name='tdd_red_registry'`
+        )
+        .all();
+      if (registryTable.length === 0) {
+        db.exec(`
+          CREATE TABLE tdd_red_registry (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            sprint_id TEXT NOT NULL REFERENCES sprints(id) ON DELETE CASCADE,
+            red_task_id INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+            test_identifier TEXT NOT NULL,
+            description TEXT,
+            marker_type TEXT,
+            status TEXT NOT NULL DEFAULT 'REGISTERED',
+            green_task_id INTEGER REFERENCES tasks(id) ON DELETE CASCADE,
+            created_at TEXT NOT NULL,
+            validated_at TEXT,
+            assigned_at TEXT,
+            greened_at TEXT
+          )
+        `);
+
+        db.exec(
+          `CREATE INDEX IF NOT EXISTS tdd_reg_sprint_idx ON tdd_red_registry(sprint_id)`
+        );
+        db.exec(
+          `CREATE INDEX IF NOT EXISTS tdd_reg_red_task_idx ON tdd_red_registry(red_task_id)`
+        );
+        db.exec(
+          `CREATE INDEX IF NOT EXISTS tdd_reg_green_task_idx ON tdd_red_registry(green_task_id)`
+        );
+        db.exec(
+          `CREATE INDEX IF NOT EXISTS tdd_reg_status_idx ON tdd_red_registry(status)`
+        );
+        db.exec(
+          `CREATE UNIQUE INDEX IF NOT EXISTS tdd_reg_unique_test_idx ON tdd_red_registry(sprint_id, test_identifier)`
+        );
+      }
+    },
+  },
 ];
 
 /**
