@@ -2,10 +2,10 @@
  * Tests for TDD Red Marker Scanner
  */
 
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import * as fs from "fs/promises";
-import * as path from "path";
 import * as os from "os";
+import * as path from "path";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { scanForTddRedMarkers } from "../../src/core/tdd-marker-scanner.js";
 
 describe("TDD Marker Scanner", () => {
@@ -63,6 +63,97 @@ void main() {
       expect(markers).toHaveLength(1);
       expect(markers[0].markerType).toBe("@Tags(['red'])");
       expect(markers[0].testIdentifier).toBe("test.dart::::red test");
+    });
+
+    it("should detect file-level @Tags before void main()", async () => {
+      const content = `@Tags(['tdd-red'])
+library;
+
+import 'package:test/test.dart';
+
+void main() {
+  group('XAxisConfig', () {
+    group('construction', () {
+      test('should have default values', () {
+        expect(1, equals(2));
+      });
+      
+      test('should accept custom values', () {
+        expect(true, isFalse);
+      });
+    });
+  });
+}
+`;
+      const testFile = path.join(tempDir, "x_axis_config_test.dart");
+      await fs.writeFile(testFile, content);
+
+      const markers = await scanForTddRedMarkers(testFile);
+
+      expect(markers).toHaveLength(2);
+      expect(markers[0].testIdentifier).toBe(
+        "x_axis_config_test.dart::XAxisConfig::construction::should have default values"
+      );
+      expect(markers[0].markerType).toBe("file-level-@Tags(['tdd-red'])");
+      expect(markers[1].testIdentifier).toBe(
+        "x_axis_config_test.dart::XAxisConfig::construction::should accept custom values"
+      );
+    });
+
+    it("should detect inline tags: parameter in test()", async () => {
+      const content = `
+void main() {
+  test('red phase test', tags: ['tdd-red'], () {
+    expect(false, isTrue);
+  });
+}
+`;
+      const testFile = path.join(tempDir, "inline_tags_test.dart");
+      await fs.writeFile(testFile, content);
+
+      const markers = await scanForTddRedMarkers(testFile);
+
+      expect(markers).toHaveLength(1);
+      expect(markers[0].testIdentifier).toBe(
+        "inline_tags_test.dart::::red phase test"
+      );
+      expect(markers[0].markerType).toBe("tags:['tdd-red']");
+    });
+
+    it("should detect @Tags with double quotes", async () => {
+      const content = `
+void main() {
+  @Tags(["tdd-red"])
+  test('double quote test', () {
+    fail('not implemented');
+  });
+}
+`;
+      const testFile = path.join(tempDir, "double_quote_test.dart");
+      await fs.writeFile(testFile, content);
+
+      const markers = await scanForTddRedMarkers(testFile);
+
+      expect(markers).toHaveLength(1);
+      expect(markers[0].markerType).toBe('@Tags(["tdd-red"])');
+    });
+
+    it("should detect @Tags with spaces", async () => {
+      const content = `
+void main() {
+  @Tags( [ 'tdd-red' ] )
+  test('spaced tags test', () {
+    fail('not implemented');
+  });
+}
+`;
+      const testFile = path.join(tempDir, "spaced_tags_test.dart");
+      await fs.writeFile(testFile, content);
+
+      const markers = await scanForTddRedMarkers(testFile);
+
+      expect(markers).toHaveLength(1);
+      expect(markers[0].testIdentifier).toContain("spaced tags test");
     });
 
     it("should detect tests in tdd-red directory", async () => {
