@@ -88,6 +88,19 @@ export const GetSprintStatusOutputSchema = z.object({
       status: TaskStatusSchema,
     })
     .optional(),
+  tdd_summary: z
+    .object({
+      total: z.number().int().nonnegative(),
+      by_status: z.object({
+        registered: z.number().int().nonnegative(),
+        validated: z.number().int().nonnegative(),
+        pending_green: z.number().int().nonnegative(),
+        green: z.number().int().nonnegative(),
+      }),
+      blocking_closeout: z.boolean(),
+      orphaned_count: z.number().int().nonnegative(),
+    })
+    .optional(),
 });
 
 export type GetSprintStatusOutput = z.output<
