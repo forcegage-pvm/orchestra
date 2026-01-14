@@ -84,7 +84,10 @@ export const ToolDefinitionSchema = z.object({
   name: z.string().min(1),
   description: z.string().min(1),
   inputSchema: ToolInputSchemaSchema,
-  handler: z.function().args(z.unknown(), ToolContextSchema).returns(z.promise(ToolResultSchema)),
+  handler: z
+    .function()
+    .args(z.unknown(), ToolContextSchema)
+    .returns(z.promise(ToolResultSchema)),
 });
 export type ToolDefinition = z.output<typeof ToolDefinitionSchema>;
 
