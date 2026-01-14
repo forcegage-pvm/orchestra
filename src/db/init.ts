@@ -166,6 +166,23 @@ export async function initializeDb(): Promise<void> {
   `);
 
   await db.run(sql`
+    CREATE TABLE IF NOT EXISTS tdd_red_registry (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      sprint_id TEXT NOT NULL REFERENCES sprints(id) ON DELETE CASCADE,
+      red_task_id INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+      test_identifier TEXT NOT NULL,
+      description TEXT,
+      marker_type TEXT,
+      status TEXT NOT NULL DEFAULT 'REGISTERED',
+      green_task_id INTEGER REFERENCES tasks(id) ON DELETE CASCADE,
+      created_at TEXT NOT NULL,
+      validated_at TEXT,
+      assigned_at TEXT,
+      greened_at TEXT
+    )
+  `);
+
+  await db.run(sql`
     CREATE TABLE IF NOT EXISTS config (
       key TEXT PRIMARY KEY,
       value TEXT NOT NULL,
@@ -434,6 +451,23 @@ async function createIndexes(): Promise<void> {
   );
   await db.run(
     sql`CREATE INDEX IF NOT EXISTS triggered_by_idx ON progress(triggered_by)`
+  );
+
+  // TDD Red Registry indexes
+  await db.run(
+    sql`CREATE INDEX IF NOT EXISTS tdd_reg_sprint_idx ON tdd_red_registry(sprint_id)`
+  );
+  await db.run(
+    sql`CREATE INDEX IF NOT EXISTS tdd_reg_red_task_idx ON tdd_red_registry(red_task_id)`
+  );
+  await db.run(
+    sql`CREATE INDEX IF NOT EXISTS tdd_reg_green_task_idx ON tdd_red_registry(green_task_id)`
+  );
+  await db.run(
+    sql`CREATE INDEX IF NOT EXISTS tdd_reg_status_idx ON tdd_red_registry(status)`
+  );
+  await db.run(
+    sql`CREATE UNIQUE INDEX IF NOT EXISTS tdd_reg_unique_test_idx ON tdd_red_registry(sprint_id, test_identifier)`
   );
 
   // Tool executions indexes
