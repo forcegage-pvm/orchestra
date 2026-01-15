@@ -88,13 +88,13 @@
 **Findings**:
 
 **Dart patterns**:
-- Library-level: `@Tags(['tdd-red:task-N'])` annotation before `void main()`
-- Inline: `tags: ['tdd-red:task-N']` parameter in `test()` call
-- Regex: `/@Tags\(\s*\[\s*['"]tdd-red:task-(\d+)['"]\s*\]\s*\)|tags:\s*\[\s*['"]tdd-red:task-(\d+)['"]\s*\]/`
+- Library-level: `@Tags(['tdd-red-task-N'])` annotation before `void main()`
+- Inline: `tags: ['tdd-red-task-N']` parameter in `test()` call
+- Regex: `/@Tags\(\s*\[\s*['"]tdd-red-task-(\d+)['"]\s*\]\s*\)|tags:\s*\[\s*['"]tdd-red-task-(\d+)['"]\s*\]/`
 
 **TypeScript patterns**:
-- Name-based: `[tdd-red:task-N]` in test/describe description
-- Regex: `/\[tdd-red:task-(\d+)\]/` in test strings
+- Name-based: `[tdd-red-task-N]` in test/describe description
+- Regex: `/\[tdd-red-task-(\d+)\]/` in test strings
 
 **Decision**: Create `scanForTddRedMarkers()` function that detects both patterns and returns structured results with `test_identifier` and `marker_type`.
 

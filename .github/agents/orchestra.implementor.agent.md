@@ -228,15 +228,15 @@ Some tasks have `tdd_red_phase: true` in their handover. These are **TDD red pha
    **TypeScript/Vitest:**
 
    ```typescript
-   // Use [tdd-red:task-N] prefix in test or describe name
-   describe("[tdd-red:task-3] Feature", () => {
+   // Use [tdd-red-task-N] prefix in test or describe name
+   describe("[tdd-red-task-3] Feature", () => {
      it("should validate user input", () => {
        expect(validateInput("")).toBe(false);
      });
    });
 
    // Or at test level:
-   it("[tdd-red:task-3] should validate user input", () => {
+   it("[tdd-red-task-3] should validate user input", () => {
      expect(validateInput("")).toBe(false);
    });
    ```
@@ -245,7 +245,7 @@ Some tasks have `tdd_red_phase: true` in their handover. These are **TDD red pha
 
    ```dart
    // Option 1: Library-level annotation (all tests in file)
-   @Tags(['tdd-red:task-3'])
+   @Tags(['tdd-red-task-3'])
    void main() {
      test('should validate user input', () {
        expect(validateInput(''), false);
@@ -255,7 +255,7 @@ Some tasks have `tdd_red_phase: true` in their handover. These are **TDD red pha
    // Option 2: Inline tags parameter (single test)
    test('should validate user input', () {
      expect(validateInput(''), false);
-   }, tags: ['tdd-red:task-3']);
+   }, tags: ['tdd-red-task-3']);
    ```
 
    **⚠️ OLD FORMATS NO LONGER SUPPORTED:**
@@ -265,13 +265,35 @@ Some tasks have `tdd_red_phase: true` in their handover. These are **TDD red pha
    - ❌ `test/tdd-red/` directories
    - ❌ `it.skip`, `test.skip`, `xit` (skip markers)
 
-3. **Signal completion** as normal - the system will automatically scan for TDD markers
+3. **Verify locally before signaling:**
+
+   **TypeScript:**
+
+   ```bash
+   # Red tests should FAIL
+   npm test -- --testNamePattern="\[tdd-red-task-"
+   # All other tests should PASS
+   npm test -- --testNamePattern="^(?!.*\[tdd-red\])"
+   ```
+
+   **Dart/Flutter:**
+
+   ```bash
+   # Red tests should FAIL (use 'tdd-red' prefix, not full tag)
+   flutter test --tags tdd-red
+   # All other tests should PASS
+   flutter test --exclude-tags tdd-red
+   ```
+
+   > **Important**: When running tests, use the `tdd-red` prefix (not `tdd-red-task-N`). The prefix matches ALL red-phase tests regardless of task ID.
+
+4. **Signal completion** as normal - the system will automatically scan for TDD markers
 
 ### Automatic TDD Test Registration (Scan-on-Signal)
 
 When you call `signal_completion` for a TDD red phase task, Orchestra automatically:
 
-1. **Scans your test files** for TDD markers with format `tdd-red:task-N`
+1. **Scans your test files** for TDD markers with format `tdd-red-task-N`
 2. **Extracts test identifiers** in the format `file::group::test`
 3. **Registers tests** in PENDING_GREEN status
 4. **Validates markers** - ensures all registered tests have proper TDD markers
@@ -291,8 +313,8 @@ After your red phase task is complete:
 
 | Error            | Meaning                              | Fix                                                                      |
 | ---------------- | ------------------------------------ | ------------------------------------------------------------------------ |
-| `MISSING_MARKER` | Test has no TDD marker               | Add `[tdd-red:task-N]` (TS) or `@Tags(['tdd-red:task-N'])` (Dart)        |
-| `NO_TESTS_FOUND` | No TDD tests detected in test files  | Verify single-token markers `tdd-red:task-N` are present with correct ID |
+| `MISSING_MARKER` | Test has no TDD marker               | Add `[tdd-red-task-N]` (TS) or `@Tags(['tdd-red-task-N'])` (Dart)        |
+| `NO_TESTS_FOUND` | No TDD tests detected in test files  | Verify single-token markers `tdd-red-task-N` are present with correct ID |
 | `SCAN_FAILED`    | Error during automatic test scanning | Check test file syntax and marker format                                 |
 
 ## Handling Feedback

@@ -290,7 +290,7 @@ async function registerTddRedTest(input: RegisterTddRedTestInput): Promise<ToolR
     status: "registered",
     message: `Registered test "${input.test_identifier}" for TDD red-phase tracking.`,
     next_steps: [
-      "Ensure the test has a tdd-red marker (@Tags(['tdd-red:task-N']) for Dart or [tdd-red:task-N] in test name for TypeScript)",
+      "Ensure the test has a tdd-red marker (@Tags(['tdd-red-task-N']) for Dart or [tdd-red-task-N] in test name for TypeScript)",
       "Ensure the test is FAILING (tests non-existent functionality)",
       "Signal completion when all tests are registered and marked",
     ],
@@ -797,7 +797,7 @@ void main() {
         );
         expect(config.tickLabelStyle.color, equals(const Color(0xFF666666)));
       },
-      tags: ['tdd-red:task-42'],  // ← REQUIRED: Single token with task ID
+      tags: ['tdd-red-task-42'],  // ← REQUIRED: Single token with task ID
     );
 
     test(
@@ -809,7 +809,7 @@ void main() {
         );
         expect(config.tickLabelStyle.fontSize, equals(11.0));
       },
-      tags: ['tdd-red:task-42'],  // ← Each red test needs the task ID
+      tags: ['tdd-red-task-42'],  // ← Each red test needs the task ID
     );
   });
 }
@@ -824,7 +824,7 @@ test/unit/axis_test.dart::InternalAxisConfig defaults::font size should be 11px
 #### Option 2: Library-Level Tag (When ALL Tests in File Are Red)
 
 ```dart
-@Tags(['tdd-red:task-42'])  // ← Applies to ALL tests in this file
+@Tags(['tdd-red-task-42'])  // ← Applies to ALL tests in this file
 library;
 
 import 'package:flutter_test/flutter_test.dart';
@@ -928,7 +928,7 @@ When implementing the green phase, the implementor MUST:
 #### Dart
 ```dart
 // BEFORE (red phase)
-test('color should be 0xFF666666', () { ... }, tags: ['tdd-red:task-42']);
+test('color should be 0xFF666666', () { ... }, tags: ['tdd-red-task-42']);
 
 // AFTER (green phase - remove the tags parameter)
 test('color should be 0xFF666666', () { ... });
@@ -937,9 +937,9 @@ test('color should be 0xFF666666', () { ... });
 #### TypeScript
 ```typescript
 // BEFORE (red phase)
-it('[tdd-red:task-42] color should be 0xFF666666', () => { ... });
+it('[tdd-red-task-42] color should be 0xFF666666', () => { ... });
 
-// AFTER (green phase - remove [tdd-red:task-N] from name)
+// AFTER (green phase - remove [tdd-red-task-N] from name)
 it('color should be 0xFF666666', () => { ... });
 ```
 
@@ -951,11 +951,12 @@ Implementors should verify their work before signaling:
 
 #### Dart
 ```bash
-# Run ONLY red-phase tests for this task (should FAIL during red phase)
-flutter test --tags tdd-red:task-42
+# Run ONLY red-phase tests (should FAIL during red phase)
+# Note: Use 'tdd-red' prefix to match all tdd-red-task-* tags
+flutter test --tags tdd-red
 
 # Run non-red tests (should PASS - no regressions)
-flutter test --exclude-tags tdd-red:task-42
+flutter test --exclude-tags tdd-red
 
 # After green phase: run ALL tests (should PASS)
 flutter test
@@ -964,10 +965,10 @@ flutter test
 #### TypeScript
 ```bash
 # Run red-phase tests (should FAIL during red phase)
-npm test -- test/tdd-red
+npm test -- --testNamePattern="\[tdd-red-task-"
 
 # Run non-red tests (should PASS - no regressions)
-npm test -- --exclude="**/tdd-red/**"
+npm test -- --testNamePattern="^(?!.*\[tdd-red\])"
 
 # After green phase: run ALL tests (should PASS)
 npm test

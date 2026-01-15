@@ -154,8 +154,8 @@ As an Orchestrator configuring a sprint, I can declare red-to-green task relatio
 ## Assumptions
 
 - The existing tdd_red_phase flag on tasks is the trigger for TDD workflow
-- Dart tests use `@Tags(['tdd-red:task-N'])` or inline `tags: ['tdd-red:task-N']` for marking
-- TypeScript tests use `[tdd-red:task-N]` in test/describe name for marking
+- Dart tests use `@Tags(['tdd-red-task-N'])` or inline `tags: ['tdd-red-task-N']` for marking
+- TypeScript tests use `[tdd-red-task-N]` in test/describe name for marking
 - The pre-signal executor infrastructure exists and can be extended
 - SQLite database with drizzle ORM is the persistence layer
 - Test execution uses vitest with JSON reporter (`vitest run --reporter=json`); exit code 0 = pass, non-zero = fail

@@ -5,8 +5,8 @@
  * matching the specified task. Used during signal_completion to auto-register tests.
  *
  * Marker syntax (SINGLE TOKEN format):
- * - TypeScript: test('[tdd-red:task-3] test name', ...) or describe('[tdd-red:task-3] group', ...)
- * - Dart: test('name', () {}, tags: ['tdd-red:task-3']) or @Tags(['tdd-red:task-3'])
+ * - TypeScript: test('[tdd-red-task-3] test name', ...) or describe('[tdd-red-task-3] group', ...)
+ * - Dart: test('name', () {}, tags: ['tdd-red-task-3']) or @Tags(['tdd-red-task-3'])
  */
 
 import { glob } from "glob";
@@ -23,7 +23,7 @@ export interface TddScanResult {
   tests: Array<{
     test_identifier: string; // Format: "file::group::testName"
     test_file: string; // Relative path from workspace root
-    marker_type: string; // e.g., "@Tags(['tdd-red:task-3'])", "[tdd-red:task-3]"
+    marker_type: string; // e.g., "@Tags(['tdd-red-task-3'])", "[tdd-red-task-3]"
   }>;
 }
 
@@ -31,8 +31,8 @@ export interface TddScanResult {
  * Extract task ID from marker type (already includes task ID in single-token format)
  *
  * Supports:
- * - TypeScript: [tdd-red:task-3] in test name or marker type
- * - Dart: tags: ['tdd-red:task-3'] or @Tags(['tdd-red:task-3']) in marker type
+ * - TypeScript: [tdd-red-task-3] in test name or marker type
+ * - Dart: tags: ['tdd-red-task-3'] or @Tags(['tdd-red-task-3']) in marker type
  *
  * @param testIdentifier - Test identifier in format "file::group::testName"
  * @param markerType - Marker type from scanner (includes task ID)
@@ -42,9 +42,9 @@ function extractTaskId(
   testIdentifier: string,
   markerType: string
 ): number | null {
-  // All markers now use single-token format: tdd-red:task-N
+  // All markers now use single-token format: tdd-red-task-N
   // Check both identifier and marker type for the pattern
-  const pattern = /tdd-red:task-(\d+)/;
+  const pattern = /tdd-red-task-(\d+)/;
 
   const markerMatch = markerType.match(pattern);
   if (markerMatch && markerMatch[1]) {
@@ -65,7 +65,7 @@ function extractTaskId(
  * This function:
  * 1. Finds all test files in the workspace
  * 2. Scans each file for TDD red markers
- * 3. Extracts task IDs from markers (e.g., [tdd-red:task-3] or tags: ['task-3'])
+ * 3. Extracts task IDs from markers (e.g., [tdd-red-task-3] or tags: ['task-3'])
  * 4. Filters to only tests matching the input taskId
  *
  * @param taskId - Task ID to filter for

@@ -237,17 +237,17 @@ function generateTddInstructions(
   if (language === "dart") {
     return {
       tagging_mechanism:
-        "Use @Tags(['tdd-red:task-N']) annotation OR inline tags: ['tdd-red:task-N'] parameter (replace N with task ID)",
-      red_test_command: "flutter test --tags tdd-red:task-N",
-      green_test_command: "flutter test --exclude-tags tdd-red:task-N",
+        "Use @Tags(['tdd-red-task-N']) annotation OR inline tags: ['tdd-red-task-N'] parameter (replace N with task ID)",
+      red_test_command: "flutter test --tags tdd-red",
+      green_test_command: "flutter test --exclude-tags tdd-red",
       expected_behavior:
         "The tagged test MUST fail (exit code 1). All other tests MUST pass (exit code 0).",
       cleanup_instruction:
-        "When implementing the GREEN phase: remove the @Tags(['tdd-red:task-N']) annotation or inline tags parameter AFTER making the test pass.",
+        "When implementing the GREEN phase: remove the @Tags(['tdd-red-task-N']) annotation or inline tags parameter AFTER making the test pass.",
       example: `// Option 1: Library-level annotation (all tests in file)
 import 'package:flutter_test/flutter_test.dart';
 
-@Tags(['tdd-red:task-N'])  // <-- Replace N with task ID, remove in GREEN phase
+@Tags(['tdd-red-task-N'])  // <-- Replace N with task ID, remove in GREEN phase
 void main() {
   test('feature should work', () {
     expect(actualValue, expectedValue);
@@ -257,28 +257,28 @@ void main() {
 // Option 2: Inline tags parameter (single test)
 test('feature should work', () {
   expect(actualValue, expectedValue);
-}, tags: ['tdd-red:task-N']);  // <-- Replace N with task ID, remove in GREEN phase`,
+}, tags: ['tdd-red-task-N']);  // <-- Replace N with task ID, remove in GREEN phase`,
     };
   }
 
   if (language === "typescript") {
     return {
       tagging_mechanism:
-        "Add [tdd-red:task-N] prefix to test or describe name (replace N with task ID)",
-      red_test_command: 'npm test -- --testNamePattern="\\[tdd-red:task-N\\]"',
+        "Add [tdd-red-task-N] prefix to test or describe name (replace N with task ID)",
+      red_test_command: 'npm test -- --testNamePattern="\\[tdd-red-task-N\\]"',
       green_test_command:
         'npm test -- --testNamePattern="^(?!.*\\[tdd-red\\])"',
       expected_behavior:
-        "Tests with [tdd-red:task-N] in name MUST fail (exit code 1). All other tests MUST pass (exit code 0).",
+        "Tests with [tdd-red-task-N] in name MUST fail (exit code 1). All other tests MUST pass (exit code 0).",
       cleanup_instruction:
-        "When implementing the GREEN phase: remove [tdd-red:task-N] from test/describe name AFTER making the test pass.",
+        "When implementing the GREEN phase: remove [tdd-red-task-N] from test/describe name AFTER making the test pass.",
       example: `// Test-level marker
-it('[tdd-red:task-N] should calculate total correctly', () => {  // <-- Replace N with task ID, remove in GREEN phase
+it('[tdd-red-task-N] should calculate total correctly', () => {  // <-- Replace N with task ID, remove in GREEN phase
   expect(calculateTotal([1, 2, 3])).toBe(6);
 });
 
 // Describe-level marker (all nested tests inherit)
-describe('[tdd-red:task-N] Feature module', () => {  // <-- Replace N with task ID, remove in GREEN phase
+describe('[tdd-red-task-N] Feature module', () => {  // <-- Replace N with task ID, remove in GREEN phase
   it('should work', () => {
     expect(actual).toBe(expected);
   });

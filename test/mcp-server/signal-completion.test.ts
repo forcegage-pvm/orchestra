@@ -252,14 +252,14 @@ describe("signal_completion handler", () => {
       scanSpy.mockResolvedValue({
         tests: [
           {
-            test_identifier: "test.test.ts::Group::[tdd-red:task-3] test one",
+            test_identifier: "test.test.ts::Group::[tdd-red-task-3] test one",
             test_file: "test/test.test.ts",
             marker_type: "it.skip",
           },
           {
-            test_identifier: "test.test.ts::Group::[tdd-red:task-3] test two",
+            test_identifier: "test.test.ts::Group::[tdd-red-task-3] test two",
             test_file: "test/test.test.ts",
-            marker_type: "[tdd-red:task-3]",
+            marker_type: "[tdd-red-task-3]",
           },
         ],
       });
@@ -298,12 +298,12 @@ describe("signal_completion handler", () => {
 
       expect(registryEntries).toHaveLength(2);
       expect(registryEntries[0].test_identifier).toBe(
-        "test.test.ts::Group::[tdd-red:task-3] test one"
+        "test.test.ts::Group::[tdd-red-task-3] test one"
       );
       expect(registryEntries[0].test_file).toBe("test/test.test.ts");
 
       expect(registryEntries[1].test_identifier).toBe(
-        "test.test.ts::Group::[tdd-red:task-3] test two"
+        "test.test.ts::Group::[tdd-red-task-3] test two"
       );
       expect(registryEntries[1].test_file).toBe("test/test.test.ts");
     });
@@ -375,7 +375,7 @@ describe("signal_completion handler", () => {
           {
             test_identifier: "new-test.test.ts::Group::new test",
             test_file: "test/new-test.test.ts",
-            marker_type: "[tdd-red:task-4]",
+            marker_type: "[tdd-red-task-4]",
           },
         ],
       });

@@ -226,7 +226,7 @@ describe('Feature', () => {
 import { describe, it, expect } from 'vitest';
 
 describe('Feature', () => {
-  it('[tdd-red:task-${taskId}] unregistered test', () => {
+  it('[tdd-red-task-${taskId}] unregistered test', () => {
     expect(true).toBe(false);
   });
 });
@@ -236,8 +236,8 @@ describe('Feature', () => {
       // Register a DIFFERENT test (to trigger validation)
       await registerTest({
         taskId,
-        testIdentifier: `feature.test.ts::Feature::[tdd-red:task-${taskId}] different test`,
-        markerType: `[tdd-red:task-${taskId}]`,
+        testIdentifier: `feature.test.ts::Feature::[tdd-red-task-${taskId}] different test`,
+        markerType: `[tdd-red-task-${taskId}]`,
       });
 
       // Run pre-signal checks

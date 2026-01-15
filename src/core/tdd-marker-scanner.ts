@@ -2,10 +2,10 @@
  * TDD Red Marker Scanner
  *
  * Scans test files for TDD red test markers:
- * - Dart: @Tags(['tdd-red:task-N']) annotation or tags: ['tdd-red:task-N'] inline parameter
- * - TypeScript/JavaScript: [tdd-red:task-N] prefix in test/describe name
+ * - Dart: @Tags(['tdd-red-task-N']) annotation or tags: ['tdd-red-task-N'] inline parameter
+ * - TypeScript/JavaScript: [tdd-red-task-N] prefix in test/describe name
  *
- * All markers use single-token format: tdd-red:task-N (not separate 'tdd-red', 'task-N')
+ * All markers use single-token format: tdd-red-task-N (not separate 'tdd-red', 'task-N')
  */
 
 import * as fs from "fs/promises";
@@ -21,7 +21,7 @@ export interface TddRedMarker {
 }
 
 /**
- * Check if file has file-level @Tags(['tdd-red:task-N']) annotation
+ * Check if file has file-level @Tags(['tdd-red-task-N']) annotation
  * This appears before void main() and applies to ALL tests in the file
  * Returns the task ID if found, or null if not found
  */
@@ -38,8 +38,8 @@ function getFileLevelDartTaskId(lines: string[]): number | null {
 
   if (mainLineIndex === -1) return null;
 
-  // Check for @Tags annotation with tdd-red:task-N pattern before main()
-  const tagsPattern = /@Tags\s*\(\s*\[\s*['"]tdd-red:task-(\d+)['"]\s*\]\s*\)/;
+  // Check for @Tags annotation with tdd-red-task-N pattern before main()
+  const tagsPattern = /@Tags\s*\(\s*\[\s*['"]tdd-red-task-(\d+)['"]\s*\]\s*\)/;
   for (let i = 0; i < mainLineIndex; i++) {
     const line = lines[i];
     if (line !== undefined) {
@@ -70,18 +70,18 @@ export async function scanForTddRedMarkers(
   // Check for file-level Dart @Tags with task ID (applies to all tests in file)
   const fileLevelTaskId = getFileLevelDartTaskId(lines);
 
-  // Dart patterns - single token format: tdd-red:task-N
-  // Matches: @Tags(['tdd-red:task-3']) - extracts task ID
+  // Dart patterns - single token format: tdd-red-task-N
+  // Matches: @Tags(['tdd-red-task-3']) - extracts task ID
   const dartTagsPattern =
-    /@Tags\s*\(\s*\[\s*['"]tdd-red:task-(\d+)['"]\s*\]\s*\)/g;
+    /@Tags\s*\(\s*\[\s*['"]tdd-red-task-(\d+)['"]\s*\]\s*\)/g;
 
   // Dart inline tags parameter pattern - single token format
-  // Matches: tags: ['tdd-red:task-3'] - we'll look backwards to find the test name
-  const dartInlineTagsPattern = /tags:\s*\[\s*['"]tdd-red:task-(\d+)['"]\s*\]/;
+  // Matches: tags: ['tdd-red-task-3'] - we'll look backwards to find the test name
+  const dartInlineTagsPattern = /tags:\s*\[\s*['"]tdd-red-task-(\d+)['"]\s*\]/;
 
-  // TypeScript/JavaScript patterns - [tdd-red:task-N] in test name
+  // TypeScript/JavaScript patterns - [tdd-red-task-N] in test name
   const tsMarkerPattern =
-    /(?:it|test|describe)(?:\.skip)?\s*\(\s*['"`]\[tdd-red:task-(\d+)\]\s*([^'"`]+)['"`]/g;
+    /(?:it|test|describe)(?:\.skip)?\s*\(\s*['"`]\[tdd-red-task-(\d+)\]\s*([^'"`]+)['"`]/g;
 
   // Track current describe/group context (stack for nested groups)
   const groupStack: string[] = [];
@@ -129,7 +129,7 @@ export async function scanForTddRedMarkers(
       groupBraceDepths.pop();
     }
 
-    // Check for Dart @Tags(['tdd-red:task-N']) patterns (per-test annotation)
+    // Check for Dart @Tags(['tdd-red-task-N']) patterns (per-test annotation)
     // Only detect after void main() to avoid treating file-level tags as per-test
     if (passedVoidMain) {
       let dartMatch;
@@ -140,13 +140,13 @@ export async function scanForTddRedMarkers(
         const testName = extractDartTestName(lines, index);
         markers.push({
           testIdentifier: `${fileName}::${currentGroup}::${testName}`,
-          markerType: `@Tags(['tdd-red:task-${taskId}'])`,
+          markerType: `@Tags(['tdd-red-task-${taskId}'])`,
           lineNumber,
         });
       }
     }
 
-    // Check for Dart inline tags: ['tdd-red:task-N'] parameter
+    // Check for Dart inline tags: ['tdd-red-task-N'] parameter
     const inlineMatch = dartInlineTagsPattern.exec(trimmedLine);
     if (inlineMatch) {
       const taskId = inlineMatch[1];
@@ -155,21 +155,21 @@ export async function scanForTddRedMarkers(
       if (testName) {
         markers.push({
           testIdentifier: `${fileName}::${currentGroup}::${testName}`,
-          markerType: `tags:['tdd-red:task-${taskId}']`,
+          markerType: `tags:['tdd-red-task-${taskId}']`,
           lineNumber,
         });
       }
     }
 
-    // Check for TypeScript [tdd-red:task-N] in test/describe name
+    // Check for TypeScript [tdd-red-task-N] in test/describe name
     let tsMatch;
     tsMarkerPattern.lastIndex = 0;
     while ((tsMatch = tsMarkerPattern.exec(trimmedLine)) !== null) {
       const taskId = tsMatch[1];
       const testName = tsMatch[2]?.trim() ?? "";
       markers.push({
-        testIdentifier: `${fileName}::${currentGroup}::[tdd-red:task-${taskId}] ${testName}`,
-        markerType: `[tdd-red:task-${taskId}]`,
+        testIdentifier: `${fileName}::${currentGroup}::[tdd-red-task-${taskId}] ${testName}`,
+        markerType: `[tdd-red-task-${taskId}]`,
         lineNumber,
       });
     }
@@ -188,7 +188,7 @@ export async function scanForTddRedMarkers(
         if (!alreadyMatched) {
           markers.push({
             testIdentifier: testId,
-            markerType: `file-level-@Tags(['tdd-red:task-${fileLevelTaskId}'])`,
+            markerType: `file-level-@Tags(['tdd-red-task-${fileLevelTaskId}'])`,
             lineNumber,
           });
         }

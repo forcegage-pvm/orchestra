@@ -1,9 +1,9 @@
 /**
  * Tests for TDD Scan-on-Signal
  *
- * Single-token format: tdd-red:task-N
- * - Dart: @Tags(['tdd-red:task-N']) or tags: ['tdd-red:task-N']
- * - TypeScript: [tdd-red:task-N] in test/describe name
+ * Single-token format: tdd-red-task-N
+ * - Dart: @Tags(['tdd-red-task-N']) or tags: ['tdd-red-task-N']
+ * - TypeScript: [tdd-red-task-N] in test/describe name
  */
 
 import * as fs from "fs/promises";
@@ -51,10 +51,10 @@ describe('Feature', () => {
     });
 
     describe("TypeScript markers - single token format", () => {
-      it("should detect [tdd-red:task-N] in test name", async () => {
+      it("should detect [tdd-red-task-N] in test name", async () => {
         const content = `
 describe('Widget', () => {
-  it('[tdd-red:task-3] should initialize with defaults', () => {
+  it('[tdd-red-task-3] should initialize with defaults', () => {
     expect(widget.value).toBe(0);
   });
 });
@@ -68,15 +68,15 @@ describe('Widget', () => {
 
         expect(result.tests).toHaveLength(1);
         expect(result.tests[0].test_identifier).toContain(
-          "[tdd-red:task-3] should initialize with defaults"
+          "[tdd-red-task-3] should initialize with defaults"
         );
         expect(result.tests[0].test_file).toBe("test/widget.test.ts");
-        expect(result.tests[0].marker_type).toBe("[tdd-red:task-3]");
+        expect(result.tests[0].marker_type).toBe("[tdd-red-task-3]");
       });
 
-      it("should detect [tdd-red:task-N] in describe name", async () => {
+      it("should detect [tdd-red-task-N] in describe name", async () => {
         const content = `
-describe('[tdd-red:task-5] Widget initialization', () => {
+describe('[tdd-red-task-5] Widget initialization', () => {
   it('should have default values', () => {
     expect(widget.x).toBe(0);
   });
@@ -88,17 +88,17 @@ describe('[tdd-red:task-5] Widget initialization', () => {
 
         expect(result.tests).toHaveLength(1);
         expect(result.tests[0].test_identifier).toContain(
-          "[tdd-red:task-5] Widget initialization"
+          "[tdd-red-task-5] Widget initialization"
         );
-        expect(result.tests[0].marker_type).toBe("[tdd-red:task-5]");
+        expect(result.tests[0].marker_type).toBe("[tdd-red-task-5]");
       });
 
       it("should filter out tests with different task IDs", async () => {
         const content = `
 describe('Features', () => {
-  it('[tdd-red:task-3] task 3 test', () => {});
-  it('[tdd-red:task-5] task 5 test', () => {});
-  it('[tdd-red:task-3] another task 3 test', () => {});
+  it('[tdd-red-task-3] task 3 test', () => {});
+  it('[tdd-red-task-5] task 5 test', () => {});
+  it('[tdd-red-task-3] another task 3 test', () => {});
 });
 `;
         await fs.writeFile(
@@ -115,9 +115,9 @@ describe('Features', () => {
         );
       });
 
-      it("should detect [tdd-red:task-N] with .skip variant", async () => {
+      it("should detect [tdd-red-task-N] with .skip variant", async () => {
         const content = `
-it.skip('[tdd-red:task-7] skipped red test', () => {
+it.skip('[tdd-red-task-7] skipped red test', () => {
   throw new Error('not implemented');
 });
 `;
@@ -126,17 +126,17 @@ it.skip('[tdd-red:task-7] skipped red test', () => {
         const result = await scanForTddMarkers(7, tempDir);
 
         expect(result.tests).toHaveLength(1);
-        expect(result.tests[0].marker_type).toBe("[tdd-red:task-7]");
+        expect(result.tests[0].marker_type).toBe("[tdd-red-task-7]");
       });
     });
 
     describe("Dart markers - single token format", () => {
-      it("should detect tags: ['tdd-red:task-N'] inline parameter", async () => {
+      it("should detect tags: ['tdd-red-task-N'] inline parameter", async () => {
         const content = `
 void main() {
   test('should construct with defaults', () {
     expect(widget.value, equals(0));
-  }, tags: ['tdd-red:task-3']);
+  }, tags: ['tdd-red-task-3']);
 }
 `;
         await fs.writeFile(
@@ -151,11 +151,11 @@ void main() {
           "should construct with defaults"
         );
         expect(result.tests[0].test_file).toBe("test/widget_test.dart");
-        expect(result.tests[0].marker_type).toBe("tags:['tdd-red:task-3']");
+        expect(result.tests[0].marker_type).toBe("tags:['tdd-red-task-3']");
       });
 
-      it("should detect file-level @Tags(['tdd-red:task-N'])", async () => {
-        const content = `@Tags(['tdd-red:task-5'])
+      it("should detect file-level @Tags(['tdd-red-task-N'])", async () => {
+        const content = `@Tags(['tdd-red-task-5'])
 library;
 
 import 'package:test/test.dart';
@@ -182,7 +182,7 @@ void main() {
         expect(result.tests[0].test_identifier).toContain("first test");
         expect(result.tests[1].test_identifier).toContain("second test");
         expect(result.tests[0].marker_type).toBe(
-          "file-level-@Tags(['tdd-red:task-5'])"
+          "file-level-@Tags(['tdd-red-task-5'])"
         );
       });
 
@@ -190,9 +190,9 @@ void main() {
         const content = `
 void main() {
   test('task 3 test', () {
-  }, tags: ['tdd-red:task-3']);
+  }, tags: ['tdd-red-task-3']);
   test('task 5 test', () {
-  }, tags: ['tdd-red:task-5']);
+  }, tags: ['tdd-red-task-5']);
 }
 `;
         await fs.writeFile(
@@ -210,13 +210,13 @@ void main() {
     describe("Multiple files", () => {
       it("should scan multiple test files", async () => {
         const file1 = `
-it('[tdd-red:task-3] test in file 1', () => {});
+it('[tdd-red-task-3] test in file 1', () => {});
 `;
         const file2 = `
-it('[tdd-red:task-3] test in file 2', () => {});
+it('[tdd-red-task-3] test in file 2', () => {});
 `;
         const file3 = `
-it('[tdd-red:task-5] wrong task', () => {});
+it('[tdd-red-task-5] wrong task', () => {});
 `;
 
         await fs.writeFile(path.join(tempDir, "test", "file1.test.ts"), file1);
@@ -239,7 +239,7 @@ it('[tdd-red:task-5] wrong task', () => {});
         await fs.mkdir(nestedDir, { recursive: true });
 
         const content = `
-test('[tdd-red:task-3] nested test', () => {});
+test('[tdd-red-task-3] nested test', () => {});
 `;
         await fs.writeFile(path.join(nestedDir, "feature.test.ts"), content);
 
@@ -255,9 +255,9 @@ test('[tdd-red:task-3] nested test', () => {});
     describe("Edge cases", () => {
       it("should handle malformed markers gracefully", async () => {
         const content = `
-it('[tdd-red:task-] invalid task id', () => {});
+it('[tdd-red-task-] invalid task id', () => {});
 it('[tdd-red:not-a-number] also invalid', () => {});
-it('[tdd-red:task-3] valid test', () => {});
+it('[tdd-red-task-3] valid test', () => {});
 `;
         await fs.writeFile(
           path.join(tempDir, "test", "malformed.test.ts"),
@@ -274,7 +274,7 @@ it('[tdd-red:task-3] valid test', () => {});
       it("should skip files that cannot be read", async () => {
         // Create a valid test file
         const validContent = `
-it('[tdd-red:task-3] valid test', () => {});
+it('[tdd-red-task-3] valid test', () => {});
 `;
         await fs.writeFile(
           path.join(tempDir, "test", "valid.test.ts"),
@@ -293,7 +293,7 @@ it('[tdd-red:task-3] valid test', () => {});
       it("should handle tests without proper task ID format", async () => {
         const content = `
 it('[tdd-red] test without task id', () => {});
-it('[tdd-red:task-3] test with task id', () => {});
+it('[tdd-red-task-3] test with task id', () => {});
 `;
         await fs.writeFile(
           path.join(tempDir, "test", "mixed.test.ts"),
@@ -309,8 +309,8 @@ it('[tdd-red:task-3] test with task id', () => {});
 
       it("should return empty array when task ID not found", async () => {
         const content = `
-it('[tdd-red:task-3] task 3 test', () => {});
-it('[tdd-red:task-5] task 5 test', () => {});
+it('[tdd-red-task-3] task 3 test', () => {});
+it('[tdd-red-task-5] task 5 test', () => {});
 `;
         await fs.writeFile(
           path.join(tempDir, "test", "tests.test.ts"),
@@ -324,7 +324,7 @@ it('[tdd-red:task-5] task 5 test', () => {});
 
       it("should handle JavaScript test files", async () => {
         const content = `
-test('[tdd-red:task-3] javascript test', () => {});
+test('[tdd-red-task-3] javascript test', () => {});
 `;
         await fs.writeFile(
           path.join(tempDir, "test", "feature.test.js"),
@@ -341,7 +341,7 @@ test('[tdd-red:task-3] javascript test', () => {});
     describe("Task ID extraction", () => {
       it("should extract single-digit task IDs", async () => {
         const content = `
-it('[tdd-red:task-1] test', () => {});
+it('[tdd-red-task-1] test', () => {});
 `;
         await fs.writeFile(path.join(tempDir, "test", "test.test.ts"), content);
 
@@ -352,7 +352,7 @@ it('[tdd-red:task-1] test', () => {});
 
       it("should extract multi-digit task IDs", async () => {
         const content = `
-it('[tdd-red:task-123] test', () => {});
+it('[tdd-red-task-123] test', () => {});
 `;
         await fs.writeFile(path.join(tempDir, "test", "test.test.ts"), content);
 
@@ -363,8 +363,8 @@ it('[tdd-red:task-123] test', () => {});
 
       it("should match exact task ID not substring", async () => {
         const content = `
-it('[tdd-red:task-3] task 3', () => {});
-it('[tdd-red:task-33] task 33', () => {});
+it('[tdd-red-task-3] task 3', () => {});
+it('[tdd-red-task-33] task 33', () => {});
 `;
         await fs.writeFile(path.join(tempDir, "test", "test.test.ts"), content);
 
@@ -379,7 +379,7 @@ it('[tdd-red:task-33] task 33', () => {});
     describe("Path normalization", () => {
       it("should normalize Windows path separators to forward slashes", async () => {
         const content = `
-it('[tdd-red:task-3] path test', () => {});
+it('[tdd-red-task-3] path test', () => {});
 `;
         const nestedPath = path.join(tempDir, "test", "subdir");
         await fs.mkdir(nestedPath, { recursive: true });
@@ -410,7 +410,7 @@ it('[tdd-red:task-3] path test', () => {});
 
       it("should handle task ID zero", async () => {
         const content = `
-it('[tdd-red:task-0] task zero test', () => {});
+it('[tdd-red-task-0] task zero test', () => {});
 `;
         await fs.writeFile(path.join(tempDir, "test", "zero.test.ts"), content);
 
@@ -422,7 +422,7 @@ it('[tdd-red:task-0] task zero test', () => {});
 
       it("should handle very large task IDs", async () => {
         const content = `
-it('[tdd-red:task-999999] large task id', () => {});
+it('[tdd-red-task-999999] large task id', () => {});
 `;
         await fs.writeFile(
           path.join(tempDir, "test", "large.test.ts"),
@@ -437,12 +437,12 @@ it('[tdd-red:task-999999] large task id', () => {});
       it("should handle multiple markers in same file with mixed task IDs", async () => {
         const content = `
 describe('Suite', () => {
-  it('[tdd-red:task-3] test 1', () => {});
+  it('[tdd-red-task-3] test 1', () => {});
   it('normal test', () => {});
-  it('[tdd-red:task-5] test 2', () => {});
-  it('[tdd-red:task-3] test 3', () => {});
-  it('[tdd-red:task-7] test 4', () => {});
-  it('[tdd-red:task-3] test 5', () => {});
+  it('[tdd-red-task-5] test 2', () => {});
+  it('[tdd-red-task-3] test 3', () => {});
+  it('[tdd-red-task-7] test 4', () => {});
+  it('[tdd-red-task-3] test 5', () => {});
 });
 `;
         await fs.writeFile(

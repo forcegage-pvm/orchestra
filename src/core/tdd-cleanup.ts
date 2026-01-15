@@ -74,7 +74,7 @@ export async function cleanupTddRedMarkers(
 }
 
 /**
- * Clean up Dart TDD markers by removing @Tags(['tdd-red:task-N']) annotations
+ * Clean up Dart TDD markers by removing @Tags(['tdd-red-task-N']) annotations
  */
 async function cleanupDartMarkers(
   workspaceRoot: string
@@ -91,10 +91,10 @@ async function cleanupDartMarkers(
     const filePath = path.join(workspaceRoot, file);
     const content = fs.readFileSync(filePath, "utf-8");
 
-    // Check if file contains tdd-red tag (single-token format: tdd-red:task-N)
+    // Check if file contains tdd-red tag (single-token format: tdd-red-task-N)
     const tddPattern =
-      /@Tags\s*\(\s*\[\s*['"]tdd-red:task-\d+['"]\s*\]\s*\)\s*/g;
-    const inlinePattern = /,\s*tags:\s*\[\s*['"]tdd-red:task-\d+['"]\s*\]\s*/g;
+      /@Tags\s*\(\s*\[\s*['"]tdd-red-task-\d+['"]\s*\]\s*\)\s*/g;
+    const inlinePattern = /,\s*tags:\s*\[\s*['"]tdd-red-task-\d+['"]\s*\]\s*/g;
 
     if (tddPattern.test(content) || inlinePattern.test(content)) {
       // Remove the tag annotation (with optional whitespace after)
@@ -110,7 +110,7 @@ async function cleanupDartMarkers(
 }
 
 /**
- * Clean up TypeScript TDD markers by removing [tdd-red:task-N] from test names
+ * Clean up TypeScript TDD markers by removing [tdd-red-task-N] from test names
  */
 async function cleanupTypeScriptMarkers(
   workspaceRoot: string
@@ -127,8 +127,8 @@ async function cleanupTypeScriptMarkers(
     const filePath = path.join(workspaceRoot, file);
     const content = fs.readFileSync(filePath, "utf-8");
 
-    // Check if file contains [tdd-red:task-N] marker
-    const markerPattern = /\[tdd-red:task-\d+\]\s*/g;
+    // Check if file contains [tdd-red-task-N] marker
+    const markerPattern = /\[tdd-red-task-\d+\]\s*/g;
 
     if (markerPattern.test(content)) {
       // Remove the marker from test/describe names

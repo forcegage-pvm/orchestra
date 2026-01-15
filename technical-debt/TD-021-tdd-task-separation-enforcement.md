@@ -47,7 +47,7 @@ The current TDD red-green workflow relies on **documentation-based enforcement**
 ### The Error Message
 
 ```
-TDD red-phase task must have at least one test with marker [tdd-red:task-3] or tags: ['task-3']. 
+TDD red-phase task must have at least one test with marker [tdd-red-task-3] or tags: ['task-3']. 
 No tests found in workspace scan.
 ```
 

@@ -226,6 +226,24 @@ For TDD work, declare **red-green task pairs** with `tdd_relationships` in `conf
 }
 ```
 
+### ⚠️ ENFORCED: tdd_relationships Required for Red-Phase Tasks
+
+**If any task has `tdd_red_phase: true`, you MUST provide a `tdd_relationships` entry.**
+
+This is enforced at `configure_sprint` validation time. The system will reject your sprint configuration with an error if:
+
+- A task has `tdd_red_phase: true` but no entry in `tdd_relationships`
+- The `red_task_id` equals `green_task_id` (must be different tasks)
+- The referenced task IDs don't exist
+
+**Error you'll see if you forget:**
+
+```
+Task 1 has tdd_red_phase=true but no entry in tdd_relationships.
+TDD red-phase tasks MUST have a corresponding green task declared.
+Add an entry to tdd_relationships: { red_task_id: 1, green_task_id: <green_task_id> }
+```
+
 **TDD Workflow**:
 
 1. **Red phase** (Task 1): Implementor writes failing tests WITH TDD markers (see format below)
@@ -238,9 +256,9 @@ For TDD work, declare **red-green task pairs** with `tdd_relationships` in `conf
 
 | Language    | Format                                               | Example                                         |
 | ----------- | ---------------------------------------------------- | ----------------------------------------------- |
-| TypeScript  | `[tdd-red:task-N]` prefix in test/describe name      | `it('[tdd-red:task-3] should work', ...)`       |
-| Dart file   | `@Tags(['tdd-red:task-N'])` annotation before main() | `@Tags(['tdd-red:task-3'])`                     |
-| Dart inline | `tags: ['tdd-red:task-N']` parameter in test() call  | `test('name', () {}, tags: ['tdd-red:task-3'])` |
+| TypeScript  | `[tdd-red-task-N]` prefix in test/describe name      | `it('[tdd-red-task-3] should work', ...)`       |
+| Dart file   | `@Tags(['tdd-red-task-N'])` annotation before main() | `@Tags(['tdd-red-task-3'])`                     |
+| Dart inline | `tags: ['tdd-red-task-N']` parameter in test() call  | `test('name', () {}, tags: ['tdd-red-task-3'])` |
 
 **⚠️ OLD FORMATS NO LONGER SUPPORTED:**
 
@@ -251,8 +269,8 @@ For TDD work, declare **red-green task pairs** with `tdd_relationships` in `conf
 
 **Key fields**:
 
-- `tdd_red_phase: true` - Marks task as red phase (enables automatic TDD marker scanning on signal)
-- `tdd_relationships` - Declares which green task will make which red task's tests pass
+- `tdd_red_phase: true` - Marks task as red phase (REQUIRES corresponding `tdd_relationships` entry)
+- `tdd_relationships` - **REQUIRED** for any red-phase task. Declares which green task will make which red task's tests pass
 
 ### ⚠️ CRITICAL: TDD Red and Green MUST Be Separate Tasks
 
@@ -263,6 +281,7 @@ For TDD work, declare **red-green task pairs** with `tdd_relationships` in `conf
 | Single task with `tdd_red_phase: true` that says "Write failing tests THEN implement to make them pass" | Two separate tasks: Task 1 (red) writes tests, Task 2 (green) implements |
 | Instructing implementor to remove TDD markers after implementation in same task                         | Red task keeps markers; Green task removes them                          |
 | "TDD task" that does everything in one go                                                               | Clear separation with `tdd_relationships` linking them                   |
+| Omitting `tdd_relationships` when using `tdd_red_phase: true`                                           | **REQUIRED**: Always provide `tdd_relationships`                         |
 
 **Why this matters:**
 
@@ -281,15 +300,22 @@ When a task has `tdd_red_phase: true`, the system scans for TDD markers on `sign
 ```
 Red Task (tdd_red_phase: true):
   "Write failing tests with single-token TDD markers:
-   - TypeScript: [tdd-red:task-N] in test/describe name
-   - Dart: @Tags(['tdd-red:task-N']) or tags: ['tdd-red:task-N']
+   - TypeScript: [tdd-red-task-N] in test/describe name
+   - Dart: @Tags(['tdd-red-task-N']) or tags: ['tdd-red-task-N']
 
    Replace N with the task ID. DO NOT implement the feature.
-   Tests should FAIL. Keep the markers in place."
+   Tests should FAIL. Keep the markers in place.
+   
+   Verify locally:
+   - Dart: flutter test --tags tdd-red (should FAIL)
+   - Dart: flutter test --exclude-tags tdd-red (should PASS)
+   - TS: npm test -- --testNamePattern=\"\\[tdd-red-task-\" (should FAIL)
+   
+   Note: Use 'tdd-red' prefix when running tests, not the full tag."
 
 Green Task (depends on red task):
   "Implement the feature to make tests pass.
-   Remove the [tdd-red:task-N] or @Tags(['tdd-red:task-N']) markers.
+   Remove the [tdd-red-task-N] or @Tags(['tdd-red-task-N']) markers.
    All tests should now PASS."
 ```
 
@@ -321,13 +347,14 @@ When a specification has many granular tasks (e.g., 45+ checklist items):
 
 ### Anti-Patterns to Avoid
 
-| Anti-Pattern                      | Why It's Bad                            | Better Approach                     |
-| --------------------------------- | --------------------------------------- | ----------------------------------- |
-| One task per test case            | 4 tests = 4 prepare/verify cycles       | One task for all tests in a feature |
-| "Add constant X" as separate task | Trivial, massive overhead               | Include in implementation task      |
-| "Run tests and verify" as task    | That's what verification phase does     | Remove - it's automatic             |
-| Matching spec granularity 1:1     | Spec is for traceability, not execution | Consolidate for execution           |
-| **TDD red+green in one task**     | **Markers removed before scan → FAIL**  | **Separate red and green tasks**    |
+| Anti-Pattern                      | Why It's Bad                            | Better Approach                        |
+| --------------------------------- | --------------------------------------- | -------------------------------------- |
+| One task per test case            | 4 tests = 4 prepare/verify cycles       | One task for all tests in a feature    |
+| "Add constant X" as separate task | Trivial, massive overhead               | Include in implementation task         |
+| "Run tests and verify" as task    | That's what verification phase does     | Remove - it's automatic                |
+| Matching spec granularity 1:1     | Spec is for traceability, not execution | Consolidate for execution              |
+| **TDD red+green in one task**     | **Markers removed before scan → FAIL**  | **Separate red and green tasks**       |
+| **Missing tdd_relationships**     | **configure_sprint will REJECT**        | **Always provide for red-phase tasks** |
 
 ## CRITICAL: Information Extraction
 

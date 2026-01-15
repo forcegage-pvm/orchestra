@@ -706,17 +706,17 @@ function generateTddRedPhaseChecks(
       },
     });
 
-    // Structural: At least one tdd-red:task-N marker exists
+    // Structural: At least one tdd-red-task-N marker exists
     // Flutter supports two syntaxes:
-    //   1. Library-level: @Tags(['tdd-red:task-N'])
-    //   2. Inline parameter: tags: ['tdd-red:task-N'] in test() call
+    //   1. Library-level: @Tags(['tdd-red-task-N'])
+    //   2. Inline parameter: tags: ['tdd-red-task-N'] in test() call
     checks.push({
       check_type: "structural",
       description: `[TDD RED] Red-phase marker present for "${taskTitle}"`,
       severity: "BLOCKING",
       check_config: {
         path: "test/**/*.dart",
-        pattern: `@Tags\\(\\['tdd-red:task-${taskId}'\\]\\)|tags:\\s*\\['tdd-red:task-${taskId}'\\]`,
+        pattern: `@Tags\\(\\['tdd-red-task-${taskId}'\\]\\)|tags:\\s*\\['tdd-red-task-${taskId}'\\]`,
         min_matches: 1,
       },
     });
@@ -762,7 +762,7 @@ function generateTddRedPhaseChecks(
       severity: "BLOCKING",
       check_config: {
         path: "test/**/*.test.ts",
-        pattern: `\\[tdd-red:task-${taskId}\\]`,
+        pattern: `\\[tdd-red-task-${taskId}\\]`,
         min_matches: 1,
       },
     });

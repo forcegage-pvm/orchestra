@@ -4,9 +4,9 @@
  * Tests for the integration of cleanupTddRedMarkers into prepare_task handler.
  * Validates that TDD red-phase markers are cleaned up and auto-committed.
  *
- * Single-token format: tdd-red:task-N
- * - TypeScript: [tdd-red:task-N] prefix in test/describe names
- * - Dart: @Tags(['tdd-red:task-N']) file-level annotation
+ * Single-token format: tdd-red-task-N
+ * - TypeScript: [tdd-red-task-N] prefix in test/describe names
+ * - Dart: @Tags(['tdd-red-task-N']) file-level annotation
  */
 
 import { eq } from "drizzle-orm";
@@ -112,13 +112,13 @@ describe("prepare_task TDD Cleanup Integration", () => {
       JSON.stringify({ name: "test-project" })
     );
 
-    // Create test directory with file containing [tdd-red:task-1] marker
+    // Create test directory with file containing [tdd-red-task-1] marker
     const testDir = path.join(tempDir, "test");
     fs.mkdirSync(testDir, { recursive: true });
     fs.writeFileSync(
       path.join(testDir, "example.test.ts"),
-      `describe('[tdd-red:task-1] auth feature', () => {
-  it('[tdd-red:task-1] should validate token', () => {
+      `describe('[tdd-red-task-1] auth feature', () => {
+  it('[tdd-red-task-1] should validate token', () => {
     expect(false).toBe(true);
   });
 });
@@ -168,12 +168,12 @@ describe("prepare_task TDD Cleanup Integration", () => {
     const resultObj = JSON.parse(result.content[0].text);
     expect(resultObj.success).toBe(true);
 
-    // Verify [tdd-red:task-1] markers were removed
+    // Verify [tdd-red-task-1] markers were removed
     const testContent = fs.readFileSync(
       path.join(testDir, "example.test.ts"),
       "utf-8"
     );
-    expect(testContent).not.toContain("[tdd-red:task-1]");
+    expect(testContent).not.toContain("[tdd-red-task-1]");
     expect(testContent).toContain("auth feature");
     expect(testContent).toContain("should validate token");
   });
@@ -193,7 +193,7 @@ describe("prepare_task TDD Cleanup Integration", () => {
     fs.mkdirSync(testDir, { recursive: true });
     fs.writeFileSync(
       path.join(testDir, "widget_test.dart"),
-      `@Tags(['tdd-red:task-1'])
+      `@Tags(['tdd-red-task-1'])
 import 'package:test/test.dart';
 
 void main() {
@@ -247,12 +247,12 @@ void main() {
     const resultObj = JSON.parse(result.content[0].text);
     expect(resultObj.success).toBe(true);
 
-    // Verify @Tags(['tdd-red:task-1']) was removed
+    // Verify @Tags(['tdd-red-task-1']) was removed
     const testContent = fs.readFileSync(
       path.join(testDir, "widget_test.dart"),
       "utf-8"
     );
-    expect(testContent).not.toContain("@Tags(['tdd-red:task-1'])");
+    expect(testContent).not.toContain("@Tags(['tdd-red-task-1'])");
     expect(testContent).toContain("void main()");
     expect(testContent).toContain("widget loads");
   });
@@ -334,7 +334,7 @@ void main() {
     fs.mkdirSync(testDir, { recursive: true });
     fs.writeFileSync(
       path.join(testDir, "nested.test.ts"),
-      `describe('[tdd-red:task-1] nested feature', () => {
+      `describe('[tdd-red-task-1] nested feature', () => {
   test('nested test', () => {});
 });
 `
@@ -384,7 +384,7 @@ void main() {
       path.join(testDir, "nested.test.ts"),
       "utf-8"
     );
-    expect(testContent).not.toContain("[tdd-red:task-1]");
+    expect(testContent).not.toContain("[tdd-red-task-1]");
     expect(testContent).toContain("nested feature");
   });
 
@@ -403,7 +403,7 @@ void main() {
     fs.mkdirSync(testDir, { recursive: true });
     fs.writeFileSync(
       path.join(testDir, "early_test.dart"),
-      `@Tags(['tdd-red:task-1'])
+      `@Tags(['tdd-red-task-1'])
 void main() {}
 `
     );
@@ -452,7 +452,7 @@ void main() {}
       path.join(testDir, "early_test.dart"),
       "utf-8"
     );
-    expect(testContent).not.toContain("@Tags(['tdd-red:task-1'])");
+    expect(testContent).not.toContain("@Tags(['tdd-red-task-1'])");
   });
 
   it("should handle unknown project types gracefully", async () => {
@@ -524,7 +524,7 @@ void main() {}
     fs.mkdirSync(testDir, { recursive: true });
     fs.writeFileSync(
       path.join(testDir, "example.test.ts"),
-      `test('[tdd-red:task-1] example test', () => {});
+      `test('[tdd-red-task-1] example test', () => {});
 `
     );
 
@@ -572,7 +572,7 @@ void main() {}
       path.join(testDir, "example.test.ts"),
       "utf-8"
     );
-    expect(testContent).not.toContain("[tdd-red:task-1]");
+    expect(testContent).not.toContain("[tdd-red-task-1]");
     expect(testContent).toContain("example test");
   });
 
@@ -594,7 +594,7 @@ void main() {}
       `void main() {
   test('widget renders', () {
     expect(true, isTrue);
-  }, tags: ['tdd-red:task-1']);
+  }, tags: ['tdd-red-task-1']);
 }
 `
     );
@@ -642,7 +642,7 @@ void main() {}
       path.join(testDir, "inline_test.dart"),
       "utf-8"
     );
-    expect(testContent).not.toContain("tags: ['tdd-red:task-1']");
+    expect(testContent).not.toContain("tags: ['tdd-red-task-1']");
     expect(testContent).toContain("widget renders");
   });
 
@@ -661,11 +661,11 @@ void main() {}
     fs.mkdirSync(testDir, { recursive: true });
     fs.writeFileSync(
       path.join(testDir, "multi.test.ts"),
-      `describe('[tdd-red:task-1] feature 1', () => {
+      `describe('[tdd-red-task-1] feature 1', () => {
   it('test 1', () => {});
 });
 
-describe('[tdd-red:task-2] feature 2', () => {
+describe('[tdd-red-task-2] feature 2', () => {
   it('test 2', () => {});
 });
 `
@@ -711,8 +711,8 @@ describe('[tdd-red:task-2] feature 2', () => {
       path.join(testDir, "multi.test.ts"),
       "utf-8"
     );
-    expect(testContent).not.toContain("[tdd-red:task-1]");
-    expect(testContent).not.toContain("[tdd-red:task-2]");
+    expect(testContent).not.toContain("[tdd-red-task-1]");
+    expect(testContent).not.toContain("[tdd-red-task-2]");
     expect(testContent).toContain("feature 1");
     expect(testContent).toContain("feature 2");
   });

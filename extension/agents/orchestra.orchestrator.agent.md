@@ -256,9 +256,9 @@ Add an entry to tdd_relationships: { red_task_id: 1, green_task_id: <green_task_
 
 | Language    | Format                                               | Example                                         |
 | ----------- | ---------------------------------------------------- | ----------------------------------------------- |
-| TypeScript  | `[tdd-red:task-N]` prefix in test/describe name      | `it('[tdd-red:task-3] should work', ...)`       |
-| Dart file   | `@Tags(['tdd-red:task-N'])` annotation before main() | `@Tags(['tdd-red:task-3'])`                     |
-| Dart inline | `tags: ['tdd-red:task-N']` parameter in test() call  | `test('name', () {}, tags: ['tdd-red:task-3'])` |
+| TypeScript  | `[tdd-red-task-N]` prefix in test/describe name      | `it('[tdd-red-task-3] should work', ...)`       |
+| Dart file   | `@Tags(['tdd-red-task-N'])` annotation before main() | `@Tags(['tdd-red-task-3'])`                     |
+| Dart inline | `tags: ['tdd-red-task-N']` parameter in test() call  | `test('name', () {}, tags: ['tdd-red-task-3'])` |
 
 **⚠️ OLD FORMATS NO LONGER SUPPORTED:**
 
@@ -300,15 +300,22 @@ When a task has `tdd_red_phase: true`, the system scans for TDD markers on `sign
 ```
 Red Task (tdd_red_phase: true):
   "Write failing tests with single-token TDD markers:
-   - TypeScript: [tdd-red:task-N] in test/describe name
-   - Dart: @Tags(['tdd-red:task-N']) or tags: ['tdd-red:task-N']
+   - TypeScript: [tdd-red-task-N] in test/describe name
+   - Dart: @Tags(['tdd-red-task-N']) or tags: ['tdd-red-task-N']
 
    Replace N with the task ID. DO NOT implement the feature.
-   Tests should FAIL. Keep the markers in place."
+   Tests should FAIL. Keep the markers in place.
+
+   Verify locally:
+   - Dart: flutter test --tags tdd-red (should FAIL)
+   - Dart: flutter test --exclude-tags tdd-red (should PASS)
+   - TS: npm test -- --testNamePattern=\"\\[tdd-red-task-\" (should FAIL)
+
+   Note: Use 'tdd-red' prefix when running tests, not the full tag."
 
 Green Task (depends on red task):
   "Implement the feature to make tests pass.
-   Remove the [tdd-red:task-N] or @Tags(['tdd-red:task-N']) markers.
+   Remove the [tdd-red-task-N] or @Tags(['tdd-red-task-N']) markers.
    All tests should now PASS."
 ```
 

@@ -165,14 +165,14 @@ The system provides clear guidance via signal failure messages:
 
 ### 1. Task ID in Markers (REQUIRED)
 
-**Decision**: Markers MUST include task ID as a SINGLE TOKEN: `tdd-red:task-N`
+**Decision**: Markers MUST include task ID as a SINGLE TOKEN: `tdd-red-task-N`
 
 **Dart** - uses `tags` parameter:
 ```dart
-test('should construct with defaults', () { ... }, tags: ['tdd-red:task-3']);
+test('should construct with defaults', () { ... }, tags: ['tdd-red-task-3']);
 
 // Or at file level
-@Tags(['tdd-red:task-3'])
+@Tags(['tdd-red-task-3'])
 void main() {
   test('all tests in file inherit tags', () { ... });
 }
@@ -180,9 +180,9 @@ void main() {
 
 **TypeScript/Vitest** - uses test name prefix:
 ```typescript
-test('[tdd-red:task-3] should construct with defaults', () => { ... });
+test('[tdd-red-task-3] should construct with defaults', () => { ... });
 
-describe('[tdd-red:task-3] Widget initialization', () => {
+describe('[tdd-red-task-3] Widget initialization', () => {
   test('all tests in describe inherit marker', () => { ... });
 });
 ```
@@ -269,18 +269,18 @@ INSERT INTO tdd_red_registry (red_task_id, test_identifier, ...) VALUES ...;
 
 | Language | Marker Syntax | Location | Granularity |
 |----------|---------------|----------|-------------|
-| **Dart** | `tags: ['tdd-red:task-N']` | `test()` parameter or `@Tags()` annotation | Test or file level |
-| **TypeScript** | `[tdd-red:task-N]` prefix | Test/describe name string | Test or describe level |
+| **Dart** | `tags: ['tdd-red-task-N']` | `test()` parameter or `@Tags()` annotation | Test or file level |
+| **TypeScript** | `[tdd-red-task-N]` prefix | Test/describe name string | Test or describe level |
 
 **Dart Examples**:
 ```dart
 // Test-level marker
 test('should construct with defaults', () {
   expect(widget.value, equals(0));
-}, tags: ['tdd-red:task-3']);
+}, tags: ['tdd-red-task-3']);
 
 // File-level marker (all tests in file)
-@Tags(['tdd-red:task-3'])
+@Tags(['tdd-red-task-3'])
 void main() {
   test('inherits file tags', () { ... });
   test('also inherits', () { ... });
@@ -290,12 +290,12 @@ void main() {
 **TypeScript Examples**:
 ```typescript
 // Test-level marker (in test name)
-test('[tdd-red:task-3] should construct with defaults', () => {
+test('[tdd-red-task-3] should construct with defaults', () => {
   expect(widget.value).toBe(0);
 });
 
 // Describe-level marker (all nested tests inherit)
-describe('[tdd-red:task-3] Widget initialization', () => {
+describe('[tdd-red-task-3] Widget initialization', () => {
   test('should have default values', () => { ... });
   test('should accept options', () => { ... });
 });
@@ -304,7 +304,7 @@ describe('[tdd-red:task-3] Widget initialization', () => {
 describe('Widget', () => {
   test('normal test', () => { ... });  // Not TDD-red
   
-  test('[tdd-red:task-3] new feature test', () => { ... });  // TDD-red
+  test('[tdd-red-task-3] new feature test', () => { ... });  // TDD-red
 });
 ```
 
@@ -378,10 +378,10 @@ if (task.tdd_red_phase === true && task.status === 'IMPLEMENT') {
 
 **Error Message**:
 ```
-TDD red-phase task requires tests with @orchestra-tdd-red:task-3 markers.
+TDD red-phase task requires tests with @orchestra-tdd-red-task-3 markers.
 Found 0 markers for this task in test files.
 
-Expected: At least 1 test marked with // @orchestra-tdd-red:task-3
+Expected: At least 1 test marked with // @orchestra-tdd-red-task-3
 ```
 
 **Rationale**:
@@ -410,7 +410,7 @@ Expected: At least 1 test marked with // @orchestra-tdd-red:task-3
 **Decision**: Marker must be immediately above the test (within N lines, ignoring blanks/comments).
 
 ```dart
-// @orchestra-tdd-red:task-3
+// @orchestra-tdd-red-task-3
 // This is an optional additional comment
 test('should have default values', () {
   // test body
@@ -436,7 +436,7 @@ test('should have default values', () {
 **Workflow**:
 ```
 RED PHASE:
-1. Implementor writes tests with @orchestra-tdd-red:task-3
+1. Implementor writes tests with @orchestra-tdd-red-task-3
 2. Signal completion
 3. Scan for :task-3 markers → register in tdd_red_registry
 4. Run (b) for task-3 tests → verify all FAIL
@@ -638,8 +638,8 @@ File: `src/db/migrations.ts`
 
 **Update**:
 - "Mark tests with TDD markers" section with new syntax:
-  - TypeScript: `[tdd-red:task-N]` in test name
-  - Dart: `tags: ['tdd-red:task-N']` (single token with task ID)
+  - TypeScript: `[tdd-red-task-N]` in test name
+  - Dart: `tags: ['tdd-red-task-N']` (single token with task ID)
 - Remove "Option 1: Place in test/tdd-red/ directory" (we use markers, not directories)
 
 **Current (to remove)**:
@@ -711,7 +711,7 @@ File: `src/mcp-server/handlers/prepare-task.ts`
 ### Phase 2: Implement Scanner
 1. Create `src/core/tdd-scanner.ts` with language-specific scanners
 2. Implement `scanDartTests()` - parse `tags:` and `@Tags()`
-3. Implement `scanTypeScriptTests()` - parse `[tdd-red:task-N]` in names
+3. Implement `scanTypeScriptTests()` - parse `[tdd-red-task-N]` in names
 4. Implement `scanAndRegisterTests()` - orchestrates scanning and DB updates
 
 ### Phase 3: Integrate Scan-on-Signal
@@ -743,16 +743,16 @@ File: `src/mcp-server/handlers/prepare-task.ts`
 
 ```dart
 // Test-level
-test('name', () { ... }, tags: ['tdd-red:task-3']);
+test('name', () { ... }, tags: ['tdd-red-task-3']);
 
 // File-level  
-@Tags(['tdd-red:task-3'])
+@Tags(['tdd-red-task-3'])
 void main() { ... }
 ```
 
 **Commands**:
-- Normal run: `dart test --exclude-tags=tdd-red:task-3`
-- TDD-red run: `dart test --tags=tdd-red:task-3`
+- Normal run: `dart test --exclude-tags=tdd-red-task-3`
+- TDD-red run: `dart test --tags=tdd-red-task-3`
 
 **Scanner**: Parse `tags:` parameter values and `@Tags()` annotations.
 
@@ -760,19 +760,19 @@ void main() { ... }
 
 ### OQ-2: TypeScript Test Infrastructure (RESOLVED ✅)
 
-**Decision**: Use `[tdd-red:task-N]` prefix in test/describe names.
+**Decision**: Use `[tdd-red-task-N]` prefix in test/describe names.
 
 ```typescript
-test('[tdd-red:task-3] should fail initially', () => { ... });
+test('[tdd-red-task-3] should fail initially', () => { ... });
 
-describe('[tdd-red:task-3] Feature group', () => { ... });
+describe('[tdd-red-task-3] Feature group', () => { ... });
 ```
 
 **Commands**:
 - Normal run: `vitest --testNamePattern="^(?!.*\\[tdd-red\\])"`
 - TDD-red run: `vitest --testNamePattern="\\[tdd-red\\]"`
 
-**Scanner**: Parse test name strings for `[tdd-red:task-N]` pattern.
+**Scanner**: Parse test name strings for `[tdd-red-task-N]` pattern.
 
 **Key Benefit**: No separate comment marker needed - the test name IS the marker.
 
@@ -782,8 +782,8 @@ describe('[tdd-red:task-3] Feature group', () => { ... });
 
 **Decision**: Supported via language-native mechanisms.
 
-- **Dart**: `@Tags(['tdd-red:task-N'])` annotation at file level
-- **TypeScript**: `describe('[tdd-red:task-N] ...', () => { ... })` wrapping all tests
+- **Dart**: `@Tags(['tdd-red-task-N'])` annotation at file level
+- **TypeScript**: `describe('[tdd-red-task-N] ...', () => { ... })` wrapping all tests
 
 Both provide file-level marking without requiring a separate syntax.
 
@@ -905,13 +905,13 @@ function scanDartTests(workspaceRoot: string, taskId: number): ScannedTest[] {
 function scanTypeScriptTests(workspaceRoot: string, taskId: number): ScannedTest[] {
   const testFiles = findTestFiles(workspaceRoot, '**/*.test.ts');
   const results: ScannedTest[] = [];
-  const markerPattern = new RegExp(`\\[tdd-red:task-${taskId}\\]`);
+  const markerPattern = new RegExp(`\\[tdd-red-task-${taskId}\\]`);
   
   for (const file of testFiles) {
     const content = readFile(file);
     
-    // Find test() and it() calls with [tdd-red:task-N] in name
-    const testPattern = /(test|it)\s*\(\s*['"`](\[tdd-red:task-\d+\][^'"`]+)['"`]/g;
+    // Find test() and it() calls with [tdd-red-task-N] in name
+    const testPattern = /(test|it)\s*\(\s*['"`](\[tdd-red-task-\d+\][^'"`]+)['"`]/g;
     
     let match;
     while ((match = testPattern.exec(content)) !== null) {
@@ -920,7 +920,7 @@ function scanTypeScriptTests(workspaceRoot: string, taskId: number): ScannedTest
       // Check if this is for our task
       if (markerPattern.test(fullName)) {
         // Extract test name without marker
-        const testName = fullName.replace(/\[tdd-red:task-\d+\]\s*/, '');
+        const testName = fullName.replace(/\[tdd-red-task-\d+\]\s*/, '');
         const hierarchy = extractHierarchy(content, match.index);
         
         results.push({
@@ -936,14 +936,14 @@ function scanTypeScriptTests(workspaceRoot: string, taskId: number): ScannedTest
     }
     
     // Also find describe() blocks with marker (all nested tests inherit)
-    const describePattern = /describe\s*\(\s*['"`](\[tdd-red:task-\d+\][^'"`]+)['"`]/g;
+    const describePattern = /describe\s*\(\s*['"`](\[tdd-red-task-\d+\][^'"`]+)['"`]/g;
     
     while ((match = describePattern.exec(content)) !== null) {
       const fullName = match[1];
       
       if (markerPattern.test(fullName)) {
         // Find all tests within this describe block
-        const describeName = fullName.replace(/\[tdd-red:task-\d+\]\s*/, '');
+        const describeName = fullName.replace(/\[tdd-red-task-\d+\]\s*/, '');
         const nestedTests = findNestedTests(content, match.index);
         
         for (const nestedTest of nestedTests) {

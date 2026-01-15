@@ -38,12 +38,12 @@ export const FORBIDDEN_PATTERNS = {
    * - "after task-005"
    * - "depends on Task #4"
    *
-   * NOTE: Excludes TDD marker format (tdd-red:task-N) which is legitimate
+   * NOTE: Excludes TDD marker format (tdd-red-task-N) which is legitimate
    */
   TASK_REFERENCES: [
     /\btask\s+\d+/i,
     /\btask\s+#\d+/i,
-    /(?<!tdd-red:)task[-_]\d+/i, // Exclude tdd-red:task-N format
+    /(?<!tdd-red-)task[-_]\d+/i, // Exclude tdd-red-task-N format
     /see\s+task\s+\d+/i,
     /after\s+task/i,
     /\(not\s+started\)/i,
