@@ -90,19 +90,10 @@ describe("TDD Schema Tables", () => {
         red_task_id INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
         test_identifier TEXT NOT NULL,
         test_file TEXT,
-        description TEXT,
-        marker_type TEXT,
-        status TEXT NOT NULL DEFAULT 'REGISTERED',
-        green_task_id INTEGER REFERENCES tasks(id) ON DELETE CASCADE,
-        created_at TEXT NOT NULL,
-        validated_at TEXT,
-        assigned_at TEXT,
-        greened_at TEXT
+        created_at TEXT NOT NULL
       );
       CREATE INDEX tdd_reg_sprint_idx ON tdd_red_registry(sprint_id);
       CREATE INDEX tdd_reg_red_task_idx ON tdd_red_registry(red_task_id);
-      CREATE INDEX tdd_reg_green_task_idx ON tdd_red_registry(green_task_id);
-      CREATE INDEX tdd_reg_status_idx ON tdd_red_registry(status);
       CREATE UNIQUE INDEX tdd_reg_unique_test_idx ON tdd_red_registry(sprint_id, test_identifier);
     `);
 
@@ -384,13 +375,13 @@ describe("TDD Schema Tables", () => {
         pk: number;
       }>;
 
-      expect(columns).toHaveLength(13);
+      expect(columns).toHaveLength(6);
 
       const columnMap = Object.fromEntries(
         columns.map((col) => [col.name, col])
       );
 
-      // Verify all columns exist with correct properties
+      // Verify all 6 columns exist with correct properties
       expect(columnMap.id).toBeDefined();
       expect(columnMap.id.type).toBe("INTEGER");
       expect(columnMap.id.pk).toBe(1);
@@ -411,27 +402,9 @@ describe("TDD Schema Tables", () => {
       expect(columnMap.test_file.type).toBe("TEXT");
       expect(columnMap.test_file.notnull).toBe(0); // Nullable
 
-      // Verify remaining columns exist
-      expect(columnMap.id).toBeDefined();
-      expect(columnMap.sprint_id).toBeDefined();
-      expect(columnMap.red_task_id).toBeDefined();
-      expect(columnMap.test_identifier).toBeDefined();
-      expect(columnMap.test_file).toBeDefined();
-      expect(columnMap.created_at).toBeDefined();
-
-      // Verify timestamp columns
       expect(columnMap.created_at).toBeDefined();
       expect(columnMap.created_at.type).toBe("TEXT");
       expect(columnMap.created_at.notnull).toBe(1);
-
-      expect(columnMap.validated_at).toBeDefined();
-      expect(columnMap.validated_at.notnull).toBe(0);
-
-      expect(columnMap.assigned_at).toBeDefined();
-      expect(columnMap.assigned_at.notnull).toBe(0);
-
-      expect(columnMap.greened_at).toBeDefined();
-      expect(columnMap.greened_at.notnull).toBe(0);
     });
 
     it("should have foreign keys with cascade delete", () => {
@@ -444,7 +417,7 @@ describe("TDD Schema Tables", () => {
         on_delete: string;
       }>;
 
-      expect(foreignKeys).toHaveLength(3);
+      expect(foreignKeys).toHaveLength(2);
 
       // sprint_id FK
       const sprintFK = foreignKeys.find((fk) => fk.from === "sprint_id");
@@ -457,12 +430,6 @@ describe("TDD Schema Tables", () => {
       expect(redTaskFK).toBeDefined();
       expect(redTaskFK?.table).toBe("tasks");
       expect(redTaskFK?.on_delete).toBe("CASCADE");
-
-      // green_task_id FK (nullable)
-      const greenTaskFK = foreignKeys.find((fk) => fk.from === "green_task_id");
-      expect(greenTaskFK).toBeDefined();
-      expect(greenTaskFK?.table).toBe("tasks");
-      expect(greenTaskFK?.on_delete).toBe("CASCADE");
     });
 
     it("should have appropriate indexes", () => {
@@ -474,8 +441,6 @@ describe("TDD Schema Tables", () => {
 
       expect(indexNames).toContain("tdd_reg_sprint_idx");
       expect(indexNames).toContain("tdd_reg_red_task_idx");
-      expect(indexNames).toContain("tdd_reg_green_task_idx");
-      expect(indexNames).toContain("tdd_reg_status_idx");
       expect(indexNames).toContain("tdd_reg_unique_test_idx");
     });
 
@@ -535,61 +500,6 @@ describe("TDD Schema Tables", () => {
           created_at: new Date().toISOString(),
         })
       ).rejects.toThrow(/UNIQUE constraint failed/);
-    });
-
-    it("should apply default status value of REGISTERED", async () => {
-      const sprintId = "sprint-test-003";
-      await db.insert(sprints).values({
-        id: sprintId,
-        name: "Test Sprint",
-        workflow_step: "CONFIGURE",
-        is_active: false,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      });
-
-      const [phase] = await db
-        .insert(phases)
-        .values({
-          sprint_id: sprintId,
-          phase_id: "phase-1",
-          phase_name: "Test Phase",
-          order: 1,
-        })
-        .returning();
-
-      const [redTask] = await db
-        .insert(tasks)
-        .values({
-          sprint_id: sprintId,
-          phase_id: phase.id,
-          task_id: 1,
-          title: "Red Task",
-          description: "Test",
-          category: "INFRASTRUCTURE",
-          dependencies: JSON.stringify([]),
-          status: "COMPLETE",
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        })
-        .returning();
-
-      // Insert without explicit status
-      const [entry] = await db
-        .insert(tddRedRegistry)
-        .values({
-          sprint_id: sprintId,
-          red_task_id: redTask.id,
-          test_identifier: "test/example.test.ts::suite::default status test",
-          created_at: new Date().toISOString(),
-        })
-        .returning();
-
-      // Verify entry was created
-      expect(entry).toBeDefined();
-      expect(entry.test_identifier).toBe(
-        "test/example.test.ts::suite::default status test"
-      );
     });
 
     it("should cascade delete when sprint is deleted", async () => {
