@@ -166,7 +166,6 @@ export {
 export {
   getTestsByTask,
   registerTest,
-  updateStatus,
   type RegisterTestOptions,
   type RegisterTestResult,
 } from "./tdd-registry.js";
@@ -179,9 +178,7 @@ export {
 
 // TDD Red Phase Validation (bidirectional validation before signal)
 export {
-  validateTddGreenPhase,
   validateTddRedPhase,
-  type ValidateTddGreenPhaseOptions,
   type ValidateTddRedPhaseOptions,
   type ValidationError,
   type ValidationResult,

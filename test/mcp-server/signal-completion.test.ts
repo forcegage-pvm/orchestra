@@ -301,15 +301,11 @@ describe("signal_completion handler", () => {
         "test.test.ts::Group::[tdd-red:task-3] test one"
       );
       expect(registryEntries[0].test_file).toBe("test/test.test.ts");
-      expect(registryEntries[0].marker_type).toBe("it.skip");
-      expect(registryEntries[0].status).toBe("REGISTERED");
 
       expect(registryEntries[1].test_identifier).toBe(
         "test.test.ts::Group::[tdd-red:task-3] test two"
       );
       expect(registryEntries[1].test_file).toBe("test/test.test.ts");
-      expect(registryEntries[1].marker_type).toBe("[tdd-red:task-3]");
-      expect(registryEntries[1].status).toBe("REGISTERED");
     });
 
     it("should clear existing registry entries before inserting new ones", async () => {

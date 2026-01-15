@@ -333,9 +333,7 @@ const MIGRATIONS: Migration[] = [
       const db = getDb();
 
       // Check if column already exists (idempotent)
-      const result = await db.all(
-        sql`PRAGMA table_info(tdd_red_registry)`
-      );
+      const result = await db.all(sql`PRAGMA table_info(tdd_red_registry)`);
       const columns = result as { name: string }[];
       const hasTestFile = columns.some((col) => col.name === "test_file");
 
@@ -344,8 +342,40 @@ const MIGRATIONS: Migration[] = [
       }
 
       // Add column
+      await db.run(sql`ALTER TABLE tdd_red_registry ADD COLUMN test_file TEXT`);
+    },
+  },
+  {
+    id: "20260115_003_recreate_tdd_red_registry",
+    description:
+      "Drop and recreate tdd_red_registry table without deprecated columns (status, green_task_id, description, marker_type, timestamps)",
+    up: async () => {
+      const db = getDb();
+
+      // Drop old table (data loss acceptable - test tracking data)
+      await db.run(sql`DROP TABLE IF EXISTS tdd_red_registry`);
+
+      // Recreate table with only essential columns
+      await db.run(sql`
+        CREATE TABLE tdd_red_registry (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          sprint_id TEXT NOT NULL REFERENCES sprints(id) ON DELETE CASCADE,
+          red_task_id INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+          test_identifier TEXT NOT NULL,
+          test_file TEXT,
+          created_at TEXT NOT NULL
+        )
+      `);
+
+      // Recreate indexes (excluding removed status and green_task_id indexes)
       await db.run(
-        sql`ALTER TABLE tdd_red_registry ADD COLUMN test_file TEXT`
+        sql`CREATE INDEX IF NOT EXISTS tdd_reg_sprint_idx ON tdd_red_registry(sprint_id)`
+      );
+      await db.run(
+        sql`CREATE INDEX IF NOT EXISTS tdd_reg_red_task_idx ON tdd_red_registry(red_task_id)`
+      );
+      await db.run(
+        sql`CREATE UNIQUE INDEX IF NOT EXISTS tdd_reg_unique_test_idx ON tdd_red_registry(sprint_id, test_identifier)`
       );
     },
   },

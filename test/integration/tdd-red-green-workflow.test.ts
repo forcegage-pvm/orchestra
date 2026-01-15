@@ -246,23 +246,13 @@ describe('Feature', () => {
         .from(tddRedRegistry)
         .where(eq(tddRedRegistry.red_task_id, redTask.id));
       expect(registeredTests).toHaveLength(2);
-      expect(registeredTests.every((t) => t.status === "REGISTERED")).toBe(
-        true
-      );
 
-      // Manually transition tests to VALIDATED (normally done by pre-signal validation)
-      // Since we're mocking the pre-signal executor, we need to simulate this transition
-      await db
-        .update(tddRedRegistry)
-        .set({ status: "VALIDATED", validated_at: new Date().toISOString() })
-        .where(eq(tddRedRegistry.red_task_id, redTask.id));
-
-      // Verify registry entries transitioned to VALIDATED
+      // Registry entries exist (status tracking removed - scan-on-signal handles it)
       const validatedTests = await db
         .select()
         .from(tddRedRegistry)
         .where(eq(tddRedRegistry.red_task_id, redTask.id));
-      expect(validatedTests.every((t) => t.status === "VALIDATED")).toBe(true);
+      expect(validatedTests).toHaveLength(2);
 
       // Manually move task to VERIFY status (simulating gate checks + judgment passing)
       // In real workflow, orchestrator would run verification checks and judgment
@@ -284,17 +274,12 @@ describe('Feature', () => {
 
       expect(completeRedResult.success).toBe(true);
 
-      // Verify registry entries transitioned to PENDING_GREEN
+      // Verify registry entries exist (status/green_task_id tracking removed)
       const pendingGreenTests = await db
         .select()
         .from(tddRedRegistry)
         .where(eq(tddRedRegistry.red_task_id, redTask.id));
-      expect(pendingGreenTests.every((t) => t.status === "PENDING_GREEN")).toBe(
-        true
-      );
-      expect(
-        pendingGreenTests.every((t) => t.green_task_id === redTask.id + 1)
-      ).toBe(true);
+      expect(pendingGreenTests).toHaveLength(2);
 
       // =============================================================================
       // STEP 7: Prepare green phase task (simulate orchestrator preparing it)
@@ -372,13 +357,7 @@ describe('Feature', () => {
 
       expect(signalGreenResult.success).toBe(true);
 
-      // Manually transition tests to GREEN (normally done by pre-signal validation)
-      // Since we're mocking the pre-signal executor, we need to simulate this transition
-      await db
-        .update(tddRedRegistry)
-        .set({ status: "GREEN", greened_at: new Date().toISOString() })
-        .where(eq(tddRedRegistry.green_task_id, greenTask.id));
-
+      // Registry entries exist (status tracking removed - scan-on-signal handles it)
       // Manually move green task to VERIFY status (simulating gate checks + judgment passing)
       const [greenTaskAfterSignal] = await db
         .select()
@@ -402,13 +381,12 @@ describe('Feature', () => {
 
       expect(completeGreenResult.success).toBe(true);
 
-      // Verify registry entries transitioned to GREEN
+      // Verify registry entries exist (scan-on-signal tracks them)
       const greenTests = await db
         .select()
         .from(tddRedRegistry)
-        .where(eq(tddRedRegistry.green_task_id, greenTask.id));
-      expect(greenTests.every((t) => t.status === "GREEN")).toBe(true);
-      expect(greenTests.every((t) => t.greened_at !== null)).toBe(true);
+        .where(eq(tddRedRegistry.red_task_id, redTask.id));
+      expect(greenTests).toHaveLength(2);
 
       // =============================================================================
       // STEP 11: Verify sprint status shows closeout is unblocked
@@ -782,12 +760,7 @@ it.skip('test', () => {
         test_status: "PASS",
       });
 
-      // Manually transition tests to VALIDATED (normally done by pre-signal validation)
-      await db
-        .update(tddRedRegistry)
-        .set({ status: "VALIDATED", validated_at: new Date().toISOString() })
-        .where(eq(tddRedRegistry.red_task_id, redTaskBefore.id));
-
+      // Registry entries exist (status tracking removed)
       // Manually move task to VERIFY status (simulating gate checks + judgment passing)
       await db
         .update(tasks)

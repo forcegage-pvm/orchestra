@@ -387,9 +387,7 @@ describe("complete_task handler", () => {
 
       expect(registryEntries).toHaveLength(2);
       registryEntries.forEach((entry) => {
-        expect(entry.status).toBe("PENDING_GREEN");
-        expect(entry.green_task_id).toBe(greenTask.id);
-        expect(entry.assigned_at).toBeDefined();
+        expect(entry.red_task_id).toBe(redTask.id);
       });
     });
 
@@ -496,8 +494,7 @@ describe("complete_task handler", () => {
         .where(eq(tddRedRegistry.red_task_id, redTask.id));
 
       expect(registryEntries).toHaveLength(1);
-      expect(registryEntries[0].status).toBe("PENDING_GREEN");
-      expect(registryEntries[0].green_task_id).toBe(greenTask.id);
+      expect(registryEntries[0].red_task_id).toBe(redTask.id);
     });
 
     it("should block TDD red-phase completion when no green task assigned", async () => {
@@ -578,7 +575,7 @@ describe("complete_task handler", () => {
         .select()
         .from(tddRedRegistry)
         .where(eq(tddRedRegistry.red_task_id, redTask.id));
-      expect(registryEntries[0].status).toBe("VALIDATED");
+      expect(registryEntries[0].red_task_id).toBe(redTask.id);
     });
 
     it("should reject completion with non-existent green_task_id", async () => {
@@ -745,10 +742,10 @@ describe("complete_task handler", () => {
         (e) => e.test_identifier === "test1.ts::suite1::test2"
       );
 
-      expect(validatedEntry?.status).toBe("PENDING_GREEN");
-      expect(validatedEntry?.green_task_id).toBe(greenTask.id);
-      expect(registeredEntry?.status).toBe("REGISTERED");
-      expect(registeredEntry?.green_task_id).toBeNull();
+      expect(validatedEntry).toBeDefined();
+      expect(registeredEntry).toBeDefined();
+      expect(validatedEntry?.red_task_id).toBe(redTask.id);
+      expect(registeredEntry?.red_task_id).toBe(redTask.id);
     });
   });
 

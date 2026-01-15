@@ -143,20 +143,10 @@ async function registerTddRedTest(
   const options: {
     taskId: number;
     testIdentifier: string;
-    description?: string;
-    markerType?: string;
   } = {
     taskId: input.task_id,
     testIdentifier: input.test_identifier,
   };
-
-  if (input.description !== undefined) {
-    options.description = input.description;
-  }
-
-  if (input.marker_type !== undefined) {
-    options.markerType = input.marker_type;
-  }
 
   const result = await registerTest(options);
 
@@ -164,7 +154,6 @@ async function registerTddRedTest(
     success: true,
     registry_id: result.registryId,
     test_identifier: result.testIdentifier,
-    status: "REGISTERED",
     next_step: "Continue writing red tests or signal completion when done",
   };
 }

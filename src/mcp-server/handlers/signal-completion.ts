@@ -284,8 +284,6 @@ async function signalCompletion(
         red_task_id: task.id,
         test_identifier: test.test_identifier,
         test_file: test.test_file,
-        marker_type: test.marker_type,
-        status: "REGISTERED",
         created_at: now,
       });
     }

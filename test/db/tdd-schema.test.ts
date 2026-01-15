@@ -411,22 +411,13 @@ describe("TDD Schema Tables", () => {
       expect(columnMap.test_file.type).toBe("TEXT");
       expect(columnMap.test_file.notnull).toBe(0); // Nullable
 
-      expect(columnMap.description).toBeDefined();
-      expect(columnMap.description.type).toBe("TEXT");
-      expect(columnMap.description.notnull).toBe(0); // Nullable
-
-      expect(columnMap.marker_type).toBeDefined();
-      expect(columnMap.marker_type.type).toBe("TEXT");
-      expect(columnMap.marker_type.notnull).toBe(0); // Nullable
-
-      expect(columnMap.status).toBeDefined();
-      expect(columnMap.status.type).toBe("TEXT");
-      expect(columnMap.status.notnull).toBe(1);
-      expect(columnMap.status.dflt_value).toBe("'REGISTERED'");
-
-      expect(columnMap.green_task_id).toBeDefined();
-      expect(columnMap.green_task_id.type).toBe("INTEGER");
-      expect(columnMap.green_task_id.notnull).toBe(0); // Nullable
+      // Verify remaining columns exist
+      expect(columnMap.id).toBeDefined();
+      expect(columnMap.sprint_id).toBeDefined();
+      expect(columnMap.red_task_id).toBeDefined();
+      expect(columnMap.test_identifier).toBeDefined();
+      expect(columnMap.test_file).toBeDefined();
+      expect(columnMap.created_at).toBeDefined();
 
       // Verify timestamp columns
       expect(columnMap.created_at).toBeDefined();
@@ -594,7 +585,11 @@ describe("TDD Schema Tables", () => {
         })
         .returning();
 
-      expect(entry.status).toBe("REGISTERED");
+      // Verify entry was created
+      expect(entry).toBeDefined();
+      expect(entry.test_identifier).toBe(
+        "test/example.test.ts::suite::default status test"
+      );
     });
 
     it("should cascade delete when sprint is deleted", async () => {

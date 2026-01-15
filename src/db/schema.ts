@@ -581,9 +581,8 @@ export const tddTaskRelationships = sqliteTable(
 /**
  * TDD Red Registry table - Individual test entries from red-phase tasks
  *
- * Tracks each failing test created during red-phase development, its validation,
- * assignment to a green-phase task, and eventual greening. The status field
- * tracks progression: REGISTERED → VALIDATED → PENDING_GREEN → GREEN.
+ * Stores test identifiers discovered during red-phase scan-on-signal.
+ * Status tracking now handled by tdd_task_relationships.completed_at.
  */
 export const tddRedRegistry = sqliteTable(
   "tdd_red_registry",
@@ -597,26 +596,13 @@ export const tddRedRegistry = sqliteTable(
       .references(() => tasks.id, { onDelete: "cascade" }),
     test_identifier: text("test_identifier").notNull(), // Format: "file::group::test"
     test_file: text("test_file"),
-    description: text("description"),
-    marker_type: text("marker_type"),
-    status: text("status").notNull().default("REGISTERED"), // REGISTERED | VALIDATED | PENDING_GREEN | GREEN
-    green_task_id: integer("green_task_id").references(() => tasks.id, {
-      onDelete: "cascade",
-    }),
     created_at: text("created_at").notNull(),
-    validated_at: text("validated_at"),
-    assigned_at: text("assigned_at"),
-    greened_at: text("greened_at"),
   },
   (tddRedRegistry) => ({
     tddRegSprintIdx: index("tdd_reg_sprint_idx").on(tddRedRegistry.sprint_id),
     tddRegRedTaskIdx: index("tdd_reg_red_task_idx").on(
       tddRedRegistry.red_task_id
     ),
-    tddRegGreenTaskIdx: index("tdd_reg_green_task_idx").on(
-      tddRedRegistry.green_task_id
-    ),
-    tddRegStatusIdx: index("tdd_reg_status_idx").on(tddRedRegistry.status),
     uniqueTest: uniqueIndex("tdd_reg_unique_test_idx").on(
       tddRedRegistry.sprint_id,
       tddRedRegistry.test_identifier
