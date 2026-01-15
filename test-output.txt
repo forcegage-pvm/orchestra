@@ -1,75 +1,1747 @@
 
 > orchestra@1.0.0 test
-> vitest run test/core/tdd-validation.test.ts --reporter=verbose
+> vitest run
 
 
 [7m[1m[36m RUN [39m[22m[27m [36mv1.6.1[39m [90mX:/Cloud Storage/Dropbox/Repositories/vs code/orchestra[39m
 
-(node:36052) [DEP0190] DeprecationWarning: Passing args to a child process with shell option true can lead to security vulnerabilities, as the arguments are not escaped, only concatenated.
+ [32mΓ£ô[39m test/core/check-executor.test.ts [2m ([22m[2m34 tests[22m[2m)[22m[90m 200[2mms[22m[39m
+ [32mΓ£ô[39m test/core/feedback.test.ts [2m ([22m[2m20 tests[22m[2m)[22m[33m 349[2mms[22m[39m
+ [32mΓ£ô[39m test/core/pre-signal-executor.test.ts [2m ([22m[2m23 tests[22m[2m)[22m[90m 20[2mms[22m[39m
+(node:17068) [DEP0190] DeprecationWarning: Passing args to a child process with shell option true can lead to security vulnerabilities, as the arguments are not escaped, only concatenated.
 (Use `node --trace-deprecation ...` to show where the warning was created)
- [32mΓ£ô[39m test/core/tdd-validation.test.ts[2m > [22mTDD Red Phase Validation[2m > [22mBidirectional cross-check[2m > [22mshould pass when all registered tests have markers[33m 2074[2mms[22m[39m
- [32mΓ£ô[39m test/core/tdd-validation.test.ts[2m > [22mTDD Red Phase Validation[2m > [22mBidirectional cross-check[2m > [22mshould fail when registered test has no marker[33m 411[2mms[22m[39m
- [32mΓ£ô[39m test/core/tdd-validation.test.ts[2m > [22mTDD Red Phase Validation[2m > [22mBidirectional cross-check[2m > [22mshould fail when marker exists but not registered[33m 401[2mms[22m[39m
- [32mΓ£ô[39m test/core/tdd-validation.test.ts[2m > [22mTDD Red Phase Validation[2m > [22mBidirectional cross-check[2m > [22mshould handle multiple tests in same file[33m 2039[2mms[22m[39m
- [32mΓ£ô[39m test/core/tdd-validation.test.ts[2m > [22mTDD Red Phase Validation[2m > [22mTest execution verification[2m > [22mshould fail when registered test is passing[33m 402[2mms[22m[39m
- [32mΓ£ô[39m test/core/tdd-validation.test.ts[2m > [22mTDD Red Phase Validation[2m > [22mStatus transitions[2m > [22mshould transition REGISTERED to VALIDATED on success[33m 2036[2mms[22m[39m
- [32mΓ£ô[39m test/core/tdd-validation.test.ts[2m > [22mTDD Red Phase Validation[2m > [22mStatus transitions[2m > [22mshould not transition on validation failure[33m 404[2mms[22m[39m
- [32mΓ£ô[39m test/core/tdd-validation.test.ts[2m > [22mTDD Red Phase Validation[2m > [22mEdge cases[2m > [22mshould return success when no tests registered[33m 412[2mms[22m[39m
- [32mΓ£ô[39m test/core/tdd-validation.test.ts[2m > [22mTDD Red Phase Validation[2m > [22mEdge cases[2m > [22mshould handle test file not found[33m 499[2mms[22m[39m
- [32mΓ£ô[39m test/core/tdd-validation.test.ts[2m > [22mTDD Red Phase Validation[2m > [22mEdge cases[2m > [22mshould handle Dart test patterns[33m 1936[2mms[22m[39m
- [31m├ù[39m test/core/tdd-validation.test.ts[2m > [22mTDD Green Phase Validation[2m > [22mGreen phase validation - success cases[2m > [22mshould pass when tests pass and markers removed[33m 2411[2mms[22m[39m
-[31m   ΓåÆ expected false to be true // Object.is equality[39m
- [31m├ù[39m test/core/tdd-validation.test.ts[2m > [22mTDD Green Phase Validation[2m > [22mGreen phase validation - success cases[2m > [22mshould handle multiple tests passing[33m 2068[2mms[22m[39m
-[31m   ΓåÆ expected false to be true // Object.is equality[39m
- [32mΓ£ô[39m test/core/tdd-validation.test.ts[2m > [22mTDD Green Phase Validation[2m > [22mGreen phase validation - success cases[2m > [22mshould return success when no PENDING_GREEN entries[33m 403[2mms[22m[39m
- [32mΓ£ô[39m test/core/tdd-validation.test.ts[2m > [22mTDD Green Phase Validation[2m > [22mGreen phase validation - error cases[2m > [22mshould fail with TESTS_STILL_RED when tests still fail[33m 2061[2mms[22m[39m
- [32mΓ£ô[39m test/core/tdd-validation.test.ts[2m > [22mTDD Green Phase Validation[2m > [22mGreen phase validation - error cases[2m > [22mshould fail with MARKER_STILL_PRESENT when markers not removed[33m 2080[2mms[22m[39m
- [32mΓ£ô[39m test/core/tdd-validation.test.ts[2m > [22mTDD Green Phase Validation[2m > [22mGreen phase validation - error cases[2m > [22mshould fail with both TESTS_STILL_RED and MARKER_STILL_PRESENT[33m 2033[2mms[22m[39m
- [32mΓ£ô[39m test/core/tdd-validation.test.ts[2m > [22mTDD Green Phase Validation[2m > [22mGreen phase validation - error cases[2m > [22mshould handle TEST_EXECUTION_ERROR when test file not found[33m 414[2mms[22m[39m
- [32mΓ£ô[39m test/core/tdd-validation.test.ts[2m > [22mTDD Green Phase Validation[2m > [22mStatus transitions[2m > [22mshould not transition on validation failure[33m 2106[2mms[22m[39m
+(node:44972) [DEP0190] DeprecationWarning: Passing args to a child process with shell option true can lead to security vulnerabilities, as the arguments are not escaped, only concatenated.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+stderr | test/integration/tdd-red-green-workflow.test.ts > TDD Red-Green Workflow End-to-End > Complete redΓåÆgreen workflow > should complete full TDD lifecycle: configure ΓåÆ red phase ΓåÆ green phase ΓåÆ closeout
+DEBUG: Received input: {
+  "sprint": {
+    "id": "sprint-e2e-001",
+    "name": "E2E TDD Workflow Test Sprint"
+  },
+  "phases": [
+    {
+      "phase_id": "phase-1",
+      "phase_name": "TDD Feature Implementation",
+      "speckit_tasks": []
+    }
+  ],
+  "tasks": [
+    {
+      "task_id": 1,
+      "phase_id": "phase-1",
+      "title": "Red Phase: Write failing tests",
+      "description": "Write tests that define the feature requirements",
+      "category": "INFRASTRUCTURE",
+      "dependencies": [],
+      "tdd_red_phase": true,
+      "verification": {
+        "structural_checks": [
+          {
+            "description": "Test file exists",
+            "severity": "MAJOR",
+            "path": "test/feature.test.ts",
+            "pattern": "describe|it",
+            "min_matches": 1
+          }
+        ]
+      }
+    },
+    {
+      "task_id": 2,
+      "phase_id": "phase-1",
+      "title": "Green Phase: Implement feature",
+      "description": "Implement the feature to make tests pass",
+      "category": "INFRASTRUCTURE",
+      "dependencies": [
+        1
+      ],
+      "verification": {
+        "structural_checks": [
+          {
+            "description": "Feature implementation exists",
+            "severity": "MAJOR",
+            "path": "src/feature.ts",
+            "pattern": ".*",
+            "min_matches": 1
+          }
+        ]
+      }
+    }
+  ],
+  "tdd_relationships": [
+    {
+      "red_task_id": 1,
+      "green_task_id": 2
+    }
+  ]
+}
 
-ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ» Failed Tests 2 ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»
+ [32mΓ£ô[39m test/db/tdd-schema.test.ts [2m ([22m[2m13 tests[22m[2m)[22m[33m 4165[2mms[22m[39m
+stderr | test/integration/tdd-red-green-workflow.test.ts > TDD Red-Green Workflow End-to-End > Complete redΓåÆgreen workflow > should handle error when attempting green phase before red phase completion
+DEBUG: Received input: {
+  "sprint": {
+    "id": "sprint-e2e-error-001",
+    "name": "E2E Error Scenario Sprint"
+  },
+  "phases": [
+    {
+      "phase_id": "phase-1",
+      "phase_name": "TDD Feature",
+      "speckit_tasks": []
+    }
+  ],
+  "tasks": [
+    {
+      "task_id": 1,
+      "phase_id": "phase-1",
+      "title": "Red Phase Task",
+      "description": "Write failing tests",
+      "category": "INFRASTRUCTURE",
+      "dependencies": [],
+      "tdd_red_phase": true,
+      "verification": {
+        "structural_checks": [
+          {
+            "description": "Test file exists",
+            "severity": "MAJOR",
+            "path": "test/feature.test.ts",
+            "pattern": "describe|it",
+            "min_matches": 1
+          }
+        ]
+      }
+    },
+    {
+      "task_id": 2,
+      "phase_id": "phase-1",
+      "title": "Green Phase Task",
+      "description": "Implement feature",
+      "category": "INFRASTRUCTURE",
+      "dependencies": [
+        1
+      ],
+      "verification": {
+        "structural_checks": [
+          {
+            "description": "Feature exists",
+            "severity": "MAJOR",
+            "path": "src/feature.ts",
+            "pattern": ".*",
+            "min_matches": 1
+          }
+        ]
+      }
+    }
+  ],
+  "tdd_relationships": [
+    {
+      "red_task_id": 1,
+      "green_task_id": 2
+    }
+  ]
+}
 
- FAIL  test/core/tdd-validation.test.ts > TDD Green Phase Validation > Green phase validation - success cases > should pass when tests pass and markers removed
-AssertionError: expected false to be true // Object.is equality
+stderr | test/mcp-server/prepare-task-tdd-red.test.ts > prepare_task TDD Red-Phase Verification Auto-Injection > TypeScript projects > should inject red-phase checks when tdd_red_phase=true
+[TDD RED] Auto-injected 3 red-phase verification checks for task 1
 
-- Expected
-+ Received
+stderr | test/integration/tdd-red-green-workflow.test.ts > TDD Red-Green Workflow End-to-End > Complete redΓåÆgreen workflow > should provide actionable error messages per FR-011
+DEBUG: Received input: {
+  "sprint": {
+    "id": "sprint-e2e-fr011-001",
+    "name": "FR-011 Error Message Test Sprint"
+  },
+  "phases": [
+    {
+      "phase_id": "phase-1",
+      "phase_name": "TDD Test Phase",
+      "speckit_tasks": []
+    }
+  ],
+  "tasks": [
+    {
+      "task_id": 1,
+      "phase_id": "phase-1",
+      "title": "Red Phase Task",
+      "description": "Write failing tests",
+      "category": "INFRASTRUCTURE",
+      "dependencies": [],
+      "tdd_red_phase": true,
+      "verification": {
+        "structural_checks": [
+          {
+            "description": "Test file exists",
+            "severity": "MAJOR",
+            "path": "test/feature.test.ts",
+            "pattern": "describe|it",
+            "min_matches": 1
+          }
+        ]
+      }
+    }
+  ]
+}
 
-- true
-+ false
+stderr | test/mcp-server/prepare-task-tdd-red.test.ts > prepare_task TDD Red-Phase Verification Auto-Injection > Dart projects > should inject Dart-specific red-phase checks when tdd_red_phase=true
+[TDD RED] Auto-injected 3 red-phase verification checks for task 1
 
- Γ¥» test/core/tdd-validation.test.ts:570:30
-    568|       });
-    569| 
-    570|       expect(result.success).toBe(true);
-       |                              ^
-    571|       expect(result.errors).toHaveLength(0);
-    572|       expect(result.validatedCount).toBe(1);
+ [32mΓ£ô[39m test/mcp-server/handlers/complete-task-tdd.test.ts [2m ([22m[2m5 tests[22m[2m)[22m[33m 10424[2mms[22m[39m
+ [32mΓ£ô[39m test/mcp-server/handover-validation.test.ts [2m ([22m[2m41 tests[22m[2m)[22m[90m 16[2mms[22m[39m
+stderr | test/integration/tdd-red-green-workflow.test.ts > TDD Red-Green Workflow End-to-End > Complete redΓåÆgreen workflow > should block sprint closeout when tests are not GREEN
+DEBUG: Received input: {
+  "sprint": {
+    "id": "sprint-e2e-closeout-001",
+    "name": "Closeout Gate Test Sprint"
+  },
+  "phases": [
+    {
+      "phase_id": "phase-1",
+      "phase_name": "TDD Phase",
+      "speckit_tasks": []
+    }
+  ],
+  "tasks": [
+    {
+      "task_id": 1,
+      "phase_id": "phase-1",
+      "title": "Red Phase Task",
+      "description": "Write tests",
+      "category": "INFRASTRUCTURE",
+      "dependencies": [],
+      "tdd_red_phase": true,
+      "verification": {
+        "structural_checks": [
+          {
+            "description": "Test file exists",
+            "severity": "MAJOR",
+            "path": "test/feature.test.ts",
+            "pattern": "describe|it",
+            "min_matches": 1
+          }
+        ]
+      }
+    },
+    {
+      "task_id": 2,
+      "phase_id": "phase-1",
+      "title": "Green Phase Task",
+      "description": "Implement feature",
+      "category": "INFRASTRUCTURE",
+      "dependencies": [
+        1
+      ],
+      "verification": {
+        "structural_checks": [
+          {
+            "description": "Feature exists",
+            "severity": "MAJOR",
+            "path": "src/feature.ts",
+            "pattern": ".*",
+            "min_matches": 1
+          }
+        ]
+      }
+    }
+  ],
+  "tdd_relationships": [
+    {
+      "red_task_id": 1,
+      "green_task_id": 2
+    }
+  ]
+}
 
-ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[1/2]ΓÄ»
+stderr | test/mcp-server/prepare-task-tdd-red.test.ts > prepare_task TDD Red-Phase Verification Auto-Injection > Unknown project types > should not inject checks for unknown project types
+[TDD RED] Auto-injected 0 red-phase verification checks for task 1
 
- FAIL  test/core/tdd-validation.test.ts > TDD Green Phase Validation > Green phase validation - success cases > should handle multiple tests passing
-AssertionError: expected false to be true // Object.is equality
+stderr | test/mcp-server/prepare-task-tdd-red.test.ts > prepare_task TDD Red-Phase Verification Auto-Injection > Check ID generation > should generate unique check IDs when multiple checks exist
+[TDD RED] Auto-injected 3 red-phase verification checks for task 1
 
-- Expected
-+ Received
+ [32mΓ£ô[39m test/mcp-server/prepare-task-tdd-red.test.ts [2m ([22m[2m6 tests[22m[2m)[22m[33m 13066[2mms[22m[39m
+ [32mΓ£ô[39m test/mcp-server/submit-verification-judgment-progress.test.ts [2m ([22m[2m6 tests[22m[2m)[22m[33m 13023[2mms[22m[39m
+ [32mΓ£ô[39m test/integration/tdd-red-green-workflow.test.ts [2m ([22m[2m4 tests[22m[2m)[22m[33m 13884[2mms[22m[39m
+(node:31552) [DEP0190] DeprecationWarning: Passing args to a child process with shell option true can lead to security vulnerabilities, as the arguments are not escaped, only concatenated.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+ [32mΓ£ô[39m test/mcp-server/handlers/complete-task-green.test.ts [2m ([22m[2m4 tests[22m[2m)[22m[33m 14558[2mms[22m[39m
+ [32mΓ£ô[39m test/mcp-server/complete-task.test.ts [2m ([22m[2m10 tests[22m[2m)[22m[33m 21023[2mms[22m[39m
+ [32mΓ£ô[39m test/mcp-server/prepare-task-cleanup.test.ts [2m ([22m[2m7 tests[22m[2m)[22m[33m 20448[2mms[22m[39m
+ [32mΓ£ô[39m test/integration/failure-path.test.ts [2m ([22m[2m11 tests[22m[2m)[22m[90m 70[2mms[22m[39m
+ [32mΓ£ô[39m test/schemas/tdd-registry.test.ts [2m ([22m[2m26 tests[22m[2m)[22m[90m 9[2mms[22m[39m
+ [32mΓ£ô[39m test/core/tdd-cleanup.test.ts [2m ([22m[2m20 tests[22m[2m)[22m[90m 104[2mms[22m[39m
+ [2m[90mΓåô[39m[22m test/commands/init.test.ts [2m ([22m[2m27 tests[22m [2m|[22m [33m27 skipped[39m[2m)[22m
+stderr | test/mcp-server/configure-sprint.test.ts > configure_sprint handler > tdd_red_phase field storage > should store tdd_red_phase=true when provided
+DEBUG: Received input: {
+  "sprint": {
+    "id": "test-sprint-001",
+    "name": "Test Sprint with TDD Red Phase"
+  },
+  "phases": [
+    {
+      "phase_id": "phase-1",
+      "phase_name": "Phase 1",
+      "speckit_tasks": [
+        "spec-task-1"
+      ]
+    }
+  ],
+  "tasks": [
+    {
+      "task_id": 1,
+      "phase_id": "phase-1",
+      "title": "Test Task with Red Phase",
+      "description": "Task description",
+      "category": "INFRASTRUCTURE",
+      "dependencies": [],
+      "tdd_red_phase": true,
+      "verification": {
+        "structural_checks": [
+          {
+            "description": "File exists",
+            "severity": "MAJOR",
+            "path": "src/test.ts",
+            "pattern": ".*",
+            "min_matches": 1
+          }
+        ]
+      }
+    }
+  ]
+}
 
-- true
-+ false
+stderr | test/mcp-server/configure-sprint.test.ts > configure_sprint handler > tdd_red_phase field storage > should store tdd_red_phase=false when explicitly set to false
+DEBUG: Received input: {
+  "sprint": {
+    "id": "test-sprint-002",
+    "name": "Test Sprint without Red Phase"
+  },
+  "phases": [
+    {
+      "phase_id": "phase-1",
+      "phase_name": "Phase 1",
+      "speckit_tasks": [
+        "spec-task-1"
+      ]
+    }
+  ],
+  "tasks": [
+    {
+      "task_id": 1,
+      "phase_id": "phase-1",
+      "title": "Test Task without Red Phase",
+      "description": "Task description",
+      "category": "VISUAL",
+      "dependencies": [],
+      "tdd_red_phase": false,
+      "verification": {
+        "structural_checks": [
+          {
+            "description": "File exists",
+            "severity": "MAJOR",
+            "path": "src/test.ts",
+            "pattern": ".*",
+            "min_matches": 1
+          }
+        ]
+      }
+    }
+  ]
+}
 
- Γ¥» test/core/tdd-validation.test.ts:647:30
-    645|       });
-    646| 
-    647|       expect(result.success).toBe(true);
-       |                              ^
-    648|       expect(result.validatedCount).toBe(2);
-    649|     });
+stderr | test/mcp-server/configure-sprint.test.ts > configure_sprint handler > tdd_red_phase field storage > should default to false when tdd_red_phase is not provided
+DEBUG: Received input: {
+  "sprint": {
+    "id": "test-sprint-003",
+    "name": "Test Sprint with default"
+  },
+  "phases": [
+    {
+      "phase_id": "phase-1",
+      "phase_name": "Phase 1",
+      "speckit_tasks": [
+        "spec-task-1"
+      ]
+    }
+  ],
+  "tasks": [
+    {
+      "task_id": 1,
+      "phase_id": "phase-1",
+      "title": "Test Task without tdd_red_phase field",
+      "description": "Task description",
+      "category": "REFACTOR",
+      "dependencies": [],
+      "verification": {
+        "structural_checks": [
+          {
+            "description": "File exists",
+            "severity": "MAJOR",
+            "path": "src/test.ts",
+            "pattern": ".*",
+            "min_matches": 1
+          }
+        ]
+      }
+    }
+  ]
+}
 
-ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[2/2]ΓÄ»
+stderr | test/mcp-server/configure-sprint.test.ts > configure_sprint handler > tdd_red_phase field storage > should handle multiple tasks with different tdd_red_phase values
+DEBUG: Received input: {
+  "sprint": {
+    "id": "test-sprint-004",
+    "name": "Test Sprint with mixed tasks"
+  },
+  "phases": [
+    {
+      "phase_id": "phase-1",
+      "phase_name": "Phase 1",
+      "speckit_tasks": [
+        "spec-task-1"
+      ]
+    }
+  ],
+  "tasks": [
+    {
+      "task_id": 1,
+      "phase_id": "phase-1",
+      "title": "Task with red phase",
+      "description": "Description 1",
+      "category": "INFRASTRUCTURE",
+      "dependencies": [],
+      "tdd_red_phase": true,
+      "verification": {
+        "structural_checks": [
+          {
+            "description": "File exists",
+            "severity": "MAJOR",
+            "path": "src/test1.ts",
+            "pattern": ".*",
+            "min_matches": 1
+          }
+        ]
+      }
+    },
+    {
+      "task_id": 2,
+      "phase_id": "phase-1",
+      "title": "Task without red phase",
+      "description": "Description 2",
+      "category": "VISUAL",
+      "dependencies": [],
+      "tdd_red_phase": false,
+      "verification": {
+        "structural_checks": [
+          {
+            "description": "File exists",
+            "severity": "MAJOR",
+            "path": "src/test2.ts",
+            "pattern": ".*",
+            "min_matches": 1
+          }
+        ]
+      }
+    },
+    {
+      "task_id": 3,
+      "phase_id": "phase-1",
+      "title": "Task with default",
+      "description": "Description 3",
+      "category": "INTEGRATION",
+      "dependencies": [],
+      "verification": {
+        "structural_checks": [
+          {
+            "description": "File exists",
+            "severity": "MAJOR",
+            "path": "src/test3.ts",
+            "pattern": ".*",
+            "min_matches": 1
+          }
+        ]
+      }
+    }
+  ]
+}
 
-[2m Test Files [22m [1m[31m1 failed[39m[22m[90m (1)[39m
-[2m      Tests [22m [1m[31m2 failed[39m[22m[2m | [22m[1m[32m16 passed[39m[22m[90m (18)[39m
-[2m   Start at [22m 15:48:01
-[2m   Duration [22m 25.04s[2m (transform 111ms, setup 0ms, collect 444ms, tests 24.19s, environment 0ms, prepare 139ms)[22m
+stderr | test/mcp-server/configure-sprint.test.ts > configure_sprint handler > sprint configuration > should create sprint and deactivate existing sprints
+DEBUG: Received input: {
+  "sprint": {
+    "id": "new-sprint",
+    "name": "New Sprint"
+  },
+  "phases": [
+    {
+      "phase_id": "phase-1",
+      "phase_name": "Phase 1",
+      "speckit_tasks": [
+        "spec-1"
+      ]
+    }
+  ],
+  "tasks": [
+    {
+      "task_id": 1,
+      "phase_id": "phase-1",
+      "title": "Task 1",
+      "description": "Description",
+      "category": "INFRASTRUCTURE",
+      "dependencies": [],
+      "verification": {
+        "structural_checks": [
+          {
+            "description": "Check",
+            "severity": "MAJOR",
+            "path": "src/test.ts",
+            "pattern": ".*",
+            "min_matches": 1
+          }
+        ]
+      }
+    }
+  ]
+}
+
+stderr | test/mcp-server/configure-sprint.test.ts > configure_sprint handler > tdd_relationships > should store TDD relationships with declared_at='configure_sprint'
+DEBUG: Received input: {
+  "sprint": {
+    "id": "test-sprint-tdd-001",
+    "name": "Test Sprint with TDD Relationships"
+  },
+  "phases": [
+    {
+      "phase_id": "phase-1",
+      "phase_name": "Phase 1",
+      "speckit_tasks": [
+        "spec-1"
+      ]
+    }
+  ],
+  "tasks": [
+    {
+      "task_id": 1,
+      "phase_id": "phase-1",
+      "title": "Red Task - Write Failing Tests",
+      "description": "Create failing tests for feature",
+      "category": "INFRASTRUCTURE",
+      "dependencies": [],
+      "tdd_red_phase": true,
+      "verification": {
+        "structural_checks": [
+          {
+            "description": "Test file exists",
+            "severity": "MAJOR",
+            "path": "test/feature.test.ts",
+            "pattern": ".*",
+            "min_matches": 1
+          }
+        ]
+      }
+    },
+    {
+      "task_id": 2,
+      "phase_id": "phase-1",
+      "title": "Green Task - Implement Feature",
+      "description": "Implement feature to make tests pass",
+      "category": "INFRASTRUCTURE",
+      "dependencies": [
+        1
+      ],
+      "tdd_red_phase": false,
+      "verification": {
+        "structural_checks": [
+          {
+            "description": "Feature file exists",
+            "severity": "MAJOR",
+            "path": "src/feature.ts",
+            "pattern": ".*",
+            "min_matches": 1
+          }
+        ]
+      }
+    }
+  ],
+  "tdd_relationships": [
+    {
+      "red_task_id": 1,
+      "green_task_id": 2
+    }
+  ]
+}
+
+stderr | test/mcp-server/configure-sprint.test.ts > configure_sprint handler > tdd_relationships > should reject relationship where red_task_id does not have tdd_red_phase=true
+DEBUG: Received input: {
+  "sprint": {
+    "id": "test-sprint-tdd-002",
+    "name": "Test Sprint - Invalid Red Task"
+  },
+  "phases": [
+    {
+      "phase_id": "phase-1",
+      "phase_name": "Phase 1"
+    }
+  ],
+  "tasks": [
+    {
+      "task_id": 1,
+      "phase_id": "phase-1",
+      "title": "Not a Red Task",
+      "description": "Description",
+      "category": "INFRASTRUCTURE",
+      "dependencies": [],
+      "tdd_red_phase": false,
+      "verification": {
+        "structural_checks": [
+          {
+            "description": "Check",
+            "severity": "MAJOR",
+            "path": "src/test.ts",
+            "pattern": ".*",
+            "min_matches": 1
+          }
+        ]
+      }
+    },
+    {
+      "task_id": 2,
+      "phase_id": "phase-1",
+      "title": "Green Task",
+      "description": "Description",
+      "category": "INFRASTRUCTURE",
+      "dependencies": [],
+      "tdd_red_phase": false,
+      "verification": {
+        "structural_checks": [
+          {
+            "description": "Check",
+            "severity": "MAJOR",
+            "path": "src/test.ts",
+            "pattern": ".*",
+            "min_matches": 1
+          }
+        ]
+      }
+    }
+  ],
+  "tdd_relationships": [
+    {
+      "red_task_id": 1,
+      "green_task_id": 2
+    }
+  ]
+}
+DEBUG: Validation failed: {
+  success: false,
+  error: {
+    code: 'VALIDATION_ERROR',
+    message: 'Input validation failed',
+    details: { issues: [Array] },
+    suggestions: [
+      'Check the input parameters against the schema',
+      'Ensure all required fields are provided',
+      'Verify data types match expected types'
+    ]
+  }
+}
+
+stderr | test/mcp-server/configure-sprint.test.ts > configure_sprint handler > tdd_relationships > should reject relationship where red_task_id equals green_task_id
+DEBUG: Received input: {
+  "sprint": {
+    "id": "test-sprint-tdd-003",
+    "name": "Test Sprint - Same Task IDs"
+  },
+  "phases": [
+    {
+      "phase_id": "phase-1",
+      "phase_name": "Phase 1"
+    }
+  ],
+  "tasks": [
+    {
+      "task_id": 1,
+      "phase_id": "phase-1",
+      "title": "Red Task",
+      "description": "Description",
+      "category": "INFRASTRUCTURE",
+      "dependencies": [],
+      "tdd_red_phase": true,
+      "verification": {
+        "structural_checks": [
+          {
+            "description": "Check",
+            "severity": "MAJOR",
+            "path": "src/test.ts",
+            "pattern": ".*",
+            "min_matches": 1
+          }
+        ]
+      }
+    }
+  ],
+  "tdd_relationships": [
+    {
+      "red_task_id": 1,
+      "green_task_id": 1
+    }
+  ]
+}
+DEBUG: Validation failed: {
+  success: false,
+  error: {
+    code: 'VALIDATION_ERROR',
+    message: 'Input validation failed',
+    details: { issues: [Array] },
+    suggestions: [
+      'Check the input parameters against the schema',
+      'Ensure all required fields are provided',
+      'Verify data types match expected types'
+    ]
+  }
+}
+
+stderr | test/mcp-server/configure-sprint.test.ts > configure_sprint handler > tdd_relationships > should reject relationship with non-existent red_task_id
+DEBUG: Received input: {
+  "sprint": {
+    "id": "test-sprint-tdd-004",
+    "name": "Test Sprint - Invalid Red Task ID"
+  },
+  "phases": [
+    {
+      "phase_id": "phase-1",
+      "phase_name": "Phase 1"
+    }
+  ],
+  "tasks": [
+    {
+      "task_id": 1,
+      "phase_id": "phase-1",
+      "title": "Green Task",
+      "description": "Description",
+      "category": "INFRASTRUCTURE",
+      "dependencies": [],
+      "verification": {
+        "structural_checks": [
+          {
+            "description": "Check",
+            "severity": "MAJOR",
+            "path": "src/test.ts",
+            "pattern": ".*",
+            "min_matches": 1
+          }
+        ]
+      }
+    }
+  ],
+  "tdd_relationships": [
+    {
+      "red_task_id": 999,
+      "green_task_id": 1
+    }
+  ]
+}
+DEBUG: Validation failed: {
+  success: false,
+  error: {
+    code: 'VALIDATION_ERROR',
+    message: 'Input validation failed',
+    details: { issues: [Array] },
+    suggestions: [
+      'Check the input parameters against the schema',
+      'Ensure all required fields are provided',
+      'Verify data types match expected types'
+    ]
+  }
+}
+
+stderr | test/mcp-server/configure-sprint.test.ts > configure_sprint handler > tdd_relationships > should reject relationship with non-existent green_task_id
+DEBUG: Received input: {
+  "sprint": {
+    "id": "test-sprint-tdd-005",
+    "name": "Test Sprint - Invalid Green Task ID"
+  },
+  "phases": [
+    {
+      "phase_id": "phase-1",
+      "phase_name": "Phase 1"
+    }
+  ],
+  "tasks": [
+    {
+      "task_id": 1,
+      "phase_id": "phase-1",
+      "title": "Red Task",
+      "description": "Description",
+      "category": "INFRASTRUCTURE",
+      "dependencies": [],
+      "tdd_red_phase": true,
+      "verification": {
+        "structural_checks": [
+          {
+            "description": "Check",
+            "severity": "MAJOR",
+            "path": "src/test.ts",
+            "pattern": ".*",
+            "min_matches": 1
+          }
+        ]
+      }
+    }
+  ],
+  "tdd_relationships": [
+    {
+      "red_task_id": 1,
+      "green_task_id": 999
+    }
+  ]
+}
+DEBUG: Validation failed: {
+  success: false,
+  error: {
+    code: 'VALIDATION_ERROR',
+    message: 'Input validation failed',
+    details: { issues: [Array] },
+    suggestions: [
+      'Check the input parameters against the schema',
+      'Ensure all required fields are provided',
+      'Verify data types match expected types'
+    ]
+  }
+}
+
+stderr | test/mcp-server/configure-sprint.test.ts > configure_sprint handler > tdd_relationships > should handle multiple TDD relationships in one sprint
+DEBUG: Received input: {
+  "sprint": {
+    "id": "test-sprint-tdd-006",
+    "name": "Test Sprint - Multiple Relationships"
+  },
+  "phases": [
+    {
+      "phase_id": "phase-1",
+      "phase_name": "Phase 1"
+    }
+  ],
+  "tasks": [
+    {
+      "task_id": 1,
+      "phase_id": "phase-1",
+      "title": "Red Task 1",
+      "description": "First red task",
+      "category": "INFRASTRUCTURE",
+      "dependencies": [],
+      "tdd_red_phase": true,
+      "verification": {
+        "structural_checks": [
+          {
+            "description": "Check",
+            "severity": "MAJOR",
+            "path": "test/test1.ts",
+            "pattern": ".*",
+            "min_matches": 1
+          }
+        ]
+      }
+    },
+    {
+      "task_id": 2,
+      "phase_id": "phase-1",
+      "title": "Green Task 1",
+      "description": "First green task",
+      "category": "INFRASTRUCTURE",
+      "dependencies": [
+        1
+      ],
+      "verification": {
+        "structural_checks": [
+          {
+            "description": "Check",
+            "severity": "MAJOR",
+            "path": "src/impl1.ts",
+            "pattern": ".*",
+            "min_matches": 1
+          }
+        ]
+      }
+    },
+    {
+      "task_id": 3,
+      "phase_id": "phase-1",
+      "title": "Red Task 2",
+      "description": "Second red task",
+      "category": "INFRASTRUCTURE",
+      "dependencies": [],
+      "tdd_red_phase": true,
+      "verification": {
+        "structural_checks": [
+          {
+            "description": "Check",
+            "severity": "MAJOR",
+            "path": "test/test2.ts",
+            "pattern": ".*",
+            "min_matches": 1
+          }
+        ]
+      }
+    },
+    {
+      "task_id": 4,
+      "phase_id": "phase-1",
+      "title": "Green Task 2",
+      "description": "Second green task",
+      "category": "INFRASTRUCTURE",
+      "dependencies": [
+        3
+      ],
+      "verification": {
+        "structural_checks": [
+          {
+            "description": "Check",
+            "severity": "MAJOR",
+            "path": "src/impl2.ts",
+            "pattern": ".*",
+            "min_matches": 1
+          }
+        ]
+      }
+    }
+  ],
+  "tdd_relationships": [
+    {
+      "red_task_id": 1,
+      "green_task_id": 2
+    },
+    {
+      "red_task_id": 3,
+      "green_task_id": 4
+    }
+  ]
+}
+
+ [32mΓ£ô[39m test/mcp-server/configure-sprint.test.ts [2m ([22m[2m11 tests[22m[2m)[22m[33m 22736[2mms[22m[39m
+stderr | test/mcp-server/handlers/configure-sprint-tdd.test.ts > configure_sprint - TDD relationship declaration > valid relationship creation > should create relationship with declared_at='configure_sprint'
+DEBUG: Received input: {
+  "sprint": {
+    "id": "test-sprint-tdd-upfront-001",
+    "name": "Test Sprint - TDD Upfront Declaration"
+  },
+  "phases": [
+    {
+      "phase_id": "phase-1",
+      "phase_name": "Phase 1: TDD Workflow",
+      "speckit_tasks": [
+        "spec-task-1"
+      ]
+    }
+  ],
+  "tasks": [
+    {
+      "task_id": 1,
+      "phase_id": "phase-1",
+      "title": "Red Task - Write Failing Tests",
+      "description": "Create comprehensive failing tests for the feature",
+      "category": "INFRASTRUCTURE",
+      "dependencies": [],
+      "tdd_red_phase": true,
+      "verification": {
+        "structural_checks": [
+          {
+            "description": "Test file exists with failing tests",
+            "severity": "MAJOR",
+            "path": "test/feature.test.ts",
+            "pattern": "describe|test|it",
+            "min_matches": 1
+          }
+        ]
+      }
+    },
+    {
+      "task_id": 2,
+      "phase_id": "phase-1",
+      "title": "Green Task - Implement Feature",
+      "description": "Implement feature to make the tests pass",
+      "category": "INFRASTRUCTURE",
+      "dependencies": [
+        1
+      ],
+      "tdd_red_phase": false,
+      "verification": {
+        "structural_checks": [
+          {
+            "description": "Implementation file exists",
+            "severity": "MAJOR",
+            "path": "src/feature.ts",
+            "pattern": ".*",
+            "min_matches": 1
+          }
+        ]
+      }
+    }
+  ],
+  "tdd_relationships": [
+    {
+      "red_task_id": 1,
+      "green_task_id": 2
+    }
+  ]
+}
+
+stderr | test/mcp-server/handlers/configure-sprint-tdd.test.ts > configure_sprint - TDD relationship declaration > valid relationship creation > should create multiple relationships in one sprint
+DEBUG: Received input: {
+  "sprint": {
+    "id": "test-sprint-tdd-upfront-002",
+    "name": "Test Sprint - Multiple TDD Pairs"
+  },
+  "phases": [
+    {
+      "phase_id": "phase-1",
+      "phase_name": "Phase 1"
+    }
+  ],
+  "tasks": [
+    {
+      "task_id": 1,
+      "phase_id": "phase-1",
+      "title": "Red Task 1 - Auth Tests",
+      "description": "Write failing tests for authentication",
+      "category": "INFRASTRUCTURE",
+      "dependencies": [],
+      "tdd_red_phase": true,
+      "verification": {
+        "structural_checks": [
+          {
+            "description": "Auth test file exists",
+            "severity": "MAJOR",
+            "path": "test/auth.test.ts",
+            "pattern": ".*",
+            "min_matches": 1
+          }
+        ]
+      }
+    },
+    {
+      "task_id": 2,
+      "phase_id": "phase-1",
+      "title": "Green Task 1 - Auth Implementation",
+      "description": "Implement authentication to pass tests",
+      "category": "INFRASTRUCTURE",
+      "dependencies": [
+        1
+      ],
+      "verification": {
+        "structural_checks": [
+          {
+            "description": "Auth implementation exists",
+            "severity": "MAJOR",
+            "path": "src/auth.ts",
+            "pattern": ".*",
+            "min_matches": 1
+          }
+        ]
+      }
+    },
+    {
+      "task_id": 3,
+      "phase_id": "phase-1",
+      "title": "Red Task 2 - Validation Tests",
+      "description": "Write failing tests for input validation",
+      "category": "INFRASTRUCTURE",
+      "dependencies": [],
+      "tdd_red_phase": true,
+      "verification": {
+        "structural_checks": [
+          {
+            "description": "Validation test file exists",
+            "severity": "MAJOR",
+            "path": "test/validation.test.ts",
+            "pattern": ".*",
+            "min_matches": 1
+          }
+        ]
+      }
+    },
+    {
+      "task_id": 4,
+      "phase_id": "phase-1",
+      "title": "Green Task 2 - Validation Implementation",
+      "description": "Implement validation to pass tests",
+      "category": "INFRASTRUCTURE",
+      "dependencies": [
+        3
+      ],
+      "verification": {
+        "structural_checks": [
+          {
+            "description": "Validation implementation exists",
+            "severity": "MAJOR",
+            "path": "src/validation.ts",
+            "pattern": ".*",
+            "min_matches": 1
+          }
+        ]
+      }
+    }
+  ],
+  "tdd_relationships": [
+    {
+      "red_task_id": 1,
+      "green_task_id": 2
+    },
+    {
+      "red_task_id": 3,
+      "green_task_id": 4
+    }
+  ]
+}
+
+stderr | test/mcp-server/handlers/configure-sprint-tdd.test.ts > configure_sprint - TDD relationship declaration > tdd_red_phase validation > should reject relationship where red_task_id does not have tdd_red_phase=true
+DEBUG: Received input: {
+  "sprint": {
+    "id": "test-sprint-tdd-upfront-003",
+    "name": "Test Sprint - Invalid Red Task"
+  },
+  "phases": [
+    {
+      "phase_id": "phase-1",
+      "phase_name": "Phase 1"
+    }
+  ],
+  "tasks": [
+    {
+      "task_id": 1,
+      "phase_id": "phase-1",
+      "title": "Not a Red Phase Task",
+      "description": "This task is not marked as a red phase",
+      "category": "INFRASTRUCTURE",
+      "dependencies": [],
+      "tdd_red_phase": false,
+      "verification": {
+        "structural_checks": [
+          {
+            "description": "File check",
+            "severity": "MAJOR",
+            "path": "src/code.ts",
+            "pattern": ".*",
+            "min_matches": 1
+          }
+        ]
+      }
+    },
+    {
+      "task_id": 2,
+      "phase_id": "phase-1",
+      "title": "Green Task",
+      "description": "Green task implementation",
+      "category": "INFRASTRUCTURE",
+      "dependencies": [],
+      "verification": {
+        "structural_checks": [
+          {
+            "description": "File check",
+            "severity": "MAJOR",
+            "path": "src/impl.ts",
+            "pattern": ".*",
+            "min_matches": 1
+          }
+        ]
+      }
+    }
+  ],
+  "tdd_relationships": [
+    {
+      "red_task_id": 1,
+      "green_task_id": 2
+    }
+  ]
+}
+DEBUG: Validation failed: {
+  success: false,
+  error: {
+    code: 'VALIDATION_ERROR',
+    message: 'Input validation failed',
+    details: { issues: [Array] },
+    suggestions: [
+      'Check the input parameters against the schema',
+      'Ensure all required fields are provided',
+      'Verify data types match expected types'
+    ]
+  }
+}
+
+stderr | test/mcp-server/handlers/configure-sprint-tdd.test.ts > configure_sprint - TDD relationship declaration > tdd_red_phase validation > should reject relationship where red_task_id has tdd_red_phase=false explicitly
+DEBUG: Received input: {
+  "sprint": {
+    "id": "test-sprint-tdd-upfront-004",
+    "name": "Test Sprint - Explicit False Red Phase"
+  },
+  "phases": [
+    {
+      "phase_id": "phase-1",
+      "phase_name": "Phase 1"
+    }
+  ],
+  "tasks": [
+    {
+      "task_id": 1,
+      "phase_id": "phase-1",
+      "title": "Task with explicit tdd_red_phase=false",
+      "description": "Explicitly set to false",
+      "category": "VISUAL",
+      "dependencies": [],
+      "tdd_red_phase": false,
+      "verification": {
+        "structural_checks": [
+          {
+            "description": "Check",
+            "severity": "MAJOR",
+            "path": "src/test.ts",
+            "pattern": ".*",
+            "min_matches": 1
+          }
+        ]
+      }
+    },
+    {
+      "task_id": 2,
+      "phase_id": "phase-1",
+      "title": "Green Task",
+      "description": "Description",
+      "category": "VISUAL",
+      "dependencies": [],
+      "verification": {
+        "structural_checks": [
+          {
+            "description": "Check",
+            "severity": "MAJOR",
+            "path": "src/test.ts",
+            "pattern": ".*",
+            "min_matches": 1
+          }
+        ]
+      }
+    }
+  ],
+  "tdd_relationships": [
+    {
+      "red_task_id": 1,
+      "green_task_id": 2
+    }
+  ]
+}
+DEBUG: Validation failed: {
+  success: false,
+  error: {
+    code: 'VALIDATION_ERROR',
+    message: 'Input validation failed',
+    details: { issues: [Array] },
+    suggestions: [
+      'Check the input parameters against the schema',
+      'Ensure all required fields are provided',
+      'Verify data types match expected types'
+    ]
+  }
+}
+
+stderr | test/mcp-server/handlers/configure-sprint-tdd.test.ts > configure_sprint - TDD relationship declaration > different task validation > should reject relationship where red_task_id equals green_task_id
+DEBUG: Received input: {
+  "sprint": {
+    "id": "test-sprint-tdd-upfront-005",
+    "name": "Test Sprint - Same Task IDs"
+  },
+  "phases": [
+    {
+      "phase_id": "phase-1",
+      "phase_name": "Phase 1"
+    }
+  ],
+  "tasks": [
+    {
+      "task_id": 1,
+      "phase_id": "phase-1",
+      "title": "Red Task",
+      "description": "A red phase task",
+      "category": "INFRASTRUCTURE",
+      "dependencies": [],
+      "tdd_red_phase": true,
+      "verification": {
+        "structural_checks": [
+          {
+            "description": "Check",
+            "severity": "MAJOR",
+            "path": "src/test.ts",
+            "pattern": ".*",
+            "min_matches": 1
+          }
+        ]
+      }
+    }
+  ],
+  "tdd_relationships": [
+    {
+      "red_task_id": 1,
+      "green_task_id": 1
+    }
+  ]
+}
+DEBUG: Validation failed: {
+  success: false,
+  error: {
+    code: 'VALIDATION_ERROR',
+    message: 'Input validation failed',
+    details: { issues: [Array] },
+    suggestions: [
+      'Check the input parameters against the schema',
+      'Ensure all required fields are provided',
+      'Verify data types match expected types'
+    ]
+  }
+}
+
+stderr | test/mcp-server/handlers/configure-sprint-tdd.test.ts > configure_sprint - TDD relationship declaration > different task validation > should reject multiple relationships with same task ID pairs
+DEBUG: Received input: {
+  "sprint": {
+    "id": "test-sprint-tdd-upfront-006",
+    "name": "Test Sprint - Duplicate Relationships"
+  },
+  "phases": [
+    {
+      "phase_id": "phase-1",
+      "phase_name": "Phase 1"
+    }
+  ],
+  "tasks": [
+    {
+      "task_id": 1,
+      "phase_id": "phase-1",
+      "title": "Red Task",
+      "description": "Red phase task",
+      "category": "INFRASTRUCTURE",
+      "dependencies": [],
+      "tdd_red_phase": true,
+      "verification": {
+        "structural_checks": [
+          {
+            "description": "Check",
+            "severity": "MAJOR",
+            "path": "test/test.ts",
+            "pattern": ".*",
+            "min_matches": 1
+          }
+        ]
+      }
+    },
+    {
+      "task_id": 2,
+      "phase_id": "phase-1",
+      "title": "Green Task",
+      "description": "Green phase task",
+      "category": "INFRASTRUCTURE",
+      "dependencies": [],
+      "verification": {
+        "structural_checks": [
+          {
+            "description": "Check",
+            "severity": "MAJOR",
+            "path": "src/impl.ts",
+            "pattern": ".*",
+            "min_matches": 1
+          }
+        ]
+      }
+    },
+    {
+      "task_id": 3,
+      "phase_id": "phase-1",
+      "title": "Another Red Task",
+      "description": "Another red phase task",
+      "category": "INFRASTRUCTURE",
+      "dependencies": [],
+      "tdd_red_phase": true,
+      "verification": {
+        "structural_checks": [
+          {
+            "description": "Check",
+            "severity": "MAJOR",
+            "path": "test/test2.ts",
+            "pattern": ".*",
+            "min_matches": 1
+          }
+        ]
+      }
+    }
+  ],
+  "tdd_relationships": [
+    {
+      "red_task_id": 1,
+      "green_task_id": 2
+    },
+    {
+      "red_task_id": 3,
+      "green_task_id": 3
+    }
+  ]
+}
+DEBUG: Validation failed: {
+  success: false,
+  error: {
+    code: 'VALIDATION_ERROR',
+    message: 'Input validation failed',
+    details: { issues: [Array] },
+    suggestions: [
+      'Check the input parameters against the schema',
+      'Ensure all required fields are provided',
+      'Verify data types match expected types'
+    ]
+  }
+}
+
+stderr | test/mcp-server/handlers/configure-sprint-tdd.test.ts > configure_sprint - TDD relationship declaration > non-existent task ID validation > should reject relationship with non-existent red_task_id
+DEBUG: Received input: {
+  "sprint": {
+    "id": "test-sprint-tdd-upfront-007",
+    "name": "Test Sprint - Invalid Red Task ID"
+  },
+  "phases": [
+    {
+      "phase_id": "phase-1",
+      "phase_name": "Phase 1"
+    }
+  ],
+  "tasks": [
+    {
+      "task_id": 1,
+      "phase_id": "phase-1",
+      "title": "Green Task",
+      "description": "Valid green task",
+      "category": "INFRASTRUCTURE",
+      "dependencies": [],
+      "verification": {
+        "structural_checks": [
+          {
+            "description": "Check",
+            "severity": "MAJOR",
+            "path": "src/test.ts",
+            "pattern": ".*",
+            "min_matches": 1
+          }
+        ]
+      }
+    }
+  ],
+  "tdd_relationships": [
+    {
+      "red_task_id": 999,
+      "green_task_id": 1
+    }
+  ]
+}
+DEBUG: Validation failed: {
+  success: false,
+  error: {
+    code: 'VALIDATION_ERROR',
+    message: 'Input validation failed',
+    details: { issues: [Array] },
+    suggestions: [
+      'Check the input parameters against the schema',
+      'Ensure all required fields are provided',
+      'Verify data types match expected types'
+    ]
+  }
+}
+
+stderr | test/mcp-server/handlers/configure-sprint-tdd.test.ts > configure_sprint - TDD relationship declaration > non-existent task ID validation > should reject relationship with non-existent green_task_id
+DEBUG: Received input: {
+  "sprint": {
+    "id": "test-sprint-tdd-upfront-008",
+    "name": "Test Sprint - Invalid Green Task ID"
+  },
+  "phases": [
+    {
+      "phase_id": "phase-1",
+      "phase_name": "Phase 1"
+    }
+  ],
+  "tasks": [
+    {
+      "task_id": 1,
+      "phase_id": "phase-1",
+      "title": "Red Task",
+      "description": "Valid red task",
+      "category": "INFRASTRUCTURE",
+      "dependencies": [],
+      "tdd_red_phase": true,
+      "verification": {
+        "structural_checks": [
+          {
+            "description": "Check",
+            "severity": "MAJOR",
+            "path": "test/test.ts",
+            "pattern": ".*",
+            "min_matches": 1
+          }
+        ]
+      }
+    }
+  ],
+  "tdd_relationships": [
+    {
+      "red_task_id": 1,
+      "green_task_id": 999
+    }
+  ]
+}
+DEBUG: Validation failed: {
+  success: false,
+  error: {
+    code: 'VALIDATION_ERROR',
+    message: 'Input validation failed',
+    details: { issues: [Array] },
+    suggestions: [
+      'Check the input parameters against the schema',
+      'Ensure all required fields are provided',
+      'Verify data types match expected types'
+    ]
+  }
+}
+
+stderr | test/mcp-server/handlers/configure-sprint-tdd.test.ts > configure_sprint - TDD relationship declaration > non-existent task ID validation > should reject relationship with both non-existent task IDs
+DEBUG: Received input: {
+  "sprint": {
+    "id": "test-sprint-tdd-upfront-009",
+    "name": "Test Sprint - Both Invalid Task IDs"
+  },
+  "phases": [
+    {
+      "phase_id": "phase-1",
+      "phase_name": "Phase 1"
+    }
+  ],
+  "tasks": [
+    {
+      "task_id": 1,
+      "phase_id": "phase-1",
+      "title": "Some Task",
+      "description": "A valid task",
+      "category": "INFRASTRUCTURE",
+      "dependencies": [],
+      "verification": {
+        "structural_checks": [
+          {
+            "description": "Check",
+            "severity": "MAJOR",
+            "path": "src/test.ts",
+            "pattern": ".*",
+            "min_matches": 1
+          }
+        ]
+      }
+    }
+  ],
+  "tdd_relationships": [
+    {
+      "red_task_id": 888,
+      "green_task_id": 999
+    }
+  ]
+}
+DEBUG: Validation failed: {
+  success: false,
+  error: {
+    code: 'VALIDATION_ERROR',
+    message: 'Input validation failed',
+    details: { issues: [Array] },
+    suggestions: [
+      'Check the input parameters against the schema',
+      'Ensure all required fields are provided',
+      'Verify data types match expected types'
+    ]
+  }
+}
+
+stderr | test/mcp-server/handlers/configure-sprint-tdd.test.ts > configure_sprint - TDD relationship declaration > edge cases > should accept sprint with no tdd_relationships array
+DEBUG: Received input: {
+  "sprint": {
+    "id": "test-sprint-tdd-upfront-010",
+    "name": "Test Sprint - No TDD Relationships"
+  },
+  "phases": [
+    {
+      "phase_id": "phase-1",
+      "phase_name": "Phase 1"
+    }
+  ],
+  "tasks": [
+    {
+      "task_id": 1,
+      "phase_id": "phase-1",
+      "title": "Regular Task",
+      "description": "No TDD workflow",
+      "category": "VISUAL",
+      "dependencies": [],
+      "verification": {
+        "structural_checks": [
+          {
+            "description": "Check",
+            "severity": "MAJOR",
+            "path": "src/test.ts",
+            "pattern": ".*",
+            "min_matches": 1
+          }
+        ]
+      }
+    }
+  ]
+}
+
+stderr | test/mcp-server/handlers/configure-sprint-tdd.test.ts > configure_sprint - TDD relationship declaration > edge cases > should accept sprint with empty tdd_relationships array
+DEBUG: Received input: {
+  "sprint": {
+    "id": "test-sprint-tdd-upfront-011",
+    "name": "Test Sprint - Empty TDD Relationships"
+  },
+  "phases": [
+    {
+      "phase_id": "phase-1",
+      "phase_name": "Phase 1"
+    }
+  ],
+  "tasks": [
+    {
+      "task_id": 1,
+      "phase_id": "phase-1",
+      "title": "Task with Red Phase",
+      "description": "Red phase task but no relationship declared",
+      "category": "INFRASTRUCTURE",
+      "dependencies": [],
+      "tdd_red_phase": true,
+      "verification": {
+        "structural_checks": [
+          {
+            "description": "Check",
+            "severity": "MAJOR",
+            "path": "test/test.ts",
+            "pattern": ".*",
+            "min_matches": 1
+          }
+        ]
+      }
+    }
+  ],
+  "tdd_relationships": []
+}
+
+stderr | test/mcp-server/handlers/configure-sprint-tdd.test.ts > configure_sprint - TDD relationship declaration > edge cases > should handle relationship where green task also has tdd_red_phase=true
+DEBUG: Received input: {
+  "sprint": {
+    "id": "test-sprint-tdd-upfront-012",
+    "name": "Test Sprint - Green Task is also Red"
+  },
+  "phases": [
+    {
+      "phase_id": "phase-1",
+      "phase_name": "Phase 1"
+    }
+  ],
+  "tasks": [
+    {
+      "task_id": 1,
+      "phase_id": "phase-1",
+      "title": "Red Task 1",
+      "description": "First red task",
+      "category": "INFRASTRUCTURE",
+      "dependencies": [],
+      "tdd_red_phase": true,
+      "verification": {
+        "structural_checks": [
+          {
+            "description": "Check",
+            "severity": "MAJOR",
+            "path": "test/test1.ts",
+            "pattern": ".*",
+            "min_matches": 1
+          }
+        ]
+      }
+    },
+    {
+      "task_id": 2,
+      "phase_id": "phase-1",
+      "title": "Task 2 - Both Red and Green",
+      "description": "Makes task 1 green, but also has its own red tests",
+      "category": "INFRASTRUCTURE",
+      "dependencies": [
+        1
+      ],
+      "tdd_red_phase": true,
+      "verification": {
+        "structural_checks": [
+          {
+            "description": "Check",
+            "severity": "MAJOR",
+            "path": "test/test2.ts",
+            "pattern": ".*",
+            "min_matches": 1
+          }
+        ]
+      }
+    }
+  ],
+  "tdd_relationships": [
+    {
+      "red_task_id": 1,
+      "green_task_id": 2
+    }
+  ]
+}
+
+ [32mΓ£ô[39m test/mcp-server/handlers/configure-sprint-tdd.test.ts [2m ([22m[2m12 tests[22m[2m)[22m[33m 24140[2mms[22m[39m
+ [32mΓ£ô[39m test/mcp-server/handlers/get-sprint-status.test.ts [2m ([22m[2m5 tests[22m[2m)[22m[33m 10595[2mms[22m[39m
+ [32mΓ£ô[39m test/core/pre-signal-check.test.ts [2m ([22m[2m21 tests[22m[2m)[22m[33m 7534[2mms[22m[39m
+ [32mΓ£ô[39m test/core/judgment-validator.test.ts [2m ([22m[2m13 tests[22m[2m)[22m[33m 26864[2mms[22m[39m
+ [2m[90mΓåô[39m[22m test/commands/status.test.ts [2m ([22m[2m20 tests[22m [2m|[22m [33m20 skipped[39m[2m)[22m
+ [32mΓ£ô[39m test/mcp-server/get-current-task.test.ts [2m ([22m[2m5 tests[22m[2m)[22m[33m 10417[2mms[22m[39m
+ [32mΓ£ô[39m test/core/tdd-marker-scanner.test.ts [2m ([22m[2m20 tests[22m[2m)[22m[90m 69[2mms[22m[39m
+ [32mΓ£ô[39m test/integration/verification-lifecycle.test.ts [2m ([22m[2m8 tests[22m[2m)[22m[33m 20983[2mms[22m[39m
+ [32mΓ£ô[39m test/mcp-server/audit-logging-coverage.test.ts [2m ([22m[2m8 tests[22m[2m)[22m[90m 19[2mms[22m[39m
+ [32mΓ£ô[39m test/mcp-server/get-tasks.test.ts [2m ([22m[2m11 tests[22m[2m)[22m[33m 22791[2mms[22m[39m
+ [32mΓ£ô[39m test/core/tdd-validation.test.ts [2m ([22m[2m18 tests[22m [2m|[22m [33m5 skipped[39m[2m)[22m[33m 38177[2mms[22m[39m
+ [32mΓ£ô[39m test/db/tdd-migrations.test.ts [2m ([22m[2m10 tests[22m[2m)[22m[90m 7[2mms[22m[39m
+ [32mΓ£ô[39m test/core/types.test.ts [2m ([22m[2m23 tests[22m[2m)[22m[90m 13[2mms[22m[39m
+ [32mΓ£ô[39m test/core/config-generator.test.ts [2m ([22m[2m16 tests[22m[2m)[22m[90m 34[2mms[22m[39m
+stderr | test/mcp-server/prepare-task-tdd.test.ts > prepare_task TDD Auto-Injection > should inject TDD check when require_tests=true and category matches
+[TDD] Auto-injected test verification check for task 1 (INFRASTRUCTURE): [TDD] Test file required for "Database Migration" (INFRASTRUCTURE)
+
+stderr | test/mcp-server/prepare-task-tdd.test.ts > prepare_task TDD Auto-Injection > should use default config values when config keys are missing
+[TDD] Auto-injected test verification check for task 1 (INFRASTRUCTURE): [TDD] Test file required for "Database Migration" (INFRASTRUCTURE)
+
+stderr | test/mcp-server/prepare-task-tdd.test.ts > prepare_task TDD Auto-Injection > should inject check for INTEGRATION category when configured
+[TDD] Auto-injected test verification check for task 1 (INTEGRATION): [TDD] Test file required for "API Integration" (INTEGRATION)
+
+stderr | test/mcp-server/prepare-task-tdd.test.ts > prepare_task TDD Auto-Injection > should use custom patterns from config when provided
+[TDD] Auto-injected test verification check for task 1 (INFRASTRUCTURE): [TDD] Test file required for "Database Migration" (INFRASTRUCTURE)
+
+ [32mΓ£ô[39m test/mcp-server/prepare-task-tdd.test.ts [2m ([22m[2m6 tests[22m[2m)[22m[33m 13521[2mms[22m[39m
+ [32mΓ£ô[39m test/mcp-server/register-tdd-red-test.test.ts [2m ([22m[2m12 tests[22m[2m)[22m[33m 25197[2mms[22m[39m
+ [32mΓ£ô[39m test/mcp-server/handlers/sprint-closeout-tdd.test.ts [2m ([22m[2m3 tests[22m[2m)[22m[33m 7065[2mms[22m[39m
+ [32mΓ£ô[39m test/mcp-server/db-signal.test.ts [2m ([22m[2m8 tests[22m[2m)[22m[90m 39[2mms[22m[39m
+ [32mΓ£ô[39m test/core/errors.test.ts [2m ([22m[2m22 tests[22m[2m)[22m[90m 11[2mms[22m[39m
+ [32mΓ£ô[39m test/core/artifact-validator.test.ts [2m ([22m[2m10 tests[22m[2m)[22m[90m 24[2mms[22m[39m
+ [32mΓ£ô[39m test/db/migrations.test.ts [2m ([22m[2m5 tests[22m[2m)[22m[90m 7[2mms[22m[39m
+ [32mΓ£ô[39m test/mcp-server/signal-completion.test.ts [2m ([22m[2m2 tests[22m[2m)[22m[33m 4475[2mms[22m[39m
+ [32mΓ£ô[39m test/mcp-server/role-filtering.test.ts [2m ([22m[2m13 tests[22m[2m)[22m[90m 6[2mms[22m[39m
+ [32mΓ£ô[39m test/integration/tdd-pre-signal.test.ts [2m ([22m[2m11 tests[22m[2m)[22m[33m 34109[2mms[22m[39m
+ [32mΓ£ô[39m test/mcp-server/get-verification-results.test.ts [2m ([22m[2m7 tests[22m[2m)[22m[33m 15031[2mms[22m[39m
+ [32mΓ£ô[39m test/mcp-server/set-config.test.ts [2m ([22m[2m6 tests[22m[2m)[22m[90m 34[2mms[22m[39m
+ [32mΓ£ô[39m test/db/connection.test.ts [2m ([22m[2m6 tests[22m[2m)[22m[33m 530[2mms[22m[39m
+ [32mΓ£ô[39m test/commands/feedback.test.ts [2m ([22m[2m6 tests[22m[2m)[22m[90m 7[2mms[22m[39m
+ [32mΓ£ô[39m test/mcp-server/add-task.test.ts [2m ([22m[2m5 tests[22m[2m)[22m[33m 10803[2mms[22m[39m
+ [32mΓ£ô[39m test/mcp-server/get-task.test.ts [2m ([22m[2m4 tests[22m[2m)[22m[33m 8227[2mms[22m[39m
+ [32mΓ£ô[39m test/core/git-autocommit.test.ts [2m ([22m[2m1 test[22m[2m)[22m[33m 2984[2mms[22m[39m
+ [32mΓ£ô[39m test/core/command-executor.test.ts [2m ([22m[2m14 tests[22m[2m)[22m[33m 7578[2mms[22m[39m
+ [32mΓ£ô[39m test/mcp-server/escalated-rejection.test.ts [2m ([22m[2m6 tests[22m[2m)[22m[33m 11427[2mms[22m[39m
+ [32mΓ£ô[39m test/mcp-server/sprint-config.test.ts [2m ([22m[2m16 tests[22m[2m)[22m[33m 29836[2mms[22m[39m
+ [32mΓ£ô[39m test/core/accept-signal-validator.test.ts [2m ([22m[2m12 tests[22m[2m)[22m[33m 22306[2mms[22m[39m
+ [32mΓ£ô[39m test/mcp-server/run-verification-checks.test.ts [2m ([22m[2m17 tests[22m[2m)[22m[33m 32300[2mms[22m[39m
+ [32mΓ£ô[39m test/core/tdd-registry.test.ts [2m ([22m[2m12 tests[22m[2m)[22m[33m 18002[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m52 passed[39m[22m[2m | [22m[33m2 skipped[39m[90m (54)[39m
+[2m      Tests [22m [1m[32m610 passed[39m[22m[2m | [22m[33m52 skipped[39m[90m (662)[39m
+[2m   Start at [22m 12:22:13
+[2m   Duration [22m 58.85s[2m (transform 3.66s, setup 3ms, collect 27.48s, tests 539.26s, environment 14ms, prepare 10.28s)[22m
 

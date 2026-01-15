@@ -596,6 +596,7 @@ export const tddRedRegistry = sqliteTable(
       .notNull()
       .references(() => tasks.id, { onDelete: "cascade" }),
     test_identifier: text("test_identifier").notNull(), // Format: "file::group::test"
+    test_file: text("test_file"),
     description: text("description"),
     marker_type: text("marker_type"),
     status: text("status").notNull().default("REGISTERED"), // REGISTERED | VALIDATED | PENDING_GREEN | GREEN

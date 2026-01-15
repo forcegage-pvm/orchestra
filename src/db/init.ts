@@ -171,6 +171,7 @@ export async function initializeDb(): Promise<void> {
       sprint_id TEXT NOT NULL REFERENCES sprints(id) ON DELETE CASCADE,
       red_task_id INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
       test_identifier TEXT NOT NULL,
+      test_file TEXT,
       description TEXT,
       marker_type TEXT,
       status TEXT NOT NULL DEFAULT 'REGISTERED',

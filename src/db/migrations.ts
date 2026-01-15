@@ -326,6 +326,29 @@ const MIGRATIONS: Migration[] = [
       );
     },
   },
+  {
+    id: "20260115_002_add_tdd_red_registry_test_file",
+    description: "Add test_file column to tdd_red_registry table",
+    up: async () => {
+      const db = getDb();
+
+      // Check if column already exists (idempotent)
+      const result = await db.all(
+        sql`PRAGMA table_info(tdd_red_registry)`
+      );
+      const columns = result as { name: string }[];
+      const hasTestFile = columns.some((col) => col.name === "test_file");
+
+      if (hasTestFile) {
+        return; // Already exists
+      }
+
+      // Add column
+      await db.run(
+        sql`ALTER TABLE tdd_red_registry ADD COLUMN test_file TEXT`
+      );
+    },
+  },
 ];
 
 /**

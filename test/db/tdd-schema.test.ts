@@ -89,6 +89,7 @@ describe("TDD Schema Tables", () => {
         sprint_id TEXT NOT NULL REFERENCES sprints(id) ON DELETE CASCADE,
         red_task_id INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
         test_identifier TEXT NOT NULL,
+        test_file TEXT,
         description TEXT,
         marker_type TEXT,
         status TEXT NOT NULL DEFAULT 'REGISTERED',
@@ -383,7 +384,7 @@ describe("TDD Schema Tables", () => {
         pk: number;
       }>;
 
-      expect(columns).toHaveLength(12);
+      expect(columns).toHaveLength(13);
 
       const columnMap = Object.fromEntries(
         columns.map((col) => [col.name, col])
@@ -405,6 +406,10 @@ describe("TDD Schema Tables", () => {
       expect(columnMap.test_identifier).toBeDefined();
       expect(columnMap.test_identifier.type).toBe("TEXT");
       expect(columnMap.test_identifier.notnull).toBe(1);
+
+      expect(columnMap.test_file).toBeDefined();
+      expect(columnMap.test_file.type).toBe("TEXT");
+      expect(columnMap.test_file.notnull).toBe(0); // Nullable
 
       expect(columnMap.description).toBeDefined();
       expect(columnMap.description.type).toBe("TEXT");
