@@ -420,8 +420,8 @@ describe('Feature', () => {
 
       // handleGetSprintStatus returns status data directly, not wrapped in {success: ...}
       expect(statusResult.tdd_summary).toBeDefined();
-      expect(statusResult.tdd_summary.total).toBe(2);
-      expect(statusResult.tdd_summary.by_status.green).toBe(2);
+      expect(statusResult.tdd_summary.total).toBe(1); // One TDD relationship: red task 1 → green task 2
+      expect(statusResult.tdd_summary.by_status.green).toBe(1); // Relationship is completed
       expect(statusResult.tdd_summary.blocking_closeout).toBe(false);
     });
 

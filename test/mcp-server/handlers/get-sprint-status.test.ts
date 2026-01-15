@@ -22,7 +22,7 @@ import {
   phases,
   sprints,
   tasks,
-  tddRedRegistry,
+  tddTaskRelationships,
 } from "../../../src/db/schema.js";
 import { handleGetSprintStatus } from "../../../src/mcp-server/handlers/get-sprint-status.js";
 
@@ -134,7 +134,7 @@ describe("get_sprint_status handler", () => {
   });
 
   describe("TDD summary", () => {
-    it("should include TDD summary with status breakdown when registry entries exist", async () => {
+    it("should include TDD summary with status breakdown when relationships exist", async () => {
       const db = getDb();
       const now = new Date().toISOString();
 
@@ -198,13 +198,13 @@ describe("get_sprint_status handler", () => {
         })
         .returning();
 
-      const [greenTask] = await db
+      const [greenTask1] = await db
         .insert(tasks)
         .values({
           sprint_id: sprint.id,
           phase_id: phase.id,
           task_id: 3,
-          title: "Green Task",
+          title: "Green Task 1",
           description: "TDD green task",
           category: "FEATURE",
           dependencies: "[]",
@@ -215,43 +215,50 @@ describe("get_sprint_status handler", () => {
         })
         .returning();
 
-      // Create registry entries with different statuses
-      await db.insert(tddRedRegistry).values([
+      const [greenTask2] = await db
+        .insert(tasks)
+        .values({
+          sprint_id: sprint.id,
+          phase_id: phase.id,
+          task_id: 4,
+          title: "Green Task 2",
+          description: "TDD green task",
+          category: "FEATURE",
+          dependencies: "[]",
+          status: "IMPLEMENT",
+          tdd_red_phase: false,
+          created_at: now,
+          updated_at: now,
+        })
+        .returning();
+
+      // Create TDD task relationships:
+      // - 2 completed (green)
+      // - 1 pending (pending_green)
+      await db.insert(tddTaskRelationships).values([
         {
           sprint_id: sprint.id,
           red_task_id: redTask1.id,
-          test_identifier: "test1.ts::suite1::test1",
-          status: "REGISTERED",
+          green_task_id: greenTask1.id,
+          declared_at: "configure_sprint",
           created_at: now,
+          completed_at: now, // Completed - GREEN
         },
         {
           sprint_id: sprint.id,
           red_task_id: redTask1.id,
-          test_identifier: "test1.ts::suite1::test2",
-          status: "VALIDATED",
+          green_task_id: greenTask2.id,
+          declared_at: "configure_sprint",
           created_at: now,
-          validated_at: now,
+          completed_at: null, // Not completed - PENDING_GREEN
         },
         {
           sprint_id: sprint.id,
           red_task_id: redTask2.id,
-          test_identifier: "test2.ts::suite2::test1",
-          status: "PENDING_GREEN",
-          green_task_id: greenTask.id,
+          green_task_id: greenTask1.id,
+          declared_at: "configure_sprint",
           created_at: now,
-          validated_at: now,
-          assigned_at: now,
-        },
-        {
-          sprint_id: sprint.id,
-          red_task_id: redTask2.id,
-          test_identifier: "test2.ts::suite2::test2",
-          status: "GREEN",
-          green_task_id: greenTask.id,
-          created_at: now,
-          validated_at: now,
-          assigned_at: now,
-          greened_at: now,
+          completed_at: now, // Completed - GREEN
         },
       ]);
 
@@ -262,19 +269,19 @@ describe("get_sprint_status handler", () => {
       const output = JSON.parse(result.content[0].text);
 
       expect(output.tdd_summary).toMatchObject({
-        total: 4,
+        total: 3,
         by_status: {
-          registered: 1,
-          validated: 1,
+          registered: 0,
+          validated: 0,
           pending_green: 1,
-          green: 1,
+          green: 2,
         },
-        blocking_closeout: true, // Should be true because not all entries are GREEN
+        blocking_closeout: true, // Should be true because 1 relationship is pending
         orphaned_count: 0,
       });
     });
 
-    it("should set blocking_closeout to false when all entries are GREEN", async () => {
+    it("should set blocking_closeout to false when all relationships are completed", async () => {
       const db = getDb();
       const now = new Date().toISOString();
 
@@ -321,14 +328,14 @@ describe("get_sprint_status handler", () => {
         })
         .returning();
 
-      const [greenTask] = await db
+      const [greenTask1] = await db
         .insert(tasks)
         .values({
           sprint_id: sprint.id,
           phase_id: phase.id,
           task_id: 2,
-          title: "Green Task",
-          description: "TDD green task",
+          title: "Green Task 1",
+          description: "TDD green task 1",
           category: "FEATURE",
           dependencies: "[]",
           status: "COMPLETE",
@@ -338,29 +345,40 @@ describe("get_sprint_status handler", () => {
         })
         .returning();
 
-      // Create registry entries - all GREEN
-      await db.insert(tddRedRegistry).values([
+      const [greenTask2] = await db
+        .insert(tasks)
+        .values({
+          sprint_id: sprint.id,
+          phase_id: phase.id,
+          task_id: 3,
+          title: "Green Task 2",
+          description: "TDD green task 2",
+          category: "FEATURE",
+          dependencies: "[]",
+          status: "COMPLETE",
+          tdd_red_phase: false,
+          created_at: now,
+          updated_at: now,
+        })
+        .returning();
+
+      // Create relationships - all completed (completed_at set)
+      await db.insert(tddTaskRelationships).values([
         {
           sprint_id: sprint.id,
           red_task_id: redTask.id,
-          test_identifier: "test1.ts::suite1::test1",
-          status: "GREEN",
-          green_task_id: greenTask.id,
+          green_task_id: greenTask1.id,
+          declared_at: "configure_sprint",
           created_at: now,
-          validated_at: now,
-          assigned_at: now,
-          greened_at: now,
+          completed_at: now, // Completed
         },
         {
           sprint_id: sprint.id,
           red_task_id: redTask.id,
-          test_identifier: "test1.ts::suite1::test2",
-          status: "GREEN",
-          green_task_id: greenTask.id,
+          green_task_id: greenTask2.id,
+          declared_at: "complete_task",
           created_at: now,
-          validated_at: now,
-          assigned_at: now,
-          greened_at: now,
+          completed_at: now, // Completed
         },
       ]);
 
@@ -378,7 +396,7 @@ describe("get_sprint_status handler", () => {
           pending_green: 0,
           green: 2,
         },
-        blocking_closeout: false, // All entries are GREEN
+        blocking_closeout: false, // All relationships are completed
         orphaned_count: 0,
       });
     });
@@ -434,16 +452,14 @@ describe("get_sprint_status handler", () => {
       // Temporarily disable foreign key constraints
       rawDb?.pragma("foreign_keys = OFF");
 
-      // Insert registry entry with non-existent green_task_id to simulate orphan
-      await db.insert(tddRedRegistry).values({
+      // Insert relationship with non-existent green_task_id to simulate orphan
+      await db.insert(tddTaskRelationships).values({
         sprint_id: sprint.id,
         red_task_id: redTask.id,
-        test_identifier: "test1.ts::suite1::test1",
-        status: "PENDING_GREEN",
         green_task_id: 9999, // Non-existent task ID
+        declared_at: "configure_sprint",
         created_at: now,
-        validated_at: now,
-        assigned_at: now,
+        completed_at: null, // Not completed
       });
 
       // Re-enable foreign key constraints
@@ -468,7 +484,7 @@ describe("get_sprint_status handler", () => {
       });
     });
 
-    it("should count only orphaned entries (not entries with null green_task_id)", async () => {
+    it("should only detect orphaned entries when green_task_id references non-existent task", async () => {
       const db = getDb();
       const now = new Date().toISOString();
 
@@ -515,24 +531,58 @@ describe("get_sprint_status handler", () => {
         })
         .returning();
 
-      // Create registry entries with null green_task_id
-      await db.insert(tddRedRegistry).values([
+      // Create green tasks
+      const [greenTask1] = await db
+        .insert(tasks)
+        .values({
+          sprint_id: sprint.id,
+          phase_id: phase.id,
+          task_id: 2,
+          title: "Green Task 1",
+          description: "TDD green task",
+          category: "FEATURE",
+          dependencies: "[]",
+          status: "IMPLEMENT",
+          tdd_red_phase: false,
+          created_at: now,
+          updated_at: now,
+        })
+        .returning();
+
+      const [greenTask2] = await db
+        .insert(tasks)
+        .values({
+          sprint_id: sprint.id,
+          phase_id: phase.id,
+          task_id: 3,
+          title: "Green Task 2",
+          description: "TDD green task",
+          category: "FEATURE",
+          dependencies: "[]",
+          status: "IMPLEMENT",
+          tdd_red_phase: false,
+          created_at: now,
+          updated_at: now,
+        })
+        .returning();
+
+      // Create relationships with valid green_task_id (not orphaned)
+      await db.insert(tddTaskRelationships).values([
         {
           sprint_id: sprint.id,
           red_task_id: redTask.id,
-          test_identifier: "test1.ts::suite1::test1",
-          status: "REGISTERED",
-          green_task_id: null, // No green task assigned yet
+          green_task_id: greenTask1.id,
+          declared_at: "configure_sprint",
           created_at: now,
+          completed_at: null, // Not completed but not orphaned
         },
         {
           sprint_id: sprint.id,
           red_task_id: redTask.id,
-          test_identifier: "test1.ts::suite1::test2",
-          status: "VALIDATED",
-          green_task_id: null, // No green task assigned yet
+          green_task_id: greenTask2.id,
+          declared_at: "complete_task",
           created_at: now,
-          validated_at: now,
+          completed_at: null, // Not completed but not orphaned
         },
       ]);
 
@@ -545,13 +595,13 @@ describe("get_sprint_status handler", () => {
       expect(output.tdd_summary).toMatchObject({
         total: 2,
         by_status: {
-          registered: 1,
-          validated: 1,
-          pending_green: 0,
+          registered: 0,
+          validated: 0,
+          pending_green: 2,
           green: 0,
         },
-        blocking_closeout: true, // Should block because not all GREEN
-        orphaned_count: 0, // No orphaned entries (null green_task_id is not orphaned)
+        blocking_closeout: true, // Should block because not all completed
+        orphaned_count: 0, // No orphaned entries (green_task_id references existing task)
       });
     });
   });

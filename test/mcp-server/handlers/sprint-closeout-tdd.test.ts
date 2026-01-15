@@ -21,7 +21,7 @@ import {
   phases,
   sprints,
   tasks,
-  tddRedRegistry,
+  tddTaskRelationships,
 } from "../../../src/db/schema.js";
 import { handleGetSprintStatus } from "../../../src/mcp-server/handlers/get-sprint-status.js";
 
@@ -104,15 +104,15 @@ describe("sprint closeout TDD blocking", () => {
         })
         .returning();
 
-      // Create green task
-      const [greenTask] = await db
+      // Create green tasks
+      const [greenTask1] = await db
         .insert(tasks)
         .values({
           sprint_id: sprint.id,
           phase_id: phase.id,
           task_id: 2,
-          title: "Green Task",
-          description: "TDD green task",
+          title: "Green Task 1",
+          description: "TDD green task 1",
           category: "FEATURE",
           dependencies: "[]",
           status: "IMPLEMENT",
@@ -122,27 +122,40 @@ describe("sprint closeout TDD blocking", () => {
         })
         .returning();
 
-      // Create PENDING_GREEN registry entries
-      await db.insert(tddRedRegistry).values([
+      const [greenTask2] = await db
+        .insert(tasks)
+        .values({
+          sprint_id: sprint.id,
+          phase_id: phase.id,
+          task_id: 3,
+          title: "Green Task 2",
+          description: "TDD green task 2",
+          category: "FEATURE",
+          dependencies: "[]",
+          status: "IMPLEMENT",
+          tdd_red_phase: false,
+          created_at: now,
+          updated_at: now,
+        })
+        .returning();
+
+      // Create PENDING_GREEN relationships (completed_at is null)
+      await db.insert(tddTaskRelationships).values([
         {
           sprint_id: sprint.id,
           red_task_id: redTask.id,
-          test_identifier: "test1.ts::suite1::test1",
-          status: "PENDING_GREEN",
-          green_task_id: greenTask.id,
+          green_task_id: greenTask1.id,
+          declared_at: "configure_sprint",
           created_at: now,
-          validated_at: now,
-          assigned_at: now,
+          completed_at: null, // Not completed - PENDING_GREEN
         },
         {
           sprint_id: sprint.id,
           red_task_id: redTask.id,
-          test_identifier: "test1.ts::suite1::test2",
-          status: "PENDING_GREEN",
-          green_task_id: greenTask.id,
+          green_task_id: greenTask2.id,
+          declared_at: "complete_task",
           created_at: now,
-          validated_at: now,
-          assigned_at: now,
+          completed_at: null, // Not completed - PENDING_GREEN
         },
       ]);
 
@@ -217,16 +230,14 @@ describe("sprint closeout TDD blocking", () => {
       // Temporarily disable foreign key constraints
       rawDb?.pragma("foreign_keys = OFF");
 
-      // Insert registry entry with non-existent green_task_id to simulate orphan
-      await db.insert(tddRedRegistry).values({
+      // Insert relationship with non-existent green_task_id to simulate orphan
+      await db.insert(tddTaskRelationships).values({
         sprint_id: sprint.id,
         red_task_id: redTask.id,
-        test_identifier: "test1.ts::suite1::test1",
-        status: "PENDING_GREEN",
         green_task_id: 9999, // Non-existent task ID
+        declared_at: "configure_sprint",
         created_at: now,
-        validated_at: now,
-        assigned_at: now,
+        completed_at: null, // Not completed
       });
 
       // Re-enable foreign key constraints
@@ -299,15 +310,15 @@ describe("sprint closeout TDD blocking", () => {
         })
         .returning();
 
-      // Create green task
-      const [greenTask] = await db
+      // Create green tasks
+      const [greenTask1] = await db
         .insert(tasks)
         .values({
           sprint_id: sprint.id,
           phase_id: phase.id,
           task_id: 2,
-          title: "Green Task",
-          description: "TDD green task",
+          title: "Green Task 1",
+          description: "TDD green task 1",
           category: "FEATURE",
           dependencies: "[]",
           status: "COMPLETE",
@@ -317,29 +328,40 @@ describe("sprint closeout TDD blocking", () => {
         })
         .returning();
 
-      // Create only GREEN registry entries
-      await db.insert(tddRedRegistry).values([
+      const [greenTask2] = await db
+        .insert(tasks)
+        .values({
+          sprint_id: sprint.id,
+          phase_id: phase.id,
+          task_id: 3,
+          title: "Green Task 2",
+          description: "TDD green task 2",
+          category: "FEATURE",
+          dependencies: "[]",
+          status: "COMPLETE",
+          tdd_red_phase: false,
+          created_at: now,
+          updated_at: now,
+        })
+        .returning();
+
+      // Create only GREEN relationships (completed_at is set)
+      await db.insert(tddTaskRelationships).values([
         {
           sprint_id: sprint.id,
           red_task_id: redTask.id,
-          test_identifier: "test1.ts::suite1::test1",
-          status: "GREEN",
-          green_task_id: greenTask.id,
+          green_task_id: greenTask1.id,
+          declared_at: "configure_sprint",
           created_at: now,
-          validated_at: now,
-          assigned_at: now,
-          greened_at: now,
+          completed_at: now, // Completed - GREEN
         },
         {
           sprint_id: sprint.id,
           red_task_id: redTask.id,
-          test_identifier: "test1.ts::suite1::test2",
-          status: "GREEN",
-          green_task_id: greenTask.id,
+          green_task_id: greenTask2.id,
+          declared_at: "complete_task",
           created_at: now,
-          validated_at: now,
-          assigned_at: now,
-          greened_at: now,
+          completed_at: now, // Completed - GREEN
         },
       ]);
 

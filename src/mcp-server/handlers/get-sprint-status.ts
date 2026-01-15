@@ -9,7 +9,7 @@ import { getDb, getMostRecentSprint } from "../../db/index.js";
 import {
   phases as phasesTable,
   tasks,
-  tddRedRegistry,
+  tddTaskRelationships,
 } from "../../db/schema.js";
 import {
   GetSprintStatusInputSchema,
@@ -154,43 +154,37 @@ async function getSprintStatus(): Promise<GetSprintStatusOutput> {
   const sprintStatus: "ACTIVE" | "COMPLETED" =
     completed === totalTasks ? "COMPLETED" : "ACTIVE";
 
-  // 8. Query TDD red registry for TDD summary
-  const tddEntries = await db
+  // 8. Query TDD task relationships for TDD summary
+  const tddRelationships = await db
     .select()
-    .from(tddRedRegistry)
-    .where(eq(tddRedRegistry.sprint_id, sprint.id));
+    .from(tddTaskRelationships)
+    .where(eq(tddTaskRelationships.sprint_id, sprint.id));
 
-  // 9. Compute TDD summary if any registry entries exist
+  // 9. Compute TDD summary if any relationships exist
   let tddSummary: GetSprintStatusOutput["tdd_summary"];
-  if (tddEntries.length > 0) {
-    // Count entries by status
-    const registeredCount = tddEntries.filter(
-      (e) => e.status === "REGISTERED"
+  if (tddRelationships.length > 0) {
+    // Count relationships by completed_at presence
+    const greenCount = tddRelationships.filter(
+      (rel) => rel.completed_at !== null
     ).length;
-    const validatedCount = tddEntries.filter(
-      (e) => e.status === "VALIDATED"
+    const pendingGreenCount = tddRelationships.filter(
+      (rel) => rel.completed_at === null
     ).length;
-    const pendingGreenCount = tddEntries.filter(
-      (e) => e.status === "PENDING_GREEN"
-    ).length;
-    const greenCount = tddEntries.filter((e) => e.status === "GREEN").length;
 
     // Detect orphaned entries: green_task_id references a deleted/non-existent task
     const taskIds = new Set(allTasks.map((t) => t.id));
-    const orphanedCount = tddEntries.filter(
-      (e) => e.green_task_id !== null && !taskIds.has(e.green_task_id)
+    const orphanedCount = tddRelationships.filter(
+      (rel) => !taskIds.has(rel.green_task_id)
     ).length;
 
-    // blocking_closeout is true if ANY entry is not GREEN (or is orphaned)
-    const nonGreenCount =
-      registeredCount + validatedCount + pendingGreenCount + orphanedCount;
-    const blockingCloseout = nonGreenCount > 0;
+    // blocking_closeout is true if ANY relationship has null completed_at (or is orphaned)
+    const blockingCloseout = pendingGreenCount > 0 || orphanedCount > 0;
 
     tddSummary = {
-      total: tddEntries.length,
+      total: tddRelationships.length,
       by_status: {
-        registered: registeredCount,
-        validated: validatedCount,
+        registered: 0, // No longer used but kept for schema compatibility
+        validated: 0, // No longer used but kept for schema compatibility
         pending_green: pendingGreenCount,
         green: greenCount,
       },
