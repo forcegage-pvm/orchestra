@@ -38,13 +38,14 @@ This returns your task handover with acceptance criteria, file operations, and d
 
 ## Your MCP Tools (orchestra-imp/\*)
 
-| Tool                | Purpose                      | When to Use                    |
-| ------------------- | ---------------------------- | ------------------------------ |
-| `get_current_task`  | **Get your task assignment** | **FIRST - Always start here**  |
-| `signal_completion` | Signal task is done          | After implementation complete  |
-| `get_feedback`      | Get failure feedback         | After verification fails       |
-| `get_progress`      | Sprint progress              | Check overall status           |
-| `escalate_task`     | Escalate if stuck            | After multiple failed attempts |
+| Tool                    | Purpose                         | When to Use                        |
+| ----------------------- | ------------------------------- | ---------------------------------- |
+| `get_current_task`      | **Get your task assignment**    | **FIRST - Always start here**      |
+| `signal_completion`     | Signal task is done             | After implementation complete      |
+| `get_feedback`          | Get failure feedback            | After verification fails           |
+| `get_progress`          | Sprint progress                 | Check overall status               |
+| `escalate_task`         | Escalate if stuck               | After multiple failed attempts     |
+| `register_tdd_red_test` | Register failing test (TDD red) | When task has `tdd_red_phase=true` |
 
 ### Example: Starting a Task
 
@@ -215,6 +216,69 @@ When you call `signal_completion`, you are making a **formal claim**:
   "notes": "Optional additional context"
 }
 ```
+
+## TDD Red Phase Tasks
+
+Some tasks have `tdd_red_phase: true` in their handover. These are **TDD red phase tasks** where you write failing tests FIRST, then the Orchestrator assigns a separate "green phase" task to implement the feature.
+
+### When Working on a Red Phase Task
+
+1. **Write failing tests** that define expected behavior
+2. **Mark tests with TDD markers** so they're recognized as intentionally failing:
+
+   **TypeScript/Vitest:**
+
+   ```typescript
+   // Option 1: Place in test/tdd-red/ directory
+   // Option 2: Use [tdd-red] in test name
+   describe("Feature", () => {
+     it("[tdd-red] should validate user input", () => {
+       expect(validateInput("")).toBe(false);
+     });
+   });
+   ```
+
+   **Dart/Flutter:**
+
+   ```dart
+   @Tags(['tdd-red'])
+   void main() {
+     test('should validate user input', () {
+       expect(validateInput(''), false);
+     });
+   }
+   ```
+
+3. **Register each test** using `register_tdd_red_test`:
+
+   ```json
+   // Call: register_tdd_red_test
+   {
+     "task_id": 5,
+     "test_identifier": "feature.test.ts::Feature::should validate user input",
+     "description": "Validates empty input returns false",
+     "marker_type": "it.skip"
+   }
+   ```
+
+4. **Signal completion** as normal - the system validates markers match registrations
+
+### What Happens Next
+
+After your red phase task is complete:
+
+- Tests remain in PENDING_GREEN status
+- Orchestrator assigns a "green phase" task to another implementor
+- That implementor implements the feature to make tests pass
+- Sprint cannot close until all tests are GREEN
+
+### Red Phase Errors
+
+| Error              | Meaning                                | Fix                                                  |
+| ------------------ | -------------------------------------- | ---------------------------------------------------- |
+| `NOT_TDD_RED_TASK` | Task doesn't have `tdd_red_phase=true` | Don't use `register_tdd_red_test` on this task       |
+| `DUPLICATE_TEST`   | Test identifier already registered     | Use unique test identifiers                          |
+| `MISSING_MARKER`   | Registered test has no TDD marker      | Add `[tdd-red]` tag or place in `tdd-red/` directory |
 
 ## Handling Feedback
 
