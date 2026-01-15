@@ -490,12 +490,14 @@ After submitting a FAIL judgment, determine next steps:
 - Submit a PASS judgment (blocked by JVC-2)
 - Update verification criteria (blocked during GATE_CHECK state)
 
-**You MUST escalate the task first:**
+**Spec Error Correction Workflow:**
 
 1. Call `escalate_task` with reason explaining the spec error
-2. After escalation, call `update_verification` to fix the criteria
-3. Run verification again
-4. Then submit judgment
+2. Call `update_verification` to fix the criteria (now allowed because ESCALATED)
+3. **STOP and report to human** - explain what you fixed and request de-escalation
+4. Wait for human to de-escalate the task
+5. After de-escalation, run verification again
+6. Submit judgment and complete
 
 ```json
 // Step 1: Escalate due to spec error
@@ -521,19 +523,41 @@ After submitting a FAIL judgment, determine next steps:
     }]
   }
 }
+
+// Step 3: STOP and report to human
+// "I've escalated Task 6 and corrected the verification criteria.
+//  The quality check was missing 'path' and 'pattern' properties.
+//  Please de-escalate the task so I can re-run verification."
+
+// Step 4: Wait for human de-escalation (they run scripts/de-escalate.js)
+
+// Step 5: After de-escalation, run verification
+// Call: run_verification_checks with task_id: 6
+
+// Step 6: Submit judgment
+// Call: submit_verification_judgment with task_id: 6
 ```
 
-## ⛔ CRITICAL: ESCALATED = FULL STOP
+**Key distinction**: You CAN fix the spec after escalating, but you CANNOT de-escalate yourself or continue to completion without human intervention.
 
-**When a task is ESCALATED, you MUST STOP ALL ACTIVITY on that task.**
+## ⛔ CRITICAL: ESCALATED = FULL STOP (After Your Corrections)
+
+**After escalating and making any allowed corrections, you MUST STOP.**
 
 ### What ESCALATED Means
 
-`ESCALATED` is not a bug or error state to fix. It is a **deliberate handoff of authority to the Human Supervisor**.
+`ESCALATED` is a **deliberate handoff of authority to the Human Supervisor**.
 
 When you call `escalate_task`, you are saying:
 
 > "This task requires human judgment. I cannot proceed autonomously."
+
+**Two types of escalation:**
+
+| Type | Cause | What You Can Do | What Requires Human |
+|------|-------|-----------------|---------------------|
+| **Spec Error** | Your verification criteria are wrong | Fix criteria via `update_verification` | De-escalate the task |
+| **Implementation Blocker** | Implementor stuck, external dependency, scope issue | Nothing - wait | Decide resolution path |
 
 ### MANDATORY Behavior After Escalation
 
@@ -541,34 +565,47 @@ After calling `escalate_task`:
 
 1. ✅ **Report** the escalation to the user
 2. ✅ **Explain** what blocked progress
-3. ✅ **Wait** for explicit human direction
-4. ❌ **DO NOT** attempt to de-escalate
-5. ❌ **DO NOT** search for workarounds or scripts
-6. ❌ **DO NOT** manipulate database state
-7. ❌ **DO NOT** continue the verification workflow
+3. ✅ **Fix spec errors** if that's why you escalated (call `update_verification`)
+4. ✅ **Request de-escalation** from human after fixing
+5. ✅ **Wait** for explicit human direction
+6. ❌ **DO NOT** attempt to de-escalate yourself
+7. ❌ **DO NOT** run verification checks while ESCALATED
+8. ❌ **DO NOT** submit judgments while ESCALATED
+9. ❌ **DO NOT** complete the task while ESCALATED
 
 ### Example: Correct Post-Escalation Behavior
 
+**Spec Error Escalation** (you can fix, then wait):
 ```
 ✅ CORRECT:
-"I've escalated Task 3 due to a specification error in the verification
-criteria. The quality check is missing required 'path' and 'pattern'
+"I've escalated Task 6 due to a specification error in the verification
+criteria. The quality check was missing required 'path' and 'pattern'
 properties.
 
-This task now requires Human Supervisor intervention. I cannot proceed
+I've updated the verification criteria to fix this. Please de-escalate
+the task so I can re-run verification and complete it."
+
+[STOP. Wait for human to de-escalate.]
+```
+
+**Implementation Blocker Escalation** (nothing to fix, just wait):
+```
+✅ CORRECT:
+"I've escalated Task 3 because the implementor is blocked by a missing
+API endpoint that requires backend team involvement.
+
+This task requires Human Supervisor intervention. I cannot proceed
 until you provide direction."
 
 [STOP. Wait for human response.]
 
 ❌ INCORRECT:
-"I've escalated Task 3 due to a spec error. Let me run the de-escalate
-script to fix this..."
-[Attempts to manipulate database]
+"I've escalated Task 3. Let me run the de-escalate script to fix this..."
+[Attempts to de-escalate yourself]
 
 ❌ INCORRECT:
-"I've escalated the task. Now let me update the verification criteria
-and re-run checks..."
-[Ignores ESCALATED state]
+"I've escalated the task. Now let me run verification checks..."
+[Ignores ESCALATED state - verification blocked while escalated]
 ```
 
 ### Why This Constraint Exists
