@@ -23,6 +23,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as preSignalExecutor from "../../src/core/pre-signal-executor.js";
+import * as tddScanOnSignal from "../../src/core/tdd-scan-on-signal.js";
 import { getDb, initializeDb, resetDb } from "../../src/db/index.js";
 import { sprints, tasks, tddRedRegistry } from "../../src/db/schema.js";
 import { handleCompleteTask } from "../../src/mcp-server/handlers/complete-task.js";
@@ -69,6 +70,24 @@ describe("TDD Red-Green Workflow End-to-End", () => {
         test: { passed: true, output: "" },
         lint: { passed: true, output: "" },
         allPassed: true,
+      });
+
+      // Mock TDD scanner to return test results for red phase task
+      vi.spyOn(tddScanOnSignal, "scanForTddMarkers").mockResolvedValue({
+        tests: [
+          {
+            test_identifier:
+              "feature.test.ts::Feature::should implement feature requirement 1",
+            test_file: "test/feature.test.ts",
+            marker_type: "it.skip",
+          },
+          {
+            test_identifier:
+              "feature.test.ts::Feature::should implement feature requirement 2",
+            test_file: "test/feature.test.ts",
+            marker_type: "it.skip",
+          },
+        ],
       });
 
       // =============================================================================
@@ -199,44 +218,8 @@ describe('Feature', () => {
       await fs.writeFile(path.join(testDir, "feature.test.ts"), testContent);
 
       // =============================================================================
-      // STEP 4: Register TDD red tests
-      // =============================================================================
-      const registerResponse1 = await handleRegisterTddRedTest({
-        task_id: 1,
-        test_identifier:
-          "feature.test.ts::Feature::should implement feature requirement 1",
-        description: "Test for feature requirement 1",
-        marker_type: "it.skip",
-      });
-      const registerResult1 = JSON.parse(
-        (registerResponse1.content[0] as { text: string }).text
-      );
-      expect(registerResult1.success).toBe(true);
-
-      const registerResponse2 = await handleRegisterTddRedTest({
-        task_id: 1,
-        test_identifier:
-          "feature.test.ts::Feature::should implement feature requirement 2",
-        description: "Test for feature requirement 2",
-        marker_type: "it.skip",
-      });
-      const registerResult2 = JSON.parse(
-        (registerResponse2.content[0] as { text: string }).text
-      );
-      expect(registerResult2.success).toBe(true);
-
-      // Verify registry entries were created with REGISTERED status
-      const registeredTests = await db
-        .select()
-        .from(tddRedRegistry)
-        .where(eq(tddRedRegistry.red_task_id, redTask.id));
-      expect(registeredTests).toHaveLength(2);
-      expect(registeredTests.every((t) => t.status === "REGISTERED")).toBe(
-        true
-      );
-
-      // =============================================================================
-      // STEP 5: Signal completion on red phase
+      // STEP 4: Signal completion on red phase
+      // Scanner will auto-discover and register the tests
       // =============================================================================
       const signalRedResponse = await handleSignalCompletion({
         task_id: 1,
@@ -256,6 +239,16 @@ describe('Feature', () => {
       );
 
       expect(signalRedResult.success).toBe(true);
+
+      // Verify registry entries were auto-populated by scanner with REGISTERED status
+      const registeredTests = await db
+        .select()
+        .from(tddRedRegistry)
+        .where(eq(tddRedRegistry.red_task_id, redTask.id));
+      expect(registeredTests).toHaveLength(2);
+      expect(registeredTests.every((t) => t.status === "REGISTERED")).toBe(
+        true
+      );
 
       // Manually transition tests to VALIDATED (normally done by pre-signal validation)
       // Since we're mocking the pre-signal executor, we need to simulate this transition

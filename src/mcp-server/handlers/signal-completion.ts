@@ -19,6 +19,7 @@ import {
   runPreSignalChecks,
   type PreSignalConfig,
 } from "../../core/pre-signal-executor.js";
+import { scanForTddMarkers } from "../../core/tdd-scan-on-signal.js";
 import {
   getActiveSprint,
   getDb,
@@ -31,6 +32,7 @@ import {
   sprintSettings,
   sprints,
   tasks,
+  tddRedRegistry,
 } from "../../db/schema.js";
 import {
   SignalCompletionInputSchema,
@@ -256,6 +258,37 @@ async function signalCompletion(
         "; "
       )}`
     );
+  }
+
+  // 6b. If TDD red-phase task, scan for markers and update registry
+  if (task.tdd_red_phase) {
+    const workspacePath = resolveWorkspacePath();
+    const scanResult = await scanForTddMarkers(task.task_id, workspacePath);
+
+    // Check if zero tests found - this is an error for red-phase tasks
+    if (scanResult.tests.length === 0) {
+      throw new Error(
+        `TDD red-phase task must have at least one test with marker [tdd-red:task-${task.task_id}] or tags: ['task-${task.task_id}']. No tests found in workspace scan.`
+      );
+    }
+
+    // Clear existing registry entries for this task (support re-signaling)
+    await db
+      .delete(tddRedRegistry)
+      .where(eq(tddRedRegistry.red_task_id, task.id));
+
+    // Insert scan results into registry
+    for (const test of scanResult.tests) {
+      await db.insert(tddRedRegistry).values({
+        sprint_id: sprint.id,
+        red_task_id: task.id,
+        test_identifier: test.test_identifier,
+        test_file: test.test_file,
+        marker_type: test.marker_type,
+        status: "REGISTERED",
+        created_at: now,
+      });
+    }
   }
 
   // 7. Auto-commit implementation changes if enabled
