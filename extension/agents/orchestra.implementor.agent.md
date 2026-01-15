@@ -223,30 +223,47 @@ Some tasks have `tdd_red_phase: true` in their handover. These are **TDD red pha
 ### When Working on a Red Phase Task
 
 1. **Write failing tests** that define expected behavior
-2. **Mark tests with TDD markers** so they're recognized as intentionally failing:
+2. **Mark tests with TDD markers** using the **SINGLE-TOKEN FORMAT** (replace N with task ID):
 
    **TypeScript/Vitest:**
 
    ```typescript
-   // Option 1: Place in test/tdd-red/ directory
-   // Option 2: Use [tdd-red] in test name
-   describe("Feature", () => {
-     it("[tdd-red] should validate user input", () => {
+   // Use [tdd-red:task-N] prefix in test or describe name
+   describe("[tdd-red:task-3] Feature", () => {
+     it("should validate user input", () => {
        expect(validateInput("")).toBe(false);
      });
+   });
+
+   // Or at test level:
+   it("[tdd-red:task-3] should validate user input", () => {
+     expect(validateInput("")).toBe(false);
    });
    ```
 
    **Dart/Flutter:**
 
    ```dart
-   @Tags(['tdd-red'])
+   // Option 1: Library-level annotation (all tests in file)
+   @Tags(['tdd-red:task-3'])
    void main() {
      test('should validate user input', () {
        expect(validateInput(''), false);
      });
    }
+
+   // Option 2: Inline tags parameter (single test)
+   test('should validate user input', () {
+     expect(validateInput(''), false);
+   }, tags: ['tdd-red:task-3']);
    ```
+
+   **⚠️ OLD FORMATS NO LONGER SUPPORTED:**
+
+   - ❌ `@Tags(['tdd-red'])` (missing task ID)
+   - ❌ `tags: ['tdd-red', 'task-N']` (two tokens instead of one)
+   - ❌ `test/tdd-red/` directories
+   - ❌ `it.skip`, `test.skip`, `xit` (skip markers)
 
 3. **Signal completion** as normal - the system will automatically scan for TDD markers
 
@@ -254,7 +271,7 @@ Some tasks have `tdd_red_phase: true` in their handover. These are **TDD red pha
 
 When you call `signal_completion` for a TDD red phase task, Orchestra automatically:
 
-1. **Scans your test files** for TDD markers (`[tdd-red]` tags or `tdd-red/` directories)
+1. **Scans your test files** for TDD markers with format `tdd-red:task-N`
 2. **Extracts test identifiers** in the format `file::group::test`
 3. **Registers tests** in PENDING_GREEN status
 4. **Validates markers** - ensures all registered tests have proper TDD markers
@@ -272,11 +289,11 @@ After your red phase task is complete:
 
 ### Red Phase Errors
 
-| Error            | Meaning                              | Fix                                                  |
-| ---------------- | ------------------------------------ | ---------------------------------------------------- |
-| `MISSING_MARKER` | Test has no TDD marker               | Add `[tdd-red]` tag or place in `tdd-red/` directory |
-| `NO_TESTS_FOUND` | No TDD tests detected in test files  | Verify markers are present and files are in signal   |
-| `SCAN_FAILED`    | Error during automatic test scanning | Check test file syntax and marker format             |
+| Error            | Meaning                              | Fix                                                                      |
+| ---------------- | ------------------------------------ | ------------------------------------------------------------------------ |
+| `MISSING_MARKER` | Test has no TDD marker               | Add `[tdd-red:task-N]` (TS) or `@Tags(['tdd-red:task-N'])` (Dart)        |
+| `NO_TESTS_FOUND` | No TDD tests detected in test files  | Verify single-token markers `tdd-red:task-N` are present with correct ID |
+| `SCAN_FAILED`    | Error during automatic test scanning | Check test file syntax and marker format                                 |
 
 ## Handling Feedback
 

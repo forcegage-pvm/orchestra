@@ -623,8 +623,7 @@ void main() {}
     const result = await handlePrepareTask({
       task_id: 1,
       priority: "P0",
-      context:
-        "Test task for verifying inline tag cleanup in Dart test files.",
+      context: "Test task for verifying inline tag cleanup in Dart test files.",
       acceptance_criteria: [
         { criterion: "Test criterion", verification: "Manual check" },
       ],

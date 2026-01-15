@@ -2,7 +2,7 @@
  * TDD Cleanup Utilities Tests
  *
  * Tests for TDD red-phase marker cleanup functions.
- * 
+ *
  * Single-token format: tdd-red:task-N
  * - TypeScript: [tdd-red:task-N] prefix in test/describe names
  * - Dart: @Tags(['tdd-red:task-N']) file-level annotation or inline tags: ['tdd-red:task-N']

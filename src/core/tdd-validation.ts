@@ -104,7 +104,7 @@ export async function validateTddRedPhase(
         type: "MISSING_MARKER",
         message: `Registered test has no tdd-red marker in codebase`,
         testIdentifier: test.test_identifier,
-        details: `Test ${test.test_identifier} is registered but has no tdd-red marker. Add a marker (e.g., it.skip, @Tags(['tdd-red'])) to the test.`,
+        details: `Test ${test.test_identifier} is registered but has no tdd-red marker.\n\nAdd a single-token marker:\n  TypeScript: [tdd-red:task-N] in test/describe name\n  Dart file-level: @Tags(['tdd-red:task-N'])\n  Dart inline: tags: ['tdd-red:task-N'] in test() call`,
       });
     }
   }

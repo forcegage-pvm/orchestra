@@ -228,11 +228,26 @@ For TDD work, declare **red-green task pairs** with `tdd_relationships` in `conf
 
 **TDD Workflow**:
 
-1. **Red phase** (Task 1): Implementor writes failing tests WITH TDD markers (`[tdd-red]` tags or `tdd-red/` directories)
+1. **Red phase** (Task 1): Implementor writes failing tests WITH TDD markers (see format below)
 2. **Automatic registration**: On `signal_completion`, system automatically scans for TDD markers and registers tests
 3. **Validation**: System verifies test markers exist in codebase
 4. **Green phase** (Task 2): Implementor implements feature, removes markers, makes tests pass
 5. **Closeout gate**: Sprint cannot close until all tests are GREEN
+
+**TDD Marker Format (SINGLE-TOKEN):**
+
+| Language    | Format                                               | Example                                         |
+| ----------- | ---------------------------------------------------- | ----------------------------------------------- |
+| TypeScript  | `[tdd-red:task-N]` prefix in test/describe name      | `it('[tdd-red:task-3] should work', ...)`       |
+| Dart file   | `@Tags(['tdd-red:task-N'])` annotation before main() | `@Tags(['tdd-red:task-3'])`                     |
+| Dart inline | `tags: ['tdd-red:task-N']` parameter in test() call  | `test('name', () {}, tags: ['tdd-red:task-3'])` |
+
+**⚠️ OLD FORMATS NO LONGER SUPPORTED:**
+
+- ❌ `@Tags(['tdd-red'])` (missing task ID)
+- ❌ `tags: ['tdd-red', 'task-N']` (two tokens instead of one)
+- ❌ `test/tdd-red/` directories
+- ❌ `it.skip`, `test.skip`, `xit` (skip markers)
 
 **Key fields**:
 
@@ -243,11 +258,11 @@ For TDD work, declare **red-green task pairs** with `tdd_relationships` in `conf
 
 **NEVER combine red phase (write tests) and green phase (implement) in one task.**
 
-| ❌ WRONG | ✅ CORRECT |
-|----------|-----------|
+| ❌ WRONG                                                                                                | ✅ CORRECT                                                               |
+| ------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
 | Single task with `tdd_red_phase: true` that says "Write failing tests THEN implement to make them pass" | Two separate tasks: Task 1 (red) writes tests, Task 2 (green) implements |
-| Instructing implementor to remove TDD markers after implementation in same task | Red task keeps markers; Green task removes them |
-| "TDD task" that does everything in one go | Clear separation with `tdd_relationships` linking them |
+| Instructing implementor to remove TDD markers after implementation in same task                         | Red task keeps markers; Green task removes them                          |
+| "TDD task" that does everything in one go                                                               | Clear separation with `tdd_relationships` linking them                   |
 
 **Why this matters:**
 
@@ -265,13 +280,16 @@ When a task has `tdd_red_phase: true`, the system scans for TDD markers on `sign
 
 ```
 Red Task (tdd_red_phase: true):
-  "Write failing tests with @Tags(['tdd-red']) annotation.
-   DO NOT implement the feature. Tests should FAIL.
-   Keep the tdd-red markers in place."
+  "Write failing tests with single-token TDD markers:
+   - TypeScript: [tdd-red:task-N] in test/describe name
+   - Dart: @Tags(['tdd-red:task-N']) or tags: ['tdd-red:task-N']
+
+   Replace N with the task ID. DO NOT implement the feature.
+   Tests should FAIL. Keep the markers in place."
 
 Green Task (depends on red task):
   "Implement the feature to make tests pass.
-   Remove the @Tags(['tdd-red']) annotations.
+   Remove the [tdd-red:task-N] or @Tags(['tdd-red:task-N']) markers.
    All tests should now PASS."
 ```
 
@@ -591,10 +609,10 @@ When you call `escalate_task`, you are saying:
 
 **Two types of escalation:**
 
-| Type | Cause | What You Can Do | What Requires Human |
-|------|-------|-----------------|---------------------|
-| **Spec Error** | Your verification criteria are wrong | Fix criteria via `update_verification` | De-escalate the task |
-| **Implementation Blocker** | Implementor stuck, external dependency, scope issue | Nothing - wait | Decide resolution path |
+| Type                       | Cause                                               | What You Can Do                        | What Requires Human    |
+| -------------------------- | --------------------------------------------------- | -------------------------------------- | ---------------------- |
+| **Spec Error**             | Your verification criteria are wrong                | Fix criteria via `update_verification` | De-escalate the task   |
+| **Implementation Blocker** | Implementor stuck, external dependency, scope issue | Nothing - wait                         | Decide resolution path |
 
 ### MANDATORY Behavior After Escalation
 
@@ -613,6 +631,7 @@ After calling `escalate_task`:
 ### Example: Correct Post-Escalation Behavior
 
 **Spec Error Escalation** (you can fix, then wait):
+
 ```
 ✅ CORRECT:
 "I've escalated Task 6 due to a specification error in the verification
@@ -626,6 +645,7 @@ the task so I can re-run verification and complete it."
 ```
 
 **Implementation Blocker Escalation** (nothing to fix, just wait):
+
 ```
 ✅ CORRECT:
 "I've escalated Task 3 because the implementor is blocked by a missing

@@ -270,7 +270,10 @@ async function signalCompletion(
       throw new Error(
         `TDD RED-PHASE WORKFLOW VIOLATION:\n\n` +
           `Task ${task.task_id} has tdd_red_phase=true but no TDD markers were found.\n\n` +
-          `Expected markers: [tdd-red:task-${task.task_id}] or @Tags(['task-${task.task_id}'])\n\n` +
+          `EXPECTED MARKER FORMAT (single-token):\n` +
+          `  TypeScript: [tdd-red:task-${task.task_id}] in test/describe name\n` +
+          `  Dart file-level: @Tags(['tdd-red:task-${task.task_id}'])\n` +
+          `  Dart inline: tags: ['tdd-red:task-${task.task_id}'] in test() call\n\n` +
           `This usually happens when the handover incorrectly instructed the implementor to:\n` +
           `1. Write tests with TDD markers\n` +
           `2. Implement the feature\n` +
