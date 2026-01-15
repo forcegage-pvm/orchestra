@@ -8,6 +8,7 @@
 import { and, eq } from "drizzle-orm";
 import { autoCommitIfEnabled, generateCommitMessage } from "../../core/git.js";
 import { assignToGreenTask } from "../../core/tdd-registry.js";
+import { validateTddGreenPhase } from "../../core/tdd-validation.js";
 import {
   getActiveSprint,
   getDb,
@@ -186,6 +187,55 @@ async function completeTask(
 
     // Transition VALIDATED entries to PENDING_GREEN
     await assignToGreenTask(task.id, greenTaskInternalId);
+  }
+
+  // 3b. Handle TDD green-phase task completion
+  // Check if this task is a green task in any relationship
+  const [greenRelationship] = await db
+    .select()
+    .from(tddTaskRelationships)
+    .where(eq(tddTaskRelationships.green_task_id, task.id))
+    .limit(1);
+
+  if (greenRelationship) {
+    // This is a green-phase task - validate before allowing completion
+    const workspaceRoot = resolveWorkspacePath();
+    const validationResult = await validateTddGreenPhase({
+      taskId: task.id,
+      workspaceRoot,
+    });
+
+    if (!validationResult.success) {
+      // Build detailed error message from validation errors
+      const errorDetails = validationResult.errors
+        .map((err) => {
+          const parts = [
+            `- ${err.type}:`,
+            err.message,
+            err.testIdentifier ? `  Test: ${err.testIdentifier}` : null,
+            err.details ? `  Details: ${err.details}` : null,
+          ].filter(Boolean);
+          return parts.join("\n");
+        })
+        .join("\n\n");
+
+      // Determine primary error type for the error code
+      const primaryErrorType =
+        validationResult.errors[0]?.type || "VALIDATION_FAILED";
+
+      throw new Error(
+        `TDD_GREEN_VALIDATION_FAILED: Cannot complete green-phase task ${input.task_id}. The following validation issues must be resolved:\n\n${errorDetails}\n\nGuidance: ${primaryErrorType === "TESTS_STILL_RED" ? "All tests must PASS (exit code 0) for green-phase completion. Check that implementation makes the tests pass." : "All tdd-red markers (it.skip, test.todo, etc.) must be REMOVED from test files."}`
+      );
+    }
+
+    // Validation passed - update relationship completed_at
+    const relationshipCompletedAt = new Date().toISOString();
+    await db
+      .update(tddTaskRelationships)
+      .set({
+        completed_at: relationshipCompletedAt,
+      })
+      .where(eq(tddTaskRelationships.green_task_id, task.id));
   }
 
   const now = new Date().toISOString();
