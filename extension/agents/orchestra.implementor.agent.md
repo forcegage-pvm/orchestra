@@ -38,14 +38,13 @@ This returns your task handover with acceptance criteria, file operations, and d
 
 ## Your MCP Tools (orchestra-imp/\*)
 
-| Tool                    | Purpose                         | When to Use                        |
-| ----------------------- | ------------------------------- | ---------------------------------- |
-| `get_current_task`      | **Get your task assignment**    | **FIRST - Always start here**      |
-| `signal_completion`     | Signal task is done             | After implementation complete      |
-| `get_feedback`          | Get failure feedback            | After verification fails           |
-| `get_progress`          | Sprint progress                 | Check overall status               |
-| `escalate_task`         | Escalate if stuck               | After multiple failed attempts     |
-| `register_tdd_red_test` | Register failing test (TDD red) | When task has `tdd_red_phase=true` |
+| Tool                | Purpose                      | When to Use                    |
+| ------------------- | ---------------------------- | ------------------------------ |
+| `get_current_task`  | **Get your task assignment** | **FIRST - Always start here**  |
+| `signal_completion` | Signal task is done          | After implementation complete  |
+| `get_feedback`      | Get failure feedback         | After verification fails       |
+| `get_progress`      | Sprint progress              | Check overall status           |
+| `escalate_task`     | Escalate if stuck            | After multiple failed attempts |
 
 ### Example: Starting a Task
 
@@ -249,19 +248,18 @@ Some tasks have `tdd_red_phase: true` in their handover. These are **TDD red pha
    }
    ```
 
-3. **Register each test** using `register_tdd_red_test`:
+3. **Signal completion** as normal - the system will automatically scan for TDD markers
 
-   ```json
-   // Call: register_tdd_red_test
-   {
-     "task_id": 5,
-     "test_identifier": "feature.test.ts::Feature::should validate user input",
-     "description": "Validates empty input returns false",
-     "marker_type": "it.skip"
-   }
-   ```
+### Automatic TDD Test Registration (Scan-on-Signal)
 
-4. **Signal completion** as normal - the system validates markers match registrations
+When you call `signal_completion` for a TDD red phase task, Orchestra automatically:
+
+1. **Scans your test files** for TDD markers (`[tdd-red]` tags or `tdd-red/` directories)
+2. **Extracts test identifiers** in the format `file::group::test`
+3. **Registers tests** in PENDING_GREEN status
+4. **Validates markers** - ensures all registered tests have proper TDD markers
+
+You don't need to manually register tests - just add the markers and signal completion.
 
 ### What Happens Next
 
@@ -274,11 +272,11 @@ After your red phase task is complete:
 
 ### Red Phase Errors
 
-| Error              | Meaning                                | Fix                                                  |
-| ------------------ | -------------------------------------- | ---------------------------------------------------- |
-| `NOT_TDD_RED_TASK` | Task doesn't have `tdd_red_phase=true` | Don't use `register_tdd_red_test` on this task       |
-| `DUPLICATE_TEST`   | Test identifier already registered     | Use unique test identifiers                          |
-| `MISSING_MARKER`   | Registered test has no TDD marker      | Add `[tdd-red]` tag or place in `tdd-red/` directory |
+| Error            | Meaning                              | Fix                                                  |
+| ---------------- | ------------------------------------ | ---------------------------------------------------- |
+| `MISSING_MARKER` | Test has no TDD marker               | Add `[tdd-red]` tag or place in `tdd-red/` directory |
+| `NO_TESTS_FOUND` | No TDD tests detected in test files  | Verify markers are present and files are in signal   |
+| `SCAN_FAILED`    | Error during automatic test scanning | Check test file syntax and marker format             |
 
 ## Handling Feedback
 
