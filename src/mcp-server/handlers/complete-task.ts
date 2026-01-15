@@ -224,7 +224,13 @@ async function completeTask(
         validationResult.errors[0]?.type || "VALIDATION_FAILED";
 
       throw new Error(
-        `TDD_GREEN_VALIDATION_FAILED: Cannot complete green-phase task ${input.task_id}. The following validation issues must be resolved:\n\n${errorDetails}\n\nGuidance: ${primaryErrorType === "TESTS_STILL_RED" ? "All tests must PASS (exit code 0) for green-phase completion. Check that implementation makes the tests pass." : "All tdd-red markers (it.skip, test.todo, etc.) must be REMOVED from test files."}`
+        `TDD_GREEN_VALIDATION_FAILED: Cannot complete green-phase task ${
+          input.task_id
+        }. The following validation issues must be resolved:\n\n${errorDetails}\n\nGuidance: ${
+          primaryErrorType === "TESTS_STILL_RED"
+            ? "All tests must PASS (exit code 0) for green-phase completion. Check that implementation makes the tests pass."
+            : "All tdd-red markers (it.skip, test.todo, etc.) must be REMOVED from test files."
+        }`
       );
     }
 
