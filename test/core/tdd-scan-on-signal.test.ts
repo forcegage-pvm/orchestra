@@ -391,5 +391,149 @@ it.skip('[tdd-red:task-33] task 33', () => {});
         expect(result.tests[0].test_identifier).toContain("task 3");
       });
     });
+
+    describe("Additional edge cases", () => {
+      it("should handle test.skip marker", async () => {
+        const content = `
+test.skip('[tdd-red:task-6] feature test', () => {
+  expect(true).toBe(false);
+});
+`;
+        await fs.writeFile(path.join(tempDir, "test", "test.test.ts"), content);
+
+        const result = await scanForTddMarkers(6, tempDir);
+
+        expect(result.tests).toHaveLength(1);
+        expect(result.tests[0].marker_type).toBe("test.skip");
+        expect(result.tests[0].test_identifier).toContain("feature test");
+      });
+
+      it("should handle test.skip marker", async () => {
+        const content = `
+test.skip('[tdd-red:task-8] skipped test with test.skip', () => {});
+`;
+        await fs.writeFile(path.join(tempDir, "test", "test-skip.test.ts"), content);
+
+        const result = await scanForTddMarkers(8, tempDir);
+
+        expect(result.tests).toHaveLength(1);
+        expect(result.tests[0].marker_type).toBe("test.skip");
+      });
+
+      it("should handle xdescribe marker", async () => {
+        const content = `
+xdescribe('[tdd-red:task-9] disabled feature', () => {
+  it('test 1', () => {});
+  it('test 2', () => {});
+});
+`;
+        await fs.writeFile(path.join(tempDir, "test", "disabled.test.ts"), content);
+
+        const result = await scanForTddMarkers(9, tempDir);
+
+        expect(result.tests).toHaveLength(1);
+        expect(result.tests[0].marker_type).toBe("xdescribe");
+      });
+
+      it("should normalize Windows path separators to forward slashes", async () => {
+        const content = `
+it.skip('[tdd-red:task-3] path test', () => {});
+`;
+        const nestedPath = path.join(tempDir, "test", "subdir");
+        await fs.mkdir(nestedPath, { recursive: true });
+        await fs.writeFile(path.join(nestedPath, "nested.test.ts"), content);
+
+        const result = await scanForTddMarkers(3, tempDir);
+
+        expect(result.tests).toHaveLength(1);
+        // Verify path uses forward slashes, not backslashes
+        expect(result.tests[0].test_file).toMatch(/\//);
+        expect(result.tests[0].test_file).not.toMatch(/\\/);
+        expect(result.tests[0].test_file).toBe("test/subdir/nested.test.ts");
+      });
+
+      it("should handle empty test directory gracefully", async () => {
+        const emptyTestDir = await fs.mkdtemp(path.join(os.tmpdir(), "empty-"));
+        await fs.mkdir(path.join(emptyTestDir, "test"), { recursive: true });
+
+        const result = await scanForTddMarkers(3, emptyTestDir);
+
+        expect(result.tests).toHaveLength(0);
+
+        // Cleanup
+        await fs.rm(emptyTestDir, { recursive: true, force: true });
+      });
+
+      it("should handle task ID zero", async () => {
+        const content = `
+it.skip('[tdd-red:task-0] task zero test', () => {});
+`;
+        await fs.writeFile(path.join(tempDir, "test", "zero.test.ts"), content);
+
+        const result = await scanForTddMarkers(0, tempDir);
+
+        expect(result.tests).toHaveLength(1);
+        expect(result.tests[0].test_identifier).toContain("task zero test");
+      });
+
+      it("should handle very large task IDs", async () => {
+        const content = `
+it.skip('[tdd-red:task-999999] large task id', () => {});
+`;
+        await fs.writeFile(path.join(tempDir, "test", "large.test.ts"), content);
+
+        const result = await scanForTddMarkers(999999, tempDir);
+
+        expect(result.tests).toHaveLength(1);
+      });
+
+      it("should handle multiple markers in same file with mixed task IDs", async () => {
+        const content = `
+describe('Suite', () => {
+  it.skip('[tdd-red:task-3] test 1', () => {});
+  it('normal test', () => {});
+  it.skip('[tdd-red:task-5] test 2', () => {});
+  it.skip('[tdd-red:task-3] test 3', () => {});
+  it.todo('[tdd-red:task-7] test 4');
+  it.skip('[tdd-red:task-3] test 5', () => {});
+});
+`;
+        await fs.writeFile(path.join(tempDir, "test", "multi.test.ts"), content);
+
+        const result = await scanForTddMarkers(3, tempDir);
+
+        expect(result.tests).toHaveLength(3);
+        expect(result.tests[0].test_identifier).toContain("test 1");
+        expect(result.tests[1].test_identifier).toContain("test 3");
+        expect(result.tests[2].test_identifier).toContain("test 5");
+      });
+
+      it("should handle special characters in test names", async () => {
+        const content = `
+it.skip('[tdd-red:task-3] should handle "quotes" and \\'escapes\\'', () => {});
+it.skip('[tdd-red:task-3] test with (parentheses) and [brackets]', () => {});
+`;
+        await fs.writeFile(path.join(tempDir, "test", "special.test.ts"), content);
+
+        const result = await scanForTddMarkers(3, tempDir);
+
+        expect(result.tests).toHaveLength(2);
+      });
+
+      it("should detect markers in code regardless of comments", async () => {
+        const content = `
+// Note: The scanner uses regex patterns and may detect markers in comments
+// This is acceptable behavior - verification filters out non-executable tests
+it.skip('[tdd-red:task-3] actual test', () => {});
+`;
+        await fs.writeFile(path.join(tempDir, "test", "comments.test.ts"), content);
+
+        const result = await scanForTddMarkers(3, tempDir);
+
+        // Scanner finds markers based on pattern matching
+        expect(result.tests.length).toBeGreaterThanOrEqual(1);
+        expect(result.tests.some(t => t.test_identifier.includes("actual test"))).toBe(true);
+      });
+    });
   });
 });
