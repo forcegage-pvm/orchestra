@@ -207,14 +207,17 @@ const MIGRATIONS: Migration[] = [
   },
   {
     id: "20260112_002_add_tdd_red_phase",
-    description: "Add tdd_red_phase column to tasks table for red-phase verification support",
+    description:
+      "Add tdd_red_phase column to tasks table for red-phase verification support",
     up: async () => {
       const db = getDb();
 
       // Check if column already exists (idempotent)
       const result = await db.all(sql`PRAGMA table_info(tasks)`);
       const columns = result as { name: string }[];
-      const hasTddRedPhase = columns.some((col) => col.name === "tdd_red_phase");
+      const hasTddRedPhase = columns.some(
+        (col) => col.name === "tdd_red_phase"
+      );
 
       if (hasTddRedPhase) {
         return; // Already exists
@@ -228,7 +231,8 @@ const MIGRATIONS: Migration[] = [
   },
   {
     id: "20260126_001_add_tdd_tables",
-    description: "Add tdd_task_relationships and tdd_red_registry tables for TDD workflow support",
+    description:
+      "Add tdd_task_relationships and tdd_red_registry tables for TDD workflow support",
     up: async () => {
       const db = getDb();
 
@@ -297,6 +301,29 @@ const MIGRATIONS: Migration[] = [
           sql`CREATE UNIQUE INDEX IF NOT EXISTS tdd_reg_unique_test_idx ON tdd_red_registry(sprint_id, test_identifier)`
         );
       }
+    },
+  },
+  {
+    id: "20260115_001_add_tdd_relationships_completed_at",
+    description: "Add completed_at column to tdd_task_relationships table",
+    up: async () => {
+      const db = getDb();
+
+      // Check if column already exists (idempotent)
+      const result = await db.all(
+        sql`PRAGMA table_info(tdd_task_relationships)`
+      );
+      const columns = result as { name: string }[];
+      const hasCompletedAt = columns.some((col) => col.name === "completed_at");
+
+      if (hasCompletedAt) {
+        return; // Already exists
+      }
+
+      // Add column
+      await db.run(
+        sql`ALTER TABLE tdd_task_relationships ADD COLUMN completed_at TEXT`
+      );
     },
   },
 ];

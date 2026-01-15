@@ -561,6 +561,7 @@ export const tddTaskRelationships = sqliteTable(
       .references(() => tasks.id, { onDelete: "cascade" }),
     declared_at: text("declared_at").notNull(), // 'configure_sprint' or 'complete_task'
     created_at: text("created_at").notNull(),
+    completed_at: text("completed_at"), // When green-phase verification passes
   },
   (tddTaskRelationships) => ({
     tddRelSprintIdx: index("tdd_rel_sprint_idx").on(
@@ -607,9 +608,7 @@ export const tddRedRegistry = sqliteTable(
     greened_at: text("greened_at"),
   },
   (tddRedRegistry) => ({
-    tddRegSprintIdx: index("tdd_reg_sprint_idx").on(
-      tddRedRegistry.sprint_id
-    ),
+    tddRegSprintIdx: index("tdd_reg_sprint_idx").on(tddRedRegistry.sprint_id),
     tddRegRedTaskIdx: index("tdd_reg_red_task_idx").on(
       tddRedRegistry.red_task_id
     ),

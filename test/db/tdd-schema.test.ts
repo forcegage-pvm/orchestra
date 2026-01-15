@@ -5,20 +5,20 @@
  * defined in the schema with all required columns, constraints, and indexes.
  */
 
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import Database from "better-sqlite3";
-import { drizzle } from "drizzle-orm/better-sqlite3";
 import { sql } from "drizzle-orm";
+import { drizzle } from "drizzle-orm/better-sqlite3";
+import { existsSync, unlinkSync } from "fs";
+import { tmpdir } from "os";
+import { join } from "path";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
+  phases,
   sprints,
   tasks,
-  phases,
-  tddTaskRelationships,
   tddRedRegistry,
+  tddTaskRelationships,
 } from "../../src/db/schema.js";
-import { existsSync, unlinkSync } from "fs";
-import { join } from "path";
-import { tmpdir } from "os";
 
 describe("TDD Schema Tables", () => {
   let db: ReturnType<typeof drizzle>;
@@ -77,7 +77,8 @@ describe("TDD Schema Tables", () => {
         red_task_id INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
         green_task_id INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
         declared_at TEXT NOT NULL,
-        created_at TEXT NOT NULL
+        created_at TEXT NOT NULL,
+        completed_at TEXT
       );
       CREATE INDEX tdd_rel_sprint_idx ON tdd_task_relationships(sprint_id);
       CREATE INDEX tdd_rel_red_task_idx ON tdd_task_relationships(red_task_id);
@@ -132,7 +133,7 @@ describe("TDD Schema Tables", () => {
         pk: number;
       }>;
 
-      expect(columns).toHaveLength(6);
+      expect(columns).toHaveLength(7);
 
       const columnMap = Object.fromEntries(
         columns.map((col) => [col.name, col])
@@ -162,6 +163,10 @@ describe("TDD Schema Tables", () => {
       expect(columnMap.created_at).toBeDefined();
       expect(columnMap.created_at.type).toBe("TEXT");
       expect(columnMap.created_at.notnull).toBe(1);
+
+      expect(columnMap.completed_at).toBeDefined();
+      expect(columnMap.completed_at.type).toBe("TEXT");
+      expect(columnMap.completed_at.notnull).toBe(0); // Nullable
     });
 
     it("should have foreign keys with cascade delete", () => {
@@ -191,9 +196,7 @@ describe("TDD Schema Tables", () => {
       expect(redTaskFK?.on_delete).toBe("CASCADE");
 
       // green_task_id FK
-      const greenTaskFK = foreignKeys.find(
-        (fk) => fk.from === "green_task_id"
-      );
+      const greenTaskFK = foreignKeys.find((fk) => fk.from === "green_task_id");
       expect(greenTaskFK).toBeDefined();
       expect(greenTaskFK?.table).toBe("tasks");
       expect(greenTaskFK?.to).toBe("id");
@@ -460,9 +463,7 @@ describe("TDD Schema Tables", () => {
       expect(redTaskFK?.on_delete).toBe("CASCADE");
 
       // green_task_id FK (nullable)
-      const greenTaskFK = foreignKeys.find(
-        (fk) => fk.from === "green_task_id"
-      );
+      const greenTaskFK = foreignKeys.find((fk) => fk.from === "green_task_id");
       expect(greenTaskFK).toBeDefined();
       expect(greenTaskFK?.table).toBe("tasks");
       expect(greenTaskFK?.on_delete).toBe("CASCADE");

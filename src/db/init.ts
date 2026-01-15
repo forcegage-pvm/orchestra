@@ -189,7 +189,8 @@ export async function initializeDb(): Promise<void> {
       red_task_id INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
       green_task_id INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
       declared_at TEXT NOT NULL,
-      created_at TEXT NOT NULL
+      created_at TEXT NOT NULL,
+      completed_at TEXT
     )
   `);
 
