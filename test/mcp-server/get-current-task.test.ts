@@ -196,20 +196,18 @@ describe("get_current_task handler", () => {
       // Verify tdd_instructions contains TypeScript-specific information
       expect(output.tdd_instructions).not.toBeNull();
       expect(output.tdd_instructions.tagging_mechanism).toBe(
-        "Place test in test/tdd-red/ directory OR add [tdd-red] to test name"
+        "Add [tdd-red:task-N] prefix to test or describe name (replace N with task ID)"
       );
       expect(output.tdd_instructions.red_test_command).toBe(
-        'npm test -- --testNamePattern="[tdd-red]" OR npm test -- test/tdd-red'
+        'npm test -- --testNamePattern="\\[tdd-red:task-N\\]"'
       );
       expect(output.tdd_instructions.green_test_command).toBe(
-        'npm test -- --exclude="**/tdd-red/**" --testNamePattern="^(?!.*[tdd-red])"'
+        'npm test -- --testNamePattern="^(?!.*\\[tdd-red\\])"'
       );
       expect(output.tdd_instructions.expected_behavior).toContain(
-        "Tests with [tdd-red] tag or in tdd-red/ MUST fail"
+        "Tests with [tdd-red:task-N] in name MUST fail"
       );
-      expect(output.tdd_instructions.example).toContain(
-        "test/tdd-red/feature.test.ts"
-      );
+      expect(output.tdd_instructions.example).toContain("[tdd-red:task-");
     });
 
     it("should return tdd_red_phase=true and Dart instructions for Dart project when tdd_red_phase=true", async () => {
@@ -280,18 +278,20 @@ describe("get_current_task handler", () => {
       // Verify tdd_instructions contains Dart-specific information
       expect(output.tdd_instructions).not.toBeNull();
       expect(output.tdd_instructions.tagging_mechanism).toContain(
-        "@Tags(['tdd-red'])"
+        "@Tags(['tdd-red:task-N'])"
       );
       expect(output.tdd_instructions.red_test_command).toBe(
-        "flutter test --tags tdd-red"
+        "flutter test --tags tdd-red:task-N"
       );
       expect(output.tdd_instructions.green_test_command).toBe(
-        "flutter test --exclude-tags tdd-red"
+        "flutter test --exclude-tags tdd-red:task-N"
       );
       expect(output.tdd_instructions.expected_behavior).toContain(
         "The tagged test MUST fail"
       );
-      expect(output.tdd_instructions.example).toContain("@Tags(['tdd-red'])");
+      expect(output.tdd_instructions.example).toContain(
+        "@Tags(['tdd-red:task-"
+      );
     });
 
     it("should return tdd_instructions=null for unknown project language when tdd_red_phase=true", async () => {

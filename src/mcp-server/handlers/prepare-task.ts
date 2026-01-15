@@ -306,7 +306,11 @@ async function prepareTask(
 
   if (tddRedPhase) {
     // Generate and insert red-phase checks
-    const redPhaseChecks = generateTddRedPhaseChecks(workspaceRoot, task.title);
+    const redPhaseChecks = generateTddRedPhaseChecks(
+      workspaceRoot,
+      task.title,
+      input.task_id
+    );
 
     for (const check of redPhaseChecks) {
       const checkIdPrefix =
@@ -659,7 +663,8 @@ async function injectTestVerificationIfRequired(
  */
 function generateTddRedPhaseChecks(
   workspaceRoot: string,
-  taskTitle: string
+  taskTitle: string,
+  taskId: number
 ): Array<{
   check_type: "behavioral" | "structural";
   description: string;
@@ -701,18 +706,17 @@ function generateTddRedPhaseChecks(
       },
     });
 
-    // Structural: At least one tdd-red marker exists
+    // Structural: At least one tdd-red:task-N marker exists
     // Flutter supports two syntaxes:
-    //   1. Library-level: @Tags(['tdd-red'])
-    //   2. Inline parameter: tags: 'tdd-red' in test() call
+    //   1. Library-level: @Tags(['tdd-red:task-N'])
+    //   2. Inline parameter: tags: ['tdd-red:task-N'] in test() call
     checks.push({
       check_type: "structural",
       description: `[TDD RED] Red-phase marker present for "${taskTitle}"`,
       severity: "BLOCKING",
       check_config: {
         path: "test/**/*.dart",
-        pattern:
-          "@Tags\\(\\['tdd-red'\\]\\)|tags:\\s*['\"]tdd-red['\"]|tags:\\s*\\['tdd-red'\\]",
+        pattern: `@Tags\\(\\['tdd-red:task-${taskId}'\\]\\)|tags:\\s*\\['tdd-red:task-${taskId}'\\]`,
         min_matches: 1,
       },
     });
@@ -758,7 +762,7 @@ function generateTddRedPhaseChecks(
       severity: "BLOCKING",
       check_config: {
         path: "test/**/*.test.ts",
-        pattern: "test/tdd-red/|\\[tdd-red\\]",
+        pattern: `\\[tdd-red:task-${taskId}\\]`,
         min_matches: 1,
       },
     });

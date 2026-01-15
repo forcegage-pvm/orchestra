@@ -1,5 +1,9 @@
 /**
  * Tests for TDD Red Phase Bidirectional Validation
+ *
+ * Single-token format: tdd-red:task-N
+ * - Dart: @Tags(['tdd-red:task-N']) or tags: ['tdd-red:task-N']
+ * - TypeScript: [tdd-red:task-N] in test/describe name
  */
 
 import * as fs from "fs/promises";
@@ -82,10 +86,10 @@ describe("TDD Red Phase Validation", () => {
       const testDir = path.join(tempDir, "test");
       await fs.mkdir(testDir);
 
-      // Create test file with marker
+      // Create test file with single-token marker
       const testContent = `
 describe('Feature', () => {
-  it.skip('should fail', () => {
+  it('[tdd-red:task-1] should fail', () => {
     expect(true).toBe(false);
   });
 });
@@ -95,8 +99,9 @@ describe('Feature', () => {
       // Register the test
       await registerTest({
         taskId,
-        testIdentifier: "feature.test.ts::Feature::should fail",
-        markerType: "it.skip",
+        testIdentifier:
+          "feature.test.ts::Feature::[tdd-red:task-1] should fail",
+        markerType: "[tdd-red:task-1]",
       });
 
       // Validate
@@ -153,7 +158,7 @@ describe('Feature', () => {
       // Create test file with marker
       const testContent = `
 describe('Feature', () => {
-  it.skip('unregistered test', () => {
+  it('[tdd-red:task-1] unregistered test', () => {
     expect(true).toBe(false);
   });
 });
@@ -166,8 +171,9 @@ describe('Feature', () => {
       // Register a different test
       await registerTest({
         taskId,
-        testIdentifier: "feature.test.ts::Feature::different test",
-        markerType: "it.skip",
+        testIdentifier:
+          "feature.test.ts::Feature::[tdd-red:task-1] different test",
+        markerType: "[tdd-red:task-1]",
       });
 
       // Validate
@@ -183,8 +189,8 @@ describe('Feature', () => {
         (e) => e.type === "MISSING_REGISTRATION"
       );
       expect(missingRegErrors.length).toBeGreaterThan(0);
-      expect(missingRegErrors[0].testIdentifier).toBe(
-        "feature.test.ts::Feature::unregistered test"
+      expect(missingRegErrors[0].testIdentifier).toContain(
+        "[tdd-red:task-1] unregistered test"
       );
     });
 
@@ -196,11 +202,11 @@ describe('Feature', () => {
       // Create test file with multiple markers
       const testContent = `
 describe('Feature', () => {
-  it.skip('test one', () => {
+  it('[tdd-red:task-1] test one', () => {
     expect(true).toBe(false);
   });
 
-  it.skip('test two', () => {
+  it('[tdd-red:task-1] test two', () => {
     expect(1).toBe(2);
   });
 });
@@ -210,13 +216,13 @@ describe('Feature', () => {
       // Register both tests
       await registerTest({
         taskId,
-        testIdentifier: "feature.test.ts::Feature::test one",
-        markerType: "it.skip",
+        testIdentifier: "feature.test.ts::Feature::[tdd-red:task-1] test one",
+        markerType: "[tdd-red:task-1]",
       });
       await registerTest({
         taskId,
-        testIdentifier: "feature.test.ts::Feature::test two",
-        markerType: "it.skip",
+        testIdentifier: "feature.test.ts::Feature::[tdd-red:task-1] test two",
+        markerType: "[tdd-red:task-1]",
       });
 
       // Validate
@@ -236,7 +242,7 @@ describe('Feature', () => {
       const testDir = path.join(tempDir, "test");
       await fs.mkdir(testDir);
 
-      // Create PASSING test (not skipped - an actual passing assertion)
+      // Create PASSING test without marker
       const testContent = `
 describe('Feature', () => {
   it('passing test', () => {
@@ -259,10 +265,7 @@ describe('Feature', () => {
         workspaceRoot: tempDir,
       });
 
-      // Should fail because the test passes (exit code 0)
-      // Note: This validation expects tests to actually FAIL, but regular `it()`
-      // without a skip/todo marker won't be detected by the marker scanner.
-      // This test will fail forward-check (MISSING_MARKER) not execution check.
+      // Should fail because the test has no marker
       expect(result.success).toBe(false);
       expect(result.errors).toBeDefined();
       expect(result.errors.length).toBeGreaterThan(0);
@@ -275,10 +278,10 @@ describe('Feature', () => {
       const testDir = path.join(tempDir, "test");
       await fs.mkdir(testDir);
 
-      // Create test file with marker
+      // Create test file with single-token marker
       const testContent = `
 describe('Feature', () => {
-  it.skip('should fail', () => {
+  it('[tdd-red:task-1] should fail', () => {
     expect(true).toBe(false);
   });
 });
@@ -288,8 +291,9 @@ describe('Feature', () => {
       // Register the test
       const registered = await registerTest({
         taskId,
-        testIdentifier: "feature.test.ts::Feature::should fail",
-        markerType: "it.skip",
+        testIdentifier:
+          "feature.test.ts::Feature::[tdd-red:task-1] should fail",
+        markerType: "[tdd-red:task-1]",
       });
 
       // Validate
@@ -393,13 +397,12 @@ describe('Feature', () => {
       const testDir = path.join(tempDir, "test");
       await fs.mkdir(testDir);
 
-      // Create Dart test file
-      const testContent = `
+      // Create Dart test file with single-token format
+      const testContent = `@Tags(['tdd-red:task-1'])
 import 'package:test/test.dart';
 
 void main() {
   group('DartGroup', () {
-    @Tags(['tdd-red'])
     test('should fail', () {
       expect(1, equals(2));
     });
@@ -412,7 +415,7 @@ void main() {
       await registerTest({
         taskId,
         testIdentifier: "dart_test.dart::DartGroup::should fail",
-        markerType: "@Tags(['tdd-red'])",
+        markerType: "file-level-@Tags(['tdd-red:task-1'])",
       });
 
       // Validate

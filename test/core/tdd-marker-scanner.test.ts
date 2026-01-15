@@ -1,5 +1,9 @@
 /**
  * Tests for TDD Red Marker Scanner
+ *
+ * The scanner detects TDD red markers using the SINGLE-TOKEN format:
+ * - Dart: @Tags(['tdd-red:task-N']) or tags: ['tdd-red:task-N']
+ * - TypeScript: [tdd-red:task-N] prefix in test/describe name
  */
 
 import * as fs from "fs/promises";
@@ -19,14 +23,14 @@ describe("TDD Marker Scanner", () => {
     await fs.rm(tempDir, { recursive: true, force: true });
   });
 
-  describe("Dart patterns", () => {
-    it("should detect @Tags(['tdd-red']) annotation", async () => {
+  describe("Dart patterns - single token format", () => {
+    it("should detect @Tags(['tdd-red:task-3']) annotation", async () => {
       const content = `
 import 'package:test/test.dart';
 
 void main() {
   group('MyGroup', () {
-    @Tags(['tdd-red'])
+    @Tags(['tdd-red:task-3'])
     test('should fail intentionally', () {
       expect(1, equals(2));
     });
@@ -42,31 +46,12 @@ void main() {
       expect(markers[0].testIdentifier).toBe(
         "test.dart::MyGroup::should fail intentionally"
       );
-      expect(markers[0].markerType).toBe("@Tags(['tdd-red'])");
+      expect(markers[0].markerType).toBe("@Tags(['tdd-red:task-3'])");
       expect(markers[0].lineNumber).toBe(6);
     });
 
-    it("should detect @Tags(['red']) annotation", async () => {
-      const content = `
-void main() {
-  @Tags(['red'])
-  test('red test', () {
-    fail('not implemented');
-  });
-}
-`;
-      const testFile = path.join(tempDir, "test.dart");
-      await fs.writeFile(testFile, content);
-
-      const markers = await scanForTddRedMarkers(testFile);
-
-      expect(markers).toHaveLength(1);
-      expect(markers[0].markerType).toBe("@Tags(['red'])");
-      expect(markers[0].testIdentifier).toBe("test.dart::::red test");
-    });
-
-    it("should detect file-level @Tags before void main()", async () => {
-      const content = `@Tags(['tdd-red'])
+    it("should detect file-level @Tags(['tdd-red:task-5']) before void main()", async () => {
+      const content = `@Tags(['tdd-red:task-5'])
 library;
 
 import 'package:test/test.dart';
@@ -91,21 +76,24 @@ void main() {
       const markers = await scanForTddRedMarkers(testFile);
 
       expect(markers).toHaveLength(2);
-      expect(markers[0].testIdentifier).toBe(
-        "x_axis_config_test.dart::XAxisConfig::construction::should have default values"
+      expect(markers[0].testIdentifier).toContain("should have default values");
+      expect(markers[0].markerType).toBe(
+        "file-level-@Tags(['tdd-red:task-5'])"
       );
-      expect(markers[0].markerType).toBe("file-level-@Tags(['tdd-red'])");
-      expect(markers[1].testIdentifier).toBe(
-        "x_axis_config_test.dart::XAxisConfig::construction::should accept custom values"
+      expect(markers[1].testIdentifier).toContain(
+        "should accept custom values"
+      );
+      expect(markers[1].markerType).toBe(
+        "file-level-@Tags(['tdd-red:task-5'])"
       );
     });
 
-    it("should detect inline tags: parameter in test()", async () => {
+    it("should detect inline tags: ['tdd-red:task-7'] parameter in test()", async () => {
       const content = `
 void main() {
-  test('red phase test', tags: ['tdd-red'], () {
+  test('red phase test', () {
     expect(false, isTrue);
-  });
+  }, tags: ['tdd-red:task-7']);
 }
 `;
       const testFile = path.join(tempDir, "inline_tags_test.dart");
@@ -117,13 +105,13 @@ void main() {
       expect(markers[0].testIdentifier).toBe(
         "inline_tags_test.dart::::red phase test"
       );
-      expect(markers[0].markerType).toBe("tags:['tdd-red']");
+      expect(markers[0].markerType).toBe("tags:['tdd-red:task-7']");
     });
 
     it("should detect @Tags with double quotes", async () => {
       const content = `
 void main() {
-  @Tags(["tdd-red"])
+  @Tags(["tdd-red:task-10"])
   test('double quote test', () {
     fail('not implemented');
   });
@@ -135,53 +123,89 @@ void main() {
       const markers = await scanForTddRedMarkers(testFile);
 
       expect(markers).toHaveLength(1);
-      expect(markers[0].markerType).toBe('@Tags(["tdd-red"])');
+      expect(markers[0].markerType).toBe("@Tags(['tdd-red:task-10'])");
     });
 
-    it("should detect @Tags with spaces", async () => {
+    it("should NOT detect old format @Tags(['tdd-red']) without task ID", async () => {
       const content = `
 void main() {
-  @Tags( [ 'tdd-red' ] )
-  test('spaced tags test', () {
+  @Tags(['tdd-red'])
+  test('old format test', () {
     fail('not implemented');
   });
 }
 `;
-      const testFile = path.join(tempDir, "spaced_tags_test.dart");
+      const testFile = path.join(tempDir, "old_format_test.dart");
       await fs.writeFile(testFile, content);
 
       const markers = await scanForTddRedMarkers(testFile);
 
-      expect(markers).toHaveLength(1);
-      expect(markers[0].testIdentifier).toContain("spaced tags test");
+      // Should NOT detect old format
+      expect(markers).toHaveLength(0);
     });
-
-    it("should detect tests in tdd-red directory", async () => {
-      const tddRedDir = path.join(tempDir, "tdd-red");
-      await fs.mkdir(tddRedDir);
-
-      const content = `
-void main() {
-  test('test in red directory', () {
-    expect(false, isTrue);
   });
-}
+
+  describe("TypeScript patterns - [tdd-red:task-N] in name", () => {
+    it("should detect [tdd-red:task-3] in test name", async () => {
+      const content = `
+describe('Feature', () => {
+  it('[tdd-red:task-3] should work eventually', () => {
+    expect(true).toBe(false);
+  });
+});
 `;
-      const testFile = path.join(tddRedDir, "red_test.dart");
+      const testFile = path.join(tempDir, "test.test.ts");
       await fs.writeFile(testFile, content);
 
       const markers = await scanForTddRedMarkers(testFile);
 
       expect(markers).toHaveLength(1);
       expect(markers[0].testIdentifier).toBe(
-        "red_test.dart::::test in red directory"
+        "test.test.ts::Feature::[tdd-red:task-3] should work eventually"
       );
-      expect(markers[0].markerType).toBe("tdd-red-directory");
+      expect(markers[0].markerType).toBe("[tdd-red:task-3]");
+      expect(markers[0].lineNumber).toBe(3);
     });
-  });
 
-  describe("TypeScript patterns", () => {
-    it("should detect it.skip", async () => {
+    it("should detect [tdd-red:task-5] in describe name", async () => {
+      const content = `
+describe('[tdd-red:task-5] Feature group', () => {
+  it('test one', () => {
+    expect(1).toBe(2);
+  });
+  it('test two', () => {
+    expect(true).toBe(false);
+  });
+});
+`;
+      const testFile = path.join(tempDir, "suite.test.ts");
+      await fs.writeFile(testFile, content);
+
+      const markers = await scanForTddRedMarkers(testFile);
+
+      expect(markers).toHaveLength(1);
+      expect(markers[0].markerType).toBe("[tdd-red:task-5]");
+      expect(markers[0].testIdentifier).toContain("Feature group");
+    });
+
+    it("should detect it.skip with [tdd-red:task-N]", async () => {
+      const content = `
+describe('Feature', () => {
+  it.skip('[tdd-red:task-4] pending feature', () => {
+    expect(true).toBe(false);
+  });
+});
+`;
+      const testFile = path.join(tempDir, "test.test.ts");
+      await fs.writeFile(testFile, content);
+
+      const markers = await scanForTddRedMarkers(testFile);
+
+      expect(markers).toHaveLength(1);
+      expect(markers[0].markerType).toBe("[tdd-red:task-4]");
+    });
+
+    it("should NOT detect it.skip without [tdd-red:task-N]", async () => {
       const content = `
 describe('Feature', () => {
   it.skip('should work eventually', () => {
@@ -194,67 +218,15 @@ describe('Feature', () => {
 
       const markers = await scanForTddRedMarkers(testFile);
 
-      expect(markers).toHaveLength(1);
-      expect(markers[0].testIdentifier).toBe(
-        "test.test.ts::Feature::should work eventually"
-      );
-      expect(markers[0].markerType).toBe("it.skip");
-      expect(markers[0].lineNumber).toBe(3);
+      // Should NOT detect - no tdd-red:task-N marker
+      expect(markers).toHaveLength(0);
     });
 
-    it("should detect test.skip", async () => {
-      const content = `
-describe('Suite', () => {
-  test.skip('pending test', () => {
-    expect(1).toBe(2);
-  });
-});
-`;
-      const testFile = path.join(tempDir, "suite.test.ts");
-      await fs.writeFile(testFile, content);
-
-      const markers = await scanForTddRedMarkers(testFile);
-
-      expect(markers).toHaveLength(1);
-      expect(markers[0].markerType).toBe("test.skip");
-    });
-
-    it("should detect it.todo", async () => {
+    it("should NOT detect old format [tdd-red] without task ID", async () => {
       const content = `
 describe('Feature', () => {
-  it.todo('implement later');
-});
-`;
-      const testFile = path.join(tempDir, "test.test.ts");
-      await fs.writeFile(testFile, content);
-
-      const markers = await scanForTddRedMarkers(testFile);
-
-      expect(markers).toHaveLength(1);
-      expect(markers[0].testIdentifier).toBe(
-        "test.test.ts::Feature::implement later"
-      );
-      expect(markers[0].markerType).toBe("it.todo");
-    });
-
-    it("should detect test.todo", async () => {
-      const content = `
-test.todo('future test');
-`;
-      const testFile = path.join(tempDir, "test.test.ts");
-      await fs.writeFile(testFile, content);
-
-      const markers = await scanForTddRedMarkers(testFile);
-
-      expect(markers).toHaveLength(1);
-      expect(markers[0].markerType).toBe("test.todo");
-    });
-
-    it("should detect xit", async () => {
-      const content = `
-describe('Suite', () => {
-  xit('disabled test', () => {
-    expect(false).toBe(true);
+  it('[tdd-red] old format test', () => {
+    expect(true).toBe(false);
   });
 });
 `;
@@ -263,54 +235,8 @@ describe('Suite', () => {
 
       const markers = await scanForTddRedMarkers(testFile);
 
-      expect(markers).toHaveLength(1);
-      expect(markers[0].markerType).toBe("xit");
-    });
-
-    it("should detect xtest", async () => {
-      const content = `
-xtest('excluded test', () => {
-  throw new Error('should not run');
-});
-`;
-      const testFile = path.join(tempDir, "test.test.ts");
-      await fs.writeFile(testFile, content);
-
-      const markers = await scanForTddRedMarkers(testFile);
-
-      expect(markers).toHaveLength(1);
-      expect(markers[0].markerType).toBe("xtest");
-    });
-
-    it("should detect xdescribe", async () => {
-      const content = `
-xdescribe('Disabled suite', () => {
-  it('test 1', () => {});
-  it('test 2', () => {});
-});
-`;
-      const testFile = path.join(tempDir, "test.test.ts");
-      await fs.writeFile(testFile, content);
-
-      const markers = await scanForTddRedMarkers(testFile);
-
-      expect(markers).toHaveLength(1);
-      expect(markers[0].markerType).toBe("xdescribe");
-    });
-
-    it("should detect describe.skip", async () => {
-      const content = `
-describe.skip('Skipped suite', () => {
-  it('will not run', () => {});
-});
-`;
-      const testFile = path.join(tempDir, "test.test.ts");
-      await fs.writeFile(testFile, content);
-
-      const markers = await scanForTddRedMarkers(testFile);
-
-      expect(markers).toHaveLength(1);
-      expect(markers[0].markerType).toBe("describe.skip");
+      // Should NOT detect old format
+      expect(markers).toHaveLength(0);
     });
   });
 
@@ -318,83 +244,82 @@ describe.skip('Skipped suite', () => {
     it("should detect multiple markers in one file", async () => {
       const content = `
 describe('Suite', () => {
-  it.skip('skipped test', () => {});
-  
-  it.todo('future test');
-  
-  xit('another skipped', () => {});
+  it('[tdd-red:task-3] test one', () => {});
+  it('[tdd-red:task-3] test two', () => {});
+  it('[tdd-red:task-5] different task', () => {});
 });
 `;
-      const testFile = path.join(tempDir, "test.test.ts");
+      const testFile = path.join(tempDir, "multi.test.ts");
       await fs.writeFile(testFile, content);
 
       const markers = await scanForTddRedMarkers(testFile);
 
       expect(markers).toHaveLength(3);
-      expect(markers[0].markerType).toBe("it.skip");
-      expect(markers[1].markerType).toBe("it.todo");
-      expect(markers[2].markerType).toBe("xit");
+      expect(
+        markers.filter((m) => m.markerType === "[tdd-red:task-3]")
+      ).toHaveLength(2);
+      expect(
+        markers.filter((m) => m.markerType === "[tdd-red:task-5]")
+      ).toHaveLength(1);
     });
   });
 
   describe("Edge cases", () => {
-    it("should handle empty file", async () => {
+    it("should handle nested describe blocks", async () => {
+      const content = `
+describe('Outer', () => {
+  describe('Inner', () => {
+    it('[tdd-red:task-3] nested test', () => {});
+  });
+});
+`;
+      const testFile = path.join(tempDir, "nested.test.ts");
+      await fs.writeFile(testFile, content);
+
+      const markers = await scanForTddRedMarkers(testFile);
+
+      expect(markers).toHaveLength(1);
+      expect(markers[0].testIdentifier).toContain("Outer::Inner");
+    });
+
+    it("should handle different quote styles in TypeScript", async () => {
+      const content = `
+describe("Feature", () => {
+  it("[tdd-red:task-3] double quotes", () => {});
+  it(\`[tdd-red:task-4] template literal\`, () => {});
+});
+`;
+      const testFile = path.join(tempDir, "quotes.test.ts");
+      await fs.writeFile(testFile, content);
+
+      const markers = await scanForTddRedMarkers(testFile);
+
+      expect(markers).toHaveLength(2);
+    });
+
+    it("should return empty array for file with no markers", async () => {
+      const content = `
+describe('Feature', () => {
+  it('normal test', () => {
+    expect(true).toBe(true);
+  });
+});
+`;
+      const testFile = path.join(tempDir, "no_markers.test.ts");
+      await fs.writeFile(testFile, content);
+
+      const markers = await scanForTddRedMarkers(testFile);
+
+      expect(markers).toHaveLength(0);
+    });
+
+    it("should return empty array for empty file", async () => {
       const testFile = path.join(tempDir, "empty.test.ts");
       await fs.writeFile(testFile, "");
 
       const markers = await scanForTddRedMarkers(testFile);
 
       expect(markers).toHaveLength(0);
-    });
-
-    it("should handle file with no markers", async () => {
-      const content = `
-describe('Normal tests', () => {
-  it('should pass', () => {
-    expect(true).toBe(true);
-  });
-});
-`;
-      const testFile = path.join(tempDir, "test.test.ts");
-      await fs.writeFile(testFile, content);
-
-      const markers = await scanForTddRedMarkers(testFile);
-
-      expect(markers).toHaveLength(0);
-    });
-
-    it("should handle nested describe blocks", async () => {
-      const content = `
-describe('Outer', () => {
-  describe('Inner', () => {
-    it.skip('nested skip', () => {});
-  });
-});
-`;
-      const testFile = path.join(tempDir, "test.test.ts");
-      await fs.writeFile(testFile, content);
-
-      const markers = await scanForTddRedMarkers(testFile);
-
-      expect(markers).toHaveLength(1);
-      // Should use the last describe block as group
-      expect(markers[0].testIdentifier).toContain("Inner");
-    });
-
-    it("should handle different quote styles", async () => {
-      const content = `
-describe("Double quotes", () => {
-  it.skip("test with doubles", () => {});
-  it.skip('test with singles', () => {});
-  it.skip(\`test with backticks\`, () => {});
-});
-`;
-      const testFile = path.join(tempDir, "test.test.ts");
-      await fs.writeFile(testFile, content);
-
-      const markers = await scanForTddRedMarkers(testFile);
-
-      expect(markers).toHaveLength(3);
     });
   });
 });

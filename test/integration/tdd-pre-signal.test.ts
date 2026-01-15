@@ -221,12 +221,12 @@ describe('Feature', () => {
       const testDir = path.join(tempDir, "test");
       await fs.mkdir(testDir);
 
-      // Create test file with marker
+      // Create test file with single-token marker
       const testContent = `
 import { describe, it, expect } from 'vitest';
 
 describe('Feature', () => {
-  it.skip('unregistered test', () => {
+  it('[tdd-red:task-${taskId}] unregistered test', () => {
     expect(true).toBe(false);
   });
 });
@@ -236,8 +236,8 @@ describe('Feature', () => {
       // Register a DIFFERENT test (to trigger validation)
       await registerTest({
         taskId,
-        testIdentifier: "feature.test.ts::Feature::different test",
-        markerType: "it.skip",
+        testIdentifier: `feature.test.ts::Feature::[tdd-red:task-${taskId}] different test`,
+        markerType: `[tdd-red:task-${taskId}]`,
       });
 
       // Run pre-signal checks

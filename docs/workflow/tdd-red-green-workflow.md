@@ -62,12 +62,12 @@ Orchestra uses test framework tagging/isolation to separate intentionally-failin
 
 #### For Dart Projects
 
-Tag the test with `@Tags(['tdd-red'])`:
+Tag the test with `@Tags(['tdd-red:task-10'])`:
 
 ```dart
 import 'package:flutter_test/flutter_test.dart';
 
-@Tags(['tdd-red'])  // ← Marks test as red-phase
+@Tags(['tdd-red:task-10'])  // ← Marks test as red-phase for task 10
 void main() {
   test('should reject expired JWT tokens', () {
     final auth = AuthService();
@@ -82,25 +82,33 @@ void main() {
 }
 ```
 
+Or use inline tags for individual tests:
+
+```dart
+test('should reject expired JWT tokens', () {
+  // test body
+}, tags: ['tdd-red:task-10']);
+```
+
 Run verification locally:
 ```bash
 # Tagged test must fail
-$ flutter test --tags tdd-red
+$ flutter test --tags tdd-red:task-10
 # ❌ Expected: throws <TokenExpiredException>
 #    Actual: null (no exception thrown)
 
 # Other tests must pass
-$ flutter test --exclude-tags tdd-red
+$ flutter test --exclude-tags tdd-red:task-10
 # ✅ All 47 tests passed
 ```
 
 #### For TypeScript Projects
 
-Place test in `test/tdd-red/` directory:
+Use `[tdd-red:task-10]` prefix in test name:
 
 ```typescript
-// File: test/tdd-red/auth-expiration.test.ts
-describe('AuthService', () => {
+// File: test/auth-expiration.test.ts
+describe('[tdd-red:task-10] AuthService expiration', () => {
   it('should reject expired JWT tokens', () => {
     const auth = new AuthService();
     const expiredToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...';
@@ -115,12 +123,12 @@ describe('AuthService', () => {
 Run verification locally:
 ```bash
 # Red-phase tests must fail
-$ npm test -- test/tdd-red
+$ npm test -- --testNamePattern="\[tdd-red:task-10\]"
 # ❌ Expected: throws TokenExpiredException
 #    Received: undefined
 
-# Other tests must pass
-$ npm test -- --testPathIgnorePatterns=tdd-red
+# Other tests must pass  
+$ npm test -- --testNamePattern="^(?!.*\[tdd-red\])"
 # ✅ 124 tests passed
 ```
 
@@ -141,12 +149,12 @@ notes: "Test fails as expected. All other tests pass."
 ```
 
 **Pre-signal executor** runs:
-1. `flutter test --tags tdd-red` → Exit code 1 (MUST fail)
-2. `flutter test --exclude-tags tdd-red` → Exit code 0 (MUST pass)
+1. `flutter test --tags tdd-red:task-10` → Exit code 1 (MUST fail)
+2. `flutter test --exclude-tags tdd-red:task-10` → Exit code 0 (MUST pass)
 3. Both conditions met → Pre-signal PASSED
 
 **Verification** (orchestrator, hidden criteria):
-- [x] File contains `@Tags(['tdd-red'])` marker
+- [x] File contains `@Tags(['tdd-red:task-10'])` marker
 - [x] Marked test fails with correct error
 - [x] No regression failures in other tests
 
@@ -169,16 +177,15 @@ notes: "Test fails as expected. All other tests pass."
 }
 ```
 
-### Step 5: Orchestrator Cleans Up Markers
+### Step 5: Implementor Removes Markers (Green Phase)
 
-**Automatic cleanup** runs during `prepare_task` (Task 11):
+**Manual cleanup** by implementor during green phase:
 
-1. **Orchestrator** detects tdd-red markers in workspace
-2. **Removes markers**:
-   - Dart: Strips `@Tags(['tdd-red'])` annotation
-   - TypeScript: Moves `test/tdd-red/*.test.ts` → `test/unit/*.test.ts`
-3. **Commits cleanup**: `git commit -m "chore: remove tdd-red markers before task 11"`
-4. **Generates handover** with clean workspace
+1. **Implementor** implements the feature to make tests pass
+2. **Removes markers** from tests:
+   - Dart: Removes `@Tags(['tdd-red:task-N'])` annotation or inline `tags:` parameter
+   - TypeScript: Removes `[tdd-red:task-N]` prefix from test/describe names
+3. **Signals completion** with tests now passing
 
 ### Step 6: Implementor Makes Test Pass
 

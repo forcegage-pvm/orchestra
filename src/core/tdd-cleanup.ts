@@ -74,7 +74,7 @@ export async function cleanupTddRedMarkers(
 }
 
 /**
- * Clean up Dart TDD markers by removing @Tags(['tdd-red']) annotations
+ * Clean up Dart TDD markers by removing @Tags(['tdd-red:task-N']) annotations
  */
 async function cleanupDartMarkers(
   workspaceRoot: string
@@ -91,10 +91,15 @@ async function cleanupDartMarkers(
     const filePath = path.join(workspaceRoot, file);
     const content = fs.readFileSync(filePath, "utf-8");
 
-    // Check if file contains tdd-red tag
-    if (content.includes("@Tags(['tdd-red'])")) {
+    // Check if file contains tdd-red tag (single-token format: tdd-red:task-N)
+    const tddPattern =
+      /@Tags\s*\(\s*\[\s*['"]tdd-red:task-\d+['"]\s*\]\s*\)\s*/g;
+    const inlinePattern = /,\s*tags:\s*\[\s*['"]tdd-red:task-\d+['"]\s*\]\s*/g;
+
+    if (tddPattern.test(content) || inlinePattern.test(content)) {
       // Remove the tag annotation (with optional whitespace after)
-      const cleaned = content.replace(/@Tags\(\['tdd-red'\]\)\s*/g, "");
+      let cleaned = content.replace(tddPattern, "");
+      cleaned = cleaned.replace(inlinePattern, "");
       fs.writeFileSync(filePath, cleaned, "utf-8");
       // Normalize path to use forward slashes for cross-platform consistency
       markedFiles.push(file.replace(/\\/g, "/"));
@@ -105,43 +110,34 @@ async function cleanupDartMarkers(
 }
 
 /**
- * Clean up TypeScript TDD markers by moving files from test/tdd-red/ to test/unit/
+ * Clean up TypeScript TDD markers by removing [tdd-red:task-N] from test names
  */
 async function cleanupTypeScriptMarkers(
   workspaceRoot: string
 ): Promise<CleanupResult> {
-  const tddRedDir = path.join(workspaceRoot, "test", "tdd-red");
+  // Find all TypeScript test files
+  const files = await glob("test/**/*.test.ts", {
+    cwd: workspaceRoot,
+    absolute: false,
+  });
 
-  // Check if tdd-red directory exists
-  if (!fs.existsSync(tddRedDir)) {
-    return { cleaned: false, files: [] };
-  }
-
-  const files = fs.readdirSync(tddRedDir);
-  const movedFiles: string[] = [];
-  const unitDir = path.join(workspaceRoot, "test", "unit");
-
-  // Ensure unit directory exists
-  if (!fs.existsSync(unitDir)) {
-    fs.mkdirSync(unitDir, { recursive: true });
-  }
+  const cleanedFiles: string[] = [];
 
   for (const file of files) {
-    if (file.endsWith(".test.ts")) {
-      const srcPath = path.join(tddRedDir, file);
-      const destPath = path.join(unitDir, file);
+    const filePath = path.join(workspaceRoot, file);
+    const content = fs.readFileSync(filePath, "utf-8");
 
-      // Move file
-      fs.renameSync(srcPath, destPath);
-      movedFiles.push(file);
+    // Check if file contains [tdd-red:task-N] marker
+    const markerPattern = /\[tdd-red:task-\d+\]\s*/g;
+
+    if (markerPattern.test(content)) {
+      // Remove the marker from test/describe names
+      const cleaned = content.replace(markerPattern, "");
+      fs.writeFileSync(filePath, cleaned, "utf-8");
+      // Normalize path to use forward slashes for cross-platform consistency
+      cleanedFiles.push(file.replace(/\\/g, "/"));
     }
   }
 
-  // Remove tdd-red directory if empty
-  const remainingFiles = fs.readdirSync(tddRedDir);
-  if (remainingFiles.length === 0) {
-    fs.rmdirSync(tddRedDir);
-  }
-
-  return { cleaned: movedFiles.length > 0, files: movedFiles };
+  return { cleaned: cleanedFiles.length > 0, files: cleanedFiles };
 }

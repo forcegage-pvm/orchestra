@@ -2,8 +2,10 @@
  * TDD Red Marker Scanner
  *
  * Scans test files for TDD red test markers:
- * - Dart: @Tags(['tdd-red']), @Tags(['red']), tags: ['tdd-red'] parameter, 'tdd-red' in directory path
- * - TypeScript/JavaScript: it.skip, test.skip, it.todo, test.todo, describe.skip, xit, xtest, xdescribe
+ * - Dart: @Tags(['tdd-red:task-N']) annotation or tags: ['tdd-red:task-N'] inline parameter
+ * - TypeScript/JavaScript: [tdd-red:task-N] prefix in test/describe name
+ *
+ * All markers use single-token format: tdd-red:task-N (not separate 'tdd-red', 'task-N')
  */
 
 import * as fs from "fs/promises";
@@ -19,10 +21,11 @@ export interface TddRedMarker {
 }
 
 /**
- * Check if file has file-level @Tags(['tdd-red']) or @Tags(['red']) annotation
+ * Check if file has file-level @Tags(['tdd-red:task-N']) annotation
  * This appears before void main() and applies to ALL tests in the file
+ * Returns the task ID if found, or null if not found
  */
-function hasFileLevelDartTags(lines: string[]): boolean {
+function getFileLevelDartTaskId(lines: string[]): number | null {
   // Find void main() - file-level tags must appear before it
   let mainLineIndex = -1;
   for (let i = 0; i < lines.length; i++) {
@@ -33,19 +36,21 @@ function hasFileLevelDartTags(lines: string[]): boolean {
     }
   }
 
-  if (mainLineIndex === -1) return false;
+  if (mainLineIndex === -1) return null;
 
-  // Check for @Tags annotation before main()
-  // Supports: @Tags(['tdd-red']), @Tags(['red']), @Tags(["tdd-red"]), @Tags(["red"])
-  const tagsPattern = /@Tags\s*\(\s*\[\s*['"](?:tdd-)?red['"]\s*\]\s*\)/;
+  // Check for @Tags annotation with tdd-red:task-N pattern before main()
+  const tagsPattern = /@Tags\s*\(\s*\[\s*['"]tdd-red:task-(\d+)['"]\s*\]\s*\)/;
   for (let i = 0; i < mainLineIndex; i++) {
     const line = lines[i];
-    if (line !== undefined && tagsPattern.test(line)) {
-      return true;
+    if (line !== undefined) {
+      const match = tagsPattern.exec(line);
+      if (match && match[1]) {
+        return parseInt(match[1], 10);
+      }
     }
   }
 
-  return false;
+  return null;
 }
 
 /**
@@ -62,26 +67,21 @@ export async function scanForTddRedMarkers(
   const markers: TddRedMarker[] = [];
   const fileName = path.basename(testFilePath);
 
-  // Check if file is in a tdd-red directory (Dart pattern)
-  const isInTddRedDirectory = testFilePath.includes("tdd-red");
+  // Check for file-level Dart @Tags with task ID (applies to all tests in file)
+  const fileLevelTaskId = getFileLevelDartTaskId(lines);
 
-  // Check for file-level Dart @Tags (applies to all tests in file)
-  const hasFileLevelTags = hasFileLevelDartTags(lines);
+  // Dart patterns - single token format: tdd-red:task-N
+  // Matches: @Tags(['tdd-red:task-3']) - extracts task ID
+  const dartTagsPattern =
+    /@Tags\s*\(\s*\[\s*['"]tdd-red:task-(\d+)['"]\s*\]\s*\)/g;
 
-  // Dart patterns - supports single and double quotes, optional spaces
-  // Matches: @Tags(['tdd-red']), @Tags(['red']), @Tags(["tdd-red"]), @Tags(["red"])
-  const dartTagsPattern = /@Tags\s*\(\s*\[\s*['"](?:tdd-)?red['"]\s*\]\s*\)/g;
+  // Dart inline tags parameter pattern - single token format
+  // Matches: tags: ['tdd-red:task-3'] - we'll look backwards to find the test name
+  const dartInlineTagsPattern = /tags:\s*\[\s*['"]tdd-red:task-(\d+)['"]\s*\]/;
 
-  // Dart inline tags parameter pattern
-  // Matches: test('name', tags: ['tdd-red'], ...) or test('name', tags: ["red"], ...)
-  const dartInlineTagsPattern =
-    /test\s*\(\s*['"]([^'"]+)['"]\s*,\s*tags\s*:\s*\[\s*['"](?:tdd-)?red['"]\s*\]/g;
-
-  // TypeScript/JavaScript patterns
-  const tsSkipPattern =
-    /(?:it|test|describe)\.skip\s*\(\s*['"`]([^'"`]+)['"`]/g;
-  const tsTodoPattern = /(?:it|test)\.todo\s*\(\s*['"`]([^'"`]+)['"`]/g;
-  const tsXPattern = /(?:xit|xtest|xdescribe)\s*\(\s*['"`]([^'"`]+)['"`]/g;
+  // TypeScript/JavaScript patterns - [tdd-red:task-N] in test name
+  const tsMarkerPattern =
+    /(?:it|test|describe)(?:\.skip)?\s*\(\s*['"`]\[tdd-red:task-(\d+)\]\s*([^'"`]+)['"`]/g;
 
   // Track current describe/group context (stack for nested groups)
   const groupStack: string[] = [];
@@ -129,85 +129,54 @@ export async function scanForTddRedMarkers(
       groupBraceDepths.pop();
     }
 
-    // Check for Dart @Tags patterns (per-test annotation)
+    // Check for Dart @Tags(['tdd-red:task-N']) patterns (per-test annotation)
     // Only detect after void main() to avoid treating file-level tags as per-test
     if (passedVoidMain) {
       let dartMatch;
       dartTagsPattern.lastIndex = 0; // Reset regex state
       while ((dartMatch = dartTagsPattern.exec(trimmedLine)) !== null) {
+        const taskId = dartMatch[1]; // Captured task ID
         // Extract test name from the next non-empty line
         const testName = extractDartTestName(lines, index);
         markers.push({
           testIdentifier: `${fileName}::${currentGroup}::${testName}`,
-          markerType: dartMatch[0].replace(/\s+/g, ""), // Normalize whitespace
+          markerType: `@Tags(['tdd-red:task-${taskId}'])`,
           lineNumber,
         });
       }
     }
 
-    // Check for Dart inline tags: parameter
-    let inlineMatch;
-    dartInlineTagsPattern.lastIndex = 0;
-    while ((inlineMatch = dartInlineTagsPattern.exec(trimmedLine)) !== null) {
+    // Check for Dart inline tags: ['tdd-red:task-N'] parameter
+    const inlineMatch = dartInlineTagsPattern.exec(trimmedLine);
+    if (inlineMatch) {
+      const taskId = inlineMatch[1];
+      // Look backwards to find the test name
+      const testName = extractDartTestNameBackwards(lines, index);
+      if (testName) {
+        markers.push({
+          testIdentifier: `${fileName}::${currentGroup}::${testName}`,
+          markerType: `tags:['tdd-red:task-${taskId}']`,
+          lineNumber,
+        });
+      }
+    }
+
+    // Check for TypeScript [tdd-red:task-N] in test/describe name
+    let tsMatch;
+    tsMarkerPattern.lastIndex = 0;
+    while ((tsMatch = tsMarkerPattern.exec(trimmedLine)) !== null) {
+      const taskId = tsMatch[1];
+      const testName = tsMatch[2]?.trim() ?? "";
       markers.push({
-        testIdentifier: `${fileName}::${currentGroup}::${inlineMatch[1]}`,
-        markerType: "tags:['tdd-red']",
+        testIdentifier: `${fileName}::${currentGroup}::[tdd-red:task-${taskId}] ${testName}`,
+        markerType: `[tdd-red:task-${taskId}]`,
         lineNumber,
       });
     }
 
-    // Check for TypeScript it.skip/test.skip
-    let tsSkipMatch;
-    tsSkipPattern.lastIndex = 0;
-    while ((tsSkipMatch = tsSkipPattern.exec(trimmedLine)) !== null) {
-      const testName = tsSkipMatch[1];
-      const markerType = trimmedLine.includes("it.skip")
-        ? "it.skip"
-        : trimmedLine.includes("test.skip")
-        ? "test.skip"
-        : "describe.skip";
-      markers.push({
-        testIdentifier: `${fileName}::${currentGroup}::${testName}`,
-        markerType,
-        lineNumber,
-      });
-    }
-
-    // Check for TypeScript it.todo/test.todo
-    let tsTodoMatch;
-    tsTodoPattern.lastIndex = 0;
-    while ((tsTodoMatch = tsTodoPattern.exec(trimmedLine)) !== null) {
-      const testName = tsTodoMatch[1];
-      const markerType = trimmedLine.includes("it.todo")
-        ? "it.todo"
-        : "test.todo";
-      markers.push({
-        testIdentifier: `${fileName}::${currentGroup}::${testName}`,
-        markerType,
-        lineNumber,
-      });
-    }
-
-    // Check for TypeScript xit/xtest/xdescribe
-    let tsXMatch;
-    tsXPattern.lastIndex = 0;
-    while ((tsXMatch = tsXPattern.exec(trimmedLine)) !== null) {
-      const testName = tsXMatch[1];
-      const markerType = trimmedLine.includes("xit")
-        ? "xit"
-        : trimmedLine.includes("xtest")
-        ? "xtest"
-        : "xdescribe";
-      markers.push({
-        testIdentifier: `${fileName}::${currentGroup}::${testName}`,
-        markerType,
-        lineNumber,
-      });
-    }
-
-    // Check for Dart test() in tdd-red directory OR file with file-level @Tags
+    // Check for file-level @Tags that apply to ALL tests in the file
     // File-level tags apply to ALL tests in the file
-    if (isInTddRedDirectory || hasFileLevelTags) {
+    if (fileLevelTaskId !== null && passedVoidMain) {
       const dartTestPattern = /test\s*\(\s*['"]([^'"]+)['"]/;
       const dartTestMatch = dartTestPattern.exec(trimmedLine);
       if (dartTestMatch) {
@@ -219,9 +188,7 @@ export async function scanForTddRedMarkers(
         if (!alreadyMatched) {
           markers.push({
             testIdentifier: testId,
-            markerType: hasFileLevelTags
-              ? "file-level-@Tags(['tdd-red'])"
-              : "tdd-red-directory",
+            markerType: `file-level-@Tags(['tdd-red:task-${fileLevelTaskId}'])`,
             lineNumber,
           });
         }
@@ -254,4 +221,27 @@ function extractDartTestName(lines: string[], tagsLineIndex: number): string {
     }
   }
   return "unknown";
+}
+
+/**
+ * Extract test name by looking backwards from a tags: parameter line
+ *
+ * @param lines - All file lines
+ * @param tagsLineIndex - Index of line with tags: parameter
+ * @returns Test name or null if not found
+ */
+function extractDartTestNameBackwards(
+  lines: string[],
+  tagsLineIndex: number
+): string | null {
+  // Look backwards to find test('name', declaration
+  for (let i = tagsLineIndex; i >= Math.max(0, tagsLineIndex - 10); i--) {
+    const line = lines[i]?.trim();
+    if (!line) continue;
+    const testMatch = /test\s*\(\s*['"]([^'"]+)['"]/.exec(line);
+    if (testMatch && testMatch[1]) {
+      return testMatch[1];
+    }
+  }
+  return null;
 }

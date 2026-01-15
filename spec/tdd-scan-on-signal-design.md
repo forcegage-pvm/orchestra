@@ -165,14 +165,14 @@ The system provides clear guidance via signal failure messages:
 
 ### 1. Task ID in Markers (REQUIRED)
 
-**Decision**: Markers MUST include task ID using language-native syntax.
+**Decision**: Markers MUST include task ID as a SINGLE TOKEN: `tdd-red:task-N`
 
 **Dart** - uses `tags` parameter:
 ```dart
-test('should construct with defaults', () { ... }, tags: ['tdd-red', 'task-3']);
+test('should construct with defaults', () { ... }, tags: ['tdd-red:task-3']);
 
 // Or at file level
-@Tags(['tdd-red', 'task-3'])
+@Tags(['tdd-red:task-3'])
 void main() {
   test('all tests in file inherit tags', () { ... });
 }
@@ -269,7 +269,7 @@ INSERT INTO tdd_red_registry (red_task_id, test_identifier, ...) VALUES ...;
 
 | Language | Marker Syntax | Location | Granularity |
 |----------|---------------|----------|-------------|
-| **Dart** | `tags: ['tdd-red', 'task-N']` | `test()` parameter or `@Tags()` annotation | Test or file level |
+| **Dart** | `tags: ['tdd-red:task-N']` | `test()` parameter or `@Tags()` annotation | Test or file level |
 | **TypeScript** | `[tdd-red:task-N]` prefix | Test/describe name string | Test or describe level |
 
 **Dart Examples**:
@@ -277,20 +277,13 @@ INSERT INTO tdd_red_registry (red_task_id, test_identifier, ...) VALUES ...;
 // Test-level marker
 test('should construct with defaults', () {
   expect(widget.value, equals(0));
-}, tags: ['tdd-red', 'task-3']);
+}, tags: ['tdd-red:task-3']);
 
 // File-level marker (all tests in file)
-@Tags(['tdd-red', 'task-3'])
+@Tags(['tdd-red:task-3'])
 void main() {
   test('inherits file tags', () { ... });
   test('also inherits', () { ... });
-}
-
-// Mixed - file has base tags, test adds more
-@Tags(['tdd-red'])
-void main() {
-  test('just tdd-red', () { ... });
-  test('also task-5', () { ... }, tags: ['task-5']);
 }
 ```
 
@@ -645,8 +638,8 @@ File: `src/db/migrations.ts`
 
 **Update**:
 - "Mark tests with TDD markers" section with new syntax:
-  - TypeScript: `[tdd-red:task-N]` in test name (not just `[tdd-red]`)
-  - Dart: `tags: ['tdd-red', 'task-N']` (include task ID)
+  - TypeScript: `[tdd-red:task-N]` in test name
+  - Dart: `tags: ['tdd-red:task-N']` (single token with task ID)
 - Remove "Option 1: Place in test/tdd-red/ directory" (we use markers, not directories)
 
 **Current (to remove)**:
@@ -750,16 +743,16 @@ File: `src/mcp-server/handlers/prepare-task.ts`
 
 ```dart
 // Test-level
-test('name', () { ... }, tags: ['tdd-red', 'task-3']);
+test('name', () { ... }, tags: ['tdd-red:task-3']);
 
 // File-level  
-@Tags(['tdd-red', 'task-3'])
+@Tags(['tdd-red:task-3'])
 void main() { ... }
 ```
 
 **Commands**:
-- Normal run: `dart test --exclude-tags=tdd-red`
-- TDD-red run: `dart test --tags=tdd-red`
+- Normal run: `dart test --exclude-tags=tdd-red:task-3`
+- TDD-red run: `dart test --tags=tdd-red:task-3`
 
 **Scanner**: Parse `tags:` parameter values and `@Tags()` annotations.
 
@@ -789,7 +782,7 @@ describe('[tdd-red:task-3] Feature group', () => { ... });
 
 **Decision**: Supported via language-native mechanisms.
 
-- **Dart**: `@Tags(['tdd-red', 'task-N'])` annotation at file level
+- **Dart**: `@Tags(['tdd-red:task-N'])` annotation at file level
 - **TypeScript**: `describe('[tdd-red:task-N] ...', () => { ... })` wrapping all tests
 
 Both provide file-level marking without requiring a separate syntax.
