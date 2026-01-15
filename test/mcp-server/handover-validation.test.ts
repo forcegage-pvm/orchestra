@@ -146,6 +146,24 @@ describe("handover-validation", () => {
         expect(result.valid).toBe(false);
         expect(result.violations.length).toBeGreaterThan(0);
       });
+
+      it("should ALLOW TDD marker format tdd-red:task-N", () => {
+        const context =
+          "Add @Tags(['tdd-red:task-3']) annotation at the top of the file. " +
+          "The single-token format tdd-red:task-3 is required for TDD red phase.";
+        const result = validateHandoverContext(context);
+        expect(result.valid).toBe(true);
+        expect(result.violations).toHaveLength(0);
+      });
+
+      it("should ALLOW multiple TDD marker references", () => {
+        const context =
+          "Use [tdd-red:task-5] in test name or tags: ['tdd-red:task-5'] inline. " +
+          "Format is tdd-red:task-N where N is the task ID.";
+        const result = validateHandoverContext(context);
+        expect(result.valid).toBe(true);
+        expect(result.violations).toHaveLength(0);
+      });
     });
 
     describe("sprint structure references", () => {
