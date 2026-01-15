@@ -48,7 +48,7 @@ const TOOLS_WITH_ROLES: ToolWithRole[] = [
     role: "orchestrator",
     name: "configure_sprint",
     description:
-      "Configure a new sprint with tasks, phases, dependencies, and verification criteria. Can accept inline data OR a config_file path to load configuration from filesystem.",
+      "Configure a new sprint with tasks, phases, dependencies, and verification criteria. Can accept inline data OR a config_file path to load configuration from filesystem. IMPORTANT: If any task has tdd_red_phase=true, you MUST provide a corresponding entry in tdd_relationships declaring which task will be the green phase.",
     inputSchema: {
       type: "object",
       properties: {
@@ -95,7 +95,7 @@ const TOOLS_WITH_ROLES: ToolWithRole[] = [
               tdd_red_phase: {
                 type: "boolean",
                 description:
-                  "Enable TDD red-phase verification: verify tests FAIL before implementation to prove tests are meaningful",
+                  "Enable TDD red-phase verification. REQUIRES a corresponding entry in tdd_relationships declaring which task will implement the feature (green phase). Red and green phases must be SEPARATE tasks.",
               },
               verification: {
                 type: "object",
@@ -128,6 +128,27 @@ const TOOLS_WITH_ROLES: ToolWithRole[] = [
               phase_id: { type: "string" },
               tasks: { type: "array", items: { type: "number" } },
             },
+          },
+        },
+        tdd_relationships: {
+          type: "array",
+          description:
+            "REQUIRED for any task with tdd_red_phase=true. Declares which task will implement the feature (green phase) for each red-phase task. Red and green must be separate tasks.",
+          items: {
+            type: "object",
+            properties: {
+              red_task_id: {
+                type: "number",
+                description:
+                  "Task ID of the red-phase task (must have tdd_red_phase=true)",
+              },
+              green_task_id: {
+                type: "number",
+                description:
+                  "Task ID of the green-phase task that will implement the feature and make tests pass (must be different from red_task_id)",
+              },
+            },
+            required: ["red_task_id", "green_task_id"],
           },
         },
       },

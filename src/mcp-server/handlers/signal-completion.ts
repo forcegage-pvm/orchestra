@@ -268,7 +268,18 @@ async function signalCompletion(
     // Check if zero tests found - this is an error for red-phase tasks
     if (scanResult.tests.length === 0) {
       throw new Error(
-        `TDD red-phase task must have at least one test with marker [tdd-red:task-${task.task_id}] or tags: ['task-${task.task_id}']. No tests found in workspace scan.`
+        `TDD RED-PHASE WORKFLOW VIOLATION:\n\n` +
+          `Task ${task.task_id} has tdd_red_phase=true but no TDD markers were found.\n\n` +
+          `Expected markers: [tdd-red:task-${task.task_id}] or @Tags(['task-${task.task_id}'])\n\n` +
+          `This usually happens when the handover incorrectly instructed the implementor to:\n` +
+          `1. Write tests with TDD markers\n` +
+          `2. Implement the feature\n` +
+          `3. Remove the markers\n\n` +
+          `This is INCORRECT. Red and green phases MUST be separate tasks:\n` +
+          `- Red task: Write failing tests, KEEP markers, signal completion\n` +
+          `- Green task: Implement feature, remove markers, signal completion\n\n` +
+          `To fix: Escalate this task and reconfigure with separate red/green tasks.\n` +
+          `See TD-021 for TDD task separation enforcement details.`
       );
     }
 

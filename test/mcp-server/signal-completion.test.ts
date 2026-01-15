@@ -482,10 +482,12 @@ describe("signal_completion handler", () => {
 
       expect(resultData.success).toBe(false);
       expect(resultData.error.message).toContain(
-        "TDD red-phase task must have at least one test"
+        "TDD RED-PHASE WORKFLOW VIOLATION"
       );
-      expect(resultData.error.message).toContain("[tdd-red:task-5]");
-      expect(resultData.error.message).toContain("tags: ['task-5']");
+      expect(resultData.error.message).toContain("no TDD markers were found");
+      expect(resultData.error.message).toContain(
+        "Red and green phases MUST be separate tasks"
+      );
     });
 
     it("should not call scanner for non-tdd_red_phase tasks", async () => {

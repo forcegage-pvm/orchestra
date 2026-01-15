@@ -70,6 +70,31 @@ describe("configure_sprint handler", () => {
               ],
             },
           },
+          {
+            task_id: 2,
+            phase_id: "phase-1",
+            title: "Green Task",
+            description: "Task description",
+            category: "INFRASTRUCTURE",
+            dependencies: [1],
+            verification: {
+              structural_checks: [
+                {
+                  description: "File exists",
+                  severity: "MAJOR",
+                  path: "src/impl.ts",
+                  pattern: ".*",
+                  min_matches: 1,
+                },
+              ],
+            },
+          },
+        ],
+        tdd_relationships: [
+          {
+            red_task_id: 1,
+            green_task_id: 2,
+          },
         ],
       };
 
@@ -78,7 +103,7 @@ describe("configure_sprint handler", () => {
 
       expect(parsed.success).toBe(true);
       expect(parsed.sprint_id).toBe("test-sprint-001");
-      expect(parsed.tasks_created).toBe(1);
+      expect(parsed.tasks_created).toBe(2);
 
       // Verify tdd_red_phase is stored correctly in database
       const db = getDb();
@@ -271,6 +296,31 @@ describe("configure_sprint handler", () => {
               ],
             },
           },
+          {
+            task_id: 4,
+            phase_id: "phase-1",
+            title: "Green task for task 1",
+            description: "Description 4",
+            category: "INFRASTRUCTURE",
+            dependencies: [1],
+            verification: {
+              structural_checks: [
+                {
+                  description: "File exists",
+                  severity: "MAJOR",
+                  path: "src/impl.ts",
+                  pattern: ".*",
+                  min_matches: 1,
+                },
+              ],
+            },
+          },
+        ],
+        tdd_relationships: [
+          {
+            red_task_id: 1,
+            green_task_id: 4,
+          },
         ],
       };
 
@@ -278,7 +328,7 @@ describe("configure_sprint handler", () => {
       const parsed = JSON.parse(result.content[0].text);
 
       expect(parsed.success).toBe(true);
-      expect(parsed.tasks_created).toBe(3);
+      expect(parsed.tasks_created).toBe(4);
 
       // Verify each task has correct tdd_red_phase value
       const db = getDb();
@@ -288,13 +338,15 @@ describe("configure_sprint handler", () => {
         .where(eq(tasks.sprint_id, "test-sprint-004"))
         .orderBy(tasks.task_id);
 
-      expect(allTasks).toHaveLength(3);
+      expect(allTasks).toHaveLength(4);
       expect(allTasks[0].task_id).toBe(1);
       expect(allTasks[0].tdd_red_phase).toBe(true);
       expect(allTasks[1].task_id).toBe(2);
       expect(allTasks[1].tdd_red_phase).toBe(false);
       expect(allTasks[2].task_id).toBe(3);
       expect(allTasks[2].tdd_red_phase).toBe(false);
+      expect(allTasks[3].task_id).toBe(4);
+      expect(allTasks[3].tdd_red_phase).toBe(false);
     });
   });
 
@@ -525,7 +577,7 @@ describe("configure_sprint handler", () => {
 
       expect(parsed.success).toBe(false);
       expect(parsed.error.code).toBe("VALIDATION_ERROR");
-      
+
       // Check that validation issues contain the expected error about tdd_red_phase
       const issuesText = JSON.stringify(parsed.error.details.issues);
       expect(issuesText).toContain("tdd_red_phase=true");
@@ -578,7 +630,7 @@ describe("configure_sprint handler", () => {
 
       expect(parsed.success).toBe(false);
       expect(parsed.error.code).toBe("VALIDATION_ERROR");
-      
+
       // Check that validation issues contain the expected error
       const issuesText = JSON.stringify(parsed.error.details.issues);
       expect(issuesText).toContain("must be different");
@@ -630,7 +682,7 @@ describe("configure_sprint handler", () => {
 
       expect(parsed.success).toBe(false);
       expect(parsed.error.code).toBe("VALIDATION_ERROR");
-      
+
       // Check that validation issues contain the expected error
       const issuesText = JSON.stringify(parsed.error.details.issues);
       expect(issuesText).toContain("non-existent red task");
@@ -683,7 +735,7 @@ describe("configure_sprint handler", () => {
 
       expect(parsed.success).toBe(false);
       expect(parsed.error.code).toBe("VALIDATION_ERROR");
-      
+
       // Check that validation issues contain the expected error
       const issuesText = JSON.stringify(parsed.error.details.issues);
       expect(issuesText).toContain("non-existent green task");
@@ -809,6 +861,76 @@ describe("configure_sprint handler", () => {
       expect(relationships).toHaveLength(2);
       expect(relationships[0].declared_at).toBe("configure_sprint");
       expect(relationships[1].declared_at).toBe("configure_sprint");
+    });
+
+    it("should reject tdd_red_phase task without corresponding tdd_relationship entry", async () => {
+      const input: ConfigureSprintInput = {
+        sprint: {
+          id: "test-sprint-tdd-orphan",
+          name: "Test Sprint - Orphan Red Task",
+        },
+        phases: [
+          {
+            phase_id: "phase-1",
+            phase_name: "Phase 1",
+          },
+        ],
+        tasks: [
+          {
+            task_id: 1,
+            phase_id: "phase-1",
+            title: "Red Task Without Green",
+            description: "This red task has no green task declared",
+            category: "INFRASTRUCTURE",
+            dependencies: [],
+            tdd_red_phase: true, // Red phase but no relationship
+            verification: {
+              structural_checks: [
+                {
+                  description: "Check",
+                  severity: "MAJOR",
+                  path: "test/orphan.ts",
+                  pattern: ".*",
+                  min_matches: 1,
+                },
+              ],
+            },
+          },
+          {
+            task_id: 2,
+            phase_id: "phase-1",
+            title: "Some Other Task",
+            description: "A non-TDD task",
+            category: "INFRASTRUCTURE",
+            dependencies: [],
+            verification: {
+              structural_checks: [
+                {
+                  description: "Check",
+                  severity: "MAJOR",
+                  path: "src/other.ts",
+                  pattern: ".*",
+                  min_matches: 1,
+                },
+              ],
+            },
+          },
+        ],
+        // NO tdd_relationships provided - task 1 is orphaned
+      };
+
+      const result = await handleConfigureSprint(input);
+      const parsed = JSON.parse(result.content[0].text);
+
+      expect(parsed.success).toBe(false);
+      expect(parsed.error.code).toBe("VALIDATION_ERROR");
+
+      // Check that validation issues explain the problem clearly
+      const issuesText = JSON.stringify(parsed.error.details.issues);
+      expect(issuesText).toContain(
+        "tdd_red_phase=true but no entry in tdd_relationships"
+      );
+      expect(issuesText).toContain("MUST have a corresponding green task");
     });
   });
 });

@@ -218,6 +218,30 @@ export const ConfigureSprintInputSchema = z
         }
       });
     }
+
+    // Validate that ALL tasks with tdd_red_phase=true have a corresponding tdd_relationship entry
+    // This enforces red/green task separation at configuration time
+    if (data.tasks) {
+      const redTaskIdsWithRelationship = new Set(
+        (data.tdd_relationships || []).map((rel) => rel.red_task_id)
+      );
+
+      data.tasks.forEach((task, idx) => {
+        if (
+          task.tdd_red_phase &&
+          !redTaskIdsWithRelationship.has(task.task_id)
+        ) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message:
+              `Task ${task.task_id} has tdd_red_phase=true but no entry in tdd_relationships. ` +
+              `TDD red-phase tasks MUST have a corresponding green task declared. ` +
+              `Add an entry to tdd_relationships: { red_task_id: ${task.task_id}, green_task_id: <green_task_id> }`,
+            path: ["tasks", idx, "tdd_red_phase"],
+          });
+        }
+      });
+    }
   });
 
 export type ConfigureSprintInput = z.output<typeof ConfigureSprintInputSchema>;

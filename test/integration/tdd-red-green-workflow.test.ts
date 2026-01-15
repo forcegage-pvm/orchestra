@@ -559,6 +559,31 @@ describe('Feature', () => {
               ],
             },
           },
+          {
+            task_id: 2,
+            phase_id: "phase-1",
+            title: "Green Phase Task",
+            description: "Implement feature",
+            category: "INFRASTRUCTURE",
+            dependencies: [1],
+            verification: {
+              structural_checks: [
+                {
+                  description: "Impl file exists",
+                  severity: "MAJOR",
+                  path: "src/feature.ts",
+                  pattern: "export",
+                  min_matches: 1,
+                },
+              ],
+            },
+          },
+        ],
+        tdd_relationships: [
+          {
+            red_task_id: 1,
+            green_task_id: 2,
+          },
         ],
       };
 

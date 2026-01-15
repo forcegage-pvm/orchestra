@@ -771,7 +771,7 @@ describe("configure_sprint - TDD relationship declaration", () => {
       expect(relationships).toHaveLength(0);
     });
 
-    it("should accept sprint with empty tdd_relationships array", async () => {
+    it("should accept sprint with empty tdd_relationships array when no red-phase tasks", async () => {
       const input: ConfigureSprintInput = {
         sprint: {
           id: "test-sprint-tdd-upfront-011",
@@ -787,11 +787,11 @@ describe("configure_sprint - TDD relationship declaration", () => {
           {
             task_id: 1,
             phase_id: "phase-1",
-            title: "Task with Red Phase",
-            description: "Red phase task but no relationship declared",
+            title: "Task without Red Phase",
+            description: "Normal task, no TDD red phase",
             category: "INFRASTRUCTURE",
             dependencies: [],
-            tdd_red_phase: true,
+            tdd_red_phase: false, // NOT a red phase task
             verification: {
               structural_checks: [
                 {
@@ -805,7 +805,7 @@ describe("configure_sprint - TDD relationship declaration", () => {
             },
           },
         ],
-        tdd_relationships: [], // Empty array
+        tdd_relationships: [], // Empty array is valid when no red-phase tasks
       };
 
       const result = await handleConfigureSprint(input);
@@ -880,11 +880,34 @@ describe("configure_sprint - TDD relationship declaration", () => {
               ],
             },
           },
+          {
+            task_id: 3,
+            phase_id: "phase-1",
+            title: "Task 3 - Green for Task 2",
+            description: "Implements features for task 2's tests",
+            category: "INFRASTRUCTURE",
+            dependencies: [2],
+            verification: {
+              structural_checks: [
+                {
+                  description: "Check",
+                  severity: "MAJOR",
+                  path: "src/impl.ts",
+                  pattern: ".*",
+                  min_matches: 1,
+                },
+              ],
+            },
+          },
         ],
         tdd_relationships: [
           {
             red_task_id: 1,
             green_task_id: 2, // Green task also has tdd_red_phase=true
+          },
+          {
+            red_task_id: 2,
+            green_task_id: 3, // Task 2 needs its own green
           },
         ],
       };
@@ -894,9 +917,9 @@ describe("configure_sprint - TDD relationship declaration", () => {
 
       // This should be allowed - green task can also be a red task
       expect(parsed.success).toBe(true);
-      expect(parsed.tasks_created).toBe(2);
+      expect(parsed.tasks_created).toBe(3);
 
-      // Verify relationship is created
+      // Verify relationships are created
       const db = getDb();
       const relationships = await db
         .select()
@@ -905,7 +928,7 @@ describe("configure_sprint - TDD relationship declaration", () => {
           eq(tddTaskRelationships.sprint_id, "test-sprint-tdd-upfront-012")
         );
 
-      expect(relationships).toHaveLength(1);
+      expect(relationships).toHaveLength(2);
       expect(relationships[0].declared_at).toBe("configure_sprint");
     });
   });
