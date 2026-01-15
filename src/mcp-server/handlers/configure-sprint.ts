@@ -14,6 +14,7 @@
  */
 
 import { eq, sql } from "drizzle-orm";
+import { glob } from "glob";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { getDb } from "../../db/index.js";
@@ -407,7 +408,9 @@ async function configureSprint(input: ConfigureSprintInput): Promise<{
     .set({ workflow_step: "SELECT_TASK", updated_at: now })
     .where(eq(sprints.id, sprint.id));
 
-  // 10. Insert TDD config defaults (preserve existing values with INSERT OR IGNORE)
+  // 10. Auto-detect project language and set TDD config defaults
+  const detectedPatterns = await detectProjectTestPatterns();
+
   const tddConfigDefaults = [
     {
       key: "tdd.require_tests",
@@ -421,13 +424,13 @@ async function configureSprint(input: ConfigureSprintInput): Promise<{
     },
     {
       key: "tdd.test_file_pattern",
-      value: "test/**/*.test.ts",
-      description: "Glob pattern for test files",
+      value: detectedPatterns.testFilePattern,
+      description: `Glob pattern for test files (auto-detected: ${detectedPatterns.language})`,
     },
     {
       key: "tdd.test_pattern",
-      value: "describe|test|it",
-      description: "Regex pattern to validate test content",
+      value: detectedPatterns.testContentPattern,
+      description: `Regex pattern to validate test content (auto-detected: ${detectedPatterns.language})`,
     },
   ];
 
@@ -451,4 +454,133 @@ async function configureSprint(input: ConfigureSprintInput): Promise<{
   };
 }
 
-// Import eq helper
+/**
+ * Detect project language from workspace files and return appropriate test patterns.
+ * Checks for presence of language-specific files (pubspec.yaml, package.json, etc.)
+ */
+async function detectProjectTestPatterns(): Promise<{
+  language: string;
+  testFilePattern: string;
+  testContentPattern: string;
+}> {
+  const workspaceRoot = process.cwd();
+
+  // Check for language-specific project files in priority order
+  const projectIndicators: Array<{
+    file: string;
+    language: string;
+    testFilePattern: string;
+    testContentPattern: string;
+  }> = [
+    {
+      file: "pubspec.yaml",
+      language: "Dart",
+      testFilePattern: "test/**/*_test.dart",
+      testContentPattern: "test\\(|testWidgets\\(|group\\(",
+    },
+    {
+      file: "pyproject.toml",
+      language: "Python",
+      testFilePattern: "test/**/test_*.py",
+      testContentPattern: "def test_|class Test",
+    },
+    {
+      file: "requirements.txt",
+      language: "Python",
+      testFilePattern: "test/**/test_*.py",
+      testContentPattern: "def test_|class Test",
+    },
+    {
+      file: "Cargo.toml",
+      language: "Rust",
+      testFilePattern: "tests/**/*.rs",
+      testContentPattern: "#\\[test\\]|#\\[cfg\\(test\\)\\]",
+    },
+    {
+      file: "go.mod",
+      language: "Go",
+      testFilePattern: "**/*_test.go",
+      testContentPattern: "func Test",
+    },
+    {
+      file: "pom.xml",
+      language: "Java",
+      testFilePattern: "src/test/**/*Test.java",
+      testContentPattern: "@Test|@RunWith",
+    },
+    {
+      file: "build.gradle",
+      language: "Java/Kotlin",
+      testFilePattern: "src/test/**/*Test.{java,kt}",
+      testContentPattern: "@Test|@RunWith",
+    },
+    {
+      file: "*.csproj",
+      language: "C#",
+      testFilePattern: "**/*.Tests/**/*Tests.cs",
+      testContentPattern: "\\[Test\\]|\\[Fact\\]|\\[Theory\\]",
+    },
+    {
+      file: "Gemfile",
+      language: "Ruby",
+      testFilePattern: "test/**/*_test.rb",
+      testContentPattern: "describe |it |test |RSpec",
+    },
+    {
+      file: "composer.json",
+      language: "PHP",
+      testFilePattern: "tests/**/*Test.php",
+      testContentPattern: "public function test|@test",
+    },
+  ];
+
+  // Check each indicator
+  for (const indicator of projectIndicators) {
+    try {
+      if (indicator.file.includes("*")) {
+        // Glob pattern - check if any matching files exist
+        const matches = await glob(indicator.file, {
+          cwd: workspaceRoot,
+          nodir: true,
+          maxDepth: 1,
+        });
+        if (matches.length > 0) {
+          return {
+            language: indicator.language,
+            testFilePattern: indicator.testFilePattern,
+            testContentPattern: indicator.testContentPattern,
+          };
+        }
+      } else {
+        // Exact file - check existence
+        const filePath = path.join(workspaceRoot, indicator.file);
+        if (fs.existsSync(filePath)) {
+          return {
+            language: indicator.language,
+            testFilePattern: indicator.testFilePattern,
+            testContentPattern: indicator.testContentPattern,
+          };
+        }
+      }
+    } catch {
+      // Ignore errors, continue checking
+    }
+  }
+
+  // Check for package.json last (TypeScript/JavaScript - most common default)
+  const packageJsonPath = path.join(workspaceRoot, "package.json");
+  if (fs.existsSync(packageJsonPath)) {
+    return {
+      language: "TypeScript/JavaScript",
+      testFilePattern: "test/**/*.test.ts",
+      testContentPattern: "describe|test|it",
+    };
+  }
+
+  // Fallback to TypeScript if nothing detected
+  return {
+    language: "TypeScript (default)",
+    testFilePattern: "test/**/*.test.ts",
+    testContentPattern: "describe|test|it",
+  };
+}
