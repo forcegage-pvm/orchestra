@@ -29,6 +29,15 @@ export interface TaskData {
     recommended_action: string | null;
     escalated_at: string;
   } | null;
+  tdd?: {
+    isRedPhase: boolean;
+    registeredTests: number;
+    validatedTests: number;
+    greenTaskId: number | null;
+    greenTaskTitle: string | null;
+    redTaskId?: number;
+    redTaskTitle?: string;
+  } | null;
 }
 
 /**
@@ -235,6 +244,60 @@ function getStyles(): string {
     .btn-primary.escalated {
       background: var(--vscode-charts-red);
     }
+    .tdd-banner {
+      background: var(--vscode-inputValidation-infoBackground);
+      border: 1px solid var(--vscode-charts-purple);
+      border-radius: 4px;
+      padding: 8px 12px;
+      margin-bottom: 12px;
+      font-size: 11px;
+    }
+    .tdd-banner.red-phase {
+      border-color: var(--vscode-charts-red);
+    }
+    .tdd-banner.green-phase {
+      border-color: var(--vscode-charts-green);
+    }
+    .tdd-header {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-weight: 600;
+      font-size: 12px;
+      margin-bottom: 6px;
+    }
+    .tdd-header .pill {
+      font-size: 9px;
+    }
+    .pill-tdd-red {
+      background: var(--vscode-charts-red);
+      color: #fff;
+    }
+    .pill-tdd-green {
+      background: var(--vscode-charts-green);
+      color: #fff;
+    }
+    .tdd-stats {
+      display: flex;
+      gap: 12px;
+      margin-top: 6px;
+    }
+    .tdd-stat {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .tdd-stat-value {
+      font-weight: 600;
+    }
+    .tdd-link {
+      color: var(--vscode-textLink-foreground);
+      cursor: pointer;
+      text-decoration: underline;
+    }
+    .tdd-link:hover {
+      color: var(--vscode-textLink-activeForeground);
+    }
   `;
 }
 
@@ -329,6 +392,58 @@ function getScript(): string {
           </div>
         \`;
       }
+
+      // Render TDD banner if this is a TDD task
+      let tddBanner = '';
+      if (task.tdd) {
+        if (task.tdd.isRedPhase) {
+          const greenLink = task.tdd.greenTaskId 
+            ? \`<span class="tdd-link" onclick="openTask(\${task.tdd.greenTaskId})">Task \${task.tdd.greenTaskId}: \${escapeHtml(task.tdd.greenTaskTitle || 'Green Task')}</span>\`
+            : '<em>Not assigned yet</em>';
+          tddBanner = \`
+            <div class="tdd-banner red-phase">
+              <div class="tdd-header">
+                <span class="pill pill-tdd-red">TDD RED</span>
+                Write Failing Tests
+              </div>
+              <div class="tdd-stats">
+                <div class="tdd-stat">
+                  <span>Tests:</span>
+                  <span class="tdd-stat-value">\${task.tdd.validatedTests}/\${task.tdd.registeredTests}</span>
+                  <span>validated</span>
+                </div>
+              </div>
+              <div style="margin-top: 6px;">
+                <span>Green Task:</span> \${greenLink}
+              </div>
+            </div>
+          \`;
+        } else {
+          // Green phase task
+          const redLink = task.tdd.redTaskId 
+            ? \`<span class="tdd-link" onclick="openTask(\${task.tdd.redTaskId})">Task \${task.tdd.redTaskId}: \${escapeHtml(task.tdd.redTaskTitle || 'Red Task')}</span>\`
+            : '';
+          tddBanner = \`
+            <div class="tdd-banner green-phase">
+              <div class="tdd-header">
+                <span class="pill pill-tdd-green">TDD GREEN</span>
+                Make Tests Pass
+              </div>
+              <div class="tdd-stats">
+                <div class="tdd-stat">
+                  <span>Tests to green:</span>
+                  <span class="tdd-stat-value">\${task.tdd.registeredTests}</span>
+                </div>
+                <div class="tdd-stat">
+                  <span>Passed:</span>
+                  <span class="tdd-stat-value">\${task.tdd.validatedTests}</span>
+                </div>
+              </div>
+              \${redLink ? \`<div style="margin-top: 6px;">From: \${redLink}</div>\` : ''}
+            </div>
+          \`;
+        }
+      }
       
       return \`
         <div class="task-card">
@@ -342,6 +457,7 @@ function getScript(): string {
             <span class="pill pill-category">\${task.category}</span>
           </div>
           <div class="task-title">\${escapeHtml(task.title)}</div>
+          \${tddBanner}
           \${escalationBanner}
           <div class="task-description">\${escapeHtml(task.description)}</div>
           <div class="action-buttons">
@@ -519,6 +635,70 @@ function renderTaskCard(task: TaskData): string {
   `
     : "";
 
+  // Render TDD banner if this is a TDD task
+  let tddBanner = "";
+  if (task.tdd) {
+    if (task.tdd.isRedPhase) {
+      const greenLink = task.tdd.greenTaskId
+        ? `<span class="tdd-link" onclick="openTask(${
+            task.tdd.greenTaskId
+          })">Task ${task.tdd.greenTaskId}: ${escapeHtml(
+            task.tdd.greenTaskTitle || "Green Task"
+          )}</span>`
+        : "<em>Not assigned yet</em>";
+      tddBanner = `
+        <div class="tdd-banner red-phase">
+          <div class="tdd-header">
+            <span class="pill pill-tdd-red">TDD RED</span>
+            Write Failing Tests
+          </div>
+          <div class="tdd-stats">
+            <div class="tdd-stat">
+              <span>Tests:</span>
+              <span class="tdd-stat-value">${task.tdd.validatedTests}/${task.tdd.registeredTests}</span>
+              <span>validated</span>
+            </div>
+          </div>
+          <div style="margin-top: 6px;">
+            <span>Green Task:</span> ${greenLink}
+          </div>
+        </div>
+      `;
+    } else {
+      // Green phase task
+      const redLink = task.tdd.redTaskId
+        ? `<span class="tdd-link" onclick="openTask(${
+            task.tdd.redTaskId
+          })">Task ${task.tdd.redTaskId}: ${escapeHtml(
+            task.tdd.redTaskTitle || "Red Task"
+          )}</span>`
+        : "";
+      tddBanner = `
+        <div class="tdd-banner green-phase">
+          <div class="tdd-header">
+            <span class="pill pill-tdd-green">TDD GREEN</span>
+            Make Tests Pass
+          </div>
+          <div class="tdd-stats">
+            <div class="tdd-stat">
+              <span>Tests to green:</span>
+              <span class="tdd-stat-value">${task.tdd.registeredTests}</span>
+            </div>
+            <div class="tdd-stat">
+              <span>Passed:</span>
+              <span class="tdd-stat-value">${task.tdd.validatedTests}</span>
+            </div>
+          </div>
+          ${
+            redLink
+              ? `<div style="margin-top: 6px;">From: ${redLink}</div>`
+              : ""
+          }
+        </div>
+      `;
+    }
+  }
+
   return `
     <div class="task-card">
       <div class="task-header">
@@ -533,6 +713,7 @@ function renderTaskCard(task: TaskData): string {
         <span class="pill pill-category">${escapeHtml(task.category)}</span>
       </div>
       <div class="task-title">${escapeHtml(task.title)}</div>
+      ${tddBanner}
       ${escalationBanner}
       <div class="task-description">${escapeHtml(task.description)}</div>
       <div class="action-buttons">

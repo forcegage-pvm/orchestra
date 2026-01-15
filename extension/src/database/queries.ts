@@ -45,6 +45,39 @@ export interface Task {
   created_at: string;
   updated_at: string;
   completed_at: string | null;
+  tdd_red_phase?: boolean;
+}
+
+/**
+ * TDD Registry entry for a red-phase task
+ */
+export interface TddRegistryEntry {
+  id: number;
+  sprint_id: string;
+  red_task_id: number;
+  green_task_id: number | null;
+  test_identifier: string;
+  description: string | null;
+  marker_type: string | null;
+  status: string; // REGISTERED, VALIDATED, ASSIGNED, GREENED
+  created_at: string;
+  validated_at: string | null;
+  assigned_at: string | null;
+  greened_at: string | null;
+}
+
+/**
+ * TDD info summary for a task
+ */
+export interface TddInfo {
+  isRedPhase: boolean;
+  registeredTests: number;
+  validatedTests: number;
+  greenTaskId: number | null;
+  greenTaskTitle: string | null;
+  redTaskId?: number; // For green tasks: the linked red task
+  redTaskTitle?: string; // For green tasks: the linked red task title
+  entries: TddRegistryEntry[];
 }
 
 export interface Phase {
@@ -964,4 +997,100 @@ export function getSessionLabel(
     .all() as { tab_label: string }[];
 
   return results[0]?.tab_label ?? null;
+}
+
+/**
+ * Get TDD info for a task
+ *
+ * Returns TDD registry information for red-phase tasks, including
+ * registered tests, validation status, and linked green task.
+ *
+ * @param workspaceRoot Absolute path to workspace root
+ * @param taskId Database task ID
+ * @returns TDD info or null if not a TDD task
+ */
+export function getTddInfo(
+  workspaceRoot: string,
+  taskId: number
+): TddInfo | null {
+  // Use raw SQLite for direct queries (TDD tables may not be in Drizzle schema)
+  const db = OrchestraDB.getInstance(workspaceRoot);
+
+  // Check if this task is a red-phase task
+  const taskResult = db
+    .prepare(`SELECT tdd_red_phase FROM tasks WHERE id = ?`)
+    .get(taskId) as { tdd_red_phase: number } | undefined;
+
+  if (!taskResult || !taskResult.tdd_red_phase) {
+    // Check if this is a green task linked to a red task
+    const greenCheck = db
+      .prepare(
+        `SELECT DISTINCT red_task_id, t.title as red_task_title
+         FROM tdd_red_registry r
+         JOIN tasks t ON t.id = r.red_task_id
+         WHERE r.green_task_id = ?
+         LIMIT 1`
+      )
+      .get(taskId) as
+      | { red_task_id: number; red_task_title: string }
+      | undefined;
+
+    if (greenCheck) {
+      // This is a green task - get the count of tests to green
+      const testCount = db
+        .prepare(
+          `SELECT COUNT(*) as count FROM tdd_red_registry WHERE green_task_id = ?`
+        )
+        .get(taskId) as { count: number };
+
+      const greenedCount = db
+        .prepare(
+          `SELECT COUNT(*) as count FROM tdd_red_registry WHERE green_task_id = ? AND status = 'GREENED'`
+        )
+        .get(taskId) as { count: number };
+
+      return {
+        isRedPhase: false,
+        registeredTests: testCount.count,
+        validatedTests: greenedCount.count,
+        greenTaskId: null,
+        greenTaskTitle: null,
+        redTaskId: greenCheck.red_task_id,
+        redTaskTitle: greenCheck.red_task_title,
+        entries: [],
+      };
+    }
+
+    return null;
+  }
+
+  // Get all registry entries for this red task
+  const entries = db
+    .prepare(`SELECT * FROM tdd_red_registry WHERE red_task_id = ? ORDER BY id`)
+    .all(taskId) as TddRegistryEntry[];
+
+  const registeredCount = entries.length;
+  const validatedCount = entries.filter(
+    (e) => e.status !== "REGISTERED"
+  ).length;
+
+  // Get linked green task if any
+  const greenTaskId = entries.find((e) => e.green_task_id)?.green_task_id;
+  let greenTaskTitle: string | null = null;
+
+  if (greenTaskId) {
+    const greenTask = db
+      .prepare(`SELECT title FROM tasks WHERE id = ?`)
+      .get(greenTaskId) as { title: string } | undefined;
+    greenTaskTitle = greenTask?.title ?? null;
+  }
+
+  return {
+    isRedPhase: true,
+    registeredTests: registeredCount,
+    validatedTests: validatedCount,
+    greenTaskId: greenTaskId ?? null,
+    greenTaskTitle,
+    entries,
+  };
 }

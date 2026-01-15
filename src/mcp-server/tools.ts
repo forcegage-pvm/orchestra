@@ -773,6 +773,15 @@ const TOOLS_WITH_ROLES: ToolWithRole[] = [
       type: "object",
       properties: {
         task_id: { type: "number", description: "The task ID to complete" },
+        green_task_id: {
+          type: "number",
+          description:
+            "For TDD red-phase tasks: ID of the green-phase task that will implement the tests",
+        },
+        notes: {
+          type: "string",
+          description: "Optional completion notes",
+        },
       },
       required: ["task_id"],
     },
@@ -833,6 +842,11 @@ const TOOLS_WITH_ROLES: ToolWithRole[] = [
           type: "string",
           description:
             'Optional marker type used to skip the test (e.g., "it.skip", "test.todo", "@Tags([\'tdd-red\'])")',
+        },
+        clear_existing: {
+          type: "boolean",
+          description:
+            "If true, clears ALL existing TDD registrations for this task before registering. Use when re-registering tests after a failed attempt.",
         },
       },
       required: ["task_id", "test_identifier"],

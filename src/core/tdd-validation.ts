@@ -230,13 +230,14 @@ async function scanWorkspaceForMarkers(
 
 /**
  * Find test file in workspace by name
- * Searches common test directories: test/, tests/, __tests__, src/
+ * Searches recursively in common test directories: test/, tests/, __tests__, src/
  */
 async function findTestFile(
   workspaceRoot: string,
   fileName: string
 ): Promise<string | null> {
-  const searchPaths = [
+  // First try direct paths (fast path)
+  const directPaths = [
     path.join(workspaceRoot, "test", fileName),
     path.join(workspaceRoot, "tests", fileName),
     path.join(workspaceRoot, "__tests__", fileName),
@@ -244,13 +245,58 @@ async function findTestFile(
     path.join(workspaceRoot, fileName),
   ];
 
-  for (const testPath of searchPaths) {
+  for (const testPath of directPaths) {
     try {
       await fs.access(testPath);
       return testPath;
     } catch {
       // File doesn't exist at this path, try next
     }
+  }
+
+  // If not found directly, search recursively in test directories
+  const searchDirs = ["test", "tests", "__tests__", "src"];
+
+  for (const dir of searchDirs) {
+    const dirPath = path.join(workspaceRoot, dir);
+    try {
+      await fs.access(dirPath);
+      const found = await findFileRecursively(dirPath, fileName);
+      if (found) return found;
+    } catch {
+      // Directory doesn't exist, skip
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Recursively search for a file by name in a directory
+ */
+async function findFileRecursively(
+  dirPath: string,
+  fileName: string
+): Promise<string | null> {
+  try {
+    const entries = await fs.readdir(dirPath, { withFileTypes: true });
+
+    for (const entry of entries) {
+      const fullPath = path.join(dirPath, entry.name);
+
+      if (entry.isDirectory()) {
+        // Skip node_modules and hidden directories
+        if (entry.name === "node_modules" || entry.name.startsWith(".")) {
+          continue;
+        }
+        const found = await findFileRecursively(fullPath, fileName);
+        if (found) return found;
+      } else if (entry.name === fileName) {
+        return fullPath;
+      }
+    }
+  } catch {
+    // Cannot read directory
   }
 
   return null;

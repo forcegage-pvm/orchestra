@@ -12,6 +12,7 @@ import {
   getEscalatedTask,
   getEscalation,
   getNextPendingTask,
+  getTddInfo,
   type Handover,
   type Task,
 } from "../../database/queries.js";
@@ -144,7 +145,34 @@ export class CurrentTaskViewProvider implements vscode.WebviewViewProvider {
       }
     }
 
-    return {
+    // Get TDD info if this is a TDD task
+    let tdd: TaskData["tdd"] = null;
+    try {
+      const tddInfo = getTddInfo(this._workspaceRoot, currentTask.id);
+      if (tddInfo) {
+        // Build TDD object conditionally to satisfy exactOptionalPropertyTypes
+        const tddData: NonNullable<TaskData["tdd"]> = {
+          isRedPhase: tddInfo.isRedPhase,
+          registeredTests: tddInfo.registeredTests,
+          validatedTests: tddInfo.validatedTests,
+          greenTaskId: tddInfo.greenTaskId,
+          greenTaskTitle: tddInfo.greenTaskTitle,
+        };
+        // Only add optional properties if they have values
+        if (tddInfo.redTaskId !== undefined) {
+          tddData.redTaskId = tddInfo.redTaskId;
+        }
+        if (tddInfo.redTaskTitle !== undefined) {
+          tddData.redTaskTitle = tddInfo.redTaskTitle;
+        }
+        tdd = tddData;
+      }
+    } catch (error) {
+      // TDD tables might not exist in older databases
+      logger.debug("Could not fetch TDD info", error);
+    }
+
+    const result: TaskData = {
       id: currentTask.id,
       task_id: currentTask.task_id,
       title: currentTask.title,
@@ -158,6 +186,13 @@ export class CurrentTaskViewProvider implements vscode.WebviewViewProvider {
       isNextPending,
       escalation,
     };
+
+    // Conditionally add tdd property (exactOptionalPropertyTypes)
+    if (tdd !== null) {
+      result.tdd = tdd;
+    }
+
+    return result;
   }
 
   /**

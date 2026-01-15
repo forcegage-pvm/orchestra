@@ -230,6 +230,26 @@ async function signalCompletion(
         `Missing artifacts: ${artifactValidation.missing.join(", ")}`
       );
     }
+    // TDD validation errors
+    if (
+      preSignalChecks.tddValidation &&
+      !preSignalChecks.tddValidation.success
+    ) {
+      const tddErrors = preSignalChecks.tddValidation.errors || [];
+      const errorCount = tddErrors.length;
+      const sampleErrors = tddErrors.slice(0, 3); // Show first 3 errors
+      const errorSummary = sampleErrors
+        .map((e: { type: string; testIdentifier?: string }) => {
+          const shortId = e.testIdentifier
+            ? e.testIdentifier.split("::").slice(-1)[0]
+            : "unknown";
+          return `${e.type}: ${shortId}`;
+        })
+        .join("; ");
+      const moreText =
+        errorCount > 3 ? ` (+${errorCount - 3} more errors)` : "";
+      failures.push(`TDD validation failed: ${errorSummary}${moreText}`);
+    }
 
     throw new Error(
       `Pre-signal checks failed (signal_id: ${signalId}): ${failures.join(
