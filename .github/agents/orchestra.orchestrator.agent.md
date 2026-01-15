@@ -239,6 +239,42 @@ For TDD work, declare **red-green task pairs** with `tdd_relationships` in `conf
 - `tdd_red_phase: true` - Marks task as red phase (enables automatic TDD marker scanning on signal)
 - `tdd_relationships` - Declares which green task will make which red task's tests pass
 
+### ⚠️ CRITICAL: TDD Red and Green MUST Be Separate Tasks
+
+**NEVER combine red phase (write tests) and green phase (implement) in one task.**
+
+| ❌ WRONG | ✅ CORRECT |
+|----------|-----------|
+| Single task with `tdd_red_phase: true` that says "Write failing tests THEN implement to make them pass" | Two separate tasks: Task 1 (red) writes tests, Task 2 (green) implements |
+| Instructing implementor to remove TDD markers after implementation in same task | Red task keeps markers; Green task removes them |
+| "TDD task" that does everything in one go | Clear separation with `tdd_relationships` linking them |
+
+**Why this matters:**
+
+When a task has `tdd_red_phase: true`, the system scans for TDD markers on `signal_completion`. If you tell the implementor to write tests AND implement AND remove markers all in one task:
+
+1. Implementor writes tests with markers ✓
+2. Implementor implements feature ✓
+3. Implementor removes markers (per instructions) ✓
+4. Implementor signals completion
+5. System scans for markers → **NONE FOUND** → Task fails
+
+**The markers must still exist when red-phase task signals completion.**
+
+**Correct pattern in handover:**
+
+```
+Red Task (tdd_red_phase: true):
+  "Write failing tests with @Tags(['tdd-red']) annotation.
+   DO NOT implement the feature. Tests should FAIL.
+   Keep the tdd-red markers in place."
+
+Green Task (depends on red task):
+  "Implement the feature to make tests pass.
+   Remove the @Tags(['tdd-red']) annotations.
+   All tests should now PASS."
+```
+
 **Check TDD status** via `get_sprint_status`:
 
 ```json
@@ -273,6 +309,7 @@ When a specification has many granular tasks (e.g., 45+ checklist items):
 | "Add constant X" as separate task | Trivial, massive overhead               | Include in implementation task      |
 | "Run tests and verify" as task    | That's what verification phase does     | Remove - it's automatic             |
 | Matching spec granularity 1:1     | Spec is for traceability, not execution | Consolidate for execution           |
+| **TDD red+green in one task**     | **Markers removed before scan → FAIL**  | **Separate red and green tasks**    |
 
 ## CRITICAL: Information Extraction
 
