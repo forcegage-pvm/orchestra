@@ -228,14 +228,15 @@ For TDD work, declare **red-green task pairs** with `tdd_relationships` in `conf
 
 **TDD Workflow**:
 
-1. **Red phase** (Task 1): Implementor writes failing tests, registers them with `register_tdd_red_test`
-2. **Validation**: System verifies test markers exist in codebase
-3. **Green phase** (Task 2): Implementor implements feature, removes markers, makes tests pass
-4. **Closeout gate**: Sprint cannot close until all tests are GREEN
+1. **Red phase** (Task 1): Implementor writes failing tests WITH TDD markers (`[tdd-red]` tags or `tdd-red/` directories)
+2. **Automatic registration**: On `signal_completion`, system automatically scans for TDD markers and registers tests
+3. **Validation**: System verifies test markers exist in codebase
+4. **Green phase** (Task 2): Implementor implements feature, removes markers, makes tests pass
+5. **Closeout gate**: Sprint cannot close until all tests are GREEN
 
 **Key fields**:
 
-- `tdd_red_phase: true` - Marks task as red phase (required for `register_tdd_red_test`)
+- `tdd_red_phase: true` - Marks task as red phase (enables automatic TDD marker scanning on signal)
 - `tdd_relationships` - Declares which green task will make which red task's tests pass
 
 **Check TDD status** via `get_sprint_status`:

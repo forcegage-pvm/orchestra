@@ -4,7 +4,7 @@
       "type": "stdio",
       "command": "node",
       "args": [
-        "c:\\Users\\Marius\\.vscode\\extensions\\forcegage.orchestra-extension-0.4.1\\dist\\mcp-server\\index.js",
+        "c:\\Users\\Marius\\.vscode\\extensions\\forcegage.orchestra-extension-0.4.2\\dist\\mcp-server\\index.js",
         "--role=orchestrator"
       ],
       "env": {
@@ -15,7 +15,7 @@
       "type": "stdio",
       "command": "node",
       "args": [
-        "c:\\Users\\Marius\\.vscode\\extensions\\forcegage.orchestra-extension-0.4.1\\dist\\mcp-server\\index.js",
+        "c:\\Users\\Marius\\.vscode\\extensions\\forcegage.orchestra-extension-0.4.2\\dist\\mcp-server\\index.js",
         "--role=implementor"
       ],
       "env": {
@@ -24,6 +24,6 @@
     }
   },
   "generatedBy": "Orchestra VS Code Extension",
-  "version": "0.4.1",
-  "timestamp": "2026-01-15T09:55:02.719Z"
+  "version": "0.4.2",
+  "timestamp": "2026-01-15T13:32:28.622Z"
 }

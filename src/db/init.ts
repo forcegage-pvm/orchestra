@@ -486,12 +486,6 @@ async function createIndexes(): Promise<void> {
     sql`CREATE INDEX IF NOT EXISTS tdd_reg_red_task_idx ON tdd_red_registry(red_task_id)`
   );
   await db.run(
-    sql`CREATE INDEX IF NOT EXISTS tdd_reg_green_task_idx ON tdd_red_registry(green_task_id)`
-  );
-  await db.run(
-    sql`CREATE INDEX IF NOT EXISTS tdd_reg_status_idx ON tdd_red_registry(status)`
-  );
-  await db.run(
     sql`CREATE UNIQUE INDEX IF NOT EXISTS tdd_reg_unique_test_idx ON tdd_red_registry(sprint_id, test_identifier)`
   );
 
