@@ -157,13 +157,12 @@ async function submitVerificationJudgment(
       "Review failures and submit FAIL judgment with improvement guidance";
     if (isSpecError) {
       next_step =
-        "SPEC ERROR DETECTED: Cannot update verification in GATE_CHECK state. " +
-        "Call escalate_task first, then update_verification to fix the check configuration, " +
-        "then run_verification_checks again.";
+        "SPEC ERROR DETECTED: Call update_verification to fix the check configuration, " +
+        "then run_verification_checks again. No escalation needed - you own the verification criteria.";
     } else if (hasBlockingFailures) {
       next_step =
         "BLOCKING failures present. Either: (1) Submit FAIL judgment with guidance for implementor, " +
-        "OR if this is a spec error, call escalate_task then update_verification.";
+        "OR if this is a spec error, call update_verification to fix it.";
     }
 
     // Return structured error instead of throwing

@@ -613,34 +613,22 @@ After submitting a FAIL judgment, determine next steps:
 
 ### If Verification Fails Due to SPEC ERROR
 
-**IMPORTANT**: If verification checks fail due to a specification error (e.g., incorrect path, missing pattern, wrong check configuration) rather than an implementation problem, you CANNOT:
+**IMPORTANT**: If verification checks fail due to a specification error (e.g., incorrect path, missing pattern, wrong check configuration) rather than an implementation problem:
 
-- Submit a PASS judgment (blocked by JVC-2)
-- Update verification criteria (blocked during GATE_CHECK state)
+**You own the verification criteria and can fix them directly.**
 
 **Spec Error Correction Workflow:**
 
-1. Call `escalate_task` with reason explaining the spec error
-2. Call `update_verification` to fix the criteria (now allowed because ESCALATED)
-3. **STOP and report to human** - explain what you fixed and request de-escalation
-4. Wait for human to de-escalate the task
-5. After de-escalation, run verification again
-6. Submit judgment and complete
+1. Call `update_verification` to fix the criteria (provide rationale for audit trail)
+2. Call `run_verification_checks` again
+3. Submit judgment and complete
 
 ```json
-// Step 1: Escalate due to spec error
-// Call: escalate_task
-{
-  "task_id": 6,
-  "reason": "Verification check spec error: quality check missing required 'path' and 'pattern' properties",
-  "attempts_summary": "Implementation correct but check configuration incomplete"
-}
-
-// Step 2: Fix verification (now allowed after escalation)
+// Step 1: Fix verification criteria
 // Call: update_verification
 {
   "task_id": 6,
-  "rationale": "Adding missing path and pattern to quality check",
+  "rationale": "Spec error: quality check missing required 'path' and 'pattern' properties",
   "verification": {
     "quality_checks": [{
       "description": "Uses VS Code CSS variables",
@@ -652,25 +640,18 @@ After submitting a FAIL judgment, determine next steps:
   }
 }
 
-// Step 3: STOP and report to human
-// "I've escalated Task 6 and corrected the verification criteria.
-//  The quality check was missing 'path' and 'pattern' properties.
-//  Please de-escalate the task so I can re-run verification."
-
-// Step 4: Wait for human de-escalation (they run scripts/de-escalate.js)
-
-// Step 5: After de-escalation, run verification
+// Step 2: Re-run verification
 // Call: run_verification_checks with task_id: 6
 
-// Step 6: Submit judgment
+// Step 3: Submit judgment
 // Call: submit_verification_judgment with task_id: 6
 ```
 
-**Key distinction**: You CAN fix the spec after escalating, but you CANNOT de-escalate yourself or continue to completion without human intervention.
+**No escalation needed for spec errors** - you own the verification criteria.
 
-## ⛔ CRITICAL: ESCALATED = FULL STOP (After Your Corrections)
+## ⛔ CRITICAL: ESCALATED = FULL STOP
 
-**After escalating and making any allowed corrections, you MUST STOP.**
+**Escalation is for implementation blockers, NOT spec errors.**
 
 ### What ESCALATED Means
 
@@ -680,12 +661,14 @@ When you call `escalate_task`, you are saying:
 
 > "This task requires human judgment. I cannot proceed autonomously."
 
-**Two types of escalation:**
+**When to escalate:**
 
-| Type                       | Cause                                               | What You Can Do                        | What Requires Human    |
-| -------------------------- | --------------------------------------------------- | -------------------------------------- | ---------------------- |
-| **Spec Error**             | Your verification criteria are wrong                | Fix criteria via `update_verification` | De-escalate the task   |
-| **Implementation Blocker** | Implementor stuck, external dependency, scope issue | Nothing - wait                         | Decide resolution path |
+| Situation                   | Action                                      |
+| --------------------------- | ------------------------------------------- |
+| **Spec error in criteria**  | ❌ Do NOT escalate - fix with `update_verification` |
+| **Implementor stuck**       | ✅ Escalate after max retries               |
+| **External dependency**     | ✅ Escalate - need human intervention       |
+| **Scope change needed**     | ✅ Escalate - need human decision           |
 
 ### MANDATORY Behavior After Escalation
 
@@ -693,31 +676,13 @@ After calling `escalate_task`:
 
 1. ✅ **Report** the escalation to the user
 2. ✅ **Explain** what blocked progress
-3. ✅ **Fix spec errors** if that's why you escalated (call `update_verification`)
-4. ✅ **Request de-escalation** from human after fixing
-5. ✅ **Wait** for explicit human direction
-6. ❌ **DO NOT** attempt to de-escalate yourself
-7. ❌ **DO NOT** run verification checks while ESCALATED
-8. ❌ **DO NOT** submit judgments while ESCALATED
-9. ❌ **DO NOT** complete the task while ESCALATED
+3. ✅ **Wait** for explicit human direction
+4. ❌ **DO NOT** attempt to de-escalate yourself
+5. ❌ **DO NOT** run verification checks while ESCALATED
+6. ❌ **DO NOT** submit judgments while ESCALATED
+7. ❌ **DO NOT** complete the task while ESCALATED
 
 ### Example: Correct Post-Escalation Behavior
-
-**Spec Error Escalation** (you can fix, then wait):
-
-```
-✅ CORRECT:
-"I've escalated Task 6 due to a specification error in the verification
-criteria. The quality check was missing required 'path' and 'pattern'
-properties.
-
-I've updated the verification criteria to fix this. Please de-escalate
-the task so I can re-run verification and complete it."
-
-[STOP. Wait for human to de-escalate.]
-```
-
-**Implementation Blocker Escalation** (nothing to fix, just wait):
 
 ```
 ✅ CORRECT:

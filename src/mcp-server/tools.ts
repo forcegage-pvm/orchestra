@@ -297,7 +297,7 @@ const TOOLS_WITH_ROLES: ToolWithRole[] = [
     role: "orchestrator",
     name: "update_verification",
     description:
-      "Update verification criteria for a task. Allowed during CONFIGURE (initial setup) or PREPARE (spec error corrections). When called during PREPARE, creates an amendment record with full audit trail.",
+      "Update verification criteria for a task. Allowed during CONFIGURE, PREPARE, VERIFY, and related phases. The orchestrator owns verification criteria and can update them at any point to fix spec errors. Rationale required for audit trail when updating outside CONFIGURE.",
     inputSchema: {
       type: "object",
       properties: {
