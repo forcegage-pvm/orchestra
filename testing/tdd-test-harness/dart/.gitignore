@@ -1,0 +1,7 @@
+# Dart build artifacts
+.dart_tool/
+pubspec.lock
+
+# Test outputs
+test-output.json
+*.snapshot
