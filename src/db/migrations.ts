@@ -379,6 +379,41 @@ const MIGRATIONS: Migration[] = [
       );
     },
   },
+  {
+    id: "20260116_001_update_tdd_red_registry_schema",
+    description:
+      "Update tdd_red_registry to file-level tracking: drop test_identifier, make test_file NOT NULL, add test_count and transitioned columns",
+    up: async () => {
+      const db = getDb();
+
+      // Drop old table (data loss acceptable - test tracking data)
+      await db.run(sql`DROP TABLE IF EXISTS tdd_red_registry`);
+
+      // Recreate table with file-level schema
+      await db.run(sql`
+        CREATE TABLE tdd_red_registry (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          sprint_id TEXT NOT NULL REFERENCES sprints(id) ON DELETE CASCADE,
+          red_task_id INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+          test_file TEXT NOT NULL,
+          test_count INTEGER DEFAULT 1,
+          transitioned INTEGER DEFAULT 0,
+          created_at TEXT NOT NULL
+        )
+      `);
+
+      // Recreate indexes with test_file as unique constraint
+      await db.run(
+        sql`CREATE INDEX IF NOT EXISTS tdd_reg_sprint_idx ON tdd_red_registry(sprint_id)`
+      );
+      await db.run(
+        sql`CREATE INDEX IF NOT EXISTS tdd_reg_red_task_idx ON tdd_red_registry(red_task_id)`
+      );
+      await db.run(
+        sql`CREATE UNIQUE INDEX IF NOT EXISTS tdd_reg_unique_test_idx ON tdd_red_registry(sprint_id, test_file)`
+      );
+    },
+  },
 ];
 
 /**
