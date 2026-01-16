@@ -49,32 +49,27 @@ export interface Task {
 }
 
 /**
- * TDD Registry entry for a red-phase task
+ * TDD Registry entry for a red-phase task (file-level tracking)
+ *
+ * This is a TRANSITORY SNAPSHOT of what TDD markers exist in the codebase.
+ * The registry is cleared and repopulated on every signal_completion.
  */
 export interface TddRegistryEntry {
   id: number;
   sprint_id: string;
   red_task_id: number;
-  green_task_id: number | null;
-  test_identifier: string;
-  description: string | null;
-  marker_type: string | null;
-  status: string; // REGISTERED, VALIDATED, ASSIGNED, GREENED
+  test_file: string; // Relative path to test file
+  test_count: number; // Number of tests in file
   created_at: string;
-  validated_at: string | null;
-  assigned_at: string | null;
-  greened_at: string | null;
 }
 
 /**
- * TDD info summary for a task
+ * TDD info summary for a task (file-level tracking)
  */
 export interface TddInfo {
   isRedPhase: boolean;
-  registeredTests: number;
-  validatedTests: number;
-  greenTaskId: number | null;
-  greenTaskTitle: string | null;
+  registeredFiles: number; // Number of test files registered
+  totalTestCount: number; // Total tests across all files
   redTaskId?: number; // For green tasks: the linked red task
   redTaskTitle?: string; // For green tasks: the linked red task title
   entries: TddRegistryEntry[];
@@ -1022,13 +1017,13 @@ export function getTddInfo(
     .get(taskId) as { tdd_red_phase: number } | undefined;
 
   if (!taskResult || !taskResult.tdd_red_phase) {
-    // Check if this is a green task linked to a red task
+    // Check if this is a green task linked via tdd_task_relationships
     const greenCheck = db
       .prepare(
-        `SELECT DISTINCT red_task_id, t.title as red_task_title
-         FROM tdd_red_registry r
-         JOIN tasks t ON t.id = r.red_task_id
-         WHERE r.green_task_id = ?
+        `SELECT tr.red_task_id, t.title as red_task_title
+         FROM tdd_task_relationships tr
+         JOIN tasks t ON t.id = tr.red_task_id
+         WHERE tr.green_task_id = ?
          LIMIT 1`
       )
       .get(taskId) as
@@ -1036,61 +1031,47 @@ export function getTddInfo(
       | undefined;
 
     if (greenCheck) {
-      // This is a green task - get the count of tests to green
-      const testCount = db
+      // This is a green task - get registry entries from the red task
+      const entries = db
         .prepare(
-          `SELECT COUNT(*) as count FROM tdd_red_registry WHERE green_task_id = ?`
+          `SELECT * FROM tdd_red_registry WHERE red_task_id = ? ORDER BY id`
         )
-        .get(taskId) as { count: number };
+        .all(greenCheck.red_task_id) as TddRegistryEntry[];
 
-      const greenedCount = db
-        .prepare(
-          `SELECT COUNT(*) as count FROM tdd_red_registry WHERE green_task_id = ? AND status = 'GREENED'`
-        )
-        .get(taskId) as { count: number };
+      const registeredFiles = entries.length;
+      const totalTestCount = entries.reduce(
+        (sum, e) => sum + (e.test_count || 1),
+        0
+      );
 
       return {
         isRedPhase: false,
-        registeredTests: testCount.count,
-        validatedTests: greenedCount.count,
-        greenTaskId: null,
-        greenTaskTitle: null,
+        registeredFiles,
+        totalTestCount,
         redTaskId: greenCheck.red_task_id,
         redTaskTitle: greenCheck.red_task_title,
-        entries: [],
+        entries,
       };
     }
 
     return null;
   }
 
-  // Get all registry entries for this red task
+  // Get all registry entries for this red task (file-level)
   const entries = db
     .prepare(`SELECT * FROM tdd_red_registry WHERE red_task_id = ? ORDER BY id`)
     .all(taskId) as TddRegistryEntry[];
 
-  const registeredCount = entries.length;
-  const validatedCount = entries.filter(
-    (e) => e.status !== "REGISTERED"
-  ).length;
-
-  // Get linked green task if any
-  const greenTaskId = entries.find((e) => e.green_task_id)?.green_task_id;
-  let greenTaskTitle: string | null = null;
-
-  if (greenTaskId) {
-    const greenTask = db
-      .prepare(`SELECT title FROM tasks WHERE id = ?`)
-      .get(greenTaskId) as { title: string } | undefined;
-    greenTaskTitle = greenTask?.title ?? null;
-  }
+  const registeredFiles = entries.length;
+  const totalTestCount = entries.reduce(
+    (sum, e) => sum + (e.test_count || 1),
+    0
+  );
 
   return {
     isRedPhase: true,
-    registeredTests: registeredCount,
-    validatedTests: validatedCount,
-    greenTaskId: greenTaskId ?? null,
-    greenTaskTitle,
+    registeredFiles,
+    totalTestCount,
     entries,
   };
 }

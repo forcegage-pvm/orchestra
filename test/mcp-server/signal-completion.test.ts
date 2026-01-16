@@ -247,21 +247,17 @@ describe("signal_completion handler", () => {
         allPassed: true,
       });
 
-      // Spy on scanForTddMarkers
+      // Spy on scanForTddMarkers (new API returns all markers grouped by task ID)
       const scanSpy = vi.spyOn(tddScanOnSignal, "scanForTddMarkers");
+      const testsByTask = new Map<
+        number,
+        Array<{ test_file: string; test_count: number }>
+      >();
+      testsByTask.set(3, [{ test_file: "test/test.test.ts", test_count: 2 }]);
       scanSpy.mockResolvedValue({
-        tests: [
-          {
-            test_identifier: "test.test.ts::Group::[tdd-red-task-3] test one",
-            test_file: "test/test.test.ts",
-            marker_type: "it.skip",
-          },
-          {
-            test_identifier: "test.test.ts::Group::[tdd-red-task-3] test two",
-            test_file: "test/test.test.ts",
-            marker_type: "[tdd-red-task-3]",
-          },
-        ],
+        testsByTask,
+        totalFiles: 1,
+        totalTests: 2,
       });
 
       // Signal completion
@@ -286,26 +282,20 @@ describe("signal_completion handler", () => {
 
       await handleSignalCompletion(input);
 
-      // Verify scanForTddMarkers was called with correct args
+      // Verify scanForTddMarkers was called (now always called, takes only workspaceRoot)
       expect(scanSpy).toHaveBeenCalledTimes(1);
-      expect(scanSpy).toHaveBeenCalledWith(3, tempDir);
+      expect(scanSpy).toHaveBeenCalledWith(tempDir);
 
-      // Verify registry was populated
+      // Verify registry was populated (file-level: one entry per file, not per test)
       const registryEntries = await db
         .select()
         .from(tddRedRegistry)
         .where(eq(tddRedRegistry.sprint_id, testSprintId));
 
-      expect(registryEntries).toHaveLength(2);
-      expect(registryEntries[0].test_identifier).toBe(
-        "test.test.ts::Group::[tdd-red-task-3] test one"
-      );
+      // Both tests are in the same file, so we get 1 entry with test_count=2
+      expect(registryEntries).toHaveLength(1);
       expect(registryEntries[0].test_file).toBe("test/test.test.ts");
-
-      expect(registryEntries[1].test_identifier).toBe(
-        "test.test.ts::Group::[tdd-red-task-3] test two"
-      );
-      expect(registryEntries[1].test_file).toBe("test/test.test.ts");
+      expect(registryEntries[0].test_count).toBe(2);
     });
 
     it("should clear existing registry entries before inserting new ones", async () => {
@@ -340,23 +330,13 @@ describe("signal_completion handler", () => {
         .returning();
 
       // Insert old registry entries (simulating a previous signal)
+      // New schema: file-level tracking with test_count (no transitioned column)
       await db.insert(tddRedRegistry).values([
         {
           sprint_id: testSprintId,
           red_task_id: taskRecord.id,
-          test_identifier: "old-test-1",
           test_file: "old.test.ts",
-          marker_type: "it.skip",
-          status: "REGISTERED",
-          created_at: now,
-        },
-        {
-          sprint_id: testSprintId,
-          red_task_id: taskRecord.id,
-          test_identifier: "old-test-2",
-          test_file: "old.test.ts",
-          marker_type: "it.skip",
-          status: "REGISTERED",
+          test_count: 2,
           created_at: now,
         },
       ]);
@@ -369,15 +349,18 @@ describe("signal_completion handler", () => {
         allPassed: true,
       });
 
-      // Mock scanner to return new tests
+      // Mock scanner to return new tests (new API format)
+      const testsByTask = new Map<
+        number,
+        Array<{ test_file: string; test_count: number }>
+      >();
+      testsByTask.set(4, [
+        { test_file: "test/new-test.test.ts", test_count: 1 },
+      ]);
       vi.spyOn(tddScanOnSignal, "scanForTddMarkers").mockResolvedValue({
-        tests: [
-          {
-            test_identifier: "new-test.test.ts::Group::new test",
-            test_file: "test/new-test.test.ts",
-            marker_type: "[tdd-red-task-4]",
-          },
-        ],
+        testsByTask,
+        totalFiles: 1,
+        totalTests: 1,
       });
 
       // Signal completion
@@ -409,10 +392,8 @@ describe("signal_completion handler", () => {
         .where(eq(tddRedRegistry.red_task_id, taskRecord.id));
 
       expect(registryEntries).toHaveLength(1);
-      expect(registryEntries[0].test_identifier).toBe(
-        "new-test.test.ts::Group::new test"
-      );
       expect(registryEntries[0].test_file).toBe("test/new-test.test.ts");
+      expect(registryEntries[0].test_count).toBe(1);
     });
 
     it("should fail signal if zero tests found for tdd_red_phase task", async () => {
@@ -451,9 +432,15 @@ describe("signal_completion handler", () => {
         allPassed: true,
       });
 
-      // Mock scanner to return zero tests
+      // Mock scanner to return zero tests (new API format with empty Map)
+      const testsByTask = new Map<
+        number,
+        Array<{ test_file: string; test_count: number }>
+      >();
       vi.spyOn(tddScanOnSignal, "scanForTddMarkers").mockResolvedValue({
-        tests: [],
+        testsByTask,
+        totalFiles: 0,
+        totalTests: 0,
       });
 
       // Signal completion
@@ -490,7 +477,7 @@ describe("signal_completion handler", () => {
       );
     });
 
-    it("should not call scanner for non-tdd_red_phase tasks", async () => {
+    it("should still scan for non-tdd_red_phase tasks but not fail on no markers", async () => {
       const db = getDb();
       const now = new Date().toISOString();
 
@@ -506,8 +493,9 @@ describe("signal_completion handler", () => {
         sprint_id: testSprintId,
         phase_id: phase.id,
         task_id: 6,
-        title: "Regular Task - No Scanner",
-        description: "Test task that should not trigger scanner",
+        title: "Regular Task - Scanner Still Runs",
+        description:
+          "Test task - scanner runs unconditionally but no marker validation",
         category: "INFRASTRUCTURE",
         priority: "P1",
         status: "IMPLEMENT",
@@ -526,8 +514,18 @@ describe("signal_completion handler", () => {
         allPassed: true,
       });
 
-      // Spy on scanner - it should NOT be called
-      const scanSpy = vi.spyOn(tddScanOnSignal, "scanForTddMarkers");
+      // Mock scanner to return empty results (scanner runs unconditionally now)
+      const testsByTask = new Map<
+        number,
+        Array<{ test_file: string; test_count: number }>
+      >();
+      const scanSpy = vi
+        .spyOn(tddScanOnSignal, "scanForTddMarkers")
+        .mockResolvedValue({
+          testsByTask,
+          totalFiles: 0,
+          totalTests: 0,
+        });
 
       // Signal completion
       const input = {
@@ -549,12 +547,17 @@ describe("signal_completion handler", () => {
       fs.mkdirSync(path.dirname(testFilePath), { recursive: true });
       fs.writeFileSync(testFilePath, "// regular file");
 
-      await handleSignalCompletion(input);
+      const result = await handleSignalCompletion(input);
+      const resultData = JSON.parse(result.content[0].text);
 
-      // Verify scanner was NOT called
-      expect(scanSpy).not.toHaveBeenCalled();
+      // Should succeed - scanner runs but no marker validation for non-tdd tasks
+      expect(resultData.success).toBe(true);
 
-      // Verify no registry entries were created
+      // Verify scanner WAS called (it now runs unconditionally)
+      expect(scanSpy).toHaveBeenCalledTimes(1);
+      expect(scanSpy).toHaveBeenCalledWith(tempDir);
+
+      // Verify no registry entries were created (no markers found)
       const registryEntries = await db
         .select()
         .from(tddRedRegistry)

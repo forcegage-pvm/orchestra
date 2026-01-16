@@ -1,85 +1,61 @@
 /**
  * TDD Scan-on-Signal
  *
- * Scans workspace for TDD red markers with task IDs and returns tests
- * matching the specified task. Used during signal_completion to auto-register tests.
+ * Scans workspace for ALL TDD red markers and returns them grouped by task ID.
+ * Used during signal_completion to maintain a complete snapshot of TDD markers.
  *
- * Marker syntax (SINGLE TOKEN format):
- * - TypeScript: test('[tdd-red-task-3] test name', ...) or describe('[tdd-red-task-3] group', ...)
- * - Dart: test('name', () {}, tags: ['tdd-red-task-3']) or @Tags(['tdd-red-task-3'])
+ * Per DESIGN.md - TWO SEPARATE CONCERNS:
+ * 1. Test runner filtering: @Tags(['tdd-red']) or [tdd-red] - NO task ID in tag
+ * 2. Task linking: // @orchestra-task: N - file-level comment
  */
 
 import { glob } from "glob";
 import * as path from "path";
-import {
-  scanForTddRedMarkers,
-  type TddRedMarker,
-} from "./tdd-marker-scanner.js";
+import { scanTddFile, type TddRedMarker } from "./tdd-marker-scanner.js";
 
 /**
- * Result of scanning for TDD markers
+ * File-level test tracking for a single task
+ */
+export interface TddFileEntry {
+  test_file: string; // Relative path from workspace root
+  test_count: number; // Number of tests in this file for this task
+}
+
+/**
+ * Result of scanning for ALL TDD markers in workspace
  */
 export interface TddScanResult {
-  tests: Array<{
-    test_identifier: string; // Format: "file::group::testName"
-    test_file: string; // Relative path from workspace root
-    marker_type: string; // e.g., "@Tags(['tdd-red-task-3'])", "[tdd-red-task-3]"
-  }>;
+  /** Tests grouped by task ID */
+  testsByTask: Map<number, TddFileEntry[]>;
+  /** Total number of unique test files found */
+  totalFiles: number;
+  /** Total number of tests found across all files */
+  totalTests: number;
+  /** Files with tdd-red markers but missing // @orchestra-task: N */
+  filesWithoutTaskId: string[];
 }
 
 /**
- * Extract task ID from marker type (already includes task ID in single-token format)
- *
- * Supports:
- * - TypeScript: [tdd-red-task-3] in test name or marker type
- * - Dart: tags: ['tdd-red-task-3'] or @Tags(['tdd-red-task-3']) in marker type
- *
- * @param testIdentifier - Test identifier in format "file::group::testName"
- * @param markerType - Marker type from scanner (includes task ID)
- * @returns Task ID number or null if not found
- */
-function extractTaskId(
-  testIdentifier: string,
-  markerType: string
-): number | null {
-  // All markers now use single-token format: tdd-red-task-N
-  // Check both identifier and marker type for the pattern
-  const pattern = /tdd-red-task-(\d+)/;
-
-  const markerMatch = markerType.match(pattern);
-  if (markerMatch && markerMatch[1]) {
-    return parseInt(markerMatch[1], 10);
-  }
-
-  const identifierMatch = testIdentifier.match(pattern);
-  if (identifierMatch && identifierMatch[1]) {
-    return parseInt(identifierMatch[1], 10);
-  }
-
-  return null;
-}
-
-/**
- * Scan workspace for TDD red markers matching the specified task ID
+ * Scan workspace for ALL TDD red markers
  *
  * This function:
  * 1. Finds all test files in the workspace
- * 2. Scans each file for TDD red markers
- * 3. Extracts task IDs from markers (e.g., [tdd-red-task-3] or tags: ['task-3'])
- * 4. Filters to only tests matching the input taskId
+ * 2. Scans each file for TDD red markers (@Tags(['tdd-red']) or [tdd-red])
+ * 3. Extracts task ID from // @orchestra-task: N comment
+ * 4. Groups results by task ID with file-level aggregation
  *
- * @param taskId - Task ID to filter for
  * @param workspaceRoot - Absolute path to workspace root
- * @returns Scan result with matching tests
+ * @returns Scan result with all markers grouped by task ID
  */
 export async function scanForTddMarkers(
-  taskId: number,
   workspaceRoot: string
 ): Promise<TddScanResult> {
-  const tests: TddScanResult["tests"] = [];
+  // Map: taskId -> Map: testFile -> testCount
+  const taskFileMap = new Map<number, Map<string, number>>();
+  let totalTests = 0;
+  const filesWithoutTaskId: string[] = [];
 
   // Find all test files in workspace
-  // Common patterns: test/**/*.test.ts, **/*.test.ts, test/**/*.dart, **/*_test.dart
   const testFilePatterns = [
     "test/**/*.test.ts",
     "test/**/*.test.js",
@@ -102,31 +78,60 @@ export async function scanForTddMarkers(
   // Scan each test file for TDD markers
   for (const testFile of testFiles) {
     const absolutePath = path.join(workspaceRoot, testFile);
+    const normalizedFile = testFile.replace(/\\/g, "/");
 
-    let markers: TddRedMarker[];
     try {
-      markers = await scanForTddRedMarkers(absolutePath);
+      const scanResult = await scanTddFile(absolutePath);
+
+      // Skip files with no TDD markers
+      if (scanResult.markers.length === 0) {
+        continue;
+      }
+
+      // Check for missing task ID
+      if (scanResult.taskId === null) {
+        filesWithoutTaskId.push(normalizedFile);
+        continue;
+      }
+
+      const taskId = scanResult.taskId;
+
+      // Get or create task entry
+      if (!taskFileMap.has(taskId)) {
+        taskFileMap.set(taskId, new Map<string, number>());
+      }
+      const fileMap = taskFileMap.get(taskId)!;
+
+      // Add test count for this file
+      const testCount = scanResult.markers.length;
+      fileMap.set(normalizedFile, testCount);
+      totalTests += testCount;
     } catch {
       // Skip files that can't be read
       continue;
     }
-
-    // Filter markers to only those matching the task ID
-    for (const marker of markers) {
-      const extractedTaskId = extractTaskId(
-        marker.testIdentifier,
-        marker.markerType
-      );
-
-      if (extractedTaskId === taskId) {
-        tests.push({
-          test_identifier: marker.testIdentifier,
-          test_file: testFile.replace(/\\/g, "/"), // Normalize path separators
-          marker_type: marker.markerType,
-        });
-      }
-    }
   }
 
-  return { tests };
+  // Convert to result format
+  const testsByTask = new Map<number, TddFileEntry[]>();
+  const uniqueFiles = new Set<string>();
+
+  for (const [taskId, fileMap] of taskFileMap) {
+    const entries: TddFileEntry[] = [];
+    for (const [file, testCount] of fileMap) {
+      entries.push({ test_file: file, test_count: testCount });
+      uniqueFiles.add(file);
+    }
+    testsByTask.set(taskId, entries);
+  }
+
+  return {
+    testsByTask,
+    totalFiles: uniqueFiles.size,
+    totalTests,
+    filesWithoutTaskId,
+  };
 }
+
+// Re-export for backward compatibility
+export type { TddRedMarker };

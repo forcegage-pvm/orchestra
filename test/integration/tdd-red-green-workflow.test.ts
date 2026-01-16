@@ -73,21 +73,18 @@ describe("TDD Red-Green Workflow End-to-End", () => {
       });
 
       // Mock TDD scanner to return test results for red phase task
+      // New format uses testsByTask Map with file-level tracking
+      const testsByTask = new Map<
+        number,
+        { test_file: string; test_count: number }[]
+      >();
+      testsByTask.set(1, [
+        { test_file: "test/feature.test.ts", test_count: 2 },
+      ]);
       vi.spyOn(tddScanOnSignal, "scanForTddMarkers").mockResolvedValue({
-        tests: [
-          {
-            test_identifier:
-              "feature.test.ts::Feature::should implement feature requirement 1",
-            test_file: "test/feature.test.ts",
-            marker_type: "it.skip",
-          },
-          {
-            test_identifier:
-              "feature.test.ts::Feature::should implement feature requirement 2",
-            test_file: "test/feature.test.ts",
-            marker_type: "it.skip",
-          },
-        ],
+        testsByTask,
+        totalFiles: 1,
+        totalTests: 2,
       });
 
       // =============================================================================
@@ -202,15 +199,16 @@ describe("TDD Red-Green Workflow End-to-End", () => {
       const testDir = path.join(tempDir, "test");
       await fs.mkdir(testDir);
 
+      // Use single-token TDD marker format: [tdd-red-task-N]
       const testContent = `
 import { describe, it, expect } from 'vitest';
 
-describe('Feature', () => {
-  it.skip('should implement feature requirement 1', () => {
+describe('[tdd-red-task-1] Feature', () => {
+  it('should implement feature requirement 1', () => {
     expect(true).toBe(false);
   });
 
-  it.skip('should implement feature requirement 2', () => {
+  it('should implement feature requirement 2', () => {
     expect(1).toBe(2);
   });
 });
@@ -240,19 +238,21 @@ describe('Feature', () => {
 
       expect(signalRedResult.success).toBe(true);
 
-      // Verify registry entries were auto-populated by scanner with REGISTERED status
+      // Verify registry entries were auto-populated by scanner (file-level: 1 entry for the test file)
       const registeredTests = await db
         .select()
         .from(tddRedRegistry)
         .where(eq(tddRedRegistry.red_task_id, redTask.id));
-      expect(registeredTests).toHaveLength(2);
+      expect(registeredTests).toHaveLength(1);
+      expect(registeredTests[0].test_file).toBe("test/feature.test.ts");
+      expect(registeredTests[0].test_count).toBe(2);
 
-      // Registry entries exist (status tracking removed - scan-on-signal handles it)
+      // Registry entries exist (file-level tracking)
       const validatedTests = await db
         .select()
         .from(tddRedRegistry)
         .where(eq(tddRedRegistry.red_task_id, redTask.id));
-      expect(validatedTests).toHaveLength(2);
+      expect(validatedTests).toHaveLength(1);
 
       // Manually move task to VERIFY status (simulating gate checks + judgment passing)
       // In real workflow, orchestrator would run verification checks and judgment
@@ -274,12 +274,12 @@ describe('Feature', () => {
 
       expect(completeRedResult.success).toBe(true);
 
-      // Verify registry entries exist (status/green_task_id tracking removed)
+      // Verify registry entries exist (file-level: 1 entry)
       const pendingGreenTests = await db
         .select()
         .from(tddRedRegistry)
         .where(eq(tddRedRegistry.red_task_id, redTask.id));
-      expect(pendingGreenTests).toHaveLength(2);
+      expect(pendingGreenTests).toHaveLength(1);
 
       // =============================================================================
       // STEP 7: Prepare green phase task (simulate orchestrator preparing it)
@@ -381,12 +381,12 @@ describe('Feature', () => {
 
       expect(completeGreenResult.success).toBe(true);
 
-      // Verify registry entries exist (scan-on-signal tracks them)
+      // Verify registry entry exists (file-level: 1 entry)
       const greenTests = await db
         .select()
         .from(tddRedRegistry)
         .where(eq(tddRedRegistry.red_task_id, redTask.id));
-      expect(greenTests).toHaveLength(2);
+      expect(greenTests).toHaveLength(1);
 
       // =============================================================================
       // STEP 11: Verify sprint status shows closeout is unblocked

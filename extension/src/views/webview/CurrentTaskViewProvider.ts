@@ -153,10 +153,8 @@ export class CurrentTaskViewProvider implements vscode.WebviewViewProvider {
         // Build TDD object conditionally to satisfy exactOptionalPropertyTypes
         const tddData: NonNullable<TaskData["tdd"]> = {
           isRedPhase: tddInfo.isRedPhase,
-          registeredTests: tddInfo.registeredTests,
-          validatedTests: tddInfo.validatedTests,
-          greenTaskId: tddInfo.greenTaskId,
-          greenTaskTitle: tddInfo.greenTaskTitle,
+          registeredFiles: tddInfo.registeredFiles,
+          totalTestCount: tddInfo.totalTestCount,
         };
         // Only add optional properties if they have values
         if (tddInfo.redTaskId !== undefined) {

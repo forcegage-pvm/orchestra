@@ -16,10 +16,16 @@ import { SuccessResponseSchema } from "./errors.js";
  */
 export const RegisterTddRedTestInputSchema = z.object({
   task_id: z.number().int().positive("Task ID must be positive"),
-  test_identifier: z
+  test_file: z
     .string()
-    .min(1, "Test identifier is required")
-    .describe('Format: "file::group::test"'),
+    .min(1, "Test file path is required")
+    .describe("Relative path to the test file"),
+  test_count: z
+    .number()
+    .int()
+    .positive("Test count must be positive")
+    .default(1)
+    .describe("Number of tests in the file"),
 });
 
 export type RegisterTddRedTestInput = z.output<
@@ -31,7 +37,8 @@ export type RegisterTddRedTestInput = z.output<
  */
 export const RegisterTddRedTestOutputSchema = SuccessResponseSchema.extend({
   registry_id: z.number().int().positive(),
-  test_identifier: z.string(),
+  test_file: z.string(),
+  test_count: z.number().int().positive(),
   next_step: z.string(),
 });
 
@@ -52,12 +59,11 @@ export const TddRegistryEntrySchema = z.object({
   id: z.number().int().positive(),
   sprint_id: z.string().min(1, "Sprint ID is required"),
   red_task_id: z.number().int().positive(),
-  test_identifier: z
+  test_file: z.string().min(1, "Test file path is required"),
+  test_count: z.number().int().default(1).describe("Number of tests in file"),
+  created_at: z
     .string()
-    .min(1, "Test identifier is required")
-    .describe('Format: "file::group::test"'),
-  test_file: z.string().optional(),
-  created_at: z.string().describe("ISO 8601 timestamp"),
+    .describe("ISO 8601 timestamp when tests were registered"),
 });
 
 export type TddRegistryEntry = z.output<typeof TddRegistryEntrySchema>;

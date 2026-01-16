@@ -90,40 +90,34 @@ export async function validateTddRedPhase(
     registeredByFile
   );
 
-  // 1. FORWARD CHECK: Every registered test has a marker
+  // 1. FORWARD CHECK: Every registered test file has markers
   for (const test of registeredTests) {
-    const fileName = extractFileName(test.test_identifier);
+    const fileName = test.test_file;
     const markersInFile = markersByFile.get(fileName) || [];
 
-    const hasMarker = markersInFile.some(
-      (marker) => marker.testIdentifier === test.test_identifier
-    );
+    const hasMarker = markersInFile.length > 0;
 
     if (!hasMarker) {
       errors.push({
         type: "MISSING_MARKER",
-        message: `Registered test has no tdd-red marker in codebase`,
-        testIdentifier: test.test_identifier,
-        details: `Test ${test.test_identifier} is registered but has no tdd-red marker.\n\nAdd a single-token marker:\n  TypeScript: [tdd-red-task-N] in test/describe name\n  Dart file-level: @Tags(['tdd-red-task-N'])\n  Dart inline: tags: ['tdd-red-task-N'] in test() call`,
+        message: `Registered test file has no tdd-red markers in codebase`,
+        testIdentifier: test.test_file,
+        details: `Test file ${test.test_file} is registered but has no tdd-red markers.\n\nAdd a single-token marker:\n  TypeScript: [tdd-red-task-N] in test/describe name\n  Dart file-level: @Tags(['tdd-red-task-N'])\n  Dart inline: tags: ['tdd-red-task-N'] in test() call`,
       });
     }
   }
 
-  // 2. REVERSE CHECK: Every marker is registered
-  const registeredIdentifiers = new Set(
-    registeredTests.map((t) => t.test_identifier)
-  );
+  // 2. REVERSE CHECK: Every marker file is registered
+  const registeredFiles = new Set(registeredTests.map((t) => t.test_file));
 
-  for (const [_fileName, markers] of markersByFile) {
-    for (const marker of markers) {
-      if (!registeredIdentifiers.has(marker.testIdentifier)) {
-        errors.push({
-          type: "MISSING_REGISTRATION",
-          message: `Test has tdd-red marker but is NOT registered`,
-          testIdentifier: marker.testIdentifier,
-          details: `Test ${marker.testIdentifier} has marker ${marker.markerType} but was not registered. Call register_tdd_red_test for this test.`,
-        });
-      }
+  for (const [fileName, markers] of markersByFile) {
+    if (markers.length > 0 && !registeredFiles.has(fileName)) {
+      errors.push({
+        type: "MISSING_REGISTRATION",
+        message: `Test file has tdd-red markers but is NOT registered`,
+        testIdentifier: fileName,
+        details: `Test file ${fileName} has ${markers.length} marker(s) but was not registered. Call register_tdd_red_test for this file.`,
+      });
     }
   }
 
@@ -162,21 +156,13 @@ function groupTestsByFile(
   const grouped = new Map<string, TddRegistryEntry[]>();
 
   for (const test of tests) {
-    const fileName = extractFileName(test.test_identifier);
+    const fileName = test.test_file;
     const existing = grouped.get(fileName) || [];
     existing.push(test);
     grouped.set(fileName, existing);
   }
 
   return grouped;
-}
-
-/**
- * Extract file name from test identifier (format: "file::group::test")
- */
-function extractFileName(testIdentifier: string): string {
-  const parts = testIdentifier.split("::");
-  return parts[0] || "";
 }
 
 /**
@@ -318,8 +304,8 @@ async function verifyTestsAreFailing(
         errors.push({
           type: "TEST_PASSING",
           message: `Registered test is PASSING. Red-phase tests should FAIL.`,
-          testIdentifier: test.test_identifier,
-          details: `Test ${test.test_identifier} is passing (exit code 0). Red-phase tests must fail to validate the test is checking unimplemented behavior.`,
+          testIdentifier: test.test_file,
+          details: `Test file ${test.test_file} is passing (exit code 0). Red-phase tests must fail to validate the test is checking unimplemented behavior.`,
         });
       }
     } else if (exitCode === null) {

@@ -120,8 +120,8 @@ describe("prepare_task TDD Red-Phase Verification Auto-Injection", () => {
         .from(verificationChecks)
         .where(eq(verificationChecks.task_id, 1));
 
-      // Should have 3 checks: 2 behavioral + 1 structural
-      expect(checks).toHaveLength(3);
+      // Should have 4 checks: 2 behavioral + 2 structural (task-ID + marker)
+      expect(checks).toHaveLength(4);
 
       // Check 1: Red tests must fail
       const redFailCheck = checks.find(
@@ -133,7 +133,7 @@ describe("prepare_task TDD Red-Phase Verification Auto-Injection", () => {
       expect(redFailCheck!.severity).toBe("BLOCKING");
       const redFailConfig = JSON.parse(redFailCheck!.check_config);
       expect(redFailConfig.command).toBe(
-        'npm test -- --testNamePattern="\\[tdd-red\\]" 2>/dev/null || npm test -- test/tdd-red'
+        'npm test -- --testNamePattern="\\[tdd-red\\]"'
       );
       expect(redFailConfig.expect_exit_code).toBe(1);
 
@@ -146,16 +146,28 @@ describe("prepare_task TDD Red-Phase Verification Auto-Injection", () => {
       expect(greenPassCheck).toBeDefined();
       expect(greenPassCheck!.severity).toBe("BLOCKING");
       const greenPassConfig = JSON.parse(greenPassCheck!.check_config);
-      expect(greenPassConfig.command).toContain("--exclude");
       expect(greenPassConfig.expect_exit_code).toBe(0);
 
-      // Check 3: Structural check for test files
-      const structCheck = checks.find((c) => c.check_type === "structural");
-      expect(structCheck).toBeDefined();
-      expect(structCheck!.severity).toBe("BLOCKING");
-      const structConfig = JSON.parse(structCheck!.check_config);
-      expect(structConfig.path).toBe("test/**/*.test.ts");
-      expect(structConfig.min_matches).toBe(1);
+      // Check 3: Structural check for task-ID annotation
+      const taskIdCheck = checks.find(
+        (c) =>
+          c.check_type === "structural" &&
+          c.description.includes("Task-ID annotation")
+      );
+      expect(taskIdCheck).toBeDefined();
+      expect(taskIdCheck!.severity).toBe("BLOCKING");
+
+      // Check 4: Structural check for [tdd-red] marker
+      const markerCheck = checks.find(
+        (c) =>
+          c.check_type === "structural" &&
+          c.description.includes("Red-phase test marker")
+      );
+      expect(markerCheck).toBeDefined();
+      expect(markerCheck!.severity).toBe("BLOCKING");
+      const markerConfig = JSON.parse(markerCheck!.check_config);
+      expect(markerConfig.path).toBe("test/**/*.test.ts");
+      expect(markerConfig.min_matches).toBe(1);
     });
 
     it("should NOT inject cleanup checks when tdd_red_phase=false (cleanup is implementor responsibility)", async () => {
@@ -276,8 +288,8 @@ describe("prepare_task TDD Red-Phase Verification Auto-Injection", () => {
         .from(verificationChecks)
         .where(eq(verificationChecks.task_id, 1));
 
-      // Should have 3 checks: 2 behavioral + 1 structural
-      expect(checks).toHaveLength(3);
+      // Should have 4 checks: 2 behavioral + 2 structural (task-ID + marker)
+      expect(checks).toHaveLength(4);
 
       // Check 1: Tagged tests must fail
       const taggedFailCheck = checks.find(
@@ -303,13 +315,25 @@ describe("prepare_task TDD Red-Phase Verification Auto-Injection", () => {
       );
       expect(nonTaggedConfig.expect_exit_code).toBe(0);
 
-      // Check 3: Structural check for tag presence
-      const structCheck = checks.find((c) => c.check_type === "structural");
-      expect(structCheck).toBeDefined();
-      const structConfig = JSON.parse(structCheck!.check_config);
-      expect(structConfig.path).toBe("test/**/*.dart");
-      expect(structConfig.pattern).toContain("@Tags");
-      expect(structConfig.min_matches).toBe(1);
+      // Check 3: Structural check for task-ID annotation
+      const taskIdCheck = checks.find(
+        (c) =>
+          c.check_type === "structural" &&
+          c.description.includes("Task-ID annotation")
+      );
+      expect(taskIdCheck).toBeDefined();
+
+      // Check 4: Structural check for @Tags(['tdd-red']) marker
+      const markerCheck = checks.find(
+        (c) =>
+          c.check_type === "structural" &&
+          c.description.includes("Red-phase marker")
+      );
+      expect(markerCheck).toBeDefined();
+      const markerConfig = JSON.parse(markerCheck!.check_config);
+      expect(markerConfig.path).toBe("test/**/*.dart");
+      expect(markerConfig.pattern).toContain("tdd-red");
+      expect(markerConfig.min_matches).toBe(1);
     });
 
     it("should NOT inject Dart-specific cleanup checks when tdd_red_phase=false (cleanup is implementor responsibility)", async () => {

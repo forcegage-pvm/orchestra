@@ -147,19 +147,19 @@ describe("handover-validation", () => {
         expect(result.violations.length).toBeGreaterThan(0);
       });
 
-      it("should ALLOW TDD marker format tdd-red-task-N", () => {
+      it("should ALLOW @orchestra-task: N format", () => {
         const context =
-          "Add @Tags(['tdd-red-task-3']) annotation at the top of the file. " +
-          "The single-token format tdd-red-task-3 is required for TDD red phase.";
+          "Add // @orchestra-task: 3 comment at the top of the file. " +
+          "This links the file to the task for TDD tracking.";
         const result = validateHandoverContext(context);
         expect(result.valid).toBe(true);
         expect(result.violations).toHaveLength(0);
       });
 
-      it("should ALLOW multiple TDD marker references", () => {
+      it("should ALLOW TDD marker format [tdd-red]", () => {
         const context =
-          "Use [tdd-red-task-5] in test name or tags: ['tdd-red-task-5'] inline. " +
-          "Format is tdd-red-task-N where N is the task ID.";
+          "Use [tdd-red] in test name or @Tags(['tdd-red']) annotation. " +
+          "The // @orchestra-task: N comment links to the task.";
         const result = validateHandoverContext(context);
         expect(result.valid).toBe(true);
         expect(result.violations).toHaveLength(0);

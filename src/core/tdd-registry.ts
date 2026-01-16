@@ -16,7 +16,8 @@ import type { TddRegistryEntry } from "../schemas/tdd-registry.js";
  */
 export interface RegisterTestOptions {
   taskId: number; // User-facing task ID
-  testIdentifier: string; // Format: "file::group::test"
+  testFile: string; // Relative path to test file
+  testCount: number; // Number of tests in file
 }
 
 /**
@@ -24,21 +25,21 @@ export interface RegisterTestOptions {
  */
 export interface RegisterTestResult {
   registryId: number;
-  testIdentifier: string;
-  status: "REGISTERED";
+  testFile: string;
+  testCount: number;
 }
 
 /**
- * Register a new TDD red test in the registry
+ * Register a new TDD red test file in the registry
  *
- * @param options - Registration options including taskId and testIdentifier
+ * @param options - Registration options including taskId, testFile, and testCount
  * @returns Registry entry metadata
  * @throws Error if no active sprint or task not found
  */
 export async function registerTest(
   options: RegisterTestOptions
 ): Promise<RegisterTestResult> {
-  const { taskId, testIdentifier } = options;
+  const { taskId, testFile, testCount } = options;
   const db = getDb();
 
   // Get active sprint
@@ -65,8 +66,8 @@ export async function registerTest(
     .values({
       sprint_id: sprint.id,
       red_task_id: task.id,
-      test_identifier: testIdentifier,
-      test_file: null,
+      test_file: testFile,
+      test_count: testCount,
       created_at: now,
     })
     .returning();
@@ -77,8 +78,8 @@ export async function registerTest(
 
   return {
     registryId: entry.id,
-    testIdentifier: entry.test_identifier,
-    status: "REGISTERED",
+    testFile: entry.test_file,
+    testCount: entry.test_count ?? 1,
   };
 }
 
@@ -116,8 +117,8 @@ export async function getTestsByTask(
     id: entry.id,
     sprint_id: entry.sprint_id,
     red_task_id: entry.red_task_id,
-    test_identifier: entry.test_identifier,
-    test_file: entry.test_file ?? undefined,
+    test_file: entry.test_file,
+    test_count: entry.test_count ?? 1,
     created_at: entry.created_at,
   }));
 }

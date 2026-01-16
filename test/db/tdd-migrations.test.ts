@@ -183,7 +183,9 @@ describe("TDD Tables Migration (20260126_001_add_tdd_tables)", () => {
     const tddRedPhaseIdx = migrationsSource.indexOf(
       "20260112_002_add_tdd_red_phase"
     );
-    const tddTablesIdx = migrationsSource.indexOf("20260126_001_add_tdd_tables");
+    const tddTablesIdx = migrationsSource.indexOf(
+      "20260126_001_add_tdd_tables"
+    );
 
     expect(tddRedPhaseIdx).toBeGreaterThan(-1);
     expect(tddTablesIdx).toBeGreaterThan(-1);
@@ -221,6 +223,132 @@ describe("TDD Tables Migration (20260126_001_add_tdd_tables)", () => {
     expect(extensionMigrationsSource).toContain("20260126_001_add_tdd_tables");
     expect(extensionMigrationsSource).toContain(
       "Add tdd_task_relationships and tdd_red_registry tables for TDD workflow support"
+    );
+  });
+});
+
+describe("TDD File-Level Schema Migration (20260116_001_update_tdd_red_registry_schema)", () => {
+  it("should exist in migrations list with correct ID and description", () => {
+    const migrationsSource = fs.readFileSync(
+      path.join(__dirname, "../../src/db/migrations.ts"),
+      "utf-8"
+    );
+
+    expect(migrationsSource).toContain(
+      "20260116_001_update_tdd_red_registry_schema"
+    );
+    expect(migrationsSource).toContain(
+      "Update tdd_red_registry to file-level tracking"
+    );
+  });
+
+  it("should drop and recreate tdd_red_registry table", () => {
+    const migrationsSource = fs.readFileSync(
+      path.join(__dirname, "../../src/db/migrations.ts"),
+      "utf-8"
+    );
+
+    const migrationMatch = migrationsSource.match(
+      /id:\s*"20260116_001_update_tdd_red_registry_schema"[\s\S]*?up:\s*async\s*\(\)\s*=>\s*\{[\s\S]*?\}\s*,/
+    );
+
+    expect(migrationMatch).toBeTruthy();
+    const migrationCode = migrationMatch![0];
+
+    expect(migrationCode).toContain("DROP TABLE IF EXISTS tdd_red_registry");
+    expect(migrationCode).toContain("CREATE TABLE tdd_red_registry");
+  });
+
+  it("should use file-level schema with required columns", () => {
+    const migrationsSource = fs.readFileSync(
+      path.join(__dirname, "../../src/db/migrations.ts"),
+      "utf-8"
+    );
+
+    const migrationMatch = migrationsSource.match(
+      /id:\s*"20260116_001_update_tdd_red_registry_schema"[\s\S]*?up:\s*async\s*\(\)\s*=>\s*\{[\s\S]*?\}\s*,/
+    );
+
+    expect(migrationMatch).toBeTruthy();
+    const migrationCode = migrationMatch![0];
+
+    // Verify file-level schema columns (no transitioned column - registry is stateless snapshot)
+    expect(migrationCode).toContain("test_file TEXT NOT NULL");
+    expect(migrationCode).toContain("test_count INTEGER DEFAULT 1");
+    expect(migrationCode).toContain("created_at TEXT NOT NULL");
+    // Verify transitioned column is not in the DDL (but may appear in comments)
+    expect(migrationCode).not.toMatch(/transitioned\s+(INTEGER|TEXT|DEFAULT)/i);
+  });
+
+  it("should NOT include old per-test columns", () => {
+    const migrationsSource = fs.readFileSync(
+      path.join(__dirname, "../../src/db/migrations.ts"),
+      "utf-8"
+    );
+
+    const migrationMatch = migrationsSource.match(
+      /id:\s*"20260116_001_update_tdd_red_registry_schema"[\s\S]*?up:\s*async\s*\(\)\s*=>\s*\{[\s\S]*?\}\s*,/
+    );
+
+    expect(migrationMatch).toBeTruthy();
+    const migrationCode = migrationMatch![0];
+
+    // Verify old columns are not present
+    expect(migrationCode).not.toContain("test_identifier TEXT");
+    expect(migrationCode).not.toContain("marker_type TEXT");
+    expect(migrationCode).not.toContain("status TEXT");
+    expect(migrationCode).not.toContain("validated_at TEXT");
+    expect(migrationCode).not.toContain("greened_at TEXT");
+  });
+
+  it("should create unique index on test_file instead of test_identifier", () => {
+    const migrationsSource = fs.readFileSync(
+      path.join(__dirname, "../../src/db/migrations.ts"),
+      "utf-8"
+    );
+
+    const migrationMatch = migrationsSource.match(
+      /id:\s*"20260116_001_update_tdd_red_registry_schema"[\s\S]*?up:\s*async\s*\(\)\s*=>\s*\{[\s\S]*?\}\s*,/
+    );
+
+    expect(migrationMatch).toBeTruthy();
+    const migrationCode = migrationMatch![0];
+
+    // Verify unique index uses test_file
+    expect(migrationCode).toContain(
+      "tdd_reg_unique_test_idx ON tdd_red_registry(sprint_id, test_file)"
+    );
+  });
+
+  it("should be placed after the previous tdd_red_registry migration", () => {
+    const migrationsSource = fs.readFileSync(
+      path.join(__dirname, "../../src/db/migrations.ts"),
+      "utf-8"
+    );
+
+    const previousMigrationIdx = migrationsSource.indexOf(
+      "20260115_003_recreate_tdd_red_registry"
+    );
+    const fileLevelMigrationIdx = migrationsSource.indexOf(
+      "20260116_001_update_tdd_red_registry_schema"
+    );
+
+    expect(previousMigrationIdx).toBeGreaterThan(-1);
+    expect(fileLevelMigrationIdx).toBeGreaterThan(-1);
+    expect(fileLevelMigrationIdx).toBeGreaterThan(previousMigrationIdx);
+  });
+
+  it("should exist in extension migrations file with matching ID", () => {
+    const extensionMigrationsSource = fs.readFileSync(
+      path.join(__dirname, "../../extension/src/database/migrations.ts"),
+      "utf-8"
+    );
+
+    expect(extensionMigrationsSource).toContain(
+      "20260116_001_update_tdd_red_registry_schema"
+    );
+    expect(extensionMigrationsSource).toContain(
+      "Update tdd_red_registry to file-level tracking"
     );
   });
 });

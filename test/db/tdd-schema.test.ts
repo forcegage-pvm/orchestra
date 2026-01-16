@@ -88,13 +88,13 @@ describe("TDD Schema Tables", () => {
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         sprint_id TEXT NOT NULL REFERENCES sprints(id) ON DELETE CASCADE,
         red_task_id INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
-        test_identifier TEXT NOT NULL,
-        test_file TEXT,
+        test_file TEXT NOT NULL,
+        test_count INTEGER DEFAULT 1,
         created_at TEXT NOT NULL
       );
       CREATE INDEX tdd_reg_sprint_idx ON tdd_red_registry(sprint_id);
       CREATE INDEX tdd_reg_red_task_idx ON tdd_red_registry(red_task_id);
-      CREATE UNIQUE INDEX tdd_reg_unique_test_idx ON tdd_red_registry(sprint_id, test_identifier);
+      CREATE UNIQUE INDEX tdd_reg_unique_test_idx ON tdd_red_registry(sprint_id, test_file);
     `);
 
     // Enable foreign key constraints
@@ -381,7 +381,7 @@ describe("TDD Schema Tables", () => {
         columns.map((col) => [col.name, col])
       );
 
-      // Verify all 6 columns exist with correct properties
+      // Verify all 6 columns exist with correct properties (no transitioned - registry is stateless snapshot)
       expect(columnMap.id).toBeDefined();
       expect(columnMap.id.type).toBe("INTEGER");
       expect(columnMap.id.pk).toBe(1);
@@ -394,13 +394,13 @@ describe("TDD Schema Tables", () => {
       expect(columnMap.red_task_id.type).toBe("INTEGER");
       expect(columnMap.red_task_id.notnull).toBe(1);
 
-      expect(columnMap.test_identifier).toBeDefined();
-      expect(columnMap.test_identifier.type).toBe("TEXT");
-      expect(columnMap.test_identifier.notnull).toBe(1);
-
       expect(columnMap.test_file).toBeDefined();
       expect(columnMap.test_file.type).toBe("TEXT");
-      expect(columnMap.test_file.notnull).toBe(0); // Nullable
+      expect(columnMap.test_file.notnull).toBe(1); // Now required
+
+      expect(columnMap.test_count).toBeDefined();
+      expect(columnMap.test_count.type).toBe("INTEGER");
+      expect(columnMap.test_count.dflt_value).toBe("1");
 
       expect(columnMap.created_at).toBeDefined();
       expect(columnMap.created_at.type).toBe("TEXT");
@@ -444,7 +444,7 @@ describe("TDD Schema Tables", () => {
       expect(indexNames).toContain("tdd_reg_unique_test_idx");
     });
 
-    it("should enforce unique constraint on (sprint_id, test_identifier)", async () => {
+    it("should enforce unique constraint on (sprint_id, test_file)", async () => {
       const sprintId = "sprint-test-002";
       await db.insert(sprints).values({
         id: sprintId,
@@ -481,22 +481,22 @@ describe("TDD Schema Tables", () => {
         })
         .returning();
 
-      const testIdentifier = "test/example.test.ts::suite::should work";
+      const testFile = "test/example.test.ts";
 
-      // Insert first test
+      // Insert first test file
       await db.insert(tddRedRegistry).values({
         sprint_id: sprintId,
         red_task_id: redTask.id,
-        test_identifier: testIdentifier,
+        test_file: testFile,
         created_at: new Date().toISOString(),
       });
 
-      // Attempt to insert duplicate test_identifier - should fail
+      // Attempt to insert duplicate test_file - should fail
       await expect(
         db.insert(tddRedRegistry).values({
           sprint_id: sprintId,
           red_task_id: redTask.id,
-          test_identifier: testIdentifier,
+          test_file: testFile,
           created_at: new Date().toISOString(),
         })
       ).rejects.toThrow(/UNIQUE constraint failed/);
@@ -542,7 +542,7 @@ describe("TDD Schema Tables", () => {
       await db.insert(tddRedRegistry).values({
         sprint_id: sprintId,
         red_task_id: redTask.id,
-        test_identifier: "test/example.test.ts::suite::cascade test",
+        test_file: "test/example.test.ts",
         created_at: new Date().toISOString(),
       });
 

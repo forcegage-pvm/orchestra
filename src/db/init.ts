@@ -170,16 +170,9 @@ export async function initializeDb(): Promise<void> {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       sprint_id TEXT NOT NULL REFERENCES sprints(id) ON DELETE CASCADE,
       red_task_id INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
-      test_identifier TEXT NOT NULL,
-      test_file TEXT,
-      description TEXT,
-      marker_type TEXT,
-      status TEXT NOT NULL DEFAULT 'REGISTERED',
-      green_task_id INTEGER REFERENCES tasks(id) ON DELETE CASCADE,
-      created_at TEXT NOT NULL,
-      validated_at TEXT,
-      assigned_at TEXT,
-      greened_at TEXT
+      test_file TEXT NOT NULL,
+      test_count INTEGER DEFAULT 1,
+      created_at TEXT NOT NULL
     )
   `);
 
@@ -486,7 +479,7 @@ async function createIndexes(): Promise<void> {
     sql`CREATE INDEX IF NOT EXISTS tdd_reg_red_task_idx ON tdd_red_registry(red_task_id)`
   );
   await db.run(
-    sql`CREATE UNIQUE INDEX IF NOT EXISTS tdd_reg_unique_test_idx ON tdd_red_registry(sprint_id, test_identifier)`
+    sql`CREATE UNIQUE INDEX IF NOT EXISTS tdd_reg_unique_test_idx ON tdd_red_registry(sprint_id, test_file)`
   );
 
   // Tool executions indexes

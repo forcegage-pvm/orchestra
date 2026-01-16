@@ -706,35 +706,41 @@ function generateTddRedPhaseChecks(
       },
     });
 
-    // Structural: At least one tdd-red-task-N marker exists
-    // Flutter supports two syntaxes:
-    //   1. Library-level: @Tags(['tdd-red-task-N'])
-    //   2. Inline parameter: tags: ['tdd-red-task-N'] in test() call
+    // Structural: @orchestra-task: N comment exists (links file to task)
+    checks.push({
+      check_type: "structural",
+      description: `[TDD RED] Task-ID annotation present for "${taskTitle}"`,
+      severity: "BLOCKING",
+      check_config: {
+        path: "test/**/*.dart",
+        pattern: `//\\s*@orchestra-task:\\s*${taskId}`,
+        min_matches: 1,
+      },
+    });
+
+    // Structural: @Tags(['tdd-red']) marker exists (for test runner filtering)
     checks.push({
       check_type: "structural",
       description: `[TDD RED] Red-phase marker present for "${taskTitle}"`,
       severity: "BLOCKING",
       check_config: {
         path: "test/**/*.dart",
-        pattern: `@Tags\\(\\['tdd-red-task-${taskId}'\\]\\)|tags:\\s*\\['tdd-red-task-${taskId}'\\]`,
+        pattern: `@Tags\\(\\['tdd-red'\\]\\)|tags:\\s*\\['tdd-red'\\]`,
         min_matches: 1,
       },
     });
   } else if (language === "typescript") {
-    // TypeScript supports two TDD approaches:
-    //   1. Directory-based: test/tdd-red/*.test.ts
-    //   2. Tag-based: @vitest-environment or test name includes [tdd-red]
-    // We check for both to be flexible
+    // TypeScript TDD approach:
+    //   - Tag-based: test name includes [tdd-red]
+    //   - Task linking: // @orchestra-task: N comment at file top
 
     // Behavioral: tdd-red tests must fail
-    // Vitest: use --testNamePattern for tag filtering, or directory path
     checks.push({
       check_type: "behavioral",
       description: `[TDD RED] Red-phase tests must fail for "${taskTitle}"`,
       severity: "BLOCKING",
       check_config: {
-        command:
-          'npm test -- --testNamePattern="\\[tdd-red\\]" 2>/dev/null || npm test -- test/tdd-red',
+        command: 'npm test -- --testNamePattern="\\[tdd-red\\]"',
         expect_exit_code: 1,
         success_message: "Red-phase tests failed as expected",
         failure_message: "Red-phase tests must fail",
@@ -747,22 +753,33 @@ function generateTddRedPhaseChecks(
       description: `[TDD RED] Non-red tests must pass for "${taskTitle}"`,
       severity: "BLOCKING",
       check_config: {
-        command:
-          'npm test -- --exclude="**/tdd-red/**" --testNamePattern="^(?!.*\\[tdd-red\\])"',
+        command: 'npm test -- --testNamePattern="^(?!.*\\[tdd-red\\])"',
         expect_exit_code: 0,
         success_message: "Non-red tests passed (no regressions)",
         failure_message: "Non-red tests failed - regressions detected",
       },
     });
 
-    // Structural: tdd-red marker exists (directory or inline tag)
+    // Structural: @orchestra-task: N comment exists (links file to task)
+    checks.push({
+      check_type: "structural",
+      description: `[TDD RED] Task-ID annotation present for "${taskTitle}"`,
+      severity: "BLOCKING",
+      check_config: {
+        path: "test/**/*.test.ts",
+        pattern: `//\\s*@orchestra-task:\\s*${taskId}`,
+        min_matches: 1,
+      },
+    });
+
+    // Structural: [tdd-red] marker exists in test name
     checks.push({
       check_type: "structural",
       description: `[TDD RED] Red-phase test marker present for "${taskTitle}"`,
       severity: "BLOCKING",
       check_config: {
         path: "test/**/*.test.ts",
-        pattern: `\\[tdd-red-task-${taskId}\\]`,
+        pattern: `\\[tdd-red\\]`,
         min_matches: 1,
       },
     });

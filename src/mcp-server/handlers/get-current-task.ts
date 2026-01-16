@@ -237,50 +237,48 @@ function generateTddInstructions(
   if (language === "dart") {
     return {
       tagging_mechanism:
-        "Use @Tags(['tdd-red-task-N']) annotation OR inline tags: ['tdd-red-task-N'] parameter (replace N with task ID)",
+        "Use @Tags(['tdd-red']) annotation (file-level) OR inline tags: ['tdd-red'] parameter. Add // @orchestra-task: N at top of file.",
       red_test_command: "flutter test --tags tdd-red",
       green_test_command: "flutter test --exclude-tags tdd-red",
       expected_behavior:
         "The tagged test MUST fail (exit code 1). All other tests MUST pass (exit code 0).",
       cleanup_instruction:
-        "When implementing the GREEN phase: remove the @Tags(['tdd-red-task-N']) annotation or inline tags parameter AFTER making the test pass.",
-      example: `// Option 1: Library-level annotation (all tests in file)
+        "When implementing the GREEN phase: remove the @Tags(['tdd-red']) annotation or inline tags parameter AFTER making the test pass.",
+      example: `// @orchestra-task: N  // <-- Replace N with task ID (links file to task)
 import 'package:flutter_test/flutter_test.dart';
 
-@Tags(['tdd-red-task-N'])  // <-- Replace N with task ID, remove in GREEN phase
+@Tags(['tdd-red'])  // <-- Test runner filter tag (remove in GREEN phase)
+library;
+
 void main() {
   test('feature should work', () {
     expect(actualValue, expectedValue);
   });
 }
 
-// Option 2: Inline tags parameter (single test)
+// Alternative: Inline tags parameter (single test)
 test('feature should work', () {
   expect(actualValue, expectedValue);
-}, tags: ['tdd-red-task-N']);  // <-- Replace N with task ID, remove in GREEN phase`,
+}, tags: ['tdd-red']);  // <-- Remove in GREEN phase`,
     };
   }
 
   if (language === "typescript") {
     return {
       tagging_mechanism:
-        "Add [tdd-red-task-N] prefix to test or describe name (replace N with task ID)",
-      red_test_command: 'npm test -- --testNamePattern="\\[tdd-red-task-N\\]"',
+        "Add [tdd-red] prefix to test or describe name. Add // @orchestra-task: N at top of file.",
+      red_test_command: 'npm test -- --testNamePattern="\\[tdd-red\\]"',
       green_test_command:
         'npm test -- --testNamePattern="^(?!.*\\[tdd-red\\])"',
       expected_behavior:
-        "Tests with [tdd-red-task-N] in name MUST fail (exit code 1). All other tests MUST pass (exit code 0).",
+        "Tests with [tdd-red] in name MUST fail (exit code 1). All other tests MUST pass (exit code 0).",
       cleanup_instruction:
-        "When implementing the GREEN phase: remove [tdd-red-task-N] from test/describe name AFTER making the test pass.",
-      example: `// Test-level marker
-it('[tdd-red-task-N] should calculate total correctly', () => {  // <-- Replace N with task ID, remove in GREEN phase
-  expect(calculateTotal([1, 2, 3])).toBe(6);
-});
+        "When implementing the GREEN phase: remove [tdd-red] from test/describe name AFTER making the test pass.",
+      example: `// @orchestra-task: N  // <-- Replace N with task ID (links file to task)
 
-// Describe-level marker (all nested tests inherit)
-describe('[tdd-red-task-N] Feature module', () => {  // <-- Replace N with task ID, remove in GREEN phase
-  it('should work', () => {
-    expect(actual).toBe(expected);
+describe('[tdd-red] Feature module', () => {  // <-- Remove [tdd-red] in GREEN phase
+  it('[tdd-red] should calculate total correctly', () => {
+    expect(calculateTotal([1, 2, 3])).toBe(6);
   });
 });`,
     };

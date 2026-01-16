@@ -260,46 +260,85 @@ async function signalCompletion(
     );
   }
 
-  // 6b. If TDD red-phase task, scan for markers and update registry
-  if (task.tdd_red_phase) {
-    const workspacePath = resolveWorkspacePath();
-    const scanResult = await scanForTddMarkers(task.task_id, workspacePath);
+  // 6b. ALWAYS scan for TDD markers and update registry (complete snapshot)
+  // This runs on EVERY signal_completion to maintain accurate registry state
+  const workspacePath = resolveWorkspacePath();
+  const scanResult = await scanForTddMarkers(workspacePath);
 
-    // Check if zero tests found - this is an error for red-phase tasks
-    if (scanResult.tests.length === 0) {
+  // Delete ALL registry entries for this sprint (fresh snapshot)
+  await db
+    .delete(tddRedRegistry)
+    .where(eq(tddRedRegistry.sprint_id, sprint.id));
+
+  // Get task internal IDs for all tasks in sprint (for mapping task_id -> internal id)
+  const sprintTasks = await db
+    .select({ id: tasks.id, task_id: tasks.task_id })
+    .from(tasks)
+    .where(eq(tasks.sprint_id, sprint.id));
+  const taskIdToInternalId = new Map(sprintTasks.map((t) => [t.task_id, t.id]));
+
+  // Insert fresh entries for ALL tasks found in scan
+  for (const [taskId, files] of scanResult.testsByTask) {
+    const taskInternalId = taskIdToInternalId.get(taskId);
+    if (taskInternalId !== undefined) {
+      // Only insert if task belongs to this sprint
+      for (const file of files) {
+        await db.insert(tddRedRegistry).values({
+          sprint_id: sprint.id,
+          red_task_id: taskInternalId,
+          test_file: file.test_file,
+          test_count: file.test_count,
+          created_at: now,
+        });
+      }
+    }
+  }
+
+  // 6c. Check for files with tdd-red markers but missing // @orchestra-task: N
+  if (
+    scanResult.filesWithoutTaskId &&
+    scanResult.filesWithoutTaskId.length > 0
+  ) {
+    throw new Error(
+      `TDD-RED FILE MISSING TASK-ID:\n\n` +
+        `The following files have @Tags(['tdd-red']) or [tdd-red] markers\n` +
+        `but are missing the task-ID annotation:\n\n` +
+        scanResult.filesWithoutTaskId.map((f) => `  - ${f}`).join("\n") +
+        `\n\nAdd at the top of each file:\n` +
+        `  // @orchestra-task: ${task.task_id}\n\n` +
+        `This is REQUIRED for Orchestra to track when these tests must transition\n` +
+        `to green. Without it, there's no enforcement of when implementation\n` +
+        `happens (Ground Zero failure).`
+    );
+  }
+
+  // 6d. If this is a red-phase task, validate it has markers in registry
+  if (task.tdd_red_phase) {
+    const taskMarkers = scanResult.testsByTask.get(task.task_id);
+    if (!taskMarkers || taskMarkers.length === 0) {
       throw new Error(
         `TDD RED-PHASE WORKFLOW VIOLATION:\n\n` +
           `Task ${task.task_id} has tdd_red_phase=true but no TDD markers were found.\n\n` +
-          `EXPECTED MARKER FORMAT (single-token):\n` +
-          `  TypeScript: [tdd-red-task-${task.task_id}] in test/describe name\n` +
-          `  Dart file-level: @Tags(['tdd-red-task-${task.task_id}'])\n` +
-          `  Dart inline: tags: ['tdd-red-task-${task.task_id}'] in test() call\n\n` +
-          `This usually happens when the handover incorrectly instructed the implementor to:\n` +
-          `1. Write tests with TDD markers\n` +
-          `2. Implement the feature\n` +
-          `3. Remove the markers\n\n` +
-          `This is INCORRECT. Red and green phases MUST be separate tasks:\n` +
+          `REQUIRED FORMAT (per DESIGN.md):\n` +
+          `  1. Add test runner filtering tag (NO task ID in tag):\n` +
+          `     TypeScript: [tdd-red] in test/describe name\n` +
+          `     Dart: @Tags(['tdd-red']) or tags: ['tdd-red']\n\n` +
+          `  2. Add task linking comment at TOP of file:\n` +
+          `     // @orchestra-task: ${task.task_id}\n\n` +
+          `EXAMPLE (TypeScript):\n` +
+          `  // @orchestra-task: ${task.task_id}\n` +
+          `  describe('[tdd-red] Feature', () => {\n` +
+          `    it('[tdd-red] should work', () => { ... });\n` +
+          `  });\n\n` +
+          `EXAMPLE (Dart):\n` +
+          `  // @orchestra-task: ${task.task_id}\n` +
+          `  @Tags(['tdd-red'])\n` +
+          `  library;\n` +
+          `  void main() { ... }\n\n` +
+          `Red and green phases MUST be separate tasks:\n` +
           `- Red task: Write failing tests, KEEP markers, signal completion\n` +
-          `- Green task: Implement feature, remove markers, signal completion\n\n` +
-          `To fix: Escalate this task and reconfigure with separate red/green tasks.\n` +
-          `See TD-021 for TDD task separation enforcement details.`
+          `- Green task: Implement feature, remove markers, signal completion`
       );
-    }
-
-    // Clear existing registry entries for this task (support re-signaling)
-    await db
-      .delete(tddRedRegistry)
-      .where(eq(tddRedRegistry.red_task_id, task.id));
-
-    // Insert scan results into registry
-    for (const test of scanResult.tests) {
-      await db.insert(tddRedRegistry).values({
-        sprint_id: sprint.id,
-        red_task_id: task.id,
-        test_identifier: test.test_identifier,
-        test_file: test.test_file,
-        created_at: now,
-      });
     }
   }
 

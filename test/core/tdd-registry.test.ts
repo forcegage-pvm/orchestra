@@ -80,17 +80,16 @@ describe("TDD Red Registry CRUD", () => {
   });
 
   describe("registerTest", () => {
-    it("should register a new TDD red test", async () => {
+    it("should register a new TDD red test file", async () => {
       const result = await registerTest({
         taskId,
-        testIdentifier: "test.dart::MyGroup::should fail",
-        description: "Test for new feature",
-        markerType: "@Tags(['tdd-red'])",
+        testFile: "test/test.dart",
+        testCount: 2,
       });
 
       expect(result.registryId).toBeGreaterThan(0);
-      expect(result.testIdentifier).toBe("test.dart::MyGroup::should fail");
-      expect(result.status).toBe("REGISTERED");
+      expect(result.testFile).toBe("test/test.dart");
+      expect(result.testCount).toBe(2);
 
       // Verify database entry
       const db = getDb();
@@ -102,18 +101,20 @@ describe("TDD Red Registry CRUD", () => {
       expect(entry).toBeDefined();
       expect(entry.sprint_id).toBe(sprintId);
       expect(entry.red_task_id).toBe(taskInternalId);
-      expect(entry.test_identifier).toBe("test.dart::MyGroup::should fail");
+      expect(entry.test_file).toBe("test/test.dart");
+      expect(entry.test_count).toBe(2);
       expect(entry.created_at).toBeDefined();
     });
 
-    it("should register test without optional fields", async () => {
+    it("should register test file with default test_count of 1", async () => {
       const result = await registerTest({
         taskId,
-        testIdentifier: "test.ts::Suite::should work",
+        testFile: "test/feature.test.ts",
+        testCount: 1,
       });
 
       expect(result.registryId).toBeGreaterThan(0);
-      expect(result.status).toBe("REGISTERED");
+      expect(result.testCount).toBe(1);
 
       const db = getDb();
       const [entry] = await db
@@ -123,6 +124,7 @@ describe("TDD Red Registry CRUD", () => {
 
       // Verify basic entry created
       expect(entry).toBeDefined();
+      expect(entry.test_file).toBe("test/feature.test.ts");
     });
 
     it("should throw error when no active sprint", async () => {
@@ -140,7 +142,8 @@ describe("TDD Red Registry CRUD", () => {
       await expect(
         registerTest({
           taskId,
-          testIdentifier: "test.dart::group::test",
+          testFile: "test/test.dart",
+          testCount: 1,
         })
       ).rejects.toThrow("No active sprint found");
     });
@@ -149,31 +152,32 @@ describe("TDD Red Registry CRUD", () => {
       await expect(
         registerTest({
           taskId: 999,
-          testIdentifier: "test.dart::group::test",
+          testFile: "test/test.dart",
+          testCount: 1,
         })
       ).rejects.toThrow("Task 999 not found");
     });
   });
 
   describe("getTestsByTask", () => {
-    it("should retrieve all tests for a task", async () => {
-      // Register multiple tests
+    it("should retrieve all test files for a task", async () => {
+      // Register multiple test files
       await registerTest({
         taskId,
-        testIdentifier: "test1.dart::Group1::test1",
-        description: "First test",
+        testFile: "test/test1.dart",
+        testCount: 1,
       });
       await registerTest({
         taskId,
-        testIdentifier: "test2.dart::Group2::test2",
-        description: "Second test",
+        testFile: "test/test2.dart",
+        testCount: 2,
       });
 
       const entries = await getTestsByTask(taskId);
 
       expect(entries).toHaveLength(2);
-      expect(entries[0].test_identifier).toBe("test1.dart::Group1::test1");
-      expect(entries[1].test_identifier).toBe("test2.dart::Group2::test2");
+      expect(entries[0].test_file).toBe("test/test1.dart");
+      expect(entries[1].test_file).toBe("test/test2.dart");
     });
 
     it("should return empty array when no tests registered", async () => {

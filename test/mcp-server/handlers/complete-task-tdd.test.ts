@@ -105,23 +105,14 @@ describe("complete_task - TDD red-phase completion flow", () => {
         })
         .returning();
 
-      // Create VALIDATED registry entries
+      // Create registry entries (file-level - registry is stateless snapshot)
       await db.insert(tddRedRegistry).values([
         {
           sprint_id: sprint.id,
           red_task_id: redTask.id,
-          test_identifier: "test1.ts::suite1::test1",
-          status: "VALIDATED",
+          test_file: "test1.ts",
+          test_count: 2,
           created_at: now,
-          validated_at: now,
-        },
-        {
-          sprint_id: sprint.id,
-          red_task_id: redTask.id,
-          test_identifier: "test1.ts::suite1::test2",
-          status: "VALIDATED",
-          created_at: now,
-          validated_at: now,
         },
       ]);
 
@@ -129,14 +120,12 @@ describe("complete_task - TDD red-phase completion flow", () => {
       const result = await handleCompleteTask({ task_id: 1 });
       const response = JSON.parse(result.content[0].text);
 
-      // Verify completion is blocked with GREEN_TASK_REQUIRED error
+      // Verify completion is blocked with INCOMPLETE TDD WORKFLOW error
       expect(response.success).toBe(false);
       expect(response.error).toBeDefined();
-      expect(response.error.message).toContain("GREEN_TASK_REQUIRED");
-      expect(response.error.message).toContain("task 1");
-      expect(response.error.message).toContain(
-        "cannot be completed without a green task assignment"
-      );
+      expect(response.error.message).toContain("INCOMPLETE TDD WORKFLOW");
+      expect(response.error.message).toContain("Task 1");
+      expect(response.error.message).toContain("no green task assigned");
 
       // Verify task remains in VERIFY state (not completed)
       const [unchangedTask] = await db
@@ -146,16 +135,13 @@ describe("complete_task - TDD red-phase completion flow", () => {
       expect(unchangedTask.status).toBe("VERIFY");
       expect(unchangedTask.completed_at).toBeNull();
 
-      // Verify registry entries remain in VALIDATED state (not transitioned)
+      // Verify registry entries still exist (registry is stateless)
       const registryEntries = await db
         .select()
         .from(tddRedRegistry)
         .where(eq(tddRedRegistry.red_task_id, redTask.id));
 
-      expect(registryEntries).toHaveLength(2);
-      registryEntries.forEach((entry) => {
-        expect(entry.red_task_id).toBe(redTask.id);
-      });
+      expect(registryEntries).toHaveLength(1);
     });
   });
 
@@ -225,23 +211,21 @@ describe("complete_task - TDD red-phase completion flow", () => {
         })
         .returning();
 
-      // Create VALIDATED registry entries
+      // Create registry entries (file-level: 2 files - registry is stateless snapshot)
       await db.insert(tddRedRegistry).values([
         {
           sprint_id: sprint.id,
           red_task_id: redTask.id,
-          test_identifier: "test1.ts::suite1::test1",
-          status: "VALIDATED",
+          test_file: "test1.ts",
+          test_count: 1,
           created_at: now,
-          validated_at: now,
         },
         {
           sprint_id: sprint.id,
           red_task_id: redTask.id,
-          test_identifier: "test2.ts::suite2::test1",
-          status: "VALIDATED",
+          test_file: "test2.ts",
+          test_count: 1,
           created_at: now,
-          validated_at: now,
         },
       ]);
 
@@ -276,7 +260,7 @@ describe("complete_task - TDD red-phase completion flow", () => {
       expect(relationship.green_task_id).toBe(greenTask.id);
       expect(relationship.declared_at).toBe("complete_task");
 
-      // Verify registry entries transitioned to PENDING_GREEN with green_task_id
+      // Verify registry entries still exist (registry is stateless snapshot)
       const registryEntries = await db
         .select()
         .from(tddRedRegistry)
@@ -335,14 +319,13 @@ describe("complete_task - TDD red-phase completion flow", () => {
         })
         .returning();
 
-      // Create VALIDATED registry entry
+      // Create registry entry (file-level)
       await db.insert(tddRedRegistry).values({
         sprint_id: sprint.id,
         red_task_id: redTask.id,
-        test_identifier: "test1.ts::suite1::test1",
-        status: "VALIDATED",
+        test_file: "test1.ts",
+        test_count: 1,
         created_at: now,
-        validated_at: now,
       });
 
       // Attempt to complete with non-existent green_task_id
@@ -441,31 +424,21 @@ describe("complete_task - TDD red-phase completion flow", () => {
         created_at: now,
       });
 
-      // Create VALIDATED registry entries
+      // Create registry entries (file-level: 2 files, 3 tests total)
       await db.insert(tddRedRegistry).values([
         {
           sprint_id: sprint.id,
           red_task_id: redTask.id,
-          test_identifier: "test1.ts::suite1::test1",
-          status: "VALIDATED",
+          test_file: "test1.ts",
+          test_count: 2,
           created_at: now,
-          validated_at: now,
         },
         {
           sprint_id: sprint.id,
           red_task_id: redTask.id,
-          test_identifier: "test1.ts::suite1::test2",
-          status: "VALIDATED",
+          test_file: "test2.ts",
+          test_count: 1,
           created_at: now,
-          validated_at: now,
-        },
-        {
-          sprint_id: sprint.id,
-          red_task_id: redTask.id,
-          test_identifier: "test2.ts::suite2::test1",
-          status: "VALIDATED",
-          created_at: now,
-          validated_at: now,
         },
       ]);
 
@@ -498,13 +471,13 @@ describe("complete_task - TDD red-phase completion flow", () => {
       expect(relationship.green_task_id).toBe(greenTask.id);
       expect(relationship.declared_at).toBe("configure_sprint");
 
-      // Verify registry entries transitioned to PENDING_GREEN
+      // Verify registry entries remain (file-level: 2 entries for 2 files)
       const registryEntries = await db
         .select()
         .from(tddRedRegistry)
         .where(eq(tddRedRegistry.red_task_id, redTask.id));
 
-      expect(registryEntries).toHaveLength(3);
+      expect(registryEntries).toHaveLength(2);
       registryEntries.forEach((entry) => {
         expect(entry.red_task_id).toBe(redTask.id);
       });
@@ -601,14 +574,13 @@ describe("complete_task - TDD red-phase completion flow", () => {
         created_at: now,
       });
 
-      // Create VALIDATED registry entry
+      // Create registry entry (file-level)
       await db.insert(tddRedRegistry).values({
         sprint_id: sprint.id,
         red_task_id: redTask.id,
-        test_identifier: "test1.ts::suite1::test1",
-        status: "VALIDATED",
+        test_file: "test1.ts",
+        test_count: 1,
         created_at: now,
-        validated_at: now,
       });
 
       // Complete with explicit green_task_id=3, but upfront relationship points to task 2

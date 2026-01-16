@@ -31,10 +31,8 @@ export interface TaskData {
   } | null;
   tdd?: {
     isRedPhase: boolean;
-    registeredTests: number;
-    validatedTests: number;
-    greenTaskId: number | null;
-    greenTaskTitle: string | null;
+    registeredFiles: number; // Number of test files with markers
+    totalTestCount: number; // Total tests across all files
     redTaskId?: number;
     redTaskTitle?: string;
   } | null;
@@ -397,9 +395,6 @@ function getScript(): string {
       let tddBanner = '';
       if (task.tdd) {
         if (task.tdd.isRedPhase) {
-          const greenLink = task.tdd.greenTaskId 
-            ? \`<span class="tdd-link" onclick="openTask(\${task.tdd.greenTaskId})">Task \${task.tdd.greenTaskId}: \${escapeHtml(task.tdd.greenTaskTitle || 'Green Task')}</span>\`
-            : '<em>Not assigned yet</em>';
           tddBanner = \`
             <div class="tdd-banner red-phase">
               <div class="tdd-header">
@@ -408,13 +403,13 @@ function getScript(): string {
               </div>
               <div class="tdd-stats">
                 <div class="tdd-stat">
-                  <span>Tests:</span>
-                  <span class="tdd-stat-value">\${task.tdd.validatedTests}/\${task.tdd.registeredTests}</span>
-                  <span>validated</span>
+                  <span>Files:</span>
+                  <span class="tdd-stat-value">\${task.tdd.registeredFiles}</span>
                 </div>
-              </div>
-              <div style="margin-top: 6px;">
-                <span>Green Task:</span> \${greenLink}
+                <div class="tdd-stat">
+                  <span>Total Tests:</span>
+                  <span class="tdd-stat-value">\${task.tdd.totalTestCount}</span>
+                </div>
               </div>
             </div>
           \`;
@@ -432,11 +427,11 @@ function getScript(): string {
               <div class="tdd-stats">
                 <div class="tdd-stat">
                   <span>Tests to green:</span>
-                  <span class="tdd-stat-value">\${task.tdd.registeredTests}</span>
+                  <span class="tdd-stat-value">\${task.tdd.totalTestCount}</span>
                 </div>
                 <div class="tdd-stat">
-                  <span>Passed:</span>
-                  <span class="tdd-stat-value">\${task.tdd.validatedTests}</span>
+                  <span>Files with markers:</span>
+                  <span class="tdd-stat-value">\${task.tdd.registeredFiles}</span>
                 </div>
               </div>
               \${redLink ? \`<div style="margin-top: 6px;">From: \${redLink}</div>\` : ''}
@@ -639,13 +634,6 @@ function renderTaskCard(task: TaskData): string {
   let tddBanner = "";
   if (task.tdd) {
     if (task.tdd.isRedPhase) {
-      const greenLink = task.tdd.greenTaskId
-        ? `<span class="tdd-link" onclick="openTask(${
-            task.tdd.greenTaskId
-          })">Task ${task.tdd.greenTaskId}: ${escapeHtml(
-            task.tdd.greenTaskTitle || "Green Task"
-          )}</span>`
-        : "<em>Not assigned yet</em>";
       tddBanner = `
         <div class="tdd-banner red-phase">
           <div class="tdd-header">
@@ -654,13 +642,13 @@ function renderTaskCard(task: TaskData): string {
           </div>
           <div class="tdd-stats">
             <div class="tdd-stat">
-              <span>Tests:</span>
-              <span class="tdd-stat-value">${task.tdd.validatedTests}/${task.tdd.registeredTests}</span>
-              <span>validated</span>
+              <span>Files:</span>
+              <span class="tdd-stat-value">${task.tdd.registeredFiles}</span>
             </div>
-          </div>
-          <div style="margin-top: 6px;">
-            <span>Green Task:</span> ${greenLink}
+            <div class="tdd-stat">
+              <span>Total Tests:</span>
+              <span class="tdd-stat-value">${task.tdd.totalTestCount}</span>
+            </div>
           </div>
         </div>
       `;
@@ -682,11 +670,11 @@ function renderTaskCard(task: TaskData): string {
           <div class="tdd-stats">
             <div class="tdd-stat">
               <span>Tests to green:</span>
-              <span class="tdd-stat-value">${task.tdd.registeredTests}</span>
+              <span class="tdd-stat-value">${task.tdd.totalTestCount}</span>
             </div>
             <div class="tdd-stat">
-              <span>Passed:</span>
-              <span class="tdd-stat-value">${task.tdd.validatedTests}</span>
+              <span>Files with markers:</span>
+              <span class="tdd-stat-value">${task.tdd.registeredFiles}</span>
             </div>
           </div>
           ${

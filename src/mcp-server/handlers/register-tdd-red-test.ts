@@ -11,6 +11,7 @@ import { getActiveSprint, getDb } from "../../db/index.js";
 import { tasks, tddRedRegistry } from "../../db/schema.js";
 import {
   RegisterTddRedTestInputSchema,
+  type RegisterTddRedTestInput,
   type RegisterTddRedTestOutput,
 } from "../../schemas/tdd-registry.js";
 import { validateInput } from "../../schemas/utils.js";
@@ -31,7 +32,12 @@ export async function handleRegisterTddRedTest(input: unknown) {
   }
 
   try {
-    const output = await registerTddRedTest(validation.data);
+    // Ensure test_count has a value (Zod default should handle this, but TS needs assurance)
+    const inputWithDefaults = {
+      ...validation.data,
+      test_count: validation.data.test_count ?? 1,
+    };
+    const output = await registerTddRedTest(inputWithDefaults);
     const durationMs = Math.round(performance.now() - startTime);
 
     await logToolExecution(
@@ -85,7 +91,7 @@ export async function handleRegisterTddRedTest(input: unknown) {
 }
 
 async function registerTddRedTest(
-  input: typeof RegisterTddRedTestInputSchema._output
+  input: RegisterTddRedTestInput
 ): Promise<RegisterTddRedTestOutput> {
   const db = getDb();
 
@@ -118,34 +124,31 @@ async function registerTddRedTest(
     throw new Error("Cannot register tests for completed task");
   }
 
-  // 5. Validation: test_identifier format (must contain ::)
-  if (!input.test_identifier.includes("::")) {
-    throw new Error("Invalid test_identifier format");
-  }
-
-  // 6. Validation: check for duplicates in sprint
+  // 5. Validation: check for duplicates in sprint (file-level)
   const [existing] = await db
     .select()
     .from(tddRedRegistry)
     .where(
       and(
         eq(tddRedRegistry.sprint_id, sprint.id),
-        eq(tddRedRegistry.test_identifier, input.test_identifier)
+        eq(tddRedRegistry.test_file, input.test_file)
       )
     )
     .limit(1);
 
   if (existing) {
-    throw new Error(`Test already registered: ${input.test_identifier}`);
+    throw new Error(`Test file already registered: ${input.test_file}`);
   }
 
-  // 7. Register the test using core function
+  // 6. Register the test using core function
   const options: {
     taskId: number;
-    testIdentifier: string;
+    testFile: string;
+    testCount: number;
   } = {
     taskId: input.task_id,
-    testIdentifier: input.test_identifier,
+    testFile: input.test_file,
+    testCount: input.test_count,
   };
 
   const result = await registerTest(options);
@@ -153,7 +156,8 @@ async function registerTddRedTest(
   return {
     success: true,
     registry_id: result.registryId,
-    test_identifier: result.testIdentifier,
+    test_file: result.testFile,
+    test_count: result.testCount,
     next_step: "Continue writing red tests or signal completion when done",
   };
 }

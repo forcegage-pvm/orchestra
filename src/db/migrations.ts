@@ -382,14 +382,14 @@ const MIGRATIONS: Migration[] = [
   {
     id: "20260116_001_update_tdd_red_registry_schema",
     description:
-      "Update tdd_red_registry to file-level tracking: drop test_identifier, make test_file NOT NULL, add test_count and transitioned columns",
+      "Update tdd_red_registry to file-level tracking: drop test_identifier, make test_file NOT NULL, add test_count. Registry is a transitory snapshot.",
     up: async () => {
       const db = getDb();
 
-      // Drop old table (data loss acceptable - test tracking data)
+      // Drop old table (data loss acceptable - test tracking data is transitory)
       await db.run(sql`DROP TABLE IF EXISTS tdd_red_registry`);
 
-      // Recreate table with file-level schema
+      // Recreate table with file-level schema (no transitioned column - registry is stateless snapshot)
       await db.run(sql`
         CREATE TABLE tdd_red_registry (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -397,7 +397,6 @@ const MIGRATIONS: Migration[] = [
           red_task_id INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
           test_file TEXT NOT NULL,
           test_count INTEGER DEFAULT 1,
-          transitioned INTEGER DEFAULT 0,
           created_at TEXT NOT NULL
         )
       `);

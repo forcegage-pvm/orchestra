@@ -579,10 +579,11 @@ export const tddTaskRelationships = sqliteTable(
 );
 
 /**
- * TDD Red Registry table - Individual test entries from red-phase tasks
+ * TDD Red Registry table - File-level test tracking from red-phase tasks
  *
- * Stores test identifiers discovered during red-phase scan-on-signal.
- * Status tracking now handled by tdd_task_relationships.completed_at.
+ * Stores test files discovered during scan-on-signal.
+ * This is a TRANSITORY SNAPSHOT of what TDD markers exist in the codebase.
+ * The registry is cleared and repopulated on every signal_completion.
  */
 export const tddRedRegistry = sqliteTable(
   "tdd_red_registry",
@@ -594,9 +595,9 @@ export const tddRedRegistry = sqliteTable(
     red_task_id: integer("red_task_id")
       .notNull()
       .references(() => tasks.id, { onDelete: "cascade" }),
-    test_identifier: text("test_identifier").notNull(), // Format: "file::group::test"
-    test_file: text("test_file"),
-    created_at: text("created_at").notNull(),
+    test_file: text("test_file").notNull(), // Relative path to test file
+    test_count: integer("test_count").default(1), // Number of tests in file
+    created_at: text("created_at").notNull(), // When registered
   },
   (tddRedRegistry) => ({
     tddRegSprintIdx: index("tdd_reg_sprint_idx").on(tddRedRegistry.sprint_id),
@@ -605,7 +606,7 @@ export const tddRedRegistry = sqliteTable(
     ),
     uniqueTest: uniqueIndex("tdd_reg_unique_test_idx").on(
       tddRedRegistry.sprint_id,
-      tddRedRegistry.test_identifier
+      tddRedRegistry.test_file
     ),
   })
 );

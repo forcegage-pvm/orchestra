@@ -350,23 +350,14 @@ describe("complete_task handler", () => {
         created_at: now,
       });
 
-      // Create VALIDATED registry entries
+      // Create registry entries (file-level with test count)
       await db.insert(tddRedRegistry).values([
         {
           sprint_id: sprint.id,
           red_task_id: redTask.id,
-          test_identifier: "test1.ts::suite1::test1",
-          status: "VALIDATED",
+          test_file: "test1.ts",
+          test_count: 2,
           created_at: now,
-          validated_at: now,
-        },
-        {
-          sprint_id: sprint.id,
-          red_task_id: redTask.id,
-          test_identifier: "test1.ts::suite1::test2",
-          status: "VALIDATED",
-          created_at: now,
-          validated_at: now,
         },
       ]);
 
@@ -379,16 +370,15 @@ describe("complete_task handler", () => {
       expect(response.task_id).toBe(1);
       expect(response.status).toBe("COMPLETE");
 
-      // Verify registry entries are now PENDING_GREEN
+      // Verify registry entry remains (1 file-level entry)
       const registryEntries = await db
         .select()
         .from(tddRedRegistry)
         .where(eq(tddRedRegistry.red_task_id, redTask.id));
 
-      expect(registryEntries).toHaveLength(2);
-      registryEntries.forEach((entry) => {
-        expect(entry.red_task_id).toBe(redTask.id);
-      });
+      expect(registryEntries).toHaveLength(1);
+      expect(registryEntries[0].test_file).toBe("test1.ts");
+      expect(registryEntries[0].test_count).toBe(2);
     });
 
     it("should complete TDD red-phase task with dynamic green_task_id", async () => {
@@ -460,10 +450,9 @@ describe("complete_task handler", () => {
         {
           sprint_id: sprint.id,
           red_task_id: redTask.id,
-          test_identifier: "test1.ts::suite1::test1",
-          status: "VALIDATED",
+          test_file: "test1.ts",
+          test_count: 1,
           created_at: now,
-          validated_at: now,
         },
       ]);
 
@@ -544,14 +533,13 @@ describe("complete_task handler", () => {
         })
         .returning();
 
-      // Create VALIDATED registry entry
+      // Create registry entry (file-level)
       await db.insert(tddRedRegistry).values({
         sprint_id: sprint.id,
         red_task_id: redTask.id,
-        test_identifier: "test1.ts::suite1::test1",
-        status: "VALIDATED",
+        test_file: "test1.ts",
+        test_count: 1,
         created_at: now,
-        validated_at: now,
       });
 
       // Attempt to complete without green_task_id
@@ -560,8 +548,8 @@ describe("complete_task handler", () => {
 
       // Assertions
       expect(response.success).toBe(false);
-      expect(response.error.message).toContain("GREEN_TASK_REQUIRED");
-      expect(response.error.message).toContain("task 1");
+      expect(response.error.message).toContain("INCOMPLETE TDD WORKFLOW");
+      expect(response.error.message).toContain("Task 1");
 
       // Verify task is still in VERIFY state
       const [unchangedTask] = await db
@@ -707,21 +695,20 @@ describe("complete_task handler", () => {
         created_at: now,
       });
 
-      // Create mixed status registry entries
+      // Create file-level registry entries (2 different test files)
       await db.insert(tddRedRegistry).values([
         {
           sprint_id: sprint.id,
           red_task_id: redTask.id,
-          test_identifier: "test1.ts::suite1::test1",
-          status: "VALIDATED",
+          test_file: "test1.ts",
+          test_count: 1,
           created_at: now,
-          validated_at: now,
         },
         {
           sprint_id: sprint.id,
           red_task_id: redTask.id,
-          test_identifier: "test1.ts::suite1::test2",
-          status: "REGISTERED", // Not VALIDATED
+          test_file: "test2.ts",
+          test_count: 1,
           created_at: now,
         },
       ]);
@@ -729,23 +716,22 @@ describe("complete_task handler", () => {
       // Complete the red task
       await handleCompleteTask({ task_id: 1 });
 
-      // Verify only VALIDATED entry was transitioned
+      // Verify registry entries still exist (registry is stateless snapshot)
       const registryEntries = await db
         .select()
         .from(tddRedRegistry)
         .where(eq(tddRedRegistry.red_task_id, redTask.id));
 
-      const validatedEntry = registryEntries.find(
-        (e) => e.test_identifier === "test1.ts::suite1::test1"
+      expect(registryEntries).toHaveLength(2);
+      const file1Entry = registryEntries.find(
+        (e) => e.test_file === "test1.ts"
       );
-      const registeredEntry = registryEntries.find(
-        (e) => e.test_identifier === "test1.ts::suite1::test2"
+      const file2Entry = registryEntries.find(
+        (e) => e.test_file === "test2.ts"
       );
 
-      expect(validatedEntry).toBeDefined();
-      expect(registeredEntry).toBeDefined();
-      expect(validatedEntry?.red_task_id).toBe(redTask.id);
-      expect(registeredEntry?.red_task_id).toBe(redTask.id);
+      expect(file1Entry).toBeDefined();
+      expect(file2Entry).toBeDefined();
     });
   });
 

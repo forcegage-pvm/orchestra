@@ -5,7 +5,7 @@
  * Returns progress summary and next task if available.
  */
 
-import { and, eq } from "drizzle-orm";
+import { and, eq, isNull, ne } from "drizzle-orm";
 import { autoCommitIfEnabled, generateCommitMessage } from "../../core/git.js";
 import {
   getActiveSprint,
@@ -16,6 +16,7 @@ import {
   progress as progressTable,
   sprints,
   tasks,
+  tddRedRegistry,
   tddTaskRelationships,
 } from "../../db/schema.js";
 import {
@@ -127,30 +128,71 @@ async function completeTask(
     );
   }
 
+  // 3a-EARLY: If caller provides green_task_id, validate it exists BEFORE gate check
+  // This provides better error messages when caller specifies an invalid green task
+  let providedGreenTaskInternalId: number | null = null;
+  if (input.green_task_id !== undefined) {
+    const [greenTask] = await db
+      .select({ id: tasks.id })
+      .from(tasks)
+      .where(
+        and(
+          eq(tasks.sprint_id, sprint.id),
+          eq(tasks.task_id, input.green_task_id)
+        )
+      )
+      .limit(1);
+
+    if (!greenTask) {
+      throw new Error(`Green task ${input.green_task_id} not found`);
+    }
+    providedGreenTaskInternalId = greenTask.id;
+  }
+
+  // 3-GATE: All tasks in tdd_red_registry must have green_task_id in relationships
+  // This ensures orchestrator has properly configured TDD workflow before any completion
+  // Exclude current task from check if green_task_id was provided (we'll assign it next)
+  const orphanedRedTasks = await db
+    .select({
+      red_task_internal_id: tddRedRegistry.red_task_id,
+      task_id: tasks.task_id,
+      test_file: tddRedRegistry.test_file,
+    })
+    .from(tddRedRegistry)
+    .innerJoin(tasks, eq(tddRedRegistry.red_task_id, tasks.id))
+    .leftJoin(
+      tddTaskRelationships,
+      eq(tddRedRegistry.red_task_id, tddTaskRelationships.red_task_id)
+    )
+    .where(
+      and(
+        eq(tddRedRegistry.sprint_id, sprint.id),
+        isNull(tddTaskRelationships.green_task_id),
+        // Exclude current task if we're about to assign it a green_task_id
+        providedGreenTaskInternalId !== null ? ne(tasks.id, task.id) : undefined
+      )
+    );
+
+  if (orphanedRedTasks.length > 0) {
+    // Get unique task IDs
+    const uniqueTaskIds = [...new Set(orphanedRedTasks.map((t) => t.task_id))];
+    throw new Error(
+      `INCOMPLETE TDD WORKFLOW:\n\n` +
+        `The following red-phase tasks have markers in the codebase but no green task assigned:\n` +
+        uniqueTaskIds.map((id) => `  - Task ${id}`).join("\n") +
+        `\n\n` +
+        `Orchestrator must call complete_task with green_task_id parameter for each red-phase task ` +
+        `before any task can be completed.\n\n` +
+        `Example: complete_task({ task_id: ${uniqueTaskIds[0]}, green_task_id: <green_task_id> })`
+    );
+  }
+
   // 3a. Handle TDD red-phase task completion
   if (task.tdd_red_phase) {
-    let greenTaskInternalId: number | null = null;
+    let greenTaskInternalId: number | null = providedGreenTaskInternalId;
 
-    // Check if green_task_id provided in input
-    if (input.green_task_id !== undefined) {
-      // Validate that the green task exists
-      const [greenTask] = await db
-        .select({ id: tasks.id })
-        .from(tasks)
-        .where(
-          and(
-            eq(tasks.sprint_id, sprint.id),
-            eq(tasks.task_id, input.green_task_id)
-          )
-        )
-        .limit(1);
-
-      if (!greenTask) {
-        throw new Error(`Green task ${input.green_task_id} not found`);
-      }
-
-      greenTaskInternalId = greenTask.id;
-
+    // If green_task_id was provided, create relationship (already validated above)
+    if (input.green_task_id !== undefined && greenTaskInternalId !== null) {
       // Create relationship in tdd_task_relationships if not already exists
       const now = new Date().toISOString();
       await db
@@ -163,7 +205,7 @@ async function completeTask(
           created_at: now,
         })
         .onConflictDoNothing();
-    } else {
+    } else if (input.green_task_id === undefined) {
       // Look up existing relationship
       const [relationship] = await db
         .select({ green_task_id: tddTaskRelationships.green_task_id })

@@ -18,29 +18,44 @@ describe("TDD Registry Schemas", () => {
     it("should validate valid input with required fields", () => {
       const input = {
         task_id: 5,
-        test_identifier: "test/auth.test.ts::Authentication::should fail login",
+        test_file: "test/auth.test.ts",
       };
 
       const result = RegisterTddRedTestInputSchema.safeParse(input);
       expect(result.success).toBe(true);
       if (result.success) {
         expect(result.data.task_id).toBe(5);
-        expect(result.data.test_identifier).toBe(
-          "test/auth.test.ts::Authentication::should fail login"
-        );
+        expect(result.data.test_file).toBe("test/auth.test.ts");
+        expect(result.data.test_count).toBe(1); // default
+      }
+    });
+
+    it("should validate input with test_count specified", () => {
+      const input = {
+        task_id: 5,
+        test_file: "test/auth.test.ts",
+        test_count: 10,
+      };
+
+      const result = RegisterTddRedTestInputSchema.safeParse(input);
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.task_id).toBe(5);
+        expect(result.data.test_file).toBe("test/auth.test.ts");
+        expect(result.data.test_count).toBe(10);
       }
     });
 
     it("should reject missing task_id", () => {
       const input = {
-        test_identifier: "test/auth.test.ts::Authentication::should fail login",
+        test_file: "test/auth.test.ts",
       };
 
       const result = RegisterTddRedTestInputSchema.safeParse(input);
       expect(result.success).toBe(false);
     });
 
-    it("should reject missing test_identifier", () => {
+    it("should reject missing test_file", () => {
       const input = {
         task_id: 5,
       };
@@ -49,10 +64,10 @@ describe("TDD Registry Schemas", () => {
       expect(result.success).toBe(false);
     });
 
-    it("should reject empty test_identifier", () => {
+    it("should reject empty test_file", () => {
       const input = {
         task_id: 5,
-        test_identifier: "",
+        test_file: "",
       };
 
       const result = RegisterTddRedTestInputSchema.safeParse(input);
@@ -62,7 +77,7 @@ describe("TDD Registry Schemas", () => {
     it("should reject negative task_id", () => {
       const input = {
         task_id: -1,
-        test_identifier: "test/auth.test.ts::Authentication::should fail login",
+        test_file: "test/auth.test.ts",
       };
 
       const result = RegisterTddRedTestInputSchema.safeParse(input);
@@ -72,7 +87,29 @@ describe("TDD Registry Schemas", () => {
     it("should reject zero task_id", () => {
       const input = {
         task_id: 0,
-        test_identifier: "test/auth.test.ts::Authentication::should fail login",
+        test_file: "test/auth.test.ts",
+      };
+
+      const result = RegisterTddRedTestInputSchema.safeParse(input);
+      expect(result.success).toBe(false);
+    });
+
+    it("should reject negative test_count", () => {
+      const input = {
+        task_id: 5,
+        test_file: "test/auth.test.ts",
+        test_count: -1,
+      };
+
+      const result = RegisterTddRedTestInputSchema.safeParse(input);
+      expect(result.success).toBe(false);
+    });
+
+    it("should reject zero test_count", () => {
+      const input = {
+        task_id: 5,
+        test_file: "test/auth.test.ts",
+        test_count: 0,
       };
 
       const result = RegisterTddRedTestInputSchema.safeParse(input);
@@ -85,7 +122,8 @@ describe("TDD Registry Schemas", () => {
       const output = {
         success: true,
         registry_id: 123,
-        test_identifier: "test/auth.test.ts::Authentication::should fail login",
+        test_file: "test/auth.test.ts",
+        test_count: 5,
         next_step:
           "Verify the test fails by running: npm test -- test/auth.test.ts",
       };
@@ -95,9 +133,8 @@ describe("TDD Registry Schemas", () => {
       if (result.success) {
         expect(result.data.success).toBe(true);
         expect(result.data.registry_id).toBe(123);
-        expect(result.data.test_identifier).toBe(
-          "test/auth.test.ts::Authentication::should fail login"
-        );
+        expect(result.data.test_file).toBe("test/auth.test.ts");
+        expect(result.data.test_count).toBe(5);
         expect(result.data.next_step).toContain("npm test");
       }
     });
@@ -105,7 +142,8 @@ describe("TDD Registry Schemas", () => {
     it("should reject missing success field", () => {
       const output = {
         registry_id: 123,
-        test_identifier: "test/auth.test.ts::Authentication::should fail login",
+        test_file: "test/auth.test.ts",
+        test_count: 5,
         next_step: "Verify the test fails",
       };
 
@@ -117,7 +155,8 @@ describe("TDD Registry Schemas", () => {
       const output = {
         success: false,
         registry_id: 123,
-        test_identifier: "test/auth.test.ts::Authentication::should fail login",
+        test_file: "test/auth.test.ts",
+        test_count: 5,
         next_step: "Verify the test fails",
       };
 
@@ -129,8 +168,8 @@ describe("TDD Registry Schemas", () => {
       const output = {
         success: true,
         registry_id: -1,
-        test_identifier: "test/auth.test.ts::Authentication::should fail login",
-        status: "REGISTERED",
+        test_file: "test/auth.test.ts",
+        test_count: 5,
         next_step: "Verify the test fails",
       };
 
@@ -140,12 +179,11 @@ describe("TDD Registry Schemas", () => {
   });
 
   describe("TddRegistryEntrySchema", () => {
-    it("should validate entry with all fields", () => {
+    it("should validate entry with all required fields", () => {
       const entry = {
         id: 42,
         sprint_id: "sprint-010",
         red_task_id: 5,
-        test_identifier: "test/auth.test.ts::Authentication::should fail login",
         test_file: "test/auth.test.ts",
         created_at: "2026-01-14T10:00:00Z",
       };
@@ -156,32 +194,30 @@ describe("TDD Registry Schemas", () => {
         expect(result.data.id).toBe(42);
         expect(result.data.sprint_id).toBe("sprint-010");
         expect(result.data.red_task_id).toBe(5);
-        expect(result.data.test_identifier).toBe(
-          "test/auth.test.ts::Authentication::should fail login"
-        );
         expect(result.data.test_file).toBe("test/auth.test.ts");
+        expect(result.data.test_count).toBe(1); // default
         expect(result.data.created_at).toBe("2026-01-14T10:00:00Z");
       }
     });
 
-    it("should validate entry without optional test_file", () => {
+    it("should validate entry with all fields", () => {
       const entry = {
-        id: 1,
-        sprint_id: "sprint-001",
-        red_task_id: 3,
-        test_identifier: "test/db.test.ts::Database::should connect",
+        id: 42,
+        sprint_id: "sprint-010",
+        red_task_id: 5,
+        test_file: "test/auth.test.ts",
+        test_count: 10,
         created_at: "2026-01-14T10:00:00Z",
       };
 
       const result = TddRegistryEntrySchema.safeParse(entry);
       expect(result.success).toBe(true);
       if (result.success) {
-        expect(result.data.id).toBe(1);
-        expect(result.data.sprint_id).toBe("sprint-001");
-        expect(result.data.red_task_id).toBe(3);
-        expect(result.data.test_identifier).toBe(
-          "test/db.test.ts::Database::should connect"
-        );
+        expect(result.data.id).toBe(42);
+        expect(result.data.sprint_id).toBe("sprint-010");
+        expect(result.data.red_task_id).toBe(5);
+        expect(result.data.test_file).toBe("test/auth.test.ts");
+        expect(result.data.test_count).toBe(10);
         expect(result.data.created_at).toBe("2026-01-14T10:00:00Z");
       }
     });
@@ -190,7 +226,7 @@ describe("TDD Registry Schemas", () => {
       const entry = {
         sprint_id: "sprint-001",
         red_task_id: 3,
-        test_identifier: "test/db.test.ts::Database::should connect",
+        test_file: "test/db.test.ts",
         created_at: "2026-01-14T10:00:00Z",
       };
 
@@ -203,7 +239,7 @@ describe("TDD Registry Schemas", () => {
         id: 1,
         sprint_id: "",
         red_task_id: 3,
-        test_identifier: "test/db.test.ts::Database::should connect",
+        test_file: "test/db.test.ts",
         created_at: "2026-01-14T10:00:00Z",
       };
 
@@ -216,7 +252,32 @@ describe("TDD Registry Schemas", () => {
         id: 1,
         sprint_id: "sprint-001",
         red_task_id: -5,
-        test_identifier: "test/db.test.ts::Database::should connect",
+        test_file: "test/db.test.ts",
+        created_at: "2026-01-14T10:00:00Z",
+      };
+
+      const result = TddRegistryEntrySchema.safeParse(entry);
+      expect(result.success).toBe(false);
+    });
+
+    it("should reject missing test_file", () => {
+      const entry = {
+        id: 1,
+        sprint_id: "sprint-001",
+        red_task_id: 3,
+        created_at: "2026-01-14T10:00:00Z",
+      };
+
+      const result = TddRegistryEntrySchema.safeParse(entry);
+      expect(result.success).toBe(false);
+    });
+
+    it("should reject empty test_file", () => {
+      const entry = {
+        id: 1,
+        sprint_id: "sprint-001",
+        red_task_id: 3,
+        test_file: "",
         created_at: "2026-01-14T10:00:00Z",
       };
 

@@ -247,23 +247,41 @@ Add an entry to tdd_relationships: { red_task_id: 1, green_task_id: <green_task_
 **TDD Workflow**:
 
 1. **Red phase** (Task 1): Implementor writes failing tests WITH TDD markers (see format below)
-2. **Automatic registration**: On `signal_completion`, system automatically scans for TDD markers and registers tests
-3. **Validation**: System verifies test markers exist in codebase
+2. **Automatic registration**: On `signal_completion`, system scans workspace for ALL TDD markers and updates registry
+3. **Validation**: For `tdd_red_phase: true` tasks, system verifies markers exist for that task ID
 4. **Green phase** (Task 2): Implementor implements feature, removes markers, makes tests pass
-5. **Closeout gate**: Sprint cannot close until all tests are GREEN
+5. **Completion gate**: `complete_task` requires ALL registry entries have `green_task_id` assigned before ANY task can complete
+6. **Closeout gate**: Sprint cannot close until all TDD relationships have `completed_at` set
 
-**TDD Marker Format (SINGLE-TOKEN):**
+**TDD Scanner Behavior (Scan-on-Signal):**
 
-| Language    | Format                                               | Example                                         |
-| ----------- | ---------------------------------------------------- | ----------------------------------------------- |
-| TypeScript  | `[tdd-red-task-N]` prefix in test/describe name      | `it('[tdd-red-task-3] should work', ...)`       |
-| Dart file   | `@Tags(['tdd-red-task-N'])` annotation before main() | `@Tags(['tdd-red-task-3'])`                     |
-| Dart inline | `tags: ['tdd-red-task-N']` parameter in test() call  | `test('name', () {}, tags: ['tdd-red-task-3'])` |
+On EVERY `signal_completion` call (not just TDD tasks), the system:
 
-**⚠️ OLD FORMATS NO LONGER SUPPORTED:**
+1. Scans the entire workspace for TDD markers (`@Tags(['tdd-red'])` or `[tdd-red]`) with `// @orchestra-task: N` annotations
+2. **Deletes ALL existing registry entries** for the sprint (fresh snapshot)
+3. **Repopulates registry** with all markers found, grouped by task ID from annotations
+4. If the signaling task has `tdd_red_phase: true`, validates it has markers in the registry
 
-- ❌ `@Tags(['tdd-red'])` (missing task ID)
-- ❌ `tags: ['tdd-red', 'task-N']` (two tokens instead of one)
+This ensures the registry is always a **current snapshot** of what's in the codebase, not stale state.
+
+**TDD Marker Format (TWO-PART SYSTEM):**
+
+TDD markers have TWO separate concerns:
+
+1. **Test runner filtering**: `@Tags(['tdd-red'])` or `[tdd-red]` - allows running just TDD tests
+2. **Task linking**: `// @orchestra-task: N` - associates tests with a specific task ID
+
+| Language    | Filtering Tag                      | Task Annotation                | Example                                                          |
+| ----------- | ---------------------------------- | ------------------------------ | ---------------------------------------------------------------- |
+| TypeScript  | `[tdd-red]` in test/describe name  | `// @orchestra-task: N` at top | `// @orchestra-task: 3`<br>`it('[tdd-red] should work', ...)`    |
+| Dart file   | `@Tags(['tdd-red'])` before main() | `// @orchestra-task: N` at top | `// @orchestra-task: 3`<br>`@Tags(['tdd-red'])`                  |
+| Dart inline | `tags: ['tdd-red']` in test() call | `// @orchestra-task: N` at top | `// @orchestra-task: 3`<br>`test('x', () {}, tags: ['tdd-red'])` |
+
+**⚠️ OLD FORMAT NO LONGER SUPPORTED:**
+
+- ❌ `@Tags(['tdd-red-task-N'])` (single-token with task ID embedded)
+- ❌ `[tdd-red-task-N]` (single-token with task ID embedded)
+- ❌ `tags: ['tdd-red', 'task-N']` (two tokens for one concept)
 - ❌ `test/tdd-red/` directories
 - ❌ `it.skip`, `test.skip`, `xit` (skip markers)
 
@@ -299,25 +317,53 @@ When a task has `tdd_red_phase: true`, the system scans for TDD markers on `sign
 
 ```
 Red Task (tdd_red_phase: true):
-  "Write failing tests with single-token TDD markers:
-   - TypeScript: [tdd-red-task-N] in test/describe name
-   - Dart: @Tags(['tdd-red-task-N']) or tags: ['tdd-red-task-N']
+  "Write failing tests with TDD markers (two-part system):
 
-   Replace N with the task ID. DO NOT implement the feature.
-   Tests should FAIL. Keep the markers in place.
-   
+   1. Add task ID annotation at TOP of file:
+      // @orchestra-task: N  (where N is the task ID)
+
+   2. Add [tdd-red] markers to tests:
+      - TypeScript: [tdd-red] in test/describe name
+      - Dart: @Tags(['tdd-red']) before main() OR tags: ['tdd-red'] in test()
+
+   DO NOT implement the feature. Tests should FAIL.
+   Keep the markers AND task annotation in place.
+
    Verify locally:
    - Dart: flutter test --tags tdd-red (should FAIL)
    - Dart: flutter test --exclude-tags tdd-red (should PASS)
-   - TS: npm test -- --testNamePattern=\"\\[tdd-red-task-\" (should FAIL)
-   
-   Note: Use 'tdd-red' prefix when running tests, not the full tag."
+   - TS: npm test -- --testNamePattern=\"\\[tdd-red\\]\" (should FAIL)"
 
 Green Task (depends on red task):
   "Implement the feature to make tests pass.
-   Remove the [tdd-red-task-N] or @Tags(['tdd-red-task-N']) markers.
+   Remove the [tdd-red] markers and // @orchestra-task: N annotation.
    All tests should now PASS."
 ```
+
+### complete_task Gate Check for TDD
+
+**CRITICAL**: `complete_task` has a gate check that blocks completion if ANY registry entries lack a `green_task_id` assignment.
+
+When you call `complete_task`, the system checks:
+
+1. Are there ANY entries in `tdd_red_registry` for this sprint?
+2. Do ALL of those entries have a corresponding `green_task_id` in `tdd_task_relationships`?
+
+If any registry entry is orphaned (no green task assigned), `complete_task` **fails for ALL tasks** with:
+
+```
+INCOMPLETE TDD WORKFLOW:
+
+The following red-phase tasks have markers in the codebase but no green task assigned:
+  - Task 1
+  - Task 3
+
+Orchestrator must call complete_task with green_task_id parameter for each red-phase task before any task can be completed.
+
+Example: complete_task({ task_id: 1, green_task_id: <green_task_id> })
+```
+
+**Resolution**: Call `complete_task` with `green_task_id` parameter for each red-phase task before completing any task.
 
 **Check TDD status** via `get_sprint_status`:
 

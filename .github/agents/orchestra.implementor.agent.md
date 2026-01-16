@@ -223,20 +223,27 @@ Some tasks have `tdd_red_phase: true` in their handover. These are **TDD red pha
 ### When Working on a Red Phase Task
 
 1. **Write failing tests** that define expected behavior
-2. **Mark tests with TDD markers** using the **SINGLE-TOKEN FORMAT** (replace N with task ID):
+2. **Mark tests with TDD markers** using the **TWO-PART SYSTEM**:
+
+   TDD markers have TWO separate concerns:
+
+   - **Task linking**: `// @orchestra-task: N` at file top - associates tests with task ID
+   - **Test filtering**: `[tdd-red]` or `@Tags(['tdd-red'])` - allows running just TDD tests
 
    **TypeScript/Vitest:**
 
    ```typescript
-   // Use [tdd-red-task-N] prefix in test or describe name
-   describe("[tdd-red-task-3] Feature", () => {
+   // @orchestra-task: 3
+
+   // Use [tdd-red] in test or describe name (no task ID in the marker!)
+   describe("[tdd-red] Feature", () => {
      it("should validate user input", () => {
        expect(validateInput("")).toBe(false);
      });
    });
 
    // Or at test level:
-   it("[tdd-red-task-3] should validate user input", () => {
+   it("[tdd-red] should validate user input", () => {
      expect(validateInput("")).toBe(false);
    });
    ```
@@ -244,24 +251,27 @@ Some tasks have `tdd_red_phase: true` in their handover. These are **TDD red pha
    **Dart/Flutter:**
 
    ```dart
-   // Option 1: Library-level annotation (all tests in file)
-   @Tags(['tdd-red-task-3'])
+   // @orchestra-task: 3
+   @Tags(['tdd-red'])
+   library;
+
    void main() {
      test('should validate user input', () {
        expect(validateInput(''), false);
      });
    }
 
-   // Option 2: Inline tags parameter (single test)
+   // Or inline tags (still need // @orchestra-task: N at file top):
    test('should validate user input', () {
      expect(validateInput(''), false);
-   }, tags: ['tdd-red-task-3']);
+   }, tags: ['tdd-red']);
    ```
 
-   **⚠️ OLD FORMATS NO LONGER SUPPORTED:**
+   **⚠️ OLD FORMAT NO LONGER SUPPORTED:**
 
-   - ❌ `@Tags(['tdd-red'])` (missing task ID)
-   - ❌ `tags: ['tdd-red', 'task-N']` (two tokens instead of one)
+   - ❌ `@Tags(['tdd-red-task-N'])` (single-token with embedded task ID)
+   - ❌ `[tdd-red-task-N]` (single-token with embedded task ID)
+   - ❌ `tags: ['tdd-red', 'task-N']` (two tokens for one concept)
    - ❌ `test/tdd-red/` directories
    - ❌ `it.skip`, `test.skip`, `xit` (skip markers)
 
@@ -271,7 +281,7 @@ Some tasks have `tdd_red_phase: true` in their handover. These are **TDD red pha
 
    ```bash
    # Red tests should FAIL
-   npm test -- --testNamePattern="\[tdd-red-task-"
+   npm test -- --testNamePattern="\[tdd-red\]"
    # All other tests should PASS
    npm test -- --testNamePattern="^(?!.*\[tdd-red\])"
    ```
@@ -279,43 +289,44 @@ Some tasks have `tdd_red_phase: true` in their handover. These are **TDD red pha
    **Dart/Flutter:**
 
    ```bash
-   # Red tests should FAIL (use 'tdd-red' prefix, not full tag)
+   # Red tests should FAIL
    flutter test --tags tdd-red
    # All other tests should PASS
    flutter test --exclude-tags tdd-red
    ```
 
-   > **Important**: When running tests, use the `tdd-red` prefix (not `tdd-red-task-N`). The prefix matches ALL red-phase tests regardless of task ID.
-
 4. **Signal completion** as normal - the system will automatically scan for TDD markers
 
 ### Automatic TDD Test Registration (Scan-on-Signal)
 
-When you call `signal_completion` for a TDD red phase task, Orchestra automatically:
+When you call `signal_completion` (for ANY task, not just TDD tasks), Orchestra automatically:
 
-1. **Scans your test files** for TDD markers with format `tdd-red-task-N`
-2. **Extracts test identifiers** in the format `file::group::test`
-3. **Registers tests** in PENDING_GREEN status
-4. **Validates markers** - ensures all registered tests have proper TDD markers
+1. **Scans entire workspace** for TDD markers (`@Tags(['tdd-red'])` or `[tdd-red]`) with `// @orchestra-task: N` annotations
+2. **Deletes all existing registry entries** for the sprint (fresh snapshot)
+3. **Repopulates registry** with all markers found, grouped by task ID from annotations
+4. **Validates markers** (for `tdd_red_phase: true` tasks only) - ensures markers AND task annotation exist for your task ID
 
-You don't need to manually register tests - just add the markers and signal completion.
+The registry is a **transitory snapshot** - it reflects what's currently in the codebase, not accumulated state.
+
+You don't need to manually register tests - just add the markers WITH the task annotation and signal completion.
 
 ### What Happens Next
 
 After your red phase task is complete:
 
-- Tests remain in PENDING_GREEN status
-- Orchestrator assigns a "green phase" task to another implementor
-- That implementor implements the feature to make tests pass
-- Sprint cannot close until all tests are GREEN
+- Registry entries exist for your task's markers (file-level tracking with test count)
+- Orchestrator must call `complete_task` with `green_task_id` to assign the green phase
+- Green phase implementor implements the feature to make tests pass, then removes markers AND annotation
+- **Gate check**: No task can be completed until ALL registry entries have `green_task_id` assigned
+- Sprint cannot close until all TDD relationships have `completed_at` set
 
 ### Red Phase Errors
 
-| Error            | Meaning                              | Fix                                                                      |
-| ---------------- | ------------------------------------ | ------------------------------------------------------------------------ |
-| `MISSING_MARKER` | Test has no TDD marker               | Add `[tdd-red-task-N]` (TS) or `@Tags(['tdd-red-task-N'])` (Dart)        |
-| `NO_TESTS_FOUND` | No TDD tests detected in test files  | Verify single-token markers `tdd-red-task-N` are present with correct ID |
-| `SCAN_FAILED`    | Error during automatic test scanning | Check test file syntax and marker format                                 |
+| Error                              | Meaning                                                        | Fix                                                                             |
+| ---------------------------------- | -------------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| `TDD RED-PHASE WORKFLOW VIOLATION` | Task has `tdd_red_phase: true` but no markers found            | Add `// @orchestra-task: N` AND `[tdd-red]` (TS) or `@Tags(['tdd-red'])` (Dart) |
+| `TDD-RED FILE MISSING TASK-ID`     | File has TDD markers but no `// @orchestra-task: N` annotation | Add `// @orchestra-task: N` at top of file (replace N with task ID)             |
+| `SCAN_FAILED`                      | Error during automatic test scanning                           | Check test file syntax and marker format                                        |
 
 ## Handling Feedback
 

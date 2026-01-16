@@ -112,11 +112,11 @@ describe('Feature', () => {
 `;
       await fs.writeFile(path.join(testDir, "feature.test.ts"), testContent);
 
-      // Register the test
+      // Register the test file
       await registerTest({
         taskId,
-        testIdentifier: "feature.test.ts::Feature::should fail",
-        markerType: "it.skip",
+        testFile: "test/feature.test.ts",
+        testCount: 1,
       });
 
       // Run pre-signal checks with TDD validation
@@ -190,10 +190,11 @@ describe('Feature', () => {
 `;
       await fs.writeFile(path.join(testDir, "feature.test.ts"), testContent);
 
-      // Register a test without a marker
+      // Register a test file without a marker
       await registerTest({
         taskId,
-        testIdentifier: "feature.test.ts::Feature::missing marker test",
+        testFile: "test/feature.test.ts",
+        testCount: 1,
       });
 
       // Run pre-signal checks
@@ -216,28 +217,32 @@ describe('Feature', () => {
       expect(result.allPassed).toBe(false);
     });
 
-    it("should fail when marker exists but not registered", async () => {
+    it("should pass when file is registered and has markers (file-level tracking)", async () => {
+      // With file-level tracking, we no longer check individual test registration
+      // The check is: does the registered FILE have markers? If yes, pass.
+
       // Create test directory
       const testDir = path.join(tempDir, "test");
       await fs.mkdir(testDir);
 
-      // Create test file with single-token marker
+      // Create test file with task-id annotation + [tdd-red] marker
       const testContent = `
+// @orchestra-task: ${taskId}
 import { describe, it, expect } from 'vitest';
 
-describe('Feature', () => {
-  it('[tdd-red-task-${taskId}] unregistered test', () => {
+describe('[tdd-red] Feature', () => {
+  it('[tdd-red] test with marker', () => {
     expect(true).toBe(false);
   });
 });
 `;
       await fs.writeFile(path.join(testDir, "feature.test.ts"), testContent);
 
-      // Register a DIFFERENT test (to trigger validation)
+      // Register the file
       await registerTest({
         taskId,
-        testIdentifier: `feature.test.ts::Feature::[tdd-red-task-${taskId}] different test`,
-        markerType: `[tdd-red-task-${taskId}]`,
+        testFile: "test/feature.test.ts",
+        testCount: 1,
       });
 
       // Run pre-signal checks
@@ -252,16 +257,12 @@ describe('Feature', () => {
 
       const result = await runPreSignalChecks(config);
 
-      // TDD validation should fail
+      // TDD validation should PASS because file is registered and has markers
+      // (Previously this tested individual test registration vs markers, but with
+      // file-level tracking, we just check if registered files have markers)
       expect(result.tddValidation).toBeDefined();
-      expect(result.tddValidation?.success).toBe(false);
-      expect(result.tddValidation?.errors.length).toBeGreaterThan(0);
-
-      const missingRegErrors = result.tddValidation?.errors.filter(
-        (e) => e.type === "MISSING_REGISTRATION"
-      );
-      expect(missingRegErrors?.length).toBeGreaterThan(0);
-      expect(result.allPassed).toBe(false);
+      expect(result.tddValidation?.success).toBe(true);
+      expect(result.allPassed).toBe(true);
     });
 
     it("should pass when all tests are registered and have markers", async () => {
@@ -285,16 +286,11 @@ describe('Feature', () => {
 `;
       await fs.writeFile(path.join(testDir, "feature.test.ts"), testContent);
 
-      // Register both tests
+      // Register the test file (file-level with 2 tests)
       await registerTest({
         taskId,
-        testIdentifier: "feature.test.ts::Feature::test one",
-        markerType: "it.skip",
-      });
-      await registerTest({
-        taskId,
-        testIdentifier: "feature.test.ts::Feature::test two",
-        markerType: "it.skip",
+        testFile: "test/feature.test.ts",
+        testCount: 2,
       });
 
       // Run pre-signal checks
@@ -334,11 +330,11 @@ describe('Feature', () => {
 `;
       await fs.writeFile(path.join(testDir, "feature.test.ts"), testContent);
 
-      // Register the test
+      // Register the test file
       await registerTest({
         taskId,
-        testIdentifier: "feature.test.ts::Feature::should fail",
-        markerType: "it.skip",
+        testFile: "test/feature.test.ts",
+        testCount: 1,
       });
 
       // Run pre-signal checks with invalid build command
@@ -377,10 +373,11 @@ describe('Feature', () => {
 `;
       await fs.writeFile(path.join(testDir, "feature.test.ts"), testContent);
 
-      // Register test without marker
+      // Register test file without marker
       await registerTest({
         taskId,
-        testIdentifier: "feature.test.ts::Feature::normal test",
+        testFile: "test/feature.test.ts",
+        testCount: 1,
       });
 
       // Run pre-signal checks
@@ -420,11 +417,11 @@ describe('Feature', () => {
 `;
       await fs.writeFile(path.join(testDir, "feature.test.ts"), testContent);
 
-      // Register the test
+      // Register the test file
       await registerTest({
         taskId,
-        testIdentifier: "feature.test.ts::Feature::should fail",
-        markerType: "it.skip",
+        testFile: "test/feature.test.ts",
+        testCount: 1,
       });
 
       // Run pre-signal checks (skip actual build/test for speed)
@@ -474,10 +471,11 @@ describe('Feature', () => {
     });
 
     it("should handle test file not found", async () => {
-      // Register test for non-existent file
+      // Register test file that doesn't exist
       await registerTest({
         taskId,
-        testIdentifier: "nonexistent.test.ts::Group::test",
+        testFile: "test/nonexistent.test.ts",
+        testCount: 1,
       });
 
       // Run pre-signal checks
