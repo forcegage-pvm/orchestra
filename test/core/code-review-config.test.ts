@@ -70,6 +70,7 @@ describe("[tdd-red] Code review config", () => {
 
     expect(configAny["code_review_required"]).toBe(true);
     expect(configAny["code_review_auto_commit"]).toBe(false);
+    expect(configAny["code_review_policy"]).toBe("STRICT");
     expect(configAny["code_review_default_decision"]).toBe("CHANGES_REQUIRED");
     expect(configAny["code_review_default_risk"]).toBe("MEDIUM");
   });
