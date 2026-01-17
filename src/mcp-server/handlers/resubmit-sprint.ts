@@ -7,10 +7,10 @@
  * Sprint 004: Controller Agent - T019
  */
 
-import { eq } from "drizzle-orm";
+import { and, desc, eq, isNull } from "drizzle-orm";
 import { z } from "zod";
 import { getActiveSprint, getDb } from "../../db/index.js";
-import { sprints } from "../../db/schema.js";
+import { specReviews, sprints } from "../../db/schema.js";
 import { validateInput } from "../../schemas/utils.js";
 import { writeSignal } from "../db-signal.js";
 import { logToolExecution } from "./audit-logging.js";
@@ -34,6 +34,7 @@ interface ResubmitSprintOutput {
   previous_workflow_step: string;
   new_workflow_step: string;
   issues_addressed_count: number;
+  revision_count: number; // ISSUE-011: Include revision count per contract
   message: string;
 }
 
@@ -132,7 +133,19 @@ async function resubmitSprint(
     );
   }
 
-  // 4. Update sprint status back to PENDING_SPEC_REVIEW
+  // 4. Get latest review record to retrieve revision_count (ISSUE-011)
+  const [latestReview] = await db
+    .select({ revision_count: specReviews.revision_count })
+    .from(specReviews)
+    .where(
+      and(eq(specReviews.sprint_id, sprint.id), isNull(specReviews.task_id))
+    )
+    .orderBy(desc(specReviews.reviewed_at))
+    .limit(1);
+
+  const revisionCount = latestReview?.revision_count ?? 0;
+
+  // 5. Update sprint status back to PENDING_SPEC_REVIEW
   await db
     .update(sprints)
     .set({
@@ -153,9 +166,11 @@ async function resubmitSprint(
     previous_workflow_step: sprint.workflow_step,
     new_workflow_step: "SPEC_REVIEW",
     issues_addressed_count: input.issues_addressed.length,
+    revision_count: revisionCount, // ISSUE-011: Include revision count
     message:
       `Sprint "${sprint.id}" resubmitted for Controller review. ` +
       `${input.issues_addressed.length} issue(s) addressed. ` +
+      `Revision ${revisionCount}. ` +
       `Changes: ${input.changes_made}`,
   };
 }

@@ -21,6 +21,7 @@ export async function initializeDb(): Promise<void> {
     CREATE TABLE IF NOT EXISTS sprints (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'ACTIVE',
       workflow_step TEXT NOT NULL,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL,

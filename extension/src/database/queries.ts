@@ -22,6 +22,7 @@ import * as schema from "./local-schema.js";
 export interface Sprint {
   id: string;
   name: string;
+  status: string; // SprintStatus: PENDING_SPEC_REVIEW, ACTIVE, SPEC_REVIEW_FAILED, COMPLETE, CLOSED
   workflow_step: string;
   is_active: boolean;
   created_at: string;
@@ -1073,5 +1074,227 @@ export function getTddInfo(
     registeredFiles,
     totalTestCount,
     entries,
+  };
+}
+
+// =============================================================================
+// Spec Review Queries (Sprint 004 - Controller Agent)
+// =============================================================================
+
+/**
+ * Spec review record - Controller review decisions
+ */
+export interface SpecReview {
+  id: number;
+  sprint_id: string;
+  task_id: number | null;
+  review_type: string; // 'SPRINT' | 'HANDOVER' | 'AMENDMENT'
+  decision: string; // 'APPROVED' | 'NEEDS_REVISION' | 'REJECTED'
+  conformance: string; // 'PASS' | 'WARN' | 'FAIL'
+  spec_path: string | null;
+  spec_requirements: string;
+  issues: string;
+  recommendations: string | null;
+  notes: string | null;
+  reviewed_by: string;
+  reviewed_at: string;
+  revision_count: number;
+  previous_review_id: number | null;
+}
+
+/**
+ * Parsed alignment issue from spec review
+ */
+export interface AlignmentIssue {
+  severity: "critical" | "warning" | "info";
+  requirement: string;
+  finding: string;
+  recommendation: string;
+}
+
+/**
+ * Review summary for display in UI
+ */
+export interface ReviewSummary {
+  latestReview: SpecReview | null;
+  totalReviews: number;
+  revisionCount: number;
+  issues: AlignmentIssue[];
+  recommendations: string[];
+}
+
+/**
+ * Get the latest spec review for a sprint (sprint-level review)
+ */
+export function getLatestSprintReview(
+  workspaceRoot: string,
+  sprintId: string
+): SpecReview | null {
+  const db = OrchestraDB.getInstance(workspaceRoot);
+
+  const review = db
+    .prepare(
+      `SELECT * FROM spec_reviews 
+       WHERE sprint_id = ? AND task_id IS NULL AND review_type = 'SPRINT'
+       ORDER BY reviewed_at DESC LIMIT 1`
+    )
+    .get(sprintId) as SpecReview | undefined;
+
+  return review ?? null;
+}
+
+/**
+ * Get the latest spec review for a task handover
+ */
+export function getLatestHandoverReview(
+  workspaceRoot: string,
+  taskId: number
+): SpecReview | null {
+  const db = OrchestraDB.getInstance(workspaceRoot);
+
+  const review = db
+    .prepare(
+      `SELECT * FROM spec_reviews 
+       WHERE task_id = ? AND review_type = 'HANDOVER'
+       ORDER BY reviewed_at DESC LIMIT 1`
+    )
+    .get(taskId) as SpecReview | undefined;
+
+  return review ?? null;
+}
+
+/**
+ * Get all spec reviews for a task (including amendments)
+ */
+export function getTaskReviewHistory(
+  workspaceRoot: string,
+  taskId: number
+): SpecReview[] {
+  const db = OrchestraDB.getInstance(workspaceRoot);
+
+  return db
+    .prepare(
+      `SELECT * FROM spec_reviews 
+       WHERE task_id = ?
+       ORDER BY reviewed_at DESC`
+    )
+    .all(taskId) as SpecReview[];
+}
+
+/**
+ * Get all spec reviews for a sprint (including sprint-level and task reviews)
+ */
+export function getSprintReviewHistory(
+  workspaceRoot: string,
+  sprintId: string
+): SpecReview[] {
+  const db = OrchestraDB.getInstance(workspaceRoot);
+
+  return db
+    .prepare(
+      `SELECT * FROM spec_reviews 
+       WHERE sprint_id = ?
+       ORDER BY reviewed_at DESC`
+    )
+    .all(sprintId) as SpecReview[];
+}
+
+/**
+ * Get review summary for a task (aggregated view for UI)
+ */
+export function getTaskReviewSummary(
+  workspaceRoot: string,
+  taskId: number
+): ReviewSummary {
+  const reviews = getTaskReviewHistory(workspaceRoot, taskId);
+
+  if (reviews.length === 0) {
+    return {
+      latestReview: null,
+      totalReviews: 0,
+      revisionCount: 0,
+      issues: [],
+      recommendations: [],
+    };
+  }
+
+  const latestReview = reviews[0];
+
+  // Parse issues from JSON
+  let issues: AlignmentIssue[] = [];
+  try {
+    issues = JSON.parse(latestReview.issues || "[]");
+  } catch {
+    // Invalid JSON, ignore
+  }
+
+  // Parse recommendations from JSON
+  let recommendations: string[] = [];
+  try {
+    recommendations = JSON.parse(latestReview.recommendations || "[]");
+  } catch {
+    // Invalid JSON, ignore
+  }
+
+  return {
+    latestReview,
+    totalReviews: reviews.length,
+    revisionCount: latestReview.revision_count,
+    issues,
+    recommendations,
+  };
+}
+
+/**
+ * Get review summary for a sprint (sprint-level reviews only)
+ */
+export function getSprintReviewSummary(
+  workspaceRoot: string,
+  sprintId: string
+): ReviewSummary {
+  const db = OrchestraDB.getInstance(workspaceRoot);
+
+  const reviews = db
+    .prepare(
+      `SELECT * FROM spec_reviews 
+       WHERE sprint_id = ? AND task_id IS NULL AND review_type = 'SPRINT'
+       ORDER BY reviewed_at DESC`
+    )
+    .all(sprintId) as SpecReview[];
+
+  if (reviews.length === 0) {
+    return {
+      latestReview: null,
+      totalReviews: 0,
+      revisionCount: 0,
+      issues: [],
+      recommendations: [],
+    };
+  }
+
+  const latestReview = reviews[0];
+
+  // Parse issues from JSON
+  let issues: AlignmentIssue[] = [];
+  try {
+    issues = JSON.parse(latestReview.issues || "[]");
+  } catch {
+    // Invalid JSON, ignore
+  }
+
+  // Parse recommendations from JSON
+  let recommendations: string[] = [];
+  try {
+    recommendations = JSON.parse(latestReview.recommendations || "[]");
+  } catch {
+    // Invalid JSON, ignore
+  }
+
+  return {
+    latestReview,
+    totalReviews: reviews.length,
+    revisionCount: latestReview.revision_count,
+    issues,
+    recommendations,
   };
 }

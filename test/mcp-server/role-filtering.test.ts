@@ -1,152 +1,177 @@
 /**
  * Role-based tool filtering tests
  *
+ * ISSUE-008 FIX: Tests now use actual getToolsForRole() implementation
+ * instead of hardcoded local arrays.
+ *
  * Verifies that tools are correctly filtered based on server role.
  * Extended for Controller Agent (Sprint 004).
  */
 
 import { describe, expect, it } from "vitest";
-
-// We need to test the tool filtering logic directly
-// Import the internal functions by testing via a mock approach
+import {
+  getToolsForRole,
+  isToolAvailableForRole,
+} from "../../src/mcp-server/tools.js";
 
 describe("Role-based Tool Filtering", () => {
-  // Tool categorization expectations
-  const ORCHESTRATOR_ONLY_TOOLS = [
-    "configure_sprint",
-    "add_phase",
-    "add_task",
-    "update_task",
-    "update_verification",
-    "get_task",
-    "get_tasks",
-    "remove_task",
-    "prepare_task",
-    "update_handover",
-    "run_verification_checks",
-    "get_verification_results",
-    "submit_verification_judgment",
-    "enhance_feedback",
-    "complete_task",
-    "set_config",
-    "get_amendments",
-    "set_active_sprint",
-    "get_sprint_config",
-    "set_sprint_config",
-    // Controller workflow tools (orchestrator resubmits)
-    "resubmit_sprint",
-    "resubmit_handover",
-  ];
-
-  const IMPLEMENTOR_ONLY_TOOLS = [
-    "get_current_task",
-    "signal_completion",
-    "get_feedback",
-  ];
-
-  // Sprint 004: Controller-only tools
-  const CONTROLLER_ONLY_TOOLS = [
-    "approve_sprint",
-    "reject_sprint",
-    "approve_handover",
-    "reject_handover",
-    "get_task_for_review",
-    "get_handover",
-    "read_spec_file",
-  ];
-
-  const SHARED_TOOLS = [
-    "get_signal",
-    "escalate_task",
-    "get_progress",
-    "get_sprint_status",
-    "get_task_history",
-    "debug_environment",
-  ];
+  // Expected tool counts per role (excluding shared)
+  const EXPECTED_ORCHESTRATOR_TOOL_COUNT = 22;
+  const EXPECTED_IMPLEMENTOR_TOOL_COUNT = 3;
+  const EXPECTED_CONTROLLER_TOOL_COUNT = 7;
+  const EXPECTED_SHARED_TOOL_COUNT = 6;
+  const EXPECTED_TOTAL_TOOL_COUNT = 38;
 
   describe("Tool categorization", () => {
     it("should have correct orchestrator tool count", () => {
-      expect(ORCHESTRATOR_ONLY_TOOLS.length).toBe(22);
+      const tools = getToolsForRole("orchestrator");
+      // Orchestrator gets their tools + shared
+      expect(tools.length).toBe(
+        EXPECTED_ORCHESTRATOR_TOOL_COUNT + EXPECTED_SHARED_TOOL_COUNT
+      );
     });
 
     it("should have correct implementor tool count", () => {
-      expect(IMPLEMENTOR_ONLY_TOOLS.length).toBe(3);
+      const tools = getToolsForRole("implementor");
+      // Implementor gets their tools + shared
+      expect(tools.length).toBe(
+        EXPECTED_IMPLEMENTOR_TOOL_COUNT + EXPECTED_SHARED_TOOL_COUNT
+      );
     });
 
     it("should have correct controller tool count", () => {
-      expect(CONTROLLER_ONLY_TOOLS.length).toBe(7);
+      const tools = getToolsForRole("controller");
+      // Controller gets their tools + shared
+      expect(tools.length).toBe(
+        EXPECTED_CONTROLLER_TOOL_COUNT + EXPECTED_SHARED_TOOL_COUNT
+      );
     });
 
-    it("should have correct shared tool count", () => {
-      expect(SHARED_TOOLS.length).toBe(6);
-    });
-
-    it("should have correct total tool count", () => {
-      const total =
-        ORCHESTRATOR_ONLY_TOOLS.length +
-        IMPLEMENTOR_ONLY_TOOLS.length +
-        CONTROLLER_ONLY_TOOLS.length +
-        SHARED_TOOLS.length;
-      expect(total).toBe(38);
+    it("should have correct total tool count for full role", () => {
+      const tools = getToolsForRole("full");
+      expect(tools.length).toBe(EXPECTED_TOTAL_TOOL_COUNT);
     });
   });
 
-  describe("Role access expectations", () => {
-    it("orchestrator should have access to orchestrator + shared tools", () => {
-      const expectedTools = [...ORCHESTRATOR_ONLY_TOOLS, ...SHARED_TOOLS];
-      expect(expectedTools.length).toBe(28);
+  describe("Role access - orchestrator", () => {
+    it("orchestrator should have access to configure_sprint", () => {
+      expect(isToolAvailableForRole("configure_sprint", "orchestrator")).toBe(
+        true
+      );
     });
 
-    it("implementor should have access to implementor + shared tools", () => {
-      const expectedTools = [...IMPLEMENTOR_ONLY_TOOLS, ...SHARED_TOOLS];
-      expect(expectedTools.length).toBe(9);
+    it("orchestrator should have access to prepare_task", () => {
+      expect(isToolAvailableForRole("prepare_task", "orchestrator")).toBe(true);
     });
 
-    it("controller should have access to controller + shared tools", () => {
-      const expectedTools = [...CONTROLLER_ONLY_TOOLS, ...SHARED_TOOLS];
-      expect(expectedTools.length).toBe(13);
+    it("orchestrator should have access to resubmit_sprint", () => {
+      expect(isToolAvailableForRole("resubmit_sprint", "orchestrator")).toBe(
+        true
+      );
     });
 
-    it("full role should have access to all tools", () => {
-      const allTools = [
-        ...ORCHESTRATOR_ONLY_TOOLS,
-        ...IMPLEMENTOR_ONLY_TOOLS,
-        ...CONTROLLER_ONLY_TOOLS,
-        ...SHARED_TOOLS,
-      ];
-      expect(allTools.length).toBe(38);
+    it("orchestrator should have access to resubmit_handover", () => {
+      expect(isToolAvailableForRole("resubmit_handover", "orchestrator")).toBe(
+        true
+      );
+    });
+
+    it("orchestrator should have access to shared tools", () => {
+      expect(isToolAvailableForRole("get_sprint_status", "orchestrator")).toBe(
+        true
+      );
+      expect(isToolAvailableForRole("get_progress", "orchestrator")).toBe(true);
+    });
+  });
+
+  describe("Role access - implementor", () => {
+    it("implementor should have access to get_current_task", () => {
+      expect(isToolAvailableForRole("get_current_task", "implementor")).toBe(
+        true
+      );
+    });
+
+    it("implementor should have access to signal_completion", () => {
+      expect(isToolAvailableForRole("signal_completion", "implementor")).toBe(
+        true
+      );
+    });
+
+    it("implementor should have access to shared tools", () => {
+      expect(isToolAvailableForRole("get_sprint_status", "implementor")).toBe(
+        true
+      );
+      expect(isToolAvailableForRole("get_progress", "implementor")).toBe(true);
+    });
+  });
+
+  describe("Role access - controller (T036a)", () => {
+    it("controller should have access to approve_sprint", () => {
+      expect(isToolAvailableForRole("approve_sprint", "controller")).toBe(true);
+    });
+
+    it("controller should have access to reject_sprint", () => {
+      expect(isToolAvailableForRole("reject_sprint", "controller")).toBe(true);
+    });
+
+    it("controller should have access to approve_handover", () => {
+      expect(isToolAvailableForRole("approve_handover", "controller")).toBe(
+        true
+      );
+    });
+
+    it("controller should have access to reject_handover", () => {
+      expect(isToolAvailableForRole("reject_handover", "controller")).toBe(
+        true
+      );
+    });
+
+    it("controller should have access to read-only review tools", () => {
+      expect(isToolAvailableForRole("get_task_for_review", "controller")).toBe(
+        true
+      );
+      expect(isToolAvailableForRole("get_handover", "controller")).toBe(true);
+      expect(isToolAvailableForRole("read_spec_file", "controller")).toBe(true);
+    });
+
+    it("controller should have access to shared tools", () => {
+      expect(isToolAvailableForRole("get_sprint_status", "controller")).toBe(
+        true
+      );
+      expect(isToolAvailableForRole("get_progress", "controller")).toBe(true);
     });
   });
 
   describe("Critical isolation", () => {
     it("implementor should NOT have access to verification criteria", () => {
       // get_task exposes verification criteria - implementor must not see this
-      expect(ORCHESTRATOR_ONLY_TOOLS).toContain("get_task");
-      expect(IMPLEMENTOR_ONLY_TOOLS).not.toContain("get_task");
+      expect(isToolAvailableForRole("get_task", "implementor")).toBe(false);
     });
 
     it("implementor should NOT be able to run verification checks", () => {
-      expect(ORCHESTRATOR_ONLY_TOOLS).toContain("run_verification_checks");
-      expect(IMPLEMENTOR_ONLY_TOOLS).not.toContain("run_verification_checks");
+      expect(
+        isToolAvailableForRole("run_verification_checks", "implementor")
+      ).toBe(false);
     });
 
     it("implementor should NOT be able to submit judgment", () => {
-      expect(ORCHESTRATOR_ONLY_TOOLS).toContain("submit_verification_judgment");
-      expect(IMPLEMENTOR_ONLY_TOOLS).not.toContain(
-        "submit_verification_judgment"
-      );
+      expect(
+        isToolAvailableForRole("submit_verification_judgment", "implementor")
+      ).toBe(false);
     });
 
     it("orchestrator should NOT be able to signal completion", () => {
       // Only implementor signals completion
-      expect(IMPLEMENTOR_ONLY_TOOLS).toContain("signal_completion");
-      expect(ORCHESTRATOR_ONLY_TOOLS).not.toContain("signal_completion");
+      expect(isToolAvailableForRole("signal_completion", "orchestrator")).toBe(
+        false
+      );
     });
 
     it("orchestrator should NOT use get_current_task", () => {
       // get_current_task is the implementor's view (no verification criteria)
-      expect(IMPLEMENTOR_ONLY_TOOLS).toContain("get_current_task");
-      expect(ORCHESTRATOR_ONLY_TOOLS).not.toContain("get_current_task");
+      expect(isToolAvailableForRole("get_current_task", "orchestrator")).toBe(
+        false
+      );
     });
   });
 
@@ -154,51 +179,54 @@ describe("Role-based Tool Filtering", () => {
   describe("Controller role isolation (T036a)", () => {
     it("controller should NOT have access to update_verification", () => {
       // Critical: Controller reviews against spec, cannot modify verification
-      expect(ORCHESTRATOR_ONLY_TOOLS).toContain("update_verification");
-      expect(CONTROLLER_ONLY_TOOLS).not.toContain("update_verification");
+      expect(isToolAvailableForRole("update_verification", "controller")).toBe(
+        false
+      );
     });
 
     it("controller should NOT have access to prepare_task", () => {
       // Controller reviews handovers, cannot create them
-      expect(ORCHESTRATOR_ONLY_TOOLS).toContain("prepare_task");
-      expect(CONTROLLER_ONLY_TOOLS).not.toContain("prepare_task");
+      expect(isToolAvailableForRole("prepare_task", "controller")).toBe(false);
     });
 
     it("controller should NOT have access to configure_sprint", () => {
       // Controller reviews sprint configs, cannot create them
-      expect(ORCHESTRATOR_ONLY_TOOLS).toContain("configure_sprint");
-      expect(CONTROLLER_ONLY_TOOLS).not.toContain("configure_sprint");
+      expect(isToolAvailableForRole("configure_sprint", "controller")).toBe(
+        false
+      );
     });
 
     it("controller should NOT have access to complete_task", () => {
       // Controller approves/rejects, doesn't complete tasks
-      expect(ORCHESTRATOR_ONLY_TOOLS).toContain("complete_task");
-      expect(CONTROLLER_ONLY_TOOLS).not.toContain("complete_task");
+      expect(isToolAvailableForRole("complete_task", "controller")).toBe(false);
     });
 
     it("controller should NOT have access to signal_completion", () => {
       // Controller is not the implementor
-      expect(IMPLEMENTOR_ONLY_TOOLS).toContain("signal_completion");
-      expect(CONTROLLER_ONLY_TOOLS).not.toContain("signal_completion");
+      expect(isToolAvailableForRole("signal_completion", "controller")).toBe(
+        false
+      );
     });
 
-    it("controller should have access to approval/rejection tools", () => {
-      expect(CONTROLLER_ONLY_TOOLS).toContain("approve_sprint");
-      expect(CONTROLLER_ONLY_TOOLS).toContain("reject_sprint");
-      expect(CONTROLLER_ONLY_TOOLS).toContain("approve_handover");
-      expect(CONTROLLER_ONLY_TOOLS).toContain("reject_handover");
+    it("orchestrator should NOT have access to approve_sprint", () => {
+      // Controller-only tool
+      expect(isToolAvailableForRole("approve_sprint", "orchestrator")).toBe(
+        false
+      );
     });
 
-    it("controller should have read-only review tools", () => {
-      expect(CONTROLLER_ONLY_TOOLS).toContain("get_task_for_review");
-      expect(CONTROLLER_ONLY_TOOLS).toContain("get_handover");
-      expect(CONTROLLER_ONLY_TOOLS).toContain("read_spec_file");
+    it("orchestrator should NOT have access to reject_handover", () => {
+      // Controller-only tool
+      expect(isToolAvailableForRole("reject_handover", "orchestrator")).toBe(
+        false
+      );
     });
 
-    it("controller should have access to shared status tools", () => {
-      // Controller can see sprint status and progress
-      expect(SHARED_TOOLS).toContain("get_sprint_status");
-      expect(SHARED_TOOLS).toContain("get_progress");
+    it("implementor should NOT have access to approve_handover", () => {
+      // Controller-only tool
+      expect(isToolAvailableForRole("approve_handover", "implementor")).toBe(
+        false
+      );
     });
   });
 });

@@ -18,6 +18,7 @@ export const sprints = sqliteTable(
   {
     id: text("id").primaryKey(),
     name: text("name").notNull(),
+    status: text("status").notNull().default("ACTIVE"), // SprintStatus enum: PENDING_SPEC_REVIEW, ACTIVE, SPEC_REVIEW_FAILED, COMPLETE, CLOSED
     workflow_step: text("workflow_step").notNull(),
     is_active: integer("is_active", { mode: "boolean" })
       .notNull()
@@ -29,6 +30,7 @@ export const sprints = sqliteTable(
   (sprints) => ({
     workflowStepIdx: index("workflow_step_idx").on(sprints.workflow_step),
     isActiveIdx: index("is_active_idx").on(sprints.is_active),
+    statusIdx: index("sprint_status_idx").on(sprints.status),
   })
 );
 
@@ -303,3 +305,57 @@ export const chatSessions = sqliteTable("chat_sessions", {
   created_at: text("created_at").notNull(),
   last_used_at: text("last_used_at").notNull(),
 });
+
+/**
+ * Spec Reviews table - Controller review decisions (Sprint 004)
+ *
+ * Records all review decisions (approve/reject) for sprints and handovers.
+ * Key fields:
+ * - review_type: SPRINT (sprint config) | HANDOVER (task handover) | AMENDMENT
+ * - decision: APPROVED | NEEDS_REVISION | REJECTED
+ * - conformance: PASS | WARN | FAIL
+ * - revision_count: tracks reject-revise cycles
+ * - previous_review_id: links to prior review in chain
+ */
+export const specReviews = sqliteTable(
+  "spec_reviews",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    sprint_id: text("sprint_id")
+      .notNull()
+      .references(() => sprints.id, { onDelete: "cascade" }),
+    task_id: integer("task_id").references(() => tasks.id, {
+      onDelete: "cascade",
+    }), // NULL for sprint-level reviews
+
+    // Review classification
+    review_type: text("review_type").notNull(), // 'SPRINT' | 'HANDOVER' | 'AMENDMENT'
+
+    // Review outcome
+    decision: text("decision").notNull(), // 'APPROVED' | 'NEEDS_REVISION' | 'REJECTED'
+    conformance: text("conformance").notNull(), // 'PASS' | 'WARN' | 'FAIL'
+
+    // Evidence
+    spec_path: text("spec_path"), // Path to the specification document
+    spec_requirements: text("spec_requirements").notNull().default("[]"), // JSON array of requirements checked
+    issues: text("issues").notNull().default("[]"), // JSON array of AlignmentIssue
+    recommendations: text("recommendations"), // JSON array of strings
+    notes: text("notes"), // Required if conformance is WARN
+
+    // Audit
+    reviewed_by: text("reviewed_by").notNull(), // 'controller' | 'human'
+    reviewed_at: text("reviewed_at").notNull(),
+
+    // Revision tracking
+    revision_count: integer("revision_count").notNull().default(0),
+    previous_review_id: integer("previous_review_id"), // Self-reference to prior review
+  },
+  (reviews) => ({
+    sprintIdx: index("spec_reviews_sprint_idx").on(reviews.sprint_id),
+    taskIdx: index("spec_reviews_task_idx").on(reviews.task_id),
+    typeIdx: index("spec_reviews_type_idx").on(reviews.review_type),
+    reviewedAtIdx: index("spec_reviews_reviewed_at_idx").on(
+      reviews.reviewed_at
+    ),
+  })
+);

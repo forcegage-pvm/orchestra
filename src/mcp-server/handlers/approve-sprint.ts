@@ -8,7 +8,7 @@
  * Sprint 004: Controller Agent - T017
  */
 
-import { eq } from "drizzle-orm";
+import { and, eq, isNull, sql } from "drizzle-orm";
 import { z } from "zod";
 import { getActiveSprint, getDb } from "../../db/index.js";
 import { specReviews, sprints } from "../../db/schema.js";
@@ -170,7 +170,26 @@ async function approveSprint(
     })
     .where(eq(sprints.id, sprint.id));
 
-  // 4. Create spec_reviews audit record (T038 - US4)
+  // 4. Count previous reviews for revision tracking (T038 - US4)
+  const revisionCountResult = await db
+    .select({ count: sql<number>`COUNT(*)` })
+    .from(specReviews)
+    .where(
+      and(eq(specReviews.sprint_id, sprint.id), isNull(specReviews.task_id))
+    );
+  const previousReviewCount = revisionCountResult[0]?.count ?? 0;
+
+  // 5. Get previous review ID for chaining
+  const [previousReview] = await db
+    .select({ id: specReviews.id })
+    .from(specReviews)
+    .where(
+      and(eq(specReviews.sprint_id, sprint.id), isNull(specReviews.task_id))
+    )
+    .orderBy(sql`reviewed_at DESC`)
+    .limit(1);
+
+  // 6. Create spec_reviews audit record (T038 - US4)
   await db.insert(specReviews).values({
     sprint_id: sprint.id,
     task_id: null, // Sprint-level review
@@ -186,8 +205,8 @@ async function approveSprint(
     notes: input.notes ?? null,
     reviewed_by: "controller",
     reviewed_at: now,
-    revision_count: 0,
-    previous_review_id: null,
+    revision_count: previousReviewCount,
+    previous_review_id: previousReview?.id ?? null,
   });
 
   // Notify extension of database changes

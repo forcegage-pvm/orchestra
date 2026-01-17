@@ -125,6 +125,15 @@ export class ConfigGenerator {
             ORCHESTRA_WORKSPACE: this.workspaceRoot,
           },
         },
+        // T032/ISSUE-009: Controller MCP server for Controller Agent
+        "orchestra-ctl": {
+          type: "stdio",
+          command: "node",
+          args: [serverPath, "--role=controller"],
+          env: {
+            ORCHESTRA_WORKSPACE: this.workspaceRoot,
+          },
+        },
       },
       generatedBy: "Orchestra VS Code Extension",
       version: this.extensionVersion,

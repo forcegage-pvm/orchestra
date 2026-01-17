@@ -7,7 +7,7 @@
  * Part of T026 and T030 - Controller Agent feature.
  */
 
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import {
   generateControllerEscalationReason,
@@ -179,25 +179,38 @@ async function rejectHandover(
 
   const now = new Date().toISOString();
 
-  // 5. Count previous rejections for this task's handover
-  const previousRejections = await db
-    .select()
+  // 5. Count previous rejections for this task's handover (T041 - US4)
+  const rejectionCountResult = await db
+    .select({ count: sql<number>`COUNT(*)` })
     .from(specReviews)
     .where(
       and(
         eq(specReviews.task_id, task.id),
         eq(specReviews.review_type, "HANDOVER"),
-        eq(specReviews.decision, "REJECTED")
+        eq(specReviews.decision, "NEEDS_REVISION")
       )
     );
+  const previousRejections = rejectionCountResult[0]?.count ?? 0;
+  const newRejectionCount = previousRejections + 1;
 
-  const rejectionCount = previousRejections.length + 1;
+  // 6. Get previous review ID for chaining (T045 - revision chain)
+  const [previousReview] = await db
+    .select({ id: specReviews.id })
+    .from(specReviews)
+    .where(
+      and(
+        eq(specReviews.task_id, task.id),
+        eq(specReviews.review_type, "HANDOVER")
+      )
+    )
+    .orderBy(sql`reviewed_at DESC`)
+    .limit(1);
 
-  // 6. T030: Check if we should escalate after too many rejections
-  const shouldEscalate = shouldEscalateAfterRejection(rejectionCount);
+  // 7. T030: Check if we should escalate after too many rejections
+  const shouldEscalate = shouldEscalateAfterRejection(newRejectionCount);
   const newStatus = shouldEscalate ? "ESCALATED" : "HANDOVER_REVIEW_FAILED";
 
-  // 7. Update task status
+  // 8. Update task status
   await db
     .update(tasks)
     .set({
@@ -206,7 +219,7 @@ async function rejectHandover(
     })
     .where(eq(tasks.id, task.id));
 
-  // 8. Record rejection in spec_reviews table (audit trail)
+  // 9. Record rejection in spec_reviews table (audit trail)
   await db.insert(specReviews).values({
     sprint_id: sprint.id,
     task_id: task.id,
@@ -218,20 +231,22 @@ async function rejectHandover(
     recommendations: JSON.stringify([input.recommendations]),
     reviewed_by: "controller",
     reviewed_at: now,
+    revision_count: newRejectionCount,
+    previous_review_id: previousReview?.id ?? null,
   });
 
-  // 9. If escalating, create escalation record
+  // 10. If escalating, create escalation record
   if (shouldEscalate) {
     const escalationReason = generateControllerEscalationReason(
       "HANDOVER",
-      rejectionCount
+      newRejectionCount
     );
 
     await db.insert(escalations).values({
       task_id: task.id,
       sprint_id: sprint.id,
       reason: escalationReason,
-      attempts_summary: `Handover rejected ${rejectionCount} times by Controller. Issues: ${input.issues
+      attempts_summary: `Handover rejected ${newRejectionCount} times by Controller. Issues: ${input.issues
         .map((i) => i.issue)
         .join("; ")}`,
       recommended_action:
@@ -255,8 +270,8 @@ async function rejectHandover(
     workflow_step: shouldEscalate ? "ESCALATED" : "HANDOVER_REVIEW",
     triggered_by: "controller",
     notes: shouldEscalate
-      ? `Handover rejected ${rejectionCount} times - escalated to human supervisor`
-      : `Handover rejected by Controller (attempt ${rejectionCount}/${MAX_CONTROLLER_REJECTIONS}). Issues: ${input.issues.length}`,
+      ? `Handover rejected ${newRejectionCount} times - escalated to human supervisor`
+      : `Handover rejected by Controller (attempt ${newRejectionCount}/${MAX_CONTROLLER_REJECTIONS}). Issues: ${input.issues.length}`,
     changed_at: now,
   });
 
@@ -268,10 +283,10 @@ async function rejectHandover(
       success: true,
       task_id: input.task_id,
       new_status: "ESCALATED",
-      rejection_count: rejectionCount,
+      rejection_count: newRejectionCount,
       escalated: true,
       message:
-        `Task ${input.task_id} handover has been rejected ${rejectionCount} times ` +
+        `Task ${input.task_id} handover has been rejected ${newRejectionCount} times ` +
         `and has been ESCALATED to human supervisor. ` +
         `No further automated attempts are permitted.`,
     };
@@ -281,13 +296,13 @@ async function rejectHandover(
     success: true,
     task_id: input.task_id,
     new_status: "HANDOVER_REVIEW_FAILED",
-    rejection_count: rejectionCount,
+    rejection_count: newRejectionCount,
     escalated: false,
     message:
-      `Task ${input.task_id} handover rejected (${rejectionCount}/${MAX_CONTROLLER_REJECTIONS}). ` +
+      `Task ${input.task_id} handover rejected (${newRejectionCount}/${MAX_CONTROLLER_REJECTIONS}). ` +
       `Orchestrator must use resubmit_handover after addressing the issues. ` +
       `${
-        MAX_CONTROLLER_REJECTIONS - rejectionCount
+        MAX_CONTROLLER_REJECTIONS - newRejectionCount
       } attempts remaining before escalation.`,
   };
 }

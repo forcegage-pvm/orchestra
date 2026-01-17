@@ -1286,8 +1286,9 @@ const TOOLS_WITH_ROLES: ToolWithRole[] = [
 
 /**
  * Get tools filtered by role
+ * Exported for testing (ISSUE-008)
  */
-function getToolsForRole(role: ServerRole): Tool[] {
+export function getToolsForRole(role: ServerRole): Tool[] {
   if (role === "full") {
     // Return all tools (strip role property)
     return TOOLS_WITH_ROLES.map(({ role: _role, ...tool }) => tool);
@@ -1301,8 +1302,12 @@ function getToolsForRole(role: ServerRole): Tool[] {
 
 /**
  * Check if a tool is available for a role
+ * Exported for testing (ISSUE-008)
  */
-function isToolAvailableForRole(toolName: string, role: ServerRole): boolean {
+export function isToolAvailableForRole(
+  toolName: string,
+  role: ServerRole
+): boolean {
   if (role === "full") return true;
 
   const tool = TOOLS_WITH_ROLES.find((t) => t.name === toolName);

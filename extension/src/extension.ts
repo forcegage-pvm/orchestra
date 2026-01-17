@@ -145,6 +145,15 @@ async function installMcpServers(
       ORCHESTRA_WORKSPACE: orchestraRoot,
     },
   };
+  // T032/ISSUE-009: Controller MCP server for Controller Agent
+  existingConfig.servers["orchestra-ctl"] = {
+    type: "stdio",
+    command: "node",
+    args: [serverPath, "--role=controller"],
+    env: {
+      ORCHESTRA_WORKSPACE: orchestraRoot,
+    },
+  };
 
   // Ensure .vscode directory exists
   if (!fs.existsSync(vscodeDir)) {
@@ -180,6 +189,7 @@ function ensureAgentFiles(
   const agentFiles = [
     "orchestra.orchestrator.agent.md",
     "orchestra.implementor.agent.md",
+    "orchestra.controller.agent.md", // T032/ISSUE-010: Controller Agent prompt
   ];
 
   for (const agentFile of agentFiles) {

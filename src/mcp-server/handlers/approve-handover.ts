@@ -6,7 +6,7 @@
  * Part of T025 - Controller Agent feature.
  */
 
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import { getActiveSprint, getDb } from "../../db/index.js";
 import {
@@ -183,7 +183,32 @@ async function approveHandover(
     })
     .where(eq(sprints.id, sprint.id));
 
-  // 7. Record approval in spec_reviews table (audit trail)
+  // 7. Count previous reviews for revision tracking (T040 - US4)
+  const revisionCountResult = await db
+    .select({ count: sql<number>`COUNT(*)` })
+    .from(specReviews)
+    .where(
+      and(
+        eq(specReviews.task_id, task.id),
+        eq(specReviews.review_type, "HANDOVER")
+      )
+    );
+  const previousReviewCount = revisionCountResult[0]?.count ?? 0;
+
+  // 8. Get previous review ID for chaining
+  const [previousReview] = await db
+    .select({ id: specReviews.id })
+    .from(specReviews)
+    .where(
+      and(
+        eq(specReviews.task_id, task.id),
+        eq(specReviews.review_type, "HANDOVER")
+      )
+    )
+    .orderBy(sql`reviewed_at DESC`)
+    .limit(1);
+
+  // 9. Record approval in spec_reviews table (audit trail)
   await db.insert(specReviews).values({
     sprint_id: sprint.id,
     task_id: task.id,
@@ -195,9 +220,11 @@ async function approveHandover(
     recommendations: input.notes ? JSON.stringify([input.notes]) : undefined,
     reviewed_by: "controller",
     reviewed_at: now,
+    revision_count: previousReviewCount,
+    previous_review_id: previousReview?.id ?? null,
   });
 
-  // 8. Log progress transition
+  // 10. Log progress transition
   await db.insert(progress).values({
     sprint_id: sprint.id,
     task_id: task.id,

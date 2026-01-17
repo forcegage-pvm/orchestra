@@ -99,13 +99,13 @@
 
 ### Implementation for User Story 3
 
-- [ ] T032 [P] [US3] Create orchestra.controller.agent.md in extension/agents/
-- [ ] T033 [P] [US3] Add Controller-specific system prompt with review guidelines in extension/agents/orchestra.controller.agent.md
-- [ ] T034 [US3] Add Controller launch command to extension/src/commands/startAgent.ts
-- [ ] T035 [US3] Configure shared read-only tools (get_sprint_status, get_task, get_handover) for controller role in src/mcp-server/tools.ts
-- [ ] T036 [US3] Verify controller role cannot access orchestrator-only tools (update_verification) in src/mcp-server/tools.ts
-- [ ] T036a [US3] Add unit test verifying controller role tool filtering excludes update_verification in test/mcp-server/tools.test.ts
-- [ ] T037 [US3] Add spec file read capability to controller tools in src/mcp-server/tools.ts
+- [x] T032 [P] [US3] Create orchestra.controller.agent.md in extension/agents/
+- [x] T033 [P] [US3] Add Controller-specific system prompt with review guidelines in extension/agents/orchestra.controller.agent.md
+- [x] T034 [US3] Add Controller launch command to extension/src/commands/startAgent.ts
+- [x] T035 [US3] Configure shared read-only tools (get_sprint_status, get_task, get_handover) for controller role in src/mcp-server/tools.ts
+- [x] T036 [US3] Verify controller role cannot access orchestrator-only tools (update_verification) in src/mcp-server/tools.ts
+- [x] T036a [US3] Add unit test verifying controller role tool filtering excludes update_verification in test/mcp-server/tools.test.ts
+- [x] T037 [US3] Add spec file read capability to controller tools in src/mcp-server/tools.ts
 
 **Checkpoint**: Controller agent can be launched and has proper tool access for reviews
 
@@ -119,14 +119,14 @@
 
 ### Implementation for User Story 4
 
-- [ ] T038 [US4] Add spec_reviews insert in approve_sprint handler in src/mcp-server/handlers/approve-sprint.ts
-- [ ] T039 [P] [US4] Add spec_reviews insert in reject_sprint handler in src/mcp-server/handlers/reject-sprint.ts
-- [ ] T040 [P] [US4] Add spec_reviews insert in approve_handover handler in src/mcp-server/handlers/approve-handover.ts
-- [ ] T041 [P] [US4] Add spec_reviews insert in reject_handover handler in src/mcp-server/handlers/reject-handover.ts
-- [ ] T042 [US4] Implement revision_count tracking (increment on resubmit) in src/mcp-server/handlers/resubmit-sprint.ts
-- [ ] T043 [US4] Implement revision_count tracking in src/mcp-server/handlers/resubmit-handover.ts
-- [ ] T044 [US4] Add amendment logging to update_handover when in HANDOVER_REVIEW_FAILED state in src/mcp-server/handlers/update-handover.ts
-- [ ] T045 [US4] Link previous_review_id when creating follow-up reviews in resubmit handlers
+- [x] T038 [US4] Add spec_reviews insert in approve_sprint handler in src/mcp-server/handlers/approve-sprint.ts
+- [x] T039 [P] [US4] Add spec_reviews insert in reject_sprint handler in src/mcp-server/handlers/reject-sprint.ts
+- [x] T040 [P] [US4] Add spec_reviews insert in approve_handover handler in src/mcp-server/handlers/approve-handover.ts
+- [x] T041 [P] [US4] Add spec_reviews insert in reject_handover handler in src/mcp-server/handlers/reject-handover.ts
+- [x] T042 [US4] Implement revision_count tracking (increment on resubmit) in src/mcp-server/handlers/resubmit-sprint.ts
+- [x] T043 [US4] Implement revision_count tracking in src/mcp-server/handlers/resubmit-handover.ts
+- [x] T044 [US4] Add amendment logging to update_handover when in HANDOVER_REVIEW_FAILED state in src/mcp-server/handlers/update-handover.ts
+- [x] T045 [US4] Link previous_review_id when creating follow-up reviews in resubmit handlers
 
 **Checkpoint**: All review decisions are logged with full audit trail
 
@@ -140,12 +140,12 @@
 
 ### Implementation for User Story 5
 
-- [ ] T046 [P] [US5] Add review status display to sprint view in extension/src/views/webview/
-- [ ] T047 [P] [US5] Add review status display to task view in extension/src/views/webview/currentTaskTemplate.ts
-- [ ] T048 [US5] Add amendments section to handover view in extension/src/views/webview/currentTaskTemplate.ts
-- [ ] T049 [US5] Add Controller launch button when item is pending review in extension/src/views/webview/
-- [ ] T050 [US5] Add review history display (issues, recommendations, revision counts) in extension/src/views/webview/
-- [ ] T051 [US5] Add database queries for review history in extension/src/database/queries.ts
+- [x] T046 [P] [US5] Add review status display to sprint view in extension/src/views/webview/
+- [x] T047 [P] [US5] Add review status display to task view in extension/src/views/webview/currentTaskTemplate.ts
+- [x] T048 [US5] Add amendments section to handover view in extension/src/views/webview/currentTaskTemplate.ts
+- [x] T049 [US5] Add Controller launch button when item is pending review in extension/src/views/webview/
+- [x] T050 [US5] Add review history display (issues, recommendations, revision counts) in extension/src/views/webview/
+- [x] T051 [US5] Add database queries for review history in extension/src/database/queries.ts
 
 **Checkpoint**: Users can clearly see blocked status and take action
 

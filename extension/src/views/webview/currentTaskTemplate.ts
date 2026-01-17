@@ -9,6 +9,30 @@
 import type { StatusDisplay } from "../statusTranslation.js";
 
 /**
+ * Alignment issue from spec review (Sprint 004)
+ */
+export interface AlignmentIssue {
+  severity: "critical" | "warning" | "info";
+  requirement: string;
+  finding: string;
+  recommendation: string;
+}
+
+/**
+ * Review data for display (Sprint 004 - Controller Agent)
+ */
+export interface ReviewData {
+  decision: string; // 'APPROVED' | 'NEEDS_REVISION' | 'REJECTED'
+  conformance: string; // 'PASS' | 'WARN' | 'FAIL'
+  reviewedBy: string;
+  reviewedAt: string;
+  revisionCount: number;
+  issues: AlignmentIssue[];
+  recommendations: string[];
+  notes: string | null;
+}
+
+/**
  * Task data for rendering in the webview
  */
 export interface TaskData {
@@ -36,6 +60,8 @@ export interface TaskData {
     redTaskId?: number;
     redTaskTitle?: string;
   } | null;
+  // Sprint 004: Review data for pending/failed review states
+  review?: ReviewData | null;
 }
 
 /**
@@ -296,6 +322,104 @@ function getStyles(): string {
     .tdd-link:hover {
       color: var(--vscode-textLink-activeForeground);
     }
+    .review-banner {
+      background: var(--vscode-inputValidation-warningBackground);
+      border: 2px solid var(--vscode-charts-yellow);
+      border-radius: 4px;
+      padding: 10px 12px;
+      margin-bottom: 14px;
+      font-size: 11px;
+    }
+    .review-banner.pending {
+      border-color: var(--vscode-charts-blue);
+      background: var(--vscode-inputValidation-infoBackground);
+    }
+    .review-banner.failed {
+      border-color: var(--vscode-charts-orange);
+      background: var(--vscode-inputValidation-warningBackground);
+    }
+    .review-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+      font-weight: 600;
+      font-size: 12px;
+      margin-bottom: 8px;
+    }
+    .review-header-title {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .review-status {
+      font-size: 11px;
+      margin-bottom: 8px;
+      line-height: 1.4;
+    }
+    .review-issues {
+      margin-top: 8px;
+    }
+    .review-issue {
+      margin-bottom: 6px;
+      padding-left: 12px;
+      border-left: 2px solid var(--vscode-textBlockQuote-border);
+    }
+    .review-issue.critical {
+      border-left-color: var(--vscode-charts-red);
+    }
+    .review-issue.warning {
+      border-left-color: var(--vscode-charts-orange);
+    }
+    .review-issue.info {
+      border-left-color: var(--vscode-charts-blue);
+    }
+    .review-issue-severity {
+      font-weight: 600;
+      font-size: 10px;
+      text-transform: uppercase;
+    }
+    .review-issue-requirement {
+      font-weight: 500;
+      margin-bottom: 2px;
+    }
+    .review-issue-finding {
+      color: var(--vscode-descriptionForeground);
+      margin-bottom: 2px;
+    }
+    .review-recommendations {
+      margin-top: 8px;
+      padding-top: 8px;
+      border-top: 1px solid var(--vscode-panel-border);
+    }
+    .review-recommendations-title {
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+    .review-recommendation {
+      margin-left: 12px;
+      margin-bottom: 4px;
+    }
+    .review-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px solid var(--vscode-panel-border);
+    }
+    .btn-controller {
+      background: var(--vscode-charts-purple);
+      color: #fff;
+      padding: 5px 12px;
+      border: none;
+      border-radius: 3px;
+      cursor: pointer;
+      font-size: 11px;
+      font-weight: 500;
+    }
+    .btn-controller:hover {
+      opacity: 0.9;
+    }
   `;
 }
 
@@ -440,6 +564,67 @@ function getScript(): string {
         }
       }
       
+      // Render review banner if task is in review or review failed state (Sprint 004)
+      let reviewBanner = '';
+      if (task.review) {
+        const isPending = task.status === 'PENDING_HANDOVER_REVIEW' || task.status === 'PENDING_SPEC_REVIEW';
+        const isFailed = task.status === 'HANDOVER_REVIEW_FAILED' || task.status === 'SPEC_REVIEW_FAILED';
+        const bannerClass = isPending ? 'pending' : isFailed ? 'failed' : '';
+        const iconClass = isPending ? 'clock' : 'warning';
+        const statusText = isPending ? 'Task awaiting Controller review' : 'Controller requested revisions';
+        
+        let issuesHtml = '';
+        if (task.review.issues && task.review.issues.length > 0) {
+          const issueItems = task.review.issues.map(issue => \`
+            <div class="review-issue \${issue.severity}">
+              <div class="review-issue-severity">\${issue.severity}</div>
+              <div class="review-issue-requirement">\${escapeHtml(issue.requirement)}</div>
+              <div class="review-issue-finding">\${escapeHtml(issue.finding)}</div>
+            </div>
+          \`).join('');
+          issuesHtml = \`
+            <div class="review-issues">
+              <div class="review-recommendations-title">Issues Found:</div>
+              \${issueItems}
+            </div>
+          \`;
+        }
+        
+        let recommendationsHtml = '';
+        if (task.review.recommendations && task.review.recommendations.length > 0) {
+          const recItems = task.review.recommendations.map(rec => \`<div class="review-recommendation">• \${escapeHtml(rec)}</div>\`).join('');
+          recommendationsHtml = \`
+            <div class="review-recommendations">
+              <div class="review-recommendations-title">Recommendations:</div>
+              \${recItems}
+            </div>
+          \`;
+        }
+        
+        reviewBanner = \`
+          <div class="review-banner \${bannerClass}">
+            <div class="review-header">
+              <span class="review-header-title">
+                <span class="codicon codicon-\${iconClass}"></span>
+                \${statusText}
+              </span>
+            </div>
+            <div class="review-status">
+              Reviewed by \${escapeHtml(task.review.reviewedBy)} • \${escapeHtml(new Date(task.review.reviewedAt).toLocaleString())}
+              \${task.review.revisionCount > 0 ? \` • Revision \${task.review.revisionCount}\` : ''}
+            </div>
+            \${issuesHtml}
+            \${recommendationsHtml}
+            \${task.review.notes ? \`<div style="margin-top: 8px; font-style: italic;">\${escapeHtml(task.review.notes)}</div>\` : ''}
+            \${isPending ? \`
+              <div class="review-actions">
+                <button class="btn-controller" onclick="launchController()">Launch Controller Agent</button>
+              </div>
+            \` : ''}
+          </div>
+        \`;
+      }
+      
       return \`
         <div class="task-card">
           <div class="task-header">
@@ -453,6 +638,7 @@ function getScript(): string {
           </div>
           <div class="task-title">\${escapeHtml(task.title)}</div>
           \${tddBanner}
+          \${reviewBanner}
           \${escalationBanner}
           <div class="task-description">\${escapeHtml(task.description)}</div>
           <div class="action-buttons">
@@ -534,6 +720,12 @@ function getScript(): string {
       vscode.postMessage({
         command: 'forceComplete',
         taskId: taskId
+      });
+    }
+    
+    function launchController() {
+      vscode.postMessage({
+        command: 'launchController'
       });
     }
     
@@ -687,6 +879,103 @@ function renderTaskCard(task: TaskData): string {
     }
   }
 
+  // Render review banner if task is in review or review failed state (Sprint 004)
+  let reviewBanner = "";
+  if (task.review) {
+    const isPending =
+      task.status === "PENDING_HANDOVER_REVIEW" ||
+      task.status === "PENDING_SPEC_REVIEW";
+    const isFailed =
+      task.status === "HANDOVER_REVIEW_FAILED" ||
+      task.status === "SPEC_REVIEW_FAILED";
+    const bannerClass = isPending ? "pending" : isFailed ? "failed" : "";
+    const iconClass = isPending ? "clock" : "warning";
+
+    const statusText = isPending
+      ? "Task awaiting Controller review"
+      : "Controller requested revisions";
+
+    // Render issues if present
+    let issuesHtml = "";
+    if (task.review.issues && task.review.issues.length > 0) {
+      const issueItems = task.review.issues
+        .map(
+          (issue) => `
+        <div class="review-issue ${issue.severity}">
+          <div class="review-issue-severity">${issue.severity}</div>
+          <div class="review-issue-requirement">${escapeHtml(
+            issue.requirement
+          )}</div>
+          <div class="review-issue-finding">${escapeHtml(issue.finding)}</div>
+        </div>
+      `
+        )
+        .join("");
+      issuesHtml = `
+        <div class="review-issues">
+          <div class="review-recommendations-title">Issues Found:</div>
+          ${issueItems}
+        </div>
+      `;
+    }
+
+    // Render recommendations if present
+    let recommendationsHtml = "";
+    if (task.review.recommendations && task.review.recommendations.length > 0) {
+      const recItems = task.review.recommendations
+        .map(
+          (rec) =>
+            `<div class="review-recommendation">• ${escapeHtml(rec)}</div>`
+        )
+        .join("");
+      recommendationsHtml = `
+        <div class="review-recommendations">
+          <div class="review-recommendations-title">Recommendations:</div>
+          ${recItems}
+        </div>
+      `;
+    }
+
+    reviewBanner = `
+      <div class="review-banner ${bannerClass}">
+        <div class="review-header">
+          <span class="review-header-title">
+            <span class="codicon codicon-${iconClass}"></span>
+            ${statusText}
+          </span>
+        </div>
+        <div class="review-status">
+          Reviewed by ${escapeHtml(task.review.reviewedBy)} • ${escapeHtml(
+      new Date(task.review.reviewedAt).toLocaleString()
+    )}
+          ${
+            task.review.revisionCount > 0
+              ? ` • Revision ${task.review.revisionCount}`
+              : ""
+          }
+        </div>
+        ${issuesHtml}
+        ${recommendationsHtml}
+        ${
+          task.review.notes
+            ? `<div style="margin-top: 8px; font-style: italic;">${escapeHtml(
+                task.review.notes
+              )}</div>`
+            : ""
+        }
+        ${
+          isPending
+            ? `
+          <div class="review-actions">
+            <button class="btn-controller" onclick="launchController()">Launch Controller Agent</button>
+          </div>
+        `
+            : ""
+        }
+      </div>
+    `;
+  }
+
   return `
     <div class="task-card">
       <div class="task-header">
@@ -702,6 +991,7 @@ function renderTaskCard(task: TaskData): string {
       </div>
       <div class="task-title">${escapeHtml(task.title)}</div>
       ${tddBanner}
+      ${reviewBanner}
       ${escalationBanner}
       <div class="task-description">${escapeHtml(task.description)}</div>
       <div class="action-buttons">

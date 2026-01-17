@@ -6,10 +6,16 @@
  * Part of T027 - Controller Agent feature.
  */
 
-import { and, eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { z } from "zod";
 import { getActiveSprint, getDb } from "../../db/index.js";
-import { handovers, progress, sprints, tasks } from "../../db/schema.js";
+import {
+  handovers,
+  progress,
+  specReviews,
+  sprints,
+  tasks,
+} from "../../db/schema.js";
 import { validateInput } from "../../schemas/utils.js";
 import { writeSignal } from "../db-signal.js";
 import { logToolExecution } from "./audit-logging.js";
@@ -28,6 +34,14 @@ const ResubmitHandoverInputSchema = z.object({
       "Description of changes made to address Controller feedback (min 20 chars)"
     ),
 });
+
+interface ResubmitHandoverOutput {
+  success: boolean;
+  task_id: number;
+  new_status: string;
+  revision_count: number; // ISSUE-011: Include revision count per contract
+  message: string;
+}
 
 export async function handleResubmitHandover(input: unknown) {
   const startTime = performance.now();
@@ -107,12 +121,7 @@ export async function handleResubmitHandover(input: unknown) {
 
 async function resubmitHandover(
   input: z.output<typeof ResubmitHandoverInputSchema>
-): Promise<{
-  success: boolean;
-  task_id: number;
-  new_status: string;
-  message: string;
-}> {
+): Promise<ResubmitHandoverOutput> {
   const db = getDb();
 
   // 1. Get active sprint
@@ -165,7 +174,22 @@ async function resubmitHandover(
 
   const now = new Date().toISOString();
 
-  // 5. Update task status back to PENDING_HANDOVER_REVIEW
+  // 5. Get latest review record to retrieve revision_count (ISSUE-011)
+  const [latestReview] = await db
+    .select({ revision_count: specReviews.revision_count })
+    .from(specReviews)
+    .where(
+      and(
+        eq(specReviews.task_id, task.id),
+        eq(specReviews.review_type, "HANDOVER")
+      )
+    )
+    .orderBy(desc(specReviews.reviewed_at))
+    .limit(1);
+
+  const revisionCount = latestReview?.revision_count ?? 0;
+
+  // 6. Update task status back to PENDING_HANDOVER_REVIEW
   await db
     .update(tasks)
     .set({
@@ -174,7 +198,7 @@ async function resubmitHandover(
     })
     .where(eq(tasks.id, task.id));
 
-  // 6. Update sprint workflow_step back to HANDOVER_REVIEW
+  // 7. Update sprint workflow_step back to HANDOVER_REVIEW
   await db
     .update(sprints)
     .set({
@@ -183,7 +207,7 @@ async function resubmitHandover(
     })
     .where(eq(sprints.id, sprint.id));
 
-  // 7. Log progress transition
+  // 8. Log progress transition
   await db.insert(progress).values({
     sprint_id: sprint.id,
     task_id: task.id,
@@ -191,7 +215,7 @@ async function resubmitHandover(
     to_status: "PENDING_HANDOVER_REVIEW",
     workflow_step: "HANDOVER_REVIEW",
     triggered_by: "orchestrator",
-    notes: `Handover resubmitted for Controller review. Changes: ${input.changes_made}`,
+    notes: `Handover resubmitted for Controller review. Revision ${revisionCount}. Changes: ${input.changes_made}`,
     changed_at: now,
   });
 
@@ -202,8 +226,10 @@ async function resubmitHandover(
     success: true,
     task_id: input.task_id,
     new_status: "PENDING_HANDOVER_REVIEW",
+    revision_count: revisionCount, // ISSUE-011: Include revision count
     message:
       `Task ${input.task_id} handover resubmitted for Controller review. ` +
+      `Revision ${revisionCount}. ` +
       `Controller will verify the changes address the previously identified issues.`,
   };
 }

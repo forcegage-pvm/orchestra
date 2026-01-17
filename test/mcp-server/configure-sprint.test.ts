@@ -415,7 +415,8 @@ describe("configure_sprint handler", () => {
 
       const newSprint = allSprints.find((s) => s.id === "new-sprint");
       expect(newSprint?.is_active).toBe(true);
-      expect(newSprint?.workflow_step).toBe("SELECT_TASK");
+      // Controller Agent feature: new sprints start in SPEC_REVIEW (pending Controller approval)
+      expect(newSprint?.workflow_step).toBe("SPEC_REVIEW");
     });
   });
 

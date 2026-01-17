@@ -36,6 +36,7 @@ describe("TDD Schema Tables", () => {
       CREATE TABLE sprints (
         id TEXT PRIMARY KEY,
         name TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'ACTIVE',
         workflow_step TEXT NOT NULL,
         is_active INTEGER NOT NULL DEFAULT 0,
         created_at TEXT NOT NULL,

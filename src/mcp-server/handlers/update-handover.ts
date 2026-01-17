@@ -4,9 +4,9 @@
  * Updates handover fields for a task in IMPLEMENT state.
  */
 
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { getActiveSprint, getDb } from "../../db/index.js";
-import { handovers, progress, tasks } from "../../db/schema.js";
+import { handovers, progress, specReviews, tasks } from "../../db/schema.js";
 import {
   UpdateHandoverInputSchema,
   type UpdateHandoverOutput,
@@ -189,6 +189,7 @@ async function updateHandover(
     .where(eq(tasks.id, task.id));
 
   // 7. Log progress
+  const now = updateFields.updated_at as string;
   await db.insert(progress).values({
     sprint_id: sprint.id,
     task_id: task.id,
@@ -197,8 +198,51 @@ async function updateHandover(
     workflow_step: sprint.workflow_step,
     triggered_by: "orchestrator",
     notes: `Updated handover fields: ${updatedFieldNames.join(", ")}`,
-    changed_at: updateFields.updated_at as string,
+    changed_at: now,
   });
+
+  // 8. T044: Log AMENDMENT record when updating during HANDOVER_REVIEW_FAILED state
+  if (task.status === "HANDOVER_REVIEW_FAILED") {
+    // Count previous amendments for revision tracking
+    const revisionCountResult = await db
+      .select({ count: sql<number>`COUNT(*)` })
+      .from(specReviews)
+      .where(
+        and(
+          eq(specReviews.task_id, task.id),
+          eq(specReviews.review_type, "AMENDMENT")
+        )
+      );
+    const previousAmendments = revisionCountResult[0]?.count ?? 0;
+
+    // Get previous review ID for chaining (most recent handover review)
+    const [previousReview] = await db
+      .select({ id: specReviews.id })
+      .from(specReviews)
+      .where(eq(specReviews.task_id, task.id))
+      .orderBy(sql`reviewed_at DESC`)
+      .limit(1);
+
+    await db.insert(specReviews).values({
+      sprint_id: sprint.id,
+      task_id: task.id,
+      review_type: "AMENDMENT",
+      decision: "NEEDS_REVISION", // Amendment in progress - awaiting re-review
+      conformance: "WARN", // Neutral - being addressed
+      spec_requirements: JSON.stringify([]),
+      issues: JSON.stringify([]),
+      recommendations: JSON.stringify([
+        `Handover amended: ${updatedFieldNames.join(", ")}`,
+      ]),
+      notes: `Handover updated by orchestrator after rejection. Modified fields: ${updatedFieldNames.join(
+        ", "
+      )}`,
+      reviewed_by: "orchestrator",
+      reviewed_at: now,
+      revision_count: previousAmendments,
+      previous_review_id: previousReview?.id ?? null,
+    });
+  }
 
   return {
     success: true,
