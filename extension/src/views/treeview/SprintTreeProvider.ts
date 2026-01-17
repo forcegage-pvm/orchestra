@@ -147,7 +147,25 @@ export class SprintTreeProvider
         : vscode.TreeItemCollapsibleState.Collapsed
     );
 
-    if (isActive) {
+    // Sprint 004: Check review status and display visual indicators
+    const sprintStatus = sprint.status || "ACTIVE";
+    let description = isActive ? "" : "(inactive)";
+
+    if (sprintStatus === "PENDING_SPEC_REVIEW") {
+      // Pending review: clock icon with blue color
+      item.iconPath = new vscode.ThemeIcon(
+        "clock",
+        new vscode.ThemeColor("charts.blue")
+      );
+      description = "⏳ Pending Review";
+    } else if (sprintStatus === "SPEC_REVIEW_FAILED") {
+      // Failed review: warning icon with orange color
+      item.iconPath = new vscode.ThemeIcon(
+        "warning",
+        new vscode.ThemeColor("charts.orange")
+      );
+      description = "⚠️ Review Failed";
+    } else if (isActive) {
       // Active: rocket icon with green color for active sprint
       item.iconPath = new vscode.ThemeIcon(
         "rocket",
@@ -159,10 +177,12 @@ export class SprintTreeProvider
         "project",
         new vscode.ThemeColor("descriptionForeground")
       );
-      item.description = "(inactive)";
     }
 
-    item.tooltip = `Sprint: ${sprint.name}\nStatus: ${sprint.workflow_step}\n${
+    item.description = description;
+    item.tooltip = `Sprint: ${
+      sprint.name
+    }\nStatus: ${sprintStatus}\nWorkflow: ${sprint.workflow_step}\n${
       isActive
         ? "Active Sprint"
         : "Right-click → 'Set as Active Sprint' to switch"

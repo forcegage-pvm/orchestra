@@ -4,17 +4,19 @@ This document explains how to configure and use the Orchestra MCP servers with r
 
 ## Overview
 
-Orchestra uses **two MCP server instances** with role-based tool filtering:
+Orchestra uses **three MCP server instances** with role-based tool filtering:
 
 | Server | Role | Tools | Purpose |
 |--------|------|-------|---------|
 | `orchestra-orc` | orchestrator | 20 | Task preparation, verification, judgment |
 | `orchestra-imp` | implementor | 8 | Task execution, signaling, feedback |
+| `orchestra-ctrl` | controller | 10 | Sprint/handover review, specification auditing |
 
 This structural separation ensures:
 - Implementor cannot see verification criteria
 - Implementor cannot submit judgments
 - Orchestrator cannot signal completion
+- Controller reviews orchestrator work for spec alignment
 - Each role has only the tools they need
 
 ## Installation
@@ -50,6 +52,14 @@ Copy the template configuration to your project:
       "env": {
         "ORCHESTRA_WORKSPACE": "${workspaceFolder}"
       }
+    },
+    "orchestra-ctrl": {
+      "type": "stdio",
+      "command": "node",
+      "args": ["node_modules/orchestra/dist/mcp-server/index.js", "--role=controller"],
+      "env": {
+        "ORCHESTRA_WORKSPACE": "${workspaceFolder}"
+      }
     }
   }
 }
@@ -72,6 +82,13 @@ Copy the template configuration to your project:
       "env": {
         "ORCHESTRA_WORKSPACE": "/path/to/your/project"
       }
+    },
+    "orchestra-ctrl": {
+      "command": "node",
+      "args": ["/path/to/orchestra/dist/mcp-server/index.js", "--role=controller"],
+      "env": {
+        "ORCHESTRA_WORKSPACE": "/path/to/your/project"
+      }
     }
   }
 }
@@ -84,7 +101,8 @@ Copy the agent definition files to your project:
 ```
 .github/agents/
 ├── orchestra.orchestrator.md    # Orchestrator agent instructions
-└── orchestra.implementor.md     # Implementor agent instructions
+├── orchestra.implementor.md     # Implementor agent instructions
+└── orchestra.controller.md      # Controller agent instructions (Sprint 004)
 ```
 
 These files provide role-specific instructions and tool restrictions.
@@ -114,6 +132,7 @@ Use the orchestra-imp tools to signal completion
 **Sprint Configuration:**
 - `configure_sprint`, `add_task`, `update_task`, `update_verification`
 - `get_task`, `get_tasks`, `remove_task`
+- `resubmit_sprint`, `resubmit_handover`
 
 **Handover:**
 - `prepare_task`, `update_handover`
@@ -123,6 +142,9 @@ Use the orchestra-imp tools to signal completion
 
 **Feedback & Completion:**
 - `enhance_feedback`, `complete_task`
+
+**Audit & Amendments:**
+- `get_amendments`
 
 **Shared:**
 - `get_signal`, `escalate_task`, `get_progress`, `get_sprint_status`, `get_task_history`, `set_config`
@@ -137,6 +159,37 @@ Use the orchestra-imp tools to signal completion
 
 **TDD Red Phase:**
 - `register_tdd_red_test`
+
+### Controller (10 tools)
+
+**Sprint 004 Feature:** The Controller is a specification auditor agent that reviews orchestrator work for alignment with specifications.
+
+**Sprint Review:**
+- `review_sprint_config` - Review sprint task breakdown against specification
+- `approve_sprint` - Approve sprint configuration
+- `reject_sprint` - Reject sprint and require revisions
+
+**Handover Review:**
+- `review_handover` - Review task handover against specification
+- `approve_handover` - Approve task handover
+- `reject_handover` - Reject handover and require revisions
+
+**Utilities:**
+- `get_sprint_status`, `get_task`, `get_amendments`, `get_task_history`
+
+**Purpose:**
+- Validates orchestrator task breakdowns cover all spec requirements
+- Ensures handovers are faithful to specification intent
+- Prevents "no-op" implementations and deferred functionality
+- Creates accountability for specification adherence
+
+**How It Works:**
+1. Orchestrator calls `configure_sprint` → Sprint enters `PENDING_SPEC_REVIEW`
+2. Controller reviews (separate chat) → Calls `approve_sprint` or `reject_sprint`
+3. If rejected: Orchestrator uses `resubmit_sprint` after addressing issues
+4. Same flow for `prepare_task` → `PENDING_HANDOVER_REVIEW` → `review_handover`
+
+See "Specification Review Gates" in the Orchestrator agent documentation for workflow details.
 
 ## TDD Red-Green Enforcement
 

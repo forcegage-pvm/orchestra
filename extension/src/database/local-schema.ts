@@ -307,6 +307,34 @@ export const chatSessions = sqliteTable("chat_sessions", {
 });
 
 /**
+ * Amendments table - Sprint 004: Track all modifications after initial configuration
+ */
+export const amendments = sqliteTable(
+  "amendments",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    sprint_id: text("sprint_id")
+      .notNull()
+      .references(() => sprints.id, { onDelete: "cascade" }),
+    task_id: integer("task_id")
+      .notNull()
+      .references(() => tasks.id, { onDelete: "cascade" }),
+    tool_name: text("tool_name").notNull(), // update_verification | update_task | update_handover
+    amendment_type: text("amendment_type").notNull(), // VERIFICATION | TASK_METADATA | HANDOVER
+    workflow_step_at_amendment: text("workflow_step_at_amendment").notNull(),
+    rationale: text("rationale").notNull(),
+    before_state: text("before_state").notNull(),
+    after_state: text("after_state").notNull(),
+    changed_fields: text("changed_fields").notNull(),
+    amended_by: text("amended_by").notNull(),
+    amended_at: text("amended_at").notNull(),
+  },
+  (amendments) => ({
+    taskAmendmentIdx: index("task_amendment_idx").on(amendments.task_id),
+  })
+);
+
+/**
  * Spec Reviews table - Controller review decisions (Sprint 004)
  *
  * Records all review decisions (approve/reject) for sprints and handovers.

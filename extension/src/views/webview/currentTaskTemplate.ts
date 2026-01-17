@@ -33,6 +33,20 @@ export interface ReviewData {
 }
 
 /**
+ * Amendment record (Sprint 004 - Controller Agent)
+ */
+export interface AmendmentData {
+  id: number;
+  tool_name: string;
+  amendment_type: string;
+  workflow_step_at_amendment: string;
+  rationale: string;
+  changed_fields: string; // JSON array
+  amended_by: string;
+  amended_at: string;
+}
+
+/**
  * Task data for rendering in the webview
  */
 export interface TaskData {
@@ -62,6 +76,8 @@ export interface TaskData {
   } | null;
   // Sprint 004: Review data for pending/failed review states
   review?: ReviewData | null;
+  // Sprint 004: Amendments made to task specification
+  amendments?: AmendmentData[];
 }
 
 /**
@@ -420,6 +436,57 @@ function getStyles(): string {
     .btn-controller:hover {
       opacity: 0.9;
     }
+    
+    /* Amendments section (Sprint 004) */
+    .amendments-section {
+      background: var(--vscode-textBlockQuote-background);
+      border-left: 3px solid var(--vscode-charts-yellow);
+      border-radius: 4px;
+      padding: 10px;
+      margin-bottom: 12px;
+    }
+    .amendments-header {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-weight: 600;
+      margin-bottom: 8px;
+      color: var(--vscode-foreground);
+    }
+    .amendment-item {
+      background: var(--vscode-editor-background);
+      border: 1px solid var(--vscode-panel-border);
+      border-radius: 3px;
+      padding: 8px;
+      margin-bottom: 6px;
+    }
+    .amendment-item:last-child {
+      margin-bottom: 0;
+    }
+    .amendment-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 4px;
+    }
+    .amendment-type {
+      font-weight: 600;
+      font-size: 11px;
+      color: var(--vscode-textLink-foreground);
+    }
+    .amendment-date {
+      font-size: 10px;
+      color: var(--vscode-descriptionForeground);
+    }
+    .amendment-rationale {
+      font-size: 12px;
+      margin-bottom: 4px;
+      line-height: 1.4;
+    }
+    .amendment-meta {
+      font-size: 10px;
+      color: var(--vscode-descriptionForeground);
+    }
   `;
 }
 
@@ -625,6 +692,37 @@ function getScript(): string {
         \`;
       }
       
+      // Render amendments section if any exist (Sprint 004)
+      let amendmentsSection = '';
+      if (task.amendments && task.amendments.length > 0) {
+        const amendmentItems = task.amendments.map(amendment => {
+          const changedFields = JSON.parse(amendment.changed_fields || '[]');
+          const fieldsText = changedFields.join(', ');
+          return \`
+            <div class="amendment-item">
+              <div class="amendment-header">
+                <span class="amendment-type">\${escapeHtml(amendment.amendment_type)}</span>
+                <span class="amendment-date">\${escapeHtml(new Date(amendment.amended_at).toLocaleString())}</span>
+              </div>
+              <div class="amendment-rationale">\${escapeHtml(amendment.rationale)}</div>
+              <div class="amendment-meta">
+                Changed: \${escapeHtml(fieldsText)} • By: \${escapeHtml(amendment.amended_by)}
+              </div>
+            </div>
+          \`;
+        }).join('');
+        
+        amendmentsSection = \`
+          <div class="amendments-section">
+            <div class="amendments-header">
+              <span class="codicon codicon-edit"></span>
+              Specification Amendments (\${task.amendments.length})
+            </div>
+            \${amendmentItems}
+          </div>
+        \`;
+      }
+      
       return \`
         <div class="task-card">
           <div class="task-header">
@@ -639,6 +737,7 @@ function getScript(): string {
           <div class="task-title">\${escapeHtml(task.title)}</div>
           \${tddBanner}
           \${reviewBanner}
+          \${amendmentsSection}
           \${escalationBanner}
           <div class="task-description">\${escapeHtml(task.description)}</div>
           <div class="action-buttons">
@@ -976,6 +1075,47 @@ function renderTaskCard(task: TaskData): string {
     `;
   }
 
+  // Render amendments section if any exist (Sprint 004)
+  let amendmentsSection = "";
+  if (task.amendments && task.amendments.length > 0) {
+    const amendmentItems = task.amendments
+      .map((amendment) => {
+        const changedFields = JSON.parse(amendment.changed_fields || "[]");
+        const fieldsText = changedFields.join(", ");
+        return `
+          <div class="amendment-item">
+            <div class="amendment-header">
+              <span class="amendment-type">${escapeHtml(
+                amendment.amendment_type
+              )}</span>
+              <span class="amendment-date">${escapeHtml(
+                new Date(amendment.amended_at).toLocaleString()
+              )}</span>
+            </div>
+            <div class="amendment-rationale">${escapeHtml(
+              amendment.rationale
+            )}</div>
+            <div class="amendment-meta">
+              Changed: ${escapeHtml(fieldsText)} • By: ${escapeHtml(
+          amendment.amended_by
+        )}
+            </div>
+          </div>
+        `;
+      })
+      .join("");
+
+    amendmentsSection = `
+      <div class="amendments-section">
+        <div class="amendments-header">
+          <span class="codicon codicon-edit"></span>
+          Specification Amendments (${task.amendments.length})
+        </div>
+        ${amendmentItems}
+      </div>
+    `;
+  }
+
   return `
     <div class="task-card">
       <div class="task-header">
@@ -992,6 +1132,7 @@ function renderTaskCard(task: TaskData): string {
       <div class="task-title">${escapeHtml(task.title)}</div>
       ${tddBanner}
       ${reviewBanner}
+      ${amendmentsSection}
       ${escalationBanner}
       <div class="task-description">${escapeHtml(task.description)}</div>
       <div class="action-buttons">

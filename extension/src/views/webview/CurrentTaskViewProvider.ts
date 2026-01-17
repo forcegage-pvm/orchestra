@@ -11,7 +11,9 @@ import {
   getCurrentTask,
   getEscalatedTask,
   getEscalation,
+  getLatestHandoverReview,
   getNextPendingTask,
+  getTaskAmendments,
   getTddInfo,
   type Handover,
   type Task,
@@ -190,6 +192,56 @@ export class CurrentTaskViewProvider implements vscode.WebviewViewProvider {
       result.tdd = tdd;
     }
 
+    // Get review data if task is in review states (Sprint 004)
+    let review: TaskData["review"] = null;
+    if (
+      currentTask.status === "PENDING_HANDOVER_REVIEW" ||
+      currentTask.status === "HANDOVER_REVIEW_FAILED"
+    ) {
+      try {
+        const reviewSummary = getLatestHandoverReview(
+          this._workspaceRoot,
+          currentTask.id
+        );
+        if (reviewSummary) {
+          review = {
+            decision: reviewSummary.decision,
+            conformance: reviewSummary.conformance,
+            issues: reviewSummary.issues
+              ? (JSON.parse(
+                  reviewSummary.issues
+                ) as TaskData["review"]["issues"])
+              : [],
+            recommendations: reviewSummary.recommendations
+              ? (JSON.parse(reviewSummary.recommendations) as string[])
+              : [],
+            revision_count: reviewSummary.revision_count,
+            reviewed_at: reviewSummary.reviewed_at,
+          };
+        }
+      } catch (error) {
+        logger.debug("Could not fetch review data", error);
+      }
+    }
+
+    // Conditionally add review property (exactOptionalPropertyTypes)
+    if (review !== null) {
+      result.review = review;
+    }
+
+    // Get amendments if any exist (Sprint 004)
+    try {
+      const taskAmendments = getTaskAmendments(
+        this._workspaceRoot,
+        currentTask.id
+      );
+      if (taskAmendments.length > 0) {
+        result.amendments = taskAmendments;
+      }
+    } catch (error) {
+      logger.debug("Could not fetch amendments", error);
+    }
+
     return result;
   }
 
@@ -295,6 +347,11 @@ export class CurrentTaskViewProvider implements vscode.WebviewViewProvider {
             task: { id: message.taskId },
           });
         }
+        break;
+
+      case "launchController":
+        // Sprint 004: Launch controller agent to review sprint/handover
+        void vscode.commands.executeCommand("orchestra.launchControllerAgent");
         break;
 
       default:

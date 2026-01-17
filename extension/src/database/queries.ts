@@ -1298,3 +1298,41 @@ export function getSprintReviewSummary(
     recommendations,
   };
 }
+
+/**
+ * Amendment interface - Sprint 004
+ */
+export interface Amendment {
+  id: number;
+  sprint_id: string;
+  task_id: number;
+  tool_name: string;
+  amendment_type: string;
+  workflow_step_at_amendment: string;
+  rationale: string;
+  before_state: string;
+  after_state: string;
+  changed_fields: string;
+  amended_by: string;
+  amended_at: string;
+}
+
+/**
+ * Get all amendments for a task - Sprint 004
+ */
+export function getTaskAmendments(
+  workspaceRoot: string,
+  taskId: number
+): Amendment[] {
+  const db = OrchestraDB.getInstance(workspaceRoot);
+
+  const amendments = db
+    .prepare(
+      `SELECT * FROM amendments 
+       WHERE task_id = ?
+       ORDER BY amended_at DESC`
+    )
+    .all(taskId) as Amendment[];
+
+  return amendments;
+}

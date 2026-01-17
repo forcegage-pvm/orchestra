@@ -2,7 +2,7 @@
   "name": "orchestra-extension",
   "displayName": "Orchestra",
   "description": "AI agent task orchestration for VS Code",
-  "version": "0.4.8",
+  "version": "0.5.0",
   "publisher": "forcegage",
   "repository": {
     "type": "git",
@@ -308,7 +308,7 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "better-sqlite3": "^12.6.0",
+    "better-sqlite3": "^12.6.2",
     "drizzle-orm": "^0.37.0",
     "zod": "^3.25.76"
   },
@@ -331,7 +331,6 @@
     "vitest": "^2.1.8"
   },
   "bundleDependencies": [
-    "better-sqlite3",
     "bindings",
     "file-uri-to-path"
   ]
