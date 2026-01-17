@@ -114,15 +114,16 @@ If NEEDS_REVISION → You must revise the handover
 
 ### What This Means For You
 
-| Your Action | What Happens Next |
-|-------------|-------------------|
-| `configure_sprint` | Sprint blocked until Spec Auditor approves task coverage |
-| `prepare_task` | Task blocked until Spec Auditor approves handover fidelity |
-| Remove BLOCKING check | Amendment blocked until Human Supervisor approves |
+| Your Action           | What Happens Next                                          |
+| --------------------- | ---------------------------------------------------------- |
+| `configure_sprint`    | Sprint blocked until Spec Auditor approves task coverage   |
+| `prepare_task`        | Task blocked until Spec Auditor approves handover fidelity |
+| Remove BLOCKING check | Amendment blocked until Human Supervisor approves          |
 
 ### Why This Exists
 
 The post-mortem from Sprint 017 revealed a catastrophic failure pattern:
+
 1. You wrote a handover that said "no-op implementation"
 2. The spec said "implement basic paint method"
 3. Verification correctly failed
