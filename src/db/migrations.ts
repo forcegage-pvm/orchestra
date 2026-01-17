@@ -561,8 +561,8 @@ const MIGRATIONS: Migration[] = [
             sprint_id TEXT NOT NULL REFERENCES sprints(id) ON DELETE CASCADE,
             task_id INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
             phase_id INTEGER REFERENCES phases(id) ON DELETE SET NULL,
-            review_scope TEXT NOT NULL,
-            status TEXT NOT NULL,
+            review_scope TEXT NOT NULL CHECK (review_scope IN ('TASK', 'PHASE')),
+            status TEXT NOT NULL CHECK (status IN ('PENDING', 'APPROVED', 'CHANGES_REQUESTED', 'REJECTED')),
             summary TEXT NOT NULL,
             risk TEXT NOT NULL,
             commit_range TEXT,
@@ -576,7 +576,7 @@ const MIGRATIONS: Migration[] = [
             reviewed_by TEXT,
             reviewed_at TEXT,
             revision_count INTEGER NOT NULL DEFAULT 0,
-            previous_review_id INTEGER
+            previous_review_id INTEGER REFERENCES code_reviews(id) ON DELETE SET NULL
           )
         `);
 

@@ -11,9 +11,12 @@ import {
 /**
  * Code review policy enum
  */
-export const CodeReviewPolicySchema = z.enum(["STRICT", "ADVISORY"], {
-  errorMap: () => ({ message: "Invalid code review policy" }),
-});
+export const CodeReviewPolicySchema = z.enum(
+  ["ad_hoc", "task_gate", "phase_gate"],
+  {
+    errorMap: () => ({ message: "Invalid code review policy" }),
+  },
+);
 
 export type CodeReviewPolicy = z.output<typeof CodeReviewPolicySchema>;
 
@@ -22,11 +25,13 @@ export type CodeReviewPolicy = z.output<typeof CodeReviewPolicySchema>;
  */
 export const CodeReviewConfigSchema = z.object({
   code_review_enabled: z.boolean().default(true),
-  code_review_policy: CodeReviewPolicySchema.default("STRICT"),
+  code_review_policy: CodeReviewPolicySchema.default("phase_gate"),
   code_review_blocking_severity:
-    CodeReviewBlockingSeveritySchema.default("MAJOR"),
-  code_review_auto_trigger: z.boolean().default(true),
-  code_review_required_steps: z.array(WorkflowStepSchema).default(["VERIFY"]),
+    CodeReviewBlockingSeveritySchema.default("BLOCKING"),
+  code_review_auto_trigger: z
+    .enum(["manual", "task", "phase", "both"])
+    .default("both"),
+  code_review_required_steps: z.array(WorkflowStepSchema).optional(),
 });
 
 export type CodeReviewConfig = z.output<typeof CodeReviewConfigSchema>;

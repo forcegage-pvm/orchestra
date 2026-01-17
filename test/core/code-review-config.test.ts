@@ -20,10 +20,10 @@ describe("Code review config", () => {
     const configAny = config as Record<string, unknown>;
 
     expect(configAny["code_review_enabled"]).toBe(true);
-    expect(configAny["code_review_policy"]).toBe("STRICT");
-    expect(configAny["code_review_blocking_severity"]).toBe("MAJOR");
-    expect(configAny["code_review_auto_trigger"]).toBe(true);
-    expect(configAny["code_review_required_steps"]).toEqual(["VERIFY"]);
+    expect(configAny["code_review_policy"]).toBe("phase_gate");
+    expect(configAny["code_review_blocking_severity"]).toBe("BLOCKING");
+    expect(configAny["code_review_auto_trigger"]).toBe("both");
+    expect(configAny["code_review_required_steps"]).toBeUndefined();
   });
 
   it("should validate code_review_* values", () => {
@@ -39,6 +39,7 @@ describe("Code review config", () => {
       initializeOrchestra(tempDir, {
         code_review_policy: "MAYBE" as unknown as string,
         code_review_blocking_severity: "INFO" as unknown as string,
+        code_review_auto_trigger: "sometimes" as unknown as string,
       }),
     ).toThrow();
 

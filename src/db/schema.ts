@@ -8,6 +8,7 @@
  */
 
 import {
+  type AnySQLiteColumn,
   index,
   integer,
   sqliteTable,
@@ -565,8 +566,10 @@ export const codeReviews = sqliteTable(
     phase_id: integer("phase_id").references(() => phases.id, {
       onDelete: "set null",
     }),
-    review_scope: text("review_scope").notNull(), // TASK | PHASE | SPRINT
-    status: text("status").notNull(), // PENDING | IN_REVIEW | COMPLETED
+    review_scope: text("review_scope", { enum: ["TASK", "PHASE"] }).notNull(),
+    status: text("status", {
+      enum: ["PENDING", "APPROVED", "CHANGES_REQUESTED", "REJECTED"],
+    }).notNull(),
     summary: text("summary").notNull(),
     risk: text("risk").notNull(), // LOW | MEDIUM | HIGH
     commit_range: text("commit_range"),
@@ -580,7 +583,10 @@ export const codeReviews = sqliteTable(
     reviewed_by: text("reviewed_by"),
     reviewed_at: text("reviewed_at"),
     revision_count: integer("revision_count").notNull().default(0),
-    previous_review_id: integer("previous_review_id"),
+    previous_review_id: integer("previous_review_id").references(
+      (): AnySQLiteColumn => codeReviews.id,
+      { onDelete: "set null" },
+    ),
   },
   (reviews) => ({
     sprintIdx: index("code_review_sprint_idx").on(reviews.sprint_id),

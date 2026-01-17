@@ -720,8 +720,7 @@ export const DEFAULT_CONFIG: OrchestraConfig = {
     strict_mode: false,
   },
   code_review_enabled: true,
-  code_review_policy: "STRICT",
-  code_review_blocking_severity: "MAJOR",
-  code_review_auto_trigger: true,
-  code_review_required_steps: ["VERIFY"],
+  code_review_policy: "phase_gate",
+  code_review_blocking_severity: "BLOCKING",
+  code_review_auto_trigger: "both",
 };
