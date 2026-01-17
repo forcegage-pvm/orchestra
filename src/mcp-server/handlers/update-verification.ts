@@ -7,11 +7,7 @@
  * ALLOWED STATES:
  * - CONFIGURE: Initial sprint configuration
  * - PREPARE: During task preparation (spec error corrections)
- * - VERIFY/SIGNAL/GATE_CHECK/RETRY: During verification (spec error corrections)
- *
- * The orchestrator owns the verification criteria and can update them
- * at any point in the workflow. Rationale is required for audit trail
- * when updating outside CONFIGURE phase.
+ * - VERIFY (with ESCALATED task): Human supervisor correcting spec errors
  *
  * AUDIT TRAIL:
  * When called outside CONFIGURE, creates an amendment record with full
@@ -152,16 +148,8 @@ async function updateVerification(
   // - CONFIGURE: always allowed (initial setup)
   // - PREPARE: always allowed (spec refinement before handover)
   // - SELECT_TASK + PENDING task: allowed (strengthening criteria before preparation)
-  // - VERIFY-related states: allowed (orchestrator fixing spec errors)
-  // Rationale required for audit trail when updating outside CONFIGURE
-  const allowedSprintStates = [
-    "CONFIGURE",
-    "PREPARE",
-    "SIGNAL",
-    "VERIFY",
-    "GATE_CHECK",
-    "RETRY",
-  ];
+  // - Other states: only allowed if task is ESCALATED (human supervisor correction)
+  const allowedSprintStates = ["CONFIGURE", "PREPARE"];
   const isInAllowedSprintState = allowedSprintStates.includes(
     sprint.workflow_step
   );
@@ -170,36 +158,27 @@ async function updateVerification(
   const isPendingDuringSelectTask =
     sprint.workflow_step === "SELECT_TASK" && task.status === "PENDING";
 
-  // Also allow updating during IMPLEMENT if orchestrator needs to fix criteria
-  const isDuringImplement = sprint.workflow_step === "IMPLEMENT";
+  if (!isInAllowedSprintState && !isPendingDuringSelectTask) {
+    if (task.status !== "ESCALATED") {
+      throw new Error(
+        `Task ${input.task_id} is in ${task.status} state. ` +
+          `During ${sprint.workflow_step} phase, verification criteria can only be updated for PENDING or ESCALATED tasks. ` +
+          "Escalate the task first if spec corrections are needed."
+      );
+    }
+    // Require rationale for ESCALATED task updates
+    if (!input.rationale || input.rationale.length < 10) {
+      throw new Error(
+        "Rationale is required when updating verification for ESCALATED tasks (min 10 chars). " +
+          "Explain why the verification criteria need correction."
+      );
+    }
 
-  if (
-    !isInAllowedSprintState &&
-    !isPendingDuringSelectTask &&
-    !isDuringImplement
-  ) {
-    throw new Error(
-      `Cannot update verification in workflow state: ${sprint.workflow_step}. ` +
-        `Task ${input.task_id} is in ${task.status} state.`
-    );
-  }
-
-  // Require rationale for updates outside CONFIGURE (for audit trail)
-  const requiresRationale = sprint.workflow_step !== "CONFIGURE";
-  if (requiresRationale && (!input.rationale || input.rationale.length < 10)) {
-    throw new Error(
-      "Rationale is required when updating verification outside CONFIGURE phase (min 10 chars). " +
-        "Explain why the verification criteria need correction."
-    );
-  }
-
-  // Log spec modifications during verification phases
-  const verifyPhases = ["SIGNAL", "VERIFY", "GATE_CHECK", "RETRY"];
-  if (verifyPhases.includes(sprint.workflow_step)) {
+    // TD-016 (DD-3): Explicit audit log for ESCALATED task spec modifications
     await logSystemEvent({
       level: "WARN",
       category: "security",
-      message: `Verification criteria modified during ${sprint.workflow_step} phase for task ${input.task_id}`,
+      message: `Verification criteria modified for ESCALATED task ${input.task_id}`,
       details: {
         task_id: input.task_id,
         task_title: task.title,
