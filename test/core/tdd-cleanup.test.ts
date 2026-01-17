@@ -39,7 +39,7 @@ describe("detectProjectLanguage", () => {
     // Create package.json
     fs.writeFileSync(
       path.join(testWorkspaceRoot, "package.json"),
-      JSON.stringify({ name: "test-project" })
+      JSON.stringify({ name: "test-project" }),
     );
 
     const result = detectProjectLanguage(testWorkspaceRoot);
@@ -50,7 +50,7 @@ describe("detectProjectLanguage", () => {
     // Create pubspec.yaml
     fs.writeFileSync(
       path.join(testWorkspaceRoot, "pubspec.yaml"),
-      "name: test_project\n"
+      "name: test_project\n",
     );
 
     const result = detectProjectLanguage(testWorkspaceRoot);
@@ -61,11 +61,11 @@ describe("detectProjectLanguage", () => {
     // Create both files
     fs.writeFileSync(
       path.join(testWorkspaceRoot, "package.json"),
-      JSON.stringify({ name: "test-project" })
+      JSON.stringify({ name: "test-project" }),
     );
     fs.writeFileSync(
       path.join(testWorkspaceRoot, "pubspec.yaml"),
-      "name: test_project\n"
+      "name: test_project\n",
     );
 
     const result = detectProjectLanguage(testWorkspaceRoot);
@@ -84,7 +84,7 @@ describe("cleanupTddRedMarkers - Dart", () => {
     // Mark as Dart project
     fs.writeFileSync(
       path.join(testWorkspaceRoot, "pubspec.yaml"),
-      "name: test_project\n"
+      "name: test_project\n",
     );
   });
 
@@ -130,11 +130,11 @@ void main() {
 
     fs.writeFileSync(
       testFile1,
-      "@Tags(['tdd-red-task-1'])\nvoid main() { test('1', () {}); }"
+      "@Tags(['tdd-red-task-1'])\nvoid main() { test('1', () {}); }",
     );
     fs.writeFileSync(
       testFile2,
-      "@Tags(['tdd-red-task-2'])\nvoid main() { test('2', () {}); }"
+      "@Tags(['tdd-red-task-2'])\nvoid main() { test('2', () {}); }",
     );
 
     // Run cleanup
@@ -228,7 +228,7 @@ describe("cleanupTddRedMarkers - TypeScript", () => {
     // Mark as TypeScript project
     fs.writeFileSync(
       path.join(testWorkspaceRoot, "package.json"),
-      JSON.stringify({ name: "test-project" })
+      JSON.stringify({ name: "test-project" }),
     );
   });
 
@@ -242,7 +242,7 @@ describe("cleanupTddRedMarkers - TypeScript", () => {
       testFile,
       `describe('[tdd-red-task-1] Feature', () => {
   it('[tdd-red-task-1] should work', () => {});
-});`
+});`,
     );
 
     // Run cleanup
@@ -266,15 +266,15 @@ describe("cleanupTddRedMarkers - TypeScript", () => {
 
     fs.writeFileSync(
       path.join(testDir, "test1.test.ts"),
-      "test('[tdd-red-task-1] test 1', () => {});"
+      "test('[tdd-red-task-1] test 1', () => {});",
     );
     fs.writeFileSync(
       path.join(testDir, "test2.test.ts"),
-      "test('[tdd-red-task-2] test 2', () => {});"
+      "test('[tdd-red-task-2] test 2', () => {});",
     );
     fs.writeFileSync(
       path.join(testDir, "test3.test.ts"),
-      "test('[tdd-red-task-3] test 3', () => {});"
+      "test('[tdd-red-task-3] test 3', () => {});",
     );
 
     // Run cleanup
@@ -325,7 +325,7 @@ describe("cleanupTddRedMarkers - TypeScript", () => {
     const testFile = path.join(nestedDir, "nested.test.ts");
     fs.writeFileSync(
       testFile,
-      "describe('[tdd-red-task-1] nested', () => {});"
+      "describe('[tdd-red-task-1] nested', () => {});",
     );
 
     // Run cleanup
@@ -350,7 +350,7 @@ describe("cleanupTddRedMarkers - TypeScript", () => {
 
 describe('[tdd-red-task-2] feature 2', () => {
   it('[tdd-red-task-2] test 2', () => {});
-});`
+});`,
     );
 
     // Run cleanup
@@ -381,7 +381,7 @@ describe("cleanupTddRedMarkers - Edge cases", () => {
     // Mark as Dart project
     fs.writeFileSync(
       path.join(testWorkspaceRoot, "pubspec.yaml"),
-      "name: test_project\n"
+      "name: test_project\n",
     );
 
     const testDir = path.join(testWorkspaceRoot, "test");
@@ -414,7 +414,7 @@ void main() {
     // Mark as Dart project
     fs.writeFileSync(
       path.join(testWorkspaceRoot, "pubspec.yaml"),
-      "name: test_project\n"
+      "name: test_project\n",
     );
 
     const testDir = path.join(testWorkspaceRoot, "test");
@@ -448,7 +448,7 @@ void main() {
     // Mark as TypeScript project
     fs.writeFileSync(
       path.join(testWorkspaceRoot, "package.json"),
-      JSON.stringify({ name: "test-project" })
+      JSON.stringify({ name: "test-project" }),
     );
 
     const testDir = path.join(testWorkspaceRoot, "test");

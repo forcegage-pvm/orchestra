@@ -109,7 +109,7 @@ describe("prepare_task TDD Cleanup Integration", () => {
     // Mark as TypeScript project
     fs.writeFileSync(
       path.join(tempDir, "package.json"),
-      JSON.stringify({ name: "test-project" })
+      JSON.stringify({ name: "test-project" }),
     );
 
     // Create test directory with file containing marker
@@ -122,7 +122,7 @@ describe("prepare_task TDD Cleanup Integration", () => {
     expect(false).toBe(true);
   });
 });
-`
+`,
     );
 
     // Stage and commit the test file
@@ -171,7 +171,7 @@ describe("prepare_task TDD Cleanup Integration", () => {
     // Verify markers were removed
     const testContent = fs.readFileSync(
       path.join(testDir, "example.test.ts"),
-      "utf-8"
+      "utf-8",
     );
     expect(testContent).not.toContain("[tdd-red-task-1]");
     expect(testContent).toContain("auth feature");
@@ -185,7 +185,7 @@ describe("prepare_task TDD Cleanup Integration", () => {
     // Mark as Dart project
     fs.writeFileSync(
       path.join(tempDir, "pubspec.yaml"),
-      "name: test_project\n"
+      "name: test_project\n",
     );
 
     // Create test directory with tagged file
@@ -201,7 +201,7 @@ void main() {
     expect(true, isTrue);
   });
 }
-`
+`,
     );
 
     // Stage and commit the tagged file
@@ -250,7 +250,7 @@ void main() {
     // Verify @Tags(['tdd-red-task-1']) was removed
     const testContent = fs.readFileSync(
       path.join(testDir, "widget_test.dart"),
-      "utf-8"
+      "utf-8",
     );
     expect(testContent).not.toContain("@Tags(['tdd-red-task-1'])");
     expect(testContent).toContain("void main()");
@@ -264,7 +264,7 @@ void main() {
     // Mark as TypeScript project
     fs.writeFileSync(
       path.join(tempDir, "package.json"),
-      JSON.stringify({ name: "test-project" })
+      JSON.stringify({ name: "test-project" }),
     );
 
     // Create test task
@@ -312,8 +312,8 @@ void main() {
       .where(
         eq(
           gitCommits.commit_message,
-          "chore(orchestra): cleanup tdd-red markers"
-        )
+          "chore(orchestra): cleanup tdd-red markers",
+        ),
       );
 
     expect(commits).toHaveLength(0);
@@ -326,7 +326,7 @@ void main() {
     // Mark as TypeScript project
     fs.writeFileSync(
       path.join(tempDir, "package.json"),
-      JSON.stringify({ name: "test-project" })
+      JSON.stringify({ name: "test-project" }),
     );
 
     // Create test file with tdd-red marker
@@ -337,7 +337,7 @@ void main() {
       `describe('[tdd-red-task-1] nested feature', () => {
   test('[tdd-red-task-1] nested test', () => {});
 });
-`
+`,
     );
 
     // Stage and commit
@@ -382,7 +382,7 @@ void main() {
     // Verify cleanup removed the markers (proving workspace root was used)
     const testContent = fs.readFileSync(
       path.join(testDir, "nested.test.ts"),
-      "utf-8"
+      "utf-8",
     );
     expect(testContent).not.toContain("[tdd-red-task-1]");
     expect(testContent).toContain("nested feature");
@@ -395,7 +395,7 @@ void main() {
     // Mark as Dart project
     fs.writeFileSync(
       path.join(tempDir, "pubspec.yaml"),
-      "name: test_project\n"
+      "name: test_project\n",
     );
 
     // Create test with tdd-red tag
@@ -405,7 +405,7 @@ void main() {
       path.join(testDir, "early_test.dart"),
       `@Tags(['tdd-red-task-1'])
 void main() {}
-`
+`,
     );
 
     // Stage and commit
@@ -450,7 +450,7 @@ void main() {}
     // Verify cleanup happened (tag removed)
     const testContent = fs.readFileSync(
       path.join(testDir, "early_test.dart"),
-      "utf-8"
+      "utf-8",
     );
     expect(testContent).not.toContain("@Tags(['tdd-red-task-1'])");
   });
@@ -502,8 +502,8 @@ void main() {}
       .where(
         eq(
           gitCommits.commit_message,
-          "chore(orchestra): cleanup tdd-red markers"
-        )
+          "chore(orchestra): cleanup tdd-red markers",
+        ),
       );
 
     expect(commits).toHaveLength(0);
@@ -516,7 +516,7 @@ void main() {}
     // Mark as TypeScript project
     fs.writeFileSync(
       path.join(tempDir, "package.json"),
-      JSON.stringify({ name: "test-project" })
+      JSON.stringify({ name: "test-project" }),
     );
 
     // Create test file with tdd-red marker
@@ -525,7 +525,7 @@ void main() {}
     fs.writeFileSync(
       path.join(testDir, "example.test.ts"),
       `test('[tdd-red-task-1] example test', () => {});
-`
+`,
     );
 
     // Commit
@@ -570,7 +570,7 @@ void main() {}
     // Verify cleanup removed markers
     const testContent = fs.readFileSync(
       path.join(testDir, "example.test.ts"),
-      "utf-8"
+      "utf-8",
     );
     expect(testContent).not.toContain("[tdd-red-task-1]");
     expect(testContent).toContain("example test");
@@ -583,7 +583,7 @@ void main() {}
     // Mark as Dart project
     fs.writeFileSync(
       path.join(tempDir, "pubspec.yaml"),
-      "name: test_project\n"
+      "name: test_project\n",
     );
 
     // Create test with inline tdd-red tag
@@ -596,7 +596,7 @@ void main() {}
     expect(true, isTrue);
   }, tags: ['tdd-red-task-1']);
 }
-`
+`,
     );
 
     // Stage and commit
@@ -640,7 +640,7 @@ void main() {}
     // Verify inline tag was removed
     const testContent = fs.readFileSync(
       path.join(testDir, "inline_test.dart"),
-      "utf-8"
+      "utf-8",
     );
     expect(testContent).not.toContain("tags: ['tdd-red-task-1']");
     expect(testContent).toContain("widget renders");
@@ -653,7 +653,7 @@ void main() {}
     // Mark as TypeScript project
     fs.writeFileSync(
       path.join(tempDir, "package.json"),
-      JSON.stringify({ name: "test-project" })
+      JSON.stringify({ name: "test-project" }),
     );
 
     // Create test files with different task IDs
@@ -668,7 +668,7 @@ void main() {}
 describe('[tdd-red-task-2] feature 2', () => {
   it('[tdd-red-task-2] test 2', () => {});
 });
-`
+`,
     );
 
     // Commit
@@ -709,7 +709,7 @@ describe('[tdd-red-task-2] feature 2', () => {
     // Verify all markers removed
     const testContent = fs.readFileSync(
       path.join(testDir, "multi.test.ts"),
-      "utf-8"
+      "utf-8",
     );
     expect(testContent).not.toContain("[tdd-red-task-1]");
     expect(testContent).not.toContain("[tdd-red-task-2]");
