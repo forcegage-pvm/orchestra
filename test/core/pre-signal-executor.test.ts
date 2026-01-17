@@ -129,11 +129,11 @@ describe("Pre-Signal Executor", () => {
       expect(mockExecuteCommand).toHaveBeenCalledTimes(3); // build + 2 test commands
       expect(mockExecuteCommand).toHaveBeenCalledWith(
         'npm test -- --testNamePattern="\\[tdd-red\\]"',
-        expect.any(Object)
+        expect.any(Object),
       );
       expect(mockExecuteCommand).toHaveBeenCalledWith(
-        'npm test -- --exclude="**/tdd-red/**"',
-        expect.any(Object)
+        'npm test -- --testNamePattern="^(?!.*\\[tdd-red\\])"',
+        expect.any(Object),
       );
       expect(result.test.passed).toBe(true);
     });
@@ -270,17 +270,17 @@ describe("Pre-Signal Executor", () => {
       // Build command
       expect(mockExecuteCommand).toHaveBeenCalledWith(
         "npm run build",
-        expect.any(Object)
+        expect.any(Object),
       );
       // Tagged test command
       expect(mockExecuteCommand).toHaveBeenCalledWith(
         'npm test -- --testNamePattern="\\[tdd-red\\]"',
-        expect.any(Object)
+        expect.any(Object),
       );
       // Non-tagged test command
       expect(mockExecuteCommand).toHaveBeenCalledWith(
-        'npm test -- --exclude="**/tdd-red/**"',
-        expect.any(Object)
+        'npm test -- --testNamePattern="^(?!.*\\[tdd-red\\])"',
+        expect.any(Object),
       );
     });
 
@@ -604,7 +604,7 @@ describe("Pre-Signal Executor", () => {
       // Default (Node.js/Vitest) commands - tagged tests use testNamePattern
       expect(mockExecuteCommand).toHaveBeenCalledWith(
         'npm test -- --testNamePattern="\\[tdd-red\\]"',
-        expect.any(Object)
+        expect.any(Object),
       );
     });
 

@@ -47,11 +47,11 @@ export class ConfigService {
    */
   getModelForRole(role: Role): string {
     const config = this.getWorkspaceConfig();
-    // Default all roles to GPT-5.2-Codex
+    // Default models per role
     const defaultModels: Record<Role, string> = {
-      orchestrator: "gpt-5.2-codex",
-      implementor: "gpt-5.2-codex",
-      controller: "gpt-5.2-codex",
+      orchestrator: "claude-opus-4.5",
+      implementor: "claude-sonnet-4.5",
+      controller: "claude-opus-4.5",
     };
     return config.get<string>(`models.${role}`, defaultModels[role]);
   }

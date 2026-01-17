@@ -18,7 +18,7 @@
 
 2. **Pre-signal executor** (src/core/pre-signal-executor.ts)
    - Has `tddRedPhase?: boolean` in `PreSignalConfig`
-   - Default test command excludes tdd-red directory: `--exclude="**/tdd-red/**"`
+   - Default test command uses negative lookahead to exclude tdd-red tests: `--testNamePattern="^(?!.*\\[tdd-red\\])"`
    - Already handles dual-command verification (tagged tests must fail)
 
 3. **TDD cleanup functions** (src/core/tdd-cleanup.ts)
@@ -37,17 +37,22 @@
 **Findings**:
 
 1. **Table definition pattern**:
+
    ```typescript
    export const tableName = sqliteTable(
      "table_name",
      {
        id: integer("id").primaryKey({ autoIncrement: true }),
-       foreign_id: text/integer().notNull().references(() => other.id, { onDelete: "cascade" }),
+       foreign_id:
+         text /
+         integer()
+           .notNull()
+           .references(() => other.id, { onDelete: "cascade" }),
        created_at: text("created_at").notNull(),
      },
      (table) => ({
        someIdx: index("some_idx").on(table.column),
-     })
+     }),
    );
    ```
 
@@ -88,11 +93,13 @@
 **Findings**:
 
 **Dart patterns**:
+
 - Library-level: `@Tags(['tdd-red-task-N'])` annotation before `void main()`
 - Inline: `tags: ['tdd-red-task-N']` parameter in `test()` call
 - Regex: `/@Tags\(\s*\[\s*['"]tdd-red-task-(\d+)['"]\s*\]\s*\)|tags:\s*\[\s*['"]tdd-red-task-(\d+)['"]\s*\]/`
 
 **TypeScript patterns**:
+
 - Name-based: `[tdd-red-task-N]` in test/describe description
 - Regex: `/\[tdd-red-task-(\d+)\]/` in test strings
 
@@ -131,6 +138,7 @@
 **Approach**: Scan for tdd-red markers at red task completion, automatically register.
 
 **Rejected because**:
+
 - No implementor accountability
 - Silent failures if scan misses tests
 - Can't validate test is actually failing at registration time
@@ -140,6 +148,7 @@
 **Approach**: Track files containing tdd-red markers rather than individual tests.
 
 **Rejected because**:
+
 - Less precise: "9 of 10 tests greened but file still red"
 - Harder to assign different green tasks to tests in same file
 - Less actionable error messages
@@ -149,6 +158,7 @@
 **Approach**: Orchestrator declares expected tests in handover.
 
 **Rejected because**:
+
 - Orchestrator doesn't have full context of what implementor will create
 - Mismatch between declared and actual tests requires reconciliation
 - More work for orchestrator with less accuracy

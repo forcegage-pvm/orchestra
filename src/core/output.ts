@@ -21,6 +21,11 @@ export type OutputFormat = "human" | "json";
 const STATUS_ICONS: Record<TaskStatus, string> = {
   PENDING: "○",
   PREPARE: "◐",
+  PENDING_HANDOVER_REVIEW: "◔",
+  HANDOVER_REVIEW_FAILED: "✖",
+  PENDING_CODE_REVIEW: "◔",
+  CODE_REVIEW_CHANGES_REQUESTED: "✎",
+  CODE_REVIEW_FAILED: "✖",
   IMPLEMENT: "◑",
   GATE_CHECK: "◒",
   VERIFY: "◓",
@@ -36,6 +41,11 @@ const STATUS_ICONS: Record<TaskStatus, string> = {
 const STATUS_COLORS: Record<TaskStatus, (text: string) => string> = {
   PENDING: chalk.gray,
   PREPARE: chalk.blue,
+  PENDING_HANDOVER_REVIEW: chalk.yellow,
+  HANDOVER_REVIEW_FAILED: chalk.red,
+  PENDING_CODE_REVIEW: chalk.magenta,
+  CODE_REVIEW_CHANGES_REQUESTED: chalk.yellow,
+  CODE_REVIEW_FAILED: chalk.red,
   IMPLEMENT: chalk.cyan,
   GATE_CHECK: chalk.yellow,
   VERIFY: chalk.magenta,
@@ -59,7 +69,7 @@ export function formatTaskStatus(status: TaskStatus): string {
  */
 export function formatResult<T>(
   result: ScriptResult<T>,
-  format: OutputFormat
+  format: OutputFormat,
 ): string {
   if (format === "json") {
     return JSON.stringify(result, null, 2);
@@ -97,7 +107,7 @@ export function formatTask(task: Task, format: OutputFormat): string {
 
   if (task.dependencies && task.dependencies.length > 0) {
     output += `\n     ${chalk.dim("Depends on:")} ${task.dependencies.join(
-      ", "
+      ", ",
     )}`;
   }
 
@@ -122,7 +132,7 @@ export function formatStatus(manifest: Manifest, format: OutputFormat): string {
         currentTaskId: manifest.current_task_id,
       },
       null,
-      2
+      2,
     );
   }
 
@@ -233,7 +243,7 @@ export function formatList(items: string[], bullet: string = "•"): string {
  * Format key-value pairs
  */
 export function formatKeyValue(
-  pairs: Record<string, string | number | boolean | undefined>
+  pairs: Record<string, string | number | boolean | undefined>,
 ): string {
   const maxKeyLength = Math.max(...Object.keys(pairs).map((k) => k.length));
 
