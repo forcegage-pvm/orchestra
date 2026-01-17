@@ -685,7 +685,7 @@ function getScript(): string {
             \${task.review.notes ? \`<div style="margin-top: 8px; font-style: italic;">\${escapeHtml(task.review.notes)}</div>\` : ''}
             \${isPending ? \`
               <div class="review-actions">
-                <button class="btn-controller" onclick="launchController()">Launch Controller Agent</button>
+                <button class="btn-controller" onclick="launchController()">Review Sprint Configuration</button>
               </div>
             \` : ''}
           </div>
@@ -841,8 +841,8 @@ function getScript(): string {
 
           <div class="action-row">
             <button class="action-btn primary" onclick="launchController()">
-              <span class="btn-icon">▶️</span>
-              Launch Controller Agent
+              <span class="btn-icon">🔍</span>
+              Review Sprint Configuration
             </button>
           </div>
         </div>
