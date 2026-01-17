@@ -2,7 +2,7 @@
   "name": "orchestra-extension",
   "displayName": "Orchestra",
   "description": "AI agent task orchestration for VS Code",
-  "version": "0.5.1",
+  "version": "0.5.2",
   "publisher": "forcegage",
   "repository": {
     "type": "git",
@@ -66,6 +66,11 @@
           "type": "string",
           "default": "claude-sonnet-4.5",
           "description": "AI model to use for the Implementor agent (e.g., claude-sonnet-4.5, gpt-4o)"
+        },
+        "orchestra.models.controller": {
+          "type": "string",
+          "default": "claude-opus-4.5",
+          "description": "AI model to use for the Controller agent (e.g., claude-opus-4.5) - highest capability model for spec verification"
         },
         "orchestra.agents.orchestrator": {
           "type": "string",

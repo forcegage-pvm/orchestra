@@ -245,4 +245,68 @@ The orchestrator found specific issues with your implementation. You must:
 
 Do not skip any feedback items. Incomplete fixes will result in another FAIL.`;
   }
+
+  /**
+   * Build a SPRINT_REVIEW prompt for the controller
+   *
+   * Instructs the controller to use MCP tools (review_sprint_config, approve_sprint,
+   * reject_sprint) to review the sprint configuration against the specification.
+   *
+   * @param context - The prompt context containing sprint details
+   * @returns A structured prompt string for the controller
+   */
+  buildSprintReviewPrompt(context: PromptContext): string {
+    const { sprint, reviewAttempt = 1 } = context;
+
+    return `As Controller, review Sprint "${sprint.title}" (ID: ${sprint.sprint_id}) for specification alignment.
+
+## Your Task
+Use your MCP tools to perform a comprehensive sprint review:
+
+1. \`review_sprint_config\` - Analyze the sprint configuration:
+   - Task breakdown completeness (all spec requirements covered?)
+   - Task descriptions clarity and specificity
+   - Dependencies correctness and logical ordering
+   - Verification criteria adequacy
+   - TDD task separation (red/green phases distinct?)
+   - Category assignments appropriateness
+
+2. Check against specification:
+   - All specified features have corresponding tasks
+   - No tasks implement features not in specification
+   - Task granularity is appropriate (not too broad/narrow)
+   - Technical approach aligns with architectural constraints
+
+3. Make your decision:
+   - \`approve_sprint\` - If configuration fully aligns with specification
+   - \`reject_sprint\` - If issues found requiring revision
+
+## Sprint Context
+- **Sprint ID**: ${sprint.sprint_id}
+- **Sprint Title**: ${sprint.title}
+- **Review Attempt**: ${reviewAttempt}${sprint.status === "SPEC_REVIEW_FAILED" ? "\n- **Status**: Previous review REJECTED - address prior feedback" : ""}
+
+## Review Standards
+- **Completeness**: Every spec requirement has corresponding task(s)
+- **Faithfulness**: No tasks implement unspecified features
+- **Clarity**: Task descriptions are specific and actionable
+- **Testability**: Verification criteria are measurable
+- **Feasibility**: Technical approach is sound given constraints
+
+## Decision Guidance
+**APPROVE** if:
+- All spec requirements covered by tasks
+- Task breakdown is logical and complete
+- Verification criteria are adequate
+- No specification violations
+
+**REJECT** if:
+- Missing tasks for spec requirements
+- Tasks implementing unspecified features
+- Unclear or overly broad task descriptions
+- Inadequate verification criteria
+- Logical dependency issues
+
+Provide detailed, actionable feedback for any issues found.`;
+  }
 }

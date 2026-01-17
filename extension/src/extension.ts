@@ -11,6 +11,7 @@ import * as vscode from "vscode";
 import { AgentRunner, ToolRegistry } from "./agents/index.js";
 import { SessionManager } from "./chat/SessionManager.js";
 import { handlePlayTask } from "./commands/PlayTaskHandler.js";
+import { handleReviewSprint } from "./commands/ReviewSprintHandler.js";
 import {
   handleDeEscalateTask,
   handleForceComplete,
@@ -1015,35 +1016,10 @@ export async function activate(
       }),
       vscode.commands.registerCommand(
         "orchestra.launchControllerForSprint",
-        async (sprint: any) => {
-          try {
-            logger.info("Launching controller agent for sprint review");
-
-            // Get the controller agent mode from settings
-            const config = vscode.workspace.getConfiguration("orchestra");
-            const controllerAgent = config.get<string>(
-              "agents.controller",
-              "orchestra.controller",
-            );
-
-            // Create initial message for sprint review
-            const sprintId = sprint?.id || "unknown";
-            const sprintName = sprint?.label || "Unknown Sprint";
-            const message = `Review the sprint configuration for "${sprintName}" (ID: ${sprintId}). Use the orchestra-ctrl MCP tools to review the sprint configuration against the specification, then either approve or reject with detailed feedback.`;
-
-            // Open chat with controller agent
-            await vscode.commands.executeCommand("workbench.action.chat.open", {
-              query: `@${controllerAgent} ${message}`,
-            });
-
-            logger.info("Controller agent launched successfully");
-          } catch (error) {
-            const message =
-              error instanceof Error ? error.message : "Unknown error";
-            vscode.window.showErrorMessage(
-              `Orchestra: Failed to launch controller agent - ${message}`,
-            );
-            logger.error("Failed to launch controller agent", error);
+        async (element: any) => {
+          // Element from tree view has: { type: 'sprint', sprint: Sprint }
+          if (element?.sprint) {
+            await handleReviewSprint(orchestraRoot, element.sprint);
           }
         },
       ),

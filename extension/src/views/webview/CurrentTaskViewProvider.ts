@@ -17,7 +17,6 @@ import {
   getNextPendingTask,
   getTaskAmendments,
   getTddInfo,
-  type Amendment,
   type Handover,
   type Sprint,
   type Task,
