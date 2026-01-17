@@ -757,12 +757,106 @@ function getScript(): string {
       \`;
     }
     
-    function updateContent(taskData) {
+    function renderSprintReviewCard(data) {
+      const isPending = data.isPending;
+      const isFailed = data.isFailed;
+      const sprint = data.sprint;
+      const review = data.review;
+
+      const status = isPending ? "pending-review" : "review-failed";
+      const statusLabel = isPending ? "Pending Review" : "Review Failed";
+      const statusIcon = isPending ? "⏳" : "⚠️";
+
+      let reviewBanner = "";
+      if (isFailed && review) {
+        let issuesHtml = "";
+        if (review.issues && review.issues.length > 0) {
+          const issueItems = review.issues
+            .map(issue => \`
+              <div class="review-issue \${issue.severity}">
+                <div class="review-issue-severity">\${issue.severity}</div>
+                <div class="review-issue-requirement">\${escapeHtml(issue.requirement)}</div>
+                <div class="review-issue-finding">\${escapeHtml(issue.finding)}</div>
+              </div>
+            \`)
+            .join("");
+          issuesHtml = \`
+            <div class="review-issues">
+              <div class="review-recommendations-title">Issues Found:</div>
+              \${issueItems}
+            </div>
+          \`;
+        }
+
+        let recommendationsHtml = "";
+        if (review.recommendations && review.recommendations.length > 0) {
+          const recItems = review.recommendations
+            .map(rec => \`<div class="review-recommendation">• \${escapeHtml(rec)}</div>\`)
+            .join("");
+          recommendationsHtml = \`
+            <div class="review-recommendations">
+              <div class="review-recommendations-title">Recommendations:</div>
+              \${recItems}
+            </div>
+          \`;
+        }
+
+        reviewBanner = \`
+          <div class="review-banner review-rejected">
+            <div class="review-header">
+              <span class="review-icon">⚠️</span>
+              <span class="review-title">Sprint Review Failed</span>
+            </div>
+            <div class="review-metadata">
+              <div class="review-conformance">Conformance: \${escapeHtml(review.conformance)}</div>
+              <div class="review-by">Reviewed by: \${escapeHtml(review.reviewed_by)}</div>
+              <div class="review-at">At: \${new Date(review.reviewed_at).toLocaleString()}</div>
+              <div class="review-revision">Revision: \${review.revision_count}</div>
+            </div>
+            \${issuesHtml}
+            \${recommendationsHtml}
+          </div>
+        \`;
+      }
+
+      return \`
+        <div class="task-card">
+          <div class="task-header">
+            <span class="task-id">Sprint: \${escapeHtml(sprint.name)}</span>
+            <span class="pill pill-status \${status}">
+              <span class="pill-icon">\${statusIcon}</span>
+              \${statusLabel}
+            </span>
+          </div>
+
+          \${reviewBanner}
+
+          <div class="section">
+            <div class="section-title">Sprint Review Required</div>
+            <div class="description">
+              This sprint configuration needs to be reviewed by the Controller agent before tasks can be implemented.
+              \${isFailed ? "<br><br>The previous review found issues that need to be addressed. Review the feedback above and resubmit the sprint configuration." : ""}
+            </div>
+          </div>
+
+          <div class="action-row">
+            <button class="action-btn primary" onclick="launchController()">
+              <span class="btn-icon">▶️</span>
+              Launch Controller Agent
+            </button>
+          </div>
+        </div>
+      \`;
+    }
+    
+    function updateContent(data) {
       const content = document.getElementById('content');
-      if (taskData) {
-        content.innerHTML = renderTaskCard(taskData);
-      } else {
+      if (!data) {
         content.innerHTML = renderNoTask();
+      } else if (data.type === 'sprint-review') {
+        content.innerHTML = renderSprintReviewCard(data);
+      } else {
+        content.innerHTML = renderTaskCard(data);
       }
     }
     
