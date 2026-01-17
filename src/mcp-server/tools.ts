@@ -890,6 +890,23 @@ const TOOLS_WITH_ROLES: ToolWithRole[] = [
       },
     },
   },
+  {
+    role: "orchestrator",
+    name: "get_sprint_review",
+    description:
+      "Get the latest sprint review feedback when sprint is in SPEC_REVIEW_FAILED status. " +
+      "Returns Controller's rejection reasons, alignment issues, and recommendations for fixing the sprint configuration.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        sprint_id: {
+          type: "string",
+          description:
+            "Sprint ID to get review for (optional, defaults to active sprint)",
+        },
+      },
+    },
+  },
 
   // Configuration Tools - ORCHESTRATOR ONLY
   {
@@ -1296,7 +1313,7 @@ export function getToolsForRole(role: ServerRole): Tool[] {
 
   // Filter to role-specific + shared tools
   return TOOLS_WITH_ROLES.filter(
-    (tool) => tool.role === role || tool.role === "shared"
+    (tool) => tool.role === role || tool.role === "shared",
   ).map(({ role: _role, ...tool }) => tool);
 }
 
@@ -1306,7 +1323,7 @@ export function getToolsForRole(role: ServerRole): Tool[] {
  */
 export function isToolAvailableForRole(
   toolName: string,
-  role: ServerRole
+  role: ServerRole,
 ): boolean {
   if (role === "full") return true;
 
@@ -1323,7 +1340,7 @@ export function registerTools(server: Server, role: ServerRole = "full"): void {
   const availableTools = getToolsForRole(role);
 
   console.error(
-    `[orchestra-mcp] Registering ${availableTools.length} tools for role: ${role}`
+    `[orchestra-mcp] Registering ${availableTools.length} tools for role: ${role}`,
   );
 
   // List tools handler - returns only role-appropriate tools
@@ -1349,12 +1366,12 @@ export function registerTools(server: Server, role: ServerRole = "full"): void {
                   code: "ROLE_ACCESS_DENIED",
                   message: `Tool "${toolName}" is not available for role "${role}"`,
                   available_roles: TOOLS_WITH_ROLES.find(
-                    (t) => t.name === toolName
+                    (t) => t.name === toolName,
                   )?.role,
                 },
               },
               null,
-              2
+              2,
             ),
           },
         ],
@@ -1474,6 +1491,10 @@ export function registerTools(server: Server, role: ServerRole = "full"): void {
           return await (
             await import("./handlers/get-amendments.js")
           ).handleGetAmendments(args);
+        case "get_sprint_review":
+          return await (
+            await import("./handlers/get-sprint-review.js")
+          ).handleGetSprintReview(args);
 
         // Configuration (4 tools)
         case "set_active_sprint":
@@ -1529,9 +1550,8 @@ export function registerTools(server: Server, role: ServerRole = "full"): void {
 
         // Debug tool
         case "debug_environment": {
-          const { handleDebugEnvironment } = await import(
-            "./handlers/debug-environment.js"
-          );
+          const { handleDebugEnvironment } =
+            await import("./handlers/debug-environment.js");
           const result = await handleDebugEnvironment(args);
           return {
             content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
@@ -1552,7 +1572,7 @@ export function registerTools(server: Server, role: ServerRole = "full"): void {
                     },
                   },
                   null,
-                  2
+                  2,
                 ),
               },
             ],
@@ -1575,7 +1595,7 @@ export function registerTools(server: Server, role: ServerRole = "full"): void {
                 },
               },
               null,
-              2
+              2,
             ),
           },
         ],
