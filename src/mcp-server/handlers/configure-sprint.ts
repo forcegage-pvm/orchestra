@@ -220,10 +220,11 @@ async function configureSprint(input: ConfigureSprintInput): Promise<{
   // 1. Deactivate all existing sprints before creating new one
   await db.run(sql`UPDATE sprints SET is_active = 0`);
 
-  // 2. Create sprint (marked as active)
+  // 2. Create sprint (marked as active, status PENDING_SPEC_REVIEW for Controller review)
   await db.insert(sprints).values({
     id: sprint.id,
     name: sprint.name,
+    status: "PENDING_SPEC_REVIEW", // Controller must approve before tasks can be prepared
     workflow_step: "CONFIGURE",
     is_active: true,
     created_at: now,
@@ -402,10 +403,11 @@ async function configureSprint(input: ConfigureSprintInput): Promise<{
 
   await db.insert(progress).values(progressRecords);
 
-  // 9. Update sprint workflow step to SELECT_TASK
+  // 9. Update sprint workflow step to SPEC_REVIEW (awaiting Controller approval)
+  // T015: Sprint must be reviewed by Controller before tasks can be prepared
   await db
     .update(sprints)
-    .set({ workflow_step: "SELECT_TASK", updated_at: now })
+    .set({ workflow_step: "SPEC_REVIEW", updated_at: now })
     .where(eq(sprints.id, sprint.id));
 
   // 10. Auto-detect project language and set TDD config defaults

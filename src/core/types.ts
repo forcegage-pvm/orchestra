@@ -72,8 +72,16 @@ export type TaskStatus = z.infer<typeof TaskStatusSchema>;
 
 /**
  * Sprint-level states
+ * Updated for Controller Agent: includes review states
+ * Note: Canonical schema is in src/schemas/shared.ts
  */
-export const SprintStatusSchema = z.enum(["ACTIVE", "COMPLETED", "ABORTED"]);
+export const SprintStatusSchema = z.enum([
+  "PENDING_SPEC_REVIEW", // Awaiting Controller review of sprint configuration
+  "ACTIVE", // Sprint approved and active
+  "SPEC_REVIEW_FAILED", // Controller rejected sprint configuration
+  "COMPLETE", // Sprint completed successfully
+  "CLOSED", // Sprint closed/archived
+]);
 
 export type SprintStatus = z.infer<typeof SprintStatusSchema>;
 

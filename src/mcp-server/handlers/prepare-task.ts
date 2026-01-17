@@ -132,6 +132,24 @@ async function prepareTask(
     throw new Error("No active sprint");
   }
 
+  // 1b. T016: Check if sprint is pending Controller review - block task preparation
+  // Controller Agent must approve sprint configuration before any tasks can be prepared
+  if (sprint.status === "PENDING_SPEC_REVIEW") {
+    throw new Error(
+      `Sprint "${sprint.id}" is awaiting Controller review. ` +
+        `Task preparation is blocked until the Controller approves the sprint configuration. ` +
+        `Use approve_sprint tool (Controller role) to proceed.`
+    );
+  }
+
+  if (sprint.status === "SPEC_REVIEW_FAILED") {
+    throw new Error(
+      `Sprint "${sprint.id}" failed Controller review. ` +
+        `Task preparation is blocked. Orchestrator must use resubmit_sprint ` +
+        `after addressing the issues identified by the Controller.`
+    );
+  }
+
   // 2. Find task
   const [task] = await db
     .select()
@@ -339,21 +357,26 @@ async function prepareTask(
   // the GREEN phase. The orchestrator should add explicit cleanup verification
   // criteria to GREEN phase tasks when preparing them.
 
-  // 6. Update task status to IMPLEMENT
+  // 6. T023: Update task status to PENDING_HANDOVER_REVIEW
+  // Controller Agent must review and approve handover before implementation can begin
   await db
     .update(tasks)
     .set({
-      status: "IMPLEMENT",
+      status: "PENDING_HANDOVER_REVIEW",
       updated_at: now,
     })
     .where(eq(tasks.id, task.id));
 
-  // 7. Update sprint workflow_step if needed
-  if (sprint.workflow_step === "SELECT_TASK") {
+  // 7. T024: Update sprint workflow_step to HANDOVER_REVIEW
+  // This blocks implementation until Controller approves the handover
+  if (
+    sprint.workflow_step === "SELECT_TASK" ||
+    sprint.workflow_step === "SPEC_REVIEW"
+  ) {
     await db
       .update(sprints)
       .set({
-        workflow_step: "IMPLEMENT",
+        workflow_step: "HANDOVER_REVIEW",
         updated_at: now,
       })
       .where(eq(sprints.id, sprint.id));
@@ -364,10 +387,11 @@ async function prepareTask(
     sprint_id: sprint.id,
     task_id: task.id,
     from_status: task.status,
-    to_status: "IMPLEMENT",
-    workflow_step: sprint.workflow_step,
+    to_status: "PENDING_HANDOVER_REVIEW",
+    workflow_step: "HANDOVER_REVIEW",
     triggered_by: "orchestrator",
-    notes: "Task prepared and handed over to implementor",
+    notes:
+      "Task prepared - awaiting Controller handover review before implementation",
     changed_at: now,
   });
 
@@ -392,7 +416,10 @@ async function prepareTask(
   return {
     success: true,
     task_id: input.task_id,
-    status: "IMPLEMENT",
+    status: "PENDING_HANDOVER_REVIEW",
+    message:
+      "Task prepared and awaiting Controller handover review. " +
+      "Use approve_handover (Controller role) to allow implementation to begin.",
     git_commit: gitResult.committed ? gitResult.sha ?? undefined : undefined,
   };
 }

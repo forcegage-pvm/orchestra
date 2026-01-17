@@ -58,7 +58,13 @@ export type PrepareTaskInput = z.output<typeof PrepareTaskInputSchema>;
 
 export const PrepareTaskOutputSchema = SuccessResponseSchema.extend({
   task_id: z.number().int().positive(),
-  status: z.literal("IMPLEMENT"),
+  status: z.enum(["IMPLEMENT", "PENDING_HANDOVER_REVIEW"]),
+  message: z
+    .string()
+    .optional()
+    .describe(
+      "Status message about next steps (e.g., awaiting Controller review)"
+    ),
   git_commit: z
     .string()
     .optional()

@@ -27,11 +27,14 @@ export type TaskCategory = z.output<typeof TaskCategorySchema>;
 
 /**
  * Task status enum (V1 verbose names)
+ * Extended for Controller Agent: PENDING_HANDOVER_REVIEW, HANDOVER_REVIEW_FAILED
  */
 export const TaskStatusSchema = z.enum(
   [
     "PENDING",
     "PREPARE",
+    "PENDING_HANDOVER_REVIEW", // Awaiting Controller review of handover
+    "HANDOVER_REVIEW_FAILED", // Controller rejected handover
     "IMPLEMENT",
     "GATE_CHECK",
     "VERIFY",
@@ -49,13 +52,16 @@ export type TaskStatus = z.output<typeof TaskStatusSchema>;
 
 /**
  * Workflow step enum (sprint-level)
+ * Extended for Controller Agent: SPEC_REVIEW, HANDOVER_REVIEW
  */
 export const WorkflowStepSchema = z.enum(
   [
     "INIT",
     "CONFIGURE",
+    "SPEC_REVIEW", // Awaiting Controller review of sprint spec
     "SELECT_TASK",
     "PREPARE",
+    "HANDOVER_REVIEW", // Awaiting Controller review of task handover
     "IMPLEMENT",
     "SIGNAL",
     "VERIFY",
@@ -146,6 +152,69 @@ export const TriggeredBySchema = z.enum(
 export type TriggeredBy = z.output<typeof TriggeredBySchema>;
 
 // ============================================================================
+// Controller Agent Schemas (Sprint 004)
+// ============================================================================
+
+/**
+ * Sprint status enum (Controller Agent review states)
+ */
+export const SprintStatusSchema = z.enum(
+  ["PENDING_SPEC_REVIEW", "ACTIVE", "SPEC_REVIEW_FAILED", "COMPLETE", "CLOSED"],
+  { errorMap: () => ({ message: "Invalid sprint status" }) }
+);
+
+export type SprintStatus = z.output<typeof SprintStatusSchema>;
+
+/**
+ * Review type enum (what is being reviewed)
+ */
+export const ReviewTypeSchema = z.enum(["SPRINT", "HANDOVER", "AMENDMENT"], {
+  errorMap: () => ({
+    message: "Review type must be SPRINT, HANDOVER, or AMENDMENT",
+  }),
+});
+
+export type ReviewType = z.output<typeof ReviewTypeSchema>;
+
+/**
+ * Review decision enum (Controller's verdict)
+ */
+export const ReviewDecisionSchema = z.enum(
+  ["APPROVED", "NEEDS_REVISION", "REJECTED"],
+  {
+    errorMap: () => ({
+      message: "Decision must be APPROVED, NEEDS_REVISION, or REJECTED",
+    }),
+  }
+);
+
+export type ReviewDecision = z.output<typeof ReviewDecisionSchema>;
+
+/**
+ * Conformance enum (how well spec aligns)
+ */
+export const ConformanceSchema = z.enum(["PASS", "WARN", "FAIL"], {
+  errorMap: () => ({ message: "Conformance must be PASS, WARN, or FAIL" }),
+});
+
+export type Conformance = z.output<typeof ConformanceSchema>;
+
+/**
+ * Alignment issue - details about spec/handover misalignment
+ */
+export const AlignmentIssueSchema = z.object({
+  severity: z.enum(["BLOCKING", "MAJOR"]),
+  issue: z.string().min(1),
+  spec_reference: z.string().optional(),
+  handover_text: z.string().optional(),
+  spec_text: z.string().optional(),
+  analysis: z.string().optional(),
+  recommendation: z.string().optional(),
+});
+
+export type AlignmentIssue = z.output<typeof AlignmentIssueSchema>;
+
+// ============================================================================
 // Verification Check Schemas
 // ============================================================================
 
@@ -228,30 +297,38 @@ export type QualityCheck = z.output<typeof QualityCheckSchema>;
 export const CrossReferenceCheckSchema = z.object({
   description: z.string().min(1, "Description is required"),
   severity: SeveritySchema,
-  
+
   // Definition: where the canonical values are declared
-  definition: z.object({
-    path: z.string().min(1, "Path is required"),
-    pattern: z.string().optional(),
-    capture_group: z.number().int().min(0).optional(),
-    json_path: z.string().optional(),
-  }).refine(
-    (data) => {
-      // Must have pattern OR json_path
-      const hasPattern = data.pattern !== undefined && data.pattern.length > 0;
-      const hasJsonPath = data.json_path !== undefined && data.json_path.length > 0;
-      return hasPattern || hasJsonPath;
-    },
-    { message: "Definition must have either 'pattern' OR 'json_path'" }
-  ),
-  
+  definition: z
+    .object({
+      path: z.string().min(1, "Path is required"),
+      pattern: z.string().optional(),
+      capture_group: z.number().int().min(0).optional(),
+      json_path: z.string().optional(),
+    })
+    .refine(
+      (data) => {
+        // Must have pattern OR json_path
+        const hasPattern =
+          data.pattern !== undefined && data.pattern.length > 0;
+        const hasJsonPath =
+          data.json_path !== undefined && data.json_path.length > 0;
+        return hasPattern || hasJsonPath;
+      },
+      { message: "Definition must have either 'pattern' OR 'json_path'" }
+    ),
+
   // References: where the values must be used consistently
-  references: z.array(z.object({
-    path: z.string().min(1, "Path is required"),
-    pattern: z.string().min(1, "Pattern is required"),
-    capture_group: z.number().int().min(0).optional(),
-  })).min(1, "At least one reference is required"),
-  
+  references: z
+    .array(
+      z.object({
+        path: z.string().min(1, "Path is required"),
+        pattern: z.string().min(1, "Pattern is required"),
+        capture_group: z.number().int().min(0).optional(),
+      })
+    )
+    .min(1, "At least one reference is required"),
+
   // How to compare definition values to reference values
   match_mode: z.enum(["exact", "subset", "superset"]).optional(),
 });

@@ -883,6 +883,7 @@ export async function activate(
             [
               { label: "Orchestrator", value: "orchestrator" },
               { label: "Implementor", value: "implementor" },
+              { label: "Controller", value: "controller" },
             ],
             { placeHolder: "Select agent role" }
           );
@@ -912,7 +913,7 @@ export async function activate(
 
           // Start the agent
           await agentRunner.start(
-            role.value as "orchestrator" | "implementor",
+            role.value as "orchestrator" | "implementor" | "controller",
             {
               prompt,
               maxIterations: 50,

@@ -24,16 +24,18 @@ import { handleSetSprintConfig } from "./handlers/set-sprint-config.js";
 
 /**
  * Server role type
+ * Extended for Controller Agent: 'controller' for independent review role
  */
-export type ServerRole = "orchestrator" | "implementor" | "full";
+export type ServerRole = "orchestrator" | "implementor" | "controller" | "full";
 
 /**
  * Tool role assignments
  * - orchestrator: Tools only the orchestrator should access
  * - implementor: Tools only the implementor should access
- * - shared: Tools both roles can access
+ * - controller: Tools only the controller should access (review decisions)
+ * - shared: Tools all roles can access
  */
-type ToolRole = "orchestrator" | "implementor" | "shared";
+type ToolRole = "orchestrator" | "implementor" | "controller" | "shared";
 
 interface ToolWithRole extends Tool {
   role: ToolRole;
@@ -965,6 +967,304 @@ const TOOLS_WITH_ROLES: ToolWithRole[] = [
       required: ["key", "value"],
     },
   },
+
+  // ============================================================================
+  // Controller Agent Tools - Sprint Review (Sprint 004)
+  // ============================================================================
+
+  // T020: approve_sprint - CONTROLLER ONLY
+  {
+    role: "controller",
+    name: "approve_sprint",
+    description:
+      "Approve a sprint configuration after reviewing against the specification. " +
+      "Transitions sprint from PENDING_SPEC_REVIEW to ACTIVE, allowing task preparation.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        conformance: {
+          type: "string",
+          enum: ["PASS", "WARN"],
+          description:
+            "Conformance level: PASS for full alignment, WARN for minor issues",
+        },
+        notes: {
+          type: "string",
+          description:
+            "Required if conformance is WARN - explain the minor issues",
+        },
+        spec_path: {
+          type: "string",
+          description: "Path to the specification document that was reviewed",
+        },
+        spec_requirements: {
+          type: "array",
+          items: { type: "string" },
+          description: "List of specification requirements that were verified",
+        },
+        recommendations: {
+          type: "array",
+          items: { type: "string" },
+          description: "Optional recommendations for the orchestrator",
+        },
+      },
+      required: ["conformance"],
+    },
+  },
+
+  // T020: reject_sprint - CONTROLLER ONLY
+  {
+    role: "controller",
+    name: "reject_sprint",
+    description:
+      "Reject a sprint configuration that does not align with the specification. " +
+      "Transitions sprint to SPEC_REVIEW_FAILED. After 3 rejections, escalates to human supervisor.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        issues: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              severity: { type: "string", enum: ["BLOCKING", "MAJOR"] },
+              issue: { type: "string" },
+              spec_reference: { type: "string" },
+              handover_text: { type: "string" },
+              spec_text: { type: "string" },
+              analysis: { type: "string" },
+              recommendation: { type: "string" },
+            },
+            required: ["severity", "issue"],
+          },
+          description:
+            "Issues identified during review (at least one required)",
+        },
+        conformance: {
+          type: "string",
+          enum: ["FAIL"],
+          description: "Must be FAIL when rejecting",
+        },
+        notes: {
+          type: "string",
+          description:
+            "Explanation of why the sprint configuration failed review (min 10 chars)",
+        },
+        spec_path: {
+          type: "string",
+          description: "Path to the specification document that was reviewed",
+        },
+        spec_requirements: {
+          type: "array",
+          items: { type: "string" },
+          description: "List of specification requirements that were violated",
+        },
+        recommendations: {
+          type: "array",
+          items: { type: "string" },
+          description: "Recommendations for how to fix the issues",
+        },
+      },
+      required: ["issues", "conformance", "notes"],
+    },
+  },
+
+  // T021: resubmit_sprint - ORCHESTRATOR ONLY
+  {
+    role: "orchestrator",
+    name: "resubmit_sprint",
+    description:
+      "Resubmit a sprint configuration after addressing Controller feedback. " +
+      "Transitions sprint from SPEC_REVIEW_FAILED back to PENDING_SPEC_REVIEW.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        changes_made: {
+          type: "string",
+          description:
+            "Description of changes made to address Controller feedback (min 20 chars)",
+        },
+        issues_addressed: {
+          type: "array",
+          items: { type: "string" },
+          description:
+            "List of issues from Controller feedback that were addressed",
+        },
+      },
+      required: ["changes_made", "issues_addressed"],
+    },
+  },
+
+  // T028: approve_handover - CONTROLLER ONLY
+  {
+    role: "controller",
+    name: "approve_handover",
+    description:
+      "Approve a task handover that meets specification requirements. " +
+      "Transitions task from PENDING_HANDOVER_REVIEW to IMPLEMENT, allowing implementation to begin.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        task_id: {
+          type: "number",
+          description: "The task ID whose handover to approve",
+        },
+        conformance: {
+          type: "string",
+          enum: ["PASS", "WARN"],
+          description:
+            "Assessment of handover conformance to specifications (PASS or WARN for approvals)",
+        },
+        notes: {
+          type: "string",
+          description:
+            "Optional approval notes or recommendations (required if conformance is WARN)",
+        },
+      },
+      required: ["task_id", "conformance"],
+    },
+  },
+
+  // T028: reject_handover - CONTROLLER ONLY
+  {
+    role: "controller",
+    name: "reject_handover",
+    description:
+      "Reject a task handover that does not meet specification requirements. " +
+      "Transitions task to HANDOVER_REVIEW_FAILED. After 3 rejections, escalates to human supervisor.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        task_id: {
+          type: "number",
+          description: "The task ID whose handover to reject",
+        },
+        conformance: {
+          type: "string",
+          enum: ["FAIL"],
+          description:
+            "Assessment of handover conformance (must be FAIL for rejections)",
+        },
+        issues: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              severity: { type: "string", enum: ["BLOCKING", "MAJOR"] },
+              issue: { type: "string" },
+              spec_reference: { type: "string" },
+              recommendation: { type: "string" },
+            },
+            required: ["severity", "issue"],
+          },
+          description:
+            "Issues identified in the handover (at least one required)",
+        },
+        recommendations: {
+          type: "string",
+          description:
+            "Specific recommendations for the orchestrator to address",
+        },
+      },
+      required: ["task_id", "conformance", "issues", "recommendations"],
+    },
+  },
+
+  // T029: resubmit_handover - ORCHESTRATOR ONLY
+  {
+    role: "orchestrator",
+    name: "resubmit_handover",
+    description:
+      "Resubmit a task handover after addressing Controller feedback. " +
+      "Transitions task from HANDOVER_REVIEW_FAILED back to PENDING_HANDOVER_REVIEW.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        task_id: {
+          type: "number",
+          description: "The task ID whose handover to resubmit",
+        },
+        changes_made: {
+          type: "string",
+          description:
+            "Description of changes made to address Controller feedback (min 20 chars)",
+        },
+      },
+      required: ["task_id", "changes_made"],
+    },
+  },
+
+  // ============================================================================
+  // Controller Agent Read-Only Tools (Sprint 004 - T035)
+  // ============================================================================
+
+  // T035: get_task_for_review - CONTROLLER ONLY
+  {
+    role: "controller",
+    name: "get_task_for_review",
+    description:
+      "Get task details for review purposes (WITHOUT verification criteria). " +
+      "Used by Controller to see task metadata when reviewing sprint configuration or handovers.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        task_id: {
+          type: "number",
+          description: "The task ID to retrieve",
+        },
+      },
+      required: ["task_id"],
+    },
+  },
+
+  // T035: get_handover - CONTROLLER ONLY
+  {
+    role: "controller",
+    name: "get_handover",
+    description:
+      "Get handover details for a specific task. Shows what the implementor will receive. " +
+      "Used by Controller to verify handover aligns with specification requirements.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        task_id: {
+          type: "number",
+          description: "The task ID to get handover for",
+        },
+      },
+      required: ["task_id"],
+    },
+  },
+
+  // T037: read_spec_file - CONTROLLER ONLY
+  {
+    role: "controller",
+    name: "read_spec_file",
+    description:
+      "Read a specification file for review purposes. " +
+      "Restricted to spec/, specs/, and docs/ directories for security.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        path: {
+          type: "string",
+          description:
+            "Path to the specification file, relative to workspace root. " +
+            "Must be in spec/, specs/, or docs/ directory.",
+        },
+        start_line: {
+          type: "number",
+          description: "Optional: Start line to read from (1-indexed)",
+        },
+        end_line: {
+          type: "number",
+          description: "Optional: End line to read to (1-indexed, inclusive)",
+        },
+      },
+      required: ["path"],
+    },
+  },
+
   // Debug tool - available to all
   {
     role: "shared",
@@ -1181,6 +1481,46 @@ export function registerTools(server: Server, role: ServerRole = "full"): void {
           return await handleGetSprintConfig(args);
         case "set_sprint_config":
           return await handleSetSprintConfig(args);
+
+        // Controller Agent Tools (6 tools - sprint and handover review)
+        case "approve_sprint":
+          return await (
+            await import("./handlers/approve-sprint.js")
+          ).handleApproveSprint(args);
+        case "reject_sprint":
+          return await (
+            await import("./handlers/reject-sprint.js")
+          ).handleRejectSprint(args);
+        case "resubmit_sprint":
+          return await (
+            await import("./handlers/resubmit-sprint.js")
+          ).handleResubmitSprint(args);
+        case "approve_handover":
+          return await (
+            await import("./handlers/approve-handover.js")
+          ).handleApproveHandover(args);
+        case "reject_handover":
+          return await (
+            await import("./handlers/reject-handover.js")
+          ).handleRejectHandover(args);
+        case "resubmit_handover":
+          return await (
+            await import("./handlers/resubmit-handover.js")
+          ).handleResubmitHandover(args);
+
+        // Controller Agent Read-Only Tools (T035)
+        case "get_task_for_review":
+          return await (
+            await import("./handlers/get-task-for-review.js")
+          ).handleGetTaskForReview(args);
+        case "get_handover":
+          return await (
+            await import("./handlers/get-handover.js")
+          ).handleGetHandover(args);
+        case "read_spec_file":
+          return await (
+            await import("./handlers/read-spec-file.js")
+          ).handleReadSpecFile(args);
 
         // Debug tool
         case "debug_environment": {

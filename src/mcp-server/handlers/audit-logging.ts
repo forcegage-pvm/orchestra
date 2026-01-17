@@ -13,7 +13,7 @@ import { systemLogs, tasks, toolExecutions } from "../../db/schema.js";
 
 export interface ToolExecutionContext {
   toolName: string;
-  role: "orchestrator" | "implementor";
+  role: "orchestrator" | "implementor" | "controller";
   input: unknown;
   taskId?: number;
 }

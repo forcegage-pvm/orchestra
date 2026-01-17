@@ -139,6 +139,20 @@ async function signalCompletion(
 
   // 3. Validate task is in IMPLEMENT or VERIFY_FAILED state (retry)
   if (task.status !== "IMPLEMENT" && task.status !== "VERIFY_FAILED") {
+    // T031a: Provide specific error messages for handover review states
+    if (task.status === "PENDING_HANDOVER_REVIEW") {
+      throw new Error(
+        `Task ${input.task_id} is awaiting Controller handover review. ` +
+          `Cannot signal completion until the handover is approved.`
+      );
+    }
+    if (task.status === "HANDOVER_REVIEW_FAILED") {
+      throw new Error(
+        `Task ${input.task_id} handover was rejected by Controller. ` +
+          `Orchestrator must resubmit the handover before implementation can proceed.`
+      );
+    }
+
     throw new Error(
       `Task ${input.task_id} is in ${task.status} state, expected IMPLEMENT or VERIFY_FAILED`
     );

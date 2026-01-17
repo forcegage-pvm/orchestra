@@ -2,7 +2,7 @@
  * ConfigService - Orchestra Configuration Service
  *
  * Provides typed access to VS Code workspace configuration for Orchestra.
- * Manages model and agent configuration per role (orchestrator/implementor).
+ * Manages model and agent configuration per role (orchestrator/implementor/controller).
  */
 
 import * as vscode from "vscode";
@@ -14,17 +14,20 @@ export interface OrchestraConfig {
   models: {
     orchestrator: string;
     implementor: string;
+    controller: string;
   };
   agents: {
     orchestrator: string;
     implementor: string;
+    controller: string;
   };
 }
 
 /**
  * Role type for configuration lookup
+ * Extended for Controller Agent: 'controller' for independent review role
  */
-export type Role = "orchestrator" | "implementor";
+export type Role = "orchestrator" | "implementor" | "controller";
 
 /**
  * ConfigService provides typed access to Orchestra workspace configuration
@@ -39,19 +42,24 @@ export class ConfigService {
 
   /**
    * Get the configured AI model for a specific role
-   * @param role - The role to get the model for (orchestrator or implementor)
-   * @returns The model identifier (e.g., "claude-sonnet-4.5", "gpt-4o")
+   * @param role - The role to get the model for (orchestrator, implementor, or controller)
+   * @returns The model identifier (e.g., "claude-sonnet-4.5", "claude-opus-4.5")
    */
   getModelForRole(role: Role): string {
     const config = this.getWorkspaceConfig();
-    const defaultModel =
-      role === "orchestrator" ? "claude-opus-4.5" : "claude-sonnet-4.5";
-    return config.get<string>(`models.${role}`, defaultModel);
+    // Controller uses Opus 4.5 (highest capability) for accurate spec verification
+    // Orchestrator also uses Opus 4.5, Implementor uses Sonnet 4.5
+    const defaultModels: Record<Role, string> = {
+      orchestrator: "claude-opus-4.5",
+      implementor: "claude-sonnet-4.5",
+      controller: "claude-opus-4.5", // Controller needs highest capability for review accuracy
+    };
+    return config.get<string>(`models.${role}`, defaultModels[role]);
   }
 
   /**
    * Get the configured agent mode identifier for a specific role
-   * @param role - The role to get the agent for (orchestrator or implementor)
+   * @param role - The role to get the agent for (orchestrator, implementor, or controller)
    * @returns The agent mode identifier (e.g., "orchestra.orchestrator")
    */
   getAgentForRole(role: Role): string {
@@ -62,17 +70,19 @@ export class ConfigService {
 
   /**
    * Get the complete Orchestra configuration
-   * @returns OrchestraConfig object with models and agents for both roles
+   * @returns OrchestraConfig object with models and agents for all roles
    */
   getConfig(): OrchestraConfig {
     return {
       models: {
         orchestrator: this.getModelForRole("orchestrator"),
         implementor: this.getModelForRole("implementor"),
+        controller: this.getModelForRole("controller"),
       },
       agents: {
         orchestrator: this.getAgentForRole("orchestrator"),
         implementor: this.getAgentForRole("implementor"),
+        controller: this.getAgentForRole("controller"),
       },
     };
   }

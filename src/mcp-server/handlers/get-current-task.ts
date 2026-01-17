@@ -101,6 +101,8 @@ async function getCurrentTask(): Promise<GetCurrentTaskOutput> {
   }
 
   // 2. Find task in IMPLEMENT or VERIFY_FAILED state FOR THE ACTIVE SPRINT
+  // Note: Tasks in PENDING_HANDOVER_REVIEW or HANDOVER_REVIEW_FAILED are NOT visible
+  // to implementors - they must wait for Controller approval
   const [task] = await db
     .select()
     .from(tasks)
@@ -113,6 +115,33 @@ async function getCurrentTask(): Promise<GetCurrentTaskOutput> {
     .limit(1);
 
   if (!task) {
+    // T031: Check if there's a task awaiting handover review and provide helpful message
+    const [pendingReviewTask] = await db
+      .select()
+      .from(tasks)
+      .where(
+        and(
+          eq(tasks.sprint_id, sprint.id),
+          inArray(tasks.status, [
+            "PENDING_HANDOVER_REVIEW",
+            "HANDOVER_REVIEW_FAILED",
+          ])
+        )
+      )
+      .limit(1);
+
+    if (pendingReviewTask) {
+      const statusMessage =
+        pendingReviewTask.status === "PENDING_HANDOVER_REVIEW"
+          ? "Task is awaiting Controller handover review. Implementation cannot begin until approved."
+          : "Task handover was rejected by Controller. Orchestrator must resubmit handover.";
+
+      throw new Error(
+        `No task available for implementation. ${statusMessage} ` +
+          `(Task ${pendingReviewTask.task_id}: ${pendingReviewTask.title})`
+      );
+    }
+
     throw new Error("No task in IMPLEMENT or VERIFY_FAILED state");
   }
 

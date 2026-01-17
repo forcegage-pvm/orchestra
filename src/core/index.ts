@@ -88,7 +88,11 @@ export {
 
 // Escalation
 export {
+  // Controller Agent escalation helpers (T013, T022, T030)
+  MAX_CONTROLLER_REJECTIONS,
+  generateControllerEscalationReason,
   runEscalate,
+  shouldEscalateAfterRejection,
   type AttemptRecord,
   type EscalateOptions,
   type EscalateResult,

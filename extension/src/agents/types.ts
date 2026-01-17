@@ -14,9 +14,14 @@ import { z } from "zod";
 // ============================================================================
 
 /**
- * Agent role enum - aligns with Orchestra orchestrator/implementor pattern
+ * Agent role enum - aligns with Orchestra orchestrator/implementor/controller pattern
+ * Extended for Controller Agent: independent spec review role
  */
-export const AgentRoleSchema = z.enum(["orchestrator", "implementor"]);
+export const AgentRoleSchema = z.enum([
+  "orchestrator",
+  "implementor",
+  "controller",
+]);
 export type AgentRole = z.output<typeof AgentRoleSchema>;
 
 /**

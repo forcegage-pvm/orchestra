@@ -413,6 +413,136 @@ const MIGRATIONS: Migration[] = [
       );
     },
   },
+  {
+    id: "20260117_007_add_controller_agent_schema",
+    description:
+      "Add spec_reviews table for Controller review decisions and status column to sprints table (Sprint 004)",
+    up: async () => {
+      const db = getDb();
+
+      // 1. Add status column to sprints table (idempotent)
+      const sprintColumns = await db.all(sql`PRAGMA table_info(sprints)`);
+      const hasStatus = (sprintColumns as { name: string }[]).some(
+        (col) => col.name === "status"
+      );
+
+      if (!hasStatus) {
+        await db.run(
+          sql`ALTER TABLE sprints ADD COLUMN status TEXT NOT NULL DEFAULT 'ACTIVE'`
+        );
+        await db.run(
+          sql`CREATE INDEX IF NOT EXISTS sprint_status_idx ON sprints(status)`
+        );
+      }
+
+      // 2. Create spec_reviews table (idempotent)
+      const tables = await db.all(
+        sql`SELECT name FROM sqlite_master WHERE type='table' AND name='spec_reviews'`
+      );
+      if ((tables as { name: string }[]).length === 0) {
+        await db.run(sql`
+          CREATE TABLE spec_reviews (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            sprint_id TEXT NOT NULL REFERENCES sprints(id) ON DELETE CASCADE,
+            task_id INTEGER REFERENCES tasks(id) ON DELETE CASCADE,
+            review_type TEXT NOT NULL,
+            decision TEXT NOT NULL,
+            conformance TEXT NOT NULL,
+            spec_path TEXT,
+            spec_requirements TEXT NOT NULL DEFAULT '[]',
+            issues TEXT NOT NULL DEFAULT '[]',
+            recommendations TEXT,
+            notes TEXT,
+            reviewed_by TEXT NOT NULL,
+            reviewed_at TEXT NOT NULL,
+            revision_count INTEGER NOT NULL DEFAULT 0,
+            previous_review_id INTEGER
+          )
+        `);
+
+        await db.run(
+          sql`CREATE INDEX IF NOT EXISTS spec_reviews_sprint_idx ON spec_reviews(sprint_id)`
+        );
+        await db.run(
+          sql`CREATE INDEX IF NOT EXISTS spec_reviews_task_idx ON spec_reviews(task_id)`
+        );
+        await db.run(
+          sql`CREATE INDEX IF NOT EXISTS spec_reviews_type_idx ON spec_reviews(review_type)`
+        );
+        await db.run(
+          sql`CREATE INDEX IF NOT EXISTS spec_reviews_reviewed_at_idx ON spec_reviews(reviewed_at)`
+        );
+      }
+    },
+  },
+
+  // Migration 008: Make escalations.task_id nullable for sprint-level escalations
+  // Required by Controller Agent feature - sprint config rejections don't have a task
+  {
+    id: "20260117_008_escalations_nullable_task_id",
+    description:
+      "Make escalations.task_id nullable for sprint-level escalations",
+    up: async () => {
+      const db = getDb();
+
+      // Check if escalations table exists
+      const tables = await db.all(
+        sql`SELECT name FROM sqlite_master WHERE type='table' AND name='escalations'`
+      );
+      if ((tables as { name: string }[]).length === 0) {
+        return; // Table doesn't exist, nothing to migrate
+      }
+
+      // SQLite doesn't support ALTER COLUMN, so we need to recreate the table
+      // 1. Create new table with nullable task_id
+      await db.run(sql`
+        CREATE TABLE IF NOT EXISTS escalations_new (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          task_id INTEGER REFERENCES tasks(id) ON DELETE CASCADE,
+          sprint_id TEXT NOT NULL REFERENCES sprints(id) ON DELETE CASCADE,
+          reason TEXT NOT NULL,
+          attempts_summary TEXT NOT NULL,
+          recommended_action TEXT,
+          recommended_target_status TEXT NOT NULL,
+          from_status TEXT NOT NULL,
+          retry_count INTEGER NOT NULL,
+          max_retries INTEGER NOT NULL,
+          escalated_by TEXT NOT NULL,
+          escalated_at TEXT NOT NULL,
+          resolved_at TEXT,
+          resolved_by TEXT,
+          resolution_target_status TEXT,
+          resolution_notes TEXT
+        )
+      `);
+
+      // 2. Copy data from old table
+      await db.run(sql`
+        INSERT INTO escalations_new 
+        SELECT * FROM escalations
+      `);
+
+      // 3. Drop old table
+      await db.run(sql`DROP TABLE escalations`);
+
+      // 4. Rename new table
+      await db.run(sql`ALTER TABLE escalations_new RENAME TO escalations`);
+
+      // 5. Recreate indexes
+      await db.run(
+        sql`CREATE INDEX IF NOT EXISTS task_escalation_idx ON escalations(task_id)`
+      );
+      await db.run(
+        sql`CREATE INDEX IF NOT EXISTS sprint_escalation_idx ON escalations(sprint_id)`
+      );
+      await db.run(
+        sql`CREATE INDEX IF NOT EXISTS unresolved_escalation_idx ON escalations(resolved_at)`
+      );
+      await db.run(
+        sql`CREATE INDEX IF NOT EXISTS escalation_timestamp_idx ON escalations(escalated_at)`
+      );
+    },
+  },
 ];
 
 /**
