@@ -41,6 +41,30 @@ export const STATUS_DISPLAY: Record<string, StatusDisplay> = {
     actionLabel: "Start",
   },
 
+  PREPARE: {
+    label: "Preparing",
+    icon: "edit",
+    color: new ThemeColor("charts.blue"),
+    description: "Task is being prepared by orchestrator",
+    actionLabel: "Continue Preparation",
+  },
+
+  PENDING_HANDOVER_REVIEW: {
+    label: "Pending Handover Review",
+    icon: "shield",
+    color: new ThemeColor("charts.yellow"),
+    description: "Handover requires controller review before implementation",
+    actionLabel: "Review Handover",
+  },
+
+  HANDOVER_REVIEW_FAILED: {
+    label: "Handover Review Failed",
+    icon: "warning",
+    color: new ThemeColor("charts.orange"),
+    description: "Handover review found issues - requires revision",
+    actionLabel: "Review Feedback",
+  },
+
   IMPLEMENT: {
     label: "In Progress",
     icon: "play-circle",

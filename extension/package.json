@@ -285,7 +285,7 @@
         },
         {
           "command": "orchestra.playTask",
-          "when": "view == orchestra.sprintExplorer && viewItem =~ /^task-(pending|implement|verify|verify_failed|gate_check|escalated)$/",
+          "when": "view == orchestra.sprintExplorer && viewItem =~ /^task-(pending|implement|verify|verify_failed|gate_check|escalated|pending_handover_review|handover_review_failed|prepare)$/",
           "group": "inline@1"
         },
         {

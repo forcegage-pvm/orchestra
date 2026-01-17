@@ -530,6 +530,12 @@ function getScript(): string {
         case 'PREPARE':
           actionLabel = 'Continue Preparation';
           break;
+        case 'PENDING_HANDOVER_REVIEW':
+          actionLabel = 'Review Handover';
+          break;
+        case 'HANDOVER_REVIEW_FAILED':
+          actionLabel = 'Review Feedback';
+          break;
         case 'IMPLEMENT':
           actionLabel = 'Start Implementation';
           break;
@@ -952,6 +958,12 @@ function renderTaskCard(task: TaskData): string {
       break;
     case "PREPARE":
       actionLabel = "Continue Preparation";
+      break;
+    case "PENDING_HANDOVER_REVIEW":
+      actionLabel = "Review Handover";
+      break;
+    case "HANDOVER_REVIEW_FAILED":
+      actionLabel = "Review Feedback";
       break;
     case "IMPLEMENT":
       actionLabel = "Start Implementation";

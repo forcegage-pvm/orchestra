@@ -199,8 +199,8 @@ export function getCurrentSprint(workspaceRoot: string): Sprint | null {
     .where(
       eq(
         schema.sprints.is_active as unknown as typeof schema.sprints.is_active,
-        true
-      )
+        true,
+      ),
     )
     .limit(1)
     .all() as Sprint[];
@@ -216,13 +216,14 @@ export function getCurrentSprint(workspaceRoot: string): Sprint | null {
     .where(
       isNull(
         schema.sprints
-          .completed_at as unknown as typeof schema.sprints.completed_at
-      )
+          .completed_at as unknown as typeof schema.sprints.completed_at,
+      ),
     )
     .orderBy(
       desc(
-        schema.sprints.created_at as unknown as typeof schema.sprints.created_at
-      )
+        schema.sprints
+          .created_at as unknown as typeof schema.sprints.created_at,
+      ),
     )
     .limit(1)
     .all() as Sprint[];
@@ -244,8 +245,9 @@ export function getAllSprints(workspaceRoot: string): Sprint[] {
     .from(schema.sprints as unknown as typeof schema.sprints)
     .orderBy(
       desc(
-        schema.sprints.created_at as unknown as typeof schema.sprints.created_at
-      )
+        schema.sprints
+          .created_at as unknown as typeof schema.sprints.created_at,
+      ),
     )
     .all() as Sprint[];
 }
@@ -260,7 +262,7 @@ export function getAllSprints(workspaceRoot: string): Sprint[] {
  * @returns Current task with handover or null if none exists
  */
 export function getCurrentTask(
-  workspaceRoot: string
+  workspaceRoot: string,
 ): (Task & { handover: Handover }) | null {
   const db = getDB(workspaceRoot);
 
@@ -278,21 +280,25 @@ export function getCurrentTask(
       schema.handovers as unknown as typeof schema.handovers,
       eq(
         schema.tasks.id as unknown as typeof schema.tasks.id,
-        schema.handovers.task_id as unknown as typeof schema.handovers.task_id
-      )
+        schema.handovers.task_id as unknown as typeof schema.handovers.task_id,
+      ),
     )
     .where(
       and(
         eq(
           schema.tasks.sprint_id as unknown as typeof schema.tasks.sprint_id,
-          activeSprint.id
+          activeSprint.id,
         ),
         inArray(schema.tasks.status as unknown as typeof schema.tasks.status, [
+          "PREPARE",
+          "PENDING_HANDOVER_REVIEW",
+          "HANDOVER_REVIEW_FAILED",
           "IMPLEMENT",
           "GATE_CHECK",
           "VERIFY",
-        ])
-      )
+          "ESCALATED",
+        ]),
+      ),
     )
     .limit(1)
     .all() as unknown[];
@@ -319,7 +325,7 @@ export function getCurrentTask(
  * @returns Escalated task with handover or null if none exists
  */
 export function getEscalatedTask(
-  workspaceRoot: string
+  workspaceRoot: string,
 ): (Task & { handover: Handover | null }) | null {
   const db = getDB(workspaceRoot);
 
@@ -337,20 +343,20 @@ export function getEscalatedTask(
       schema.handovers as unknown as typeof schema.handovers,
       eq(
         schema.tasks.id as unknown as typeof schema.tasks.id,
-        schema.handovers.task_id as unknown as typeof schema.handovers.task_id
-      )
+        schema.handovers.task_id as unknown as typeof schema.handovers.task_id,
+      ),
     )
     .where(
       and(
         eq(
           schema.tasks.sprint_id as unknown as typeof schema.tasks.sprint_id,
-          activeSprint.id
+          activeSprint.id,
         ),
         eq(
           schema.tasks.status as unknown as typeof schema.tasks.status,
-          "ESCALATED"
-        )
-      )
+          "ESCALATED",
+        ),
+      ),
     )
     .limit(1)
     .all() as unknown[];
@@ -378,7 +384,7 @@ export function getEscalatedTask(
  */
 export function getTasksForSprint(
   workspaceRoot: string,
-  sprintId: string
+  sprintId: string,
 ): Task[] {
   const db = getDB(workspaceRoot);
 
@@ -388,8 +394,8 @@ export function getTasksForSprint(
     .where(
       eq(
         schema.tasks.sprint_id as unknown as typeof schema.tasks.sprint_id,
-        sprintId
-      )
+        sprintId,
+      ),
     )
     .orderBy(schema.tasks.task_id as unknown as typeof schema.tasks.task_id)
     .all() as Task[];
@@ -413,8 +419,8 @@ export function getPhases(workspaceRoot: string, sprintId: string): Phase[] {
     .where(
       eq(
         schema.phases.sprint_id as unknown as typeof schema.phases.sprint_id,
-        sprintId
-      )
+        sprintId,
+      ),
     )
     .orderBy(schema.phases.order as unknown as typeof schema.phases.order)
     .all() as Phase[];
@@ -432,7 +438,7 @@ export function getPhases(workspaceRoot: string, sprintId: string): Phase[] {
  */
 export function getTaskHistory(
   workspaceRoot: string,
-  taskId: number
+  taskId: number,
 ): Progress[] {
   const db = getDB(workspaceRoot);
 
@@ -442,14 +448,14 @@ export function getTaskHistory(
     .where(
       eq(
         schema.progress.task_id as unknown as typeof schema.progress.task_id,
-        taskId
-      )
+        taskId,
+      ),
     )
     .orderBy(
       desc(
         schema.progress
-          .changed_at as unknown as typeof schema.progress.changed_at
-      )
+          .changed_at as unknown as typeof schema.progress.changed_at,
+      ),
     )
     .all() as Progress[];
 }
@@ -468,7 +474,7 @@ export function getTaskHistory(
 export function getVerificationResults(
   workspaceRoot: string,
   taskId: number,
-  attempt: number
+  attempt: number,
 ): (VerificationResult & { check: VerificationCheck })[] {
   const db = getDB(workspaceRoot);
 
@@ -480,13 +486,13 @@ export function getVerificationResults(
       and(
         eq(
           schema.signals.task_id as unknown as typeof schema.signals.task_id,
-          taskId
+          taskId,
         ),
         eq(
           schema.signals.attempt as unknown as typeof schema.signals.attempt,
-          attempt
-        )
-      )
+          attempt,
+        ),
+      ),
     )
     .limit(1)
     .all() as unknown[];
@@ -501,7 +507,7 @@ export function getVerificationResults(
   const results = db
     .select()
     .from(
-      schema.verificationResults as unknown as typeof schema.verificationResults
+      schema.verificationResults as unknown as typeof schema.verificationResults,
     )
     .innerJoin(
       schema.verificationChecks as unknown as typeof schema.verificationChecks,
@@ -509,22 +515,22 @@ export function getVerificationResults(
         schema.verificationResults
           .check_id as unknown as typeof schema.verificationResults.check_id,
         schema.verificationChecks
-          .id as unknown as typeof schema.verificationChecks.id
-      )
+          .id as unknown as typeof schema.verificationChecks.id,
+      ),
     )
     .where(
       and(
         eq(
           schema.verificationResults
             .task_id as unknown as typeof schema.verificationResults.task_id,
-          taskId
+          taskId,
         ),
         eq(
           schema.verificationResults
             .signal_id as unknown as typeof schema.verificationResults.signal_id,
-          signalId
-        )
-      )
+          signalId,
+        ),
+      ),
     )
     .all() as unknown[];
 
@@ -583,7 +589,7 @@ export interface TimelineEvent {
  */
 export function getSprintTimeline(
   workspaceRoot: string,
-  sprintId: string
+  sprintId: string,
 ): TimelineEvent[] {
   const db = getDB(workspaceRoot);
 
@@ -604,21 +610,21 @@ export function getSprintTimeline(
       schema.tasks as unknown as typeof schema.tasks,
       eq(
         schema.progress.task_id as unknown as typeof schema.progress.task_id,
-        schema.tasks.id as unknown as typeof schema.tasks.id
-      )
+        schema.tasks.id as unknown as typeof schema.tasks.id,
+      ),
     )
     .where(
       eq(
         schema.progress
           .sprint_id as unknown as typeof schema.progress.sprint_id,
-        sprintId
-      )
+        sprintId,
+      ),
     )
     .orderBy(
       desc(
         schema.progress
-          .changed_at as unknown as typeof schema.progress.changed_at
-      )
+          .changed_at as unknown as typeof schema.progress.changed_at,
+      ),
     )
     .limit(20)
     .all() as Array<{
@@ -693,7 +699,7 @@ export function getSprintTimeline(
  */
 export function getTaskById(
   workspaceRoot: string,
-  taskId: number
+  taskId: number,
 ): Task | null {
   const db = getDB(workspaceRoot);
 
@@ -718,7 +724,7 @@ export function getTaskById(
  */
 export function getHandover(
   workspaceRoot: string,
-  taskId: number
+  taskId: number,
 ): Handover | null {
   const db = getDB(workspaceRoot);
 
@@ -728,8 +734,8 @@ export function getHandover(
     .where(
       eq(
         schema.handovers.task_id as unknown as typeof schema.handovers.task_id,
-        taskId
-      )
+        taskId,
+      ),
     )
     .limit(1)
     .all() as Handover[];
@@ -749,7 +755,7 @@ export function getHandover(
  */
 export function getFeedback(
   workspaceRoot: string,
-  taskId: number
+  taskId: number,
 ): Feedback | null {
   const db = getDB(workspaceRoot);
 
@@ -759,11 +765,13 @@ export function getFeedback(
     .where(
       eq(
         schema.feedback.task_id as unknown as typeof schema.feedback.task_id,
-        taskId
-      )
+        taskId,
+      ),
     )
     .orderBy(
-      desc(schema.feedback.attempt as unknown as typeof schema.feedback.attempt)
+      desc(
+        schema.feedback.attempt as unknown as typeof schema.feedback.attempt,
+      ),
     )
     .limit(1)
     .all() as Feedback[];
@@ -784,25 +792,25 @@ export function getFeedback(
  */
 export function getVerificationChecks(
   workspaceRoot: string,
-  taskId: number
+  taskId: number,
 ): VerificationCheck[] {
   const db = getDB(workspaceRoot);
 
   const results = db
     .select()
     .from(
-      schema.verificationChecks as unknown as typeof schema.verificationChecks
+      schema.verificationChecks as unknown as typeof schema.verificationChecks,
     )
     .where(
       eq(
         schema.verificationChecks
           .task_id as unknown as typeof schema.verificationChecks.task_id,
-        taskId
-      )
+        taskId,
+      ),
     )
     .orderBy(
       schema.verificationChecks
-        .id as unknown as typeof schema.verificationChecks.id
+        .id as unknown as typeof schema.verificationChecks.id,
     )
     .all() as VerificationCheck[];
 
@@ -839,7 +847,7 @@ export interface Signal {
  */
 export function getSignal(
   workspaceRoot: string,
-  taskId: number
+  taskId: number,
 ): Signal | null {
   const db = getDB(workspaceRoot);
 
@@ -849,11 +857,11 @@ export function getSignal(
     .where(
       eq(
         schema.signals.task_id as unknown as typeof schema.signals.task_id,
-        taskId
-      )
+        taskId,
+      ),
     )
     .orderBy(
-      desc(schema.signals.attempt as unknown as typeof schema.signals.attempt)
+      desc(schema.signals.attempt as unknown as typeof schema.signals.attempt),
     )
     .limit(1)
     .all() as Signal[];
@@ -873,7 +881,7 @@ export function getSignal(
  */
 export function getEscalation(
   workspaceRoot: string,
-  taskId: number
+  taskId: number,
 ): Escalation | null {
   const db = getDB(workspaceRoot);
 
@@ -885,19 +893,19 @@ export function getEscalation(
         eq(
           schema.escalations
             .task_id as unknown as typeof schema.escalations.task_id,
-          taskId
+          taskId,
         ),
         isNull(
           schema.escalations
-            .resolved_at as unknown as typeof schema.escalations.resolved_at
-        )
-      )
+            .resolved_at as unknown as typeof schema.escalations.resolved_at,
+        ),
+      ),
     )
     .orderBy(
       desc(
         schema.escalations
-          .escalated_at as unknown as typeof schema.escalations.escalated_at
-      )
+          .escalated_at as unknown as typeof schema.escalations.escalated_at,
+      ),
     )
     .limit(1)
     .all() as Escalation[];
@@ -916,7 +924,7 @@ export function getEscalation(
  * @returns Next pending task (with optional handover) or null if none exists
  */
 export function getNextPendingTask(
-  workspaceRoot: string
+  workspaceRoot: string,
 ): (Task & { handover: Handover | null }) | null {
   const db = getDB(workspaceRoot);
 
@@ -934,20 +942,20 @@ export function getNextPendingTask(
       schema.handovers as unknown as typeof schema.handovers,
       eq(
         schema.tasks.id as unknown as typeof schema.tasks.id,
-        schema.handovers.task_id as unknown as typeof schema.handovers.task_id
-      )
+        schema.handovers.task_id as unknown as typeof schema.handovers.task_id,
+      ),
     )
     .where(
       and(
         eq(
           schema.tasks.sprint_id as unknown as typeof schema.tasks.sprint_id,
-          activeSprint.id
+          activeSprint.id,
         ),
         eq(
           schema.tasks.status as unknown as typeof schema.tasks.status,
-          "PENDING"
-        )
-      )
+          "PENDING",
+        ),
+      ),
     )
     .orderBy(schema.tasks.task_id as unknown as typeof schema.tasks.task_id)
     .limit(1)
@@ -976,7 +984,7 @@ export function getNextPendingTask(
  */
 export function getSessionLabel(
   workspaceRoot: string,
-  role: "orchestrator" | "implementor"
+  role: "orchestrator" | "implementor",
 ): string | null {
   const db = getDB(workspaceRoot);
 
@@ -986,8 +994,8 @@ export function getSessionLabel(
     .where(
       eq(
         schema.chatSessions.role as unknown as typeof schema.chatSessions.role,
-        role
-      )
+        role,
+      ),
     )
     .limit(1)
     .all() as { tab_label: string }[];
@@ -1007,7 +1015,7 @@ export function getSessionLabel(
  */
 export function getTddInfo(
   workspaceRoot: string,
-  taskId: number
+  taskId: number,
 ): TddInfo | null {
   // Use raw SQLite for direct queries (TDD tables may not be in Drizzle schema)
   const db = OrchestraDB.getInstance(workspaceRoot);
@@ -1025,7 +1033,7 @@ export function getTddInfo(
          FROM tdd_task_relationships tr
          JOIN tasks t ON t.id = tr.red_task_id
          WHERE tr.green_task_id = ?
-         LIMIT 1`
+         LIMIT 1`,
       )
       .get(taskId) as
       | { red_task_id: number; red_task_title: string }
@@ -1035,14 +1043,14 @@ export function getTddInfo(
       // This is a green task - get registry entries from the red task
       const entries = db
         .prepare(
-          `SELECT * FROM tdd_red_registry WHERE red_task_id = ? ORDER BY id`
+          `SELECT * FROM tdd_red_registry WHERE red_task_id = ? ORDER BY id`,
         )
         .all(greenCheck.red_task_id) as TddRegistryEntry[];
 
       const registeredFiles = entries.length;
       const totalTestCount = entries.reduce(
         (sum, e) => sum + (e.test_count || 1),
-        0
+        0,
       );
 
       return {
@@ -1066,7 +1074,7 @@ export function getTddInfo(
   const registeredFiles = entries.length;
   const totalTestCount = entries.reduce(
     (sum, e) => sum + (e.test_count || 1),
-    0
+    0,
   );
 
   return {
@@ -1128,7 +1136,7 @@ export interface ReviewSummary {
  */
 export function getLatestSprintReview(
   workspaceRoot: string,
-  sprintId: string
+  sprintId: string,
 ): SpecReview | null {
   const db = OrchestraDB.getInstance(workspaceRoot);
 
@@ -1136,7 +1144,7 @@ export function getLatestSprintReview(
     .prepare(
       `SELECT * FROM spec_reviews 
        WHERE sprint_id = ? AND task_id IS NULL AND review_type = 'SPRINT'
-       ORDER BY reviewed_at DESC LIMIT 1`
+       ORDER BY reviewed_at DESC LIMIT 1`,
     )
     .get(sprintId) as SpecReview | undefined;
 
@@ -1148,7 +1156,7 @@ export function getLatestSprintReview(
  */
 export function getLatestHandoverReview(
   workspaceRoot: string,
-  taskId: number
+  taskId: number,
 ): SpecReview | null {
   const db = OrchestraDB.getInstance(workspaceRoot);
 
@@ -1156,7 +1164,7 @@ export function getLatestHandoverReview(
     .prepare(
       `SELECT * FROM spec_reviews 
        WHERE task_id = ? AND review_type = 'HANDOVER'
-       ORDER BY reviewed_at DESC LIMIT 1`
+       ORDER BY reviewed_at DESC LIMIT 1`,
     )
     .get(taskId) as SpecReview | undefined;
 
@@ -1168,7 +1176,7 @@ export function getLatestHandoverReview(
  */
 export function getTaskReviewHistory(
   workspaceRoot: string,
-  taskId: number
+  taskId: number,
 ): SpecReview[] {
   const db = OrchestraDB.getInstance(workspaceRoot);
 
@@ -1176,7 +1184,7 @@ export function getTaskReviewHistory(
     .prepare(
       `SELECT * FROM spec_reviews 
        WHERE task_id = ?
-       ORDER BY reviewed_at DESC`
+       ORDER BY reviewed_at DESC`,
     )
     .all(taskId) as SpecReview[];
 }
@@ -1186,7 +1194,7 @@ export function getTaskReviewHistory(
  */
 export function getSprintReviewHistory(
   workspaceRoot: string,
-  sprintId: string
+  sprintId: string,
 ): SpecReview[] {
   const db = OrchestraDB.getInstance(workspaceRoot);
 
@@ -1194,7 +1202,7 @@ export function getSprintReviewHistory(
     .prepare(
       `SELECT * FROM spec_reviews 
        WHERE sprint_id = ?
-       ORDER BY reviewed_at DESC`
+       ORDER BY reviewed_at DESC`,
     )
     .all(sprintId) as SpecReview[];
 }
@@ -1204,7 +1212,7 @@ export function getSprintReviewHistory(
  */
 export function getTaskReviewSummary(
   workspaceRoot: string,
-  taskId: number
+  taskId: number,
 ): ReviewSummary {
   const reviews = getTaskReviewHistory(workspaceRoot, taskId);
 
@@ -1250,7 +1258,7 @@ export function getTaskReviewSummary(
  */
 export function getSprintReviewSummary(
   workspaceRoot: string,
-  sprintId: string
+  sprintId: string,
 ): ReviewSummary {
   const db = OrchestraDB.getInstance(workspaceRoot);
 
@@ -1258,7 +1266,7 @@ export function getSprintReviewSummary(
     .prepare(
       `SELECT * FROM spec_reviews 
        WHERE sprint_id = ? AND task_id IS NULL AND review_type = 'SPRINT'
-       ORDER BY reviewed_at DESC`
+       ORDER BY reviewed_at DESC`,
     )
     .all(sprintId) as SpecReview[];
 
@@ -1322,7 +1330,7 @@ export interface Amendment {
  */
 export function getTaskAmendments(
   workspaceRoot: string,
-  taskId: number
+  taskId: number,
 ): Amendment[] {
   const db = OrchestraDB.getInstance(workspaceRoot);
 
@@ -1330,7 +1338,7 @@ export function getTaskAmendments(
     .prepare(
       `SELECT * FROM amendments 
        WHERE task_id = ?
-       ORDER BY amended_at DESC`
+       ORDER BY amended_at DESC`,
     )
     .all(taskId) as Amendment[];
 
