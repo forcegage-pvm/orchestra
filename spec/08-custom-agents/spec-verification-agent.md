@@ -30,13 +30,190 @@ A separate agent (different chat instance, different instructions) that:
 3. **Cannot** modify Orchestra data
 4. Validates alignment at key checkpoints
 
-### Verification Checkpoints
+---
+
+## Blocking States and Gates
+
+### New Sprint Status: `PENDING_SPEC_REVIEW`
+
+After `configure_sprint` completes, the sprint enters `PENDING_SPEC_REVIEW` status:
+
+```
+configure_sprint() → Sprint.status = PENDING_SPEC_REVIEW
+                                ↓
+                     [BLOCKED - No tasks can be prepared]
+                                ↓
+              Spec Auditor reviews sprint configuration
+                                ↓
+         ┌──────────────────────┼──────────────────────┐
+         ↓                      ↓                      ↓
+      APPROVED              NEEDS_REVISION          REJECTED
+         ↓                      ↓                      ↓
+  Sprint.status =        Sprint stays in         Sprint marked
+     ACTIVE              PENDING_SPEC_REVIEW       FAILED
+         ↓                      ↓
+  Tasks can now          Orchestrator must
+  be prepared            revise and re-submit
+```
+
+### New Task Status: `PENDING_HANDOVER_REVIEW`
+
+After `prepare_task` completes, the task enters `PENDING_HANDOVER_REVIEW` status:
+
+```
+prepare_task() → Task.status = PENDING_HANDOVER_REVIEW
+                           ↓
+              [BLOCKED - Cannot proceed to IMPLEMENT]
+                           ↓
+          Spec Auditor reviews handover vs spec task
+                           ↓
+         ┌─────────────────┼─────────────────┐
+         ↓                 ↓                 ↓
+      APPROVED        NEEDS_REVISION      REJECTED
+         ↓                 ↓                 ↓
+  Task.status =      Task stays in      Task marked
+    IMPLEMENT        PENDING_HANDOVER_   BLOCKED
+         ↓           REVIEW
+  Implementor             ↓
+  can start          Orchestrator must
+                     revise handover
+```
+
+### Gate Summary
+
+| Gate | Trigger | Blocking Status | Blocks Until | Actors |
+|------|---------|-----------------|--------------|--------|
+| **Sprint Gate** | `configure_sprint` | `PENDING_SPEC_REVIEW` | Spec Auditor approves | Spec Auditor only |
+| **Handover Gate** | `prepare_task` | `PENDING_HANDOVER_REVIEW` | Spec Auditor approves | Spec Auditor only |
+| **Amendment Gate** | `update_verification` (removes BLOCKING) | `PENDING_AMENDMENT_REVIEW` | Human Supervisor approves | Human only |
+
+### Orchestrator Awareness
+
+**CRITICAL**: The Orchestrator MUST be informed that:
+1. Every `configure_sprint` will be audited against the specification
+2. Every `prepare_task` handover will be audited against the specification
+3. The audit is performed by a DIFFERENT agent that cannot see orchestrator reasoning
+4. Defective work WILL be caught and rejected
+
+This creates **accountability pressure** - the orchestrator knows its output will be scrutinized.
+
+---
+
+## Verification Checkpoints
 
 | Checkpoint | Trigger | What It Validates |
 |------------|---------|-------------------|
 | **Sprint Configuration** | After `configure_sprint` | Sprint tasks cover spec requirements; no orphaned spec tasks |
 | **Task Preparation** | After `prepare_task` | Handover acceptance criteria align with spec task definition |
 | **Amendment Review** | After `update_verification` removes BLOCKING checks | Removal is justified by spec, not handover |
+
+---
+
+## Detailed Check Criteria
+
+### Sprint Configuration Checks
+
+The Spec Auditor validates sprint configuration against the specification:
+
+| Check | Pass Criteria | Fail Criteria |
+|-------|---------------|---------------|
+| **Coverage** | Every spec task (T001, T002, etc.) is mapped to an Orchestra task | Spec tasks missing from Orchestra |
+| **Completeness** | Each Orchestra task references which spec tasks it covers (`speckit_tasks` field) | Orchestra tasks with no spec reference |
+| **Scope Match** | Orchestra task descriptions align with spec task definitions | Significant scope differences |
+| **No Inflation** | Orchestra tasks don't add unspecified scope | Extra requirements not in spec |
+| **No Deferral** | No "future work" or "out of scope" for in-scope spec items | Core functionality deferred |
+
+**Sprint Gate Output:**
+
+```json
+{
+  "gate": "SPRINT_CONFIGURATION",
+  "status": "NEEDS_REVISION",
+  "spec_tasks_total": 15,
+  "spec_tasks_covered": 12,
+  "spec_tasks_missing": ["T013", "T014", "T015"],
+  "issues": [
+    {
+      "severity": "BLOCKING",
+      "issue": "Spec task T013 (Implement axis line rendering) not covered by any Orchestra task",
+      "spec_reference": "spec.md line 45: FR-011"
+    }
+  ],
+  "recommendation": "Add Orchestra task to cover T013-T015 or update existing task scope"
+}
+```
+
+### Handover Preparation Checks
+
+The Spec Auditor validates each handover against the corresponding spec task:
+
+| Check | Pass Criteria | Fail Criteria |
+|-------|---------------|---------------|
+| **Functional Match** | Handover acceptance criteria cover spec functional requirements | Spec requirements missing from handover |
+| **No Stub Language** | Handover requires working implementation | Contains "stub", "no-op", "placeholder", "future work" |
+| **Measurable Criteria** | Each acceptance criterion is testable | Vague criteria like "implement feature" |
+| **Complete Scope** | All spec task deliverables are in handover | Partial coverage |
+| **Verification Alignment** | Hidden verification checks match spec requirements | Verification checks spec, not handover |
+
+**Handover Gate Output:**
+
+```json
+{
+  "gate": "HANDOVER_PREPARATION",
+  "task_id": 6,
+  "status": "FAIL",
+  "spec_task": "T011",
+  "spec_definition": "Implement basic paint method in XAxisPainter with nice numbers algorithm",
+  "issues": [
+    {
+      "severity": "BLOCKING",
+      "issue": "Handover says 'basic no-op implementation' but spec says 'Implement basic paint method'",
+      "handover_text": "Basic no-op implementation for now",
+      "spec_text": "Implement basic paint method",
+      "analysis": "The word 'implement' requires working code. 'no-op' is a stub, not implementation."
+    }
+  ],
+  "recommendation": "Revise handover to require functional paint() method that draws axis line, ticks, and labels"
+}
+```
+
+### Amendment Checks
+
+The Spec Auditor validates any removal of BLOCKING verification checks:
+
+| Check | Pass Criteria | Fail Criteria |
+|-------|---------------|---------------|
+| **Spec Justification** | Removal references spec saying requirement is optional | Only references handover |
+| **Not Core Functionality** | Removed check was truly speculative, not core | Check enforced spec requirement |
+| **Audit Trail** | Rationale explains spec-based reasoning | Rationale only mentions handover |
+
+**Amendment Gate Output:**
+
+```json
+{
+  "gate": "AMENDMENT_REVIEW",
+  "amendment_id": 7,
+  "task_id": 6,
+  "status": "REJECT",
+  "removed_check": {
+    "check_id": "struct-1",
+    "description": "XAxisPainter draws axis line",
+    "pattern": "drawLine"
+  },
+  "orchestrator_rationale": "Handover specified no-op implementation, so drawLine is premature",
+  "issues": [
+    {
+      "severity": "BLOCKING",
+      "issue": "Rationale cites handover, not spec. Spec says 'Implement paint method' which requires drawing.",
+      "spec_reference": "T011: Implement basic paint method",
+      "analysis": "The check was CORRECT. The handover was WRONG. Removing the check hides the defect."
+    }
+  ],
+  "action": "RESTORE check struct-1. Revise handover to match spec instead."
+}
+```
+
+---
 
 ### Agent Identity: Specification Auditor
 
