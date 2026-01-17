@@ -1,6 +1,6 @@
 ---
 description: "Orchestra Controller - Independent specification auditor. Reviews sprint configurations and handovers against the spec. Has read-only access to specs and handovers, NO access to verification criteria modifications."
-tools: ["orchestra-ctl/*", "search", "fetch"]
+tools: ["read/readFile", "search", "web/fetch", "orchestra-ctrl/*"]
 ---
 
 # Orchestra Controller Agent
@@ -226,7 +226,6 @@ All spec requirements are covered by tasks. Task breakdown is appropriate.
 ### Issues Found:
 
 1. BLOCKING: "Minimal implementation" language
-
    - Spec: "Implement query<T>() generic method"
    - Handover: "Minimal query implementation"
    - This is a scope reduction not authorized by spec

@@ -43,7 +43,7 @@ export async function handleGetSprintStatus(input: unknown) {
         input: validation.data,
       },
       { success: true, output },
-      durationMs
+      durationMs,
     );
 
     return {
@@ -60,7 +60,7 @@ export async function handleGetSprintStatus(input: unknown) {
         input: validation.data,
       },
       { success: false, errorMessage: err.message },
-      durationMs
+      durationMs,
     );
 
     return {
@@ -76,7 +76,7 @@ export async function handleGetSprintStatus(input: unknown) {
               },
             },
             null,
-            2
+            2,
           ),
         },
       ],
@@ -111,7 +111,7 @@ async function getSprintStatus(): Promise<GetSprintStatusOutput> {
   const totalTasks = allTasks.length;
   const completed = allTasks.filter((t) => t.status === "COMPLETE").length;
   const inProgress = allTasks.filter((t) =>
-    ["IMPLEMENT", "GATE_CHECK", "VERIFY"].includes(t.status)
+    ["IMPLEMENT", "GATE_CHECK", "VERIFY"].includes(t.status),
   ).length;
   const pending = allTasks.filter((t) => t.status === "PENDING").length;
 
@@ -120,7 +120,7 @@ async function getSprintStatus(): Promise<GetSprintStatusOutput> {
     const phaseTasks = allTasks.filter((t) => t.phase_id === phase.id);
     const taskCount = phaseTasks.length;
     const completedCount = phaseTasks.filter(
-      (t) => t.status === "COMPLETE"
+      (t) => t.status === "COMPLETE",
     ).length;
 
     // Derive phase status
@@ -147,12 +147,11 @@ async function getSprintStatus(): Promise<GetSprintStatusOutput> {
 
   // 6. Find current task
   const currentTask = allTasks.find((t) =>
-    ["IMPLEMENT", "GATE_CHECK", "VERIFY"].includes(t.status)
+    ["IMPLEMENT", "GATE_CHECK", "VERIFY"].includes(t.status),
   );
 
-  // 7. Determine sprint status
-  const sprintStatus: "ACTIVE" | "COMPLETED" =
-    completed === totalTasks ? "COMPLETED" : "ACTIVE";
+  // 7. Use actual sprint status from database (supports review workflow)
+  const sprintStatus = sprint.status as GetSprintStatusOutput["status"];
 
   // 8. Query TDD task relationships for TDD summary
   const tddRelationships = await db
@@ -165,16 +164,16 @@ async function getSprintStatus(): Promise<GetSprintStatusOutput> {
   if (tddRelationships.length > 0) {
     // Count relationships by completed_at presence
     const greenCount = tddRelationships.filter(
-      (rel) => rel.completed_at !== null
+      (rel) => rel.completed_at !== null,
     ).length;
     const pendingGreenCount = tddRelationships.filter(
-      (rel) => rel.completed_at === null
+      (rel) => rel.completed_at === null,
     ).length;
 
     // Detect orphaned entries: green_task_id references a deleted/non-existent task
     const taskIds = new Set(allTasks.map((t) => t.id));
     const orphanedCount = tddRelationships.filter(
-      (rel) => !taskIds.has(rel.green_task_id)
+      (rel) => !taskIds.has(rel.green_task_id),
     ).length;
 
     // blocking_closeout is true if ANY relationship has null completed_at (or is orphaned)
