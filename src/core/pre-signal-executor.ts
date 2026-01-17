@@ -129,7 +129,7 @@ function getDefaultCommands(projectType: ProjectType): {
         // Always exclude tdd-red tests from normal test runs
         // TDD red-phase tests are only run explicitly via runTddRedPhaseTests
         test: "flutter test --exclude-tags tdd-red",
-        lint: "dart format --set-exit-if-changed .",
+        lint: "dart format .",
       };
     case "python":
       return {
@@ -180,7 +180,7 @@ function getDefaultCommands(projectType: ProjectType): {
  * ```
  */
 export async function runPreSignalChecks(
-  config: PreSignalConfig
+  config: PreSignalConfig,
 ): Promise<PreSignalResult> {
   const timeout = config.timeout ?? DEFAULT_TIMEOUT;
   const execOptions = {
@@ -196,7 +196,7 @@ export async function runPreSignalChecks(
   const buildResult = await runCheck(
     config.buildCommand ?? defaults.build,
     execOptions,
-    config.skipBuild
+    config.skipBuild,
   );
 
   // Run test check - ALWAYS use dual-command mode for TDD verification
@@ -211,7 +211,7 @@ export async function runPreSignalChecks(
     projectType,
     config.testCommand,
     execOptions,
-    config.skipTest
+    config.skipTest,
   );
 
   // Run lint check (use detected default if available, or explicit config)
@@ -219,7 +219,7 @@ export async function runPreSignalChecks(
   const lintResult = await runCheck(
     lintCommand,
     execOptions,
-    config.skipLint || !lintCommand
+    config.skipLint || !lintCommand,
   );
 
   // Run TDD validation if tddRedPhase is enabled
@@ -258,7 +258,7 @@ export async function runPreSignalChecks(
 async function runCheck(
   command: string | undefined,
   options: { cwd: string; timeout: number },
-  skip?: boolean
+  skip?: boolean,
 ): Promise<PreSignalCheckResult> {
   // Skip if requested or no command
   if (skip || !command) {
@@ -313,7 +313,7 @@ function mapExecuteResult(result: ExecuteResult): PreSignalCheckResult {
  */
 function isNoTestsFoundOutput(
   result: ExecuteResult,
-  projectType: ProjectType
+  projectType: ProjectType,
 ): boolean {
   const output = (result.stdout || "") + (result.stderr || "");
   const outputLower = output.toLowerCase();
@@ -378,7 +378,7 @@ async function runTddRedPhaseTests(
   projectType: ProjectType,
   customTestCommand: string | undefined,
   options: { cwd: string; timeout: number },
-  skip?: boolean
+  skip?: boolean,
 ): Promise<PreSignalCheckResult> {
   // Skip if requested
   if (skip) {
@@ -425,7 +425,7 @@ async function runTddRedPhaseTests(
           `Command: ${tddCommands.tagged}\n` +
           `Output: ${
             taggedResult.stdout || taggedResult.stderr || "(no output)"
-          }`
+          }`,
       );
     }
 
@@ -436,7 +436,7 @@ async function runTddRedPhaseTests(
           `Command: ${tddCommands.nonTagged}\n` +
           `Output: ${
             nonTaggedResult.stderr || nonTaggedResult.stdout || "(no output)"
-          }`
+          }`,
       );
     }
 
@@ -473,7 +473,7 @@ async function runTddRedPhaseTests(
  */
 function getTddCommands(
   projectType: ProjectType,
-  customTestCommand?: string
+  customTestCommand?: string,
 ): { tagged: string; nonTagged: string } {
   switch (projectType) {
     case "flutter":

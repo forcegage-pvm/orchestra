@@ -16,11 +16,11 @@ import {
 
 describe("Role-based Tool Filtering", () => {
   // Expected tool counts per role (excluding shared)
-  const EXPECTED_ORCHESTRATOR_TOOL_COUNT = 22;
+  const EXPECTED_ORCHESTRATOR_TOOL_COUNT = 23;
   const EXPECTED_IMPLEMENTOR_TOOL_COUNT = 3;
   const EXPECTED_CONTROLLER_TOOL_COUNT = 7;
   const EXPECTED_SHARED_TOOL_COUNT = 6;
-  const EXPECTED_TOTAL_TOOL_COUNT = 38;
+  const EXPECTED_TOTAL_TOOL_COUNT = 39;
 
   describe("Tool categorization", () => {
     it("should have correct orchestrator tool count", () => {
