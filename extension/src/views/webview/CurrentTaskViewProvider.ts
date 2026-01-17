@@ -8,14 +8,18 @@
 
 import * as vscode from "vscode";
 import {
+  getCurrentSprint,
   getCurrentTask,
   getEscalatedTask,
   getEscalation,
   getLatestHandoverReview,
+  getLatestSprintReview,
   getNextPendingTask,
   getTaskAmendments,
   getTddInfo,
+  type Amendment,
   type Handover,
+  type Sprint,
   type Task,
 } from "../../database/queries.js";
 import type { DatabaseWatcher } from "../../database/watcher.js";
@@ -41,13 +45,13 @@ export class CurrentTaskViewProvider implements vscode.WebviewViewProvider {
   constructor(
     private readonly _extensionUri: vscode.Uri,
     private readonly _workspaceRoot: string,
-    private readonly _dbWatcher: DatabaseWatcher
+    private readonly _dbWatcher: DatabaseWatcher,
   ) {
     // Listen for database changes and refresh view
     this._disposables.push(
       this._dbWatcher.onDidChange(() => {
         this._refresh();
-      })
+      }),
     );
   }
 
@@ -58,7 +62,7 @@ export class CurrentTaskViewProvider implements vscode.WebviewViewProvider {
   public resolveWebviewView(
     webviewView: vscode.WebviewView,
     _context: vscode.WebviewViewResolveContext,
-    _token: vscode.CancellationToken
+    _token: vscode.CancellationToken,
   ): void | Thenable<void> {
     this._view = webviewView;
 
@@ -75,14 +79,14 @@ export class CurrentTaskViewProvider implements vscode.WebviewViewProvider {
     this._disposables.push(
       webviewView.webview.onDidReceiveMessage((message) => {
         this._handleMessage(message);
-      })
+      }),
     );
 
     // Clean up when view is disposed
     this._disposables.push(
       webviewView.onDidDispose(() => {
         this._view = undefined;
-      })
+      }),
     );
 
     logger.debug("CurrentTaskViewProvider resolved");
@@ -97,6 +101,22 @@ export class CurrentTaskViewProvider implements vscode.WebviewViewProvider {
     }
 
     try {
+      // Check if sprint needs review first
+      const activeSprint = getCurrentSprint(this._workspaceRoot);
+      if (
+        activeSprint &&
+        (activeSprint.status === "PENDING_SPEC_REVIEW" ||
+          activeSprint.status === "SPEC_REVIEW_FAILED")
+      ) {
+        // Show sprint review info instead of tasks
+        void this._view.webview.postMessage({
+          command: "update",
+          data: this._getSprintReviewData(activeSprint),
+        });
+        logger.debug("CurrentTaskViewProvider showing sprint review");
+        return;
+      }
+
       // Try to get current in-progress task first
       let currentTask: (Task & { handover: Handover | null }) | null =
         getCurrentTask(this._workspaceRoot);
@@ -121,11 +141,55 @@ export class CurrentTaskViewProvider implements vscode.WebviewViewProvider {
   }
 
   /**
+   * Get sprint review data for display when sprint is pending review
+   */
+  private _getSprintReviewData(sprint: Sprint): any {
+    const isPending = sprint.status === "PENDING_SPEC_REVIEW";
+    const isFailed = sprint.status === "SPEC_REVIEW_FAILED";
+
+    // Get latest review if failed
+    let reviewData = null;
+    if (isFailed) {
+      try {
+        const review = getLatestSprintReview(this._workspaceRoot, sprint.id);
+        if (review) {
+          reviewData = {
+            decision: review.decision,
+            conformance: review.conformance,
+            issues: review.issues ? JSON.parse(review.issues) : [],
+            recommendations: review.recommendations
+              ? JSON.parse(review.recommendations)
+              : [],
+            revision_count: review.revision_count,
+            reviewed_at: review.reviewed_at,
+            reviewed_by: review.reviewed_by,
+          };
+        }
+      } catch (error) {
+        logger.debug("Could not fetch sprint review", error);
+      }
+    }
+
+    return {
+      type: "sprint-review",
+      sprint: {
+        id: sprint.id,
+        name: sprint.name,
+        status: sprint.status,
+        workflow_step: sprint.workflow_step,
+      },
+      isPending,
+      isFailed,
+      review: reviewData,
+    };
+  }
+
+  /**
    * Convert database task to TaskData for template
    */
   private _getTaskData(
     currentTask: (Task & { handover: Handover | null }) | null,
-    isNextPending: boolean = false
+    isNextPending: boolean = false,
   ): TaskData | null {
     if (!currentTask) {
       return null;
@@ -201,7 +265,7 @@ export class CurrentTaskViewProvider implements vscode.WebviewViewProvider {
       try {
         const reviewSummary = getLatestHandoverReview(
           this._workspaceRoot,
-          currentTask.id
+          currentTask.id,
         );
         if (reviewSummary) {
           review = {
@@ -209,7 +273,7 @@ export class CurrentTaskViewProvider implements vscode.WebviewViewProvider {
             conformance: reviewSummary.conformance,
             issues: reviewSummary.issues
               ? (JSON.parse(
-                  reviewSummary.issues
+                  reviewSummary.issues,
                 ) as TaskData["review"]["issues"])
               : [],
             recommendations: reviewSummary.recommendations
@@ -233,7 +297,7 @@ export class CurrentTaskViewProvider implements vscode.WebviewViewProvider {
     try {
       const taskAmendments = getTaskAmendments(
         this._workspaceRoot,
-        currentTask.id
+        currentTask.id,
       );
       if (taskAmendments.length > 0) {
         result.amendments = taskAmendments;
@@ -274,7 +338,7 @@ export class CurrentTaskViewProvider implements vscode.WebviewViewProvider {
         if (typeof message.taskId === "number") {
           void vscode.commands.executeCommand(
             "orchestra.openTaskDetail",
-            message.taskId
+            message.taskId,
           );
         }
         break;
@@ -293,7 +357,7 @@ export class CurrentTaskViewProvider implements vscode.WebviewViewProvider {
         if (typeof message.taskId === "number") {
           // TODO: Implement signal completion via MCP or CLI
           void vscode.window.showInformationMessage(
-            `Signaling completion for task ${message.taskId}... (MCP integration pending)`
+            `Signaling completion for task ${message.taskId}... (MCP integration pending)`,
           );
         }
         break;
@@ -379,7 +443,7 @@ export class CurrentTaskViewProvider implements vscode.WebviewViewProvider {
         escalatedTask
           ? `Task ${escalatedTask.task_id} (${escalatedTask.status})`
           : "null"
-      }`
+      }`,
     );
     if (escalatedTask) {
       currentTask = escalatedTask;
@@ -393,7 +457,7 @@ export class CurrentTaskViewProvider implements vscode.WebviewViewProvider {
           currentTask
             ? `Task ${currentTask.task_id} (${currentTask.status})`
             : "null"
-        }`
+        }`,
       );
     }
 
@@ -406,7 +470,7 @@ export class CurrentTaskViewProvider implements vscode.WebviewViewProvider {
           currentTask
             ? `Task ${currentTask.task_id} (${currentTask.status})`
             : "null"
-        }`
+        }`,
       );
     }
 
@@ -414,7 +478,7 @@ export class CurrentTaskViewProvider implements vscode.WebviewViewProvider {
     logger.info(
       `Rendering task: ${
         taskData ? `Task ${taskData.task_id} (${taskData.status})` : "null"
-      }`
+      }`,
     );
 
     return generateCurrentTaskHtml(taskData, cspSource);

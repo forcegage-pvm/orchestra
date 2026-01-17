@@ -49,9 +49,7 @@ interface MessageItem {
   messageType: "empty" | "error" | "info";
 }
 
-export class SprintTreeProvider
-  implements vscode.TreeDataProvider<TreeElement>
-{
+export class SprintTreeProvider implements vscode.TreeDataProvider<TreeElement> {
   private _onDidChangeTreeData = new vscode.EventEmitter<
     TreeElement | undefined | void
   >();
@@ -59,7 +57,7 @@ export class SprintTreeProvider
 
   constructor(
     private readonly _db: Database.Database,
-    private readonly _dbWatcher: DatabaseWatcher
+    private readonly _dbWatcher: DatabaseWatcher,
   ) {
     void this._db; // Keep for potential future direct use
 
@@ -82,7 +80,7 @@ export class SprintTreeProvider
       case "message":
         return this._createMessageTreeItem(
           element.message,
-          element.messageType
+          element.messageType,
         );
     }
   }
@@ -120,7 +118,7 @@ export class SprintTreeProvider
         const allTasks = getTasksForSprint(workspaceRoot, element.sprintId);
         // Filter tasks that belong to this phase
         const phaseTasks = allTasks.filter(
-          (task) => task.phase_id === element.phase.id
+          (task) => task.phase_id === element.phase.id,
         );
         if (phaseTasks.length === 0) {
           return [this._createMessageItem("No tasks in this phase", "empty")];
@@ -144,7 +142,7 @@ export class SprintTreeProvider
       sprint.name,
       isActive
         ? vscode.TreeItemCollapsibleState.Expanded
-        : vscode.TreeItemCollapsibleState.Collapsed
+        : vscode.TreeItemCollapsibleState.Collapsed,
     );
 
     // Sprint 004: Check review status and display visual indicators
@@ -155,27 +153,27 @@ export class SprintTreeProvider
       // Pending review: clock icon with blue color
       item.iconPath = new vscode.ThemeIcon(
         "clock",
-        new vscode.ThemeColor("charts.blue")
+        new vscode.ThemeColor("charts.blue"),
       );
       description = "⏳ Pending Review";
     } else if (sprintStatus === "SPEC_REVIEW_FAILED") {
       // Failed review: warning icon with orange color
       item.iconPath = new vscode.ThemeIcon(
         "warning",
-        new vscode.ThemeColor("charts.orange")
+        new vscode.ThemeColor("charts.orange"),
       );
       description = "⚠️ Review Failed";
     } else if (isActive) {
       // Active: rocket icon with green color for active sprint
       item.iconPath = new vscode.ThemeIcon(
         "rocket",
-        new vscode.ThemeColor("charts.green")
+        new vscode.ThemeColor("charts.green"),
       );
     } else {
       // Inactive: project icon with muted color
       item.iconPath = new vscode.ThemeIcon(
         "project",
-        new vscode.ThemeColor("descriptionForeground")
+        new vscode.ThemeColor("descriptionForeground"),
       );
     }
 
@@ -187,20 +185,32 @@ export class SprintTreeProvider
         ? "Active Sprint"
         : "Right-click → 'Set as Active Sprint' to switch"
     }`;
-    item.contextValue = isActive ? "sprint-active" : "sprint-inactive";
+
+    // Set context value based on status for different menu options
+    if (
+      sprintStatus === "PENDING_SPEC_REVIEW" ||
+      sprintStatus === "SPEC_REVIEW_FAILED"
+    ) {
+      item.contextValue = isActive
+        ? "sprint-pending-review"
+        : "sprint-pending-review-inactive";
+    } else {
+      item.contextValue = isActive ? "sprint-active" : "sprint-inactive";
+    }
+
     return item;
   }
 
   private _createPhaseItem(phase: Phase, tasks: Task[]): vscode.TreeItem {
     const item = new vscode.TreeItem(
       phase.phase_name,
-      vscode.TreeItemCollapsibleState.Expanded
+      vscode.TreeItemCollapsibleState.Expanded,
     );
 
     // Calculate progress
     const totalTasks = tasks.length;
     const completedTasks = tasks.filter(
-      (task) => task.status === "COMPLETE"
+      (task) => task.status === "COMPLETE",
     ).length;
     const hasEscalated = tasks.some((task) => task.status === "ESCALATED");
 
@@ -209,19 +219,19 @@ export class SprintTreeProvider
       // All tasks complete: check icon with success color
       item.iconPath = new vscode.ThemeIcon(
         "pass",
-        new vscode.ThemeColor("testing.iconPassed")
+        new vscode.ThemeColor("testing.iconPassed"),
       );
     } else if (hasEscalated) {
       // Has escalated tasks: warning icon with warning color
       item.iconPath = new vscode.ThemeIcon(
         "warning",
-        new vscode.ThemeColor("editorWarning.foreground")
+        new vscode.ThemeColor("editorWarning.foreground"),
       );
     } else {
       // In progress: layers icon with namespace color
       item.iconPath = new vscode.ThemeIcon(
         "layers",
-        new vscode.ThemeColor("symbolIcon.namespaceForeground")
+        new vscode.ThemeColor("symbolIcon.namespaceForeground"),
       );
     }
 
@@ -238,7 +248,7 @@ export class SprintTreeProvider
   private _createTaskItem(task: Task): vscode.TreeItem {
     const item = new vscode.TreeItem(
       `Task ${task.task_id}: ${task.title}`,
-      vscode.TreeItemCollapsibleState.None
+      vscode.TreeItemCollapsibleState.None,
     );
 
     // Status-based icons
@@ -249,7 +259,7 @@ export class SprintTreeProvider
       task.task_id,
       task.status,
       task.retry_count,
-      task.max_retries
+      task.max_retries,
     );
 
     // Tooltip shows description and status (using translated label)
@@ -289,31 +299,31 @@ export class SprintTreeProvider
 
   private _createMessageItem(
     message: string,
-    messageType: "empty" | "error" | "info"
+    messageType: "empty" | "error" | "info",
   ): MessageItem {
     return { type: "message", message, messageType };
   }
 
   private _createMessageTreeItem(
     message: string,
-    messageType: "empty" | "error" | "info"
+    messageType: "empty" | "error" | "info",
   ): vscode.TreeItem {
     const item = new vscode.TreeItem(
       message,
-      vscode.TreeItemCollapsibleState.None
+      vscode.TreeItemCollapsibleState.None,
     );
 
     switch (messageType) {
       case "error":
         item.iconPath = new vscode.ThemeIcon(
           "error",
-          new vscode.ThemeColor("editorError.foreground")
+          new vscode.ThemeColor("editorError.foreground"),
         );
         break;
       case "empty":
         item.iconPath = new vscode.ThemeIcon(
           "info",
-          new vscode.ThemeColor("descriptionForeground")
+          new vscode.ThemeColor("descriptionForeground"),
         );
         break;
       case "info":

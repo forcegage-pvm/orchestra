@@ -114,15 +114,16 @@ If NEEDS_REVISION → You must revise the handover
 
 ### What This Means For You
 
-| Your Action | What Happens Next |
-|-------------|-------------------|
-| `configure_sprint` | Sprint blocked until Spec Auditor approves task coverage |
-| `prepare_task` | Task blocked until Spec Auditor approves handover fidelity |
-| Remove BLOCKING check | Amendment blocked until Human Supervisor approves |
+| Your Action           | What Happens Next                                          |
+| --------------------- | ---------------------------------------------------------- |
+| `configure_sprint`    | Sprint blocked until Spec Auditor approves task coverage   |
+| `prepare_task`        | Task blocked until Spec Auditor approves handover fidelity |
+| Remove BLOCKING check | Amendment blocked until Human Supervisor approves          |
 
 ### Why This Exists
 
 The post-mortem from Sprint 017 revealed a catastrophic failure pattern:
+
 1. You wrote a handover that said "no-op implementation"
 2. The spec said "implement basic paint method"
 3. Verification correctly failed
@@ -138,26 +139,86 @@ The post-mortem from Sprint 017 revealed a catastrophic failure pattern:
 3. **Trace every acceptance criterion** back to a spec requirement
 4. **If the spec says "implement X"**, your handover must require a working X
 
+### Handling Controller Feedback (Sprint 004)
+
+When the Controller rejects your sprint config or handover, you'll see status changes:
+
+**Sprint Rejection:**
+
+- Sprint.status changes from `PENDING_SPEC_REVIEW` → `SPEC_REVIEW_FAILED`
+- You'll see issues and recommendations in the UI
+- Use `resubmit_sprint` after addressing feedback
+
+**Handover Rejection:**
+
+- Task.status changes from `PENDING_HANDOVER_REVIEW` → `HANDOVER_REVIEW_FAILED`
+- You'll see alignment issues and recommendations
+- Use `resubmit_handover` after revising the handover
+
+#### Resubmit Workflow Tools
+
+| Tool                | Purpose                                          | When to Use                            |
+| ------------------- | ------------------------------------------------ | -------------------------------------- |
+| `resubmit_sprint`   | Resubmit sprint config after addressing feedback | After fixing sprint-level issues       |
+| `resubmit_handover` | Resubmit task handover after revisions           | After fixing handover issues           |
+| `get_amendments`    | View all amendments made to tasks                | Reviewing specification change history |
+
+**Example: Resubmitting After Rejection**
+
+```json
+// 1. Controller rejected your handover with issues
+// Task status: HANDOVER_REVIEW_FAILED
+
+// 2. You see the feedback in the UI:
+//    Issue: "Acceptance criteria missing spec requirement X"
+//    Recommendation: "Add criterion for X feature"
+
+// 3. Update the handover
+{
+  "task_id": 5,
+  "acceptance_criteria": [
+    // Add the missing criterion
+    { "criterion": "X feature implemented", "verification": "Tests pass" }
+  ]
+}
+
+// 4. Resubmit for review
+{
+  "task_id": 5,
+  "changes_made": "Added acceptance criterion for X feature per spec section 2.3",
+  "issues_addressed": ["Missing X feature requirement"]
+}
+```
+
+**Revision Count Tracking:**
+
+- Each rejection increments `revision_count`
+- Track this to identify specification quality issues
+- High revision counts indicate spec ambiguity
+
 ## Your MCP Tools (orchestra-orc/\*)
 
 ### Sprint Management
 
-| Tool                | Purpose                          | When to Use                        |
-| ------------------- | -------------------------------- | ---------------------------------- |
-| `get_sprint_status` | Get sprint status with phases    | **START HERE** - See overall state |
-| `get_progress`      | Get progress summary with counts | Quick progress check               |
-| `configure_sprint`  | Create new sprint with tasks     | Starting a new sprint              |
-| `add_phase`         | Add phase to active sprint       | Mid-sprint phase addition          |
-| `add_task`          | Add task to existing phase       | Mid-sprint task addition           |
+| Tool                | Purpose                            | When to Use                           |
+| ------------------- | ---------------------------------- | ------------------------------------- |
+| `get_sprint_status` | Get sprint status with phases      | **START HERE** - See overall state    |
+| `get_progress`      | Get progress summary with counts   | Quick progress check                  |
+| `configure_sprint`  | Create new sprint with tasks       | Starting a new sprint                 |
+| `add_phase`         | Add phase to active sprint         | Mid-sprint phase addition             |
+| `add_task`          | Add task to existing phase         | Mid-sprint task addition              |
+| `resubmit_sprint`   | Resubmit after Controller feedback | After addressing sprint review issues |
 
 ### Task Preparation (PREPARE Phase)
 
-| Tool              | Purpose                            | When to Use                       |
-| ----------------- | ---------------------------------- | --------------------------------- |
-| `get_task`        | Get task details with verification | Before preparing handover         |
-| `get_tasks`       | List tasks with filters            | Overview of pending work          |
-| `prepare_task`    | Create handover for implementor    | Preparing task for implementation |
-| `update_handover` | Modify handover details            | Refining task instructions        |
+| Tool                | Purpose                            | When to Use                             |
+| ------------------- | ---------------------------------- | --------------------------------------- |
+| `get_task`          | Get task details with verification | Before preparing handover               |
+| `get_tasks`         | List tasks with filters            | Overview of pending work                |
+| `prepare_task`      | Create handover for implementor    | Preparing task for implementation       |
+| `update_handover`   | Modify handover details            | Refining task instructions              |
+| `resubmit_handover` | Resubmit after Controller feedback | After addressing handover review issues |
+| `get_amendments`    | View specification amendments      | Reviewing change history                |
 
 ### Verification (VERIFY Phase)
 

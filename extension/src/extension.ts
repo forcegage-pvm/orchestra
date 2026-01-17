@@ -74,7 +74,7 @@ export function getSessionManager(): SessionManager {
 export function getContextFileResolver(): ContextFileResolver {
   if (!contextFileResolver) {
     throw new Error(
-      "ContextFileResolver not initialized. Orchestra workspace not detected."
+      "ContextFileResolver not initialized. Orchestra workspace not detected.",
     );
   }
   return contextFileResolver;
@@ -86,7 +86,7 @@ export function getContextFileResolver(): ContextFileResolver {
  */
 async function installMcpServers(
   orchestraRoot: string,
-  extensionPath: string
+  extensionPath: string,
 ): Promise<void> {
   const workspaceFolders = vscode.workspace.workspaceFolders;
   if (!workspaceFolders || workspaceFolders.length === 0) {
@@ -105,7 +105,7 @@ async function installMcpServers(
   const serverPath = path.join(extensionPath, "dist", "mcp-server", "index.js");
   if (!fs.existsSync(serverPath)) {
     throw new Error(
-      "Bundled MCP server not found. Extension may be corrupted."
+      "Bundled MCP server not found. Extension may be corrupted.",
     );
   }
 
@@ -122,7 +122,7 @@ async function installMcpServers(
       throw new Error(
         `Failed to parse existing mcp.json: ${
           error instanceof Error ? error.message : "Unknown error"
-        }`
+        }`,
       );
     }
   }
@@ -164,7 +164,7 @@ async function installMcpServers(
   fs.writeFileSync(
     mcpJsonPath,
     JSON.stringify(existingConfig, null, 2),
-    "utf-8"
+    "utf-8",
   );
 }
 
@@ -174,7 +174,7 @@ async function installMcpServers(
  */
 function ensureAgentFiles(
   context: vscode.ExtensionContext,
-  workspaceRoot: string
+  workspaceRoot: string,
 ): void {
   const agentsDir = path.join(workspaceRoot, ".github", "agents");
 
@@ -210,7 +210,7 @@ function ensureAgentFiles(
  * Creates .orchestra folder and empty database
  */
 async function initializeWorkspace(
-  context: vscode.ExtensionContext
+  context: vscode.ExtensionContext,
 ): Promise<void> {
   const workspaceFolders = vscode.workspace.workspaceFolders;
   if (!workspaceFolders || workspaceFolders.length === 0) {
@@ -221,7 +221,7 @@ async function initializeWorkspace(
   const workspaceRoot = workspaceFolders[0]?.uri.fsPath;
   if (!workspaceRoot) {
     vscode.window.showErrorMessage(
-      "Orchestra: Unable to determine workspace root"
+      "Orchestra: Unable to determine workspace root",
     );
     return;
   }
@@ -233,7 +233,7 @@ async function initializeWorkspace(
     const dbPath = path.join(orchestraDir, "orchestra.db");
     if (fs.existsSync(dbPath)) {
       vscode.window.showInformationMessage(
-        "Orchestra: Workspace already initialized. Reloading..."
+        "Orchestra: Workspace already initialized. Reloading...",
       );
       // Reload the window to pick up the workspace
       vscode.commands.executeCommand("workbench.action.reloadWindow");
@@ -258,7 +258,7 @@ async function initializeWorkspace(
     logger.info("MCP servers installed to .vscode/mcp.json");
 
     vscode.window.showInformationMessage(
-      "Orchestra: Workspace initialized with MCP servers. Reloading window..."
+      "Orchestra: Workspace initialized with MCP servers. Reloading window...",
     );
 
     // Reload window to activate extension with the new workspace
@@ -267,7 +267,7 @@ async function initializeWorkspace(
     const message = error instanceof Error ? error.message : "Unknown error";
     logger.error("Failed to initialize workspace", error);
     vscode.window.showErrorMessage(
-      `Orchestra: Failed to initialize workspace - ${message}`
+      `Orchestra: Failed to initialize workspace - ${message}`,
     );
   }
 }
@@ -282,13 +282,13 @@ async function handleInvokeOrchestrator(_workspaceRoot: string): Promise<void> {
     await sm.sendMessage(
       "orchestrator",
       "I'm ready to work as the orchestrator agent.",
-      []
+      [],
     );
     logger.info("Orchestrator agent invoked via SessionManager");
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
     vscode.window.showErrorMessage(
-      `Orchestra: Failed to open chat - ${message}`
+      `Orchestra: Failed to open chat - ${message}`,
     );
     logger.error("Failed to invoke orchestrator", error);
   }
@@ -304,13 +304,13 @@ async function handleInvokeImplementor(_workspaceRoot: string): Promise<void> {
     await sm.sendMessage(
       "implementor",
       "I'm ready to work as the implementor agent.",
-      []
+      [],
     );
     logger.info("Implementor agent invoked via SessionManager");
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
     vscode.window.showErrorMessage(
-      `Orchestra: Failed to open chat - ${message}`
+      `Orchestra: Failed to open chat - ${message}`,
     );
     logger.error("Failed to invoke implementor", error);
   }
@@ -322,11 +322,10 @@ async function handleInvokeImplementor(_workspaceRoot: string): Promise<void> {
  */
 async function handleStartTask(
   workspaceRoot: string,
-  taskId: number
+  taskId: number,
 ): Promise<void> {
-  const { getHandover, getTasksForSprint, getCurrentSprint } = await import(
-    "./database/queries.js"
-  );
+  const { getHandover, getTasksForSprint, getCurrentSprint } =
+    await import("./database/queries.js");
 
   try {
     // Get task details
@@ -342,7 +341,7 @@ async function handleStartTask(
 
     if (!task) {
       vscode.window.showErrorMessage(
-        `Orchestra: Task ${taskId} not found in current sprint`
+        `Orchestra: Task ${taskId} not found in current sprint`,
       );
       return;
     }
@@ -351,7 +350,7 @@ async function handleStartTask(
     const handover = getHandover(workspaceRoot, task.id);
     if (!handover) {
       vscode.window.showWarningMessage(
-        `Orchestra: Task ${task.task_id} has no handover yet. Use the orchestrator to prepare it first.`
+        `Orchestra: Task ${task.task_id} has no handover yet. Use the orchestrator to prepare it first.`,
       );
       return;
     }
@@ -365,14 +364,14 @@ async function handleStartTask(
     await sm.sendMessage(
       "implementor",
       `Start working on Task ${task.task_id}: ${task.title}. The handover has been prepared and I'm ready to implement.`,
-      []
+      [],
     );
 
     logger.info(`Task ${task.task_id} started via SessionManager`);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
     vscode.window.showErrorMessage(
-      `Orchestra: Failed to start task - ${message}`
+      `Orchestra: Failed to start task - ${message}`,
     );
     logger.error(`Failed to start task ${taskId}`, error);
   }
@@ -386,7 +385,7 @@ async function handleSetActiveSprint(
   sprintId: string,
   sprintName: string,
   treeProvider: SprintTreeProvider,
-  watcher: DatabaseWatcher
+  watcher: DatabaseWatcher,
 ): Promise<void> {
   const { setActiveSprint } = await import("./database/mutations.js");
 
@@ -394,13 +393,13 @@ async function handleSetActiveSprint(
     const result = setActiveSprint(workspaceRoot, sprintId, watcher);
     treeProvider.refresh();
     vscode.window.showInformationMessage(
-      `Orchestra: "${result.sprintName}" is now the active sprint.`
+      `Orchestra: "${result.sprintName}" is now the active sprint.`,
     );
     logger.info(`Set active sprint: ${sprintId} (${sprintName})`);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
     vscode.window.showErrorMessage(
-      `Orchestra: Failed to set active sprint - ${message}`
+      `Orchestra: Failed to set active sprint - ${message}`,
     );
     logger.error(`Failed to set active sprint ${sprintId}`, error);
   }
@@ -411,7 +410,7 @@ async function handleSetActiveSprint(
  * Triggered when .orchestra/orchestra.db is found in workspace
  */
 export async function activate(
-  context: vscode.ExtensionContext
+  context: vscode.ExtensionContext,
 ): Promise<void> {
   logger = new OrchestraLogger();
 
@@ -434,7 +433,7 @@ export async function activate(
   vscode.commands.executeCommand(
     "setContext",
     "orchestra.hasWorkspace",
-    !!orchestraRoot
+    !!orchestraRoot,
   );
 
   // Always register the initialize command (available even without workspace)
@@ -443,8 +442,8 @@ export async function activate(
       "orchestra.initializeWorkspace",
       async () => {
         await initializeWorkspace(context);
-      }
-    )
+      },
+    ),
   );
 
   // Register show version command (always available)
@@ -461,14 +460,13 @@ export async function activate(
         if (fs.existsSync(dbPath)) {
           try {
             // Query migrations from database
-            const { loadBetterSqlite3 } = await import(
-              "./database/native-loader.js"
-            );
+            const { loadBetterSqlite3 } =
+              await import("./database/native-loader.js");
             const Database = loadBetterSqlite3();
             const db = new Database(dbPath, { readonly: true });
             const migrations = db
               .prepare(
-                "SELECT id, description, applied_at FROM schema_migrations ORDER BY applied_at"
+                "SELECT id, description, applied_at FROM schema_migrations ORDER BY applied_at",
               )
               .all() as Array<{
               id: string;
@@ -490,12 +488,12 @@ export async function activate(
             details.push(
               `Database: Error reading - ${
                 err instanceof Error ? err.message : "Unknown"
-              }`
+              }`,
             );
           }
         } else {
           details.push(
-            "Database: Not yet created (run configure_sprint via MCP)"
+            "Database: Not yet created (run configure_sprint via MCP)",
           );
         }
       } else {
@@ -517,7 +515,7 @@ export async function activate(
             logger.show();
           }
         });
-    })
+    }),
   );
 
   if (!orchestraRoot) {
@@ -546,7 +544,7 @@ export async function activate(
   try {
     const mcpProviderDisposable = registerMcpServerProvider(
       context,
-      orchestraRoot
+      orchestraRoot,
     );
     context.subscriptions.push(mcpProviderDisposable);
     logger.info("MCP server definition provider registered");
@@ -555,7 +553,7 @@ export async function activate(
     logger.warn(
       `Failed to register MCP provider (may require VS Code 1.102+): ${
         err instanceof Error ? err.message : "Unknown"
-      }`
+      }`,
     );
   }
 
@@ -573,7 +571,7 @@ export async function activate(
       logger.warn(
         `Failed to update MCP config: ${
           err instanceof Error ? err.message : "Unknown"
-        }`
+        }`,
       );
     }
   }
@@ -590,7 +588,7 @@ export async function activate(
     vscode.commands.executeCommand(
       "setContext",
       "orchestra.hasActiveSprint",
-      false
+      false,
     );
 
     // Register empty tree provider for welcome view
@@ -613,21 +611,21 @@ export async function activate(
           try {
             await installMcpServers(orchestraRoot, context.extensionPath);
             vscode.window.showInformationMessage(
-              "Orchestra: MCP servers installed to .vscode/mcp.json"
+              "Orchestra: MCP servers installed to .vscode/mcp.json",
             );
           } catch (error) {
             const message =
               error instanceof Error ? error.message : "Unknown error";
             vscode.window.showErrorMessage(
-              `Orchestra: Failed to install MCP servers - ${message}`
+              `Orchestra: Failed to install MCP servers - ${message}`,
             );
           }
-        }
-      )
+        },
+      ),
     );
 
     logger.info(
-      "Orchestra extension activated (no database mode - use MCP to configure sprint)"
+      "Orchestra extension activated (no database mode - use MCP to configure sprint)",
     );
     return;
   }
@@ -638,7 +636,7 @@ export async function activate(
     orchestraRoot,
     context.extensionPath,
     extensionVersion,
-    logger
+    logger,
   );
   await configGenerator.generateConfig();
   logger.info("MCP config generation complete");
@@ -656,7 +654,7 @@ export async function activate(
       logger.info(
         `Applied ${
           migrationResult.applied
-        } database migration(s): ${migrationResult.migrations.join(", ")}`
+        } database migration(s): ${migrationResult.migrations.join(", ")}`,
       );
     } else {
       logger.info("Database schema is up to date");
@@ -669,7 +667,7 @@ export async function activate(
     vscode.window.showErrorMessage(
       `Orchestra: Cannot open database - ${errorMsg}. ` +
         `The database may be locked by another process or corrupted. ` +
-        `Try: 1) Close other VS Code windows, 2) Restart VS Code, 3) Check if MCP servers are running.`
+        `Try: 1) Close other VS Code windows, 2) Restart VS Code, 3) Check if MCP servers are running.`,
     );
 
     // Register empty tree provider for graceful degradation
@@ -697,13 +695,13 @@ export async function activate(
     const currentTaskProvider = new CurrentTaskViewProvider(
       context.extensionUri,
       orchestraRoot,
-      dbWatcher
+      dbWatcher,
     );
     context.subscriptions.push(
       vscode.window.registerWebviewViewProvider(
         "orchestra.currentTask",
-        currentTaskProvider
-      )
+        currentTaskProvider,
+      ),
     );
     logger.info("Current Task WebviewView registered");
 
@@ -719,7 +717,7 @@ export async function activate(
     // 6b. Register FileDecorationProvider for status-based styling (TD-016 DD-4)
     const decorationProvider = new OrchestraViewDecorationProvider();
     context.subscriptions.push(
-      vscode.window.registerFileDecorationProvider(decorationProvider)
+      vscode.window.registerFileDecorationProvider(decorationProvider),
     );
     logger.info("View decoration provider registered");
 
@@ -751,14 +749,14 @@ export async function activate(
               context.extensionUri,
               db,
               dbWatcher,
-              taskId
+              taskId,
             );
           } else {
             vscode.window.showErrorMessage(
-              "Orchestra: Database watcher not initialized"
+              "Orchestra: Database watcher not initialized",
             );
           }
-        }
+        },
       ),
       vscode.commands.registerCommand(
         "orchestra.installMcpServers",
@@ -766,31 +764,31 @@ export async function activate(
           try {
             await installMcpServers(orchestraRoot, context.extensionPath);
             vscode.window.showInformationMessage(
-              "Orchestra: MCP servers installed successfully to .vscode/mcp.json"
+              "Orchestra: MCP servers installed successfully to .vscode/mcp.json",
             );
             logger.info("MCP servers installed to .vscode/mcp.json");
           } catch (error) {
             const message =
               error instanceof Error ? error.message : "Unknown error";
             vscode.window.showErrorMessage(
-              `Orchestra: Failed to install MCP servers - ${message}`
+              `Orchestra: Failed to install MCP servers - ${message}`,
             );
             logger.error("Failed to install MCP servers", error);
           }
-        }
+        },
       ),
       // Agent invocation commands
       vscode.commands.registerCommand(
         "orchestra.invokeOrchestrator",
         async () => {
           await handleInvokeOrchestrator(orchestraRoot);
-        }
+        },
       ),
       vscode.commands.registerCommand(
         "orchestra.invokeImplementor",
         async () => {
           await handleInvokeImplementor(orchestraRoot);
-        }
+        },
       ),
       vscode.commands.registerCommand(
         "orchestra.startTask",
@@ -798,7 +796,7 @@ export async function activate(
           if (element?.task?.id) {
             await handleStartTask(orchestraRoot, element.task.id);
           }
-        }
+        },
       ),
       vscode.commands.registerCommand(
         "orchestra.playTask",
@@ -806,7 +804,7 @@ export async function activate(
           if (element?.task?.id) {
             await handlePlayTask(orchestraRoot, element.task.id);
           }
-        }
+        },
       ),
       // Task remediation commands
       vscode.commands.registerCommand(
@@ -817,10 +815,10 @@ export async function activate(
               orchestraRoot,
               element.task.id,
               treeProvider,
-              dbWatcher
+              dbWatcher,
             );
           }
-        }
+        },
       ),
       vscode.commands.registerCommand(
         "orchestra.moveToGateCheck",
@@ -830,10 +828,10 @@ export async function activate(
               orchestraRoot,
               element.task.id,
               treeProvider,
-              dbWatcher
+              dbWatcher,
             );
           }
-        }
+        },
       ),
       vscode.commands.registerCommand(
         "orchestra.moveToImplement",
@@ -843,10 +841,10 @@ export async function activate(
               orchestraRoot,
               element.task.id,
               treeProvider,
-              dbWatcher
+              dbWatcher,
             );
           }
-        }
+        },
       ),
       vscode.commands.registerCommand(
         "orchestra.forceComplete",
@@ -856,10 +854,10 @@ export async function activate(
               orchestraRoot,
               element.task.id,
               treeProvider,
-              dbWatcher
+              dbWatcher,
             );
           }
-        }
+        },
       ),
       vscode.commands.registerCommand(
         "orchestra.setActiveSprint",
@@ -873,17 +871,17 @@ export async function activate(
               element.sprint.id,
               element.sprint.name,
               treeProvider,
-              dbWatcher
+              dbWatcher,
             );
           }
-        }
+        },
       ),
       // Agent execution commands
       vscode.commands.registerCommand("orchestra.startAgent", async () => {
         try {
           if (agentRunner) {
             vscode.window.showErrorMessage(
-              "Orchestra: Agent is already running. Stop or pause the current agent first."
+              "Orchestra: Agent is already running. Stop or pause the current agent first.",
             );
             return;
           }
@@ -895,7 +893,7 @@ export async function activate(
               { label: "Implementor", value: "implementor" },
               { label: "Controller", value: "controller" },
             ],
-            { placeHolder: "Select agent role" }
+            { placeHolder: "Select agent role" },
           );
 
           if (!role) {
@@ -927,18 +925,18 @@ export async function activate(
             {
               prompt,
               maxIterations: 50,
-            }
+            },
           );
 
           vscode.window.showInformationMessage(
-            `Orchestra: ${role.label} agent started successfully`
+            `Orchestra: ${role.label} agent started successfully`,
           );
           logger.info(`Agent started: ${role.value}`);
         } catch (error) {
           const message =
             error instanceof Error ? error.message : "Unknown error";
           vscode.window.showErrorMessage(
-            `Orchestra: Failed to start agent - ${message}`
+            `Orchestra: Failed to start agent - ${message}`,
           );
           logger.error("Failed to start agent", error);
         }
@@ -947,21 +945,21 @@ export async function activate(
         try {
           if (!agentRunner) {
             vscode.window.showErrorMessage(
-              "Orchestra: No agent is currently running"
+              "Orchestra: No agent is currently running",
             );
             return;
           }
 
           await agentRunner.pause();
           vscode.window.showInformationMessage(
-            "Orchestra: Agent paused successfully"
+            "Orchestra: Agent paused successfully",
           );
           logger.info("Agent paused");
         } catch (error) {
           const message =
             error instanceof Error ? error.message : "Unknown error";
           vscode.window.showErrorMessage(
-            `Orchestra: Failed to pause agent - ${message}`
+            `Orchestra: Failed to pause agent - ${message}`,
           );
           logger.error("Failed to pause agent", error);
         }
@@ -970,7 +968,7 @@ export async function activate(
         try {
           if (!agentRunner) {
             vscode.window.showErrorMessage(
-              "Orchestra: No agent is currently running"
+              "Orchestra: No agent is currently running",
             );
             return;
           }
@@ -980,14 +978,14 @@ export async function activate(
           agentRunner = undefined;
 
           vscode.window.showInformationMessage(
-            "Orchestra: Agent stopped successfully"
+            "Orchestra: Agent stopped successfully",
           );
           logger.info("Agent stopped");
         } catch (error) {
           const message =
             error instanceof Error ? error.message : "Unknown error";
           vscode.window.showErrorMessage(
-            `Orchestra: Failed to stop agent - ${message}`
+            `Orchestra: Failed to stop agent - ${message}`,
           );
           logger.error("Failed to stop agent", error);
         }
@@ -996,25 +994,59 @@ export async function activate(
         try {
           if (!agentRunner) {
             vscode.window.showErrorMessage(
-              "Orchestra: No agent to resume. Start a new agent first."
+              "Orchestra: No agent to resume. Start a new agent first.",
             );
             return;
           }
 
           await agentRunner.resume();
           vscode.window.showInformationMessage(
-            "Orchestra: Agent resumed successfully"
+            "Orchestra: Agent resumed successfully",
           );
           logger.info("Agent resumed");
         } catch (error) {
           const message =
             error instanceof Error ? error.message : "Unknown error";
           vscode.window.showErrorMessage(
-            `Orchestra: Failed to resume agent - ${message}`
+            `Orchestra: Failed to resume agent - ${message}`,
           );
           logger.error("Failed to resume agent", error);
         }
-      })
+      }),
+      vscode.commands.registerCommand(
+        "orchestra.launchControllerForSprint",
+        async (sprint: any) => {
+          try {
+            logger.info("Launching controller agent for sprint review");
+
+            // Get the controller agent mode from settings
+            const config = vscode.workspace.getConfiguration("orchestra");
+            const controllerAgent = config.get<string>(
+              "agents.controller",
+              "orchestra.controller",
+            );
+
+            // Create initial message for sprint review
+            const sprintId = sprint?.id || "unknown";
+            const sprintName = sprint?.label || "Unknown Sprint";
+            const message = `Review the sprint configuration for "${sprintName}" (ID: ${sprintId}). Use the orchestra-ctrl MCP tools to review the sprint configuration against the specification, then either approve or reject with detailed feedback.`;
+
+            // Open chat with controller agent
+            await vscode.commands.executeCommand("workbench.action.chat.open", {
+              query: `@${controllerAgent} ${message}`,
+            });
+
+            logger.info("Controller agent launched successfully");
+          } catch (error) {
+            const message =
+              error instanceof Error ? error.message : "Unknown error";
+            vscode.window.showErrorMessage(
+              `Orchestra: Failed to launch controller agent - ${message}`,
+            );
+            logger.error("Failed to launch controller agent", error);
+          }
+        },
+      ),
     );
     logger.info("Commands registered");
 
@@ -1026,7 +1058,7 @@ export async function activate(
       mcpManager = new MCPServerManager(
         orchestraRoot,
         context.extensionPath,
-        logger
+        logger,
       );
       mcpManager.startServer("orchestrator");
       mcpManager.startServer("implementor");
@@ -1045,7 +1077,7 @@ export async function activate(
     vscode.window.showErrorMessage(
       `Orchestra: Activation failed - ${
         error instanceof Error ? error.message : "Unknown error"
-      }`
+      }`,
     );
   }
 }

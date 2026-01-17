@@ -808,6 +808,12 @@ function getScript(): string {
       });
     }
     
+    function launchController() {
+      vscode.postMessage({
+        command: 'launchController'
+      });
+    }
+    
     function moveToImplement(taskId) {
       vscode.postMessage({
         command: 'moveToImplement',
@@ -898,7 +904,7 @@ function renderTaskCard(task: TaskData): string {
         ${
           task.escalation.recommended_action
             ? `<p><strong>Recommended:</strong> ${escapeHtml(
-                task.escalation.recommended_action
+                task.escalation.recommended_action,
               )}</p>`
             : ""
         }
@@ -949,7 +955,7 @@ function renderTaskCard(task: TaskData): string {
         ? `<span class="tdd-link" onclick="openTask(${
             task.tdd.redTaskId
           })">Task ${task.tdd.redTaskId}: ${escapeHtml(
-            task.tdd.redTaskTitle || "Red Task"
+            task.tdd.redTaskTitle || "Red Task",
           )}</span>`
         : "";
       tddBanner = `
@@ -1003,11 +1009,11 @@ function renderTaskCard(task: TaskData): string {
         <div class="review-issue ${issue.severity}">
           <div class="review-issue-severity">${issue.severity}</div>
           <div class="review-issue-requirement">${escapeHtml(
-            issue.requirement
+            issue.requirement,
           )}</div>
           <div class="review-issue-finding">${escapeHtml(issue.finding)}</div>
         </div>
-      `
+      `,
         )
         .join("");
       issuesHtml = `
@@ -1024,7 +1030,7 @@ function renderTaskCard(task: TaskData): string {
       const recItems = task.review.recommendations
         .map(
           (rec) =>
-            `<div class="review-recommendation">• ${escapeHtml(rec)}</div>`
+            `<div class="review-recommendation">• ${escapeHtml(rec)}</div>`,
         )
         .join("");
       recommendationsHtml = `
@@ -1045,8 +1051,8 @@ function renderTaskCard(task: TaskData): string {
         </div>
         <div class="review-status">
           Reviewed by ${escapeHtml(task.review.reviewedBy)} • ${escapeHtml(
-      new Date(task.review.reviewedAt).toLocaleString()
-    )}
+            new Date(task.review.reviewedAt).toLocaleString(),
+          )}
           ${
             task.review.revisionCount > 0
               ? ` • Revision ${task.review.revisionCount}`
@@ -1058,7 +1064,7 @@ function renderTaskCard(task: TaskData): string {
         ${
           task.review.notes
             ? `<div style="margin-top: 8px; font-style: italic;">${escapeHtml(
-                task.review.notes
+                task.review.notes,
               )}</div>`
             : ""
         }
@@ -1086,19 +1092,19 @@ function renderTaskCard(task: TaskData): string {
           <div class="amendment-item">
             <div class="amendment-header">
               <span class="amendment-type">${escapeHtml(
-                amendment.amendment_type
+                amendment.amendment_type,
               )}</span>
               <span class="amendment-date">${escapeHtml(
-                new Date(amendment.amended_at).toLocaleString()
+                new Date(amendment.amended_at).toLocaleString(),
               )}</span>
             </div>
             <div class="amendment-rationale">${escapeHtml(
-              amendment.rationale
+              amendment.rationale,
             )}</div>
             <div class="amendment-meta">
               Changed: ${escapeHtml(fieldsText)} • By: ${escapeHtml(
-          amendment.amended_by
-        )}
+                amendment.amended_by,
+              )}
             </div>
           </div>
         `;
@@ -1125,8 +1131,8 @@ function renderTaskCard(task: TaskData): string {
           ${task.statusDisplay.label}
         </span>
         <span class="pill pill-priority ${priorityClass}" title="${escapeHtml(
-    task.priorityLabel
-  )}">${escapeHtml(task.priority)}</span>
+          task.priorityLabel,
+        )}">${escapeHtml(task.priority)}</span>
         <span class="pill pill-category">${escapeHtml(task.category)}</span>
       </div>
       <div class="task-title">${escapeHtml(task.title)}</div>
@@ -1158,17 +1164,139 @@ function renderNoTask(): string {
 }
 
 /**
+ * Render a sprint review card for when sprint needs review
+ */
+function renderSprintReviewCard(data: any): string {
+  const isPending = data.isPending;
+  const isFailed = data.isFailed;
+  const sprint = data.sprint;
+  const review = data.review;
+
+  const status = isPending ? "pending-review" : "review-failed";
+  const statusLabel = isPending ? "Pending Review" : "Review Failed";
+  const statusIcon = isPending ? "clock" : "warning";
+
+  let reviewBanner = "";
+  if (isFailed && review) {
+    // Show review failure details
+    let issuesHtml = "";
+    if (review.issues && review.issues.length > 0) {
+      const issueItems = review.issues
+        .map(
+          (issue: any) => `
+        <div class="review-issue ${issue.severity}">
+          <div class="review-issue-severity">${issue.severity}</div>
+          <div class="review-issue-requirement">${escapeHtml(
+            issue.requirement,
+          )}</div>
+          <div class="review-issue-finding">${escapeHtml(issue.finding)}</div>
+        </div>
+      `,
+        )
+        .join("");
+      issuesHtml = `
+        <div class="review-issues">
+          <div class="review-recommendations-title">Issues Found:</div>
+          ${issueItems}
+        </div>
+      `;
+    }
+
+    let recommendationsHtml = "";
+    if (review.recommendations && review.recommendations.length > 0) {
+      const recItems = review.recommendations
+        .map(
+          (rec: string) =>
+            `<div class="review-recommendation">• ${escapeHtml(rec)}</div>`,
+        )
+        .join("");
+      recommendationsHtml = `
+        <div class="review-recommendations">
+          <div class="review-recommendations-title">Recommendations:</div>
+          ${recItems}
+        </div>
+      `;
+    }
+
+    reviewBanner = `
+      <div class="review-banner review-rejected">
+        <div class="review-header">
+          <span class="review-icon">⚠️</span>
+          <span class="review-title">Sprint Review Failed</span>
+        </div>
+        <div class="review-metadata">
+          <div class="review-conformance">Conformance: ${escapeHtml(
+            review.conformance,
+          )}</div>
+          <div class="review-by">Reviewed by: ${escapeHtml(
+            review.reviewed_by,
+          )}</div>
+          <div class="review-at">At: ${new Date(
+            review.reviewed_at,
+          ).toLocaleString()}</div>
+          <div class="review-revision">Revision: ${review.revision_count}</div>
+        </div>
+        ${issuesHtml}
+        ${recommendationsHtml}
+      </div>
+    `;
+  }
+
+  return `
+    <div class="task-card">
+      <div class="task-header">
+        <span class="task-id">Sprint: ${escapeHtml(sprint.name)}</span>
+        <span class="pill pill-status ${status}">
+          <span class="pill-icon">${statusIcon}</span>
+          ${statusLabel}
+        </span>
+      </div>
+
+      ${reviewBanner}
+
+      <div class="section">
+        <div class="section-title">Sprint Review Required</div>
+        <div class="description">
+          This sprint configuration needs to be reviewed by the Controller agent before tasks can be implemented.
+          ${
+            isFailed
+              ? "<br><br>The previous review found issues that need to be addressed. Review the feedback above and resubmit the sprint configuration."
+              : ""
+          }
+        </div>
+      </div>
+
+      <div class="action-row">
+        <button class="action-btn primary" onclick="launchController()">
+          <span class="btn-icon">▶️</span>
+          Launch Controller Agent
+        </button>
+      </div>
+    </div>
+  `;
+}
+
+/**
  * Generate complete HTML document for the webview
+ * Handles both task display and sprint review display
  *
- * @param taskData - Current task data to render, or null if no task
+ * @param data - Task data, sprint review data, or null for empty state
  * @param cspSource - Content Security Policy source for the webview
  * @returns Complete HTML document as a string
  */
 export function generateCurrentTaskHtml(
-  taskData: TaskData | null,
-  cspSource: string
+  data: TaskData | any | null,
+  cspSource: string,
 ): string {
-  const content = taskData ? renderTaskCard(taskData) : renderNoTask();
+  let content: string;
+
+  // Check if this is sprint review data
+  if (data && data.type === "sprint-review") {
+    content = renderSprintReviewCard(data);
+  } else {
+    // Regular task rendering
+    content = data ? renderTaskCard(data as TaskData) : renderNoTask();
+  }
 
   return `<!DOCTYPE html>
 <html lang="en">

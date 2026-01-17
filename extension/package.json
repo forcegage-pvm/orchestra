@@ -2,7 +2,7 @@
   "name": "orchestra-extension",
   "displayName": "Orchestra",
   "description": "AI agent task orchestration for VS Code",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "publisher": "forcegage",
   "repository": {
     "type": "git",
@@ -76,6 +76,11 @@
           "type": "string",
           "default": "orchestra.implementor",
           "description": "Agent mode identifier for the Implementor role"
+        },
+        "orchestra.agents.controller": {
+          "type": "string",
+          "default": "orchestra.controller",
+          "description": "Agent mode identifier for the Controller role"
         }
       }
     },
@@ -179,6 +184,11 @@
         "command": "orchestra.resumeAgent",
         "title": "Orchestra: Resume Agent",
         "icon": "$(debug-continue)"
+      },
+      {
+        "command": "orchestra.launchControllerForSprint",
+        "title": "Review Sprint Configuration",
+        "icon": "$(play)"
       }
     ],
     "keybindings": [
@@ -243,6 +253,11 @@
         }
       ],
       "view/item/context": [
+        {
+          "command": "orchestra.launchControllerForSprint",
+          "when": "view == orchestra.sprintExplorer && viewItem =~ /^sprint-pending-review/",
+          "group": "inline"
+        },
         {
           "command": "orchestra.setActiveSprint",
           "when": "view == orchestra.sprintExplorer && viewItem == sprint-inactive",
