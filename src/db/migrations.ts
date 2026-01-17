@@ -36,7 +36,7 @@ const MIGRATIONS: Migration[] = [
 
       // Check if table already exists (idempotent)
       const tables = await db.all(
-        sql`SELECT name FROM sqlite_master WHERE type='table' AND name='amendments'`
+        sql`SELECT name FROM sqlite_master WHERE type='table' AND name='amendments'`,
       );
       if ((tables as { name: string }[]).length > 0) {
         return; // Already exists
@@ -60,16 +60,16 @@ const MIGRATIONS: Migration[] = [
       `);
 
       await db.run(
-        sql`CREATE INDEX IF NOT EXISTS sprint_amendment_idx ON amendments(sprint_id)`
+        sql`CREATE INDEX IF NOT EXISTS sprint_amendment_idx ON amendments(sprint_id)`,
       );
       await db.run(
-        sql`CREATE INDEX IF NOT EXISTS task_amendment_idx ON amendments(task_id)`
+        sql`CREATE INDEX IF NOT EXISTS task_amendment_idx ON amendments(task_id)`,
       );
       await db.run(
-        sql`CREATE INDEX IF NOT EXISTS tool_amendment_idx ON amendments(tool_name)`
+        sql`CREATE INDEX IF NOT EXISTS tool_amendment_idx ON amendments(tool_name)`,
       );
       await db.run(
-        sql`CREATE INDEX IF NOT EXISTS amendment_timestamp_idx ON amendments(amended_at)`
+        sql`CREATE INDEX IF NOT EXISTS amendment_timestamp_idx ON amendments(amended_at)`,
       );
     },
   },
@@ -110,12 +110,12 @@ const MIGRATIONS: Migration[] = [
 
       // Add column with default false
       await db.run(
-        sql`ALTER TABLE sprints ADD COLUMN is_active INTEGER NOT NULL DEFAULT 0`
+        sql`ALTER TABLE sprints ADD COLUMN is_active INTEGER NOT NULL DEFAULT 0`,
       );
 
       // Create index for fast lookups
       await db.run(
-        sql`CREATE INDEX IF NOT EXISTS is_active_idx ON sprints(is_active)`
+        sql`CREATE INDEX IF NOT EXISTS is_active_idx ON sprints(is_active)`,
       );
 
       // Set the most recently created incomplete sprint as active
@@ -140,7 +140,7 @@ const MIGRATIONS: Migration[] = [
 
       // Check if table already exists (idempotent)
       const tables = await db.all(
-        sql`SELECT name FROM sqlite_master WHERE type='table' AND name='escalations'`
+        sql`SELECT name FROM sqlite_master WHERE type='table' AND name='escalations'`,
       );
       if ((tables as { name: string }[]).length > 0) {
         return; // Already exists
@@ -168,10 +168,10 @@ const MIGRATIONS: Migration[] = [
       `);
 
       await db.run(
-        sql`CREATE INDEX IF NOT EXISTS task_escalation_idx ON escalations(task_id)`
+        sql`CREATE INDEX IF NOT EXISTS task_escalation_idx ON escalations(task_id)`,
       );
       await db.run(
-        sql`CREATE INDEX IF NOT EXISTS active_escalation_idx ON escalations(task_id, resolved_at)`
+        sql`CREATE INDEX IF NOT EXISTS active_escalation_idx ON escalations(task_id, resolved_at)`,
       );
     },
   },
@@ -184,7 +184,7 @@ const MIGRATIONS: Migration[] = [
 
       // Check if table already exists (idempotent)
       const tables = await db.all(
-        sql`SELECT name FROM sqlite_master WHERE type='table' AND name='chat_sessions'`
+        sql`SELECT name FROM sqlite_master WHERE type='table' AND name='chat_sessions'`,
       );
       if ((tables as { name: string }[]).length > 0) {
         return; // Already exists
@@ -201,7 +201,7 @@ const MIGRATIONS: Migration[] = [
       `);
 
       await db.run(
-        sql`CREATE INDEX IF NOT EXISTS chat_session_role_idx ON chat_sessions(role)`
+        sql`CREATE INDEX IF NOT EXISTS chat_session_role_idx ON chat_sessions(role)`,
       );
     },
   },
@@ -216,7 +216,7 @@ const MIGRATIONS: Migration[] = [
       const result = await db.all(sql`PRAGMA table_info(tasks)`);
       const columns = result as { name: string }[];
       const hasTddRedPhase = columns.some(
-        (col) => col.name === "tdd_red_phase"
+        (col) => col.name === "tdd_red_phase",
       );
 
       if (hasTddRedPhase) {
@@ -225,7 +225,7 @@ const MIGRATIONS: Migration[] = [
 
       // Add column with default false
       await db.run(
-        sql`ALTER TABLE tasks ADD COLUMN tdd_red_phase INTEGER NOT NULL DEFAULT 0`
+        sql`ALTER TABLE tasks ADD COLUMN tdd_red_phase INTEGER NOT NULL DEFAULT 0`,
       );
     },
   },
@@ -238,7 +238,7 @@ const MIGRATIONS: Migration[] = [
 
       // Check if tdd_task_relationships table already exists (idempotent)
       const relationshipsTable = await db.all(
-        sql`SELECT name FROM sqlite_master WHERE type='table' AND name='tdd_task_relationships'`
+        sql`SELECT name FROM sqlite_master WHERE type='table' AND name='tdd_task_relationships'`,
       );
       if ((relationshipsTable as { name: string }[]).length === 0) {
         await db.run(sql`
@@ -253,19 +253,19 @@ const MIGRATIONS: Migration[] = [
         `);
 
         await db.run(
-          sql`CREATE INDEX IF NOT EXISTS tdd_rel_sprint_idx ON tdd_task_relationships(sprint_id)`
+          sql`CREATE INDEX IF NOT EXISTS tdd_rel_sprint_idx ON tdd_task_relationships(sprint_id)`,
         );
         await db.run(
-          sql`CREATE INDEX IF NOT EXISTS tdd_rel_red_task_idx ON tdd_task_relationships(red_task_id)`
+          sql`CREATE INDEX IF NOT EXISTS tdd_rel_red_task_idx ON tdd_task_relationships(red_task_id)`,
         );
         await db.run(
-          sql`CREATE UNIQUE INDEX IF NOT EXISTS tdd_rel_unique_idx ON tdd_task_relationships(sprint_id, red_task_id, green_task_id)`
+          sql`CREATE UNIQUE INDEX IF NOT EXISTS tdd_rel_unique_idx ON tdd_task_relationships(sprint_id, red_task_id, green_task_id)`,
         );
       }
 
       // Check if tdd_red_registry table already exists (idempotent)
       const registryTable = await db.all(
-        sql`SELECT name FROM sqlite_master WHERE type='table' AND name='tdd_red_registry'`
+        sql`SELECT name FROM sqlite_master WHERE type='table' AND name='tdd_red_registry'`,
       );
       if ((registryTable as { name: string }[]).length === 0) {
         await db.run(sql`
@@ -286,19 +286,19 @@ const MIGRATIONS: Migration[] = [
         `);
 
         await db.run(
-          sql`CREATE INDEX IF NOT EXISTS tdd_reg_sprint_idx ON tdd_red_registry(sprint_id)`
+          sql`CREATE INDEX IF NOT EXISTS tdd_reg_sprint_idx ON tdd_red_registry(sprint_id)`,
         );
         await db.run(
-          sql`CREATE INDEX IF NOT EXISTS tdd_reg_red_task_idx ON tdd_red_registry(red_task_id)`
+          sql`CREATE INDEX IF NOT EXISTS tdd_reg_red_task_idx ON tdd_red_registry(red_task_id)`,
         );
         await db.run(
-          sql`CREATE INDEX IF NOT EXISTS tdd_reg_green_task_idx ON tdd_red_registry(green_task_id)`
+          sql`CREATE INDEX IF NOT EXISTS tdd_reg_green_task_idx ON tdd_red_registry(green_task_id)`,
         );
         await db.run(
-          sql`CREATE INDEX IF NOT EXISTS tdd_reg_status_idx ON tdd_red_registry(status)`
+          sql`CREATE INDEX IF NOT EXISTS tdd_reg_status_idx ON tdd_red_registry(status)`,
         );
         await db.run(
-          sql`CREATE UNIQUE INDEX IF NOT EXISTS tdd_reg_unique_test_idx ON tdd_red_registry(sprint_id, test_identifier)`
+          sql`CREATE UNIQUE INDEX IF NOT EXISTS tdd_reg_unique_test_idx ON tdd_red_registry(sprint_id, test_identifier)`,
         );
       }
     },
@@ -311,7 +311,7 @@ const MIGRATIONS: Migration[] = [
 
       // Check if column already exists (idempotent)
       const result = await db.all(
-        sql`PRAGMA table_info(tdd_task_relationships)`
+        sql`PRAGMA table_info(tdd_task_relationships)`,
       );
       const columns = result as { name: string }[];
       const hasCompletedAt = columns.some((col) => col.name === "completed_at");
@@ -322,7 +322,7 @@ const MIGRATIONS: Migration[] = [
 
       // Add column
       await db.run(
-        sql`ALTER TABLE tdd_task_relationships ADD COLUMN completed_at TEXT`
+        sql`ALTER TABLE tdd_task_relationships ADD COLUMN completed_at TEXT`,
       );
     },
   },
@@ -369,13 +369,13 @@ const MIGRATIONS: Migration[] = [
 
       // Recreate indexes (excluding removed status and green_task_id indexes)
       await db.run(
-        sql`CREATE INDEX IF NOT EXISTS tdd_reg_sprint_idx ON tdd_red_registry(sprint_id)`
+        sql`CREATE INDEX IF NOT EXISTS tdd_reg_sprint_idx ON tdd_red_registry(sprint_id)`,
       );
       await db.run(
-        sql`CREATE INDEX IF NOT EXISTS tdd_reg_red_task_idx ON tdd_red_registry(red_task_id)`
+        sql`CREATE INDEX IF NOT EXISTS tdd_reg_red_task_idx ON tdd_red_registry(red_task_id)`,
       );
       await db.run(
-        sql`CREATE UNIQUE INDEX IF NOT EXISTS tdd_reg_unique_test_idx ON tdd_red_registry(sprint_id, test_identifier)`
+        sql`CREATE UNIQUE INDEX IF NOT EXISTS tdd_reg_unique_test_idx ON tdd_red_registry(sprint_id, test_identifier)`,
       );
     },
   },
@@ -403,13 +403,13 @@ const MIGRATIONS: Migration[] = [
 
       // Recreate indexes with test_file as unique constraint
       await db.run(
-        sql`CREATE INDEX IF NOT EXISTS tdd_reg_sprint_idx ON tdd_red_registry(sprint_id)`
+        sql`CREATE INDEX IF NOT EXISTS tdd_reg_sprint_idx ON tdd_red_registry(sprint_id)`,
       );
       await db.run(
-        sql`CREATE INDEX IF NOT EXISTS tdd_reg_red_task_idx ON tdd_red_registry(red_task_id)`
+        sql`CREATE INDEX IF NOT EXISTS tdd_reg_red_task_idx ON tdd_red_registry(red_task_id)`,
       );
       await db.run(
-        sql`CREATE UNIQUE INDEX IF NOT EXISTS tdd_reg_unique_test_idx ON tdd_red_registry(sprint_id, test_file)`
+        sql`CREATE UNIQUE INDEX IF NOT EXISTS tdd_reg_unique_test_idx ON tdd_red_registry(sprint_id, test_file)`,
       );
     },
   },
@@ -423,21 +423,21 @@ const MIGRATIONS: Migration[] = [
       // 1. Add status column to sprints table (idempotent)
       const sprintColumns = await db.all(sql`PRAGMA table_info(sprints)`);
       const hasStatus = (sprintColumns as { name: string }[]).some(
-        (col) => col.name === "status"
+        (col) => col.name === "status",
       );
 
       if (!hasStatus) {
         await db.run(
-          sql`ALTER TABLE sprints ADD COLUMN status TEXT NOT NULL DEFAULT 'ACTIVE'`
+          sql`ALTER TABLE sprints ADD COLUMN status TEXT NOT NULL DEFAULT 'ACTIVE'`,
         );
         await db.run(
-          sql`CREATE INDEX IF NOT EXISTS sprint_status_idx ON sprints(status)`
+          sql`CREATE INDEX IF NOT EXISTS sprint_status_idx ON sprints(status)`,
         );
       }
 
       // 2. Create spec_reviews table (idempotent)
       const tables = await db.all(
-        sql`SELECT name FROM sqlite_master WHERE type='table' AND name='spec_reviews'`
+        sql`SELECT name FROM sqlite_master WHERE type='table' AND name='spec_reviews'`,
       );
       if ((tables as { name: string }[]).length === 0) {
         await db.run(sql`
@@ -461,16 +461,16 @@ const MIGRATIONS: Migration[] = [
         `);
 
         await db.run(
-          sql`CREATE INDEX IF NOT EXISTS spec_reviews_sprint_idx ON spec_reviews(sprint_id)`
+          sql`CREATE INDEX IF NOT EXISTS spec_reviews_sprint_idx ON spec_reviews(sprint_id)`,
         );
         await db.run(
-          sql`CREATE INDEX IF NOT EXISTS spec_reviews_task_idx ON spec_reviews(task_id)`
+          sql`CREATE INDEX IF NOT EXISTS spec_reviews_task_idx ON spec_reviews(task_id)`,
         );
         await db.run(
-          sql`CREATE INDEX IF NOT EXISTS spec_reviews_type_idx ON spec_reviews(review_type)`
+          sql`CREATE INDEX IF NOT EXISTS spec_reviews_type_idx ON spec_reviews(review_type)`,
         );
         await db.run(
-          sql`CREATE INDEX IF NOT EXISTS spec_reviews_reviewed_at_idx ON spec_reviews(reviewed_at)`
+          sql`CREATE INDEX IF NOT EXISTS spec_reviews_reviewed_at_idx ON spec_reviews(reviewed_at)`,
         );
       }
     },
@@ -487,7 +487,7 @@ const MIGRATIONS: Migration[] = [
 
       // Check if escalations table exists
       const tables = await db.all(
-        sql`SELECT name FROM sqlite_master WHERE type='table' AND name='escalations'`
+        sql`SELECT name FROM sqlite_master WHERE type='table' AND name='escalations'`,
       );
       if ((tables as { name: string }[]).length === 0) {
         return; // Table doesn't exist, nothing to migrate
@@ -530,17 +530,128 @@ const MIGRATIONS: Migration[] = [
 
       // 5. Recreate indexes
       await db.run(
-        sql`CREATE INDEX IF NOT EXISTS task_escalation_idx ON escalations(task_id)`
+        sql`CREATE INDEX IF NOT EXISTS task_escalation_idx ON escalations(task_id)`,
       );
       await db.run(
-        sql`CREATE INDEX IF NOT EXISTS sprint_escalation_idx ON escalations(sprint_id)`
+        sql`CREATE INDEX IF NOT EXISTS sprint_escalation_idx ON escalations(sprint_id)`,
       );
       await db.run(
-        sql`CREATE INDEX IF NOT EXISTS unresolved_escalation_idx ON escalations(resolved_at)`
+        sql`CREATE INDEX IF NOT EXISTS unresolved_escalation_idx ON escalations(resolved_at)`,
       );
       await db.run(
-        sql`CREATE INDEX IF NOT EXISTS escalation_timestamp_idx ON escalations(escalated_at)`
+        sql`CREATE INDEX IF NOT EXISTS escalation_timestamp_idx ON escalations(escalated_at)`,
       );
+    },
+  },
+  {
+    id: "20260117_009_add_code_review_tables",
+    description:
+      "Add code review tables for review workflow tracking and issues/fixes",
+    up: async () => {
+      const db = getDb();
+
+      const reviewTables = await db.all(
+        sql`SELECT name FROM sqlite_master WHERE type='table' AND name='code_reviews'`,
+      );
+
+      if ((reviewTables as { name: string }[]).length === 0) {
+        await db.run(sql`
+          CREATE TABLE code_reviews (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            sprint_id TEXT NOT NULL REFERENCES sprints(id) ON DELETE CASCADE,
+            task_id INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+            phase_id INTEGER REFERENCES phases(id) ON DELETE SET NULL,
+            review_scope TEXT NOT NULL,
+            status TEXT NOT NULL,
+            summary TEXT NOT NULL,
+            risk TEXT NOT NULL,
+            commit_range TEXT,
+            files_reviewed TEXT,
+            tests_run TEXT,
+            issues TEXT,
+            recommendations TEXT,
+            notes TEXT,
+            requested_by TEXT NOT NULL,
+            requested_at TEXT NOT NULL,
+            reviewed_by TEXT,
+            reviewed_at TEXT,
+            revision_count INTEGER NOT NULL DEFAULT 0,
+            previous_review_id INTEGER
+          )
+        `);
+
+        await db.run(
+          sql`CREATE INDEX IF NOT EXISTS code_review_sprint_idx ON code_reviews(sprint_id)`,
+        );
+        await db.run(
+          sql`CREATE INDEX IF NOT EXISTS code_review_task_idx ON code_reviews(task_id)`,
+        );
+        await db.run(
+          sql`CREATE INDEX IF NOT EXISTS code_review_phase_idx ON code_reviews(phase_id)`,
+        );
+        await db.run(
+          sql`CREATE INDEX IF NOT EXISTS code_review_status_idx ON code_reviews(status)`,
+        );
+        await db.run(
+          sql`CREATE INDEX IF NOT EXISTS code_review_scope_idx ON code_reviews(review_scope)`,
+        );
+      }
+
+      const issueTables = await db.all(
+        sql`SELECT name FROM sqlite_master WHERE type='table' AND name='code_review_issues'`,
+      );
+
+      if ((issueTables as { name: string }[]).length === 0) {
+        await db.run(sql`
+          CREATE TABLE code_review_issues (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            review_id INTEGER NOT NULL REFERENCES code_reviews(id) ON DELETE CASCADE,
+            task_id INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+            severity TEXT NOT NULL,
+            issue TEXT NOT NULL,
+            file TEXT,
+            line INTEGER,
+            rationale TEXT NOT NULL,
+            recommendation TEXT,
+            status TEXT NOT NULL DEFAULT 'OPEN',
+            resolved_by TEXT,
+            resolved_at TEXT
+          )
+        `);
+
+        await db.run(
+          sql`CREATE INDEX IF NOT EXISTS code_review_issue_review_idx ON code_review_issues(review_id)`,
+        );
+        await db.run(
+          sql`CREATE INDEX IF NOT EXISTS code_review_issue_task_idx ON code_review_issues(task_id)`,
+        );
+        await db.run(
+          sql`CREATE INDEX IF NOT EXISTS code_review_issue_status_idx ON code_review_issues(status)`,
+        );
+      }
+
+      const fixTables = await db.all(
+        sql`SELECT name FROM sqlite_master WHERE type='table' AND name='code_review_fixes'`,
+      );
+
+      if ((fixTables as { name: string }[]).length === 0) {
+        await db.run(sql`
+          CREATE TABLE code_review_fixes (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            review_id INTEGER NOT NULL REFERENCES code_reviews(id) ON DELETE CASCADE,
+            summary TEXT NOT NULL,
+            files_changed TEXT NOT NULL,
+            tests_run TEXT NOT NULL,
+            notes TEXT,
+            submitted_by TEXT NOT NULL,
+            submitted_at TEXT NOT NULL
+          )
+        `);
+
+        await db.run(
+          sql`CREATE INDEX IF NOT EXISTS code_review_fix_review_idx ON code_review_fixes(review_id)`,
+        );
+      }
     },
   },
 ];

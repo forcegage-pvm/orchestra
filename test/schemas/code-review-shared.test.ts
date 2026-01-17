@@ -1,71 +1,20 @@
-// @orchestra-task: 1
 /**
- * [tdd-red] Shared code review schema tests
+ * Shared code review schema tests
  */
 
 import { describe, expect, it } from "vitest";
 import * as shared from "../../src/schemas/shared.js";
 
-const getTestNamePattern = (): string => {
-  const envPattern =
-    process.env.npm_config_testNamePattern ??
-    process.env.VITEST_TEST_NAME_PATTERN;
-  if (envPattern) {
-    return envPattern;
-  }
-
-  const vitestWorker = globalThis as {
-    __vitest_worker__?: { config?: { testNamePattern?: RegExp | string } };
-  };
-  const workerPattern = vitestWorker.__vitest_worker__?.config?.testNamePattern;
-  if (workerPattern) {
-    return workerPattern.toString();
-  }
-
-  const argvJoined = process.argv.join(" ");
-  if (argvJoined.includes("testNamePattern")) {
-    return argvJoined;
-  }
-
-  const npmArgv = process.env.npm_config_argv;
-  if (npmArgv) {
-    try {
-      const parsed = JSON.parse(npmArgv) as { original?: string[] };
-      if (parsed.original && parsed.original.length > 0) {
-        return parsed.original.join(" ");
-      }
-    } catch {
-      return "";
-    }
-  }
-
-  return "";
-};
-
-const isRedTestRun = getTestNamePattern().includes("tdd-red");
-const requireRedRun = (): boolean => {
-  if (!isRedTestRun) {
-    expect(true).toBe(true);
-    return false;
-  }
-  return true;
-};
-
-describe("[tdd-red] Code review shared schemas", () => {
-  it("[tdd-red] should export code review enums", () => {
-    if (!requireRedRun()) {
-      return;
-    }
+describe("Code review shared schemas", () => {
+  it("should export code review enums", () => {
     const sharedAny = shared as Record<string, unknown>;
     expect(sharedAny["CodeReviewStatusSchema"]).toBeDefined();
     expect(sharedAny["CodeReviewDecisionSchema"]).toBeDefined();
     expect(sharedAny["CodeReviewRiskSchema"]).toBeDefined();
+    expect(sharedAny["CodeReviewBlockingSeveritySchema"]).toBeDefined();
   });
 
-  it("[tdd-red] should validate CodeReviewStatus values", () => {
-    if (!requireRedRun()) {
-      return;
-    }
+  it("should validate CodeReviewStatus values", () => {
     const sharedAny = shared as Record<
       string,
       { safeParse: (input: unknown) => { success: boolean } }
@@ -77,10 +26,7 @@ describe("[tdd-red] Code review shared schemas", () => {
     expect(schema.safeParse("INVALID_STATUS").success).toBe(false);
   });
 
-  it("[tdd-red] should validate CodeReviewDecision values", () => {
-    if (!requireRedRun()) {
-      return;
-    }
+  it("should validate CodeReviewDecision values", () => {
     const sharedAny = shared as Record<
       string,
       { safeParse: (input: unknown) => { success: boolean } }
@@ -92,10 +38,7 @@ describe("[tdd-red] Code review shared schemas", () => {
     expect(schema.safeParse("INVALID_DECISION").success).toBe(false);
   });
 
-  it("[tdd-red] should validate CodeReviewRisk values", () => {
-    if (!requireRedRun()) {
-      return;
-    }
+  it("should validate CodeReviewRisk values", () => {
     const sharedAny = shared as Record<
       string,
       { safeParse: (input: unknown) => { success: boolean } }
@@ -107,10 +50,7 @@ describe("[tdd-red] Code review shared schemas", () => {
     expect(schema.safeParse("INVALID_RISK").success).toBe(false);
   });
 
-  it("[tdd-red] should validate CodeReviewIssue schema", () => {
-    if (!requireRedRun()) {
-      return;
-    }
+  it("should validate CodeReviewIssue schema", () => {
     const sharedAny = shared as Record<
       string,
       { safeParse: (input: unknown) => { success: boolean } }
@@ -119,23 +59,33 @@ describe("[tdd-red] Code review shared schemas", () => {
 
     const valid = schema.safeParse({
       severity: "MAJOR",
-      category: "SECURITY",
-      problem: "Sensitive data is logged.",
-      impact: "Secrets could be exposed in logs.",
-      guidance: "Redact credentials before logging.",
-      file_path: "src/core/logger.ts",
+      issue: "Sensitive data is logged.",
+      file: "src/core/logger.ts",
       line: 42,
+      code_snippet: "console.log(secret)",
+      rationale: "Credentials could be exposed in logs.",
+      recommendation: "Redact credentials before logging.",
     });
 
     const invalid = schema.safeParse({
       severity: "INVALID",
-      category: "",
-      problem: "",
-      impact: "",
-      guidance: "",
+      issue: "",
+      rationale: "",
     });
 
     expect(valid.success).toBe(true);
     expect(invalid.success).toBe(false);
+  });
+
+  it("should validate CodeReviewBlockingSeverity values", () => {
+    const sharedAny = shared as Record<
+      string,
+      { safeParse: (input: unknown) => { success: boolean } }
+    >;
+    const schema = sharedAny["CodeReviewBlockingSeveritySchema"];
+    expect(schema.safeParse("BLOCKING").success).toBe(true);
+    expect(schema.safeParse("MAJOR").success).toBe(true);
+    expect(schema.safeParse("MINOR").success).toBe(true);
+    expect(schema.safeParse("INFO").success).toBe(false);
   });
 });

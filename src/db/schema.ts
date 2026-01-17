@@ -41,7 +41,7 @@ export const sprints = sqliteTable(
     workflowStepIdx: index("workflow_step_idx").on(sprints.workflow_step),
     isActiveIdx: index("is_active_idx").on(sprints.is_active),
     statusIdx: index("sprint_status_idx").on(sprints.status),
-  })
+  }),
 );
 
 /**
@@ -62,9 +62,9 @@ export const phases = sqliteTable(
   (phases) => ({
     sprintPhaseIdx: index("sprint_phase_idx").on(
       phases.sprint_id,
-      phases.phase_id
+      phases.phase_id,
     ),
-  })
+  }),
 );
 
 /**
@@ -100,7 +100,7 @@ export const tasks = sqliteTable(
     sprintTaskIdx: index("sprint_task_idx").on(tasks.sprint_id, tasks.task_id),
     statusIdx: index("status_idx").on(tasks.status),
     phaseIdx: index("phase_idx").on(tasks.phase_id),
-  })
+  }),
 );
 
 /**
@@ -120,9 +120,9 @@ export const consolidations = sqliteTable(
   },
   (consolidations) => ({
     sprintConsolidationIdx: index("sprint_consolidation_idx").on(
-      consolidations.sprint_id
+      consolidations.sprint_id,
     ),
-  })
+  }),
 );
 
 /**
@@ -144,7 +144,7 @@ export const verificationChecks = sqliteTable(
   },
   (checks) => ({
     taskCheckIdx: index("task_check_idx").on(checks.task_id),
-  })
+  }),
 );
 
 /**
@@ -173,7 +173,7 @@ export const handovers = sqliteTable(
   },
   (handovers) => ({
     taskHandoverIdx: index("task_handover_idx").on(handovers.task_id),
-  })
+  }),
 );
 
 /**
@@ -200,7 +200,7 @@ export const signals = sqliteTable(
   (signals) => ({
     taskSignalIdx: index("task_signal_idx").on(signals.task_id),
     signalIdIdx: index("signal_id_idx").on(signals.signal_id),
-  })
+  }),
 );
 
 /**
@@ -227,7 +227,7 @@ export const verificationResults = sqliteTable(
   (results) => ({
     taskResultIdx: index("task_result_idx").on(results.task_id),
     signalResultIdx: index("signal_result_idx").on(results.signal_id),
-  })
+  }),
 );
 
 /**
@@ -252,7 +252,7 @@ export const feedback = sqliteTable(
   },
   (feedback) => ({
     taskFeedbackIdx: index("task_feedback_idx").on(feedback.task_id),
-  })
+  }),
 );
 
 /**
@@ -280,7 +280,7 @@ export const progress = sqliteTable(
     taskProgressIdx: index("task_progress_idx").on(progress.task_id),
     timestampIdx: index("progress_timestamp_idx").on(progress.changed_at),
     triggeredByIdx: index("triggered_by_idx").on(progress.triggered_by),
-  })
+  }),
 );
 
 /**
@@ -315,10 +315,10 @@ export const sprintSettings = sqliteTable(
   (sprintSettings) => ({
     sprintKeyIdx: uniqueIndex("sprint_key_idx").on(
       sprintSettings.sprint_id,
-      sprintSettings.key
+      sprintSettings.key,
     ),
     sprintIdx: index("sprint_idx").on(sprintSettings.sprint_id),
-  })
+  }),
 );
 
 // ============================================================================
@@ -352,11 +352,11 @@ export const toolExecutions = sqliteTable(
     toolNameIdx: index("tool_name_idx").on(executions.tool_name),
     sprintToolIdx: index("sprint_tool_idx").on(
       executions.sprint_id,
-      executions.tool_name
+      executions.tool_name,
     ),
     timestampIdx: index("execution_timestamp_idx").on(executions.executed_at),
     successIdx: index("success_idx").on(executions.success),
-  })
+  }),
 );
 
 /**
@@ -378,7 +378,7 @@ export const systemLogs = sqliteTable(
     }),
     tool_execution_id: integer("tool_execution_id").references(
       () => toolExecutions.id,
-      { onDelete: "set null" }
+      { onDelete: "set null" },
     ),
     stack_trace: text("stack_trace"),
     logged_at: text("logged_at").notNull(),
@@ -388,7 +388,7 @@ export const systemLogs = sqliteTable(
     categoryIdx: index("category_idx").on(logs.category),
     timestampIdx: index("log_timestamp_idx").on(logs.logged_at),
     sprintLogIdx: index("sprint_log_idx").on(logs.sprint_id),
-  })
+  }),
 );
 
 /**
@@ -419,7 +419,7 @@ export const gitCommits = sqliteTable(
     commitShaIdx: index("commit_sha_idx").on(commits.commit_sha),
     sprintCommitIdx: index("sprint_commit_idx").on(commits.sprint_id),
     timestampIdx: index("commit_timestamp_idx").on(commits.committed_at),
-  })
+  }),
 );
 
 /**
@@ -449,9 +449,9 @@ export const notifications = sqliteTable(
     typeIdx: index("notification_type_idx").on(notifications.type),
     readIdx: index("notification_read_idx").on(notifications.read),
     timestampIdx: index("notification_timestamp_idx").on(
-      notifications.created_at
+      notifications.created_at,
     ),
-  })
+  }),
 );
 
 /**
@@ -488,7 +488,7 @@ export const amendments = sqliteTable(
     taskAmendmentIdx: index("task_amendment_idx").on(amendments.task_id),
     toolAmendmentIdx: index("tool_amendment_idx").on(amendments.tool_name),
     timestampIdx: index("amendment_timestamp_idx").on(amendments.amended_at),
-  })
+  }),
 );
 
 /**
@@ -542,9 +542,105 @@ export const specReviews = sqliteTable(
     taskIdx: index("spec_reviews_task_idx").on(reviews.task_id),
     typeIdx: index("spec_reviews_type_idx").on(reviews.review_type),
     reviewedAtIdx: index("spec_reviews_reviewed_at_idx").on(
-      reviews.reviewed_at
+      reviews.reviewed_at,
     ),
-  })
+  }),
+);
+
+/**
+ * Code Reviews table - Code review workflow tracking
+ *
+ * Tracks code review requests, decisions, and review metadata.
+ */
+export const codeReviews = sqliteTable(
+  "code_reviews",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    sprint_id: text("sprint_id")
+      .notNull()
+      .references(() => sprints.id, { onDelete: "cascade" }),
+    task_id: integer("task_id")
+      .notNull()
+      .references(() => tasks.id, { onDelete: "cascade" }),
+    phase_id: integer("phase_id").references(() => phases.id, {
+      onDelete: "set null",
+    }),
+    review_scope: text("review_scope").notNull(), // TASK | PHASE | SPRINT
+    status: text("status").notNull(), // PENDING | IN_REVIEW | COMPLETED
+    summary: text("summary").notNull(),
+    risk: text("risk").notNull(), // LOW | MEDIUM | HIGH
+    commit_range: text("commit_range"),
+    files_reviewed: text("files_reviewed"), // JSON array
+    tests_run: text("tests_run"), // JSON array
+    issues: text("issues"), // JSON array
+    recommendations: text("recommendations"), // JSON array
+    notes: text("notes"),
+    requested_by: text("requested_by").notNull(),
+    requested_at: text("requested_at").notNull(),
+    reviewed_by: text("reviewed_by"),
+    reviewed_at: text("reviewed_at"),
+    revision_count: integer("revision_count").notNull().default(0),
+    previous_review_id: integer("previous_review_id"),
+  },
+  (reviews) => ({
+    sprintIdx: index("code_review_sprint_idx").on(reviews.sprint_id),
+    taskIdx: index("code_review_task_idx").on(reviews.task_id),
+    phaseIdx: index("code_review_phase_idx").on(reviews.phase_id),
+    statusIdx: index("code_review_status_idx").on(reviews.status),
+    scopeIdx: index("code_review_scope_idx").on(reviews.review_scope),
+  }),
+);
+
+/**
+ * Code Review Issues table - Issues found during code review
+ */
+export const codeReviewIssues = sqliteTable(
+  "code_review_issues",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    review_id: integer("review_id")
+      .notNull()
+      .references(() => codeReviews.id, { onDelete: "cascade" }),
+    task_id: integer("task_id")
+      .notNull()
+      .references(() => tasks.id, { onDelete: "cascade" }),
+    severity: text("severity").notNull(), // BLOCKING | MAJOR | MINOR | INFO
+    issue: text("issue").notNull(),
+    file: text("file"),
+    line: integer("line"),
+    rationale: text("rationale").notNull(),
+    recommendation: text("recommendation"),
+    status: text("status").notNull().default("OPEN"), // OPEN | RESOLVED
+    resolved_by: text("resolved_by"),
+    resolved_at: text("resolved_at"),
+  },
+  (issues) => ({
+    reviewIdx: index("code_review_issue_review_idx").on(issues.review_id),
+    taskIdx: index("code_review_issue_task_idx").on(issues.task_id),
+    statusIdx: index("code_review_issue_status_idx").on(issues.status),
+  }),
+);
+
+/**
+ * Code Review Fixes table - Fixes submitted in response to code review
+ */
+export const codeReviewFixes = sqliteTable(
+  "code_review_fixes",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    review_id: integer("review_id")
+      .notNull()
+      .references(() => codeReviews.id, { onDelete: "cascade" }),
+    summary: text("summary").notNull(),
+    files_changed: text("files_changed").notNull(), // JSON array
+    tests_run: text("tests_run").notNull(), // JSON array
+    notes: text("notes"),
+    submitted_by: text("submitted_by").notNull(),
+    submitted_at: text("submitted_at").notNull(),
+  },
+  (fixes) => ({
+    reviewIdx: index("code_review_fix_review_idx").on(fixes.review_id),
+  }),
 );
 
 /**
@@ -588,15 +684,15 @@ export const escalations = sqliteTable(
   (escalations) => ({
     taskEscalationIdx: index("task_escalation_idx").on(escalations.task_id),
     sprintEscalationIdx: index("sprint_escalation_idx").on(
-      escalations.sprint_id
+      escalations.sprint_id,
     ),
     unresolvedIdx: index("unresolved_escalation_idx").on(
-      escalations.resolved_at
+      escalations.resolved_at,
     ),
     timestampIdx: index("escalation_timestamp_idx").on(
-      escalations.escalated_at
+      escalations.escalated_at,
     ),
-  })
+  }),
 );
 
 /**
@@ -625,17 +721,17 @@ export const tddTaskRelationships = sqliteTable(
   },
   (tddTaskRelationships) => ({
     tddRelSprintIdx: index("tdd_rel_sprint_idx").on(
-      tddTaskRelationships.sprint_id
+      tddTaskRelationships.sprint_id,
     ),
     tddRelRedTaskIdx: index("tdd_rel_red_task_idx").on(
-      tddTaskRelationships.red_task_id
+      tddTaskRelationships.red_task_id,
     ),
     uniqueRelationship: uniqueIndex("tdd_rel_unique_idx").on(
       tddTaskRelationships.sprint_id,
       tddTaskRelationships.red_task_id,
-      tddTaskRelationships.green_task_id
+      tddTaskRelationships.green_task_id,
     ),
-  })
+  }),
 );
 
 /**
@@ -662,11 +758,11 @@ export const tddRedRegistry = sqliteTable(
   (tddRedRegistry) => ({
     tddRegSprintIdx: index("tdd_reg_sprint_idx").on(tddRedRegistry.sprint_id),
     tddRegRedTaskIdx: index("tdd_reg_red_task_idx").on(
-      tddRedRegistry.red_task_id
+      tddRedRegistry.red_task_id,
     ),
     uniqueTest: uniqueIndex("tdd_reg_unique_test_idx").on(
       tddRedRegistry.sprint_id,
-      tddRedRegistry.test_file
+      tddRedRegistry.test_file,
     ),
-  })
+  }),
 );

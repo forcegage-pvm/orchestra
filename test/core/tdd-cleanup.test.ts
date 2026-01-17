@@ -240,8 +240,8 @@ describe("cleanupTddRedMarkers - TypeScript", () => {
     const testFile = path.join(testDir, "feature.test.ts");
     fs.writeFileSync(
       testFile,
-      `describe('Feature', () => {
-  it('should work', () => {});
+      `describe('[tdd-red-task-1] Feature', () => {
+  it('[tdd-red-task-1] should work', () => {});
 });`,
     );
 
@@ -254,7 +254,7 @@ describe("cleanupTddRedMarkers - TypeScript", () => {
 
     // Verify markers were removed
     const cleanedContent = fs.readFileSync(testFile, "utf-8");
-    expect(cleanedContent).not.toContain("");
+    expect(cleanedContent).not.toContain("[tdd-red-task-1]");
     expect(cleanedContent).toContain("Feature");
     expect(cleanedContent).toContain("should work");
   });
@@ -266,15 +266,15 @@ describe("cleanupTddRedMarkers - TypeScript", () => {
 
     fs.writeFileSync(
       path.join(testDir, "test1.test.ts"),
-      "test('test 1', () => {});",
+      "test('[tdd-red-task-1] test 1', () => {});",
     );
     fs.writeFileSync(
       path.join(testDir, "test2.test.ts"),
-      "test('test 2', () => {});",
+      "test('[tdd-red-task-2] test 2', () => {});",
     );
     fs.writeFileSync(
       path.join(testDir, "test3.test.ts"),
-      "test('test 3', () => {});",
+      "test('[tdd-red-task-3] test 3', () => {});",
     );
 
     // Run cleanup
@@ -325,7 +325,7 @@ describe("cleanupTddRedMarkers - TypeScript", () => {
     const testFile = path.join(nestedDir, "nested.test.ts");
     fs.writeFileSync(
       testFile,
-      "describe('nested', () => {});",
+      "describe('[tdd-red-task-1] nested', () => {});",
     );
 
     // Run cleanup
@@ -344,12 +344,12 @@ describe("cleanupTddRedMarkers - TypeScript", () => {
     const testFile = path.join(testDir, "multi.test.ts");
     fs.writeFileSync(
       testFile,
-      `describe('feature 1', () => {
-  it('test 1', () => {});
+      `describe('[tdd-red-task-1] feature 1', () => {
+  it('[tdd-red-task-1] test 1', () => {});
 });
 
-describe('feature 2', () => {
-  it('test 2', () => {});
+describe('[tdd-red-task-2] feature 2', () => {
+  it('[tdd-red-task-2] test 2', () => {});
 });`,
     );
 
@@ -358,8 +358,8 @@ describe('feature 2', () => {
 
     // Verify all markers removed
     const cleanedContent = fs.readFileSync(testFile, "utf-8");
-    expect(cleanedContent).not.toContain("");
-    expect(cleanedContent).not.toContain("");
+    expect(cleanedContent).not.toContain("[tdd-red-task-1]");
+    expect(cleanedContent).not.toContain("[tdd-red-task-2]");
     expect(cleanedContent).toContain("feature 1");
     expect(cleanedContent).toContain("feature 2");
     expect(result.cleaned).toBe(true);
@@ -455,8 +455,8 @@ void main() {
     fs.mkdirSync(testDir, { recursive: true });
 
     const testFile = path.join(testDir, "preserve.test.ts");
-    const testContent = `describe('important feature', () => {
-  it('should preserve this content', () => {
+    const testContent = `describe('[tdd-red-task-1] important feature', () => {
+  it('[tdd-red-task-1] should preserve this content', () => {
     const value = 42;
     expect(value).toBe(42);
   });
@@ -472,6 +472,6 @@ void main() {
     expect(cleanedContent).toContain("important feature");
     expect(cleanedContent).toContain("should preserve this content");
     expect(cleanedContent).toContain("const value = 42");
-    expect(cleanedContent).not.toContain("");
+    expect(cleanedContent).not.toContain("[tdd-red-task-1]");
   });
 });

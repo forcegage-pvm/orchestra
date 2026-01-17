@@ -47,7 +47,7 @@ describe('Feature', () => {
 `;
       await fs.writeFile(
         path.join(tempDir, "test", "feature.test.ts"),
-        content
+        content,
       );
 
       const result = await scanForTddMarkers(tempDir);
@@ -56,8 +56,8 @@ describe('Feature', () => {
       expect(result.totalTests).toBe(0);
     });
 
-    describe("TypeScript markers - [tdd-red] format", () => {
-      it("should detect [tdd-red] marker with // @orchestra-task: N", async () => {
+    describe("TypeScript markers - tdd-red format", () => {
+      it("should detect tdd-red marker with // @orchestra-task: N", async () => {
         const content = `// @orchestra-task: 3
 
 describe('Widget', () => {
@@ -68,7 +68,7 @@ describe('Widget', () => {
 `;
         await fs.writeFile(
           path.join(tempDir, "test", "widget.test.ts"),
-          content
+          content,
         );
 
         const result = await scanForTddMarkers(tempDir);
@@ -80,7 +80,7 @@ describe('Widget', () => {
         expect(task3Files[0].test_count).toBe(1);
       });
 
-      it("should detect [tdd-red] marker in describe name", async () => {
+      it("should detect tdd-red marker in describe name", async () => {
         const content = `// @orchestra-task: 5
 
 describe('[tdd-red] Widget initialization', () => {
@@ -103,17 +103,17 @@ describe('[tdd-red] Widget initialization', () => {
         // File with task 3 markers
         await fs.writeFile(
           path.join(tempDir, "test", "a.test.ts"),
-          `// @orchestra-task: 3\nit('[tdd-red] test a', () => {});`
+          `// @orchestra-task: 3\nit('[tdd-red] test a', () => {});`,
         );
         // File with task 5 markers
         await fs.writeFile(
           path.join(tempDir, "test", "b.test.ts"),
-          `// @orchestra-task: 5\nit('[tdd-red] test b', () => {});`
+          `// @orchestra-task: 5\nit('[tdd-red] test b', () => {});`,
         );
         // Another file with task 3 markers
         await fs.writeFile(
           path.join(tempDir, "test", "c.test.ts"),
-          `// @orchestra-task: 3\nit('[tdd-red] test c', () => {});`
+          `// @orchestra-task: 3\nit('[tdd-red] test c', () => {});`,
         );
 
         const result = await scanForTddMarkers(tempDir);
@@ -129,7 +129,7 @@ describe('[tdd-red] Widget initialization', () => {
         expect(task5Files).toHaveLength(1);
       });
 
-      it("should detect [tdd-red] marker with .skip variant", async () => {
+      it("should detect tdd-red marker with .skip variant", async () => {
         const content = `// @orchestra-task: 7
 
 it.skip('[tdd-red] skipped red test', () => {
@@ -151,7 +151,7 @@ describe('Widget', () => {
 `;
         await fs.writeFile(
           path.join(tempDir, "test", "missing.test.ts"),
-          content
+          content,
         );
 
         const result = await scanForTddMarkers(tempDir);
@@ -174,7 +174,7 @@ void main() {
 `;
         await fs.writeFile(
           path.join(tempDir, "test", "widget_test.dart"),
-          content
+          content,
         );
 
         const result = await scanForTddMarkers(tempDir);
@@ -204,7 +204,7 @@ void main() {
 `;
         await fs.writeFile(
           path.join(tempDir, "test", "tagged_test.dart"),
-          content
+          content,
         );
 
         const result = await scanForTddMarkers(tempDir);
@@ -218,12 +218,12 @@ void main() {
         // File with task 3
         await fs.writeFile(
           path.join(tempDir, "test", "a_test.dart"),
-          `// @orchestra-task: 3\nvoid main() { test('test', () {}, tags: ['tdd-red']); }`
+          `// @orchestra-task: 3\nvoid main() { test('test', () {}, tags: ['tdd-red']); }`,
         );
         // File with task 5
         await fs.writeFile(
           path.join(tempDir, "test", "b_test.dart"),
-          `// @orchestra-task: 5\nvoid main() { test('test', () {}, tags: ['tdd-red']); }`
+          `// @orchestra-task: 5\nvoid main() { test('test', () {}, tags: ['tdd-red']); }`,
         );
 
         const result = await scanForTddMarkers(tempDir);
@@ -240,12 +240,12 @@ void main() {
           path.join(tempDir, "test", "a.test.ts"),
           `// @orchestra-task: 3
 it('[tdd-red] test a1', () => {});
-it('[tdd-red] test a2', () => {});`
+it('[tdd-red] test a2', () => {});`,
         );
         await fs.writeFile(
           path.join(tempDir, "test", "b.test.ts"),
           `// @orchestra-task: 3
-it('[tdd-red] test b', () => {});`
+it('[tdd-red] test b', () => {});`,
         );
 
         const result = await scanForTddMarkers(tempDir);
@@ -261,7 +261,7 @@ it('[tdd-red] test b', () => {});`
         });
         await fs.writeFile(
           path.join(tempDir, "test", "nested", "deep", "feature.test.ts"),
-          `// @orchestra-task: 3\nit('[tdd-red] nested test', () => {});`
+          `// @orchestra-task: 3\nit('[tdd-red] nested test', () => {});`,
         );
 
         const result = await scanForTddMarkers(tempDir);
@@ -269,7 +269,7 @@ it('[tdd-red] test b', () => {});`
         expect(result.testsByTask.has(3)).toBe(true);
         const task3Files = result.testsByTask.get(3)!;
         expect(task3Files[0].test_file).toBe(
-          "test/nested/deep/feature.test.ts"
+          "test/nested/deep/feature.test.ts",
         );
       });
     });
@@ -278,7 +278,7 @@ it('[tdd-red] test b', () => {});`
       it("should skip files that cannot be read", async () => {
         await fs.writeFile(
           path.join(tempDir, "test", "valid.test.ts"),
-          `// @orchestra-task: 3\nit('[tdd-red] test', () => {});`
+          `// @orchestra-task: 3\nit('[tdd-red] test', () => {});`,
         );
         // Create a directory with .test.ts extension (will fail to read)
         await fs.mkdir(path.join(tempDir, "test", "dir.test.ts"));
@@ -292,12 +292,12 @@ it('[tdd-red] test b', () => {});`
         // File WITH task ID
         await fs.writeFile(
           path.join(tempDir, "test", "with_id.test.ts"),
-          `// @orchestra-task: 3\nit('[tdd-red] test', () => {});`
+          `// @orchestra-task: 3\nit('[tdd-red] test', () => {});`,
         );
         // File WITHOUT task ID
         await fs.writeFile(
           path.join(tempDir, "test", "without_id.test.ts"),
-          `it('[tdd-red] test', () => {});`
+          `it('[tdd-red] test', () => {});`,
         );
 
         const result = await scanForTddMarkers(tempDir);

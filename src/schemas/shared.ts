@@ -20,7 +20,7 @@ export const TaskCategorySchema = z.enum(
       message:
         "Category must be INFRASTRUCTURE, INTEGRATION, VISUAL, or REFACTOR",
     }),
-  }
+  },
 );
 
 export type TaskCategory = z.output<typeof TaskCategorySchema>;
@@ -35,6 +35,9 @@ export const TaskStatusSchema = z.enum(
     "PREPARE",
     "PENDING_HANDOVER_REVIEW", // Awaiting Controller review of handover
     "HANDOVER_REVIEW_FAILED", // Controller rejected handover
+    "PENDING_CODE_REVIEW", // Awaiting code review before verification
+    "CODE_REVIEW_CHANGES_REQUESTED", // Code review requested changes
+    "CODE_REVIEW_FAILED", // Code review failed or rejected
     "IMPLEMENT",
     "GATE_CHECK",
     "VERIFY",
@@ -45,7 +48,7 @@ export const TaskStatusSchema = z.enum(
   ],
   {
     errorMap: () => ({ message: "Invalid task status" }),
-  }
+  },
 );
 
 export type TaskStatus = z.output<typeof TaskStatusSchema>;
@@ -64,6 +67,7 @@ export const WorkflowStepSchema = z.enum(
     "HANDOVER_REVIEW", // Awaiting Controller review of task handover
     "IMPLEMENT",
     "SIGNAL",
+    "CODE_REVIEW", // Awaiting code review gate
     "VERIFY",
     "COMPLETE",
     "RETRY",
@@ -72,7 +76,7 @@ export const WorkflowStepSchema = z.enum(
   ],
   {
     errorMap: () => ({ message: "Invalid workflow step" }),
-  }
+  },
 );
 
 export type WorkflowStep = z.output<typeof WorkflowStepSchema>;
@@ -146,7 +150,7 @@ export const TriggeredBySchema = z.enum(
     errorMap: () => ({
       message: "Triggered by must be orchestrator, implementor, or system",
     }),
-  }
+  },
 );
 
 export type TriggeredBy = z.output<typeof TriggeredBySchema>;
@@ -160,7 +164,7 @@ export type TriggeredBy = z.output<typeof TriggeredBySchema>;
  */
 export const SprintStatusSchema = z.enum(
   ["PENDING_SPEC_REVIEW", "ACTIVE", "SPEC_REVIEW_FAILED", "COMPLETE", "CLOSED"],
-  { errorMap: () => ({ message: "Invalid sprint status" }) }
+  { errorMap: () => ({ message: "Invalid sprint status" }) },
 );
 
 export type SprintStatus = z.output<typeof SprintStatusSchema>;
@@ -185,7 +189,7 @@ export const ReviewDecisionSchema = z.enum(
     errorMap: () => ({
       message: "Decision must be APPROVED, NEEDS_REVISION, or REJECTED",
     }),
-  }
+  },
 );
 
 export type ReviewDecision = z.output<typeof ReviewDecisionSchema>;
@@ -213,6 +217,66 @@ export const AlignmentIssueSchema = z.object({
 });
 
 export type AlignmentIssue = z.output<typeof AlignmentIssueSchema>;
+
+// ============================================================================
+// Code Review Schemas
+// ============================================================================
+
+/**
+ * Code review status enum
+ */
+export const CodeReviewStatusSchema = z.enum(
+  ["PENDING", "IN_REVIEW", "COMPLETED"],
+  { errorMap: () => ({ message: "Invalid code review status" }) },
+);
+
+export type CodeReviewStatus = z.output<typeof CodeReviewStatusSchema>;
+
+/**
+ * Code review decision enum
+ */
+export const CodeReviewDecisionSchema = z.enum(
+  ["APPROVED", "CHANGES_REQUIRED", "REJECTED"],
+  { errorMap: () => ({ message: "Invalid code review decision" }) },
+);
+
+export type CodeReviewDecision = z.output<typeof CodeReviewDecisionSchema>;
+
+/**
+ * Code review risk enum
+ */
+export const CodeReviewRiskSchema = z.enum(["LOW", "MEDIUM", "HIGH"], {
+  errorMap: () => ({ message: "Invalid code review risk" }),
+});
+
+export type CodeReviewRisk = z.output<typeof CodeReviewRiskSchema>;
+
+/**
+ * Code review blocking severity enum
+ */
+export const CodeReviewBlockingSeveritySchema = z.enum(
+  ["BLOCKING", "MAJOR", "MINOR"],
+  { errorMap: () => ({ message: "Invalid code review blocking severity" }) },
+);
+
+export type CodeReviewBlockingSeverity = z.output<
+  typeof CodeReviewBlockingSeveritySchema
+>;
+
+/**
+ * Code review issue
+ */
+export const CodeReviewIssueSchema = z.object({
+  severity: SeveritySchema,
+  issue: z.string().min(1, "Issue is required"),
+  file: z.string().optional(),
+  line: z.number().int().positive().optional(),
+  code_snippet: z.string().optional(),
+  rationale: z.string().min(1, "Rationale is required"),
+  recommendation: z.string().optional(),
+});
+
+export type CodeReviewIssue = z.output<typeof CodeReviewIssueSchema>;
 
 // ============================================================================
 // Verification Check Schemas
@@ -274,7 +338,7 @@ export const QualityCheckSchema = z
     {
       message:
         "Quality check must have either 'command' OR both 'path' and 'pattern'",
-    }
+    },
   );
 
 export type QualityCheck = z.output<typeof QualityCheckSchema>;
@@ -315,7 +379,7 @@ export const CrossReferenceCheckSchema = z.object({
           data.json_path !== undefined && data.json_path.length > 0;
         return hasPattern || hasJsonPath;
       },
-      { message: "Definition must have either 'pattern' OR 'json_path'" }
+      { message: "Definition must have either 'pattern' OR 'json_path'" },
     ),
 
   // References: where the values must be used consistently
@@ -325,7 +389,7 @@ export const CrossReferenceCheckSchema = z.object({
         path: z.string().min(1, "Path is required"),
         pattern: z.string().min(1, "Pattern is required"),
         capture_group: z.number().int().min(0).optional(),
-      })
+      }),
     )
     .min(1, "At least one reference is required"),
 
@@ -354,7 +418,7 @@ export const VerificationCriteriaSchema = z
         (data.cross_reference_checks && data.cross_reference_checks.length > 0);
       return hasChecks;
     },
-    { message: "At least one verification check is required" }
+    { message: "At least one verification check is required" },
   );
 
 export type VerificationCriteria = z.output<typeof VerificationCriteriaSchema>;

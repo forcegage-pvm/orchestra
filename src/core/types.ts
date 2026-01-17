@@ -7,6 +7,7 @@
  */
 
 import { z } from "zod";
+import { CodeReviewConfigSchema } from "../schemas/config.js";
 
 // =============================================================================
 // Workflow Steps (orchestra next command)
@@ -35,16 +36,18 @@ export const WorkflowStepSchema = z.enum([
   // Sprint-level
   "INIT",
   "CONFIGURE",
+  "SPEC_REVIEW",
   "SELECT_TASK",
-  "SPRINT_COMPLETE",
-  // Task-level
   "PREPARE",
+  "HANDOVER_REVIEW",
   "IMPLEMENT",
   "SIGNAL",
+  "CODE_REVIEW",
   "VERIFY",
   "COMPLETE",
   "RETRY",
   "ESCALATED",
+  "SPRINT_COMPLETE",
 ]);
 
 export type WorkflowStep = z.infer<typeof WorkflowStepSchema>;
@@ -59,6 +62,11 @@ export type WorkflowStep = z.infer<typeof WorkflowStepSchema>;
 export const TaskStatusSchema = z.enum([
   "PENDING", // Task defined but not started
   "PREPARE", // Orchestrator preparing handover
+  "PENDING_HANDOVER_REVIEW", // Awaiting Controller review of handover
+  "HANDOVER_REVIEW_FAILED", // Controller rejected handover
+  "PENDING_CODE_REVIEW", // Awaiting code review before verification
+  "CODE_REVIEW_CHANGES_REQUESTED", // Code review requested changes
+  "CODE_REVIEW_FAILED", // Code review failed or rejected
   "IMPLEMENT", // Implementor working
   "GATE_CHECK", // Automated verification running
   "VERIFY", // Orchestrator/human review
@@ -208,7 +216,7 @@ export const ManifestSchema = z
     {
       message:
         "Either 'tasks' or 'phases' must be provided with at least one task",
-    }
+    },
   );
 
 export type Manifest = z.output<typeof ManifestSchema>;
@@ -424,7 +432,7 @@ export function successResult<T>(message: string, data?: T): ScriptResult<T> {
  */
 export function failureResult(
   message: string,
-  errors?: string[]
+  errors?: string[],
 ): ScriptResult<never> {
   const result: ScriptResult<never> = { success: false, message };
   if (errors !== undefined) {
@@ -521,16 +529,18 @@ export type TemplateConfig = z.output<typeof TemplateConfigSchema>;
 /**
  * Orchestra configuration schema
  */
-export const OrchestraConfigSchema = z.object({
-  version: z.string().default("1.0"),
-  /** SpecKit integration configuration (optional) */
-  speckit: SpecKitConfigSchema.optional(),
-  paths: PathsConfigSchema.default({}),
-  verification: VerificationConfigSchema.default({}),
-  retry: RetryConfigSchema.default({}),
-  git: GitConfigSchema.default({}),
-  template: TemplateConfigSchema.default({}),
-});
+export const OrchestraConfigSchema = z
+  .object({
+    version: z.string().default("1.0"),
+    /** SpecKit integration configuration (optional) */
+    speckit: SpecKitConfigSchema.optional(),
+    paths: PathsConfigSchema.default({}),
+    verification: VerificationConfigSchema.default({}),
+    retry: RetryConfigSchema.default({}),
+    git: GitConfigSchema.default({}),
+    template: TemplateConfigSchema.default({}),
+  })
+  .merge(CodeReviewConfigSchema);
 
 export type OrchestraConfig = z.output<typeof OrchestraConfigSchema>;
 
@@ -637,7 +647,7 @@ export const PreSignalArtifactSchema = z.object({
       status: z.enum(["PASSED", "FAILED", "SKIPPED"]),
       count: z.number().optional(),
       details: z.string().optional(),
-    })
+    }),
   ),
   summary: z.object({
     total: z.number(),
@@ -709,4 +719,9 @@ export const DEFAULT_CONFIG: OrchestraConfig = {
     validate_on_render: true,
     strict_mode: false,
   },
+  code_review_enabled: true,
+  code_review_policy: "STRICT",
+  code_review_blocking_severity: "MAJOR",
+  code_review_auto_trigger: true,
+  code_review_required_steps: ["VERIFY"],
 };

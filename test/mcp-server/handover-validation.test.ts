@@ -156,7 +156,7 @@ describe("handover-validation", () => {
         expect(result.violations).toHaveLength(0);
       });
 
-      it("should ALLOW TDD marker format [tdd-red]", () => {
+      it("should ALLOW TDD marker format tdd-red", () => {
         const context =
           "Use [tdd-red] in test name or @Tags(['tdd-red']) annotation. " +
           "The // @orchestra-task: N comment links to the task.";
@@ -405,7 +405,7 @@ describe("handover-validation", () => {
         const message = (error as Error).message;
         expect(message).toContain("ACTION REQUIRED");
         expect(message).toContain(
-          "Extract relevant content into the context field"
+          "Extract relevant content into the context field",
         );
       }
     });

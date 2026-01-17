@@ -98,7 +98,7 @@ void main() {
 
       expect(markers).toHaveLength(1);
       expect(markers[0].testIdentifier).toBe(
-        "test.dart::MyGroup::should fail intentionally"
+        "test.dart::MyGroup::should fail intentionally",
       );
       expect(markers[0].markerType).toBe("@Tags(['tdd-red'])");
     });
@@ -132,10 +132,10 @@ void main() {
       expect(result.hasFileLevelTag).toBe(true);
       expect(result.markers).toHaveLength(2);
       expect(result.markers[0].testIdentifier).toContain(
-        "should have default values"
+        "should have default values",
       );
       expect(result.markers[0].markerType).toBe(
-        "file-level-@Tags(['tdd-red'])"
+        "file-level-@Tags(['tdd-red'])",
       );
     });
 
@@ -155,7 +155,7 @@ void main() {
 
       expect(markers).toHaveLength(1);
       expect(markers[0].testIdentifier).toBe(
-        "inline_tags_test.dart::::red phase test"
+        "inline_tags_test.dart::::red phase test",
       );
       expect(markers[0].markerType).toBe("tags:['tdd-red']");
     });
@@ -180,8 +180,8 @@ void main() {
     });
   });
 
-  describe("TypeScript patterns - [tdd-red] in test name", () => {
-    it("should detect [tdd-red] marker in test name", async () => {
+  describe("TypeScript patterns - tdd-red in test name", () => {
+    it("should detect tdd-red marker in test name", async () => {
       const content = `// @orchestra-task: 3
 
 describe('Feature', () => {
@@ -197,12 +197,12 @@ describe('Feature', () => {
 
       expect(markers).toHaveLength(1);
       expect(markers[0].testIdentifier).toBe(
-        "test.test.ts::Feature::[tdd-red] should work eventually"
+        "test.test.ts::Feature::[tdd-red] should work eventually",
       );
       expect(markers[0].markerType).toBe("[tdd-red]");
     });
 
-    it("should detect [tdd-red] marker in describe name", async () => {
+    it("should detect tdd-red marker in describe name", async () => {
       const content = `// @orchestra-task: 5
 
 describe('[tdd-red] Feature group', () => {
@@ -221,7 +221,7 @@ describe('[tdd-red] Feature group', () => {
       expect(markers[0].testIdentifier).toContain("Feature group");
     });
 
-    it("should detect it.skip with [tdd-red] marker", async () => {
+    it("should detect it.skip with tdd-red marker", async () => {
       const content = `// @orchestra-task: 4
 
 describe('Feature', () => {
@@ -239,7 +239,7 @@ describe('Feature', () => {
       expect(markers[0].markerType).toBe("[tdd-red]");
     });
 
-    it("should NOT detect it.skip without [tdd-red] marker", async () => {
+    it("should NOT detect it.skip without tdd-red marker", async () => {
       const content = `
 describe('Feature', () => {
   it.skip('should work eventually', () => {
@@ -338,7 +338,7 @@ describe('Feature', () => {
   });
 
   describe("Backward compatibility - reject old format", () => {
-    it("should detect [tdd-red] (the CORRECT format per DESIGN.md)", async () => {
+    it("should detect tdd-red (the CORRECT format per DESIGN.md)", async () => {
       const content = `// @orchestra-task: 3
 
 describe('Feature', () => {
