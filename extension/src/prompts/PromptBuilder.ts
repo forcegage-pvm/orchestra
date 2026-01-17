@@ -186,7 +186,8 @@ Use your MCP tools to verify the implementor's work:
 - Hidden verification criteria ensure genuine implementation quality
 - Be thorough and objective in your assessment
 - Provide clear, actionable feedback if verification fails
-- Your judgment determines if the task moves to COMPLETE or RETRY`;
+- Your judgment determines if the task moves to COMPLETE or RETRY
+- If judgment is PASS, immediately call \`complete_task\` (do not wait for another prompt)`;
   }
 
   /**

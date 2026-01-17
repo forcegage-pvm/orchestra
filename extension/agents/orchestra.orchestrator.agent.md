@@ -617,6 +617,12 @@ When verifying with `run_verification_checks` and `submit_verification_judgment`
     "quality_assessment": "Code is clean and well-documented. Test coverage appears comprehensive with edge cases."
   }
 }
+
+// Step 4: If PASS, complete the task immediately
+// Call: complete_task
+{
+  "task_id": 3
+}
 ```
 
 ### If Verification FAILS
