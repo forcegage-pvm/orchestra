@@ -43,16 +43,15 @@ export class ConfigService {
   /**
    * Get the configured AI model for a specific role
    * @param role - The role to get the model for (orchestrator, implementor, or controller)
-   * @returns The model identifier (e.g., "claude-sonnet-4.5", "claude-opus-4.5")
+   * @returns The model identifier (e.g., "gpt-5.2-codex")
    */
   getModelForRole(role: Role): string {
     const config = this.getWorkspaceConfig();
-    // Controller uses Opus 4.5 (highest capability) for accurate spec verification
-    // Orchestrator also uses Opus 4.5, Implementor uses Sonnet 4.5
+    // Default all roles to GPT-5.2-Codex
     const defaultModels: Record<Role, string> = {
-      orchestrator: "claude-opus-4.5",
-      implementor: "claude-sonnet-4.5",
-      controller: "claude-opus-4.5", // Controller needs highest capability for review accuracy
+      orchestrator: "gpt-5.2-codex",
+      implementor: "gpt-5.2-codex",
+      controller: "gpt-5.2-codex",
     };
     return config.get<string>(`models.${role}`, defaultModels[role]);
   }
@@ -93,7 +92,7 @@ export class ConfigService {
    * @returns Disposable that can be used to unregister the callback
    */
   onConfigChange(
-    callback: (config: OrchestraConfig) => void
+    callback: (config: OrchestraConfig) => void,
   ): vscode.Disposable {
     return vscode.workspace.onDidChangeConfiguration((event) => {
       // Only fire callback if orchestra configuration changed

@@ -83,8 +83,12 @@ export interface TaskData {
 /**
  * Escape HTML to prevent XSS attacks
  */
-function escapeHtml(text: string): string {
-  return text
+function escapeHtml(text: string | null | undefined): string {
+  if (!text) {
+    return "";
+  }
+  const safeText = text.toString();
+  return safeText
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
@@ -515,15 +519,17 @@ function getScript(): string {
     }
     
     function renderTaskCard(task) {
-      const statusClass = task.status.toLowerCase().replace('_', '-');
-      const priorityClass = task.priority.toLowerCase();
+      const statusValue = (task?.status || 'unknown').toString();
+      const priorityValue = (task?.priority || 'unknown').toString();
+      const statusClass = statusValue.toLowerCase().replace('_', '-');
+      const priorityClass = priorityValue.toLowerCase();
       
       // Determine action button label and handler based on task status
       // Mirrors the PlayTaskHandler logic exactly
       let actionLabel = '';
       let actionDisabled = false;
       
-      switch (task.status) {
+      switch (statusValue) {
         case 'PENDING':
           actionLabel = 'Prepare Task';
           break;
@@ -944,15 +950,17 @@ function getScript(): string {
  * Render a task card with all task information
  */
 function renderTaskCard(task: TaskData): string {
-  const statusClass = task.status.toLowerCase().replace("_", "-");
-  const priorityClass = task.priority.toLowerCase();
+  const statusValue = (task?.status || "unknown").toString();
+  const priorityValue = (task?.priority || "unknown").toString();
+  const statusClass = statusValue.toLowerCase().replace("_", "-");
+  const priorityClass = priorityValue.toLowerCase();
 
   // Determine action button label and handler based on task status
   // Mirrors the PlayTaskHandler logic exactly
   let actionLabel = "";
   let actionDisabled = false;
 
-  switch (task.status) {
+  switch (statusValue) {
     case "PENDING":
       actionLabel = "Prepare Task";
       break;

@@ -5,10 +5,15 @@
  * Orchestrator-only view (includes hidden verification).
  */
 
-import { and, eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { getDb } from "../../db/index.js";
 import { getActiveSprint } from "../../db/queries.js";
-import { phases, tasks, verificationChecks } from "../../db/schema.js";
+import {
+  phases,
+  specReviews,
+  tasks,
+  verificationChecks,
+} from "../../db/schema.js";
 import {
   GetTaskInputSchema,
   type GetTaskOutput,
@@ -42,7 +47,7 @@ export async function handleGetTask(input: unknown) {
         taskId: validation.data.task_id,
       },
       { success: true, output },
-      durationMs
+      durationMs,
     );
 
     return {
@@ -60,7 +65,7 @@ export async function handleGetTask(input: unknown) {
         taskId: validation.data.task_id,
       },
       { success: false, errorMessage: err.message },
-      durationMs
+      durationMs,
     );
 
     return {
@@ -76,7 +81,7 @@ export async function handleGetTask(input: unknown) {
               },
             },
             null,
-            2
+            2,
           ),
         },
       ],
@@ -85,7 +90,7 @@ export async function handleGetTask(input: unknown) {
 }
 
 async function getTask(
-  input: typeof GetTaskInputSchema._output
+  input: typeof GetTaskInputSchema._output,
 ): Promise<GetTaskOutput> {
   const db = getDb();
 
@@ -101,7 +106,7 @@ async function getTask(
     .select()
     .from(tasks)
     .where(
-      and(eq(tasks.sprint_id, sprint.id), eq(tasks.task_id, input.task_id))
+      and(eq(tasks.sprint_id, sprint.id), eq(tasks.task_id, input.task_id)),
     )
     .limit(1);
 
@@ -166,6 +171,50 @@ async function getTask(
       };
     });
 
+  let handoverReview: GetTaskOutput["handover_review"] | undefined;
+
+  if (task.status === "HANDOVER_REVIEW_FAILED") {
+    const [review] = await db
+      .select()
+      .from(specReviews)
+      .where(
+        and(
+          eq(specReviews.task_id, task.id),
+          eq(specReviews.review_type, "HANDOVER"),
+        ),
+      )
+      .orderBy(desc(specReviews.reviewed_at))
+      .limit(1);
+
+    if (review) {
+      const parseJsonArray = <T>(
+        value: string | null | undefined,
+        fallback: T[],
+      ) => {
+        if (!value) {
+          return fallback;
+        }
+        try {
+          const parsed = JSON.parse(value);
+          return Array.isArray(parsed) ? (parsed as T[]) : fallback;
+        } catch {
+          return fallback;
+        }
+      };
+
+      handoverReview = {
+        decision: review.decision,
+        conformance: review.conformance,
+        issues: parseJsonArray<Record<string, unknown>>(review.issues, []),
+        recommendations: parseJsonArray<string>(review.recommendations, []),
+        notes: review.notes,
+        reviewed_by: review.reviewed_by,
+        reviewed_at: review.reviewed_at,
+        revision_count: review.revision_count,
+      };
+    }
+  }
+
   return {
     task_id: task.task_id,
     phase_id: phase.phase_id,
@@ -190,5 +239,6 @@ async function getTask(
       behavioral_checks: behavioral.length > 0 ? behavioral : undefined,
       quality_checks: quality.length > 0 ? quality : undefined,
     },
+    handover_review: handoverReview,
   };
 }

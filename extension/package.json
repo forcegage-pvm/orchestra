@@ -59,18 +59,18 @@
         },
         "orchestra.models.orchestrator": {
           "type": "string",
-          "default": "claude-opus-4.5",
-          "description": "AI model to use for the Orchestrator agent (e.g., claude-opus-4.5, gpt-4o)"
+          "default": "gpt-5.2-codex",
+          "description": "AI model to use for the Orchestrator agent (e.g., gpt-5.2-codex)"
         },
         "orchestra.models.implementor": {
           "type": "string",
-          "default": "claude-sonnet-4.5",
-          "description": "AI model to use for the Implementor agent (e.g., claude-sonnet-4.5, gpt-4o)"
+          "default": "gpt-5.2-codex",
+          "description": "AI model to use for the Implementor agent (e.g., gpt-5.2-codex)"
         },
         "orchestra.models.controller": {
           "type": "string",
-          "default": "claude-opus-4.5",
-          "description": "AI model to use for the Controller agent (e.g., claude-opus-4.5) - highest capability model for spec verification"
+          "default": "gpt-5.2-codex",
+          "description": "AI model to use for the Controller agent (e.g., gpt-5.2-codex)"
         },
         "orchestra.agents.orchestrator": {
           "type": "string",

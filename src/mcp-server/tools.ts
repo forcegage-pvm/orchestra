@@ -293,7 +293,28 @@ const TOOLS_WITH_ROLES: ToolWithRole[] = [
     name: "update_task",
     description:
       "Update task metadata (title, description, category, dependencies)",
-    inputSchema: { type: "object", properties: {} },
+    inputSchema: {
+      type: "object",
+      properties: {
+        task_id: { type: "number", description: "The task ID" },
+        title: { type: "string" },
+        description: { type: "string" },
+        category: {
+          type: "string",
+          enum: ["INFRASTRUCTURE", "INTEGRATION", "VISUAL", "REFACTOR"],
+        },
+        dependencies: { type: "array", items: { type: "number" } },
+        phase_id: { type: "string" },
+        speckit_task_ref: { type: "string" },
+        tdd_red_phase: { type: "boolean" },
+        rationale: {
+          type: "string",
+          description:
+            "Required when updating task metadata after CONFIGURE (e.g., after SPEC_REVIEW_FAILED)",
+        },
+      },
+      required: ["task_id"],
+    },
   },
   {
     role: "orchestrator",

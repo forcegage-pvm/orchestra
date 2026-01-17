@@ -38,7 +38,7 @@ export const ConfigureSprintInputSchema = z
           phase_id: z.string().min(1, "Phase ID is required"),
           phase_name: z.string().min(1, "Phase name is required"),
           speckit_tasks: z.array(z.string()).optional(),
-        })
+        }),
       )
       .optional(),
 
@@ -54,7 +54,7 @@ export const ConfigureSprintInputSchema = z
           speckit_task_ref: z.string().optional(),
           tdd_red_phase: z.boolean().optional(),
           verification: VerificationCriteriaSchema,
-        })
+        }),
       )
       .optional(),
 
@@ -71,7 +71,7 @@ export const ConfigureSprintInputSchema = z
             .number()
             .int()
             .positive("Green task ID must be positive"),
-        })
+        }),
       )
       .optional(),
   })
@@ -223,7 +223,7 @@ export const ConfigureSprintInputSchema = z
     // This enforces red/green task separation at configuration time
     if (data.tasks) {
       const redTaskIdsWithRelationship = new Set(
-        (data.tdd_relationships || []).map((rel) => rel.red_task_id)
+        (data.tdd_relationships || []).map((rel) => rel.red_task_id),
       );
 
       data.tasks.forEach((task, idx) => {
@@ -296,14 +296,21 @@ export const UpdateTaskInputSchema = z
     phase_id: z.string().min(1).optional(),
     speckit_task_ref: z.string().optional(),
     tdd_red_phase: z.boolean().optional(),
+    rationale: z
+      .string()
+      .min(10, "Rationale must be at least 10 characters")
+      .optional()
+      .describe(
+        "Required when updating task metadata after CONFIGURE (e.g., after SPEC_REVIEW_FAILED).",
+      ),
   })
   .refine(
     (data) => {
       // At least one field must be provided (besides task_id)
-      const { task_id: _taskId, ...fields } = data;
+      const { task_id: _taskId, rationale: _rationale, ...fields } = data;
       return Object.values(fields).some((v) => v !== undefined);
     },
-    { message: "At least one field to update is required" }
+    { message: "At least one field to update is required" },
   );
 
 export type UpdateTaskInput = z.output<typeof UpdateTaskInputSchema>;
@@ -327,7 +334,7 @@ export const UpdateVerificationInputSchema = z.object({
     .min(10, "Rationale must be at least 10 characters")
     .optional()
     .describe(
-      "Required when updating during PREPARE phase. Explains why the verification criteria are being amended."
+      "Required when updating during PREPARE phase. Explains why the verification criteria are being amended.",
     ),
 });
 
@@ -370,6 +377,18 @@ export const GetTaskOutputSchema = z.object({
   max_retries: z.number().int().positive(),
   tdd_red_phase: z.boolean(),
   verification: VerificationCriteriaSchema,
+  handover_review: z
+    .object({
+      decision: z.string(),
+      conformance: z.string(),
+      issues: z.array(z.record(z.unknown())),
+      recommendations: z.array(z.string()),
+      notes: z.string().nullable(),
+      reviewed_by: z.string(),
+      reviewed_at: z.string(),
+      revision_count: z.number().int().nonnegative(),
+    })
+    .optional(),
 });
 
 export type GetTaskOutput = z.output<typeof GetTaskOutputSchema>;

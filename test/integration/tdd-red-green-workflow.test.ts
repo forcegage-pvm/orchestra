@@ -203,7 +203,7 @@ describe("TDD Red-Green Workflow End-to-End", () => {
       const testContent = `
 import { describe, it, expect } from 'vitest';
 
-describe('[tdd-red-task-1] Feature', () => {
+describe('Feature', () => {
   it('should implement feature requirement 1', () => {
     expect(true).toBe(false);
   });

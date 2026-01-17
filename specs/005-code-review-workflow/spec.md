@@ -163,8 +163,6 @@ Phase gating does not create phase-level review records in the MVP; reviews are 
 
 **Orchestrator tools**:
 
-- `resubmit_code_review`
-
 **Implementor tools**:
 
 - `resolve_code_review_issue`
