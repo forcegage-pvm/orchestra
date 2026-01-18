@@ -79,6 +79,15 @@ export async function executeCommand(
     };
   }
 
+  // Detect bash-only syntax on Windows and warn (but still attempt execution)
+  // PowerShell uses `;` for command chaining, not `&&`
+  if (process.platform === "win32" && /\s&&\s/.test(command)) {
+    console.error(
+      `[command-executor] WARNING: Command uses bash syntax '&&' which may fail in PowerShell. ` +
+        `Consider using ';' for command chaining. Command: "${command.substring(0, 80)}..."`,
+    );
+  }
+
   // On Windows, wrap command with UTF-8 encoding setup to prevent
   // Unicode corruption (e.g., ✔ → Γ£ô) when parsing test output
   const wrappedCommand =

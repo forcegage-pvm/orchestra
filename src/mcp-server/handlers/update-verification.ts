@@ -224,7 +224,16 @@ async function updateVerification(
     return hasGlobChars || hasFileExtension;
   };
 
+  // Detect bash-only command syntax that won't work in PowerShell
+  const hasBashOnlySyntax = (cmd: string): boolean => {
+    // Check for && (bash command chaining) not inside quotes
+    // PowerShell uses ; for command chaining
+    return /\s&&\s/.test(cmd);
+  };
+
   const pathErrors: string[] = [];
+  const commandWarnings: string[] = [];
+
   if (input.verification.structural_checks) {
     for (const check of input.verification.structural_checks) {
       if (!isValidPath(check.path)) {
@@ -245,11 +254,29 @@ async function updateVerification(
       }
     }
   }
+  if (input.verification.behavioral_checks) {
+    for (const check of input.verification.behavioral_checks) {
+      if (hasBashOnlySyntax(check.command)) {
+        commandWarnings.push(
+          `Behavioral check command uses bash-only syntax '&&'. ` +
+            `This will fail on Windows/PowerShell. Use ';' instead. ` +
+            `Command: "${check.command.substring(0, 60)}${check.command.length > 60 ? "..." : ""}"`,
+        );
+      }
+    }
+  }
 
   if (pathErrors.length > 0) {
     throw new Error(
       `Invalid verification check paths:\n${pathErrors.join("\n")}\n\n` +
         `Paths must contain glob characters (*?[]{}) or end with a file extension.`,
+    );
+  }
+
+  // Log warnings but don't block
+  if (commandWarnings.length > 0) {
+    console.error(
+      `[update_verification] WARNINGS - Potential shell compatibility issues:\n${commandWarnings.join("\n")}`,
     );
   }
 

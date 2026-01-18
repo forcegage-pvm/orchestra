@@ -280,8 +280,18 @@ async function configureSprint(input: ConfigureSprintInput): Promise<{
     return hasGlobChars || hasFileExtension;
   };
 
+  // Detect bash-only command syntax that won't work in PowerShell
+  const hasBashOnlySyntax = (cmd: string): boolean => {
+    // Check for && (bash command chaining) not inside quotes
+    // PowerShell uses ; for command chaining
+    return /\s&&\s/.test(cmd);
+  };
+
   const pathErrors: string[] = [];
+  const commandWarnings: string[] = [];
+
   for (const task of tasksData) {
+    // Validate structural check paths
     if (task.verification.structural_checks) {
       for (const check of task.verification.structural_checks) {
         if (!isValidPath(check.path)) {
@@ -292,6 +302,8 @@ async function configureSprint(input: ConfigureSprintInput): Promise<{
         }
       }
     }
+
+    // Validate quality check paths
     if (task.verification.quality_checks) {
       for (const check of task.verification.quality_checks) {
         if (check.path && !isValidPath(check.path)) {
@@ -302,12 +314,32 @@ async function configureSprint(input: ConfigureSprintInput): Promise<{
         }
       }
     }
+
+    // Validate behavioral check commands for shell compatibility
+    if (task.verification.behavioral_checks) {
+      for (const check of task.verification.behavioral_checks) {
+        if (hasBashOnlySyntax(check.command)) {
+          commandWarnings.push(
+            `Task ${task.task_id}: behavioral check command uses bash-only syntax '&&'. ` +
+              `This will fail on Windows/PowerShell. Use ';' instead or split into separate commands. ` +
+              `Command: "${check.command.substring(0, 60)}${check.command.length > 60 ? "..." : ""}"`,
+          );
+        }
+      }
+    }
   }
 
   if (pathErrors.length > 0) {
     throw new Error(
       `Invalid verification check paths detected:\n${pathErrors.join("\n")}\n\n` +
         `Paths must contain glob characters (*?[]{}) or end with a file extension.`,
+    );
+  }
+
+  // Log warnings but don't block (commands might be intentionally cross-platform)
+  if (commandWarnings.length > 0) {
+    console.error(
+      `[configure_sprint] WARNINGS - Potential shell compatibility issues:\n${commandWarnings.join("\n")}`,
     );
   }
 
