@@ -81,7 +81,7 @@ export interface CheckResult {
 
 export async function executeStructuralCheck(
   config: StructuralCheckConfig,
-  workspacePath: string
+  workspacePath: string,
 ): Promise<CheckResult> {
   const startTime = Date.now();
 
@@ -163,6 +163,18 @@ export async function executeStructuralCheck(
     };
   }
 
+  // Check if path is a directory (EISDIR prevention)
+  const stats = fs.statSync(filePath);
+  if (stats.isDirectory()) {
+    return {
+      passed: false,
+      message:
+        `SPEC ERROR: Path '${config.path}' is a directory, not a file. ` +
+        `Use a glob pattern like '${config.path}/*.ts' to match files in the directory.`,
+      duration_ms: Date.now() - startTime,
+    };
+  }
+
   // If pattern specified, check file contents
   if (config.pattern) {
     const content = fs.readFileSync(filePath, "utf-8");
@@ -197,7 +209,7 @@ export async function executeStructuralCheck(
 
 export async function executeBehavioralCheck(
   config: BehavioralCheckConfig,
-  workspacePath: string
+  workspacePath: string,
 ): Promise<CheckResult> {
   const startTime = Date.now();
 
@@ -262,7 +274,7 @@ export async function executeBehavioralCheck(
 
 export async function executeQualityCheck(
   config: QualityCheckConfig,
-  workspacePath: string
+  workspacePath: string,
 ): Promise<CheckResult> {
   const startTime = Date.now();
 
@@ -395,7 +407,7 @@ export async function executeQualityCheck(
  */
 export async function executeCheck(
   config: CheckConfig,
-  workspacePath: string
+  workspacePath: string,
 ): Promise<CheckResult> {
   switch (config.type) {
     case "structural":

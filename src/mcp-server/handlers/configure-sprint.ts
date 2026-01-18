@@ -272,7 +272,46 @@ async function configureSprint(input: ConfigureSprintInput): Promise<{
     .where(eq(tasks.sprint_id, sprint.id));
   const taskIdMap = new Map(taskRows.map((t) => [t.task_id, t.id]));
 
-  // 6. Create verification checks for each task
+  // 6a. Validate verification check paths BEFORE storing
+  // Catch directory paths that should be glob patterns early
+  const isValidPath = (p: string): boolean => {
+    const hasGlobChars = /[*?[\]{}]/.test(p);
+    const hasFileExtension = /\.\w+$/.test(p);
+    return hasGlobChars || hasFileExtension;
+  };
+
+  const pathErrors: string[] = [];
+  for (const task of tasksData) {
+    if (task.verification.structural_checks) {
+      for (const check of task.verification.structural_checks) {
+        if (!isValidPath(check.path)) {
+          pathErrors.push(
+            `Task ${task.task_id}: structural check path '${check.path}' looks like a directory. ` +
+              `Use a glob pattern like '${check.path}/*.ts' or a specific file path.`,
+          );
+        }
+      }
+    }
+    if (task.verification.quality_checks) {
+      for (const check of task.verification.quality_checks) {
+        if (check.path && !isValidPath(check.path)) {
+          pathErrors.push(
+            `Task ${task.task_id}: quality check path '${check.path}' looks like a directory. ` +
+              `Use a glob pattern like '${check.path}/*.ts' or a specific file path.`,
+          );
+        }
+      }
+    }
+  }
+
+  if (pathErrors.length > 0) {
+    throw new Error(
+      `Invalid verification check paths detected:\n${pathErrors.join("\n")}\n\n` +
+        `Paths must contain glob characters (*?[]{}) or end with a file extension.`,
+    );
+  }
+
+  // 6b. Create verification checks for each task
   const checkRecords = tasksData.flatMap((task) => {
     const taskDbId = taskIdMap.get(task.task_id)!;
     const checks = [];

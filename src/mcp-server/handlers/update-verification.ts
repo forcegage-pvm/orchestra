@@ -56,7 +56,7 @@ export async function handleUpdateVerification(input: unknown) {
         taskId: validation.data.task_id,
       },
       { success: true, output },
-      durationMs
+      durationMs,
     );
 
     return {
@@ -74,7 +74,7 @@ export async function handleUpdateVerification(input: unknown) {
         taskId: validation.data.task_id,
       },
       { success: false, errorMessage: err.message },
-      durationMs
+      durationMs,
     );
 
     return {
@@ -90,7 +90,7 @@ export async function handleUpdateVerification(input: unknown) {
               },
             },
             null,
-            2
+            2,
           ),
         },
       ],
@@ -99,7 +99,7 @@ export async function handleUpdateVerification(input: unknown) {
 }
 
 async function updateVerification(
-  input: typeof UpdateVerificationInputSchema._output
+  input: typeof UpdateVerificationInputSchema._output,
 ): Promise<UpdateVerificationOutput & { amendment_id?: number }> {
   const db = getDb();
 
@@ -109,7 +109,7 @@ async function updateVerification(
   if (!sprint) {
     throw new Error(
       "No active sprint found. " +
-        "Verification criteria can only be updated during active sprints."
+        "Verification criteria can only be updated during active sprints.",
     );
   }
 
@@ -127,7 +127,7 @@ async function updateVerification(
   if (!allowedStates.includes(sprint.workflow_step)) {
     throw new Error(
       `Cannot update verification in workflow state: ${sprint.workflow_step}. ` +
-        `Allowed states: ${allowedStates.join(", ")}`
+        `Allowed states: ${allowedStates.join(", ")}`,
     );
   }
 
@@ -136,7 +136,7 @@ async function updateVerification(
     .select()
     .from(tasks)
     .where(
-      and(eq(tasks.sprint_id, sprint.id), eq(tasks.task_id, input.task_id))
+      and(eq(tasks.sprint_id, sprint.id), eq(tasks.task_id, input.task_id)),
     )
     .limit(1);
 
@@ -151,7 +151,7 @@ async function updateVerification(
   // - Other states: only allowed if task is ESCALATED (human supervisor correction)
   const allowedSprintStates = ["CONFIGURE", "PREPARE"];
   const isInAllowedSprintState = allowedSprintStates.includes(
-    sprint.workflow_step
+    sprint.workflow_step,
   );
 
   // Also allow updating PENDING tasks during SELECT_TASK (pre-preparation strengthening)
@@ -163,14 +163,14 @@ async function updateVerification(
       throw new Error(
         `Task ${input.task_id} is in ${task.status} state. ` +
           `During ${sprint.workflow_step} phase, verification criteria can only be updated for PENDING or ESCALATED tasks. ` +
-          "Escalate the task first if spec corrections are needed."
+          "Escalate the task first if spec corrections are needed.",
       );
     }
     // Require rationale for ESCALATED task updates
     if (!input.rationale || input.rationale.length < 10) {
       throw new Error(
         "Rationale is required when updating verification for ESCALATED tasks (min 10 chars). " +
-          "Explain why the verification criteria need correction."
+          "Explain why the verification criteria need correction.",
       );
     }
 
@@ -216,7 +216,44 @@ async function updateVerification(
     }));
   }
 
-  // 4. Delete existing verification checks
+  // 4a. Validate verification check paths BEFORE modifying
+  // Catch directory paths that should be glob patterns early
+  const isValidPath = (p: string): boolean => {
+    const hasGlobChars = /[*?[\]{}]/.test(p);
+    const hasFileExtension = /\.\w+$/.test(p);
+    return hasGlobChars || hasFileExtension;
+  };
+
+  const pathErrors: string[] = [];
+  if (input.verification.structural_checks) {
+    for (const check of input.verification.structural_checks) {
+      if (!isValidPath(check.path)) {
+        pathErrors.push(
+          `Structural check path '${check.path}' looks like a directory. ` +
+            `Use a glob pattern like '${check.path}/*.ts' or a specific file path.`,
+        );
+      }
+    }
+  }
+  if (input.verification.quality_checks) {
+    for (const check of input.verification.quality_checks) {
+      if (check.path && !isValidPath(check.path)) {
+        pathErrors.push(
+          `Quality check path '${check.path}' looks like a directory. ` +
+            `Use a glob pattern like '${check.path}/*.ts' or a specific file path.`,
+        );
+      }
+    }
+  }
+
+  if (pathErrors.length > 0) {
+    throw new Error(
+      `Invalid verification check paths:\n${pathErrors.join("\n")}\n\n` +
+        `Paths must contain glob characters (*?[]{}) or end with a file extension.`,
+    );
+  }
+
+  // 4b. Delete existing verification checks
   await db
     .delete(verificationChecks)
     .where(eq(verificationChecks.task_id, task.id));

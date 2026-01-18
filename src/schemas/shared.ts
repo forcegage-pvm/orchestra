@@ -283,12 +283,29 @@ export type CodeReviewIssue = z.output<typeof CodeReviewIssueSchema>;
 // ============================================================================
 
 /**
+ * Check if a path looks like a valid file path or glob pattern.
+ * Valid: contains glob chars (*?[]{}) OR ends with file extension (.ts, .js, etc.)
+ * Invalid: bare directory path like "src/handlers" without glob or extension
+ */
+function isValidStructuralCheckPath(p: string): boolean {
+  const hasGlobChars = /[*?[\]{}]/.test(p);
+  const hasFileExtension = /\.\w+$/.test(p);
+  return hasGlobChars || hasFileExtension;
+}
+
+/**
  * Structural verification check
  */
 export const StructuralCheckSchema = z.object({
   description: z.string().min(1, "Description is required"),
   severity: SeveritySchema,
-  path: z.string().min(1, "Path is required"),
+  path: z
+    .string()
+    .min(1, "Path is required")
+    .refine(isValidStructuralCheckPath, {
+      message:
+        "Path appears to be a directory. Use a glob pattern (e.g., 'path/*.ts') or specific file path.",
+    }),
   pattern: z.string().optional(),
   min_matches: z.number().int().positive().optional(),
 });
