@@ -1451,6 +1451,135 @@ const TOOLS_WITH_ROLES: ToolWithRole[] = [
     },
   },
 
+  // Code Review Issue Resolution Tools (Sprint 005)
+  {
+    role: "shared",
+    name: "get_open_code_review_issues",
+    description:
+      "Get open code review issues for a sprint, task, or review. At least one filter parameter is required.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        sprint_id: {
+          type: "string",
+          description: "Filter by sprint ID",
+        },
+        task_id: {
+          type: "number",
+          description: "Filter by task ID",
+        },
+        review_id: {
+          type: "number",
+          description: "Filter by review ID",
+        },
+      },
+    },
+  },
+  {
+    role: "implementor",
+    name: "resolve_code_review_issue",
+    description:
+      "Mark a code review issue as resolved with fix evidence. Requires issue_id and summary (min 10 chars).",
+    inputSchema: {
+      type: "object",
+      properties: {
+        issue_id: {
+          type: "number",
+          description: "ID of the issue to resolve",
+        },
+        summary: {
+          type: "string",
+          description: "Summary of the fix (min 10 chars)",
+        },
+        files_changed: {
+          type: "array",
+          items: { type: "string" },
+          description: "Optional list of files changed",
+        },
+        tests_run: {
+          type: "array",
+          items: { type: "string" },
+          description: "Optional list of tests run",
+        },
+      },
+      required: ["issue_id", "summary"],
+    },
+  },
+  {
+    role: "implementor",
+    name: "submit_code_review_fixes",
+    description:
+      "Submit fixes for code review issues with evidence. Creates a fix record for controller verification.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        review_id: {
+          type: "number",
+          description: "ID of the review",
+        },
+        summary: {
+          type: "string",
+          description: "Summary of fixes (min 10 chars)",
+        },
+        files_changed: {
+          type: "array",
+          items: { type: "string" },
+          description: "Optional list of files changed",
+        },
+        tests_run: {
+          type: "array",
+          items: { type: "string" },
+          description: "Optional list of tests run",
+        },
+        notes: {
+          type: "string",
+          description: "Optional additional notes",
+        },
+      },
+      required: ["review_id", "summary"],
+    },
+  },
+  {
+    role: "controller",
+    name: "verify_code_review_fixes",
+    description:
+      "Verify submitted fixes for a code review. Make APPROVED, NEEDS_REVISION, or REJECTED decision.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        review_id: {
+          type: "number",
+          description: "ID of the review",
+        },
+        fixes_id: {
+          type: "number",
+          description: "ID of the fix submission to verify",
+        },
+        decision: {
+          type: "string",
+          enum: ["APPROVED", "NEEDS_REVISION", "REJECTED"],
+          description: "Verification decision",
+        },
+        summary: {
+          type: "string",
+          description: "Verification summary (min 30 chars)",
+        },
+        risk: {
+          type: "string",
+          enum: ["LOW", "MEDIUM", "HIGH"],
+          default: "LOW",
+          description: "Risk assessment",
+        },
+        issues: {
+          type: "array",
+          items: { type: "object" },
+          description: "Issues found (for NEEDS_REVISION or REJECTED)",
+        },
+      },
+      required: ["review_id", "fixes_id", "decision", "summary"],
+    },
+  },
+
   // Debug tool - available to all
   {
     role: "shared",
@@ -1742,6 +1871,24 @@ export function registerTools(server: Server, role: ServerRole = "full"): void {
           return await (
             await import("./handlers/get-code-review-summary.js")
           ).handleGetCodeReviewSummary(args);
+
+        // Code Review Issue Resolution Tools (Sprint 005)
+        case "get_open_code_review_issues":
+          return await (
+            await import("./handlers/get-open-code-review-issues.js")
+          ).handleGetOpenCodeReviewIssues(args);
+        case "resolve_code_review_issue":
+          return await (
+            await import("./handlers/resolve-code-review-issue.js")
+          ).handleResolveCodeReviewIssue(args);
+        case "submit_code_review_fixes":
+          return await (
+            await import("./handlers/submit-code-review-fixes.js")
+          ).handleSubmitCodeReviewFixes(args);
+        case "verify_code_review_fixes":
+          return await (
+            await import("./handlers/verify-code-review-fixes.js")
+          ).handleVerifyCodeReviewFixes(args);
 
         // Debug tool
         case "debug_environment": {

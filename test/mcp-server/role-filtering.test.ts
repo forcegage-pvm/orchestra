@@ -17,10 +17,10 @@ import {
 describe("Role-based Tool Filtering", () => {
   // Expected tool counts per role (excluding shared)
   const EXPECTED_ORCHESTRATOR_TOOL_COUNT = 23;
-  const EXPECTED_IMPLEMENTOR_TOOL_COUNT = 3;
-  const EXPECTED_CONTROLLER_TOOL_COUNT = 10; // Added 3 controller tools: approve/request_changes/reject
-  const EXPECTED_SHARED_TOOL_COUNT = 9; // Added 3 shared tools: get_latest/get_history/get_summary
-  const EXPECTED_TOTAL_TOOL_COUNT = 45; // 23 orc + 3 imp + 10 ctrl + 9 shared = 45
+  const EXPECTED_IMPLEMENTOR_TOOL_COUNT = 5; // Added 2 implementor tools: resolve_code_review_issue, submit_code_review_fixes
+  const EXPECTED_CONTROLLER_TOOL_COUNT = 11; // Added 1 controller tool: verify_code_review_fixes
+  const EXPECTED_SHARED_TOOL_COUNT = 10; // Added 1 shared tool: get_open_code_review_issues
+  const EXPECTED_TOTAL_TOOL_COUNT = 49; // 23 orc + 5 imp + 11 ctrl + 10 shared = 49
 
   describe("Tool categorization", () => {
     it("should have correct orchestrator tool count", () => {

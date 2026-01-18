@@ -1,7 +1,5 @@
-// @orchestra-task: 5
-
 /**
- * Code Review Issues Resolution Tool Tests (TDD Red Phase)
+ * Code Review Issues Resolution Tool Tests
  *
  * Tests for get_open_code_review_issues, resolve_code_review_issue,
  * submit_code_review_fixes, and verify_code_review_fixes handlers.
@@ -30,7 +28,7 @@ const {
   codeReviewFixes,
 } = schema;
 
-describe("[tdd-red] get_open_code_review_issues handler", () => {
+describe("get_open_code_review_issues handler", () => {
   let tempDir: string;
   const testSprintId = "test-sprint-get-issues";
   let testTaskId1: number;
@@ -206,8 +204,8 @@ describe("[tdd-red] get_open_code_review_issues handler", () => {
     delete process.env.ORCHESTRA_WORKSPACE;
   });
 
-  describe("[tdd-red] input validation", () => {
-    it("[tdd-red] should require at least one filter parameter", async () => {
+  describe("input validation", () => {
+    it("should require at least one filter parameter", async () => {
       const { handleGetOpenCodeReviewIssues } =
         await import("../../src/mcp-server/handlers/get-open-code-review-issues.js");
 
@@ -216,7 +214,7 @@ describe("[tdd-red] get_open_code_review_issues handler", () => {
       );
     });
 
-    it("[tdd-red] should accept sprint_id filter", async () => {
+    it("should accept sprint_id filter", async () => {
       const { handleGetOpenCodeReviewIssues } =
         await import("../../src/mcp-server/handlers/get-open-code-review-issues.js");
 
@@ -229,7 +227,7 @@ describe("[tdd-red] get_open_code_review_issues handler", () => {
       expect(output.issues).toBeDefined();
     });
 
-    it("[tdd-red] should accept task_id filter", async () => {
+    it("should accept task_id filter", async () => {
       const { handleGetOpenCodeReviewIssues } =
         await import("../../src/mcp-server/handlers/get-open-code-review-issues.js");
 
@@ -242,7 +240,7 @@ describe("[tdd-red] get_open_code_review_issues handler", () => {
       expect(output.issues).toBeDefined();
     });
 
-    it("[tdd-red] should accept review_id filter", async () => {
+    it("should accept review_id filter", async () => {
       const { handleGetOpenCodeReviewIssues } =
         await import("../../src/mcp-server/handlers/get-open-code-review-issues.js");
 
@@ -256,8 +254,8 @@ describe("[tdd-red] get_open_code_review_issues handler", () => {
     });
   });
 
-  describe("[tdd-red] filtering by sprint_id", () => {
-    it("[tdd-red] should return all OPEN issues for the sprint", async () => {
+  describe("filtering by sprint_id", () => {
+    it("should return all OPEN issues for the sprint", async () => {
       const { handleGetOpenCodeReviewIssues } =
         await import("../../src/mcp-server/handlers/get-open-code-review-issues.js");
 
@@ -277,7 +275,7 @@ describe("[tdd-red] get_open_code_review_issues handler", () => {
       expect(issueIds).not.toContain(testIssueId3); // RESOLVED issue excluded
     });
 
-    it("[tdd-red] should include all required fields in issue objects", async () => {
+    it("should include all required fields in issue objects", async () => {
       const { handleGetOpenCodeReviewIssues } =
         await import("../../src/mcp-server/handlers/get-open-code-review-issues.js");
 
@@ -296,8 +294,8 @@ describe("[tdd-red] get_open_code_review_issues handler", () => {
     });
   });
 
-  describe("[tdd-red] filtering by task_id", () => {
-    it("[tdd-red] should return only OPEN issues for the specific task", async () => {
+  describe("filtering by task_id", () => {
+    it("should return only OPEN issues for the specific task", async () => {
       const { handleGetOpenCodeReviewIssues } =
         await import("../../src/mcp-server/handlers/get-open-code-review-issues.js");
 
@@ -314,7 +312,7 @@ describe("[tdd-red] get_open_code_review_issues handler", () => {
       });
     });
 
-    it("[tdd-red] should return empty array when task has no open issues", async () => {
+    it("should return empty array when task has no open issues", async () => {
       const { handleGetOpenCodeReviewIssues } =
         await import("../../src/mcp-server/handlers/get-open-code-review-issues.js");
 
@@ -328,8 +326,8 @@ describe("[tdd-red] get_open_code_review_issues handler", () => {
     });
   });
 
-  describe("[tdd-red] filtering by review_id", () => {
-    it("[tdd-red] should return only OPEN issues for the specific review", async () => {
+  describe("filtering by review_id", () => {
+    it("should return only OPEN issues for the specific review", async () => {
       const { handleGetOpenCodeReviewIssues } =
         await import("../../src/mcp-server/handlers/get-open-code-review-issues.js");
 
@@ -348,7 +346,7 @@ describe("[tdd-red] get_open_code_review_issues handler", () => {
   });
 });
 
-describe("[tdd-red] resolve_code_review_issue handler", () => {
+describe("resolve_code_review_issue handler", () => {
   let tempDir: string;
   const testSprintId = "test-sprint-resolve-issue";
   let testTaskId: number;
@@ -465,8 +463,8 @@ describe("[tdd-red] resolve_code_review_issue handler", () => {
     delete process.env.ORCHESTRA_WORKSPACE;
   });
 
-  describe("[tdd-red] input validation", () => {
-    it("[tdd-red] should reject non-positive issue_id", async () => {
+  describe("input validation", () => {
+    it("should reject non-positive issue_id", async () => {
       const { handleResolveCodeReviewIssue } =
         await import("../../src/mcp-server/handlers/resolve-code-review-issue.js");
 
@@ -485,7 +483,7 @@ describe("[tdd-red] resolve_code_review_issue handler", () => {
       ).rejects.toThrow(/positive integer/i);
     });
 
-    it("[tdd-red] should reject summary shorter than 10 characters", async () => {
+    it("should reject summary shorter than 10 characters", async () => {
       const { handleResolveCodeReviewIssue } =
         await import("../../src/mcp-server/handlers/resolve-code-review-issue.js");
 
@@ -497,7 +495,7 @@ describe("[tdd-red] resolve_code_review_issue handler", () => {
       ).rejects.toThrow(/at least 10 characters/i);
     });
 
-    it("[tdd-red] should accept valid issue_id and summary", async () => {
+    it("should accept valid issue_id and summary", async () => {
       const { handleResolveCodeReviewIssue } =
         await import("../../src/mcp-server/handlers/resolve-code-review-issue.js");
 
@@ -510,7 +508,7 @@ describe("[tdd-red] resolve_code_review_issue handler", () => {
       expect(output.success).toBe(true);
     });
 
-    it("[tdd-red] should accept optional files_changed array", async () => {
+    it("should accept optional files_changed array", async () => {
       const { handleResolveCodeReviewIssue } =
         await import("../../src/mcp-server/handlers/resolve-code-review-issue.js");
 
@@ -524,7 +522,7 @@ describe("[tdd-red] resolve_code_review_issue handler", () => {
       expect(output.success).toBe(true);
     });
 
-    it("[tdd-red] should accept optional tests_run array", async () => {
+    it("should accept optional tests_run array", async () => {
       const { handleResolveCodeReviewIssue } =
         await import("../../src/mcp-server/handlers/resolve-code-review-issue.js");
 
@@ -539,8 +537,8 @@ describe("[tdd-red] resolve_code_review_issue handler", () => {
     });
   });
 
-  describe("[tdd-red] status transitions", () => {
-    it("[tdd-red] should update issue status from OPEN to RESOLVED", async () => {
+  describe("status transitions", () => {
+    it("should update issue status from OPEN to RESOLVED", async () => {
       const { handleResolveCodeReviewIssue } =
         await import("../../src/mcp-server/handlers/resolve-code-review-issue.js");
 
@@ -569,7 +567,7 @@ describe("[tdd-red] resolve_code_review_issue handler", () => {
       expect(issue.resolved_at).toBeTruthy();
     });
 
-    it("[tdd-red] should set resolved_by and resolved_at fields", async () => {
+    it("should set resolved_by and resolved_at fields", async () => {
       const { handleResolveCodeReviewIssue } =
         await import("../../src/mcp-server/handlers/resolve-code-review-issue.js");
 
@@ -593,7 +591,7 @@ describe("[tdd-red] resolve_code_review_issue handler", () => {
       expect(resolvedDate.toISOString()).toBe(issue.resolved_at);
     });
 
-    it("[tdd-red] should return error for already-resolved issues", async () => {
+    it("should return error for already-resolved issues", async () => {
       const { handleResolveCodeReviewIssue } =
         await import("../../src/mcp-server/handlers/resolve-code-review-issue.js");
 
@@ -605,7 +603,7 @@ describe("[tdd-red] resolve_code_review_issue handler", () => {
       ).rejects.toThrow(/already resolved/i);
     });
 
-    it("[tdd-red] should return error for non-existent issue_id", async () => {
+    it("should return error for non-existent issue_id", async () => {
       const { handleResolveCodeReviewIssue } =
         await import("../../src/mcp-server/handlers/resolve-code-review-issue.js");
 
@@ -619,7 +617,7 @@ describe("[tdd-red] resolve_code_review_issue handler", () => {
   });
 });
 
-describe("[tdd-red] submit_code_review_fixes handler", () => {
+describe("submit_code_review_fixes handler", () => {
   let tempDir: string;
   const testSprintId = "test-sprint-submit-fixes";
   let testTaskId: number;
@@ -702,8 +700,8 @@ describe("[tdd-red] submit_code_review_fixes handler", () => {
     delete process.env.ORCHESTRA_WORKSPACE;
   });
 
-  describe("[tdd-red] input validation", () => {
-    it("[tdd-red] should reject non-positive review_id", async () => {
+  describe("input validation", () => {
+    it("should reject non-positive review_id", async () => {
       const { handleSubmitCodeReviewFixes } =
         await import("../../src/mcp-server/handlers/submit-code-review-fixes.js");
 
@@ -722,7 +720,7 @@ describe("[tdd-red] submit_code_review_fixes handler", () => {
       ).rejects.toThrow(/positive integer/i);
     });
 
-    it("[tdd-red] should reject summary shorter than 10 characters", async () => {
+    it("should reject summary shorter than 10 characters", async () => {
       const { handleSubmitCodeReviewFixes } =
         await import("../../src/mcp-server/handlers/submit-code-review-fixes.js");
 
@@ -734,7 +732,7 @@ describe("[tdd-red] submit_code_review_fixes handler", () => {
       ).rejects.toThrow(/at least 10 characters/i);
     });
 
-    it("[tdd-red] should accept valid review_id and summary", async () => {
+    it("should accept valid review_id and summary", async () => {
       const { handleSubmitCodeReviewFixes } =
         await import("../../src/mcp-server/handlers/submit-code-review-fixes.js");
 
@@ -747,7 +745,7 @@ describe("[tdd-red] submit_code_review_fixes handler", () => {
       expect(output.success).toBe(true);
     });
 
-    it("[tdd-red] should accept optional files_changed array", async () => {
+    it("should accept optional files_changed array", async () => {
       const { handleSubmitCodeReviewFixes } =
         await import("../../src/mcp-server/handlers/submit-code-review-fixes.js");
 
@@ -761,7 +759,7 @@ describe("[tdd-red] submit_code_review_fixes handler", () => {
       expect(output.success).toBe(true);
     });
 
-    it("[tdd-red] should accept optional tests_run array", async () => {
+    it("should accept optional tests_run array", async () => {
       const { handleSubmitCodeReviewFixes } =
         await import("../../src/mcp-server/handlers/submit-code-review-fixes.js");
 
@@ -775,7 +773,7 @@ describe("[tdd-red] submit_code_review_fixes handler", () => {
       expect(output.success).toBe(true);
     });
 
-    it("[tdd-red] should accept optional notes field", async () => {
+    it("should accept optional notes field", async () => {
       const { handleSubmitCodeReviewFixes } =
         await import("../../src/mcp-server/handlers/submit-code-review-fixes.js");
 
@@ -790,8 +788,8 @@ describe("[tdd-red] submit_code_review_fixes handler", () => {
     });
   });
 
-  describe("[tdd-red] fix record creation", () => {
-    it("[tdd-red] should create code_review_fixes row", async () => {
+  describe("fix record creation", () => {
+    it("should create code_review_fixes row", async () => {
       const { handleSubmitCodeReviewFixes } =
         await import("../../src/mcp-server/handlers/submit-code-review-fixes.js");
 
@@ -831,7 +829,7 @@ describe("[tdd-red] submit_code_review_fixes handler", () => {
       expect(fixes[0].submitted_at).toBeTruthy();
     });
 
-    it("[tdd-red] should not change review status when submitting fixes", async () => {
+    it("should not change review status when submitting fixes", async () => {
       const { handleSubmitCodeReviewFixes } =
         await import("../../src/mcp-server/handlers/submit-code-review-fixes.js");
 
@@ -862,7 +860,7 @@ describe("[tdd-red] submit_code_review_fixes handler", () => {
       expect(afterReview.status).toBe("CHANGES_REQUESTED");
     });
 
-    it("[tdd-red] should return error for non-existent review_id", async () => {
+    it("should return error for non-existent review_id", async () => {
       const { handleSubmitCodeReviewFixes } =
         await import("../../src/mcp-server/handlers/submit-code-review-fixes.js");
 
@@ -874,7 +872,7 @@ describe("[tdd-red] submit_code_review_fixes handler", () => {
       ).rejects.toThrow(/not found/i);
     });
 
-    it("[tdd-red] should allow multiple fix submissions per review", async () => {
+    it("should allow multiple fix submissions per review", async () => {
       const { handleSubmitCodeReviewFixes } =
         await import("../../src/mcp-server/handlers/submit-code-review-fixes.js");
 
@@ -902,7 +900,7 @@ describe("[tdd-red] submit_code_review_fixes handler", () => {
       expect(fixes[1].summary).toBe("Additional fixes after testing");
     });
 
-    it("[tdd-red] should default empty arrays for optional fields when omitted", async () => {
+    it("should default empty arrays for optional fields when omitted", async () => {
       const { handleSubmitCodeReviewFixes } =
         await import("../../src/mcp-server/handlers/submit-code-review-fixes.js");
 
@@ -924,7 +922,7 @@ describe("[tdd-red] submit_code_review_fixes handler", () => {
   });
 });
 
-describe("[tdd-red] verify_code_review_fixes handler", () => {
+describe("verify_code_review_fixes handler", () => {
   let tempDir: string;
   const testSprintId = "test-sprint-verify-fixes";
   let testTaskId: number;
@@ -1022,8 +1020,8 @@ describe("[tdd-red] verify_code_review_fixes handler", () => {
     delete process.env.ORCHESTRA_WORKSPACE;
   });
 
-  describe("[tdd-red] input validation", () => {
-    it("[tdd-red] should reject non-positive review_id", async () => {
+  describe("input validation", () => {
+    it("should reject non-positive review_id", async () => {
       const { handleVerifyCodeReviewFixes } =
         await import("../../src/mcp-server/handlers/verify-code-review-fixes.js");
 
@@ -1037,7 +1035,7 @@ describe("[tdd-red] verify_code_review_fixes handler", () => {
       ).rejects.toThrow(/positive integer/i);
     });
 
-    it("[tdd-red] should reject non-positive fixes_id", async () => {
+    it("should reject non-positive fixes_id", async () => {
       const { handleVerifyCodeReviewFixes } =
         await import("../../src/mcp-server/handlers/verify-code-review-fixes.js");
 
@@ -1051,7 +1049,7 @@ describe("[tdd-red] verify_code_review_fixes handler", () => {
       ).rejects.toThrow(/positive integer/i);
     });
 
-    it("[tdd-red] should reject summary shorter than 30 characters", async () => {
+    it("should reject summary shorter than 30 characters", async () => {
       const { handleVerifyCodeReviewFixes } =
         await import("../../src/mcp-server/handlers/verify-code-review-fixes.js");
 
@@ -1065,7 +1063,7 @@ describe("[tdd-red] verify_code_review_fixes handler", () => {
       ).rejects.toThrow(/at least 30 characters/i);
     });
 
-    it("[tdd-red] should require valid decision value", async () => {
+    it("should require valid decision value", async () => {
       const { handleVerifyCodeReviewFixes } =
         await import("../../src/mcp-server/handlers/verify-code-review-fixes.js");
 
@@ -1079,7 +1077,7 @@ describe("[tdd-red] verify_code_review_fixes handler", () => {
       ).rejects.toThrow(/APPROVED|NEEDS_REVISION|REJECTED/i);
     });
 
-    it("[tdd-red] should default risk to LOW when omitted", async () => {
+    it("should default risk to LOW when omitted", async () => {
       const { handleVerifyCodeReviewFixes } =
         await import("../../src/mcp-server/handlers/verify-code-review-fixes.js");
 
@@ -1104,8 +1102,8 @@ describe("[tdd-red] verify_code_review_fixes handler", () => {
     });
   });
 
-  describe("[tdd-red] APPROVED decision", () => {
-    it("[tdd-red] should set review status to APPROVED", async () => {
+  describe("APPROVED decision", () => {
+    it("should set review status to APPROVED", async () => {
       const { handleVerifyCodeReviewFixes } =
         await import("../../src/mcp-server/handlers/verify-code-review-fixes.js");
 
@@ -1135,7 +1133,7 @@ describe("[tdd-red] verify_code_review_fixes handler", () => {
       expect(review.reviewed_at).toBeTruthy();
     });
 
-    it("[tdd-red] should not create new issues on APPROVED", async () => {
+    it("should not create new issues on APPROVED", async () => {
       const { handleVerifyCodeReviewFixes } =
         await import("../../src/mcp-server/handlers/verify-code-review-fixes.js");
 
@@ -1156,8 +1154,8 @@ describe("[tdd-red] verify_code_review_fixes handler", () => {
     });
   });
 
-  describe("[tdd-red] NEEDS_REVISION decision", () => {
-    it("[tdd-red] should set review status to CHANGES_REQUESTED", async () => {
+  describe("NEEDS_REVISION decision", () => {
+    it("should set review status to CHANGES_REQUESTED", async () => {
       const { handleVerifyCodeReviewFixes } =
         await import("../../src/mcp-server/handlers/verify-code-review-fixes.js");
 
@@ -1194,7 +1192,7 @@ describe("[tdd-red] verify_code_review_fixes handler", () => {
       expect(review.status).toBe("CHANGES_REQUESTED");
     });
 
-    it("[tdd-red] should create new issues from input", async () => {
+    it("should create new issues from input", async () => {
       const { handleVerifyCodeReviewFixes } =
         await import("../../src/mcp-server/handlers/verify-code-review-fixes.js");
 
@@ -1231,7 +1229,7 @@ describe("[tdd-red] verify_code_review_fixes handler", () => {
       expect(issues[1].issue).toBe("Missing documentation");
     });
 
-    it("[tdd-red] should increment revision_count", async () => {
+    it("should increment revision_count", async () => {
       const { handleVerifyCodeReviewFixes } =
         await import("../../src/mcp-server/handlers/verify-code-review-fixes.js");
 
@@ -1260,8 +1258,8 @@ describe("[tdd-red] verify_code_review_fixes handler", () => {
     });
   });
 
-  describe("[tdd-red] REJECTED decision", () => {
-    it("[tdd-red] should set review status to REJECTED", async () => {
+  describe("REJECTED decision", () => {
+    it("should set review status to REJECTED", async () => {
       const { handleVerifyCodeReviewFixes } =
         await import("../../src/mcp-server/handlers/verify-code-review-fixes.js");
 
@@ -1296,7 +1294,7 @@ describe("[tdd-red] verify_code_review_fixes handler", () => {
       expect(review.status).toBe("REJECTED");
     });
 
-    it("[tdd-red] should create new issues from input for REJECTED", async () => {
+    it("should create new issues from input for REJECTED", async () => {
       const { handleVerifyCodeReviewFixes } =
         await import("../../src/mcp-server/handlers/verify-code-review-fixes.js");
 
@@ -1327,8 +1325,8 @@ describe("[tdd-red] verify_code_review_fixes handler", () => {
     });
   });
 
-  describe("[tdd-red] error handling", () => {
-    it("[tdd-red] should return error for non-existent review_id", async () => {
+  describe("error handling", () => {
+    it("should return error for non-existent review_id", async () => {
       const { handleVerifyCodeReviewFixes } =
         await import("../../src/mcp-server/handlers/verify-code-review-fixes.js");
 
@@ -1342,7 +1340,7 @@ describe("[tdd-red] verify_code_review_fixes handler", () => {
       ).rejects.toThrow(/not found/i);
     });
 
-    it("[tdd-red] should return error for non-existent fixes_id", async () => {
+    it("should return error for non-existent fixes_id", async () => {
       const { handleVerifyCodeReviewFixes } =
         await import("../../src/mcp-server/handlers/verify-code-review-fixes.js");
 
