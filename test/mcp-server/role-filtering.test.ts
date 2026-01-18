@@ -18,9 +18,9 @@ describe("Role-based Tool Filtering", () => {
   // Expected tool counts per role (excluding shared)
   const EXPECTED_ORCHESTRATOR_TOOL_COUNT = 23;
   const EXPECTED_IMPLEMENTOR_TOOL_COUNT = 3;
-  const EXPECTED_CONTROLLER_TOOL_COUNT = 7;
-  const EXPECTED_SHARED_TOOL_COUNT = 6;
-  const EXPECTED_TOTAL_TOOL_COUNT = 39;
+  const EXPECTED_CONTROLLER_TOOL_COUNT = 10; // Added 3 controller tools: approve/request_changes/reject
+  const EXPECTED_SHARED_TOOL_COUNT = 9; // Added 3 shared tools: get_latest/get_history/get_summary
+  const EXPECTED_TOTAL_TOOL_COUNT = 45; // 23 orc + 3 imp + 10 ctrl + 9 shared = 45
 
   describe("Tool categorization", () => {
     it("should have correct orchestrator tool count", () => {

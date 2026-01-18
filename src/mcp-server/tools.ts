@@ -1303,6 +1303,154 @@ const TOOLS_WITH_ROLES: ToolWithRole[] = [
     },
   },
 
+  // Code Review Tools (Sprint 005) - Decision tools are CONTROLLER ONLY
+  {
+    role: "controller",
+    name: "approve_code_review",
+    description:
+      "Approve a pending code review. Records summary, risk, files reviewed, and tests run.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        review_id: {
+          type: "number",
+          description: "ID of the pending code review",
+        },
+        summary: {
+          type: "string",
+          description: "Review summary (min 30 chars)",
+        },
+        risk: {
+          type: "string",
+          enum: ["LOW", "MEDIUM", "HIGH"],
+          default: "LOW",
+        },
+        files_reviewed: {
+          type: "array",
+          items: { type: "string" },
+          description: "List of file paths reviewed",
+        },
+        tests_run: {
+          type: "array",
+          items: { type: "string" },
+          description: "List of tests run or NOT_RUN",
+        },
+        notes: {
+          type: "string",
+          description: "Optional reviewer notes",
+        },
+      },
+      required: ["review_id", "summary", "files_reviewed"],
+    },
+  },
+  {
+    role: "controller",
+    name: "request_changes_code_review",
+    description:
+      "Request changes for a pending code review. Records issues and recommendations.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        review_id: {
+          type: "number",
+          description: "ID of the pending code review",
+        },
+        summary: {
+          type: "string",
+          description: "Review summary (min 30 chars)",
+        },
+        risk: {
+          type: "string",
+          enum: ["LOW", "MEDIUM", "HIGH"],
+          default: "MEDIUM",
+        },
+        issues: {
+          type: "array",
+          items: { type: "object" },
+          description: "List of review issues",
+        },
+        recommendations: {
+          type: "array",
+          items: { type: "string" },
+          description: "Recommended changes",
+        },
+      },
+      required: ["review_id", "summary", "issues", "recommendations"],
+    },
+  },
+  {
+    role: "controller",
+    name: "reject_code_review",
+    description:
+      "Reject a pending code review with blocking issues. Records rationale and recommendation.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        review_id: {
+          type: "number",
+          description: "ID of the pending code review",
+        },
+        summary: {
+          type: "string",
+          description: "Review summary (min 30 chars)",
+        },
+        risk: {
+          type: "string",
+          enum: ["LOW", "MEDIUM", "HIGH"],
+          default: "HIGH",
+        },
+        issues: {
+          type: "array",
+          items: { type: "object" },
+          description: "Blocking issues",
+        },
+        recommendation: {
+          type: "string",
+          description: "Overall recommendation",
+        },
+      },
+      required: ["review_id", "summary", "issues", "recommendation"],
+    },
+  },
+
+  // Code Review Query Tools - SHARED (all roles can query)
+  {
+    role: "shared",
+    name: "get_latest_code_review",
+    description: "Get the most recent code review for a task (if any).",
+    inputSchema: {
+      type: "object",
+      properties: {
+        task_id: { type: "number" },
+      },
+    },
+  },
+  {
+    role: "shared",
+    name: "get_code_review_history",
+    description: "Get code review history for a task.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        task_id: { type: "number" },
+        limit: { type: "number", default: 20 },
+      },
+    },
+  },
+  {
+    role: "shared",
+    name: "get_code_review_summary",
+    description:
+      "Get sprint-level code review summary for UI panels and dashboards.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        sprint_id: { type: "string" },
+      },
+      required: ["sprint_id"],
+    },
+  },
+
   // Debug tool - available to all
   {
     role: "shared",
@@ -1568,6 +1716,32 @@ export function registerTools(server: Server, role: ServerRole = "full"): void {
           return await (
             await import("./handlers/read-spec-file.js")
           ).handleReadSpecFile(args);
+
+        // Code Review Tools (Sprint 005)
+        case "approve_code_review":
+          return await (
+            await import("./handlers/approve-code-review.js")
+          ).handleApproveCodeReview(args);
+        case "request_changes_code_review":
+          return await (
+            await import("./handlers/request-changes-code-review.js")
+          ).handleRequestChangesCodeReview(args);
+        case "reject_code_review":
+          return await (
+            await import("./handlers/reject-code-review.js")
+          ).handleRejectCodeReview(args);
+        case "get_latest_code_review":
+          return await (
+            await import("./handlers/get-latest-code-review.js")
+          ).handleGetLatestCodeReview(args);
+        case "get_code_review_history":
+          return await (
+            await import("./handlers/get-code-review-history.js")
+          ).handleGetCodeReviewHistory(args);
+        case "get_code_review_summary":
+          return await (
+            await import("./handlers/get-code-review-summary.js")
+          ).handleGetCodeReviewSummary(args);
 
         // Debug tool
         case "debug_environment": {

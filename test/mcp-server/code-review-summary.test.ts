@@ -1,5 +1,3 @@
-// @orchestra-task: 3
-
 /**
  * Code Review Summary/History Tool Tests (TDD Red Phase)
  *
@@ -12,7 +10,13 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { getDb, initializeDb, resetDb, schema } from "../../src/db/index.js";
+import {
+  getDb,
+  initializeDb,
+  resetDb,
+  runMigrationsV2,
+  schema,
+} from "../../src/db/index.js";
 
 const {
   sprints,
@@ -23,7 +27,7 @@ const {
   sprintSettings,
 } = schema;
 
-describe("[tdd-red] get_latest_code_review handler", () => {
+describe("get_latest_code_review handler", () => {
   let tempDir: string;
   const testSprintId = "test-sprint-latest";
   let testTaskId1: number;
@@ -158,8 +162,8 @@ describe("[tdd-red] get_latest_code_review handler", () => {
     delete process.env.ORCHESTRA_WORKSPACE;
   });
 
-  describe("[tdd-red] task-scoped retrieval", () => {
-    it("[tdd-red] should return latest review for specified task_id only", async () => {
+  describe("task-scoped retrieval", () => {
+    it("should return latest review for specified task_id only", async () => {
       const { handleGetLatestCodeReview } =
         await import("../../src/mcp-server/handlers/get-latest-code-review.js");
 
@@ -174,7 +178,7 @@ describe("[tdd-red] get_latest_code_review handler", () => {
       expect(output.review.revision_count).toBe(2);
     });
 
-    it("[tdd-red] should only return records for the specified task, not other tasks", async () => {
+    it("should only return records for the specified task, not other tasks", async () => {
       const { handleGetLatestCodeReview } =
         await import("../../src/mcp-server/handlers/get-latest-code-review.js");
 
@@ -189,7 +193,7 @@ describe("[tdd-red] get_latest_code_review handler", () => {
       expect(output.review.revision_count).toBe(0);
     });
 
-    it("[tdd-red] should return null when task has no reviews", async () => {
+    it("should return null when task has no reviews", async () => {
       const db = getDb();
       const now = new Date().toISOString();
 
@@ -227,7 +231,7 @@ describe("[tdd-red] get_latest_code_review handler", () => {
       expect(output.review).toBeNull();
     });
 
-    it("[tdd-red] should include all review fields in response", async () => {
+    it("should include all review fields in response", async () => {
       const db = getDb();
 
       // Update the latest review with full data
@@ -274,7 +278,7 @@ describe("[tdd-red] get_latest_code_review handler", () => {
   });
 });
 
-describe("[tdd-red] get_code_review_history handler", () => {
+describe("get_code_review_history handler", () => {
   let tempDir: string;
   const testSprintId = "test-sprint-history";
   let testTaskId1: number;
@@ -286,6 +290,7 @@ describe("[tdd-red] get_code_review_history handler", () => {
 
     resetDb();
     await initializeDb();
+    await runMigrationsV2(); // Ensure code_reviews tables exist
 
     const db = getDb();
     const now = new Date().toISOString();
@@ -389,8 +394,8 @@ describe("[tdd-red] get_code_review_history handler", () => {
     delete process.env.ORCHESTRA_WORKSPACE;
   });
 
-  describe("[tdd-red] task-scoped retrieval", () => {
-    it("[tdd-red] should return all reviews for specified task_id only", async () => {
+  describe("task-scoped retrieval", () => {
+    it("should return all reviews for specified task_id only", async () => {
       const { handleGetCodeReviewHistory } =
         await import("../../src/mcp-server/handlers/get-code-review-history.js");
 
@@ -406,7 +411,7 @@ describe("[tdd-red] get_code_review_history handler", () => {
       ).toBe(true);
     });
 
-    it("[tdd-red] should only return records for the specified task, not other tasks", async () => {
+    it("should only return records for the specified task, not other tasks", async () => {
       const { handleGetCodeReviewHistory } =
         await import("../../src/mcp-server/handlers/get-code-review-history.js");
 
@@ -422,7 +427,7 @@ describe("[tdd-red] get_code_review_history handler", () => {
       );
     });
 
-    it("[tdd-red] should respect limit parameter", async () => {
+    it("should respect limit parameter", async () => {
       const { handleGetCodeReviewHistory } =
         await import("../../src/mcp-server/handlers/get-code-review-history.js");
 
@@ -436,7 +441,7 @@ describe("[tdd-red] get_code_review_history handler", () => {
       expect(output.reviews).toHaveLength(2);
     });
 
-    it("[tdd-red] should default limit to 20", async () => {
+    it("should default limit to 20", async () => {
       const db = getDb();
 
       // Create 25 reviews for task 1
@@ -466,7 +471,7 @@ describe("[tdd-red] get_code_review_history handler", () => {
       expect(output.reviews).toHaveLength(20);
     });
 
-    it("[tdd-red] should return reviews ordered by created_at descending (most recent first)", async () => {
+    it("should return reviews ordered by created_at descending (most recent first)", async () => {
       const { handleGetCodeReviewHistory } =
         await import("../../src/mcp-server/handlers/get-code-review-history.js");
 
@@ -481,7 +486,7 @@ describe("[tdd-red] get_code_review_history handler", () => {
   });
 });
 
-describe("[tdd-red] get_code_review_summary handler", () => {
+describe("get_code_review_summary handler", () => {
   let tempDir: string;
   const testSprintId1 = "test-sprint-summary-1";
   const testSprintId2 = "test-sprint-summary-2";
@@ -682,8 +687,8 @@ describe("[tdd-red] get_code_review_summary handler", () => {
     delete process.env.ORCHESTRA_WORKSPACE;
   });
 
-  describe("[tdd-red] sprint-scoped retrieval", () => {
-    it("[tdd-red] should only return summary for specified sprint_id", async () => {
+  describe("sprint-scoped retrieval", () => {
+    it("should only return summary for specified sprint_id", async () => {
       const { handleGetCodeReviewSummary } =
         await import("../../src/mcp-server/handlers/get-code-review-summary.js");
 
@@ -696,7 +701,7 @@ describe("[tdd-red] get_code_review_summary handler", () => {
       expect(output.summary.sprint_id).toBe(testSprintId1);
     });
 
-    it("[tdd-red] should include sprint settings (policy, enabled, blocking_severity)", async () => {
+    it("should include sprint settings (policy, enabled, blocking_severity)", async () => {
       const { handleGetCodeReviewSummary } =
         await import("../../src/mcp-server/handlers/get-code-review-summary.js");
 
@@ -710,7 +715,7 @@ describe("[tdd-red] get_code_review_summary handler", () => {
       expect(output.summary.blocking_severity).toBe("MAJOR");
     });
 
-    it("[tdd-red] should count reviews by status correctly", async () => {
+    it("should count reviews by status correctly", async () => {
       const { handleGetCodeReviewSummary } =
         await import("../../src/mcp-server/handlers/get-code-review-summary.js");
 
@@ -727,7 +732,7 @@ describe("[tdd-red] get_code_review_summary handler", () => {
       });
     });
 
-    it("[tdd-red] should count only unresolved (open) issues", async () => {
+    it("should count only unresolved (open) issues", async () => {
       const { handleGetCodeReviewSummary } =
         await import("../../src/mcp-server/handlers/get-code-review-summary.js");
 
@@ -742,7 +747,7 @@ describe("[tdd-red] get_code_review_summary handler", () => {
       expect(output.summary.open_issues).toBe(3);
     });
 
-    it("[tdd-red] should not include reviews from other sprints", async () => {
+    it("should not include reviews from other sprints", async () => {
       const db = getDb();
 
       // Get tasks from sprint 2
@@ -785,7 +790,7 @@ describe("[tdd-red] get_code_review_summary handler", () => {
       });
     });
 
-    it("[tdd-red] should default to ad_hoc policy when sprint_settings not found", async () => {
+    it("should default to ad_hoc policy when sprint_settings not found", async () => {
       const { handleGetCodeReviewSummary } =
         await import("../../src/mcp-server/handlers/get-code-review-summary.js");
 

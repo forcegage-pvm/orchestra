@@ -1,0 +1,1885 @@
+
+> orchestra@1.0.0 test
+> vitest run
+
+
+[7m[1m[36m RUN [39m[22m[27m [36mv1.6.1[39m [90mX:/Cloud Storage/Dropbox/Repositories/vs code/orchestra[39m
+
+ [32mΓ£ô[39m test/core/check-executor.test.ts [2m ([22m[2m34 tests[22m[2m)[22m[90m 150[2mms[22m[39m
+ [32mΓ£ô[39m test/core/feedback.test.ts [2m ([22m[2m20 tests[22m[2m)[22m[90m 284[2mms[22m[39m
+ [32mΓ£ô[39m test/core/pre-signal-executor.test.ts [2m ([22m[2m23 tests[22m[2m)[22m[90m 19[2mms[22m[39m
+ [2m[90mΓåô[39m[22m test/mcp-server/prepare-task-cleanup.test.ts [2m ([22m[2m9 tests[22m [2m|[22m [33m9 skipped[39m[2m)[22m
+[90mstdout[2m | test/mcp-server/code-review-summary.test.ts[2m > [22m[2mget_latest_code_review handler[2m > [22m[2mtask-scoped retrieval[2m > [22m[2mshould return latest review for specified task_id only[22m[39m
+[migration] Applying: 20251211_001_add_amendments_table
+           Add amendments table for tracking task modifications
+[migration] Γ£ô Applied: 20251211_001_add_amendments_table
+[migration] Applying: 20251211_002_add_handover_context_columns
+           Add context and context_files columns to handovers table
+[migration] Γ£ô Applied: 20251211_002_add_handover_context_columns
+[migration] Applying: 20251211_003_add_sprint_is_active
+           Add is_active column to sprints table for explicit active sprint selection
+[migration] Γ£ô Applied: 20251211_003_add_sprint_is_active
+[migration] Applying: 20251211_004_add_escalations_table
+           Add escalations table for tracking task escalations and resolutions (TD-016)
+[migration] Γ£ô Applied: 20251211_004_add_escalations_table
+[migration] Applying: 20260112_001_add_chat_sessions_table
+           Add chat_sessions table for extension chat session management
+[migration] Γ£ô Applied: 20260112_001_add_chat_sessions_table
+[migration] Applying: 20260112_002_add_tdd_red_phase
+           Add tdd_red_phase column to tasks table for red-phase verification support
+[migration] Γ£ô Applied: 20260112_002_add_tdd_red_phase
+[migration] Applying: 20260126_001_add_tdd_tables
+           Add tdd_task_relationships and tdd_red_registry tables for TDD workflow support
+[migration] Γ£ô Applied: 20260126_001_add_tdd_tables
+[migration] Applying: 20260115_001_add_tdd_relationships_completed_at
+           Add completed_at column to tdd_task_relationships table
+[migration] Γ£ô Applied: 20260115_001_add_tdd_relationships_completed_at
+[migration] Applying: 20260115_002_add_tdd_red_registry_test_file
+           Add test_file column to tdd_red_registry table
+[migration] Γ£ô Applied: 20260115_002_add_tdd_red_registry_test_file
+[migration] Applying: 20260115_003_recreate_tdd_red_registry
+           Drop and recreate tdd_red_registry table without deprecated columns (status, green_task_id, description, marker_type, timestamps)
+[migration] Γ£ô Applied: 20260115_003_recreate_tdd_red_registry
+[migration] Applying: 20260116_001_update_tdd_red_registry_schema
+           Update tdd_red_registry to file-level tracking: drop test_identifier, make test_file NOT NULL, add test_count. Registry is a transitory snapshot.
+[migration] Γ£ô Applied: 20260116_001_update_tdd_red_registry_schema
+[migration] Applying: 20260117_007_add_controller_agent_schema
+           Add spec_reviews table for Controller review decisions and status column to sprints table (Sprint 004)
+[migration] Γ£ô Applied: 20260117_007_add_controller_agent_schema
+[migration] Applying: 20260117_008_escalations_nullable_task_id
+           Make escalations.task_id nullable for sprint-level escalations
+[migration] Γ£ô Applied: 20260117_008_escalations_nullable_task_id
+[migration] Applying: 20260117_009_add_code_review_tables
+           Add code review tables for review workflow tracking and issues/fixes
+[migration] Γ£ô Applied: 20260117_009_add_code_review_tables
+
+[90mstdout[2m | test/mcp-server/code-review-decision.test.ts[2m > [22m[2mapprove_code_review handler[2m > [22m[2minput validation[2m > [22m[2mshould reject non-positive review_id[22m[39m
+[migration] Applying: 20251211_001_add_amendments_table
+           Add amendments table for tracking task modifications
+[migration] Γ£ô Applied: 20251211_001_add_amendments_table
+[migration] Applying: 20251211_002_add_handover_context_columns
+           Add context and context_files columns to handovers table
+[migration] Γ£ô Applied: 20251211_002_add_handover_context_columns
+[migration] Applying: 20251211_003_add_sprint_is_active
+           Add is_active column to sprints table for explicit active sprint selection
+[migration] Γ£ô Applied: 20251211_003_add_sprint_is_active
+[migration] Applying: 20251211_004_add_escalations_table
+           Add escalations table for tracking task escalations and resolutions (TD-016)
+[migration] Γ£ô Applied: 20251211_004_add_escalations_table
+[migration] Applying: 20260112_001_add_chat_sessions_table
+           Add chat_sessions table for extension chat session management
+[migration] Γ£ô Applied: 20260112_001_add_chat_sessions_table
+[migration] Applying: 20260112_002_add_tdd_red_phase
+           Add tdd_red_phase column to tasks table for red-phase verification support
+[migration] Γ£ô Applied: 20260112_002_add_tdd_red_phase
+[migration] Applying: 20260126_001_add_tdd_tables
+           Add tdd_task_relationships and tdd_red_registry tables for TDD workflow support
+[migration] Γ£ô Applied: 20260126_001_add_tdd_tables
+[migration] Applying: 20260115_001_add_tdd_relationships_completed_at
+           Add completed_at column to tdd_task_relationships table
+[migration] Γ£ô Applied: 20260115_001_add_tdd_relationships_completed_at
+[migration] Applying: 20260115_002_add_tdd_red_registry_test_file
+           Add test_file column to tdd_red_registry table
+[migration] Γ£ô Applied: 20260115_002_add_tdd_red_registry_test_file
+[migration] Applying: 20260115_003_recreate_tdd_red_registry
+           Drop and recreate tdd_red_registry table without deprecated columns (status, green_task_id, description, marker_type, timestamps)
+[migration] Γ£ô Applied: 20260115_003_recreate_tdd_red_registry
+[migration] Applying: 20260116_001_update_tdd_red_registry_schema
+           Update tdd_red_registry to file-level tracking: drop test_identifier, make test_file NOT NULL, add test_count. Registry is a transitory snapshot.
+[migration] Γ£ô Applied: 20260116_001_update_tdd_red_registry_schema
+[migration] Applying: 20260117_007_add_controller_agent_schema
+           Add spec_reviews table for Controller review decisions and status column to sprints table (Sprint 004)
+[migration] Γ£ô Applied: 20260117_007_add_controller_agent_schema
+[migration] Applying: 20260117_008_escalations_nullable_task_id
+           Make escalations.task_id nullable for sprint-level escalations
+[migration] Γ£ô Applied: 20260117_008_escalations_nullable_task_id
+[migration] Applying: 20260117_009_add_code_review_tables
+           Add code review tables for review workflow tracking and issues/fixes
+[migration] Γ£ô Applied: 20260117_009_add_code_review_tables
+
+ [32mΓ£ô[39m test/db/tdd-schema.test.ts [2m ([22m[2m12 tests[22m[2m)[22m[33m 3735[2mms[22m[39m
+ [32mΓ£ô[39m test/mcp-server/handover-validation.test.ts [2m ([22m[2m43 tests[22m[2m)[22m[90m 16[2mms[22m[39m
+stderr | test/mcp-server/prepare-task-tdd-red.test.ts > prepare_task TDD Red-Phase Verification Auto-Injection > TypeScript projects > should inject red-phase checks when tdd_red_phase=true
+[TDD RED] Auto-injected 4 red-phase verification checks for task 1
+
+stderr | test/mcp-server/prepare-task-tdd-red.test.ts > prepare_task TDD Red-Phase Verification Auto-Injection > Dart projects > should inject Dart-specific red-phase checks when tdd_red_phase=true
+[TDD RED] Auto-injected 4 red-phase verification checks for task 1
+
+ [32mΓ£ô[39m test/mcp-server/handlers/get-sprint-status.test.ts [2m ([22m[2m5 tests[22m[2m)[22m[33m 11189[2mms[22m[39m
+ [32mΓ£ô[39m test/mcp-server/handlers/complete-task-tdd.test.ts [2m ([22m[2m5 tests[22m[2m)[22m[33m 11342[2mms[22m[39m
+ [32mΓ£ô[39m test/core/tdd-cleanup.test.ts [2m ([22m[2m20 tests[22m [2m|[22m [33m9 skipped[39m[2m)[22m[90m 45[2mms[22m[39m
+ [32mΓ£ô[39m test/integration/tdd-red-green-workflow.test.ts [2m ([22m[2m4 tests[22m[2m)[22m[33m 13088[2mms[22m[39m
+ [32mΓ£ô[39m test/mcp-server/signal-completion.test.ts [2m ([22m[2m6 tests[22m[2m)[22m[33m 13391[2mms[22m[39m
+stderr | test/mcp-server/prepare-task-tdd-red.test.ts > prepare_task TDD Red-Phase Verification Auto-Injection > Unknown project types > should not inject checks for unknown project types
+[TDD RED] Auto-injected 0 red-phase verification checks for task 1
+
+stderr | test/mcp-server/prepare-task-tdd-red.test.ts > prepare_task TDD Red-Phase Verification Auto-Injection > Check ID generation > should generate unique check IDs when multiple checks exist
+[TDD RED] Auto-injected 4 red-phase verification checks for task 1
+
+ [32mΓ£ô[39m test/mcp-server/prepare-task-tdd-red.test.ts [2m ([22m[2m6 tests[22m[2m)[22m[33m 14048[2mms[22m[39m
+ [32mΓ£ô[39m test/integration/failure-path.test.ts [2m ([22m[2m11 tests[22m[2m)[22m[90m 71[2mms[22m[39m
+ [32mΓ£ô[39m test/db/tdd-migrations.test.ts [2m ([22m[2m17 tests[22m[2m)[22m[90m 6[2mms[22m[39m
+ [2m[90mΓåô[39m[22m test/commands/init.test.ts [2m ([22m[2m27 tests[22m [2m|[22m [33m27 skipped[39m[2m)[22m
+[90mstdout[2m | test/mcp-server/code-review-summary.test.ts[2m > [22m[2mget_latest_code_review handler[2m > [22m[2mtask-scoped retrieval[2m > [22m[2mshould only return records for the specified task, not other tasks[22m[39m
+[migration] Applying: 20251211_001_add_amendments_table
+           Add amendments table for tracking task modifications
+[migration] Γ£ô Applied: 20251211_001_add_amendments_table
+[migration] Applying: 20251211_002_add_handover_context_columns
+           Add context and context_files columns to handovers table
+[migration] Γ£ô Applied: 20251211_002_add_handover_context_columns
+[migration] Applying: 20251211_003_add_sprint_is_active
+           Add is_active column to sprints table for explicit active sprint selection
+[migration] Γ£ô Applied: 20251211_003_add_sprint_is_active
+[migration] Applying: 20251211_004_add_escalations_table
+           Add escalations table for tracking task escalations and resolutions (TD-016)
+[migration] Γ£ô Applied: 20251211_004_add_escalations_table
+[migration] Applying: 20260112_001_add_chat_sessions_table
+           Add chat_sessions table for extension chat session management
+[migration] Γ£ô Applied: 20260112_001_add_chat_sessions_table
+[migration] Applying: 20260112_002_add_tdd_red_phase
+           Add tdd_red_phase column to tasks table for red-phase verification support
+[migration] Γ£ô Applied: 20260112_002_add_tdd_red_phase
+[migration] Applying: 20260126_001_add_tdd_tables
+           Add tdd_task_relationships and tdd_red_registry tables for TDD workflow support
+[migration] Γ£ô Applied: 20260126_001_add_tdd_tables
+[migration] Applying: 20260115_001_add_tdd_relationships_completed_at
+           Add completed_at column to tdd_task_relationships table
+[migration] Γ£ô Applied: 20260115_001_add_tdd_relationships_completed_at
+[migration] Applying: 20260115_002_add_tdd_red_registry_test_file
+           Add test_file column to tdd_red_registry table
+[migration] Γ£ô Applied: 20260115_002_add_tdd_red_registry_test_file
+[migration] Applying: 20260115_003_recreate_tdd_red_registry
+           Drop and recreate tdd_red_registry table without deprecated columns (status, green_task_id, description, marker_type, timestamps)
+[migration] Γ£ô Applied: 20260115_003_recreate_tdd_red_registry
+[migration] Applying: 20260116_001_update_tdd_red_registry_schema
+           Update tdd_red_registry to file-level tracking: drop test_identifier, make test_file NOT NULL, add test_count. Registry is a transitory snapshot.
+[migration] Γ£ô Applied: 20260116_001_update_tdd_red_registry_schema
+[migration] Applying: 20260117_007_add_controller_agent_schema
+           Add spec_reviews table for Controller review decisions and status column to sprints table (Sprint 004)
+[migration] Γ£ô Applied: 20260117_007_add_controller_agent_schema
+[migration] Applying: 20260117_008_escalations_nullable_task_id
+           Make escalations.task_id nullable for sprint-level escalations
+[migration] Γ£ô Applied: 20260117_008_escalations_nullable_task_id
+[migration] Applying: 20260117_009_add_code_review_tables
+           Add code review tables for review workflow tracking and issues/fixes
+[migration] Γ£ô Applied: 20260117_009_add_code_review_tables
+
+[90mstdout[2m | test/mcp-server/code-review-summary.test.ts[2m > [22m[2mget_latest_code_review handler[2m > [22m[2mtask-scoped retrieval[2m > [22m[2mshould return null when task has no reviews[22m[39m
+[migration] Applying: 20251211_001_add_amendments_table
+           Add amendments table for tracking task modifications
+[migration] Γ£ô Applied: 20251211_001_add_amendments_table
+[migration] Applying: 20251211_002_add_handover_context_columns
+           Add context and context_files columns to handovers table
+[migration] Γ£ô Applied: 20251211_002_add_handover_context_columns
+[migration] Applying: 20251211_003_add_sprint_is_active
+           Add is_active column to sprints table for explicit active sprint selection
+[migration] Γ£ô Applied: 20251211_003_add_sprint_is_active
+[migration] Applying: 20251211_004_add_escalations_table
+           Add escalations table for tracking task escalations and resolutions (TD-016)
+[migration] Γ£ô Applied: 20251211_004_add_escalations_table
+[migration] Applying: 20260112_001_add_chat_sessions_table
+           Add chat_sessions table for extension chat session management
+[migration] Γ£ô Applied: 20260112_001_add_chat_sessions_table
+[migration] Applying: 20260112_002_add_tdd_red_phase
+           Add tdd_red_phase column to tasks table for red-phase verification support
+[migration] Γ£ô Applied: 20260112_002_add_tdd_red_phase
+[migration] Applying: 20260126_001_add_tdd_tables
+           Add tdd_task_relationships and tdd_red_registry tables for TDD workflow support
+[migration] Γ£ô Applied: 20260126_001_add_tdd_tables
+[migration] Applying: 20260115_001_add_tdd_relationships_completed_at
+           Add completed_at column to tdd_task_relationships table
+[migration] Γ£ô Applied: 20260115_001_add_tdd_relationships_completed_at
+[migration] Applying: 20260115_002_add_tdd_red_registry_test_file
+           Add test_file column to tdd_red_registry table
+[migration] Γ£ô Applied: 20260115_002_add_tdd_red_registry_test_file
+[migration] Applying: 20260115_003_recreate_tdd_red_registry
+           Drop and recreate tdd_red_registry table without deprecated columns (status, green_task_id, description, marker_type, timestamps)
+[migration] Γ£ô Applied: 20260115_003_recreate_tdd_red_registry
+[migration] Applying: 20260116_001_update_tdd_red_registry_schema
+           Update tdd_red_registry to file-level tracking: drop test_identifier, make test_file NOT NULL, add test_count. Registry is a transitory snapshot.
+[migration] Γ£ô Applied: 20260116_001_update_tdd_red_registry_schema
+[migration] Applying: 20260117_007_add_controller_agent_schema
+           Add spec_reviews table for Controller review decisions and status column to sprints table (Sprint 004)
+[migration] Γ£ô Applied: 20260117_007_add_controller_agent_schema
+[migration] Applying: 20260117_008_escalations_nullable_task_id
+           Make escalations.task_id nullable for sprint-level escalations
+[migration] Γ£ô Applied: 20260117_008_escalations_nullable_task_id
+[migration] Applying: 20260117_009_add_code_review_tables
+           Add code review tables for review workflow tracking and issues/fixes
+[migration] Γ£ô Applied: 20260117_009_add_code_review_tables
+
+[90mstdout[2m | test/mcp-server/code-review-summary.test.ts[2m > [22m[2mget_latest_code_review handler[2m > [22m[2mtask-scoped retrieval[2m > [22m[2mshould include all review fields in response[22m[39m
+[migration] Applying: 20251211_001_add_amendments_table
+           Add amendments table for tracking task modifications
+[migration] Γ£ô Applied: 20251211_001_add_amendments_table
+[migration] Applying: 20251211_002_add_handover_context_columns
+           Add context and context_files columns to handovers table
+[migration] Γ£ô Applied: 20251211_002_add_handover_context_columns
+[migration] Applying: 20251211_003_add_sprint_is_active
+           Add is_active column to sprints table for explicit active sprint selection
+[migration] Γ£ô Applied: 20251211_003_add_sprint_is_active
+[migration] Applying: 20251211_004_add_escalations_table
+           Add escalations table for tracking task escalations and resolutions (TD-016)
+[migration] Γ£ô Applied: 20251211_004_add_escalations_table
+[migration] Applying: 20260112_001_add_chat_sessions_table
+           Add chat_sessions table for extension chat session management
+[migration] Γ£ô Applied: 20260112_001_add_chat_sessions_table
+[migration] Applying: 20260112_002_add_tdd_red_phase
+           Add tdd_red_phase column to tasks table for red-phase verification support
+[migration] Γ£ô Applied: 20260112_002_add_tdd_red_phase
+[migration] Applying: 20260126_001_add_tdd_tables
+           Add tdd_task_relationships and tdd_red_registry tables for TDD workflow support
+[migration] Γ£ô Applied: 20260126_001_add_tdd_tables
+[migration] Applying: 20260115_001_add_tdd_relationships_completed_at
+           Add completed_at column to tdd_task_relationships table
+[migration] Γ£ô Applied: 20260115_001_add_tdd_relationships_completed_at
+[migration] Applying: 20260115_002_add_tdd_red_registry_test_file
+           Add test_file column to tdd_red_registry table
+[migration] Γ£ô Applied: 20260115_002_add_tdd_red_registry_test_file
+[migration] Applying: 20260115_003_recreate_tdd_red_registry
+           Drop and recreate tdd_red_registry table without deprecated columns (status, green_task_id, description, marker_type, timestamps)
+[migration] Γ£ô Applied: 20260115_003_recreate_tdd_red_registry
+[migration] Applying: 20260116_001_update_tdd_red_registry_schema
+           Update tdd_red_registry to file-level tracking: drop test_identifier, make test_file NOT NULL, add test_count. Registry is a transitory snapshot.
+[migration] Γ£ô Applied: 20260116_001_update_tdd_red_registry_schema
+[migration] Applying: 20260117_007_add_controller_agent_schema
+           Add spec_reviews table for Controller review decisions and status column to sprints table (Sprint 004)
+[migration] Γ£ô Applied: 20260117_007_add_controller_agent_schema
+[migration] Applying: 20260117_008_escalations_nullable_task_id
+           Make escalations.task_id nullable for sprint-level escalations
+[migration] Γ£ô Applied: 20260117_008_escalations_nullable_task_id
+[migration] Applying: 20260117_009_add_code_review_tables
+           Add code review tables for review workflow tracking and issues/fixes
+[migration] Γ£ô Applied: 20260117_009_add_code_review_tables
+
+[90mstdout[2m | test/mcp-server/code-review-summary.test.ts[2m > [22m[2mget_code_review_history handler[2m > [22m[2mtask-scoped retrieval[2m > [22m[2mshould return all reviews for specified task_id only[22m[39m
+[migration] Applying: 20251211_001_add_amendments_table
+           Add amendments table for tracking task modifications
+[migration] Γ£ô Applied: 20251211_001_add_amendments_table
+[migration] Applying: 20251211_002_add_handover_context_columns
+           Add context and context_files columns to handovers table
+[migration] Γ£ô Applied: 20251211_002_add_handover_context_columns
+[migration] Applying: 20251211_003_add_sprint_is_active
+           Add is_active column to sprints table for explicit active sprint selection
+[migration] Γ£ô Applied: 20251211_003_add_sprint_is_active
+[migration] Applying: 20251211_004_add_escalations_table
+           Add escalations table for tracking task escalations and resolutions (TD-016)
+[migration] Γ£ô Applied: 20251211_004_add_escalations_table
+[migration] Applying: 20260112_001_add_chat_sessions_table
+           Add chat_sessions table for extension chat session management
+[migration] Γ£ô Applied: 20260112_001_add_chat_sessions_table
+[migration] Applying: 20260112_002_add_tdd_red_phase
+           Add tdd_red_phase column to tasks table for red-phase verification support
+[migration] Γ£ô Applied: 20260112_002_add_tdd_red_phase
+[migration] Applying: 20260126_001_add_tdd_tables
+           Add tdd_task_relationships and tdd_red_registry tables for TDD workflow support
+[migration] Γ£ô Applied: 20260126_001_add_tdd_tables
+[migration] Applying: 20260115_001_add_tdd_relationships_completed_at
+           Add completed_at column to tdd_task_relationships table
+[migration] Γ£ô Applied: 20260115_001_add_tdd_relationships_completed_at
+[migration] Applying: 20260115_002_add_tdd_red_registry_test_file
+           Add test_file column to tdd_red_registry table
+[migration] Γ£ô Applied: 20260115_002_add_tdd_red_registry_test_file
+[migration] Applying: 20260115_003_recreate_tdd_red_registry
+           Drop and recreate tdd_red_registry table without deprecated columns (status, green_task_id, description, marker_type, timestamps)
+[migration] Γ£ô Applied: 20260115_003_recreate_tdd_red_registry
+[migration] Applying: 20260116_001_update_tdd_red_registry_schema
+           Update tdd_red_registry to file-level tracking: drop test_identifier, make test_file NOT NULL, add test_count. Registry is a transitory snapshot.
+[migration] Γ£ô Applied: 20260116_001_update_tdd_red_registry_schema
+[migration] Applying: 20260117_007_add_controller_agent_schema
+           Add spec_reviews table for Controller review decisions and status column to sprints table (Sprint 004)
+[migration] Γ£ô Applied: 20260117_007_add_controller_agent_schema
+[migration] Applying: 20260117_008_escalations_nullable_task_id
+           Make escalations.task_id nullable for sprint-level escalations
+[migration] Γ£ô Applied: 20260117_008_escalations_nullable_task_id
+[migration] Applying: 20260117_009_add_code_review_tables
+           Add code review tables for review workflow tracking and issues/fixes
+[migration] Γ£ô Applied: 20260117_009_add_code_review_tables
+
+ [32mΓ£ô[39m test/mcp-server/submit-verification-judgment-progress.test.ts [2m ([22m[2m6 tests[22m[2m)[22m[33m 14222[2mms[22m[39m
+ [32mΓ£ô[39m test/mcp-server/complete-task.test.ts [2m ([22m[2m10 tests[22m[2m)[22m[33m 23523[2mms[22m[39m
+(node:43248) [DEP0190] DeprecationWarning: Passing args to a child process with shell option true can lead to security vulnerabilities, as the arguments are not escaped, only concatenated.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+ [32mΓ£ô[39m test/mcp-server/handlers/configure-sprint-tdd.test.ts [2m ([22m[2m12 tests[22m[2m)[22m[33m 26098[2mms[22m[39m
+(node:37384) [DEP0190] DeprecationWarning: Passing args to a child process with shell option true can lead to security vulnerabilities, as the arguments are not escaped, only concatenated.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+ [32mΓ£ô[39m test/mcp-server/configure-sprint.test.ts [2m ([22m[2m12 tests[22m[2m)[22m[33m 26735[2mms[22m[39m
+[90mstdout[2m | test/mcp-server/code-review-decision.test.ts[2m > [22m[2mapprove_code_review handler[2m > [22m[2minput validation[2m > [22m[2mshould reject summary shorter than 30 characters[22m[39m
+[migration] Applying: 20251211_001_add_amendments_table
+           Add amendments table for tracking task modifications
+[migration] Γ£ô Applied: 20251211_001_add_amendments_table
+[migration] Applying: 20251211_002_add_handover_context_columns
+           Add context and context_files columns to handovers table
+[migration] Γ£ô Applied: 20251211_002_add_handover_context_columns
+[migration] Applying: 20251211_003_add_sprint_is_active
+           Add is_active column to sprints table for explicit active sprint selection
+[migration] Γ£ô Applied: 20251211_003_add_sprint_is_active
+[migration] Applying: 20251211_004_add_escalations_table
+           Add escalations table for tracking task escalations and resolutions (TD-016)
+[migration] Γ£ô Applied: 20251211_004_add_escalations_table
+[migration] Applying: 20260112_001_add_chat_sessions_table
+           Add chat_sessions table for extension chat session management
+[migration] Γ£ô Applied: 20260112_001_add_chat_sessions_table
+[migration] Applying: 20260112_002_add_tdd_red_phase
+           Add tdd_red_phase column to tasks table for red-phase verification support
+[migration] Γ£ô Applied: 20260112_002_add_tdd_red_phase
+[migration] Applying: 20260126_001_add_tdd_tables
+           Add tdd_task_relationships and tdd_red_registry tables for TDD workflow support
+[migration] Γ£ô Applied: 20260126_001_add_tdd_tables
+[migration] Applying: 20260115_001_add_tdd_relationships_completed_at
+           Add completed_at column to tdd_task_relationships table
+[migration] Γ£ô Applied: 20260115_001_add_tdd_relationships_completed_at
+[migration] Applying: 20260115_002_add_tdd_red_registry_test_file
+           Add test_file column to tdd_red_registry table
+[migration] Γ£ô Applied: 20260115_002_add_tdd_red_registry_test_file
+[migration] Applying: 20260115_003_recreate_tdd_red_registry
+           Drop and recreate tdd_red_registry table without deprecated columns (status, green_task_id, description, marker_type, timestamps)
+[migration] Γ£ô Applied: 20260115_003_recreate_tdd_red_registry
+[migration] Applying: 20260116_001_update_tdd_red_registry_schema
+           Update tdd_red_registry to file-level tracking: drop test_identifier, make test_file NOT NULL, add test_count. Registry is a transitory snapshot.
+[migration] Γ£ô Applied: 20260116_001_update_tdd_red_registry_schema
+[migration] Applying: 20260117_007_add_controller_agent_schema
+           Add spec_reviews table for Controller review decisions and status column to sprints table (Sprint 004)
+[migration] Γ£ô Applied: 20260117_007_add_controller_agent_schema
+[migration] Applying: 20260117_008_escalations_nullable_task_id
+           Make escalations.task_id nullable for sprint-level escalations
+[migration] Γ£ô Applied: 20260117_008_escalations_nullable_task_id
+[migration] Applying: 20260117_009_add_code_review_tables
+           Add code review tables for review workflow tracking and issues/fixes
+[migration] Γ£ô Applied: 20260117_009_add_code_review_tables
+
+[90mstdout[2m | test/mcp-server/code-review-decision.test.ts[2m > [22m[2mapprove_code_review handler[2m > [22m[2minput validation[2m > [22m[2mshould reject empty files_reviewed array[22m[39m
+[migration] Applying: 20251211_001_add_amendments_table
+           Add amendments table for tracking task modifications
+[migration] Γ£ô Applied: 20251211_001_add_amendments_table
+[migration] Applying: 20251211_002_add_handover_context_columns
+           Add context and context_files columns to handovers table
+[migration] Γ£ô Applied: 20251211_002_add_handover_context_columns
+[migration] Applying: 20251211_003_add_sprint_is_active
+           Add is_active column to sprints table for explicit active sprint selection
+[migration] Γ£ô Applied: 20251211_003_add_sprint_is_active
+[migration] Applying: 20251211_004_add_escalations_table
+           Add escalations table for tracking task escalations and resolutions (TD-016)
+[migration] Γ£ô Applied: 20251211_004_add_escalations_table
+[migration] Applying: 20260112_001_add_chat_sessions_table
+           Add chat_sessions table for extension chat session management
+[migration] Γ£ô Applied: 20260112_001_add_chat_sessions_table
+[migration] Applying: 20260112_002_add_tdd_red_phase
+           Add tdd_red_phase column to tasks table for red-phase verification support
+[migration] Γ£ô Applied: 20260112_002_add_tdd_red_phase
+[migration] Applying: 20260126_001_add_tdd_tables
+           Add tdd_task_relationships and tdd_red_registry tables for TDD workflow support
+[migration] Γ£ô Applied: 20260126_001_add_tdd_tables
+[migration] Applying: 20260115_001_add_tdd_relationships_completed_at
+           Add completed_at column to tdd_task_relationships table
+[migration] Γ£ô Applied: 20260115_001_add_tdd_relationships_completed_at
+[migration] Applying: 20260115_002_add_tdd_red_registry_test_file
+           Add test_file column to tdd_red_registry table
+[migration] Γ£ô Applied: 20260115_002_add_tdd_red_registry_test_file
+[migration] Applying: 20260115_003_recreate_tdd_red_registry
+           Drop and recreate tdd_red_registry table without deprecated columns (status, green_task_id, description, marker_type, timestamps)
+[migration] Γ£ô Applied: 20260115_003_recreate_tdd_red_registry
+[migration] Applying: 20260116_001_update_tdd_red_registry_schema
+           Update tdd_red_registry to file-level tracking: drop test_identifier, make test_file NOT NULL, add test_count. Registry is a transitory snapshot.
+[migration] Γ£ô Applied: 20260116_001_update_tdd_red_registry_schema
+[migration] Applying: 20260117_007_add_controller_agent_schema
+           Add spec_reviews table for Controller review decisions and status column to sprints table (Sprint 004)
+[migration] Γ£ô Applied: 20260117_007_add_controller_agent_schema
+[migration] Applying: 20260117_008_escalations_nullable_task_id
+           Make escalations.task_id nullable for sprint-level escalations
+[migration] Γ£ô Applied: 20260117_008_escalations_nullable_task_id
+[migration] Applying: 20260117_009_add_code_review_tables
+           Add code review tables for review workflow tracking and issues/fixes
+[migration] Γ£ô Applied: 20260117_009_add_code_review_tables
+
+[90mstdout[2m | test/mcp-server/code-review-decision.test.ts[2m > [22m[2mapprove_code_review handler[2m > [22m[2minput validation[2m > [22m[2mshould default tests_run to [NOT_RUN] when omitted[22m[39m
+[migration] Applying: 20251211_001_add_amendments_table
+           Add amendments table for tracking task modifications
+[migration] Γ£ô Applied: 20251211_001_add_amendments_table
+[migration] Applying: 20251211_002_add_handover_context_columns
+           Add context and context_files columns to handovers table
+[migration] Γ£ô Applied: 20251211_002_add_handover_context_columns
+[migration] Applying: 20251211_003_add_sprint_is_active
+           Add is_active column to sprints table for explicit active sprint selection
+[migration] Γ£ô Applied: 20251211_003_add_sprint_is_active
+[migration] Applying: 20251211_004_add_escalations_table
+           Add escalations table for tracking task escalations and resolutions (TD-016)
+[migration] Γ£ô Applied: 20251211_004_add_escalations_table
+[migration] Applying: 20260112_001_add_chat_sessions_table
+           Add chat_sessions table for extension chat session management
+[migration] Γ£ô Applied: 20260112_001_add_chat_sessions_table
+[migration] Applying: 20260112_002_add_tdd_red_phase
+           Add tdd_red_phase column to tasks table for red-phase verification support
+[migration] Γ£ô Applied: 20260112_002_add_tdd_red_phase
+[migration] Applying: 20260126_001_add_tdd_tables
+           Add tdd_task_relationships and tdd_red_registry tables for TDD workflow support
+[migration] Γ£ô Applied: 20260126_001_add_tdd_tables
+[migration] Applying: 20260115_001_add_tdd_relationships_completed_at
+           Add completed_at column to tdd_task_relationships table
+[migration] Γ£ô Applied: 20260115_001_add_tdd_relationships_completed_at
+[migration] Applying: 20260115_002_add_tdd_red_registry_test_file
+           Add test_file column to tdd_red_registry table
+[migration] Γ£ô Applied: 20260115_002_add_tdd_red_registry_test_file
+[migration] Applying: 20260115_003_recreate_tdd_red_registry
+           Drop and recreate tdd_red_registry table without deprecated columns (status, green_task_id, description, marker_type, timestamps)
+[migration] Γ£ô Applied: 20260115_003_recreate_tdd_red_registry
+[migration] Applying: 20260116_001_update_tdd_red_registry_schema
+           Update tdd_red_registry to file-level tracking: drop test_identifier, make test_file NOT NULL, add test_count. Registry is a transitory snapshot.
+[migration] Γ£ô Applied: 20260116_001_update_tdd_red_registry_schema
+[migration] Applying: 20260117_007_add_controller_agent_schema
+           Add spec_reviews table for Controller review decisions and status column to sprints table (Sprint 004)
+[migration] Γ£ô Applied: 20260117_007_add_controller_agent_schema
+[migration] Applying: 20260117_008_escalations_nullable_task_id
+           Make escalations.task_id nullable for sprint-level escalations
+[migration] Γ£ô Applied: 20260117_008_escalations_nullable_task_id
+[migration] Applying: 20260117_009_add_code_review_tables
+           Add code review tables for review workflow tracking and issues/fixes
+[migration] Γ£ô Applied: 20260117_009_add_code_review_tables
+
+[90mstdout[2m | test/mcp-server/code-review-decision.test.ts[2m > [22m[2mapprove_code_review handler[2m > [22m[2minput validation[2m > [22m[2mshould accept non-empty tests_run when provided[22m[39m
+[migration] Applying: 20251211_001_add_amendments_table
+           Add amendments table for tracking task modifications
+[migration] Γ£ô Applied: 20251211_001_add_amendments_table
+[migration] Applying: 20251211_002_add_handover_context_columns
+           Add context and context_files columns to handovers table
+[migration] Γ£ô Applied: 20251211_002_add_handover_context_columns
+[migration] Applying: 20251211_003_add_sprint_is_active
+           Add is_active column to sprints table for explicit active sprint selection
+[migration] Γ£ô Applied: 20251211_003_add_sprint_is_active
+[migration] Applying: 20251211_004_add_escalations_table
+           Add escalations table for tracking task escalations and resolutions (TD-016)
+[migration] Γ£ô Applied: 20251211_004_add_escalations_table
+[migration] Applying: 20260112_001_add_chat_sessions_table
+           Add chat_sessions table for extension chat session management
+[migration] Γ£ô Applied: 20260112_001_add_chat_sessions_table
+[migration] Applying: 20260112_002_add_tdd_red_phase
+           Add tdd_red_phase column to tasks table for red-phase verification support
+[migration] Γ£ô Applied: 20260112_002_add_tdd_red_phase
+[migration] Applying: 20260126_001_add_tdd_tables
+           Add tdd_task_relationships and tdd_red_registry tables for TDD workflow support
+[migration] Γ£ô Applied: 20260126_001_add_tdd_tables
+[migration] Applying: 20260115_001_add_tdd_relationships_completed_at
+           Add completed_at column to tdd_task_relationships table
+[migration] Γ£ô Applied: 20260115_001_add_tdd_relationships_completed_at
+[migration] Applying: 20260115_002_add_tdd_red_registry_test_file
+           Add test_file column to tdd_red_registry table
+[migration] Γ£ô Applied: 20260115_002_add_tdd_red_registry_test_file
+[migration] Applying: 20260115_003_recreate_tdd_red_registry
+           Drop and recreate tdd_red_registry table without deprecated columns (status, green_task_id, description, marker_type, timestamps)
+[migration] Γ£ô Applied: 20260115_003_recreate_tdd_red_registry
+[migration] Applying: 20260116_001_update_tdd_red_registry_schema
+           Update tdd_red_registry to file-level tracking: drop test_identifier, make test_file NOT NULL, add test_count. Registry is a transitory snapshot.
+[migration] Γ£ô Applied: 20260116_001_update_tdd_red_registry_schema
+[migration] Applying: 20260117_007_add_controller_agent_schema
+           Add spec_reviews table for Controller review decisions and status column to sprints table (Sprint 004)
+[migration] Γ£ô Applied: 20260117_007_add_controller_agent_schema
+[migration] Applying: 20260117_008_escalations_nullable_task_id
+           Make escalations.task_id nullable for sprint-level escalations
+[migration] Γ£ô Applied: 20260117_008_escalations_nullable_task_id
+[migration] Applying: 20260117_009_add_code_review_tables
+           Add code review tables for review workflow tracking and issues/fixes
+[migration] Γ£ô Applied: 20260117_009_add_code_review_tables
+
+[90mstdout[2m | test/mcp-server/code-review-decision.test.ts[2m > [22m[2mapprove_code_review handler[2m > [22m[2mstatus transitions[2m > [22m[2mshould transition PENDING review to APPROVED status[22m[39m
+[migration] Applying: 20251211_001_add_amendments_table
+           Add amendments table for tracking task modifications
+[migration] Γ£ô Applied: 20251211_001_add_amendments_table
+[migration] Applying: 20251211_002_add_handover_context_columns
+           Add context and context_files columns to handovers table
+[migration] Γ£ô Applied: 20251211_002_add_handover_context_columns
+[migration] Applying: 20251211_003_add_sprint_is_active
+           Add is_active column to sprints table for explicit active sprint selection
+[migration] Γ£ô Applied: 20251211_003_add_sprint_is_active
+[migration] Applying: 20251211_004_add_escalations_table
+           Add escalations table for tracking task escalations and resolutions (TD-016)
+[migration] Γ£ô Applied: 20251211_004_add_escalations_table
+[migration] Applying: 20260112_001_add_chat_sessions_table
+           Add chat_sessions table for extension chat session management
+[migration] Γ£ô Applied: 20260112_001_add_chat_sessions_table
+[migration] Applying: 20260112_002_add_tdd_red_phase
+           Add tdd_red_phase column to tasks table for red-phase verification support
+[migration] Γ£ô Applied: 20260112_002_add_tdd_red_phase
+[migration] Applying: 20260126_001_add_tdd_tables
+           Add tdd_task_relationships and tdd_red_registry tables for TDD workflow support
+[migration] Γ£ô Applied: 20260126_001_add_tdd_tables
+[migration] Applying: 20260115_001_add_tdd_relationships_completed_at
+           Add completed_at column to tdd_task_relationships table
+[migration] Γ£ô Applied: 20260115_001_add_tdd_relationships_completed_at
+[migration] Applying: 20260115_002_add_tdd_red_registry_test_file
+           Add test_file column to tdd_red_registry table
+[migration] Γ£ô Applied: 20260115_002_add_tdd_red_registry_test_file
+[migration] Applying: 20260115_003_recreate_tdd_red_registry
+           Drop and recreate tdd_red_registry table without deprecated columns (status, green_task_id, description, marker_type, timestamps)
+[migration] Γ£ô Applied: 20260115_003_recreate_tdd_red_registry
+[migration] Applying: 20260116_001_update_tdd_red_registry_schema
+           Update tdd_red_registry to file-level tracking: drop test_identifier, make test_file NOT NULL, add test_count. Registry is a transitory snapshot.
+[migration] Γ£ô Applied: 20260116_001_update_tdd_red_registry_schema
+[migration] Applying: 20260117_007_add_controller_agent_schema
+           Add spec_reviews table for Controller review decisions and status column to sprints table (Sprint 004)
+[migration] Γ£ô Applied: 20260117_007_add_controller_agent_schema
+[migration] Applying: 20260117_008_escalations_nullable_task_id
+           Make escalations.task_id nullable for sprint-level escalations
+[migration] Γ£ô Applied: 20260117_008_escalations_nullable_task_id
+[migration] Applying: 20260117_009_add_code_review_tables
+           Add code review tables for review workflow tracking and issues/fixes
+[migration] Γ£ô Applied: 20260117_009_add_code_review_tables
+
+[90mstdout[2m | test/mcp-server/code-review-decision.test.ts[2m > [22m[2mapprove_code_review handler[2m > [22m[2mstatus transitions[2m > [22m[2mshould persist artifacts (summary, risk, files_reviewed, tests_run)[22m[39m
+[migration] Applying: 20251211_001_add_amendments_table
+           Add amendments table for tracking task modifications
+[migration] Γ£ô Applied: 20251211_001_add_amendments_table
+[migration] Applying: 20251211_002_add_handover_context_columns
+           Add context and context_files columns to handovers table
+[migration] Γ£ô Applied: 20251211_002_add_handover_context_columns
+[migration] Applying: 20251211_003_add_sprint_is_active
+           Add is_active column to sprints table for explicit active sprint selection
+[migration] Γ£ô Applied: 20251211_003_add_sprint_is_active
+[migration] Applying: 20251211_004_add_escalations_table
+           Add escalations table for tracking task escalations and resolutions (TD-016)
+[migration] Γ£ô Applied: 20251211_004_add_escalations_table
+[migration] Applying: 20260112_001_add_chat_sessions_table
+           Add chat_sessions table for extension chat session management
+[migration] Γ£ô Applied: 20260112_001_add_chat_sessions_table
+[migration] Applying: 20260112_002_add_tdd_red_phase
+           Add tdd_red_phase column to tasks table for red-phase verification support
+[migration] Γ£ô Applied: 20260112_002_add_tdd_red_phase
+[migration] Applying: 20260126_001_add_tdd_tables
+           Add tdd_task_relationships and tdd_red_registry tables for TDD workflow support
+[migration] Γ£ô Applied: 20260126_001_add_tdd_tables
+[migration] Applying: 20260115_001_add_tdd_relationships_completed_at
+           Add completed_at column to tdd_task_relationships table
+[migration] Γ£ô Applied: 20260115_001_add_tdd_relationships_completed_at
+[migration] Applying: 20260115_002_add_tdd_red_registry_test_file
+           Add test_file column to tdd_red_registry table
+[migration] Γ£ô Applied: 20260115_002_add_tdd_red_registry_test_file
+[migration] Applying: 20260115_003_recreate_tdd_red_registry
+           Drop and recreate tdd_red_registry table without deprecated columns (status, green_task_id, description, marker_type, timestamps)
+[migration] Γ£ô Applied: 20260115_003_recreate_tdd_red_registry
+[migration] Applying: 20260116_001_update_tdd_red_registry_schema
+           Update tdd_red_registry to file-level tracking: drop test_identifier, make test_file NOT NULL, add test_count. Registry is a transitory snapshot.
+[migration] Γ£ô Applied: 20260116_001_update_tdd_red_registry_schema
+[migration] Applying: 20260117_007_add_controller_agent_schema
+           Add spec_reviews table for Controller review decisions and status column to sprints table (Sprint 004)
+[migration] Γ£ô Applied: 20260117_007_add_controller_agent_schema
+[migration] Applying: 20260117_008_escalations_nullable_task_id
+           Make escalations.task_id nullable for sprint-level escalations
+[migration] Γ£ô Applied: 20260117_008_escalations_nullable_task_id
+[migration] Applying: 20260117_009_add_code_review_tables
+           Add code review tables for review workflow tracking and issues/fixes
+[migration] Γ£ô Applied: 20260117_009_add_code_review_tables
+
+[90mstdout[2m | test/mcp-server/code-review-decision.test.ts[2m > [22m[2mrequest_changes_code_review handler[2m > [22m[2minput validation[2m > [22m[2mshould reject non-positive review_id[22m[39m
+[migration] Applying: 20251211_001_add_amendments_table
+           Add amendments table for tracking task modifications
+[migration] Γ£ô Applied: 20251211_001_add_amendments_table
+[migration] Applying: 20251211_002_add_handover_context_columns
+           Add context and context_files columns to handovers table
+[migration] Γ£ô Applied: 20251211_002_add_handover_context_columns
+[migration] Applying: 20251211_003_add_sprint_is_active
+           Add is_active column to sprints table for explicit active sprint selection
+[migration] Γ£ô Applied: 20251211_003_add_sprint_is_active
+[migration] Applying: 20251211_004_add_escalations_table
+           Add escalations table for tracking task escalations and resolutions (TD-016)
+[migration] Γ£ô Applied: 20251211_004_add_escalations_table
+[migration] Applying: 20260112_001_add_chat_sessions_table
+           Add chat_sessions table for extension chat session management
+[migration] Γ£ô Applied: 20260112_001_add_chat_sessions_table
+[migration] Applying: 20260112_002_add_tdd_red_phase
+           Add tdd_red_phase column to tasks table for red-phase verification support
+[migration] Γ£ô Applied: 20260112_002_add_tdd_red_phase
+[migration] Applying: 20260126_001_add_tdd_tables
+           Add tdd_task_relationships and tdd_red_registry tables for TDD workflow support
+[migration] Γ£ô Applied: 20260126_001_add_tdd_tables
+[migration] Applying: 20260115_001_add_tdd_relationships_completed_at
+           Add completed_at column to tdd_task_relationships table
+[migration] Γ£ô Applied: 20260115_001_add_tdd_relationships_completed_at
+[migration] Applying: 20260115_002_add_tdd_red_registry_test_file
+           Add test_file column to tdd_red_registry table
+[migration] Γ£ô Applied: 20260115_002_add_tdd_red_registry_test_file
+[migration] Applying: 20260115_003_recreate_tdd_red_registry
+           Drop and recreate tdd_red_registry table without deprecated columns (status, green_task_id, description, marker_type, timestamps)
+[migration] Γ£ô Applied: 20260115_003_recreate_tdd_red_registry
+[migration] Applying: 20260116_001_update_tdd_red_registry_schema
+           Update tdd_red_registry to file-level tracking: drop test_identifier, make test_file NOT NULL, add test_count. Registry is a transitory snapshot.
+[migration] Γ£ô Applied: 20260116_001_update_tdd_red_registry_schema
+[migration] Applying: 20260117_007_add_controller_agent_schema
+           Add spec_reviews table for Controller review decisions and status column to sprints table (Sprint 004)
+[migration] Γ£ô Applied: 20260117_007_add_controller_agent_schema
+[migration] Applying: 20260117_008_escalations_nullable_task_id
+           Make escalations.task_id nullable for sprint-level escalations
+[migration] Γ£ô Applied: 20260117_008_escalations_nullable_task_id
+[migration] Applying: 20260117_009_add_code_review_tables
+           Add code review tables for review workflow tracking and issues/fixes
+[migration] Γ£ô Applied: 20260117_009_add_code_review_tables
+
+ [32mΓ£ô[39m test/mcp-server/get-current-task.test.ts [2m ([22m[2m5 tests[22m[2m)[22m[33m 10901[2mms[22m[39m
+ [32mΓ£ô[39m test/integration/verification-lifecycle.test.ts [2m ([22m[2m8 tests[22m[2m)[22m[33m 21090[2mms[22m[39m
+[90mstdout[2m | test/mcp-server/code-review-summary.test.ts[2m > [22m[2mget_code_review_history handler[2m > [22m[2mtask-scoped retrieval[2m > [22m[2mshould only return records for the specified task, not other tasks[22m[39m
+[migration] Applying: 20251211_001_add_amendments_table
+           Add amendments table for tracking task modifications
+[migration] Γ£ô Applied: 20251211_001_add_amendments_table
+[migration] Applying: 20251211_002_add_handover_context_columns
+           Add context and context_files columns to handovers table
+[migration] Γ£ô Applied: 20251211_002_add_handover_context_columns
+[migration] Applying: 20251211_003_add_sprint_is_active
+           Add is_active column to sprints table for explicit active sprint selection
+[migration] Γ£ô Applied: 20251211_003_add_sprint_is_active
+[migration] Applying: 20251211_004_add_escalations_table
+           Add escalations table for tracking task escalations and resolutions (TD-016)
+[migration] Γ£ô Applied: 20251211_004_add_escalations_table
+[migration] Applying: 20260112_001_add_chat_sessions_table
+           Add chat_sessions table for extension chat session management
+[migration] Γ£ô Applied: 20260112_001_add_chat_sessions_table
+[migration] Applying: 20260112_002_add_tdd_red_phase
+           Add tdd_red_phase column to tasks table for red-phase verification support
+[migration] Γ£ô Applied: 20260112_002_add_tdd_red_phase
+[migration] Applying: 20260126_001_add_tdd_tables
+           Add tdd_task_relationships and tdd_red_registry tables for TDD workflow support
+[migration] Γ£ô Applied: 20260126_001_add_tdd_tables
+[migration] Applying: 20260115_001_add_tdd_relationships_completed_at
+           Add completed_at column to tdd_task_relationships table
+[migration] Γ£ô Applied: 20260115_001_add_tdd_relationships_completed_at
+[migration] Applying: 20260115_002_add_tdd_red_registry_test_file
+           Add test_file column to tdd_red_registry table
+[migration] Γ£ô Applied: 20260115_002_add_tdd_red_registry_test_file
+[migration] Applying: 20260115_003_recreate_tdd_red_registry
+           Drop and recreate tdd_red_registry table without deprecated columns (status, green_task_id, description, marker_type, timestamps)
+[migration] Γ£ô Applied: 20260115_003_recreate_tdd_red_registry
+[migration] Applying: 20260116_001_update_tdd_red_registry_schema
+           Update tdd_red_registry to file-level tracking: drop test_identifier, make test_file NOT NULL, add test_count. Registry is a transitory snapshot.
+[migration] Γ£ô Applied: 20260116_001_update_tdd_red_registry_schema
+[migration] Applying: 20260117_007_add_controller_agent_schema
+           Add spec_reviews table for Controller review decisions and status column to sprints table (Sprint 004)
+[migration] Γ£ô Applied: 20260117_007_add_controller_agent_schema
+[migration] Applying: 20260117_008_escalations_nullable_task_id
+           Make escalations.task_id nullable for sprint-level escalations
+[migration] Γ£ô Applied: 20260117_008_escalations_nullable_task_id
+[migration] Applying: 20260117_009_add_code_review_tables
+           Add code review tables for review workflow tracking and issues/fixes
+[migration] Γ£ô Applied: 20260117_009_add_code_review_tables
+
+[90mstdout[2m | test/mcp-server/code-review-summary.test.ts[2m > [22m[2mget_code_review_history handler[2m > [22m[2mtask-scoped retrieval[2m > [22m[2mshould respect limit parameter[22m[39m
+[migration] Applying: 20251211_001_add_amendments_table
+           Add amendments table for tracking task modifications
+[migration] Γ£ô Applied: 20251211_001_add_amendments_table
+[migration] Applying: 20251211_002_add_handover_context_columns
+           Add context and context_files columns to handovers table
+[migration] Γ£ô Applied: 20251211_002_add_handover_context_columns
+[migration] Applying: 20251211_003_add_sprint_is_active
+           Add is_active column to sprints table for explicit active sprint selection
+[migration] Γ£ô Applied: 20251211_003_add_sprint_is_active
+[migration] Applying: 20251211_004_add_escalations_table
+           Add escalations table for tracking task escalations and resolutions (TD-016)
+[migration] Γ£ô Applied: 20251211_004_add_escalations_table
+[migration] Applying: 20260112_001_add_chat_sessions_table
+           Add chat_sessions table for extension chat session management
+[migration] Γ£ô Applied: 20260112_001_add_chat_sessions_table
+[migration] Applying: 20260112_002_add_tdd_red_phase
+           Add tdd_red_phase column to tasks table for red-phase verification support
+[migration] Γ£ô Applied: 20260112_002_add_tdd_red_phase
+[migration] Applying: 20260126_001_add_tdd_tables
+           Add tdd_task_relationships and tdd_red_registry tables for TDD workflow support
+[migration] Γ£ô Applied: 20260126_001_add_tdd_tables
+[migration] Applying: 20260115_001_add_tdd_relationships_completed_at
+           Add completed_at column to tdd_task_relationships table
+[migration] Γ£ô Applied: 20260115_001_add_tdd_relationships_completed_at
+[migration] Applying: 20260115_002_add_tdd_red_registry_test_file
+           Add test_file column to tdd_red_registry table
+[migration] Γ£ô Applied: 20260115_002_add_tdd_red_registry_test_file
+[migration] Applying: 20260115_003_recreate_tdd_red_registry
+           Drop and recreate tdd_red_registry table without deprecated columns (status, green_task_id, description, marker_type, timestamps)
+[migration] Γ£ô Applied: 20260115_003_recreate_tdd_red_registry
+[migration] Applying: 20260116_001_update_tdd_red_registry_schema
+           Update tdd_red_registry to file-level tracking: drop test_identifier, make test_file NOT NULL, add test_count. Registry is a transitory snapshot.
+[migration] Γ£ô Applied: 20260116_001_update_tdd_red_registry_schema
+[migration] Applying: 20260117_007_add_controller_agent_schema
+           Add spec_reviews table for Controller review decisions and status column to sprints table (Sprint 004)
+[migration] Γ£ô Applied: 20260117_007_add_controller_agent_schema
+[migration] Applying: 20260117_008_escalations_nullable_task_id
+           Make escalations.task_id nullable for sprint-level escalations
+[migration] Γ£ô Applied: 20260117_008_escalations_nullable_task_id
+[migration] Applying: 20260117_009_add_code_review_tables
+           Add code review tables for review workflow tracking and issues/fixes
+[migration] Γ£ô Applied: 20260117_009_add_code_review_tables
+
+[90mstdout[2m | test/mcp-server/code-review-summary.test.ts[2m > [22m[2mget_code_review_history handler[2m > [22m[2mtask-scoped retrieval[2m > [22m[2mshould default limit to 20[22m[39m
+[migration] Applying: 20251211_001_add_amendments_table
+           Add amendments table for tracking task modifications
+[migration] Γ£ô Applied: 20251211_001_add_amendments_table
+[migration] Applying: 20251211_002_add_handover_context_columns
+           Add context and context_files columns to handovers table
+[migration] Γ£ô Applied: 20251211_002_add_handover_context_columns
+[migration] Applying: 20251211_003_add_sprint_is_active
+           Add is_active column to sprints table for explicit active sprint selection
+[migration] Γ£ô Applied: 20251211_003_add_sprint_is_active
+[migration] Applying: 20251211_004_add_escalations_table
+           Add escalations table for tracking task escalations and resolutions (TD-016)
+[migration] Γ£ô Applied: 20251211_004_add_escalations_table
+[migration] Applying: 20260112_001_add_chat_sessions_table
+           Add chat_sessions table for extension chat session management
+[migration] Γ£ô Applied: 20260112_001_add_chat_sessions_table
+[migration] Applying: 20260112_002_add_tdd_red_phase
+           Add tdd_red_phase column to tasks table for red-phase verification support
+[migration] Γ£ô Applied: 20260112_002_add_tdd_red_phase
+[migration] Applying: 20260126_001_add_tdd_tables
+           Add tdd_task_relationships and tdd_red_registry tables for TDD workflow support
+[migration] Γ£ô Applied: 20260126_001_add_tdd_tables
+[migration] Applying: 20260115_001_add_tdd_relationships_completed_at
+           Add completed_at column to tdd_task_relationships table
+[migration] Γ£ô Applied: 20260115_001_add_tdd_relationships_completed_at
+[migration] Applying: 20260115_002_add_tdd_red_registry_test_file
+           Add test_file column to tdd_red_registry table
+[migration] Γ£ô Applied: 20260115_002_add_tdd_red_registry_test_file
+[migration] Applying: 20260115_003_recreate_tdd_red_registry
+           Drop and recreate tdd_red_registry table without deprecated columns (status, green_task_id, description, marker_type, timestamps)
+[migration] Γ£ô Applied: 20260115_003_recreate_tdd_red_registry
+[migration] Applying: 20260116_001_update_tdd_red_registry_schema
+           Update tdd_red_registry to file-level tracking: drop test_identifier, make test_file NOT NULL, add test_count. Registry is a transitory snapshot.
+[migration] Γ£ô Applied: 20260116_001_update_tdd_red_registry_schema
+[migration] Applying: 20260117_007_add_controller_agent_schema
+           Add spec_reviews table for Controller review decisions and status column to sprints table (Sprint 004)
+[migration] Γ£ô Applied: 20260117_007_add_controller_agent_schema
+[migration] Applying: 20260117_008_escalations_nullable_task_id
+           Make escalations.task_id nullable for sprint-level escalations
+[migration] Γ£ô Applied: 20260117_008_escalations_nullable_task_id
+[migration] Applying: 20260117_009_add_code_review_tables
+           Add code review tables for review workflow tracking and issues/fixes
+[migration] Γ£ô Applied: 20260117_009_add_code_review_tables
+
+[90mstdout[2m | test/mcp-server/code-review-summary.test.ts[2m > [22m[2mget_code_review_history handler[2m > [22m[2mtask-scoped retrieval[2m > [22m[2mshould return reviews ordered by created_at descending (most recent first)[22m[39m
+[migration] Applying: 20251211_001_add_amendments_table
+           Add amendments table for tracking task modifications
+[migration] Γ£ô Applied: 20251211_001_add_amendments_table
+[migration] Applying: 20251211_002_add_handover_context_columns
+           Add context and context_files columns to handovers table
+[migration] Γ£ô Applied: 20251211_002_add_handover_context_columns
+[migration] Applying: 20251211_003_add_sprint_is_active
+           Add is_active column to sprints table for explicit active sprint selection
+[migration] Γ£ô Applied: 20251211_003_add_sprint_is_active
+[migration] Applying: 20251211_004_add_escalations_table
+           Add escalations table for tracking task escalations and resolutions (TD-016)
+[migration] Γ£ô Applied: 20251211_004_add_escalations_table
+[migration] Applying: 20260112_001_add_chat_sessions_table
+           Add chat_sessions table for extension chat session management
+[migration] Γ£ô Applied: 20260112_001_add_chat_sessions_table
+[migration] Applying: 20260112_002_add_tdd_red_phase
+           Add tdd_red_phase column to tasks table for red-phase verification support
+[migration] Γ£ô Applied: 20260112_002_add_tdd_red_phase
+[migration] Applying: 20260126_001_add_tdd_tables
+           Add tdd_task_relationships and tdd_red_registry tables for TDD workflow support
+[migration] Γ£ô Applied: 20260126_001_add_tdd_tables
+[migration] Applying: 20260115_001_add_tdd_relationships_completed_at
+           Add completed_at column to tdd_task_relationships table
+[migration] Γ£ô Applied: 20260115_001_add_tdd_relationships_completed_at
+[migration] Applying: 20260115_002_add_tdd_red_registry_test_file
+           Add test_file column to tdd_red_registry table
+[migration] Γ£ô Applied: 20260115_002_add_tdd_red_registry_test_file
+[migration] Applying: 20260115_003_recreate_tdd_red_registry
+           Drop and recreate tdd_red_registry table without deprecated columns (status, green_task_id, description, marker_type, timestamps)
+[migration] Γ£ô Applied: 20260115_003_recreate_tdd_red_registry
+[migration] Applying: 20260116_001_update_tdd_red_registry_schema
+           Update tdd_red_registry to file-level tracking: drop test_identifier, make test_file NOT NULL, add test_count. Registry is a transitory snapshot.
+[migration] Γ£ô Applied: 20260116_001_update_tdd_red_registry_schema
+[migration] Applying: 20260117_007_add_controller_agent_schema
+           Add spec_reviews table for Controller review decisions and status column to sprints table (Sprint 004)
+[migration] Γ£ô Applied: 20260117_007_add_controller_agent_schema
+[migration] Applying: 20260117_008_escalations_nullable_task_id
+           Make escalations.task_id nullable for sprint-level escalations
+[migration] Γ£ô Applied: 20260117_008_escalations_nullable_task_id
+[migration] Applying: 20260117_009_add_code_review_tables
+           Add code review tables for review workflow tracking and issues/fixes
+[migration] Γ£ô Applied: 20260117_009_add_code_review_tables
+
+[90mstdout[2m | test/mcp-server/code-review-summary.test.ts[2m > [22m[2mget_code_review_summary handler[2m > [22m[2msprint-scoped retrieval[2m > [22m[2mshould only return summary for specified sprint_id[22m[39m
+[migration] Applying: 20251211_001_add_amendments_table
+           Add amendments table for tracking task modifications
+[migration] Γ£ô Applied: 20251211_001_add_amendments_table
+[migration] Applying: 20251211_002_add_handover_context_columns
+           Add context and context_files columns to handovers table
+[migration] Γ£ô Applied: 20251211_002_add_handover_context_columns
+[migration] Applying: 20251211_003_add_sprint_is_active
+           Add is_active column to sprints table for explicit active sprint selection
+[migration] Γ£ô Applied: 20251211_003_add_sprint_is_active
+[migration] Applying: 20251211_004_add_escalations_table
+           Add escalations table for tracking task escalations and resolutions (TD-016)
+[migration] Γ£ô Applied: 20251211_004_add_escalations_table
+[migration] Applying: 20260112_001_add_chat_sessions_table
+           Add chat_sessions table for extension chat session management
+[migration] Γ£ô Applied: 20260112_001_add_chat_sessions_table
+[migration] Applying: 20260112_002_add_tdd_red_phase
+           Add tdd_red_phase column to tasks table for red-phase verification support
+[migration] Γ£ô Applied: 20260112_002_add_tdd_red_phase
+[migration] Applying: 20260126_001_add_tdd_tables
+           Add tdd_task_relationships and tdd_red_registry tables for TDD workflow support
+[migration] Γ£ô Applied: 20260126_001_add_tdd_tables
+[migration] Applying: 20260115_001_add_tdd_relationships_completed_at
+           Add completed_at column to tdd_task_relationships table
+[migration] Γ£ô Applied: 20260115_001_add_tdd_relationships_completed_at
+[migration] Applying: 20260115_002_add_tdd_red_registry_test_file
+           Add test_file column to tdd_red_registry table
+[migration] Γ£ô Applied: 20260115_002_add_tdd_red_registry_test_file
+[migration] Applying: 20260115_003_recreate_tdd_red_registry
+           Drop and recreate tdd_red_registry table without deprecated columns (status, green_task_id, description, marker_type, timestamps)
+[migration] Γ£ô Applied: 20260115_003_recreate_tdd_red_registry
+[migration] Applying: 20260116_001_update_tdd_red_registry_schema
+           Update tdd_red_registry to file-level tracking: drop test_identifier, make test_file NOT NULL, add test_count. Registry is a transitory snapshot.
+[migration] Γ£ô Applied: 20260116_001_update_tdd_red_registry_schema
+[migration] Applying: 20260117_007_add_controller_agent_schema
+           Add spec_reviews table for Controller review decisions and status column to sprints table (Sprint 004)
+[migration] Γ£ô Applied: 20260117_007_add_controller_agent_schema
+[migration] Applying: 20260117_008_escalations_nullable_task_id
+           Make escalations.task_id nullable for sprint-level escalations
+[migration] Γ£ô Applied: 20260117_008_escalations_nullable_task_id
+[migration] Applying: 20260117_009_add_code_review_tables
+           Add code review tables for review workflow tracking and issues/fixes
+[migration] Γ£ô Applied: 20260117_009_add_code_review_tables
+
+ [32mΓ£ô[39m test/mcp-server/get-tasks.test.ts [2m ([22m[2m11 tests[22m[2m)[22m[33m 23162[2mms[22m[39m
+ [2m[90mΓåô[39m[22m test/commands/status.test.ts [2m ([22m[2m20 tests[22m [2m|[22m [33m20 skipped[39m[2m)[22m
+ [32mΓ£ô[39m test/integration/tdd-pre-signal.test.ts [2m ([22m[2m11 tests[22m[2m)[22m[33m 25571[2mms[22m[39m
+ [32mΓ£ô[39m test/core/judgment-validator.test.ts [2m ([22m[2m13 tests[22m[2m)[22m[33m 27599[2mms[22m[39m
+ [32mΓ£ô[39m test/core/tdd-scan-on-signal.test.ts [2m ([22m[2m14 tests[22m[2m)[22m[90m 149[2mms[22m[39m
+stderr | test/mcp-server/prepare-task-tdd.test.ts > prepare_task TDD Auto-Injection > should inject TDD check when require_tests=true and category matches
+[TDD] Auto-injected test verification check for task 1 (INFRASTRUCTURE): [TDD] Test file required for "Database Migration" (INFRASTRUCTURE)
+
+stderr | test/mcp-server/prepare-task-tdd.test.ts > prepare_task TDD Auto-Injection > should use default config values when config keys are missing
+[TDD] Auto-injected test verification check for task 1 (INFRASTRUCTURE): [TDD] Test file required for "Database Migration" (INFRASTRUCTURE)
+
+stderr | test/mcp-server/prepare-task-tdd.test.ts > prepare_task TDD Auto-Injection > should inject check for INTEGRATION category when configured
+[TDD] Auto-injected test verification check for task 1 (INTEGRATION): [TDD] Test file required for "API Integration" (INTEGRATION)
+
+stderr | test/mcp-server/prepare-task-tdd.test.ts > prepare_task TDD Auto-Injection > should use custom patterns from config when provided
+[TDD] Auto-injected test verification check for task 1 (INFRASTRUCTURE): [TDD] Test file required for "Database Migration" (INFRASTRUCTURE)
+
+ [32mΓ£ô[39m test/mcp-server/prepare-task-tdd.test.ts [2m ([22m[2m6 tests[22m[2m)[22m[33m 12153[2mms[22m[39m
+ [32mΓ£ô[39m test/core/tdd-marker-scanner.test.ts [2m ([22m[2m17 tests[22m[2m)[22m[90m 142[2mms[22m[39m
+ [33mΓ¥»[39m test/mcp-server/audit-logging-coverage.test.ts [2m ([22m[2m8 tests[22m [2m|[22m [31m1 failed[39m[2m)[22m[90m 35[2mms[22m[39m
+[31m   [33mΓ¥»[31m test/mcp-server/audit-logging-coverage.test.ts[2m > [22mAudit Logging Coverage[2m > [22mEdge cases[2m > [22mshould verify handlers capture taskId when available[39m
+[31m     ΓåÆ get-latest-code-review.ts accepts task_id but doesn't pass it to logToolExecution: expected null to be truthy[39m
+ [32mΓ£ô[39m test/schemas/tdd-registry.test.ts [2m ([22m[2m20 tests[22m[2m)[22m[90m 8[2mms[22m[39m
+ [32mΓ£ô[39m test/mcp-server/role-filtering.test.ts [2m ([22m[2m31 tests[22m[2m)[22m[90m 8[2mms[22m[39m
+ [32mΓ£ô[39m test/core/types.test.ts [2m ([22m[2m23 tests[22m[2m)[22m[90m 15[2mms[22m[39m
+ [32mΓ£ô[39m test/core/config-generator.test.ts [2m ([22m[2m16 tests[22m[2m)[22m[90m 46[2mms[22m[39m
+ [32mΓ£ô[39m test/core/pre-signal-check.test.ts [2m ([22m[2m21 tests[22m[2m)[22m[33m 17744[2mms[22m[39m
+ [32mΓ£ô[39m test/mcp-server/handlers/sprint-closeout-tdd.test.ts [2m ([22m[2m3 tests[22m[2m)[22m[33m 6278[2mms[22m[39m
+[90mstdout[2m | test/db/code-review-schema.test.ts[2m > [22m[2mCode review schema tables[2m > [22m[2mshould include a code review migration and be idempotent[22m[39m
+[migration] Applying: 20251211_001_add_amendments_table
+           Add amendments table for tracking task modifications
+[migration] Γ£ô Applied: 20251211_001_add_amendments_table
+[migration] Applying: 20251211_002_add_handover_context_columns
+           Add context and context_files columns to handovers table
+[migration] Γ£ô Applied: 20251211_002_add_handover_context_columns
+[migration] Applying: 20251211_003_add_sprint_is_active
+           Add is_active column to sprints table for explicit active sprint selection
+[migration] Γ£ô Applied: 20251211_003_add_sprint_is_active
+[migration] Applying: 20251211_004_add_escalations_table
+           Add escalations table for tracking task escalations and resolutions (TD-016)
+[migration] Γ£ô Applied: 20251211_004_add_escalations_table
+[migration] Applying: 20260112_001_add_chat_sessions_table
+           Add chat_sessions table for extension chat session management
+[migration] Γ£ô Applied: 20260112_001_add_chat_sessions_table
+[migration] Applying: 20260112_002_add_tdd_red_phase
+           Add tdd_red_phase column to tasks table for red-phase verification support
+[migration] Γ£ô Applied: 20260112_002_add_tdd_red_phase
+[migration] Applying: 20260126_001_add_tdd_tables
+           Add tdd_task_relationships and tdd_red_registry tables for TDD workflow support
+[migration] Γ£ô Applied: 20260126_001_add_tdd_tables
+[migration] Applying: 20260115_001_add_tdd_relationships_completed_at
+           Add completed_at column to tdd_task_relationships table
+[migration] Γ£ô Applied: 20260115_001_add_tdd_relationships_completed_at
+[migration] Applying: 20260115_002_add_tdd_red_registry_test_file
+           Add test_file column to tdd_red_registry table
+[migration] Γ£ô Applied: 20260115_002_add_tdd_red_registry_test_file
+[migration] Applying: 20260115_003_recreate_tdd_red_registry
+           Drop and recreate tdd_red_registry table without deprecated columns (status, green_task_id, description, marker_type, timestamps)
+[migration] Γ£ô Applied: 20260115_003_recreate_tdd_red_registry
+[migration] Applying: 20260116_001_update_tdd_red_registry_schema
+           Update tdd_red_registry to file-level tracking: drop test_identifier, make test_file NOT NULL, add test_count. Registry is a transitory snapshot.
+[migration] Γ£ô Applied: 20260116_001_update_tdd_red_registry_schema
+[migration] Applying: 20260117_007_add_controller_agent_schema
+           Add spec_reviews table for Controller review decisions and status column to sprints table (Sprint 004)
+[migration] Γ£ô Applied: 20260117_007_add_controller_agent_schema
+[migration] Applying: 20260117_008_escalations_nullable_task_id
+           Make escalations.task_id nullable for sprint-level escalations
+[migration] Γ£ô Applied: 20260117_008_escalations_nullable_task_id
+[migration] Applying: 20260117_009_add_code_review_tables
+           Add code review tables for review workflow tracking and issues/fixes
+[migration] Γ£ô Applied: 20260117_009_add_code_review_tables
+
+ [32mΓ£ô[39m test/db/code-review-schema.test.ts [2m ([22m[2m8 tests[22m[2m)[22m[33m 5718[2mms[22m[39m
+ [32mΓ£ô[39m test/mcp-server/get-verification-results.test.ts [2m ([22m[2m7 tests[22m[2m)[22m[33m 14151[2mms[22m[39m
+ [32mΓ£ô[39m test/core/errors.test.ts [2m ([22m[2m22 tests[22m[2m)[22m[90m 11[2mms[22m[39m
+ [32mΓ£ô[39m test/core/artifact-validator.test.ts [2m ([22m[2m10 tests[22m[2m)[22m[90m 19[2mms[22m[39m
+ [32mΓ£ô[39m test/mcp-server/db-signal.test.ts [2m ([22m[2m8 tests[22m[2m)[22m[90m 44[2mms[22m[39m
+ [32mΓ£ô[39m test/db/migrations.test.ts [2m ([22m[2m5 tests[22m[2m)[22m[90m 9[2mms[22m[39m
+ [32mΓ£ô[39m test/mcp-server/add-task.test.ts [2m ([22m[2m5 tests[22m[2m)[22m[33m 10609[2mms[22m[39m
+stderr | test/mcp-server/set-config.test.ts > Set Config Handler > handleSetConfig > should set a new config value
+[set_config] Warning: 'build:prod' is not a standard npm script. Did you mean 'npm run build'? Use 'npm run build' unless you have a custom build:prod script.
+
+ [32mΓ£ô[39m test/mcp-server/set-config.test.ts [2m ([22m[2m7 tests[22m[2m)[22m[90m 29[2mms[22m[39m
+ [32mΓ£ô[39m test/schemas/code-review-shared.test.ts [2m ([22m[2m6 tests[22m[2m)[22m[90m 5[2mms[22m[39m
+[90mstdout[2m | test/mcp-server/code-review-summary.test.ts[2m > [22m[2mget_code_review_summary handler[2m > [22m[2msprint-scoped retrieval[2m > [22m[2mshould include sprint settings (policy, enabled, blocking_severity)[22m[39m
+[migration] Applying: 20251211_001_add_amendments_table
+           Add amendments table for tracking task modifications
+[migration] Γ£ô Applied: 20251211_001_add_amendments_table
+[migration] Applying: 20251211_002_add_handover_context_columns
+           Add context and context_files columns to handovers table
+[migration] Γ£ô Applied: 20251211_002_add_handover_context_columns
+[migration] Applying: 20251211_003_add_sprint_is_active
+           Add is_active column to sprints table for explicit active sprint selection
+[migration] Γ£ô Applied: 20251211_003_add_sprint_is_active
+[migration] Applying: 20251211_004_add_escalations_table
+           Add escalations table for tracking task escalations and resolutions (TD-016)
+[migration] Γ£ô Applied: 20251211_004_add_escalations_table
+[migration] Applying: 20260112_001_add_chat_sessions_table
+           Add chat_sessions table for extension chat session management
+[migration] Γ£ô Applied: 20260112_001_add_chat_sessions_table
+[migration] Applying: 20260112_002_add_tdd_red_phase
+           Add tdd_red_phase column to tasks table for red-phase verification support
+[migration] Γ£ô Applied: 20260112_002_add_tdd_red_phase
+[migration] Applying: 20260126_001_add_tdd_tables
+           Add tdd_task_relationships and tdd_red_registry tables for TDD workflow support
+[migration] Γ£ô Applied: 20260126_001_add_tdd_tables
+[migration] Applying: 20260115_001_add_tdd_relationships_completed_at
+           Add completed_at column to tdd_task_relationships table
+[migration] Γ£ô Applied: 20260115_001_add_tdd_relationships_completed_at
+[migration] Applying: 20260115_002_add_tdd_red_registry_test_file
+           Add test_file column to tdd_red_registry table
+[migration] Γ£ô Applied: 20260115_002_add_tdd_red_registry_test_file
+[migration] Applying: 20260115_003_recreate_tdd_red_registry
+           Drop and recreate tdd_red_registry table without deprecated columns (status, green_task_id, description, marker_type, timestamps)
+[migration] Γ£ô Applied: 20260115_003_recreate_tdd_red_registry
+[migration] Applying: 20260116_001_update_tdd_red_registry_schema
+           Update tdd_red_registry to file-level tracking: drop test_identifier, make test_file NOT NULL, add test_count. Registry is a transitory snapshot.
+[migration] Γ£ô Applied: 20260116_001_update_tdd_red_registry_schema
+[migration] Applying: 20260117_007_add_controller_agent_schema
+           Add spec_reviews table for Controller review decisions and status column to sprints table (Sprint 004)
+[migration] Γ£ô Applied: 20260117_007_add_controller_agent_schema
+[migration] Applying: 20260117_008_escalations_nullable_task_id
+           Make escalations.task_id nullable for sprint-level escalations
+[migration] Γ£ô Applied: 20260117_008_escalations_nullable_task_id
+[migration] Applying: 20260117_009_add_code_review_tables
+           Add code review tables for review workflow tracking and issues/fixes
+[migration] Γ£ô Applied: 20260117_009_add_code_review_tables
+
+[90mstdout[2m | test/mcp-server/code-review-summary.test.ts[2m > [22m[2mget_code_review_summary handler[2m > [22m[2msprint-scoped retrieval[2m > [22m[2mshould count reviews by status correctly[22m[39m
+[migration] Applying: 20251211_001_add_amendments_table
+           Add amendments table for tracking task modifications
+[migration] Γ£ô Applied: 20251211_001_add_amendments_table
+[migration] Applying: 20251211_002_add_handover_context_columns
+           Add context and context_files columns to handovers table
+[migration] Γ£ô Applied: 20251211_002_add_handover_context_columns
+[migration] Applying: 20251211_003_add_sprint_is_active
+           Add is_active column to sprints table for explicit active sprint selection
+[migration] Γ£ô Applied: 20251211_003_add_sprint_is_active
+[migration] Applying: 20251211_004_add_escalations_table
+           Add escalations table for tracking task escalations and resolutions (TD-016)
+[migration] Γ£ô Applied: 20251211_004_add_escalations_table
+[migration] Applying: 20260112_001_add_chat_sessions_table
+           Add chat_sessions table for extension chat session management
+[migration] Γ£ô Applied: 20260112_001_add_chat_sessions_table
+[migration] Applying: 20260112_002_add_tdd_red_phase
+           Add tdd_red_phase column to tasks table for red-phase verification support
+[migration] Γ£ô Applied: 20260112_002_add_tdd_red_phase
+[migration] Applying: 20260126_001_add_tdd_tables
+           Add tdd_task_relationships and tdd_red_registry tables for TDD workflow support
+[migration] Γ£ô Applied: 20260126_001_add_tdd_tables
+[migration] Applying: 20260115_001_add_tdd_relationships_completed_at
+           Add completed_at column to tdd_task_relationships table
+[migration] Γ£ô Applied: 20260115_001_add_tdd_relationships_completed_at
+[migration] Applying: 20260115_002_add_tdd_red_registry_test_file
+           Add test_file column to tdd_red_registry table
+[migration] Γ£ô Applied: 20260115_002_add_tdd_red_registry_test_file
+[migration] Applying: 20260115_003_recreate_tdd_red_registry
+           Drop and recreate tdd_red_registry table without deprecated columns (status, green_task_id, description, marker_type, timestamps)
+[migration] Γ£ô Applied: 20260115_003_recreate_tdd_red_registry
+[migration] Applying: 20260116_001_update_tdd_red_registry_schema
+           Update tdd_red_registry to file-level tracking: drop test_identifier, make test_file NOT NULL, add test_count. Registry is a transitory snapshot.
+[migration] Γ£ô Applied: 20260116_001_update_tdd_red_registry_schema
+[migration] Applying: 20260117_007_add_controller_agent_schema
+           Add spec_reviews table for Controller review decisions and status column to sprints table (Sprint 004)
+[migration] Γ£ô Applied: 20260117_007_add_controller_agent_schema
+[migration] Applying: 20260117_008_escalations_nullable_task_id
+           Make escalations.task_id nullable for sprint-level escalations
+[migration] Γ£ô Applied: 20260117_008_escalations_nullable_task_id
+[migration] Applying: 20260117_009_add_code_review_tables
+           Add code review tables for review workflow tracking and issues/fixes
+[migration] Γ£ô Applied: 20260117_009_add_code_review_tables
+
+[90mstdout[2m | test/mcp-server/code-review-summary.test.ts[2m > [22m[2mget_code_review_summary handler[2m > [22m[2msprint-scoped retrieval[2m > [22m[2mshould count only unresolved (open) issues[22m[39m
+[migration] Applying: 20251211_001_add_amendments_table
+           Add amendments table for tracking task modifications
+[migration] Γ£ô Applied: 20251211_001_add_amendments_table
+[migration] Applying: 20251211_002_add_handover_context_columns
+           Add context and context_files columns to handovers table
+[migration] Γ£ô Applied: 20251211_002_add_handover_context_columns
+[migration] Applying: 20251211_003_add_sprint_is_active
+           Add is_active column to sprints table for explicit active sprint selection
+[migration] Γ£ô Applied: 20251211_003_add_sprint_is_active
+[migration] Applying: 20251211_004_add_escalations_table
+           Add escalations table for tracking task escalations and resolutions (TD-016)
+[migration] Γ£ô Applied: 20251211_004_add_escalations_table
+[migration] Applying: 20260112_001_add_chat_sessions_table
+           Add chat_sessions table for extension chat session management
+[migration] Γ£ô Applied: 20260112_001_add_chat_sessions_table
+[migration] Applying: 20260112_002_add_tdd_red_phase
+           Add tdd_red_phase column to tasks table for red-phase verification support
+[migration] Γ£ô Applied: 20260112_002_add_tdd_red_phase
+[migration] Applying: 20260126_001_add_tdd_tables
+           Add tdd_task_relationships and tdd_red_registry tables for TDD workflow support
+[migration] Γ£ô Applied: 20260126_001_add_tdd_tables
+[migration] Applying: 20260115_001_add_tdd_relationships_completed_at
+           Add completed_at column to tdd_task_relationships table
+[migration] Γ£ô Applied: 20260115_001_add_tdd_relationships_completed_at
+[migration] Applying: 20260115_002_add_tdd_red_registry_test_file
+           Add test_file column to tdd_red_registry table
+[migration] Γ£ô Applied: 20260115_002_add_tdd_red_registry_test_file
+[migration] Applying: 20260115_003_recreate_tdd_red_registry
+           Drop and recreate tdd_red_registry table without deprecated columns (status, green_task_id, description, marker_type, timestamps)
+[migration] Γ£ô Applied: 20260115_003_recreate_tdd_red_registry
+[migration] Applying: 20260116_001_update_tdd_red_registry_schema
+           Update tdd_red_registry to file-level tracking: drop test_identifier, make test_file NOT NULL, add test_count. Registry is a transitory snapshot.
+[migration] Γ£ô Applied: 20260116_001_update_tdd_red_registry_schema
+[migration] Applying: 20260117_007_add_controller_agent_schema
+           Add spec_reviews table for Controller review decisions and status column to sprints table (Sprint 004)
+[migration] Γ£ô Applied: 20260117_007_add_controller_agent_schema
+[migration] Applying: 20260117_008_escalations_nullable_task_id
+           Make escalations.task_id nullable for sprint-level escalations
+[migration] Γ£ô Applied: 20260117_008_escalations_nullable_task_id
+[migration] Applying: 20260117_009_add_code_review_tables
+           Add code review tables for review workflow tracking and issues/fixes
+[migration] Γ£ô Applied: 20260117_009_add_code_review_tables
+
+[90mstdout[2m | test/mcp-server/code-review-summary.test.ts[2m > [22m[2mget_code_review_summary handler[2m > [22m[2msprint-scoped retrieval[2m > [22m[2mshould not include reviews from other sprints[22m[39m
+[migration] Applying: 20251211_001_add_amendments_table
+           Add amendments table for tracking task modifications
+[migration] Γ£ô Applied: 20251211_001_add_amendments_table
+[migration] Applying: 20251211_002_add_handover_context_columns
+           Add context and context_files columns to handovers table
+[migration] Γ£ô Applied: 20251211_002_add_handover_context_columns
+[migration] Applying: 20251211_003_add_sprint_is_active
+           Add is_active column to sprints table for explicit active sprint selection
+[migration] Γ£ô Applied: 20251211_003_add_sprint_is_active
+[migration] Applying: 20251211_004_add_escalations_table
+           Add escalations table for tracking task escalations and resolutions (TD-016)
+[migration] Γ£ô Applied: 20251211_004_add_escalations_table
+[migration] Applying: 20260112_001_add_chat_sessions_table
+           Add chat_sessions table for extension chat session management
+[migration] Γ£ô Applied: 20260112_001_add_chat_sessions_table
+[migration] Applying: 20260112_002_add_tdd_red_phase
+           Add tdd_red_phase column to tasks table for red-phase verification support
+[migration] Γ£ô Applied: 20260112_002_add_tdd_red_phase
+[migration] Applying: 20260126_001_add_tdd_tables
+           Add tdd_task_relationships and tdd_red_registry tables for TDD workflow support
+[migration] Γ£ô Applied: 20260126_001_add_tdd_tables
+[migration] Applying: 20260115_001_add_tdd_relationships_completed_at
+           Add completed_at column to tdd_task_relationships table
+[migration] Γ£ô Applied: 20260115_001_add_tdd_relationships_completed_at
+[migration] Applying: 20260115_002_add_tdd_red_registry_test_file
+           Add test_file column to tdd_red_registry table
+[migration] Γ£ô Applied: 20260115_002_add_tdd_red_registry_test_file
+[migration] Applying: 20260115_003_recreate_tdd_red_registry
+           Drop and recreate tdd_red_registry table without deprecated columns (status, green_task_id, description, marker_type, timestamps)
+[migration] Γ£ô Applied: 20260115_003_recreate_tdd_red_registry
+[migration] Applying: 20260116_001_update_tdd_red_registry_schema
+           Update tdd_red_registry to file-level tracking: drop test_identifier, make test_file NOT NULL, add test_count. Registry is a transitory snapshot.
+[migration] Γ£ô Applied: 20260116_001_update_tdd_red_registry_schema
+[migration] Applying: 20260117_007_add_controller_agent_schema
+           Add spec_reviews table for Controller review decisions and status column to sprints table (Sprint 004)
+[migration] Γ£ô Applied: 20260117_007_add_controller_agent_schema
+[migration] Applying: 20260117_008_escalations_nullable_task_id
+           Make escalations.task_id nullable for sprint-level escalations
+[migration] Γ£ô Applied: 20260117_008_escalations_nullable_task_id
+[migration] Applying: 20260117_009_add_code_review_tables
+           Add code review tables for review workflow tracking and issues/fixes
+[migration] Γ£ô Applied: 20260117_009_add_code_review_tables
+
+[90mstdout[2m | test/mcp-server/code-review-summary.test.ts[2m > [22m[2mget_code_review_summary handler[2m > [22m[2msprint-scoped retrieval[2m > [22m[2mshould default to ad_hoc policy when sprint_settings not found[22m[39m
+[migration] Applying: 20251211_001_add_amendments_table
+           Add amendments table for tracking task modifications
+[migration] Γ£ô Applied: 20251211_001_add_amendments_table
+[migration] Applying: 20251211_002_add_handover_context_columns
+           Add context and context_files columns to handovers table
+[migration] Γ£ô Applied: 20251211_002_add_handover_context_columns
+[migration] Applying: 20251211_003_add_sprint_is_active
+           Add is_active column to sprints table for explicit active sprint selection
+[migration] Γ£ô Applied: 20251211_003_add_sprint_is_active
+[migration] Applying: 20251211_004_add_escalations_table
+           Add escalations table for tracking task escalations and resolutions (TD-016)
+[migration] Γ£ô Applied: 20251211_004_add_escalations_table
+[migration] Applying: 20260112_001_add_chat_sessions_table
+           Add chat_sessions table for extension chat session management
+[migration] Γ£ô Applied: 20260112_001_add_chat_sessions_table
+[migration] Applying: 20260112_002_add_tdd_red_phase
+           Add tdd_red_phase column to tasks table for red-phase verification support
+[migration] Γ£ô Applied: 20260112_002_add_tdd_red_phase
+[migration] Applying: 20260126_001_add_tdd_tables
+           Add tdd_task_relationships and tdd_red_registry tables for TDD workflow support
+[migration] Γ£ô Applied: 20260126_001_add_tdd_tables
+[migration] Applying: 20260115_001_add_tdd_relationships_completed_at
+           Add completed_at column to tdd_task_relationships table
+[migration] Γ£ô Applied: 20260115_001_add_tdd_relationships_completed_at
+[migration] Applying: 20260115_002_add_tdd_red_registry_test_file
+           Add test_file column to tdd_red_registry table
+[migration] Γ£ô Applied: 20260115_002_add_tdd_red_registry_test_file
+[migration] Applying: 20260115_003_recreate_tdd_red_registry
+           Drop and recreate tdd_red_registry table without deprecated columns (status, green_task_id, description, marker_type, timestamps)
+[migration] Γ£ô Applied: 20260115_003_recreate_tdd_red_registry
+[migration] Applying: 20260116_001_update_tdd_red_registry_schema
+           Update tdd_red_registry to file-level tracking: drop test_identifier, make test_file NOT NULL, add test_count. Registry is a transitory snapshot.
+[migration] Γ£ô Applied: 20260116_001_update_tdd_red_registry_schema
+[migration] Applying: 20260117_007_add_controller_agent_schema
+           Add spec_reviews table for Controller review decisions and status column to sprints table (Sprint 004)
+[migration] Γ£ô Applied: 20260117_007_add_controller_agent_schema
+[migration] Applying: 20260117_008_escalations_nullable_task_id
+           Make escalations.task_id nullable for sprint-level escalations
+[migration] Γ£ô Applied: 20260117_008_escalations_nullable_task_id
+[migration] Applying: 20260117_009_add_code_review_tables
+           Add code review tables for review workflow tracking and issues/fixes
+[migration] Γ£ô Applied: 20260117_009_add_code_review_tables
+
+ [32mΓ£ô[39m test/mcp-server/code-review-summary.test.ts [2m ([22m[2m15 tests[22m[2m)[22m[33m 54903[2mms[22m[39m
+ [32mΓ£ô[39m test/db/connection.test.ts [2m ([22m[2m6 tests[22m[2m)[22m[33m 469[2mms[22m[39m
+ [32mΓ£ô[39m test/mcp-server/run-verification-checks.test.ts [2m ([22m[2m17 tests[22m[2m)[22m[33m 35569[2mms[22m[39m
+ [32mΓ£ô[39m test/mcp-server/get-task.test.ts [2m ([22m[2m4 tests[22m[2m)[22m[33m 8595[2mms[22m[39m
+ [32mΓ£ô[39m test/commands/feedback.test.ts [2m ([22m[2m6 tests[22m[2m)[22m[90m 6[2mms[22m[39m
+ [32mΓ£ô[39m test/core/code-review-config.test.ts [2m ([22m[2m2 tests[22m[2m)[22m[90m 10[2mms[22m[39m
+[90mstdout[2m | test/mcp-server/code-review-decision.test.ts[2m > [22m[2mrequest_changes_code_review handler[2m > [22m[2minput validation[2m > [22m[2mshould reject summary shorter than 30 characters[22m[39m
+[migration] Applying: 20251211_001_add_amendments_table
+           Add amendments table for tracking task modifications
+[migration] Γ£ô Applied: 20251211_001_add_amendments_table
+[migration] Applying: 20251211_002_add_handover_context_columns
+           Add context and context_files columns to handovers table
+[migration] Γ£ô Applied: 20251211_002_add_handover_context_columns
+[migration] Applying: 20251211_003_add_sprint_is_active
+           Add is_active column to sprints table for explicit active sprint selection
+[migration] Γ£ô Applied: 20251211_003_add_sprint_is_active
+[migration] Applying: 20251211_004_add_escalations_table
+           Add escalations table for tracking task escalations and resolutions (TD-016)
+[migration] Γ£ô Applied: 20251211_004_add_escalations_table
+[migration] Applying: 20260112_001_add_chat_sessions_table
+           Add chat_sessions table for extension chat session management
+[migration] Γ£ô Applied: 20260112_001_add_chat_sessions_table
+[migration] Applying: 20260112_002_add_tdd_red_phase
+           Add tdd_red_phase column to tasks table for red-phase verification support
+[migration] Γ£ô Applied: 20260112_002_add_tdd_red_phase
+[migration] Applying: 20260126_001_add_tdd_tables
+           Add tdd_task_relationships and tdd_red_registry tables for TDD workflow support
+[migration] Γ£ô Applied: 20260126_001_add_tdd_tables
+[migration] Applying: 20260115_001_add_tdd_relationships_completed_at
+           Add completed_at column to tdd_task_relationships table
+[migration] Γ£ô Applied: 20260115_001_add_tdd_relationships_completed_at
+[migration] Applying: 20260115_002_add_tdd_red_registry_test_file
+           Add test_file column to tdd_red_registry table
+[migration] Γ£ô Applied: 20260115_002_add_tdd_red_registry_test_file
+[migration] Applying: 20260115_003_recreate_tdd_red_registry
+           Drop and recreate tdd_red_registry table without deprecated columns (status, green_task_id, description, marker_type, timestamps)
+[migration] Γ£ô Applied: 20260115_003_recreate_tdd_red_registry
+[migration] Applying: 20260116_001_update_tdd_red_registry_schema
+           Update tdd_red_registry to file-level tracking: drop test_identifier, make test_file NOT NULL, add test_count. Registry is a transitory snapshot.
+[migration] Γ£ô Applied: 20260116_001_update_tdd_red_registry_schema
+[migration] Applying: 20260117_007_add_controller_agent_schema
+           Add spec_reviews table for Controller review decisions and status column to sprints table (Sprint 004)
+[migration] Γ£ô Applied: 20260117_007_add_controller_agent_schema
+[migration] Applying: 20260117_008_escalations_nullable_task_id
+           Make escalations.task_id nullable for sprint-level escalations
+[migration] Γ£ô Applied: 20260117_008_escalations_nullable_task_id
+[migration] Applying: 20260117_009_add_code_review_tables
+           Add code review tables for review workflow tracking and issues/fixes
+[migration] Γ£ô Applied: 20260117_009_add_code_review_tables
+
+[90mstdout[2m | test/mcp-server/code-review-decision.test.ts[2m > [22m[2mrequest_changes_code_review handler[2m > [22m[2minput validation[2m > [22m[2mshould require at least one issue[22m[39m
+[migration] Applying: 20251211_001_add_amendments_table
+           Add amendments table for tracking task modifications
+[migration] Γ£ô Applied: 20251211_001_add_amendments_table
+[migration] Applying: 20251211_002_add_handover_context_columns
+           Add context and context_files columns to handovers table
+[migration] Γ£ô Applied: 20251211_002_add_handover_context_columns
+[migration] Applying: 20251211_003_add_sprint_is_active
+           Add is_active column to sprints table for explicit active sprint selection
+[migration] Γ£ô Applied: 20251211_003_add_sprint_is_active
+[migration] Applying: 20251211_004_add_escalations_table
+           Add escalations table for tracking task escalations and resolutions (TD-016)
+[migration] Γ£ô Applied: 20251211_004_add_escalations_table
+[migration] Applying: 20260112_001_add_chat_sessions_table
+           Add chat_sessions table for extension chat session management
+[migration] Γ£ô Applied: 20260112_001_add_chat_sessions_table
+[migration] Applying: 20260112_002_add_tdd_red_phase
+           Add tdd_red_phase column to tasks table for red-phase verification support
+[migration] Γ£ô Applied: 20260112_002_add_tdd_red_phase
+[migration] Applying: 20260126_001_add_tdd_tables
+           Add tdd_task_relationships and tdd_red_registry tables for TDD workflow support
+[migration] Γ£ô Applied: 20260126_001_add_tdd_tables
+[migration] Applying: 20260115_001_add_tdd_relationships_completed_at
+           Add completed_at column to tdd_task_relationships table
+[migration] Γ£ô Applied: 20260115_001_add_tdd_relationships_completed_at
+[migration] Applying: 20260115_002_add_tdd_red_registry_test_file
+           Add test_file column to tdd_red_registry table
+[migration] Γ£ô Applied: 20260115_002_add_tdd_red_registry_test_file
+[migration] Applying: 20260115_003_recreate_tdd_red_registry
+           Drop and recreate tdd_red_registry table without deprecated columns (status, green_task_id, description, marker_type, timestamps)
+[migration] Γ£ô Applied: 20260115_003_recreate_tdd_red_registry
+[migration] Applying: 20260116_001_update_tdd_red_registry_schema
+           Update tdd_red_registry to file-level tracking: drop test_identifier, make test_file NOT NULL, add test_count. Registry is a transitory snapshot.
+[migration] Γ£ô Applied: 20260116_001_update_tdd_red_registry_schema
+[migration] Applying: 20260117_007_add_controller_agent_schema
+           Add spec_reviews table for Controller review decisions and status column to sprints table (Sprint 004)
+[migration] Γ£ô Applied: 20260117_007_add_controller_agent_schema
+[migration] Applying: 20260117_008_escalations_nullable_task_id
+           Make escalations.task_id nullable for sprint-level escalations
+[migration] Γ£ô Applied: 20260117_008_escalations_nullable_task_id
+[migration] Applying: 20260117_009_add_code_review_tables
+           Add code review tables for review workflow tracking and issues/fixes
+[migration] Γ£ô Applied: 20260117_009_add_code_review_tables
+
+[90mstdout[2m | test/mcp-server/code-review-decision.test.ts[2m > [22m[2mrequest_changes_code_review handler[2m > [22m[2minput validation[2m > [22m[2mshould require at least one recommendation[22m[39m
+[migration] Applying: 20251211_001_add_amendments_table
+           Add amendments table for tracking task modifications
+[migration] Γ£ô Applied: 20251211_001_add_amendments_table
+[migration] Applying: 20251211_002_add_handover_context_columns
+           Add context and context_files columns to handovers table
+[migration] Γ£ô Applied: 20251211_002_add_handover_context_columns
+[migration] Applying: 20251211_003_add_sprint_is_active
+           Add is_active column to sprints table for explicit active sprint selection
+[migration] Γ£ô Applied: 20251211_003_add_sprint_is_active
+[migration] Applying: 20251211_004_add_escalations_table
+           Add escalations table for tracking task escalations and resolutions (TD-016)
+[migration] Γ£ô Applied: 20251211_004_add_escalations_table
+[migration] Applying: 20260112_001_add_chat_sessions_table
+           Add chat_sessions table for extension chat session management
+[migration] Γ£ô Applied: 20260112_001_add_chat_sessions_table
+[migration] Applying: 20260112_002_add_tdd_red_phase
+           Add tdd_red_phase column to tasks table for red-phase verification support
+[migration] Γ£ô Applied: 20260112_002_add_tdd_red_phase
+[migration] Applying: 20260126_001_add_tdd_tables
+           Add tdd_task_relationships and tdd_red_registry tables for TDD workflow support
+[migration] Γ£ô Applied: 20260126_001_add_tdd_tables
+[migration] Applying: 20260115_001_add_tdd_relationships_completed_at
+           Add completed_at column to tdd_task_relationships table
+[migration] Γ£ô Applied: 20260115_001_add_tdd_relationships_completed_at
+[migration] Applying: 20260115_002_add_tdd_red_registry_test_file
+           Add test_file column to tdd_red_registry table
+[migration] Γ£ô Applied: 20260115_002_add_tdd_red_registry_test_file
+[migration] Applying: 20260115_003_recreate_tdd_red_registry
+           Drop and recreate tdd_red_registry table without deprecated columns (status, green_task_id, description, marker_type, timestamps)
+[migration] Γ£ô Applied: 20260115_003_recreate_tdd_red_registry
+[migration] Applying: 20260116_001_update_tdd_red_registry_schema
+           Update tdd_red_registry to file-level tracking: drop test_identifier, make test_file NOT NULL, add test_count. Registry is a transitory snapshot.
+[migration] Γ£ô Applied: 20260116_001_update_tdd_red_registry_schema
+[migration] Applying: 20260117_007_add_controller_agent_schema
+           Add spec_reviews table for Controller review decisions and status column to sprints table (Sprint 004)
+[migration] Γ£ô Applied: 20260117_007_add_controller_agent_schema
+[migration] Applying: 20260117_008_escalations_nullable_task_id
+           Make escalations.task_id nullable for sprint-level escalations
+[migration] Γ£ô Applied: 20260117_008_escalations_nullable_task_id
+[migration] Applying: 20260117_009_add_code_review_tables
+           Add code review tables for review workflow tracking and issues/fixes
+[migration] Γ£ô Applied: 20260117_009_add_code_review_tables
+
+[90mstdout[2m | test/mcp-server/code-review-decision.test.ts[2m > [22m[2mrequest_changes_code_review handler[2m > [22m[2minput validation[2m > [22m[2mshould require rationale in each issue[22m[39m
+[migration] Applying: 20251211_001_add_amendments_table
+           Add amendments table for tracking task modifications
+[migration] Γ£ô Applied: 20251211_001_add_amendments_table
+[migration] Applying: 20251211_002_add_handover_context_columns
+           Add context and context_files columns to handovers table
+[migration] Γ£ô Applied: 20251211_002_add_handover_context_columns
+[migration] Applying: 20251211_003_add_sprint_is_active
+           Add is_active column to sprints table for explicit active sprint selection
+[migration] Γ£ô Applied: 20251211_003_add_sprint_is_active
+[migration] Applying: 20251211_004_add_escalations_table
+           Add escalations table for tracking task escalations and resolutions (TD-016)
+[migration] Γ£ô Applied: 20251211_004_add_escalations_table
+[migration] Applying: 20260112_001_add_chat_sessions_table
+           Add chat_sessions table for extension chat session management
+[migration] Γ£ô Applied: 20260112_001_add_chat_sessions_table
+[migration] Applying: 20260112_002_add_tdd_red_phase
+           Add tdd_red_phase column to tasks table for red-phase verification support
+[migration] Γ£ô Applied: 20260112_002_add_tdd_red_phase
+[migration] Applying: 20260126_001_add_tdd_tables
+           Add tdd_task_relationships and tdd_red_registry tables for TDD workflow support
+[migration] Γ£ô Applied: 20260126_001_add_tdd_tables
+[migration] Applying: 20260115_001_add_tdd_relationships_completed_at
+           Add completed_at column to tdd_task_relationships table
+[migration] Γ£ô Applied: 20260115_001_add_tdd_relationships_completed_at
+[migration] Applying: 20260115_002_add_tdd_red_registry_test_file
+           Add test_file column to tdd_red_registry table
+[migration] Γ£ô Applied: 20260115_002_add_tdd_red_registry_test_file
+[migration] Applying: 20260115_003_recreate_tdd_red_registry
+           Drop and recreate tdd_red_registry table without deprecated columns (status, green_task_id, description, marker_type, timestamps)
+[migration] Γ£ô Applied: 20260115_003_recreate_tdd_red_registry
+[migration] Applying: 20260116_001_update_tdd_red_registry_schema
+           Update tdd_red_registry to file-level tracking: drop test_identifier, make test_file NOT NULL, add test_count. Registry is a transitory snapshot.
+[migration] Γ£ô Applied: 20260116_001_update_tdd_red_registry_schema
+[migration] Applying: 20260117_007_add_controller_agent_schema
+           Add spec_reviews table for Controller review decisions and status column to sprints table (Sprint 004)
+[migration] Γ£ô Applied: 20260117_007_add_controller_agent_schema
+[migration] Applying: 20260117_008_escalations_nullable_task_id
+           Make escalations.task_id nullable for sprint-level escalations
+[migration] Γ£ô Applied: 20260117_008_escalations_nullable_task_id
+[migration] Applying: 20260117_009_add_code_review_tables
+           Add code review tables for review workflow tracking and issues/fixes
+[migration] Γ£ô Applied: 20260117_009_add_code_review_tables
+
+[90mstdout[2m | test/mcp-server/code-review-decision.test.ts[2m > [22m[2mrequest_changes_code_review handler[2m > [22m[2minput validation[2m > [22m[2mshould allow MINOR, MAJOR, and BLOCKING severities[22m[39m
+[migration] Applying: 20251211_001_add_amendments_table
+           Add amendments table for tracking task modifications
+[migration] Γ£ô Applied: 20251211_001_add_amendments_table
+[migration] Applying: 20251211_002_add_handover_context_columns
+           Add context and context_files columns to handovers table
+[migration] Γ£ô Applied: 20251211_002_add_handover_context_columns
+[migration] Applying: 20251211_003_add_sprint_is_active
+           Add is_active column to sprints table for explicit active sprint selection
+[migration] Γ£ô Applied: 20251211_003_add_sprint_is_active
+[migration] Applying: 20251211_004_add_escalations_table
+           Add escalations table for tracking task escalations and resolutions (TD-016)
+[migration] Γ£ô Applied: 20251211_004_add_escalations_table
+[migration] Applying: 20260112_001_add_chat_sessions_table
+           Add chat_sessions table for extension chat session management
+[migration] Γ£ô Applied: 20260112_001_add_chat_sessions_table
+[migration] Applying: 20260112_002_add_tdd_red_phase
+           Add tdd_red_phase column to tasks table for red-phase verification support
+[migration] Γ£ô Applied: 20260112_002_add_tdd_red_phase
+[migration] Applying: 20260126_001_add_tdd_tables
+           Add tdd_task_relationships and tdd_red_registry tables for TDD workflow support
+[migration] Γ£ô Applied: 20260126_001_add_tdd_tables
+[migration] Applying: 20260115_001_add_tdd_relationships_completed_at
+           Add completed_at column to tdd_task_relationships table
+[migration] Γ£ô Applied: 20260115_001_add_tdd_relationships_completed_at
+[migration] Applying: 20260115_002_add_tdd_red_registry_test_file
+           Add test_file column to tdd_red_registry table
+[migration] Γ£ô Applied: 20260115_002_add_tdd_red_registry_test_file
+[migration] Applying: 20260115_003_recreate_tdd_red_registry
+           Drop and recreate tdd_red_registry table without deprecated columns (status, green_task_id, description, marker_type, timestamps)
+[migration] Γ£ô Applied: 20260115_003_recreate_tdd_red_registry
+[migration] Applying: 20260116_001_update_tdd_red_registry_schema
+           Update tdd_red_registry to file-level tracking: drop test_identifier, make test_file NOT NULL, add test_count. Registry is a transitory snapshot.
+[migration] Γ£ô Applied: 20260116_001_update_tdd_red_registry_schema
+[migration] Applying: 20260117_007_add_controller_agent_schema
+           Add spec_reviews table for Controller review decisions and status column to sprints table (Sprint 004)
+[migration] Γ£ô Applied: 20260117_007_add_controller_agent_schema
+[migration] Applying: 20260117_008_escalations_nullable_task_id
+           Make escalations.task_id nullable for sprint-level escalations
+[migration] Γ£ô Applied: 20260117_008_escalations_nullable_task_id
+[migration] Applying: 20260117_009_add_code_review_tables
+           Add code review tables for review workflow tracking and issues/fixes
+[migration] Γ£ô Applied: 20260117_009_add_code_review_tables
+
+[90mstdout[2m | test/mcp-server/code-review-decision.test.ts[2m > [22m[2mrequest_changes_code_review handler[2m > [22m[2mstatus transitions and issue persistence[2m > [22m[2mshould transition PENDING review to CHANGES_REQUESTED status[22m[39m
+[migration] Applying: 20251211_001_add_amendments_table
+           Add amendments table for tracking task modifications
+[migration] Γ£ô Applied: 20251211_001_add_amendments_table
+[migration] Applying: 20251211_002_add_handover_context_columns
+           Add context and context_files columns to handovers table
+[migration] Γ£ô Applied: 20251211_002_add_handover_context_columns
+[migration] Applying: 20251211_003_add_sprint_is_active
+           Add is_active column to sprints table for explicit active sprint selection
+[migration] Γ£ô Applied: 20251211_003_add_sprint_is_active
+[migration] Applying: 20251211_004_add_escalations_table
+           Add escalations table for tracking task escalations and resolutions (TD-016)
+[migration] Γ£ô Applied: 20251211_004_add_escalations_table
+[migration] Applying: 20260112_001_add_chat_sessions_table
+           Add chat_sessions table for extension chat session management
+[migration] Γ£ô Applied: 20260112_001_add_chat_sessions_table
+[migration] Applying: 20260112_002_add_tdd_red_phase
+           Add tdd_red_phase column to tasks table for red-phase verification support
+[migration] Γ£ô Applied: 20260112_002_add_tdd_red_phase
+[migration] Applying: 20260126_001_add_tdd_tables
+           Add tdd_task_relationships and tdd_red_registry tables for TDD workflow support
+[migration] Γ£ô Applied: 20260126_001_add_tdd_tables
+[migration] Applying: 20260115_001_add_tdd_relationships_completed_at
+           Add completed_at column to tdd_task_relationships table
+[migration] Γ£ô Applied: 20260115_001_add_tdd_relationships_completed_at
+[migration] Applying: 20260115_002_add_tdd_red_registry_test_file
+           Add test_file column to tdd_red_registry table
+[migration] Γ£ô Applied: 20260115_002_add_tdd_red_registry_test_file
+[migration] Applying: 20260115_003_recreate_tdd_red_registry
+           Drop and recreate tdd_red_registry table without deprecated columns (status, green_task_id, description, marker_type, timestamps)
+[migration] Γ£ô Applied: 20260115_003_recreate_tdd_red_registry
+[migration] Applying: 20260116_001_update_tdd_red_registry_schema
+           Update tdd_red_registry to file-level tracking: drop test_identifier, make test_file NOT NULL, add test_count. Registry is a transitory snapshot.
+[migration] Γ£ô Applied: 20260116_001_update_tdd_red_registry_schema
+[migration] Applying: 20260117_007_add_controller_agent_schema
+           Add spec_reviews table for Controller review decisions and status column to sprints table (Sprint 004)
+[migration] Γ£ô Applied: 20260117_007_add_controller_agent_schema
+[migration] Applying: 20260117_008_escalations_nullable_task_id
+           Make escalations.task_id nullable for sprint-level escalations
+[migration] Γ£ô Applied: 20260117_008_escalations_nullable_task_id
+[migration] Applying: 20260117_009_add_code_review_tables
+           Add code review tables for review workflow tracking and issues/fixes
+[migration] Γ£ô Applied: 20260117_009_add_code_review_tables
+
+[90mstdout[2m | test/mcp-server/code-review-decision.test.ts[2m > [22m[2mrequest_changes_code_review handler[2m > [22m[2mstatus transitions and issue persistence[2m > [22m[2mshould create code_review_issues rows with correct count and severity[22m[39m
+[migration] Applying: 20251211_001_add_amendments_table
+           Add amendments table for tracking task modifications
+[migration] Γ£ô Applied: 20251211_001_add_amendments_table
+[migration] Applying: 20251211_002_add_handover_context_columns
+           Add context and context_files columns to handovers table
+[migration] Γ£ô Applied: 20251211_002_add_handover_context_columns
+[migration] Applying: 20251211_003_add_sprint_is_active
+           Add is_active column to sprints table for explicit active sprint selection
+[migration] Γ£ô Applied: 20251211_003_add_sprint_is_active
+[migration] Applying: 20251211_004_add_escalations_table
+           Add escalations table for tracking task escalations and resolutions (TD-016)
+[migration] Γ£ô Applied: 20251211_004_add_escalations_table
+[migration] Applying: 20260112_001_add_chat_sessions_table
+           Add chat_sessions table for extension chat session management
+[migration] Γ£ô Applied: 20260112_001_add_chat_sessions_table
+[migration] Applying: 20260112_002_add_tdd_red_phase
+           Add tdd_red_phase column to tasks table for red-phase verification support
+[migration] Γ£ô Applied: 20260112_002_add_tdd_red_phase
+[migration] Applying: 20260126_001_add_tdd_tables
+           Add tdd_task_relationships and tdd_red_registry tables for TDD workflow support
+[migration] Γ£ô Applied: 20260126_001_add_tdd_tables
+[migration] Applying: 20260115_001_add_tdd_relationships_completed_at
+           Add completed_at column to tdd_task_relationships table
+[migration] Γ£ô Applied: 20260115_001_add_tdd_relationships_completed_at
+[migration] Applying: 20260115_002_add_tdd_red_registry_test_file
+           Add test_file column to tdd_red_registry table
+[migration] Γ£ô Applied: 20260115_002_add_tdd_red_registry_test_file
+[migration] Applying: 20260115_003_recreate_tdd_red_registry
+           Drop and recreate tdd_red_registry table without deprecated columns (status, green_task_id, description, marker_type, timestamps)
+[migration] Γ£ô Applied: 20260115_003_recreate_tdd_red_registry
+[migration] Applying: 20260116_001_update_tdd_red_registry_schema
+           Update tdd_red_registry to file-level tracking: drop test_identifier, make test_file NOT NULL, add test_count. Registry is a transitory snapshot.
+[migration] Γ£ô Applied: 20260116_001_update_tdd_red_registry_schema
+[migration] Applying: 20260117_007_add_controller_agent_schema
+           Add spec_reviews table for Controller review decisions and status column to sprints table (Sprint 004)
+[migration] Γ£ô Applied: 20260117_007_add_controller_agent_schema
+[migration] Applying: 20260117_008_escalations_nullable_task_id
+           Make escalations.task_id nullable for sprint-level escalations
+[migration] Γ£ô Applied: 20260117_008_escalations_nullable_task_id
+[migration] Applying: 20260117_009_add_code_review_tables
+           Add code review tables for review workflow tracking and issues/fixes
+[migration] Γ£ô Applied: 20260117_009_add_code_review_tables
+
+[90mstdout[2m | test/mcp-server/code-review-decision.test.ts[2m > [22m[2mrequest_changes_code_review handler[2m > [22m[2mstatus transitions and issue persistence[2m > [22m[2mshould link issues to both review_id and task_id[22m[39m
+[migration] Applying: 20251211_001_add_amendments_table
+           Add amendments table for tracking task modifications
+[migration] Γ£ô Applied: 20251211_001_add_amendments_table
+[migration] Applying: 20251211_002_add_handover_context_columns
+           Add context and context_files columns to handovers table
+[migration] Γ£ô Applied: 20251211_002_add_handover_context_columns
+[migration] Applying: 20251211_003_add_sprint_is_active
+           Add is_active column to sprints table for explicit active sprint selection
+[migration] Γ£ô Applied: 20251211_003_add_sprint_is_active
+[migration] Applying: 20251211_004_add_escalations_table
+           Add escalations table for tracking task escalations and resolutions (TD-016)
+[migration] Γ£ô Applied: 20251211_004_add_escalations_table
+[migration] Applying: 20260112_001_add_chat_sessions_table
+           Add chat_sessions table for extension chat session management
+[migration] Γ£ô Applied: 20260112_001_add_chat_sessions_table
+[migration] Applying: 20260112_002_add_tdd_red_phase
+           Add tdd_red_phase column to tasks table for red-phase verification support
+[migration] Γ£ô Applied: 20260112_002_add_tdd_red_phase
+[migration] Applying: 20260126_001_add_tdd_tables
+           Add tdd_task_relationships and tdd_red_registry tables for TDD workflow support
+[migration] Γ£ô Applied: 20260126_001_add_tdd_tables
+[migration] Applying: 20260115_001_add_tdd_relationships_completed_at
+           Add completed_at column to tdd_task_relationships table
+[migration] Γ£ô Applied: 20260115_001_add_tdd_relationships_completed_at
+[migration] Applying: 20260115_002_add_tdd_red_registry_test_file
+           Add test_file column to tdd_red_registry table
+[migration] Γ£ô Applied: 20260115_002_add_tdd_red_registry_test_file
+[migration] Applying: 20260115_003_recreate_tdd_red_registry
+           Drop and recreate tdd_red_registry table without deprecated columns (status, green_task_id, description, marker_type, timestamps)
+[migration] Γ£ô Applied: 20260115_003_recreate_tdd_red_registry
+[migration] Applying: 20260116_001_update_tdd_red_registry_schema
+           Update tdd_red_registry to file-level tracking: drop test_identifier, make test_file NOT NULL, add test_count. Registry is a transitory snapshot.
+[migration] Γ£ô Applied: 20260116_001_update_tdd_red_registry_schema
+[migration] Applying: 20260117_007_add_controller_agent_schema
+           Add spec_reviews table for Controller review decisions and status column to sprints table (Sprint 004)
+[migration] Γ£ô Applied: 20260117_007_add_controller_agent_schema
+[migration] Applying: 20260117_008_escalations_nullable_task_id
+           Make escalations.task_id nullable for sprint-level escalations
+[migration] Γ£ô Applied: 20260117_008_escalations_nullable_task_id
+[migration] Applying: 20260117_009_add_code_review_tables
+           Add code review tables for review workflow tracking and issues/fixes
+[migration] Γ£ô Applied: 20260117_009_add_code_review_tables
+
+[90mstdout[2m | test/mcp-server/code-review-decision.test.ts[2m > [22m[2mreject_code_review handler[2m > [22m[2minput validation[2m > [22m[2mshould reject non-positive review_id[22m[39m
+[migration] Applying: 20251211_001_add_amendments_table
+           Add amendments table for tracking task modifications
+[migration] Γ£ô Applied: 20251211_001_add_amendments_table
+[migration] Applying: 20251211_002_add_handover_context_columns
+           Add context and context_files columns to handovers table
+[migration] Γ£ô Applied: 20251211_002_add_handover_context_columns
+[migration] Applying: 20251211_003_add_sprint_is_active
+           Add is_active column to sprints table for explicit active sprint selection
+[migration] Γ£ô Applied: 20251211_003_add_sprint_is_active
+[migration] Applying: 20251211_004_add_escalations_table
+           Add escalations table for tracking task escalations and resolutions (TD-016)
+[migration] Γ£ô Applied: 20251211_004_add_escalations_table
+[migration] Applying: 20260112_001_add_chat_sessions_table
+           Add chat_sessions table for extension chat session management
+[migration] Γ£ô Applied: 20260112_001_add_chat_sessions_table
+[migration] Applying: 20260112_002_add_tdd_red_phase
+           Add tdd_red_phase column to tasks table for red-phase verification support
+[migration] Γ£ô Applied: 20260112_002_add_tdd_red_phase
+[migration] Applying: 20260126_001_add_tdd_tables
+           Add tdd_task_relationships and tdd_red_registry tables for TDD workflow support
+[migration] Γ£ô Applied: 20260126_001_add_tdd_tables
+[migration] Applying: 20260115_001_add_tdd_relationships_completed_at
+           Add completed_at column to tdd_task_relationships table
+[migration] Γ£ô Applied: 20260115_001_add_tdd_relationships_completed_at
+[migration] Applying: 20260115_002_add_tdd_red_registry_test_file
+           Add test_file column to tdd_red_registry table
+[migration] Γ£ô Applied: 20260115_002_add_tdd_red_registry_test_file
+[migration] Applying: 20260115_003_recreate_tdd_red_registry
+           Drop and recreate tdd_red_registry table without deprecated columns (status, green_task_id, description, marker_type, timestamps)
+[migration] Γ£ô Applied: 20260115_003_recreate_tdd_red_registry
+[migration] Applying: 20260116_001_update_tdd_red_registry_schema
+           Update tdd_red_registry to file-level tracking: drop test_identifier, make test_file NOT NULL, add test_count. Registry is a transitory snapshot.
+[migration] Γ£ô Applied: 20260116_001_update_tdd_red_registry_schema
+[migration] Applying: 20260117_007_add_controller_agent_schema
+           Add spec_reviews table for Controller review decisions and status column to sprints table (Sprint 004)
+[migration] Γ£ô Applied: 20260117_007_add_controller_agent_schema
+[migration] Applying: 20260117_008_escalations_nullable_task_id
+           Make escalations.task_id nullable for sprint-level escalations
+[migration] Γ£ô Applied: 20260117_008_escalations_nullable_task_id
+[migration] Applying: 20260117_009_add_code_review_tables
+           Add code review tables for review workflow tracking and issues/fixes
+[migration] Γ£ô Applied: 20260117_009_add_code_review_tables
+
+ [32mΓ£ô[39m test/mcp-server/escalated-rejection.test.ts [2m ([22m[2m6 tests[22m[2m)[22m[33m 11910[2mms[22m[39m
+ [32mΓ£ô[39m test/mcp-server/sprint-config.test.ts [2m ([22m[2m16 tests[22m[2m)[22m[33m 30351[2mms[22m[39m
+ [32mΓ£ô[39m test/core/tdd-validation.test.ts [2m ([22m[2m10 tests[22m[2m)[22m[33m 34199[2mms[22m[39m
+ [32mΓ£ô[39m test/core/git-autocommit.test.ts [2m ([22m[2m1 test[22m[2m)[22m[33m 3002[2mms[22m[39m
+ [32mΓ£ô[39m test/core/command-executor.test.ts [2m ([22m[2m14 tests[22m[2m)[22m[33m 8038[2mms[22m[39m
+ [32mΓ£ô[39m test/core/accept-signal-validator.test.ts [2m ([22m[2m12 tests[22m[2m)[22m[33m 21547[2mms[22m[39m
+ [32mΓ£ô[39m test/core/tdd-registry.test.ts [2m ([22m[2m7 tests[22m[2m)[22m[33m 9423[2mms[22m[39m
+[90mstdout[2m | test/mcp-server/code-review-decision.test.ts[2m > [22m[2mreject_code_review handler[2m > [22m[2minput validation[2m > [22m[2mshould reject summary shorter than 30 characters[22m[39m
+[migration] Applying: 20251211_001_add_amendments_table
+           Add amendments table for tracking task modifications
+[migration] Γ£ô Applied: 20251211_001_add_amendments_table
+[migration] Applying: 20251211_002_add_handover_context_columns
+           Add context and context_files columns to handovers table
+[migration] Γ£ô Applied: 20251211_002_add_handover_context_columns
+[migration] Applying: 20251211_003_add_sprint_is_active
+           Add is_active column to sprints table for explicit active sprint selection
+[migration] Γ£ô Applied: 20251211_003_add_sprint_is_active
+[migration] Applying: 20251211_004_add_escalations_table
+           Add escalations table for tracking task escalations and resolutions (TD-016)
+[migration] Γ£ô Applied: 20251211_004_add_escalations_table
+[migration] Applying: 20260112_001_add_chat_sessions_table
+           Add chat_sessions table for extension chat session management
+[migration] Γ£ô Applied: 20260112_001_add_chat_sessions_table
+[migration] Applying: 20260112_002_add_tdd_red_phase
+           Add tdd_red_phase column to tasks table for red-phase verification support
+[migration] Γ£ô Applied: 20260112_002_add_tdd_red_phase
+[migration] Applying: 20260126_001_add_tdd_tables
+           Add tdd_task_relationships and tdd_red_registry tables for TDD workflow support
+[migration] Γ£ô Applied: 20260126_001_add_tdd_tables
+[migration] Applying: 20260115_001_add_tdd_relationships_completed_at
+           Add completed_at column to tdd_task_relationships table
+[migration] Γ£ô Applied: 20260115_001_add_tdd_relationships_completed_at
+[migration] Applying: 20260115_002_add_tdd_red_registry_test_file
+           Add test_file column to tdd_red_registry table
+[migration] Γ£ô Applied: 20260115_002_add_tdd_red_registry_test_file
+[migration] Applying: 20260115_003_recreate_tdd_red_registry
+           Drop and recreate tdd_red_registry table without deprecated columns (status, green_task_id, description, marker_type, timestamps)
+[migration] Γ£ô Applied: 20260115_003_recreate_tdd_red_registry
+[migration] Applying: 20260116_001_update_tdd_red_registry_schema
+           Update tdd_red_registry to file-level tracking: drop test_identifier, make test_file NOT NULL, add test_count. Registry is a transitory snapshot.
+[migration] Γ£ô Applied: 20260116_001_update_tdd_red_registry_schema
+[migration] Applying: 20260117_007_add_controller_agent_schema
+           Add spec_reviews table for Controller review decisions and status column to sprints table (Sprint 004)
+[migration] Γ£ô Applied: 20260117_007_add_controller_agent_schema
+[migration] Applying: 20260117_008_escalations_nullable_task_id
+           Make escalations.task_id nullable for sprint-level escalations
+[migration] Γ£ô Applied: 20260117_008_escalations_nullable_task_id
+[migration] Applying: 20260117_009_add_code_review_tables
+           Add code review tables for review workflow tracking and issues/fixes
+[migration] Γ£ô Applied: 20260117_009_add_code_review_tables
+
+[90mstdout[2m | test/mcp-server/code-review-decision.test.ts[2m > [22m[2mreject_code_review handler[2m > [22m[2minput validation[2m > [22m[2mshould require at least one issue[22m[39m
+[migration] Applying: 20251211_001_add_amendments_table
+           Add amendments table for tracking task modifications
+[migration] Γ£ô Applied: 20251211_001_add_amendments_table
+[migration] Applying: 20251211_002_add_handover_context_columns
+           Add context and context_files columns to handovers table
+[migration] Γ£ô Applied: 20251211_002_add_handover_context_columns
+[migration] Applying: 20251211_003_add_sprint_is_active
+           Add is_active column to sprints table for explicit active sprint selection
+[migration] Γ£ô Applied: 20251211_003_add_sprint_is_active
+[migration] Applying: 20251211_004_add_escalations_table
+           Add escalations table for tracking task escalations and resolutions (TD-016)
+[migration] Γ£ô Applied: 20251211_004_add_escalations_table
+[migration] Applying: 20260112_001_add_chat_sessions_table
+           Add chat_sessions table for extension chat session management
+[migration] Γ£ô Applied: 20260112_001_add_chat_sessions_table
+[migration] Applying: 20260112_002_add_tdd_red_phase
+           Add tdd_red_phase column to tasks table for red-phase verification support
+[migration] Γ£ô Applied: 20260112_002_add_tdd_red_phase
+[migration] Applying: 20260126_001_add_tdd_tables
+           Add tdd_task_relationships and tdd_red_registry tables for TDD workflow support
+[migration] Γ£ô Applied: 20260126_001_add_tdd_tables
+[migration] Applying: 20260115_001_add_tdd_relationships_completed_at
+           Add completed_at column to tdd_task_relationships table
+[migration] Γ£ô Applied: 20260115_001_add_tdd_relationships_completed_at
+[migration] Applying: 20260115_002_add_tdd_red_registry_test_file
+           Add test_file column to tdd_red_registry table
+[migration] Γ£ô Applied: 20260115_002_add_tdd_red_registry_test_file
+[migration] Applying: 20260115_003_recreate_tdd_red_registry
+           Drop and recreate tdd_red_registry table without deprecated columns (status, green_task_id, description, marker_type, timestamps)
+[migration] Γ£ô Applied: 20260115_003_recreate_tdd_red_registry
+[migration] Applying: 20260116_001_update_tdd_red_registry_schema
+           Update tdd_red_registry to file-level tracking: drop test_identifier, make test_file NOT NULL, add test_count. Registry is a transitory snapshot.
+[migration] Γ£ô Applied: 20260116_001_update_tdd_red_registry_schema
+[migration] Applying: 20260117_007_add_controller_agent_schema
+           Add spec_reviews table for Controller review decisions and status column to sprints table (Sprint 004)
+[migration] Γ£ô Applied: 20260117_007_add_controller_agent_schema
+[migration] Applying: 20260117_008_escalations_nullable_task_id
+           Make escalations.task_id nullable for sprint-level escalations
+[migration] Γ£ô Applied: 20260117_008_escalations_nullable_task_id
+[migration] Applying: 20260117_009_add_code_review_tables
+           Add code review tables for review workflow tracking and issues/fixes
+[migration] Γ£ô Applied: 20260117_009_add_code_review_tables
+
+[90mstdout[2m | test/mcp-server/code-review-decision.test.ts[2m > [22m[2mreject_code_review handler[2m > [22m[2minput validation[2m > [22m[2mshould require recommendation field[22m[39m
+[migration] Applying: 20251211_001_add_amendments_table
+           Add amendments table for tracking task modifications
+[migration] Γ£ô Applied: 20251211_001_add_amendments_table
+[migration] Applying: 20251211_002_add_handover_context_columns
+           Add context and context_files columns to handovers table
+[migration] Γ£ô Applied: 20251211_002_add_handover_context_columns
+[migration] Applying: 20251211_003_add_sprint_is_active
+           Add is_active column to sprints table for explicit active sprint selection
+[migration] Γ£ô Applied: 20251211_003_add_sprint_is_active
+[migration] Applying: 20251211_004_add_escalations_table
+           Add escalations table for tracking task escalations and resolutions (TD-016)
+[migration] Γ£ô Applied: 20251211_004_add_escalations_table
+[migration] Applying: 20260112_001_add_chat_sessions_table
+           Add chat_sessions table for extension chat session management
+[migration] Γ£ô Applied: 20260112_001_add_chat_sessions_table
+[migration] Applying: 20260112_002_add_tdd_red_phase
+           Add tdd_red_phase column to tasks table for red-phase verification support
+[migration] Γ£ô Applied: 20260112_002_add_tdd_red_phase
+[migration] Applying: 20260126_001_add_tdd_tables
+           Add tdd_task_relationships and tdd_red_registry tables for TDD workflow support
+[migration] Γ£ô Applied: 20260126_001_add_tdd_tables
+[migration] Applying: 20260115_001_add_tdd_relationships_completed_at
+           Add completed_at column to tdd_task_relationships table
+[migration] Γ£ô Applied: 20260115_001_add_tdd_relationships_completed_at
+[migration] Applying: 20260115_002_add_tdd_red_registry_test_file
+           Add test_file column to tdd_red_registry table
+[migration] Γ£ô Applied: 20260115_002_add_tdd_red_registry_test_file
+[migration] Applying: 20260115_003_recreate_tdd_red_registry
+           Drop and recreate tdd_red_registry table without deprecated columns (status, green_task_id, description, marker_type, timestamps)
+[migration] Γ£ô Applied: 20260115_003_recreate_tdd_red_registry
+[migration] Applying: 20260116_001_update_tdd_red_registry_schema
+           Update tdd_red_registry to file-level tracking: drop test_identifier, make test_file NOT NULL, add test_count. Registry is a transitory snapshot.
+[migration] Γ£ô Applied: 20260116_001_update_tdd_red_registry_schema
+[migration] Applying: 20260117_007_add_controller_agent_schema
+           Add spec_reviews table for Controller review decisions and status column to sprints table (Sprint 004)
+[migration] Γ£ô Applied: 20260117_007_add_controller_agent_schema
+[migration] Applying: 20260117_008_escalations_nullable_task_id
+           Make escalations.task_id nullable for sprint-level escalations
+[migration] Γ£ô Applied: 20260117_008_escalations_nullable_task_id
+[migration] Applying: 20260117_009_add_code_review_tables
+           Add code review tables for review workflow tracking and issues/fixes
+[migration] Γ£ô Applied: 20260117_009_add_code_review_tables
+
+[90mstdout[2m | test/mcp-server/code-review-decision.test.ts[2m > [22m[2mreject_code_review handler[2m > [22m[2minput validation[2m > [22m[2mshould require rationale in each issue[22m[39m
+[migration] Applying: 20251211_001_add_amendments_table
+           Add amendments table for tracking task modifications
+[migration] Γ£ô Applied: 20251211_001_add_amendments_table
+[migration] Applying: 20251211_002_add_handover_context_columns
+           Add context and context_files columns to handovers table
+[migration] Γ£ô Applied: 20251211_002_add_handover_context_columns
+[migration] Applying: 20251211_003_add_sprint_is_active
+           Add is_active column to sprints table for explicit active sprint selection
+[migration] Γ£ô Applied: 20251211_003_add_sprint_is_active
+[migration] Applying: 20251211_004_add_escalations_table
+           Add escalations table for tracking task escalations and resolutions (TD-016)
+[migration] Γ£ô Applied: 20251211_004_add_escalations_table
+[migration] Applying: 20260112_001_add_chat_sessions_table
+           Add chat_sessions table for extension chat session management
+[migration] Γ£ô Applied: 20260112_001_add_chat_sessions_table
+[migration] Applying: 20260112_002_add_tdd_red_phase
+           Add tdd_red_phase column to tasks table for red-phase verification support
+[migration] Γ£ô Applied: 20260112_002_add_tdd_red_phase
+[migration] Applying: 20260126_001_add_tdd_tables
+           Add tdd_task_relationships and tdd_red_registry tables for TDD workflow support
+[migration] Γ£ô Applied: 20260126_001_add_tdd_tables
+[migration] Applying: 20260115_001_add_tdd_relationships_completed_at
+           Add completed_at column to tdd_task_relationships table
+[migration] Γ£ô Applied: 20260115_001_add_tdd_relationships_completed_at
+[migration] Applying: 20260115_002_add_tdd_red_registry_test_file
+           Add test_file column to tdd_red_registry table
+[migration] Γ£ô Applied: 20260115_002_add_tdd_red_registry_test_file
+[migration] Applying: 20260115_003_recreate_tdd_red_registry
+           Drop and recreate tdd_red_registry table without deprecated columns (status, green_task_id, description, marker_type, timestamps)
+[migration] Γ£ô Applied: 20260115_003_recreate_tdd_red_registry
+[migration] Applying: 20260116_001_update_tdd_red_registry_schema
+           Update tdd_red_registry to file-level tracking: drop test_identifier, make test_file NOT NULL, add test_count. Registry is a transitory snapshot.
+[migration] Γ£ô Applied: 20260116_001_update_tdd_red_registry_schema
+[migration] Applying: 20260117_007_add_controller_agent_schema
+           Add spec_reviews table for Controller review decisions and status column to sprints table (Sprint 004)
+[migration] Γ£ô Applied: 20260117_007_add_controller_agent_schema
+[migration] Applying: 20260117_008_escalations_nullable_task_id
+           Make escalations.task_id nullable for sprint-level escalations
+[migration] Γ£ô Applied: 20260117_008_escalations_nullable_task_id
+[migration] Applying: 20260117_009_add_code_review_tables
+           Add code review tables for review workflow tracking and issues/fixes
+[migration] Γ£ô Applied: 20260117_009_add_code_review_tables
+
+[90mstdout[2m | test/mcp-server/code-review-decision.test.ts[2m > [22m[2mreject_code_review handler[2m > [22m[2minput validation[2m > [22m[2mshould only allow BLOCKING and MAJOR severities (not MINOR)[22m[39m
+[migration] Applying: 20251211_001_add_amendments_table
+           Add amendments table for tracking task modifications
+[migration] Γ£ô Applied: 20251211_001_add_amendments_table
+[migration] Applying: 20251211_002_add_handover_context_columns
+           Add context and context_files columns to handovers table
+[migration] Γ£ô Applied: 20251211_002_add_handover_context_columns
+[migration] Applying: 20251211_003_add_sprint_is_active
+           Add is_active column to sprints table for explicit active sprint selection
+[migration] Γ£ô Applied: 20251211_003_add_sprint_is_active
+[migration] Applying: 20251211_004_add_escalations_table
+           Add escalations table for tracking task escalations and resolutions (TD-016)
+[migration] Γ£ô Applied: 20251211_004_add_escalations_table
+[migration] Applying: 20260112_001_add_chat_sessions_table
+           Add chat_sessions table for extension chat session management
+[migration] Γ£ô Applied: 20260112_001_add_chat_sessions_table
+[migration] Applying: 20260112_002_add_tdd_red_phase
+           Add tdd_red_phase column to tasks table for red-phase verification support
+[migration] Γ£ô Applied: 20260112_002_add_tdd_red_phase
+[migration] Applying: 20260126_001_add_tdd_tables
+           Add tdd_task_relationships and tdd_red_registry tables for TDD workflow support
+[migration] Γ£ô Applied: 20260126_001_add_tdd_tables
+[migration] Applying: 20260115_001_add_tdd_relationships_completed_at
+           Add completed_at column to tdd_task_relationships table
+[migration] Γ£ô Applied: 20260115_001_add_tdd_relationships_completed_at
+[migration] Applying: 20260115_002_add_tdd_red_registry_test_file
+           Add test_file column to tdd_red_registry table
+[migration] Γ£ô Applied: 20260115_002_add_tdd_red_registry_test_file
+[migration] Applying: 20260115_003_recreate_tdd_red_registry
+           Drop and recreate tdd_red_registry table without deprecated columns (status, green_task_id, description, marker_type, timestamps)
+[migration] Γ£ô Applied: 20260115_003_recreate_tdd_red_registry
+[migration] Applying: 20260116_001_update_tdd_red_registry_schema
+           Update tdd_red_registry to file-level tracking: drop test_identifier, make test_file NOT NULL, add test_count. Registry is a transitory snapshot.
+[migration] Γ£ô Applied: 20260116_001_update_tdd_red_registry_schema
+[migration] Applying: 20260117_007_add_controller_agent_schema
+           Add spec_reviews table for Controller review decisions and status column to sprints table (Sprint 004)
+[migration] Γ£ô Applied: 20260117_007_add_controller_agent_schema
+[migration] Applying: 20260117_008_escalations_nullable_task_id
+           Make escalations.task_id nullable for sprint-level escalations
+[migration] Γ£ô Applied: 20260117_008_escalations_nullable_task_id
+[migration] Applying: 20260117_009_add_code_review_tables
+           Add code review tables for review workflow tracking and issues/fixes
+[migration] Γ£ô Applied: 20260117_009_add_code_review_tables
+
+[90mstdout[2m | test/mcp-server/code-review-decision.test.ts[2m > [22m[2mreject_code_review handler[2m > [22m[2mstatus transitions and issue persistence[2m > [22m[2mshould transition PENDING review to REJECTED status[22m[39m
+[migration] Applying: 20251211_001_add_amendments_table
+           Add amendments table for tracking task modifications
+[migration] Γ£ô Applied: 20251211_001_add_amendments_table
+[migration] Applying: 20251211_002_add_handover_context_columns
+           Add context and context_files columns to handovers table
+[migration] Γ£ô Applied: 20251211_002_add_handover_context_columns
+[migration] Applying: 20251211_003_add_sprint_is_active
+           Add is_active column to sprints table for explicit active sprint selection
+[migration] Γ£ô Applied: 20251211_003_add_sprint_is_active
+[migration] Applying: 20251211_004_add_escalations_table
+           Add escalations table for tracking task escalations and resolutions (TD-016)
+[migration] Γ£ô Applied: 20251211_004_add_escalations_table
+[migration] Applying: 20260112_001_add_chat_sessions_table
+           Add chat_sessions table for extension chat session management
+[migration] Γ£ô Applied: 20260112_001_add_chat_sessions_table
+[migration] Applying: 20260112_002_add_tdd_red_phase
+           Add tdd_red_phase column to tasks table for red-phase verification support
+[migration] Γ£ô Applied: 20260112_002_add_tdd_red_phase
+[migration] Applying: 20260126_001_add_tdd_tables
+           Add tdd_task_relationships and tdd_red_registry tables for TDD workflow support
+[migration] Γ£ô Applied: 20260126_001_add_tdd_tables
+[migration] Applying: 20260115_001_add_tdd_relationships_completed_at
+           Add completed_at column to tdd_task_relationships table
+[migration] Γ£ô Applied: 20260115_001_add_tdd_relationships_completed_at
+[migration] Applying: 20260115_002_add_tdd_red_registry_test_file
+           Add test_file column to tdd_red_registry table
+[migration] Γ£ô Applied: 20260115_002_add_tdd_red_registry_test_file
+[migration] Applying: 20260115_003_recreate_tdd_red_registry
+           Drop and recreate tdd_red_registry table without deprecated columns (status, green_task_id, description, marker_type, timestamps)
+[migration] Γ£ô Applied: 20260115_003_recreate_tdd_red_registry
+[migration] Applying: 20260116_001_update_tdd_red_registry_schema
+           Update tdd_red_registry to file-level tracking: drop test_identifier, make test_file NOT NULL, add test_count. Registry is a transitory snapshot.
+[migration] Γ£ô Applied: 20260116_001_update_tdd_red_registry_schema
+[migration] Applying: 20260117_007_add_controller_agent_schema
+           Add spec_reviews table for Controller review decisions and status column to sprints table (Sprint 004)
+[migration] Γ£ô Applied: 20260117_007_add_controller_agent_schema
+[migration] Applying: 20260117_008_escalations_nullable_task_id
+           Make escalations.task_id nullable for sprint-level escalations
+[migration] Γ£ô Applied: 20260117_008_escalations_nullable_task_id
+[migration] Applying: 20260117_009_add_code_review_tables
+           Add code review tables for review workflow tracking and issues/fixes
+[migration] Γ£ô Applied: 20260117_009_add_code_review_tables
+
+[90mstdout[2m | test/mcp-server/code-review-decision.test.ts[2m > [22m[2mreject_code_review handler[2m > [22m[2mstatus transitions and issue persistence[2m > [22m[2mshould create code_review_issues rows for rejection[22m[39m
+[migration] Applying: 20251211_001_add_amendments_table
+           Add amendments table for tracking task modifications
+[migration] Γ£ô Applied: 20251211_001_add_amendments_table
+[migration] Applying: 20251211_002_add_handover_context_columns
+           Add context and context_files columns to handovers table
+[migration] Γ£ô Applied: 20251211_002_add_handover_context_columns
+[migration] Applying: 20251211_003_add_sprint_is_active
+           Add is_active column to sprints table for explicit active sprint selection
+[migration] Γ£ô Applied: 20251211_003_add_sprint_is_active
+[migration] Applying: 20251211_004_add_escalations_table
+           Add escalations table for tracking task escalations and resolutions (TD-016)
+[migration] Γ£ô Applied: 20251211_004_add_escalations_table
+[migration] Applying: 20260112_001_add_chat_sessions_table
+           Add chat_sessions table for extension chat session management
+[migration] Γ£ô Applied: 20260112_001_add_chat_sessions_table
+[migration] Applying: 20260112_002_add_tdd_red_phase
+           Add tdd_red_phase column to tasks table for red-phase verification support
+[migration] Γ£ô Applied: 20260112_002_add_tdd_red_phase
+[migration] Applying: 20260126_001_add_tdd_tables
+           Add tdd_task_relationships and tdd_red_registry tables for TDD workflow support
+[migration] Γ£ô Applied: 20260126_001_add_tdd_tables
+[migration] Applying: 20260115_001_add_tdd_relationships_completed_at
+           Add completed_at column to tdd_task_relationships table
+[migration] Γ£ô Applied: 20260115_001_add_tdd_relationships_completed_at
+[migration] Applying: 20260115_002_add_tdd_red_registry_test_file
+           Add test_file column to tdd_red_registry table
+[migration] Γ£ô Applied: 20260115_002_add_tdd_red_registry_test_file
+[migration] Applying: 20260115_003_recreate_tdd_red_registry
+           Drop and recreate tdd_red_registry table without deprecated columns (status, green_task_id, description, marker_type, timestamps)
+[migration] Γ£ô Applied: 20260115_003_recreate_tdd_red_registry
+[migration] Applying: 20260116_001_update_tdd_red_registry_schema
+           Update tdd_red_registry to file-level tracking: drop test_identifier, make test_file NOT NULL, add test_count. Registry is a transitory snapshot.
+[migration] Γ£ô Applied: 20260116_001_update_tdd_red_registry_schema
+[migration] Applying: 20260117_007_add_controller_agent_schema
+           Add spec_reviews table for Controller review decisions and status column to sprints table (Sprint 004)
+[migration] Γ£ô Applied: 20260117_007_add_controller_agent_schema
+[migration] Applying: 20260117_008_escalations_nullable_task_id
+           Make escalations.task_id nullable for sprint-level escalations
+[migration] Γ£ô Applied: 20260117_008_escalations_nullable_task_id
+[migration] Applying: 20260117_009_add_code_review_tables
+           Add code review tables for review workflow tracking and issues/fixes
+[migration] Γ£ô Applied: 20260117_009_add_code_review_tables
+
+ [32mΓ£ô[39m test/mcp-server/code-review-decision.test.ts [2m ([22m[2m24 tests[22m[2m)[22m[33m 67509[2mms[22m[39m
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ» Failed Tests 1 ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»
+
+ FAIL  test/mcp-server/audit-logging-coverage.test.ts > Audit Logging Coverage > Edge cases > should verify handlers capture taskId when available
+AssertionError: get-latest-code-review.ts accepts task_id but doesn't pass it to logToolExecution: expected null to be truthy
+
+- Expected: 
+null
+
++ Received: 
+false
+
+ Γ¥» test/mcp-server/audit-logging-coverage.test.ts:252:13
+    250|             hasTaskIdInLog,
+    251|             `${file} accepts task_id but doesn't pass it to logToolExeΓÇª
+    252|           ).toBeTruthy();
+       |             ^
+    253|         }
+    254|       }
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[1/1]ΓÄ»
+
+[2m Test Files [22m [1m[31m1 failed[39m[22m[2m | [22m[1m[32m54 passed[39m[22m[2m | [22m[33m3 skipped[39m[90m (58)[39m
+[2m      Tests [22m [1m[31m1 failed[39m[22m[2m | [22m[1m[32m661 passed[39m[22m[2m | [22m[33m65 skipped[39m[90m (727)[39m
+[2m   Start at [22m 09:43:16
+[2m   Duration [22m 69.27s[2m (transform 3.31s, setup 6ms, collect 28.63s, tests 618.99s, environment 15ms, prepare 11.62s)[22m
+

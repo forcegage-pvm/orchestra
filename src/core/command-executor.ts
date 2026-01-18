@@ -63,7 +63,7 @@ export interface ExecuteResult {
  */
 export async function executeCommand(
   command: string,
-  options: ExecuteOptions = {}
+  options: ExecuteOptions = {},
 ): Promise<ExecuteResult> {
   const startTime = Date.now();
 
@@ -79,6 +79,13 @@ export async function executeCommand(
     };
   }
 
+  // On Windows, wrap command with UTF-8 encoding setup to prevent
+  // Unicode corruption (e.g., ✔ → Γ£ô) when parsing test output
+  const wrappedCommand =
+    process.platform === "win32"
+      ? `[Console]::OutputEncoding = [System.Text.Encoding]::UTF8; ${command}`
+      : command;
+
   const execOptions: ExecOptions = {
     timeout: options.timeout,
     cwd: options.cwd,
@@ -90,15 +97,19 @@ export async function executeCommand(
     // causing vitest to fail to find test suites even though files are found.
     // PowerShell correctly handles working directory inheritance.
     shell: process.platform === "win32" ? "powershell.exe" : "/bin/sh",
+    // Force UTF-8 encoding for consistent output parsing on Windows
+    // Without this, Unicode symbols (✔, ✗, →) get corrupted as CP437 garbage
+    env: {
+      ...process.env,
+      // Force Node.js child processes to use UTF-8
+      FORCE_COLOR: "0", // Disable ANSI colors to avoid escape code pollution
+      NO_COLOR: "1", // Alternative color disable flag
+      ...options.env,
+    },
   };
 
-  // Merge environment variables with current process env
-  if (options.env) {
-    execOptions.env = { ...process.env, ...options.env };
-  }
-
   try {
-    const { stdout, stderr } = await execAsync(command, execOptions);
+    const { stdout, stderr } = await execAsync(wrappedCommand, execOptions);
 
     return {
       success: true,

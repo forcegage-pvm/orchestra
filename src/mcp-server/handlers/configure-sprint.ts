@@ -41,12 +41,9 @@ import { logToolExecution } from "./audit-logging.js";
  * Handle configure_sprint tool call
  */
 export async function handleConfigureSprint(
-  input: unknown
+  input: unknown,
 ): Promise<{ content: Array<{ type: "text"; text: string }> }> {
   const startTime = performance.now();
-
-  // Debug logging
-  console.error("DEBUG: Received input:", JSON.stringify(input, null, 2));
 
   // If config_file is provided, load from filesystem
   let configData: unknown = input;
@@ -58,7 +55,6 @@ export async function handleConfigureSprint(
     input.config_file
   ) {
     const configFilePath = input.config_file as string;
-    console.error(`DEBUG: Loading config from file: ${configFilePath}`);
 
     try {
       // Security: Resolve to absolute path and ensure it's within workspace
@@ -75,10 +71,10 @@ export async function handleConfigureSprint(
                 createErrorResponse(
                   "VALIDATION_ERROR",
                   "Config file path must be within workspace",
-                  { config_file: configFilePath }
+                  { config_file: configFilePath },
                 ),
                 null,
-                2
+                2,
               ),
             },
           ],
@@ -91,9 +87,6 @@ export async function handleConfigureSprint(
 
       // Replace input with file data
       configData = fileData;
-      console.error(
-        `DEBUG: Loaded config from file (${fileData.tasks?.length || 0} tasks)`
-      );
     } catch (error) {
       const err = error instanceof Error ? error : new Error(String(error));
       return {
@@ -106,7 +99,7 @@ export async function handleConfigureSprint(
                 duration_ms: Date.now() - startTime,
               }),
               null,
-              2
+              2,
             ),
           },
         ],
@@ -117,7 +110,6 @@ export async function handleConfigureSprint(
   // Validate input
   const validation = validateInput(ConfigureSprintInputSchema, configData);
   if (!validation.success) {
-    console.error("DEBUG: Validation failed:", validation.error);
     return {
       content: [
         {
@@ -152,7 +144,7 @@ export async function handleConfigureSprint(
         input: data,
       },
       { success: true, output },
-      durationMs
+      durationMs,
     );
 
     return {
@@ -175,7 +167,7 @@ export async function handleConfigureSprint(
         input: validation.data,
       },
       { success: false, errorMessage: err.message },
-      durationMs
+      durationMs,
     );
 
     // Handle errors
@@ -208,7 +200,7 @@ async function configureSprint(input: ConfigureSprintInput): Promise<{
   // Ensure required fields are present (should be validated by schema, but check anyway)
   if (!input.sprint || !input.phases || !input.tasks) {
     throw new Error(
-      "sprint, phases, and tasks are required (should have been validated by schema)"
+      "sprint, phases, and tasks are required (should have been validated by schema)",
     );
   }
 
@@ -300,7 +292,7 @@ async function configureSprint(input: ConfigureSprintInput): Promise<{
             min_matches: check.min_matches,
           }),
           created_at: now,
-        }))
+        })),
       );
     }
 
@@ -319,7 +311,7 @@ async function configureSprint(input: ConfigureSprintInput): Promise<{
             expect_output_contains: check.expect_output_contains,
           }),
           created_at: now,
-        }))
+        })),
       );
     }
 
@@ -339,7 +331,7 @@ async function configureSprint(input: ConfigureSprintInput): Promise<{
             min_matches: check.min_matches,
           }),
           created_at: now,
-        }))
+        })),
       );
     }
 
@@ -373,7 +365,7 @@ async function configureSprint(input: ConfigureSprintInput): Promise<{
 
       if (!redTaskDbId || !greenTaskDbId) {
         throw new Error(
-          `Task ID not found in database: red=${rel.red_task_id}, green=${rel.green_task_id}`
+          `Task ID not found in database: red=${rel.red_task_id}, green=${rel.green_task_id}`,
         );
       }
 
