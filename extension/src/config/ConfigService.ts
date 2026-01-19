@@ -6,6 +6,9 @@
  */
 
 import * as vscode from "vscode";
+import { eq } from "drizzle-orm";
+import { OrchestraDB } from "../database/client.js";
+import * as schema from "../database/local-schema.js";
 
 /**
  * Orchestra configuration structure
@@ -33,11 +36,37 @@ export type Role = "orchestrator" | "implementor" | "controller";
  * ConfigService provides typed access to Orchestra workspace configuration
  */
 export class ConfigService {
+  private _workspaceRoot?: string;
+
+  constructor(workspaceRoot?: string) {
+    this._workspaceRoot = workspaceRoot;
+  }
+
   /**
    * Get the VS Code workspace configuration for orchestra
    */
   private getWorkspaceConfig(): vscode.WorkspaceConfiguration {
     return vscode.workspace.getConfiguration("orchestra");
+  }
+
+  private getDbConfigValue(key: string): string | undefined {
+    if (!this._workspaceRoot) {
+      return undefined;
+    }
+
+    try {
+      const db = OrchestraDB.getDrizzleInstance(this._workspaceRoot);
+      const rows = db
+        .select()
+        .from(schema.config as unknown as typeof schema.config)
+        .where(eq(schema.config.key, key))
+        .limit(1)
+        .all() as Array<{ value: string }>;
+
+      return rows[0]?.value;
+    } catch {
+      return undefined;
+    }
   }
 
   /**
@@ -53,6 +82,10 @@ export class ConfigService {
       implementor: "claude-sonnet-4.5",
       controller: "claude-opus-4.5",
     };
+    const dbValue = this.getDbConfigValue(`models.${role}`);
+    if (dbValue) {
+      return dbValue;
+    }
     return config.get<string>(`models.${role}`, defaultModels[role]);
   }
 

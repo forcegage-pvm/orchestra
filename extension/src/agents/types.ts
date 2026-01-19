@@ -118,6 +118,7 @@ export const AgentConfigSchema = z.object({
   // Model selection
   orchestratorModel: z.string().default("claude-opus-4.5"),
   implementorModel: z.string().default("claude-sonnet-4.5"),
+  controllerModel: z.string().default("claude-opus-4.5"),
 
   // Execution limits
   maxIterations: z.number().int().positive().default(50),

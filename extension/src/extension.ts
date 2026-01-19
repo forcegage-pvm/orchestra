@@ -429,7 +429,7 @@ export async function activate(
   logger.info(`Orchestra extension v${extensionVersion} activating...`);
 
   // Initialize ConfigService
-  configService = new ConfigService();
+  configService = new ConfigService(orchestraRoot);
   logger.info("ConfigService initialized");
 
   // Initialize SessionManager
@@ -1159,6 +1159,9 @@ export async function activate(
           // TODO: Register tools here in future work
 
           agentRunner = new AgentRunner(toolRegistry, {
+            orchestratorModel: configService.getModelForRole("orchestrator"),
+            implementorModel: configService.getModelForRole("implementor"),
+            controllerModel: configService.getModelForRole("controller"),
             maxIterations: 50,
             maxContextTokens: 100000,
           });

@@ -153,6 +153,7 @@ export class AgentRunner implements vscode.Disposable {
     this.config = {
       orchestratorModel: config?.orchestratorModel ?? "claude-opus-4.5",
       implementorModel: config?.implementorModel ?? "claude-sonnet-4.5",
+      controllerModel: config?.controllerModel ?? "claude-opus-4.5",
       maxIterations: config?.maxIterations ?? 50,
       maxToolRetries: config?.maxToolRetries ?? 3,
       verbosity: config?.verbosity ?? "normal",
@@ -469,16 +470,22 @@ export class AgentRunner implements vscode.Disposable {
       modelOverride ??
       (role === "orchestrator"
         ? this.config.orchestratorModel
-        : this.config.implementorModel);
+        : role === "implementor"
+          ? this.config.implementorModel
+          : this.config.controllerModel);
 
-    // Select models from the claude family
-    const models = await vscode.lm.selectChatModels({
-      family: "claude",
+    const copilotModels = await vscode.lm.selectChatModels({
+      vendor: "copilot",
     });
+
+    const models =
+      copilotModels.length > 0
+        ? copilotModels
+        : await vscode.lm.selectChatModels();
 
     if (models.length === 0) {
       throw new AgentError(
-        "No Claude language models available",
+        "No Copilot language models available",
         "NO_MODEL_AVAILABLE"
       );
     }

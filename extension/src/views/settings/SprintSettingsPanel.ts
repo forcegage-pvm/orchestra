@@ -18,6 +18,9 @@ interface SprintSettings {
   preSignalBuildCommand: string;
   preSignalTestCommand: string;
   autoCommit: boolean;
+  orchestratorModel: string;
+  implementorModel: string;
+  controllerModel: string;
 }
 
 export class SprintSettingsPanel {
@@ -133,6 +136,22 @@ export class SprintSettingsPanel {
       const configMap = new Map(configRows.map((row) => [row.key, row.value]));
 
       // Build settings object with defaults
+      const workspaceConfig = vscode.workspace.getConfiguration("orchestra");
+      const defaultModels = {
+        orchestrator: workspaceConfig.get<string>(
+          "models.orchestrator",
+          "claude-opus-4.5",
+        ),
+        implementor: workspaceConfig.get<string>(
+          "models.implementor",
+          "claude-sonnet-4.5",
+        ),
+        controller: workspaceConfig.get<string>(
+          "models.controller",
+          "claude-opus-4.5",
+        ),
+      };
+
       const settings: SprintSettings = {
         requireTests: configMap.get("tdd.require_tests") === "true",
         requireTestsCategories:
@@ -144,11 +163,20 @@ export class SprintSettingsPanel {
         preSignalBuildCommand: configMap.get("pre_signal_build_command") || "",
         preSignalTestCommand: configMap.get("pre_signal_test_command") || "",
         autoCommit: configMap.get("git.auto_commit") === "true",
+        orchestratorModel:
+          configMap.get("models.orchestrator") || defaultModels.orchestrator,
+        implementorModel:
+          configMap.get("models.implementor") || defaultModels.implementor,
+        controllerModel:
+          configMap.get("models.controller") || defaultModels.controller,
       };
+
+      const availableModels = await this._getAvailableModels();
 
       await this._panel.webview.postMessage({
         type: "settingsLoaded",
         settings,
+        availableModels,
       });
     } catch (error) {
       this._logger.error("Failed to load settings", error);
@@ -216,6 +244,21 @@ export class SprintSettingsPanel {
           description: "Enable automatic git commits after task operations",
         },
         {
+          key: "models.orchestrator",
+          value: settings.orchestratorModel,
+          description: "AI model for orchestrator role",
+        },
+        {
+          key: "models.implementor",
+          value: settings.implementorModel,
+          description: "AI model for implementor role",
+        },
+        {
+          key: "models.controller",
+          value: settings.controllerModel,
+          description: "AI model for controller role",
+        },
+        {
           key: "tools.prepare_task.auto_commit",
           value: settings.autoCommit.toString(),
           description: "Auto-commit handover files after prepare",
@@ -259,6 +302,37 @@ export class SprintSettingsPanel {
         }`
       );
     }
+  }
+
+  private async _getAvailableModels(): Promise<
+    Array<{ id: string; label: string }>
+  > {
+    try {
+      const copilotModels = await vscode.lm.selectChatModels({
+        vendor: "copilot",
+      });
+
+      const models =
+        copilotModels.length > 0
+          ? copilotModels
+          : await vscode.lm.selectChatModels();
+
+      return models.map((model) => ({
+        id: model.id,
+        label: this._formatModelLabel(model),
+      }));
+    } catch (error) {
+      this._logger.warn("Failed to load Copilot models", error);
+      return [];
+    }
+  }
+
+  private _formatModelLabel(model: vscode.LanguageModelChat): string {
+    const vendor = model.vendor ? model.vendor : "model";
+    const family = model.family ? ` ${model.family}` : "";
+    const version = model.version ? ` ${model.version}` : "";
+    const label = `${vendor}${family}${version}`.trim();
+    return label || model.id;
   }
 
   /**
@@ -310,7 +384,8 @@ export class SprintSettingsPanel {
       font-weight: 500;
     }
     input[type="text"],
-    textarea {
+    textarea,
+    select {
       width: 100%;
       padding: 8px;
       background: var(--vscode-input-background);
@@ -319,7 +394,8 @@ export class SprintSettingsPanel {
       box-sizing: border-box;
     }
     input[type="text"]:focus,
-    textarea:focus {
+    textarea:focus,
+    select:focus {
       outline: 1px solid var(--vscode-focusBorder);
     }
     input[type="checkbox"] {
@@ -414,6 +490,26 @@ export class SprintSettingsPanel {
     <input type="text" id="preSignalTestCommand" placeholder="npm test">
     <div class="help-text">Command to run before signal completion (test step)</div>
   </div>
+
+  <h2>Agent Models (Copilot)</h2>
+
+  <div class="form-group">
+    <label for="orchestratorModel">Orchestrator model</label>
+    <select id="orchestratorModel"></select>
+    <div class="help-text">Model used for orchestrator prompts (task preparation and verification)</div>
+  </div>
+
+  <div class="form-group">
+    <label for="implementorModel">Implementor model</label>
+    <select id="implementorModel"></select>
+    <div class="help-text">Model used for implementor prompts (task execution)</div>
+  </div>
+
+  <div class="form-group">
+    <label for="controllerModel">Controller model</label>
+    <select id="controllerModel"></select>
+    <div class="help-text">Model used for controller prompts (review and verification)</div>
+  </div>
   
   <h2>Git Automation</h2>
   
@@ -443,6 +539,9 @@ export class SprintSettingsPanel {
     const preSignalBuildCommand = document.getElementById('preSignalBuildCommand');
     const preSignalTestCommand = document.getElementById('preSignalTestCommand');
     const autoCommit = document.getElementById('autoCommit');
+    const orchestratorModel = document.getElementById('orchestratorModel');
+    const implementorModel = document.getElementById('implementorModel');
+    const controllerModel = document.getElementById('controllerModel');
     const saveButton = document.getElementById('saveButton');
     const cancelButton = document.getElementById('cancelButton');
     const messageDiv = document.getElementById('message');
@@ -456,7 +555,7 @@ export class SprintSettingsPanel {
       
       switch (message.type) {
         case 'settingsLoaded':
-          populateForm(message.settings);
+          populateForm(message.settings, message.availableModels || []);
           break;
         case 'saved':
           showMessage('Settings saved successfully', 'success');
@@ -468,7 +567,7 @@ export class SprintSettingsPanel {
     });
     
     // Populate form with settings
-    function populateForm(settings) {
+    function populateForm(settings, availableModels) {
       requireTests.checked = settings.requireTests;
       requireTestsCategories.value = settings.requireTestsCategories;
       testFilePattern.value = settings.testFilePattern;
@@ -476,6 +575,32 @@ export class SprintSettingsPanel {
       preSignalBuildCommand.value = settings.preSignalBuildCommand;
       preSignalTestCommand.value = settings.preSignalTestCommand;
       autoCommit.checked = settings.autoCommit;
+      populateModelSelect(orchestratorModel, availableModels, settings.orchestratorModel);
+      populateModelSelect(implementorModel, availableModels, settings.implementorModel);
+      populateModelSelect(controllerModel, availableModels, settings.controllerModel);
+    }
+
+    function populateModelSelect(selectEl, models, currentValue) {
+      selectEl.innerHTML = '';
+
+      const values = new Set(models.map(m => m.id));
+      if (currentValue && !values.has(currentValue)) {
+        const option = document.createElement('option');
+        option.value = currentValue;
+        option.textContent = `${currentValue} (unavailable)`;
+        selectEl.appendChild(option);
+      }
+
+      for (const model of models) {
+        const option = document.createElement('option');
+        option.value = model.id;
+        option.textContent = model.label || model.id;
+        selectEl.appendChild(option);
+      }
+
+      if (currentValue) {
+        selectEl.value = currentValue;
+      }
     }
     
     // Save button handler
@@ -488,6 +613,9 @@ export class SprintSettingsPanel {
         preSignalBuildCommand: preSignalBuildCommand.value.trim(),
         preSignalTestCommand: preSignalTestCommand.value.trim(),
         autoCommit: autoCommit.checked,
+        orchestratorModel: orchestratorModel.value,
+        implementorModel: implementorModel.value,
+        controllerModel: controllerModel.value,
       };
       
       vscode.postMessage({ type: 'save', settings });
