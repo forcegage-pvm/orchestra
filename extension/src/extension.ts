@@ -428,16 +428,16 @@ export async function activate(
   const extensionVersion = context.extension.packageJSON.version || "0.0.0";
   logger.info(`Orchestra extension v${extensionVersion} activating...`);
 
+  // 1. Detect Orchestra workspace
+  const orchestraRoot = findOrchestraRoot();
+
   // Initialize ConfigService
-  configService = new ConfigService(orchestraRoot);
+  configService = new ConfigService(orchestraRoot ?? undefined);
   logger.info("ConfigService initialized");
 
   // Initialize SessionManager
   sessionManager = new SessionManager(logger, configService);
   logger.info("SessionManager initialized");
-
-  // 1. Detect Orchestra workspace
-  const orchestraRoot = findOrchestraRoot();
 
   // Set context for welcome view
   vscode.commands.executeCommand(

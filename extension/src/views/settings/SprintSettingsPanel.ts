@@ -33,7 +33,7 @@ export class SprintSettingsPanel {
   private constructor(
     panel: vscode.WebviewPanel,
     workspaceRoot: string,
-    logger: OrchestraLogger
+    logger: OrchestraLogger,
   ) {
     this._panel = panel;
     this._workspaceRoot = workspaceRoot;
@@ -49,7 +49,7 @@ export class SprintSettingsPanel {
     this._panel.webview.onDidReceiveMessage(
       (message) => this._handleMessage(message),
       null,
-      this._disposables
+      this._disposables,
     );
   }
 
@@ -73,13 +73,13 @@ export class SprintSettingsPanel {
       {
         enableScripts: true,
         retainContextWhenHidden: true,
-      }
+      },
     );
 
     SprintSettingsPanel.currentPanel = new SprintSettingsPanel(
       panel,
       workspaceRoot,
-      logger
+      logger,
     );
   }
 
@@ -286,7 +286,7 @@ export class SprintSettingsPanel {
       });
 
       vscode.window.showInformationMessage(
-        "Sprint settings saved successfully"
+        "Sprint settings saved successfully",
       );
     } catch (error) {
       this._logger.error("Failed to save settings", error);
@@ -299,7 +299,7 @@ export class SprintSettingsPanel {
       vscode.window.showErrorMessage(
         `Failed to save settings: ${
           error instanceof Error ? error.message : "Unknown error"
-        }`
+        }`,
       );
     }
   }
@@ -587,7 +587,7 @@ export class SprintSettingsPanel {
       if (currentValue && !values.has(currentValue)) {
         const option = document.createElement('option');
         option.value = currentValue;
-        option.textContent = `${currentValue} (unavailable)`;
+        option.textContent = currentValue + ' (unavailable)';
         selectEl.appendChild(option);
       }
 

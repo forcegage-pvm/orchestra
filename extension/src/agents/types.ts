@@ -51,7 +51,7 @@ export const ToolInputSchemaSchema = z.object({
       description: z.string().optional(),
       default: z.unknown().optional(),
       enum: z.array(z.string()).optional(),
-    })
+    }),
   ),
   required: z.array(z.string()).optional(),
 });

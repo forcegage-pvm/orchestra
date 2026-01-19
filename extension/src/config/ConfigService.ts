@@ -5,8 +5,8 @@
  * Manages model and agent configuration per role (orchestrator/implementor/controller).
  */
 
-import * as vscode from "vscode";
 import { eq } from "drizzle-orm";
+import * as vscode from "vscode";
 import { OrchestraDB } from "../database/client.js";
 import * as schema from "../database/local-schema.js";
 

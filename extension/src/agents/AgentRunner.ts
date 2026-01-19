@@ -11,22 +11,19 @@
  * @module agents/AgentRunner
  */
 
+import type { LanguageModelChatMessage, LanguageModelChatTool } from "vscode";
 import * as vscode from "vscode";
-import type {
-  LanguageModelChatMessage,
-  LanguageModelChatTool,
-} from "vscode";
 import { AgentSession } from "./AgentSession.js";
-import { ToolRegistry } from "./ToolRegistry.js";
 import { ContextManager } from "./ContextManager.js";
-import type {
-  AgentRole,
-  AgentMessage,
-  AgentConfig,
-  ToolContext,
-  MessageContentPart,
-} from "./types.js";
 import { AgentError, SessionError } from "./errors.js";
+import { ToolRegistry } from "./ToolRegistry.js";
+import type {
+  AgentConfig,
+  AgentMessage,
+  AgentRole,
+  MessageContentPart,
+  ToolContext,
+} from "./types.js";
 
 /**
  * Output types emitted during agent execution
@@ -140,13 +137,20 @@ export class AgentRunner implements vscode.Disposable {
    */
   constructor(toolRegistry: ToolRegistry, config?: Partial<AgentConfig>) {
     this.toolRegistry = toolRegistry;
-    
+
     // Build context manager config with proper optional handling
-    const contextConfig: { maxContextTokens?: number; compactionThreshold?: number; summarizeAfterToolCalls?: number } = {};
-    if (config?.maxContextTokens !== undefined) contextConfig.maxContextTokens = config.maxContextTokens;
-    if (config?.compactionThreshold !== undefined) contextConfig.compactionThreshold = config.compactionThreshold;
-    if (config?.summarizeAfterToolCalls !== undefined) contextConfig.summarizeAfterToolCalls = config.summarizeAfterToolCalls;
-    
+    const contextConfig: {
+      maxContextTokens?: number;
+      compactionThreshold?: number;
+      summarizeAfterToolCalls?: number;
+    } = {};
+    if (config?.maxContextTokens !== undefined)
+      contextConfig.maxContextTokens = config.maxContextTokens;
+    if (config?.compactionThreshold !== undefined)
+      contextConfig.compactionThreshold = config.compactionThreshold;
+    if (config?.summarizeAfterToolCalls !== undefined)
+      contextConfig.summarizeAfterToolCalls = config.summarizeAfterToolCalls;
+
     this.contextManager = new ContextManager(contextConfig);
 
     // Apply defaults from AgentConfigSchema
@@ -175,13 +179,13 @@ export class AgentRunner implements vscode.Disposable {
    */
   async start(
     role: AgentRole,
-    options: AgentStartOptions
+    options: AgentStartOptions,
   ): Promise<AgentSession> {
     // Check if there's an existing running session
     if (this.session && this.session.status === "running") {
       throw new AgentError(
         "Agent is already running. Stop or pause before starting a new session.",
-        "AGENT_ALREADY_RUNNING"
+        "AGENT_ALREADY_RUNNING",
       );
     }
 
@@ -192,7 +196,12 @@ export class AgentRunner implements vscode.Disposable {
     // Create new session
     const sprintId = options.sprintId ?? "default-sprint";
     const maxIterations = options.maxIterations ?? this.config.maxIterations;
-    this.session = new AgentSession(role, sprintId, options.taskId ?? null, maxIterations);
+    this.session = new AgentSession(
+      role,
+      sprintId,
+      options.taskId ?? null,
+      maxIterations,
+    );
 
     // Create cancellation token
     this.cancellationTokenSource = new vscode.CancellationTokenSource();
@@ -204,9 +213,11 @@ export class AgentRunner implements vscode.Disposable {
     this.emitStateChange();
 
     // Start agent loop in background (don't await)
-    this.runningPromise = this.runAgentLoop(role, options.model).catch((error) => {
-      this.handleError(error);
-    });
+    this.runningPromise = this.runAgentLoop(role, options.model).catch(
+      (error) => {
+        this.handleError(error);
+      },
+    );
 
     return this.session;
   }
@@ -222,7 +233,7 @@ export class AgentRunner implements vscode.Disposable {
     if (!this.session || this.session.status !== "running") {
       throw new AgentError(
         "Cannot pause: agent is not running",
-        "AGENT_NOT_RUNNING"
+        "AGENT_NOT_RUNNING",
       );
     }
 
@@ -247,7 +258,7 @@ export class AgentRunner implements vscode.Disposable {
     if (!this.session || this.session.status !== "paused") {
       throw new AgentError(
         "Cannot resume: agent is not paused",
-        "AGENT_NOT_PAUSED"
+        "AGENT_NOT_PAUSED",
       );
     }
 
@@ -276,7 +287,7 @@ export class AgentRunner implements vscode.Disposable {
     ) {
       throw new AgentError(
         "Cannot stop: agent is not running or paused",
-        "AGENT_NOT_RUNNING"
+        "AGENT_NOT_RUNNING",
       );
     }
 
@@ -308,7 +319,7 @@ export class AgentRunner implements vscode.Disposable {
     if (!this.session || this.session.status !== "running") {
       throw new AgentError(
         "Cannot redirect: agent is not running",
-        "AGENT_NOT_RUNNING"
+        "AGENT_NOT_RUNNING",
       );
     }
 
@@ -349,11 +360,11 @@ export class AgentRunner implements vscode.Disposable {
       startedAt: this.session.createdAt,
       lastActivityAt: this.session.lastActivityAt,
     };
-    
+
     if (this.session.taskId !== null) {
       state.taskId = this.session.taskId;
     }
-    
+
     return state;
   }
 
@@ -378,12 +389,12 @@ export class AgentRunner implements vscode.Disposable {
    */
   private async runAgentLoop(
     role: AgentRole,
-    modelOverride?: string
+    modelOverride?: string,
   ): Promise<void> {
     if (!this.session) {
       throw new SessionError(
         "No session available for agent loop",
-        "no-session"
+        "no-session",
       );
     }
 
@@ -404,10 +415,11 @@ export class AgentRunner implements vscode.Disposable {
         this.session.incrementIteration();
 
         // Compact context if needed
-        const compactedMessages =
-          this.contextManager.isWithinLimit(this.session.messages)
-            ? this.session.messages
-            : this.contextManager.compact(this.session.messages);
+        const compactedMessages = this.contextManager.isWithinLimit(
+          this.session.messages,
+        )
+          ? this.session.messages
+          : this.contextManager.compact(this.session.messages);
 
         // Convert to vscode.lm format
         const chatMessages = this.convertToLMMessages(compactedMessages);
@@ -417,7 +429,7 @@ export class AgentRunner implements vscode.Disposable {
           model,
           chatMessages,
           tools,
-          this.cancellationTokenSource!.token
+          this.cancellationTokenSource!.token,
         );
 
         // Check if paused or stopped after request
@@ -438,7 +450,9 @@ export class AgentRunner implements vscode.Disposable {
         this.session.currentIteration >= this.session.maxIterations &&
         this.session.status === "running"
       ) {
-        this.session.fail(`Maximum iterations (${this.session.maxIterations}) reached`);
+        this.session.fail(
+          `Maximum iterations (${this.session.maxIterations}) reached`,
+        );
         this.emitOutput({
           type: "error",
           timestamp: new Date().toISOString(),
@@ -463,7 +477,7 @@ export class AgentRunner implements vscode.Disposable {
    */
   private async selectModel(
     role: AgentRole,
-    modelOverride?: string
+    modelOverride?: string,
   ): Promise<vscode.LanguageModelChat> {
     // Determine model family
     const targetModel =
@@ -486,7 +500,7 @@ export class AgentRunner implements vscode.Disposable {
     if (models.length === 0) {
       throw new AgentError(
         "No Copilot language models available",
-        "NO_MODEL_AVAILABLE"
+        "NO_MODEL_AVAILABLE",
       );
     }
 
@@ -507,7 +521,7 @@ export class AgentRunner implements vscode.Disposable {
    * @returns Array of language model chat messages
    */
   private convertToLMMessages(
-    messages: AgentMessage[]
+    messages: AgentMessage[],
   ): LanguageModelChatMessage[] {
     return messages.map((msg) => {
       const role =
@@ -522,8 +536,9 @@ export class AgentRunner implements vscode.Disposable {
 
       // Handle array content (tool results, etc.)
       const textParts = msg.content
-        .filter((part): part is Extract<MessageContentPart, { type: "text" }> =>
-          part.type === "text"
+        .filter(
+          (part): part is Extract<MessageContentPart, { type: "text" }> =>
+            part.type === "text",
         )
         .map((part) => part.value)
         .join("\n");
@@ -547,7 +562,7 @@ export class AgentRunner implements vscode.Disposable {
     model: vscode.LanguageModelChat,
     messages: LanguageModelChatMessage[],
     tools: LanguageModelChatTool[],
-    token: vscode.CancellationToken
+    token: vscode.CancellationToken,
   ): Promise<boolean> {
     if (!this.session) {
       return false;
@@ -555,15 +570,12 @@ export class AgentRunner implements vscode.Disposable {
 
     try {
       // Send request
-      const request = await model.sendRequest(
-        messages,
-        { tools },
-        token
-      );
+      const request = await model.sendRequest(messages, { tools }, token);
 
       let thinkingText = "";
       let hadToolCalls = false;
-      const toolCalls: Array<{ name: string; input: unknown; callId: string }> = [];
+      const toolCalls: Array<{ name: string; input: unknown; callId: string }> =
+        [];
 
       // Stream response
       for await (const chunk of request.stream) {
@@ -627,7 +639,7 @@ export class AgentRunner implements vscode.Disposable {
    * @param toolCalls - Array of tool calls to execute
    */
   private async executeToolCalls(
-    toolCalls: Array<{ name: string; input: unknown; callId: string }>
+    toolCalls: Array<{ name: string; input: unknown; callId: string }>,
   ): Promise<void> {
     if (!this.session) {
       return;
@@ -655,7 +667,7 @@ export class AgentRunner implements vscode.Disposable {
           toolCall.name,
           toolCall.input,
           context,
-          { retries: this.config.maxToolRetries }
+          { retries: this.config.maxToolRetries },
         );
 
         const durationMs = Date.now() - startTime;
@@ -689,7 +701,8 @@ export class AgentRunner implements vscode.Disposable {
         });
       } catch (error) {
         const durationMs = Date.now() - startTime;
-        const errorMessage = error instanceof Error ? error.message : String(error);
+        const errorMessage =
+          error instanceof Error ? error.message : String(error);
 
         // Record failed tool call
         this.session.recordToolCall({
