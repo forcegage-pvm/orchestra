@@ -48,7 +48,7 @@ export interface TddScanResult {
  * @returns Scan result with all markers grouped by task ID
  */
 export async function scanForTddMarkers(
-  workspaceRoot: string
+  workspaceRoot: string,
 ): Promise<TddScanResult> {
   // Map: taskId -> Map: testFile -> testCount
   const taskFileMap = new Map<number, Map<string, number>>();
@@ -70,7 +70,16 @@ export async function scanForTddMarkers(
     const matches = await glob(pattern, {
       cwd: workspaceRoot,
       absolute: false,
-      ignore: ["**/node_modules/**", "**/.dart_tool/**", "**/build/**"],
+      ignore: [
+        "**/node_modules/**",
+        "**/.dart_tool/**",
+        "**/build/**",
+        "**/testing/**", // Test harness files - not real TDD tests
+        "**/fixtures/**", // Test fixtures
+        "**/.orchestra/**", // Orchestra internal files
+        "**/test/**/tdd-*.test.ts", // TDD scanner's own tests (contain markers as test data)
+        "**/test/**/tdd-*_test.dart", // TDD scanner's Dart tests
+      ],
     });
     matches.forEach((file) => testFiles.add(file));
   }
