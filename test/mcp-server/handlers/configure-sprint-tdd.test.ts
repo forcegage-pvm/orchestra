@@ -38,7 +38,11 @@ describe("configure_sprint - TDD relationship declaration", () => {
   describe("valid relationship creation", () => {
     it("should create relationship with declared_at='configure_sprint'", async () => {
       const input: ConfigureSprintInput = {
-        environment: { test_command: 'npm test', test_file_pattern: 'test/**/*.test.ts', source_base_dir: '.' },
+        environment: {
+          test_command: "npm test",
+          test_file_pattern: "test/**/*.test.ts",
+          source_base_dir: ".",
+        },
         sprint: {
           id: "test-sprint-tdd-upfront-001",
           name: "Test Sprint - TDD Upfront Declaration",
@@ -113,7 +117,7 @@ describe("configure_sprint - TDD relationship declaration", () => {
         .select()
         .from(tddTaskRelationships)
         .where(
-          eq(tddTaskRelationships.sprint_id, "test-sprint-tdd-upfront-001")
+          eq(tddTaskRelationships.sprint_id, "test-sprint-tdd-upfront-001"),
         );
 
       expect(relationships).toHaveLength(1);
@@ -136,7 +140,11 @@ describe("configure_sprint - TDD relationship declaration", () => {
 
     it("should create multiple relationships in one sprint", async () => {
       const input: ConfigureSprintInput = {
-        environment: { test_command: 'npm test', test_file_pattern: 'test/**/*.test.ts', source_base_dir: '.' },
+        environment: {
+          test_command: "npm test",
+          test_file_pattern: "test/**/*.test.ts",
+          source_base_dir: ".",
+        },
         sprint: {
           id: "test-sprint-tdd-upfront-002",
           name: "Test Sprint - Multiple TDD Pairs",
@@ -251,7 +259,7 @@ describe("configure_sprint - TDD relationship declaration", () => {
         .select()
         .from(tddTaskRelationships)
         .where(
-          eq(tddTaskRelationships.sprint_id, "test-sprint-tdd-upfront-002")
+          eq(tddTaskRelationships.sprint_id, "test-sprint-tdd-upfront-002"),
         );
 
       expect(relationships).toHaveLength(2);
@@ -266,7 +274,11 @@ describe("configure_sprint - TDD relationship declaration", () => {
   describe("tdd_red_phase validation", () => {
     it("should reject relationship where red_task_id does not have tdd_red_phase=true", async () => {
       const input: ConfigureSprintInput = {
-        environment: { test_command: 'npm test', test_file_pattern: 'test/**/*.test.ts', source_base_dir: '.' },
+        environment: {
+          test_command: "npm test",
+          test_file_pattern: "test/**/*.test.ts",
+          source_base_dir: ".",
+        },
         sprint: {
           id: "test-sprint-tdd-upfront-003",
           name: "Test Sprint - Invalid Red Task",
@@ -340,7 +352,11 @@ describe("configure_sprint - TDD relationship declaration", () => {
 
     it("should reject relationship where red_task_id has tdd_red_phase=false explicitly", async () => {
       const input: ConfigureSprintInput = {
-        environment: { test_command: 'npm test', test_file_pattern: 'test/**/*.test.ts', source_base_dir: '.' },
+        environment: {
+          test_command: "npm test",
+          test_file_pattern: "test/**/*.test.ts",
+          source_base_dir: ".",
+        },
         sprint: {
           id: "test-sprint-tdd-upfront-004",
           name: "Test Sprint - Explicit False Red Phase",
@@ -414,7 +430,11 @@ describe("configure_sprint - TDD relationship declaration", () => {
   describe("different task validation", () => {
     it("should reject relationship where red_task_id equals green_task_id", async () => {
       const input: ConfigureSprintInput = {
-        environment: { test_command: 'npm test', test_file_pattern: 'test/**/*.test.ts', source_base_dir: '.' },
+        environment: {
+          test_command: "npm test",
+          test_file_pattern: "test/**/*.test.ts",
+          source_base_dir: ".",
+        },
         sprint: {
           id: "test-sprint-tdd-upfront-005",
           name: "Test Sprint - Same Task IDs",
@@ -468,7 +488,11 @@ describe("configure_sprint - TDD relationship declaration", () => {
 
     it("should reject multiple relationships with same task ID pairs", async () => {
       const input: ConfigureSprintInput = {
-        environment: { test_command: 'npm test', test_file_pattern: 'test/**/*.test.ts', source_base_dir: '.' },
+        environment: {
+          test_command: "npm test",
+          test_file_pattern: "test/**/*.test.ts",
+          source_base_dir: ".",
+        },
         sprint: {
           id: "test-sprint-tdd-upfront-006",
           name: "Test Sprint - Duplicate Relationships",
@@ -566,7 +590,11 @@ describe("configure_sprint - TDD relationship declaration", () => {
   describe("non-existent task ID validation", () => {
     it("should reject relationship with non-existent red_task_id", async () => {
       const input: ConfigureSprintInput = {
-        environment: { test_command: 'npm test', test_file_pattern: 'test/**/*.test.ts', source_base_dir: '.' },
+        environment: {
+          test_command: "npm test",
+          test_file_pattern: "test/**/*.test.ts",
+          source_base_dir: ".",
+        },
         sprint: {
           id: "test-sprint-tdd-upfront-007",
           name: "Test Sprint - Invalid Red Task ID",
@@ -619,7 +647,11 @@ describe("configure_sprint - TDD relationship declaration", () => {
 
     it("should reject relationship with non-existent green_task_id", async () => {
       const input: ConfigureSprintInput = {
-        environment: { test_command: 'npm test', test_file_pattern: 'test/**/*.test.ts', source_base_dir: '.' },
+        environment: {
+          test_command: "npm test",
+          test_file_pattern: "test/**/*.test.ts",
+          source_base_dir: ".",
+        },
         sprint: {
           id: "test-sprint-tdd-upfront-008",
           name: "Test Sprint - Invalid Green Task ID",
@@ -673,7 +705,11 @@ describe("configure_sprint - TDD relationship declaration", () => {
 
     it("should reject relationship with both non-existent task IDs", async () => {
       const input: ConfigureSprintInput = {
-        environment: { test_command: 'npm test', test_file_pattern: 'test/**/*.test.ts', source_base_dir: '.' },
+        environment: {
+          test_command: "npm test",
+          test_file_pattern: "test/**/*.test.ts",
+          source_base_dir: ".",
+        },
         sprint: {
           id: "test-sprint-tdd-upfront-009",
           name: "Test Sprint - Both Invalid Task IDs",
@@ -728,7 +764,11 @@ describe("configure_sprint - TDD relationship declaration", () => {
   describe("edge cases", () => {
     it("should accept sprint with no tdd_relationships array", async () => {
       const input: ConfigureSprintInput = {
-        environment: { test_command: 'npm test', test_file_pattern: 'test/**/*.test.ts', source_base_dir: '.' },
+        environment: {
+          test_command: "npm test",
+          test_file_pattern: "test/**/*.test.ts",
+          source_base_dir: ".",
+        },
         sprint: {
           id: "test-sprint-tdd-upfront-010",
           name: "Test Sprint - No TDD Relationships",
@@ -775,7 +815,7 @@ describe("configure_sprint - TDD relationship declaration", () => {
         .select()
         .from(tddTaskRelationships)
         .where(
-          eq(tddTaskRelationships.sprint_id, "test-sprint-tdd-upfront-010")
+          eq(tddTaskRelationships.sprint_id, "test-sprint-tdd-upfront-010"),
         );
 
       expect(relationships).toHaveLength(0);
@@ -783,7 +823,11 @@ describe("configure_sprint - TDD relationship declaration", () => {
 
     it("should accept sprint with empty tdd_relationships array when no red-phase tasks", async () => {
       const input: ConfigureSprintInput = {
-        environment: { test_command: 'npm test', test_file_pattern: 'test/**/*.test.ts', source_base_dir: '.' },
+        environment: {
+          test_command: "npm test",
+          test_file_pattern: "test/**/*.test.ts",
+          source_base_dir: ".",
+        },
         sprint: {
           id: "test-sprint-tdd-upfront-011",
           name: "Test Sprint - Empty TDD Relationships",
@@ -831,7 +875,7 @@ describe("configure_sprint - TDD relationship declaration", () => {
         .select()
         .from(tddTaskRelationships)
         .where(
-          eq(tddTaskRelationships.sprint_id, "test-sprint-tdd-upfront-011")
+          eq(tddTaskRelationships.sprint_id, "test-sprint-tdd-upfront-011"),
         );
 
       expect(relationships).toHaveLength(0);
@@ -840,7 +884,11 @@ describe("configure_sprint - TDD relationship declaration", () => {
     it("should handle relationship where green task also has tdd_red_phase=true", async () => {
       // Edge case: Green task can also be a red phase task (e.g., for chained TDD)
       const input: ConfigureSprintInput = {
-        environment: { test_command: 'npm test', test_file_pattern: 'test/**/*.test.ts', source_base_dir: '.' },
+        environment: {
+          test_command: "npm test",
+          test_file_pattern: "test/**/*.test.ts",
+          source_base_dir: ".",
+        },
         sprint: {
           id: "test-sprint-tdd-upfront-012",
           name: "Test Sprint - Green Task is also Red",
@@ -937,11 +985,291 @@ describe("configure_sprint - TDD relationship declaration", () => {
         .select()
         .from(tddTaskRelationships)
         .where(
-          eq(tddTaskRelationships.sprint_id, "test-sprint-tdd-upfront-012")
+          eq(tddTaskRelationships.sprint_id, "test-sprint-tdd-upfront-012"),
         );
 
       expect(relationships).toHaveLength(2);
       expect(relationships[0].declared_at).toBe("configure_sprint");
+    });
+  });
+
+  describe("environment enforcement for TDD red-phase tasks", () => {
+    it("should reject sprint with tdd_red_phase task when environment is missing", async () => {
+      const input: ConfigureSprintInput = {
+        sprint: {
+          id: "test-sprint-no-env-001",
+          name: "Sprint Without Environment",
+        },
+        phases: [
+          {
+            phase_id: "phase-1",
+            phase_name: "Phase 1",
+            speckit_tasks: [],
+          },
+        ],
+        tasks: [
+          {
+            task_id: 1,
+            phase_id: "phase-1",
+            title: "Red Task",
+            description: "TDD red phase task",
+            category: "INFRASTRUCTURE",
+            dependencies: [],
+            tdd_red_phase: true,
+            verification: {
+              structural_checks: [
+                {
+                  description: "Test file exists",
+                  severity: "MAJOR",
+                  path: "test/feature.test.ts",
+                  pattern: "describe",
+                  min_matches: 1,
+                },
+              ],
+            },
+          },
+        ],
+        tdd_relationships: [
+          {
+            red_task_id: 1,
+            green_task_id: 2,
+          },
+        ],
+      };
+
+      const result = await handleConfigureSprint(input);
+      const parsed = JSON.parse(result.content[0].text);
+
+      expect(parsed.success).toBe(false);
+      expect(parsed.error.code).toBe("VALIDATION_ERROR");
+      // Zod validation error - don't check specific message text
+    });
+
+    it("should reject sprint when environment.test_command is missing for TDD tasks", async () => {
+      const input: ConfigureSprintInput = {
+        environment: {
+          test_file_pattern: "test/**/*.test.ts",
+          source_base_dir: ".",
+        },
+        sprint: {
+          id: "test-sprint-no-test-cmd-001",
+          name: "Sprint Without Test Command",
+        },
+        phases: [
+          {
+            phase_id: "phase-1",
+            phase_name: "Phase 1",
+            speckit_tasks: [],
+          },
+        ],
+        tasks: [
+          {
+            task_id: 1,
+            phase_id: "phase-1",
+            title: "Red Task",
+            description: "TDD red phase task",
+            category: "INFRASTRUCTURE",
+            dependencies: [],
+            tdd_red_phase: true,
+            verification: {
+              structural_checks: [
+                {
+                  description: "Test file exists",
+                  severity: "MAJOR",
+                  path: "test/feature.test.ts",
+                  pattern: "describe",
+                  min_matches: 1,
+                },
+              ],
+            },
+          },
+        ],
+        tdd_relationships: [
+          {
+            red_task_id: 1,
+            green_task_id: 2,
+          },
+        ],
+      };
+
+      const result = await handleConfigureSprint(input);
+      const parsed = JSON.parse(result.content[0].text);
+
+      expect(parsed.success).toBe(false);
+      expect(parsed.error.code).toBe("VALIDATION_ERROR");
+      // Zod validation error - don't check specific message text
+    });
+
+    it("should reject sprint when environment.test_file_pattern is missing for TDD tasks", async () => {
+      const input: ConfigureSprintInput = {
+        environment: {
+          test_command: "npm test",
+          source_base_dir: ".",
+        },
+        sprint: {
+          id: "test-sprint-no-test-pattern-001",
+          name: "Sprint Without Test Pattern",
+        },
+        phases: [
+          {
+            phase_id: "phase-1",
+            phase_name: "Phase 1",
+            speckit_tasks: [],
+          },
+        ],
+        tasks: [
+          {
+            task_id: 1,
+            phase_id: "phase-1",
+            title: "Red Task",
+            description: "TDD red phase task",
+            category: "INFRASTRUCTURE",
+            dependencies: [],
+            tdd_red_phase: true,
+            verification: {
+              structural_checks: [
+                {
+                  description: "Test file exists",
+                  severity: "MAJOR",
+                  path: "test/feature.test.ts",
+                  pattern: "describe",
+                  min_matches: 1,
+                },
+              ],
+            },
+          },
+        ],
+        tdd_relationships: [
+          {
+            red_task_id: 1,
+            green_task_id: 2,
+          },
+        ],
+      };
+
+      const result = await handleConfigureSprint(input);
+      const parsed = JSON.parse(result.content[0].text);
+
+      expect(parsed.success).toBe(false);
+      expect(parsed.error.code).toBe("VALIDATION_ERROR");
+      // Zod validation error - don't check specific message text
+    });
+
+    it("should accept sprint with complete environment for TDD tasks", async () => {
+      const input: ConfigureSprintInput = {
+        environment: {
+          test_command: "npm test",
+          test_file_pattern: "test/**/*.test.ts",
+          source_base_dir: ".",
+        },
+        sprint: {
+          id: "test-sprint-with-env-001",
+          name: "Sprint With Environment",
+        },
+        phases: [
+          {
+            phase_id: "phase-1",
+            phase_name: "Phase 1",
+            speckit_tasks: [],
+          },
+        ],
+        tasks: [
+          {
+            task_id: 1,
+            phase_id: "phase-1",
+            title: "Red Task",
+            description: "TDD red phase task",
+            category: "INFRASTRUCTURE",
+            dependencies: [],
+            tdd_red_phase: true,
+            verification: {
+              structural_checks: [
+                {
+                  description: "Test file exists",
+                  severity: "MAJOR",
+                  path: "test/feature.test.ts",
+                  pattern: "describe",
+                  min_matches: 1,
+                },
+              ],
+            },
+          },
+          {
+            task_id: 2,
+            phase_id: "phase-1",
+            title: "Green Task",
+            description: "Implementation task",
+            category: "INFRASTRUCTURE",
+            dependencies: [1],
+            verification: {
+              structural_checks: [
+                {
+                  description: "Impl exists",
+                  severity: "MAJOR",
+                  path: "src/feature.ts",
+                  pattern: ".*",
+                  min_matches: 1,
+                },
+              ],
+            },
+          },
+        ],
+        tdd_relationships: [
+          {
+            red_task_id: 1,
+            green_task_id: 2,
+          },
+        ],
+      };
+
+      const result = await handleConfigureSprint(input);
+      const parsed = JSON.parse(result.content[0].text);
+
+      expect(parsed.success).toBe(true);
+      expect(parsed.tasks_created).toBe(2);
+    });
+
+    it("should allow sprint without environment when no TDD tasks present", async () => {
+      const input: ConfigureSprintInput = {
+        sprint: {
+          id: "test-sprint-no-tdd-001",
+          name: "Sprint Without TDD",
+        },
+        phases: [
+          {
+            phase_id: "phase-1",
+            phase_name: "Phase 1",
+            speckit_tasks: [],
+          },
+        ],
+        tasks: [
+          {
+            task_id: 1,
+            phase_id: "phase-1",
+            title: "Regular Task",
+            description: "Normal task without TDD",
+            category: "INFRASTRUCTURE",
+            dependencies: [],
+            verification: {
+              structural_checks: [
+                {
+                  description: "File exists",
+                  severity: "MAJOR",
+                  path: "src/feature.ts",
+                  pattern: ".*",
+                  min_matches: 1,
+                },
+              ],
+            },
+          },
+        ],
+      };
+
+      const result = await handleConfigureSprint(input);
+      const parsed = JSON.parse(result.content[0].text);
+
+      expect(parsed.success).toBe(true);
+      expect(parsed.tasks_created).toBe(1);
     });
   });
 });

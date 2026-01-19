@@ -760,6 +760,7 @@ export async function activate(
       }),
       vscode.commands.registerCommand("orchestra.refreshStatus", () => {
         treeProvider.refresh();
+        codeReviewTreeProvider.refresh();
         statusBar.refresh();
         logger.info("Manual refresh triggered");
       }),

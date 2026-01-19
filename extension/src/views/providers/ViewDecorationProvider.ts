@@ -116,7 +116,19 @@ export class OrchestraViewDecorationProvider
 
       const statusText = codeReviewStatus.replace(/_/g, " ");
       const tooltipSuffix = ` | Code Review: ${statusText}`;
-      const badge = "CR";
+
+      // Use icon badges instead of text
+      let badge: string | undefined;
+      if (codeReviewStatus === "PENDING") {
+        badge = "⏳";
+      } else if (codeReviewStatus === "APPROVED") {
+        badge = "✓";
+      } else if (
+        codeReviewStatus === "CHANGES_REQUESTED" ||
+        codeReviewStatus === "REJECTED"
+      ) {
+        badge = "✗";
+      }
 
       let color = base?.color;
       if (

@@ -35,6 +35,7 @@ describe("check-templates integration with test harnesses", () => {
         testFilePattern: "test/**/*.dart",
         taskId: 3,
         taskTitle: "Test",
+        testCommand: "flutter test",
       });
 
       const taskIdCheck = checks.find((c) =>
@@ -62,6 +63,7 @@ describe("check-templates integration with test harnesses", () => {
         testFilePattern: "test/**/*.dart",
         taskId: 1,
         taskTitle: "Test",
+        testCommand: "flutter test",
       });
 
       const markerCheck = checks.find((c) =>
@@ -88,6 +90,7 @@ describe("check-templates integration with test harnesses", () => {
         testFilePattern: "test/**/*.dart",
         taskId: 1,
         taskTitle: "Test",
+        testCommand: "flutter test",
       });
 
       const markerCheck = checks.find((c) =>
@@ -106,6 +109,7 @@ describe("check-templates integration with test harnesses", () => {
         testFilePattern: "test/**/*.dart",
         taskId: 1,
         taskTitle: "Test",
+        testCommand: "flutter test",
       });
 
       const markerCheck = checks.find((c) =>
@@ -136,6 +140,7 @@ describe("check-templates integration with test harnesses", () => {
         testFilePattern: "test/**/*.dart",
         taskId: 1,
         taskTitle: "Test",
+        testCommand: "flutter test",
       });
 
       const markerCheck = checks.find((c) =>
@@ -175,6 +180,7 @@ describe("check-templates integration with test harnesses", () => {
         testFilePattern: "test/**/*.test.ts",
         taskId: 3,
         taskTitle: "Test",
+        testCommand: "npm test",
       });
 
       const taskIdCheck = checks.find((c) =>
@@ -202,6 +208,7 @@ describe("check-templates integration with test harnesses", () => {
         testFilePattern: "test/**/*.test.ts",
         taskId: 1,
         taskTitle: "Test",
+        testCommand: "npm test",
       });
 
       const markerCheck = checks.find((c) =>
@@ -228,6 +235,7 @@ describe("check-templates integration with test harnesses", () => {
         testFilePattern: "test/**/*.test.ts",
         taskId: 1,
         taskTitle: "Test",
+        testCommand: "npm test",
       });
 
       const markerCheck = checks.find((c) =>
@@ -261,6 +269,7 @@ describe("check-templates integration with test harnesses", () => {
         testFilePattern: "test/**/*.test.ts",
         taskId: 1,
         taskTitle: "Test",
+        testCommand: "npm test",
       });
 
       const markerCheck = checks.find((c) =>
@@ -303,6 +312,7 @@ describe("check-templates integration with test harnesses", () => {
           testFilePattern: "test/**/*",
           taskId: 1,
           taskTitle: "Test",
+          testCommand: "npm test",
         });
         expect(checks.length, `${lang} should have 4 checks`).toBe(4);
       }
@@ -315,6 +325,7 @@ describe("check-templates integration with test harnesses", () => {
           testFilePattern: "test/**/*",
           taskId: 1,
           taskTitle: "Test",
+          testCommand: "npm test",
         });
 
         const behavioral = checks.filter((c) => c.check_type === "behavioral");
@@ -342,6 +353,7 @@ describe("check-templates integration with test harnesses", () => {
           testFilePattern: "test/**/*",
           taskId: 1,
           taskTitle: "Test",
+          testCommand: "npm test",
         });
 
         const behavioral = checks.filter((c) => c.check_type === "behavioral");
@@ -367,6 +379,7 @@ describe("check-templates integration with test harnesses", () => {
           testFilePattern: "test/**/*",
           taskId: 123,
           taskTitle: "Test",
+          testCommand: "npm test",
         });
 
         for (const check of checks) {
@@ -387,6 +400,7 @@ describe("check-templates integration with test harnesses", () => {
         testFilePattern: "test/**/*.dart",
         taskId: 1,
         taskTitle: "Test",
+        testCommand: "flutter test",
       });
 
       const behavioral = checksWithPrefix.filter(
@@ -404,6 +418,7 @@ describe("check-templates integration with test harnesses", () => {
         testFilePattern: "test/**/*.dart",
         taskId: 1,
         taskTitle: "Test",
+        testCommand: "flutter test",
       });
 
       const behavioral = checksNoPrefix.filter(
@@ -412,6 +427,116 @@ describe("check-templates integration with test harnesses", () => {
 
       for (const check of behavioral) {
         expect(check.check_config.command).not.toMatch(/^cd /);
+      }
+    });
+  });
+
+  describe("environment-driven testCommand substitution", () => {
+    it("should substitute testCommand for Dart/Flutter", () => {
+      const checks = getTddRedChecks("dart", {
+        cdPrefix: "",
+        testFilePattern: "test/**/*.dart",
+        taskId: 1,
+        taskTitle: "Feature Test",
+        testCommand: "flutter test --tags tdd-red",
+      });
+
+      const behavioral = checks.filter((c) => c.check_type === "behavioral");
+      expect(behavioral.length).toBeGreaterThan(0);
+
+      for (const check of behavioral) {
+        expect(check.check_config.command).toBe("flutter test --tags tdd-red");
+      }
+    });
+
+    it("should substitute testCommand for TypeScript/Vitest", () => {
+      const checks = getTddRedChecks("typescript", {
+        cdPrefix: "",
+        testFilePattern: "test/**/*.test.ts",
+        taskId: 1,
+        taskTitle: "Feature Test",
+        testCommand: "npm test -- --testNamePattern='\\[tdd-red\\]'",
+      });
+
+      const behavioral = checks.filter((c) => c.check_type === "behavioral");
+      expect(behavioral.length).toBeGreaterThan(0);
+
+      for (const check of behavioral) {
+        expect(check.check_config.command).toBe(
+          "npm test -- --testNamePattern='\\[tdd-red\\]'",
+        );
+      }
+    });
+
+    it("should substitute testCommand for Python/Pytest", () => {
+      const checks = getTddRedChecks("python", {
+        cdPrefix: "",
+        testFilePattern: "test/**/*.py",
+        taskId: 1,
+        taskTitle: "Feature Test",
+        testCommand: "pytest -m tdd_red",
+      });
+
+      const behavioral = checks.filter((c) => c.check_type === "behavioral");
+      expect(behavioral.length).toBeGreaterThan(0);
+
+      for (const check of behavioral) {
+        expect(check.check_config.command).toBe("pytest -m tdd_red");
+      }
+    });
+
+    it("should substitute testCommand for Rust/Cargo", () => {
+      const checks = getTddRedChecks("rust", {
+        cdPrefix: "",
+        testFilePattern: "tests/**/*.rs",
+        taskId: 1,
+        taskTitle: "Feature Test",
+        testCommand: "cargo test tdd_red_",
+      });
+
+      const behavioral = checks.filter((c) => c.check_type === "behavioral");
+      expect(behavioral.length).toBeGreaterThan(0);
+
+      for (const check of behavioral) {
+        expect(check.check_config.command).toBe("cargo test tdd_red_");
+      }
+    });
+
+    it("should support custom test commands with flags", () => {
+      const checks = getTddRedChecks("typescript", {
+        cdPrefix: "",
+        testFilePattern: "test/**/*.test.ts",
+        taskId: 1,
+        taskTitle: "Feature Test",
+        testCommand: "npm run test:ci -- --run --reporter=verbose",
+      });
+
+      const behavioral = checks.filter((c) => c.check_type === "behavioral");
+      expect(behavioral.length).toBeGreaterThan(0);
+
+      for (const check of behavioral) {
+        expect(check.check_config.command).toBe(
+          "npm run test:ci -- --run --reporter=verbose",
+        );
+      }
+    });
+
+    it("should combine cdPrefix with testCommand", () => {
+      const checks = getTddRedChecks("dart", {
+        cdPrefix: "cd packages/app; ",
+        testFilePattern: "test/**/*.dart",
+        taskId: 1,
+        taskTitle: "Feature Test",
+        testCommand: "flutter test --tags tdd-red",
+      });
+
+      const behavioral = checks.filter((c) => c.check_type === "behavioral");
+      expect(behavioral.length).toBeGreaterThan(0);
+
+      for (const check of behavioral) {
+        expect(check.check_config.command).toBe(
+          "cd packages/app; flutter test --tags tdd-red",
+        );
       }
     });
   });

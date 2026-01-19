@@ -70,6 +70,10 @@ export class SprintTreeProvider implements vscode.TreeDataProvider<TreeElement> 
   }
 
   refresh(): void {
+    // Invalidate cached code review status so refresh reflects latest reviews
+    this._codeReviewStatusByTaskId = new Map();
+    this._codeReviewStatusSprintId = null;
+
     this._onDidChangeTreeData.fire();
   }
 
