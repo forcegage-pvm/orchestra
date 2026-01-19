@@ -490,6 +490,7 @@ describe("get_code_review_summary handler", () => {
   let tempDir: string;
   const testSprintId1 = "test-sprint-summary-1";
   const testSprintId2 = "test-sprint-summary-2";
+  let tasksData: Array<{ id: number; task_id: number; title: string }>;
 
   beforeEach(async () => {
     tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "summary-cr-test-"));
@@ -576,7 +577,7 @@ describe("get_code_review_summary handler", () => {
       .limit(1);
 
     // Create tasks for sprint 1
-    const tasksData = [];
+    tasksData = [];
     for (let i = 1; i <= 6; i++) {
       const [task] = await db
         .insert(tasks)
@@ -729,6 +730,39 @@ describe("get_code_review_summary handler", () => {
         approved: 2,
         changes_requested: 1,
         rejected: 1,
+      });
+    });
+
+    it("should include pending review identifiers with task mapping", async () => {
+      const { handleGetCodeReviewSummary } =
+        await import("../../src/mcp-server/handlers/get-code-review-summary.js");
+
+      const result = await handleGetCodeReviewSummary({
+        sprint_id: testSprintId1,
+      });
+
+      const output = JSON.parse(result.content[0].text);
+      const pendingReviews = output.summary.pending_reviews;
+      expect(pendingReviews).toHaveLength(2);
+
+      const pendingSprintTaskIds = pendingReviews
+        .map((review: any) => review.sprint_task_id)
+        .sort((a: number, b: number) => a - b);
+      expect(pendingSprintTaskIds).toEqual([1, 2]);
+
+      const expectedTaskIds = tasksData
+        .slice(0, 2)
+        .map((task) => task.id)
+        .sort((a, b) => a - b);
+      const pendingTaskIds = pendingReviews
+        .map((review: any) => review.task_id)
+        .sort((a: number, b: number) => a - b);
+      expect(pendingTaskIds).toEqual(expectedTaskIds);
+
+      pendingReviews.forEach((review: any) => {
+        expect(typeof review.review_id).toBe("number");
+        expect(review.status).toBe("PENDING");
+        expect(typeof review.title).toBe("string");
       });
     });
 

@@ -38,6 +38,7 @@ describe("configure_sprint - TDD relationship declaration", () => {
   describe("valid relationship creation", () => {
     it("should create relationship with declared_at='configure_sprint'", async () => {
       const input: ConfigureSprintInput = {
+        environment: { test_command: 'npm test', test_file_pattern: 'test/**/*.test.ts', source_base_dir: '.' },
         sprint: {
           id: "test-sprint-tdd-upfront-001",
           name: "Test Sprint - TDD Upfront Declaration",
@@ -135,6 +136,7 @@ describe("configure_sprint - TDD relationship declaration", () => {
 
     it("should create multiple relationships in one sprint", async () => {
       const input: ConfigureSprintInput = {
+        environment: { test_command: 'npm test', test_file_pattern: 'test/**/*.test.ts', source_base_dir: '.' },
         sprint: {
           id: "test-sprint-tdd-upfront-002",
           name: "Test Sprint - Multiple TDD Pairs",
@@ -264,6 +266,7 @@ describe("configure_sprint - TDD relationship declaration", () => {
   describe("tdd_red_phase validation", () => {
     it("should reject relationship where red_task_id does not have tdd_red_phase=true", async () => {
       const input: ConfigureSprintInput = {
+        environment: { test_command: 'npm test', test_file_pattern: 'test/**/*.test.ts', source_base_dir: '.' },
         sprint: {
           id: "test-sprint-tdd-upfront-003",
           name: "Test Sprint - Invalid Red Task",
@@ -337,6 +340,7 @@ describe("configure_sprint - TDD relationship declaration", () => {
 
     it("should reject relationship where red_task_id has tdd_red_phase=false explicitly", async () => {
       const input: ConfigureSprintInput = {
+        environment: { test_command: 'npm test', test_file_pattern: 'test/**/*.test.ts', source_base_dir: '.' },
         sprint: {
           id: "test-sprint-tdd-upfront-004",
           name: "Test Sprint - Explicit False Red Phase",
@@ -410,6 +414,7 @@ describe("configure_sprint - TDD relationship declaration", () => {
   describe("different task validation", () => {
     it("should reject relationship where red_task_id equals green_task_id", async () => {
       const input: ConfigureSprintInput = {
+        environment: { test_command: 'npm test', test_file_pattern: 'test/**/*.test.ts', source_base_dir: '.' },
         sprint: {
           id: "test-sprint-tdd-upfront-005",
           name: "Test Sprint - Same Task IDs",
@@ -463,6 +468,7 @@ describe("configure_sprint - TDD relationship declaration", () => {
 
     it("should reject multiple relationships with same task ID pairs", async () => {
       const input: ConfigureSprintInput = {
+        environment: { test_command: 'npm test', test_file_pattern: 'test/**/*.test.ts', source_base_dir: '.' },
         sprint: {
           id: "test-sprint-tdd-upfront-006",
           name: "Test Sprint - Duplicate Relationships",
@@ -560,6 +566,7 @@ describe("configure_sprint - TDD relationship declaration", () => {
   describe("non-existent task ID validation", () => {
     it("should reject relationship with non-existent red_task_id", async () => {
       const input: ConfigureSprintInput = {
+        environment: { test_command: 'npm test', test_file_pattern: 'test/**/*.test.ts', source_base_dir: '.' },
         sprint: {
           id: "test-sprint-tdd-upfront-007",
           name: "Test Sprint - Invalid Red Task ID",
@@ -612,6 +619,7 @@ describe("configure_sprint - TDD relationship declaration", () => {
 
     it("should reject relationship with non-existent green_task_id", async () => {
       const input: ConfigureSprintInput = {
+        environment: { test_command: 'npm test', test_file_pattern: 'test/**/*.test.ts', source_base_dir: '.' },
         sprint: {
           id: "test-sprint-tdd-upfront-008",
           name: "Test Sprint - Invalid Green Task ID",
@@ -665,6 +673,7 @@ describe("configure_sprint - TDD relationship declaration", () => {
 
     it("should reject relationship with both non-existent task IDs", async () => {
       const input: ConfigureSprintInput = {
+        environment: { test_command: 'npm test', test_file_pattern: 'test/**/*.test.ts', source_base_dir: '.' },
         sprint: {
           id: "test-sprint-tdd-upfront-009",
           name: "Test Sprint - Both Invalid Task IDs",
@@ -719,6 +728,7 @@ describe("configure_sprint - TDD relationship declaration", () => {
   describe("edge cases", () => {
     it("should accept sprint with no tdd_relationships array", async () => {
       const input: ConfigureSprintInput = {
+        environment: { test_command: 'npm test', test_file_pattern: 'test/**/*.test.ts', source_base_dir: '.' },
         sprint: {
           id: "test-sprint-tdd-upfront-010",
           name: "Test Sprint - No TDD Relationships",
@@ -773,6 +783,7 @@ describe("configure_sprint - TDD relationship declaration", () => {
 
     it("should accept sprint with empty tdd_relationships array when no red-phase tasks", async () => {
       const input: ConfigureSprintInput = {
+        environment: { test_command: 'npm test', test_file_pattern: 'test/**/*.test.ts', source_base_dir: '.' },
         sprint: {
           id: "test-sprint-tdd-upfront-011",
           name: "Test Sprint - Empty TDD Relationships",
@@ -829,6 +840,7 @@ describe("configure_sprint - TDD relationship declaration", () => {
     it("should handle relationship where green task also has tdd_red_phase=true", async () => {
       // Edge case: Green task can also be a red phase task (e.g., for chained TDD)
       const input: ConfigureSprintInput = {
+        environment: { test_command: 'npm test', test_file_pattern: 'test/**/*.test.ts', source_base_dir: '.' },
         sprint: {
           id: "test-sprint-tdd-upfront-012",
           name: "Test Sprint - Green Task is also Red",

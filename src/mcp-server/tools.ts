@@ -67,6 +67,29 @@ const TOOLS_WITH_ROLES: ToolWithRole[] = [
           },
           required: ["id", "name"],
         },
+        environment: {
+          type: "object",
+          description:
+            "REQUIRED: Testing/build environment configuration. Eliminates guessing about test commands and file patterns.",
+          properties: {
+            test_command: {
+              type: "string",
+              description:
+                "Command to run tests (e.g., 'npm test', 'flutter test', 'pytest', 'cargo test')",
+            },
+            test_file_pattern: {
+              type: "string",
+              description:
+                "Glob pattern for test files (e.g., 'test/**/*.test.ts', 'test/**/*_test.dart')",
+            },
+            source_base_dir: {
+              type: "string",
+              description:
+                "Base directory for source files - for monorepos (e.g., '.', 'extension', 'packages/app')",
+            },
+          },
+          required: ["test_command", "test_file_pattern"],
+        },
         phases: {
           type: "array",
           items: {
@@ -1306,6 +1329,26 @@ const TOOLS_WITH_ROLES: ToolWithRole[] = [
   // Code Review Tools (Sprint 005) - Decision tools are CONTROLLER ONLY
   {
     role: "controller",
+    name: "claim_code_review",
+    description:
+      "Claim a pending code review to enforce isolated, single-task review.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        review_id: {
+          type: "number",
+          description: "ID of the pending code review",
+        },
+        reviewer: {
+          type: "string",
+          description: "Reviewer identifier (optional)",
+        },
+      },
+      required: ["review_id"],
+    },
+  },
+  {
+    role: "controller",
     name: "approve_code_review",
     description:
       "Approve a pending code review. Records summary, risk, files reviewed, and tests run.",
@@ -1422,6 +1465,8 @@ const TOOLS_WITH_ROLES: ToolWithRole[] = [
       type: "object",
       properties: {
         task_id: { type: "number" },
+        sprint_task_id: { type: "number" },
+        sprint_id: { type: "string" },
       },
     },
   },
@@ -1847,6 +1892,10 @@ export function registerTools(server: Server, role: ServerRole = "full"): void {
           ).handleReadSpecFile(args);
 
         // Code Review Tools (Sprint 005)
+        case "claim_code_review":
+          return await (
+            await import("./handlers/claim-code-review.js")
+          ).handleClaimCodeReview(args);
         case "approve_code_review":
           return await (
             await import("./handlers/approve-code-review.js")

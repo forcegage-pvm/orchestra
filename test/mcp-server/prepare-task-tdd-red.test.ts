@@ -14,6 +14,7 @@ import { getDb, initializeDb, resetDb } from "../../src/db/index.js";
 import {
   phases,
   sprints,
+  sprintSettings,
   tasks,
   verificationChecks,
 } from "../../src/db/schema.js";
@@ -64,10 +65,13 @@ describe("prepare_task TDD Red-Phase Verification Auto-Injection", () => {
 
   describe("TypeScript projects", () => {
     beforeEach(() => {
-      // Mark as TypeScript project
+      // Mark as TypeScript project with test script
       fs.writeFileSync(
         path.join(tempDir, "package.json"),
-        JSON.stringify({ name: "test-project" })
+        JSON.stringify({
+          name: "test-project",
+          scripts: { test: "vitest" },
+        }),
       );
     });
 
@@ -127,21 +131,20 @@ describe("prepare_task TDD Red-Phase Verification Auto-Injection", () => {
       const redFailCheck = checks.find(
         (c) =>
           c.check_type === "behavioral" &&
-          c.description.includes("Red-phase tests must fail")
+          c.description.includes("Red-phase tests must fail"),
       );
       expect(redFailCheck).toBeDefined();
       expect(redFailCheck!.severity).toBe("BLOCKING");
       const redFailConfig = JSON.parse(redFailCheck!.check_config);
-      expect(redFailConfig.command).toBe(
-        'npm test -- --testNamePattern="\\[tdd-red\\]"'
-      );
+      // Task 2: Commands now contain only base command (filtering added in Task 5)
+      expect(redFailConfig.command).toBe("npm test");
       expect(redFailConfig.expect_exit_code).toBe(1);
 
       // Check 2: Non-red tests must pass
       const greenPassCheck = checks.find(
         (c) =>
           c.check_type === "behavioral" &&
-          c.description.includes("Non-red tests must pass")
+          c.description.includes("Non-red tests must pass"),
       );
       expect(greenPassCheck).toBeDefined();
       expect(greenPassCheck!.severity).toBe("BLOCKING");
@@ -152,7 +155,7 @@ describe("prepare_task TDD Red-Phase Verification Auto-Injection", () => {
       const taskIdCheck = checks.find(
         (c) =>
           c.check_type === "structural" &&
-          c.description.includes("Task-ID annotation")
+          c.description.includes("Task-ID annotation"),
       );
       expect(taskIdCheck).toBeDefined();
       expect(taskIdCheck!.severity).toBe("BLOCKING");
@@ -161,7 +164,7 @@ describe("prepare_task TDD Red-Phase Verification Auto-Injection", () => {
       const markerCheck = checks.find(
         (c) =>
           c.check_type === "structural" &&
-          c.description.includes("Red-phase test marker")
+          c.description.includes("Red-phase test marker"),
       );
       expect(markerCheck).toBeDefined();
       expect(markerCheck!.severity).toBe("BLOCKING");
@@ -222,7 +225,7 @@ describe("prepare_task TDD Red-Phase Verification Auto-Injection", () => {
       const cleanupCheck = checks.find(
         (c) =>
           c.check_type === "structural" &&
-          c.description.includes("No red-phase")
+          c.description.includes("No red-phase"),
       );
       // Cleanup checks should NOT be auto-injected - orchestrator explicitly adds them
       // to GREEN phase tasks when appropriate
@@ -235,7 +238,7 @@ describe("prepare_task TDD Red-Phase Verification Auto-Injection", () => {
       // Mark as Dart project
       fs.writeFileSync(
         path.join(tempDir, "pubspec.yaml"),
-        "name: test_project\n"
+        "name: test_project\n",
       );
     });
 
@@ -295,31 +298,31 @@ describe("prepare_task TDD Red-Phase Verification Auto-Injection", () => {
       const taggedFailCheck = checks.find(
         (c) =>
           c.check_type === "behavioral" &&
-          c.description.includes("Tagged tests must fail")
+          c.description.includes("Tagged tests must fail"),
       );
       expect(taggedFailCheck).toBeDefined();
       const taggedConfig = JSON.parse(taggedFailCheck!.check_config);
-      expect(taggedConfig.command).toBe("flutter test --tags tdd-red");
+      // Task 2: Commands now contain only base command (filtering added in Task 5)
+      expect(taggedConfig.command).toBe("flutter test");
       expect(taggedConfig.expect_exit_code).toBe(1);
 
       // Check 2: Non-tagged tests must pass
       const nonTaggedCheck = checks.find(
         (c) =>
           c.check_type === "behavioral" &&
-          c.description.includes("Non-tagged tests must pass")
+          c.description.includes("Non-tagged tests must pass"),
       );
       expect(nonTaggedCheck).toBeDefined();
       const nonTaggedConfig = JSON.parse(nonTaggedCheck!.check_config);
-      expect(nonTaggedConfig.command).toBe(
-        "flutter test --exclude-tags tdd-red"
-      );
+      // Task 2: Commands now contain only base command (filtering added in Task 5)
+      expect(nonTaggedConfig.command).toBe("flutter test");
       expect(nonTaggedConfig.expect_exit_code).toBe(0);
 
       // Check 3: Structural check for task-ID annotation
       const taskIdCheck = checks.find(
         (c) =>
           c.check_type === "structural" &&
-          c.description.includes("Task-ID annotation")
+          c.description.includes("Task-ID annotation"),
       );
       expect(taskIdCheck).toBeDefined();
 
@@ -327,7 +330,7 @@ describe("prepare_task TDD Red-Phase Verification Auto-Injection", () => {
       const markerCheck = checks.find(
         (c) =>
           c.check_type === "structural" &&
-          c.description.includes("Red-phase marker")
+          c.description.includes("Red-phase marker"),
       );
       expect(markerCheck).toBeDefined();
       const markerConfig = JSON.parse(markerCheck!.check_config);
@@ -388,7 +391,7 @@ describe("prepare_task TDD Red-Phase Verification Auto-Injection", () => {
       const cleanupCheck = checks.find(
         (c) =>
           c.check_type === "structural" &&
-          c.description.includes("No red-phase markers")
+          c.description.includes("No red-phase markers"),
       );
       // Cleanup checks should NOT be auto-injected - orchestrator explicitly adds them
       // to GREEN phase tasks when appropriate
@@ -396,12 +399,46 @@ describe("prepare_task TDD Red-Phase Verification Auto-Injection", () => {
     });
   });
 
-  describe("Unknown project types", () => {
-    it("should not inject checks for unknown project types", async () => {
+  describe("Sprint environment configuration", () => {
+    it("should use sprint environment config when available", async () => {
       const db = getDb();
       const now = new Date().toISOString();
 
-      // No package.json or pubspec.yaml - unknown project type
+      // Add sprint environment settings
+      await db.insert(sprintSettings).values([
+        {
+          sprint_id: testSprintId,
+          key: "test_command",
+          value: "npm test",
+          created_at: now,
+          updated_at: now,
+        },
+        {
+          sprint_id: testSprintId,
+          key: "test_file_pattern",
+          value: "test/**/*.test.ts",
+          created_at: now,
+          updated_at: now,
+        },
+        {
+          sprint_id: testSprintId,
+          key: "source_base_dir",
+          value: ".",
+          created_at: now,
+          updated_at: now,
+        },
+      ]);
+
+      // Create package.json with test script for npm test validation
+      fs.writeFileSync(
+        path.join(tempDir, "package.json"),
+        JSON.stringify({
+          name: "test-project",
+          scripts: { test: "vitest" },
+        }),
+      );
+
+      // No pubspec.yaml - but config is explicit
 
       // Create task with tdd_red_phase=true
       await db.insert(tasks).values({
@@ -409,10 +446,190 @@ describe("prepare_task TDD Red-Phase Verification Auto-Injection", () => {
         sprint_id: testSprintId,
         phase_id: currentPhaseId,
         task_id: 1,
-        title: "Unknown project task",
+        title: "Task with explicit config",
         category: "INFRASTRUCTURE",
         status: "PENDING",
-        description: "Task in unknown project",
+        description: "Task using sprint environment config",
+        dependencies: "[]",
+        tdd_red_phase: true,
+        created_at: now,
+        updated_at: now,
+      });
+
+      // Prepare task
+      const result = await handlePrepareTask({
+        task_id: 1,
+        priority: "P0",
+        context: "Test task using explicit sprint environment configuration.",
+        acceptance_criteria: [
+          { criterion: "Test criterion", verification: "Manual check" },
+        ],
+        file_operations: [
+          {
+            operation: "CREATE",
+            path: "src/feature.ts",
+            description: "Feature",
+          },
+        ],
+        deliverables: ["feature.ts"],
+      });
+
+      // Verify task prepared successfully
+      const resultObj = JSON.parse(result.content[0].text);
+      expect(resultObj.success).toBe(true);
+
+      // Verify TDD checks WERE injected using sprint config
+      const checks = await db
+        .select()
+        .from(verificationChecks)
+        .where(eq(verificationChecks.task_id, 1));
+
+      // Should have TDD-specific checks (using npm test from config)
+      const tddChecks = checks.filter((c) =>
+        c.description.toLowerCase().includes("tdd"),
+      );
+      expect(tddChecks.length).toBeGreaterThan(0);
+
+      // Verify check uses the configured test command
+      const behavioralCheck = tddChecks.find(
+        (c) => c.check_type === "behavioral",
+      );
+      expect(behavioralCheck).toBeDefined();
+      const config = JSON.parse(behavioralCheck!.check_config as string);
+      expect(config.command).toContain("npm test");
+    });
+
+    it("should prioritize sprint config over file_operations inference", async () => {
+      const db = getDb();
+      const now = new Date().toISOString();
+
+      // Add sprint environment settings with explicit config
+      await db.insert(sprintSettings).values([
+        {
+          sprint_id: testSprintId,
+          key: "test_command",
+          value: "npm test -- --testPathPattern=custom",
+          created_at: now,
+          updated_at: now,
+        },
+        {
+          sprint_id: testSprintId,
+          key: "test_file_pattern",
+          value: "spec/**/*.spec.ts",
+          created_at: now,
+          updated_at: now,
+        },
+        {
+          sprint_id: testSprintId,
+          key: "source_base_dir",
+          value: ".",
+          created_at: now,
+          updated_at: now,
+        },
+      ]);
+
+      // Create package.json with test script for validation
+      fs.writeFileSync(
+        path.join(tempDir, "package.json"),
+        JSON.stringify({
+          name: "test-project",
+          scripts: { test: "vitest" },
+        }),
+      );
+
+      // Create task with file_operations that would infer TypeScript
+      // Without sprint config, it would default to "test/**/*.test.ts"
+      await db.insert(tasks).values({
+        id: 1,
+        sprint_id: testSprintId,
+        phase_id: currentPhaseId,
+        task_id: 1,
+        title: "Task with custom patterns",
+        category: "INFRASTRUCTURE",
+        status: "PENDING",
+        description: "Sprint config should override default patterns",
+        dependencies: "[]",
+        tdd_red_phase: true,
+        created_at: now,
+        updated_at: now,
+      });
+
+      // Prepare task with file_operations having .ts extension
+      // Without explicit sprint config, this would infer "test/**/*.test.ts"
+      const result = await handlePrepareTask({
+        task_id: 1,
+        priority: "P0",
+        context:
+          "Test that explicit sprint config overrides default pattern inference.",
+        acceptance_criteria: [
+          { criterion: "Test criterion", verification: "Manual check" },
+        ],
+        file_operations: [
+          {
+            operation: "CREATE",
+            path: "src/feature.ts",
+            description: "TypeScript file (would infer test/**/*.test.ts)",
+          },
+        ],
+        deliverables: ["feature.ts"],
+      });
+
+      // Verify task prepared successfully
+      const resultObj = JSON.parse(result.content[0].text);
+      expect(resultObj.success).toBe(true);
+
+      // Verify checks use sprint config, NOT inferred from file extensions
+      const checks = await db
+        .select()
+        .from(verificationChecks)
+        .where(eq(verificationChecks.task_id, 1));
+
+      const behavioralCheck = checks.find((c) => c.check_type === "behavioral");
+      expect(behavioralCheck).toBeDefined();
+      const config = JSON.parse(behavioralCheck!.check_config as string);
+
+      // Should use custom command from sprint config
+      // NOT default "npm test"
+      expect(config.command).toContain("--testPathPattern=custom");
+
+      // Verify structural check uses configured test file pattern
+      const structuralChecks = checks.filter(
+        (c) => c.check_type === "structural",
+      );
+      expect(structuralChecks.length).toBeGreaterThan(0);
+
+      // Find structural check with the configured pattern
+      const structuralCheck = structuralChecks.find((c) => {
+        const cfg = JSON.parse(c.check_config as string);
+        return cfg.path === "spec/**/*.spec.ts";
+      });
+      expect(structuralCheck).toBeDefined();
+    });
+
+    it("should fall back to language detection when no sprint config", async () => {
+      const db = getDb();
+      const now = new Date().toISOString();
+
+      // NO sprint settings - will fall back to language detection
+      // Create package.json for npm test validation
+      fs.writeFileSync(
+        path.join(tempDir, "package.json"),
+        JSON.stringify({
+          name: "test-project",
+          scripts: { test: "vitest" },
+        }),
+      );
+
+      // Create task with tdd_red_phase=true
+      await db.insert(tasks).values({
+        id: 1,
+        sprint_id: testSprintId,
+        phase_id: currentPhaseId,
+        task_id: 1,
+        title: "Task without config",
+        category: "INFRASTRUCTURE",
+        status: "PENDING",
+        description: "Task falling back to language detection",
         dependencies: "[]",
         tdd_red_phase: true,
         created_at: now,
@@ -424,7 +641,7 @@ describe("prepare_task TDD Red-Phase Verification Auto-Injection", () => {
         task_id: 1,
         priority: "P0",
         context:
-          "Test task for unknown project type. Should not inject language-specific checks.",
+          "Test task without sprint config - should fallback to defaults.",
         acceptance_criteria: [
           { criterion: "Test criterion", verification: "Manual check" },
         ],
@@ -438,17 +655,18 @@ describe("prepare_task TDD Red-Phase Verification Auto-Injection", () => {
       const resultObj = JSON.parse(result.content[0].text);
       expect(resultObj.success).toBe(true);
 
-      // Verify NO TDD checks were injected (unknown language)
+      // Verify TDD checks ARE injected (defaults to TypeScript when unknown)
       const checks = await db
         .select()
         .from(verificationChecks)
         .where(eq(verificationChecks.task_id, 1));
 
-      // Should not have TDD-specific checks
+      // Should have TDD-specific checks (TypeScript defaults)
       const tddChecks = checks.filter((c) =>
-        c.description.toLowerCase().includes("tdd")
+        c.description.toLowerCase().includes("tdd"),
       );
-      expect(tddChecks).toHaveLength(0);
+      // When there's no sprint config and no recognized language, it falls back to TypeScript defaults
+      expect(tddChecks.length).toBeGreaterThan(0);
     });
   });
 
@@ -457,7 +675,7 @@ describe("prepare_task TDD Red-Phase Verification Auto-Injection", () => {
       // Mark as TypeScript project
       fs.writeFileSync(
         path.join(tempDir, "package.json"),
-        JSON.stringify({ name: "test-project" })
+        JSON.stringify({ name: "test-project" }),
       );
     });
 

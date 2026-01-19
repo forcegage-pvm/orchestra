@@ -200,20 +200,26 @@ export async function runPreSignalChecks(
     config.skipBuild,
   );
 
-  // Run test check - ALWAYS use dual-command mode for TDD verification
-  // This ensures:
-  // 1. tdd-red tagged tests FAIL (they should be red phase tests)
-  // 2. non-tdd-red tests PASS (all regular tests must pass)
-  //
-  // For tdd_red_phase=true: Implementor is creating failing tests (mandatory)
-  // For tdd_red_phase=false: Any leftover tdd-red tests must still fail
-  //                          (if they pass, tag should be removed)
-  const testResult = await runTddRedPhaseTests(
-    projectType,
-    config.testCommand,
-    execOptions,
-    config.skipTest,
-  );
+  // Run test check - use dual-command mode ONLY for TDD red-phase tasks
+  // For tdd_red_phase=true: Use TDD verification (tagged tests must FAIL)
+  // For tdd_red_phase=false: Use normal test mode (all tests must PASS)
+  let testResult: PreSignalCheckResult;
+  if (config.tddRedPhase) {
+    // TDD red-phase: Ensure tagged tests FAIL and non-tagged tests PASS
+    testResult = await runTddRedPhaseTests(
+      projectType,
+      config.testCommand,
+      execOptions,
+      config.skipTest,
+    );
+  } else {
+    // Normal mode: Just run all tests, they should all pass
+    testResult = await runCheck(
+      config.testCommand ?? defaults.test,
+      execOptions,
+      config.skipTest,
+    );
+  }
 
   // Run lint check (use detected default if available, or explicit config)
   const lintCommand = config.lintCommand ?? defaults.lint;

@@ -4,9 +4,9 @@
  * Shared tool to fetch the most recent code review for a task.
  */
 
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { getDb } from "../../db/index.js";
-import { codeReviews } from "../../db/schema.js";
+import { codeReviews, tasks } from "../../db/schema.js";
 import {
   GetLatestCodeReviewInputSchema,
   type GetLatestCodeReviewInput,
@@ -107,11 +107,36 @@ async function getLatestCodeReview(
 ): Promise<GetLatestCodeReviewOutput> {
   const db = getDb();
 
+  let taskId = input.task_id;
+  if (taskId === undefined && input.sprint_task_id !== undefined) {
+    const whereClause =
+      input.sprint_id !== undefined
+        ? and(
+            eq(tasks.task_id, input.sprint_task_id),
+            eq(tasks.sprint_id, input.sprint_id),
+          )
+        : eq(tasks.task_id, input.sprint_task_id);
+
+    const [task] = await db
+      .select({ id: tasks.id })
+      .from(tasks)
+      .where(whereClause)
+      .limit(1);
+    taskId = task?.id;
+  }
+
+  if (taskId === undefined) {
+    return {
+      success: true,
+      review: null,
+    };
+  }
+
   // Get the most recent review for the specified task_id
   const [review] = await db
     .select()
     .from(codeReviews)
-    .where(eq(codeReviews.task_id, input.task_id!))
+    .where(eq(codeReviews.task_id, taskId))
     .orderBy(desc(codeReviews.requested_at))
     .limit(1);
 

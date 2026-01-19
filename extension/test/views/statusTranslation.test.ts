@@ -12,9 +12,12 @@ import {
 
 describe("statusTranslation", () => {
   describe("STATUS_DISPLAY", () => {
-    it("should have all 7 required status mappings", () => {
+    it("should have all required status mappings", () => {
       const requiredStatuses = [
         "PENDING",
+        "PREPARE",
+        "PENDING_HANDOVER_REVIEW",
+        "HANDOVER_REVIEW_FAILED",
         "IMPLEMENT",
         "VERIFY",
         "VERIFY_FAILED",
@@ -27,8 +30,8 @@ describe("statusTranslation", () => {
         expect(STATUS_DISPLAY[status]).toBeDefined();
       });
 
-      // Verify we have exactly 7 statuses
-      expect(Object.keys(STATUS_DISPLAY)).toHaveLength(7);
+      // Verify we have exactly 10 statuses (7 original + 3 Controller review statuses)
+      expect(Object.keys(STATUS_DISPLAY)).toHaveLength(10);
     });
 
     it("should have required properties for each status mapping", () => {

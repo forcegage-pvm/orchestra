@@ -71,7 +71,8 @@ export interface TddInfo {
   isRedPhase: boolean;
   registeredFiles: number; // Number of test files registered
   totalTestCount: number; // Total tests across all files
-  redTaskId?: number; // For green tasks: the linked red task
+  redTaskId?: number; // For green tasks: the linked red task internal ID
+  redTaskUiId?: number; // For green tasks: the linked red task sprint-relative ID for display
   redTaskTitle?: string; // For green tasks: the linked red task title
   entries: TddRegistryEntry[];
 }
@@ -1029,14 +1030,14 @@ export function getTddInfo(
     // Check if this is a green task linked via tdd_task_relationships
     const greenCheck = db
       .prepare(
-        `SELECT tr.red_task_id, t.title as red_task_title
+        `SELECT tr.red_task_id, t.title as red_task_title, t.task_id as red_task_ui_id
          FROM tdd_task_relationships tr
          JOIN tasks t ON t.id = tr.red_task_id
          WHERE tr.green_task_id = ?
          LIMIT 1`,
       )
       .get(taskId) as
-      | { red_task_id: number; red_task_title: string }
+      | { red_task_id: number; red_task_title: string; red_task_ui_id: number }
       | undefined;
 
     if (greenCheck) {
@@ -1058,6 +1059,7 @@ export function getTddInfo(
         registeredFiles,
         totalTestCount,
         redTaskId: greenCheck.red_task_id,
+        redTaskUiId: greenCheck.red_task_ui_id,
         redTaskTitle: greenCheck.red_task_title,
         entries,
       };
@@ -1226,7 +1228,7 @@ export function getTaskReviewSummary(
     };
   }
 
-  const latestReview = reviews[0];
+  const latestReview = reviews[0]!;
 
   // Parse issues from JSON
   let issues: AlignmentIssue[] = [];
@@ -1245,7 +1247,7 @@ export function getTaskReviewSummary(
   }
 
   return {
-    latestReview,
+    latestReview: latestReview ?? null,
     totalReviews: reviews.length,
     revisionCount: latestReview.revision_count,
     issues,
@@ -1280,7 +1282,7 @@ export function getSprintReviewSummary(
     };
   }
 
-  const latestReview = reviews[0];
+  const latestReview = reviews[0]!;
 
   // Parse issues from JSON
   let issues: AlignmentIssue[] = [];
@@ -1299,7 +1301,7 @@ export function getSprintReviewSummary(
   }
 
   return {
-    latestReview,
+    latestReview: latestReview ?? null,
     totalReviews: reviews.length,
     revisionCount: latestReview.revision_count,
     issues,
@@ -1343,4 +1345,408 @@ export function getTaskAmendments(
     .all(taskId) as Amendment[];
 
   return amendments;
+}
+
+/**
+ * Code Review Summary - status totals and policy configuration
+ */
+export interface CodeReviewSummary {
+  totalReviews: number;
+  byStatus: {
+    PENDING: number;
+    APPROVED: number;
+    NEEDS_REVISION: number;
+    REJECTED: number;
+  };
+  openIssuesCount: number;
+  policy: string; // ad_hoc | task_gate | phase_gate
+  blockingSeverity: string; // BLOCKING | MAJOR | MINOR | INFO
+}
+
+/**
+ * Get code review summary for active sprint
+ */
+export function getCodeReviewSummary(workspaceRoot: string): CodeReviewSummary {
+  const db = OrchestraDB.getInstance(workspaceRoot);
+
+  const sprint = getCurrentSprint(workspaceRoot);
+  if (!sprint) {
+    return {
+      totalReviews: 0,
+      byStatus: {
+        PENDING: 0,
+        APPROVED: 0,
+        NEEDS_REVISION: 0,
+        REJECTED: 0,
+      },
+      openIssuesCount: 0,
+      policy: "ad_hoc",
+      blockingSeverity: "BLOCKING",
+    };
+  }
+
+  // Get status counts
+  const statusCounts = db
+    .prepare(
+      `SELECT status, COUNT(*) as count
+       FROM code_reviews
+       WHERE sprint_id = ?
+       GROUP BY status`,
+    )
+    .all(sprint.id) as { status: string; count: number }[];
+
+  const byStatus = {
+    PENDING: 0,
+    APPROVED: 0,
+    NEEDS_REVISION: 0,
+    REJECTED: 0,
+  };
+
+  let totalReviews = 0;
+  for (const row of statusCounts) {
+    const status = row.status as keyof typeof byStatus;
+    if (status === "CHANGES_REQUESTED") {
+      byStatus.NEEDS_REVISION = row.count;
+    } else if (status === "IN_REVIEW") {
+      byStatus.PENDING += row.count;
+    } else if (status in byStatus) {
+      byStatus[status] = row.count;
+    }
+    totalReviews += row.count;
+  }
+
+  // Get open issues count
+  const openIssuesResult = db
+    .prepare(
+      `SELECT COUNT(*) as count
+       FROM code_review_issues
+       WHERE task_id IN (
+         SELECT id FROM tasks WHERE sprint_id = ?
+       )
+       AND status = 'OPEN'`,
+    )
+    .get(sprint.id) as { count: number } | undefined;
+
+  const openIssuesCount = openIssuesResult?.count ?? 0;
+
+  // Get policy and blocking severity from sprint settings
+  const policyRow = db
+    .prepare(
+      `SELECT value FROM sprint_settings
+       WHERE sprint_id = ? AND key = 'code_review_policy'`,
+    )
+    .get(sprint.id) as { value: string } | undefined;
+
+  const severityRow = db
+    .prepare(
+      `SELECT value FROM sprint_settings
+       WHERE sprint_id = ? AND key = 'code_review_blocking_severity'`,
+    )
+    .get(sprint.id) as { value: string } | undefined;
+
+  const policy = policyRow ? JSON.parse(policyRow.value) : "ad_hoc";
+  const blockingSeverity = severityRow
+    ? JSON.parse(severityRow.value)
+    : "BLOCKING";
+
+  return {
+    totalReviews,
+    byStatus,
+    openIssuesCount,
+    policy,
+    blockingSeverity,
+  };
+}
+
+/**
+ * Open Code Review Issue
+ */
+export interface OpenCodeReviewIssue {
+  issue_id: number;
+  review_id: number;
+  task_id: number;
+  severity: string;
+  category: string;
+  description: string;
+  file_path: string | null;
+  line_number: number | null;
+  recommendation: string | null;
+  status: string;
+}
+
+/**
+ * Get all open code review issues for active sprint
+ */
+export function getOpenCodeReviewIssues(
+  workspaceRoot: string,
+  sprintId?: string,
+): OpenCodeReviewIssue[] {
+  const db = OrchestraDB.getInstance(workspaceRoot);
+
+  const sprint = sprintId
+    ? db.prepare(`SELECT * FROM sprints WHERE id = ?`).get(sprintId)
+    : getCurrentSprint(workspaceRoot);
+
+  if (!sprint) {
+    return [];
+  }
+
+  const issues = db
+    .prepare(
+      `SELECT 
+        i.id as issue_id,
+        i.review_id,
+        i.task_id,
+        i.severity,
+        'CODE_QUALITY' as category,
+        i.issue as description,
+        i.file as file_path,
+        i.line as line_number,
+        i.recommendation,
+        i.status
+       FROM code_review_issues i
+       INNER JOIN tasks t ON i.task_id = t.id
+       WHERE t.sprint_id = ? AND i.status = 'OPEN'
+       ORDER BY 
+         CASE i.severity
+           WHEN 'BLOCKING' THEN 1
+           WHEN 'MAJOR' THEN 2
+           WHEN 'MINOR' THEN 3
+           WHEN 'INFO' THEN 4
+           ELSE 5
+         END,
+         i.id`,
+    )
+    .all((sprint as any).id) as OpenCodeReviewIssue[];
+
+  return issues;
+}
+
+export interface CodeReviewDetail {
+  review_id: number;
+  task_id: number;
+  status: string;
+  summary: string | null;
+  risk: string | null;
+  files_reviewed: string[] | null;
+  tests_run: string[] | null;
+  issues: any[] | null;
+  recommendations: any[] | null;
+  reviewed_by: string | null;
+  reviewed_at: string | null;
+}
+
+/**
+ * Get the latest code review for a task (by internal task id)
+ */
+export function getLatestCodeReviewForTask(
+  workspaceRoot: string,
+  taskId: number,
+): CodeReviewDetail | null {
+  const db = OrchestraDB.getInstance(workspaceRoot);
+
+  const review = db
+    .prepare(
+      `SELECT id as review_id, task_id, status, summary, risk, files_reviewed, tests_run, issues, recommendations, reviewed_by, reviewed_at
+       FROM code_reviews
+       WHERE task_id = ?
+       ORDER BY requested_at DESC
+       LIMIT 1`,
+    )
+    .get(taskId) as
+    | {
+        review_id: number;
+        task_id: number;
+        status: string;
+        summary: string | null;
+        risk: string | null;
+        files_reviewed: string | null;
+        tests_run: string | null;
+        issues: string | null;
+        recommendations: string | null;
+        reviewed_by: string | null;
+        reviewed_at: string | null;
+      }
+    | undefined;
+
+  if (!review) {
+    return null;
+  }
+
+  return {
+    review_id: review.review_id,
+    task_id: review.task_id,
+    status: review.status,
+    summary: review.summary,
+    risk: review.risk,
+    files_reviewed: review.files_reviewed
+      ? JSON.parse(review.files_reviewed)
+      : null,
+    tests_run: review.tests_run ? JSON.parse(review.tests_run) : null,
+    issues: review.issues ? JSON.parse(review.issues) : null,
+    recommendations: review.recommendations
+      ? JSON.parse(review.recommendations)
+      : null,
+    reviewed_by: review.reviewed_by,
+    reviewed_at: review.reviewed_at,
+  };
+}
+
+/**
+ * Get latest code review status by task for a sprint
+ */
+export function getLatestCodeReviewStatusForSprint(
+  workspaceRoot: string,
+  sprintId: string,
+): Map<number, string> {
+  const db = OrchestraDB.getInstance(workspaceRoot);
+
+  const rows = db
+    .prepare(
+      `SELECT cr.task_id as task_id, cr.status as status
+       FROM code_reviews cr
+       INNER JOIN (
+         SELECT task_id, MAX(requested_at) as latest_requested
+         FROM code_reviews
+         WHERE sprint_id = ?
+         GROUP BY task_id
+       ) latest ON cr.task_id = latest.task_id AND cr.requested_at = latest.latest_requested`,
+    )
+    .all(sprintId) as { task_id: number; status: string }[];
+
+  const map = new Map<number, string>();
+  for (const row of rows) {
+    map.set(row.task_id, row.status);
+  }
+  return map;
+}
+
+/**
+ * Get a code review by ID (minimal fields)
+ */
+export function getCodeReviewById(
+  workspaceRoot: string,
+  reviewId: number,
+): {
+  review_id: number;
+  task_id: number;
+  status: string;
+  summary: string;
+} | null {
+  const db = OrchestraDB.getInstance(workspaceRoot);
+
+  const review = db
+    .prepare(
+      `SELECT id as review_id, task_id, status, summary
+       FROM code_reviews
+       WHERE id = ?`,
+    )
+    .get(reviewId) as
+    | { review_id: number; task_id: number; status: string; summary: string }
+    | undefined;
+
+  return review ?? null;
+}
+
+/**
+ * Resolve a code review issue
+ */
+export function resolveCodeReviewIssue(
+  workspaceRoot: string,
+  issueId: number,
+  resolvedBy: string,
+): boolean {
+  const db = OrchestraDB.getInstance(workspaceRoot);
+  const resolvedAt = new Date().toISOString();
+
+  const result = db
+    .prepare(
+      `UPDATE code_review_issues
+       SET status = 'RESOLVED', resolved_by = ?, resolved_at = ?
+       WHERE id = ? AND status = 'OPEN'`,
+    )
+    .run(resolvedBy, resolvedAt, issueId);
+
+  return result.changes > 0;
+}
+
+/**
+ * Get completed tasks that have not been reviewed yet
+ */
+export function getCompletedUnreviewedTasks(workspaceRoot: string): Task[] {
+  const db = OrchestraDB.getInstance(workspaceRoot);
+
+  const sprint = getCurrentSprint(workspaceRoot);
+  if (!sprint) {
+    return [];
+  }
+
+  const tasks = db
+    .prepare(
+      `SELECT t.* FROM tasks t
+       WHERE t.sprint_id = ?
+       AND t.status = 'COMPLETE'
+       AND NOT EXISTS (
+         SELECT 1 FROM code_reviews cr
+         WHERE cr.task_id = t.id
+       )
+       ORDER BY t.completed_at DESC`,
+    )
+    .all(sprint.id) as Task[];
+
+  return tasks;
+}
+
+/**
+ * Code Review History Entry
+ */
+export interface CodeReviewHistoryEntry {
+  review_id: number;
+  task_id: number;
+  task_title: string;
+  status: string;
+  risk: string;
+  summary: string;
+  issues_count: number;
+  reviewed_by: string | null;
+  reviewed_at: string | null;
+}
+
+/**
+ * Get code review history for active sprint
+ */
+export function getCodeReviewHistory(
+  workspaceRoot: string,
+  sprintId?: string,
+): CodeReviewHistoryEntry[] {
+  const db = OrchestraDB.getInstance(workspaceRoot);
+
+  const sprint = sprintId
+    ? db.prepare(`SELECT * FROM sprints WHERE id = ?`).get(sprintId)
+    : getCurrentSprint(workspaceRoot);
+
+  if (!sprint) {
+    return [];
+  }
+
+  const history = db
+    .prepare(
+      `SELECT 
+        cr.id as review_id,
+        cr.task_id,
+        t.title as task_title,
+        cr.status,
+        cr.risk,
+        cr.summary,
+        (SELECT COUNT(*) FROM code_review_issues WHERE review_id = cr.id) as issues_count,
+        cr.reviewed_by,
+        cr.reviewed_at
+       FROM code_reviews cr
+       INNER JOIN tasks t ON cr.task_id = t.id
+       WHERE t.sprint_id = ?
+       ORDER BY cr.reviewed_at DESC, cr.requested_at DESC`,
+    )
+    .all((sprint as any).id) as CodeReviewHistoryEntry[];
+
+  return history;
 }

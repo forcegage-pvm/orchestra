@@ -26,6 +26,7 @@ import { OrchestraLogger } from "../../utils/logger.js";
 import { getStatusDisplay } from "../statusTranslation.js";
 import {
   generateCurrentTaskHtml,
+  type ReviewData,
   type TaskData,
 } from "./currentTaskTemplate.js";
 
@@ -49,6 +50,9 @@ export class CurrentTaskViewProvider implements vscode.WebviewViewProvider {
     // Listen for database changes and refresh view
     this._disposables.push(
       this._dbWatcher.onDidChange(() => {
+        logger.debug(
+          "[CurrentTaskViewProvider] Database change detected, calling _refresh()",
+        );
         this._refresh();
       }),
     );
@@ -95,7 +99,9 @@ export class CurrentTaskViewProvider implements vscode.WebviewViewProvider {
    * Refresh the webview content with current task data
    */
   private _refresh(): void {
+    logger.debug("[CurrentTaskViewProvider] _refresh() called");
     if (!this._view) {
+      logger.debug("[CurrentTaskViewProvider] No view, skipping refresh");
       return;
     }
 
@@ -121,19 +127,31 @@ export class CurrentTaskViewProvider implements vscode.WebviewViewProvider {
         getCurrentTask(this._workspaceRoot);
       let isNextPending = false;
 
+      logger.debug(
+        `[CurrentTaskViewProvider] getCurrentTask returned: ${currentTask ? `Task ${currentTask.task_id} (${currentTask.status})` : "null"}`,
+      );
+
       // If no task in progress, get the next pending task
       if (!currentTask) {
         currentTask = getNextPendingTask(this._workspaceRoot);
         isNextPending = currentTask !== null;
+        logger.debug(
+          `[CurrentTaskViewProvider] getNextPendingTask returned: ${currentTask ? `Task ${currentTask.task_id}` : "null"}`,
+        );
       }
+
+      const taskData = this._getTaskData(currentTask, isNextPending);
+      logger.debug(
+        `[CurrentTaskViewProvider] Sending postMessage with taskData: ${taskData ? `Task ${taskData.task_id} (${taskData.status})` : "null"}`,
+      );
 
       // Send updated data to webview
       void this._view.webview.postMessage({
         command: "update",
-        data: this._getTaskData(currentTask, isNextPending),
+        data: taskData,
       });
 
-      logger.debug("CurrentTaskViewProvider refreshed");
+      logger.debug("[CurrentTaskViewProvider] postMessage sent successfully");
     } catch (error) {
       logger.error("Failed to refresh current task view", error);
     }
@@ -224,6 +242,9 @@ export class CurrentTaskViewProvider implements vscode.WebviewViewProvider {
         // Only add optional properties if they have values
         if (tddInfo.redTaskId !== undefined) {
           tddData.redTaskId = tddInfo.redTaskId;
+          if (tddInfo.redTaskUiId !== undefined) {
+            tddData.redTaskUiId = tddInfo.redTaskUiId;
+          }
         }
         if (tddInfo.redTaskTitle !== undefined) {
           tddData.redTaskTitle = tddInfo.redTaskTitle;
@@ -271,15 +292,15 @@ export class CurrentTaskViewProvider implements vscode.WebviewViewProvider {
             decision: reviewSummary.decision,
             conformance: reviewSummary.conformance,
             issues: reviewSummary.issues
-              ? (JSON.parse(
-                  reviewSummary.issues,
-                ) as TaskData["review"]["issues"])
+              ? (JSON.parse(reviewSummary.issues) as ReviewData["issues"])
               : [],
             recommendations: reviewSummary.recommendations
               ? (JSON.parse(reviewSummary.recommendations) as string[])
               : [],
-            revision_count: reviewSummary.revision_count,
-            reviewed_at: reviewSummary.reviewed_at,
+            revisionCount: reviewSummary.revision_count,
+            reviewedAt: reviewSummary.reviewed_at,
+            reviewedBy: reviewSummary.reviewed_by || "Controller",
+            notes: reviewSummary.notes ?? null,
           };
         }
       } catch (error) {
@@ -409,6 +430,15 @@ export class CurrentTaskViewProvider implements vscode.WebviewViewProvider {
             type: "task",
             task: { id: message.taskId },
           });
+        }
+        break;
+
+      case "runCodeReview":
+        if (typeof message.taskId === "number") {
+          void vscode.commands.executeCommand(
+            "orchestra.runCodeReview",
+            message.taskId,
+          );
         }
         break;
 

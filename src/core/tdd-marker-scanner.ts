@@ -60,9 +60,14 @@ function extractOrchestraTaskId(lines: string[]): number | null {
 
 /**
  * Check if file has file-level @Tags(['tdd-red']) annotation (Dart)
- * This appears before void main() and applies to ALL tests in the file
+ * This appears before void main() and applies to ALL tests in the file.
+ * Also checks for library-level @Tags (before library; declaration).
+ *
+ * Returns the line number of the tag if found, or -1 if not found.
  */
-function hasFileLevelDartTddRedTag(lines: string[]): boolean {
+function findFileLevelDartTddRedTag(lines: string[]): number {
+  const tagsPattern = /@Tags\s*\(\s*\[\s*['"]tdd-red['"]\s*\]\s*\)/;
+
   // Find void main() - file-level tags must appear before it
   let mainLineIndex = -1;
   for (let i = 0; i < lines.length; i++) {
@@ -73,18 +78,68 @@ function hasFileLevelDartTddRedTag(lines: string[]): boolean {
     }
   }
 
-  if (mainLineIndex === -1) return false;
-
-  // Check for @Tags annotation with tdd-red (no task ID) before main()
-  const tagsPattern = /@Tags\s*\(\s*\[\s*['"]tdd-red['"]\s*\]\s*\)/;
-  for (let i = 0; i < mainLineIndex; i++) {
+  // Also find library; declaration - file-level tags can appear before it
+  let libraryLineIndex = -1;
+  for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
-    if (line !== undefined && tagsPattern.test(line)) {
-      return true;
+    if (line !== undefined && /^\s*library\s*;/.test(line)) {
+      libraryLineIndex = i;
+      break;
     }
   }
 
-  return false;
+  // Determine the boundary - tags must appear before main() or library;
+  // Use the first one found, or scan entire file if neither exists
+  let searchLimit = lines.length;
+  if (mainLineIndex !== -1 && libraryLineIndex !== -1) {
+    searchLimit = Math.min(mainLineIndex, libraryLineIndex);
+  } else if (mainLineIndex !== -1) {
+    searchLimit = mainLineIndex;
+  } else if (libraryLineIndex !== -1) {
+    searchLimit = libraryLineIndex;
+  }
+
+  // For TDD red-phase, also check AFTER library; but before main() if library exists
+  // because @Tags can appear either before library; OR between library; and imports
+  const searchRanges: Array<[number, number]> = [[0, searchLimit]];
+
+  // If library exists, also search between library and main (or end)
+  if (libraryLineIndex !== -1) {
+    const endOfSecondSearch =
+      mainLineIndex !== -1 ? mainLineIndex : lines.length;
+    searchRanges.push([libraryLineIndex, endOfSecondSearch]);
+  }
+
+  // Search all ranges for @Tags(['tdd-red'])
+  for (const [start, end] of searchRanges) {
+    for (let i = start; i < end; i++) {
+      const line = lines[i];
+      if (line !== undefined && tagsPattern.test(line)) {
+        return i + 1; // Return 1-based line number
+      }
+    }
+  }
+
+  // Also handle case where @Tags is BEFORE library; (Dart library-level annotation)
+  // This is the correct Dart syntax for file-level test tags
+  if (libraryLineIndex !== -1) {
+    for (let i = 0; i < libraryLineIndex; i++) {
+      const line = lines[i];
+      if (line !== undefined && tagsPattern.test(line)) {
+        return i + 1;
+      }
+    }
+  }
+
+  return -1;
+}
+
+/**
+ * Check if file has file-level @Tags(['tdd-red']) annotation (Dart)
+ * Wrapper for backward compatibility
+ */
+function hasFileLevelDartTddRedTag(lines: string[]): boolean {
+  return findFileLevelDartTddRedTag(lines) !== -1;
 }
 
 /**
@@ -94,7 +149,7 @@ function hasFileLevelDartTddRedTag(lines: string[]): boolean {
  * @returns Array of detected markers
  */
 export async function scanForTddRedMarkers(
-  testFilePath: string
+  testFilePath: string,
 ): Promise<TddRedMarker[]> {
   const result = await scanTddFile(testFilePath);
   return result.markers;
@@ -107,18 +162,23 @@ export async function scanForTddRedMarkers(
  * @returns Full scan result
  */
 export async function scanTddFile(
-  testFilePath: string
+  testFilePath: string,
 ): Promise<TddFileScanResult> {
   const content = await fs.readFile(testFilePath, "utf-8");
   const lines = content.split("\n");
   const markers: TddRedMarker[] = [];
   const fileName = path.basename(testFilePath);
 
+  // Detect file type based on extension
+  const isDartFile = testFilePath.endsWith(".dart");
+  const isTypeScriptFile =
+    testFilePath.endsWith(".ts") || testFilePath.endsWith(".js");
+
   // Extract task ID from // @orchestra-task: N comment
   const taskId = extractOrchestraTaskId(lines);
 
-  // Check for file-level Dart @Tags(['tdd-red'])
-  const hasFileLevelTag = hasFileLevelDartTddRedTag(lines);
+  // Check for file-level Dart @Tags(['tdd-red']) - ONLY for Dart files
+  const hasFileLevelTag = isDartFile && hasFileLevelDartTddRedTag(lines);
 
   // Dart patterns - simple format: @Tags(['tdd-red']) - NO task ID in tag
   const dartTagsPattern = /@Tags\s*\(\s*\[\s*['"]tdd-red['"]\s*\]\s*\)/g;
@@ -172,7 +232,9 @@ export async function scanTddFile(
     }
 
     // Check for Dart @Tags(['tdd-red']) patterns (per-test annotation)
-    if (passedVoidMain) {
+    // ONLY run Dart patterns on Dart files to avoid false positives from
+    // TypeScript files containing Dart examples in strings
+    if (isDartFile && passedVoidMain) {
       dartTagsPattern.lastIndex = 0;
       while (dartTagsPattern.exec(trimmedLine) !== null) {
         const testName = extractDartTestName(lines, index);
@@ -185,28 +247,44 @@ export async function scanTddFile(
     }
 
     // Check for Dart inline tags: ['tdd-red'] parameter
-    const inlineMatch = dartInlineTagsPattern.exec(trimmedLine);
-    if (inlineMatch) {
-      const testName = extractDartTestNameBackwards(lines, index);
-      if (testName) {
-        markers.push({
-          testIdentifier: `${fileName}::${currentGroup}::${testName}`,
-          markerType: "tags:['tdd-red']",
-          lineNumber,
-        });
+    // ONLY run on Dart files
+    if (isDartFile) {
+      const inlineMatch = dartInlineTagsPattern.exec(trimmedLine);
+      if (inlineMatch) {
+        const testName = extractDartTestNameBackwards(lines, index);
+        if (testName) {
+          markers.push({
+            testIdentifier: `${fileName}::${currentGroup}::${testName}`,
+            markerType: "tags:['tdd-red']",
+            lineNumber,
+          });
+        }
       }
     }
 
     // Check for TypeScript [tdd-red] in test/describe name
-    let tsMatch;
-    tsMarkerPattern.lastIndex = 0;
-    while ((tsMatch = tsMarkerPattern.exec(trimmedLine)) !== null) {
-      const testName = tsMatch[1]?.trim() ?? "";
-      markers.push({
-        testIdentifier: `${fileName}::${currentGroup}::[tdd-red] ${testName}`,
-        markerType: "[tdd-red]",
-        lineNumber,
-      });
+    // ONLY run on TypeScript/JavaScript files
+    if (isTypeScriptFile) {
+      // Skip lines that are string literals containing test code examples
+      // (e.g., expect("it('[tdd-red] ...").match() or const x = "it('[tdd-red]...")
+      const isStringLiteral =
+        trimmedLine.startsWith("expect(") ||
+        trimmedLine.startsWith('"') ||
+        trimmedLine.startsWith("'") ||
+        /^\s*(const|let|var)\s+\w+\s*=\s*["']/.test(trimmedLine);
+
+      if (!isStringLiteral) {
+        let tsMatch;
+        tsMarkerPattern.lastIndex = 0;
+        while ((tsMatch = tsMarkerPattern.exec(trimmedLine)) !== null) {
+          const testName = tsMatch[1]?.trim() ?? "";
+          markers.push({
+            testIdentifier: `${fileName}::${currentGroup}::[tdd-red] ${testName}`,
+            markerType: "[tdd-red]",
+            lineNumber,
+          });
+        }
+      }
     }
 
     // Check for file-level @Tags that apply to ALL tests in the file
@@ -216,7 +294,7 @@ export async function scanTddFile(
       if (dartTestMatch) {
         const testId = `${fileName}::${currentGroup}::${dartTestMatch[1]}`;
         const alreadyMatched = markers.some(
-          (m) => m.testIdentifier === testId && m.lineNumber === lineNumber
+          (m) => m.testIdentifier === testId && m.lineNumber === lineNumber,
         );
         if (!alreadyMatched) {
           markers.push({
@@ -228,6 +306,21 @@ export async function scanTddFile(
       }
     }
   });
+
+  // CRITICAL FIX: For TDD red-phase files with file-level @Tags(['tdd-red']),
+  // ensure at least one marker is added even if individual tests can't be parsed.
+  // This handles cases where:
+  // 1. Tests have intentional compile errors (TDD red phase)
+  // 2. void main() doesn't exist yet
+  // 3. Test syntax can't be parsed due to incomplete code
+  if (hasFileLevelTag && markers.length === 0) {
+    const tagLineNumber = findFileLevelDartTddRedTag(lines);
+    markers.push({
+      testIdentifier: `${fileName}::file-level::tdd-red-file`,
+      markerType: "file-level-@Tags(['tdd-red'])",
+      lineNumber: tagLineNumber > 0 ? tagLineNumber : 1,
+    });
+  }
 
   return {
     taskId,
@@ -260,7 +353,7 @@ function extractDartTestName(lines: string[], tagsLineIndex: number): string {
  */
 function extractDartTestNameBackwards(
   lines: string[],
-  tagsLineIndex: number
+  tagsLineIndex: number,
 ): string | null {
   for (let i = tagsLineIndex; i >= Math.max(0, tagsLineIndex - 10); i--) {
     const line = lines[i]?.trim();

@@ -124,7 +124,7 @@ async function getOpenCodeReviewIssues(
   }
 
   // Query issues with join to reviews for sprint filtering
-  let query = db
+  const query = db
     .select({
       issue_id: codeReviewIssues.id,
       review_id: codeReviewIssues.review_id,

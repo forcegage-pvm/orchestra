@@ -81,19 +81,21 @@ describe("approve_code_review handler", () => {
 
     testTaskId = task.id;
 
-    // Create pending code review
+    // Create code review in IN_REVIEW status (as if already claimed by controller)
     const [review] = await db
       .insert(codeReviews)
       .values({
         sprint_id: testSprintId,
         task_id: testTaskId,
         review_scope: "TASK",
-        status: "PENDING",
+        status: "IN_REVIEW",
         summary: "",
         risk: "LOW",
         requested_by: "test-user",
         requested_at: now,
         revision_count: 0,
+        in_review_by: "controller",
+        in_review_at: now,
       })
       .returning();
 
@@ -203,7 +205,7 @@ describe("approve_code_review handler", () => {
   });
 
   describe("status transitions", () => {
-    it("should transition PENDING review to APPROVED status", async () => {
+    it("should transition IN_REVIEW review to APPROVED status", async () => {
       const { handleApproveCodeReview } =
         await import("../../src/mcp-server/handlers/approve-code-review.js");
 
@@ -337,12 +339,14 @@ describe("request_changes_code_review handler", () => {
         sprint_id: testSprintId,
         task_id: testTaskId,
         review_scope: "TASK",
-        status: "PENDING",
+        status: "IN_REVIEW",
         summary: "",
         risk: "LOW",
         requested_by: "test-user",
         requested_at: now,
         revision_count: 0,
+        in_review_by: "controller",
+        in_review_at: now,
       })
       .returning();
 
@@ -474,18 +478,18 @@ describe("request_changes_code_review handler", () => {
         const output = JSON.parse(result.content[0].text);
         expect(output.success).toBe(true);
 
-        // Reset status for next iteration
+        // Reset status for next iteration (must be IN_REVIEW since that's what handlers expect)
         const db = getDb();
         await db
           .update(codeReviews)
-          .set({ status: "PENDING" })
+          .set({ status: "IN_REVIEW" })
           .where(eq(codeReviews.id, testReviewId));
       }
     });
   });
 
   describe("status transitions and issue persistence", () => {
-    it("should transition PENDING review to CHANGES_REQUESTED status", async () => {
+    it("should transition IN_REVIEW review to CHANGES_REQUESTED status", async () => {
       const { handleRequestChangesCodeReview } =
         await import("../../src/mcp-server/handlers/request-changes-code-review.js");
 
@@ -678,12 +682,14 @@ describe("reject_code_review handler", () => {
         sprint_id: testSprintId,
         task_id: testTaskId,
         review_scope: "TASK",
-        status: "PENDING",
+        status: "IN_REVIEW",
         summary: "",
         risk: "LOW",
         requested_by: "test-user",
         requested_at: now,
         revision_count: 0,
+        in_review_by: "controller",
+        in_review_at: now,
       })
       .returning();
 
@@ -815,11 +821,11 @@ describe("reject_code_review handler", () => {
       const blockingOutput = JSON.parse(blockingResult.content[0].text);
       expect(blockingOutput.success).toBe(true);
 
-      // Reset for next test
+      // Reset for next test (must be IN_REVIEW since that's what handlers expect)
       const db = getDb();
       await db
         .update(codeReviews)
-        .set({ status: "PENDING" })
+        .set({ status: "IN_REVIEW" })
         .where(eq(codeReviews.id, testReviewId));
 
       // Valid: MAJOR
@@ -839,10 +845,10 @@ describe("reject_code_review handler", () => {
       const majorOutput = JSON.parse(majorResult.content[0].text);
       expect(majorOutput.success).toBe(true);
 
-      // Reset for invalid test
+      // Reset for invalid test (must be IN_REVIEW since that's what handlers expect)
       await db
         .update(codeReviews)
-        .set({ status: "PENDING" })
+        .set({ status: "IN_REVIEW" })
         .where(eq(codeReviews.id, testReviewId));
 
       // Invalid: MINOR should be rejected
@@ -864,7 +870,7 @@ describe("reject_code_review handler", () => {
   });
 
   describe("status transitions and issue persistence", () => {
-    it("should transition PENDING review to REJECTED status", async () => {
+    it("should transition IN_REVIEW review to REJECTED status", async () => {
       const { handleRejectCodeReview } =
         await import("../../src/mcp-server/handlers/reject-code-review.js");
 

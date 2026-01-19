@@ -23,6 +23,7 @@ import {
   phases,
   progress,
   sprints,
+  sprintSettings,
   tasks,
   tddTaskRelationships,
   verificationChecks,
@@ -170,8 +171,12 @@ export async function handleConfigureSprint(
       durationMs,
     );
 
-    // Handle errors
-    const errorResponse = createErrorResponse("DATABASE_ERROR", err.message, {
+    // Handle errors - use VALIDATION_ERROR for TDD environment validation
+    const errorCode = err.message.includes("TDD red-phase tasks require environment")
+      ? "VALIDATION_ERROR"
+      : "DATABASE_ERROR";
+    
+    const errorResponse = createErrorResponse(errorCode, err.message, {
       duration_ms: durationMs,
     });
 
@@ -193,6 +198,7 @@ async function configureSprint(input: ConfigureSprintInput): Promise<{
   sprint_id: string;
   tasks_created: number;
   summary: { phases: number; total_tasks: number };
+  pattern_warnings?: string[];
 }> {
   const db = getDb();
   const now = new Date().toISOString();
@@ -209,6 +215,35 @@ async function configureSprint(input: ConfigureSprintInput): Promise<{
   const phasesData = input.phases;
   const tasksData = input.tasks;
 
+  // VALIDATION: TDD tasks require environment configuration
+  // Check if any task has tdd_red_phase=true
+  const tddRedPhaseTasks = tasksData.filter((task) => task.tdd_red_phase === true);
+  
+  if (tddRedPhaseTasks.length > 0) {
+    // TDD tasks exist - environment is required
+    const missingFields: string[] = [];
+    
+    if (!input.environment) {
+      missingFields.push("environment");
+    } else {
+      if (!input.environment.test_command) {
+        missingFields.push("environment.test_command");
+      }
+      if (!input.environment.test_file_pattern) {
+        missingFields.push("environment.test_file_pattern");
+      }
+    }
+    
+    if (missingFields.length > 0) {
+      const taskIds = tddRedPhaseTasks.map((t) => t.task_id).join(", ");
+      throw new Error(
+        `TDD red-phase tasks require environment configuration. ` +
+        `Missing fields: ${missingFields.join(", ")}. ` +
+        `Tasks with tdd_red_phase=true: [${taskIds}]`
+      );
+    }
+  }
+
   // 1. Deactivate all existing sprints before creating new one
   await db.run(sql`UPDATE sprints SET is_active = 0`);
 
@@ -223,6 +258,30 @@ async function configureSprint(input: ConfigureSprintInput): Promise<{
     updated_at: now,
     completed_at: null,
   });
+
+  // 2a. Store environment configuration in sprint_settings
+  // This is REQUIRED - eliminates test command/pattern guessing
+  if (input.environment) {
+    const envSettings = [
+      { key: "test_command", value: input.environment.test_command },
+      { key: "test_file_pattern", value: input.environment.test_file_pattern },
+      { key: "source_base_dir", value: input.environment.source_base_dir },
+    ].filter((setting) => setting.value !== undefined) as Array<{
+      key: string;
+      value: string;
+    }>;
+
+    for (const setting of envSettings) {
+      await db.insert(sprintSettings).values({
+        sprint_id: sprint.id,
+        key: setting.key,
+        value: setting.value,
+        description: `Sprint environment config: ${setting.key}`,
+        created_at: now,
+        updated_at: now,
+      });
+    }
+  }
 
   // 3. Create phases
   const phaseRecords = phasesData.map((phase, index) => ({
@@ -319,9 +378,10 @@ async function configureSprint(input: ConfigureSprintInput): Promise<{
     if (task.verification.behavioral_checks) {
       for (const check of task.verification.behavioral_checks) {
         if (hasBashOnlySyntax(check.command)) {
-          commandWarnings.push(
+          // Make bash-only syntax an ERROR (not warning) - it WILL fail on Windows
+          pathErrors.push(
             `Task ${task.task_id}: behavioral check command uses bash-only syntax '&&'. ` +
-              `This will fail on Windows/PowerShell. Use ';' instead or split into separate commands. ` +
+              `This WILL fail on Windows/PowerShell. Use ';' for command chaining. ` +
               `Command: "${check.command.substring(0, 60)}${check.command.length > 60 ? "..." : ""}"`,
           );
         }
@@ -331,15 +391,15 @@ async function configureSprint(input: ConfigureSprintInput): Promise<{
 
   if (pathErrors.length > 0) {
     throw new Error(
-      `Invalid verification check paths detected:\n${pathErrors.join("\n")}\n\n` +
-        `Paths must contain glob characters (*?[]{}) or end with a file extension.`,
+      `Invalid verification check configuration:\n${pathErrors.join("\n")}\n\n` +
+        `Fix these errors before configuring the sprint.`,
     );
   }
 
-  // Log warnings but don't block (commands might be intentionally cross-platform)
+  // Log warnings but don't block (for informational issues)
   if (commandWarnings.length > 0) {
     console.error(
-      `[configure_sprint] WARNINGS - Potential shell compatibility issues:\n${commandWarnings.join("\n")}`,
+      `[configure_sprint] WARNINGS - Potential issues:\n${commandWarnings.join("\n")}`,
     );
   }
 
@@ -509,7 +569,13 @@ async function configureSprint(input: ConfigureSprintInput): Promise<{
   // Notify extension of database changes
   writeSignal();
 
-  return {
+  // Build result with exactOptionalPropertyTypes compliance
+  const result: {
+    sprint_id: string;
+    tasks_created: number;
+    summary: { phases: number; total_tasks: number };
+    pattern_warnings?: string[];
+  } = {
     sprint_id: sprint.id,
     tasks_created: tasksData.length,
     summary: {
@@ -517,6 +583,12 @@ async function configureSprint(input: ConfigureSprintInput): Promise<{
       total_tasks: tasksData.length,
     },
   };
+
+  if (commandWarnings.length > 0) {
+    result.pattern_warnings = commandWarnings;
+  }
+
+  return result;
 }
 
 /**

@@ -10,6 +10,7 @@ import type Database from "better-sqlite3";
 import * as vscode from "vscode";
 import {
   getAllSprints,
+  getLatestCodeReviewStatusForSprint,
   getPhases,
   getTasksForSprint,
   type Phase,
@@ -54,6 +55,9 @@ export class SprintTreeProvider implements vscode.TreeDataProvider<TreeElement> 
     TreeElement | undefined | void
   >();
   readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
+
+  private _codeReviewStatusByTaskId: Map<number, string> = new Map();
+  private _codeReviewStatusSprintId: string | null = null;
 
   constructor(
     private readonly _db: Database.Database,
@@ -103,6 +107,7 @@ export class SprintTreeProvider implements vscode.TreeDataProvider<TreeElement> 
 
       // Sprint level: return phases
       if (element.type === "sprint") {
+        this._ensureCodeReviewStatusMap(workspaceRoot, element.sprint.id);
         const phases = getPhases(workspaceRoot, element.sprint.id);
         const allTasks = getTasksForSprint(workspaceRoot, element.sprint.id);
         return phases.map((phase) => ({
@@ -115,6 +120,7 @@ export class SprintTreeProvider implements vscode.TreeDataProvider<TreeElement> 
 
       // Phase level: return tasks for this phase
       if (element.type === "phase") {
+        this._ensureCodeReviewStatusMap(workspaceRoot, element.sprintId);
         const allTasks = getTasksForSprint(workspaceRoot, element.sprintId);
         // Filter tasks that belong to this phase
         const phaseTasks = allTasks.filter(
@@ -255,11 +261,13 @@ export class SprintTreeProvider implements vscode.TreeDataProvider<TreeElement> 
     item.iconPath = this._getIconForStatus(task.status);
 
     // TD-016: Set resourceUri for FileDecorationProvider styling
+    const codeReviewStatus = this._codeReviewStatusByTaskId.get(task.id);
     item.resourceUri = createTaskDecorationUri(
       task.task_id,
       task.status,
       task.retry_count,
       task.max_retries,
+      codeReviewStatus,
     );
 
     // Tooltip shows description and status (using translated label)
@@ -267,6 +275,11 @@ export class SprintTreeProvider implements vscode.TreeDataProvider<TreeElement> 
     item.tooltip = new vscode.MarkdownString();
     item.tooltip.appendMarkdown(`**${task.title}**\n\n`);
     item.tooltip.appendMarkdown(`Status: ${statusDisplay.label}\n\n`);
+    if (codeReviewStatus) {
+      item.tooltip.appendMarkdown(
+        `Code Review: ${codeReviewStatus.replace(/_/g, " ")}\n\n`,
+      );
+    }
     if (task.status === "ESCALATED" || task.status === "VERIFY_FAILED") {
       item.tooltip.appendMarkdown(`*Right-click for remediation options*\n\n`);
     }
@@ -290,6 +303,21 @@ export class SprintTreeProvider implements vscode.TreeDataProvider<TreeElement> 
     }
 
     return item;
+  }
+
+  private _ensureCodeReviewStatusMap(
+    workspaceRoot: string,
+    sprintId: string,
+  ): void {
+    if (this._codeReviewStatusSprintId === sprintId) {
+      return;
+    }
+
+    this._codeReviewStatusByTaskId = getLatestCodeReviewStatusForSprint(
+      workspaceRoot,
+      sprintId,
+    );
+    this._codeReviewStatusSprintId = sprintId;
   }
 
   private _getIconForStatus(status: string): vscode.ThemeIcon {

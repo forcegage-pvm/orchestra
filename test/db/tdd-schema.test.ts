@@ -38,6 +38,7 @@ describe("TDD Schema Tables", () => {
         name TEXT NOT NULL,
         status TEXT NOT NULL DEFAULT 'ACTIVE',
         workflow_step TEXT NOT NULL,
+        config TEXT,
         is_active INTEGER NOT NULL DEFAULT 0,
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL,
@@ -129,7 +130,7 @@ describe("TDD Schema Tables", () => {
       expect(columns).toHaveLength(7);
 
       const columnMap = Object.fromEntries(
-        columns.map((col) => [col.name, col])
+        columns.map((col) => [col.name, col]),
       );
 
       // Verify all required columns exist with correct types
@@ -281,7 +282,7 @@ describe("TDD Schema Tables", () => {
           green_task_id: greenTask.id,
           declared_at: "complete_task",
           created_at: new Date().toISOString(),
-        })
+        }),
       ).rejects.toThrow(/UNIQUE constraint failed/);
     });
 
@@ -379,7 +380,7 @@ describe("TDD Schema Tables", () => {
       expect(columns).toHaveLength(6);
 
       const columnMap = Object.fromEntries(
-        columns.map((col) => [col.name, col])
+        columns.map((col) => [col.name, col]),
       );
 
       // Verify all 6 columns exist with correct properties (no transitioned - registry is stateless snapshot)
@@ -499,7 +500,7 @@ describe("TDD Schema Tables", () => {
           red_task_id: redTask.id,
           test_file: testFile,
           created_at: new Date().toISOString(),
-        })
+        }),
       ).rejects.toThrow(/UNIQUE constraint failed/);
     });
 

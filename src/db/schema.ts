@@ -31,6 +31,7 @@ export const sprints = sqliteTable(
     name: text("name").notNull(),
     status: text("status").notNull().default("ACTIVE"), // SprintStatus enum: PENDING_SPEC_REVIEW, ACTIVE, SPEC_REVIEW_FAILED, COMPLETE, CLOSED
     workflow_step: text("workflow_step").notNull(), // WorkflowStep enum
+    config: text("config"), // JSON: CodeReviewConfig and other sprint-level settings
     is_active: integer("is_active", { mode: "boolean" })
       .notNull()
       .default(false), // Only one sprint active at a time
@@ -568,7 +569,13 @@ export const codeReviews = sqliteTable(
     }),
     review_scope: text("review_scope", { enum: ["TASK", "PHASE"] }).notNull(),
     status: text("status", {
-      enum: ["PENDING", "APPROVED", "CHANGES_REQUESTED", "REJECTED"],
+      enum: [
+        "PENDING",
+        "IN_REVIEW",
+        "APPROVED",
+        "CHANGES_REQUESTED",
+        "REJECTED",
+      ],
     }).notNull(),
     summary: text("summary").notNull(),
     risk: text("risk").notNull(), // LOW | MEDIUM | HIGH
@@ -580,6 +587,8 @@ export const codeReviews = sqliteTable(
     notes: text("notes"),
     requested_by: text("requested_by").notNull(),
     requested_at: text("requested_at").notNull(),
+    in_review_by: text("in_review_by"),
+    in_review_at: text("in_review_at"),
     reviewed_by: text("reviewed_by"),
     reviewed_at: text("reviewed_at"),
     revision_count: integer("revision_count").notNull().default(0),

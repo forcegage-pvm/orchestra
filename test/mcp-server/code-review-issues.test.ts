@@ -980,18 +980,21 @@ describe("verify_code_review_fixes handler", () => {
 
     testTaskId = task.id;
 
+    // Create review in IN_REVIEW status (as if claimed by controller for fix verification)
     const [review] = await db
       .insert(codeReviews)
       .values({
         sprint_id: testSprintId,
         task_id: testTaskId,
         review_scope: "TASK",
-        status: "CHANGES_REQUESTED",
+        status: "IN_REVIEW",
         summary: "Test review",
         risk: "LOW",
         requested_by: "test-user",
         requested_at: now,
         revision_count: 0,
+        in_review_by: "controller",
+        in_review_at: now,
       })
       .returning();
 

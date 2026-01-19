@@ -20,18 +20,27 @@ import {
 } from "./commands/deEscalation.js";
 import { ConfigService } from "./config/ConfigService.js";
 import { OrchestraDB } from "./database/client.js";
+import {
+  getCompletedUnreviewedTasks,
+  getCurrentSprint,
+  getOpenCodeReviewIssues,
+  getTaskById,
+} from "./database/queries.js";
 import { DatabaseWatcher } from "./database/watcher.js";
 import { ConfigGenerator } from "./mcp/ConfigGenerator.js";
 import { registerMcpServerProvider } from "./mcp/McpServerProvider.js";
 import { MCPServerManager } from "./mcp/ServerManager.js";
 import { ContextFileResolver } from "./prompts/ContextFileResolver.js";
+import { PromptBuilder } from "./prompts/PromptBuilder.js";
 import { OrchestraLogger } from "./utils/logger.js";
 import { DashboardPanel } from "./views/dashboard/DashboardPanel.js";
 import { OrchestraViewDecorationProvider } from "./views/providers/ViewDecorationProvider.js";
 import { SprintSettingsPanel } from "./views/settings/SprintSettingsPanel.js";
 import { StatusBarManager } from "./views/statusbar/StatusBarItem.js";
 import { TaskDetailPanel } from "./views/task/TaskDetailPanel.js";
+import { CodeReviewTreeProvider } from "./views/treeview/CodeReviewTreeProvider.js";
 import { SprintTreeProvider } from "./views/treeview/SprintTreeProvider.js";
+import { CodeReviewSummaryPanel } from "./views/webview/CodeReviewSummaryPanel.js";
 import { CurrentTaskViewProvider } from "./views/webview/CurrentTaskViewProvider.js";
 import {
   findOrchestraRoot,
@@ -715,6 +724,21 @@ export async function activate(
     context.subscriptions.push(treeView);
     logger.info("Sprint Explorer TreeView registered");
 
+    // 6a. Register Code Review TreeView
+    const codeReviewTreeProvider = new CodeReviewTreeProvider(
+      orchestraRoot,
+      dbWatcher,
+    );
+    const codeReviewTreeView = vscode.window.createTreeView(
+      "orchestra.codeReview",
+      {
+        treeDataProvider: codeReviewTreeProvider,
+        showCollapseAll: true,
+      },
+    );
+    context.subscriptions.push(codeReviewTreeView);
+    logger.info("Code Review TreeView registered");
+
     // 6b. Register FileDecorationProvider for status-based styling (TD-016 DD-4)
     const decorationProvider = new OrchestraViewDecorationProvider();
     context.subscriptions.push(
@@ -877,6 +901,224 @@ export async function activate(
           }
         },
       ),
+      // Code Review commands
+      vscode.commands.registerCommand("orchestra.openCodeReviewSummary", () => {
+        CodeReviewSummaryPanel.createOrShow(
+          context.extensionUri,
+          orchestraRoot,
+          dbWatcher,
+        );
+      }),
+      vscode.commands.registerCommand("orchestra.runAdHocReview", async () => {
+        try {
+          const db = OrchestraDB.getInstance(orchestraRoot);
+          const sprint = getCurrentSprint(orchestraRoot);
+          if (!sprint) {
+            vscode.window.showWarningMessage(
+              "No active sprint found. Cannot trigger ad-hoc reviews.",
+            );
+            return;
+          }
+
+          // Check for existing pending reviews
+          const pendingCount = db
+            .prepare(
+              `SELECT COUNT(*) as count FROM code_reviews WHERE sprint_id = ? AND status = 'PENDING'`,
+            )
+            .get(sprint.id) as { count: number };
+
+          const unreviewedTasks = getCompletedUnreviewedTasks(orchestraRoot);
+
+          // Create reviews for any unreviewed tasks
+          const now = new Date().toISOString();
+          let createdCount = 0;
+          for (const task of unreviewedTasks) {
+            db.prepare(
+              `INSERT INTO code_reviews (sprint_id, task_id, phase_id, review_scope, status, summary, risk, requested_by, requested_at)
+               VALUES (?, ?, ?, 'TASK', 'PENDING', ?, 'LOW', 'orchestrator', ?)`,
+            ).run(
+              sprint.id,
+              task.id,
+              task.phase_id,
+              `Ad-hoc review for task ${task.task_id}: ${task.title}`,
+              now,
+            );
+            createdCount++;
+          }
+
+          const totalPending = pendingCount.count + createdCount;
+
+          if (totalPending === 0) {
+            vscode.window.showInformationMessage(
+              "No pending code reviews to process.",
+            );
+            return;
+          }
+
+          if (createdCount > 0) {
+            vscode.window.showInformationMessage(
+              `Created ${createdCount} new review(s). Launching Controller agent for ${totalPending} pending review(s)...`,
+            );
+          } else {
+            vscode.window.showInformationMessage(
+              `Launching Controller agent for ${totalPending} pending review(s)...`,
+            );
+          }
+
+          // Refresh the code review tree
+          codeReviewTreeProvider?.refresh();
+
+          // Build prompt and invoke Controller agent
+          const promptBuilder = new PromptBuilder();
+          const prompt = promptBuilder.buildCodeReviewPrompt(
+            totalPending,
+            sprint.id,
+            sprint.name,
+          );
+
+          const sm = getSessionManager();
+          await sm.invokeController(prompt, []);
+        } catch (error) {
+          logger.error("Failed to trigger ad-hoc reviews", error);
+          vscode.window.showErrorMessage(
+            `Failed to trigger ad-hoc reviews: ${error instanceof Error ? error.message : String(error)}`,
+          );
+        }
+      }),
+      vscode.commands.registerCommand(
+        "orchestra.fixCodeReviewIssues",
+        async () => {
+          try {
+            const sprint = getCurrentSprint(orchestraRoot);
+            if (!sprint) {
+              vscode.window.showWarningMessage(
+                "No active sprint found. Cannot fix code review issues.",
+              );
+              return;
+            }
+
+            const issues = getOpenCodeReviewIssues(orchestraRoot);
+            if (issues.length === 0) {
+              vscode.window.showInformationMessage(
+                "No open code review issues to fix.",
+              );
+              return;
+            }
+
+            const promptBuilder = new PromptBuilder();
+            const prompt = promptBuilder.buildCodeReviewFixPrompt(
+              issues.length,
+              sprint.id,
+              sprint.name,
+            );
+
+            const sm = getSessionManager();
+            await sm.invokeImplementor(prompt, []);
+          } catch (error) {
+            logger.error("Failed to invoke fix code review issues", error);
+            vscode.window.showErrorMessage(
+              `Failed to invoke fix code review issues: ${error instanceof Error ? error.message : String(error)}`,
+            );
+          }
+        },
+      ),
+      vscode.commands.registerCommand(
+        "orchestra.runCodeReview",
+        async (
+          element:
+            | number
+            | {
+                type: string;
+                task?: {
+                  id: number;
+                  task_id: number;
+                  title: string;
+                  status: string;
+                };
+              },
+        ) => {
+          try {
+            // Handle TreeElement from SprintTreeProvider or direct taskId
+            let taskId: number;
+            if (typeof element === "number") {
+              taskId = element;
+            } else if (element?.type === "task" && element?.task?.id) {
+              taskId = element.task.id;
+            } else {
+              vscode.window.showErrorMessage(
+                "No task specified for code review.",
+              );
+              return;
+            }
+
+            const db = OrchestraDB.getInstance(orchestraRoot);
+            const sprint = getCurrentSprint(orchestraRoot);
+            if (!sprint) {
+              vscode.window.showWarningMessage(
+                "No active sprint found. Cannot trigger code review.",
+              );
+              return;
+            }
+
+            const task = getTaskById(orchestraRoot, taskId);
+            if (!task) {
+              vscode.window.showErrorMessage(`Task ${taskId} not found.`);
+              return;
+            }
+
+            if (task.status !== "COMPLETE") {
+              vscode.window.showWarningMessage(
+                `Task ${taskId} is not complete. Code reviews can only be triggered for completed tasks.`,
+              );
+              return;
+            }
+
+            // Check if review already exists
+            const existing = db
+              .prepare(`SELECT id FROM code_reviews WHERE task_id = ?`)
+              .get(task.id) as { id: number } | undefined;
+
+            if (!existing) {
+              // Create the review
+              const now = new Date().toISOString();
+              db.prepare(
+                `INSERT INTO code_reviews (sprint_id, task_id, phase_id, review_scope, status, summary, risk, requested_by, requested_at)
+                 VALUES (?, ?, ?, 'TASK', 'PENDING', ?, 'LOW', 'orchestrator', ?)`,
+              ).run(
+                sprint.id,
+                task.id,
+                task.phase_id,
+                `Manual review for task ${task.task_id}: ${task.title}`,
+                now,
+              );
+            }
+
+            vscode.window.showInformationMessage(
+              `Launching Controller agent to review task ${task.task_id}: ${task.title}`,
+            );
+
+            // Refresh the code review tree
+            codeReviewTreeProvider?.refresh();
+
+            // Build prompt and invoke Controller agent
+            const promptBuilder = new PromptBuilder();
+            const prompt = promptBuilder.buildCodeReviewPrompt(
+              1,
+              sprint.id,
+              sprint.name,
+              { taskId: task.task_id, title: task.title, dbId: task.id },
+            );
+
+            const sm = getSessionManager();
+            await sm.invokeController(prompt, []);
+          } catch (error) {
+            logger.error("Failed to trigger code review", error);
+            vscode.window.showErrorMessage(
+              `Failed to trigger code review: ${error instanceof Error ? error.message : String(error)}`,
+            );
+          }
+        },
+      ),
       // Agent execution commands
       vscode.commands.registerCommand("orchestra.startAgent", async () => {
         try {
@@ -1014,6 +1256,20 @@ export async function activate(
           logger.error("Failed to resume agent", error);
         }
       }),
+      vscode.commands.registerCommand(
+        "orchestra.launchControllerAgent",
+        async () => {
+          const sprint = getCurrentSprint(orchestraRoot);
+          if (!sprint) {
+            vscode.window.showErrorMessage(
+              "Orchestra: No active sprint found for review.",
+            );
+            return;
+          }
+
+          await handleReviewSprint(orchestraRoot, sprint);
+        },
+      ),
       vscode.commands.registerCommand(
         "orchestra.launchControllerForSprint",
         async (element: any) => {

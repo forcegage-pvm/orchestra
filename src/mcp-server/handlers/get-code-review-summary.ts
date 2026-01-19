@@ -4,12 +4,13 @@
  * Shared tool to fetch sprint-level code review summary for UI panels.
  */
 
-import { and, eq, ne } from "drizzle-orm";
+import { and, desc, eq, inArray, ne } from "drizzle-orm";
 import { getDb } from "../../db/index.js";
 import {
   codeReviewIssues,
   codeReviews,
   sprintSettings,
+  tasks,
 } from "../../db/schema.js";
 import {
   GetCodeReviewSummaryInputSchema,
@@ -132,7 +133,9 @@ async function getCodeReviewSummary(
 
   // Count by status
   const totals = {
-    pending: reviews.filter((r) => r.status === "PENDING").length,
+    pending: reviews.filter(
+      (r) => r.status === "PENDING" || r.status === "IN_REVIEW",
+    ).length,
     approved: reviews.filter((r) => r.status === "APPROVED").length,
     changes_requested: reviews.filter((r) => r.status === "CHANGES_REQUESTED")
       .length,
@@ -153,6 +156,25 @@ async function getCodeReviewSummary(
 
   const open_issues = openIssuesResult.length;
 
+  const pendingReviews = await db
+    .select({
+      review_id: codeReviews.id,
+      status: codeReviews.status,
+      task_id: tasks.id,
+      sprint_task_id: tasks.task_id,
+      title: tasks.title,
+      requested_at: codeReviews.requested_at,
+    })
+    .from(codeReviews)
+    .innerJoin(tasks, eq(codeReviews.task_id, tasks.id))
+    .where(
+      and(
+        eq(codeReviews.sprint_id, input.sprint_id),
+        inArray(codeReviews.status, ["PENDING", "IN_REVIEW"]),
+      ),
+    )
+    .orderBy(desc(codeReviews.requested_at));
+
   return {
     success: true,
     summary: {
@@ -161,6 +183,14 @@ async function getCodeReviewSummary(
       enabled,
       blocking_severity,
       totals,
+      pending_reviews: pendingReviews.map((review) => ({
+        review_id: review.review_id,
+        status: review.status as "PENDING" | "IN_REVIEW",
+        task_id: review.task_id,
+        sprint_task_id: review.sprint_task_id,
+        title: review.title,
+        requested_at: review.requested_at,
+      })),
       open_issues,
     },
   };

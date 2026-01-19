@@ -18,6 +18,25 @@ import {
 // configure_sprint
 // ============================================================================
 
+/**
+ * Environment configuration schema for sprint testing infrastructure
+ * REQUIRED for all sprints to eliminate guessing/inference
+ * Fields are optional at schema level but validated at runtime based on task configuration
+ */
+export const SprintEnvironmentSchema = z.object({
+  /** Command to run tests - e.g. npm test, flutter test, pytest */
+  test_command: z.string().min(1, "Test command cannot be empty").optional(),
+  /** Glob pattern for test files - e.g. test slash star slash star.test.ts */
+  test_file_pattern: z.string().min(1, "Test file pattern cannot be empty").optional(),
+  /** Base directory for source files in monorepos - e.g. extension, packages/app, or . for root */
+  source_base_dir: z
+    .string()
+    .min(1, "Source base directory cannot be empty (use '.' for root)")
+    .optional(),
+});
+
+export type SprintEnvironment = z.output<typeof SprintEnvironmentSchema>;
+
 export const ConfigureSprintInputSchema = z
   .object({
     config_file: z
@@ -31,6 +50,9 @@ export const ConfigureSprintInputSchema = z
         name: z.string().min(1, "Sprint name is required"),
       })
       .optional(),
+
+    /** Environment configuration - REQUIRED for all sprints */
+    environment: SprintEnvironmentSchema.optional(),
 
     phases: z
       .array(
@@ -109,6 +131,7 @@ export const ConfigureSprintInputSchema = z
     }
 
     // Skip further validation if required fields missing
+    // Note: environment is validated at runtime based on task configuration (TDD tasks require it)
     if (!data.sprint || !data.phases || !data.tasks) {
       return;
     }
@@ -253,6 +276,12 @@ export const ConfigureSprintOutputSchema = SuccessResponseSchema.extend({
     phases: z.number().int().positive(),
     total_tasks: z.number().int().positive(),
   }),
+  pattern_warnings: z
+    .array(z.string())
+    .optional()
+    .describe(
+      "Verification pattern warnings - potential issues that may cause verification failures",
+    ),
 });
 
 export type ConfigureSprintOutput = z.output<
@@ -345,6 +374,12 @@ export type UpdateVerificationInput = z.output<
 export const UpdateVerificationOutputSchema = SuccessResponseSchema.extend({
   task_id: z.number().int().positive(),
   total_checks: z.number().int().nonnegative(),
+  pattern_warnings: z
+    .array(z.string())
+    .optional()
+    .describe(
+      "Verification pattern warnings - patterns that may cause issues during VERIFY",
+    ),
 });
 
 export type UpdateVerificationOutput = z.output<

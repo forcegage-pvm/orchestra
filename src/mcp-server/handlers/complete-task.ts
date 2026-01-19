@@ -6,6 +6,11 @@
  */
 
 import { and, eq, isNull, ne } from "drizzle-orm";
+import { enforceTaskGate } from "../../core/code-review-gates.js";
+import {
+  triggerCodeReviewOnPhaseCompletion,
+  triggerCodeReviewOnTaskCompletion,
+} from "../../core/code-review-triggers.js";
 import { autoCommitIfEnabled, generateCommitMessage } from "../../core/git.js";
 import {
   getActiveSprint,
@@ -23,6 +28,7 @@ import {
   CompleteTaskInputSchema,
   type CompleteTaskOutput,
 } from "../../schemas/completion.js";
+import type { CodeReviewConfig } from "../../schemas/config.js";
 import { validateInput } from "../../schemas/utils.js";
 import { logToolExecution } from "./audit-logging.js";
 
@@ -53,7 +59,7 @@ export async function handleCompleteTask(input: unknown) {
         taskId: validation.data.task_id,
       },
       { success: true, output },
-      durationMs
+      durationMs,
     );
 
     return {
@@ -72,7 +78,7 @@ export async function handleCompleteTask(input: unknown) {
         taskId: validation.data.task_id,
       },
       { success: false, errorMessage: err.message },
-      durationMs
+      durationMs,
     );
 
     return {
@@ -88,7 +94,7 @@ export async function handleCompleteTask(input: unknown) {
               },
             },
             null,
-            2
+            2,
           ),
         },
       ],
@@ -97,7 +103,7 @@ export async function handleCompleteTask(input: unknown) {
 }
 
 async function completeTask(
-  input: typeof CompleteTaskInputSchema._output
+  input: typeof CompleteTaskInputSchema._output,
 ): Promise<CompleteTaskOutput> {
   const db = getDb();
 
@@ -113,7 +119,7 @@ async function completeTask(
     .select()
     .from(tasks)
     .where(
-      and(eq(tasks.sprint_id, sprint.id), eq(tasks.task_id, input.task_id))
+      and(eq(tasks.sprint_id, sprint.id), eq(tasks.task_id, input.task_id)),
     )
     .limit(1);
 
@@ -124,7 +130,7 @@ async function completeTask(
   // 3. Validate task is in VERIFY state
   if (task.status !== "VERIFY") {
     throw new Error(
-      `Task ${input.task_id} is in ${task.status} state, expected VERIFY`
+      `Task ${input.task_id} is in ${task.status} state, expected VERIFY`,
     );
   }
 
@@ -138,8 +144,8 @@ async function completeTask(
       .where(
         and(
           eq(tasks.sprint_id, sprint.id),
-          eq(tasks.task_id, input.green_task_id)
-        )
+          eq(tasks.task_id, input.green_task_id),
+        ),
       )
       .limit(1);
 
@@ -162,15 +168,17 @@ async function completeTask(
     .innerJoin(tasks, eq(tddRedRegistry.red_task_id, tasks.id))
     .leftJoin(
       tddTaskRelationships,
-      eq(tddRedRegistry.red_task_id, tddTaskRelationships.red_task_id)
+      eq(tddRedRegistry.red_task_id, tddTaskRelationships.red_task_id),
     )
     .where(
       and(
         eq(tddRedRegistry.sprint_id, sprint.id),
         isNull(tddTaskRelationships.green_task_id),
         // Exclude current task if we're about to assign it a green_task_id
-        providedGreenTaskInternalId !== null ? ne(tasks.id, task.id) : undefined
-      )
+        providedGreenTaskInternalId !== null
+          ? ne(tasks.id, task.id)
+          : undefined,
+      ),
     );
 
   if (orphanedRedTasks.length > 0) {
@@ -183,7 +191,7 @@ async function completeTask(
         `\n\n` +
         `Orchestrator must call complete_task with green_task_id parameter for each red-phase task ` +
         `before any task can be completed.\n\n` +
-        `Example: complete_task({ task_id: ${uniqueTaskIds[0]}, green_task_id: <green_task_id> })`
+        `Example: complete_task({ task_id: ${uniqueTaskIds[0]}, green_task_id: <green_task_id> })`,
     );
   }
 
@@ -221,7 +229,7 @@ async function completeTask(
     // Block if no green task found
     if (greenTaskInternalId === null) {
       throw new Error(
-        `GREEN_TASK_REQUIRED: TDD red-phase task ${input.task_id} cannot be completed without a green task assignment. Provide green_task_id parameter.`
+        `GREEN_TASK_REQUIRED: TDD red-phase task ${input.task_id} cannot be completed without a green task assignment. Provide green_task_id parameter.`,
       );
     }
 
@@ -251,6 +259,39 @@ async function completeTask(
       .where(eq(tddTaskRelationships.green_task_id, task.id));
   }
 
+  // 3c. Enforce code review gate (if policy requires it)
+  const config = (
+    sprint.config ? JSON.parse(sprint.config) : {}
+  ) as CodeReviewConfig;
+
+  const gateResult = await enforceTaskGate({ task_id: task.id });
+
+  if (gateResult.blocked) {
+    // Gate is closed - update task to PENDING_CODE_REVIEW instead of COMPLETE
+    const now = new Date().toISOString();
+    await db
+      .update(tasks)
+      .set({
+        status: gateResult.status || "PENDING_CODE_REVIEW",
+        updated_at: now,
+      })
+      .where(eq(tasks.id, task.id));
+
+    // Log progress
+    await db.insert(progressTable).values({
+      sprint_id: sprint.id,
+      task_id: task.id,
+      from_status: task.status,
+      to_status: gateResult.status || "PENDING_CODE_REVIEW",
+      workflow_step: sprint.workflow_step,
+      triggered_by: "orchestrator",
+      notes: gateResult.reason || "Code review required",
+      changed_at: now,
+    });
+
+    throw new Error(gateResult.reason || "Task blocked by code review gate");
+  }
+
   const now = new Date().toISOString();
 
   // 4. Update task to COMPLETE
@@ -275,6 +316,19 @@ async function completeTask(
     changed_at: now,
   });
 
+  // 5a. Trigger code reviews (if auto-trigger enabled)
+  await triggerCodeReviewOnTaskCompletion({
+    sprint,
+    task,
+    config,
+  });
+
+  await triggerCodeReviewOnPhaseCompletion({
+    sprint,
+    task,
+    config,
+  });
+
   // 6. Calculate progress summary
   const allTasks = await db
     .select({ task_id: tasks.task_id, status: tasks.status })
@@ -294,13 +348,13 @@ async function completeTask(
     .where(and(eq(tasks.sprint_id, sprint.id), eq(tasks.status, "PENDING")));
 
   const completedTaskIds = new Set(
-    allTasks.filter((t) => t.status === "COMPLETE").map((t) => t.task_id)
+    allTasks.filter((t) => t.status === "COMPLETE").map((t) => t.task_id),
   );
 
   for (const pendingTask of pendingTasks) {
     const dependencies = JSON.parse(pendingTask.dependencies) as number[];
     const allDepsComplete = dependencies.every((depId) =>
-      completedTaskIds.has(depId)
+      completedTaskIds.has(depId),
     );
 
     if (allDepsComplete) {
@@ -356,6 +410,6 @@ async function completeTask(
       remaining,
       next_task_id: nextTaskId,
     },
-    git_commit: gitResult.committed ? gitResult.sha ?? undefined : undefined,
+    git_commit: gitResult.committed ? (gitResult.sha ?? undefined) : undefined,
   };
 }

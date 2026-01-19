@@ -71,7 +71,8 @@ export interface TaskData {
     isRedPhase: boolean;
     registeredFiles: number; // Number of test files with markers
     totalTestCount: number; // Total tests across all files
-    redTaskId?: number;
+    redTaskId?: number; // Internal DB id (for openTask)
+    redTaskUiId?: number; // Sprint-relative task id (for display)
     redTaskTitle?: string;
   } | null;
   // Sprint 004: Review data for pending/failed review states
@@ -400,12 +401,27 @@ function getStyles(): string {
       text-transform: uppercase;
     }
     .review-issue-requirement {
-      font-weight: 500;
-      margin-bottom: 2px;
+      font-size: 11px;
+      color: var(--vscode-textLink-foreground);
+      margin-bottom: 4px;
     }
     .review-issue-finding {
+      margin-bottom: 4px;
+    }
+    .review-issue-recommendation {
+      font-size: 11px;
       color: var(--vscode-descriptionForeground);
-      margin-bottom: 2px;
+      font-style: italic;
+      margin-top: 4px;
+    }
+    .review-issue.blocking {
+      border-left-color: var(--vscode-charts-red);
+    }
+    .review-issue.major {
+      border-left-color: var(--vscode-charts-orange);
+    }
+    .review-issue.minor {
+      border-left-color: var(--vscode-charts-yellow);
     }
     .review-recommendations {
       margin-top: 8px;
@@ -419,6 +435,57 @@ function getStyles(): string {
     .review-recommendation {
       margin-left: 12px;
       margin-bottom: 4px;
+    }
+    /* Collapsible sections */
+    details.collapsible {
+      margin-top: 8px;
+      padding-top: 8px;
+      border-top: 1px solid var(--vscode-panel-border);
+    }
+    details.collapsible summary {
+      cursor: pointer;
+      font-weight: 600;
+      margin-bottom: 4px;
+      user-select: none;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    details.collapsible summary:hover {
+      color: var(--vscode-textLink-foreground);
+    }
+    details.collapsible summary::marker {
+      content: '';
+    }
+    details.collapsible summary::before {
+      content: '\\eb76';
+      font-family: codicon;
+      font-size: 12px;
+      transition: transform 0.2s;
+    }
+    details.collapsible[open] summary::before {
+      transform: rotate(90deg);
+    }
+    details.collapsible .collapsible-content {
+      margin-top: 8px;
+      margin-left: 16px;
+    }
+    .recommendation-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+    .recommendation-list li {
+      margin-bottom: 8px;
+      padding-left: 16px;
+      position: relative;
+      line-height: 1.4;
+    }
+    .recommendation-list li::before {
+      content: '•';
+      position: absolute;
+      left: 0;
+      color: var(--vscode-textLink-foreground);
     }
     .review-actions {
       display: flex;
@@ -499,11 +566,18 @@ function getStyles(): string {
  */
 function getScript(): string {
   return `
-    const vscode = acquireVsCodeApi();
+    (function() {
+      try {
+        console.log('[CurrentTask Webview] Script starting...');
+        
+        const vscode = acquireVsCodeApi();
+        
+        console.log('[CurrentTask Webview] Script loaded');
     
     // Handle messages from extension
     window.addEventListener('message', event => {
       const message = event.data;
+      console.log('[CurrentTask Webview] Message received:', message.command, message.data ? 'Task ' + message.data.task_id + ' (' + message.data.status + ')' : 'null');
       switch (message.command) {
         case 'update':
           updateContent(message.data);
@@ -518,11 +592,28 @@ function getScript(): string {
       return div.innerHTML;
     }
     
+    // Status display mapping for webview (mirrors STATUS_DISPLAY from statusTranslation.ts)
+    const STATUS_DISPLAY_MAP = {
+      'PENDING': { label: 'Ready', icon: 'circle-outline' },
+      'PREPARE': { label: 'Preparing', icon: 'edit' },
+      'PENDING_HANDOVER_REVIEW': { label: 'Pending Handover Review', icon: 'shield' },
+      'HANDOVER_REVIEW_FAILED': { label: 'Handover Review Failed', icon: 'warning' },
+      'IMPLEMENT': { label: 'In Progress', icon: 'play-circle' },
+      'VERIFY': { label: 'Verifying', icon: 'sync~spin' },
+      'VERIFY_FAILED': { label: 'Needs Attention', icon: 'warning' },
+      'GATE_CHECK': { label: 'Pending Review', icon: 'shield' },
+      'ESCALATED': { label: 'Escalated', icon: 'alert' },
+      'COMPLETE': { label: 'Complete', icon: 'check-all' }
+    };
+
     function renderTaskCard(task) {
       const statusValue = (task?.status || 'unknown').toString();
       const priorityValue = (task?.priority || 'unknown').toString();
       const statusClass = statusValue.toLowerCase().replace('_', '-');
       const priorityClass = priorityValue.toLowerCase();
+      
+      // Get status display - prefer from task data, fallback to local map
+      const statusDisplay = task.statusDisplay || STATUS_DISPLAY_MAP[statusValue] || { label: statusValue, icon: 'question' };
       
       // Determine action button label and handler based on task status
       // Mirrors the PlayTaskHandler logic exactly
@@ -617,9 +708,10 @@ function getScript(): string {
             </div>
           \`;
         } else {
-          // Green phase task
+          // Green phase task - use redTaskUiId for display, redTaskId for navigation
+          const displayId = task.tdd.redTaskUiId ?? task.tdd.redTaskId;
           const redLink = task.tdd.redTaskId 
-            ? \`<span class="tdd-link" onclick="openTask(\${task.tdd.redTaskId})">Task \${task.tdd.redTaskId}: \${escapeHtml(task.tdd.redTaskTitle || 'Red Task')}</span>\`
+            ? \`<span class="tdd-link" onclick="openTask(\${task.tdd.redTaskId})">Task \${displayId}: \${escapeHtml(task.tdd.redTaskTitle || 'Red Task')}</span>\`
             : '';
           tddBanner = \`
             <div class="tdd-banner green-phase">
@@ -654,13 +746,21 @@ function getScript(): string {
         
         let issuesHtml = '';
         if (task.review.issues && task.review.issues.length > 0) {
-          const issueItems = task.review.issues.map(issue => \`
-            <div class="review-issue \${issue.severity}">
+          const issueItems = task.review.issues.map(issue => {
+            // Handle both old format (requirement/finding) and new format (issue/spec_reference)
+            const issueObj = issue;
+            const requirement = issueObj.requirement || issueObj.spec_reference || '';
+            const finding = issueObj.finding || issueObj.issue || '';
+            const recommendation = issueObj.recommendation || '';
+            return \`
+            <div class="review-issue \${issue.severity.toLowerCase()}">
               <div class="review-issue-severity">\${issue.severity}</div>
-              <div class="review-issue-requirement">\${escapeHtml(issue.requirement)}</div>
-              <div class="review-issue-finding">\${escapeHtml(issue.finding)}</div>
+              \${finding ? \`<div class="review-issue-finding">\${escapeHtml(finding)}</div>\` : ''}
+              \${requirement ? \`<div class="review-issue-requirement">\${escapeHtml(requirement)}</div>\` : ''}
+              \${recommendation ? \`<div class="review-issue-recommendation">\${escapeHtml(recommendation)}</div>\` : ''}
             </div>
-          \`).join('');
+          \`;
+          }).join('');
           issuesHtml = \`
             <div class="review-issues">
               <div class="review-recommendations-title">Issues Found:</div>
@@ -671,14 +771,28 @@ function getScript(): string {
         
         let recommendationsHtml = '';
         if (task.review.recommendations && task.review.recommendations.length > 0) {
-          const recItems = task.review.recommendations.map(rec => \`<div class="review-recommendation">• \${escapeHtml(rec)}</div>\`).join('');
+          const recItems = task.review.recommendations.map(rec => 
+            \`<li>\${escapeHtml(rec)}</li>\`
+          ).join('');
           recommendationsHtml = \`
-            <div class="review-recommendations">
-              <div class="review-recommendations-title">Recommendations:</div>
-              \${recItems}
-            </div>
+            <details class="collapsible">
+              <summary>Recommendations (\${task.review.recommendations.length})</summary>
+              <div class="collapsible-content">
+                <ul class="recommendation-list">
+                  \${recItems}
+                </ul>
+              </div>
+            </details>
           \`;
         }
+        
+        // Format date safely
+        const reviewDate = task.review.reviewedAt 
+          ? new Date(task.review.reviewedAt) 
+          : null;
+        const formattedDate = reviewDate && !isNaN(reviewDate.getTime()) 
+          ? reviewDate.toLocaleString() 
+          : 'Pending';
         
         reviewBanner = \`
           <div class="review-banner \${bannerClass}">
@@ -689,7 +803,7 @@ function getScript(): string {
               </span>
             </div>
             <div class="review-status">
-              Reviewed by \${escapeHtml(task.review.reviewedBy)} • \${escapeHtml(new Date(task.review.reviewedAt).toLocaleString())}
+              Reviewed by \${escapeHtml(task.review.reviewedBy || 'Controller')} • \${escapeHtml(formattedDate)}
               \${task.review.revisionCount > 0 ? \` • Revision \${task.review.revisionCount}\` : ''}
             </div>
             \${issuesHtml}
@@ -740,8 +854,8 @@ function getScript(): string {
           <div class="task-header">
             <span class="task-id">Task \${task.task_id}</span>
             <span class="pill pill-status \${statusClass}">
-              <span class="codicon codicon-\${task.statusDisplay.icon}"></span>
-              \${task.statusDisplay.label}
+              <span class="codicon codicon-\${statusDisplay.icon}"></span>
+              \${statusDisplay.label}
             </span>
             <span class="pill pill-priority \${priorityClass}" title="\${task.priorityLabel}">\${task.priority}</span>
             <span class="pill pill-category">\${task.category}</span>
@@ -860,13 +974,26 @@ function getScript(): string {
     }
     
     function updateContent(data) {
+      console.log('[CurrentTask Webview] updateContent called with:', data ? 'Task ' + data.task_id + ' (' + data.status + ')' : 'null');
       const content = document.getElementById('content');
-      if (!data) {
-        content.innerHTML = renderNoTask();
-      } else if (data.type === 'sprint-review') {
-        content.innerHTML = renderSprintReviewCard(data);
-      } else {
-        content.innerHTML = renderTaskCard(data);
+      if (!content) {
+        console.error('[CurrentTask Webview] Content element not found!');
+        return;
+      }
+      try {
+        if (!data) {
+          console.log('[CurrentTask Webview] Rendering no-task placeholder');
+          content.innerHTML = renderNoTask();
+        } else if (data.type === 'sprint-review') {
+          console.log('[CurrentTask Webview] Rendering sprint review card');
+          content.innerHTML = renderSprintReviewCard(data);
+        } else {
+          console.log('[CurrentTask Webview] Rendering task card');
+          content.innerHTML = renderTaskCard(data);
+        }
+        console.log('[CurrentTask Webview] Content updated successfully');
+      } catch (error) {
+        console.error('[CurrentTask Webview] Error updating content:', error);
       }
     }
     
@@ -885,6 +1012,7 @@ function getScript(): string {
     }
     
     function playTask(taskId) {
+      console.log('[CurrentTask Webview] playTask called with taskId:', taskId);
       vscode.postMessage({
         command: 'playTask',
         taskId: taskId
@@ -932,9 +1060,10 @@ function getScript(): string {
       });
     }
     
-    function launchController() {
+    function runCodeReview(taskId) {
       vscode.postMessage({
-        command: 'launchController'
+        command: 'runCodeReview',
+        taskId: taskId
       });
     }
     
@@ -943,6 +1072,25 @@ function getScript(): string {
         command: 'refresh'
       });
     }
+    
+    // Make functions globally accessible
+    window.playTask = playTask;
+    window.openTask = openTask;
+    window.signalCompletion = signalCompletion;
+    window.prepareTask = prepareTask;
+    window.resolveEscalation = resolveEscalation;
+    window.moveToGateCheck = moveToGateCheck;
+    window.launchController = launchController;
+    window.moveToImplement = moveToImplement;
+    window.forceComplete = forceComplete;
+    window.refresh = refresh;
+    
+    console.log('[CurrentTask Webview] All functions registered globally');
+    
+      } catch (error) {
+        console.error('[CurrentTask Webview] Script initialization error:', error);
+      }
+    })();
   `;
 }
 
@@ -1258,6 +1406,13 @@ function renderTaskCard(task: TaskData): string {
           task.id
         })">View Details</button>
         ${actionButton}
+        ${
+          statusValue === "COMPLETE"
+            ? `<button class="btn btn-secondary" onclick="runCodeReview(${
+                task.id
+              })"><span class="codicon codicon-checklist"></span> Run Code Review for this task</button>`
+            : ""
+        }
       </div>
     </div>
   `;

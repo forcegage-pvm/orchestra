@@ -212,7 +212,27 @@ The Controller Agent adds mandatory review gates to prevent specification drift:
 
 - `spec_reviews`: All review decisions (SPRINT/HANDOVER type) with issues, recommendations, revision counts
 - `amendments`: Audit trail of specification changes after initial configuration
+- `sprint_settings`: Sprint-specific configuration (test_command, test_file_pattern, source_base_dir)
 - Sprint/Task status fields: `PENDING_SPEC_REVIEW`, `SPEC_REVIEW_FAILED`, `PENDING_HANDOVER_REVIEW`, `HANDOVER_REVIEW_FAILED`
+
+### Required Environment Configuration
+
+Every sprint MUST specify its testing environment via the `environment` field in `configure_sprint`:
+
+```json
+{
+  "sprint": { "id": "sprint-001", "name": "Feature Sprint" },
+  "environment": {
+    "test_command": "npm test",
+    "test_file_pattern": "test/**/*.test.ts",
+    "source_base_dir": "src"
+  },
+  "phases": [...],
+  "tasks": [...]
+}
+```
+
+This eliminates guessing about test frameworks and ensures TDD verification checks use explicit, correct values.
 
 ### UI Integration
 

@@ -33,6 +33,16 @@ export const CodeReviewSummarySchema = z.object({
     changes_requested: z.number(),
     rejected: z.number(),
   }),
+  pending_reviews: z.array(
+    z.object({
+      review_id: z.number(),
+      status: z.enum(["PENDING", "IN_REVIEW"]),
+      task_id: z.number(),
+      sprint_task_id: z.number(),
+      title: z.string(),
+      requested_at: z.string().nullable(),
+    }),
+  ),
   open_issues: z.number(),
 });
 

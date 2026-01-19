@@ -126,6 +126,12 @@ async function verifyCodeReviewFixes(
     throw new Error(`Review with id ${input.review_id} not found`);
   }
 
+  if (review.status !== "IN_REVIEW") {
+    throw new Error(
+      `Review ${input.review_id} must be claimed before verifying fixes (current status: ${review.status})`,
+    );
+  }
+
   // Find the fix record
   const [fixRecord] = await db
     .select()
@@ -149,6 +155,8 @@ async function verifyCodeReviewFixes(
           status: newStatus,
           reviewed_by: "controller",
           reviewed_at: now,
+          in_review_by: null,
+          in_review_at: null,
         })
         .where(eq(codeReviews.id, input.review_id));
       break;
@@ -162,6 +170,8 @@ async function verifyCodeReviewFixes(
           revision_count: review.revision_count + 1,
           reviewed_by: "controller",
           reviewed_at: now,
+          in_review_by: null,
+          in_review_at: null,
         })
         .where(eq(codeReviews.id, input.review_id));
 
@@ -191,6 +201,8 @@ async function verifyCodeReviewFixes(
           status: newStatus,
           reviewed_by: "controller",
           reviewed_at: now,
+          in_review_by: null,
+          in_review_at: null,
         })
         .where(eq(codeReviews.id, input.review_id));
 

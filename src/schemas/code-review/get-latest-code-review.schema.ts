@@ -13,9 +13,11 @@ import { z } from "zod";
 export const GetLatestCodeReviewInputSchema = z
   .object({
     task_id: z.number().int().positive().optional(),
+    sprint_task_id: z.number().int().positive().optional(),
+    sprint_id: z.string().min(1).optional(),
   })
-  .refine((data) => data.task_id, {
-    message: "task_id is required",
+  .refine((data) => data.task_id ?? data.sprint_task_id, {
+    message: "task_id or sprint_task_id is required",
   });
 
 export type GetLatestCodeReviewInput = z.output<
@@ -60,6 +62,8 @@ export const getLatestCodeReviewToolDef = {
     type: "object",
     properties: {
       task_id: { type: "number" },
+      sprint_task_id: { type: "number" },
+      sprint_id: { type: "string" },
     },
   },
 };

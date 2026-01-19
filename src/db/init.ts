@@ -23,6 +23,7 @@ export async function initializeDb(): Promise<void> {
       name TEXT NOT NULL,
       status TEXT NOT NULL DEFAULT 'ACTIVE',
       workflow_step TEXT NOT NULL,
+      config TEXT,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL,
       completed_at TEXT,
@@ -361,7 +362,7 @@ async function runMigrations(): Promise<void> {
   // Migration: Add amendments table for tracking task modifications
   try {
     const tables = await db.all(
-      sql`SELECT name FROM sqlite_master WHERE type='table' AND name='amendments'`
+      sql`SELECT name FROM sqlite_master WHERE type='table' AND name='amendments'`,
     );
     if ((tables as { name: string }[]).length === 0) {
       await db.run(sql`
@@ -382,16 +383,16 @@ async function runMigrations(): Promise<void> {
       `);
       // Create indexes for new table
       await db.run(
-        sql`CREATE INDEX IF NOT EXISTS sprint_amendment_idx ON amendments(sprint_id)`
+        sql`CREATE INDEX IF NOT EXISTS sprint_amendment_idx ON amendments(sprint_id)`,
       );
       await db.run(
-        sql`CREATE INDEX IF NOT EXISTS task_amendment_idx ON amendments(task_id)`
+        sql`CREATE INDEX IF NOT EXISTS task_amendment_idx ON amendments(task_id)`,
       );
       await db.run(
-        sql`CREATE INDEX IF NOT EXISTS tool_amendment_idx ON amendments(tool_name)`
+        sql`CREATE INDEX IF NOT EXISTS tool_amendment_idx ON amendments(tool_name)`,
       );
       await db.run(
-        sql`CREATE INDEX IF NOT EXISTS amendment_timestamp_idx ON amendments(amended_at)`
+        sql`CREATE INDEX IF NOT EXISTS amendment_timestamp_idx ON amendments(amended_at)`,
       );
     }
   } catch {
@@ -407,147 +408,147 @@ async function createIndexes(): Promise<void> {
 
   // Sprints indexes
   await db.run(
-    sql`CREATE INDEX IF NOT EXISTS workflow_step_idx ON sprints(workflow_step)`
+    sql`CREATE INDEX IF NOT EXISTS workflow_step_idx ON sprints(workflow_step)`,
   );
 
   // Phases indexes
   await db.run(
-    sql`CREATE INDEX IF NOT EXISTS sprint_phase_idx ON phases(sprint_id, phase_id)`
+    sql`CREATE INDEX IF NOT EXISTS sprint_phase_idx ON phases(sprint_id, phase_id)`,
   );
 
   // Tasks indexes
   await db.run(
-    sql`CREATE INDEX IF NOT EXISTS sprint_task_idx ON tasks(sprint_id, task_id)`
+    sql`CREATE INDEX IF NOT EXISTS sprint_task_idx ON tasks(sprint_id, task_id)`,
   );
   await db.run(sql`CREATE INDEX IF NOT EXISTS status_idx ON tasks(status)`);
   await db.run(sql`CREATE INDEX IF NOT EXISTS phase_idx ON tasks(phase_id)`);
 
   // Consolidations indexes
   await db.run(
-    sql`CREATE INDEX IF NOT EXISTS sprint_consolidation_idx ON consolidations(sprint_id)`
+    sql`CREATE INDEX IF NOT EXISTS sprint_consolidation_idx ON consolidations(sprint_id)`,
   );
 
   // Verification checks indexes
   await db.run(
-    sql`CREATE INDEX IF NOT EXISTS task_check_idx ON verification_checks(task_id)`
+    sql`CREATE INDEX IF NOT EXISTS task_check_idx ON verification_checks(task_id)`,
   );
 
   // Handovers indexes
   await db.run(
-    sql`CREATE INDEX IF NOT EXISTS task_handover_idx ON handovers(task_id)`
+    sql`CREATE INDEX IF NOT EXISTS task_handover_idx ON handovers(task_id)`,
   );
 
   // Signals indexes
   await db.run(
-    sql`CREATE INDEX IF NOT EXISTS task_signal_idx ON signals(task_id)`
+    sql`CREATE INDEX IF NOT EXISTS task_signal_idx ON signals(task_id)`,
   );
   await db.run(
-    sql`CREATE INDEX IF NOT EXISTS signal_id_idx ON signals(signal_id)`
+    sql`CREATE INDEX IF NOT EXISTS signal_id_idx ON signals(signal_id)`,
   );
 
   // Verification results indexes
   await db.run(
-    sql`CREATE INDEX IF NOT EXISTS task_result_idx ON verification_results(task_id)`
+    sql`CREATE INDEX IF NOT EXISTS task_result_idx ON verification_results(task_id)`,
   );
   await db.run(
-    sql`CREATE INDEX IF NOT EXISTS signal_result_idx ON verification_results(signal_id)`
+    sql`CREATE INDEX IF NOT EXISTS signal_result_idx ON verification_results(signal_id)`,
   );
 
   // Feedback indexes
   await db.run(
-    sql`CREATE INDEX IF NOT EXISTS task_feedback_idx ON feedback(task_id)`
+    sql`CREATE INDEX IF NOT EXISTS task_feedback_idx ON feedback(task_id)`,
   );
 
   // Progress indexes
   await db.run(
-    sql`CREATE INDEX IF NOT EXISTS sprint_progress_idx ON progress(sprint_id)`
+    sql`CREATE INDEX IF NOT EXISTS sprint_progress_idx ON progress(sprint_id)`,
   );
   await db.run(
-    sql`CREATE INDEX IF NOT EXISTS task_progress_idx ON progress(task_id)`
+    sql`CREATE INDEX IF NOT EXISTS task_progress_idx ON progress(task_id)`,
   );
   await db.run(
-    sql`CREATE INDEX IF NOT EXISTS progress_timestamp_idx ON progress(changed_at)`
+    sql`CREATE INDEX IF NOT EXISTS progress_timestamp_idx ON progress(changed_at)`,
   );
   await db.run(
-    sql`CREATE INDEX IF NOT EXISTS triggered_by_idx ON progress(triggered_by)`
+    sql`CREATE INDEX IF NOT EXISTS triggered_by_idx ON progress(triggered_by)`,
   );
 
   // TDD Red Registry indexes
   await db.run(
-    sql`CREATE INDEX IF NOT EXISTS tdd_reg_sprint_idx ON tdd_red_registry(sprint_id)`
+    sql`CREATE INDEX IF NOT EXISTS tdd_reg_sprint_idx ON tdd_red_registry(sprint_id)`,
   );
   await db.run(
-    sql`CREATE INDEX IF NOT EXISTS tdd_reg_red_task_idx ON tdd_red_registry(red_task_id)`
+    sql`CREATE INDEX IF NOT EXISTS tdd_reg_red_task_idx ON tdd_red_registry(red_task_id)`,
   );
   await db.run(
-    sql`CREATE UNIQUE INDEX IF NOT EXISTS tdd_reg_unique_test_idx ON tdd_red_registry(sprint_id, test_file)`
+    sql`CREATE UNIQUE INDEX IF NOT EXISTS tdd_reg_unique_test_idx ON tdd_red_registry(sprint_id, test_file)`,
   );
 
   // Tool executions indexes
   await db.run(
-    sql`CREATE INDEX IF NOT EXISTS tool_name_idx ON tool_executions(tool_name)`
+    sql`CREATE INDEX IF NOT EXISTS tool_name_idx ON tool_executions(tool_name)`,
   );
   await db.run(
-    sql`CREATE INDEX IF NOT EXISTS sprint_tool_idx ON tool_executions(sprint_id, tool_name)`
+    sql`CREATE INDEX IF NOT EXISTS sprint_tool_idx ON tool_executions(sprint_id, tool_name)`,
   );
   await db.run(
-    sql`CREATE INDEX IF NOT EXISTS execution_timestamp_idx ON tool_executions(executed_at)`
+    sql`CREATE INDEX IF NOT EXISTS execution_timestamp_idx ON tool_executions(executed_at)`,
   );
   await db.run(
-    sql`CREATE INDEX IF NOT EXISTS success_idx ON tool_executions(success)`
+    sql`CREATE INDEX IF NOT EXISTS success_idx ON tool_executions(success)`,
   );
 
   // System logs indexes
   await db.run(sql`CREATE INDEX IF NOT EXISTS level_idx ON system_logs(level)`);
   await db.run(
-    sql`CREATE INDEX IF NOT EXISTS category_idx ON system_logs(category)`
+    sql`CREATE INDEX IF NOT EXISTS category_idx ON system_logs(category)`,
   );
   await db.run(
-    sql`CREATE INDEX IF NOT EXISTS log_timestamp_idx ON system_logs(logged_at)`
+    sql`CREATE INDEX IF NOT EXISTS log_timestamp_idx ON system_logs(logged_at)`,
   );
   await db.run(
-    sql`CREATE INDEX IF NOT EXISTS sprint_log_idx ON system_logs(sprint_id)`
+    sql`CREATE INDEX IF NOT EXISTS sprint_log_idx ON system_logs(sprint_id)`,
   );
 
   // Git commits indexes
   await db.run(
-    sql`CREATE INDEX IF NOT EXISTS commit_sha_idx ON git_commits(commit_sha)`
+    sql`CREATE INDEX IF NOT EXISTS commit_sha_idx ON git_commits(commit_sha)`,
   );
   await db.run(
-    sql`CREATE INDEX IF NOT EXISTS sprint_commit_idx ON git_commits(sprint_id)`
+    sql`CREATE INDEX IF NOT EXISTS sprint_commit_idx ON git_commits(sprint_id)`,
   );
   await db.run(
-    sql`CREATE INDEX IF NOT EXISTS commit_timestamp_idx ON git_commits(committed_at)`
+    sql`CREATE INDEX IF NOT EXISTS commit_timestamp_idx ON git_commits(committed_at)`,
   );
 
   // Notifications indexes
   await db.run(
-    sql`CREATE INDEX IF NOT EXISTS notification_type_idx ON notifications(type)`
+    sql`CREATE INDEX IF NOT EXISTS notification_type_idx ON notifications(type)`,
   );
   await db.run(
-    sql`CREATE INDEX IF NOT EXISTS notification_read_idx ON notifications(read)`
+    sql`CREATE INDEX IF NOT EXISTS notification_read_idx ON notifications(read)`,
   );
   await db.run(
-    sql`CREATE INDEX IF NOT EXISTS notification_timestamp_idx ON notifications(created_at)`
+    sql`CREATE INDEX IF NOT EXISTS notification_timestamp_idx ON notifications(created_at)`,
   );
 
   // Amendments indexes
   await db.run(
-    sql`CREATE INDEX IF NOT EXISTS sprint_amendment_idx ON amendments(sprint_id)`
+    sql`CREATE INDEX IF NOT EXISTS sprint_amendment_idx ON amendments(sprint_id)`,
   );
   await db.run(
-    sql`CREATE INDEX IF NOT EXISTS task_amendment_idx ON amendments(task_id)`
+    sql`CREATE INDEX IF NOT EXISTS task_amendment_idx ON amendments(task_id)`,
   );
   await db.run(
-    sql`CREATE INDEX IF NOT EXISTS tool_amendment_idx ON amendments(tool_name)`
+    sql`CREATE INDEX IF NOT EXISTS tool_amendment_idx ON amendments(tool_name)`,
   );
   await db.run(
-    sql`CREATE INDEX IF NOT EXISTS amendment_timestamp_idx ON amendments(amended_at)`
+    sql`CREATE INDEX IF NOT EXISTS amendment_timestamp_idx ON amendments(amended_at)`,
   );
 
   // Chat sessions indexes
   await db.run(
-    sql`CREATE INDEX IF NOT EXISTS chat_session_role_idx ON chat_sessions(role)`
+    sql`CREATE INDEX IF NOT EXISTS chat_session_role_idx ON chat_sessions(role)`,
   );
 }
 

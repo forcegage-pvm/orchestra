@@ -2,7 +2,7 @@
   "name": "orchestra-extension",
   "displayName": "Orchestra",
   "description": "AI agent task orchestration for VS Code",
-  "version": "0.5.2",
+  "version": "0.5.4",
   "publisher": "forcegage",
   "repository": {
     "type": "git",
@@ -194,6 +194,26 @@
         "command": "orchestra.launchControllerForSprint",
         "title": "Review Sprint Configuration",
         "icon": "$(play)"
+      },
+      {
+        "command": "orchestra.openCodeReviewSummary",
+        "title": "Orchestra: Open Code Review Summary",
+        "icon": "$(list-unordered)"
+      },
+      {
+        "command": "orchestra.runAdHocReview",
+        "title": "Orchestra: Run Ad-hoc Code Review",
+        "icon": "$(play)"
+      },
+      {
+        "command": "orchestra.fixCodeReviewIssues",
+        "title": "Orchestra: Fix Code Review Issues",
+        "icon": "$(tools)"
+      },
+      {
+        "command": "orchestra.runCodeReview",
+        "title": "Orchestra: Run Code Review for Task",
+        "icon": "$(checklist)"
       }
     ],
     "keybindings": [
@@ -222,6 +242,11 @@
         {
           "id": "orchestra.sprintExplorer",
           "name": "Sprint Explorer",
+          "type": "tree"
+        },
+        {
+          "id": "orchestra.codeReview",
+          "name": "Code Review",
           "type": "tree"
         },
         {
@@ -312,6 +337,11 @@
           "command": "orchestra.forceComplete",
           "when": "view == orchestra.sprintExplorer && viewItem == task-escalated",
           "group": "2_override"
+        },
+        {
+          "command": "orchestra.runCodeReview",
+          "when": "view == orchestra.sprintExplorer && viewItem == task-complete",
+          "group": "3_review"
         }
       ]
     }

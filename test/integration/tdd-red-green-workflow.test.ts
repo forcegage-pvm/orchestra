@@ -91,6 +91,7 @@ describe("TDD Red-Green Workflow End-to-End", () => {
       // STEP 1: Configure sprint with TDD relationship
       // =============================================================================
       const configInput: ConfigureSprintInput = {
+        environment: { test_command: 'npm test', test_file_pattern: 'test/**/*.test.ts', source_base_dir: '.' },
         sprint: {
           id: "sprint-e2e-001",
           name: "E2E TDD Workflow Test Sprint",
@@ -418,6 +419,7 @@ describe('Feature', () => {
 
       // Configure sprint
       const configInput: ConfigureSprintInput = {
+        environment: { test_command: 'npm test', test_file_pattern: 'test/**/*.test.ts', source_base_dir: '.' },
         sprint: {
           id: "sprint-e2e-error-001",
           name: "E2E Error Scenario Sprint",
@@ -527,6 +529,7 @@ describe('Feature', () => {
 
       // Configure sprint
       const configInput: ConfigureSprintInput = {
+        environment: { test_command: 'npm test', test_file_pattern: 'test/**/*.test.ts', source_base_dir: '.' },
         sprint: {
           id: "sprint-e2e-fr011-001",
           name: "FR-011 Error Message Test Sprint",
@@ -678,6 +681,7 @@ describe('Feature', () => {
 
       // Configure sprint with TDD relationship
       const configInput: ConfigureSprintInput = {
+        environment: { test_command: 'npm test', test_file_pattern: 'test/**/*.test.ts', source_base_dir: '.' },
         sprint: {
           id: "sprint-e2e-closeout-001",
           name: "Closeout Gate Test Sprint",

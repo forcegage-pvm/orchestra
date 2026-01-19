@@ -15,7 +15,9 @@
  */
 
 import { and, eq } from "drizzle-orm";
-import { getDb } from "../../db/index.js";
+import { validateBehavioralCommand } from "../../core/command-validation.js";
+import { validateVerificationPatterns } from "../../core/pattern-validator.js";
+import { getDb, resolveWorkspacePath } from "../../db/index.js";
 import { getActiveSprint } from "../../db/queries.js";
 import {
   amendments,
@@ -280,14 +282,113 @@ async function updateVerification(
     );
   }
 
-  // 4b. Delete existing verification checks
+  // 4a2. Validate verification patterns using pattern-validator
+  // This checks if patterns will actually match files/content
+  const workspacePath = resolveWorkspacePath();
+
+  // Build validation criteria conditionally to satisfy exactOptionalPropertyTypes
+  const validationCriteria: Parameters<typeof validateVerificationPatterns>[0] =
+    {};
+  if (input.verification.structural_checks) {
+    validationCriteria.structural_checks = input.verification.structural_checks;
+  }
+  if (input.verification.behavioral_checks) {
+    validationCriteria.behavioral_checks = input.verification.behavioral_checks;
+  }
+  if (input.verification.quality_checks) {
+    validationCriteria.quality_checks = input.verification.quality_checks;
+  }
+
+  const patternValidation = await validateVerificationPatterns(
+    validationCriteria,
+    workspacePath,
+  );
+
+  // Log pattern validation warnings
+  if (patternValidation.warnings.length > 0) {
+    console.warn(
+      `[update_verification] Pattern validation warnings for task ${input.task_id}:`,
+      patternValidation.warnings,
+    );
+  }
+
+  // Log pattern validation errors
+  if (patternValidation.errors.length > 0) {
+    console.error(
+      `[update_verification] Pattern validation errors for task ${input.task_id}:`,
+      patternValidation.errors,
+    );
+  }
+
+  // Block if pattern validation found errors
+  if (!patternValidation.valid) {
+    throw new Error(
+      `Pattern validation failed:\n${patternValidation.errors.join("\n")}`,
+    );
+  }
+
+  // 4b2. Validate behavioral check commands before finalizing verification update
+  // Check that all behavioral commands are executable (correct executables, scripts, flags, etc.)
+  const commandValidationErrors: string[] = [];
+  const commandValidationWarnings: string[] = [];
+
+  const behavioral = input.verification.behavioral_checks || [];
+
+  for (const check of behavioral) {
+    if (check.command) {
+      const result = validateBehavioralCommand(check.command, workspacePath);
+
+      if (!result.isValid) {
+        // Collect errors with check description for context
+        for (const error of result.errors) {
+          commandValidationErrors.push(
+            `[${check.description}] ${error.message} (code: ${error.code})`,
+          );
+        }
+      }
+
+      // Collect warnings
+      for (const warning of result.warnings) {
+        commandValidationWarnings.push(
+          `[${check.description}] ${warning.message} (code: ${warning.code})`,
+        );
+      }
+    }
+  }
+
+  // BLOCK on command validation errors - don't allow invalid commands
+  if (commandValidationErrors.length > 0) {
+    console.error(
+      `[update_verification] Behavioral command validation errors for task ${input.task_id}:`,
+      commandValidationErrors,
+    );
+    throw new Error(
+      `Behavioral command validation failed. These errors WILL cause verification to fail:\n\n` +
+        `${commandValidationErrors.join("\n")}\n\n` +
+        `Fix the behavioral check commands before updating verification.` +
+        (commandValidationWarnings.length > 0
+          ? `\n\nWarnings (non-blocking):\n${commandValidationWarnings.join("\n")}`
+          : ``),
+    );
+  }
+
+  // Merge command validation warnings into pattern validation warnings
+  if (commandValidationWarnings.length > 0) {
+    patternValidation.warnings.push(...commandValidationWarnings);
+    console.warn(
+      `[update_verification] Behavioral command validation warnings for task ${input.task_id}:`,
+      commandValidationWarnings,
+    );
+  }
+
+  // 4c. Delete existing verification checks
   await db
     .delete(verificationChecks)
     .where(eq(verificationChecks.task_id, task.id));
 
   // 5. Insert new verification checks
   const structural = input.verification.structural_checks || [];
-  const behavioral = input.verification.behavioral_checks || [];
+  // behavioral already declared above for validation
   const quality = input.verification.quality_checks || [];
 
   // Extract config from check objects (everything except description/severity)
@@ -438,6 +539,10 @@ async function updateVerification(
     success: true,
     task_id: input.task_id,
     total_checks: totalChecks,
+    pattern_warnings:
+      patternValidation.warnings.length > 0
+        ? patternValidation.warnings
+        : undefined,
   };
 
   if (amendmentId !== undefined) {

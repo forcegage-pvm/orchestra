@@ -34,10 +34,10 @@ export const PrepareTaskInputSchema = z.object({
     .string()
     .min(
       50,
-      "Context must be at least 50 characters - explain WHY this task exists, its background, and relevant decisions"
+      "Context must be at least 50 characters - explain WHY this task exists, its background, and relevant decisions",
     )
     .describe(
-      "Required background explaining WHY this task exists, architectural decisions, and how it fits into the larger goal"
+      "Required background explaining WHY this task exists, architectural decisions, and how it fits into the larger goal",
     ),
   context_files: z
     .array(z.string().min(1))
@@ -45,7 +45,7 @@ export const PrepareTaskInputSchema = z.object({
       "TRUST BOUNDARY: Files the implementor may read for context. " +
         "ALLOWED: Source code to modify/reference, completed task handovers, architecture docs. " +
         "FORBIDDEN: Task lists (tasks.md), sprint manifests, pending task details, verification criteria. " +
-        "IMPORTANT: Extract key requirements into the context field - do not rely on implementor reading specs."
+        "IMPORTANT: Extract key requirements into the context field - do not rely on implementor reading specs.",
     )
     .optional(),
   test_file: z.string().optional(),
@@ -63,7 +63,7 @@ export const PrepareTaskOutputSchema = SuccessResponseSchema.extend({
     .string()
     .optional()
     .describe(
-      "Status message about next steps (e.g., awaiting Controller review)"
+      "Status message about next steps (e.g., awaiting Controller review)",
     ),
   git_commit: z
     .string()
@@ -73,6 +73,12 @@ export const PrepareTaskOutputSchema = SuccessResponseSchema.extend({
     .array(z.string())
     .optional()
     .describe("Trust boundary warnings about context_files"),
+  pattern_warnings: z
+    .array(z.string())
+    .optional()
+    .describe(
+      "Verification pattern warnings - patterns that won't match or may fail during VERIFY",
+    ),
 });
 
 export type PrepareTaskOutput = z.output<typeof PrepareTaskOutputSchema>;
@@ -148,7 +154,7 @@ export const UpdateHandoverInputSchema = z
       const { task_id: _taskId, ...fields } = data;
       return Object.values(fields).some((v) => v !== undefined);
     },
-    { message: "At least one field to update is required" }
+    { message: "At least one field to update is required" },
   );
 
 export type UpdateHandoverInput = z.output<typeof UpdateHandoverInputSchema>;

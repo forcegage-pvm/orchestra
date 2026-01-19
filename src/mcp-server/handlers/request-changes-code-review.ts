@@ -106,9 +106,9 @@ async function requestChangesCodeReview(
     throw new Error(`Review with id ${input.review_id} not found`);
   }
 
-  if (review.status !== "PENDING") {
+  if (review.status !== "IN_REVIEW") {
     throw new Error(
-      `Review ${input.review_id} is not pending (current status: ${review.status})`,
+      `Review ${input.review_id} must be claimed before requesting changes (current status: ${review.status})`,
     );
   }
 
@@ -122,6 +122,8 @@ async function requestChangesCodeReview(
       recommendations: JSON.stringify(input.recommendations),
       reviewed_by: "controller",
       reviewed_at: now,
+      in_review_by: null,
+      in_review_at: null,
     })
     .where(eq(codeReviews.id, input.review_id));
 

@@ -106,9 +106,9 @@ async function rejectCodeReview(
     throw new Error(`Review with id ${input.review_id} not found`);
   }
 
-  if (review.status !== "PENDING") {
+  if (review.status !== "IN_REVIEW") {
     throw new Error(
-      `Review ${input.review_id} is not pending (current status: ${review.status})`,
+      `Review ${input.review_id} must be claimed before rejection (current status: ${review.status})`,
     );
   }
 
@@ -122,6 +122,8 @@ async function rejectCodeReview(
       recommendations: JSON.stringify([input.recommendation]),
       reviewed_by: "controller",
       reviewed_at: now,
+      in_review_by: null,
+      in_review_at: null,
     })
     .where(eq(codeReviews.id, input.review_id));
 

@@ -14,6 +14,7 @@ export interface Task {
   category?: string;
   phase_id?: string;
   description: string;
+  status?: string;
 }
 
 /**
@@ -22,10 +23,11 @@ export interface Task {
 export interface Sprint {
   sprint_id: string;
   title: string;
+  status?: string;
 }
 
 /**
- * Context for generating workflow stage prompts
+ * Context for generating workflow stage prompts (task-level)
  */
 export interface PromptContext {
   /** The task being worked on */
@@ -45,6 +47,20 @@ export interface PromptContext {
 
   /** Maximum retry attempts allowed (for RETRY stage, enables 'Attempt N of M' messaging) */
   maxRetries?: number;
+
+  /** Review attempt number (for Controller review stages) */
+  reviewAttempt?: number;
+}
+
+/**
+ * Context for sprint-level review prompts (no task required)
+ */
+export interface SprintReviewContext {
+  /** The sprint being reviewed */
+  sprint: Sprint;
+
+  /** Review attempt number */
+  reviewAttempt?: number;
 }
 
 /**
@@ -253,10 +269,10 @@ Do not skip any feedback items. Incomplete fixes will result in another FAIL.`;
    * Instructs the controller to use MCP tools (review_sprint_config, approve_sprint,
    * reject_sprint) to review the sprint configuration against the specification.
    *
-   * @param context - The prompt context containing sprint details
+   * @param context - The sprint review context containing sprint details
    * @returns A structured prompt string for the controller
    */
-  buildSprintReviewPrompt(context: PromptContext): string {
+  buildSprintReviewPrompt(context: SprintReviewContext): string {
     const { sprint, reviewAttempt = 1 } = context;
 
     return `As Controller, review Sprint "${sprint.title}" (ID: ${sprint.sprint_id}) for specification alignment.
@@ -376,5 +392,130 @@ Use your MCP tools to perform a comprehensive handover review:
 - Technical approach has issues
 
 Provide detailed, actionable feedback for any issues found.`;
+  }
+
+  /**
+   * Build a CODE_REVIEW prompt for the controller
+   *
+   * Instructs the controller to use MCP tools (get_code_review_summary, get_latest_code_review,
+   * approve_code_review, request_changes_code_review, reject_code_review) to review completed tasks.
+   *
+   * @param pendingCount - Number of pending code reviews
+   * @param sprintId - The sprint ID being reviewed
+   * @param sprintTitle - The sprint title
+   * @param taskInfo - Optional specific task info for single-task review
+   * @returns A structured prompt string for the controller
+   */
+  buildCodeReviewPrompt(
+    pendingCount: number,
+    sprintId: string,
+    sprintTitle: string,
+    taskInfo?: { taskId: number; title: string; dbId: number },
+  ): string {
+    if (taskInfo !== undefined) {
+      // Single task review
+      return `As Controller, perform a code review for Task ${taskInfo.taskId}: "${taskInfo.title}" in Sprint "${sprintTitle}".
+
+## Task Details
+- **Sprint**: ${sprintTitle} (${sprintId})
+- **Task**: #${taskInfo.taskId} - ${taskInfo.title}
+- **Database ID**: ${taskInfo.dbId} (use this for MCP tool calls like get_latest_code_review)
+
+## Your Task
+Use your MCP tools to review the implementation:
+
+1. \`get_latest_code_review\` with task_id=${taskInfo.dbId} - Get the pending review
+2. \`claim_code_review\` with review_id from step 1 - Claim this review (required)
+3. \`get_task\` with task_id=${taskInfo.taskId} - Get the task details and requirements
+4. Read the implementation files to understand what was built
+5. Verify the implementation:
+   - Does the code implement the task requirements correctly?
+   - Is the code quality acceptable (patterns, naming, structure)?
+   - Are there any obvious bugs, security issues, or performance concerns?
+   - Are tests adequate and passing?
+
+6. Make your decision using the review_id from step 1:
+   - \`approve_code_review\` - If implementation is correct and quality is acceptable
+   - \`request_changes_code_review\` - If minor issues need fixing
+   - \`reject_code_review\` - If major issues or incorrect implementation
+
+## Review Standards
+- **Correctness**: Implementation matches task requirements
+- **Quality**: Code follows project patterns and best practices
+- **Completeness**: All deliverables present, tests adequate
+- **Safety**: No obvious security or stability issues
+
+Provide specific, actionable feedback for any issues found.`;
+    }
+
+    // Bulk review
+    return `As Controller, perform code reviews for ${pendingCount} pending task(s) in Sprint "${sprintTitle}" (${sprintId}).
+
+## Your Task
+You must review exactly **ONE** task in this session:
+
+1. \`get_code_review_summary\` - See the overall review status
+2. Pick a single pending review to process
+3. \`get_latest_code_review\` for that task to get review details
+4. \`claim_code_review\` with review_id - Claim the review (required)
+5. Read the implementation files to understand what was built
+6. Verify the implementation quality and correctness
+7. Make a decision: approve_code_review, request_changes_code_review, or reject_code_review
+
+## Review Each Task For:
+- **Correctness**: Implementation matches task requirements
+- **Quality**: Code follows project patterns and best practices  
+- **Completeness**: All deliverables present, tests adequate
+- **Safety**: No obvious security or stability issues
+
+## Decision Guidance
+- **APPROVE**: Implementation correct, quality acceptable, tests pass
+- **REQUEST_CHANGES**: Minor issues that need fixing before approval
+- **REJECT**: Major issues, incorrect implementation, or blocking problems
+
+## Notes
+- Review exactly one task, then stop
+- Provide specific, actionable feedback for issues
+
+Begin by checking the code review summary, then process one pending review.`;
+  }
+
+  /**
+   * Build a CODE_REVIEW_FIX prompt for the implementor
+   *
+   * Instructs the implementor to review open code review issues and submit fixes.
+   *
+   * @param openIssueCount - Number of open code review issues
+   * @param sprintId - The sprint ID being worked on
+   * @param sprintTitle - The sprint title
+   * @returns A structured prompt string for the implementor
+   */
+  buildCodeReviewFixPrompt(
+    openIssueCount: number,
+    sprintId: string,
+    sprintTitle: string,
+  ): string {
+    return `As Implementor, resolve ${openIssueCount} open code review issue(s) for Sprint "${sprintTitle}" (${sprintId}).
+
+## Your Task
+Use your MCP tools to find and fix open code review issues:
+
+1. \`get_open_code_review_issues\` - List all open issues for this sprint
+2. For each issue:
+    - Open the referenced file/location
+    - Implement a fix that addresses the issue
+    - Add or update tests if needed
+
+3. When an issue is fixed:
+    - \`resolve_code_review_issue\` to mark the issue resolved
+    - \`submit_code_review_fixes\` with summary, files changed, and tests run
+
+## Quality Standards
+- Fixes must directly address the issue description and rationale
+- Prefer minimal, targeted changes
+- Maintain existing code style and conventions
+- Run relevant tests and report results
+
+Proceed issue by issue and keep your fixes concise.`;
   }
 }

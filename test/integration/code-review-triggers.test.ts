@@ -1,10 +1,7 @@
-// @orchestra-task: 7
-
 /**
- * Code Review Triggers and Gating Tests (TDD Red Phase)
+ * Code Review Triggers and Gating Tests
  *
  * Tests auto-trigger logic, manual triggers, and gating enforcement for code reviews.
- * These tests will initially fail as the trigger/gating logic is not yet implemented.
  */
 
 import { eq } from "drizzle-orm";
@@ -13,20 +10,11 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { getDb, initializeDb, resetDb } from "../../src/db/index.js";
+import { runMigrationsV2 } from "../../src/db/migrations.js";
 import { codeReviews, phases, sprints, tasks } from "../../src/db/schema.js";
 import { handleCompleteTask } from "../../src/mcp-server/handlers/complete-task.js";
 
-/**
- * Placeholder imports for functions that will be implemented in green phase.
- * These imports will fail initially, which is expected for TDD red phase.
- */
-// import { triggerCodeReviewOnTaskCompletion } from "../../src/core/code-review-triggers.js";
-// import { triggerCodeReviewOnPhaseCompletion } from "../../src/core/code-review-triggers.js";
-// import { manualTriggerCodeReview } from "../../src/core/code-review-triggers.js";
-// import { enforceTaskGate } from "../../src/core/code-review-gates.js";
-// import { enforcePhaseGate } from "../../src/core/code-review-gates.js";
-
-describe("[tdd-red] Code Review Triggers and Gating", () => {
+describe("Code Review Triggers and Gating", () => {
   let tempDir: string;
 
   beforeEach(async () => {
@@ -35,6 +23,7 @@ describe("[tdd-red] Code Review Triggers and Gating", () => {
 
     resetDb();
     await initializeDb();
+    await runMigrationsV2();
   });
 
   afterEach(async () => {
@@ -43,8 +32,8 @@ describe("[tdd-red] Code Review Triggers and Gating", () => {
     delete process.env.ORCHESTRA_WORKSPACE;
   });
 
-  describe("[tdd-red] Auto-trigger mode: manual", () => {
-    it("[tdd-red] should NOT auto-trigger reviews on task completion when mode is manual", async () => {
+  describe("Auto-trigger mode: manual", () => {
+    it("should NOT auto-trigger reviews on task completion when mode is manual", async () => {
       // Setup sprint with manual auto-trigger
       const db = getDb();
       await db.insert(sprints).values({
@@ -90,7 +79,7 @@ describe("[tdd-red] Code Review Triggers and Gating", () => {
       expect(reviews.length).toBe(0);
     });
 
-    it("[tdd-red] should NOT auto-trigger reviews on phase completion when mode is manual", async () => {
+    it("should NOT auto-trigger reviews on phase completion when mode is manual", async () => {
       const db = getDb();
       await db.insert(sprints).values({
         id: "sprint-manual-2",
@@ -136,8 +125,8 @@ describe("[tdd-red] Code Review Triggers and Gating", () => {
     });
   });
 
-  describe("[tdd-red] Auto-trigger mode: task", () => {
-    it("[tdd-red] should auto-trigger review on task completion", async () => {
+  describe("Auto-trigger mode: task", () => {
+    it("should auto-trigger review on task completion", async () => {
       const db = getDb();
       await db.insert(sprints).values({
         id: "sprint-task-1",
@@ -187,7 +176,7 @@ describe("[tdd-red] Code Review Triggers and Gating", () => {
       expect(reviews[0]?.review_scope).toBe("TASK");
     });
 
-    it("[tdd-red] should NOT auto-trigger review on phase completion in task mode", async () => {
+    it("should NOT auto-trigger review on phase completion in task mode", async () => {
       const db = getDb();
       await db.insert(sprints).values({
         id: "sprint-task-2",
@@ -233,7 +222,7 @@ describe("[tdd-red] Code Review Triggers and Gating", () => {
       expect(reviews.some((r) => r.review_scope === "PHASE")).toBe(false);
     });
 
-    it("[tdd-red] should ONLY enqueue completed unreviewed tasks", async () => {
+    it("should ONLY enqueue completed unreviewed tasks", async () => {
       const db = getDb();
       await db.insert(sprints).values({
         id: "sprint-task-3",
@@ -295,7 +284,7 @@ describe("[tdd-red] Code Review Triggers and Gating", () => {
       expect(reviews[0]?.task_id).toBe(1);
     });
 
-    it("[tdd-red] should NOT enqueue already reviewed tasks", async () => {
+    it("should NOT enqueue already reviewed tasks", async () => {
       const db = getDb();
       await db.insert(sprints).values({
         id: "sprint-task-4",
@@ -354,8 +343,8 @@ describe("[tdd-red] Code Review Triggers and Gating", () => {
     });
   });
 
-  describe("[tdd-red] Auto-trigger mode: phase", () => {
-    it("[tdd-red] should NOT auto-trigger on task completion in phase mode", async () => {
+  describe("Auto-trigger mode: phase", () => {
+    it("should NOT auto-trigger on task completion in phase mode", async () => {
       const db = getDb();
       await db.insert(sprints).values({
         id: "sprint-phase-1",
@@ -415,7 +404,7 @@ describe("[tdd-red] Code Review Triggers and Gating", () => {
       expect(reviews.length).toBe(0);
     });
 
-    it("[tdd-red] should auto-trigger review when all tasks in phase complete", async () => {
+    it("should auto-trigger review when all tasks in phase complete", async () => {
       const db = getDb();
       await db.insert(sprints).values({
         id: "sprint-phase-2",
@@ -463,8 +452,8 @@ describe("[tdd-red] Code Review Triggers and Gating", () => {
     });
   });
 
-  describe("[tdd-red] Auto-trigger mode: both", () => {
-    it("[tdd-red] should trigger task-level review on each task completion", async () => {
+  describe("Auto-trigger mode: both", () => {
+    it("should trigger task-level review on each task completion", async () => {
       const db = getDb();
       await db.insert(sprints).values({
         id: "sprint-both-1",
@@ -526,7 +515,7 @@ describe("[tdd-red] Code Review Triggers and Gating", () => {
       expect(reviews1[0]?.task_id).toBe(1);
     });
 
-    it("[tdd-red] should trigger phase-level review when phase completes", async () => {
+    it("should trigger phase-level review when phase completes", async () => {
       const db = getDb();
       await db.insert(sprints).values({
         id: "sprint-both-2",
@@ -574,8 +563,8 @@ describe("[tdd-red] Code Review Triggers and Gating", () => {
     });
   });
 
-  describe("[tdd-red] Manual trigger", () => {
-    it("[tdd-red] should allow manual trigger regardless of auto-trigger setting", async () => {
+  describe("Manual trigger", () => {
+    it("should allow manual trigger regardless of auto-trigger setting", async () => {
       const db = getDb();
       await db.insert(sprints).values({
         id: "sprint-manual-trigger-1",
@@ -633,7 +622,7 @@ describe("[tdd-red] Code Review Triggers and Gating", () => {
       expect(reviews[0]?.status).toBe("PENDING");
     });
 
-    it("[tdd-red] should allow manual phase-level trigger", async () => {
+    it("should allow manual phase-level trigger", async () => {
       const db = getDb();
       await db.insert(sprints).values({
         id: "sprint-manual-phase-1",
@@ -692,8 +681,8 @@ describe("[tdd-red] Code Review Triggers and Gating", () => {
     });
   });
 
-  describe("[tdd-red] Task gate policy", () => {
-    it("[tdd-red] should insert PENDING_CODE_REVIEW status between VERIFY and COMPLETE", async () => {
+  describe("Task gate policy", () => {
+    it("should insert PENDING_CODE_REVIEW status between VERIFY and COMPLETE", async () => {
       const db = getDb();
       await db.insert(sprints).values({
         id: "sprint-task-gate-1",
@@ -741,7 +730,7 @@ describe("[tdd-red] Code Review Triggers and Gating", () => {
       expect(task[0]?.status).toBe("VERIFY"); // Will change to PENDING_CODE_REVIEW in green phase
     });
 
-    it("[tdd-red] should block completion until review is APPROVED", async () => {
+    it("should block completion until review is APPROVED", async () => {
       const db = getDb();
       await db.insert(sprints).values({
         id: "sprint-task-gate-2",
@@ -801,7 +790,7 @@ describe("[tdd-red] Code Review Triggers and Gating", () => {
       expect(reviews[0]?.status).toBe("PENDING");
     });
 
-    it("[tdd-red] should allow completion when review is APPROVED", async () => {
+    it("should allow completion when review is APPROVED", async () => {
       const db = getDb();
       await db.insert(sprints).values({
         id: "sprint-task-gate-3",
@@ -866,8 +855,8 @@ describe("[tdd-red] Code Review Triggers and Gating", () => {
     });
   });
 
-  describe("[tdd-red] Phase gate policy", () => {
-    it("[tdd-red] should block phase progression until all tasks approved", async () => {
+  describe("Phase gate policy", () => {
+    it("should block phase progression until all tasks approved", async () => {
       const db = getDb();
       await db.insert(sprints).values({
         id: "sprint-phase-gate-1",
@@ -952,7 +941,7 @@ describe("[tdd-red] Code Review Triggers and Gating", () => {
       expect(task2[0]?.status).toBe("PENDING");
     });
 
-    it("[tdd-red] should allow phase progression when all tasks approved", async () => {
+    it("should allow phase progression when all tasks approved", async () => {
       const db = getDb();
       await db.insert(sprints).values({
         id: "sprint-phase-gate-2",
@@ -1039,8 +1028,8 @@ describe("[tdd-red] Code Review Triggers and Gating", () => {
     });
   });
 
-  describe("[tdd-red] Failed review gating", () => {
-    it("[tdd-red] should keep gate closed when review is CHANGES_REQUESTED", async () => {
+  describe("Failed review gating", () => {
+    it("should keep gate closed when review is CHANGES_REQUESTED", async () => {
       const db = getDb();
       await db.insert(sprints).values({
         id: "sprint-failed-gate-1",
@@ -1102,7 +1091,7 @@ describe("[tdd-red] Code Review Triggers and Gating", () => {
       expect(reviews[0]?.status).toBe("CHANGES_REQUESTED");
     });
 
-    it("[tdd-red] should keep gate closed when review is REJECTED", async () => {
+    it("should keep gate closed when review is REJECTED", async () => {
       const db = getDb();
       await db.insert(sprints).values({
         id: "sprint-failed-gate-2",
@@ -1164,7 +1153,7 @@ describe("[tdd-red] Code Review Triggers and Gating", () => {
       expect(reviews[0]?.status).toBe("REJECTED");
     });
 
-    it("[tdd-red] should open gate only after review is APPROVED", async () => {
+    it("should open gate only after review is APPROVED", async () => {
       const db = getDb();
       await db.insert(sprints).values({
         id: "sprint-failed-gate-3",
