@@ -1,4 +1,3 @@
-// @orchestra-task: 1
 /**
  * Tests for TDD Scan-on-Signal
  *

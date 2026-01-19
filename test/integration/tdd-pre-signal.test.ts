@@ -1,4 +1,3 @@
-// @orchestra-task: 1
 /**
  * TDD Pre-Signal Integration Tests
  *
@@ -83,7 +82,7 @@ describe("TDD Pre-Signal Integration", () => {
     // Create package.json for vitest
     await fs.writeFile(
       path.join(tempDir, "package.json"),
-      JSON.stringify({ name: "test", version: "1.0.0" })
+      JSON.stringify({ name: "test", version: "1.0.0" }),
     );
   });
 

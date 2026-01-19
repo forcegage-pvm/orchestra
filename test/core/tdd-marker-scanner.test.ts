@@ -1,4 +1,3 @@
-// @orchestra-task: 1
 /**
  * Tests for TDD Red Marker Scanner
  *
@@ -137,6 +136,73 @@ void main() {
       expect(result.markers[0].markerType).toBe(
         "file-level-@Tags(['tdd-red'])",
       );
+    });
+
+    it("should detect file-level @Tags before library; even with unparseable tests (TDD red phase)", async () => {
+      // This is the bug scenario from Sprint 007 Task 13 escalation:
+      // - @Tags(['tdd-red']) before library; declaration
+      // - Tests have intentional compile errors (xAxisConfig doesn't exist)
+      // - Scanner should still add at least one marker
+      const content = `// @orchestra-task: 13
+// Copyright 2025 Acme Corp
+// SPDX-License-Identifier: MIT
+
+/// TDD RED phase tests for XAxisConfig
+///
+/// These tests define the expected behavior of XAxisConfig.
+/// Tests should FAIL initially because xAxisConfig doesn't exist yet.
+
+@Tags(['tdd-red'])
+library;
+
+import 'package:flutter_test/flutter_test.dart';
+import 'package:myapp/models/axis_config.dart';
+
+void main() {
+  group('XAxisConfig', () {
+    test('should have sensible defaults', () {
+      final config = xAxisConfig(); // This doesn't exist yet - intentional error
+      expect(config.min, equals(0));
+    });
+  });
+}
+`;
+      const testFile = path.join(tempDir, "x_axis_config_test.dart");
+      await fs.writeFile(testFile, content);
+
+      const result = await scanTddFile(testFile);
+
+      // Even though the test can't be properly parsed (xAxisConfig is undefined),
+      // the file-level tag should still be detected
+      expect(result.hasFileLevelTag).toBe(true);
+      expect(result.taskId).toBe(13);
+      expect(result.markers.length).toBeGreaterThanOrEqual(1);
+      // At minimum, there should be a file-level marker
+      expect(
+        result.markers.some((m) => m.markerType.includes("file-level")),
+      ).toBe(true);
+    });
+
+    it("should detect file-level @Tags even without void main()", async () => {
+      // Edge case: incomplete file with @Tags but no void main() yet
+      const content = `// @orchestra-task: 15
+
+@Tags(['tdd-red'])
+library;
+
+import 'package:flutter_test/flutter_test.dart';
+
+// void main() will be added later
+`;
+      const testFile = path.join(tempDir, "incomplete_test.dart");
+      await fs.writeFile(testFile, content);
+
+      const result = await scanTddFile(testFile);
+
+      expect(result.hasFileLevelTag).toBe(true);
+      expect(result.taskId).toBe(15);
+      // Should still have at least one marker for the file-level tag
+      expect(result.markers.length).toBeGreaterThanOrEqual(1);
     });
 
     it("should detect inline tags: ['tdd-red'] parameter", async () => {
