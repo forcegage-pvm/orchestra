@@ -163,9 +163,9 @@ After a task is marked as COMPLETE by the orchestrator, it enters code review. Y
 
 ### 🔒 Mandatory Isolation Rules (NO EXCEPTIONS)
 
-- **Review exactly ONE task per session.**
-- If multiple pending reviews exist, **pick one task, complete it end-to-end, then stop**.
-- **Never batch reviews.** Batch reviewing increases misses and is forbidden.
+- **Review exactly ONE task at a time.**
+- If multiple pending reviews exist, **complete one task end-to-end, then continue to the next until none remain**.
+- **Never batch multiple tasks into a single review.** Keep each task fully isolated.
 
 ### 🔍 Mandatory Thoroughness Rules (NO SHORTCUTS)
 

@@ -264,7 +264,7 @@ async function initializeWorkspace(
     logger.info("Synced .github/agents directory with agent instructions");
 
     // Automatically install MCP servers
-    await installMcpServers(orchestraDir, context.extensionPath);
+    await installMcpServers(workspaceRoot, context.extensionPath);
     logger.info("MCP servers installed to .vscode/mcp.json");
 
     vscode.window.showInformationMessage(
@@ -633,6 +633,26 @@ export async function activate(
         },
       ),
     );
+
+    // Start MCP servers even before DB exists (server will create DB on first run)
+    const config = vscode.workspace.getConfiguration("orchestra");
+    const autoStartMCP = config.get<boolean>("autoStartMCP", true);
+
+    if (autoStartMCP) {
+      mcpManager = new MCPServerManager(
+        orchestraRoot,
+        context.extensionPath,
+        logger,
+      );
+      mcpManager.startServer("orchestrator");
+      mcpManager.startServer("implementor");
+      context.subscriptions.push({
+        dispose: () => {
+          mcpManager?.stopAllServers();
+        },
+      });
+      logger.info("MCP servers started (no database mode)");
+    }
 
     logger.info(
       "Orchestra extension activated (no database mode - use MCP to configure sprint)",

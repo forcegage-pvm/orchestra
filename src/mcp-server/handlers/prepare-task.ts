@@ -1014,12 +1014,13 @@ function generateTddRedPhaseChecks(
 
   // Convert to expected return type and inject exclusion flags into non-red check
   return templateChecks.map((check) => {
-    // Find the "Non-tagged tests must pass" check and add exclusion flags
-    if (
+    // Find the non-red behavioral check and add exclusion flags
+    const isNonRedBehavioralCheck =
       check.check_type === "behavioral" &&
-      check.description.includes("Non-tagged tests must pass") &&
-      exclusionFlags
-    ) {
+      (check.description.includes("Non-tagged tests must pass") ||
+        check.description.includes("Non-red tests must pass"));
+
+    if (isNonRedBehavioralCheck && exclusionFlags) {
       const modifiedConfig = { ...check.check_config };
       if (
         modifiedConfig.command &&
