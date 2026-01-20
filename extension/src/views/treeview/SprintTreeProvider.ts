@@ -296,8 +296,11 @@ export class SprintTreeProvider implements vscode.TreeDataProvider<TreeElement> 
       arguments: [task.id],
     };
 
-    // Context value for menus - include status for conditional menus
-    item.contextValue = `task-${task.status.toLowerCase()}`;
+    // Context value for menus - include status and code review status for conditional menus
+    const reviewSuffix = codeReviewStatus
+      ? `-review-${codeReviewStatus.toLowerCase()}`
+      : "";
+    item.contextValue = `task-${task.status.toLowerCase()}${reviewSuffix}`;
 
     // Add description for escalated/failed tasks (kept for accessibility)
     if (task.status === "ESCALATED") {

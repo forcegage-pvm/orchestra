@@ -1,62 +1,52 @@
 /**
- * reject_code_review tool handler
+ * add_code_review_issues tool handler
  *
- * Controller tool to reject a pending code review.
+ * Controller tool to append issues to an existing code review.
  */
 
 import { eq } from "drizzle-orm";
 import { getDb } from "../../db/index.js";
 import { codeReviewIssues, codeReviews } from "../../db/schema.js";
 import {
-  RejectCodeReviewInputSchema,
-  type RejectCodeReviewInput,
-  type RejectCodeReviewOutput,
-} from "../../schemas/code-review/reject-code-review.schema.js";
+  AddCodeReviewIssuesInputSchema,
+  type AddCodeReviewIssuesInput,
+  type AddCodeReviewIssuesOutput,
+} from "../../schemas/code-review/add-code-review-issues.schema.js";
 import { validateInput } from "../../schemas/utils.js";
 import { logToolExecution } from "./audit-logging.js";
 
-export async function handleRejectCodeReview(input: unknown) {
+export async function handleAddCodeReviewIssues(input: unknown) {
   const startTime = performance.now();
-  const validation = validateInput(RejectCodeReviewInputSchema, input);
+  const validation = validateInput(AddCodeReviewIssuesInputSchema, input);
   if (!validation.success) {
     throw new Error(JSON.stringify(validation.error, null, 2));
   }
 
   try {
-    const output = await rejectCodeReview(
-      validation.data as RejectCodeReviewInput,
+    const output = await addCodeReviewIssues(
+      validation.data as AddCodeReviewIssuesInput,
     );
     const durationMs = Math.round(performance.now() - startTime);
 
-    // Log successful execution
     await logToolExecution(
       {
-        toolName: "reject_code_review",
+        toolName: "add_code_review_issues",
         role: "controller",
         input: validation.data,
       },
-      {
-        success: true,
-        output,
-      },
+      { success: true, output },
       durationMs,
     );
 
     return {
-      content: [
-        {
-          type: "text",
-          text: JSON.stringify(output, null, 2),
-        },
-      ],
+      content: [{ type: "text", text: JSON.stringify(output, null, 2) }],
     };
   } catch (error) {
     const durationMs = Math.round(performance.now() - startTime);
 
-    // Log failed execution
     await logToolExecution(
       {
-        toolName: "reject_code_review",
+        toolName: "add_code_review_issues",
         role: "controller",
         input: validation.data,
       },
@@ -89,19 +79,11 @@ export async function handleRejectCodeReview(input: unknown) {
   }
 }
 
-async function rejectCodeReview(
-  input: RejectCodeReviewInput,
-): Promise<RejectCodeReviewOutput> {
+async function addCodeReviewIssues(
+  input: AddCodeReviewIssuesInput,
+): Promise<AddCodeReviewIssuesOutput> {
   const db = getDb();
-  const now = new Date().toISOString();
 
-  if (!input.issues || input.issues.length === 0) {
-    throw new Error(
-      "Rejected reviews must include at least one issue with rationale.",
-    );
-  }
-
-  // Find the review
   const [review] = await db
     .select()
     .from(codeReviews)
@@ -112,28 +94,12 @@ async function rejectCodeReview(
     throw new Error(`Review with id ${input.review_id} not found`);
   }
 
-  if (review.status !== "IN_REVIEW") {
+  if (review.status !== "REJECTED" && review.status !== "CHANGES_REQUESTED") {
     throw new Error(
-      `Review ${input.review_id} must be claimed before rejection (current status: ${review.status})`,
+      `Review ${input.review_id} must be REJECTED or CHANGES_REQUESTED to append issues (current: ${review.status})`,
     );
   }
 
-  // Update review to REJECTED status
-  await db
-    .update(codeReviews)
-    .set({
-      status: "REJECTED",
-      summary: input.summary,
-      risk: input.risk,
-      recommendations: JSON.stringify([input.recommendation]),
-      reviewed_by: "controller",
-      reviewed_at: now,
-      in_review_by: null,
-      in_review_at: null,
-    })
-    .where(eq(codeReviews.id, input.review_id));
-
-  // Insert issues into code_review_issues table
   for (const issue of input.issues) {
     await db.insert(codeReviewIssues).values({
       review_id: input.review_id,
@@ -151,7 +117,6 @@ async function rejectCodeReview(
   return {
     success: true,
     review_id: input.review_id,
-    decision: "REJECTED",
-    status: "REJECTED",
+    issues_added: input.issues.length,
   };
 }

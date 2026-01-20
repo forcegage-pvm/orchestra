@@ -23,6 +23,8 @@ import { OrchestraDB } from "./database/client.js";
 import {
   getCompletedUnreviewedTasks,
   getCurrentSprint,
+  getHandover,
+  getLatestCodeReviewForTask,
   getOpenCodeReviewIssues,
   getTaskById,
 } from "./database/queries.js";
@@ -1044,6 +1046,156 @@ export async function activate(
         },
       ),
       vscode.commands.registerCommand(
+        "orchestra.prepareCodeReviewFixTask",
+        async (element: { type: string; task?: { id: number } }) => {
+          try {
+            if (!element?.task?.id) {
+              vscode.window.showErrorMessage("No task specified.");
+              return;
+            }
+
+            const sprint = getCurrentSprint(orchestraRoot);
+            if (!sprint) {
+              vscode.window.showWarningMessage(
+                "No active sprint found. Cannot prepare code review fixes.",
+              );
+              return;
+            }
+
+            const task = getTaskById(orchestraRoot, element.task.id);
+            if (!task) {
+              vscode.window.showErrorMessage(
+                `Task ${element.task.id} not found.`,
+              );
+              return;
+            }
+
+            const review = getLatestCodeReviewForTask(orchestraRoot, task.id);
+            if (
+              !review ||
+              (review.status !== "CHANGES_REQUESTED" &&
+                review.status !== "REJECTED")
+            ) {
+              vscode.window.showInformationMessage(
+                "No CHANGES_REQUESTED or REJECTED review found for this task.",
+              );
+              return;
+            }
+
+            const promptBuilder = new PromptBuilder();
+            const prompt = promptBuilder.buildCodeReviewFixPreparePrompt(
+              {
+                task: {
+                  task_id: task.task_id,
+                  title: task.title,
+                  category: task.category ?? undefined,
+                  phase_id: task.phase_id ?? undefined,
+                  description: task.description,
+                  status: task.status,
+                },
+                sprint: {
+                  sprint_id: sprint.id,
+                  title: sprint.name,
+                  status: sprint.status,
+                },
+              },
+              {
+                status: review.status,
+                summary: review.summary,
+                reviewId: review.review_id,
+              },
+            );
+
+            const sm = getSessionManager();
+            await sm.invokeOrchestrator(prompt, []);
+          } catch (error) {
+            logger.error("Failed to prepare code review fixes", error);
+            vscode.window.showErrorMessage(
+              `Failed to prepare code review fixes: ${error instanceof Error ? error.message : String(error)}`,
+            );
+          }
+        },
+      ),
+      vscode.commands.registerCommand(
+        "orchestra.implementCodeReviewFixTask",
+        async (element: { type: string; task?: { id: number } }) => {
+          try {
+            if (!element?.task?.id) {
+              vscode.window.showErrorMessage("No task specified.");
+              return;
+            }
+
+            const sprint = getCurrentSprint(orchestraRoot);
+            if (!sprint) {
+              vscode.window.showWarningMessage(
+                "No active sprint found. Cannot implement code review fixes.",
+              );
+              return;
+            }
+
+            const task = getTaskById(orchestraRoot, element.task.id);
+            if (!task) {
+              vscode.window.showErrorMessage(
+                `Task ${element.task.id} not found.`,
+              );
+              return;
+            }
+
+            const review = getLatestCodeReviewForTask(orchestraRoot, task.id);
+            if (
+              !review ||
+              (review.status !== "CHANGES_REQUESTED" &&
+                review.status !== "REJECTED")
+            ) {
+              vscode.window.showInformationMessage(
+                "No CHANGES_REQUESTED or REJECTED review found for this task.",
+              );
+              return;
+            }
+
+            const handover = getHandover(orchestraRoot, task.id);
+            if (!handover) {
+              vscode.window.showWarningMessage(
+                "No handover found for this task. Prepare fixes before implementing.",
+              );
+              return;
+            }
+
+            const promptBuilder = new PromptBuilder();
+            const prompt = promptBuilder.buildCodeReviewFixImplementPrompt(
+              {
+                task: {
+                  task_id: task.task_id,
+                  title: task.title,
+                  category: task.category ?? undefined,
+                  phase_id: task.phase_id ?? undefined,
+                  description: task.description,
+                  status: task.status,
+                },
+                sprint: {
+                  sprint_id: sprint.id,
+                  title: sprint.name,
+                  status: sprint.status,
+                },
+              },
+              {
+                status: review.status,
+                summary: review.summary,
+                reviewId: review.review_id,
+              },
+            );
+
+            const sm = getSessionManager();
+            await sm.invokeImplementor(prompt, []);
+          } catch (error) {
+            logger.error("Failed to implement code review fixes", error);
+            vscode.window.showErrorMessage(
+              `Failed to implement code review fixes: ${error instanceof Error ? error.message : String(error)}`,
+            );
+          }
+        },
+      ),
+      vscode.commands.registerCommand(
         "orchestra.runCodeReview",
         async (
           element:
@@ -1094,13 +1246,16 @@ export async function activate(
               return;
             }
 
-            // Check if review already exists
-            const existing = db
-              .prepare(`SELECT id FROM code_reviews WHERE task_id = ?`)
-              .get(task.id) as { id: number } | undefined;
+            // Create a new review unless one is already pending/in review
+            const latestReview = getLatestCodeReviewForTask(
+              orchestraRoot,
+              task.id,
+            );
+            const hasActiveReview =
+              latestReview?.status === "PENDING" ||
+              latestReview?.status === "IN_REVIEW";
 
-            if (!existing) {
-              // Create the review
+            if (!hasActiveReview) {
               const now = new Date().toISOString();
               db.prepare(
                 `INSERT INTO code_reviews (sprint_id, task_id, phase_id, review_scope, status, summary, risk, requested_by, requested_at)

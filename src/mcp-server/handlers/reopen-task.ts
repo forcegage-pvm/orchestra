@@ -2,7 +2,7 @@
  * reopen_task tool handler
  *
  * Reopens a COMPLETE task when the latest code review has CHANGES_REQUESTED
- * and there are open issues. Transitions task to IMPLEMENT.
+ * or REJECTED. Transitions task to IMPLEMENT.
  */
 
 import { and, desc, eq } from "drizzle-orm";
@@ -127,9 +127,12 @@ async function reopenTask(
     throw new Error(`No code review found for task ${input.task_id}`);
   }
 
-  if (latestReview.status !== "CHANGES_REQUESTED") {
+  if (
+    latestReview.status !== "CHANGES_REQUESTED" &&
+    latestReview.status !== "REJECTED"
+  ) {
     throw new Error(
-      `Task ${input.task_id} can only be reopened when latest review is CHANGES_REQUESTED (current: ${latestReview.status})`,
+      `Task ${input.task_id} can only be reopened when latest review is CHANGES_REQUESTED or REJECTED (current: ${latestReview.status})`,
     );
   }
 
@@ -143,7 +146,7 @@ async function reopenTask(
       ),
     );
 
-  if (openIssues.length === 0) {
+  if (latestReview.status === "CHANGES_REQUESTED" && openIssues.length === 0) {
     throw new Error(
       `No OPEN code review issues found for task ${input.task_id}.` +
         ` Resolve issues or check the review status before reopening.`,
@@ -169,7 +172,7 @@ async function reopenTask(
     workflow_step: sprint.workflow_step,
     triggered_by: "orchestrator",
     notes:
-      `Reopened due to code review CHANGES_REQUESTED. ` +
+      `Reopened due to code review ${latestReview.status}. ` +
       `Review ${latestReview.id}; open issues: ${openIssues.length}. ` +
       `Reason: ${input.reason}`,
     changed_at: now,

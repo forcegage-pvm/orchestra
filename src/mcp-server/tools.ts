@@ -1472,6 +1472,27 @@ const TOOLS_WITH_ROLES: ToolWithRole[] = [
       required: ["review_id", "summary", "issues", "recommendation"],
     },
   },
+  {
+    role: "controller",
+    name: "add_code_review_issues",
+    description:
+      "Append issues to an existing code review (e.g., after a REJECTED decision).",
+    inputSchema: {
+      type: "object",
+      properties: {
+        review_id: {
+          type: "number",
+          description: "ID of the code review",
+        },
+        issues: {
+          type: "array",
+          items: { type: "object" },
+          description: "List of issues to append",
+        },
+      },
+      required: ["review_id", "issues"],
+    },
+  },
 
   // Code Review Query Tools - SHARED (all roles can query)
   {
@@ -1929,6 +1950,10 @@ export function registerTools(server: Server, role: ServerRole = "full"): void {
           return await (
             await import("./handlers/reject-code-review.js")
           ).handleRejectCodeReview(args);
+        case "add_code_review_issues":
+          return await (
+            await import("./handlers/add-code-review-issues.js")
+          ).handleAddCodeReviewIssues(args);
         case "get_latest_code_review":
           return await (
             await import("./handlers/get-latest-code-review.js")

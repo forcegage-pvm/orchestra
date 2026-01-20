@@ -63,6 +63,12 @@ export interface SprintReviewContext {
   reviewAttempt?: number;
 }
 
+interface CodeReviewContext {
+  status: string;
+  summary?: string | null;
+  reviewId?: number;
+}
+
 /**
  * PromptBuilder generates structured prompts for each workflow stage
  */
@@ -435,9 +441,9 @@ Use your MCP tools to review the implementation:
    - Are tests adequate and passing?
 
 6. Make your decision using the review_id from step 1:
-   - \`approve_code_review\` - If implementation is correct and quality is acceptable
-   - \`request_changes_code_review\` - If minor issues need fixing
-   - \`reject_code_review\` - If major issues or incorrect implementation
+  - \`approve_code_review\` - If implementation is correct and quality is acceptable
+  - \`request_changes_code_review\` - If issues need fixing (MUST include issue list)
+  - \`reject_code_review\` - If major issues/incorrect implementation (MUST include issue list)
 
 ## Review Standards
 - **Correctness**: Implementation matches task requirements
@@ -445,7 +451,11 @@ Use your MCP tools to review the implementation:
 - **Completeness**: All deliverables present, tests adequate
 - **Safety**: No obvious security or stability issues
 
-Provide specific, actionable feedback for any issues found.`;
+Provide specific, actionable feedback for any issues found.
+
+IMPORTANT:
+- Any non-approval decision MUST include explicit issues.
+- If a prior review was REJECTED without issues, use \`add_code_review_issues\` to attach them.`;
     }
 
     // Bulk review
@@ -517,5 +527,91 @@ Use your MCP tools to find and fix open code review issues:
 - Run relevant tests and report results
 
 Proceed issue by issue and keep your fixes concise.`;
+  }
+
+  /**
+   * Build a CODE_REVIEW_FIX_PREPARE prompt for the orchestrator
+   *
+   * Instructs the orchestrator to prepare a focused fix handover for a task
+   * after a code review returned CHANGES_REQUESTED.
+   */
+  buildCodeReviewFixPreparePrompt(
+    context: PromptContext,
+    review: CodeReviewContext,
+  ): string {
+    const { task, sprint } = context;
+    return `As Orchestrator, prepare code review fixes for Task ${task.task_id}: "${task.title}".
+
+This task has a code review status of **${review.status.replace(/_/g, " ")}**.${
+      review.summary ? `\n\nReview summary: ${review.summary}` : ""
+    }
+
+## Your Task
+Use your MCP tools to reopen and prepare a focused fix handover:
+
+1. \`get_latest_code_review\` - Review the latest code review details for this task
+2. \`reopen_task\` - Reopen the task for fixes (include a clear reason)
+3. \`update_handover\` or \`prepare_task\` - Create a focused fix handover that:
+   - References the code review issues explicitly
+   - Narrows scope to the requested changes
+   - Updates acceptance criteria and deliverables
+
+## Task Details
+- **ID**: ${task.task_id}
+- **Title**: ${task.title}
+${task.category ? `- **Category**: ${task.category}\n` : ""}${
+      task.phase_id ? `- **Phase**: ${task.phase_id}\n` : ""
+    }
+
+## Sprint Context
+- **Sprint ID**: ${sprint.sprint_id}
+- **Sprint Title**: ${sprint.title}
+
+## Description
+${task.description}
+
+## Remember
+- Keep the fix scope tight to the review feedback
+- Ensure handover is explicit about which issues to fix
+- Include test updates if required by the review`;
+  }
+
+  /**
+   * Build a CODE_REVIEW_FIX_IMPLEMENT prompt for the implementor
+   *
+   * Instructs the implementor to address code review issues for a specific task.
+   */
+  buildCodeReviewFixImplementPrompt(
+    context: PromptContext,
+    review: CodeReviewContext,
+  ): string {
+    const { task, sprint, handoverPath } = context;
+
+    return `As Implementor, apply code review fixes for Task ${task.task_id}: "${task.title}".
+
+This task has a code review status of **${review.status.replace(/_/g, " ")}**.${
+      review.summary ? `\n\nReview summary: ${review.summary}` : ""
+    }
+
+## Your Task
+Use your MCP tools to address the code review feedback:
+
+1. \`get_current_task\` - Review the updated fix handover${
+      handoverPath ? `\n   - **Handover**: ${handoverPath}` : ""
+    }
+2. \`get_open_code_review_issues\` - List open issues for this task
+3. Fix each issue and update tests as needed
+4. \`resolve_code_review_issue\` for each issue fixed
+5. \`submit_code_review_fixes\` with summary, files changed, and tests run
+
+## Task Details
+- **ID**: ${task.task_id}
+- **Title**: ${task.title}
+- **Sprint**: ${sprint.title} (${sprint.sprint_id})
+
+## Remember
+- Keep changes scoped to the review feedback
+- Run relevant tests and report results
+- Resolve each issue explicitly in MCP tools`;
   }
 }

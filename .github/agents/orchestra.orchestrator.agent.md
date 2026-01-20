@@ -165,12 +165,12 @@ When the Controller rejects your sprint config or handover, you'll see status ch
 
 #### Code Review Remediation Tools
 
-| Tool                  | Purpose                                            | When to Use                                              |
-| --------------------- | -------------------------------------------------- | -------------------------------------------------------- |
-| `reopen_task`         | Reopen a COMPLETE task after CHANGES_REQUESTED     | Primary path to fix failed code review on same task     |
-| `get_open_code_review_issues` | Get unresolved code review issues           | Before reopen to scope fixes                             |
-| `update_handover`     | Update handover to include review issues           | After reopen to re-prepare with explicit fixes           |
-| `update_verification` | Update verification to align with review issues    | After reopen so verification matches required fixes      |
+| Tool                          | Purpose                                         | When to Use                                         |
+| ----------------------------- | ----------------------------------------------- | --------------------------------------------------- |
+| `reopen_task`                 | Reopen a COMPLETE task after CHANGES_REQUESTED  | Primary path to fix failed code review on same task |
+| `get_open_code_review_issues` | Get unresolved code review issues               | Before reopen to scope fixes                        |
+| `update_handover`             | Update handover to include review issues        | After reopen to re-prepare with explicit fixes      |
+| `update_verification`         | Update verification to align with review issues | After reopen so verification matches required fixes |
 
 ### Handling Code Review Failures (Sprint 005)
 
@@ -182,8 +182,10 @@ When a completed task fails Code Review (CHANGES_REQUESTED), **do NOT create a n
 2. **Analyze Issues**: Call `get_open_code_review_issues` to see EXACTLY what is wrong.
 3. **Reopen Task**: Call `reopen_task` with a clear reason referencing the review.
 4. **Re-Prepare**:
-  - Use `update_handover` to include the review issues in acceptance criteria and context.
-  - Use `update_verification` to align checks with the required fixes.
+
+- Use `update_handover` to include the review issues in acceptance criteria and context.
+- Use `update_verification` to align checks with the required fixes.
+
 5. **Implementor Fixes**: Implementor sees the reopened task in `get_current_task` and applies fixes.
 
 **Example: Reopen + Reprepare**

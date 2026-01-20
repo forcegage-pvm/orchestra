@@ -2,7 +2,7 @@
   "name": "orchestra-extension",
   "displayName": "Orchestra",
   "description": "AI agent task orchestration for VS Code",
-  "version": "0.5.5",
+  "version": "0.5.6",
   "publisher": "forcegage",
   "repository": {
     "type": "git",
@@ -214,6 +214,16 @@
         "command": "orchestra.runCodeReview",
         "title": "Orchestra: Run Code Review for Task",
         "icon": "$(checklist)"
+      },
+      {
+        "command": "orchestra.prepareCodeReviewFixTask",
+        "title": "Orchestra: Prepare Code Review Fixes",
+        "icon": "$(tools)"
+      },
+      {
+        "command": "orchestra.implementCodeReviewFixTask",
+        "title": "Orchestra: Implement Code Review Fixes",
+        "icon": "$(play)"
       }
     ],
     "keybindings": [
@@ -335,8 +345,18 @@
         },
         {
           "command": "orchestra.runCodeReview",
-          "when": "view == orchestra.sprintExplorer && viewItem == task-complete",
+          "when": "view == orchestra.sprintExplorer && viewItem =~ /^task-complete($|-review-)/",
           "group": "3_review"
+        },
+        {
+          "command": "orchestra.prepareCodeReviewFixTask",
+          "when": "view == orchestra.sprintExplorer && viewItem =~ /review-(changes_requested|rejected)$/",
+          "group": "3_review@1"
+        },
+        {
+          "command": "orchestra.implementCodeReviewFixTask",
+          "when": "view == orchestra.sprintExplorer && viewItem =~ /^task-implement.*review-(changes_requested|rejected)$/",
+          "group": "3_review@2"
         }
       ]
     }
