@@ -60,7 +60,7 @@ export * from "./verification.js";
 export * from "./feedback.js";
 
 // ============================================================================
-// Completion Tools (2 tools)
+// Completion Tools (3 tools)
 // ============================================================================
 
 export * from "./completion.js";

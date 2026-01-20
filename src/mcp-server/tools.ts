@@ -854,6 +854,23 @@ const TOOLS_WITH_ROLES: ToolWithRole[] = [
     },
   },
   {
+    role: "orchestrator",
+    name: "reopen_task",
+    description:
+      "Reopen a COMPLETE task when latest code review is CHANGES_REQUESTED and issues are OPEN.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        task_id: { type: "number", description: "The task ID to reopen" },
+        reason: {
+          type: "string",
+          description: "Why this task is being reopened (min 10 chars)",
+        },
+      },
+      required: ["task_id", "reason"],
+    },
+  },
+  {
     role: "shared",
     name: "escalate_task",
     description: "Escalate stuck task to human supervisor",
@@ -1812,6 +1829,10 @@ export function registerTools(server: Server, role: ServerRole = "full"): void {
           return await (
             await import("./handlers/complete-task.js")
           ).handleCompleteTask(args);
+        case "reopen_task":
+          return await (
+            await import("./handlers/reopen-task.js")
+          ).handleReopenTask(args);
         case "escalate_task":
           return await (
             await import("./handlers/escalate-task.js")

@@ -444,6 +444,7 @@ export function validateHandoverVerificationAlignment(
       topDir &&
       topDir !== "." &&
       topDir !== "test" &&
+      topDir !== "tests" &&
       topDir !== "lib" &&
       topDir !== "src"
     ) {
@@ -453,8 +454,14 @@ export function validateHandoverVerificationAlignment(
 
   // Determine the subdirectory prefix if files are in a subdirectory
   // Common patterns: extension/, packages/app_name/, apps/my_app/
+  const allowedSubdirRoots = new Set(["extension", "packages", "apps"]);
+  const [onlyTopDir] = [...handoverTopDirs];
   const subdirPrefix =
-    handoverTopDirs.size === 1 ? [...handoverTopDirs][0] : null;
+    handoverTopDirs.size === 1 &&
+    onlyTopDir &&
+    allowedSubdirRoots.has(onlyTopDir)
+      ? onlyTopDir
+      : null;
   const isInSubdirectory = subdirPrefix !== null;
 
   // Collect all verification paths
