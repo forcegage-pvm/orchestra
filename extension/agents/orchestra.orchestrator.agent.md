@@ -172,6 +172,8 @@ When the Controller rejects your sprint config or handover, you'll see status ch
 | `update_handover`             | Update handover to include review issues        | After reopen to re-prepare with explicit fixes      |
 | `update_verification`         | Update verification to align with review issues | After reopen so verification matches required fixes |
 
+**Implementor fix workflow:** After you reopen and re-prepare the task, the Implementor resolves code review issues using `fix_code_review` (GET_ISSUES → fix code → RESOLVE_ISSUE → SUBMIT_FIXES). Ensure your handover context points them to that workflow.
+
 ### Handling Code Review Failures (Sprint 005)
 
 When a completed task fails Code Review (CHANGES_REQUESTED), **do NOT create a new task**. Reopen the original task and re-prepare it with the review issues.
