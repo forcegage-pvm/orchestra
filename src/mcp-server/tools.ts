@@ -1358,6 +1358,25 @@ const TOOLS_WITH_ROLES: ToolWithRole[] = [
     },
   },
 
+  // Code Review Query Tool - SHARED (single review or sprint summary)
+  {
+    role: "shared",
+    name: "get_code_review",
+    description:
+      "Get the latest code review for a task or sprint-level review summary.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        task: { type: "number" },
+        sprint_id: { type: "string" },
+        include_issues: { type: "boolean" },
+        include_history: { type: "boolean" },
+        handover_context: { type: "boolean" },
+      },
+      required: [],
+    },
+  },
+
   // Code Review Decision Tool - CONTROLLER ONLY
   {
     role: "controller",
@@ -1658,6 +1677,12 @@ export function registerTools(server: Server, role: ServerRole = "full"): void {
           return await (
             await import("./handlers/get-code-review-summary.js")
           ).handleGetCodeReviewSummary(args);
+
+        // Code Review Query Tool (Sprint 005)
+        case "get_code_review":
+          return await (
+            await import("./handlers/get-code-review.js")
+          ).handleGetCodeReview(args);
 
         // Code Review Decision Tool (Sprint 005)
         case "submit_code_review":
