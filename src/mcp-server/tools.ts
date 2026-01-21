@@ -1402,6 +1402,31 @@ const TOOLS_WITH_ROLES: ToolWithRole[] = [
     },
   },
 
+  // Code Review Fix Tool - IMPLEMENTOR ONLY
+  {
+    role: "implementor",
+    name: "fix_code_review",
+    description:
+      "Resolve code review issues and submit fixes for verification (implementor).",
+    inputSchema: {
+      type: "object",
+      properties: {
+        action: {
+          type: "string",
+          enum: ["GET_ISSUES", "RESOLVE_ISSUE", "SUBMIT_FIXES"],
+        },
+        issue_id: { type: "number" },
+        fix_summary: { type: "string" },
+        summary: { type: "string" },
+        files_changed: { type: "array", items: { type: "string" } },
+        tests_run: { type: "array", items: { type: "string" } },
+        notes: { type: "string" },
+        skip_validation: { type: "boolean" },
+      },
+      required: ["action"],
+    },
+  },
+
   // Debug tool - available to all
   {
     role: "shared",
@@ -1689,6 +1714,12 @@ export function registerTools(server: Server, role: ServerRole = "full"): void {
           return await (
             await import("./handlers/submit-code-review.js")
           ).handleSubmitCodeReview(args);
+
+        // Code Review Fix Tool (Sprint 005)
+        case "fix_code_review":
+          return await (
+            await import("./handlers/fix-code-review.js")
+          ).handleFixCodeReview(args);
 
         // Debug tool
         case "debug_environment": {
