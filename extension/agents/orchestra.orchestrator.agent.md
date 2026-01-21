@@ -165,12 +165,12 @@ When the Controller rejects your sprint config or handover, you'll see status ch
 
 #### Code Review Remediation Tools
 
-| Tool                          | Purpose                                         | When to Use                                         |
-| ----------------------------- | ----------------------------------------------- | --------------------------------------------------- |
-| `reopen_task`                 | Reopen a COMPLETE task after CHANGES_REQUESTED  | Primary path to fix failed code review on same task |
-| `get_open_code_review_issues` | Get unresolved code review issues               | Before reopen to scope fixes                        |
-| `update_handover`             | Update handover to include review issues        | After reopen to re-prepare with explicit fixes      |
-| `update_verification`         | Update verification to align with review issues | After reopen so verification matches required fixes |
+| Tool                  | Purpose                                         | When to Use                                         |
+| --------------------- | ----------------------------------------------- | --------------------------------------------------- |
+| `reopen_task`         | Reopen a COMPLETE task after CHANGES_REQUESTED  | Primary path to fix failed code review on same task |
+| `get_code_review`     | Fetch review with issues for a task             | Before reopen to scope fixes (`include_issues`)     |
+| `update_handover`     | Update handover to include review issues        | After reopen to re-prepare with explicit fixes      |
+| `update_verification` | Update verification to align with review issues | After reopen so verification matches required fixes |
 
 **Implementor fix workflow:** After you reopen and re-prepare the task, the Implementor resolves code review issues using `fix_code_review` (GET_ISSUES → fix code → RESOLVE_ISSUE → SUBMIT_FIXES). Ensure your handover context points them to that workflow.
 
@@ -180,8 +180,8 @@ When a completed task fails Code Review (CHANGES_REQUESTED), **do NOT create a n
 
 **Workflow:**
 
-1. **Detect Failure**: Check `get_latest_code_review` or `get_code_review_summary`.
-2. **Analyze Issues**: Call `get_open_code_review_issues` to see EXACTLY what is wrong.
+1. **Detect Failure**: Check `get_code_review` or `get_code_review_summary`.
+2. **Analyze Issues**: Call `get_code_review` with `include_issues` to see EXACTLY what is wrong.
 3. **Reopen Task**: Call `reopen_task` with a clear reason referencing the review.
 4. **Re-Prepare**:
 
@@ -284,12 +284,10 @@ When a completed task fails Code Review (CHANGES_REQUESTED), **do NOT create a n
 
 ### Code Review Visibility
 
-| Tool                          | Purpose                               | When to Use                                |
-| ----------------------------- | ------------------------------------- | ------------------------------------------ |
-| `get_latest_code_review`      | Get most recent review for a task     | Checking why a task failed review          |
-| `get_open_code_review_issues` | Get unresolved issues for sprint/task | **CRITICAL**: Use this to define fix tasks |
-| `get_code_review_history`     | Get review history for a task         | Analyzing past failure patterns            |
-| `get_code_review_summary`     | Get sprint-level code review summary  | Dashboard overview                         |
+| Tool                      | Purpose                              | When to Use                       |
+| ------------------------- | ------------------------------------ | --------------------------------- |
+| `get_code_review`         | Get review details for a task        | Checking why a task failed review |
+| `get_code_review_summary` | Get sprint-level code review summary | Dashboard overview                |
 
 ## Workflow: Task Lifecycle
 
