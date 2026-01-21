@@ -1358,6 +1358,31 @@ const TOOLS_WITH_ROLES: ToolWithRole[] = [
     },
   },
 
+  // Code Review Decision Tool - CONTROLLER ONLY
+  {
+    role: "controller",
+    name: "submit_code_review",
+    description:
+      "Submit a code review decision with required artifacts for a sprint task.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        task: { type: "number" },
+        decision: { type: "string" },
+        summary: { type: "string" },
+        risk: { type: "string" },
+        files_reviewed: { type: "array", items: { type: "string" } },
+        tests_run: { type: "array", items: { type: "string" } },
+        commit_range: { type: "string" },
+        issues: { type: "array" },
+        recommendations: { type: "array", items: { type: "string" } },
+        notes: { type: "string" },
+        verifying_fixes: { type: "boolean" },
+      },
+      required: ["task", "decision", "summary", "risk", "files_reviewed"],
+    },
+  },
+
   // Debug tool - available to all
   {
     role: "shared",
@@ -1633,6 +1658,12 @@ export function registerTools(server: Server, role: ServerRole = "full"): void {
           return await (
             await import("./handlers/get-code-review-summary.js")
           ).handleGetCodeReviewSummary(args);
+
+        // Code Review Decision Tool (Sprint 005)
+        case "submit_code_review":
+          return await (
+            await import("./handlers/submit-code-review.js")
+          ).handleSubmitCodeReview(args);
 
         // Debug tool
         case "debug_environment": {
