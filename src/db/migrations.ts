@@ -754,6 +754,87 @@ const MIGRATIONS: Migration[] = [
       );
     },
   },
+  {
+    id: "20260121_012_extend_code_review_statuses",
+    description:
+      "Extend code review status enum to include FIXING_ISSUES and PENDING_VERIFICATION",
+    up: async () => {
+      const db = getDb();
+
+      const tableSqlRows = await db.all(
+        sql`SELECT sql FROM sqlite_master WHERE type='table' AND name='code_reviews'`,
+      );
+      const tableSql = (tableSqlRows as { sql: string }[])[0]?.sql ?? "";
+
+      const hasFixingIssues = tableSql.includes("FIXING_ISSUES");
+      const hasPendingVerification = tableSql.includes("PENDING_VERIFICATION");
+
+      if (hasFixingIssues && hasPendingVerification) {
+        return;
+      }
+
+      await db.run(sql`
+        CREATE TABLE code_reviews_new (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          sprint_id TEXT NOT NULL REFERENCES sprints(id) ON DELETE CASCADE,
+          task_id INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+          phase_id INTEGER REFERENCES phases(id) ON DELETE SET NULL,
+          review_scope TEXT NOT NULL CHECK (review_scope IN ('TASK', 'PHASE')),
+          status TEXT NOT NULL CHECK (status IN ('PENDING', 'IN_REVIEW', 'APPROVED', 'CHANGES_REQUESTED', 'REJECTED', 'FIXING_ISSUES', 'PENDING_VERIFICATION')),
+          summary TEXT NOT NULL,
+          risk TEXT NOT NULL,
+          commit_range TEXT,
+          files_reviewed TEXT,
+          tests_run TEXT,
+          issues TEXT,
+          recommendations TEXT,
+          notes TEXT,
+          requested_by TEXT NOT NULL,
+          requested_at TEXT NOT NULL,
+          in_review_by TEXT,
+          in_review_at TEXT,
+          reviewed_by TEXT,
+          reviewed_at TEXT,
+          revision_count INTEGER NOT NULL DEFAULT 0,
+          previous_review_id INTEGER REFERENCES code_reviews(id) ON DELETE SET NULL
+        )
+      `);
+
+      await db.run(sql`
+        INSERT INTO code_reviews_new (
+          id, sprint_id, task_id, phase_id, review_scope, status, summary, risk,
+          commit_range, files_reviewed, tests_run, issues, recommendations, notes,
+          requested_by, requested_at, in_review_by, in_review_at, reviewed_by, reviewed_at,
+          revision_count, previous_review_id
+        )
+        SELECT
+          id, sprint_id, task_id, phase_id, review_scope, status, summary, risk,
+          commit_range, files_reviewed, tests_run, issues, recommendations, notes,
+          requested_by, requested_at, in_review_by, in_review_at, reviewed_by, reviewed_at,
+          revision_count, previous_review_id
+        FROM code_reviews
+      `);
+
+      await db.run(sql`DROP TABLE code_reviews`);
+      await db.run(sql`ALTER TABLE code_reviews_new RENAME TO code_reviews`);
+
+      await db.run(
+        sql`CREATE INDEX IF NOT EXISTS code_review_sprint_idx ON code_reviews(sprint_id)`,
+      );
+      await db.run(
+        sql`CREATE INDEX IF NOT EXISTS code_review_task_idx ON code_reviews(task_id)`,
+      );
+      await db.run(
+        sql`CREATE INDEX IF NOT EXISTS code_review_phase_idx ON code_reviews(phase_id)`,
+      );
+      await db.run(
+        sql`CREATE INDEX IF NOT EXISTS code_review_status_idx ON code_reviews(status)`,
+      );
+      await db.run(
+        sql`CREATE INDEX IF NOT EXISTS code_review_scope_idx ON code_reviews(review_scope)`,
+      );
+    },
+  },
 ];
 
 /**

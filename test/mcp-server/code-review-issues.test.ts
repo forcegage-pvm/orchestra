@@ -411,7 +411,7 @@ describe("resolve_code_review_issue handler", () => {
         sprint_id: testSprintId,
         task_id: testTaskId,
         review_scope: "TASK",
-        status: "CHANGES_REQUESTED",
+        status: "FIXING_ISSUES",
         summary: "Test review",
         risk: "LOW",
         requested_by: "test-user",
@@ -680,7 +680,7 @@ describe("submit_code_review_fixes handler", () => {
         sprint_id: testSprintId,
         task_id: testTaskId,
         review_scope: "TASK",
-        status: "CHANGES_REQUESTED",
+        status: "FIXING_ISSUES",
         summary: "Test review",
         risk: "LOW",
         requested_by: "test-user",
@@ -829,7 +829,7 @@ describe("submit_code_review_fixes handler", () => {
       expect(fixes[0].submitted_at).toBeTruthy();
     });
 
-    it("should not change review status when submitting fixes", async () => {
+    it("should transition review status to PENDING_VERIFICATION", async () => {
       const { handleSubmitCodeReviewFixes } =
         await import("../../src/mcp-server/handlers/submit-code-review-fixes.js");
 
@@ -842,7 +842,7 @@ describe("submit_code_review_fixes handler", () => {
         .where(eq(codeReviews.id, testReviewId))
         .limit(1);
 
-      expect(beforeReview.status).toBe("CHANGES_REQUESTED");
+      expect(beforeReview.status).toBe("FIXING_ISSUES");
 
       // Submit fixes
       await handleSubmitCodeReviewFixes({
@@ -857,7 +857,7 @@ describe("submit_code_review_fixes handler", () => {
         .where(eq(codeReviews.id, testReviewId))
         .limit(1);
 
-      expect(afterReview.status).toBe("CHANGES_REQUESTED");
+      expect(afterReview.status).toBe("PENDING_VERIFICATION");
     });
 
     it("should return error for non-existent review_id", async () => {
@@ -882,6 +882,12 @@ describe("submit_code_review_fixes handler", () => {
         summary: "First round of fixes",
       });
 
+      const db = getDb();
+      await db
+        .update(codeReviews)
+        .set({ status: "FIXING_ISSUES" })
+        .where(eq(codeReviews.id, testReviewId));
+
       // Submit second fix
       await handleSubmitCodeReviewFixes({
         review_id: testReviewId,
@@ -889,7 +895,6 @@ describe("submit_code_review_fixes handler", () => {
       });
 
       // Verify both fix records exist
-      const db = getDb();
       const fixes = await db
         .select()
         .from(codeReviewFixes)
@@ -980,21 +985,19 @@ describe("verify_code_review_fixes handler", () => {
 
     testTaskId = task.id;
 
-    // Create review in IN_REVIEW status (as if claimed by controller for fix verification)
+    // Create review in PENDING_VERIFICATION status (after fixes submitted)
     const [review] = await db
       .insert(codeReviews)
       .values({
         sprint_id: testSprintId,
         task_id: testTaskId,
         review_scope: "TASK",
-        status: "IN_REVIEW",
+        status: "PENDING_VERIFICATION",
         summary: "Test review",
         risk: "LOW",
         requested_by: "test-user",
         requested_at: now,
         revision_count: 0,
-        in_review_by: "controller",
-        in_review_at: now,
       })
       .returning();
 

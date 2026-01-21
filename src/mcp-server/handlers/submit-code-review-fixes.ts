@@ -7,7 +7,7 @@
 import { eq } from "drizzle-orm";
 import { getDb } from "../../db/index.js";
 import { codeReviewFixes, codeReviews } from "../../db/schema.js";
-import { logToolExecution } from "./audit-logging.js";
+import { logReviewTransition, logToolExecution } from "./audit-logging.js";
 
 interface SubmitCodeReviewFixesInput {
   review_id: number;
@@ -99,6 +99,25 @@ async function submitCodeReviewFixes(
     throw new Error(`Review with id ${input.review_id} not found`);
   }
 
+  if (review.status === "CHANGES_REQUESTED") {
+    await db
+      .update(codeReviews)
+      .set({
+        status: "FIXING_ISSUES",
+      })
+      .where(eq(codeReviews.id, input.review_id));
+
+    await logReviewTransition({
+      reviewId: review.id,
+      taskId: review.task_id,
+      fromStatus: review.status,
+      toStatus: "FIXING_ISSUES",
+      actor: "implementor",
+      reviewScope: review.review_scope,
+      sprintId: review.sprint_id,
+    });
+  }
+
   // Create fix record
   const fixRecords = await db
     .insert(codeReviewFixes)
@@ -117,6 +136,23 @@ async function submitCodeReviewFixes(
   if (!fixRecord) {
     throw new Error("Failed to create fix record");
   }
+
+  await db
+    .update(codeReviews)
+    .set({
+      status: "PENDING_VERIFICATION",
+    })
+    .where(eq(codeReviews.id, input.review_id));
+
+  await logReviewTransition({
+    reviewId: review.id,
+    taskId: review.task_id,
+    fromStatus: "FIXING_ISSUES",
+    toStatus: "PENDING_VERIFICATION",
+    actor: "implementor",
+    reviewScope: review.review_scope,
+    sprintId: review.sprint_id,
+  });
 
   return {
     success: true,

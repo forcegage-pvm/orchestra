@@ -13,7 +13,7 @@ import {
   type ClaimCodeReviewOutput,
 } from "../../schemas/code-review/claim-code-review.schema.js";
 import { validateInput } from "../../schemas/utils.js";
-import { logToolExecution } from "./audit-logging.js";
+import { logReviewTransition, logToolExecution } from "./audit-logging.js";
 
 export async function handleClaimCodeReview(input: unknown) {
   const startTime = performance.now();
@@ -139,6 +139,16 @@ async function claimCodeReview(
       in_review_at: now,
     })
     .where(eq(codeReviews.id, input.review_id));
+
+  await logReviewTransition({
+    reviewId: review.id,
+    taskId: review.task_id,
+    fromStatus: review.status,
+    toStatus: "IN_REVIEW",
+    actor: input.reviewer,
+    reviewScope: review.review_scope,
+    sprintId: review.sprint_id,
+  });
 
   return {
     success: true,

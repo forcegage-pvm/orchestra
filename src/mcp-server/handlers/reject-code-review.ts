@@ -13,7 +13,7 @@ import {
   type RejectCodeReviewOutput,
 } from "../../schemas/code-review/reject-code-review.schema.js";
 import { validateInput } from "../../schemas/utils.js";
-import { logToolExecution } from "./audit-logging.js";
+import { logReviewTransition, logToolExecution } from "./audit-logging.js";
 
 export async function handleRejectCodeReview(input: unknown) {
   const startTime = performance.now();
@@ -132,6 +132,16 @@ async function rejectCodeReview(
       in_review_at: null,
     })
     .where(eq(codeReviews.id, input.review_id));
+
+  await logReviewTransition({
+    reviewId: review.id,
+    taskId: review.task_id,
+    fromStatus: review.status,
+    toStatus: "REJECTED",
+    actor: "controller",
+    reviewScope: review.review_scope,
+    sprintId: review.sprint_id,
+  });
 
   // Insert issues into code_review_issues table
   for (const issue of input.issues) {

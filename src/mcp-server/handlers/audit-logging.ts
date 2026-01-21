@@ -24,13 +24,33 @@ export interface ToolExecutionResult {
   errorMessage?: string;
 }
 
+export type ReviewStatus =
+  | "PENDING"
+  | "IN_REVIEW"
+  | "APPROVED"
+  | "CHANGES_REQUESTED"
+  | "REJECTED"
+  | "FIXING_ISSUES"
+  | "PENDING_VERIFICATION";
+
+export interface ReviewTransitionContext {
+  reviewId: number;
+  taskId: number;
+  fromStatus: ReviewStatus;
+  toStatus: ReviewStatus;
+  actor: string;
+  reviewScope: "TASK" | "PHASE";
+  sprintId?: string | null;
+  toolExecutionId?: number;
+}
+
 /**
  * Log a tool execution to the database
  */
 export async function logToolExecution(
   context: ToolExecutionContext,
   result: ToolExecutionResult,
-  durationMs: number
+  durationMs: number,
 ): Promise<number> {
   const db = getDb();
   const now = new Date().toISOString();
@@ -52,8 +72,8 @@ export async function logToolExecution(
           .where(
             and(
               eq(tasks.sprint_id, sprint.id),
-              eq(tasks.task_id, context.taskId)
-            )
+              eq(tasks.task_id, context.taskId),
+            ),
           )
           .limit(1);
         if (task) {
@@ -96,7 +116,8 @@ export async function logSystemEvent(params: {
     | "verification"
     | "mcp"
     | "escalation"
-    | "security";
+    | "security"
+    | "code_review";
   message: string;
   details?: Record<string, unknown>;
   taskId?: number;
@@ -121,8 +142,8 @@ export async function logSystemEvent(params: {
           .where(
             and(
               eq(tasks.sprint_id, sprint.id),
-              eq(tasks.task_id, params.taskId)
-            )
+              eq(tasks.task_id, params.taskId),
+            ),
           )
           .limit(1);
         if (task) {
@@ -148,6 +169,35 @@ export async function logSystemEvent(params: {
 }
 
 /**
+ * Log a code review status transition
+ */
+export async function logReviewTransition(
+  context: ReviewTransitionContext,
+): Promise<void> {
+  const db = getDb();
+  const now = new Date().toISOString();
+
+  await db.insert(systemLogs).values({
+    level: "INFO",
+    category: "code_review",
+    message: `Review ${context.reviewId} status ${context.fromStatus} -> ${context.toStatus}`,
+    details: JSON.stringify({
+      review_id: context.reviewId,
+      task_id: context.taskId,
+      review_scope: context.reviewScope,
+      from_status: context.fromStatus,
+      to_status: context.toStatus,
+      actor: context.actor,
+    }),
+    sprint_id: context.sprintId ?? null,
+    task_id: context.taskId,
+    tool_execution_id: context.toolExecutionId ?? null,
+    stack_trace: null,
+    logged_at: now,
+  });
+}
+
+/**
  * Wrapper to execute a handler with automatic audit logging
  *
  * Usage:
@@ -163,7 +213,7 @@ export async function logSystemEvent(params: {
  */
 export async function withAuditLogging<T>(
   context: ToolExecutionContext,
-  handler: () => Promise<T>
+  handler: () => Promise<T>,
 ): Promise<{ content: Array<{ type: "text"; text: string }> }> {
   const startTime = performance.now();
 
@@ -174,7 +224,7 @@ export async function withAuditLogging<T>(
     await logToolExecution(
       context,
       { success: true, output: result },
-      durationMs
+      durationMs,
     );
 
     return {
@@ -187,7 +237,7 @@ export async function withAuditLogging<T>(
     await logToolExecution(
       context,
       { success: false, errorMessage: err.message },
-      durationMs
+      durationMs,
     );
 
     return {
@@ -203,7 +253,7 @@ export async function withAuditLogging<T>(
               },
             },
             null,
-            2
+            2,
           ),
         },
       ],

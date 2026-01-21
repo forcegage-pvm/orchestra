@@ -13,7 +13,7 @@ import {
   type ApproveCodeReviewOutput,
 } from "../../schemas/code-review/approve-code-review.schema.js";
 import { validateInput } from "../../schemas/utils.js";
-import { logToolExecution } from "./audit-logging.js";
+import { logReviewTransition, logToolExecution } from "./audit-logging.js";
 
 export async function handleApproveCodeReview(input: unknown) {
   const startTime = performance.now();
@@ -128,6 +128,16 @@ async function approveCodeReview(
       in_review_at: null,
     })
     .where(eq(codeReviews.id, input.review_id));
+
+  await logReviewTransition({
+    reviewId: review.id,
+    taskId: review.task_id,
+    fromStatus: review.status,
+    toStatus: "APPROVED",
+    actor: "controller",
+    reviewScope: review.review_scope,
+    sprintId: review.sprint_id,
+  });
 
   return {
     success: true,

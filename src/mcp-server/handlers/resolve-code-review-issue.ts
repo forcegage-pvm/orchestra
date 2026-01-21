@@ -4,10 +4,10 @@
  * Implementor tool to mark a single code review issue as RESOLVED.
  */
 
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { getDb } from "../../db/index.js";
-import { codeReviewIssues } from "../../db/schema.js";
-import { logToolExecution } from "./audit-logging.js";
+import { codeReviewIssues, codeReviews } from "../../db/schema.js";
+import { logReviewTransition, logToolExecution } from "./audit-logging.js";
 
 interface ResolveCodeReviewIssueInput {
   issue_id: number;
@@ -101,6 +101,27 @@ async function resolveCodeReviewIssue(
     throw new Error(`Issue ${input.issue_id} is already resolved`);
   }
 
+  const [review] = await db
+    .select()
+    .from(codeReviews)
+    .where(eq(codeReviews.id, issue.review_id))
+    .limit(1);
+
+  if (!review) {
+    throw new Error(`Review with id ${issue.review_id} not found`);
+  }
+
+  const [existingResolved] = await db
+    .select({ id: codeReviewIssues.id })
+    .from(codeReviewIssues)
+    .where(
+      and(
+        eq(codeReviewIssues.review_id, issue.review_id),
+        eq(codeReviewIssues.status, "RESOLVED"),
+      ),
+    )
+    .limit(1);
+
   // Update issue to RESOLVED
   await db
     .update(codeReviewIssues)
@@ -110,6 +131,25 @@ async function resolveCodeReviewIssue(
       resolved_at: now,
     })
     .where(eq(codeReviewIssues.id, input.issue_id));
+
+  if (review.status === "CHANGES_REQUESTED" && !existingResolved) {
+    await db
+      .update(codeReviews)
+      .set({
+        status: "FIXING_ISSUES",
+      })
+      .where(eq(codeReviews.id, review.id));
+
+    await logReviewTransition({
+      reviewId: review.id,
+      taskId: review.task_id,
+      fromStatus: review.status,
+      toStatus: "FIXING_ISSUES",
+      actor: "implementor",
+      reviewScope: review.review_scope,
+      sprintId: review.sprint_id,
+    });
+  }
 
   return {
     success: true,

@@ -11,7 +11,7 @@ import {
   codeReviewIssues,
   codeReviews,
 } from "../../db/schema.js";
-import { logToolExecution } from "./audit-logging.js";
+import { logReviewTransition, logToolExecution } from "./audit-logging.js";
 
 interface VerificationIssue {
   severity: "BLOCKING" | "MAJOR" | "MINOR";
@@ -126,9 +126,12 @@ async function verifyCodeReviewFixes(
     throw new Error(`Review with id ${input.review_id} not found`);
   }
 
-  if (review.status !== "IN_REVIEW") {
+  if (
+    review.status !== "PENDING_VERIFICATION" &&
+    review.status !== "IN_REVIEW"
+  ) {
     throw new Error(
-      `Review ${input.review_id} must be claimed before verifying fixes (current status: ${review.status})`,
+      `Review ${input.review_id} must be pending verification before verifying fixes (current status: ${review.status})`,
     );
   }
 
@@ -224,6 +227,16 @@ async function verifyCodeReviewFixes(
       }
       break;
   }
+
+  await logReviewTransition({
+    reviewId: review.id,
+    taskId: review.task_id,
+    fromStatus: review.status,
+    toStatus: newStatus,
+    actor: "controller",
+    reviewScope: review.review_scope,
+    sprintId: review.sprint_id,
+  });
 
   return {
     success: true,
