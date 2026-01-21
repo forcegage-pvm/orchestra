@@ -48,6 +48,10 @@ vi.mock("../../../src/database/queries.js", () => ({
       APPROVED: 0,
       NEEDS_REVISION: 0,
       REJECTED: 0,
+      CHANGES_REQUESTED: 0,
+      FIXING_ISSUES: 0,
+      PENDING_VERIFICATION: 0,
+      COMPLETE: 0,
     },
     openIssuesCount: 0,
     policy: "ad_hoc",
@@ -199,6 +203,39 @@ describe("CodeReviewTreeProvider", () => {
       expect(hasRejectedCount).toBe(true);
     });
 
+    it("should show count by status (CHANGES_REQUESTED)", async () => {
+      const children = await provider.getChildren();
+
+      const hasChangesRequestedCount = children?.some(
+        (item) =>
+          item.label?.toString().includes("CHANGES_REQUESTED") ||
+          item.label?.toString().includes("Changes Requested"),
+      );
+      expect(hasChangesRequestedCount).toBe(true);
+    });
+
+    it("should show count by status (FIXING_ISSUES)", async () => {
+      const children = await provider.getChildren();
+
+      const hasFixingIssuesCount = children?.some(
+        (item) =>
+          item.label?.toString().includes("FIXING_ISSUES") ||
+          item.label?.toString().includes("Fixing Issues"),
+      );
+      expect(hasFixingIssuesCount).toBe(true);
+    });
+
+    it("should show count by status (PENDING_VERIFICATION)", async () => {
+      const children = await provider.getChildren();
+
+      const hasPendingVerificationCount = children?.some(
+        (item) =>
+          item.label?.toString().includes("PENDING_VERIFICATION") ||
+          item.label?.toString().includes("Pending Verification"),
+      );
+      expect(hasPendingVerificationCount).toBe(true);
+    });
+
     it("should show count by status (PENDING)", async () => {
       const children = await provider.getChildren();
 
@@ -253,6 +290,10 @@ describe("CodeReviewTreeProvider", () => {
           APPROVED: 3,
           NEEDS_REVISION: 1,
           REJECTED: 0,
+          CHANGES_REQUESTED: 0,
+          FIXING_ISSUES: 0,
+          PENDING_VERIFICATION: 0,
+          COMPLETE: 0,
         },
         openIssuesCount: 2,
         policy: "task_gate",
@@ -279,6 +320,10 @@ describe("CodeReviewTreeProvider", () => {
           APPROVED: 3,
           NEEDS_REVISION: 1,
           REJECTED: 0,
+          CHANGES_REQUESTED: 0,
+          FIXING_ISSUES: 0,
+          PENDING_VERIFICATION: 0,
+          COMPLETE: 0,
         },
         openIssuesCount: 2,
         policy: "phase_gate",
@@ -310,7 +355,27 @@ describe("CodeReviewTreeProvider", () => {
       expect(adHocAction).toBeDefined();
     });
 
-    it("should have 'Fix code review issues' action", async () => {
+    it("should show 'Fix Issues' action when changes requested", async () => {
+      const { getCodeReviewSummary } =
+        await import("../../../src/database/queries.js");
+      vi.mocked(getCodeReviewSummary).mockReturnValue({
+        totalReviews: 5,
+        byStatus: {
+          PENDING: 0,
+          APPROVED: 3,
+          NEEDS_REVISION: 0,
+          REJECTED: 0,
+          CHANGES_REQUESTED: 2,
+          FIXING_ISSUES: 0,
+          PENDING_VERIFICATION: 0,
+          COMPLETE: 0,
+        },
+        openIssuesCount: 2,
+        policy: "ad_hoc",
+        blockingSeverity: "BLOCKING",
+      });
+
+      provider.refresh();
       const children = await provider.getChildren();
       const actionsItem = children?.find((item) =>
         item.label?.toString().includes("Actions"),
@@ -319,9 +384,111 @@ describe("CodeReviewTreeProvider", () => {
       const actionChildren = await provider.getChildren(actionsItem);
 
       const fixIssuesAction = actionChildren?.find((item) =>
-        item.label?.toString().includes("Fix code review issues"),
+        item.label?.toString().includes("Fix Issues"),
       );
       expect(fixIssuesAction).toBeDefined();
+    });
+
+    it("should show 'Continue Fixing' action when fixing issues", async () => {
+      const { getCodeReviewSummary } =
+        await import("../../../src/database/queries.js");
+      vi.mocked(getCodeReviewSummary).mockReturnValue({
+        totalReviews: 5,
+        byStatus: {
+          PENDING: 0,
+          APPROVED: 3,
+          NEEDS_REVISION: 0,
+          REJECTED: 0,
+          CHANGES_REQUESTED: 0,
+          FIXING_ISSUES: 1,
+          PENDING_VERIFICATION: 0,
+          COMPLETE: 0,
+        },
+        openIssuesCount: 1,
+        policy: "ad_hoc",
+        blockingSeverity: "BLOCKING",
+      });
+
+      provider.refresh();
+      const children = await provider.getChildren();
+      const actionsItem = children?.find((item) =>
+        item.label?.toString().includes("Actions"),
+      );
+
+      const actionChildren = await provider.getChildren(actionsItem);
+
+      const continueFixingAction = actionChildren?.find((item) =>
+        item.label?.toString().includes("Continue Fixing"),
+      );
+      expect(continueFixingAction).toBeDefined();
+    });
+
+    it("should show 'Verify Fixes' action when pending verification", async () => {
+      const { getCodeReviewSummary } =
+        await import("../../../src/database/queries.js");
+      vi.mocked(getCodeReviewSummary).mockReturnValue({
+        totalReviews: 5,
+        byStatus: {
+          PENDING: 0,
+          APPROVED: 3,
+          NEEDS_REVISION: 0,
+          REJECTED: 0,
+          CHANGES_REQUESTED: 0,
+          FIXING_ISSUES: 0,
+          PENDING_VERIFICATION: 2,
+          COMPLETE: 0,
+        },
+        openIssuesCount: 0,
+        policy: "ad_hoc",
+        blockingSeverity: "BLOCKING",
+      });
+
+      provider.refresh();
+      const children = await provider.getChildren();
+      const actionsItem = children?.find((item) =>
+        item.label?.toString().includes("Actions"),
+      );
+
+      const actionChildren = await provider.getChildren(actionsItem);
+
+      const verifyFixesAction = actionChildren?.find((item) =>
+        item.label?.toString().includes("Verify Fixes"),
+      );
+      expect(verifyFixesAction).toBeDefined();
+    });
+
+    it("should show 'Escalate' action when rejected", async () => {
+      const { getCodeReviewSummary } =
+        await import("../../../src/database/queries.js");
+      vi.mocked(getCodeReviewSummary).mockReturnValue({
+        totalReviews: 5,
+        byStatus: {
+          PENDING: 0,
+          APPROVED: 3,
+          NEEDS_REVISION: 0,
+          REJECTED: 1,
+          CHANGES_REQUESTED: 0,
+          FIXING_ISSUES: 0,
+          PENDING_VERIFICATION: 0,
+          COMPLETE: 0,
+        },
+        openIssuesCount: 0,
+        policy: "ad_hoc",
+        blockingSeverity: "BLOCKING",
+      });
+
+      provider.refresh();
+      const children = await provider.getChildren();
+      const actionsItem = children?.find((item) =>
+        item.label?.toString().includes("Actions"),
+      );
+
+      const actionChildren = await provider.getChildren(actionsItem);
+
+      const escalateAction = actionChildren?.find((item) =>
+        item.label?.toString().includes("Escalate"),
+      );
+      expect(escalateAction).toBeDefined();
     });
 
     it("should disable 'Run ad-hoc review now' when no unreviewed tasks", async () => {
@@ -366,68 +533,6 @@ describe("CodeReviewTreeProvider", () => {
       expect(adHocAction?.command).toBeDefined();
     });
 
-    it("should disable 'Fix code review issues' when no open issues", async () => {
-      // Mock no open issues
-      const { getCodeReviewSummary } =
-        await import("../../../src/database/queries.js");
-      vi.mocked(getCodeReviewSummary).mockReturnValue({
-        totalReviews: 5,
-        byStatus: {
-          PENDING: 0,
-          APPROVED: 5,
-          NEEDS_REVISION: 0,
-          REJECTED: 0,
-        },
-        openIssuesCount: 0,
-        policy: "ad_hoc",
-        blockingSeverity: "BLOCKING",
-      });
-
-      provider.refresh();
-      const children = await provider.getChildren();
-      const actionsItem = children?.find((item) =>
-        item.label?.toString().includes("Actions"),
-      );
-
-      const actionChildren = await provider.getChildren(actionsItem);
-      const fixIssuesAction = actionChildren?.find((item) =>
-        item.label?.toString().includes("Fix code review issues"),
-      );
-
-      expect(fixIssuesAction?.command).toBeUndefined();
-    });
-
-    it("should enable 'Fix code review issues' when open issues exist", async () => {
-      // Mock open issues
-      const { getCodeReviewSummary } =
-        await import("../../../src/database/queries.js");
-      vi.mocked(getCodeReviewSummary).mockReturnValue({
-        totalReviews: 5,
-        byStatus: {
-          PENDING: 0,
-          APPROVED: 3,
-          NEEDS_REVISION: 2,
-          REJECTED: 0,
-        },
-        openIssuesCount: 5,
-        policy: "ad_hoc",
-        blockingSeverity: "BLOCKING",
-      });
-
-      provider.refresh();
-      const children = await provider.getChildren();
-      const actionsItem = children?.find((item) =>
-        item.label?.toString().includes("Actions"),
-      );
-
-      const actionChildren = await provider.getChildren(actionsItem);
-      const fixIssuesAction = actionChildren?.find((item) =>
-        item.label?.toString().includes("Fix code review issues"),
-      );
-
-      expect(fixIssuesAction?.command).toBeDefined();
-    });
-
     it("should use correct command for 'Run ad-hoc review now'", async () => {
       const { getCompletedUnreviewedTasks } =
         await import("../../../src/database/queries.js");
@@ -449,7 +554,7 @@ describe("CodeReviewTreeProvider", () => {
       expect(adHocAction?.command?.command).toBe("orchestra.runAdHocReview");
     });
 
-    it("should use correct command for 'Fix code review issues'", async () => {
+    it("should use correct command for 'Fix Issues'", async () => {
       const { getCodeReviewSummary } =
         await import("../../../src/database/queries.js");
       vi.mocked(getCodeReviewSummary).mockReturnValue({
@@ -457,8 +562,12 @@ describe("CodeReviewTreeProvider", () => {
         byStatus: {
           PENDING: 0,
           APPROVED: 3,
-          NEEDS_REVISION: 2,
+          NEEDS_REVISION: 0,
           REJECTED: 0,
+          CHANGES_REQUESTED: 2,
+          FIXING_ISSUES: 0,
+          PENDING_VERIFICATION: 0,
+          COMPLETE: 0,
         },
         openIssuesCount: 5,
         policy: "ad_hoc",
@@ -473,11 +582,83 @@ describe("CodeReviewTreeProvider", () => {
 
       const actionChildren = await provider.getChildren(actionsItem);
       const fixIssuesAction = actionChildren?.find((item) =>
-        item.label?.toString().includes("Fix code review issues"),
+        item.label?.toString().includes("Fix Issues"),
       );
 
       expect(fixIssuesAction?.command?.command).toBe(
         "orchestra.fixCodeReviewIssues",
+      );
+    });
+
+    it("should use correct command for 'Verify Fixes'", async () => {
+      const { getCodeReviewSummary } =
+        await import("../../../src/database/queries.js");
+      vi.mocked(getCodeReviewSummary).mockReturnValue({
+        totalReviews: 5,
+        byStatus: {
+          PENDING: 0,
+          APPROVED: 3,
+          NEEDS_REVISION: 0,
+          REJECTED: 0,
+          CHANGES_REQUESTED: 0,
+          FIXING_ISSUES: 0,
+          PENDING_VERIFICATION: 2,
+          COMPLETE: 0,
+        },
+        openIssuesCount: 0,
+        policy: "ad_hoc",
+        blockingSeverity: "BLOCKING",
+      });
+
+      provider.refresh();
+      const children = await provider.getChildren();
+      const actionsItem = children?.find((item) =>
+        item.label?.toString().includes("Actions"),
+      );
+
+      const actionChildren = await provider.getChildren(actionsItem);
+      const verifyFixesAction = actionChildren?.find((item) =>
+        item.label?.toString().includes("Verify Fixes"),
+      );
+
+      expect(verifyFixesAction?.command?.command).toBe(
+        "orchestra.verifyCodeReviewFixes",
+      );
+    });
+
+    it("should use correct command for 'Escalate'", async () => {
+      const { getCodeReviewSummary } =
+        await import("../../../src/database/queries.js");
+      vi.mocked(getCodeReviewSummary).mockReturnValue({
+        totalReviews: 5,
+        byStatus: {
+          PENDING: 0,
+          APPROVED: 3,
+          NEEDS_REVISION: 0,
+          REJECTED: 1,
+          CHANGES_REQUESTED: 0,
+          FIXING_ISSUES: 0,
+          PENDING_VERIFICATION: 0,
+          COMPLETE: 0,
+        },
+        openIssuesCount: 0,
+        policy: "ad_hoc",
+        blockingSeverity: "BLOCKING",
+      });
+
+      provider.refresh();
+      const children = await provider.getChildren();
+      const actionsItem = children?.find((item) =>
+        item.label?.toString().includes("Actions"),
+      );
+
+      const actionChildren = await provider.getChildren(actionsItem);
+      const escalateAction = actionChildren?.find((item) =>
+        item.label?.toString().includes("Escalate"),
+      );
+
+      expect(escalateAction?.command?.command).toBe(
+        "orchestra.escalateRejectedReview",
       );
     });
   });

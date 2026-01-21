@@ -49,6 +49,9 @@ vi.mock("vscode", () => ({
       dispose: vi.fn(),
     })),
   },
+  commands: {
+    executeCommand: vi.fn(),
+  },
   workspace: {
     getConfiguration: vi.fn(() => ({
       get: vi.fn((key: string, defaultValue?: unknown) => defaultValue),
@@ -65,6 +68,10 @@ vi.mock("../../../src/database/queries.js", () => ({
       APPROVED: 5,
       NEEDS_REVISION: 2,
       REJECTED: 1,
+      CHANGES_REQUESTED: 0,
+      FIXING_ISSUES: 0,
+      PENDING_VERIFICATION: 0,
+      COMPLETE: 0,
     },
     openIssuesCount: 8,
     policy: "ad_hoc",
@@ -72,6 +79,13 @@ vi.mock("../../../src/database/queries.js", () => ({
   })),
   getOpenCodeReviewIssues: vi.fn(() => []),
   getCodeReviewHistory: vi.fn(() => []),
+  getCodeReviewById: vi.fn(() => ({
+    review_id: 1,
+    task_id: 1,
+    status: "PENDING",
+    summary: "Test review",
+    requested_at: new Date().toISOString(),
+  })),
 }));
 
 describe("CodeReviewSummaryPanel", () => {

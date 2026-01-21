@@ -142,14 +142,22 @@ export class OrchestraViewDecorationProvider
         color = new vscode.ThemeColor("gitDecoration.addedResourceForeground");
       }
 
-      return {
+      const decoration: vscode.FileDecoration = {
         ...base,
-        badge,
-        color,
         tooltip: base?.tooltip
           ? `${base.tooltip}${tooltipSuffix}`
           : `Code Review: ${statusText}`,
       };
+
+      if (badge !== undefined) {
+        decoration.badge = badge;
+      }
+
+      if (color !== undefined) {
+        decoration.color = color;
+      }
+
+      return decoration;
     };
 
     // Icons-only design: status is shown via ThemeIcon, not badges.

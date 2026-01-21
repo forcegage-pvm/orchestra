@@ -196,6 +196,11 @@
         "icon": "$(play)"
       },
       {
+        "command": "orchestra.launchControllerAgent",
+        "title": "Launch Controller Agent",
+        "icon": "$(robot)"
+      },
+      {
         "command": "orchestra.openCodeReviewSummary",
         "title": "Orchestra: Open Code Review Summary",
         "icon": "$(list-unordered)"
@@ -209,6 +214,21 @@
         "command": "orchestra.fixCodeReviewIssues",
         "title": "Orchestra: Fix Code Review Issues",
         "icon": "$(tools)"
+      },
+      {
+        "command": "orchestra.verifyCodeReviewFixes",
+        "title": "Orchestra: Verify Code Review Fixes",
+        "icon": "$(checklist)"
+      },
+      {
+        "command": "orchestra.escalateRejectedReview",
+        "title": "Orchestra: Escalate Rejected Review",
+        "icon": "$(warning)"
+      },
+      {
+        "command": "orchestra.reReviewTask",
+        "title": "Orchestra: Re-review Task",
+        "icon": "$(refresh)"
       },
       {
         "command": "orchestra.runCodeReview",
@@ -317,6 +337,11 @@
           "command": "orchestra.playTask",
           "when": "view == orchestra.sprintExplorer && viewItem =~ /^task-(pending|implement|verify|verify_failed|gate_check|escalated|pending_handover_review|handover_review_failed|prepare)$/",
           "group": "inline@1"
+        },
+        {
+          "command": "orchestra.startTask",
+          "when": "view == orchestra.sprintExplorer && viewItem =~ /^task-(pending|implement)$/",
+          "group": "inline@0"
         },
         {
           "command": "orchestra.deEscalateTask",

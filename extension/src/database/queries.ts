@@ -1357,6 +1357,10 @@ export interface CodeReviewSummary {
     APPROVED: number;
     NEEDS_REVISION: number;
     REJECTED: number;
+    CHANGES_REQUESTED: number;
+    FIXING_ISSUES: number;
+    PENDING_VERIFICATION: number;
+    COMPLETE: number;
   };
   openIssuesCount: number;
   policy: string; // ad_hoc | task_gate | phase_gate
@@ -1378,6 +1382,10 @@ export function getCodeReviewSummary(workspaceRoot: string): CodeReviewSummary {
         APPROVED: 0,
         NEEDS_REVISION: 0,
         REJECTED: 0,
+        CHANGES_REQUESTED: 0,
+        FIXING_ISSUES: 0,
+        PENDING_VERIFICATION: 0,
+        COMPLETE: 0,
       },
       openIssuesCount: 0,
       policy: "ad_hoc",
@@ -1400,16 +1408,18 @@ export function getCodeReviewSummary(workspaceRoot: string): CodeReviewSummary {
     APPROVED: 0,
     NEEDS_REVISION: 0,
     REJECTED: 0,
+    CHANGES_REQUESTED: 0,
+    FIXING_ISSUES: 0,
+    PENDING_VERIFICATION: 0,
+    COMPLETE: 0,
   };
 
   let totalReviews = 0;
   for (const row of statusCounts) {
-    const status = row.status as keyof typeof byStatus;
-    if (status === "CHANGES_REQUESTED") {
-      byStatus.NEEDS_REVISION = row.count;
-    } else if (status === "IN_REVIEW") {
+    if (row.status === "IN_REVIEW") {
       byStatus.PENDING += row.count;
-    } else if (status in byStatus) {
+    } else if (row.status in byStatus) {
+      const status = row.status as keyof typeof byStatus;
       byStatus[status] = row.count;
     }
     totalReviews += row.count;

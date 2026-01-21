@@ -93,7 +93,7 @@ export const STATUS_DISPLAY: Record<string, StatusDisplay> = {
     label: "Verified",
     icon: "check",
     color: new ThemeColor("charts.green"),
-    description: "Verification passed - awaiting code review",
+    description: "verification passed - awaiting code review",
   },
 
   GATE_CHECK: {

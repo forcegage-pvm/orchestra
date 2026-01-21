@@ -57,6 +57,39 @@ let dbWatcher: DatabaseWatcher | undefined;
 let mcpManager: MCPServerManager | undefined;
 let agentRunner: AgentRunner | undefined;
 
+async function openAgentChat(
+  participant:
+    | "orchestra.implementor"
+    | "orchestra.controller"
+    | "orchestra.orchestrator",
+  prompt: string,
+): Promise<void> {
+  await vscode.commands.executeCommand("workbench.action.chat.open", {
+    query: prompt,
+    participant,
+  });
+}
+
+async function promptForTaskNumber(
+  prompt: string,
+): Promise<number | undefined> {
+  const input = await vscode.window.showInputBox({
+    prompt,
+    placeHolder: "e.g., 5",
+    validateInput: (value) =>
+      Number.isNaN(Number.parseInt(value, 10))
+        ? "Enter a numeric task ID"
+        : undefined,
+  });
+
+  if (!input) {
+    return undefined;
+  }
+
+  const taskNumber = Number.parseInt(input, 10);
+  return Number.isNaN(taskNumber) ? undefined : taskNumber;
+}
+
 /**
  * Get the ConfigService instance
  * @returns The ConfigService instance or throws if not initialized
@@ -430,12 +463,17 @@ export async function activate(
   const extensionVersion = context.extension.packageJSON.version || "0.0.0";
   logger.info(`Orchestra extension v${extensionVersion} activating...`);
 
+  // Initialize ConfigService
+  configService = new ConfigService();
+  logger.info("ConfigService initialized");
+
   // 1. Detect Orchestra workspace
   const orchestraRoot = findOrchestraRoot();
 
-  // Initialize ConfigService
-  configService = new ConfigService(orchestraRoot ?? undefined);
-  logger.info("ConfigService initialized");
+  if (orchestraRoot) {
+    configService = new ConfigService(orchestraRoot);
+    logger.info("ConfigService initialized with workspace root");
+  }
 
   // Initialize SessionManager
   sessionManager = new SessionManager(logger, configService);
@@ -926,6 +964,13 @@ export async function activate(
       ),
       // Code Review commands
       vscode.commands.registerCommand("orchestra.openCodeReviewSummary", () => {
+        if (!dbWatcher) {
+          vscode.window.showErrorMessage(
+            "Orchestra: Database watcher not initialized",
+          );
+          return;
+        }
+
         CodeReviewSummaryPanel.createOrShow(
           context.extensionUri,
           orchestraRoot,
@@ -1028,19 +1073,193 @@ export async function activate(
               return;
             }
 
-            const promptBuilder = new PromptBuilder();
-            const prompt = promptBuilder.buildCodeReviewFixPrompt(
-              issues.length,
-              sprint.id,
-              sprint.name,
-            );
+            const prompt = [
+              "You are being invoked to fix code review issues.",
+              "Call this tool first to get your full task context and issues:",
+              '{ "tool": "fix_code_review", "params": { "action": "GET_ISSUES" } }',
+              "This returns full handover context and all open issues.",
+            ].join("\n");
 
-            const sm = getSessionManager();
-            await sm.invokeImplementor(prompt, []);
+            await openAgentChat("orchestra.implementor", prompt);
           } catch (error) {
             logger.error("Failed to invoke fix code review issues", error);
             vscode.window.showErrorMessage(
               `Failed to invoke fix code review issues: ${error instanceof Error ? error.message : String(error)}`,
+            );
+          }
+        },
+      ),
+      vscode.commands.registerCommand(
+        "orchestra.verifyCodeReviewFixes",
+        async (element?: { task?: { task_id?: number } } | number) => {
+          try {
+            const taskNumber =
+              typeof element === "number"
+                ? element
+                : (element?.task?.task_id ??
+                  (await promptForTaskNumber(
+                    "Enter the task ID to verify fixes for",
+                  )));
+
+            if (!taskNumber) {
+              return;
+            }
+
+            const prompt = [
+              `You are being invoked to verify code review fixes for task ${taskNumber}.`,
+              `Call this tool first: { "tool": "get_code_review", "params": { "task": ${taskNumber} } }`,
+              "Then submit decision with verifying_fixes: true.",
+            ].join("\n");
+
+            await openAgentChat("orchestra.controller", prompt);
+          } catch (error) {
+            logger.error("Failed to invoke verify code review fixes", error);
+            vscode.window.showErrorMessage(
+              `Failed to verify code review fixes: ${error instanceof Error ? error.message : String(error)}`,
+            );
+          }
+        },
+      ),
+      vscode.commands.registerCommand(
+        "orchestra.escalateRejectedReview",
+        async () => {
+          try {
+            const selection = await vscode.window.showQuickPick(
+              [
+                {
+                  label: "Re-assign Task",
+                  description:
+                    "Create a new task and mark original as ESCALATED",
+                  value: "reassign",
+                },
+                {
+                  label: "Mark as Blocked",
+                  description: "Escalate and unblock progression",
+                  value: "blocked",
+                },
+                {
+                  label: "Request Re-review",
+                  description: "Ask Controller to reconsider the decision",
+                  value: "rereview",
+                },
+                { label: "Cancel", value: "cancel" },
+              ],
+              { placeHolder: "Select an escalation option" },
+            );
+
+            if (!selection || selection.value === "cancel") {
+              return;
+            }
+
+            if (selection.value === "blocked") {
+              const taskNumber = await promptForTaskNumber(
+                "Enter the task ID to mark as blocked",
+              );
+              if (!taskNumber) {
+                return;
+              }
+
+              const reason = await vscode.window.showInputBox({
+                prompt: "Provide a reason for blocking this task",
+                placeHolder: "e.g., External dependency missing",
+              });
+
+              if (!reason) {
+                return;
+              }
+
+              const prompt = [
+                "Mark the task as blocked by calling this tool:",
+                `{ "tool": "escalate_task", "params": { "task_id": ${taskNumber}, "reason": ${JSON.stringify(reason)} } }`,
+              ].join("\n");
+
+              await openAgentChat("orchestra.implementor", prompt);
+              return;
+            }
+
+            if (selection.value === "rereview") {
+              const taskNumber = await promptForTaskNumber(
+                "Enter the task ID to request re-review",
+              );
+              if (!taskNumber) {
+                return;
+              }
+
+              const prompt = [
+                `You are being invoked to re-review task ${taskNumber}.`,
+                `Call this tool first: { "tool": "get_code_review", "params": { "task": ${taskNumber} } }`,
+                "Then submit your decision.",
+              ].join("\n");
+
+              await openAgentChat("orchestra.controller", prompt);
+              return;
+            }
+
+            if (selection.value === "reassign") {
+              const taskNumber = await promptForTaskNumber(
+                "Enter the task ID to re-assign",
+              );
+              if (!taskNumber) {
+                return;
+              }
+
+              const prompt = [
+                `You are being invoked to re-assign task ${taskNumber} after a rejected review.`,
+                "Please create a new task and mark the original as ESCALATED.",
+              ].join("\n");
+
+              await openAgentChat("orchestra.orchestrator", prompt);
+            }
+          } catch (error) {
+            logger.error("Failed to escalate rejected review", error);
+            vscode.window.showErrorMessage(
+              `Failed to escalate rejected review: ${error instanceof Error ? error.message : String(error)}`,
+            );
+          }
+        },
+      ),
+      vscode.commands.registerCommand(
+        "orchestra.reReviewTask",
+        async (element?: { task?: { task_id?: number } } | number) => {
+          try {
+            const taskNumber =
+              typeof element === "number"
+                ? element
+                : (element?.task?.task_id ??
+                  (await promptForTaskNumber(
+                    "Enter the task ID to re-review",
+                  )));
+
+            if (!taskNumber) {
+              return;
+            }
+
+            const sprint = getCurrentSprint(orchestraRoot);
+            if (!sprint) {
+              vscode.window.showWarningMessage(
+                "No active sprint found. Cannot re-review task.",
+              );
+              return;
+            }
+
+            const db = OrchestraDB.getInstance(orchestraRoot);
+            db.prepare(
+              `UPDATE tasks SET status = 'VERIFIED' WHERE task_id = ? AND sprint_id = ?`,
+            ).run(taskNumber, sprint.id);
+
+            codeReviewTreeProvider?.refresh();
+
+            const prompt = [
+              `You are being invoked to re-review task ${taskNumber}.`,
+              `Call this tool first: { "tool": "get_code_review", "params": { "task": ${taskNumber} } }`,
+              "Then submit your decision.",
+            ].join("\n");
+
+            await openAgentChat("orchestra.controller", prompt);
+          } catch (error) {
+            logger.error("Failed to re-review task", error);
+            vscode.window.showErrorMessage(
+              `Failed to re-review task: ${error instanceof Error ? error.message : String(error)}`,
             );
           }
         },
@@ -1082,17 +1301,26 @@ export async function activate(
               return;
             }
 
+            const phaseId =
+              task.phase_id !== null && task.phase_id !== undefined
+                ? String(task.phase_id)
+                : undefined;
+
+            const taskContext = {
+              task_id: task.task_id,
+              title: task.title,
+              description: task.description,
+              status: task.status,
+              ...(task.category !== null && task.category !== undefined
+                ? { category: task.category }
+                : {}),
+              ...(phaseId !== undefined ? { phase_id: phaseId } : {}),
+            };
+
             const promptBuilder = new PromptBuilder();
             const prompt = promptBuilder.buildCodeReviewFixPreparePrompt(
               {
-                task: {
-                  task_id: task.task_id,
-                  title: task.title,
-                  category: task.category ?? undefined,
-                  phase_id: task.phase_id ?? undefined,
-                  description: task.description,
-                  status: task.status,
-                },
+                task: taskContext,
                 sprint: {
                   sprint_id: sprint.id,
                   title: sprint.name,
@@ -1161,17 +1389,26 @@ export async function activate(
               return;
             }
 
+            const phaseId =
+              task.phase_id !== null && task.phase_id !== undefined
+                ? String(task.phase_id)
+                : undefined;
+
+            const taskContext = {
+              task_id: task.task_id,
+              title: task.title,
+              description: task.description,
+              status: task.status,
+              ...(task.category !== null && task.category !== undefined
+                ? { category: task.category }
+                : {}),
+              ...(phaseId !== undefined ? { phase_id: phaseId } : {}),
+            };
+
             const promptBuilder = new PromptBuilder();
             const prompt = promptBuilder.buildCodeReviewFixImplementPrompt(
               {
-                task: {
-                  task_id: task.task_id,
-                  title: task.title,
-                  category: task.category ?? undefined,
-                  phase_id: task.phase_id ?? undefined,
-                  description: task.description,
-                  status: task.status,
-                },
+                task: taskContext,
                 sprint: {
                   sprint_id: sprint.id,
                   title: sprint.name,

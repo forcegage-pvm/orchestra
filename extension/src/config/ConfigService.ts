@@ -39,7 +39,9 @@ export class ConfigService {
   private _workspaceRoot?: string;
 
   constructor(workspaceRoot?: string) {
-    this._workspaceRoot = workspaceRoot;
+    if (workspaceRoot !== undefined) {
+      this._workspaceRoot = workspaceRoot;
+    }
   }
 
   /**

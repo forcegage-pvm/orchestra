@@ -46,6 +46,12 @@ export class CodeReviewTreeProvider implements vscode.TreeDataProvider<TreeEleme
     this._unreviewedCount = unreviewedTasks.length;
   }
 
+  private _getStatusCount(status: string): number {
+    const statusCounts =
+      (this._summary?.byStatus as Record<string, number> | undefined) ?? {};
+    return statusCounts[status] ?? 0;
+  }
+
   refresh(): void {
     this._loadData();
     this._onDidChangeTreeData.fire();
@@ -94,32 +100,53 @@ export class CodeReviewTreeProvider implements vscode.TreeDataProvider<TreeEleme
 
     // Status counts
     const pendingItem = new vscode.TreeItem(
-      `Pending: ${this._summary.byStatus.PENDING}`,
+      `Pending: ${this._getStatusCount("PENDING")}`,
       vscode.TreeItemCollapsibleState.None,
     );
     pendingItem.iconPath = new vscode.ThemeIcon("clock");
     items.push(pendingItem);
 
     const approvedItem = new vscode.TreeItem(
-      `Approved: ${this._summary.byStatus.APPROVED}`,
+      `Approved: ${this._getStatusCount("APPROVED")}`,
       vscode.TreeItemCollapsibleState.None,
     );
     approvedItem.iconPath = new vscode.ThemeIcon("check");
     items.push(approvedItem);
 
     const needsRevisionItem = new vscode.TreeItem(
-      `Needs Revision: ${this._summary.byStatus.NEEDS_REVISION}`,
+      `Needs Revision: ${this._getStatusCount("NEEDS_REVISION")}`,
       vscode.TreeItemCollapsibleState.None,
     );
     needsRevisionItem.iconPath = new vscode.ThemeIcon("warning");
     items.push(needsRevisionItem);
 
     const rejectedItem = new vscode.TreeItem(
-      `Rejected: ${this._summary.byStatus.REJECTED}`,
+      `Rejected: ${this._getStatusCount("REJECTED")}`,
       vscode.TreeItemCollapsibleState.None,
     );
     rejectedItem.iconPath = new vscode.ThemeIcon("error");
     items.push(rejectedItem);
+
+    const changesRequestedItem = new vscode.TreeItem(
+      `Changes Requested: ${this._getStatusCount("CHANGES_REQUESTED")}`,
+      vscode.TreeItemCollapsibleState.None,
+    );
+    changesRequestedItem.iconPath = new vscode.ThemeIcon("request-changes");
+    items.push(changesRequestedItem);
+
+    const fixingIssuesItem = new vscode.TreeItem(
+      `Fixing Issues: ${this._getStatusCount("FIXING_ISSUES")}`,
+      vscode.TreeItemCollapsibleState.None,
+    );
+    fixingIssuesItem.iconPath = new vscode.ThemeIcon("tools");
+    items.push(fixingIssuesItem);
+
+    const pendingVerificationItem = new vscode.TreeItem(
+      `Pending Verification: ${this._getStatusCount("PENDING_VERIFICATION")}`,
+      vscode.TreeItemCollapsibleState.None,
+    );
+    pendingVerificationItem.iconPath = new vscode.ThemeIcon("checklist");
+    items.push(pendingVerificationItem);
 
     // Open issues
     const issuesItem = new vscode.TreeItem(
@@ -185,38 +212,82 @@ export class CodeReviewTreeProvider implements vscode.TreeDataProvider<TreeEleme
     };
 
     // Disable if no pending reviews AND no unreviewed tasks
-    const hasPendingReviews =
-      this._summary && this._summary.byStatus.PENDING > 0;
+    const hasPendingReviews = this._getStatusCount("PENDING") > 0;
     if (this._unreviewedCount === 0 && !hasPendingReviews) {
       runReviewItem.description = "(no pending reviews)";
-      runReviewItem.command = undefined;
+      delete runReviewItem.command;
       runReviewItem.iconPath = new vscode.ThemeIcon("debug-pause");
     } else if (this._unreviewedCount === 0 && hasPendingReviews) {
       // Has pending reviews but no unreviewed tasks - still allow running
-      runReviewItem.description = `(${this._summary!.byStatus.PENDING} pending)`;
+      runReviewItem.description = `(${this._getStatusCount("PENDING")} pending)`;
     }
 
     items.push(runReviewItem);
 
-    // Fix code review issues
-    const fixIssuesItem = new vscode.TreeItem(
-      "Fix code review issues",
-      vscode.TreeItemCollapsibleState.None,
-    );
-    fixIssuesItem.iconPath = new vscode.ThemeIcon("tools");
-    fixIssuesItem.command = {
-      command: "orchestra.fixCodeReviewIssues",
-      title: "Fix code review issues",
-    };
-
-    // Disable if no open issues
-    if (!this._summary || this._summary.openIssuesCount === 0) {
-      fixIssuesItem.description = "(no open issues)";
-      fixIssuesItem.command = undefined;
-      fixIssuesItem.iconPath = new vscode.ThemeIcon("pass");
+    if (this._getStatusCount("CHANGES_REQUESTED") > 0) {
+      const fixIssuesItem = new vscode.TreeItem(
+        "Fix Issues",
+        vscode.TreeItemCollapsibleState.None,
+      );
+      fixIssuesItem.iconPath = new vscode.ThemeIcon("tools");
+      fixIssuesItem.command = {
+        command: "orchestra.fixCodeReviewIssues",
+        title: "Fix Issues",
+      };
+      items.push(fixIssuesItem);
     }
 
-    items.push(fixIssuesItem);
+    if (this._getStatusCount("FIXING_ISSUES") > 0) {
+      const continueFixingItem = new vscode.TreeItem(
+        "Continue Fixing",
+        vscode.TreeItemCollapsibleState.None,
+      );
+      continueFixingItem.iconPath = new vscode.ThemeIcon("debug-continue");
+      continueFixingItem.command = {
+        command: "orchestra.fixCodeReviewIssues",
+        title: "Continue Fixing",
+      };
+      items.push(continueFixingItem);
+    }
+
+    if (this._getStatusCount("PENDING_VERIFICATION") > 0) {
+      const verifyFixesItem = new vscode.TreeItem(
+        "Verify Fixes",
+        vscode.TreeItemCollapsibleState.None,
+      );
+      verifyFixesItem.iconPath = new vscode.ThemeIcon("checklist");
+      verifyFixesItem.command = {
+        command: "orchestra.verifyCodeReviewFixes",
+        title: "Verify Fixes",
+      };
+      items.push(verifyFixesItem);
+    }
+
+    if (this._getStatusCount("REJECTED") > 0) {
+      const escalateItem = new vscode.TreeItem(
+        "Escalate",
+        vscode.TreeItemCollapsibleState.None,
+      );
+      escalateItem.iconPath = new vscode.ThemeIcon("warning");
+      escalateItem.command = {
+        command: "orchestra.escalateRejectedReview",
+        title: "Escalate",
+      };
+      items.push(escalateItem);
+    }
+
+    if (this._getStatusCount("COMPLETE") > 0) {
+      const reReviewItem = new vscode.TreeItem(
+        "Re-review",
+        vscode.TreeItemCollapsibleState.None,
+      );
+      reReviewItem.iconPath = new vscode.ThemeIcon("refresh");
+      reReviewItem.command = {
+        command: "orchestra.reReviewTask",
+        title: "Re-review",
+      };
+      items.push(reReviewItem);
+    }
 
     return items;
   }
