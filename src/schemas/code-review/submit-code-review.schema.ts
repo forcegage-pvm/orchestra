@@ -38,7 +38,9 @@ export const SubmitCodeReviewInputSchema = z
       .positive()
       .describe("Sprint-scoped task number (from sprint config)"),
     decision: z.enum(["APPROVED", "CHANGES_REQUESTED", "REJECTED"], {
-      errorMap: () => ({ message: "Decision must be APPROVED, CHANGES_REQUESTED, or REJECTED" }),
+      errorMap: () => ({
+        message: "Decision must be APPROVED, CHANGES_REQUESTED, or REJECTED",
+      }),
     }),
     summary: z
       .string()
@@ -65,7 +67,8 @@ export const SubmitCodeReviewInputSchema = z
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ["issues"],
-        message: "Issues are required for CHANGES_REQUESTED or REJECTED decisions",
+        message:
+          "Issues are required for CHANGES_REQUESTED or REJECTED decisions",
       });
     }
   });

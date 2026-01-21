@@ -12,12 +12,12 @@ import {
   progress,
   tasks,
 } from "../../db/schema.js";
-import { CodeReviewConfigSchema } from "../../schemas/config.js";
 import {
   SubmitCodeReviewInputSchema,
   SubmitCodeReviewOutputSchema,
   type SubmitCodeReviewOutput,
 } from "../../schemas/code-review/submit-code-review.schema.js";
+import { CodeReviewConfigSchema } from "../../schemas/config.js";
 import { validateInput, validateOutput } from "../../schemas/utils.js";
 import { logReviewTransition, logToolExecution } from "./audit-logging.js";
 
