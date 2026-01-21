@@ -28,7 +28,10 @@ import {
   CompleteTaskInputSchema,
   type CompleteTaskOutput,
 } from "../../schemas/completion.js";
-import type { CodeReviewConfig } from "../../schemas/config.js";
+import {
+  CodeReviewConfigSchema,
+  type CodeReviewConfig,
+} from "../../schemas/config.js";
 import { validateInput } from "../../schemas/utils.js";
 import { logToolExecution } from "./audit-logging.js";
 
@@ -259,48 +262,20 @@ async function completeTask(
       .where(eq(tddTaskRelationships.green_task_id, task.id));
   }
 
-  // 3c. Enforce code review gate (if policy requires it)
-  const config = (
-    sprint.config ? JSON.parse(sprint.config) : {}
+  // 3c. Parse code review config with defaults
+  const config = CodeReviewConfigSchema.parse(
+    sprint.config ? JSON.parse(sprint.config) : {},
   ) as CodeReviewConfig;
 
-  const gateResult = await enforceTaskGate({ task_id: task.id });
-
-  if (gateResult.blocked) {
-    // Gate is closed - update task to PENDING_CODE_REVIEW instead of COMPLETE
-    const now = new Date().toISOString();
-    await db
-      .update(tasks)
-      .set({
-        status: gateResult.status || "PENDING_CODE_REVIEW",
-        updated_at: now,
-      })
-      .where(eq(tasks.id, task.id));
-
-    // Log progress
-    await db.insert(progressTable).values({
-      sprint_id: sprint.id,
-      task_id: task.id,
-      from_status: task.status,
-      to_status: gateResult.status || "PENDING_CODE_REVIEW",
-      workflow_step: sprint.workflow_step,
-      triggered_by: "orchestrator",
-      notes: gateResult.reason || "Code review required",
-      changed_at: now,
-    });
-
-    throw new Error(gateResult.reason || "Task blocked by code review gate");
-  }
-
-  const now = new Date().toISOString();
+  const verifiedAt = new Date().toISOString();
 
   // 4. Update task to VERIFIED
   await db
     .update(tasks)
     .set({
       status: "VERIFIED",
-      completed_at: now,
-      updated_at: now,
+      completed_at: verifiedAt,
+      updated_at: verifiedAt,
     })
     .where(eq(tasks.id, task.id));
 
@@ -313,7 +288,7 @@ async function completeTask(
     workflow_step: sprint.workflow_step,
     triggered_by: "orchestrator",
     notes: input.notes || "Task completed successfully",
-    changed_at: now,
+    changed_at: verifiedAt,
   });
 
   // 5a. Trigger code reviews (if auto-trigger enabled)
@@ -328,6 +303,45 @@ async function completeTask(
     task,
     config,
   });
+
+  // 5b. Auto-complete based on policy
+  let finalStatus: "VERIFIED" | "COMPLETE" = "VERIFIED";
+  let completedAt = verifiedAt;
+
+  if (
+    !config.code_review_enabled ||
+    config.code_review_policy !== "task_gate"
+  ) {
+    finalStatus = "COMPLETE";
+  } else {
+    const gateResult = await enforceTaskGate({ task_id: task.id });
+    if (!gateResult.blocked) {
+      finalStatus = "COMPLETE";
+    }
+  }
+
+  if (finalStatus === "COMPLETE") {
+    completedAt = new Date().toISOString();
+    await db
+      .update(tasks)
+      .set({
+        status: "COMPLETE",
+        completed_at: completedAt,
+        updated_at: completedAt,
+      })
+      .where(eq(tasks.id, task.id));
+
+    await db.insert(progressTable).values({
+      sprint_id: sprint.id,
+      task_id: task.id,
+      from_status: "VERIFIED",
+      to_status: "COMPLETE",
+      workflow_step: sprint.workflow_step,
+      triggered_by: "orchestrator",
+      notes: "Task auto-completed",
+      changed_at: completedAt,
+    });
+  }
 
   // 6. Calculate progress summary
   const allTasks = await db
@@ -373,8 +387,8 @@ async function completeTask(
       .update(sprints)
       .set({
         workflow_step: "CLOSEOUT",
-        completed_at: now,
-        updated_at: now,
+        completed_at: completedAt,
+        updated_at: completedAt,
       })
       .where(eq(sprints.id, sprint.id));
   } else if (sprint.workflow_step === "VERIFY") {
@@ -383,7 +397,7 @@ async function completeTask(
       .update(sprints)
       .set({
         workflow_step: "SELECT_TASK",
-        updated_at: now,
+        updated_at: completedAt,
       })
       .where(eq(sprints.id, sprint.id));
   }
@@ -406,8 +420,8 @@ async function completeTask(
   return {
     success: true,
     task_id: input.task_id,
-    status: "VERIFIED",
-    completed_at: now,
+    status: finalStatus,
+    completed_at: completedAt,
     progress: {
       total_tasks: totalTasks,
       completed,

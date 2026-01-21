@@ -11,6 +11,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { getDb, initializeDb, resetDb } from "../../src/db/index.js";
+import { runMigrationsV2 } from "../../src/db/migrations.js";
 import { phases, sprints, tasks } from "../../src/db/schema.js";
 import { handleCompleteTask } from "../../src/mcp-server/handlers/complete-task.js";
 
@@ -23,6 +24,7 @@ describe("VERIFIED task status", () => {
 
     resetDb();
     await initializeDb();
+    await runMigrationsV2();
   });
 
   afterEach(() => {
@@ -52,6 +54,11 @@ describe("VERIFIED task status", () => {
         name: "Test Sprint",
         workflow_step: "VERIFY",
         is_active: true,
+        config: JSON.stringify({
+          code_review_enabled: true,
+          code_review_auto_trigger: "task",
+          code_review_policy: "task_gate",
+        }),
         created_at: now,
         updated_at: now,
       })
@@ -111,6 +118,11 @@ describe("VERIFIED task status", () => {
         name: "Test Sprint",
         workflow_step: "VERIFY",
         is_active: true,
+        config: JSON.stringify({
+          code_review_enabled: true,
+          code_review_auto_trigger: "task",
+          code_review_policy: "task_gate",
+        }),
         created_at: now,
         updated_at: now,
       })

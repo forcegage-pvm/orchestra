@@ -9,8 +9,9 @@ import { eq } from "drizzle-orm";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { getDb, initializeDb, resetDb } from "../../src/db/index.js";
+import { runMigrationsV2 } from "../../src/db/migrations.js";
 import {
   phases,
   sprints,
@@ -26,13 +27,19 @@ describe("prepare_task TDD Red-Phase Verification Auto-Injection", () => {
   let tempDir: string;
 
   beforeEach(async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    vi.spyOn(process.stderr, "write").mockImplementation(() => true);
+
     // Create temp directory for isolated DB
     tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "tdd-red-test-"));
     process.env.ORCHESTRA_WORKSPACE = tempDir;
 
     resetDb();
     await initializeDb();
+    await runMigrationsV2();
     const db = getDb();
+    const now = new Date().toISOString();
 
     // Create test sprint
     await db.insert(sprints).values({
@@ -40,8 +47,8 @@ describe("prepare_task TDD Red-Phase Verification Auto-Injection", () => {
       name: "TDD Red Test Sprint",
       workflow_step: "SELECT_TASK",
       is_active: 1,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
+      created_at: now,
+      updated_at: now,
     });
 
     // Create test phase
@@ -58,13 +65,41 @@ describe("prepare_task TDD Red-Phase Verification Auto-Injection", () => {
   });
 
   afterEach(async () => {
+    vi.restoreAllMocks();
     resetDb();
     fs.rmSync(tempDir, { recursive: true, force: true });
     delete process.env.ORCHESTRA_WORKSPACE;
   });
 
   describe("TypeScript projects", () => {
-    beforeEach(() => {
+    beforeEach(async () => {
+      const db = getDb();
+      const now = new Date().toISOString();
+
+      await db.insert(sprintSettings).values([
+        {
+          sprint_id: testSprintId,
+          key: "test_command",
+          value: "npm test",
+          created_at: now,
+          updated_at: now,
+        },
+        {
+          sprint_id: testSprintId,
+          key: "test_file_pattern",
+          value: "test/**/*.test.ts",
+          created_at: now,
+          updated_at: now,
+        },
+        {
+          sprint_id: testSprintId,
+          key: "source_base_dir",
+          value: ".",
+          created_at: now,
+          updated_at: now,
+        },
+      ]);
+
       // Mark as TypeScript project with test script
       fs.writeFileSync(
         path.join(tempDir, "package.json"),
@@ -234,7 +269,34 @@ describe("prepare_task TDD Red-Phase Verification Auto-Injection", () => {
   });
 
   describe("Dart projects", () => {
-    beforeEach(() => {
+    beforeEach(async () => {
+      const db = getDb();
+      const now = new Date().toISOString();
+
+      await db.insert(sprintSettings).values([
+        {
+          sprint_id: testSprintId,
+          key: "test_command",
+          value: "flutter test",
+          created_at: now,
+          updated_at: now,
+        },
+        {
+          sprint_id: testSprintId,
+          key: "test_file_pattern",
+          value: "test/**/*.dart",
+          created_at: now,
+          updated_at: now,
+        },
+        {
+          sprint_id: testSprintId,
+          key: "source_base_dir",
+          value: ".",
+          created_at: now,
+          updated_at: now,
+        },
+      ]);
+
       // Mark as Dart project
       fs.writeFileSync(
         path.join(tempDir, "pubspec.yaml"),

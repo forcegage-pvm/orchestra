@@ -1,6 +1,5 @@
-// @orchestra-task: 8
 /**
- * TDD red-phase tests for auto-creating PENDING code reviews on complete_task.
+ * Tests for auto-creating PENDING code reviews on complete_task.
  */
 
 import { eq } from "drizzle-orm";
@@ -13,7 +12,7 @@ import { runMigrationsV2 } from "../../src/db/migrations.js";
 import { codeReviews, phases, sprints, tasks } from "../../src/db/schema.js";
 import { handleCompleteTask } from "../../src/mcp-server/handlers/complete-task.js";
 
-describe("[tdd-red] auto-create PENDING code review", () => {
+describe("auto-create PENDING code review", () => {
   let tempDir: string;
 
   beforeEach(async () => {
@@ -43,7 +42,7 @@ describe("[tdd-red] auto-create PENDING code review", () => {
     delete process.env.ORCHESTRA_WORKSPACE;
   });
 
-  it("[tdd-red] should create a PENDING review when none exists", async () => {
+  it("should create a PENDING review when none exists", async () => {
     const db = getDb();
     const now = new Date().toISOString();
 
@@ -78,17 +77,17 @@ describe("[tdd-red] auto-create PENDING code review", () => {
     const [task] = await db
       .insert(tasks)
       .values({
-      sprint_id: sprint.id,
-      phase_id: phase.id,
-      task_id: 1,
-      title: "Test Task",
-      description: "Test description",
-      category: "feature",
-      dependencies: "[]",
-      status: "VERIFY",
-      tdd_red_phase: false,
-      created_at: now,
-      updated_at: now,
+        sprint_id: sprint.id,
+        phase_id: phase.id,
+        task_id: 1,
+        title: "Test Task",
+        description: "Test description",
+        category: "feature",
+        dependencies: "[]",
+        status: "VERIFY",
+        tdd_red_phase: false,
+        created_at: now,
+        updated_at: now,
       })
       .returning();
 
@@ -107,7 +106,7 @@ describe("[tdd-red] auto-create PENDING code review", () => {
     expect(reviews[0].review_scope).toBe("TASK");
   });
 
-  it("[tdd-red] should not create a duplicate review when one exists", async () => {
+  it("should not create a duplicate review when one exists", async () => {
     const db = getDb();
     const now = new Date().toISOString();
 

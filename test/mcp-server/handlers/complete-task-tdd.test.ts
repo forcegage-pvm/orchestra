@@ -19,6 +19,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { getDb, initializeDb, resetDb } from "../../../src/db/index.js";
+import { runMigrationsV2 } from "../../../src/db/migrations.js";
 import {
   phases,
   sprints,
@@ -37,6 +38,7 @@ describe("complete_task - TDD red-phase completion flow", () => {
 
     resetDb();
     await initializeDb();
+    await runMigrationsV2();
   });
 
   afterEach(() => {
@@ -239,15 +241,15 @@ describe("complete_task - TDD red-phase completion flow", () => {
       // Verify completion succeeds
       expect(response.success).toBe(true);
       expect(response.task_id).toBe(1);
-      expect(response.status).toBe("VERIFIED");
+      expect(response.status).toBe("COMPLETE");
       expect(response.completed_at).toBeDefined();
 
-      // Verify task is now VERIFIED
+      // Verify task is now COMPLETE
       const [completedTask] = await db
         .select()
         .from(tasks)
         .where(eq(tasks.id, redTask.id));
-      expect(completedTask.status).toBe("VERIFIED");
+      expect(completedTask.status).toBe("COMPLETE");
       expect(completedTask.completed_at).toBeDefined();
 
       // Verify relationship was created with declared_at='complete_task'
@@ -450,15 +452,15 @@ describe("complete_task - TDD red-phase completion flow", () => {
       // Verify completion succeeds using upfront relationship
       expect(response.success).toBe(true);
       expect(response.task_id).toBe(1);
-      expect(response.status).toBe("VERIFIED");
+      expect(response.status).toBe("COMPLETE");
       expect(response.completed_at).toBeDefined();
 
-      // Verify task is VERIFIED
+      // Verify task is COMPLETE
       const [completedTask] = await db
         .select()
         .from(tasks)
         .where(eq(tasks.id, redTask.id));
-      expect(completedTask.status).toBe("VERIFIED");
+      expect(completedTask.status).toBe("COMPLETE");
       expect(completedTask.completed_at).toBeDefined();
 
       // Verify relationship still exists with original declared_at='configure_sprint'

@@ -11,10 +11,12 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { getDb, initializeDb, resetDb } from "../../src/db/index.js";
+import { runMigrationsV2 } from "../../src/db/migrations.js";
 import {
   config,
   phases,
   sprints,
+  sprintSettings,
   tasks,
   verificationChecks,
 } from "../../src/db/schema.js";
@@ -32,7 +34,9 @@ describe("prepare_task TDD Auto-Injection", () => {
 
     resetDb();
     await initializeDb();
+    await runMigrationsV2();
     const db = getDb();
+    const now = new Date().toISOString();
 
     // Create test sprint
     await db.insert(sprints).values({
@@ -40,9 +44,33 @@ describe("prepare_task TDD Auto-Injection", () => {
       name: "TDD Test Sprint",
       workflow_step: "SELECT_TASK",
       is_active: 1,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
+      created_at: now,
+      updated_at: now,
     });
+
+    await db.insert(sprintSettings).values([
+      {
+        sprint_id: testSprintId,
+        key: "test_command",
+        value: "npm test",
+        created_at: now,
+        updated_at: now,
+      },
+      {
+        sprint_id: testSprintId,
+        key: "test_file_pattern",
+        value: "test/**/*.test.ts",
+        created_at: now,
+        updated_at: now,
+      },
+      {
+        sprint_id: testSprintId,
+        key: "source_base_dir",
+        value: ".",
+        created_at: now,
+        updated_at: now,
+      },
+    ]);
 
     // Create test phase
     await db.insert(phases).values({

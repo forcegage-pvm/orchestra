@@ -5,12 +5,13 @@
  * Updates sprint workflow_step to IMPLEMENT if coming from SELECT_TASK.
  */
 
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, isNull } from "drizzle-orm";
 import {
   detectLanguageFromEnv,
   getTddRedChecks,
   type SupportedLanguage,
 } from "../../core/check-templates.js";
+import { enforcePhaseGate } from "../../core/code-review-gates.js";
 import { validateBehavioralCommand } from "../../core/command-validation.js";
 import { autoCommitIfEnabled, generateCommitMessage } from "../../core/git.js";
 import { validateVerificationPatterns } from "../../core/pattern-validator.js";
@@ -30,7 +31,9 @@ import {
   resolveWorkspacePath,
 } from "../../db/index.js";
 import {
+  codeReviews,
   config,
+  escalations,
   handovers,
   progress,
   sprints,
@@ -39,6 +42,7 @@ import {
   tddRedRegistry,
   verificationChecks,
 } from "../../db/schema.js";
+import { CodeReviewConfigSchema } from "../../schemas/config.js";
 import {
   PrepareTaskInputSchema,
   type PrepareTaskOutput,
@@ -47,6 +51,11 @@ import { validateInput } from "../../schemas/utils.js";
 import { writeSignal } from "../db-signal.js";
 import { logToolExecution } from "./audit-logging.js";
 import { validateHandoverIsolation } from "./handover-validation.js";
+
+const isTestEnv =
+  process.env.NODE_ENV === "test" ||
+  process.env.VITEST === "true" ||
+  process.env.VITEST_WORKER_ID !== undefined;
 
 export async function handlePrepareTask(input: unknown) {
   const startTime = performance.now();
@@ -165,6 +174,57 @@ async function prepareTask(
     );
   }
 
+  // 1d. Block task preparation if any non-escalated REJECTED task reviews exist
+  const rejectedReviews = await db
+    .select({ task_id: codeReviews.task_id })
+    .from(codeReviews)
+    .where(
+      and(
+        eq(codeReviews.sprint_id, sprint.id),
+        eq(codeReviews.status, "REJECTED"),
+        eq(codeReviews.review_scope, "TASK"),
+      ),
+    );
+
+  if (rejectedReviews.length > 0) {
+    const rejectedTaskIds = rejectedReviews
+      .map((review) => review.task_id)
+      .filter((taskId): taskId is number => taskId !== null);
+
+    const escalatedTaskRows =
+      rejectedTaskIds.length > 0
+        ? await db
+            .select({ task_id: escalations.task_id })
+            .from(escalations)
+            .where(
+              and(
+                eq(escalations.sprint_id, sprint.id),
+                inArray(escalations.task_id, rejectedTaskIds),
+                isNull(escalations.resolved_at),
+              ),
+            )
+        : [];
+
+    const escalatedTaskIds = new Set(
+      escalatedTaskRows
+        .map((row) => row.task_id)
+        .filter((taskId): taskId is number => taskId !== null),
+    );
+
+    const blockingTaskIds = rejectedTaskIds.filter(
+      (taskId) => !escalatedTaskIds.has(taskId),
+    );
+
+    if (blockingTaskIds.length > 0) {
+      throw new Error(
+        `Task preparation blocked due to REJECTED code reviews on tasks: ${blockingTaskIds.join(
+          ", ",
+        )}. ` +
+          `Resolve the rejected review(s) or escalate the task(s) to proceed.`,
+      );
+    }
+  }
+
   // 1c. Fetch sprint environment configuration (REQUIRED since Sprint 006)
   // These eliminate guessing about test commands, file patterns, and directories
   const sprintSettingsRows = await db
@@ -194,11 +254,13 @@ async function prepareTask(
 
   // Warn if environment config is missing (for backwards compatibility with old sprints)
   if (!sprintEnv.test_command || !sprintEnv.test_file_pattern) {
-    console.error(
-      `[prepare_task] WARNING: Sprint "${sprint.id}" is missing environment configuration. ` +
-        `New sprints should use configure_sprint with environment field. ` +
-        `Falling back to auto-detection (may cause verification errors).`,
-    );
+    if (!isTestEnv) {
+      console.error(
+        `[prepare_task] WARNING: Sprint "${sprint.id}" is missing environment configuration. ` +
+          `New sprints should use configure_sprint with environment field. ` +
+          `Falling back to auto-detection (may cause verification errors).`,
+      );
+    }
   }
 
   // 2. Find task
@@ -228,6 +290,24 @@ async function prepareTask(
       `Task ${input.task_id} is in ${task.status} state and cannot be prepared. ` +
         `Expected: ${validStatuses.join(", ")}`,
     );
+  }
+
+  // 3b. Enforce phase gate before preparing tasks in next phase
+  const codeReviewConfig = CodeReviewConfigSchema.parse(
+    sprint.config ? JSON.parse(sprint.config) : {},
+  );
+
+  if (
+    codeReviewConfig.code_review_enabled &&
+    codeReviewConfig.code_review_policy === "phase_gate"
+  ) {
+    const gateResult = await enforcePhaseGate({ phase_id: task.phase_id });
+    if (gateResult.blocked) {
+      throw new Error(
+        gateResult.reason ||
+          "Phase gate blocks task preparation until phase review is approved",
+      );
+    }
   }
 
   // 4. Check dependencies are complete
@@ -275,9 +355,11 @@ async function prepareTask(
   let effectiveTestFile = input.test_file;
 
   if (tddInjectionResult.injected) {
-    console.error(
-      `[TDD] Auto-injected test verification check for task ${input.task_id} (${task.category}): ${tddInjectionResult.checkDescription}`,
-    );
+    if (!isTestEnv) {
+      console.error(
+        `[TDD] Auto-injected test verification check for task ${input.task_id} (${task.category}): ${tddInjectionResult.checkDescription}`,
+      );
+    }
 
     // Auto-generate test requirements if not provided by orchestrator
     if (!effectiveTestRequirements) {
@@ -412,9 +494,11 @@ async function prepareTask(
       });
     }
 
-    console.error(
-      `[TDD RED] Auto-injected ${redPhaseChecks.length} red-phase verification checks for task ${input.task_id}`,
-    );
+    if (!isTestEnv) {
+      console.error(
+        `[TDD RED] Auto-injected ${redPhaseChecks.length} red-phase verification checks for task ${input.task_id}`,
+      );
+    }
   }
   // Note: Cleanup of tdd-red markers is the implementor's responsibility during
   // the GREEN phase. The orchestrator should add explicit cleanup verification
@@ -464,10 +548,12 @@ async function prepareTask(
 
   // Log validation warnings if any (also returned in response)
   if (validationResult.warnings.length > 0) {
-    console.warn(
-      `[prepare_task] Pattern validation warnings for task ${input.task_id}:`,
-      validationResult.warnings,
-    );
+    if (!isTestEnv) {
+      console.warn(
+        `[prepare_task] Pattern validation warnings for task ${input.task_id}:`,
+        validationResult.warnings,
+      );
+    }
   }
 
   // BLOCK on validation errors - don't allow bad specs to be saved
@@ -535,10 +621,12 @@ async function prepareTask(
   // Merge command validation warnings into pattern validation warnings
   if (commandValidationWarnings.length > 0) {
     validationResult.warnings.push(...commandValidationWarnings);
-    console.warn(
-      `[prepare_task] Behavioral command validation warnings for task ${input.task_id}:`,
-      commandValidationWarnings,
-    );
+    if (!isTestEnv) {
+      console.warn(
+        `[prepare_task] Behavioral command validation warnings for task ${input.task_id}:`,
+        commandValidationWarnings,
+      );
+    }
   }
 
   // 6. T023: Update task status to PENDING_HANDOVER_REVIEW

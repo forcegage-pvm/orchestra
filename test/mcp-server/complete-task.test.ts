@@ -17,6 +17,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { getDb, initializeDb, resetDb } from "../../src/db/index.js";
+import { runMigrationsV2 } from "../../src/db/migrations.js";
 import {
   phases,
   progress as progressTable,
@@ -36,6 +37,7 @@ describe("complete_task handler", () => {
 
     resetDb();
     await initializeDb();
+    await runMigrationsV2();
   });
 
   afterEach(() => {
@@ -113,7 +115,7 @@ describe("complete_task handler", () => {
       // Assertions
       expect(response.success).toBe(true);
       expect(response.task_id).toBe(1);
-      expect(response.status).toBe("VERIFIED");
+      expect(response.status).toBe("COMPLETE");
       expect(response.completed_at).toBeDefined();
       expect(response.progress.total_tasks).toBe(1);
       expect(response.progress.completed).toBe(1);
@@ -124,14 +126,16 @@ describe("complete_task handler", () => {
         .select()
         .from(tasks)
         .where(eq(tasks.task_id, 1));
-      expect(updatedTask.status).toBe("VERIFIED");
+      expect(updatedTask.status).toBe("COMPLETE");
       expect(updatedTask.completed_at).toBeDefined();
 
       // Verify progress log
       const progressLogs = await db.select().from(progressTable);
-      expect(progressLogs).toHaveLength(1);
+      expect(progressLogs).toHaveLength(2);
       expect(progressLogs[0].from_status).toBe("VERIFY");
       expect(progressLogs[0].to_status).toBe("VERIFIED");
+      expect(progressLogs[1].from_status).toBe("VERIFIED");
+      expect(progressLogs[1].to_status).toBe("COMPLETE");
     });
 
     it("should reject completing task not in VERIFY state", async () => {
@@ -368,7 +372,7 @@ describe("complete_task handler", () => {
       // Assertions
       expect(response.success).toBe(true);
       expect(response.task_id).toBe(1);
-      expect(response.status).toBe("VERIFIED");
+      expect(response.status).toBe("COMPLETE");
 
       // Verify registry entry remains (1 file-level entry)
       const registryEntries = await db

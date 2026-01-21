@@ -25,6 +25,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as preSignalExecutor from "../../src/core/pre-signal-executor.js";
 import * as tddScanOnSignal from "../../src/core/tdd-scan-on-signal.js";
 import { getDb, initializeDb, resetDb } from "../../src/db/index.js";
+import { runMigrationsV2 } from "../../src/db/migrations.js";
 import { sprints, tasks, tddRedRegistry } from "../../src/db/schema.js";
 import { handleCompleteTask } from "../../src/mcp-server/handlers/complete-task.js";
 import { handleConfigureSprint } from "../../src/mcp-server/handlers/configure-sprint.js";
@@ -45,11 +46,12 @@ describe("TDD Red-Green Workflow End-to-End", () => {
     // Initialize database
     resetDb();
     await initializeDb();
+    await runMigrationsV2();
 
     // Create package.json for vitest
     await fs.writeFile(
       path.join(tempDir, "package.json"),
-      JSON.stringify({ name: "test-workspace", version: "1.0.0" })
+      JSON.stringify({ name: "test-workspace", version: "1.0.0" }),
     );
 
     // Note: Mocking is done per-test as needed
@@ -91,7 +93,11 @@ describe("TDD Red-Green Workflow End-to-End", () => {
       // STEP 1: Configure sprint with TDD relationship
       // =============================================================================
       const configInput: ConfigureSprintInput = {
-        environment: { test_command: 'npm test', test_file_pattern: 'test/**/*.test.ts', source_base_dir: '.' },
+        environment: {
+          test_command: "npm test",
+          test_file_pattern: "test/**/*.test.ts",
+          source_base_dir: ".",
+        },
         sprint: {
           id: "sprint-e2e-001",
           name: "E2E TDD Workflow Test Sprint",
@@ -154,7 +160,7 @@ describe("TDD Red-Green Workflow End-to-End", () => {
 
       const configResponse = await handleConfigureSprint(configInput);
       const configResult = JSON.parse(
-        (configResponse.content[0] as { text: string }).text
+        (configResponse.content[0] as { text: string }).text,
       );
 
       if (!configResult.success) {
@@ -234,7 +240,7 @@ describe('Feature', () => {
         test_status: "PASS",
       });
       const signalRedResult = JSON.parse(
-        (signalRedResponse.content[0] as { text: string }).text
+        (signalRedResponse.content[0] as { text: string }).text,
       );
 
       expect(signalRedResult.success).toBe(true);
@@ -270,7 +276,7 @@ describe('Feature', () => {
         notes: "Red phase complete - tests registered and validated",
       });
       const completeRedResult = JSON.parse(
-        (completeRedResponse.content[0] as { text: string }).text
+        (completeRedResponse.content[0] as { text: string }).text,
       );
 
       expect(completeRedResult.success).toBe(true);
@@ -320,7 +326,7 @@ describe('Feature', () => {
 `;
       await fs.writeFile(
         path.join(testDir, "feature.test.ts"),
-        greenTestContent
+        greenTestContent,
       );
 
       // Create feature implementation file
@@ -328,7 +334,7 @@ describe('Feature', () => {
       await fs.mkdir(srcDir);
       await fs.writeFile(
         path.join(srcDir, "feature.ts"),
-        "export const feature = true;\n"
+        "export const feature = true;\n",
       );
 
       // =============================================================================
@@ -353,7 +359,7 @@ describe('Feature', () => {
         test_status: "PASS",
       });
       const signalGreenResult = JSON.parse(
-        (signalGreenResponse.content[0] as { text: string }).text
+        (signalGreenResponse.content[0] as { text: string }).text,
       );
 
       expect(signalGreenResult.success).toBe(true);
@@ -377,7 +383,7 @@ describe('Feature', () => {
         notes: "Green phase complete - all tests passing",
       });
       const completeGreenResult = JSON.parse(
-        (completeGreenResponse.content[0] as { text: string }).text
+        (completeGreenResponse.content[0] as { text: string }).text,
       );
 
       expect(completeGreenResult.success).toBe(true);
@@ -394,7 +400,7 @@ describe('Feature', () => {
       // =============================================================================
       const statusResponse = await handleGetSprintStatus({});
       const statusResult = JSON.parse(
-        (statusResponse.content[0] as { text: string }).text
+        (statusResponse.content[0] as { text: string }).text,
       );
 
       // handleGetSprintStatus returns status data directly, not wrapped in {success: ...}
@@ -419,7 +425,11 @@ describe('Feature', () => {
 
       // Configure sprint
       const configInput: ConfigureSprintInput = {
-        environment: { test_command: 'npm test', test_file_pattern: 'test/**/*.test.ts', source_base_dir: '.' },
+        environment: {
+          test_command: "npm test",
+          test_file_pattern: "test/**/*.test.ts",
+          source_base_dir: ".",
+        },
         sprint: {
           id: "sprint-e2e-error-001",
           name: "E2E Error Scenario Sprint",
@@ -498,7 +508,7 @@ describe('Feature', () => {
       await fs.mkdir(testDir);
       await fs.writeFile(
         path.join(testDir, "feature.test.ts"),
-        'import { it, expect } from "vitest"; it("test", () => expect(true).toBe(true));'
+        'import { it, expect } from "vitest"; it("test", () => expect(true).toBe(true));',
       );
 
       const signalGreenResponse = await handleSignalCompletion({
@@ -515,7 +525,7 @@ describe('Feature', () => {
         test_status: "PASS",
       });
       const signalGreenResult = JSON.parse(
-        (signalGreenResponse.content[0] as { text: string }).text
+        (signalGreenResponse.content[0] as { text: string }).text,
       );
 
       // Signal should succeed (no TDD validation for non-red-phase tasks)
@@ -529,7 +539,11 @@ describe('Feature', () => {
 
       // Configure sprint
       const configInput: ConfigureSprintInput = {
-        environment: { test_command: 'npm test', test_file_pattern: 'test/**/*.test.ts', source_base_dir: '.' },
+        environment: {
+          test_command: "npm test",
+          test_file_pattern: "test/**/*.test.ts",
+          source_base_dir: ".",
+        },
         sprint: {
           id: "sprint-e2e-fr011-001",
           name: "FR-011 Error Message Test Sprint",
@@ -616,7 +630,7 @@ describe('Feature', () => {
     expect(true).toBe(true);
   });
 });
-`
+`,
       );
 
       // Register test (without marker)
@@ -641,7 +655,7 @@ describe('Feature', () => {
         test_status: "PASS",
       });
       const signalResult = JSON.parse(
-        (signalResponse.content[0] as { text: string }).text
+        (signalResponse.content[0] as { text: string }).text,
       );
 
       // Verify error is actionable per FR-011
@@ -662,7 +676,7 @@ describe('Feature', () => {
         errorText.includes("add") ||
           errorText.includes("marker") ||
           errorText.includes("skip") ||
-          errorText.includes("todo")
+          errorText.includes("todo"),
       ).toBe(true);
     });
 
@@ -681,7 +695,11 @@ describe('Feature', () => {
 
       // Configure sprint with TDD relationship
       const configInput: ConfigureSprintInput = {
-        environment: { test_command: 'npm test', test_file_pattern: 'test/**/*.test.ts', source_base_dir: '.' },
+        environment: {
+          test_command: "npm test",
+          test_file_pattern: "test/**/*.test.ts",
+          source_base_dir: ".",
+        },
         sprint: {
           id: "sprint-e2e-closeout-001",
           name: "Closeout Gate Test Sprint",
@@ -766,7 +784,7 @@ import { it, expect } from 'vitest';
 it.skip('test', () => {
   expect(true).toBe(false);
 });
-`
+`,
       );
 
       await handleRegisterTddRedTest({
@@ -810,12 +828,12 @@ it.skip('test', () => {
         !statusResponse.content[0]
       ) {
         throw new Error(
-          `Status response invalid: ${JSON.stringify(statusResponse, null, 2)}`
+          `Status response invalid: ${JSON.stringify(statusResponse, null, 2)}`,
         );
       }
 
       const statusResult = JSON.parse(
-        (statusResponse.content[0] as { text: string }).text
+        (statusResponse.content[0] as { text: string }).text,
       );
 
       // handleGetSprintStatus returns status data directly, not wrapped in {success: ...}
@@ -823,7 +841,7 @@ it.skip('test', () => {
       expect(statusResult.tdd_summary).toBeDefined();
       expect(statusResult.tdd_summary.blocking_closeout).toBe(true);
       expect(statusResult.tdd_summary.by_status.pending_green).toBeGreaterThan(
-        0
+        0,
       );
     });
   });

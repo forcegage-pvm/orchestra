@@ -13,7 +13,8 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { getDb, initializeDb, resetDb } from "../../src/db/index.js";
-import { phases, sprints, tasks } from "../../src/db/schema.js";
+import { runMigrationsV2 } from "../../src/db/migrations.js";
+import { phases, sprintSettings, sprints, tasks } from "../../src/db/schema.js";
 import { handlePrepareTask } from "../../src/mcp-server/handlers/prepare-task.js";
 import { handleUpdateHandover } from "../../src/mcp-server/handlers/update-handover.js";
 
@@ -29,6 +30,7 @@ describe("TD-016: ESCALATED Status Rejection", () => {
 
     resetDb();
     await initializeDb();
+    await runMigrationsV2();
     const db = getDb();
     const now = new Date().toISOString();
 
@@ -41,6 +43,30 @@ describe("TD-016: ESCALATED Status Rejection", () => {
       created_at: now,
       updated_at: now,
     });
+
+    await db.insert(sprintSettings).values([
+      {
+        sprint_id: testSprintId,
+        key: "test_command",
+        value: "npm test",
+        created_at: now,
+        updated_at: now,
+      },
+      {
+        sprint_id: testSprintId,
+        key: "test_file_pattern",
+        value: "test/**/*.test.ts",
+        created_at: now,
+        updated_at: now,
+      },
+      {
+        sprint_id: testSprintId,
+        key: "source_base_dir",
+        value: ".",
+        created_at: now,
+        updated_at: now,
+      },
+    ]);
 
     // Create test phase (required FK for tasks)
     await db.insert(phases).values({
@@ -133,7 +159,7 @@ describe("TD-016: ESCALATED Status Rejection", () => {
         .select()
         .from(tasks)
         .where(
-          and(eq(tasks.sprint_id, testSprintId), eq(tasks.task_id, testTaskId))
+          and(eq(tasks.sprint_id, testSprintId), eq(tasks.task_id, testTaskId)),
         );
 
       expect(task.status).toBe("ESCALATED");
@@ -169,7 +195,7 @@ describe("TD-016: ESCALATED Status Rejection", () => {
         .select()
         .from(tasks)
         .where(
-          and(eq(tasks.sprint_id, testSprintId), eq(tasks.task_id, testTaskId))
+          and(eq(tasks.sprint_id, testSprintId), eq(tasks.task_id, testTaskId)),
         );
 
       expect(task.status).toBe("ESCALATED");
