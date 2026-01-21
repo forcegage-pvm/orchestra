@@ -91,9 +91,7 @@ describe("[tdd-red] resolveTaskId", () => {
   });
 
   it("[tdd-red] resolves a task number to internal id for specified sprint", async () => {
-    const { resolveTaskId } = await import(
-      "../../src/core/id-resolution.js"
-    );
+    const { resolveTaskId } = await import("../../src/core/id-resolution.js");
     const phaseId = await seedSprint({ id: "sprint-a", isActive: false });
     const internalId = await seedTask({
       sprintId: "sprint-a",
@@ -107,9 +105,7 @@ describe("[tdd-red] resolveTaskId", () => {
   });
 
   it("[tdd-red] throws clear error when task number missing in sprint", async () => {
-    const { resolveTaskId } = await import(
-      "../../src/core/id-resolution.js"
-    );
+    const { resolveTaskId } = await import("../../src/core/id-resolution.js");
     const phaseId = await seedSprint({ id: "sprint-a", isActive: false });
     await seedTask({
       sprintId: "sprint-a",
@@ -123,9 +119,7 @@ describe("[tdd-red] resolveTaskId", () => {
   });
 
   it("[tdd-red] uses active sprint when sprint id omitted", async () => {
-    const { resolveTaskId } = await import(
-      "../../src/core/id-resolution.js"
-    );
+    const { resolveTaskId } = await import("../../src/core/id-resolution.js");
     const phaseId = await seedSprint({ id: "sprint-active", isActive: true });
     const internalId = await seedTask({
       sprintId: "sprint-active",
@@ -138,10 +132,25 @@ describe("[tdd-red] resolveTaskId", () => {
     expect(resolvedId).toBe(internalId);
   });
 
-  it("[tdd-red] explicit sprint overrides active sprint", async () => {
-    const { resolveTaskId } = await import(
-      "../../src/core/id-resolution.js"
+  it("[tdd-red] throws error when no active sprint and sprint id omitted", async () => {
+    const { resolveTaskId } = await import("../../src/core/id-resolution.js");
+    const phaseId = await seedSprint({
+      id: "sprint-inactive",
+      isActive: false,
+    });
+    await seedTask({
+      sprintId: "sprint-inactive",
+      phaseId,
+      taskNumber: 1,
+    });
+
+    await expect(resolveTaskId(undefined, 1)).rejects.toThrow(
+      "No active sprint",
     );
+  });
+
+  it("[tdd-red] explicit sprint overrides active sprint", async () => {
+    const { resolveTaskId } = await import("../../src/core/id-resolution.js");
     const phaseA = await seedSprint({ id: "sprint-a", isActive: true });
     const phaseB = await seedSprint({ id: "sprint-b", isActive: false });
 
