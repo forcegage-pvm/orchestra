@@ -575,6 +575,8 @@ export const codeReviews = sqliteTable(
         "APPROVED",
         "CHANGES_REQUESTED",
         "REJECTED",
+        "FIXING_ISSUES",
+        "PENDING_VERIFICATION",
       ],
     }).notNull(),
     summary: text("summary").notNull(),

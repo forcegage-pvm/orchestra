@@ -220,8 +220,8 @@ describe("Code review schema tables", () => {
     }
   });
 
-  describe("[tdd-red] code review status enum", () => {
-    it("[tdd-red] should include FIXING_ISSUES", () => {
+  describe("code review status enum", () => {
+    it("should include FIXING_ISSUES", () => {
       const statusColumn = schema.codeReviews.status as {
         enumValues?: string[];
       };
@@ -229,7 +229,7 @@ describe("Code review schema tables", () => {
       expect(statusColumn.enumValues).toContain("FIXING_ISSUES");
     });
 
-    it("[tdd-red] should include PENDING_VERIFICATION", () => {
+    it("should include PENDING_VERIFICATION", () => {
       const statusColumn = schema.codeReviews.status as {
         enumValues?: string[];
       };
