@@ -10,6 +10,7 @@
 import * as vscode from "vscode";
 import {
   getCodeReviewSummary,
+  getCompletedTasksWithApprovedReviews,
   getCompletedUnreviewedTasks,
   type CodeReviewSummary,
 } from "../../database/queries.js";
@@ -28,6 +29,7 @@ export class CodeReviewTreeProvider implements vscode.TreeDataProvider<TreeEleme
 
   private _summary: CodeReviewSummary | null = null;
   private _unreviewedCount: number = 0;
+  private _approvedCompleteCount: number = 0;
 
   constructor(
     private readonly _workspaceRoot: string,
@@ -44,6 +46,10 @@ export class CodeReviewTreeProvider implements vscode.TreeDataProvider<TreeEleme
     this._summary = getCodeReviewSummary(this._workspaceRoot);
     const unreviewedTasks = getCompletedUnreviewedTasks(this._workspaceRoot);
     this._unreviewedCount = unreviewedTasks.length;
+    const approvedCompletedTasks = getCompletedTasksWithApprovedReviews(
+      this._workspaceRoot,
+    );
+    this._approvedCompleteCount = approvedCompletedTasks.length;
   }
 
   private _getStatusCount(status: string): number {
@@ -276,7 +282,7 @@ export class CodeReviewTreeProvider implements vscode.TreeDataProvider<TreeEleme
       items.push(escalateItem);
     }
 
-    if (this._getStatusCount("COMPLETE") > 0) {
+    if (this._approvedCompleteCount > 0) {
       const reReviewItem = new vscode.TreeItem(
         "Re-review",
         vscode.TreeItemCollapsibleState.None,

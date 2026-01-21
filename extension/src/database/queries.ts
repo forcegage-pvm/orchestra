@@ -1708,6 +1708,40 @@ export function getCompletedUnreviewedTasks(workspaceRoot: string): Task[] {
 }
 
 /**
+ * Get completed tasks with latest APPROVED review
+ */
+export function getCompletedTasksWithApprovedReviews(
+  workspaceRoot: string,
+): Task[] {
+  const db = OrchestraDB.getInstance(workspaceRoot);
+
+  const sprint = getCurrentSprint(workspaceRoot);
+  if (!sprint) {
+    return [];
+  }
+
+  const tasks = db
+    .prepare(
+      `SELECT t.* FROM tasks t
+       INNER JOIN (
+         SELECT task_id, MAX(requested_at) as latest_requested
+         FROM code_reviews
+         WHERE sprint_id = ?
+         GROUP BY task_id
+       ) latest ON latest.task_id = t.id
+       INNER JOIN code_reviews cr
+         ON cr.task_id = latest.task_id AND cr.requested_at = latest.latest_requested
+       WHERE t.sprint_id = ?
+       AND t.status = 'COMPLETE'
+       AND cr.status = 'APPROVED'
+       ORDER BY t.completed_at DESC`,
+    )
+    .all(sprint.id, sprint.id) as Task[];
+
+  return tasks;
+}
+
+/**
  * Code Review History Entry
  */
 export interface CodeReviewHistoryEntry {

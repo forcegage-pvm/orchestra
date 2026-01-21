@@ -58,6 +58,7 @@ vi.mock("../../../src/database/queries.js", () => ({
     blockingSeverity: "BLOCKING",
   })),
   getCompletedUnreviewedTasks: vi.fn(() => []),
+  getCompletedTasksWithApprovedReviews: vi.fn(() => []),
 }));
 
 describe("CodeReviewTreeProvider", () => {
@@ -489,6 +490,28 @@ describe("CodeReviewTreeProvider", () => {
         item.label?.toString().includes("Escalate"),
       );
       expect(escalateAction).toBeDefined();
+    });
+
+    it("should show 'Re-review' action when approved completed tasks exist", async () => {
+      const { getCompletedTasksWithApprovedReviews } =
+        await import("../../../src/database/queries.js");
+      vi.mocked(getCompletedTasksWithApprovedReviews).mockReturnValue([
+        { task_id: 9, title: "Complete Task" },
+      ] as any);
+
+      provider.refresh();
+      const children = await provider.getChildren();
+      const actionsItem = children?.find((item) =>
+        item.label?.toString().includes("Actions"),
+      );
+
+      const actionChildren = await provider.getChildren(actionsItem);
+      const reReviewAction = actionChildren?.find((item) =>
+        item.label?.toString().includes("Re-review"),
+      );
+
+      expect(reReviewAction).toBeDefined();
+      expect(reReviewAction?.command?.command).toBe("orchestra.reReviewTask");
     });
 
     it("should disable 'Run ad-hoc review now' when no unreviewed tasks", async () => {
