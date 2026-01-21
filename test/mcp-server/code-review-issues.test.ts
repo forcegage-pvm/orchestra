@@ -227,12 +227,12 @@ describe("get_open_code_review_issues handler", () => {
       expect(output.issues).toBeDefined();
     });
 
-    it("should accept task_id filter", async () => {
+    it("should accept task filter", async () => {
       const { handleGetOpenCodeReviewIssues } =
         await import("../../src/mcp-server/handlers/get-open-code-review-issues.js");
 
       const result = await handleGetOpenCodeReviewIssues({
-        task_id: testTaskId1,
+        task: 1,
       });
 
       const output = JSON.parse(result.content[0].text);
@@ -294,13 +294,13 @@ describe("get_open_code_review_issues handler", () => {
     });
   });
 
-  describe("filtering by task_id", () => {
+  describe("filtering by task", () => {
     it("should return only OPEN issues for the specific task", async () => {
       const { handleGetOpenCodeReviewIssues } =
         await import("../../src/mcp-server/handlers/get-open-code-review-issues.js");
 
       const result = await handleGetOpenCodeReviewIssues({
-        task_id: testTaskId1,
+        task: 1,
       });
 
       const output = JSON.parse(result.content[0].text);
@@ -317,7 +317,7 @@ describe("get_open_code_review_issues handler", () => {
         await import("../../src/mcp-server/handlers/get-open-code-review-issues.js");
 
       const result = await handleGetOpenCodeReviewIssues({
-        task_id: testTaskId2,
+        task: 2,
       });
 
       const output = JSON.parse(result.content[0].text);

@@ -5,6 +5,7 @@
  */
 
 import { desc, eq } from "drizzle-orm";
+import { resolveTaskId } from "../../core/id-resolution.js";
 import { getDb } from "../../db/index.js";
 import { codeReviews } from "../../db/schema.js";
 import {
@@ -17,6 +18,26 @@ import { logToolExecution } from "./audit-logging.js";
 
 export async function handleGetCodeReviewHistory(input: unknown) {
   const startTime = performance.now();
+  if (input && typeof input === "object" && "task_id" in input) {
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify(
+            {
+              success: false,
+              error: {
+                code: "PARAMETER_RENAMED",
+                message: "Parameter 'task_id' was renamed to 'task'.",
+              },
+            },
+            null,
+            2,
+          ),
+        },
+      ],
+    };
+  }
   const validation = validateInput(GetCodeReviewHistoryInputSchema, input);
   if (!validation.success) {
     return {
@@ -41,8 +62,8 @@ export async function handleGetCodeReviewHistory(input: unknown) {
       role: "controller",
       input: validation.data,
     };
-    if (validation.data.task_id !== undefined) {
-      context.taskId = validation.data.task_id;
+    if (validation.data.task !== undefined) {
+      context.taskId = validation.data.task;
     }
     await logToolExecution(
       context,
@@ -70,8 +91,8 @@ export async function handleGetCodeReviewHistory(input: unknown) {
       role: "controller",
       input: validation.data,
     };
-    if (validation.data.task_id !== undefined) {
-      context.taskId = validation.data.task_id;
+    if (validation.data.task !== undefined) {
+      context.taskId = validation.data.task;
     }
     await logToolExecution(
       context,
@@ -109,11 +130,16 @@ async function getCodeReviewHistory(
 ): Promise<GetCodeReviewHistoryOutput> {
   const db = getDb();
 
+  if (input.task === undefined) {
+    throw new Error("task is required");
+  }
+  const taskId = await resolveTaskId(input.sprint_id, input.task);
+
   // Get all reviews for the specified task_id, ordered by requested_at descending
   const reviews = await db
     .select()
     .from(codeReviews)
-    .where(eq(codeReviews.task_id, input.task_id!))
+    .where(eq(codeReviews.task_id, taskId))
     .orderBy(desc(codeReviews.requested_at))
     .limit(input.limit);
 

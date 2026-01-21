@@ -368,7 +368,8 @@ describe("Code Review End-to-End Integration", () => {
 
       // Implementor retrieves open issues
       const openIssuesResult = await handleGetOpenCodeReviewIssues({
-        task_id: 1,
+        sprint_id: "sprint-e2e-4",
+        task: 1,
       });
 
       const openIssuesText = openIssuesResult.content[0]?.text;

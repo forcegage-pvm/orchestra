@@ -4,9 +4,10 @@
  * Shared tool to fetch the most recent code review for a task.
  */
 
-import { and, desc, eq } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
+import { resolveTaskId } from "../../core/id-resolution.js";
 import { getDb } from "../../db/index.js";
-import { codeReviews, tasks } from "../../db/schema.js";
+import { codeReviews } from "../../db/schema.js";
 import {
   GetLatestCodeReviewInputSchema,
   type GetLatestCodeReviewInput,
@@ -17,6 +18,46 @@ import { logToolExecution } from "./audit-logging.js";
 
 export async function handleGetLatestCodeReview(input: unknown) {
   const startTime = performance.now();
+  if (input && typeof input === "object" && "task_id" in input) {
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify(
+            {
+              success: false,
+              error: {
+                code: "PARAMETER_RENAMED",
+                message: "Parameter 'task_id' was renamed to 'task'.",
+              },
+            },
+            null,
+            2,
+          ),
+        },
+      ],
+    };
+  }
+  if (input && typeof input === "object" && "sprint_task_id" in input) {
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify(
+            {
+              success: false,
+              error: {
+                code: "PARAMETER_RENAMED",
+                message: "Parameter 'sprint_task_id' was renamed to 'task'.",
+              },
+            },
+            null,
+            2,
+          ),
+        },
+      ],
+    };
+  }
   const validation = validateInput(GetLatestCodeReviewInputSchema, input);
   if (!validation.success) {
     return {
@@ -39,8 +80,8 @@ export async function handleGetLatestCodeReview(input: unknown) {
       role: "controller",
       input: validation.data,
     };
-    if (validation.data.task_id !== undefined) {
-      context.taskId = validation.data.task_id;
+    if (validation.data.task !== undefined) {
+      context.taskId = validation.data.task;
     }
     await logToolExecution(
       context,
@@ -68,8 +109,8 @@ export async function handleGetLatestCodeReview(input: unknown) {
       role: "controller",
       input: validation.data,
     };
-    if (validation.data.task_id !== undefined) {
-      context.taskId = validation.data.task_id;
+    if (validation.data.task !== undefined) {
+      context.taskId = validation.data.task;
     }
     await logToolExecution(
       context,
@@ -107,30 +148,10 @@ async function getLatestCodeReview(
 ): Promise<GetLatestCodeReviewOutput> {
   const db = getDb();
 
-  let taskId = input.task_id;
-  if (taskId === undefined && input.sprint_task_id !== undefined) {
-    const whereClause =
-      input.sprint_id !== undefined
-        ? and(
-            eq(tasks.task_id, input.sprint_task_id),
-            eq(tasks.sprint_id, input.sprint_id),
-          )
-        : eq(tasks.task_id, input.sprint_task_id);
-
-    const [task] = await db
-      .select({ id: tasks.id })
-      .from(tasks)
-      .where(whereClause)
-      .limit(1);
-    taskId = task?.id;
+  if (input.task === undefined) {
+    throw new Error("task is required");
   }
-
-  if (taskId === undefined) {
-    return {
-      success: true,
-      review: null,
-    };
-  }
+  const taskId = await resolveTaskId(input.sprint_id, input.task);
 
   // Get the most recent review for the specified task_id
   const [review] = await db

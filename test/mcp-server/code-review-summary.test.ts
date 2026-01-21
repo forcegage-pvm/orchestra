@@ -163,12 +163,12 @@ describe("get_latest_code_review handler", () => {
   });
 
   describe("task-scoped retrieval", () => {
-    it("should return latest review for specified task_id only", async () => {
+    it("should return latest review for specified task only", async () => {
       const { handleGetLatestCodeReview } =
         await import("../../src/mcp-server/handlers/get-latest-code-review.js");
 
       const result = await handleGetLatestCodeReview({
-        task_id: 1,
+        task: 1,
       });
 
       const output = JSON.parse(result.content[0].text);
@@ -183,7 +183,7 @@ describe("get_latest_code_review handler", () => {
         await import("../../src/mcp-server/handlers/get-latest-code-review.js");
 
       const result = await handleGetLatestCodeReview({
-        task_id: 2,
+        task: 2,
       });
 
       const output = JSON.parse(result.content[0].text);
@@ -223,7 +223,7 @@ describe("get_latest_code_review handler", () => {
         await import("../../src/mcp-server/handlers/get-latest-code-review.js");
 
       const result = await handleGetLatestCodeReview({
-        task_id: task3.task_id,
+        task: task3.task_id,
       });
 
       const output = JSON.parse(result.content[0].text);
@@ -259,7 +259,7 @@ describe("get_latest_code_review handler", () => {
         await import("../../src/mcp-server/handlers/get-latest-code-review.js");
 
       const result = await handleGetLatestCodeReview({
-        task_id: 1,
+        task: 1,
       });
 
       const output = JSON.parse(result.content[0].text);
@@ -395,12 +395,12 @@ describe("get_code_review_history handler", () => {
   });
 
   describe("task-scoped retrieval", () => {
-    it("should return all reviews for specified task_id only", async () => {
+    it("should return all reviews for specified task only", async () => {
       const { handleGetCodeReviewHistory } =
         await import("../../src/mcp-server/handlers/get-code-review-history.js");
 
       const result = await handleGetCodeReviewHistory({
-        task_id: 1,
+        task: 1,
       });
 
       const output = JSON.parse(result.content[0].text);
@@ -416,7 +416,7 @@ describe("get_code_review_history handler", () => {
         await import("../../src/mcp-server/handlers/get-code-review-history.js");
 
       const result = await handleGetCodeReviewHistory({
-        task_id: 2,
+        task: 2,
       });
 
       const output = JSON.parse(result.content[0].text);
@@ -432,7 +432,7 @@ describe("get_code_review_history handler", () => {
         await import("../../src/mcp-server/handlers/get-code-review-history.js");
 
       const result = await handleGetCodeReviewHistory({
-        task_id: 1,
+        task: 1,
         limit: 2,
       });
 
@@ -463,7 +463,7 @@ describe("get_code_review_history handler", () => {
         await import("../../src/mcp-server/handlers/get-code-review-history.js");
 
       const result = await handleGetCodeReviewHistory({
-        task_id: 1,
+        task: 1,
       });
 
       const output = JSON.parse(result.content[0].text);
@@ -476,7 +476,7 @@ describe("get_code_review_history handler", () => {
         await import("../../src/mcp-server/handlers/get-code-review-history.js");
 
       const result = await handleGetCodeReviewHistory({
-        task_id: 1,
+        task: 1,
       });
 
       const output = JSON.parse(result.content[0].text);

@@ -12,11 +12,12 @@ import { z } from "zod";
 
 export const GetCodeReviewHistoryInputSchema = z
   .object({
-    task_id: z.number().int().positive().optional(),
+    task: z.number().int().positive().optional(),
+    sprint_id: z.string().min(1).optional(),
     limit: z.number().int().positive().max(100).default(20),
   })
-  .refine((data) => data.task_id, {
-    message: "task_id is required",
+  .refine((data) => data.task, {
+    message: "task is required",
   });
 
 export type GetCodeReviewHistoryInput = z.output<
@@ -57,7 +58,8 @@ export const getCodeReviewHistoryToolDef = {
   inputSchema: {
     type: "object",
     properties: {
-      task_id: { type: "number" },
+      task: { type: "number" },
+      sprint_id: { type: "string" },
       limit: { type: "number", default: 20 },
     },
   },

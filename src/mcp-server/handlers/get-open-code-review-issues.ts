@@ -5,13 +5,14 @@
  */
 
 import { and, eq } from "drizzle-orm";
+import { resolveTaskId } from "../../core/id-resolution.js";
 import { getDb } from "../../db/index.js";
 import { codeReviewIssues, codeReviews } from "../../db/schema.js";
 import { logToolExecution } from "./audit-logging.js";
 
 interface GetOpenCodeReviewIssuesInput {
   sprint_id?: string;
-  task_id?: number;
+  task?: number;
   review_id?: number;
 }
 
@@ -36,12 +37,23 @@ export async function handleGetOpenCodeReviewIssues(input: unknown) {
   const startTime = performance.now();
   // Validate input
   const typedInput = input as GetOpenCodeReviewIssuesInput;
-  if (!typedInput.sprint_id && !typedInput.task_id && !typedInput.review_id) {
+  if (
+    typedInput &&
+    typeof typedInput === "object" &&
+    "task_id" in typedInput
+  ) {
+    throw new Error("Parameter 'task_id' was renamed to 'task'.");
+  }
+  if (!typedInput.sprint_id && !typedInput.task && !typedInput.review_id) {
     throw new Error("At least one filter parameter must be provided");
   }
 
   try {
-    const output = await getOpenCodeReviewIssues(typedInput);
+    const resolvedTaskId =
+      typedInput.task !== undefined
+        ? await resolveTaskId(typedInput.sprint_id, typedInput.task)
+        : undefined;
+    const output = await getOpenCodeReviewIssues(typedInput, resolvedTaskId);
     const durationMs = Math.round(performance.now() - startTime);
 
     const context: {
@@ -55,8 +67,8 @@ export async function handleGetOpenCodeReviewIssues(input: unknown) {
       input: typedInput,
     };
 
-    if (typedInput.task_id !== undefined) {
-      context.taskId = typedInput.task_id;
+    if (resolvedTaskId !== undefined) {
+      context.taskId = resolvedTaskId;
     }
 
     await logToolExecution(
@@ -90,8 +102,8 @@ export async function handleGetOpenCodeReviewIssues(input: unknown) {
       input: typedInput,
     };
 
-    if (typedInput.task_id !== undefined) {
-      context.taskId = typedInput.task_id;
+    if (typedInput.task !== undefined) {
+      context.taskId = typedInput.task;
     }
 
     await logToolExecution(
@@ -109,6 +121,7 @@ export async function handleGetOpenCodeReviewIssues(input: unknown) {
 
 async function getOpenCodeReviewIssues(
   input: GetOpenCodeReviewIssuesInput,
+  resolvedTaskId: number | undefined,
 ): Promise<GetOpenCodeReviewIssuesOutput> {
   const db = getDb();
 
@@ -119,8 +132,8 @@ async function getOpenCodeReviewIssues(
     conditions.push(eq(codeReviewIssues.review_id, input.review_id));
   }
 
-  if (input.task_id !== undefined) {
-    conditions.push(eq(codeReviewIssues.task_id, input.task_id));
+  if (resolvedTaskId !== undefined) {
+    conditions.push(eq(codeReviewIssues.task_id, resolvedTaskId));
   }
 
   // Query issues with join to reviews for sprint filtering
