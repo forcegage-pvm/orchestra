@@ -270,6 +270,8 @@ describe("get_code_review_summary handler", () => {
         approved: 2,
         changes_requested: 1,
         rejected: 1,
+        fixing_issues: 0,
+        pending_verification: 0,
       });
     });
 
@@ -361,6 +363,8 @@ describe("get_code_review_summary handler", () => {
         approved: 2,
         changes_requested: 1,
         rejected: 1,
+        fixing_issues: 0,
+        pending_verification: 0,
       });
     });
 
@@ -376,6 +380,67 @@ describe("get_code_review_summary handler", () => {
       expect(output.summary.policy).toBe("ad_hoc");
       expect(output.summary.enabled).toBe(false);
       expect(output.summary.blocking_severity).toBe("BLOCKING");
+    });
+
+    it("should include fixing_issues and pending_verification in totals and reviews_needing_action", async () => {
+      const db = getDb();
+      const now = new Date().toISOString();
+
+      const [fixingReview] = await db
+        .insert(codeReviews)
+        .values({
+          sprint_id: testSprintId1,
+          task_id: tasksData[0].id,
+          review_scope: "TASK",
+          status: "FIXING_ISSUES",
+          summary: "Fixing issues",
+          risk: "MEDIUM",
+          requested_by: "test-user",
+          requested_at: now,
+          revision_count: 1,
+        })
+        .returning();
+
+      const [pendingVerificationReview] = await db
+        .insert(codeReviews)
+        .values({
+          sprint_id: testSprintId1,
+          task_id: tasksData[1].id,
+          review_scope: "TASK",
+          status: "PENDING_VERIFICATION",
+          summary: "Pending verification",
+          risk: "MEDIUM",
+          requested_by: "test-user",
+          requested_at: now,
+          revision_count: 1,
+        })
+        .returning();
+
+      const { handleGetCodeReviewSummary } =
+        await import("../../src/mcp-server/handlers/get-code-review-summary.js");
+
+      const result = await handleGetCodeReviewSummary({
+        sprint_id: testSprintId1,
+      });
+
+      const output = JSON.parse(result.content[0].text);
+      expect(output.summary.totals.fixing_issues).toBe(1);
+      expect(output.summary.totals.pending_verification).toBe(1);
+
+      const reviewsNeedingAction = output.summary.reviews_needing_action;
+      const fixingEntry = reviewsNeedingAction.find(
+        (review: any) => review.review_id === fixingReview.id,
+      );
+      const pendingVerificationEntry = reviewsNeedingAction.find(
+        (review: any) => review.review_id === pendingVerificationReview.id,
+      );
+
+      expect(fixingEntry?.status).toBe("FIXING_ISSUES");
+      expect(fixingEntry?.action_needed).toBe("Continue fixing issues");
+      expect(pendingVerificationEntry?.status).toBe("PENDING_VERIFICATION");
+      expect(pendingVerificationEntry?.action_needed).toBe(
+        "Verify submitted fixes",
+      );
     });
   });
 });

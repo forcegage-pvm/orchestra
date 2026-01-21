@@ -332,6 +332,8 @@ describe("get_code_review handler", () => {
       approved: 1,
       changes_requested: 1,
       rejected: 1,
+      fixing_issues: 0,
+      pending_verification: 0,
     });
     expect(output.summary.pending_reviews).toHaveLength(1);
     expect(output.summary.pending_reviews[0].sprint_task_id).toBe(2);

@@ -140,6 +140,10 @@ async function getCodeReviewSummary(
     changes_requested: reviews.filter((r) => r.status === "CHANGES_REQUESTED")
       .length,
     rejected: reviews.filter((r) => r.status === "REJECTED").length,
+    fixing_issues: reviews.filter((r) => r.status === "FIXING_ISSUES").length,
+    pending_verification: reviews.filter(
+      (r) => r.status === "PENDING_VERIFICATION",
+    ).length,
   };
 
   // Count open issues (status != 'RESOLVED')
@@ -156,7 +160,7 @@ async function getCodeReviewSummary(
 
   const open_issues = openIssuesResult.length;
 
-  const pendingReviews = await db
+  const reviewsNeedingAction = await db
     .select({
       review_id: codeReviews.id,
       status: codeReviews.status,
@@ -170,10 +174,37 @@ async function getCodeReviewSummary(
     .where(
       and(
         eq(codeReviews.sprint_id, input.sprint_id),
-        inArray(codeReviews.status, ["PENDING", "IN_REVIEW"]),
+        inArray(codeReviews.status, [
+          "PENDING",
+          "IN_REVIEW",
+          "FIXING_ISSUES",
+          "PENDING_VERIFICATION",
+        ]),
       ),
     )
     .orderBy(desc(codeReviews.requested_at));
+
+  const actionNeededByStatus: Record<string, string> = {
+    PENDING: "Start review",
+    IN_REVIEW: "Continue review",
+    FIXING_ISSUES: "Continue fixing issues",
+    PENDING_VERIFICATION: "Verify submitted fixes",
+  };
+
+  const reviewsNeedingActionMapped = reviewsNeedingAction.map((review) => ({
+    review_id: review.review_id,
+    status: review.status as
+      | "PENDING"
+      | "IN_REVIEW"
+      | "FIXING_ISSUES"
+      | "PENDING_VERIFICATION",
+    task_id: review.task_id,
+    sprint_task_id: review.sprint_task_id,
+    title: review.title,
+    requested_at: review.requested_at,
+    action_needed:
+      actionNeededByStatus[review.status] ?? "Review action required",
+  }));
 
   return {
     success: true,
@@ -183,14 +214,8 @@ async function getCodeReviewSummary(
       enabled,
       blocking_severity,
       totals,
-      pending_reviews: pendingReviews.map((review) => ({
-        review_id: review.review_id,
-        status: review.status as "PENDING" | "IN_REVIEW",
-        task_id: review.task_id,
-        sprint_task_id: review.sprint_task_id,
-        title: review.title,
-        requested_at: review.requested_at,
-      })),
+      pending_reviews: reviewsNeedingActionMapped,
+      reviews_needing_action: reviewsNeedingActionMapped,
       open_issues,
     },
   };
