@@ -1,3 +1,4 @@
+// @orchestra-task: 4
 /**
  * Code review schema tests
  *
@@ -217,6 +218,24 @@ describe("Code review schema tables", () => {
     for (const index of CODE_REVIEW_FIX_INDEXES) {
       expect(indexes).toContain(index);
     }
+  });
+
+  describe("[tdd-red] code review status enum", () => {
+    it("[tdd-red] should include FIXING_ISSUES", () => {
+      const statusColumn = schema.codeReviews.status as {
+        enumValues?: string[];
+      };
+
+      expect(statusColumn.enumValues).toContain("FIXING_ISSUES");
+    });
+
+    it("[tdd-red] should include PENDING_VERIFICATION", () => {
+      const statusColumn = schema.codeReviews.status as {
+        enumValues?: string[];
+      };
+
+      expect(statusColumn.enumValues).toContain("PENDING_VERIFICATION");
+    });
   });
 
   it("should include a code review migration and be idempotent", async () => {
