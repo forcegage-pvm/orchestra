@@ -98,7 +98,8 @@ export async function handleGetCodeReview(input: unknown) {
               success: false,
               error: {
                 code: "HANDLER_ERROR",
-                message: error instanceof Error ? error.message : "Unknown error",
+                message:
+                  error instanceof Error ? error.message : "Unknown error",
               },
             },
             null,
@@ -159,13 +160,11 @@ async function getTaskReview(
   const includeHistory = input.include_history === true;
   const includeHandover = input.handover_context === true;
 
-  const issues = includeIssues
-    ? await getReviewIssues(review.id)
-    : undefined;
+  const issues = includeIssues ? await getReviewIssues(review.id) : undefined;
 
   const openIssues = includeHandover
     ? await getOpenReviewIssues(review.id)
-    : issues?.filter((issue) => issue.status !== "RESOLVED") ?? [];
+    : (issues?.filter((issue) => issue.status !== "RESOLVED") ?? []);
 
   const history = includeHistory ? await getReviewHistory(review) : undefined;
 
@@ -202,8 +201,12 @@ async function getSprintReviewSummary(
     .from(sprintSettings)
     .where(eq(sprintSettings.sprint_id, sprintId));
 
-  const policyRow = settings.find((setting) => setting.key === "code_review_policy");
-  const enabledRow = settings.find((setting) => setting.key === "code_review_enabled");
+  const policyRow = settings.find(
+    (setting) => setting.key === "code_review_policy",
+  );
+  const enabledRow = settings.find(
+    (setting) => setting.key === "code_review_enabled",
+  );
   const blockingRow = settings.find(
     (setting) => setting.key === "code_review_blocking_severity",
   );
@@ -332,9 +335,7 @@ async function getOpenReviewIssues(reviewId: number) {
   }));
 }
 
-async function getReviewHistory(
-  review: typeof codeReviews.$inferSelect,
-) {
+async function getReviewHistory(review: typeof codeReviews.$inferSelect) {
   const db = getDb();
   const history: Array<{
     review_id: number;
