@@ -601,6 +601,7 @@ function getScript(): string {
       'IMPLEMENT': { label: 'In Progress', icon: 'play-circle' },
       'VERIFY': { label: 'Verifying', icon: 'sync~spin' },
       'VERIFY_FAILED': { label: 'Needs Attention', icon: 'warning' },
+      'VERIFIED': { label: 'Verified', icon: 'check' },
       'GATE_CHECK': { label: 'Pending Review', icon: 'shield' },
       'ESCALATED': { label: 'Escalated', icon: 'alert' },
       'COMPLETE': { label: 'Complete', icon: 'check-all' }
@@ -638,6 +639,10 @@ function getScript(): string {
           break;
         case 'VERIFY_FAILED':
           actionLabel = 'Retry Task';
+          break;
+        case 'VERIFIED':
+          actionLabel = 'Awaiting Review';
+          actionDisabled = true;
           break;
         case 'VERIFY':
         case 'GATE_CHECK':

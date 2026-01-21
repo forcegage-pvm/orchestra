@@ -42,6 +42,7 @@ export const TaskStatusSchema = z.enum(
     "GATE_CHECK",
     "VERIFY",
     "VERIFY_FAILED",
+    "VERIFIED",
     "COMPLETE",
     "RETRY",
     "ESCALATED",

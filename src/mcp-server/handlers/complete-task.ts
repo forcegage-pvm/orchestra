@@ -294,11 +294,11 @@ async function completeTask(
 
   const now = new Date().toISOString();
 
-  // 4. Update task to COMPLETE
+  // 4. Update task to VERIFIED
   await db
     .update(tasks)
     .set({
-      status: "COMPLETE",
+      status: "VERIFIED",
       completed_at: now,
       updated_at: now,
     })
@@ -309,7 +309,7 @@ async function completeTask(
     sprint_id: sprint.id,
     task_id: task.id,
     from_status: task.status,
-    to_status: "COMPLETE",
+    to_status: "VERIFIED",
     workflow_step: sprint.workflow_step,
     triggered_by: "orchestrator",
     notes: input.notes || "Task completed successfully",
@@ -336,7 +336,9 @@ async function completeTask(
     .where(eq(tasks.sprint_id, sprint.id));
 
   const totalTasks = allTasks.length;
-  const completed = allTasks.filter((t) => t.status === "COMPLETE").length;
+  const completed = allTasks.filter(
+    (t) => t.status === "COMPLETE" || t.status === "VERIFIED",
+  ).length;
   const remaining = totalTasks - completed;
 
   // 7. Find next task (PENDING with all dependencies complete)
@@ -348,7 +350,9 @@ async function completeTask(
     .where(and(eq(tasks.sprint_id, sprint.id), eq(tasks.status, "PENDING")));
 
   const completedTaskIds = new Set(
-    allTasks.filter((t) => t.status === "COMPLETE").map((t) => t.task_id),
+    allTasks
+      .filter((t) => t.status === "COMPLETE" || t.status === "VERIFIED")
+      .map((t) => t.task_id),
   );
 
   for (const pendingTask of pendingTasks) {
@@ -402,7 +406,7 @@ async function completeTask(
   return {
     success: true,
     task_id: input.task_id,
-    status: "COMPLETE",
+    status: "VERIFIED",
     completed_at: now,
     progress: {
       total_tasks: totalTasks,

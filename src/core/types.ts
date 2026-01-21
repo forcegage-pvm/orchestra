@@ -71,6 +71,7 @@ export const TaskStatusSchema = z.enum([
   "GATE_CHECK", // Automated verification running
   "VERIFY", // Orchestrator/human review
   "VERIFY_FAILED", // Verification failed, feedback generated
+  "VERIFIED", // Verification passed, awaiting code review
   "COMPLETE", // Task finished successfully
   "RETRY", // Failed verification, retrying
   "ESCALATED", // Requires human intervention

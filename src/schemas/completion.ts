@@ -28,7 +28,7 @@ export type CompleteTaskInput = z.output<typeof CompleteTaskInputSchema>;
 
 export const CompleteTaskOutputSchema = SuccessResponseSchema.extend({
   task_id: z.number().int().positive(),
-  status: z.literal("COMPLETE"),
+  status: z.literal("VERIFIED"),
   completed_at: z.string(), // ISO 8601
   progress: z.object({
     total_tasks: z.number().int().positive(),

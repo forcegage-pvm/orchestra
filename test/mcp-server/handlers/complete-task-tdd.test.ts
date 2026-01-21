@@ -239,15 +239,15 @@ describe("complete_task - TDD red-phase completion flow", () => {
       // Verify completion succeeds
       expect(response.success).toBe(true);
       expect(response.task_id).toBe(1);
-      expect(response.status).toBe("COMPLETE");
+      expect(response.status).toBe("VERIFIED");
       expect(response.completed_at).toBeDefined();
 
-      // Verify task is now COMPLETE
+      // Verify task is now VERIFIED
       const [completedTask] = await db
         .select()
         .from(tasks)
         .where(eq(tasks.id, redTask.id));
-      expect(completedTask.status).toBe("COMPLETE");
+      expect(completedTask.status).toBe("VERIFIED");
       expect(completedTask.completed_at).toBeDefined();
 
       // Verify relationship was created with declared_at='complete_task'
@@ -450,15 +450,15 @@ describe("complete_task - TDD red-phase completion flow", () => {
       // Verify completion succeeds using upfront relationship
       expect(response.success).toBe(true);
       expect(response.task_id).toBe(1);
-      expect(response.status).toBe("COMPLETE");
+      expect(response.status).toBe("VERIFIED");
       expect(response.completed_at).toBeDefined();
 
-      // Verify task is COMPLETE
+      // Verify task is VERIFIED
       const [completedTask] = await db
         .select()
         .from(tasks)
         .where(eq(tasks.id, redTask.id));
-      expect(completedTask.status).toBe("COMPLETE");
+      expect(completedTask.status).toBe("VERIFIED");
       expect(completedTask.completed_at).toBeDefined();
 
       // Verify relationship still exists with original declared_at='configure_sprint'

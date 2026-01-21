@@ -849,9 +849,9 @@ describe("Code Review Triggers and Gating", () => {
       // Complete the task
       await handleCompleteTask({ task_id: 1 });
 
-      // Verify task is complete
+      // Verify task is verified
       const task = await db.select().from(tasks).where(eq(tasks.id, 1));
-      expect(task[0]?.status).toBe("COMPLETE");
+      expect(task[0]?.status).toBe("VERIFIED");
     });
   });
 
@@ -1226,7 +1226,7 @@ describe("Code Review Triggers and Gating", () => {
       await handleCompleteTask({ task_id: 1 });
 
       const task = await db.select().from(tasks).where(eq(tasks.id, 1));
-      expect(task[0]?.status).toBe("COMPLETE");
+      expect(task[0]?.status).toBe("VERIFIED");
     });
   });
 });

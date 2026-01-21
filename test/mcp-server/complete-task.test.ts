@@ -113,7 +113,7 @@ describe("complete_task handler", () => {
       // Assertions
       expect(response.success).toBe(true);
       expect(response.task_id).toBe(1);
-      expect(response.status).toBe("COMPLETE");
+      expect(response.status).toBe("VERIFIED");
       expect(response.completed_at).toBeDefined();
       expect(response.progress.total_tasks).toBe(1);
       expect(response.progress.completed).toBe(1);
@@ -124,14 +124,14 @@ describe("complete_task handler", () => {
         .select()
         .from(tasks)
         .where(eq(tasks.task_id, 1));
-      expect(updatedTask.status).toBe("COMPLETE");
+      expect(updatedTask.status).toBe("VERIFIED");
       expect(updatedTask.completed_at).toBeDefined();
 
       // Verify progress log
       const progressLogs = await db.select().from(progressTable);
       expect(progressLogs).toHaveLength(1);
       expect(progressLogs[0].from_status).toBe("VERIFY");
-      expect(progressLogs[0].to_status).toBe("COMPLETE");
+      expect(progressLogs[0].to_status).toBe("VERIFIED");
     });
 
     it("should reject completing task not in VERIFY state", async () => {
@@ -368,7 +368,7 @@ describe("complete_task handler", () => {
       // Assertions
       expect(response.success).toBe(true);
       expect(response.task_id).toBe(1);
-      expect(response.status).toBe("COMPLETE");
+      expect(response.status).toBe("VERIFIED");
 
       // Verify registry entry remains (1 file-level entry)
       const registryEntries = await db
@@ -724,10 +724,10 @@ describe("complete_task handler", () => {
 
       expect(registryEntries).toHaveLength(2);
       const file1Entry = registryEntries.find(
-        (e) => e.test_file === "test1.ts"
+        (e) => e.test_file === "test1.ts",
       );
       const file2Entry = registryEntries.find(
-        (e) => e.test_file === "test2.ts"
+        (e) => e.test_file === "test2.ts",
       );
 
       expect(file1Entry).toBeDefined();

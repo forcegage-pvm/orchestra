@@ -142,8 +142,14 @@ export function calculateTaskDuration(
       ? implementEntries[implementEntries.length - 1]
       : undefined;
 
-  // Find the COMPLETE entry
-  const completeEntry = entries.find((e) => e.status === "COMPLETE");
+  // Find the completion entry (VERIFIED or COMPLETE)
+  const completionEntries = entries.filter(
+    (e) => e.status === "VERIFIED" || e.status === "COMPLETE",
+  );
+  const completeEntry =
+    completionEntries.length > 0
+      ? completionEntries[completionEntries.length - 1]
+      : undefined;
 
   if (!lastImplement || !completeEntry) {
     return undefined;
@@ -178,6 +184,7 @@ export function getProgressSummary(progress: ProgressLog): {
     GATE_CHECK: 0,
     VERIFY: 0,
     VERIFY_FAILED: 0,
+    VERIFIED: 0,
     COMPLETE: 0,
     RETRY: 0,
     ESCALATED: 0,

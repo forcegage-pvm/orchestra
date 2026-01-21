@@ -102,7 +102,9 @@ export async function triggerCodeReviewOnPhaseCompletion(
     );
 
   // Check if all tasks in phase are complete
-  const allComplete = phaseTasks.every((t) => t.status === "COMPLETE");
+  const allComplete = phaseTasks.every(
+    (t) => t.status === "COMPLETE" || t.status === "VERIFIED",
+  );
   if (!allComplete) {
     return; // Phase not complete yet
   }

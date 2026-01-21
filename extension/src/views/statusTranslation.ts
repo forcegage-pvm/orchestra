@@ -28,7 +28,7 @@ export interface StatusDisplay {
  * Complete mapping of task statuses to display properties
  *
  * Status Flow:
- * PENDING → IMPLEMENT → VERIFY → (VERIFY_FAILED → retry) → COMPLETE
+ * PENDING → IMPLEMENT → VERIFY → (VERIFY_FAILED → retry) → VERIFIED → COMPLETE
  *                              ↓
  *                         GATE_CHECK → ESCALATED
  */
@@ -87,6 +87,13 @@ export const STATUS_DISPLAY: Record<string, StatusDisplay> = {
     color: new ThemeColor("charts.orange"),
     description: "Verification failed - requires fixes based on feedback",
     actionLabel: "Review Feedback",
+  },
+
+  VERIFIED: {
+    label: "Verified",
+    icon: "check",
+    color: new ThemeColor("charts.green"),
+    description: "Verification passed - awaiting code review",
   },
 
   GATE_CHECK: {

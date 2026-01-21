@@ -14,7 +14,7 @@ import { getDb, initializeDb, resetDb } from "../../src/db/index.js";
 import { phases, sprints, tasks } from "../../src/db/schema.js";
 import { handleCompleteTask } from "../../src/mcp-server/handlers/complete-task.js";
 
-describe("[tdd-red] VERIFIED task status", () => {
+describe("VERIFIED task status", () => {
   let tempDir: string;
 
   beforeEach(async () => {
@@ -41,7 +41,7 @@ describe("[tdd-red] VERIFIED task status", () => {
     }
   });
 
-  it("[tdd-red] should transition to VERIFIED after complete_task", async () => {
+  it("should transition to VERIFIED after complete_task", async () => {
     const db = getDb();
     const now = new Date().toISOString();
 
@@ -100,7 +100,7 @@ describe("[tdd-red] VERIFIED task status", () => {
     expect(updatedTask.status).toBe("VERIFIED");
   });
 
-  it("[tdd-red] should not reach COMPLETE without approved code review", async () => {
+  it("should not reach COMPLETE without approved code review", async () => {
     const db = getDb();
     const now = new Date().toISOString();
 
