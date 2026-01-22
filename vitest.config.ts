@@ -1,6 +1,7 @@
 import { defineConfig } from "vitest/config";
 
 export default defineConfig({
+  cacheDir: ".vitest-cache",
   test: {
     globals: true,
     environment: "node",
@@ -14,7 +15,25 @@ export default defineConfig({
     },
     testTimeout: 30000,
     hookTimeout: 10000,
-    // Use forks pool to avoid threading issues with SQLite/better-sqlite3
+    // Optimize parallel execution
     pool: "forks",
+    poolOptions: {
+      forks: {
+        // Use more workers for faster execution (adjust based on your CPU cores)
+        maxWorkers: 4,
+        // Reduce overhead by reusing workers
+        reuseWorkers: true,
+        // Isolate tests properly
+        isolate: true,
+      },
+    },
+    // Enable file-level parallelism
+    fileParallelism: true,
+    // Optimize test discovery and execution
+    sequence: {
+      shuffle: true,
+    },
+    // Optimize for CI environments
+    reporter: process.env.CI ? ["verbose", "github-actions"] : ["verbose"],
   },
 });

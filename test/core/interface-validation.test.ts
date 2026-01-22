@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { ConfigurationError, ValidationError } from "../../src/core/errors.js";
 import {
   loadValidationConfig,
+  validateJsonSchema,
   validatePatternExclusivity,
 } from "../../src/core/interface-validation.js";
 import type { InterfaceValidationConfig } from "../../src/schemas/interface-validation.js";
@@ -131,5 +132,71 @@ describe("validatePatternExclusivity", () => {
     expect(overlaps).toHaveLength(2);
     expect(overlaps[0]?.file).toBe("src/core/file.ts");
     expect(overlaps[0]?.matchingValidations).toEqual(["all-ts", "src-only"]);
+  });
+});
+
+describe("validateJsonSchema", () => {
+  it("returns empty array for a valid schema", () => {
+    const schema = {
+      type: "object",
+      properties: {
+        name: { type: "string" },
+      },
+      required: ["name"],
+    };
+
+    const errors = validateJsonSchema(schema);
+
+    expect(errors).toEqual([]);
+  });
+
+  it("returns empty array for an empty schema", () => {
+    const errors = validateJsonSchema({});
+
+    expect(errors).toEqual([]);
+  });
+
+  it("returns validation errors for invalid schema types", () => {
+    const schema = {
+      type: "Array",
+    };
+
+    const errors = validateJsonSchema(schema);
+
+    expect(errors.length).toBeGreaterThan(0);
+    expect(errors[0]?.message).toContain("/type");
+  });
+
+  it("returns validation errors for invalid required property", () => {
+    const schema = {
+      type: "object",
+      properties: {
+        id: { type: "string" },
+      },
+      required: "id",
+    };
+
+    const errors = validateJsonSchema(schema);
+
+    expect(errors.length).toBeGreaterThan(0);
+    expect(errors[0]?.message).toContain("should be array");
+  });
+
+  it("includes schemaName in error messages when provided", () => {
+    const schema = {
+      type: "Array",
+    };
+
+    const errors = validateJsonSchema(schema, "submit_code_review.inputSchema");
+
+    expect(errors.length).toBeGreaterThan(0);
+    expect(errors[0]?.message).toContain("submit_code_review.inputSchema/type");
+  });
+
+  it("returns error when schema is not an object", () => {
+    const errors = validateJsonSchema(null as unknown as object, "tool.schema");
+
+    expect(errors).toHaveLength(1);
+    expect(errors[0]?.message).toBe("tool.schema: Schema must be an object");
   });
 });

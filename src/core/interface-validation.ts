@@ -2,6 +2,7 @@
  * Interface validation core utilities
  */
 
+import Ajv from "ajv";
 import minimatch from "minimatch";
 import * as path from "node:path";
 import type { InterfaceValidationConfig } from "../schemas/interface-validation.js";
@@ -20,6 +21,11 @@ const INTERFACE_VALIDATION_CONFIG_RELATIVE_PATH =
 export interface PatternOverlapError {
   file: string;
   matchingValidations: string[];
+}
+
+export interface SchemaValidationResult {
+  valid: boolean;
+  errors: Array<{ path: string; message: string }>;
 }
 
 export function loadValidationConfig(
@@ -85,6 +91,67 @@ export function validatePatternExclusivity(
   }
 
   return results;
+}
+
+const schemaValidator = new Ajv({
+  allErrors: true,
+});
+
+export function validateJsonSchema(
+  schema: object,
+  schemaName?: string,
+): Array<{ path: string; message: string }> {
+  if (schema === null || typeof schema !== "object" || Array.isArray(schema)) {
+    const messagePath = schemaName ?? "/";
+    return [
+      {
+        path: "/",
+        message: `${messagePath}: Schema must be an object`,
+      },
+    ];
+  }
+
+  const valid = schemaValidator.validateSchema(schema);
+
+  if (valid) {
+    return [];
+  }
+
+  return (schemaValidator.errors ?? []).map((error) => {
+    const rawPath =
+      "instancePath" in error && typeof error.instancePath === "string"
+        ? error.instancePath
+        : "dataPath" in error && typeof error.dataPath === "string"
+          ? error.dataPath
+          : "";
+    const normalizedPath = rawPath.length > 0 ? normalizeAjvPath(rawPath) : "/";
+    const messagePath = schemaName
+      ? normalizedPath === "/"
+        ? schemaName
+        : `${schemaName}${normalizedPath}`
+      : normalizedPath;
+    const message = `${messagePath}: ${error.message ?? "Schema validation error"}`;
+
+    return {
+      path: normalizedPath,
+      message,
+    };
+  });
+}
+
+function normalizeAjvPath(pathValue: string): string {
+  if (pathValue.startsWith("/")) {
+    return pathValue;
+  }
+
+  if (pathValue.startsWith(".")) {
+    const converted = pathValue
+      .replace(/\[(\d+)\]/g, "/$1")
+      .replace(/\./g, "/");
+    return converted.startsWith("/") ? converted : `/${converted}`;
+  }
+
+  return `/${pathValue}`;
 }
 
 function matchesAnyPattern(filePath: string, patterns: string[]): boolean {
