@@ -113,7 +113,7 @@ When sprint status is `PENDING_SPEC_REVIEW`:
 
 - [ ] Wiring is present: feature is invoked from runtime paths
 - [ ] Evidence of behavior: tests or code paths validate outcomes
-   When a task has status `PENDING_HANDOVER_REVIEW`:
+      When a task has status `PENDING_HANDOVER_REVIEW`:
 
 ```
 ┌──────────────────────────────────────────────────────────────────┐
