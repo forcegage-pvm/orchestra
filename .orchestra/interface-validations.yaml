@@ -1,0 +1,8 @@
+version: "1.0"
+validations:
+  - name: mcp-tool-schemas
+    description: Validate MCP tool inputSchema definitions against JSON Schema
+    patterns:
+      - "src/mcp-server/tools.ts"
+      - "src/schemas/**/*.ts"
+    test: "test/mcp-server/tool-schema-validation.test.ts"
