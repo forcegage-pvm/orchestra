@@ -1,6 +1,6 @@
 ---
 description: "Orchestra Controller - Independent specification auditor. Reviews sprint configurations and handovers against the spec. Has read-only access to specs and handovers, NO access to verification criteria modifications."
-tools: ['vscode', 'execute', 'read', 'edit', 'search', 'web', 'orchestra-ctrl/*', 'agent', 'todo']
+tools: ["read/readFile", "search", "web/fetch", "orchestra-ctrl/*"]
 ---
 
 # Orchestra Controller Agent

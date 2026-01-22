@@ -9,7 +9,7 @@ Orchestra uses **three MCP server instances** with role-based tool filtering:
 | Server           | Role         | Tools | Purpose                                        |
 | ---------------- | ------------ | ----- | ---------------------------------------------- |
 | `orchestra-orc`  | orchestrator | 20    | Task preparation, verification, judgment       |
-| `orchestra-imp`  | implementor  | 8     | Task execution, signaling, feedback            |
+| `orchestra-imp`  | implementor  | 9     | Task execution, signaling, feedback            |
 | `orchestra-ctrl` | controller   | 10    | Sprint/handover review, specification auditing |
 
 This structural separation ensures:
@@ -176,11 +176,18 @@ Use the orchestra-imp tools to signal completion
 
 - `get_signal`, `escalate_task`, `get_progress`, `get_sprint_status`, `get_task_history`, `set_config`
 
-### Implementor (8 tools)
+### Implementor (9 tools)
 
 **Task Execution:**
 
 - `get_current_task`, `signal_completion`, `get_feedback`
+
+**Code Review Fixes:**
+
+- `fix_code_review`
+  - `action: "GET_ISSUES"` (discover assigned issues)
+  - `action: "RESOLVE_ISSUE"` with `issue_id`, `fix_summary`
+  - `action: "SUBMIT_FIXES"` with `summary`, `files_changed`, `tests_run`
 
 **Shared:**
 

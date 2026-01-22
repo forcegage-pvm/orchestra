@@ -3,7 +3,7 @@
 **Created**: 2026-01-20  
 **Severity**: CRITICAL  
 **Sprint**: 005-code-review-workflow  
-**Status**: ADDRESSED - Sprint 006 Created  
+**Status**: RESOLVED - Implementation Complete  
 **Resolution Sprint**: [006-code-review-fix-workflow](../specs/006-code-review-fix-workflow/spec.md)
 
 ---
@@ -11,11 +11,32 @@
 > **Update 2026-01-20**: Sprint 006 has been created to address all issues identified in this document.
 > See [spec.md](../specs/006-code-review-fix-workflow/spec.md), [tasks.md](../specs/006-code-review-fix-workflow/tasks.md), and [test-plan.md](../specs/006-code-review-fix-workflow/test-plan.md).
 
+> **Update 2026-01-22**: All items in this TD have been implemented and verified in Sprint 006.
+
 ---
 
 ## Executive Summary
 
 The code review workflow implemented in Sprint 005 has **critical usability and safety gaps** that make it nearly unusable in practice. The workflow is fragmented, IDs are confusing, there's no clear handoff between agents, and the implementor has no documented instructions for fixing code review issues.
+
+---
+
+## Resolution Summary (Sprint 006)
+
+All P1-P4 issues are resolved with the following implemented changes:
+
+- **Consolidated fix workflow**: Implementor uses a single `fix_code_review` tool with `GET_ISSUES`, `RESOLVE_ISSUE`, and `SUBMIT_FIXES` actions.
+- **User-visible task IDs**: All code review flows use the user-facing task number, eliminating internal ID discovery.
+- **Controller verification loop**: Controller re-verifies fixes via `submit_code_review` with `verifying_fixes: true`, moving reviews to `PENDING_VERIFICATION` until approved.
+- **UI handoff improvements**: Action buttons provide correct agent prompts and reduce manual ID hunting.
+- **Safety gate**: Pre-submit validation runs tests before accepting fix submissions.
+- **Integration coverage**: End-to-end code review fix workflow validated in Sprint 006 integration tests (Task 10).
+
+Implementation references:
+
+- `fix_code_review` handler and tool registration (Sprint 006 implementation)
+- Code review verification flow updates in `submit_code_review`
+- Sprint 006 integration test suite for code review fixes
 
 ---
 

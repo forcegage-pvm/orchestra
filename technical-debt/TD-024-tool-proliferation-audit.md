@@ -1,7 +1,7 @@
 # TD-024: Tool Proliferation Audit
 
 **Created**: 2026-01-20  
-**Status**: Open  
+**Status**: Open (Code review consolidation complete)  
 **Priority**: P2  
 **Related**: Sprint 006, TD-023
 
@@ -28,7 +28,7 @@ As of Sprint 005, the MCP server has approximately:
 | Sprint Management       | ~8         | configure, status, progress, etc.     |
 | Task Management         | ~12        | get, prepare, complete, etc.          |
 | Verification            | ~6         | run checks, submit judgment, etc.     |
-| Code Review             | 12 → 4     | **Being fixed in Sprint 006**         |
+| Code Review             | 12 → 4     | **Complete in Sprint 006**            |
 | Controller/Review Gates | ~8         | approve/reject sprint, handover, etc. |
 | Configuration           | ~4         | get/set config                        |
 | **Total**               | **~50+**   | Excessive for agents to navigate      |
@@ -116,9 +116,16 @@ Establish conventions:
 
 ## Resolution Path
 
-- **Immediate**: Sprint 006 fixes code review tools
+- **Immediate**: Sprint 006 fixes code review tools (complete)
 - **Future Sprint**: Apply pattern to remaining tools
 - **Consider**: Whether full audit justifies dedicated sprint or can be incremental
+
+---
+
+## Status Update (2026-01-22)
+
+- Code review tool consolidation delivered in Sprint 006 (12 tools → 4 tools).
+- Remaining scope stays open: ID standardization across non-code-review tools and naming conventions.
 
 ---
 
