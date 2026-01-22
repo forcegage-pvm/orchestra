@@ -7,13 +7,13 @@
  */
 
 import * as fs from "fs/promises";
-import * as os from "os";
 import * as path from "path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { registerTest } from "../../src/core/tdd-registry.js";
 import { validateTddRedPhase } from "../../src/core/tdd-validation.js";
-import { getDb, initializeDb, resetDb } from "../../src/db/index.js";
+import { getDb } from "../../src/db/index.js";
 import { phases, sprints, tasks } from "../../src/db/schema.js";
+import { cleanupTestDb, setupTestDb } from "../setup/db-cache.js";
 
 describe("TDD Red Phase Validation", () => {
   let tempDir: string;
@@ -21,13 +21,8 @@ describe("TDD Red Phase Validation", () => {
   const taskId = 1;
 
   beforeEach(async () => {
-    // Create temp workspace
-    tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "tdd-validation-"));
-    process.env.ORCHESTRA_WORKSPACE = tempDir;
-
-    // Initialize database
-    resetDb();
-    await initializeDb();
+    // Create temp workspace via cache
+    tempDir = await setupTestDb("tdd-validation-");
     const db = getDb();
 
     const now = new Date().toISOString();
@@ -75,9 +70,7 @@ describe("TDD Red Phase Validation", () => {
   });
 
   afterEach(async () => {
-    resetDb();
-    await fs.rm(tempDir, { recursive: true, force: true });
-    delete process.env.ORCHESTRA_WORKSPACE;
+    await cleanupTestDb(tempDir);
   });
 
   describe("Bidirectional cross-check", () => {

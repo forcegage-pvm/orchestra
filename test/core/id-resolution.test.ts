@@ -2,12 +2,10 @@
  * Tests for resolveTaskId utility
  */
 
-import fs from "node:fs";
-import os from "node:os";
-import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { getDb, initializeDb, resetDb } from "../../src/db/index.js";
+import { getDb } from "../../src/db/index.js";
 import { phases, sprints, tasks } from "../../src/db/schema.js";
+import { cleanupTestDb, setupTestDb } from "../setup/db-cache.js";
 
 const now = () => new Date().toISOString();
 
@@ -76,17 +74,11 @@ describe("resolveTaskId", () => {
   let tempDir: string;
 
   beforeEach(async () => {
-    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "orchestra-idres-"));
-    process.env.ORCHESTRA_WORKSPACE = tempDir;
-
-    resetDb();
-    await initializeDb();
+    tempDir = await setupTestDb("orchestra-idres-");
   });
 
-  afterEach(() => {
-    resetDb();
-    fs.rmSync(tempDir, { recursive: true, force: true });
-    delete process.env.ORCHESTRA_WORKSPACE;
+  afterEach(async () => {
+    await cleanupTestDb(tempDir);
   });
 
   it("resolves a task number to internal id for specified sprint", async () => {

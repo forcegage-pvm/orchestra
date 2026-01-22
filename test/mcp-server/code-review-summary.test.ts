@@ -5,17 +5,9 @@
  */
 
 import { eq } from "drizzle-orm";
-import fs from "fs";
-import os from "os";
-import path from "path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import {
-  getDb,
-  initializeDb,
-  resetDb,
-  runMigrationsV2,
-  schema,
-} from "../../src/db/index.js";
+import { getDb, schema } from "../../src/db/index.js";
+import { cleanupTestDb, setupTestDb } from "../setup/db-cache.js";
 
 const {
   sprints,
@@ -33,12 +25,7 @@ describe("get_code_review_summary handler", () => {
   let tasksData: Array<{ id: number; task_id: number; title: string }>;
 
   beforeEach(async () => {
-    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "summary-cr-test-"));
-    process.env.ORCHESTRA_WORKSPACE = tempDir;
-
-    resetDb();
-    await initializeDb();
-    await runMigrationsV2(); // Ensure code_reviews tables exist
+    tempDir = await setupTestDb("summary-cr-test-");
 
     const db = getDb();
     const now = new Date().toISOString();
@@ -221,11 +208,7 @@ describe("get_code_review_summary handler", () => {
   });
 
   afterEach(async () => {
-    resetDb();
-    if (tempDir && fs.existsSync(tempDir)) {
-      fs.rmSync(tempDir, { recursive: true, force: true });
-    }
-    delete process.env.ORCHESTRA_WORKSPACE;
+    await cleanupTestDb(tempDir);
   });
 
   describe("sprint-scoped retrieval", () => {

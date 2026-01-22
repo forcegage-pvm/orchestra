@@ -6,41 +6,21 @@
  */
 
 import { eq } from "drizzle-orm";
-import fs from "node:fs";
-import os from "node:os";
-import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { getDb, initializeDb, resetDb } from "../../src/db/index.js";
-import { runMigrationsV2 } from "../../src/db/migrations.js";
+import { getDb } from "../../src/db/index.js";
 import { phases, sprints, tasks } from "../../src/db/schema.js";
 import { handleCompleteTask } from "../../src/mcp-server/handlers/complete-task.js";
+import { cleanupTestDb, setupTestDb } from "../setup/db-cache.js";
 
 describe("VERIFIED task status", () => {
   let tempDir: string;
 
   beforeEach(async () => {
-    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "verified-status-test-"));
-    process.env.ORCHESTRA_WORKSPACE = tempDir;
-
-    resetDb();
-    await initializeDb();
-    await runMigrationsV2();
+    tempDir = await setupTestDb("verified-status-test-");
   });
 
-  afterEach(() => {
-    try {
-      resetDb();
-    } catch (e) {
-      // Ignore errors
-    }
-
-    if (tempDir && fs.existsSync(tempDir)) {
-      try {
-        fs.rmSync(tempDir, { recursive: true, force: true });
-      } catch (e) {
-        // Ignore EPERM errors on Windows
-      }
-    }
+  afterEach(async () => {
+    await cleanupTestDb(tempDir);
   });
 
   it("should transition to VERIFIED after complete_task", async () => {

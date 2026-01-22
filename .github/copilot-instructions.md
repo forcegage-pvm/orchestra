@@ -66,11 +66,51 @@ Errors have `toJSON()` for consistent JSON output in CLI.
 ## Testing Conventions
 
 - Tests mirror source structure: `src/core/yaml.ts` → `test/core/yaml.test.ts`
-- Use temp directories: `fs.mkdtempSync(path.join(os.tmpdir(), 'orchestra-'))`
 - Mock console and process.exit for command tests
 - Test utilities create mock manifests with factory functions
 
-Run tests:
+### Database Test Setup (CRITICAL)
+
+**DO NOT use the old pattern** with `initializeDb()`, `resetDb()`, `runMigrationsV2()` directly.
+
+**USE the shared database cache pattern** - migrations run ONCE per test session:
+
+```typescript
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { getDb } from "../../src/db/index.js";
+import { cleanupTestDb, setupTestDb } from "../setup/db-cache.js";
+
+describe("My Test Suite", () => {
+  let tempDir: string;
+
+  beforeEach(async () => {
+    tempDir = await setupTestDb("my-test-");
+  });
+
+  afterEach(async () => {
+    await cleanupTestDb(tempDir);
+  });
+
+  it("should do something with database", async () => {
+    const db = getDb();
+    // ... test code
+  });
+});
+```
+
+**Key imports:**
+
+- `setupTestDb(prefix)` - Creates temp directory, copies pre-migrated database, sets `ORCHESTRA_WORKSPACE`
+- `cleanupTestDb(tempDir)` - Closes DB connection, cleans up temp directory
+- `getDb()` - Gets the database connection (NOT `initializeDb`)
+
+**Why this matters:**
+
+- Old pattern: 17 migrations × 77 test files = 1309 migration runs (~95 seconds)
+- New pattern: 17 migrations × 1 run = 17 migrations (~18 seconds)
+- **5x faster test runs**
+
+### Test Commands
 
 ```bash
 npm test              # Single run

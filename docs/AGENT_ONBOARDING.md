@@ -48,22 +48,56 @@ From `extension/`:
 - `npm run build`
 - `npm run watch` (dev)
 
+## Writing Tests (CRITICAL)
+
+**Use the shared database cache pattern** - migrations run ONCE per test session, not per test file.
+
+```typescript
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { getDb } from "../../src/db/index.js";
+import { cleanupTestDb, setupTestDb } from "../setup/db-cache.js";
+
+describe("My Test Suite", () => {
+  let tempDir: string;
+
+  beforeEach(async () => {
+    tempDir = await setupTestDb("my-test-");
+  });
+
+  afterEach(async () => {
+    await cleanupTestDb(tempDir);
+  });
+
+  it("should work", async () => {
+    const db = getDb();
+    // ... your test
+  });
+});
+```
+
+**DO NOT** use the old pattern with `initializeDb()`, `resetDb()`, `runMigrationsV2()` directly - this causes 5x slower test runs.
+
+See [test/setup/db-cache.ts](../test/setup/db-cache.ts) for implementation details.
+
 ## “If you’re lost” checklist
 
 1. Identify which surface you’re changing: extension UI, MCP server tools/DB, or agent loop.
 2. Confirm role/visibility: orchestrator vs implementor.
 3. For packaging/build issues, immediately consult [extension/build.md](../extension/build.md).
+
 ## TDD Red-Green Workflow
 
 Orchestra supports **Test-Driven Development** with explicit red-phase (write failing tests) and green-phase (implement features) task separation.
 
 **Key concepts**:
+
 - **Red-phase tasks** (`tdd_red_phase: true`): Write tests that MUST fail
 - **Dual verification**: Separate commands for red tests (must fail) and regression tests (must pass)
 - **Automatic cleanup**: Orchestrator removes markers before each task prepare
 - **Test isolation**: Language-specific markers (Dart: `@Tags(['tdd-red'])`, TypeScript: `test/tdd-red/`)
 
 **Implementation**:
+
 - Task schema: [src/db/schema.ts](../src/db/schema.ts) - `tdd_red_phase` column
 - Handover generation: [src/mcp-server/handlers/get-current-task.ts](../src/mcp-server/handlers/get-current-task.ts) - `generateTddInstructions()`
 - Cleanup logic: [src/core/tdd-cleanup.ts](../src/core/tdd-cleanup.ts) - `cleanupTddRedMarkers()`

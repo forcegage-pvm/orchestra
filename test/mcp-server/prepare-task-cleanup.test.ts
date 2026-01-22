@@ -17,11 +17,10 @@
 
 import { eq } from "drizzle-orm";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import { simpleGit } from "simple-git";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { getDb, initializeDb, resetDb } from "../../src/db/index.js";
+import { getDb } from "../../src/db/index.js";
 import {
   config,
   gitCommits,
@@ -30,6 +29,7 @@ import {
   tasks,
 } from "../../src/db/schema.js";
 import { handlePrepareTask } from "../../src/mcp-server/handlers/prepare-task.js";
+import { cleanupTestDb, setupTestDb } from "../setup/db-cache.js";
 
 describe.skip("prepare_task TDD Cleanup Integration", () => {
   const testSprintId = "test-sprint-cleanup";
@@ -38,8 +38,7 @@ describe.skip("prepare_task TDD Cleanup Integration", () => {
 
   beforeEach(async () => {
     // Create temp directory for isolated DB and git repo
-    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "cleanup-test-"));
-    process.env.ORCHESTRA_WORKSPACE = tempDir;
+    tempDir = await setupTestDb("cleanup-test-");
 
     // Initialize git repo
     const git = simpleGit(tempDir);
@@ -52,8 +51,6 @@ describe.skip("prepare_task TDD Cleanup Integration", () => {
     await git.add("README.md");
     await git.commit("Initial commit");
 
-    resetDb();
-    await initializeDb();
     const db = getDb();
 
     // Create test sprint
@@ -103,9 +100,7 @@ describe.skip("prepare_task TDD Cleanup Integration", () => {
   });
 
   afterEach(async () => {
-    resetDb();
-    fs.rmSync(tempDir, { recursive: true, force: true });
-    delete process.env.ORCHESTRA_WORKSPACE;
+    await cleanupTestDb(tempDir);
   });
 
   it("should call cleanupTddRedMarkers at start of prepareTask - TypeScript", async () => {

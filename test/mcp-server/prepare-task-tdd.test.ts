@@ -6,12 +6,8 @@
  */
 
 import { eq } from "drizzle-orm";
-import fs from "node:fs";
-import os from "node:os";
-import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { getDb, initializeDb, resetDb } from "../../src/db/index.js";
-import { runMigrationsV2 } from "../../src/db/migrations.js";
+import { getDb } from "../../src/db/index.js";
 import {
   config,
   phases,
@@ -21,6 +17,7 @@ import {
   verificationChecks,
 } from "../../src/db/schema.js";
 import { handlePrepareTask } from "../../src/mcp-server/handlers/prepare-task.js";
+import { cleanupTestDb, setupTestDb } from "../setup/db-cache.js";
 
 describe("prepare_task TDD Auto-Injection", () => {
   const testSprintId = "test-sprint-tdd";
@@ -28,13 +25,7 @@ describe("prepare_task TDD Auto-Injection", () => {
   let tempDir: string;
 
   beforeEach(async () => {
-    // Create temp directory for isolated DB
-    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "tdd-test-"));
-    process.env.ORCHESTRA_WORKSPACE = tempDir;
-
-    resetDb();
-    await initializeDb();
-    await runMigrationsV2();
+    tempDir = await setupTestDb("tdd-test-");
     const db = getDb();
     const now = new Date().toISOString();
 
@@ -86,9 +77,7 @@ describe("prepare_task TDD Auto-Injection", () => {
   });
 
   afterEach(async () => {
-    resetDb();
-    fs.rmSync(tempDir, { recursive: true, force: true });
-    delete process.env.ORCHESTRA_WORKSPACE;
+    await cleanupTestDb(tempDir);
   });
 
   it("should inject TDD check when require_tests=true and category matches", async () => {

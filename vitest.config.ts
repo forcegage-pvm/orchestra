@@ -8,6 +8,8 @@ export default defineConfig({
     environment: "node",
     include: ["test/**/*.test.ts"],
     exclude: ["node_modules", "dist"],
+    // Global setup - creates pre-migrated database template once
+    globalSetup: ["./test/setup/global-setup.ts"],
     coverage: {
       provider: "v8",
       reporter: ["text", "json", "html"],

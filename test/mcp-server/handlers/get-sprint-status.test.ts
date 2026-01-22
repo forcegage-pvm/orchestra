@@ -8,16 +8,8 @@
  * 4. Orphaned green_task_id detection
  */
 
-import fs from "node:fs";
-import os from "node:os";
-import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import {
-  getDb,
-  getRawDb,
-  initializeDb,
-  resetDb,
-} from "../../../src/db/index.js";
+import { getDb, getRawDb } from "../../../src/db/index.js";
 import {
   phases,
   sprints,
@@ -25,34 +17,17 @@ import {
   tddTaskRelationships,
 } from "../../../src/db/schema.js";
 import { handleGetSprintStatus } from "../../../src/mcp-server/handlers/get-sprint-status.js";
+import { cleanupTestDb, setupTestDb } from "../../setup/db-cache.js";
 
 describe("get_sprint_status handler", () => {
   let tempDir: string;
 
   beforeEach(async () => {
-    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "get-sprint-status-test-"));
-    process.env.ORCHESTRA_WORKSPACE = tempDir;
-
-    resetDb();
-    await initializeDb();
+    tempDir = await setupTestDb("get-sprint-status-test-");
   });
 
-  afterEach(() => {
-    // Close database connection first
-    try {
-      resetDb();
-    } catch (e) {
-      // Ignore errors
-    }
-
-    // Try to clean up temp directory
-    if (tempDir && fs.existsSync(tempDir)) {
-      try {
-        fs.rmSync(tempDir, { recursive: true, force: true });
-      } catch (e) {
-        // Ignore EPERM errors on Windows
-      }
-    }
+  afterEach(async () => {
+    await cleanupTestDb(tempDir);
   });
 
   describe("basic sprint status", () => {
