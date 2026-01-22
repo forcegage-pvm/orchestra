@@ -89,7 +89,7 @@ import { runEscalate } from "../../src/core/escalate.js";
 import { runFeedback } from "../../src/core/feedback.js";
 import type { VerifyResult } from "../../src/core/verification.js";
 
-describe("Failure Path Integration", () => {
+describe.sequential("Failure Path Integration", () => {
   beforeEach(() => {
     testTempDir = fs.mkdtempSync(path.join(os.tmpdir(), "orchestra-int-"));
 
@@ -310,19 +310,19 @@ describe("Failure Path Integration", () => {
       // Create feedback files to simulate history
       const feedbackPath = path.join(
         testTempDir,
-        ".orchestra/implementor/feedback"
+        ".orchestra/implementor/feedback",
       );
       fs.writeFileSync(
         path.join(feedbackPath, "task-1-attempt-1.md"),
-        "# Feedback\n\n**Problem**: First issue\n"
+        "# Feedback\n\n**Problem**: First issue\n",
       );
       fs.writeFileSync(
         path.join(feedbackPath, "task-1-attempt-2.md"),
-        "# Feedback\n\n**Problem**: Second issue\n"
+        "# Feedback\n\n**Problem**: Second issue\n",
       );
       fs.writeFileSync(
         path.join(feedbackPath, "task-1-attempt-3.md"),
-        "# Feedback\n\n**Problem**: Third issue\n"
+        "# Feedback\n\n**Problem**: Third issue\n",
       );
 
       const result = await runEscalate({
@@ -372,7 +372,7 @@ describe("Failure Path Integration", () => {
           task: "1",
           reason: "",
           orchestraRoot: testTempDir,
-        })
+        }),
       ).rejects.toThrow(/reason.*required/i);
     });
 
@@ -382,7 +382,7 @@ describe("Failure Path Integration", () => {
           task: "999",
           verificationResult: mockVerificationResult,
           orchestraRoot: testTempDir,
-        })
+        }),
       ).rejects.toThrow(/not found/i);
     });
 
@@ -394,7 +394,7 @@ describe("Failure Path Integration", () => {
           task: "1",
           reason: "Test",
           orchestraRoot: testTempDir,
-        })
+        }),
       ).rejects.toThrow(/already complete/i);
     });
   });
@@ -435,7 +435,7 @@ describe("Failure Path Integration", () => {
       expect(escalateResult.success).toBe(true);
       expect(escalateResult.newStatus).toBe("ESCALATED");
       expect(escalateResult.reason).toBe(
-        "Max attempts exceeded - all 3 retries failed"
+        "Max attempts exceeded - all 3 retries failed",
       );
     });
   });

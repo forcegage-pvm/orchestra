@@ -195,7 +195,7 @@ describe("validateJsonSchema", () => {
     const errors = validateJsonSchema(schema);
 
     expect(errors.length).toBeGreaterThan(0);
-    expect(errors[0]?.message).toContain("should be array");
+    expect(errors[0]?.message).toMatch(/should be array|must be array/i);
   });
 
   it("includes schemaName in error messages when provided", () => {
