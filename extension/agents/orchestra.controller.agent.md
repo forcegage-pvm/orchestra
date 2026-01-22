@@ -146,8 +146,24 @@ When sprint status is `PENDING_SPEC_REVIEW`:
 - [ ] Acceptance criteria are testable and specific
 - [ ] File operations match what the spec expects
 - [ ] Context section accurately describes the spec
+- [ ] Interface-modifying tasks include interface validation in verification criteria
 - [ ] NO "placeholder", "stub", "no-op", "future work" language
 - [ ] NO deferred functionality that the spec requires
+
+### Interface Validation During Handover Review
+
+When the task modifies **interface definitions** (schemas, contracts, protocol specs), the handover **must** include verification criteria that require interface validity checks. This is different from code review: at handover review time, you verify the **criteria exist**, not that the checks were executed.
+
+**Examples of interface types that require validation criteria:**
+
+- JSON Schema files
+- MCP tool `inputSchema` / `outputSchema`
+- OpenAPI/Swagger definitions
+
+**Warning-then-reject pattern (FR-007):**
+
+1. If the verification criteria are missing interface validation, issue a **WARNING** and request revision to add the validation criteria.
+2. If a revised handover still omits interface validation criteria, **REJECT** the handover.
 
 ## Workflow: Code Review
 
