@@ -326,6 +326,20 @@ The following patterns indicate violations in handovers or code reviews:
 | "Stubbed implementation" | Core functionality not implemented     |
 | "No error handling"      | Critical paths lack error handling     |
 
+### Interface Definition Red Flags
+
+When task touches interface definitions (schemas, contracts, specs), verify that **validity checks exist**:
+
+| Interface Type       | Required Validation                                   |
+| -------------------- | ----------------------------------------------------- |
+| MCP tool inputSchema | Test validates JSON Schema spec (arrays have `items`) |
+| OpenAPI/Swagger      | Schema validates against OpenAPI spec                 |
+| GraphQL SDL          | Schema compiles without errors                        |
+| package.json         | npm validates required fields                         |
+| JSON Schema files    | Schemas validate against JSON Schema meta-schema      |
+
+**REJECT if**: Task modifies interface definitions but verification criteria include only "tests pass" without explicit interface validity checks. Tests validate handler logic, not schema spec compliance.
+
 ## Conformance Levels
 
 ### PASS

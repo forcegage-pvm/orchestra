@@ -1136,6 +1136,49 @@ When task involves defining identifiers, ensure checks cover:
 | CSS classes     | Style definitions                        | Template HTML usage                                            |
 | Export names    | Module exports                           | Import statements                                              |
 
+## Verification Design: Interface Definition Validation
+
+**CRITICAL**: When a task modifies **interface definitions** (schemas, contracts, specs), verification must include **schema/spec validity checks** - not just tests that the code using them works.
+
+### The Problem
+
+Tests validate that handlers work. Tests validate that Zod schemas parse correctly. But interface definitions themselves (JSON Schema, OpenAPI, protobuf, GraphQL SDL) have their own specification rules. Consumer validation happens at runtime - often in a different system (VS Code, API gateway, client SDK).
+
+### Interface Definition Types Requiring Validity Checks
+
+| Interface Type       | Spec to Validate Against | Common Errors                                         |
+| -------------------- | ------------------------ | ----------------------------------------------------- |
+| MCP tool inputSchema | JSON Schema Draft-07     | Array without `items`, object without `properties`    |
+| OpenAPI/Swagger      | OpenAPI 3.x spec         | Invalid `$ref`, missing required fields               |
+| GraphQL SDL          | GraphQL spec             | Invalid types, circular references                    |
+| Protobuf             | proto3 syntax            | Reserved field numbers, invalid defaults              |
+| JSON Schema          | JSON Schema spec         | Invalid `type`, `enum` not array, `required` mismatch |
+| package.json         | npm package spec         | Invalid `exports`, missing `main`                     |
+| tsconfig.json        | TypeScript config spec   | Conflicting options, invalid paths                    |
+
+### Mandatory Verification for Interface Tasks
+
+When preparing a task that touches interface definitions:
+
+1. **Add a behavioral check** that validates the definition against its spec
+2. **Add a test** (if project supports it) that loads and validates all definitions
+3. **Include in acceptance criteria**: "Definitions pass spec validation"
+
+Example verification for MCP tools:
+
+```json
+{
+  "behavioral_checks": [
+    {
+      "description": "MCP tool schemas are valid JSON Schema",
+      "command": "npm test -- -t 'tool schema validation'",
+      "expect_exit_code": 0,
+      "severity": "BLOCKING"
+    }
+  ]
+}
+```
+
 ### Red Flags During Verification
 
 During manual review, look for these cross-reference inconsistency patterns:

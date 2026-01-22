@@ -1393,7 +1393,23 @@ const TOOLS_WITH_ROLES: ToolWithRole[] = [
         files_reviewed: { type: "array", items: { type: "string" } },
         tests_run: { type: "array", items: { type: "string" } },
         commit_range: { type: "string" },
-        issues: { type: "array" },
+        issues: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              severity: {
+                type: "string",
+                enum: ["BLOCKING", "MAJOR", "MINOR", "INFO"],
+              },
+              issue: { type: "string" },
+              file: { type: "string" },
+              line: { type: "number" },
+              recommendation: { type: "string" },
+            },
+            required: ["severity", "issue"],
+          },
+        },
         recommendations: { type: "array", items: { type: "string" } },
         notes: { type: "string" },
         verifying_fixes: { type: "boolean" },
