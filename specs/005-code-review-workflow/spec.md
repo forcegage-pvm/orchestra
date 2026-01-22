@@ -246,7 +246,7 @@ Phase gating does not create phase-level review records in the MVP; reviews are 
 
 - **Missing commits**: If commit range is missing, review proceeds but must record `commit_range = null` and `tests_run = NOT_RUN`.
 - **Re-review after changes**: A new review must reference previous review and increment revision count.
-- **Controller unavailable**: Tasks remain in `PENDING_CODE_REVIEW` when gating is enabled.
+- **Controller unavailable**: Tasks remain in `PENDING_CODE_REVIEW` when gating is enabled. No automatic timeout; human supervisor can manually approve or override gate via sprint settings (`code_review_policy = ad_hoc`) to unblock.
 - **Task reverted**: If a task is reopened, prior code reviews remain as historical records.
 
 ---
@@ -259,6 +259,10 @@ Global defaults with per-sprint overrides (via sprint settings table):
 - `code_review_policy`: `ad_hoc | task_gate | phase_gate` (default: `phase_gate`)
 - `code_review_blocking_severity`: `BLOCKING | MAJOR | MINOR` (default: `BLOCKING`)
 - `code_review_auto_trigger`: `manual | task | phase | both` (default: `both`)
+  - `manual`: Reviews only triggered via UI actions
+  - `task`: Auto-trigger on each task completion (VERIFY → COMPLETE)
+  - `phase`: Auto-trigger when all tasks in a phase are complete
+  - `both`: Task triggers fire first; phase trigger fires additionally when phase completes (cumulative, not exclusive)
 - `code_review_required_steps`: optional list of workflow steps; if set, applies to all phases in the app
 
 Per-sprint overrides MUST allow changing policy and enablement.

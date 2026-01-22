@@ -46,7 +46,8 @@ specs/005-code-review-workflow/
     ├── submit-code-review-fixes.schema.ts
     ├── resolve-code-review-issue.schema.ts
     ├── verify-code-review-fixes.schema.ts
-    └── resubmit-code-review.schema.ts
+    ├── resubmit-code-review.schema.ts
+    └── request-code-review.schema.ts  # DEPRECATED: Review requests are UI-triggered, not agent tools
 ```
 
 ## Phase Deliverables
@@ -90,6 +91,10 @@ specs/005-code-review-workflow/
 | FR-011           | Issue routing action to agent                    |
 | FR-012           | Fix submission + verification tools              |
 | FR-013           | Sprint config settings + validation              |
+| FR-014           | Ad-hoc review action (all unreviewed tasks)      |
+| FR-015           | Single task review from Current Task card        |
+| FR-016           | Auto-trigger logic on task/phase completion      |
+| FR-017           | Manual UI triggers (always available)            |
 | FR-018           | Open issues tool for implementor                 |
 | FR-019           | Issue resolution tool                            |
 | FR-020           | Controller confirmation step                     |

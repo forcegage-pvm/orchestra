@@ -114,7 +114,22 @@ export const submitCodeReviewToolDef = {
       files_reviewed: { type: "array", items: { type: "string" } },
       tests_run: { type: "array", items: { type: "string" } },
       commit_range: { type: "string" },
-      issues: { type: "array" },
+      issues: {
+        type: "array",
+        items: {
+          type: "object",
+          properties: {
+            severity: { type: "string" },
+            issue: { type: "string" },
+            file: { type: "string" },
+            line: { type: "number" },
+            code_snippet: { type: "string" },
+            rationale: { type: "string" },
+            recommendation: { type: "string" },
+          },
+          required: ["severity", "issue", "rationale"],
+        },
+      },
       recommendations: { type: "array", items: { type: "string" } },
       notes: { type: "string" },
       verifying_fixes: { type: "boolean" },

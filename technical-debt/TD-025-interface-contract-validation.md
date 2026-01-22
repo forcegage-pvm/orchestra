@@ -436,3 +436,380 @@ This test runs on every `npm test` and catches schema issues before they ship.
 - Related: TD-023 (Code Review Workflow Gaps)
 - JSON Schema spec: https://json-schema.org/specification
 - MCP Protocol: https://modelcontextprotocol.io/
+
+---
+
+## Structural Enforcement Strategy (Universal)
+
+This section defines **meta-level solutions** that apply to ANY codebase, ANY language, ANY project type.
+
+---
+
+### The Fundamental Problem: Dual Representation
+
+Most software systems that expose external interfaces have this structure:
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    DUAL REPRESENTATION PROBLEM                              │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  SOURCE A: Internal Implementation    SOURCE B: External Contract           │
+│  ─────────────────────────────────   ────────────────────────────           │
+│  Type definitions in code             Schema/spec consumed by clients       │
+│  Runtime validation logic             API definition documents              │
+│  Handler parameter types              SDK generation inputs                 │
+│                                                                              │
+│  Examples:                            Examples:                              │
+│  - TypeScript interfaces              - JSON Schema                          │
+│  - Python type hints                  - OpenAPI/Swagger                      │
+│  - Go struct definitions              - GraphQL SDL                          │
+│  - Java POJOs                         - Protobuf .proto files                │
+│                                                                              │
+│  ⚠️ WHEN MANUALLY SYNCHRONIZED → HUMAN ERROR IS INEVITABLE                 │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+**The compiler validates Source A. Nothing validates Source B.**
+
+Compilation success means "the code is internally consistent." It does NOT mean "the external contract is valid according to its specification."
+
+---
+
+### Why Compilers Don't Catch This
+
+Compilers validate **language syntax and type relationships**. They do NOT validate **semantic correctness of data objects against external specifications**.
+
+```
+// In ANY typed language:
+interface_definition = {
+  "type": "array"    // ← Compiler: valid string ✓
+}                    // ← JSON Schema spec: INVALID (arrays require 'items') ✗
+```
+
+The compiler sees a valid object with string properties. It has no knowledge that JSON Schema Draft-07 requires arrays to have an `items` property.
+
+**This gap exists in every language:**
+
+| Language   | Compiler Validates                    | Compiler Does NOT Validate         |
+| ---------- | ------------------------------------- | ---------------------------------- |
+| TypeScript | Object structure, property types      | JSON Schema semantics              |
+| Python     | Syntax, basic types (with mypy)       | Pydantic → JSON Schema correctness |
+| Go         | Struct fields, interface satisfaction | OpenAPI annotation validity        |
+| Rust       | Ownership, trait bounds               | Serde attribute semantics          |
+| Java       | Type hierarchy, generics              | Jackson annotation validity        |
+
+---
+
+### The Four Universal Strategies
+
+#### Strategy 1: Derivation (Eliminate Dual Representation)
+
+**Principle**: Define the contract ONCE. Generate the other representation.
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    DERIVATION                               │
+├─────────────────────────────────────────────────────────────┤
+│                                                              │
+│  SINGLE SOURCE                        DERIVED OUTPUT         │
+│  ─────────────                        ──────────────         │
+│  Code types/validation          →     External schema        │
+│       OR                                                     │
+│  External schema                →     Code types/validation  │
+│                                                              │
+│  ✅ Drift is IMPOSSIBLE by construction                     │
+│                                                              │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**Pattern A: Code-First (derive schema from code)**
+
+| Language    | Source          | Tool                     | Output      |
+| ----------- | --------------- | ------------------------ | ----------- |
+| TypeScript  | Zod schemas     | `zod-to-json-schema`     | JSON Schema |
+| TypeScript  | io-ts codecs    | `io-ts-to-json-schema`   | JSON Schema |
+| Python      | Pydantic models | `BaseModel.schema()`     | JSON Schema |
+| Python      | dataclasses     | `dataclasses-jsonschema` | JSON Schema |
+| Rust        | Serde structs   | `schemars` crate         | JSON Schema |
+| Go          | Struct tags     | `go-jsonschema`          | JSON Schema |
+| Java/Kotlin | POJOs           | `jsonschema-generator`   | JSON Schema |
+
+**Pattern B: Schema-First (derive code from schema)**
+
+| Source      | Tool                        | Output                         |
+| ----------- | --------------------------- | ------------------------------ |
+| JSON Schema | `json-schema-to-typescript` | TypeScript types               |
+| JSON Schema | `quicktype`                 | Any language                   |
+| OpenAPI     | `openapi-generator`         | Client/server in 40+ languages |
+| Protobuf    | `protoc`                    | Language-specific bindings     |
+| GraphQL SDL | `graphql-codegen`           | TypeScript types/resolvers     |
+
+**When to use**:
+
+- Greenfield projects
+- Projects with budget for refactoring
+- When long-term maintenance cost matters more than short-term effort
+
+**Effort**: HIGH initial, ZERO ongoing
+
+---
+
+#### Strategy 2: Meta-Validation (Validate Contracts at Build Time)
+
+**Principle**: Add a test that validates interface definitions against their specification.
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    META-VALIDATION                          │
+├─────────────────────────────────────────────────────────────┤
+│                                                              │
+│  BUILD PIPELINE                                              │
+│  ──────────────                                              │
+│  1. Compile code           → Validates internal consistency  │
+│  2. Run unit tests         → Validates logic correctness     │
+│  3. Run META-TEST          → Validates contract spec         │
+│     ↓                         compliance                     │
+│  Iterate over all exported schemas                           │
+│  Validate each against its specification                     │
+│  FAIL BUILD if any are invalid                               │
+│                                                              │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**Universal pattern**:
+
+```
+// Pseudocode - applies to any language
+function meta_test():
+    schemas = get_all_exported_interface_definitions()
+
+    for schema in schemas:
+        validator = get_spec_validator(schema.spec_type)
+        errors = validator.validate(schema)
+
+        if errors:
+            fail_test(f"Interface {schema.name} is invalid: {errors}")
+```
+
+**Spec validators by interface type**:
+
+| Interface Type | Validator                 | Validation Method                       |
+| -------------- | ------------------------- | --------------------------------------- |
+| JSON Schema    | AJV, jsonschema           | Validate against meta-schema            |
+| OpenAPI 3.x    | @redocly/cli, swagger-cli | `openapi lint`                          |
+| OpenAPI 2.0    | swagger-tools             | `swagger validate`                      |
+| GraphQL SDL    | graphql-js                | `buildSchema()` throws on invalid       |
+| Protobuf       | protoc                    | `protoc --descriptor_set_out=/dev/null` |
+| AsyncAPI       | @asyncapi/parser          | Parse and validate                      |
+| JSON:API       | jsonapi-validator         | Validate document structure             |
+
+**When to use**:
+
+- Existing codebases where derivation is too expensive
+- Polyglot systems with multiple interface types
+- As defense-in-depth alongside derivation
+
+**Effort**: LOW initial, LOW ongoing
+
+---
+
+#### Strategy 3: Runtime Self-Validation (Fail Fast)
+
+**Principle**: Server validates its own interface definitions at startup.
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    RUNTIME SELF-VALIDATION                  │
+├─────────────────────────────────────────────────────────────┤
+│                                                              │
+│  SERVER STARTUP                                              │
+│  ──────────────                                              │
+│  1. Load interface registry                                  │
+│  2. For each registered interface:                           │
+│     - Validate against spec                                  │
+│     - If invalid → LOG ERROR + EXIT(1)                       │
+│  3. If all valid → Continue to serve                         │
+│                                                              │
+│  ✅ Invalid contracts NEVER serve traffic                    │
+│  ✅ Catches issues during local development                  │
+│                                                              │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**Universal pattern**:
+
+```
+// Pseudocode - applies to any server framework
+function on_server_start():
+    interfaces = get_interface_registry()
+    errors = []
+
+    for interface in interfaces:
+        validation_result = validate_against_spec(interface)
+        if not validation_result.valid:
+            errors.append(f"{interface.name}: {validation_result.errors}")
+
+    if errors:
+        log.fatal("Invalid interface definitions detected:")
+        for error in errors:
+            log.fatal(f"  - {error}")
+        exit(1)
+
+    log.info("All interface definitions validated successfully")
+    start_serving()
+```
+
+**Framework integration points**:
+
+| Framework Type          | Hook Point                        |
+| ----------------------- | --------------------------------- |
+| HTTP servers            | Before `listen()` / startup event |
+| gRPC servers            | Before `serve()`                  |
+| GraphQL servers         | During schema build               |
+| Message queue consumers | Before subscribing                |
+| Serverless functions    | Cold start initialization         |
+
+**When to use**:
+
+- Development environments (can disable in prod for performance)
+- As defense-in-depth (catches issues tests missed)
+- When deployment bypasses CI (hotfixes, emergency patches)
+
+**Effort**: LOW initial, ZERO ongoing
+
+---
+
+#### Strategy 4: Consumer Simulation (End-to-End Validation)
+
+**Principle**: Run the actual consumer validation as part of your build.
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    CONSUMER SIMULATION                      │
+├─────────────────────────────────────────────────────────────┤
+│                                                              │
+│  If your interface will be validated by X, run X yourself   │
+│                                                              │
+│  Examples:                                                   │
+│  - OpenAPI → Generate client SDK (if generation fails,      │
+│              your spec is invalid)                           │
+│  - Protobuf → Run protoc (if compilation fails,             │
+│               your .proto is invalid)                        │
+│  - GraphQL → Run codegen (if it fails, schema is invalid)   │
+│  - npm package → Run `npm pack --dry-run`                   │
+│                                                              │
+│  ✅ Proves what the consumer will see                        │
+│  ✅ Catches issues meta-validation might miss                │
+│                                                              │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**Implementation patterns**:
+
+| Interface Type | Consumer Simulation Command                                                |
+| -------------- | -------------------------------------------------------------------------- |
+| OpenAPI        | `openapi-generator generate -i spec.yaml -g typescript-fetch -o /tmp/test` |
+| Protobuf       | `protoc --python_out=/tmp/test *.proto`                                    |
+| GraphQL        | `graphql-codegen --config codegen.yml`                                     |
+| JSON Schema    | `json-schema-to-typescript schema.json > /tmp/test.ts`                     |
+| npm package    | `npm pack --dry-run && npm publish --dry-run`                              |
+| Docker image   | `docker build --check .` (BuildKit)                                        |
+
+**When to use**:
+
+- When your interface feeds into code generation
+- When third parties consume your interface
+- When meta-validation isn't sufficient
+
+**Effort**: MEDIUM initial, LOW ongoing
+
+---
+
+### Defense in Depth: Layering Strategies
+
+No single strategy is sufficient. Layer them:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    DEFENSE IN DEPTH                         │
+├─────────────────────────────────────────────────────────────┤
+│                                                              │
+│  LAYER 1: DERIVATION (if feasible)                          │
+│  ────────────────────────────────                            │
+│  → Eliminates dual representation entirely                   │
+│  → Drift is impossible by construction                       │
+│                                                              │
+│  LAYER 2: META-VALIDATION TEST (always)                     │
+│  ──────────────────────────────────────                      │
+│  → Catches spec violations at build time                     │
+│  → Works even if derivation isn't used                       │
+│                                                              │
+│  LAYER 3: RUNTIME SELF-VALIDATION (development)             │
+│  ──────────────────────────────────────────────              │
+│  → Catches issues during local dev loops                     │
+│  → Defense against skipped tests                             │
+│                                                              │
+│  LAYER 4: CONSUMER SIMULATION (CI/CD)                       │
+│  ────────────────────────────────────                        │
+│  → Proves the actual consumer will accept                    │
+│  → Catches edge cases meta-validation misses                 │
+│                                                              │
+│  LAYER 5: PROCESS GATES (orchestration)                     │
+│  ──────────────────────────────────────                      │
+│  → Require validation checks in task definitions             │
+│  → Human/agent review verifies validation exists             │
+│                                                              │
+└─────────────────────────────────────────────────────────────┘
+```
+
+---
+
+### Universal Checklist for Any Project
+
+#### Step 1: Inventory Interface Types
+
+| Question                                          | Action                                       |
+| ------------------------------------------------- | -------------------------------------------- |
+| What external contracts does this project expose? | List all schema/spec files                   |
+| What specification governs each contract?         | Map file → spec (JSON Schema, OpenAPI, etc.) |
+| What validates each contract at runtime?          | Identify the consumer/validator              |
+
+#### Step 2: Assess Current State
+
+| Question                                       | Red Flag                        |
+| ---------------------------------------------- | ------------------------------- |
+| Are contracts manually synchronized with code? | Dual representation risk        |
+| Does the build validate contract specs?        | Spec violations can ship        |
+| Does the server validate contracts at startup? | Invalid contracts serve traffic |
+
+#### Step 3: Select Strategy Mix
+
+| Situation                             | Recommended Strategies          |
+| ------------------------------------- | ------------------------------- |
+| Greenfield project                    | Derivation + Meta-Test          |
+| Existing codebase, time available     | Derivation refactor + Meta-Test |
+| Existing codebase, no refactor budget | Meta-Test + Runtime Validation  |
+| High-stakes API (public, regulated)   | All five layers                 |
+
+#### Step 4: Implement and Verify
+
+| Verification              | Method                                      |
+| ------------------------- | ------------------------------------------- |
+| Derivation works          | Break source, verify output changes         |
+| Meta-test catches issues  | Introduce invalid schema, verify test fails |
+| Runtime validation works  | Deploy invalid schema to dev, verify crash  |
+| Consumer simulation works | Break spec, verify generation fails         |
+
+---
+
+### The Golden Rule
+
+> **If an external system will validate your interface, YOUR build must run that same validation first.**
+
+| ❌ Insufficient | ✅ Sufficient                     |
+| --------------- | --------------------------------- |
+| "Code compiles" | + Meta-test validates schema spec |
+| "Tests pass"    | + Consumer simulation succeeds    |
+| "Handler works" | + Runtime self-validation passes  |

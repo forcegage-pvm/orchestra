@@ -54,9 +54,7 @@ export const codeReviews = sqliteTable(
   (reviews) => ({
     sprintIdx: index("code_reviews_sprint_idx").on(reviews.sprint_id),
     taskIdx: index("code_reviews_task_idx").on(reviews.task_id),
-    phaseIdx: index("code_reviews_phase_idx").on(reviews.phase_id),
     statusIdx: index("code_reviews_status_idx").on(reviews.status),
-    scopeIdx: index("code_reviews_scope_idx").on(reviews.review_scope),
   }),
 );
 ```
@@ -236,6 +234,18 @@ export type CodeReviewBlockingSeverity = z.output<
   typeof CodeReviewBlockingSeveritySchema
 >;
 ```
+
+### Decision → Status Mapping
+
+The `CodeReviewDecision` (action) maps to `CodeReviewStatus` (record state) as follows:
+
+| Decision (Action) | Status (Record State) | Description |
+|-------------------|----------------------|-------------|
+| `APPROVED` | `APPROVED` | Review passed |
+| `NEEDS_REVISION` | `CHANGES_REQUESTED` | Issues identified, fixes required |
+| `REJECTED` | `REJECTED` | Blocking issues, requires re-implementation |
+
+This distinction allows the Controller to express intent (`NEEDS_REVISION`) while the system records durable state (`CHANGES_REQUESTED`).
 
 ---
 

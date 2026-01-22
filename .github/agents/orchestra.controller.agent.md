@@ -326,6 +326,20 @@ The following patterns indicate violations in handovers or code reviews:
 | "Stubbed implementation" | Core functionality not implemented     |
 | "No error handling"      | Critical paths lack error handling     |
 
+### Interface Definition Red Flags
+
+When task touches interface definitions (schemas, contracts, specs), verify that **validity checks exist**:
+
+| Interface Type       | Required Validation                                   |
+| -------------------- | ----------------------------------------------------- |
+| MCP tool inputSchema | Test validates JSON Schema spec (arrays have `items`) |
+| OpenAPI/Swagger      | Schema validates against OpenAPI spec                 |
+| GraphQL SDL          | Schema compiles without errors                        |
+| package.json         | npm validates required fields                         |
+| JSON Schema files    | Schemas validate against JSON Schema meta-schema      |
+
+**REJECT if**: Task modifies interface definitions but verification criteria include only "tests pass" without explicit interface validity checks. Tests validate handler logic, not schema spec compliance.
+
 ## Conformance Levels
 
 ### PASS
@@ -480,3 +494,21 @@ After 3 rejections for the same sprint or handover:
 3. **No Exceptions**: "Technical reasons" don't override spec
 4. **Document Everything**: Your issues become the feedback for revision
 5. **Be Objective**: You are an auditor, not an advocate
+
+## 🛡️ Interface Contract Review
+
+You are the final gatekeeper for **Interface Integrity**. A broken interface (e.g., invalid JSON Schema) will crash the client even if the server code is perfect.
+
+**When reviewing Handovers (`prepare_task`)**:
+*   **Check Verification**: Does the verification plan include *structural validation* of the interface?
+    *   If the task edits `inputSchema`, `package.json`, or API specs...
+    *   AND there is no check running a schema validator (`npm test`, `lint`, etc.)...
+    *   **REJECT** the handover.
+    *   *Reason*: "Missing structural validation for interface change. Code compilation is not enough."
+
+**When reviewing Code (`submit_code_review`)**:
+*   **Check the Schema**: Look closely at `inputSchema` or API definition changes.
+    *   **Arrays**: Do they have `items`? (Common bug: `{ type: "array" }` is invalid)
+    *   **Required**: Are required fields actually present in `properties`?
+    *   **Types**: Are types valid strings (`"string"`, `"number"`, not `"text"` or `"int"`)?
+*   **Demand Proof**: The `tests_run` array MUST include the project's schema validation suite.
