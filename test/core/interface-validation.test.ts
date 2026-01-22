@@ -1,15 +1,12 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { describe, expect, it, afterEach } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
+import { ConfigurationError, ValidationError } from "../../src/core/errors.js";
 import {
   loadValidationConfig,
   validatePatternExclusivity,
 } from "../../src/core/interface-validation.js";
-import {
-  ConfigurationError,
-  ValidationError,
-} from "../../src/core/errors.js";
 import type { InterfaceValidationConfig } from "../../src/schemas/interface-validation.js";
 
 function createTempDir(): string {
@@ -43,13 +40,13 @@ describe("loadValidationConfig", () => {
     writeConfig(
       dir,
       [
-        "version: \"1.0\"",
+        'version: "1.0"',
         "validations:",
         "  - name: core",
         "    patterns:",
-        "      - \"src/**/*.ts\"",
-        "    command: \"npm test\"",
-      ].join("\n")
+        '      - "src/**/*.ts"',
+        '    command: "npm test"',
+      ].join("\n"),
     );
 
     const config = loadValidationConfig(dir);
@@ -70,13 +67,7 @@ describe("loadValidationConfig", () => {
     const dir = createTempDir();
     cleanupDirs.push(dir);
 
-    writeConfig(
-      dir,
-      [
-        "version: \"1.0\"",
-        "validations: []",
-      ].join("\n")
-    );
+    writeConfig(dir, ['version: "1.0"', "validations: []"].join("\n"));
 
     expect(() => loadValidationConfig(dir)).toThrow(ValidationError);
 

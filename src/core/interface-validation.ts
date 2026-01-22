@@ -2,8 +2,10 @@
  * Interface validation core utilities
  */
 
-import * as path from "node:path";
 import minimatch from "minimatch";
+import * as path from "node:path";
+import type { InterfaceValidationConfig } from "../schemas/interface-validation.js";
+import { InterfaceValidationConfigSchema } from "../schemas/interface-validation.js";
 import {
   ConfigurationError,
   FileError,
@@ -11,8 +13,6 @@ import {
   ValidationError,
 } from "./errors.js";
 import { readYaml, yamlExists } from "./yaml.js";
-import type { InterfaceValidationConfig } from "../schemas/interface-validation.js";
-import { InterfaceValidationConfigSchema } from "../schemas/interface-validation.js";
 
 const INTERFACE_VALIDATION_CONFIG_RELATIVE_PATH =
   ".orchestra/interface-validations.yaml";
@@ -23,9 +23,12 @@ export interface PatternOverlapError {
 }
 
 export function loadValidationConfig(
-  rootDir: string = process.cwd()
+  rootDir: string = process.cwd(),
 ): InterfaceValidationConfig {
-  const configPath = path.resolve(rootDir, INTERFACE_VALIDATION_CONFIG_RELATIVE_PATH);
+  const configPath = path.resolve(
+    rootDir,
+    INTERFACE_VALIDATION_CONFIG_RELATIVE_PATH,
+  );
 
   if (!yamlExists(configPath)) {
     throw new ConfigurationError("Interface validation config not found", {
@@ -41,7 +44,7 @@ export function loadValidationConfig(
       throw new ValidationError(
         "Invalid interface validation config",
         error.errors,
-        { path: configPath }
+        { path: configPath },
       );
     }
 
@@ -59,7 +62,7 @@ export function loadValidationConfig(
 export function validatePatternExclusivity(
   config: InterfaceValidationConfig,
   files: string[],
-  rootDir: string = process.cwd()
+  rootDir: string = process.cwd(),
 ): PatternOverlapError[] {
   const results: PatternOverlapError[] = [];
 
@@ -89,7 +92,7 @@ function matchesAnyPattern(filePath: string, patterns: string[]): boolean {
     minimatch(filePath, pattern, {
       dot: true,
       nocase: false,
-    })
+    }),
   );
 }
 
