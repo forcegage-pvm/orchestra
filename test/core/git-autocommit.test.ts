@@ -6,23 +6,19 @@
 
 import { eq } from "drizzle-orm";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import { simpleGit } from "simple-git";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { autoCommitIfEnabled } from "../../src/core/git.js";
-import { getDb, initializeDb, resetDb } from "../../src/db/index.js";
+import { getDb } from "../../src/db/index.js";
 import { config } from "../../src/db/schema.js";
+import { cleanupTestDb, setupTestDb } from "../setup/db-cache.js";
 
 describe("git auto-commit", () => {
   let tempDir: string;
 
   beforeEach(async () => {
-    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "orchestra-git-test-"));
-    process.env.ORCHESTRA_WORKSPACE = tempDir;
-
-    resetDb();
-    await initializeDb();
+    tempDir = await setupTestDb("orchestra-git-test-");
 
     // Initialize git repo in the workspace
     const git = simpleGit(tempDir);
@@ -47,10 +43,8 @@ describe("git auto-commit", () => {
     fs.mkdirSync(path.join(tempDir, "child"), { recursive: true });
   });
 
-  afterEach(() => {
-    resetDb();
-    fs.rmSync(tempDir, { recursive: true, force: true });
-    delete process.env.ORCHESTRA_WORKSPACE;
+  afterEach(async () => {
+    await cleanupTestDb(tempDir);
   });
 
   it("stages and commits changes even when cwd is a subdirectory", async () => {

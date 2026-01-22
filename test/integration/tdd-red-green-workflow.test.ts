@@ -19,14 +19,13 @@
 
 import { eq } from "drizzle-orm";
 import fs from "node:fs/promises";
-import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as preSignalExecutor from "../../src/core/pre-signal-executor.js";
 import * as tddScanOnSignal from "../../src/core/tdd-scan-on-signal.js";
-import { getDb, initializeDb, resetDb } from "../../src/db/index.js";
-import { runMigrationsV2 } from "../../src/db/migrations.js";
+import { getDb } from "../../src/db/index.js";
 import { sprints, tasks, tddRedRegistry } from "../../src/db/schema.js";
+import { cleanupTestDb, setupTestDb } from "../setup/db-cache.js";
 import { handleCompleteTask } from "../../src/mcp-server/handlers/complete-task.js";
 import { handleConfigureSprint } from "../../src/mcp-server/handlers/configure-sprint.js";
 import { handleGetSprintStatus } from "../../src/mcp-server/handlers/get-sprint-status.js";
@@ -39,14 +38,8 @@ describe("TDD Red-Green Workflow End-to-End", () => {
   let sprintId: string;
 
   beforeEach(async () => {
-    // Create temp workspace
-    tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "tdd-workflow-e2e-"));
-    process.env.ORCHESTRA_WORKSPACE = tempDir;
-
-    // Initialize database
-    resetDb();
-    await initializeDb();
-    await runMigrationsV2();
+    // Create temp workspace via cache
+    tempDir = await setupTestDb("tdd-workflow-e2e-");
 
     // Create package.json for vitest
     await fs.writeFile(
@@ -59,9 +52,7 @@ describe("TDD Red-Green Workflow End-to-End", () => {
 
   afterEach(async () => {
     vi.restoreAllMocks();
-    resetDb();
-    await fs.rm(tempDir, { recursive: true, force: true });
-    delete process.env.ORCHESTRA_WORKSPACE;
+    await cleanupTestDb(tempDir);
   });
 
   describe("Complete red→green workflow", () => {

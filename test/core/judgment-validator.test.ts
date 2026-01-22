@@ -7,12 +7,9 @@
  * - VER-022: Rationale stored for audit trail
  */
 
-import fs from "node:fs";
-import os from "node:os";
-import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { JVC, validateJudgment } from "../../src/core/judgment-validator.js";
-import { getDb, initializeDb, resetDb } from "../../src/db/index.js";
+import { getDb } from "../../src/db/index.js";
 import {
   phases,
   signals,
@@ -21,16 +18,13 @@ import {
   verificationChecks,
   verificationResults,
 } from "../../src/db/schema.js";
+import { cleanupTestDb, setupTestDb } from "../setup/db-cache.js";
 
 describe("Judgment Validator", () => {
   let tempDir: string;
 
   beforeEach(async () => {
-    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "judgment-validator-"));
-    process.env.ORCHESTRA_WORKSPACE = tempDir;
-
-    resetDb();
-    await initializeDb();
+    tempDir = await setupTestDb("judgment-validator-");
     const db = getDb();
 
     // Create test sprint
@@ -84,9 +78,7 @@ describe("Judgment Validator", () => {
   });
 
   afterEach(async () => {
-    resetDb();
-    fs.rmSync(tempDir, { recursive: true, force: true });
-    delete process.env.ORCHESTRA_WORKSPACE;
+    await cleanupTestDb(tempDir);
   });
 
   describe("JVC-1: Verification results must exist", () => {

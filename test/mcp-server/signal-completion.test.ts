@@ -7,14 +7,14 @@
 
 import { eq } from "drizzle-orm";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as preSignalExecutor from "../../src/core/pre-signal-executor.js";
 import * as tddScanOnSignal from "../../src/core/tdd-scan-on-signal.js";
-import { getDb, initializeDb, resetDb } from "../../src/db/index.js";
+import { getDb } from "../../src/db/index.js";
 import { phases, sprints, tasks, tddRedRegistry } from "../../src/db/schema.js";
 import { handleSignalCompletion } from "../../src/mcp-server/handlers/signal-completion.js";
+import { cleanupTestDb, setupTestDb } from "../setup/db-cache.js";
 
 describe("signal_completion handler", () => {
   let tempDir: string;
@@ -22,12 +22,7 @@ describe("signal_completion handler", () => {
   const testPhaseId = "phase-1";
 
   beforeEach(async () => {
-    // Create temp directory for isolated DB
-    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "signal-completion-"));
-    process.env.ORCHESTRA_WORKSPACE = tempDir;
-
-    resetDb();
-    await initializeDb();
+    tempDir = await setupTestDb("signal-completion-");
 
     // Create a test sprint
     const db = getDb();
@@ -52,15 +47,7 @@ describe("signal_completion handler", () => {
 
   afterEach(async () => {
     vi.restoreAllMocks();
-    resetDb();
-    if (tempDir && fs.existsSync(tempDir)) {
-      try {
-        fs.rmSync(tempDir, { recursive: true, force: true });
-      } catch {
-        // Ignore cleanup errors (Windows file locking issues)
-      }
-    }
-    delete process.env.ORCHESTRA_WORKSPACE;
+    await cleanupTestDb(tempDir);
   });
 
   describe("tdd_red_phase propagation", () => {
@@ -95,7 +82,7 @@ describe("signal_completion handler", () => {
       // Spy on runPreSignalChecks to capture the config passed to it
       const runPreSignalChecksSpy = vi.spyOn(
         preSignalExecutor,
-        "runPreSignalChecks"
+        "runPreSignalChecks",
       );
 
       // Mock successful pre-signal checks
@@ -167,7 +154,7 @@ describe("signal_completion handler", () => {
       // Spy on runPreSignalChecks to capture the config passed to it
       const runPreSignalChecksSpy = vi.spyOn(
         preSignalExecutor,
-        "runPreSignalChecks"
+        "runPreSignalChecks",
       );
 
       // Mock successful pre-signal checks
@@ -469,11 +456,11 @@ describe("signal_completion handler", () => {
 
       expect(resultData.success).toBe(false);
       expect(resultData.error.message).toContain(
-        "TDD RED-PHASE WORKFLOW VIOLATION"
+        "TDD RED-PHASE WORKFLOW VIOLATION",
       );
       expect(resultData.error.message).toContain("no TDD markers were found");
       expect(resultData.error.message).toContain(
-        "Red and green phases MUST be separate tasks"
+        "Red and green phases MUST be separate tasks",
       );
     });
 

@@ -5,12 +5,9 @@
  * before verification checks can proceed.
  */
 
-import fs from "node:fs";
-import os from "node:os";
-import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { validateAcceptSignal } from "../../src/core/accept-signal-validator.js";
-import { getDb, initializeDb, resetDb } from "../../src/db/index.js";
+import { getDb } from "../../src/db/index.js";
 import {
   phases,
   signals,
@@ -18,16 +15,13 @@ import {
   tasks,
   verificationChecks,
 } from "../../src/db/schema.js";
+import { cleanupTestDb, setupTestDb } from "../setup/db-cache.js";
 
 describe("Accept Signal Validator", () => {
   let tempDir: string;
 
   beforeEach(async () => {
-    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "accept-signal-"));
-    process.env.ORCHESTRA_WORKSPACE = tempDir;
-
-    resetDb();
-    await initializeDb();
+    tempDir = await setupTestDb("accept-signal-");
     const db = getDb();
 
     // Create test sprint
@@ -66,9 +60,7 @@ describe("Accept Signal Validator", () => {
   });
 
   afterEach(async () => {
-    resetDb();
-    fs.rmSync(tempDir, { recursive: true, force: true });
-    delete process.env.ORCHESTRA_WORKSPACE;
+    await cleanupTestDb(tempDir);
   });
 
   describe("ASV-1: Signal exists", () => {

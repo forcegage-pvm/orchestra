@@ -3,12 +3,8 @@
  */
 
 import { eq } from "drizzle-orm";
-import fs from "node:fs";
-import os from "node:os";
-import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { getDb, initializeDb, resetDb } from "../../src/db/index.js";
-import { runMigrationsV2 } from "../../src/db/migrations.js";
+import { getDb } from "../../src/db/index.js";
 import {
   codeReviewIssues,
   codeReviews,
@@ -17,36 +13,18 @@ import {
   sprints,
   tasks,
 } from "../../src/db/schema.js";
+import { cleanupTestDb, setupTestDb } from "../setup/db-cache.js";
 import { handleSubmitCodeReview } from "../../src/mcp-server/handlers/submit-code-review.js";
 
 describe("submit_code_review handler", () => {
   let tempDir: string;
 
   beforeEach(async () => {
-    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "submit-code-review-"));
-    process.env.ORCHESTRA_WORKSPACE = tempDir;
-
-    resetDb();
-    await initializeDb();
-    await runMigrationsV2();
+    tempDir = await setupTestDb("submit-code-review-");
   });
 
-  afterEach(() => {
-    try {
-      resetDb();
-    } catch {
-      // Ignore cleanup errors
-    }
-
-    if (tempDir && fs.existsSync(tempDir)) {
-      try {
-        fs.rmSync(tempDir, { recursive: true, force: true });
-      } catch {
-        // Ignore EPERM errors on Windows
-      }
-    }
-
-    delete process.env.ORCHESTRA_WORKSPACE;
+  afterEach(async () => {
+    await cleanupTestDb(tempDir);
   });
 
   async function seedTask(params?: {

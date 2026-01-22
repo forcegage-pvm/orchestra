@@ -3,19 +3,11 @@
  */
 
 import { eq } from "drizzle-orm";
-import fs from "node:fs";
-import os from "node:os";
-import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as commandExecutor from "../../src/core/command-executor.js";
-import {
-  getDb,
-  initializeDb,
-  resetDb,
-  runMigrationsV2,
-  schema,
-} from "../../src/db/index.js";
+import { getDb, schema } from "../../src/db/index.js";
 import { handleFixCodeReview } from "../../src/mcp-server/handlers/fix-code-review.js";
+import { cleanupTestDb, setupTestDb } from "../setup/db-cache.js";
 
 const {
   codeReviewFixes,
@@ -33,27 +25,12 @@ describe("fix_code_review handler", () => {
   const sprintId = "sprint-fix-1";
 
   beforeEach(async () => {
-    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "fix-code-review-"));
-    process.env.ORCHESTRA_WORKSPACE = tempDir;
-
-    resetDb();
-    await initializeDb();
-    await runMigrationsV2();
+    tempDir = await setupTestDb("fix-code-review-");
   });
 
-  afterEach(() => {
+  afterEach(async () => {
     vi.restoreAllMocks();
-    try {
-      resetDb();
-    } catch {
-      // Ignore cleanup errors
-    }
-
-    if (tempDir && fs.existsSync(tempDir)) {
-      fs.rmSync(tempDir, { recursive: true, force: true });
-    }
-
-    delete process.env.ORCHESTRA_WORKSPACE;
+    await cleanupTestDb(tempDir);
   });
 
   async function seedBaseData() {

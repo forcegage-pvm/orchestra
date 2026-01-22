@@ -10,10 +10,9 @@
  */
 
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { getDb, initializeDb, resetDb } from "../../src/db/index.js";
+import { getDb } from "../../src/db/index.js";
 import {
   phases,
   signals,
@@ -21,6 +20,7 @@ import {
   tasks,
   verificationChecks,
 } from "../../src/db/schema.js";
+import { cleanupTestDb, setupTestDb } from "../setup/db-cache.js";
 import { handleGetVerificationResults } from "../../src/mcp-server/handlers/get-verification-results.js";
 import { handleRunVerificationChecks } from "../../src/mcp-server/handlers/run-verification-checks.js";
 import { handleSubmitVerificationJudgment } from "../../src/mcp-server/handlers/submit-verification-judgment.js";
@@ -43,11 +43,7 @@ describe("Verification Lifecycle Integration", () => {
   let tempDir: string;
 
   beforeEach(async () => {
-    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "ver-lifecycle-"));
-    process.env.ORCHESTRA_WORKSPACE = tempDir;
-
-    resetDb();
-    await initializeDb();
+    tempDir = await setupTestDb("ver-lifecycle-");
     const db = getDb();
 
     // Create test sprint in VERIFY workflow step
@@ -135,9 +131,7 @@ describe("Verification Lifecycle Integration", () => {
   });
 
   afterEach(async () => {
-    resetDb();
-    fs.rmSync(tempDir, { recursive: true, force: true });
-    delete process.env.ORCHESTRA_WORKSPACE;
+    await cleanupTestDb(tempDir);
   });
 
   describe("Full verification lifecycle (signal → verify → judgment)", () => {

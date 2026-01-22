@@ -6,12 +6,10 @@
  */
 
 import { eq, and } from "drizzle-orm";
-import fs from "node:fs";
-import os from "node:os";
-import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { getDb, initializeDb, resetDb } from "../../src/db/index.js";
+import { getDb } from "../../src/db/index.js";
 import { config, sprintSettings, sprints } from "../../src/db/schema.js";
+import { cleanupTestDb, setupTestDb } from "../setup/db-cache.js";
 import { handleGetSprintConfig } from "../../src/mcp-server/handlers/get-sprint-config.js";
 import { handleSetSprintConfig } from "../../src/mcp-server/handlers/set-sprint-config.js";
 
@@ -20,11 +18,7 @@ describe("Sprint Config Handlers", () => {
   let tempDir: string;
 
   beforeEach(async () => {
-    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "sprint-config-"));
-    process.env.ORCHESTRA_WORKSPACE = tempDir;
-
-    resetDb();
-    await initializeDb();
+    tempDir = await setupTestDb("sprint-config-");
 
     // Create a test sprint
     const db = getDb();
@@ -40,10 +34,7 @@ describe("Sprint Config Handlers", () => {
   });
 
   afterEach(async () => {
-    resetDb();
-    if (tempDir && fs.existsSync(tempDir)) {
-      fs.rmSync(tempDir, { recursive: true, force: true });
-    }
+    await cleanupTestDb(tempDir);
   });
 
   describe("handleSetSprintConfig", () => {

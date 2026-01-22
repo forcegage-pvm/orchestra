@@ -6,10 +6,9 @@
 
 import { eq } from "drizzle-orm";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { closeDb, getDb, initializeDb, resetDb } from "../../src/db/index.js";
+import { closeDb, getDb } from "../../src/db/index.js";
 import {
   phases,
   signals,
@@ -18,6 +17,7 @@ import {
   verificationChecks,
   verificationResults,
 } from "../../src/db/schema.js";
+import { cleanupTestDb, setupTestDb } from "../setup/db-cache.js";
 
 // Mock check executor
 vi.mock("../../src/core/check-executor.js", () => ({
@@ -38,12 +38,7 @@ describe("handleRunVerificationChecks", () => {
     mockExecuteCheck = vi.mocked(checkExecutor.executeCheck);
 
     vi.clearAllMocks();
-    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "run-verify-"));
-    process.env.ORCHESTRA_WORKSPACE = tempDir;
-
-    // Reset and initialize fresh database
-    resetDb();
-    await initializeDb();
+    tempDir = await setupTestDb("run-verify-");
     const db = getDb();
 
     // Create test sprint (id is TEXT, workflow_step required)
@@ -130,13 +125,7 @@ describe("handleRunVerificationChecks", () => {
 
   afterEach(async () => {
     closeDb();
-    resetDb();
-    try {
-      fs.rmSync(tempDir, { recursive: true, force: true, maxRetries: 3 });
-    } catch {
-      // Ignore cleanup errors on Windows file locks
-    }
-    delete process.env.ORCHESTRA_WORKSPACE;
+    await cleanupTestDb(tempDir);
   });
 
   describe("input validation", () => {

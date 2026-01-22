@@ -7,15 +7,10 @@
  * 3. Closeout succeeds when all GREEN
  */
 
-import * as fs from "node:fs";
-import * as os from "node:os";
-import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   getDb,
   getRawDb,
-  initializeDb,
-  resetDb,
 } from "../../../src/db/index.js";
 import {
   phases,
@@ -23,37 +18,18 @@ import {
   tasks,
   tddTaskRelationships,
 } from "../../../src/db/schema.js";
+import { cleanupTestDb, setupTestDb } from "../../setup/db-cache.js";
 import { handleGetSprintStatus } from "../../../src/mcp-server/handlers/get-sprint-status.js";
 
 describe("sprint closeout TDD blocking", () => {
   let tempDir: string;
 
   beforeEach(async () => {
-    tempDir = fs.mkdtempSync(
-      path.join(os.tmpdir(), "sprint-closeout-tdd-test-")
-    );
-    process.env.ORCHESTRA_WORKSPACE = tempDir;
-
-    resetDb();
-    await initializeDb();
+    tempDir = await setupTestDb("sprint-closeout-tdd-test-");
   });
 
-  afterEach(() => {
-    // Close database connection first
-    try {
-      resetDb();
-    } catch (e) {
-      // Ignore errors
-    }
-
-    // Try to clean up temp directory
-    if (tempDir && fs.existsSync(tempDir)) {
-      try {
-        fs.rmSync(tempDir, { recursive: true, force: true });
-      } catch (e) {
-        // Ignore cleanup errors
-      }
-    }
+  afterEach(async () => {
+    await cleanupTestDb(tempDir);
   });
 
   describe("closeout blocking scenarios", () => {

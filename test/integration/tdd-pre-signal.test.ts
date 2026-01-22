@@ -10,7 +10,6 @@
  */
 
 import fs from "node:fs/promises";
-import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
@@ -18,8 +17,9 @@ import {
   type PreSignalConfig,
 } from "../../src/core/pre-signal-executor.js";
 import { registerTest } from "../../src/core/tdd-registry.js";
-import { getDb, initializeDb, resetDb } from "../../src/db/index.js";
+import { getDb } from "../../src/db/index.js";
 import { phases, sprints, tasks } from "../../src/db/schema.js";
+import { cleanupTestDb, setupTestDb } from "../setup/db-cache.js";
 
 describe("TDD Pre-Signal Integration", () => {
   let tempDir: string;
@@ -27,13 +27,8 @@ describe("TDD Pre-Signal Integration", () => {
   const taskId = 1;
 
   beforeEach(async () => {
-    // Create temp workspace
-    tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "tdd-pre-signal-"));
-    process.env.ORCHESTRA_WORKSPACE = tempDir;
-
-    // Initialize database
-    resetDb();
-    await initializeDb();
+    // Create temp workspace via cache
+    tempDir = await setupTestDb("tdd-pre-signal-");
     const db = getDb();
 
     const now = new Date().toISOString();
@@ -87,9 +82,7 @@ describe("TDD Pre-Signal Integration", () => {
   });
 
   afterEach(async () => {
-    resetDb();
-    await fs.rm(tempDir, { recursive: true, force: true });
-    delete process.env.ORCHESTRA_WORKSPACE;
+    await cleanupTestDb(tempDir);
   });
 
   describe("TDD validation integration", () => {

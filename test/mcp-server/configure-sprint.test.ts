@@ -6,39 +6,32 @@
  */
 
 import { eq } from "drizzle-orm";
-import fs from "node:fs";
-import os from "node:os";
-import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { getDb, initializeDb, resetDb } from "../../src/db/index.js";
+import { getDb } from "../../src/db/index.js";
 import { sprints, tasks, tddTaskRelationships } from "../../src/db/schema.js";
 import { handleConfigureSprint } from "../../src/mcp-server/handlers/configure-sprint.js";
 import type { ConfigureSprintInput } from "../../src/schemas/index.js";
+import { cleanupTestDb, setupTestDb } from "../setup/db-cache.js";
 
 describe("configure_sprint handler", () => {
   let tempDir: string;
 
   beforeEach(async () => {
-    // Create temp directory for isolated DB
-    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "configure-sprint-"));
-    process.env.ORCHESTRA_WORKSPACE = tempDir;
-
-    resetDb();
-    await initializeDb();
+    tempDir = await setupTestDb("configure-sprint-");
   });
 
   afterEach(async () => {
-    resetDb();
-    if (tempDir && fs.existsSync(tempDir)) {
-      fs.rmSync(tempDir, { recursive: true, force: true });
-    }
-    delete process.env.ORCHESTRA_WORKSPACE;
+    await cleanupTestDb(tempDir);
   });
 
   describe("tdd_red_phase field storage", () => {
     it("should store tdd_red_phase=true when provided", async () => {
       const input: ConfigureSprintInput = {
-        environment: { test_command: 'npm test', test_file_pattern: 'test/**/*.test.ts', source_base_dir: '.' },
+        environment: {
+          test_command: "npm test",
+          test_file_pattern: "test/**/*.test.ts",
+          source_base_dir: ".",
+        },
         sprint: {
           id: "test-sprint-001",
           name: "Test Sprint with TDD Red Phase",
@@ -119,7 +112,11 @@ describe("configure_sprint handler", () => {
 
     it("should store tdd_red_phase=false when explicitly set to false", async () => {
       const input: ConfigureSprintInput = {
-        environment: { test_command: 'npm test', test_file_pattern: 'test/**/*.test.ts', source_base_dir: '.' },
+        environment: {
+          test_command: "npm test",
+          test_file_pattern: "test/**/*.test.ts",
+          source_base_dir: ".",
+        },
         sprint: {
           id: "test-sprint-002",
           name: "Test Sprint without Red Phase",
@@ -173,7 +170,11 @@ describe("configure_sprint handler", () => {
 
     it("should default to false when tdd_red_phase is not provided", async () => {
       const input: ConfigureSprintInput = {
-        environment: { test_command: 'npm test', test_file_pattern: 'test/**/*.test.ts', source_base_dir: '.' },
+        environment: {
+          test_command: "npm test",
+          test_file_pattern: "test/**/*.test.ts",
+          source_base_dir: ".",
+        },
         sprint: {
           id: "test-sprint-003",
           name: "Test Sprint with default",
@@ -227,7 +228,11 @@ describe("configure_sprint handler", () => {
 
     it("should handle multiple tasks with different tdd_red_phase values", async () => {
       const input: ConfigureSprintInput = {
-        environment: { test_command: 'npm test', test_file_pattern: 'test/**/*.test.ts', source_base_dir: '.' },
+        environment: {
+          test_command: "npm test",
+          test_file_pattern: "test/**/*.test.ts",
+          source_base_dir: ".",
+        },
         sprint: {
           id: "test-sprint-004",
           name: "Test Sprint with mixed tasks",
@@ -370,7 +375,11 @@ describe("configure_sprint handler", () => {
       });
 
       const input: ConfigureSprintInput = {
-        environment: { test_command: 'npm test', test_file_pattern: 'test/**/*.test.ts', source_base_dir: '.' },
+        environment: {
+          test_command: "npm test",
+          test_file_pattern: "test/**/*.test.ts",
+          source_base_dir: ".",
+        },
         sprint: {
           id: "new-sprint",
           name: "New Sprint",
@@ -428,7 +437,11 @@ describe("configure_sprint handler", () => {
   describe("tdd_relationships", () => {
     it("should store TDD relationships with declared_at='configure_sprint'", async () => {
       const input: ConfigureSprintInput = {
-        environment: { test_command: 'npm test', test_file_pattern: 'test/**/*.test.ts', source_base_dir: '.' },
+        environment: {
+          test_command: "npm test",
+          test_file_pattern: "test/**/*.test.ts",
+          source_base_dir: ".",
+        },
         sprint: {
           id: "test-sprint-tdd-001",
           name: "Test Sprint with TDD Relationships",
@@ -519,7 +532,11 @@ describe("configure_sprint handler", () => {
 
     it("should reject relationship where red_task_id does not have tdd_red_phase=true", async () => {
       const input: ConfigureSprintInput = {
-        environment: { test_command: 'npm test', test_file_pattern: 'test/**/*.test.ts', source_base_dir: '.' },
+        environment: {
+          test_command: "npm test",
+          test_file_pattern: "test/**/*.test.ts",
+          source_base_dir: ".",
+        },
         sprint: {
           id: "test-sprint-tdd-002",
           name: "Test Sprint - Invalid Red Task",
@@ -593,7 +610,11 @@ describe("configure_sprint handler", () => {
 
     it("should reject relationship where red_task_id equals green_task_id", async () => {
       const input: ConfigureSprintInput = {
-        environment: { test_command: 'npm test', test_file_pattern: 'test/**/*.test.ts', source_base_dir: '.' },
+        environment: {
+          test_command: "npm test",
+          test_file_pattern: "test/**/*.test.ts",
+          source_base_dir: ".",
+        },
         sprint: {
           id: "test-sprint-tdd-003",
           name: "Test Sprint - Same Task IDs",
@@ -647,7 +668,11 @@ describe("configure_sprint handler", () => {
 
     it("should reject relationship with non-existent red_task_id", async () => {
       const input: ConfigureSprintInput = {
-        environment: { test_command: 'npm test', test_file_pattern: 'test/**/*.test.ts', source_base_dir: '.' },
+        environment: {
+          test_command: "npm test",
+          test_file_pattern: "test/**/*.test.ts",
+          source_base_dir: ".",
+        },
         sprint: {
           id: "test-sprint-tdd-004",
           name: "Test Sprint - Invalid Red Task ID",
@@ -700,7 +725,11 @@ describe("configure_sprint handler", () => {
 
     it("should reject relationship with non-existent green_task_id", async () => {
       const input: ConfigureSprintInput = {
-        environment: { test_command: 'npm test', test_file_pattern: 'test/**/*.test.ts', source_base_dir: '.' },
+        environment: {
+          test_command: "npm test",
+          test_file_pattern: "test/**/*.test.ts",
+          source_base_dir: ".",
+        },
         sprint: {
           id: "test-sprint-tdd-005",
           name: "Test Sprint - Invalid Green Task ID",
@@ -754,7 +783,11 @@ describe("configure_sprint handler", () => {
 
     it("should handle multiple TDD relationships in one sprint", async () => {
       const input: ConfigureSprintInput = {
-        environment: { test_command: 'npm test', test_file_pattern: 'test/**/*.test.ts', source_base_dir: '.' },
+        environment: {
+          test_command: "npm test",
+          test_file_pattern: "test/**/*.test.ts",
+          source_base_dir: ".",
+        },
         sprint: {
           id: "test-sprint-tdd-006",
           name: "Test Sprint - Multiple Relationships",
@@ -877,7 +910,11 @@ describe("configure_sprint handler", () => {
 
     it("should reject tdd_red_phase task without corresponding tdd_relationship entry", async () => {
       const input: ConfigureSprintInput = {
-        environment: { test_command: 'npm test', test_file_pattern: 'test/**/*.test.ts', source_base_dir: '.' },
+        environment: {
+          test_command: "npm test",
+          test_file_pattern: "test/**/*.test.ts",
+          source_base_dir: ".",
+        },
         sprint: {
           id: "test-sprint-tdd-orphan",
           name: "Test Sprint - Orphan Red Task",
@@ -941,7 +978,7 @@ describe("configure_sprint handler", () => {
       // Check that validation issues explain the problem clearly
       const issuesText = JSON.stringify(parsed.error.details.issues);
       expect(issuesText).toContain(
-        "tdd_red_phase=true but no entry in tdd_relationships"
+        "tdd_red_phase=true but no entry in tdd_relationships",
       );
       expect(issuesText).toContain("MUST have a corresponding green task");
     });
@@ -1016,9 +1053,13 @@ describe("configure_sprint handler", () => {
 
       expect(parsed.success).toBe(false);
       expect(parsed.error.code).toBe("VALIDATION_ERROR");
-      expect(parsed.error.message).toContain("TDD red-phase tasks require environment configuration");
+      expect(parsed.error.message).toContain(
+        "TDD red-phase tasks require environment configuration",
+      );
       expect(parsed.error.message).toContain("Missing fields: environment");
-      expect(parsed.error.message).toContain("Tasks with tdd_red_phase=true: [1]");
+      expect(parsed.error.message).toContain(
+        "Tasks with tdd_red_phase=true: [1]",
+      );
 
       // Verify no database records were created (early fail)
       const db = getDb();
@@ -1098,9 +1139,15 @@ describe("configure_sprint handler", () => {
 
       expect(parsed.success).toBe(false);
       expect(parsed.error.code).toBe("VALIDATION_ERROR");
-      expect(parsed.error.message).toContain("TDD red-phase tasks require environment configuration");
-      expect(parsed.error.message).toContain("Missing fields: environment.test_command");
-      expect(parsed.error.message).toContain("Tasks with tdd_red_phase=true: [1]");
+      expect(parsed.error.message).toContain(
+        "TDD red-phase tasks require environment configuration",
+      );
+      expect(parsed.error.message).toContain(
+        "Missing fields: environment.test_command",
+      );
+      expect(parsed.error.message).toContain(
+        "Tasks with tdd_red_phase=true: [1]",
+      );
 
       // Verify no database records were created
       const db = getDb();
@@ -1180,9 +1227,15 @@ describe("configure_sprint handler", () => {
 
       expect(parsed.success).toBe(false);
       expect(parsed.error.code).toBe("VALIDATION_ERROR");
-      expect(parsed.error.message).toContain("TDD red-phase tasks require environment configuration");
-      expect(parsed.error.message).toContain("Missing fields: environment.test_file_pattern");
-      expect(parsed.error.message).toContain("Tasks with tdd_red_phase=true: [1]");
+      expect(parsed.error.message).toContain(
+        "TDD red-phase tasks require environment configuration",
+      );
+      expect(parsed.error.message).toContain(
+        "Missing fields: environment.test_file_pattern",
+      );
+      expect(parsed.error.message).toContain(
+        "Tasks with tdd_red_phase=true: [1]",
+      );
 
       // Verify no database records were created
       const db = getDb();
@@ -1261,10 +1314,14 @@ describe("configure_sprint handler", () => {
 
       expect(parsed.success).toBe(false);
       expect(parsed.error.code).toBe("VALIDATION_ERROR");
-      expect(parsed.error.message).toContain("TDD red-phase tasks require environment configuration");
+      expect(parsed.error.message).toContain(
+        "TDD red-phase tasks require environment configuration",
+      );
       expect(parsed.error.message).toContain("environment.test_command");
       expect(parsed.error.message).toContain("environment.test_file_pattern");
-      expect(parsed.error.message).toContain("Tasks with tdd_red_phase=true: [1]");
+      expect(parsed.error.message).toContain(
+        "Tasks with tdd_red_phase=true: [1]",
+      );
     });
 
     it("should list multiple TDD task IDs when multiple tasks need environment", async () => {
@@ -1397,7 +1454,9 @@ describe("configure_sprint handler", () => {
       const parsed = JSON.parse(result.content[0].text);
 
       expect(parsed.success).toBe(false);
-      expect(parsed.error.message).toContain("Tasks with tdd_red_phase=true: [1, 3]");
+      expect(parsed.error.message).toContain(
+        "Tasks with tdd_red_phase=true: [1, 3]",
+      );
     });
 
     it("should allow configuration without environment when no TDD tasks exist", async () => {

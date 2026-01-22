@@ -3,18 +3,10 @@
  */
 
 import { eq } from "drizzle-orm";
-import fs from "fs";
-import os from "os";
-import path from "path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import {
-  getDb,
-  initializeDb,
-  resetDb,
-  runMigrationsV2,
-  schema,
-} from "../../src/db/index.js";
+import { getDb, schema } from "../../src/db/index.js";
 import { handleGetCodeReview } from "../../src/mcp-server/handlers/get-code-review.js";
+import { cleanupTestDb, setupTestDb } from "../setup/db-cache.js";
 
 const {
   codeReviewIssues,
@@ -32,12 +24,7 @@ describe("get_code_review handler", () => {
   let taskIds: { task1: number; task2: number; task3: number };
 
   beforeEach(async () => {
-    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "get-code-review-"));
-    process.env.ORCHESTRA_WORKSPACE = tempDir;
-
-    resetDb();
-    await initializeDb();
-    await runMigrationsV2();
+    tempDir = await setupTestDb("get-code-review-");
 
     const db = getDb();
     const now = new Date().toISOString();
@@ -230,18 +217,8 @@ describe("get_code_review handler", () => {
     });
   });
 
-  afterEach(() => {
-    try {
-      resetDb();
-    } catch {
-      // Ignore cleanup errors
-    }
-
-    if (tempDir && fs.existsSync(tempDir)) {
-      fs.rmSync(tempDir, { recursive: true, force: true });
-    }
-
-    delete process.env.ORCHESTRA_WORKSPACE;
+  afterEach(async () => {
+    await cleanupTestDb(tempDir);
   });
 
   it("rejects missing task and sprint_id", async () => {

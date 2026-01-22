@@ -3,13 +3,11 @@
  */
 
 import { eq } from "drizzle-orm";
-import fs from "node:fs";
-import os from "node:os";
-import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { getTestsByTask, registerTest } from "../../src/core/tdd-registry.js";
-import { getDb, initializeDb, resetDb } from "../../src/db/index.js";
+import { getDb } from "../../src/db/index.js";
 import { phases, sprints, tasks, tddRedRegistry } from "../../src/db/schema.js";
+import { cleanupTestDb, setupTestDb } from "../setup/db-cache.js";
 
 describe("TDD Red Registry CRUD", () => {
   let tempDir: string;
@@ -18,12 +16,8 @@ describe("TDD Red Registry CRUD", () => {
   const taskId = 1; // User-facing task ID
 
   beforeEach(async () => {
-    // Create temp workspace directory
-    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "tdd-registry-"));
-    process.env.ORCHESTRA_WORKSPACE = tempDir;
-
-    resetDb();
-    await initializeDb();
+    // Create temp workspace directory via cache
+    tempDir = await setupTestDb("tdd-registry-");
     const db = getDb();
 
     // Create test sprint
@@ -74,9 +68,7 @@ describe("TDD Red Registry CRUD", () => {
   });
 
   afterEach(async () => {
-    resetDb();
-    fs.rmSync(tempDir, { recursive: true, force: true });
-    delete process.env.ORCHESTRA_WORKSPACE;
+    await cleanupTestDb(tempDir);
   });
 
   describe("registerTest", () => {

@@ -6,11 +6,8 @@
  */
 
 import { eq } from "drizzle-orm";
-import fs from "node:fs";
-import os from "node:os";
-import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { getDb, initializeDb, resetDb } from "../../src/db/index.js";
+import { getDb } from "../../src/db/index.js";
 import {
   phases,
   sprints,
@@ -18,6 +15,7 @@ import {
   verificationChecks,
 } from "../../src/db/schema.js";
 import { handleGetTasks } from "../../src/mcp-server/handlers/get-tasks.js";
+import { cleanupTestDb, setupTestDb } from "../setup/db-cache.js";
 
 describe("get_tasks handler", () => {
   let tempDir: string;
@@ -25,12 +23,7 @@ describe("get_tasks handler", () => {
   const testPhaseId = "phase-1";
 
   beforeEach(async () => {
-    // Create temp directory for isolated DB
-    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "get-tasks-"));
-    process.env.ORCHESTRA_WORKSPACE = tempDir;
-
-    resetDb();
-    await initializeDb();
+    tempDir = await setupTestDb("get-tasks-");
 
     // Create a test sprint
     const db = getDb();
@@ -54,11 +47,7 @@ describe("get_tasks handler", () => {
   });
 
   afterEach(async () => {
-    resetDb();
-    if (tempDir && fs.existsSync(tempDir)) {
-      fs.rmSync(tempDir, { recursive: true, force: true });
-    }
-    delete process.env.ORCHESTRA_WORKSPACE;
+    await cleanupTestDb(tempDir);
   });
 
   describe("tdd_red_phase field in task list", () => {
