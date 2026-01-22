@@ -1,6 +1,6 @@
-import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { describe, expect, it } from "vitest";
 
 const agentPath = resolve(
   process.cwd(),
@@ -59,7 +59,7 @@ describe("orchestra.orchestrator.agent.md interface validation guidance", () => 
   });
 
   it("provides actionable JSON example for interface validation checks", () => {
-    expect(agentText).toContain("\"behavioral_checks\"");
+    expect(agentText).toContain('"behavioral_checks"');
     expect(agentText).toContain("MCP tool schemas are valid JSON Schema");
     expect(agentText).toContain("npm test -- -t 'tool schema validation'");
   });
