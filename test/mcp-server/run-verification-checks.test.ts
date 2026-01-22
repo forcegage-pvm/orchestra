@@ -18,12 +18,14 @@ import {
   verificationChecks,
   verificationResults,
 } from "../../src/db/schema.js";
-import { handleRunVerificationChecks } from "../../src/mcp-server/handlers/run-verification-checks.js";
 
 // Mock check executor
 vi.mock("../../src/core/check-executor.js", () => ({
   executeCheck: vi.fn(),
 }));
+
+const { handleRunVerificationChecks } =
+  await import("../../src/mcp-server/handlers/run-verification-checks.js");
 
 import * as checkExecutor from "../../src/core/check-executor.js";
 

@@ -5,7 +5,12 @@ import { afterEach, describe, expect, it } from "vitest";
 import { ConfigurationError, ValidationError } from "../../src/core/errors.js";
 import {
   checkArrayWithoutItems,
+  INTERFACE_CONFIG_INVALID,
+  INTERFACE_CONFIG_NOT_FOUND,
+  INTERFACE_PATTERN_OVERLAP,
+  INTERFACE_VALIDATION_FAILED,
   loadValidationConfig,
+  runAllValidations,
   runValidation,
   validateJsonSchema,
   validatePatternExclusivity,
@@ -63,7 +68,15 @@ describe("loadValidationConfig", () => {
     const dir = createTempDir();
     cleanupDirs.push(dir);
 
-    expect(() => loadValidationConfig(dir)).toThrow(ConfigurationError);
+    try {
+      expect.assertions(2);
+      loadValidationConfig(dir);
+    } catch (error) {
+      expect(error).toBeInstanceOf(ConfigurationError);
+      if (error instanceof ConfigurationError) {
+        expect(error.context?.code).toBe(INTERFACE_CONFIG_NOT_FOUND);
+      }
+    }
   });
 
   it("throws ValidationError when config is invalid", () => {
@@ -72,13 +85,13 @@ describe("loadValidationConfig", () => {
 
     writeConfig(dir, ['version: "1.0"', "validations: []"].join("\n"));
 
-    expect(() => loadValidationConfig(dir)).toThrow(ValidationError);
-
     try {
+      expect.assertions(2);
       loadValidationConfig(dir);
     } catch (error) {
       if (error instanceof ValidationError) {
         expect(error.errors.length).toBeGreaterThan(0);
+        expect(error.context?.code).toBe(INTERFACE_CONFIG_INVALID);
       }
     }
   });
@@ -134,6 +147,7 @@ describe("validatePatternExclusivity", () => {
     expect(overlaps).toHaveLength(2);
     expect(overlaps[0]?.file).toBe("src/core/file.ts");
     expect(overlaps[0]?.matchingValidations).toEqual(["all-ts", "src-only"]);
+    expect(INTERFACE_PATTERN_OVERLAP).toBe("INTERFACE_PATTERN_OVERLAP");
   });
 });
 
@@ -247,6 +261,51 @@ describe("runValidation", () => {
     await expect(
       runValidation(validation, process.cwd()),
     ).rejects.toBeInstanceOf(ConfigurationError);
+  });
+
+  it("returns failure code when validation does not meet criteria", async () => {
+    const validation = {
+      name: "fail",
+      patterns: ["**/*"],
+      command: 'node -e "process.exit(1)"',
+    } satisfies InterfaceValidationConfig["validations"][number];
+
+    const results = await runValidation(validation, process.cwd());
+
+    expect(results).toHaveLength(1);
+    expect(results[0]?.passed).toBe(false);
+    expect(results[0]?.code).toBe(INTERFACE_VALIDATION_FAILED);
+  });
+});
+
+describe("runAllValidations", () => {
+  it("runs all validations and aggregates results", async () => {
+    const config: InterfaceValidationConfig = {
+      version: "1.0",
+      validations: [
+        {
+          name: "first",
+          patterns: ["**/*"],
+          command: "node -e \"console.log('first')\"",
+          successCriteria: { outputContains: "first" },
+        },
+        {
+          name: "second",
+          patterns: ["**/*"],
+          command: "node -e \"console.log('second')\"",
+          successCriteria: { outputContains: "second" },
+        },
+      ],
+    };
+
+    const results = await runAllValidations(config, process.cwd());
+
+    expect(results).toHaveLength(2);
+    expect(results.map((result) => result.validationName)).toEqual([
+      "first",
+      "second",
+    ]);
+    expect(results.every((result) => result.passed)).toBe(true);
   });
 });
 

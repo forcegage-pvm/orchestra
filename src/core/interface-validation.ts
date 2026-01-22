@@ -37,8 +37,16 @@ export interface ValidationResult {
   validationName: string;
   file?: string;
   passed: boolean;
+  code?: string;
   errors: Array<{ path: string; message: string }>;
 }
+
+export const INTERFACE_CONFIG_NOT_FOUND = "INTERFACE_CONFIG_NOT_FOUND";
+export const INTERFACE_CONFIG_INVALID = "INTERFACE_CONFIG_INVALID";
+export const INTERFACE_PATTERN_OVERLAP = "INTERFACE_PATTERN_OVERLAP";
+export const INTERFACE_VALIDATION_FAILED = "INTERFACE_VALIDATION_FAILED";
+export const INTERFACE_TOOL_MISSING = "INTERFACE_TOOL_MISSING";
+export const JSON_SCHEMA_INVALID = "JSON_SCHEMA_INVALID";
 
 export function loadValidationConfig(
   rootDir: string = process.cwd(),
@@ -50,6 +58,7 @@ export function loadValidationConfig(
 
   if (!yamlExists(configPath)) {
     throw new ConfigurationError("Interface validation config not found", {
+      code: INTERFACE_CONFIG_NOT_FOUND,
       path: configPath,
       expected: INTERFACE_VALIDATION_CONFIG_RELATIVE_PATH,
     });
@@ -62,7 +71,7 @@ export function loadValidationConfig(
       throw new ValidationError(
         "Invalid interface validation config",
         error.errors,
-        { path: configPath },
+        { path: configPath, code: INTERFACE_CONFIG_INVALID },
       );
     }
 
@@ -260,7 +269,7 @@ export async function runValidation(
     if (isExecError(error)) {
       if (isMissingToolError(error)) {
         throw new ConfigurationError("Validation tool not found", {
-          code: "INTERFACE_TOOL_MISSING",
+          code: INTERFACE_TOOL_MISSING,
           command,
           validation: validation.name,
         });
@@ -318,11 +327,29 @@ export async function runValidation(
     errors,
   };
 
+  if (errors.length > 0) {
+    result.code = INTERFACE_VALIDATION_FAILED;
+  }
+
   if (validation.test !== undefined) {
     result.file = validation.test;
   }
 
   return [result];
+}
+
+export async function runAllValidations(
+  config: InterfaceValidationConfig,
+  projectRoot: string,
+): Promise<ValidationResult[]> {
+  const allResults: ValidationResult[] = [];
+
+  for (const validation of config.validations) {
+    const results = await runValidation(validation, projectRoot);
+    allResults.push(...results);
+  }
+
+  return allResults;
 }
 
 function normalizeAjvPath(pathValue: string): string {
