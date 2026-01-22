@@ -47,7 +47,36 @@ From `extension/`:
 - `npm test`
 - `npm run build`
 - `npm run watch` (dev)
+## Writing Tests (CRITICAL)
 
+**Use the shared database cache pattern** - migrations run ONCE per test session, not per test file.
+
+```typescript
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { getDb } from "../../src/db/index.js";
+import { cleanupTestDb, setupTestDb } from "../setup/db-cache.js";
+
+describe("My Test Suite", () => {
+  let tempDir: string;
+
+  beforeEach(async () => {
+    tempDir = await setupTestDb("my-test-");
+  });
+
+  afterEach(async () => {
+    await cleanupTestDb(tempDir);
+  });
+
+  it("should work", async () => {
+    const db = getDb();
+    // ... your test
+  });
+});
+```
+
+**DO NOT** use the old pattern with `initializeDb()`, `resetDb()`, `runMigrationsV2()` directly - this causes 5x slower test runs.
+
+See [test/setup/db-cache.ts](../test/setup/db-cache.ts) for implementation details.
 ## “If you’re lost” checklist
 
 1. Identify which surface you’re changing: extension UI, MCP server tools/DB, or agent loop.
