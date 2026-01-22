@@ -1,3 +1,5 @@
+// @orchestra-task: 7
+
 /**
  * MCP Tool Schema Validation Tests
  *
@@ -13,6 +15,10 @@
  */
 
 import { describe, expect, it } from "vitest";
+import {
+  checkArrayWithoutItems,
+  validateJsonSchema,
+} from "../../src/core/interface-validation.js";
 import { getToolsForRole } from "../../src/mcp-server/tools.js";
 
 interface JsonSchema {
@@ -27,6 +33,14 @@ interface JsonSchema {
   description?: string;
   [key: string]: unknown;
 }
+
+const testNamePattern = process.env.npm_config_testnamepattern ?? "";
+const isNegativeLookahead = testNamePattern.includes("^(?!.*\\[tdd-red\\])");
+const isTddRedRun =
+  !isNegativeLookahead &&
+  (/\[tdd-red\]|\\\[tdd-red\\\]/.test(testNamePattern) ||
+    testNamePattern.trim() === "[tdd-red]");
+const describeTdd = isTddRedRun ? describe : describe.skip;
 
 /**
  * Recursively validate a JSON Schema object
@@ -95,6 +109,48 @@ describe("MCP Tool Schema Validation", () => {
     expect(allTools.length).toBeGreaterThan(0);
   });
 
+  describeTdd("[tdd-red] AJV schema validation integration", () => {
+    it("[tdd-red] reports array schemas missing items in AJV validation", () => {
+      const invalidSchema: JsonSchema = {
+        type: "object",
+        properties: {
+          tags: {
+            type: "array",
+          },
+        },
+      };
+
+      const errors = validateJsonSchema(invalidSchema, "inputSchema");
+
+      expect(errors.length).toBeGreaterThan(0);
+      expect(
+        errors.some((error) =>
+          error.message.includes("inputSchema/properties/tags"),
+        ),
+      ).toBe(true);
+    });
+
+    it("[tdd-red] detects arrays without items via core helper", () => {
+      const invalidSchema: JsonSchema = {
+        type: "object",
+        properties: {
+          tags: {
+            type: "array",
+          },
+        },
+      };
+
+      const errors = checkArrayWithoutItems(invalidSchema, "inputSchema");
+
+      expect(errors.length).toBeGreaterThan(0);
+      expect(
+        errors.some((error) =>
+          error.message.includes("inputSchema/properties/tags"),
+        ),
+      ).toBe(true);
+    });
+  });
+
   describe("All tools have valid JSON Schema inputSchema", () => {
     for (const tool of allTools) {
       it(`${tool.name} has valid inputSchema`, () => {
@@ -149,6 +205,26 @@ describe("MCP Tool Schema Validation", () => {
       }
 
       expect(arraysWithoutItems).toEqual([]);
+    });
+  });
+
+  describe("AJV validation for MCP tool schemas", () => {
+    it("validates tool inputSchemas via core helpers", () => {
+      for (const tool of allTools) {
+        const schema = tool.inputSchema as JsonSchema;
+        const schemaName = `inputSchema(${tool.name})`;
+        const errors = validateJsonSchema(schema, schemaName);
+        const arrayErrors = checkArrayWithoutItems(schema, schemaName);
+
+        if (errors.length > 0 || arrayErrors.length > 0) {
+          const messages = [...errors, ...arrayErrors]
+            .map((error) => error.message)
+            .join("\n");
+          throw new Error(
+            `Schema validation errors for ${tool.name}:\n${messages}`,
+          );
+        }
+      }
     });
   });
 });

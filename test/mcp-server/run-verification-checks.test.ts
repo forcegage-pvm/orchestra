@@ -9,7 +9,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { getDb, initializeDb, resetDb } from "../../src/db/index.js";
+import { closeDb, getDb, initializeDb, resetDb } from "../../src/db/index.js";
 import {
   phases,
   signals,
@@ -24,16 +24,19 @@ vi.mock("../../src/core/check-executor.js", () => ({
   executeCheck: vi.fn(),
 }));
 
-const { handleRunVerificationChecks } =
-  await import("../../src/mcp-server/handlers/run-verification-checks.js");
-
-import * as checkExecutor from "../../src/core/check-executor.js";
-
 describe("handleRunVerificationChecks", () => {
   let tempDir: string;
-  const mockExecuteCheck = vi.mocked(checkExecutor.executeCheck);
+  let handleRunVerificationChecks: typeof import("../../src/mcp-server/handlers/run-verification-checks.js").handleRunVerificationChecks;
+  let mockExecuteCheck: ReturnType<typeof vi.fn>;
 
   beforeEach(async () => {
+    vi.resetModules();
+    const handlerModule =
+      await import("../../src/mcp-server/handlers/run-verification-checks.js");
+    handleRunVerificationChecks = handlerModule.handleRunVerificationChecks;
+    const checkExecutor = await import("../../src/core/check-executor.js");
+    mockExecuteCheck = vi.mocked(checkExecutor.executeCheck);
+
     vi.clearAllMocks();
     tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "run-verify-"));
     process.env.ORCHESTRA_WORKSPACE = tempDir;
@@ -126,8 +129,13 @@ describe("handleRunVerificationChecks", () => {
   });
 
   afterEach(async () => {
+    closeDb();
     resetDb();
-    fs.rmSync(tempDir, { recursive: true, force: true });
+    try {
+      fs.rmSync(tempDir, { recursive: true, force: true, maxRetries: 3 });
+    } catch {
+      // Ignore cleanup errors on Windows file locks
+    }
     delete process.env.ORCHESTRA_WORKSPACE;
   });
 
