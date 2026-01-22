@@ -245,6 +245,23 @@ Review implementations against these mandatory criteria:
 - Test fraud (tests that don't validate behavior)
 - Risk: HIGH
 
+## Interface Contract Validation During Code Review
+
+When reviewing code that **modifies interface definitions**, you MUST verify that interface validation was executed and recorded in the review evidence. Tests validate code behavior, but interface definitions must be validated against their own specifications.
+
+**Automatic CHANGES_REQUESTED:** If interface validation is missing or fails, the review decision is automatically **CHANGES_REQUESTED** with **BLOCKING** severity (use `submit_code_review` with a BLOCKING issue). Treat this as a BLOCKING severity issue.
+
+### Interface Types That Require Validation
+
+| Interface Type       | Required Validation Example                         |
+| -------------------- | --------------------------------------------------- |
+| JSON Schema          | Validate against JSON Schema meta-schema            |
+| MCP tool inputSchema | Test that arrays include `items`                    |
+| OpenAPI/Swagger      | Validate against the OpenAPI 3.x specification      |
+| GraphQL SDL          | Schema compiles without errors                      |
+| package.json         | npm validates required fields and schema compliance |
+| Protobuf             | proto3 compilation succeeds                         |
+
 ### Issue Severity Guide
 
 When documenting issues:
