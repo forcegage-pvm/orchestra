@@ -13,8 +13,8 @@ import {
   sprints,
   tasks,
 } from "../../src/db/schema.js";
-import { cleanupTestDb, setupTestDb } from "../setup/db-cache.js";
 import { handleSubmitCodeReview } from "../../src/mcp-server/handlers/submit-code-review.js";
+import { cleanupTestDb, setupTestDb } from "../setup/db-cache.js";
 
 describe("submit_code_review handler", () => {
   let tempDir: string;

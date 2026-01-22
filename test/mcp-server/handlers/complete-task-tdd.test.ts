@@ -23,8 +23,8 @@ import {
   tddRedRegistry,
   tddTaskRelationships,
 } from "../../../src/db/schema.js";
-import { cleanupTestDb, setupTestDb } from "../../setup/db-cache.js";
 import { handleCompleteTask } from "../../../src/mcp-server/handlers/complete-task.js";
+import { cleanupTestDb, setupTestDb } from "../../setup/db-cache.js";
 
 describe("complete_task - TDD red-phase completion flow", () => {
   let tempDir: string;

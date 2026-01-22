@@ -5,13 +5,13 @@
  * Verifies get/set operations, fallback to global config, and error handling.
  */
 
-import { eq, and } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { getDb } from "../../src/db/index.js";
 import { config, sprintSettings, sprints } from "../../src/db/schema.js";
-import { cleanupTestDb, setupTestDb } from "../setup/db-cache.js";
 import { handleGetSprintConfig } from "../../src/mcp-server/handlers/get-sprint-config.js";
 import { handleSetSprintConfig } from "../../src/mcp-server/handlers/set-sprint-config.js";
+import { cleanupTestDb, setupTestDb } from "../setup/db-cache.js";
 
 describe("Sprint Config Handlers", () => {
   const testSprintId = "test-sprint-001";
@@ -61,8 +61,8 @@ describe("Sprint Config Handlers", () => {
         .where(
           and(
             eq(sprintSettings.sprint_id, testSprintId),
-            eq(sprintSettings.key, "tdd.require_tests")
-          )
+            eq(sprintSettings.key, "tdd.require_tests"),
+          ),
         );
 
       expect(row).toBeDefined();
@@ -103,8 +103,8 @@ describe("Sprint Config Handlers", () => {
         .where(
           and(
             eq(sprintSettings.sprint_id, testSprintId),
-            eq(sprintSettings.key, "tdd.test_file_pattern")
-          )
+            eq(sprintSettings.key, "tdd.test_file_pattern"),
+          ),
         );
 
       expect(row.value).toBe("extension/test/**/*.test.ts");

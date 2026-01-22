@@ -25,13 +25,13 @@ import * as preSignalExecutor from "../../src/core/pre-signal-executor.js";
 import * as tddScanOnSignal from "../../src/core/tdd-scan-on-signal.js";
 import { getDb } from "../../src/db/index.js";
 import { sprints, tasks, tddRedRegistry } from "../../src/db/schema.js";
-import { cleanupTestDb, setupTestDb } from "../setup/db-cache.js";
 import { handleCompleteTask } from "../../src/mcp-server/handlers/complete-task.js";
 import { handleConfigureSprint } from "../../src/mcp-server/handlers/configure-sprint.js";
 import { handleGetSprintStatus } from "../../src/mcp-server/handlers/get-sprint-status.js";
 import { handleRegisterTddRedTest } from "../../src/mcp-server/handlers/register-tdd-red-test.js";
 import { handleSignalCompletion } from "../../src/mcp-server/handlers/signal-completion.js";
 import type { ConfigureSprintInput } from "../../src/schemas/index.js";
+import { cleanupTestDb, setupTestDb } from "../setup/db-cache.js";
 
 describe("TDD Red-Green Workflow End-to-End", () => {
   let tempDir: string;

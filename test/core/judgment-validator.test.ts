@@ -88,10 +88,10 @@ describe("Judgment Validator", () => {
 
       expect(result.valid).toBe(false);
       expect(result.checks.find((c) => c.check_id === "JVC-1")?.passed).toBe(
-        false
+        false,
       );
       expect(
-        result.checks.find((c) => c.check_id === "JVC-1")?.reason
+        result.checks.find((c) => c.check_id === "JVC-1")?.reason,
       ).toContain("No verification results");
     });
 
@@ -125,7 +125,7 @@ describe("Judgment Validator", () => {
       const result = await validateJudgment(1, "PASS", "Looks good");
 
       expect(result.checks.find((c) => c.check_id === "JVC-1")?.passed).toBe(
-        true
+        true,
       );
     });
   });
@@ -161,15 +161,15 @@ describe("Judgment Validator", () => {
       const result = await validateJudgment(
         1,
         "PASS",
-        "Looks good despite issues"
+        "Looks good despite issues",
       );
 
       expect(result.valid).toBe(false);
       expect(result.checks.find((c) => c.check_id === "JVC-2")?.passed).toBe(
-        false
+        false,
       );
       expect(
-        result.checks.find((c) => c.check_id === "JVC-2")?.reason
+        result.checks.find((c) => c.check_id === "JVC-2")?.reason,
       ).toContain("BLOCKING");
     });
 
@@ -203,7 +203,7 @@ describe("Judgment Validator", () => {
       const result = await validateJudgment(1, "PASS", "All good");
 
       expect(result.checks.find((c) => c.check_id === "JVC-2")?.passed).toBe(
-        true
+        true,
       );
     });
 
@@ -237,12 +237,12 @@ describe("Judgment Validator", () => {
       const result = await validateJudgment(
         1,
         "PASS",
-        "Minor issues acceptable"
+        "Minor issues acceptable",
       );
 
       expect(result.valid).toBe(true);
       expect(result.checks.find((c) => c.check_id === "JVC-2")?.passed).toBe(
-        true
+        true,
       );
     });
 
@@ -276,12 +276,12 @@ describe("Judgment Validator", () => {
       const result = await validateJudgment(
         1,
         "FAIL",
-        "Correctly identifying failure"
+        "Correctly identifying failure",
       );
 
       // JVC-2 should pass (not applicable for FAIL)
       expect(result.checks.find((c) => c.check_id === "JVC-2")?.passed).toBe(
-        true
+        true,
       );
     });
   });
@@ -316,7 +316,7 @@ describe("Judgment Validator", () => {
 
       expect(result.valid).toBe(false);
       expect(result.checks.find((c) => c.check_id === "JVC-3")?.passed).toBe(
-        false
+        false,
       );
     });
 
@@ -349,7 +349,7 @@ describe("Judgment Validator", () => {
 
       expect(result.valid).toBe(false);
       expect(result.checks.find((c) => c.check_id === "JVC-3")?.passed).toBe(
-        false
+        false,
       );
     });
 
@@ -381,11 +381,11 @@ describe("Judgment Validator", () => {
       const result = await validateJudgment(
         1,
         "PASS",
-        "All verification checks passed. Code is ready for production."
+        "All verification checks passed. Code is ready for production.",
       );
 
       expect(result.checks.find((c) => c.check_id === "JVC-3")?.passed).toBe(
-        true
+        true,
       );
     });
   });
@@ -419,7 +419,7 @@ describe("Judgment Validator", () => {
       const result = await validateJudgment(
         1,
         "PASS",
-        "All checks passed successfully"
+        "All checks passed successfully",
       );
 
       expect(result.valid).toBe(true);
@@ -542,12 +542,12 @@ describe("Judgment Validator", () => {
       const result = await validateJudgment(
         1,
         "PASS",
-        "All checks passed on retry"
+        "All checks passed on retry",
       );
 
       expect(result.valid).toBe(true);
       expect(result.checks.find((c) => c.check_id === "JVC-2")?.passed).toBe(
-        true
+        true,
       );
       expect(result.blocking_failures).toBeUndefined();
     });

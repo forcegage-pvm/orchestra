@@ -136,7 +136,7 @@ describe("TDD Red Registry CRUD", () => {
           taskId,
           testFile: "test/test.dart",
           testCount: 1,
-        })
+        }),
       ).rejects.toThrow("No active sprint found");
     });
 
@@ -146,7 +146,7 @@ describe("TDD Red Registry CRUD", () => {
           taskId: 999,
           testFile: "test/test.dart",
           testCount: 1,
-        })
+        }),
       ).rejects.toThrow("Task 999 not found");
     });
   });

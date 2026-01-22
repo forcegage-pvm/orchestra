@@ -69,7 +69,7 @@ describe("Accept Signal Validator", () => {
 
       expect(result.status).toBe("REJECTED");
       expect(result.checks.find((c) => c.check_id === "ASV-1")?.passed).toBe(
-        false
+        false,
       );
     });
 
@@ -104,7 +104,7 @@ describe("Accept Signal Validator", () => {
       const result = await validateAcceptSignal(1);
 
       expect(result.checks.find((c) => c.check_id === "ASV-1")?.passed).toBe(
-        true
+        true,
       );
     });
   });
@@ -130,7 +130,7 @@ describe("Accept Signal Validator", () => {
 
       expect(result.status).toBe("REJECTED");
       expect(result.checks.find((c) => c.check_id === "ASV-2")?.passed).toBe(
-        false
+        false,
       );
     });
 
@@ -164,7 +164,7 @@ describe("Accept Signal Validator", () => {
       const result = await validateAcceptSignal(1);
 
       expect(result.checks.find((c) => c.check_id === "ASV-2")?.passed).toBe(
-        true
+        true,
       );
     });
   });
@@ -175,7 +175,7 @@ describe("Accept Signal Validator", () => {
 
       // Create signal that's 2 hours old
       const twoHoursAgo = new Date(
-        Date.now() - 2 * 60 * 60 * 1000
+        Date.now() - 2 * 60 * 60 * 1000,
       ).toISOString();
       await db.insert(signals).values({
         id: 1,
@@ -195,7 +195,7 @@ describe("Accept Signal Validator", () => {
 
       expect(result.status).toBe("REJECTED");
       expect(result.checks.find((c) => c.check_id === "ASV-3")?.passed).toBe(
-        false
+        false,
       );
     });
 
@@ -229,7 +229,7 @@ describe("Accept Signal Validator", () => {
       const result = await validateAcceptSignal(1, { maxAgeMinutes: 60 });
 
       expect(result.checks.find((c) => c.check_id === "ASV-3")?.passed).toBe(
-        true
+        true,
       );
     });
   });
@@ -243,7 +243,7 @@ describe("Accept Signal Validator", () => {
 
       expect(result.status).toBe("REJECTED");
       expect(result.checks.find((c) => c.check_id === "ASV-4")?.passed).toBe(
-        false
+        false,
       );
     });
 
@@ -277,7 +277,7 @@ describe("Accept Signal Validator", () => {
       const result = await validateAcceptSignal(1);
 
       expect(result.checks.find((c) => c.check_id === "ASV-4")?.passed).toBe(
-        true
+        true,
       );
     });
   });
@@ -305,7 +305,7 @@ describe("Accept Signal Validator", () => {
 
       expect(result.status).toBe("REJECTED");
       expect(result.checks.find((c) => c.check_id === "ASV-5")?.passed).toBe(
-        false
+        false,
       );
     });
 
@@ -339,7 +339,7 @@ describe("Accept Signal Validator", () => {
       const result = await validateAcceptSignal(1);
 
       expect(result.checks.find((c) => c.check_id === "ASV-5")?.passed).toBe(
-        true
+        true,
       );
     });
   });

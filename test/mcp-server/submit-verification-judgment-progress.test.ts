@@ -24,8 +24,8 @@ import {
   verificationChecks,
   verificationResults,
 } from "../../src/db/schema.js";
-import { cleanupTestDb, setupTestDb } from "../setup/db-cache.js";
 import { handleSubmitVerificationJudgment } from "../../src/mcp-server/handlers/submit-verification-judgment.js";
+import { cleanupTestDb, setupTestDb } from "../setup/db-cache.js";
 
 describe("submit_verification_judgment - Progress Tracking on Failure", () => {
   let tempDir: string;

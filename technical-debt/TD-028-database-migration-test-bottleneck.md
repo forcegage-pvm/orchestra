@@ -21,11 +21,11 @@ Implemented **Solution 1: Shared Database Setup** as recommended. Created vitest
 
 ### Performance Results
 
-| Metric | Before | After | Improvement |
-|--------|--------|-------|-------------|
-| Total test time | ~95 seconds | ~18 seconds | **5.3x faster** |
-| Migration executions | 1309 (17 × 77) | 17 (once) | **77x fewer** |
-| Per-test setup | 8-34 seconds | 0.1-0.4 seconds | **~50x faster** |
+| Metric               | Before         | After           | Improvement     |
+| -------------------- | -------------- | --------------- | --------------- |
+| Total test time      | ~95 seconds    | ~18 seconds     | **5.3x faster** |
+| Migration executions | 1309 (17 × 77) | 17 (once)       | **77x fewer**   |
+| Per-test setup       | 8-34 seconds   | 0.1-0.4 seconds | **~50x faster** |
 
 ### New Test Pattern
 

@@ -8,18 +8,15 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import {
-  getDb,
-  getRawDb,
-} from "../../../src/db/index.js";
+import { getDb, getRawDb } from "../../../src/db/index.js";
 import {
   phases,
   sprints,
   tasks,
   tddTaskRelationships,
 } from "../../../src/db/schema.js";
-import { cleanupTestDb, setupTestDb } from "../../setup/db-cache.js";
 import { handleGetSprintStatus } from "../../../src/mcp-server/handlers/get-sprint-status.js";
+import { cleanupTestDb, setupTestDb } from "../../setup/db-cache.js";
 
 describe("sprint closeout TDD blocking", () => {
   let tempDir: string;

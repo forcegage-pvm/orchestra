@@ -67,16 +67,19 @@ See [test/setup/README.md](setup/README.md) for detailed documentation.
 ## Test Categories
 
 ### Unit Tests (`test/core/`, `test/schemas/`)
+
 - Test individual functions in isolation
 - Mock external dependencies
 - Fast execution
 
 ### Handler Tests (`test/mcp-server/`)
+
 - Test MCP tool handlers end-to-end
 - Use real database (via cache pattern)
 - Validate input/output schemas
 
 ### Integration Tests (`test/integration/`)
+
 - Test cross-cutting workflows
 - Multiple handlers working together
 - Full lifecycle scenarios
@@ -89,30 +92,36 @@ See [test/setup/README.md](setup/README.md) for detailed documentation.
 const db = getDb();
 
 // Create sprint
-db.insert(sprints).values({
-  id: "test-sprint",
-  name: "Test Sprint",
-  status: "ACTIVE",
-  is_active: 1,
-}).run();
+db.insert(sprints)
+  .values({
+    id: "test-sprint",
+    name: "Test Sprint",
+    status: "ACTIVE",
+    is_active: 1,
+  })
+  .run();
 
 // Create phase
-db.insert(phases).values({
-  id: "phase-1",
-  sprint_id: "test-sprint",
-  name: "Phase 1",
-  order_index: 1,
-}).run();
+db.insert(phases)
+  .values({
+    id: "phase-1",
+    sprint_id: "test-sprint",
+    name: "Phase 1",
+    order_index: 1,
+  })
+  .run();
 
 // Create task
-db.insert(tasks).values({
-  id: 1,
-  sprint_id: "test-sprint",
-  phase_id: "phase-1",
-  title: "Test Task",
-  status: "PENDING",
-  // ...
-}).run();
+db.insert(tasks)
+  .values({
+    id: 1,
+    sprint_id: "test-sprint",
+    phase_id: "phase-1",
+    title: "Test Task",
+    status: "PENDING",
+    // ...
+  })
+  .run();
 ```
 
 ### Mocking handlers
@@ -128,13 +137,16 @@ vi.mock("../../src/core/check-executor.js", () => ({
 ## Troubleshooting
 
 ### "Cannot find module '../setup/db-cache.js'"
+
 - Ensure you're importing with `.js` extension
 - Run `npm run build` if needed
 
 ### Tests are slow (~95 seconds)
+
 - You're using the old pattern with `initializeDb()`/`runMigrationsV2()`
 - Switch to `setupTestDb()`/`cleanupTestDb()` pattern
 
 ### Database state leaking between tests
+
 - Ensure `cleanupTestDb()` is called in `afterEach`
 - Check that `tempDir` variable is scoped correctly

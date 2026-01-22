@@ -99,11 +99,13 @@ describe("My Test Suite", () => {
 ```
 
 **Key imports:**
+
 - `setupTestDb(prefix)` - Creates temp directory, copies pre-migrated database, sets `ORCHESTRA_WORKSPACE`
 - `cleanupTestDb(tempDir)` - Closes DB connection, cleans up temp directory
 - `getDb()` - Gets the database connection (NOT `initializeDb`)
 
 **Why this matters:**
+
 - Old pattern: 17 migrations × 77 test files = 1309 migration runs (~95 seconds)
 - New pattern: 17 migrations × 1 run = 17 migrations (~18 seconds)
 - **5x faster test runs**

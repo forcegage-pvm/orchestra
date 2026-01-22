@@ -31,7 +31,7 @@ describe("git auto-commit", () => {
     fs.writeFileSync(
       path.join(tempDir, ".gitignore"),
       ".orchestra/\n",
-      "utf-8"
+      "utf-8",
     );
 
     // Seed a tracked file we will modify later

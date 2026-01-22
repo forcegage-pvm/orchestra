@@ -8,8 +8,8 @@ import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { getDb } from "../../src/db/index.js";
 import { codeReviews, phases, sprints, tasks } from "../../src/db/schema.js";
-import { cleanupTestDb, setupTestDb } from "../setup/db-cache.js";
 import { handleCompleteTask } from "../../src/mcp-server/handlers/complete-task.js";
+import { cleanupTestDb, setupTestDb } from "../setup/db-cache.js";
 
 describe("Code Review Triggers and Gating", () => {
   let tempDir: string;

@@ -9,9 +9,9 @@ import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { getDb } from "../../../src/db/index.js";
 import { tasks, tddTaskRelationships } from "../../../src/db/schema.js";
-import { cleanupTestDb, setupTestDb } from "../../setup/db-cache.js";
 import { handleConfigureSprint } from "../../../src/mcp-server/handlers/configure-sprint.js";
 import type { ConfigureSprintInput } from "../../../src/schemas/index.js";
+import { cleanupTestDb, setupTestDb } from "../../setup/db-cache.js";
 
 describe("configure_sprint - TDD relationship declaration", () => {
   let tempDir: string;

@@ -5,14 +5,13 @@
  */
 
 import { eq } from "drizzle-orm";
-import fs from "node:fs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as commandExecutor from "../../src/core/command-executor.js";
 import { getDb, schema } from "../../src/db/index.js";
-import { cleanupTestDb, setupTestDb } from "../setup/db-cache.js";
 import { handleFixCodeReview } from "../../src/mcp-server/handlers/fix-code-review.js";
 import { handleGetCodeReview } from "../../src/mcp-server/handlers/get-code-review.js";
 import { handleSubmitCodeReview } from "../../src/mcp-server/handlers/submit-code-review.js";
+import { cleanupTestDb, setupTestDb } from "../setup/db-cache.js";
 
 const {
   codeReviewFixes,

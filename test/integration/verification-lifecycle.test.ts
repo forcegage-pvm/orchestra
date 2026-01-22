@@ -20,10 +20,10 @@ import {
   tasks,
   verificationChecks,
 } from "../../src/db/schema.js";
-import { cleanupTestDb, setupTestDb } from "../setup/db-cache.js";
 import { handleGetVerificationResults } from "../../src/mcp-server/handlers/get-verification-results.js";
 import { handleRunVerificationChecks } from "../../src/mcp-server/handlers/run-verification-checks.js";
 import { handleSubmitVerificationJudgment } from "../../src/mcp-server/handlers/submit-verification-judgment.js";
+import { cleanupTestDb, setupTestDb } from "../setup/db-cache.js";
 
 /**
  * Helper function to create valid manual review evidence.
@@ -154,7 +154,7 @@ describe("Verification Lifecycle Integration", () => {
         task_id: 1,
       });
       const resultsOutput = JSON.parse(
-        (resultsResponse.content[0] as { text: string }).text
+        (resultsResponse.content[0] as { text: string }).text,
       );
 
       expect(resultsOutput.summary.severity_breakdown).toBeDefined();
@@ -169,7 +169,7 @@ describe("Verification Lifecycle Integration", () => {
         manual_review: createValidManualReview(),
       });
       const judgmentOutput = JSON.parse(
-        (judgmentResponse.content[0] as { text: string }).text
+        (judgmentResponse.content[0] as { text: string }).text,
       );
 
       expect(judgmentOutput.success).toBe(true);
@@ -183,7 +183,7 @@ describe("Verification Lifecycle Integration", () => {
       // Step 1: Run verification checks (will fail)
       const verifyResponse = await handleRunVerificationChecks({ task_id: 1 });
       const verifyOutput = JSON.parse(
-        (verifyResponse.content[0] as { text: string }).text
+        (verifyResponse.content[0] as { text: string }).text,
       );
 
       expect(verifyOutput.success).toBe(true); // Check completed successfully
@@ -194,7 +194,7 @@ describe("Verification Lifecycle Integration", () => {
         task_id: 1,
       });
       const resultsOutput = JSON.parse(
-        (resultsResponse.content[0] as { text: string }).text
+        (resultsResponse.content[0] as { text: string }).text,
       );
 
       expect(resultsOutput.summary.overall_passed).toBe(false);
@@ -209,7 +209,7 @@ describe("Verification Lifecycle Integration", () => {
         manual_review: createValidManualReview(),
       });
       const judgmentOutput = JSON.parse(
-        (judgmentResponse.content[0] as { text: string }).text
+        (judgmentResponse.content[0] as { text: string }).text,
       );
 
       expect(judgmentOutput.success).toBe(false);
@@ -246,7 +246,7 @@ describe("Verification Lifecycle Integration", () => {
         ],
       });
       const judgmentOutput = JSON.parse(
-        (judgmentResponse.content[0] as { text: string }).text
+        (judgmentResponse.content[0] as { text: string }).text,
       );
 
       expect(judgmentOutput.success).toBe(true);
@@ -268,15 +268,15 @@ describe("Verification Lifecycle Integration", () => {
         manual_review: createValidManualReview(),
       });
       const judgmentOutput = JSON.parse(
-        (judgmentResponse.content[0] as { text: string }).text
+        (judgmentResponse.content[0] as { text: string }).text,
       );
 
       expect(judgmentOutput.success).toBe(false);
       expect(judgmentOutput.error.code).toBe("JUDGMENT_VALIDATION_FAILED");
       expect(
         judgmentOutput.error.checks.find(
-          (c: { check_id: string }) => c.check_id === "JVC-1"
-        )?.passed
+          (c: { check_id: string }) => c.check_id === "JVC-1",
+        )?.passed,
       ).toBe(false);
     });
 
@@ -285,7 +285,7 @@ describe("Verification Lifecycle Integration", () => {
       fs.mkdirSync(path.join(tempDir, "src"), { recursive: true });
       fs.writeFileSync(
         path.join(tempDir, "src", "feature.ts"),
-        "export const feature = true;"
+        "export const feature = true;",
       );
       await handleRunVerificationChecks({ task_id: 1 });
 
@@ -297,7 +297,7 @@ describe("Verification Lifecycle Integration", () => {
         manual_review: createValidManualReview(),
       });
       const judgmentOutput = JSON.parse(
-        (judgmentResponse.content[0] as { text: string }).text
+        (judgmentResponse.content[0] as { text: string }).text,
       );
 
       // Rationale validation happens at schema level (Zod) and JVC-3 level
@@ -305,7 +305,7 @@ describe("Verification Lifecycle Integration", () => {
       expect(judgmentOutput.success).toBe(false);
       expect(judgmentOutput.error.code).toBe("VALIDATION_ERROR");
       expect(judgmentOutput.error.details.issues[0].path).toContain(
-        "rationale"
+        "rationale",
       );
       expect(judgmentOutput.error.details.issues[0].code).toBe("too_small");
     });
@@ -315,7 +315,7 @@ describe("Verification Lifecycle Integration", () => {
       fs.mkdirSync(path.join(tempDir, "src"), { recursive: true });
       fs.writeFileSync(
         path.join(tempDir, "src", "feature.ts"),
-        "export const feature = true;"
+        "export const feature = true;",
       );
       await handleRunVerificationChecks({ task_id: 1 });
 
@@ -328,7 +328,7 @@ describe("Verification Lifecycle Integration", () => {
         // No manual_review field!
       });
       const judgmentOutput = JSON.parse(
-        (judgmentResponse.content[0] as { text: string }).text
+        (judgmentResponse.content[0] as { text: string }).text,
       );
 
       expect(judgmentOutput.success).toBe(false);
@@ -338,8 +338,8 @@ describe("Verification Lifecycle Integration", () => {
         judgmentOutput.error.details.issues.some(
           (i: { path: string[] }) =>
             i.path.includes("manual_review") ||
-            JSON.stringify(i.path).includes("manual_review")
-        )
+            JSON.stringify(i.path).includes("manual_review"),
+        ),
       ).toBe(true);
     });
   });
@@ -350,13 +350,13 @@ describe("Verification Lifecycle Integration", () => {
 
       // Make signal stale (2 hours old)
       const twoHoursAgo = new Date(
-        Date.now() - 2 * 60 * 60 * 1000
+        Date.now() - 2 * 60 * 60 * 1000,
       ).toISOString();
       await db.update(signals).set({ signaled_at: twoHoursAgo });
 
       const verifyResponse = await handleRunVerificationChecks({ task_id: 1 });
       const verifyOutput = JSON.parse(
-        (verifyResponse.content[0] as { text: string }).text
+        (verifyResponse.content[0] as { text: string }).text,
       );
 
       // Handler throws error when accept-signal fails, caught as SYSTEM_ERROR
@@ -371,7 +371,7 @@ describe("Verification Lifecycle Integration", () => {
 
       const verifyResponse = await handleRunVerificationChecks({ task_id: 1 });
       const verifyOutput = JSON.parse(
-        (verifyResponse.content[0] as { text: string }).text
+        (verifyResponse.content[0] as { text: string }).text,
       );
 
       // Handler throws error when accept-signal fails

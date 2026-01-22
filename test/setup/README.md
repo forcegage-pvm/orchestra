@@ -8,10 +8,10 @@ Orchestra uses a **pre-migrated database cache** pattern to achieve 5x faster te
 
 ## Performance
 
-| Metric | Old Pattern | New Pattern | Improvement |
-|--------|-------------|-------------|-------------|
-| Test Duration | ~95 seconds | ~18 seconds | **5.3x faster** |
-| Migration Runs | 1309 (17 × 77) | 17 (once) | **77x fewer** |
+| Metric         | Old Pattern    | New Pattern | Improvement     |
+| -------------- | -------------- | ----------- | --------------- |
+| Test Duration  | ~95 seconds    | ~18 seconds | **5.3x faster** |
+| Migration Runs | 1309 (17 × 77) | 17 (once)   | **77x fewer**   |
 
 ## Required Pattern for All Tests
 
