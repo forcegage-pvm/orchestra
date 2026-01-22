@@ -7,6 +7,7 @@ import minimatch from "minimatch";
 import { exec, type ExecOptions } from "node:child_process";
 import * as path from "node:path";
 import { promisify } from "node:util";
+import { getToolsForRole } from "../mcp-server/tools.js";
 import type {
   InterfaceValidation,
   InterfaceValidationConfig,
@@ -38,6 +39,11 @@ export interface ValidationResult {
   file?: string;
   passed: boolean;
   code?: string;
+  errors: Array<{ path: string; message: string }>;
+}
+
+export interface ToolSchemaValidationResult {
+  toolName: string;
   errors: Array<{ path: string; message: string }>;
 }
 
@@ -122,6 +128,8 @@ export function validateJsonSchema(
   schema: object,
   schemaName?: string,
 ): Array<{ path: string; message: string }> {
+  const errors: Array<{ path: string; message: string }> = [];
+
   if (schema === null || typeof schema !== "object" || Array.isArray(schema)) {
     const messagePath = schemaName ?? "/";
     return [
@@ -134,30 +142,65 @@ export function validateJsonSchema(
 
   const valid = schemaValidator.validateSchema(schema);
 
-  if (valid) {
-    return [];
+  if (!valid) {
+    errors.push(
+      ...(schemaValidator.errors ?? []).map((error) => {
+        const rawPath =
+          "instancePath" in error && typeof error.instancePath === "string"
+            ? error.instancePath
+            : "dataPath" in error && typeof error.dataPath === "string"
+              ? error.dataPath
+              : "";
+        const normalizedPath =
+          rawPath.length > 0 ? normalizeAjvPath(rawPath) : "/";
+        const messagePath = schemaName
+          ? normalizedPath === "/"
+            ? schemaName
+            : `${schemaName}${normalizedPath}`
+          : normalizedPath;
+        const message = `${messagePath}: ${error.message ?? "Schema validation error"}`;
+
+        return {
+          path: normalizedPath,
+          message,
+        };
+      }),
+    );
   }
 
-  return (schemaValidator.errors ?? []).map((error) => {
-    const rawPath =
-      "instancePath" in error && typeof error.instancePath === "string"
-        ? error.instancePath
-        : "dataPath" in error && typeof error.dataPath === "string"
-          ? error.dataPath
-          : "";
-    const normalizedPath = rawPath.length > 0 ? normalizeAjvPath(rawPath) : "/";
-    const messagePath = schemaName
-      ? normalizedPath === "/"
-        ? schemaName
-        : `${schemaName}${normalizedPath}`
-      : normalizedPath;
-    const message = `${messagePath}: ${error.message ?? "Schema validation error"}`;
+  const arrayErrors = checkArrayWithoutItems(schema);
+  errors.push(...formatArrayErrorsFromPaths(arrayErrors, schemaName));
 
-    return {
-      path: normalizedPath,
-      message,
-    };
-  });
+  return dedupeValidationErrors(errors);
+}
+
+export function validateAllMcpToolSchemas(): ToolSchemaValidationResult[] {
+  const tools = getToolsForRole("full");
+  const results: ToolSchemaValidationResult[] = [];
+
+  for (const tool of tools) {
+    const schemaName = `inputSchema(${tool.name})`;
+    const schema = tool.inputSchema as object;
+    const ajvErrors = validateJsonSchema(schema, schemaName);
+    const arrayErrors = checkArrayWithoutItems(schema);
+    const formattedArrayErrors = formatArrayErrorsFromPaths(
+      arrayErrors,
+      schemaName,
+    );
+    const mergedErrors = dedupeValidationErrors([
+      ...ajvErrors,
+      ...formattedArrayErrors,
+    ]);
+
+    if (mergedErrors.length > 0) {
+      results.push({
+        toolName: tool.name,
+        errors: mergedErrors,
+      });
+    }
+  }
+
+  return results;
 }
 
 export function checkArrayWithoutItems(
@@ -168,11 +211,13 @@ export function checkArrayWithoutItems(
 
   const addError = (pathValue: string): void => {
     const normalizedPath = pathValue === "" ? "/" : pathValue;
+    const messagePathSegment =
+      pathValue === "" ? "/items" : `${pathValue}/items`;
     const messagePath = schemaName
-      ? normalizedPath === "/"
+      ? messagePathSegment === "/"
         ? schemaName
-        : `${schemaName}${normalizedPath}`
-      : normalizedPath;
+        : `${schemaName}${messagePathSegment}`
+      : messagePathSegment;
     errors.push({
       path: normalizedPath,
       message: `${messagePath}: Array type requires 'items' property`,
@@ -369,6 +414,42 @@ function normalizeAjvPath(pathValue: string): string {
 
 function encodePointerSegment(value: string): string {
   return value.replace(/~/g, "~0").replace(/\//g, "~1");
+}
+
+function dedupeValidationErrors(
+  errors: Array<{ path: string; message: string }>,
+): Array<{ path: string; message: string }> {
+  const seen = new Set<string>();
+  const deduped: Array<{ path: string; message: string }> = [];
+
+  for (const error of errors) {
+    const key = `${error.path}|${error.message}`;
+    if (!seen.has(key)) {
+      seen.add(key);
+      deduped.push(error);
+    }
+  }
+
+  return deduped;
+}
+
+function formatArrayErrorsFromPaths(
+  errors: Array<{ path: string; message: string }>,
+  schemaName?: string,
+): Array<{ path: string; message: string }> {
+  return errors.map((error) => {
+    const normalizedPath = error.path === "" ? "/" : error.path;
+    const messagePath = schemaName
+      ? normalizedPath === "/"
+        ? schemaName
+        : `${schemaName}${normalizedPath}`
+      : normalizedPath;
+
+    return {
+      path: normalizedPath,
+      message: `${messagePath}: Array type requires 'items' property`,
+    };
+  });
 }
 
 interface ExecError extends Error {

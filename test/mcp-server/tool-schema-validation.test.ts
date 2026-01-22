@@ -1,5 +1,3 @@
-// @orchestra-task: 7
-
 /**
  * MCP Tool Schema Validation Tests
  *
@@ -101,8 +99,8 @@ describe("MCP Tool Schema Validation", () => {
     expect(allTools.length).toBeGreaterThan(0);
   });
 
-  describe("[tdd-red] AJV schema validation integration", () => {
-    it("[tdd-red] reports array schemas missing items in AJV validation", () => {
+  describe("AJV schema validation integration", () => {
+    it("reports array schemas missing items in AJV validation", () => {
       const invalidSchema: JsonSchema = {
         type: "object",
         properties: {
@@ -124,7 +122,7 @@ describe("MCP Tool Schema Validation", () => {
       ).toBe(true);
     });
 
-    it("[tdd-red] detects arrays without items via core helper", () => {
+    it("detects arrays without items via core helper", () => {
       const invalidSchema: JsonSchema = {
         type: "object",
         properties: {
