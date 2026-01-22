@@ -425,12 +425,11 @@ Provide detailed, actionable feedback for any issues found.`;
 ## Task Details
 - **Sprint**: ${sprintTitle} (${sprintId})
 - **Task**: #${taskInfo.taskId} - ${taskInfo.title}
-- **Database ID**: ${taskInfo.dbId} (use this for MCP tool calls like get_latest_code_review)
 
 ## Your Task
 Use your MCP tools to review the implementation:
 
-1. \`get_latest_code_review\` with task_id=${taskInfo.dbId} - Get the pending review
+1. \`get_latest_code_review\` with task_id=${taskInfo.taskId} - Get the pending review
 2. \`claim_code_review\` with review_id from step 1 - Claim this review (required)
 3. \`get_task\` with task_id=${taskInfo.taskId} - Get the task details and requirements
 4. Read the implementation files to understand what was built

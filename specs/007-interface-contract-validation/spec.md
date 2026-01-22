@@ -9,7 +9,7 @@
 
 ### User Story 1 - Build-Time Schema Validation (Priority: P1)
 
-As a developer working on Orchestra MCP tools, I want interface contract definitions to be validated against their specifications at build time, so that invalid schemas are caught before they reach production.
+As a developer working on Orchestra MCP tools, I want interface contract definitions to be validated against their specifications at build/test time, so that invalid schemas are caught before they reach production.
 
 **Why this priority**: This is the core value proposition. The root cause incident (Sprint 006 `submit_code_review` shipping with invalid JSON Schema) would have been prevented by this feature. Build-time validation provides the earliest feedback loop.
 
@@ -132,7 +132,7 @@ All edge cases have been resolved through clarification:
 
 ### Measurable Outcomes
 
-- **SC-001**: Invalid interface definitions are caught at build time when validation is registered (zero production escapes for registered validations).
+- **SC-001**: Invalid interface definitions are caught at build/test time when validation is registered (zero production escapes for registered validations).
 
 - **SC-002**: Developers receive actionable error messages within the normal build/test cycle (no runtime-only detection).
 
@@ -155,7 +155,7 @@ All edge cases have been resolved through clarification:
 
 ### Session 2026-01-22
 
-- Q: What should happen when the validation tool for an interface type is not installed? → A: Hard failure - build fails with error if validation tool is missing (tools are easy to install).
+- Q: What should happen when the validation tool for an interface type is not installed? → A: Hard failure - build fails with error if validation tool is missing (tools are easy to install). Detection mechanism: validation command exits with non-zero code or throws an error (e.g., "command not found", ENOENT). The system does NOT pre-check tool availability; it runs the command and treats any execution failure as a tool availability error.
 
 - Q: Should we support only specific interface types (JSON Schema, OpenAPI, etc.)? → A: No. The system provides a generic mechanism for validating ANY interface type. Specific types (JSON Schema, OpenAPI, etc.) are EXAMPLES, not a fixed supported list. Projects define their own validations.
 
@@ -164,3 +164,5 @@ All edge cases have been resolved through clarification:
 - Q: How does the system handle files with no registered validation pattern? → A: No pattern = no validation. The mechanism is entirely opt-in/configuration-driven. Projects must register patterns for their interface types; agents are trained to ensure validations exist for interfaces they modify.
 
 - Q: How are interface validations registered in a project? → A: Dedicated config file in project. Sprint configuration can amend/add new validations. Additionally, a mechanism must exist to add validations mid-sprint when new interface types are discovered during implementation.
+
+- Q: How does "fail the build" work in practice? → A: Validation runs as part of the test suite (`npm test`). Test failures cause the CI build to fail. This is the standard pattern for Orchestra projects.

@@ -239,11 +239,11 @@ export type CodeReviewBlockingSeverity = z.output<
 
 The `CodeReviewDecision` (action) maps to `CodeReviewStatus` (record state) as follows:
 
-| Decision (Action) | Status (Record State) | Description |
-|-------------------|----------------------|-------------|
-| `APPROVED` | `APPROVED` | Review passed |
-| `NEEDS_REVISION` | `CHANGES_REQUESTED` | Issues identified, fixes required |
-| `REJECTED` | `REJECTED` | Blocking issues, requires re-implementation |
+| Decision (Action) | Status (Record State) | Description                                 |
+| ----------------- | --------------------- | ------------------------------------------- |
+| `APPROVED`        | `APPROVED`            | Review passed                               |
+| `NEEDS_REVISION`  | `CHANGES_REQUESTED`   | Issues identified, fixes required           |
+| `REJECTED`        | `REJECTED`            | Blocking issues, requires re-implementation |
 
 This distinction allows the Controller to express intent (`NEEDS_REVISION`) while the system records durable state (`CHANGES_REQUESTED`).
 
