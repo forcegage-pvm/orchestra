@@ -4,7 +4,9 @@ import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { ConfigurationError, ValidationError } from "../../src/core/errors.js";
 import {
+  checkArrayWithoutItems,
   loadValidationConfig,
+  runValidation,
   validateJsonSchema,
   validatePatternExclusivity,
 } from "../../src/core/interface-validation.js";
@@ -198,5 +200,96 @@ describe("validateJsonSchema", () => {
 
     expect(errors).toHaveLength(1);
     expect(errors[0]?.message).toBe("tool.schema: Schema must be an object");
+  });
+});
+
+describe("runValidation", () => {
+  it("executes a validation command and returns passing result", async () => {
+    const validation = {
+      name: "echo",
+      patterns: ["**/*"],
+      command: "node -e \"console.log('ok')\"",
+      successCriteria: {
+        outputContains: "ok",
+      },
+    } satisfies InterfaceValidationConfig["validations"][number];
+
+    const results = await runValidation(validation, process.cwd());
+
+    expect(results).toHaveLength(1);
+    expect(results[0]?.passed).toBe(true);
+    expect(results[0]?.errors).toEqual([]);
+  });
+
+  it("executes a validation test entry when provided", async () => {
+    const validation = {
+      name: "test",
+      patterns: ["**/*"],
+      test: "node -e \"process.stdout.write('test-ok')\"",
+      successCriteria: {
+        outputContains: "test-ok",
+      },
+    } satisfies InterfaceValidationConfig["validations"][number];
+
+    const results = await runValidation(validation, process.cwd());
+
+    expect(results).toHaveLength(1);
+    expect(results[0]?.passed).toBe(true);
+  });
+
+  it("throws ConfigurationError when validation tool is missing", async () => {
+    const validation = {
+      name: "missing-tool",
+      patterns: ["**/*"],
+      command: "nonexistent_command_xyz_123",
+    } satisfies InterfaceValidationConfig["validations"][number];
+
+    await expect(
+      runValidation(validation, process.cwd()),
+    ).rejects.toBeInstanceOf(ConfigurationError);
+  });
+});
+
+describe("checkArrayWithoutItems", () => {
+  it("reports missing items for root array schema", () => {
+    const errors = checkArrayWithoutItems({ type: "array" });
+
+    expect(errors).toHaveLength(1);
+    expect(errors[0]?.path).toBe("/");
+  });
+
+  it("reports nested arrays without items", () => {
+    const schema = {
+      type: "object",
+      properties: {
+        items: {
+          type: "array",
+        },
+      },
+      definitions: {
+        Example: {
+          type: ["array", "null"],
+        },
+      },
+    };
+
+    const errors = checkArrayWithoutItems(schema);
+
+    expect(errors).toHaveLength(2);
+    expect(errors[0]?.message).toContain("/properties/items");
+    expect(errors[1]?.message).toContain("/definitions/Example");
+  });
+
+  it("does not report arrays that define items", () => {
+    const schema = {
+      type: "array",
+      items: {
+        type: "string",
+      },
+    };
+
+    const errors = checkArrayWithoutItems(schema);
+
+    expect(errors).toEqual([]);
   });
 });
