@@ -1,3 +1,4 @@
+import { cpus } from "os";
 import { defineConfig } from "vitest/config";
 
 export default defineConfig({
@@ -15,25 +16,35 @@ export default defineConfig({
     },
     testTimeout: 30000,
     hookTimeout: 10000,
-    // Optimize parallel execution
-    pool: "forks",
+    // Optimize parallel execution with threads for lower overhead
+    pool: "threads",
     poolOptions: {
-      forks: {
-        // Use more workers for faster execution (adjust based on your CPU cores)
-        maxWorkers: 4,
+      threads: {
+        // Dynamically scale workers based on CPU cores (half available cores)
+        maxWorkers: Math.max(1, Math.floor(cpus().length / 2)),
         // Reduce overhead by reusing workers
         reuseWorkers: true,
-        // Isolate tests properly
-        isolate: true,
+        // Allow shared context for related tests to improve performance
+        isolate: false,
       },
     },
     // Enable file-level parallelism
     fileParallelism: true,
     // Optimize test discovery and execution
     sequence: {
-      shuffle: true,
+      shuffle: false, // Deterministic order for consistent performance
+      hooks: "parallel", // Run hooks in parallel
     },
+    // Enhanced caching for better performance
+    cache: true,
+    // Enable sharding for CI environments
+    shard: process.env.VITEST_SHARD || undefined,
     // Optimize for CI environments
     reporter: process.env.CI ? ["verbose", "github-actions"] : ["verbose"],
+  },
+  // Watch mode optimizations
+  watch: {
+    include: ["src/**", "test/**"],
+    exclude: ["node_modules/**", ".vitest-cache/**"],
   },
 });
