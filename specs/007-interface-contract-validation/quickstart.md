@@ -66,18 +66,87 @@ const errors = validateJsonSchema(schema, "MyTool");
 // errors = [{ path: "properties.items", message: "Array type requires 'items'" }]
 ```
 
-### Add Validation Mid-Sprint
+### Mid-Sprint Validation Registration
 
-Using MCP tool:
+Implementors often discover new interface types while implementing a task (for example, a new OpenAPI file, a new config schema, or a new protobuf). Waiting for a new sprint to register validation creates drift between what is shipped and what is validated. Mid-sprint registration lets you add validation immediately so verification can cover the newly discovered interface.
+
+#### Configure Sprint Integration (FR-011)
+
+At sprint setup time, `configure_sprint` can reference interface validations so the verification pipeline knows what to run. Use this when the interface types are already known during planning.
+
+Example (excerpt):
+
+```json
+{
+  "environment": {
+    "interface_validations": [
+      {
+        "name": "mcp-tool-schemas",
+        "patterns": ["src/mcp-server/tools.ts", "src/schemas/**/*.ts"],
+        "test": "test/mcp-server/tool-schema-validation.test.ts"
+      }
+    ]
+  }
+}
+```
+
+#### Mid-Sprint Registration (FR-012)
+
+When new interface files appear during implementation, use the `add_interface_validation` MCP tool to register validation immediately.
+
+##### Tool Usage
+
+Required parameters:
+- `name`: string
+- `patterns`: string[] (glob patterns for interface files)
+- Exactly one of:
+  - `command`: string (shell command to run validation)
+  - `test`: string (test path to run validation)
+
+Optional parameters:
+- `description`: string
+- `successCriteria`: object
+  - `exitCode`: number
+  - `outputContains`: string
+  - `outputNotContains`: string
+
+Example using a command:
+
 ```
 add_interface_validation({
   name: "openapi-spec",
+  description: "Validate OpenAPI contract",
   patterns: ["api/openapi.yaml"],
   command: "npx @redocly/cli lint api/openapi.yaml"
 })
 ```
 
-Or edit `.orchestra/interface-validations.yaml` directly.
+Example using a test with success criteria:
+
+```
+add_interface_validation({
+  name: "grpc-protos",
+  patterns: ["proto/**/*.proto"],
+  test: "test/validation/proto-validation.test.ts",
+  successCriteria: {
+    exitCode: 0,
+    outputContains: "Validation passed",
+    outputNotContains: "ERROR"
+  }
+})
+```
+
+##### Workflow Steps
+
+1. Identify the new interface type and file patterns (e.g., OpenAPI, protobuf, config schema).
+2. Decide the validation method:
+   - Use `command` for CLI-based validators.
+   - Use `test` for custom validation tests.
+3. Call `add_interface_validation` with `name`, `patterns`, and exactly one of `command` or `test`.
+4. Re-run validation to confirm the new rule passes.
+5. Ensure future task verification includes the new validation.
+
+If you prefer not to use the tool, you can edit `.orchestra/interface-validations.yaml` directly.
 
 ### Pattern Examples
 
