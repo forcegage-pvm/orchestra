@@ -240,6 +240,22 @@ export function validateJsonSchema(
   return dedupeValidationErrors(errors);
 }
 
+export function assertValidJsonSchema(
+  schema: object,
+  schemaName?: string,
+): void {
+  const errors = validateJsonSchema(schema, schemaName);
+
+  if (errors.length === 0) {
+    return;
+  }
+
+  throw new ValidationError("Invalid JSON Schema", errors, {
+    code: JSON_SCHEMA_INVALID,
+    schemaName,
+  });
+}
+
 export function validateAllMcpToolSchemas(): ToolSchemaValidationResult[] {
   const tools = getToolsForRole("full");
   const results: ToolSchemaValidationResult[] = [];

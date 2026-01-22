@@ -4,11 +4,15 @@ import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { ConfigurationError, ValidationError } from "../../src/core/errors.js";
 import {
+  addInterfaceValidation,
+  assertValidJsonSchema,
   checkArrayWithoutItems,
   INTERFACE_CONFIG_INVALID,
   INTERFACE_CONFIG_NOT_FOUND,
   INTERFACE_PATTERN_OVERLAP,
   INTERFACE_VALIDATION_FAILED,
+  INTERFACE_TOOL_MISSING,
+  JSON_SCHEMA_INVALID,
   loadValidationConfig,
   runAllValidations,
   runValidation,
@@ -64,7 +68,7 @@ describe("loadValidationConfig", () => {
     expect(config.validations[0]?.name).toBe("core");
   });
 
-  it("throws ConfigurationError when config file is missing", () => {
+  it("INTERFACE_CONFIG_NOT_FOUND when config file is missing", () => {
     const dir = createTempDir();
     cleanupDirs.push(dir);
 
@@ -79,7 +83,7 @@ describe("loadValidationConfig", () => {
     }
   });
 
-  it("throws ValidationError when config is invalid", () => {
+  it("INTERFACE_CONFIG_INVALID when config is invalid", () => {
     const dir = createTempDir();
     cleanupDirs.push(dir);
 
@@ -94,6 +98,40 @@ describe("loadValidationConfig", () => {
         expect(error.context?.code).toBe(INTERFACE_CONFIG_INVALID);
       }
     }
+  });
+});
+
+describe("addInterfaceValidation", () => {
+  it("INTERFACE_PATTERN_OVERLAP when new validation overlaps", async () => {
+    const dir = createTempDir();
+    cleanupDirs.push(dir);
+
+    writeConfig(
+      dir,
+      [
+        'version: "1.0"',
+        "validations:",
+        "  - name: core",
+        "    patterns:",
+        '      - "src/**/*.ts"',
+        '    command: "npm test"',
+      ].join("\n"),
+    );
+
+    await expect(
+      addInterfaceValidation(
+        {
+          name: "overlap",
+          patterns: ["src/**/*.ts"],
+          command: "npm test",
+        },
+        dir,
+      ),
+    ).rejects.toMatchObject({
+      context: {
+        code: INTERFACE_PATTERN_OVERLAP,
+      },
+    });
   });
 });
 
@@ -215,6 +253,22 @@ describe("validateJsonSchema", () => {
     expect(errors).toHaveLength(1);
     expect(errors[0]?.message).toBe("tool.schema: Schema must be an object");
   });
+
+  it("JSON_SCHEMA_INVALID when schema violates JSON Schema rules", () => {
+    const invalidSchema = {
+      type: "Array",
+    };
+
+    try {
+      expect.assertions(2);
+      assertValidJsonSchema(invalidSchema, "tool.schema");
+    } catch (error) {
+      expect(error).toBeInstanceOf(ValidationError);
+      if (error instanceof ValidationError) {
+        expect(error.context?.code).toBe(JSON_SCHEMA_INVALID);
+      }
+    }
+  });
 });
 
 describe("runValidation", () => {
@@ -260,10 +314,14 @@ describe("runValidation", () => {
 
     await expect(
       runValidation(validation, process.cwd()),
-    ).rejects.toBeInstanceOf(ConfigurationError);
+    ).rejects.toMatchObject({
+      context: {
+        code: INTERFACE_TOOL_MISSING,
+      },
+    });
   });
 
-  it("returns failure code when validation does not meet criteria", async () => {
+  it("INTERFACE_VALIDATION_FAILED when validation does not meet criteria", async () => {
     const validation = {
       name: "fail",
       patterns: ["**/*"],
