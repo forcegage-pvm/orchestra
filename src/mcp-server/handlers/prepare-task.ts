@@ -866,6 +866,27 @@ async function injectTestVerificationIfRequired(
     return { injected: false };
   }
 
+  // Skip TDD injection for documentation-only tasks
+  // If ALL file operations target non-code files (markdown, text, etc.), no tests are needed
+  const documentationExtensions = new Set([
+    "md",
+    "mdx",
+    "rst",
+    "txt",
+    "adoc",
+    "asciidoc",
+  ]);
+  const isDocumentationOnly =
+    fileOperations.length > 0 &&
+    fileOperations.every((op) => {
+      const ext = op.path.split(".").pop()?.toLowerCase() || "";
+      return documentationExtensions.has(ext);
+    });
+
+  if (isDocumentationOnly) {
+    return { injected: false };
+  }
+
   // Get test file pattern from config or detect from file operations
   const configTestPattern = configMap.get("tdd.test_file_pattern");
   const configContentPattern = configMap.get("tdd.test_pattern");

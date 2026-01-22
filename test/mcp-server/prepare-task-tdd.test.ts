@@ -437,4 +437,145 @@ describe("prepare_task TDD Auto-Injection", () => {
     expect(checkConfig.path).toBe("spec/**/*.spec.ts");
     expect(checkConfig.pattern).toBe("suite|test|expect");
   });
+
+  it("should NOT inject TDD check for documentation-only tasks (markdown files)", async () => {
+    const db = getDb();
+    const now = new Date().toISOString();
+
+    // Enable TDD for INTEGRATION category
+    await db.insert(config).values([
+      {
+        key: "tdd.require_tests",
+        value: "true",
+        description: "Enable TDD",
+        created_at: now,
+        updated_at: now,
+      },
+      {
+        key: "tdd.require_tests_categories",
+        value: "INFRASTRUCTURE,INTEGRATION",
+        description: "Categories requiring tests",
+        created_at: now,
+        updated_at: now,
+      },
+    ]);
+
+    // Create a task with INTEGRATION category (normally requires tests)
+    // but with documentation-only file operations
+    await db.insert(tasks).values({
+      id: 1,
+      sprint_id: testSprintId,
+      phase_id: currentPhaseId,
+      task_id: 1,
+      title: "Update Agent Documentation",
+      description: "Update agent markdown instructions",
+      category: "INTEGRATION",
+      dependencies: "[]",
+      status: "PENDING",
+      created_at: now,
+      updated_at: now,
+    });
+
+    await handlePrepareTask({
+      task_id: 1,
+      acceptance_criteria: [
+        {
+          criterion: "Documentation updated",
+          verification: "File contains new section",
+        },
+      ],
+      file_operations: [
+        {
+          operation: "UPDATE",
+          path: "extension/agents/orchestra.controller.agent.md",
+          description: "Add interface validation section",
+        },
+      ],
+      deliverables: ["Updated agent documentation"],
+      priority: "P2",
+      context:
+        "This is a documentation-only task that updates markdown agent instructions.",
+    });
+
+    // Should NOT inject TDD check because task only modifies markdown files
+    const checks = await db
+      .select()
+      .from(verificationChecks)
+      .where(eq(verificationChecks.task_id, 1));
+
+    // No checks should be injected for documentation-only tasks
+    const tddChecks = checks.filter((c) => c.check_id.includes("tdd"));
+    expect(tddChecks.length).toBe(0);
+  });
+
+  it("should inject TDD check for mixed tasks with both code and documentation files", async () => {
+    const db = getDb();
+    const now = new Date().toISOString();
+
+    // Enable TDD for INTEGRATION category
+    await db.insert(config).values([
+      {
+        key: "tdd.require_tests",
+        value: "true",
+        description: "Enable TDD",
+        created_at: now,
+        updated_at: now,
+      },
+      {
+        key: "tdd.require_tests_categories",
+        value: "INFRASTRUCTURE,INTEGRATION",
+        description: "Categories requiring tests",
+        created_at: now,
+        updated_at: now,
+      },
+    ]);
+
+    // Create a task with mixed file operations (code + docs)
+    await db.insert(tasks).values({
+      id: 1,
+      sprint_id: testSprintId,
+      phase_id: currentPhaseId,
+      task_id: 1,
+      title: "Add Feature with Documentation",
+      description: "Create feature and update docs",
+      category: "INTEGRATION",
+      dependencies: "[]",
+      status: "PENDING",
+      created_at: now,
+      updated_at: now,
+    });
+
+    await handlePrepareTask({
+      task_id: 1,
+      acceptance_criteria: [
+        { criterion: "Feature implemented", verification: "Tests pass" },
+      ],
+      file_operations: [
+        {
+          operation: "CREATE",
+          path: "src/core/feature.ts",
+          description: "New feature",
+        },
+        {
+          operation: "UPDATE",
+          path: "docs/feature.md",
+          description: "Update docs",
+        },
+      ],
+      deliverables: ["Feature implementation", "Updated docs"],
+      priority: "P1",
+      context:
+        "This is a mixed task with both code and documentation file operations.",
+    });
+
+    // Should inject TDD check because task modifies code files (not doc-only)
+    const checks = await db
+      .select()
+      .from(verificationChecks)
+      .where(eq(verificationChecks.task_id, 1));
+
+    const tddChecks = checks.filter((c) => c.check_id.includes("tdd"));
+    expect(tddChecks.length).toBe(1);
+    expect(tddChecks[0].description).toContain("[TDD]");
+  });
 });
