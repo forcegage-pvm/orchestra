@@ -277,6 +277,13 @@ async function runCheck(
   }
 
   const result = await executeCommand(command, options);
+  if (!result) {
+    return {
+      passed: false,
+      duration_ms: 0,
+      output: "Command execution failed: no result returned",
+    };
+  }
 
   return mapExecuteResult(result);
 }

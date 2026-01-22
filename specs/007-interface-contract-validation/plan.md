@@ -114,7 +114,7 @@ _GATE: Verify design still complies after Phase 1 artifacts created._
 | Data Model         | ✅ Complete | [data-model.md](./data-model.md)                              |
 | API Contracts      | ✅ Complete | [contracts/api.md](./contracts/api.md)                        |
 | Quickstart         | ✅ Complete | [quickstart.md](./quickstart.md)                              |
-| Agent Instructions | ⏳ Pending  | `.github/agents/orchestra.{orchestrator,controller}.agent.md` |
+| Agent Instructions | ✅ Complete | `.github/agents/orchestra.{orchestrator,controller}.agent.md` |
 
 ## Next Steps
 
