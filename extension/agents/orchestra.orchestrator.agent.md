@@ -1136,6 +1136,64 @@ When task involves defining identifiers, ensure checks cover:
 | CSS classes     | Style definitions                        | Template HTML usage                                            |
 | Export names    | Module exports                           | Import statements                                              |
 
+## Interface Contract Validation
+
+### The Principle
+
+When a task modifies files that define **external contracts** (schemas, APIs, configs, specs), verification **MUST** include checks that the definitions are valid according to their specification — not just that the code using them works.
+
+Tests verify code behavior. Interface definitions have their own rules (JSON Schema, OpenAPI, npm package spec). If you only test handlers, invalid definitions slip through and fail at runtime in consumers.
+
+### What "External Contracts" Means
+
+External contracts are files **consumed by other systems**:
+
+- Schemas consumed by VS Code or MCP clients
+- APIs consumed by external clients or services
+- Configs parsed by tools (npm, TypeScript compiler, build systems)
+
+### Common Interface Types
+
+| Interface Type  | Example Files/Locations                | Spec to Validate Against |
+| --------------- | -------------------------------------- | ------------------------ |
+| JSON Schema     | MCP tool `inputSchema`, config schemas | JSON Schema Draft-07     |
+| OpenAPI/Swagger | `openapi.yaml`, `swagger.json`         | OpenAPI 3.x spec         |
+| package.json    | `package.json`                         | npm package spec         |
+| tsconfig.json   | `tsconfig.json`                        | TypeScript config spec   |
+| Protobuf        | `*.proto`                              | proto3 syntax            |
+| GraphQL SDL     | `*.graphql`                            | GraphQL spec             |
+
+### Requirement
+
+When preparing tasks that modify interface definition files, you **MUST** include verification criteria that validate those definitions against their specification.
+
+### How to Add Interface Validation
+
+Add behavioral checks (or tests) that explicitly validate the interface definition, for example:
+
+```json
+{
+  "behavioral_checks": [
+    {
+      "description": "MCP tool schemas are valid JSON Schema",
+      "command": "npm test -- -t 'tool schema validation'",
+      "expect_exit_code": 0,
+      "severity": "BLOCKING"
+    }
+  ]
+}
+```
+
+### File Pattern Recognition
+
+Look for interface definition files and schema declarations such as:
+
+- `**/inputSchema` properties in tools registrations
+- `package.json`, `tsconfig.json`, `*.config.js`
+- `openapi.yaml`, `swagger.json`
+- `*.proto`, `*.graphql`
+- Any file consumed by external systems or clients
+
 ## Verification Design: Interface Definition Validation
 
 **CRITICAL**: When a task modifies **interface definitions** (schemas, contracts, specs), verification must include **schema/spec validity checks** - not just tests that the code using them works.

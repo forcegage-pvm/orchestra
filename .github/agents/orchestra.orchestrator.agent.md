@@ -1144,7 +1144,7 @@ When a task modifies files that define **external contracts** (schemas, APIs, co
 
 Tests verify code behavior. Interface definitions have their own rules (JSON Schema, OpenAPI, npm package spec). If you only test handlers, invalid definitions slip through and fail at runtime in consumers.
 
-### What “External Contracts” Means
+### What "External Contracts" Means
 
 External contracts are files **consumed by other systems**:
 

@@ -20,7 +20,7 @@
 - Schemas: `src/schemas/`
 - MCP handlers: `src/mcp-server/handlers/`
 - Tests: `test/`
-- Agent instructions: `.github/agents/` (mirrored to `extension/agents/`)
+- Agent instructions: `extension/agents/` (canonical source for VS Code extension; `.github/agents/` is auto-synced for GitHub Copilot)
 
 ---
 
@@ -82,7 +82,7 @@
 
 ### Implementation for User Story 2
 
-- [ ] T017 [US2] Add "Interface Contract Validation" section to .github/agents/orchestra.orchestrator.agent.md
+- [ ] T017 [US2] Add "Interface Contract Validation" section to extension/agents/orchestra.orchestrator.agent.md
 - [ ] T018 [US2] Document the principle "validate interfaces against their specifications" with examples
 - [ ] T019 [US2] Add requirement to include interface validation in verification criteria for tasks modifying external contracts
       **Checkpoint**: Orchestrator agent instructions include interface validation guidance (mirroring handled in T035a)
@@ -97,7 +97,7 @@
 
 ### Implementation for User Story 3
 
-- [ ] T021 [US3] Add interface validation check to Controller code review section in .github/agents/orchestra.controller.agent.md
+- [ ] T021 [US3] Add interface validation check to Controller code review section in extension/agents/orchestra.controller.agent.md
 - [ ] T022 [US3] Document that interface validation failures result in automatic CHANGES_REQUESTED
       **Checkpoint**: Controller code review section includes interface validation requirements (mirroring handled in T035a)
 
@@ -111,7 +111,7 @@
 
 ### Implementation for User Story 4
 
-- [ ] T024 [US4] Add interface validation check to Controller handover review section in .github/agents/orchestra.controller.agent.md
+- [ ] T024 [US4] Add interface validation check to Controller handover review section in extension/agents/orchestra.controller.agent.md
 - [ ] T025 [US4] Document warning-then-reject pattern for missing validation criteria
       **Checkpoint**: Controller handover review section includes interface validation verification (mirroring handled in T035a)
 
@@ -142,7 +142,7 @@
 - [ ] T033 Run quickstart.md validation scenarios end-to-end
 - [ ] T034 Verify existing tests pass with new validation infrastructure
 - [ ] T035 [P] Update DOCUMENTATION_AUDIT.md if new documentation added
-- [ ] T035a Mirror all agent instruction changes from `.github/agents/` to `extension/agents/` (canonical source is `.github/agents/`; extension copies are synced)
+- [ ] T035a Mirror all agent instruction changes from `extension/agents/` to `.github/agents/` (canonical source is `extension/agents/` for VS Code; `.github/` copies for GitHub Copilot)
 
 ---
 
@@ -245,7 +245,7 @@ Phase 6: US4 - Controller handover (T024-T026)
 - [P] tasks = different files, no dependencies
 - [Story] label maps task to specific user story for traceability
 - Each user story should be independently completable and testable
-- **Agent file convention**: `.github/agents/` is the canonical source; `extension/agents/` contains mirrors synced via T035a
+- **Agent file convention**: `extension/agents/` is the canonical source (bundled in VS Code extension); `.github/agents/` contains GitHub Copilot mirrors synced via T035a
 - AJV is used for JSON Schema meta-validation per research decision
 - Config stored in `.orchestra/interface-validations.yaml` per research decision
 - FR-003 (hard failure on missing tool) is covered by T007's implementation of `runValidation()`
