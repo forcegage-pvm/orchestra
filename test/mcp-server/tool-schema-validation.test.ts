@@ -117,7 +117,9 @@ describe("MCP Tool Schema Validation", () => {
       expect(errors.length).toBeGreaterThan(0);
       expect(
         errors.some((error) =>
-          error.message.includes("inputSchema/properties/tags"),
+          error.message.includes(
+            "inputSchema/properties/tags: Array type requires 'items' property",
+          ),
         ),
       ).toBe(true);
     });
@@ -137,7 +139,7 @@ describe("MCP Tool Schema Validation", () => {
       expect(errors.length).toBeGreaterThan(0);
       expect(
         errors.some((error) =>
-          error.message.includes("inputSchema/properties/tags"),
+          error.message.includes("inputSchema/properties/tags/items"),
         ),
       ).toBe(true);
     });
