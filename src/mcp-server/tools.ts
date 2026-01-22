@@ -683,6 +683,55 @@ const TOOLS_WITH_ROLES: ToolWithRole[] = [
       required: ["task_id"],
     },
   },
+  {
+    role: "shared",
+    name: "add_interface_validation",
+    description:
+      "Add a new interface validation to .orchestra/interface-validations.yaml",
+    inputSchema: {
+      type: "object",
+      properties: {
+        name: { type: "string", description: "Validation name" },
+        description: {
+          type: "string",
+          description: "Optional validation description",
+        },
+        patterns: {
+          type: "array",
+          items: { type: "string" },
+          description: "File match patterns for this validation",
+        },
+        command: {
+          type: "string",
+          description: "Command to run for validation",
+        },
+        test: {
+          type: "string",
+          description: "Test file reference for validation",
+        },
+        successCriteria: {
+          type: "object",
+          description: "Optional success criteria",
+          properties: {
+            exitCode: { type: "number", description: "Expected exit code" },
+            outputContains: {
+              type: "string",
+              description: "Output must contain this string",
+            },
+            outputNotContains: {
+              type: "string",
+              description: "Output must not contain this string",
+            },
+          },
+        },
+      },
+      required: ["name", "patterns"],
+      oneOf: [
+        { required: ["command"], not: { required: ["test"] } },
+        { required: ["test"], not: { required: ["command"] } },
+      ],
+    },
+  },
 
   // Verification Tools - ORCHESTRATOR ONLY
   {
@@ -1556,6 +1605,10 @@ export function registerTools(server: Server, role: ServerRole = "full"): void {
           return await (
             await import("./handlers/add-task.js")
           ).handleAddTask(args);
+        case "add_interface_validation":
+          return await (
+            await import("./handlers/add-interface-validation.js")
+          ).handleAddInterfaceValidation(args);
         case "update_task":
           return await (
             await import("./handlers/update-task.js")

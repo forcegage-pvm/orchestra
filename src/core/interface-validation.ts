@@ -5,14 +5,19 @@
 import Ajv from "ajv";
 import minimatch from "minimatch";
 import { exec, type ExecOptions } from "node:child_process";
+import { mkdir, writeFile } from "node:fs/promises";
 import * as path from "node:path";
 import { promisify } from "node:util";
+import { stringify } from "yaml";
 import { getToolsForRole } from "../mcp-server/tools.js";
 import type {
   InterfaceValidation,
   InterfaceValidationConfig,
 } from "../schemas/interface-validation.js";
-import { InterfaceValidationConfigSchema } from "../schemas/interface-validation.js";
+import {
+  InterfaceValidationConfigSchema,
+  InterfaceValidationSchema,
+} from "../schemas/interface-validation.js";
 import {
   ConfigurationError,
   FileError,
@@ -53,6 +58,67 @@ export const INTERFACE_PATTERN_OVERLAP = "INTERFACE_PATTERN_OVERLAP";
 export const INTERFACE_VALIDATION_FAILED = "INTERFACE_VALIDATION_FAILED";
 export const INTERFACE_TOOL_MISSING = "INTERFACE_TOOL_MISSING";
 export const JSON_SCHEMA_INVALID = "JSON_SCHEMA_INVALID";
+
+export async function addInterfaceValidation(
+  input: InterfaceValidation,
+  rootDir: string = process.cwd(),
+): Promise<{ success: true; validationName: string; configPath: string }> {
+  const parsed = InterfaceValidationSchema.safeParse(input);
+
+  if (!parsed.success) {
+    const issues = parsed.error.errors.map((issue) => ({
+      path: issue.path.join("."),
+      message: issue.message,
+    }));
+
+    throw new ValidationError("Invalid interface validation", issues, {
+      code: INTERFACE_CONFIG_INVALID,
+    });
+  }
+
+  const configPath = path.resolve(
+    rootDir,
+    INTERFACE_VALIDATION_CONFIG_RELATIVE_PATH,
+  );
+
+  const config: InterfaceValidationConfig = yamlExists(configPath)
+    ? loadValidationConfig(rootDir)
+    : {
+        version: "1.0",
+        validations: [],
+      };
+
+  const overlappingPatterns = parsed.data.patterns.filter((pattern) =>
+    config.validations.some((validation) =>
+      validation.patterns.includes(pattern),
+    ),
+  );
+
+  if (overlappingPatterns.length > 0) {
+    throw new ConfigurationError(
+      "Interface validation patterns overlap with existing validations",
+      {
+        code: INTERFACE_PATTERN_OVERLAP,
+        patterns: overlappingPatterns,
+        validation: parsed.data.name,
+      },
+    );
+  }
+
+  const updatedConfig: InterfaceValidationConfig = {
+    version: config.version ?? "1.0",
+    validations: [...config.validations, parsed.data],
+  };
+
+  await mkdir(path.dirname(configPath), { recursive: true });
+  await writeFile(configPath, stringify(updatedConfig), "utf8");
+
+  return {
+    success: true,
+    validationName: parsed.data.name,
+    configPath,
+  };
+}
 
 export function loadValidationConfig(
   rootDir: string = process.cwd(),

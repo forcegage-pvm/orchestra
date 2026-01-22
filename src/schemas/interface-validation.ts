@@ -8,7 +8,10 @@ import { z } from "zod";
 
 const SemverLikeSchema = z
   .string()
-  .regex(/^\d+\.\d+(?:\.\d+)?$/, "Version must be semver-like (e.g., 1.0 or 1.0.0)");
+  .regex(
+    /^\d+\.\d+(?:\.\d+)?$/,
+    "Version must be semver-like (e.g., 1.0 or 1.0.0)",
+  );
 
 export const InterfaceValidationSuccessCriteriaSchema = z.object({
   exitCode: z.number().int().default(0),
@@ -37,6 +40,12 @@ export const InterfaceValidationSchema = z
   });
 
 export type InterfaceValidation = z.output<typeof InterfaceValidationSchema>;
+
+export const AddInterfaceValidationInputSchema = InterfaceValidationSchema;
+
+export type AddInterfaceValidationInput = z.output<
+  typeof AddInterfaceValidationInputSchema
+>;
 
 export const InterfaceValidationConfigSchema = z.object({
   version: SemverLikeSchema,
