@@ -21,7 +21,6 @@ import type {
   AgentConfig,
   AgentMessage,
   AgentRole,
-  MessageContentPart,
   ToolContext,
 } from "./types.js";
 
@@ -538,17 +537,36 @@ export class AgentRunner implements vscode.Disposable {
       }
 
       // Handle array content (tool results, etc.)
-      const textParts = msg.content
-        .filter(
-          (part): part is Extract<MessageContentPart, { type: "text" }> =>
-            part.type === "text",
-        )
-        .map((part) => part.value)
-        .join("\n");
+      const contentParts: Array<
+        vscode.LanguageModelTextPart | vscode.LanguageModelToolResultPart
+      > = [];
+      const textValues: string[] = [];
+      let hasToolResult = false;
+
+      for (const part of msg.content) {
+        if (part.type === "text") {
+          textValues.push(part.value);
+          contentParts.push(new vscode.LanguageModelTextPart(part.value));
+        } else if (part.type === "toolResult") {
+          hasToolResult = true;
+          contentParts.push(
+            new vscode.LanguageModelToolResultPart(
+              part.toolCallId,
+              [new vscode.LanguageModelTextPart(part.value)],
+            ),
+          );
+        }
+      }
+
+      const textContent = textValues.join("\n");
+
+      if (hasToolResult) {
+        return vscode.LanguageModelChatMessage.User(contentParts);
+      }
 
       return role === vscode.LanguageModelChatMessageRole.User
-        ? vscode.LanguageModelChatMessage.User(textParts)
-        : vscode.LanguageModelChatMessage.Assistant(textParts);
+        ? vscode.LanguageModelChatMessage.User(textContent)
+        : vscode.LanguageModelChatMessage.Assistant(textContent);
     });
   }
 

@@ -54,6 +54,9 @@ vi.mock("vscode", () => ({
   LanguageModelToolCallPart: class {
     constructor(public name: string, public input: unknown, public callId: string) {}
   },
+  LanguageModelToolResultPart: class {
+    constructor(public callId: string, public content: unknown[]) {}
+  },
   lm: {
     selectChatModels: vi.fn(),
   },
@@ -150,6 +153,37 @@ describe("AgentRunner", () => {
       const runner = new AgentRunner(registry);
       expect(runner.onOutput).toBeDefined();
       expect(runner.onStateChange).toBeDefined();
+    });
+  });
+
+  describe("convertToLMMessages", () => {
+    test("should serialize toolResult content parts", () => {
+      const messages = [
+        {
+          id: "00000000-0000-0000-0000-000000000000",
+          role: "assistant",
+          content: [
+            { type: "text", value: "Tool result:" },
+            { type: "toolResult", toolCallId: "call-1", value: "OK" },
+          ],
+          timestamp: new Date().toISOString(),
+          iteration: 1,
+        },
+      ];
+
+      const converted = (runner as any).convertToLMMessages(messages);
+      expect(converted).toHaveLength(1);
+
+      const content = converted[0]?.content as unknown[];
+      expect(Array.isArray(content)).toBe(true);
+      expect(content[0]).toBeInstanceOf(vscode.LanguageModelTextPart);
+      expect(content[1]).toBeInstanceOf(vscode.LanguageModelToolResultPart);
+      expect((content[1] as any).callId).toBe("call-1");
+      expect(Array.isArray((content[1] as any).content)).toBe(true);
+      expect((content[1] as any).content[0]).toBeInstanceOf(
+        vscode.LanguageModelTextPart,
+      );
+      expect((content[1] as any).content[0].value).toBe("OK");
     });
   });
 
