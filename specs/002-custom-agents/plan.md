@@ -130,6 +130,7 @@ extension/test/
 | Phase | Priority | Scope | Estimated Tasks |
 |-------|----------|-------|-----------------|
 | 1: Core Infrastructure | P0 | AgentRunner, ToolRegistry, basic streaming | 3 |
+| 1.5: Hardening | P0 | Fix AgentRunner context serialization (Critical) | 1 |
 | 2: Coding Tools | P0 | edit, read_file, new, delete, search, etc. | 3 |
 | 3: Orchestra Tools | P0 | get_current_task, signal_completion, etc. | 2 |
 | 4: UI Components | P0 | Agent Output Panel, controls | 3 |
