@@ -22,6 +22,7 @@ import * as schema from "./local-schema.js";
 export interface Sprint {
   id: string;
   name: string;
+  status: string; // SprintStatus: PENDING_SPEC_REVIEW, ACTIVE, SPEC_REVIEW_FAILED, COMPLETE, CLOSED
   workflow_step: string;
   is_active: boolean;
   created_at: string;
@@ -45,6 +46,35 @@ export interface Task {
   created_at: string;
   updated_at: string;
   completed_at: string | null;
+  tdd_red_phase?: boolean;
+}
+
+/**
+ * TDD Registry entry for a red-phase task (file-level tracking)
+ *
+ * This is a TRANSITORY SNAPSHOT of what TDD markers exist in the codebase.
+ * The registry is cleared and repopulated on every signal_completion.
+ */
+export interface TddRegistryEntry {
+  id: number;
+  sprint_id: string;
+  red_task_id: number;
+  test_file: string; // Relative path to test file
+  test_count: number; // Number of tests in file
+  created_at: string;
+}
+
+/**
+ * TDD info summary for a task (file-level tracking)
+ */
+export interface TddInfo {
+  isRedPhase: boolean;
+  registeredFiles: number; // Number of test files registered
+  totalTestCount: number; // Total tests across all files
+  redTaskId?: number; // For green tasks: the linked red task internal ID
+  redTaskUiId?: number; // For green tasks: the linked red task sprint-relative ID for display
+  redTaskTitle?: string; // For green tasks: the linked red task title
+  entries: TddRegistryEntry[];
 }
 
 export interface Phase {
@@ -170,8 +200,8 @@ export function getCurrentSprint(workspaceRoot: string): Sprint | null {
     .where(
       eq(
         schema.sprints.is_active as unknown as typeof schema.sprints.is_active,
-        true
-      )
+        true,
+      ),
     )
     .limit(1)
     .all() as Sprint[];
@@ -187,13 +217,14 @@ export function getCurrentSprint(workspaceRoot: string): Sprint | null {
     .where(
       isNull(
         schema.sprints
-          .completed_at as unknown as typeof schema.sprints.completed_at
-      )
+          .completed_at as unknown as typeof schema.sprints.completed_at,
+      ),
     )
     .orderBy(
       desc(
-        schema.sprints.created_at as unknown as typeof schema.sprints.created_at
-      )
+        schema.sprints
+          .created_at as unknown as typeof schema.sprints.created_at,
+      ),
     )
     .limit(1)
     .all() as Sprint[];
@@ -215,8 +246,9 @@ export function getAllSprints(workspaceRoot: string): Sprint[] {
     .from(schema.sprints as unknown as typeof schema.sprints)
     .orderBy(
       desc(
-        schema.sprints.created_at as unknown as typeof schema.sprints.created_at
-      )
+        schema.sprints
+          .created_at as unknown as typeof schema.sprints.created_at,
+      ),
     )
     .all() as Sprint[];
 }
@@ -231,7 +263,7 @@ export function getAllSprints(workspaceRoot: string): Sprint[] {
  * @returns Current task with handover or null if none exists
  */
 export function getCurrentTask(
-  workspaceRoot: string
+  workspaceRoot: string,
 ): (Task & { handover: Handover }) | null {
   const db = getDB(workspaceRoot);
 
@@ -249,21 +281,25 @@ export function getCurrentTask(
       schema.handovers as unknown as typeof schema.handovers,
       eq(
         schema.tasks.id as unknown as typeof schema.tasks.id,
-        schema.handovers.task_id as unknown as typeof schema.handovers.task_id
-      )
+        schema.handovers.task_id as unknown as typeof schema.handovers.task_id,
+      ),
     )
     .where(
       and(
         eq(
           schema.tasks.sprint_id as unknown as typeof schema.tasks.sprint_id,
-          activeSprint.id
+          activeSprint.id,
         ),
         inArray(schema.tasks.status as unknown as typeof schema.tasks.status, [
+          "PREPARE",
+          "PENDING_HANDOVER_REVIEW",
+          "HANDOVER_REVIEW_FAILED",
           "IMPLEMENT",
           "GATE_CHECK",
           "VERIFY",
-        ])
-      )
+          "ESCALATED",
+        ]),
+      ),
     )
     .limit(1)
     .all() as unknown[];
@@ -290,7 +326,7 @@ export function getCurrentTask(
  * @returns Escalated task with handover or null if none exists
  */
 export function getEscalatedTask(
-  workspaceRoot: string
+  workspaceRoot: string,
 ): (Task & { handover: Handover | null }) | null {
   const db = getDB(workspaceRoot);
 
@@ -308,20 +344,20 @@ export function getEscalatedTask(
       schema.handovers as unknown as typeof schema.handovers,
       eq(
         schema.tasks.id as unknown as typeof schema.tasks.id,
-        schema.handovers.task_id as unknown as typeof schema.handovers.task_id
-      )
+        schema.handovers.task_id as unknown as typeof schema.handovers.task_id,
+      ),
     )
     .where(
       and(
         eq(
           schema.tasks.sprint_id as unknown as typeof schema.tasks.sprint_id,
-          activeSprint.id
+          activeSprint.id,
         ),
         eq(
           schema.tasks.status as unknown as typeof schema.tasks.status,
-          "ESCALATED"
-        )
-      )
+          "ESCALATED",
+        ),
+      ),
     )
     .limit(1)
     .all() as unknown[];
@@ -349,7 +385,7 @@ export function getEscalatedTask(
  */
 export function getTasksForSprint(
   workspaceRoot: string,
-  sprintId: string
+  sprintId: string,
 ): Task[] {
   const db = getDB(workspaceRoot);
 
@@ -359,8 +395,8 @@ export function getTasksForSprint(
     .where(
       eq(
         schema.tasks.sprint_id as unknown as typeof schema.tasks.sprint_id,
-        sprintId
-      )
+        sprintId,
+      ),
     )
     .orderBy(schema.tasks.task_id as unknown as typeof schema.tasks.task_id)
     .all() as Task[];
@@ -384,8 +420,8 @@ export function getPhases(workspaceRoot: string, sprintId: string): Phase[] {
     .where(
       eq(
         schema.phases.sprint_id as unknown as typeof schema.phases.sprint_id,
-        sprintId
-      )
+        sprintId,
+      ),
     )
     .orderBy(schema.phases.order as unknown as typeof schema.phases.order)
     .all() as Phase[];
@@ -403,7 +439,7 @@ export function getPhases(workspaceRoot: string, sprintId: string): Phase[] {
  */
 export function getTaskHistory(
   workspaceRoot: string,
-  taskId: number
+  taskId: number,
 ): Progress[] {
   const db = getDB(workspaceRoot);
 
@@ -413,14 +449,14 @@ export function getTaskHistory(
     .where(
       eq(
         schema.progress.task_id as unknown as typeof schema.progress.task_id,
-        taskId
-      )
+        taskId,
+      ),
     )
     .orderBy(
       desc(
         schema.progress
-          .changed_at as unknown as typeof schema.progress.changed_at
-      )
+          .changed_at as unknown as typeof schema.progress.changed_at,
+      ),
     )
     .all() as Progress[];
 }
@@ -439,7 +475,7 @@ export function getTaskHistory(
 export function getVerificationResults(
   workspaceRoot: string,
   taskId: number,
-  attempt: number
+  attempt: number,
 ): (VerificationResult & { check: VerificationCheck })[] {
   const db = getDB(workspaceRoot);
 
@@ -451,13 +487,13 @@ export function getVerificationResults(
       and(
         eq(
           schema.signals.task_id as unknown as typeof schema.signals.task_id,
-          taskId
+          taskId,
         ),
         eq(
           schema.signals.attempt as unknown as typeof schema.signals.attempt,
-          attempt
-        )
-      )
+          attempt,
+        ),
+      ),
     )
     .limit(1)
     .all() as unknown[];
@@ -472,7 +508,7 @@ export function getVerificationResults(
   const results = db
     .select()
     .from(
-      schema.verificationResults as unknown as typeof schema.verificationResults
+      schema.verificationResults as unknown as typeof schema.verificationResults,
     )
     .innerJoin(
       schema.verificationChecks as unknown as typeof schema.verificationChecks,
@@ -480,22 +516,22 @@ export function getVerificationResults(
         schema.verificationResults
           .check_id as unknown as typeof schema.verificationResults.check_id,
         schema.verificationChecks
-          .id as unknown as typeof schema.verificationChecks.id
-      )
+          .id as unknown as typeof schema.verificationChecks.id,
+      ),
     )
     .where(
       and(
         eq(
           schema.verificationResults
             .task_id as unknown as typeof schema.verificationResults.task_id,
-          taskId
+          taskId,
         ),
         eq(
           schema.verificationResults
             .signal_id as unknown as typeof schema.verificationResults.signal_id,
-          signalId
-        )
-      )
+          signalId,
+        ),
+      ),
     )
     .all() as unknown[];
 
@@ -554,7 +590,7 @@ export interface TimelineEvent {
  */
 export function getSprintTimeline(
   workspaceRoot: string,
-  sprintId: string
+  sprintId: string,
 ): TimelineEvent[] {
   const db = getDB(workspaceRoot);
 
@@ -575,21 +611,21 @@ export function getSprintTimeline(
       schema.tasks as unknown as typeof schema.tasks,
       eq(
         schema.progress.task_id as unknown as typeof schema.progress.task_id,
-        schema.tasks.id as unknown as typeof schema.tasks.id
-      )
+        schema.tasks.id as unknown as typeof schema.tasks.id,
+      ),
     )
     .where(
       eq(
         schema.progress
           .sprint_id as unknown as typeof schema.progress.sprint_id,
-        sprintId
-      )
+        sprintId,
+      ),
     )
     .orderBy(
       desc(
         schema.progress
-          .changed_at as unknown as typeof schema.progress.changed_at
-      )
+          .changed_at as unknown as typeof schema.progress.changed_at,
+      ),
     )
     .limit(20)
     .all() as Array<{
@@ -664,7 +700,7 @@ export function getSprintTimeline(
  */
 export function getTaskById(
   workspaceRoot: string,
-  taskId: number
+  taskId: number,
 ): Task | null {
   const db = getDB(workspaceRoot);
 
@@ -689,7 +725,7 @@ export function getTaskById(
  */
 export function getHandover(
   workspaceRoot: string,
-  taskId: number
+  taskId: number,
 ): Handover | null {
   const db = getDB(workspaceRoot);
 
@@ -699,8 +735,8 @@ export function getHandover(
     .where(
       eq(
         schema.handovers.task_id as unknown as typeof schema.handovers.task_id,
-        taskId
-      )
+        taskId,
+      ),
     )
     .limit(1)
     .all() as Handover[];
@@ -720,7 +756,7 @@ export function getHandover(
  */
 export function getFeedback(
   workspaceRoot: string,
-  taskId: number
+  taskId: number,
 ): Feedback | null {
   const db = getDB(workspaceRoot);
 
@@ -730,11 +766,13 @@ export function getFeedback(
     .where(
       eq(
         schema.feedback.task_id as unknown as typeof schema.feedback.task_id,
-        taskId
-      )
+        taskId,
+      ),
     )
     .orderBy(
-      desc(schema.feedback.attempt as unknown as typeof schema.feedback.attempt)
+      desc(
+        schema.feedback.attempt as unknown as typeof schema.feedback.attempt,
+      ),
     )
     .limit(1)
     .all() as Feedback[];
@@ -755,25 +793,25 @@ export function getFeedback(
  */
 export function getVerificationChecks(
   workspaceRoot: string,
-  taskId: number
+  taskId: number,
 ): VerificationCheck[] {
   const db = getDB(workspaceRoot);
 
   const results = db
     .select()
     .from(
-      schema.verificationChecks as unknown as typeof schema.verificationChecks
+      schema.verificationChecks as unknown as typeof schema.verificationChecks,
     )
     .where(
       eq(
         schema.verificationChecks
           .task_id as unknown as typeof schema.verificationChecks.task_id,
-        taskId
-      )
+        taskId,
+      ),
     )
     .orderBy(
       schema.verificationChecks
-        .id as unknown as typeof schema.verificationChecks.id
+        .id as unknown as typeof schema.verificationChecks.id,
     )
     .all() as VerificationCheck[];
 
@@ -788,9 +826,14 @@ export interface Signal {
   task_id: number;
   signal_id: string;
   attempt: number;
-  artifact_paths: string | null;
-  description: string | null;
-  created_at: string;
+  summary: string;
+  artifacts_created: string;
+  tests: string;
+  build_status: string;
+  test_status: string;
+  pre_signal_checks: string;
+  notes: string | null;
+  signaled_at: string;
 }
 
 /**
@@ -805,7 +848,7 @@ export interface Signal {
  */
 export function getSignal(
   workspaceRoot: string,
-  taskId: number
+  taskId: number,
 ): Signal | null {
   const db = getDB(workspaceRoot);
 
@@ -815,11 +858,11 @@ export function getSignal(
     .where(
       eq(
         schema.signals.task_id as unknown as typeof schema.signals.task_id,
-        taskId
-      )
+        taskId,
+      ),
     )
     .orderBy(
-      desc(schema.signals.attempt as unknown as typeof schema.signals.attempt)
+      desc(schema.signals.attempt as unknown as typeof schema.signals.attempt),
     )
     .limit(1)
     .all() as Signal[];
@@ -839,7 +882,7 @@ export function getSignal(
  */
 export function getEscalation(
   workspaceRoot: string,
-  taskId: number
+  taskId: number,
 ): Escalation | null {
   const db = getDB(workspaceRoot);
 
@@ -851,19 +894,19 @@ export function getEscalation(
         eq(
           schema.escalations
             .task_id as unknown as typeof schema.escalations.task_id,
-          taskId
+          taskId,
         ),
         isNull(
           schema.escalations
-            .resolved_at as unknown as typeof schema.escalations.resolved_at
-        )
-      )
+            .resolved_at as unknown as typeof schema.escalations.resolved_at,
+        ),
+      ),
     )
     .orderBy(
       desc(
         schema.escalations
-          .escalated_at as unknown as typeof schema.escalations.escalated_at
-      )
+          .escalated_at as unknown as typeof schema.escalations.escalated_at,
+      ),
     )
     .limit(1)
     .all() as Escalation[];
@@ -882,7 +925,7 @@ export function getEscalation(
  * @returns Next pending task (with optional handover) or null if none exists
  */
 export function getNextPendingTask(
-  workspaceRoot: string
+  workspaceRoot: string,
 ): (Task & { handover: Handover | null }) | null {
   const db = getDB(workspaceRoot);
 
@@ -900,20 +943,20 @@ export function getNextPendingTask(
       schema.handovers as unknown as typeof schema.handovers,
       eq(
         schema.tasks.id as unknown as typeof schema.tasks.id,
-        schema.handovers.task_id as unknown as typeof schema.handovers.task_id
-      )
+        schema.handovers.task_id as unknown as typeof schema.handovers.task_id,
+      ),
     )
     .where(
       and(
         eq(
           schema.tasks.sprint_id as unknown as typeof schema.tasks.sprint_id,
-          activeSprint.id
+          activeSprint.id,
         ),
         eq(
           schema.tasks.status as unknown as typeof schema.tasks.status,
-          "PENDING"
-        )
-      )
+          "PENDING",
+        ),
+      ),
     )
     .orderBy(schema.tasks.task_id as unknown as typeof schema.tasks.task_id)
     .limit(1)
@@ -942,7 +985,7 @@ export function getNextPendingTask(
  */
 export function getSessionLabel(
   workspaceRoot: string,
-  role: "orchestrator" | "implementor"
+  role: "orchestrator" | "implementor",
 ): string | null {
   const db = getDB(workspaceRoot);
 
@@ -952,11 +995,802 @@ export function getSessionLabel(
     .where(
       eq(
         schema.chatSessions.role as unknown as typeof schema.chatSessions.role,
-        role
-      )
+        role,
+      ),
     )
     .limit(1)
     .all() as { tab_label: string }[];
 
   return results[0]?.tab_label ?? null;
+}
+
+/**
+ * Get TDD info for a task
+ *
+ * Returns TDD registry information for red-phase tasks, including
+ * registered tests, validation status, and linked green task.
+ *
+ * @param workspaceRoot Absolute path to workspace root
+ * @param taskId Database task ID
+ * @returns TDD info or null if not a TDD task
+ */
+export function getTddInfo(
+  workspaceRoot: string,
+  taskId: number,
+): TddInfo | null {
+  // Use raw SQLite for direct queries (TDD tables may not be in Drizzle schema)
+  const db = OrchestraDB.getInstance(workspaceRoot);
+
+  // Check if this task is a red-phase task
+  const taskResult = db
+    .prepare(`SELECT tdd_red_phase FROM tasks WHERE id = ?`)
+    .get(taskId) as { tdd_red_phase: number } | undefined;
+
+  if (!taskResult || !taskResult.tdd_red_phase) {
+    // Check if this is a green task linked via tdd_task_relationships
+    const greenCheck = db
+      .prepare(
+        `SELECT tr.red_task_id, t.title as red_task_title, t.task_id as red_task_ui_id
+         FROM tdd_task_relationships tr
+         JOIN tasks t ON t.id = tr.red_task_id
+         WHERE tr.green_task_id = ?
+         LIMIT 1`,
+      )
+      .get(taskId) as
+      | { red_task_id: number; red_task_title: string; red_task_ui_id: number }
+      | undefined;
+
+    if (greenCheck) {
+      // This is a green task - get registry entries from the red task
+      const entries = db
+        .prepare(
+          `SELECT * FROM tdd_red_registry WHERE red_task_id = ? ORDER BY id`,
+        )
+        .all(greenCheck.red_task_id) as TddRegistryEntry[];
+
+      const registeredFiles = entries.length;
+      const totalTestCount = entries.reduce(
+        (sum, e) => sum + (e.test_count || 1),
+        0,
+      );
+
+      return {
+        isRedPhase: false,
+        registeredFiles,
+        totalTestCount,
+        redTaskId: greenCheck.red_task_id,
+        redTaskUiId: greenCheck.red_task_ui_id,
+        redTaskTitle: greenCheck.red_task_title,
+        entries,
+      };
+    }
+
+    return null;
+  }
+
+  // Get all registry entries for this red task (file-level)
+  const entries = db
+    .prepare(`SELECT * FROM tdd_red_registry WHERE red_task_id = ? ORDER BY id`)
+    .all(taskId) as TddRegistryEntry[];
+
+  const registeredFiles = entries.length;
+  const totalTestCount = entries.reduce(
+    (sum, e) => sum + (e.test_count || 1),
+    0,
+  );
+
+  return {
+    isRedPhase: true,
+    registeredFiles,
+    totalTestCount,
+    entries,
+  };
+}
+
+// =============================================================================
+// Spec Review Queries (Sprint 004 - Controller Agent)
+// =============================================================================
+
+/**
+ * Spec review record - Controller review decisions
+ */
+export interface SpecReview {
+  id: number;
+  sprint_id: string;
+  task_id: number | null;
+  review_type: string; // 'SPRINT' | 'HANDOVER' | 'AMENDMENT'
+  decision: string; // 'APPROVED' | 'NEEDS_REVISION' | 'REJECTED'
+  conformance: string; // 'PASS' | 'WARN' | 'FAIL'
+  spec_path: string | null;
+  spec_requirements: string;
+  issues: string;
+  recommendations: string | null;
+  notes: string | null;
+  reviewed_by: string;
+  reviewed_at: string;
+  revision_count: number;
+  previous_review_id: number | null;
+}
+
+/**
+ * Parsed alignment issue from spec review
+ */
+export interface AlignmentIssue {
+  severity: "critical" | "warning" | "info";
+  requirement: string;
+  finding: string;
+  recommendation: string;
+}
+
+/**
+ * Review summary for display in UI
+ */
+export interface ReviewSummary {
+  latestReview: SpecReview | null;
+  totalReviews: number;
+  revisionCount: number;
+  issues: AlignmentIssue[];
+  recommendations: string[];
+}
+
+/**
+ * Get the latest spec review for a sprint (sprint-level review)
+ */
+export function getLatestSprintReview(
+  workspaceRoot: string,
+  sprintId: string,
+): SpecReview | null {
+  const db = OrchestraDB.getInstance(workspaceRoot);
+
+  const review = db
+    .prepare(
+      `SELECT * FROM spec_reviews 
+       WHERE sprint_id = ? AND task_id IS NULL AND review_type = 'SPRINT'
+       ORDER BY reviewed_at DESC LIMIT 1`,
+    )
+    .get(sprintId) as SpecReview | undefined;
+
+  return review ?? null;
+}
+
+/**
+ * Get the latest spec review for a task handover
+ */
+export function getLatestHandoverReview(
+  workspaceRoot: string,
+  taskId: number,
+): SpecReview | null {
+  const db = OrchestraDB.getInstance(workspaceRoot);
+
+  const review = db
+    .prepare(
+      `SELECT * FROM spec_reviews 
+       WHERE task_id = ? AND review_type = 'HANDOVER'
+       ORDER BY reviewed_at DESC LIMIT 1`,
+    )
+    .get(taskId) as SpecReview | undefined;
+
+  return review ?? null;
+}
+
+/**
+ * Get all spec reviews for a task (including amendments)
+ */
+export function getTaskReviewHistory(
+  workspaceRoot: string,
+  taskId: number,
+): SpecReview[] {
+  const db = OrchestraDB.getInstance(workspaceRoot);
+
+  return db
+    .prepare(
+      `SELECT * FROM spec_reviews 
+       WHERE task_id = ?
+       ORDER BY reviewed_at DESC`,
+    )
+    .all(taskId) as SpecReview[];
+}
+
+/**
+ * Get all spec reviews for a sprint (including sprint-level and task reviews)
+ */
+export function getSprintReviewHistory(
+  workspaceRoot: string,
+  sprintId: string,
+): SpecReview[] {
+  const db = OrchestraDB.getInstance(workspaceRoot);
+
+  return db
+    .prepare(
+      `SELECT * FROM spec_reviews 
+       WHERE sprint_id = ?
+       ORDER BY reviewed_at DESC`,
+    )
+    .all(sprintId) as SpecReview[];
+}
+
+/**
+ * Get review summary for a task (aggregated view for UI)
+ */
+export function getTaskReviewSummary(
+  workspaceRoot: string,
+  taskId: number,
+): ReviewSummary {
+  const reviews = getTaskReviewHistory(workspaceRoot, taskId);
+
+  if (reviews.length === 0) {
+    return {
+      latestReview: null,
+      totalReviews: 0,
+      revisionCount: 0,
+      issues: [],
+      recommendations: [],
+    };
+  }
+
+  const latestReview = reviews[0]!;
+
+  // Parse issues from JSON
+  let issues: AlignmentIssue[] = [];
+  try {
+    issues = JSON.parse(latestReview.issues || "[]");
+  } catch {
+    // Invalid JSON, ignore
+  }
+
+  // Parse recommendations from JSON
+  let recommendations: string[] = [];
+  try {
+    recommendations = JSON.parse(latestReview.recommendations || "[]");
+  } catch {
+    // Invalid JSON, ignore
+  }
+
+  return {
+    latestReview: latestReview ?? null,
+    totalReviews: reviews.length,
+    revisionCount: latestReview.revision_count,
+    issues,
+    recommendations,
+  };
+}
+
+/**
+ * Get review summary for a sprint (sprint-level reviews only)
+ */
+export function getSprintReviewSummary(
+  workspaceRoot: string,
+  sprintId: string,
+): ReviewSummary {
+  const db = OrchestraDB.getInstance(workspaceRoot);
+
+  const reviews = db
+    .prepare(
+      `SELECT * FROM spec_reviews 
+       WHERE sprint_id = ? AND task_id IS NULL AND review_type = 'SPRINT'
+       ORDER BY reviewed_at DESC`,
+    )
+    .all(sprintId) as SpecReview[];
+
+  if (reviews.length === 0) {
+    return {
+      latestReview: null,
+      totalReviews: 0,
+      revisionCount: 0,
+      issues: [],
+      recommendations: [],
+    };
+  }
+
+  const latestReview = reviews[0]!;
+
+  // Parse issues from JSON
+  let issues: AlignmentIssue[] = [];
+  try {
+    issues = JSON.parse(latestReview.issues || "[]");
+  } catch {
+    // Invalid JSON, ignore
+  }
+
+  // Parse recommendations from JSON
+  let recommendations: string[] = [];
+  try {
+    recommendations = JSON.parse(latestReview.recommendations || "[]");
+  } catch {
+    // Invalid JSON, ignore
+  }
+
+  return {
+    latestReview: latestReview ?? null,
+    totalReviews: reviews.length,
+    revisionCount: latestReview.revision_count,
+    issues,
+    recommendations,
+  };
+}
+
+/**
+ * Amendment interface - Sprint 004
+ */
+export interface Amendment {
+  id: number;
+  sprint_id: string;
+  task_id: number;
+  tool_name: string;
+  amendment_type: string;
+  workflow_step_at_amendment: string;
+  rationale: string;
+  before_state: string;
+  after_state: string;
+  changed_fields: string;
+  amended_by: string;
+  amended_at: string;
+}
+
+/**
+ * Get all amendments for a task - Sprint 004
+ */
+export function getTaskAmendments(
+  workspaceRoot: string,
+  taskId: number,
+): Amendment[] {
+  const db = OrchestraDB.getInstance(workspaceRoot);
+
+  const amendments = db
+    .prepare(
+      `SELECT * FROM amendments 
+       WHERE task_id = ?
+       ORDER BY amended_at DESC`,
+    )
+    .all(taskId) as Amendment[];
+
+  return amendments;
+}
+
+/**
+ * Code Review Summary - status totals and policy configuration
+ */
+export interface CodeReviewSummary {
+  totalReviews: number;
+  byStatus: {
+    PENDING: number;
+    APPROVED: number;
+    NEEDS_REVISION: number;
+    REJECTED: number;
+    CHANGES_REQUESTED: number;
+    FIXING_ISSUES: number;
+    PENDING_VERIFICATION: number;
+    COMPLETE: number;
+  };
+  openIssuesCount: number;
+  policy: string; // ad_hoc | task_gate | phase_gate
+  blockingSeverity: string; // BLOCKING | MAJOR | MINOR | INFO
+}
+
+/**
+ * Get code review summary for active sprint
+ */
+export function getCodeReviewSummary(workspaceRoot: string): CodeReviewSummary {
+  const db = OrchestraDB.getInstance(workspaceRoot);
+
+  const sprint = getCurrentSprint(workspaceRoot);
+  if (!sprint) {
+    return {
+      totalReviews: 0,
+      byStatus: {
+        PENDING: 0,
+        APPROVED: 0,
+        NEEDS_REVISION: 0,
+        REJECTED: 0,
+        CHANGES_REQUESTED: 0,
+        FIXING_ISSUES: 0,
+        PENDING_VERIFICATION: 0,
+        COMPLETE: 0,
+      },
+      openIssuesCount: 0,
+      policy: "ad_hoc",
+      blockingSeverity: "BLOCKING",
+    };
+  }
+
+  // Get status counts
+  const statusCounts = db
+    .prepare(
+      `SELECT status, COUNT(*) as count
+       FROM code_reviews
+       WHERE sprint_id = ?
+       GROUP BY status`,
+    )
+    .all(sprint.id) as { status: string; count: number }[];
+
+  const byStatus = {
+    PENDING: 0,
+    APPROVED: 0,
+    NEEDS_REVISION: 0,
+    REJECTED: 0,
+    CHANGES_REQUESTED: 0,
+    FIXING_ISSUES: 0,
+    PENDING_VERIFICATION: 0,
+    COMPLETE: 0,
+  };
+
+  let totalReviews = 0;
+  for (const row of statusCounts) {
+    if (row.status === "IN_REVIEW") {
+      byStatus.PENDING += row.count;
+    } else if (row.status in byStatus) {
+      const status = row.status as keyof typeof byStatus;
+      byStatus[status] = row.count;
+    }
+    totalReviews += row.count;
+  }
+
+  // Get open issues count
+  const openIssuesResult = db
+    .prepare(
+      `SELECT COUNT(*) as count
+       FROM code_review_issues
+       WHERE task_id IN (
+         SELECT id FROM tasks WHERE sprint_id = ?
+       )
+       AND status = 'OPEN'`,
+    )
+    .get(sprint.id) as { count: number } | undefined;
+
+  const openIssuesCount = openIssuesResult?.count ?? 0;
+
+  // Get policy and blocking severity from sprint settings
+  const policyRow = db
+    .prepare(
+      `SELECT value FROM sprint_settings
+       WHERE sprint_id = ? AND key = 'code_review_policy'`,
+    )
+    .get(sprint.id) as { value: string } | undefined;
+
+  const severityRow = db
+    .prepare(
+      `SELECT value FROM sprint_settings
+       WHERE sprint_id = ? AND key = 'code_review_blocking_severity'`,
+    )
+    .get(sprint.id) as { value: string } | undefined;
+
+  const policy = policyRow ? JSON.parse(policyRow.value) : "ad_hoc";
+  const blockingSeverity = severityRow
+    ? JSON.parse(severityRow.value)
+    : "BLOCKING";
+
+  return {
+    totalReviews,
+    byStatus,
+    openIssuesCount,
+    policy,
+    blockingSeverity,
+  };
+}
+
+/**
+ * Open Code Review Issue
+ */
+export interface OpenCodeReviewIssue {
+  issue_id: number;
+  review_id: number;
+  task_id: number;
+  severity: string;
+  category: string;
+  description: string;
+  file_path: string | null;
+  line_number: number | null;
+  recommendation: string | null;
+  status: string;
+}
+
+/**
+ * Get all open code review issues for active sprint
+ */
+export function getOpenCodeReviewIssues(
+  workspaceRoot: string,
+  sprintId?: string,
+): OpenCodeReviewIssue[] {
+  const db = OrchestraDB.getInstance(workspaceRoot);
+
+  const sprint = sprintId
+    ? db.prepare(`SELECT * FROM sprints WHERE id = ?`).get(sprintId)
+    : getCurrentSprint(workspaceRoot);
+
+  if (!sprint) {
+    return [];
+  }
+
+  const issues = db
+    .prepare(
+      `SELECT 
+        i.id as issue_id,
+        i.review_id,
+        i.task_id,
+        i.severity,
+        'CODE_QUALITY' as category,
+        i.issue as description,
+        i.file as file_path,
+        i.line as line_number,
+        i.recommendation,
+        i.status
+       FROM code_review_issues i
+       INNER JOIN tasks t ON i.task_id = t.id
+       WHERE t.sprint_id = ? AND i.status = 'OPEN'
+       ORDER BY 
+         CASE i.severity
+           WHEN 'BLOCKING' THEN 1
+           WHEN 'MAJOR' THEN 2
+           WHEN 'MINOR' THEN 3
+           WHEN 'INFO' THEN 4
+           ELSE 5
+         END,
+         i.id`,
+    )
+    .all((sprint as any).id) as OpenCodeReviewIssue[];
+
+  return issues;
+}
+
+export interface CodeReviewDetail {
+  review_id: number;
+  task_id: number;
+  status: string;
+  summary: string | null;
+  risk: string | null;
+  files_reviewed: string[] | null;
+  tests_run: string[] | null;
+  issues: any[] | null;
+  recommendations: any[] | null;
+  reviewed_by: string | null;
+  reviewed_at: string | null;
+}
+
+/**
+ * Get the latest code review for a task (by internal task id)
+ */
+export function getLatestCodeReviewForTask(
+  workspaceRoot: string,
+  taskId: number,
+): CodeReviewDetail | null {
+  const db = OrchestraDB.getInstance(workspaceRoot);
+
+  const review = db
+    .prepare(
+      `SELECT id as review_id, task_id, status, summary, risk, files_reviewed, tests_run, issues, recommendations, reviewed_by, reviewed_at
+       FROM code_reviews
+       WHERE task_id = ?
+       ORDER BY requested_at DESC
+       LIMIT 1`,
+    )
+    .get(taskId) as
+    | {
+        review_id: number;
+        task_id: number;
+        status: string;
+        summary: string | null;
+        risk: string | null;
+        files_reviewed: string | null;
+        tests_run: string | null;
+        issues: string | null;
+        recommendations: string | null;
+        reviewed_by: string | null;
+        reviewed_at: string | null;
+      }
+    | undefined;
+
+  if (!review) {
+    return null;
+  }
+
+  return {
+    review_id: review.review_id,
+    task_id: review.task_id,
+    status: review.status,
+    summary: review.summary,
+    risk: review.risk,
+    files_reviewed: review.files_reviewed
+      ? JSON.parse(review.files_reviewed)
+      : null,
+    tests_run: review.tests_run ? JSON.parse(review.tests_run) : null,
+    issues: review.issues ? JSON.parse(review.issues) : null,
+    recommendations: review.recommendations
+      ? JSON.parse(review.recommendations)
+      : null,
+    reviewed_by: review.reviewed_by,
+    reviewed_at: review.reviewed_at,
+  };
+}
+
+/**
+ * Get latest code review status by task for a sprint
+ */
+export function getLatestCodeReviewStatusForSprint(
+  workspaceRoot: string,
+  sprintId: string,
+): Map<number, string> {
+  const db = OrchestraDB.getInstance(workspaceRoot);
+
+  const rows = db
+    .prepare(
+      `SELECT cr.task_id as task_id, cr.status as status
+       FROM code_reviews cr
+       INNER JOIN (
+         SELECT task_id, MAX(requested_at) as latest_requested
+         FROM code_reviews
+         WHERE sprint_id = ?
+         GROUP BY task_id
+       ) latest ON cr.task_id = latest.task_id AND cr.requested_at = latest.latest_requested`,
+    )
+    .all(sprintId) as { task_id: number; status: string }[];
+
+  const map = new Map<number, string>();
+  for (const row of rows) {
+    map.set(row.task_id, row.status);
+  }
+  return map;
+}
+
+/**
+ * Get a code review by ID (minimal fields)
+ */
+export function getCodeReviewById(
+  workspaceRoot: string,
+  reviewId: number,
+): {
+  review_id: number;
+  task_id: number;
+  status: string;
+  summary: string;
+} | null {
+  const db = OrchestraDB.getInstance(workspaceRoot);
+
+  const review = db
+    .prepare(
+      `SELECT id as review_id, task_id, status, summary
+       FROM code_reviews
+       WHERE id = ?`,
+    )
+    .get(reviewId) as
+    | { review_id: number; task_id: number; status: string; summary: string }
+    | undefined;
+
+  return review ?? null;
+}
+
+/**
+ * Resolve a code review issue
+ */
+export function resolveCodeReviewIssue(
+  workspaceRoot: string,
+  issueId: number,
+  resolvedBy: string,
+): boolean {
+  const db = OrchestraDB.getInstance(workspaceRoot);
+  const resolvedAt = new Date().toISOString();
+
+  const result = db
+    .prepare(
+      `UPDATE code_review_issues
+       SET status = 'RESOLVED', resolved_by = ?, resolved_at = ?
+       WHERE id = ? AND status = 'OPEN'`,
+    )
+    .run(resolvedBy, resolvedAt, issueId);
+
+  return result.changes > 0;
+}
+
+/**
+ * Get completed tasks that have not been reviewed yet
+ */
+export function getCompletedUnreviewedTasks(workspaceRoot: string): Task[] {
+  const db = OrchestraDB.getInstance(workspaceRoot);
+
+  const sprint = getCurrentSprint(workspaceRoot);
+  if (!sprint) {
+    return [];
+  }
+
+  const tasks = db
+    .prepare(
+      `SELECT t.* FROM tasks t
+       WHERE t.sprint_id = ?
+       AND t.status = 'COMPLETE'
+       AND NOT EXISTS (
+         SELECT 1 FROM code_reviews cr
+         WHERE cr.task_id = t.id
+       )
+       ORDER BY t.completed_at DESC`,
+    )
+    .all(sprint.id) as Task[];
+
+  return tasks;
+}
+
+/**
+ * Get completed tasks with latest APPROVED review
+ */
+export function getCompletedTasksWithApprovedReviews(
+  workspaceRoot: string,
+): Task[] {
+  const db = OrchestraDB.getInstance(workspaceRoot);
+
+  const sprint = getCurrentSprint(workspaceRoot);
+  if (!sprint) {
+    return [];
+  }
+
+  const tasks = db
+    .prepare(
+      `SELECT t.* FROM tasks t
+       INNER JOIN (
+         SELECT task_id, MAX(requested_at) as latest_requested
+         FROM code_reviews
+         WHERE sprint_id = ?
+         GROUP BY task_id
+       ) latest ON latest.task_id = t.id
+       INNER JOIN code_reviews cr
+         ON cr.task_id = latest.task_id AND cr.requested_at = latest.latest_requested
+       WHERE t.sprint_id = ?
+       AND t.status = 'COMPLETE'
+       AND cr.status = 'APPROVED'
+       ORDER BY t.completed_at DESC`,
+    )
+    .all(sprint.id, sprint.id) as Task[];
+
+  return tasks;
+}
+
+/**
+ * Code Review History Entry
+ */
+export interface CodeReviewHistoryEntry {
+  review_id: number;
+  task_id: number;
+  task_title: string;
+  status: string;
+  risk: string;
+  summary: string;
+  issues_count: number;
+  reviewed_by: string | null;
+  reviewed_at: string | null;
+}
+
+/**
+ * Get code review history for active sprint
+ */
+export function getCodeReviewHistory(
+  workspaceRoot: string,
+  sprintId?: string,
+): CodeReviewHistoryEntry[] {
+  const db = OrchestraDB.getInstance(workspaceRoot);
+
+  const sprint = sprintId
+    ? db.prepare(`SELECT * FROM sprints WHERE id = ?`).get(sprintId)
+    : getCurrentSprint(workspaceRoot);
+
+  if (!sprint) {
+    return [];
+  }
+
+  const history = db
+    .prepare(
+      `SELECT 
+        cr.id as review_id,
+        cr.task_id,
+        t.title as task_title,
+        cr.status,
+        cr.risk,
+        cr.summary,
+        (SELECT COUNT(*) FROM code_review_issues WHERE review_id = cr.id) as issues_count,
+        cr.reviewed_by,
+        cr.reviewed_at
+       FROM code_reviews cr
+       INNER JOIN tasks t ON cr.task_id = t.id
+       WHERE t.sprint_id = ?
+       ORDER BY cr.reviewed_at DESC, cr.requested_at DESC`,
+    )
+    .all((sprint as any).id) as CodeReviewHistoryEntry[];
+
+  return history;
 }

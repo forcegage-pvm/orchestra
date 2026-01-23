@@ -2,7 +2,7 @@
   "name": "orchestra-extension",
   "displayName": "Orchestra",
   "description": "AI agent task orchestration for VS Code",
-  "version": "0.3.5",
+  "version": "0.7.0",
   "publisher": "forcegage",
   "repository": {
     "type": "git",
@@ -60,12 +60,17 @@
         "orchestra.models.orchestrator": {
           "type": "string",
           "default": "claude-opus-4.5",
-          "description": "AI model to use for the Orchestrator agent (e.g., claude-opus-4.5, gpt-4o)"
+          "description": "AI model to use for the Orchestrator agent (e.g., claude-opus-4.5)"
         },
         "orchestra.models.implementor": {
           "type": "string",
           "default": "claude-sonnet-4.5",
-          "description": "AI model to use for the Implementor agent (e.g., claude-sonnet-4.5, gpt-4o)"
+          "description": "AI model to use for the Implementor agent (e.g., claude-sonnet-4.5)"
+        },
+        "orchestra.models.controller": {
+          "type": "string",
+          "default": "claude-opus-4.5",
+          "description": "AI model to use for the Controller agent (e.g., claude-opus-4.5)"
         },
         "orchestra.agents.orchestrator": {
           "type": "string",
@@ -76,6 +81,11 @@
           "type": "string",
           "default": "orchestra.implementor",
           "description": "Agent mode identifier for the Implementor role"
+        },
+        "orchestra.agents.controller": {
+          "type": "string",
+          "default": "orchestra.controller",
+          "description": "Agent mode identifier for the Controller role"
         }
       }
     },
@@ -159,6 +169,81 @@
         "command": "orchestra.setActiveSprint",
         "title": "Set as Active Sprint",
         "icon": "$(star)"
+      },
+      {
+        "command": "orchestra.startAgent",
+        "title": "Orchestra: Start Agent",
+        "icon": "$(play)"
+      },
+      {
+        "command": "orchestra.pauseAgent",
+        "title": "Orchestra: Pause Agent",
+        "icon": "$(debug-pause)"
+      },
+      {
+        "command": "orchestra.stopAgent",
+        "title": "Orchestra: Stop Agent",
+        "icon": "$(debug-stop)"
+      },
+      {
+        "command": "orchestra.resumeAgent",
+        "title": "Orchestra: Resume Agent",
+        "icon": "$(debug-continue)"
+      },
+      {
+        "command": "orchestra.launchControllerForSprint",
+        "title": "Review Sprint Configuration",
+        "icon": "$(play)"
+      },
+      {
+        "command": "orchestra.launchControllerAgent",
+        "title": "Launch Controller Agent",
+        "icon": "$(robot)"
+      },
+      {
+        "command": "orchestra.openCodeReviewSummary",
+        "title": "Orchestra: Open Code Review Summary",
+        "icon": "$(list-unordered)"
+      },
+      {
+        "command": "orchestra.runAdHocReview",
+        "title": "Orchestra: Run Ad-hoc Code Review",
+        "icon": "$(play)"
+      },
+      {
+        "command": "orchestra.fixCodeReviewIssues",
+        "title": "Orchestra: Fix Code Review Issues",
+        "icon": "$(tools)"
+      },
+      {
+        "command": "orchestra.verifyCodeReviewFixes",
+        "title": "Orchestra: Verify Code Review Fixes",
+        "icon": "$(checklist)"
+      },
+      {
+        "command": "orchestra.escalateRejectedReview",
+        "title": "Orchestra: Escalate Rejected Review",
+        "icon": "$(warning)"
+      },
+      {
+        "command": "orchestra.reReviewTask",
+        "title": "Orchestra: Re-review Task",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "orchestra.runCodeReview",
+        "title": "Orchestra: Run Code Review for Task",
+        "icon": "$(checklist)"
+      },
+      {
+        "command": "orchestra.prepareCodeReviewFixTask",
+        "title": "Orchestra: Prepare Code Review Fixes",
+        "icon": "$(tools)"
+      },
+      {
+        "command": "orchestra.implementCodeReviewFixTask",
+        "title": "Orchestra: Implement Code Review Fixes",
+        "icon": "$(play)"
       }
     ],
     "keybindings": [
@@ -187,6 +272,11 @@
         {
           "id": "orchestra.sprintExplorer",
           "name": "Sprint Explorer",
+          "type": "tree"
+        },
+        {
+          "id": "orchestra.codeReview",
+          "name": "Code Review",
           "type": "tree"
         },
         {
@@ -224,6 +314,11 @@
       ],
       "view/item/context": [
         {
+          "command": "orchestra.launchControllerForSprint",
+          "when": "view == orchestra.sprintExplorer && viewItem =~ /^sprint-pending-review/",
+          "group": "inline"
+        },
+        {
           "command": "orchestra.setActiveSprint",
           "when": "view == orchestra.sprintExplorer && viewItem == sprint-inactive",
           "group": "inline"
@@ -239,14 +334,14 @@
           "group": "navigation"
         },
         {
-          "command": "orchestra.startTask",
-          "when": "view == orchestra.sprintExplorer && viewItem =~ /^task-(pending|implement)$/",
+          "command": "orchestra.playTask",
+          "when": "view == orchestra.sprintExplorer && viewItem =~ /^task-(pending|implement|verify|verify_failed|gate_check|escalated|pending_handover_review|handover_review_failed|prepare)$/",
           "group": "inline@1"
         },
         {
-          "command": "orchestra.playTask",
-          "when": "view == orchestra.sprintExplorer && viewItem =~ /^task-(pending|implement|verify|verify_failed|gate_check|escalated)$/",
-          "group": "inline@1"
+          "command": "orchestra.startTask",
+          "when": "view == orchestra.sprintExplorer && viewItem =~ /^task-(pending|implement)$/",
+          "group": "inline@0"
         },
         {
           "command": "orchestra.deEscalateTask",
@@ -272,6 +367,21 @@
           "command": "orchestra.forceComplete",
           "when": "view == orchestra.sprintExplorer && viewItem == task-escalated",
           "group": "2_override"
+        },
+        {
+          "command": "orchestra.runCodeReview",
+          "when": "view == orchestra.sprintExplorer && viewItem =~ /^task-complete($|-review-)/",
+          "group": "3_review"
+        },
+        {
+          "command": "orchestra.prepareCodeReviewFixTask",
+          "when": "view == orchestra.sprintExplorer && viewItem =~ /review-(changes_requested|rejected)$/",
+          "group": "3_review@1"
+        },
+        {
+          "command": "orchestra.implementCodeReviewFixTask",
+          "when": "view == orchestra.sprintExplorer && viewItem =~ /^task-implement.*review-(changes_requested|rejected)$/",
+          "group": "3_review@2"
         }
       ]
     }
@@ -288,8 +398,9 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "better-sqlite3": "^12.6.0",
-    "drizzle-orm": "^0.37.0"
+    "better-sqlite3": "^12.6.2",
+    "drizzle-orm": "^0.37.0",
+    "zod": "^3.25.76"
   },
   "bundledDependencies": [
     "better-sqlite3",
@@ -310,7 +421,6 @@
     "vitest": "^2.1.8"
   },
   "bundleDependencies": [
-    "better-sqlite3",
     "bindings",
     "file-uri-to-path"
   ]

@@ -114,10 +114,12 @@ describe("ConfigService", () => {
         models: {
           orchestrator: "claude-opus-4.5",
           implementor: "claude-sonnet-4.5",
+          controller: "claude-opus-4.5",
         },
         agents: {
           orchestrator: "orchestra.orchestrator",
           implementor: "orchestra.implementor",
+          controller: "orchestra.controller",
         },
       });
     });

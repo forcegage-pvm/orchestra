@@ -8,6 +8,7 @@
  */
 
 import {
+  type AnySQLiteColumn,
   index,
   integer,
   sqliteTable,
@@ -21,13 +22,16 @@ import {
 
 /**
  * Sprints table - Top-level sprint metadata
+ * Extended for Controller Agent: status column for review states
  */
 export const sprints = sqliteTable(
   "sprints",
   {
     id: text("id").primaryKey(), // e.g., "sprint-015"
     name: text("name").notNull(),
+    status: text("status").notNull().default("ACTIVE"), // SprintStatus enum: PENDING_SPEC_REVIEW, ACTIVE, SPEC_REVIEW_FAILED, COMPLETE, CLOSED
     workflow_step: text("workflow_step").notNull(), // WorkflowStep enum
+    config: text("config"), // JSON: CodeReviewConfig and other sprint-level settings
     is_active: integer("is_active", { mode: "boolean" })
       .notNull()
       .default(false), // Only one sprint active at a time
@@ -38,7 +42,8 @@ export const sprints = sqliteTable(
   (sprints) => ({
     workflowStepIdx: index("workflow_step_idx").on(sprints.workflow_step),
     isActiveIdx: index("is_active_idx").on(sprints.is_active),
-  })
+    statusIdx: index("sprint_status_idx").on(sprints.status),
+  }),
 );
 
 /**
@@ -59,9 +64,9 @@ export const phases = sqliteTable(
   (phases) => ({
     sprintPhaseIdx: index("sprint_phase_idx").on(
       phases.sprint_id,
-      phases.phase_id
+      phases.phase_id,
     ),
-  })
+  }),
 );
 
 /**
@@ -97,7 +102,7 @@ export const tasks = sqliteTable(
     sprintTaskIdx: index("sprint_task_idx").on(tasks.sprint_id, tasks.task_id),
     statusIdx: index("status_idx").on(tasks.status),
     phaseIdx: index("phase_idx").on(tasks.phase_id),
-  })
+  }),
 );
 
 /**
@@ -117,9 +122,9 @@ export const consolidations = sqliteTable(
   },
   (consolidations) => ({
     sprintConsolidationIdx: index("sprint_consolidation_idx").on(
-      consolidations.sprint_id
+      consolidations.sprint_id,
     ),
-  })
+  }),
 );
 
 /**
@@ -141,7 +146,7 @@ export const verificationChecks = sqliteTable(
   },
   (checks) => ({
     taskCheckIdx: index("task_check_idx").on(checks.task_id),
-  })
+  }),
 );
 
 /**
@@ -170,7 +175,7 @@ export const handovers = sqliteTable(
   },
   (handovers) => ({
     taskHandoverIdx: index("task_handover_idx").on(handovers.task_id),
-  })
+  }),
 );
 
 /**
@@ -197,7 +202,7 @@ export const signals = sqliteTable(
   (signals) => ({
     taskSignalIdx: index("task_signal_idx").on(signals.task_id),
     signalIdIdx: index("signal_id_idx").on(signals.signal_id),
-  })
+  }),
 );
 
 /**
@@ -224,7 +229,7 @@ export const verificationResults = sqliteTable(
   (results) => ({
     taskResultIdx: index("task_result_idx").on(results.task_id),
     signalResultIdx: index("signal_result_idx").on(results.signal_id),
-  })
+  }),
 );
 
 /**
@@ -249,7 +254,7 @@ export const feedback = sqliteTable(
   },
   (feedback) => ({
     taskFeedbackIdx: index("task_feedback_idx").on(feedback.task_id),
-  })
+  }),
 );
 
 /**
@@ -277,7 +282,7 @@ export const progress = sqliteTable(
     taskProgressIdx: index("task_progress_idx").on(progress.task_id),
     timestampIdx: index("progress_timestamp_idx").on(progress.changed_at),
     triggeredByIdx: index("triggered_by_idx").on(progress.triggered_by),
-  })
+  }),
 );
 
 /**
@@ -312,10 +317,10 @@ export const sprintSettings = sqliteTable(
   (sprintSettings) => ({
     sprintKeyIdx: uniqueIndex("sprint_key_idx").on(
       sprintSettings.sprint_id,
-      sprintSettings.key
+      sprintSettings.key,
     ),
     sprintIdx: index("sprint_idx").on(sprintSettings.sprint_id),
-  })
+  }),
 );
 
 // ============================================================================
@@ -349,11 +354,11 @@ export const toolExecutions = sqliteTable(
     toolNameIdx: index("tool_name_idx").on(executions.tool_name),
     sprintToolIdx: index("sprint_tool_idx").on(
       executions.sprint_id,
-      executions.tool_name
+      executions.tool_name,
     ),
     timestampIdx: index("execution_timestamp_idx").on(executions.executed_at),
     successIdx: index("success_idx").on(executions.success),
-  })
+  }),
 );
 
 /**
@@ -375,7 +380,7 @@ export const systemLogs = sqliteTable(
     }),
     tool_execution_id: integer("tool_execution_id").references(
       () => toolExecutions.id,
-      { onDelete: "set null" }
+      { onDelete: "set null" },
     ),
     stack_trace: text("stack_trace"),
     logged_at: text("logged_at").notNull(),
@@ -385,7 +390,7 @@ export const systemLogs = sqliteTable(
     categoryIdx: index("category_idx").on(logs.category),
     timestampIdx: index("log_timestamp_idx").on(logs.logged_at),
     sprintLogIdx: index("sprint_log_idx").on(logs.sprint_id),
-  })
+  }),
 );
 
 /**
@@ -416,7 +421,7 @@ export const gitCommits = sqliteTable(
     commitShaIdx: index("commit_sha_idx").on(commits.commit_sha),
     sprintCommitIdx: index("sprint_commit_idx").on(commits.sprint_id),
     timestampIdx: index("commit_timestamp_idx").on(commits.committed_at),
-  })
+  }),
 );
 
 /**
@@ -446,9 +451,9 @@ export const notifications = sqliteTable(
     typeIdx: index("notification_type_idx").on(notifications.type),
     readIdx: index("notification_read_idx").on(notifications.read),
     timestampIdx: index("notification_timestamp_idx").on(
-      notifications.created_at
+      notifications.created_at,
     ),
-  })
+  }),
 );
 
 /**
@@ -485,7 +490,174 @@ export const amendments = sqliteTable(
     taskAmendmentIdx: index("task_amendment_idx").on(amendments.task_id),
     toolAmendmentIdx: index("tool_amendment_idx").on(amendments.tool_name),
     timestampIdx: index("amendment_timestamp_idx").on(amendments.amended_at),
-  })
+  }),
+);
+
+/**
+ * Spec Reviews table - Controller review decisions (Sprint 004)
+ *
+ * Tracks all Controller review decisions for sprints and task handovers.
+ * Provides full audit trail of what was reviewed, by whom, and the outcome.
+ *
+ * Key fields:
+ * - review_type: SPRINT (sprint config) | HANDOVER (task handover) | AMENDMENT
+ * - decision: APPROVED | NEEDS_REVISION | REJECTED
+ * - conformance: PASS | WARN | FAIL
+ * - revision_count: tracks reject-revise cycles
+ * - previous_review_id: links to prior review in chain
+ */
+export const specReviews = sqliteTable(
+  "spec_reviews",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    sprint_id: text("sprint_id")
+      .notNull()
+      .references(() => sprints.id, { onDelete: "cascade" }),
+    task_id: integer("task_id").references(() => tasks.id, {
+      onDelete: "cascade",
+    }), // NULL for sprint-level reviews
+
+    // Review classification
+    review_type: text("review_type").notNull(), // 'SPRINT' | 'HANDOVER' | 'AMENDMENT'
+
+    // Review outcome
+    decision: text("decision").notNull(), // 'APPROVED' | 'NEEDS_REVISION' | 'REJECTED'
+    conformance: text("conformance").notNull(), // 'PASS' | 'WARN' | 'FAIL'
+
+    // Evidence
+    spec_path: text("spec_path"), // Path to the specification document
+    spec_requirements: text("spec_requirements").notNull().default("[]"), // JSON array of requirements checked
+    issues: text("issues").notNull().default("[]"), // JSON array of AlignmentIssue
+    recommendations: text("recommendations"), // JSON array of strings
+    notes: text("notes"), // Required if conformance is WARN
+
+    // Audit
+    reviewed_by: text("reviewed_by").notNull(), // 'controller' | 'human'
+    reviewed_at: text("reviewed_at").notNull(),
+
+    // Revision tracking
+    revision_count: integer("revision_count").notNull().default(0),
+    previous_review_id: integer("previous_review_id"), // Self-reference to prior review
+  },
+  (reviews) => ({
+    sprintIdx: index("spec_reviews_sprint_idx").on(reviews.sprint_id),
+    taskIdx: index("spec_reviews_task_idx").on(reviews.task_id),
+    typeIdx: index("spec_reviews_type_idx").on(reviews.review_type),
+    reviewedAtIdx: index("spec_reviews_reviewed_at_idx").on(
+      reviews.reviewed_at,
+    ),
+  }),
+);
+
+/**
+ * Code Reviews table - Code review workflow tracking
+ *
+ * Tracks code review requests, decisions, and review metadata.
+ */
+export const codeReviews = sqliteTable(
+  "code_reviews",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    sprint_id: text("sprint_id")
+      .notNull()
+      .references(() => sprints.id, { onDelete: "cascade" }),
+    task_id: integer("task_id")
+      .notNull()
+      .references(() => tasks.id, { onDelete: "cascade" }),
+    phase_id: integer("phase_id").references(() => phases.id, {
+      onDelete: "set null",
+    }),
+    review_scope: text("review_scope", { enum: ["TASK", "PHASE"] }).notNull(),
+    status: text("status", {
+      enum: [
+        "PENDING",
+        "IN_REVIEW",
+        "APPROVED",
+        "CHANGES_REQUESTED",
+        "REJECTED",
+        "FIXING_ISSUES",
+        "PENDING_VERIFICATION",
+      ],
+    }).notNull(),
+    summary: text("summary").notNull(),
+    risk: text("risk").notNull(), // LOW | MEDIUM | HIGH
+    commit_range: text("commit_range"),
+    files_reviewed: text("files_reviewed"), // JSON array
+    tests_run: text("tests_run"), // JSON array
+    issues: text("issues"), // JSON array
+    recommendations: text("recommendations"), // JSON array
+    notes: text("notes"),
+    requested_by: text("requested_by").notNull(),
+    requested_at: text("requested_at").notNull(),
+    in_review_by: text("in_review_by"),
+    in_review_at: text("in_review_at"),
+    reviewed_by: text("reviewed_by"),
+    reviewed_at: text("reviewed_at"),
+    revision_count: integer("revision_count").notNull().default(0),
+    previous_review_id: integer("previous_review_id").references(
+      (): AnySQLiteColumn => codeReviews.id,
+      { onDelete: "set null" },
+    ),
+  },
+  (reviews) => ({
+    sprintIdx: index("code_review_sprint_idx").on(reviews.sprint_id),
+    taskIdx: index("code_review_task_idx").on(reviews.task_id),
+    phaseIdx: index("code_review_phase_idx").on(reviews.phase_id),
+    statusIdx: index("code_review_status_idx").on(reviews.status),
+    scopeIdx: index("code_review_scope_idx").on(reviews.review_scope),
+  }),
+);
+
+/**
+ * Code Review Issues table - Issues found during code review
+ */
+export const codeReviewIssues = sqliteTable(
+  "code_review_issues",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    review_id: integer("review_id")
+      .notNull()
+      .references(() => codeReviews.id, { onDelete: "cascade" }),
+    task_id: integer("task_id")
+      .notNull()
+      .references(() => tasks.id, { onDelete: "cascade" }),
+    severity: text("severity").notNull(), // BLOCKING | MAJOR | MINOR | INFO
+    issue: text("issue").notNull(),
+    file: text("file"),
+    line: integer("line"),
+    rationale: text("rationale").notNull(),
+    recommendation: text("recommendation"),
+    status: text("status").notNull().default("OPEN"), // OPEN | RESOLVED
+    resolved_by: text("resolved_by"),
+    resolved_at: text("resolved_at"),
+  },
+  (issues) => ({
+    reviewIdx: index("code_review_issue_review_idx").on(issues.review_id),
+    taskIdx: index("code_review_issue_task_idx").on(issues.task_id),
+    statusIdx: index("code_review_issue_status_idx").on(issues.status),
+  }),
+);
+
+/**
+ * Code Review Fixes table - Fixes submitted in response to code review
+ */
+export const codeReviewFixes = sqliteTable(
+  "code_review_fixes",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    review_id: integer("review_id")
+      .notNull()
+      .references(() => codeReviews.id, { onDelete: "cascade" }),
+    summary: text("summary").notNull(),
+    files_changed: text("files_changed").notNull(), // JSON array
+    tests_run: text("tests_run").notNull(), // JSON array
+    notes: text("notes"),
+    submitted_by: text("submitted_by").notNull(),
+    submitted_at: text("submitted_at").notNull(),
+  },
+  (fixes) => ({
+    reviewIdx: index("code_review_fix_review_idx").on(fixes.review_id),
+  }),
 );
 
 /**
@@ -502,9 +674,10 @@ export const escalations = sqliteTable(
   "escalations",
   {
     id: integer("id").primaryKey({ autoIncrement: true }),
-    task_id: integer("task_id")
-      .notNull()
-      .references(() => tasks.id, { onDelete: "cascade" }),
+    // task_id is nullable for sprint-level escalations (e.g., Controller Agent rejection)
+    task_id: integer("task_id").references(() => tasks.id, {
+      onDelete: "cascade",
+    }),
     sprint_id: text("sprint_id")
       .notNull()
       .references(() => sprints.id, { onDelete: "cascade" }),
@@ -528,13 +701,85 @@ export const escalations = sqliteTable(
   (escalations) => ({
     taskEscalationIdx: index("task_escalation_idx").on(escalations.task_id),
     sprintEscalationIdx: index("sprint_escalation_idx").on(
-      escalations.sprint_id
+      escalations.sprint_id,
     ),
     unresolvedIdx: index("unresolved_escalation_idx").on(
-      escalations.resolved_at
+      escalations.resolved_at,
     ),
     timestampIdx: index("escalation_timestamp_idx").on(
-      escalations.escalated_at
+      escalations.escalated_at,
     ),
-  })
+  }),
+);
+
+/**
+ * TDD Task Relationships table - Links red-phase tasks to green-phase tasks
+ *
+ * Tracks which green-phase tasks are responsible for greening the tests
+ * created in red-phase tasks. This is the foundation of TDD enforcement,
+ * ensuring failing tests eventually pass.
+ */
+export const tddTaskRelationships = sqliteTable(
+  "tdd_task_relationships",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    sprint_id: text("sprint_id")
+      .notNull()
+      .references(() => sprints.id, { onDelete: "cascade" }),
+    red_task_id: integer("red_task_id")
+      .notNull()
+      .references(() => tasks.id, { onDelete: "cascade" }),
+    green_task_id: integer("green_task_id")
+      .notNull()
+      .references(() => tasks.id, { onDelete: "cascade" }),
+    declared_at: text("declared_at").notNull(), // 'configure_sprint' or 'complete_task'
+    created_at: text("created_at").notNull(),
+    completed_at: text("completed_at"), // When green-phase verification passes
+  },
+  (tddTaskRelationships) => ({
+    tddRelSprintIdx: index("tdd_rel_sprint_idx").on(
+      tddTaskRelationships.sprint_id,
+    ),
+    tddRelRedTaskIdx: index("tdd_rel_red_task_idx").on(
+      tddTaskRelationships.red_task_id,
+    ),
+    uniqueRelationship: uniqueIndex("tdd_rel_unique_idx").on(
+      tddTaskRelationships.sprint_id,
+      tddTaskRelationships.red_task_id,
+      tddTaskRelationships.green_task_id,
+    ),
+  }),
+);
+
+/**
+ * TDD Red Registry table - File-level test tracking from red-phase tasks
+ *
+ * Stores test files discovered during scan-on-signal.
+ * This is a TRANSITORY SNAPSHOT of what TDD markers exist in the codebase.
+ * The registry is cleared and repopulated on every signal_completion.
+ */
+export const tddRedRegistry = sqliteTable(
+  "tdd_red_registry",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    sprint_id: text("sprint_id")
+      .notNull()
+      .references(() => sprints.id, { onDelete: "cascade" }),
+    red_task_id: integer("red_task_id")
+      .notNull()
+      .references(() => tasks.id, { onDelete: "cascade" }),
+    test_file: text("test_file").notNull(), // Relative path to test file
+    test_count: integer("test_count").default(1), // Number of tests in file
+    created_at: text("created_at").notNull(), // When registered
+  },
+  (tddRedRegistry) => ({
+    tddRegSprintIdx: index("tdd_reg_sprint_idx").on(tddRedRegistry.sprint_id),
+    tddRegRedTaskIdx: index("tdd_reg_red_task_idx").on(
+      tddRedRegistry.red_task_id,
+    ),
+    uniqueTest: uniqueIndex("tdd_reg_unique_test_idx").on(
+      tddRedRegistry.sprint_id,
+      tddRedRegistry.test_file,
+    ),
+  }),
 );

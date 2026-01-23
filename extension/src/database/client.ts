@@ -11,6 +11,7 @@
  * decisions, and perform manual interventions when the automated workflow fails.
  */
 
+import type Database from "better-sqlite3";
 import type { BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
 import { DatabaseError } from "../utils/errors.js";
 import { getOrchestraDBPath } from "../workspace/detector.js";

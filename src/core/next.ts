@@ -71,7 +71,7 @@ export interface NextResult {
  */
 function getGuidanceForStep(
   step: WorkflowStep,
-  state: WorkflowState
+  state: WorkflowState,
 ): StepGuidance {
   switch (step) {
     case "INIT":
@@ -95,6 +95,17 @@ function getGuidanceForStep(
           "Set roles.implementor and roles.orchestrator",
           "Configure verification settings",
           "Define any custom templates",
+        ],
+      };
+
+    case "SPEC_REVIEW":
+      return {
+        action: "Await sprint specification review",
+        explanation:
+          "The sprint configuration is awaiting Controller review. Wait for approval or address review feedback if rejected.",
+        tips: [
+          "If rejected, update the sprint configuration and resubmit",
+          "Use the Controller review feedback to align with the spec",
         ],
       };
 
@@ -124,6 +135,17 @@ function getGuidanceForStep(
         ],
       };
 
+    case "HANDOVER_REVIEW":
+      return {
+        action: "Await handover review",
+        explanation:
+          "The task handover is awaiting Controller review. Address feedback if it is rejected and resubmit.",
+        tips: [
+          "Revise acceptance criteria to match the spec",
+          "Resubmit the handover after corrections",
+        ],
+      };
+
     case "IMPLEMENT":
       return {
         action: "Implement the task",
@@ -146,6 +168,17 @@ function getGuidanceForStep(
         tips: [
           "Review your changes before signaling",
           "The signal includes a summary of what was done",
+        ],
+      };
+
+    case "CODE_REVIEW":
+      return {
+        action: "Await code review decision",
+        explanation:
+          "Code review is in progress. Wait for Controller approval or address requested changes.",
+        tips: [
+          "If changes are requested, address issues and resubmit",
+          "Check review history for decision context",
         ],
       };
 

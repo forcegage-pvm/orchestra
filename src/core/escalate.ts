@@ -283,3 +283,46 @@ export async function runEscalate(
 
   return result;
 }
+
+// ============================================================================
+// Controller Agent Escalation Helpers (Sprint 004)
+// ============================================================================
+
+/**
+ * Maximum number of Controller rejections before escalating to human supervisor.
+ * Per spec: "After 3 consecutive rejections of the same sprint or handover, escalate"
+ */
+export const MAX_CONTROLLER_REJECTIONS = 3;
+
+/**
+ * Check if escalation is needed based on Controller rejection count.
+ *
+ * Called by reject_sprint and reject_handover handlers to determine
+ * if the rejection threshold has been exceeded.
+ *
+ * @param rejectionCount - Current number of rejections for this item
+ * @returns true if escalation is needed (rejectionCount >= MAX_CONTROLLER_REJECTIONS)
+ */
+export function shouldEscalateAfterRejection(rejectionCount: number): boolean {
+  return rejectionCount >= MAX_CONTROLLER_REJECTIONS;
+}
+
+/**
+ * Generates human-readable escalation reason for Controller rejection threshold.
+ *
+ * @param reviewType - Type of review that was rejected ('SPRINT' | 'HANDOVER')
+ * @param rejectionCount - Number of rejections that occurred
+ * @returns Formatted escalation reason string
+ */
+export function generateControllerEscalationReason(
+  reviewType: "SPRINT" | "HANDOVER",
+  rejectionCount: number
+): string {
+  const itemType =
+    reviewType === "SPRINT" ? "sprint configuration" : "task handover";
+  return (
+    `Controller rejected ${itemType} ${rejectionCount} times. ` +
+    `Maximum rejections (${MAX_CONTROLLER_REJECTIONS}) exceeded. ` +
+    `Human supervisor intervention required to resolve persistent specification issues.`
+  );
+}

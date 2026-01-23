@@ -7,12 +7,12 @@
 
 import { eq } from "drizzle-orm";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { getDb, initializeDb, resetDb } from "../../src/db/index.js";
+import { getDb } from "../../src/db/index.js";
 import { handovers, phases, sprints, tasks } from "../../src/db/schema.js";
 import { handleGetCurrentTask } from "../../src/mcp-server/handlers/get-current-task.js";
+import { cleanupTestDb, setupTestDb } from "../setup/db-cache.js";
 
 describe("get_current_task handler", () => {
   let tempDir: string;
@@ -20,12 +20,7 @@ describe("get_current_task handler", () => {
   const testPhaseId = "phase-1";
 
   beforeEach(async () => {
-    // Create temp directory for isolated DB
-    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "get-current-task-"));
-    process.env.ORCHESTRA_WORKSPACE = tempDir;
-
-    resetDb();
-    await initializeDb();
+    tempDir = await setupTestDb("get-current-task-");
 
     // Create a test sprint
     const db = getDb();
@@ -48,15 +43,8 @@ describe("get_current_task handler", () => {
     });
   });
 
-  afterEach(() => {
-    // Clean up temp directory (use try-catch for Windows EPERM issues)
-    if (tempDir && fs.existsSync(tempDir)) {
-      try {
-        fs.rmSync(tempDir, { recursive: true, force: true });
-      } catch {
-        // Ignore cleanup errors (Windows file locking issues)
-      }
-    }
+  afterEach(async () => {
+    await cleanupTestDb(tempDir);
   });
 
   describe("tdd_red_phase and tdd_instructions", () => {
@@ -133,7 +121,7 @@ describe("get_current_task handler", () => {
       const packageJsonPath = path.join(tempDir, "package.json");
       fs.writeFileSync(
         packageJsonPath,
-        JSON.stringify({ name: "test-project" })
+        JSON.stringify({ name: "test-project" }),
       );
 
       // Get the phase record to get its id
@@ -195,21 +183,20 @@ describe("get_current_task handler", () => {
 
       // Verify tdd_instructions contains TypeScript-specific information
       expect(output.tdd_instructions).not.toBeNull();
-      expect(output.tdd_instructions.tagging_mechanism).toBe(
-        "Place test file in test/tdd-red/ directory"
+      expect(output.tdd_instructions.tagging_mechanism).toContain("[tdd-red]");
+      expect(output.tdd_instructions.tagging_mechanism).toContain(
+        "@orchestra-task",
       );
       expect(output.tdd_instructions.red_test_command).toBe(
-        "npm test -- test/tdd-red"
+        'npm test -- --testNamePattern="\\[tdd-red\\]"',
       );
       expect(output.tdd_instructions.green_test_command).toBe(
-        "npm test -- --testPathIgnorePatterns=tdd-red"
+        'npm test -- --testNamePattern="^(?!.*\\[tdd-red\\])"',
       );
       expect(output.tdd_instructions.expected_behavior).toContain(
-        "Tests in tdd-red/ MUST fail"
+        "Tests with [tdd-red] in name MUST fail",
       );
-      expect(output.tdd_instructions.example).toContain(
-        "test/tdd-red/feature.test.ts"
-      );
+      expect(output.tdd_instructions.example).toContain("@orchestra-task");
     });
 
     it("should return tdd_red_phase=true and Dart instructions for Dart project when tdd_red_phase=true", async () => {
@@ -280,18 +267,21 @@ describe("get_current_task handler", () => {
       // Verify tdd_instructions contains Dart-specific information
       expect(output.tdd_instructions).not.toBeNull();
       expect(output.tdd_instructions.tagging_mechanism).toContain(
-        "@Tags(['tdd-red'])"
+        "@Tags(['tdd-red'])",
+      );
+      expect(output.tdd_instructions.tagging_mechanism).toContain(
+        "@orchestra-task",
       );
       expect(output.tdd_instructions.red_test_command).toBe(
-        "flutter test --tags tdd-red"
+        "flutter test --tags tdd-red",
       );
       expect(output.tdd_instructions.green_test_command).toBe(
-        "flutter test --exclude-tags tdd-red"
+        "flutter test --exclude-tags tdd-red",
       );
       expect(output.tdd_instructions.expected_behavior).toContain(
-        "The tagged test MUST fail"
+        "The tagged test MUST fail",
       );
-      expect(output.tdd_instructions.example).toContain("@Tags(['tdd-red'])");
+      expect(output.tdd_instructions.example).toContain("@orchestra-task");
     });
 
     it("should return tdd_instructions=null for unknown project language when tdd_red_phase=true", async () => {
@@ -399,7 +389,7 @@ describe("get_current_task handler", () => {
 
       expect(output.success).toBe(false);
       expect(output.error.message).toContain(
-        "No task in IMPLEMENT or VERIFY_FAILED state"
+        "No task in IMPLEMENT or VERIFY_FAILED state",
       );
     });
   });

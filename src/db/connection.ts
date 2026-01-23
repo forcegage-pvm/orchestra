@@ -63,6 +63,15 @@ export function getDbPath(): string | null {
 }
 
 /**
+ * Get raw SQLite instance (for advanced operations like pragma)
+ *
+ * @returns Raw better-sqlite3 Database instance or null if not initialized
+ */
+export function getRawDb(): Database.Database | null {
+  return sqliteInstance;
+}
+
+/**
  * Get or create database connection
  *
  * @param dbPath - Path to SQLite database file (default: .orchestra/orchestra.db in workspace)

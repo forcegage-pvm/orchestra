@@ -66,11 +66,51 @@ Errors have `toJSON()` for consistent JSON output in CLI.
 ## Testing Conventions
 
 - Tests mirror source structure: `src/core/yaml.ts` → `test/core/yaml.test.ts`
-- Use temp directories: `fs.mkdtempSync(path.join(os.tmpdir(), 'orchestra-'))`
 - Mock console and process.exit for command tests
 - Test utilities create mock manifests with factory functions
 
-Run tests:
+### Database Test Setup (CRITICAL)
+
+**DO NOT use the old pattern** with `initializeDb()`, `resetDb()`, `runMigrationsV2()` directly.
+
+**USE the shared database cache pattern** - migrations run ONCE per test session:
+
+```typescript
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { getDb } from "../../src/db/index.js";
+import { cleanupTestDb, setupTestDb } from "../setup/db-cache.js";
+
+describe("My Test Suite", () => {
+  let tempDir: string;
+
+  beforeEach(async () => {
+    tempDir = await setupTestDb("my-test-");
+  });
+
+  afterEach(async () => {
+    await cleanupTestDb(tempDir);
+  });
+
+  it("should do something with database", async () => {
+    const db = getDb();
+    // ... test code
+  });
+});
+```
+
+**Key imports:**
+
+- `setupTestDb(prefix)` - Creates temp directory, copies pre-migrated database, sets `ORCHESTRA_WORKSPACE`
+- `cleanupTestDb(tempDir)` - Closes DB connection, cleans up temp directory
+- `getDb()` - Gets the database connection (NOT `initializeDb`)
+
+**Why this matters:**
+
+- Old pattern: 17 migrations × 77 test files = 1309 migration runs (~95 seconds)
+- New pattern: 17 migrations × 1 run = 17 migrations (~18 seconds)
+- **5x faster test runs**
+
+### Test Commands
 
 ```bash
 npm test              # Single run
@@ -99,6 +139,9 @@ npm run lint            # ESLint
 - **Handover**: What implementor sees via `get_current_task`.
 - **Verification criteria**: Stored server-side and only accessible to orchestrator-role tools.
 - **Signal**: Implementor's completion claim via `signal_completion`.
+- **Controller (Sprint 004)**: Specification auditor role that reviews orchestrator work for spec alignment.
+- **Spec Reviews**: Controller approval/rejection records stored in `spec_reviews` table.
+- **Amendments**: Tracking of specification changes after initial configuration in `amendments` table.
 
 ## Adding/Changing Tooling
 
@@ -163,7 +206,7 @@ To add a template:
 1. Create `.hbs` file in `templates/common/templates/`
 2. Use `renderTemplate(templateName, context)` from core
 
-## Trust Boundary: Orchestrator vs Implementor
+## Trust Boundary: Orchestrator vs Implementor vs Controller
 
 **CRITICAL**: The hidden verification pattern is Orchestra's core security model.
 
@@ -178,8 +221,82 @@ When acting as **Orchestrator**:
 - ✅ Full access to all `.orchestra/` files
 - ✅ Create verification criteria BEFORE generating handover
 - ✅ Verify against hidden criteria after implementor signals
+- ⚠️ Subject to Controller review gates (Sprint 004)
 
-Role separation is enforced by the MCP server (`--role=orchestrator|implementor`) and tool filtering in `src/mcp-server/tools.ts`.
+When acting as **Controller** (Sprint 004):
+
+- ✅ Reviews sprint configurations for spec coverage
+- ✅ Reviews task handovers for spec faithfulness
+- ✅ Can approve or reject with detailed feedback
+- ✅ Uses `orchestra-ctrl/*` tools for review workflow
+- ❌ Cannot prepare tasks or run verifications (not an orchestrator)
+
+Role separation is enforced by the MCP server (`--role=orchestrator|implementor|controller`) and tool filtering in `src/mcp-server/tools.ts`.
+
+## Sprint 004: Controller Agent Feature
+
+The Controller Agent adds mandatory review gates to prevent specification drift:
+
+### Review Gates
+
+1. **Sprint Gate**: After `configure_sprint` → Sprint enters `PENDING_SPEC_REVIEW`
+   - Orchestrator blocked from preparing tasks
+   - Controller reviews task breakdown vs specification
+   - Approves or rejects with issues/recommendations
+2. **Handover Gate**: After `prepare_task` → Task enters `PENDING_HANDOVER_REVIEW`
+   - Task blocked from entering IMPLEMENT phase
+   - Controller reviews handover vs specification
+   - Approves or rejects with alignment issues
+
+### Key Database Tables
+
+- `spec_reviews`: All review decisions (SPRINT/HANDOVER type) with issues, recommendations, revision counts
+- `amendments`: Audit trail of specification changes after initial configuration
+- `sprint_settings`: Sprint-specific configuration (test_command, test_file_pattern, source_base_dir)
+- Sprint/Task status fields: `PENDING_SPEC_REVIEW`, `SPEC_REVIEW_FAILED`, `PENDING_HANDOVER_REVIEW`, `HANDOVER_REVIEW_FAILED`
+
+### Required Environment Configuration
+
+Every sprint MUST specify its testing environment via the `environment` field in `configure_sprint`:
+
+```json
+{
+  "sprint": { "id": "sprint-001", "name": "Feature Sprint" },
+  "environment": {
+    "test_command": "npm test",
+    "test_file_pattern": "test/**/*.test.ts",
+    "source_base_dir": "src"
+  },
+  "phases": [...],
+  "tasks": [...]
+}
+```
+
+This eliminates guessing about test frameworks and ensures TDD verification checks use explicit, correct values.
+
+### UI Integration
+
+Extension UI (`extension/src/views/`) shows:
+
+- Sprint status indicators in tree view (clock icon for pending, warning for failed)
+- Review banners in Current Task view with issues/recommendations
+- Amendments history display
+- "Launch Controller Agent" button for pending reviews
+
+### Key MCP Tools
+
+**Orchestrator additions:**
+
+- `resubmit_sprint` - Resubmit after addressing Controller feedback
+- `resubmit_handover` - Resubmit handover after revisions
+- `get_amendments` - View specification amendment history
+
+**Controller-only tools:**
+
+- `review_sprint_config`, `approve_sprint`, `reject_sprint`
+- `review_handover`, `approve_handover`, `reject_handover`
+
+See `docs/mcp-server-config.md` for complete role/tool matrix and `extension/agents/orchestra.orchestrator.agent.md` for workflow details.
 
 ## Extension Build (Deployment)
 

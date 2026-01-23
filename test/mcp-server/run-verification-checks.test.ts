@@ -6,10 +6,9 @@
 
 import { eq } from "drizzle-orm";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { getDb, initializeDb, resetDb } from "../../src/db/index.js";
+import { closeDb, getDb } from "../../src/db/index.js";
 import {
   phases,
   signals,
@@ -18,27 +17,28 @@ import {
   verificationChecks,
   verificationResults,
 } from "../../src/db/schema.js";
-import { handleRunVerificationChecks } from "../../src/mcp-server/handlers/run-verification-checks.js";
+import { cleanupTestDb, setupTestDb } from "../setup/db-cache.js";
 
 // Mock check executor
 vi.mock("../../src/core/check-executor.js", () => ({
   executeCheck: vi.fn(),
 }));
 
-import * as checkExecutor from "../../src/core/check-executor.js";
-
 describe("handleRunVerificationChecks", () => {
   let tempDir: string;
-  const mockExecuteCheck = vi.mocked(checkExecutor.executeCheck);
+  let handleRunVerificationChecks: typeof import("../../src/mcp-server/handlers/run-verification-checks.js").handleRunVerificationChecks;
+  let mockExecuteCheck: ReturnType<typeof vi.fn>;
 
   beforeEach(async () => {
-    vi.clearAllMocks();
-    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "run-verify-"));
-    process.env.ORCHESTRA_WORKSPACE = tempDir;
+    vi.resetModules();
+    const handlerModule =
+      await import("../../src/mcp-server/handlers/run-verification-checks.js");
+    handleRunVerificationChecks = handlerModule.handleRunVerificationChecks;
+    const checkExecutor = await import("../../src/core/check-executor.js");
+    mockExecuteCheck = vi.mocked(checkExecutor.executeCheck);
 
-    // Reset and initialize fresh database
-    resetDb();
-    await initializeDb();
+    vi.clearAllMocks();
+    tempDir = await setupTestDb("run-verify-");
     const db = getDb();
 
     // Create test sprint (id is TEXT, workflow_step required)
@@ -124,9 +124,8 @@ describe("handleRunVerificationChecks", () => {
   });
 
   afterEach(async () => {
-    resetDb();
-    fs.rmSync(tempDir, { recursive: true, force: true });
-    delete process.env.ORCHESTRA_WORKSPACE;
+    closeDb();
+    await cleanupTestDb(tempDir);
   });
 
   describe("input validation", () => {

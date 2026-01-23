@@ -4,12 +4,15 @@
  * TDD tests for the pre-signal executor that actually runs build/test commands
  * instead of trusting agent claims.
  *
- * Key behavior: ALL tasks now run dual-command test execution:
- * 1. Tagged tests (tdd-red) MUST fail or not exist
- * 2. Non-tagged tests MUST pass
+ * Key behavior: TDD dual-command mode ONLY runs when tddRedPhase: true.
+ * - When tddRedPhase: true:
+ *   1. Tagged tests (tdd-red) MUST fail or not exist
+ *   2. Non-tagged tests MUST pass
+ * - When tddRedPhase: false or undefined:
+ *   1. Normal test mode: all tests must pass
  *
  * This ensures:
- * - tdd-red tests that PASS cause verification failure (tag should be removed)
+ * - tdd-red tests that PASS cause verification failure (tag should be removed) - TDD mode only
  * - Non-tdd-red tests that FAIL cause verification failure (must be fixed)
  */
 
@@ -29,16 +32,16 @@ describe("Pre-Signal Executor", () => {
   const mockExecuteCommand = vi.mocked(commandExecutor.executeCommand);
 
   beforeEach(() => {
-    vi.clearAllMocks();
+    vi.resetAllMocks();
   });
 
   /**
-   * Helper to mock standard successful execution:
+   * Helper to mock standard successful execution in TDD mode:
    * - Build: passes
    * - Tagged tests: fail (as expected) or no tests found
    * - Non-tagged tests: pass
    */
-  function mockSuccessfulExecution() {
+  function mockSuccessfulTddExecution() {
     // Build passes
     mockExecuteCommand.mockResolvedValueOnce({
       success: true,
@@ -64,6 +67,33 @@ describe("Pre-Signal Executor", () => {
       duration: 2000,
     });
   }
+
+  /**
+   * Helper to mock standard successful execution in normal mode (non-TDD):
+   * - Build: passes
+   * - Tests: all pass
+   */
+  function mockSuccessfulNormalExecution() {
+    // Build passes
+    mockExecuteCommand.mockResolvedValueOnce({
+      success: true,
+      exitCode: 0,
+      stdout: "Build successful",
+      stderr: "",
+      duration: 1000,
+    });
+    // Tests pass
+    mockExecuteCommand.mockResolvedValueOnce({
+      success: true,
+      exitCode: 0,
+      stdout: "All tests passed",
+      stderr: "",
+      duration: 2000,
+    });
+  }
+
+  // Legacy alias for backward compatibility
+  const mockSuccessfulExecution = mockSuccessfulTddExecution;
 
   /**
    * Helper to mock execution with no tdd-red tests
@@ -120,6 +150,7 @@ describe("Pre-Signal Executor", () => {
 
       const config: PreSignalConfig = {
         workspacePath: "/test/workspace",
+        tddRedPhase: true,
         skipLint: true,
       };
 
@@ -128,12 +159,12 @@ describe("Pre-Signal Executor", () => {
       // Should call both tagged and non-tagged test commands
       expect(mockExecuteCommand).toHaveBeenCalledTimes(3); // build + 2 test commands
       expect(mockExecuteCommand).toHaveBeenCalledWith(
-        "npm test -- test/tdd-red",
-        expect.any(Object)
+        'npm test -- --testNamePattern="\\[tdd-red\\]"',
+        expect.any(Object),
       );
       expect(mockExecuteCommand).toHaveBeenCalledWith(
-        "npm test -- --testPathIgnorePatterns=tdd-red",
-        expect.any(Object)
+        'npm test -- --testNamePattern="^(?!.*\\[tdd-red\\])"',
+        expect.any(Object),
       );
       expect(result.test.passed).toBe(true);
     });
@@ -147,15 +178,7 @@ describe("Pre-Signal Executor", () => {
         stderr: "Compilation error",
         duration: 500,
       });
-      // Tagged tests fail (expected)
-      mockExecuteCommand.mockResolvedValueOnce({
-        success: false,
-        exitCode: 1,
-        stdout: "",
-        stderr: "",
-        duration: 100,
-      });
-      // Non-tagged tests pass
+      // Tests pass (normal mode - single test command)
       mockExecuteCommand.mockResolvedValueOnce({
         success: true,
         exitCode: 0,
@@ -177,7 +200,7 @@ describe("Pre-Signal Executor", () => {
       expect(result.allPassed).toBe(false);
     });
 
-    it("should fail if non-tagged tests fail", async () => {
+    it("should fail if tests fail in normal mode", async () => {
       // Build passes
       mockExecuteCommand.mockResolvedValueOnce({
         success: true,
@@ -186,15 +209,7 @@ describe("Pre-Signal Executor", () => {
         stderr: "",
         duration: 500,
       });
-      // Tagged tests fail (expected)
-      mockExecuteCommand.mockResolvedValueOnce({
-        success: false,
-        exitCode: 1,
-        stdout: "1 test failed",
-        stderr: "",
-        duration: 500,
-      });
-      // Non-tagged tests FAIL (unexpected - should pass)
+      // Tests FAIL (single command in normal mode)
       mockExecuteCommand.mockResolvedValueOnce({
         success: false,
         exitCode: 1,
@@ -206,17 +221,17 @@ describe("Pre-Signal Executor", () => {
       const config: PreSignalConfig = {
         workspacePath: "/test/workspace",
         skipLint: true,
+        // No tddRedPhase - normal mode
       };
 
       const result = await runPreSignalChecks(config);
 
       expect(result.test.passed).toBe(false);
-      expect(result.test.output).toContain("Non-tagged tests FAILED");
       expect(result.allPassed).toBe(false);
     });
 
     it("should run lint command when configured", async () => {
-      mockSuccessfulExecution();
+      mockSuccessfulNormalExecution();
       // Add lint mock
       mockExecuteCommand.mockResolvedValueOnce({
         success: true,
@@ -247,6 +262,7 @@ describe("Pre-Signal Executor", () => {
       const config: PreSignalConfig = {
         workspacePath: "/test/workspace",
         lintCommand: "npm run lint",
+        tddRedPhase: true,
         skipLint: true,
       };
 
@@ -258,11 +274,12 @@ describe("Pre-Signal Executor", () => {
       expect(result.lint.skipped).toBe(true);
     });
 
-    it("should use default commands when not specified", async () => {
+    it("should use default commands when not specified (TDD mode)", async () => {
       mockSuccessfulExecution();
 
       const config: PreSignalConfig = {
         workspacePath: "/test/workspace",
+        tddRedPhase: true,
       };
 
       await runPreSignalChecks(config);
@@ -270,17 +287,17 @@ describe("Pre-Signal Executor", () => {
       // Build command
       expect(mockExecuteCommand).toHaveBeenCalledWith(
         "npm run build",
-        expect.any(Object)
+        expect.any(Object),
       );
       // Tagged test command
       expect(mockExecuteCommand).toHaveBeenCalledWith(
-        "npm test -- test/tdd-red",
-        expect.any(Object)
+        'npm test -- --testNamePattern="\\[tdd-red\\]"',
+        expect.any(Object),
       );
       // Non-tagged test command
       expect(mockExecuteCommand).toHaveBeenCalledWith(
-        "npm test -- --testPathIgnorePatterns=tdd-red",
-        expect.any(Object)
+        'npm test -- --testNamePattern="^(?!.*\\[tdd-red\\])"',
+        expect.any(Object),
       );
     });
 
@@ -294,15 +311,7 @@ describe("Pre-Signal Executor", () => {
         duration: 60000,
         timedOut: true,
       });
-      // Tagged tests fail (expected)
-      mockExecuteCommand.mockResolvedValueOnce({
-        success: false,
-        exitCode: 1,
-        stdout: "1 test failed",
-        stderr: "",
-        duration: 500,
-      });
-      // Non-tagged tests pass
+      // Tests pass (normal mode - single command)
       mockExecuteCommand.mockResolvedValueOnce({
         success: true,
         exitCode: 0,
@@ -323,11 +332,12 @@ describe("Pre-Signal Executor", () => {
       expect(result.build.timedOut).toBe(true);
     });
 
-    it("should return allPassed true when all checks pass", async () => {
+    it("should return allPassed true when all checks pass (TDD mode)", async () => {
       mockSuccessfulExecution();
 
       const config: PreSignalConfig = {
         workspacePath: "/test/workspace",
+        tddRedPhase: true,
         skipLint: true,
       };
 
@@ -338,7 +348,7 @@ describe("Pre-Signal Executor", () => {
       expect(result.test.passed).toBe(true);
     });
 
-    it("should skip build when skipBuild is true", async () => {
+    it("should skip build when skipBuild is true (TDD mode)", async () => {
       // Tagged tests fail (expected)
       mockExecuteCommand.mockResolvedValueOnce({
         success: false,
@@ -358,6 +368,7 @@ describe("Pre-Signal Executor", () => {
 
       const config: PreSignalConfig = {
         workspacePath: "/test/workspace",
+        tddRedPhase: true,
         skipBuild: true,
         skipLint: true,
       };
@@ -393,11 +404,12 @@ describe("Pre-Signal Executor", () => {
       expect(result.test.skipped).toBe(true);
     });
 
-    it("should pass when no tdd-red tests exist", async () => {
+    it("should pass when no tdd-red tests exist (TDD mode)", async () => {
       mockExecutionNoTddRedTests();
 
       const config: PreSignalConfig = {
         workspacePath: "/test/workspace",
+        tddRedPhase: true,
         skipLint: true,
       };
 
@@ -424,8 +436,8 @@ describe("Pre-Signal Executor", () => {
       expect(result.allPassed).toBe(true);
     });
 
-    it("should work without tddRedPhase property", async () => {
-      mockSuccessfulExecution();
+    it("should work without tddRedPhase property (normal mode)", async () => {
+      mockSuccessfulNormalExecution();
 
       const config: PreSignalConfig = {
         workspacePath: "/test/workspace",
@@ -434,13 +446,15 @@ describe("Pre-Signal Executor", () => {
 
       const result = await runPreSignalChecks(config);
 
-      // Should work fine without tddRedPhase
+      // Should work fine without tddRedPhase - uses normal single-test mode
       expect(result).toBeDefined();
       expect(result.allPassed).toBe(true);
+      // In normal mode, should only have 2 calls: build + single test
+      expect(mockExecuteCommand).toHaveBeenCalledTimes(2);
     });
 
-    it("should accept tddRedPhase: false", async () => {
-      mockSuccessfulExecution();
+    it("should accept tddRedPhase: false (normal mode)", async () => {
+      mockSuccessfulNormalExecution();
 
       const config: PreSignalConfig = {
         workspacePath: "/test/workspace",
@@ -450,9 +464,11 @@ describe("Pre-Signal Executor", () => {
 
       const result = await runPreSignalChecks(config);
 
-      // Should accept explicit false value
+      // Should accept explicit false value and use normal mode
       expect(result).toBeDefined();
       expect(result.allPassed).toBe(true);
+      // In normal mode, should only have 2 calls: build + single test
+      expect(mockExecuteCommand).toHaveBeenCalledTimes(2);
     });
   });
 
@@ -485,6 +501,7 @@ describe("Pre-Signal Executor", () => {
 
       const config: PreSignalConfig = {
         workspacePath: "/test/workspace",
+        tddRedPhase: true,
         skipLint: true,
       };
 
@@ -501,6 +518,7 @@ describe("Pre-Signal Executor", () => {
 
       const config: PreSignalConfig = {
         workspacePath: "/test/workspace",
+        tddRedPhase: true,
         skipLint: true,
       };
 
@@ -511,7 +529,7 @@ describe("Pre-Signal Executor", () => {
       expect(result.allPassed).toBe(true);
     });
 
-    it("should fail if non-tagged tests fail", async () => {
+    it("should fail if non-tagged tests fail in TDD mode", async () => {
       // Build passes
       mockExecuteCommand.mockResolvedValueOnce({
         success: true,
@@ -539,6 +557,7 @@ describe("Pre-Signal Executor", () => {
 
       const config: PreSignalConfig = {
         workspacePath: "/test/workspace",
+        tddRedPhase: true,
         skipLint: true,
       };
 
@@ -577,6 +596,7 @@ describe("Pre-Signal Executor", () => {
 
       const config: PreSignalConfig = {
         workspacePath: "/test/workspace",
+        tddRedPhase: true,
         skipLint: true,
       };
 
@@ -589,22 +609,21 @@ describe("Pre-Signal Executor", () => {
       expect(result.allPassed).toBe(false);
     });
 
-    it("should use project-specific commands for Flutter", async () => {
+    it("should use project-specific commands for TDD mode", async () => {
       mockSuccessfulExecution();
 
-      // Create temp dir with pubspec.yaml would be needed for real test
-      // For now, just verify default Node.js commands are used
       const config: PreSignalConfig = {
         workspacePath: "/test/workspace",
+        tddRedPhase: true,
         skipLint: true,
       };
 
       await runPreSignalChecks(config);
 
-      // Default (Node.js) commands
+      // Default (Node.js/Vitest) commands - tagged tests use testNamePattern
       expect(mockExecuteCommand).toHaveBeenCalledWith(
-        "npm test -- test/tdd-red",
-        expect.any(Object)
+        'npm test -- --testNamePattern="\\[tdd-red\\]"',
+        expect.any(Object),
       );
     });
 
@@ -619,6 +638,7 @@ describe("Pre-Signal Executor", () => {
 
       const config: PreSignalConfig = {
         workspacePath: "/test/workspace",
+        tddRedPhase: true,
         skipTest: true,
         skipLint: true,
       };
@@ -660,6 +680,7 @@ describe("Pre-Signal Executor", () => {
 
       const config: PreSignalConfig = {
         workspacePath: "/test/workspace",
+        tddRedPhase: true,
         skipLint: true,
         timeout: 60000,
       };
@@ -698,6 +719,7 @@ describe("Pre-Signal Executor", () => {
 
       const config: PreSignalConfig = {
         workspacePath: "/test/workspace",
+        tddRedPhase: true,
         skipLint: true,
       };
 

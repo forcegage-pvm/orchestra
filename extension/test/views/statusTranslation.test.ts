@@ -12,12 +12,16 @@ import {
 
 describe("statusTranslation", () => {
   describe("STATUS_DISPLAY", () => {
-    it("should have all 7 required status mappings", () => {
+    it("should have all required status mappings", () => {
       const requiredStatuses = [
         "PENDING",
+        "PREPARE",
+        "PENDING_HANDOVER_REVIEW",
+        "HANDOVER_REVIEW_FAILED",
         "IMPLEMENT",
         "VERIFY",
         "VERIFY_FAILED",
+        "VERIFIED",
         "GATE_CHECK",
         "ESCALATED",
         "COMPLETE",
@@ -27,8 +31,8 @@ describe("statusTranslation", () => {
         expect(STATUS_DISPLAY[status]).toBeDefined();
       });
 
-      // Verify we have exactly 7 statuses
-      expect(Object.keys(STATUS_DISPLAY)).toHaveLength(7);
+      // Verify we have exactly 11 statuses (8 original + 3 Controller review statuses)
+      expect(Object.keys(STATUS_DISPLAY)).toHaveLength(11);
     });
 
     it("should have required properties for each status mapping", () => {
@@ -63,6 +67,7 @@ describe("statusTranslation", () => {
       expect(STATUS_DISPLAY.IMPLEMENT.label).toBe("In Progress");
       expect(STATUS_DISPLAY.VERIFY.label).toBe("Verifying");
       expect(STATUS_DISPLAY.VERIFY_FAILED.label).toBe("Needs Attention");
+      expect(STATUS_DISPLAY.VERIFIED.label).toBe("Verified");
       expect(STATUS_DISPLAY.GATE_CHECK.label).toBe("Pending Review");
       expect(STATUS_DISPLAY.ESCALATED.label).toBe("Escalated");
       expect(STATUS_DISPLAY.COMPLETE.label).toBe("Complete");
@@ -74,6 +79,7 @@ describe("statusTranslation", () => {
       expect(STATUS_DISPLAY.IMPLEMENT.icon).toBe("play-circle");
       expect(STATUS_DISPLAY.VERIFY.icon).toBe("sync~spin");
       expect(STATUS_DISPLAY.VERIFY_FAILED.icon).toBe("warning");
+      expect(STATUS_DISPLAY.VERIFIED.icon).toBe("check");
       expect(STATUS_DISPLAY.GATE_CHECK.icon).toBe("shield");
       expect(STATUS_DISPLAY.ESCALATED.icon).toBe("alert");
       expect(STATUS_DISPLAY.COMPLETE.icon).toBe("check-all");
@@ -85,6 +91,7 @@ describe("statusTranslation", () => {
       expect(STATUS_DISPLAY.IMPLEMENT.color).toBeInstanceOf(ThemeColor);
       expect(STATUS_DISPLAY.VERIFY.color).toBeInstanceOf(ThemeColor);
       expect(STATUS_DISPLAY.VERIFY_FAILED.color).toBeInstanceOf(ThemeColor);
+      expect(STATUS_DISPLAY.VERIFIED.color).toBeInstanceOf(ThemeColor);
       expect(STATUS_DISPLAY.GATE_CHECK.color).toBeInstanceOf(ThemeColor);
       expect(STATUS_DISPLAY.ESCALATED.color).toBeInstanceOf(ThemeColor);
       expect(STATUS_DISPLAY.COMPLETE.color).toBeInstanceOf(ThemeColor);
@@ -108,6 +115,10 @@ describe("statusTranslation", () => {
       const verifyFailedDisplay = getStatusDisplay("VERIFY_FAILED");
       expect(verifyFailedDisplay.label).toBe("Needs Attention");
       expect(verifyFailedDisplay.icon).toBe("warning");
+
+      const verifiedDisplay = getStatusDisplay("VERIFIED");
+      expect(verifiedDisplay.label).toBe("Verified");
+      expect(verifiedDisplay.icon).toBe("check");
 
       const gateCheckDisplay = getStatusDisplay("GATE_CHECK");
       expect(gateCheckDisplay.label).toBe("Pending Review");
@@ -181,14 +192,20 @@ describe("statusTranslation", () => {
    * Tests for status transitions as defined in the Orchestra workflow
    *
    * Status Flow:
-   * PENDING → IMPLEMENT → VERIFY → (VERIFY_FAILED → retry) → COMPLETE
+   * PENDING → IMPLEMENT → VERIFY → (VERIFY_FAILED → retry) → VERIFIED → COMPLETE
    *                              ↓
    *                         GATE_CHECK → ESCALATED
    */
   describe("Status Transitions", () => {
-    describe("happy path: PENDING → IMPLEMENT → VERIFY → COMPLETE", () => {
+    describe("happy path: PENDING → IMPLEMENT → VERIFY → VERIFIED → COMPLETE", () => {
       it("should display correct sequence for successful task completion", () => {
-        const transitions = ["PENDING", "IMPLEMENT", "VERIFY", "COMPLETE"];
+        const transitions = [
+          "PENDING",
+          "IMPLEMENT",
+          "VERIFY",
+          "VERIFIED",
+          "COMPLETE",
+        ];
 
         transitions.forEach((status, index) => {
           const display = getStatusDisplay(status);
@@ -203,6 +220,7 @@ describe("statusTranslation", () => {
         expect(STATUS_DISPLAY.PENDING.actionLabel).toBe("Start");
         expect(STATUS_DISPLAY.IMPLEMENT.actionLabel).toBe("Continue");
         expect(STATUS_DISPLAY.VERIFY.actionLabel).toBe("View Progress");
+        expect(STATUS_DISPLAY.VERIFIED.actionLabel).toBeUndefined();
 
         // Complete state has no further action
         expect(STATUS_DISPLAY.COMPLETE.actionLabel).toBeUndefined();
@@ -214,6 +232,7 @@ describe("statusTranslation", () => {
           STATUS_DISPLAY.PENDING.color,
           STATUS_DISPLAY.IMPLEMENT.color,
           STATUS_DISPLAY.VERIFY.color,
+          STATUS_DISPLAY.VERIFIED.color,
           STATUS_DISPLAY.COMPLETE.color,
         ];
 
@@ -287,6 +306,9 @@ describe("statusTranslation", () => {
         // warning = needs attention
         expect(STATUS_DISPLAY.VERIFY_FAILED.icon).toBe("warning");
 
+        // check = verified
+        expect(STATUS_DISPLAY.VERIFIED.icon).toBe("check");
+
         // shield = gated/protected
         expect(STATUS_DISPLAY.GATE_CHECK.icon).toBe("shield");
 
@@ -304,6 +326,7 @@ describe("statusTranslation", () => {
         expect(STATUS_DISPLAY.IMPLEMENT.description).toContain("implemented");
         expect(STATUS_DISPLAY.VERIFY.description).toContain("verified");
         expect(STATUS_DISPLAY.VERIFY_FAILED.description).toContain("failed");
+        expect(STATUS_DISPLAY.VERIFIED.description).toContain("verification");
         expect(STATUS_DISPLAY.GATE_CHECK.description).toContain("review");
         expect(STATUS_DISPLAY.ESCALATED.description).toContain("escalated");
         expect(STATUS_DISPLAY.COMPLETE.description).toContain("completed");

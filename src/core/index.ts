@@ -88,7 +88,11 @@ export {
 
 // Escalation
 export {
+  // Controller Agent escalation helpers (T013, T022, T030)
+  MAX_CONTROLLER_REJECTIONS,
+  generateControllerEscalationReason,
   runEscalate,
+  shouldEscalateAfterRejection,
   type AttemptRecord,
   type EscalateOptions,
   type EscalateResult,
@@ -161,3 +165,25 @@ export {
   type JudgmentCheck,
   type JudgmentValidationResult,
 } from "./judgment-validator.js";
+
+// TDD Registry (CRUD operations for TDD red test registry)
+export {
+  getTestsByTask,
+  registerTest,
+  type RegisterTestOptions,
+  type RegisterTestResult,
+} from "./tdd-registry.js";
+
+// TDD Marker Scanner (scans test files for TDD red markers)
+export {
+  scanForTddRedMarkers,
+  type TddRedMarker,
+} from "./tdd-marker-scanner.js";
+
+// TDD Red Phase Validation (bidirectional validation before signal)
+export {
+  validateTddRedPhase,
+  type ValidateTddRedPhaseOptions,
+  type ValidationError,
+  type ValidationResult,
+} from "./tdd-validation.js";

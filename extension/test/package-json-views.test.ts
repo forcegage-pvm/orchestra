@@ -5,19 +5,20 @@ describe("package.json views configuration", () => {
   describe("orchestra-explorer views array", () => {
     const views = packageJson.contributes?.views?.["orchestra-explorer"] || [];
 
-    it("should have exactly 3 views registered", () => {
-      expect(views).toHaveLength(3);
+    it("should have exactly 4 views registered", () => {
+      expect(views).toHaveLength(4);
     });
 
-    it("should have views in correct order: currentTask, sprintExplorer, workflowControls", () => {
+    it("should have views in correct order: currentTask, sprintExplorer, codeReview, workflowControls", () => {
       expect(views[0].id).toBe("orchestra.currentTask");
       expect(views[1].id).toBe("orchestra.sprintExplorer");
-      expect(views[2].id).toBe("orchestra.workflowControls");
+      expect(views[2].id).toBe("orchestra.codeReview");
+      expect(views[3].id).toBe("orchestra.workflowControls");
     });
 
     describe("orchestra.currentTask view", () => {
       const currentTaskView = views.find(
-        (v: any) => v.id === "orchestra.currentTask"
+        (v: any) => v.id === "orchestra.currentTask",
       );
 
       it("should be registered", () => {
@@ -36,7 +37,7 @@ describe("package.json views configuration", () => {
 
     describe("orchestra.sprintExplorer view", () => {
       const sprintExplorerView = views.find(
-        (v: any) => v.id === "orchestra.sprintExplorer"
+        (v: any) => v.id === "orchestra.sprintExplorer",
       );
 
       it("should be registered", () => {
@@ -55,7 +56,7 @@ describe("package.json views configuration", () => {
 
     describe("orchestra.workflowControls view", () => {
       const workflowControlsView = views.find(
-        (v: any) => v.id === "orchestra.workflowControls"
+        (v: any) => v.id === "orchestra.workflowControls",
       );
 
       it("should be registered", () => {
@@ -78,7 +79,7 @@ describe("package.json views configuration", () => {
 
     it("should not have the old orchestraSprintExplorer view ID", () => {
       const oldView = views.find(
-        (v: any) => v.id === "orchestraSprintExplorer"
+        (v: any) => v.id === "orchestraSprintExplorer",
       );
       expect(oldView).toBeUndefined();
     });
@@ -93,7 +94,7 @@ describe("package.json views configuration", () => {
 
     it("should have refresh button in Sprint Explorer", () => {
       const refreshButton = viewTitleMenus.find(
-        (menu: any) => menu.command === "orchestra.refreshStatus"
+        (menu: any) => menu.command === "orchestra.refreshStatus",
       );
       expect(refreshButton).toBeDefined();
       expect(refreshButton?.when).toBe("view == orchestra.sprintExplorer");
@@ -102,7 +103,7 @@ describe("package.json views configuration", () => {
 
     it("should have settings button in Sprint Explorer", () => {
       const settingsButton = viewTitleMenus.find(
-        (menu: any) => menu.command === "orchestra.openSprintSettings"
+        (menu: any) => menu.command === "orchestra.openSprintSettings",
       );
       expect(settingsButton).toBeDefined();
       expect(settingsButton?.when).toBe("view == orchestra.sprintExplorer");
@@ -112,14 +113,14 @@ describe("package.json views configuration", () => {
     it("should use correct view ID (orchestra.sprintExplorer) in when clauses", () => {
       const allButtonsUseCorrectId = viewTitleMenus.every(
         (menu: any) =>
-          !menu.when || menu.when.includes("orchestra.sprintExplorer")
+          !menu.when || menu.when.includes("orchestra.sprintExplorer"),
       );
       expect(allButtonsUseCorrectId).toBe(true);
     });
 
     it("should not use old camelCase view ID (orchestraSprintExplorer)", () => {
       const anyButtonUsesOldId = viewTitleMenus.some((menu: any) =>
-        menu.when?.includes("orchestraSprintExplorer")
+        menu.when?.includes("orchestraSprintExplorer"),
       );
       expect(anyButtonUsesOldId).toBe(false);
     });
@@ -137,7 +138,7 @@ describe("package.json views configuration", () => {
       const startTaskInline = contextMenus.find(
         (menu: any) =>
           menu.command === "orchestra.startTask" &&
-          menu.group?.startsWith("inline")
+          menu.group?.startsWith("inline"),
       );
 
       it("should exist in inline group", () => {
@@ -164,7 +165,7 @@ describe("package.json views configuration", () => {
       const playTaskInline = contextMenus.find(
         (menu: any) =>
           menu.command === "orchestra.playTask" &&
-          menu.group?.startsWith("inline")
+          menu.group?.startsWith("inline"),
       );
 
       it("should exist in inline group", () => {
@@ -199,7 +200,7 @@ describe("package.json views configuration", () => {
 
     describe("openTaskDetail context menu item", () => {
       const openTaskDetail = contextMenus.find(
-        (menu: any) => menu.command === "orchestra.openTaskDetail"
+        (menu: any) => menu.command === "orchestra.openTaskDetail",
       );
 
       it("should be registered", () => {
@@ -224,7 +225,7 @@ describe("package.json views configuration", () => {
 
     it("should not use old view ID (orchestraSprintExplorer) in any menu items", () => {
       const anyMenuUsesOldId = contextMenus.some((menu: any) =>
-        menu.when?.includes("orchestraSprintExplorer")
+        menu.when?.includes("orchestraSprintExplorer"),
       );
       expect(anyMenuUsesOldId).toBe(false);
     });
@@ -234,7 +235,7 @@ describe("package.json views configuration", () => {
       const allUseCorrectId = menusWithWhen.every(
         (menu: any) =>
           !menu.when.includes("sprintExplorer") ||
-          menu.when.includes("orchestra.sprintExplorer")
+          menu.when.includes("orchestra.sprintExplorer"),
       );
       expect(allUseCorrectId).toBe(true);
     });
@@ -249,7 +250,7 @@ describe("package.json views configuration", () => {
 
     describe("playTask Enter keybinding", () => {
       const playTaskKeybinding = keybindings.find(
-        (kb: any) => kb.command === "orchestra.playTask"
+        (kb: any) => kb.command === "orchestra.playTask",
       );
 
       it("should be registered", () => {
@@ -269,7 +270,7 @@ describe("package.json views configuration", () => {
       it("should use correct view ID (orchestra.sprintExplorer)", () => {
         expect(playTaskKeybinding?.when).toContain("orchestra.sprintExplorer");
         expect(playTaskKeybinding?.when).not.toContain(
-          "orchestraSprintExplorer"
+          "orchestraSprintExplorer",
         );
       });
     });
@@ -280,7 +281,7 @@ describe("package.json views configuration", () => {
 
     describe("orchestra.playTask command", () => {
       const playTaskCommand = commands.find(
-        (cmd: any) => cmd.command === "orchestra.playTask"
+        (cmd: any) => cmd.command === "orchestra.playTask",
       );
 
       it("should be registered", () => {
@@ -305,7 +306,7 @@ describe("package.json views configuration", () => {
       it("should use viewItem pattern for all task context menus", () => {
         const taskMenus = contextMenus.filter(
           (menu: any) =>
-            menu.when?.includes("viewItem") && menu.when?.includes("task-")
+            menu.when?.includes("viewItem") && menu.when?.includes("task-"),
         );
 
         expect(taskMenus.length).toBeGreaterThan(0);
@@ -319,7 +320,7 @@ describe("package.json views configuration", () => {
 
       it("should have openTaskDetail for all task items using task- prefix regex", () => {
         const openTaskDetail = contextMenus.find(
-          (menu: any) => menu.command === "orchestra.openTaskDetail"
+          (menu: any) => menu.command === "orchestra.openTaskDetail",
         );
 
         expect(openTaskDetail).toBeDefined();
@@ -329,7 +330,7 @@ describe("package.json views configuration", () => {
 
       it("should have startTask only for pending and implement statuses", () => {
         const startTaskMenus = contextMenus.filter(
-          (menu: any) => menu.command === "orchestra.startTask"
+          (menu: any) => menu.command === "orchestra.startTask",
         );
 
         // Should have at least one startTask menu item
@@ -338,20 +339,20 @@ describe("package.json views configuration", () => {
         // Find the one with status restriction
         const statusRestrictedMenu = startTaskMenus.find(
           (menu: any) =>
-            menu.when?.includes("viewItem") && menu.when?.includes("task-")
+            menu.when?.includes("viewItem") && menu.when?.includes("task-"),
         );
 
         expect(statusRestrictedMenu).toBeDefined();
         expect(statusRestrictedMenu?.when).toContain("viewItem =~");
         // Should match task-pending or task-implement
         expect(statusRestrictedMenu?.when).toMatch(
-          /task-\(pending\|implement\)/
+          /task-\(pending\|implement\)/,
         );
       });
 
       it("should have deEscalateTask only for escalated status", () => {
         const deEscalateMenus = contextMenus.filter(
-          (menu: any) => menu.command === "orchestra.deEscalateTask"
+          (menu: any) => menu.command === "orchestra.deEscalateTask",
         );
 
         expect(deEscalateMenus.length).toBeGreaterThan(0);
@@ -364,47 +365,47 @@ describe("package.json views configuration", () => {
 
       it("should have moveToGateCheck for escalated and verify_failed statuses", () => {
         const moveToGateCheckMenus = contextMenus.filter(
-          (menu: any) => menu.command === "orchestra.moveToGateCheck"
+          (menu: any) => menu.command === "orchestra.moveToGateCheck",
         );
 
         expect(moveToGateCheckMenus.length).toBeGreaterThan(0);
 
         const statusRestrictedMenu = moveToGateCheckMenus.find(
           (menu: any) =>
-            menu.when?.includes("viewItem") && menu.when?.includes("task-")
+            menu.when?.includes("viewItem") && menu.when?.includes("task-"),
         );
 
         expect(statusRestrictedMenu).toBeDefined();
         expect(statusRestrictedMenu?.when).toContain("viewItem =~");
         // Should match task-escalated or task-verify_failed
         expect(statusRestrictedMenu?.when).toMatch(
-          /task-\(escalated\|verify_failed\)/
+          /task-\(escalated\|verify_failed\)/,
         );
       });
 
       it("should have moveToImplement for escalated and verify_failed statuses", () => {
         const moveToImplementMenus = contextMenus.filter(
-          (menu: any) => menu.command === "orchestra.moveToImplement"
+          (menu: any) => menu.command === "orchestra.moveToImplement",
         );
 
         expect(moveToImplementMenus.length).toBeGreaterThan(0);
 
         const statusRestrictedMenu = moveToImplementMenus.find(
           (menu: any) =>
-            menu.when?.includes("viewItem") && menu.when?.includes("task-")
+            menu.when?.includes("viewItem") && menu.when?.includes("task-"),
         );
 
         expect(statusRestrictedMenu).toBeDefined();
         expect(statusRestrictedMenu?.when).toContain("viewItem =~");
         // Should match task-escalated or task-verify_failed
         expect(statusRestrictedMenu?.when).toMatch(
-          /task-\(escalated\|verify_failed\)/
+          /task-\(escalated\|verify_failed\)/,
         );
       });
 
       it("should have forceComplete only for escalated status", () => {
         const forceCompleteMenus = contextMenus.filter(
-          (menu: any) => menu.command === "orchestra.forceComplete"
+          (menu: any) => menu.command === "orchestra.forceComplete",
         );
 
         expect(forceCompleteMenus.length).toBeGreaterThan(0);
@@ -422,7 +423,7 @@ describe("package.json views configuration", () => {
           (menu: any) =>
             menu.when?.includes("viewItem") &&
             menu.when?.includes("=~") &&
-            menu.when?.includes("task-")
+            menu.when?.includes("task-"),
         );
 
         expect(taskMenusWithRegex.length).toBeGreaterThan(0);
@@ -436,7 +437,7 @@ describe("package.json views configuration", () => {
       it("should anchor task- patterns at the start with ^", () => {
         const taskMenusWithRegex = contextMenus.filter(
           (menu: any) =>
-            menu.when?.includes("viewItem =~") && menu.when?.includes("task-")
+            menu.when?.includes("viewItem =~") && menu.when?.includes("task-"),
         );
 
         taskMenusWithRegex.forEach((menu: any) => {
@@ -448,7 +449,7 @@ describe("package.json views configuration", () => {
       it("should use proper alternation syntax for multiple statuses", () => {
         const multiStatusMenus = contextMenus.filter(
           (menu: any) =>
-            menu.when?.includes("viewItem =~") && menu.when?.includes("|")
+            menu.when?.includes("viewItem =~") && menu.when?.includes("|"),
         );
 
         multiStatusMenus.forEach((menu: any) => {
@@ -462,7 +463,7 @@ describe("package.json views configuration", () => {
       it("should have menu items for PENDING status", () => {
         const pendingMenus = contextMenus.filter(
           (menu: any) =>
-            menu.when?.includes("viewItem") && menu.when?.includes("pending")
+            menu.when?.includes("viewItem") && menu.when?.includes("pending"),
         );
 
         expect(pendingMenus.length).toBeGreaterThan(0);
@@ -471,7 +472,7 @@ describe("package.json views configuration", () => {
       it("should have menu items for IMPLEMENT status", () => {
         const implementMenus = contextMenus.filter(
           (menu: any) =>
-            menu.when?.includes("viewItem") && menu.when?.includes("implement")
+            menu.when?.includes("viewItem") && menu.when?.includes("implement"),
         );
 
         expect(implementMenus.length).toBeGreaterThan(0);
@@ -480,7 +481,7 @@ describe("package.json views configuration", () => {
       it("should have menu items for ESCALATED status", () => {
         const escalatedMenus = contextMenus.filter(
           (menu: any) =>
-            menu.when?.includes("viewItem") && menu.when?.includes("escalated")
+            menu.when?.includes("viewItem") && menu.when?.includes("escalated"),
         );
 
         expect(escalatedMenus.length).toBeGreaterThan(0);
@@ -490,7 +491,7 @@ describe("package.json views configuration", () => {
         const verifyFailedMenus = contextMenus.filter(
           (menu: any) =>
             menu.when?.includes("viewItem") &&
-            menu.when?.includes("verify_failed")
+            menu.when?.includes("verify_failed"),
         );
 
         expect(verifyFailedMenus.length).toBeGreaterThan(0);

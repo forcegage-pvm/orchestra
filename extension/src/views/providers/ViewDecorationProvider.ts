@@ -21,6 +21,7 @@ interface TaskStatusDecoration {
   status: string;
   retryCount?: number;
   maxRetries?: number;
+  codeReviewStatus?: string;
 }
 
 /**
@@ -51,17 +52,19 @@ export function createTaskDecorationUri(
   taskId: number,
   status: string,
   retryCount?: number,
-  maxRetries?: number
+  maxRetries?: number,
+  codeReviewStatus?: string,
 ): vscode.Uri {
   const state: TaskStatusDecoration = { status };
   if (retryCount !== undefined) state.retryCount = retryCount;
   if (maxRetries !== undefined) state.maxRetries = maxRetries;
+  if (codeReviewStatus !== undefined) state.codeReviewStatus = codeReviewStatus;
 
   const query = new URLSearchParams();
   query.set("state", JSON.stringify(state));
 
   return vscode.Uri.parse(
-    `${ORCHESTRA_VIEW_SCHEME}://task/${taskId}?${query.toString()}`
+    `${ORCHESTRA_VIEW_SCHEME}://task/${taskId}?${query.toString()}`,
   );
 }
 
@@ -77,14 +80,7 @@ export class OrchestraViewDecorationProvider
 
   readonly onDidChangeFileDecorations = this._onDidChangeFileDecorations.event;
 
-  private _disposable: vscode.Disposable;
-
-  constructor() {
-    this._disposable = vscode.window.registerFileDecorationProvider(this);
-  }
-
   dispose(): void {
-    this._disposable.dispose();
     this._onDidChangeFileDecorations.dispose();
   }
 
@@ -97,7 +93,7 @@ export class OrchestraViewDecorationProvider
 
   provideFileDecoration(
     uri: vscode.Uri,
-    _token: vscode.CancellationToken
+    _token: vscode.CancellationToken,
   ): vscode.FileDecoration | undefined {
     const state = getDecorationState(uri);
     if (!state) {
@@ -108,56 +104,110 @@ export class OrchestraViewDecorationProvider
   }
 
   private _getDecorationForStatus(
-    state: TaskStatusDecoration
+    state: TaskStatusDecoration,
   ): vscode.FileDecoration | undefined {
+    const codeReviewStatus = state.codeReviewStatus;
+    const appendCodeReview = (
+      base: vscode.FileDecoration | undefined,
+    ): vscode.FileDecoration | undefined => {
+      if (!codeReviewStatus) {
+        return base;
+      }
+
+      const statusText = codeReviewStatus.replace(/_/g, " ");
+      const tooltipSuffix = ` | Code Review: ${statusText}`;
+
+      // Use icon badges instead of text
+      let badge: string | undefined;
+      if (codeReviewStatus === "PENDING") {
+        badge = "⏳";
+      } else if (codeReviewStatus === "APPROVED") {
+        badge = "✓";
+      } else if (
+        codeReviewStatus === "CHANGES_REQUESTED" ||
+        codeReviewStatus === "REJECTED"
+      ) {
+        badge = "✗";
+      }
+
+      let color = base?.color;
+      if (
+        codeReviewStatus === "CHANGES_REQUESTED" ||
+        codeReviewStatus === "REJECTED"
+      ) {
+        color = new vscode.ThemeColor("errorForeground");
+      } else if (codeReviewStatus === "PENDING") {
+        color = new vscode.ThemeColor("editorWarning.foreground");
+      } else if (codeReviewStatus === "APPROVED") {
+        color = new vscode.ThemeColor("gitDecoration.addedResourceForeground");
+      }
+
+      const decoration: vscode.FileDecoration = {
+        ...base,
+        tooltip: base?.tooltip
+          ? `${base.tooltip}${tooltipSuffix}`
+          : `Code Review: ${statusText}`,
+      };
+
+      if (badge !== undefined) {
+        decoration.badge = badge;
+      }
+
+      if (color !== undefined) {
+        decoration.color = color;
+      }
+
+      return decoration;
+    };
+
     // Icons-only design: status is shown via ThemeIcon, not badges.
     // Only color and tooltip are returned to avoid double indicators.
     switch (state.status) {
       case "ESCALATED":
-        return {
+        return appendCodeReview({
           color: new vscode.ThemeColor("errorForeground"),
           tooltip: "Escalated - Requires human supervisor intervention",
-        };
+        });
 
       case "VERIFY_FAILED":
-        return {
+        return appendCodeReview({
           color: new vscode.ThemeColor("errorForeground"),
           tooltip: `Verification failed (attempt ${state.retryCount || "?"}/${
             state.maxRetries || "?"
           })`,
-        };
+        });
 
       case "GATE_CHECK":
-        return {
+        return appendCodeReview({
           color: new vscode.ThemeColor("editorWarning.foreground"),
           tooltip: "Awaiting verification",
-        };
+        });
 
       case "VERIFY":
-        return {
+        return appendCodeReview({
           color: new vscode.ThemeColor("gitDecoration.addedResourceForeground"),
           tooltip: "Verification passed - Ready to complete",
-        };
+        });
 
       case "COMPLETE":
-        return {
+        return appendCodeReview({
           color: new vscode.ThemeColor("gitDecoration.addedResourceForeground"),
           tooltip: "Completed",
-        };
+        });
 
       case "IMPLEMENT":
-        return {
+        return appendCodeReview({
           color: new vscode.ThemeColor("editorInfo.foreground"),
           tooltip: "In progress",
-        };
+        });
 
       case "PENDING":
-        return {
+        return appendCodeReview({
           tooltip: "Not started",
-        };
+        });
 
       default:
-        return undefined;
+        return appendCodeReview(undefined);
     }
   }
 }

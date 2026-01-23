@@ -224,10 +224,8 @@ describe("Play Workflow Integration Tests", () => {
 
       await handlePlayTask(mockWorkspaceRoot, mockTaskId);
 
-      // Verify a new chat editor tab was created (not using SessionManager)
-      expect(vscode.commands.executeCommand).toHaveBeenCalledWith(
-        "workbench.action.openChat"
-      );
+      // Verify implementor was invoked (via SessionManager.invokeImplementor)
+      expect(mockInvokeImplementor).toHaveBeenCalled();
       // Orchestrator should NOT be invoked
       expect(mockInvokeOrchestrator).not.toHaveBeenCalled();
     });
@@ -255,13 +253,10 @@ describe("Play Workflow Integration Tests", () => {
 
       await handlePlayTask(mockWorkspaceRoot, mockTaskId);
 
-      // Verify chat was opened with correct prompt
-      expect(vscode.commands.executeCommand).toHaveBeenCalledWith(
-        "workbench.action.chat.open",
-        expect.objectContaining({
-          query: "Mock implement prompt",
-          mode: "orchestra.implementor",
-        })
+      // Verify implementor was invoked with correct prompt
+      expect(mockInvokeImplementor).toHaveBeenCalledWith(
+        "Mock implement prompt",
+        expect.any(Array)
       );
     });
   });
@@ -372,10 +367,8 @@ describe("Play Workflow Integration Tests", () => {
 
       await handlePlayTask(mockWorkspaceRoot, mockTaskId);
 
-      // Verify a new chat editor tab was created (not using SessionManager)
-      expect(vscode.commands.executeCommand).toHaveBeenCalledWith(
-        "workbench.action.openChat"
-      );
+      // Verify implementor was invoked (via SessionManager.invokeImplementor)
+      expect(mockInvokeImplementor).toHaveBeenCalled();
       // Orchestrator should NOT be invoked
       expect(mockInvokeOrchestrator).not.toHaveBeenCalled();
     });
@@ -418,13 +411,10 @@ describe("Play Workflow Integration Tests", () => {
 
       await handlePlayTask(mockWorkspaceRoot, mockTaskId);
 
-      // Verify chat was opened with correct retry prompt
-      expect(vscode.commands.executeCommand).toHaveBeenCalledWith(
-        "workbench.action.chat.open",
-        expect.objectContaining({
-          query: "Mock retry prompt",
-          mode: "orchestra.implementor",
-        })
+      // Verify implementor was invoked with retry prompt
+      expect(mockInvokeImplementor).toHaveBeenCalledWith(
+        "Mock retry prompt",
+        expect.any(Array)
       );
     });
   });
@@ -483,16 +473,11 @@ describe("Play Workflow Integration Tests", () => {
 
       await handlePlayTask(mockWorkspaceRoot, mockTaskId);
 
-      // Verify ConfigService was retrieved for implementor config
-      expect(extension.getConfigService).toHaveBeenCalled();
+      // Verify SessionManager was retrieved
+      expect(extension.getSessionManager).toHaveBeenCalled();
 
-      // Verify chat was opened with configured agent mode
-      expect(vscode.commands.executeCommand).toHaveBeenCalledWith(
-        "workbench.action.chat.open",
-        expect.objectContaining({
-          mode: "orchestra.implementor",
-        })
-      );
+      // Verify implementor was invoked via SessionManager
+      expect(mockInvokeImplementor).toHaveBeenCalled();
     });
   });
 
@@ -529,12 +514,10 @@ describe("Play Workflow Integration Tests", () => {
 
       await handlePlayTask(mockWorkspaceRoot, mockTaskId);
 
-      // Verify chat was opened with context files attached
-      expect(vscode.commands.executeCommand).toHaveBeenCalledWith(
-        "workbench.action.chat.open",
-        expect.objectContaining({
-          attachFiles: mockContextFiles,
-        })
+      // Verify implementor was invoked with context files
+      expect(mockInvokeImplementor).toHaveBeenCalledWith(
+        expect.any(String),
+        mockContextFiles
       );
     });
 
@@ -585,12 +568,10 @@ describe("Play Workflow Integration Tests", () => {
 
       await handlePlayTask(mockWorkspaceRoot, mockTaskId);
 
-      // Verify chat was opened with context files attached
-      expect(vscode.commands.executeCommand).toHaveBeenCalledWith(
-        "workbench.action.chat.open",
-        expect.objectContaining({
-          attachFiles: mockContextFiles,
-        })
+      // Verify implementor was invoked with context files
+      expect(mockInvokeImplementor).toHaveBeenCalledWith(
+        expect.any(String),
+        mockContextFiles
       );
     });
   });
@@ -651,20 +632,12 @@ describe("Play Workflow Integration Tests", () => {
 
       await handlePlayTask(mockWorkspaceRoot, mockTaskId);
 
-      // Verify complete flow - uses fresh chat tab, not SessionManager
+      // Verify complete flow - uses SessionManager.invokeImplementor
       expect(queries.getTaskById).toHaveBeenCalledWith(
         mockWorkspaceRoot,
         mockTaskId
       );
-      expect(vscode.commands.executeCommand).toHaveBeenCalledWith(
-        "workbench.action.openChat"
-      );
-      expect(vscode.commands.executeCommand).toHaveBeenCalledWith(
-        "workbench.action.chat.open",
-        expect.objectContaining({
-          mode: "orchestra.implementor",
-        })
-      );
+      expect(mockInvokeImplementor).toHaveBeenCalled();
       expect(mockInvokeOrchestrator).not.toHaveBeenCalled();
     });
 
@@ -737,7 +710,7 @@ describe("Play Workflow Integration Tests", () => {
 
       await handlePlayTask(mockWorkspaceRoot, mockTaskId);
 
-      // Verify complete flow - uses fresh chat tab, not SessionManager
+      // Verify complete flow - uses SessionManager.invokeImplementor
       expect(queries.getTaskById).toHaveBeenCalledWith(
         mockWorkspaceRoot,
         mockTaskId
@@ -746,15 +719,7 @@ describe("Play Workflow Integration Tests", () => {
         mockWorkspaceRoot,
         mockTaskId
       );
-      expect(vscode.commands.executeCommand).toHaveBeenCalledWith(
-        "workbench.action.openChat"
-      );
-      expect(vscode.commands.executeCommand).toHaveBeenCalledWith(
-        "workbench.action.chat.open",
-        expect.objectContaining({
-          mode: "orchestra.implementor",
-        })
-      );
+      expect(mockInvokeImplementor).toHaveBeenCalled();
       expect(mockInvokeOrchestrator).not.toHaveBeenCalled();
     });
   });

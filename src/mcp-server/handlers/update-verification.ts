@@ -15,7 +15,9 @@
  */
 
 import { and, eq } from "drizzle-orm";
-import { getDb } from "../../db/index.js";
+import { validateBehavioralCommand } from "../../core/command-validation.js";
+import { validateVerificationPatterns } from "../../core/pattern-validator.js";
+import { getDb, resolveWorkspacePath } from "../../db/index.js";
 import { getActiveSprint } from "../../db/queries.js";
 import {
   amendments,
@@ -56,7 +58,7 @@ export async function handleUpdateVerification(input: unknown) {
         taskId: validation.data.task_id,
       },
       { success: true, output },
-      durationMs
+      durationMs,
     );
 
     return {
@@ -74,7 +76,7 @@ export async function handleUpdateVerification(input: unknown) {
         taskId: validation.data.task_id,
       },
       { success: false, errorMessage: err.message },
-      durationMs
+      durationMs,
     );
 
     return {
@@ -90,7 +92,7 @@ export async function handleUpdateVerification(input: unknown) {
               },
             },
             null,
-            2
+            2,
           ),
         },
       ],
@@ -99,7 +101,7 @@ export async function handleUpdateVerification(input: unknown) {
 }
 
 async function updateVerification(
-  input: typeof UpdateVerificationInputSchema._output
+  input: typeof UpdateVerificationInputSchema._output,
 ): Promise<UpdateVerificationOutput & { amendment_id?: number }> {
   const db = getDb();
 
@@ -109,7 +111,7 @@ async function updateVerification(
   if (!sprint) {
     throw new Error(
       "No active sprint found. " +
-        "Verification criteria can only be updated during active sprints."
+        "Verification criteria can only be updated during active sprints.",
     );
   }
 
@@ -127,7 +129,7 @@ async function updateVerification(
   if (!allowedStates.includes(sprint.workflow_step)) {
     throw new Error(
       `Cannot update verification in workflow state: ${sprint.workflow_step}. ` +
-        `Allowed states: ${allowedStates.join(", ")}`
+        `Allowed states: ${allowedStates.join(", ")}`,
     );
   }
 
@@ -136,7 +138,7 @@ async function updateVerification(
     .select()
     .from(tasks)
     .where(
-      and(eq(tasks.sprint_id, sprint.id), eq(tasks.task_id, input.task_id))
+      and(eq(tasks.sprint_id, sprint.id), eq(tasks.task_id, input.task_id)),
     )
     .limit(1);
 
@@ -151,7 +153,7 @@ async function updateVerification(
   // - Other states: only allowed if task is ESCALATED (human supervisor correction)
   const allowedSprintStates = ["CONFIGURE", "PREPARE"];
   const isInAllowedSprintState = allowedSprintStates.includes(
-    sprint.workflow_step
+    sprint.workflow_step,
   );
 
   // Also allow updating PENDING tasks during SELECT_TASK (pre-preparation strengthening)
@@ -163,14 +165,14 @@ async function updateVerification(
       throw new Error(
         `Task ${input.task_id} is in ${task.status} state. ` +
           `During ${sprint.workflow_step} phase, verification criteria can only be updated for PENDING or ESCALATED tasks. ` +
-          "Escalate the task first if spec corrections are needed."
+          "Escalate the task first if spec corrections are needed.",
       );
     }
     // Require rationale for ESCALATED task updates
     if (!input.rationale || input.rationale.length < 10) {
       throw new Error(
         "Rationale is required when updating verification for ESCALATED tasks (min 10 chars). " +
-          "Explain why the verification criteria need correction."
+          "Explain why the verification criteria need correction.",
       );
     }
 
@@ -216,14 +218,177 @@ async function updateVerification(
     }));
   }
 
-  // 4. Delete existing verification checks
+  // 4a. Validate verification check paths BEFORE modifying
+  // Catch directory paths that should be glob patterns early
+  const isValidPath = (p: string): boolean => {
+    const hasGlobChars = /[*?[\]{}]/.test(p);
+    const hasFileExtension = /\.\w+$/.test(p);
+    return hasGlobChars || hasFileExtension;
+  };
+
+  // Detect bash-only command syntax that won't work in PowerShell
+  const hasBashOnlySyntax = (cmd: string): boolean => {
+    // Check for && (bash command chaining) not inside quotes
+    // PowerShell uses ; for command chaining
+    return /\s&&\s/.test(cmd);
+  };
+
+  const pathErrors: string[] = [];
+  const commandWarnings: string[] = [];
+
+  if (input.verification.structural_checks) {
+    for (const check of input.verification.structural_checks) {
+      if (!isValidPath(check.path)) {
+        pathErrors.push(
+          `Structural check path '${check.path}' looks like a directory. ` +
+            `Use a glob pattern like '${check.path}/*.ts' or a specific file path.`,
+        );
+      }
+    }
+  }
+  if (input.verification.quality_checks) {
+    for (const check of input.verification.quality_checks) {
+      if (check.path && !isValidPath(check.path)) {
+        pathErrors.push(
+          `Quality check path '${check.path}' looks like a directory. ` +
+            `Use a glob pattern like '${check.path}/*.ts' or a specific file path.`,
+        );
+      }
+    }
+  }
+  if (input.verification.behavioral_checks) {
+    for (const check of input.verification.behavioral_checks) {
+      if (hasBashOnlySyntax(check.command)) {
+        commandWarnings.push(
+          `Behavioral check command uses bash-only syntax '&&'. ` +
+            `This will fail on Windows/PowerShell. Use ';' instead. ` +
+            `Command: "${check.command.substring(0, 60)}${check.command.length > 60 ? "..." : ""}"`,
+        );
+      }
+    }
+  }
+
+  if (pathErrors.length > 0) {
+    throw new Error(
+      `Invalid verification check paths:\n${pathErrors.join("\n")}\n\n` +
+        `Paths must contain glob characters (*?[]{}) or end with a file extension.`,
+    );
+  }
+
+  // Log warnings but don't block
+  if (commandWarnings.length > 0) {
+    console.error(
+      `[update_verification] WARNINGS - Potential shell compatibility issues:\n${commandWarnings.join("\n")}`,
+    );
+  }
+
+  // 4a2. Validate verification patterns using pattern-validator
+  // This checks if patterns will actually match files/content
+  const workspacePath = resolveWorkspacePath();
+
+  // Build validation criteria conditionally to satisfy exactOptionalPropertyTypes
+  const validationCriteria: Parameters<typeof validateVerificationPatterns>[0] =
+    {};
+  if (input.verification.structural_checks) {
+    validationCriteria.structural_checks = input.verification.structural_checks;
+  }
+  if (input.verification.behavioral_checks) {
+    validationCriteria.behavioral_checks = input.verification.behavioral_checks;
+  }
+  if (input.verification.quality_checks) {
+    validationCriteria.quality_checks = input.verification.quality_checks;
+  }
+
+  const patternValidation = await validateVerificationPatterns(
+    validationCriteria,
+    workspacePath,
+  );
+
+  // Log pattern validation warnings
+  if (patternValidation.warnings.length > 0) {
+    console.warn(
+      `[update_verification] Pattern validation warnings for task ${input.task_id}:`,
+      patternValidation.warnings,
+    );
+  }
+
+  // Log pattern validation errors
+  if (patternValidation.errors.length > 0) {
+    console.error(
+      `[update_verification] Pattern validation errors for task ${input.task_id}:`,
+      patternValidation.errors,
+    );
+  }
+
+  // Block if pattern validation found errors
+  if (!patternValidation.valid) {
+    throw new Error(
+      `Pattern validation failed:\n${patternValidation.errors.join("\n")}`,
+    );
+  }
+
+  // 4b2. Validate behavioral check commands before finalizing verification update
+  // Check that all behavioral commands are executable (correct executables, scripts, flags, etc.)
+  const commandValidationErrors: string[] = [];
+  const commandValidationWarnings: string[] = [];
+
+  const behavioral = input.verification.behavioral_checks || [];
+
+  for (const check of behavioral) {
+    if (check.command) {
+      const result = validateBehavioralCommand(check.command, workspacePath);
+
+      if (!result.isValid) {
+        // Collect errors with check description for context
+        for (const error of result.errors) {
+          commandValidationErrors.push(
+            `[${check.description}] ${error.message} (code: ${error.code})`,
+          );
+        }
+      }
+
+      // Collect warnings
+      for (const warning of result.warnings) {
+        commandValidationWarnings.push(
+          `[${check.description}] ${warning.message} (code: ${warning.code})`,
+        );
+      }
+    }
+  }
+
+  // BLOCK on command validation errors - don't allow invalid commands
+  if (commandValidationErrors.length > 0) {
+    console.error(
+      `[update_verification] Behavioral command validation errors for task ${input.task_id}:`,
+      commandValidationErrors,
+    );
+    throw new Error(
+      `Behavioral command validation failed. These errors WILL cause verification to fail:\n\n` +
+        `${commandValidationErrors.join("\n")}\n\n` +
+        `Fix the behavioral check commands before updating verification.` +
+        (commandValidationWarnings.length > 0
+          ? `\n\nWarnings (non-blocking):\n${commandValidationWarnings.join("\n")}`
+          : ``),
+    );
+  }
+
+  // Merge command validation warnings into pattern validation warnings
+  if (commandValidationWarnings.length > 0) {
+    patternValidation.warnings.push(...commandValidationWarnings);
+    console.warn(
+      `[update_verification] Behavioral command validation warnings for task ${input.task_id}:`,
+      commandValidationWarnings,
+    );
+  }
+
+  // 4c. Delete existing verification checks
   await db
     .delete(verificationChecks)
     .where(eq(verificationChecks.task_id, task.id));
 
   // 5. Insert new verification checks
   const structural = input.verification.structural_checks || [];
-  const behavioral = input.verification.behavioral_checks || [];
+  // behavioral already declared above for validation
   const quality = input.verification.quality_checks || [];
 
   // Extract config from check objects (everything except description/severity)
@@ -374,6 +539,10 @@ async function updateVerification(
     success: true,
     task_id: input.task_id,
     total_checks: totalChecks,
+    pattern_warnings:
+      patternValidation.warnings.length > 0
+        ? patternValidation.warnings
+        : undefined,
   };
 
   if (amendmentId !== undefined) {

@@ -12,11 +12,8 @@
  */
 
 import { eq } from "drizzle-orm";
-import fs from "node:fs";
-import os from "node:os";
-import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { getDb, initializeDb, resetDb } from "../../src/db/index.js";
+import { getDb } from "../../src/db/index.js";
 import {
   feedback,
   phases,
@@ -28,16 +25,13 @@ import {
   verificationResults,
 } from "../../src/db/schema.js";
 import { handleSubmitVerificationJudgment } from "../../src/mcp-server/handlers/submit-verification-judgment.js";
+import { cleanupTestDb, setupTestDb } from "../setup/db-cache.js";
 
 describe("submit_verification_judgment - Progress Tracking on Failure", () => {
   let tempDir: string;
 
   beforeEach(async () => {
-    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "progress-tracking-"));
-    process.env.ORCHESTRA_WORKSPACE = tempDir;
-
-    resetDb();
-    await initializeDb();
+    tempDir = await setupTestDb("progress-tracking-");
     const db = getDb();
 
     // Create test sprint in VERIFY state
@@ -122,10 +116,8 @@ describe("submit_verification_judgment - Progress Tracking on Failure", () => {
     });
   });
 
-  afterEach(() => {
-    delete process.env.ORCHESTRA_WORKSPACE;
-    // Skip cleanup on Windows due to permission issues with temp dirs
-    // The OS will clean up temp files eventually
+  afterEach(async () => {
+    await cleanupTestDb(tempDir);
   });
 
   it("AC1: Updates task status to VERIFY_FAILED when judgment is FAIL and retries remain", async () => {

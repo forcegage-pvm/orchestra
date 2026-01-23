@@ -24,14 +24,14 @@ describe("Set Config Handler", () => {
     it("should set a new config value", async () => {
       const result = await handleSetConfig({
         key: "pre_signal_build_command",
-        value: "npm run build:prod",
-        description: "Production build command",
+        value: "npm run build",
+        description: "Build command",
       });
 
       const parsed = JSON.parse(result.content[0].text);
       expect(parsed.success).toBe(true);
       expect(parsed.key).toBe("pre_signal_build_command");
-      expect(parsed.value).toBe("npm run build:prod");
+      expect(parsed.value).toBe("npm run build");
 
       // Verify in database
       const db = getDb();
@@ -41,8 +41,8 @@ describe("Set Config Handler", () => {
         .where(eq(config.key, "pre_signal_build_command"));
 
       expect(row).toBeDefined();
-      expect(row.value).toBe("npm run build:prod");
-      expect(row.description).toBe("Production build command");
+      expect(row.value).toBe("npm run build");
+      expect(row.description).toBe("Build command");
     });
 
     it("should update an existing config value", async () => {
@@ -98,10 +98,22 @@ describe("Set Config Handler", () => {
       expect(parsed.error.code).toBe("VALIDATION_ERROR");
     });
 
-    it("should set pre_signal_skip_build config", async () => {
+    it("should reject pre_signal_skip_build=true as dangerous", async () => {
       const result = await handleSetConfig({
         key: "pre_signal_skip_build",
         value: "true",
+      });
+
+      const parsed = JSON.parse(result.content[0].text);
+      // Should be rejected as dangerous - skipping checks masks real errors
+      expect(parsed.success).toBe(false);
+      expect(parsed.error.message).toContain("DANGEROUS");
+    });
+
+    it("should allow pre_signal_skip_build=false", async () => {
+      const result = await handleSetConfig({
+        key: "pre_signal_skip_build",
+        value: "false",
       });
 
       const parsed = JSON.parse(result.content[0].text);
@@ -113,14 +125,14 @@ describe("Set Config Handler", () => {
         .from(config)
         .where(eq(config.key, "pre_signal_skip_build"));
 
-      expect(row.value).toBe("true");
+      expect(row.value).toBe("false");
     });
 
     it("should set pre_signal_timeout config", async () => {
       const result = await handleSetConfig({
         key: "pre_signal_timeout",
-        value: "60000",
-        description: "60 second timeout",
+        value: "120000",
+        description: "2 minute timeout",
       });
 
       const parsed = JSON.parse(result.content[0].text);
@@ -132,7 +144,33 @@ describe("Set Config Handler", () => {
         .from(config)
         .where(eq(config.key, "pre_signal_timeout"));
 
-      expect(row.value).toBe("60000");
+      expect(row.value).toBe("120000");
+    });
+
+    it("should reject build:prod as invalid script", async () => {
+      const result = await handleSetConfig({
+        key: "pre_signal_build_command",
+        value: "npm run build:prod",
+      });
+
+      const parsed = JSON.parse(result.content[0].text);
+      // Should be rejected - build:prod doesn't exist
+      expect(parsed.success).toBe(false);
+      expect(parsed.error.message).toContain("DANGEROUS");
+      expect(parsed.error.message).toContain("build:prod");
+    });
+
+    it("should reject too short timeout", async () => {
+      const result = await handleSetConfig({
+        key: "pre_signal_timeout",
+        value: "30000",
+      });
+
+      const parsed = JSON.parse(result.content[0].text);
+      // Should be rejected - 30s is too short
+      expect(parsed.success).toBe(false);
+      expect(parsed.error.message).toContain("DANGEROUS");
+      expect(parsed.error.message).toContain("too short");
     });
   });
 });

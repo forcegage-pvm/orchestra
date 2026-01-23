@@ -5,7 +5,7 @@
  * Includes feedback if task is in VERIFY_FAILED state.
  */
 
-import { eq, inArray } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import {
   detectProjectLanguage,
   type ProjectLanguage,
@@ -100,14 +100,48 @@ async function getCurrentTask(): Promise<GetCurrentTaskOutput> {
     throw new Error("No active sprint");
   }
 
-  // 2. Find task in IMPLEMENT or VERIFY_FAILED state (current task for implementor)
+  // 2. Find task in IMPLEMENT or VERIFY_FAILED state FOR THE ACTIVE SPRINT
+  // Note: Tasks in PENDING_HANDOVER_REVIEW or HANDOVER_REVIEW_FAILED are NOT visible
+  // to implementors - they must wait for Controller approval
   const [task] = await db
     .select()
     .from(tasks)
-    .where(inArray(tasks.status, ["IMPLEMENT", "VERIFY_FAILED"]))
+    .where(
+      and(
+        eq(tasks.sprint_id, sprint.id),
+        inArray(tasks.status, ["IMPLEMENT", "VERIFY_FAILED"])
+      )
+    )
     .limit(1);
 
   if (!task) {
+    // T031: Check if there's a task awaiting handover review and provide helpful message
+    const [pendingReviewTask] = await db
+      .select()
+      .from(tasks)
+      .where(
+        and(
+          eq(tasks.sprint_id, sprint.id),
+          inArray(tasks.status, [
+            "PENDING_HANDOVER_REVIEW",
+            "HANDOVER_REVIEW_FAILED",
+          ])
+        )
+      )
+      .limit(1);
+
+    if (pendingReviewTask) {
+      const statusMessage =
+        pendingReviewTask.status === "PENDING_HANDOVER_REVIEW"
+          ? "Task is awaiting Controller handover review. Implementation cannot begin until approved."
+          : "Task handover was rejected by Controller. Orchestrator must resubmit handover.";
+
+      throw new Error(
+        `No task available for implementation. ${statusMessage} ` +
+          `(Task ${pendingReviewTask.task_id}: ${pendingReviewTask.title})`
+      );
+    }
+
     throw new Error("No task in IMPLEMENT or VERIFY_FAILED state");
   }
 
@@ -232,54 +266,49 @@ function generateTddInstructions(
   if (language === "dart") {
     return {
       tagging_mechanism:
-        "Use @Tags(['tdd-red']) annotation OR inline tags: 'tdd-red' parameter",
+        "Use @Tags(['tdd-red']) annotation (file-level) OR inline tags: ['tdd-red'] parameter. Add // @orchestra-task: N at top of file.",
       red_test_command: "flutter test --tags tdd-red",
       green_test_command: "flutter test --exclude-tags tdd-red",
       expected_behavior:
         "The tagged test MUST fail (exit code 1). All other tests MUST pass (exit code 0).",
       cleanup_instruction:
-        "When implementing the GREEN phase: remove the tdd-red tag (annotation or parameter) AFTER making the test pass.",
-      example: `// Option 1: Library-level annotation
+        "When implementing the GREEN phase: remove the @Tags(['tdd-red']) annotation or inline tags parameter AFTER making the test pass.",
+      example: `// @orchestra-task: N  // <-- Replace N with task ID (links file to task)
 import 'package:flutter_test/flutter_test.dart';
 
-@Tags(['tdd-red'])  // <-- Add this annotation (remove in GREEN phase)
+@Tags(['tdd-red'])  // <-- Test runner filter tag (remove in GREEN phase)
+library;
+
 void main() {
   test('feature should work', () {
     expect(actualValue, expectedValue);
   });
 }
 
-// Option 2: Inline tags parameter (preferred for single tests)
-test('feature should work', tags: 'tdd-red', () {  // <-- Remove tags in GREEN phase
+// Alternative: Inline tags parameter (single test)
+test('feature should work', () {
   expect(actualValue, expectedValue);
-});`,
+}, tags: ['tdd-red']);  // <-- Remove in GREEN phase`,
     };
   }
 
   if (language === "typescript") {
     return {
       tagging_mechanism:
-        "Place test in test/tdd-red/ directory OR add [tdd-red] to test name",
-      red_test_command:
-        'npm test -- --testNamePattern="[tdd-red]" OR npm test -- test/tdd-red',
+        "Add [tdd-red] prefix to test or describe name. Add // @orchestra-task: N at top of file.",
+      red_test_command: 'npm test -- --testNamePattern="\\[tdd-red\\]"',
       green_test_command:
-        'npm test -- --testPathIgnorePatterns=tdd-red --testNamePattern="^(?!.*[tdd-red])"',
+        'npm test -- --testNamePattern="^(?!.*\\[tdd-red\\])"',
       expected_behavior:
-        "Tests with [tdd-red] tag or in tdd-red/ MUST fail (exit code 1). All other tests MUST pass (exit code 0).",
+        "Tests with [tdd-red] in name MUST fail (exit code 1). All other tests MUST pass (exit code 0).",
       cleanup_instruction:
-        "When implementing the GREEN phase: remove [tdd-red] from test name OR move file from test/tdd-red/ to test/unit/ AFTER making the test pass.",
-      example: `// Option 1: Directory-based (place file in test/tdd-red/)
-// File: test/tdd-red/feature.test.ts
-describe('Feature', () => {
-  it('should work', () => {
-    expect(actual).toBe(expected);
-  });
-});
-// GREEN PHASE: Move to test/unit/feature.test.ts
+        "When implementing the GREEN phase: remove [tdd-red] from test/describe name AFTER making the test pass.",
+      example: `// @orchestra-task: N  // <-- Replace N with task ID (links file to task)
 
-// Option 2: Inline tag in test name (preferred for single tests)
-it('[tdd-red] should calculate total correctly', () => {  // <-- Remove [tdd-red] in GREEN phase
-  expect(calculateTotal([1, 2, 3])).toBe(6);
+describe('[tdd-red] Feature module', () => {  // <-- Remove [tdd-red] in GREEN phase
+  it('[tdd-red] should calculate total correctly', () => {
+    expect(calculateTotal([1, 2, 3])).toBe(6);
+  });
 });`,
     };
   }

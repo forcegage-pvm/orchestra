@@ -10,6 +10,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { executeCommand, ExecuteResult } from "./command-executor.js";
+import { validateTddRedPhase } from "./tdd-validation.js";
 
 /**
  * Configuration for pre-signal checks
@@ -33,6 +34,8 @@ export interface PreSignalConfig {
   skipLint?: boolean;
   /** Enable TDD red-phase test validation mode (expects test failures) */
   tddRedPhase?: boolean;
+  /** Task ID for TDD validation (required when tddRedPhase=true) */
+  taskId?: number;
 }
 
 /**
@@ -61,6 +64,17 @@ export interface PreSignalResult {
   test: PreSignalCheckResult;
   /** Lint check result */
   lint: PreSignalCheckResult;
+  /** TDD validation result (only present when tddRedPhase=true) */
+  tddValidation?: {
+    success: boolean;
+    errors: Array<{
+      type: string;
+      message: string;
+      testIdentifier?: string;
+      details?: string;
+    }>;
+    validatedCount: number;
+  };
   /** Whether all checks passed */
   allPassed: boolean;
 }
@@ -68,9 +82,9 @@ export interface PreSignalResult {
 /** Default build command */
 const DEFAULT_BUILD_COMMAND = "npm run build";
 
-/** Default test command - excludes tdd-red directory for TDD red-phase support */
+/** Default test command - excludes tdd-red tests using negative lookahead on test name pattern */
 const DEFAULT_TEST_COMMAND =
-  "npm test -- --testPathIgnorePatterns=test/tdd-red";
+  'npm test -- --testNamePattern="^(?!.*\\[tdd-red\\])"';
 
 /** Default timeout (5 minutes) */
 const DEFAULT_TIMEOUT = 300000;
@@ -116,7 +130,7 @@ function getDefaultCommands(projectType: ProjectType): {
         // Always exclude tdd-red tests from normal test runs
         // TDD red-phase tests are only run explicitly via runTddRedPhaseTests
         test: "flutter test --exclude-tags tdd-red",
-        lint: "dart format --set-exit-if-changed .",
+        lint: "dart format .",
       };
     case "python":
       return {
@@ -167,7 +181,7 @@ function getDefaultCommands(projectType: ProjectType): {
  * ```
  */
 export async function runPreSignalChecks(
-  config: PreSignalConfig
+  config: PreSignalConfig,
 ): Promise<PreSignalResult> {
   const timeout = config.timeout ?? DEFAULT_TIMEOUT;
   const execOptions = {
@@ -183,41 +197,66 @@ export async function runPreSignalChecks(
   const buildResult = await runCheck(
     config.buildCommand ?? defaults.build,
     execOptions,
-    config.skipBuild
+    config.skipBuild,
   );
 
-  // Run test check - ALWAYS use dual-command mode for TDD verification
-  // This ensures:
-  // 1. tdd-red tagged tests FAIL (they should be red phase tests)
-  // 2. non-tdd-red tests PASS (all regular tests must pass)
-  //
-  // For tdd_red_phase=true: Implementor is creating failing tests (mandatory)
-  // For tdd_red_phase=false: Any leftover tdd-red tests must still fail
-  //                          (if they pass, tag should be removed)
-  const testResult = await runTddRedPhaseTests(
-    projectType,
-    config.testCommand,
-    execOptions,
-    config.skipTest
-  );
+  // Run test check - use dual-command mode ONLY for TDD red-phase tasks
+  // For tdd_red_phase=true: Use TDD verification (tagged tests must FAIL)
+  // For tdd_red_phase=false: Use normal test mode (all tests must PASS)
+  let testResult: PreSignalCheckResult;
+  if (config.tddRedPhase) {
+    // TDD red-phase: Ensure tagged tests FAIL and non-tagged tests PASS
+    testResult = await runTddRedPhaseTests(
+      projectType,
+      config.testCommand,
+      execOptions,
+      config.skipTest,
+    );
+  } else {
+    // Normal mode: Just run all tests, they should all pass
+    testResult = await runCheck(
+      config.testCommand ?? defaults.test,
+      execOptions,
+      config.skipTest,
+    );
+  }
 
   // Run lint check (use detected default if available, or explicit config)
   const lintCommand = config.lintCommand ?? defaults.lint;
   const lintResult = await runCheck(
     lintCommand,
     execOptions,
-    config.skipLint || !lintCommand
+    config.skipLint || !lintCommand,
   );
 
-  const allPassed =
-    buildResult.passed && testResult.passed && lintResult.passed;
+  // Run TDD validation if tddRedPhase is enabled
+  let tddValidation: PreSignalResult["tddValidation"];
+  if (config.tddRedPhase && config.taskId !== undefined) {
+    const tddResult = await validateTddRedPhase({
+      taskId: config.taskId,
+      workspaceRoot: config.workspacePath,
+    });
+    tddValidation = tddResult;
+  }
 
-  return {
+  const allPassed =
+    buildResult.passed &&
+    testResult.passed &&
+    lintResult.passed &&
+    (tddValidation?.success ?? true);
+
+  const result: PreSignalResult = {
     build: buildResult,
     test: testResult,
     lint: lintResult,
     allPassed,
   };
+
+  if (tddValidation !== undefined) {
+    result.tddValidation = tddValidation;
+  }
+
+  return result;
 }
 
 /**
@@ -226,7 +265,7 @@ export async function runPreSignalChecks(
 async function runCheck(
   command: string | undefined,
   options: { cwd: string; timeout: number },
-  skip?: boolean
+  skip?: boolean,
 ): Promise<PreSignalCheckResult> {
   // Skip if requested or no command
   if (skip || !command) {
@@ -238,6 +277,13 @@ async function runCheck(
   }
 
   const result = await executeCommand(command, options);
+  if (!result) {
+    return {
+      passed: false,
+      duration_ms: 0,
+      output: "Command execution failed: no result returned",
+    };
+  }
 
   return mapExecuteResult(result);
 }
@@ -281,7 +327,7 @@ function mapExecuteResult(result: ExecuteResult): PreSignalCheckResult {
  */
 function isNoTestsFoundOutput(
   result: ExecuteResult,
-  projectType: ProjectType
+  projectType: ProjectType,
 ): boolean {
   const output = (result.stdout || "") + (result.stderr || "");
   const outputLower = output.toLowerCase();
@@ -298,11 +344,17 @@ function isNoTestsFoundOutput(
 
     case "node":
       // Jest/Vitest: "No tests found" or similar
+      // Also handle Vitest pattern where ALL tests are skipped (none matched the filter)
+      // e.g., "Tests  490 skipped (490)" means no tests matched the pattern
+      // Note: Vitest output has leading whitespace before "Tests" so we use \s* prefix
       return (
         outputLower.includes("no tests found") ||
         outputLower.includes("no test files found") ||
         outputLower.includes("no tests to run") ||
-        /tests?:\s*0\s*(passed|total)/i.test(output)
+        /tests?:\s*0\s*(passed|total)/i.test(output) ||
+        // Vitest: "Tests  X skipped (X)" with 0 passed - check for skipped without passed
+        // The key pattern: if we see "X skipped" but no "X passed", no tests actually ran
+        (outputLower.includes("skipped") && !outputLower.includes("passed"))
       );
 
     case "python":
@@ -340,7 +392,7 @@ async function runTddRedPhaseTests(
   projectType: ProjectType,
   customTestCommand: string | undefined,
   options: { cwd: string; timeout: number },
-  skip?: boolean
+  skip?: boolean,
 ): Promise<PreSignalCheckResult> {
   // Skip if requested
   if (skip) {
@@ -387,7 +439,7 @@ async function runTddRedPhaseTests(
           `Command: ${tddCommands.tagged}\n` +
           `Output: ${
             taggedResult.stdout || taggedResult.stderr || "(no output)"
-          }`
+          }`,
       );
     }
 
@@ -398,7 +450,7 @@ async function runTddRedPhaseTests(
           `Command: ${tddCommands.nonTagged}\n` +
           `Output: ${
             nonTaggedResult.stderr || nonTaggedResult.stdout || "(no output)"
-          }`
+          }`,
       );
     }
 
@@ -435,7 +487,7 @@ async function runTddRedPhaseTests(
  */
 function getTddCommands(
   projectType: ProjectType,
-  customTestCommand?: string
+  customTestCommand?: string,
 ): { tagged: string; nonTagged: string } {
   switch (projectType) {
     case "flutter":
@@ -448,13 +500,17 @@ function getTddCommands(
       // If custom command provided, use it as base
       if (customTestCommand) {
         return {
-          tagged: `${customTestCommand} test/tdd-red`,
-          nonTagged: `${customTestCommand} --testPathIgnorePatterns=tdd-red`,
+          tagged: `${customTestCommand} --testNamePattern="\\[tdd-red\\]"`,
+          // Use negative lookahead to exclude tests with [tdd-red] in their name
+          // This correctly filters by test NAME, not directory path
+          nonTagged: `${customTestCommand} --testNamePattern="^(?!.*\\[tdd-red\\])"`,
         };
       }
       return {
-        tagged: "npm test -- test/tdd-red",
-        nonTagged: "npm test -- --testPathIgnorePatterns=tdd-red",
+        tagged: 'npm test -- --testNamePattern="\\[tdd-red\\]"',
+        // Use negative lookahead to exclude tests with [tdd-red] in their name
+        // This correctly filters by test NAME, not directory path
+        nonTagged: 'npm test -- --testNamePattern="^(?!.*\\[tdd-red\\])"',
       };
 
     case "python":
@@ -477,10 +533,11 @@ function getTddCommands(
 
     case "unknown":
     default:
-      // Fallback to Node.js pattern
+      // Fallback to Node.js pattern (Vitest compatible)
       return {
-        tagged: "npm test -- test/tdd-red",
-        nonTagged: "npm test -- --testPathIgnorePatterns=tdd-red",
+        tagged: 'npm test -- --testNamePattern="\\[tdd-red\\]"',
+        // Use negative lookahead to exclude tests with [tdd-red] in their name
+        nonTagged: 'npm test -- --testNamePattern="^(?!.*\\[tdd-red\\])"',
       };
   }
 }

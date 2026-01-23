@@ -344,6 +344,58 @@ export class SessionManager {
   }
 
   /**
+   * Invoke the Controller agent in a new editor tab
+   *
+   * Controller Agent handles independent review of sprint configurations
+   * and task handovers. It operates in a fresh context per review to ensure
+   * unbiased verification against specifications.
+   *
+   * BEHAVIOR:
+   * - Creates a FRESH chat editor tab (clean context per review)
+   * - Uses the highest capability model (Opus 4.5) for accurate verification
+   * - Each review gets a new session to prevent context contamination
+   *
+   * @param prompt - The review instructions to send to the controller
+   * @param files - Files to attach (spec files, handover data, etc.)
+   */
+  async invokeController(prompt: string, files: vscode.Uri[]): Promise<void> {
+    try {
+      const model = this._configService.getModelForRole("controller");
+      const agentMode = this._configService.getAgentForRole("controller");
+
+      this.logger.info("Invoking controller session", {
+        hasFiles: files.length > 0,
+        fileCount: files.length,
+        model,
+        agentMode,
+      });
+
+      // Create a NEW chat editor tab for controller
+      // Controller gets fresh context for each review to ensure unbiased verification
+      await vscode.commands.executeCommand("workbench.action.openChat");
+      await this.delay(200); // Wait for tab to be ready
+
+      // Send prompt to the newly created tab (now focused)
+      await vscode.commands.executeCommand("workbench.action.chat.open", {
+        query: prompt,
+        isPartialQuery: false,
+        mode: agentMode,
+        modelSelector: { id: model },
+        attachFiles: files,
+      });
+
+      this.logger.info("Controller session invoked successfully");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unknown error";
+      this.logger.error("Failed to invoke controller session", error);
+      vscode.window.showErrorMessage(
+        `Orchestra: Failed to invoke controller - ${message}`
+      );
+      throw error;
+    }
+  }
+
+  /**
    * Clear the Implementor session
    * Closes any implementor tabs and resets state
    */

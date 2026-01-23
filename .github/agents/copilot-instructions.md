@@ -3,6 +3,12 @@
 Auto-generated from all feature plans. Last updated: 2025-12-04
 
 ## Active Technologies
+- TypeScript 5.x (ESM with `.js` extensions) + drizzle-orm (SQLite), Zod (validation), VS Code Extension API (for MCP tool exposure) (003-tdd-red-green)
+- SQLite via better-sqlite3 + drizzle ORM (existing infrastructure) (003-tdd-red-green)
+- TypeScript 5.x (strict mode, `exactOptionalPropertyTypes: true`) + Drizzle ORM, Zod, MCP SDK, VS Code Extension API (004-controller-agent)
+- SQLite (via better-sqlite3) with Drizzle ORM (004-controller-agent)
+- TypeScript 5.x (ESM) + Zod (schema validation), AJV (JSON Schema validation), Vitest (testing) (007-interface-contract-validation)
+- Project config file (`.orchestra/interface-validations.yaml` or similar) (007-interface-contract-validation)
 
 - TypeScript 5.x, Node.js 20+, Electron 39.x (VS Code engine) + vscode.lm API, VS Code Webview API, VS Code Workspace Edit API, better-sqlite3 (existing) (002-custom-agents)
 - SQLite via better-sqlite3 (existing Orchestra DB) + JSON files for session state (002-custom-agents)
@@ -25,10 +31,11 @@ npm test; npm run lint
 TypeScript 5.4+ (ESM modules, strict mode with `exactOptionalPropertyTypes`): Follow standard conventions
 
 ## Recent Changes
+- 007-interface-contract-validation: Added TypeScript 5.x (ESM) + Zod (schema validation), AJV (JSON Schema validation), Vitest (testing)
+- 004-controller-agent: Added TypeScript 5.x (strict mode, `exactOptionalPropertyTypes: true`) + Drizzle ORM, Zod, MCP SDK, VS Code Extension API
+- 003-tdd-red-green: Added TypeScript 5.x (ESM with `.js` extensions) + drizzle-orm (SQLite), Zod (validation), VS Code Extension API (for MCP tool exposure)
 
-- 002-custom-agents: Added TypeScript 5.x, Node.js 20+, Electron 39.x (VS Code engine) + vscode.lm API, VS Code Webview API, VS Code Workspace Edit API, better-sqlite3 (existing)
 
-- 001-mcp-server: Added TypeScript 5.4+ (ESM modules, strict mode with `exactOptionalPropertyTypes`) + @modelcontextprotocol/sdk ^0.6.0, existing Orchestra core (zod, yaml, handlebars, chalk, simple-git)
 
 <!-- MANUAL ADDITIONS START -->
 

@@ -7,11 +7,8 @@
  * - VER-026: System-computed overall_passed based on BLOCKING only
  */
 
-import fs from "node:fs";
-import os from "node:os";
-import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { getDb, initializeDb, resetDb } from "../../src/db/index.js";
+import { getDb } from "../../src/db/index.js";
 import {
   phases,
   signals,
@@ -21,16 +18,13 @@ import {
   verificationResults,
 } from "../../src/db/schema.js";
 import { handleGetVerificationResults } from "../../src/mcp-server/handlers/get-verification-results.js";
+import { cleanupTestDb, setupTestDb } from "../setup/db-cache.js";
 
 describe("Enhanced Verification Results", () => {
   let tempDir: string;
 
   beforeEach(async () => {
-    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "enhanced-results-"));
-    process.env.ORCHESTRA_WORKSPACE = tempDir;
-
-    resetDb();
-    await initializeDb();
+    tempDir = await setupTestDb("enhanced-results-");
     const db = getDb();
 
     // Create test sprint (VERIFY state)
@@ -84,9 +78,7 @@ describe("Enhanced Verification Results", () => {
   });
 
   afterEach(async () => {
-    resetDb();
-    fs.rmSync(tempDir, { recursive: true, force: true });
-    delete process.env.ORCHESTRA_WORKSPACE;
+    await cleanupTestDb(tempDir);
   });
 
   describe("VER-024: Enhanced output format", () => {

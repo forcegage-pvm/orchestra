@@ -28,7 +28,7 @@ export interface StatusDisplay {
  * Complete mapping of task statuses to display properties
  *
  * Status Flow:
- * PENDING → IMPLEMENT → VERIFY → (VERIFY_FAILED → retry) → COMPLETE
+ * PENDING → IMPLEMENT → VERIFY → (VERIFY_FAILED → retry) → VERIFIED → COMPLETE
  *                              ↓
  *                         GATE_CHECK → ESCALATED
  */
@@ -39,6 +39,30 @@ export const STATUS_DISPLAY: Record<string, StatusDisplay> = {
     color: new ThemeColor("charts.blue"),
     description: "Task is ready to be started",
     actionLabel: "Start",
+  },
+
+  PREPARE: {
+    label: "Preparing",
+    icon: "edit",
+    color: new ThemeColor("charts.blue"),
+    description: "Task is being prepared by orchestrator",
+    actionLabel: "Continue Preparation",
+  },
+
+  PENDING_HANDOVER_REVIEW: {
+    label: "Pending Handover Review",
+    icon: "shield",
+    color: new ThemeColor("charts.yellow"),
+    description: "Handover requires controller review before implementation",
+    actionLabel: "Review Handover",
+  },
+
+  HANDOVER_REVIEW_FAILED: {
+    label: "Handover Review Failed",
+    icon: "warning",
+    color: new ThemeColor("charts.orange"),
+    description: "Handover review found issues - requires revision",
+    actionLabel: "Review Feedback",
   },
 
   IMPLEMENT: {
@@ -63,6 +87,13 @@ export const STATUS_DISPLAY: Record<string, StatusDisplay> = {
     color: new ThemeColor("charts.orange"),
     description: "Verification failed - requires fixes based on feedback",
     actionLabel: "Review Feedback",
+  },
+
+  VERIFIED: {
+    label: "Verified",
+    icon: "check",
+    color: new ThemeColor("charts.green"),
+    description: "verification passed - awaiting code review",
   },
 
   GATE_CHECK: {

@@ -39,11 +39,16 @@ function parseRole(): ServerRole {
     return "full";
   }
   const role = roleArg.split("=")[1];
-  if (role === "orchestrator" || role === "implementor" || role === "full") {
+  if (
+    role === "orchestrator" ||
+    role === "implementor" ||
+    role === "controller" ||
+    role === "full"
+  ) {
     return role;
   }
   console.error(
-    `[orchestra-mcp] Invalid role "${role}", using "full". Valid: orchestrator, implementor, full`
+    `[orchestra-mcp] Invalid role "${role}", using "full". Valid: orchestrator, implementor, controller, full`,
   );
   return "full";
 }
@@ -84,7 +89,7 @@ async function main() {
       capabilities: {
         tools: {},
       },
-    }
+    },
   );
 
   // Register tools filtered by role

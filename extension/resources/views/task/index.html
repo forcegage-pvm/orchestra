@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
@@ -168,6 +168,63 @@
         font-weight: 500;
         background-color: var(--vscode-charts-purple);
         color: var(--vscode-editor-background);
+      }
+
+      .review-status-pending {
+        background-color: var(--vscode-testing-iconQueued);
+        color: var(--vscode-editor-background);
+      }
+
+      .review-status-approved {
+        background-color: var(--vscode-testing-iconPassed);
+        color: var(--vscode-editor-background);
+      }
+
+      .review-status-changes_requested {
+        background-color: var(--vscode-testing-iconFailed);
+        color: var(--vscode-editor-background);
+      }
+
+      .review-status-rejected {
+        background-color: var(--vscode-testing-iconFailed);
+        color: var(--vscode-editor-background);
+      }
+
+      .code-list {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+
+      .code-list .code-item {
+        font-family: var(--vscode-editor-font-family);
+        background-color: var(--vscode-editor-inactiveSelectionBackground);
+        border: 1px solid var(--vscode-panel-border);
+        border-radius: 4px;
+        padding: 6px 10px;
+      }
+
+      .issue-card {
+        background-color: var(--vscode-editor-inactiveSelectionBackground);
+        border: 1px solid var(--vscode-panel-border);
+        border-radius: 4px;
+        padding: 10px;
+        margin-bottom: 8px;
+      }
+
+      .issue-header {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 6px;
+      }
+
+      .issue-severity {
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-size: 0.8em;
+        background-color: var(--vscode-badge-background);
+        color: var(--vscode-badge-foreground);
       }
 
       /* Tabs */
@@ -1058,6 +1115,7 @@
               >0</span
             >
           </button>
+          <button class="tab" data-tab="code-review">Code Review</button>
           <button class="tab" data-tab="signal">Signal</button>
           <button class="tab" data-tab="feedback">Feedback</button>
           <button class="tab" data-tab="config">Configuration</button>
@@ -1162,6 +1220,51 @@
                 <div class="empty-state-icon">⏳</div>
                 <p>Verification has not been run yet</p>
               </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Code Review Tab -->
+        <div id="tab-code-review" class="tab-content">
+          <div class="section">
+            <h2>Code Review</h2>
+            <div id="codeReviewEmpty" class="empty-state">
+              <div class="empty-state-icon">📝</div>
+              <p>No code review available</p>
+            </div>
+            <div id="codeReviewContent" style="display: none">
+              <div class="info-grid">
+                <div class="info-card">
+                  <div class="info-card-label">Status</div>
+                  <div class="info-card-value">
+                    <span id="codeReviewStatus" class="status">-</span>
+                  </div>
+                </div>
+                <div class="info-card">
+                  <div class="info-card-label">Risk</div>
+                  <div class="info-card-value" id="codeReviewRisk">-</div>
+                </div>
+                <div class="info-card">
+                  <div class="info-card-label">Reviewed By</div>
+                  <div class="info-card-value" id="codeReviewReviewedBy">-</div>
+                </div>
+                <div class="info-card">
+                  <div class="info-card-label">Reviewed At</div>
+                  <div class="info-card-value" id="codeReviewReviewedAt">-</div>
+                </div>
+              </div>
+
+              <h3>Summary</h3>
+              <p id="codeReviewSummary">-</p>
+
+              <h3>Files Reviewed</h3>
+              <div id="codeReviewFiles" class="code-list"></div>
+
+              <h3>Tests Run</h3>
+              <div id="codeReviewTests" class="code-list"></div>
+
+              <h3>Issues</h3>
+              <div id="codeReviewIssues"></div>
             </div>
           </div>
         </div>
@@ -1289,14 +1392,12 @@
 
         // Update task info
         const task = data.task;
-        document.getElementById(
-          "taskTitle"
-        ).textContent = `Task ${task.task_id}: ${task.title}`;
+        document.getElementById("taskTitle").textContent =
+          `Task ${task.task_id}: ${task.title}`;
         document.getElementById("taskId").textContent = task.task_id;
         document.getElementById("taskStatus").textContent = task.status;
-        document.getElementById(
-          "taskStatus"
-        ).className = `status status-${task.status.toLowerCase()}`;
+        document.getElementById("taskStatus").className =
+          `status status-${task.status.toLowerCase()}`;
         document.getElementById("taskDescription").textContent =
           task.description || "No description";
         document.getElementById("taskCategory").textContent = task.category;
@@ -1341,6 +1442,9 @@
           updateFeedback(data.feedback);
         }
 
+        // Update code review
+        updateCodeReview(data.codeReview);
+
         // Update configuration
         updateConfig(task, data.handover);
 
@@ -1355,16 +1459,15 @@
 
       function updateHandover(handover) {
         document.getElementById("taskPriority").textContent = handover.priority;
-        document.getElementById(
-          "taskPriority"
-        ).className = `priority-badge priority-${handover.priority.toLowerCase()}`;
+        document.getElementById("taskPriority").className =
+          `priority-badge priority-${handover.priority.toLowerCase()}`;
 
         document.getElementById("handoverContext").textContent =
           handover.context || "No context provided";
 
         // Context files - styled as code paths
         const contextFilesContainer = document.getElementById(
-          "handoverContextFiles"
+          "handoverContextFiles",
         );
         contextFilesContainer.innerHTML = "";
         if (handover.context_files) {
@@ -1392,7 +1495,7 @@
 
         // Acceptance criteria - styled as criterion cards
         const criteriaContainer = document.getElementById(
-          "handoverAcceptanceCriteria"
+          "handoverAcceptanceCriteria",
         );
         criteriaContainer.innerHTML = "";
         try {
@@ -1427,7 +1530,7 @@
 
         // File operations - styled as operation cards
         const fileOpsContainer = document.getElementById(
-          "handoverFileOperations"
+          "handoverFileOperations",
         );
         fileOpsContainer.innerHTML = "";
         try {
@@ -1440,8 +1543,8 @@
               div.innerHTML = `
                 <div class="file-op-header">
                   <span class="operation-badge operation-${opClass}">${
-                op.operation
-              }</span>
+                    op.operation
+                  }</span>
                   <span class="code-path">${op.path}</span>
                 </div>
                 ${
@@ -1463,7 +1566,7 @@
 
         // Deliverables - styled as deliverable items
         const deliverablesContainer = document.getElementById(
-          "handoverDeliverables"
+          "handoverDeliverables",
         );
         deliverablesContainer.innerHTML = "";
         try {
@@ -1512,8 +1615,8 @@
               <div class="verification-check">
                 <div class="check-header">
                   <span class="severity-badge severity-${severityClass}">${
-              check.severity
-            }</span>
+                    check.severity
+                  }</span>
                   <span class="check-description">${check.description}</span>
                 </div>
                 <div class="check-details">
@@ -1525,14 +1628,14 @@
                   ${
                     check.pattern
                       ? `<div class="check-detail"><strong>Pattern:</strong> <code>${escapeHtml(
-                          check.pattern
+                          check.pattern,
                         )}</code></div>`
                       : ""
                   }
                   ${
                     check.command
                       ? `<div class="check-detail"><strong>Command:</strong> <code>${escapeHtml(
-                          check.command
+                          check.command,
                         )}</code></div>`
                       : ""
                   }
@@ -1545,7 +1648,7 @@
                   ${
                     check.expect_output_contains
                       ? `<div class="check-detail"><strong>Expected Output Contains:</strong> <code>${escapeHtml(
-                          check.expect_output_contains
+                          check.expect_output_contains,
                         )}</code></div>`
                       : ""
                   }
@@ -1699,7 +1802,7 @@
                   <span class="config-label">${item.label}:</span>
                   <span class="config-value">${item.value}</span>
                 </div>
-              `
+              `,
                 )
                 .join("")}
             </div>
@@ -1719,7 +1822,7 @@
                     <span class="config-label">${item.label}:</span>
                     <span class="config-value">${item.value}</span>
                   </div>
-                `
+                `,
                   )
                   .join("")}
               </div>
@@ -1739,7 +1842,8 @@
                     const deps = JSON.parse(task.dependencies);
                     return deps
                       .map(
-                        (d) => `<span class="dependency-badge">Task ${d}</span>`
+                        (d) =>
+                          `<span class="dependency-badge">Task ${d}</span>`,
                       )
                       .join(" ");
                   } catch {
@@ -1801,8 +1905,8 @@
         const div = document.createElement("div");
         div.innerHTML = `
           <p><strong>Attempt:</strong> ${feedback.attempt} of ${
-          feedback.max_attempts
-        }</p>
+            feedback.max_attempts
+          }</p>
           <p><strong>Can Retry:</strong> ${
             feedback.can_retry ? "Yes" : "No"
           }</p>
@@ -1888,6 +1992,85 @@
         }
       }
 
+      function updateCodeReview(codeReview) {
+        const empty = document.getElementById("codeReviewEmpty");
+        const content = document.getElementById("codeReviewContent");
+
+        if (!codeReview) {
+          empty.style.display = "block";
+          content.style.display = "none";
+          return;
+        }
+
+        empty.style.display = "none";
+        content.style.display = "block";
+
+        const statusEl = document.getElementById("codeReviewStatus");
+        const statusValue = (codeReview.status || "PENDING").toLowerCase();
+        statusEl.textContent = codeReview.status;
+        statusEl.className = `status review-status-${statusValue}`;
+
+        document.getElementById("codeReviewRisk").textContent =
+          codeReview.risk || "-";
+        document.getElementById("codeReviewReviewedBy").textContent =
+          codeReview.reviewed_by || "-";
+        document.getElementById("codeReviewReviewedAt").textContent =
+          codeReview.reviewed_at
+            ? new Date(codeReview.reviewed_at).toLocaleString()
+            : "-";
+        document.getElementById("codeReviewSummary").textContent =
+          codeReview.summary || "-";
+
+        const filesContainer = document.getElementById("codeReviewFiles");
+        filesContainer.innerHTML = "";
+        if (codeReview.files_reviewed && codeReview.files_reviewed.length > 0) {
+          codeReview.files_reviewed.forEach((file) => {
+            const div = document.createElement("div");
+            div.className = "code-item";
+            div.textContent = file;
+            filesContainer.appendChild(div);
+          });
+        } else {
+          filesContainer.innerHTML =
+            '<p class="empty-hint">No files listed</p>';
+        }
+
+        const testsContainer = document.getElementById("codeReviewTests");
+        testsContainer.innerHTML = "";
+        if (codeReview.tests_run && codeReview.tests_run.length > 0) {
+          codeReview.tests_run.forEach((test) => {
+            const div = document.createElement("div");
+            div.className = "code-item";
+            div.textContent = test;
+            testsContainer.appendChild(div);
+          });
+        } else {
+          testsContainer.innerHTML =
+            '<p class="empty-hint">No tests listed</p>';
+        }
+
+        const issuesContainer = document.getElementById("codeReviewIssues");
+        issuesContainer.innerHTML = "";
+        if (codeReview.issues && codeReview.issues.length > 0) {
+          codeReview.issues.forEach((issue) => {
+            const div = document.createElement("div");
+            div.className = "issue-card";
+            div.innerHTML = `
+              <div class="issue-header">
+                <span class="issue-severity">${issue.severity || "ISSUE"}</span>
+                <span>${issue.issue || issue.description || ""}</span>
+              </div>
+              ${issue.file ? `<div class="issue-location">${issue.file}${issue.line ? `:${issue.line}` : ""}</div>` : ""}
+              ${issue.recommendation ? `<div class="issue-recommendation">${issue.recommendation}</div>` : ""}
+            `;
+            issuesContainer.appendChild(div);
+          });
+        } else {
+          issuesContainer.innerHTML =
+            '<p class="empty-hint">No issues recorded</p>';
+        }
+      }
+
       function updateHistory(history) {
         const timeline = document.getElementById("historyTimeline");
         timeline.innerHTML = "";
@@ -1933,7 +2116,7 @@
 
           // Format recommended status badge
           const statusBadge = document.getElementById(
-            "escalationRecommendedStatus"
+            "escalationRecommendedStatus",
           );
           statusBadge.textContent = `Recommended: ${
             escalation.recommended_target_status || "PENDING"
