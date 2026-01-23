@@ -3,8 +3,13 @@
  */
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { ToolRegistry } from "../../../../src/agents/ToolRegistry.js";
 import { deleteFileTool } from "../../../../src/agents/tools/coding/deleteFile.js";
 import { editTool } from "../../../../src/agents/tools/coding/edit.js";
+import {
+  codingTools,
+  registerCodingTools,
+} from "../../../../src/agents/tools/coding/index.js";
 import { newFileTool } from "../../../../src/agents/tools/coding/newFile.js";
 import { readFileTool } from "../../../../src/agents/tools/coding/readFile.js";
 import { testFailureTool } from "../../../../src/agents/tools/coding/testFailure.js";
@@ -418,5 +423,18 @@ describe("testFailureTool", () => {
 
     expect(result.success).toBe(false);
     expect(result.error).toContain("File not found");
+  });
+});
+
+describe("registerCodingTools", () => {
+  it("registers all coding tools", () => {
+    const registry = new ToolRegistry();
+
+    registerCodingTools(registry);
+
+    expect(registry.list()).toHaveLength(9);
+    const registeredNames = registry.names().sort();
+    const expectedNames = codingTools.map((tool) => tool.name).sort();
+    expect(registeredNames).toEqual(expectedNames);
   });
 });
