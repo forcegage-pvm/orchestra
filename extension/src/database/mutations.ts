@@ -173,6 +173,121 @@ export function createSignal(
 }
 
 /**
+ * Create an escalation record and update task status to ESCALATED
+ *
+ * @param workspaceRoot Absolute path to workspace root
+ * @param taskId Numeric task ID
+ * @param input Escalation input payload
+ * @returns Escalation ID
+ */
+export function createEscalation(
+  workspaceRoot: string,
+  taskId: number,
+  input: {
+    reason: string;
+    attemptsSummary: string;
+    recommendedAction?: string;
+    recommendedTargetStatus?: string;
+    escalatedBy?: string;
+    earlyEscalationReason?: string;
+  },
+): number {
+  const db = OrchestraDB.getInstance(workspaceRoot);
+  const now = new Date().toISOString();
+
+  const task = db
+    .prepare(
+      `
+    SELECT id, sprint_id, status, retry_count, max_retries
+    FROM tasks
+    WHERE id = ?
+  `,
+    )
+    .get(taskId) as
+    | {
+        id: number;
+        sprint_id: string;
+        status: string;
+        retry_count: number;
+        max_retries: number;
+      }
+    | undefined;
+
+  if (!task) {
+    throw new Error(`Task ${taskId} not found`);
+  }
+
+  if (task.status === "ESCALATED") {
+    throw new Error(`Task ${taskId} is already escalated`);
+  }
+
+  const escalatedBy = input.escalatedBy ?? "implementor";
+  const recommendedTargetStatus = input.recommendedTargetStatus ?? "PENDING";
+  const attemptsSummary = input.earlyEscalationReason
+    ? `${input.attemptsSummary}\n\nEarly escalation reason: ${input.earlyEscalationReason}`
+    : input.attemptsSummary;
+
+  const result = db
+    .prepare(
+      `
+    INSERT INTO escalations (
+      task_id,
+      sprint_id,
+      reason,
+      attempts_summary,
+      recommended_action,
+      recommended_target_status,
+      from_status,
+      retry_count,
+      max_retries,
+      escalated_by,
+      escalated_at
+    )
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `,
+    )
+    .run(
+      task.id,
+      task.sprint_id,
+      input.reason,
+      attemptsSummary,
+      input.recommendedAction ?? null,
+      recommendedTargetStatus,
+      task.status,
+      task.retry_count,
+      task.max_retries,
+      escalatedBy,
+      now,
+    );
+
+  db.prepare(
+    `
+    UPDATE tasks
+    SET status = ?, updated_at = ?
+    WHERE id = ?
+  `,
+  ).run("ESCALATED", now, task.id);
+
+  db.prepare(
+    `
+    INSERT INTO progress (sprint_id, task_id, from_status, to_status, workflow_step, triggered_by, notes, changed_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  `,
+  ).run(
+    task.sprint_id,
+    task.id,
+    task.status,
+    "ESCALATED",
+    "IMPLEMENT",
+    escalatedBy,
+    `Escalated: ${input.reason}`,
+    now,
+  );
+
+  return Number(result.lastInsertRowid);
+}
+
+/**
  * Create a fresh signal for re-verification after escalation resolution
  *
  * @param workspaceRoot Absolute path to workspace root
