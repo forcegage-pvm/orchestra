@@ -8,6 +8,7 @@ export {
   closeDb,
   getDb,
   getDbPath,
+  getRawDb,
   resetDb,
   resolveWorkspacePath,
 } from "./connection.js";

@@ -25,7 +25,7 @@ export const PROVIDER_ID = "orchestra.mcp-servers";
  */
 export function registerMcpServerProvider(
   context: vscode.ExtensionContext,
-  workspaceRoot: string
+  workspaceRoot: string,
 ): vscode.Disposable {
   const provider = new OrchestraMcpServerProvider(context, workspaceRoot);
 
@@ -36,27 +36,24 @@ export function registerMcpServerProvider(
 /**
  * Provides Orchestra MCP server definitions (orchestrator + implementor)
  */
-class OrchestraMcpServerProvider
-  implements
-    vscode.McpServerDefinitionProvider<vscode.McpStdioServerDefinition>
-{
+class OrchestraMcpServerProvider implements vscode.McpServerDefinitionProvider<vscode.McpStdioServerDefinition> {
   constructor(
     private readonly context: vscode.ExtensionContext,
-    private readonly workspaceRoot: string
+    private readonly workspaceRoot: string,
   ) {}
 
   /**
    * Provide the list of MCP servers
    */
   provideMcpServerDefinitions(
-    _token: vscode.CancellationToken
+    _token: vscode.CancellationToken,
   ): vscode.ProviderResult<vscode.McpStdioServerDefinition[]> {
     // Path to the bundled MCP server in the extension
     const mcpServerPath = path.join(
       this.context.extensionPath,
       "dist",
       "mcp-server",
-      "index.js"
+      "index.js",
     );
 
     return [
@@ -64,13 +61,19 @@ class OrchestraMcpServerProvider
         "orchestra-orc",
         "node",
         [mcpServerPath, "--role=orchestrator"],
-        { ORCHESTRA_WORKSPACE: this.workspaceRoot }
+        { ORCHESTRA_WORKSPACE: this.workspaceRoot },
       ),
       new vscode.McpStdioServerDefinition(
         "orchestra-imp",
         "node",
         [mcpServerPath, "--role=implementor"],
-        { ORCHESTRA_WORKSPACE: this.workspaceRoot }
+        { ORCHESTRA_WORKSPACE: this.workspaceRoot },
+      ),
+      new vscode.McpStdioServerDefinition(
+        "orchestra-ctrl",
+        "node",
+        [mcpServerPath, "--role=controller"],
+        { ORCHESTRA_WORKSPACE: this.workspaceRoot },
       ),
     ];
   }
@@ -81,7 +84,7 @@ class OrchestraMcpServerProvider
    */
   resolveMcpServerDefinition(
     server: vscode.McpStdioServerDefinition,
-    _token: vscode.CancellationToken
+    _token: vscode.CancellationToken,
   ): vscode.ProviderResult<vscode.McpStdioServerDefinition> {
     // No additional resolution needed
     return server;

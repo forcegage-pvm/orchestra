@@ -25,10 +25,17 @@ interface StepDisplay {
 const STEP_DISPLAY: Record<WorkflowStep, StepDisplay> = {
   INIT: { icon: "🚀", color: chalk.blue, label: "Initialize" },
   CONFIGURE: { icon: "⚙️", color: chalk.blue, label: "Configure" },
+  SPEC_REVIEW: { icon: "🧭", color: chalk.yellow, label: "Spec Review" },
   SELECT_TASK: { icon: "📋", color: chalk.cyan, label: "Select Task" },
   PREPARE: { icon: "📝", color: chalk.yellow, label: "Prepare" },
+  HANDOVER_REVIEW: {
+    icon: "🧐",
+    color: chalk.yellow,
+    label: "Handover Review",
+  },
   IMPLEMENT: { icon: "🔨", color: chalk.green, label: "Implement" },
   SIGNAL: { icon: "🚦", color: chalk.green, label: "Signal" },
+  CODE_REVIEW: { icon: "🧪", color: chalk.magenta, label: "Code Review" },
   VERIFY: { icon: "🔍", color: chalk.magenta, label: "Verify" },
   COMPLETE: { icon: "✅", color: chalk.green, label: "Complete" },
   RETRY: { icon: "🔄", color: chalk.yellow, label: "Retry" },
@@ -48,23 +55,23 @@ function formatHumanOutput(result: NextResult): void {
   console.log(
     chalk.bold(
       `${stepDisplay.icon} Current Step: ${stepDisplay.color(
-        stepDisplay.label
-      )}`
-    )
+        stepDisplay.label,
+      )}`,
+    ),
   );
   console.log();
 
   // Context
   if (result.sprint) {
     console.log(
-      chalk.dim(`Sprint: ${result.sprint.id} (${result.sprint.status})`)
+      chalk.dim(`Sprint: ${result.sprint.id} (${result.sprint.status})`),
     );
   }
   if (result.task) {
     console.log(
       chalk.dim(
-        `Task ${result.task.id}: ${result.task.title} [${result.task.status}]`
-      )
+        `Task ${result.task.id}: ${result.task.title} [${result.task.status}]`,
+      ),
     );
   }
   if (result.sprint || result.task) {
@@ -129,11 +136,11 @@ async function nextCommandHandler(options: NextCommandOptions): Promise<void> {
       console.log(
         JSON.stringify({
           error: error instanceof Error ? error.message : String(error),
-        })
+        }),
       );
     } else {
       output.print.error(
-        error instanceof Error ? error.message : "Unknown error"
+        error instanceof Error ? error.message : "Unknown error",
       );
     }
     process.exit(1);

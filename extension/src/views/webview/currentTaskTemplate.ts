@@ -9,6 +9,44 @@
 import type { StatusDisplay } from "../statusTranslation.js";
 
 /**
+ * Alignment issue from spec review (Sprint 004)
+ */
+export interface AlignmentIssue {
+  severity: "critical" | "warning" | "info";
+  requirement: string;
+  finding: string;
+  recommendation: string;
+}
+
+/**
+ * Review data for display (Sprint 004 - Controller Agent)
+ */
+export interface ReviewData {
+  decision: string; // 'APPROVED' | 'NEEDS_REVISION' | 'REJECTED'
+  conformance: string; // 'PASS' | 'WARN' | 'FAIL'
+  reviewedBy: string;
+  reviewedAt: string;
+  revisionCount: number;
+  issues: AlignmentIssue[];
+  recommendations: string[];
+  notes: string | null;
+}
+
+/**
+ * Amendment record (Sprint 004 - Controller Agent)
+ */
+export interface AmendmentData {
+  id: number;
+  tool_name: string;
+  amendment_type: string;
+  workflow_step_at_amendment: string;
+  rationale: string;
+  changed_fields: string; // JSON array
+  amended_by: string;
+  amended_at: string;
+}
+
+/**
  * Task data for rendering in the webview
  */
 export interface TaskData {
@@ -29,13 +67,29 @@ export interface TaskData {
     recommended_action: string | null;
     escalated_at: string;
   } | null;
+  tdd?: {
+    isRedPhase: boolean;
+    registeredFiles: number; // Number of test files with markers
+    totalTestCount: number; // Total tests across all files
+    redTaskId?: number; // Internal DB id (for openTask)
+    redTaskUiId?: number; // Sprint-relative task id (for display)
+    redTaskTitle?: string;
+  } | null;
+  // Sprint 004: Review data for pending/failed review states
+  review?: ReviewData | null;
+  // Sprint 004: Amendments made to task specification
+  amendments?: AmendmentData[];
 }
 
 /**
  * Escape HTML to prevent XSS attacks
  */
-function escapeHtml(text: string): string {
-  return text
+function escapeHtml(text: string | null | undefined): string {
+  if (!text) {
+    return "";
+  }
+  const safeText = text.toString();
+  return safeText
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
@@ -235,6 +289,275 @@ function getStyles(): string {
     .btn-primary.escalated {
       background: var(--vscode-charts-red);
     }
+    .tdd-banner {
+      background: var(--vscode-inputValidation-infoBackground);
+      border: 1px solid var(--vscode-charts-purple);
+      border-radius: 4px;
+      padding: 8px 12px;
+      margin-bottom: 12px;
+      font-size: 11px;
+    }
+    .tdd-banner.red-phase {
+      border-color: var(--vscode-charts-red);
+    }
+    .tdd-banner.green-phase {
+      border-color: var(--vscode-charts-green);
+    }
+    .tdd-header {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-weight: 600;
+      font-size: 12px;
+      margin-bottom: 6px;
+    }
+    .tdd-header .pill {
+      font-size: 9px;
+    }
+    .pill-tdd-red {
+      background: var(--vscode-charts-red);
+      color: #fff;
+    }
+    .pill-tdd-green {
+      background: var(--vscode-charts-green);
+      color: #fff;
+    }
+    .tdd-stats {
+      display: flex;
+      gap: 12px;
+      margin-top: 6px;
+    }
+    .tdd-stat {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .tdd-stat-value {
+      font-weight: 600;
+    }
+    .tdd-link {
+      color: var(--vscode-textLink-foreground);
+      cursor: pointer;
+      text-decoration: underline;
+    }
+    .tdd-link:hover {
+      color: var(--vscode-textLink-activeForeground);
+    }
+    .review-banner {
+      background: var(--vscode-inputValidation-warningBackground);
+      border: 2px solid var(--vscode-charts-yellow);
+      border-radius: 4px;
+      padding: 10px 12px;
+      margin-bottom: 14px;
+      font-size: 11px;
+    }
+    .review-banner.pending {
+      border-color: var(--vscode-charts-blue);
+      background: var(--vscode-inputValidation-infoBackground);
+    }
+    .review-banner.failed {
+      border-color: var(--vscode-charts-orange);
+      background: var(--vscode-inputValidation-warningBackground);
+    }
+    .review-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+      font-weight: 600;
+      font-size: 12px;
+      margin-bottom: 8px;
+    }
+    .review-header-title {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .review-status {
+      font-size: 11px;
+      margin-bottom: 8px;
+      line-height: 1.4;
+    }
+    .review-issues {
+      margin-top: 8px;
+    }
+    .review-issue {
+      margin-bottom: 6px;
+      padding-left: 12px;
+      border-left: 2px solid var(--vscode-textBlockQuote-border);
+    }
+    .review-issue.critical {
+      border-left-color: var(--vscode-charts-red);
+    }
+    .review-issue.warning {
+      border-left-color: var(--vscode-charts-orange);
+    }
+    .review-issue.info {
+      border-left-color: var(--vscode-charts-blue);
+    }
+    .review-issue-severity {
+      font-weight: 600;
+      font-size: 10px;
+      text-transform: uppercase;
+    }
+    .review-issue-requirement {
+      font-size: 11px;
+      color: var(--vscode-textLink-foreground);
+      margin-bottom: 4px;
+    }
+    .review-issue-finding {
+      margin-bottom: 4px;
+    }
+    .review-issue-recommendation {
+      font-size: 11px;
+      color: var(--vscode-descriptionForeground);
+      font-style: italic;
+      margin-top: 4px;
+    }
+    .review-issue.blocking {
+      border-left-color: var(--vscode-charts-red);
+    }
+    .review-issue.major {
+      border-left-color: var(--vscode-charts-orange);
+    }
+    .review-issue.minor {
+      border-left-color: var(--vscode-charts-yellow);
+    }
+    .review-recommendations {
+      margin-top: 8px;
+      padding-top: 8px;
+      border-top: 1px solid var(--vscode-panel-border);
+    }
+    .review-recommendations-title {
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+    .review-recommendation {
+      margin-left: 12px;
+      margin-bottom: 4px;
+    }
+    /* Collapsible sections */
+    details.collapsible {
+      margin-top: 8px;
+      padding-top: 8px;
+      border-top: 1px solid var(--vscode-panel-border);
+    }
+    details.collapsible summary {
+      cursor: pointer;
+      font-weight: 600;
+      margin-bottom: 4px;
+      user-select: none;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    details.collapsible summary:hover {
+      color: var(--vscode-textLink-foreground);
+    }
+    details.collapsible summary::marker {
+      content: '';
+    }
+    details.collapsible summary::before {
+      content: '\\eb76';
+      font-family: codicon;
+      font-size: 12px;
+      transition: transform 0.2s;
+    }
+    details.collapsible[open] summary::before {
+      transform: rotate(90deg);
+    }
+    details.collapsible .collapsible-content {
+      margin-top: 8px;
+      margin-left: 16px;
+    }
+    .recommendation-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+    .recommendation-list li {
+      margin-bottom: 8px;
+      padding-left: 16px;
+      position: relative;
+      line-height: 1.4;
+    }
+    .recommendation-list li::before {
+      content: '•';
+      position: absolute;
+      left: 0;
+      color: var(--vscode-textLink-foreground);
+    }
+    .review-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px solid var(--vscode-panel-border);
+    }
+    .btn-controller {
+      background: var(--vscode-charts-purple);
+      color: #fff;
+      padding: 5px 12px;
+      border: none;
+      border-radius: 3px;
+      cursor: pointer;
+      font-size: 11px;
+      font-weight: 500;
+    }
+    .btn-controller:hover {
+      opacity: 0.9;
+    }
+    
+    /* Amendments section (Sprint 004) */
+    .amendments-section {
+      background: var(--vscode-textBlockQuote-background);
+      border-left: 3px solid var(--vscode-charts-yellow);
+      border-radius: 4px;
+      padding: 10px;
+      margin-bottom: 12px;
+    }
+    .amendments-header {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-weight: 600;
+      margin-bottom: 8px;
+      color: var(--vscode-foreground);
+    }
+    .amendment-item {
+      background: var(--vscode-editor-background);
+      border: 1px solid var(--vscode-panel-border);
+      border-radius: 3px;
+      padding: 8px;
+      margin-bottom: 6px;
+    }
+    .amendment-item:last-child {
+      margin-bottom: 0;
+    }
+    .amendment-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 4px;
+    }
+    .amendment-type {
+      font-weight: 600;
+      font-size: 11px;
+      color: var(--vscode-textLink-foreground);
+    }
+    .amendment-date {
+      font-size: 10px;
+      color: var(--vscode-descriptionForeground);
+    }
+    .amendment-rationale {
+      font-size: 12px;
+      margin-bottom: 4px;
+      line-height: 1.4;
+    }
+    .amendment-meta {
+      font-size: 10px;
+      color: var(--vscode-descriptionForeground);
+    }
   `;
 }
 
@@ -243,11 +566,18 @@ function getStyles(): string {
  */
 function getScript(): string {
   return `
-    const vscode = acquireVsCodeApi();
+    (function() {
+      try {
+        console.log('[CurrentTask Webview] Script starting...');
+        
+        const vscode = acquireVsCodeApi();
+        
+        console.log('[CurrentTask Webview] Script loaded');
     
     // Handle messages from extension
     window.addEventListener('message', event => {
       const message = event.data;
+      console.log('[CurrentTask Webview] Message received:', message.command, message.data ? 'Task ' + message.data.task_id + ' (' + message.data.status + ')' : 'null');
       switch (message.command) {
         case 'update':
           updateContent(message.data);
@@ -262,27 +592,57 @@ function getScript(): string {
       return div.innerHTML;
     }
     
+    // Status display mapping for webview (mirrors STATUS_DISPLAY from statusTranslation.ts)
+    const STATUS_DISPLAY_MAP = {
+      'PENDING': { label: 'Ready', icon: 'circle-outline' },
+      'PREPARE': { label: 'Preparing', icon: 'edit' },
+      'PENDING_HANDOVER_REVIEW': { label: 'Pending Handover Review', icon: 'shield' },
+      'HANDOVER_REVIEW_FAILED': { label: 'Handover Review Failed', icon: 'warning' },
+      'IMPLEMENT': { label: 'In Progress', icon: 'play-circle' },
+      'VERIFY': { label: 'Verifying', icon: 'sync~spin' },
+      'VERIFY_FAILED': { label: 'Needs Attention', icon: 'warning' },
+      'VERIFIED': { label: 'Verified', icon: 'check' },
+      'GATE_CHECK': { label: 'Pending Review', icon: 'shield' },
+      'ESCALATED': { label: 'Escalated', icon: 'alert' },
+      'COMPLETE': { label: 'Complete', icon: 'check-all' }
+    };
+
     function renderTaskCard(task) {
-      const statusClass = task.status.toLowerCase().replace('_', '-');
-      const priorityClass = task.priority.toLowerCase();
+      const statusValue = (task?.status || 'unknown').toString();
+      const priorityValue = (task?.priority || 'unknown').toString();
+      const statusClass = statusValue.toLowerCase().replace('_', '-');
+      const priorityClass = priorityValue.toLowerCase();
+      
+      // Get status display - prefer from task data, fallback to local map
+      const statusDisplay = task.statusDisplay || STATUS_DISPLAY_MAP[statusValue] || { label: statusValue, icon: 'question' };
       
       // Determine action button label and handler based on task status
       // Mirrors the PlayTaskHandler logic exactly
       let actionLabel = '';
       let actionDisabled = false;
       
-      switch (task.status) {
+      switch (statusValue) {
         case 'PENDING':
           actionLabel = 'Prepare Task';
           break;
         case 'PREPARE':
           actionLabel = 'Continue Preparation';
           break;
+        case 'PENDING_HANDOVER_REVIEW':
+          actionLabel = 'Review Handover';
+          break;
+        case 'HANDOVER_REVIEW_FAILED':
+          actionLabel = 'Review Feedback';
+          break;
         case 'IMPLEMENT':
           actionLabel = 'Start Implementation';
           break;
         case 'VERIFY_FAILED':
           actionLabel = 'Retry Task';
+          break;
+        case 'VERIFIED':
+          actionLabel = 'Awaiting Review';
+          actionDisabled = true;
           break;
         case 'VERIFY':
         case 'GATE_CHECK':
@@ -329,19 +689,186 @@ function getScript(): string {
           </div>
         \`;
       }
+
+      // Render TDD banner if this is a TDD task
+      let tddBanner = '';
+      if (task.tdd) {
+        if (task.tdd.isRedPhase) {
+          tddBanner = \`
+            <div class="tdd-banner red-phase">
+              <div class="tdd-header">
+                <span class="pill pill-tdd-red">TDD RED</span>
+                Write Failing Tests
+              </div>
+              <div class="tdd-stats">
+                <div class="tdd-stat">
+                  <span>Files:</span>
+                  <span class="tdd-stat-value">\${task.tdd.registeredFiles}</span>
+                </div>
+                <div class="tdd-stat">
+                  <span>Total Tests:</span>
+                  <span class="tdd-stat-value">\${task.tdd.totalTestCount}</span>
+                </div>
+              </div>
+            </div>
+          \`;
+        } else {
+          // Green phase task - use redTaskUiId for display, redTaskId for navigation
+          const displayId = task.tdd.redTaskUiId ?? task.tdd.redTaskId;
+          const redLink = task.tdd.redTaskId 
+            ? \`<span class="tdd-link" onclick="openTask(\${task.tdd.redTaskId})">Task \${displayId}: \${escapeHtml(task.tdd.redTaskTitle || 'Red Task')}</span>\`
+            : '';
+          tddBanner = \`
+            <div class="tdd-banner green-phase">
+              <div class="tdd-header">
+                <span class="pill pill-tdd-green">TDD GREEN</span>
+                Make Tests Pass
+              </div>
+              <div class="tdd-stats">
+                <div class="tdd-stat">
+                  <span>Tests to green:</span>
+                  <span class="tdd-stat-value">\${task.tdd.totalTestCount}</span>
+                </div>
+                <div class="tdd-stat">
+                  <span>Files with markers:</span>
+                  <span class="tdd-stat-value">\${task.tdd.registeredFiles}</span>
+                </div>
+              </div>
+              \${redLink ? \`<div style="margin-top: 6px;">From: \${redLink}</div>\` : ''}
+            </div>
+          \`;
+        }
+      }
+      
+      // Render review banner if task is in review or review failed state (Sprint 004)
+      let reviewBanner = '';
+      if (task.review) {
+        const isPending = task.status === 'PENDING_HANDOVER_REVIEW' || task.status === 'PENDING_SPEC_REVIEW';
+        const isFailed = task.status === 'HANDOVER_REVIEW_FAILED' || task.status === 'SPEC_REVIEW_FAILED';
+        const bannerClass = isPending ? 'pending' : isFailed ? 'failed' : '';
+        const iconClass = isPending ? 'clock' : 'warning';
+        const statusText = isPending ? 'Task awaiting Controller review' : 'Controller requested revisions';
+        
+        let issuesHtml = '';
+        if (task.review.issues && task.review.issues.length > 0) {
+          const issueItems = task.review.issues.map(issue => {
+            // Handle both old format (requirement/finding) and new format (issue/spec_reference)
+            const issueObj = issue;
+            const requirement = issueObj.requirement || issueObj.spec_reference || '';
+            const finding = issueObj.finding || issueObj.issue || '';
+            const recommendation = issueObj.recommendation || '';
+            return \`
+            <div class="review-issue \${issue.severity.toLowerCase()}">
+              <div class="review-issue-severity">\${issue.severity}</div>
+              \${finding ? \`<div class="review-issue-finding">\${escapeHtml(finding)}</div>\` : ''}
+              \${requirement ? \`<div class="review-issue-requirement">\${escapeHtml(requirement)}</div>\` : ''}
+              \${recommendation ? \`<div class="review-issue-recommendation">\${escapeHtml(recommendation)}</div>\` : ''}
+            </div>
+          \`;
+          }).join('');
+          issuesHtml = \`
+            <div class="review-issues">
+              <div class="review-recommendations-title">Issues Found:</div>
+              \${issueItems}
+            </div>
+          \`;
+        }
+        
+        let recommendationsHtml = '';
+        if (task.review.recommendations && task.review.recommendations.length > 0) {
+          const recItems = task.review.recommendations.map(rec => 
+            \`<li>\${escapeHtml(rec)}</li>\`
+          ).join('');
+          recommendationsHtml = \`
+            <details class="collapsible">
+              <summary>Recommendations (\${task.review.recommendations.length})</summary>
+              <div class="collapsible-content">
+                <ul class="recommendation-list">
+                  \${recItems}
+                </ul>
+              </div>
+            </details>
+          \`;
+        }
+        
+        // Format date safely
+        const reviewDate = task.review.reviewedAt 
+          ? new Date(task.review.reviewedAt) 
+          : null;
+        const formattedDate = reviewDate && !isNaN(reviewDate.getTime()) 
+          ? reviewDate.toLocaleString() 
+          : 'Pending';
+        
+        reviewBanner = \`
+          <div class="review-banner \${bannerClass}">
+            <div class="review-header">
+              <span class="review-header-title">
+                <span class="codicon codicon-\${iconClass}"></span>
+                \${statusText}
+              </span>
+            </div>
+            <div class="review-status">
+              Reviewed by \${escapeHtml(task.review.reviewedBy || 'Controller')} • \${escapeHtml(formattedDate)}
+              \${task.review.revisionCount > 0 ? \` • Revision \${task.review.revisionCount}\` : ''}
+            </div>
+            \${issuesHtml}
+            \${recommendationsHtml}
+            \${task.review.notes ? \`<div style="margin-top: 8px; font-style: italic;">\${escapeHtml(task.review.notes)}</div>\` : ''}
+            \${isPending ? \`
+              <div class="review-actions">
+                <button class="btn btn-primary" onclick="launchController()">Review Sprint Configuration</button>
+              </div>
+            \` : ''}
+          </div>
+        \`;
+      }
+      
+      // Render amendments section if any exist (Sprint 004)
+      let amendmentsSection = '';
+      if (task.amendments && task.amendments.length > 0) {
+        const amendmentItems = task.amendments.map(amendment => {
+          const changedFields = JSON.parse(amendment.changed_fields || '[]');
+          const fieldsText = changedFields.join(', ');
+          return \`
+            <div class="amendment-item">
+              <div class="amendment-header">
+                <span class="amendment-type">\${escapeHtml(amendment.amendment_type)}</span>
+                <span class="amendment-date">\${escapeHtml(new Date(amendment.amended_at).toLocaleString())}</span>
+              </div>
+              <div class="amendment-rationale">\${escapeHtml(amendment.rationale)}</div>
+              <div class="amendment-meta">
+                Changed: \${escapeHtml(fieldsText)} • By: \${escapeHtml(amendment.amended_by)}
+              </div>
+            </div>
+          \`;
+        }).join('');
+        
+        amendmentsSection = \`
+          <div class="amendments-section">
+            <div class="amendments-header">
+              <span class="codicon codicon-edit"></span>
+              Specification Amendments (\${task.amendments.length})
+            </div>
+            \${amendmentItems}
+          </div>
+        \`;
+      }
       
       return \`
         <div class="task-card">
           <div class="task-header">
             <span class="task-id">Task \${task.task_id}</span>
             <span class="pill pill-status \${statusClass}">
-              <span class="codicon codicon-\${task.statusDisplay.icon}"></span>
-              \${task.statusDisplay.label}
+              <span class="codicon codicon-\${statusDisplay.icon}"></span>
+              \${statusDisplay.label}
             </span>
             <span class="pill pill-priority \${priorityClass}" title="\${task.priorityLabel}">\${task.priority}</span>
             <span class="pill pill-category">\${task.category}</span>
           </div>
           <div class="task-title">\${escapeHtml(task.title)}</div>
+          \${tddBanner}
+          \${reviewBanner}
+          \${amendmentsSection}
           \${escalationBanner}
           <div class="task-description">\${escapeHtml(task.description)}</div>
           <div class="action-buttons">
@@ -361,12 +888,117 @@ function getScript(): string {
       \`;
     }
     
-    function updateContent(taskData) {
+    function renderSprintReviewCard(data) {
+      const isPending = data.isPending;
+      const isFailed = data.isFailed;
+      const sprint = data.sprint;
+      const review = data.review;
+
+      const status = isPending ? "pending-review" : "review-failed";
+      const statusLabel = isPending ? "Pending Review" : "Review Failed";
+      const statusIcon = isPending ? "⏳" : "⚠️";
+
+      let reviewBanner = "";
+      if (isFailed && review) {
+        let issuesHtml = "";
+        if (review.issues && review.issues.length > 0) {
+          const issueItems = review.issues
+            .map(issue => \`
+              <div class="review-issue \${issue.severity}">
+                <div class="review-issue-severity">\${issue.severity}</div>
+                <div class="review-issue-requirement">\${escapeHtml(issue.requirement)}</div>
+                <div class="review-issue-finding">\${escapeHtml(issue.finding)}</div>
+              </div>
+            \`)
+            .join("");
+          issuesHtml = \`
+            <div class="review-issues">
+              <div class="review-recommendations-title">Issues Found:</div>
+              \${issueItems}
+            </div>
+          \`;
+        }
+
+        let recommendationsHtml = "";
+        if (review.recommendations && review.recommendations.length > 0) {
+          const recItems = review.recommendations
+            .map(rec => \`<div class="review-recommendation">• \${escapeHtml(rec)}</div>\`)
+            .join("");
+          recommendationsHtml = \`
+            <div class="review-recommendations">
+              <div class="review-recommendations-title">Recommendations:</div>
+              \${recItems}
+            </div>
+          \`;
+        }
+
+        reviewBanner = \`
+          <div class="review-banner review-rejected">
+            <div class="review-header">
+              <span class="review-icon">⚠️</span>
+              <span class="review-title">Sprint Review Failed</span>
+            </div>
+            <div class="review-metadata">
+              <div class="review-conformance">Conformance: \${escapeHtml(review.conformance)}</div>
+              <div class="review-by">Reviewed by: \${escapeHtml(review.reviewed_by)}</div>
+              <div class="review-at">At: \${new Date(review.reviewed_at).toLocaleString()}</div>
+              <div class="review-revision">Revision: \${review.revision_count}</div>
+            </div>
+            \${issuesHtml}
+            \${recommendationsHtml}
+          </div>
+        \`;
+      }
+
+      return \`
+        <div class="task-card">
+          <div class="task-header">
+            <span class="task-id">Sprint: \${escapeHtml(sprint.name)}</span>
+            <span class="pill pill-status \${status}">
+              <span class="pill-icon">\${statusIcon}</span>
+              \${statusLabel}
+            </span>
+          </div>
+
+          \${reviewBanner}
+
+          <div class="section">
+            <div class="section-title">Sprint Review Required</div>
+            <div class="description">
+              This sprint configuration needs to be reviewed by the Controller agent before tasks can be implemented.
+              \${isFailed ? "<br><br>The previous review found issues that need to be addressed. Review the feedback above and resubmit the sprint configuration." : ""}
+            </div>
+          </div>
+
+          <div class="action-buttons">
+            <button class="btn btn-secondary" onclick="refresh()">Refresh</button>
+            <button class="btn btn-primary" onclick="launchController()">Review Sprint Configuration</button>
+          </div>
+        </div>
+      \`;
+    }
+    
+    function updateContent(data) {
+      console.log('[CurrentTask Webview] updateContent called with:', data ? 'Task ' + data.task_id + ' (' + data.status + ')' : 'null');
       const content = document.getElementById('content');
-      if (taskData) {
-        content.innerHTML = renderTaskCard(taskData);
-      } else {
-        content.innerHTML = renderNoTask();
+      if (!content) {
+        console.error('[CurrentTask Webview] Content element not found!');
+        return;
+      }
+      try {
+        if (!data) {
+          console.log('[CurrentTask Webview] Rendering no-task placeholder');
+          content.innerHTML = renderNoTask();
+        } else if (data.type === 'sprint-review') {
+          console.log('[CurrentTask Webview] Rendering sprint review card');
+          content.innerHTML = renderSprintReviewCard(data);
+        } else {
+          console.log('[CurrentTask Webview] Rendering task card');
+          content.innerHTML = renderTaskCard(data);
+        }
+        console.log('[CurrentTask Webview] Content updated successfully');
+      } catch (error) {
+        console.error('[CurrentTask Webview] Error updating content:', error);
       }
     }
     
@@ -385,6 +1017,7 @@ function getScript(): string {
     }
     
     function playTask(taskId) {
+      console.log('[CurrentTask Webview] playTask called with taskId:', taskId);
       vscode.postMessage({
         command: 'playTask',
         taskId: taskId
@@ -412,6 +1045,12 @@ function getScript(): string {
       });
     }
     
+    function launchController() {
+      vscode.postMessage({
+        command: 'launchController'
+      });
+    }
+    
     function moveToImplement(taskId) {
       vscode.postMessage({
         command: 'moveToImplement',
@@ -426,11 +1065,37 @@ function getScript(): string {
       });
     }
     
+    function runCodeReview(taskId) {
+      vscode.postMessage({
+        command: 'runCodeReview',
+        taskId: taskId
+      });
+    }
+    
     function refresh() {
       vscode.postMessage({
         command: 'refresh'
       });
     }
+    
+    // Make functions globally accessible
+    window.playTask = playTask;
+    window.openTask = openTask;
+    window.signalCompletion = signalCompletion;
+    window.prepareTask = prepareTask;
+    window.resolveEscalation = resolveEscalation;
+    window.moveToGateCheck = moveToGateCheck;
+    window.launchController = launchController;
+    window.moveToImplement = moveToImplement;
+    window.forceComplete = forceComplete;
+    window.refresh = refresh;
+    
+    console.log('[CurrentTask Webview] All functions registered globally');
+    
+      } catch (error) {
+        console.error('[CurrentTask Webview] Script initialization error:', error);
+      }
+    })();
   `;
 }
 
@@ -438,20 +1103,28 @@ function getScript(): string {
  * Render a task card with all task information
  */
 function renderTaskCard(task: TaskData): string {
-  const statusClass = task.status.toLowerCase().replace("_", "-");
-  const priorityClass = task.priority.toLowerCase();
+  const statusValue = (task?.status || "unknown").toString();
+  const priorityValue = (task?.priority || "unknown").toString();
+  const statusClass = statusValue.toLowerCase().replace("_", "-");
+  const priorityClass = priorityValue.toLowerCase();
 
   // Determine action button label and handler based on task status
   // Mirrors the PlayTaskHandler logic exactly
   let actionLabel = "";
   let actionDisabled = false;
 
-  switch (task.status) {
+  switch (statusValue) {
     case "PENDING":
       actionLabel = "Prepare Task";
       break;
     case "PREPARE":
       actionLabel = "Continue Preparation";
+      break;
+    case "PENDING_HANDOVER_REVIEW":
+      actionLabel = "Review Handover";
+      break;
+    case "HANDOVER_REVIEW_FAILED":
+      actionLabel = "Review Feedback";
       break;
     case "IMPLEMENT":
       actionLabel = "Start Implementation";
@@ -496,7 +1169,7 @@ function renderTaskCard(task: TaskData): string {
         ${
           task.escalation.recommended_action
             ? `<p><strong>Recommended:</strong> ${escapeHtml(
-                task.escalation.recommended_action
+                task.escalation.recommended_action,
               )}</p>`
             : ""
         }
@@ -519,6 +1192,201 @@ function renderTaskCard(task: TaskData): string {
   `
     : "";
 
+  // Render TDD banner if this is a TDD task
+  let tddBanner = "";
+  if (task.tdd) {
+    if (task.tdd.isRedPhase) {
+      tddBanner = `
+        <div class="tdd-banner red-phase">
+          <div class="tdd-header">
+            <span class="pill pill-tdd-red">TDD RED</span>
+            Write Failing Tests
+          </div>
+          <div class="tdd-stats">
+            <div class="tdd-stat">
+              <span>Files:</span>
+              <span class="tdd-stat-value">${task.tdd.registeredFiles}</span>
+            </div>
+            <div class="tdd-stat">
+              <span>Total Tests:</span>
+              <span class="tdd-stat-value">${task.tdd.totalTestCount}</span>
+            </div>
+          </div>
+        </div>
+      `;
+    } else {
+      // Green phase task
+      const redLink = task.tdd.redTaskId
+        ? `<span class="tdd-link" onclick="openTask(${
+            task.tdd.redTaskId
+          })">Task ${task.tdd.redTaskId}: ${escapeHtml(
+            task.tdd.redTaskTitle || "Red Task",
+          )}</span>`
+        : "";
+      tddBanner = `
+        <div class="tdd-banner green-phase">
+          <div class="tdd-header">
+            <span class="pill pill-tdd-green">TDD GREEN</span>
+            Make Tests Pass
+          </div>
+          <div class="tdd-stats">
+            <div class="tdd-stat">
+              <span>Tests to green:</span>
+              <span class="tdd-stat-value">${task.tdd.totalTestCount}</span>
+            </div>
+            <div class="tdd-stat">
+              <span>Files with markers:</span>
+              <span class="tdd-stat-value">${task.tdd.registeredFiles}</span>
+            </div>
+          </div>
+          ${
+            redLink
+              ? `<div style="margin-top: 6px;">From: ${redLink}</div>`
+              : ""
+          }
+        </div>
+      `;
+    }
+  }
+
+  // Render review banner if task is in review or review failed state (Sprint 004)
+  let reviewBanner = "";
+  if (task.review) {
+    const isPending =
+      task.status === "PENDING_HANDOVER_REVIEW" ||
+      task.status === "PENDING_SPEC_REVIEW";
+    const isFailed =
+      task.status === "HANDOVER_REVIEW_FAILED" ||
+      task.status === "SPEC_REVIEW_FAILED";
+    const bannerClass = isPending ? "pending" : isFailed ? "failed" : "";
+    const iconClass = isPending ? "clock" : "warning";
+
+    const statusText = isPending
+      ? "Task awaiting Controller review"
+      : "Controller requested revisions";
+
+    // Render issues if present
+    let issuesHtml = "";
+    if (task.review.issues && task.review.issues.length > 0) {
+      const issueItems = task.review.issues
+        .map(
+          (issue) => `
+        <div class="review-issue ${issue.severity}">
+          <div class="review-issue-severity">${issue.severity}</div>
+          <div class="review-issue-requirement">${escapeHtml(
+            issue.requirement,
+          )}</div>
+          <div class="review-issue-finding">${escapeHtml(issue.finding)}</div>
+        </div>
+      `,
+        )
+        .join("");
+      issuesHtml = `
+        <div class="review-issues">
+          <div class="review-recommendations-title">Issues Found:</div>
+          ${issueItems}
+        </div>
+      `;
+    }
+
+    // Render recommendations if present
+    let recommendationsHtml = "";
+    if (task.review.recommendations && task.review.recommendations.length > 0) {
+      const recItems = task.review.recommendations
+        .map(
+          (rec) =>
+            `<div class="review-recommendation">• ${escapeHtml(rec)}</div>`,
+        )
+        .join("");
+      recommendationsHtml = `
+        <div class="review-recommendations">
+          <div class="review-recommendations-title">Recommendations:</div>
+          ${recItems}
+        </div>
+      `;
+    }
+
+    reviewBanner = `
+      <div class="review-banner ${bannerClass}">
+        <div class="review-header">
+          <span class="review-header-title">
+            <span class="codicon codicon-${iconClass}"></span>
+            ${statusText}
+          </span>
+        </div>
+        <div class="review-status">
+          Reviewed by ${escapeHtml(task.review.reviewedBy)} • ${escapeHtml(
+            new Date(task.review.reviewedAt).toLocaleString(),
+          )}
+          ${
+            task.review.revisionCount > 0
+              ? ` • Revision ${task.review.revisionCount}`
+              : ""
+          }
+        </div>
+        ${issuesHtml}
+        ${recommendationsHtml}
+        ${
+          task.review.notes
+            ? `<div style="margin-top: 8px; font-style: italic;">${escapeHtml(
+                task.review.notes,
+              )}</div>`
+            : ""
+        }
+        ${
+          isPending
+            ? `
+          <div class="review-actions">
+            <button class="btn-controller" onclick="launchController()">Launch Controller Agent</button>
+          </div>
+        `
+            : ""
+        }
+      </div>
+    `;
+  }
+
+  // Render amendments section if any exist (Sprint 004)
+  let amendmentsSection = "";
+  if (task.amendments && task.amendments.length > 0) {
+    const amendmentItems = task.amendments
+      .map((amendment) => {
+        const changedFields = JSON.parse(amendment.changed_fields || "[]");
+        const fieldsText = changedFields.join(", ");
+        return `
+          <div class="amendment-item">
+            <div class="amendment-header">
+              <span class="amendment-type">${escapeHtml(
+                amendment.amendment_type,
+              )}</span>
+              <span class="amendment-date">${escapeHtml(
+                new Date(amendment.amended_at).toLocaleString(),
+              )}</span>
+            </div>
+            <div class="amendment-rationale">${escapeHtml(
+              amendment.rationale,
+            )}</div>
+            <div class="amendment-meta">
+              Changed: ${escapeHtml(fieldsText)} • By: ${escapeHtml(
+                amendment.amended_by,
+              )}
+            </div>
+          </div>
+        `;
+      })
+      .join("");
+
+    amendmentsSection = `
+      <div class="amendments-section">
+        <div class="amendments-header">
+          <span class="codicon codicon-edit"></span>
+          Specification Amendments (${task.amendments.length})
+        </div>
+        ${amendmentItems}
+      </div>
+    `;
+  }
+
   return `
     <div class="task-card">
       <div class="task-header">
@@ -528,11 +1396,14 @@ function renderTaskCard(task: TaskData): string {
           ${task.statusDisplay.label}
         </span>
         <span class="pill pill-priority ${priorityClass}" title="${escapeHtml(
-    task.priorityLabel
-  )}">${escapeHtml(task.priority)}</span>
+          task.priorityLabel,
+        )}">${escapeHtml(task.priority)}</span>
         <span class="pill pill-category">${escapeHtml(task.category)}</span>
       </div>
       <div class="task-title">${escapeHtml(task.title)}</div>
+      ${tddBanner}
+      ${reviewBanner}
+      ${amendmentsSection}
       ${escalationBanner}
       <div class="task-description">${escapeHtml(task.description)}</div>
       <div class="action-buttons">
@@ -540,6 +1411,13 @@ function renderTaskCard(task: TaskData): string {
           task.id
         })">View Details</button>
         ${actionButton}
+        ${
+          statusValue === "COMPLETE"
+            ? `<button class="btn btn-secondary" onclick="runCodeReview(${
+                task.id
+              })"><span class="codicon codicon-checklist"></span> Run Code Review for this task</button>`
+            : ""
+        }
       </div>
     </div>
   `;
@@ -558,17 +1436,139 @@ function renderNoTask(): string {
 }
 
 /**
+ * Render a sprint review card for when sprint needs review
+ */
+function renderSprintReviewCard(data: any): string {
+  const isPending = data.isPending;
+  const isFailed = data.isFailed;
+  const sprint = data.sprint;
+  const review = data.review;
+
+  const status = isPending ? "pending-review" : "review-failed";
+  const statusLabel = isPending ? "Pending Review" : "Review Failed";
+  const statusIcon = isPending ? "clock" : "warning";
+
+  let reviewBanner = "";
+  if (isFailed && review) {
+    // Show review failure details
+    let issuesHtml = "";
+    if (review.issues && review.issues.length > 0) {
+      const issueItems = review.issues
+        .map(
+          (issue: any) => `
+        <div class="review-issue ${issue.severity}">
+          <div class="review-issue-severity">${issue.severity}</div>
+          <div class="review-issue-requirement">${escapeHtml(
+            issue.requirement,
+          )}</div>
+          <div class="review-issue-finding">${escapeHtml(issue.finding)}</div>
+        </div>
+      `,
+        )
+        .join("");
+      issuesHtml = `
+        <div class="review-issues">
+          <div class="review-recommendations-title">Issues Found:</div>
+          ${issueItems}
+        </div>
+      `;
+    }
+
+    let recommendationsHtml = "";
+    if (review.recommendations && review.recommendations.length > 0) {
+      const recItems = review.recommendations
+        .map(
+          (rec: string) =>
+            `<div class="review-recommendation">• ${escapeHtml(rec)}</div>`,
+        )
+        .join("");
+      recommendationsHtml = `
+        <div class="review-recommendations">
+          <div class="review-recommendations-title">Recommendations:</div>
+          ${recItems}
+        </div>
+      `;
+    }
+
+    reviewBanner = `
+      <div class="review-banner review-rejected">
+        <div class="review-header">
+          <span class="review-icon">⚠️</span>
+          <span class="review-title">Sprint Review Failed</span>
+        </div>
+        <div class="review-metadata">
+          <div class="review-conformance">Conformance: ${escapeHtml(
+            review.conformance,
+          )}</div>
+          <div class="review-by">Reviewed by: ${escapeHtml(
+            review.reviewed_by,
+          )}</div>
+          <div class="review-at">At: ${new Date(
+            review.reviewed_at,
+          ).toLocaleString()}</div>
+          <div class="review-revision">Revision: ${review.revision_count}</div>
+        </div>
+        ${issuesHtml}
+        ${recommendationsHtml}
+      </div>
+    `;
+  }
+
+  return `
+    <div class="task-card">
+      <div class="task-header">
+        <span class="task-id">Sprint: ${escapeHtml(sprint.name)}</span>
+        <span class="pill pill-status ${status}">
+          <span class="pill-icon">${statusIcon}</span>
+          ${statusLabel}
+        </span>
+      </div>
+
+      ${reviewBanner}
+
+      <div class="section">
+        <div class="section-title">Sprint Review Required</div>
+        <div class="description">
+          This sprint configuration needs to be reviewed by the Controller agent before tasks can be implemented.
+          ${
+            isFailed
+              ? "<br><br>The previous review found issues that need to be addressed. Review the feedback above and resubmit the sprint configuration."
+              : ""
+          }
+        </div>
+      </div>
+
+      <div class="action-row">
+        <button class="action-btn primary" onclick="launchController()">
+          <span class="btn-icon">▶️</span>
+          Launch Controller Agent
+        </button>
+      </div>
+    </div>
+  `;
+}
+
+/**
  * Generate complete HTML document for the webview
+ * Handles both task display and sprint review display
  *
- * @param taskData - Current task data to render, or null if no task
+ * @param data - Task data, sprint review data, or null for empty state
  * @param cspSource - Content Security Policy source for the webview
  * @returns Complete HTML document as a string
  */
 export function generateCurrentTaskHtml(
-  taskData: TaskData | null,
-  cspSource: string
+  data: TaskData | any | null,
+  cspSource: string,
 ): string {
-  const content = taskData ? renderTaskCard(taskData) : renderNoTask();
+  let content: string;
+
+  // Check if this is sprint review data
+  if (data && data.type === "sprint-review") {
+    content = renderSprintReviewCard(data);
+  } else {
+    // Regular task rendering
+    content = data ? renderTaskCard(data as TaskData) : renderNoTask();
+  }
 
   return `<!DOCTYPE html>
 <html lang="en">

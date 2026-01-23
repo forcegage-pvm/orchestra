@@ -7,12 +7,9 @@
  * - VER-022: Rationale stored for audit trail
  */
 
-import fs from "node:fs";
-import os from "node:os";
-import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { JVC, validateJudgment } from "../../src/core/judgment-validator.js";
-import { getDb, initializeDb, resetDb } from "../../src/db/index.js";
+import { getDb } from "../../src/db/index.js";
 import {
   phases,
   signals,
@@ -21,16 +18,13 @@ import {
   verificationChecks,
   verificationResults,
 } from "../../src/db/schema.js";
+import { cleanupTestDb, setupTestDb } from "../setup/db-cache.js";
 
 describe("Judgment Validator", () => {
   let tempDir: string;
 
   beforeEach(async () => {
-    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "judgment-validator-"));
-    process.env.ORCHESTRA_WORKSPACE = tempDir;
-
-    resetDb();
-    await initializeDb();
+    tempDir = await setupTestDb("judgment-validator-");
     const db = getDb();
 
     // Create test sprint
@@ -84,9 +78,7 @@ describe("Judgment Validator", () => {
   });
 
   afterEach(async () => {
-    resetDb();
-    fs.rmSync(tempDir, { recursive: true, force: true });
-    delete process.env.ORCHESTRA_WORKSPACE;
+    await cleanupTestDb(tempDir);
   });
 
   describe("JVC-1: Verification results must exist", () => {
@@ -96,10 +88,10 @@ describe("Judgment Validator", () => {
 
       expect(result.valid).toBe(false);
       expect(result.checks.find((c) => c.check_id === "JVC-1")?.passed).toBe(
-        false
+        false,
       );
       expect(
-        result.checks.find((c) => c.check_id === "JVC-1")?.reason
+        result.checks.find((c) => c.check_id === "JVC-1")?.reason,
       ).toContain("No verification results");
     });
 
@@ -133,7 +125,7 @@ describe("Judgment Validator", () => {
       const result = await validateJudgment(1, "PASS", "Looks good");
 
       expect(result.checks.find((c) => c.check_id === "JVC-1")?.passed).toBe(
-        true
+        true,
       );
     });
   });
@@ -169,15 +161,15 @@ describe("Judgment Validator", () => {
       const result = await validateJudgment(
         1,
         "PASS",
-        "Looks good despite issues"
+        "Looks good despite issues",
       );
 
       expect(result.valid).toBe(false);
       expect(result.checks.find((c) => c.check_id === "JVC-2")?.passed).toBe(
-        false
+        false,
       );
       expect(
-        result.checks.find((c) => c.check_id === "JVC-2")?.reason
+        result.checks.find((c) => c.check_id === "JVC-2")?.reason,
       ).toContain("BLOCKING");
     });
 
@@ -211,7 +203,7 @@ describe("Judgment Validator", () => {
       const result = await validateJudgment(1, "PASS", "All good");
 
       expect(result.checks.find((c) => c.check_id === "JVC-2")?.passed).toBe(
-        true
+        true,
       );
     });
 
@@ -245,12 +237,12 @@ describe("Judgment Validator", () => {
       const result = await validateJudgment(
         1,
         "PASS",
-        "Minor issues acceptable"
+        "Minor issues acceptable",
       );
 
       expect(result.valid).toBe(true);
       expect(result.checks.find((c) => c.check_id === "JVC-2")?.passed).toBe(
-        true
+        true,
       );
     });
 
@@ -284,12 +276,12 @@ describe("Judgment Validator", () => {
       const result = await validateJudgment(
         1,
         "FAIL",
-        "Correctly identifying failure"
+        "Correctly identifying failure",
       );
 
       // JVC-2 should pass (not applicable for FAIL)
       expect(result.checks.find((c) => c.check_id === "JVC-2")?.passed).toBe(
-        true
+        true,
       );
     });
   });
@@ -324,7 +316,7 @@ describe("Judgment Validator", () => {
 
       expect(result.valid).toBe(false);
       expect(result.checks.find((c) => c.check_id === "JVC-3")?.passed).toBe(
-        false
+        false,
       );
     });
 
@@ -357,7 +349,7 @@ describe("Judgment Validator", () => {
 
       expect(result.valid).toBe(false);
       expect(result.checks.find((c) => c.check_id === "JVC-3")?.passed).toBe(
-        false
+        false,
       );
     });
 
@@ -389,11 +381,11 @@ describe("Judgment Validator", () => {
       const result = await validateJudgment(
         1,
         "PASS",
-        "All verification checks passed. Code is ready for production."
+        "All verification checks passed. Code is ready for production.",
       );
 
       expect(result.checks.find((c) => c.check_id === "JVC-3")?.passed).toBe(
-        true
+        true,
       );
     });
   });
@@ -427,7 +419,7 @@ describe("Judgment Validator", () => {
       const result = await validateJudgment(
         1,
         "PASS",
-        "All checks passed successfully"
+        "All checks passed successfully",
       );
 
       expect(result.valid).toBe(true);
@@ -550,12 +542,12 @@ describe("Judgment Validator", () => {
       const result = await validateJudgment(
         1,
         "PASS",
-        "All checks passed on retry"
+        "All checks passed on retry",
       );
 
       expect(result.valid).toBe(true);
       expect(result.checks.find((c) => c.check_id === "JVC-2")?.passed).toBe(
-        true
+        true,
       );
       expect(result.blocking_failures).toBeUndefined();
     });

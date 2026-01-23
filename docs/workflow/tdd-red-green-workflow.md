@@ -14,6 +14,7 @@ Orchestra supports Test-Driven Development (TDD) workflows with explicit red-pha
 ## The Problem
 
 Traditional verification requires ALL tests to pass. This is incompatible with TDD red-phase tasks where:
+
 - The task is explicitly to write a test that MUST fail
 - Pre-signal checks would reject the task because tests don't pass
 - Orchestrator can't distinguish between "intentional failure" and "broken code"
@@ -29,6 +30,85 @@ Orchestra uses test framework tagging/isolation to separate intentionally-failin
 3. **Test Markers**: Special tags/directories that identify red-phase tests
 4. **Dual Verification**: Separate test commands for red and non-red tests
 5. **Automatic Cleanup**: Orchestrator removes stale markers before each task prepare
+
+---
+
+## Environment Configuration Requirement
+
+**CRITICAL**: Sprints with TDD red-phase tasks **MUST** include an `environment` field in `configure_sprint`.
+
+### Required Fields
+
+The `environment` object contains three required fields:
+
+```json
+{
+  "sprint": {
+    "id": "sprint-016",
+    "name": "Feature Implementation Sprint"
+  },
+  "environment": {
+    "test_command": "npm test",
+    "test_file_pattern": "test/**/*.test.ts",
+    "source_base_dir": "src"
+  },
+  "tasks": [
+    {
+      "task_id": 1,
+      "tdd_red_phase": true,
+      "...": "other fields"
+    }
+  ]
+}
+```
+
+**Field Descriptions:**
+
+| Field               | Description                    | Example                                                           |
+| ------------------- | ------------------------------ | ----------------------------------------------------------------- |
+| `test_command`      | Base command to run tests      | `"npm test"`, `"flutter test"`, `"pytest"`, `"cargo test"`        |
+| `test_file_pattern` | Glob pattern for test files    | `"test/**/*.test.ts"`, `"test/**/*_test.dart"`, `"tests/**/*.py"` |
+| `source_base_dir`   | Base directory for source code | `"src"`, `"lib"`, `"app"`                                         |
+
+### Validation Rules
+
+When calling `configure_sprint`, the following validation occurs:
+
+1. **If ANY task has `tdd_red_phase: true`:**
+   - `environment` object MUST be present
+   - `environment.test_command` MUST be non-empty
+   - `environment.test_file_pattern` MUST be non-empty
+   - `environment.source_base_dir` MUST be non-empty
+
+2. **If validation fails:**
+   - `configure_sprint` returns `VALIDATION_ERROR`
+   - Sprint is NOT created
+   - Error message indicates which field is missing
+
+**Example validation error:**
+
+```json
+{
+  "error": "VALIDATION_ERROR",
+  "message": "Sprint contains TDD red-phase tasks but environment.test_command is missing",
+  "task_ids": [1, 3, 5]
+}
+```
+
+### Why This Matters
+
+The `test_command` is used as the **single source of truth** for TDD behavioral checks. This eliminates guessing about:
+
+- Which test framework/runner is being used (Jest vs Vitest vs Flutter vs Pytest)
+- How to run tests (npm script name, working directory, flags)
+- What test framework flags are compatible
+
+By requiring explicit configuration upfront, Orchestra can:
+
+- Generate correct TDD behavioral verification checks
+- Validate commands before task preparation
+- Detect incompatible test runner flags early
+- Provide accurate test commands to implementors
 
 ---
 
@@ -51,6 +131,7 @@ Orchestra uses test framework tagging/isolation to separate intentionally-failin
 ```
 
 **Task acceptance criteria** (orchestrator-defined):
+
 - [ ] Test file exists with tdd-red marker
 - [ ] Marked test FAILS when run alone
 - [ ] All other tests PASS (no regressions)
@@ -62,17 +143,17 @@ Orchestra uses test framework tagging/isolation to separate intentionally-failin
 
 #### For Dart Projects
 
-Tag the test with `@Tags(['tdd-red'])`:
+Tag the test with `@Tags(['tdd-red-task-10'])`:
 
 ```dart
 import 'package:flutter_test/flutter_test.dart';
 
-@Tags(['tdd-red'])  // ← Marks test as red-phase
+@Tags(['tdd-red-task-10'])  // ← Marks test as red-phase for task 10
 void main() {
   test('should reject expired JWT tokens', () {
     final auth = AuthService();
     final expiredToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'; // expired
-    
+
     // This test MUST fail - we haven't implemented expiration checking yet
     expect(
       () => auth.validateToken(expiredToken),
@@ -82,9 +163,18 @@ void main() {
 }
 ```
 
+Or use inline tags for individual tests:
+
+```dart
+test('should reject expired JWT tokens', () {
+  // test body
+}, tags: ['tdd-red-task-10']);
+```
+
 Run verification locally:
+
 ```bash
-# Tagged test must fail
+# Tagged test must fail (use 'tdd-red' prefix, not full task ID)
 $ flutter test --tags tdd-red
 # ❌ Expected: throws <TokenExpiredException>
 #    Actual: null (no exception thrown)
@@ -96,31 +186,33 @@ $ flutter test --exclude-tags tdd-red
 
 #### For TypeScript Projects
 
-Place test in `test/tdd-red/` directory:
+Use `[tdd-red-task-10]` prefix in test name:
 
 ```typescript
-// File: test/tdd-red/auth-expiration.test.ts
-describe('AuthService', () => {
-  it('should reject expired JWT tokens', () => {
+// File: test/auth-expiration.test.ts
+describe("[tdd-red-task-10] AuthService expiration", () => {
+  it("should reject expired JWT tokens", () => {
     const auth = new AuthService();
-    const expiredToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...';
-    
+    const expiredToken = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...";
+
     // This test MUST fail - we haven't implemented expiration checking yet
-    expect(() => auth.validateToken(expiredToken))
-      .toThrow(TokenExpiredException);
+    expect(() => auth.validateToken(expiredToken)).toThrow(
+      TokenExpiredException,
+    );
   });
 });
 ```
 
 Run verification locally:
+
 ```bash
 # Red-phase tests must fail
-$ npm test -- test/tdd-red
+$ npm test -- --testNamePattern="\[tdd-red-task-10\]"
 # ❌ Expected: throws TokenExpiredException
 #    Received: undefined
 
 # Other tests must pass
-$ npm test -- --testPathIgnorePatterns=tdd-red
+$ npm test -- --testNamePattern="^(?!.*\[tdd-red\])"
 # ✅ 124 tests passed
 ```
 
@@ -136,17 +228,19 @@ artifacts:
     type: CREATE
 summary: "Added failing test for JWT token expiration validation"
 build_passed: true
-test_passed: true  # ← Special: means dual verification passed
+test_passed: true # ← Special: means dual verification passed
 notes: "Test fails as expected. All other tests pass."
 ```
 
 **Pre-signal executor** runs:
+
 1. `flutter test --tags tdd-red` → Exit code 1 (MUST fail)
 2. `flutter test --exclude-tags tdd-red` → Exit code 0 (MUST pass)
 3. Both conditions met → Pre-signal PASSED
 
 **Verification** (orchestrator, hidden criteria):
-- [x] File contains `@Tags(['tdd-red'])` marker
+
+- [x] File contains `@Tags(['tdd-red-task-10'])` marker
 - [x] Marked test fails with correct error
 - [x] No regression failures in other tests
 
@@ -169,16 +263,15 @@ notes: "Test fails as expected. All other tests pass."
 }
 ```
 
-### Step 5: Orchestrator Cleans Up Markers
+### Step 5: Implementor Removes Markers (Green Phase)
 
-**Automatic cleanup** runs during `prepare_task` (Task 11):
+**Manual cleanup** by implementor during green phase:
 
-1. **Orchestrator** detects tdd-red markers in workspace
-2. **Removes markers**:
-   - Dart: Strips `@Tags(['tdd-red'])` annotation
-   - TypeScript: Moves `test/tdd-red/*.test.ts` → `test/unit/*.test.ts`
-3. **Commits cleanup**: `git commit -m "chore: remove tdd-red markers before task 11"`
-4. **Generates handover** with clean workspace
+1. **Implementor** implements the feature to make tests pass
+2. **Removes markers** from tests:
+   - Dart: Removes `@Tags(['tdd-red-task-N'])` annotation or inline `tags:` parameter
+   - TypeScript: Removes `[tdd-red-task-N]` prefix from test/describe names
+3. **Signals completion** with tests now passing
 
 ### Step 6: Implementor Makes Test Pass
 
@@ -188,7 +281,7 @@ notes: "Test fails as expected. All other tests pass."
 class AuthService {
   void validateToken(String token) {
     final decoded = JWT.decode(token);
-    
+
     // NEW: Check expiration
     final expiresAt = DateTime.fromMillisecondsSinceEpoch(decoded['exp'] * 1000);
     if (DateTime.now().isAfter(expiresAt)) {
@@ -199,6 +292,7 @@ class AuthService {
 ```
 
 **Pre-signal check** (normal mode):
+
 ```bash
 $ flutter test
 # ✅ All 48 tests passed (including the formerly-failing test)
@@ -212,7 +306,7 @@ $ flutter test
 
 When `tdd_red_phase: true`, the handover includes special TDD instructions:
 
-```markdown
+````markdown
 # Task 10: Add failing test for JWT expiration
 
 ## TDD Red-Phase Instructions
@@ -220,17 +314,21 @@ When `tdd_red_phase: true`, the handover includes special TDD instructions:
 This is a **TDD red-phase task**. Your test MUST fail.
 
 ### Tagging Mechanism
+
 Add `@Tags(['tdd-red'])` annotation to your test function.
 
 ### Verification Commands
+
 - **Red test**: `flutter test --tags tdd-red` (MUST exit 1)
 - **Green tests**: `flutter test --exclude-tags tdd-red` (MUST exit 0)
 
 ### Expected Behavior
+
 - The tagged test MUST fail (exit code 1)
 - All other tests MUST pass (exit code 0)
 
 ### Example
+
 ```dart
 @Tags(['tdd-red'])
 void main() {
@@ -239,19 +337,204 @@ void main() {
   });
 }
 ```
+````
 
 ## Acceptance Criteria
+
 - [ ] Test file created with tdd-red tag
 - [ ] Test fails when run with --tags tdd-red
 - [ ] All other tests pass
 - [ ] Test validates the expected behavior
 
 ## Success Criteria
+
 Your signal will be accepted when:
+
 1. Pre-signal check confirms dual verification passes
 2. At least one file contains tdd-red marker
 3. Tagged test fails for the correct reason
+
+````
+
+---
+
+## Behavioral Command Validation
+
+Orchestra validates behavioral verification commands **before** accepting them during `prepare_task` and `update_verification`. This catches configuration errors early instead of discovering them during VERIFY phase.
+
+### Validation Checks
+
+When a behavioral check is added or updated, Orchestra validates:
+
+1. **Command Existence**: Command must be non-empty and parseable
+2. **Executable Availability**: Base executable must exist on PATH
+   - Checks: `npm`, `pnpm`, `yarn`, `flutter`, `dart`, `cargo`, `python`, `pytest`, etc.
+   - Uses `where.exe` on Windows, `which` on Unix/Mac
+3. **Working Directory**: If command includes `cd <dir>;`, directory must exist
+4. **Prefix Directory**: If command uses `npm --prefix <dir>`, directory must exist
+5. **Script Existence**: For `npm run <script>`, script must exist in package.json
+6. **Runner Flag Compatibility**: Flags must be compatible with detected test runner
+
+### Error Codes
+
+Validation failures return one of these error codes:
+
+| Code | Meaning | Example |
+|------|---------|----------|
+| `COMMAND_EMPTY` | Command is empty or whitespace-only | `""` |
+| `EXECUTABLE_NOT_FOUND` | Base executable not found on PATH | `pytest` when Python not installed |
+| `SCRIPT_NOT_FOUND` | npm/pnpm/yarn script not in package.json | `npm run test:unit` when script doesn't exist |
+| `WORKDIR_NOT_FOUND` | Working directory doesn't exist | `cd extension; npm test` when `extension/` is missing |
+| `RUNNER_FLAG_INCOMPATIBLE` | Flag incompatible with detected runner | `--testPathIgnorePatterns` with Vitest |
+
+### Runner Detection
+
+Orchestra automatically detects the test runner from commands:
+
+**Direct Detection:**
+- Command starts with `vitest` → Vitest
+- Command starts with `jest` → Jest
+- Command starts with `flutter test` → Flutter
+- Command starts with `pytest` or `python -m pytest` → Pytest
+- Command starts with `cargo test` → Cargo
+
+**Script Inspection:**
+For `npm run <script>`, `pnpm <script>`, `yarn <script>`, Orchestra reads package.json and inspects what the script actually runs.
+
+### Flag Compatibility Rules
+
+Each test runner has incompatible flags that will be rejected:
+
+**Jest-only flags** (rejected with Vitest/Flutter/Pytest/Cargo):
+- `--testPathIgnorePatterns`
+- `--runInBand`
+- `--detectOpenHandles`
+- `--forceExit`
+- `--watchAll`
+- `--bail`
+- `--ci`
+- etc.
+
+**Vitest-only flags** (rejected with Jest/Flutter/Pytest/Cargo):
+- `--exclude`
+- `--pool`
+- `--isolate`
+- `--globals`
+- `--dom`
+- `--browser`
+- etc.
+
+**Flutter-only flags** (rejected with Jest/Vitest/Pytest/Cargo):
+- `--tags`
+- `--exclude-tags`
+- `--plain-name`
+- `--merge-coverage`
+- etc.
+
+**Pytest-only flags** (rejected with Jest/Vitest/Flutter/Cargo):
+- `-m`
+- `-k`
+- `--ignore`
+- `--pdb`
+- etc.
+
+**Cargo-only flags** (rejected with Jest/Vitest/Flutter/Pytest):
+- `--lib`
+- `--bin`
+- `--bench`
+- `--release`
+- etc.
+
+### Example Validation Scenarios
+
+**Scenario 1: Missing executable**
+```json
+// Input command:
+"pytest --verbose"
+
+// When Python/pytest not on PATH:
+{
+  "error": "EXECUTABLE_NOT_FOUND",
+  "message": "Executable 'pytest' not found on PATH. Install Python and pytest."
+}
+````
+
+**Scenario 2: Missing npm script**
+
+```json
+// Input command:
+"npm run test:integration"
+
+// When package.json has no "test:integration" script:
+{
+  "error": "SCRIPT_NOT_FOUND",
+  "message": "Script 'test:integration' not found in package.json"
+}
 ```
+
+**Scenario 3: Incompatible runner flag**
+
+```json
+// Input command:
+"npm test -- --testPathIgnorePatterns=node_modules"
+
+// When package.json script runs Vitest:
+{
+  "error": "RUNNER_FLAG_INCOMPATIBLE",
+  "message": "Flag '--testPathIgnorePatterns' is incompatible with runner 'vitest'. This is a Jest-only flag."
+}
+```
+
+### Non-Red Test Exclusions
+
+For TDD workflows, the "non-red" behavioral check (tests that should pass) must exclude red-phase test files to avoid import/load failures before name filtering applies.
+
+Orchestra automatically adds exclusions using runner-appropriate flags:
+
+**Vitest:**
+
+```bash
+npm test -- --exclude "test/feature.test.ts" --exclude "test/auth.test.ts"
+```
+
+**Jest:**
+
+```bash
+npm test -- --testPathIgnorePatterns="test/feature.test.ts|test/auth.test.ts"
+```
+
+**Flutter:**
+
+```bash
+flutter test --exclude-tags tdd-red
+```
+
+**Pytest:**
+
+```bash
+pytest -m "not tdd_red"
+```
+
+### When Validation Occurs
+
+**During `prepare_task`:**
+
+- All behavioral checks are validated before task enters IMPLEMENT phase
+- Blocking errors prevent task preparation
+- Orchestrator must fix invalid checks
+
+**During `update_verification`:**
+
+- Any new or modified behavioral checks are validated
+- Blocking errors prevent verification update
+- Orchestrator must provide valid commands
+
+**Benefits:**
+
+- Implementor never receives a task with broken verification commands
+- No failed VERIFY cycles due to command/path configuration errors
+- Clear, actionable error messages for orchestrator
+- Reduces escalation loops and rework
 
 ---
 
@@ -267,7 +550,7 @@ tdd:
     dart_tag: "tdd-red"
     dart_red_command: "flutter test --tags tdd-red"
     dart_green_command: "flutter test --exclude-tags tdd-red"
-    
+
     # TypeScript project settings
     typescript_directory: "test/tdd-red"
     typescript_red_command: "npm test -- test/tdd-red"
@@ -313,6 +596,7 @@ tdd:
 **Symptom**: "All tests must pass" error during pre-signal
 
 **Solution**:
+
 1. Verify `tdd_red_phase: true` is set on task
 2. Check test has correct marker:
    - Dart: `@Tags(['tdd-red'])`
@@ -331,6 +615,7 @@ tdd:
 **Symptom**: Test that should pass is still failing
 
 **Solution**:
+
 1. Check if cleanup ran - markers should be removed
 2. Verify you're running ALL tests, not just red tests
 3. Implement the feature to make test pass
@@ -342,6 +627,7 @@ tdd:
 
 **Solution**:
 Orchestrator runs cleanup automatically during `prepare_task`. If markers persist:
+
 1. Check git status - should see cleanup commit
 2. Manually remove markers if needed:
    - Dart: Search for `@Tags(['tdd-red'])` and remove
@@ -353,6 +639,7 @@ Orchestrator runs cleanup automatically during `prepare_task`. If markers persis
 ## Example: Complete Red-Green Cycle
 
 ### Sprint Context
+
 - **Feature**: User password reset via email
 - **Approach**: TDD red-green workflow
 
@@ -366,12 +653,13 @@ dependencies: []
 ```
 
 **Implementor action**:
+
 ```dart
 @Tags(['tdd-red'])
 test('should send password reset email with valid token', () async {
   final service = PasswordResetService();
   final result = await service.requestReset('user@example.com');
-  
+
   expect(result.emailSent, isTrue);
   expect(result.token, hasLength(32));
   expect(result.expiresAt, isAfter(DateTime.now()));
@@ -379,6 +667,7 @@ test('should send password reset email with valid token', () async {
 ```
 
 **Pre-signal check**:
+
 ```
 ✅ flutter test --tags tdd-red → EXIT 1 (fails as expected)
 ✅ flutter test --exclude-tags tdd-red → EXIT 0 (no regressions)
@@ -392,6 +681,7 @@ test('should send password reset email with valid token', () async {
 ### Task 13 (GREEN): Implement password reset
 
 **Before task prepare**:
+
 ```
 🧹 Orchestrator cleanup:
    - Detected @Tags(['tdd-red']) in test/auth/password_reset_test.dart
@@ -407,18 +697,19 @@ dependencies: [12]
 ```
 
 **Implementor action**:
+
 ```dart
 class PasswordResetService {
   Future<ResetResult> requestReset(String email) async {
     final token = _generateSecureToken(32);
     final expiresAt = DateTime.now().add(Duration(hours: 24));
-    
+
     await _emailService.send(
       to: email,
       subject: 'Password Reset',
       body: 'Your reset token: $token',
     );
-    
+
     return ResetResult(
       emailSent: true,
       token: token,
@@ -429,6 +720,7 @@ class PasswordResetService {
 ```
 
 **Pre-signal check**:
+
 ```
 ✅ flutter test → EXIT 0 (all 49 tests pass, including formerly-red test)
 ```
@@ -459,14 +751,14 @@ if (task.tdd_red_phase) {
   // Dual verification mode
   const redResult = await executeCommand(config.tdd.red_command);
   const greenResult = await executeCommand(config.tdd.green_command);
-  
+
   if (redResult.exitCode !== 1) {
     return { passed: false, error: "Red test must fail" };
   }
   if (greenResult.exitCode !== 0) {
     return { passed: false, error: "Green tests must pass" };
   }
-  
+
   return { passed: true };
 } else {
   // Normal verification mode
@@ -505,5 +797,4 @@ if (cleanup.cleaned) {
 ## Changelog
 
 | Version | Date | Changes |
-|---------|------|---------|
-| 1.0.0 | 2026-01-13 | Initial documentation for TDD red-green workflow |
+|---------|------|---------|| 2.0.0 | 2026-01-19 | Added environment requirement documentation, behavioral command validation rules, error codes, runner detection and flag compatibility || 1.0.0 | 2026-01-13 | Initial documentation for TDD red-green workflow |

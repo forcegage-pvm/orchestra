@@ -260,7 +260,7 @@ describe("currentTaskTemplate", () => {
     it("should include updateContent function", () => {
       const html = generateCurrentTaskHtml(mockTaskData, cspSource);
 
-      expect(html).toContain("function updateContent(taskData)");
+      expect(html).toContain("function updateContent(data)");
     });
 
     it("should include openTask function", () => {
@@ -350,6 +350,185 @@ describe("currentTaskTemplate", () => {
 
       expect(html).toContain("Ready");
       expect(html).toContain("codicon-circle-outline");
+    });
+  });
+
+  describe("Code Review Action Integration", () => {
+    it("should show code review action for completed tasks", () => {
+      const completedTask: TaskData = {
+        ...mockTaskData,
+        status: "COMPLETE",
+        statusDisplay: {
+          label: "Complete",
+          icon: "check-all",
+          color: new ThemeColor("charts.green"),
+          description: "Task is complete",
+          actionLabel: "Review",
+        },
+      };
+
+      const html = generateCurrentTaskHtml(completedTask, cspSource);
+
+      expect(html).toMatch(/run.*code.*review|code.*review.*task/i);
+    });
+
+    it("should not show code review action for non-completed tasks", () => {
+      const html = generateCurrentTaskHtml(mockTaskData, cspSource);
+
+      // IMPLEMENT status should not show code review button
+      expect(html).not.toMatch(/run.*code.*review.*this.*task/i);
+    });
+
+    it("should include runCodeReview function in JavaScript", () => {
+      const completedTask: TaskData = {
+        ...mockTaskData,
+        status: "COMPLETE",
+        statusDisplay: {
+          label: "Complete",
+          icon: "check-all",
+          color: new ThemeColor("charts.green"),
+          description: "Task is complete",
+          actionLabel: "Review",
+        },
+      };
+
+      const html = generateCurrentTaskHtml(completedTask, cspSource);
+
+      expect(html).toContain("function runCodeReview(taskId)");
+    });
+
+    it("should call postMessage with runCodeReview command", () => {
+      const completedTask: TaskData = {
+        ...mockTaskData,
+        status: "COMPLETE",
+        statusDisplay: {
+          label: "Complete",
+          icon: "check-all",
+          color: new ThemeColor("charts.green"),
+          description: "Task is complete",
+          actionLabel: "Review",
+        },
+      };
+
+      const html = generateCurrentTaskHtml(completedTask, cspSource);
+
+      expect(html).toMatch(/command:\s*['"]runCodeReview['"]/);
+    });
+
+    it("should pass taskId to runCodeReview command", () => {
+      const completedTask: TaskData = {
+        ...mockTaskData,
+        status: "COMPLETE",
+        statusDisplay: {
+          label: "Complete",
+          icon: "check-all",
+          color: new ThemeColor("charts.green"),
+          description: "Task is complete",
+          actionLabel: "Review",
+        },
+      };
+
+      const html = generateCurrentTaskHtml(completedTask, cspSource);
+
+      expect(html).toContain('onclick="runCodeReview(1)"');
+    });
+
+    it("should allow re-review even if already reviewed", () => {
+      const reviewedTask: TaskData = {
+        ...mockTaskData,
+        status: "COMPLETE",
+        statusDisplay: {
+          label: "Complete",
+          icon: "check-all",
+          color: new ThemeColor("charts.green"),
+          description: "Task is complete and reviewed",
+          actionLabel: "Review",
+        },
+        // Task has been reviewed, but re-review should still be available
+      };
+
+      const html = generateCurrentTaskHtml(reviewedTask, cspSource);
+
+      // Should still show code review button
+      expect(html).toMatch(/run.*code.*review/i);
+    });
+
+    it("should use appropriate icon for code review button", () => {
+      const completedTask: TaskData = {
+        ...mockTaskData,
+        status: "COMPLETE",
+        statusDisplay: {
+          label: "Complete",
+          icon: "check-all",
+          color: new ThemeColor("charts.green"),
+          description: "Task is complete",
+          actionLabel: "Review",
+        },
+      };
+
+      const html = generateCurrentTaskHtml(completedTask, cspSource);
+
+      // Should have an icon (search, checklist, or similar)
+      expect(html).toMatch(/codicon.*-(search|checklist|eye|inspect)/);
+    });
+
+    it("should style code review button as secondary action", () => {
+      const completedTask: TaskData = {
+        ...mockTaskData,
+        status: "COMPLETE",
+        statusDisplay: {
+          label: "Complete",
+          icon: "check-all",
+          color: new ThemeColor("charts.green"),
+          description: "Task is complete",
+          actionLabel: "Review",
+        },
+      };
+
+      const html = generateCurrentTaskHtml(completedTask, cspSource);
+
+      // Should use btn-secondary class
+      expect(html).toMatch(
+        /btn[- ]secondary.*run.*code.*review|run.*code.*review.*btn[- ]secondary/i,
+      );
+    });
+
+    it("should show single-task scope in button label", () => {
+      const completedTask: TaskData = {
+        ...mockTaskData,
+        status: "COMPLETE",
+        statusDisplay: {
+          label: "Complete",
+          icon: "check-all",
+          color: new ThemeColor("charts.green"),
+          description: "Task is complete",
+          actionLabel: "Review",
+        },
+      };
+
+      const html = generateCurrentTaskHtml(completedTask, cspSource);
+
+      // Should indicate this is for "this task" specifically
+      expect(html).toMatch(/this.*task|task.*only/i);
+    });
+
+    it("should not require justification for re-review", () => {
+      const reviewedTask: TaskData = {
+        ...mockTaskData,
+        status: "COMPLETE",
+        statusDisplay: {
+          label: "Complete",
+          icon: "check-all",
+          color: new ThemeColor("charts.green"),
+          description: "Task is complete and reviewed",
+          actionLabel: "Review",
+        },
+      };
+
+      const html = generateCurrentTaskHtml(reviewedTask, cspSource);
+
+      // No modal or justification field should be required
+      expect(html).not.toMatch(/justification|reason.*for.*review/i);
     });
   });
 });

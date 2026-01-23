@@ -37,11 +37,13 @@ export const FORBIDDEN_PATTERNS = {
    * - "see Task 3"
    * - "after task-005"
    * - "depends on Task #4"
+   *
+   * NOTE: Excludes @orchestra-task: N format which is legitimate TDD annotation
    */
   TASK_REFERENCES: [
     /\btask\s+\d+/i,
     /\btask\s+#\d+/i,
-    /task[-_]\d+/i,
+    /(?<!@orchestra-)task[-_]\d+/i, // Exclude @orchestra-task: N format
     /see\s+task\s+\d+/i,
     /after\s+task/i,
     /\(not\s+started\)/i,

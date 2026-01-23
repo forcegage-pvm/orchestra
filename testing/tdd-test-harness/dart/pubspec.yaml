@@ -1,0 +1,9 @@
+name: tdd_test_harness
+description: Test harness for TDD red/green workflow - tests runner filtering AND scanner extraction
+version: 1.0.0
+
+environment:
+  sdk: ^3.0.0
+
+dev_dependencies:
+  test: ^1.24.0

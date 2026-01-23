@@ -146,6 +146,24 @@ describe("handover-validation", () => {
         expect(result.valid).toBe(false);
         expect(result.violations.length).toBeGreaterThan(0);
       });
+
+      it("should ALLOW @orchestra-task: N format", () => {
+        const context =
+          "Add // @orchestra-task: 3 comment at the top of the file. " +
+          "This links the file to the task for TDD tracking.";
+        const result = validateHandoverContext(context);
+        expect(result.valid).toBe(true);
+        expect(result.violations).toHaveLength(0);
+      });
+
+      it("should ALLOW TDD marker format tdd-red", () => {
+        const context =
+          "Use [tdd-red] in test name or @Tags(['tdd-red']) annotation. " +
+          "The // @orchestra-task: N comment links to the task.";
+        const result = validateHandoverContext(context);
+        expect(result.valid).toBe(true);
+        expect(result.violations).toHaveLength(0);
+      });
     });
 
     describe("sprint structure references", () => {
@@ -387,7 +405,7 @@ describe("handover-validation", () => {
         const message = (error as Error).message;
         expect(message).toContain("ACTION REQUIRED");
         expect(message).toContain(
-          "Extract relevant content into the context field"
+          "Extract relevant content into the context field",
         );
       }
     });

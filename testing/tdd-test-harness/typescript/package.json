@@ -1,0 +1,16 @@
+{
+  "name": "tdd-test-harness-typescript",
+  "version": "1.0.0",
+  "description": "TypeScript test harness for validating TDD red/green verification checks",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "vitest run",
+    "test:red": "vitest run --testNamePattern=\"\\[tdd-red\\]\"",
+    "test:non-red": "vitest run --testNamePattern=\"^(?!.*\\[tdd-red\\])\"",
+    "test:watch": "vitest"
+  },
+  "devDependencies": {
+    "vitest": "^1.6.0"
+  }
+}

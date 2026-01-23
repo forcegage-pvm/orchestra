@@ -19,6 +19,7 @@ import {
   runPreSignalChecks,
   type PreSignalConfig,
 } from "../../core/pre-signal-executor.js";
+import { scanForTddMarkers } from "../../core/tdd-scan-on-signal.js";
 import {
   getActiveSprint,
   getDb,
@@ -31,6 +32,7 @@ import {
   sprintSettings,
   sprints,
   tasks,
+  tddRedRegistry,
 } from "../../db/schema.js";
 import {
   SignalCompletionInputSchema,
@@ -67,7 +69,7 @@ export async function handleSignalCompletion(input: unknown) {
         taskId: validation.data.task_id,
       },
       { success: true, output },
-      durationMs
+      durationMs,
     );
 
     return {
@@ -86,7 +88,7 @@ export async function handleSignalCompletion(input: unknown) {
         taskId: validation.data.task_id,
       },
       { success: false, errorMessage: err.message },
-      durationMs
+      durationMs,
     );
 
     return {
@@ -102,7 +104,7 @@ export async function handleSignalCompletion(input: unknown) {
               },
             },
             null,
-            2
+            2,
           ),
         },
       ],
@@ -111,7 +113,7 @@ export async function handleSignalCompletion(input: unknown) {
 }
 
 async function signalCompletion(
-  input: typeof SignalCompletionInputSchema._output
+  input: typeof SignalCompletionInputSchema._output,
 ): Promise<SignalCompletionOutput> {
   const db = getDb();
 
@@ -127,7 +129,7 @@ async function signalCompletion(
     .select()
     .from(tasks)
     .where(
-      and(eq(tasks.sprint_id, sprint.id), eq(tasks.task_id, input.task_id))
+      and(eq(tasks.sprint_id, sprint.id), eq(tasks.task_id, input.task_id)),
     )
     .limit(1);
 
@@ -137,8 +139,22 @@ async function signalCompletion(
 
   // 3. Validate task is in IMPLEMENT or VERIFY_FAILED state (retry)
   if (task.status !== "IMPLEMENT" && task.status !== "VERIFY_FAILED") {
+    // T031a: Provide specific error messages for handover review states
+    if (task.status === "PENDING_HANDOVER_REVIEW") {
+      throw new Error(
+        `Task ${input.task_id} is awaiting Controller handover review. ` +
+          `Cannot signal completion until the handover is approved.`,
+      );
+    }
+    if (task.status === "HANDOVER_REVIEW_FAILED") {
+      throw new Error(
+        `Task ${input.task_id} handover was rejected by Controller. ` +
+          `Orchestrator must resubmit the handover before implementation can proceed.`,
+      );
+    }
+
     throw new Error(
-      `Task ${input.task_id} is in ${task.status} state, expected IMPLEMENT or VERIFY_FAILED`
+      `Task ${input.task_id} is in ${task.status} state, expected IMPLEMENT or VERIFY_FAILED`,
     );
   }
 
@@ -168,6 +184,7 @@ async function signalCompletion(
   // Pass tdd_red_phase from task to executor (Task 19)
   if (task.tdd_red_phase) {
     preSignalConfig.tddRedPhase = true;
+    preSignalConfig.taskId = task.task_id;
   }
   const preSignalChecks = await runPreSignalChecks(preSignalConfig);
 
@@ -179,7 +196,7 @@ async function signalCompletion(
   }));
   const artifactValidation = await validateArtifacts(
     artifacts,
-    preSignalConfig.workspacePath
+    preSignalConfig.workspacePath,
   );
 
   const allChecksPassed =
@@ -200,41 +217,171 @@ async function signalCompletion(
 
   if (!allChecksPassed) {
     const failures: string[] = [];
+    const timeouts: string[] = [];
+
+    // Track timeouts separately - they're infrastructure issues, not implementation failures
+    if (preSignalChecks.build.timedOut) {
+      timeouts.push("build");
+    }
+    if (preSignalChecks.test.timedOut) {
+      timeouts.push("test");
+    }
+    if (preSignalChecks.lint.timedOut) {
+      timeouts.push("lint");
+    }
 
     if (!preSignalChecks.build.passed) {
       failures.push(
-        `Build failed${
-          preSignalChecks.build.output
-            ? `: ${preSignalChecks.build.output}`
-            : ""
-        }`
+        preSignalChecks.build.timedOut
+          ? `Build TIMED OUT (consider increasing pre_signal_timeout, current: ${preSignalConfig.timeout ?? 300000}ms)`
+          : `Build failed${
+              preSignalChecks.build.output
+                ? `: ${preSignalChecks.build.output}`
+                : ""
+            }`,
       );
     }
     if (!preSignalChecks.test.passed) {
       failures.push(
-        `Tests failed${
-          preSignalChecks.test.output ? `: ${preSignalChecks.test.output}` : ""
-        }`
+        preSignalChecks.test.timedOut
+          ? `Tests TIMED OUT after ${preSignalChecks.test.duration_ms}ms (consider increasing pre_signal_timeout, current: ${preSignalConfig.timeout ?? 300000}ms)`
+          : `Tests failed${
+              preSignalChecks.test.output
+                ? `: ${preSignalChecks.test.output}`
+                : ""
+            }`,
       );
     }
     if (!preSignalChecks.lint.passed) {
       failures.push(
-        `Lint failed${
-          preSignalChecks.lint.output ? `: ${preSignalChecks.lint.output}` : ""
-        }`
+        preSignalChecks.lint.timedOut
+          ? `Lint TIMED OUT (consider increasing pre_signal_timeout, current: ${preSignalConfig.timeout ?? 300000}ms)`
+          : `Lint failed${
+              preSignalChecks.lint.output
+                ? `: ${preSignalChecks.lint.output}`
+                : ""
+            }`,
       );
     }
     if (!artifactValidation.allValid) {
       failures.push(
-        `Missing artifacts: ${artifactValidation.missing.join(", ")}`
+        `Missing artifacts: ${artifactValidation.missing.join(", ")}`,
       );
     }
+    // TDD validation errors
+    if (
+      preSignalChecks.tddValidation &&
+      !preSignalChecks.tddValidation.success
+    ) {
+      const tddErrors = preSignalChecks.tddValidation.errors || [];
+      const errorCount = tddErrors.length;
+      const sampleErrors = tddErrors.slice(0, 3); // Show first 3 errors
+      const errorSummary = sampleErrors
+        .map((e: { type: string; testIdentifier?: string }) => {
+          const shortId = e.testIdentifier
+            ? e.testIdentifier.split("::").slice(-1)[0]
+            : "unknown";
+          return `${e.type}: ${shortId}`;
+        })
+        .join("; ");
+      const moreText =
+        errorCount > 3 ? ` (+${errorCount - 3} more errors)` : "";
+      failures.push(`TDD validation failed: ${errorSummary}${moreText}`);
+    }
+
+    // Provide clearer guidance if timeouts occurred
+    const timeoutGuidance =
+      timeouts.length > 0
+        ? ` [INFRASTRUCTURE ISSUE: ${timeouts.join(", ")} timed out - this may not be an implementation problem. Increase pre_signal_timeout and retry.]`
+        : "";
 
     throw new Error(
       `Pre-signal checks failed (signal_id: ${signalId}): ${failures.join(
-        "; "
-      )}`
+        "; ",
+      )}${timeoutGuidance}`,
     );
+  }
+
+  // 6b. ALWAYS scan for TDD markers and update registry (complete snapshot)
+  // This runs on EVERY signal_completion to maintain accurate registry state
+  const workspacePath = resolveWorkspacePath();
+  const scanResult = await scanForTddMarkers(workspacePath);
+
+  // Delete ALL registry entries for this sprint (fresh snapshot)
+  await db
+    .delete(tddRedRegistry)
+    .where(eq(tddRedRegistry.sprint_id, sprint.id));
+
+  // Get task internal IDs for all tasks in sprint (for mapping task_id -> internal id)
+  const sprintTasks = await db
+    .select({ id: tasks.id, task_id: tasks.task_id })
+    .from(tasks)
+    .where(eq(tasks.sprint_id, sprint.id));
+  const taskIdToInternalId = new Map(sprintTasks.map((t) => [t.task_id, t.id]));
+
+  // Insert fresh entries for ALL tasks found in scan
+  for (const [taskId, files] of scanResult.testsByTask) {
+    const taskInternalId = taskIdToInternalId.get(taskId);
+    if (taskInternalId !== undefined) {
+      // Only insert if task belongs to this sprint
+      for (const file of files) {
+        await db.insert(tddRedRegistry).values({
+          sprint_id: sprint.id,
+          red_task_id: taskInternalId,
+          test_file: file.test_file,
+          test_count: file.test_count,
+          created_at: now,
+        });
+      }
+    }
+  }
+
+  // 6c. Check for files with tdd-red markers but missing // @orchestra-task: N
+  if (
+    scanResult.filesWithoutTaskId &&
+    scanResult.filesWithoutTaskId.length > 0
+  ) {
+    throw new Error(
+      `TDD-RED FILE MISSING TASK-ID:\n\n` +
+        `The following files have @Tags(['tdd-red']) or [tdd-red] markers\n` +
+        `but are missing the task-ID annotation:\n\n` +
+        scanResult.filesWithoutTaskId.map((f) => `  - ${f}`).join("\n") +
+        `\n\nAdd at the top of each file:\n` +
+        `  // @orchestra-task: ${task.task_id}\n\n` +
+        `This is REQUIRED for Orchestra to track when these tests must transition\n` +
+        `to green. Without it, there's no enforcement of when implementation\n` +
+        `happens (Ground Zero failure).`,
+    );
+  }
+
+  // 6d. If this is a red-phase task, validate it has markers in registry
+  if (task.tdd_red_phase) {
+    const taskMarkers = scanResult.testsByTask.get(task.task_id);
+    if (!taskMarkers || taskMarkers.length === 0) {
+      throw new Error(
+        `TDD RED-PHASE WORKFLOW VIOLATION:\n\n` +
+          `Task ${task.task_id} has tdd_red_phase=true but no TDD markers were found.\n\n` +
+          `REQUIRED FORMAT (per DESIGN.md):\n` +
+          `  1. Add test runner filtering tag (NO task ID in tag):\n` +
+          `     TypeScript: [tdd-red] in test/describe name\n` +
+          `     Dart: @Tags(['tdd-red']) or tags: ['tdd-red']\n\n` +
+          `  2. Add task linking comment at TOP of file:\n` +
+          `     // @orchestra-task: ${task.task_id}\n\n` +
+          `EXAMPLE (TypeScript):\n` +
+          `  // @orchestra-task: ${task.task_id}\n` +
+          `  describe('[tdd-red] Feature', () => {\n` +
+          `    it('[tdd-red] should work', () => { ... });\n` +
+          `  });\n\n` +
+          `EXAMPLE (Dart):\n` +
+          `  // @orchestra-task: ${task.task_id}\n` +
+          `  @Tags(['tdd-red'])\n` +
+          `  library;\n` +
+          `  void main() { ... }\n\n` +
+          `Red and green phases MUST be separate tasks:\n` +
+          `- Red task: Write failing tests, KEEP markers, signal completion\n` +
+          `- Green task: Implement feature, remove markers, signal completion`,
+      );
+    }
   }
 
   // 7. Auto-commit implementation changes if enabled
@@ -295,7 +442,7 @@ async function signalCompletion(
     status: "GATE_CHECK",
     pre_signal_checks: preSignalChecks,
     next_step: "Orchestrator will run verification checks",
-    git_commit: gitResult.committed ? gitResult.sha ?? undefined : undefined,
+    git_commit: gitResult.committed ? (gitResult.sha ?? undefined) : undefined,
   };
 }
 
@@ -332,8 +479,8 @@ async function getPreSignalConfig(): Promise<PreSignalConfig> {
       .where(
         and(
           eq(sprintSettings.sprint_id, activeSprint.id),
-          inArray(sprintSettings.key, configKeys)
-        )
+          inArray(sprintSettings.key, configKeys),
+        ),
       );
 
     for (const row of sprintConfigRows) {

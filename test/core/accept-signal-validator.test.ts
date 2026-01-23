@@ -5,12 +5,9 @@
  * before verification checks can proceed.
  */
 
-import fs from "node:fs";
-import os from "node:os";
-import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { validateAcceptSignal } from "../../src/core/accept-signal-validator.js";
-import { getDb, initializeDb, resetDb } from "../../src/db/index.js";
+import { getDb } from "../../src/db/index.js";
 import {
   phases,
   signals,
@@ -18,16 +15,13 @@ import {
   tasks,
   verificationChecks,
 } from "../../src/db/schema.js";
+import { cleanupTestDb, setupTestDb } from "../setup/db-cache.js";
 
 describe("Accept Signal Validator", () => {
   let tempDir: string;
 
   beforeEach(async () => {
-    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "accept-signal-"));
-    process.env.ORCHESTRA_WORKSPACE = tempDir;
-
-    resetDb();
-    await initializeDb();
+    tempDir = await setupTestDb("accept-signal-");
     const db = getDb();
 
     // Create test sprint
@@ -66,9 +60,7 @@ describe("Accept Signal Validator", () => {
   });
 
   afterEach(async () => {
-    resetDb();
-    fs.rmSync(tempDir, { recursive: true, force: true });
-    delete process.env.ORCHESTRA_WORKSPACE;
+    await cleanupTestDb(tempDir);
   });
 
   describe("ASV-1: Signal exists", () => {
@@ -77,7 +69,7 @@ describe("Accept Signal Validator", () => {
 
       expect(result.status).toBe("REJECTED");
       expect(result.checks.find((c) => c.check_id === "ASV-1")?.passed).toBe(
-        false
+        false,
       );
     });
 
@@ -112,7 +104,7 @@ describe("Accept Signal Validator", () => {
       const result = await validateAcceptSignal(1);
 
       expect(result.checks.find((c) => c.check_id === "ASV-1")?.passed).toBe(
-        true
+        true,
       );
     });
   });
@@ -138,7 +130,7 @@ describe("Accept Signal Validator", () => {
 
       expect(result.status).toBe("REJECTED");
       expect(result.checks.find((c) => c.check_id === "ASV-2")?.passed).toBe(
-        false
+        false,
       );
     });
 
@@ -172,7 +164,7 @@ describe("Accept Signal Validator", () => {
       const result = await validateAcceptSignal(1);
 
       expect(result.checks.find((c) => c.check_id === "ASV-2")?.passed).toBe(
-        true
+        true,
       );
     });
   });
@@ -183,7 +175,7 @@ describe("Accept Signal Validator", () => {
 
       // Create signal that's 2 hours old
       const twoHoursAgo = new Date(
-        Date.now() - 2 * 60 * 60 * 1000
+        Date.now() - 2 * 60 * 60 * 1000,
       ).toISOString();
       await db.insert(signals).values({
         id: 1,
@@ -203,7 +195,7 @@ describe("Accept Signal Validator", () => {
 
       expect(result.status).toBe("REJECTED");
       expect(result.checks.find((c) => c.check_id === "ASV-3")?.passed).toBe(
-        false
+        false,
       );
     });
 
@@ -237,7 +229,7 @@ describe("Accept Signal Validator", () => {
       const result = await validateAcceptSignal(1, { maxAgeMinutes: 60 });
 
       expect(result.checks.find((c) => c.check_id === "ASV-3")?.passed).toBe(
-        true
+        true,
       );
     });
   });
@@ -251,7 +243,7 @@ describe("Accept Signal Validator", () => {
 
       expect(result.status).toBe("REJECTED");
       expect(result.checks.find((c) => c.check_id === "ASV-4")?.passed).toBe(
-        false
+        false,
       );
     });
 
@@ -285,7 +277,7 @@ describe("Accept Signal Validator", () => {
       const result = await validateAcceptSignal(1);
 
       expect(result.checks.find((c) => c.check_id === "ASV-4")?.passed).toBe(
-        true
+        true,
       );
     });
   });
@@ -313,7 +305,7 @@ describe("Accept Signal Validator", () => {
 
       expect(result.status).toBe("REJECTED");
       expect(result.checks.find((c) => c.check_id === "ASV-5")?.passed).toBe(
-        false
+        false,
       );
     });
 
@@ -347,7 +339,7 @@ describe("Accept Signal Validator", () => {
       const result = await validateAcceptSignal(1);
 
       expect(result.checks.find((c) => c.check_id === "ASV-5")?.passed).toBe(
-        true
+        true,
       );
     });
   });

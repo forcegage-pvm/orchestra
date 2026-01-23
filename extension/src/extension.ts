@@ -8,8 +8,10 @@
 import * as fs from "fs";
 import * as path from "path";
 import * as vscode from "vscode";
+import { AgentRunner, ToolRegistry } from "./agents/index.js";
 import { SessionManager } from "./chat/SessionManager.js";
 import { handlePlayTask } from "./commands/PlayTaskHandler.js";
+import { handleReviewSprint } from "./commands/ReviewSprintHandler.js";
 import {
   handleDeEscalateTask,
   handleForceComplete,
@@ -18,18 +20,29 @@ import {
 } from "./commands/deEscalation.js";
 import { ConfigService } from "./config/ConfigService.js";
 import { OrchestraDB } from "./database/client.js";
+import {
+  getCompletedUnreviewedTasks,
+  getCurrentSprint,
+  getHandover,
+  getLatestCodeReviewForTask,
+  getOpenCodeReviewIssues,
+  getTaskById,
+} from "./database/queries.js";
 import { DatabaseWatcher } from "./database/watcher.js";
 import { ConfigGenerator } from "./mcp/ConfigGenerator.js";
 import { registerMcpServerProvider } from "./mcp/McpServerProvider.js";
 import { MCPServerManager } from "./mcp/ServerManager.js";
 import { ContextFileResolver } from "./prompts/ContextFileResolver.js";
+import { PromptBuilder } from "./prompts/PromptBuilder.js";
 import { OrchestraLogger } from "./utils/logger.js";
 import { DashboardPanel } from "./views/dashboard/DashboardPanel.js";
 import { OrchestraViewDecorationProvider } from "./views/providers/ViewDecorationProvider.js";
 import { SprintSettingsPanel } from "./views/settings/SprintSettingsPanel.js";
 import { StatusBarManager } from "./views/statusbar/StatusBarItem.js";
 import { TaskDetailPanel } from "./views/task/TaskDetailPanel.js";
+import { CodeReviewTreeProvider } from "./views/treeview/CodeReviewTreeProvider.js";
 import { SprintTreeProvider } from "./views/treeview/SprintTreeProvider.js";
+import { CodeReviewSummaryPanel } from "./views/webview/CodeReviewSummaryPanel.js";
 import { CurrentTaskViewProvider } from "./views/webview/CurrentTaskViewProvider.js";
 import {
   findOrchestraRoot,
@@ -42,6 +55,40 @@ let sessionManager: SessionManager | undefined;
 let contextFileResolver: ContextFileResolver | undefined;
 let dbWatcher: DatabaseWatcher | undefined;
 let mcpManager: MCPServerManager | undefined;
+let agentRunner: AgentRunner | undefined;
+
+async function openAgentChat(
+  participant:
+    | "orchestra.implementor"
+    | "orchestra.controller"
+    | "orchestra.orchestrator",
+  prompt: string,
+): Promise<void> {
+  await vscode.commands.executeCommand("workbench.action.chat.open", {
+    query: prompt,
+    participant,
+  });
+}
+
+async function promptForTaskNumber(
+  prompt: string,
+): Promise<number | undefined> {
+  const input = await vscode.window.showInputBox({
+    prompt,
+    placeHolder: "e.g., 5",
+    validateInput: (value) =>
+      Number.isNaN(Number.parseInt(value, 10))
+        ? "Enter a numeric task ID"
+        : undefined,
+  });
+
+  if (!input) {
+    return undefined;
+  }
+
+  const taskNumber = Number.parseInt(input, 10);
+  return Number.isNaN(taskNumber) ? undefined : taskNumber;
+}
 
 /**
  * Get the ConfigService instance
@@ -72,7 +119,7 @@ export function getSessionManager(): SessionManager {
 export function getContextFileResolver(): ContextFileResolver {
   if (!contextFileResolver) {
     throw new Error(
-      "ContextFileResolver not initialized. Orchestra workspace not detected."
+      "ContextFileResolver not initialized. Orchestra workspace not detected.",
     );
   }
   return contextFileResolver;
@@ -84,7 +131,7 @@ export function getContextFileResolver(): ContextFileResolver {
  */
 async function installMcpServers(
   orchestraRoot: string,
-  extensionPath: string
+  extensionPath: string,
 ): Promise<void> {
   const workspaceFolders = vscode.workspace.workspaceFolders;
   if (!workspaceFolders || workspaceFolders.length === 0) {
@@ -103,7 +150,7 @@ async function installMcpServers(
   const serverPath = path.join(extensionPath, "dist", "mcp-server", "index.js");
   if (!fs.existsSync(serverPath)) {
     throw new Error(
-      "Bundled MCP server not found. Extension may be corrupted."
+      "Bundled MCP server not found. Extension may be corrupted.",
     );
   }
 
@@ -120,7 +167,7 @@ async function installMcpServers(
       throw new Error(
         `Failed to parse existing mcp.json: ${
           error instanceof Error ? error.message : "Unknown error"
-        }`
+        }`,
       );
     }
   }
@@ -143,6 +190,15 @@ async function installMcpServers(
       ORCHESTRA_WORKSPACE: orchestraRoot,
     },
   };
+  // T032/ISSUE-009: Controller MCP server for Controller Agent
+  existingConfig.servers["orchestra-ctl"] = {
+    type: "stdio",
+    command: "node",
+    args: [serverPath, "--role=controller"],
+    env: {
+      ORCHESTRA_WORKSPACE: orchestraRoot,
+    },
+  };
 
   // Ensure .vscode directory exists
   if (!fs.existsSync(vscodeDir)) {
@@ -153,7 +209,7 @@ async function installMcpServers(
   fs.writeFileSync(
     mcpJsonPath,
     JSON.stringify(existingConfig, null, 2),
-    "utf-8"
+    "utf-8",
   );
 }
 
@@ -163,7 +219,7 @@ async function installMcpServers(
  */
 function ensureAgentFiles(
   context: vscode.ExtensionContext,
-  workspaceRoot: string
+  workspaceRoot: string,
 ): void {
   const agentsDir = path.join(workspaceRoot, ".github", "agents");
 
@@ -178,6 +234,7 @@ function ensureAgentFiles(
   const agentFiles = [
     "orchestra.orchestrator.agent.md",
     "orchestra.implementor.agent.md",
+    "orchestra.controller.agent.md", // T032/ISSUE-010: Controller Agent prompt
   ];
 
   for (const agentFile of agentFiles) {
@@ -198,7 +255,7 @@ function ensureAgentFiles(
  * Creates .orchestra folder and empty database
  */
 async function initializeWorkspace(
-  context: vscode.ExtensionContext
+  context: vscode.ExtensionContext,
 ): Promise<void> {
   const workspaceFolders = vscode.workspace.workspaceFolders;
   if (!workspaceFolders || workspaceFolders.length === 0) {
@@ -209,7 +266,7 @@ async function initializeWorkspace(
   const workspaceRoot = workspaceFolders[0]?.uri.fsPath;
   if (!workspaceRoot) {
     vscode.window.showErrorMessage(
-      "Orchestra: Unable to determine workspace root"
+      "Orchestra: Unable to determine workspace root",
     );
     return;
   }
@@ -221,7 +278,7 @@ async function initializeWorkspace(
     const dbPath = path.join(orchestraDir, "orchestra.db");
     if (fs.existsSync(dbPath)) {
       vscode.window.showInformationMessage(
-        "Orchestra: Workspace already initialized. Reloading..."
+        "Orchestra: Workspace already initialized. Reloading...",
       );
       // Reload the window to pick up the workspace
       vscode.commands.executeCommand("workbench.action.reloadWindow");
@@ -242,11 +299,11 @@ async function initializeWorkspace(
     logger.info("Synced .github/agents directory with agent instructions");
 
     // Automatically install MCP servers
-    await installMcpServers(orchestraDir, context.extensionPath);
+    await installMcpServers(workspaceRoot, context.extensionPath);
     logger.info("MCP servers installed to .vscode/mcp.json");
 
     vscode.window.showInformationMessage(
-      "Orchestra: Workspace initialized with MCP servers. Reloading window..."
+      "Orchestra: Workspace initialized with MCP servers. Reloading window...",
     );
 
     // Reload window to activate extension with the new workspace
@@ -255,7 +312,7 @@ async function initializeWorkspace(
     const message = error instanceof Error ? error.message : "Unknown error";
     logger.error("Failed to initialize workspace", error);
     vscode.window.showErrorMessage(
-      `Orchestra: Failed to initialize workspace - ${message}`
+      `Orchestra: Failed to initialize workspace - ${message}`,
     );
   }
 }
@@ -270,13 +327,13 @@ async function handleInvokeOrchestrator(_workspaceRoot: string): Promise<void> {
     await sm.sendMessage(
       "orchestrator",
       "I'm ready to work as the orchestrator agent.",
-      []
+      [],
     );
     logger.info("Orchestrator agent invoked via SessionManager");
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
     vscode.window.showErrorMessage(
-      `Orchestra: Failed to open chat - ${message}`
+      `Orchestra: Failed to open chat - ${message}`,
     );
     logger.error("Failed to invoke orchestrator", error);
   }
@@ -292,13 +349,13 @@ async function handleInvokeImplementor(_workspaceRoot: string): Promise<void> {
     await sm.sendMessage(
       "implementor",
       "I'm ready to work as the implementor agent.",
-      []
+      [],
     );
     logger.info("Implementor agent invoked via SessionManager");
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
     vscode.window.showErrorMessage(
-      `Orchestra: Failed to open chat - ${message}`
+      `Orchestra: Failed to open chat - ${message}`,
     );
     logger.error("Failed to invoke implementor", error);
   }
@@ -310,11 +367,10 @@ async function handleInvokeImplementor(_workspaceRoot: string): Promise<void> {
  */
 async function handleStartTask(
   workspaceRoot: string,
-  taskId: number
+  taskId: number,
 ): Promise<void> {
-  const { getHandover, getTasksForSprint, getCurrentSprint } = await import(
-    "./database/queries.js"
-  );
+  const { getHandover, getTasksForSprint, getCurrentSprint } =
+    await import("./database/queries.js");
 
   try {
     // Get task details
@@ -330,7 +386,7 @@ async function handleStartTask(
 
     if (!task) {
       vscode.window.showErrorMessage(
-        `Orchestra: Task ${taskId} not found in current sprint`
+        `Orchestra: Task ${taskId} not found in current sprint`,
       );
       return;
     }
@@ -339,7 +395,7 @@ async function handleStartTask(
     const handover = getHandover(workspaceRoot, task.id);
     if (!handover) {
       vscode.window.showWarningMessage(
-        `Orchestra: Task ${task.task_id} has no handover yet. Use the orchestrator to prepare it first.`
+        `Orchestra: Task ${task.task_id} has no handover yet. Use the orchestrator to prepare it first.`,
       );
       return;
     }
@@ -353,14 +409,14 @@ async function handleStartTask(
     await sm.sendMessage(
       "implementor",
       `Start working on Task ${task.task_id}: ${task.title}. The handover has been prepared and I'm ready to implement.`,
-      []
+      [],
     );
 
     logger.info(`Task ${task.task_id} started via SessionManager`);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
     vscode.window.showErrorMessage(
-      `Orchestra: Failed to start task - ${message}`
+      `Orchestra: Failed to start task - ${message}`,
     );
     logger.error(`Failed to start task ${taskId}`, error);
   }
@@ -374,7 +430,7 @@ async function handleSetActiveSprint(
   sprintId: string,
   sprintName: string,
   treeProvider: SprintTreeProvider,
-  watcher: DatabaseWatcher
+  watcher: DatabaseWatcher,
 ): Promise<void> {
   const { setActiveSprint } = await import("./database/mutations.js");
 
@@ -382,13 +438,13 @@ async function handleSetActiveSprint(
     const result = setActiveSprint(workspaceRoot, sprintId, watcher);
     treeProvider.refresh();
     vscode.window.showInformationMessage(
-      `Orchestra: "${result.sprintName}" is now the active sprint.`
+      `Orchestra: "${result.sprintName}" is now the active sprint.`,
     );
     logger.info(`Set active sprint: ${sprintId} (${sprintName})`);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
     vscode.window.showErrorMessage(
-      `Orchestra: Failed to set active sprint - ${message}`
+      `Orchestra: Failed to set active sprint - ${message}`,
     );
     logger.error(`Failed to set active sprint ${sprintId}`, error);
   }
@@ -399,7 +455,7 @@ async function handleSetActiveSprint(
  * Triggered when .orchestra/orchestra.db is found in workspace
  */
 export async function activate(
-  context: vscode.ExtensionContext
+  context: vscode.ExtensionContext,
 ): Promise<void> {
   logger = new OrchestraLogger();
 
@@ -411,18 +467,23 @@ export async function activate(
   configService = new ConfigService();
   logger.info("ConfigService initialized");
 
+  // 1. Detect Orchestra workspace
+  const orchestraRoot = findOrchestraRoot();
+
+  if (orchestraRoot) {
+    configService = new ConfigService(orchestraRoot);
+    logger.info("ConfigService initialized with workspace root");
+  }
+
   // Initialize SessionManager
   sessionManager = new SessionManager(logger, configService);
   logger.info("SessionManager initialized");
-
-  // 1. Detect Orchestra workspace
-  const orchestraRoot = findOrchestraRoot();
 
   // Set context for welcome view
   vscode.commands.executeCommand(
     "setContext",
     "orchestra.hasWorkspace",
-    !!orchestraRoot
+    !!orchestraRoot,
   );
 
   // Always register the initialize command (available even without workspace)
@@ -431,8 +492,8 @@ export async function activate(
       "orchestra.initializeWorkspace",
       async () => {
         await initializeWorkspace(context);
-      }
-    )
+      },
+    ),
   );
 
   // Register show version command (always available)
@@ -441,22 +502,21 @@ export async function activate(
       const version = context.extension.packageJSON.version || "0.0.0";
       const workspaceRoot = findOrchestraRoot();
 
-      let message = `Orchestra Extension v${version}`;
-      let details = [`Extension Version: ${version}`];
+      const message = `Orchestra Extension v${version}`;
+      const details = [`Extension Version: ${version}`];
 
       if (workspaceRoot) {
         const dbPath = path.join(workspaceRoot, "orchestra.db");
         if (fs.existsSync(dbPath)) {
           try {
             // Query migrations from database
-            const { loadBetterSqlite3 } = await import(
-              "./database/native-loader.js"
-            );
+            const { loadBetterSqlite3 } =
+              await import("./database/native-loader.js");
             const Database = loadBetterSqlite3();
             const db = new Database(dbPath, { readonly: true });
             const migrations = db
               .prepare(
-                "SELECT id, description, applied_at FROM schema_migrations ORDER BY applied_at"
+                "SELECT id, description, applied_at FROM schema_migrations ORDER BY applied_at",
               )
               .all() as Array<{
               id: string;
@@ -478,12 +538,12 @@ export async function activate(
             details.push(
               `Database: Error reading - ${
                 err instanceof Error ? err.message : "Unknown"
-              }`
+              }`,
             );
           }
         } else {
           details.push(
-            "Database: Not yet created (run configure_sprint via MCP)"
+            "Database: Not yet created (run configure_sprint via MCP)",
           );
         }
       } else {
@@ -505,7 +565,7 @@ export async function activate(
             logger.show();
           }
         });
-    })
+    }),
   );
 
   if (!orchestraRoot) {
@@ -534,7 +594,7 @@ export async function activate(
   try {
     const mcpProviderDisposable = registerMcpServerProvider(
       context,
-      orchestraRoot
+      orchestraRoot,
     );
     context.subscriptions.push(mcpProviderDisposable);
     logger.info("MCP server definition provider registered");
@@ -543,7 +603,7 @@ export async function activate(
     logger.warn(
       `Failed to register MCP provider (may require VS Code 1.102+): ${
         err instanceof Error ? err.message : "Unknown"
-      }`
+      }`,
     );
   }
 
@@ -561,7 +621,7 @@ export async function activate(
       logger.warn(
         `Failed to update MCP config: ${
           err instanceof Error ? err.message : "Unknown"
-        }`
+        }`,
       );
     }
   }
@@ -578,7 +638,7 @@ export async function activate(
     vscode.commands.executeCommand(
       "setContext",
       "orchestra.hasActiveSprint",
-      false
+      false,
     );
 
     // Register empty tree provider for welcome view
@@ -601,21 +661,41 @@ export async function activate(
           try {
             await installMcpServers(orchestraRoot, context.extensionPath);
             vscode.window.showInformationMessage(
-              "Orchestra: MCP servers installed to .vscode/mcp.json"
+              "Orchestra: MCP servers installed to .vscode/mcp.json",
             );
           } catch (error) {
             const message =
               error instanceof Error ? error.message : "Unknown error";
             vscode.window.showErrorMessage(
-              `Orchestra: Failed to install MCP servers - ${message}`
+              `Orchestra: Failed to install MCP servers - ${message}`,
             );
           }
-        }
-      )
+        },
+      ),
     );
 
+    // Start MCP servers even before DB exists (server will create DB on first run)
+    const config = vscode.workspace.getConfiguration("orchestra");
+    const autoStartMCP = config.get<boolean>("autoStartMCP", true);
+
+    if (autoStartMCP) {
+      mcpManager = new MCPServerManager(
+        orchestraRoot,
+        context.extensionPath,
+        logger,
+      );
+      mcpManager.startServer("orchestrator");
+      mcpManager.startServer("implementor");
+      context.subscriptions.push({
+        dispose: () => {
+          mcpManager?.stopAllServers();
+        },
+      });
+      logger.info("MCP servers started (no database mode)");
+    }
+
     logger.info(
-      "Orchestra extension activated (no database mode - use MCP to configure sprint)"
+      "Orchestra extension activated (no database mode - use MCP to configure sprint)",
     );
     return;
   }
@@ -626,7 +706,7 @@ export async function activate(
     orchestraRoot,
     context.extensionPath,
     extensionVersion,
-    logger
+    logger,
   );
   await configGenerator.generateConfig();
   logger.info("MCP config generation complete");
@@ -644,7 +724,7 @@ export async function activate(
       logger.info(
         `Applied ${
           migrationResult.applied
-        } database migration(s): ${migrationResult.migrations.join(", ")}`
+        } database migration(s): ${migrationResult.migrations.join(", ")}`,
       );
     } else {
       logger.info("Database schema is up to date");
@@ -657,7 +737,7 @@ export async function activate(
     vscode.window.showErrorMessage(
       `Orchestra: Cannot open database - ${errorMsg}. ` +
         `The database may be locked by another process or corrupted. ` +
-        `Try: 1) Close other VS Code windows, 2) Restart VS Code, 3) Check if MCP servers are running.`
+        `Try: 1) Close other VS Code windows, 2) Restart VS Code, 3) Check if MCP servers are running.`,
     );
 
     // Register empty tree provider for graceful degradation
@@ -685,13 +765,13 @@ export async function activate(
     const currentTaskProvider = new CurrentTaskViewProvider(
       context.extensionUri,
       orchestraRoot,
-      dbWatcher
+      dbWatcher,
     );
     context.subscriptions.push(
       vscode.window.registerWebviewViewProvider(
         "orchestra.currentTask",
-        currentTaskProvider
-      )
+        currentTaskProvider,
+      ),
     );
     logger.info("Current Task WebviewView registered");
 
@@ -704,10 +784,25 @@ export async function activate(
     context.subscriptions.push(treeView);
     logger.info("Sprint Explorer TreeView registered");
 
+    // 6a. Register Code Review TreeView
+    const codeReviewTreeProvider = new CodeReviewTreeProvider(
+      orchestraRoot,
+      dbWatcher,
+    );
+    const codeReviewTreeView = vscode.window.createTreeView(
+      "orchestra.codeReview",
+      {
+        treeDataProvider: codeReviewTreeProvider,
+        showCollapseAll: true,
+      },
+    );
+    context.subscriptions.push(codeReviewTreeView);
+    logger.info("Code Review TreeView registered");
+
     // 6b. Register FileDecorationProvider for status-based styling (TD-016 DD-4)
     const decorationProvider = new OrchestraViewDecorationProvider();
     context.subscriptions.push(
-      vscode.window.registerFileDecorationProvider(decorationProvider)
+      vscode.window.registerFileDecorationProvider(decorationProvider),
     );
     logger.info("View decoration provider registered");
 
@@ -725,6 +820,7 @@ export async function activate(
       }),
       vscode.commands.registerCommand("orchestra.refreshStatus", () => {
         treeProvider.refresh();
+        codeReviewTreeProvider.refresh();
         statusBar.refresh();
         logger.info("Manual refresh triggered");
       }),
@@ -739,14 +835,14 @@ export async function activate(
               context.extensionUri,
               db,
               dbWatcher,
-              taskId
+              taskId,
             );
           } else {
             vscode.window.showErrorMessage(
-              "Orchestra: Database watcher not initialized"
+              "Orchestra: Database watcher not initialized",
             );
           }
-        }
+        },
       ),
       vscode.commands.registerCommand(
         "orchestra.installMcpServers",
@@ -754,31 +850,31 @@ export async function activate(
           try {
             await installMcpServers(orchestraRoot, context.extensionPath);
             vscode.window.showInformationMessage(
-              "Orchestra: MCP servers installed successfully to .vscode/mcp.json"
+              "Orchestra: MCP servers installed successfully to .vscode/mcp.json",
             );
             logger.info("MCP servers installed to .vscode/mcp.json");
           } catch (error) {
             const message =
               error instanceof Error ? error.message : "Unknown error";
             vscode.window.showErrorMessage(
-              `Orchestra: Failed to install MCP servers - ${message}`
+              `Orchestra: Failed to install MCP servers - ${message}`,
             );
             logger.error("Failed to install MCP servers", error);
           }
-        }
+        },
       ),
       // Agent invocation commands
       vscode.commands.registerCommand(
         "orchestra.invokeOrchestrator",
         async () => {
           await handleInvokeOrchestrator(orchestraRoot);
-        }
+        },
       ),
       vscode.commands.registerCommand(
         "orchestra.invokeImplementor",
         async () => {
           await handleInvokeImplementor(orchestraRoot);
-        }
+        },
       ),
       vscode.commands.registerCommand(
         "orchestra.startTask",
@@ -786,7 +882,7 @@ export async function activate(
           if (element?.task?.id) {
             await handleStartTask(orchestraRoot, element.task.id);
           }
-        }
+        },
       ),
       vscode.commands.registerCommand(
         "orchestra.playTask",
@@ -794,7 +890,7 @@ export async function activate(
           if (element?.task?.id) {
             await handlePlayTask(orchestraRoot, element.task.id);
           }
-        }
+        },
       ),
       // Task remediation commands
       vscode.commands.registerCommand(
@@ -805,10 +901,10 @@ export async function activate(
               orchestraRoot,
               element.task.id,
               treeProvider,
-              dbWatcher
+              dbWatcher,
             );
           }
-        }
+        },
       ),
       vscode.commands.registerCommand(
         "orchestra.moveToGateCheck",
@@ -818,10 +914,10 @@ export async function activate(
               orchestraRoot,
               element.task.id,
               treeProvider,
-              dbWatcher
+              dbWatcher,
             );
           }
-        }
+        },
       ),
       vscode.commands.registerCommand(
         "orchestra.moveToImplement",
@@ -831,10 +927,10 @@ export async function activate(
               orchestraRoot,
               element.task.id,
               treeProvider,
-              dbWatcher
+              dbWatcher,
             );
           }
-        }
+        },
       ),
       vscode.commands.registerCommand(
         "orchestra.forceComplete",
@@ -844,10 +940,10 @@ export async function activate(
               orchestraRoot,
               element.task.id,
               treeProvider,
-              dbWatcher
+              dbWatcher,
             );
           }
-        }
+        },
       ),
       vscode.commands.registerCommand(
         "orchestra.setActiveSprint",
@@ -861,11 +957,744 @@ export async function activate(
               element.sprint.id,
               element.sprint.name,
               treeProvider,
-              dbWatcher
+              dbWatcher,
             );
           }
+        },
+      ),
+      // Code Review commands
+      vscode.commands.registerCommand("orchestra.openCodeReviewSummary", () => {
+        if (!dbWatcher) {
+          vscode.window.showErrorMessage(
+            "Orchestra: Database watcher not initialized",
+          );
+          return;
         }
-      )
+
+        CodeReviewSummaryPanel.createOrShow(
+          context.extensionUri,
+          orchestraRoot,
+          dbWatcher,
+        );
+      }),
+      vscode.commands.registerCommand("orchestra.runAdHocReview", async () => {
+        try {
+          const db = OrchestraDB.getInstance(orchestraRoot);
+          const sprint = getCurrentSprint(orchestraRoot);
+          if (!sprint) {
+            vscode.window.showWarningMessage(
+              "No active sprint found. Cannot trigger ad-hoc reviews.",
+            );
+            return;
+          }
+
+          // Check for existing pending reviews
+          const pendingCount = db
+            .prepare(
+              `SELECT COUNT(*) as count FROM code_reviews WHERE sprint_id = ? AND status = 'PENDING'`,
+            )
+            .get(sprint.id) as { count: number };
+
+          const unreviewedTasks = getCompletedUnreviewedTasks(orchestraRoot);
+
+          // Create reviews for any unreviewed tasks
+          const now = new Date().toISOString();
+          let createdCount = 0;
+          for (const task of unreviewedTasks) {
+            db.prepare(
+              `INSERT INTO code_reviews (sprint_id, task_id, phase_id, review_scope, status, summary, risk, requested_by, requested_at)
+               VALUES (?, ?, ?, 'TASK', 'PENDING', ?, 'LOW', 'orchestrator', ?)`,
+            ).run(
+              sprint.id,
+              task.id,
+              task.phase_id,
+              `Ad-hoc review for task ${task.task_id}: ${task.title}`,
+              now,
+            );
+            createdCount++;
+          }
+
+          const totalPending = pendingCount.count + createdCount;
+
+          if (totalPending === 0) {
+            vscode.window.showInformationMessage(
+              "No pending code reviews to process.",
+            );
+            return;
+          }
+
+          if (createdCount > 0) {
+            vscode.window.showInformationMessage(
+              `Created ${createdCount} new review(s). Launching Controller agent for ${totalPending} pending review(s)...`,
+            );
+          } else {
+            vscode.window.showInformationMessage(
+              `Launching Controller agent for ${totalPending} pending review(s)...`,
+            );
+          }
+
+          // Refresh the code review tree
+          codeReviewTreeProvider?.refresh();
+
+          // Build prompt and invoke Controller agent
+          const promptBuilder = new PromptBuilder();
+          const prompt = promptBuilder.buildCodeReviewPrompt(
+            totalPending,
+            sprint.id,
+            sprint.name,
+          );
+
+          const sm = getSessionManager();
+          await sm.invokeController(prompt, []);
+        } catch (error) {
+          logger.error("Failed to trigger ad-hoc reviews", error);
+          vscode.window.showErrorMessage(
+            `Failed to trigger ad-hoc reviews: ${error instanceof Error ? error.message : String(error)}`,
+          );
+        }
+      }),
+      vscode.commands.registerCommand(
+        "orchestra.fixCodeReviewIssues",
+        async () => {
+          try {
+            const sprint = getCurrentSprint(orchestraRoot);
+            if (!sprint) {
+              vscode.window.showWarningMessage(
+                "No active sprint found. Cannot fix code review issues.",
+              );
+              return;
+            }
+
+            const issues = getOpenCodeReviewIssues(orchestraRoot);
+            if (issues.length === 0) {
+              vscode.window.showInformationMessage(
+                "No open code review issues to fix.",
+              );
+              return;
+            }
+
+            const prompt = [
+              "You are being invoked to fix code review issues.",
+              "Call this tool first to get your full task context and issues:",
+              '{ "tool": "fix_code_review", "params": { "action": "GET_ISSUES" } }',
+              "This returns full handover context and all open issues.",
+            ].join("\n");
+
+            await openAgentChat("orchestra.implementor", prompt);
+          } catch (error) {
+            logger.error("Failed to invoke fix code review issues", error);
+            vscode.window.showErrorMessage(
+              `Failed to invoke fix code review issues: ${error instanceof Error ? error.message : String(error)}`,
+            );
+          }
+        },
+      ),
+      vscode.commands.registerCommand(
+        "orchestra.verifyCodeReviewFixes",
+        async (element?: { task?: { task_id?: number } } | number) => {
+          try {
+            const taskNumber =
+              typeof element === "number"
+                ? element
+                : (element?.task?.task_id ??
+                  (await promptForTaskNumber(
+                    "Enter the task ID to verify fixes for",
+                  )));
+
+            if (!taskNumber) {
+              return;
+            }
+
+            const prompt = [
+              `You are being invoked to verify code review fixes for task ${taskNumber}.`,
+              `Call this tool first: { "tool": "get_code_review", "params": { "task": ${taskNumber} } }`,
+              "Then submit decision with verifying_fixes: true.",
+            ].join("\n");
+
+            await openAgentChat("orchestra.controller", prompt);
+          } catch (error) {
+            logger.error("Failed to invoke verify code review fixes", error);
+            vscode.window.showErrorMessage(
+              `Failed to verify code review fixes: ${error instanceof Error ? error.message : String(error)}`,
+            );
+          }
+        },
+      ),
+      vscode.commands.registerCommand(
+        "orchestra.escalateRejectedReview",
+        async () => {
+          try {
+            const selection = await vscode.window.showQuickPick(
+              [
+                {
+                  label: "Re-assign Task",
+                  description:
+                    "Create a new task and mark original as ESCALATED",
+                  value: "reassign",
+                },
+                {
+                  label: "Mark as Blocked",
+                  description: "Escalate and unblock progression",
+                  value: "blocked",
+                },
+                {
+                  label: "Request Re-review",
+                  description: "Ask Controller to reconsider the decision",
+                  value: "rereview",
+                },
+                { label: "Cancel", value: "cancel" },
+              ],
+              { placeHolder: "Select an escalation option" },
+            );
+
+            if (!selection || selection.value === "cancel") {
+              return;
+            }
+
+            if (selection.value === "blocked") {
+              const taskNumber = await promptForTaskNumber(
+                "Enter the task ID to mark as blocked",
+              );
+              if (!taskNumber) {
+                return;
+              }
+
+              const reason = await vscode.window.showInputBox({
+                prompt: "Provide a reason for blocking this task",
+                placeHolder: "e.g., External dependency missing",
+              });
+
+              if (!reason) {
+                return;
+              }
+
+              const prompt = [
+                "Mark the task as blocked by calling this tool:",
+                `{ "tool": "escalate_task", "params": { "task_id": ${taskNumber}, "reason": ${JSON.stringify(reason)} } }`,
+              ].join("\n");
+
+              await openAgentChat("orchestra.implementor", prompt);
+              return;
+            }
+
+            if (selection.value === "rereview") {
+              const taskNumber = await promptForTaskNumber(
+                "Enter the task ID to request re-review",
+              );
+              if (!taskNumber) {
+                return;
+              }
+
+              const prompt = [
+                `You are being invoked to re-review task ${taskNumber}.`,
+                `Call this tool first: { "tool": "get_code_review", "params": { "task": ${taskNumber} } }`,
+                "Then submit your decision.",
+              ].join("\n");
+
+              await openAgentChat("orchestra.controller", prompt);
+              return;
+            }
+
+            if (selection.value === "reassign") {
+              const taskNumber = await promptForTaskNumber(
+                "Enter the task ID to re-assign",
+              );
+              if (!taskNumber) {
+                return;
+              }
+
+              const prompt = [
+                `You are being invoked to re-assign task ${taskNumber} after a rejected review.`,
+                "Please create a new task and mark the original as ESCALATED.",
+              ].join("\n");
+
+              await openAgentChat("orchestra.orchestrator", prompt);
+            }
+          } catch (error) {
+            logger.error("Failed to escalate rejected review", error);
+            vscode.window.showErrorMessage(
+              `Failed to escalate rejected review: ${error instanceof Error ? error.message : String(error)}`,
+            );
+          }
+        },
+      ),
+      vscode.commands.registerCommand(
+        "orchestra.reReviewTask",
+        async (element?: { task?: { task_id?: number } } | number) => {
+          try {
+            const taskNumber =
+              typeof element === "number"
+                ? element
+                : (element?.task?.task_id ??
+                  (await promptForTaskNumber(
+                    "Enter the task ID to re-review",
+                  )));
+
+            if (!taskNumber) {
+              return;
+            }
+
+            const sprint = getCurrentSprint(orchestraRoot);
+            if (!sprint) {
+              vscode.window.showWarningMessage(
+                "No active sprint found. Cannot re-review task.",
+              );
+              return;
+            }
+
+            const db = OrchestraDB.getInstance(orchestraRoot);
+            db.prepare(
+              `UPDATE tasks SET status = 'VERIFIED' WHERE task_id = ? AND sprint_id = ?`,
+            ).run(taskNumber, sprint.id);
+
+            codeReviewTreeProvider?.refresh();
+
+            const prompt = [
+              `You are being invoked to re-review task ${taskNumber}.`,
+              `Call this tool first: { "tool": "get_code_review", "params": { "task": ${taskNumber} } }`,
+              "Then submit your decision.",
+            ].join("\n");
+
+            await openAgentChat("orchestra.controller", prompt);
+          } catch (error) {
+            logger.error("Failed to re-review task", error);
+            vscode.window.showErrorMessage(
+              `Failed to re-review task: ${error instanceof Error ? error.message : String(error)}`,
+            );
+          }
+        },
+      ),
+      vscode.commands.registerCommand(
+        "orchestra.prepareCodeReviewFixTask",
+        async (element: { type: string; task?: { id: number } }) => {
+          try {
+            if (!element?.task?.id) {
+              vscode.window.showErrorMessage("No task specified.");
+              return;
+            }
+
+            const sprint = getCurrentSprint(orchestraRoot);
+            if (!sprint) {
+              vscode.window.showWarningMessage(
+                "No active sprint found. Cannot prepare code review fixes.",
+              );
+              return;
+            }
+
+            const task = getTaskById(orchestraRoot, element.task.id);
+            if (!task) {
+              vscode.window.showErrorMessage(
+                `Task ${element.task.id} not found.`,
+              );
+              return;
+            }
+
+            const review = getLatestCodeReviewForTask(orchestraRoot, task.id);
+            if (
+              !review ||
+              (review.status !== "CHANGES_REQUESTED" &&
+                review.status !== "REJECTED")
+            ) {
+              vscode.window.showInformationMessage(
+                "No CHANGES_REQUESTED or REJECTED review found for this task.",
+              );
+              return;
+            }
+
+            const phaseId =
+              task.phase_id !== null && task.phase_id !== undefined
+                ? String(task.phase_id)
+                : undefined;
+
+            const taskContext = {
+              task_id: task.task_id,
+              title: task.title,
+              description: task.description,
+              status: task.status,
+              ...(task.category !== null && task.category !== undefined
+                ? { category: task.category }
+                : {}),
+              ...(phaseId !== undefined ? { phase_id: phaseId } : {}),
+            };
+
+            const promptBuilder = new PromptBuilder();
+            const prompt = promptBuilder.buildCodeReviewFixPreparePrompt(
+              {
+                task: taskContext,
+                sprint: {
+                  sprint_id: sprint.id,
+                  title: sprint.name,
+                  status: sprint.status,
+                },
+              },
+              {
+                status: review.status,
+                summary: review.summary,
+                reviewId: review.review_id,
+              },
+            );
+
+            const sm = getSessionManager();
+            await sm.invokeOrchestrator(prompt, []);
+          } catch (error) {
+            logger.error("Failed to prepare code review fixes", error);
+            vscode.window.showErrorMessage(
+              `Failed to prepare code review fixes: ${error instanceof Error ? error.message : String(error)}`,
+            );
+          }
+        },
+      ),
+      vscode.commands.registerCommand(
+        "orchestra.implementCodeReviewFixTask",
+        async (element: { type: string; task?: { id: number } }) => {
+          try {
+            if (!element?.task?.id) {
+              vscode.window.showErrorMessage("No task specified.");
+              return;
+            }
+
+            const sprint = getCurrentSprint(orchestraRoot);
+            if (!sprint) {
+              vscode.window.showWarningMessage(
+                "No active sprint found. Cannot implement code review fixes.",
+              );
+              return;
+            }
+
+            const task = getTaskById(orchestraRoot, element.task.id);
+            if (!task) {
+              vscode.window.showErrorMessage(
+                `Task ${element.task.id} not found.`,
+              );
+              return;
+            }
+
+            const review = getLatestCodeReviewForTask(orchestraRoot, task.id);
+            if (
+              !review ||
+              (review.status !== "CHANGES_REQUESTED" &&
+                review.status !== "REJECTED")
+            ) {
+              vscode.window.showInformationMessage(
+                "No CHANGES_REQUESTED or REJECTED review found for this task.",
+              );
+              return;
+            }
+
+            const handover = getHandover(orchestraRoot, task.id);
+            if (!handover) {
+              vscode.window.showWarningMessage(
+                "No handover found for this task. Prepare fixes before implementing.",
+              );
+              return;
+            }
+
+            const phaseId =
+              task.phase_id !== null && task.phase_id !== undefined
+                ? String(task.phase_id)
+                : undefined;
+
+            const taskContext = {
+              task_id: task.task_id,
+              title: task.title,
+              description: task.description,
+              status: task.status,
+              ...(task.category !== null && task.category !== undefined
+                ? { category: task.category }
+                : {}),
+              ...(phaseId !== undefined ? { phase_id: phaseId } : {}),
+            };
+
+            const promptBuilder = new PromptBuilder();
+            const prompt = promptBuilder.buildCodeReviewFixImplementPrompt(
+              {
+                task: taskContext,
+                sprint: {
+                  sprint_id: sprint.id,
+                  title: sprint.name,
+                  status: sprint.status,
+                },
+              },
+              {
+                status: review.status,
+                summary: review.summary,
+                reviewId: review.review_id,
+              },
+            );
+
+            const sm = getSessionManager();
+            await sm.invokeImplementor(prompt, []);
+          } catch (error) {
+            logger.error("Failed to implement code review fixes", error);
+            vscode.window.showErrorMessage(
+              `Failed to implement code review fixes: ${error instanceof Error ? error.message : String(error)}`,
+            );
+          }
+        },
+      ),
+      vscode.commands.registerCommand(
+        "orchestra.runCodeReview",
+        async (
+          element:
+            | number
+            | {
+                type: string;
+                task?: {
+                  id: number;
+                  task_id: number;
+                  title: string;
+                  status: string;
+                };
+              },
+        ) => {
+          try {
+            // Handle TreeElement from SprintTreeProvider or direct taskId
+            let taskId: number;
+            if (typeof element === "number") {
+              taskId = element;
+            } else if (element?.type === "task" && element?.task?.id) {
+              taskId = element.task.id;
+            } else {
+              vscode.window.showErrorMessage(
+                "No task specified for code review.",
+              );
+              return;
+            }
+
+            const db = OrchestraDB.getInstance(orchestraRoot);
+            const sprint = getCurrentSprint(orchestraRoot);
+            if (!sprint) {
+              vscode.window.showWarningMessage(
+                "No active sprint found. Cannot trigger code review.",
+              );
+              return;
+            }
+
+            const task = getTaskById(orchestraRoot, taskId);
+            if (!task) {
+              vscode.window.showErrorMessage(`Task ${taskId} not found.`);
+              return;
+            }
+
+            if (task.status !== "COMPLETE") {
+              vscode.window.showWarningMessage(
+                `Task ${taskId} is not complete. Code reviews can only be triggered for completed tasks.`,
+              );
+              return;
+            }
+
+            // Create a new review unless one is already pending/in review
+            const latestReview = getLatestCodeReviewForTask(
+              orchestraRoot,
+              task.id,
+            );
+            const hasActiveReview =
+              latestReview?.status === "PENDING" ||
+              latestReview?.status === "IN_REVIEW";
+
+            if (!hasActiveReview) {
+              const now = new Date().toISOString();
+              db.prepare(
+                `INSERT INTO code_reviews (sprint_id, task_id, phase_id, review_scope, status, summary, risk, requested_by, requested_at)
+                 VALUES (?, ?, ?, 'TASK', 'PENDING', ?, 'LOW', 'orchestrator', ?)`,
+              ).run(
+                sprint.id,
+                task.id,
+                task.phase_id,
+                `Manual review for task ${task.task_id}: ${task.title}`,
+                now,
+              );
+            }
+
+            vscode.window.showInformationMessage(
+              `Launching Controller agent to review task ${task.task_id}: ${task.title}`,
+            );
+
+            // Refresh the code review tree
+            codeReviewTreeProvider?.refresh();
+
+            // Build prompt and invoke Controller agent
+            const promptBuilder = new PromptBuilder();
+            const prompt = promptBuilder.buildCodeReviewPrompt(
+              1,
+              sprint.id,
+              sprint.name,
+              { taskId: task.task_id, title: task.title, dbId: task.id },
+            );
+
+            const sm = getSessionManager();
+            await sm.invokeController(prompt, []);
+          } catch (error) {
+            logger.error("Failed to trigger code review", error);
+            vscode.window.showErrorMessage(
+              `Failed to trigger code review: ${error instanceof Error ? error.message : String(error)}`,
+            );
+          }
+        },
+      ),
+      // Agent execution commands
+      vscode.commands.registerCommand("orchestra.startAgent", async () => {
+        try {
+          if (agentRunner) {
+            vscode.window.showErrorMessage(
+              "Orchestra: Agent is already running. Stop or pause the current agent first.",
+            );
+            return;
+          }
+
+          // Prompt for role
+          const role = await vscode.window.showQuickPick(
+            [
+              { label: "Orchestrator", value: "orchestrator" },
+              { label: "Implementor", value: "implementor" },
+              { label: "Controller", value: "controller" },
+            ],
+            { placeHolder: "Select agent role" },
+          );
+
+          if (!role) {
+            return; // User cancelled
+          }
+
+          // Prompt for initial prompt
+          const prompt = await vscode.window.showInputBox({
+            prompt: "Enter initial instruction for the agent",
+            placeHolder: "e.g., Prepare task 5 or Implement task 3",
+          });
+
+          if (!prompt) {
+            return; // User cancelled
+          }
+
+          // Create ToolRegistry and AgentRunner
+          const toolRegistry = new ToolRegistry();
+          // TODO: Register tools here in future work
+
+          agentRunner = new AgentRunner(toolRegistry, {
+            orchestratorModel: configService.getModelForRole("orchestrator"),
+            implementorModel: configService.getModelForRole("implementor"),
+            controllerModel: configService.getModelForRole("controller"),
+            maxIterations: 50,
+            maxContextTokens: 100000,
+          });
+
+          // Start the agent
+          await agentRunner.start(
+            role.value as "orchestrator" | "implementor" | "controller",
+            {
+              prompt,
+              maxIterations: 50,
+            },
+          );
+
+          vscode.window.showInformationMessage(
+            `Orchestra: ${role.label} agent started successfully`,
+          );
+          logger.info(`Agent started: ${role.value}`);
+        } catch (error) {
+          const message =
+            error instanceof Error ? error.message : "Unknown error";
+          vscode.window.showErrorMessage(
+            `Orchestra: Failed to start agent - ${message}`,
+          );
+          logger.error("Failed to start agent", error);
+        }
+      }),
+      vscode.commands.registerCommand("orchestra.pauseAgent", async () => {
+        try {
+          if (!agentRunner) {
+            vscode.window.showErrorMessage(
+              "Orchestra: No agent is currently running",
+            );
+            return;
+          }
+
+          await agentRunner.pause();
+          vscode.window.showInformationMessage(
+            "Orchestra: Agent paused successfully",
+          );
+          logger.info("Agent paused");
+        } catch (error) {
+          const message =
+            error instanceof Error ? error.message : "Unknown error";
+          vscode.window.showErrorMessage(
+            `Orchestra: Failed to pause agent - ${message}`,
+          );
+          logger.error("Failed to pause agent", error);
+        }
+      }),
+      vscode.commands.registerCommand("orchestra.stopAgent", async () => {
+        try {
+          if (!agentRunner) {
+            vscode.window.showErrorMessage(
+              "Orchestra: No agent is currently running",
+            );
+            return;
+          }
+
+          await agentRunner.stop();
+          agentRunner.dispose();
+          agentRunner = undefined;
+
+          vscode.window.showInformationMessage(
+            "Orchestra: Agent stopped successfully",
+          );
+          logger.info("Agent stopped");
+        } catch (error) {
+          const message =
+            error instanceof Error ? error.message : "Unknown error";
+          vscode.window.showErrorMessage(
+            `Orchestra: Failed to stop agent - ${message}`,
+          );
+          logger.error("Failed to stop agent", error);
+        }
+      }),
+      vscode.commands.registerCommand("orchestra.resumeAgent", async () => {
+        try {
+          if (!agentRunner) {
+            vscode.window.showErrorMessage(
+              "Orchestra: No agent to resume. Start a new agent first.",
+            );
+            return;
+          }
+
+          await agentRunner.resume();
+          vscode.window.showInformationMessage(
+            "Orchestra: Agent resumed successfully",
+          );
+          logger.info("Agent resumed");
+        } catch (error) {
+          const message =
+            error instanceof Error ? error.message : "Unknown error";
+          vscode.window.showErrorMessage(
+            `Orchestra: Failed to resume agent - ${message}`,
+          );
+          logger.error("Failed to resume agent", error);
+        }
+      }),
+      vscode.commands.registerCommand(
+        "orchestra.launchControllerAgent",
+        async () => {
+          const sprint = getCurrentSprint(orchestraRoot);
+          if (!sprint) {
+            vscode.window.showErrorMessage(
+              "Orchestra: No active sprint found for review.",
+            );
+            return;
+          }
+
+          await handleReviewSprint(orchestraRoot, sprint);
+        },
+      ),
+      vscode.commands.registerCommand(
+        "orchestra.launchControllerForSprint",
+        async (element: any) => {
+          // Element from tree view has: { type: 'sprint', sprint: Sprint }
+          if (element?.sprint) {
+            await handleReviewSprint(orchestraRoot, element.sprint);
+          }
+        },
+      ),
     );
     logger.info("Commands registered");
 
@@ -877,7 +1706,7 @@ export async function activate(
       mcpManager = new MCPServerManager(
         orchestraRoot,
         context.extensionPath,
-        logger
+        logger,
       );
       mcpManager.startServer("orchestrator");
       mcpManager.startServer("implementor");
@@ -896,7 +1725,7 @@ export async function activate(
     vscode.window.showErrorMessage(
       `Orchestra: Activation failed - ${
         error instanceof Error ? error.message : "Unknown error"
-      }`
+      }`,
     );
   }
 }
@@ -910,6 +1739,12 @@ export function deactivate(): void {
 
   // ConfigService has no disposal required - it only provides access to workspace config
   // Any onConfigChange listeners created by consumers are their responsibility to dispose
+
+  // Clean up agent runner
+  if (agentRunner) {
+    agentRunner.dispose();
+    agentRunner = undefined;
+  }
 
   // Database watcher disposed via subscriptions
   dbWatcher = undefined;

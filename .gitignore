@@ -7,5 +7,7 @@ coverage/
 .env
 .env.local
 tsup.config.bundled_*.mjs
+# Vitest cache
+.vitest-cache/
 # Extension artifacts - track folder but ignore VSIX files
 extension/artifacts/*.vsix

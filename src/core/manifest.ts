@@ -407,7 +407,7 @@ export function completeSprint(manifest: Manifest): ScriptResult<Manifest> {
     ...manifest,
     sprint: {
       ...manifest.sprint,
-      status: "COMPLETED",
+      status: "COMPLETE",
       completed_at: new Date().toISOString(),
     },
   };

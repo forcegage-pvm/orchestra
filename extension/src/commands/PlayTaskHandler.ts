@@ -11,6 +11,7 @@ import {
   getCurrentSprint,
   getEscalation,
   getFeedback,
+  getLatestHandoverReview,
   getTaskById,
 } from "../database/queries.js";
 import { getContextFileResolver, getSessionManager } from "../extension.js";
@@ -33,7 +34,7 @@ import { OrchestraLogger } from "../utils/logger.js";
  */
 export async function handlePlayTask(
   workspaceRoot: string,
-  taskId: number
+  taskId: number,
 ): Promise<void> {
   const task = getTaskById(workspaceRoot, taskId);
 
@@ -45,6 +46,11 @@ export async function handlePlayTask(
   switch (task.status) {
     case "PENDING":
       await invokePrepare(workspaceRoot, taskId);
+      break;
+
+    case "PENDING_HANDOVER_REVIEW":
+    case "HANDOVER_REVIEW_FAILED":
+      await invokeHandoverReview(workspaceRoot, taskId);
       break;
 
     case "IMPLEMENT":
@@ -66,13 +72,13 @@ export async function handlePlayTask(
 
     case "COMPLETE":
       vscode.window.showInformationMessage(
-        `Task ${taskId}: ${task.title} is already complete`
+        `Task ${taskId}: ${task.title} is already complete`,
       );
       break;
 
     default:
       vscode.window.showWarningMessage(
-        `Task ${taskId} has unexpected status: ${task.status}`
+        `Task ${taskId} has unexpected status: ${task.status}`,
       );
   }
 }
@@ -88,7 +94,7 @@ export async function handlePlayTask(
  */
 async function invokePrepare(
   workspaceRoot: string,
-  taskId: number
+  taskId: number,
 ): Promise<void> {
   try {
     // Get task and sprint data from database
@@ -102,7 +108,7 @@ async function invokePrepare(
 
     if (!sprint) {
       vscode.window.showErrorMessage(
-        "No active sprint found. Cannot prepare task."
+        "No active sprint found. Cannot prepare task.",
       );
       return;
     }
@@ -141,7 +147,7 @@ async function invokePrepare(
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
     vscode.window.showErrorMessage(
-      `Orchestra: Failed to prepare task ${taskId} - ${message}`
+      `Orchestra: Failed to prepare task ${taskId} - ${message}`,
     );
   }
 }
@@ -157,7 +163,7 @@ async function invokePrepare(
  */
 async function invokeImplement(
   workspaceRoot: string,
-  taskId: number
+  taskId: number,
 ): Promise<void> {
   try {
     // Get task from database
@@ -208,7 +214,7 @@ async function invokeImplement(
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
     vscode.window.showErrorMessage(
-      `Orchestra: Failed to invoke implementor for task ${taskId} - ${message}`
+      `Orchestra: Failed to invoke implementor for task ${taskId} - ${message}`,
     );
   }
 }
@@ -225,7 +231,7 @@ async function invokeImplement(
  */
 async function invokeRetry(
   workspaceRoot: string,
-  taskId: number
+  taskId: number,
 ): Promise<void> {
   try {
     // Get task from database
@@ -241,7 +247,7 @@ async function invokeRetry(
 
     if (!feedback) {
       vscode.window.showErrorMessage(
-        `Orchestra: No feedback found for task ${taskId}. Cannot retry.`
+        `Orchestra: No feedback found for task ${taskId}. Cannot retry.`,
       );
       return;
     }
@@ -290,7 +296,7 @@ async function invokeRetry(
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
     vscode.window.showErrorMessage(
-      `Orchestra: Failed to retry task ${taskId} - ${message}`
+      `Orchestra: Failed to retry task ${taskId} - ${message}`,
     );
   }
 }
@@ -306,7 +312,7 @@ async function invokeRetry(
  */
 async function invokeVerify(
   workspaceRoot: string,
-  taskId: number
+  taskId: number,
 ): Promise<void> {
   try {
     // Get task from database
@@ -351,13 +357,90 @@ async function invokeVerify(
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
     vscode.window.showErrorMessage(
-      `Orchestra: Failed to invoke verification for task ${taskId} - ${message}`
+      `Orchestra: Failed to invoke verification for task ${taskId} - ${message}`,
     );
   }
 }
 
-/**
- * Invoke orchestrator to review an ESCALATED task
+/** * Invoke controller to review a handover for a PENDING_HANDOVER_REVIEW task
+ *
+ * Builds a HANDOVER_REVIEW prompt with task and handover context,
+ * and opens chat with controller agent in a new editor tab.
+ *
+ * @param workspaceRoot Absolute path to workspace root
+ * @param taskId Task ID (numeric primary key)
+ */
+async function invokeHandoverReview(
+  workspaceRoot: string,
+  taskId: number,
+): Promise<void> {
+  try {
+    const task = getTaskById(workspaceRoot, taskId);
+    const sprint = getCurrentSprint(workspaceRoot);
+
+    if (!task) {
+      vscode.window.showErrorMessage(`Task ${taskId} not found`);
+      return;
+    }
+
+    if (!sprint) {
+      vscode.window.showErrorMessage(
+        "No active sprint found. Cannot review handover.",
+      );
+      return;
+    }
+
+    // Get review attempt count from database
+    let reviewAttempt = 1;
+    if (task.status === "HANDOVER_REVIEW_FAILED") {
+      const previousReview = getLatestHandoverReview(workspaceRoot, taskId);
+      if (previousReview) {
+        reviewAttempt = (previousReview.revision_count || 0) + 1;
+      }
+    }
+
+    // Build prompt context
+    const context = {
+      task: {
+        task_id: task.task_id,
+        title: task.title,
+        description: task.description,
+        category: task.category,
+        phase_id: `phase-${task.phase_id}`,
+        status: task.status,
+      },
+      sprint: {
+        sprint_id: sprint.id,
+        title: sprint.name,
+      },
+      reviewAttempt,
+    };
+
+    // Create instances
+    const logger = new OrchestraLogger();
+    const promptBuilder = new PromptBuilder();
+    const sessionManager = getSessionManager();
+
+    // Build the handover review prompt
+    const prompt = promptBuilder.buildHandoverReviewPrompt(context);
+
+    // Invoke controller in a new editor tab with fresh context
+    await sessionManager.invokeController(prompt, []);
+
+    logger.info("Controller invoked for handover review", {
+      taskId,
+      taskTitle: task.title,
+      reviewAttempt,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    vscode.window.showErrorMessage(
+      `Orchestra: Failed to invoke controller for handover review - ${message}`,
+    );
+  }
+}
+
+/** * Invoke orchestrator to review an ESCALATED task
  *
  * Builds a prompt with escalation context and opens chat with orchestrator agent.
  * The orchestrator can then decide to de-escalate, provide guidance, or escalate further.
@@ -367,7 +450,7 @@ async function invokeVerify(
  */
 async function invokeEscalationReview(
   workspaceRoot: string,
-  taskId: number
+  taskId: number,
 ): Promise<void> {
   try {
     // Get task from database
@@ -383,7 +466,7 @@ async function invokeEscalationReview(
 
     if (!escalation) {
       vscode.window.showErrorMessage(
-        `Orchestra: No escalation found for task ${taskId}`
+        `Orchestra: No escalation found for task ${taskId}`,
       );
       return;
     }
@@ -424,7 +507,7 @@ Use your MCP tools to investigate and resolve this escalation.`;
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
     vscode.window.showErrorMessage(
-      `Orchestra: Failed to invoke escalation review for task ${taskId} - ${message}`
+      `Orchestra: Failed to invoke escalation review for task ${taskId} - ${message}`,
     );
   }
 }

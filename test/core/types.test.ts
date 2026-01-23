@@ -45,6 +45,7 @@ describe("Types", () => {
     it("should accept valid statuses", () => {
       expect(TaskStatusSchema.parse("PENDING")).toBe("PENDING");
       expect(TaskStatusSchema.parse("IMPLEMENT")).toBe("IMPLEMENT");
+      expect(TaskStatusSchema.parse("VERIFIED")).toBe("VERIFIED");
       expect(TaskStatusSchema.parse("COMPLETE")).toBe("COMPLETE");
     });
 
@@ -108,7 +109,7 @@ describe("Types", () => {
         TaskSchema.parse({
           id: "not-a-number",
           title: "",
-        })
+        }),
       ).toThrow();
     });
   });
@@ -171,7 +172,7 @@ describe("Types", () => {
             created_at: "2024-01-01T00:00:00Z",
           },
           tasks: [],
-        })
+        }),
       ).toThrow();
     });
   });

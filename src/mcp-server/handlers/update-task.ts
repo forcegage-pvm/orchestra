@@ -8,13 +8,13 @@
 import { and, eq } from "drizzle-orm";
 import { getDb } from "../../db/index.js";
 import { getActiveSprint } from "../../db/queries.js";
-import { logToolExecution } from "./audit-logging.js";
-import { progress, tasks } from "../../db/schema.js";
+import { amendments, progress, tasks } from "../../db/schema.js";
 import {
   UpdateTaskInputSchema,
   type UpdateTaskOutput,
 } from "../../schemas/sprint-config.js";
 import { validateInput } from "../../schemas/utils.js";
+import { logToolExecution } from "./audit-logging.js";
 
 export async function handleUpdateTask(input: unknown) {
   const startTime = performance.now();
@@ -42,7 +42,7 @@ export async function handleUpdateTask(input: unknown) {
         taskId: validation.data.task_id,
       },
       { success: true, output },
-      durationMs
+      durationMs,
     );
 
     return {
@@ -60,7 +60,7 @@ export async function handleUpdateTask(input: unknown) {
         taskId: validation.data.task_id,
       },
       { success: false, errorMessage: err.message },
-      durationMs
+      durationMs,
     );
 
     return {
@@ -76,7 +76,7 @@ export async function handleUpdateTask(input: unknown) {
               },
             },
             null,
-            2
+            2,
           ),
         },
       ],
@@ -85,7 +85,7 @@ export async function handleUpdateTask(input: unknown) {
 }
 
 async function updateTask(
-  input: typeof UpdateTaskInputSchema._output
+  input: typeof UpdateTaskInputSchema._output,
 ): Promise<UpdateTaskOutput> {
   const db = getDb();
 
@@ -96,11 +96,20 @@ async function updateTask(
     throw new Error("No active sprint found");
   }
 
-  // Check sprint is in CONFIGURE state
-  if (sprint.workflow_step !== "CONFIGURE") {
+  // Check sprint is in CONFIGURE or SPEC_REVIEW_FAILED state
+  const isAmendment = sprint.workflow_step !== "CONFIGURE";
+  if (
+    sprint.workflow_step !== "CONFIGURE" &&
+    sprint.status !== "SPEC_REVIEW_FAILED"
+  ) {
     throw new Error(
       `Cannot update task metadata: sprint is in ${sprint.workflow_step} state. ` +
-        `Task metadata can only be updated during CONFIGURE.`
+        `Task metadata can only be updated during CONFIGURE or after SPEC_REVIEW_FAILED.`,
+    );
+  }
+  if (isAmendment && input.rationale === undefined) {
+    throw new Error(
+      "Rationale is required when updating task metadata after CONFIGURE.",
     );
   }
 
@@ -109,7 +118,7 @@ async function updateTask(
     .select()
     .from(tasks)
     .where(
-      and(eq(tasks.sprint_id, sprint.id), eq(tasks.task_id, input.task_id))
+      and(eq(tasks.sprint_id, sprint.id), eq(tasks.task_id, input.task_id)),
     )
     .limit(1);
 
@@ -127,12 +136,12 @@ async function updateTask(
 
       const taskIdSet = new Set(existingTasks.map((t) => t.task_id));
       const invalidDeps = input.dependencies.filter(
-        (dep) => !taskIdSet.has(dep)
+        (dep) => !taskIdSet.has(dep),
       );
 
       if (invalidDeps.length > 0) {
         throw new Error(
-          `Invalid task dependencies: ${invalidDeps.join(", ")} do not exist`
+          `Invalid task dependencies: ${invalidDeps.join(", ")} do not exist`,
         );
       }
 
@@ -150,7 +159,7 @@ async function updateTask(
       where: (phases, { eq, and }) =>
         and(
           eq(phases.sprint_id, sprint.id),
-          eq(phases.phase_id, input.phase_id!)
+          eq(phases.phase_id, input.phase_id!),
         ),
     });
 
@@ -192,11 +201,80 @@ async function updateTask(
     updateFields.speckit_task_ref = input.speckit_task_ref;
     updatedFieldNames.push("speckit_task_ref");
   }
+  if (input.tdd_red_phase !== undefined) {
+    updateFields.tdd_red_phase = input.tdd_red_phase;
+    updatedFieldNames.push("tdd_red_phase");
+  }
+
+  const now = updateFields.updated_at as string;
+
+  // Capture BEFORE state for amendment tracking
+  const parseDependencies = (value: string): number[] => {
+    try {
+      const parsed = JSON.parse(value);
+      return Array.isArray(parsed) ? (parsed as number[]) : [];
+    } catch {
+      return [];
+    }
+  };
+
+  const beforeState = {
+    title: task.title,
+    description: task.description,
+    category: task.category,
+    dependencies: parseDependencies(task.dependencies),
+    phase_id: task.phase_id,
+    speckit_task_ref: task.speckit_task_ref,
+    tdd_red_phase: task.tdd_red_phase,
+  };
 
   // 6. Update task
   await db.update(tasks).set(updateFields).where(eq(tasks.id, task.id));
 
-  // 7. Log progress
+  // 7. Create amendment record if modifying outside CONFIGURE
+  if (isAmendment) {
+    const afterState = {
+      title: input.title ?? task.title,
+      description: input.description ?? task.description,
+      category: input.category ?? task.category,
+      dependencies:
+        input.dependencies !== undefined
+          ? input.dependencies
+          : parseDependencies(task.dependencies),
+      phase_id: phaseInternalId ?? task.phase_id,
+      speckit_task_ref: input.speckit_task_ref ?? task.speckit_task_ref,
+      tdd_red_phase:
+        input.tdd_red_phase !== undefined
+          ? input.tdd_red_phase
+          : task.tdd_red_phase,
+    };
+
+    const rationale =
+      input.rationale ??
+      `Task metadata updated during ${sprint.workflow_step}: ` +
+        `${updatedFieldNames.join(", ") || "none"}.`;
+
+    await db.insert(amendments).values({
+      sprint_id: sprint.id,
+      task_id: task.id,
+      tool_name: "update_task",
+      amendment_type: "TASK_METADATA",
+      workflow_step_at_amendment: sprint.workflow_step,
+      rationale,
+      before_state: JSON.stringify(beforeState),
+      after_state: JSON.stringify(afterState),
+      changed_fields: JSON.stringify(updatedFieldNames),
+      amended_by: "orchestrator",
+      amended_at: now,
+    });
+  }
+
+  // 8. Log progress
+  const progressNote = isAmendment
+    ? `AMENDMENT: Updated task metadata during ${sprint.workflow_step}: ` +
+      `${updatedFieldNames.join(", ") || "none"}`
+    : `Updated fields: ${updatedFieldNames.join(", ")}`;
+
   await db.insert(progress).values({
     sprint_id: sprint.id,
     task_id: task.id,
@@ -204,8 +282,8 @@ async function updateTask(
     to_status: task.status,
     workflow_step: sprint.workflow_step,
     triggered_by: "orchestrator",
-    notes: `Updated fields: ${updatedFieldNames.join(", ")}`,
-    changed_at: updateFields.updated_at as string,
+    notes: progressNote,
+    changed_at: now,
   });
 
   return {

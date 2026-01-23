@@ -45,7 +45,7 @@ export function createProgressLog(sprintId: string): ProgressLog {
  */
 export function loadProgress(
   sprintId: string,
-  orchestraRoot?: string
+  orchestraRoot?: string,
 ): ProgressLog {
   const progressPath = getProgressPath(orchestraRoot);
 
@@ -68,7 +68,7 @@ export function loadProgress(
  */
 export function saveProgress(
   progress: ProgressLog,
-  orchestraRoot?: string
+  orchestraRoot?: string,
 ): void {
   const progressPath = getProgressPath(orchestraRoot);
   progress.updated_at = new Date().toISOString();
@@ -80,7 +80,7 @@ export function saveProgress(
  */
 export function addProgressEntry(
   progress: ProgressLog,
-  entry: Omit<ProgressEntry, "timestamp">
+  entry: Omit<ProgressEntry, "timestamp">,
 ): ProgressLog {
   const newEntry: ProgressEntry = {
     ...entry,
@@ -99,7 +99,7 @@ export function addProgressEntry(
  */
 export function getLastEntryForTask(
   progress: ProgressLog,
-  taskId: number
+  taskId: number,
 ): ProgressEntry | undefined {
   const taskEntries = progress.entries.filter((e) => e.task_id === taskId);
   return taskEntries.length > 0
@@ -112,7 +112,7 @@ export function getLastEntryForTask(
  */
 export function getEntriesForTask(
   progress: ProgressLog,
-  taskId: number
+  taskId: number,
 ): ProgressEntry[] {
   return progress.entries.filter((e) => e.task_id === taskId);
 }
@@ -122,7 +122,7 @@ export function getEntriesForTask(
  */
 export function getAttemptCount(progress: ProgressLog, taskId: number): number {
   return progress.entries.filter(
-    (e) => e.task_id === taskId && e.status === "IMPLEMENT"
+    (e) => e.task_id === taskId && e.status === "IMPLEMENT",
   ).length;
 }
 
@@ -131,7 +131,7 @@ export function getAttemptCount(progress: ProgressLog, taskId: number): number {
  */
 export function calculateTaskDuration(
   progress: ProgressLog,
-  taskId: number
+  taskId: number,
 ): number | undefined {
   const entries = progress.entries.filter((e) => e.task_id === taskId);
 
@@ -142,8 +142,14 @@ export function calculateTaskDuration(
       ? implementEntries[implementEntries.length - 1]
       : undefined;
 
-  // Find the COMPLETE entry
-  const completeEntry = entries.find((e) => e.status === "COMPLETE");
+  // Find the completion entry (VERIFIED or COMPLETE)
+  const completionEntries = entries.filter(
+    (e) => e.status === "VERIFIED" || e.status === "COMPLETE",
+  );
+  const completeEntry =
+    completionEntries.length > 0
+      ? completionEntries[completionEntries.length - 1]
+      : undefined;
 
   if (!lastImplement || !completeEntry) {
     return undefined;
@@ -169,10 +175,16 @@ export function getProgressSummary(progress: ProgressLog): {
   const statusCounts: Record<TaskStatus, number> = {
     PENDING: 0,
     PREPARE: 0,
+    PENDING_HANDOVER_REVIEW: 0,
+    HANDOVER_REVIEW_FAILED: 0,
+    PENDING_CODE_REVIEW: 0,
+    CODE_REVIEW_CHANGES_REQUESTED: 0,
+    CODE_REVIEW_FAILED: 0,
     IMPLEMENT: 0,
     GATE_CHECK: 0,
     VERIFY: 0,
     VERIFY_FAILED: 0,
+    VERIFIED: 0,
     COMPLETE: 0,
     RETRY: 0,
     ESCALATED: 0,
@@ -204,7 +216,7 @@ export function recordStatusChange(
     agent?: string;
     notes?: string;
     durationMs?: number;
-  }
+  },
 ): ProgressLog {
   return addProgressEntry(progress, {
     task_id: taskId,
@@ -220,7 +232,7 @@ export function recordStatusChange(
  */
 export function getTaskTimeline(
   progress: ProgressLog,
-  taskId: number
+  taskId: number,
 ): Array<{
   status: TaskStatus;
   timestamp: string;
@@ -243,7 +255,7 @@ export function getTaskTimeline(
  */
 export function getRetryHistory(
   progress: ProgressLog,
-  taskId: number
+  taskId: number,
 ): Array<{
   attempt: number;
   startedAt: string;

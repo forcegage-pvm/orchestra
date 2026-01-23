@@ -24,16 +24,18 @@ import { handleSetSprintConfig } from "./handlers/set-sprint-config.js";
 
 /**
  * Server role type
+ * Extended for Controller Agent: 'controller' for independent review role
  */
-export type ServerRole = "orchestrator" | "implementor" | "full";
+export type ServerRole = "orchestrator" | "implementor" | "controller" | "full";
 
 /**
  * Tool role assignments
  * - orchestrator: Tools only the orchestrator should access
  * - implementor: Tools only the implementor should access
- * - shared: Tools both roles can access
+ * - controller: Tools only the controller should access (review decisions)
+ * - shared: Tools all roles can access
  */
-type ToolRole = "orchestrator" | "implementor" | "shared";
+type ToolRole = "orchestrator" | "implementor" | "controller" | "shared";
 
 interface ToolWithRole extends Tool {
   role: ToolRole;
@@ -48,7 +50,7 @@ const TOOLS_WITH_ROLES: ToolWithRole[] = [
     role: "orchestrator",
     name: "configure_sprint",
     description:
-      "Configure a new sprint with tasks, phases, dependencies, and verification criteria. Can accept inline data OR a config_file path to load configuration from filesystem.",
+      "Configure a new sprint with tasks, phases, dependencies, and verification criteria. Can accept inline data OR a config_file path to load configuration from filesystem. IMPORTANT: If any task has tdd_red_phase=true, you MUST provide a corresponding entry in tdd_relationships declaring which task will be the green phase.",
     inputSchema: {
       type: "object",
       properties: {
@@ -64,6 +66,29 @@ const TOOLS_WITH_ROLES: ToolWithRole[] = [
             name: { type: "string" },
           },
           required: ["id", "name"],
+        },
+        environment: {
+          type: "object",
+          description:
+            "REQUIRED: Testing/build environment configuration. Eliminates guessing about test commands and file patterns.",
+          properties: {
+            test_command: {
+              type: "string",
+              description:
+                "Command to run tests (e.g., 'npm test', 'flutter test', 'pytest', 'cargo test')",
+            },
+            test_file_pattern: {
+              type: "string",
+              description:
+                "Glob pattern for test files (e.g., 'test/**/*.test.ts', 'test/**/*_test.dart')",
+            },
+            source_base_dir: {
+              type: "string",
+              description:
+                "Base directory for source files - for monorepos (e.g., '.', 'extension', 'packages/app')",
+            },
+          },
+          required: ["test_command", "test_file_pattern"],
         },
         phases: {
           type: "array",
@@ -95,7 +120,7 @@ const TOOLS_WITH_ROLES: ToolWithRole[] = [
               tdd_red_phase: {
                 type: "boolean",
                 description:
-                  "Enable TDD red-phase verification: verify tests FAIL before implementation to prove tests are meaningful",
+                  "Enable TDD red-phase verification. REQUIRES a corresponding entry in tdd_relationships declaring which task will implement the feature (green phase). Red and green phases must be SEPARATE tasks.",
               },
               verification: {
                 type: "object",
@@ -128,6 +153,27 @@ const TOOLS_WITH_ROLES: ToolWithRole[] = [
               phase_id: { type: "string" },
               tasks: { type: "array", items: { type: "number" } },
             },
+          },
+        },
+        tdd_relationships: {
+          type: "array",
+          description:
+            "REQUIRED for any task with tdd_red_phase=true. Declares which task will implement the feature (green phase) for each red-phase task. Red and green must be separate tasks.",
+          items: {
+            type: "object",
+            properties: {
+              red_task_id: {
+                type: "number",
+                description:
+                  "Task ID of the red-phase task (must have tdd_red_phase=true)",
+              },
+              green_task_id: {
+                type: "number",
+                description:
+                  "Task ID of the green-phase task that will implement the feature and make tests pass (must be different from red_task_id)",
+              },
+            },
+            required: ["red_task_id", "green_task_id"],
           },
         },
       },
@@ -270,7 +316,28 @@ const TOOLS_WITH_ROLES: ToolWithRole[] = [
     name: "update_task",
     description:
       "Update task metadata (title, description, category, dependencies)",
-    inputSchema: { type: "object", properties: {} },
+    inputSchema: {
+      type: "object",
+      properties: {
+        task_id: { type: "number", description: "The task ID" },
+        title: { type: "string" },
+        description: { type: "string" },
+        category: {
+          type: "string",
+          enum: ["INFRASTRUCTURE", "INTEGRATION", "VISUAL", "REFACTOR"],
+        },
+        dependencies: { type: "array", items: { type: "number" } },
+        phase_id: { type: "string" },
+        speckit_task_ref: { type: "string" },
+        tdd_red_phase: { type: "boolean" },
+        rationale: {
+          type: "string",
+          description:
+            "Required when updating task metadata after CONFIGURE (e.g., after SPEC_REVIEW_FAILED)",
+        },
+      },
+      required: ["task_id"],
+    },
   },
   {
     role: "orchestrator",
@@ -616,6 +683,55 @@ const TOOLS_WITH_ROLES: ToolWithRole[] = [
       required: ["task_id"],
     },
   },
+  {
+    role: "shared",
+    name: "add_interface_validation",
+    description:
+      "Add a new interface validation to .orchestra/interface-validations.yaml",
+    inputSchema: {
+      type: "object",
+      properties: {
+        name: { type: "string", description: "Validation name" },
+        description: {
+          type: "string",
+          description: "Optional validation description",
+        },
+        patterns: {
+          type: "array",
+          items: { type: "string" },
+          description: "File match patterns for this validation",
+        },
+        command: {
+          type: "string",
+          description: "Command to run for validation",
+        },
+        test: {
+          type: "string",
+          description: "Test file reference for validation",
+        },
+        successCriteria: {
+          type: "object",
+          description: "Optional success criteria",
+          properties: {
+            exitCode: { type: "number", description: "Expected exit code" },
+            outputContains: {
+              type: "string",
+              description: "Output must contain this string",
+            },
+            outputNotContains: {
+              type: "string",
+              description: "Output must not contain this string",
+            },
+          },
+        },
+      },
+      required: ["name", "patterns"],
+      oneOf: [
+        { required: ["command"], not: { required: ["test"] } },
+        { required: ["test"], not: { required: ["command"] } },
+      ],
+    },
+  },
 
   // Verification Tools - ORCHESTRATOR ONLY
   {
@@ -773,8 +889,34 @@ const TOOLS_WITH_ROLES: ToolWithRole[] = [
       type: "object",
       properties: {
         task_id: { type: "number", description: "The task ID to complete" },
+        green_task_id: {
+          type: "number",
+          description:
+            "For TDD red-phase tasks: ID of the green-phase task that will implement the tests",
+        },
+        notes: {
+          type: "string",
+          description: "Optional completion notes",
+        },
       },
       required: ["task_id"],
+    },
+  },
+  {
+    role: "orchestrator",
+    name: "reopen_task",
+    description:
+      "Reopen a COMPLETE task when latest code review is CHANGES_REQUESTED and issues are OPEN.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        task_id: { type: "number", description: "The task ID to reopen" },
+        reason: {
+          type: "string",
+          description: "Why this task is being reopened (min 10 chars)",
+        },
+      },
+      required: ["task_id", "reason"],
     },
   },
   {
@@ -858,6 +1000,23 @@ const TOOLS_WITH_ROLES: ToolWithRole[] = [
       },
     },
   },
+  {
+    role: "orchestrator",
+    name: "get_sprint_review",
+    description:
+      "Get the latest sprint review feedback when sprint is in SPEC_REVIEW_FAILED status. " +
+      "Returns Controller's rejection reasons, alignment issues, and recommendations for fixing the sprint configuration.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        sprint_id: {
+          type: "string",
+          description:
+            "Sprint ID to get review for (optional, defaults to active sprint)",
+        },
+      },
+    },
+  },
 
   // Configuration Tools - ORCHESTRATOR ONLY
   {
@@ -935,6 +1094,404 @@ const TOOLS_WITH_ROLES: ToolWithRole[] = [
       required: ["key", "value"],
     },
   },
+
+  // ============================================================================
+  // Controller Agent Tools - Sprint Review (Sprint 004)
+  // ============================================================================
+
+  // T020: approve_sprint - CONTROLLER ONLY
+  {
+    role: "controller",
+    name: "approve_sprint",
+    description:
+      "Approve a sprint configuration after reviewing against the specification. " +
+      "Transitions sprint from PENDING_SPEC_REVIEW to ACTIVE, allowing task preparation.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        conformance: {
+          type: "string",
+          enum: ["PASS", "WARN"],
+          description:
+            "Conformance level: PASS for full alignment, WARN for minor issues",
+        },
+        notes: {
+          type: "string",
+          description:
+            "Required if conformance is WARN - explain the minor issues",
+        },
+        spec_path: {
+          type: "string",
+          description: "Path to the specification document that was reviewed",
+        },
+        spec_requirements: {
+          type: "array",
+          items: { type: "string" },
+          description: "List of specification requirements that were verified",
+        },
+        recommendations: {
+          type: "array",
+          items: { type: "string" },
+          description: "Optional recommendations for the orchestrator",
+        },
+      },
+      required: ["conformance"],
+    },
+  },
+
+  // T020: reject_sprint - CONTROLLER ONLY
+  {
+    role: "controller",
+    name: "reject_sprint",
+    description:
+      "Reject a sprint configuration that does not align with the specification. " +
+      "Transitions sprint to SPEC_REVIEW_FAILED. After 3 rejections, escalates to human supervisor.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        issues: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              severity: { type: "string", enum: ["BLOCKING", "MAJOR"] },
+              issue: { type: "string" },
+              spec_reference: { type: "string" },
+              handover_text: { type: "string" },
+              spec_text: { type: "string" },
+              analysis: { type: "string" },
+              recommendation: { type: "string" },
+            },
+            required: ["severity", "issue"],
+          },
+          description:
+            "Issues identified during review (at least one required)",
+        },
+        conformance: {
+          type: "string",
+          enum: ["FAIL"],
+          description: "Must be FAIL when rejecting",
+        },
+        notes: {
+          type: "string",
+          description:
+            "Explanation of why the sprint configuration failed review (min 10 chars)",
+        },
+        spec_path: {
+          type: "string",
+          description: "Path to the specification document that was reviewed",
+        },
+        spec_requirements: {
+          type: "array",
+          items: { type: "string" },
+          description: "List of specification requirements that were violated",
+        },
+        recommendations: {
+          type: "array",
+          items: { type: "string" },
+          description: "Recommendations for how to fix the issues",
+        },
+      },
+      required: ["issues", "conformance", "notes"],
+    },
+  },
+
+  // T021: resubmit_sprint - ORCHESTRATOR ONLY
+  {
+    role: "orchestrator",
+    name: "resubmit_sprint",
+    description:
+      "Resubmit a sprint configuration after addressing Controller feedback. " +
+      "Transitions sprint from SPEC_REVIEW_FAILED back to PENDING_SPEC_REVIEW.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        changes_made: {
+          type: "string",
+          description:
+            "Description of changes made to address Controller feedback (min 20 chars)",
+        },
+        issues_addressed: {
+          type: "array",
+          items: { type: "string" },
+          description:
+            "List of issues from Controller feedback that were addressed",
+        },
+      },
+      required: ["changes_made", "issues_addressed"],
+    },
+  },
+
+  // T028: approve_handover - CONTROLLER ONLY
+  {
+    role: "controller",
+    name: "approve_handover",
+    description:
+      "Approve a task handover that meets specification requirements. " +
+      "Transitions task from PENDING_HANDOVER_REVIEW to IMPLEMENT, allowing implementation to begin.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        task_id: {
+          type: "number",
+          description: "The task ID whose handover to approve",
+        },
+        conformance: {
+          type: "string",
+          enum: ["PASS", "WARN"],
+          description:
+            "Assessment of handover conformance to specifications (PASS or WARN for approvals)",
+        },
+        notes: {
+          type: "string",
+          description:
+            "Optional approval notes or recommendations (required if conformance is WARN)",
+        },
+      },
+      required: ["task_id", "conformance"],
+    },
+  },
+
+  // T028: reject_handover - CONTROLLER ONLY
+  {
+    role: "controller",
+    name: "reject_handover",
+    description:
+      "Reject a task handover that does not meet specification requirements. " +
+      "Transitions task to HANDOVER_REVIEW_FAILED. After 3 rejections, escalates to human supervisor.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        task_id: {
+          type: "number",
+          description: "The task ID whose handover to reject",
+        },
+        conformance: {
+          type: "string",
+          enum: ["FAIL"],
+          description:
+            "Assessment of handover conformance (must be FAIL for rejections)",
+        },
+        issues: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              severity: { type: "string", enum: ["BLOCKING", "MAJOR"] },
+              issue: { type: "string" },
+              spec_reference: { type: "string" },
+              recommendation: { type: "string" },
+            },
+            required: ["severity", "issue"],
+          },
+          description:
+            "Issues identified in the handover (at least one required)",
+        },
+        recommendations: {
+          type: "string",
+          description:
+            "Specific recommendations for the orchestrator to address",
+        },
+      },
+      required: ["task_id", "conformance", "issues", "recommendations"],
+    },
+  },
+
+  // T029: resubmit_handover - ORCHESTRATOR ONLY
+  {
+    role: "orchestrator",
+    name: "resubmit_handover",
+    description:
+      "Resubmit a task handover after addressing Controller feedback. " +
+      "Transitions task from HANDOVER_REVIEW_FAILED back to PENDING_HANDOVER_REVIEW.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        task_id: {
+          type: "number",
+          description: "The task ID whose handover to resubmit",
+        },
+        changes_made: {
+          type: "string",
+          description:
+            "Description of changes made to address Controller feedback (min 20 chars)",
+        },
+      },
+      required: ["task_id", "changes_made"],
+    },
+  },
+
+  // ============================================================================
+  // Controller Agent Read-Only Tools (Sprint 004 - T035)
+  // ============================================================================
+
+  // T035: get_task_for_review - CONTROLLER ONLY
+  {
+    role: "controller",
+    name: "get_task_for_review",
+    description:
+      "Get task details for review purposes (WITHOUT verification criteria). " +
+      "Used by Controller to see task metadata when reviewing sprint configuration or handovers.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        task_id: {
+          type: "number",
+          description: "The task ID to retrieve",
+        },
+      },
+      required: ["task_id"],
+    },
+  },
+
+  // T035: get_handover - CONTROLLER ONLY
+  {
+    role: "controller",
+    name: "get_handover",
+    description:
+      "Get handover details for a specific task. Shows what the implementor will receive. " +
+      "Used by Controller to verify handover aligns with specification requirements.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        task_id: {
+          type: "number",
+          description: "The task ID to get handover for",
+        },
+      },
+      required: ["task_id"],
+    },
+  },
+
+  // T037: read_spec_file - CONTROLLER ONLY
+  {
+    role: "controller",
+    name: "read_spec_file",
+    description:
+      "Read a specification file for review purposes. " +
+      "Restricted to spec/, specs/, and docs/ directories for security.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        path: {
+          type: "string",
+          description:
+            "Path to the specification file, relative to workspace root. " +
+            "Must be in spec/, specs/, or docs/ directory.",
+        },
+        start_line: {
+          type: "number",
+          description: "Optional: Start line to read from (1-indexed)",
+        },
+        end_line: {
+          type: "number",
+          description: "Optional: End line to read to (1-indexed, inclusive)",
+        },
+      },
+      required: ["path"],
+    },
+  },
+
+  // Code Review Summary Tool - SHARED (all roles can query)
+  {
+    role: "shared",
+    name: "get_code_review_summary",
+    description:
+      "Get sprint-level code review summary for UI panels and dashboards.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        sprint_id: { type: "string" },
+      },
+      required: ["sprint_id"],
+    },
+  },
+
+  // Code Review Query Tool - SHARED (single review or sprint summary)
+  {
+    role: "shared",
+    name: "get_code_review",
+    description:
+      "Get the latest code review for a task or sprint-level review summary.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        task: { type: "number" },
+        sprint_id: { type: "string" },
+        include_issues: { type: "boolean" },
+        include_history: { type: "boolean" },
+        handover_context: { type: "boolean" },
+      },
+      required: [],
+    },
+  },
+
+  // Code Review Decision Tool - CONTROLLER ONLY
+  {
+    role: "controller",
+    name: "submit_code_review",
+    description:
+      "Submit a code review decision with required artifacts for a sprint task.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        task: { type: "number" },
+        decision: { type: "string" },
+        summary: { type: "string" },
+        risk: { type: "string" },
+        files_reviewed: { type: "array", items: { type: "string" } },
+        tests_run: { type: "array", items: { type: "string" } },
+        commit_range: { type: "string" },
+        issues: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              severity: {
+                type: "string",
+                enum: ["BLOCKING", "MAJOR", "MINOR", "INFO"],
+              },
+              issue: { type: "string" },
+              file: { type: "string" },
+              line: { type: "number" },
+              recommendation: { type: "string" },
+            },
+            required: ["severity", "issue"],
+          },
+        },
+        recommendations: { type: "array", items: { type: "string" } },
+        notes: { type: "string" },
+        verifying_fixes: { type: "boolean" },
+      },
+      required: ["task", "decision", "summary", "risk", "files_reviewed"],
+    },
+  },
+
+  // Code Review Fix Tool - IMPLEMENTOR ONLY
+  {
+    role: "implementor",
+    name: "fix_code_review",
+    description:
+      "Resolve code review issues and submit fixes for verification (implementor).",
+    inputSchema: {
+      type: "object",
+      properties: {
+        action: {
+          type: "string",
+          enum: ["GET_ISSUES", "RESOLVE_ISSUE", "SUBMIT_FIXES"],
+        },
+        issue_id: { type: "number" },
+        fix_summary: { type: "string" },
+        summary: { type: "string" },
+        files_changed: { type: "array", items: { type: "string" } },
+        tests_run: { type: "array", items: { type: "string" } },
+        notes: { type: "string" },
+        skip_validation: { type: "boolean" },
+      },
+      required: ["action"],
+    },
+  },
+
   // Debug tool - available to all
   {
     role: "shared",
@@ -956,8 +1513,9 @@ const TOOLS_WITH_ROLES: ToolWithRole[] = [
 
 /**
  * Get tools filtered by role
+ * Exported for testing (ISSUE-008)
  */
-function getToolsForRole(role: ServerRole): Tool[] {
+export function getToolsForRole(role: ServerRole): Tool[] {
   if (role === "full") {
     // Return all tools (strip role property)
     return TOOLS_WITH_ROLES.map(({ role: _role, ...tool }) => tool);
@@ -965,14 +1523,18 @@ function getToolsForRole(role: ServerRole): Tool[] {
 
   // Filter to role-specific + shared tools
   return TOOLS_WITH_ROLES.filter(
-    (tool) => tool.role === role || tool.role === "shared"
+    (tool) => tool.role === role || tool.role === "shared",
   ).map(({ role: _role, ...tool }) => tool);
 }
 
 /**
  * Check if a tool is available for a role
+ * Exported for testing (ISSUE-008)
  */
-function isToolAvailableForRole(toolName: string, role: ServerRole): boolean {
+export function isToolAvailableForRole(
+  toolName: string,
+  role: ServerRole,
+): boolean {
   if (role === "full") return true;
 
   const tool = TOOLS_WITH_ROLES.find((t) => t.name === toolName);
@@ -988,7 +1550,7 @@ export function registerTools(server: Server, role: ServerRole = "full"): void {
   const availableTools = getToolsForRole(role);
 
   console.error(
-    `[orchestra-mcp] Registering ${availableTools.length} tools for role: ${role}`
+    `[orchestra-mcp] Registering ${availableTools.length} tools for role: ${role}`,
   );
 
   // List tools handler - returns only role-appropriate tools
@@ -1014,12 +1576,12 @@ export function registerTools(server: Server, role: ServerRole = "full"): void {
                   code: "ROLE_ACCESS_DENIED",
                   message: `Tool "${toolName}" is not available for role "${role}"`,
                   available_roles: TOOLS_WITH_ROLES.find(
-                    (t) => t.name === toolName
+                    (t) => t.name === toolName,
                   )?.role,
                 },
               },
               null,
-              2
+              2,
             ),
           },
         ],
@@ -1043,6 +1605,10 @@ export function registerTools(server: Server, role: ServerRole = "full"): void {
           return await (
             await import("./handlers/add-task.js")
           ).handleAddTask(args);
+        case "add_interface_validation":
+          return await (
+            await import("./handlers/add-interface-validation.js")
+          ).handleAddInterfaceValidation(args);
         case "update_task":
           return await (
             await import("./handlers/update-task.js")
@@ -1117,6 +1683,10 @@ export function registerTools(server: Server, role: ServerRole = "full"): void {
           return await (
             await import("./handlers/complete-task.js")
           ).handleCompleteTask(args);
+        case "reopen_task":
+          return await (
+            await import("./handlers/reopen-task.js")
+          ).handleReopenTask(args);
         case "escalate_task":
           return await (
             await import("./handlers/escalate-task.js")
@@ -1139,6 +1709,10 @@ export function registerTools(server: Server, role: ServerRole = "full"): void {
           return await (
             await import("./handlers/get-amendments.js")
           ).handleGetAmendments(args);
+        case "get_sprint_review":
+          return await (
+            await import("./handlers/get-sprint-review.js")
+          ).handleGetSprintReview(args);
 
         // Configuration (4 tools)
         case "set_active_sprint":
@@ -1152,11 +1726,74 @@ export function registerTools(server: Server, role: ServerRole = "full"): void {
         case "set_sprint_config":
           return await handleSetSprintConfig(args);
 
+        // Controller Agent Tools (6 tools - sprint and handover review)
+        case "approve_sprint":
+          return await (
+            await import("./handlers/approve-sprint.js")
+          ).handleApproveSprint(args);
+        case "reject_sprint":
+          return await (
+            await import("./handlers/reject-sprint.js")
+          ).handleRejectSprint(args);
+        case "resubmit_sprint":
+          return await (
+            await import("./handlers/resubmit-sprint.js")
+          ).handleResubmitSprint(args);
+        case "approve_handover":
+          return await (
+            await import("./handlers/approve-handover.js")
+          ).handleApproveHandover(args);
+        case "reject_handover":
+          return await (
+            await import("./handlers/reject-handover.js")
+          ).handleRejectHandover(args);
+        case "resubmit_handover":
+          return await (
+            await import("./handlers/resubmit-handover.js")
+          ).handleResubmitHandover(args);
+
+        // Controller Agent Read-Only Tools (T035)
+        case "get_task_for_review":
+          return await (
+            await import("./handlers/get-task-for-review.js")
+          ).handleGetTaskForReview(args);
+        case "get_handover":
+          return await (
+            await import("./handlers/get-handover.js")
+          ).handleGetHandover(args);
+        case "read_spec_file":
+          return await (
+            await import("./handlers/read-spec-file.js")
+          ).handleReadSpecFile(args);
+
+        // Code Review Summary Tool (Sprint 005)
+        case "get_code_review_summary":
+          return await (
+            await import("./handlers/get-code-review-summary.js")
+          ).handleGetCodeReviewSummary(args);
+
+        // Code Review Query Tool (Sprint 005)
+        case "get_code_review":
+          return await (
+            await import("./handlers/get-code-review.js")
+          ).handleGetCodeReview(args);
+
+        // Code Review Decision Tool (Sprint 005)
+        case "submit_code_review":
+          return await (
+            await import("./handlers/submit-code-review.js")
+          ).handleSubmitCodeReview(args);
+
+        // Code Review Fix Tool (Sprint 005)
+        case "fix_code_review":
+          return await (
+            await import("./handlers/fix-code-review.js")
+          ).handleFixCodeReview(args);
+
         // Debug tool
         case "debug_environment": {
-          const { handleDebugEnvironment } = await import(
-            "./handlers/debug-environment.js"
-          );
+          const { handleDebugEnvironment } =
+            await import("./handlers/debug-environment.js");
           const result = await handleDebugEnvironment(args);
           return {
             content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
@@ -1177,7 +1814,7 @@ export function registerTools(server: Server, role: ServerRole = "full"): void {
                     },
                   },
                   null,
-                  2
+                  2,
                 ),
               },
             ],
@@ -1200,7 +1837,7 @@ export function registerTools(server: Server, role: ServerRole = "full"): void {
                 },
               },
               null,
-              2
+              2,
             ),
           },
         ],

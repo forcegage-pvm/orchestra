@@ -1,0 +1,5 @@
+# dart_test.yaml - Test runner configuration
+
+tags:
+  tdd-red:
+    description: "TDD red-phase tests - MUST fail during red phase"

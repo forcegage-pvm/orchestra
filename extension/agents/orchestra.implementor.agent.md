@@ -43,6 +43,7 @@ This returns your task handover with acceptance criteria, file operations, and d
 | `get_current_task`  | **Get your task assignment** | **FIRST - Always start here**  |
 | `signal_completion` | Signal task is done          | After implementation complete  |
 | `get_feedback`      | Get failure feedback         | After verification fails       |
+| `fix_code_review`   | Resolve code review issues   | After CHANGES_REQUESTED review |
 | `get_progress`      | Sprint progress              | Check overall status           |
 | `escalate_task`     | Escalate if stuck            | After multiple failed attempts |
 
@@ -118,6 +119,8 @@ You operate within a strict information boundary:
 The `context_files` in your handover lists files you MAY read. However:
 
 - **ONLY read files explicitly listed** - don't explore related files
+- **Exception**: You may read source/test files needed to fix build/test/lint/typecheck failures that occur after your changes.
+- **Never** read spec/ or orchestrator-only files, even when fixing failures.
 - **If a listed file contains task lists** → STOP, escalate (Orchestrator error)
 - **If curious about other tasks** → Don't look. Trust the handover.
 - **If dependency task referenced** → Trust it's complete. Check the actual code.
@@ -215,6 +218,116 @@ When you call `signal_completion`, you are making a **formal claim**:
   "notes": "Optional additional context"
 }
 ```
+
+## TDD Red Phase Tasks
+
+Some tasks have `tdd_red_phase: true` in their handover. These are **TDD red phase tasks** where you write failing tests FIRST, then the Orchestrator assigns a separate "green phase" task to implement the feature.
+
+### When Working on a Red Phase Task
+
+1. **Write failing tests** that define expected behavior
+2. **Mark tests with TDD markers** using the **TWO-PART SYSTEM**:
+
+   TDD markers have TWO separate concerns:
+   - **Task linking**: `// @orchestra-task: N` at file top - associates tests with task ID
+   - **Test filtering**: `[tdd-red]` or `@Tags(['tdd-red'])` - allows running just TDD tests
+
+   **TypeScript/Vitest:**
+
+   ```typescript
+   // @orchestra-task: 3
+
+   // Use [tdd-red] in test or describe name (no task ID in the marker!)
+   describe("[tdd-red] Feature", () => {
+     it("should validate user input", () => {
+       expect(validateInput("")).toBe(false);
+     });
+   });
+
+   // Or at test level:
+   it("[tdd-red] should validate user input", () => {
+     expect(validateInput("")).toBe(false);
+   });
+   ```
+
+   **Dart/Flutter:**
+
+   ```dart
+   // @orchestra-task: 3
+   @Tags(['tdd-red'])
+   library;
+
+   void main() {
+     test('should validate user input', () {
+       expect(validateInput(''), false);
+     });
+   }
+
+   // Or inline tags (still need // @orchestra-task: N at file top):
+   test('should validate user input', () {
+     expect(validateInput(''), false);
+   }, tags: ['tdd-red']);
+   ```
+
+   **⚠️ OLD FORMAT NO LONGER SUPPORTED:**
+   - ❌ `@Tags(['tdd-red-task-N'])` (single-token with embedded task ID)
+   - ❌ `[tdd-red-task-N]` (single-token with embedded task ID)
+   - ❌ `tags: ['tdd-red', 'task-N']` (two tokens for one concept)
+   - ❌ `test/tdd-red/` directories
+   - ❌ `it.skip`, `test.skip`, `xit` (skip markers)
+
+3. **Verify locally before signaling:**
+
+   **TypeScript:**
+
+   ```bash
+   # Red tests should FAIL
+   npm test -- --testNamePattern="\[tdd-red\]"
+   # All other tests should PASS
+   npm test -- --testNamePattern="^(?!.*\[tdd-red\])"
+   ```
+
+   **Dart/Flutter:**
+
+   ```bash
+   # Red tests should FAIL
+   flutter test --tags tdd-red
+   # All other tests should PASS
+   flutter test --exclude-tags tdd-red
+   ```
+
+4. **Signal completion** as normal - the system will automatically scan for TDD markers
+
+### Automatic TDD Test Registration (Scan-on-Signal)
+
+When you call `signal_completion` (for ANY task, not just TDD tasks), Orchestra automatically:
+
+1. **Scans entire workspace** for TDD markers (`@Tags(['tdd-red'])` or `[tdd-red]`) with `// @orchestra-task: N` annotations
+2. **Deletes all existing registry entries** for the sprint (fresh snapshot)
+3. **Repopulates registry** with all markers found, grouped by task ID from annotations
+4. **Validates markers** (for `tdd_red_phase: true` tasks only) - ensures markers AND task annotation exist for your task ID
+
+The registry is a **transitory snapshot** - it reflects what's currently in the codebase, not accumulated state.
+
+You don't need to manually register tests - just add the markers WITH the task annotation and signal completion.
+
+### What Happens Next
+
+After your red phase task is complete:
+
+- Registry entries exist for your task's markers (file-level tracking with test count)
+- Orchestrator must call `complete_task` with `green_task_id` to assign the green phase
+- Green phase implementor implements the feature to make tests pass, then removes markers AND annotation
+- **Gate check**: No task can be completed until ALL registry entries have `green_task_id` assigned
+- Sprint cannot close until all TDD relationships have `completed_at` set
+
+### Red Phase Errors
+
+| Error                              | Meaning                                                        | Fix                                                                             |
+| ---------------------------------- | -------------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| `TDD RED-PHASE WORKFLOW VIOLATION` | Task has `tdd_red_phase: true` but no markers found            | Add `// @orchestra-task: N` AND `[tdd-red]` (TS) or `@Tags(['tdd-red'])` (Dart) |
+| `TDD-RED FILE MISSING TASK-ID`     | File has TDD markers but no `// @orchestra-task: N` annotation | Add `// @orchestra-task: N` at top of file (replace N with task ID)             |
+| `SCAN_FAILED`                      | Error during automatic test scanning                           | Check test file syntax and marker format                                        |
 
 ## Handling Feedback
 
@@ -365,6 +478,57 @@ If you're stuck and cannot make progress, call `escalate_task`:
 - ❌ Assume the feedback is complete (there may be hidden checks)
 - ❌ Ignore the retry count
 - ❌ Re-signal without actually fixing the issues
+
+## Code Review Fix Workflow
+
+When a Controller requests changes, use `fix_code_review` to retrieve issues, resolve them, and submit fixes for verification.
+
+### Fix Cycle
+
+1. **GET_ISSUES** → Pull open code review issues for your task
+2. **Fix code** → Implement the requested changes locally
+3. **RESOLVE_ISSUE** → Mark each issue as resolved with a short fix summary
+4. **SUBMIT_FIXES** → Submit the full set of fixes for Controller verification
+
+### Tool Actions
+
+The `fix_code_review` tool supports three actions:
+
+- **GET_ISSUES**: Returns the full handover context plus all open issues
+- **RESOLVE_ISSUE**: Marks a specific issue as resolved (`issue_id`, `fix_summary` required)
+- **SUBMIT_FIXES**: Submits all fixes for Controller verification (`summary`, `files_changed`, `tests_run` required)
+
+### Example: Get Issues
+
+```json
+// Call: fix_code_review
+{
+  "action": "GET_ISSUES"
+}
+```
+
+### Example: Resolve an Issue
+
+```json
+// Call: fix_code_review
+{
+  "action": "RESOLVE_ISSUE",
+  "issue_id": 42,
+  "fix_summary": "Added missing error handling and updated tests for timeout case."
+}
+```
+
+### Example: Submit Fixes
+
+```json
+// Call: fix_code_review
+{
+  "action": "SUBMIT_FIXES",
+  "summary": "Fixed all requested issues and aligned error handling with spec requirements.",
+  "files_changed": ["src/db/client.ts", "test/db/client.test.ts"],
+  "tests_run": ["npm test"]
+}
+```
 
 ## Critical Constraints
 

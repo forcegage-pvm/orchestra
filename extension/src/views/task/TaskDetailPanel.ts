@@ -14,11 +14,13 @@ import {
   getEscalation,
   getFeedback,
   getHandover,
+  getLatestCodeReviewForTask,
   getSignal,
   getTaskById,
   getTaskHistory,
   getVerificationChecks,
   getVerificationResults,
+  type CodeReviewDetail,
   type Escalation,
   type Feedback,
   type Handover,
@@ -72,6 +74,7 @@ interface TaskDetailData {
   signal?: Signal; // Implementor's completion signal
   history?: Array<Progress & { formattedTimestamp: string }>;
   escalation?: Escalation; // TD-016: Escalation data when task is ESCALATED
+  codeReview?: CodeReviewDetail | null;
 }
 
 export class TaskDetailPanel {
@@ -85,7 +88,7 @@ export class TaskDetailPanel {
     extensionUri: vscode.Uri,
     private readonly _db: Database.Database,
     private readonly dbWatcher: DatabaseWatcher,
-    private readonly taskId: number
+    private readonly taskId: number,
   ) {
     this._panel = panel;
     this._extensionUri = extensionUri;
@@ -106,7 +109,7 @@ export class TaskDetailPanel {
         }
       },
       null,
-      this._disposables
+      this._disposables,
     );
 
     // Handle panel disposal
@@ -123,7 +126,7 @@ export class TaskDetailPanel {
     extensionUri: vscode.Uri,
     db: Database.Database,
     dbWatcher: DatabaseWatcher,
-    taskId: number
+    taskId: number,
   ): void {
     // Show existing panel for this task
     const existingPanel = TaskDetailPanel.panels.get(taskId);
@@ -140,7 +143,7 @@ export class TaskDetailPanel {
       {
         enableScripts: true,
         retainContextWhenHidden: true,
-      }
+      },
     );
 
     const taskPanel = new TaskDetailPanel(
@@ -148,7 +151,7 @@ export class TaskDetailPanel {
       extensionUri,
       db,
       dbWatcher,
-      taskId
+      taskId,
     );
     TaskDetailPanel.panels.set(taskId, taskPanel);
   }
@@ -168,7 +171,7 @@ export class TaskDetailPanel {
     } catch (error) {
       logger.error(
         `Failed to update task detail for task ${this.taskId}`,
-        error
+        error,
       );
       this._panel.webview.postMessage({
         type: "error",
@@ -208,7 +211,7 @@ export class TaskDetailPanel {
     // Get verification checks (criteria) - always fetch
     const verificationChecks = getVerificationChecks(
       workspaceRoot,
-      this.taskId
+      this.taskId,
     );
     if (verificationChecks.length > 0) {
       data.verificationChecks = verificationChecks;
@@ -218,7 +221,7 @@ export class TaskDetailPanel {
     const verificationResults = getVerificationResults(
       workspaceRoot,
       this.taskId,
-      task.retry_count || 1
+      task.retry_count || 1,
     );
     if (verificationResults.length > 0) {
       data.verificationResults = verificationResults;
@@ -244,6 +247,9 @@ export class TaskDetailPanel {
       }
     }
 
+    // Get latest code review for this task
+    data.codeReview = getLatestCodeReviewForTask(workspaceRoot, this.taskId);
+
     // Get history timeline
     const history = getTaskHistory(workspaceRoot, this.taskId);
     data.history = history.map((event) => ({
@@ -264,7 +270,7 @@ export class TaskDetailPanel {
       "resources",
       "views",
       "task",
-      "index.html"
+      "index.html",
     );
 
     let html = fs.readFileSync(htmlPath, "utf8");

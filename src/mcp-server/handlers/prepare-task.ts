@@ -5,25 +5,44 @@
  * Updates sprint workflow_step to IMPLEMENT if coming from SELECT_TASK.
  */
 
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, isNull } from "drizzle-orm";
+import {
+  detectLanguageFromEnv,
+  getTddRedChecks,
+  type SupportedLanguage,
+} from "../../core/check-templates.js";
+import { enforcePhaseGate } from "../../core/code-review-gates.js";
+import { validateBehavioralCommand } from "../../core/command-validation.js";
 import { autoCommitIfEnabled, generateCommitMessage } from "../../core/git.js";
+import { validateVerificationPatterns } from "../../core/pattern-validator.js";
 import {
   cleanupTddRedMarkers,
   detectProjectLanguage,
 } from "../../core/tdd-cleanup.js";
+import {
+  mapToRunnerFlags,
+  resolveExclusions,
+  type FileOperation,
+  type TddRegistryEntry,
+} from "../../core/tdd-exclusion-resolver.js";
 import {
   getActiveSprint,
   getDb,
   resolveWorkspacePath,
 } from "../../db/index.js";
 import {
+  codeReviews,
   config,
+  escalations,
   handovers,
   progress,
   sprints,
+  sprintSettings,
   tasks,
+  tddRedRegistry,
   verificationChecks,
 } from "../../db/schema.js";
+import { CodeReviewConfigSchema } from "../../schemas/config.js";
 import {
   PrepareTaskInputSchema,
   type PrepareTaskOutput,
@@ -32,6 +51,11 @@ import { validateInput } from "../../schemas/utils.js";
 import { writeSignal } from "../db-signal.js";
 import { logToolExecution } from "./audit-logging.js";
 import { validateHandoverIsolation } from "./handover-validation.js";
+
+const isTestEnv =
+  process.env.NODE_ENV === "test" ||
+  process.env.VITEST === "true" ||
+  process.env.VITEST_WORKER_ID !== undefined;
 
 export async function handlePrepareTask(input: unknown) {
   const startTime = performance.now();
@@ -49,7 +73,7 @@ export async function handlePrepareTask(input: unknown) {
 
   try {
     const output = await prepareTask(
-      validation.data as typeof PrepareTaskInputSchema._output
+      validation.data as typeof PrepareTaskInputSchema._output,
     );
     const durationMs = Math.round(performance.now() - startTime);
 
@@ -62,7 +86,7 @@ export async function handlePrepareTask(input: unknown) {
         taskId: validation.data.task_id,
       },
       { success: true, output },
-      durationMs
+      durationMs,
     );
 
     return {
@@ -81,7 +105,7 @@ export async function handlePrepareTask(input: unknown) {
         taskId: validation.data.task_id,
       },
       { success: false, errorMessage: err.message },
-      durationMs
+      durationMs,
     );
 
     return {
@@ -97,7 +121,7 @@ export async function handlePrepareTask(input: unknown) {
               },
             },
             null,
-            2
+            2,
           ),
         },
       ],
@@ -106,7 +130,7 @@ export async function handlePrepareTask(input: unknown) {
 }
 
 async function prepareTask(
-  input: typeof PrepareTaskInputSchema._output
+  input: typeof PrepareTaskInputSchema._output,
 ): Promise<PrepareTaskOutput> {
   const db = getDb();
 
@@ -132,12 +156,119 @@ async function prepareTask(
     throw new Error("No active sprint");
   }
 
+  // 1b. T016: Check if sprint is pending Controller review - block task preparation
+  // Controller Agent must approve sprint configuration before any tasks can be prepared
+  if (sprint.status === "PENDING_SPEC_REVIEW") {
+    throw new Error(
+      `Sprint "${sprint.id}" is awaiting Controller review. ` +
+        `Task preparation is blocked until the Controller approves the sprint configuration. ` +
+        `Use approve_sprint tool (Controller role) to proceed.`,
+    );
+  }
+
+  if (sprint.status === "SPEC_REVIEW_FAILED") {
+    throw new Error(
+      `Sprint "${sprint.id}" failed Controller review. ` +
+        `Task preparation is blocked. Orchestrator must use resubmit_sprint ` +
+        `after addressing the issues identified by the Controller.`,
+    );
+  }
+
+  // 1d. Block task preparation if any non-escalated REJECTED task reviews exist
+  const rejectedReviews = await db
+    .select({ task_id: codeReviews.task_id })
+    .from(codeReviews)
+    .where(
+      and(
+        eq(codeReviews.sprint_id, sprint.id),
+        eq(codeReviews.status, "REJECTED"),
+        eq(codeReviews.review_scope, "TASK"),
+      ),
+    );
+
+  if (rejectedReviews.length > 0) {
+    const rejectedTaskIds = rejectedReviews
+      .map((review) => review.task_id)
+      .filter((taskId): taskId is number => taskId !== null);
+
+    const escalatedTaskRows =
+      rejectedTaskIds.length > 0
+        ? await db
+            .select({ task_id: escalations.task_id })
+            .from(escalations)
+            .where(
+              and(
+                eq(escalations.sprint_id, sprint.id),
+                inArray(escalations.task_id, rejectedTaskIds),
+                isNull(escalations.resolved_at),
+              ),
+            )
+        : [];
+
+    const escalatedTaskIds = new Set(
+      escalatedTaskRows
+        .map((row) => row.task_id)
+        .filter((taskId): taskId is number => taskId !== null),
+    );
+
+    const blockingTaskIds = rejectedTaskIds.filter(
+      (taskId) => !escalatedTaskIds.has(taskId),
+    );
+
+    if (blockingTaskIds.length > 0) {
+      throw new Error(
+        `Task preparation blocked due to REJECTED code reviews on tasks: ${blockingTaskIds.join(
+          ", ",
+        )}. ` +
+          `Resolve the rejected review(s) or escalate the task(s) to proceed.`,
+      );
+    }
+  }
+
+  // 1c. Fetch sprint environment configuration (REQUIRED since Sprint 006)
+  // These eliminate guessing about test commands, file patterns, and directories
+  const sprintSettingsRows = await db
+    .select()
+    .from(sprintSettings)
+    .where(eq(sprintSettings.sprint_id, sprint.id));
+
+  // Build sprintEnv object conditionally (exactOptionalPropertyTypes compliance)
+  const sprintEnv: SprintEnvironment = {
+    source_base_dir:
+      sprintSettingsRows.find((s) => s.key === "source_base_dir")?.value || ".",
+  };
+
+  const testCommandSetting = sprintSettingsRows.find(
+    (s) => s.key === "test_command",
+  );
+  if (testCommandSetting) {
+    sprintEnv.test_command = testCommandSetting.value;
+  }
+
+  const testFilePatternSetting = sprintSettingsRows.find(
+    (s) => s.key === "test_file_pattern",
+  );
+  if (testFilePatternSetting) {
+    sprintEnv.test_file_pattern = testFilePatternSetting.value;
+  }
+
+  // Warn if environment config is missing (for backwards compatibility with old sprints)
+  if (!sprintEnv.test_command || !sprintEnv.test_file_pattern) {
+    if (!isTestEnv) {
+      console.error(
+        `[prepare_task] WARNING: Sprint "${sprint.id}" is missing environment configuration. ` +
+          `New sprints should use configure_sprint with environment field. ` +
+          `Falling back to auto-detection (may cause verification errors).`,
+      );
+    }
+  }
+
   // 2. Find task
   const [task] = await db
     .select()
     .from(tasks)
     .where(
-      and(eq(tasks.sprint_id, sprint.id), eq(tasks.task_id, input.task_id))
+      and(eq(tasks.sprint_id, sprint.id), eq(tasks.task_id, input.task_id)),
     )
     .limit(1);
 
@@ -152,13 +283,31 @@ async function prepareTask(
     if (task.status === "ESCALATED") {
       throw new Error(
         `Task ${input.task_id} is ESCALATED and cannot be prepared. ` +
-          `Human supervisor must de-escalate the task first using VS Code.`
+          `Human supervisor must de-escalate the task first using VS Code.`,
       );
     }
     throw new Error(
       `Task ${input.task_id} is in ${task.status} state and cannot be prepared. ` +
-        `Expected: ${validStatuses.join(", ")}`
+        `Expected: ${validStatuses.join(", ")}`,
     );
+  }
+
+  // 3b. Enforce phase gate before preparing tasks in next phase
+  const codeReviewConfig = CodeReviewConfigSchema.parse(
+    sprint.config ? JSON.parse(sprint.config) : {},
+  );
+
+  if (
+    codeReviewConfig.code_review_enabled &&
+    codeReviewConfig.code_review_policy === "phase_gate"
+  ) {
+    const gateResult = await enforcePhaseGate({ phase_id: task.phase_id });
+    if (gateResult.blocked) {
+      throw new Error(
+        gateResult.reason ||
+          "Phase gate blocks task preparation until phase review is approved",
+      );
+    }
   }
 
   // 4. Check dependencies are complete
@@ -171,14 +320,14 @@ async function prepareTask(
 
     const depMap = new Map(depTasks.map((t) => [t.task_id, t.status]));
     const incompleteDeps = dependencies.filter(
-      (depId) => depMap.get(depId) !== "COMPLETE"
+      (depId) => depMap.get(depId) !== "COMPLETE",
     );
 
     if (incompleteDeps.length > 0) {
       throw new Error(
         `Task ${
           input.task_id
-        } has incomplete dependencies: ${incompleteDeps.join(", ")}`
+        } has incomplete dependencies: ${incompleteDeps.join(", ")}`,
       );
     }
   }
@@ -198,7 +347,7 @@ async function prepareTask(
     task.title,
     now,
     input.file_operations,
-    input.test_file
+    input.test_file,
   );
 
   // Determine effective test_requirements - auto-generate if TDD injected but none provided
@@ -206,9 +355,11 @@ async function prepareTask(
   let effectiveTestFile = input.test_file;
 
   if (tddInjectionResult.injected) {
-    console.error(
-      `[TDD] Auto-injected test verification check for task ${input.task_id} (${task.category}): ${tddInjectionResult.checkDescription}`
-    );
+    if (!isTestEnv) {
+      console.error(
+        `[TDD] Auto-injected test verification check for task ${input.task_id} (${task.category}): ${tddInjectionResult.checkDescription}`,
+      );
+    }
 
     // Auto-generate test requirements if not provided by orchestrator
     if (!effectiveTestRequirements) {
@@ -298,15 +449,31 @@ async function prepareTask(
     .where(eq(verificationChecks.task_id, task.id));
 
   let behavCheckCount = existingChecks.filter((c) =>
-    c.check_id.startsWith("behav-")
+    c.check_id.startsWith("behav-"),
   ).length;
   let structCheckCount = existingChecks.filter((c) =>
-    c.check_id.startsWith("struct-")
+    c.check_id.startsWith("struct-"),
   ).length;
 
   if (tddRedPhase) {
     // Generate and insert red-phase checks
-    const redPhaseChecks = generateTddRedPhaseChecks(workspaceRoot, task.title);
+    // Use sprint environment config (explicit) or fall back to file_operations inference
+
+    // Query tdd_red_registry for existing red-phase test files
+    const registryEntries = await db
+      .select()
+      .from(tddRedRegistry)
+      .where(eq(tddRedRegistry.sprint_id, sprint.id));
+
+    const redPhaseChecks = generateTddRedPhaseChecks(
+      workspaceRoot,
+      task.title,
+      input.task_id,
+      sprint.id,
+      sprintEnv,
+      input.file_operations,
+      registryEntries,
+    );
 
     for (const check of redPhaseChecks) {
       const checkIdPrefix =
@@ -327,29 +494,161 @@ async function prepareTask(
       });
     }
 
-    console.error(
-      `[TDD RED] Auto-injected ${redPhaseChecks.length} red-phase verification checks for task ${input.task_id}`
-    );
+    if (!isTestEnv) {
+      console.error(
+        `[TDD RED] Auto-injected ${redPhaseChecks.length} red-phase verification checks for task ${input.task_id}`,
+      );
+    }
   }
   // Note: Cleanup of tdd-red markers is the implementor's responsibility during
   // the GREEN phase. The orchestrator should add explicit cleanup verification
   // criteria to GREEN phase tasks when preparing them.
 
-  // 6. Update task status to IMPLEMENT
+  // 5d. Validate verification patterns before finalizing handover
+  // Read ALL verification checks (including auto-injected TDD checks)
+  const allChecks = await db
+    .select()
+    .from(verificationChecks)
+    .where(eq(verificationChecks.task_id, task.id));
+
+  // Group checks by type for validation
+  const structural_checks = allChecks
+    .filter((c) => c.check_type === "structural")
+    .map((c) => ({
+      ...JSON.parse(c.check_config as string),
+      description: c.description,
+      severity: c.severity,
+    }));
+
+  const behavioral_checks = allChecks
+    .filter((c) => c.check_type === "behavioral")
+    .map((c) => ({
+      ...JSON.parse(c.check_config as string),
+      description: c.description,
+      severity: c.severity,
+    }));
+
+  const quality_checks = allChecks
+    .filter((c) => c.check_type === "quality")
+    .map((c) => ({
+      ...JSON.parse(c.check_config as string),
+      description: c.description,
+      severity: c.severity,
+    }));
+
+  const validationResult = await validateVerificationPatterns(
+    {
+      structural_checks,
+      behavioral_checks,
+      quality_checks,
+    },
+    workspaceRoot,
+    input.file_operations, // Pass file_operations to check alignment
+  );
+
+  // Log validation warnings if any (also returned in response)
+  if (validationResult.warnings.length > 0) {
+    if (!isTestEnv) {
+      console.warn(
+        `[prepare_task] Pattern validation warnings for task ${input.task_id}:`,
+        validationResult.warnings,
+      );
+    }
+  }
+
+  // BLOCK on validation errors - don't allow bad specs to be saved
+  if (validationResult.errors.length > 0) {
+    console.error(
+      `[prepare_task] Pattern validation errors for task ${input.task_id}:`,
+      validationResult.errors,
+    );
+    throw new Error(
+      `Verification pattern validation failed. These errors WILL cause verification to fail:\n\n` +
+        `${validationResult.errors.join("\n")}\n\n` +
+        `Fix the verification criteria before preparing the task.` +
+        (validationResult.warnings.length > 0
+          ? `\n\nWarnings (non-blocking):\n${validationResult.warnings.join("\n")}`
+          : ``),
+    );
+  }
+
+  // 5e. Validate behavioral check commands before finalizing handover
+  // Check that all behavioral commands are executable (correct executables, scripts, flags, etc.)
+  const commandValidationErrors: string[] = [];
+  const commandValidationWarnings: string[] = [];
+
+  for (const check of behavioral_checks) {
+    if (check.command) {
+      const result = validateBehavioralCommand(
+        check.command,
+        check.working_directory || workspaceRoot,
+      );
+
+      if (!result.isValid) {
+        // Collect errors with check description for context
+        for (const error of result.errors) {
+          commandValidationErrors.push(
+            `[${check.description}] ${error.message} (code: ${error.code})`,
+          );
+        }
+      }
+
+      // Collect warnings
+      for (const warning of result.warnings) {
+        commandValidationWarnings.push(
+          `[${check.description}] ${warning.message} (code: ${warning.code})`,
+        );
+      }
+    }
+  }
+
+  // BLOCK on command validation errors - don't allow invalid commands
+  if (commandValidationErrors.length > 0) {
+    console.error(
+      `[prepare_task] Behavioral command validation errors for task ${input.task_id}:`,
+      commandValidationErrors,
+    );
+    throw new Error(
+      `Behavioral command validation failed. These errors WILL cause verification to fail:\n\n` +
+        `${commandValidationErrors.join("\n")}\n\n` +
+        `Fix the behavioral check commands before preparing the task.` +
+        (commandValidationWarnings.length > 0
+          ? `\n\nWarnings (non-blocking):\n${commandValidationWarnings.join("\n")}`
+          : ``),
+    );
+  }
+
+  // Merge command validation warnings into pattern validation warnings
+  if (commandValidationWarnings.length > 0) {
+    validationResult.warnings.push(...commandValidationWarnings);
+    if (!isTestEnv) {
+      console.warn(
+        `[prepare_task] Behavioral command validation warnings for task ${input.task_id}:`,
+        commandValidationWarnings,
+      );
+    }
+  }
+
+  // 6. T023: Update task status to PENDING_HANDOVER_REVIEW
+  // Controller Agent must review and approve handover before implementation can begin
   await db
     .update(tasks)
     .set({
-      status: "IMPLEMENT",
+      status: "PENDING_HANDOVER_REVIEW",
       updated_at: now,
     })
     .where(eq(tasks.id, task.id));
 
-  // 7. Update sprint workflow_step if needed
-  if (sprint.workflow_step === "SELECT_TASK") {
+  // 7. T024: Update sprint workflow_step to HANDOVER_REVIEW
+  // This blocks implementation until Controller approves the handover
+  if (
+    sprint.workflow_step === "SELECT_TASK" ||
+    sprint.workflow_step === "SPEC_REVIEW"
+  ) {
     await db
       .update(sprints)
       .set({
-        workflow_step: "IMPLEMENT",
+        workflow_step: "HANDOVER_REVIEW",
         updated_at: now,
       })
       .where(eq(sprints.id, sprint.id));
@@ -360,10 +659,11 @@ async function prepareTask(
     sprint_id: sprint.id,
     task_id: task.id,
     from_status: task.status,
-    to_status: "IMPLEMENT",
-    workflow_step: sprint.workflow_step,
+    to_status: "PENDING_HANDOVER_REVIEW",
+    workflow_step: "HANDOVER_REVIEW",
     triggered_by: "orchestrator",
-    notes: "Task prepared and handed over to implementor",
+    notes:
+      "Task prepared - awaiting Controller handover review before implementation",
     changed_at: now,
   });
 
@@ -388,8 +688,15 @@ async function prepareTask(
   return {
     success: true,
     task_id: input.task_id,
-    status: "IMPLEMENT",
-    git_commit: gitResult.committed ? gitResult.sha ?? undefined : undefined,
+    status: "PENDING_HANDOVER_REVIEW",
+    message:
+      "Task prepared and awaiting Controller handover review. " +
+      "Use approve_handover (Controller role) to allow implementation to begin.",
+    git_commit: gitResult.committed ? (gitResult.sha ?? undefined) : undefined,
+    pattern_warnings:
+      validationResult.warnings.length > 0
+        ? validationResult.warnings
+        : undefined,
   };
 }
 
@@ -401,7 +708,7 @@ function detectTestPatterns(
     operation: string;
     path: string;
     description: string;
-  }>
+  }>,
 ): { testFilePattern: string; testContentPattern: string } {
   // Check file extensions in file_operations
   const extensions = new Set<string>();
@@ -521,7 +828,7 @@ async function injectTestVerificationIfRequired(
     path: string;
     description: string;
   }>,
-  explicitTestFile?: string
+  explicitTestFile?: string,
 ): Promise<{
   injected: boolean;
   checkDescription?: string;
@@ -559,6 +866,27 @@ async function injectTestVerificationIfRequired(
     return { injected: false };
   }
 
+  // Skip TDD injection for documentation-only tasks
+  // If ALL file operations target non-code files (markdown, text, etc.), no tests are needed
+  const documentationExtensions = new Set([
+    "md",
+    "mdx",
+    "rst",
+    "txt",
+    "adoc",
+    "asciidoc",
+  ]);
+  const isDocumentationOnly =
+    fileOperations.length > 0 &&
+    fileOperations.every((op) => {
+      const ext = op.path.split(".").pop()?.toLowerCase() || "";
+      return documentationExtensions.has(ext);
+    });
+
+  if (isDocumentationOnly) {
+    return { injected: false };
+  }
+
   // Get test file pattern from config or detect from file operations
   const configTestPattern = configMap.get("tdd.test_file_pattern");
   const configContentPattern = configMap.get("tdd.test_pattern");
@@ -586,13 +914,13 @@ async function injectTestVerificationIfRequired(
   } else {
     // Use detected pattern, adapt for extension/ if needed
     const hasExtensionFiles = fileOperations.some((op) =>
-      op.path.startsWith("extension/")
+      op.path.startsWith("extension/"),
     );
 
     if (hasExtensionFiles) {
       testFilePattern = detectedPatterns.testFilePattern.replace(
         /^test\//,
-        "extension/test/"
+        "extension/test/",
       );
     } else {
       testFilePattern = detectedPatterns.testFilePattern;
@@ -606,7 +934,7 @@ async function injectTestVerificationIfRequired(
     .where(eq(verificationChecks.task_id, taskInternalId));
 
   const structCheckCount = existingChecks.filter((c) =>
-    c.check_id.startsWith("struct-")
+    c.check_id.startsWith("struct-"),
   ).length;
 
   const checkDescription = `[TDD] Test file required for "${taskTitle}" (${taskCategory})`;
@@ -646,123 +974,183 @@ async function injectTestVerificationIfRequired(
 }
 
 /**
- * Generate TDD red-phase verification checks
+ * Sprint environment configuration for TDD checks
+ */
+interface SprintEnvironment {
+  test_command?: string; // e.g., "npm test", "flutter test", "pytest"
+  test_file_pattern?: string; // e.g., "test/**/*.test.ts", "test/**/*_test.dart"
+  source_base_dir?: string; // e.g., ".", "extension", "packages/app"
+}
+
+/**
+ * Generate TDD red-phase verification checks using predefined templates.
+ *
+ * This uses the check-templates system to ensure patterns/commands are
+ * correct and tested, eliminating agent improvisation errors.
  *
  * When a task is marked as tdd_red_phase=true, it requires:
  * 1. Tagged tests MUST fail (exit code 1)
  * 2. Non-tagged tests MUST pass (exit code 0)
  * 3. At least one tdd-red marker exists
  *
+ * Sprint 007 Addition: Non-red checks now include file-level exclusions to prevent
+ * test runner load/import failures when red-phase files have unresolved dependencies.
+ *
  * @param workspaceRoot - Root directory of the workspace
  * @param taskTitle - Task title for check descriptions
+ * @param taskId - Task ID for annotation pattern
+ * @param sprintId - Sprint ID for registry lookup
+ * @param sprintEnv - Sprint environment configuration (explicit, preferred)
+ * @param fileOperations - File operations from handover (fallback inference)
+ * @param registryEntries - TDD registry entries for exclusion resolution
  * @returns Array of verification check configs
  */
 function generateTddRedPhaseChecks(
   workspaceRoot: string,
-  taskTitle: string
+  taskTitle: string,
+  taskId: number,
+  sprintId: string,
+  sprintEnv: SprintEnvironment,
+  fileOperations?: Array<{
+    operation: string;
+    path: string;
+    description: string;
+  }>,
+  registryEntries?: TddRegistryEntry[],
 ): Array<{
   check_type: "behavioral" | "structural";
   description: string;
   severity: "BLOCKING" | "MAJOR" | "MINOR";
   check_config: Record<string, unknown>;
 }> {
-  const language = detectProjectLanguage(workspaceRoot);
-  const checks: Array<{
-    check_type: "behavioral" | "structural";
-    description: string;
-    severity: "BLOCKING" | "MAJOR" | "MINOR";
-    check_config: Record<string, unknown>;
-  }> = [];
+  // Use explicit sprint config when available, otherwise fall back to inference
+  let sourceBaseDir = sprintEnv.source_base_dir || ".";
+  let testCommand = sprintEnv.test_command;
+  let testFilePattern = sprintEnv.test_file_pattern;
 
-  if (language === "dart") {
-    // Behavioral: Tagged tests must fail
-    checks.push({
-      check_type: "behavioral",
-      description: `[TDD RED] Tagged tests must fail for "${taskTitle}"`,
-      severity: "BLOCKING",
-      check_config: {
-        command: "flutter test --tags tdd-red",
-        expect_exit_code: 1,
-        success_message: "Tagged tests failed as expected (red phase)",
-        failure_message: "Tagged tests must fail in red phase",
-      },
-    });
+  // Fall back to inference if sprint config is missing (backwards compatibility)
+  if (!testCommand || !testFilePattern) {
+    const language = detectProjectLanguage(workspaceRoot);
 
-    // Behavioral: Non-tagged tests must pass
-    checks.push({
-      check_type: "behavioral",
-      description: `[TDD RED] Non-tagged tests must pass for "${taskTitle}"`,
-      severity: "BLOCKING",
-      check_config: {
-        command: "flutter test --exclude-tags tdd-red",
-        expect_exit_code: 0,
-        success_message: "Non-tagged tests passed (no regressions)",
-        failure_message: "Non-tagged tests failed - regressions detected",
-      },
-    });
+    // Infer subdirectory prefix from file_operations (legacy behavior)
+    let subdirPrefix = "";
+    if (fileOperations && fileOperations.length > 0) {
+      const topDirs = new Set<string>();
+      for (const op of fileOperations) {
+        const parts = op.path.split("/");
+        const topDir = parts[0];
+        if (topDir && !["test", "lib", "src", "."].includes(topDir)) {
+          topDirs.add(topDir);
+        }
+      }
+      if (topDirs.size === 1) {
+        const topDir = [...topDirs][0];
+        const firstPath = fileOperations[0]?.path || "";
+        if (
+          firstPath.startsWith(`${topDir}/`) &&
+          firstPath.split("/").length > 2
+        ) {
+          const secondPart = firstPath.split("/")[1];
+          if (secondPart && !["test", "lib", "src"].includes(secondPart)) {
+            subdirPrefix = `${topDir}/${secondPart}/`;
+          } else {
+            subdirPrefix = `${topDir}/`;
+          }
+        } else {
+          subdirPrefix = `${topDir}/`;
+        }
+      }
+    }
 
-    // Structural: At least one tdd-red marker exists
-    // Flutter supports two syntaxes:
-    //   1. Library-level: @Tags(['tdd-red'])
-    //   2. Inline parameter: tags: 'tdd-red' in test() call
-    checks.push({
-      check_type: "structural",
-      description: `[TDD RED] Red-phase marker present for "${taskTitle}"`,
-      severity: "BLOCKING",
-      check_config: {
-        path: "test/**/*.dart",
-        pattern:
-          "@Tags\\(\\['tdd-red'\\]\\)|tags:\\s*['\"]tdd-red['\"]|tags:\\s*\\['tdd-red'\\]",
-        min_matches: 1,
-      },
-    });
-  } else if (language === "typescript") {
-    // TypeScript supports two TDD approaches:
-    //   1. Directory-based: test/tdd-red/*.test.ts
-    //   2. Tag-based: @vitest-environment or test name includes [tdd-red]
-    // We check for both to be flexible
-
-    // Behavioral: tdd-red tests must fail
-    // Vitest: use --testNamePattern for tag filtering, or directory path
-    checks.push({
-      check_type: "behavioral",
-      description: `[TDD RED] Red-phase tests must fail for "${taskTitle}"`,
-      severity: "BLOCKING",
-      check_config: {
-        command:
-          'npm test -- --testNamePattern="\\[tdd-red\\]" 2>/dev/null || npm test -- test/tdd-red',
-        expect_exit_code: 1,
-        success_message: "Red-phase tests failed as expected",
-        failure_message: "Red-phase tests must fail",
-      },
-    });
-
-    // Behavioral: Non-red tests must pass
-    checks.push({
-      check_type: "behavioral",
-      description: `[TDD RED] Non-red tests must pass for "${taskTitle}"`,
-      severity: "BLOCKING",
-      check_config: {
-        command:
-          'npm test -- --testPathIgnorePatterns=tdd-red --testNamePattern="^(?!.*\\[tdd-red\\])"',
-        expect_exit_code: 0,
-        success_message: "Non-red tests passed (no regressions)",
-        failure_message: "Non-red tests failed - regressions detected",
-      },
-    });
-
-    // Structural: tdd-red marker exists (directory or inline tag)
-    checks.push({
-      check_type: "structural",
-      description: `[TDD RED] Red-phase test marker present for "${taskTitle}"`,
-      severity: "BLOCKING",
-      check_config: {
-        path: "test/**/*.test.ts",
-        pattern: "test/tdd-red/|\\[tdd-red\\]",
-        min_matches: 1,
-      },
-    });
+    // Set defaults based on language detection
+    if (language === "dart") {
+      testCommand = testCommand || "flutter test";
+      testFilePattern = testFilePattern || `${subdirPrefix}test/**/*.dart`;
+      // Only override sourceBaseDir if it wasn't explicitly configured
+      if (subdirPrefix && !sprintEnv.source_base_dir) {
+        sourceBaseDir = subdirPrefix.replace(/\/$/, "");
+      }
+    } else {
+      // TypeScript/JavaScript default
+      testCommand = testCommand || "npm test";
+      testFilePattern = testFilePattern || `${subdirPrefix}test/**/*.test.ts`;
+      // Only override sourceBaseDir if it wasn't explicitly configured
+      if (subdirPrefix && !sprintEnv.source_base_dir) {
+        sourceBaseDir = subdirPrefix.replace(/\/$/, "");
+      }
+    }
   }
 
-  return checks;
+  // Normalize sourceBaseDir to cd prefix
+  const cdPrefix =
+    sourceBaseDir && sourceBaseDir !== "." ? `cd ${sourceBaseDir}; ` : "";
+
+  // Detect language from test command using template system
+  const language: SupportedLanguage =
+    detectLanguageFromEnv(testCommand, testFilePattern) || "typescript";
+
+  // Get checks from predefined templates
+  const templateChecks = getTddRedChecks(language, {
+    cdPrefix,
+    testFilePattern: testFilePattern || "test/**/*",
+    taskId,
+    taskTitle,
+    testCommand: testCommand || "npm test",
+  });
+
+  // Sprint 007: Resolve exclusions for non-red TDD check
+  // This prevents test runner failures when red-phase files have unresolved dependencies
+  const normalizedFileOps: FileOperation[] = (fileOperations || []).map(
+    (op) => ({
+      operation: op.operation as "CREATE" | "UPDATE" | "DELETE",
+      path: op.path,
+      description: op.description,
+    }),
+  );
+
+  const exclusionResult = resolveExclusions(
+    sprintId,
+    normalizedFileOps,
+    registryEntries,
+  );
+
+  // Generate runner-specific exclusion flags
+  const exclusionFlags = mapToRunnerFlags(
+    exclusionResult.files,
+    testCommand || "npm test",
+    workspaceRoot,
+  );
+
+  // Convert to expected return type and inject exclusion flags into non-red check
+  return templateChecks.map((check) => {
+    // Find the non-red behavioral check and add exclusion flags
+    const isNonRedBehavioralCheck =
+      check.check_type === "behavioral" &&
+      (check.description.includes("Non-tagged tests must pass") ||
+        check.description.includes("Non-red tests must pass"));
+
+    if (isNonRedBehavioralCheck && exclusionFlags) {
+      const modifiedConfig = { ...check.check_config };
+      if (
+        modifiedConfig.command &&
+        typeof modifiedConfig.command === "string"
+      ) {
+        modifiedConfig.command =
+          `${modifiedConfig.command} ${exclusionFlags}`.trim();
+      }
+      return {
+        check_type: check.check_type as "behavioral" | "structural",
+        description: check.description,
+        severity: check.severity as "BLOCKING" | "MAJOR" | "MINOR",
+        check_config: modifiedConfig as Record<string, unknown>,
+      };
+    }
+
+    return {
+      check_type: check.check_type as "behavioral" | "structural",
+      description: check.description,
+      severity: check.severity as "BLOCKING" | "MAJOR" | "MINOR",
+      check_config: check.check_config as Record<string, unknown>,
+    };
+  });
 }
