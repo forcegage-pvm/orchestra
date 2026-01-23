@@ -29,7 +29,7 @@ export function updateTaskStatus(
   taskId: number,
   newStatus: string,
   notes?: string,
-  watcher?: DatabaseWatcher
+  watcher?: DatabaseWatcher,
 ): boolean {
   const db = OrchestraDB.getInstance(workspaceRoot);
   const now = new Date().toISOString();
@@ -42,7 +42,7 @@ export function updateTaskStatus(
     FROM tasks t
     JOIN sprints s ON t.sprint_id = s.id
     WHERE t.id = ?
-  `
+  `,
     )
     .get(taskId) as
     | { id: number; status: string; sprint_id: string }
@@ -60,7 +60,7 @@ export function updateTaskStatus(
     UPDATE tasks 
     SET status = ?, updated_at = ?, completed_at = ?
     WHERE id = ?
-  `
+  `,
   ).run(newStatus, now, newStatus === "COMPLETE" ? now : null, task.id);
 
   // Insert progress record
@@ -68,7 +68,7 @@ export function updateTaskStatus(
     `
     INSERT INTO progress (sprint_id, task_id, from_status, to_status, workflow_step, triggered_by, notes, changed_at)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-  `
+  `,
   ).run(
     task.sprint_id,
     task.id,
@@ -77,7 +77,7 @@ export function updateTaskStatus(
     newStatus === "COMPLETE" ? "COMPLETE" : "VERIFY",
     "orchestrator",
     notes || `Status changed from ${oldStatus} to ${newStatus}`,
-    now
+    now,
   );
 
   // Update sprint workflow step if needed
@@ -87,7 +87,7 @@ export function updateTaskStatus(
       UPDATE sprints 
       SET workflow_step = 'VERIFY', updated_at = ?
       WHERE id = ?
-    `
+    `,
     ).run(now, task.sprint_id);
   } else if (newStatus === "COMPLETE") {
     db.prepare(
@@ -95,7 +95,7 @@ export function updateTaskStatus(
       UPDATE sprints 
       SET workflow_step = 'SELECT_TASK', updated_at = ?
       WHERE id = ?
-    `
+    `,
     ).run(now, task.sprint_id);
     // Trigger watcher to update UI immediately
     if (watcher) {
@@ -130,7 +130,7 @@ export function createSignal(
     notes?: string;
     tests?: unknown[];
     preSignalChecks?: Record<string, unknown>;
-  }
+  },
 ): string {
   const db = OrchestraDB.getInstance(workspaceRoot);
   const now = new Date().toISOString();
@@ -142,7 +142,7 @@ export function createSignal(
     SELECT id, retry_count 
     FROM tasks 
     WHERE id = ?
-  `
+  `,
     )
     .get(taskId) as { id: number; retry_count: number } | undefined;
 
@@ -154,7 +154,7 @@ export function createSignal(
     `
     INSERT INTO signals (task_id, signal_id, attempt, summary, artifacts_created, tests, build_status, test_status, notes, signaled_at, pre_signal_checks)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `
+  `,
   ).run(
     task.id,
     signalId,
@@ -166,7 +166,7 @@ export function createSignal(
     input.testStatus,
     input.notes ?? null,
     now,
-    JSON.stringify(input.preSignalChecks ?? {})
+    JSON.stringify(input.preSignalChecks ?? {}),
   );
 
   return signalId;
@@ -185,7 +185,7 @@ export function createResolutionSignal(
   workspaceRoot: string,
   taskId: number,
   summary: string,
-  watcher?: DatabaseWatcher
+  watcher?: DatabaseWatcher,
 ): string {
   const db = OrchestraDB.getInstance(workspaceRoot);
   const now = new Date().toISOString();
@@ -198,7 +198,7 @@ export function createResolutionSignal(
     SELECT id, retry_count 
     FROM tasks 
     WHERE id = ?
-  `
+  `,
     )
     .get(taskId) as { id: number; retry_count: number } | undefined;
 
@@ -215,7 +215,7 @@ export function createResolutionSignal(
     WHERE task_id = ? 
     ORDER BY signaled_at DESC 
     LIMIT 1
-  `
+  `,
     )
     .get(task.id) as { artifacts_created: string } | undefined;
 
@@ -224,7 +224,7 @@ export function createResolutionSignal(
     `
     INSERT INTO signals (task_id, signal_id, attempt, summary, artifacts_created, tests, build_status, test_status, notes, signaled_at, pre_signal_checks)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `
+  `,
   ).run(
     task.id,
     signalId,
@@ -236,7 +236,7 @@ export function createResolutionSignal(
     "PASS",
     `Resolution signal for re-verification`,
     now,
-    JSON.stringify({ escalation_resolution: true })
+    JSON.stringify({ escalation_resolution: true }),
   );
 
   // Trigger watcher to update UI immediately
@@ -261,7 +261,7 @@ export function createResolutionSignal(
 export function setActiveSprint(
   workspaceRoot: string,
   sprintId: string,
-  watcher?: DatabaseWatcher
+  watcher?: DatabaseWatcher,
 ): { success: boolean; sprintName: string } {
   const db = OrchestraDB.getInstance(workspaceRoot);
   const now = new Date().toISOString();
@@ -273,7 +273,7 @@ export function setActiveSprint(
     SELECT id, name, completed_at 
     FROM sprints 
     WHERE id = ?
-  `
+  `,
     )
     .get(sprintId) as
     | { id: string; name: string; completed_at: string | null }
@@ -286,7 +286,7 @@ export function setActiveSprint(
   if (sprint.completed_at) {
     throw new Error(
       `Cannot activate completed sprint: ${sprintId}. ` +
-        `Sprint was completed at ${sprint.completed_at}.`
+        `Sprint was completed at ${sprint.completed_at}.`,
     );
   }
 
@@ -299,7 +299,7 @@ export function setActiveSprint(
     UPDATE sprints 
     SET is_active = 1, updated_at = ?
     WHERE id = ?
-  `
+  `,
   ).run(now, sprintId);
 
   // Trigger watcher to update UI immediately
@@ -328,7 +328,7 @@ export function resolveEscalation(
   taskId: number,
   targetStatus: "PENDING" | "VERIFY_FAILED" | "GATE_CHECK" | "IMPLEMENT",
   notes: string,
-  watcher?: DatabaseWatcher
+  watcher?: DatabaseWatcher,
 ): boolean {
   const db = OrchestraDB.getInstance(workspaceRoot);
   const now = new Date().toISOString();
@@ -341,7 +341,7 @@ export function resolveEscalation(
     FROM tasks t
     JOIN sprints s ON t.sprint_id = s.id
     WHERE t.id = ?
-  `
+  `,
     )
     .get(taskId) as
     | { id: number; status: string; sprint_id: string }
@@ -353,7 +353,7 @@ export function resolveEscalation(
 
   if (task.status !== "ESCALATED") {
     throw new Error(
-      `Task ${taskId} is not ESCALATED (current: ${task.status})`
+      `Task ${taskId} is not ESCALATED (current: ${task.status})`,
     );
   }
 
@@ -365,7 +365,7 @@ export function resolveEscalation(
     WHERE task_id = ? AND resolved_at IS NULL 
     ORDER BY escalated_at DESC 
     LIMIT 1
-  `
+  `,
     )
     .get(task.id) as { id: number } | undefined;
 
@@ -379,7 +379,7 @@ export function resolveEscalation(
           resolution_target_status = ?,
           resolution_notes = ?
       WHERE id = ?
-    `
+    `,
     ).run(now, targetStatus, notes, escalation.id);
   }
 
@@ -389,7 +389,7 @@ export function resolveEscalation(
     UPDATE tasks 
     SET status = ?, updated_at = ?
     WHERE id = ?
-  `
+  `,
   ).run(targetStatus, now, task.id);
 
   // Insert progress record
@@ -397,7 +397,7 @@ export function resolveEscalation(
     `
     INSERT INTO progress (sprint_id, task_id, from_status, to_status, workflow_step, triggered_by, notes, changed_at)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-  `
+  `,
   ).run(
     task.sprint_id,
     task.id,
@@ -406,7 +406,7 @@ export function resolveEscalation(
     targetStatus === "PENDING" ? "SELECT_TASK" : "IMPLEMENT",
     "human_supervisor",
     `De-escalated by supervisor: ${notes}`,
-    now
+    now,
   );
 
   // Update sprint workflow step
@@ -414,15 +414,15 @@ export function resolveEscalation(
     targetStatus === "PENDING"
       ? "SELECT_TASK"
       : targetStatus === "GATE_CHECK"
-      ? "VERIFY"
-      : "IMPLEMENT";
+        ? "VERIFY"
+        : "IMPLEMENT";
 
   db.prepare(
     `
     UPDATE sprints 
     SET workflow_step = ?, updated_at = ?
     WHERE id = ?
-  `
+  `,
   ).run(newWorkflowStep, now, task.sprint_id);
 
   // Trigger watcher to update UI immediately
@@ -444,7 +444,7 @@ export function resolveEscalation(
  */
 export function getEscalationDetails(
   workspaceRoot: string,
-  taskId: number
+  taskId: number,
 ):
   | {
       reason: string;
@@ -465,7 +465,7 @@ export function getEscalationDetails(
     WHERE task_id = ? AND resolved_at IS NULL 
     ORDER BY escalated_at DESC 
     LIMIT 1
-  `
+  `,
     )
     .get(taskId) as
     | {
@@ -496,7 +496,7 @@ export function saveSessionLabel(
   workspaceRoot: string,
   role: "orchestrator" | "implementor",
   label: string,
-  watcher?: DatabaseWatcher
+  watcher?: DatabaseWatcher,
 ): void {
   const db = OrchestraDB.getInstance(workspaceRoot);
   const now = new Date().toISOString();
@@ -506,7 +506,7 @@ export function saveSessionLabel(
     `
     INSERT OR REPLACE INTO chat_sessions (role, tab_label, created_at, last_used_at)
     VALUES (?, ?, ?, ?)
-  `
+  `,
   ).run(role, label, now, now);
 
   // Trigger watcher to update UI immediately
@@ -527,7 +527,7 @@ export function saveSessionLabel(
 export function clearSessionLabel(
   workspaceRoot: string,
   role: "orchestrator" | "implementor",
-  watcher?: DatabaseWatcher
+  watcher?: DatabaseWatcher,
 ): void {
   const db = OrchestraDB.getInstance(workspaceRoot);
 
@@ -535,7 +535,7 @@ export function clearSessionLabel(
     `
     DELETE FROM chat_sessions 
     WHERE role = ?
-  `
+  `,
   ).run(role);
 
   // Trigger watcher to update UI immediately

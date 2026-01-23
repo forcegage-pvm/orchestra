@@ -30,15 +30,6 @@ export const signalCompletionTool: AgentTool = {
       artifacts: {
         type: "array",
         description: "List of artifacts created or modified",
-        items: {
-          type: "object",
-          properties: {
-            path: { type: "string" },
-            type: { type: "string", enum: ["CREATE", "UPDATE", "DELETE"] },
-            description: { type: "string" },
-          },
-          required: ["path", "type"],
-        },
       },
       build_status: {
         type: "string",
@@ -73,13 +64,32 @@ export const signalCompletionTool: AgentTool = {
         };
       }
 
-      const signalId = createSignal(context.workspaceRoot, currentTask.id, {
+      const signalInput: {
+        summary: string;
+        artifacts: Array<{
+          path: string;
+          type: ArtifactType;
+          description?: string;
+        }>;
+        buildStatus: "PASS" | "FAIL";
+        testStatus: "PASS" | "FAIL";
+        notes?: string;
+      } = {
         summary: parsed.summary,
         artifacts: parsed.artifacts,
         buildStatus: parsed.build_status,
         testStatus: parsed.test_status,
-        notes: parsed.notes,
-      });
+      };
+
+      if (parsed.notes !== undefined) {
+        signalInput.notes = parsed.notes;
+      }
+
+      const signalId = createSignal(
+        context.workspaceRoot,
+        currentTask.id,
+        signalInput,
+      );
 
       return {
         success: true,
@@ -89,8 +99,7 @@ export const signalCompletionTool: AgentTool = {
         }),
       };
     } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Unknown error";
+      const message = error instanceof Error ? error.message : "Unknown error";
       return {
         success: false,
         output: "",

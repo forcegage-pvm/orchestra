@@ -30,7 +30,10 @@ export const getCurrentTaskTool: AgentTool = {
     type: "object",
     properties: {},
   },
-  execute: async (_input: unknown, context: ToolContext): Promise<ToolResult> => {
+  execute: async (
+    _input: unknown,
+    context: ToolContext,
+  ): Promise<ToolResult> => {
     try {
       const currentTask = getCurrentTaskQuery(context.workspaceRoot);
       if (!currentTask) {
@@ -43,9 +46,7 @@ export const getCurrentTaskTool: AgentTool = {
 
       const handover = currentTask.handover;
 
-      const acceptanceCriteria = parseJsonField(
-        handover.acceptance_criteria,
-      );
+      const acceptanceCriteria = parseJsonField(handover.acceptance_criteria);
       const fileOperations = parseJsonField(handover.file_operations);
       const deliverables = parseJsonField(handover.deliverables);
       const contextFiles = parseJsonField(handover.context_files ?? null);
@@ -69,8 +70,7 @@ export const getCurrentTaskTool: AgentTool = {
         output: JSON.stringify(payload),
       };
     } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Unknown error";
+      const message = error instanceof Error ? error.message : "Unknown error";
       return {
         success: false,
         output: "",

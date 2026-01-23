@@ -30,7 +30,10 @@ export const getFeedbackTool: AgentTool = {
     type: "object",
     properties: {},
   },
-  execute: async (_input: unknown, context: ToolContext): Promise<ToolResult> => {
+  execute: async (
+    _input: unknown,
+    context: ToolContext,
+  ): Promise<ToolResult> => {
     try {
       const currentTask = getCurrentTask(context.workspaceRoot);
       if (!currentTask) {
@@ -75,8 +78,7 @@ export const getFeedbackTool: AgentTool = {
         output: JSON.stringify(payload),
       };
     } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Unknown error";
+      const message = error instanceof Error ? error.message : "Unknown error";
       return {
         success: false,
         output: "",
