@@ -32,13 +32,13 @@ export function registerCodingTools(registry: ToolRegistry): void {
 }
 
 export {
-  readFileTool,
-  editTool,
-  newFileTool,
   deleteFileTool,
-  searchTool,
+  editTool,
   grepSearchTool,
   listDirectoryTool,
-  usagesTool,
+  newFileTool,
+  readFileTool,
+  searchTool,
   testFailureTool,
+  usagesTool,
 };
