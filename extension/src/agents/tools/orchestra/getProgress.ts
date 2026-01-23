@@ -32,7 +32,9 @@ export const getProgressTool: AgentTool = {
 
       const tasks = getTasksForSprint(context.workspaceRoot, sprint.id);
       const total = tasks.length;
-      const completed = tasks.filter((task) => task.status === "COMPLETE").length;
+      const completed = tasks.filter(
+        (task) => task.status === "COMPLETE",
+      ).length;
       const pending = tasks.filter((task) => task.status === "PENDING").length;
       const inProgress = total - completed - pending;
 

@@ -9,7 +9,10 @@ import { getCurrentTaskTool } from "../../../../src/agents/tools/orchestra/getCu
 import { getFeedbackTool } from "../../../../src/agents/tools/orchestra/getFeedback.js";
 import { getProgressTool } from "../../../../src/agents/tools/orchestra/getProgress.js";
 import { signalCompletionTool } from "../../../../src/agents/tools/orchestra/signalCompletion.js";
-import { createEscalation, createSignal } from "../../../../src/database/mutations.js";
+import {
+  createEscalation,
+  createSignal,
+} from "../../../../src/database/mutations.js";
 import {
   getCurrentTask,
   getCurrentSprint,

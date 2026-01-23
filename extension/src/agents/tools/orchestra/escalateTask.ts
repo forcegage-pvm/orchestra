@@ -67,8 +67,7 @@ export const escalateTaskTool: AgentTool = {
         return {
           success: false,
           output: "",
-          error:
-            "Early escalation reason is required when retry_count is 0.",
+          error: "Early escalation reason is required when retry_count is 0.",
         };
       }
 
@@ -88,7 +87,8 @@ export const escalateTaskTool: AgentTool = {
       }
 
       if (parsed.recommended_target_status !== undefined) {
-        escalationInput.recommendedTargetStatus = parsed.recommended_target_status;
+        escalationInput.recommendedTargetStatus =
+          parsed.recommended_target_status;
       }
 
       if (parsed.early_escalation_reason !== undefined) {
