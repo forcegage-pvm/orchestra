@@ -54,8 +54,22 @@ function parsePosition(
 
   if (typeof input === "string") {
     try {
-      const parsed = JSON.parse(input) as { line?: number; character?: number };
-      return parsePosition(parsed);
+      const parsed = JSON.parse(input) as {
+        line?: number;
+        character?: number;
+      };
+      const line = normalizePositiveInteger(parsed.line);
+      const character = normalizePositiveInteger(parsed.character);
+
+      if (line === undefined || character === undefined) {
+        return undefined;
+      }
+
+      if (line < 1 || character < 1) {
+        return undefined;
+      }
+
+      return new vscode.Position(line - 1, character - 1);
     } catch {
       const parts = input.split(":");
       if (parts.length === 2) {
