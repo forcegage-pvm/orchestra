@@ -10,10 +10,7 @@ import type { ToolContext, ToolResult } from "../../types.js";
 interface UsagesInput {
   symbolName: string;
   filePath?: string;
-  position?: {
-    line: number;
-    character: number;
-  };
+  position?: string | { line: number; character: number };
 }
 
 interface UsageLocation {
@@ -38,7 +35,9 @@ function toRelativePath(context: ToolContext, uri: vscode.Uri): string {
   return normalizedRelative.length > 0 ? normalizedRelative : normalizedFsPath;
 }
 
-function normalizePositiveInteger(value: number | undefined): number | undefined {
+function normalizePositiveInteger(
+  value: number | undefined,
+): number | undefined {
   if (value === undefined) {
     return undefined;
   }
@@ -51,6 +50,21 @@ function parsePosition(
 ): vscode.Position | undefined {
   if (!input) {
     return undefined;
+  }
+
+  if (typeof input === "string") {
+    try {
+      const parsed = JSON.parse(input) as { line?: number; character?: number };
+      return parsePosition(parsed);
+    } catch {
+      const parts = input.split(":");
+      if (parts.length === 2) {
+        const line = Number.parseInt(parts[0] ?? "", 10);
+        const character = Number.parseInt(parts[1] ?? "", 10);
+        return parsePosition({ line, character });
+      }
+      return undefined;
+    }
   }
 
   const line = normalizePositiveInteger(input.line);
@@ -122,19 +136,9 @@ export const usagesTool: AgentTool = {
         description: "Optional path to file containing the symbol",
       },
       position: {
-        type: "object",
-        description: "Optional 1-based line/character position of the symbol",
-        properties: {
-          line: {
-            type: "number",
-            description: "1-based line number",
-          },
-          character: {
-            type: "number",
-            description: "1-based character position",
-          },
-        },
-        required: ["line", "character"],
+        type: "string",
+        description:
+          "Optional 1-based position as JSON (e.g. {\"line\":1,\"character\":5}) or 'line:character'",
       },
     },
     required: ["symbolName"],

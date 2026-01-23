@@ -34,14 +34,17 @@ function normalizePath(workspaceRoot: string, filePath: string): string {
   const relative = path.relative(workspaceRoot, absolute);
   const normalizedRelative = relative.split(path.sep).join("/");
   const normalizedAbsolute = absolute.split(path.sep).join("/");
-  return normalizedRelative.length > 0 ? normalizedRelative : normalizedAbsolute;
+  return normalizedRelative.length > 0
+    ? normalizedRelative
+    : normalizedAbsolute;
 }
 
 function pushFailure(
   failures: TestFailureRecord[],
   current: TestFailureRecord | null,
 ): void {
-  if (current &&
+  if (
+    current &&
     (current.testName ||
       current.message ||
       current.expected ||
@@ -52,26 +55,63 @@ function pushFailure(
   }
 }
 
-function parseExpectedActual(
-  line: string,
-  current: TestFailureRecord,
+function setOptionalString(
+  target: TestFailureRecord,
+  key: "testName" | "message" | "expected" | "actual" | "file",
+  value: string | undefined,
 ): void {
+  if (value !== undefined) {
+    target[key] = value;
+  }
+}
+
+function setOptionalNumber(
+  target: TestFailureRecord,
+  key: "line" | "column",
+  value: number,
+): void {
+  if (Number.isFinite(value)) {
+    target[key] = value;
+  }
+}
+
+function parseExpectedActual(line: string, current: TestFailureRecord): void {
   const expectedMatch = line.match(/^Expected:\s*(.*)$/);
   if (expectedMatch) {
-    current.expected = expectedMatch[1]?.trim();
+    const expectedValue = expectedMatch[1];
+    setOptionalString(
+      current,
+      "expected",
+      expectedValue !== undefined ? expectedValue.trim() : undefined,
+    );
     return;
   }
 
   const receivedMatch = line.match(/^Received:\s*(.*)$/);
   if (receivedMatch) {
-    current.actual = receivedMatch[1]?.trim();
+    const actualValue = receivedMatch[1];
+    setOptionalString(
+      current,
+      "actual",
+      actualValue !== undefined ? actualValue.trim() : undefined,
+    );
     return;
   }
 
   const inlineMatch = line.match(/expected\s+(.*)\s+to\s+be\s+(.*)/i);
   if (inlineMatch) {
-    current.actual = inlineMatch[1]?.trim();
-    current.expected = inlineMatch[2]?.trim();
+    const actualValue = inlineMatch[1];
+    const expectedValue = inlineMatch[2];
+    setOptionalString(
+      current,
+      "actual",
+      actualValue !== undefined ? actualValue.trim() : undefined,
+    );
+    setOptionalString(
+      current,
+      "expected",
+      expectedValue !== undefined ? expectedValue.trim() : undefined,
+    );
   }
 }
 
@@ -92,9 +132,13 @@ function parseTestFailures(
     const failMatch = line.match(/^FAIL\s+(.*)$/);
     if (failMatch) {
       pushFailure(failures, current);
-      current = {
-        testName: failMatch[1]?.trim(),
-      };
+      current = {};
+      const testName = failMatch[1];
+      setOptionalString(
+        current,
+        "testName",
+        testName !== undefined ? testName.trim() : undefined,
+      );
       continue;
     }
 
@@ -103,16 +147,28 @@ function parseTestFailures(
       if (!current) {
         current = {};
       }
-      current.testName = testNameMatch[1]?.trim();
+      const testName = testNameMatch[1];
+      setOptionalString(
+        current,
+        "testName",
+        testName !== undefined ? testName.trim() : undefined,
+      );
       continue;
     }
 
-    const messageMatch = line.match(/^(?:AssertionError|Error|TypeError):\s*(.*)$/);
+    const messageMatch = line.match(
+      /^(?:AssertionError|Error|TypeError):\s*(.*)$/,
+    );
     if (messageMatch) {
       if (!current) {
         current = {};
       }
-      current.message = messageMatch[1]?.trim();
+      const message = messageMatch[1];
+      setOptionalString(
+        current,
+        "message",
+        message !== undefined ? message.trim() : undefined,
+      );
       continue;
     }
 
@@ -125,9 +181,14 @@ function parseTestFailures(
       if (!current) {
         current = {};
       }
-      current.file = normalizePath(workspaceRoot, locationMatch[1]);
-      current.line = Number.parseInt(locationMatch[2] ?? "", 10);
-      current.column = Number.parseInt(locationMatch[3] ?? "", 10);
+      const filePath = locationMatch[1];
+      if (filePath !== undefined) {
+        setOptionalString(current, "file", normalizePath(workspaceRoot, filePath));
+      }
+      const lineValue = Number.parseInt(locationMatch[2] ?? "", 10);
+      const columnValue = Number.parseInt(locationMatch[3] ?? "", 10);
+      setOptionalNumber(current, "line", lineValue);
+      setOptionalNumber(current, "column", columnValue);
     }
   }
 
@@ -137,14 +198,14 @@ function parseTestFailures(
 
 export const testFailureTool: AgentTool = {
   name: "test_failure",
-  description:
-    "Parse test output and return structured test failure details.",
+  description: "Parse test output and return structured test failure details.",
   inputSchema: {
     type: "object",
     properties: {
       path: {
         type: "string",
-        description: "Optional path to test output file (default: test-output.txt)",
+        description:
+          "Optional path to test output file (default: test-output.txt)",
       },
     },
   },

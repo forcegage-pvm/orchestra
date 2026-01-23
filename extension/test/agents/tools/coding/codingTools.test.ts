@@ -11,81 +11,89 @@ import { testFailureTool } from "../../../../src/agents/tools/coding/testFailure
 import { usagesTool } from "../../../../src/agents/tools/coding/usages.js";
 import type { ToolContext } from "../../../../src/agents/types.js";
 
-const { commands, window, workspace, FileSystemError, Position, Range, WorkspaceEdit, Uri } =
-  vi.hoisted(() => {
-    const commands = {
-      executeCommand: vi.fn(),
-    };
+const {
+  commands,
+  window,
+  workspace,
+  FileSystemError,
+  Position,
+  Range,
+  WorkspaceEdit,
+  Uri,
+} = vi.hoisted(() => {
+  const commands = {
+    executeCommand: vi.fn(),
+  };
 
-    const window = {
-      activeTextEditor: undefined as { document: unknown } | undefined,
-    };
+  const window = {
+    activeTextEditor: undefined as { document: unknown } | undefined,
+  };
 
-    const workspace = {
-      openTextDocument: vi.fn(),
-      applyEdit: vi.fn(),
-      fs: {
-        stat: vi.fn(),
-        createDirectory: vi.fn(),
-      },
-    };
+  const workspace = {
+    openTextDocument: vi.fn(),
+    applyEdit: vi.fn(),
+    fs: {
+      stat: vi.fn(),
+      createDirectory: vi.fn(),
+    },
+  };
 
-    class FileSystemError extends Error {
-      code?: string;
+  class FileSystemError extends Error {
+    code?: string;
 
-      constructor(message: string, code?: string) {
-        super(message);
-        this.code = code;
-        this.name = "FileSystemError";
-      }
-
-      static FileNotFound(): FileSystemError {
-        return new FileSystemError("File not found", "FileNotFound");
-      }
+    constructor(message: string, code?: string) {
+      super(message);
+      this.code = code;
+      this.name = "FileSystemError";
     }
 
-    class Position {
-      constructor(
-        public line: number,
-        public character: number,
-      ) {}
+    static FileNotFound(): FileSystemError {
+      return new FileSystemError("File not found", "FileNotFound");
     }
+  }
 
-    class Range {
-      constructor(
-        public start: Position,
-        public end: Position,
-      ) {}
+  class Position {
+    constructor(
+      public line: number,
+      public character: number,
+    ) {}
+  }
+
+  class Range {
+    constructor(
+      public start: Position,
+      public end: Position,
+    ) {}
+  }
+
+  class WorkspaceEdit {
+    static lastInstance: WorkspaceEdit | undefined;
+    replace = vi.fn();
+    createFile = vi.fn();
+    deleteFile = vi.fn();
+
+    constructor() {
+      WorkspaceEdit.lastInstance = this;
     }
+  }
 
-    class WorkspaceEdit {
-      static lastInstance: WorkspaceEdit | undefined;
-      replace = vi.fn();
-      createFile = vi.fn();
-      deleteFile = vi.fn();
-
-      constructor() {
-        WorkspaceEdit.lastInstance = this;
-      }
+  class Uri {
+    static file(filePath: string): { fsPath: string; path: string } {
+      return { fsPath: filePath, path: filePath };
     }
+  }
 
-    class Uri {
-      static file(filePath: string): { fsPath: string; path: string } {
-        return { fsPath: filePath, path: filePath };
-      }
-    }
-
-    return {
-      commands,
-      window,
-      workspace,
-      FileSystemError,
-      Position,
-      Range,
-      WorkspaceEdit,
-      Uri,
-    };
-  });
+  return {
+    commands,
+    window,
+    workspace,
+    FileSystemError,
+    Position,
+    Range,
+    WorkspaceEdit,
+    Uri,
+  };
+});
 
 vi.mock("vscode", () => ({
   commands,
