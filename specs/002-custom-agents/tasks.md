@@ -78,6 +78,8 @@ Based on plan.md structure:
 - [ ] T020 [P] [US1] Implement search tool in extension/src/agents/tools/coding/search.ts
 - [ ] T021 [P] [US1] Implement grep_search tool in extension/src/agents/tools/coding/grepSearch.ts
 - [ ] T022 [P] [US1] Implement list_directory tool in extension/src/agents/tools/coding/listDirectory.ts
+- [ ] T022a [P] [US1] Implement usages tool (find all references) in extension/src/agents/tools/coding/usages.ts
+- [ ] T022b [P] [US1] Implement test_failure tool (get test failure details) in extension/src/agents/tools/coding/testFailure.ts
 - [ ] T023 [P] [US1] Create coding tools index with registration in extension/src/agents/tools/coding/index.ts
 
 #### Orchestra Implementor Tools
