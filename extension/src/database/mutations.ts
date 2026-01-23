@@ -112,6 +112,67 @@ export function updateTaskStatus(
 }
 
 /**
+ * Create a completion signal for a task
+ *
+ * @param workspaceRoot Absolute path to workspace root
+ * @param taskId Numeric task ID
+ * @param input Signal input payload
+ * @returns Signal ID
+ */
+export function createSignal(
+  workspaceRoot: string,
+  taskId: number,
+  input: {
+    summary: string;
+    artifacts: unknown[];
+    buildStatus: string;
+    testStatus: string;
+    notes?: string;
+    tests?: unknown[];
+    preSignalChecks?: Record<string, unknown>;
+  }
+): string {
+  const db = OrchestraDB.getInstance(workspaceRoot);
+  const now = new Date().toISOString();
+  const signalId = crypto.randomUUID();
+
+  const task = db
+    .prepare(
+      `
+    SELECT id, retry_count 
+    FROM tasks 
+    WHERE id = ?
+  `
+    )
+    .get(taskId) as { id: number; retry_count: number } | undefined;
+
+  if (!task) {
+    throw new Error(`Task ${taskId} not found`);
+  }
+
+  db.prepare(
+    `
+    INSERT INTO signals (task_id, signal_id, attempt, summary, artifacts_created, tests, build_status, test_status, notes, signaled_at, pre_signal_checks)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `
+  ).run(
+    task.id,
+    signalId,
+    task.retry_count + 1,
+    input.summary,
+    JSON.stringify(input.artifacts ?? []),
+    JSON.stringify(input.tests ?? []),
+    input.buildStatus,
+    input.testStatus,
+    input.notes ?? null,
+    now,
+    JSON.stringify(input.preSignalChecks ?? {})
+  );
+
+  return signalId;
+}
+
+/**
  * Create a fresh signal for re-verification after escalation resolution
  *
  * @param workspaceRoot Absolute path to workspace root
