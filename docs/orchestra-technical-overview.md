@@ -120,13 +120,13 @@ Orchestra solves this through **structural role separation** and **independent a
 
 ### Key Architectural Decisions
 
-| Decision | Rationale |
-|----------|-----------|
-| **Separate MCP servers per role** | Tools are filtered by role at server startup |
-| **Hidden verification in database** | Implementor tools never query verification tables |
+| Decision                              | Rationale                                          |
+| ------------------------------------- | -------------------------------------------------- |
+| **Separate MCP servers per role**     | Tools are filtered by role at server startup       |
+| **Hidden verification in database**   | Implementor tools never query verification tables  |
 | **Controller as independent auditor** | Prevents orchestrator from bypassing specification |
-| **SQLite with Drizzle ORM** | Portable, embedded, full audit trail |
-| **VS Code Extension hosting** | Native integration with GitHub Copilot agents |
+| **SQLite with Drizzle ORM**           | Portable, embedded, full audit trail               |
+| **VS Code Extension hosting**         | Native integration with GitHub Copilot agents      |
 
 ---
 
@@ -306,6 +306,7 @@ orchestra/
 | Completion | Mark complete, handle failures | `complete_task`, `enhance_feedback`, `escalate_task` |
 
 **Key Constraints**:
+
 - Subject to Controller review gates
 - Cannot signal task completion (that's implementor's job)
 - Must provide context and rationale for all actions
@@ -322,18 +323,20 @@ orchestra/
 | Action | Tool | Description |
 |--------|------|-------------|
 | Get assignment | `get_current_task` | Receive handover with acceptance criteria |
-| Implement | *(standard coding)* | Write code, tests, documentation |
+| Implement | _(standard coding)_ | Write code, tests, documentation |
 | Signal completion | `signal_completion` | Claim task is done with artifacts list |
 | Handle feedback | `get_feedback` | Read failure feedback after VERIFY fails |
 | Fix code reviews | `fix_code_review` | Resolve Controller's code review issues |
 
 **Key Constraints**:
+
 - **NEVER** accesses specification documents
 - **NEVER** sees verification criteria
 - **NEVER** sees other tasks (only current task)
 - Handover is the COMPLETE specification
 
 **Information Isolation Rules**:
+
 ```
 YOU MUST NEVER ACCESS:
 ─────────────────────
@@ -366,6 +369,7 @@ YOUR COMPLETE WORLD:
 | Code Review | `submit_code_review`, `get_code_review` | Review implementation quality |
 
 **Key Constraints**:
+
 - **Read-only** access to specifications and handovers
 - **Cannot modify** verification criteria
 - **Cannot prepare** tasks or run verifications
@@ -437,17 +441,17 @@ YOUR COMPLETE WORLD:
 
 ### Status Definitions
 
-| Status | Phase | Description |
-|--------|-------|-------------|
-| `PENDING` | INIT | Task created, awaiting preparation |
-| `PENDING_HANDOVER_REVIEW` | PREPARE | Handover created, awaiting Controller approval |
-| `HANDOVER_REVIEW_FAILED` | PREPARE | Controller rejected handover |
-| `IMPLEMENT` | IMPLEMENT | Approved for implementation |
-| `GATE_CHECK` | SIGNAL | Implementor signaled, pre-checks running |
-| `VERIFY` | VERIFY | Verification checks running |
-| `VERIFY_FAILED` | RETRY | Verification failed, retry available |
-| `COMPLETE` | COMPLETE | Task verified and complete |
-| `ESCALATED` | ESCALATED | Max retries exceeded, human needed |
+| Status                    | Phase     | Description                                    |
+| ------------------------- | --------- | ---------------------------------------------- |
+| `PENDING`                 | INIT      | Task created, awaiting preparation             |
+| `PENDING_HANDOVER_REVIEW` | PREPARE   | Handover created, awaiting Controller approval |
+| `HANDOVER_REVIEW_FAILED`  | PREPARE   | Controller rejected handover                   |
+| `IMPLEMENT`               | IMPLEMENT | Approved for implementation                    |
+| `GATE_CHECK`              | SIGNAL    | Implementor signaled, pre-checks running       |
+| `VERIFY`                  | VERIFY    | Verification checks running                    |
+| `VERIFY_FAILED`           | RETRY     | Verification failed, retry available           |
+| `COMPLETE`                | COMPLETE  | Task verified and complete                     |
+| `ESCALATED`               | ESCALATED | Max retries exceeded, human needed             |
 
 ---
 
@@ -468,14 +472,14 @@ Orchestra runs **three MCP server instances** with role-based tool filtering:
       "env": { "ORCHESTRA_WORKSPACE": "${workspaceFolder}" }
     },
     "orchestra-imp": {
-      "type": "stdio", 
+      "type": "stdio",
       "command": "node",
       "args": ["path/to/mcp-server/index.js", "--role=implementor"],
       "env": { "ORCHESTRA_WORKSPACE": "${workspaceFolder}" }
     },
     "orchestra-ctrl": {
       "type": "stdio",
-      "command": "node", 
+      "command": "node",
       "args": ["path/to/mcp-server/index.js", "--role=controller"],
       "env": { "ORCHESTRA_WORKSPACE": "${workspaceFolder}" }
     }
@@ -530,17 +534,17 @@ Orchestra runs **three MCP server instances** with role-based tool filtering:
 
 #### Implementor Tools (9)
 
-| Tool | Description |
-|------|-------------|
-| `get_current_task` | Get current task handover |
-| `signal_completion` | Signal task completion with artifacts |
-| `get_feedback` | Get failure feedback |
-| `fix_code_review` | Resolve code review issues (GET_ISSUES, RESOLVE_ISSUE, SUBMIT_FIXES) |
-| `escalate_task` | Escalate blocked task |
-| `get_progress` | Get sprint progress |
-| `get_sprint_status` | Get sprint status |
-| `get_signal` | Get signal details |
-| `get_task_history` | Get task audit trail |
+| Tool                | Description                                                          |
+| ------------------- | -------------------------------------------------------------------- |
+| `get_current_task`  | Get current task handover                                            |
+| `signal_completion` | Signal task completion with artifacts                                |
+| `get_feedback`      | Get failure feedback                                                 |
+| `fix_code_review`   | Resolve code review issues (GET_ISSUES, RESOLVE_ISSUE, SUBMIT_FIXES) |
+| `escalate_task`     | Escalate blocked task                                                |
+| `get_progress`      | Get sprint progress                                                  |
+| `get_sprint_status` | Get sprint status                                                    |
+| `get_signal`        | Get signal details                                                   |
+| `get_task_history`  | Get task audit trail                                                 |
 
 #### Controller Tools (10)
 
@@ -573,15 +577,15 @@ Orchestra runs **three MCP server instances** with role-based tool filtering:
 
 #### Shared Tools (All Roles)
 
-| Tool | Description |
-|------|-------------|
-| `get_progress` | Sprint progress summary |
-| `get_sprint_status` | Sprint status with phases |
-| `get_task_history` | Task audit trail |
-| `get_signal` | Signal details |
-| `escalate_task` | Escalate to human |
+| Tool                       | Description                     |
+| -------------------------- | ------------------------------- |
+| `get_progress`             | Sprint progress summary         |
+| `get_sprint_status`        | Sprint status with phases       |
+| `get_task_history`         | Task audit trail                |
+| `get_signal`               | Signal details                  |
+| `escalate_task`            | Escalate to human               |
 | `add_interface_validation` | Add interface validation config |
-| `debug_environment` | Debug MCP environment |
+| `debug_environment`        | Debug MCP environment           |
 
 ---
 
@@ -683,15 +687,15 @@ Displays code review status and issues:
 
 ### Commands
 
-| Command | Description |
-|---------|-------------|
-| `orchestra.launchOrchestrator` | Open chat with Orchestrator agent |
-| `orchestra.launchImplementor` | Open chat with Implementor agent |
-| `orchestra.launchController` | Open chat with Controller agent |
-| `orchestra.reviewSprint` | Launch Controller for sprint review |
-| `orchestra.playTask` | Start task implementation |
-| `orchestra.deEscalateTask` | De-escalate task (human supervisor) |
-| `orchestra.forceComplete` | Force-complete task (supervisor override) |
+| Command                        | Description                               |
+| ------------------------------ | ----------------------------------------- |
+| `orchestra.launchOrchestrator` | Open chat with Orchestrator agent         |
+| `orchestra.launchImplementor`  | Open chat with Implementor agent          |
+| `orchestra.launchController`   | Open chat with Controller agent           |
+| `orchestra.reviewSprint`       | Launch Controller for sprint review       |
+| `orchestra.playTask`           | Start task implementation                 |
+| `orchestra.deEscalateTask`     | De-escalate task (human supervisor)       |
+| `orchestra.forceComplete`      | Force-complete task (supervisor override) |
 
 ---
 
@@ -824,7 +828,7 @@ Verify code behavior through commands:
 
 ```json
 {
-  "check_type": "behavioral", 
+  "check_type": "behavioral",
   "description": "All unit tests pass",
   "severity": "BLOCKING",
   "check_config": {
@@ -853,12 +857,12 @@ Verify code quality standards:
 
 ### Severity Levels
 
-| Severity | Judgment Impact | Description |
-|----------|-----------------|-------------|
-| `BLOCKING` | FAIL | Task cannot pass without fixing |
-| `MAJOR` | FAIL | Significant issue, likely fails |
-| `MINOR` | WARN | Issue noted but doesn't block |
-| `INFO` | PASS | Informational only |
+| Severity   | Judgment Impact | Description                     |
+| ---------- | --------------- | ------------------------------- |
+| `BLOCKING` | FAIL            | Task cannot pass without fixing |
+| `MAJOR`    | FAIL            | Significant issue, likely fails |
+| `MINOR`    | WARN            | Issue noted but doesn't block   |
+| `INFO`     | PASS            | Informational only              |
 
 ### Verification Flow
 
@@ -941,23 +945,23 @@ After verification passes and a task is marked COMPLETE, it enters code review.
 
 ### Review Focus Areas
 
-| Area | Description |
-|------|-------------|
-| **Requirements Alignment** | Does code match task, handover, and spec? |
-| **Functional Behavior** | Does code work correctly for all cases? |
-| **Architecture** | Does code follow project patterns? |
-| **Code Quality** | Is code readable and maintainable? |
-| **Test Meaningfulness** | Do tests validate behavior, not just pass? |
-| **Test Sufficiency** | Does coverage protect against regressions? |
+| Area                       | Description                                |
+| -------------------------- | ------------------------------------------ |
+| **Requirements Alignment** | Does code match task, handover, and spec?  |
+| **Functional Behavior**    | Does code work correctly for all cases?    |
+| **Architecture**           | Does code follow project patterns?         |
+| **Code Quality**           | Is code readable and maintainable?         |
+| **Test Meaningfulness**    | Do tests validate behavior, not just pass? |
+| **Test Sufficiency**       | Does coverage protect against regressions? |
 
 ### Issue Severity
 
-| Severity | Action |
-|----------|--------|
-| **BLOCKING** | Must fix, review is REJECTED |
-| **MAJOR** | Must fix, review is CHANGES_REQUESTED |
-| **MINOR** | Recommended fix, can be APPROVED |
-| **INFO** | Informational note |
+| Severity     | Action                                |
+| ------------ | ------------------------------------- |
+| **BLOCKING** | Must fix, review is REJECTED          |
+| **MAJOR**    | Must fix, review is CHANGES_REQUESTED |
+| **MINOR**    | Recommended fix, can be APPROVED      |
+| **INFO**     | Informational note                    |
 
 ### Implementor Fix Workflow
 
@@ -965,22 +969,22 @@ The Implementor uses `fix_code_review` with three actions:
 
 ```typescript
 // 1. Get assigned issues
-fix_code_review({ action: "GET_ISSUES" })
+fix_code_review({ action: "GET_ISSUES" });
 
 // 2. Mark each issue as resolved
-fix_code_review({ 
-  action: "RESOLVE_ISSUE", 
-  issue_id: 1, 
-  fix_summary: "Added try-catch block around API call" 
-})
+fix_code_review({
+  action: "RESOLVE_ISSUE",
+  issue_id: 1,
+  fix_summary: "Added try-catch block around API call",
+});
 
 // 3. Submit all fixes for verification
 fix_code_review({
   action: "SUBMIT_FIXES",
   summary: "Fixed error handling and added tests",
   files_changed: ["src/api/handlers.ts", "test/api/handlers.test.ts"],
-  tests_run: ["npm test -- -t 'API handlers'"]
-})
+  tests_run: ["npm test -- -t 'API handlers'"],
+});
 ```
 
 ---
@@ -991,10 +995,10 @@ Orchestra supports Test-Driven Development with explicit red-phase and green-pha
 
 ### Concept
 
-| Phase | Task Type | Purpose |
-|-------|-----------|---------|
-| **Red Phase** | `tdd_red_phase: true` | Write failing tests that define expected behavior |
-| **Green Phase** | Normal task | Implement feature to make tests pass |
+| Phase           | Task Type             | Purpose                                           |
+| --------------- | --------------------- | ------------------------------------------------- |
+| **Red Phase**   | `tdd_red_phase: true` | Write failing tests that define expected behavior |
+| **Green Phase** | Normal task           | Implement feature to make tests pass              |
 
 ### Configuration
 
@@ -1019,14 +1023,12 @@ When configuring a sprint with TDD tasks:
       "...": "other fields"
     },
     {
-      "task_id": 2, 
+      "task_id": 2,
       "title": "Implement widget (GREEN)",
       "...": "other fields"
     }
   ],
-  "tdd_relationships": [
-    { "red_task_id": 1, "green_task_id": 2 }
-  ]
+  "tdd_relationships": [{ "red_task_id": 1, "green_task_id": 2 }]
 }
 ```
 
@@ -1035,10 +1037,12 @@ When configuring a sprint with TDD tasks:
 Implementors mark TDD tests with a two-part system:
 
 **TypeScript/Vitest:**
+
 ```typescript
 // @orchestra-task: 3  ← Task linking
 
-describe("[tdd-red] Feature", () => {  // ← Test filtering
+describe("[tdd-red] Feature", () => {
+  // ← Test filtering
   it("should validate user input", () => {
     expect(validateInput("")).toBe(false);
   });
@@ -1046,6 +1050,7 @@ describe("[tdd-red] Feature", () => {  // ← Test filtering
 ```
 
 **Dart/Flutter:**
+
 ```dart
 // @orchestra-task: 3
 
@@ -1081,22 +1086,22 @@ GREEN PHASE TASK:
 
 Set via `set_config`:
 
-| Key | Description | Default |
-|-----|-------------|---------|
-| `pre_signal_build_command` | Command to run before signal | `npm run build` |
-| `pre_signal_test_command` | Test command before signal | `npm test` |
-| `pre_signal_timeout` | Timeout for pre-signal checks (ms) | `60000` |
-| `max_retries` | Maximum retry attempts | `3` |
+| Key                        | Description                        | Default         |
+| -------------------------- | ---------------------------------- | --------------- |
+| `pre_signal_build_command` | Command to run before signal       | `npm run build` |
+| `pre_signal_test_command`  | Test command before signal         | `npm test`      |
+| `pre_signal_timeout`       | Timeout for pre-signal checks (ms) | `60000`         |
+| `max_retries`              | Maximum retry attempts             | `3`             |
 
 ### Sprint Configuration
 
 Set via `set_sprint_config`:
 
-| Key | Description | Example |
-|-----|-------------|---------|
-| `test_command` | Base test command | `npm test` |
+| Key                 | Description            | Example             |
+| ------------------- | ---------------------- | ------------------- |
+| `test_command`      | Base test command      | `npm test`          |
 | `test_file_pattern` | Test file glob pattern | `test/**/*.test.ts` |
-| `source_base_dir` | Source directory | `src` |
+| `source_base_dir`   | Source directory       | `src`               |
 
 ### Environment Configuration (Required for TDD)
 
@@ -1340,7 +1345,8 @@ Set via `set_sprint_config`:
 
 **Cause**: No task is in IMPLEMENT status for the current sprint.
 
-**Solution**: 
+**Solution**:
+
 - Orchestrator: Prepare a task with `prepare_task`
 - Controller: Approve pending handover with `approve_handover`
 
@@ -1348,7 +1354,8 @@ Set via `set_sprint_config`:
 
 **Cause**: Controller has not reviewed the sprint configuration.
 
-**Solution**: 
+**Solution**:
+
 - Launch Controller agent: `@orchestra.controller`
 - Call `approve_sprint` or `reject_sprint`
 
@@ -1357,6 +1364,7 @@ Set via `set_sprint_config`:
 **Cause**: Test command or path in verification check is incorrect.
 
 **Solution**:
+
 - Use `debug_environment` to check MCP server environment
 - Update verification with correct commands using `update_verification`
 - Check `get_amendments` for patterns of past failures
@@ -1366,6 +1374,7 @@ Set via `set_sprint_config`:
 **Cause**: Pre-signal test check runs ALL tests including intentionally-failing ones.
 
 **Solution**:
+
 - Ensure `environment` is configured in sprint with proper `test_file_pattern`
 - Use correct TDD markers: `[tdd-red]` in test names
 - Verify test framework supports filtering by name/tag
@@ -1375,6 +1384,7 @@ Set via `set_sprint_config`:
 **Cause**: Controller rejected handover, orchestrator resubmitted without addressing issues.
 
 **Solution**:
+
 - Read rejection issues via `get_sprint_review` or UI
 - Address each issue in the handover
 - Use `update_handover` to make corrections
@@ -1384,16 +1394,16 @@ Set via `set_sprint_config`:
 
 ```typescript
 // Check environment and test command execution
-mcp_orchestra-orc_debug_environment({ command: "npm test" })
+mcp_orchestra - orc_debug_environment({ command: "npm test" });
 
 // View all amendments (verification changes)
-mcp_orchestra-orc_get_amendments({ amendment_type: "VERIFICATION" })
+mcp_orchestra - orc_get_amendments({ amendment_type: "VERIFICATION" });
 
 // Get task history for audit trail
-mcp_orchestra-orc_get_task_history({ task_id: 1 })
+mcp_orchestra - orc_get_task_history({ task_id: 1 });
 
 // Get sprint status overview
-mcp_orchestra-orc_get_sprint_status()
+mcp_orchestra - orc_get_sprint_status();
 ```
 
 ---
@@ -1502,11 +1512,11 @@ mcp_orchestra-orc_get_sprint_status()
 
 ## Version History
 
-| Version | Date | Changes |
-|---------|------|---------|
-| 2.0.0 | 2026-01-23 | Complete rewrite based on current implementation |
-| 1.0.0 | 2025-12-01 | Initial orchestra-bible based documentation |
+| Version | Date       | Changes                                          |
+| ------- | ---------- | ------------------------------------------------ |
+| 2.0.0   | 2026-01-23 | Complete rewrite based on current implementation |
+| 1.0.0   | 2025-12-01 | Initial orchestra-bible based documentation      |
 
 ---
 
-*This document is the authoritative technical reference for Orchestra. For workflow-specific details, see the individual documents in `docs/workflow/`.*
+_This document is the authoritative technical reference for Orchestra. For workflow-specific details, see the individual documents in `docs/workflow/`._
