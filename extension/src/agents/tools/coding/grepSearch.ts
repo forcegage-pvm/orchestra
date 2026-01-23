@@ -20,7 +20,7 @@ interface GrepMatch {
 }
 
 function toRelativePath(context: ToolContext, uri: vscode.Uri): string {
-  const fsPath = "fsPath" in uri ? uri.fsPath : uri.path;
+  const fsPath = uri.fsPath;
   const relative = path.relative(context.workspaceRoot, fsPath);
   const normalizedRelative = relative.split(path.sep).join("/");
   const normalizedFsPath = fsPath.split(path.sep).join("/");
