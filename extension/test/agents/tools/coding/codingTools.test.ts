@@ -3,83 +3,77 @@
  */
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { readFileTool } from "../../../../src/agents/tools/coding/readFile.js";
+import { deleteFileTool } from "../../../../src/agents/tools/coding/deleteFile.js";
 import { editTool } from "../../../../src/agents/tools/coding/edit.js";
 import { newFileTool } from "../../../../src/agents/tools/coding/newFile.js";
-import { deleteFileTool } from "../../../../src/agents/tools/coding/deleteFile.js";
+import { readFileTool } from "../../../../src/agents/tools/coding/readFile.js";
 import type { ToolContext } from "../../../../src/agents/types.js";
 
-const {
-  workspace,
-  FileSystemError,
-  Position,
-  Range,
-  WorkspaceEdit,
-  Uri,
-} = vi.hoisted(() => {
-  const workspace = {
-    openTextDocument: vi.fn(),
-    applyEdit: vi.fn(),
-    fs: {
-      stat: vi.fn(),
-      createDirectory: vi.fn(),
-    },
-  };
+const { workspace, FileSystemError, Position, Range, WorkspaceEdit, Uri } =
+  vi.hoisted(() => {
+    const workspace = {
+      openTextDocument: vi.fn(),
+      applyEdit: vi.fn(),
+      fs: {
+        stat: vi.fn(),
+        createDirectory: vi.fn(),
+      },
+    };
 
-  class FileSystemError extends Error {
-    code?: string;
+    class FileSystemError extends Error {
+      code?: string;
 
-    constructor(message: string, code?: string) {
-      super(message);
-      this.code = code;
-      this.name = "FileSystemError";
+      constructor(message: string, code?: string) {
+        super(message);
+        this.code = code;
+        this.name = "FileSystemError";
+      }
+
+      static FileNotFound(): FileSystemError {
+        return new FileSystemError("File not found", "FileNotFound");
+      }
     }
 
-    static FileNotFound(): FileSystemError {
-      return new FileSystemError("File not found", "FileNotFound");
+    class Position {
+      constructor(
+        public line: number,
+        public character: number,
+      ) {}
     }
-  }
 
-  class Position {
-    constructor(
-      public line: number,
-      public character: number
-    ) {}
-  }
-
-  class Range {
-    constructor(
-      public start: Position,
-      public end: Position
-    ) {}
-  }
-
-  class WorkspaceEdit {
-    static lastInstance: WorkspaceEdit | undefined;
-    replace = vi.fn();
-    createFile = vi.fn();
-    deleteFile = vi.fn();
-
-    constructor() {
-      WorkspaceEdit.lastInstance = this;
+    class Range {
+      constructor(
+        public start: Position,
+        public end: Position,
+      ) {}
     }
-  }
 
-  class Uri {
-    static file(filePath: string): { fsPath: string; path: string } {
-      return { fsPath: filePath, path: filePath };
+    class WorkspaceEdit {
+      static lastInstance: WorkspaceEdit | undefined;
+      replace = vi.fn();
+      createFile = vi.fn();
+      deleteFile = vi.fn();
+
+      constructor() {
+        WorkspaceEdit.lastInstance = this;
+      }
     }
-  }
 
-  return {
-    workspace,
-    FileSystemError,
-    Position,
-    Range,
-    WorkspaceEdit,
-    Uri,
-  };
-});
+    class Uri {
+      static file(filePath: string): { fsPath: string; path: string } {
+        return { fsPath: filePath, path: filePath };
+      }
+    }
+
+    return {
+      workspace,
+      FileSystemError,
+      Position,
+      Range,
+      WorkspaceEdit,
+      Uri,
+    };
+  });
 
 vi.mock("vscode", () => ({
   workspace,
@@ -157,7 +151,10 @@ describe("readFileTool", () => {
     const content = "alpha\nbeta\ngamma";
     workspace.openTextDocument.mockResolvedValue(createDocument(content));
 
-    const result = await readFileTool.execute({ path: "file.txt" }, mockContext);
+    const result = await readFileTool.execute(
+      { path: "file.txt" },
+      mockContext,
+    );
 
     expect(result.success).toBe(true);
     expect(result.output).toBe(content);
@@ -169,7 +166,7 @@ describe("readFileTool", () => {
 
     const result = await readFileTool.execute(
       { path: "file.txt", startLine: 2, endLine: 3 },
-      mockContext
+      mockContext,
     );
 
     expect(result.success).toBe(true);
@@ -177,9 +174,14 @@ describe("readFileTool", () => {
   });
 
   it("handles missing file", async () => {
-    workspace.openTextDocument.mockRejectedValue(FileSystemError.FileNotFound());
+    workspace.openTextDocument.mockRejectedValue(
+      FileSystemError.FileNotFound(),
+    );
 
-    const result = await readFileTool.execute({ path: "missing.txt" }, mockContext);
+    const result = await readFileTool.execute(
+      { path: "missing.txt" },
+      mockContext,
+    );
 
     expect(result.success).toBe(false);
     expect(result.error).toContain("File not found");
@@ -188,14 +190,12 @@ describe("readFileTool", () => {
 
 describe("editTool", () => {
   it("replaces exact oldString match", async () => {
-    workspace.openTextDocument.mockResolvedValue(
-      createDocument("hello world")
-    );
+    workspace.openTextDocument.mockResolvedValue(createDocument("hello world"));
     workspace.applyEdit.mockResolvedValue(true);
 
     const result = await editTool.execute(
       { path: "file.txt", oldString: "world", newString: "there" },
-      mockContext
+      mockContext,
     );
 
     expect(result.success).toBe(true);
@@ -208,7 +208,7 @@ describe("editTool", () => {
 
     const result = await editTool.execute(
       { path: "file.txt", oldString: "missing", newString: "there" },
-      mockContext
+      mockContext,
     );
 
     expect(result.success).toBe(false);
@@ -220,7 +220,7 @@ describe("editTool", () => {
 
     const result = await editTool.execute(
       { path: "file.txt", oldString: "hello", newString: "hi" },
-      mockContext
+      mockContext,
     );
 
     expect(result.success).toBe(false);
@@ -235,7 +235,7 @@ describe("newFileTool", () => {
 
     const result = await newFileTool.execute(
       { path: "new.txt", content: "data" },
-      mockContext
+      mockContext,
     );
 
     expect(result.success).toBe(true);
@@ -248,7 +248,7 @@ describe("newFileTool", () => {
 
     const result = await newFileTool.execute(
       { path: "existing.txt", content: "data" },
-      mockContext
+      mockContext,
     );
 
     expect(result.success).toBe(false);
@@ -263,7 +263,7 @@ describe("deleteFileTool", () => {
 
     const result = await deleteFileTool.execute(
       { path: "delete.txt" },
-      mockContext
+      mockContext,
     );
 
     expect(result.success).toBe(true);
@@ -275,7 +275,7 @@ describe("deleteFileTool", () => {
 
     const result = await deleteFileTool.execute(
       { path: "missing.txt" },
-      mockContext
+      mockContext,
     );
 
     expect(result.success).toBe(false);

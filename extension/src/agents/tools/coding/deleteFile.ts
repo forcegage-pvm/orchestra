@@ -19,14 +19,13 @@ function getAbsolutePath(workspaceRoot: string, filePath: string): string {
 
 function isFileNotFound(error: unknown): boolean {
   return (
-    error instanceof vscode.FileSystemError &&
-    error.code === "FileNotFound"
+    error instanceof vscode.FileSystemError && error.code === "FileNotFound"
   );
 }
 
 async function deleteFile(
   input: DeleteFileInput,
-  context: ToolContext
+  context: ToolContext,
 ): Promise<ToolResult> {
   try {
     const absolutePath = getAbsolutePath(context.workspaceRoot, input.path);
@@ -85,7 +84,10 @@ export const deleteFileTool: AgentTool = {
     },
     required: ["path"],
   },
-  execute: async (input: unknown, context: ToolContext): Promise<ToolResult> => {
+  execute: async (
+    input: unknown,
+    context: ToolContext,
+  ): Promise<ToolResult> => {
     const parsed = input as DeleteFileInput;
     return deleteFile(parsed, context);
   },

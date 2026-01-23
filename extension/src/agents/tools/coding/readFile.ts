@@ -29,7 +29,7 @@ function normalizeLineNumber(value: number | undefined): number | undefined {
 function buildRange(
   document: vscode.TextDocument,
   startLine: number,
-  endLine: number
+  endLine: number,
 ): vscode.Range {
   const startIndex = startLine - 1;
   const endIndex = endLine - 1;
@@ -38,7 +38,7 @@ function buildRange(
   const endLineInfo = document.lineAt(endIndex);
   const endPosition = new vscode.Position(
     endIndex,
-    endLineInfo.range.end.character
+    endLineInfo.range.end.character,
   );
 
   return new vscode.Range(startPosition, endPosition);
@@ -46,7 +46,7 @@ function buildRange(
 
 async function readFileContents(
   input: ReadFileInput,
-  context: ToolContext
+  context: ToolContext,
 ): Promise<ToolResult> {
   try {
     const absolutePath = getAbsolutePath(context.workspaceRoot, input.path);
@@ -76,7 +76,10 @@ async function readFileContents(
         };
       }
 
-      if (effectiveStart > document.lineCount || effectiveEnd > document.lineCount) {
+      if (
+        effectiveStart > document.lineCount ||
+        effectiveEnd > document.lineCount
+      ) {
         return {
           success: false,
           output: "",
@@ -129,7 +132,10 @@ export const readFileTool: AgentTool = {
     },
     required: ["path"],
   },
-  execute: async (input: unknown, context: ToolContext): Promise<ToolResult> => {
+  execute: async (
+    input: unknown,
+    context: ToolContext,
+  ): Promise<ToolResult> => {
     const parsed = input as ReadFileInput;
     return readFileContents(parsed, context);
   },

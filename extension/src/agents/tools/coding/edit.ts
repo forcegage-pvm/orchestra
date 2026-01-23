@@ -21,7 +21,7 @@ function getAbsolutePath(workspaceRoot: string, filePath: string): string {
 
 async function replaceText(
   input: EditInput,
-  context: ToolContext
+  context: ToolContext,
 ): Promise<ToolResult> {
   try {
     const absolutePath = getAbsolutePath(context.workspaceRoot, input.path);
@@ -49,7 +49,9 @@ async function replaceText(
     }
 
     const startPosition = document.positionAt(firstIndex);
-    const endPosition = document.positionAt(firstIndex + input.oldString.length);
+    const endPosition = document.positionAt(
+      firstIndex + input.oldString.length,
+    );
     const range = new vscode.Range(startPosition, endPosition);
 
     const edit = new vscode.WorkspaceEdit();
@@ -101,7 +103,10 @@ export const editTool: AgentTool = {
     },
     required: ["path", "oldString", "newString"],
   },
-  execute: async (input: unknown, context: ToolContext): Promise<ToolResult> => {
+  execute: async (
+    input: unknown,
+    context: ToolContext,
+  ): Promise<ToolResult> => {
     const parsed = input as EditInput;
     return replaceText(parsed, context);
   },
