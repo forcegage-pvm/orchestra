@@ -7,10 +7,20 @@ import { deleteFileTool } from "../../../../src/agents/tools/coding/deleteFile.j
 import { editTool } from "../../../../src/agents/tools/coding/edit.js";
 import { newFileTool } from "../../../../src/agents/tools/coding/newFile.js";
 import { readFileTool } from "../../../../src/agents/tools/coding/readFile.js";
+import { testFailureTool } from "../../../../src/agents/tools/coding/testFailure.js";
+import { usagesTool } from "../../../../src/agents/tools/coding/usages.js";
 import type { ToolContext } from "../../../../src/agents/types.js";
 
-const { workspace, FileSystemError, Position, Range, WorkspaceEdit, Uri } =
+const { commands, window, workspace, FileSystemError, Position, Range, WorkspaceEdit, Uri } =
   vi.hoisted(() => {
+    const commands = {
+      executeCommand: vi.fn(),
+    };
+
+    const window = {
+      activeTextEditor: undefined as { document: unknown } | undefined,
+    };
+
     const workspace = {
       openTextDocument: vi.fn(),
       applyEdit: vi.fn(),
@@ -66,6 +76,8 @@ const { workspace, FileSystemError, Position, Range, WorkspaceEdit, Uri } =
     }
 
     return {
+      commands,
+      window,
       workspace,
       FileSystemError,
       Position,
@@ -76,6 +88,8 @@ const { workspace, FileSystemError, Position, Range, WorkspaceEdit, Uri } =
   });
 
 vi.mock("vscode", () => ({
+  commands,
+  window,
   workspace,
   FileSystemError,
   Position,
@@ -84,7 +98,10 @@ vi.mock("vscode", () => ({
   Uri,
 }));
 
-function createDocument(content: string) {
+function createDocument(
+  content: string,
+  uri: { fsPath: string; path: string } = Uri.file("/workspace/file.txt"),
+) {
   const lines = content.split("\n");
   const lineStarts: number[] = [];
   let offset = 0;
@@ -129,6 +146,7 @@ function createDocument(content: string) {
     getText,
     positionAt,
     lineAt,
+    uri,
   };
 }
 
@@ -280,5 +298,117 @@ describe("deleteFileTool", () => {
 
     expect(result.success).toBe(false);
     expect(result.error).toContain("does not exist");
+  });
+});
+
+describe("usagesTool", () => {
+  it("finds usages using reference provider", async () => {
+    const content = "const foo = 1;\nconsole.log(foo);";
+    const uri = Uri.file("/workspace/src/example.ts");
+    workspace.openTextDocument.mockResolvedValue(createDocument(content, uri));
+
+    const references = [
+      {
+        uri: Uri.file("/workspace/src/example.ts"),
+        range: new Range(new Position(0, 6), new Position(0, 9)),
+      },
+    ];
+    commands.executeCommand.mockResolvedValue(references);
+
+    const result = await usagesTool.execute(
+      { symbolName: "foo", filePath: "src/example.ts" },
+      mockContext,
+    );
+
+    expect(result.success).toBe(true);
+    expect(commands.executeCommand).toHaveBeenCalledTimes(1);
+    expect(commands.executeCommand).toHaveBeenCalledWith(
+      "vscode.executeReferenceProvider",
+      uri,
+      expect.any(Position),
+    );
+
+    const position = commands.executeCommand.mock.calls[0]?.[2] as Position;
+    expect(position.line).toBe(0);
+    expect(position.character).toBe(6);
+
+    const locations = JSON.parse(result.output) as Array<{
+      path: string;
+      line: number;
+      column: number;
+      endLine: number;
+      endColumn: number;
+    }>;
+    expect(locations).toHaveLength(1);
+    expect(locations[0]).toEqual({
+      path: "src/example.ts",
+      line: 1,
+      column: 7,
+      endLine: 1,
+      endColumn: 10,
+    });
+  });
+
+  it("returns error when symbol is missing", async () => {
+    const content = "const bar = 1;";
+    const uri = Uri.file("/workspace/src/example.ts");
+    workspace.openTextDocument.mockResolvedValue(createDocument(content, uri));
+
+    const result = await usagesTool.execute(
+      { symbolName: "foo", filePath: "src/example.ts" },
+      mockContext,
+    );
+
+    expect(result.success).toBe(false);
+    expect(result.error).toContain("Symbol not found");
+  });
+});
+
+describe("testFailureTool", () => {
+  it("parses test failures from output file", async () => {
+    const output = [
+      "FAIL  src/math.test.ts > Math > adds numbers",
+      "AssertionError: expected 2 to be 3",
+      "Expected: 3",
+      "Received: 2",
+      "at src/math.test.ts:10:5",
+    ].join("\n");
+
+    workspace.openTextDocument.mockResolvedValue(createDocument(output));
+
+    const result = await testFailureTool.execute({}, mockContext);
+
+    expect(result.success).toBe(true);
+    const failures = JSON.parse(result.output) as Array<{
+      testName?: string;
+      message?: string;
+      expected?: string;
+      actual?: string;
+      file?: string;
+      line?: number;
+      column?: number;
+    }>;
+
+    expect(failures).toHaveLength(1);
+    expect(failures[0]).toEqual({
+      testName: "src/math.test.ts > Math > adds numbers",
+      message: "expected 2 to be 3",
+      expected: "3",
+      actual: "2",
+      file: "src/math.test.ts",
+      line: 10,
+      column: 5,
+    });
+  });
+
+  it("handles missing output file", async () => {
+    workspace.openTextDocument.mockRejectedValue(
+      FileSystemError.FileNotFound(),
+    );
+
+    const result = await testFailureTool.execute({}, mockContext);
+
+    expect(result.success).toBe(false);
+    expect(result.error).toContain("File not found");
   });
 });
