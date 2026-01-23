@@ -1,9 +1,9 @@
 # TD-024: Tool Proliferation Audit
 
 **Created**: 2026-01-20  
-**Status**: Open (Code review consolidation complete)  
+**Status**: Open (Re-audited 2026-01-23, Updated 2026-01-23)  
 **Priority**: P2  
-**Related**: Sprint 006, TD-023
+**Related**: Sprint 006, Sprint 007, TD-023
 
 ---
 
@@ -19,124 +19,396 @@ This technical debt item tracks:
 
 ---
 
-## Current Tool Count
+## Current Tool Count (Re-Audit 2026-01-23)
 
-As of Sprint 005, the MCP server has approximately:
+As of 2026-01-23 (`src/mcp-server/tools.ts`), there are **46 tools** (1848 lines).
 
-| Category                | Tool Count | Notes                                 |
-| ----------------------- | ---------- | ------------------------------------- |
-| Sprint Management       | ~8         | configure, status, progress, etc.     |
-| Task Management         | ~12        | get, prepare, complete, etc.          |
-| Verification            | ~6         | run checks, submit judgment, etc.     |
-| Code Review             | 12 → 4     | **Complete in Sprint 006**            |
-| Controller/Review Gates | ~8         | approve/reject sprint, handover, etc. |
-| Configuration           | ~4         | get/set config                        |
-| **Total**               | **~50+**   | Excessive for agents to navigate      |
+### By Role
+
+| Role         | Tool Count |
+| ------------ | ---------- |
+| Orchestrator | 24         |
+| Controller   | 8          |
+| Implementor  | 4          |
+| Shared       | 10         |
+| **Total**    | **46**     |
+
+### Tool Inventory (Verified Against Codebase)
+
+**Orchestrator (24)**
+
+| Tool                        | Parameter Style | Notes                                     |
+| --------------------------- | --------------- | ----------------------------------------- |
+| configure_sprint            | task_id         | Uses task_id in tasks array               |
+| add_task                    | N/A             | Auto-assigns task_id                      |
+| add_phase                   | N/A             | -                                         |
+| update_task                 | task_id         | ⚠️ Uses task_id input                     |
+| update_verification         | task_id         | ⚠️ Uses task_id input                     |
+| get_task                    | task_id         | ⚠️ Uses task_id input                     |
+| get_tasks                   | N/A             | Returns task_id in responses              |
+| remove_task                 | task_id         | ⚠️ Uses task_id input                     |
+| prepare_task                | task_id         | ⚠️ Uses task_id input                     |
+| run_verification_checks     | task_id         | ⚠️ Uses task_id input                     |
+| get_verification_results    | task_id         | ⚠️ Uses task_id input                     |
+| submit_verification_judgment| task_id         | ⚠️ Uses task_id input                     |
+| set_config                  | N/A             | -                                         |
+| set_sprint_config           | N/A             | -                                         |
+| get_sprint_config           | N/A             | -                                         |
+| set_active_sprint           | N/A             | -                                         |
+| resubmit_sprint             | N/A             | -                                         |
+| resubmit_handover           | task_id         | ⚠️ Uses task_id input                     |
+| get_amendments              | task_id         | ⚠️ Uses task_id (optional filter)         |
+| get_sprint_review           | N/A             | -                                         |
+| update_handover             | task_id         | ⚠️ Uses task_id input                     |
+| reopen_task                 | task_id         | ⚠️ Uses task_id input                     |
+| complete_task               | task_id         | ⚠️ Uses task_id input                     |
+| enhance_feedback            | task_id         | ⚠️ Uses task_id input                     |
+
+**Controller (8)**
+
+| Tool              | Parameter Style | Notes                         |
+| ----------------- | --------------- | ----------------------------- |
+| approve_sprint    | N/A             | -                             |
+| reject_sprint     | N/A             | -                             |
+| approve_handover  | task_id         | ⚠️ Uses task_id input         |
+| reject_handover   | task_id         | ⚠️ Uses task_id input         |
+| get_handover      | task_id         | ⚠️ Uses task_id input         |
+| get_task_for_review | task_id       | ⚠️ Uses task_id input         |
+| read_spec_file    | N/A             | -                             |
+| submit_code_review| task             | ✅ Uses `task` (Sprint 006)   |
+
+**Implementor (4)**
+
+| Tool              | Parameter Style | Notes                         |
+| ----------------- | --------------- | ----------------------------- |
+| get_current_task  | N/A             | Returns task automatically    |
+| get_feedback      | task_id         | ⚠️ Uses task_id input         |
+| signal_completion | task_id         | ⚠️ Uses task_id input         |
+| fix_code_review   | N/A             | ✅ Uses action-based pattern  |
+
+**Shared (10)**
+
+| Tool                  | Parameter Style | Notes                             |
+| --------------------- | --------------- | --------------------------------- |
+| get_sprint_status     | N/A             | Returns task_id in current_task   |
+| get_progress          | N/A             | Returns task_id in responses      |
+| get_task_history      | task_id         | ⚠️ Uses task_id input             |
+| get_signal            | task_id         | ⚠️ Uses task_id input             |
+| get_code_review       | task             | ✅ Uses `task` (Sprint 006)       |
+| get_code_review_summary | sprint_id     | ✅ Uses sprint_id                 |
+| add_interface_validation | N/A          | Sprint 007                        |
+| debug_environment     | N/A             | -                                 |
+| escalate_task         | task_id         | ⚠️ Uses task_id input             |
 
 ---
 
-## Identified Issues
+## Detailed Findings (2026-01-23)
 
-### 1. ID Confusion (System-Wide)
+### 1. ID Standardization Status
 
-Sprint 006 fixes code review tools, but the same ID confusion exists elsewhere:
+The `resolveTaskId` utility was created in Sprint 006 (`src/core/id-resolution.ts`) but **NOT adopted** by most handlers.
 
+**Current adoption:**
+- ✅ `get_code_review` - Uses `task` parameter (user-visible number)
+- ✅ `submit_code_review` - Uses `task` parameter (user-visible number)
+- ❌ **21 tools** still use `task_id` parameter
+
+**Code evidence from schemas:**
 ```typescript
-// Current: Inconsistent naming
-get_task({ task_id: 45 }); // Uses internal ID
-complete_task({ task_id: 45 }); // Uses internal ID
-prepare_task({ task_id: 45 }); // Uses internal ID
+// src/schemas/verification.ts
+task_id: z.number().int().positive("Task ID must be positive"),  // 5 occurrences
 
-// Target: User-visible IDs everywhere
-get_task({ task: 5 }); // User-visible number
-complete_task({ task: 5 }); // User-visible number
-prepare_task({ task: 5 }); // User-visible number
+// src/schemas/sprint-config.ts
+task_id: z.number().int().positive("Task ID must be positive"),  // 8 occurrences
+
+// src/schemas/signal.ts
+task_id: z.number().int().positive("Task ID must be positive"),  // 3 occurrences
+
+// src/schemas/progress.ts
+task_id: z.number().int().positive(),  // Output schemas still use task_id
 ```
 
-### 2. Tool Fragmentation
+**Impact**: Agent confusion between user-visible task numbers (1, 2, 3) and internal database IDs.
 
-Similar to code review, other categories have fragmented tools:
+### 2. Sprint Status Tool Overlap
 
-**Sprint Management**:
+`get_sprint_status` and `get_progress` have significant data overlap:
 
-- `configure_sprint`, `get_sprint_status`, `get_sprint_config`, `set_sprint_config`, `get_progress`...
-- Could consolidate query tools
+| Data Element       | get_sprint_status | get_progress |
+| ------------------ | ----------------- | ------------ |
+| Sprint ID/Name     | ✅                | ✅           |
+| Started At         | ✅                | ✅           |
+| Workflow Step      | ❌                | ✅           |
+| Sprint Status      | ✅                | ❌           |
+| Total Tasks        | ✅                | ✅           |
+| Completed Count    | ✅                | ✅           |
+| In Progress Count  | ✅                | ✅           |
+| Pending Count      | ✅                | ✅           |
+| Failed Count       | ❌                | ✅           |
+| Escalated Count    | ❌                | ✅           |
+| Current Task       | ✅                | ✅           |
+| Phase Summaries    | ✅                | ❌           |
+| TDD Summary        | ✅                | ❌           |
+| Completed Tasks    | ❌                | ✅           |
 
-**Verification**:
+**Recommendation**: Consider merging into a single `get_sprint` tool with optional includes.
 
-- `run_verification_checks`, `get_verification_results`, `submit_verification_judgment`
-- Already reasonably consolidated
+### 3. Code Review Summary Redundancy
 
-### 3. Inconsistent Response Formats
+`get_code_review` and `get_code_review_summary` overlap:
+- `get_code_review({ sprint_id })` returns sprint summary
+- `get_code_review_summary({ sprint_id })` returns sprint summary
 
-Some tools return `task_id`, others `taskId`, others `id`:
+Both tools produce similar sprint-level review aggregations. The distinction is minimal.
 
-```typescript
-// Inconsistent
-{ task_id: 5, title: "..." }
-{ taskId: 5, title: "..." }
-{ id: 5, title: "..." }
+### 4. Controller Tool Overlap
 
-// Target: Consistent
-{ task: 5, title: "..." }  // Always user-visible
+`get_task_for_review` vs `get_task`:
+- Both return task metadata
+- `get_task_for_review` excludes verification criteria (correct for Controller role)
+- Could be a role-aware behavior in `get_task` rather than separate tool
+
+### 5. Handler File Count
+
 ```
+src/mcp-server/handlers/: 48 handler files
+```
+
+Handler files include:
+- 46 tool handlers
+- 2 support files (audit-logging.ts, handover-validation.ts)
 
 ---
 
-## Proposed Phases
+## Tool Categories Analysis
 
-### Phase 1: ID Standardization (Deferred)
+### Category 1: Task Lifecycle (11 tools)
+Core task management - essential, low consolidation opportunity.
 
-Apply Sprint 006's ID resolution pattern to all tools:
+| Tool                        | Essential | Consolidation |
+| --------------------------- | --------- | ------------- |
+| get_task                    | ✅        | Merge with get_task_for_review |
+| get_tasks                   | ✅        | Keep          |
+| get_task_for_review         | ⚠️        | Merge with get_task |
+| update_task                 | ✅        | Keep          |
+| prepare_task                | ✅        | Keep          |
+| complete_task               | ✅        | Keep          |
+| reopen_task                 | ✅        | Keep          |
+| remove_task                 | ✅        | Keep          |
+| get_current_task            | ✅        | Keep          |
+| escalate_task               | ✅        | Keep          |
+| get_task_history            | ✅        | Keep          |
 
-1. Create shared `resolveTaskId(sprint, task_number)` utility ✓ (Sprint 006)
-2. Update all task-related tools to use `task` parameter
-3. Update all responses to use `task` not `task_id`
+### Category 2: Sprint Management (9 tools)
+Sprint configuration and status - moderate consolidation opportunity.
 
-**Scope**: ~15 tools
+| Tool                  | Essential | Consolidation                     |
+| --------------------- | --------- | --------------------------------- |
+| configure_sprint      | ✅        | Keep                              |
+| get_sprint_status     | ✅        | Merge with get_progress           |
+| get_progress          | ✅        | Merge with get_sprint_status      |
+| set_active_sprint     | ✅        | Keep                              |
+| get_sprint_config     | ⚠️        | Consider action-based pattern     |
+| set_sprint_config     | ⚠️        | Consider action-based pattern     |
+| set_config            | ⚠️        | Consider action-based pattern     |
+| get_sprint_review     | ✅        | Keep                              |
+| resubmit_sprint       | ✅        | Keep                              |
 
-### Phase 2: Tool Consolidation Candidates
+### Category 3: Verification (5 tools)
+Well-consolidated, minimal opportunity.
 
-| Current Tools                            | Proposed Consolidation                   |
-| ---------------------------------------- | ---------------------------------------- |
-| `get_sprint_status`, `get_progress`      | `get_sprint({ include_progress: true })` |
-| `get_sprint_config`, `set_sprint_config` | `sprint_config({ action: GET\|SET })`    |
-| Multiple review gate tools               | Already addressed in Sprint 004          |
+| Tool                          | Essential | Consolidation |
+| ----------------------------- | --------- | ------------- |
+| run_verification_checks       | ✅        | Keep          |
+| get_verification_results      | ✅        | Keep          |
+| submit_verification_judgment  | ✅        | Keep          |
+| update_verification           | ✅        | Keep          |
+| get_amendments                | ✅        | Keep          |
 
-### Phase 3: Response Format Standardization
+### Category 4: Code Review (4 tools)
+Recently consolidated in Sprint 006 - stable.
 
-Establish conventions:
+| Tool                    | Essential | Consolidation                  |
+| ----------------------- | --------- | ------------------------------ |
+| get_code_review         | ✅        | Absorb get_code_review_summary |
+| get_code_review_summary | ⚠️        | Merge into get_code_review     |
+| submit_code_review      | ✅        | Keep                           |
+| fix_code_review         | ✅        | Keep                           |
 
+### Category 5: Handover & Signal (7 tools)
+Essential workflow tools - minimal consolidation opportunity.
+
+| Tool              | Essential | Consolidation |
+| ----------------- | --------- | ------------- |
+| get_handover      | ✅        | Keep          |
+| update_handover   | ✅        | Keep          |
+| resubmit_handover | ✅        | Keep          |
+| signal_completion | ✅        | Keep          |
+| get_signal        | ✅        | Keep          |
+| get_feedback      | ✅        | Keep          |
+| enhance_feedback  | ✅        | Keep          |
+
+### Category 6: Review Gates (4 tools)
+Controller review workflow - essential.
+
+| Tool             | Essential | Consolidation |
+| ---------------- | --------- | ------------- |
+| approve_sprint   | ✅        | Keep          |
+| reject_sprint    | ✅        | Keep          |
+| approve_handover | ✅        | Keep          |
+| reject_handover  | ✅        | Keep          |
+
+### Category 7: Utility (4 tools)
+
+| Tool                     | Essential | Consolidation |
+| ------------------------ | --------- | ------------- |
+| add_phase                | ✅        | Keep          |
+| add_interface_validation | ✅        | Keep (Sprint 007) |
+| read_spec_file           | ✅        | Keep          |
+| debug_environment        | ⚠️        | Keep (debugging) |
+
+---
+
+## Proposed Resolution Phases
+
+### Phase 1: ID Standardization (High Priority)
+
+**Scope**: 21 tools using `task_id` parameter
+
+**Work Items**:
+1. Update input schemas to use `task` (user-visible number)
+2. Update handlers to use `resolveTaskId()` utility
+3. Update output schemas to return `task` not `task_id`
+4. Maintain backward compatibility period if needed
+
+**Files to Update**:
+- `src/schemas/verification.ts` (5 occurrences)
+- `src/schemas/sprint-config.ts` (8 occurrences)
+- `src/schemas/signal.ts` (3 occurrences)
+- `src/schemas/progress.ts` (output schemas)
+- 21 handler files
+
+**Estimated Effort**: 2-3 days
+
+### Phase 2: Tool Consolidation (Medium Priority)
+
+**High-Value Consolidations**:
+
+| Current                                | Proposed                                 | Tool Reduction |
+| -------------------------------------- | ---------------------------------------- | -------------- |
+| `get_sprint_status` + `get_progress`   | `get_sprint({ include?: [...] })`        | -1             |
+| `get_code_review_summary`              | Merge into `get_code_review`             | -1             |
+| `get_task` + `get_task_for_review`     | `get_task` with role-aware response      | -1             |
+| `get/set_sprint_config` + `set_config` | `config({ action: GET|SET, scope: ... })` | -2            |
+
+**Potential Tool Reduction**: 46 → 41 (-5 tools, ~11% reduction)
+
+**Estimated Effort**: 3-4 days
+
+### Phase 3: Response Format Standardization (Low Priority)
+
+**Conventions to Enforce**:
 - `task`: User-visible task number (1, 2, 3...)
-- `sprint`: Sprint ID string
-- `phase`: Phase ID string
-- Never expose internal `id` column
+- `sprint_id`: Sprint ID string (not just `sprint`)
+- `phase_id`: Phase ID string
+- Never expose internal database `id` column in responses
+
+**Estimated Effort**: 1-2 days (can be done alongside Phase 1)
 
 ---
 
-## Resolution Path
+## Implementation Recommendations
 
-- **Immediate**: Sprint 006 fixes code review tools (complete)
-- **Future Sprint**: Apply pattern to remaining tools
-- **Consider**: Whether full audit justifies dedicated sprint or can be incremental
+### Option A: Dedicated Mini-Sprint
+- Create Sprint 008 focused on API standardization
+- Clean, focused scope
+- Better testing coverage
+- **Recommended** for Phase 1 + Phase 2
+
+### Option B: Incremental Fixes
+- Add ID standardization as subtasks in other sprints
+- Longer timeline but less disruptive
+- Suitable for Phase 3
+
+### Option C: Major Version Bump
+- Bundle all changes into v2.0 API
+- Clean break, full standardization
+- Requires migration path for existing agents
+
+**Recommendation**: Option A for Phase 1 (blocking issue for agent usability), Option B for Phases 2-3.
 
 ---
 
-## Status Update (2026-01-22)
+## Testing Strategy
 
-- Code review tool consolidation delivered in Sprint 006 (12 tools → 4 tools).
-- Remaining scope stays open: ID standardization across non-code-review tools and naming conventions.
+1. **Schema Tests**: Verify all tools accept `task` parameter
+2. **Handler Tests**: Verify `resolveTaskId` is called correctly
+3. **Integration Tests**: End-to-end tool invocation
+4. **Backward Compatibility**: Consider deprecation warnings
+
+---
+
+## Metrics
+
+| Metric                      | Current | Target |
+| --------------------------- | ------- | ------ |
+| Total Tools                 | 46      | 41     |
+| Tools using `task_id` input | 21      | 0      |
+| Tools using `task_id` output| 15+     | 0      |
+| Handler Files               | 48      | 43     |
 
 ---
 
 ## Related
 
-- [TD-023](TD-023-code-review-workflow-gaps.md) - Code review specific gaps
+- [TD-023](TD-023-code-review-workflow-gaps.md) - Code review specific gaps (closed)
 - [Sprint 006 Spec](../specs/006-code-review-fix-workflow/spec.md) - ID resolution pattern
-- [tools.ts](../src/mcp-server/tools.ts) - Tool definitions
+- [Sprint 007 Spec](../specs/007-interface-contract-validation/spec.md) - Added add_interface_validation
+- [src/core/id-resolution.ts](../src/core/id-resolution.ts) - Existing utility (underutilized)
+- [tools.ts](../src/mcp-server/tools.ts) - Tool definitions (1848 lines)
 
 ---
 
-## Notes
+## Appendix: resolveTaskId Utility
 
-This TD intentionally defers non-code-review tools to avoid scope creep in Sprint 006. The patterns established in Sprint 006 (ID resolution utility, tool consolidation) should be reused.
+The utility exists but is barely used:
+
+```typescript
+// src/core/id-resolution.ts
+export async function resolveTaskId(
+  sprintId: string | undefined,
+  taskNumber: number
+): Promise<number> {
+  const db = getDb();
+  const resolvedSprintId = sprintId ?? (await getActiveSprintId());
+
+  const [task] = await db
+    .select({ id: tasks.id })
+    .from(tasks)
+    .where(
+      and(eq(tasks.sprint_id, resolvedSprintId), eq(tasks.task_id, taskNumber))
+    )
+    .limit(1);
+
+  if (!task) {
+    throw new Error(
+      `Task ${taskNumber} not found in sprint ${resolvedSprintId}`
+    );
+  }
+
+  return task.id;
+}
+```
+
+**Current Usage**: Only `src/core/complete.ts` imports it (for CLI).
+**Target Usage**: All 21 handlers with task-related parameters.
+
+---
+
+## Changelog
+
+| Date       | Change                                                                 |
+| ---------- | ---------------------------------------------------------------------- |
+| 2026-01-20 | Initial creation                                                       |
+| 2026-01-23 | Re-audit: Updated tool count to 45, added controller tools             |
+| 2026-01-23 | Deep analysis: Verified 46 tools, mapped all parameters, added tables  |
