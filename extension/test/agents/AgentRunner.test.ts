@@ -11,10 +11,15 @@ import { AgentSession } from "../../src/agents/AgentSession.js";
 import { AgentError } from "../../src/agents/errors.js";
 import { loadImplementorTools } from "../../src/agents/toolLoaders.js";
 import { ToolRegistry, type AgentTool } from "../../src/agents/ToolRegistry.js";
+import { createEscalation } from "../../src/database/mutations.js";
 import { codingTools } from "../../src/agents/tools/coding/index.js";
 import { orchestraImplementorTools } from "../../src/agents/tools/orchestra/index.js";
 import { systemTools } from "../../src/agents/tools/system/index.js";
 import type { AgentConfig } from "../../src/agents/types.js";
+
+vi.mock("../../src/database/mutations.js", () => ({
+  createEscalation: vi.fn(() => 1),
+}));
 
 // Mock vscode module
 vi.mock("vscode", () => ({
@@ -140,6 +145,7 @@ describe("AgentRunner", () => {
     runner = new AgentRunner(registry);
     resolveStream = undefined;
     vi.clearAllMocks();
+    vi.mocked(createEscalation).mockClear();
 
     // Mock language model - default to simple mock
     const mockModel = createSimpleMockModel();
@@ -711,6 +717,54 @@ describe("AgentRunner", () => {
 
       limitedRunner.dispose();
     });
+
+    test("should emit MAX_ITERATIONS error and auto-escalate with task context", async () => {
+      const outputs: any[] = [];
+      const toolCallModel = (() => {
+        let callCount = 0;
+        return {
+          id: "claude-sonnet-4.5",
+          sendRequest: vi.fn(() => ({
+            stream: (async function* () {
+              callCount += 1;
+              yield new vscode.LanguageModelToolCallPart(
+                "test_tool",
+                { value: "test" },
+                `call-${callCount}`,
+              );
+            })(),
+          })),
+        };
+      })();
+
+      vi.mocked(vscode.lm.selectChatModels).mockResolvedValue([
+        toolCallModel as any,
+      ]);
+
+      const limitedRunner = new AgentRunner(registry, { maxIterations: 1 });
+      limitedRunner.onOutput((output) => outputs.push(output));
+
+      await limitedRunner.start("orchestrator", {
+        prompt: "Test",
+        taskId: 7,
+        maxIterations: 1,
+      });
+
+      await new Promise((resolve) => setTimeout(resolve, 200));
+
+      const errorOutput = outputs.find(
+        (o) => o.type === "error" && o.errorCode === "MAX_ITERATIONS",
+      );
+      expect(errorOutput).toBeDefined();
+
+      expect(vi.mocked(createEscalation)).toHaveBeenCalledTimes(1);
+      const escalationArgs = vi.mocked(createEscalation).mock.calls[0];
+      expect(escalationArgs?.[1]).toBe(7);
+      expect(escalationArgs?.[2]?.reason).toContain("maximum iterations");
+      expect(escalationArgs?.[2]?.attemptsSummary).toContain("Iteration");
+
+      limitedRunner.dispose();
+    });
   });
 
   describe("tool call execution", () => {
@@ -790,6 +844,113 @@ describe("AgentRunner", () => {
         (o) => o.type === "error" && o.errorMessage?.includes("Tool failed"),
       );
       expect(errorOutput).toBeDefined();
+    });
+
+    test("should retry failed tools and reset consecutiveErrors on success", async () => {
+      const retryRegistry = new ToolRegistry();
+      const retryTool: AgentTool = {
+        name: "retry_tool",
+        description: "Tool that succeeds after retries",
+        inputSchema: {
+          type: "object",
+          properties: {},
+        },
+        execute: vi
+          .fn()
+          .mockRejectedValueOnce(new Error("Retry 1"))
+          .mockRejectedValueOnce(new Error("Retry 2"))
+          .mockResolvedValue({
+            success: true,
+            output: "Recovered",
+          }),
+      };
+      retryRegistry.register(retryTool);
+
+      const retryRunner = new AgentRunner(retryRegistry, {
+        maxToolRetries: 2,
+        maxIterations: 1,
+      });
+
+      const mockModel = {
+        id: "claude-sonnet-4.5",
+        sendRequest: vi.fn(() => ({
+          stream: (async function* () {
+            yield new vscode.LanguageModelToolCallPart(
+              "retry_tool",
+              {},
+              "call-retry",
+            );
+          })(),
+        })),
+      };
+
+      vi.mocked(vscode.lm.selectChatModels).mockResolvedValue([
+        mockModel as any,
+      ]);
+
+      await retryRunner.start("orchestrator", { prompt: "Test" });
+      await new Promise((resolve) => setTimeout(resolve, 600));
+
+      expect(retryTool.execute).toHaveBeenCalledTimes(3);
+      expect((retryRunner as any).consecutiveErrors).toBe(0);
+
+      retryRunner.dispose();
+    });
+
+    test("should auto-escalate after three consecutive tool failures", async () => {
+      const failingRegistry = new ToolRegistry();
+      const alwaysFailTool: AgentTool = {
+        name: "always_fail",
+        description: "Always fails",
+        inputSchema: {
+          type: "object",
+          properties: {},
+        },
+        execute: vi.fn(async () => {
+          throw new Error("Failure");
+        }),
+      };
+      failingRegistry.register(alwaysFailTool);
+
+      const failRunner = new AgentRunner(failingRegistry, {
+        maxToolRetries: 0,
+        maxIterations: 5,
+      });
+
+      const mockModel = (() => {
+        let callCount = 0;
+        return {
+          id: "claude-sonnet-4.5",
+          sendRequest: vi.fn(() => ({
+            stream: (async function* () {
+              callCount += 1;
+              yield new vscode.LanguageModelToolCallPart(
+                "always_fail",
+                {},
+                `call-${callCount}`,
+              );
+            })(),
+          })),
+        };
+      })();
+
+      vi.mocked(vscode.lm.selectChatModels).mockResolvedValue([
+        mockModel as any,
+      ]);
+
+      await failRunner.start("orchestrator", {
+        prompt: "Test",
+        taskId: 11,
+      });
+
+      await new Promise((resolve) => setTimeout(resolve, 300));
+
+      const session = failRunner.getSession();
+      expect(session?.status).toBe("failed");
+      expect(vi.mocked(createEscalation)).toHaveBeenCalled();
+      expect((failRunner as any).consecutiveErrors).toBeGreaterThanOrEqual(3);
+
+      failRunner.dispose();
     });
   });
 

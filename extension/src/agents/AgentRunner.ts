@@ -18,6 +18,7 @@ import { ContextManager } from "./ContextManager.js";
 import { AgentError, SessionError } from "./errors.js";
 import { loadImplementorTools } from "./toolLoaders.js";
 import { ToolRegistry } from "./ToolRegistry.js";
+import { createEscalation } from "../database/mutations.js";
 import type {
   AgentConfig,
   AgentMessage,
@@ -121,6 +122,11 @@ export class AgentRunner implements vscode.Disposable {
   private cancellationTokenSource: vscode.CancellationTokenSource | undefined;
   private runningPromise: Promise<void> | undefined;
 
+  // Error tracking
+  private consecutiveErrors = 0;
+  private recentErrors: string[] = [];
+  private hasEscalated = false;
+
   // Event emitters
   private _onOutput = new vscode.EventEmitter<AgentOutput>();
   private _onStateChange = new vscode.EventEmitter<AgentState>();
@@ -192,6 +198,9 @@ export class AgentRunner implements vscode.Disposable {
     // Reset flags
     this.isPaused = false;
     this.isStopped = false;
+    this.consecutiveErrors = 0;
+    this.recentErrors = [];
+    this.hasEscalated = false;
 
     // Create new session
     const sprintId = options.sprintId ?? "default-sprint";
@@ -465,6 +474,11 @@ export class AgentRunner implements vscode.Disposable {
           errorMessage: `Agent stopped after ${this.session.maxIterations} iterations`,
           recoverable: false,
         });
+        const escalationDetails = this.buildEscalationDetails("max_iterations");
+        await this.triggerAutoEscalation(
+          escalationDetails.reason,
+          escalationDetails.attemptsSummary,
+        );
         this.emitStateChange();
       }
     } catch (error) {
@@ -696,6 +710,7 @@ export class AgentRunner implements vscode.Disposable {
         );
 
         const durationMs = Date.now() - startTime;
+        const toolSuccess = result.result.success;
 
         // Record tool call in session
         this.session.recordToolCall({
@@ -703,13 +718,26 @@ export class AgentRunner implements vscode.Disposable {
           name: toolCall.name,
           arguments: toolCall.input as Record<string, unknown>,
           result: result.result,
-          status: result.result.success ? "success" : "error",
+          status: toolSuccess ? "success" : "error",
           startedAt: new Date(startTime).toISOString(),
           completedAt: new Date().toISOString(),
           durationMs,
           iteration: this.session.currentIteration,
           messageId: "", // Will be set when message is added
         });
+
+        if (toolSuccess) {
+          this.resetToolFailureTracking();
+        } else {
+          this.recordToolFailure(
+            result.result.error ??
+              result.result.output ??
+              "Tool returned unsuccessful result",
+          );
+          if (await this.handleConsecutiveFailures()) {
+            return;
+          }
+        }
 
         // Add tool result to message history
         this.addToolResultMessage(toolCall.callId, result.result.output);
@@ -721,7 +749,7 @@ export class AgentRunner implements vscode.Disposable {
           iteration: this.session.currentIteration,
           toolCallId: toolCall.callId,
           toolResult: result.result.output,
-          toolSuccess: result.result.success,
+          toolSuccess,
           toolDuration: durationMs,
         });
       } catch (error) {
@@ -747,6 +775,12 @@ export class AgentRunner implements vscode.Disposable {
           },
         });
 
+        this.recordToolFailure(errorMessage);
+
+        if (await this.handleConsecutiveFailures()) {
+          return;
+        }
+
         // Add error to message history
         this.addToolResultMessage(toolCall.callId, `Error: ${errorMessage}`);
 
@@ -761,6 +795,129 @@ export class AgentRunner implements vscode.Disposable {
           recoverable: true,
         });
       }
+    }
+  }
+
+  /**
+   * Determine whether auto-escalation is allowed for the current session
+   */
+  private shouldAutoEscalate(): boolean {
+    return !!this.session && this.session.taskId !== null && !this.hasEscalated;
+  }
+
+  /**
+   * Record a tool failure for consecutive error tracking
+   */
+  private recordToolFailure(message: string): void {
+    this.consecutiveErrors += 1;
+    this.recentErrors.push(message);
+    if (this.recentErrors.length > 5) {
+      this.recentErrors.shift();
+    }
+  }
+
+  /**
+   * Reset consecutive tool failure tracking
+   */
+  private resetToolFailureTracking(): void {
+    this.consecutiveErrors = 0;
+    this.recentErrors = [];
+  }
+
+  /**
+   * Build escalation details based on failure type
+   */
+  private buildEscalationDetails(
+    reasonType: "max_iterations" | "tool_failures",
+  ): { reason: string; attemptsSummary: string } {
+    const iteration = this.session?.currentIteration ?? 0;
+    const maxIterations = this.session?.maxIterations ?? this.config.maxIterations;
+    const recentErrors =
+      this.recentErrors.length > 0
+        ? this.recentErrors.join(" | ")
+        : "No tool errors recorded";
+
+    if (reasonType === "max_iterations") {
+      return {
+        reason: `Auto-escalation: maximum iterations (${maxIterations}) reached`,
+        attemptsSummary: `Iteration ${iteration} of ${maxIterations}. Consecutive tool failures: ${this.consecutiveErrors}. Recent errors: ${recentErrors}.`,
+      };
+    }
+
+    return {
+      reason: `Auto-escalation: ${this.consecutiveErrors} consecutive tool failures`,
+      attemptsSummary: `Iteration ${iteration} of ${maxIterations}. Recent errors: ${recentErrors}.`,
+    };
+  }
+
+  /**
+   * Handle consecutive tool failures and auto-escalate when needed
+   */
+  private async handleConsecutiveFailures(): Promise<boolean> {
+    if (this.consecutiveErrors < 3 || !this.session) {
+      return false;
+    }
+
+    const escalationDetails = this.buildEscalationDetails("tool_failures");
+
+    this.session.fail(escalationDetails.reason);
+    this.emitOutput({
+      type: "error",
+      timestamp: new Date().toISOString(),
+      iteration: this.session.currentIteration,
+      errorCode: "AUTO_ESCALATION",
+      errorMessage: escalationDetails.reason,
+      recoverable: false,
+    });
+    this.emitStateChange();
+    this.isStopped = true;
+    if (this.cancellationTokenSource) {
+      this.cancellationTokenSource.cancel();
+    }
+
+    await this.triggerAutoEscalation(
+      escalationDetails.reason,
+      escalationDetails.attemptsSummary,
+    );
+
+    return true;
+  }
+
+  /**
+   * Trigger auto-escalation via database mutation
+   */
+  private async triggerAutoEscalation(
+    reason: string,
+    attemptsSummary: string,
+  ): Promise<void> {
+    if (!this.shouldAutoEscalate() || !this.session) {
+      return;
+    }
+
+    const workspaceRoot =
+      vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? "";
+    this.hasEscalated = true;
+
+    try {
+      createEscalation(workspaceRoot, this.session.taskId!, {
+        reason,
+        attemptsSummary,
+        recommendedAction:
+          "Review failure context, adjust task scope, and retry execution.",
+        recommendedTargetStatus: "PENDING",
+        escalatedBy: "implementor",
+      });
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      this.emitOutput({
+        type: "error",
+        timestamp: new Date().toISOString(),
+        iteration: this.session.currentIteration,
+        errorCode: "ESCALATION_FAILED",
+        errorMessage,
+        recoverable: false,
+      });
     }
   }
 
