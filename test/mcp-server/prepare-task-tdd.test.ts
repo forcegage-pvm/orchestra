@@ -384,13 +384,6 @@ describe("prepare_task TDD Auto-Injection", () => {
         updated_at: now,
       },
       {
-        key: "tdd.test_file_pattern",
-        value: "spec/**/*.spec.ts",
-        description: "Custom test pattern",
-        created_at: now,
-        updated_at: now,
-      },
-      {
         key: "tdd.test_pattern",
         value: "suite|test|expect",
         description: "Custom content pattern",
@@ -398,6 +391,13 @@ describe("prepare_task TDD Auto-Injection", () => {
         updated_at: now,
       },
     ]);
+
+    // Update sprint settings to use custom pattern
+    // Sprint-level config takes precedence over global config
+    await db
+      .update(sprintSettings)
+      .set({ value: "spec/**/*.spec.ts" })
+      .where(eq(sprintSettings.key, "test_file_pattern"));
 
     await db.insert(tasks).values({
       id: 1,

@@ -347,6 +347,7 @@ async function prepareTask(
     task.title,
     now,
     input.file_operations,
+    sprintEnv,
     input.test_file,
   );
 
@@ -828,6 +829,7 @@ async function injectTestVerificationIfRequired(
     path: string;
     description: string;
   }>,
+  sprintEnv: SprintEnvironment,
   explicitTestFile?: string,
 ): Promise<{
   injected: boolean;
@@ -887,8 +889,10 @@ async function injectTestVerificationIfRequired(
     return { injected: false };
   }
 
-  // Get test file pattern from config or detect from file operations
-  const configTestPattern = configMap.get("tdd.test_file_pattern");
+  // Get test file pattern from sprint config (preferred) or global config (fallback)
+  // Sprint config is set via configure_sprint environment field
+  const sprintTestPattern = sprintEnv.test_file_pattern;
+  const globalTestPattern = configMap.get("tdd.test_file_pattern");
   const configContentPattern = configMap.get("tdd.test_pattern");
 
   // Detect language-appropriate test patterns from file operations
@@ -898,19 +902,30 @@ async function injectTestVerificationIfRequired(
   const testContentPattern =
     configContentPattern || detectedPatterns.testContentPattern;
 
-  // Determine test file pattern:
+  // Determine test file pattern priority:
   // 1. If explicit test_file provided, use that exact path
-  // 2. If config provides pattern, use that
-  // 3. If file_operations target extension/, adapt detected pattern for extension/
-  // 4. Otherwise use detected pattern
+  // 2. If sprint config provides pattern, use that (already adapted for project structure)
+  // 3. If global config provides pattern, adapt for subdirectory if needed
+  // 4. If file_operations target extension/, adapt detected pattern for extension/
+  // 5. Otherwise use detected pattern
   let testFilePattern: string;
 
   if (explicitTestFile) {
     // Use the exact test file specified by orchestrator
     testFilePattern = explicitTestFile;
-  } else if (configTestPattern) {
-    // Use configured pattern (manual override)
-    testFilePattern = configTestPattern;
+  } else if (sprintTestPattern) {
+    // Use sprint-level config (already correct for project structure)
+    testFilePattern = sprintTestPattern;
+  } else if (globalTestPattern) {
+    // Use global config but adapt for subdirectory if needed
+    const hasExtensionFiles = fileOperations.some((op) =>
+      op.path.startsWith("extension/"),
+    );
+    if (hasExtensionFiles && globalTestPattern.startsWith("test/")) {
+      testFilePattern = globalTestPattern.replace(/^test\//, "extension/test/");
+    } else {
+      testFilePattern = globalTestPattern;
+    }
   } else {
     // Use detected pattern, adapt for extension/ if needed
     const hasExtensionFiles = fileOperations.some((op) =>

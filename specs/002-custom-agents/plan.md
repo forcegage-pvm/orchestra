@@ -21,15 +21,15 @@ Build custom AI coding agents in the Orchestra VS Code extension with real-time 
 
 ## Constitution Check
 
-*GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
+_GATE: Must pass before Phase 0 research. Re-check after Phase 1 design._
 
-| Principle | Status | Notes |
-|-----------|--------|-------|
-| I. Core-First Architecture | ✅ PASS | Agent logic will live in `extension/src/agents/` with stateless core functions |
-| II. Hidden Verification | ✅ PASS | Implementor agent tools use MCP `orchestra-imp/*` which enforces trust boundary |
-| III. Zod-Validated YAML | ✅ PASS | Session state will use JSON (standard for transient data); sprint memory YAML |
-| IV. Structured Error Hierarchy | ✅ PASS | Will extend existing OrchestraError for AgentError subclass |
-| V. ESM with Strict TypeScript | ✅ PASS | Extension already uses ESM, will maintain `.js` imports |
+| Principle                      | Status  | Notes                                                                           |
+| ------------------------------ | ------- | ------------------------------------------------------------------------------- |
+| I. Core-First Architecture     | ✅ PASS | Agent logic will live in `extension/src/agents/` with stateless core functions  |
+| II. Hidden Verification        | ✅ PASS | Implementor agent tools use MCP `orchestra-imp/*` which enforces trust boundary |
+| III. Zod-Validated YAML        | ✅ PASS | Session state will use JSON (standard for transient data); sprint memory YAML   |
+| IV. Structured Error Hierarchy | ✅ PASS | Will extend existing OrchestraError for AgentError subclass                     |
+| V. ESM with Strict TypeScript  | ✅ PASS | Extension already uses ESM, will maintain `.js` imports                         |
 
 **No violations requiring justification.**
 
@@ -92,9 +92,11 @@ extension/test/
 ## Phase 0 Complete ✅
 
 **Research artifacts generated:**
+
 - [research.md](research.md) - API research for vscode.lm, webviews, session persistence
 
 **Key decisions from research:**
+
 1. Use `vscode.lm` API for autonomous agent execution (not Chat participant API)
 2. Implement tools as vscode.lm tools (not MCP) for lower overhead
 3. Use file-based JSON for session persistence with per-iteration checkpoints
@@ -105,6 +107,7 @@ extension/test/
 ## Phase 1 Complete ✅
 
 **Design artifacts generated:**
+
 - [data-model.md](data-model.md) - Full entity definitions with Zod schemas
 - [quickstart.md](quickstart.md) - Developer setup guide
 - [contracts/](contracts/) - Internal API interfaces
@@ -115,28 +118,29 @@ extension/test/
 
 **Constitution Re-Check (Post-Design):**
 
-| Principle | Status | Notes |
-|-----------|--------|-------|
-| I. Core-First Architecture | ✅ PASS | Agent logic in `extension/src/agents/` with stateless core |
-| II. Hidden Verification | ✅ PASS | Implementor tools access DB via trust-boundary-safe queries |
-| III. Zod-Validated YAML | ✅ PASS | Session state uses JSON with Zod; sprint memory uses YAML |
-| IV. Structured Error Hierarchy | ✅ PASS | AgentError extends OrchestraError pattern |
-| V. ESM with Strict TypeScript | ✅ PASS | All contracts use proper ESM patterns |
+| Principle                      | Status  | Notes                                                       |
+| ------------------------------ | ------- | ----------------------------------------------------------- |
+| I. Core-First Architecture     | ✅ PASS | Agent logic in `extension/src/agents/` with stateless core  |
+| II. Hidden Verification        | ✅ PASS | Implementor tools access DB via trust-boundary-safe queries |
+| III. Zod-Validated YAML        | ✅ PASS | Session state uses JSON with Zod; sprint memory uses YAML   |
+| IV. Structured Error Hierarchy | ✅ PASS | AgentError extends OrchestraError pattern                   |
+| V. ESM with Strict TypeScript  | ✅ PASS | All contracts use proper ESM patterns                       |
 
 ---
 
 ## Implementation Phases Summary
 
-| Phase | Priority | Scope | Estimated Tasks |
-|-------|----------|-------|-----------------|
-| 1: Core Infrastructure | P0 | AgentRunner, ToolRegistry, basic streaming | 3 |
-| 2: Coding Tools | P0 | edit, read_file, new, delete, search, etc. | 3 |
-| 3: Orchestra Tools | P0 | get_current_task, signal_completion, etc. | 2 |
-| 4: UI Components | P0 | Agent Output Panel, controls | 3 |
-| 5: File Tracking | P1 | FileChangeTracker, Changed Files Panel, Undo | 3 |
-| 6: Session Persistence | P1 | Save/restore sessions, checkpoints | 3 |
-| 7: Sprint Memory | P1 | Orchestrator cross-task context | 3 |
-| 8: Configuration | P2 | Verbosity, model selection, context compaction | 3 |
+| Phase                  | Priority | Scope                                            | Estimated Tasks |
+| ---------------------- | -------- | ------------------------------------------------ | --------------- |
+| 1: Core Infrastructure | P0       | AgentRunner, ToolRegistry, basic streaming       | 3               |
+| 1.5: Hardening         | P0       | Fix AgentRunner context serialization (Critical) | 1               |
+| 2: Coding Tools        | P0       | edit, read_file, new, delete, search, etc.       | 3               |
+| 3: Orchestra Tools     | P0       | get_current_task, signal_completion, etc.        | 2               |
+| 4: UI Components       | P0       | Agent Output Panel, controls                     | 3               |
+| 5: File Tracking       | P1       | FileChangeTracker, Changed Files Panel, Undo     | 3               |
+| 6: Session Persistence | P1       | Save/restore sessions, checkpoints               | 3               |
+| 7: Sprint Memory       | P1       | Orchestrator cross-task context                  | 3               |
+| 8: Configuration       | P2       | Verbosity, model selection, context compaction   | 3               |
 
 **Total: ~23 tasks across 8 phases**
 
@@ -148,5 +152,4 @@ Run `/speckit.tasks` to generate the detailed task breakdown for implementation.
 
 ---
 
-*Plan completed by /speckit.plan on 2026-01-12*
-
+_Plan completed by /speckit.plan on 2026-01-12_

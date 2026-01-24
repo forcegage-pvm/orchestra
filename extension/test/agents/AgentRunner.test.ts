@@ -4,40 +4,56 @@
  * Tests for agent execution loop, lifecycle management, and vscode.lm integration.
  */
 
-import { describe, test, expect, beforeEach, vi } from "vitest";
+import { beforeEach, describe, expect, test, vi } from "vitest";
 import * as vscode from "vscode";
 import { AgentRunner } from "../../src/agents/AgentRunner.js";
-import { ToolRegistry, type AgentTool } from "../../src/agents/ToolRegistry.js";
 import { AgentSession } from "../../src/agents/AgentSession.js";
-import type { AgentConfig } from "../../src/agents/types.js";
 import { AgentError } from "../../src/agents/errors.js";
+import { loadImplementorTools } from "../../src/agents/toolLoaders.js";
+import { ToolRegistry, type AgentTool } from "../../src/agents/ToolRegistry.js";
+import { codingTools } from "../../src/agents/tools/coding/index.js";
+import { orchestraImplementorTools } from "../../src/agents/tools/orchestra/index.js";
+import { systemTools } from "../../src/agents/tools/system/index.js";
+import type { AgentConfig } from "../../src/agents/types.js";
+import { createEscalation } from "../../src/database/mutations.js";
+
+vi.mock("../../src/database/mutations.js", () => ({
+  createEscalation: vi.fn(() => 1),
+}));
 
 // Mock vscode module
 vi.mock("vscode", () => ({
   EventEmitter: class<T> {
     private listeners: Array<(e: T) => void> = [];
-    
+
     get event() {
       return (listener: (e: T) => void) => {
         this.listeners.push(listener);
-        return { dispose: () => {
-          const index = this.listeners.indexOf(listener);
-          if (index > -1) this.listeners.splice(index, 1);
-        }};
+        return {
+          dispose: () => {
+            const index = this.listeners.indexOf(listener);
+            if (index > -1) this.listeners.splice(index, 1);
+          },
+        };
       };
     }
-    
+
     fire(data: T) {
-      this.listeners.forEach(listener => listener(data));
+      this.listeners.forEach((listener) => listener(data));
     }
-    
+
     dispose() {
       this.listeners = [];
     }
   },
   CancellationTokenSource: class {
-    token = { isCancellationRequested: false, onCancellationRequested: vi.fn() };
-    cancel() { this.token.isCancellationRequested = true; }
+    token = {
+      isCancellationRequested: false,
+      onCancellationRequested: vi.fn(),
+    };
+    cancel() {
+      this.token.isCancellationRequested = true;
+    }
     dispose() {}
   },
   LanguageModelChatMessageRole: {
@@ -52,7 +68,17 @@ vi.mock("vscode", () => ({
     constructor(public value: string) {}
   },
   LanguageModelToolCallPart: class {
-    constructor(public name: string, public input: unknown, public callId: string) {}
+    constructor(
+      public name: string,
+      public input: unknown,
+      public callId: string,
+    ) {}
+  },
+  LanguageModelToolResultPart: class {
+    constructor(
+      public callId: string,
+      public content: unknown[],
+    ) {}
   },
   lm: {
     selectChatModels: vi.fn(),
@@ -92,13 +118,13 @@ describe("AgentRunner", () => {
         // Yield some initial chunks
         yield new vscode.LanguageModelTextPart("Thinking");
         yield new vscode.LanguageModelTextPart("...");
-        
+
         // Hold the stream open until test calls resolveStream()
         // This allows pause/stop to be called while stream is active
         await new Promise<void>((resolve) => {
           resolveStream = resolve;
         });
-        
+
         // After resolveStream is called, yield final chunk and end
         yield new vscode.LanguageModelTextPart("Done");
       })(),
@@ -119,6 +145,7 @@ describe("AgentRunner", () => {
     runner = new AgentRunner(registry);
     resolveStream = undefined;
     vi.clearAllMocks();
+    vi.mocked(createEscalation).mockClear();
 
     // Mock language model - default to simple mock
     const mockModel = createSimpleMockModel();
@@ -150,6 +177,64 @@ describe("AgentRunner", () => {
       const runner = new AgentRunner(registry);
       expect(runner.onOutput).toBeDefined();
       expect(runner.onStateChange).toBeDefined();
+    });
+  });
+
+  describe("loadImplementorTools", () => {
+    test("should register all implementor tool categories", () => {
+      const toolRegistry = new ToolRegistry();
+
+      loadImplementorTools(toolRegistry);
+
+      const expectedCount =
+        codingTools.length +
+        orchestraImplementorTools.length +
+        systemTools.length;
+
+      expect(toolRegistry.names()).toHaveLength(expectedCount);
+
+      for (const tool of codingTools) {
+        expect(toolRegistry.has(tool.name)).toBe(true);
+      }
+
+      for (const tool of orchestraImplementorTools) {
+        expect(toolRegistry.has(tool.name)).toBe(true);
+      }
+
+      for (const tool of systemTools) {
+        expect(toolRegistry.has(tool.name)).toBe(true);
+      }
+    });
+  });
+
+  describe("convertToLMMessages", () => {
+    test("should serialize toolResult content parts", () => {
+      const messages = [
+        {
+          id: "00000000-0000-0000-0000-000000000000",
+          role: "assistant",
+          content: [
+            { type: "text", value: "Tool result:" },
+            { type: "toolResult", toolCallId: "call-1", value: "OK" },
+          ],
+          timestamp: new Date().toISOString(),
+          iteration: 1,
+        },
+      ];
+
+      const converted = (runner as any).convertToLMMessages(messages);
+      expect(converted).toHaveLength(1);
+
+      const content = converted[0]?.content as unknown[];
+      expect(Array.isArray(content)).toBe(true);
+      expect(content[0]).toBeInstanceOf(vscode.LanguageModelTextPart);
+      expect(content[1]).toBeInstanceOf(vscode.LanguageModelToolResultPart);
+      expect((content[1] as any).callId).toBe("call-1");
+      expect(Array.isArray((content[1] as any).content)).toBe(true);
+      expect((content[1] as any).content[0]).toBeInstanceOf(
+        vscode.LanguageModelTextPart,
+      );
+      expect((content[1] as any).content[0].value).toBe("OK");
     });
   });
 
@@ -197,18 +282,20 @@ describe("AgentRunner", () => {
 
     test("should throw error if already running", async () => {
       // Use holdable mock to keep first session running
-      vi.mocked(vscode.lm.selectChatModels).mockResolvedValue([createHoldableMockModel() as any]);
-      
+      vi.mocked(vscode.lm.selectChatModels).mockResolvedValue([
+        createHoldableMockModel() as any,
+      ]);
+
       await runner.start("orchestrator", { prompt: "First" });
-      await new Promise(resolve => setTimeout(resolve, 10));
+      await new Promise((resolve) => setTimeout(resolve, 10));
 
       await expect(
-        runner.start("orchestrator", { prompt: "Second" })
+        runner.start("orchestrator", { prompt: "Second" }),
       ).rejects.toThrow(AgentError);
       await expect(
-        runner.start("orchestrator", { prompt: "Second" })
+        runner.start("orchestrator", { prompt: "Second" }),
       ).rejects.toThrow("already running");
-      
+
       // Resolve stream to complete
       if (resolveStream) resolveStream();
     });
@@ -245,19 +332,21 @@ describe("AgentRunner", () => {
   describe("pause", () => {
     test("should pause running agent", async () => {
       // Use holdable mock
-      vi.mocked(vscode.lm.selectChatModels).mockResolvedValue([createHoldableMockModel() as any]);
-      
+      vi.mocked(vscode.lm.selectChatModels).mockResolvedValue([
+        createHoldableMockModel() as any,
+      ]);
+
       await runner.start("orchestrator", { prompt: "Test" });
-      
+
       // Give it a moment to start
-      await new Promise(resolve => setTimeout(resolve, 10));
-      
+      await new Promise((resolve) => setTimeout(resolve, 10));
+
       // Pause (this will set flag but wait for running promise)
       const pausePromise = runner.pause();
-      
+
       // Resolve stream to let agent loop complete
       if (resolveStream) resolveStream();
-      
+
       // Now wait for pause to complete
       await pausePromise;
 
@@ -272,14 +361,16 @@ describe("AgentRunner", () => {
 
     test("should emit state change on pause", async () => {
       // Use holdable mock
-      vi.mocked(vscode.lm.selectChatModels).mockResolvedValue([createHoldableMockModel() as any]);
-      
+      vi.mocked(vscode.lm.selectChatModels).mockResolvedValue([
+        createHoldableMockModel() as any,
+      ]);
+
       const stateChanges: any[] = [];
       runner.onStateChange((state) => stateChanges.push(state));
 
       await runner.start("orchestrator", { prompt: "Test" });
-      await new Promise(resolve => setTimeout(resolve, 10));
-      
+      await new Promise((resolve) => setTimeout(resolve, 10));
+
       const pausePromise = runner.pause();
       if (resolveStream) resolveStream();
       await pausePromise;
@@ -292,11 +383,13 @@ describe("AgentRunner", () => {
   describe("resume", () => {
     test("should resume paused agent", async () => {
       // Use holdable mock
-      vi.mocked(vscode.lm.selectChatModels).mockResolvedValue([createHoldableMockModel() as any]);
-      
+      vi.mocked(vscode.lm.selectChatModels).mockResolvedValue([
+        createHoldableMockModel() as any,
+      ]);
+
       await runner.start("orchestrator", { prompt: "Test" });
-      await new Promise(resolve => setTimeout(resolve, 10));
-      
+      await new Promise((resolve) => setTimeout(resolve, 10));
+
       const pausePromise = runner.pause();
       const firstResolveStream = resolveStream;
       if (firstResolveStream) firstResolveStream();
@@ -306,7 +399,7 @@ describe("AgentRunner", () => {
 
       const session = runner.getSession();
       expect(session?.status).toBe("running");
-      
+
       // Resolve new stream to complete
       if (resolveStream) resolveStream();
     });
@@ -318,25 +411,27 @@ describe("AgentRunner", () => {
 
     test("should emit state change on resume", async () => {
       // Use holdable mock
-      vi.mocked(vscode.lm.selectChatModels).mockResolvedValue([createHoldableMockModel() as any]);
-      
+      vi.mocked(vscode.lm.selectChatModels).mockResolvedValue([
+        createHoldableMockModel() as any,
+      ]);
+
       const stateChanges: any[] = [];
       runner.onStateChange((state) => stateChanges.push(state));
 
       await runner.start("orchestrator", { prompt: "Test" });
-      await new Promise(resolve => setTimeout(resolve, 10));
-      
+      await new Promise((resolve) => setTimeout(resolve, 10));
+
       const pausePromise = runner.pause();
       const firstResolveStream = resolveStream;
       if (firstResolveStream) firstResolveStream();
       await pausePromise;
-      
+
       stateChanges.length = 0; // Clear previous state changes
-      
+
       await runner.resume();
 
       expect(stateChanges.length).toBeGreaterThan(0);
-      
+
       // Resolve new stream to complete
       if (resolveStream) resolveStream();
     });
@@ -345,11 +440,13 @@ describe("AgentRunner", () => {
   describe("stop", () => {
     test("should stop running agent", async () => {
       // Use holdable mock
-      vi.mocked(vscode.lm.selectChatModels).mockResolvedValue([createHoldableMockModel() as any]);
-      
+      vi.mocked(vscode.lm.selectChatModels).mockResolvedValue([
+        createHoldableMockModel() as any,
+      ]);
+
       await runner.start("orchestrator", { prompt: "Test" });
-      await new Promise(resolve => setTimeout(resolve, 10));
-      
+      await new Promise((resolve) => setTimeout(resolve, 10));
+
       const stopPromise = runner.stop();
       if (resolveStream) resolveStream();
       await stopPromise;
@@ -360,16 +457,18 @@ describe("AgentRunner", () => {
 
     test("should stop paused agent", async () => {
       // Use holdable mock
-      vi.mocked(vscode.lm.selectChatModels).mockResolvedValue([createHoldableMockModel() as any]);
-      
+      vi.mocked(vscode.lm.selectChatModels).mockResolvedValue([
+        createHoldableMockModel() as any,
+      ]);
+
       await runner.start("orchestrator", { prompt: "Test" });
-      await new Promise(resolve => setTimeout(resolve, 10));
-      
+      await new Promise((resolve) => setTimeout(resolve, 10));
+
       const pausePromise = runner.pause();
       const firstResolveStream = resolveStream;
       if (firstResolveStream) firstResolveStream();
       await pausePromise;
-      
+
       await runner.stop();
 
       const session = runner.getSession();
@@ -382,14 +481,16 @@ describe("AgentRunner", () => {
 
     test("should emit state change on stop", async () => {
       // Use holdable mock
-      vi.mocked(vscode.lm.selectChatModels).mockResolvedValue([createHoldableMockModel() as any]);
-      
+      vi.mocked(vscode.lm.selectChatModels).mockResolvedValue([
+        createHoldableMockModel() as any,
+      ]);
+
       const stateChanges: any[] = [];
       runner.onStateChange((state) => stateChanges.push(state));
 
       await runner.start("orchestrator", { prompt: "Test" });
-      await new Promise(resolve => setTimeout(resolve, 10));
-      
+      await new Promise((resolve) => setTimeout(resolve, 10));
+
       const stopPromise = runner.stop();
       if (resolveStream) resolveStream();
       await stopPromise;
@@ -402,17 +503,19 @@ describe("AgentRunner", () => {
   describe("redirect", () => {
     test("should inject new instruction into running agent", async () => {
       // Use holdable mock
-      vi.mocked(vscode.lm.selectChatModels).mockResolvedValue([createHoldableMockModel() as any]);
-      
+      vi.mocked(vscode.lm.selectChatModels).mockResolvedValue([
+        createHoldableMockModel() as any,
+      ]);
+
       await runner.start("orchestrator", { prompt: "Initial" });
-      await new Promise(resolve => setTimeout(resolve, 10));
+      await new Promise((resolve) => setTimeout(resolve, 10));
 
       await runner.redirect("New instruction");
 
       const session = runner.getSession();
       const lastMessage = session?.messages[session.messages.length - 1];
       expect(lastMessage?.content).toBe("New instruction");
-      
+
       // Resolve stream to complete
       if (resolveStream) resolveStream();
     });
@@ -424,20 +527,22 @@ describe("AgentRunner", () => {
 
     test("should emit thinking output on redirect", async () => {
       // Use holdable mock
-      vi.mocked(vscode.lm.selectChatModels).mockResolvedValue([createHoldableMockModel() as any]);
-      
+      vi.mocked(vscode.lm.selectChatModels).mockResolvedValue([
+        createHoldableMockModel() as any,
+      ]);
+
       const outputs: any[] = [];
       runner.onOutput((output) => outputs.push(output));
 
       await runner.start("orchestrator", { prompt: "Initial" });
-      await new Promise(resolve => setTimeout(resolve, 10));
+      await new Promise((resolve) => setTimeout(resolve, 10));
       await runner.redirect("New instruction");
 
       const redirectOutput = outputs.find((o) =>
-        o.text?.includes("Redirected")
+        o.text?.includes("Redirected"),
       );
       expect(redirectOutput).toBeDefined();
-      
+
       // Resolve stream to complete
       if (resolveStream) resolveStream();
     });
@@ -497,7 +602,7 @@ describe("AgentRunner", () => {
       const disposable = runner.onOutput((output) => outputs.push(output));
 
       await runner.start("orchestrator", { prompt: "Test" });
-      await new Promise(resolve => setTimeout(resolve, 20));
+      await new Promise((resolve) => setTimeout(resolve, 20));
 
       expect(outputs.length).toBeGreaterThan(0);
       disposable.dispose();
@@ -509,18 +614,22 @@ describe("AgentRunner", () => {
         id: "claude-sonnet-4.5",
         sendRequest: vi.fn(() => ({
           stream: (async function* () {
-            yield new vscode.LanguageModelTextPart("Thinking about the problem...");
+            yield new vscode.LanguageModelTextPart(
+              "Thinking about the problem...",
+            );
           })(),
         })),
       };
-      vi.mocked(vscode.lm.selectChatModels).mockResolvedValue([mockModel as any]);
-      
+      vi.mocked(vscode.lm.selectChatModels).mockResolvedValue([
+        mockModel as any,
+      ]);
+
       const outputs: any[] = [];
       runner.onOutput((output) => outputs.push(output));
 
       await runner.start("orchestrator", { prompt: "Test" });
       // Wait for agent loop to complete and emit events
-      await new Promise(resolve => setTimeout(resolve, 100));
+      await new Promise((resolve) => setTimeout(resolve, 100));
 
       const thinkingOutput = outputs.find((o) => o.type === "thinking");
       expect(thinkingOutput).toBeDefined();
@@ -589,7 +698,9 @@ describe("AgentRunner", () => {
           })(),
         })),
       };
-      vi.mocked(vscode.lm.selectChatModels).mockResolvedValue([mockModel as any]);
+      vi.mocked(vscode.lm.selectChatModels).mockResolvedValue([
+        mockModel as any,
+      ]);
 
       await limitedRunner.start("orchestrator", {
         prompt: "Test",
@@ -597,12 +708,60 @@ describe("AgentRunner", () => {
       });
 
       // Wait for completion
-      await new Promise(resolve => setTimeout(resolve, 100));
+      await new Promise((resolve) => setTimeout(resolve, 100));
 
       const session = limitedRunner.getSession();
       // Agent completes or fails depending on whether it hits max iterations
       expect(["failed", "completed"]).toContain(session?.status);
       expect(session?.currentIteration).toBeGreaterThanOrEqual(1);
+
+      limitedRunner.dispose();
+    });
+
+    test("should emit MAX_ITERATIONS error and auto-escalate with task context", async () => {
+      const outputs: any[] = [];
+      const toolCallModel = (() => {
+        let callCount = 0;
+        return {
+          id: "claude-sonnet-4.5",
+          sendRequest: vi.fn(() => ({
+            stream: (async function* () {
+              callCount += 1;
+              yield new vscode.LanguageModelToolCallPart(
+                "test_tool",
+                { value: "test" },
+                `call-${callCount}`,
+              );
+            })(),
+          })),
+        };
+      })();
+
+      vi.mocked(vscode.lm.selectChatModels).mockResolvedValue([
+        toolCallModel as any,
+      ]);
+
+      const limitedRunner = new AgentRunner(registry, { maxIterations: 1 });
+      limitedRunner.onOutput((output) => outputs.push(output));
+
+      await limitedRunner.start("orchestrator", {
+        prompt: "Test",
+        taskId: 7,
+        maxIterations: 1,
+      });
+
+      await new Promise((resolve) => setTimeout(resolve, 200));
+
+      const errorOutput = outputs.find(
+        (o) => o.type === "error" && o.errorCode === "MAX_ITERATIONS",
+      );
+      expect(errorOutput).toBeDefined();
+
+      expect(vi.mocked(createEscalation)).toHaveBeenCalledTimes(1);
+      const escalationArgs = vi.mocked(createEscalation).mock.calls[0];
+      expect(escalationArgs?.[1]).toBe(7);
+      expect(escalationArgs?.[2]?.reason).toContain("maximum iterations");
+      expect(escalationArgs?.[2]?.attemptsSummary).toContain("Iteration");
 
       limitedRunner.dispose();
     });
@@ -618,18 +777,20 @@ describe("AgentRunner", () => {
             yield new vscode.LanguageModelToolCallPart(
               "test_tool",
               { value: "test" },
-              "call-123"
+              "call-123",
             );
           })(),
         })),
       };
-      vi.mocked(vscode.lm.selectChatModels).mockResolvedValue([mockModel as any]);
+      vi.mocked(vscode.lm.selectChatModels).mockResolvedValue([
+        mockModel as any,
+      ]);
 
       const outputs: any[] = [];
       runner.onOutput((output) => outputs.push(output));
 
       await runner.start("orchestrator", { prompt: "Test" });
-      await new Promise(resolve => setTimeout(resolve, 100));
+      await new Promise((resolve) => setTimeout(resolve, 100));
 
       const toolCallOutput = outputs.find((o) => o.type === "tool_call");
       const toolResultOutput = outputs.find((o) => o.type === "tool_result");
@@ -663,22 +824,133 @@ describe("AgentRunner", () => {
             yield new vscode.LanguageModelToolCallPart(
               "failing_tool",
               {},
-              "call-456"
+              "call-456",
             );
           })(),
         })),
       };
-      vi.mocked(vscode.lm.selectChatModels).mockResolvedValue([mockModel as any]);
+      vi.mocked(vscode.lm.selectChatModels).mockResolvedValue([
+        mockModel as any,
+      ]);
 
       const outputs: any[] = [];
       runner.onOutput((output) => outputs.push(output));
 
       await runner.start("orchestrator", { prompt: "Test" });
       // Wait for tool execution (with retries: 100ms + 200ms + 400ms + execution time)
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await new Promise((resolve) => setTimeout(resolve, 1000));
 
-      const errorOutput = outputs.find((o) => o.type === "error" && o.errorMessage?.includes("Tool failed"));
+      const errorOutput = outputs.find(
+        (o) => o.type === "error" && o.errorMessage?.includes("Tool failed"),
+      );
       expect(errorOutput).toBeDefined();
+    });
+
+    test("should retry failed tools and reset consecutiveErrors on success", async () => {
+      const retryRegistry = new ToolRegistry();
+      const retryTool: AgentTool = {
+        name: "retry_tool",
+        description: "Tool that succeeds after retries",
+        inputSchema: {
+          type: "object",
+          properties: {},
+        },
+        execute: vi
+          .fn()
+          .mockRejectedValueOnce(new Error("Retry 1"))
+          .mockRejectedValueOnce(new Error("Retry 2"))
+          .mockResolvedValue({
+            success: true,
+            output: "Recovered",
+          }),
+      };
+      retryRegistry.register(retryTool);
+
+      const retryRunner = new AgentRunner(retryRegistry, {
+        maxToolRetries: 2,
+        maxIterations: 1,
+      });
+
+      const mockModel = {
+        id: "claude-sonnet-4.5",
+        sendRequest: vi.fn(() => ({
+          stream: (async function* () {
+            yield new vscode.LanguageModelToolCallPart(
+              "retry_tool",
+              {},
+              "call-retry",
+            );
+          })(),
+        })),
+      };
+
+      vi.mocked(vscode.lm.selectChatModels).mockResolvedValue([
+        mockModel as any,
+      ]);
+
+      await retryRunner.start("orchestrator", { prompt: "Test" });
+      await new Promise((resolve) => setTimeout(resolve, 600));
+
+      expect(retryTool.execute).toHaveBeenCalledTimes(3);
+      expect((retryRunner as any).consecutiveErrors).toBe(0);
+
+      retryRunner.dispose();
+    });
+
+    test("should auto-escalate after three consecutive tool failures", async () => {
+      const failingRegistry = new ToolRegistry();
+      const alwaysFailTool: AgentTool = {
+        name: "always_fail",
+        description: "Always fails",
+        inputSchema: {
+          type: "object",
+          properties: {},
+        },
+        execute: vi.fn(async () => {
+          throw new Error("Failure");
+        }),
+      };
+      failingRegistry.register(alwaysFailTool);
+
+      const failRunner = new AgentRunner(failingRegistry, {
+        maxToolRetries: 0,
+        maxIterations: 5,
+      });
+
+      const mockModel = (() => {
+        let callCount = 0;
+        return {
+          id: "claude-sonnet-4.5",
+          sendRequest: vi.fn(() => ({
+            stream: (async function* () {
+              callCount += 1;
+              yield new vscode.LanguageModelToolCallPart(
+                "always_fail",
+                {},
+                `call-${callCount}`,
+              );
+            })(),
+          })),
+        };
+      })();
+
+      vi.mocked(vscode.lm.selectChatModels).mockResolvedValue([
+        mockModel as any,
+      ]);
+
+      await failRunner.start("orchestrator", {
+        prompt: "Test",
+        taskId: 11,
+      });
+
+      await new Promise((resolve) => setTimeout(resolve, 300));
+
+      const session = failRunner.getSession();
+      expect(session?.status).toBe("failed");
+      expect(vi.mocked(createEscalation)).toHaveBeenCalled();
+      expect((failRunner as any).consecutiveErrors).toBeGreaterThanOrEqual(3);
+
+      failRunner.dispose();
     });
   });
 
@@ -711,13 +983,15 @@ describe("AgentRunner", () => {
       vi.mocked(vscode.lm.selectChatModels).mockResolvedValue([]);
 
       const session = await runner.start("orchestrator", { prompt: "Test" });
-      
+
       // Wait for the agent loop to try to select a model and fail
-      await new Promise(resolve => setTimeout(resolve, 50));
-      
+      await new Promise((resolve) => setTimeout(resolve, 50));
+
       // The session should be in failed state
       expect(session.status).toBe("failed");
-      expect(session.recoveryInfo.failureReason).toContain("No Claude language models available");
+      expect(session.recoveryInfo.failureReason).toContain(
+        "No Claude language models available",
+      );
     });
   });
 
@@ -729,7 +1003,9 @@ describe("AgentRunner", () => {
 
     test("should handle very long prompt", async () => {
       const longPrompt = "a".repeat(10000);
-      const session = await runner.start("orchestrator", { prompt: longPrompt });
+      const session = await runner.start("orchestrator", {
+        prompt: longPrompt,
+      });
       expect(session).toBeDefined();
     });
 

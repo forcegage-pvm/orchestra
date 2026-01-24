@@ -162,8 +162,8 @@ describe("prepare_task TDD Red-Phase Verification Auto-Injection", () => {
       expect(redFailCheck).toBeDefined();
       expect(redFailCheck!.severity).toBe("BLOCKING");
       const redFailConfig = JSON.parse(redFailCheck!.check_config);
-      // Task 2: Commands now contain only base command (filtering added in Task 5)
-      expect(redFailConfig.command).toBe("npm test");
+      // Templates now include filter flags directly
+      expect(redFailConfig.command).toBe('npm test -- -t "\\[tdd-red\\]"');
       expect(redFailConfig.expect_exit_code).toBe(1);
 
       // Check 2: Non-red tests must pass
@@ -355,8 +355,8 @@ describe("prepare_task TDD Red-Phase Verification Auto-Injection", () => {
       );
       expect(taggedFailCheck).toBeDefined();
       const taggedConfig = JSON.parse(taggedFailCheck!.check_config);
-      // Task 2: Commands now contain only base command (filtering added in Task 5)
-      expect(taggedConfig.command).toBe("flutter test");
+      // Templates now include filter flags directly
+      expect(taggedConfig.command).toBe("flutter test --tags tdd-red");
       expect(taggedConfig.expect_exit_code).toBe(1);
 
       // Check 2: Non-tagged tests must pass
@@ -367,8 +367,10 @@ describe("prepare_task TDD Red-Phase Verification Auto-Injection", () => {
       );
       expect(nonTaggedCheck).toBeDefined();
       const nonTaggedConfig = JSON.parse(nonTaggedCheck!.check_config);
-      // Task 2: Commands now contain only base command (filtering added in Task 5)
-      expect(nonTaggedConfig.command).toBe("flutter test");
+      // Templates now include filter flags directly
+      expect(nonTaggedConfig.command).toBe(
+        "flutter test --exclude-tags tdd-red",
+      );
       expect(nonTaggedConfig.expect_exit_code).toBe(0);
 
       // Check 3: Structural check for task-ID annotation

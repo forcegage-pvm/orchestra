@@ -432,77 +432,119 @@ describe("check-templates integration with test harnesses", () => {
   });
 
   describe("environment-driven testCommand substitution", () => {
-    it("should substitute testCommand for Dart/Flutter", () => {
+    it("should add Dart/Flutter tag filters to base command", () => {
       const checks = getTddRedChecks("dart", {
         cdPrefix: "",
         testFilePattern: "test/**/*.dart",
         taskId: 1,
         taskTitle: "Feature Test",
-        testCommand: "flutter test --tags tdd-red",
+        testCommand: "flutter test",
       });
 
       const behavioral = checks.filter((c) => c.check_type === "behavioral");
-      expect(behavioral.length).toBeGreaterThan(0);
+      expect(behavioral.length).toBe(2);
 
-      for (const check of behavioral) {
-        expect(check.check_config.command).toBe("flutter test --tags tdd-red");
-      }
+      // Tagged tests must fail - runs only tdd-red tagged tests
+      const taggedCheck = behavioral.find((c) =>
+        c.description.includes("Tagged tests must fail"),
+      );
+      expect(taggedCheck!.check_config.command).toBe(
+        "flutter test --tags tdd-red",
+      );
+
+      // Non-tagged tests must pass - excludes tdd-red tagged tests
+      const nonTaggedCheck = behavioral.find((c) =>
+        c.description.includes("Non-tagged tests must pass"),
+      );
+      expect(nonTaggedCheck!.check_config.command).toBe(
+        "flutter test --exclude-tags tdd-red",
+      );
     });
 
-    it("should substitute testCommand for TypeScript/Vitest", () => {
+    it("should add TypeScript/Vitest tag filters to base command", () => {
       const checks = getTddRedChecks("typescript", {
         cdPrefix: "",
         testFilePattern: "test/**/*.test.ts",
         taskId: 1,
         taskTitle: "Feature Test",
-        testCommand: "npm test -- --testNamePattern='\\[tdd-red\\]'",
+        testCommand: "npm test",
       });
 
       const behavioral = checks.filter((c) => c.check_type === "behavioral");
-      expect(behavioral.length).toBeGreaterThan(0);
+      expect(behavioral.length).toBe(2);
 
-      for (const check of behavioral) {
-        expect(check.check_config.command).toBe(
-          "npm test -- --testNamePattern='\\[tdd-red\\]'",
-        );
-      }
+      // Red-phase tests must fail - runs only [tdd-red] named tests
+      const redCheck = behavioral.find((c) =>
+        c.description.includes("Red-phase tests must fail"),
+      );
+      expect(redCheck!.check_config.command).toBe(
+        'npm test -- -t "\\[tdd-red\\]"',
+      );
+
+      // Non-red tests must pass - excludes [tdd-red] named tests
+      const nonRedCheck = behavioral.find((c) =>
+        c.description.includes("Non-red tests must pass"),
+      );
+      expect(nonRedCheck!.check_config.command).toBe(
+        'npm test -- -t "^(?!.*\\[tdd-red\\])"',
+      );
     });
 
-    it("should substitute testCommand for Python/Pytest", () => {
+    it("should add Python/Pytest marker filters to base command", () => {
       const checks = getTddRedChecks("python", {
         cdPrefix: "",
         testFilePattern: "test/**/*.py",
         taskId: 1,
         taskTitle: "Feature Test",
-        testCommand: "pytest -m tdd_red",
+        testCommand: "pytest",
       });
 
       const behavioral = checks.filter((c) => c.check_type === "behavioral");
-      expect(behavioral.length).toBeGreaterThan(0);
+      expect(behavioral.length).toBe(2);
 
-      for (const check of behavioral) {
-        expect(check.check_config.command).toBe("pytest -m tdd_red");
-      }
+      // Tagged tests must fail - runs only tdd_red marked tests
+      const taggedCheck = behavioral.find((c) =>
+        c.description.includes("Tagged tests must fail"),
+      );
+      expect(taggedCheck!.check_config.command).toBe("pytest -m tdd_red");
+
+      // Non-tagged tests must pass - excludes tdd_red marked tests
+      const nonTaggedCheck = behavioral.find((c) =>
+        c.description.includes("Non-tagged tests must pass"),
+      );
+      expect(nonTaggedCheck!.check_config.command).toBe(
+        'pytest -m "not tdd_red"',
+      );
     });
 
-    it("should substitute testCommand for Rust/Cargo", () => {
+    it("should add Rust/Cargo test name filters to base command", () => {
       const checks = getTddRedChecks("rust", {
         cdPrefix: "",
         testFilePattern: "tests/**/*.rs",
         taskId: 1,
         taskTitle: "Feature Test",
-        testCommand: "cargo test tdd_red_",
+        testCommand: "cargo test",
       });
 
       const behavioral = checks.filter((c) => c.check_type === "behavioral");
-      expect(behavioral.length).toBeGreaterThan(0);
+      expect(behavioral.length).toBe(2);
 
-      for (const check of behavioral) {
-        expect(check.check_config.command).toBe("cargo test tdd_red_");
-      }
+      // Tagged tests must fail - runs only tdd_red_ prefixed tests
+      const taggedCheck = behavioral.find((c) =>
+        c.description.includes("Tagged tests must fail"),
+      );
+      expect(taggedCheck!.check_config.command).toBe("cargo test tdd_red_");
+
+      // Non-tagged tests must pass - skips tdd_red_ prefixed tests
+      const nonTaggedCheck = behavioral.find((c) =>
+        c.description.includes("Non-tagged tests must pass"),
+      );
+      expect(nonTaggedCheck!.check_config.command).toBe(
+        "cargo test --skip tdd_red_",
+      );
     });
 
-    it("should support custom test commands with flags", () => {
+    it("should preserve custom test command flags while adding scope filters", () => {
       const checks = getTddRedChecks("typescript", {
         cdPrefix: "",
         testFilePattern: "test/**/*.test.ts",
@@ -512,32 +554,45 @@ describe("check-templates integration with test harnesses", () => {
       });
 
       const behavioral = checks.filter((c) => c.check_type === "behavioral");
-      expect(behavioral.length).toBeGreaterThan(0);
+      expect(behavioral.length).toBe(2);
 
-      for (const check of behavioral) {
-        expect(check.check_config.command).toBe(
-          "npm run test:ci -- --run --reporter=verbose",
-        );
-      }
+      // Both checks should contain the original flags plus the scope filter
+      const redCheck = behavioral.find((c) =>
+        c.description.includes("Red-phase tests must fail"),
+      );
+      expect(redCheck!.check_config.command).toContain(
+        "npm run test:ci -- --run --reporter=verbose",
+      );
+      expect(redCheck!.check_config.command).toContain("-t");
     });
 
-    it("should combine cdPrefix with testCommand", () => {
+    it("should combine cdPrefix with base testCommand and scope filters", () => {
       const checks = getTddRedChecks("dart", {
         cdPrefix: "cd packages/app; ",
         testFilePattern: "test/**/*.dart",
         taskId: 1,
         taskTitle: "Feature Test",
-        testCommand: "flutter test --tags tdd-red",
+        testCommand: "flutter test",
       });
 
       const behavioral = checks.filter((c) => c.check_type === "behavioral");
-      expect(behavioral.length).toBeGreaterThan(0);
+      expect(behavioral.length).toBe(2);
 
-      for (const check of behavioral) {
-        expect(check.check_config.command).toBe(
-          "cd packages/app; flutter test --tags tdd-red",
-        );
-      }
+      // Tagged tests check should have cdPrefix + base command + tag filter
+      const taggedCheck = behavioral.find((c) =>
+        c.description.includes("Tagged tests must fail"),
+      );
+      expect(taggedCheck!.check_config.command).toBe(
+        "cd packages/app; flutter test --tags tdd-red",
+      );
+
+      // Non-tagged tests check should have cdPrefix + base command + exclude filter
+      const nonTaggedCheck = behavioral.find((c) =>
+        c.description.includes("Non-tagged tests must pass"),
+      );
+      expect(nonTaggedCheck!.check_config.command).toBe(
+        "cd packages/app; flutter test --exclude-tags tdd-red",
+      );
     });
   });
 });

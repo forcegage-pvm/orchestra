@@ -61,7 +61,7 @@ export const TDD_RED_CHECKS: LanguageCheckSet = {
       description: '[TDD RED] Tagged tests must fail for "{{TASK_TITLE}}"',
       severity: "BLOCKING",
       check_config: {
-        command: "{{CD_PREFIX}}{{TEST_COMMAND}}",
+        command: "{{CD_PREFIX}}{{TEST_COMMAND}} --tags tdd-red",
         expect_exit_code: 1,
         success_message: "Tagged tests failed as expected (red phase)",
         failure_message: "Tagged tests must fail in red phase",
@@ -72,7 +72,7 @@ export const TDD_RED_CHECKS: LanguageCheckSet = {
       description: '[TDD RED] Non-tagged tests must pass for "{{TASK_TITLE}}"',
       severity: "BLOCKING",
       check_config: {
-        command: "{{CD_PREFIX}}{{TEST_COMMAND}}",
+        command: "{{CD_PREFIX}}{{TEST_COMMAND}} --exclude-tags tdd-red",
         expect_exit_code: 0,
         success_message: "Non-tagged tests passed (no regressions)",
         failure_message: "Non-tagged tests failed - regressions detected",
@@ -106,7 +106,7 @@ export const TDD_RED_CHECKS: LanguageCheckSet = {
       description: '[TDD RED] Red-phase tests must fail for "{{TASK_TITLE}}"',
       severity: "BLOCKING",
       check_config: {
-        command: "{{CD_PREFIX}}{{TEST_COMMAND}}",
+        command: '{{CD_PREFIX}}{{TEST_COMMAND}} -- -t "\\[tdd-red\\]"',
         expect_exit_code: 1,
         success_message: "Red-phase tests failed as expected",
         failure_message: "Red-phase tests must fail",
@@ -117,7 +117,7 @@ export const TDD_RED_CHECKS: LanguageCheckSet = {
       description: '[TDD RED] Non-red tests must pass for "{{TASK_TITLE}}"',
       severity: "BLOCKING",
       check_config: {
-        command: "{{CD_PREFIX}}{{TEST_COMMAND}}",
+        command: '{{CD_PREFIX}}{{TEST_COMMAND}} -- -t "^(?!.*\\[tdd-red\\])"',
         expect_exit_code: 0,
         success_message: "Non-red tests passed (no regressions)",
         failure_message: "Non-red tests failed - regressions detected",
@@ -152,7 +152,7 @@ export const TDD_RED_CHECKS: LanguageCheckSet = {
       description: '[TDD RED] Tagged tests must fail for "{{TASK_TITLE}}"',
       severity: "BLOCKING",
       check_config: {
-        command: "{{CD_PREFIX}}{{TEST_COMMAND}}",
+        command: "{{CD_PREFIX}}{{TEST_COMMAND}} -m tdd_red",
         expect_exit_code: 1,
         success_message: "Tagged tests failed as expected (red phase)",
         failure_message: "Tagged tests must fail in red phase",
@@ -163,7 +163,7 @@ export const TDD_RED_CHECKS: LanguageCheckSet = {
       description: '[TDD RED] Non-tagged tests must pass for "{{TASK_TITLE}}"',
       severity: "BLOCKING",
       check_config: {
-        command: "{{CD_PREFIX}}{{TEST_COMMAND}}",
+        command: '{{CD_PREFIX}}{{TEST_COMMAND}} -m "not tdd_red"',
         expect_exit_code: 0,
         success_message: "Non-tagged tests passed (no regressions)",
         failure_message: "Non-tagged tests failed - regressions detected",
@@ -197,7 +197,7 @@ export const TDD_RED_CHECKS: LanguageCheckSet = {
       description: '[TDD RED] Tagged tests must fail for "{{TASK_TITLE}}"',
       severity: "BLOCKING",
       check_config: {
-        command: "{{CD_PREFIX}}{{TEST_COMMAND}}",
+        command: "{{CD_PREFIX}}{{TEST_COMMAND}} tdd_red_",
         expect_exit_code: 101, // Rust test failures exit with 101
         success_message: "Tagged tests failed as expected (red phase)",
         failure_message: "Tagged tests must fail in red phase",
@@ -208,7 +208,7 @@ export const TDD_RED_CHECKS: LanguageCheckSet = {
       description: '[TDD RED] Non-tagged tests must pass for "{{TASK_TITLE}}"',
       severity: "BLOCKING",
       check_config: {
-        command: "{{CD_PREFIX}}{{TEST_COMMAND}}",
+        command: "{{CD_PREFIX}}{{TEST_COMMAND}} --skip tdd_red_",
         expect_exit_code: 0,
         success_message: "Non-tagged tests passed (no regressions)",
         failure_message: "Non-tagged tests failed - regressions detected",
