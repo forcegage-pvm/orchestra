@@ -10,6 +10,7 @@ import * as path from "path";
 import * as vscode from "vscode";
 import { AgentRunner, ToolRegistry } from "./agents/index.js";
 import { SessionManager } from "./chat/SessionManager.js";
+import { handleArchiveSprint } from "./commands/archiveSprint.js";
 import { handlePlayTask } from "./commands/PlayTaskHandler.js";
 import { handleReviewSprint } from "./commands/ReviewSprintHandler.js";
 import {
@@ -956,6 +957,22 @@ export async function activate(
               orchestraRoot,
               element.sprint.id,
               element.sprint.name,
+              treeProvider,
+              dbWatcher,
+            );
+          }
+        },
+      ),
+      vscode.commands.registerCommand(
+        "orchestra.archiveSprint",
+        async (element: {
+          type: string;
+          sprint?: { id: string; name: string };
+        }) => {
+          if (element?.sprint?.id && dbWatcher) {
+            await handleArchiveSprint(
+              orchestraRoot,
+              element.sprint.id,
               treeProvider,
               dbWatcher,
             );

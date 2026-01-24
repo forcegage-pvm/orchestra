@@ -1039,6 +1039,23 @@ const TOOLS_WITH_ROLES: ToolWithRole[] = [
   },
   {
     role: "orchestrator",
+    name: "archive_sprint",
+    description:
+      "Archive a sprint so it no longer appears in active views. " +
+      "Active sprints must be deactivated before they can be archived.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        sprint_id: {
+          type: "string",
+          description: "The ID of the sprint to archive",
+        },
+      },
+      required: ["sprint_id"],
+    },
+  },
+  {
+    role: "orchestrator",
     name: "set_config",
     description:
       "Set a configuration value (e.g., pre_signal_build_command, pre_signal_timeout)",
@@ -1714,11 +1731,15 @@ export function registerTools(server: Server, role: ServerRole = "full"): void {
             await import("./handlers/get-sprint-review.js")
           ).handleGetSprintReview(args);
 
-        // Configuration (4 tools)
+        // Configuration (5 tools)
         case "set_active_sprint":
           return await (
             await import("./handlers/set-active-sprint.js")
           ).handleSetActiveSprint(args);
+        case "archive_sprint":
+          return await (
+            await import("./handlers/archive-sprint.js")
+          ).handleArchiveSprint(args);
         case "set_config":
           return await handleSetConfig(args);
         case "get_sprint_config":
