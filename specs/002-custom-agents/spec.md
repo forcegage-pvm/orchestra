@@ -5,7 +5,7 @@
 **Status**: Draft  
 **Input**: Build custom AI coding agents in the Orchestra VS Code extension with real-time transparency, interruptability, persistent context and memory, file change tracking, and cross-session orchestrator context
 
-## User Scenarios & Testing *(mandatory)*
+## User Scenarios & Testing _(mandatory)_
 
 ### User Story 1 - Implementor Executes Task Autonomously (Priority: P0)
 
@@ -150,13 +150,14 @@ Users can choose which Copilot model each agent uses. The Orchestrator might use
 - What happens if user edits files while agent is paused?
   - **Answer**: Agent tracks only its own changes; user's manual edits are their responsibility.
 
-## Requirements *(mandatory)*
+## Requirements _(mandatory)_
 
 ### Functional Requirements
 
 - **FR-001**: System MUST provide an AgentRunner component that executes an autonomous agent loop using VS Code's `vscode.lm` API.
 - **FR-002**: System MUST provide a ToolRegistry that registers, manages, and executes agent tools.
-- **FR-003**: System MUST implement all required coding tools: edit, read_file, new (create file), delete, search, grep_search, problems, runTests, runCommands, runTasks, usages, changes, test_failure, fetch, todos, list_directory.
+- **FR-003**: System MUST implement all required coding tools: edit, read_file, new (create file), delete, search, grep_search, problems, runTests, runCommands, runTasks, usages, test_failure, fetch, list_directory.
+- **FR-003a**: System MAY implement optional tools in a future sprint: changes (git diffs), todos (todo management). These are deferred as the agent can use terminal git commands and todos are orthogonal to task execution.
 - **FR-004**: System MUST implement Orchestra-specific tools for Implementor: get_current_task, signal_completion, get_feedback, get_progress, escalate_task.
 - **FR-005**: System MUST implement Orchestra-specific tools for Orchestrator: get_sprint_status, prepare_task, run_verification_checks, submit_verification_judgment.
 - **FR-006**: System MUST display real-time agent output (thinking, tool calls, results) in a dedicated Webview Panel in the editor area with rich formatting (collapsible cards for tool results).
@@ -185,7 +186,7 @@ Users can choose which Copilot model each agent uses. The Orchestrator might use
 - **SprintMemory**: Cross-session context for the Orchestrator including sprint goals, architecture decisions, task summaries, and implementor patterns.
 - **TaskSummary**: Compact record of a completed task for sprint memory, including outcome, attempt count, and lessons learned.
 
-## Success Criteria *(mandatory)*
+## Success Criteria _(mandatory)_
 
 ### Measurable Outcomes
 

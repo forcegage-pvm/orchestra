@@ -307,7 +307,7 @@ describe("check-templates", () => {
       }
     });
 
-    it("should combine CD_PREFIX and TEST_COMMAND correctly", () => {
+    it("should combine CD_PREFIX and TEST_COMMAND correctly with scope flags", () => {
       const checks = getTddRedChecks("python", {
         cdPrefix: "cd backend; ",
         testFilePattern: "tests/**/*.py",
@@ -319,9 +319,22 @@ describe("check-templates", () => {
       const behavioralChecks = checks.filter(
         (c) => c.check_type === "behavioral",
       );
-      for (const check of behavioralChecks) {
-        expect(check.check_config.command).toBe("cd backend; pytest -v");
-      }
+
+      // First check: tagged tests must fail (runs only tdd_red marked tests)
+      const taggedCheck = behavioralChecks.find((c) =>
+        c.description.includes("Tagged tests must fail"),
+      );
+      expect(taggedCheck!.check_config.command).toBe(
+        "cd backend; pytest -v -m tdd_red",
+      );
+
+      // Second check: non-tagged tests must pass (excludes tdd_red marked tests)
+      const nonTaggedCheck = behavioralChecks.find((c) =>
+        c.description.includes("Non-tagged tests must pass"),
+      );
+      expect(nonTaggedCheck!.check_config.command).toBe(
+        'cd backend; pytest -v -m "not tdd_red"',
+      );
     });
   });
 
