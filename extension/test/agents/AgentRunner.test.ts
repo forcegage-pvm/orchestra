@@ -11,11 +11,11 @@ import { AgentSession } from "../../src/agents/AgentSession.js";
 import { AgentError } from "../../src/agents/errors.js";
 import { loadImplementorTools } from "../../src/agents/toolLoaders.js";
 import { ToolRegistry, type AgentTool } from "../../src/agents/ToolRegistry.js";
-import { createEscalation } from "../../src/database/mutations.js";
 import { codingTools } from "../../src/agents/tools/coding/index.js";
 import { orchestraImplementorTools } from "../../src/agents/tools/orchestra/index.js";
 import { systemTools } from "../../src/agents/tools/system/index.js";
 import type { AgentConfig } from "../../src/agents/types.js";
+import { createEscalation } from "../../src/database/mutations.js";
 
 vi.mock("../../src/database/mutations.js", () => ({
   createEscalation: vi.fn(() => 1),

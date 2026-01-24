@@ -13,12 +13,12 @@
 
 import type { LanguageModelChatMessage, LanguageModelChatTool } from "vscode";
 import * as vscode from "vscode";
+import { createEscalation } from "../database/mutations.js";
 import { AgentSession } from "./AgentSession.js";
 import { ContextManager } from "./ContextManager.js";
 import { AgentError, SessionError } from "./errors.js";
 import { loadImplementorTools } from "./toolLoaders.js";
 import { ToolRegistry } from "./ToolRegistry.js";
-import { createEscalation } from "../database/mutations.js";
 import type {
   AgentConfig,
   AgentMessage,
@@ -831,7 +831,8 @@ export class AgentRunner implements vscode.Disposable {
     reasonType: "max_iterations" | "tool_failures",
   ): { reason: string; attemptsSummary: string } {
     const iteration = this.session?.currentIteration ?? 0;
-    const maxIterations = this.session?.maxIterations ?? this.config.maxIterations;
+    const maxIterations =
+      this.session?.maxIterations ?? this.config.maxIterations;
     const recentErrors =
       this.recentErrors.length > 0
         ? this.recentErrors.join(" | ")
