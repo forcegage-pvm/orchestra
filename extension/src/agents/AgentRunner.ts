@@ -16,6 +16,7 @@ import * as vscode from "vscode";
 import { AgentSession } from "./AgentSession.js";
 import { ContextManager } from "./ContextManager.js";
 import { AgentError, SessionError } from "./errors.js";
+import { loadImplementorTools } from "./toolLoaders.js";
 import { ToolRegistry } from "./ToolRegistry.js";
 import type {
   AgentConfig,
@@ -201,6 +202,10 @@ export class AgentRunner implements vscode.Disposable {
       options.taskId ?? null,
       maxIterations,
     );
+
+    if (role === "implementor") {
+      loadImplementorTools(this.toolRegistry);
+    }
 
     // Create cancellation token
     this.cancellationTokenSource = new vscode.CancellationTokenSource();
@@ -550,10 +555,9 @@ export class AgentRunner implements vscode.Disposable {
         } else if (part.type === "toolResult") {
           hasToolResult = true;
           contentParts.push(
-            new vscode.LanguageModelToolResultPart(
-              part.toolCallId,
-              [new vscode.LanguageModelTextPart(part.value)],
-            ),
+            new vscode.LanguageModelToolResultPart(part.toolCallId, [
+              new vscode.LanguageModelTextPart(part.value),
+            ]),
           );
         }
       }

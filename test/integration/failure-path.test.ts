@@ -85,12 +85,17 @@ vi.mock("../../src/core/templates.js", () => ({
   }),
 }));
 
-import { runEscalate } from "../../src/core/escalate.js";
-import { runFeedback } from "../../src/core/feedback.js";
 import type { VerifyResult } from "../../src/core/verification.js";
 
+let runEscalate: typeof import("../../src/core/escalate.js").runEscalate;
+let runFeedback: typeof import("../../src/core/feedback.js").runFeedback;
+
 describe.sequential("Failure Path Integration", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
+    vi.resetModules();
+    ({ runEscalate } = await import("../../src/core/escalate.js"));
+    ({ runFeedback } = await import("../../src/core/feedback.js"));
+
     testTempDir = fs.mkdtempSync(path.join(os.tmpdir(), "orchestra-int-"));
 
     // Create directories
