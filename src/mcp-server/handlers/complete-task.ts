@@ -24,6 +24,7 @@ import {
   tddRedRegistry,
   tddTaskRelationships,
 } from "../../db/schema.js";
+import { writeSignal } from "../db-signal.js";
 import {
   CompleteTaskInputSchema,
   type CompleteTaskOutput,
@@ -416,6 +417,8 @@ async function completeTask(
     taskInternalId: task.id,
     cwd: resolveWorkspacePath(),
   });
+
+  writeSignal();
 
   return {
     success: true,

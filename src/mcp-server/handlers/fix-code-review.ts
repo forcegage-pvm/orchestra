@@ -16,6 +16,7 @@ import {
   sprintSettings,
   tasks,
 } from "../../db/schema.js";
+import { writeSignal } from "../db-signal.js";
 import {
   FixCodeReviewInputSchema,
   FixCodeReviewOutputSchema,
@@ -224,6 +225,8 @@ async function handleResolveIssue(
       .where(eq(codeReviews.id, result.review.id));
   }
 
+  writeSignal();
+
   const output = validateOutput(FixCodeReviewOutputSchema, {
     success: true,
     action: "RESOLVE_ISSUE",
@@ -310,6 +313,8 @@ async function handleSubmitFixes(
     .update(codeReviews)
     .set({ status: "PENDING_VERIFICATION" })
     .where(eq(codeReviews.id, review.id));
+
+  writeSignal();
 
   const output = validateOutput(FixCodeReviewOutputSchema, {
     success: true,

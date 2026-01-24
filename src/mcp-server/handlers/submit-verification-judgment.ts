@@ -15,6 +15,7 @@ import { and, eq } from "drizzle-orm";
 import { validateJudgment } from "../../core/judgment-validator.js";
 import { getActiveSprint, getDb } from "../../db/index.js";
 import { feedback, progress, tasks } from "../../db/schema.js";
+import { writeSignal } from "../db-signal.js";
 import { validateInput } from "../../schemas/utils.js";
 import {
   SubmitVerificationJudgmentInputSchema,
@@ -204,6 +205,8 @@ async function submitVerificationJudgment(
       changed_at: now,
     });
 
+    writeSignal();
+
     return {
       success: true,
       judgment: "PASS",
@@ -278,6 +281,8 @@ async function submitVerificationJudgment(
       }${canRetry ? "" : " - escalated"}`,
       changed_at: now,
     });
+
+    writeSignal();
 
     return {
       success: true,

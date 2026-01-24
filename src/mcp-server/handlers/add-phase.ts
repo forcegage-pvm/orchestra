@@ -11,6 +11,7 @@ import { logToolExecution } from "./audit-logging.js";
 import { phases, sprints } from "../../db/schema.js";
 import { SuccessResponseSchema } from "../../schemas/errors.js";
 import { validateInput } from "../../schemas/utils.js";
+import { writeSignal } from "../db-signal.js";
 
 // ============================================================================
 // Schema
@@ -182,6 +183,8 @@ async function addPhase(input: AddPhaseInput): Promise<AddPhaseOutput> {
   if (!insertedPhase) {
     throw new Error("Failed to insert phase");
   }
+
+  writeSignal();
 
   return {
     success: true,

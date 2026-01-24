@@ -9,6 +9,7 @@ import { and, eq } from "drizzle-orm";
 import { getActiveSprint, getDb } from "../../db/index.js";
 import { logToolExecution } from "./audit-logging.js";
 import { feedback as feedbackTable, progress, tasks } from "../../db/schema.js";
+import { writeSignal } from "../db-signal.js";
 import {
   EnhanceFeedbackInputSchema,
   type EnhanceFeedbackOutput,
@@ -148,6 +149,8 @@ async function enhanceFeedback(
     notes: `Enhanced feedback for attempt ${input.attempt}`,
     changed_at: now,
   });
+
+  writeSignal();
 
   return {
     success: true,

@@ -11,6 +11,7 @@ import { getDb } from "../../db/index.js";
 import { logToolExecution } from "./audit-logging.js";
 import { sprints } from "../../db/schema.js";
 import { validateInput } from "../../schemas/utils.js";
+import { writeSignal } from "../db-signal.js";
 
 const SetActiveSprintInputSchema = z.object({
   sprint_id: z
@@ -128,6 +129,8 @@ async function setActiveSprint(
       updated_at: now,
     })
     .where(eq(sprints.id, input.sprint_id));
+
+  writeSignal();
 
   return {
     success: true,
