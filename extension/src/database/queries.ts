@@ -19,12 +19,15 @@ import * as schema from "./local-schema.js";
 // These types match the InferSelectModel types from Drizzle but are defined
 // explicitly to avoid module system conflicts between parent (ESM) and extension (CommonJS)
 
+export type SprintFilter = "active" | "archived" | "all";
+
 export interface Sprint {
   id: string;
   name: string;
   status: string; // SprintStatus: PENDING_SPEC_REVIEW, ACTIVE, SPEC_REVIEW_FAILED, COMPLETE, CLOSED
   workflow_step: string;
   is_active: boolean;
+  is_archived: boolean;
   created_at: string;
   updated_at: string;
   completed_at: string | null;

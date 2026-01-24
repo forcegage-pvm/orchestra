@@ -83,7 +83,6 @@ describe("prepare_task TDD Auto-Injection", () => {
   it("should inject TDD check when require_tests=true and category matches", async () => {
     const db = getDb();
     const now = new Date().toISOString();
-
     await db.insert(config).values([
       {
         key: "tdd.require_tests",
@@ -125,6 +124,7 @@ describe("prepare_task TDD Auto-Injection", () => {
       category: "INFRASTRUCTURE",
       dependencies: "[]",
       status: "PENDING",
+      tdd_red_phase: true,
       created_at: now,
       updated_at: now,
     });
@@ -147,14 +147,22 @@ describe("prepare_task TDD Auto-Injection", () => {
       .select()
       .from(verificationChecks)
       .where(eq(verificationChecks.task_id, 1));
-    expect(checks.length).toBe(1);
-    expect(checks[0].check_type).toBe("structural");
-    expect(checks[0].severity).toBe("BLOCKING");
-    expect(checks[0].check_id).toMatch(/^struct-tdd-/);
-    expect(checks[0].description).toContain("[TDD]");
-    expect(checks[0].description).toContain("INFRASTRUCTURE");
+    const tddChecks = checks.filter(
+      (check) =>
+        check.check_id.startsWith("struct-tdd-") &&
+        !check.check_id.startsWith("struct-tdd-red-"),
+    );
 
-    const checkConfig = JSON.parse(checks[0].check_config);
+    expect(tddChecks.length).toBe(1);
+    const tddCheck = tddChecks[0]!;
+
+    expect(tddCheck.check_type).toBe("structural");
+    expect(tddCheck.severity).toBe("BLOCKING");
+    expect(tddCheck.check_id).toMatch(/^struct-tdd-/);
+    expect(tddCheck.description).toContain("[TDD]");
+    expect(tddCheck.description).toContain("INFRASTRUCTURE");
+
+    const checkConfig = JSON.parse(tddCheck.check_config);
     expect(checkConfig.path).toBe("test/**/*.test.ts");
     expect(checkConfig.pattern).toBe("describe|test|it");
     expect(checkConfig.min_matches).toBe(1);
@@ -182,6 +190,7 @@ describe("prepare_task TDD Auto-Injection", () => {
       category: "INFRASTRUCTURE",
       dependencies: "[]",
       status: "PENDING",
+      tdd_red_phase: true,
       created_at: now,
       updated_at: now,
     });
@@ -204,7 +213,12 @@ describe("prepare_task TDD Auto-Injection", () => {
       .select()
       .from(verificationChecks)
       .where(eq(verificationChecks.task_id, 1));
-    expect(checks.length).toBe(0);
+    const tddChecks = checks.filter(
+      (check) =>
+        check.check_id.startsWith("struct-tdd-") &&
+        !check.check_id.startsWith("struct-tdd-red-"),
+    );
+    expect(tddChecks.length).toBe(0);
   });
 
   it("should NOT inject TDD check when category doesn't match", async () => {
@@ -238,6 +252,7 @@ describe("prepare_task TDD Auto-Injection", () => {
       category: "VISUAL",
       dependencies: "[]",
       status: "PENDING",
+      tdd_red_phase: true,
       created_at: now,
       updated_at: now,
     });
@@ -260,7 +275,12 @@ describe("prepare_task TDD Auto-Injection", () => {
       .select()
       .from(verificationChecks)
       .where(eq(verificationChecks.task_id, 1));
-    expect(checks.length).toBe(0);
+    const tddChecks = checks.filter(
+      (check) =>
+        check.check_id.startsWith("struct-tdd-") &&
+        !check.check_id.startsWith("struct-tdd-red-"),
+    );
+    expect(tddChecks.length).toBe(0);
   });
 
   it("should use default config values when config keys are missing", async () => {
@@ -285,6 +305,7 @@ describe("prepare_task TDD Auto-Injection", () => {
       category: "INFRASTRUCTURE",
       dependencies: "[]",
       status: "PENDING",
+      tdd_red_phase: true,
       created_at: now,
       updated_at: now,
     });
@@ -307,9 +328,14 @@ describe("prepare_task TDD Auto-Injection", () => {
       .select()
       .from(verificationChecks)
       .where(eq(verificationChecks.task_id, 1));
-    expect(checks.length).toBe(1);
+    const tddChecks = checks.filter(
+      (check) =>
+        check.check_id.startsWith("struct-tdd-") &&
+        !check.check_id.startsWith("struct-tdd-red-"),
+    );
+    expect(tddChecks.length).toBe(1);
 
-    const checkConfig = JSON.parse(checks[0].check_config);
+    const checkConfig = JSON.parse(tddChecks[0]!.check_config);
     expect(checkConfig.path).toBe("test/**/*.test.ts");
     expect(checkConfig.pattern).toBe("describe|test|it");
   });
@@ -345,6 +371,7 @@ describe("prepare_task TDD Auto-Injection", () => {
       category: "INTEGRATION",
       dependencies: "[]",
       status: "PENDING",
+      tdd_red_phase: true,
       created_at: now,
       updated_at: now,
     });
@@ -367,8 +394,13 @@ describe("prepare_task TDD Auto-Injection", () => {
       .select()
       .from(verificationChecks)
       .where(eq(verificationChecks.task_id, 1));
-    expect(checks.length).toBe(1);
-    expect(checks[0].description).toContain("INTEGRATION");
+    const tddChecks = checks.filter(
+      (check) =>
+        check.check_id.startsWith("struct-tdd-") &&
+        !check.check_id.startsWith("struct-tdd-red-"),
+    );
+    expect(tddChecks.length).toBe(1);
+    expect(tddChecks[0]!.description).toContain("INTEGRATION");
   });
 
   it("should use custom patterns from config when provided", async () => {
@@ -409,6 +441,7 @@ describe("prepare_task TDD Auto-Injection", () => {
       category: "INFRASTRUCTURE",
       dependencies: "[]",
       status: "PENDING",
+      tdd_red_phase: true,
       created_at: now,
       updated_at: now,
     });
@@ -431,9 +464,14 @@ describe("prepare_task TDD Auto-Injection", () => {
       .select()
       .from(verificationChecks)
       .where(eq(verificationChecks.task_id, 1));
-    expect(checks.length).toBe(1);
+    const tddChecks = checks.filter(
+      (check) =>
+        check.check_id.startsWith("struct-tdd-") &&
+        !check.check_id.startsWith("struct-tdd-red-"),
+    );
+    expect(tddChecks.length).toBe(1);
 
-    const checkConfig = JSON.parse(checks[0].check_config);
+    const checkConfig = JSON.parse(tddChecks[0]!.check_config);
     expect(checkConfig.path).toBe("spec/**/*.spec.ts");
     expect(checkConfig.pattern).toBe("suite|test|expect");
   });
@@ -472,6 +510,7 @@ describe("prepare_task TDD Auto-Injection", () => {
       category: "INTEGRATION",
       dependencies: "[]",
       status: "PENDING",
+      tdd_red_phase: true,
       created_at: now,
       updated_at: now,
     });
@@ -504,7 +543,11 @@ describe("prepare_task TDD Auto-Injection", () => {
       .where(eq(verificationChecks.task_id, 1));
 
     // No checks should be injected for documentation-only tasks
-    const tddChecks = checks.filter((c) => c.check_id.includes("tdd"));
+    const tddChecks = checks.filter(
+      (check) =>
+        check.check_id.startsWith("struct-tdd-") &&
+        !check.check_id.startsWith("struct-tdd-red-"),
+    );
     expect(tddChecks.length).toBe(0);
   });
 
@@ -541,6 +584,7 @@ describe("prepare_task TDD Auto-Injection", () => {
       category: "INTEGRATION",
       dependencies: "[]",
       status: "PENDING",
+      tdd_red_phase: true,
       created_at: now,
       updated_at: now,
     });
@@ -574,8 +618,12 @@ describe("prepare_task TDD Auto-Injection", () => {
       .from(verificationChecks)
       .where(eq(verificationChecks.task_id, 1));
 
-    const tddChecks = checks.filter((c) => c.check_id.includes("tdd"));
+    const tddChecks = checks.filter(
+      (check) =>
+        check.check_id.startsWith("struct-tdd-") &&
+        !check.check_id.startsWith("struct-tdd-red-"),
+    );
     expect(tddChecks.length).toBe(1);
-    expect(tddChecks[0].description).toContain("[TDD]");
+    expect(tddChecks[0]!.description).toContain("[TDD]");
   });
 });

@@ -35,6 +35,9 @@ export const sprints = sqliteTable(
     is_active: integer("is_active", { mode: "boolean" })
       .notNull()
       .default(false), // Only one sprint active at a time
+    is_archived: integer("is_archived", { mode: "boolean" })
+      .notNull()
+      .default(false), // Archived sprints are hidden by default
     created_at: text("created_at").notNull(),
     updated_at: text("updated_at").notNull(),
     completed_at: text("completed_at"),
@@ -42,6 +45,7 @@ export const sprints = sqliteTable(
   (sprints) => ({
     workflowStepIdx: index("workflow_step_idx").on(sprints.workflow_step),
     isActiveIdx: index("is_active_idx").on(sprints.is_active),
+    isArchivedIdx: index("is_archived_idx").on(sprints.is_archived),
     statusIdx: index("sprint_status_idx").on(sprints.status),
   }),
 );
