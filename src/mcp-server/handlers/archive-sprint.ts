@@ -14,10 +14,7 @@ import { writeSignal } from "../db-signal.js";
 import { logToolExecution } from "./audit-logging.js";
 
 const ArchiveSprintInputSchema = z.object({
-  sprint_id: z
-    .string()
-    .min(1)
-    .describe("The ID of the sprint to archive"),
+  sprint_id: z.string().min(1).describe("The ID of the sprint to archive"),
 });
 
 type ArchiveSprintErrorCode = "CANNOT_ARCHIVE_ACTIVE" | "SPRINT_NOT_FOUND";

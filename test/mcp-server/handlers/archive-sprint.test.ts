@@ -2,8 +2,8 @@
  * Tests for archive_sprint handler
  */
 
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { eq } from "drizzle-orm";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { getDb } from "../../../src/db/index.js";
 import { sprints } from "../../../src/db/schema.js";
 import { handleArchiveSprint } from "../../../src/mcp-server/handlers/archive-sprint.js";

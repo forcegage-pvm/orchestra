@@ -1,6 +1,6 @@
 import * as vscode from "vscode";
-import type { DatabaseWatcher } from "../database/watcher.js";
 import { archiveSprint } from "../database/mutations.js";
+import type { DatabaseWatcher } from "../database/watcher.js";
 import type { SprintTreeProvider } from "../views/treeview/SprintTreeProvider.js";
 
 export async function handleArchiveSprint(

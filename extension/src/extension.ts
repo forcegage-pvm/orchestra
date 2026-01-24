@@ -11,14 +11,14 @@ import * as vscode from "vscode";
 import { AgentRunner, ToolRegistry } from "./agents/index.js";
 import { SessionManager } from "./chat/SessionManager.js";
 import { handleArchiveSprint } from "./commands/archiveSprint.js";
-import { handlePlayTask } from "./commands/PlayTaskHandler.js";
-import { handleReviewSprint } from "./commands/ReviewSprintHandler.js";
 import {
   handleDeEscalateTask,
   handleForceComplete,
   handleMoveToGateCheck,
   handleMoveToImplement,
 } from "./commands/deEscalation.js";
+import { handlePlayTask } from "./commands/PlayTaskHandler.js";
+import { handleReviewSprint } from "./commands/ReviewSprintHandler.js";
 import { ConfigService } from "./config/ConfigService.js";
 import { OrchestraDB } from "./database/client.js";
 import {
