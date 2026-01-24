@@ -101,7 +101,9 @@ export class DatabaseWatcher implements vscode.Disposable {
     this.pollTimer = setInterval(() => {
       const currentMtime = this.getLatestMtime();
       if (currentMtime > this.lastMtime) {
-        console.log("[Orchestra] Poll detected database change");
+        console.log(
+          "[Orchestra] Fallback poll detected database change (signal may have been missed)",
+        );
         this.lastMtime = currentMtime;
         this.handleChange();
       }
