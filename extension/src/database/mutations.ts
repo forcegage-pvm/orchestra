@@ -479,6 +479,59 @@ export function archiveSprint(
 }
 
 /**
+ * Unarchive a sprint
+ *
+ * Only archived sprints can be unarchived.
+ *
+ * @param workspaceRoot Absolute path to workspace root
+ * @param sprintId Sprint ID to unarchive
+ * @param watcher Optional database watcher to trigger UI updates
+ * @returns Success status with sprint name
+ */
+export function unarchiveSprint(
+  workspaceRoot: string,
+  sprintId: string,
+  watcher?: DatabaseWatcher,
+): { success: boolean; sprintName: string } {
+  const db = OrchestraDB.getInstance(workspaceRoot);
+  const now = new Date().toISOString();
+
+  const sprint = db
+    .prepare(
+      `
+    SELECT id, name, is_archived
+    FROM sprints
+    WHERE id = ?
+  `,
+    )
+    .get(sprintId) as
+    | { id: string; name: string; is_archived: number | boolean }
+    | undefined;
+
+  if (!sprint) {
+    throw new Error(`Sprint not found: ${sprintId}`);
+  }
+
+  if (!sprint.is_archived) {
+    throw new Error(`Sprint is not archived: ${sprintId}`);
+  }
+
+  db.prepare(
+    `
+    UPDATE sprints
+    SET is_archived = 0, updated_at = ?
+    WHERE id = ?
+  `,
+  ).run(now, sprintId);
+
+  if (watcher) {
+    watcher.trigger();
+  }
+
+  return { success: true, sprintName: sprint.name };
+}
+
+/**
  * TD-016: Resolve escalation and update escalations table
  *
  * Records the resolution in the escalations table and updates task status.

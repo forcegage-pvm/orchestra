@@ -458,7 +458,22 @@ async function prepareTask(
     c.check_id.startsWith("struct-"),
   ).length;
 
-  if (tddRedPhase) {
+  const documentationExtensions = new Set([
+    "md",
+    "mdx",
+    "rst",
+    "txt",
+    "adoc",
+    "asciidoc",
+  ]);
+  const isDocumentationOnlyTask =
+    input.file_operations.length > 0 &&
+    input.file_operations.every((op) => {
+      const ext = op.path.split(".").pop()?.toLowerCase() || "";
+      return documentationExtensions.has(ext);
+    });
+
+  if (tddRedPhase && !isDocumentationOnlyTask) {
     // Generate and insert red-phase checks
     // Use sprint environment config (explicit) or fall back to file_operations inference
 
@@ -582,9 +597,12 @@ async function prepareTask(
 
   for (const check of behavioral_checks) {
     if (check.command) {
+      const validationWorkingDirectory = isTestEnv
+        ? process.cwd()
+        : check.working_directory || workspaceRoot;
       const result = validateBehavioralCommand(
         check.command,
-        check.working_directory || workspaceRoot,
+        validationWorkingDirectory,
       );
 
       if (!result.isValid) {

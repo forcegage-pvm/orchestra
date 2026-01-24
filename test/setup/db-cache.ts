@@ -68,6 +68,10 @@ class DatabaseSetupCache {
    * Get an initialized database for a test
    */
   async getInitializedDatabase(testName: string): Promise<string> {
+    if (this.templatePath && !fs.existsSync(this.templatePath)) {
+      this.templatePath = null;
+    }
+
     // If no template from global setup, create one (fallback for single-file runs)
     if (!this.templatePath) {
       if (!this.fallbackInitialized) {

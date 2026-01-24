@@ -11,6 +11,7 @@ import * as vscode from "vscode";
 import { AgentRunner, ToolRegistry } from "./agents/index.js";
 import { SessionManager } from "./chat/SessionManager.js";
 import { handleArchiveSprint } from "./commands/archiveSprint.js";
+import { handleUnarchiveSprint } from "./commands/unarchiveSprint.js";
 import {
   handleDeEscalateTask,
   handleForceComplete,
@@ -971,6 +972,22 @@ export async function activate(
         }) => {
           if (element?.sprint?.id && dbWatcher) {
             await handleArchiveSprint(
+              orchestraRoot,
+              element.sprint.id,
+              treeProvider,
+              dbWatcher,
+            );
+          }
+        },
+      ),
+      vscode.commands.registerCommand(
+        "orchestra.unarchiveSprint",
+        async (element: {
+          type: string;
+          sprint?: { id: string; name: string };
+        }) => {
+          if (element?.sprint?.id && dbWatcher) {
+            await handleUnarchiveSprint(
               orchestraRoot,
               element.sprint.id,
               treeProvider,

@@ -1,11 +1,11 @@
 /**
- * set_active_sprint tool handler
+ * unarchive_sprint tool handler
  *
- * Sets a sprint as the active sprint. Only one sprint can be active at a time.
- * All other sprints are deactivated when this is called.
+ * Unarchives a sprint to restore it to active views.
+ * Only archived sprints can be unarchived.
  */
 
-import { eq, sql } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { getDb } from "../../db/index.js";
 import { sprints } from "../../db/schema.js";
@@ -13,23 +13,39 @@ import { validateInput } from "../../schemas/utils.js";
 import { writeSignal } from "../db-signal.js";
 import { logToolExecution } from "./audit-logging.js";
 
-const SetActiveSprintInputSchema = z.object({
-  sprint_id: z
-    .string()
-    .min(1)
-    .describe("The ID of the sprint to set as active"),
+const UnarchiveSprintInputSchema = z.object({
+  sprint_id: z.string().min(1).describe("The ID of the sprint to unarchive"),
 });
 
-interface SetActiveSprintOutput {
-  success: boolean;
+type UnarchiveSprintErrorCode = "SPRINT_NOT_FOUND" | "SPRINT_NOT_ARCHIVED";
+
+interface UnarchiveSprintOutput {
+  success: true;
   sprint_id: string;
   sprint_name: string;
   message: string;
 }
 
-export async function handleSetActiveSprint(input: unknown) {
+interface UnarchiveSprintErrorOutput {
+  success: false;
+  error: {
+    code: UnarchiveSprintErrorCode | "SYSTEM_ERROR";
+    message: string;
+  };
+}
+
+class UnarchiveSprintError extends Error {
+  public readonly code: UnarchiveSprintErrorCode;
+
+  public constructor(code: UnarchiveSprintErrorCode, message: string) {
+    super(message);
+    this.code = code;
+  }
+}
+
+export async function handleUnarchiveSprint(input: unknown) {
   const startTime = performance.now();
-  const validation = validateInput(SetActiveSprintInputSchema, input);
+  const validation = validateInput(UnarchiveSprintInputSchema, input);
   if (!validation.success) {
     return {
       content: [
@@ -42,12 +58,12 @@ export async function handleSetActiveSprint(input: unknown) {
   }
 
   try {
-    const output = await setActiveSprint(validation.data);
+    const output = await unarchiveSprint(validation.data);
     const durationMs = Math.round(performance.now() - startTime);
 
     await logToolExecution(
       {
-        toolName: "set_active_sprint",
+        toolName: "unarchive_sprint",
         role: "orchestrator",
         input: validation.data,
       },
@@ -61,10 +77,12 @@ export async function handleSetActiveSprint(input: unknown) {
   } catch (error) {
     const durationMs = Math.round(performance.now() - startTime);
     const err = error instanceof Error ? error : new Error(String(error));
+    const errorCode =
+      error instanceof UnarchiveSprintError ? error.code : "SYSTEM_ERROR";
 
     await logToolExecution(
       {
-        toolName: "set_active_sprint",
+        toolName: "unarchive_sprint",
         role: "orchestrator",
         input: validation.data,
       },
@@ -72,33 +90,30 @@ export async function handleSetActiveSprint(input: unknown) {
       durationMs,
     );
 
+    const output: UnarchiveSprintErrorOutput = {
+      success: false,
+      error: {
+        code: errorCode,
+        message: err.message,
+      },
+    };
+
     return {
       content: [
         {
           type: "text",
-          text: JSON.stringify(
-            {
-              success: false,
-              error: {
-                code: "SYSTEM_ERROR",
-                message: err.message,
-              },
-            },
-            null,
-            2,
-          ),
+          text: JSON.stringify(output, null, 2),
         },
       ],
     };
   }
 }
 
-async function setActiveSprint(
-  input: z.output<typeof SetActiveSprintInputSchema>,
-): Promise<SetActiveSprintOutput> {
+async function unarchiveSprint(
+  input: z.output<typeof UnarchiveSprintInputSchema>,
+): Promise<UnarchiveSprintOutput> {
   const db = getDb();
 
-  // 1. Verify the sprint exists
   const [sprint] = await db
     .select()
     .from(sprints)
@@ -106,26 +121,23 @@ async function setActiveSprint(
     .limit(1);
 
   if (!sprint) {
-    throw new Error(`Sprint not found: ${input.sprint_id}`);
-  }
-
-  // 2. Check if sprint is completed
-  if (sprint.completed_at) {
-    throw new Error(
-      `Cannot activate completed sprint: ${input.sprint_id}. ` +
-        `Sprint was completed at ${sprint.completed_at}.`,
+    throw new UnarchiveSprintError(
+      "SPRINT_NOT_FOUND",
+      `Sprint not found: ${input.sprint_id}`,
     );
   }
 
-  // 3. Deactivate all sprints
-  await db.run(sql`UPDATE sprints SET is_active = 0`);
+  if (!sprint.is_archived) {
+    throw new UnarchiveSprintError(
+      "SPRINT_NOT_ARCHIVED",
+      `Sprint is not archived: ${input.sprint_id}`,
+    );
+  }
 
-  // 4. Activate the requested sprint
   const now = new Date().toISOString();
   await db
     .update(sprints)
     .set({
-      is_active: true,
       is_archived: false,
       updated_at: now,
     })
@@ -137,6 +149,6 @@ async function setActiveSprint(
     success: true,
     sprint_id: sprint.id,
     sprint_name: sprint.name,
-    message: `Sprint "${sprint.name}" (${sprint.id}) is now active`,
+    message: `Sprint "${sprint.name}" (${sprint.id}) unarchived`,
   };
 }
