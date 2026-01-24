@@ -436,19 +436,23 @@ export function validateHandoverVerificationAlignment(
 
   // Extract unique top-level directories from file_operations
   const handoverTopDirs = new Set<string>();
+  let hasRootFiles = false; // Files in src/, lib/, test/ (standard root structure)
   for (const op of fileOperations) {
     const baseDir = extractBaseDir(op.path);
     // Get the top-level directory (e.g., "extension" from "extension/test/views/foo.ts")
     const topDir = baseDir.split("/")[0];
-    if (
-      topDir &&
-      topDir !== "." &&
-      topDir !== "test" &&
-      topDir !== "tests" &&
-      topDir !== "lib" &&
-      topDir !== "src"
-    ) {
-      handoverTopDirs.add(topDir);
+    if (topDir && topDir !== ".") {
+      // Track if we have files in root-level directories (src, lib, test)
+      if (
+        topDir === "src" ||
+        topDir === "lib" ||
+        topDir === "test" ||
+        topDir === "tests"
+      ) {
+        hasRootFiles = true;
+      } else {
+        handoverTopDirs.add(topDir);
+      }
     }
   }
 
@@ -463,6 +467,10 @@ export function validateHandoverVerificationAlignment(
       ? onlyTopDir
       : null;
   const isInSubdirectory = subdirPrefix !== null;
+
+  // Cross-cutting task: has both root files (src/, lib/) AND subdirectory files (extension/)
+  // These tasks legitimately span multiple directory trees
+  const isCrossCuttingTask = hasRootFiles && handoverTopDirs.size > 0;
 
   // Collect all verification paths
   const verificationPaths: Array<{ checkId: string; path: string }> = [];
@@ -482,41 +490,45 @@ export function validateHandoverVerificationAlignment(
   }
 
   // Check for misalignment
-  for (const { checkId, path: verifyPath } of verificationPaths) {
-    const verifyTopDir = extractBaseDir(verifyPath).split("/")[0];
+  // Skip these checks for cross-cutting tasks that legitimately span multiple directory trees
+  if (!isCrossCuttingTask) {
+    for (const { checkId, path: verifyPath } of verificationPaths) {
+      const verifyTopDir = extractBaseDir(verifyPath).split("/")[0];
 
-    // If handover creates files in a subdirectory but verification looks at root test/
-    if (isInSubdirectory && subdirPrefix && verifyTopDir === "test") {
-      errors.push(
-        `${checkId}: Verification path '${verifyPath}' looks in 'test/' but file_operations create files in '${subdirPrefix}/'. ` +
-          `This WILL cause verification to fail. Use '${subdirPrefix}/test/**' instead.`,
-      );
-    }
+      // If handover creates files in a subdirectory but verification looks at root test/
+      if (isInSubdirectory && subdirPrefix && verifyTopDir === "test") {
+        errors.push(
+          `${checkId}: Verification path '${verifyPath}' looks in 'test/' but file_operations create files in '${subdirPrefix}/'. ` +
+            `This WILL cause verification to fail. Use '${subdirPrefix}/test/**' instead.`,
+        );
+      }
 
-    // If handover creates files in a subdirectory but verification looks at root lib/
-    if (isInSubdirectory && subdirPrefix && verifyTopDir === "lib") {
-      errors.push(
-        `${checkId}: Verification path '${verifyPath}' looks in 'lib/' but file_operations create files in '${subdirPrefix}/'. ` +
-          `This WILL cause verification to fail. Use '${subdirPrefix}/lib/**' instead.`,
-      );
-    }
+      // If handover creates files in a subdirectory but verification looks at root lib/
+      if (isInSubdirectory && subdirPrefix && verifyTopDir === "lib") {
+        errors.push(
+          `${checkId}: Verification path '${verifyPath}' looks in 'lib/' but file_operations create files in '${subdirPrefix}/'. ` +
+            `This WILL cause verification to fail. Use '${subdirPrefix}/lib/**' instead.`,
+        );
+      }
 
-    // If handover creates files in root but verification looks in a subdirectory
-    if (
-      !isInSubdirectory &&
-      (verifyTopDir === "extension" ||
-        verifyTopDir === "packages" ||
-        verifyTopDir === "apps")
-    ) {
-      errors.push(
-        `${checkId}: Verification path '${verifyPath}' looks in '${verifyTopDir}/' but file_operations create files in root. ` +
-          `This WILL cause verification to fail. Use 'test/**' or 'lib/**' instead.`,
-      );
+      // If handover creates files in root but verification looks in a subdirectory
+      if (
+        !isInSubdirectory &&
+        (verifyTopDir === "extension" ||
+          verifyTopDir === "packages" ||
+          verifyTopDir === "apps")
+      ) {
+        errors.push(
+          `${checkId}: Verification path '${verifyPath}' looks in '${verifyTopDir}/' but file_operations create files in root. ` +
+            `This WILL cause verification to fail. Use 'test/**' or 'lib/**' instead.`,
+        );
+      }
     }
   }
 
   // Check behavioral commands for directory misalignment
-  if (verification.behavioral_checks) {
+  // Skip for cross-cutting tasks that legitimately span multiple directory trees
+  if (verification.behavioral_checks && !isCrossCuttingTask) {
     verification.behavioral_checks.forEach((check, idx) => {
       const checkId = `behav-${idx}`;
 
