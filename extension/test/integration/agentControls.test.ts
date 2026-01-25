@@ -231,7 +231,9 @@ describe("Agent Control Lifecycle Integration", () => {
     await runner.redirect("Inject instruction");
     const session = runner.getSession();
     expect(
-      session?.messages.some((message) => message.content === "Inject instruction"),
+      session?.messages.some(
+        (message) => message.content === "Inject instruction",
+      ),
     ).toBe(true);
 
     const stopPromise = runner.stop();
