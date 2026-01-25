@@ -15,16 +15,14 @@ import {
 export class AgentOutputPanel {
   public static currentPanel: AgentOutputPanel | undefined;
   private readonly _panel: vscode.WebviewPanel;
-  private readonly _extensionUri: vscode.Uri;
   private _disposables: vscode.Disposable[] = [];
   private _pendingMessages: Array<{ type: string; [key: string]: unknown }> =
     [];
   private _ready = false;
   private _outputSubscription: { dispose(): void } | undefined;
 
-  private constructor(panel: vscode.WebviewPanel, extensionUri: vscode.Uri) {
+  private constructor(panel: vscode.WebviewPanel) {
     this._panel = panel;
-    this._extensionUri = extensionUri;
 
     this._panel.onDidDispose(() => this.dispose(), null, this._disposables);
 
@@ -45,7 +43,7 @@ export class AgentOutputPanel {
   /**
    * Create or show panel (singleton)
    */
-  public static createOrShow(extensionUri: vscode.Uri): AgentOutputPanel {
+  public static createOrShow(_extensionUri: vscode.Uri): AgentOutputPanel {
     if (AgentOutputPanel.currentPanel) {
       AgentOutputPanel.currentPanel._panel.reveal(vscode.ViewColumn.One);
       return AgentOutputPanel.currentPanel;
@@ -61,7 +59,7 @@ export class AgentOutputPanel {
       },
     );
 
-    AgentOutputPanel.currentPanel = new AgentOutputPanel(panel, extensionUri);
+    AgentOutputPanel.currentPanel = new AgentOutputPanel(panel);
     return AgentOutputPanel.currentPanel;
   }
 

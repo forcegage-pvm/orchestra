@@ -83,18 +83,27 @@ export function convertAgentOutput(
   }
 
   if (output.type === "error") {
+    const content: {
+      toolName: string;
+      success: boolean;
+      output: string;
+      error?: string;
+    } = {
+      toolName: getToolName(output),
+      success: false,
+      output: output.errorMessage ?? "Unknown error",
+    };
+    if (output.errorCode) {
+      content.error = output.errorCode;
+    }
+
     return {
       type: "item",
       item: {
         id: generateId(),
         type: "tool_result",
         timestamp: output.timestamp,
-        content: {
-          toolName: getToolName(output),
-          success: false,
-          output: output.errorMessage ?? "Unknown error",
-          error: output.errorCode,
-        },
+        content,
       },
     };
   }
