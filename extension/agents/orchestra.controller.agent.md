@@ -273,10 +273,10 @@ Any ❌ **MISSING** or ⚠️ **PARTIAL** item must result in **CHANGES_REQUESTE
 
 Create a traceability table for every `spec_task_definitions[]` entry.
 
-| Spec Task | Requirement | Evidence File | Evidence Detail | Status |
-| --- | --- | --- | --- | --- |
-| ST-1 | Requirement text | src/path.ts | Lines 120-168, handler validates input | ✅ SATISFIED |
-| ST-2 | Requirement text | NOT FOUND | No implementation or test evidence | ❌ MISSING |
+| Spec Task | Requirement      | Evidence File | Evidence Detail                        | Status       |
+| --------- | ---------------- | ------------- | -------------------------------------- | ------------ |
+| ST-1      | Requirement text | src/path.ts   | Lines 120-168, handler validates input | ✅ SATISFIED |
+| ST-2      | Requirement text | NOT FOUND     | No implementation or test evidence     | ❌ MISSING   |
 
 **Rules (Non-Negotiable):**
 
@@ -303,13 +303,13 @@ Code review is **NOT** about:
 
 ### Verification Techniques
 
-| Technique | What It Proves | When Required |
-| --- | --- | --- |
-| Trace call graph | Feature is actually invoked at runtime | Always (to rule out dead code) |
-| Read test assertions | Tests validate the required behavior | When tests are cited as proof |
-| Check error handling | Failure modes are covered and safe | When spec mentions errors or IO |
-| Verify state changes | Side effects match spec expectations | When spec requires persistence or updates |
-| Check integration points | Wiring is correct across components | When spec spans modules or services |
+| Technique                | What It Proves                         | When Required                             |
+| ------------------------ | -------------------------------------- | ----------------------------------------- |
+| Trace call graph         | Feature is actually invoked at runtime | Always (to rule out dead code)            |
+| Read test assertions     | Tests validate the required behavior   | When tests are cited as proof             |
+| Check error handling     | Failure modes are covered and safe     | When spec mentions errors or IO           |
+| Verify state changes     | Side effects match spec expectations   | When spec requires persistence or updates |
+| Check integration points | Wiring is correct across components    | When spec spans modules or services       |
 
 ## 9.4 Strict Rejection Policy (MANDATORY)
 
