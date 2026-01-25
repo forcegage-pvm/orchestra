@@ -44,7 +44,7 @@ export class DatabaseWatcher implements vscode.Disposable {
     // Signal files are small text files that trigger file watchers reliably
     const signalPattern = new vscode.RelativePattern(
       workspaceRoot,
-      ".orchestra/.signal"
+      ".orchestra/.signal",
     );
     this.signalWatcher =
       vscode.workspace.createFileSystemWatcher(signalPattern);
@@ -65,7 +65,7 @@ export class DatabaseWatcher implements vscode.Disposable {
     // Start polling as fallback (reduced frequency since signal file is primary)
     this.startPolling();
     console.log(
-      "[Orchestra] Database watcher initialized (signal file + 10s polling fallback)"
+      "[Orchestra] Database watcher initialized (signal file + 10s polling fallback)",
     );
   }
 

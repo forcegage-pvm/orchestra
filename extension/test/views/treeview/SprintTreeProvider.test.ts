@@ -16,10 +16,22 @@ vi.mock("vscode", () => ({
     Collapsed: 1,
     Expanded: 2,
   },
+  window: {
+    createOutputChannel: vi.fn(() => ({
+      appendLine: vi.fn(),
+      show: vi.fn(),
+      dispose: vi.fn(),
+    })),
+  },
+  workspace: {
+    getConfiguration: vi.fn(() => ({
+      get: vi.fn((_key: string, defaultValue?: unknown) => defaultValue),
+    })),
+  },
   TreeItem: vi.fn(function (
     this: any,
     label: string,
-    collapsibleState: number
+    collapsibleState: number,
   ) {
     this.label = label;
     this.collapsibleState = collapsibleState;
@@ -213,7 +225,7 @@ describe("SprintTreeProvider", () => {
 
       const tooltip = treeItem.tooltip as vscode.MarkdownString;
       expect(tooltip.value).toContain(
-        "This is my detailed task description with important info"
+        "This is my detailed task description with important info",
       );
     });
 

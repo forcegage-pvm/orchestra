@@ -11,16 +11,16 @@ import * as vscode from "vscode";
 import { AgentRunner, ToolRegistry } from "./agents/index.js";
 import { SessionManager } from "./chat/SessionManager.js";
 import { handleArchiveSprint } from "./commands/archiveSprint.js";
-import { handleFilterSprints } from "./commands/filterSprints.js";
-import { handleUnarchiveSprint } from "./commands/unarchiveSprint.js";
 import {
   handleDeEscalateTask,
   handleForceComplete,
   handleMoveToGateCheck,
   handleMoveToImplement,
 } from "./commands/deEscalation.js";
+import { handleFilterSprints } from "./commands/filterSprints.js";
 import { handlePlayTask } from "./commands/PlayTaskHandler.js";
 import { handleReviewSprint } from "./commands/ReviewSprintHandler.js";
+import { handleUnarchiveSprint } from "./commands/unarchiveSprint.js";
 import { ConfigService } from "./config/ConfigService.js";
 import { OrchestraDB } from "./database/client.js";
 import {
@@ -829,7 +829,8 @@ export async function activate(
       }),
       vscode.commands.registerCommand("orchestra.filterSprints", () => {
         handleFilterSprints(treeProvider).catch((error) => {
-          const message = error instanceof Error ? error.message : "Unknown error";
+          const message =
+            error instanceof Error ? error.message : "Unknown error";
           vscode.window.showErrorMessage(
             `Orchestra: Failed to filter sprints - ${message}`,
           );

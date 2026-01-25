@@ -19,8 +19,8 @@ import {
   type Task,
 } from "../../database/queries.js";
 import type { DatabaseWatcher } from "../../database/watcher.js";
-import { findOrchestraRoot } from "../../workspace/detector.js";
 import { OrchestraLogger } from "../../utils/logger.js";
+import { findOrchestraRoot } from "../../workspace/detector.js";
 import { createTaskDecorationUri } from "../providers/ViewDecorationProvider.js";
 import { getStatusDisplay } from "../statusTranslation.js";
 
@@ -86,11 +86,12 @@ export class SprintTreeProvider implements vscode.TreeDataProvider<TreeElement> 
     this._codeReviewStatusByTaskId = new Map();
     this._codeReviewStatusSprintId = null;
 
-    const sourceLabel = source === "manual"
-      ? "manual refresh"
-      : source === "signal"
-      ? "signal update"
-      : "unknown source";
+    const sourceLabel =
+      source === "manual"
+        ? "manual refresh"
+        : source === "signal"
+          ? "signal update"
+          : "unknown source";
     this._logger.info(
       `[SprintTreeProvider] Refresh triggered (${sourceLabel}); caches cleared`,
     );
@@ -124,13 +125,14 @@ export class SprintTreeProvider implements vscode.TreeDataProvider<TreeElement> 
       // Root level: return all sprints
       if (!element) {
         const sprints = getAllSprints(workspaceRoot);
-        const filteredSprints = this._filter === "all"
-          ? sprints
-          : sprints.filter((sprint) =>
-              this._filter === "archived"
-                ? sprint.is_archived
-                : !sprint.is_archived,
-            );
+        const filteredSprints =
+          this._filter === "all"
+            ? sprints
+            : sprints.filter((sprint) =>
+                this._filter === "archived"
+                  ? sprint.is_archived
+                  : !sprint.is_archived,
+              );
         if (filteredSprints.length === 0) {
           return [this._createMessageItem("No sprints found", "empty")];
         }
