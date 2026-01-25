@@ -33,6 +33,7 @@ export const sprints = sqliteTable(
     workflow_step: text("workflow_step").notNull(), // WorkflowStep enum
     config: text("config"), // JSON: CodeReviewConfig and other sprint-level settings
     spec_path: text("spec_path"), // Path to specification document
+    spec_files: text("spec_files"), // JSON array of related spec file paths
     spec_version: text("spec_version"), // Version/commit of spec
     spec_hash: text("spec_hash"), // SHA-256 of spec content
     is_active: integer("is_active", { mode: "boolean" })

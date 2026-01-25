@@ -910,6 +910,27 @@ const MIGRATIONS: Migration[] = [
       `);
     },
   },
+  {
+    id: "20260125_003_add_spec_files_column",
+    description:
+      "Add spec_files column to sprints table for related spec file paths",
+    up: async () => {
+      const db = getDb();
+
+      const columns = await db.all(sql`PRAGMA table_info(sprints)`);
+      const hasSpecFiles = (columns as { name: string }[]).some(
+        (col) => col.name === "spec_files",
+      );
+
+      if (hasSpecFiles) {
+        return;
+      }
+
+      await db.run(
+        sql`ALTER TABLE sprints ADD COLUMN spec_files TEXT DEFAULT '[]'`,
+      );
+    },
+  },
 ];
 
 /**

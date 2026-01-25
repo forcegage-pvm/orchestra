@@ -27,6 +27,7 @@ const checklistItemRegex = /^\s*-\s*\[\s*[xX ]?\s*\]\s*(.+?)\s*$/;
 export async function parseSpecTaskDefinitions(
   specPath: string,
   taskIds: string[],
+  additionalFiles: string[] = [],
 ): Promise<SpecTaskDefinition[]> {
   if (taskIds.length === 0) {
     return [];
@@ -37,20 +38,60 @@ export async function parseSpecTaskDefinitions(
     throw new Error("Workspace path not resolved");
   }
 
-  const fullPath = path.resolve(workspacePath, specPath);
-
-  let content: string;
-  try {
-    content = await readFile(fullPath, "utf-8");
-  } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "Unable to read spec file";
-    throw new Error(`Spec file not found: ${specPath}. ${message}`);
-  }
-
-  const lines = content.split("\n");
+  // Collect all files to search: primary spec + additional files
+  const filesToSearch = [specPath, ...additionalFiles];
   const definitions = new Map<string, SpecTaskDefinition>();
 
+  for (const filePath of filesToSearch) {
+    const fullPath = path.resolve(workspacePath, filePath);
+
+    let content: string;
+    try {
+      content = await readFile(fullPath, "utf-8");
+    } catch (error) {
+      // Skip files that don't exist (additionalFiles may not exist)
+      if (filePath === specPath) {
+        const message =
+          error instanceof Error ? error.message : "Unable to read spec file";
+        throw new Error(`Spec file not found: ${specPath}. ${message}`);
+      }
+      continue;
+    }
+
+    const lines = content.split("\n");
+    parseFileForTasks(lines, definitions);
+  }
+
+  const missing: string[] = [];
+  const result: SpecTaskDefinition[] = [];
+
+  for (const taskId of taskIds) {
+    const key = taskId.trim().toUpperCase();
+    const definition = definitions.get(key);
+    if (!definition) {
+      missing.push(taskId.trim());
+      continue;
+    }
+    result.push(definition);
+  }
+
+  if (missing.length > 0) {
+    const searchedFiles = filesToSearch.join(", ");
+    throw new Error(
+      `Spec task ID(s) not found in [${searchedFiles}]: ${missing.join(", ")}`,
+    );
+  }
+
+  return result;
+}
+
+/**
+ * Parse a single file's lines for task definitions
+ */
+function parseFileForTasks(
+  lines: string[],
+  definitions: Map<string, SpecTaskDefinition>,
+): void {
   // Pass 1: Header format blocks
   for (let index = 0; index < lines.length; index += 1) {
     const match = lines[index]?.match(headerTaskRegex);
@@ -147,27 +188,6 @@ export async function parseSpecTaskDefinitions(
       acceptance_criteria: [],
     });
   }
-
-  const missing: string[] = [];
-  const result: SpecTaskDefinition[] = [];
-
-  for (const taskId of taskIds) {
-    const key = taskId.trim().toUpperCase();
-    const definition = definitions.get(key);
-    if (!definition) {
-      missing.push(taskId.trim());
-      continue;
-    }
-    result.push(definition);
-  }
-
-  if (missing.length > 0) {
-    throw new Error(
-      `Spec task ID(s) not found in ${specPath}: ${missing.join(", ")}`,
-    );
-  }
-
-  return result;
 }
 
 function inferTaskType(title: string): "test" | "implementation" {

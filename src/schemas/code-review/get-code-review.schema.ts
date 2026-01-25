@@ -107,6 +107,7 @@ export const GetCodeReviewOutputSchema = z.discriminatedUnion("mode", [
     success: z.literal(true),
     mode: z.literal("task"),
     spec_path: z.string().nullable(),
+    spec_files: z.array(z.string()),
     spec_task_definitions: z.array(SpecTaskDefinitionSchema),
     review: CodeReviewDetailsSchema,
     history: z.array(CodeReviewHistorySchema).optional(),

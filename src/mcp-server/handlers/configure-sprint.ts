@@ -288,6 +288,7 @@ async function configureSprint(input: ConfigureSprintInput): Promise<{
     id: sprint.id,
     name: sprint.name,
     spec_path: sprint.spec_path,
+    spec_files: JSON.stringify(sprint.spec_files ?? []),
     spec_version: sprint.spec_version ?? null,
     spec_hash: computedSpecHash ?? sprint.spec_hash ?? null,
     status: "PENDING_SPEC_REVIEW", // Controller must approve before tasks can be prepared

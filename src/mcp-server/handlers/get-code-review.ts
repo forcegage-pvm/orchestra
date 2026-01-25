@@ -171,18 +171,21 @@ async function getTaskReview(
 
   const specTaskIds = parseSpeckitTaskRefs(task.speckit_task_ref);
   const specPath = sprint.spec_path ?? null;
+  const specFiles = parseJsonArray(sprint.spec_files);
   const specTaskDefinitions =
     specTaskIds.length === 0
       ? []
       : await parseSpecTaskDefinitions(
           ensureSpecPath(specPath, specTaskIds),
           specTaskIds,
+          specFiles,
         );
 
   return {
     success: true,
     mode: "task",
     spec_path: specPath,
+    spec_files: specFiles,
     spec_task_definitions: specTaskDefinitions,
     review: {
       review_id: review.id,

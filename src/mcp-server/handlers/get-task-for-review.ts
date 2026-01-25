@@ -33,6 +33,7 @@ interface GetTaskForReviewOutput {
   success: boolean;
   task_id: number;
   spec_path: string | null;
+  spec_files: string[];
   spec_task_definitions: SpecTaskDefinition[];
   phase_id: string;
   phase_name: string;
@@ -159,6 +160,7 @@ async function getTaskForReview(
 
   const specTaskIds = parseSpeckitTaskRefs(result.speckit_task_ref);
   const specPath = sprint.spec_path ?? null;
+  const specFiles = parseJsonArray(sprint.spec_files);
 
   const specTaskDefinitions =
     specTaskIds.length === 0
@@ -166,12 +168,14 @@ async function getTaskForReview(
       : await parseSpecTaskDefinitions(
           ensureSpecPath(specPath, specTaskIds),
           specTaskIds,
+          specFiles,
         );
 
   return {
     success: true,
     task_id: result.task_id,
     spec_path: specPath,
+    spec_files: specFiles,
     spec_task_definitions: specTaskDefinitions,
     phase_id: result.phase_id,
     phase_name: result.phase_name,
@@ -208,4 +212,14 @@ function ensureSpecPath(specPath: string | null, taskIds: string[]): string {
   }
 
   return specPath;
+}
+
+function parseJsonArray(json: string | null | undefined): string[] {
+  if (!json) return [];
+  try {
+    const parsed = JSON.parse(json);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
 }

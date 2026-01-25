@@ -1128,6 +1128,31 @@ const TOOLS_WITH_ROLES: ToolWithRole[] = [
       required: ["key", "value"],
     },
   },
+  {
+    role: "orchestrator",
+    name: "update_sprint_spec",
+    description:
+      "Update spec_path and/or spec_files for a sprint. Use to configure or modify spec traceability after sprint creation.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        sprint_id: {
+          type: "string",
+          description: "Sprint ID (optional, defaults to active sprint)",
+        },
+        spec_path: {
+          type: "string",
+          description: "Path to main specification file",
+        },
+        spec_files: {
+          type: "array",
+          items: { type: "string" },
+          description: "Array of related spec file paths (e.g., tasks.md)",
+        },
+      },
+      required: [],
+    },
+  },
 
   // ============================================================================
   // Controller Agent Tools - Sprint Review (Sprint 004)
@@ -1768,6 +1793,10 @@ export function registerTools(server: Server, role: ServerRole = "full"): void {
           return await handleGetSprintConfig(args);
         case "set_sprint_config":
           return await handleSetSprintConfig(args);
+        case "update_sprint_spec":
+          return await (
+            await import("./handlers/update-sprint-spec.js")
+          ).handleUpdateSprintSpec(args);
 
         // Controller Agent Tools (6 tools - sprint and handover review)
         case "approve_sprint":

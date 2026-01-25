@@ -51,13 +51,11 @@ export const ConfigureSprintInputSchema = z
       .object({
         id: z.string().min(1, "Sprint ID is required"),
         name: z.string().min(1, "Sprint name is required"),
-        spec_path: z
-          .string()
-          .min(1, "Spec path is required")
-          .refine(
-            (specPath) =>
-              specPath.startsWith("specs/") || specPath.startsWith("spec/"),
-            "Spec path must be in specs/ or spec/ directory",
+        spec_path: z.string().min(1, "Spec path is required").optional(),
+        spec_files: z
+          .array(z.string())
+          .describe(
+            "Related spec files (e.g., tasks.md). Required - use [] if none.",
           ),
         spec_version: z.string().optional(),
         spec_hash: z.string().optional(),
