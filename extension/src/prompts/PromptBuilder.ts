@@ -429,32 +429,40 @@ Provide detailed, actionable feedback for any issues found.`;
 ## Your Task
 Use your MCP tools to review the implementation:
 
-1. \`get_latest_code_review\` with task_id=${taskInfo.taskId} - Get the pending review
+1. \`get_code_review\` with task_id=${taskInfo.taskId} - Get the pending review AND spec context (spec_path, spec_task_definitions[])
 2. \`claim_code_review\` with review_id from step 1 - Claim this review (required)
+
+## Mandatory Spec-First Protocol (9.1-9.4)
+- Assume the implementation is WRONG until PROVEN correct
+- Read the spec FIRST using spec_path from \`get_code_review\`
+- Build a per-spec-task evidence table from spec_task_definitions[] BEFORE reading any implementation code
+- Any spec task without evidence MUST result in CHANGES_REQUESTED
+
 3. \`get_task\` with task_id=${taskInfo.taskId} - Get the task details and requirements
-4. Read the implementation files to understand what was built
-5. Verify the implementation:
-   - Does the code implement the task requirements correctly?
-   - Is the code quality acceptable (patterns, naming, structure)?
-   - Are there any obvious bugs, security issues, or performance concerns?
-   - Are tests adequate and passing?
+4. Read the implementation files only AFTER completing the evidence requirements
+5. Verify the implementation against the evidence table:
+  - Does each spec task have concrete evidence (file, location, mechanism, proof)?
+  - Is the code quality acceptable (patterns, naming, structure)?
+  - Are there any obvious bugs, security issues, or performance concerns?
+  - Are tests adequate and actually validating behavior?
 
 6. Make your decision using the review_id from step 1:
-  - \`approve_code_review\` - If implementation is correct and quality is acceptable
-  - \`request_changes_code_review\` - If issues need fixing (MUST include issue list)
+  - \`approve_code_review\` - Only if ALL spec tasks have evidence and quality is acceptable
+  - \`request_changes_code_review\` - If any spec task lacks evidence or issues need fixing (MUST include issue list)
   - \`reject_code_review\` - If major issues/incorrect implementation (MUST include issue list)
 
 ## Review Standards
-- **Correctness**: Implementation matches task requirements
+- **Correctness**: Implementation matches spec requirements with evidence
 - **Quality**: Code follows project patterns and best practices
-- **Completeness**: All deliverables present, tests adequate
+- **Completeness**: All spec tasks have evidence; deliverables and tests are adequate
 - **Safety**: No obvious security or stability issues
 
 Provide specific, actionable feedback for any issues found.
 
 IMPORTANT:
 - Any non-approval decision MUST include explicit issues.
-- If a prior review was REJECTED without issues, use \`add_code_review_issues\` to attach them.`;
+- If a prior review was REJECTED without issues, use \`add_code_review_issues\` to attach them.
+- Any spec task without evidence = CHANGES_REQUESTED.`;
     }
 
     // Bulk review
@@ -465,21 +473,28 @@ You must review exactly **ONE** task in this session:
 
 1. \`get_code_review_summary\` - See the overall review status
 2. Pick a single pending review to process
-3. \`get_latest_code_review\` for that task to get review details
+3. \`get_code_review\` for that task to get review details AND spec context (spec_path, spec_task_definitions[])
 4. \`claim_code_review\` with review_id - Claim the review (required)
-5. Read the implementation files to understand what was built
-6. Verify the implementation quality and correctness
+
+## Mandatory Spec-First Protocol (9.1-9.4)
+- Assume the implementation is WRONG until PROVEN correct
+- Read the spec FIRST using spec_path from \`get_code_review\`
+- Build a per-spec-task evidence table from spec_task_definitions[] BEFORE reading any implementation code
+- Any spec task without evidence MUST result in CHANGES_REQUESTED
+
+5. Read the implementation files only AFTER completing the evidence requirements
+6. Verify the implementation quality and correctness using the evidence table
 7. Make a decision: approve_code_review, request_changes_code_review, or reject_code_review
 
 ## Review Each Task For:
-- **Correctness**: Implementation matches task requirements
+- **Correctness**: Implementation matches spec requirements with evidence
 - **Quality**: Code follows project patterns and best practices  
-- **Completeness**: All deliverables present, tests adequate
+- **Completeness**: All spec tasks have evidence; deliverables and tests are adequate
 - **Safety**: No obvious security or stability issues
 
 ## Decision Guidance
-- **APPROVE**: Implementation correct, quality acceptable, tests pass
-- **REQUEST_CHANGES**: Minor issues that need fixing before approval
+- **APPROVE**: All spec tasks have evidence; implementation correct; quality acceptable
+- **REQUEST_CHANGES**: Any spec task lacks evidence or issues need fixing
 - **REJECT**: Major issues, incorrect implementation, or blocking problems
 
 ## Notes
