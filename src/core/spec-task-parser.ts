@@ -17,6 +17,9 @@ export interface SpecTaskDefinition {
 
 const headerTaskRegex = /^###\s+(T\d+)\s*[—-]\s*(.+)$/;
 const checklistTaskRegex = /^\s*-\s*\[\s*[xX ]?\s*\]\s*(T\d+)\s+(.+)$/;
+const colonTaskRegex = /^\s*(T\d+)\s*:\s*(.+)$/;
+const simpleListTaskRegex = /^\s*-\s*(T\d+)\s+(.+)$/;
+const tableTaskRegex = /^\s*\|\s*(T\d+)\s*\|\s*(.+?)\s*\|/;
 const acceptanceHeaderRegex = /^#{3,6}\s*Acceptance\b/i;
 const headingRegex = /^#{1,6}\s+/;
 const checklistItemRegex = /^\s*-\s*\[\s*[xX ]?\s*\]\s*(.+?)\s*$/;
@@ -83,6 +86,43 @@ export async function parseSpecTaskDefinitions(
   // Pass 2: Checklist format
   for (const line of lines) {
     const match = line.match(checklistTaskRegex);
+    if (!match) {
+      continue;
+    }
+
+    const rawId = match[1]?.trim();
+    const rawTitle = match[2]?.trim();
+
+    if (!rawId || !rawTitle) {
+      continue;
+    }
+
+    const id = rawId;
+    if (definitions.has(id.toUpperCase())) {
+      continue;
+    }
+
+    const title = rawTitle;
+    definitions.set(id.toUpperCase(), {
+      id,
+      title,
+      type: inferTaskType(title),
+      acceptance_criteria: [],
+    });
+  }
+
+  // Pass 3: Colon, simple list, and table formats
+  for (const line of lines) {
+    let match = line.match(colonTaskRegex);
+
+    if (!match && !/^\s*-\s*\[/.test(line)) {
+      match = line.match(simpleListTaskRegex);
+    }
+
+    if (!match) {
+      match = line.match(tableTaskRegex);
+    }
+
     if (!match) {
       continue;
     }

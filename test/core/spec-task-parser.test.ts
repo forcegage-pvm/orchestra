@@ -84,6 +84,52 @@ describe("parseSpecTaskDefinitions", () => {
     expect(definitions[1].acceptance_criteria).toEqual([]);
   });
 
+  it("parses colon, simple list, and table formats", async () => {
+    const specPath = await writeSpecFile(
+      "specs/extra-formats.md",
+      [
+        "T100: Implement colon format",
+        "- T101 Write tests for list format",
+        "| T102 | Implement table format |",
+        "### T103 — Header title wins",
+        "- T103 List title should not override",
+      ].join("\n"),
+    );
+
+    const definitions = await parseSpecTaskDefinitions(specPath, [
+      "T100",
+      "T101",
+      "T102",
+      "T103",
+    ]);
+
+    expect(definitions).toHaveLength(4);
+    expect(definitions[0]).toEqual({
+      id: "T100",
+      title: "Implement colon format",
+      type: "implementation",
+      acceptance_criteria: [],
+    });
+    expect(definitions[1]).toEqual({
+      id: "T101",
+      title: "Write tests for list format",
+      type: "test",
+      acceptance_criteria: [],
+    });
+    expect(definitions[2]).toEqual({
+      id: "T102",
+      title: "Implement table format",
+      type: "implementation",
+      acceptance_criteria: [],
+    });
+    expect(definitions[3]).toEqual({
+      id: "T103",
+      title: "Header title wins",
+      type: "implementation",
+      acceptance_criteria: [],
+    });
+  });
+
   it("throws when spec file is missing", async () => {
     await expect(
       parseSpecTaskDefinitions("specs/missing.md", ["T001"]),
