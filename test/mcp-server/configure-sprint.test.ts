@@ -364,6 +364,111 @@ describe("configure_sprint handler", () => {
     });
   });
 
+  describe("spec_path validation", () => {
+    const baseInput: Omit<ConfigureSprintInput, "sprint"> & {
+      sprint: { id: string; name: string; spec_path?: string };
+    } = {
+      environment: {
+        test_command: "npm test",
+        test_file_pattern: "test/**/*.test.ts",
+        source_base_dir: ".",
+      },
+      sprint: {
+        id: "test-sprint-spec-001",
+        name: "Spec Path Validation",
+        spec_path: specPath,
+      },
+      phases: [
+        {
+          phase_id: "phase-1",
+          phase_name: "Phase 1",
+        },
+      ],
+      tasks: [
+        {
+          task_id: 1,
+          phase_id: "phase-1",
+          title: "Regular Task",
+          description: "Task description",
+          category: "INFRASTRUCTURE",
+          dependencies: [],
+          verification: {
+            structural_checks: [
+              {
+                description: "File exists",
+                severity: "MAJOR",
+                path: "src/test.ts",
+                pattern: ".*",
+                min_matches: 1,
+              },
+            ],
+          },
+        },
+      ],
+    };
+
+    it("should accept sprint configuration with spec_path in spec/ directory", async () => {
+      const input: ConfigureSprintInput = {
+        ...baseInput,
+        sprint: {
+          ...baseInput.sprint,
+          id: "test-sprint-spec-002",
+          spec_path: "spec/test/test.md",
+        },
+      };
+
+      const result = await handleConfigureSprint(input);
+      const parsed = JSON.parse(result.content[0].text);
+
+      expect(parsed.success).toBe(true);
+      expect(parsed.sprint_id).toBe("test-sprint-spec-002");
+      expect(parsed.tasks_created).toBe(1);
+    });
+
+    it("should reject sprint configuration with invalid spec_path directory", async () => {
+      const input: ConfigureSprintInput = {
+        ...baseInput,
+        sprint: {
+          ...baseInput.sprint,
+          id: "test-sprint-spec-003",
+          spec_path: "documents/spec.md",
+        },
+      };
+
+      const result = await handleConfigureSprint(input);
+      const parsed = JSON.parse(result.content[0].text);
+
+      expect(parsed.success).toBe(false);
+      expect(parsed.error.code).toBe("VALIDATION_ERROR");
+
+      const issuesText = JSON.stringify(parsed.error.details.issues);
+      expect(issuesText).toContain(
+        "Spec path must be in specs/ or spec/ directory",
+      );
+    });
+
+    it("should reject sprint configuration without spec_path", async () => {
+      const { spec_path: _specPath, ...sprintWithoutSpec } = baseInput.sprint;
+      const input: ConfigureSprintInput = {
+        ...baseInput,
+        sprint: {
+          ...sprintWithoutSpec,
+          id: "test-sprint-spec-004",
+        },
+      };
+
+      const result = await handleConfigureSprint(input);
+      const parsed = JSON.parse(result.content[0].text);
+
+      expect(parsed.success).toBe(false);
+      expect(parsed.error.code).toBe("VALIDATION_ERROR");
+
+      const issuesText = JSON.stringify(parsed.error.details.issues);
+      expect(issuesText).toContain("spec_path");
+      expect(issuesText).toContain("Required");
+    });
+  });
+
   describe("sprint configuration", () => {
     it("should create sprint and deactivate existing sprints", async () => {
       const db = getDb();
