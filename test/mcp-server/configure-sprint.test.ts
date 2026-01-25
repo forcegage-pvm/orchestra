@@ -14,6 +14,7 @@ import type { ConfigureSprintInput } from "../../src/schemas/index.js";
 import { cleanupTestDb, setupTestDb } from "../setup/db-cache.js";
 
 describe("configure_sprint handler", () => {
+  const specPath = "specs/001-mcp-server/README.md";
   let tempDir: string;
 
   beforeEach(async () => {
@@ -35,6 +36,7 @@ describe("configure_sprint handler", () => {
         sprint: {
           id: "test-sprint-001",
           name: "Test Sprint with TDD Red Phase",
+          spec_path: specPath,
         },
         phases: [
           {
@@ -120,6 +122,7 @@ describe("configure_sprint handler", () => {
         sprint: {
           id: "test-sprint-002",
           name: "Test Sprint without Red Phase",
+          spec_path: specPath,
         },
         phases: [
           {
@@ -178,6 +181,7 @@ describe("configure_sprint handler", () => {
         sprint: {
           id: "test-sprint-003",
           name: "Test Sprint with default",
+          spec_path: specPath,
         },
         phases: [
           {
@@ -236,6 +240,7 @@ describe("configure_sprint handler", () => {
         sprint: {
           id: "test-sprint-004",
           name: "Test Sprint with mixed tasks",
+          spec_path: specPath,
         },
         phases: [
           {
@@ -383,6 +388,7 @@ describe("configure_sprint handler", () => {
         sprint: {
           id: "new-sprint",
           name: "New Sprint",
+          spec_path: specPath,
         },
         phases: [
           {
@@ -445,6 +451,7 @@ describe("configure_sprint handler", () => {
         sprint: {
           id: "test-sprint-tdd-001",
           name: "Test Sprint with TDD Relationships",
+          spec_path: specPath,
         },
         phases: [
           {
@@ -540,6 +547,7 @@ describe("configure_sprint handler", () => {
         sprint: {
           id: "test-sprint-tdd-002",
           name: "Test Sprint - Invalid Red Task",
+          spec_path: specPath,
         },
         phases: [
           {
@@ -618,6 +626,7 @@ describe("configure_sprint handler", () => {
         sprint: {
           id: "test-sprint-tdd-003",
           name: "Test Sprint - Same Task IDs",
+          spec_path: specPath,
         },
         phases: [
           {
@@ -676,6 +685,7 @@ describe("configure_sprint handler", () => {
         sprint: {
           id: "test-sprint-tdd-004",
           name: "Test Sprint - Invalid Red Task ID",
+          spec_path: specPath,
         },
         phases: [
           {
@@ -733,6 +743,7 @@ describe("configure_sprint handler", () => {
         sprint: {
           id: "test-sprint-tdd-005",
           name: "Test Sprint - Invalid Green Task ID",
+          spec_path: specPath,
         },
         phases: [
           {
@@ -791,6 +802,7 @@ describe("configure_sprint handler", () => {
         sprint: {
           id: "test-sprint-tdd-006",
           name: "Test Sprint - Multiple Relationships",
+          spec_path: specPath,
         },
         phases: [
           {
@@ -918,6 +930,7 @@ describe("configure_sprint handler", () => {
         sprint: {
           id: "test-sprint-tdd-orphan",
           name: "Test Sprint - Orphan Red Task",
+          spec_path: specPath,
         },
         phases: [
           {
@@ -991,6 +1004,7 @@ describe("configure_sprint handler", () => {
         sprint: {
           id: "test-sprint-tdd-no-env",
           name: "TDD Sprint Without Environment",
+          spec_path: specPath,
         },
         phases: [
           {
@@ -1077,6 +1091,7 @@ describe("configure_sprint handler", () => {
         sprint: {
           id: "test-sprint-no-test-cmd",
           name: "TDD Sprint Without test_command",
+          spec_path: specPath,
         },
         phases: [
           {
@@ -1165,6 +1180,7 @@ describe("configure_sprint handler", () => {
         sprint: {
           id: "test-sprint-no-pattern",
           name: "TDD Sprint Without test_file_pattern",
+          spec_path: specPath,
         },
         phases: [
           {
@@ -1252,6 +1268,7 @@ describe("configure_sprint handler", () => {
         sprint: {
           id: "test-sprint-no-test-fields",
           name: "TDD Sprint Without Test Fields",
+          spec_path: specPath,
         },
         phases: [
           {
@@ -1330,6 +1347,7 @@ describe("configure_sprint handler", () => {
         sprint: {
           id: "test-sprint-multiple-tdd",
           name: "Multiple TDD Tasks",
+          spec_path: specPath,
         },
         phases: [
           {
@@ -1465,6 +1483,7 @@ describe("configure_sprint handler", () => {
         sprint: {
           id: "test-sprint-no-tdd",
           name: "Sprint Without TDD Tasks",
+          spec_path: specPath,
         },
         phases: [
           {
@@ -1541,6 +1560,7 @@ describe("configure_sprint handler", () => {
         sprint: {
           id: "test-sprint-valid-tdd",
           name: "Valid TDD Sprint",
+          spec_path: specPath,
         },
         phases: [
           {

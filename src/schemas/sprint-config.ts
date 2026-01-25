@@ -27,7 +27,10 @@ export const SprintEnvironmentSchema = z.object({
   /** Command to run tests - e.g. npm test, flutter test, pytest */
   test_command: z.string().min(1, "Test command cannot be empty").optional(),
   /** Glob pattern for test files - e.g. test slash star slash star.test.ts */
-  test_file_pattern: z.string().min(1, "Test file pattern cannot be empty").optional(),
+  test_file_pattern: z
+    .string()
+    .min(1, "Test file pattern cannot be empty")
+    .optional(),
   /** Base directory for source files in monorepos - e.g. extension, packages/app, or . for root */
   source_base_dir: z
     .string()
@@ -48,6 +51,16 @@ export const ConfigureSprintInputSchema = z
       .object({
         id: z.string().min(1, "Sprint ID is required"),
         name: z.string().min(1, "Sprint name is required"),
+        spec_path: z
+          .string()
+          .min(1, "Spec path is required")
+          .refine(
+            (specPath) =>
+              specPath.startsWith("specs/") || specPath.startsWith("spec/"),
+            "Spec path must be in specs/ or spec/ directory",
+          ),
+        spec_version: z.string().optional(),
+        spec_hash: z.string().optional(),
       })
       .optional(),
 

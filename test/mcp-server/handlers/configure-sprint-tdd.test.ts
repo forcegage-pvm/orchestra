@@ -14,6 +14,7 @@ import type { ConfigureSprintInput } from "../../../src/schemas/index.js";
 import { cleanupTestDb, setupTestDb } from "../../setup/db-cache.js";
 
 describe("configure_sprint - TDD relationship declaration", () => {
+  const specPath = "specs/001-mcp-server/README.md";
   let tempDir: string;
 
   beforeEach(async () => {
@@ -35,6 +36,7 @@ describe("configure_sprint - TDD relationship declaration", () => {
         sprint: {
           id: "test-sprint-tdd-upfront-001",
           name: "Test Sprint - TDD Upfront Declaration",
+          spec_path: specPath,
         },
         phases: [
           {
@@ -137,6 +139,7 @@ describe("configure_sprint - TDD relationship declaration", () => {
         sprint: {
           id: "test-sprint-tdd-upfront-002",
           name: "Test Sprint - Multiple TDD Pairs",
+          spec_path: specPath,
         },
         phases: [
           {
@@ -271,6 +274,7 @@ describe("configure_sprint - TDD relationship declaration", () => {
         sprint: {
           id: "test-sprint-tdd-upfront-003",
           name: "Test Sprint - Invalid Red Task",
+          spec_path: specPath,
         },
         phases: [
           {
@@ -349,6 +353,7 @@ describe("configure_sprint - TDD relationship declaration", () => {
         sprint: {
           id: "test-sprint-tdd-upfront-004",
           name: "Test Sprint - Explicit False Red Phase",
+          spec_path: specPath,
         },
         phases: [
           {
@@ -427,6 +432,7 @@ describe("configure_sprint - TDD relationship declaration", () => {
         sprint: {
           id: "test-sprint-tdd-upfront-005",
           name: "Test Sprint - Same Task IDs",
+          spec_path: specPath,
         },
         phases: [
           {
@@ -485,6 +491,7 @@ describe("configure_sprint - TDD relationship declaration", () => {
         sprint: {
           id: "test-sprint-tdd-upfront-006",
           name: "Test Sprint - Duplicate Relationships",
+          spec_path: specPath,
         },
         phases: [
           {
@@ -587,6 +594,7 @@ describe("configure_sprint - TDD relationship declaration", () => {
         sprint: {
           id: "test-sprint-tdd-upfront-007",
           name: "Test Sprint - Invalid Red Task ID",
+          spec_path: specPath,
         },
         phases: [
           {
@@ -644,6 +652,7 @@ describe("configure_sprint - TDD relationship declaration", () => {
         sprint: {
           id: "test-sprint-tdd-upfront-008",
           name: "Test Sprint - Invalid Green Task ID",
+          spec_path: specPath,
         },
         phases: [
           {
@@ -702,6 +711,7 @@ describe("configure_sprint - TDD relationship declaration", () => {
         sprint: {
           id: "test-sprint-tdd-upfront-009",
           name: "Test Sprint - Both Invalid Task IDs",
+          spec_path: specPath,
         },
         phases: [
           {
@@ -761,6 +771,7 @@ describe("configure_sprint - TDD relationship declaration", () => {
         sprint: {
           id: "test-sprint-tdd-upfront-010",
           name: "Test Sprint - No TDD Relationships",
+          spec_path: specPath,
         },
         phases: [
           {
@@ -820,6 +831,7 @@ describe("configure_sprint - TDD relationship declaration", () => {
         sprint: {
           id: "test-sprint-tdd-upfront-011",
           name: "Test Sprint - Empty TDD Relationships",
+          spec_path: specPath,
         },
         phases: [
           {
@@ -881,6 +893,7 @@ describe("configure_sprint - TDD relationship declaration", () => {
         sprint: {
           id: "test-sprint-tdd-upfront-012",
           name: "Test Sprint - Green Task is also Red",
+          spec_path: specPath,
         },
         phases: [
           {
@@ -1098,6 +1111,7 @@ describe("configure_sprint - TDD relationship declaration", () => {
         sprint: {
           id: "test-sprint-no-test-pattern-001",
           name: "Sprint Without Test Pattern",
+          spec_path: specPath,
         },
         phases: [
           {
@@ -1154,6 +1168,7 @@ describe("configure_sprint - TDD relationship declaration", () => {
         sprint: {
           id: "test-sprint-with-env-001",
           name: "Sprint With Environment",
+          spec_path: specPath,
         },
         phases: [
           {
@@ -1223,6 +1238,7 @@ describe("configure_sprint - TDD relationship declaration", () => {
         sprint: {
           id: "test-sprint-no-tdd-001",
           name: "Sprint Without TDD",
+          spec_path: specPath,
         },
         phases: [
           {

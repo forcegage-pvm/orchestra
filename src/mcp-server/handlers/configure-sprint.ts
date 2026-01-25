@@ -172,10 +172,12 @@ export async function handleConfigureSprint(
     );
 
     // Handle errors - use VALIDATION_ERROR for TDD environment validation
-    const errorCode = err.message.includes("TDD red-phase tasks require environment")
+    const errorCode = err.message.includes(
+      "TDD red-phase tasks require environment",
+    )
       ? "VALIDATION_ERROR"
       : "DATABASE_ERROR";
-    
+
     const errorResponse = createErrorResponse(errorCode, err.message, {
       duration_ms: durationMs,
     });
@@ -217,12 +219,14 @@ async function configureSprint(input: ConfigureSprintInput): Promise<{
 
   // VALIDATION: TDD tasks require environment configuration
   // Check if any task has tdd_red_phase=true
-  const tddRedPhaseTasks = tasksData.filter((task) => task.tdd_red_phase === true);
-  
+  const tddRedPhaseTasks = tasksData.filter(
+    (task) => task.tdd_red_phase === true,
+  );
+
   if (tddRedPhaseTasks.length > 0) {
     // TDD tasks exist - environment is required
     const missingFields: string[] = [];
-    
+
     if (!input.environment) {
       missingFields.push("environment");
     } else {
@@ -233,13 +237,13 @@ async function configureSprint(input: ConfigureSprintInput): Promise<{
         missingFields.push("environment.test_file_pattern");
       }
     }
-    
+
     if (missingFields.length > 0) {
       const taskIds = tddRedPhaseTasks.map((t) => t.task_id).join(", ");
       throw new Error(
         `TDD red-phase tasks require environment configuration. ` +
-        `Missing fields: ${missingFields.join(", ")}. ` +
-        `Tasks with tdd_red_phase=true: [${taskIds}]`
+          `Missing fields: ${missingFields.join(", ")}. ` +
+          `Tasks with tdd_red_phase=true: [${taskIds}]`,
       );
     }
   }
@@ -251,6 +255,9 @@ async function configureSprint(input: ConfigureSprintInput): Promise<{
   await db.insert(sprints).values({
     id: sprint.id,
     name: sprint.name,
+    spec_path: sprint.spec_path,
+    spec_version: sprint.spec_version ?? null,
+    spec_hash: sprint.spec_hash ?? null,
     status: "PENDING_SPEC_REVIEW", // Controller must approve before tasks can be prepared
     workflow_step: "CONFIGURE",
     is_active: true,
