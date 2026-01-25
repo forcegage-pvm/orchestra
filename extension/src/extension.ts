@@ -38,6 +38,7 @@ import { MCPServerManager } from "./mcp/ServerManager.js";
 import { ContextFileResolver } from "./prompts/ContextFileResolver.js";
 import { PromptBuilder } from "./prompts/PromptBuilder.js";
 import { OrchestraLogger } from "./utils/logger.js";
+import { AgentOutputPanel } from "./views/agent/AgentOutputPanel.js";
 import { DashboardPanel } from "./views/dashboard/DashboardPanel.js";
 import { OrchestraViewDecorationProvider } from "./views/providers/ViewDecorationProvider.js";
 import { SprintSettingsPanel } from "./views/settings/SprintSettingsPanel.js";
@@ -59,6 +60,8 @@ let contextFileResolver: ContextFileResolver | undefined;
 let dbWatcher: DatabaseWatcher | undefined;
 let mcpManager: MCPServerManager | undefined;
 let agentRunner: AgentRunner | undefined;
+let agentOutputPanel: AgentOutputPanel | undefined;
+let agentStateSubscription: vscode.Disposable | undefined;
 
 async function openAgentChat(
   participant:
@@ -1638,6 +1641,19 @@ export async function activate(
 
           const runner = getAgentRunner();
 
+          agentOutputPanel = AgentOutputPanel.createOrShow(
+            context.extensionUri,
+          );
+          agentOutputPanel.clear();
+          agentOutputPanel.updateStatus("Starting");
+          agentOutputPanel.bindToRunner(runner);
+
+          agentStateSubscription?.dispose();
+          agentStateSubscription = runner.onStateChange((state) => {
+            agentOutputPanel?.updateStatus(state.status);
+          });
+          context.subscriptions.push(agentStateSubscription);
+
           // Start the agent
           await runner.start(
             role.value as "orchestrator" | "implementor" | "controller",
@@ -1695,6 +1711,10 @@ export async function activate(
           await agentRunner.stop();
           agentRunner.dispose();
           agentRunner = undefined;
+          agentStateSubscription?.dispose();
+          agentStateSubscription = undefined;
+          agentOutputPanel?.unbindRunner();
+          agentOutputPanel?.updateStatus("Stopped");
 
           vscode.window.showInformationMessage(
             "Orchestra: Agent stopped successfully",
@@ -1805,6 +1825,10 @@ export function deactivate(): void {
     agentRunner.dispose();
     agentRunner = undefined;
   }
+
+  agentStateSubscription?.dispose();
+  agentStateSubscription = undefined;
+  agentOutputPanel?.unbindRunner();
 
   // Database watcher disposed via subscriptions
   dbWatcher = undefined;

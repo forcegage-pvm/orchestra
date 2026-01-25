@@ -5,15 +5,22 @@
  */
 
 import * as vscode from "vscode";
-import { generateAgentOutputHtml, type AgentOutputItem } from "./templates/agentOutputTemplate.js";
+import type { AgentRunner } from "../../agents/AgentRunner.js";
+import { bindAgentOutput } from "./agentOutputConverter.js";
+import {
+  generateAgentOutputHtml,
+  type AgentOutputItem,
+} from "./templates/agentOutputTemplate.js";
 
 export class AgentOutputPanel {
   public static currentPanel: AgentOutputPanel | undefined;
   private readonly _panel: vscode.WebviewPanel;
   private readonly _extensionUri: vscode.Uri;
   private _disposables: vscode.Disposable[] = [];
-  private _pendingMessages: Array<{ type: string; [key: string]: unknown }> = [];
+  private _pendingMessages: Array<{ type: string; [key: string]: unknown }> =
+    [];
   private _ready = false;
+  private _outputSubscription: { dispose(): void } | undefined;
 
   private constructor(panel: vscode.WebviewPanel, extensionUri: vscode.Uri) {
     this._panel = panel;
@@ -79,6 +86,25 @@ export class AgentOutputPanel {
     this.postMessage({ type: "updateStatus", status });
   }
 
+  /**
+   * Bind the panel to an AgentRunner output stream
+   */
+  public bindToRunner(runner: AgentRunner): void {
+    this._outputSubscription?.dispose();
+    this._outputSubscription = bindAgentOutput(runner.onOutput, {
+      addOutput: (output) => this.addOutput(output),
+      updateStatus: (status) => this.updateStatus(status),
+    });
+  }
+
+  /**
+   * Unbind the panel from the agent output stream
+   */
+  public unbindRunner(): void {
+    this._outputSubscription?.dispose();
+    this._outputSubscription = undefined;
+  }
+
   private postMessage(message: { type: string; [key: string]: unknown }): void {
     if (this._ready) {
       void this._panel.webview.postMessage(message);
@@ -122,6 +148,7 @@ export class AgentOutputPanel {
    */
   public dispose(): void {
     AgentOutputPanel.currentPanel = undefined;
+    this._outputSubscription?.dispose();
     this._panel.dispose();
     while (this._disposables.length) {
       const disposable = this._disposables.pop();
