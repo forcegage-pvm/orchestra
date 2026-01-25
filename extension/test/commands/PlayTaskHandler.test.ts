@@ -58,7 +58,7 @@ vi.mock("../../src/prompts/ContextFileResolver.js", () => ({
 vi.mock("../../src/extension.js", () => ({
   getConfigService: vi.fn(() => ({
     getModelForRole: vi.fn((role: string) =>
-      role === "orchestrator" ? "claude-opus-4" : "claude-sonnet-4"
+      role === "orchestrator" ? "claude-opus-4" : "claude-sonnet-4",
     ),
     getAgentForRole: vi.fn((role: string) => `orchestra.${role}`),
   })),
@@ -95,10 +95,10 @@ describe("PlayTaskHandler", () => {
 
       expect(queries.getTaskById).toHaveBeenCalledWith(
         mockWorkspaceRoot,
-        mockTaskId
+        mockTaskId,
       );
       expect(vscode.window.showErrorMessage).toHaveBeenCalledWith(
-        `Task ${mockTaskId} not found`
+        `Task ${mockTaskId} not found`,
       );
     });
 
@@ -148,7 +148,7 @@ describe("PlayTaskHandler", () => {
           () =>
             ({
               buildPreparePrompt: mockBuildPreparePrompt,
-            } as unknown as PromptBuilder)
+            }) as unknown as PromptBuilder,
         );
 
         await handlePlayTask(mockWorkspaceRoot, mockTaskId);
@@ -156,10 +156,10 @@ describe("PlayTaskHandler", () => {
         // Verify task and sprint queries
         expect(queries.getTaskById).toHaveBeenCalledWith(
           mockWorkspaceRoot,
-          mockTaskId
+          mockTaskId,
         );
         expect(queries.getCurrentSprint).toHaveBeenCalledWith(
-          mockWorkspaceRoot
+          mockWorkspaceRoot,
         );
 
         // Verify PromptBuilder was called with correct context
@@ -181,7 +181,7 @@ describe("PlayTaskHandler", () => {
         expect(mockSendMessage).toHaveBeenCalledWith(
           "orchestrator",
           "Mock prepare prompt",
-          []
+          [],
         );
       });
 
@@ -192,7 +192,7 @@ describe("PlayTaskHandler", () => {
         await handlePlayTask(mockWorkspaceRoot, mockTaskId);
 
         expect(vscode.window.showErrorMessage).toHaveBeenCalledWith(
-          "No active sprint found. Cannot prepare task."
+          "No active sprint found. Cannot prepare task.",
         );
       });
 
@@ -205,10 +205,10 @@ describe("PlayTaskHandler", () => {
         await handlePlayTask(mockWorkspaceRoot, mockTaskId);
 
         expect(vscode.window.showErrorMessage).toHaveBeenCalledWith(
-          expect.stringContaining("Failed to prepare task")
+          expect.stringContaining("Failed to prepare task"),
         );
         expect(vscode.window.showErrorMessage).toHaveBeenCalledWith(
-          expect.stringContaining("Database error")
+          expect.stringContaining("Database error"),
         );
       });
     });
@@ -246,7 +246,7 @@ describe("PlayTaskHandler", () => {
           () =>
             ({
               buildImplementPrompt: mockBuildImplementPrompt,
-            } as unknown as PromptBuilder)
+            }) as unknown as PromptBuilder,
         );
 
         vi.mocked(extension.getContextFileResolver).mockReturnValue({
@@ -263,7 +263,7 @@ describe("PlayTaskHandler", () => {
         // Verify task query
         expect(queries.getTaskById).toHaveBeenCalledWith(
           mockWorkspaceRoot,
-          mockTaskId
+          mockTaskId,
         );
 
         // Verify PromptBuilder was called with correct context (no handoverPath field exists)
@@ -303,7 +303,7 @@ describe("PlayTaskHandler", () => {
           () =>
             ({
               buildImplementPrompt: mockBuildImplementPrompt,
-            } as unknown as PromptBuilder)
+            }) as unknown as PromptBuilder,
         );
 
         vi.mocked(extension.getContextFileResolver).mockReturnValue({
@@ -351,7 +351,7 @@ describe("PlayTaskHandler", () => {
           () =>
             ({
               buildImplementPrompt: mockBuildImplementPrompt,
-            } as unknown as PromptBuilder)
+            }) as unknown as PromptBuilder,
         );
 
         vi.mocked(extension.getContextFileResolver).mockReturnValue({
@@ -383,7 +383,7 @@ describe("PlayTaskHandler", () => {
           () =>
             ({
               buildImplementPrompt: mockBuildImplementPrompt,
-            } as unknown as PromptBuilder)
+            }) as unknown as PromptBuilder,
         );
 
         vi.mocked(extension.getContextFileResolver).mockReturnValue({
@@ -398,7 +398,7 @@ describe("PlayTaskHandler", () => {
         await handlePlayTask(mockWorkspaceRoot, mockTaskId);
 
         expect(vscode.window.showErrorMessage).toHaveBeenCalledWith(
-          "Orchestra: Agent is already running. Stop or pause the current agent first."
+          "Orchestra: Agent is already running. Stop or pause the current agent first.",
         );
       });
 
@@ -407,14 +407,18 @@ describe("PlayTaskHandler", () => {
         vi.mocked(extension.getContextFileResolver).mockImplementation(() => {
           throw new Error("Context resolver error");
         });
+        vi.mocked(extension.getAgentRunner).mockReturnValue({
+          getSession: vi.fn(() => undefined),
+          start: vi.fn().mockResolvedValue({}),
+        } as never);
 
         await handlePlayTask(mockWorkspaceRoot, mockTaskId);
 
         expect(vscode.window.showErrorMessage).toHaveBeenCalledWith(
-          expect.stringContaining("Failed to start implementor agent")
+          expect.stringContaining("Failed to start implementor agent"),
         );
         expect(vscode.window.showErrorMessage).toHaveBeenCalledWith(
-          expect.stringContaining("Context resolver error")
+          expect.stringContaining("Context resolver error"),
         );
       });
 
@@ -424,7 +428,7 @@ describe("PlayTaskHandler", () => {
         await handlePlayTask(mockWorkspaceRoot, mockTaskId);
 
         expect(vscode.window.showErrorMessage).toHaveBeenCalledWith(
-          `Task ${mockTaskId} not found`
+          `Task ${mockTaskId} not found`,
         );
       });
     });
@@ -483,7 +487,7 @@ describe("PlayTaskHandler", () => {
           () =>
             ({
               buildRetryPrompt: mockBuildRetryPrompt,
-            } as unknown as PromptBuilder)
+            }) as unknown as PromptBuilder,
         );
 
         vi.mocked(extension.getContextFileResolver).mockReturnValue({
@@ -500,11 +504,11 @@ describe("PlayTaskHandler", () => {
         // Verify task and feedback queries
         expect(queries.getTaskById).toHaveBeenCalledWith(
           mockWorkspaceRoot,
-          mockTaskId
+          mockTaskId,
         );
         expect(queries.getFeedback).toHaveBeenCalledWith(
           mockWorkspaceRoot,
-          mockTaskId
+          mockTaskId,
         );
 
         // Verify PromptBuilder was called with retry context
@@ -529,7 +533,7 @@ describe("PlayTaskHandler", () => {
         // Verify SessionManager.invokeImplementor was called with prompt and files
         expect(mockInvokeImplementor).toHaveBeenCalledWith(
           "Mock retry prompt",
-          [{ fsPath: "/workspace/src/file1.ts" }]
+          [{ fsPath: "/workspace/src/file1.ts" }],
         );
       });
 
@@ -539,7 +543,7 @@ describe("PlayTaskHandler", () => {
         await handlePlayTask(mockWorkspaceRoot, mockTaskId);
 
         expect(vscode.window.showErrorMessage).toHaveBeenCalledWith(
-          `Task ${mockTaskId} not found`
+          `Task ${mockTaskId} not found`,
         );
       });
 
@@ -551,10 +555,10 @@ describe("PlayTaskHandler", () => {
 
         expect(queries.getFeedback).toHaveBeenCalledWith(
           mockWorkspaceRoot,
-          mockTaskId
+          mockTaskId,
         );
         expect(vscode.window.showErrorMessage).toHaveBeenCalledWith(
-          `Orchestra: No feedback found for task ${mockTaskId}. Cannot retry.`
+          `Orchestra: No feedback found for task ${mockTaskId}. Cannot retry.`,
         );
       });
 
@@ -567,10 +571,10 @@ describe("PlayTaskHandler", () => {
         await handlePlayTask(mockWorkspaceRoot, mockTaskId);
 
         expect(vscode.window.showErrorMessage).toHaveBeenCalledWith(
-          expect.stringContaining("Failed to retry task")
+          expect.stringContaining("Failed to retry task"),
         );
         expect(vscode.window.showErrorMessage).toHaveBeenCalledWith(
-          expect.stringContaining("Database error")
+          expect.stringContaining("Database error"),
         );
       });
     });
@@ -628,23 +632,23 @@ describe("PlayTaskHandler", () => {
 
         expect(queries.getTaskById).toHaveBeenCalledWith(
           mockWorkspaceRoot,
-          mockTaskId
+          mockTaskId,
         );
         expect(queries.getEscalation).toHaveBeenCalledWith(
           mockWorkspaceRoot,
-          mockTaskId
+          mockTaskId,
         );
 
         // Verify orchestrator was invoked with escalation review prompt
         expect(mockSendMessage).toHaveBeenCalledWith(
           "orchestrator",
           expect.stringContaining("review the escalated Task"),
-          []
+          [],
         );
         expect(mockSendMessage).toHaveBeenCalledWith(
           "orchestrator",
           expect.stringContaining("Max retries exceeded"),
-          []
+          [],
         );
       });
 
@@ -654,7 +658,7 @@ describe("PlayTaskHandler", () => {
         await handlePlayTask(mockWorkspaceRoot, mockTaskId);
 
         expect(vscode.window.showErrorMessage).toHaveBeenCalledWith(
-          `Task ${mockTaskId} not found`
+          `Task ${mockTaskId} not found`,
         );
       });
 
@@ -666,10 +670,10 @@ describe("PlayTaskHandler", () => {
 
         expect(queries.getEscalation).toHaveBeenCalledWith(
           mockWorkspaceRoot,
-          mockTaskId
+          mockTaskId,
         );
         expect(vscode.window.showErrorMessage).toHaveBeenCalledWith(
-          expect.stringContaining("No escalation found for task")
+          expect.stringContaining("No escalation found for task"),
         );
       });
 
@@ -682,10 +686,10 @@ describe("PlayTaskHandler", () => {
         await handlePlayTask(mockWorkspaceRoot, mockTaskId);
 
         expect(vscode.window.showErrorMessage).toHaveBeenCalledWith(
-          expect.stringContaining("Failed to invoke escalation review")
+          expect.stringContaining("Failed to invoke escalation review"),
         );
         expect(vscode.window.showErrorMessage).toHaveBeenCalledWith(
-          expect.stringContaining("Database error")
+          expect.stringContaining("Database error"),
         );
       });
     });
@@ -723,14 +727,14 @@ describe("PlayTaskHandler", () => {
         () =>
           ({
             buildVerifyPrompt: mockBuildVerifyPrompt,
-          } as unknown as PromptBuilder)
+          }) as unknown as PromptBuilder,
       );
 
       await handlePlayTask(mockWorkspaceRoot, mockTaskId);
 
       expect(queries.getTaskById).toHaveBeenCalledWith(
         mockWorkspaceRoot,
-        mockTaskId
+        mockTaskId,
       );
 
       // Verify PromptBuilder was called with correct context
@@ -752,7 +756,7 @@ describe("PlayTaskHandler", () => {
       expect(mockSendMessage).toHaveBeenCalledWith(
         "orchestrator",
         "Mock verify prompt",
-        []
+        [],
       );
     });
 
@@ -781,10 +785,10 @@ describe("PlayTaskHandler", () => {
 
       expect(queries.getTaskById).toHaveBeenCalledWith(
         mockWorkspaceRoot,
-        mockTaskId
+        mockTaskId,
       );
       expect(vscode.window.showInformationMessage).toHaveBeenCalledWith(
-        `Task ${mockTaskId}: Test Task is already complete`
+        `Task ${mockTaskId}: Test Task is already complete`,
       );
     });
 
@@ -813,10 +817,10 @@ describe("PlayTaskHandler", () => {
 
       expect(queries.getTaskById).toHaveBeenCalledWith(
         mockWorkspaceRoot,
-        mockTaskId
+        mockTaskId,
       );
       expect(vscode.window.showWarningMessage).toHaveBeenCalledWith(
-        `Task ${mockTaskId} has unexpected status: UNKNOWN_STATUS`
+        `Task ${mockTaskId} has unexpected status: UNKNOWN_STATUS`,
       );
     });
   });

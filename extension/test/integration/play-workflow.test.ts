@@ -74,6 +74,7 @@ vi.mock("../../src/extension.js", () => ({
   getContextFileResolver: vi.fn(() => ({
     getContextFiles: vi.fn(() => []),
   })),
+  getAgentRunner: vi.fn(),
   getSessionManager: vi.fn(),
 }));
 
@@ -83,6 +84,7 @@ describe("Play Workflow Integration Tests", () => {
 
   let mockInvokeOrchestrator: ReturnType<typeof vi.fn>;
   let mockInvokeImplementor: ReturnType<typeof vi.fn>;
+  let mockStartAgent: ReturnType<typeof vi.fn>;
   let mockGetModelForRole: ReturnType<typeof vi.fn>;
   let mockGetAgentForRole: ReturnType<typeof vi.fn>;
 
@@ -93,6 +95,7 @@ describe("Play Workflow Integration Tests", () => {
     // Setup SessionManager mocks
     mockInvokeOrchestrator = vi.fn();
     mockInvokeImplementor = vi.fn();
+    mockStartAgent = vi.fn().mockResolvedValue({});
 
     const mockSessionManager = {
       sendMessage: vi.fn((role: string, message: string, files: unknown[]) => {
@@ -113,9 +116,14 @@ describe("Play Workflow Integration Tests", () => {
 
     vi.mocked(extension.getSessionManager).mockReturnValue(mockSessionManager);
 
+    vi.mocked(extension.getAgentRunner).mockReturnValue({
+      getSession: vi.fn(() => undefined),
+      start: mockStartAgent,
+    } as never);
+
     // Setup ConfigService mocks
     mockGetModelForRole = vi.fn((role: string) =>
-      role === "orchestrator" ? "claude-opus-4.5" : "claude-sonnet-4.5"
+      role === "orchestrator" ? "claude-opus-4.5" : "claude-sonnet-4.5",
     );
     mockGetAgentForRole = vi.fn((role: string) => `orchestra.${role}`);
 
@@ -196,13 +204,13 @@ describe("Play Workflow Integration Tests", () => {
       // Verify orchestrator was invoked with prepare prompt
       expect(mockInvokeOrchestrator).toHaveBeenCalledWith(
         "Mock prepare prompt",
-        []
+        [],
       );
     });
   });
 
   describe("IMPLEMENT task routing", () => {
-    it("should route IMPLEMENT task to a fresh chat editor tab", async () => {
+    it("should route IMPLEMENT task to AgentRunner", async () => {
       const mockTask = {
         id: mockTaskId,
         sprint_id: "sprint-1",
@@ -225,13 +233,13 @@ describe("Play Workflow Integration Tests", () => {
 
       await handlePlayTask(mockWorkspaceRoot, mockTaskId);
 
-      // Verify implementor was invoked (via SessionManager.invokeImplementor)
-      expect(mockInvokeImplementor).toHaveBeenCalled();
+      // Verify AgentRunner was invoked
+      expect(mockStartAgent).toHaveBeenCalled();
       // Orchestrator should NOT be invoked
       expect(mockInvokeOrchestrator).not.toHaveBeenCalled();
     });
 
-    it("should pass implement prompt to fresh chat tab", async () => {
+    it("should pass implement prompt to AgentRunner", async () => {
       const mockTask = {
         id: mockTaskId,
         sprint_id: "sprint-1",
@@ -254,11 +262,12 @@ describe("Play Workflow Integration Tests", () => {
 
       await handlePlayTask(mockWorkspaceRoot, mockTaskId);
 
-      // Verify implementor was invoked with correct prompt
-      expect(mockInvokeImplementor).toHaveBeenCalledWith(
-        "Mock implement prompt",
-        expect.any(Array)
-      );
+      // Verify AgentRunner was invoked with correct prompt
+      expect(mockStartAgent).toHaveBeenCalledWith("implementor", {
+        prompt: "Mock implement prompt",
+        taskId: mockTaskId,
+        sprintId: mockTask.sprint_id,
+      });
     });
   });
 
@@ -317,7 +326,7 @@ describe("Play Workflow Integration Tests", () => {
       // Verify orchestrator was invoked with verify prompt
       expect(mockInvokeOrchestrator).toHaveBeenCalledWith(
         "Mock verify prompt",
-        []
+        [],
       );
     });
   });
@@ -415,7 +424,7 @@ describe("Play Workflow Integration Tests", () => {
       // Verify implementor was invoked with retry prompt
       expect(mockInvokeImplementor).toHaveBeenCalledWith(
         "Mock retry prompt",
-        expect.any(Array)
+        expect.any(Array),
       );
     });
   });
@@ -451,7 +460,7 @@ describe("Play Workflow Integration Tests", () => {
       expect(mockInvokeOrchestrator).toHaveBeenCalledTimes(1);
     });
 
-    it("should use ConfigService for implementor model/agent configuration", async () => {
+    it("should use AgentRunner for implementor execution", async () => {
       const mockTask = {
         id: mockTaskId,
         sprint_id: "sprint-1",
@@ -474,16 +483,16 @@ describe("Play Workflow Integration Tests", () => {
 
       await handlePlayTask(mockWorkspaceRoot, mockTaskId);
 
-      // Verify SessionManager was retrieved
-      expect(extension.getSessionManager).toHaveBeenCalled();
+      // Verify AgentRunner was retrieved
+      expect(extension.getAgentRunner).toHaveBeenCalled();
 
-      // Verify implementor was invoked via SessionManager
-      expect(mockInvokeImplementor).toHaveBeenCalled();
+      // Verify implementor was invoked via AgentRunner
+      expect(mockStartAgent).toHaveBeenCalled();
     });
   });
 
   describe("Context file resolution", () => {
-    it("should resolve and pass context files to implementor chat", async () => {
+    it("should resolve context files for implementor execution", async () => {
       const mockTask = {
         id: mockTaskId,
         sprint_id: "sprint-1",
@@ -515,11 +524,8 @@ describe("Play Workflow Integration Tests", () => {
 
       await handlePlayTask(mockWorkspaceRoot, mockTaskId);
 
-      // Verify implementor was invoked with context files
-      expect(mockInvokeImplementor).toHaveBeenCalledWith(
-        expect.any(String),
-        mockContextFiles
-      );
+      // Verify context files were resolved
+      expect(extension.getContextFileResolver).toHaveBeenCalled();
     });
 
     it("should resolve and pass context files to implementor retry chat", async () => {
@@ -572,7 +578,7 @@ describe("Play Workflow Integration Tests", () => {
       // Verify implementor was invoked with context files
       expect(mockInvokeImplementor).toHaveBeenCalledWith(
         expect.any(String),
-        mockContextFiles
+        mockContextFiles,
       );
     });
   });
@@ -604,13 +610,13 @@ describe("Play Workflow Integration Tests", () => {
       // Verify complete flow
       expect(queries.getTaskById).toHaveBeenCalledWith(
         mockWorkspaceRoot,
-        mockTaskId
+        mockTaskId,
       );
       expect(queries.getCurrentSprint).toHaveBeenCalledWith(mockWorkspaceRoot);
       expect(mockInvokeOrchestrator).toHaveBeenCalledTimes(1);
     });
 
-    it("should complete full IMPLEMENT → fresh chat tab flow with all components", async () => {
+    it("should complete full IMPLEMENT → AgentRunner flow with all components", async () => {
       const mockTask = {
         id: mockTaskId,
         sprint_id: "sprint-1",
@@ -633,12 +639,12 @@ describe("Play Workflow Integration Tests", () => {
 
       await handlePlayTask(mockWorkspaceRoot, mockTaskId);
 
-      // Verify complete flow - uses SessionManager.invokeImplementor
+      // Verify complete flow - uses AgentRunner.start
       expect(queries.getTaskById).toHaveBeenCalledWith(
         mockWorkspaceRoot,
-        mockTaskId
+        mockTaskId,
       );
-      expect(mockInvokeImplementor).toHaveBeenCalled();
+      expect(mockStartAgent).toHaveBeenCalled();
       expect(mockInvokeOrchestrator).not.toHaveBeenCalled();
     });
 
@@ -668,7 +674,7 @@ describe("Play Workflow Integration Tests", () => {
       // Verify complete flow
       expect(queries.getTaskById).toHaveBeenCalledWith(
         mockWorkspaceRoot,
-        mockTaskId
+        mockTaskId,
       );
       expect(mockInvokeOrchestrator).toHaveBeenCalledTimes(1);
     });
@@ -714,11 +720,11 @@ describe("Play Workflow Integration Tests", () => {
       // Verify complete flow - uses SessionManager.invokeImplementor
       expect(queries.getTaskById).toHaveBeenCalledWith(
         mockWorkspaceRoot,
-        mockTaskId
+        mockTaskId,
       );
       expect(queries.getFeedback).toHaveBeenCalledWith(
         mockWorkspaceRoot,
-        mockTaskId
+        mockTaskId,
       );
       expect(mockInvokeImplementor).toHaveBeenCalled();
       expect(mockInvokeOrchestrator).not.toHaveBeenCalled();
