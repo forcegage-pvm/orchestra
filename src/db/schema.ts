@@ -32,6 +32,9 @@ export const sprints = sqliteTable(
     status: text("status").notNull().default("ACTIVE"), // SprintStatus enum: PENDING_SPEC_REVIEW, ACTIVE, SPEC_REVIEW_FAILED, COMPLETE, CLOSED
     workflow_step: text("workflow_step").notNull(), // WorkflowStep enum
     config: text("config"), // JSON: CodeReviewConfig and other sprint-level settings
+    spec_path: text("spec_path"), // Path to specification document
+    spec_version: text("spec_version"), // Version/commit of spec
+    spec_hash: text("spec_hash"), // SHA-256 of spec content
     is_active: integer("is_active", { mode: "boolean" })
       .notNull()
       .default(false), // Only one sprint active at a time
@@ -47,6 +50,7 @@ export const sprints = sqliteTable(
     isActiveIdx: index("is_active_idx").on(sprints.is_active),
     isArchivedIdx: index("is_archived_idx").on(sprints.is_archived),
     statusIdx: index("sprint_status_idx").on(sprints.status),
+    specPathIdx: index("sprint_spec_path_idx").on(sprints.spec_path),
   }),
 );
 

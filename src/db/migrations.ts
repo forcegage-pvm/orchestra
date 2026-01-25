@@ -837,7 +837,8 @@ const MIGRATIONS: Migration[] = [
   },
   {
     id: "20260124_001_add_is_archived",
-    description: "Add is_archived column to sprints table for archive filtering",
+    description:
+      "Add is_archived column to sprints table for archive filtering",
     up: async () => {
       const db = getDb();
 
@@ -855,6 +856,36 @@ const MIGRATIONS: Migration[] = [
       );
       await db.run(
         sql`CREATE INDEX IF NOT EXISTS is_archived_idx ON sprints(is_archived)`,
+      );
+    },
+  },
+  {
+    id: "20260125_001_add_spec_traceability_columns",
+    description:
+      "Add spec_path, spec_version, and spec_hash columns to sprints table for spec traceability",
+    up: async () => {
+      const db = getDb();
+
+      const result = await db.all(sql`PRAGMA table_info(sprints)`);
+      const columns = result as { name: string }[];
+      const hasSpecPath = columns.some((col) => col.name === "spec_path");
+      const hasSpecVersion = columns.some((col) => col.name === "spec_version");
+      const hasSpecHash = columns.some((col) => col.name === "spec_hash");
+
+      if (!hasSpecPath) {
+        await db.run(sql`ALTER TABLE sprints ADD COLUMN spec_path TEXT`);
+      }
+
+      if (!hasSpecVersion) {
+        await db.run(sql`ALTER TABLE sprints ADD COLUMN spec_version TEXT`);
+      }
+
+      if (!hasSpecHash) {
+        await db.run(sql`ALTER TABLE sprints ADD COLUMN spec_hash TEXT`);
+      }
+
+      await db.run(
+        sql`CREATE INDEX IF NOT EXISTS sprint_spec_path_idx ON sprints(spec_path)`,
       );
     },
   },
