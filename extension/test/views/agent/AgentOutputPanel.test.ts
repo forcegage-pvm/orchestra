@@ -4,6 +4,7 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as vscode from "vscode";
+import { AgentError } from "../../../src/agents/errors.js";
 import { AgentOutputPanel } from "../../../src/views/agent/AgentOutputPanel.js";
 import {
   generateAgentOutputHtml,
@@ -24,14 +25,44 @@ const mockPanel = {
   dispose: vi.fn(),
 } as unknown as vscode.WebviewPanel;
 
+const { bindAgentOutput } = vi.hoisted(() => ({
+  bindAgentOutput: vi.fn(() => ({ dispose: vi.fn() })),
+}));
+
+vi.mock("../../../src/views/agent/agentOutputConverter.js", () => ({
+  bindAgentOutput,
+}));
+
 vi.mock("vscode", () => ({
   ViewColumn: {
     One: 1,
   },
   window: {
     createWebviewPanel: vi.fn(() => mockPanel),
+    showErrorMessage: vi.fn(),
   },
 }));
+
+function createRunnerMock() {
+  const listeners: Array<(state: { status: string }) => void> = [];
+  return {
+    pause: vi.fn().mockResolvedValue(undefined),
+    resume: vi.fn().mockResolvedValue(undefined),
+    stop: vi.fn().mockResolvedValue(undefined),
+    redirect: vi.fn().mockResolvedValue(undefined),
+    getState: vi.fn(() => undefined),
+    onOutput: vi.fn(),
+    onStateChange: (listener: (state: { status: string }) => void) => {
+      listeners.push(listener);
+      return { dispose: vi.fn() };
+    },
+    emitStateChange: (status: string) => {
+      for (const listener of listeners) {
+        listener({ status });
+      }
+    },
+  };
+}
 
 describe("AgentOutputPanel", () => {
   beforeEach(() => {
@@ -139,6 +170,120 @@ describe("AgentOutputPanel", () => {
       (message: { type: string; count?: number }) => message.type === "prune",
     );
     expect(pruneMessage).toMatchObject({ type: "prune", count: 1 });
+  });
+
+  it("should route pause message to AgentRunner.pause", async () => {
+    const extensionUri = { fsPath: "/test/extension" } as vscode.Uri;
+    const panel = AgentOutputPanel.createOrShow(extensionUri);
+    const runner = createRunnerMock();
+
+    panel.bindToRunner(
+      runner as unknown as import("../../../src/agents/AgentRunner.js").AgentRunner,
+    );
+
+    const handler = vi.mocked(mockWebview.onDidReceiveMessage).mock
+      .calls[0]?.[0];
+    handler?.({ type: "pause" });
+
+    expect(runner.pause).toHaveBeenCalled();
+  });
+
+  it("should route resume message to AgentRunner.resume", async () => {
+    const extensionUri = { fsPath: "/test/extension" } as vscode.Uri;
+    const panel = AgentOutputPanel.createOrShow(extensionUri);
+    const runner = createRunnerMock();
+
+    panel.bindToRunner(
+      runner as unknown as import("../../../src/agents/AgentRunner.js").AgentRunner,
+    );
+
+    const handler = vi.mocked(mockWebview.onDidReceiveMessage).mock
+      .calls[0]?.[0];
+    handler?.({ type: "resume" });
+
+    expect(runner.resume).toHaveBeenCalled();
+  });
+
+  it("should route stop message to AgentRunner.stop", async () => {
+    const extensionUri = { fsPath: "/test/extension" } as vscode.Uri;
+    const panel = AgentOutputPanel.createOrShow(extensionUri);
+    const runner = createRunnerMock();
+
+    panel.bindToRunner(
+      runner as unknown as import("../../../src/agents/AgentRunner.js").AgentRunner,
+    );
+
+    const handler = vi.mocked(mockWebview.onDidReceiveMessage).mock
+      .calls[0]?.[0];
+    handler?.({ type: "stop" });
+
+    expect(runner.stop).toHaveBeenCalled();
+  });
+
+  it("should route redirect message to AgentRunner.redirect", async () => {
+    const extensionUri = { fsPath: "/test/extension" } as vscode.Uri;
+    const panel = AgentOutputPanel.createOrShow(extensionUri);
+    const runner = createRunnerMock();
+
+    panel.bindToRunner(
+      runner as unknown as import("../../../src/agents/AgentRunner.js").AgentRunner,
+    );
+
+    const handler = vi.mocked(mockWebview.onDidReceiveMessage).mock
+      .calls[0]?.[0];
+    handler?.({ type: "redirect", instruction: "Do the thing" });
+
+    expect(runner.redirect).toHaveBeenCalledWith("Do the thing");
+  });
+
+  it("should show errors when control action fails", async () => {
+    const extensionUri = { fsPath: "/test/extension" } as vscode.Uri;
+    const panel = AgentOutputPanel.createOrShow(extensionUri);
+    const runner = createRunnerMock();
+    runner.pause = vi
+      .fn()
+      .mockRejectedValue(new AgentError("Cannot pause", "AGENT_NOT_RUNNING"));
+
+    panel.bindToRunner(
+      runner as unknown as import("../../../src/agents/AgentRunner.js").AgentRunner,
+    );
+
+    const handler = vi.mocked(mockWebview.onDidReceiveMessage).mock
+      .calls[0]?.[0];
+    handler?.({ type: "pause" });
+
+    await Promise.resolve();
+
+    expect(vscode.window.showErrorMessage).toHaveBeenCalled();
+  });
+
+  it("should update status when runner state changes", () => {
+    const extensionUri = { fsPath: "/test/extension" } as vscode.Uri;
+    const panel = AgentOutputPanel.createOrShow(extensionUri);
+    const runner = createRunnerMock();
+
+    panel.bindToRunner(
+      runner as unknown as import("../../../src/agents/AgentRunner.js").AgentRunner,
+    );
+
+    const handler = vi.mocked(mockWebview.onDidReceiveMessage).mock
+      .calls[0]?.[0];
+    handler?.({ type: "ready" });
+
+    runner.emitStateChange("paused");
+    vi.advanceTimersByTime(50);
+
+    const [payload] = vi.mocked(mockWebview.postMessage).mock.calls[0] ?? [];
+    expect(payload).toMatchObject({ type: "batch" });
+    const messages = payload?.messages ?? [];
+    const statusMessage = messages.find(
+      (message: { type: string; status?: string }) =>
+        message.type === "updateStatus",
+    );
+    expect(statusMessage).toMatchObject({
+      type: "updateStatus",
+      status: "Paused",
+    });
   });
 });
 

@@ -6,6 +6,7 @@
 
 import * as vscode from "vscode";
 import type { AgentRunner } from "../../agents/AgentRunner.js";
+import { AgentError } from "../../agents/errors.js";
 import { bindAgentOutput } from "./agentOutputConverter.js";
 import {
   generateAgentOutputHtml,
@@ -25,6 +26,8 @@ export class AgentOutputPanel {
   private _itemCount = 0;
   private _ready = false;
   private _outputSubscription: { dispose(): void } | undefined;
+  private _stateSubscription: vscode.Disposable | undefined;
+  private _runner: AgentRunner | undefined;
 
   private constructor(panel: vscode.WebviewPanel) {
     this._panel = panel;
@@ -36,7 +39,10 @@ export class AgentOutputPanel {
         if (message?.type === "ready") {
           this._ready = true;
           this.flushPendingMessages();
+          return;
         }
+
+        void this.handleControlMessage(message);
       },
       null,
       this._disposables,
@@ -102,10 +108,20 @@ export class AgentOutputPanel {
    */
   public bindToRunner(runner: AgentRunner): void {
     this._outputSubscription?.dispose();
+    this._stateSubscription?.dispose();
+    this._runner = runner;
     this._outputSubscription = bindAgentOutput(runner.onOutput, {
       addOutput: (output) => this.addOutput(output),
       updateStatus: (status) => this.updateStatus(status),
     });
+    this._stateSubscription = runner.onStateChange((state) => {
+      this.updateStatus(this.mapStatus(state.status));
+    });
+
+    const initialState = runner.getState();
+    if (initialState) {
+      this.updateStatus(this.mapStatus(initialState.status));
+    }
   }
 
   /**
@@ -114,6 +130,86 @@ export class AgentOutputPanel {
   public unbindRunner(): void {
     this._outputSubscription?.dispose();
     this._outputSubscription = undefined;
+    this._stateSubscription?.dispose();
+    this._stateSubscription = undefined;
+    this._runner = undefined;
+  }
+
+  private mapStatus(status: string): string {
+    switch (status) {
+      case "running":
+        return "Running";
+      case "paused":
+        return "Paused";
+      case "stopped":
+        return "Stopped";
+      case "completed":
+        return "Completed";
+      case "failed":
+        return "Failed";
+      default:
+        return status;
+    }
+  }
+
+  private async handleControlMessage(message: {
+    type?: string;
+    instruction?: unknown;
+  }): Promise<void> {
+    if (!message?.type) {
+      return;
+    }
+
+    if (!this._runner) {
+      vscode.window.showErrorMessage(
+        "Orchestra: No active agent session to control.",
+      );
+      return;
+    }
+
+    const action = message.type;
+
+    try {
+      if (action === "pause") {
+        await this._runner.pause();
+        return;
+      }
+
+      if (action === "resume") {
+        await this._runner.resume();
+        return;
+      }
+
+      if (action === "stop") {
+        await this._runner.stop();
+        return;
+      }
+
+      if (action === "redirect") {
+        const instruction =
+          typeof message.instruction === "string"
+            ? message.instruction.trim()
+            : "";
+        if (!instruction) {
+          vscode.window.showErrorMessage(
+            "Orchestra: Redirect instruction cannot be empty.",
+          );
+          return;
+        }
+        await this._runner.redirect(instruction);
+      }
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      const prefix = error instanceof AgentError ? "Orchestra" : "Orchestra";
+      const actionLabel =
+        action === "redirect"
+          ? "Redirect"
+          : action.charAt(0).toUpperCase() + action.slice(1);
+      vscode.window.showErrorMessage(
+        `${prefix}: ${actionLabel} failed - ${errorMessage}`,
+      );
+    }
   }
 
   private enqueueMessage(message: {
@@ -192,6 +288,7 @@ export class AgentOutputPanel {
       this._batchTimer = undefined;
     }
     this._outputSubscription?.dispose();
+    this._stateSubscription?.dispose();
     this._panel.dispose();
     while (this._disposables.length) {
       const disposable = this._disposables.pop();
