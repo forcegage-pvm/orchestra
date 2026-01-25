@@ -310,6 +310,13 @@ export class SprintTreeProvider implements vscode.TreeDataProvider<TreeElement> 
     // Status-based icons
     item.iconPath = this._getIconForStatus(task.status);
 
+    // Ensure code review status map is loaded (needed for refresh when getChildren
+    // is not called again for already-expanded tree nodes)
+    const workspaceRoot = findOrchestraRoot();
+    if (workspaceRoot) {
+      this._ensureCodeReviewStatusMap(workspaceRoot, task.sprint_id);
+    }
+
     // TD-016: Set resourceUri for FileDecorationProvider styling
     const codeReviewStatus = this._codeReviewStatusByTaskId.get(task.id);
     item.resourceUri = createTaskDecorationUri(

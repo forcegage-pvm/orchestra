@@ -72,6 +72,7 @@ vi.mock("../../../src/database/queries.js", () => ({
   getAllSprints: vi.fn(() => []),
   getPhases: vi.fn(() => []),
   getTasksForSprint: vi.fn(() => []),
+  getLatestCodeReviewStatusForSprint: vi.fn(() => new Map<number, string>()),
 }));
 
 // Mock ViewDecorationProvider

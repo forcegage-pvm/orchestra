@@ -1607,6 +1607,9 @@ export function getLatestCodeReviewForTask(
 
 /**
  * Get latest code review status by task for a sprint
+ * Returns the status from the most recent COMPLETED code review for each task.
+ * A completed review is one with reviewed_at set (APPROVED/REJECTED/CHANGES_REQUESTED).
+ * Falls back to latest by id if no completed reviews exist.
  */
 export function getLatestCodeReviewStatusForSprint(
   workspaceRoot: string,
@@ -1614,16 +1617,22 @@ export function getLatestCodeReviewStatusForSprint(
 ): Map<number, string> {
   const db = OrchestraDB.getInstance(workspaceRoot);
 
+  // Prioritize completed reviews (with reviewed_at) over pending ones.
+  // This handles the case where a PENDING review is created after an APPROVED one.
+  // Use COALESCE to fall back to requested_at for sorting, ensuring completed reviews
+  // (with reviewed_at set) are preferred.
   const rows = db
     .prepare(
       `SELECT cr.task_id as task_id, cr.status as status
        FROM code_reviews cr
        INNER JOIN (
-         SELECT task_id, MAX(requested_at) as latest_requested
+         SELECT task_id, MAX(CASE WHEN reviewed_at IS NOT NULL THEN id ELSE 0 END) as completed_id,
+                MAX(id) as latest_id
          FROM code_reviews
          WHERE sprint_id = ?
          GROUP BY task_id
-       ) latest ON cr.task_id = latest.task_id AND cr.requested_at = latest.latest_requested`,
+       ) latest ON cr.task_id = latest.task_id 
+                AND cr.id = CASE WHEN latest.completed_id > 0 THEN latest.completed_id ELSE latest.latest_id END`,
     )
     .all(sprintId) as { task_id: number; status: string }[];
 

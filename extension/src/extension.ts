@@ -807,6 +807,8 @@ export async function activate(
     context.subscriptions.push(
       vscode.window.registerFileDecorationProvider(decorationProvider),
     );
+    // Also refresh decorations when database changes
+    dbWatcher.onDidChange(() => decorationProvider.refresh());
     logger.info("View decoration provider registered");
 
     // 6. Register Status Bar
@@ -824,6 +826,7 @@ export async function activate(
       vscode.commands.registerCommand("orchestra.refreshStatus", () => {
         treeProvider.refresh("manual");
         codeReviewTreeProvider.refresh();
+        decorationProvider.refresh(); // Refresh file decorations (code review badges)
         statusBar.refresh();
         logger.info("Manual refresh triggered");
       }),
