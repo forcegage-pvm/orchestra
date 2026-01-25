@@ -609,6 +609,7 @@ const MIGRATIONS: Migration[] = [
             task_id INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
             severity TEXT NOT NULL,
             issue TEXT NOT NULL,
+            spec_ref TEXT,
             file TEXT,
             line INTEGER,
             rationale TEXT NOT NULL,
@@ -887,6 +888,26 @@ const MIGRATIONS: Migration[] = [
       await db.run(
         sql`CREATE INDEX IF NOT EXISTS sprint_spec_path_idx ON sprints(spec_path)`,
       );
+    },
+  },
+  {
+    id: "20260125_002_add_code_review_issue_spec_ref",
+    description: "Add spec_ref column to code_review_issues table",
+    up: async () => {
+      const db = getDb();
+
+      const columns = await db.all(sql`PRAGMA table_info(code_review_issues)`);
+      const hasSpecRef = (columns as { name: string }[]).some(
+        (col) => col.name === "spec_ref",
+      );
+
+      if (hasSpecRef) {
+        return;
+      }
+
+      await db.run(sql`
+        ALTER TABLE code_review_issues ADD COLUMN spec_ref TEXT
+      `);
     },
   },
 ];

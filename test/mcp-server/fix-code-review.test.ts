@@ -118,6 +118,7 @@ describe("fix_code_review handler", () => {
         issue: "Missing tests",
         file: "src/core/foo.ts",
         line: 42,
+        spec_ref: "T401",
         rationale: "Coverage gaps",
         recommendation: "Add unit tests",
       },
@@ -143,6 +144,7 @@ describe("fix_code_review handler", () => {
       file: "src/core/foo.ts",
       line: 42,
       recommendation: "Add unit tests",
+      spec_ref: "T401",
     });
     expect(output.handover.context).toBe(
       "Update code to address review feedback.",

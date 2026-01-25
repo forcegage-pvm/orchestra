@@ -189,6 +189,7 @@ describe("get_code_review handler", () => {
         task_id: task1.id,
         severity: "MAJOR",
         issue: "Missing tests",
+        spec_ref: "T001",
         rationale: "Coverage gaps",
       },
       {
@@ -196,6 +197,7 @@ describe("get_code_review handler", () => {
         task_id: task1.id,
         severity: "BLOCKING",
         issue: "Security issue",
+        spec_ref: "T002",
         rationale: "Sensitive data leaked",
       },
       {
@@ -203,6 +205,7 @@ describe("get_code_review handler", () => {
         task_id: task1.id,
         severity: "MINOR",
         issue: "Typos in docs",
+        spec_ref: "T003",
         rationale: "Minor documentation errors",
         status: "RESOLVED",
         resolved_at: now,
@@ -302,6 +305,9 @@ describe("get_code_review handler", () => {
     const severities = output.review.issues.map((issue: any) => issue.severity);
     expect(severities).toContain("BLOCKING");
     expect(severities).toContain("MINOR");
+    const specRefs = output.review.issues.map((issue: any) => issue.spec_ref);
+    expect(specRefs).toContain("T002");
+    expect(specRefs).toContain("T003");
   });
 
   it("includes history when include_history is true", async () => {

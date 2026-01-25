@@ -631,6 +631,7 @@ export const codeReviewIssues = sqliteTable(
       .references(() => tasks.id, { onDelete: "cascade" }),
     severity: text("severity").notNull(), // BLOCKING | MAJOR | MINOR | INFO
     issue: text("issue").notNull(),
+    spec_ref: text("spec_ref"),
     file: text("file"),
     line: integer("line"),
     rationale: text("rationale").notNull(),

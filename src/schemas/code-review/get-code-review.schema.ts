@@ -58,6 +58,7 @@ const CodeReviewIssueSchema = z.object({
   id: z.number(),
   severity: z.enum(["BLOCKING", "MAJOR", "MINOR", "INFO"]),
   issue: z.string(),
+  spec_ref: z.string().nullable().optional(),
   file: z.string().nullable(),
   line: z.number().nullable(),
   rationale: z.string(),

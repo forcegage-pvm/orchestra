@@ -1486,6 +1486,7 @@ const TOOLS_WITH_ROLES: ToolWithRole[] = [
                 enum: ["BLOCKING", "MAJOR", "MINOR", "INFO"],
               },
               issue: { type: "string" },
+              spec_ref: { type: "string" },
               file: { type: "string" },
               line: { type: "number" },
               recommendation: { type: "string" },
