@@ -20,6 +20,7 @@ import {
 } from "../../database/queries.js";
 import type { DatabaseWatcher } from "../../database/watcher.js";
 import { findOrchestraRoot } from "../../workspace/detector.js";
+import { OrchestraLogger } from "../../utils/logger.js";
 import { createTaskDecorationUri } from "../providers/ViewDecorationProvider.js";
 import { getStatusDisplay } from "../statusTranslation.js";
 
@@ -60,6 +61,7 @@ export class SprintTreeProvider implements vscode.TreeDataProvider<TreeElement> 
   private _codeReviewStatusByTaskId: Map<number, string> = new Map();
   private _codeReviewStatusSprintId: string | null = null;
   private _filter: SprintFilter;
+  private readonly _logger: OrchestraLogger;
 
   constructor(
     private readonly _db: Database.Database,
@@ -68,19 +70,30 @@ export class SprintTreeProvider implements vscode.TreeDataProvider<TreeElement> 
   ) {
     void this._db; // Keep for potential future direct use
 
+    this._logger = new OrchestraLogger();
+
     this._filter = this._context.workspaceState.get<SprintFilter>(
       "orchestra.sprintFilter",
       "active",
     );
 
     // Subscribe to database changes
-    this._dbWatcher.onDidChange(() => this.refresh());
+    this._dbWatcher.onDidChange(() => this.refresh("signal"));
   }
 
-  refresh(): void {
+  refresh(source: "manual" | "signal" | "unknown" = "unknown"): void {
     // Invalidate cached code review status so refresh reflects latest reviews
     this._codeReviewStatusByTaskId = new Map();
     this._codeReviewStatusSprintId = null;
+
+    const sourceLabel = source === "manual"
+      ? "manual refresh"
+      : source === "signal"
+      ? "signal update"
+      : "unknown source";
+    this._logger.info(
+      `[SprintTreeProvider] Refresh triggered (${sourceLabel}); caches cleared`,
+    );
 
     this._onDidChangeTreeData.fire();
   }

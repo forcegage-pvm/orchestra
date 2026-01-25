@@ -822,7 +822,7 @@ export async function activate(
         }
       }),
       vscode.commands.registerCommand("orchestra.refreshStatus", () => {
-        treeProvider.refresh();
+        treeProvider.refresh("manual");
         codeReviewTreeProvider.refresh();
         statusBar.refresh();
         logger.info("Manual refresh triggered");
