@@ -8,6 +8,7 @@ import { eq, max } from "drizzle-orm";
 import { getDb } from "../../db/index.js";
 import { getActiveSprint } from "../../db/queries.js";
 import { progress, tasks, verificationChecks } from "../../db/schema.js";
+import { writeSignal } from "../db-signal.js";
 import {
   AddTaskInputSchema,
   type AddTaskOutput,
@@ -236,6 +237,8 @@ async function addTask(
     notes: `Task ${nextTaskId} created`,
     changed_at: now,
   });
+
+  writeSignal();
 
   return {
     success: true,

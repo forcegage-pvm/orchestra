@@ -134,6 +134,7 @@ describe("Play Workflow Integration Tests", () => {
       name: "Test Sprint",
       workflow_step: "prepare",
       is_active: true,
+      is_archived: false,
       created_at: "2025-01-01T00:00:00Z",
       updated_at: "2025-01-01T00:00:00Z",
       completed_at: null,

@@ -16,10 +16,22 @@ vi.mock("vscode", () => ({
     Collapsed: 1,
     Expanded: 2,
   },
+  window: {
+    createOutputChannel: vi.fn(() => ({
+      appendLine: vi.fn(),
+      show: vi.fn(),
+      dispose: vi.fn(),
+    })),
+  },
+  workspace: {
+    getConfiguration: vi.fn(() => ({
+      get: vi.fn((_key: string, defaultValue?: unknown) => defaultValue),
+    })),
+  },
   TreeItem: vi.fn(function (
     this: any,
     label: string,
-    collapsibleState: number
+    collapsibleState: number,
   ) {
     this.label = label;
     this.collapsibleState = collapsibleState;
@@ -60,6 +72,7 @@ vi.mock("../../../src/database/queries.js", () => ({
   getAllSprints: vi.fn(() => []),
   getPhases: vi.fn(() => []),
   getTasksForSprint: vi.fn(() => []),
+  getLatestCodeReviewStatusForSprint: vi.fn(() => new Map<number, string>()),
 }));
 
 // Mock ViewDecorationProvider
@@ -112,7 +125,14 @@ describe("SprintTreeProvider", () => {
       dispose: vi.fn(),
     } as unknown as DatabaseWatcher;
 
-    provider = new SprintTreeProvider(mockDb, mockDbWatcher);
+    const mockContext = {
+      workspaceState: {
+        get: vi.fn(() => "active"),
+        update: vi.fn(() => Promise.resolve()),
+      },
+    } as unknown as vscode.ExtensionContext;
+
+    provider = new SprintTreeProvider(mockDb, mockDbWatcher, mockContext);
 
     // Reset mocks
     vi.mocked(findOrchestraRoot).mockReturnValue("/test/workspace");
@@ -206,7 +226,7 @@ describe("SprintTreeProvider", () => {
 
       const tooltip = treeItem.tooltip as vscode.MarkdownString;
       expect(tooltip.value).toContain(
-        "This is my detailed task description with important info"
+        "This is my detailed task description with important info",
       );
     });
 
@@ -311,6 +331,7 @@ describe("SprintTreeProvider", () => {
           name: "Test Sprint",
           workflow_step: "ACTIVE",
           is_active: true,
+          is_archived: false,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
           completed_at: null,
@@ -491,6 +512,7 @@ describe("SprintTreeProvider", () => {
         name: "Test Sprint",
         workflow_step: "ACTIVE",
         is_active: true,
+        is_archived: false,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
         completed_at: null,

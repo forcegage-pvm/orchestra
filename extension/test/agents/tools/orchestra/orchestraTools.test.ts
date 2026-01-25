@@ -210,6 +210,7 @@ describe("getProgressTool", () => {
       status: "ACTIVE",
       workflow_step: "IMPLEMENT",
       is_active: true,
+      is_archived: false,
       created_at: "2024-01-01",
       updated_at: "2024-01-01",
       completed_at: null,

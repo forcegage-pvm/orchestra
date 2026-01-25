@@ -44,7 +44,7 @@ export class DatabaseWatcher implements vscode.Disposable {
     // Signal files are small text files that trigger file watchers reliably
     const signalPattern = new vscode.RelativePattern(
       workspaceRoot,
-      ".orchestra/.signal"
+      ".orchestra/.signal",
     );
     this.signalWatcher =
       vscode.workspace.createFileSystemWatcher(signalPattern);
@@ -52,11 +52,11 @@ export class DatabaseWatcher implements vscode.Disposable {
     // Register change handler for signal file
     this.signalWatcher.onDidChange((uri) => {
       console.log(`[Orchestra] Signal file changed: ${uri.fsPath}`);
-      this.handleChange();
+      this.handleChange("signal");
     });
     this.signalWatcher.onDidCreate((uri) => {
       console.log(`[Orchestra] Signal file created: ${uri.fsPath}`);
-      this.handleChange();
+      this.handleChange("signal");
     });
 
     // Initialize last mtime
@@ -65,7 +65,7 @@ export class DatabaseWatcher implements vscode.Disposable {
     // Start polling as fallback (reduced frequency since signal file is primary)
     this.startPolling();
     console.log(
-      "[Orchestra] Database watcher initialized (signal file + 10s polling fallback)"
+      "[Orchestra] Database watcher initialized (signal file + 10s polling fallback)",
     );
   }
 
@@ -101,9 +101,11 @@ export class DatabaseWatcher implements vscode.Disposable {
     this.pollTimer = setInterval(() => {
       const currentMtime = this.getLatestMtime();
       if (currentMtime > this.lastMtime) {
-        console.log("[Orchestra] Poll detected database change");
+        console.log(
+          "[Orchestra] Fallback poll detected database change (signal may have been missed)",
+        );
         this.lastMtime = currentMtime;
-        this.handleChange();
+        this.handleChange("poll");
       }
     }, this.pollInterval);
   }
@@ -111,7 +113,7 @@ export class DatabaseWatcher implements vscode.Disposable {
   /**
    * Handle database change (debounced)
    */
-  private handleChange(): void {
+  private handleChange(source: "signal" | "poll" | "manual" = "signal"): void {
     // Clear existing timer
     if (this.debounceTimer) {
       clearTimeout(this.debounceTimer);
@@ -119,6 +121,10 @@ export class DatabaseWatcher implements vscode.Disposable {
 
     // Update mtime to prevent duplicate triggers
     this.updateLastMtime();
+
+    console.log(
+      `[Orchestra] Scheduling database change event (source: ${source})`,
+    );
 
     // Set new timer
     this.debounceTimer = setTimeout(() => {
@@ -132,7 +138,7 @@ export class DatabaseWatcher implements vscode.Disposable {
    * Manually trigger change event (for testing/refresh)
    */
   trigger(): void {
-    this.handleChange();
+    this.handleChange("manual");
   }
 
   /**

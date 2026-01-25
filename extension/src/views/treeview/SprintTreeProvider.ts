@@ -15,9 +15,11 @@ import {
   getTasksForSprint,
   type Phase,
   type Sprint,
+  type SprintFilter,
   type Task,
 } from "../../database/queries.js";
 import type { DatabaseWatcher } from "../../database/watcher.js";
+import { OrchestraLogger } from "../../utils/logger.js";
 import { findOrchestraRoot } from "../../workspace/detector.js";
 import { createTaskDecorationUri } from "../providers/ViewDecorationProvider.js";
 import { getStatusDisplay } from "../statusTranslation.js";
@@ -58,21 +60,41 @@ export class SprintTreeProvider implements vscode.TreeDataProvider<TreeElement> 
 
   private _codeReviewStatusByTaskId: Map<number, string> = new Map();
   private _codeReviewStatusSprintId: string | null = null;
+  private _filter: SprintFilter;
+  private readonly _logger: OrchestraLogger;
 
   constructor(
     private readonly _db: Database.Database,
     private readonly _dbWatcher: DatabaseWatcher,
+    private readonly _context: vscode.ExtensionContext,
   ) {
     void this._db; // Keep for potential future direct use
 
+    this._logger = new OrchestraLogger();
+
+    this._filter = this._context.workspaceState.get<SprintFilter>(
+      "orchestra.sprintFilter",
+      "active",
+    );
+
     // Subscribe to database changes
-    this._dbWatcher.onDidChange(() => this.refresh());
+    this._dbWatcher.onDidChange(() => this.refresh("signal"));
   }
 
-  refresh(): void {
+  refresh(source: "manual" | "signal" | "unknown" = "unknown"): void {
     // Invalidate cached code review status so refresh reflects latest reviews
     this._codeReviewStatusByTaskId = new Map();
     this._codeReviewStatusSprintId = null;
+
+    const sourceLabel =
+      source === "manual"
+        ? "manual refresh"
+        : source === "signal"
+          ? "signal update"
+          : "unknown source";
+    this._logger.info(
+      `[SprintTreeProvider] Refresh triggered (${sourceLabel}); caches cleared`,
+    );
 
     this._onDidChangeTreeData.fire();
   }
@@ -103,10 +125,18 @@ export class SprintTreeProvider implements vscode.TreeDataProvider<TreeElement> 
       // Root level: return all sprints
       if (!element) {
         const sprints = getAllSprints(workspaceRoot);
-        if (sprints.length === 0) {
+        const filteredSprints =
+          this._filter === "all"
+            ? sprints
+            : sprints.filter((sprint) =>
+                this._filter === "archived"
+                  ? sprint.is_archived
+                  : !sprint.is_archived,
+              );
+        if (filteredSprints.length === 0) {
           return [this._createMessageItem("No sprints found", "empty")];
         }
-        return sprints.map((sprint) => ({ type: "sprint", sprint }));
+        return filteredSprints.map((sprint) => ({ type: "sprint", sprint }));
       }
 
       // Sprint level: return phases
@@ -208,7 +238,23 @@ export class SprintTreeProvider implements vscode.TreeDataProvider<TreeElement> 
       item.contextValue = isActive ? "sprint-active" : "sprint-inactive";
     }
 
+    if (sprint.is_archived) {
+      item.iconPath = new vscode.ThemeIcon(
+        "archive",
+        new vscode.ThemeColor("descriptionForeground"),
+      );
+      description = description ? `${description} (archived)` : "(archived)";
+      item.description = description;
+      item.contextValue = "sprint-archived";
+    }
+
     return item;
+  }
+
+  setFilter(filter: SprintFilter): void {
+    this._filter = filter;
+    void this._context.workspaceState.update("orchestra.sprintFilter", filter);
+    this.refresh();
   }
 
   private _createPhaseItem(phase: Phase, tasks: Task[]): vscode.TreeItem {
@@ -263,6 +309,13 @@ export class SprintTreeProvider implements vscode.TreeDataProvider<TreeElement> 
 
     // Status-based icons
     item.iconPath = this._getIconForStatus(task.status);
+
+    // Ensure code review status map is loaded (needed for refresh when getChildren
+    // is not called again for already-expanded tree nodes)
+    const workspaceRoot = findOrchestraRoot();
+    if (workspaceRoot) {
+      this._ensureCodeReviewStatusMap(workspaceRoot, task.sprint_id);
+    }
 
     // TD-016: Set resourceUri for FileDecorationProvider styling
     const codeReviewStatus = this._codeReviewStatusByTaskId.get(task.id);

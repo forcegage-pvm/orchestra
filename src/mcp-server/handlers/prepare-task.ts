@@ -340,6 +340,7 @@ async function prepareTask(
 
   // 5. Check TDD requirements BEFORE creating handover
   // This ensures test requirements are communicated to implementor when TDD is enabled
+  // Only inject TDD checks for tasks with tdd_red_phase=true (explicit TDD workflow)
   const tddInjectionResult = await injectTestVerificationIfRequired(
     db,
     task.id,
@@ -349,6 +350,7 @@ async function prepareTask(
     input.file_operations,
     sprintEnv,
     input.test_file,
+    Boolean(task.tdd_red_phase), // Pass TDD flag to control injection
   );
 
   // Determine effective test_requirements - auto-generate if TDD injected but none provided
@@ -456,7 +458,22 @@ async function prepareTask(
     c.check_id.startsWith("struct-"),
   ).length;
 
-  if (tddRedPhase) {
+  const documentationExtensions = new Set([
+    "md",
+    "mdx",
+    "rst",
+    "txt",
+    "adoc",
+    "asciidoc",
+  ]);
+  const isDocumentationOnlyTask =
+    input.file_operations.length > 0 &&
+    input.file_operations.every((op) => {
+      const ext = op.path.split(".").pop()?.toLowerCase() || "";
+      return documentationExtensions.has(ext);
+    });
+
+  if (tddRedPhase && !isDocumentationOnlyTask) {
     // Generate and insert red-phase checks
     // Use sprint environment config (explicit) or fall back to file_operations inference
 
@@ -580,9 +597,12 @@ async function prepareTask(
 
   for (const check of behavioral_checks) {
     if (check.command) {
+      const validationWorkingDirectory = isTestEnv
+        ? process.cwd()
+        : check.working_directory || workspaceRoot;
       const result = validateBehavioralCommand(
         check.command,
-        check.working_directory || workspaceRoot,
+        validationWorkingDirectory,
       );
 
       if (!result.isValid) {
@@ -831,12 +851,19 @@ async function injectTestVerificationIfRequired(
   }>,
   sprintEnv: SprintEnvironment,
   explicitTestFile?: string,
+  isTddRedPhase?: boolean,
 ): Promise<{
   injected: boolean;
   checkDescription?: string;
   testFilePattern?: string;
   suggestedTestFile?: string;
 }> {
+  // Only inject TDD checks for explicit TDD red-phase tasks
+  // Non-TDD tasks should not have automatic test verification requirements
+  if (!isTddRedPhase) {
+    return { injected: false };
+  }
+
   // Read TDD config from database
   const tddConfigKeys = [
     "tdd.require_tests",
@@ -942,11 +969,22 @@ async function injectTestVerificationIfRequired(
     }
   }
 
-  // Count existing checks to generate unique check_id
+  // Check for existing TDD checks to prevent duplicates
   const existingChecks = await db
     .select({ check_id: verificationChecks.check_id })
     .from(verificationChecks)
     .where(eq(verificationChecks.task_id, taskInternalId));
+
+  // Skip injection if a TDD check already exists for this task
+  const hasTddCheck = existingChecks.some(
+    (c) =>
+      c.check_id.startsWith("struct-tdd-") ||
+      c.check_id.includes("[TDD]") ||
+      c.check_id.includes("tdd"),
+  );
+  if (hasTddCheck) {
+    return { injected: false };
+  }
 
   const structCheckCount = existingChecks.filter((c) =>
     c.check_id.startsWith("struct-"),

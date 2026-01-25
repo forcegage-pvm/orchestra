@@ -17,6 +17,7 @@ import {
   sprints,
   tasks,
 } from "../../db/schema.js";
+import { writeSignal } from "../db-signal.js";
 import {
   EscalateTaskInputSchema,
   type EscalateTaskInput,
@@ -234,6 +235,8 @@ async function escalateTask(
       })
       .where(eq(sprints.id, sprint.id));
   }
+
+  writeSignal();
 
   return {
     success: true,

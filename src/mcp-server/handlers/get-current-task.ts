@@ -229,7 +229,9 @@ async function getCurrentTask(): Promise<GetCurrentTaskOutput> {
 
   if (tddRedPhase) {
     const workspacePath = resolveWorkspacePath();
-    const language = detectProjectLanguage(workspacePath);
+    const languageFromFiles = detectLanguageFromFileOperations(fileOperations);
+    const language =
+      languageFromFiles || detectProjectLanguage(workspacePath);
     tddInstructions = generateTddInstructions(language);
   }
 
@@ -252,6 +254,24 @@ async function getCurrentTask(): Promise<GetCurrentTaskOutput> {
     tdd_red_phase: tddRedPhase,
     tdd_instructions: tddInstructions,
   };
+}
+
+function detectLanguageFromFileOperations(
+  fileOperations: Array<{ path: string }>,
+): ProjectLanguage | null {
+  const extensions = new Set(
+    fileOperations.map((op) => op.path.split(".").pop()?.toLowerCase()),
+  );
+
+  if (extensions.has("dart")) {
+    return "dart";
+  }
+
+  if (extensions.has("ts") || extensions.has("tsx")) {
+    return "typescript";
+  }
+
+  return null;
 }
 
 /**

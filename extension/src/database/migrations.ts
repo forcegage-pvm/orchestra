@@ -400,6 +400,28 @@ const MIGRATIONS: Migration[] = [
       );
     },
   },
+  {
+    id: "20260124_001_add_is_archived",
+    description: "Add is_archived column to sprints table for archive filtering",
+    up: (db) => {
+      // Check if column already exists (idempotent)
+      const columns = db.prepare(`PRAGMA table_info(sprints)`).all() as {
+        name: string;
+      }[];
+      const hasIsArchived = columns.some((col) => col.name === "is_archived");
+
+      if (hasIsArchived) {
+        return;
+      }
+
+      db.exec(
+        `ALTER TABLE sprints ADD COLUMN is_archived INTEGER NOT NULL DEFAULT 0`
+      );
+      db.exec(
+        `CREATE INDEX IF NOT EXISTS is_archived_idx ON sprints(is_archived)`
+      );
+    },
+  },
 ];
 
 /**
