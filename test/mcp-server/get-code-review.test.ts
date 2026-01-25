@@ -294,6 +294,16 @@ describe("get_code_review handler", () => {
     expect(output.review.revision_count).toBe(1);
   });
 
+  it("returns spec_path and empty spec_task_definitions when task has no spec refs", async () => {
+    const result = await handleGetCodeReview({ task: 2 });
+    const output = JSON.parse(result.content[0].text);
+
+    expect(output.success).toBe(true);
+    expect(output.mode).toBe("task");
+    expect(output.spec_path).toBe(specPath);
+    expect(output.spec_task_definitions).toEqual([]);
+  });
+
   it("includes issues when include_issues is true", async () => {
     const result = await handleGetCodeReview({
       task: 1,

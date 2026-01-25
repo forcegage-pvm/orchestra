@@ -6,6 +6,8 @@
  */
 
 import { eq } from "drizzle-orm";
+import { mkdir, rm, writeFile } from "fs/promises";
+import path from "path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { getDb } from "../../src/db/index.js";
 import { sprints, tasks, tddTaskRelationships } from "../../src/db/schema.js";
@@ -466,6 +468,162 @@ describe("configure_sprint handler", () => {
       const issuesText = JSON.stringify(parsed.error.details.issues);
       expect(issuesText).toContain("spec_path");
       expect(issuesText).toContain("Required");
+    });
+  });
+
+  describe("spec_hash computation", () => {
+    const baseInput: Omit<ConfigureSprintInput, "sprint"> & {
+      sprint: { id: string; name: string; spec_path: string };
+    } = {
+      environment: {
+        test_command: "npm test",
+        test_file_pattern: "test/**/*.test.ts",
+        source_base_dir: ".",
+      },
+      sprint: {
+        id: "test-sprint-spec-hash-001",
+        name: "Spec Hash Validation",
+        spec_path: "specs/tmp-spec-hash/spec.md",
+      },
+      phases: [
+        {
+          phase_id: "phase-1",
+          phase_name: "Phase 1",
+        },
+      ],
+      tasks: [
+        {
+          task_id: 1,
+          phase_id: "phase-1",
+          title: "Regular Task",
+          description: "Task description",
+          category: "INFRASTRUCTURE",
+          dependencies: [],
+          verification: {
+            structural_checks: [
+              {
+                description: "File exists",
+                severity: "MAJOR",
+                path: "src/test.ts",
+                pattern: ".*",
+                min_matches: 1,
+              },
+            ],
+          },
+        },
+      ],
+    };
+
+    it("should compute spec_hash when spec_path exists", async () => {
+      const specFilePath = path.join(
+        process.cwd(),
+        "specs",
+        "tmp-spec-hash",
+        "spec.md",
+      );
+      await mkdir(path.dirname(specFilePath), { recursive: true });
+      const specContent = "# Spec Hash Test\n\n- item";
+      await writeFile(specFilePath, specContent, "utf-8");
+
+      try {
+        const result = await handleConfigureSprint(baseInput);
+        const parsed = JSON.parse(result.content[0].text);
+
+        expect(parsed.success).toBe(true);
+
+        const db = getDb();
+        const [sprint] = await db
+          .select()
+          .from(sprints)
+          .where(eq(sprints.id, baseInput.sprint.id));
+
+        expect(sprint).toBeDefined();
+        expect(sprint.spec_hash).toMatch(/^[a-f0-9]{64}$/i);
+      } finally {
+        try {
+          await rm(path.join(process.cwd(), "specs", "tmp-spec-hash"), {
+            recursive: true,
+            force: true,
+          });
+        } catch {
+          // Ignore cleanup errors (Windows file locking)
+        }
+      }
+    });
+
+    it("should warn and store null spec_hash when spec_path is missing", async () => {
+      const input: ConfigureSprintInput = {
+        ...baseInput,
+        sprint: {
+          ...baseInput.sprint,
+          id: "test-sprint-spec-hash-002",
+          spec_path: "specs/tmp-spec-hash/missing.md",
+        },
+      };
+
+      const result = await handleConfigureSprint(input);
+      const parsed = JSON.parse(result.content[0].text);
+
+      expect(parsed.success).toBe(true);
+      expect(parsed.pattern_warnings?.join(" ") ?? "").toContain(
+        "Path not found",
+      );
+
+      const db = getDb();
+      const [sprint] = await db
+        .select()
+        .from(sprints)
+        .where(eq(sprints.id, input.sprint.id));
+
+      expect(sprint).toBeDefined();
+      expect(sprint.spec_hash).toBeNull();
+    });
+
+    it("should warn and store null spec_hash when spec_path cannot be read", async () => {
+      const specDirPath = path.join(
+        process.cwd(),
+        "specs",
+        "tmp-spec-hash",
+        "unreadable",
+      );
+      await mkdir(specDirPath, { recursive: true });
+
+      try {
+        const input: ConfigureSprintInput = {
+          ...baseInput,
+          sprint: {
+            ...baseInput.sprint,
+            id: "test-sprint-spec-hash-003",
+            spec_path: "specs/tmp-spec-hash/unreadable",
+          },
+        };
+
+        const result = await handleConfigureSprint(input);
+        const parsed = JSON.parse(result.content[0].text);
+
+        expect(parsed.success).toBe(true);
+        expect(parsed.pattern_warnings?.join(" ") ?? "").toContain(
+          "Unable to read spec file for hashing",
+        );
+
+        const db = getDb();
+        const [sprint] = await db
+          .select()
+          .from(sprints)
+          .where(eq(sprints.id, input.sprint.id));
+
+        expect(sprint).toBeDefined();
+        expect(sprint.spec_hash).toBeNull();
+      } finally {
+        try {
+          await rm(path.join(process.cwd(), "specs", "tmp-spec-hash"), {
+            recursive: true,
+            force: true,
+          });
+        } catch {
+          // Ignore cleanup errors (Windows file locking)
+        }
+      }
     });
   });
 

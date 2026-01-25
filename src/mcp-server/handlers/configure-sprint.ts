@@ -136,6 +136,10 @@ export async function handleConfigureSprint(
       summary: result.summary,
     };
 
+    if (result.pattern_warnings && result.pattern_warnings.length > 0) {
+      output.pattern_warnings = result.pattern_warnings;
+    }
+
     const durationMs = Math.round(performance.now() - startTime);
 
     // Log successful execution
