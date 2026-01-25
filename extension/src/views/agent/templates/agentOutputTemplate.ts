@@ -118,7 +118,7 @@ function getScript(): string {
       const container = document.createElement("div");
       container.classList.add("output-item");
       container.dataset.id = item.id;
-      container.id = `output-${item.id}`;
+      container.id = "output-" + item.id;
 
       const meta = document.createElement("div");
       meta.classList.add("output-meta");
