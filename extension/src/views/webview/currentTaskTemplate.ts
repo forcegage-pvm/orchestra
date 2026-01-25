@@ -1407,6 +1407,7 @@ function renderTaskCard(task: TaskData): string {
       ${escalationBanner}
       <div class="task-description">${escapeHtml(task.description)}</div>
       <div class="action-buttons">
+        <button class="btn btn-secondary" onclick="refresh()">Refresh</button>
         <button class="btn btn-secondary" onclick="openTask(${
           task.id
         })">View Details</button>
