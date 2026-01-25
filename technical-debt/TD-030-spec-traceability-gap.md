@@ -23,10 +23,11 @@ This undermines the entire Controller review system. Reviews are supposed to ver
 3. [Evidence of the Gap](#evidence-of-the-gap)
 4. [Impact Analysis](#impact)
 5. [Risk Assessment](#risk-assessment)
-6. [Proposed Solution](#proposed-solution)
-7. [Implementation Plan](#implementation-plan)
-8. [Migration Strategy](#migration-strategy)
-9. [Success Criteria](#success-criteria)
+6. [Controller Strictness Mandate](#controller-strictness-mandate)
+7. [Proposed Solution](#proposed-solution)
+8. [Implementation Plan](#implementation-plan)
+9. [Migration Strategy](#migration-strategy)
+10. [Success Criteria](#success-criteria)
 
 ---
 
@@ -399,6 +400,91 @@ Regulator: "Non-compliant. Cannot demonstrate traceability."
 
 ---
 
+## Controller Strictness Mandate
+
+This TD is not just about data access - it's about **fundamentally changing how the Controller reviews code**. The Controller must be EXTREMELY strict in verifying that implementations:
+
+1. **Actually satisfy the specification requirements**
+2. **Actually work in the real world**
+3. **Are not just superficially correct**
+
+### The Two Pillars of Strict Review
+
+#### Pillar 1: Spec Conformance
+
+The Controller MUST verify that EVERY requirement in the linked spec tasks is satisfied:
+
+```
+For each spec_task in speckit_task_ref:
+    requirement = get_requirement_from_spec(spec_task)
+    evidence = find_evidence_in_code(requirement)
+
+    if evidence is MISSING:
+        REJECT("Spec task {spec_task} not implemented")
+
+    if evidence is PARTIAL:
+        REJECT("Spec task {spec_task} only partially implemented")
+
+    if evidence is WRONG:
+        REJECT("Implementation contradicts spec task {spec_task}")
+```
+
+This is NOT optional. This is NOT "best effort". Every spec task must be accounted for.
+
+#### Pillar 2: Real-World Correctness
+
+Beyond spec conformance, the Controller MUST verify the implementation **actually works**:
+
+| Question                           | What It Catches                                       |
+| ---------------------------------- | ----------------------------------------------------- |
+| Is this code actually called?      | Dead code that passes tests but never runs            |
+| Do the tests validate behavior?    | Test fraud - tests that pass without proving anything |
+| Will this work in production?      | Edge cases, error handling, integration issues        |
+| Does this match user expectations? | Technically correct but practically wrong             |
+
+### The "Guilty Until Proven Innocent" Stance
+
+The Controller's default assumption MUST be:
+
+> **"This implementation is WRONG until I can PROVE it is correct."**
+
+This is the opposite of how most code reviews work. Most reviewers assume code is correct and look for problems. The Controller assumes code is broken and looks for proof of correctness.
+
+### What "Strict" Means in Practice
+
+| Scenario                                | Lenient Review                | Strict Review (Required)                     |
+| --------------------------------------- | ----------------------------- | -------------------------------------------- |
+| Test exists but doesn't assert behavior | ✅ "Test exists"              | ❌ "Test fraud - doesn't validate"           |
+| Feature implemented but not wired       | ✅ "Code looks correct"       | ❌ "Dead code - not callable"                |
+| Happy path works, edge cases unknown    | ✅ "Core functionality works" | ❌ "Missing edge case coverage"              |
+| Spec says X+Y, code does X              | ✅ "Partial progress"         | ❌ "Incomplete - spec requires Y"            |
+| Code works but spec task unclear        | ✅ "Seems reasonable"         | ❌ "Cannot verify - need spec clarification" |
+
+### Evidence Standard
+
+For EVERY approval, the Controller must be able to answer:
+
+1. **Which spec tasks does this implement?** (cite task IDs)
+2. **Where is the evidence for each task?** (cite files/lines)
+3. **How do the tests prove correctness?** (cite specific assertions)
+4. **Why will this work in production?** (cite integration evidence)
+
+If ANY of these questions cannot be answered → **REJECT**.
+
+### Tools Required for Strict Review
+
+The Controller needs these capabilities (which this TD provides):
+
+| Need                              | Tool/Data                       | Currently Available | After TD-030     |
+| --------------------------------- | ------------------------------- | ------------------- | ---------------- |
+| Know which spec to review against | `spec_path` on sprint           | ❌ No               | ✅ Yes           |
+| Know which spec tasks to verify   | `spec_task_definitions[]`       | ❌ No               | ✅ Yes           |
+| Read spec requirements            | `read_spec_file` with auto path | ⚠️ Must guess       | ✅ Auto-provided |
+| Cite spec in issues               | `spec_ref` on issues            | ❌ No               | ✅ Yes           |
+| Verify spec coverage              | Parsed task definitions         | ❌ No               | ✅ Yes           |
+
+---
+
 ## Proposed Solution
 
 ### Phase 1: Schema Changes
@@ -528,7 +614,143 @@ issues: [
 | Task | Title                     | Description                                        |
 | ---- | ------------------------- | -------------------------------------------------- |
 | 8    | Update orchestrator agent | Document spec_path requirement in configure_sprint |
-| 9    | Update controller agent   | Document spec-based review workflow                |
+| 9    | Update controller agent   | Mandatory spec-first review workflow (see below)   |
+
+##### Task 9 Detailed: Controller Agent Prompt Updates
+
+The controller agent prompt (`extension/agents/orchestra.controller.agent.md`) MUST be updated with the following additions:
+
+###### 9.1 Mandatory Spec-First Code Review Workflow
+
+Add to the "Code Review Workflow" section:
+
+```markdown
+## ⚠️ MANDATORY: Spec-First Code Review Protocol
+
+Before reviewing ANY implementation code, you MUST complete these steps IN ORDER:
+
+### Step 1: Obtain Spec Context (BEFORE reading code)
+
+1. Call `get_task_for_review(task_id)` or `get_code_review(task=N)`
+2. Note the `spec_path` and `spec_task_definitions[]` returned
+3. If `spec_task_definitions` is empty or missing:
+   - Call `read_spec_file(path=spec_path)` to get full spec
+   - Locate task definitions matching `speckit_task_ref` IDs
+
+### Step 2: Build Evidence Requirements
+
+For EACH spec task ID (T052, T053, etc.):
+
+- Extract the requirement text
+- Identify explicit acceptance criteria
+- List what evidence you MUST see in the code
+- Document this BEFORE reading implementation
+
+### Step 3: Evidence Collection
+
+For EACH spec task requirement, you must find and document:
+
+- **File**: Which source file satisfies this requirement
+- **Location**: Specific line numbers or function names
+- **Mechanism**: HOW the code implements the requirement
+- **Proof**: Test or runtime evidence that it works
+
+### Step 4: Gap Analysis
+
+After reviewing code, for EACH spec task:
+
+- ✅ SATISFIED: Cite file/line with explanation
+- ❌ MISSING: Document what's absent
+- ⚠️ PARTIAL: Document what's incomplete
+
+If ANY spec task is MISSING or PARTIAL → CHANGES_REQUESTED
+```
+
+###### 9.2 Per-Spec-Task Evidence Requirement
+
+Add to the "Evidence Bar" section:
+
+```markdown
+## Per-Spec-Task Evidence Table
+
+Your review MUST include a traceability table:
+
+| Spec Task | Requirement               | Evidence File                    | Evidence Detail                    | Status |
+| --------- | ------------------------- | -------------------------------- | ---------------------------------- | ------ |
+| T052      | Test pause functionality  | test/views/agentControls.test.ts | Lines 45-67: "should pause agent"  | ✅     |
+| T053      | Test resume functionality | test/views/agentControls.test.ts | Lines 70-92: "should resume agent" | ✅     |
+| T054      | Test stop functionality   | NOT FOUND                        | No test for stop behavior          | ❌     |
+
+**Rules:**
+
+- Every spec task in `speckit_task_ref` MUST have a row
+- Every row MUST have evidence or explicit "NOT FOUND"
+- ANY "NOT FOUND" or "PARTIAL" → CHANGES_REQUESTED
+- Do NOT approve if you cannot complete this table
+```
+
+###### 9.3 Real-World Correctness Verification
+
+Add new section after "Code Review Focus Areas":
+
+```markdown
+## ⚠️ CRITICAL: Real-World Correctness
+
+Code review is NOT just about:
+
+- ❌ "Tests pass" (tests can be wrong)
+- ❌ "Code compiles" (doesn't mean it works)
+- ❌ "Follows patterns" (pattern != correctness)
+- ❌ "Looks reasonable" (appearance != behavior)
+
+Code review MUST verify:
+
+- ✅ Feature is **callable from real execution paths** (not dead code)
+- ✅ Behavior **matches spec requirements exactly** (not approximately)
+- ✅ Edge cases **are handled correctly** (not just happy path)
+- ✅ Error conditions **are handled per spec** (not swallowed)
+- ✅ In production, this **WILL work as specified** (not "should work")
+
+### Verification Techniques
+
+| Technique                | What It Proves                        | When Required                    |
+| ------------------------ | ------------------------------------- | -------------------------------- |
+| Trace call graph         | Feature is reachable                  | Always                           |
+| Read test assertions     | Tests validate behavior, not just run | Always                           |
+| Check error handling     | Failures are handled                  | When spec mentions errors        |
+| Verify state changes     | Mutations are correct                 | When spec involves state         |
+| Check integration points | Wiring is complete                    | When feature connects components |
+
+### The "Actually Works" Test
+
+Ask yourself:
+
+> "If I deploy this code right now, will the feature work exactly as the spec describes?"
+
+If you have ANY doubt, you need more evidence. Request it or reject.
+```
+
+###### 9.4 Rejection Threshold
+
+Add to "Decision Policy":
+
+```markdown
+## Strict Rejection Policy
+
+You MUST reject (CHANGES_REQUESTED or REJECTED) if:
+
+1. **Spec task not covered**: Any `speckit_task_ref` ID lacks evidence
+2. **Test fraud**: Tests pass but don't validate actual behavior
+3. **Dead code**: Feature exists but isn't called from runtime paths
+4. **Partial implementation**: Spec says X+Y, code only does X
+5. **Untested edge cases**: Spec mentions edge cases, no tests for them
+6. **Missing error handling**: Spec implies failures, code ignores them
+7. **Wrong behavior**: Code does something, but not what spec says
+8. **Cannot verify**: You cannot prove correctness with available evidence
+
+**Default stance**: Assume implementation is WRONG until PROVEN correct.
+**Burden of proof**: On the code, not on you. If evidence is missing, reject.
+```
 
 #### Phase 4: Testing (Tasks 10-12)
 
