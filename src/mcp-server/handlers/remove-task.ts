@@ -9,6 +9,7 @@ import { getDb } from "../../db/index.js";
 import { getActiveSprint } from "../../db/queries.js";
 import { logToolExecution } from "./audit-logging.js";
 import { tasks } from "../../db/schema.js";
+import { writeSignal } from "../db-signal.js";
 import {
   RemoveTaskInputSchema,
   type RemoveTaskOutput,
@@ -136,6 +137,8 @@ async function removeTask(
 
   // 4. Delete task (cascades to verification_checks, handovers, signals, etc.)
   await db.delete(tasks).where(eq(tasks.id, task.id));
+
+  writeSignal();
 
   return {
     success: true,

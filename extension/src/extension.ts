@@ -10,14 +10,17 @@ import * as path from "path";
 import * as vscode from "vscode";
 import { AgentRunner, ToolRegistry } from "./agents/index.js";
 import { SessionManager } from "./chat/SessionManager.js";
-import { handlePlayTask } from "./commands/PlayTaskHandler.js";
-import { handleReviewSprint } from "./commands/ReviewSprintHandler.js";
+import { handleArchiveSprint } from "./commands/archiveSprint.js";
 import {
   handleDeEscalateTask,
   handleForceComplete,
   handleMoveToGateCheck,
   handleMoveToImplement,
 } from "./commands/deEscalation.js";
+import { handleFilterSprints } from "./commands/filterSprints.js";
+import { handlePlayTask } from "./commands/PlayTaskHandler.js";
+import { handleReviewSprint } from "./commands/ReviewSprintHandler.js";
+import { handleUnarchiveSprint } from "./commands/unarchiveSprint.js";
 import { ConfigService } from "./config/ConfigService.js";
 import { OrchestraDB } from "./database/client.js";
 import {
@@ -776,7 +779,7 @@ export async function activate(
     logger.info("Current Task WebviewView registered");
 
     // 6. Register TreeView
-    const treeProvider = new SprintTreeProvider(db, dbWatcher);
+    const treeProvider = new SprintTreeProvider(db, dbWatcher, context);
     const treeView = vscode.window.createTreeView("orchestra.sprintExplorer", {
       treeDataProvider: treeProvider,
       showCollapseAll: true,
@@ -804,6 +807,8 @@ export async function activate(
     context.subscriptions.push(
       vscode.window.registerFileDecorationProvider(decorationProvider),
     );
+    // Also refresh decorations when database changes
+    dbWatcher.onDidChange(() => decorationProvider.refresh());
     logger.info("View decoration provider registered");
 
     // 6. Register Status Bar
@@ -819,10 +824,21 @@ export async function activate(
         }
       }),
       vscode.commands.registerCommand("orchestra.refreshStatus", () => {
-        treeProvider.refresh();
+        treeProvider.refresh("manual");
         codeReviewTreeProvider.refresh();
+        decorationProvider.refresh(); // Refresh file decorations (code review badges)
         statusBar.refresh();
         logger.info("Manual refresh triggered");
+      }),
+      vscode.commands.registerCommand("orchestra.filterSprints", () => {
+        handleFilterSprints(treeProvider).catch((error) => {
+          const message =
+            error instanceof Error ? error.message : "Unknown error";
+          vscode.window.showErrorMessage(
+            `Orchestra: Failed to filter sprints - ${message}`,
+          );
+          logger.error("Failed to filter sprints", error);
+        });
       }),
       vscode.commands.registerCommand("orchestra.openSprintSettings", () => {
         SprintSettingsPanel.show(orchestraRoot, logger);
@@ -956,6 +972,38 @@ export async function activate(
               orchestraRoot,
               element.sprint.id,
               element.sprint.name,
+              treeProvider,
+              dbWatcher,
+            );
+          }
+        },
+      ),
+      vscode.commands.registerCommand(
+        "orchestra.archiveSprint",
+        async (element: {
+          type: string;
+          sprint?: { id: string; name: string };
+        }) => {
+          if (element?.sprint?.id && dbWatcher) {
+            await handleArchiveSprint(
+              orchestraRoot,
+              element.sprint.id,
+              treeProvider,
+              dbWatcher,
+            );
+          }
+        },
+      ),
+      vscode.commands.registerCommand(
+        "orchestra.unarchiveSprint",
+        async (element: {
+          type: string;
+          sprint?: { id: string; name: string };
+        }) => {
+          if (element?.sprint?.id && dbWatcher) {
+            await handleUnarchiveSprint(
+              orchestraRoot,
+              element.sprint.id,
               treeProvider,
               dbWatcher,
             );

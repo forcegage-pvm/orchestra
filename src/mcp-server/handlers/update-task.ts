@@ -9,6 +9,7 @@ import { and, eq } from "drizzle-orm";
 import { getDb } from "../../db/index.js";
 import { getActiveSprint } from "../../db/queries.js";
 import { amendments, progress, tasks } from "../../db/schema.js";
+import { writeSignal } from "../db-signal.js";
 import {
   UpdateTaskInputSchema,
   type UpdateTaskOutput,
@@ -285,6 +286,8 @@ async function updateTask(
     notes: progressNote,
     changed_at: now,
   });
+
+  writeSignal();
 
   return {
     success: true,

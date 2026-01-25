@@ -8,9 +8,10 @@
 import { eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import { getDb } from "../../db/index.js";
-import { logToolExecution } from "./audit-logging.js";
 import { sprints } from "../../db/schema.js";
 import { validateInput } from "../../schemas/utils.js";
+import { writeSignal } from "../db-signal.js";
+import { logToolExecution } from "./audit-logging.js";
 
 const SetActiveSprintInputSchema = z.object({
   sprint_id: z
@@ -51,7 +52,7 @@ export async function handleSetActiveSprint(input: unknown) {
         input: validation.data,
       },
       { success: true, output },
-      durationMs
+      durationMs,
     );
 
     return {
@@ -68,7 +69,7 @@ export async function handleSetActiveSprint(input: unknown) {
         input: validation.data,
       },
       { success: false, errorMessage: err.message },
-      durationMs
+      durationMs,
     );
 
     return {
@@ -84,7 +85,7 @@ export async function handleSetActiveSprint(input: unknown) {
               },
             },
             null,
-            2
+            2,
           ),
         },
       ],
@@ -93,7 +94,7 @@ export async function handleSetActiveSprint(input: unknown) {
 }
 
 async function setActiveSprint(
-  input: z.output<typeof SetActiveSprintInputSchema>
+  input: z.output<typeof SetActiveSprintInputSchema>,
 ): Promise<SetActiveSprintOutput> {
   const db = getDb();
 
@@ -112,7 +113,7 @@ async function setActiveSprint(
   if (sprint.completed_at) {
     throw new Error(
       `Cannot activate completed sprint: ${input.sprint_id}. ` +
-        `Sprint was completed at ${sprint.completed_at}.`
+        `Sprint was completed at ${sprint.completed_at}.`,
     );
   }
 
@@ -125,9 +126,12 @@ async function setActiveSprint(
     .update(sprints)
     .set({
       is_active: true,
+      is_archived: false,
       updated_at: now,
     })
     .where(eq(sprints.id, input.sprint_id));
+
+  writeSignal();
 
   return {
     success: true,

@@ -13,6 +13,7 @@ import {
   progress,
   tasks,
 } from "../../db/schema.js";
+import { writeSignal } from "../db-signal.js";
 import {
   ReopenTaskInputSchema,
   type ReopenTaskOutput,
@@ -177,6 +178,8 @@ async function reopenTask(
       `Reason: ${input.reason}`,
     changed_at: now,
   });
+
+  writeSignal();
 
   return {
     success: true,

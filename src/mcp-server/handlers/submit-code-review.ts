@@ -12,6 +12,7 @@ import {
   progress,
   tasks,
 } from "../../db/schema.js";
+import { writeSignal } from "../db-signal.js";
 import {
   SubmitCodeReviewInputSchema,
   SubmitCodeReviewOutputSchema,
@@ -342,6 +343,8 @@ async function submitCodeReview(
     nextAction =
       "Implementor must address blocking issues and submit fixes for re-review.";
   }
+
+  writeSignal();
 
   const output = validateOutput(SubmitCodeReviewOutputSchema, {
     success: true,
