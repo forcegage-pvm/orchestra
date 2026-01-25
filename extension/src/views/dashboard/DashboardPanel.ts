@@ -98,7 +98,7 @@ export class DashboardPanel {
     panel: vscode.WebviewPanel,
     extensionUri: vscode.Uri,
     private readonly _db: Database.Database,
-    private readonly dbWatcher: DatabaseWatcher
+    private readonly dbWatcher: DatabaseWatcher,
   ) {
     this._panel = panel;
     this._extensionUri = extensionUri;
@@ -118,12 +118,20 @@ export class DashboardPanel {
             // Handle task open request
             void vscode.commands.executeCommand(
               "orchestra.openTaskDetail",
-              message.taskId
+              message.taskId,
             );
             break;
           case "retry":
             // Handle retry request after error
             this.update();
+            break;
+          case "playTask":
+            if (typeof message.taskId === "number") {
+              void vscode.commands.executeCommand("orchestra.playTask", {
+                type: "task",
+                task: { id: message.taskId },
+              });
+            }
             break;
           case "initSprint":
             // Handle init sprint request from empty state
@@ -132,7 +140,7 @@ export class DashboardPanel {
         }
       },
       null,
-      this._disposables
+      this._disposables,
     );
 
     // Handle panel disposal
@@ -148,7 +156,7 @@ export class DashboardPanel {
   public static createOrShow(
     extensionUri: vscode.Uri,
     db: Database.Database,
-    dbWatcher: DatabaseWatcher
+    dbWatcher: DatabaseWatcher,
   ): void {
     // Show existing panel
     if (DashboardPanel.currentPanel) {
@@ -164,14 +172,14 @@ export class DashboardPanel {
       {
         enableScripts: true,
         retainContextWhenHidden: true,
-      }
+      },
     );
 
     DashboardPanel.currentPanel = new DashboardPanel(
       panel,
       extensionUri,
       db,
-      dbWatcher
+      dbWatcher,
     );
   }
 
@@ -235,7 +243,7 @@ export class DashboardPanel {
             COUNT(*) as total,
             SUM(CASE WHEN status = 'COMPLETE' THEN 1 ELSE 0 END) as completed
           FROM tasks 
-          WHERE sprint_id = ?`
+          WHERE sprint_id = ?`,
         )
         .get(sprint.id) as { total: number; completed: number } | undefined;
 
@@ -258,7 +266,7 @@ export class DashboardPanel {
             SUM(CASE WHEN status = 'IMPLEMENT' OR status = 'VERIFY' THEN 1 ELSE 0 END) as in_progress,
             SUM(CASE WHEN status = 'COMPLETE' THEN 1 ELSE 0 END) as completed
           FROM tasks 
-          WHERE sprint_id = ?`
+          WHERE sprint_id = ?`,
         )
         .get(sprint.id) as
         | { pending: number; in_progress: number; completed: number }
@@ -284,7 +292,7 @@ export class DashboardPanel {
           LEFT JOIN tasks t ON t.phase_id = p.phase_id AND t.sprint_id = p.sprint_id
           WHERE p.sprint_id = ?
           GROUP BY p.phase_id, p.phase_name
-          ORDER BY p.phase_id`
+          ORDER BY p.phase_id`,
         )
         .all(sprint.id) as Array<{
         phase_id: string;
@@ -322,7 +330,7 @@ export class DashboardPanel {
           FROM tasks 
           WHERE sprint_id = ? AND status != 'PENDING'
           ORDER BY updated_at DESC
-          LIMIT 5`
+          LIMIT 5`,
         )
         .all(sprint.id) as Array<{
         id: number;
@@ -361,7 +369,7 @@ export class DashboardPanel {
       "resources",
       "views",
       "dashboard",
-      "index.html"
+      "index.html",
     );
 
     let html = fs.readFileSync(htmlPath, "utf8");

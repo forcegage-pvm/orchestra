@@ -129,6 +129,28 @@ export function getContextFileResolver(): ContextFileResolver {
 }
 
 /**
+ * Get the AgentRunner singleton
+ * @returns The AgentRunner instance (lazy-initialized)
+ */
+export function getAgentRunner(): AgentRunner {
+  if (!agentRunner) {
+    agentRunner = createAgentRunner();
+  }
+  return agentRunner;
+}
+
+function createAgentRunner(): AgentRunner {
+  const toolRegistry = new ToolRegistry();
+  return new AgentRunner(toolRegistry, {
+    orchestratorModel: getConfigService().getModelForRole("orchestrator"),
+    implementorModel: getConfigService().getModelForRole("implementor"),
+    controllerModel: getConfigService().getModelForRole("controller"),
+    maxIterations: 50,
+    maxContextTokens: 100000,
+  });
+}
+
+/**
  * Install MCP servers to .vscode/mcp.json
  * Merges with existing configuration, preserving other servers
  */
@@ -1583,7 +1605,7 @@ export async function activate(
       // Agent execution commands
       vscode.commands.registerCommand("orchestra.startAgent", async () => {
         try {
-          if (agentRunner) {
+          if (agentRunner?.getSession()?.status === "running") {
             vscode.window.showErrorMessage(
               "Orchestra: Agent is already running. Stop or pause the current agent first.",
             );
@@ -1614,20 +1636,10 @@ export async function activate(
             return; // User cancelled
           }
 
-          // Create ToolRegistry and AgentRunner
-          const toolRegistry = new ToolRegistry();
-          // TODO: Register tools here in future work
-
-          agentRunner = new AgentRunner(toolRegistry, {
-            orchestratorModel: configService.getModelForRole("orchestrator"),
-            implementorModel: configService.getModelForRole("implementor"),
-            controllerModel: configService.getModelForRole("controller"),
-            maxIterations: 50,
-            maxContextTokens: 100000,
-          });
+          const runner = getAgentRunner();
 
           // Start the agent
-          await agentRunner.start(
+          await runner.start(
             role.value as "orchestrator" | "implementor" | "controller",
             {
               prompt,

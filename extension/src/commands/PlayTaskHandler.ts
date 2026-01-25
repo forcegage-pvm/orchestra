@@ -14,7 +14,11 @@ import {
   getLatestHandoverReview,
   getTaskById,
 } from "../database/queries.js";
-import { getContextFileResolver, getSessionManager } from "../extension.js";
+import {
+  getAgentRunner,
+  getContextFileResolver,
+  getSessionManager,
+} from "../extension.js";
 import { PromptBuilder } from "../prompts/PromptBuilder.js";
 import { OrchestraLogger } from "../utils/logger.js";
 
@@ -156,7 +160,7 @@ async function invokePrepare(
  * Invoke implementor to work on an IMPLEMENT task
  *
  * Builds an IMPLEMENT prompt with task context and handover path, resolves context files,
- * and opens chat with implementor agent.
+ * and starts the implementor agent via AgentRunner.
  *
  * @param workspaceRoot Absolute path to workspace root
  * @param taskId Task ID (numeric primary key)
@@ -192,7 +196,14 @@ async function invokeImplement(
     // Create instances
     const logger = new OrchestraLogger();
     const promptBuilder = new PromptBuilder();
-    const sessionManager = getSessionManager();
+    const agentRunner = getAgentRunner();
+
+    if (agentRunner.getSession()?.status === "running") {
+      vscode.window.showErrorMessage(
+        "Orchestra: Agent is already running. Stop or pause the current agent first.",
+      );
+      return;
+    }
 
     // Get context file resolver from extension
     const contextFileResolver = getContextFileResolver();
@@ -203,18 +214,31 @@ async function invokeImplement(
     // Build the implement prompt
     const prompt = promptBuilder.buildImplementPrompt(context);
 
-    // Invoke implementor - always creates a new editor chat session per task
-    await sessionManager.invokeImplementor(prompt, contextFiles);
+    // Invoke implementor agent for autonomous execution
+    await agentRunner.start("implementor", {
+      prompt,
+      taskId,
+      sprintId: task.sprint_id,
+    });
 
-    logger.info(`Invoked implementor to work on task ${taskId}`, {
+    logger.info(`Started implementor agent for task ${taskId}`, {
       taskId,
       taskTitle: task.title,
       contextFileCount: contextFiles.length,
     });
   } catch (error) {
+    if (
+      error instanceof Error &&
+      error.message.includes("Agent is already running")
+    ) {
+      vscode.window.showErrorMessage(
+        "Orchestra: Agent is already running. Stop or pause the current agent first.",
+      );
+      return;
+    }
     const message = error instanceof Error ? error.message : "Unknown error";
     vscode.window.showErrorMessage(
-      `Orchestra: Failed to invoke implementor for task ${taskId} - ${message}`,
+      `Orchestra: Failed to start implementor agent for task ${taskId} - ${message}`,
     );
   }
 }

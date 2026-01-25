@@ -62,6 +62,10 @@ vi.mock("../../src/extension.js", () => ({
     ),
     getAgentForRole: vi.fn((role: string) => `orchestra.${role}`),
   })),
+  getAgentRunner: vi.fn(() => ({
+    getSession: vi.fn(() => undefined),
+    start: vi.fn().mockResolvedValue({}),
+  })),
   getContextFileResolver: vi.fn(() => ({
     getContextFiles: vi.fn(() => []),
   })),
@@ -236,7 +240,7 @@ describe("PlayTaskHandler", () => {
           { fsPath: "/workspace/src/file1.ts" },
           { fsPath: "/workspace/src/file2.ts" },
         ]);
-        const mockInvokeImplementor = vi.fn().mockResolvedValue(undefined);
+        const mockStartAgent = vi.fn().mockResolvedValue({});
 
         vi.mocked(PromptBuilder).mockImplementation(
           () =>
@@ -249,9 +253,9 @@ describe("PlayTaskHandler", () => {
           getContextFiles: mockGetContextFiles,
         } as never);
 
-        vi.mocked(extension.getSessionManager).mockReturnValue({
-          sendMessage: vi.fn().mockResolvedValue(true),
-          invokeImplementor: mockInvokeImplementor,
+        vi.mocked(extension.getAgentRunner).mockReturnValue({
+          getSession: vi.fn(() => undefined),
+          start: mockStartAgent,
         } as never);
 
         await handlePlayTask(mockWorkspaceRoot, mockTaskId);
@@ -280,14 +284,12 @@ describe("PlayTaskHandler", () => {
         // Verify context files were resolved
         expect(mockGetContextFiles).toHaveBeenCalledWith(mockTaskId);
 
-        // Verify SessionManager.invokeImplementor was called with prompt and files
-        expect(mockInvokeImplementor).toHaveBeenCalledWith(
-          "Mock implement prompt",
-          [
-            { fsPath: "/workspace/src/file1.ts" },
-            { fsPath: "/workspace/src/file2.ts" },
-          ]
-        );
+        // Verify AgentRunner.start was called with prompt and task context
+        expect(mockStartAgent).toHaveBeenCalledWith("implementor", {
+          prompt: "Mock implement prompt",
+          taskId: mockTaskId,
+          sprintId: mockTask.sprint_id,
+        });
       });
 
       it("should work when handover is null (no handover exists yet)", async () => {
@@ -295,7 +297,7 @@ describe("PlayTaskHandler", () => {
 
         const mockBuildImplementPrompt = vi.fn(() => "Mock implement prompt");
         const mockGetContextFiles = vi.fn(() => []);
-        const mockInvokeImplementor = vi.fn().mockResolvedValue(undefined);
+        const mockStartAgent = vi.fn().mockResolvedValue({});
 
         vi.mocked(PromptBuilder).mockImplementation(
           () =>
@@ -308,9 +310,9 @@ describe("PlayTaskHandler", () => {
           getContextFiles: mockGetContextFiles,
         } as never);
 
-        vi.mocked(extension.getSessionManager).mockReturnValue({
-          sendMessage: vi.fn().mockResolvedValue(true),
-          invokeImplementor: mockInvokeImplementor,
+        vi.mocked(extension.getAgentRunner).mockReturnValue({
+          getSession: vi.fn(() => undefined),
+          start: mockStartAgent,
         } as never);
 
         await handlePlayTask(mockWorkspaceRoot, mockTaskId);
@@ -330,11 +332,12 @@ describe("PlayTaskHandler", () => {
           },
         });
 
-        // Should invoke implementor with empty files array
-        expect(mockInvokeImplementor).toHaveBeenCalledWith(
-          "Mock implement prompt",
-          []
-        );
+        // Should start agent with task context
+        expect(mockStartAgent).toHaveBeenCalledWith("implementor", {
+          prompt: "Mock implement prompt",
+          taskId: mockTaskId,
+          sprintId: mockTask.sprint_id,
+        });
       });
 
       it("should work when no context files exist", async () => {
@@ -342,7 +345,7 @@ describe("PlayTaskHandler", () => {
 
         const mockBuildImplementPrompt = vi.fn(() => "Mock implement prompt");
         const mockGetContextFiles = vi.fn(() => []); // No files
-        const mockInvokeImplementor = vi.fn().mockResolvedValue(undefined);
+        const mockStartAgent = vi.fn().mockResolvedValue({});
 
         vi.mocked(PromptBuilder).mockImplementation(
           () =>
@@ -355,17 +358,47 @@ describe("PlayTaskHandler", () => {
           getContextFiles: mockGetContextFiles,
         } as never);
 
-        vi.mocked(extension.getSessionManager).mockReturnValue({
-          sendMessage: vi.fn().mockResolvedValue(true),
-          invokeImplementor: mockInvokeImplementor,
+        vi.mocked(extension.getAgentRunner).mockReturnValue({
+          getSession: vi.fn(() => undefined),
+          start: mockStartAgent,
         } as never);
 
         await handlePlayTask(mockWorkspaceRoot, mockTaskId);
 
-        // Should invoke implementor with empty files array
-        expect(mockInvokeImplementor).toHaveBeenCalledWith(
-          "Mock implement prompt",
-          []
+        // Should start agent with task context
+        expect(mockStartAgent).toHaveBeenCalledWith("implementor", {
+          prompt: "Mock implement prompt",
+          taskId: mockTaskId,
+          sprintId: mockTask.sprint_id,
+        });
+      });
+
+      it("should show error when agent is already running", async () => {
+        vi.mocked(queries.getTaskById).mockReturnValue(mockTask);
+
+        const mockBuildImplementPrompt = vi.fn(() => "Mock implement prompt");
+        const mockGetContextFiles = vi.fn(() => []);
+
+        vi.mocked(PromptBuilder).mockImplementation(
+          () =>
+            ({
+              buildImplementPrompt: mockBuildImplementPrompt,
+            } as unknown as PromptBuilder)
+        );
+
+        vi.mocked(extension.getContextFileResolver).mockReturnValue({
+          getContextFiles: mockGetContextFiles,
+        } as never);
+
+        vi.mocked(extension.getAgentRunner).mockReturnValue({
+          getSession: vi.fn(() => ({ status: "running" })),
+          start: vi.fn().mockResolvedValue({}),
+        } as never);
+
+        await handlePlayTask(mockWorkspaceRoot, mockTaskId);
+
+        expect(vscode.window.showErrorMessage).toHaveBeenCalledWith(
+          "Orchestra: Agent is already running. Stop or pause the current agent first."
         );
       });
 
@@ -378,7 +411,7 @@ describe("PlayTaskHandler", () => {
         await handlePlayTask(mockWorkspaceRoot, mockTaskId);
 
         expect(vscode.window.showErrorMessage).toHaveBeenCalledWith(
-          expect.stringContaining("Failed to invoke implementor")
+          expect.stringContaining("Failed to start implementor agent")
         );
         expect(vscode.window.showErrorMessage).toHaveBeenCalledWith(
           expect.stringContaining("Context resolver error")
