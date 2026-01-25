@@ -101,6 +101,11 @@
         "icon": "$(refresh)"
       },
       {
+        "command": "orchestra.filterSprints",
+        "title": "Orchestra: Filter Sprints",
+        "icon": "$(filter)"
+      },
+      {
         "command": "orchestra.openSprintSettings",
         "title": "Orchestra: Open Sprint Settings",
         "icon": "$(settings-gear)"
@@ -313,6 +318,11 @@
       "view/title": [
         {
           "command": "orchestra.refreshStatus",
+          "when": "view == orchestra.sprintExplorer",
+          "group": "navigation"
+        },
+        {
+          "command": "orchestra.filterSprints",
           "when": "view == orchestra.sprintExplorer",
           "group": "navigation"
         },

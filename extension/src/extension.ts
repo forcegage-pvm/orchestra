@@ -11,6 +11,7 @@ import * as vscode from "vscode";
 import { AgentRunner, ToolRegistry } from "./agents/index.js";
 import { SessionManager } from "./chat/SessionManager.js";
 import { handleArchiveSprint } from "./commands/archiveSprint.js";
+import { handleFilterSprints } from "./commands/filterSprints.js";
 import { handleUnarchiveSprint } from "./commands/unarchiveSprint.js";
 import {
   handleDeEscalateTask,
@@ -778,7 +779,7 @@ export async function activate(
     logger.info("Current Task WebviewView registered");
 
     // 6. Register TreeView
-    const treeProvider = new SprintTreeProvider(db, dbWatcher);
+    const treeProvider = new SprintTreeProvider(db, dbWatcher, context);
     const treeView = vscode.window.createTreeView("orchestra.sprintExplorer", {
       treeDataProvider: treeProvider,
       showCollapseAll: true,
@@ -825,6 +826,15 @@ export async function activate(
         codeReviewTreeProvider.refresh();
         statusBar.refresh();
         logger.info("Manual refresh triggered");
+      }),
+      vscode.commands.registerCommand("orchestra.filterSprints", () => {
+        handleFilterSprints(treeProvider).catch((error) => {
+          const message = error instanceof Error ? error.message : "Unknown error";
+          vscode.window.showErrorMessage(
+            `Orchestra: Failed to filter sprints - ${message}`,
+          );
+          logger.error("Failed to filter sprints", error);
+        });
       }),
       vscode.commands.registerCommand("orchestra.openSprintSettings", () => {
         SprintSettingsPanel.show(orchestraRoot, logger);

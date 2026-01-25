@@ -15,6 +15,7 @@ import {
   getTasksForSprint,
   type Phase,
   type Sprint,
+  type SprintFilter,
   type Task,
 } from "../../database/queries.js";
 import type { DatabaseWatcher } from "../../database/watcher.js";
@@ -58,12 +59,19 @@ export class SprintTreeProvider implements vscode.TreeDataProvider<TreeElement> 
 
   private _codeReviewStatusByTaskId: Map<number, string> = new Map();
   private _codeReviewStatusSprintId: string | null = null;
+  private _filter: SprintFilter;
 
   constructor(
     private readonly _db: Database.Database,
     private readonly _dbWatcher: DatabaseWatcher,
+    private readonly _context: vscode.ExtensionContext,
   ) {
     void this._db; // Keep for potential future direct use
+
+    this._filter = this._context.workspaceState.get<SprintFilter>(
+      "orchestra.sprintFilter",
+      "active",
+    );
 
     // Subscribe to database changes
     this._dbWatcher.onDidChange(() => this.refresh());
@@ -103,10 +111,17 @@ export class SprintTreeProvider implements vscode.TreeDataProvider<TreeElement> 
       // Root level: return all sprints
       if (!element) {
         const sprints = getAllSprints(workspaceRoot);
-        if (sprints.length === 0) {
+        const filteredSprints = this._filter === "all"
+          ? sprints
+          : sprints.filter((sprint) =>
+              this._filter === "archived"
+                ? sprint.is_archived
+                : !sprint.is_archived,
+            );
+        if (filteredSprints.length === 0) {
           return [this._createMessageItem("No sprints found", "empty")];
         }
-        return sprints.map((sprint) => ({ type: "sprint", sprint }));
+        return filteredSprints.map((sprint) => ({ type: "sprint", sprint }));
       }
 
       // Sprint level: return phases
@@ -208,7 +223,23 @@ export class SprintTreeProvider implements vscode.TreeDataProvider<TreeElement> 
       item.contextValue = isActive ? "sprint-active" : "sprint-inactive";
     }
 
+    if (sprint.is_archived) {
+      item.iconPath = new vscode.ThemeIcon(
+        "archive",
+        new vscode.ThemeColor("descriptionForeground"),
+      );
+      description = description ? `${description} (archived)` : "(archived)";
+      item.description = description;
+      item.contextValue = "sprint-archived";
+    }
+
     return item;
+  }
+
+  setFilter(filter: SprintFilter): void {
+    this._filter = filter;
+    void this._context.workspaceState.update("orchestra.sprintFilter", filter);
+    this.refresh();
   }
 
   private _createPhaseItem(phase: Phase, tasks: Task[]): vscode.TreeItem {

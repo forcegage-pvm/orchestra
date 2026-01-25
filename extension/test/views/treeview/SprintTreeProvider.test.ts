@@ -112,7 +112,14 @@ describe("SprintTreeProvider", () => {
       dispose: vi.fn(),
     } as unknown as DatabaseWatcher;
 
-    provider = new SprintTreeProvider(mockDb, mockDbWatcher);
+    const mockContext = {
+      workspaceState: {
+        get: vi.fn(() => "active"),
+        update: vi.fn(() => Promise.resolve()),
+      },
+    } as unknown as vscode.ExtensionContext;
+
+    provider = new SprintTreeProvider(mockDb, mockDbWatcher, mockContext);
 
     // Reset mocks
     vi.mocked(findOrchestraRoot).mockReturnValue("/test/workspace");
