@@ -55,6 +55,12 @@ export function getAgentOutputStyles(): string {
       padding: 12px 14px 24px;
     }
 
+    .output-list {
+      display: flex;
+      flex-direction: column;
+      min-height: 100%;
+    }
+
     .output-item {
       margin-bottom: 12px;
       padding: 10px 12px;
@@ -132,6 +138,32 @@ export function getAgentOutputStyles(): string {
       border: 1px solid var(--vscode-panel-border);
       white-space: pre-wrap;
       overflow-x: auto;
+    }
+
+    .code-block {
+      line-height: 1.5;
+    }
+
+    .token-key {
+      color: var(--vscode-charts-blue);
+    }
+
+    .token-string {
+      color: var(--vscode-charts-orange);
+    }
+
+    .token-number {
+      color: var(--vscode-charts-purple);
+    }
+
+    .token-boolean {
+      color: var(--vscode-charts-yellow);
+      font-weight: 600;
+    }
+
+    .token-null {
+      color: var(--vscode-charts-red);
+      font-weight: 600;
     }
 
     .tool-error {

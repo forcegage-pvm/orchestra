@@ -2,11 +2,9 @@
  * Tests for AgentOutputPanel
  */
 
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as vscode from "vscode";
-import {
-  AgentOutputPanel,
-} from "../../../src/views/agent/AgentOutputPanel.js";
+import { AgentOutputPanel } from "../../../src/views/agent/AgentOutputPanel.js";
 import {
   generateAgentOutputHtml,
   type AgentOutputItem,
@@ -36,8 +34,13 @@ vi.mock("vscode", () => ({
 }));
 
 describe("AgentOutputPanel", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+
   afterEach(() => {
     AgentOutputPanel.currentPanel = undefined;
+    vi.useRealTimers();
     vi.clearAllMocks();
   });
 
@@ -76,7 +79,66 @@ describe("AgentOutputPanel", () => {
       .calls[0]?.[0];
     handler?.({ type: "ready" });
 
+    vi.advanceTimersByTime(50);
+
     expect(mockWebview.postMessage).toHaveBeenCalled();
+  });
+
+  it("should batch messages within the interval", () => {
+    const extensionUri = { fsPath: "/test/extension" } as vscode.Uri;
+    const panel = AgentOutputPanel.createOrShow(extensionUri);
+
+    const handler = vi.mocked(mockWebview.onDidReceiveMessage).mock
+      .calls[0]?.[0];
+    handler?.({ type: "ready" });
+
+    panel.addOutput({
+      id: "1",
+      type: "thinking",
+      timestamp: "now",
+      content: { text: "one" },
+    });
+    panel.addOutput({
+      id: "2",
+      type: "thinking",
+      timestamp: "now",
+      content: { text: "two" },
+    });
+
+    expect(mockWebview.postMessage).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(50);
+
+    expect(mockWebview.postMessage).toHaveBeenCalledTimes(1);
+    const [payload] = vi.mocked(mockWebview.postMessage).mock.calls[0] ?? [];
+    expect(payload).toMatchObject({ type: "batch" });
+    expect(payload?.messages?.length).toBe(2);
+  });
+
+  it("should prune items beyond the max count", () => {
+    const extensionUri = { fsPath: "/test/extension" } as vscode.Uri;
+    const panel = AgentOutputPanel.createOrShow(extensionUri);
+
+    const handler = vi.mocked(mockWebview.onDidReceiveMessage).mock
+      .calls[0]?.[0];
+    handler?.({ type: "ready" });
+
+    for (let i = 0; i < 501; i += 1) {
+      panel.addOutput({
+        id: String(i),
+        type: "thinking",
+        timestamp: "now",
+        content: { text: "test" },
+      });
+    }
+
+    vi.advanceTimersByTime(50);
+
+    const [payload] = vi.mocked(mockWebview.postMessage).mock.calls[0] ?? [];
+    const messages = payload?.messages ?? [];
+    const pruneMessage = messages.find(
+      (message: { type: string; count?: number }) => message.type === "prune",
+    );
+    expect(pruneMessage).toMatchObject({ type: "prune", count: 1 });
   });
 });
 
@@ -103,18 +165,52 @@ describe("generateAgentOutputHtml", () => {
       },
     ];
 
-    const html = generateAgentOutputHtml(items, "vscode-resource://test", "Running", "nonce");
+    const html = generateAgentOutputHtml(
+      items,
+      "vscode-resource://test",
+      "Running",
+      "nonce",
+    );
 
     expect(html).toContain("Thinking");
     expect(html).toContain("Tool Call");
     expect(html).toContain("details");
     expect(html).toContain("summary");
+    expect(html).toContain("token-string");
+    expect(html).toContain("virtual-spacer-top");
   });
 
   it("should include CSP and styles", () => {
-    const html = generateAgentOutputHtml([], "vscode-resource://test", "Idle", "nonce");
+    const html = generateAgentOutputHtml(
+      [],
+      "vscode-resource://test",
+      "Idle",
+      "nonce",
+    );
 
     expect(html).toContain("Content-Security-Policy");
     expect(html).toContain("--vscode-");
+  });
+
+  it("should window initial render for large item sets", () => {
+    const items: AgentOutputItem[] = Array.from(
+      { length: 300 },
+      (_, index) => ({
+        id: `item-${index}`,
+        type: "thinking",
+        timestamp: "2026-01-01T00:00:00Z",
+        content: { text: `Item ${index}` },
+      }),
+    );
+
+    const html = generateAgentOutputHtml(
+      items,
+      "vscode-resource://test",
+      "Idle",
+      "nonce",
+    );
+
+    expect(html).toContain('data-id="item-0"');
+    expect(html).not.toContain('data-id="item-299"');
   });
 });

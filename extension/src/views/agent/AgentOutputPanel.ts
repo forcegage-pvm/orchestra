@@ -18,6 +18,11 @@ export class AgentOutputPanel {
   private _disposables: vscode.Disposable[] = [];
   private _pendingMessages: Array<{ type: string; [key: string]: unknown }> =
     [];
+  private _messageQueue: Array<{ type: string; [key: string]: unknown }> = [];
+  private _batchTimer: ReturnType<typeof setTimeout> | undefined;
+  private readonly _batchIntervalMs = 50;
+  private readonly _maxItems = 500;
+  private _itemCount = 0;
   private _ready = false;
   private _outputSubscription: { dispose(): void } | undefined;
 
@@ -67,21 +72,29 @@ export class AgentOutputPanel {
    * Add output item to panel
    */
   public addOutput(output: AgentOutputItem): void {
-    this.postMessage({ type: "addOutput", output });
+    this._itemCount += 1;
+    const overflow = this._itemCount - this._maxItems;
+    if (overflow > 0) {
+      this._itemCount = this._maxItems;
+      this.enqueueMessage({ type: "prune", count: overflow });
+    }
+
+    this.enqueueMessage({ type: "addOutput", output });
   }
 
   /**
    * Clear all output items
    */
   public clear(): void {
-    this.postMessage({ type: "clear" });
+    this._itemCount = 0;
+    this.enqueueMessage({ type: "clear" });
   }
 
   /**
    * Update status badge in header
    */
   public updateStatus(status: string): void {
-    this.postMessage({ type: "updateStatus", status });
+    this.enqueueMessage({ type: "updateStatus", status });
   }
 
   /**
@@ -103,13 +116,42 @@ export class AgentOutputPanel {
     this._outputSubscription = undefined;
   }
 
-  private postMessage(message: { type: string; [key: string]: unknown }): void {
-    if (this._ready) {
-      void this._panel.webview.postMessage(message);
+  private enqueueMessage(message: {
+    type: string;
+    [key: string]: unknown;
+  }): void {
+    if (!this._ready) {
+      this._pendingMessages.push(message);
       return;
     }
 
-    this._pendingMessages.push(message);
+    this._messageQueue.push(message);
+    this.ensureBatchTimer();
+  }
+
+  private ensureBatchTimer(): void {
+    if (this._batchTimer) {
+      return;
+    }
+
+    this._batchTimer = setTimeout(() => {
+      this.flushMessageBatch();
+    }, this._batchIntervalMs);
+  }
+
+  private flushMessageBatch(): void {
+    this._batchTimer = undefined;
+    if (!this._messageQueue.length) {
+      return;
+    }
+
+    const batch = [...this._messageQueue];
+    this._messageQueue = [];
+    void this._panel.webview.postMessage({ type: "batch", messages: batch });
+
+    if (this._messageQueue.length) {
+      this.ensureBatchTimer();
+    }
   }
 
   private flushPendingMessages(): void {
@@ -119,9 +161,8 @@ export class AgentOutputPanel {
 
     const messages = [...this._pendingMessages];
     this._pendingMessages = [];
-    for (const message of messages) {
-      void this._panel.webview.postMessage(message);
-    }
+    this._messageQueue.push(...messages);
+    this.ensureBatchTimer();
   }
 
   private getHtmlContent(): string {
@@ -146,6 +187,10 @@ export class AgentOutputPanel {
    */
   public dispose(): void {
     AgentOutputPanel.currentPanel = undefined;
+    if (this._batchTimer) {
+      clearTimeout(this._batchTimer);
+      this._batchTimer = undefined;
+    }
     this._outputSubscription?.dispose();
     this._panel.dispose();
     while (this._disposables.length) {

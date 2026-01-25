@@ -31,6 +31,56 @@ function formatJson(value: unknown): string {
   }
 }
 
+const jsonTokenPattern =
+  /("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\\"])*"(?:\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+-]?\d+)?)/g;
+
+function highlightCode(value: string): string {
+  let result = "";
+  let lastIndex = 0;
+  for (const match of value.matchAll(jsonTokenPattern)) {
+    const matchIndex = match.index ?? 0;
+    const token = match[0] ?? "";
+    result += escapeHtml(value.slice(lastIndex, matchIndex));
+
+    let className = "token-number";
+    if (token.startsWith('"')) {
+      className = token.endsWith(":") ? "token-key" : "token-string";
+    } else if (token === "true" || token === "false") {
+      className = "token-boolean";
+    } else if (token === "null") {
+      className = "token-null";
+    }
+
+    result += `<span class="${className}">${escapeHtml(token)}</span>`;
+    lastIndex = matchIndex + token.length;
+  }
+
+  result += escapeHtml(value.slice(lastIndex));
+  return result;
+}
+
+function highlightJson(value: unknown): string {
+  return highlightCode(formatJson(value));
+}
+
+function highlightMaybeJson(value: string): string {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return "";
+  }
+
+  try {
+    const parsed = JSON.parse(trimmed) as unknown;
+    return highlightJson(parsed);
+  } catch {
+    return highlightCode(value);
+  }
+}
+
+function serializeForScript(value: unknown): string {
+  return JSON.stringify(value).replace(/</g, "\\u003c");
+}
+
 function renderThinking(item: AgentOutputItem): string {
   const content = item.content as { text: string };
   return `
@@ -45,7 +95,10 @@ function renderThinking(item: AgentOutputItem): string {
 }
 
 function renderToolCall(item: AgentOutputItem): string {
-  const content = item.content as { toolName: string; arguments: Record<string, unknown> };
+  const content = item.content as {
+    toolName: string;
+    arguments: Record<string, unknown>;
+  };
   return `
     <div class="output-item output-tool-call" data-id="${escapeHtml(item.id)}" id="output-${escapeHtml(item.id)}">
       <div class="output-meta">
@@ -53,17 +106,22 @@ function renderToolCall(item: AgentOutputItem): string {
         <span>${escapeHtml(item.timestamp)}</span>
       </div>
       <div class="tool-call-title">${escapeHtml(content.toolName)}</div>
-      <pre class="tool-arguments">${escapeHtml(formatJson(content.arguments))}</pre>
+      <pre class="tool-arguments code-block">${highlightJson(content.arguments)}</pre>
     </div>
   `;
 }
 
 function renderToolResult(item: AgentOutputItem): string {
-  const content = item.content as { toolName: string; success: boolean; output: string; error?: string };
+  const content = item.content as {
+    toolName: string;
+    success: boolean;
+    output: string;
+    error?: string;
+  };
   const resultClass = content.success ? "" : "error";
   const statusLabel = content.success ? "Success" : "Error";
   const errorBlock = content.error
-    ? `<pre class="tool-error">${escapeHtml(content.error)}</pre>`
+    ? `<pre class="tool-error code-block">${highlightMaybeJson(content.error)}</pre>`
     : "";
 
   return `
@@ -75,7 +133,7 @@ function renderToolResult(item: AgentOutputItem): string {
       <details class="tool-result" ${content.success ? "" : "open"}>
         <summary>${escapeHtml(content.toolName)}</summary>
         <div class="tool-result-body">
-          <pre class="tool-output">${escapeHtml(content.output)}</pre>
+          <pre class="tool-output code-block">${highlightMaybeJson(content.output)}</pre>
           ${errorBlock}
         </div>
       </details>
@@ -93,9 +151,19 @@ function renderOutputItem(item: AgentOutputItem): string {
   return renderToolResult(item);
 }
 
-function getScript(): string {
+function getScript(initialItemsJson: string): string {
   return `
     const vscode = acquireVsCodeApi();
+    const initialItems = ${initialItemsJson};
+    const MAX_ITEMS = 500;
+    const BUFFER = 8;
+    let renderPending = false;
+    let averageItemHeight = 120;
+    let lastStart = -1;
+    let lastEnd = -1;
+    const state = {
+      items: Array.isArray(initialItems) ? initialItems : [],
+    };
 
     function escapeHtml(text) {
       return text
@@ -111,6 +179,52 @@ function getScript(): string {
         return JSON.stringify(value, null, 2);
       } catch (error) {
         return String(value);
+      }
+    }
+
+    const jsonTokenPattern =
+      /(\"(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\\"])*\"(?:\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+-]?\d+)?)/g;
+
+    function highlightCode(value) {
+      let result = "";
+      let lastIndex = 0;
+      for (const match of value.matchAll(jsonTokenPattern)) {
+        const matchIndex = match.index || 0;
+        const token = match[0] || "";
+        result += escapeHtml(value.slice(lastIndex, matchIndex));
+
+        let className = "token-number";
+        if (token.startsWith("\"")) {
+          className = token.endsWith(":") ? "token-key" : "token-string";
+        } else if (token === "true" || token === "false") {
+          className = "token-boolean";
+        } else if (token === "null") {
+          className = "token-null";
+        }
+
+        result += "<span class=\"" + className + "\">" + escapeHtml(token) + "</span>";
+        lastIndex = matchIndex + token.length;
+      }
+
+      result += escapeHtml(value.slice(lastIndex));
+      return result;
+    }
+
+    function highlightJson(value) {
+      return highlightCode(formatJson(value));
+    }
+
+    function highlightMaybeJson(value) {
+      const trimmed = value.trim();
+      if (!trimmed) {
+        return "";
+      }
+
+      try {
+        const parsed = JSON.parse(trimmed);
+        return highlightJson(parsed);
+      } catch (error) {
+        return highlightCode(value);
       }
     }
 
@@ -156,8 +270,8 @@ function getScript(): string {
         title.textContent = item.content.toolName;
 
         const args = document.createElement("pre");
-        args.classList.add("tool-arguments");
-        args.textContent = formatJson(item.content.arguments);
+        args.classList.add("tool-arguments", "code-block");
+        args.innerHTML = highlightJson(item.content.arguments);
 
         container.appendChild(title);
         container.appendChild(args);
@@ -184,15 +298,15 @@ function getScript(): string {
       body.classList.add("tool-result-body");
 
       const output = document.createElement("pre");
-      output.classList.add("tool-output");
-      output.textContent = item.content.output;
+      output.classList.add("tool-output", "code-block");
+      output.innerHTML = highlightMaybeJson(item.content.output);
 
       body.appendChild(output);
 
       if (item.content.error) {
         const errorBlock = document.createElement("pre");
-        errorBlock.classList.add("tool-error");
-        errorBlock.textContent = item.content.error;
+        errorBlock.classList.add("tool-error", "code-block");
+        errorBlock.innerHTML = highlightMaybeJson(item.content.error);
         body.appendChild(errorBlock);
       }
 
@@ -204,24 +318,18 @@ function getScript(): string {
     }
 
     function addOutput(item) {
-      const list = document.getElementById("output-list");
-      const empty = document.getElementById("empty-state");
-      if (empty) {
-        empty.remove();
+      state.items.push(item);
+      if (state.items.length > MAX_ITEMS) {
+        pruneItems(state.items.length - MAX_ITEMS);
       }
-      const element = renderItem(item);
-      list.appendChild(element);
+      scheduleRender();
     }
 
     function clearOutput() {
-      const list = document.getElementById("output-list");
-      list.innerHTML = "";
-      const container = document.getElementById("content");
-      const empty = document.createElement("div");
-      empty.id = "empty-state";
-      empty.classList.add("empty-state");
-      empty.textContent = "Agent output will appear here.";
-      container.appendChild(empty);
+      state.items = [];
+      lastStart = -1;
+      lastEnd = -1;
+      scheduleRender();
     }
 
     function updateStatus(status) {
@@ -231,24 +339,160 @@ function getScript(): string {
       }
     }
 
+    function pruneItems(count) {
+      if (!count) {
+        return;
+      }
+
+      const container = document.getElementById("content");
+      if (container) {
+        container.scrollTop = Math.max(0, container.scrollTop - count * averageItemHeight);
+      }
+
+      state.items.splice(0, count);
+      lastStart = -1;
+      lastEnd = -1;
+      scheduleRender();
+    }
+
+    function updateEmptyState() {
+      const content = document.getElementById("content");
+      const existing = document.getElementById("empty-state");
+      if (!content) {
+        return;
+      }
+
+      if (state.items.length === 0) {
+        if (!existing) {
+          const empty = document.createElement("div");
+          empty.id = "empty-state";
+          empty.classList.add("empty-state");
+          empty.textContent = "Agent output will appear here.";
+          content.appendChild(empty);
+        }
+        return;
+      }
+
+      if (existing) {
+        existing.remove();
+      }
+    }
+
+    function renderWindow() {
+      const content = document.getElementById("content");
+      const list = document.getElementById("output-list");
+      const itemsContainer = document.getElementById("virtual-items");
+      const topSpacer = document.getElementById("virtual-spacer-top");
+      const bottomSpacer = document.getElementById("virtual-spacer-bottom");
+      if (!content || !list || !itemsContainer || !topSpacer || !bottomSpacer) {
+        return;
+      }
+
+      const viewportHeight = content.clientHeight || 1;
+      const scrollTop = content.scrollTop || 0;
+      const totalItems = state.items.length;
+      if (totalItems === 0) {
+        itemsContainer.innerHTML = "";
+        topSpacer.style.height = "0px";
+        bottomSpacer.style.height = "0px";
+        updateEmptyState();
+        return;
+      }
+
+      const start = Math.max(0, Math.floor(scrollTop / averageItemHeight) - BUFFER);
+      const end = Math.min(
+        totalItems,
+        Math.ceil((scrollTop + viewportHeight) / averageItemHeight) + BUFFER,
+      );
+
+      if (start === lastStart && end === lastEnd) {
+        return;
+      }
+
+      lastStart = start;
+      lastEnd = end;
+      topSpacer.style.height = String(start * averageItemHeight) + "px";
+      bottomSpacer.style.height = String((totalItems - end) * averageItemHeight) + "px";
+      itemsContainer.innerHTML = "";
+      for (let i = start; i < end; i += 1) {
+        itemsContainer.appendChild(renderItem(state.items[i]));
+      }
+
+      requestAnimationFrame(() => {
+        const children = itemsContainer.children;
+        if (children.length > 0) {
+          const totalHeight = itemsContainer.getBoundingClientRect().height;
+          averageItemHeight = Math.max(60, totalHeight / children.length);
+        }
+      });
+
+      updateEmptyState();
+    }
+
+    function scheduleRender() {
+      if (renderPending) {
+        return;
+      }
+
+      renderPending = true;
+      requestAnimationFrame(() => {
+        renderPending = false;
+        renderWindow();
+      });
+    }
+
     window.addEventListener("message", (event) => {
       const message = event.data;
       if (!message || !message.type) {
         return;
       }
 
+      if (message.type === "batch") {
+        for (const entry of message.messages || []) {
+          if (entry.type === "addOutput") {
+            addOutput(entry.output);
+          }
+          if (entry.type === "clear") {
+            clearOutput();
+          }
+          if (entry.type === "updateStatus") {
+            updateStatus(entry.status);
+          }
+          if (entry.type === "prune") {
+            pruneItems(entry.count || 0);
+          }
+        }
+        return;
+      }
+
       if (message.type === "addOutput") {
         addOutput(message.output);
+        return;
       }
 
       if (message.type === "clear") {
         clearOutput();
+        return;
       }
 
       if (message.type === "updateStatus") {
         updateStatus(message.status);
+        return;
+      }
+
+      if (message.type === "prune") {
+        pruneItems(message.count || 0);
       }
     });
+
+    const content = document.getElementById("content");
+    if (content) {
+      content.addEventListener("scroll", () => {
+        scheduleRender();
+      });
+    }
+
+    scheduleRender();
 
     vscode.postMessage({ type: "ready" });
   `;
@@ -261,12 +505,16 @@ export function generateAgentOutputHtml(
   nonce = "",
 ): string {
   const style = getAgentOutputStyles();
-  const outputItems = items.map(renderOutputItem).join("\n");
+  const initialRenderCount = 20;
+  const outputItems = items.length
+    ? items.slice(0, initialRenderCount).map(renderOutputItem).join("\n")
+    : "";
   const emptyState = items.length
     ? ""
     : `<div id="empty-state" class="empty-state">Agent output will appear here.</div>`;
 
   const scriptNonce = nonce || "1";
+  const initialItemsJson = serializeForScript(items);
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -284,13 +532,17 @@ export function generateAgentOutputHtml(
       <div id="panel-status" class="status">${escapeHtml(status)}</div>
     </header>
     <main id="content" class="content">
-      <div id="output-list">
-        ${outputItems}
+      <div id="output-list" class="output-list">
+        <div id="virtual-spacer-top"></div>
+        <div id="virtual-items">
+          ${outputItems}
+        </div>
+        <div id="virtual-spacer-bottom"></div>
       </div>
       ${emptyState}
     </main>
   </div>
-  <script nonce="${scriptNonce}">${getScript()}</script>
+  <script nonce="${scriptNonce}">${getScript(initialItemsJson)}</script>
 </body>
 </html>`;
 }
