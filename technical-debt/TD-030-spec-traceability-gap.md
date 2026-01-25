@@ -17,6 +17,7 @@ This undermines the entire Controller review system. Reviews are supposed to ver
 ## The Problem
 
 ### What the Controller SHOULD be doing:
+
 1. Receive a task for code review
 2. Look up "what spec requirement does this implement?"
 3. Read the spec requirement
@@ -24,6 +25,7 @@ This undermines the entire Controller review system. Reviews are supposed to ver
 5. Submit review decision with spec evidence
 
 ### What the Controller CAN actually do:
+
 1. Receive a task for code review
 2. See `speckit_task_ref: "T052,T053,T054,T055,T057"` (opaque string)
 3. **NO WAY to know which spec file these refs come from**
@@ -36,6 +38,7 @@ This undermines the entire Controller review system. Reviews are supposed to ver
 ### Database Schema Gaps
 
 **`sprints` table** (src/db/schema.ts#L27-L51):
+
 ```typescript
 export const sprints = sqliteTable("sprints", {
   id: text("id").primaryKey(),
@@ -49,11 +52,13 @@ export const sprints = sqliteTable("sprints", {
 ```
 
 **`tasks` table**:
+
 - Has `speckit_task_ref: text("speckit_task_ref")` - just a string, no structure
 - Not validated against actual spec task IDs
 - No link to the spec file containing these tasks
 
 **`phases` table**:
+
 - Has `speckit_tasks: text("speckit_tasks")` - JSON array
 - Also unvalidated, also no spec file link
 
@@ -73,6 +78,7 @@ export const sprints = sqliteTable("sprints", {
 ```
 
 These IDs (`T052`, etc.) are completely opaque. The Controller has no way to:
+
 - Know which spec file contains these task definitions
 - Validate these IDs actually exist
 - Look up the requirement text for each ID
@@ -84,6 +90,7 @@ These IDs (`T052`, etc.) are completely opaque. The Controller has no way to:
 Sprint name: "Custom Agents Phase 5: User Controls (US3)"
 
 To review this sprint's tasks, the Controller would need to:
+
 1. Parse the sprint name and guess it's part of `specs/002-custom-agents/`
 2. Search that directory for user story files
 3. Find the right file and locate task definitions
@@ -94,11 +101,13 @@ There's no programmatic path from sprint → spec file.
 ### spec_reviews Table
 
 The `spec_reviews` table (src/db/schema.ts#L532) DOES have:
+
 ```typescript
 spec_path: text("spec_path"), // Path to the specification document
 ```
 
 But this is:
+
 - Optional (`text()` not `text().notNull()`)
 - Only populated AFTER a review is submitted
 - Not linked to the sprint at configuration time
@@ -106,17 +115,20 @@ But this is:
 ## Impact
 
 ### On Code Reviews
+
 - Reviews done without spec reference
 - "Implementation theater" can pass review
 - No traceability from code → requirement
 - Audits cannot verify spec compliance
 
 ### On Sprint Reviews
+
 - Controller cannot verify task coverage against spec
 - Orphaned tasks not detectable
 - Missing requirements not detectable
 
 ### On Quality Assurance
+
 - Orchestra's core promise is "hidden verification against spec"
 - Without spec traceability, this is unenforceable
 - Controller role becomes security theater
@@ -126,12 +138,14 @@ But this is:
 ### Phase 1: Schema Changes
 
 Add to `sprints` table:
+
 ```typescript
 spec_path: text("spec_path").notNull(), // Required: path to spec file
 spec_version: text("spec_version"),      // Optional: version/hash for integrity
 ```
 
 Add to `configure_sprint` input:
+
 ```typescript
 spec_path: {
   type: "string",
@@ -142,22 +156,24 @@ spec_path: {
 ### Phase 2: Tool Enhancements
 
 **`get_sprint_status`** should return:
+
 ```json
 {
   "sprint_id": "sprint-011",
-  "spec_path": "specs/002-custom-agents/us3-user-controls.md",
+  "spec_path": "specs/002-custom-agents/us3-user-controls.md"
   // ... rest of status
 }
 ```
 
 **`get_task_for_review`** should return:
+
 ```json
 {
   "task_id": 3,
   "speckit_task_ref": "T052,T053,T054,T055,T057",
   "spec_path": "specs/002-custom-agents/us3-user-controls.md",
   "spec_task_definitions": [
-    { "id": "T052", "title": "...", "description": "..." },
+    { "id": "T052", "title": "...", "description": "..." }
     // ... extracted from spec file
   ]
 }
@@ -172,6 +188,7 @@ spec_path: {
 ## Workarounds (Current State)
 
 Controllers can:
+
 1. Look at sprint name for hints
 2. Search `specs/` directory manually
 3. Use `read_spec_file` with guessed paths
@@ -197,6 +214,7 @@ None of these are reliable or auditable.
 ## Priority Justification
 
 This is CRITICAL because:
+
 1. Controller code reviews are the last line of defense against spec drift
 2. Without spec traceability, reviews are ungrounded
 3. Orchestra's security model depends on spec-based verification
