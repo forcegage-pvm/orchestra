@@ -8,12 +8,12 @@ import { eq, max } from "drizzle-orm";
 import { getDb } from "../../db/index.js";
 import { getActiveSprint } from "../../db/queries.js";
 import { progress, tasks, verificationChecks } from "../../db/schema.js";
-import { writeSignal } from "../db-signal.js";
 import {
   AddTaskInputSchema,
   type AddTaskOutput,
 } from "../../schemas/sprint-config.js";
 import { validateInput } from "../../schemas/utils.js";
+import { writeSignal } from "../db-signal.js";
 import { logToolExecution } from "./audit-logging.js";
 
 export async function handleAddTask(input: unknown) {
@@ -41,7 +41,7 @@ export async function handleAddTask(input: unknown) {
         input: validation.data,
       },
       { success: true, output },
-      durationMs
+      durationMs,
     );
 
     return {
@@ -58,7 +58,7 @@ export async function handleAddTask(input: unknown) {
         input: validation.data,
       },
       { success: false, errorMessage: err.message },
-      durationMs
+      durationMs,
     );
 
     return {
@@ -74,7 +74,7 @@ export async function handleAddTask(input: unknown) {
               },
             },
             null,
-            2
+            2,
           ),
         },
       ],
@@ -83,7 +83,7 @@ export async function handleAddTask(input: unknown) {
 }
 
 async function addTask(
-  input: typeof AddTaskInputSchema._output
+  input: typeof AddTaskInputSchema._output,
 ): Promise<AddTaskOutput> {
   const db = getDb();
 
@@ -101,11 +101,22 @@ async function addTask(
     "PREPARE_TASK",
     "IMPLEMENT",
     "VERIFY",
+    "SPEC_REVIEW",
   ];
   if (!allowedStates.includes(sprintToUse.workflow_step)) {
     throw new Error(
       `Cannot add task: sprint is in ${sprintToUse.workflow_step} state. ` +
-        `Allowed states: ${allowedStates.join(", ")}`
+        `Allowed states: ${allowedStates.join(", ")}`,
+    );
+  }
+
+  if (
+    sprintToUse.workflow_step === "SPEC_REVIEW" &&
+    sprintToUse.status !== "SPEC_REVIEW_FAILED"
+  ) {
+    throw new Error(
+      "Cannot add task: sprint is awaiting spec review. " +
+        "Add tasks only after SPEC_REVIEW_FAILED.",
     );
   }
 
@@ -122,7 +133,7 @@ async function addTask(
     where: (phases, { eq, and }) =>
       and(
         eq(phases.sprint_id, sprintToUse.id),
-        eq(phases.phase_id, input.phase_id)
+        eq(phases.phase_id, input.phase_id),
       ),
   });
 
@@ -144,7 +155,7 @@ async function addTask(
 
     if (invalidDeps.length > 0) {
       throw new Error(
-        `Invalid task dependencies: ${invalidDeps.join(", ")} do not exist`
+        `Invalid task dependencies: ${invalidDeps.join(", ")} do not exist`,
       );
     }
 

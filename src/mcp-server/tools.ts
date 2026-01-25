@@ -183,7 +183,7 @@ const TOOLS_WITH_ROLES: ToolWithRole[] = [
     role: "orchestrator",
     name: "add_task",
     description:
-      "Add a new task to an existing sprint. Task ID will be auto-assigned as max(existing_task_ids) + 1.",
+      "Add a new task to an existing sprint. Task ID will be auto-assigned as max(existing_task_ids) + 1. Allowed during SPEC_REVIEW only when sprint status is SPEC_REVIEW_FAILED (Controller revisions).",
     inputSchema: {
       type: "object",
       properties: {
@@ -343,7 +343,7 @@ const TOOLS_WITH_ROLES: ToolWithRole[] = [
     role: "orchestrator",
     name: "update_verification",
     description:
-      "Update verification criteria for a task. Allowed during CONFIGURE (initial setup) or PREPARE (spec error corrections). When called during PREPARE, creates an amendment record with full audit trail.",
+      "Update verification criteria for a task. Allowed during CONFIGURE (initial setup), PREPARE (spec error corrections), and SPEC_REVIEW only when sprint status is SPEC_REVIEW_FAILED (Controller revisions). When called outside CONFIGURE, creates an amendment record with full audit trail.",
     inputSchema: {
       type: "object",
       properties: {

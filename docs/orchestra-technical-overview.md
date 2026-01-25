@@ -496,7 +496,7 @@ Orchestra runs **three MCP server instances** with role-based tool filtering:
 |------|-------------|
 | `configure_sprint` | Create new sprint with tasks, phases, dependencies |
 | `add_phase` | Add phase to active sprint |
-| `add_task` | Add task to existing phase |
+| `add_task` | Add task to existing phase (also allowed after Controller rejection in SPEC_REVIEW_FAILED) |
 | `update_task` | Update task metadata |
 | `remove_task` | Remove pending task |
 | `set_active_sprint` | Switch active sprint |
@@ -509,7 +509,7 @@ Orchestra runs **three MCP server instances** with role-based tool filtering:
 | `get_tasks` | List tasks with filters |
 | `prepare_task` | Create handover for implementor |
 | `update_handover` | Modify handover details |
-| `update_verification` | Update verification criteria |
+| `update_verification` | Update verification criteria (also allowed after Controller rejection in SPEC_REVIEW_FAILED) |
 | `resubmit_handover` | Resubmit after Controller rejection |
 
 **Verification:**

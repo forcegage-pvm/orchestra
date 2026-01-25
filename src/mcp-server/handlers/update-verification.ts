@@ -125,11 +125,22 @@ async function updateVerification(
     "VERIFY",
     "RETRY",
     "ESCALATED",
+    "SPEC_REVIEW",
   ];
   if (!allowedStates.includes(sprint.workflow_step)) {
     throw new Error(
       `Cannot update verification in workflow state: ${sprint.workflow_step}. ` +
         `Allowed states: ${allowedStates.join(", ")}`,
+    );
+  }
+
+  if (
+    sprint.workflow_step === "SPEC_REVIEW" &&
+    sprint.status !== "SPEC_REVIEW_FAILED"
+  ) {
+    throw new Error(
+      "Cannot update verification while sprint is awaiting spec review. " +
+        "Update verification only after SPEC_REVIEW_FAILED.",
     );
   }
 
@@ -151,10 +162,13 @@ async function updateVerification(
   // - PREPARE: always allowed (spec refinement before handover)
   // - SELECT_TASK + PENDING task: allowed (strengthening criteria before preparation)
   // - Other states: only allowed if task is ESCALATED (human supervisor correction)
+  const isSpecReviewFailed =
+    sprint.workflow_step === "SPEC_REVIEW" &&
+    sprint.status === "SPEC_REVIEW_FAILED";
+
   const allowedSprintStates = ["CONFIGURE", "PREPARE"];
-  const isInAllowedSprintState = allowedSprintStates.includes(
-    sprint.workflow_step,
-  );
+  const isInAllowedSprintState =
+    allowedSprintStates.includes(sprint.workflow_step) || isSpecReviewFailed;
 
   // Also allow updating PENDING tasks during SELECT_TASK (pre-preparation strengthening)
   const isPendingDuringSelectTask =
