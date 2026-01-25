@@ -31,6 +31,7 @@ export function getAgentOutputStyles(): string {
       padding: 10px 14px;
       border-bottom: 1px solid var(--vscode-panel-border);
       background: var(--vscode-editor-background);
+      gap: 12px;
     }
 
     .title {
@@ -49,10 +50,98 @@ export function getAgentOutputStyles(): string {
       letter-spacing: 0.4px;
     }
 
+    .header-controls {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .control-buttons {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .control-button {
+      display: none;
+      align-items: center;
+      justify-content: center;
+      width: 26px;
+      height: 26px;
+      border-radius: 6px;
+      border: 1px solid var(--vscode-button-border, var(--vscode-panel-border));
+      background: var(--vscode-button-secondaryBackground);
+      color: var(--vscode-button-secondaryForeground);
+      cursor: pointer;
+      padding: 0;
+      transition: background 0.15s ease, border-color 0.15s ease;
+    }
+
+    .control-button:hover {
+      background: var(--vscode-button-secondaryHoverBackground);
+    }
+
+    .control-button.stop {
+      background: var(--vscode-inputValidation-errorBackground);
+      border-color: var(--vscode-inputValidation-errorBorder, var(--vscode-charts-red));
+      color: var(--vscode-foreground);
+    }
+
+    .control-button.stop:hover {
+      background: var(--vscode-inputValidation-errorBackground);
+    }
+
+    body[data-agent-status="running"] .control-button.pause,
+    body[data-agent-status="paused"] .control-button.resume,
+    body[data-agent-status="running"] .control-button.stop,
+    body[data-agent-status="paused"] .control-button.stop {
+      display: inline-flex;
+    }
+
     .content {
       flex: 1;
       overflow-y: auto;
       padding: 12px 14px 24px;
+    }
+
+    .redirect-bar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 14px 14px;
+      border-top: 1px solid var(--vscode-panel-border);
+      background: var(--vscode-editor-background);
+    }
+
+    .redirect-input {
+      flex: 1;
+      min-width: 0;
+      border-radius: 4px;
+      border: 1px solid var(--vscode-input-border);
+      background: var(--vscode-input-background);
+      color: var(--vscode-input-foreground);
+      padding: 6px 8px;
+      font-family: var(--vscode-font-family);
+      font-size: 12px;
+    }
+
+    .redirect-input:focus {
+      outline: 1px solid var(--vscode-focusBorder);
+      outline-offset: 1px;
+    }
+
+    .redirect-send {
+      border-radius: 4px;
+      border: 1px solid var(--vscode-button-border, transparent);
+      background: var(--vscode-button-background);
+      color: var(--vscode-button-foreground);
+      padding: 6px 12px;
+      font-size: 12px;
+      cursor: pointer;
+    }
+
+    .redirect-send:hover {
+      background: var(--vscode-button-hoverBackground);
     }
 
     .output-list {

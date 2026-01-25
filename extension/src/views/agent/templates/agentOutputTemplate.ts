@@ -332,11 +332,19 @@ function getScript(initialItemsJson: string): string {
       scheduleRender();
     }
 
+    function normalizeStatus(status) {
+      if (!status) {
+        return "idle";
+      }
+      return String(status).trim().toLowerCase().replace(/\s+/g, "-");
+    }
+
     function updateStatus(status) {
       const statusEl = document.getElementById("panel-status");
       if (statusEl) {
         statusEl.textContent = status;
       }
+      document.body.dataset.agentStatus = normalizeStatus(status);
     }
 
     function pruneItems(count) {
@@ -441,6 +449,59 @@ function getScript(initialItemsJson: string): string {
       });
     }
 
+    function bindControls() {
+      const pauseBtn = document.getElementById("agent-control-pause");
+      const resumeBtn = document.getElementById("agent-control-resume");
+      const stopBtn = document.getElementById("agent-control-stop");
+      const redirectInput = document.getElementById("agent-redirect-input");
+      const redirectSend = document.getElementById("agent-redirect-send");
+
+      if (pauseBtn) {
+        pauseBtn.addEventListener("click", () => {
+          vscode.postMessage({ type: "pause" });
+        });
+      }
+
+      if (resumeBtn) {
+        resumeBtn.addEventListener("click", () => {
+          vscode.postMessage({ type: "resume" });
+        });
+      }
+
+      if (stopBtn) {
+        stopBtn.addEventListener("click", () => {
+          vscode.postMessage({ type: "stop" });
+        });
+      }
+
+      function sendRedirect() {
+        if (!redirectInput) {
+          return;
+        }
+        const instruction = redirectInput.value.trim();
+        if (!instruction) {
+          return;
+        }
+        vscode.postMessage({ type: "redirect", instruction });
+        redirectInput.value = "";
+      }
+
+      if (redirectSend) {
+        redirectSend.addEventListener("click", () => {
+          sendRedirect();
+        });
+      }
+
+      if (redirectInput) {
+        redirectInput.addEventListener("keydown", (event) => {
+          if (event.key === "Enter") {
+            event.preventDefault();
+            sendRedirect();
+          }
+        });
+      }
+    }
+
     window.addEventListener("message", (event) => {
       const message = event.data;
       if (!message || !message.type) {
@@ -493,6 +554,7 @@ function getScript(initialItemsJson: string): string {
     }
 
     scheduleRender();
+    bindControls();
 
     vscode.postMessage({ type: "ready" });
   `;
@@ -513,6 +575,11 @@ export function generateAgentOutputHtml(
     ? ""
     : `<div id="empty-state" class="empty-state">Agent output will appear here.</div>`;
 
+  const statusKey = status
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, "-") || "idle";
+
   const scriptNonce = nonce || "1";
   const initialItemsJson = serializeForScript(items);
 
@@ -525,11 +592,42 @@ export function generateAgentOutputHtml(
   <title>Agent Output</title>
   <style>${style}</style>
 </head>
-<body>
+<body data-agent-status="${escapeHtml(statusKey)}">
   <div class="container">
     <header class="header">
       <div class="title">Agent Output</div>
-      <div id="panel-status" class="status">${escapeHtml(status)}</div>
+      <div class="header-controls">
+        <div class="control-buttons" role="group" aria-label="Agent controls">
+          <button
+            id="agent-control-pause"
+            class="control-button pause"
+            type="button"
+            aria-label="Pause agent"
+            title="Pause agent"
+          >
+            <span class="codicon codicon-debug-pause" aria-hidden="true"></span>
+          </button>
+          <button
+            id="agent-control-resume"
+            class="control-button resume"
+            type="button"
+            aria-label="Resume agent"
+            title="Resume agent"
+          >
+            <span class="codicon codicon-debug-start" aria-hidden="true"></span>
+          </button>
+          <button
+            id="agent-control-stop"
+            class="control-button stop"
+            type="button"
+            aria-label="Stop agent"
+            title="Stop agent"
+          >
+            <span class="codicon codicon-debug-stop" aria-hidden="true"></span>
+          </button>
+        </div>
+        <div id="panel-status" class="status">${escapeHtml(status)}</div>
+      </div>
     </header>
     <main id="content" class="content">
       <div id="output-list" class="output-list">
@@ -541,6 +639,24 @@ export function generateAgentOutputHtml(
       </div>
       ${emptyState}
     </main>
+    <div class="redirect-bar">
+      <input
+        id="agent-redirect-input"
+        class="redirect-input"
+        type="text"
+        placeholder="Send a redirect instruction"
+        aria-label="Redirect instruction"
+      />
+      <button
+        id="agent-redirect-send"
+        class="redirect-send"
+        type="button"
+        aria-label="Send redirect instruction"
+        title="Send"
+      >
+        Send
+      </button>
+    </div>
   </div>
   <script nonce="${scriptNonce}">${getScript(initialItemsJson)}</script>
 </body>

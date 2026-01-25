@@ -192,6 +192,35 @@ describe("generateAgentOutputHtml", () => {
     expect(html).toContain("--vscode-");
   });
 
+  it("should render control buttons and redirect input", () => {
+    const html = generateAgentOutputHtml(
+      [],
+      "vscode-resource://test",
+      "Running",
+      "nonce",
+    );
+
+    expect(html).toContain("agent-control-pause");
+    expect(html).toContain("agent-control-resume");
+    expect(html).toContain("agent-control-stop");
+    expect(html).toContain("agent-redirect-input");
+    expect(html).toContain("agent-redirect-send");
+  });
+
+  it("should post messages for control actions", () => {
+    const html = generateAgentOutputHtml(
+      [],
+      "vscode-resource://test",
+      "Running",
+      "nonce",
+    );
+
+    expect(html).toContain('type: "pause"');
+    expect(html).toContain('type: "resume"');
+    expect(html).toContain('type: "stop"');
+    expect(html).toContain('type: "redirect"');
+  });
+
   it("should window initial render for large item sets", () => {
     const items: AgentOutputItem[] = Array.from(
       { length: 300 },
