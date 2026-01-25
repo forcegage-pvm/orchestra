@@ -5,6 +5,7 @@
  */
 
 import { and, desc, eq, inArray, ne } from "drizzle-orm";
+import { parseSpecTaskDefinitions } from "../../core/spec-task-parser.js";
 import { getActiveSprint, getDb } from "../../db/index.js";
 import {
   codeReviewIssues,
@@ -168,9 +169,21 @@ async function getTaskReview(
 
   const history = includeHistory ? await getReviewHistory(review) : undefined;
 
+  const specTaskIds = parseSpeckitTaskRefs(task.speckit_task_ref);
+  const specPath = sprint.spec_path ?? null;
+  const specTaskDefinitions =
+    specTaskIds.length === 0
+      ? []
+      : await parseSpecTaskDefinitions(
+          ensureSpecPath(specPath, specTaskIds),
+          specTaskIds,
+        );
+
   return {
     success: true,
     mode: "task",
+    spec_path: specPath,
+    spec_task_definitions: specTaskDefinitions,
     review: {
       review_id: review.id,
       status: review.status as CodeReviewStatus,
@@ -426,6 +439,29 @@ function parseJsonArray(value: string | null | undefined): string[] {
   } catch {
     return [];
   }
+}
+
+function parseSpeckitTaskRefs(value: string | null): string[] {
+  if (!value) {
+    return [];
+  }
+
+  return value
+    .split(",")
+    .map((item) => item.trim())
+    .filter((item) => item.length > 0);
+}
+
+function ensureSpecPath(specPath: string | null, taskIds: string[]): string {
+  if (!specPath) {
+    throw new Error(
+      `Spec path not set for active sprint (requested tasks: ${taskIds.join(
+        ", ",
+      )})`,
+    );
+  }
+
+  return specPath;
 }
 
 function buildHandoverContext(params: {

@@ -3,6 +3,8 @@
  */
 
 import { eq } from "drizzle-orm";
+import { mkdir, writeFile } from "fs/promises";
+import path from "path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { getDb, schema } from "../../src/db/index.js";
 import { handleGetCodeReview } from "../../src/mcp-server/handlers/get-code-review.js";
@@ -22,6 +24,7 @@ describe("get_code_review handler", () => {
   const sprintId = "sprint-cr-1";
   let reviewIds: { latest: number; previous: number };
   let taskIds: { task1: number; task2: number; task3: number };
+  const specPath = "specs/sprint-cr.md";
 
   beforeEach(async () => {
     tempDir = await setupTestDb("get-code-review-");
@@ -30,11 +33,26 @@ describe("get_code_review handler", () => {
     const now = new Date().toISOString();
     const earlier = new Date(Date.now() - 60_000).toISOString();
 
+    const specFullPath = path.join(tempDir, specPath);
+    await mkdir(path.dirname(specFullPath), { recursive: true });
+    await writeFile(
+      specFullPath,
+      [
+        "### T001 — Task 1 spec",
+        "#### Acceptance",
+        "- [ ] Spec criteria 1",
+        "",
+        "### T002 — Task 2 spec",
+      ].join("\n"),
+      "utf-8",
+    );
+
     await db.insert(sprints).values({
       id: sprintId,
       name: "Code Review Sprint",
       workflow_step: "CODE_REVIEW",
       is_active: true,
+      spec_path: specPath,
       created_at: now,
       updated_at: now,
     });
@@ -83,6 +101,7 @@ describe("get_code_review handler", () => {
         description: "Task 1 description",
         category: "INFRASTRUCTURE",
         dependencies: JSON.stringify([]),
+        speckit_task_ref: "T001,T002",
         status: "IMPLEMENT",
         created_at: now,
         updated_at: now,
@@ -246,6 +265,21 @@ describe("get_code_review handler", () => {
 
     expect(output.success).toBe(true);
     expect(output.mode).toBe("task");
+    expect(output.spec_path).toBe(specPath);
+    expect(output.spec_task_definitions).toEqual([
+      {
+        id: "T001",
+        title: "Task 1 spec",
+        type: "implementation",
+        acceptance_criteria: ["Spec criteria 1"],
+      },
+      {
+        id: "T002",
+        title: "Task 2 spec",
+        type: "implementation",
+        acceptance_criteria: [],
+      },
+    ]);
     expect(output.review.review_id).toBe(reviewIds.latest);
     expect(output.review.status).toBe("REJECTED");
     expect(output.review.summary).toContain("Latest review");

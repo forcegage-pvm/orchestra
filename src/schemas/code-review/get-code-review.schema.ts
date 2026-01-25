@@ -67,6 +67,13 @@ const CodeReviewIssueSchema = z.object({
   resolved_at: z.string().nullable(),
 });
 
+const SpecTaskDefinitionSchema = z.object({
+  id: z.string(),
+  title: z.string(),
+  type: z.enum(["test", "implementation"]),
+  acceptance_criteria: z.array(z.string()),
+});
+
 const CodeReviewDetailsSchema = z.object({
   review_id: z.number(),
   status: CodeReviewStatusSchema,
@@ -98,6 +105,8 @@ export const GetCodeReviewOutputSchema = z.discriminatedUnion("mode", [
   z.object({
     success: z.literal(true),
     mode: z.literal("task"),
+    spec_path: z.string().nullable(),
+    spec_task_definitions: z.array(SpecTaskDefinitionSchema),
     review: CodeReviewDetailsSchema,
     history: z.array(CodeReviewHistorySchema).optional(),
     handover_context: z.string().optional(),
