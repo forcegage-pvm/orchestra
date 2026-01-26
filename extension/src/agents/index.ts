@@ -8,6 +8,7 @@
 export * from "./types.js";
 export * from "./errors.js";
 export { AgentSession } from "./AgentSession.js";
+export { SessionStorage } from "./SessionStorage.js";
 export { ContextManager } from "./ContextManager.js";
 export { AgentRunner } from "./AgentRunner.js";
 export { ToolRegistry } from "./ToolRegistry.js";

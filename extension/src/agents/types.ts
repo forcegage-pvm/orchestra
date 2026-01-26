@@ -258,6 +258,20 @@ export const CheckpointReferenceSchema = z.object({
 });
 export type CheckpointReference = z.output<typeof CheckpointReferenceSchema>;
 
+/**
+ * Checkpoint file content for recovery
+ */
+export const CheckpointContentSchema = z.object({
+  sessionId: z.string().uuid(),
+  iteration: z.number().int().nonnegative(),
+  position: z.enum(["start", "end"]),
+  messageCount: z.number().int().nonnegative(),
+  toolCallCount: z.number().int().nonnegative(),
+  fileChangeCount: z.number().int().nonnegative(),
+  timestamp: z.string().datetime(),
+});
+export type CheckpointContent = z.output<typeof CheckpointContentSchema>;
+
 // ============================================================================
 // Recovery Information
 // ============================================================================
@@ -312,3 +326,22 @@ export const AgentSessionSchema = z.object({
   recoveryInfo: RecoveryInfoSchema,
 });
 export type AgentSession = z.output<typeof AgentSessionSchema>;
+
+// ============================================================================
+// Session Metadata
+// ============================================================================
+
+/**
+ * Lightweight metadata for listing sessions (recovery UI)
+ */
+export const SessionMetadataSchema = z.object({
+  id: z.string().uuid(),
+  role: AgentRoleSchema,
+  status: AgentStatusSchema,
+  taskId: z.number().int().positive().nullable(),
+  sprintId: z.string(),
+  updatedAt: z.string().datetime(),
+  lastActivityAt: z.string().datetime(),
+  currentIteration: z.number().int().nonnegative(),
+});
+export type SessionMetadata = z.output<typeof SessionMetadataSchema>;

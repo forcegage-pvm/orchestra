@@ -8,6 +8,7 @@ import * as path from "path";
 import * as os from "os";
 import { AgentSession } from "../../src/agents/AgentSession.js";
 import { SessionError } from "../../src/agents/errors.js";
+import { SessionStorage } from "../../src/agents/SessionStorage.js";
 import {
   AgentMessage,
   ToolCall,
@@ -21,6 +22,7 @@ describe("AgentSession", () => {
   beforeEach(() => {
     // Create temp directory for test files
     tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "orchestra-test-"));
+    SessionStorage.getInstance(tempDir);
   });
 
   afterEach(() => {
@@ -62,7 +64,7 @@ describe("AgentSession", () => {
       expect(session1.id).not.toBe(session2.id);
       // UUID v4 format: xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx
       expect(session1.id).toMatch(
-        /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+        /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
       );
     });
 
@@ -73,7 +75,7 @@ describe("AgentSession", () => {
       expect(session.createdAt).toBeDefined();
       expect(session.updatedAt).toBeDefined();
       expect(session.lastActivityAt).toBeDefined();
-      
+
       // Verify ISO 8601 format
       expect(() => new Date(session.createdAt)).not.toThrow();
       expect(session.updatedAt).toBe(session.createdAt);
@@ -217,7 +219,7 @@ describe("AgentSession", () => {
 
       expect(() => session.incrementIteration()).toThrow(SessionError);
       expect(() => session.incrementIteration()).toThrow(
-        "Maximum iterations (3) exceeded"
+        "Maximum iterations (3) exceeded",
       );
     });
   });
@@ -242,7 +244,7 @@ describe("AgentSession", () => {
 
         expect(() => session.pause()).toThrow(SessionError);
         expect(() => session.pause()).toThrow(
-          "Cannot pause session with status: paused"
+          "Cannot pause session with status: paused",
         );
       });
 
@@ -326,7 +328,7 @@ describe("AgentSession", () => {
 
         expect(() => session.resume()).toThrow(SessionError);
         expect(() => session.resume()).toThrow(
-          "Cannot resume session with status: completed"
+          "Cannot resume session with status: completed",
         );
       });
     });
@@ -550,7 +552,7 @@ describe("AgentSession", () => {
 
       expect(() => AgentSession.fromJSON(invalidData)).toThrow(SessionError);
       expect(() => AgentSession.fromJSON(invalidData)).toThrow(
-        "Invalid session data"
+        "Invalid session data",
       );
     });
 
@@ -645,7 +647,7 @@ describe("AgentSession", () => {
 
       await expect(AgentSession.load(filePath)).rejects.toThrow(SessionError);
       await expect(AgentSession.load(filePath)).rejects.toThrow(
-        "Failed to load session"
+        "Failed to load session",
       );
     });
 
@@ -718,7 +720,7 @@ describe("AgentSession", () => {
 
     test("should validate data before saving", async () => {
       const session = new AgentSession("orchestrator", "sprint-001");
-      
+
       // Corrupt the session data
       (session as any).status = "invalid-status";
 
@@ -726,7 +728,7 @@ describe("AgentSession", () => {
 
       await expect(session.save(filePath)).rejects.toThrow(SessionError);
       await expect(session.save(filePath)).rejects.toThrow(
-        "Session data validation failed"
+        "Session data validation failed",
       );
     });
   });
