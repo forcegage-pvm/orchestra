@@ -11,7 +11,7 @@ Semantic stubs (code that compiles but shows errors instead of working) escape a
 ## Discovery Context
 
 - **Discovered**: 2026-01-26
-- **Related Case Studies**: 
+- **Related Case Studies**:
   - [docs/case-study/post-mortem-task-009-chartrenderer-stub.md](../docs/case-study/post-mortem-task-009-chartrenderer-stub.md)
   - File upload button that shows error dialog instead of uploading
 
