@@ -609,6 +609,7 @@ const MIGRATIONS: Migration[] = [
             task_id INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
             severity TEXT NOT NULL,
             issue TEXT NOT NULL,
+            spec_ref TEXT,
             file TEXT,
             line INTEGER,
             rationale TEXT NOT NULL,
@@ -837,7 +838,8 @@ const MIGRATIONS: Migration[] = [
   },
   {
     id: "20260124_001_add_is_archived",
-    description: "Add is_archived column to sprints table for archive filtering",
+    description:
+      "Add is_archived column to sprints table for archive filtering",
     up: async () => {
       const db = getDb();
 
@@ -855,6 +857,77 @@ const MIGRATIONS: Migration[] = [
       );
       await db.run(
         sql`CREATE INDEX IF NOT EXISTS is_archived_idx ON sprints(is_archived)`,
+      );
+    },
+  },
+  {
+    id: "20260125_001_add_spec_traceability_columns",
+    description:
+      "Add spec_path, spec_version, and spec_hash columns to sprints table for spec traceability",
+    up: async () => {
+      const db = getDb();
+
+      const result = await db.all(sql`PRAGMA table_info(sprints)`);
+      const columns = result as { name: string }[];
+      const hasSpecPath = columns.some((col) => col.name === "spec_path");
+      const hasSpecVersion = columns.some((col) => col.name === "spec_version");
+      const hasSpecHash = columns.some((col) => col.name === "spec_hash");
+
+      if (!hasSpecPath) {
+        await db.run(sql`ALTER TABLE sprints ADD COLUMN spec_path TEXT`);
+      }
+
+      if (!hasSpecVersion) {
+        await db.run(sql`ALTER TABLE sprints ADD COLUMN spec_version TEXT`);
+      }
+
+      if (!hasSpecHash) {
+        await db.run(sql`ALTER TABLE sprints ADD COLUMN spec_hash TEXT`);
+      }
+
+      await db.run(
+        sql`CREATE INDEX IF NOT EXISTS sprint_spec_path_idx ON sprints(spec_path)`,
+      );
+    },
+  },
+  {
+    id: "20260125_002_add_code_review_issue_spec_ref",
+    description: "Add spec_ref column to code_review_issues table",
+    up: async () => {
+      const db = getDb();
+
+      const columns = await db.all(sql`PRAGMA table_info(code_review_issues)`);
+      const hasSpecRef = (columns as { name: string }[]).some(
+        (col) => col.name === "spec_ref",
+      );
+
+      if (hasSpecRef) {
+        return;
+      }
+
+      await db.run(sql`
+        ALTER TABLE code_review_issues ADD COLUMN spec_ref TEXT
+      `);
+    },
+  },
+  {
+    id: "20260125_003_add_spec_files_column",
+    description:
+      "Add spec_files column to sprints table for related spec file paths",
+    up: async () => {
+      const db = getDb();
+
+      const columns = await db.all(sql`PRAGMA table_info(sprints)`);
+      const hasSpecFiles = (columns as { name: string }[]).some(
+        (col) => col.name === "spec_files",
+      );
+
+      if (hasSpecFiles) {
+        return;
+      }
+
+      await db.run(
+        sql`ALTER TABLE sprints ADD COLUMN spec_files TEXT DEFAULT '[]'`,
       );
     },
   },

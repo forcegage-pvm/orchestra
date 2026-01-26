@@ -11,3 +11,6 @@ tsup.config.bundled_*.mjs
 .vitest-cache/
 # Extension artifacts - track folder but ignore VSIX files
 extension/artifacts/*.vsix
+
+# Orchestra workflow
+.orchestra/.signal

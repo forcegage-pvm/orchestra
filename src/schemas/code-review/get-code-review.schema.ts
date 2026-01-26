@@ -58,6 +58,7 @@ const CodeReviewIssueSchema = z.object({
   id: z.number(),
   severity: z.enum(["BLOCKING", "MAJOR", "MINOR", "INFO"]),
   issue: z.string(),
+  spec_ref: z.string().nullable().optional(),
   file: z.string().nullable(),
   line: z.number().nullable(),
   rationale: z.string(),
@@ -65,6 +66,13 @@ const CodeReviewIssueSchema = z.object({
   status: z.enum(["OPEN", "RESOLVED"]),
   resolved_by: z.string().nullable(),
   resolved_at: z.string().nullable(),
+});
+
+const SpecTaskDefinitionSchema = z.object({
+  id: z.string(),
+  title: z.string(),
+  type: z.enum(["test", "implementation"]),
+  acceptance_criteria: z.array(z.string()),
 });
 
 const CodeReviewDetailsSchema = z.object({
@@ -98,6 +106,9 @@ export const GetCodeReviewOutputSchema = z.discriminatedUnion("mode", [
   z.object({
     success: z.literal(true),
     mode: z.literal("task"),
+    spec_path: z.string().nullable(),
+    spec_files: z.array(z.string()),
+    spec_task_definitions: z.array(SpecTaskDefinitionSchema),
     review: CodeReviewDetailsSchema,
     history: z.array(CodeReviewHistorySchema).optional(),
     handover_context: z.string().optional(),

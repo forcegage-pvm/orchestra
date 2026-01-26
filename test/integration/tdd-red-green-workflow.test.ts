@@ -34,6 +34,7 @@ import type { ConfigureSprintInput } from "../../src/schemas/index.js";
 import { cleanupTestDb, setupTestDb } from "../setup/db-cache.js";
 
 describe("TDD Red-Green Workflow End-to-End", () => {
+  const specPath = "specs/001-mcp-server/README.md";
   let tempDir: string;
   let sprintId: string;
 
@@ -92,6 +93,7 @@ describe("TDD Red-Green Workflow End-to-End", () => {
         sprint: {
           id: "sprint-e2e-001",
           name: "E2E TDD Workflow Test Sprint",
+          spec_path: specPath,
         },
         phases: [
           {
@@ -424,6 +426,7 @@ describe('Feature', () => {
         sprint: {
           id: "sprint-e2e-error-001",
           name: "E2E Error Scenario Sprint",
+          spec_path: specPath,
         },
         phases: [
           {
@@ -538,6 +541,7 @@ describe('Feature', () => {
         sprint: {
           id: "sprint-e2e-fr011-001",
           name: "FR-011 Error Message Test Sprint",
+          spec_path: specPath,
         },
         phases: [
           {
@@ -694,6 +698,7 @@ describe('Feature', () => {
         sprint: {
           id: "sprint-e2e-closeout-001",
           name: "Closeout Gate Test Sprint",
+          spec_path: specPath,
         },
         phases: [
           {

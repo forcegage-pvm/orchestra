@@ -156,6 +156,11 @@ Use the orchestra-imp tools to signal completion
 - `get_task`, `get_tasks`, `remove_task`
 - `resubmit_sprint`, `resubmit_handover`
 
+**Spec Review Revisions:**
+
+- After a Controller rejection (`SPEC_REVIEW_FAILED`), `add_task` and `update_verification` are permitted for sprint revisions.
+- These tools remain blocked while the sprint is in `PENDING_SPEC_REVIEW`.
+
 **Handover:**
 
 - `prepare_task`, `update_handover`
