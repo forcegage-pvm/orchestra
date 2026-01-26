@@ -6,7 +6,10 @@ import { mkdir, mkdtemp, rm, writeFile } from "fs/promises";
 import os from "os";
 import path from "path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { parseSpecTaskDefinitions } from "../../src/core/spec-task-parser.js";
+import {
+  parseSpecTaskDefinitions,
+  parseSpeckitTaskRefs,
+} from "../../src/core/spec-task-parser.js";
 
 describe("parseSpecTaskDefinitions", () => {
   let tempDir: string;
@@ -161,3 +164,65 @@ async function writeSpecFile(relativePath: string, content: string) {
   await writeFile(fullPath, content, "utf-8");
   return relativePath;
 }
+
+describe("parseSpeckitTaskRefs", () => {
+  it("returns empty array for null input", () => {
+    expect(parseSpeckitTaskRefs(null)).toEqual([]);
+  });
+
+  it("returns empty array for empty string", () => {
+    expect(parseSpeckitTaskRefs("")).toEqual([]);
+  });
+
+  it("parses single task ID", () => {
+    expect(parseSpeckitTaskRefs("T001")).toEqual(["T001"]);
+  });
+
+  it("parses comma-separated task IDs", () => {
+    expect(parseSpeckitTaskRefs("T001, T002, T003")).toEqual([
+      "T001",
+      "T002",
+      "T003",
+    ]);
+  });
+
+  it("expands range notation T040-T043", () => {
+    expect(parseSpeckitTaskRefs("T040-T043")).toEqual([
+      "T040",
+      "T041",
+      "T042",
+      "T043",
+    ]);
+  });
+
+  it("expands range notation with zero padding preserved", () => {
+    expect(parseSpeckitTaskRefs("T001-T003")).toEqual(["T001", "T002", "T003"]);
+  });
+
+  it("handles mixed ranges and single IDs", () => {
+    expect(parseSpeckitTaskRefs("T001, T040-T043, T050")).toEqual([
+      "T001",
+      "T040",
+      "T041",
+      "T042",
+      "T043",
+      "T050",
+    ]);
+  });
+
+  it("handles ranges with different prefixes", () => {
+    expect(parseSpeckitTaskRefs("US001-US003")).toEqual([
+      "US001",
+      "US002",
+      "US003",
+    ]);
+  });
+
+  it("does not expand if start > end", () => {
+    expect(parseSpeckitTaskRefs("T043-T040")).toEqual(["T043-T040"]);
+  });
+
+  it("trims whitespace from task IDs", () => {
+    expect(parseSpeckitTaskRefs("  T001  ,  T002  ")).toEqual(["T001", "T002"]);
+  });
+});

@@ -5,7 +5,10 @@
  */
 
 import { and, desc, eq, inArray, ne } from "drizzle-orm";
-import { parseSpecTaskDefinitions } from "../../core/spec-task-parser.js";
+import {
+  parseSpecTaskDefinitions,
+  parseSpeckitTaskRefs,
+} from "../../core/spec-task-parser.js";
 import { getActiveSprint, getDb } from "../../db/index.js";
 import {
   codeReviewIssues,
@@ -444,17 +447,6 @@ function parseJsonArray(value: string | null | undefined): string[] {
   } catch {
     return [];
   }
-}
-
-function parseSpeckitTaskRefs(value: string | null): string[] {
-  if (!value) {
-    return [];
-  }
-
-  return value
-    .split(",")
-    .map((item) => item.trim())
-    .filter((item) => item.length > 0);
 }
 
 function ensureSpecPath(specPath: string | null, taskIds: string[]): string {

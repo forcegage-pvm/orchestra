@@ -11,6 +11,7 @@ import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import {
   parseSpecTaskDefinitions,
+  parseSpeckitTaskRefs,
   type SpecTaskDefinition,
 } from "../../core/spec-task-parser.js";
 import { getDb } from "../../db/index.js";
@@ -189,17 +190,6 @@ async function getTaskForReview(
     created_at: result.created_at,
     updated_at: result.updated_at,
   };
-}
-
-function parseSpeckitTaskRefs(value: string | null): string[] {
-  if (!value) {
-    return [];
-  }
-
-  return value
-    .split(",")
-    .map((item) => item.trim())
-    .filter((item) => item.length > 0);
 }
 
 function ensureSpecPath(specPath: string | null, taskIds: string[]): string {

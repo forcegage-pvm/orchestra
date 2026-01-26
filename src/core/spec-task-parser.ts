@@ -58,7 +58,8 @@ export async function parseSpecTaskDefinitions(
       continue;
     }
 
-    const lines = content.split("\n");
+    // Normalize line endings (handle Windows \r\n)
+    const lines = content.replace(/\r\n/g, "\n").split("\n");
     parseFileForTasks(lines, definitions);
   }
 
@@ -235,4 +236,51 @@ function extractAcceptanceCriteria(
   }
 
   return criteria;
+}
+
+/**
+ * Parse speckit task refs, expanding range notation like "T040-T043" to ["T040", "T041", "T042", "T043"]
+ *
+ * Supports:
+ * - Single IDs: "T001" → ["T001"]
+ * - Comma-separated: "T001, T002" → ["T001", "T002"]
+ * - Ranges: "T040-T043" → ["T040", "T041", "T042", "T043"]
+ * - Mixed: "T001, T040-T043, T050" → ["T001", "T040", "T041", "T042", "T043", "T050"]
+ */
+export function parseSpeckitTaskRefs(value: string | null): string[] {
+  if (!value) {
+    return [];
+  }
+
+  const items = value
+    .split(",")
+    .map((item) => item.trim())
+    .filter((item) => item.length > 0);
+  const result: string[] = [];
+
+  // Regex for range pattern: T###-T### (same prefix, numeric range)
+  const rangePattern = /^([A-Z]+)(\d+)-\1(\d+)$/i;
+
+  for (const item of items) {
+    const rangeMatch = item.match(rangePattern);
+    if (rangeMatch) {
+      const prefix = rangeMatch[1];
+      const start = parseInt(rangeMatch[2]!, 10);
+      const end = parseInt(rangeMatch[3]!, 10);
+
+      if (!isNaN(start) && !isNaN(end) && start <= end) {
+        // Determine padding from original format
+        const originalPadding = rangeMatch[2]!.length;
+        for (let num = start; num <= end; num++) {
+          result.push(`${prefix}${String(num).padStart(originalPadding, "0")}`);
+        }
+        continue;
+      }
+    }
+
+    // Not a range, add as-is
+    result.push(item);
+  }
+
+  return result;
 }

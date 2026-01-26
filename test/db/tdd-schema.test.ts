@@ -40,6 +40,7 @@ describe("TDD Schema Tables", () => {
         workflow_step TEXT NOT NULL,
         config TEXT,
         spec_path TEXT,
+        spec_files TEXT,
         spec_version TEXT,
         spec_hash TEXT,
         is_active INTEGER NOT NULL DEFAULT 0,
