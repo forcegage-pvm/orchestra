@@ -65,6 +65,40 @@ describe("SessionStorage", () => {
     releaseSpy.mockRestore();
   });
 
+  test("load() restores messages and file changes", async () => {
+    const session = new AgentSession("implementor", "sprint-restore", 21);
+    session.messages.push({
+      id: crypto.randomUUID(),
+      role: "user",
+      content: "Hello",
+      timestamp: new Date().toISOString(),
+      iteration: 0,
+    });
+    session.fileChanges.push({
+      id: crypto.randomUUID(),
+      uri: "file:///tmp/demo.txt",
+      relativePath: "demo.txt",
+      operation: "modify",
+      previousContent: "before",
+      previousContentHash: "hash-before",
+      newContent: "after",
+      newContentHash: "hash-after",
+      toolCallId: crypto.randomUUID(),
+      timestamp: new Date().toISOString(),
+      iteration: 0,
+      undone: false,
+      undoneAt: null,
+    });
+
+    await storage.save(session);
+    const restored = await storage.load(session.id);
+
+    expect(restored.messages.length).toBe(1);
+    expect(restored.messages[0]?.content).toBe("Hello");
+    expect(restored.fileChanges.length).toBe(1);
+    expect(restored.fileChanges[0]?.relativePath).toBe("demo.txt");
+  });
+
   test("createCheckpoint() writes checkpoint content and returns reference", async () => {
     const session = new AgentSession("orchestrator", "sprint-003");
     session.currentIteration = 2;
@@ -91,6 +125,39 @@ describe("SessionStorage", () => {
     expect(content.toolCallCount).toBe(0);
     expect(content.fileChangeCount).toBe(0);
     expect(content.timestamp).toBeDefined();
+  });
+
+  test("loadWithFallback() restores session from latest checkpoint when session file is corrupted", async () => {
+    const session = new AgentSession("orchestrator", "sprint-fallback", 3);
+    session.messages.push({
+      id: crypto.randomUUID(),
+      role: "user",
+      content: "First",
+      timestamp: new Date().toISOString(),
+      iteration: 0,
+    });
+    session.currentIteration = 1;
+    await storage.save(session);
+    await storage.createCheckpoint(session);
+
+    session.messages.push({
+      id: crypto.randomUUID(),
+      role: "assistant",
+      content: "Second",
+      timestamp: new Date().toISOString(),
+      iteration: 1,
+    });
+    session.currentIteration = 2;
+    await storage.createCheckpoint(session);
+
+    const sessionPath = storage.getSessionPath(session.id);
+    await fs.promises.writeFile(sessionPath, "{not-json", "utf-8");
+
+    const restored = await storage.loadWithFallback(session.id);
+
+    expect(restored.messages.length).toBe(2);
+    expect(restored.currentIteration).toBe(2);
+    expect(restored.recoveryInfo.failureReason).toMatch(/corrupted/i);
   });
 
   test("listSessions() returns metadata for saved sessions", async () => {
@@ -230,5 +297,41 @@ describe("SessionStorage", () => {
     expect(fs.existsSync(lockPath)).toBe(false);
 
     writeSpy.mockRestore();
+  });
+
+  test("cleanupExpiredSessions() deletes old completed and failed sessions only", async () => {
+    const completedOld = new AgentSession("orchestrator", "sprint-clean-1");
+    const failedOld = new AgentSession("implementor", "sprint-clean-2", 9);
+    const completedRecent = new AgentSession("orchestrator", "sprint-clean-3");
+    const runningOld = new AgentSession("implementor", "sprint-clean-4", 4);
+
+    const oldDate = new Date(Date.now() - 8 * 24 * 60 * 60 * 1000).toISOString();
+
+    completedOld.status = "completed";
+    completedOld.updatedAt = oldDate;
+    completedOld.lastActivityAt = oldDate;
+
+    failedOld.status = "failed";
+    failedOld.updatedAt = oldDate;
+    failedOld.lastActivityAt = oldDate;
+
+    completedRecent.status = "completed";
+
+    runningOld.status = "running";
+    runningOld.updatedAt = oldDate;
+    runningOld.lastActivityAt = oldDate;
+
+    await storage.save(completedOld);
+    await storage.save(failedOld);
+    await storage.save(completedRecent);
+    await storage.save(runningOld);
+
+    const deletedCount = await storage.cleanupExpiredSessions();
+    expect(deletedCount).toBe(2);
+
+    expect(fs.existsSync(storage.getSessionPath(completedOld.id))).toBe(false);
+    expect(fs.existsSync(storage.getSessionPath(failedOld.id))).toBe(false);
+    expect(fs.existsSync(storage.getSessionPath(completedRecent.id))).toBe(true);
+    expect(fs.existsSync(storage.getSessionPath(runningOld.id))).toBe(true);
   });
 });

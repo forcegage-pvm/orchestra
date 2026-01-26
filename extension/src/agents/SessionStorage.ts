@@ -13,6 +13,7 @@ import { SessionError } from "./errors.js";
 import {
   AgentSessionSchema,
   CheckpointContentSchema,
+  CheckpointContent,
   CheckpointReference,
   SessionMetadata,
   SessionMetadataSchema,
@@ -298,6 +299,16 @@ export class SessionStorage {
       toolCallCount: session.toolCalls.length,
       fileChangeCount: session.fileChanges.length,
       timestamp,
+      role: session.role,
+      sprintId: session.sprintId,
+      taskId: session.taskId,
+      maxIterations: session.maxIterations,
+      createdAt: session.createdAt,
+      updatedAt: session.updatedAt,
+      lastActivityAt: session.lastActivityAt,
+      messages: session.messages,
+      toolCalls: session.toolCalls,
+      fileChanges: session.fileChanges,
     };
 
     try {
@@ -349,6 +360,156 @@ export class SessionStorage {
           originalError: error instanceof Error ? error.message : String(error),
         },
       );
+    }
+  }
+
+  async loadWithFallback(sessionId: string): Promise<AgentSession> {
+    try {
+      return await this.load(sessionId);
+    } catch (error) {
+      const fallback = await this.getLatestValidCheckpoint(sessionId);
+      if (!fallback) {
+        throw new SessionError(
+          "Session file corrupted and no valid checkpoint found",
+          sessionId,
+          {
+            originalError: error instanceof Error ? error.message : String(error),
+          },
+          "SESSION_CORRUPTED",
+        );
+      }
+
+      const { content, filePath, fileSize } = fallback;
+      if (!content.role || !content.sprintId) {
+        throw new SessionError(
+          "Checkpoint missing required session metadata",
+          sessionId,
+          {
+            checkpointPath: filePath,
+          },
+          "CHECKPOINT_INVALID",
+        );
+      }
+
+      const session = new AgentSession(
+        content.role,
+        content.sprintId,
+        content.taskId ?? null,
+        content.maxIterations ?? 50,
+      );
+
+      (session as { id: string }).id = content.sessionId;
+      (session as { createdAt: string }).createdAt =
+        content.createdAt ?? content.timestamp;
+
+      session.status = "paused";
+      session.updatedAt = content.updatedAt ?? content.timestamp;
+      session.lastActivityAt = content.lastActivityAt ?? content.timestamp;
+      session.currentIteration = content.iteration;
+      session.messages = content.messages ?? [];
+      session.toolCalls = content.toolCalls ?? [];
+      session.fileChanges = content.fileChanges ?? [];
+
+      const checkpointReference: CheckpointReference = {
+        id: crypto.randomUUID(),
+        iteration: content.iteration,
+        position: content.position,
+        toolCallId: null,
+        filePath,
+        fileSize,
+        createdAt: content.timestamp,
+      };
+
+      session.checkpoints = [checkpointReference];
+      session.lastCheckpointId = checkpointReference.id;
+      session.recoveryInfo = {
+        canResume: true,
+        resumeFromIteration: content.iteration,
+        resumeFromToolCall: null,
+        failureReason: `Session file corrupted. Restored from checkpoint ${path.basename(filePath)}.`,
+      };
+
+      return session;
+    }
+  }
+
+  async cleanupExpiredSessions(retentionDays: number = 7): Promise<number> {
+    const sessions = await this.listSessions();
+    const cutoffMs = Date.now() - retentionDays * 24 * 60 * 60 * 1000;
+    const expired = sessions.filter((session) => {
+      if (session.status !== "completed" && session.status !== "failed") {
+        return false;
+      }
+
+      const updatedAt = Date.parse(session.updatedAt);
+      if (Number.isNaN(updatedAt)) {
+        return false;
+      }
+
+      return updatedAt < cutoffMs;
+    });
+
+    await Promise.all(expired.map((session) => this.deleteSession(session.id)));
+    return expired.length;
+  }
+
+  private async getLatestValidCheckpoint(sessionId: string): Promise<
+    | { content: CheckpointContent; filePath: string; fileSize: number }
+    | null
+  > {
+    const checkpointDir = this.getCheckpointDir();
+
+    try {
+      const entries = await fs.promises.readdir(checkpointDir, {
+        withFileTypes: true,
+      });
+      const checkpointFiles = entries
+        .filter(
+          (entry) =>
+            entry.isFile() &&
+            entry.name.startsWith(`${sessionId}-iter-`) &&
+            entry.name.endsWith(".json"),
+        )
+        .map((entry) => path.join(checkpointDir, entry.name));
+
+      let latest:
+        | { content: CheckpointContent; filePath: string; fileSize: number }
+        | null = null;
+
+      for (const filePath of checkpointFiles) {
+        try {
+          const json = await fs.promises.readFile(filePath, "utf-8");
+          const data = JSON.parse(json);
+          const parseResult = CheckpointContentSchema.safeParse(data);
+          if (!parseResult.success) {
+            continue;
+          }
+
+          if (parseResult.data.sessionId !== sessionId) {
+            continue;
+          }
+
+          const stats = await fs.promises.stat(filePath);
+          if (!latest || parseResult.data.iteration > latest.content.iteration) {
+            latest = {
+              content: parseResult.data,
+              filePath,
+              fileSize: stats.size,
+            };
+          }
+        } catch {
+          // skip unreadable checkpoints
+        }
+      }
+
+      return latest;
+    } catch (error) {
+      const nodeError = error as NodeJS.ErrnoException;
+      if (nodeError?.code === "ENOENT") {
+        return null;
+      }
+
+      throw error;
     }
   }
 

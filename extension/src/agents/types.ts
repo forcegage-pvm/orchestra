@@ -269,6 +269,16 @@ export const CheckpointContentSchema = z.object({
   toolCallCount: z.number().int().nonnegative(),
   fileChangeCount: z.number().int().nonnegative(),
   timestamp: z.string().datetime(),
+  role: AgentRoleSchema.optional(),
+  sprintId: z.string().optional(),
+  taskId: z.number().int().positive().nullable().optional(),
+  maxIterations: z.number().int().positive().optional(),
+  createdAt: z.string().datetime().optional(),
+  updatedAt: z.string().datetime().optional(),
+  lastActivityAt: z.string().datetime().optional(),
+  messages: z.array(AgentMessageSchema).optional(),
+  toolCalls: z.array(ToolCallSchema).optional(),
+  fileChanges: z.array(FileChangeSchema).optional(),
 });
 export type CheckpointContent = z.output<typeof CheckpointContentSchema>;
 
