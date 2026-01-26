@@ -7,6 +7,7 @@ import * as os from "os";
 import * as path from "path";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { AgentSession } from "../../src/agents/AgentSession.js";
+import { SessionError } from "../../src/agents/errors.js";
 import { SessionStorage } from "../../src/agents/SessionStorage.js";
 
 describe("SessionStorage", () => {
@@ -48,12 +49,20 @@ describe("SessionStorage", () => {
     const session = new AgentSession("implementor", "sprint-002", 7);
     await storage.save(session);
 
+    const acquireSpy = vi.spyOn(storage, "acquireLock");
+    const releaseSpy = vi.spyOn(storage, "releaseLock");
     const loaded = await storage.load(session.id);
+
+    expect(acquireSpy).toHaveBeenCalledWith(session.id);
+    expect(releaseSpy).toHaveBeenCalledWith(session.id);
 
     expect(loaded.id).toBe(session.id);
     expect(loaded.role).toBe("implementor");
     expect(loaded.taskId).toBe(7);
     expect(loaded.sprintId).toBe("sprint-002");
+
+    acquireSpy.mockRestore();
+    releaseSpy.mockRestore();
   });
 
   test("createCheckpoint() writes checkpoint content and returns reference", async () => {
@@ -112,5 +121,86 @@ describe("SessionStorage", () => {
 
     expect(fs.existsSync(storage.getSessionPath(session.id))).toBe(false);
     expect(fs.existsSync(reference.filePath)).toBe(false);
+  });
+
+  test("acquireLock() creates lock file and releaseLock() removes it", async () => {
+    const session = new AgentSession("orchestrator", "sprint-005");
+    const lockPath = storage.getLockPath(session.id);
+
+    await storage.acquireLock(session.id);
+
+    expect(fs.existsSync(lockPath)).toBe(true);
+    const lockData = JSON.parse(fs.readFileSync(lockPath, "utf-8"));
+    expect(lockData.pid).toBe(process.pid);
+    expect(lockData.hostname).toBe(os.hostname());
+    expect(typeof lockData.acquiredAt).toBe("string");
+
+    await storage.releaseLock(session.id);
+    expect(fs.existsSync(lockPath)).toBe(false);
+  });
+
+  test("acquireLock() throws SessionError when lock is held", async () => {
+    const session = new AgentSession("implementor", "sprint-006");
+
+    await storage.acquireLock(session.id);
+
+    await expect(storage.acquireLock(session.id)).rejects.toEqual(
+      expect.objectContaining({
+        name: "SessionError",
+        code: "LOCK_HELD",
+      })
+    );
+
+    await storage.releaseLock(session.id);
+  });
+
+  test("acquireLock() reclaims stale lock files", async () => {
+    const session = new AgentSession("orchestrator", "sprint-007");
+    const lockPath = storage.getLockPath(session.id);
+    const staleTime = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+
+    await fs.promises.mkdir(storage.getSessionDir(), { recursive: true });
+    await fs.promises.writeFile(
+      lockPath,
+      JSON.stringify(
+        { pid: 9999, hostname: "stale-host", acquiredAt: staleTime },
+        null,
+        2
+      ),
+      "utf-8"
+    );
+
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+
+    await storage.acquireLock(session.id);
+
+    expect(warnSpy).toHaveBeenCalled();
+    const lockData = JSON.parse(fs.readFileSync(lockPath, "utf-8"));
+    expect(lockData.pid).toBe(process.pid);
+    expect(lockData.hostname).toBe(os.hostname());
+    expect(Date.parse(lockData.acquiredAt)).toBeGreaterThan(Date.parse(staleTime));
+
+    await storage.releaseLock(session.id);
+    warnSpy.mockRestore();
+  });
+
+  test("save() releases lock when write fails", async () => {
+    const session = new AgentSession("orchestrator", "sprint-008");
+    const lockPath = storage.getLockPath(session.id);
+    const originalWriteFile = fs.promises.writeFile;
+
+    const writeSpy = vi
+      .spyOn(fs.promises, "writeFile")
+      .mockImplementation(async (filePath, data, options) => {
+        if (String(filePath).includes(".tmp.")) {
+          throw new Error("disk failure");
+        }
+        return originalWriteFile(filePath, data, options as string | undefined);
+      });
+
+    await expect(storage.save(session)).rejects.toBeInstanceOf(SessionError);
+    expect(fs.existsSync(lockPath)).toBe(false);
+
+    writeSpy.mockRestore();
   });
 });

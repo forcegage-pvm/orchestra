@@ -6,6 +6,7 @@
  */
 
 import * as fs from "fs";
+import * as os from "os";
 import * as path from "path";
 import { AgentSession } from "./AgentSession.js";
 import { SessionError } from "./errors.js";
@@ -20,6 +21,8 @@ import {
 type AutoSaveOptions = {
   checkpoint?: boolean;
 };
+
+const LOCK_TIMEOUT_MS = 5 * 60 * 1000;
 
 export class SessionStorage {
   private static instance: SessionStorage | null = null;
@@ -60,11 +63,109 @@ export class SessionStorage {
     return path.join(this.getSessionDir(), `session-${sessionId}.json`);
   }
 
+  getLockPath(sessionId: string): string {
+    return path.join(this.getSessionDir(), `session-${sessionId}.lock`);
+  }
+
+  async acquireLock(sessionId: string): Promise<void> {
+    const lockPath = this.getLockPath(sessionId);
+
+    try {
+      await fs.promises.mkdir(this.getSessionDir(), { recursive: true });
+
+      const handle = await fs.promises.open(
+        lockPath,
+        fs.constants.O_CREAT | fs.constants.O_EXCL | fs.constants.O_WRONLY,
+      );
+
+      try {
+        const lockInfo = {
+          pid: process.pid,
+          hostname: os.hostname(),
+          acquiredAt: new Date().toISOString(),
+        };
+        await handle.writeFile(JSON.stringify(lockInfo, null, 2), "utf-8");
+      } finally {
+        await handle.close();
+      }
+    } catch (error) {
+      const nodeError = error as NodeJS.ErrnoException;
+      if (nodeError?.code === "EEXIST") {
+        await this.handleExistingLock(sessionId, lockPath);
+        return;
+      }
+
+      throw new SessionError("Failed to acquire session lock", sessionId, {
+        originalError: error instanceof Error ? error.message : String(error),
+        lockPath,
+      }, "LOCK_FAILED");
+    }
+  }
+
+  private async handleExistingLock(
+    sessionId: string,
+    lockPath: string,
+  ): Promise<void> {
+    let lockInfo: { pid?: number; hostname?: string; acquiredAt?: string } = {};
+    let isStale = false;
+
+    try {
+      const json = await fs.promises.readFile(lockPath, "utf-8");
+      lockInfo = JSON.parse(json) as typeof lockInfo;
+
+      const acquiredAt = lockInfo.acquiredAt
+        ? Date.parse(lockInfo.acquiredAt)
+        : NaN;
+      if (Number.isNaN(acquiredAt)) {
+        isStale = true;
+      } else {
+        const ageMs = Date.now() - acquiredAt;
+        isStale = ageMs > LOCK_TIMEOUT_MS;
+      }
+    } catch (error) {
+      const nodeError = error as NodeJS.ErrnoException;
+      if (nodeError?.code === "ENOENT") {
+        await this.acquireLock(sessionId);
+        return;
+      }
+
+      isStale = true;
+    }
+
+    if (isStale) {
+      console.warn(
+        `Stale session lock detected for ${sessionId}. Reclaiming lock.`,
+      );
+      await fs.promises.rm(lockPath, { force: true });
+      await this.acquireLock(sessionId);
+      return;
+    }
+
+    throw new SessionError(
+      "Session lock is held by another process",
+      sessionId,
+      {
+        lockInfo,
+        lockPath,
+      },
+      "LOCK_HELD",
+    );
+  }
+
+  async releaseLock(sessionId: string): Promise<void> {
+    const lockPath = this.getLockPath(sessionId);
+    await fs.promises.rm(lockPath, { force: true });
+  }
+
   async save(session: AgentSession): Promise<void> {
     const sessionPath = this.getSessionPath(session.id);
     const tempPath = `${sessionPath}.tmp.${Date.now()}`;
+    let lockAcquired = false;
+    let saveError: unknown;
 
     try {
+      await this.acquireLock(session.id);
+      lockAcquired = true;
       await fs.promises.mkdir(this.getSessionDir(), { recursive: true });
 
       const data = session.toJSON();
@@ -83,6 +184,7 @@ export class SessionStorage {
       await fs.promises.writeFile(tempPath, json, "utf-8");
       await fs.promises.rename(tempPath, sessionPath);
     } catch (error) {
+      saveError = error;
       if (error instanceof SessionError) {
         throw error;
       }
@@ -100,17 +202,44 @@ export class SessionStorage {
           originalError: error instanceof Error ? error.message : String(error),
         },
       );
+    } finally {
+      if (lockAcquired) {
+        try {
+          await this.releaseLock(session.id);
+        } catch (error) {
+          if (!saveError) {
+            throw new SessionError(
+              "Failed to release session lock",
+              session.id,
+              {
+                originalError:
+                  error instanceof Error ? error.message : String(error),
+              },
+              "LOCK_FAILED",
+            );
+          }
+
+          console.warn(
+            `Failed to release session lock for ${session.id} after error.`,
+          );
+        }
+      }
     }
   }
 
   async load(sessionId: string): Promise<AgentSession> {
     const sessionPath = this.getSessionPath(sessionId);
+    let lockAcquired = false;
+    let loadError: unknown;
 
     try {
+      await this.acquireLock(sessionId);
+      lockAcquired = true;
       const json = await fs.promises.readFile(sessionPath, "utf-8");
       const data = JSON.parse(json);
       return AgentSession.fromJSON(data);
     } catch (error) {
+      loadError = error;
       if (error instanceof SessionError) {
         throw error;
       }
@@ -122,6 +251,28 @@ export class SessionStorage {
           originalError: error instanceof Error ? error.message : String(error),
         },
       );
+    } finally {
+      if (lockAcquired) {
+        try {
+          await this.releaseLock(sessionId);
+        } catch (error) {
+          if (!loadError) {
+            throw new SessionError(
+              "Failed to release session lock",
+              sessionId,
+              {
+                originalError:
+                  error instanceof Error ? error.message : String(error),
+              },
+              "LOCK_FAILED",
+            );
+          }
+
+          console.warn(
+            `Failed to release session lock for ${sessionId} after error.`,
+          );
+        }
+      }
     }
   }
 
