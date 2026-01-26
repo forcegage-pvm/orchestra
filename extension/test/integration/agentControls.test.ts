@@ -87,7 +87,7 @@ vi.mock("vscode", () => ({
 describe("Agent Control Lifecycle Integration", () => {
   let runner: AgentRunner;
   let registry: ToolRegistry;
-  let resolveStream: (() => void) | undefined;
+  let streamResolvers: Array<() => void> = [];
 
   const createHoldableMockModel = () => ({
     id: "claude-sonnet-4.5",
@@ -97,7 +97,7 @@ describe("Agent Control Lifecycle Integration", () => {
         yield new vscode.LanguageModelTextPart("...");
 
         await new Promise<void>((resolve) => {
-          resolveStream = resolve;
+          streamResolvers.push(resolve);
         });
 
         yield new vscode.LanguageModelTextPart("Done");
@@ -105,14 +105,27 @@ describe("Agent Control Lifecycle Integration", () => {
     })),
   });
 
-  const waitForLoopStart = async (): Promise<void> => {
-    await new Promise((resolve) => setTimeout(resolve, 10));
+  const waitForStreamHold = async (): Promise<void> => {
+    for (let i = 0; i < 10; i += 1) {
+      if (streamResolvers.length > 0) {
+        return;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+    throw new Error("Stream did not enter hold state");
+  };
+
+  const resolveNextStream = (): void => {
+    const resolve = streamResolvers.shift();
+    if (resolve) {
+      resolve();
+    }
   };
 
   beforeEach(() => {
     registry = new ToolRegistry();
     runner = new AgentRunner(registry);
-    resolveStream = undefined;
+    streamResolvers = [];
     vi.clearAllMocks();
   });
 
@@ -122,7 +135,7 @@ describe("Agent Control Lifecycle Integration", () => {
     ]);
 
     await runner.start("orchestrator", { prompt: "Test" });
-    await waitForLoopStart();
+    await waitForStreamHold();
 
     let pauseResolved = false;
     const pausePromise = runner.pause().then(() => {
@@ -132,7 +145,7 @@ describe("Agent Control Lifecycle Integration", () => {
     await new Promise((resolve) => setTimeout(resolve, 10));
     expect(pauseResolved).toBe(false);
 
-    if (resolveStream) resolveStream();
+    resolveNextStream();
     await pausePromise;
 
     expect(runner.getSession()?.status).toBe("paused");
@@ -144,22 +157,22 @@ describe("Agent Control Lifecycle Integration", () => {
     ]);
 
     await runner.start("orchestrator", { prompt: "Test" });
-    await waitForLoopStart();
+    await waitForStreamHold();
 
     const pausePromise = runner.pause();
-    if (resolveStream) resolveStream();
+    resolveNextStream();
     await pausePromise;
 
     const stateChanges: AgentState[] = [];
     runner.onStateChange((state) => stateChanges.push(state));
 
     await runner.resume();
-    await waitForLoopStart();
+    await waitForStreamHold();
 
     expect(runner.getSession()?.status).toBe("running");
     expect(stateChanges.some((state) => state.status === "running")).toBe(true);
 
-    if (resolveStream) resolveStream();
+    resolveNextStream();
     await new Promise((resolve) => setTimeout(resolve, 10));
   });
 
@@ -169,10 +182,10 @@ describe("Agent Control Lifecycle Integration", () => {
     ]);
 
     await runner.start("orchestrator", { prompt: "Test" });
-    await waitForLoopStart();
+    await waitForStreamHold();
 
     const stopPromise = runner.stop();
-    if (resolveStream) resolveStream();
+    resolveNextStream();
     await stopPromise;
 
     const session = runner.getSession();
@@ -189,7 +202,7 @@ describe("Agent Control Lifecycle Integration", () => {
     runner.onOutput((output) => outputs.push(output));
 
     await runner.start("orchestrator", { prompt: "Initial" });
-    await waitForLoopStart();
+    await waitForStreamHold();
 
     await runner.redirect("New instruction");
 
@@ -203,7 +216,7 @@ describe("Agent Control Lifecycle Integration", () => {
     expect(redirectOutput).toBeDefined();
 
     const stopPromise = runner.stop();
-    if (resolveStream) resolveStream();
+    resolveNextStream();
     await stopPromise;
   });
 
@@ -216,16 +229,16 @@ describe("Agent Control Lifecycle Integration", () => {
     runner.onStateChange((state) => stateChanges.push(state));
 
     await runner.start("orchestrator", { prompt: "Lifecycle" });
-    await waitForLoopStart();
+    await waitForStreamHold();
     expect(runner.getSession()?.status).toBe("running");
 
     const pausePromise = runner.pause();
-    if (resolveStream) resolveStream();
+    resolveNextStream();
     await pausePromise;
     expect(runner.getSession()?.status).toBe("paused");
 
     await runner.resume();
-    await waitForLoopStart();
+    await waitForStreamHold();
     expect(runner.getSession()?.status).toBe("running");
 
     await runner.redirect("Inject instruction");
@@ -237,7 +250,7 @@ describe("Agent Control Lifecycle Integration", () => {
     ).toBe(true);
 
     const stopPromise = runner.stop();
-    if (resolveStream) resolveStream();
+    resolveNextStream();
     await stopPromise;
 
     expect(runner.getSession()?.status).toBe("stopped");

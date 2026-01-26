@@ -180,6 +180,13 @@ Use your MCP tools to implement this task:
 
     return `As Orchestrator, verify Task ${task.task_id}: "${task.title}".
 
+## Verification Reminders
+- Hidden verification criteria apply to this task.
+- The implementor is working against criteria they cannot see.
+- Validate Acceptance criteria, File operations, artifacts, and Build and test status.
+- Provide clear rationale for a PASS or FAIL judgment.
+- If verification fails, provide feedback with concrete guidance on required fixes.
+
 ## 🎯 CRITICAL: STUB HUNTER MODE ACTIVATED
 
 **Your PRIMARY objective is to PROVE this implementation is broken, incomplete, or a stub.**
