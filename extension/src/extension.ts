@@ -8,7 +8,7 @@
 import * as fs from "fs";
 import * as path from "path";
 import * as vscode from "vscode";
-import { AgentRunner, ToolRegistry } from "./agents/index.js";
+import { AgentRunner, SessionStorage, ToolRegistry } from "./agents/index.js";
 import { SessionManager } from "./chat/SessionManager.js";
 import { handleArchiveSprint } from "./commands/archiveSprint.js";
 import {
@@ -19,6 +19,7 @@ import {
 } from "./commands/deEscalation.js";
 import { handleFilterSprints } from "./commands/filterSprints.js";
 import { handlePlayTask } from "./commands/PlayTaskHandler.js";
+import { handleResumeAgent } from "./commands/resumeAgent.js";
 import { handleReviewSprint } from "./commands/ReviewSprintHandler.js";
 import { handleUnarchiveSprint } from "./commands/unarchiveSprint.js";
 import { ConfigService } from "./config/ConfigService.js";
@@ -616,6 +617,27 @@ export async function activate(
   }
 
   logger.info(`Orchestra workspace detected: ${orchestraRoot}`);
+
+  try {
+    const storage = SessionStorage.getInstance(orchestraRoot);
+    const recoverableSessions = await storage.getRecoverableSessions();
+    if (recoverableSessions.length > 0) {
+      const selection = await vscode.window.showInformationMessage(
+        "Resume interrupted session?",
+        "Resume",
+        "Dismiss",
+      );
+      if (selection === "Resume") {
+        await vscode.commands.executeCommand("orchestra.resumeAgent");
+      }
+    }
+  } catch (error) {
+    logger.warn(
+      `Failed to check recoverable sessions: ${
+        error instanceof Error ? error.message : "Unknown"
+      }`,
+    );
+  }
 
   // Register MCP server definition provider (provides servers dynamically to VS Code)
   // This eliminates the need for hardcoded paths in .vscode/mcp.json
@@ -1731,18 +1753,8 @@ export async function activate(
       }),
       vscode.commands.registerCommand("orchestra.resumeAgent", async () => {
         try {
-          if (!agentRunner) {
-            vscode.window.showErrorMessage(
-              "Orchestra: No agent to resume. Start a new agent first.",
-            );
-            return;
-          }
-
-          await agentRunner.resume();
-          vscode.window.showInformationMessage(
-            "Orchestra: Agent resumed successfully",
-          );
-          logger.info("Agent resumed");
+          await handleResumeAgent(orchestraRoot);
+          logger.info("Agent resume requested");
         } catch (error) {
           const message =
             error instanceof Error ? error.message : "Unknown error";

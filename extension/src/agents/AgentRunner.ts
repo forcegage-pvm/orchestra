@@ -17,6 +17,7 @@ import { createEscalation } from "../database/mutations.js";
 import { AgentSession } from "./AgentSession.js";
 import { ContextManager } from "./ContextManager.js";
 import { AgentError, SessionError } from "./errors.js";
+import { SessionStorage } from "./SessionStorage.js";
 import { loadImplementorTools } from "./toolLoaders.js";
 import { ToolRegistry } from "./ToolRegistry.js";
 import type {
@@ -284,6 +285,71 @@ export class AgentRunner implements vscode.Disposable {
     this.runningPromise = this.runAgentLoop(role).catch((error) => {
       this.handleError(error);
     });
+  }
+
+  /**
+   * Resume a session loaded from storage
+   *
+   * Loads the session from disk, injects a system resume message,
+   * and restarts the agent loop.
+   *
+   * @param sessionId - Session ID to resume
+   * @returns The resumed session
+   */
+  async resumeFromStorage(sessionId: string): Promise<AgentSession> {
+    if (this.session && this.session.status === "running") {
+      throw new AgentError(
+        "Cannot resume: another agent session is already running",
+        "AGENT_ALREADY_RUNNING",
+      );
+    }
+
+    const workspaceRoot =
+      vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? process.cwd();
+    const storage = SessionStorage.getInstance(workspaceRoot);
+    const loaded = await storage.load(sessionId);
+
+    if (loaded.status === "completed" || loaded.status === "failed") {
+      throw new AgentError(
+        `Cannot resume session with status: ${loaded.status}`,
+        "SESSION_NOT_RECOVERABLE",
+      );
+    }
+
+    this.session = loaded;
+    this.isPaused = false;
+    this.isStopped = false;
+    this.consecutiveErrors = 0;
+    this.recentErrors = [];
+    this.hasEscalated = false;
+
+    if (this.session.status === "running") {
+      this.session.stop();
+    }
+
+    if (this.session.role === "implementor") {
+      loadImplementorTools(this.toolRegistry);
+    }
+
+    const message: AgentMessage = {
+      id: crypto.randomUUID(),
+      role: "system",
+      content: `[SYSTEM: Session was interrupted and is now resuming. You are at iteration ${this.session.currentIteration} of ${this.session.maxIterations}.]`,
+      timestamp: new Date().toISOString(),
+      iteration: this.session.currentIteration,
+    };
+    this.session.addMessage(message);
+
+    this.session.resume();
+    this.emitStateChange();
+
+    this.cancellationTokenSource = new vscode.CancellationTokenSource();
+    const role = this.session.role;
+    this.runningPromise = this.runAgentLoop(role).catch((error) => {
+      this.handleError(error);
+    });
+
+    return this.session;
   }
 
   /**

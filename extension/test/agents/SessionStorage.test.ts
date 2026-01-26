@@ -107,6 +107,30 @@ describe("SessionStorage", () => {
     expect(ids).toContain(session2.id);
   });
 
+  test("getRecoverableSessions() filters paused, stopped, and running sessions", async () => {
+    const runningSession = new AgentSession("orchestrator", "sprint-009");
+    const pausedSession = new AgentSession("implementor", "sprint-010", 12);
+    const stoppedSession = new AgentSession("orchestrator", "sprint-011");
+    const completedSession = new AgentSession("implementor", "sprint-012", 3);
+
+    pausedSession.status = "paused";
+    stoppedSession.status = "stopped";
+    completedSession.status = "completed";
+
+    await storage.save(runningSession);
+    await storage.save(pausedSession);
+    await storage.save(stoppedSession);
+    await storage.save(completedSession);
+
+    const recoverable = await storage.getRecoverableSessions();
+    const recoverableIds = recoverable.map((session) => session.id);
+
+    expect(recoverableIds).toContain(runningSession.id);
+    expect(recoverableIds).toContain(pausedSession.id);
+    expect(recoverableIds).toContain(stoppedSession.id);
+    expect(recoverableIds).not.toContain(completedSession.id);
+  });
+
   test("deleteSession() removes session and checkpoints", async () => {
     const session = new AgentSession("orchestrator", "sprint-004");
     session.currentIteration = 1;

@@ -429,6 +429,16 @@ export class SessionStorage {
     }
   }
 
+  async getRecoverableSessions(): Promise<SessionMetadata[]> {
+    const sessions = await this.listSessions();
+    return sessions.filter(
+      (session) =>
+        session.status === "paused" ||
+        session.status === "stopped" ||
+        session.status === "running",
+    );
+  }
+
   async deleteSession(sessionId: string): Promise<void> {
     const sessionPath = this.getSessionPath(sessionId);
     const checkpointDir = this.getCheckpointDir();

@@ -21,6 +21,21 @@ vi.mock("../../src/database/mutations.js", () => ({
   createEscalation: vi.fn(() => 1),
 }));
 
+const { loadSessionMock, getStorageMock } = vi.hoisted(() => {
+  const loadSessionMock = vi.fn();
+  const getStorageMock = vi.fn(() => ({
+    load: loadSessionMock,
+  }));
+
+  return { loadSessionMock, getStorageMock };
+});
+
+vi.mock("../../src/agents/SessionStorage.js", () => ({
+  SessionStorage: {
+    getInstance: getStorageMock,
+  },
+}));
+
 // Mock vscode module
 vi.mock("vscode", () => ({
   EventEmitter: class<T> {
@@ -146,6 +161,8 @@ describe("AgentRunner", () => {
     resolveStream = undefined;
     vi.clearAllMocks();
     vi.mocked(createEscalation).mockClear();
+    loadSessionMock.mockReset();
+    getStorageMock.mockClear();
 
     // Mock language model - default to simple mock
     const mockModel = createSimpleMockModel();
@@ -434,6 +451,47 @@ describe("AgentRunner", () => {
 
       // Resolve new stream to complete
       if (resolveStream) resolveStream();
+    });
+  });
+
+  describe("resumeFromStorage", () => {
+    test("should load session and resume with system message", async () => {
+      vi.mocked(vscode.lm.selectChatModels).mockResolvedValue([
+        createHoldableMockModel() as any,
+      ]);
+
+      const session = new AgentSession("orchestrator", "sprint-012", null, 2);
+      session.status = "paused";
+      session.currentIteration = 1;
+
+      loadSessionMock.mockResolvedValue(session);
+
+      await runner.resumeFromStorage(session.id);
+
+      expect(loadSessionMock).toHaveBeenCalledWith(session.id);
+
+      const resumed = runner.getSession();
+      expect(resumed?.status).toBe("running");
+
+      const systemMessage = resumed?.messages.find(
+        (message) => message.role === "system",
+      );
+
+      expect(typeof systemMessage?.content).toBe("string");
+      expect(systemMessage?.content).toContain("Session was interrupted");
+      expect(systemMessage?.content).toContain("iteration 1");
+
+      if (resolveStream) resolveStream();
+    });
+
+    test("should reject non-recoverable session status", async () => {
+      const session = new AgentSession("implementor", "sprint-013", 1);
+      session.status = "completed";
+      loadSessionMock.mockResolvedValue(session);
+
+      await expect(runner.resumeFromStorage(session.id)).rejects.toThrow(
+        AgentError,
+      );
     });
   });
 
