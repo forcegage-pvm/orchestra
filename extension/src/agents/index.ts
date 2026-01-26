@@ -11,3 +11,4 @@ export { AgentSession } from "./AgentSession.js";
 export { ContextManager } from "./ContextManager.js";
 export { AgentRunner } from "./AgentRunner.js";
 export { ToolRegistry } from "./ToolRegistry.js";
+export { FileChangeTracker } from "./FileChangeTracker.js";
