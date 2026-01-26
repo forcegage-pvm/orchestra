@@ -10,9 +10,17 @@ import { mkdir, rm, writeFile } from "fs/promises";
 import path from "path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { getDb } from "../../src/db/index.js";
-import { sprints, tasks, tddTaskRelationships } from "../../src/db/schema.js";
+import {
+  codeReviews,
+  phases,
+  sprints,
+  tasks,
+  tddTaskRelationships,
+} from "../../src/db/schema.js";
 import { handleConfigureSprint } from "../../src/mcp-server/handlers/configure-sprint.js";
+import { handleGetCodeReview } from "../../src/mcp-server/handlers/get-code-review.js";
 import { handleGetSprintStatus } from "../../src/mcp-server/handlers/get-sprint-status.js";
+import { handleGetTaskForReview } from "../../src/mcp-server/handlers/get-task-for-review.js";
 import type { ConfigureSprintInput } from "../../src/schemas/index.js";
 import { cleanupTestDb, setupTestDb } from "../setup/db-cache.js";
 
@@ -656,6 +664,108 @@ describe("configure_sprint handler", () => {
           // Ignore cleanup errors (Windows file locking)
         }
       }
+    });
+  });
+
+  describe("migration backward compatibility", () => {
+    it("should handle legacy sprint with null spec_path gracefully", async () => {
+      const db = getDb();
+      const now = new Date().toISOString();
+
+      await db.insert(sprints).values({
+        id: "legacy-sprint",
+        name: "Legacy Sprint",
+        spec_path: null,
+        spec_files: JSON.stringify([]),
+        spec_version: null,
+        spec_hash: null,
+        workflow_step: "CONFIGURE",
+        status: "ACTIVE",
+        is_active: true,
+        created_at: now,
+        updated_at: now,
+        completed_at: null,
+      });
+
+      await db.insert(phases).values({
+        sprint_id: "legacy-sprint",
+        phase_id: "phase-1",
+        phase_name: "Phase 1",
+        speckit_tasks: null,
+        order: 1,
+      });
+
+      const [phase] = await db
+        .select()
+        .from(phases)
+        .where(eq(phases.sprint_id, "legacy-sprint"));
+
+      expect(phase).toBeDefined();
+
+      await db.insert(tasks).values({
+        sprint_id: "legacy-sprint",
+        phase_id: phase.id,
+        task_id: 1,
+        title: "Legacy task",
+        description: "Legacy task description",
+        category: "INFRASTRUCTURE",
+        dependencies: JSON.stringify([]),
+        speckit_task_ref: null,
+        status: "PENDING",
+        retry_count: 0,
+        max_retries: 3,
+        tdd_red_phase: false,
+        created_at: now,
+        updated_at: now,
+        completed_at: null,
+      });
+
+      const [task] = await db
+        .select()
+        .from(tasks)
+        .where(eq(tasks.sprint_id, "legacy-sprint"));
+
+      expect(task).toBeDefined();
+
+      await db.insert(codeReviews).values({
+        sprint_id: "legacy-sprint",
+        task_id: task.id,
+        phase_id: null,
+        review_scope: "TASK",
+        status: "PENDING",
+        summary: "Legacy review pending",
+        risk: "LOW",
+        requested_by: "controller",
+        files_reviewed: JSON.stringify([]),
+        tests_run: JSON.stringify([]),
+        reviewed_by: null,
+        reviewed_at: null,
+        requested_at: now,
+        revision_count: 0,
+        previous_review_id: null,
+      });
+
+      const sprintStatusResult = await handleGetSprintStatus({});
+      const sprintStatusParsed = JSON.parse(sprintStatusResult.content[0].text);
+
+      expect(sprintStatusParsed.sprint_id).toBe("legacy-sprint");
+      expect(sprintStatusParsed.spec_path).toBeUndefined();
+
+      const taskForReviewResult = await handleGetTaskForReview({ task_id: 1 });
+      const taskForReviewParsed = JSON.parse(
+        taskForReviewResult.content[0].text,
+      );
+
+      expect(taskForReviewParsed.success).toBe(true);
+      expect(taskForReviewParsed.spec_path).toBeNull();
+      expect(taskForReviewParsed.spec_task_definitions).toEqual([]);
+
+      const codeReviewResult = await handleGetCodeReview({ task: 1 });
+      const codeReviewParsed = JSON.parse(codeReviewResult.content[0].text);
+
+      expect(codeReviewParsed.success).toBe(true);
+      expect(codeReviewParsed.spec_path).toBeNull();
+      expect(codeReviewParsed.spec_task_definitions).toEqual([]);
     });
   });
 

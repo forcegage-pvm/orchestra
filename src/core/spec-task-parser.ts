@@ -33,6 +33,18 @@ export async function parseSpecTaskDefinitions(
     return [];
   }
 
+  // Filter out non-standard task ID formats (like "TD-030:Phase4:Task12")
+  // Only look up IDs that match the standard format (e.g., T001, US003, TASK05)
+  const standardTaskIdPattern = /^[A-Z]+\d+$/i;
+  const standardTaskIds = taskIds.filter((id) =>
+    standardTaskIdPattern.test(id.trim()),
+  );
+
+  // If no standard task IDs, return empty array (graceful degradation)
+  if (standardTaskIds.length === 0) {
+    return [];
+  }
+
   const workspacePath = resolveWorkspacePath();
   if (!workspacePath) {
     throw new Error("Workspace path not resolved");
@@ -63,23 +75,24 @@ export async function parseSpecTaskDefinitions(
     parseFileForTasks(lines, definitions);
   }
 
-  const missing: string[] = [];
   const result: SpecTaskDefinition[] = [];
 
-  for (const taskId of taskIds) {
+  for (const taskId of standardTaskIds) {
     const key = taskId.trim().toUpperCase();
     const definition = definitions.get(key);
-    if (!definition) {
-      missing.push(taskId.trim());
-      continue;
+    if (definition) {
+      result.push(definition);
     }
-    result.push(definition);
   }
 
-  if (missing.length > 0) {
-    const searchedFiles = filesToSearch.join(", ");
+  const missingTaskIds = standardTaskIds.filter(
+    (taskId) => !definitions.has(taskId.trim().toUpperCase()),
+  );
+
+  if (missingTaskIds.length > 0) {
     throw new Error(
-      `Spec task ID(s) not found in [${searchedFiles}]: ${missing.join(", ")}`,
+      `Spec task IDs not found: ${missingTaskIds.join(", ")}. ` +
+        "Ensure spec_path and spec_files include the required task definitions.",
     );
   }
 
