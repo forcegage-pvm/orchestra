@@ -2,6 +2,7 @@
  * deleteFile tool - Delete specified file
  */
 
+import * as crypto from "crypto";
 import * as path from "path";
 import * as vscode from "vscode";
 import type { AgentTool } from "../../ToolRegistry.js";
@@ -15,6 +16,14 @@ function getAbsolutePath(workspaceRoot: string, filePath: string): string {
   return path.isAbsolute(filePath)
     ? filePath
     : path.resolve(workspaceRoot, filePath);
+}
+
+function hashContent(content: string | null): string | null {
+  if (content === null) {
+    return null;
+  }
+
+  return crypto.createHash("sha256").update(content).digest("hex");
 }
 
 function isFileNotFound(error: unknown): boolean {
@@ -44,6 +53,9 @@ async function deleteFile(
       throw error;
     }
 
+    const bytes = await vscode.workspace.fs.readFile(uri);
+    const previousContent = Buffer.from(bytes).toString("utf8");
+
     const edit = new vscode.WorkspaceEdit();
     edit.deleteFile(uri, { ignoreIfNotExists: false, recursive: false });
 
@@ -54,6 +66,21 @@ async function deleteFile(
         output: "",
         error: "Failed to delete file.",
       };
+    }
+
+    if (context.fileTracker) {
+      context.fileTracker.trackChange({
+        uri: uri.toString(),
+        relativePath: input.path,
+        operation: "delete",
+        previousContent,
+        previousContentHash: hashContent(previousContent),
+        newContent: null,
+        newContentHash: null,
+        toolCallId: crypto.randomUUID(),
+        timestamp: new Date().toISOString(),
+        iteration: context.iteration,
+      });
     }
 
     return {
