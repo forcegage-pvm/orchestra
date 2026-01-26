@@ -133,11 +133,74 @@ By requiring explicit configuration upfront, Orchestra can:
 **Task acceptance criteria** (orchestrator-defined):
 
 - [ ] Test file exists with tdd-red marker
-- [ ] Marked test FAILS when run alone
+- [ ] Test file COMPILES successfully (no import errors)
+- [ ] Companion stub files exist for any imported classes that don't exist yet
+- [ ] Marked test FAILS when run alone (assertion failure, NOT compilation failure)
 - [ ] All other tests PASS (no regressions)
 - [ ] Test fails for the CORRECT reason (validates expected behavior)
 
-### Step 2: Implementor Writes Failing Test
+### Step 2: Implementor Creates Companion Stubs (If Needed)
+
+**CRITICAL**: If the test imports a class that doesn't exist yet, the implementor MUST create a **companion stub file** with minimal implementation.
+
+**Why**: Tests must COMPILE to fail. A test that can't compile due to missing imports is not a valid TDD red-phase test.
+
+#### Companion Stub Requirements
+
+| Language   | Stub Contents                                                                                |
+| ---------- | -------------------------------------------------------------------------------------------- |
+| Dart       | Class with constructor params, methods return `throw UnimplementedError()` or minimal values |
+| TypeScript | Class/interface with method stubs throwing `new Error('Not implemented')`                    |
+| Python     | Class with `raise NotImplementedError()` in methods                                          |
+
+#### Example: Dart Companion Stub
+
+If your test imports:
+
+```dart
+import 'package:my_app/src/widgets/config_panel.dart';
+```
+
+And `config_panel.dart` doesn't exist, create:
+
+```dart
+// lib/src/widgets/config_panel.dart (COMPANION STUB)
+import 'package:flutter/material.dart';
+import '../models/chart_configuration.dart';
+
+class ConfigPanel extends StatelessWidget {
+  final ChartConfiguration configuration;
+  final ValueChanged<ChartConfiguration> onConfigurationChanged;
+
+  const ConfigPanel({
+    super.key,
+    required this.configuration,
+    required this.onConfigurationChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) => const SizedBox(); // Empty widget - green phase implements
+}
+```
+
+This stub allows:
+
+- ✅ Test file compiles
+- ✅ Test runs
+- ❌ Test fails assertions (e.g., "expected Slider widget, found none")
+
+#### Example: TypeScript Companion Stub
+
+```typescript
+// src/services/AuthService.ts (COMPANION STUB)
+export class AuthService {
+  validateToken(token: string): void {
+    throw new Error("Not implemented"); // Red-phase: will fail tests
+  }
+}
+```
+
+### Step 3: Implementor Writes Failing Test
 
 **Implementor** receives handover with TDD instructions.
 
