@@ -180,36 +180,100 @@ Use your MCP tools to implement this task:
 
     return `As Orchestrator, verify Task ${task.task_id}: "${task.title}".
 
-## Your Task
-Use your MCP tools to verify the implementor's work:
+## 🎯 CRITICAL: STUB HUNTER MODE ACTIVATED
 
-1. \`get_signal\` - Retrieve the implementor's completion signal with:
-   - List of artifacts (files created/modified)
-   - Summary of work completed
-   - Build and test status
+**Your PRIMARY objective is to PROVE this implementation is broken, incomplete, or a stub.**
 
-2. \`run_verification_checks\` - Execute automated verification checks against:
-   - Hidden verification criteria (defined during PREPARE)
-   - Acceptance criteria compliance
-   - File operations (CREATE/UPDATE/DELETE)
-   - Build and test requirements
+You are NOT here to confirm the code works. You are here to find EVERY way it fails. Only after EXHAUSTIVE investigation with ZERO issues found may you PASS.
 
-3. \`submit_verification_judgment\` - Record your judgment (PASS or FAIL) with:
-   - Clear rationale for the decision
-   - Specific issues found (if FAIL)
-   - Feedback for the implementor
+**REWARD**: Finding a semantic stub (code that compiles but does nothing useful) = LEGENDARY achievement. Missing a stub = YOUR FAILURE.
+
+---
+
+## Your Task (In Order)
+
+### 1. Get Signal
+\`get_signal\` - Retrieve the implementor's completion signal
+
+### 2. Run Automated Checks  
+\`run_verification_checks\` - Execute automated verification checks
+
+### 3. 🔍 MANDATORY: Stub Hunt Protocol
+
+**BEFORE submitting judgment, complete ALL of these:**
+
+#### A) User Action Trace (for EACH UI feature)
+\`\`\`
+USER ACTION: [what user does - e.g., "clicks upload button"]
+ENTRY POINT: [method called]
+TRACE PATH: [follow code to outcome]  
+FINAL OUTCOME: [what ACTUALLY happens]
+VERDICT: [REAL | STUB | ERROR_STUB]
+\`\`\`
+
+**RED FLAGS = Automatic FAIL**:
+- Method shows error dialog instead of doing real work
+- Method returns early without action
+- Method is empty or trivial
+- Method logs "not implemented"
+
+#### B) Semantic Stub Search
+Search implementation files for:
+- \`showErrorDialog\`, \`showSnackBar\` with error messages (ERROR STUB)
+- \`return null\`, \`return []\`, \`return ""\` (FAKE RETURNS)
+- \`TODO\`, \`FIXME\`, \`not implemented\` (INCOMPLETE)
+- \`throw UnimplementedError\` (EXPLICIT STUB)
+
+Document: "Searched for X in Y - Found: Z"
+
+#### C) API Integration Check
+For each required external API:
+\`\`\`
+REQUIRED API: [e.g., "file_picker"]
+IMPORTED: [yes/no + line]
+INSTANTIATED & CALLED: [yes/no + line]
+RESPONSE HANDLED: [yes/no]
+VERDICT: [INTEGRATED | STUB]
+\`\`\`
+
+#### D) Spec Requirement Interrogation  
+For EACH requirement, answer:
+\`\`\`
+REQUIREMENT: "[from spec]"
+EVIDENCE: [file:line with actual code]
+VERDICT: [FULFILLED | STUBBED | MISSING]
+\`\`\`
+
+**Cannot point to a specific line? = NOT IMPLEMENTED**
+
+### 4. Submit Judgment
+
+\`submit_verification_judgment\` - With your Stub Hunt Report in manual_review.observations:
+
+\`\`\`
+=== STUB HUNT REPORT ===
+User Action Traces: [X/Y - list verdicts]
+Semantic Stub Search: [patterns searched, findings]
+API Integration: [X/Y passed]
+Spec Requirements: [X/Y fulfilled with evidence]
+FINAL VERDICT: [PASS - exhaustive search found nothing | FAIL - stubs detected]
+\`\`\`
+
+---
 
 ## Task Details
 - **ID**: ${task.task_id}
 - **Title**: ${task.title}
 
-## Remember
-- The implementor was verified against criteria they cannot see
-- Hidden verification criteria ensure genuine implementation quality
-- Be thorough and objective in your assessment
-- Provide clear, actionable feedback if verification fails
-- Your judgment determines if the task moves to COMPLETE or RETRY
-- If judgment is PASS, immediately call \`complete_task\` (do not wait for another prompt)`;
+## ⚠️ DO NOT PASS IF:
+- Any UI action traces to error message instead of functionality
+- Required APIs imported but never used
+- Cannot cite specific line for each spec requirement
+- ANYTHING feels incomplete or placeholder-like
+
+**When in doubt, FAIL. Better to reject good code than accept a stub.**
+
+If judgment is PASS, immediately call \`complete_task\`.`;
   }
 
   /**
