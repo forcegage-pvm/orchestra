@@ -13,4 +13,4 @@ tsup.config.bundled_*.mjs
 extension/artifacts/*.vsix
 
 # Orchestra workflow
-.orchestra/.signalW
+.orchestra/.signal
