@@ -12,6 +12,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { getDb } from "../../src/db/index.js";
 import { sprints, tasks, tddTaskRelationships } from "../../src/db/schema.js";
 import { handleConfigureSprint } from "../../src/mcp-server/handlers/configure-sprint.js";
+import { handleGetSprintStatus } from "../../src/mcp-server/handlers/get-sprint-status.js";
 import type { ConfigureSprintInput } from "../../src/schemas/index.js";
 import { cleanupTestDb, setupTestDb } from "../setup/db-cache.js";
 
@@ -468,6 +469,37 @@ describe("configure_sprint handler", () => {
       const issuesText = JSON.stringify(parsed.error.details.issues);
       expect(issuesText).toContain("spec_path");
       expect(issuesText).toContain("Required");
+    });
+
+    it("should store spec_path and expose it via get_sprint_status", async () => {
+      const input: ConfigureSprintInput = {
+        ...baseInput,
+        sprint: {
+          ...baseInput.sprint,
+          id: "test-sprint-spec-005",
+          spec_path: specPath,
+        },
+      };
+
+      const result = await handleConfigureSprint(input);
+      const parsed = JSON.parse(result.content[0].text);
+
+      expect(parsed.success).toBe(true);
+      expect(parsed.sprint_id).toBe("test-sprint-spec-005");
+
+      const db = getDb();
+      const [sprint] = await db
+        .select()
+        .from(sprints)
+        .where(eq(sprints.id, input.sprint.id));
+
+      expect(sprint).toBeDefined();
+      expect(sprint.spec_path).toBe(specPath);
+
+      const statusResult = await handleGetSprintStatus({});
+      const statusParsed = JSON.parse(statusResult.content[0].text);
+
+      expect(statusParsed.spec_path).toBe(specPath);
     });
   });
 
