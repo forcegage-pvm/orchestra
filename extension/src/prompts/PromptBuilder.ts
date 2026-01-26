@@ -15,6 +15,8 @@ export interface Task {
   phase_id?: string;
   description: string;
   status?: string;
+  /** Whether this is a TDD red-phase task (tests should fail) */
+  tdd_red_phase?: boolean;
 }
 
 /**
@@ -273,7 +275,8 @@ FINAL VERDICT: [PASS - exhaustive search found nothing | FAIL - stubs detected]
 
 **When in doubt, FAIL. Better to reject good code than accept a stub.**
 
-If judgment is PASS, immediately call \`complete_task\`.`;
+If judgment is PASS, immediately call \`complete_task\`.
+${this.buildTddRedPhaseSection(task)}`;
   }
 
   /**
@@ -691,5 +694,113 @@ Use your MCP tools to address the code review feedback:
 - Keep changes scoped to the review feedback
 - Run relevant tests and report results
 - Resolve each issue explicitly in MCP tools`;
+  }
+
+  /**
+   * Build TDD Red-Phase specific verification section
+   *
+   * For TDD red-phase tasks, the verification rules are different:
+   * - Tests should COMPILE but FAIL assertions (not compilation errors)
+   * - Companion stub files are required for imports to resolve
+   *
+   * @param task - The task being verified
+   * @returns TDD-specific verification instructions or empty string
+   */
+  private buildTddRedPhaseSection(task: Task): string {
+    if (!task.tdd_red_phase) {
+      return "";
+    }
+
+    return `
+
+---
+
+## 🔴 TDD RED-PHASE VERIFICATION (SPECIAL RULES)
+
+**This is a TDD red-phase task.** The Stub Hunter Protocol changes significantly for this task type.
+
+### ⚠️ CRITICAL: Compilation vs Assertion Failure
+
+For TDD red-phase, **"tests fail" is CORRECT** - but there are TWO types of failure:
+
+| Failure Type | What It Means | Verdict |
+|--------------|---------------|---------|
+| **Compilation failure** | Tests can't run (\`Cannot find module\`, \`Undefined class\`) | ❌ FAIL - Invalid red-phase |
+| **Assertion failure** | Tests run but assertions fail (\`Expected X, got Y\`) | ✅ PASS - Correct red-phase |
+
+**A test that can't compile is NOT a valid TDD red-phase test.**
+
+### Mandatory TDD Red-Phase Checks
+
+#### 1. Compilation Verification (BLOCKING)
+
+\`\`\`
+COMPILATION CHECK:
+1. Command: [test_command] --tags tdd-red
+2. Result: [COMPILES | COMPILE_ERROR]
+3. If COMPILE_ERROR:
+   - Missing imports → Companion stub file required
+   - Undefined class → Companion stub file required
+4. VERDICT: [PASS | FAIL]
+\`\`\`
+
+**If tests cannot compile, FAIL immediately.**
+
+#### 2. Companion Stub File Verification (BLOCKING)
+
+If tests import classes that don't exist yet, **companion stub files MUST exist**:
+
+\`\`\`
+COMPANION STUB CHECK:
+1. Test imports: [list files imported that don't exist as implementations]
+2. For each:
+   - Stub file path: [expected path]
+   - Stub exists: [yes/no]
+   - Stub has constructor + minimal methods: [yes/no]
+3. VERDICT: [PASS - all imports resolved | FAIL - missing stubs]
+\`\`\`
+
+#### 3. Failure Type Verification (BLOCKING)
+
+\`\`\`
+FAILURE TYPE CHECK:
+1. Run: [test_command] --tags tdd-red
+2. Exit Code: [should be non-zero]
+3. Failure Type:
+   - ASSERTION_FAILURE (correct): "Expected X, got Y"
+   - COMPILE_ERROR (wrong): "Cannot find module"
+4. VERDICT: [PASS - fails assertions | FAIL - wrong failure type]
+\`\`\`
+
+#### 4. Test Substance Verification (BLOCKING)
+
+\`\`\`
+TEST SUBSTANCE CHECK:
+1. Count of expect() assertions: [N]
+2. Assertions test behavior (not just existence): [yes/no]
+3. No skip markers on core tests: [yes/no]
+4. VERDICT: [PASS - meaningful tests | FAIL - trivial tests]
+\`\`\`
+
+### TDD Red-Phase Report Format
+
+Include in \`manual_review.observations\`:
+
+\`\`\`
+=== TDD RED-PHASE VERIFICATION ===
+
+## Compilation Check: [PASS/FAIL]
+## Companion Stub Check: [PASS/FAIL/N/A]
+## Failure Type Check: [PASS/FAIL]
+## Test Substance Check: [PASS/FAIL]
+
+FINAL VERDICT: [PASS - Valid red-phase | FAIL - reason]
+\`\`\`
+
+### ⚠️ DO NOT PASS TDD RED-PHASE IF:
+- Tests cannot compile (missing imports, undefined classes)
+- Tests import from non-existent files without companion stubs
+- Tests fail for reasons OTHER than assertion failures
+- Tests have no meaningful assertions`;
   }
 }

@@ -924,3 +924,229 @@ This is an experimental approach. Results should be monitored for:
 4. Whether the verbosity is excessive or appropriate
 
 Adjustments will be made based on real-world testing.
+
+---
+
+## 21) TDD Red-Phase Stub Hunter Supplement
+
+### 21.1 Background: The Incident
+
+On 2026-01-26, a TDD red-phase task (Task 19) passed verification but was caught by code review with a **BLOCKING** issue: the test file imported a class from a file that didn't exist, meaning the tests could not compile.
+
+**Root Cause**: The Orchestrator applied standard Stub Hunter verification, which focuses on detecting stubs in _implementation code_. For TDD red-phase, the deliverable is _test code_, which has different requirements:
+
+| Standard Verification      | TDD Red-Phase Verification     |
+| -------------------------- | ------------------------------ |
+| Implementation should work | Tests should FAIL (assertions) |
+| Tests should pass          | Tests should FAIL (assertions) |
+| All code compiles ✅       | Tests must COMPILE to fail ✅  |
+| No stubs in impl           | No stubs in TEST structure     |
+
+**The Critical Distinction**:
+
+- **Compilation failure**: `Error: Cannot find module 'config_panel.dart'` → Tests CAN'T RUN
+- **Assertion failure**: `Expected: 1, Actual: 0` → Tests RUN but FAIL (this is correct red-phase)
+
+### 21.2 TDD Red-Phase Stub Definition
+
+A **TDD red-phase stub** (test-side) is a test file that:
+
+1. **Cannot compile** due to missing imports, undefined classes, or syntax errors
+2. **Has no assertions** or only trivial assertions (`expect(true, true)`)
+3. **Mocks everything** including the class under test
+4. **Has `skip` markers** on critical tests
+5. **Imports from non-existent files** without companion stub files
+
+### 21.3 Companion Stub File Requirement
+
+**RULE**: If a TDD red-phase test imports from a file that doesn't exist yet, the red-phase deliverables MUST include a **companion stub file** with minimal signatures.
+
+**Why**: Tests must be EXECUTABLE (compile) to prove they FAIL (assertions). A test that can't compile is not a valid TDD red-phase test.
+
+**Companion Stub Requirements**:
+
+| Language   | Stub Contents                                                                                         |
+| ---------- | ----------------------------------------------------------------------------------------------------- |
+| Dart       | Class with required constructor params, methods return `throw UnimplementedError()` or minimal values |
+| TypeScript | Class/interface with method stubs throwing `new Error('Not implemented')`                             |
+| Python     | Class with `raise NotImplementedError()` in methods                                                   |
+
+**Example (Dart)**:
+
+```dart
+// lib/src/widgets/config_panel.dart (COMPANION STUB)
+class ConfigPanel extends StatelessWidget {
+  final ChartConfiguration configuration;
+  final ValueChanged<ChartConfiguration> onConfigurationChanged;
+
+  const ConfigPanel({
+    super.key,
+    required this.configuration,
+    required this.onConfigurationChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) => const SizedBox(); // Minimal stub
+}
+```
+
+This allows:
+
+- ✅ Test file compiles
+- ✅ Test runs
+- ❌ Test fails assertions (e.g., "expected Slider widget, found none")
+
+### 21.4 TDD Red-Phase Verification Checklist
+
+**MANDATORY for all `tdd_red_phase: true` tasks:**
+
+#### A) Compilation Verification (BLOCKING)
+
+```
+COMPILATION CHECK:
+1. Run: [test_command] --tags tdd-red (dry-run or compile check)
+2. Result: [COMPILES | COMPILE_ERROR]
+3. If COMPILE_ERROR:
+   - Missing imports? → Require companion stub file
+   - Syntax error? → Fix test file
+   - Undefined class? → Require companion stub file
+4. VERDICT: [PASS - tests compile | FAIL - tests cannot compile]
+```
+
+**If tests cannot compile, FAIL immediately.** Do not proceed with other checks.
+
+#### B) Assertion Failure Verification (BLOCKING)
+
+```
+FAILURE TYPE CHECK:
+1. Run: [test_command] --tags tdd-red
+2. Exit Code: [expected: non-zero]
+3. Failure Type: [ASSERTION_FAILURE | COMPILATION_ERROR | RUNTIME_ERROR]
+4. Failure Message: [actual error text]
+5. VERDICT: [PASS - fails assertions | FAIL - wrong failure type]
+```
+
+**Acceptable failures**: Assertion errors (`Expected X, got Y`, `Expected to find widget`, etc.)
+**Unacceptable failures**: Compilation errors, import errors, null reference errors
+
+#### C) Test Substance Verification (BLOCKING)
+
+```
+TEST SUBSTANCE CHECK:
+1. Count assertions in test file: [N]
+2. Assertions test REAL behavior (not just existence):
+   - [ ] Tests widget rendering
+   - [ ] Tests callbacks/interactions
+   - [ ] Tests state changes
+   - [ ] Tests error handling
+3. No skip/pending markers on core tests: [yes/no]
+4. VERDICT: [PASS - meaningful tests | FAIL - trivial tests]
+```
+
+#### D) Companion Stub Verification (BLOCKING for import-dependent tests)
+
+```
+COMPANION STUB CHECK:
+1. Test imports: [list of imports to non-existent files]
+2. For each import:
+   - Stub file exists: [yes/no]
+   - Stub has minimal implementation: [yes/no]
+   - Stub allows tests to compile: [yes/no]
+3. VERDICT: [PASS - all imports resolved | FAIL - missing stubs]
+```
+
+### 21.5 Updated Handover Requirements for TDD Red-Phase
+
+**When preparing handover for `tdd_red_phase: true` tasks, Orchestrator MUST include:**
+
+```markdown
+## TDD Red-Phase Deliverables
+
+### Test File(s)
+
+- [ ] `test/unit/widgets/config_panel_test.dart`
+
+### Companion Stub File(s) (if tests import non-existent classes)
+
+- [ ] `lib/src/widgets/config_panel.dart` (minimal stub - see template below)
+
+### Stub File Template
+
+\`\`\`dart
+// Minimal stub to allow tests to compile
+class ConfigPanel extends StatelessWidget {
+// Required constructor params from test
+const ConfigPanel({super.key, required this.configuration, ...});
+
+@override
+Widget build(BuildContext context) => const SizedBox();
+}
+\`\`\`
+
+### Success Criteria
+
+- ✅ Tests COMPILE successfully
+- ✅ Tests FAIL with assertion errors (not compilation errors)
+- ✅ All stub files created for imports
+- ✅ TDD markers present (`@Tags(['tdd-red'])` and `// @orchestra-task: N`)
+```
+
+### 21.6 Anti-Stub Patterns for TDD Red-Phase Tests
+
+**Add to Section 3.2 (Anti-Stub Pattern Catalog):**
+
+| Pattern ID   | Description                | Detection Rule                                   | Applies To      | Severity |
+| ------------ | -------------------------- | ------------------------------------------------ | --------------- | -------- |
+| TDD-STUB-001 | Missing companion stub     | Import references non-existent file with no stub | Red-phase tests | BLOCKING |
+| TDD-STUB-002 | Compilation failure        | Test file has syntax/import errors               | Red-phase tests | BLOCKING |
+| TDD-STUB-003 | No assertions              | Test file has zero `expect()` calls              | Red-phase tests | BLOCKING |
+| TDD-STUB-004 | Trivial assertions         | Only `expect(true, isTrue)` or similar           | Red-phase tests | BLOCKING |
+| TDD-STUB-005 | Skip markers on core tests | `skip:` or `.skip` on primary test cases         | Red-phase tests | BLOCKING |
+| TDD-STUB-006 | Over-mocking               | Test mocks the class under test                  | Red-phase tests | BLOCKING |
+
+### 21.7 Verification Prompt Update
+
+**Add to `buildVerifyPrompt()` for TDD red-phase tasks:**
+
+```typescript
+if (context.task.tdd_red_phase) {
+  // Add TDD-specific verification instructions
+  prompt += `
+## ⚠️ TDD RED-PHASE VERIFICATION (SPECIAL RULES)
+
+This is a TDD red-phase task. Standard Stub Hunter rules apply BUT with these additions:
+
+### CRITICAL: Compilation vs Assertion Failure
+
+**Tests must COMPILE to fail.** A test that can't compile is NOT a valid red-phase test.
+
+- ✅ CORRECT: Tests compile, run, and fail ASSERTIONS ("Expected X, got Y")
+- ❌ WRONG: Tests fail to compile ("Cannot find module", "Undefined class")
+
+### Required Checks:
+
+1. **Compilation Check**: Run tests with compile-only flag or verify no import errors
+2. **Companion Stub Check**: If tests import non-existent classes, stub files MUST exist
+3. **Failure Type Check**: Verify tests fail with ASSERTION errors, not COMPILATION errors
+4. **Test Substance Check**: Verify tests have meaningful assertions (not just existence)
+
+### Automatic FAIL Criteria:
+
+- Test file imports from non-existent file AND no companion stub exists
+- Test file has compilation/syntax errors
+- Test file has no assertions or only trivial assertions
+- Tests are skipped or pending
+`;
+}
+```
+
+### 21.8 Incident Resolution
+
+This supplement was created in response to the Task 19 incident where:
+
+1. **What happened**: Tests imported `ConfigPanel` from a file that didn't exist
+2. **Why it passed**: Stub Hunter focused on implementation stubs, not test compilation
+3. **How it was caught**: Code review agent detected the missing file
+4. **Fix applied**: This supplement adds TDD-specific verification requirements
+
+**Key Learning**: TDD red-phase is a DIFFERENT verification context. "Tests fail" is correct, but "tests can't compile" is a stub.
