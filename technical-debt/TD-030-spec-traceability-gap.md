@@ -754,12 +754,12 @@ You MUST reject (CHANGES_REQUESTED or REJECTED) if:
 
 #### Phase 4: Testing (Tasks 10-12)
 
-| Task | Title                          | Description                                                                 |
-| ---- | ------------------------------ | --------------------------------------------------------------------------- |
-| 10   | Unit tests for spec validation | Test spec_path validation logic (covered by Task 9 in configure-sprint tests) |
-| 11   | Integration tests for workflow | End-to-end spec traceability test                                           |
+| Task | Title                          | Description                                                                           |
+| ---- | ------------------------------ | ------------------------------------------------------------------------------------- |
+| 10   | Unit tests for spec validation | Test spec_path validation logic (covered by Task 9 in configure-sprint tests)         |
+| 11   | Integration tests for workflow | End-to-end spec traceability test                                                     |
 | 12   | Migration tests                | Test backward compatibility with existing sprints (covered by configure-sprint tests) |
-| 13   | update_sprint_spec tests       | Test update_sprint_spec handler for updating spec_path and spec_files       |
+| 13   | update_sprint_spec tests       | Test update_sprint_spec handler for updating spec_path and spec_files                 |
 
 **Implementation Note (2026-01-26)**: Tasks 10 and 12 were largely covered during Task 9 implementation. The parseSpeckitTaskRefs range expansion feature (T040-T043 → [T040, T041, T042, T043]) was added and tested in test/core/spec-task-parser.test.ts. The update_sprint_spec tool needs dedicated tests.
 
