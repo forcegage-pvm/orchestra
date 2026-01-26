@@ -40,6 +40,7 @@ const {
     fs: {
       stat: vi.fn(),
       createDirectory: vi.fn(),
+      readFile: vi.fn(),
     },
   };
 
@@ -83,8 +84,16 @@ const {
   }
 
   class Uri {
-    static file(filePath: string): { fsPath: string; path: string } {
-      return { fsPath: filePath, path: filePath };
+    static file(filePath: string): {
+      fsPath: string;
+      path: string;
+      toString: () => string;
+    } {
+      return {
+        fsPath: filePath,
+        path: filePath,
+        toString: () => filePath,
+      };
     }
   }
 
@@ -234,6 +243,48 @@ describe("editTool", () => {
     expect(WorkspaceEdit.lastInstance?.replace).toHaveBeenCalledTimes(1);
   });
 
+  it("tracks changes when fileTracker is present", async () => {
+    workspace.openTextDocument.mockResolvedValue(createDocument("hello world"));
+    workspace.applyEdit.mockResolvedValue(true);
+    const fileTracker = { trackChange: vi.fn() };
+
+    const result = await editTool.execute(
+      { path: "file.txt", oldString: "world", newString: "there" },
+      { ...mockContext, fileTracker },
+    );
+
+    expect(result.success).toBe(true);
+    expect(fileTracker.trackChange).toHaveBeenCalledTimes(1);
+    expect(fileTracker.trackChange).toHaveBeenCalledWith(
+      expect.objectContaining({
+        uri: expect.stringMatching(/file\.txt$/),
+        relativePath: "file.txt",
+        operation: "modify",
+        previousContent: "hello world",
+        newContent: "hello there",
+        previousContentHash: expect.any(String),
+        newContentHash: expect.any(String),
+        iteration: 0,
+        toolCallId: expect.any(String),
+        timestamp: expect.any(String),
+      }),
+    );
+  });
+
+  it("does not track changes when applyEdit fails", async () => {
+    workspace.openTextDocument.mockResolvedValue(createDocument("hello world"));
+    workspace.applyEdit.mockResolvedValue(false);
+    const fileTracker = { trackChange: vi.fn() };
+
+    const result = await editTool.execute(
+      { path: "file.txt", oldString: "world", newString: "there" },
+      { ...mockContext, fileTracker },
+    );
+
+    expect(result.success).toBe(false);
+    expect(fileTracker.trackChange).not.toHaveBeenCalled();
+  });
+
   it("fails when oldString not found", async () => {
     workspace.openTextDocument.mockResolvedValue(createDocument("hello world"));
 
@@ -274,6 +325,48 @@ describe("newFileTool", () => {
     expect(WorkspaceEdit.lastInstance?.createFile).toHaveBeenCalledTimes(1);
   });
 
+  it("tracks changes when fileTracker is present", async () => {
+    workspace.fs.stat.mockRejectedValue(FileSystemError.FileNotFound());
+    workspace.applyEdit.mockResolvedValue(true);
+    const fileTracker = { trackChange: vi.fn() };
+
+    const result = await newFileTool.execute(
+      { path: "new.txt", content: "data" },
+      { ...mockContext, fileTracker },
+    );
+
+    expect(result.success).toBe(true);
+    expect(fileTracker.trackChange).toHaveBeenCalledTimes(1);
+    expect(fileTracker.trackChange).toHaveBeenCalledWith(
+      expect.objectContaining({
+        uri: expect.stringMatching(/new\.txt$/),
+        relativePath: "new.txt",
+        operation: "create",
+        previousContent: null,
+        newContent: "data",
+        previousContentHash: null,
+        newContentHash: expect.any(String),
+        iteration: 0,
+        toolCallId: expect.any(String),
+        timestamp: expect.any(String),
+      }),
+    );
+  });
+
+  it("does not track changes when applyEdit fails", async () => {
+    workspace.fs.stat.mockRejectedValue(FileSystemError.FileNotFound());
+    workspace.applyEdit.mockResolvedValue(false);
+    const fileTracker = { trackChange: vi.fn() };
+
+    const result = await newFileTool.execute(
+      { path: "new.txt", content: "data" },
+      { ...mockContext, fileTracker },
+    );
+
+    expect(result.success).toBe(false);
+    expect(fileTracker.trackChange).not.toHaveBeenCalled();
+  });
+
   it("fails when file already exists", async () => {
     workspace.fs.stat.mockResolvedValue({});
 
@@ -290,6 +383,7 @@ describe("newFileTool", () => {
 describe("deleteFileTool", () => {
   it("deletes file when it exists", async () => {
     workspace.fs.stat.mockResolvedValue({});
+    workspace.fs.readFile.mockResolvedValue(Buffer.from("delete me"));
     workspace.applyEdit.mockResolvedValue(true);
 
     const result = await deleteFileTool.execute(
@@ -299,6 +393,50 @@ describe("deleteFileTool", () => {
 
     expect(result.success).toBe(true);
     expect(WorkspaceEdit.lastInstance?.deleteFile).toHaveBeenCalledTimes(1);
+  });
+
+  it("tracks changes when fileTracker is present", async () => {
+    workspace.fs.stat.mockResolvedValue({});
+    workspace.fs.readFile.mockResolvedValue(Buffer.from("delete me"));
+    workspace.applyEdit.mockResolvedValue(true);
+    const fileTracker = { trackChange: vi.fn() };
+
+    const result = await deleteFileTool.execute(
+      { path: "delete.txt" },
+      { ...mockContext, fileTracker },
+    );
+
+    expect(result.success).toBe(true);
+    expect(fileTracker.trackChange).toHaveBeenCalledTimes(1);
+    expect(fileTracker.trackChange).toHaveBeenCalledWith(
+      expect.objectContaining({
+        uri: expect.stringMatching(/delete\.txt$/),
+        relativePath: "delete.txt",
+        operation: "delete",
+        previousContent: "delete me",
+        newContent: null,
+        previousContentHash: expect.any(String),
+        newContentHash: null,
+        iteration: 0,
+        toolCallId: expect.any(String),
+        timestamp: expect.any(String),
+      }),
+    );
+  });
+
+  it("does not track changes when applyEdit fails", async () => {
+    workspace.fs.stat.mockResolvedValue({});
+    workspace.fs.readFile.mockResolvedValue(Buffer.from("delete me"));
+    workspace.applyEdit.mockResolvedValue(false);
+    const fileTracker = { trackChange: vi.fn() };
+
+    const result = await deleteFileTool.execute(
+      { path: "delete.txt" },
+      { ...mockContext, fileTracker },
+    );
+
+    expect(result.success).toBe(false);
+    expect(fileTracker.trackChange).not.toHaveBeenCalled();
   });
 
   it("fails when file does not exist", async () => {
