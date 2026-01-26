@@ -1,9 +1,19 @@
-# Process Girdling (Base Spec)
+# TD-031: Stub Hunter Mode - Adversarial Verification
 
-**Status**: Draft (Base Spec)  
-**Scope**: Process, workflow, and agent instruction changes to prevent stub/bridge escapes earlier than code review.  
-**Related Case Study**: [docs/case-study/post-mortem-task-009-chartrenderer-stub.md](../docs/case-study/post-mortem-task-009-chartrenderer-stub.md)  
-**Primary Goal**: Shift defect detection upstream (verification design, red phase, handover, and pre-verify gates) so “exists” is never mistaken for “works.”
+## Summary
+
+Stubs and broken implementations pass verification and code review because the same model that approved them can find flaws when asked differently. "Is this complete?" triggers confirmation bias, while "Why doesn't this work?" triggers fault-finding. This TD implements **Stub Hunter Mode**: an adversarial verification stance where agents hunt for reasons to REJECT rather than confirm completion.
+
+## Severity: **HIGH**
+
+Semantic stubs (code that compiles but shows errors instead of working) escape all structural checks and reach production, eroding trust in verification.
+
+## Discovery Context
+
+- **Discovered**: 2026-01-26
+- **Related Case Studies**: 
+  - [docs/case-study/post-mortem-task-009-chartrenderer-stub.md](../docs/case-study/post-mortem-task-009-chartrenderer-stub.md)
+  - File upload button that shows error dialog instead of uploading
 
 ---
 
