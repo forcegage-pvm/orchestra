@@ -15,6 +15,7 @@
 
 import { eq, sql } from "drizzle-orm";
 import { glob } from "glob";
+import * as crypto from "node:crypto";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { getDb } from "../../db/index.js";
@@ -135,6 +136,10 @@ export async function handleConfigureSprint(
       summary: result.summary,
     };
 
+    if (result.pattern_warnings && result.pattern_warnings.length > 0) {
+      output.pattern_warnings = result.pattern_warnings;
+    }
+
     const durationMs = Math.round(performance.now() - startTime);
 
     // Log successful execution
@@ -172,10 +177,12 @@ export async function handleConfigureSprint(
     );
 
     // Handle errors - use VALIDATION_ERROR for TDD environment validation
-    const errorCode = err.message.includes("TDD red-phase tasks require environment")
+    const errorCode = err.message.includes(
+      "TDD red-phase tasks require environment",
+    )
       ? "VALIDATION_ERROR"
       : "DATABASE_ERROR";
-    
+
     const errorResponse = createErrorResponse(errorCode, err.message, {
       duration_ms: durationMs,
     });
@@ -215,14 +222,43 @@ async function configureSprint(input: ConfigureSprintInput): Promise<{
   const phasesData = input.phases;
   const tasksData = input.tasks;
 
+  let computedSpecHash: string | null = null;
+  let specWarning: string | undefined;
+
+  if (sprint.spec_path) {
+    const workspaceRoot = process.cwd();
+    const absoluteSpecPath = path.resolve(workspaceRoot, sprint.spec_path);
+
+    if (fs.existsSync(absoluteSpecPath)) {
+      try {
+        const content = fs.readFileSync(absoluteSpecPath, "utf-8");
+        computedSpecHash = crypto
+          .createHash("sha256")
+          .update(content)
+          .digest("hex");
+      } catch (error) {
+        const err = error instanceof Error ? error : new Error(String(error));
+        specWarning =
+          `Unable to read spec file for hashing: ${sprint.spec_path}. ` +
+          `Sprint created but traceability may be incomplete. Details: ${err.message}`;
+      }
+    } else {
+      specWarning =
+        `Path not found: ${sprint.spec_path}. ` +
+        "Sprint created but traceability may be incomplete.";
+    }
+  }
+
   // VALIDATION: TDD tasks require environment configuration
   // Check if any task has tdd_red_phase=true
-  const tddRedPhaseTasks = tasksData.filter((task) => task.tdd_red_phase === true);
-  
+  const tddRedPhaseTasks = tasksData.filter(
+    (task) => task.tdd_red_phase === true,
+  );
+
   if (tddRedPhaseTasks.length > 0) {
     // TDD tasks exist - environment is required
     const missingFields: string[] = [];
-    
+
     if (!input.environment) {
       missingFields.push("environment");
     } else {
@@ -233,13 +269,13 @@ async function configureSprint(input: ConfigureSprintInput): Promise<{
         missingFields.push("environment.test_file_pattern");
       }
     }
-    
+
     if (missingFields.length > 0) {
       const taskIds = tddRedPhaseTasks.map((t) => t.task_id).join(", ");
       throw new Error(
         `TDD red-phase tasks require environment configuration. ` +
-        `Missing fields: ${missingFields.join(", ")}. ` +
-        `Tasks with tdd_red_phase=true: [${taskIds}]`
+          `Missing fields: ${missingFields.join(", ")}. ` +
+          `Tasks with tdd_red_phase=true: [${taskIds}]`,
       );
     }
   }
@@ -251,6 +287,10 @@ async function configureSprint(input: ConfigureSprintInput): Promise<{
   await db.insert(sprints).values({
     id: sprint.id,
     name: sprint.name,
+    spec_path: sprint.spec_path,
+    spec_files: JSON.stringify(sprint.spec_files ?? []),
+    spec_version: sprint.spec_version ?? null,
+    spec_hash: computedSpecHash ?? sprint.spec_hash ?? null,
     status: "PENDING_SPEC_REVIEW", // Controller must approve before tasks can be prepared
     workflow_step: "CONFIGURE",
     is_active: true,
@@ -569,6 +609,11 @@ async function configureSprint(input: ConfigureSprintInput): Promise<{
   // Notify extension of database changes
   writeSignal();
 
+  const allWarnings = [
+    ...(specWarning ? [specWarning] : []),
+    ...commandWarnings,
+  ];
+
   // Build result with exactOptionalPropertyTypes compliance
   const result: {
     sprint_id: string;
@@ -584,8 +629,8 @@ async function configureSprint(input: ConfigureSprintInput): Promise<{
     },
   };
 
-  if (commandWarnings.length > 0) {
-    result.pattern_warnings = commandWarnings;
+  if (allWarnings.length > 0) {
+    result.pattern_warnings = allWarnings;
   }
 
   return result;

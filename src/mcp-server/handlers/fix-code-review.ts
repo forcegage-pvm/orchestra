@@ -16,7 +16,6 @@ import {
   sprintSettings,
   tasks,
 } from "../../db/schema.js";
-import { writeSignal } from "../db-signal.js";
 import {
   FixCodeReviewInputSchema,
   FixCodeReviewOutputSchema,
@@ -24,6 +23,7 @@ import {
   type FixCodeReviewOutput,
 } from "../../schemas/code-review/fix-code-review.schema.js";
 import { validateInput, validateOutput } from "../../schemas/utils.js";
+import { writeSignal } from "../db-signal.js";
 import { logToolExecution } from "./audit-logging.js";
 
 type ReviewStatus =
@@ -148,6 +148,7 @@ async function handleGetIssues(): Promise<FixCodeReviewOutput> {
     id: issue.id,
     severity: issue.severity as IssueSeverity,
     issue: issue.issue,
+    spec_ref: issue.spec_ref ?? null,
     file: issue.file ?? null,
     line: issue.line ?? null,
     rationale: issue.rationale,

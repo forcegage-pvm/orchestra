@@ -6,14 +6,26 @@
  */
 
 import { eq } from "drizzle-orm";
+import { mkdir, rm, writeFile } from "fs/promises";
+import path from "path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { getDb } from "../../src/db/index.js";
-import { sprints, tasks, tddTaskRelationships } from "../../src/db/schema.js";
+import {
+  codeReviews,
+  phases,
+  sprints,
+  tasks,
+  tddTaskRelationships,
+} from "../../src/db/schema.js";
 import { handleConfigureSprint } from "../../src/mcp-server/handlers/configure-sprint.js";
+import { handleGetCodeReview } from "../../src/mcp-server/handlers/get-code-review.js";
+import { handleGetSprintStatus } from "../../src/mcp-server/handlers/get-sprint-status.js";
+import { handleGetTaskForReview } from "../../src/mcp-server/handlers/get-task-for-review.js";
 import type { ConfigureSprintInput } from "../../src/schemas/index.js";
 import { cleanupTestDb, setupTestDb } from "../setup/db-cache.js";
 
 describe("configure_sprint handler", () => {
+  const specPath = "specs/001-mcp-server/README.md";
   let tempDir: string;
 
   beforeEach(async () => {
@@ -35,6 +47,7 @@ describe("configure_sprint handler", () => {
         sprint: {
           id: "test-sprint-001",
           name: "Test Sprint with TDD Red Phase",
+          spec_path: specPath,
         },
         phases: [
           {
@@ -120,6 +133,7 @@ describe("configure_sprint handler", () => {
         sprint: {
           id: "test-sprint-002",
           name: "Test Sprint without Red Phase",
+          spec_path: specPath,
         },
         phases: [
           {
@@ -178,6 +192,7 @@ describe("configure_sprint handler", () => {
         sprint: {
           id: "test-sprint-003",
           name: "Test Sprint with default",
+          spec_path: specPath,
         },
         phases: [
           {
@@ -236,6 +251,7 @@ describe("configure_sprint handler", () => {
         sprint: {
           id: "test-sprint-004",
           name: "Test Sprint with mixed tasks",
+          spec_path: specPath,
         },
         phases: [
           {
@@ -359,6 +375,400 @@ describe("configure_sprint handler", () => {
     });
   });
 
+  describe("spec_path validation", () => {
+    const baseInput: Omit<ConfigureSprintInput, "sprint"> & {
+      sprint: { id: string; name: string; spec_path?: string };
+    } = {
+      environment: {
+        test_command: "npm test",
+        test_file_pattern: "test/**/*.test.ts",
+        source_base_dir: ".",
+      },
+      sprint: {
+        id: "test-sprint-spec-001",
+        name: "Spec Path Validation",
+        spec_path: specPath,
+      },
+      phases: [
+        {
+          phase_id: "phase-1",
+          phase_name: "Phase 1",
+        },
+      ],
+      tasks: [
+        {
+          task_id: 1,
+          phase_id: "phase-1",
+          title: "Regular Task",
+          description: "Task description",
+          category: "INFRASTRUCTURE",
+          dependencies: [],
+          verification: {
+            structural_checks: [
+              {
+                description: "File exists",
+                severity: "MAJOR",
+                path: "src/test.ts",
+                pattern: ".*",
+                min_matches: 1,
+              },
+            ],
+          },
+        },
+      ],
+    };
+
+    it("should accept sprint configuration with spec_path in spec/ directory", async () => {
+      const input: ConfigureSprintInput = {
+        ...baseInput,
+        sprint: {
+          ...baseInput.sprint,
+          id: "test-sprint-spec-002",
+          spec_path: "spec/test/test.md",
+        },
+      };
+
+      const result = await handleConfigureSprint(input);
+      const parsed = JSON.parse(result.content[0].text);
+
+      expect(parsed.success).toBe(true);
+      expect(parsed.sprint_id).toBe("test-sprint-spec-002");
+      expect(parsed.tasks_created).toBe(1);
+    });
+
+    it("should reject sprint configuration with invalid spec_path directory", async () => {
+      const input: ConfigureSprintInput = {
+        ...baseInput,
+        sprint: {
+          ...baseInput.sprint,
+          id: "test-sprint-spec-003",
+          spec_path: "documents/spec.md",
+        },
+      };
+
+      const result = await handleConfigureSprint(input);
+      const parsed = JSON.parse(result.content[0].text);
+
+      expect(parsed.success).toBe(false);
+      expect(parsed.error.code).toBe("VALIDATION_ERROR");
+
+      const issuesText = JSON.stringify(parsed.error.details.issues);
+      expect(issuesText).toContain(
+        "Spec path must be in specs/ or spec/ directory",
+      );
+    });
+
+    it("should reject sprint configuration without spec_path", async () => {
+      const { spec_path: _specPath, ...sprintWithoutSpec } = baseInput.sprint;
+      const input: ConfigureSprintInput = {
+        ...baseInput,
+        sprint: {
+          ...sprintWithoutSpec,
+          id: "test-sprint-spec-004",
+        },
+      };
+
+      const result = await handleConfigureSprint(input);
+      const parsed = JSON.parse(result.content[0].text);
+
+      expect(parsed.success).toBe(false);
+      expect(parsed.error.code).toBe("VALIDATION_ERROR");
+
+      const issuesText = JSON.stringify(parsed.error.details.issues);
+      expect(issuesText).toContain("spec_path");
+      expect(issuesText).toContain("Required");
+    });
+
+    it("should store spec_path and expose it via get_sprint_status", async () => {
+      const input: ConfigureSprintInput = {
+        ...baseInput,
+        sprint: {
+          ...baseInput.sprint,
+          id: "test-sprint-spec-005",
+          spec_path: specPath,
+        },
+      };
+
+      const result = await handleConfigureSprint(input);
+      const parsed = JSON.parse(result.content[0].text);
+
+      expect(parsed.success).toBe(true);
+      expect(parsed.sprint_id).toBe("test-sprint-spec-005");
+
+      const db = getDb();
+      const [sprint] = await db
+        .select()
+        .from(sprints)
+        .where(eq(sprints.id, input.sprint.id));
+
+      expect(sprint).toBeDefined();
+      expect(sprint.spec_path).toBe(specPath);
+
+      const statusResult = await handleGetSprintStatus({});
+      const statusParsed = JSON.parse(statusResult.content[0].text);
+
+      expect(statusParsed.spec_path).toBe(specPath);
+    });
+  });
+
+  describe("spec_hash computation", () => {
+    const baseInput: Omit<ConfigureSprintInput, "sprint"> & {
+      sprint: { id: string; name: string; spec_path: string };
+    } = {
+      environment: {
+        test_command: "npm test",
+        test_file_pattern: "test/**/*.test.ts",
+        source_base_dir: ".",
+      },
+      sprint: {
+        id: "test-sprint-spec-hash-001",
+        name: "Spec Hash Validation",
+        spec_path: "specs/tmp-spec-hash/spec.md",
+      },
+      phases: [
+        {
+          phase_id: "phase-1",
+          phase_name: "Phase 1",
+        },
+      ],
+      tasks: [
+        {
+          task_id: 1,
+          phase_id: "phase-1",
+          title: "Regular Task",
+          description: "Task description",
+          category: "INFRASTRUCTURE",
+          dependencies: [],
+          verification: {
+            structural_checks: [
+              {
+                description: "File exists",
+                severity: "MAJOR",
+                path: "src/test.ts",
+                pattern: ".*",
+                min_matches: 1,
+              },
+            ],
+          },
+        },
+      ],
+    };
+
+    it("should compute spec_hash when spec_path exists", async () => {
+      const specFilePath = path.join(
+        process.cwd(),
+        "specs",
+        "tmp-spec-hash",
+        "spec.md",
+      );
+      await mkdir(path.dirname(specFilePath), { recursive: true });
+      const specContent = "# Spec Hash Test\n\n- item";
+      await writeFile(specFilePath, specContent, "utf-8");
+
+      try {
+        const result = await handleConfigureSprint(baseInput);
+        const parsed = JSON.parse(result.content[0].text);
+
+        expect(parsed.success).toBe(true);
+
+        const db = getDb();
+        const [sprint] = await db
+          .select()
+          .from(sprints)
+          .where(eq(sprints.id, baseInput.sprint.id));
+
+        expect(sprint).toBeDefined();
+        expect(sprint.spec_hash).toMatch(/^[a-f0-9]{64}$/i);
+      } finally {
+        try {
+          await rm(path.join(process.cwd(), "specs", "tmp-spec-hash"), {
+            recursive: true,
+            force: true,
+          });
+        } catch {
+          // Ignore cleanup errors (Windows file locking)
+        }
+      }
+    });
+
+    it("should warn and store null spec_hash when spec_path is missing", async () => {
+      const input: ConfigureSprintInput = {
+        ...baseInput,
+        sprint: {
+          ...baseInput.sprint,
+          id: "test-sprint-spec-hash-002",
+          spec_path: "specs/tmp-spec-hash/missing.md",
+        },
+      };
+
+      const result = await handleConfigureSprint(input);
+      const parsed = JSON.parse(result.content[0].text);
+
+      expect(parsed.success).toBe(true);
+      expect(parsed.pattern_warnings?.join(" ") ?? "").toContain(
+        "Path not found",
+      );
+
+      const db = getDb();
+      const [sprint] = await db
+        .select()
+        .from(sprints)
+        .where(eq(sprints.id, input.sprint.id));
+
+      expect(sprint).toBeDefined();
+      expect(sprint.spec_hash).toBeNull();
+    });
+
+    it("should warn and store null spec_hash when spec_path cannot be read", async () => {
+      const specDirPath = path.join(
+        process.cwd(),
+        "specs",
+        "tmp-spec-hash",
+        "unreadable",
+      );
+      await mkdir(specDirPath, { recursive: true });
+
+      try {
+        const input: ConfigureSprintInput = {
+          ...baseInput,
+          sprint: {
+            ...baseInput.sprint,
+            id: "test-sprint-spec-hash-003",
+            spec_path: "specs/tmp-spec-hash/unreadable",
+          },
+        };
+
+        const result = await handleConfigureSprint(input);
+        const parsed = JSON.parse(result.content[0].text);
+
+        expect(parsed.success).toBe(true);
+        expect(parsed.pattern_warnings?.join(" ") ?? "").toContain(
+          "Unable to read spec file for hashing",
+        );
+
+        const db = getDb();
+        const [sprint] = await db
+          .select()
+          .from(sprints)
+          .where(eq(sprints.id, input.sprint.id));
+
+        expect(sprint).toBeDefined();
+        expect(sprint.spec_hash).toBeNull();
+      } finally {
+        try {
+          await rm(path.join(process.cwd(), "specs", "tmp-spec-hash"), {
+            recursive: true,
+            force: true,
+          });
+        } catch {
+          // Ignore cleanup errors (Windows file locking)
+        }
+      }
+    });
+  });
+
+  describe("migration backward compatibility", () => {
+    it("should handle legacy sprint with null spec_path gracefully", async () => {
+      const db = getDb();
+      const now = new Date().toISOString();
+
+      await db.insert(sprints).values({
+        id: "legacy-sprint",
+        name: "Legacy Sprint",
+        spec_path: null,
+        spec_files: JSON.stringify([]),
+        spec_version: null,
+        spec_hash: null,
+        workflow_step: "CONFIGURE",
+        status: "ACTIVE",
+        is_active: true,
+        created_at: now,
+        updated_at: now,
+        completed_at: null,
+      });
+
+      await db.insert(phases).values({
+        sprint_id: "legacy-sprint",
+        phase_id: "phase-1",
+        phase_name: "Phase 1",
+        speckit_tasks: null,
+        order: 1,
+      });
+
+      const [phase] = await db
+        .select()
+        .from(phases)
+        .where(eq(phases.sprint_id, "legacy-sprint"));
+
+      expect(phase).toBeDefined();
+
+      await db.insert(tasks).values({
+        sprint_id: "legacy-sprint",
+        phase_id: phase.id,
+        task_id: 1,
+        title: "Legacy task",
+        description: "Legacy task description",
+        category: "INFRASTRUCTURE",
+        dependencies: JSON.stringify([]),
+        speckit_task_ref: null,
+        status: "PENDING",
+        retry_count: 0,
+        max_retries: 3,
+        tdd_red_phase: false,
+        created_at: now,
+        updated_at: now,
+        completed_at: null,
+      });
+
+      const [task] = await db
+        .select()
+        .from(tasks)
+        .where(eq(tasks.sprint_id, "legacy-sprint"));
+
+      expect(task).toBeDefined();
+
+      await db.insert(codeReviews).values({
+        sprint_id: "legacy-sprint",
+        task_id: task.id,
+        phase_id: null,
+        review_scope: "TASK",
+        status: "PENDING",
+        summary: "Legacy review pending",
+        risk: "LOW",
+        requested_by: "controller",
+        files_reviewed: JSON.stringify([]),
+        tests_run: JSON.stringify([]),
+        reviewed_by: null,
+        reviewed_at: null,
+        requested_at: now,
+        revision_count: 0,
+        previous_review_id: null,
+      });
+
+      const sprintStatusResult = await handleGetSprintStatus({});
+      const sprintStatusParsed = JSON.parse(sprintStatusResult.content[0].text);
+
+      expect(sprintStatusParsed.sprint_id).toBe("legacy-sprint");
+      expect(sprintStatusParsed.spec_path).toBeUndefined();
+
+      const taskForReviewResult = await handleGetTaskForReview({ task_id: 1 });
+      const taskForReviewParsed = JSON.parse(
+        taskForReviewResult.content[0].text,
+      );
+
+      expect(taskForReviewParsed.success).toBe(true);
+      expect(taskForReviewParsed.spec_path).toBeNull();
+      expect(taskForReviewParsed.spec_task_definitions).toEqual([]);
+
+      const codeReviewResult = await handleGetCodeReview({ task: 1 });
+      const codeReviewParsed = JSON.parse(codeReviewResult.content[0].text);
+
+      expect(codeReviewParsed.success).toBe(true);
+      expect(codeReviewParsed.spec_path).toBeNull();
+      expect(codeReviewParsed.spec_task_definitions).toEqual([]);
+    });
+  });
+
   describe("sprint configuration", () => {
     it("should create sprint and deactivate existing sprints", async () => {
       const db = getDb();
@@ -383,6 +793,7 @@ describe("configure_sprint handler", () => {
         sprint: {
           id: "new-sprint",
           name: "New Sprint",
+          spec_path: specPath,
         },
         phases: [
           {
@@ -445,6 +856,7 @@ describe("configure_sprint handler", () => {
         sprint: {
           id: "test-sprint-tdd-001",
           name: "Test Sprint with TDD Relationships",
+          spec_path: specPath,
         },
         phases: [
           {
@@ -540,6 +952,7 @@ describe("configure_sprint handler", () => {
         sprint: {
           id: "test-sprint-tdd-002",
           name: "Test Sprint - Invalid Red Task",
+          spec_path: specPath,
         },
         phases: [
           {
@@ -618,6 +1031,7 @@ describe("configure_sprint handler", () => {
         sprint: {
           id: "test-sprint-tdd-003",
           name: "Test Sprint - Same Task IDs",
+          spec_path: specPath,
         },
         phases: [
           {
@@ -676,6 +1090,7 @@ describe("configure_sprint handler", () => {
         sprint: {
           id: "test-sprint-tdd-004",
           name: "Test Sprint - Invalid Red Task ID",
+          spec_path: specPath,
         },
         phases: [
           {
@@ -733,6 +1148,7 @@ describe("configure_sprint handler", () => {
         sprint: {
           id: "test-sprint-tdd-005",
           name: "Test Sprint - Invalid Green Task ID",
+          spec_path: specPath,
         },
         phases: [
           {
@@ -791,6 +1207,7 @@ describe("configure_sprint handler", () => {
         sprint: {
           id: "test-sprint-tdd-006",
           name: "Test Sprint - Multiple Relationships",
+          spec_path: specPath,
         },
         phases: [
           {
@@ -918,6 +1335,7 @@ describe("configure_sprint handler", () => {
         sprint: {
           id: "test-sprint-tdd-orphan",
           name: "Test Sprint - Orphan Red Task",
+          spec_path: specPath,
         },
         phases: [
           {
@@ -991,6 +1409,7 @@ describe("configure_sprint handler", () => {
         sprint: {
           id: "test-sprint-tdd-no-env",
           name: "TDD Sprint Without Environment",
+          spec_path: specPath,
         },
         phases: [
           {
@@ -1077,6 +1496,7 @@ describe("configure_sprint handler", () => {
         sprint: {
           id: "test-sprint-no-test-cmd",
           name: "TDD Sprint Without test_command",
+          spec_path: specPath,
         },
         phases: [
           {
@@ -1165,6 +1585,7 @@ describe("configure_sprint handler", () => {
         sprint: {
           id: "test-sprint-no-pattern",
           name: "TDD Sprint Without test_file_pattern",
+          spec_path: specPath,
         },
         phases: [
           {
@@ -1252,6 +1673,7 @@ describe("configure_sprint handler", () => {
         sprint: {
           id: "test-sprint-no-test-fields",
           name: "TDD Sprint Without Test Fields",
+          spec_path: specPath,
         },
         phases: [
           {
@@ -1330,6 +1752,7 @@ describe("configure_sprint handler", () => {
         sprint: {
           id: "test-sprint-multiple-tdd",
           name: "Multiple TDD Tasks",
+          spec_path: specPath,
         },
         phases: [
           {
@@ -1465,6 +1888,7 @@ describe("configure_sprint handler", () => {
         sprint: {
           id: "test-sprint-no-tdd",
           name: "Sprint Without TDD Tasks",
+          spec_path: specPath,
         },
         phases: [
           {
@@ -1541,6 +1965,7 @@ describe("configure_sprint handler", () => {
         sprint: {
           id: "test-sprint-valid-tdd",
           name: "Valid TDD Sprint",
+          spec_path: specPath,
         },
         phases: [
           {

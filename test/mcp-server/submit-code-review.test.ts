@@ -262,6 +262,7 @@ describe("submit_code_review handler", () => {
         {
           severity: "MAJOR",
           issue: "Missing tests",
+          spec_ref: "T052",
           rationale: "Coverage is insufficient",
           recommendation: "Add integration tests",
         },
@@ -280,6 +281,7 @@ describe("submit_code_review handler", () => {
 
     expect(issues.length).toBe(1);
     expect(issues[0].severity).toBe("MAJOR");
+    expect(issues[0].spec_ref).toBe("T052");
   });
 
   it("writes blocking issues for REJECTED", async () => {

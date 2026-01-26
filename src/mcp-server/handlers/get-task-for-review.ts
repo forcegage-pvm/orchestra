@@ -9,6 +9,11 @@
 
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
+import {
+  parseSpecTaskDefinitions,
+  parseSpeckitTaskRefs,
+  type SpecTaskDefinition,
+} from "../../core/spec-task-parser.js";
 import { getDb } from "../../db/index.js";
 import { getActiveSprint } from "../../db/queries.js";
 import { phases, tasks } from "../../db/schema.js";
@@ -28,6 +33,9 @@ const GetTaskForReviewInputSchema = z.object({
 interface GetTaskForReviewOutput {
   success: boolean;
   task_id: number;
+  spec_path: string | null;
+  spec_files: string[];
+  spec_task_definitions: SpecTaskDefinition[];
   phase_id: string;
   phase_name: string;
   title: string;
@@ -69,7 +77,7 @@ export async function handleGetTaskForReview(input: unknown) {
         taskId: validation.data.task_id,
       },
       { success: true, output },
-      durationMs
+      durationMs,
     );
 
     return {
@@ -89,7 +97,7 @@ export async function handleGetTaskForReview(input: unknown) {
         taskId: validation.data.task_id,
       },
       { success: false, errorMessage: err.message },
-      durationMs
+      durationMs,
     );
 
     return {
@@ -105,7 +113,7 @@ export async function handleGetTaskForReview(input: unknown) {
               },
             },
             null,
-            2
+            2,
           ),
         },
       ],
@@ -114,7 +122,7 @@ export async function handleGetTaskForReview(input: unknown) {
 }
 
 async function getTaskForReview(
-  input: z.output<typeof GetTaskForReviewInputSchema>
+  input: z.output<typeof GetTaskForReviewInputSchema>,
 ): Promise<GetTaskForReviewOutput> {
   const db = getDb();
 
@@ -143,7 +151,7 @@ async function getTaskForReview(
     .from(tasks)
     .innerJoin(phases, eq(tasks.phase_id, phases.id))
     .where(
-      and(eq(tasks.sprint_id, sprint.id), eq(tasks.task_id, input.task_id))
+      and(eq(tasks.sprint_id, sprint.id), eq(tasks.task_id, input.task_id)),
     )
     .limit(1);
 
@@ -151,9 +159,25 @@ async function getTaskForReview(
     throw new Error(`Task ${input.task_id} not found in active sprint`);
   }
 
+  const specTaskIds = parseSpeckitTaskRefs(result.speckit_task_ref);
+  const specPath = sprint.spec_path ?? null;
+  const specFiles = parseJsonArray(sprint.spec_files);
+
+  const specTaskDefinitions =
+    specTaskIds.length === 0
+      ? []
+      : await parseSpecTaskDefinitions(
+          ensureSpecPath(specPath, specTaskIds),
+          specTaskIds,
+          specFiles,
+        );
+
   return {
     success: true,
     task_id: result.task_id,
+    spec_path: specPath,
+    spec_files: specFiles,
+    spec_task_definitions: specTaskDefinitions,
     phase_id: result.phase_id,
     phase_name: result.phase_name,
     title: result.title,
@@ -166,4 +190,26 @@ async function getTaskForReview(
     created_at: result.created_at,
     updated_at: result.updated_at,
   };
+}
+
+function ensureSpecPath(specPath: string | null, taskIds: string[]): string {
+  if (!specPath) {
+    throw new Error(
+      `Spec path not set for active sprint (requested tasks: ${taskIds.join(
+        ", ",
+      )})`,
+    );
+  }
+
+  return specPath;
+}
+
+function parseJsonArray(json: string | null | undefined): string[] {
+  if (!json) return [];
+  try {
+    const parsed = JSON.parse(json);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
 }

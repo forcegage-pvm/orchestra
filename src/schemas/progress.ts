@@ -64,6 +64,9 @@ export type GetSprintStatusInput = z.output<typeof GetSprintStatusInputSchema>;
 export const GetSprintStatusOutputSchema = z.object({
   sprint_id: z.string(),
   name: z.string(),
+  spec_path: z.string().optional(),
+  spec_version: z.string().optional(),
+  spec_hash: z.string().optional(),
   status: z.enum(["ACTIVE", "COMPLETED"]),
   started_at: z.string(), // ISO 8601
   summary: z.object({

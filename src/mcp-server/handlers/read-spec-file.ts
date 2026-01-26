@@ -2,7 +2,7 @@
  * read_spec_file tool handler - CONTROLLER ONLY
  *
  * Reads a specification file for the Controller to compare against handovers/sprint configs.
- * Restricted to spec directories for security (prevents reading arbitrary files).
+ * Security: Only allows reading files within the workspace (prevents directory traversal).
  *
  * Sprint 004: Controller Agent - T037
  */
@@ -20,9 +20,7 @@ import { logToolExecution } from "./audit-logging.js";
 const ReadSpecFileInputSchema = z.object({
   path: z
     .string()
-    .describe(
-      "Path to the specification file, relative to workspace root. Must be in spec/, specs/, or docs/ directory."
-    ),
+    .describe("Path to the specification file, relative to workspace root."),
   start_line: z
     .number()
     .optional()
@@ -32,12 +30,6 @@ const ReadSpecFileInputSchema = z.object({
     .optional()
     .describe("Optional: End line to read to (1-indexed, inclusive)"),
 });
-
-/**
- * Allowed directories for spec files
- * Controller can only read from these to prevent access to sensitive files
- */
-const ALLOWED_SPEC_DIRS = ["spec", "specs", "docs"];
 
 /**
  * Output schema for read_spec_file
@@ -80,7 +72,7 @@ export async function handleReadSpecFile(input: unknown) {
         success: true,
         output: { path: output.path, line_count: output.line_count },
       },
-      durationMs
+      durationMs,
     );
 
     return {
@@ -99,7 +91,7 @@ export async function handleReadSpecFile(input: unknown) {
         input: validation.data,
       },
       { success: false, errorMessage: err.message },
-      durationMs
+      durationMs,
     );
 
     return {
@@ -115,7 +107,7 @@ export async function handleReadSpecFile(input: unknown) {
               },
             },
             null,
-            2
+            2,
           ),
         },
       ],
@@ -124,7 +116,7 @@ export async function handleReadSpecFile(input: unknown) {
 }
 
 async function readSpecFile(
-  input: z.output<typeof ReadSpecFileInputSchema>
+  input: z.output<typeof ReadSpecFileInputSchema>,
 ): Promise<ReadSpecFileOutput> {
   // 1. Get workspace root
   const workspacePath = resolveWorkspacePath();
@@ -132,18 +124,8 @@ async function readSpecFile(
     throw new Error("Workspace path not resolved");
   }
 
-  // 2. Normalize and validate path
+  // 2. Normalize path
   const normalizedPath = input.path.replace(/\\/g, "/");
-  const pathParts = normalizedPath.split("/");
-  const topDir = pathParts[0]?.toLowerCase();
-
-  if (!topDir || !ALLOWED_SPEC_DIRS.includes(topDir)) {
-    throw new Error(
-      `Access denied: read_spec_file can only read from ${ALLOWED_SPEC_DIRS.join(
-        ", "
-      )} directories. ` + `Requested path: ${input.path}`
-    );
-  }
 
   // 3. Build full path and check for directory traversal
   const fullPath = path.resolve(workspacePath, normalizedPath);
@@ -158,53 +140,41 @@ async function readSpecFile(
     throw new Error(`File not found: ${input.path}`);
   }
 
-  const stats = fs.statSync(fullPath);
-  if (stats.isDirectory()) {
-    throw new Error(
-      `Cannot read directory: ${input.path}. Please specify a file.`
-    );
-  }
-
   // 5. Read file content
   const content = fs.readFileSync(fullPath, "utf-8");
   const lines = content.split("\n");
+  const totalLines = lines.length;
 
   // 6. Apply line range if specified
-  let resultLines = lines;
-  let startLine = 1;
-  let endLine = lines.length;
+  let startLine = input.start_line ?? 1;
+  let endLine = input.end_line ?? totalLines;
 
-  if (input.start_line || input.end_line) {
-    startLine = input.start_line ?? 1;
-    endLine = input.end_line ?? lines.length;
-
-    // Validate range
-    if (startLine < 1) startLine = 1;
-    if (endLine > lines.length) endLine = lines.length;
-    if (startLine > endLine) {
-      throw new Error(
-        `Invalid line range: start_line (${startLine}) > end_line (${endLine})`
-      );
-    }
-
-    resultLines = lines.slice(startLine - 1, endLine);
+  // Validate line numbers
+  if (startLine < 1) startLine = 1;
+  if (endLine > totalLines) endLine = totalLines;
+  if (startLine > endLine) {
+    throw new Error(
+      `Invalid line range: start_line (${startLine}) > end_line (${endLine})`,
+    );
   }
 
-  // Build result with exactOptionalPropertyTypes compliance
-  const result: ReadSpecFileOutput = {
+  // Extract lines (convert to 0-indexed)
+  const selectedLines = lines.slice(startLine - 1, endLine);
+  const selectedContent = selectedLines.join("\n");
+
+  const output: ReadSpecFileOutput = {
     success: true,
     path: input.path,
-    content: resultLines.join("\n"),
-    line_count: resultLines.length,
+    content: selectedContent,
+    line_count: selectedLines.length,
   };
 
-  // Only add line properties if they were specified
-  if (input.start_line !== undefined) {
-    result.start_line = startLine;
-  }
-  if (input.end_line !== undefined) {
-    result.end_line = endLine;
+  // Include line range info if subset was requested
+  if (input.start_line !== undefined || input.end_line !== undefined) {
+    output.start_line = startLine;
+    output.end_line = endLine;
+    output.message = `Showing lines ${startLine}-${endLine} of ${totalLines} total`;
   }
 
-  return result;
+  return output;
 }

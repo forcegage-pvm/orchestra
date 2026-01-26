@@ -192,7 +192,7 @@ async function getSprintStatus(): Promise<GetSprintStatusOutput> {
     };
   }
 
-  return {
+  const output: GetSprintStatusOutput = {
     sprint_id: sprint.id,
     name: sprint.name,
     status: sprintStatus,
@@ -218,4 +218,18 @@ async function getSprintStatus(): Promise<GetSprintStatusOutput> {
       : undefined,
     tdd_summary: tddSummary,
   };
+
+  if (sprint.spec_path !== null && sprint.spec_path !== undefined) {
+    output.spec_path = sprint.spec_path;
+  }
+
+  if (sprint.spec_version !== null && sprint.spec_version !== undefined) {
+    output.spec_version = sprint.spec_version;
+  }
+
+  if (sprint.spec_hash !== null && sprint.spec_hash !== undefined) {
+    output.spec_hash = sprint.spec_hash;
+  }
+
+  return output;
 }

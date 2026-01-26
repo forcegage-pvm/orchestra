@@ -5,6 +5,10 @@
  */
 
 import { and, desc, eq, inArray, ne } from "drizzle-orm";
+import {
+  parseSpecTaskDefinitions,
+  parseSpeckitTaskRefs,
+} from "../../core/spec-task-parser.js";
 import { getActiveSprint, getDb } from "../../db/index.js";
 import {
   codeReviewIssues,
@@ -168,9 +172,24 @@ async function getTaskReview(
 
   const history = includeHistory ? await getReviewHistory(review) : undefined;
 
+  const specTaskIds = parseSpeckitTaskRefs(task.speckit_task_ref);
+  const specPath = sprint.spec_path ?? null;
+  const specFiles = parseJsonArray(sprint.spec_files);
+  const specTaskDefinitions =
+    specTaskIds.length === 0
+      ? []
+      : await parseSpecTaskDefinitions(
+          ensureSpecPath(specPath, specTaskIds),
+          specTaskIds,
+          specFiles,
+        );
+
   return {
     success: true,
     mode: "task",
+    spec_path: specPath,
+    spec_files: specFiles,
+    spec_task_definitions: specTaskDefinitions,
     review: {
       review_id: review.id,
       status: review.status as CodeReviewStatus,
@@ -323,6 +342,7 @@ async function getReviewIssues(reviewId: number) {
     id: issue.id,
     severity: issue.severity as "BLOCKING" | "MAJOR" | "MINOR" | "INFO",
     issue: issue.issue,
+    spec_ref: issue.spec_ref ?? null,
     file: issue.file ?? null,
     line: issue.line ?? null,
     rationale: issue.rationale,
@@ -350,6 +370,7 @@ async function getOpenReviewIssues(reviewId: number) {
     id: issue.id,
     severity: issue.severity as "BLOCKING" | "MAJOR" | "MINOR" | "INFO",
     issue: issue.issue,
+    spec_ref: issue.spec_ref ?? null,
     file: issue.file ?? null,
     line: issue.line ?? null,
     rationale: issue.rationale,
@@ -426,6 +447,18 @@ function parseJsonArray(value: string | null | undefined): string[] {
   } catch {
     return [];
   }
+}
+
+function ensureSpecPath(specPath: string | null, taskIds: string[]): string {
+  if (!specPath) {
+    throw new Error(
+      `Spec path not set for active sprint (requested tasks: ${taskIds.join(
+        ", ",
+      )})`,
+    );
+  }
+
+  return specPath;
 }
 
 function buildHandoverContext(params: {

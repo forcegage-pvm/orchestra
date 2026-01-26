@@ -38,6 +38,9 @@ export * from "./validation.js";
 // Templates
 export * from "./templates.js";
 
+// Spec task parser
+export * from "./spec-task-parser.js";
+
 // Template Converter (HBS → YAML/MD)
 export * from "./template-converter.js";
 

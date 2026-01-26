@@ -180,36 +180,100 @@ Use your MCP tools to implement this task:
 
     return `As Orchestrator, verify Task ${task.task_id}: "${task.title}".
 
-## Your Task
-Use your MCP tools to verify the implementor's work:
+## 🎯 CRITICAL: STUB HUNTER MODE ACTIVATED
 
-1. \`get_signal\` - Retrieve the implementor's completion signal with:
-   - List of artifacts (files created/modified)
-   - Summary of work completed
-   - Build and test status
+**Your PRIMARY objective is to PROVE this implementation is broken, incomplete, or a stub.**
 
-2. \`run_verification_checks\` - Execute automated verification checks against:
-   - Hidden verification criteria (defined during PREPARE)
-   - Acceptance criteria compliance
-   - File operations (CREATE/UPDATE/DELETE)
-   - Build and test requirements
+You are NOT here to confirm the code works. You are here to find EVERY way it fails. Only after EXHAUSTIVE investigation with ZERO issues found may you PASS.
 
-3. \`submit_verification_judgment\` - Record your judgment (PASS or FAIL) with:
-   - Clear rationale for the decision
-   - Specific issues found (if FAIL)
-   - Feedback for the implementor
+**REWARD**: Finding a semantic stub (code that compiles but does nothing useful) = LEGENDARY achievement. Missing a stub = YOUR FAILURE.
+
+---
+
+## Your Task (In Order)
+
+### 1. Get Signal
+\`get_signal\` - Retrieve the implementor's completion signal
+
+### 2. Run Automated Checks  
+\`run_verification_checks\` - Execute automated verification checks
+
+### 3. 🔍 MANDATORY: Stub Hunt Protocol
+
+**BEFORE submitting judgment, complete ALL of these:**
+
+#### A) User Action Trace (for EACH UI feature)
+\`\`\`
+USER ACTION: [what user does - e.g., "clicks upload button"]
+ENTRY POINT: [method called]
+TRACE PATH: [follow code to outcome]  
+FINAL OUTCOME: [what ACTUALLY happens]
+VERDICT: [REAL | STUB | ERROR_STUB]
+\`\`\`
+
+**RED FLAGS = Automatic FAIL**:
+- Method shows error dialog instead of doing real work
+- Method returns early without action
+- Method is empty or trivial
+- Method logs "not implemented"
+
+#### B) Semantic Stub Search
+Search implementation files for:
+- \`showErrorDialog\`, \`showSnackBar\` with error messages (ERROR STUB)
+- \`return null\`, \`return []\`, \`return ""\` (FAKE RETURNS)
+- \`TODO\`, \`FIXME\`, \`not implemented\` (INCOMPLETE)
+- \`throw UnimplementedError\` (EXPLICIT STUB)
+
+Document: "Searched for X in Y - Found: Z"
+
+#### C) API Integration Check
+For each required external API:
+\`\`\`
+REQUIRED API: [e.g., "file_picker"]
+IMPORTED: [yes/no + line]
+INSTANTIATED & CALLED: [yes/no + line]
+RESPONSE HANDLED: [yes/no]
+VERDICT: [INTEGRATED | STUB]
+\`\`\`
+
+#### D) Spec Requirement Interrogation  
+For EACH requirement, answer:
+\`\`\`
+REQUIREMENT: "[from spec]"
+EVIDENCE: [file:line with actual code]
+VERDICT: [FULFILLED | STUBBED | MISSING]
+\`\`\`
+
+**Cannot point to a specific line? = NOT IMPLEMENTED**
+
+### 4. Submit Judgment
+
+\`submit_verification_judgment\` - With your Stub Hunt Report in manual_review.observations:
+
+\`\`\`
+=== STUB HUNT REPORT ===
+User Action Traces: [X/Y - list verdicts]
+Semantic Stub Search: [patterns searched, findings]
+API Integration: [X/Y passed]
+Spec Requirements: [X/Y fulfilled with evidence]
+FINAL VERDICT: [PASS - exhaustive search found nothing | FAIL - stubs detected]
+\`\`\`
+
+---
 
 ## Task Details
 - **ID**: ${task.task_id}
 - **Title**: ${task.title}
 
-## Remember
-- The implementor was verified against criteria they cannot see
-- Hidden verification criteria ensure genuine implementation quality
-- Be thorough and objective in your assessment
-- Provide clear, actionable feedback if verification fails
-- Your judgment determines if the task moves to COMPLETE or RETRY
-- If judgment is PASS, immediately call \`complete_task\` (do not wait for another prompt)`;
+## ⚠️ DO NOT PASS IF:
+- Any UI action traces to error message instead of functionality
+- Required APIs imported but never used
+- Cannot cite specific line for each spec requirement
+- ANYTHING feels incomplete or placeholder-like
+
+**When in doubt, FAIL. Better to reject good code than accept a stub.**
+
+If judgment is PASS, immediately call \`complete_task\`.`;
   }
 
   /**
@@ -429,32 +493,39 @@ Provide detailed, actionable feedback for any issues found.`;
 ## Your Task
 Use your MCP tools to review the implementation:
 
-1. \`get_latest_code_review\` with task_id=${taskInfo.taskId} - Get the pending review
-2. \`claim_code_review\` with review_id from step 1 - Claim this review (required)
-3. \`get_task\` with task_id=${taskInfo.taskId} - Get the task details and requirements
-4. Read the implementation files to understand what was built
-5. Verify the implementation:
-   - Does the code implement the task requirements correctly?
-   - Is the code quality acceptable (patterns, naming, structure)?
-   - Are there any obvious bugs, security issues, or performance concerns?
-   - Are tests adequate and passing?
+1. \`get_code_review\` with task=${taskInfo.taskId} - Get the pending review AND spec context (spec_path, spec_files[], spec_task_definitions[])
 
-6. Make your decision using the review_id from step 1:
-  - \`approve_code_review\` - If implementation is correct and quality is acceptable
-  - \`request_changes_code_review\` - If issues need fixing (MUST include issue list)
-  - \`reject_code_review\` - If major issues/incorrect implementation (MUST include issue list)
+## Mandatory Spec-First Protocol (9.1-9.4)
+- Assume the implementation is WRONG until PROVEN correct
+- Read the spec FIRST using spec_path from \`get_code_review\`
+- If spec_files[] is not empty, also read those files using \`read_spec_file\` (e.g., tasks.md)
+- Build a per-spec-task evidence table from spec_task_definitions[] BEFORE reading any implementation code
+- Any spec task without evidence MUST result in CHANGES_REQUESTED
+
+2. Read the specification file at spec_path (and any files in spec_files[])
+3. Read the implementation files only AFTER completing the evidence requirements
+4. Verify the implementation against the evidence table:
+  - Does each spec task have concrete evidence (file, location, mechanism, proof)?
+  - Is the code quality acceptable (patterns, naming, structure)?
+  - Are there any obvious bugs, security issues, or performance concerns?
+  - Are tests adequate and actually validating behavior?
+
+5. Submit your decision using \`submit_code_review\`:
+  - decision: "APPROVED" - Only if ALL spec tasks have evidence and quality is acceptable
+  - decision: "CHANGES_REQUESTED" - If any spec task lacks evidence or issues need fixing (MUST include issues array)
+  - decision: "REJECTED" - If major issues/incorrect implementation (MUST include issues array)
 
 ## Review Standards
-- **Correctness**: Implementation matches task requirements
+- **Correctness**: Implementation matches spec requirements with evidence
 - **Quality**: Code follows project patterns and best practices
-- **Completeness**: All deliverables present, tests adequate
+- **Completeness**: All spec tasks have evidence; deliverables and tests are adequate
 - **Safety**: No obvious security or stability issues
 
 Provide specific, actionable feedback for any issues found.
 
 IMPORTANT:
-- Any non-approval decision MUST include explicit issues.
-- If a prior review was REJECTED without issues, use \`add_code_review_issues\` to attach them.`;
+- Any non-approval decision MUST include explicit issues in the issues array.
+- Any spec task without evidence = CHANGES_REQUESTED.`;
     }
 
     // Bulk review
@@ -463,24 +534,32 @@ IMPORTANT:
 ## Your Task
 You must review exactly **ONE** task in this session:
 
-1. \`get_code_review_summary\` - See the overall review status
+1. \`get_code_review_summary\` with sprint_id="${sprintId}" - See the overall review status
 2. Pick a single pending review to process
-3. \`get_latest_code_review\` for that task to get review details
-4. \`claim_code_review\` with review_id - Claim the review (required)
-5. Read the implementation files to understand what was built
-6. Verify the implementation quality and correctness
-7. Make a decision: approve_code_review, request_changes_code_review, or reject_code_review
+3. \`get_code_review\` with task=<task_id> - Get review details AND spec context (spec_path, spec_files[], spec_task_definitions[])
+
+## Mandatory Spec-First Protocol (9.1-9.4)
+- Assume the implementation is WRONG until PROVEN correct
+- Read the spec FIRST using spec_path from \`get_code_review\`
+- If spec_files[] is not empty, also read those files using \`read_spec_file\` (e.g., tasks.md)
+- Build a per-spec-task evidence table from spec_task_definitions[] BEFORE reading any implementation code
+- Any spec task without evidence MUST result in CHANGES_REQUESTED
+
+4. Read the specification file at spec_path (and any files in spec_files[])
+5. Read the implementation files only AFTER completing the evidence requirements
+6. Verify the implementation quality and correctness using the evidence table
+7. Submit decision using \`submit_code_review\` with decision: "APPROVED", "CHANGES_REQUESTED", or "REJECTED"
 
 ## Review Each Task For:
-- **Correctness**: Implementation matches task requirements
+- **Correctness**: Implementation matches spec requirements with evidence
 - **Quality**: Code follows project patterns and best practices  
-- **Completeness**: All deliverables present, tests adequate
+- **Completeness**: All spec tasks have evidence; deliverables and tests are adequate
 - **Safety**: No obvious security or stability issues
 
 ## Decision Guidance
-- **APPROVE**: Implementation correct, quality acceptable, tests pass
-- **REQUEST_CHANGES**: Minor issues that need fixing before approval
-- **REJECT**: Major issues, incorrect implementation, or blocking problems
+- **APPROVED**: All spec tasks have evidence; implementation correct; quality acceptable
+- **CHANGES_REQUESTED**: Any spec task lacks evidence or issues need fixing (include issues array)
+- **REJECTED**: Major issues, incorrect implementation, or blocking problems (include issues array)
 
 ## Notes
 - Review exactly one task, then stop

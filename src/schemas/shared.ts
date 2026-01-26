@@ -270,6 +270,7 @@ export type CodeReviewBlockingSeverity = z.output<
 export const CodeReviewIssueSchema = z.object({
   severity: SeveritySchema,
   issue: z.string().min(1, "Issue is required"),
+  spec_ref: z.string().min(1, "Spec reference is required").optional(),
   file: z.string().optional(),
   line: z.number().int().positive().optional(),
   code_snippet: z.string().optional(),

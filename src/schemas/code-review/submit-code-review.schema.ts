@@ -19,6 +19,7 @@ const IssueSeveritySchema = z.enum(["BLOCKING", "MAJOR", "MINOR"], {
 export const SubmitCodeReviewIssueSchema = z.object({
   severity: IssueSeveritySchema,
   issue: z.string().min(1, "Issue is required"),
+  spec_ref: z.string().min(1, "Spec reference is required").optional(),
   file: z.string().optional(),
   line: z.number().int().positive().optional(),
   code_snippet: z.string().optional(),
@@ -121,6 +122,7 @@ export const submitCodeReviewToolDef = {
           properties: {
             severity: { type: "string" },
             issue: { type: "string" },
+            spec_ref: { type: "string" },
             file: { type: "string" },
             line: { type: "number" },
             code_snippet: { type: "string" },

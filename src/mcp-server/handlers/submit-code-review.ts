@@ -12,7 +12,6 @@ import {
   progress,
   tasks,
 } from "../../db/schema.js";
-import { writeSignal } from "../db-signal.js";
 import {
   SubmitCodeReviewInputSchema,
   SubmitCodeReviewOutputSchema,
@@ -20,6 +19,7 @@ import {
 } from "../../schemas/code-review/submit-code-review.schema.js";
 import { CodeReviewConfigSchema } from "../../schemas/config.js";
 import { validateInput, validateOutput } from "../../schemas/utils.js";
+import { writeSignal } from "../db-signal.js";
 import { logReviewTransition, logToolExecution } from "./audit-logging.js";
 
 export async function handleSubmitCodeReview(input: unknown) {
@@ -286,6 +286,7 @@ async function submitCodeReview(
           task_id: task.id,
           severity: issue.severity,
           issue: issue.issue,
+          spec_ref: issue.spec_ref ?? null,
           file: issue.file ?? null,
           line: issue.line ?? null,
           rationale: issue.rationale,

@@ -41,6 +41,9 @@ describe("get_sprint_status handler", () => {
         .values({
           id: "sprint-001",
           name: "Test Sprint",
+          spec_path: "specs/004-controller-agent/overview.md",
+          spec_version: "v0.7.0",
+          spec_hash: "abc123",
           workflow_step: "IMPLEMENT",
           is_active: true,
           created_at: now,
@@ -85,6 +88,9 @@ describe("get_sprint_status handler", () => {
       expect(output).toMatchObject({
         sprint_id: "sprint-001",
         name: "Test Sprint",
+        spec_path: "specs/004-controller-agent/overview.md",
+        spec_version: "v0.7.0",
+        spec_hash: "abc123",
         status: "ACTIVE",
         summary: {
           total_tasks: 1,
