@@ -95,10 +95,15 @@ export class SessionStorage {
         return;
       }
 
-      throw new SessionError("Failed to acquire session lock", sessionId, {
-        originalError: error instanceof Error ? error.message : String(error),
-        lockPath,
-      }, "LOCK_FAILED");
+      throw new SessionError(
+        "Failed to acquire session lock",
+        sessionId,
+        {
+          originalError: error instanceof Error ? error.message : String(error),
+          lockPath,
+        },
+        "LOCK_FAILED",
+      );
     }
   }
 

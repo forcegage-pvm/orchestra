@@ -14,7 +14,8 @@ export type ResumeSessionPick = vscode.QuickPickItem & {
 };
 
 function formatSessionLabel(session: SessionMetadata): string {
-  const roleLabel = session.role.charAt(0).toUpperCase() + session.role.slice(1);
+  const roleLabel =
+    session.role.charAt(0).toUpperCase() + session.role.slice(1);
   const taskLabel = session.taskId ? `Task ${session.taskId}` : "No Task";
   return `${roleLabel} (${taskLabel})`;
 }
@@ -30,9 +31,7 @@ export function buildSessionQuickPickItems(
   }));
 }
 
-export async function handleResumeAgent(
-  workspaceRoot: string,
-): Promise<void> {
+export async function handleResumeAgent(workspaceRoot: string): Promise<void> {
   const storage = SessionStorage.getInstance(workspaceRoot);
   const sessions = await storage.getRecoverableSessions();
 

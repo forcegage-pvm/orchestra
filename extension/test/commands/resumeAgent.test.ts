@@ -4,13 +4,13 @@
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import * as vscode from "vscode";
+import { SessionStorage } from "../../src/agents/SessionStorage.js";
+import type { SessionMetadata } from "../../src/agents/types.js";
 import {
   buildSessionQuickPickItems,
   handleResumeAgent,
 } from "../../src/commands/resumeAgent.js";
-import { SessionStorage } from "../../src/agents/SessionStorage.js";
 import { getAgentRunner } from "../../src/extension.js";
-import type { SessionMetadata } from "../../src/agents/types.js";
 
 vi.mock("vscode", () => ({
   window: {

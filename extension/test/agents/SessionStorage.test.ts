@@ -172,7 +172,7 @@ describe("SessionStorage", () => {
       expect.objectContaining({
         name: "SessionError",
         code: "LOCK_HELD",
-      })
+      }),
     );
 
     await storage.releaseLock(session.id);
@@ -189,12 +189,14 @@ describe("SessionStorage", () => {
       JSON.stringify(
         { pid: 9999, hostname: "stale-host", acquiredAt: staleTime },
         null,
-        2
+        2,
       ),
-      "utf-8"
+      "utf-8",
     );
 
-    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const warnSpy = vi
+      .spyOn(console, "warn")
+      .mockImplementation(() => undefined);
 
     await storage.acquireLock(session.id);
 
@@ -202,7 +204,9 @@ describe("SessionStorage", () => {
     const lockData = JSON.parse(fs.readFileSync(lockPath, "utf-8"));
     expect(lockData.pid).toBe(process.pid);
     expect(lockData.hostname).toBe(os.hostname());
-    expect(Date.parse(lockData.acquiredAt)).toBeGreaterThan(Date.parse(staleTime));
+    expect(Date.parse(lockData.acquiredAt)).toBeGreaterThan(
+      Date.parse(staleTime),
+    );
 
     await storage.releaseLock(session.id);
     warnSpy.mockRestore();
