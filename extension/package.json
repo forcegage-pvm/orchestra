@@ -2,7 +2,7 @@
   "name": "orchestra-extension",
   "displayName": "Orchestra",
   "description": "AI agent task orchestration for VS Code",
-  "version": "0.7.8",
+  "version": "0.8.0",
   "publisher": "forcegage",
   "repository": {
     "type": "git",
