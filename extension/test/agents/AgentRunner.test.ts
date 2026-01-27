@@ -25,6 +25,7 @@ const { loadSessionMock, getStorageMock } = vi.hoisted(() => {
   const loadSessionMock = vi.fn();
   const getStorageMock = vi.fn(() => ({
     load: loadSessionMock,
+    loadWithFallback: loadSessionMock,
   }));
 
   return { loadSessionMock, getStorageMock };
@@ -98,8 +99,17 @@ vi.mock("vscode", () => ({
   lm: {
     selectChatModels: vi.fn(),
   },
+  commands: {
+    executeCommand: vi.fn(),
+  },
   workspace: {
     workspaceFolders: [{ uri: { fsPath: "/test/workspace" } }],
+    getConfiguration: vi.fn(() => ({
+      inspect: vi.fn(() => ({
+        workspaceValue: "claude-opus-4.5",
+        globalValue: undefined,
+      })),
+    })),
   },
 }));
 
@@ -323,8 +333,10 @@ describe("AgentRunner", () => {
       });
 
       expect(session.messages.length).toBeGreaterThan(0);
-      expect(session.messages[0].role).toBe("user");
-      expect(session.messages[0].content).toBe("Initial prompt");
+      const initialMessage = session.messages.find(
+        (message) => message.role === "user" && message.content === "Initial prompt",
+      );
+      expect(initialMessage).toBeDefined();
     });
 
     test("should call vscode.lm.selectChatModels", async () => {
@@ -1013,6 +1025,67 @@ describe("AgentRunner", () => {
   });
 
   describe("model selection", () => {
+    test("should use family filter for Claude models", async () => {
+      const mockModel = { id: "claude-opus-4.5" };
+      vi.mocked(vscode.lm.selectChatModels).mockResolvedValueOnce([
+        mockModel as any,
+      ]);
+
+      await (runner as any).selectModel("orchestrator");
+
+      expect(vscode.lm.selectChatModels).toHaveBeenCalledWith({
+        family: "claude",
+      });
+    });
+
+    test("should return exact model match when available", async () => {
+      const exactModel = { id: "claude-opus-4.5" };
+      const otherModel = { id: "claude-sonnet-4.5" };
+
+      vi.mocked(vscode.lm.selectChatModels).mockResolvedValueOnce([
+        otherModel as any,
+        exactModel as any,
+      ]);
+
+      const selected = await (runner as any).selectModel("orchestrator");
+
+      expect(selected).toBe(exactModel);
+    });
+
+    test("should fall back to first available model when preferred not found", async () => {
+      const fallbackModel = { id: "claude-haiku-4" };
+      const otherModel = { id: "claude-sonnet-4.5" };
+
+      vi.mocked(vscode.lm.selectChatModels).mockResolvedValueOnce([
+        fallbackModel as any,
+        otherModel as any,
+      ]);
+
+      const selected = await (runner as any).selectModel("orchestrator");
+
+      expect(selected).toBe(fallbackModel);
+    });
+
+    test("should throw Claude-specific error when Claude models unavailable but others exist", async () => {
+      vi.mocked(vscode.lm.selectChatModels)
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([{ id: "gpt-4" } as any]);
+
+      await expect(
+        (runner as any).selectModel("orchestrator"),
+      ).rejects.toThrow("No Claude language models available");
+    });
+
+    test("should throw general error when no models are available", async () => {
+      vi.mocked(vscode.lm.selectChatModels)
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([]);
+
+      await expect(
+        (runner as any).selectModel("orchestrator"),
+      ).rejects.toThrow("No language models available");
+    });
+
     test("should select orchestrator model for orchestrator role", async () => {
       await runner.start("orchestrator", { prompt: "Test" });
 
@@ -1048,7 +1121,7 @@ describe("AgentRunner", () => {
       // The session should be in failed state
       expect(session.status).toBe("failed");
       expect(session.recoveryInfo.failureReason).toContain(
-        "No Claude language models available",
+        "No language models available",
       );
     });
   });

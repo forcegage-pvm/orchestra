@@ -635,22 +635,34 @@ export class AgentRunner implements vscode.Disposable {
           : this.config.controllerModel);
 
     const family = targetModel.startsWith("claude") ? "claude" : undefined;
-    const familyModels = family
-      ? await vscode.lm.selectChatModels({ family })
-      : [];
+    let models: vscode.LanguageModelChat[] = [];
 
-    const models =
-      familyModels.length > 0
-        ? familyModels
-        : await vscode.lm.selectChatModels();
+    if (family) {
+      const familyModels = await vscode.lm.selectChatModels({ family });
+      if (familyModels.length === 0) {
+        const allModels = await vscode.lm.selectChatModels();
+        if (allModels.length === 0) {
+          throw new AgentError(
+            "No language models available",
+            "NO_MODEL_AVAILABLE",
+          );
+        }
 
-    if (models.length === 0) {
-      throw new AgentError(
-        family === "claude"
-          ? "No Claude language models available"
-          : "No language models available",
-        "NO_MODEL_AVAILABLE",
-      );
+        throw new AgentError(
+          "No Claude language models available",
+          "NO_MODEL_AVAILABLE",
+        );
+      }
+
+      models = familyModels;
+    } else {
+      models = await vscode.lm.selectChatModels();
+      if (models.length === 0) {
+        throw new AgentError(
+          "No language models available",
+          "NO_MODEL_AVAILABLE",
+        );
+      }
     }
 
     // Try to find exact match first
