@@ -169,6 +169,12 @@ export function getAgentOutputStyles(): string {
       color: var(--vscode-descriptionForeground);
     }
 
+    .output-debug {
+      margin: -2px 0 6px;
+      font-size: 10px;
+      color: var(--vscode-descriptionForeground);
+    }
+
     .pill {
       display: inline-flex;
       align-items: center;

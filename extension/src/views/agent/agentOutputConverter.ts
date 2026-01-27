@@ -78,6 +78,10 @@ export function convertAgentOutput(
           success: output.toolSuccess ?? true,
           output: output.toolResult ?? "",
         },
+        debug:
+          typeof output.toolDuration === "number"
+            ? { durationMs: output.toolDuration }
+            : undefined,
       },
     };
   }

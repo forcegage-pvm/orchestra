@@ -21,6 +21,7 @@ import { handleFilterSprints } from "./commands/filterSprints.js";
 import { handlePlayTask } from "./commands/PlayTaskHandler.js";
 import { handleResumeAgent } from "./commands/resumeAgent.js";
 import { handleReviewSprint } from "./commands/ReviewSprintHandler.js";
+import { handleSetVerbosity } from "./commands/setVerbosity.js";
 import { handleUnarchiveSprint } from "./commands/unarchiveSprint.js";
 import { ConfigService } from "./config/ConfigService.js";
 import { OrchestraDB } from "./database/client.js";
@@ -898,6 +899,16 @@ export async function activate(
             `Orchestra: Failed to filter sprints - ${message}`,
           );
           logger.error("Failed to filter sprints", error);
+        });
+      }),
+      vscode.commands.registerCommand("orchestra.setVerbosity", () => {
+        handleSetVerbosity().catch((error) => {
+          const message =
+            error instanceof Error ? error.message : "Unknown error";
+          vscode.window.showErrorMessage(
+            `Orchestra: Failed to set verbosity - ${message}`,
+          );
+          logger.error("Failed to set verbosity", error);
         });
       }),
       vscode.commands.registerCommand("orchestra.openSprintSettings", () => {

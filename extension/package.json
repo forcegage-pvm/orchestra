@@ -86,6 +86,17 @@
           "type": "string",
           "default": "orchestra.controller",
           "description": "Agent mode identifier for the Controller role"
+        },
+        "orchestra.agents.verbosity": {
+          "type": "string",
+          "enum": [
+            "minimal",
+            "normal",
+            "detailed",
+            "debug"
+          ],
+          "default": "normal",
+          "description": "Verbosity level for agent output (minimal hides thinking, debug shows tokens/timing)"
         }
       }
     },
@@ -124,6 +135,11 @@
         "command": "orchestra.invokeImplementor",
         "title": "Orchestra: Invoke Implementor Agent",
         "icon": "$(tools)"
+      },
+      {
+        "command": "orchestra.setVerbosity",
+        "title": "Orchestra: Set Agent Verbosity",
+        "icon": "$(settings-gear)"
       },
       {
         "command": "orchestra.startTask",

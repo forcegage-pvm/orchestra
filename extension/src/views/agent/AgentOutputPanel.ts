@@ -7,6 +7,8 @@
 import * as vscode from "vscode";
 import type { AgentRunner } from "../../agents/AgentRunner.js";
 import { AgentError } from "../../agents/errors.js";
+import type { VerbosityLevel } from "../../agents/types.js";
+import { getVerbosity } from "../../config/settings.js";
 import { bindAgentOutput } from "./agentOutputConverter.js";
 import {
   generateAgentOutputHtml,
@@ -78,6 +80,12 @@ export class AgentOutputPanel {
    * Add output item to panel
    */
   public addOutput(output: AgentOutputItem): void {
+    const verbosity = getVerbosity();
+    const preparedOutput = this.applyVerbosity(output, verbosity);
+    if (!preparedOutput) {
+      return;
+    }
+
     this._itemCount += 1;
     const overflow = this._itemCount - this._maxItems;
     if (overflow > 0) {
@@ -85,7 +93,7 @@ export class AgentOutputPanel {
       this.enqueueMessage({ type: "prune", count: overflow });
     }
 
-    this.enqueueMessage({ type: "addOutput", output });
+    this.enqueueMessage({ type: "addOutput", output: preparedOutput });
   }
 
   /**
@@ -276,6 +284,82 @@ export class AgentOutputPanel {
       text += possible.charAt(Math.floor(Math.random() * possible.length));
     }
     return text;
+  }
+
+  private applyVerbosity(
+    output: AgentOutputItem,
+    verbosity: VerbosityLevel,
+  ): AgentOutputItem | null {
+    if (verbosity === "minimal" && output.type === "thinking") {
+      return null;
+    }
+
+    if (verbosity !== "debug") {
+      if (!output.debug) {
+        return output;
+      }
+
+      const { debug: _debug, ...rest } = output;
+      return rest;
+    }
+
+    const debugInfo = this.buildDebugInfo(output);
+    if (!debugInfo) {
+      return output;
+    }
+
+    return {
+      ...output,
+      debug: debugInfo,
+    };
+  }
+
+  private buildDebugInfo(output: AgentOutputItem): AgentOutputItem["debug"] {
+    const tokenCount = this.estimateTokenCount(output);
+    const durationMs = output.debug?.durationMs;
+
+    if (tokenCount === undefined && durationMs === undefined) {
+      return undefined;
+    }
+
+    return {
+      tokenCount,
+      durationMs,
+    };
+  }
+
+  private estimateTokenCount(output: AgentOutputItem): number | undefined {
+    const text = this.getTextForTokenCount(output);
+    if (!text) {
+      return undefined;
+    }
+
+    const estimated = Math.ceil(text.length / 4);
+    return Math.max(1, estimated);
+  }
+
+  private getTextForTokenCount(output: AgentOutputItem): string {
+    if (output.type === "thinking") {
+      return (output.content as { text: string }).text ?? "";
+    }
+
+    if (output.type === "tool_call") {
+      try {
+        return JSON.stringify(
+          (output.content as { arguments: Record<string, unknown> })
+            .arguments ?? {},
+        );
+      } catch {
+        return "";
+      }
+    }
+
+    const content = output.content as {
+      output: string;
+      error?: string;
+    };
+
+    return [content.output, content.error].filter(Boolean).join("\n");
   }
 
   /**

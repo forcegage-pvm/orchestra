@@ -5,6 +5,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as vscode from "vscode";
 import { AgentError } from "../../../src/agents/errors.js";
+import { getVerbosity } from "../../../src/config/settings.js";
 import { AgentOutputPanel } from "../../../src/views/agent/AgentOutputPanel.js";
 import {
   generateAgentOutputHtml,
@@ -29,9 +30,15 @@ const { bindAgentOutput } = vi.hoisted(() => ({
   bindAgentOutput: vi.fn(() => ({ dispose: vi.fn() })),
 }));
 
+const settingsMock = vi.hoisted(() => ({
+  getVerbosity: vi.fn(() => "normal"),
+}));
+
 vi.mock("../../../src/views/agent/agentOutputConverter.js", () => ({
   bindAgentOutput,
 }));
+
+vi.mock("../../../src/config/settings.js", () => settingsMock);
 
 vi.mock("vscode", () => ({
   ViewColumn: {
@@ -67,6 +74,7 @@ function createRunnerMock() {
 describe("AgentOutputPanel", () => {
   beforeEach(() => {
     vi.useFakeTimers();
+    vi.mocked(getVerbosity).mockReturnValue("normal");
   });
 
   afterEach(() => {
@@ -170,6 +178,63 @@ describe("AgentOutputPanel", () => {
       (message: { type: string; count?: number }) => message.type === "prune",
     );
     expect(pruneMessage).toMatchObject({ type: "prune", count: 1 });
+  });
+
+  it("should hide thinking output when verbosity is minimal", () => {
+    vi.mocked(getVerbosity).mockReturnValue("minimal");
+    const extensionUri = { fsPath: "/test/extension" } as vscode.Uri;
+    const panel = AgentOutputPanel.createOrShow(extensionUri);
+
+    const handler = vi.mocked(mockWebview.onDidReceiveMessage).mock
+      .calls[0]?.[0];
+    handler?.({ type: "ready" });
+
+    panel.addOutput({
+      id: "thinking-1",
+      type: "thinking",
+      timestamp: "now",
+      content: { text: "hidden" },
+    });
+
+    vi.advanceTimersByTime(50);
+
+    expect(mockWebview.postMessage).not.toHaveBeenCalled();
+  });
+
+  it("should include debug metadata when verbosity is debug", () => {
+    vi.mocked(getVerbosity).mockReturnValue("debug");
+    const extensionUri = { fsPath: "/test/extension" } as vscode.Uri;
+    const panel = AgentOutputPanel.createOrShow(extensionUri);
+
+    const handler = vi.mocked(mockWebview.onDidReceiveMessage).mock
+      .calls[0]?.[0];
+    handler?.({ type: "ready" });
+
+    panel.addOutput({
+      id: "result-1",
+      type: "tool_result",
+      timestamp: "now",
+      content: {
+        toolName: "get_current_task",
+        success: true,
+        output: "ok",
+      },
+      debug: { durationMs: 120 },
+    });
+
+    vi.advanceTimersByTime(50);
+
+    const [payload] = vi.mocked(mockWebview.postMessage).mock.calls[0] ?? [];
+    const messages = payload?.messages ?? [];
+    const outputMessage = messages.find(
+      (message: { type: string; output?: { debug?: unknown } }) =>
+        message.type === "addOutput",
+    );
+
+    expect(outputMessage?.output?.debug).toMatchObject({
+      durationMs: 120,
+      tokenCount: expect.any(Number),
+    });
   });
 
   it("should route pause message to AgentRunner.pause", async () => {
@@ -323,6 +388,32 @@ describe("generateAgentOutputHtml", () => {
     expect(html).toContain("summary");
     expect(html).toContain("token-string");
     expect(html).toContain("virtual-spacer-top");
+  });
+
+  it("should render debug metadata when provided", () => {
+    const items: AgentOutputItem[] = [
+      {
+        id: "debug-1",
+        type: "tool_result",
+        timestamp: "2026-01-01T00:00:03Z",
+        content: {
+          toolName: "get_current_task",
+          success: true,
+          output: "ok",
+        },
+        debug: { tokenCount: 12, durationMs: 50 },
+      },
+    ];
+
+    const html = generateAgentOutputHtml(
+      items,
+      "vscode-resource://test",
+      "Running",
+      "nonce",
+    );
+
+    expect(html).toContain("12 tokens");
+    expect(html).toContain("50 ms");
   });
 
   it("should include CSP and styles", () => {

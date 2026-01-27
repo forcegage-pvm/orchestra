@@ -12,6 +12,7 @@ export interface AgentOutputItem {
     | { text: string }
     | { toolName: string; arguments: Record<string, unknown> }
     | { toolName: string; success: boolean; output: string; error?: string };
+  debug?: { tokenCount?: number; durationMs?: number };
 }
 
 function escapeHtml(text: string): string {
@@ -81,14 +82,40 @@ function serializeForScript(value: unknown): string {
   return JSON.stringify(value).replace(/</g, "\\u003c");
 }
 
+function formatDebugInfo(debug?: {
+  tokenCount?: number;
+  durationMs?: number;
+}): string {
+  if (!debug) {
+    return "";
+  }
+
+  const tokens =
+    typeof debug.tokenCount === "number" ? `${debug.tokenCount} tokens` : "";
+  const duration =
+    typeof debug.durationMs === "number" ? `${debug.durationMs} ms` : "";
+  return [tokens, duration].filter(Boolean).join(" • ");
+}
+
+function renderDebugMeta(item: AgentOutputItem): string {
+  const info = formatDebugInfo(item.debug);
+  if (!info) {
+    return "";
+  }
+
+  return `<div class="output-debug">${escapeHtml(info)}</div>`;
+}
+
 function renderThinking(item: AgentOutputItem): string {
   const content = item.content as { text: string };
+  const debugMeta = renderDebugMeta(item);
   return `
     <div class="output-item output-thinking" data-id="${escapeHtml(item.id)}" id="output-${escapeHtml(item.id)}">
       <div class="output-meta">
         <span class="pill pill-thinking">Thinking</span>
         <span>${escapeHtml(item.timestamp)}</span>
       </div>
+      ${debugMeta}
       <div class="thinking-text">${escapeHtml(content.text)}</div>
     </div>
   `;
@@ -99,12 +126,14 @@ function renderToolCall(item: AgentOutputItem): string {
     toolName: string;
     arguments: Record<string, unknown>;
   };
+  const debugMeta = renderDebugMeta(item);
   return `
     <div class="output-item output-tool-call" data-id="${escapeHtml(item.id)}" id="output-${escapeHtml(item.id)}">
       <div class="output-meta">
         <span class="pill pill-tool-call">Tool Call</span>
         <span>${escapeHtml(item.timestamp)}</span>
       </div>
+      ${debugMeta}
       <div class="tool-call-title">${escapeHtml(content.toolName)}</div>
       <pre class="tool-arguments code-block">${highlightJson(content.arguments)}</pre>
     </div>
@@ -118,6 +147,7 @@ function renderToolResult(item: AgentOutputItem): string {
     output: string;
     error?: string;
   };
+  const debugMeta = renderDebugMeta(item);
   const resultClass = content.success ? "" : "error";
   const statusLabel = content.success ? "Success" : "Error";
   const errorBlock = content.error
@@ -130,6 +160,7 @@ function renderToolResult(item: AgentOutputItem): string {
         <span class="pill pill-tool-result ${resultClass}">${statusLabel}</span>
         <span>${escapeHtml(item.timestamp)}</span>
       </div>
+      ${debugMeta}
       <details class="tool-result" ${content.success ? "" : "open"}>
         <summary>${escapeHtml(content.toolName)}</summary>
         <div class="tool-result-body">
@@ -228,6 +259,18 @@ function getScript(initialItemsJson: string): string {
       }
     }
 
+    function formatDebugInfo(debug) {
+      if (!debug) {
+        return "";
+      }
+
+      const tokens =
+        typeof debug.tokenCount === "number" ? debug.tokenCount + " tokens" : "";
+      const duration =
+        typeof debug.durationMs === "number" ? debug.durationMs + " ms" : "";
+      return [tokens, duration].filter(Boolean).join(" • ");
+    }
+
     function renderItem(item) {
       const container = document.createElement("div");
       container.classList.add("output-item");
@@ -247,6 +290,16 @@ function getScript(initialItemsJson: string): string {
       meta.appendChild(timestamp);
 
       container.appendChild(meta);
+
+      if (item.debug) {
+        const debugText = formatDebugInfo(item.debug);
+        if (debugText) {
+          const debug = document.createElement("div");
+          debug.classList.add("output-debug");
+          debug.textContent = debugText;
+          container.appendChild(debug);
+        }
+      }
 
       if (item.type === "thinking") {
         container.classList.add("output-thinking");
@@ -575,10 +628,7 @@ export function generateAgentOutputHtml(
     ? ""
     : `<div id="empty-state" class="empty-state">Agent output will appear here.</div>`;
 
-  const statusKey = status
-    .trim()
-    .toLowerCase()
-    .replace(/\s+/g, "-") || "idle";
+  const statusKey = status.trim().toLowerCase().replace(/\s+/g, "-") || "idle";
 
   const scriptNonce = nonce || "1";
   const initialItemsJson = serializeForScript(items);
