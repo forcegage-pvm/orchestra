@@ -291,10 +291,7 @@ export class SprintMemory {
 
     const updated: SprintMemoryRecord = {
       ...memory,
-      implementorPatterns: [
-        ...memory.implementorPatterns,
-        patternResult.data,
-      ],
+      implementorPatterns: [...memory.implementorPatterns, patternResult.data],
       updatedAt: new Date().toISOString(),
     };
 
@@ -382,7 +379,9 @@ export class SprintMemory {
       .sort()
       .at(-1);
 
-    const maxTaskId = Math.max(...taskSummaries.map((summary) => summary.taskId));
+    const maxTaskId = Math.max(
+      ...taskSummaries.map((summary) => summary.taskId),
+    );
 
     return TaskSummarySchema.parse({
       taskId: maxTaskId,

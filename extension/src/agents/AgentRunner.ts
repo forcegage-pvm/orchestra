@@ -902,8 +902,7 @@ export class AgentRunner implements vscode.Disposable {
     compactionCount: number;
     lastCompactedAt: string | null;
   }): string {
-    const goals =
-      memory.goals.length > 0 ? memory.goals.join("; ") : "None";
+    const goals = memory.goals.length > 0 ? memory.goals.join("; ") : "None";
     const decisions =
       memory.architectureDecisions.length > 0
         ? memory.architectureDecisions
@@ -1048,7 +1047,7 @@ export class AgentRunner implements vscode.Disposable {
       const taskId =
         typeof patternRecord.taskId === "number" && patternRecord.taskId > 0
           ? Math.floor(patternRecord.taskId)
-          : this.session.taskId ?? 1;
+          : (this.session.taskId ?? 1);
 
       const example =
         typeof patternRecord.example === "string"
@@ -1056,7 +1055,8 @@ export class AgentRunner implements vscode.Disposable {
           : undefined;
 
       const frequency =
-        typeof patternRecord.frequency === "number" && patternRecord.frequency > 0
+        typeof patternRecord.frequency === "number" &&
+        patternRecord.frequency > 0
           ? Math.floor(patternRecord.frequency)
           : undefined;
 

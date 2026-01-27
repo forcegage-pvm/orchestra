@@ -36,7 +36,10 @@ vi.mock("vscode", () => {
   };
 
   const LanguageModelChatMessage = {
-    User: (content: unknown) => ({ role: LanguageModelChatMessageRole.User, content }),
+    User: (content: unknown) => ({
+      role: LanguageModelChatMessageRole.User,
+      content,
+    }),
     Assistant: (content: unknown) => ({
       role: LanguageModelChatMessageRole.Assistant,
       content,
@@ -150,7 +153,10 @@ describe("AgentRunner + SprintMemory integration", () => {
 
     const runner = new AgentRunner(toolRegistry);
     const runSpy = vi
-      .spyOn(runner as unknown as { runAgentLoop: () => Promise<void> }, "runAgentLoop")
+      .spyOn(
+        runner as unknown as { runAgentLoop: () => Promise<void> },
+        "runAgentLoop",
+      )
       .mockResolvedValue();
 
     const session = await runner.start("orchestrator", {
@@ -184,9 +190,10 @@ describe("AgentRunner + SprintMemory integration", () => {
     } as unknown as ToolRegistry;
 
     const runner = new AgentRunner(toolRegistry);
-    vi
-      .spyOn(runner as unknown as { runAgentLoop: () => Promise<void> }, "runAgentLoop")
-      .mockResolvedValue();
+    vi.spyOn(
+      runner as unknown as { runAgentLoop: () => Promise<void> },
+      "runAgentLoop",
+    ).mockResolvedValue();
 
     const session = await runner.start("orchestrator", {
       prompt: "Complete",
@@ -198,7 +205,11 @@ describe("AgentRunner + SprintMemory integration", () => {
       createFileChange({ relativePath: "src/new.ts", operation: "create" }),
     );
 
-    await (runner as unknown as { executeToolCalls: (value: unknown[]) => Promise<void> }).executeToolCalls([
+    await (
+      runner as unknown as {
+        executeToolCalls: (value: unknown[]) => Promise<void>;
+      }
+    ).executeToolCalls([
       {
         name: "complete_task",
         input: {
