@@ -1,0 +1,49 @@
+{
+  "version": "1.0",
+  "id": "061130a3-6a2f-466c-927b-ed5b5038f145",
+  "role": "orchestrator",
+  "taskId": null,
+  "sprintId": "default-sprint",
+  "status": "paused",
+  "createdAt": "2026-01-27T14:11:38.491Z",
+  "updatedAt": "2026-01-27T14:11:38.510Z",
+  "lastActivityAt": "2026-01-27T14:11:38.510Z",
+  "currentIteration": 1,
+  "maxIterations": 50,
+  "messages": [
+    {
+      "id": "458440f3-06f7-4e4d-8666-f7370f8094c3",
+      "role": "user",
+      "content": "[SPRINT MEMORY CONTEXT]\nSprint: default-sprint (default-sprint)\nGoals: None\nArchitecture decisions: None\nTask summaries: None\nImplementor patterns: None\nCompaction count: 0\nLast compacted at: Never",
+      "timestamp": "2026-01-27T14:11:38.496Z",
+      "iteration": 0
+    },
+    {
+      "id": "536b0aed-8a38-4b77-aa9c-9e0ae9434683",
+      "role": "user",
+      "content": "Test",
+      "timestamp": "2026-01-27T14:11:38.497Z",
+      "iteration": 0
+    }
+  ],
+  "toolCalls": [],
+  "fileChanges": [],
+  "checkpoints": [
+    {
+      "id": "4123bf20-d680-451e-ae94-0d647747c074",
+      "iteration": 1,
+      "position": "end",
+      "toolCallId": null,
+      "filePath": "X:\\Cloud Storage\\Dropbox\\Repositories\\vs code\\orchestra\\extension\\.orchestra\\sessions\\checkpoints\\061130a3-6a2f-466c-927b-ed5b5038f145-iter-1.json",
+      "fileSize": 1059,
+      "createdAt": "2026-01-27T14:11:38.498Z"
+    }
+  ],
+  "lastCheckpointId": "4123bf20-d680-451e-ae94-0d647747c074",
+  "recoveryInfo": {
+    "canResume": true,
+    "resumeFromIteration": 1,
+    "resumeFromToolCall": null,
+    "failureReason": null
+  }
+}

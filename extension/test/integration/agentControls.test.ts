@@ -81,6 +81,9 @@ vi.mock("vscode", () => ({
   },
   workspace: {
     workspaceFolders: [{ uri: { fsPath: "/test/workspace" } }],
+    getConfiguration: () => ({
+      inspect: () => ({ workspaceValue: "claude-sonnet-4.5" }),
+    }),
   },
 }));
 

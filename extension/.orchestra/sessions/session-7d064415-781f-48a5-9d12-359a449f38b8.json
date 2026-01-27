@@ -1,0 +1,63 @@
+{
+  "version": "1.0",
+  "id": "7d064415-781f-48a5-9d12-359a449f38b8",
+  "role": "orchestrator",
+  "taskId": null,
+  "sprintId": "default-sprint",
+  "status": "stopped",
+  "createdAt": "2026-01-27T14:11:38.590Z",
+  "updatedAt": "2026-01-27T14:11:38.604Z",
+  "lastActivityAt": "2026-01-27T14:11:38.604Z",
+  "currentIteration": 1,
+  "maxIterations": 50,
+  "messages": [
+    {
+      "id": "caa25fef-8a8c-43fb-b7cd-b8e5c1f80101",
+      "role": "user",
+      "content": "[SPRINT MEMORY CONTEXT]\nSprint: default-sprint (default-sprint)\nGoals: None\nArchitecture decisions: None\nTask summaries: None\nImplementor patterns: None\nCompaction count: 0\nLast compacted at: Never",
+      "timestamp": "2026-01-27T14:11:38.591Z",
+      "iteration": 0
+    },
+    {
+      "id": "760d01c8-e5ae-4daf-b67c-95d78958dfa9",
+      "role": "user",
+      "content": "Initial",
+      "timestamp": "2026-01-27T14:11:38.591Z",
+      "iteration": 0
+    },
+    {
+      "id": "851471f6-71c0-4391-914b-43ddf43cd34d",
+      "role": "user",
+      "content": "New instruction",
+      "timestamp": "2026-01-27T14:11:38.603Z",
+      "iteration": 1
+    },
+    {
+      "id": "7b3f168f-0e5e-4018-8c3e-21db58d8d94a",
+      "role": "assistant",
+      "content": "Thinking...",
+      "timestamp": "2026-01-27T14:11:38.604Z",
+      "iteration": 1
+    }
+  ],
+  "toolCalls": [],
+  "fileChanges": [],
+  "checkpoints": [
+    {
+      "id": "639b873c-6827-4745-b7ff-67e33d7c9672",
+      "iteration": 1,
+      "position": "end",
+      "toolCallId": null,
+      "filePath": "X:\\Cloud Storage\\Dropbox\\Repositories\\vs code\\orchestra\\extension\\.orchestra\\sessions\\checkpoints\\7d064415-781f-48a5-9d12-359a449f38b8-iter-1.json",
+      "fileSize": 1062,
+      "createdAt": "2026-01-27T14:11:38.591Z"
+    }
+  ],
+  "lastCheckpointId": "639b873c-6827-4745-b7ff-67e33d7c9672",
+  "recoveryInfo": {
+    "canResume": true,
+    "resumeFromIteration": 1,
+    "resumeFromToolCall": null,
+    "failureReason": null
+  }
+}
