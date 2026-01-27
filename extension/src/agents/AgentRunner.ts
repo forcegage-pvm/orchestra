@@ -13,6 +13,8 @@
 
 import type { LanguageModelChatMessage, LanguageModelChatTool } from "vscode";
 import * as vscode from "vscode";
+import { isModelSelectionRequired } from "../commands/selectModel.js";
+import type { ConfigService } from "../config/ConfigService.js";
 import { createEscalation } from "../database/mutations.js";
 import { AgentSession } from "./AgentSession.js";
 import { ContextManager } from "./ContextManager.js";
@@ -122,6 +124,7 @@ export class AgentRunner implements vscode.Disposable {
   private toolRegistry: ToolRegistry;
   private contextManager: ContextManager;
   private config: AgentConfig;
+  private configService?: ConfigService;
 
   // Execution control
   private isPaused = false;
@@ -148,8 +151,13 @@ export class AgentRunner implements vscode.Disposable {
    * @param toolRegistry - Tool registry for executing tool calls
    * @param config - Agent configuration (models, iterations, verbosity)
    */
-  constructor(toolRegistry: ToolRegistry, config?: Partial<AgentConfig>) {
+  constructor(
+    toolRegistry: ToolRegistry,
+    config?: Partial<AgentConfig>,
+    configService?: ConfigService,
+  ) {
     this.toolRegistry = toolRegistry;
+    this.configService = configService;
 
     // Build context manager config with proper optional handling
     const contextConfig: {
@@ -180,6 +188,36 @@ export class AgentRunner implements vscode.Disposable {
     };
   }
 
+  private getConfiguredModel(role: AgentRole): string {
+    if (this.configService) {
+      return this.configService.getModelForRole(role);
+    }
+
+    if (role === "orchestrator") {
+      return this.config.orchestratorModel;
+    }
+
+    if (role === "implementor") {
+      return this.config.implementorModel;
+    }
+
+    return this.config.controllerModel;
+  }
+
+  private applyConfiguredModel(role: AgentRole, model: string): void {
+    if (role === "orchestrator") {
+      this.config.orchestratorModel = model;
+      return;
+    }
+
+    if (role === "implementor") {
+      this.config.implementorModel = model;
+      return;
+    }
+
+    this.config.controllerModel = model;
+  }
+
   /**
    * Start a new agent session
    *
@@ -208,6 +246,13 @@ export class AgentRunner implements vscode.Disposable {
     this.consecutiveErrors = 0;
     this.recentErrors = [];
     this.hasEscalated = false;
+
+    if (!options.model && isModelSelectionRequired(role)) {
+      await vscode.commands.executeCommand("orchestra.selectModel", role);
+    }
+
+    const configuredModel = this.getConfiguredModel(role);
+    this.applyConfiguredModel(role, configuredModel);
 
     // Create new session
     const sprintId = options.sprintId ?? "default-sprint";
@@ -243,7 +288,8 @@ export class AgentRunner implements vscode.Disposable {
     this.emitStateChange();
 
     // Start agent loop in background (don't await)
-    this.runningPromise = this.runAgentLoop(role, options.model).catch(
+    const modelOverride = options.model ?? configuredModel;
+    this.runningPromise = this.runAgentLoop(role, modelOverride).catch(
       (error) => {
         this.handleError(error);
       },

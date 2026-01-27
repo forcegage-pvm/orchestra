@@ -21,6 +21,7 @@ import { handleFilterSprints } from "./commands/filterSprints.js";
 import { handlePlayTask } from "./commands/PlayTaskHandler.js";
 import { handleResumeAgent } from "./commands/resumeAgent.js";
 import { handleReviewSprint } from "./commands/ReviewSprintHandler.js";
+import { handleSelectModel } from "./commands/selectModel.js";
 import { handleSetVerbosity } from "./commands/setVerbosity.js";
 import { handleUnarchiveSprint } from "./commands/unarchiveSprint.js";
 import { ConfigService } from "./config/ConfigService.js";
@@ -146,13 +147,17 @@ export function getAgentRunner(): AgentRunner {
 
 function createAgentRunner(): AgentRunner {
   const toolRegistry = new ToolRegistry();
-  return new AgentRunner(toolRegistry, {
-    orchestratorModel: getConfigService().getModelForRole("orchestrator"),
-    implementorModel: getConfigService().getModelForRole("implementor"),
-    controllerModel: getConfigService().getModelForRole("controller"),
-    maxIterations: 50,
-    maxContextTokens: 100000,
-  });
+  return new AgentRunner(
+    toolRegistry,
+    {
+      orchestratorModel: getConfigService().getModelForRole("orchestrator"),
+      implementorModel: getConfigService().getModelForRole("implementor"),
+      controllerModel: getConfigService().getModelForRole("controller"),
+      maxIterations: 50,
+      maxContextTokens: 100000,
+    },
+    getConfigService(),
+  );
 }
 
 /**
@@ -911,6 +916,25 @@ export async function activate(
           logger.error("Failed to set verbosity", error);
         });
       }),
+      vscode.commands.registerCommand(
+        "orchestra.selectModel",
+        (role?: string) => {
+          const selectedRole =
+            role === "orchestrator" ||
+            role === "implementor" ||
+            role === "controller"
+              ? role
+              : undefined;
+          handleSelectModel(selectedRole).catch((error) => {
+            const message =
+              error instanceof Error ? error.message : "Unknown error";
+            vscode.window.showErrorMessage(
+              `Orchestra: Failed to select model - ${message}`,
+            );
+            logger.error("Failed to select model", error);
+          });
+        },
+      ),
       vscode.commands.registerCommand("orchestra.openSprintSettings", () => {
         SprintSettingsPanel.show(orchestraRoot, logger);
       }),

@@ -142,6 +142,11 @@
         "icon": "$(settings-gear)"
       },
       {
+        "command": "orchestra.selectModel",
+        "title": "Orchestra: Select Agent Model",
+        "icon": "$(symbol-misc)"
+      },
+      {
         "command": "orchestra.startTask",
         "title": "Start Task",
         "icon": "$(play)"
