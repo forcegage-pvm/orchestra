@@ -5,7 +5,7 @@
 import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
-import { afterEach, beforeEach, describe, expect, test } from "vitest";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { SprintMemory } from "../../../src/agents/memory/SprintMemory.js";
 import {
   ArchitectureDecisionSchema,
@@ -47,6 +47,7 @@ describe("SprintMemory", () => {
     if (fs.existsSync(tempDir)) {
       fs.rmSync(tempDir, { recursive: true, force: true });
     }
+    vi.restoreAllMocks();
   });
 
   test("save() writes YAML to correct path", async () => {
@@ -163,6 +164,76 @@ describe("SprintMemory", () => {
 
     const loaded = await memoryStore.load("sprint-007");
     expect(loaded?.implementorPatterns).toHaveLength(1);
+  });
+
+  test("addTaskSummary() throws when sprint memory missing", async () => {
+    const summary = TaskSummarySchema.parse({
+      taskId: 21,
+      title: "Missing sprint",
+      outcome: "failed",
+      attemptCount: 1,
+      description: "Sprint does not exist",
+      lessonsLearned: [],
+      issuesEncountered: [],
+      filesCreated: [],
+      filesModified: [],
+      filesDeleted: [],
+      completedAt: new Date().toISOString(),
+    });
+
+    await expect(
+      memoryStore.addTaskSummary("missing-sprint", summary),
+    ).rejects.toThrow(/Sprint memory not found/);
+  });
+
+  test("addArchitectureDecision() throws when sprint memory missing", async () => {
+    const decision = ArchitectureDecisionSchema.parse({
+      id: crypto.randomUUID(),
+      title: "Missing sprint",
+      decision: "No sprint record",
+      rationale: "Not created",
+      taskId: 51,
+      createdAt: new Date().toISOString(),
+    });
+
+    await expect(
+      memoryStore.addArchitectureDecision("missing-sprint", decision),
+    ).rejects.toThrow(/Sprint memory not found/);
+  });
+
+  test("addImplementorPattern() throws when sprint memory missing", async () => {
+    await expect(
+      memoryStore.addImplementorPattern("missing-sprint", {
+        pattern: "negative",
+        description: "Missing sprint",
+        taskId: 8,
+      }),
+    ).rejects.toThrow(/Sprint memory not found/);
+  });
+
+  test("load() throws on invalid sprint memory data", async () => {
+    const memoryPath = memoryStore.getMemoryPath("invalid-sprint");
+    await fs.promises.mkdir(path.dirname(memoryPath), { recursive: true });
+    await fs.promises.writeFile(
+      memoryPath,
+      "sprintId: invalid-sprint",
+      "utf-8",
+    );
+
+    await expect(memoryStore.load("invalid-sprint")).rejects.toThrow(
+      /Invalid sprint memory data/,
+    );
+  });
+
+  test("save() throws when write fails", async () => {
+    const memory = createMemoryRecord("sprint-009", "Sprint Nine");
+    vi.spyOn(fs.promises, "writeFile").mockRejectedValueOnce(
+      new Error("disk full"),
+    );
+
+    await expect(memoryStore.save(memory)).rejects.toThrow(
+      /Failed to save sprint memory/,
+    );
   });
 
   test("compact() summarizes after five task summaries", async () => {
