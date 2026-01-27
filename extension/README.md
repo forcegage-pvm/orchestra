@@ -11,6 +11,7 @@ Visual task orchestration extension for Orchestra AI agent workflows.
 - **Database Reactivity**: UI updates within 500ms of database changes
 - **MCP Integration**: Auto-starts orchestrator and implementor MCP servers
 - **Status Bar**: Current task indicator with quick dashboard access
+- **Custom AI Agents**: Autonomous agent execution with real-time output, file tracking, and session resume
 
 ## Requirements
 
@@ -45,6 +46,10 @@ Press F5 in VS Code to launch Extension Development Host.
 | `orchestra.autoStartMCP` | boolean | `true` | Auto-start MCP servers on activation |
 | `orchestra.updateInterval` | number | `500` | Database update debounce (ms) |
 | `orchestra.logLevel` | string | `"info"` | Log level (debug/info/warn/error) |
+| `orchestra.agents.models.orchestrator` | string | `"claude-opus-4.5"` | Model for Orchestrator agent |
+| `orchestra.agents.models.implementor` | string | `"claude-sonnet-4.5"` | Model for Implementor agent |
+| `orchestra.agents.models.controller` | string | `"claude-opus-4.5"` | Model for Controller agent |
+| `orchestra.agents.verbosity` | string | `"normal"` | Agent output verbosity (minimal/normal/detailed/debug) |
 
 ## Commands
 
@@ -53,6 +58,24 @@ Press F5 in VS Code to launch Extension Development Host.
 | `Orchestra: Open Dashboard` | - | Open main dashboard panel |
 | `Orchestra: Refresh Status` | - | Manually refresh all views |
 | `Orchestra: Open Task Detail` | - | Open detailed task view |
+| `Orchestra: Start Agent` | - | Start agent execution for a task |
+| `Orchestra: Pause Agent` | - | Pause the running agent |
+| `Orchestra: Resume Agent` | - | Resume a paused agent |
+| `Orchestra: Stop Agent` | - | Stop agent execution and preserve state |
+
+## Custom AI Agents
+
+Agents can execute prepared tasks autonomously with full transparency and control. While running, the Agent Output Panel streams reasoning, tool calls, and results. You can pause, resume, stop, or redirect an agent at any time.
+
+### Using Agents
+
+1. Select an IMPLEMENT-phase task with a prepared handover.
+2. Start the agent from the task view (Play control) or the `Orchestra: Start Agent` command.
+3. Monitor live output in the Agent Output Panel.
+4. Use pause/resume/stop controls to manage execution.
+5. Review file changes in the Changed Files panel; use Diff or Undo as needed.
+
+For architecture and component details, see docs/agents.md.
 
 ## Project Structure
 
@@ -60,6 +83,13 @@ Press F5 in VS Code to launch Extension Development Host.
 extension/
 ├── src/
 │   ├── extension.ts              # Entry point
+│   ├── agents/                    # Agent runtime, tools, and memory
+│   │   ├── AgentRunner.ts          # Core execution loop
+│   │   ├── AgentSession.ts         # Session state & persistence
+│   │   ├── ToolRegistry.ts         # Tool registration & execution
+│   │   ├── ContextManager.ts       # Context window management
+│   │   ├── FileChangeTracker.ts    # Track & undo file changes
+│   │   └── memory/                 # Sprint memory storage
 │   ├── workspace/
 │   │   └── detector.ts           # .orchestra/ detection
 │   ├── database/
