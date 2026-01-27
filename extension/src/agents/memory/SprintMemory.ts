@@ -2,20 +2,25 @@
  * SprintMemory - persistent cross-task context for orchestrator sessions
  */
 
+import * as crypto from "crypto";
 import * as fs from "fs";
 import { dump, load } from "js-yaml";
 import * as path from "path";
 import { AgentError } from "../errors.js";
 import {
   ArchitectureDecisionSchema,
+  ImplementorPatternSchema,
   SprintMemorySchema,
   TaskSummarySchema,
   type ArchitectureDecision,
+  type ImplementorPattern,
   type SprintMemory as SprintMemoryRecord,
+  type TaskOutcome,
   type TaskSummary,
 } from "./types.js";
 
 const MEMORY_VERSION = "1.0" as const;
+export const COMPACTION_THRESHOLD = 5;
 
 export class SprintMemory {
   private static instance: SprintMemory | null = null;
@@ -178,6 +183,10 @@ export class SprintMemory {
       updatedAt: new Date().toISOString(),
     };
 
+    if (updated.taskSummaries.length >= COMPACTION_THRESHOLD) {
+      return this.compact(updated);
+    }
+
     await this.save(updated);
     return updated;
   }
@@ -243,6 +252,76 @@ export class SprintMemory {
     return updated;
   }
 
+  async addImplementorPattern(
+    sprintId: string,
+    input: Omit<ImplementorPattern, "id" | "frequency"> & {
+      frequency?: number;
+    },
+  ): Promise<SprintMemoryRecord> {
+    const memory = await this.load(sprintId);
+    if (!memory) {
+      throw new AgentError(
+        "Sprint memory not found",
+        "SPRINT_MEMORY_NOT_FOUND",
+        {
+          sprintId,
+        },
+      );
+    }
+
+    const patternCandidate: ImplementorPattern = {
+      id: crypto.randomUUID(),
+      pattern: input.pattern,
+      description: input.description,
+      taskId: input.taskId,
+      example: input.example,
+      frequency: input.frequency ?? 1,
+    };
+
+    const patternResult = ImplementorPatternSchema.safeParse(patternCandidate);
+    if (!patternResult.success) {
+      throw new AgentError(
+        "Implementor pattern validation failed",
+        "SPRINT_MEMORY_INVALID",
+        {
+          errors: patternResult.error.errors,
+        },
+      );
+    }
+
+    const updated: SprintMemoryRecord = {
+      ...memory,
+      implementorPatterns: [
+        ...memory.implementorPatterns,
+        patternResult.data,
+      ],
+      updatedAt: new Date().toISOString(),
+    };
+
+    await this.save(updated);
+    return updated;
+  }
+
+  async compact(memory: SprintMemoryRecord): Promise<SprintMemoryRecord> {
+    if (memory.taskSummaries.length < COMPACTION_THRESHOLD) {
+      return memory;
+    }
+
+    const now = new Date().toISOString();
+    const summary = this.summarizeTaskSummaries(memory.taskSummaries);
+
+    const compacted: SprintMemoryRecord = {
+      ...memory,
+      taskSummaries: [summary],
+      compactionCount: memory.compactionCount + 1,
+      lastCompactedAt: now,
+      updatedAt: now,
+    };
+
+    await this.save(compacted);
+    return compacted;
+  }
+
   private createDefaultMemory(
     sprintId: string,
     sprintName: string,
@@ -262,5 +341,63 @@ export class SprintMemory {
       createdAt: now,
       updatedAt: now,
     };
+  }
+
+  private summarizeTaskSummaries(taskSummaries: TaskSummary[]): TaskSummary {
+    const outcomes = taskSummaries.map((summary) => summary.outcome);
+    const outcome: TaskOutcome = outcomes.includes("failed")
+      ? "failed"
+      : outcomes.includes("escalated")
+        ? "failed"
+        : outcomes.includes("partial")
+          ? "partial"
+          : "success";
+
+    const attemptCount = taskSummaries.reduce(
+      (total, summary) => total + summary.attemptCount,
+      0,
+    );
+
+    const uniqueStrings = (values: string[]): string[] =>
+      Array.from(new Set(values));
+
+    const lessonsLearned = uniqueStrings(
+      taskSummaries.flatMap((summary) => summary.lessonsLearned),
+    );
+    const issuesEncountered = uniqueStrings(
+      taskSummaries.flatMap((summary) => summary.issuesEncountered),
+    );
+    const filesCreated = uniqueStrings(
+      taskSummaries.flatMap((summary) => summary.filesCreated),
+    );
+    const filesModified = uniqueStrings(
+      taskSummaries.flatMap((summary) => summary.filesModified),
+    );
+    const filesDeleted = uniqueStrings(
+      taskSummaries.flatMap((summary) => summary.filesDeleted),
+    );
+
+    const lastCompletedAt = taskSummaries
+      .map((summary) => summary.completedAt)
+      .sort()
+      .at(-1);
+
+    const maxTaskId = Math.max(...taskSummaries.map((summary) => summary.taskId));
+
+    return TaskSummarySchema.parse({
+      taskId: maxTaskId,
+      title: `Summary of ${taskSummaries.length} tasks`,
+      outcome,
+      attemptCount,
+      description: taskSummaries
+        .map((summary) => `#${summary.taskId}: ${summary.title}`)
+        .join(" | "),
+      lessonsLearned,
+      issuesEncountered,
+      filesCreated,
+      filesModified,
+      filesDeleted,
+      completedAt: lastCompletedAt ?? new Date().toISOString(),
+    });
   }
 }

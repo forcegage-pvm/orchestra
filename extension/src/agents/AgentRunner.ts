@@ -17,6 +17,12 @@ import { createEscalation } from "../database/mutations.js";
 import { AgentSession } from "./AgentSession.js";
 import { ContextManager } from "./ContextManager.js";
 import { AgentError, SessionError } from "./errors.js";
+import { SprintMemory } from "./memory/SprintMemory.js";
+import {
+  generateTaskSummary,
+  type TaskSummaryInput,
+} from "./memory/TaskSummary.js";
+import type { TaskOutcome } from "./memory/types.js";
 import { SessionStorage } from "./SessionStorage.js";
 import { loadImplementorTools, loadOrchestratorTools } from "./toolLoaders.js";
 import { ToolRegistry } from "./ToolRegistry.js";
@@ -217,6 +223,14 @@ export class AgentRunner implements vscode.Disposable {
       loadImplementorTools(this.toolRegistry);
     } else if (role === "orchestrator") {
       loadOrchestratorTools(this.toolRegistry);
+
+      const workspaceRoot =
+        vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? process.cwd();
+      const memoryStore = SprintMemory.getInstance(workspaceRoot);
+      const sprintName = options.sprintId ?? sprintId;
+      const memory = await memoryStore.getOrCreate(sprintId, sprintName);
+      const memoryContext = this.formatSprintMemoryContext(memory);
+      this.addUserMessage(memoryContext);
     }
 
     // Create cancellation token
@@ -822,6 +836,10 @@ export class AgentRunner implements vscode.Disposable {
           toolSuccess,
           toolDuration: durationMs,
         });
+
+        if (toolSuccess) {
+          await this.handleTaskCompletion(toolCall.name, toolCall.input);
+        }
       } catch (error) {
         const durationMs = Date.now() - startTime;
         const errorMessage =
@@ -867,6 +885,188 @@ export class AgentRunner implements vscode.Disposable {
           recoverable: true,
         });
       }
+    }
+  }
+
+  private formatSprintMemoryContext(memory: {
+    sprintId: string;
+    sprintName: string;
+    goals: string[];
+    architectureDecisions: Array<{ title: string; decision: string }>;
+    taskSummaries: Array<{ taskId: number; title: string; outcome: string }>;
+    implementorPatterns: Array<{
+      pattern: string;
+      description: string;
+      example?: string;
+    }>;
+    compactionCount: number;
+    lastCompactedAt: string | null;
+  }): string {
+    const goals =
+      memory.goals.length > 0 ? memory.goals.join("; ") : "None";
+    const decisions =
+      memory.architectureDecisions.length > 0
+        ? memory.architectureDecisions
+            .map((decision) => `${decision.title}: ${decision.decision}`)
+            .join(" | ")
+        : "None";
+    const summaries =
+      memory.taskSummaries.length > 0
+        ? memory.taskSummaries
+            .map(
+              (summary) =>
+                `#${summary.taskId} ${summary.title} (${summary.outcome})`,
+            )
+            .join(" | ")
+        : "None";
+    const patterns =
+      memory.implementorPatterns.length > 0
+        ? memory.implementorPatterns
+            .map((pattern) => {
+              const example = pattern.example
+                ? ` (example: ${pattern.example})`
+                : "";
+              return `${pattern.pattern}: ${pattern.description}${example}`;
+            })
+            .join(" | ")
+        : "None";
+
+    return [
+      "[SPRINT MEMORY CONTEXT]",
+      `Sprint: ${memory.sprintName} (${memory.sprintId})`,
+      `Goals: ${goals}`,
+      `Architecture decisions: ${decisions}`,
+      `Task summaries: ${summaries}`,
+      `Implementor patterns: ${patterns}`,
+      `Compaction count: ${memory.compactionCount}`,
+      `Last compacted at: ${memory.lastCompactedAt ?? "Never"}`,
+    ].join("\n");
+  }
+
+  private async handleTaskCompletion(
+    toolName: string,
+    toolInput: unknown,
+  ): Promise<void> {
+    if (!this.session || this.session.role !== "orchestrator") {
+      return;
+    }
+
+    if (toolName !== "complete_task") {
+      return;
+    }
+
+    const input = toolInput as Record<string, unknown> | null;
+    const outcomeCandidates = ["success", "partial", "failed", "escalated"];
+    const outcome =
+      input &&
+      typeof input.outcome === "string" &&
+      outcomeCandidates.includes(input.outcome)
+        ? (input.outcome as TaskOutcome)
+        : "success";
+
+    const attemptCount =
+      input &&
+      typeof input.attemptCount === "number" &&
+      Number.isFinite(input.attemptCount) &&
+      input.attemptCount > 0
+        ? Math.floor(input.attemptCount)
+        : 1;
+
+    const title =
+      input && typeof input.title === "string"
+        ? input.title
+        : this.session.taskId !== null
+          ? `Task ${this.session.taskId}`
+          : "Task completed";
+
+    const description =
+      input && typeof input.description === "string"
+        ? input.description
+        : input && typeof input.summary === "string"
+          ? input.summary
+          : "Task completed.";
+
+    const lessonsLearned =
+      input && Array.isArray(input.lessonsLearned)
+        ? input.lessonsLearned.filter(
+            (lesson): lesson is string => typeof lesson === "string",
+          )
+        : [];
+
+    const issuesEncountered =
+      input && Array.isArray(input.issuesEncountered)
+        ? input.issuesEncountered.filter(
+            (issue): issue is string => typeof issue === "string",
+          )
+        : [];
+
+    const completedAt =
+      input && typeof input.completedAt === "string"
+        ? input.completedAt
+        : new Date().toISOString();
+
+    const summaryInput: TaskSummaryInput = {
+      title,
+      outcome,
+      attemptCount,
+      description,
+      lessonsLearned,
+      issuesEncountered,
+      completedAt,
+    };
+
+    const summary = generateTaskSummary(this.session, summaryInput);
+    const workspaceRoot =
+      vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? process.cwd();
+    const memoryStore = SprintMemory.getInstance(workspaceRoot);
+    await memoryStore.addTaskSummary(this.session.sprintId, summary);
+
+    const patterns =
+      input && Array.isArray(input.implementorPatterns)
+        ? input.implementorPatterns
+        : [];
+
+    for (const pattern of patterns) {
+      if (!pattern || typeof pattern !== "object") {
+        continue;
+      }
+
+      const patternRecord = pattern as Record<string, unknown>;
+      const patternType =
+        patternRecord.pattern === "positive" ||
+        patternRecord.pattern === "negative"
+          ? patternRecord.pattern
+          : null;
+      const descriptionText =
+        typeof patternRecord.description === "string"
+          ? patternRecord.description
+          : null;
+      if (!patternType || !descriptionText) {
+        continue;
+      }
+
+      const taskId =
+        typeof patternRecord.taskId === "number" && patternRecord.taskId > 0
+          ? Math.floor(patternRecord.taskId)
+          : this.session.taskId ?? 1;
+
+      const example =
+        typeof patternRecord.example === "string"
+          ? patternRecord.example
+          : undefined;
+
+      const frequency =
+        typeof patternRecord.frequency === "number" && patternRecord.frequency > 0
+          ? Math.floor(patternRecord.frequency)
+          : undefined;
+
+      await memoryStore.addImplementorPattern(this.session.sprintId, {
+        pattern: patternType,
+        description: descriptionText,
+        taskId,
+        example,
+        frequency,
+      });
     }
   }
 

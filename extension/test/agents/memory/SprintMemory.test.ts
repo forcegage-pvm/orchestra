@@ -147,4 +147,53 @@ describe("SprintMemory", () => {
 
     expect(result.success).toBe(false);
   });
+
+  test("addImplementorPattern() appends patterns", async () => {
+    await memoryStore.getOrCreate("sprint-007", "Sprint Seven");
+
+    const updated = await memoryStore.addImplementorPattern("sprint-007", {
+      pattern: "positive",
+      description: "Clear acceptance criteria",
+      taskId: 7,
+      example: "List criteria up front",
+    });
+
+    expect(updated.implementorPatterns).toHaveLength(1);
+    expect(updated.implementorPatterns[0]?.pattern).toBe("positive");
+
+    const loaded = await memoryStore.load("sprint-007");
+    expect(loaded?.implementorPatterns).toHaveLength(1);
+  });
+
+  test("compact() summarizes after five task summaries", async () => {
+    await memoryStore.getOrCreate("sprint-008", "Sprint Eight");
+
+    for (let index = 1; index <= 5; index += 1) {
+      const summary = TaskSummarySchema.parse({
+        taskId: index,
+        title: `Task ${index}`,
+        outcome: "success",
+        attemptCount: 1,
+        description: `Completed task ${index}`,
+        lessonsLearned: [],
+        issuesEncountered: [],
+        filesCreated: [],
+        filesModified: [],
+        filesDeleted: [],
+        completedAt: new Date().toISOString(),
+      });
+
+      await memoryStore.addTaskSummary("sprint-008", summary);
+    }
+
+    const loaded = await memoryStore.load("sprint-008");
+    expect(loaded?.taskSummaries).toHaveLength(1);
+    expect(loaded?.compactionCount).toBe(1);
+    expect(loaded?.lastCompactedAt).not.toBeNull();
+
+    const compactedSummary = loaded?.taskSummaries[0];
+    if (compactedSummary) {
+      expect(compactedSummary.title).toMatch(/Summary of 5 tasks/);
+    }
+  });
 });
