@@ -430,6 +430,7 @@
   "dependencies": {
     "better-sqlite3": "^12.6.2",
     "drizzle-orm": "^0.37.0",
+    "js-yaml": "^4.1.0",
     "zod": "^3.25.76"
   },
   "bundledDependencies": [
@@ -440,6 +441,7 @@
   "devDependencies": {
     "@eslint/js": "^9.17.0",
     "@types/better-sqlite3": "^7.6.12",
+    "@types/js-yaml": "^4.0.9",
     "@types/node": "^20.x",
     "@types/vscode": "^1.95.0",
     "@vscode/test-electron": "^2.4.1",
