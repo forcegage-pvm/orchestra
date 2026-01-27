@@ -2,7 +2,7 @@
  * Unit tests for TaskSummary generation
  */
 
-import { describe, expect, test } from "vitest";
+import { expect, test } from "vitest";
 import { AgentSession } from "../../../src/agents/AgentSession.js";
 import {
   TaskSummarySchema,
@@ -35,34 +35,48 @@ const createFileChange = (params: {
 test("generateTaskSummary() creates valid summary and categorizes file changes", () => {
   const session = new AgentSession("implementor", "sprint-100", 42);
 
-  session.fileChanges.push(createFileChange({
-    relativePath: "src/new.ts",
-    operation: "create",
-  }));
-  session.fileChanges.push(createFileChange({
-    relativePath: "src/existing.ts",
-    operation: "modify",
-  }));
-  session.fileChanges.push(createFileChange({
-    relativePath: "src/obsolete.ts",
-    operation: "delete",
-  }));
-  session.fileChanges.push(createFileChange({
-    relativePath: "src/created-then-modified.ts",
-    operation: "create",
-  }));
-  session.fileChanges.push(createFileChange({
-    relativePath: "src/created-then-modified.ts",
-    operation: "modify",
-  }));
-  session.fileChanges.push(createFileChange({
-    relativePath: "src/modified-then-deleted.ts",
-    operation: "modify",
-  }));
-  session.fileChanges.push(createFileChange({
-    relativePath: "src/modified-then-deleted.ts",
-    operation: "delete",
-  }));
+  session.fileChanges.push(
+    createFileChange({
+      relativePath: "src/new.ts",
+      operation: "create",
+    }),
+  );
+  session.fileChanges.push(
+    createFileChange({
+      relativePath: "src/existing.ts",
+      operation: "modify",
+    }),
+  );
+  session.fileChanges.push(
+    createFileChange({
+      relativePath: "src/obsolete.ts",
+      operation: "delete",
+    }),
+  );
+  session.fileChanges.push(
+    createFileChange({
+      relativePath: "src/created-then-modified.ts",
+      operation: "create",
+    }),
+  );
+  session.fileChanges.push(
+    createFileChange({
+      relativePath: "src/created-then-modified.ts",
+      operation: "modify",
+    }),
+  );
+  session.fileChanges.push(
+    createFileChange({
+      relativePath: "src/modified-then-deleted.ts",
+      operation: "modify",
+    }),
+  );
+  session.fileChanges.push(
+    createFileChange({
+      relativePath: "src/modified-then-deleted.ts",
+      operation: "delete",
+    }),
+  );
 
   const summary = generateTaskSummary(session, {
     title: "Build memory",
@@ -76,19 +90,13 @@ test("generateTaskSummary() creates valid summary and categorizes file changes",
   expect(summary.taskId).toBe(42);
   expect(summary.outcome).toBe("success");
   expect(summary.filesCreated).toEqual(
-    expect.arrayContaining([
-      "src/new.ts",
-      "src/created-then-modified.ts",
-    ]),
+    expect.arrayContaining(["src/new.ts", "src/created-then-modified.ts"]),
   );
   expect(summary.filesModified).toEqual(
     expect.arrayContaining(["src/existing.ts"]),
   );
   expect(summary.filesDeleted).toEqual(
-    expect.arrayContaining([
-      "src/obsolete.ts",
-      "src/modified-then-deleted.ts",
-    ]),
+    expect.arrayContaining(["src/obsolete.ts", "src/modified-then-deleted.ts"]),
   );
 });
 

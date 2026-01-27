@@ -3,8 +3,8 @@
  */
 
 import * as fs from "fs";
-import * as path from "path";
 import { dump, load } from "js-yaml";
+import * as path from "path";
 import { AgentError } from "../errors.js";
 import {
   ArchitectureDecisionSchema,
@@ -32,7 +32,10 @@ export class SprintMemory {
       return SprintMemory.instance;
     }
 
-    if (workspaceRoot && workspaceRoot !== SprintMemory.instance.workspaceRoot) {
+    if (
+      workspaceRoot &&
+      workspaceRoot !== SprintMemory.instance.workspaceRoot
+    ) {
       SprintMemory.instance.workspaceRoot = workspaceRoot;
     }
 
@@ -50,9 +53,13 @@ export class SprintMemory {
   async save(memory: SprintMemoryRecord): Promise<void> {
     const parseResult = SprintMemorySchema.safeParse(memory);
     if (!parseResult.success) {
-      throw new AgentError("Sprint memory validation failed", "SPRINT_MEMORY_INVALID", {
-        errors: parseResult.error.errors,
-      });
+      throw new AgentError(
+        "Sprint memory validation failed",
+        "SPRINT_MEMORY_INVALID",
+        {
+          errors: parseResult.error.errors,
+        },
+      );
     }
 
     const memoryPath = this.getMemoryPath(parseResult.data.sprintId);
@@ -73,10 +80,14 @@ export class SprintMemory {
         // best-effort cleanup
       }
 
-      throw new AgentError("Failed to save sprint memory", "SPRINT_MEMORY_SAVE_FAILED", {
-        sprintId: memory.sprintId,
-        originalError: error instanceof Error ? error.message : String(error),
-      });
+      throw new AgentError(
+        "Failed to save sprint memory",
+        "SPRINT_MEMORY_SAVE_FAILED",
+        {
+          sprintId: memory.sprintId,
+          originalError: error instanceof Error ? error.message : String(error),
+        },
+      );
     }
   }
 
@@ -89,10 +100,14 @@ export class SprintMemory {
 
       const parseResult = SprintMemorySchema.safeParse(data);
       if (!parseResult.success) {
-        throw new AgentError("Invalid sprint memory data", "SPRINT_MEMORY_INVALID", {
-          sprintId,
-          errors: parseResult.error.errors,
-        });
+        throw new AgentError(
+          "Invalid sprint memory data",
+          "SPRINT_MEMORY_INVALID",
+          {
+            sprintId,
+            errors: parseResult.error.errors,
+          },
+        );
       }
 
       return parseResult.data;
@@ -106,10 +121,14 @@ export class SprintMemory {
         throw error;
       }
 
-      throw new AgentError("Failed to load sprint memory", "SPRINT_MEMORY_LOAD_FAILED", {
-        sprintId,
-        originalError: error instanceof Error ? error.message : String(error),
-      });
+      throw new AgentError(
+        "Failed to load sprint memory",
+        "SPRINT_MEMORY_LOAD_FAILED",
+        {
+          sprintId,
+          originalError: error instanceof Error ? error.message : String(error),
+        },
+      );
     }
   }
 
@@ -133,16 +152,24 @@ export class SprintMemory {
   ): Promise<SprintMemoryRecord> {
     const summaryResult = TaskSummarySchema.safeParse(summary);
     if (!summaryResult.success) {
-      throw new AgentError("Task summary validation failed", "TASK_SUMMARY_INVALID", {
-        errors: summaryResult.error.errors,
-      });
+      throw new AgentError(
+        "Task summary validation failed",
+        "TASK_SUMMARY_INVALID",
+        {
+          errors: summaryResult.error.errors,
+        },
+      );
     }
 
     const memory = await this.load(sprintId);
     if (!memory) {
-      throw new AgentError("Sprint memory not found", "SPRINT_MEMORY_NOT_FOUND", {
-        sprintId,
-      });
+      throw new AgentError(
+        "Sprint memory not found",
+        "SPRINT_MEMORY_NOT_FOUND",
+        {
+          sprintId,
+        },
+      );
     }
 
     const updated: SprintMemoryRecord = {
@@ -172,14 +199,21 @@ export class SprintMemory {
 
     const memory = await this.load(sprintId);
     if (!memory) {
-      throw new AgentError("Sprint memory not found", "SPRINT_MEMORY_NOT_FOUND", {
-        sprintId,
-      });
+      throw new AgentError(
+        "Sprint memory not found",
+        "SPRINT_MEMORY_NOT_FOUND",
+        {
+          sprintId,
+        },
+      );
     }
 
     const updated: SprintMemoryRecord = {
       ...memory,
-      architectureDecisions: [...memory.architectureDecisions, decisionResult.data],
+      architectureDecisions: [
+        ...memory.architectureDecisions,
+        decisionResult.data,
+      ],
       updatedAt: new Date().toISOString(),
     };
 
@@ -190,9 +224,13 @@ export class SprintMemory {
   async addGoal(sprintId: string, goal: string): Promise<SprintMemoryRecord> {
     const memory = await this.load(sprintId);
     if (!memory) {
-      throw new AgentError("Sprint memory not found", "SPRINT_MEMORY_NOT_FOUND", {
-        sprintId,
-      });
+      throw new AgentError(
+        "Sprint memory not found",
+        "SPRINT_MEMORY_NOT_FOUND",
+        {
+          sprintId,
+        },
+      );
     }
 
     const updated: SprintMemoryRecord = {

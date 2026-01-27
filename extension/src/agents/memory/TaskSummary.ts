@@ -2,13 +2,13 @@
  * TaskSummary generation for SprintMemory
  */
 
-import { AgentError } from "../errors.js";
 import { AgentSession } from "../AgentSession.js";
+import { AgentError } from "../errors.js";
 import type { FileOperation } from "../types.js";
 import {
   TaskSummarySchema,
-  type TaskSummary,
   type TaskOutcome,
+  type TaskSummary,
 } from "./types.js";
 
 export type TaskSummaryInput = {
@@ -33,7 +33,9 @@ const emptyState = (): FileChangeState => ({
   lastOperation: null,
 });
 
-const categorizeFileChanges = (session: AgentSession): {
+const categorizeFileChanges = (
+  session: AgentSession,
+): {
   filesCreated: string[];
   filesModified: string[];
   filesDeleted: string[];
@@ -125,9 +127,13 @@ export const generateTaskSummary = (
 
   const parseResult = TaskSummarySchema.safeParse(summary);
   if (!parseResult.success) {
-    throw new AgentError("Task summary validation failed", "TASK_SUMMARY_INVALID", {
-      errors: parseResult.error.errors,
-    });
+    throw new AgentError(
+      "Task summary validation failed",
+      "TASK_SUMMARY_INVALID",
+      {
+        errors: parseResult.error.errors,
+      },
+    );
   }
 
   return parseResult.data;
