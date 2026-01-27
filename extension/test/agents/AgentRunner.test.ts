@@ -334,7 +334,8 @@ describe("AgentRunner", () => {
 
       expect(session.messages.length).toBeGreaterThan(0);
       const initialMessage = session.messages.find(
-        (message) => message.role === "user" && message.content === "Initial prompt",
+        (message) =>
+          message.role === "user" && message.content === "Initial prompt",
       );
       expect(initialMessage).toBeDefined();
     });
@@ -1071,9 +1072,9 @@ describe("AgentRunner", () => {
         .mockResolvedValueOnce([])
         .mockResolvedValueOnce([{ id: "gpt-4" } as any]);
 
-      await expect(
-        (runner as any).selectModel("orchestrator"),
-      ).rejects.toThrow("No Claude language models available");
+      await expect((runner as any).selectModel("orchestrator")).rejects.toThrow(
+        "No Claude language models available",
+      );
     });
 
     test("should throw general error when no models are available", async () => {
@@ -1081,9 +1082,9 @@ describe("AgentRunner", () => {
         .mockResolvedValueOnce([])
         .mockResolvedValueOnce([]);
 
-      await expect(
-        (runner as any).selectModel("orchestrator"),
-      ).rejects.toThrow("No language models available");
+      await expect((runner as any).selectModel("orchestrator")).rejects.toThrow(
+        "No language models available",
+      );
     });
 
     test("should select orchestrator model for orchestrator role", async () => {
