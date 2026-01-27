@@ -2,9 +2,9 @@
  * getCurrentTask tool - Fetch current task handover from local database
  */
 
+import { getCurrentTask as getCurrentTaskQuery } from "../../../database/queries.js";
 import type { AgentTool } from "../../ToolRegistry.js";
 import type { ToolContext, ToolResult } from "../../types.js";
-import { getCurrentTask as getCurrentTaskQuery } from "../../../database/queries.js";
 
 interface ParsedHandoverField {
   raw: string | null;

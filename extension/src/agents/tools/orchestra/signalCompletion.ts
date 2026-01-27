@@ -2,10 +2,10 @@
  * signalCompletion tool - Record a completion signal in the local database
  */
 
+import { createSignal } from "../../../database/mutations.js";
+import { getCurrentTask } from "../../../database/queries.js";
 import type { AgentTool } from "../../ToolRegistry.js";
 import type { ToolContext, ToolResult } from "../../types.js";
-import { getCurrentTask } from "../../../database/queries.js";
-import { createSignal } from "../../../database/mutations.js";
 
 type ArtifactType = "CREATE" | "UPDATE" | "DELETE";
 

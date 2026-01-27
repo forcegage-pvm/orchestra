@@ -52,8 +52,7 @@ async function replaceText(
       return {
         success: false,
         output: "",
-        error:
-          `oldString matched multiple locations in ${input.path}. Provide a more specific match.`,
+        error: `oldString matched multiple locations in ${input.path}. Provide a more specific match.`,
       };
     }
 
