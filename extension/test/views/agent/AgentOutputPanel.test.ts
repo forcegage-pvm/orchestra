@@ -201,6 +201,62 @@ describe("AgentOutputPanel", () => {
     expect(mockWebview.postMessage).not.toHaveBeenCalled();
   });
 
+  it("should show thinking output when verbosity is normal", () => {
+    vi.mocked(getVerbosity).mockReturnValue("normal");
+    const extensionUri = { fsPath: "/test/extension" } as vscode.Uri;
+    const panel = AgentOutputPanel.createOrShow(extensionUri);
+
+    const handler = vi.mocked(mockWebview.onDidReceiveMessage).mock
+      .calls[0]?.[0];
+    handler?.({ type: "ready" });
+
+    panel.addOutput({
+      id: "thinking-normal",
+      type: "thinking",
+      timestamp: "now",
+      content: { text: "visible" },
+    });
+
+    vi.advanceTimersByTime(50);
+
+    expect(mockWebview.postMessage).toHaveBeenCalled();
+    const [payload] = vi.mocked(mockWebview.postMessage).mock.calls[0] ?? [];
+    const messages = payload?.messages ?? [];
+    const outputMessage = messages.find(
+      (message: { type: string; output?: { id?: string } }) =>
+        message.type === "addOutput",
+    );
+    expect(outputMessage?.output?.id).toBe("thinking-normal");
+  });
+
+  it("should show thinking output when verbosity is detailed", () => {
+    vi.mocked(getVerbosity).mockReturnValue("detailed");
+    const extensionUri = { fsPath: "/test/extension" } as vscode.Uri;
+    const panel = AgentOutputPanel.createOrShow(extensionUri);
+
+    const handler = vi.mocked(mockWebview.onDidReceiveMessage).mock
+      .calls[0]?.[0];
+    handler?.({ type: "ready" });
+
+    panel.addOutput({
+      id: "thinking-detailed",
+      type: "thinking",
+      timestamp: "now",
+      content: { text: "visible" },
+    });
+
+    vi.advanceTimersByTime(50);
+
+    expect(mockWebview.postMessage).toHaveBeenCalled();
+    const [payload] = vi.mocked(mockWebview.postMessage).mock.calls[0] ?? [];
+    const messages = payload?.messages ?? [];
+    const outputMessage = messages.find(
+      (message: { type: string; output?: { id?: string } }) =>
+        message.type === "addOutput",
+    );
+    expect(outputMessage?.output?.id).toBe("thinking-detailed");
+  });
+
   it("should include debug metadata when verbosity is debug", () => {
     vi.mocked(getVerbosity).mockReturnValue("debug");
     const extensionUri = { fsPath: "/test/extension" } as vscode.Uri;
@@ -235,6 +291,39 @@ describe("AgentOutputPanel", () => {
       durationMs: 120,
       tokenCount: expect.any(Number),
     });
+  });
+
+  it("should strip debug metadata when verbosity is not debug", () => {
+    vi.mocked(getVerbosity).mockReturnValue("normal");
+    const extensionUri = { fsPath: "/test/extension" } as vscode.Uri;
+    const panel = AgentOutputPanel.createOrShow(extensionUri);
+
+    const handler = vi.mocked(mockWebview.onDidReceiveMessage).mock
+      .calls[0]?.[0];
+    handler?.({ type: "ready" });
+
+    panel.addOutput({
+      id: "result-2",
+      type: "tool_result",
+      timestamp: "now",
+      content: {
+        toolName: "get_current_task",
+        success: true,
+        output: "ok",
+      },
+      debug: { durationMs: 90, tokenCount: 10 },
+    });
+
+    vi.advanceTimersByTime(50);
+
+    const [payload] = vi.mocked(mockWebview.postMessage).mock.calls[0] ?? [];
+    const messages = payload?.messages ?? [];
+    const outputMessage = messages.find(
+      (message: { type: string; output?: { debug?: unknown } }) =>
+        message.type === "addOutput",
+    );
+
+    expect(outputMessage?.output?.debug).toBeUndefined();
   });
 
   it("should route pause message to AgentRunner.pause", async () => {
