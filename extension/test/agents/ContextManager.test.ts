@@ -489,6 +489,68 @@ describe("ContextManager", () => {
       }
     });
 
+    test("should compact and summarize after 20+ tool results", () => {
+      const manager = new ContextManager({ maxContextTokens: 800, compactionThreshold: 2 });
+
+      const systemMessage: AgentMessage = {
+        id: crypto.randomUUID(),
+        role: "system",
+        content: "System prompt",
+        timestamp: new Date().toISOString(),
+        iteration: 0,
+      };
+
+      const toolMessages: AgentMessage[] = Array.from({ length: 25 }, (_, index) => ({
+        id: crypto.randomUUID(),
+        role: "assistant",
+        content: [
+          {
+            type: "toolResult",
+            toolCallId: crypto.randomUUID(),
+            value: `Tool output ${index}: ${"X".repeat(500)}`,
+          },
+        ],
+        timestamp: new Date().toISOString(),
+        iteration: index + 1,
+      }));
+
+      const recentMessages: AgentMessage[] = [
+        {
+          id: crypto.randomUUID(),
+          role: "user",
+          content: "Recent message 1",
+          timestamp: new Date().toISOString(),
+          iteration: 26,
+        },
+        {
+          id: crypto.randomUUID(),
+          role: "assistant",
+          content: "Recent message 2",
+          timestamp: new Date().toISOString(),
+          iteration: 27,
+        },
+      ];
+
+      const messages = [systemMessage, ...toolMessages, ...recentMessages];
+      const compacted = manager.compact(messages);
+
+      expect(compacted.length).toBeLessThan(messages.length);
+      expect(compacted.some((message) => message.role === "system")).toBe(true);
+
+      const lastTwo = compacted.slice(-2);
+      expect(lastTwo[0]?.content).toBe("Recent message 1");
+      expect(lastTwo[1]?.content).toBe("Recent message 2");
+
+      const truncatedToolResult = compacted
+        .flatMap((message) => (Array.isArray(message.content) ? message.content : []))
+        .find(
+          (part) =>
+            part.type === "toolResult" && part.value.includes("[truncated]"),
+        );
+
+      expect(truncatedToolResult).toBeDefined();
+    });
+
     test("should compact to custom target token count", () => {
       const manager = new ContextManager({ maxContextTokens: 100000 });
 

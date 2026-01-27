@@ -103,7 +103,7 @@ export const signalCompletionTool: AgentTool = {
       return {
         success: false,
         output: "",
-        error: `Failed to signal completion: ${message}`,
+        error: `Failed to signal completion for ${context.workspaceRoot}: ${message}`,
       };
     }
   },

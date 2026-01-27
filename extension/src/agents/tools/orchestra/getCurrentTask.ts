@@ -74,7 +74,7 @@ export const getCurrentTaskTool: AgentTool = {
       return {
         success: false,
         output: "",
-        error: `Failed to get current task: ${message}`,
+        error: `Failed to get current task for ${context.workspaceRoot}: ${message}`,
       };
     }
   },

@@ -43,7 +43,7 @@ async function replaceText(
       return {
         success: false,
         output: "",
-        error: "oldString not found in file.",
+        error: `oldString not found in file: ${input.path}.`,
       };
     }
 
@@ -53,7 +53,7 @@ async function replaceText(
         success: false,
         output: "",
         error:
-          "oldString matched multiple locations. Provide a more specific match.",
+          `oldString matched multiple locations in ${input.path}. Provide a more specific match.`,
       };
     }
 
@@ -71,7 +71,7 @@ async function replaceText(
       return {
         success: false,
         output: "",
-        error: "Failed to apply edit.",
+        error: `Failed to apply edit in ${input.path}.`,
       };
     }
 
@@ -103,7 +103,7 @@ async function replaceText(
     return {
       success: false,
       output: "",
-      error: `Failed to edit file: ${message}`,
+      error: `Failed to edit file ${input.path}: ${message}`,
     };
   }
 }

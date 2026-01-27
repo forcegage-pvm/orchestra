@@ -46,7 +46,7 @@ async function createFile(
       return {
         success: false,
         output: "",
-        error: "File already exists. Use edit instead.",
+        error: `File already exists at ${input.path}. Use edit instead.`,
       };
     } catch (error) {
       if (!isFileNotFound(error)) {
@@ -69,7 +69,7 @@ async function createFile(
       return {
         success: false,
         output: "",
-        error: "Failed to create file.",
+        error: `Failed to create file at ${input.path}.`,
       };
     }
 
@@ -100,7 +100,7 @@ async function createFile(
     return {
       success: false,
       output: "",
-      error: `Failed to create file: ${message}`,
+      error: `Failed to create file ${input.path}: ${message}`,
     };
   }
 }

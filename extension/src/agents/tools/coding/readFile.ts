@@ -64,7 +64,7 @@ async function readFileContents(
         return {
           success: false,
           output: "",
-          error: "Line numbers must be positive integers.",
+          error: `Line numbers must be positive integers for ${input.path}.`,
         };
       }
 
@@ -72,7 +72,7 @@ async function readFileContents(
         return {
           success: false,
           output: "",
-          error: "startLine must be less than or equal to endLine.",
+          error: `startLine must be less than or equal to endLine for ${input.path}.`,
         };
       }
 
@@ -83,7 +83,7 @@ async function readFileContents(
         return {
           success: false,
           output: "",
-          error: "Line range exceeds file length.",
+          error: `Line range exceeds file length for ${input.path}.`,
         };
       }
 
@@ -105,7 +105,7 @@ async function readFileContents(
     return {
       success: false,
       output: "",
-      error: `File not found or unreadable: ${message}`,
+      error: `Failed to read file ${input.path}: ${message}`,
     };
   }
 }
