@@ -305,7 +305,9 @@ describe("SessionStorage", () => {
     const completedRecent = new AgentSession("orchestrator", "sprint-clean-3");
     const runningOld = new AgentSession("implementor", "sprint-clean-4", 4);
 
-    const oldDate = new Date(Date.now() - 8 * 24 * 60 * 60 * 1000).toISOString();
+    const oldDate = new Date(
+      Date.now() - 8 * 24 * 60 * 60 * 1000,
+    ).toISOString();
 
     completedOld.status = "completed";
     completedOld.updatedAt = oldDate;
@@ -331,7 +333,9 @@ describe("SessionStorage", () => {
 
     expect(fs.existsSync(storage.getSessionPath(completedOld.id))).toBe(false);
     expect(fs.existsSync(storage.getSessionPath(failedOld.id))).toBe(false);
-    expect(fs.existsSync(storage.getSessionPath(completedRecent.id))).toBe(true);
+    expect(fs.existsSync(storage.getSessionPath(completedRecent.id))).toBe(
+      true,
+    );
     expect(fs.existsSync(storage.getSessionPath(runningOld.id))).toBe(true);
   });
 });

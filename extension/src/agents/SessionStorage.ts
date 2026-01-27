@@ -12,8 +12,8 @@ import { AgentSession } from "./AgentSession.js";
 import { SessionError } from "./errors.js";
 import {
   AgentSessionSchema,
-  CheckpointContentSchema,
   CheckpointContent,
+  CheckpointContentSchema,
   CheckpointReference,
   SessionMetadata,
   SessionMetadataSchema,
@@ -373,7 +373,8 @@ export class SessionStorage {
           "Session file corrupted and no valid checkpoint found",
           sessionId,
           {
-            originalError: error instanceof Error ? error.message : String(error),
+            originalError:
+              error instanceof Error ? error.message : String(error),
           },
           "SESSION_CORRUPTED",
         );
@@ -453,10 +454,11 @@ export class SessionStorage {
     return expired.length;
   }
 
-  private async getLatestValidCheckpoint(sessionId: string): Promise<
-    | { content: CheckpointContent; filePath: string; fileSize: number }
-    | null
-  > {
+  private async getLatestValidCheckpoint(sessionId: string): Promise<{
+    content: CheckpointContent;
+    filePath: string;
+    fileSize: number;
+  } | null> {
     const checkpointDir = this.getCheckpointDir();
 
     try {
@@ -472,9 +474,11 @@ export class SessionStorage {
         )
         .map((entry) => path.join(checkpointDir, entry.name));
 
-      let latest:
-        | { content: CheckpointContent; filePath: string; fileSize: number }
-        | null = null;
+      let latest: {
+        content: CheckpointContent;
+        filePath: string;
+        fileSize: number;
+      } | null = null;
 
       for (const filePath of checkpointFiles) {
         try {
@@ -490,7 +494,10 @@ export class SessionStorage {
           }
 
           const stats = await fs.promises.stat(filePath);
-          if (!latest || parseResult.data.iteration > latest.content.iteration) {
+          if (
+            !latest ||
+            parseResult.data.iteration > latest.content.iteration
+          ) {
             latest = {
               content: parseResult.data,
               filePath,

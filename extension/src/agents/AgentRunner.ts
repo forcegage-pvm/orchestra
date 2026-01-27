@@ -307,7 +307,7 @@ export class AgentRunner implements vscode.Disposable {
     const workspaceRoot =
       vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? process.cwd();
     const storage = SessionStorage.getInstance(workspaceRoot);
-    const loaded = await storage.load(sessionId);
+    const loaded = await storage.loadWithFallback(sessionId);
 
     if (loaded.status === "completed" || loaded.status === "failed") {
       throw new AgentError(

@@ -631,6 +631,19 @@ export async function activate(
         await vscode.commands.executeCommand("orchestra.resumeAgent");
       }
     }
+
+    try {
+      const deletedCount = await storage.cleanupExpiredSessions();
+      if (deletedCount > 0) {
+        logger.info(`Cleaned up ${deletedCount} expired agent sessions.`);
+      }
+    } catch (error) {
+      logger.warn(
+        `Failed to cleanup expired sessions: ${
+          error instanceof Error ? error.message : "Unknown"
+        }`,
+      );
+    }
   } catch (error) {
     logger.warn(
       `Failed to check recoverable sessions: ${
