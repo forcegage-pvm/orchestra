@@ -1,0 +1,34 @@
+{
+  "sessionId": "dc469a19-a696-4e4b-848f-a6d1605e1f4b",
+  "iteration": 1,
+  "position": "end",
+  "messageCount": 2,
+  "toolCallCount": 0,
+  "fileChangeCount": 0,
+  "timestamp": "2026-01-27T14:16:59.293Z",
+  "role": "orchestrator",
+  "sprintId": "default-sprint",
+  "taskId": null,
+  "maxIterations": 50,
+  "createdAt": "2026-01-27T14:16:59.289Z",
+  "updatedAt": "2026-01-27T14:16:59.293Z",
+  "lastActivityAt": "2026-01-27T14:16:59.293Z",
+  "messages": [
+    {
+      "id": "b1175ce7-5716-489a-b44d-c4e35c3484f5",
+      "role": "user",
+      "content": "[SPRINT MEMORY CONTEXT]\nSprint: default-sprint (default-sprint)\nGoals: None\nArchitecture decisions: None\nTask summaries: None\nImplementor patterns: None\nCompaction count: 0\nLast compacted at: Never",
+      "timestamp": "2026-01-27T14:16:59.292Z",
+      "iteration": 0
+    },
+    {
+      "id": "a6f035b0-e065-4162-9cd6-6a4ae32f89bd",
+      "role": "user",
+      "content": "Test",
+      "timestamp": "2026-01-27T14:16:59.292Z",
+      "iteration": 0
+    }
+  ],
+  "toolCalls": [],
+  "fileChanges": []
+}

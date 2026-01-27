@@ -280,6 +280,21 @@
         "command": "orchestra.implementCodeReviewFixTask",
         "title": "Orchestra: Implement Code Review Fixes",
         "icon": "$(play)"
+      },
+      {
+        "command": "orchestra.testBasicAgent",
+        "title": "Orchestra: Test Basic Agent (Dev)",
+        "icon": "$(beaker)"
+      },
+      {
+        "command": "orchestra.testDirectTools",
+        "title": "Orchestra: Test Direct Tools (Dev)",
+        "icon": "$(beaker)"
+      },
+      {
+        "command": "orchestra.testModelAvailability",
+        "title": "Orchestra: Test Model Availability (Dev)",
+        "icon": "$(beaker)"
       }
     ],
     "keybindings": [

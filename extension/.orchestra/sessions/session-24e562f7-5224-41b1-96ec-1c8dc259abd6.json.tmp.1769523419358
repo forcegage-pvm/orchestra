@@ -1,0 +1,70 @@
+{
+  "version": "1.0",
+  "id": "24e562f7-5224-41b1-96ec-1c8dc259abd6",
+  "role": "orchestrator",
+  "taskId": null,
+  "sprintId": "default-sprint",
+  "status": "stopped",
+  "createdAt": "2026-01-27T14:16:59.336Z",
+  "updatedAt": "2026-01-27T14:16:59.372Z",
+  "lastActivityAt": "2026-01-27T14:16:59.372Z",
+  "currentIteration": 2,
+  "maxIterations": 50,
+  "messages": [
+    {
+      "id": "27527cd6-c855-42ae-bb11-bee07821cac0",
+      "role": "user",
+      "content": "[SPRINT MEMORY CONTEXT]\nSprint: default-sprint (default-sprint)\nGoals: None\nArchitecture decisions: None\nTask summaries: None\nImplementor patterns: None\nCompaction count: 0\nLast compacted at: Never",
+      "timestamp": "2026-01-27T14:16:59.343Z",
+      "iteration": 0
+    },
+    {
+      "id": "fe34be8b-ef49-41ca-8a03-586ea385635b",
+      "role": "user",
+      "content": "Lifecycle",
+      "timestamp": "2026-01-27T14:16:59.343Z",
+      "iteration": 0
+    },
+    {
+      "id": "fad652a8-8a14-46a1-80de-07e6083327ba",
+      "role": "assistant",
+      "content": "Thinking...",
+      "timestamp": "2026-01-27T14:16:59.357Z",
+      "iteration": 1
+    },
+    {
+      "id": "8297fcaf-4965-43c6-bb84-a79e152c49e3",
+      "role": "user",
+      "content": "Inject instruction",
+      "timestamp": "2026-01-27T14:16:59.371Z",
+      "iteration": 2
+    },
+    {
+      "id": "96e31460-61d9-4cda-b14d-3fef734f2e9b",
+      "role": "assistant",
+      "content": "Thinking...",
+      "timestamp": "2026-01-27T14:16:59.372Z",
+      "iteration": 2
+    }
+  ],
+  "toolCalls": [],
+  "fileChanges": [],
+  "checkpoints": [
+    {
+      "id": "002a6755-f8a1-4fb1-9783-cc654551e2d5",
+      "iteration": 2,
+      "position": "end",
+      "toolCallId": null,
+      "filePath": "X:\\Cloud Storage\\Dropbox\\Repositories\\vs code\\orchestra\\extension\\.orchestra\\sessions\\checkpoints\\24e562f7-5224-41b1-96ec-1c8dc259abd6-iter-1.json",
+      "fileSize": 1064,
+      "createdAt": "2026-01-27T14:16:59.344Z"
+    }
+  ],
+  "lastCheckpointId": "002a6755-f8a1-4fb1-9783-cc654551e2d5",
+  "recoveryInfo": {
+    "canResume": true,
+    "resumeFromIteration": 2,
+    "resumeFromToolCall": null,
+    "failureReason": null
+  }
+}

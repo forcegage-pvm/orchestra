@@ -1,0 +1,72 @@
+{
+  "version": "1.0",
+  "id": "80efc7b1-e42a-4f4b-bd67-67025e18c1da",
+  "role": "orchestrator",
+  "taskId": null,
+  "sprintId": "default-sprint",
+  "status": "completed",
+  "createdAt": "2026-01-27T14:18:45.261Z",
+  "updatedAt": "2026-01-27T14:18:45.302Z",
+  "lastActivityAt": "2026-01-27T14:18:45.302Z",
+  "currentIteration": 2,
+  "maxIterations": 50,
+  "messages": [
+    {
+      "id": "37ebaed3-ae39-455b-94a5-9ac7f3973267",
+      "role": "user",
+      "content": "[SPRINT MEMORY CONTEXT]\nSprint: default-sprint (default-sprint)\nGoals: None\nArchitecture decisions: None\nTask summaries: None\nImplementor patterns: None\nCompaction count: 0\nLast compacted at: Never",
+      "timestamp": "2026-01-27T14:18:45.264Z",
+      "iteration": 0
+    },
+    {
+      "id": "54a1d385-45f6-4a6a-9979-a0acfed0de2a",
+      "role": "user",
+      "content": "Test",
+      "timestamp": "2026-01-27T14:18:45.264Z",
+      "iteration": 0
+    },
+    {
+      "id": "aff239c3-c5c4-440b-88a9-eca67f0fbfe0",
+      "role": "assistant",
+      "content": "Thinking...",
+      "timestamp": "2026-01-27T14:18:45.280Z",
+      "iteration": 1
+    },
+    {
+      "id": "6f50c5e9-5eb6-4a83-ad9d-eb249aef2530",
+      "role": "assistant",
+      "content": "Thinking...Done",
+      "timestamp": "2026-01-27T14:18:45.302Z",
+      "iteration": 2
+    }
+  ],
+  "toolCalls": [],
+  "fileChanges": [],
+  "checkpoints": [
+    {
+      "id": "87b72926-2c8d-4cb4-9034-bb2892f48bc8",
+      "iteration": 1,
+      "position": "end",
+      "toolCallId": null,
+      "filePath": "X:\\Cloud Storage\\Dropbox\\Repositories\\vs code\\orchestra\\extension\\.orchestra\\sessions\\checkpoints\\80efc7b1-e42a-4f4b-bd67-67025e18c1da-iter-1.json",
+      "fileSize": 1059,
+      "createdAt": "2026-01-27T14:18:45.265Z"
+    },
+    {
+      "id": "7bd855e6-3a2d-42cc-b488-79ec06a0df10",
+      "iteration": 2,
+      "position": "end",
+      "toolCallId": null,
+      "filePath": "X:\\Cloud Storage\\Dropbox\\Repositories\\vs code\\orchestra\\extension\\.orchestra\\sessions\\checkpoints\\80efc7b1-e42a-4f4b-bd67-67025e18c1da-iter-2.json",
+      "fileSize": 1251,
+      "createdAt": "2026-01-27T14:18:45.280Z"
+    }
+  ],
+  "lastCheckpointId": "7bd855e6-3a2d-42cc-b488-79ec06a0df10",
+  "recoveryInfo": {
+    "canResume": false,
+    "resumeFromIteration": null,
+    "resumeFromToolCall": null,
+    "failureReason": null
+  }
+}

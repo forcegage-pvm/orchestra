@@ -1,0 +1,41 @@
+{
+  "sessionId": "80efc7b1-e42a-4f4b-bd67-67025e18c1da",
+  "iteration": 2,
+  "position": "end",
+  "messageCount": 3,
+  "toolCallCount": 0,
+  "fileChangeCount": 0,
+  "timestamp": "2026-01-27T14:18:45.280Z",
+  "role": "orchestrator",
+  "sprintId": "default-sprint",
+  "taskId": null,
+  "maxIterations": 50,
+  "createdAt": "2026-01-27T14:18:45.261Z",
+  "updatedAt": "2026-01-27T14:18:45.280Z",
+  "lastActivityAt": "2026-01-27T14:18:45.280Z",
+  "messages": [
+    {
+      "id": "37ebaed3-ae39-455b-94a5-9ac7f3973267",
+      "role": "user",
+      "content": "[SPRINT MEMORY CONTEXT]\nSprint: default-sprint (default-sprint)\nGoals: None\nArchitecture decisions: None\nTask summaries: None\nImplementor patterns: None\nCompaction count: 0\nLast compacted at: Never",
+      "timestamp": "2026-01-27T14:18:45.264Z",
+      "iteration": 0
+    },
+    {
+      "id": "54a1d385-45f6-4a6a-9979-a0acfed0de2a",
+      "role": "user",
+      "content": "Test",
+      "timestamp": "2026-01-27T14:18:45.264Z",
+      "iteration": 0
+    },
+    {
+      "id": "aff239c3-c5c4-440b-88a9-eca67f0fbfe0",
+      "role": "assistant",
+      "content": "Thinking...",
+      "timestamp": "2026-01-27T14:18:45.280Z",
+      "iteration": 1
+    }
+  ],
+  "toolCalls": [],
+  "fileChanges": []
+}

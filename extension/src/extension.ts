@@ -23,6 +23,7 @@ import { handleResumeAgent } from "./commands/resumeAgent.js";
 import { handleReviewSprint } from "./commands/ReviewSprintHandler.js";
 import { handleSelectModel } from "./commands/selectModel.js";
 import { handleSetVerbosity } from "./commands/setVerbosity.js";
+import { registerTestCommands } from "./commands/testAgentCommands.js";
 import { handleUnarchiveSprint } from "./commands/unarchiveSprint.js";
 import { ConfigService } from "./config/ConfigService.js";
 import { OrchestraDB } from "./database/client.js";
@@ -602,6 +603,9 @@ export async function activate(
         });
     }),
   );
+
+  // Register test commands (available even without workspace for debugging)
+  registerTestCommands(context);
 
   if (!orchestraRoot) {
     logger.warn("No .orchestra/ folder found in workspace");

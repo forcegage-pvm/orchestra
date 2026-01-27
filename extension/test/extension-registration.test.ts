@@ -37,12 +37,27 @@ function extractRegisteredCommands(code: string): string[] {
 
 describe("Extension registration - Command registration (Task 15)", () => {
   let extensionCode: string;
+  let allCommandCode: string;
   let packageJson: { contributes?: { commands?: Array<{ command: string }> } };
 
   beforeEach(() => {
     // Read the actual extension.ts file
     const extensionPath = path.join(__dirname, "..", "src", "extension.ts");
     extensionCode = fs.readFileSync(extensionPath, "utf-8");
+
+    // Also read command files that register commands
+    const testAgentCommandsPath = path.join(
+      __dirname,
+      "..",
+      "src",
+      "commands",
+      "testAgentCommands.ts"
+    );
+    let testAgentCode = "";
+    if (fs.existsSync(testAgentCommandsPath)) {
+      testAgentCode = fs.readFileSync(testAgentCommandsPath, "utf-8");
+    }
+    allCommandCode = extensionCode + testAgentCode;
 
     // Read package.json
     const packageJsonPath = path.join(__dirname, "..", "package.json");
@@ -89,7 +104,7 @@ describe("Extension registration - Command registration (Task 15)", () => {
   describe("Consistency between package.json and extension.ts", () => {
     it("should register all commands declared in package.json", () => {
       const packageCommands = extractPackageJsonCommands(packageJson);
-      const registeredCommands = extractRegisteredCommands(extensionCode);
+      const registeredCommands = extractRegisteredCommands(allCommandCode);
 
       expect(packageCommands.length).toBeGreaterThan(0);
 
@@ -97,14 +112,14 @@ describe("Extension registration - Command registration (Task 15)", () => {
       for (const commandId of packageCommands) {
         expect(
           registeredCommands,
-          `Command ${commandId} from package.json should be registered in extension.ts`
+          `Command ${commandId} from package.json should be registered in extension.ts or command files`
         ).toContain(commandId);
       }
     });
 
     it("should not register commands not in package.json", () => {
       const packageCommands = extractPackageJsonCommands(packageJson);
-      const registeredCommands = extractRegisteredCommands(extensionCode);
+      const registeredCommands = extractRegisteredCommands(allCommandCode);
 
       // Every registered orchestra.* command should be in package.json
       for (const commandId of registeredCommands) {
@@ -117,7 +132,7 @@ describe("Extension registration - Command registration (Task 15)", () => {
 
     it("should have all package.json commands registered (may have extras)", () => {
       const packageCommands = extractPackageJsonCommands(packageJson);
-      const registeredCommands = extractRegisteredCommands(extensionCode);
+      const registeredCommands = extractRegisteredCommands(allCommandCode);
 
       // Should have at least as many registered as in package.json
       // (Note: orchestra.initializeWorkspace may be registered multiple times for different modes)
