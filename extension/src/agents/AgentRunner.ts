@@ -18,7 +18,7 @@ import { AgentSession } from "./AgentSession.js";
 import { ContextManager } from "./ContextManager.js";
 import { AgentError, SessionError } from "./errors.js";
 import { SessionStorage } from "./SessionStorage.js";
-import { loadImplementorTools } from "./toolLoaders.js";
+import { loadImplementorTools, loadOrchestratorTools } from "./toolLoaders.js";
 import { ToolRegistry } from "./ToolRegistry.js";
 import type {
   AgentConfig,
@@ -215,6 +215,8 @@ export class AgentRunner implements vscode.Disposable {
 
     if (role === "implementor") {
       loadImplementorTools(this.toolRegistry);
+    } else if (role === "orchestrator") {
+      loadOrchestratorTools(this.toolRegistry);
     }
 
     // Create cancellation token
