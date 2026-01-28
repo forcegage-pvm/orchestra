@@ -30,6 +30,25 @@ export const signalCompletionTool: AgentTool = {
       artifacts: {
         type: "array",
         description: "List of artifacts created or modified",
+        items: {
+          type: "object",
+          properties: {
+            path: {
+              type: "string",
+              description: "Path to the artifact file",
+            },
+            type: {
+              type: "string",
+              enum: ["CREATE", "UPDATE", "DELETE"],
+              description: "Operation type performed on the artifact",
+            },
+            description: {
+              type: "string",
+              description: "Optional description of changes to the artifact",
+            },
+          },
+          required: ["path", "type"],
+        },
       },
       build_status: {
         type: "string",

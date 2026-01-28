@@ -13,7 +13,57 @@ import { readFileTool } from "../agents/tools/coding/readFile.js";
 import { getAgentRunner } from "../extension.js";
 import { OrchestraLogger } from "../utils/logger.js";
 
-const logger = new OrchestraLogger("TestAgent");
+const logger = new OrchestraLogger();
+
+/**
+ * Find the first available language model and return its ID
+ */
+async function findAvailableModelId(): Promise<string | null> {
+  // Try Claude first (best for coding tasks)
+  const claudeModels = await vscode.lm.selectChatModels({ family: "claude" });
+  if (claudeModels.length > 0 && claudeModels[0]) {
+    return claudeModels[0].id;
+  }
+
+  // Try GPT-4
+  const gpt4Models = await vscode.lm.selectChatModels({ family: "gpt-4o" });
+  if (gpt4Models.length > 0 && gpt4Models[0]) {
+    return gpt4Models[0].id;
+  }
+
+  // Try any model
+  const allModels = await vscode.lm.selectChatModels({});
+  if (allModels.length > 0 && allModels[0]) {
+    return allModels[0].id;
+  }
+
+  return null;
+}
+
+/**
+ * Format an AgentOutput for display
+ */
+function formatOutput(output: {
+  type: string;
+  text?: string;
+  toolName?: string;
+  toolResult?: string;
+  errorMessage?: string;
+}): string {
+  if (output.text) {
+    return output.text.substring(0, 100);
+  }
+  if (output.toolName) {
+    return `Tool: ${output.toolName}`;
+  }
+  if (output.toolResult) {
+    return output.toolResult.substring(0, 100);
+  }
+  if (output.errorMessage) {
+    return `Error: ${output.errorMessage}`;
+  }
+  return "(no content)";
+}
 
 /**
  * Test 1: Basic Agent Invocation
@@ -31,16 +81,31 @@ export async function testBasicAgentInvocation(): Promise<void> {
   outputChannel.appendLine("");
 
   try {
+    // First, find an available model
+    outputChannel.appendLine("Searching for available models...");
+    const modelId = await findAvailableModelId();
+
+    if (!modelId) {
+      outputChannel.appendLine("");
+      outputChannel.appendLine("❌ TEST FAILED: No language models available.");
+      outputChannel.appendLine(
+        "   Ensure GitHub Copilot or another LM extension is installed and signed in.",
+      );
+      vscode.window.showErrorMessage(
+        "Agent test failed: No language models available. Install GitHub Copilot.",
+      );
+      return;
+    }
+
+    outputChannel.appendLine(`Found model: ${modelId}`);
+    outputChannel.appendLine("");
+
     const runner = getAgentRunner();
 
     // Subscribe to outputs
     const outputs: string[] = [];
     const disposable = runner.onOutput((output) => {
-      const line = `[${output.type}] ${
-        typeof output.content === "string"
-          ? output.content.substring(0, 100)
-          : JSON.stringify(output.content).substring(0, 100)
-      }`;
+      const line = `[${output.type}] ${formatOutput(output)}`;
       outputs.push(line);
       outputChannel.appendLine(line);
     });
@@ -59,6 +124,7 @@ export async function testBasicAgentInvocation(): Promise<void> {
     await runner.start("implementor", {
       prompt:
         "List the files in the current directory and tell me what you see. Use the list_directory tool with path '.'",
+      model: modelId,
     });
 
     // Wait for completion or timeout
@@ -89,11 +155,13 @@ export async function testBasicAgentInvocation(): Promise<void> {
       vscode.window.showInformationMessage(
         "Agent test passed! Check 'Orchestra Agent Test' output for details.",
       );
-    } else if (session?.status === "error") {
+    } else if (session?.status === "failed") {
       outputChannel.appendLine(
-        `❌ TEST FAILED: Agent error - ${session.error}`,
+        `❌ TEST FAILED: Agent failed - check output for details`,
       );
-      vscode.window.showErrorMessage(`Agent test failed: ${session.error}`);
+      vscode.window.showErrorMessage(
+        "Agent test failed. Check output for details.",
+      );
     } else {
       outputChannel.appendLine(
         `⚠️ TEST INCONCLUSIVE: Status is ${session?.status}`,

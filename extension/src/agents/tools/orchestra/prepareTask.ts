@@ -2,14 +2,17 @@
  * prepareTask tool - Create task handover and move task into IMPLEMENT
  */
 
-import type { AgentTool } from "../../ToolRegistry.js";
-import type { ToolContext, ToolResult } from "../../types.js";
+import {
+  createHandover,
+  updateTaskStatus,
+} from "../../../database/mutations.js";
 import {
   getCurrentSprint,
   getTaskById,
   getTasksForSprint,
 } from "../../../database/queries.js";
-import { createHandover, updateTaskStatus } from "../../../database/mutations.js";
+import type { AgentTool } from "../../ToolRegistry.js";
+import type { ToolContext, ToolResult } from "../../types.js";
 
 interface PrepareTaskInput {
   task_id: number;
@@ -17,7 +20,11 @@ interface PrepareTaskInput {
   context: string;
   context_files?: string[];
   acceptance_criteria: Array<{ criterion: string; verification: string }>;
-  file_operations: Array<{ operation: string; path: string; description?: string }>;
+  file_operations: Array<{
+    operation: string;
+    path: string;
+    description?: string;
+  }>;
   deliverables: string[];
 }
 
@@ -42,7 +49,8 @@ function resolveTaskId(
 
 export const prepareTaskTool: AgentTool = {
   name: "prepare_task",
-  description: "Prepare a task by creating a handover and setting status to IMPLEMENT.",
+  description:
+    "Prepare a task by creating a handover and setting status to IMPLEMENT.",
   inputSchema: {
     type: "object",
     properties: {
@@ -52,16 +60,51 @@ export const prepareTaskTool: AgentTool = {
       context_files: {
         type: "array",
         description: "List of context files",
+        items: { type: "string" },
       },
       acceptance_criteria: {
         type: "array",
         description: "Acceptance criteria list",
+        items: {
+          type: "object",
+          properties: {
+            criterion: {
+              type: "string",
+              description: "The acceptance criterion",
+            },
+            verification: {
+              type: "string",
+              description: "How to verify this criterion",
+            },
+          },
+          required: ["criterion", "verification"],
+        },
       },
       file_operations: {
         type: "array",
         description: "File operations list",
+        items: {
+          type: "object",
+          properties: {
+            operation: {
+              type: "string",
+              enum: ["CREATE", "UPDATE", "DELETE"],
+              description: "Operation type",
+            },
+            path: { type: "string", description: "File path" },
+            description: {
+              type: "string",
+              description: "Description of the operation",
+            },
+          },
+          required: ["operation", "path"],
+        },
       },
-      deliverables: { type: "array", description: "Deliverables list" },
+      deliverables: {
+        type: "array",
+        description: "Deliverables list",
+        items: { type: "string" },
+      },
     },
     required: [
       "task_id",

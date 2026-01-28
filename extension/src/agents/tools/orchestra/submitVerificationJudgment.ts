@@ -2,19 +2,19 @@
  * submitVerificationJudgment tool - Record verification judgment and feedback
  */
 
-import type { AgentTool } from "../../ToolRegistry.js";
-import type { ToolContext, ToolResult } from "../../types.js";
+import {
+  createFeedback,
+  createVerificationJudgment,
+  updateTaskStatus,
+} from "../../../database/mutations.js";
 import {
   getCurrentSprint,
   getSignal,
   getTaskById,
   getTasksForSprint,
 } from "../../../database/queries.js";
-import {
-  createFeedback,
-  createVerificationJudgment,
-  updateTaskStatus,
-} from "../../../database/mutations.js";
+import type { AgentTool } from "../../ToolRegistry.js";
+import type { ToolContext, ToolResult } from "../../types.js";
 
 interface FailureIssue {
   check_id: string;
@@ -59,7 +59,27 @@ export const submitVerificationJudgmentTool: AgentTool = {
       task_id: { type: "number", description: "Task ID" },
       judgment: { type: "string", enum: ["PASS", "FAIL"] },
       rationale: { type: "string", description: "Judgment rationale" },
-      failures: { type: "array", description: "Failure details" },
+      failures: {
+        type: "array",
+        description: "Failure details",
+        items: {
+          type: "object",
+          properties: {
+            check_id: { type: "string", description: "ID of the failed check" },
+            reason: { type: "string", description: "Reason for failure" },
+            priority: {
+              type: "string",
+              enum: ["high", "medium", "low"],
+              description: "Issue priority",
+            },
+            guidance: {
+              type: "string",
+              description: "Guidance to fix the issue",
+            },
+          },
+          required: ["check_id", "reason", "priority", "guidance"],
+        },
+      },
       manual_review: { type: "boolean", description: "Manual review flag" },
     },
     required: ["task_id", "judgment", "rationale"],

@@ -149,7 +149,12 @@ export type MessageRole = z.output<typeof MessageRoleSchema>;
  */
 export const MessageContentPartSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("text"), value: z.string() }),
-  z.object({ type: z.literal("toolCall"), toolCallId: z.string() }),
+  z.object({
+    type: z.literal("toolCall"),
+    toolCallId: z.string(),
+    name: z.string(),
+    input: z.record(z.unknown()),
+  }),
   z.object({
     type: z.literal("toolResult"),
     toolCallId: z.string(),

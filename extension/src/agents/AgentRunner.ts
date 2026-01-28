@@ -692,20 +692,34 @@ export class AgentRunner implements vscode.Disposable {
 
       // Handle string content
       if (typeof msg.content === "string") {
-        return vscode.LanguageModelChatMessage.User(msg.content);
+        return role === vscode.LanguageModelChatMessageRole.User
+          ? vscode.LanguageModelChatMessage.User(msg.content)
+          : vscode.LanguageModelChatMessage.Assistant(msg.content);
       }
 
-      // Handle array content (tool results, etc.)
+      // Handle array content (tool calls, tool results, etc.)
       const contentParts: Array<
-        vscode.LanguageModelTextPart | vscode.LanguageModelToolResultPart
+        | vscode.LanguageModelTextPart
+        | vscode.LanguageModelToolResultPart
+        | vscode.LanguageModelToolCallPart
       > = [];
       const textValues: string[] = [];
       let hasToolResult = false;
+      let hasToolCall = false;
 
       for (const part of msg.content) {
         if (part.type === "text") {
           textValues.push(part.value);
           contentParts.push(new vscode.LanguageModelTextPart(part.value));
+        } else if (part.type === "toolCall") {
+          hasToolCall = true;
+          contentParts.push(
+            new vscode.LanguageModelToolCallPart(
+              part.toolCallId,
+              part.name,
+              part.input,
+            ),
+          );
         } else if (part.type === "toolResult") {
           hasToolResult = true;
           contentParts.push(
@@ -718,8 +732,14 @@ export class AgentRunner implements vscode.Disposable {
 
       const textContent = textValues.join("\n");
 
+      // Tool results are sent as User messages (required by API)
       if (hasToolResult) {
         return vscode.LanguageModelChatMessage.User(contentParts);
+      }
+
+      // Tool calls are sent as Assistant messages
+      if (hasToolCall) {
+        return vscode.LanguageModelChatMessage.Assistant(contentParts);
       }
 
       return role === vscode.LanguageModelChatMessageRole.User
@@ -799,6 +819,9 @@ export class AgentRunner implements vscode.Disposable {
 
       // Execute tool calls
       if (hadToolCalls) {
+        // Add assistant message with tool calls BEFORE executing them
+        // This is required by the LLM API - tool results must follow tool calls
+        this.addAssistantToolCallMessage(toolCalls);
         await this.executeToolCalls(toolCalls);
       }
 
@@ -1287,6 +1310,37 @@ export class AgentRunner implements vscode.Disposable {
       id: crypto.randomUUID(),
       role: "assistant",
       content,
+      timestamp: new Date().toISOString(),
+      iteration: this.session.currentIteration,
+    };
+
+    this.session.addMessage(message);
+  }
+
+  /**
+   * Add assistant message with tool calls to session
+   *
+   * This is required by the LLM API - tool results must be preceded by
+   * an assistant message that made the tool calls.
+   *
+   * @param toolCalls - Array of tool calls
+   */
+  private addAssistantToolCallMessage(
+    toolCalls: Array<{ name: string; input: unknown; callId: string }>,
+  ): void {
+    if (!this.session) {
+      return;
+    }
+
+    const message: AgentMessage = {
+      id: crypto.randomUUID(),
+      role: "assistant",
+      content: toolCalls.map((tc) => ({
+        type: "toolCall" as const,
+        toolCallId: tc.callId,
+        name: tc.name,
+        input: tc.input as Record<string, unknown>,
+      })),
       timestamp: new Date().toISOString(),
       iteration: this.session.currentIteration,
     };
