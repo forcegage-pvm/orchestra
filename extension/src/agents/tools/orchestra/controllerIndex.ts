@@ -78,12 +78,13 @@ const approveSprintTool: ToolDefinition = {
     properties: {
       conformance: {
         type: "string",
-        enum: ["FULL", "PARTIAL", "MINIMAL"],
-        description: "Level of spec conformance",
+        enum: ["PASS", "WARN", "FAIL"],
+        description:
+          "Level of spec conformance: PASS (fully aligned), WARN (minor issues), FAIL (reject)",
       },
       notes: {
         type: "string",
-        description: "Optional approval notes",
+        description: "Optional approval notes (min 10 characters if provided)",
       },
     },
     required: ["conformance"],
@@ -147,12 +148,13 @@ const approveHandoverTool: ToolDefinition = {
       },
       conformance: {
         type: "string",
-        enum: ["FULL", "PARTIAL", "MINIMAL"],
-        description: "Level of spec conformance",
+        enum: ["PASS", "WARN", "FAIL"],
+        description:
+          "Level of spec conformance: PASS (fully aligned), WARN (minor issues), FAIL (reject)",
       },
       notes: {
         type: "string",
-        description: "Optional approval notes",
+        description: "Optional approval notes (min 10 characters if provided)",
       },
     },
     required: ["task_id", "conformance"],

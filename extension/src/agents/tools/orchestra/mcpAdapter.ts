@@ -47,10 +47,28 @@ export function mcpToToolResult(mcpResponse: McpResponse): ToolResult {
   try {
     const parsed = JSON.parse(text);
     if (parsed.success === false || parsed.error) {
+      // Extract detailed error info including validation issues
+      let errorMessage =
+        parsed.error?.message ?? parsed.error ?? "Operation failed";
+
+      // Include validation issues if present (from Zod validation)
+      if (
+        parsed.error?.details?.issues &&
+        Array.isArray(parsed.error.details.issues)
+      ) {
+        const issues = parsed.error.details.issues
+          .map(
+            (issue: { path?: string; message?: string }) =>
+              `  - ${issue.path || "input"}: ${issue.message || "invalid"}`,
+          )
+          .join("\n");
+        errorMessage = `${errorMessage}\n\nValidation issues:\n${issues}`;
+      }
+
       return {
         success: false,
         output: text,
-        error: parsed.error?.message ?? parsed.error ?? "Operation failed",
+        error: errorMessage,
       };
     }
     return {
