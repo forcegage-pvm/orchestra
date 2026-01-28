@@ -81,6 +81,14 @@ export class ToolRegistry {
   private tools: Map<string, AgentTool> = new Map();
 
   /**
+   * Clear all registered tools.
+   * Call this before loading a new set of role-specific tools.
+   */
+  clear(): void {
+    this.tools.clear();
+  }
+
+  /**
    * Register a tool
    *
    * @param tool - Tool to register
@@ -90,7 +98,7 @@ export class ToolRegistry {
     if (this.tools.has(tool.name)) {
       throw new ToolExecutionError(
         `Tool '${tool.name}' is already registered`,
-        tool.name
+        tool.name,
       );
     }
     this.tools.set(tool.name, tool);
@@ -184,7 +192,7 @@ export class ToolRegistry {
     name: string,
     input: unknown,
     context: ToolContext,
-    options?: ToolExecutionOptions
+    options?: ToolExecutionOptions,
   ): Promise<ToolExecutionResult> {
     const tool = this.tools.get(name);
     if (!tool) {
@@ -242,7 +250,7 @@ export class ToolRegistry {
         durationMs,
         toolCallId,
         lastError: lastError?.message,
-      }
+      },
     );
   }
 
@@ -260,7 +268,7 @@ export class ToolRegistry {
     tool: AgentTool,
     input: unknown,
     context: ToolContext,
-    timeoutMs: number
+    timeoutMs: number,
   ): Promise<ToolResult> {
     return Promise.race([
       tool.execute(input, context),
@@ -277,14 +285,14 @@ export class ToolRegistry {
    */
   private createTimeoutPromise(
     timeoutMs: number,
-    toolName: string
+    toolName: string,
   ): Promise<never> {
     return new Promise((_, reject) => {
       setTimeout(() => {
         reject(
           new Error(
-            `Tool '${toolName}' execution timed out after ${timeoutMs}ms`
-          )
+            `Tool '${toolName}' execution timed out after ${timeoutMs}ms`,
+          ),
         );
       }, timeoutMs);
     });

@@ -75,6 +75,17 @@ Orchestra's post-mortem from Sprint 017 revealed a catastrophic failure pattern:
 | ---------------- | ---------------------------- | ------------------------------- |
 | `read_spec_file` | Read specification documents | Get the spec to compare against |
 
+### File Inspection (Read-Only)
+
+| Tool             | Purpose                          | When to Use                           |
+| ---------------- | -------------------------------- | ------------------------------------- |
+| `read_file`      | Read file contents (line ranges) | Review source files mentioned in spec |
+| `list_directory` | List directory contents          | Explore project structure             |
+| `search`         | Search for text/symbols          | Find relevant code                    |
+| `grep_search`    | Regex search in files            | Verify patterns exist in code         |
+
+**Note:** Use these tools instead of shell commands (`cat`, `type`, `head`) for file inspection. Shell commands are platform-dependent; these tools work on all platforms.
+
 ## What You Can NOT Do
 
 ❌ **Modify verification criteria** - You cannot use `update_verification`

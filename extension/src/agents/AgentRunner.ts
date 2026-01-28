@@ -280,6 +280,10 @@ export class AgentRunner implements vscode.Disposable {
       maxIterations,
     );
 
+    // Clear existing tools before loading role-specific ones
+    // This prevents "already registered" errors when switching roles
+    this.toolRegistry.clear();
+
     if (role === "implementor") {
       loadImplementorTools(this.toolRegistry);
     } else if (role === "orchestrator") {
@@ -298,6 +302,10 @@ export class AgentRunner implements vscode.Disposable {
 
     // Create cancellation token
     this.cancellationTokenSource = new vscode.CancellationTokenSource();
+
+    // Inject environment context so agent knows its operating environment
+    const envContext = this.buildEnvironmentContext();
+    this.addUserMessage(envContext);
 
     // Add initial user message with prompt
     this.addUserMessage(options.prompt);
@@ -1092,6 +1100,56 @@ export class AgentRunner implements vscode.Disposable {
       `Compaction count: ${memory.compactionCount}`,
       `Last compacted at: ${memory.lastCompactedAt ?? "Never"}`,
     ].join("\n");
+  }
+
+  /**
+   * Build environment context for the agent.
+   * Tells the agent about its operating environment (OS, shell, workspace).
+   */
+  private buildEnvironmentContext(): string {
+    const platform = process.platform;
+    const osName =
+      platform === "win32"
+        ? "Windows"
+        : platform === "darwin"
+          ? "macOS"
+          : "Linux";
+    const shell =
+      platform === "win32"
+        ? "cmd.exe (use Windows commands like 'type' instead of 'cat', 'dir' instead of 'ls')"
+        : "/bin/sh (Unix shell)";
+    const workspaceRoot =
+      vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? process.cwd();
+    const pathSeparator = platform === "win32" ? "\\" : "/";
+
+    const lines = [
+      "[ENVIRONMENT CONTEXT]",
+      `Operating System: ${osName} (${platform})`,
+      `Shell: ${shell}`,
+      `Path Separator: ${pathSeparator}`,
+      `Workspace Root: ${workspaceRoot}`,
+    ];
+
+    // Add Windows-specific guidance
+    if (platform === "win32") {
+      lines.push("");
+      lines.push("IMPORTANT: You are on Windows. Use Windows commands:");
+      lines.push("  - Use 'type' instead of 'cat'");
+      lines.push("  - Use 'dir' instead of 'ls'");
+      lines.push(
+        "  - Use backslashes in paths (though forward slashes often work)",
+      );
+      lines.push(
+        "  - Use 'findstr' instead of 'grep' (or use the grep_search tool)",
+      );
+      lines.push("  - Use 'where' instead of 'which'");
+      lines.push("");
+      lines.push(
+        "TIP: Prefer using read_file, list_directory, search, grep_search tools over shell commands for file operations - they are cross-platform.",
+      );
+    }
+
+    return lines.join("\n");
   }
 
   private async handleTaskCompletion(

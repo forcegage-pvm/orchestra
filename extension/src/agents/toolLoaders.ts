@@ -3,7 +3,13 @@
  */
 
 import { ToolRegistry } from "./ToolRegistry.js";
-import { registerCodingTools } from "./tools/coding/index.js";
+import {
+  grepSearchTool,
+  listDirectoryTool,
+  readFileTool,
+  registerCodingTools,
+  searchTool,
+} from "./tools/coding/index.js";
 import { registerOrchestraControllerTools } from "./tools/orchestra/controllerIndex.js";
 import { registerOrchestraImplementorTools } from "./tools/orchestra/index.js";
 import { registerOrchestraOrchestratorTools } from "./tools/orchestra/orchestratorIndex.js";
@@ -29,11 +35,18 @@ export function loadOrchestratorTools(registry: ToolRegistry): void {
 
 /**
  * Register all tools available to the controller role.
- * Controller has LIMITED tools: read-only + judgment (approve/reject).
+ * Controller has LIMITED tools: read-only file access + judgment (approve/reject).
  */
 export function loadControllerTools(registry: ToolRegistry): void {
-  // Controller gets system tools for file reading
+  // Controller gets system tools for running commands/tests
   registerSystemTools(registry);
-  // Controller gets ONLY controller-specific Orchestra tools (no coding tools)
+  // Controller gets read-only coding tools for file inspection
+  registry.registerAll([
+    readFileTool,
+    listDirectoryTool,
+    searchTool,
+    grepSearchTool,
+  ]);
+  // Controller gets ONLY controller-specific Orchestra tools (approve/reject)
   registerOrchestraControllerTools(registry);
 }
