@@ -26,7 +26,11 @@ import {
 } from "./memory/TaskSummary.js";
 import type { TaskOutcome } from "./memory/types.js";
 import { SessionStorage } from "./SessionStorage.js";
-import { loadImplementorTools, loadOrchestratorTools } from "./toolLoaders.js";
+import {
+  loadControllerTools,
+  loadImplementorTools,
+  loadOrchestratorTools,
+} from "./toolLoaders.js";
 import { ToolRegistry } from "./ToolRegistry.js";
 import type {
   AgentConfig,
@@ -288,6 +292,8 @@ export class AgentRunner implements vscode.Disposable {
       const memory = await memoryStore.getOrCreate(sprintId, sprintName);
       const memoryContext = this.formatSprintMemoryContext(memory);
       this.addUserMessage(memoryContext);
+    } else if (role === "controller") {
+      loadControllerTools(this.toolRegistry);
     }
 
     // Create cancellation token

@@ -98,6 +98,22 @@ export function getAgentOutputStyles(): string {
       display: inline-flex;
     }
 
+    .control-divider {
+      width: 1px;
+      height: 16px;
+      background: var(--vscode-panel-border);
+      margin: 0 2px;
+    }
+
+    .control-button.copy {
+      display: inline-flex;
+    }
+
+    .control-button.copy.copied {
+      background: var(--vscode-inputValidation-infoBackground);
+      border-color: var(--vscode-inputValidation-infoBorder, var(--vscode-charts-blue));
+    }
+
     .content {
       flex: 1;
       overflow-y: auto;

@@ -42,6 +42,15 @@ function isRole(value: unknown): value is Role {
   );
 }
 
+/**
+ * Check if model selection is required for a given role.
+ *
+ * Model selection is NOT required if:
+ * 1. A user has explicitly set a value in workspace or global settings, OR
+ * 2. The package.json defines a default value
+ *
+ * This ensures users don't get prompted for model selection when defaults exist.
+ */
 export function isModelSelectionRequired(
   role: Role,
   configuration?: Pick<vscode.WorkspaceConfiguration, "inspect">,
@@ -53,12 +62,20 @@ export function isModelSelectionRequired(
     return true;
   }
 
+  // Check for explicit user-set value first
   const explicitValue = inspect.workspaceValue ?? inspect.globalValue;
-  if (typeof explicitValue === "string") {
-    return explicitValue.trim().length === 0;
+  if (typeof explicitValue === "string" && explicitValue.trim().length > 0) {
+    return false; // User has set a value, no selection needed
   }
 
-  return explicitValue === undefined;
+  // Check for default value from package.json
+  const defaultValue = inspect.defaultValue;
+  if (typeof defaultValue === "string" && defaultValue.trim().length > 0) {
+    return false; // Default exists, no selection needed
+  }
+
+  // No value configured anywhere
+  return true;
 }
 
 export async function handleSelectModel(

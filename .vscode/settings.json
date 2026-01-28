@@ -30,5 +30,6 @@
     "titleBar.inactiveForeground": "#e7e7e799"
   },
   "peacock.color": "#ff3d00",
-  "orchestra.models.orchestrator": "claude-opus-4.5"
+  "orchestra.models.orchestrator": "claude-opus-4.5",
+  "orchestra.models.controller": "claude-opus-4.5"
 }

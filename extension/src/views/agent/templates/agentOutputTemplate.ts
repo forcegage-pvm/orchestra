@@ -530,6 +530,66 @@ function getScript(initialItemsJson: string): string {
           }
         });
       }
+
+      const copyAllBtn = document.getElementById("agent-control-copy-all");
+      if (copyAllBtn) {
+        copyAllBtn.addEventListener("click", () => {
+          copyAllOutput();
+        });
+      }
+    }
+
+    function formatItemAsText(item) {
+      const lines = [];
+      const time = item.timestamp || "";
+      
+      if (item.type === "thinking") {
+        lines.push("=== THINKING [" + time + "] ===");
+        lines.push(item.content.text || "");
+      } else if (item.type === "tool_call") {
+        lines.push("=== TOOL CALL [" + time + "] ===");
+        lines.push("Tool: " + (item.content.toolName || "unknown"));
+        lines.push("Arguments:");
+        lines.push(formatJson(item.content.arguments || {}));
+      } else if (item.type === "tool_result") {
+        const status = item.content.success ? "SUCCESS" : "ERROR";
+        lines.push("=== TOOL RESULT [" + time + "] " + status + " ===");
+        lines.push("Tool: " + (item.content.toolName || "unknown"));
+        if (item.content.output) {
+          lines.push("Output:");
+          lines.push(item.content.output);
+        }
+        if (item.content.error) {
+          lines.push("Error:");
+          lines.push(item.content.error);
+        }
+      }
+      
+      return lines.join("\\n");
+    }
+
+    function copyAllOutput() {
+      if (state.items.length === 0) {
+        return;
+      }
+      
+      const textParts = state.items.map(formatItemAsText);
+      const fullText = textParts.join("\\n\\n");
+      
+      navigator.clipboard.writeText(fullText).then(() => {
+        const copyBtn = document.getElementById("agent-control-copy-all");
+        if (copyBtn) {
+          const originalTitle = copyBtn.title;
+          copyBtn.title = "Copied!";
+          copyBtn.classList.add("copied");
+          setTimeout(() => {
+            copyBtn.title = originalTitle;
+            copyBtn.classList.remove("copied");
+          }, 1500);
+        }
+      }).catch((err) => {
+        console.error("Failed to copy:", err);
+      });
     }
 
     window.addEventListener("message", (event) => {
@@ -651,6 +711,16 @@ export function generateAgentOutputHtml(
             title="Stop agent"
           >
             <span class="codicon codicon-debug-stop" aria-hidden="true"></span>
+          </button>
+          <span class="control-divider"></span>
+          <button
+            id="agent-control-copy-all"
+            class="control-button copy"
+            type="button"
+            aria-label="Copy all output"
+            title="Copy all output"
+          >
+            <span class="codicon codicon-copy" aria-hidden="true"></span>
           </button>
         </div>
         <div id="panel-status" class="status">${escapeHtml(status)}</div>

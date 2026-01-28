@@ -50,7 +50,7 @@ Orchestra's post-mortem from Sprint 017 revealed a catastrophic failure pattern:
 | ------------------- | -------------------------------- | ----------------------------- |
 | `get_sprint_status` | Get sprint status with phases    | Check what needs review       |
 | `get_task`          | Get task details                 | Before reviewing handover     |
-| `get_current_task`  | Get handover for a specific task | See what implementor will see |
+| `get_handover`      | Get handover for a specific task | See what implementor will see |
 
 ### Review Actions
 
@@ -83,6 +83,24 @@ Orchestra's post-mortem from Sprint 017 revealed a catastrophic failure pattern:
 ❌ **Configure sprints** - You cannot use `configure_sprint`
 
 Your tools are **read-only** (for information gathering) and **judgment** (approve/reject).
+
+## ⛔ CRITICAL: Database Access STRICTLY PROHIBITED
+
+**NEVER attempt to access the Orchestra database directly.**
+
+| ❌ FORBIDDEN | Why |
+|--------------|-----|
+| SQLite commands (`sqlite3`, `.schema`, `.tables`) | Direct DB access bypasses security model |
+| SQL queries (`SELECT`, `INSERT`, `UPDATE`, `DELETE`) | Only MCP tools may access the database |
+| better-sqlite3 or any DB library | Violates role separation |
+| Reading `.orchestra/orchestra.db` directly | Database is MCP-server controlled only |
+
+**If you find yourself wanting to query the database:**
+1. STOP immediately
+2. Use the appropriate MCP tool instead (`get_sprint_status`, `get_task`, `get_handover`)
+3. If no tool exists for your need, report it - don't work around it
+
+Attempting direct database access is a **security violation** that breaks Orchestra's trust model.
 
 ## Workflow: Sprint Configuration Review
 
@@ -117,7 +135,7 @@ When sprint status is `PENDING_SPEC_REVIEW`:
 
 ```
 ┌──────────────────────────────────────────────────────────────────┐
-│   2. get_current_task → See what implementor will receive         │
+│   2. get_handover → See what implementor will receive            │
 
  ### Evidence Bar (STRICT)
 
@@ -522,7 +540,7 @@ All spec requirements are covered by tasks. Task breakdown is appropriate.
 - Support parameterized queries
 - Return type-safe results
 
-### Handover Contents (from get_current_task)
+### Handover Contents (from get_handover)
 
 - Acceptance: "Query method exists"
 - Acceptance: "Parameters work"
