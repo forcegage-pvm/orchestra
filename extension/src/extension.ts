@@ -164,6 +164,11 @@ function createAgentRunner(): AgentRunner {
 /**
  * Install MCP servers to .vscode/mcp.json
  * Merges with existing configuration, preserving other servers
+ *
+ * IMPORTANT: Skips overwrite if:
+ * 1. Running in extension development mode (F5 debug)
+ * 2. Existing config uses ${workspaceFolder} variables (dev workspace)
+ * 3. Existing config has a "dev" section (MCP dev mode)
  */
 async function installMcpServers(
   orchestraRoot: string,
@@ -188,6 +193,29 @@ async function installMcpServers(
     throw new Error(
       "Bundled MCP server not found. Extension may be corrupted.",
     );
+  }
+
+  // Check if we should skip updating mcp.json
+  if (fs.existsSync(mcpJsonPath)) {
+    try {
+      const content = fs.readFileSync(mcpJsonPath, "utf-8");
+
+      // Check for dev mode indicators:
+      // 1. ${workspaceFolder} variables indicate local dev setup
+      // 2. "dev" section indicates MCP dev mode
+      const hasWorkspaceFolderVar = content.includes("${workspaceFolder}");
+      const hasDevSection = content.includes('"dev"');
+
+      if (hasWorkspaceFolderVar || hasDevSection) {
+        // This is a development workspace - don't overwrite
+        logger.info(
+          "MCP config has dev markers - preserving local configuration",
+        );
+        return;
+      }
+    } catch {
+      // If we can't read the file, proceed with overwrite
+    }
   }
 
   // Read existing config or create new
@@ -922,21 +950,24 @@ export async function activate(
       }),
       vscode.commands.registerCommand(
         "orchestra.selectModel",
-        (role?: string) => {
+        async (role?: string): Promise<boolean> => {
           const selectedRole =
             role === "orchestrator" ||
             role === "implementor" ||
             role === "controller"
               ? role
               : undefined;
-          handleSelectModel(selectedRole).catch((error) => {
+          try {
+            return await handleSelectModel(selectedRole);
+          } catch (error) {
             const message =
               error instanceof Error ? error.message : "Unknown error";
             vscode.window.showErrorMessage(
               `Orchestra: Failed to select model - ${message}`,
             );
             logger.error("Failed to select model", error);
-          });
+            return false;
+          }
         },
       ),
       vscode.commands.registerCommand("orchestra.openSprintSettings", () => {

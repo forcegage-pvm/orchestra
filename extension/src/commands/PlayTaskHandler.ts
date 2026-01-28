@@ -14,13 +14,32 @@ import {
   getLatestHandoverReview,
   getTaskById,
 } from "../database/queries.js";
-import {
-  getAgentRunner,
-  getContextFileResolver,
-  getSessionManager,
-} from "../extension.js";
+import { getAgentRunner, getContextFileResolver } from "../extension.js";
 import { PromptBuilder } from "../prompts/PromptBuilder.js";
 import { OrchestraLogger } from "../utils/logger.js";
+import { AgentOutputPanel } from "../views/agent/AgentOutputPanel.js";
+
+// Track output panel subscription
+let agentStateSubscription: vscode.Disposable | undefined;
+
+/**
+ * Show the agent output panel and bind it to the agent runner
+ */
+function showAgentOutputPanel(): void {
+  const runner = getAgentRunner();
+  const agentOutputPanel = AgentOutputPanel.createOrShow(
+    vscode.extensions.getExtension("forcegage.orchestra-extension")
+      ?.extensionUri ?? vscode.Uri.file(""),
+  );
+  agentOutputPanel.clear();
+  agentOutputPanel.updateStatus("Starting");
+  agentOutputPanel.bindToRunner(runner);
+
+  agentStateSubscription?.dispose();
+  agentStateSubscription = runner.onStateChange((state) => {
+    agentOutputPanel?.updateStatus(state.status);
+  });
+}
 
 /**
  * Handle Play button click for a task
@@ -135,15 +154,29 @@ async function invokePrepare(
     // Create instances
     const logger = new OrchestraLogger();
     const promptBuilder = new PromptBuilder();
-    const sessionManager = getSessionManager();
+    const agentRunner = getAgentRunner();
+
+    if (agentRunner.getSession()?.status === "running") {
+      vscode.window.showErrorMessage(
+        "Orchestra: Agent is already running. Stop or pause the current agent first.",
+      );
+      return;
+    }
 
     // Build the prepare prompt
     const prompt = promptBuilder.buildPreparePrompt(context);
 
-    // Send message to orchestrator session
-    await sessionManager.sendMessage("orchestrator", prompt, []);
+    // Show output panel before starting
+    showAgentOutputPanel();
 
-    logger.info(`Invoked orchestrator to prepare task ${taskId}`, {
+    // Start orchestrator agent for task preparation
+    await agentRunner.start("orchestrator", {
+      prompt,
+      taskId,
+      sprintId: sprint.id,
+    });
+
+    logger.info(`Started orchestrator agent to prepare task ${taskId}`, {
       taskId,
       taskTitle: task.title,
       sprintId: sprint.id,
@@ -213,6 +246,9 @@ async function invokeImplement(
 
     // Build the implement prompt
     const prompt = promptBuilder.buildImplementPrompt(context);
+
+    // Show output panel before starting
+    showAgentOutputPanel();
 
     // Invoke implementor agent for autonomous execution
     await agentRunner.start("implementor", {
@@ -296,7 +332,14 @@ async function invokeRetry(
     // Create instances
     const logger = new OrchestraLogger();
     const promptBuilder = new PromptBuilder();
-    const sessionManager = getSessionManager();
+    const agentRunner = getAgentRunner();
+
+    if (agentRunner.getSession()?.status === "running") {
+      vscode.window.showErrorMessage(
+        "Orchestra: Agent is already running. Stop or pause the current agent first.",
+      );
+      return;
+    }
 
     // Get context file resolver from extension
     const contextFileResolver = getContextFileResolver();
@@ -307,10 +350,17 @@ async function invokeRetry(
     // Build the retry prompt
     const prompt = promptBuilder.buildRetryPrompt(context);
 
-    // Invoke implementor - always creates a new editor chat session per retry
-    await sessionManager.invokeImplementor(prompt, contextFiles);
+    // Show output panel before starting
+    showAgentOutputPanel();
 
-    logger.info(`Invoked implementor to retry task ${taskId}`, {
+    // Start implementor agent for retry
+    await agentRunner.start("implementor", {
+      prompt,
+      taskId,
+      sprintId: task.sprint_id,
+    });
+
+    logger.info(`Started implementor agent to retry task ${taskId}`, {
       taskId,
       taskTitle: task.title,
       retryCount: task.retry_count,
@@ -365,15 +415,29 @@ async function invokeVerify(
     // Create instances
     const logger = new OrchestraLogger();
     const promptBuilder = new PromptBuilder();
-    const sessionManager = getSessionManager();
+    const agentRunner = getAgentRunner();
+
+    if (agentRunner.getSession()?.status === "running") {
+      vscode.window.showErrorMessage(
+        "Orchestra: Agent is already running. Stop or pause the current agent first.",
+      );
+      return;
+    }
 
     // Build the verify prompt
     const prompt = promptBuilder.buildVerifyPrompt(context);
 
-    // Send message to orchestrator session for verification
-    await sessionManager.sendMessage("orchestrator", prompt, []);
+    // Show output panel before starting
+    showAgentOutputPanel();
 
-    logger.info(`Invoked orchestrator to verify task ${taskId}`, {
+    // Start orchestrator agent for verification
+    await agentRunner.start("orchestrator", {
+      prompt,
+      taskId,
+      sprintId: task.sprint_id,
+    });
+
+    logger.info(`Started orchestrator agent to verify task ${taskId}`, {
       taskId,
       taskTitle: task.title,
       taskStatus: task.status,
@@ -443,15 +507,29 @@ async function invokeHandoverReview(
     // Create instances
     const logger = new OrchestraLogger();
     const promptBuilder = new PromptBuilder();
-    const sessionManager = getSessionManager();
+    const agentRunner = getAgentRunner();
+
+    if (agentRunner.getSession()?.status === "running") {
+      vscode.window.showErrorMessage(
+        "Orchestra: Agent is already running. Stop or pause the current agent first.",
+      );
+      return;
+    }
 
     // Build the handover review prompt
     const prompt = promptBuilder.buildHandoverReviewPrompt(context);
 
-    // Invoke controller in a new editor tab with fresh context
-    await sessionManager.invokeController(prompt, []);
+    // Show output panel before starting
+    showAgentOutputPanel();
 
-    logger.info("Controller invoked for handover review", {
+    // Start controller agent for handover review
+    await agentRunner.start("controller", {
+      prompt,
+      taskId,
+      sprintId: sprint.id,
+    });
+
+    logger.info("Started controller agent for handover review", {
       taskId,
       taskTitle: task.title,
       reviewAttempt,
@@ -497,7 +575,14 @@ async function invokeEscalationReview(
 
     // Create instances
     const logger = new OrchestraLogger();
-    const sessionManager = getSessionManager();
+    const agentRunner = getAgentRunner();
+
+    if (agentRunner.getSession()?.status === "running") {
+      vscode.window.showErrorMessage(
+        "Orchestra: Agent is already running. Stop or pause the current agent first.",
+      );
+      return;
+    }
 
     // Build the escalation review prompt
     const prompt = `As Orchestrator, review the escalated Task ${
@@ -520,14 +605,24 @@ ${
 
 Use your MCP tools to investigate and resolve this escalation.`;
 
-    // Send message to orchestrator session for escalation review
-    await sessionManager.sendMessage("orchestrator", prompt, []);
+    // Show output panel before starting
+    showAgentOutputPanel();
 
-    logger.info(`Invoked orchestrator to review escalated task ${taskId}`, {
+    // Start orchestrator agent for escalation review
+    await agentRunner.start("orchestrator", {
+      prompt,
       taskId,
-      taskTitle: task.title,
-      escalationReason: escalation.reason,
+      sprintId: task.sprint_id,
     });
+
+    logger.info(
+      `Started orchestrator agent to review escalated task ${taskId}`,
+      {
+        taskId,
+        taskTitle: task.title,
+        escalationReason: escalation.reason,
+      },
+    );
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
     vscode.window.showErrorMessage(

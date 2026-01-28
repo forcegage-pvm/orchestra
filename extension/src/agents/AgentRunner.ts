@@ -247,10 +247,22 @@ export class AgentRunner implements vscode.Disposable {
     this.recentErrors = [];
     this.hasEscalated = false;
 
+    // Check if model selection is required (no model configured for this role)
     if (!options.model && isModelSelectionRequired(role)) {
-      await vscode.commands.executeCommand("orchestra.selectModel", role);
+      // Show model selection - returns true if user selected, false if cancelled
+      const selected = await vscode.commands.executeCommand<boolean>(
+        "orchestra.selectModel",
+        role,
+      );
+      if (!selected) {
+        throw new AgentError(
+          "Model selection cancelled. Please select a model to continue.",
+          "MODEL_SELECTION_CANCELLED",
+        );
+      }
     }
 
+    // Refresh config after potential model selection
     const configuredModel = this.getConfiguredModel(role);
     this.applyConfiguredModel(role, configuredModel);
 
@@ -532,7 +544,12 @@ export class AgentRunner implements vscode.Disposable {
     role: AgentRole,
     modelOverride?: string,
   ): Promise<void> {
+    console.error("[AgentRunner] runAgentLoop starting", {
+      role,
+      modelOverride,
+    });
     if (!this.session) {
+      console.error("[AgentRunner] No session!");
       throw new SessionError(
         "No session available for agent loop",
         "no-session",
@@ -541,12 +558,23 @@ export class AgentRunner implements vscode.Disposable {
 
     try {
       // Select language model
+      console.error("[AgentRunner] Selecting model...");
       const model = await this.selectModel(role, modelOverride);
+      console.error("[AgentRunner] Model selected:", model?.id);
 
       // Get tools
       const tools = this.toolRegistry.getToolDefinitions();
+      console.error("[AgentRunner] Tools loaded:", tools.length);
 
       // Main agent loop
+      console.error(
+        "[AgentRunner] Starting loop. maxIterations:",
+        this.session.maxIterations,
+        "isPaused:",
+        this.isPaused,
+        "isStopped:",
+        this.isStopped,
+      );
       while (
         this.session.currentIteration < this.session.maxIterations &&
         !this.isPaused &&
@@ -554,6 +582,10 @@ export class AgentRunner implements vscode.Disposable {
       ) {
         // Increment iteration
         this.session.incrementIteration();
+        console.error(
+          "[AgentRunner] Loop iteration:",
+          this.session.currentIteration,
+        );
 
         // Compact context if needed
         const compactedMessages = this.contextManager.isWithinLimit(
@@ -561,9 +593,14 @@ export class AgentRunner implements vscode.Disposable {
         )
           ? this.session.messages
           : this.contextManager.compact(this.session.messages);
+        console.error(
+          "[AgentRunner] Messages to send:",
+          compactedMessages.length,
+        );
 
         // Convert to vscode.lm format
         const chatMessages = this.convertToLMMessages(compactedMessages);
+        console.error("[AgentRunner] Sending request to LLM...");
 
         // Send request to LLM
         const hadToolCalls = await this.sendRequest(
@@ -625,7 +662,8 @@ export class AgentRunner implements vscode.Disposable {
     role: AgentRole,
     modelOverride?: string,
   ): Promise<vscode.LanguageModelChat> {
-    // Determine model family
+    console.error("[AgentRunner] selectModel", { role, modelOverride });
+    // Determine target model name
     const targetModel =
       modelOverride ??
       (role === "orchestrator"
@@ -634,45 +672,59 @@ export class AgentRunner implements vscode.Disposable {
           ? this.config.implementorModel
           : this.config.controllerModel);
 
-    const family = targetModel.startsWith("claude") ? "claude" : undefined;
-    let models: vscode.LanguageModelChat[] = [];
+    console.error("[AgentRunner] targetModel:", targetModel);
 
-    if (family) {
-      const familyModels = await vscode.lm.selectChatModels({ family });
-      if (familyModels.length === 0) {
-        const allModels = await vscode.lm.selectChatModels();
-        if (allModels.length === 0) {
-          throw new AgentError(
-            "No language models available",
-            "NO_MODEL_AVAILABLE",
-          );
-        }
+    // Get all available models first
+    const allModels = await vscode.lm.selectChatModels();
+    console.error(
+      "[AgentRunner] Available models:",
+      allModels.length,
+      allModels.map((m) => `${m.family}:${m.id}`).slice(0, 10),
+    );
 
-        throw new AgentError(
-          "No Claude language models available",
-          "NO_MODEL_AVAILABLE",
-        );
-      }
-
-      models = familyModels;
-    } else {
-      models = await vscode.lm.selectChatModels();
-      if (models.length === 0) {
-        throw new AgentError(
-          "No language models available",
-          "NO_MODEL_AVAILABLE",
-        );
-      }
+    if (allModels.length === 0) {
+      throw new AgentError(
+        "No language models available. Please ensure you have Copilot or another LM provider enabled.",
+        "NO_MODEL_AVAILABLE",
+      );
     }
 
-    // Try to find exact match first
-    const exactMatch = models.find((m) => m.id.includes(targetModel));
+    // Try to find exact match by ID first
+    const exactMatch = allModels.find((m) => m.id.includes(targetModel));
     if (exactMatch) {
+      console.error("[AgentRunner] Found exact match:", exactMatch.id);
       return exactMatch;
     }
 
-    // Fallback to first available model (guaranteed to exist due to check above)
-    return models[0]!;
+    // Try to find by family (claude, anthropic, etc.)
+    const targetFamily = targetModel.startsWith("claude")
+      ? "claude"
+      : targetModel.startsWith("gpt")
+        ? "gpt"
+        : undefined;
+    if (targetFamily) {
+      // Try both the family name and "anthropic" for Claude models
+      const familyVariants =
+        targetFamily === "claude" ? ["claude", "anthropic"] : [targetFamily];
+      for (const family of familyVariants) {
+        const familyMatch = allModels.find(
+          (m) =>
+            m.family?.toLowerCase() === family ||
+            m.id.toLowerCase().includes(family),
+        );
+        if (familyMatch) {
+          console.error("[AgentRunner] Found family match:", familyMatch.id);
+          return familyMatch;
+        }
+      }
+    }
+
+    // Fallback to first available model
+    console.error(
+      "[AgentRunner] No match found, using first available:",
+      allModels[0]!.id,
+    );
+    return allModels[0]!;
   }
 
   /**
@@ -764,12 +816,15 @@ export class AgentRunner implements vscode.Disposable {
     token: vscode.CancellationToken,
   ): Promise<boolean> {
     if (!this.session) {
+      console.error("[AgentRunner] sendRequest: No session");
       return false;
     }
 
     try {
       // Send request
+      console.error("[AgentRunner] sendRequest: Calling model.sendRequest...");
       const request = await model.sendRequest(messages, { tools }, token);
+      console.error("[AgentRunner] sendRequest: Got response, streaming...");
 
       let thinkingText = "";
       let hadToolCalls = false;
@@ -778,6 +833,10 @@ export class AgentRunner implements vscode.Disposable {
 
       // Stream response
       for await (const chunk of request.stream) {
+        console.error(
+          "[AgentRunner] sendRequest: Received chunk:",
+          chunk.constructor.name,
+        );
         // Check for pause/stop
         if (this.isPaused || this.isStopped) {
           break;
@@ -903,7 +962,13 @@ export class AgentRunner implements vscode.Disposable {
         }
 
         // Add tool result to message history
-        this.addToolResultMessage(toolCall.callId, result.result.output);
+        // CRITICAL: If tool failed, include the error message so the LLM knows
+        const resultMessage = toolSuccess
+          ? result.result.output
+          : result.result.error
+            ? `Error: ${result.result.error}`
+            : result.result.output || "Tool execution failed";
+        this.addToolResultMessage(toolCall.callId, resultMessage);
 
         // Emit tool result
         this.emitOutput({
@@ -913,7 +978,7 @@ export class AgentRunner implements vscode.Disposable {
           toolName: toolCall.name,
           toolInput: toolCall.input as Record<string, unknown>,
           toolCallId: toolCall.callId,
-          toolResult: result.result.output,
+          toolResult: resultMessage,
           toolSuccess,
           toolDuration: durationMs,
         });
@@ -1401,6 +1466,7 @@ export class AgentRunner implements vscode.Disposable {
    * @param error - Error that occurred
    */
   private handleError(error: unknown): void {
+    console.error("[AgentRunner] handleError called:", error);
     if (!this.session) {
       return;
     }

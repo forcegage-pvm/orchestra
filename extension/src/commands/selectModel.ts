@@ -61,23 +61,25 @@ export function isModelSelectionRequired(
   return explicitValue === undefined;
 }
 
-export async function handleSelectModel(preferredRole?: Role): Promise<void> {
-  const selectedRole = isRole(preferredRole) ? preferredRole : undefined;
+export async function handleSelectModel(
+  preferredRole?: Role,
+): Promise<boolean> {
+  let selectedRole: Role;
 
-  const roleSelection = await vscode.window.showQuickPick(
-    roleOptions.map((option) => ({
-      ...option,
-      picked: option.value === selectedRole,
-    })),
-    {
+  // If role is provided, skip the role selection step
+  if (isRole(preferredRole)) {
+    selectedRole = preferredRole;
+  } else {
+    const roleSelection = await vscode.window.showQuickPick(roleOptions, {
       title: "Select Agent Role",
       placeHolder: "Choose which agent role to configure",
       ignoreFocusOut: true,
-    },
-  );
+    });
 
-  if (!roleSelection) {
-    return;
+    if (!roleSelection) {
+      return false;
+    }
+    selectedRole = roleSelection.value;
   }
 
   const models = await vscode.lm.selectChatModels();
@@ -85,7 +87,7 @@ export async function handleSelectModel(preferredRole?: Role): Promise<void> {
     vscode.window.showErrorMessage(
       "Orchestra: No language models are available. Configure a model provider in VS Code settings.",
     );
-    return;
+    return false;
   }
 
   const modelItems: ModelQuickPickItem[] = models.map((model) => ({
@@ -95,24 +97,29 @@ export async function handleSelectModel(preferredRole?: Role): Promise<void> {
     value: model.id,
   }));
 
+  const roleLabel =
+    roleOptions.find((r) => r.value === selectedRole)?.label ?? selectedRole;
+
   const modelSelection = await vscode.window.showQuickPick(modelItems, {
-    title: `Select Model for ${roleSelection.label}`,
+    title: `Select Model for ${roleLabel}`,
     placeHolder: "Choose a model",
     ignoreFocusOut: true,
   });
 
   if (!modelSelection) {
-    return;
+    return false;
   }
 
   const config = vscode.workspace.getConfiguration("orchestra");
   await config.update(
-    `models.${roleSelection.value}`,
+    `models.${selectedRole}`,
     modelSelection.value,
     vscode.ConfigurationTarget.Workspace,
   );
 
   vscode.window.showInformationMessage(
-    `Orchestra: ${roleSelection.label} model set to ${modelSelection.label}.`,
+    `Orchestra: ${roleLabel} model set to ${modelSelection.label}.`,
   );
+
+  return true;
 }

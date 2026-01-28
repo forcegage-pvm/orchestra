@@ -1,70 +1,43 @@
 /**
- * prepareTask tool - Create task handover and move task into IMPLEMENT
+ * prepareTask tool - Wrapper around MCP handler for prepare_task
+ *
+ * This reuses the full MCP server implementation to avoid code duplication
+ * and ensure feature parity (TDD cleanup, auto-commit, phase gates, etc.)
  */
 
-import {
-  createHandover,
-  updateTaskStatus,
-} from "../../../database/mutations.js";
-import {
-  getCurrentSprint,
-  getTaskById,
-  getTasksForSprint,
-} from "../../../database/queries.js";
+import { handlePrepareTask } from "../../../../../src/mcp-server/handlers/prepare-task.js";
 import type { AgentTool } from "../../ToolRegistry.js";
 import type { ToolContext, ToolResult } from "../../types.js";
-
-interface PrepareTaskInput {
-  task_id: number;
-  priority: string;
-  context: string;
-  context_files?: string[];
-  acceptance_criteria: Array<{ criterion: string; verification: string }>;
-  file_operations: Array<{
-    operation: string;
-    path: string;
-    description?: string;
-  }>;
-  deliverables: string[];
-}
-
-function resolveTaskId(
-  workspaceRoot: string,
-  taskId: number,
-): { id: number; task_id: number } | null {
-  const taskById = getTaskById(workspaceRoot, taskId);
-  if (taskById) {
-    return { id: taskById.id, task_id: taskById.task_id };
-  }
-
-  const sprint = getCurrentSprint(workspaceRoot);
-  if (!sprint) {
-    return null;
-  }
-
-  const tasks = getTasksForSprint(workspaceRoot, sprint.id);
-  const match = tasks.find((task) => task.task_id === taskId);
-  return match ? { id: match.id, task_id: match.task_id } : null;
-}
+import { executeMcpHandler } from "./mcpAdapter.js";
 
 export const prepareTaskTool: AgentTool = {
   name: "prepare_task",
   description:
-    "Prepare a task by creating a handover and setting status to IMPLEMENT.",
+    "Prepare a task by creating a handover and setting status to IMPLEMENT. " +
+    "Includes TDD marker cleanup, auto-commit, phase gate enforcement, and verification check generation.",
   inputSchema: {
     type: "object",
     properties: {
-      task_id: { type: "number", description: "Task ID" },
-      priority: { type: "string", description: "Task priority" },
-      context: { type: "string", description: "Task context" },
+      task_id: { type: "number", description: "The task ID to prepare" },
+      priority: {
+        type: "string",
+        enum: ["P0", "P1", "P2", "P3"],
+        description: "Task priority (P0=Critical, P1=High, P2=Medium, P3=Low)",
+      },
+      context: {
+        type: "string",
+        description:
+          "Background explaining WHY this task exists, architectural decisions, and how it fits the larger goal (min 50 chars)",
+      },
       context_files: {
         type: "array",
-        description: "List of context files",
+        description:
+          "File paths the implementor should read for additional context",
         items: { type: "string" },
       },
       acceptance_criteria: {
         type: "array",
-        description: "Acceptance criteria list",
+        description: "List of acceptance criteria with verification methods",
         items: {
           type: "object",
           properties: {
@@ -82,7 +55,7 @@ export const prepareTaskTool: AgentTool = {
       },
       file_operations: {
         type: "array",
-        description: "File operations list",
+        description: "File operations to perform (CREATE, UPDATE, DELETE)",
         items: {
           type: "object",
           properties: {
@@ -97,13 +70,18 @@ export const prepareTaskTool: AgentTool = {
               description: "Description of the operation",
             },
           },
-          required: ["operation", "path"],
+          required: ["operation", "path", "description"],
         },
       },
       deliverables: {
         type: "array",
-        description: "Deliverables list",
+        description: "List of deliverables",
         items: { type: "string" },
+      },
+      tdd_red_phase: {
+        type: "boolean",
+        description:
+          "Enable TDD red-phase verification: verify tests FAIL before implementation",
       },
     },
     required: [
@@ -119,50 +97,6 @@ export const prepareTaskTool: AgentTool = {
     input: unknown,
     context: ToolContext,
   ): Promise<ToolResult> => {
-    try {
-      const parsed = input as PrepareTaskInput;
-      const resolved = resolveTaskId(context.workspaceRoot, parsed.task_id);
-
-      if (!resolved) {
-        return {
-          success: false,
-          output: "",
-          error: `Task ${parsed.task_id} not found.`,
-        };
-      }
-
-      const handoverId = createHandover(context.workspaceRoot, resolved.id, {
-        priority: parsed.priority,
-        context: parsed.context,
-        contextFiles: parsed.context_files,
-        acceptanceCriteria: parsed.acceptance_criteria,
-        fileOperations: parsed.file_operations,
-        deliverables: parsed.deliverables,
-      });
-
-      updateTaskStatus(
-        context.workspaceRoot,
-        resolved.id,
-        "IMPLEMENT",
-        "Task prepared by orchestrator",
-      );
-
-      return {
-        success: true,
-        output: JSON.stringify({
-          task_id: resolved.task_id,
-          task_internal_id: resolved.id,
-          handover_id: handoverId,
-          status: "IMPLEMENT",
-        }),
-      };
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Unknown error";
-      return {
-        success: false,
-        output: "",
-        error: `Failed to prepare task: ${message}`,
-      };
-    }
+    return executeMcpHandler(context.workspaceRoot, handlePrepareTask, input);
   },
 };

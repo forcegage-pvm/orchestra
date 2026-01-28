@@ -213,36 +213,13 @@ function getScript(initialItemsJson: string): string {
       }
     }
 
-    const jsonTokenPattern =
-      /(\"(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\\"])*\"(?:\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+-]?\d+)?)/g;
-
+    // Simplified: No regex-based syntax highlighting to avoid document.write escaping issues
     function highlightCode(value) {
-      let result = "";
-      let lastIndex = 0;
-      for (const match of value.matchAll(jsonTokenPattern)) {
-        const matchIndex = match.index || 0;
-        const token = match[0] || "";
-        result += escapeHtml(value.slice(lastIndex, matchIndex));
-
-        let className = "token-number";
-        if (token.startsWith("\"")) {
-          className = token.endsWith(":") ? "token-key" : "token-string";
-        } else if (token === "true" || token === "false") {
-          className = "token-boolean";
-        } else if (token === "null") {
-          className = "token-null";
-        }
-
-        result += "<span class=\"" + className + "\">" + escapeHtml(token) + "</span>";
-        lastIndex = matchIndex + token.length;
-      }
-
-      result += escapeHtml(value.slice(lastIndex));
-      return result;
+      return escapeHtml(value);
     }
 
     function highlightJson(value) {
-      return highlightCode(formatJson(value));
+      return escapeHtml(formatJson(value));
     }
 
     function highlightMaybeJson(value) {

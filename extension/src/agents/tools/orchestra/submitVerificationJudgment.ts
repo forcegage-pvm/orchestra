@@ -1,160 +1,85 @@
 /**
- * submitVerificationJudgment tool - Record verification judgment and feedback
+ * submitVerificationJudgment tool - Wrapper around MCP handler for submit_verification_judgment
+ *
+ * This reuses the full MCP server implementation to ensure feature parity.
  */
 
-import {
-  createFeedback,
-  createVerificationJudgment,
-  updateTaskStatus,
-} from "../../../database/mutations.js";
-import {
-  getCurrentSprint,
-  getSignal,
-  getTaskById,
-  getTasksForSprint,
-} from "../../../database/queries.js";
+import { handleSubmitVerificationJudgment } from "../../../../../src/mcp-server/handlers/submit-verification-judgment.js";
 import type { AgentTool } from "../../ToolRegistry.js";
 import type { ToolContext, ToolResult } from "../../types.js";
-
-interface FailureIssue {
-  check_id: string;
-  severity?: string;
-  reason?: string;
-  guidance?: string;
-}
-
-interface SubmitVerificationJudgmentInput {
-  task_id: number;
-  judgment: "PASS" | "FAIL";
-  rationale: string;
-  failures?: FailureIssue[];
-  manual_review?: boolean;
-}
-
-function resolveTaskId(
-  workspaceRoot: string,
-  taskId: number,
-): { id: number; task_id: number } | null {
-  const taskById = getTaskById(workspaceRoot, taskId);
-  if (taskById) {
-    return { id: taskById.id, task_id: taskById.task_id };
-  }
-
-  const sprint = getCurrentSprint(workspaceRoot);
-  if (!sprint) {
-    return null;
-  }
-
-  const tasks = getTasksForSprint(workspaceRoot, sprint.id);
-  const match = tasks.find((task) => task.task_id === taskId);
-  return match ? { id: match.id, task_id: match.task_id } : null;
-}
+import { executeMcpHandler } from "./mcpAdapter.js";
 
 export const submitVerificationJudgmentTool: AgentTool = {
   name: "submit_verification_judgment",
-  description: "Submit PASS/FAIL judgment for verification checks.",
+  description:
+    "Submit verification judgment (PASS or FAIL) with feedback. " +
+    "Requires manual review evidence proving you actually read the implementation code.",
   inputSchema: {
     type: "object",
     properties: {
-      task_id: { type: "number", description: "Task ID" },
-      judgment: { type: "string", enum: ["PASS", "FAIL"] },
-      rationale: { type: "string", description: "Judgment rationale" },
+      task_id: { type: "number", description: "The task ID" },
+      judgment: {
+        type: "string",
+        enum: ["PASS", "FAIL"],
+        description: "The verification judgment",
+      },
+      rationale: {
+        type: "string",
+        description:
+          "Rationale for the judgment - explain your decision (min 50 chars)",
+      },
+      manual_review: {
+        type: "object",
+        description:
+          "REQUIRED: Evidence that you actually reviewed the implementation code",
+        properties: {
+          files_reviewed: {
+            type: "array",
+            description: "File paths you actually read and reviewed",
+            items: { type: "string" },
+          },
+          observations: {
+            type: "string",
+            description:
+              "What you observed in the code - specific details proving you read it (min 100 chars)",
+          },
+          quality_assessment: {
+            type: "string",
+            description:
+              "Your assessment of code quality, patterns used, potential issues (min 50 chars)",
+          },
+        },
+        required: ["files_reviewed", "observations", "quality_assessment"],
+      },
       failures: {
         type: "array",
-        description: "Failure details",
+        description: "List of failures (required if judgment is FAIL)",
         items: {
           type: "object",
           properties: {
-            check_id: { type: "string", description: "ID of the failed check" },
-            reason: { type: "string", description: "Reason for failure" },
-            priority: {
-              type: "string",
-              enum: ["high", "medium", "low"],
-              description: "Issue priority",
-            },
-            guidance: {
-              type: "string",
-              description: "Guidance to fix the issue",
-            },
+            check_id: { type: "string" },
+            reason: { type: "string" },
+            priority: { type: "string", enum: ["high", "medium", "low"] },
+            guidance: { type: "string" },
           },
           required: ["check_id", "reason", "priority", "guidance"],
         },
       },
-      manual_review: { type: "boolean", description: "Manual review flag" },
+      feedback: {
+        type: "string",
+        description: "Optional feedback message",
+      },
     },
-    required: ["task_id", "judgment", "rationale"],
+    required: ["task_id", "judgment", "rationale", "manual_review"],
   },
   execute: async (
     input: unknown,
     context: ToolContext,
   ): Promise<ToolResult> => {
-    try {
-      const parsed = input as SubmitVerificationJudgmentInput;
-      const resolved = resolveTaskId(context.workspaceRoot, parsed.task_id);
-
-      if (!resolved) {
-        return {
-          success: false,
-          output: "",
-          error: `Task ${parsed.task_id} not found.`,
-        };
-      }
-
-      const signal = getSignal(context.workspaceRoot, resolved.id);
-      const judgmentId = createVerificationJudgment(
-        context.workspaceRoot,
-        resolved.id,
-        {
-          judgment: parsed.judgment,
-          rationale: parsed.rationale,
-          failures: parsed.failures,
-          manualReview: parsed.manual_review,
-          signalId: signal?.signal_id,
-        },
-      );
-
-      const shouldUpdateStatus = !parsed.manual_review;
-      if (parsed.judgment === "FAIL") {
-        createFeedback(context.workspaceRoot, resolved.id, {
-          issues: parsed.failures ?? [],
-          passedChecks: [],
-          nextSteps: parsed.rationale,
-          additionalGuidance: null,
-        });
-
-        if (shouldUpdateStatus) {
-          updateTaskStatus(
-            context.workspaceRoot,
-            resolved.id,
-            "VERIFY_FAILED",
-            "Verification failed",
-          );
-        }
-      } else if (shouldUpdateStatus) {
-        updateTaskStatus(
-          context.workspaceRoot,
-          resolved.id,
-          "COMPLETE",
-          "Verification passed",
-        );
-      }
-
-      return {
-        success: true,
-        output: JSON.stringify({
-          task_id: resolved.task_id,
-          task_internal_id: resolved.id,
-          judgment_id: judgmentId,
-          judgment: parsed.judgment,
-        }),
-      };
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Unknown error";
-      return {
-        success: false,
-        output: "",
-        error: `Failed to submit verification judgment: ${message}`,
-      };
-    }
+    return executeMcpHandler(
+      context.workspaceRoot,
+      handleSubmitVerificationJudgment,
+      input,
+    );
   },
 };

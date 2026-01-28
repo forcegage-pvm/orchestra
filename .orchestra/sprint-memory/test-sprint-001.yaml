@@ -1,0 +1,11 @@
+version: '1.0'
+sprintId: test-sprint-001
+sprintName: test-sprint-001
+goals: []
+architectureDecisions: []
+taskSummaries: []
+implementorPatterns: []
+compactionCount: 0
+lastCompactedAt: null
+createdAt: '2026-01-28T12:56:34.057Z'
+updatedAt: '2026-01-28T12:56:34.057Z'

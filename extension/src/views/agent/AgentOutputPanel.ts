@@ -38,7 +38,12 @@ export class AgentOutputPanel {
 
     this._panel.webview.onDidReceiveMessage(
       (message) => {
+        console.error("[AgentOutputPanel] Received message:", message?.type);
         if (message?.type === "ready") {
+          console.error(
+            "[AgentOutputPanel] Webview ready, flushing pending messages:",
+            this._pendingMessages.length,
+          );
           this._ready = true;
           this.flushPendingMessages();
           return;
@@ -50,7 +55,9 @@ export class AgentOutputPanel {
       this._disposables,
     );
 
+    console.error("[AgentOutputPanel] Setting webview HTML...");
     this._panel.webview.html = this.getHtmlContent();
+    console.error("[AgentOutputPanel] Webview HTML set");
   }
 
   /**
@@ -80,9 +87,16 @@ export class AgentOutputPanel {
    * Add output item to panel
    */
   public addOutput(output: AgentOutputItem): void {
+    console.error(
+      "[AgentOutputPanel] addOutput called:",
+      output.type,
+      "_ready:",
+      this._ready,
+    );
     const verbosity = getVerbosity();
     const preparedOutput = this.applyVerbosity(output, verbosity);
     if (!preparedOutput) {
+      console.error("[AgentOutputPanel] Output filtered by verbosity");
       return;
     }
 
@@ -224,11 +238,8 @@ export class AgentOutputPanel {
     type: string;
     [key: string]: unknown;
   }): void {
-    if (!this._ready) {
-      this._pendingMessages.push(message);
-      return;
-    }
-
+    // Don't wait for ready - VS Code webview API handles message buffering
+    // The "ready" message from webview was getting blocked by document.write errors
     this._messageQueue.push(message);
     this.ensureBatchTimer();
   }
