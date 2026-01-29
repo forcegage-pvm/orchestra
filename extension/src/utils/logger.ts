@@ -1,17 +1,44 @@
 /**
- * Structured Logger
+ * Structured logger for the Orchestra extension.
  *
- * Logs to VS Code output channel with configurable log levels.
+ * Creates and manages a VS Code output channel, applies a configurable
+ * log level, and formats entries with a timestamp and optional context.
+ *
+ * @example
+ * const logger = new OrchestraLogger();
+ * logger.info("Extension activated", { version: "1.0.0" });
  */
 
 import * as vscode from "vscode";
 
+/**
+ * Supported logging levels for the Orchestra logger.
+ *
+ * @remarks
+ * Messages are emitted when their level is equal to or higher than the
+ * configured level.
+ */
 export type LogLevel = "debug" | "info" | "warn" | "error";
 
+/**
+ * Logger for writing structured messages to the Orchestra output channel.
+ *
+ * @example
+ * const logger = new OrchestraLogger();
+ * logger.warn("Slow response detected", { durationMs: 1250 });
+ */
 export class OrchestraLogger {
   private readonly channel: vscode.OutputChannel;
   private readonly logLevel: LogLevel;
 
+  /**
+   * Create a new logger instance.
+   *
+   * Initializes the VS Code output channel and reads the log level from
+   * the `orchestra.logLevel` configuration setting.
+   *
+   * @returns Nothing.
+   */
   constructor() {
     this.channel = vscode.window.createOutputChannel("Orchestra");
 
@@ -20,7 +47,13 @@ export class OrchestraLogger {
   }
 
   /**
-   * Log debug message
+   * Log a debug message when the configured level allows it.
+   *
+   * @param message - Human-readable message to include in the log entry.
+   * @param context - Optional context object serialized as JSON.
+   * @returns Nothing.
+   * @example
+   * logger.debug("Fetched cache entry", { key: "session" });
    */
   debug(message: string, context?: unknown): void {
     if (this.shouldLog("debug")) {
@@ -29,7 +62,13 @@ export class OrchestraLogger {
   }
 
   /**
-   * Log info message
+   * Log an informational message when the configured level allows it.
+   *
+   * @param message - Human-readable message to include in the log entry.
+   * @param context - Optional context object serialized as JSON.
+   * @returns Nothing.
+   * @example
+   * logger.info("Workspace initialized", { folders: 2 });
    */
   info(message: string, context?: unknown): void {
     if (this.shouldLog("info")) {
@@ -38,7 +77,11 @@ export class OrchestraLogger {
   }
 
   /**
-   * Log warning message
+   * Log a warning message when the configured level allows it.
+   *
+   * @param message - Human-readable message to include in the log entry.
+   * @param context - Optional context object serialized as JSON.
+   * @returns Nothing.
    */
   warn(message: string, context?: unknown): void {
     if (this.shouldLog("warn")) {
@@ -47,7 +90,13 @@ export class OrchestraLogger {
   }
 
   /**
-   * Log error message
+   * Log an error message when the configured level allows it.
+   *
+   * @param message - Human-readable message to include in the log entry.
+   * @param error - Error object or context to serialize with the message.
+   * @returns Nothing.
+   * @example
+   * logger.error("Failed to connect", new Error("Timeout"));
    */
   error(message: string, error?: unknown): void {
     if (this.shouldLog("error")) {
@@ -60,14 +109,23 @@ export class OrchestraLogger {
   }
 
   /**
-   * Show output channel
+   * Show the Orchestra output channel to the user.
+   *
+   * @returns Nothing.
+   * @example
+   * logger.show();
    */
   show(): void {
     this.channel.show(true);
   }
 
   /**
-   * Internal log method
+   * Format and append a log entry to the output channel.
+   *
+   * @param level - Label used in the log entry (for example, "INFO").
+   * @param message - Human-readable message to include in the log entry.
+   * @param context - Optional context object serialized as JSON.
+   * @returns Nothing.
    */
   private log(level: string, message: string, context?: unknown): void {
     const timestamp = new Date().toISOString();
@@ -76,7 +134,10 @@ export class OrchestraLogger {
   }
 
   /**
-   * Check if message should be logged based on level
+   * Determine if a message should be logged for the configured level.
+   *
+   * @param level - The level of the message being logged.
+   * @returns `true` when the message level is at or above the configured level.
    */
   private shouldLog(level: LogLevel): boolean {
     const levels: LogLevel[] = ["debug", "info", "warn", "error"];
@@ -86,7 +147,9 @@ export class OrchestraLogger {
   }
 
   /**
-   * Dispose output channel
+   * Dispose of the output channel and release its resources.
+   *
+   * @returns Nothing.
    */
   dispose(): void {
     this.channel.dispose();

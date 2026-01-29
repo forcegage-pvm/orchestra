@@ -20,6 +20,14 @@ function getAbsolutePath(workspaceRoot: string, filePath: string): string {
     : path.resolve(workspaceRoot, filePath);
 }
 
+/**
+ * Normalize line endings to LF for consistent matching.
+ * This handles the case where the file uses CRLF but the agent sends LF.
+ */
+function normalizeLineEndings(text: string): string {
+  return text.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+}
+
 function hashContent(content: string | null): string | null {
   if (content === null) {
     return null;
@@ -38,7 +46,11 @@ async function replaceText(
     const document = await vscode.workspace.openTextDocument(uri);
     const content = document.getText();
 
-    const firstIndex = content.indexOf(input.oldString);
+    // Normalize line endings for matching
+    const normalizedContent = normalizeLineEndings(content);
+    const normalizedOldString = normalizeLineEndings(input.oldString);
+
+    const firstIndex = normalizedContent.indexOf(normalizedOldString);
     if (firstIndex === -1) {
       return {
         success: false,
@@ -47,7 +59,7 @@ async function replaceText(
       };
     }
 
-    const lastIndex = content.lastIndexOf(input.oldString);
+    const lastIndex = normalizedContent.lastIndexOf(normalizedOldString);
     if (lastIndex !== firstIndex) {
       return {
         success: false,
@@ -56,10 +68,43 @@ async function replaceText(
       };
     }
 
-    const startPosition = document.positionAt(firstIndex);
-    const endPosition = document.positionAt(
-      firstIndex + input.oldString.length,
-    );
+    // Calculate position in original content by counting characters up to match
+    // We need to map from normalized position back to original position
+    let originalIndex = 0;
+    let normalizedIndex = 0;
+    while (normalizedIndex < firstIndex && originalIndex < content.length) {
+      if (
+        content[originalIndex] === "\r" &&
+        content[originalIndex + 1] === "\n"
+      ) {
+        // CRLF in original maps to single LF in normalized
+        originalIndex += 2;
+        normalizedIndex += 1;
+      } else {
+        originalIndex += 1;
+        normalizedIndex += 1;
+      }
+    }
+
+    // Calculate end position similarly
+    const matchLength = normalizedOldString.length;
+    let originalEndIndex = originalIndex;
+    let matchedChars = 0;
+    while (matchedChars < matchLength && originalEndIndex < content.length) {
+      if (
+        content[originalEndIndex] === "\r" &&
+        content[originalEndIndex + 1] === "\n"
+      ) {
+        originalEndIndex += 2;
+        matchedChars += 1;
+      } else {
+        originalEndIndex += 1;
+        matchedChars += 1;
+      }
+    }
+
+    const startPosition = document.positionAt(originalIndex);
+    const endPosition = document.positionAt(originalEndIndex);
     const range = new vscode.Range(startPosition, endPosition);
 
     const edit = new vscode.WorkspaceEdit();
@@ -76,7 +121,10 @@ async function replaceText(
 
     if (context.fileTracker) {
       const previousContent = content;
-      const newContent = content.replace(input.oldString, input.newString);
+      const newContent =
+        content.substring(0, originalIndex) +
+        input.newString +
+        content.substring(originalEndIndex);
 
       context.fileTracker.trackChange({
         uri: uri.toString(),
