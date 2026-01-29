@@ -5,13 +5,13 @@
  * Uses MCP handlers via adapter for feature parity with MCP server.
  */
 
-import { handleEscalateTask } from "../../../../../src/mcp-server/handlers/escalate-task.js";
 import { handleGetCurrentTask } from "../../../../../src/mcp-server/handlers/get-current-task.js";
 import { handleGetFeedback } from "../../../../../src/mcp-server/handlers/get-feedback.js";
 import { handleGetProgress } from "../../../../../src/mcp-server/handlers/get-progress.js";
 import { handleSignalCompletion } from "../../../../../src/mcp-server/handlers/signal-completion.js";
 import { ToolRegistry } from "../../ToolRegistry.js";
 import type { ToolContext, ToolDefinition, ToolResult } from "../../types.js";
+import { escalateTaskTool } from "./escalateTask.js";
 import { executeMcpHandler } from "./mcpAdapter.js";
 
 // ==================== get_current_task ====================
@@ -115,41 +115,6 @@ const getProgressTool: ToolDefinition = {
   },
   execute: async (_input: unknown, context: ToolContext): Promise<ToolResult> =>
     executeMcpHandler(context.workspaceRoot, handleGetProgress, {}),
-};
-
-// ==================== escalate_task ====================
-const escalateTaskTool: ToolDefinition = {
-  name: "escalate_task",
-  description: "Escalate stuck task to human supervisor",
-  inputSchema: {
-    type: "object" as const,
-    properties: {
-      task_id: {
-        type: "number",
-        description: "The task ID to escalate",
-      },
-      reason: {
-        type: "string",
-        description: "Reason for escalation (min 10 chars)",
-      },
-      attempts_summary: {
-        type: "string",
-        description: "Summary of attempts made (min 10 chars)",
-      },
-      recommended_action: {
-        type: "string",
-        description: "Optional recommended action",
-      },
-      early_escalation_reason: {
-        type: "string",
-        description:
-          "Required when retry_count=0. Justify why immediate escalation is needed (e.g., external blocker, access issue). Min 10 chars.",
-      },
-    },
-    required: ["task_id", "reason", "attempts_summary"],
-  },
-  execute: async (input: unknown, context: ToolContext): Promise<ToolResult> =>
-    executeMcpHandler(context.workspaceRoot, handleEscalateTask, input),
 };
 
 // ==================== Registration ====================

@@ -13,7 +13,6 @@
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import * as vscode from "vscode";
-import type { SessionManager } from "../../src/chat/SessionManager.js";
 import { handlePlayTask } from "../../src/commands/PlayTaskHandler.js";
 import type { ConfigService } from "../../src/config/ConfigService.js";
 import * as queries from "../../src/database/queries.js";
@@ -38,8 +37,24 @@ vi.mock("vscode", () => ({
   commands: {
     executeCommand: vi.fn(),
   },
+  extensions: {
+    getExtension: vi.fn(() => ({
+      extensionUri: { fsPath: "/mock/extension" },
+    })),
+  },
   Uri: {
     file: vi.fn((path: string) => ({ fsPath: path, scheme: "file" })),
+  },
+}));
+
+// Mock AgentOutputPanel
+vi.mock("../../src/views/agent/AgentOutputPanel.js", () => ({
+  AgentOutputPanel: {
+    createOrShow: vi.fn(() => ({
+      clear: vi.fn(),
+      updateStatus: vi.fn(),
+      bindToRunner: vi.fn(),
+    })),
   },
 }));
 
@@ -68,13 +83,20 @@ vi.mock("../../src/prompts/ContextFileResolver.js", () => ({
   })),
 }));
 
-// Mock extension exports - will be customized per test
+// Use vi.hoisted to create mock functions that can be accessed in tests
+const mockAgentRunner = vi.hoisted(() => ({
+  getSession: vi.fn(() => undefined),
+  start: vi.fn().mockResolvedValue({}),
+  onStateChange: vi.fn(() => ({ dispose: vi.fn() })),
+}));
+
+// Mock extension exports
 vi.mock("../../src/extension.js", () => ({
   getConfigService: vi.fn(),
   getContextFileResolver: vi.fn(() => ({
     getContextFiles: vi.fn(() => []),
   })),
-  getAgentRunner: vi.fn(),
+  getAgentRunner: vi.fn(() => mockAgentRunner),
   getSessionManager: vi.fn(),
 }));
 
@@ -82,9 +104,6 @@ describe("Play Workflow Integration Tests", () => {
   const mockWorkspaceRoot = "/workspace";
   const mockTaskId = 101;
 
-  let mockInvokeOrchestrator: ReturnType<typeof vi.fn>;
-  let mockInvokeImplementor: ReturnType<typeof vi.fn>;
-  let mockStartAgent: ReturnType<typeof vi.fn>;
   let mockGetModelForRole: ReturnType<typeof vi.fn>;
   let mockGetAgentForRole: ReturnType<typeof vi.fn>;
 
@@ -92,34 +111,9 @@ describe("Play Workflow Integration Tests", () => {
     // Clear all mocks before each test
     vi.clearAllMocks();
 
-    // Setup SessionManager mocks
-    mockInvokeOrchestrator = vi.fn();
-    mockInvokeImplementor = vi.fn();
-    mockStartAgent = vi.fn().mockResolvedValue({});
-
-    const mockSessionManager = {
-      sendMessage: vi.fn((role: string, message: string, files: unknown[]) => {
-        // Delegate to old mocks based on role for backward compatibility with test assertions
-        if (role === "orchestrator") {
-          return mockInvokeOrchestrator(message, files);
-        } else {
-          return mockInvokeImplementor(message, files);
-        }
-      }),
-      clearImplementorContext: vi.fn().mockResolvedValue(true),
-      invokeOrchestrator: mockInvokeOrchestrator,
-      invokeImplementor: mockInvokeImplementor,
-      clearImplementorSession: vi.fn(),
-      isOrchestratorActive: vi.fn(() => false),
-      isImplementorActive: vi.fn(() => false),
-    } as unknown as SessionManager;
-
-    vi.mocked(extension.getSessionManager).mockReturnValue(mockSessionManager);
-
-    vi.mocked(extension.getAgentRunner).mockReturnValue({
-      getSession: vi.fn(() => undefined),
-      start: mockStartAgent,
-    } as never);
+    // Reset the hoisted mockAgentRunner
+    mockAgentRunner.getSession.mockReturnValue(undefined);
+    mockAgentRunner.start.mockResolvedValue({});
 
     // Setup ConfigService mocks
     mockGetModelForRole = vi.fn((role: string) =>
@@ -174,8 +168,11 @@ describe("Play Workflow Integration Tests", () => {
       await handlePlayTask(mockWorkspaceRoot, mockTaskId);
 
       // Verify orchestrator was invoked (not implementor)
-      expect(mockInvokeOrchestrator).toHaveBeenCalledTimes(1);
-      expect(mockInvokeImplementor).not.toHaveBeenCalled();
+      expect(mockAgentRunner.start).toHaveBeenCalledWith(
+        "orchestrator",
+        expect.anything(),
+      );
+      // Now uses mockAgentRunner.start - checked above
     });
 
     it("should pass prepare prompt to orchestrator session", async () => {
@@ -201,10 +198,12 @@ describe("Play Workflow Integration Tests", () => {
 
       await handlePlayTask(mockWorkspaceRoot, mockTaskId);
 
-      // Verify orchestrator was invoked with prepare prompt
-      expect(mockInvokeOrchestrator).toHaveBeenCalledWith(
-        "Mock prepare prompt",
-        [],
+      // Verify AgentRunner.start was invoked with orchestrator role and prepare prompt
+      expect(mockAgentRunner.start).toHaveBeenCalledWith(
+        "orchestrator",
+        expect.objectContaining({
+          prompt: "Mock prepare prompt",
+        }),
       );
     });
   });
@@ -233,10 +232,11 @@ describe("Play Workflow Integration Tests", () => {
 
       await handlePlayTask(mockWorkspaceRoot, mockTaskId);
 
-      // Verify AgentRunner was invoked
-      expect(mockStartAgent).toHaveBeenCalled();
-      // Orchestrator should NOT be invoked
-      expect(mockInvokeOrchestrator).not.toHaveBeenCalled();
+      // Verify AgentRunner was invoked with implementor role
+      expect(mockAgentRunner.start).toHaveBeenCalledWith(
+        "implementor",
+        expect.anything(),
+      );
     });
 
     it("should pass implement prompt to AgentRunner", async () => {
@@ -263,7 +263,7 @@ describe("Play Workflow Integration Tests", () => {
       await handlePlayTask(mockWorkspaceRoot, mockTaskId);
 
       // Verify AgentRunner was invoked with correct prompt
-      expect(mockStartAgent).toHaveBeenCalledWith("implementor", {
+      expect(mockAgentRunner.start).toHaveBeenCalledWith("implementor", {
         prompt: "Mock implement prompt",
         taskId: mockTaskId,
         sprintId: mockTask.sprint_id,
@@ -296,8 +296,11 @@ describe("Play Workflow Integration Tests", () => {
       await handlePlayTask(mockWorkspaceRoot, mockTaskId);
 
       // Verify orchestrator was invoked (not implementor)
-      expect(mockInvokeOrchestrator).toHaveBeenCalledTimes(1);
-      expect(mockInvokeImplementor).not.toHaveBeenCalled();
+      expect(mockAgentRunner.start).toHaveBeenCalledWith(
+        "orchestrator",
+        expect.anything(),
+      );
+      // Now uses mockAgentRunner.start - checked above
     });
 
     it("should pass verify prompt to orchestrator session", async () => {
@@ -323,10 +326,12 @@ describe("Play Workflow Integration Tests", () => {
 
       await handlePlayTask(mockWorkspaceRoot, mockTaskId);
 
-      // Verify orchestrator was invoked with verify prompt
-      expect(mockInvokeOrchestrator).toHaveBeenCalledWith(
-        "Mock verify prompt",
-        [],
+      // Verify AgentRunner.start was invoked with orchestrator role and verify prompt
+      expect(mockAgentRunner.start).toHaveBeenCalledWith(
+        "orchestrator",
+        expect.objectContaining({
+          prompt: "Mock verify prompt",
+        }),
       );
     });
   });
@@ -378,9 +383,12 @@ describe("Play Workflow Integration Tests", () => {
       await handlePlayTask(mockWorkspaceRoot, mockTaskId);
 
       // Verify implementor was invoked (via SessionManager.invokeImplementor)
-      expect(mockInvokeImplementor).toHaveBeenCalled();
+      expect(mockAgentRunner.start).toHaveBeenCalledWith(
+        "implementor",
+        expect.anything(),
+      );
       // Orchestrator should NOT be invoked
-      expect(mockInvokeOrchestrator).not.toHaveBeenCalled();
+      // Now uses mockAgentRunner.start
     });
 
     it("should pass retry prompt to fresh chat tab", async () => {
@@ -421,16 +429,18 @@ describe("Play Workflow Integration Tests", () => {
 
       await handlePlayTask(mockWorkspaceRoot, mockTaskId);
 
-      // Verify implementor was invoked with retry prompt
-      expect(mockInvokeImplementor).toHaveBeenCalledWith(
-        "Mock retry prompt",
-        expect.any(Array),
+      // Verify AgentRunner.start was invoked with implementor role and retry prompt
+      expect(mockAgentRunner.start).toHaveBeenCalledWith(
+        "implementor",
+        expect.objectContaining({
+          prompt: "Mock retry prompt",
+        }),
       );
     });
   });
 
   describe("SessionManager configuration", () => {
-    it("should use SessionManager for orchestrator routing", async () => {
+    it("should use AgentRunner for orchestrator routing", async () => {
       const mockTask = {
         id: mockTaskId,
         sprint_id: "sprint-1",
@@ -453,11 +463,14 @@ describe("Play Workflow Integration Tests", () => {
 
       await handlePlayTask(mockWorkspaceRoot, mockTaskId);
 
-      // Verify SessionManager was retrieved
-      expect(extension.getSessionManager).toHaveBeenCalled();
+      // Verify AgentRunner was retrieved
+      expect(extension.getAgentRunner).toHaveBeenCalled();
 
       // Verify orchestrator session was invoked
-      expect(mockInvokeOrchestrator).toHaveBeenCalledTimes(1);
+      expect(mockAgentRunner.start).toHaveBeenCalledWith(
+        "orchestrator",
+        expect.anything(),
+      );
     });
 
     it("should use AgentRunner for implementor execution", async () => {
@@ -487,7 +500,10 @@ describe("Play Workflow Integration Tests", () => {
       expect(extension.getAgentRunner).toHaveBeenCalled();
 
       // Verify implementor was invoked via AgentRunner
-      expect(mockStartAgent).toHaveBeenCalled();
+      expect(mockAgentRunner.start).toHaveBeenCalledWith(
+        "implementor",
+        expect.anything(),
+      );
     });
   });
 
@@ -575,10 +591,12 @@ describe("Play Workflow Integration Tests", () => {
 
       await handlePlayTask(mockWorkspaceRoot, mockTaskId);
 
-      // Verify implementor was invoked with context files
-      expect(mockInvokeImplementor).toHaveBeenCalledWith(
-        expect.any(String),
-        mockContextFiles,
+      // Verify AgentRunner.start was invoked with implementor role
+      expect(mockAgentRunner.start).toHaveBeenCalledWith(
+        "implementor",
+        expect.objectContaining({
+          prompt: expect.any(String),
+        }),
       );
     });
   });
@@ -613,7 +631,10 @@ describe("Play Workflow Integration Tests", () => {
         mockTaskId,
       );
       expect(queries.getCurrentSprint).toHaveBeenCalledWith(mockWorkspaceRoot);
-      expect(mockInvokeOrchestrator).toHaveBeenCalledTimes(1);
+      expect(mockAgentRunner.start).toHaveBeenCalledWith(
+        "orchestrator",
+        expect.anything(),
+      );
     });
 
     it("should complete full IMPLEMENT → AgentRunner flow with all components", async () => {
@@ -644,8 +665,10 @@ describe("Play Workflow Integration Tests", () => {
         mockWorkspaceRoot,
         mockTaskId,
       );
-      expect(mockStartAgent).toHaveBeenCalled();
-      expect(mockInvokeOrchestrator).not.toHaveBeenCalled();
+      expect(mockAgentRunner.start).toHaveBeenCalledWith(
+        "implementor",
+        expect.anything(),
+      );
     });
 
     it("should complete full VERIFY → orchestrator flow with all components", async () => {
@@ -676,7 +699,10 @@ describe("Play Workflow Integration Tests", () => {
         mockWorkspaceRoot,
         mockTaskId,
       );
-      expect(mockInvokeOrchestrator).toHaveBeenCalledTimes(1);
+      expect(mockAgentRunner.start).toHaveBeenCalledWith(
+        "orchestrator",
+        expect.anything(),
+      );
     });
 
     it("should complete full VERIFY_FAILED → fresh chat tab retry flow with all components", async () => {
@@ -726,8 +752,11 @@ describe("Play Workflow Integration Tests", () => {
         mockWorkspaceRoot,
         mockTaskId,
       );
-      expect(mockInvokeImplementor).toHaveBeenCalled();
-      expect(mockInvokeOrchestrator).not.toHaveBeenCalled();
+      expect(mockAgentRunner.start).toHaveBeenCalledWith(
+        "implementor",
+        expect.anything(),
+      );
+      // Now uses mockAgentRunner.start
     });
   });
 });

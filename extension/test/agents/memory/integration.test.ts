@@ -152,6 +152,9 @@ describe("AgentRunner + SprintMemory integration", () => {
     const toolRegistry = {
       getToolDefinitions: () => [],
       execute: vi.fn(),
+      names: () => [],
+      has: () => false,
+      clear: () => {},
     } as unknown as ToolRegistry;
 
     const runner = new AgentRunner(toolRegistry);
@@ -167,7 +170,8 @@ describe("AgentRunner + SprintMemory integration", () => {
       sprintId: "sprint-001",
     });
 
-    expect(session.messages).toHaveLength(2);
+    // Expect 3 messages: sprint memory context, environment context, and user prompt
+    expect(session.messages).toHaveLength(3);
     const memoryMessage = session.messages[0];
     expect(typeof memoryMessage?.content).toBe("string");
     if (typeof memoryMessage?.content === "string") {
@@ -190,6 +194,9 @@ describe("AgentRunner + SprintMemory integration", () => {
           output: "ok",
         },
       })),
+      names: () => [],
+      has: () => false,
+      clear: () => {},
     } as unknown as ToolRegistry;
 
     const runner = new AgentRunner(toolRegistry);

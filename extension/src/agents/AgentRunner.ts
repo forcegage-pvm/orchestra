@@ -281,14 +281,22 @@ export class AgentRunner implements vscode.Disposable {
       maxIterations,
     );
 
-    // Clear existing tools before loading role-specific ones
-    // This prevents "already registered" errors when switching roles
-    this.toolRegistry.clear();
+    const hasPreloadedTools = this.toolRegistry.names().length > 0;
+
+    if (!hasPreloadedTools) {
+      // Clear existing tools before loading role-specific ones
+      // This prevents "already registered" errors when switching roles
+      this.toolRegistry.clear();
+    }
 
     if (role === "implementor") {
-      loadImplementorTools(this.toolRegistry);
+      if (!hasPreloadedTools) {
+        loadImplementorTools(this.toolRegistry);
+      }
     } else if (role === "orchestrator") {
-      loadOrchestratorTools(this.toolRegistry);
+      if (!hasPreloadedTools) {
+        loadOrchestratorTools(this.toolRegistry);
+      }
 
       const workspaceRoot =
         vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? process.cwd();
@@ -298,7 +306,9 @@ export class AgentRunner implements vscode.Disposable {
       const memoryContext = this.formatSprintMemoryContext(memory);
       this.addUserMessage(memoryContext);
     } else if (role === "controller") {
-      loadControllerTools(this.toolRegistry);
+      if (!hasPreloadedTools) {
+        loadControllerTools(this.toolRegistry);
+      }
     }
 
     // Create cancellation token

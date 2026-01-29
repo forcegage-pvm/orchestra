@@ -154,6 +154,9 @@ describe("Agent Lifecycle Integration", () => {
     registry = {
       getToolDefinitions: () => [],
       execute: executeMock,
+      names: () => [],
+      has: () => false,
+      clear: () => {},
     } as unknown as ToolRegistry;
 
     runner = new AgentRunner(registry);

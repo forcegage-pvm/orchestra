@@ -343,9 +343,8 @@ describe("AgentRunner", () => {
     test("should call vscode.lm.selectChatModels", async () => {
       await runner.start("orchestrator", { prompt: "Test" });
 
-      expect(vscode.lm.selectChatModels).toHaveBeenCalledWith({
-        family: "claude",
-      });
+      // Now fetches all models without family filter
+      expect(vscode.lm.selectChatModels).toHaveBeenCalled();
     });
 
     test("should emit state change on start", async () => {
@@ -1026,22 +1025,21 @@ describe("AgentRunner", () => {
   });
 
   describe("model selection", () => {
-    test("should use family filter for Claude models", async () => {
-      const mockModel = { id: "claude-opus-4.5" };
+    test("should get all models and find exact match", async () => {
+      const mockModel = { id: "claude-opus-4.5", family: "claude" };
       vi.mocked(vscode.lm.selectChatModels).mockResolvedValueOnce([
         mockModel as any,
       ]);
 
       await (runner as any).selectModel("orchestrator");
 
-      expect(vscode.lm.selectChatModels).toHaveBeenCalledWith({
-        family: "claude",
-      });
+      // Now fetches all models without family filter
+      expect(vscode.lm.selectChatModels).toHaveBeenCalledWith();
     });
 
     test("should return exact model match when available", async () => {
-      const exactModel = { id: "claude-opus-4.5" };
-      const otherModel = { id: "claude-sonnet-4.5" };
+      const exactModel = { id: "claude-opus-4.5", family: "claude" };
+      const otherModel = { id: "claude-sonnet-4.5", family: "claude" };
 
       vi.mocked(vscode.lm.selectChatModels).mockResolvedValueOnce([
         otherModel as any,
@@ -1067,20 +1065,18 @@ describe("AgentRunner", () => {
       expect(selected).toBe(fallbackModel);
     });
 
-    test("should throw Claude-specific error when Claude models unavailable but others exist", async () => {
-      vi.mocked(vscode.lm.selectChatModels)
-        .mockResolvedValueOnce([])
-        .mockResolvedValueOnce([{ id: "gpt-4" } as any]);
+    test("should fallback to first available when Claude not found", async () => {
+      // If Claude not available but GPT is, use GPT as fallback
+      vi.mocked(vscode.lm.selectChatModels).mockResolvedValueOnce([
+        { id: "gpt-4", family: "gpt" } as any,
+      ]);
 
-      await expect((runner as any).selectModel("orchestrator")).rejects.toThrow(
-        "No Claude language models available",
-      );
+      const selected = await (runner as any).selectModel("orchestrator");
+      expect(selected.id).toBe("gpt-4");
     });
 
     test("should throw general error when no models are available", async () => {
-      vi.mocked(vscode.lm.selectChatModels)
-        .mockResolvedValueOnce([])
-        .mockResolvedValueOnce([]);
+      vi.mocked(vscode.lm.selectChatModels).mockResolvedValueOnce([]);
 
       await expect((runner as any).selectModel("orchestrator")).rejects.toThrow(
         "No language models available",

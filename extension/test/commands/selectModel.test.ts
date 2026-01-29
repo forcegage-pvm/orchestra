@@ -38,7 +38,10 @@ vi.mock("vscode", () => ({
   },
 }));
 
-import { handleSelectModel, isModelSelectionRequired } from "../../src/commands/selectModel.js";
+import {
+  handleSelectModel,
+  isModelSelectionRequired,
+} from "../../src/commands/selectModel.js";
 
 beforeEach(() => {
   mocks.showQuickPick.mockReset();
@@ -115,7 +118,19 @@ describe("handleSelectModel", () => {
 });
 
 describe("isModelSelectionRequired", () => {
-  it("returns true when no explicit config is set", () => {
+  it("returns true when no config is set and no default exists", () => {
+    const config = {
+      inspect: vi.fn().mockReturnValue({
+        workspaceValue: undefined,
+        globalValue: undefined,
+        defaultValue: undefined,
+      }),
+    };
+
+    expect(isModelSelectionRequired("orchestrator", config)).toBe(true);
+  });
+
+  it("returns false when default value exists", () => {
     const config = {
       inspect: vi.fn().mockReturnValue({
         workspaceValue: undefined,
@@ -124,7 +139,7 @@ describe("isModelSelectionRequired", () => {
       }),
     };
 
-    expect(isModelSelectionRequired("orchestrator", config)).toBe(true);
+    expect(isModelSelectionRequired("orchestrator", config)).toBe(false);
   });
 
   it("returns false when explicit config is set", () => {
@@ -139,12 +154,12 @@ describe("isModelSelectionRequired", () => {
     expect(isModelSelectionRequired("implementor", config)).toBe(false);
   });
 
-  it("returns true when explicit config is empty", () => {
+  it("returns true when explicit config is empty and no default", () => {
     const config = {
       inspect: vi.fn().mockReturnValue({
         workspaceValue: "",
         globalValue: undefined,
-        defaultValue: "claude-opus-4.5",
+        defaultValue: undefined,
       }),
     };
 

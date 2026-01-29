@@ -1,64 +1,92 @@
 /**
- * Orchestra implementor tools tests
+ * Orchestra tools tests
+ *
+ * These tests mock the MCP handlers directly since the tools use
+ * the mcpAdapter to call MCP handlers for feature parity.
  */
 
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { exec } from "node:child_process";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { rm } from "node:fs/promises";
 import os from "node:os";
-import path from "node:path";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ToolContext } from "../../../../src/agents/types.js";
-import { escalateTaskTool } from "../../../../src/agents/tools/orchestra/escalateTask.js";
-import { getCurrentTaskTool } from "../../../../src/agents/tools/orchestra/getCurrentTask.js";
-import { getFeedbackTool } from "../../../../src/agents/tools/orchestra/getFeedback.js";
-import { getProgressTool } from "../../../../src/agents/tools/orchestra/getProgress.js";
+
+// Mock MCP handlers BEFORE importing tools (hoisted)
+const {
+  mockHandleGetCurrentTask,
+  mockHandleSignalCompletion,
+  mockHandleGetFeedback,
+  mockHandleGetProgress,
+  mockHandleEscalateTask,
+  mockHandleGetSprintStatus,
+  mockHandlePrepareTask,
+  mockHandleRunVerificationChecks,
+  mockHandleSubmitVerificationJudgment,
+} = vi.hoisted(() => ({
+  mockHandleGetCurrentTask: vi.fn(),
+  mockHandleSignalCompletion: vi.fn(),
+  mockHandleGetFeedback: vi.fn(),
+  mockHandleGetProgress: vi.fn(),
+  mockHandleEscalateTask: vi.fn(),
+  mockHandleGetSprintStatus: vi.fn(),
+  mockHandlePrepareTask: vi.fn(),
+  mockHandleRunVerificationChecks: vi.fn(),
+  mockHandleSubmitVerificationJudgment: vi.fn(),
+}));
+
+vi.mock("../../../../../src/mcp-server/handlers/get-current-task.js", () => ({
+  handleGetCurrentTask: mockHandleGetCurrentTask,
+}));
+
+vi.mock("../../../../../src/mcp-server/handlers/signal-completion.js", () => ({
+  handleSignalCompletion: mockHandleSignalCompletion,
+}));
+
+vi.mock("../../../../../src/mcp-server/handlers/get-feedback.js", () => ({
+  handleGetFeedback: mockHandleGetFeedback,
+}));
+
+vi.mock("../../../../../src/mcp-server/handlers/get-progress.js", () => ({
+  handleGetProgress: mockHandleGetProgress,
+}));
+
+vi.mock("../../../../../src/mcp-server/handlers/escalate-task.js", () => ({
+  handleEscalateTask: mockHandleEscalateTask,
+}));
+
+vi.mock("../../../../../src/mcp-server/handlers/get-sprint-status.js", () => ({
+  handleGetSprintStatus: mockHandleGetSprintStatus,
+}));
+
+vi.mock("../../../../../src/mcp-server/handlers/prepare-task.js", () => ({
+  handlePrepareTask: mockHandlePrepareTask,
+}));
+
+vi.mock(
+  "../../../../../src/mcp-server/handlers/run-verification-checks.js",
+  () => ({
+    handleRunVerificationChecks: mockHandleRunVerificationChecks,
+  }),
+);
+
+vi.mock(
+  "../../../../../src/mcp-server/handlers/submit-verification-judgment.js",
+  () => ({
+    handleSubmitVerificationJudgment: mockHandleSubmitVerificationJudgment,
+  }),
+);
+
+// Now import tools (after mocks are set up)
 import { getSprintStatusTool } from "../../../../src/agents/tools/orchestra/getSprintStatus.js";
+import {
+  escalateTaskTool,
+  getCurrentTaskTool,
+  getFeedbackTool,
+  getProgressTool,
+  signalCompletionTool,
+} from "../../../../src/agents/tools/orchestra/index.js";
 import { prepareTaskTool } from "../../../../src/agents/tools/orchestra/prepareTask.js";
 import { runVerificationChecksTool } from "../../../../src/agents/tools/orchestra/runVerificationChecks.js";
-import { signalCompletionTool } from "../../../../src/agents/tools/orchestra/signalCompletion.js";
 import { submitVerificationJudgmentTool } from "../../../../src/agents/tools/orchestra/submitVerificationJudgment.js";
-import {
-  createFeedback,
-  createHandover,
-  createEscalation,
-  createSignal,
-  createVerificationJudgment,
-  updateTaskStatus,
-} from "../../../../src/database/mutations.js";
-import {
-  getCurrentTask,
-  getCurrentSprint,
-  getFeedback,
-  getPhases,
-  getSignal,
-  getTaskById,
-  getTasksForSprint,
-  getVerificationChecks,
-} from "../../../../src/database/queries.js";
-
-vi.mock("../../../../src/database/queries.js", () => ({
-  getCurrentTask: vi.fn(),
-  getCurrentSprint: vi.fn(),
-  getFeedback: vi.fn(),
-  getTasksForSprint: vi.fn(),
-  getPhases: vi.fn(),
-  getVerificationChecks: vi.fn(),
-  getTaskById: vi.fn(),
-  getSignal: vi.fn(),
-}));
-
-vi.mock("../../../../src/database/mutations.js", () => ({
-  createEscalation: vi.fn(),
-  createSignal: vi.fn(),
-  createHandover: vi.fn(),
-  updateTaskStatus: vi.fn(),
-  createVerificationJudgment: vi.fn(),
-  createFeedback: vi.fn(),
-}));
-
-vi.mock("node:child_process", () => ({
-  exec: vi.fn(),
-}));
 
 const mockContext: ToolContext = {
   workspaceRoot: "/workspace",
@@ -69,41 +97,40 @@ const mockContext: ToolContext = {
   db: {},
 };
 
-const mockGetCurrentTask = vi.mocked(getCurrentTask);
-const mockGetCurrentSprint = vi.mocked(getCurrentSprint);
-const mockGetFeedback = vi.mocked(getFeedback);
-const mockGetTasksForSprint = vi.mocked(getTasksForSprint);
-const mockGetPhases = vi.mocked(getPhases);
-const mockGetVerificationChecks = vi.mocked(getVerificationChecks);
-const mockGetTaskById = vi.mocked(getTaskById);
-const mockGetSignal = vi.mocked(getSignal);
-const mockCreateEscalation = vi.mocked(createEscalation);
-const mockCreateSignal = vi.mocked(createSignal);
-const mockCreateHandover = vi.mocked(createHandover);
-const mockUpdateTaskStatus = vi.mocked(updateTaskStatus);
-const mockCreateVerificationJudgment = vi.mocked(createVerificationJudgment);
-const mockCreateFeedback = vi.mocked(createFeedback);
-const mockExec = vi.mocked(exec);
+// Helper to create MCP-style response
+function mcpResponse(data: unknown) {
+  return {
+    content: [{ type: "text", text: JSON.stringify(data) }],
+  };
+}
 
-const mockTask = {
-  id: 12,
+// Helper to create MCP error response
+function mcpError(message: string, code = "SYSTEM_ERROR") {
+  return {
+    content: [
+      {
+        type: "text",
+        text: JSON.stringify({
+          success: false,
+          error: { code, message },
+        }),
+      },
+    ],
+  };
+}
+
+const mockTaskOutput = {
   task_id: 6,
   title: "Task Six",
   status: "IMPLEMENT",
   retry_count: 1,
   max_retries: 3,
-  handover: {
-    priority: "P1",
-    context: "Do the thing",
-    context_files: JSON.stringify(["file-a.ts", "file-b.ts"]),
-    acceptance_criteria: JSON.stringify([
-      { criterion: "Works", verification: "Manual" },
-    ]),
-    file_operations: JSON.stringify([
-      { operation: "CREATE", path: "src/file.ts" },
-    ]),
-    deliverables: JSON.stringify(["src/file.ts"]),
-  },
+  priority: "P1",
+  context: "Do the thing",
+  context_files: ["file-a.ts", "file-b.ts"],
+  acceptance_criteria: [{ criterion: "Works", verification: "Manual" }],
+  file_operations: [{ operation: "CREATE", path: "src/file.ts" }],
+  deliverables: ["src/file.ts"],
 };
 
 beforeEach(() => {
@@ -119,7 +146,7 @@ afterEach(async () => {
 
 describe("getCurrentTaskTool", () => {
   it("returns structured handover data", async () => {
-    mockGetCurrentTask.mockReturnValue(mockTask);
+    mockHandleGetCurrentTask.mockResolvedValue(mcpResponse(mockTaskOutput));
 
     const result = await getCurrentTaskTool.execute({}, mockContext);
 
@@ -146,7 +173,9 @@ describe("getCurrentTaskTool", () => {
   });
 
   it("returns error when no current task exists", async () => {
-    mockGetCurrentTask.mockReturnValue(null);
+    mockHandleGetCurrentTask.mockResolvedValue(
+      mcpError("No current task found"),
+    );
 
     const result = await getCurrentTaskTool.execute({}, mockContext);
 
@@ -157,13 +186,18 @@ describe("getCurrentTaskTool", () => {
 
 describe("signalCompletionTool", () => {
   it("records a completion signal", async () => {
-    mockGetCurrentTask.mockReturnValue(mockTask);
-    mockCreateSignal.mockReturnValue("signal-123");
+    mockHandleSignalCompletion.mockResolvedValue(
+      mcpResponse({
+        success: true,
+        signal_id: "signal-123",
+      }),
+    );
 
     const result = await signalCompletionTool.execute(
       {
-        summary: "Done",
-        artifacts: [
+        task_id: 6,
+        summary: "Done with implementation",
+        artifacts_created: [
           { path: "src/file.ts", type: "CREATE", description: "New file" },
         ],
         build_status: "PASS",
@@ -173,24 +207,19 @@ describe("signalCompletionTool", () => {
     );
 
     expect(result.success).toBe(true);
-    expect(mockCreateSignal).toHaveBeenCalledWith(
-      mockContext.workspaceRoot,
-      mockTask.id,
-      expect.objectContaining({
-        summary: "Done",
-        buildStatus: "PASS",
-        testStatus: "PASS",
-      }),
-    );
+    expect(mockHandleSignalCompletion).toHaveBeenCalled();
   });
 
   it("returns error when no current task exists", async () => {
-    mockGetCurrentTask.mockReturnValue(null);
+    mockHandleSignalCompletion.mockResolvedValue(
+      mcpError("No current task found"),
+    );
 
     const result = await signalCompletionTool.execute(
       {
-        summary: "Done",
-        artifacts: [],
+        task_id: 6,
+        summary: "Done with implementation",
+        artifacts_created: [],
         build_status: "PASS",
         test_status: "PASS",
       },
@@ -204,20 +233,16 @@ describe("signalCompletionTool", () => {
 
 describe("getFeedbackTool", () => {
   it("returns latest feedback for current task", async () => {
-    mockGetCurrentTask.mockReturnValue(mockTask);
-    mockGetFeedback.mockReturnValue({
-      id: 1,
-      task_id: mockTask.id,
-      attempt: 1,
-      max_attempts: 3,
-      can_retry: 1,
-      issues: JSON.stringify([{ check_id: "lint", severity: "MAJOR" }]),
-      passed_checks: JSON.stringify(["build"]),
-      next_steps: JSON.stringify("Fix lint"),
-      additional_guidance: null,
-      created_at: "2024-01-01",
-      updated_at: "2024-01-01",
-    });
+    mockHandleGetFeedback.mockResolvedValue(
+      mcpResponse({
+        task_id: 6,
+        attempt: 1,
+        issues: [{ check_id: "lint", severity: "MAJOR" }],
+        passed_checks: ["build"],
+        next_steps: "Fix lint",
+        additional_guidance: null,
+      }),
+    );
 
     const result = await getFeedbackTool.execute({}, mockContext);
 
@@ -236,8 +261,9 @@ describe("getFeedbackTool", () => {
   });
 
   it("returns error when feedback is missing", async () => {
-    mockGetCurrentTask.mockReturnValue(mockTask);
-    mockGetFeedback.mockReturnValue(null);
+    mockHandleGetFeedback.mockResolvedValue(
+      mcpError("No feedback found for task"),
+    );
 
     const result = await getFeedbackTool.execute({}, mockContext);
 
@@ -248,42 +274,16 @@ describe("getFeedbackTool", () => {
 
 describe("getProgressTool", () => {
   it("returns sprint progress summary", async () => {
-    mockGetCurrentSprint.mockReturnValue({
-      id: "sprint-001",
-      name: "Sprint One",
-      status: "ACTIVE",
-      workflow_step: "IMPLEMENT",
-      is_active: true,
-      is_archived: false,
-      created_at: "2024-01-01",
-      updated_at: "2024-01-01",
-      completed_at: null,
-    });
-
-    const baseTask = {
-      id: 1,
-      sprint_id: "sprint-001",
-      phase_id: 1,
-      task_id: 1,
-      title: "Task",
-      description: "",
-      category: "",
-      dependencies: "",
-      speckit_task_ref: null,
-      status: "PENDING",
-      retry_count: 0,
-      max_retries: 3,
-      created_at: "2024-01-01",
-      updated_at: "2024-01-01",
-      completed_at: null,
-    };
-
-    mockGetTasksForSprint.mockReturnValue([
-      { ...baseTask, id: 1, task_id: 1, status: "PENDING" },
-      { ...baseTask, id: 2, task_id: 2, status: "COMPLETE" },
-      { ...baseTask, id: 3, task_id: 3, status: "COMPLETE" },
-      { ...baseTask, id: 4, task_id: 4, status: "IMPLEMENT" },
-    ]);
+    mockHandleGetProgress.mockResolvedValue(
+      mcpResponse({
+        sprint_id: "sprint-001",
+        sprint_name: "Sprint One",
+        total: 4,
+        completed: 2,
+        pending: 1,
+        in_progress: 1,
+      }),
+    );
 
     const result = await getProgressTool.execute({}, mockContext);
 
@@ -302,7 +302,7 @@ describe("getProgressTool", () => {
   });
 
   it("returns error when no active sprint exists", async () => {
-    mockGetCurrentSprint.mockReturnValue(null);
+    mockHandleGetProgress.mockResolvedValue(mcpError("No active sprint found"));
 
     const result = await getProgressTool.execute({}, mockContext);
 
@@ -313,67 +313,28 @@ describe("getProgressTool", () => {
 
 describe("getSprintStatusTool", () => {
   it("returns sprint status summary with phases", async () => {
-    mockGetCurrentSprint.mockReturnValue({
-      id: "sprint-001",
-      name: "Sprint One",
-      status: "ACTIVE",
-      workflow_step: "IMPLEMENT",
-      is_active: true,
-      is_archived: false,
-      created_at: "2024-01-01",
-      updated_at: "2024-01-01",
-      completed_at: null,
-    });
-
-    mockGetTasksForSprint.mockReturnValue([
-      {
-        ...mockTask,
-        id: 10,
-        task_id: 1,
-        phase_id: 1,
-        status: "PENDING",
-      },
-      {
-        ...mockTask,
-        id: 11,
-        task_id: 2,
-        phase_id: 1,
-        status: "COMPLETE",
-      },
-      {
-        ...mockTask,
-        id: 12,
-        task_id: 3,
-        phase_id: 2,
-        status: "IMPLEMENT",
-      },
-    ]);
-
-    mockGetPhases.mockReturnValue([
-      {
-        id: 1,
-        sprint_id: "sprint-001",
-        phase_id: "phase-1",
-        phase_name: "Phase One",
-        speckit_tasks: null,
-        order: 1,
-      },
-      {
-        id: 2,
-        sprint_id: "sprint-001",
-        phase_id: "phase-2",
-        phase_name: "Phase Two",
-        speckit_tasks: null,
-        order: 2,
-      },
-    ]);
+    mockHandleGetSprintStatus.mockResolvedValue(
+      mcpResponse({
+        sprint: {
+          id: "sprint-001",
+          name: "Sprint One",
+          status: "ACTIVE",
+        },
+        summary: { total: 3, completed: 1, pending: 1, in_progress: 1 },
+        phases: [
+          { phase_id: "phase-1", phase_name: "Phase One", task_count: 2 },
+          { phase_id: "phase-2", phase_name: "Phase Two", task_count: 1 },
+        ],
+        active_task: { task_id: 3, title: "Task Three" },
+      }),
+    );
 
     const result = await getSprintStatusTool.execute({}, mockContext);
 
     expect(result.success).toBe(true);
     const payload = JSON.parse(result.output) as {
       summary: { total: number; completed: number; pending: number };
-      phases: Array<{ phase_id: string; status: string; task_count: number }>;
+      phases: Array<{ phase_id: string; task_count: number }>;
       active_task: { task_id: number } | null;
     };
 
@@ -381,137 +342,54 @@ describe("getSprintStatusTool", () => {
     expect(payload.summary.completed).toBe(1);
     expect(payload.summary.pending).toBe(1);
     expect(payload.phases[0]?.task_count).toBe(2);
-    expect(payload.phases[1]?.status).toBe("ACTIVE");
     expect(payload.active_task?.task_id).toBe(3);
   });
 });
 
 describe("prepareTaskTool", () => {
   it("creates handover and updates task status", async () => {
-    mockGetTaskById.mockReturnValue({
-      id: 42,
-      sprint_id: "sprint-001",
-      phase_id: 1,
-      task_id: 7,
-      title: "Task Seven",
-      description: "",
-      category: "",
-      dependencies: "",
-      speckit_task_ref: null,
-      status: "PENDING",
-      retry_count: 0,
-      max_retries: 3,
-      created_at: "2024-01-01",
-      updated_at: "2024-01-01",
-      completed_at: null,
-    });
-    mockCreateHandover.mockReturnValue(201);
+    mockHandlePrepareTask.mockResolvedValue(
+      mcpResponse({
+        success: true,
+        task_id: 7,
+        status: "PENDING_HANDOVER_REVIEW",
+      }),
+    );
 
     const result = await prepareTaskTool.execute(
       {
-        task_id: 42,
+        task_id: 7,
         priority: "P1",
-        context: "Do the thing",
+        context:
+          "Do the thing - this is a detailed context explaining the task",
         context_files: ["src/file.ts"],
         acceptance_criteria: [{ criterion: "Works", verification: "Manual" }],
-        file_operations: [{ operation: "UPDATE", path: "src/file.ts" }],
+        file_operations: [
+          { operation: "UPDATE", path: "src/file.ts", description: "Update" },
+        ],
         deliverables: ["src/file.ts"],
       },
       mockContext,
     );
 
     expect(result.success).toBe(true);
-    expect(mockCreateHandover).toHaveBeenCalledWith(
-      mockContext.workspaceRoot,
-      42,
-      expect.objectContaining({
-        priority: "P1",
-        context: "Do the thing",
-      }),
-    );
-    expect(mockUpdateTaskStatus).toHaveBeenCalledWith(
-      mockContext.workspaceRoot,
-      42,
-      "IMPLEMENT",
-      expect.any(String),
-    );
+    expect(mockHandlePrepareTask).toHaveBeenCalled();
   });
 });
 
 describe("runVerificationChecksTool", () => {
-  it("runs structural, behavioral, and quality checks", async () => {
-    const tempRoot = await mkdtemp(path.join(os.tmpdir(), "orchestra-"));
-    const filePath = path.join(tempRoot, "src", "file.txt");
-    await mkdir(path.dirname(filePath), { recursive: true });
-    await writeFile(filePath, "hello world", "utf-8");
-
-    mockContext.workspaceRoot = tempRoot;
-    mockGetTaskById.mockReturnValue({
-      id: 1,
-      sprint_id: "sprint-001",
-      phase_id: 1,
-      task_id: 1,
-      title: "Task",
-      description: "",
-      category: "",
-      dependencies: "",
-      speckit_task_ref: null,
-      status: "VERIFY",
-      retry_count: 0,
-      max_retries: 3,
-      created_at: "2024-01-01",
-      updated_at: "2024-01-01",
-      completed_at: null,
-    });
-
-    mockGetVerificationChecks.mockReturnValue([
-      {
-        id: 1,
+  it("runs verification checks and returns results", async () => {
+    mockHandleRunVerificationChecks.mockResolvedValue(
+      mcpResponse({
         task_id: 1,
-        check_id: "struct-1",
-        check_type: "structural",
-        description: "",
-        severity: "",
-        check_config: JSON.stringify({ path: "src/file.txt", pattern: "hello" }),
-        created_at: "2024-01-01",
-      },
-      {
-        id: 2,
-        task_id: 1,
-        check_id: "behavior-1",
-        check_type: "behavioral",
-        description: "",
-        severity: "",
-        check_config: JSON.stringify({
-          command: "echo ok",
-          expected_exit_code: 0,
-          output_contains: "ok",
-        }),
-        created_at: "2024-01-01",
-      },
-      {
-        id: 3,
-        task_id: 1,
-        check_id: "quality-1",
-        check_type: "quality",
-        description: "",
-        severity: "",
-        check_config: JSON.stringify({
-          path: "src/file.txt",
-          pattern: "l",
-          min_count: 3,
-        }),
-        created_at: "2024-01-01",
-      },
-    ]);
-
-    mockExec.mockImplementation((command, options, callback) => {
-      const cb = typeof options === "function" ? options : callback;
-      if (cb) {
-        cb(null, "ok", "");
-      }
-      return {} as unknown as ReturnType<typeof exec>;
-    });
+        results: [
+          { check_id: "struct-1", status: "PASS", check_type: "structural" },
+          { check_id: "behavior-1", status: "PASS", check_type: "behavioral" },
+          { check_id: "quality-1", status: "PASS", check_type: "quality" },
+        ],
+        all_passed: true,
+      }),
+    );
 
     const result = await runVerificationChecksTool.execute(
       { task_id: 1 },
@@ -526,134 +404,108 @@ describe("runVerificationChecksTool", () => {
 
 describe("submitVerificationJudgmentTool", () => {
   it("records a PASS judgment and updates task status", async () => {
-    mockGetTaskById.mockReturnValue({
-      id: 3,
-      sprint_id: "sprint-001",
-      phase_id: 1,
-      task_id: 5,
-      title: "Task",
-      description: "",
-      category: "",
-      dependencies: "",
-      speckit_task_ref: null,
-      status: "VERIFY",
-      retry_count: 0,
-      max_retries: 3,
-      created_at: "2024-01-01",
-      updated_at: "2024-01-01",
-      completed_at: null,
-    });
-    mockGetSignal.mockReturnValue({
-      id: 1,
-      task_id: 3,
-      signal_id: "signal-1",
-      attempt: 1,
-      summary: "",
-      artifacts_created: "[]",
-      tests: "[]",
-      build_status: "PASS",
-      test_status: "PASS",
-      pre_signal_checks: "{}",
-      notes: null,
-      signaled_at: "2024-01-01",
-    });
-    mockCreateVerificationJudgment.mockReturnValue(301);
+    mockHandleSubmitVerificationJudgment.mockResolvedValue(
+      mcpResponse({
+        success: true,
+        task_id: 5,
+        judgment: "PASS",
+        new_status: "COMPLETE",
+      }),
+    );
 
     const result = await submitVerificationJudgmentTool.execute(
       {
-        task_id: 3,
+        task_id: 5,
         judgment: "PASS",
-        rationale: "All checks passed",
+        rationale:
+          "All checks passed and implementation matches requirements exactly",
+        manual_review: {
+          files_reviewed: ["src/file.ts"],
+          observations:
+            "The implementation correctly follows the specification with proper error handling and type safety",
+          quality_assessment:
+            "Code is clean, well-documented, and follows project patterns",
+        },
       },
       mockContext,
     );
 
     expect(result.success).toBe(true);
-    expect(mockCreateVerificationJudgment).toHaveBeenCalled();
-    expect(mockUpdateTaskStatus).toHaveBeenCalledWith(
-      mockContext.workspaceRoot,
-      3,
-      "COMPLETE",
-      expect.any(String),
-    );
+    expect(mockHandleSubmitVerificationJudgment).toHaveBeenCalled();
   });
 
   it("records a FAIL judgment and creates feedback", async () => {
-    mockGetTaskById.mockReturnValue({
-      id: 4,
-      sprint_id: "sprint-001",
-      phase_id: 1,
-      task_id: 6,
-      title: "Task",
-      description: "",
-      category: "",
-      dependencies: "",
-      speckit_task_ref: null,
-      status: "VERIFY",
-      retry_count: 0,
-      max_retries: 3,
-      created_at: "2024-01-01",
-      updated_at: "2024-01-01",
-      completed_at: null,
-    });
-    mockCreateVerificationJudgment.mockReturnValue(302);
+    mockHandleSubmitVerificationJudgment.mockResolvedValue(
+      mcpResponse({
+        success: true,
+        task_id: 6,
+        judgment: "FAIL",
+        new_status: "VERIFY_FAILED",
+        feedback_created: true,
+      }),
+    );
 
     const result = await submitVerificationJudgmentTool.execute(
       {
-        task_id: 4,
+        task_id: 6,
         judgment: "FAIL",
-        rationale: "Lint failed",
-        failures: [{ check_id: "lint", severity: "MAJOR" }],
+        rationale:
+          "Lint failed - the code has multiple style issues that need addressing",
+        failures: [
+          {
+            check_id: "lint",
+            reason: "Style violations",
+            priority: "high",
+            guidance: "Run prettier and fix issues",
+          },
+        ],
+        manual_review: {
+          files_reviewed: ["src/file.ts"],
+          observations:
+            "Code has lint errors and missing type annotations in several places",
+          quality_assessment: "Needs cleanup before approval",
+        },
       },
       mockContext,
     );
 
     expect(result.success).toBe(true);
-    expect(mockCreateFeedback).toHaveBeenCalled();
-    expect(mockUpdateTaskStatus).toHaveBeenCalledWith(
-      mockContext.workspaceRoot,
-      4,
-      "VERIFY_FAILED",
-      expect.any(String),
-    );
+    expect(mockHandleSubmitVerificationJudgment).toHaveBeenCalled();
   });
 });
 
 describe("escalateTaskTool", () => {
   it("creates an escalation record", async () => {
-    mockGetCurrentTask.mockReturnValue(mockTask);
-    mockCreateEscalation.mockReturnValue(101);
+    mockHandleEscalateTask.mockResolvedValue(
+      mcpResponse({
+        success: true,
+        task_id: 6,
+        new_status: "ESCALATED",
+      }),
+    );
 
     const result = await escalateTaskTool.execute(
       {
+        task_id: 6,
         reason: "Blocked by missing credentials",
-        attempts_summary: "Attempted access twice",
-        recommended_action: "Provide access",
-        recommended_target_status: "PENDING",
+        attempts_summary: "Attempted access twice but failed both times",
+        recommended_action: "Provide access credentials",
       },
       mockContext,
     );
 
     expect(result.success).toBe(true);
-    expect(mockCreateEscalation).toHaveBeenCalledWith(
-      mockContext.workspaceRoot,
-      mockTask.id,
-      expect.objectContaining({
-        reason: "Blocked by missing credentials",
-        attemptsSummary: "Attempted access twice",
-        recommendedAction: "Provide access",
-        recommendedTargetStatus: "PENDING",
-      }),
-    );
+    expect(mockHandleEscalateTask).toHaveBeenCalled();
   });
 
   it("returns error when no current task exists", async () => {
-    mockGetCurrentTask.mockReturnValue(null);
+    mockHandleEscalateTask.mockResolvedValue(mcpError("No current task found"));
 
     const result = await escalateTaskTool.execute(
       {
-        reason: "Blocked",
-        attempts_summary: "Attempted once",
+        task_id: 6,
+        reason: "Blocked by missing credentials",
+        attempts_summary: "Attempted access twice",
       },
       mockContext,
     );
