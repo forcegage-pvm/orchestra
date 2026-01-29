@@ -9,6 +9,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { getDb, schema } from "../../src/db/index.js";
 import { handleGetCodeReview } from "../../src/mcp-server/handlers/get-code-review.js";
 import { cleanupTestDb, setupTestDb } from "../setup/db-cache.js";
+import { SPEC_NOTES } from "../setup/test-fixtures.js";
 
 const {
   codeReviewIssues,

@@ -15,6 +15,28 @@ import {
 } from "./shared.js";
 
 // ============================================================================
+// Spec Task Reference Validation
+// ============================================================================
+
+/**
+ * Schema for individual spec task references (e.g., "T001", "T002")
+ * Rejects range notation (e.g., "T001-T005") which must be expanded to individual refs
+ */
+export const SpecTaskRefSchema = z
+  .string()
+  .min(1, "Spec task reference cannot be empty")
+  .refine((val) => !val.includes("-"), {
+    message:
+      'Range notation not allowed (e.g., "T001-T005"). Use individual refs: ["T001", "T002", "T003", "T004", "T005"]',
+  });
+
+/**
+ * Schema for array of spec task references
+ * Each entry must be a valid task ID without range notation
+ */
+export const SpecTaskRefsSchema = z.array(SpecTaskRefSchema);
+
+// ============================================================================
 // configure_sprint
 // ============================================================================
 
@@ -96,8 +118,8 @@ export const ConfigureSprintInputSchema = z
           description: z.string().optional(),
           category: TaskCategorySchema,
           dependencies: z.array(z.number().int().positive()),
-          // TD-032: spec_task_refs - optional for backward compatibility during migration
-          spec_task_refs: z.array(z.string().min(1)).optional(),
+          // TD-032: spec_task_refs - array of individual task IDs, no range notation
+          spec_task_refs: SpecTaskRefsSchema.optional(),
           // Deprecated: use spec_task_refs instead
           speckit_task_ref: z.string().optional(),
           tdd_red_phase: z.boolean().optional(),
@@ -327,8 +349,8 @@ export const AddTaskInputSchema = z.object({
   description: z.string().optional(),
   category: TaskCategorySchema,
   dependencies: z.array(z.number().int().positive()),
-  // TD-032: spec_task_refs - optional for backward compatibility during migration
-  spec_task_refs: z.array(z.string().min(1)).optional(),
+  // TD-032: spec_task_refs - array of individual task IDs, no range notation
+  spec_task_refs: SpecTaskRefsSchema.optional(),
   // Deprecated: use spec_task_refs instead
   speckit_task_ref: z.string().optional(),
   tdd_red_phase: z.boolean().optional(),
@@ -358,7 +380,7 @@ export const UpdateTaskInputSchema = z
     category: TaskCategorySchema.optional(),
     dependencies: z.array(z.number().int().positive()).optional(),
     phase_id: z.string().min(1).optional(),
-    spec_task_refs: z.array(z.string().min(1)).optional(),
+    spec_task_refs: SpecTaskRefsSchema.optional(),
     // Deprecated: use spec_task_refs instead
     speckit_task_ref: z.string().optional(),
     tdd_red_phase: z.boolean().optional(),

@@ -18,6 +18,7 @@ import {
 } from "../../src/db/schema.js";
 import { handlePrepareTask } from "../../src/mcp-server/handlers/prepare-task.js";
 import { cleanupTestDb, setupTestDb } from "../setup/db-cache.js";
+import { SPEC_NOTES } from "../setup/test-fixtures.js";
 
 describe("prepare_task TDD Auto-Injection", () => {
   const testSprintId = "test-sprint-tdd";
@@ -131,6 +132,7 @@ describe("prepare_task TDD Auto-Injection", () => {
 
     await handlePrepareTask({
       task_id: 1,
+      spec_consultation_notes: SPEC_NOTES,
       acceptance_criteria: [
         { criterion: "Test criterion", verification: "Manual" },
       ],
@@ -197,6 +199,7 @@ describe("prepare_task TDD Auto-Injection", () => {
 
     await handlePrepareTask({
       task_id: 1,
+      spec_consultation_notes: SPEC_NOTES,
       acceptance_criteria: [
         { criterion: "Test criterion", verification: "Manual" },
       ],
@@ -259,6 +262,7 @@ describe("prepare_task TDD Auto-Injection", () => {
 
     await handlePrepareTask({
       task_id: 1,
+      spec_consultation_notes: SPEC_NOTES,
       acceptance_criteria: [
         { criterion: "Test criterion", verification: "Manual" },
       ],
@@ -312,6 +316,7 @@ describe("prepare_task TDD Auto-Injection", () => {
 
     await handlePrepareTask({
       task_id: 1,
+      spec_consultation_notes: SPEC_NOTES,
       acceptance_criteria: [
         { criterion: "Test criterion", verification: "Manual" },
       ],
@@ -378,6 +383,7 @@ describe("prepare_task TDD Auto-Injection", () => {
 
     await handlePrepareTask({
       task_id: 1,
+      spec_consultation_notes: SPEC_NOTES,
       acceptance_criteria: [
         { criterion: "Test criterion", verification: "Manual" },
       ],
@@ -448,6 +454,7 @@ describe("prepare_task TDD Auto-Injection", () => {
 
     await handlePrepareTask({
       task_id: 1,
+      spec_consultation_notes: SPEC_NOTES,
       acceptance_criteria: [
         { criterion: "Test criterion", verification: "Manual" },
       ],
@@ -517,6 +524,7 @@ describe("prepare_task TDD Auto-Injection", () => {
 
     await handlePrepareTask({
       task_id: 1,
+      spec_consultation_notes: SPEC_NOTES,
       acceptance_criteria: [
         {
           criterion: "Documentation updated",
@@ -591,6 +599,7 @@ describe("prepare_task TDD Auto-Injection", () => {
 
     await handlePrepareTask({
       task_id: 1,
+      spec_consultation_notes: SPEC_NOTES,
       acceptance_criteria: [
         { criterion: "Feature implemented", verification: "Tests pass" },
       ],

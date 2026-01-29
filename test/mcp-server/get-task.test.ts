@@ -168,7 +168,7 @@ describe("get_task handler", () => {
       expect(output).toHaveProperty("task_id");
       expect(output).toHaveProperty("phase_id");
       expect(output).toHaveProperty("title");
-      expect(output).toHaveProperty("description");
+      expect(output).toHaveProperty("summary"); // TD-032: API returns summary instead of description
       expect(output).toHaveProperty("category");
       expect(output).toHaveProperty("status");
       expect(output).toHaveProperty("dependencies");

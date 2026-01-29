@@ -42,9 +42,12 @@ function parseSpecTaskRefs(value: string | null): string[] {
     const parsed = JSON.parse(value);
     return Array.isArray(parsed) ? parsed : [];
   } catch {
-    // Legacy format: plain string like "T010"
-    // Return as single-element array
-    return [value];
+    // Legacy format: comma-separated string like "T001,T002" or single value "T010"
+    // Split by comma and trim whitespace
+    return value
+      .split(",")
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0);
   }
 }
 

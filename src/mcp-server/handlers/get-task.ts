@@ -21,6 +21,24 @@ import {
 import { validateInput } from "../../schemas/utils.js";
 import { logToolExecution } from "./audit-logging.js";
 
+/**
+ * Parse spec_task_refs from JSON array or legacy comma-separated string
+ * TD-032: Supports both new JSON array format and legacy string format
+ */
+function parseSpecTaskRefs(value: string | null): string[] {
+  if (!value) return [];
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    // Legacy format: comma-separated string like "T001,T002" or single value "T010"
+    return value
+      .split(",")
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0);
+  }
+}
+
 export async function handleGetTask(input: unknown) {
   const startTime = performance.now();
   const validation = validateInput(GetTaskInputSchema, input);
@@ -227,7 +245,7 @@ async function getTask(
       | "REFACTOR",
     status: task.status as GetTaskOutput["status"],
     dependencies: JSON.parse(task.dependencies),
-    spec_task_refs: JSON.parse(task.speckit_task_ref || "[]"), // TD-032: Map speckit_task_ref column to spec_task_refs in API
+    spec_task_refs: parseSpecTaskRefs(task.speckit_task_ref), // TD-032: Map speckit_task_ref column to spec_task_refs in API
     created_at: task.created_at,
     updated_at: task.updated_at,
     completed_at: task.completed_at || undefined,

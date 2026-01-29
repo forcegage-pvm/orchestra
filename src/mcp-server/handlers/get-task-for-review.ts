@@ -20,7 +20,7 @@ import { validateInput } from "../../schemas/utils.js";
 import { logToolExecution } from "./audit-logging.js";
 
 /**
- * Parse spec_task_refs from JSON array or plain string (legacy format)
+ * Parse spec_task_refs from JSON array or legacy comma-separated string
  * TD-032: Supports both new JSON array format and legacy string format
  */
 function parseSpecTaskRefs(value: string | null): string[] {
@@ -29,9 +29,11 @@ function parseSpecTaskRefs(value: string | null): string[] {
     const parsed = JSON.parse(value);
     return Array.isArray(parsed) ? parsed : [];
   } catch {
-    // Legacy format: plain string like "T010"
-    // Return as single-element array
-    return [value];
+    // Legacy format: comma-separated string like "T001,T002" or single value "T010"
+    return value
+      .split(",")
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0);
   }
 }
 

@@ -130,7 +130,7 @@ const TOOLS_WITH_ROLES: ToolWithRole[] = [
                 type: "array",
                 items: { type: "string" },
                 description:
-                  "Array of spec task references (e.g., ['specs/001/tasks.md#T001', 'T002']).",
+                  'Array of spec task references. Each element must be a single task ID (e.g., ["T001", "T002", "T003"]). Range notation like "T001-T005" is NOT allowed - expand to individual IDs.',
               },
               speckit_task_ref: {
                 type: "string",
@@ -236,7 +236,7 @@ const TOOLS_WITH_ROLES: ToolWithRole[] = [
           type: "array",
           items: { type: "string" },
           description:
-            "Array of spec task references (e.g., ['specs/001/tasks.md#T001']).",
+            'Array of spec task references. Each element must be a single task ID (e.g., ["T001", "T002"]). Range notation like "T001-T005" is NOT allowed.',
         },
         speckit_task_ref: {
           type: "string",
@@ -376,7 +376,8 @@ const TOOLS_WITH_ROLES: ToolWithRole[] = [
         spec_task_refs: {
           type: "array",
           items: { type: "string" },
-          description: "Array of spec task references",
+          description:
+            "Array of spec task references. Each element must be a single task ID. Range notation NOT allowed.",
         },
         speckit_task_ref: {
           type: "string",
