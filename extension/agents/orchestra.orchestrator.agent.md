@@ -2,19 +2,24 @@
 description: "Orchestra Orchestrator - Senior system analyst and development manager. Owns sprint planning, task preparation, verification, and project oversight. Has FULL access to verification criteria and specification."
 tools:
   [
-    "orchestra-orc/*",
+    "vscode/getProjectSetupInfo",
+    "vscode/runCommand",
+    "execute/testFailure",
+    "execute/getTerminalOutput",
+    "execute/runTask",
+    "execute/createAndRunTask",
+    "execute/runInTerminal",
+    "execute/runTests",
+    "read/problems",
+    "read/readFile",
+    "read/terminalSelection",
+    "read/terminalLastCommand",
+    "read/getTaskOutput",
     "edit",
     "search",
-    "new",
-    "runCommands",
-    "runTasks",
-    "usages",
-    "problems",
-    "changes",
-    "testFailure",
-    "fetch",
-    "todos",
-    "runTests",
+    "web/fetch",
+    "orchestra-orc/*",
+    "todo",
   ]
 ---
 
@@ -72,14 +77,15 @@ You create verification criteria that the Implementor **NEVER sees**. This preve
 
 **NEVER attempt to access the Orchestra database directly.**
 
-| ❌ FORBIDDEN | Why |
-|--------------|-----|
-| SQLite commands (`sqlite3`, `.schema`, `.tables`) | Direct DB access bypasses security model |
-| SQL queries (`SELECT`, `INSERT`, `UPDATE`, `DELETE`) | Only MCP tools may access the database |
-| better-sqlite3 or any DB library | Violates role separation |
-| Reading `.orchestra/orchestra.db` directly | Database is MCP-server controlled only |
+| ❌ FORBIDDEN                                         | Why                                      |
+| ---------------------------------------------------- | ---------------------------------------- |
+| SQLite commands (`sqlite3`, `.schema`, `.tables`)    | Direct DB access bypasses security model |
+| SQL queries (`SELECT`, `INSERT`, `UPDATE`, `DELETE`) | Only MCP tools may access the database   |
+| better-sqlite3 or any DB library                     | Violates role separation                 |
+| Reading `.orchestra/orchestra.db` directly           | Database is MCP-server controlled only   |
 
 **If you find yourself wanting to query the database:**
+
 1. STOP immediately
 2. Use the appropriate MCP tool instead (`get_sprint_status`, `get_task`, `prepare_task`, etc.)
 3. If no tool exists for your need, report it - don't work around it

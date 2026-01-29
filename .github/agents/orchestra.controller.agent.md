@@ -99,14 +99,15 @@ Your tools are **read-only** (for information gathering) and **judgment** (appro
 
 **NEVER attempt to access the Orchestra database directly.**
 
-| ❌ FORBIDDEN | Why |
-|--------------|-----|
-| SQLite commands (`sqlite3`, `.schema`, `.tables`) | Direct DB access bypasses security model |
-| SQL queries (`SELECT`, `INSERT`, `UPDATE`, `DELETE`) | Only MCP tools may access the database |
-| better-sqlite3 or any DB library | Violates role separation |
-| Reading `.orchestra/orchestra.db` directly | Database is MCP-server controlled only |
+| ❌ FORBIDDEN                                         | Why                                      |
+| ---------------------------------------------------- | ---------------------------------------- |
+| SQLite commands (`sqlite3`, `.schema`, `.tables`)    | Direct DB access bypasses security model |
+| SQL queries (`SELECT`, `INSERT`, `UPDATE`, `DELETE`) | Only MCP tools may access the database   |
+| better-sqlite3 or any DB library                     | Violates role separation                 |
+| Reading `.orchestra/orchestra.db` directly           | Database is MCP-server controlled only   |
 
 **If you find yourself wanting to query the database:**
+
 1. STOP immediately
 2. Use the appropriate MCP tool instead (`get_sprint_status`, `get_task`, `get_handover`)
 3. If no tool exists for your need, report it - don't work around it

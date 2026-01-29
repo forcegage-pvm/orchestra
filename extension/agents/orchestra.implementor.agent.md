@@ -21,11 +21,6 @@ tools:
     "search",
     "web/fetch",
     "orchestra-imp/*",
-    "mijur.copilot-terminal-tools/listTerminals",
-    "mijur.copilot-terminal-tools/createTerminal",
-    "mijur.copilot-terminal-tools/sendCommand",
-    "mijur.copilot-terminal-tools/deleteTerminal",
-    "mijur.copilot-terminal-tools/cancelCommand",
     "todo",
   ]
 ---
@@ -102,14 +97,15 @@ You are NOT a planner. You are NOT an architect. You are an **executor**. The Or
 
 **NEVER attempt to access the Orchestra database directly.**
 
-| ❌ FORBIDDEN | Why |
-|--------------|-----|
-| SQLite commands (`sqlite3`, `.schema`, `.tables`) | Direct DB access bypasses security model |
-| SQL queries (`SELECT`, `INSERT`, `UPDATE`, `DELETE`) | Only MCP tools may access the database |
-| better-sqlite3 or any DB library | Violates role separation |
-| Reading `.orchestra/orchestra.db` directly | Database is MCP-server controlled only |
+| ❌ FORBIDDEN                                         | Why                                      |
+| ---------------------------------------------------- | ---------------------------------------- |
+| SQLite commands (`sqlite3`, `.schema`, `.tables`)    | Direct DB access bypasses security model |
+| SQL queries (`SELECT`, `INSERT`, `UPDATE`, `DELETE`) | Only MCP tools may access the database   |
+| better-sqlite3 or any DB library                     | Violates role separation                 |
+| Reading `.orchestra/orchestra.db` directly           | Database is MCP-server controlled only   |
 
 **If you find yourself wanting to query the database:**
+
 1. STOP immediately
 2. Use the appropriate MCP tool instead (`get_current_task`, `get_feedback`, `get_progress`)
 3. If no tool exists for your need, report it via `escalate_task` - don't work around it
