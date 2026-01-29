@@ -39,6 +39,18 @@ export function convertAgentOutput(
     };
   }
 
+  if (output.type === "prompt") {
+    return {
+      type: "item",
+      item: {
+        id: generateId(),
+        type: "prompt",
+        timestamp: output.timestamp,
+        content: { text: output.text ?? "" },
+      },
+    };
+  }
+
   if (output.type === "thinking") {
     return {
       type: "item",
@@ -112,7 +124,19 @@ export function convertAgentOutput(
     };
   }
 
-  return { type: "ignore" };
+  // Catch-all for any unregistered message types
+  return {
+    type: "item",
+    item: {
+      id: generateId(),
+      type: "unknown",
+      timestamp: output.timestamp,
+      content: {
+        rawType: output.type,
+        rawOutput: JSON.stringify(output, null, 2),
+      },
+    },
+  };
 }
 
 export function bindAgentOutput(

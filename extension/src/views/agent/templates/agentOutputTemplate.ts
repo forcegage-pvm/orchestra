@@ -6,12 +6,13 @@ import { getAgentOutputStyles } from "./agentOutputStyles.js";
 
 export interface AgentOutputItem {
   id: string;
-  type: "thinking" | "tool_call" | "tool_result";
+  type: "prompt" | "thinking" | "tool_call" | "tool_result" | "unknown";
   timestamp: string;
   content:
     | { text: string }
     | { toolName: string; arguments: Record<string, unknown> }
-    | { toolName: string; success: boolean; output: string; error?: string };
+    | { toolName: string; success: boolean; output: string; error?: string }
+    | { rawType: string; rawOutput: string };
   debug?: { tokenCount?: number; durationMs?: number };
 }
 
@@ -106,6 +107,32 @@ function renderDebugMeta(item: AgentOutputItem): string {
   return `<div class="output-debug">${escapeHtml(info)}</div>`;
 }
 
+function renderPrompt(item: AgentOutputItem): string {
+  const content = item.content as { text: string };
+  return `
+    <div class="output-item output-prompt" data-id="${escapeHtml(item.id)}" id="output-${escapeHtml(item.id)}">
+      <div class="output-meta">
+        <span class="pill pill-prompt">Prompt</span>
+        <span>${escapeHtml(item.timestamp)}</span>
+      </div>
+      <div class="prompt-text">${escapeHtml(content.text)}</div>
+    </div>
+  `;
+}
+
+function renderUnknown(item: AgentOutputItem): string {
+  const content = item.content as { rawType: string; rawOutput: string };
+  return `
+    <div class="output-item output-unknown" data-id="${escapeHtml(item.id)}" id="output-${escapeHtml(item.id)}">
+      <div class="output-meta">
+        <span class="pill pill-unknown">Unregistered: ${escapeHtml(content.rawType)}</span>
+        <span>${escapeHtml(item.timestamp)}</span>
+      </div>
+      <pre class="unknown-text code-block">${escapeHtml(content.rawOutput)}</pre>
+    </div>
+  `;
+}
+
 function renderThinking(item: AgentOutputItem): string {
   const content = item.content as { text: string };
   const debugMeta = renderDebugMeta(item);
@@ -173,6 +200,12 @@ function renderToolResult(item: AgentOutputItem): string {
 }
 
 function renderOutputItem(item: AgentOutputItem): string {
+  if (item.type === "prompt") {
+    return renderPrompt(item);
+  }
+  if (item.type === "unknown") {
+    return renderUnknown(item);
+  }
   if (item.type === "thinking") {
     return renderThinking(item);
   }
@@ -276,6 +309,30 @@ function getScript(initialItemsJson: string): string {
           debug.textContent = debugText;
           container.appendChild(debug);
         }
+      }
+
+      if (item.type === "prompt") {
+        container.classList.add("output-prompt");
+        pill.classList.add("pill-prompt");
+        pill.textContent = "Prompt";
+
+        const body = document.createElement("div");
+        body.classList.add("prompt-text");
+        body.textContent = item.content.text;
+        container.appendChild(body);
+        return container;
+      }
+
+      if (item.type === "unknown") {
+        container.classList.add("output-unknown");
+        pill.classList.add("pill-unknown");
+        pill.textContent = "Unregistered: " + (item.content.rawType || "unknown");
+
+        const body = document.createElement("pre");
+        body.classList.add("unknown-text", "code-block");
+        body.textContent = item.content.rawOutput || "";
+        container.appendChild(body);
+        return container;
       }
 
       if (item.type === "thinking") {
@@ -543,7 +600,13 @@ function getScript(initialItemsJson: string): string {
       const lines = [];
       const time = item.timestamp || "";
       
-      if (item.type === "thinking") {
+      if (item.type === "prompt") {
+        lines.push("=== PROMPT [" + time + "] ===");
+        lines.push(item.content.text || "");
+      } else if (item.type === "unknown") {
+        lines.push("=== UNREGISTERED MESSAGE [" + time + "] type=" + (item.content.rawType || "unknown") + " ===");
+        lines.push(item.content.rawOutput || "");
+      } else if (item.type === "thinking") {
         lines.push("=== THINKING [" + time + "] ===");
         lines.push(item.content.text || "");
       } else if (item.type === "tool_call") {

@@ -202,6 +202,18 @@ export function getAgentOutputStyles(): string {
       text-transform: uppercase;
     }
 
+    .pill-prompt {
+      background: var(--vscode-inputValidation-infoBackground);
+      color: var(--vscode-foreground);
+      border: 1px solid var(--vscode-charts-purple, #a855f7);
+    }
+
+    .pill-unknown {
+      background: var(--vscode-inputValidation-warningBackground);
+      color: var(--vscode-foreground);
+      border: 1px solid var(--vscode-charts-orange, #f97316);
+    }
+
     .pill-thinking {
       background: var(--vscode-inputValidation-infoBackground);
       color: var(--vscode-foreground);
@@ -223,6 +235,30 @@ export function getAgentOutputStyles(): string {
     .pill-tool-result.error {
       background: var(--vscode-inputValidation-errorBackground);
       border-color: var(--vscode-charts-red);
+    }
+
+    .prompt-text {
+      line-height: 1.5;
+      font-size: 12px;
+      white-space: pre-wrap;
+      padding: 8px;
+      border-radius: 4px;
+      background: var(--vscode-textBlockQuote-background);
+      border: 1px solid var(--vscode-panel-border);
+      max-height: 300px;
+      overflow-y: auto;
+    }
+
+    .unknown-text {
+      line-height: 1.5;
+      font-size: 11px;
+      white-space: pre-wrap;
+      padding: 8px;
+      border-radius: 4px;
+      background: var(--vscode-inputValidation-warningBackground);
+      border: 1px solid var(--vscode-charts-orange, #f97316);
+      max-height: 200px;
+      overflow-y: auto;
     }
 
     .thinking-text {

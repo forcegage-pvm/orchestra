@@ -43,6 +43,7 @@ import type {
  * Output types emitted during agent execution
  */
 export type AgentOutputType =
+  | "prompt"
   | "thinking"
   | "tool_call"
   | "tool_result"
@@ -309,6 +310,14 @@ export class AgentRunner implements vscode.Disposable {
 
     // Add initial user message with prompt
     this.addUserMessage(options.prompt);
+
+    // Emit prompt as first output so it's visible in the output panel
+    this.emitOutput({
+      type: "prompt",
+      timestamp: new Date().toISOString(),
+      iteration: 0,
+      text: options.prompt,
+    });
 
     // Emit state change
     this.emitStateChange();
