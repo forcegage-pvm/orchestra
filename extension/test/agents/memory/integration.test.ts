@@ -191,8 +191,16 @@ describe("AgentRunner + SprintMemory integration", () => {
       execute: vi.fn(async () => ({
         result: {
           success: true,
-          output: "ok",
+          content: [{ type: "text", value: "ok" }],
+          metadata: {
+            toolName: "complete_task",
+            callId: "test-call",
+            durationMs: 0,
+          },
         },
+        durationMs: 0,
+        retryCount: 0,
+        toolCallId: "test-call",
       })),
       names: () => [],
       has: () => false,

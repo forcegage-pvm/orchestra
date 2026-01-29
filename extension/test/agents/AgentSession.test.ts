@@ -2,18 +2,18 @@
  * Unit tests for AgentSession state management
  */
 
-import { describe, test, expect, beforeEach, afterEach } from "vitest";
 import * as fs from "fs";
-import * as path from "path";
 import * as os from "os";
+import * as path from "path";
+import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import { AgentSession } from "../../src/agents/AgentSession.js";
 import { SessionError } from "../../src/agents/errors.js";
 import { SessionStorage } from "../../src/agents/SessionStorage.js";
 import {
   AgentMessage,
-  ToolCall,
-  FileChange,
   CheckpointReference,
+  FileChange,
+  ToolCall,
 } from "../../src/agents/types.js";
 
 describe("AgentSession", () => {
@@ -28,7 +28,12 @@ describe("AgentSession", () => {
   afterEach(() => {
     // Clean up temp directory
     if (fs.existsSync(tempDir)) {
-      fs.rmSync(tempDir, { recursive: true, force: true });
+      fs.rmSync(tempDir, {
+        recursive: true,
+        force: true,
+        maxRetries: 5,
+        retryDelay: 50,
+      });
     }
   });
 

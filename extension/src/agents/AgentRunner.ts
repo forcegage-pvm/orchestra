@@ -32,12 +32,8 @@ import {
   loadOrchestratorTools,
 } from "./toolLoaders.js";
 import { ToolRegistry } from "./ToolRegistry.js";
-import type {
-  AgentConfig,
-  AgentMessage,
-  AgentRole,
-  ToolContext,
-} from "./types.js";
+import type { ToolInvocationContext } from "./tools/types.js";
+import type { AgentConfig, AgentMessage, AgentRole } from "./types.js";
 
 /**
  * Output types emitted during agent execution
@@ -939,13 +935,11 @@ export class AgentRunner implements vscode.Disposable {
       return;
     }
 
-    const context: ToolContext = {
+    const context: ToolInvocationContext = {
       workspaceRoot: vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? "",
       sessionId: this.session.id,
-      iteration: this.session.currentIteration,
-      cancellationToken: this.cancellationTokenSource?.token,
-      logger: console,
-      db: undefined,
+      token:
+        this.cancellationTokenSource?.token ?? vscode.CancellationToken.None,
     };
 
     for (const toolCall of toolCalls) {
@@ -964,8 +958,12 @@ export class AgentRunner implements vscode.Disposable {
           { retries: this.config.maxToolRetries },
         );
 
-        const durationMs = Date.now() - startTime;
         const toolSuccess = result.result.success;
+        const durationMs = result.result.metadata.durationMs;
+        const contentText = result.result.content
+          .map((part) => part.value)
+          .join("\n");
+        const errorMessage = result.result.error?.message;
 
         // Record tool call in session
         this.session.recordToolCall({
@@ -985,9 +983,7 @@ export class AgentRunner implements vscode.Disposable {
           this.resetToolFailureTracking();
         } else {
           this.recordToolFailure(
-            result.result.error ??
-              result.result.output ??
-              "Tool returned unsuccessful result",
+            errorMessage ?? contentText ?? "Tool returned unsuccessful result",
           );
           if (await this.handleConsecutiveFailures()) {
             return;
@@ -997,10 +993,10 @@ export class AgentRunner implements vscode.Disposable {
         // Add tool result to message history
         // CRITICAL: If tool failed, include the error message so the LLM knows
         const resultMessage = toolSuccess
-          ? result.result.output
-          : result.result.error
-            ? `Error: ${result.result.error}`
-            : result.result.output || "Tool execution failed";
+          ? contentText
+          : errorMessage
+            ? `Error: ${errorMessage}`
+            : contentText || "Tool execution failed";
         this.addToolResultMessage(toolCall.callId, resultMessage);
 
         // Emit tool result

@@ -147,8 +147,16 @@ describe("Agent Lifecycle Integration", () => {
     executeMock = vi.fn(async () => ({
       result: {
         success: true,
-        output: "OK",
+        content: [{ type: "text", value: "OK" }],
+        metadata: {
+          toolName: "test_tool",
+          callId: "test-call",
+          durationMs: 0,
+        },
       },
+      durationMs: 0,
+      retryCount: 0,
+      toolCallId: "test-call",
     }));
 
     registry = {
@@ -198,7 +206,8 @@ describe("Agent Lifecycle Integration", () => {
       { value: 1 },
       expect.objectContaining({
         sessionId: expect.any(String),
-        iteration: expect.any(Number),
+        workspaceRoot: expect.any(String),
+        token: expect.any(Object),
       }),
       expect.objectContaining({
         retries: expect.any(Number),

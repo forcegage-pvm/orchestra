@@ -10,10 +10,11 @@ import { AgentRunner } from "../../src/agents/AgentRunner.js";
 import { AgentSession } from "../../src/agents/AgentSession.js";
 import { AgentError } from "../../src/agents/errors.js";
 import { loadImplementorTools } from "../../src/agents/toolLoaders.js";
-import { ToolRegistry, type AgentTool } from "../../src/agents/ToolRegistry.js";
+import { ToolRegistry } from "../../src/agents/ToolRegistry.js";
 import { codingTools } from "../../src/agents/tools/coding/index.js";
 import { orchestraImplementorTools } from "../../src/agents/tools/orchestra/index.js";
 import { systemTools } from "../../src/agents/tools/system/index.js";
+import type { AgentTool } from "../../src/agents/tools/types.js";
 import type { AgentConfig } from "../../src/agents/types.js";
 import { createEscalation } from "../../src/database/mutations.js";
 
@@ -129,9 +130,14 @@ describe("AgentRunner", () => {
       },
       required: ["value"],
     },
-    execute: vi.fn(async () => ({
+    invoke: vi.fn(async () => ({
       success: true,
-      output: "Tool executed successfully",
+      content: [{ type: "text", value: "Tool executed successfully" }],
+      metadata: {
+        toolName: "test_tool",
+        callId: "test-call",
+        durationMs: 0,
+      },
     })),
   };
 
@@ -868,7 +874,7 @@ describe("AgentRunner", () => {
       expect(toolCallOutput).toBeDefined();
       expect(toolCallOutput?.toolName).toBe("test_tool");
       expect(toolResultOutput).toBeDefined();
-      expect(mockTool.execute).toHaveBeenCalled();
+      expect(mockTool.invoke).toHaveBeenCalled();
     });
 
     test("should handle tool execution errors gracefully", async () => {
@@ -880,7 +886,7 @@ describe("AgentRunner", () => {
           type: "object",
           properties: {},
         },
-        execute: vi.fn(async () => {
+        invoke: vi.fn(async () => {
           throw new Error("Tool failed");
         }),
       };
@@ -925,13 +931,18 @@ describe("AgentRunner", () => {
           type: "object",
           properties: {},
         },
-        execute: vi
+        invoke: vi
           .fn()
           .mockRejectedValueOnce(new Error("Retry 1"))
           .mockRejectedValueOnce(new Error("Retry 2"))
           .mockResolvedValue({
             success: true,
-            output: "Recovered",
+            content: [{ type: "text", value: "Recovered" }],
+            metadata: {
+              toolName: "retry_tool",
+              callId: "test-call",
+              durationMs: 0,
+            },
           }),
       };
       retryRegistry.register(retryTool);
@@ -961,7 +972,7 @@ describe("AgentRunner", () => {
       await retryRunner.start("orchestrator", { prompt: "Test" });
       await new Promise((resolve) => setTimeout(resolve, 600));
 
-      expect(retryTool.execute).toHaveBeenCalledTimes(3);
+      expect(retryTool.invoke).toHaveBeenCalledTimes(3);
       expect((retryRunner as any).consecutiveErrors).toBe(0);
 
       retryRunner.dispose();
@@ -976,7 +987,7 @@ describe("AgentRunner", () => {
           type: "object",
           properties: {},
         },
-        execute: vi.fn(async () => {
+        invoke: vi.fn(async () => {
           throw new Error("Failure");
         }),
       };

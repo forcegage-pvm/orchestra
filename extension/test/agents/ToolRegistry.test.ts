@@ -5,9 +5,13 @@
  */
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { ToolRegistry, type AgentTool } from "../../src/agents/ToolRegistry.js";
+import { ToolRegistry } from "../../src/agents/ToolRegistry.js";
 import { ToolExecutionError } from "../../src/agents/errors.js";
-import type { ToolContext } from "../../src/agents/types.js";
+import { ToolErrorCode } from "../../src/agents/tools/errors.js";
+import type {
+  AgentTool,
+  ToolInvocationContext,
+} from "../../src/agents/tools/types.js";
 
 describe("ToolRegistry", () => {
   let registry: ToolRegistry;
@@ -23,20 +27,24 @@ describe("ToolRegistry", () => {
       },
       required: ["value"],
     },
-    execute: vi.fn(async (input: unknown) => ({
+    invoke: vi.fn(async (input: unknown) => ({
       success: true,
-      output: `Executed with ${JSON.stringify(input)}`,
+      content: [
+        { type: "text", value: `Executed with ${JSON.stringify(input)}` },
+      ],
+      metadata: {
+        toolName: "mock_tool",
+        callId: "test-call",
+        durationMs: 0,
+      },
     })),
   };
 
   // Mock context
-  const mockContext: ToolContext = {
+  const mockContext: ToolInvocationContext = {
     workspaceRoot: "/test/workspace",
     sessionId: "test-session",
-    iteration: 0,
-    cancellationToken: {},
-    logger: {},
-    db: {},
+    token: {} as ToolInvocationContext["token"],
   };
 
   beforeEach(() => {
@@ -54,7 +62,7 @@ describe("ToolRegistry", () => {
       registry.register(mockTool);
       expect(() => registry.register(mockTool)).toThrow(ToolExecutionError);
       expect(() => registry.register(mockTool)).toThrow(
-        "Tool 'mock_tool' is already registered"
+        "Tool 'mock_tool' is already registered",
       );
     });
   });
@@ -194,18 +202,21 @@ describe("ToolRegistry", () => {
 
       expect(result.result.success).toBe(true);
       expect(result.durationMs).toBeGreaterThanOrEqual(0);
+      expect(result.result.metadata.durationMs).toBeGreaterThanOrEqual(0);
+      expect(result.result.metadata.toolName).toBe("mock_tool");
+      expect(result.result.metadata.callId).toBe(result.toolCallId);
       expect(result.retryCount).toBe(0);
       expect(result.toolCallId).toBeTruthy();
-      expect(mockTool.execute).toHaveBeenCalledWith(input, mockContext);
+      expect(mockTool.invoke).toHaveBeenCalledWith(input, mockContext);
     });
 
     it("should throw error when tool not found", async () => {
       await expect(
-        registry.execute("nonexistent", {}, mockContext)
+        registry.execute("nonexistent", {}, mockContext),
       ).rejects.toThrow(ToolExecutionError);
 
       await expect(
-        registry.execute("nonexistent", {}, mockContext)
+        registry.execute("nonexistent", {}, mockContext),
       ).rejects.toThrow("Tool 'nonexistent' not found");
     });
 
@@ -214,12 +225,20 @@ describe("ToolRegistry", () => {
       const flakeyTool: AgentTool = {
         ...mockTool,
         name: "flakey_tool",
-        execute: vi.fn(async () => {
+        invoke: vi.fn(async () => {
           attempts++;
           if (attempts < 3) {
             throw new Error("Temporary failure");
           }
-          return { success: true, output: "Success after retries" };
+          return {
+            success: true,
+            content: [{ type: "text", value: "Success after retries" }],
+            metadata: {
+              toolName: "flakey_tool",
+              callId: "test-call",
+              durationMs: 0,
+            },
+          };
         }),
       };
 
@@ -231,14 +250,14 @@ describe("ToolRegistry", () => {
 
       expect(result.result.success).toBe(true);
       expect(result.retryCount).toBe(2);
-      expect(flakeyTool.execute).toHaveBeenCalledTimes(3);
+      expect(flakeyTool.invoke).toHaveBeenCalledTimes(3);
     });
 
     it("should fail after exhausting retries", async () => {
       const failingTool: AgentTool = {
         ...mockTool,
         name: "failing_tool",
-        execute: vi.fn(async () => {
+        invoke: vi.fn(async () => {
           throw new Error("Persistent failure");
         }),
       };
@@ -246,32 +265,44 @@ describe("ToolRegistry", () => {
       registry.register(failingTool);
 
       await expect(
-        registry.execute("failing_tool", {}, mockContext, { retries: 2 })
+        registry.execute("failing_tool", {}, mockContext, { retries: 2 }),
       ).rejects.toThrow(ToolExecutionError);
 
       // Should have tried 3 times (initial + 2 retries)
-      expect(failingTool.execute).toHaveBeenCalledTimes(3);
+      expect(failingTool.invoke).toHaveBeenCalledTimes(3);
 
       // Clear mock for second assertion
-      vi.mocked(failingTool.execute).mockClear();
+      vi.mocked(failingTool.invoke).mockClear();
 
       await expect(
-        registry.execute("failing_tool", {}, mockContext, { retries: 2 })
+        registry.execute("failing_tool", {}, mockContext, { retries: 2 }),
       ).rejects.toThrow("failed after 3 attempts");
 
       // Should have tried another 3 times
-      expect(failingTool.execute).toHaveBeenCalledTimes(3);
+      expect(failingTool.invoke).toHaveBeenCalledTimes(3);
     });
 
     it("should handle timeout option", async () => {
       const slowTool: AgentTool = {
         ...mockTool,
         name: "slow_tool",
-        execute: vi.fn(
+        invoke: vi.fn(
           async () =>
             new Promise((resolve) =>
-              setTimeout(() => resolve({ success: true, output: "Done" }), 500)
-            )
+              setTimeout(
+                () =>
+                  resolve({
+                    success: true,
+                    content: [{ type: "text", value: "Done" }],
+                    metadata: {
+                      toolName: "slow_tool",
+                      callId: "test-call",
+                      durationMs: 0,
+                    },
+                  }),
+                500,
+              ),
+            ),
         ),
       };
 
@@ -281,7 +312,7 @@ describe("ToolRegistry", () => {
         registry.execute("slow_tool", {}, mockContext, {
           timeout: 100,
           retries: 0,
-        })
+        }),
       ).rejects.toThrow("timed out");
     }, 10000);
 
@@ -289,7 +320,15 @@ describe("ToolRegistry", () => {
       const fastTool: AgentTool = {
         ...mockTool,
         name: "fast_tool",
-        execute: vi.fn(async () => ({ success: true, output: "Fast!" })),
+        invoke: vi.fn(async () => ({
+          success: true,
+          content: [{ type: "text", value: "Fast!" }],
+          metadata: {
+            toolName: "fast_tool",
+            callId: "test-call",
+            durationMs: 0,
+          },
+        })),
       };
 
       registry.register(fastTool);
@@ -305,7 +344,7 @@ describe("ToolRegistry", () => {
       const failingTool: AgentTool = {
         ...mockTool,
         name: "failing_default",
-        execute: vi.fn(async () => {
+        invoke: vi.fn(async () => {
           throw new Error("Always fails");
         }),
       };
@@ -313,11 +352,11 @@ describe("ToolRegistry", () => {
       registry.register(failingTool);
 
       await expect(
-        registry.execute("failing_default", {}, mockContext)
+        registry.execute("failing_default", {}, mockContext),
       ).rejects.toThrow();
 
       // Default is 3 retries, so 4 total attempts
-      expect(failingTool.execute).toHaveBeenCalledTimes(4);
+      expect(failingTool.invoke).toHaveBeenCalledTimes(4);
     });
   });
 
@@ -371,10 +410,18 @@ describe("ToolRegistry", () => {
       const errorTool: AgentTool = {
         ...mockTool,
         name: "error_tool",
-        execute: vi.fn(async () => ({
+        invoke: vi.fn(async () => ({
           success: false,
-          output: "Validation failed",
-          error: "Invalid input",
+          content: [{ type: "error", value: "Validation failed" }],
+          error: {
+            code: ToolErrorCode.INVALID_INPUT,
+            message: "Invalid input",
+          },
+          metadata: {
+            toolName: "error_tool",
+            callId: "test-call",
+            durationMs: 0,
+          },
         })),
       };
 
@@ -382,18 +429,30 @@ describe("ToolRegistry", () => {
 
       const result = await registry.execute("error_tool", {}, mockContext);
       expect(result.result.success).toBe(false);
-      expect(result.result.error).toBe("Invalid input");
+      expect(result.result.error?.message).toBe("Invalid input");
     });
 
     it("should measure execution duration accurately", async () => {
       const delayedTool: AgentTool = {
         ...mockTool,
         name: "delayed_tool",
-        execute: vi.fn(
+        invoke: vi.fn(
           async () =>
             new Promise((resolve) =>
-              setTimeout(() => resolve({ success: true, output: "Done" }), 50)
-            )
+              setTimeout(
+                () =>
+                  resolve({
+                    success: true,
+                    content: [{ type: "text", value: "Done" }],
+                    metadata: {
+                      toolName: "delayed_tool",
+                      callId: "test-call",
+                      durationMs: 0,
+                    },
+                  }),
+                50,
+              ),
+            ),
         ),
       };
 
@@ -401,6 +460,7 @@ describe("ToolRegistry", () => {
 
       const result = await registry.execute("delayed_tool", {}, mockContext);
       expect(result.durationMs).toBeGreaterThanOrEqual(50);
+      expect(result.result.metadata.durationMs).toBeGreaterThanOrEqual(50);
     });
 
     it("should generate unique toolCallId for each execution", async () => {
@@ -416,7 +476,7 @@ describe("ToolRegistry", () => {
       const weirdTool: AgentTool = {
         ...mockTool,
         name: "weird_tool",
-        execute: vi.fn(async () => {
+        invoke: vi.fn(async () => {
           // eslint-disable-next-line @typescript-eslint/only-throw-error
           throw "String error";
         }),
@@ -425,7 +485,7 @@ describe("ToolRegistry", () => {
       registry.register(weirdTool);
 
       await expect(
-        registry.execute("weird_tool", {}, mockContext, { retries: 0 })
+        registry.execute("weird_tool", {}, mockContext, { retries: 0 }),
       ).rejects.toThrow(ToolExecutionError);
     });
   });
