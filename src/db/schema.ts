@@ -93,10 +93,10 @@ export const tasks = sqliteTable(
       .references(() => phases.id, { onDelete: "cascade" }),
     task_id: integer("task_id").notNull(), // Sprint-scoped sequential
     title: text("title").notNull(),
-    description: text("description").notNull(),
+    description: text("description").notNull(), // Task summary (max 150 chars recommended per TD-032)
     category: text("category").notNull(), // INFRASTRUCTURE | INTEGRATION | VISUAL | REFACTOR
     dependencies: text("dependencies").notNull(), // JSON array
-    speckit_task_ref: text("speckit_task_ref"),
+    speckit_task_ref: text("speckit_task_ref"), // Spec task reference(s) - TD-032 recommends JSON array format
     status: text("status").notNull(), // TaskStatus enum
     retry_count: integer("retry_count").notNull().default(0),
     max_retries: integer("max_retries").notNull().default(3),
@@ -170,6 +170,7 @@ export const handovers = sqliteTable(
       .unique()
       .references(() => tasks.id, { onDelete: "cascade" }),
     priority: text("priority").notNull().default("P1"),
+    spec_consultation_notes: text("spec_consultation_notes"), // TD-032: Evidence of spec reading
     context: text("context"), // Why this task exists, background, decisions
     context_files: text("context_files"), // JSON array of file paths for reference
     acceptance_criteria: text("acceptance_criteria").notNull(), // JSON

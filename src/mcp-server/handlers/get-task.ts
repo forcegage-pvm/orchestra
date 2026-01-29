@@ -219,7 +219,7 @@ async function getTask(
     task_id: task.task_id,
     phase_id: phase.phase_id,
     title: task.title,
-    description: task.description,
+    summary: task.description, // TD-032: Map description column to summary in API response
     category: task.category as
       | "INFRASTRUCTURE"
       | "INTEGRATION"
@@ -227,7 +227,7 @@ async function getTask(
       | "REFACTOR",
     status: task.status as GetTaskOutput["status"],
     dependencies: JSON.parse(task.dependencies),
-    speckit_task_ref: task.speckit_task_ref || undefined,
+    spec_task_refs: JSON.parse(task.speckit_task_ref || "[]"), // TD-032: Map speckit_task_ref column to spec_task_refs in API
     created_at: task.created_at,
     updated_at: task.updated_at,
     completed_at: task.completed_at || undefined,

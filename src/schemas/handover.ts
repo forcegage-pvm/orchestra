@@ -20,6 +20,17 @@ import {
 
 export const PrepareTaskInputSchema = z.object({
   task_id: z.number().int().positive("Task ID must be positive"),
+  spec_consultation_notes: z
+    .string()
+    .min(
+      200,
+      "spec_consultation_notes must be at least 200 characters - describe which spec sections you consulted and what requirements you extracted",
+    )
+    .describe(
+      "REQUIRED: Evidence that you read the specification. Describe which spec sections you consulted, " +
+        "specific requirements you extracted, and how acceptance criteria trace to the spec. " +
+        "This prevents using task summary as the source of truth instead of the actual specification.",
+    ),
   acceptance_criteria: z
     .array(AcceptanceCriterionSchema)
     .min(1, "At least one acceptance criterion is required"),
@@ -95,7 +106,8 @@ export const GetCurrentTaskOutputSchema = z.object({
   task_id: z.number().int().positive(),
   title: z.string(),
   priority: PrioritySchema,
-  description: z.string(),
+  summary: z.string(),
+  spec_consultation_notes: z.string().optional(), // Evidence of spec reading during handover prep
   context: z.string().optional(), // Why this task exists, background, decisions
   context_files: z.array(z.string()).optional(), // File paths for reference
   acceptance_criteria: z.array(AcceptanceCriterionSchema),
@@ -138,6 +150,10 @@ export type GetCurrentTaskOutput = z.output<typeof GetCurrentTaskOutputSchema>;
 export const UpdateHandoverInputSchema = z
   .object({
     task_id: z.number().int().positive("Task ID must be positive"),
+    spec_consultation_notes: z
+      .string()
+      .min(200, "spec_consultation_notes must be at least 200 characters")
+      .optional(),
     acceptance_criteria: z.array(AcceptanceCriterionSchema).optional(),
     file_operations: z.array(FileOperationSchema).optional(),
     deliverables: z.array(z.string().min(1)).optional(),

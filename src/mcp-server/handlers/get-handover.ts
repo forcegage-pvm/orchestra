@@ -29,7 +29,7 @@ interface GetHandoverOutput {
   success: boolean;
   task_id: number;
   title: string;
-  description: string;
+  summary: string; // TD-032: renamed from description
   status: string;
   handover: {
     acceptance_criteria: Array<{
@@ -43,6 +43,7 @@ interface GetHandoverOutput {
     }>;
     deliverables: string[];
     priority: string;
+    spec_consultation_notes?: string; // TD-032: evidence of spec reading
     context: string;
     context_files: string[];
     constraints: string[];
@@ -76,7 +77,7 @@ export async function handleGetHandover(input: unknown) {
         taskId: validation.data.task_id,
       },
       { success: true, output },
-      durationMs
+      durationMs,
     );
 
     return {
@@ -96,7 +97,7 @@ export async function handleGetHandover(input: unknown) {
         taskId: validation.data.task_id,
       },
       { success: false, errorMessage: err.message },
-      durationMs
+      durationMs,
     );
 
     return {
@@ -112,7 +113,7 @@ export async function handleGetHandover(input: unknown) {
               },
             },
             null,
-            2
+            2,
           ),
         },
       ],
@@ -121,7 +122,7 @@ export async function handleGetHandover(input: unknown) {
 }
 
 async function getHandover(
-  input: z.output<typeof GetHandoverInputSchema>
+  input: z.output<typeof GetHandoverInputSchema>,
 ): Promise<GetHandoverOutput> {
   const db = getDb();
 
@@ -136,7 +137,7 @@ async function getHandover(
     .select()
     .from(tasks)
     .where(
-      and(eq(tasks.sprint_id, sprint.id), eq(tasks.task_id, input.task_id))
+      and(eq(tasks.sprint_id, sprint.id), eq(tasks.task_id, input.task_id)),
     )
     .limit(1);
 
@@ -156,7 +157,7 @@ async function getHandover(
       success: true,
       task_id: task.task_id,
       title: task.title,
-      description: task.description,
+      summary: task.description, // TD-032: Map description column to summary in API response
       status: task.status,
       handover: null,
       message: "No handover prepared for this task yet",
@@ -164,20 +165,27 @@ async function getHandover(
   }
 
   // 4. Parse and return handover details (what implementor will see)
+  const handoverData: GetHandoverOutput["handover"] = {
+    acceptance_criteria: JSON.parse(handover.acceptance_criteria || "[]"),
+    file_operations: JSON.parse(handover.file_operations || "[]"),
+    deliverables: JSON.parse(handover.deliverables || "[]"),
+    priority: handover.priority,
+    context: handover.context ?? "",
+    context_files: JSON.parse(handover.context_files || "[]"),
+    constraints: JSON.parse(handover.constraints || "[]"),
+  };
+
+  // TD-032: Add spec_consultation_notes only if present (exactOptionalPropertyTypes)
+  if (handover.spec_consultation_notes) {
+    handoverData.spec_consultation_notes = handover.spec_consultation_notes;
+  }
+
   return {
     success: true,
     task_id: task.task_id,
     title: task.title,
-    description: task.description,
+    summary: task.description, // TD-032: Map description column to summary in API response
     status: task.status,
-    handover: {
-      acceptance_criteria: JSON.parse(handover.acceptance_criteria || "[]"),
-      file_operations: JSON.parse(handover.file_operations || "[]"),
-      deliverables: JSON.parse(handover.deliverables || "[]"),
-      priority: handover.priority,
-      context: handover.context ?? "",
-      context_files: JSON.parse(handover.context_files || "[]"),
-      constraints: JSON.parse(handover.constraints || "[]"),
-    },
+    handover: handoverData,
   };
 }

@@ -1,7 +1,7 @@
 /**
  * update_task tool handler
  *
- * Updates task metadata fields (title, description, category, dependencies, phase_id, speckit_task_ref).
+ * Updates task metadata fields (title, summary, category, dependencies, phase_id, spec_task_refs).
  * Does NOT update verification criteria (use update_verification for that).
  */
 
@@ -9,12 +9,12 @@ import { and, eq } from "drizzle-orm";
 import { getDb } from "../../db/index.js";
 import { getActiveSprint } from "../../db/queries.js";
 import { amendments, progress, tasks } from "../../db/schema.js";
-import { writeSignal } from "../db-signal.js";
 import {
   UpdateTaskInputSchema,
   type UpdateTaskOutput,
 } from "../../schemas/sprint-config.js";
 import { validateInput } from "../../schemas/utils.js";
+import { writeSignal } from "../db-signal.js";
 import { logToolExecution } from "./audit-logging.js";
 
 export async function handleUpdateTask(input: unknown) {
@@ -86,9 +86,23 @@ export async function handleUpdateTask(input: unknown) {
 }
 
 async function updateTask(
-  input: typeof UpdateTaskInputSchema._output,
+  rawInput: typeof UpdateTaskInputSchema._output,
 ): Promise<UpdateTaskOutput> {
   const db = getDb();
+
+  // TD-032: Normalize input - accept both summary (preferred) and description (legacy) in input
+  // Store in description column for backward compatibility
+  const input = {
+    ...rawInput,
+    // Use summary if provided, otherwise fall back to description (legacy)
+    description: rawInput.summary ?? rawInput.description,
+    // TD-032: Keep original format for backward compatibility
+    // If spec_task_refs (array) is provided, store as JSON array string
+    // If speckit_task_ref (string) is provided, store as-is for backward compatibility
+    speckit_task_ref: rawInput.spec_task_refs?.length
+      ? JSON.stringify(rawInput.spec_task_refs)
+      : (rawInput.speckit_task_ref ?? undefined),
+  };
 
   // 1. Get explicitly active sprint
   const sprint = await getActiveSprint();
@@ -199,7 +213,7 @@ async function updateTask(
     updatedFieldNames.push("phase_id");
   }
   if (input.speckit_task_ref !== undefined) {
-    updateFields.speckit_task_ref = input.speckit_task_ref;
+    updateFields.speckit_task_ref = input.speckit_task_ref; // Already processed - string or JSON array string
     updatedFieldNames.push("speckit_task_ref");
   }
   if (input.tdd_red_phase !== undefined) {
@@ -219,13 +233,26 @@ async function updateTask(
     }
   };
 
+  // TD-032: Parse spec_task_refs from JSON array or plain string (legacy format)
+  const parseSpecTaskRefs = (value: string | null): string[] => {
+    if (!value) return [];
+    try {
+      const parsed = JSON.parse(value);
+      return Array.isArray(parsed) ? (parsed as string[]) : [];
+    } catch {
+      // Legacy format: plain string like "T010"
+      // Return as single-element array
+      return [value];
+    }
+  };
+
   const beforeState = {
     title: task.title,
     description: task.description,
     category: task.category,
     dependencies: parseDependencies(task.dependencies),
     phase_id: task.phase_id,
-    speckit_task_ref: task.speckit_task_ref,
+    speckit_task_ref: parseSpecTaskRefs(task.speckit_task_ref),
     tdd_red_phase: task.tdd_red_phase,
   };
 
@@ -243,7 +270,10 @@ async function updateTask(
           ? input.dependencies
           : parseDependencies(task.dependencies),
       phase_id: phaseInternalId ?? task.phase_id,
-      speckit_task_ref: input.speckit_task_ref ?? task.speckit_task_ref,
+      speckit_task_ref:
+        input.speckit_task_ref !== undefined
+          ? input.speckit_task_ref
+          : parseSpecTaskRefs(task.speckit_task_ref),
       tdd_red_phase:
         input.tdd_red_phase !== undefined
           ? input.tdd_red_phase

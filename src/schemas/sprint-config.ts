@@ -89,9 +89,16 @@ export const ConfigureSprintInputSchema = z
           task_id: z.number().int().positive("Task ID must be positive"),
           phase_id: z.string().min(1, "Phase ID is required"),
           title: z.string().min(1, "Title is required"),
-          description: z.string().min(1, "Description is required"),
+          // TD-032: summary is the new field, description is deprecated but accepted for backward compatibility
+          // Zod uses z.union to accept either, handler normalizes to summary
+          summary: z.string().optional(),
+          // Deprecated: use summary instead
+          description: z.string().optional(),
           category: TaskCategorySchema,
           dependencies: z.array(z.number().int().positive()),
+          // TD-032: spec_task_refs - optional for backward compatibility during migration
+          spec_task_refs: z.array(z.string().min(1)).optional(),
+          // Deprecated: use spec_task_refs instead
           speckit_task_ref: z.string().optional(),
           tdd_red_phase: z.boolean().optional(),
           verification: VerificationCriteriaSchema,
@@ -314,9 +321,15 @@ export type ConfigureSprintOutput = z.output<
 export const AddTaskInputSchema = z.object({
   phase_id: z.string().min(1, "Phase ID is required"),
   title: z.string().min(1, "Title is required"),
-  description: z.string().min(1, "Description is required"),
+  // TD-032: summary is the new field, description is deprecated but accepted for backward compatibility
+  summary: z.string().optional(),
+  // Deprecated: use summary instead
+  description: z.string().optional(),
   category: TaskCategorySchema,
   dependencies: z.array(z.number().int().positive()),
+  // TD-032: spec_task_refs - optional for backward compatibility during migration
+  spec_task_refs: z.array(z.string().min(1)).optional(),
+  // Deprecated: use spec_task_refs instead
   speckit_task_ref: z.string().optional(),
   tdd_red_phase: z.boolean().optional(),
   verification: VerificationCriteriaSchema,
@@ -338,10 +351,15 @@ export const UpdateTaskInputSchema = z
   .object({
     task_id: z.number().int().positive("Task ID must be positive"),
     title: z.string().min(1).optional(),
-    description: z.string().min(1).optional(),
+    // TD-032: summary is the new field, description is deprecated but accepted for backward compatibility
+    summary: z.string().optional(),
+    // Deprecated: use summary instead
+    description: z.string().optional(),
     category: TaskCategorySchema.optional(),
     dependencies: z.array(z.number().int().positive()).optional(),
     phase_id: z.string().min(1).optional(),
+    spec_task_refs: z.array(z.string().min(1)).optional(),
+    // Deprecated: use spec_task_refs instead
     speckit_task_ref: z.string().optional(),
     tdd_red_phase: z.boolean().optional(),
     rationale: z
@@ -419,11 +437,11 @@ export const GetTaskOutputSchema = z.object({
   task_id: z.number().int().positive(),
   phase_id: z.string(),
   title: z.string(),
-  description: z.string(),
+  summary: z.string(),
   category: TaskCategorySchema,
   status: TaskStatusSchema,
   dependencies: z.array(z.number().int().positive()),
-  speckit_task_ref: z.string().optional(),
+  spec_task_refs: z.array(z.string()),
   created_at: z.string(), // ISO 8601
   updated_at: z.string(),
   completed_at: z.string().optional(),

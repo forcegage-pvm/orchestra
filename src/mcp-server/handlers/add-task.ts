@@ -83,9 +83,23 @@ export async function handleAddTask(input: unknown) {
 }
 
 async function addTask(
-  input: typeof AddTaskInputSchema._output,
+  rawInput: typeof AddTaskInputSchema._output,
 ): Promise<AddTaskOutput> {
   const db = getDb();
+
+  // TD-032: Normalize input - accept both summary (preferred) and description (legacy) in input
+  // Store in description column for backward compatibility
+  const input = {
+    ...rawInput,
+    // Use summary if provided, otherwise fall back to description (legacy)
+    description: rawInput.summary ?? rawInput.description ?? "Task summary",
+    // TD-032: Keep original format for backward compatibility
+    // If spec_task_refs (array) is provided, store as JSON array string
+    // If speckit_task_ref (string) is provided, store as-is for backward compatibility
+    speckit_task_ref: rawInput.spec_task_refs?.length
+      ? JSON.stringify(rawInput.spec_task_refs)
+      : (rawInput.speckit_task_ref ?? null),
+  };
 
   // 1. Get explicitly active sprint
   const sprintToUse = await getActiveSprint();
@@ -175,10 +189,10 @@ async function addTask(
       phase_id: phaseInternalId,
       task_id: nextTaskId,
       title: input.title,
-      description: input.description,
+      description: input.description, // TD-032: accepts summary in input, stores in description column
       category: input.category,
       dependencies: JSON.stringify(input.dependencies),
-      speckit_task_ref: input.speckit_task_ref,
+      speckit_task_ref: input.speckit_task_ref, // TD-032: Already processed - string or JSON array string
       status: "PENDING",
       retry_count: 0,
       max_retries: 3,

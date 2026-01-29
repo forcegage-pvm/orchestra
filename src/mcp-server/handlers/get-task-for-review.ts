@@ -11,7 +11,6 @@ import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import {
   parseSpecTaskDefinitions,
-  parseSpeckitTaskRefs,
   type SpecTaskDefinition,
 } from "../../core/spec-task-parser.js";
 import { getDb } from "../../db/index.js";
@@ -19,6 +18,22 @@ import { getActiveSprint } from "../../db/queries.js";
 import { phases, tasks } from "../../db/schema.js";
 import { validateInput } from "../../schemas/utils.js";
 import { logToolExecution } from "./audit-logging.js";
+
+/**
+ * Parse spec_task_refs from JSON array or plain string (legacy format)
+ * TD-032: Supports both new JSON array format and legacy string format
+ */
+function parseSpecTaskRefs(value: string | null): string[] {
+  if (!value) return [];
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    // Legacy format: plain string like "T010"
+    // Return as single-element array
+    return [value];
+  }
+}
 
 /**
  * Input schema for get_task_for_review
@@ -39,11 +54,11 @@ interface GetTaskForReviewOutput {
   phase_id: string;
   phase_name: string;
   title: string;
-  description: string;
+  summary: string;
   category: string;
   status: string;
   dependencies: number[];
-  speckit_task_ref: string | null;
+  spec_task_refs: string[];
   tdd_red_phase: boolean;
   created_at: string;
   updated_at: string;
@@ -139,11 +154,11 @@ async function getTaskForReview(
       phase_id: phases.phase_id,
       phase_name: phases.phase_name,
       title: tasks.title,
-      description: tasks.description,
+      summary: tasks.description, // TD-032: Map description column to summary in API response
       category: tasks.category,
       status: tasks.status,
       dependencies: tasks.dependencies,
-      speckit_task_ref: tasks.speckit_task_ref,
+      spec_task_refs: tasks.speckit_task_ref, // TD-032: Map speckit_task_ref column to spec_task_refs in API
       tdd_red_phase: tasks.tdd_red_phase,
       created_at: tasks.created_at,
       updated_at: tasks.updated_at,
@@ -159,7 +174,7 @@ async function getTaskForReview(
     throw new Error(`Task ${input.task_id} not found in active sprint`);
   }
 
-  const specTaskIds = parseSpeckitTaskRefs(result.speckit_task_ref);
+  const specTaskIds = parseSpecTaskRefs(result.spec_task_refs);
   const specPath = sprint.spec_path ?? null;
   const specFiles = parseJsonArray(sprint.spec_files);
 
@@ -181,11 +196,11 @@ async function getTaskForReview(
     phase_id: result.phase_id,
     phase_name: result.phase_name,
     title: result.title,
-    description: result.description,
+    summary: result.summary,
     category: result.category,
     status: result.status,
     dependencies: JSON.parse(result.dependencies || "[]"),
-    speckit_task_ref: result.speckit_task_ref,
+    spec_task_refs: parseSpecTaskRefs(result.spec_task_refs),
     tdd_red_phase: Boolean(result.tdd_red_phase),
     created_at: result.created_at,
     updated_at: result.updated_at,

@@ -931,6 +931,28 @@ const MIGRATIONS: Migration[] = [
       );
     },
   },
+  // TD-032: Spec-First Handover Enforcement
+  // Add spec_consultation_notes to handovers table to require spec evidence
+  {
+    id: "20260129_001_td032_spec_first_enforcement",
+    description:
+      "TD-032: Add spec_consultation_notes to handovers for spec-first enforcement",
+    up: async () => {
+      const db = getDb();
+
+      // Check if handovers table has 'spec_consultation_notes' column
+      const handoverColumns = await db.all(sql`PRAGMA table_info(handovers)`);
+      const hasSpecConsultation = (handoverColumns as { name: string }[]).some(
+        (col) => col.name === "spec_consultation_notes",
+      );
+
+      if (!hasSpecConsultation) {
+        await db.run(
+          sql`ALTER TABLE handovers ADD COLUMN spec_consultation_notes TEXT`,
+        );
+      }
+    },
+  },
 ];
 
 /**
