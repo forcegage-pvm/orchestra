@@ -20,6 +20,7 @@ This document provides in-depth research on the tools defined in the Orchestra a
 10. [Tool Registration Architecture](#tool-registration-architecture)
 11. [Windows-Specific Considerations](#windows-specific-considerations)
 12. [Implementation Patterns](#implementation-patterns)
+13. [Tool Result Handling & Observability](#tool-result-handling--observability)
 
 ---
 
@@ -2157,6 +2158,737 @@ await toolWithProgress("Processing files", async (progress) => {
   for (const file of files) {
     progress.report({ message: `Processing ${file}`, increment });
     await processFile(file);
+  }
+});
+```
+
+---
+
+## Tool Result Handling & Observability
+
+This section documents how to capture, observe, and handle all tool call results, enabling full visibility into tool execution for both your extension and the LLM.
+
+### Core Concepts
+
+The tool invocation flow is **completely transparent and event-driven**:
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                    TOOL INVOCATION FLOW                              │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                      │
+│   LLM requests tool call                                             │
+│           ↓                                                          │
+│   Your code receives LanguageModelToolCallPart                       │
+│           ↓                                                          │
+│   You invoke the tool (your implementation)                          │
+│           ↓                                                          │
+│   Tool runs → success OR failure → returns LanguageModelToolResult   │
+│           ↓                                                          │
+│   YOU observe the result (log it, update UI, whatever you want)      │
+│           ↓                                                          │
+│   You wrap it in LanguageModelToolResultPart                         │
+│           ↓                                                          │
+│   You send it back to LLM in the next message                        │
+│           ↓                                                          │
+│   LLM sees the result and decides what to do next                    │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+**Key insight**: You are the middleman. You have full control over what both you and the LLM see.
+
+### Result Types
+
+#### LanguageModelToolResult
+
+The return type from a tool's `invoke()` method:
+
+```typescript
+class LanguageModelToolResult {
+  content: Array<
+    | LanguageModelTextPart      // Text/JSON content
+    | LanguageModelDataPart      // Binary data (images, etc.)
+    | LanguageModelPromptTsxPart // Rich prompt-tsx rendering
+    | unknown                    // Future extensibility
+  >;
+
+  constructor(content: Array<...>);
+}
+```
+
+#### LanguageModelToolResultPart
+
+Wrapper that links a result to its originating call:
+
+```typescript
+class LanguageModelToolResultPart {
+  callId: string;  // MUST match LanguageModelToolCallPart.callId
+  content: Array<LanguageModelTextPart | ...>;
+
+  constructor(callId: string, content: Array<...>);
+}
+```
+
+### Complete Agent Loop with Full Observability
+
+```typescript
+import * as vscode from "vscode";
+
+interface ToolObservation {
+  timestamp: Date;
+  toolName: string;
+  callId: string;
+  input: object;
+  result?: {
+    success: boolean;
+    content: any;
+    duration: number;
+  };
+  error?: {
+    message: string;
+    code?: string;
+    stack?: string;
+  };
+}
+
+class ObservableAgentLoop {
+  private observations: ToolObservation[] = [];
+  private outputChannel: vscode.OutputChannel;
+
+  constructor() {
+    this.outputChannel = vscode.window.createOutputChannel("Agent Tools");
+  }
+
+  async run(
+    initialPrompt: string,
+    tools: vscode.LanguageModelChatTool[],
+  ): Promise<string> {
+    const [model] = await vscode.lm.selectChatModels({ family: "gpt-4" });
+
+    const messages: vscode.LanguageModelChatMessage[] = [
+      vscode.LanguageModelChatMessage.User(initialPrompt),
+    ];
+
+    const tokenSource = new vscode.CancellationTokenSource();
+    const token = tokenSource.token;
+
+    while (true) {
+      // Send request to LLM with tools
+      const response = await model.sendRequest(messages, { tools }, token);
+
+      // Collect response parts
+      const toolCalls: vscode.LanguageModelToolCallPart[] = [];
+      let textContent = "";
+
+      for await (const part of response.stream) {
+        if (part instanceof vscode.LanguageModelTextPart) {
+          textContent += part.value;
+        } else if (part instanceof vscode.LanguageModelToolCallPart) {
+          toolCalls.push(part);
+
+          // OBSERVE: Tool call requested
+          this.log(`[TOOL REQUESTED] ${part.name}`, part.input);
+        }
+      }
+
+      // If no tool calls, agent is done
+      if (toolCalls.length === 0) {
+        this.log("[AGENT COMPLETE]", textContent);
+        return textContent;
+      }
+
+      // Execute each tool with full observability
+      const toolResults = await this.executeToolsWithObservability(
+        toolCalls,
+        token,
+      );
+
+      // Add assistant message with tool calls it made
+      messages.push(vscode.LanguageModelChatMessage.Assistant([...toolCalls]));
+
+      // Add user message with tool results
+      messages.push(vscode.LanguageModelChatMessage.User([...toolResults]));
+
+      // Loop continues - LLM sees results and decides next action
+    }
+  }
+
+  private async executeToolsWithObservability(
+    toolCalls: vscode.LanguageModelToolCallPart[],
+    token: vscode.CancellationToken,
+  ): Promise<vscode.LanguageModelToolResultPart[]> {
+    const results: vscode.LanguageModelToolResultPart[] = [];
+
+    for (const toolCall of toolCalls) {
+      const observation: ToolObservation = {
+        timestamp: new Date(),
+        toolName: toolCall.name,
+        callId: toolCall.callId,
+        input: toolCall.input,
+      };
+
+      const startTime = Date.now();
+
+      try {
+        // OBSERVE: Tool execution starting
+        this.log(`[TOOL EXECUTING] ${toolCall.name}`, {
+          callId: toolCall.callId,
+          input: toolCall.input,
+        });
+
+        // Invoke the registered tool
+        const result = await vscode.lm.invokeTool(
+          toolCall.name,
+          {
+            input: toolCall.input,
+            toolInvocationToken: undefined,
+          },
+          token,
+        );
+
+        const duration = Date.now() - startTime;
+
+        // OBSERVE: Tool succeeded
+        observation.result = {
+          success: true,
+          content: result.content,
+          duration,
+        };
+
+        this.log(`[TOOL SUCCESS] ${toolCall.name}`, {
+          duration: `${duration}ms`,
+          contentParts: result.content.length,
+        });
+
+        // Detailed content logging
+        for (const part of result.content) {
+          if (part instanceof vscode.LanguageModelTextPart) {
+            this.log(`  └─ TextPart:`, this.truncate(part.value, 500));
+          } else if (part instanceof vscode.LanguageModelDataPart) {
+            this.log(
+              `  └─ DataPart: ${part.mimeType}, ${part.data.length} bytes`,
+            );
+          }
+        }
+
+        results.push(
+          new vscode.LanguageModelToolResultPart(
+            toolCall.callId,
+            result.content,
+          ),
+        );
+      } catch (error) {
+        const duration = Date.now() - startTime;
+        const errorMessage =
+          error instanceof Error ? error.message : String(error);
+        const errorCode = (error as any).code;
+
+        // OBSERVE: Tool failed
+        observation.error = {
+          message: errorMessage,
+          code: errorCode,
+          stack: error instanceof Error ? error.stack : undefined,
+        };
+
+        this.log(`[TOOL FAILED] ${toolCall.name}`, {
+          duration: `${duration}ms`,
+          error: errorMessage,
+          code: errorCode,
+        });
+
+        // Send failure to LLM so it can react
+        const errorResult = {
+          success: false,
+          error: errorMessage,
+          code: errorCode,
+          suggestion: this.getSuggestionForError(toolCall.name, errorCode),
+        };
+
+        results.push(
+          new vscode.LanguageModelToolResultPart(toolCall.callId, [
+            new vscode.LanguageModelTextPart(JSON.stringify(errorResult)),
+          ]),
+        );
+      }
+
+      this.observations.push(observation);
+    }
+
+    return results;
+  }
+
+  private getSuggestionForError(toolName: string, errorCode?: string): string {
+    // Provide helpful suggestions for common errors
+    const suggestions: Record<string, Record<string, string>> = {
+      create_file: {
+        FileExists: "File already exists. Use edit_file to modify it instead.",
+        NoPermission: "Permission denied. Check file/folder permissions.",
+        FileNotFound: "Parent directory does not exist. Create it first.",
+      },
+      read_file: {
+        FileNotFound: "File does not exist. Check the path.",
+        NoPermission: "Permission denied. Check file permissions.",
+      },
+      run_terminal: {
+        ShellIntegrationNotAvailable:
+          "Shell integration not ready. Wait or use sendText fallback.",
+      },
+    };
+
+    return (
+      suggestions[toolName]?.[errorCode || ""] ||
+      "Check the error details and try an alternative approach."
+    );
+  }
+
+  private log(message: string, data?: any): void {
+    const timestamp = new Date().toISOString();
+    const dataStr = data ? `\n${JSON.stringify(data, null, 2)}` : "";
+    this.outputChannel.appendLine(`[${timestamp}] ${message}${dataStr}`);
+  }
+
+  private truncate(str: string, maxLength: number): string {
+    if (str.length <= maxLength) return str;
+    return str.substring(0, maxLength) + "... (truncated)";
+  }
+
+  // Get all observations for debugging/analysis
+  getObservations(): ToolObservation[] {
+    return [...this.observations];
+  }
+
+  // Get summary statistics
+  getSummary(): {
+    total: number;
+    succeeded: number;
+    failed: number;
+    avgDuration: number;
+  } {
+    const succeeded = this.observations.filter((o) => o.result?.success).length;
+    const failed = this.observations.filter((o) => o.error).length;
+    const durations = this.observations
+      .filter((o) => o.result?.duration)
+      .map((o) => o.result!.duration);
+
+    return {
+      total: this.observations.length,
+      succeeded,
+      failed,
+      avgDuration:
+        durations.length > 0
+          ? durations.reduce((a, b) => a + b, 0) / durations.length
+          : 0,
+    };
+  }
+}
+```
+
+### Terminal Output Streaming with Full Capture
+
+For terminal tools, capture output in real-time with complete observability:
+
+```typescript
+interface TerminalExecutionResult {
+  output: string;
+  exitCode: number | undefined;
+  duration: number;
+  outputChunks: Array<{
+    timestamp: Date;
+    data: string;
+  }>;
+}
+
+async function executeTerminalWithFullCapture(
+  command: string,
+  options?: {
+    cwd?: string;
+    terminalName?: string;
+    onOutput?: (chunk: string) => void;
+    onProgress?: (message: string) => void;
+  },
+): Promise<TerminalExecutionResult> {
+  const startTime = Date.now();
+  const outputChunks: Array<{ timestamp: Date; data: string }> = [];
+  let fullOutput = "";
+
+  // Create or reuse terminal
+  let terminal = options?.terminalName
+    ? vscode.window.terminals.find((t) => t.name === options.terminalName)
+    : undefined;
+
+  if (!terminal) {
+    terminal = vscode.window.createTerminal({
+      name: options?.terminalName || "Agent Execution",
+      cwd: options?.cwd,
+    });
+  }
+
+  terminal.show();
+
+  // Wait for shell integration (with timeout)
+  const shellIntegration = await waitForShellIntegration(terminal, 5000);
+
+  if (!shellIntegration) {
+    // Fallback: sendText without output capture
+    terminal.sendText(command);
+    return {
+      output: "[Shell integration not available - output not captured]",
+      exitCode: undefined,
+      duration: Date.now() - startTime,
+      outputChunks: [],
+    };
+  }
+
+  // Execute with shell integration
+  const execution = shellIntegration.executeCommand(command);
+
+  // Stream output in real-time
+  options?.onProgress?.(`Executing: ${command}`);
+
+  const stream = execution.read();
+
+  for await (const data of stream) {
+    const chunk = {
+      timestamp: new Date(),
+      data,
+    };
+
+    outputChunks.push(chunk);
+    fullOutput += data;
+
+    // Real-time callback
+    options?.onOutput?.(data);
+
+    // Progress update
+    const lines = fullOutput.split("\n").length;
+    options?.onProgress?.(`Output: ${lines} lines received...`);
+  }
+
+  // Wait for exit code
+  const exitCode = await new Promise<number | undefined>((resolve) => {
+    const disposable = vscode.window.onDidEndTerminalShellExecution((event) => {
+      if (event.execution === execution) {
+        disposable.dispose();
+        resolve(event.exitCode);
+      }
+    });
+
+    // Timeout fallback
+    setTimeout(() => {
+      disposable.dispose();
+      resolve(undefined);
+    }, 30000);
+  });
+
+  const duration = Date.now() - startTime;
+
+  return {
+    output: fullOutput,
+    exitCode,
+    duration,
+    outputChunks,
+  };
+}
+
+async function waitForShellIntegration(
+  terminal: vscode.Terminal,
+  timeoutMs: number,
+): Promise<vscode.TerminalShellIntegration | undefined> {
+  if (terminal.shellIntegration) {
+    return terminal.shellIntegration;
+  }
+
+  return new Promise((resolve) => {
+    const timeout = setTimeout(() => {
+      disposable.dispose();
+      resolve(undefined);
+    }, timeoutMs);
+
+    const disposable = vscode.window.onDidChangeTerminalShellIntegration(
+      (event) => {
+        if (event.terminal === terminal) {
+          clearTimeout(timeout);
+          disposable.dispose();
+          resolve(event.shellIntegration);
+        }
+      },
+    );
+  });
+}
+```
+
+### Progress Reporting During Tool Execution
+
+Tools can report progress while executing:
+
+```typescript
+async function toolWithProgressReporting(
+  options: vscode.LanguageModelToolInvocationOptions<{ files: string[] }>,
+  token: vscode.CancellationToken,
+): Promise<vscode.LanguageModelToolResult> {
+  const { files } = options.input;
+
+  return vscode.window.withProgress(
+    {
+      location: vscode.ProgressLocation.Notification,
+      title: "Processing files...",
+      cancellable: true,
+    },
+    async (progress, progressToken) => {
+      const results: any[] = [];
+      const increment = 100 / files.length;
+
+      for (let i = 0; i < files.length; i++) {
+        // Check both tokens
+        if (
+          token.isCancellationRequested ||
+          progressToken.isCancellationRequested
+        ) {
+          return new vscode.LanguageModelToolResult([
+            new vscode.LanguageModelTextPart(
+              JSON.stringify({
+                success: false,
+                error: "Cancelled by user",
+                partialResults: results,
+              }),
+            ),
+          ]);
+        }
+
+        const file = files[i];
+
+        // Update progress
+        progress.report({
+          message: `Processing ${file} (${i + 1}/${files.length})`,
+          increment,
+        });
+
+        // Do work
+        const result = await processFile(file);
+        results.push(result);
+      }
+
+      return new vscode.LanguageModelToolResult([
+        new vscode.LanguageModelTextPart(
+          JSON.stringify({
+            success: true,
+            results,
+          }),
+        ),
+      ]);
+    },
+  );
+}
+```
+
+### What Each Side Sees
+
+| Event               | Your Extension (Observable)                             | The LLM (Receives)                     |
+| ------------------- | ------------------------------------------------------- | -------------------------------------- |
+| **Tool requested**  | `LanguageModelToolCallPart` with name, input, callId    | (it made the request)                  |
+| **Tool executing**  | Full control - log, show progress, emit events          | Waiting for result                     |
+| **Tool succeeds**   | Full `LanguageModelToolResult` content, can inspect/log | `LanguageModelToolResultPart.content`  |
+| **Tool fails**      | Catch error, see message/code/stack                     | Error formatted as content in result   |
+| **Terminal output** | Real-time stream via `execution.read()`                 | You include it in the result           |
+| **Exit codes**      | `event.exitCode` from shell integration event           | You include it in the result           |
+| **Progress**        | `withProgress` shows in VS Code UI                      | You can include status in final result |
+| **Cancellation**    | `CancellationToken.isCancellationRequested`             | Tool result indicates cancellation     |
+
+### Handling Specific Tool Failures
+
+```typescript
+// Example: create_file fails because file already exists
+async function handleCreateFileFailure(
+  toolCall: vscode.LanguageModelToolCallPart,
+  error: any,
+): Promise<vscode.LanguageModelToolResultPart> {
+  const input = toolCall.input as { path: string; content: string };
+
+  // Check error type
+  if (error instanceof vscode.FileSystemError) {
+    switch (error.code) {
+      case "FileExists":
+        return new vscode.LanguageModelToolResultPart(toolCall.callId, [
+          new vscode.LanguageModelTextPart(
+            JSON.stringify({
+              success: false,
+              error: `File already exists: ${input.path}`,
+              code: "FileExists",
+              suggestion:
+                "Use edit_file or replace_file instead, or delete first.",
+              existingFile: true,
+            }),
+          ),
+        ]);
+
+      case "FileNotFound":
+        return new vscode.LanguageModelToolResultPart(toolCall.callId, [
+          new vscode.LanguageModelTextPart(
+            JSON.stringify({
+              success: false,
+              error: `Parent directory does not exist: ${input.path}`,
+              code: "FileNotFound",
+              suggestion:
+                "Create the parent directory first using create_directory.",
+            }),
+          ),
+        ]);
+
+      case "NoPermissions":
+        return new vscode.LanguageModelToolResultPart(toolCall.callId, [
+          new vscode.LanguageModelTextPart(
+            JSON.stringify({
+              success: false,
+              error: `Permission denied: ${input.path}`,
+              code: "NoPermissions",
+              suggestion:
+                "Check file/folder permissions or try a different location.",
+            }),
+          ),
+        ]);
+    }
+  }
+
+  // Generic error
+  return new vscode.LanguageModelToolResultPart(toolCall.callId, [
+    new vscode.LanguageModelTextPart(
+      JSON.stringify({
+        success: false,
+        error: error.message || String(error),
+        code: error.code || "Unknown",
+      }),
+    ),
+  ]);
+}
+```
+
+### Event-Driven Observation System
+
+For comprehensive monitoring, implement an event system:
+
+```typescript
+import * as vscode from "vscode";
+import { EventEmitter } from "events";
+
+type ToolEvent =
+  | { type: "call_requested"; toolName: string; callId: string; input: object }
+  | { type: "call_started"; toolName: string; callId: string }
+  | {
+      type: "call_progress";
+      toolName: string;
+      callId: string;
+      message: string;
+      percent?: number;
+    }
+  | { type: "call_output"; toolName: string; callId: string; chunk: string }
+  | {
+      type: "call_succeeded";
+      toolName: string;
+      callId: string;
+      result: any;
+      duration: number;
+    }
+  | {
+      type: "call_failed";
+      toolName: string;
+      callId: string;
+      error: string;
+      duration: number;
+    };
+
+class ToolObserver extends EventEmitter {
+  private activeTools = new Map<
+    string,
+    { startTime: number; toolName: string }
+  >();
+
+  onToolRequested(toolName: string, callId: string, input: object): void {
+    this.emit("tool", { type: "call_requested", toolName, callId, input });
+  }
+
+  onToolStarted(toolName: string, callId: string): void {
+    this.activeTools.set(callId, { startTime: Date.now(), toolName });
+    this.emit("tool", { type: "call_started", toolName, callId });
+  }
+
+  onToolProgress(callId: string, message: string, percent?: number): void {
+    const active = this.activeTools.get(callId);
+    if (active) {
+      this.emit("tool", {
+        type: "call_progress",
+        toolName: active.toolName,
+        callId,
+        message,
+        percent,
+      });
+    }
+  }
+
+  onToolOutput(callId: string, chunk: string): void {
+    const active = this.activeTools.get(callId);
+    if (active) {
+      this.emit("tool", {
+        type: "call_output",
+        toolName: active.toolName,
+        callId,
+        chunk,
+      });
+    }
+  }
+
+  onToolSucceeded(callId: string, result: any): void {
+    const active = this.activeTools.get(callId);
+    if (active) {
+      const duration = Date.now() - active.startTime;
+      this.activeTools.delete(callId);
+      this.emit("tool", {
+        type: "call_succeeded",
+        toolName: active.toolName,
+        callId,
+        result,
+        duration,
+      });
+    }
+  }
+
+  onToolFailed(callId: string, error: string): void {
+    const active = this.activeTools.get(callId);
+    if (active) {
+      const duration = Date.now() - active.startTime;
+      this.activeTools.delete(callId);
+      this.emit("tool", {
+        type: "call_failed",
+        toolName: active.toolName,
+        callId,
+        error,
+        duration,
+      });
+    }
+  }
+}
+
+// Usage
+const observer = new ToolObserver();
+
+// Subscribe to all events
+observer.on("tool", (event: ToolEvent) => {
+  console.log(`[${event.type}]`, event);
+
+  // Update UI, log to file, send telemetry, etc.
+  switch (event.type) {
+    case "call_started":
+      statusBarItem.text = `$(sync~spin) ${event.toolName}...`;
+      break;
+    case "call_succeeded":
+      statusBarItem.text = `$(check) ${event.toolName} (${event.duration}ms)`;
+      break;
+    case "call_failed":
+      statusBarItem.text = `$(error) ${event.toolName} failed`;
+      vscode.window.showErrorMessage(
+        `Tool ${event.toolName} failed: ${event.error}`,
+      );
+      break;
   }
 });
 ```
