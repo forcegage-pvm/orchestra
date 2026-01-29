@@ -82,6 +82,8 @@ export class OrchestraLogger {
    * @param message - Human-readable message to include in the log entry.
    * @param context - Optional context object serialized as JSON.
    * @returns Nothing.
+   * @example
+   * logger.warn("Slow response detected", { durationMs: 1250 });
    */
   warn(message: string, context?: unknown): void {
     if (this.shouldLog("warn")) {
@@ -150,6 +152,8 @@ export class OrchestraLogger {
    * Dispose of the output channel and release its resources.
    *
    * @returns Nothing.
+   * @example
+   * logger.dispose();
    */
   dispose(): void {
     this.channel.dispose();
