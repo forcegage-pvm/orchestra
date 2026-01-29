@@ -11,6 +11,8 @@ Auto-generated from all feature plans. Last updated: 2025-12-04
 - Project config file (`.orchestra/interface-validations.yaml` or similar) (007-interface-contract-validation)
 - TypeScript 5.x (ESM with `exactOptionalPropertyTypes: true`) + Drizzle ORM, better-sqlite3, VS Code Extension API (TreeDataProvider, WebviewViewProvider, FileSystemWatcher) (008-sprint-management)
 - SQLite database at `.orchestra/orchestra.db` (008-sprint-management)
+- TypeScript 5.x (strict mode, exactOptionalPropertyTypes) + VS Code API (workspace.fs, WorkspaceEdit, Terminal.shellIntegration, tasks, languages.getDiagnostics), Zod (009-tools-rework)
+- N/A (tools operate on workspace files) (009-tools-rework)
 
 - TypeScript 5.x, Node.js 20+, Electron 39.x (VS Code engine) + vscode.lm API, VS Code Webview API, VS Code Workspace Edit API, better-sqlite3 (existing) (002-custom-agents)
 - SQLite via better-sqlite3 (existing Orchestra DB) + JSON files for session state (002-custom-agents)
@@ -33,9 +35,9 @@ npm test; npm run lint
 TypeScript 5.4+ (ESM modules, strict mode with `exactOptionalPropertyTypes`): Follow standard conventions
 
 ## Recent Changes
+- 009-tools-rework: Added TypeScript 5.x (strict mode, exactOptionalPropertyTypes) + VS Code API (workspace.fs, WorkspaceEdit, Terminal.shellIntegration, tasks, languages.getDiagnostics), Zod
 - 008-sprint-management: Added TypeScript 5.x (ESM with `exactOptionalPropertyTypes: true`) + Drizzle ORM, better-sqlite3, VS Code Extension API (TreeDataProvider, WebviewViewProvider, FileSystemWatcher)
 - 007-interface-contract-validation: Added TypeScript 5.x (ESM) + Zod (schema validation), AJV (JSON Schema validation), Vitest (testing)
-- 004-controller-agent: Added TypeScript 5.x (strict mode, `exactOptionalPropertyTypes: true`) + Drizzle ORM, Zod, MCP SDK, VS Code Extension API
 
 
 
