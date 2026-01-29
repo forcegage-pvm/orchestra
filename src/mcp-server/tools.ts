@@ -350,7 +350,7 @@ const TOOLS_WITH_ROLES: ToolWithRole[] = [
     role: "orchestrator",
     name: "update_task",
     description:
-      "Update task metadata (title, summary, category, dependencies)",
+      "Update task metadata (title, summary, category, dependencies, status)",
     inputSchema: {
       type: "object",
       properties: {
@@ -384,6 +384,22 @@ const TOOLS_WITH_ROLES: ToolWithRole[] = [
             "DEPRECATED: Use 'spec_task_refs' array instead. Kept for backward compatibility.",
         },
         tdd_red_phase: { type: "boolean" },
+        status: {
+          type: "string",
+          enum: [
+            "PENDING",
+            "PREPARE",
+            "IMPLEMENT",
+            "GATE_CHECK",
+            "VERIFY",
+            "VERIFY_FAILED",
+            "RETRY",
+            "ESCALATED",
+            "COMPLETE",
+          ],
+          description:
+            "TESTING: Task status can be updated during testing phase",
+        },
         rationale: {
           type: "string",
           description:

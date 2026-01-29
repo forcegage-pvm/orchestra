@@ -362,6 +362,8 @@ export const UpdateTaskInputSchema = z
     // Deprecated: use spec_task_refs instead
     speckit_task_ref: z.string().optional(),
     tdd_red_phase: z.boolean().optional(),
+    // TESTING: Allow status updates for any task during testing phase
+    status: TaskStatusSchema.optional(),
     rationale: z
       .string()
       .min(10, "Rationale must be at least 10 characters")

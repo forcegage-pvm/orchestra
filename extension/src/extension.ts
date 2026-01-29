@@ -16,6 +16,7 @@ import {
   handleForceComplete,
   handleMoveToGateCheck,
   handleMoveToImplement,
+  handleReopenTask,
 } from "./commands/deEscalation.js";
 import { handleFilterSprints } from "./commands/filterSprints.js";
 import { handlePlayTask } from "./commands/PlayTaskHandler.js";
@@ -953,6 +954,19 @@ export async function activate(
         async (element: { type: string; task?: { id: number } }) => {
           if (element?.task?.id) {
             await handleForceComplete(
+              orchestraRoot,
+              element.task.id,
+              treeProvider,
+              dbWatcher,
+            );
+          }
+        },
+      ),
+      vscode.commands.registerCommand(
+        "orchestra.reopenTask",
+        async (element: { type: string; task?: { id: number } }) => {
+          if (element?.task?.id) {
+            await handleReopenTask(
               orchestraRoot,
               element.task.id,
               treeProvider,

@@ -171,6 +171,11 @@
         "icon": "$(check-all)"
       },
       {
+        "command": "orchestra.reopenTask",
+        "title": "Reopen Task (Reset to Pending)",
+        "icon": "$(history)"
+      },
+      {
         "command": "orchestra.setActiveSprint",
         "title": "Set as Active Sprint",
         "icon": "$(star)"
@@ -392,6 +397,11 @@
           "command": "orchestra.moveToImplement",
           "when": "view == orchestra.sprintExplorer && viewItem =~ /^task-(escalated|verify_failed)$/",
           "group": "1_remediation@2"
+        },
+        {
+          "command": "orchestra.reopenTask",
+          "when": "view == orchestra.sprintExplorer && viewItem =~ /^task-/",
+          "group": "1_remediation@3"
         },
         {
           "command": "orchestra.forceComplete",
