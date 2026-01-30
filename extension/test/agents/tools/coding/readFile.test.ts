@@ -182,8 +182,9 @@ describe("readFileTool", () => {
       isValid: true,
       absolutePath: "/workspace/range.txt",
     });
-    const content = Array.from({ length: 20 }, (_, index) =>
-      `line ${index + 1}`,
+    const content = Array.from(
+      { length: 20 },
+      (_, index) => `line ${index + 1}`,
     ).join("\n");
     workspace.fs.readFile.mockResolvedValue(new TextEncoder().encode(content));
 
@@ -196,8 +197,7 @@ describe("readFileTool", () => {
     expect(result.content).toEqual([
       {
         type: "text",
-        value:
-          "line 5\nline 6\nline 7\nline 8\nline 9\nline 10",
+        value: "line 5\nline 6\nline 7\nline 8\nline 9\nline 10",
       },
     ]);
   });
