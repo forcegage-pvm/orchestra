@@ -120,7 +120,7 @@ export interface GetProcessOutputResult {
   success: boolean;
   process_id: string;
   status: ProcessStatus;
-  output: string[];
+  output: string;
   truncated: boolean;
   lines_returned: number;
   total_lines: number;
@@ -267,7 +267,7 @@ export interface SmartReplaceResult {
   success: boolean;
   match_type: MatchType;
   confidence: number;
-  lines_changed: number;
+  lines_changed: [number, number];
   preview?: string;
   message?: string;
 }
@@ -325,7 +325,7 @@ export interface DiagnosticInfo {
   line: number;
   column: number;
   message: string;
-  severity: string;
+  severity: "error" | "warning" | "info";
   source?: string;
 }
 
