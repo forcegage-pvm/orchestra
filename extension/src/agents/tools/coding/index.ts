@@ -6,7 +6,7 @@
 
 import { ToolRegistry } from "../../ToolRegistry.js";
 import { deleteFileTool } from "./deleteFile.js";
-import { editTool } from "./edit.js";
+import { editFileTool } from "./editFile.js";
 import { grepSearchTool } from "./grepSearch.js";
 import { listDirectoryTool } from "./listDirectory.js";
 import { newFileTool } from "./newFile.js";
@@ -17,7 +17,7 @@ import { usagesTool } from "./usages.js";
 
 export const codingTools = [
   readFileTool,
-  editTool,
+  editFileTool,
   newFileTool,
   deleteFileTool,
   searchTool,
@@ -33,7 +33,7 @@ export function registerCodingTools(registry: ToolRegistry): void {
 
 export {
   deleteFileTool,
-  editTool,
+  editFileTool,
   grepSearchTool,
   listDirectoryTool,
   newFileTool,

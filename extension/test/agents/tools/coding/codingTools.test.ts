@@ -5,7 +5,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ToolRegistry } from "../../../../src/agents/ToolRegistry.js";
 import { deleteFileTool } from "../../../../src/agents/tools/coding/deleteFile.js";
-import { editTool } from "../../../../src/agents/tools/coding/edit.js";
 import {
   codingTools,
   registerCodingTools,
@@ -225,88 +224,6 @@ describe("readFileTool", () => {
 
     expect(result.success).toBe(false);
     expect(result.error).toContain("File not found");
-  });
-});
-
-describe("editTool", () => {
-  it("replaces exact oldString match", async () => {
-    workspace.openTextDocument.mockResolvedValue(createDocument("hello world"));
-    workspace.applyEdit.mockResolvedValue(true);
-
-    const result = await editTool.execute(
-      { path: "file.txt", oldString: "world", newString: "there" },
-      mockContext,
-    );
-
-    expect(result.success).toBe(true);
-    expect(workspace.applyEdit).toHaveBeenCalledTimes(1);
-    expect(WorkspaceEdit.lastInstance?.replace).toHaveBeenCalledTimes(1);
-  });
-
-  it("tracks changes when fileTracker is present", async () => {
-    workspace.openTextDocument.mockResolvedValue(createDocument("hello world"));
-    workspace.applyEdit.mockResolvedValue(true);
-    const fileTracker = { trackChange: vi.fn() };
-
-    const result = await editTool.execute(
-      { path: "file.txt", oldString: "world", newString: "there" },
-      { ...mockContext, fileTracker },
-    );
-
-    expect(result.success).toBe(true);
-    expect(fileTracker.trackChange).toHaveBeenCalledTimes(1);
-    expect(fileTracker.trackChange).toHaveBeenCalledWith(
-      expect.objectContaining({
-        uri: expect.stringMatching(/file\.txt$/),
-        relativePath: "file.txt",
-        operation: "modify",
-        previousContent: "hello world",
-        newContent: "hello there",
-        previousContentHash: expect.any(String),
-        newContentHash: expect.any(String),
-        iteration: 0,
-        toolCallId: expect.any(String),
-        timestamp: expect.any(String),
-      }),
-    );
-  });
-
-  it("does not track changes when applyEdit fails", async () => {
-    workspace.openTextDocument.mockResolvedValue(createDocument("hello world"));
-    workspace.applyEdit.mockResolvedValue(false);
-    const fileTracker = { trackChange: vi.fn() };
-
-    const result = await editTool.execute(
-      { path: "file.txt", oldString: "world", newString: "there" },
-      { ...mockContext, fileTracker },
-    );
-
-    expect(result.success).toBe(false);
-    expect(fileTracker.trackChange).not.toHaveBeenCalled();
-  });
-
-  it("fails when oldString not found", async () => {
-    workspace.openTextDocument.mockResolvedValue(createDocument("hello world"));
-
-    const result = await editTool.execute(
-      { path: "file.txt", oldString: "missing", newString: "there" },
-      mockContext,
-    );
-
-    expect(result.success).toBe(false);
-    expect(result.error).toContain("oldString not found");
-  });
-
-  it("fails when oldString is ambiguous", async () => {
-    workspace.openTextDocument.mockResolvedValue(createDocument("hello hello"));
-
-    const result = await editTool.execute(
-      { path: "file.txt", oldString: "hello", newString: "hi" },
-      mockContext,
-    );
-
-    expect(result.success).toBe(false);
-    expect(result.error).toContain("multiple");
   });
 });
 
