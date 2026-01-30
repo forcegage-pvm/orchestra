@@ -6,13 +6,17 @@
 
 import { ToolRegistry } from "../../ToolRegistry.js";
 import { fetchTool } from "./fetch.js";
+import { getTerminalOutputTool } from "./getTerminalOutput.js";
 import { problemsTool } from "./problems.js";
 import { runCommandsTool } from "./runCommands.js";
 import { runTasksTool } from "./runTasks.js";
+import { runTerminalTool } from "./runTerminal.js";
 import { runTestsTool } from "./runTests.js";
 
 export const systemTools = [
   runCommandsTool,
+  runTerminalTool,
+  getTerminalOutputTool,
   runTasksTool,
   runTestsTool,
   problemsTool,
@@ -23,4 +27,12 @@ export function registerSystemTools(registry: ToolRegistry): void {
   registry.registerAll([...systemTools]);
 }
 
-export { fetchTool, problemsTool, runCommandsTool, runTasksTool, runTestsTool };
+export {
+  fetchTool,
+  getTerminalOutputTool,
+  problemsTool,
+  runCommandsTool,
+  runTasksTool,
+  runTerminalTool,
+  runTestsTool,
+};
