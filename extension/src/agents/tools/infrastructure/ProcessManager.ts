@@ -28,10 +28,17 @@ interface StopProcessOptions {
   token?: vscode.CancellationToken;
 }
 
+interface GetProcessOutputOptions {
+  sinceLastRead?: boolean;
+  maxLines?: number;
+  includeAnsi?: boolean;
+}
+
 interface ManagedProcess {
   info: ProcessInfo;
   process: ReturnType<typeof spawn>;
   buffer: OutputBuffer;
+  unreadBuffer: OutputBuffer;
   cleanupTimer?: NodeJS.Timeout;
   readyPattern?: RegExp;
 }
@@ -41,6 +48,10 @@ const DEFAULT_CONFIG: ProcessManagerConfig = {
   default_timeout_ms: 30_000,
   process_retention_ms: 300_000,
 };
+
+const ANSI_PATTERN = /\x1B\[[0-9;]*[a-zA-Z]/g;
+const TRUNCATION_MESSAGE = "... output truncated ...";
+const HEAD_RATIO = 0.2;
 
 export class ProcessManager extends EventEmitter {
   private static instance: ProcessManager | null = null;
@@ -126,6 +137,9 @@ export class ProcessManager extends EventEmitter {
     const outputBuffer = new OutputBuffer({
       maxLines: this.config.max_buffer_lines,
     });
+    const unreadBuffer = new OutputBuffer({
+      maxLines: this.config.max_buffer_lines,
+    });
 
     const resolvedCwd = options.cwd ?? process.cwd();
 
@@ -158,6 +172,7 @@ export class ProcessManager extends EventEmitter {
       info,
       process: child,
       buffer: outputBuffer,
+      unreadBuffer,
       readyPattern: options.readyPattern,
     };
 
@@ -170,6 +185,7 @@ export class ProcessManager extends EventEmitter {
     child.stdout?.on("data", (data: Buffer) => {
       const text = data.toString("utf8");
       outputBuffer.append(text);
+      unreadBuffer.append(text);
       this.emit("output", processId, text);
 
       if (managed.info.status === "STARTING") {
@@ -187,6 +203,7 @@ export class ProcessManager extends EventEmitter {
     child.stderr?.on("data", (data: Buffer) => {
       const text = data.toString("utf8");
       outputBuffer.append(text);
+      unreadBuffer.append(text);
       this.emit("output", processId, text);
 
       if (managed.info.status === "STARTING") {
@@ -233,8 +250,71 @@ export class ProcessManager extends EventEmitter {
     return this.processes.get(processId)?.info;
   }
 
-  public getProcessOutput(processId: string): string | undefined {
-    return this.processes.get(processId)?.buffer.getText();
+  public getProcessOutput(
+    processId: string,
+    options: GetProcessOutputOptions = {},
+  ):
+    | {
+        output: string;
+        truncated: boolean;
+        linesReturned: number;
+        totalLines: number;
+      }
+    | undefined {
+    const managed = this.processes.get(processId);
+    if (!managed) {
+      return undefined;
+    }
+
+    const buffer = options.sinceLastRead
+      ? managed.unreadBuffer
+      : managed.buffer;
+    const stats = buffer.getStats();
+    const lines = buffer.getLines();
+
+    let outputLines = lines;
+    let truncated = stats.truncated;
+
+    if (
+      options.maxLines &&
+      options.maxLines > 0 &&
+      lines.length > options.maxLines
+    ) {
+      const headCount = Math.max(1, Math.floor(options.maxLines * HEAD_RATIO));
+      const tailCount = Math.max(1, options.maxLines - headCount);
+      const head = lines.slice(0, headCount);
+      const tail = lines.slice(-tailCount);
+      outputLines = [...head, TRUNCATION_MESSAGE, ...tail];
+      truncated = true;
+    }
+
+    let outputText = outputLines.join("\n");
+    if (!options.includeAnsi) {
+      outputText = outputText.replace(ANSI_PATTERN, "");
+    }
+
+    if (options.sinceLastRead) {
+      buffer.clear();
+    }
+
+    return {
+      output: outputText,
+      truncated,
+      linesReturned: outputLines.length,
+      totalLines: stats.lines,
+    };
+  }
+
+  public listProcesses(status?: ProcessStatus): ProcessInfo[] {
+    const infos = Array.from(this.processes.values()).map(({ info }) => ({
+      ...info,
+    }));
+
+    if (!status) {
+      return infos;
+    }
+
+    return infos.filter((info) => info.status === status);
   }
 
   public async stopProcess(

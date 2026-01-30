@@ -9,6 +9,7 @@ import * as fs from "fs";
 import * as path from "path";
 import * as vscode from "vscode";
 import { AgentRunner, SessionStorage, ToolRegistry } from "./agents/index.js";
+import { ProcessManager } from "./agents/tools/infrastructure/ProcessManager.js";
 import { SessionManager } from "./chat/SessionManager.js";
 import { handleArchiveSprint } from "./commands/archiveSprint.js";
 import {
@@ -1909,7 +1910,7 @@ export async function activate(
  * Extension deactivation
  * Cleanup resources
  */
-export function deactivate(): void {
+export async function deactivate(): Promise<void> {
   logger?.info("Orchestra extension deactivating...");
 
   // ConfigService has no disposal required - it only provides access to workspace config
@@ -1920,6 +1921,8 @@ export function deactivate(): void {
     agentRunner.dispose();
     agentRunner = undefined;
   }
+
+  await ProcessManager.getInstance().dispose();
 
   agentStateSubscription?.dispose();
   agentStateSubscription = undefined;

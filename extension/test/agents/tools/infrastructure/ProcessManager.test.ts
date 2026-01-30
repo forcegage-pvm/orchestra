@@ -160,4 +160,109 @@ describe("ProcessManager", () => {
       manager.startProcess({ command: "echo test", token }),
     ).rejects.toThrow("Operation cancelled.");
   });
+
+  it("returns incremental output when since_last_read is true", async () => {
+    const { ProcessManager } = await importProcessManager();
+    const manager = ProcessManager.getInstance({
+      ...DEFAULT_CONFIG,
+      process_retention_ms: 5_000,
+    });
+
+    const exitPromise = waitForEvent<[string, number]>(manager, "exit");
+
+    const { processId } = await manager.startProcess({
+      command: buildNodeCommand("console.log('one'); console.log('two');"),
+    });
+
+    await exitPromise;
+
+    const firstRead = manager.getProcessOutput(processId, {
+      sinceLastRead: true,
+    });
+
+    expect(firstRead?.output).toContain("one");
+    expect(firstRead?.linesReturned).toBeGreaterThan(0);
+
+    const secondRead = manager.getProcessOutput(processId, {
+      sinceLastRead: true,
+    });
+
+    expect(secondRead?.output).toBe("");
+    expect(secondRead?.linesReturned).toBe(0);
+  });
+
+  it("strips ANSI output when includeAnsi is false", async () => {
+    const { ProcessManager } = await importProcessManager();
+    const manager = ProcessManager.getInstance({
+      ...DEFAULT_CONFIG,
+      process_retention_ms: 5_000,
+    });
+
+    const exitPromise = waitForEvent<[string, number]>(manager, "exit");
+
+    const { processId } = await manager.startProcess({
+      command: buildNodeCommand("console.log('\u001b[31mhello\u001b[0m');"),
+    });
+
+    await exitPromise;
+
+    const output = manager.getProcessOutput(processId, {
+      includeAnsi: false,
+    });
+
+    expect(output?.output).toContain("hello");
+    expect(output?.output).not.toContain("\u001b[");
+  });
+
+  it("truncates output with head/tail preservation", async () => {
+    const { ProcessManager } = await importProcessManager();
+    const manager = ProcessManager.getInstance({
+      ...DEFAULT_CONFIG,
+      process_retention_ms: 5_000,
+    });
+
+    const exitPromise = waitForEvent<[string, number]>(manager, "exit");
+
+    const lines = Array.from({ length: 10 }, (_, index) => `line-${index}`);
+    const script = lines.map((line) => `console.log('${line}');`).join(" ");
+
+    const { processId } = await manager.startProcess({
+      command: buildNodeCommand(script),
+    });
+
+    await exitPromise;
+
+    const output = manager.getProcessOutput(processId, { maxLines: 4 });
+
+    expect(output?.truncated).toBe(true);
+    expect(output?.output).toContain("... output truncated ...");
+    expect(output?.output).toContain("line-0");
+    expect(output?.output).toContain("line-9");
+  });
+
+  it("lists processes and supports status filters", async () => {
+    const { ProcessManager } = await importProcessManager();
+    const manager = ProcessManager.getInstance({
+      ...DEFAULT_CONFIG,
+      process_retention_ms: 5_000,
+    });
+
+    const exitPromise = waitForEvent<[string, number]>(manager, "exit");
+
+    const { processId } = await manager.startProcess({
+      command: buildNodeCommand("console.log('done');"),
+    });
+
+    await exitPromise;
+
+    const allProcesses = manager.listProcesses();
+    expect(
+      allProcesses.some((process) => process.process_id === processId),
+    ).toBe(true);
+
+    const stoppedProcesses = manager.listProcesses("STOPPED");
+    expect(
+      stoppedProcesses.some((process) => process.process_id === processId),
+    ).toBe(true);
+  });
 });
