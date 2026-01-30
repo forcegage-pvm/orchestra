@@ -201,7 +201,8 @@ describe("runCommand tool", () => {
         await import("../../../../src/agents/tools/system/runCommand.js");
 
       // Generate 600 lines of output
-      const script = "for (let i = 1; i <= 600; i++) { console.log('Line ' + i); }";
+      const script =
+        "for (let i = 1; i <= 600; i++) { console.log('Line ' + i); }";
 
       const input: RunCommandInput = {
         command: buildNodeCommand(script),
@@ -214,7 +215,7 @@ describe("runCommand tool", () => {
       expect(jsonContent).toBeDefined();
 
       const parsed = JSON.parse(jsonContent!.value);
-      
+
       const lines = parsed.stdout.split("\n").filter((l: string) => l.trim());
 
       // Should be truncated to ~500 lines
@@ -239,7 +240,8 @@ describe("runCommand tool", () => {
       const { runCommandTool } =
         await import("../../../../src/agents/tools/system/runCommand.js");
 
-      const script = "for (let i = 1; i <= 100; i++) { console.log('Line ' + i); }";
+      const script =
+        "for (let i = 1; i <= 100; i++) { console.log('Line ' + i); }";
 
       const input: RunCommandInput = {
         command: buildNodeCommand(script),

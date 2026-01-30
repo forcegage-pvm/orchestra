@@ -20,7 +20,7 @@ export class Uri {
     public authority: string,
     public path: string,
     public query: string,
-    public fragment: string
+    public fragment: string,
   ) {}
 }
 
