@@ -91,7 +91,9 @@ export class OutputBuffer {
   public getStats(): { lines: number; bytes: number; truncated: boolean } {
     return {
       lines: this.lines.length + (this.remainder ? 1 : 0),
-      bytes: this.totalBytes + (this.remainder ? this.byteLength(this.remainder) : 0),
+      bytes:
+        this.totalBytes +
+        (this.remainder ? this.byteLength(this.remainder) : 0),
       truncated: this.truncated,
     };
   }
@@ -195,7 +197,10 @@ export class OutputBuffer {
   }
 
   private computeTotalBytes(lines: string[]): number {
-    return lines.reduce((total, line) => total + this.byteLengthWithNewline(line), 0);
+    return lines.reduce(
+      (total, line) => total + this.byteLengthWithNewline(line),
+      0,
+    );
   }
 
   private byteLengthWithNewline(line: string): number {

@@ -2,9 +2,9 @@
  * ProcessManager - singleton for managing background processes
  */
 
+import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { EventEmitter } from "node:events";
-import { spawn } from "node:child_process";
 import type * as vscode from "vscode";
 
 import type {
@@ -95,10 +95,22 @@ export class ProcessManager extends EventEmitter {
     return super.off(event, listener);
   }
 
-  public emit(event: "output", ...args: Parameters<ProcessEvents["output"]>): boolean;
-  public emit(event: "ready", ...args: Parameters<ProcessEvents["ready"]>): boolean;
-  public emit(event: "exit", ...args: Parameters<ProcessEvents["exit"]>): boolean;
-  public emit(event: "error", ...args: Parameters<ProcessEvents["error"]>): boolean;
+  public emit(
+    event: "output",
+    ...args: Parameters<ProcessEvents["output"]>
+  ): boolean;
+  public emit(
+    event: "ready",
+    ...args: Parameters<ProcessEvents["ready"]>
+  ): boolean;
+  public emit(
+    event: "exit",
+    ...args: Parameters<ProcessEvents["exit"]>
+  ): boolean;
+  public emit(
+    event: "error",
+    ...args: Parameters<ProcessEvents["error"]>
+  ): boolean;
   public emit(event: string, ...args: unknown[]): boolean {
     return super.emit(event, ...args);
   }
@@ -276,7 +288,9 @@ export class ProcessManager extends EventEmitter {
     const stopPromises: Array<Promise<unknown>> = [];
 
     for (const processId of this.processes.keys()) {
-      stopPromises.push(this.stopProcess(processId, { gracefulTimeoutMs: 2_000 }));
+      stopPromises.push(
+        this.stopProcess(processId, { gracefulTimeoutMs: 2_000 }),
+      );
     }
 
     await Promise.allSettled(stopPromises);
