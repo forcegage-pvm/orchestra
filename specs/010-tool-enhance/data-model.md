@@ -195,6 +195,126 @@ export interface SendInputInput {
 
   /** Append newline (default: true) */
   press_enter?: boolean;
+
+  /** Special key to send instead of text */
+  special_key?: 'ctrl+c' | 'ctrl+d' | 'ctrl+z';
+}
+
+/**
+ * Result from send_input tool
+ */
+export interface SendInputResult {
+  success: boolean;
+
+  /** Output received after input */
+  output_after: string;
+
+  /** Current process status */
+  status: ProcessStatus;
+}
+
+/**
+ * Input for wait_for_pattern tool
+ */
+export interface WaitForPatternInput {
+  /** Process identifier */
+  process_id: string;
+
+  /** Regex pattern to wait for */
+  pattern: string;
+
+  /** Maximum wait time in milliseconds (default: 30000) */
+  timeout_ms?: number;
+
+  /** Check stderr instead of stdout */
+  in_stderr?: boolean;
+}
+
+/**
+ * Result from wait_for_pattern tool
+ */
+export interface WaitForPatternResult {
+  /** Whether pattern was found */
+  found: boolean;
+
+  /** The line that matched the pattern */
+  matched_line?: string;
+
+  /** Time waited in milliseconds */
+  wait_time_ms: number;
+
+  /** True if timeout was exceeded */
+  timed_out: boolean;
+}
+
+/**
+ * Input for find_port_process tool
+ */
+export interface FindPortProcessInput {
+  /** Port number to check */
+  port: number;
+}
+
+/**
+ * Result from find_port_process tool
+ */
+export interface FindPortProcessResult {
+  /** Whether port is in use */
+  in_use: boolean;
+
+  /** Our managed process ID (if applicable) */
+  process_id?: string;
+
+  /** OS process ID */
+  pid?: number;
+
+  /** Command that owns the port */
+  command?: string;
+}
+
+/**
+ * Input for execute_with_retry tool
+ */
+export interface ExecuteWithRetryInput {
+  /** Command to execute */
+  command: string;
+
+  /** Working directory */
+  cwd?: string;
+
+  /** Maximum retry attempts (default: 3) */
+  max_retries?: number;
+
+  /** Delay between retries in milliseconds (default: 1000) */
+  retry_delay_ms?: number;
+
+  /** Exit codes considered success (default: [0]) */
+  success_exit_codes?: number[];
+
+  /** Regex pattern that indicates success in output */
+  success_pattern?: string;
+
+  /** Timeout per attempt in milliseconds (default: 30000) */
+  timeout_ms?: number;
+}
+
+/**
+ * Result from execute_with_retry tool
+ */
+export interface ExecuteWithRetryResult {
+  success: boolean;
+
+  /** Number of attempts made */
+  attempts: number;
+
+  /** Final exit code */
+  final_exit_code: number;
+
+  stdout: string;
+  stderr: string;
+
+  /** Total duration including retries */
+  duration_ms: number;
 }
 
 // ============================================
@@ -337,17 +457,47 @@ export interface InsertAtLineInput {
 }
 
 /**
- * Input for delete_lines tool
+ * Input for delete_section tool
  */
-export interface DeleteLinesInput {
+export interface DeleteSectionInput {
   /** Absolute path to the file */
   file_path: string;
 
+  // Line-based targeting:
   /** Starting line number (1-indexed, inclusive) */
-  start_line: number;
+  start_line?: number;
 
   /** Ending line number (1-indexed, inclusive) */
+  end_line?: number;
+
+  // OR Pattern-based targeting:
+  /** Delete from first line matching this pattern */
+  start_pattern?: string;
+
+  /** To first line matching this pattern (inclusive) */
+  end_pattern?: string;
+
+  /** Delete the boundary lines too (default: true) */
+  include_patterns?: boolean;
+}
+
+/**
+ * Result from delete_section tool
+ */
+export interface DeleteSectionResult {
+  success: boolean;
+
+  /** Number of lines deleted */
+  lines_deleted: number;
+
+  /** Start line of deletion */
+  start_line: number;
+
+  /** End line of deletion */
   end_line: number;
+
+  /** Deleted content (for undo capability) */
+  deleted_content: string;
 }
 
 /**
@@ -357,8 +507,8 @@ export interface ValidateEditInput {
   /** Absolute path to the file */
   file_path: string;
 
-  /** Edit to validate */
-  edit: SmartReplaceInput | EditLinesInput;
+  /** Full proposed file content to validate */
+  new_content: string;
 
   /** Timeout for diagnostic collection (default: 3000) */
   timeout_ms?: number;
@@ -502,26 +652,35 @@ export interface ReferenceLocation {
 }
 
 /**
- * Input for bulk_replace tool
+ * Input for bulk_replace tool (text/regex based)
  */
 export interface BulkReplaceInput {
-  /** Pattern to search for (supports metavariables) */
-  pattern: string;
+  /** Text or regex pattern to search for */
+  find: string;
 
-  /** Replacement pattern */
-  replacement: string;
+  /** Replacement text (supports capture groups: $1, $2, etc.) */
+  replace: string;
 
-  /** File glob patterns to include */
-  include_paths?: string[];
+  /** Treat find as regex pattern (default: false) */
+  is_regex?: boolean;
+
+  /** Only match complete words (default: false) */
+  whole_word?: boolean;
+
+  /** Case-sensitive matching (default: true) */
+  case_sensitive?: boolean;
+
+  /** File glob patterns to include (e.g., "src/**/*.ts") */
+  include_patterns?: string[];
 
   /** File glob patterns to exclude */
-  exclude_paths?: string[];
+  exclude_patterns?: string[];
 
-  /** Preview changes without applying */
-  dry_run?: boolean;
+  /** Preview changes without applying (default: true) */
+  preview_only?: boolean;
 
-  /** Use regex instead of ast-grep pattern */
-  regex_mode?: boolean;
+  /** Maximum total replacements (optional limit) */
+  max_replacements?: number;
 }
 
 /**
@@ -530,33 +689,36 @@ export interface BulkReplaceInput {
 export interface BulkReplaceResult {
   success: boolean;
 
-  /** Files that were/would be modified */
-  files: BulkReplaceFile[];
+  /** Number of files scanned */
+  files_scanned: number;
 
-  /** Total matches */
-  total_matches: number;
+  /** Number of files with replacements */
+  files_modified: number;
 
-  /** Total files affected */
-  total_files: number;
+  /** Total replacement count */
+  total_replacements: number;
+
+  /** Details per file */
+  changes: BulkReplaceFileChange[];
 }
 
 /**
  * Bulk replace information for a single file
  */
-export interface BulkReplaceFile {
+export interface BulkReplaceFileChange {
   file_path: string;
-  matches: number;
+  replacements: number;
 
-  /** Preview of changes (in dry_run mode) */
-  changes?: {
-    line: number;
-    before: string;
-    after: string;
-  }[];
+  /** Preview of changes (in preview_only mode) */
+  diff_preview?: string;
 }
 
+// ============================================
+// File Operations Types (Basic - No Import Updates)
+// ============================================
+
 /**
- * Input for move_file tool
+ * Input for move_file tool (basic, no import updates)
  */
 export interface MoveFileInput {
   /** Current absolute path */
@@ -565,11 +727,8 @@ export interface MoveFileInput {
   /** New absolute path */
   destination_path: string;
 
-  /** Update import statements (default: true) */
-  update_imports?: boolean;
-
-  /** Preview changes without applying */
-  preview?: boolean;
+  /** Overwrite if destination exists (default: false) */
+  overwrite?: boolean;
 }
 
 /**
@@ -578,8 +737,83 @@ export interface MoveFileInput {
 export interface MoveFileResult {
   success: boolean;
 
-  /** Files with updated imports */
-  imports_updated: FileChange[];
+  /** Original path */
+  old_path: string;
+
+  /** New path */
+  new_path: string;
+
+  /** True if parent directories were created */
+  directories_created?: boolean;
+
+  /** Error message if failed */
+  error?: string;
+}
+
+/**
+ * Input for copy_file tool
+ */
+export interface CopyFileInput {
+  /** Source file absolute path */
+  source_path: string;
+
+  /** Destination file absolute path */
+  destination_path: string;
+
+  /** Overwrite if destination exists (default: false) */
+  overwrite?: boolean;
+}
+
+/**
+ * Result from copy_file tool
+ */
+export interface CopyFileResult {
+  success: boolean;
+
+  /** Source path (unchanged) */
+  source_path: string;
+
+  /** Destination path */
+  destination_path: string;
+
+  /** True if parent directories were created */
+  directories_created?: boolean;
+
+  /** Error message if failed */
+  error?: string;
+}
+
+/**
+ * Input for move_directory tool
+ */
+export interface MoveDirectoryInput {
+  /** Source directory absolute path */
+  source_path: string;
+
+  /** Destination directory absolute path */
+  destination_path: string;
+
+  /** Overwrite if destination exists (default: false) */
+  overwrite?: boolean;
+}
+
+/**
+ * Result from move_directory tool
+ */
+export interface MoveDirectoryResult {
+  success: boolean;
+
+  /** Original path */
+  old_path: string;
+
+  /** New path */
+  new_path: string;
+
+  /** Number of files moved */
+  files_moved: number;
+
+  /** Number of directories moved */
+  directories_moved: number;
 
   /** Error message if failed */
   error?: string;

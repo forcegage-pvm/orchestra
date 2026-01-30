@@ -184,6 +184,77 @@ Send stdin to running processes.
 
 ---
 
+### Task 2.5: wait_for_pattern Tool
+
+**Priority**: P3  
+**Estimate**: 2 hours  
+**Dependencies**: Task 2.2
+
+Wait for specific pattern in process output.
+
+**Files to Create/Modify**:
+
+- `extension/src/agents/tools/system/waitForPattern.ts` (new)
+
+**Acceptance Criteria**:
+
+- [ ] Waits for regex pattern match in process output
+- [ ] Checks existing buffer first, then listens for new output
+- [ ] Configurable timeout (default: 30000ms)
+- [ ] Returns matched_line and wait_time_ms
+- [ ] Returns timed_out: true if timeout exceeded
+
+**Test File**: `extension/test/agents/tools/system/waitForPattern.test.ts`
+
+---
+
+### Task 2.6: find_port_process Tool
+
+**Priority**: P3  
+**Estimate**: 2 hours  
+**Dependencies**: Task 2.3
+
+Find what process is using a specific port.
+
+**Files to Create/Modify**:
+
+- `extension/src/agents/tools/system/findPortProcess.ts` (new)
+
+**Acceptance Criteria**:
+
+- [ ] Checks managed processes first (by detected port)
+- [ ] Falls back to system check (lsof on Linux/Mac, netstat on Windows)
+- [ ] Returns in_use, process_id (if managed), pid, command
+- [ ] Cross-platform support
+
+**Test File**: `extension/test/agents/tools/system/findPortProcess.test.ts`
+
+---
+
+### Task 2.7: execute_with_retry Tool
+
+**Priority**: P3  
+**Estimate**: 2 hours  
+**Dependencies**: Task 2.1
+
+Run command with automatic retry on failure.
+
+**Files to Create/Modify**:
+
+- `extension/src/agents/tools/system/executeWithRetry.ts` (new)
+
+**Acceptance Criteria**:
+
+- [ ] Configurable max_retries (default: 3)
+- [ ] Configurable retry_delay_ms (default: 1000)
+- [ ] Configurable success_exit_codes (default: [0])
+- [ ] Optional success_pattern regex for output validation
+- [ ] Returns attempt count, final result, total duration
+
+**Test File**: `extension/test/agents/tools/system/executeWithRetry.test.ts`
+
+---
+
 ## Phase 3: File Editing Tools
 
 ### Task 3.1: smart_replace Tool
@@ -234,7 +305,7 @@ Direct line-range editing without uniqueness constraint.
 
 ---
 
-### Task 3.3: insert_at_line / delete_lines Tools
+### Task 3.3: insert_at_line / delete_section Tools
 
 **Priority**: P2  
 **Estimate**: 2 hours  
@@ -245,14 +316,15 @@ Additional line operations.
 **Files to Create/Modify**:
 
 - `extension/src/agents/tools/coding/insertAtLine.ts` (new)
-- `extension/src/agents/tools/coding/deleteLines.ts` (new)
+- `extension/src/agents/tools/coding/deleteSection.ts` (new)
 
 **Acceptance Criteria**:
 
 - [ ] `insert_at_line`: Insert before specified line
 - [ ] Auto-indentation based on surrounding context
-- [ ] `delete_lines`: Remove line range
+- [ ] `delete_section`: Remove line range or pattern-matched section
 - [ ] Returns lines_affected count
+- [ ] Returns deleted_content for potential undo
 
 **Test File**: `extension/test/agents/tools/coding/lineOperations.test.ts`
 
@@ -282,62 +354,13 @@ Pre-flight validation before applying edits.
 
 ---
 
-## Phase 4: Refactoring Tools
-
-### Task 4.1: rename_symbol Tool
+### Task 3.5: bulk_replace Tool (Text-Based)
 
 **Priority**: P2  
 **Estimate**: 3 hours  
 **Dependencies**: None
 
-LSP-based semantic rename.
-
-**Files to Create/Modify**:
-
-- `extension/src/agents/tools/coding/renameSymbol.ts` (new)
-
-**Acceptance Criteria**:
-
-- [ ] Uses `vscode.executeDocumentRenameProvider`
-- [ ] `preview` mode returns affected files without applying
-- [ ] Returns files_modified[], occurrences_renamed
-- [ ] Handles: classes, methods, variables, parameters
-- [ ] Graceful error when no rename provider available
-
-**Test File**: `extension/test/agents/tools/coding/renameSymbol.test.ts`
-
----
-
-### Task 4.2: find_references Tool
-
-**Priority**: P2  
-**Estimate**: 2 hours  
-**Dependencies**: None
-
-Find all usages of a symbol.
-
-**Files to Create/Modify**:
-
-- `extension/src/agents/tools/coding/findReferences.ts` (new)
-
-**Acceptance Criteria**:
-
-- [ ] Uses `vscode.executeReferenceProvider`
-- [ ] Returns grouped by file with line/column
-- [ ] Optional: include_declaration (default: false)
-- [ ] Limit results to prevent context overflow
-
-**Test File**: `extension/test/agents/tools/coding/findReferences.test.ts`
-
----
-
-### Task 4.3: bulk_replace Tool
-
-**Priority**: P3  
-**Estimate**: 4 hours  
-**Dependencies**: Task 3.1
-
-Pattern-based bulk replacement (ast-grep style).
+Multi-file text/regex replacement.
 
 **Files to Create/Modify**:
 
@@ -345,36 +368,89 @@ Pattern-based bulk replacement (ast-grep style).
 
 **Acceptance Criteria**:
 
-- [ ] Pattern syntax with metavariables ($VAR, $$$BODY)
-- [ ] `include_paths` / `exclude_paths` glob patterns
-- [ ] `dry_run` returns all matches without applying
-- [ ] Uses ripgrep for initial file discovery
-- [ ] Fallback to regex when ast-grep unavailable
+- [ ] Supports literal text and regex patterns
+- [ ] Supports capture group replacement ($1, $2, etc.)
+- [ ] File glob patterns for include/exclude
+- [ ] preview_only mode returns changes without applying
+- [ ] whole_word option for complete word matches
+- [ ] case_sensitive option (default: true)
+- [ ] max_replacements limit
+- [ ] Returns files_scanned, files_modified, total_replacements
 
 **Test File**: `extension/test/agents/tools/coding/bulkReplace.test.ts`
 
 ---
 
-### Task 4.4: move_file Tool
+## Phase 4: File Operations
+
+### Task 4.1: move_file Tool (Basic)
 
 **Priority**: P3  
-**Estimate**: 3 hours  
-**Dependencies**: Task 4.1
+**Estimate**: 2 hours  
+**Dependencies**: None
 
-Move/rename file with import updates.
+Move file to new location (no import updates).
 
 **Files to Create/Modify**:
 
-- `extension/src/agents/tools/coding/moveFile.ts` (new)
+- `extension/src/agents/tools/filesystem/moveFile.ts` (new)
 
 **Acceptance Criteria**:
 
-- [ ] Uses LSP `willRenameFiles` when available
-- [ ] Fallback: update import paths via string replacement
-- [ ] Returns files_updated[] with import changes
-- [ ] Handles: TypeScript, JavaScript, Python imports
+- [ ] Moves file to new destination
+- [ ] Creates parent directories if needed
+- [ ] Fails with error if destination exists (unless overwrite: true)
+- [ ] Returns old_path, new_path confirmation
+- [ ] Validates source exists before moving
 
-**Test File**: `extension/test/agents/tools/coding/moveFile.test.ts`
+**Test File**: `extension/test/agents/tools/filesystem/moveFile.test.ts`
+
+---
+
+### Task 4.2: copy_file Tool
+
+**Priority**: P3  
+**Estimate**: 2 hours  
+**Dependencies**: Task 4.1
+
+Copy file to new location.
+
+**Files to Create/Modify**:
+
+- `extension/src/agents/tools/filesystem/copyFile.ts` (new)
+
+**Acceptance Criteria**:
+
+- [ ] Copies file preserving content
+- [ ] Creates parent directories if needed
+- [ ] Fails with error if destination exists (unless overwrite: true)
+- [ ] Returns source_path, destination_path confirmation
+
+**Test File**: `extension/test/agents/tools/filesystem/copyFile.test.ts`
+
+---
+
+### Task 4.3: move_directory Tool
+
+**Priority**: P3  
+**Estimate**: 2 hours  
+**Dependencies**: Task 4.1
+
+Recursively move directory tree.
+
+**Files to Create/Modify**:
+
+- `extension/src/agents/tools/filesystem/moveDirectory.ts` (new)
+
+**Acceptance Criteria**:
+
+- [ ] Recursively moves entire directory tree
+- [ ] Preserves directory structure
+- [ ] Fails with error if destination exists (unless overwrite: true)
+- [ ] Returns files_moved count
+- [ ] Validates source is a directory
+
+**Test File**: `extension/test/agents/tools/filesystem/moveDirectory.test.ts`
 
 ---
 
@@ -418,7 +494,9 @@ Mark replaced tools as deprecated with migration path.
 **Acceptance Criteria**:
 
 - [ ] Deprecated tools log warning on first use
-- [ ] Deprecation message includes replacement tool name
+- [ ] Deprecation message includes replacement tool name:
+  - `runTerminal` → `run_command`
+  - `getTerminalOutput` → `get_process_output`
 - [ ] Keep functional for backward compatibility (1 sprint)
 
 ---
@@ -451,9 +529,12 @@ Phase 1 (Foundation)
 ├── Task 1.1 (ProcessManager)
 │   └── Task 1.2 (OutputBuffer)
 │       └── Task 2.1 (run_command)
-│           └── Task 2.2 (start/stop_process)
-│               ├── Task 2.3 (get_output/list)
-│               └── Task 2.4 (send_input)
+│           ├── Task 2.2 (start/stop_process)
+│           │   ├── Task 2.3 (get_output/list)
+│           │   ├── Task 2.4 (send_input)
+│           │   ├── Task 2.5 (wait_for_pattern)
+│           │   └── Task 2.6 (find_port_process)
+│           └── Task 2.7 (execute_with_retry)
 │
 └── Task 1.3 (FuzzyMatcher)
     └── Task 3.1 (smart_replace)
@@ -461,13 +542,13 @@ Phase 1 (Foundation)
 
 Phase 3 (File Editing - Independent)
 ├── Task 3.2 (edit_lines)
-│   └── Task 3.3 (insert/delete)
+│   └── Task 3.3 (insert/delete_section)
+└── Task 3.5 (bulk_replace) - Independent
 
-Phase 4 (Refactoring - Independent)
-├── Task 4.1 (rename_symbol)
-├── Task 4.2 (find_references)
-├── Task 4.3 (bulk_replace) → depends on Task 3.1
-└── Task 4.4 (move_file) → depends on Task 4.1
+Phase 4 (File Operations - Independent)
+├── Task 4.1 (move_file)
+│   ├── Task 4.2 (copy_file)
+│   └── Task 4.3 (move_directory)
 
 Phase 5 (Registration)
 └── Task 5.1 (Registry) → depends on Phase 2-4
@@ -479,14 +560,14 @@ Phase 5 (Registration)
 
 ## Summary
 
-| Phase           | Tasks  | Estimate      | Priority |
-| --------------- | ------ | ------------- | -------- |
-| 1. Foundation   | 3      | 9 hours       | P1       |
-| 2. Terminal     | 4      | 11 hours      | P1/P2    |
-| 3. File Editing | 4      | 10 hours      | P1/P2    |
-| 4. Refactoring  | 4      | 12 hours      | P2/P3    |
-| 5. Registration | 3      | 5 hours       | P1/P2    |
-| **Total**       | **18** | **~47 hours** |          |
+| Phase              | Tasks  | Estimate      | Priority |
+| ------------------ | ------ | ------------- | -------- |
+| 1. Foundation      | 3      | 9 hours       | P1       |
+| 2. Terminal        | 7      | 15 hours      | P1/P2/P3 |
+| 3. File Editing    | 5      | 13 hours      | P1/P2    |
+| 4. File Operations | 3      | 6 hours       | P3       |
+| 5. Registration    | 3      | 5 hours       | P1/P2    |
+| **Total**          | **21** | **~48 hours** |          |
 
 **Critical Path**: Tasks 1.1 → 1.2 → 2.1 → 2.2 → 5.1
 
@@ -494,4 +575,5 @@ Phase 5 (Registration)
 
 - Task 1.3 (FuzzyMatcher) can be done parallel with Task 1.1
 - Task 3.2 (edit_lines) can be done parallel with terminal tools
-- Tasks 4.1 and 4.2 can be done parallel with file editing tools
+- Task 3.5 (bulk_replace) is independent
+- Phase 4 (File Operations) can be done parallel with Phase 3

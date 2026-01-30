@@ -7,6 +7,10 @@
 
 This document summarizes research findings from analysis of terminal tools, file manipulation, and bulk refactoring implementations across production AI coding tools.
 
+**Complete Tool Inventory**: See [ai-agent-tools-complete-inventory.md](../../../docs/research/tools/002/ai-agent-tools-complete-inventory.md) for the full 21-tool catalog with interfaces, use cases, and priority rankings.
+
+**Note**: This sprint implements 18 of the 21 researched tools. LSP-dependent tools (rename_symbol, find_references, etc.) and ast-grep dependent tools (AST bulk_replace) are deferred to future sprints.
+
 ---
 
 ## Terminal Tools Research
@@ -37,7 +41,7 @@ This document summarizes research findings from analysis of terminal tools, file
 | Stateless Shell            | Mini-SWE-Agent | subprocess.run per command, no persistent state                         |
 | Process Supervision        | Proposed       | Event-driven status updates, ready detection                            |
 
-### Recommended Terminal Tools
+### Recommended Terminal Tools (9 - All In Scope)
 
 1. **`run_command`** - Enhanced single command with timeout, stdin support
 2. **`start_process`** - Long-running process, returns immediately with ID
@@ -47,6 +51,7 @@ This document summarizes research findings from analysis of terminal tools, file
 6. **`send_input`** - Send stdin/special keys to running process
 7. **`wait_for_pattern`** - Wait for specific output pattern
 8. **`find_port_process`** - Check what's using a port
+9. **`execute_with_retry`** - Automatic retry on transient failures
 
 ### Key Implementation Patterns
 
@@ -110,13 +115,20 @@ function truncateOutput(output: string, maxLines: number): string {
 | Draft Editor LLM         | OpenHands          | Specialized model for edit integration        |
 | Indentation Preservation | RooCode            | Capture and reapply surrounding indent        |
 
-### Recommended File Editing Tools
+### Recommended File Editing Tools (6 - All In Scope)
 
 1. **`smart_replace`** - Fuzzy matching with line hints and occurrence selection
 2. **`edit_lines`** - Direct line-range editing (bypasses uniqueness constraint)
 3. **`insert_at_line`** - Insert content with auto-indentation
 4. **`delete_section`** - Safe section removal by line or pattern
-5. **`validate_edit`** - Pre-flight syntax validation
+5. **`validate_edit`** - Pre-flight syntax validation (standalone only)
+6. **`bulk_replace`** - Text/regex multi-file replacement (no AST)
+
+### Recommended File Operations (3 - All In Scope)
+
+1. **`move_file`** - Basic file move (no import updates)
+2. **`copy_file`** - Copy file to new location
+3. **`move_directory`** - Recursively move directory tree
 
 ### Key Implementation Patterns
 
@@ -203,12 +215,15 @@ $$$BODY   # Multiple statements
 **Pros**: 30+ languages, bulk operations, structural matching  
 **Cons**: Not semantically aware, no type information
 
-### Recommended Refactoring Tools
+### Refactoring Tools (OUT OF SCOPE - Deferred)
 
-1. **`rename_symbol`** - LSP-based semantic rename with preview
-2. **`find_references`** - Find all usages of a symbol
-3. **`bulk_replace`** - ast-grep pattern replacement
-4. **`move_file`** - Move with import updates (LSP + fallback)
+The following LSP/ast-grep dependent tools are documented in research but deferred to future sprints:
+
+1. **`rename_symbol`** - LSP-based semantic rename (requires language server)
+2. **`find_references`** - Find all usages (requires LSP reference provider)
+3. **`bulk_replace` (AST)** - ast-grep pattern replacement (requires ast-grep CLI)
+4. **`move_file` (with imports)** - Move with import updates (requires LSP willRenameFiles)
+5. **`find_importers`** - Find files importing a module (companion to full move)
 
 ### File Move with Import Updates
 
@@ -239,33 +254,45 @@ Based on research impact analysis:
 
 ### P1 - Critical (Implement First)
 
-| Tool                     | Impact  | Rationale                                              |
-| ------------------------ | ------- | ------------------------------------------------------ |
-| `start_process`          | 🔥 High | Solves #1 problem - dev server blocking                |
-| `get_process_output`     | 🔥 High | Essential for async process monitoring                 |
-| `run_command` (enhanced) | 🔥 High | Shell integration fallback prevents cascading failures |
-| `smart_replace`          | 🔥 High | Solves #1 file editing failure                         |
-| `edit_lines`             | 🔥 High | Bypasses uniqueness constraint                         |
+| Tool                 | Impact  | Rationale                                              |
+| -------------------- | ------- | ------------------------------------------------------ |
+| `run_command`        | 🔥 High | Shell integration fallback prevents cascading failures |
+| `start_process`      | 🔥 High | Solves #1 problem - dev server blocking                |
+| `get_process_output` | 🔥 High | Essential for async process monitoring                 |
+| `stop_process`       | 🔥 High | Cleanup capability                                     |
+| `smart_replace`      | 🔥 High | Solves #1 file editing failure                         |
+| `edit_lines`         | 🔥 High | Bypasses uniqueness constraint                         |
 
 ### P2 - Important
 
-| Tool             | Impact | Rationale                     |
-| ---------------- | ------ | ----------------------------- |
-| `stop_process`   | High   | Cleanup capability            |
-| `validate_edit`  | High   | Prevents infinite retry loops |
-| `rename_symbol`  | High   | True semantic refactoring     |
-| `insert_at_line` | Medium | Common operation, simple      |
-| `list_processes` | Medium | Debugging/visibility          |
-| `send_input`     | Medium | Enables interactive commands  |
+| Tool             | Impact | Rationale                         |
+| ---------------- | ------ | --------------------------------- |
+| `list_processes` | High   | Debugging/visibility              |
+| `send_input`     | Medium | Enables interactive commands      |
+| `validate_edit`  | High   | Prevents infinite retry loops     |
+| `insert_at_line` | Medium | Common operation, simple          |
+| `delete_section` | Medium | Pattern-based deletion            |
+| `bulk_replace`   | High   | Text/regex multi-file replacement |
 
 ### P3 - Nice to Have
 
-| Tool                | Impact | Rationale                    |
-| ------------------- | ------ | ---------------------------- |
-| `bulk_replace`      | Medium | Requires ast-grep dependency |
-| `move_file`         | Medium | Complex with fallback logic  |
-| `wait_for_pattern`  | Low    | Quality of life              |
-| `find_port_process` | Low    | Debugging tool               |
+| Tool                 | Impact | Rationale                    |
+| -------------------- | ------ | ---------------------------- |
+| `wait_for_pattern`   | Medium | Server ready detection       |
+| `find_port_process`  | Low    | Debugging tool               |
+| `execute_with_retry` | Low    | Flaky command handling       |
+| `move_file`          | Medium | Basic file move (no imports) |
+| `copy_file`          | Medium | File duplication             |
+| `move_directory`     | Medium | Directory restructuring      |
+
+### Deferred (Out of Scope)
+
+| Tool                 | Impact | Rationale for Deferral          |
+| -------------------- | ------ | ------------------------------- |
+| `rename_symbol`      | High   | Requires LSP infrastructure     |
+| `find_references`    | Medium | Requires LSP infrastructure     |
+| `bulk_replace` (AST) | High   | Requires ast-grep dependency    |
+| `move_file` (full)   | Medium | Requires LSP for import updates |
 
 ---
 
