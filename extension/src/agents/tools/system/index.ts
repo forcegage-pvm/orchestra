@@ -10,6 +10,7 @@ import { getProcessOutputTool } from "./getProcessOutput.js";
 import { getTerminalOutputTool } from "./getTerminalOutput.js";
 import { getTestFailuresTool } from "./getTestFailures.js";
 import { listProcessesTool } from "./listProcesses.js";
+import { runCommandTool } from "./runCommand.js";
 import { runTaskTool } from "./runTask.js";
 import { runTerminalTool } from "./runTerminal.js";
 import { runTestsTool } from "./runTests.js";
@@ -29,6 +30,7 @@ export const systemTools = [
   stopProcessTool,
   getProcessOutputTool,
   listProcessesTool,
+  runCommandTool,
   runTerminalTool,
   getTerminalOutputTool,
   runTaskTool,
@@ -47,6 +49,7 @@ export {
   getTerminalOutputTool,
   getTestFailuresTool,
   listProcessesTool,
+  runCommandTool,
   runTaskTool,
   runTerminalTool,
   runTestsTool,

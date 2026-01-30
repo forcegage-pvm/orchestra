@@ -44,6 +44,15 @@ export const window = {
     hide: vi.fn(),
     dispose: vi.fn(),
   })),
+  terminals: [],
+  createTerminal: vi.fn(() => ({
+    name: "Mock Terminal",
+    shellIntegration: undefined, // No shell integration in tests
+    show: vi.fn(),
+    dispose: vi.fn(),
+    sendText: vi.fn(),
+  })),
+  onDidEndTerminalShellExecution: vi.fn(() => ({ dispose: vi.fn() })),
 };
 
 export const commands = {
