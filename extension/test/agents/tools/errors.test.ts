@@ -24,6 +24,7 @@ describe("ToolErrorCode", () => {
       "SHELL_INTEGRATION_UNAVAILABLE",
       "COMMAND_FAILED",
       "NO_OUTPUT",
+      "TERMINAL_NOT_FOUND",
       "TASK_NOT_FOUND",
       "TASK_FAILED",
       "TIMEOUT",
