@@ -4,9 +4,6 @@
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ToolInvocationContext } from "../../../../src/agents/tools/types.js";
-import type { ToolContext } from "../../../../src/agents/types.js";
-
-const execMock = vi.hoisted(() => vi.fn());
 let taskProcessHandler:
   | ((event: { execution: unknown; exitCode?: number }) => void)
   | undefined;
@@ -42,10 +39,6 @@ const { tasks, languages, Uri, DiagnosticSeverity, TaskGroup } = vi.hoisted(
   },
 );
 
-vi.mock("child_process", () => ({
-  exec: execMock,
-}));
-
 vi.mock("vscode", () => ({
   tasks,
   languages,
@@ -55,18 +48,8 @@ vi.mock("vscode", () => ({
 }));
 
 import { getProblemsTool } from "../../../../src/agents/tools/system/getProblems.js";
-import { runCommandsTool } from "../../../../src/agents/tools/system/runCommands.js";
 import { runTaskTool } from "../../../../src/agents/tools/system/runTask.js";
 import { runTestsTool } from "../../../../src/agents/tools/system/runTests.js";
-
-const mockContext: ToolContext = {
-  workspaceRoot: "/workspace",
-  sessionId: "session",
-  iteration: 0,
-  cancellationToken: {},
-  logger: {},
-  db: {},
-};
 
 const mockInvocationContext: ToolInvocationContext = {
   workspaceRoot: "/workspace",
@@ -82,68 +65,6 @@ beforeEach(() => {
   taskProcessHandler = undefined;
 });
 
-describe("runCommandsTool", () => {
-  it("executes a command and returns output", async () => {
-    execMock.mockImplementation(
-      (
-        _command: string,
-        _options: unknown,
-        callback: (error: Error | null, stdout: string, stderr: string) => void,
-      ) => {
-        callback(null, "ok", "");
-        return {};
-      },
-    );
-
-    const result = await runCommandsTool.execute(
-      { command: "echo ok" },
-      mockContext,
-    );
-
-    expect(result.success).toBe(true);
-    const output = JSON.parse(result.output) as {
-      stdout: string;
-      stderr: string;
-      exitCode?: number;
-    };
-    expect(output.stdout).toBe("ok");
-    expect(output.exitCode).toBe(0);
-  });
-
-  it("returns error details on failure", async () => {
-    const error = Object.assign(new Error("boom"), {
-      code: 1,
-      stdout: "partial",
-      stderr: "failure",
-    });
-
-    execMock.mockImplementation(
-      (
-        _command: string,
-        _options: unknown,
-        callback: (error: Error | null, stdout: string, stderr: string) => void,
-      ) => {
-        callback(error, "partial", "failure");
-        return {};
-      },
-    );
-
-    const result = await runCommandsTool.execute(
-      { command: "exit 1" },
-      mockContext,
-    );
-
-    expect(result.success).toBe(false);
-    expect(result.error).toContain("Command failed");
-    const output = JSON.parse(result.output) as {
-      stdout: string;
-      stderr: string;
-      exitCode?: number;
-    };
-    expect(output.exitCode).toBe(1);
-    expect(output.stderr).toBe("failure");
-  });
-});
 
 describe("runTaskTool", () => {
   it("runs a task by label", async () => {

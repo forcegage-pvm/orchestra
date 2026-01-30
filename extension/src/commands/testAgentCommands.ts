@@ -7,7 +7,7 @@
 
 import * as vscode from "vscode";
 import { ToolRegistry } from "../agents/ToolRegistry.js";
-import { editTool } from "../agents/tools/coding/edit.js";
+import { editFileTool } from "../agents/tools/coding/editFile.js";
 import { listDirectoryTool } from "../agents/tools/coding/listDirectory.js";
 import { readFileTool } from "../agents/tools/coding/readFile.js";
 import { getAgentRunner } from "../extension.js";
@@ -205,7 +205,7 @@ export async function testDirectToolExecution(): Promise<void> {
   const registry = new ToolRegistry();
   registry.register(readFileTool);
   registry.register(listDirectoryTool);
-  registry.register(editTool);
+  registry.register(editFileTool);
 
   const testContext = {
     workspaceRoot,
