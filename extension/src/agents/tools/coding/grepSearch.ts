@@ -4,13 +4,16 @@
 
 import * as path from "path";
 import * as vscode from "vscode";
-import type { AgentTool } from "../../ToolRegistry.js";
-import type { ToolContext, ToolResult } from "../../types.js";
+
+import { ToolErrorCode } from "../errors.js";
+import type { AgentTool, ToolInvocationContext, ToolResult } from "../types.js";
+import { errorResult, successResult } from "../utils/resultBuilder.js";
 
 interface GrepSearchInput {
   query: string;
   isRegexp?: boolean;
   includePattern?: string;
+  maxResults?: number;
 }
 
 interface GrepMatch {
@@ -19,7 +22,20 @@ interface GrepMatch {
   text: string;
 }
 
-function toRelativePath(context: ToolContext, uri: vscode.Uri): string {
+const TOOL_NAME = "grep_search";
+
+function normalizeMaxResults(value: number | undefined): number | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+  const normalized = Math.floor(value);
+  return normalized > 0 ? normalized : undefined;
+}
+
+function toRelativePath(
+  context: ToolInvocationContext,
+  uri: vscode.Uri,
+): string {
   const fsPath = uri.fsPath;
   const relative = path.relative(context.workspaceRoot, fsPath);
   const normalizedRelative = relative.split(path.sep).join("/");
@@ -27,18 +43,34 @@ function toRelativePath(context: ToolContext, uri: vscode.Uri): string {
   return normalizedRelative.length > 0 ? normalizedRelative : normalizedFsPath;
 }
 
+function buildToolResult(partial: Partial<ToolResult>): ToolResult {
+  return {
+    success: partial.success ?? false,
+    content: partial.content ?? [],
+    error: partial.error,
+    metadata: partial.metadata ?? {
+      toolName: TOOL_NAME,
+      callId: "",
+      durationMs: 0,
+    },
+  };
+}
+
 async function grepSearchFiles(
   input: GrepSearchInput,
-  context: ToolContext,
+  context: ToolInvocationContext,
 ): Promise<ToolResult> {
   try {
-    const query = typeof input.query === "string" ? input.query : "";
-    if (!query.trim()) {
-      return {
-        success: false,
-        output: "",
-        error: "query is required.",
-      };
+    const query = typeof input.query === "string" ? input.query.trim() : "";
+    if (!query) {
+      return buildToolResult(
+        errorResult(
+          TOOL_NAME,
+          ToolErrorCode.INVALID_INPUT,
+          "query is required.",
+          "Provide a non-empty search query.",
+        ),
+      );
     }
 
     let matcher: (text: string) => boolean;
@@ -49,24 +81,60 @@ async function grepSearchFiles(
       } catch (error) {
         const message =
           error instanceof Error ? error.message : "Invalid regular expression";
-        return {
-          success: false,
-          output: "",
-          error: `Invalid regex: ${message}`,
-        };
+        return buildToolResult(
+          errorResult(
+            TOOL_NAME,
+            ToolErrorCode.INVALID_INPUT,
+            `Invalid regex: ${message}`,
+            "Provide a valid regular expression.",
+          ),
+        );
       }
-      matcher = (text) => regex.test(text);
+
+      matcher = (text) => {
+        if (regex.global || regex.sticky) {
+          regex.lastIndex = 0;
+        }
+        return regex.test(text);
+      };
     } else {
       matcher = (text) => text.includes(query);
     }
 
     const includePattern = input.includePattern ?? "**/*";
-    const files = await vscode.workspace.findFiles(includePattern);
+    const maxResults = normalizeMaxResults(input.maxResults);
+    const files = await vscode.workspace.findFiles(
+      includePattern,
+      undefined,
+      maxResults,
+    );
     const matches: GrepMatch[] = [];
 
     for (const uri of files) {
+      if (context.token.isCancellationRequested) {
+        return buildToolResult(
+          errorResult(
+            TOOL_NAME,
+            ToolErrorCode.CANCELLED,
+            "Operation cancelled.",
+            "Retry the operation when ready.",
+          ),
+        );
+      }
+
       const document = await vscode.workspace.openTextDocument(uri);
       for (let lineIndex = 0; lineIndex < document.lineCount; lineIndex += 1) {
+        if (context.token.isCancellationRequested) {
+          return buildToolResult(
+            errorResult(
+              TOOL_NAME,
+              ToolErrorCode.CANCELLED,
+              "Operation cancelled.",
+              "Retry the operation when ready.",
+            ),
+          );
+        }
+
         const lineText = document.lineAt(lineIndex).text;
         if (matcher(lineText)) {
           matches.push({
@@ -75,26 +143,35 @@ async function grepSearchFiles(
             text: lineText,
           });
         }
+
+        if (maxResults !== undefined && matches.length >= maxResults) {
+          break;
+        }
+      }
+
+      if (maxResults !== undefined && matches.length >= maxResults) {
+        break;
       }
     }
 
-    return {
-      success: true,
-      output: JSON.stringify(matches, null, 2),
-    };
+    const result = successResult(TOOL_NAME, JSON.stringify(matches, null, 2));
+    return buildToolResult(result);
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Unknown error searching files";
-    return {
-      success: false,
-      output: "",
-      error: `Grep search failed: ${message}`,
-    };
+    return buildToolResult(
+      errorResult(
+        TOOL_NAME,
+        ToolErrorCode.UNKNOWN,
+        `Grep search failed: ${message}`,
+        "Check the search query and workspace state before retrying.",
+      ),
+    );
   }
 }
 
-export const grepSearchTool: AgentTool = {
-  name: "grep_search",
+export const grepSearchTool: AgentTool<GrepSearchInput> = {
+  name: TOOL_NAME,
   description:
     "Grep-style search for exact string or regex matches across files.",
   inputSchema: {
@@ -112,13 +189,15 @@ export const grepSearchTool: AgentTool = {
         type: "string",
         description: "Optional glob pattern to filter files",
       },
+      maxResults: {
+        type: "number",
+        description: "Optional maximum number of matches",
+      },
     },
     required: ["query"],
   },
-  execute: async (
-    input: unknown,
-    context: ToolContext,
-  ): Promise<ToolResult> => {
-    return grepSearchFiles(input as GrepSearchInput, context);
-  },
+  invoke: async (
+    input: GrepSearchInput,
+    context: ToolInvocationContext,
+  ): Promise<ToolResult> => grepSearchFiles(input, context),
 };

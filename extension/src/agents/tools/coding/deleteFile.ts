@@ -2,28 +2,48 @@
  * deleteFile tool - Delete specified file
  */
 
-import * as crypto from "crypto";
-import * as path from "path";
 import * as vscode from "vscode";
-import type { AgentTool } from "../../ToolRegistry.js";
-import type { ToolContext, ToolResult } from "../../types.js";
+
+import { ToolErrorCode } from "../errors.js";
+import type {
+  AgentTool,
+  ToolError,
+  ToolInvocationContext,
+  ToolResult,
+} from "../types.js";
+import { validatePath } from "../utils/pathValidation.js";
+import { errorResult, successResult } from "../utils/resultBuilder.js";
 
 interface DeleteFileInput {
   path: string;
 }
 
-function getAbsolutePath(workspaceRoot: string, filePath: string): string {
-  return path.isAbsolute(filePath)
-    ? filePath
-    : path.resolve(workspaceRoot, filePath);
+const TOOL_NAME = "delete_file";
+
+function buildToolResult(partial: Partial<ToolResult>): ToolResult {
+  return {
+    success: partial.success ?? false,
+    content: partial.content ?? [],
+    error: partial.error,
+    metadata: partial.metadata ?? {
+      toolName: TOOL_NAME,
+      callId: "",
+      durationMs: 0,
+    },
+  };
 }
 
-function hashContent(content: string | null): string | null {
-  if (content === null) {
-    return null;
-  }
-
-  return crypto.createHash("sha256").update(content).digest("hex");
+function errorFromToolError(error: ToolError): ToolResult {
+  return buildToolResult({
+    success: false,
+    content: [{ type: "error", value: error.message }],
+    error,
+    metadata: {
+      toolName: TOOL_NAME,
+      callId: "",
+      durationMs: 0,
+    },
+  });
 }
 
 function isFileNotFound(error: unknown): boolean {
@@ -34,72 +54,75 @@ function isFileNotFound(error: unknown): boolean {
 
 async function deleteFile(
   input: DeleteFileInput,
-  context: ToolContext,
+  context: ToolInvocationContext,
 ): Promise<ToolResult> {
-  try {
-    const absolutePath = getAbsolutePath(context.workspaceRoot, input.path);
-    const uri = vscode.Uri.file(absolutePath);
-
-    try {
-      await vscode.workspace.fs.stat(uri);
-    } catch (error) {
-      if (isFileNotFound(error)) {
-        return {
-          success: false,
-          output: "",
-          error: "File does not exist.",
-        };
-      }
-      throw error;
-    }
-
-    const bytes = await vscode.workspace.fs.readFile(uri);
-    const previousContent = Buffer.from(bytes).toString("utf8");
-
-    const edit = new vscode.WorkspaceEdit();
-    edit.deleteFile(uri, { ignoreIfNotExists: false, recursive: false });
-
-    const applied = await vscode.workspace.applyEdit(edit);
-    if (!applied) {
-      return {
-        success: false,
-        output: "",
-        error: "Failed to delete file.",
-      };
-    }
-
-    if (context.fileTracker) {
-      context.fileTracker.trackChange({
-        uri: uri.toString(),
-        relativePath: input.path,
-        operation: "delete",
-        previousContent,
-        previousContentHash: hashContent(previousContent),
-        newContent: null,
-        newContentHash: null,
-        toolCallId: crypto.randomUUID(),
-        timestamp: new Date().toISOString(),
-        iteration: context.iteration,
-      });
-    }
-
-    return {
-      success: true,
-      output: `Deleted file at ${input.path}.`,
-    };
-  } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "Unknown error deleting file";
-    return {
-      success: false,
-      output: "",
-      error: `Failed to delete file: ${message}`,
-    };
+  const validatedPath = await validatePath(input.path, context.workspaceRoot);
+  if (!validatedPath.isValid) {
+    return errorFromToolError(validatedPath.error);
   }
+
+  if (context.token.isCancellationRequested) {
+    return buildToolResult(
+      errorResult(
+        TOOL_NAME,
+        ToolErrorCode.CANCELLED,
+        "Operation cancelled.",
+        "Retry the operation when ready.",
+      ),
+    );
+  }
+
+  const uri = vscode.Uri.file(validatedPath.absolutePath);
+
+  try {
+    await vscode.workspace.fs.stat(uri);
+  } catch (error) {
+    if (isFileNotFound(error)) {
+      return buildToolResult(
+        errorResult(
+          TOOL_NAME,
+          ToolErrorCode.FILE_NOT_FOUND,
+          `File not found: ${input.path}`,
+          "Ensure the path is correct or create the file first.",
+          { path: input.path },
+        ),
+      );
+    }
+
+    const message = error instanceof Error ? error.message : "Unknown error";
+    return buildToolResult(
+      errorResult(
+        TOOL_NAME,
+        ToolErrorCode.UNKNOWN,
+        `Failed to stat file: ${message}`,
+        "Check the file path and permissions before retrying.",
+        { path: input.path },
+      ),
+    );
+  }
+
+  const edit = new vscode.WorkspaceEdit();
+  edit.deleteFile(uri, { ignoreIfNotExists: false, recursive: false });
+
+  const applied = await vscode.workspace.applyEdit(edit);
+  if (!applied) {
+    return buildToolResult(
+      errorResult(
+        TOOL_NAME,
+        ToolErrorCode.COMMAND_FAILED,
+        `Failed to delete file at ${input.path}.`,
+        "Retry the operation or check if the file is locked.",
+        { path: input.path },
+      ),
+    );
+  }
+
+  const result = successResult(TOOL_NAME, `Deleted file at ${input.path}.`);
+  return buildToolResult(result);
 }
 
-export const deleteFileTool: AgentTool = {
-  name: "delete_file",
+export const deleteFileTool: AgentTool<DeleteFileInput> = {
+  name: TOOL_NAME,
   description: "Delete a file by path.",
   inputSchema: {
     type: "object",
@@ -111,11 +134,8 @@ export const deleteFileTool: AgentTool = {
     },
     required: ["path"],
   },
-  execute: async (
-    input: unknown,
-    context: ToolContext,
-  ): Promise<ToolResult> => {
-    const parsed = input as DeleteFileInput;
-    return deleteFile(parsed, context);
-  },
+  invoke: async (
+    input: DeleteFileInput,
+    context: ToolInvocationContext,
+  ): Promise<ToolResult> => deleteFile(input, context),
 };

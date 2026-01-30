@@ -9,12 +9,11 @@ import { createDirectoryTool } from "./createDirectory.js";
 import { createFileTool } from "./createFile.js";
 import { deleteFileTool } from "./deleteFile.js";
 import { editFileTool } from "./editFile.js";
+import { findUsagesTool } from "./findUsages.js";
 import { grepSearchTool } from "./grepSearch.js";
 import { listDirectoryTool } from "./listDirectory.js";
 import { readFileTool } from "./readFile.js";
-import { searchTool } from "./search.js";
-import { testFailureTool } from "./testFailure.js";
-import { usagesTool } from "./usages.js";
+import { searchFilesTool } from "./searchFiles.js";
 
 export const codingTools = [
   readFileTool,
@@ -22,11 +21,10 @@ export const codingTools = [
   createFileTool,
   createDirectoryTool,
   deleteFileTool,
-  searchTool,
+  searchFilesTool,
   grepSearchTool,
   listDirectoryTool,
-  usagesTool,
-  testFailureTool,
+  findUsagesTool,
 ] as const;
 
 export function registerCodingTools(registry: ToolRegistry): void {
@@ -38,10 +36,9 @@ export {
   createFileTool,
   deleteFileTool,
   editFileTool,
+  findUsagesTool,
   grepSearchTool,
   listDirectoryTool,
   readFileTool,
-  searchTool,
-  testFailureTool,
-  usagesTool,
+  searchFilesTool,
 };

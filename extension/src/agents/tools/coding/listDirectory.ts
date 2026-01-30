@@ -2,28 +2,68 @@
  * listDirectory tool - List contents of a directory
  */
 
-import * as path from "path";
 import * as vscode from "vscode";
-import type { AgentTool } from "../../ToolRegistry.js";
-import type { ToolContext, ToolResult } from "../../types.js";
+
+import { ToolErrorCode } from "../errors.js";
+import type {
+  AgentTool,
+  ToolError,
+  ToolInvocationContext,
+  ToolResult,
+} from "../types.js";
+import { validatePath } from "../utils/pathValidation.js";
+import { errorResult, successResult } from "../utils/resultBuilder.js";
 
 interface ListDirectoryInput {
   path: string;
 }
 
-function getAbsolutePath(workspaceRoot: string, filePath: string): string {
-  return path.isAbsolute(filePath)
-    ? filePath
-    : path.resolve(workspaceRoot, filePath);
+const TOOL_NAME = "list_directory";
+
+function buildToolResult(partial: Partial<ToolResult>): ToolResult {
+  return {
+    success: partial.success ?? false,
+    content: partial.content ?? [],
+    error: partial.error,
+    metadata: partial.metadata ?? {
+      toolName: TOOL_NAME,
+      callId: "",
+      durationMs: 0,
+    },
+  };
+}
+
+function errorFromToolError(error: ToolError): ToolResult {
+  return buildToolResult({
+    success: false,
+    content: [{ type: "error", value: error.message }],
+    error,
+    metadata: {
+      toolName: TOOL_NAME,
+      callId: "",
+      durationMs: 0,
+    },
+  });
+}
+
+function isFileNotFound(error: unknown): boolean {
+  return (
+    error instanceof vscode.FileSystemError && error.code === "FileNotFound"
+  );
 }
 
 async function listDirectoryContents(
   input: ListDirectoryInput,
-  context: ToolContext,
+  context: ToolInvocationContext,
 ): Promise<ToolResult> {
+  const validatedPath = await validatePath(input.path, context.workspaceRoot);
+  if (!validatedPath.isValid) {
+    return errorFromToolError(validatedPath.error);
+  }
+
+  const uri = vscode.Uri.file(validatedPath.absolutePath);
+
   try {
-    const absolutePath = getAbsolutePath(context.workspaceRoot, input.path);
-    const uri = vscode.Uri.file(absolutePath);
     const entries = await vscode.workspace.fs.readDirectory(uri);
 
     const outputLines = entries.map(([name, type]) => {
@@ -33,25 +73,39 @@ async function listDirectoryContents(
       return name;
     });
 
-    return {
-      success: true,
-      output: outputLines.join("\n"),
-    };
+    const result = successResult(TOOL_NAME, outputLines.join("\n"));
+    return buildToolResult(result);
   } catch (error) {
+    if (isFileNotFound(error)) {
+      return buildToolResult(
+        errorResult(
+          TOOL_NAME,
+          ToolErrorCode.FILE_NOT_FOUND,
+          `Directory not found: ${input.path}`,
+          "Ensure the path is correct or create the directory first.",
+          { path: input.path },
+        ),
+      );
+    }
+
     const message =
       error instanceof Error
         ? error.message
         : "Unknown error reading directory";
-    return {
-      success: false,
-      output: "",
-      error: `Directory not found or unreadable: ${message}`,
-    };
+    return buildToolResult(
+      errorResult(
+        TOOL_NAME,
+        ToolErrorCode.UNKNOWN,
+        `Failed to read directory: ${message}`,
+        "Check the directory path and permissions before retrying.",
+        { path: input.path },
+      ),
+    );
   }
 }
 
-export const listDirectoryTool: AgentTool = {
-  name: "list_directory",
+export const listDirectoryTool: AgentTool<ListDirectoryInput> = {
+  name: TOOL_NAME,
   description: "List files and folders within a directory.",
   inputSchema: {
     type: "object",
@@ -63,10 +117,8 @@ export const listDirectoryTool: AgentTool = {
     },
     required: ["path"],
   },
-  execute: async (
-    input: unknown,
-    context: ToolContext,
-  ): Promise<ToolResult> => {
-    return listDirectoryContents(input as ListDirectoryInput, context);
-  },
+  invoke: async (
+    input: ListDirectoryInput,
+    context: ToolInvocationContext,
+  ): Promise<ToolResult> => listDirectoryContents(input, context),
 };

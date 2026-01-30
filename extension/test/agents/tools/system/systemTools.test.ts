@@ -54,7 +54,6 @@ vi.mock("vscode", () => ({
   TaskGroup,
 }));
 
-import { fetchTool } from "../../../../src/agents/tools/system/fetch.js";
 import { getProblemsTool } from "../../../../src/agents/tools/system/getProblems.js";
 import { runCommandsTool } from "../../../../src/agents/tools/system/runCommands.js";
 import { runTaskTool } from "../../../../src/agents/tools/system/runTask.js";
@@ -258,8 +257,9 @@ describe("getProblemsTool", () => {
     const output = JSON.parse(result.content[0]?.value ?? "{}") as {
       files: Array<{
         file: string;
-        relativePath?: string;
+        relativePath: string;
         diagnostics: Array<{
+          message: string;
           severity: string;
           line: number;
           column: number;
@@ -280,51 +280,3 @@ describe("getProblemsTool", () => {
   });
 });
 
-describe("fetchTool", () => {
-  it("fetches content and returns response data", async () => {
-    const fetchMock = vi.fn().mockResolvedValue({
-      url: "https://example.com",
-      status: 200,
-      statusText: "OK",
-      ok: true,
-      headers: {
-        forEach: (callback: (value: string, key: string) => void) => {
-          callback("text/plain", "content-type");
-        },
-      },
-      text: vi.fn().mockResolvedValue("hello"),
-    });
-
-    vi.stubGlobal("fetch", fetchMock as unknown as typeof fetch);
-
-    const result = await fetchTool.execute(
-      { url: "https://example.com" },
-      mockContext,
-    );
-
-    expect(result.success).toBe(true);
-    const output = JSON.parse(result.output) as {
-      status: number;
-      body: string;
-      headers: Record<string, string>;
-    };
-    expect(output.status).toBe(200);
-    expect(output.body).toBe("hello");
-    expect(output.headers["content-type"]).toBe("text/plain");
-    vi.unstubAllGlobals();
-  });
-
-  it("returns error when fetch fails", async () => {
-    const fetchMock = vi.fn().mockRejectedValue(new Error("Network down"));
-    vi.stubGlobal("fetch", fetchMock as unknown as typeof fetch);
-
-    const result = await fetchTool.execute(
-      { url: "https://example.com" },
-      mockContext,
-    );
-
-    expect(result.success).toBe(false);
-    expect(result.error).toContain("Fetch failed");
-    vi.unstubAllGlobals();
-  });
-});

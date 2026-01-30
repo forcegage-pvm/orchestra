@@ -4,11 +4,12 @@
 
 import { ToolRegistry } from "./ToolRegistry.js";
 import {
+  findUsagesTool,
   grepSearchTool,
   listDirectoryTool,
   readFileTool,
   registerCodingTools,
-  searchTool,
+  searchFilesTool,
 } from "./tools/coding/index.js";
 import { registerOrchestraControllerTools } from "./tools/orchestra/controllerIndex.js";
 import { registerOrchestraImplementorTools } from "./tools/orchestra/index.js";
@@ -44,8 +45,9 @@ export function loadControllerTools(registry: ToolRegistry): void {
   registry.registerAll([
     readFileTool,
     listDirectoryTool,
-    searchTool,
+    searchFilesTool,
     grepSearchTool,
+    findUsagesTool,
   ]);
   // Controller gets ONLY controller-specific Orchestra tools (approve/reject)
   registerOrchestraControllerTools(registry);
