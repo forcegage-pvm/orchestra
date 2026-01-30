@@ -157,7 +157,7 @@ describe("AgentRunner + SprintMemory integration", () => {
       clear: () => {},
     } as unknown as ToolRegistry;
 
-    const runner = new AgentRunner(toolRegistry);
+    const runner = new AgentRunner(toolRegistry, { skipToolLoading: true });
     const runSpy = vi
       .spyOn(
         runner as unknown as { runAgentLoop: () => Promise<void> },
@@ -207,7 +207,7 @@ describe("AgentRunner + SprintMemory integration", () => {
       clear: () => {},
     } as unknown as ToolRegistry;
 
-    const runner = new AgentRunner(toolRegistry);
+    const runner = new AgentRunner(toolRegistry, { skipToolLoading: true });
     vi.spyOn(
       runner as unknown as { runAgentLoop: () => Promise<void> },
       "runAgentLoop",

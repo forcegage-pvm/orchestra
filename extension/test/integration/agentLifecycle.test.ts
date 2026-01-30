@@ -167,7 +167,7 @@ describe("Agent Lifecycle Integration", () => {
       clear: () => {},
     } as unknown as ToolRegistry;
 
-    runner = new AgentRunner(registry);
+    runner = new AgentRunner(registry, { skipToolLoading: true });
     vi.clearAllMocks();
   });
 

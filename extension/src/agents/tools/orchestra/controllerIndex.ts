@@ -10,14 +10,15 @@ import { handleApproveSprint } from "../../../../../src/mcp-server/handlers/appr
 import { handleGetHandover } from "../../../../../src/mcp-server/handlers/get-handover.js";
 import { handleGetSprintStatus } from "../../../../../src/mcp-server/handlers/get-sprint-status.js";
 import { handleGetTask } from "../../../../../src/mcp-server/handlers/get-task.js";
+import { handleReadSpecFile } from "../../../../../src/mcp-server/handlers/read-spec-file.js";
 import { handleRejectHandover } from "../../../../../src/mcp-server/handlers/reject-handover.js";
 import { handleRejectSprint } from "../../../../../src/mcp-server/handlers/reject-sprint.js";
 import { ToolRegistry } from "../../ToolRegistry.js";
-import type { ToolContext, ToolDefinition, ToolResult } from "../../types.js";
+import type { AgentTool, ToolInvocationContext, ToolResult } from "../types.js";
 import { executeMcpHandler } from "./mcpAdapter.js";
 
 // ==================== get_sprint_status (read-only) ====================
-const getSprintStatusTool: ToolDefinition = {
+const getSprintStatusTool: AgentTool = {
   name: "get_sprint_status",
   description:
     "Get sprint status with phase summaries. Check for PENDING_SPEC_REVIEW or tasks in PENDING_HANDOVER_REVIEW.",
@@ -26,12 +27,15 @@ const getSprintStatusTool: ToolDefinition = {
     properties: {},
     required: [],
   },
-  execute: async (_input: unknown, context: ToolContext): Promise<ToolResult> =>
-    executeMcpHandler(context.workspaceRoot, handleGetSprintStatus, {}),
+  invoke: async (
+    _input: unknown,
+    context: ToolInvocationContext,
+  ): Promise<ToolResult> =>
+    executeMcpHandler(context, "get_sprint_status", handleGetSprintStatus, {}),
 };
 
 // ==================== get_task (read-only) ====================
-const getTaskTool: ToolDefinition = {
+const getTaskTool: AgentTool = {
   name: "get_task",
   description:
     "Get task details for a specific task. Use before reviewing handover.",
@@ -45,12 +49,15 @@ const getTaskTool: ToolDefinition = {
     },
     required: ["task_id"],
   },
-  execute: async (input: unknown, context: ToolContext): Promise<ToolResult> =>
-    executeMcpHandler(context.workspaceRoot, handleGetTask, input),
+  invoke: async (
+    input: unknown,
+    context: ToolInvocationContext,
+  ): Promise<ToolResult> =>
+    executeMcpHandler(context, "get_task", handleGetTask, input),
 };
 
 // ==================== get_handover (read-only, for handover review) ====================
-const getHandoverTool: ToolDefinition = {
+const getHandoverTool: AgentTool = {
   name: "get_handover",
   description:
     "Get the handover for a task to review. Shows acceptance criteria, file operations, and context that implementor will see.",
@@ -64,12 +71,46 @@ const getHandoverTool: ToolDefinition = {
     },
     required: ["task_id"],
   },
-  execute: async (input: unknown, context: ToolContext): Promise<ToolResult> =>
-    executeMcpHandler(context.workspaceRoot, handleGetHandover, input),
+  invoke: async (
+    input: unknown,
+    context: ToolInvocationContext,
+  ): Promise<ToolResult> =>
+    executeMcpHandler(context, "get_handover", handleGetHandover, input),
+};
+
+// ==================== read_spec_file (read-only, for spec review) ====================
+const readSpecFileTool: AgentTool = {
+  name: "read_spec_file",
+  description:
+    "Read a specification file for review purposes. Restricted to spec/, specs/, and docs/ directories.",
+  inputSchema: {
+    type: "object" as const,
+    properties: {
+      path: {
+        type: "string",
+        description:
+          "Path to the specification file, relative to workspace root. Must be in spec/, specs/, or docs/ directory.",
+      },
+      start_line: {
+        type: "number",
+        description: "Optional: Start line to read from (1-indexed)",
+      },
+      end_line: {
+        type: "number",
+        description: "Optional: End line to read to (1-indexed, inclusive)",
+      },
+    },
+    required: ["path"],
+  },
+  invoke: async (
+    input: unknown,
+    context: ToolInvocationContext,
+  ): Promise<ToolResult> =>
+    executeMcpHandler(context, "read_spec_file", handleReadSpecFile, input),
 };
 
 // ==================== approve_sprint (judgment) ====================
-const approveSprintTool: ToolDefinition = {
+const approveSprintTool: AgentTool = {
   name: "approve_sprint",
   description:
     "Approve a sprint configuration. Use when sprint aligns with spec.",
@@ -89,12 +130,15 @@ const approveSprintTool: ToolDefinition = {
     },
     required: ["conformance"],
   },
-  execute: async (input: unknown, context: ToolContext): Promise<ToolResult> =>
-    executeMcpHandler(context.workspaceRoot, handleApproveSprint, input),
+  invoke: async (
+    input: unknown,
+    context: ToolInvocationContext,
+  ): Promise<ToolResult> =>
+    executeMcpHandler(context, "approve_sprint", handleApproveSprint, input),
 };
 
 // ==================== reject_sprint (judgment) ====================
-const rejectSprintTool: ToolDefinition = {
+const rejectSprintTool: AgentTool = {
   name: "reject_sprint",
   description:
     "Reject a sprint configuration. Use when sprint has spec violations.",
@@ -131,12 +175,15 @@ const rejectSprintTool: ToolDefinition = {
     },
     required: ["issues", "recommendations"],
   },
-  execute: async (input: unknown, context: ToolContext): Promise<ToolResult> =>
-    executeMcpHandler(context.workspaceRoot, handleRejectSprint, input),
+  invoke: async (
+    input: unknown,
+    context: ToolInvocationContext,
+  ): Promise<ToolResult> =>
+    executeMcpHandler(context, "reject_sprint", handleRejectSprint, input),
 };
 
 // ==================== approve_handover (judgment) ====================
-const approveHandoverTool: ToolDefinition = {
+const approveHandoverTool: AgentTool = {
   name: "approve_handover",
   description: "Approve a task handover. Use when handover aligns with spec.",
   inputSchema: {
@@ -159,12 +206,20 @@ const approveHandoverTool: ToolDefinition = {
     },
     required: ["task_id", "conformance"],
   },
-  execute: async (input: unknown, context: ToolContext): Promise<ToolResult> =>
-    executeMcpHandler(context.workspaceRoot, handleApproveHandover, input),
+  invoke: async (
+    input: unknown,
+    context: ToolInvocationContext,
+  ): Promise<ToolResult> =>
+    executeMcpHandler(
+      context,
+      "approve_handover",
+      handleApproveHandover,
+      input,
+    ),
 };
 
 // ==================== reject_handover (judgment) ====================
-const rejectHandoverTool: ToolDefinition = {
+const rejectHandoverTool: AgentTool = {
   name: "reject_handover",
   description: "Reject a task handover. Use when handover has spec violations.",
   inputSchema: {
@@ -204,14 +259,18 @@ const rejectHandoverTool: ToolDefinition = {
     },
     required: ["task_id", "issues", "recommendations"],
   },
-  execute: async (input: unknown, context: ToolContext): Promise<ToolResult> =>
-    executeMcpHandler(context.workspaceRoot, handleRejectHandover, input),
+  invoke: async (
+    input: unknown,
+    context: ToolInvocationContext,
+  ): Promise<ToolResult> =>
+    executeMcpHandler(context, "reject_handover", handleRejectHandover, input),
 };
 
 export const orchestraControllerTools = [
   getSprintStatusTool,
   getTaskTool,
   getHandoverTool,
+  readSpecFileTool,
   approveSprintTool,
   rejectSprintTool,
   approveHandoverTool,
@@ -228,6 +287,7 @@ export {
   getHandoverTool,
   getSprintStatusTool,
   getTaskTool,
+  readSpecFileTool,
   rejectHandoverTool,
   rejectSprintTool,
 };

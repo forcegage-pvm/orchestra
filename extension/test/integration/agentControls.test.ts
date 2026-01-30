@@ -127,7 +127,7 @@ describe("Agent Control Lifecycle Integration", () => {
 
   beforeEach(() => {
     registry = new ToolRegistry();
-    runner = new AgentRunner(registry);
+    runner = new AgentRunner(registry, { skipToolLoading: true });
     streamResolvers = [];
     vi.clearAllMocks();
   });

@@ -126,6 +126,7 @@ export class AgentRunner implements vscode.Disposable {
   private contextManager: ContextManager;
   private config: AgentConfig;
   private configService?: ConfigService;
+  private lastLoadedToolsRole: AgentRole | undefined;
 
   // Execution control
   private isPaused = false;
@@ -186,6 +187,7 @@ export class AgentRunner implements vscode.Disposable {
       compactionThreshold: config?.compactionThreshold ?? 5,
       maxContextTokens: config?.maxContextTokens ?? 100000,
       summarizeAfterToolCalls: config?.summarizeAfterToolCalls ?? 20,
+      skipToolLoading: config?.skipToolLoading ?? false,
     };
   }
 
@@ -277,23 +279,35 @@ export class AgentRunner implements vscode.Disposable {
       maxIterations,
     );
 
-    const hasPreloadedTools = this.toolRegistry.names().length > 0;
+    // Load role-specific tools unless skipToolLoading is set (for tests with custom tools)
+    // This ensures:
+    // 1. Role separation - each role gets only its permitted tools
+    // 2. Test compatibility - tests can inject custom tools and skip auto-loading
+    if (!this.config.skipToolLoading) {
+      const needsToolReload = this.lastLoadedToolsRole !== role;
 
-    if (!hasPreloadedTools) {
-      // Clear existing tools before loading role-specific ones
-      // This prevents "already registered" errors when switching roles
-      this.toolRegistry.clear();
+      if (needsToolReload) {
+        this.toolRegistry.clear();
+        this.lastLoadedToolsRole = role;
+      }
+
+      if (role === "implementor") {
+        if (needsToolReload) {
+          loadImplementorTools(this.toolRegistry);
+        }
+      } else if (role === "orchestrator") {
+        if (needsToolReload) {
+          loadOrchestratorTools(this.toolRegistry);
+        }
+      } else if (role === "controller") {
+        if (needsToolReload) {
+          loadControllerTools(this.toolRegistry);
+        }
+      }
     }
 
-    if (role === "implementor") {
-      if (!hasPreloadedTools) {
-        loadImplementorTools(this.toolRegistry);
-      }
-    } else if (role === "orchestrator") {
-      if (!hasPreloadedTools) {
-        loadOrchestratorTools(this.toolRegistry);
-      }
-
+    // Orchestrator needs memory context regardless of tool loading
+    if (role === "orchestrator") {
       const workspaceRoot =
         vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? process.cwd();
       const memoryStore = SprintMemory.getInstance(workspaceRoot);
@@ -301,10 +315,6 @@ export class AgentRunner implements vscode.Disposable {
       const memory = await memoryStore.getOrCreate(sprintId, sprintName);
       const memoryContext = this.formatSprintMemoryContext(memory);
       this.addUserMessage(memoryContext);
-    } else if (role === "controller") {
-      if (!hasPreloadedTools) {
-        loadControllerTools(this.toolRegistry);
-      }
     }
 
     // Create cancellation token

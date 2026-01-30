@@ -173,7 +173,7 @@ describe("AgentRunner", () => {
   beforeEach(() => {
     registry = new ToolRegistry();
     registry.register(mockTool);
-    runner = new AgentRunner(registry);
+    runner = new AgentRunner(registry, { skipToolLoading: true });
     resolveStream = undefined;
     vi.clearAllMocks();
     vi.mocked(createEscalation).mockClear();
@@ -763,7 +763,10 @@ describe("AgentRunner", () => {
   describe("iteration limit enforcement", () => {
     test("should stop after reaching max iterations", async () => {
       // Create runner with low iteration limit
-      const limitedRunner = new AgentRunner(registry, { maxIterations: 2 });
+      const limitedRunner = new AgentRunner(registry, {
+        maxIterations: 2,
+        skipToolLoading: true,
+      });
 
       // Mock model that always returns thinking (no tool calls) in async generator format
       const mockModel = {
@@ -817,7 +820,10 @@ describe("AgentRunner", () => {
         toolCallModel as any,
       ]);
 
-      const limitedRunner = new AgentRunner(registry, { maxIterations: 1 });
+      const limitedRunner = new AgentRunner(registry, {
+        maxIterations: 1,
+        skipToolLoading: true,
+      });
       limitedRunner.onOutput((output) => outputs.push(output));
 
       await limitedRunner.start("orchestrator", {
@@ -950,6 +956,7 @@ describe("AgentRunner", () => {
       const retryRunner = new AgentRunner(retryRegistry, {
         maxToolRetries: 2,
         maxIterations: 1,
+        skipToolLoading: true,
       });
 
       const mockModel = {
@@ -996,6 +1003,7 @@ describe("AgentRunner", () => {
       const failRunner = new AgentRunner(failingRegistry, {
         maxToolRetries: 0,
         maxIterations: 5,
+        skipToolLoading: true,
       });
 
       const mockModel = (() => {

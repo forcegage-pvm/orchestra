@@ -131,6 +131,9 @@ export const AgentConfigSchema = z.object({
   compactionThreshold: z.number().int().positive().default(5),
   maxContextTokens: z.number().int().positive().default(100000),
   summarizeAfterToolCalls: z.number().int().positive().default(20),
+
+  // Testing/Advanced: Skip automatic tool loading (for tests that inject custom tools)
+  skipToolLoading: z.boolean().default(false),
 });
 export type AgentConfig = z.output<typeof AgentConfigSchema>;
 

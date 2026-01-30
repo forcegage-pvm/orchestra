@@ -38,6 +38,8 @@ export class OrchestraLogger {
    * the `orchestra.logLevel` configuration setting.
    *
    * @returns Nothing.
+   * @example
+   * const logger = new OrchestraLogger();
    */
   constructor() {
     this.channel = vscode.window.createOutputChannel("Orchestra");
@@ -115,6 +117,7 @@ export class OrchestraLogger {
    *
    * @returns Nothing.
    * @example
+   * const logger = new OrchestraLogger();
    * logger.show();
    */
   show(): void {
@@ -128,6 +131,8 @@ export class OrchestraLogger {
    * @param message - Human-readable message to include in the log entry.
    * @param context - Optional context object serialized as JSON.
    * @returns Nothing.
+   * @example
+   * logger["log"]("INFO", "Manually appended log", { source: "tests" });
    */
   private log(level: string, message: string, context?: unknown): void {
     const timestamp = new Date().toISOString();
@@ -140,6 +145,9 @@ export class OrchestraLogger {
    *
    * @param level - The level of the message being logged.
    * @returns `true` when the message level is at or above the configured level.
+   * @example
+   * const logger = new OrchestraLogger();
+   * logger["shouldLog"]("warn");
    */
   private shouldLog(level: LogLevel): boolean {
     const levels: LogLevel[] = ["debug", "info", "warn", "error"];
@@ -153,6 +161,7 @@ export class OrchestraLogger {
    *
    * @returns Nothing.
    * @example
+   * const logger = new OrchestraLogger();
    * logger.dispose();
    */
   dispose(): void {
