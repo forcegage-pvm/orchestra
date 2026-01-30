@@ -55,7 +55,7 @@ vi.mock("vscode", () => ({
 }));
 
 import { fetchTool } from "../../../../src/agents/tools/system/fetch.js";
-import { problemsTool } from "../../../../src/agents/tools/system/problems.js";
+import { getProblemsTool } from "../../../../src/agents/tools/system/getProblems.js";
 import { runCommandsTool } from "../../../../src/agents/tools/system/runCommands.js";
 import { runTaskTool } from "../../../../src/agents/tools/system/runTask.js";
 import { runTestsTool } from "../../../../src/agents/tools/system/runTests.js";
@@ -233,7 +233,7 @@ describe("runTestsTool", () => {
   });
 });
 
-describe("problemsTool", () => {
+describe("getProblemsTool", () => {
   it("returns diagnostics grouped by file", async () => {
     const diagnostics = [
       {
@@ -252,10 +252,10 @@ describe("problemsTool", () => {
       [{ fsPath: "/workspace/src/file.ts" }, diagnostics],
     ]);
 
-    const result = await problemsTool.execute({}, mockContext);
+    const result = await getProblemsTool.invoke({}, mockInvocationContext);
 
     expect(result.success).toBe(true);
-    const output = JSON.parse(result.output) as {
+    const output = JSON.parse(result.content[0]?.value ?? "{}") as {
       files: Array<{
         file: string;
         relativePath?: string;

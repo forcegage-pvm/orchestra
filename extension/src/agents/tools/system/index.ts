@@ -6,9 +6,9 @@
 
 import { ToolRegistry } from "../../ToolRegistry.js";
 import { fetchTool } from "./fetch.js";
+import { getProblemsTool } from "./getProblems.js";
 import { getTerminalOutputTool } from "./getTerminalOutput.js";
 import { getTestFailuresTool } from "./getTestFailures.js";
-import { problemsTool } from "./problems.js";
 import { runCommandsTool } from "./runCommands.js";
 import { runTaskTool } from "./runTask.js";
 import { runTerminalTool } from "./runTerminal.js";
@@ -21,7 +21,7 @@ export const systemTools = [
   runTaskTool,
   runTestsTool,
   getTestFailuresTool,
-  problemsTool,
+  getProblemsTool,
   fetchTool,
 ] as const;
 
@@ -31,9 +31,9 @@ export function registerSystemTools(registry: ToolRegistry): void {
 
 export {
   fetchTool,
+  getProblemsTool,
   getTerminalOutputTool,
   getTestFailuresTool,
-  problemsTool,
   runCommandsTool,
   runTaskTool,
   runTerminalTool,
