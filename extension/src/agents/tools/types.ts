@@ -67,6 +67,79 @@ export const ToolResultSchema = z.object({
 export type ToolResult = z.output<typeof ToolResultSchema>;
 
 // ============================================================================
+// Terminal Tool Types
+// ============================================================================
+
+export const RunCommandInputSchema = z.object({
+  command: z.string().min(1),
+  cwd: z.string().optional(),
+  timeout_ms: z.number().int().nonnegative().optional(),
+  stdin: z.string().optional(),
+  env: z.record(z.string()).optional(),
+});
+export type RunCommandInput = z.output<typeof RunCommandInputSchema>;
+
+export interface RunCommandResult {
+  success: boolean;
+  exit_code: number;
+  stdout: string;
+  stderr: string;
+  duration_ms: number;
+  timed_out: boolean;
+  warning?: string;
+}
+
+export const StartProcessInputSchema = z.object({
+  command: z.string().min(1),
+  cwd: z.string().optional(),
+  ready_pattern: z.string().optional(),
+  ready_timeout_ms: z.number().int().nonnegative().optional(),
+  env: z.record(z.string()).optional(),
+});
+export type StartProcessInput = z.output<typeof StartProcessInputSchema>;
+
+export interface StartProcessResult {
+  success: boolean;
+  process_id: string;
+  status: ProcessStatus;
+  initial_output: string;
+  error?: string;
+}
+
+export const GetProcessOutputInputSchema = z.object({
+  process_id: z.string().min(1),
+  since_last_read: z.boolean().optional(),
+  max_lines: z.number().int().positive().optional(),
+  include_ansi: z.boolean().optional(),
+});
+export type GetProcessOutputInput = z.output<
+  typeof GetProcessOutputInputSchema
+>;
+
+export interface GetProcessOutputResult {
+  success: boolean;
+  process_id: string;
+  status: ProcessStatus;
+  output: string[];
+  truncated: boolean;
+  lines_returned: number;
+  total_lines: number;
+}
+
+export const StopProcessInputSchema = z.object({
+  process_id: z.string().min(1),
+  graceful_timeout_ms: z.number().int().nonnegative().optional(),
+});
+export type StopProcessInput = z.output<typeof StopProcessInputSchema>;
+
+export interface StopProcessResult {
+  success: boolean;
+  process_id: string;
+  exit_code?: number;
+  force_killed: boolean;
+}
+
+// ============================================================================
 // Infrastructure Types (Process + Matching)
 // ============================================================================
 
@@ -173,6 +246,93 @@ export interface FuzzyMatcherConfig {
 
   /** Normalize whitespace before comparison (default: true) */
   normalize_whitespace: boolean;
+}
+
+// ============================================================================
+// File Editing Tool Types
+// ============================================================================
+
+export const SmartReplaceInputSchema = z.object({
+  file_path: z.string().min(1),
+  old_text: z.string(),
+  new_text: z.string(),
+  start_line_hint: z.number().int().positive().optional(),
+  occurrence: z.number().int().positive().optional(),
+  fuzzy_threshold: z.number().min(0).max(1).optional(),
+  dry_run: z.boolean().optional(),
+});
+export type SmartReplaceInput = z.output<typeof SmartReplaceInputSchema>;
+
+export interface SmartReplaceResult {
+  success: boolean;
+  match_type: MatchType;
+  confidence: number;
+  lines_changed: number;
+  preview?: string;
+  message?: string;
+}
+
+export const EditLinesInputSchema = z.object({
+  file_path: z.string().min(1),
+  start_line: z.number().int().positive(),
+  end_line: z.number().int().positive(),
+  new_content: z.string(),
+  create_if_missing: z.boolean().optional(),
+});
+export type EditLinesInput = z.output<typeof EditLinesInputSchema>;
+
+export interface EditLinesResult {
+  success: boolean;
+  lines_removed: number;
+  lines_inserted: number;
+  warning?: string;
+}
+
+export const InsertAtLineInputSchema = z.object({
+  file_path: z.string().min(1),
+  line: z.number().int().positive(),
+  content: z.string(),
+  auto_indent: z.boolean().optional(),
+});
+export type InsertAtLineInput = z.output<typeof InsertAtLineInputSchema>;
+
+export const DeleteSectionInputSchema = z.object({
+  file_path: z.string().min(1),
+  start_line: z.number().int().positive().optional(),
+  end_line: z.number().int().positive().optional(),
+  start_pattern: z.string().optional(),
+  end_pattern: z.string().optional(),
+  include_patterns: z.boolean().optional(),
+});
+export type DeleteSectionInput = z.output<typeof DeleteSectionInputSchema>;
+
+export interface DeleteSectionResult {
+  success: boolean;
+  lines_deleted: number;
+  start_line: number;
+  end_line: number;
+  deleted_content: string;
+}
+
+export const ValidateEditInputSchema = z.object({
+  file_path: z.string().min(1),
+  new_content: z.string(),
+  timeout_ms: z.number().int().nonnegative().optional(),
+});
+export type ValidateEditInput = z.output<typeof ValidateEditInputSchema>;
+
+export interface DiagnosticInfo {
+  line: number;
+  column: number;
+  message: string;
+  severity: string;
+  source?: string;
+}
+
+export interface ValidateEditResult {
+  syntax_valid: boolean;
+  errors: DiagnosticInfo[];
+  warnings: DiagnosticInfo[];
 }
 
 // ============================================================================

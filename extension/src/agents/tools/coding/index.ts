@@ -15,6 +15,14 @@ import { listDirectoryTool } from "./listDirectory.js";
 import { readFileTool } from "./readFile.js";
 import { searchFilesTool } from "./searchFiles.js";
 
+// Placeholder structure for upcoming file editing tools:
+// - smartReplace
+// - editLines
+// - insertAtLine
+// - deleteSection
+// - validateEdit
+// - bulkReplace
+
 export const codingTools = [
   readFileTool,
   editFileTool,

@@ -12,6 +12,14 @@ import { runTaskTool } from "./runTask.js";
 import { runTerminalTool } from "./runTerminal.js";
 import { runTestsTool } from "./runTests.js";
 
+// Placeholder structure for upcoming terminal tools:
+// - startProcess
+// - stopProcess
+// - getProcessOutput
+// - listProcesses
+// - sendInput
+// - waitForPattern
+
 export const systemTools = [
   runTerminalTool,
   getTerminalOutputTool,
