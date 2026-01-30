@@ -7,8 +7,9 @@
 
 import { rm } from "node:fs/promises";
 import os from "node:os";
+import * as vscode from "vscode";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { ToolContext } from "../../../../src/agents/types.js";
+import type { ToolInvocationContext } from "../../../../src/agents/tools/types.js";
 
 // Mock MCP handlers BEFORE importing tools (hoisted)
 const {
@@ -88,13 +89,10 @@ import { prepareTaskTool } from "../../../../src/agents/tools/orchestra/prepareT
 import { runVerificationChecksTool } from "../../../../src/agents/tools/orchestra/runVerificationChecks.js";
 import { submitVerificationJudgmentTool } from "../../../../src/agents/tools/orchestra/submitVerificationJudgment.js";
 
-const mockContext: ToolContext = {
+const mockContext: ToolInvocationContext = {
   workspaceRoot: "/workspace",
   sessionId: "session",
-  iteration: 0,
-  cancellationToken: {},
-  logger: {},
-  db: {},
+  token: {} as vscode.CancellationToken,
 };
 
 // Helper to create MCP-style response
@@ -148,10 +146,10 @@ describe("getCurrentTaskTool", () => {
   it("returns structured handover data", async () => {
     mockHandleGetCurrentTask.mockResolvedValue(mcpResponse(mockTaskOutput));
 
-    const result = await getCurrentTaskTool.execute({}, mockContext);
+    const result = await getCurrentTaskTool.invoke({}, mockContext);
 
     expect(result.success).toBe(true);
-    const payload = JSON.parse(result.output) as {
+    const payload = JSON.parse(result.content[0]?.value ?? "{}") as {
       task_id: number;
       title: string;
       acceptance_criteria: unknown;
@@ -177,10 +175,10 @@ describe("getCurrentTaskTool", () => {
       mcpError("No current task found"),
     );
 
-    const result = await getCurrentTaskTool.execute({}, mockContext);
+    const result = await getCurrentTaskTool.invoke({}, mockContext);
 
     expect(result.success).toBe(false);
-    expect(result.error).toContain("No current task");
+    expect(result.error?.message).toContain("No current task");
   });
 });
 
@@ -193,7 +191,7 @@ describe("signalCompletionTool", () => {
       }),
     );
 
-    const result = await signalCompletionTool.execute(
+    const result = await signalCompletionTool.invoke(
       {
         task_id: 6,
         summary: "Done with implementation",
@@ -215,7 +213,7 @@ describe("signalCompletionTool", () => {
       mcpError("No current task found"),
     );
 
-    const result = await signalCompletionTool.execute(
+    const result = await signalCompletionTool.invoke(
       {
         task_id: 6,
         summary: "Done with implementation",
@@ -227,7 +225,7 @@ describe("signalCompletionTool", () => {
     );
 
     expect(result.success).toBe(false);
-    expect(result.error).toContain("No current task");
+    expect(result.error?.message).toContain("No current task");
   });
 });
 
@@ -244,10 +242,10 @@ describe("getFeedbackTool", () => {
       }),
     );
 
-    const result = await getFeedbackTool.execute({}, mockContext);
+    const result = await getFeedbackTool.invoke({}, mockContext);
 
     expect(result.success).toBe(true);
-    const payload = JSON.parse(result.output) as {
+    const payload = JSON.parse(result.content[0]?.value ?? "{}") as {
       issues: unknown;
       passed_checks: unknown;
       next_steps: unknown;
@@ -265,10 +263,10 @@ describe("getFeedbackTool", () => {
       mcpError("No feedback found for task"),
     );
 
-    const result = await getFeedbackTool.execute({}, mockContext);
+    const result = await getFeedbackTool.invoke({}, mockContext);
 
     expect(result.success).toBe(false);
-    expect(result.error).toContain("No feedback");
+    expect(result.error?.message).toContain("No feedback");
   });
 });
 
@@ -285,10 +283,10 @@ describe("getProgressTool", () => {
       }),
     );
 
-    const result = await getProgressTool.execute({}, mockContext);
+    const result = await getProgressTool.invoke({}, mockContext);
 
     expect(result.success).toBe(true);
-    const payload = JSON.parse(result.output) as {
+    const payload = JSON.parse(result.content[0]?.value ?? "{}") as {
       total: number;
       completed: number;
       pending: number;
@@ -304,10 +302,10 @@ describe("getProgressTool", () => {
   it("returns error when no active sprint exists", async () => {
     mockHandleGetProgress.mockResolvedValue(mcpError("No active sprint found"));
 
-    const result = await getProgressTool.execute({}, mockContext);
+    const result = await getProgressTool.invoke({}, mockContext);
 
     expect(result.success).toBe(false);
-    expect(result.error).toContain("No active sprint");
+    expect(result.error?.message).toContain("No active sprint");
   });
 });
 
@@ -329,10 +327,10 @@ describe("getSprintStatusTool", () => {
       }),
     );
 
-    const result = await getSprintStatusTool.execute({}, mockContext);
+    const result = await getSprintStatusTool.invoke({}, mockContext);
 
     expect(result.success).toBe(true);
-    const payload = JSON.parse(result.output) as {
+    const payload = JSON.parse(result.content[0]?.value ?? "{}") as {
       summary: { total: number; completed: number; pending: number };
       phases: Array<{ phase_id: string; task_count: number }>;
       active_task: { task_id: number } | null;
@@ -356,7 +354,7 @@ describe("prepareTaskTool", () => {
       }),
     );
 
-    const result = await prepareTaskTool.execute(
+    const result = await prepareTaskTool.invoke(
       {
         task_id: 7,
         priority: "P1",
@@ -391,13 +389,15 @@ describe("runVerificationChecksTool", () => {
       }),
     );
 
-    const result = await runVerificationChecksTool.execute(
+    const result = await runVerificationChecksTool.invoke(
       { task_id: 1 },
       mockContext,
     );
 
     expect(result.success).toBe(true);
-    const payload = JSON.parse(result.output) as { results: unknown[] };
+    const payload = JSON.parse(result.content[0]?.value ?? "{}") as {
+      results: unknown[];
+    };
     expect(payload.results).toHaveLength(3);
   });
 });
@@ -413,7 +413,7 @@ describe("submitVerificationJudgmentTool", () => {
       }),
     );
 
-    const result = await submitVerificationJudgmentTool.execute(
+    const result = await submitVerificationJudgmentTool.invoke(
       {
         task_id: 5,
         judgment: "PASS",
@@ -445,7 +445,7 @@ describe("submitVerificationJudgmentTool", () => {
       }),
     );
 
-    const result = await submitVerificationJudgmentTool.execute(
+    const result = await submitVerificationJudgmentTool.invoke(
       {
         task_id: 6,
         judgment: "FAIL",
@@ -484,7 +484,7 @@ describe("escalateTaskTool", () => {
       }),
     );
 
-    const result = await escalateTaskTool.execute(
+    const result = await escalateTaskTool.invoke(
       {
         task_id: 6,
         reason: "Blocked by missing credentials",
@@ -501,7 +501,7 @@ describe("escalateTaskTool", () => {
   it("returns error when no current task exists", async () => {
     mockHandleEscalateTask.mockResolvedValue(mcpError("No current task found"));
 
-    const result = await escalateTaskTool.execute(
+    const result = await escalateTaskTool.invoke(
       {
         task_id: 6,
         reason: "Blocked by missing credentials",
@@ -511,6 +511,6 @@ describe("escalateTaskTool", () => {
     );
 
     expect(result.success).toBe(false);
-    expect(result.error).toContain("No current task");
+    expect(result.error?.message).toContain("No current task");
   });
 });

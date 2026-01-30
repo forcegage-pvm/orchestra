@@ -3,10 +3,10 @@
  */
 
 import { handleEscalateTask } from "../../../../../src/mcp-server/handlers/escalate-task.js";
-import type { ToolContext, ToolDefinition, ToolResult } from "../../types.js";
+import type { AgentTool, ToolInvocationContext, ToolResult } from "../types.js";
 import { executeMcpHandler } from "./mcpAdapter.js";
 
-export const escalateTaskTool: ToolDefinition = {
+export const escalateTaskTool: AgentTool = {
   name: "escalate_task",
   description: "Escalate stuck task to human supervisor",
   inputSchema: {
@@ -36,6 +36,9 @@ export const escalateTaskTool: ToolDefinition = {
     },
     required: ["task_id", "reason", "attempts_summary"],
   },
-  execute: async (input: unknown, context: ToolContext): Promise<ToolResult> =>
-    executeMcpHandler(context.workspaceRoot, handleEscalateTask, input),
+  invoke: async (
+    input: unknown,
+    context: ToolInvocationContext,
+  ): Promise<ToolResult> =>
+    executeMcpHandler(context, "escalate_task", handleEscalateTask, input),
 };

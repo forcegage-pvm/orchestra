@@ -6,8 +6,7 @@
  */
 
 import { handlePrepareTask } from "../../../../../src/mcp-server/handlers/prepare-task.js";
-import type { AgentTool } from "../../ToolRegistry.js";
-import type { ToolContext, ToolResult } from "../../types.js";
+import type { AgentTool, ToolInvocationContext, ToolResult } from "../types.js";
 import { executeMcpHandler } from "./mcpAdapter.js";
 
 export const prepareTaskTool: AgentTool = {
@@ -93,10 +92,10 @@ export const prepareTaskTool: AgentTool = {
       "deliverables",
     ],
   },
-  execute: async (
+  invoke: async (
     input: unknown,
-    context: ToolContext,
+    context: ToolInvocationContext,
   ): Promise<ToolResult> => {
-    return executeMcpHandler(context.workspaceRoot, handlePrepareTask, input);
+    return executeMcpHandler(context, "prepare_task", handlePrepareTask, input);
   },
 };

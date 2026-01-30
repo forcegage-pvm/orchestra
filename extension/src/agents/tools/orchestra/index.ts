@@ -10,12 +10,16 @@ import { handleGetFeedback } from "../../../../../src/mcp-server/handlers/get-fe
 import { handleGetProgress } from "../../../../../src/mcp-server/handlers/get-progress.js";
 import { handleSignalCompletion } from "../../../../../src/mcp-server/handlers/signal-completion.js";
 import { ToolRegistry } from "../../ToolRegistry.js";
-import type { ToolContext, ToolDefinition, ToolResult } from "../../types.js";
+import type {
+  AgentTool,
+  ToolInvocationContext,
+  ToolResult,
+} from "../types.js";
 import { escalateTaskTool } from "./escalateTask.js";
 import { executeMcpHandler } from "./mcpAdapter.js";
 
 // ==================== get_current_task ====================
-const getCurrentTaskTool: ToolDefinition = {
+const getCurrentTaskTool: AgentTool = {
   name: "get_current_task",
   description: "Get current task handover (implementor only)",
   inputSchema: {
@@ -23,12 +27,15 @@ const getCurrentTaskTool: ToolDefinition = {
     properties: {},
     required: [],
   },
-  execute: async (_input: unknown, context: ToolContext): Promise<ToolResult> =>
-    executeMcpHandler(context.workspaceRoot, handleGetCurrentTask, {}),
+  invoke: async (
+    _input: unknown,
+    context: ToolInvocationContext,
+  ): Promise<ToolResult> =>
+    executeMcpHandler(context, "get_current_task", handleGetCurrentTask, {}),
 };
 
 // ==================== signal_completion ====================
-const signalCompletionTool: ToolDefinition = {
+const signalCompletionTool: AgentTool = {
   name: "signal_completion",
   description: "Signal task completion with artifacts (runs pre-signal checks)",
   inputSchema: {
@@ -78,12 +85,15 @@ const signalCompletionTool: ToolDefinition = {
       "test_status",
     ],
   },
-  execute: async (input: unknown, context: ToolContext): Promise<ToolResult> =>
-    executeMcpHandler(context.workspaceRoot, handleSignalCompletion, input),
+  invoke: async (
+    input: unknown,
+    context: ToolInvocationContext,
+  ): Promise<ToolResult> =>
+    executeMcpHandler(context, "signal_completion", handleSignalCompletion, input),
 };
 
 // ==================== get_feedback ====================
-const getFeedbackTool: ToolDefinition = {
+const getFeedbackTool: AgentTool = {
   name: "get_feedback",
   description: "Get verification failure feedback for a task attempt",
   inputSchema: {
@@ -100,12 +110,15 @@ const getFeedbackTool: ToolDefinition = {
     },
     required: ["task_id"],
   },
-  execute: async (input: unknown, context: ToolContext): Promise<ToolResult> =>
-    executeMcpHandler(context.workspaceRoot, handleGetFeedback, input),
+  invoke: async (
+    input: unknown,
+    context: ToolInvocationContext,
+  ): Promise<ToolResult> =>
+    executeMcpHandler(context, "get_feedback", handleGetFeedback, input),
 };
 
 // ==================== get_progress ====================
-const getProgressTool: ToolDefinition = {
+const getProgressTool: AgentTool = {
   name: "get_progress",
   description: "Get sprint progress summary with task counts",
   inputSchema: {
@@ -113,8 +126,11 @@ const getProgressTool: ToolDefinition = {
     properties: {},
     required: [],
   },
-  execute: async (_input: unknown, context: ToolContext): Promise<ToolResult> =>
-    executeMcpHandler(context.workspaceRoot, handleGetProgress, {}),
+  invoke: async (
+    _input: unknown,
+    context: ToolInvocationContext,
+  ): Promise<ToolResult> =>
+    executeMcpHandler(context, "get_progress", handleGetProgress, {}),
 };
 
 // ==================== Registration ====================

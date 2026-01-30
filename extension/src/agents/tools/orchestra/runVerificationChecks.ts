@@ -5,8 +5,7 @@
  */
 
 import { handleRunVerificationChecks } from "../../../../../src/mcp-server/handlers/run-verification-checks.js";
-import type { AgentTool } from "../../ToolRegistry.js";
-import type { ToolContext, ToolResult } from "../../types.js";
+import type { AgentTool, ToolInvocationContext, ToolResult } from "../types.js";
 import { executeMcpHandler } from "./mcpAdapter.js";
 
 export const runVerificationChecksTool: AgentTool = {
@@ -40,12 +39,13 @@ export const runVerificationChecksTool: AgentTool = {
     },
     required: ["task_id"],
   },
-  execute: async (
+  invoke: async (
     input: unknown,
-    context: ToolContext,
+    context: ToolInvocationContext,
   ): Promise<ToolResult> => {
     return executeMcpHandler(
-      context.workspaceRoot,
+      context,
+      "run_verification_checks",
       handleRunVerificationChecks,
       input,
     );

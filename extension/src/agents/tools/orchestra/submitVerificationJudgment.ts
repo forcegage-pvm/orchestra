@@ -5,8 +5,7 @@
  */
 
 import { handleSubmitVerificationJudgment } from "../../../../../src/mcp-server/handlers/submit-verification-judgment.js";
-import type { AgentTool } from "../../ToolRegistry.js";
-import type { ToolContext, ToolResult } from "../../types.js";
+import type { AgentTool, ToolInvocationContext, ToolResult } from "../types.js";
 import { executeMcpHandler } from "./mcpAdapter.js";
 
 export const submitVerificationJudgmentTool: AgentTool = {
@@ -72,12 +71,13 @@ export const submitVerificationJudgmentTool: AgentTool = {
     },
     required: ["task_id", "judgment", "rationale", "manual_review"],
   },
-  execute: async (
+  invoke: async (
     input: unknown,
-    context: ToolContext,
+    context: ToolInvocationContext,
   ): Promise<ToolResult> => {
     return executeMcpHandler(
-      context.workspaceRoot,
+      context,
+      "submit_verification_judgment",
       handleSubmitVerificationJudgment,
       input,
     );

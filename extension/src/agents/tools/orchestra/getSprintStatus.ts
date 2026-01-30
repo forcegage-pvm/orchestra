@@ -5,8 +5,7 @@
  */
 
 import { handleGetSprintStatus } from "../../../../../src/mcp-server/handlers/get-sprint-status.js";
-import type { AgentTool } from "../../ToolRegistry.js";
-import type { ToolContext, ToolResult } from "../../types.js";
+import type { AgentTool, ToolInvocationContext, ToolResult } from "../types.js";
 import { executeMcpHandler } from "./mcpAdapter.js";
 
 export const getSprintStatusTool: AgentTool = {
@@ -17,12 +16,13 @@ export const getSprintStatusTool: AgentTool = {
     type: "object",
     properties: {},
   },
-  execute: async (
+  invoke: async (
     input: unknown,
-    context: ToolContext,
+    context: ToolInvocationContext,
   ): Promise<ToolResult> => {
     return executeMcpHandler(
-      context.workspaceRoot,
+      context,
+      "get_sprint_status",
       handleGetSprintStatus,
       input,
     );
