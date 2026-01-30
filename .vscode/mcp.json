@@ -1,88 +1,88 @@
-// {
-//   "servers": {
-//     "orchestra-orc2": {
-//       "type": "stdio",
-//       "command": "node",
-//       "args": [
-//         "${workspaceFolder}/extension/dist/mcp-server/index.js",
-//         "--role=orchestrator"
-//       ],
-//       "env": {
-//         "ORCHESTRA_WORKSPACE": "${workspaceFolder}"
-//       },
-//       "dev": {
-//         "watch": "${workspaceFolder}/extension/dist/mcp-server/**/*.js",
-//         "debug": {
-//           "type": "node"
-//         }
-//       }
-//     },
-//     "orchestra-imp2": {
-//       "type": "stdio",
-//       "command": "node",
-//       "args": [
-//         "${workspaceFolder}/extension/dist/mcp-server/index.js",
-//         "--role=implementor"
-//       ],
-//       "env": {
-//         "ORCHESTRA_WORKSPACE": "${workspaceFolder}"
-//       },
-//       "dev": {
-//         "watch": "${workspaceFolder}/extension/dist/mcp-server/**/*.js",
-//         "debug": {
-//           "type": "node"
-//         }
-//       }
-//     },
-//     "orchestra-ctrl2": {
-//       "type": "stdio",
-//       "command": "node",
-//       "args": [
-//         "${workspaceFolder}/extension/dist/mcp-server/index.js",
-//         "--role=controller"
-//       ],
-//       "env": {
-//         "ORCHESTRA_WORKSPACE": "${workspaceFolder}"
-//       },
-//       "dev": {
-//         "watch": "${workspaceFolder}/extension/dist/mcp-server/**/*.js",
-//         "debug": {
-//           "type": "node"
-//         }
-//       }
-//     },
-//     "orchestra-orc": {
-//       "type": "stdio",
-//       "command": "node",
-//       "args": [
-//         "c:\\Users\\Marius\\.vscode\\extensions\\forcegage.orchestra-extension-0.8.0\\dist\\mcp-server\\index.js",
-//         "--role=orchestrator"
-//       ],
-//       "env": {
-//         "ORCHESTRA_WORKSPACE": "x:\\Cloud Storage\\Dropbox\\Repositories\\vs code\\orchestra"
-//       }
-//     },
-//     "orchestra-imp": {
-//       "type": "stdio",
-//       "command": "node",
-//       "args": [
-//         "c:\\Users\\Marius\\.vscode\\extensions\\forcegage.orchestra-extension-0.8.0\\dist\\mcp-server\\index.js",
-//         "--role=implementor"
-//       ],
-//       "env": {
-//         "ORCHESTRA_WORKSPACE": "x:\\Cloud Storage\\Dropbox\\Repositories\\vs code\\orchestra"
-//       }
-//     },
-//     "orchestra-ctl": {
-//       "type": "stdio",
-//       "command": "node",
-//       "args": [
-//         "c:\\Users\\Marius\\.vscode\\extensions\\forcegage.orchestra-extension-0.8.0\\dist\\mcp-server\\index.js",
-//         "--role=controller"
-//       ],
-//       "env": {
-//         "ORCHESTRA_WORKSPACE": "x:\\Cloud Storage\\Dropbox\\Repositories\\vs code\\orchestra"
-//       }
-//     }
-//   }
-// }
+{
+  "servers": {
+    "orchestra-orc2": {
+      "type": "stdio",
+      "command": "node",
+      "args": [
+        "${workspaceFolder}/extension/dist/mcp-server/index.js",
+        "--role=orchestrator"
+      ],
+      "env": {
+        "ORCHESTRA_WORKSPACE": "${workspaceFolder}"
+      },
+      "dev": {
+        "watch": "${workspaceFolder}/extension/dist/mcp-server/**/*.js",
+        "debug": {
+          "type": "node"
+        }
+      }
+    },
+    "orchestra-imp2": {
+      "type": "stdio",
+      "command": "node",
+      "args": [
+        "${workspaceFolder}/extension/dist/mcp-server/index.js",
+        "--role=implementor"
+      ],
+      "env": {
+        "ORCHESTRA_WORKSPACE": "${workspaceFolder}"
+      },
+      "dev": {
+        "watch": "${workspaceFolder}/extension/dist/mcp-server/**/*.js",
+        "debug": {
+          "type": "node"
+        }
+      }
+    },
+    "orchestra-ctrl2": {
+      "type": "stdio",
+      "command": "node",
+      "args": [
+        "${workspaceFolder}/extension/dist/mcp-server/index.js",
+        "--role=controller"
+      ],
+      "env": {
+        "ORCHESTRA_WORKSPACE": "${workspaceFolder}"
+      },
+      "dev": {
+        "watch": "${workspaceFolder}/extension/dist/mcp-server/**/*.js",
+        "debug": {
+          "type": "node"
+        }
+      }
+    },
+    "orchestra-orc": {
+      "type": "stdio",
+      "command": "node",
+      "args": [
+        "c:\\Users\\Marius\\.vscode\\extensions\\forcegage.orchestra-extension-0.8.0\\dist\\mcp-server\\index.js",
+        "--role=orchestrator"
+      ],
+      "env": {
+        "ORCHESTRA_WORKSPACE": "x:\\Cloud Storage\\Dropbox\\Repositories\\vs code\\orchestra"
+      }
+    },
+    "orchestra-imp": {
+      "type": "stdio",
+      "command": "node",
+      "args": [
+        "c:\\Users\\Marius\\.vscode\\extensions\\forcegage.orchestra-extension-0.8.0\\dist\\mcp-server\\index.js",
+        "--role=implementor"
+      ],
+      "env": {
+        "ORCHESTRA_WORKSPACE": "x:\\Cloud Storage\\Dropbox\\Repositories\\vs code\\orchestra"
+      }
+    },
+    "orchestra-ctl": {
+      "type": "stdio",
+      "command": "node",
+      "args": [
+        "c:\\Users\\Marius\\.vscode\\extensions\\forcegage.orchestra-extension-0.8.0\\dist\\mcp-server\\index.js",
+        "--role=controller"
+      ],
+      "env": {
+        "ORCHESTRA_WORKSPACE": "x:\\Cloud Storage\\Dropbox\\Repositories\\vs code\\orchestra"
+      }
+    }
+  }
+}
