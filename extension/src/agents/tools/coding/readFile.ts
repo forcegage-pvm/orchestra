@@ -16,6 +16,8 @@ import { errorResult, successResult } from "../utils/resultBuilder.js";
 
 interface ReadFileInput {
   path: string;
+  startLine?: number;
+  endLine?: number;
 }
 
 const TOOL_NAME = "read_file";
@@ -64,6 +66,22 @@ function isBinaryContent(data: Uint8Array): boolean {
     }
   }
   return false;
+}
+
+function buildInvalidRangeResult(
+  message: string,
+  suggestion: string,
+  details: Record<string, unknown>,
+): ToolResult {
+  return buildToolResult(
+    errorResult(
+      TOOL_NAME,
+      ToolErrorCode.INVALID_RANGE,
+      message,
+      suggestion,
+      details,
+    ),
+  );
 }
 
 async function readFile(
@@ -126,6 +144,71 @@ async function readFile(
 
   const text = new TextDecoder("utf-8").decode(outputData);
   const warnings = truncated ? [TRUNCATION_WARNING] : undefined;
+
+  const hasStartLine = typeof input.startLine === "number";
+  const hasEndLine = typeof input.endLine === "number";
+
+  if (hasStartLine || hasEndLine) {
+    if (hasStartLine && !Number.isInteger(input.startLine)) {
+      return buildInvalidRangeResult(
+        "startLine must be an integer.",
+        "Provide a whole number line index starting at 1.",
+        { startLine: input.startLine, endLine: input.endLine },
+      );
+    }
+
+    if (hasEndLine && !Number.isInteger(input.endLine)) {
+      return buildInvalidRangeResult(
+        "endLine must be an integer.",
+        "Provide a whole number line index starting at 1.",
+        { startLine: input.startLine, endLine: input.endLine },
+      );
+    }
+
+    const startLine = hasStartLine ? (input.startLine as number) : 1;
+    const endLine = hasEndLine ? (input.endLine as number) : undefined;
+
+    if (startLine < 1 || (endLine !== undefined && endLine < 1)) {
+      return buildInvalidRangeResult(
+        "Line numbers must be positive integers.",
+        "Provide line numbers starting at 1.",
+        { startLine, endLine },
+      );
+    }
+
+    const lines = text.split(/\r?\n/);
+    const totalLines = lines.length;
+    const normalizedEndLine = endLine ?? totalLines;
+
+    if (startLine > normalizedEndLine) {
+      return buildInvalidRangeResult(
+        "startLine must be less than or equal to endLine.",
+        "Ensure startLine is not greater than endLine.",
+        { startLine, endLine: normalizedEndLine },
+      );
+    }
+
+    if (startLine > totalLines || normalizedEndLine > totalLines) {
+      return buildInvalidRangeResult(
+        `Line range exceeds file length of ${totalLines} lines.`,
+        "Choose line numbers within the file length.",
+        { startLine, endLine: normalizedEndLine, totalLines },
+      );
+    }
+
+    const rangeText = lines.slice(startLine - 1, normalizedEndLine).join("\n");
+    const rangePartial = successResult(TOOL_NAME, rangeText, warnings);
+    const rangeMetadata = {
+      ...rangePartial.metadata,
+      ...(truncated ? { outputTruncated: true } : {}),
+    };
+
+    return buildToolResult({
+      ...rangePartial,
+      metadata: rangeMetadata,
+    });
+  }
+
   const partial = successResult(TOOL_NAME, text, warnings);
   const metadata = {
     ...partial.metadata,
@@ -147,6 +230,14 @@ export const readFileTool: AgentTool<ReadFileInput> = {
       path: {
         type: "string",
         description: "Path to the file relative to workspace root",
+      },
+      startLine: {
+        type: "number",
+        description: "Optional 1-based start line number (inclusive)",
+      },
+      endLine: {
+        type: "number",
+        description: "Optional 1-based end line number (inclusive)",
       },
     },
     required: ["path"],

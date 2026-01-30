@@ -176,4 +176,118 @@ describe("readFileTool", () => {
       "This appears to be a binary file. Use appropriate binary file handling.",
     );
   });
+
+  it("returns only requested line range", async () => {
+    validatePathMock.mockResolvedValue({
+      isValid: true,
+      absolutePath: "/workspace/range.txt",
+    });
+    const content = Array.from({ length: 20 }, (_, index) =>
+      `line ${index + 1}`,
+    ).join("\n");
+    workspace.fs.readFile.mockResolvedValue(new TextEncoder().encode(content));
+
+    const result = await readFileTool.invoke(
+      { path: "range.txt", startLine: 5, endLine: 10 },
+      mockContext,
+    );
+
+    expect(result.success).toBe(true);
+    expect(result.content).toEqual([
+      {
+        type: "text",
+        value:
+          "line 5\nline 6\nline 7\nline 8\nline 9\nline 10",
+      },
+    ]);
+  });
+
+  it("reads from startLine to end when endLine omitted", async () => {
+    validatePathMock.mockResolvedValue({
+      isValid: true,
+      absolutePath: "/workspace/start-only.txt",
+    });
+    const content = ["line 1", "line 2", "line 3", "line 4"].join("\n");
+    workspace.fs.readFile.mockResolvedValue(new TextEncoder().encode(content));
+
+    const result = await readFileTool.invoke(
+      { path: "start-only.txt", startLine: 2 },
+      mockContext,
+    );
+
+    expect(result.success).toBe(true);
+    expect(result.content).toEqual([
+      { type: "text", value: "line 2\nline 3\nline 4" },
+    ]);
+  });
+
+  it("reads from beginning to endLine when startLine omitted", async () => {
+    validatePathMock.mockResolvedValue({
+      isValid: true,
+      absolutePath: "/workspace/end-only.txt",
+    });
+    const content = ["line 1", "line 2", "line 3", "line 4"].join("\n");
+    workspace.fs.readFile.mockResolvedValue(new TextEncoder().encode(content));
+
+    const result = await readFileTool.invoke(
+      { path: "end-only.txt", endLine: 3 },
+      mockContext,
+    );
+
+    expect(result.success).toBe(true);
+    expect(result.content).toEqual([
+      { type: "text", value: "line 1\nline 2\nline 3" },
+    ]);
+  });
+
+  it("returns INVALID_RANGE when startLine is greater than endLine", async () => {
+    validatePathMock.mockResolvedValue({
+      isValid: true,
+      absolutePath: "/workspace/invalid-range.txt",
+    });
+    const content = ["line 1", "line 2", "line 3"].join("\n");
+    workspace.fs.readFile.mockResolvedValue(new TextEncoder().encode(content));
+
+    const result = await readFileTool.invoke(
+      { path: "invalid-range.txt", startLine: 3, endLine: 2 },
+      mockContext,
+    );
+
+    expect(result.success).toBe(false);
+    expect(result.error?.code).toBe(ToolErrorCode.INVALID_RANGE);
+  });
+
+  it("returns INVALID_RANGE when line number is less than 1", async () => {
+    validatePathMock.mockResolvedValue({
+      isValid: true,
+      absolutePath: "/workspace/invalid-line.txt",
+    });
+    const content = ["line 1", "line 2", "line 3"].join("\n");
+    workspace.fs.readFile.mockResolvedValue(new TextEncoder().encode(content));
+
+    const result = await readFileTool.invoke(
+      { path: "invalid-line.txt", startLine: 0 },
+      mockContext,
+    );
+
+    expect(result.success).toBe(false);
+    expect(result.error?.code).toBe(ToolErrorCode.INVALID_RANGE);
+  });
+
+  it("returns INVALID_RANGE when line number exceeds file length", async () => {
+    validatePathMock.mockResolvedValue({
+      isValid: true,
+      absolutePath: "/workspace/too-far.txt",
+    });
+    const content = ["line 1", "line 2", "line 3"].join("\n");
+    workspace.fs.readFile.mockResolvedValue(new TextEncoder().encode(content));
+
+    const result = await readFileTool.invoke(
+      { path: "too-far.txt", startLine: 4 },
+      mockContext,
+    );
+
+    expect(result.success).toBe(false);
+    expect(result.error?.code).toBe(ToolErrorCode.INVALID_RANGE);
+  });
 });
