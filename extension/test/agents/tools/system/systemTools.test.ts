@@ -279,4 +279,3 @@ describe("getProblemsTool", () => {
     expect(output.files[0]?.diagnostics[0]?.endColumn).toBe(6);
   });
 });
-
