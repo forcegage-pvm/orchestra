@@ -18,9 +18,9 @@ import { listDirectoryTool } from "./listDirectory.js";
 import { readFileTool } from "./readFile.js";
 import { searchFilesTool } from "./searchFiles.js";
 import { smartReplaceTool } from "./smartReplace.js";
+import { validateEditTool } from "./validateEdit.js";
 
 // Placeholder structure for upcoming file editing tools:
-// - validateEdit
 // - bulkReplace
 
 export const codingTools = [
@@ -37,6 +37,7 @@ export const codingTools = [
   editLinesTool,
   insertAtLineTool,
   deleteSectionTool,
+  validateEditTool,
 ] as const;
 
 export function registerCodingTools(registry: ToolRegistry): void {
@@ -57,4 +58,5 @@ export {
   readFileTool,
   searchFilesTool,
   smartReplaceTool,
+  validateEditTool,
 };
