@@ -10,11 +10,7 @@ import { handleGetFeedback } from "../../../../../src/mcp-server/handlers/get-fe
 import { handleGetProgress } from "../../../../../src/mcp-server/handlers/get-progress.js";
 import { handleSignalCompletion } from "../../../../../src/mcp-server/handlers/signal-completion.js";
 import { ToolRegistry } from "../../ToolRegistry.js";
-import type {
-  AgentTool,
-  ToolInvocationContext,
-  ToolResult,
-} from "../types.js";
+import type { AgentTool, ToolInvocationContext, ToolResult } from "../types.js";
 import { escalateTaskTool } from "./escalateTask.js";
 import { executeMcpHandler } from "./mcpAdapter.js";
 
@@ -89,7 +85,12 @@ const signalCompletionTool: AgentTool = {
     input: unknown,
     context: ToolInvocationContext,
   ): Promise<ToolResult> =>
-    executeMcpHandler(context, "signal_completion", handleSignalCompletion, input),
+    executeMcpHandler(
+      context,
+      "signal_completion",
+      handleSignalCompletion,
+      input,
+    ),
 };
 
 // ==================== get_feedback ====================

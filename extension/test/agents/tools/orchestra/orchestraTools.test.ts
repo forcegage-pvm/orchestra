@@ -7,8 +7,8 @@
 
 import { rm } from "node:fs/promises";
 import os from "node:os";
-import * as vscode from "vscode";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import * as vscode from "vscode";
 import type { ToolInvocationContext } from "../../../../src/agents/tools/types.js";
 
 // Mock MCP handlers BEFORE importing tools (hoisted)

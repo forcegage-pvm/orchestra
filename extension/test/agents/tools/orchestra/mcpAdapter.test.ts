@@ -5,11 +5,11 @@
 import { describe, expect, it } from "vitest";
 
 import { ToolErrorCode } from "../../../../src/agents/tools/errors.js";
-import type { ToolMetadata } from "../../../../src/agents/tools/types.js";
 import {
   type McpResponse,
   mcpToToolResult,
 } from "../../../../src/agents/tools/orchestra/mcpAdapter.js";
+import type { ToolMetadata } from "../../../../src/agents/tools/types.js";
 
 const baseMetadata: ToolMetadata = {
   toolName: "mcp_test",

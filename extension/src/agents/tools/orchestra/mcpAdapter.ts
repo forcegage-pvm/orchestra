@@ -55,16 +55,19 @@ const DEFAULT_SUGGESTION =
   "Review the request input and try again. If the issue persists, check logs for details.";
 
 function normalizeContentType(type: string): ToolResultContent["type"] {
-  if (type === "text" || type === "json" || type === "data" || type === "error") {
+  if (
+    type === "text" ||
+    type === "json" ||
+    type === "data" ||
+    type === "error"
+  ) {
     return type;
   }
 
   return "text";
 }
 
-function toToolResultContent(
-  mcpResponse: McpResponse,
-): ToolResultContent[] {
+function toToolResultContent(mcpResponse: McpResponse): ToolResultContent[] {
   return mcpResponse.content.map((part) => ({
     type: normalizeContentType(part.type),
     value: part.text,
@@ -99,18 +102,13 @@ function buildValidationSuggestion(
   }
 
   const formatted = issues
-    .map(
-      (issue) => `- ${issue.path ?? "input"}: ${issue.message ?? "invalid"}`,
-    )
+    .map((issue) => `- ${issue.path ?? "input"}: ${issue.message ?? "invalid"}`)
     .join("\n");
 
   return `Fix the following validation issues and retry:\n${formatted}`;
 }
 
-function buildToolError(
-  parsedError: unknown,
-  rawText: string,
-): ToolError {
+function buildToolError(parsedError: unknown, rawText: string): ToolError {
   if (typeof parsedError === "string") {
     return createToolError(
       ToolErrorCode.UNKNOWN,
