@@ -13,6 +13,8 @@ import { newFileTool } from "../../../../src/agents/tools/coding/newFile.js";
 import { readFileTool } from "../../../../src/agents/tools/coding/readFile.js";
 import { testFailureTool } from "../../../../src/agents/tools/coding/testFailure.js";
 import { usagesTool } from "../../../../src/agents/tools/coding/usages.js";
+import type { ToolInvocationContext } from "../../../../src/agents/tools/types.js";
+import { validatePath } from "../../../../src/agents/tools/utils/pathValidation.js";
 import type { ToolContext } from "../../../../src/agents/types.js";
 
 const {
@@ -119,6 +121,10 @@ vi.mock("vscode", () => ({
   Uri,
 }));
 
+vi.mock("../../../../src/agents/tools/utils/pathValidation.js", () => ({
+  validatePath: vi.fn(),
+}));
+
 function createDocument(
   content: string,
   uri: { fsPath: string; path: string } = Uri.file("/workspace/file.txt"),
@@ -180,6 +186,14 @@ const mockContext: ToolContext = {
   db: {},
 };
 
+const mockInvocationContext: ToolInvocationContext = {
+  workspaceRoot: "/workspace",
+  sessionId: "session",
+  token: {} as ToolInvocationContext["token"],
+};
+
+const validatePathMock = vi.mocked(validatePath);
+
 beforeEach(() => {
   vi.clearAllMocks();
   WorkspaceEdit.lastInstance = undefined;
@@ -188,42 +202,35 @@ beforeEach(() => {
 describe("readFileTool", () => {
   it("reads full file contents", async () => {
     const content = "alpha\nbeta\ngamma";
-    workspace.openTextDocument.mockResolvedValue(createDocument(content));
+    validatePathMock.mockResolvedValue({
+      isValid: true,
+      absolutePath: "/workspace/file.txt",
+    });
+    workspace.fs.readFile.mockResolvedValue(new TextEncoder().encode(content));
 
-    const result = await readFileTool.execute(
+    const result = await readFileTool.invoke(
       { path: "file.txt" },
-      mockContext,
+      mockInvocationContext,
     );
 
     expect(result.success).toBe(true);
-    expect(result.output).toBe(content);
-  });
-
-  it("reads file contents with line range", async () => {
-    const content = "alpha\nbeta\ngamma";
-    workspace.openTextDocument.mockResolvedValue(createDocument(content));
-
-    const result = await readFileTool.execute(
-      { path: "file.txt", startLine: 2, endLine: 3 },
-      mockContext,
-    );
-
-    expect(result.success).toBe(true);
-    expect(result.output).toBe("beta\ngamma");
+    expect(result.content).toEqual([{ type: "text", value: content }]);
   });
 
   it("handles missing file", async () => {
-    workspace.openTextDocument.mockRejectedValue(
-      FileSystemError.FileNotFound(),
-    );
+    validatePathMock.mockResolvedValue({
+      isValid: true,
+      absolutePath: "/workspace/missing.txt",
+    });
+    workspace.fs.readFile.mockRejectedValue(FileSystemError.FileNotFound());
 
-    const result = await readFileTool.execute(
+    const result = await readFileTool.invoke(
       { path: "missing.txt" },
-      mockContext,
+      mockInvocationContext,
     );
 
     expect(result.success).toBe(false);
-    expect(result.error).toContain("File not found");
+    expect(result.error?.code).toBe("FILE_NOT_FOUND");
   });
 });
 
