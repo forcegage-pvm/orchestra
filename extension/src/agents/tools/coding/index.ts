@@ -8,18 +8,18 @@ import { ToolRegistry } from "../../ToolRegistry.js";
 import { createDirectoryTool } from "./createDirectory.js";
 import { createFileTool } from "./createFile.js";
 import { deleteFileTool } from "./deleteFile.js";
+import { deleteSectionTool } from "./deleteSection.js";
 import { editFileTool } from "./editFile.js";
+import { editLinesTool } from "./editLines.js";
 import { findUsagesTool } from "./findUsages.js";
 import { grepSearchTool } from "./grepSearch.js";
+import { insertAtLineTool } from "./insertAtLine.js";
 import { listDirectoryTool } from "./listDirectory.js";
 import { readFileTool } from "./readFile.js";
 import { searchFilesTool } from "./searchFiles.js";
 import { smartReplaceTool } from "./smartReplace.js";
 
 // Placeholder structure for upcoming file editing tools:
-// - editLines
-// - insertAtLine
-// - deleteSection
 // - validateEdit
 // - bulkReplace
 
@@ -34,6 +34,9 @@ export const codingTools = [
   listDirectoryTool,
   findUsagesTool,
   smartReplaceTool,
+  editLinesTool,
+  insertAtLineTool,
+  deleteSectionTool,
 ] as const;
 
 export function registerCodingTools(registry: ToolRegistry): void {
@@ -44,9 +47,12 @@ export {
   createDirectoryTool,
   createFileTool,
   deleteFileTool,
+  deleteSectionTool,
   editFileTool,
+  editLinesTool,
   findUsagesTool,
   grepSearchTool,
+  insertAtLineTool,
   listDirectoryTool,
   readFileTool,
   searchFilesTool,

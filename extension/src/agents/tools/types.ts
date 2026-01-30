@@ -278,13 +278,17 @@ export const EditLinesInputSchema = z.object({
   end_line: z.number().int().positive(),
   new_content: z.string(),
   create_if_missing: z.boolean().optional(),
+  preserve_indentation: z.boolean().optional(),
+  dry_run: z.boolean().optional(),
 });
 export type EditLinesInput = z.output<typeof EditLinesInputSchema>;
 
 export interface EditLinesResult {
   success: boolean;
-  lines_removed: number;
-  lines_inserted: number;
+  file_path: string;
+  lines_replaced: number;
+  new_line_count: number;
+  diff_preview?: string;
   warning?: string;
 }
 
@@ -293,16 +297,23 @@ export const InsertAtLineInputSchema = z.object({
   line: z.number().int().positive(),
   content: z.string(),
   auto_indent: z.boolean().optional(),
+  dry_run: z.boolean().optional(),
 });
 export type InsertAtLineInput = z.output<typeof InsertAtLineInputSchema>;
 
+export interface InsertAtLineResult {
+  success: boolean;
+  file_path: string;
+  inserted_at: number;
+  lines_inserted: number;
+  diff_preview?: string;
+}
+
 export const DeleteSectionInputSchema = z.object({
   file_path: z.string().min(1),
-  start_line: z.number().int().positive().optional(),
-  end_line: z.number().int().positive().optional(),
-  start_pattern: z.string().optional(),
-  end_pattern: z.string().optional(),
-  include_patterns: z.boolean().optional(),
+  start_line: z.number().int().positive(),
+  end_line: z.number().int().positive(),
+  dry_run: z.boolean().optional(),
 });
 export type DeleteSectionInput = z.output<typeof DeleteSectionInputSchema>;
 
