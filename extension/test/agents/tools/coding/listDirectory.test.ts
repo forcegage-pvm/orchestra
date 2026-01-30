@@ -146,4 +146,25 @@ describe("listDirectoryTool", () => {
     expect(result.error?.code).toBe(ToolErrorCode.PATH_TRAVERSAL);
     expect(workspace.fs.readDirectory).not.toHaveBeenCalled();
   });
+
+  it("returns CANCELLED when cancellation is requested", async () => {
+    validatePathMock.mockResolvedValue({
+      isValid: true,
+      absolutePath: "/workspace/project",
+    });
+
+    const result = (await listDirectoryTool.invoke(
+      { path: "project" },
+      {
+        ...mockContext,
+        token: {
+          isCancellationRequested: true,
+        } as ToolInvocationContext["token"],
+      },
+    )) as ToolResult;
+
+    expect(result.success).toBe(false);
+    expect(result.error?.code).toBe(ToolErrorCode.CANCELLED);
+    expect(workspace.fs.readDirectory).not.toHaveBeenCalled();
+  });
 });

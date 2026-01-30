@@ -61,6 +61,17 @@ async function listDirectoryContents(
     return errorFromToolError(validatedPath.error);
   }
 
+  if (context.token.isCancellationRequested) {
+    return buildToolResult(
+      errorResult(
+        TOOL_NAME,
+        ToolErrorCode.CANCELLED,
+        "Operation cancelled.",
+        "Retry the operation when ready.",
+      ),
+    );
+  }
+
   const uri = vscode.Uri.file(validatedPath.absolutePath);
 
   try {
