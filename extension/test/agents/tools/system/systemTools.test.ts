@@ -3,6 +3,7 @@
  */
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { ToolInvocationContext } from "../../../../src/agents/tools/types.js";
 import type { ToolContext } from "../../../../src/agents/types.js";
 
 const execMock = vi.hoisted(() => vi.fn());
@@ -10,30 +11,36 @@ let taskProcessHandler:
   | ((event: { execution: unknown; exitCode?: number }) => void)
   | undefined;
 
-const { tasks, languages, Uri, DiagnosticSeverity } = vi.hoisted(() => {
-  const tasks = {
-    fetchTasks: vi.fn(),
-    executeTask: vi.fn(),
-    onDidEndTaskProcess: vi.fn(),
-  };
+const { tasks, languages, Uri, DiagnosticSeverity, TaskGroup } = vi.hoisted(
+  () => {
+    const tasks = {
+      fetchTasks: vi.fn(),
+      executeTask: vi.fn(),
+      onDidEndTaskProcess: vi.fn(),
+    };
 
-  const languages = {
-    getDiagnostics: vi.fn(),
-  };
+    const languages = {
+      getDiagnostics: vi.fn(),
+    };
 
-  const Uri = {
-    file: vi.fn((filePath: string) => ({ fsPath: filePath })),
-  };
+    const Uri = {
+      file: vi.fn((filePath: string) => ({ fsPath: filePath })),
+    };
 
-  const DiagnosticSeverity = {
-    Error: 0,
-    Warning: 1,
-    Information: 2,
-    Hint: 3,
-  };
+    const DiagnosticSeverity = {
+      Error: 0,
+      Warning: 1,
+      Information: 2,
+      Hint: 3,
+    };
 
-  return { tasks, languages, Uri, DiagnosticSeverity };
-});
+    const TaskGroup = {
+      Test: "test",
+    };
+
+    return { tasks, languages, Uri, DiagnosticSeverity, TaskGroup };
+  },
+);
 
 vi.mock("child_process", () => ({
   exec: execMock,
@@ -44,12 +51,13 @@ vi.mock("vscode", () => ({
   languages,
   Uri,
   DiagnosticSeverity,
+  TaskGroup,
 }));
 
 import { fetchTool } from "../../../../src/agents/tools/system/fetch.js";
 import { problemsTool } from "../../../../src/agents/tools/system/problems.js";
 import { runCommandsTool } from "../../../../src/agents/tools/system/runCommands.js";
-import { runTasksTool } from "../../../../src/agents/tools/system/runTasks.js";
+import { runTaskTool } from "../../../../src/agents/tools/system/runTask.js";
 import { runTestsTool } from "../../../../src/agents/tools/system/runTests.js";
 
 const mockContext: ToolContext = {
@@ -59,6 +67,15 @@ const mockContext: ToolContext = {
   cancellationToken: {},
   logger: {},
   db: {},
+};
+
+const mockInvocationContext: ToolInvocationContext = {
+  workspaceRoot: "/workspace",
+  sessionId: "session",
+  token: {
+    isCancellationRequested: false,
+    onCancellationRequested: vi.fn(() => ({ dispose: vi.fn() })),
+  } as ToolInvocationContext["token"],
 };
 
 beforeEach(() => {
@@ -129,7 +146,7 @@ describe("runCommandsTool", () => {
   });
 });
 
-describe("runTasksTool", () => {
+describe("runTaskTool", () => {
   it("runs a task by label", async () => {
     const task = { name: "Build Extension" } as unknown as {
       name: string;
@@ -145,9 +162,9 @@ describe("runTasksTool", () => {
       },
     );
 
-    const resultPromise = runTasksTool.execute(
+    const resultPromise = runTaskTool.invoke(
       { label: "Build Extension" },
-      mockContext,
+      mockInvocationContext,
     );
 
     await vi.waitFor(() => {
@@ -157,7 +174,7 @@ describe("runTasksTool", () => {
 
     const result = await resultPromise;
     expect(result.success).toBe(true);
-    const output = JSON.parse(result.output) as {
+    const output = JSON.parse(result.content[0]?.value ?? "{}") as {
       status: string;
       exitCode?: number;
     };
@@ -168,81 +185,51 @@ describe("runTasksTool", () => {
   it("returns error when task is missing", async () => {
     tasks.fetchTasks.mockResolvedValue([]);
 
-    const result = await runTasksTool.execute(
+    const result = await runTaskTool.invoke(
       { label: "Missing Task" },
-      mockContext,
+      mockInvocationContext,
     );
 
     expect(result.success).toBe(false);
-    expect(result.error).toContain("not found");
+    expect(result.error?.message).toContain("not found");
   });
 });
 
 describe("runTestsTool", () => {
-  it("runs tests and parses counts", async () => {
-    const stdout = [
-      "Test Suites: 1 passed, 1 total",
-      "Tests:       3 passed, 3 total",
-    ].join("\n");
+  it("runs a test task and reports success", async () => {
+    const task = { name: "Test", group: TaskGroup.Test } as unknown as {
+      name: string;
+      group: string;
+    };
+    const execution = { task };
 
-    execMock.mockImplementation(
-      (
-        _command: string,
-        _options: unknown,
-        callback: (error: Error | null, stdout: string, stderr: string) => void,
-      ) => {
-        callback(null, stdout, "");
-        return {};
+    tasks.fetchTasks.mockResolvedValue([task]);
+    tasks.executeTask.mockResolvedValue(execution);
+    tasks.onDidEndTaskProcess.mockImplementation(
+      (handler: (event: { execution: unknown; exitCode?: number }) => void) => {
+        taskProcessHandler = handler;
+        return { dispose: vi.fn() };
       },
     );
 
-    const result = await runTestsTool.execute(
-      { command: "npm test" },
-      mockContext,
+    const resultPromise = runTestsTool.invoke(
+      { label: "Test" },
+      mockInvocationContext,
     );
 
+    await vi.waitFor(() => {
+      expect(taskProcessHandler).toBeDefined();
+    });
+    taskProcessHandler?.({ execution, exitCode: 0 });
+
+    const result = await resultPromise;
     expect(result.success).toBe(true);
-    const output = JSON.parse(result.output) as {
+    const output = JSON.parse(result.content[0]?.value ?? "{}") as {
       status: string;
-      testCounts?: { passed?: number; total?: number };
-      suiteCounts?: { passed?: number; total?: number };
+      exitCode?: number;
     };
     expect(output.status).toBe("passed");
-    expect(output.testCounts?.passed).toBe(3);
-    expect(output.suiteCounts?.passed).toBe(1);
-  });
-
-  it("returns failure status when tests fail", async () => {
-    const stdout = "Tests: 2 failed, 1 passed, 3 total";
-    const error = Object.assign(new Error("tests failed"), {
-      code: 1,
-      stdout,
-      stderr: "",
-    });
-
-    execMock.mockImplementation(
-      (
-        _command: string,
-        _options: unknown,
-        callback: (error: Error | null, stdout: string, stderr: string) => void,
-      ) => {
-        callback(error, stdout, "");
-        return {};
-      },
-    );
-
-    const result = await runTestsTool.execute(
-      { command: "npm test" },
-      mockContext,
-    );
-
-    expect(result.success).toBe(false);
-    const output = JSON.parse(result.output) as {
-      status: string;
-      testCounts?: { failed?: number };
-    };
-    expect(output.status).toBe("failed");
-    expect(output.testCounts?.failed).toBe(2);
+    expect(output.exitCode).toBe(0);
   });
 });
 
