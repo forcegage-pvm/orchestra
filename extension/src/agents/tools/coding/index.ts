@@ -14,9 +14,9 @@ import { grepSearchTool } from "./grepSearch.js";
 import { listDirectoryTool } from "./listDirectory.js";
 import { readFileTool } from "./readFile.js";
 import { searchFilesTool } from "./searchFiles.js";
+import { smartReplaceTool } from "./smartReplace.js";
 
 // Placeholder structure for upcoming file editing tools:
-// - smartReplace
 // - editLines
 // - insertAtLine
 // - deleteSection
@@ -33,6 +33,7 @@ export const codingTools = [
   grepSearchTool,
   listDirectoryTool,
   findUsagesTool,
+  smartReplaceTool,
 ] as const;
 
 export function registerCodingTools(registry: ToolRegistry): void {
@@ -49,4 +50,5 @@ export {
   listDirectoryTool,
   readFileTool,
   searchFilesTool,
+  smartReplaceTool,
 };

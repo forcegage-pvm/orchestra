@@ -18,7 +18,7 @@ describe("Extension - ConfigService integration (Task 3)", () => {
 
     // Check for import statement
     expect(extensionCode).toMatch(
-      /import\s+\{[^}]*ConfigService[^}]*\}\s+from\s+["']\.\/config\/ConfigService\.js["']/
+      /import\s+\{[^}]*ConfigService[^}]*\}\s+from\s+["']\.\/config\/ConfigService\.js["']/,
     );
   });
 
@@ -44,7 +44,7 @@ describe("Extension - ConfigService integration (Task 3)", () => {
 
     // Check for exported getter function
     expect(extensionCode).toMatch(
-      /export\s+function\s+getConfigService\(\s*\):\s*ConfigService/
+      /export\s+function\s+getConfigService\(\s*\):\s*ConfigService/,
     );
   });
 
@@ -54,7 +54,7 @@ describe("Extension - ConfigService integration (Task 3)", () => {
 
     // Check that getter validates initialization
     const getterMatch = extensionCode.match(
-      /export\s+function\s+getConfigService\(\s*\):\s*ConfigService\s*\{[\s\S]*?\n\}/
+      /export\s+function\s+getConfigService\(\s*\):\s*ConfigService\s*\{[\s\S]*?\n\}/,
     );
     expect(getterMatch).toBeTruthy();
 
@@ -70,10 +70,10 @@ describe("Extension - ConfigService integration (Task 3)", () => {
 
     // Find positions in the activate function
     const configServiceInitPos = extensionCode.indexOf(
-      "configService = new ConfigService()"
+      "configService = new ConfigService()",
     );
     const orchestraRootPos = extensionCode.indexOf(
-      "const orchestraRoot = findOrchestraRoot()"
+      "const orchestraRoot = findOrchestraRoot()",
     );
 
     expect(configServiceInitPos).toBeGreaterThan(0);
@@ -85,15 +85,26 @@ describe("Extension - ConfigService integration (Task 3)", () => {
     const extensionPath = path.join(__dirname, "..", "src", "extension.ts");
     extensionCode = fs.readFileSync(extensionPath, "utf-8");
 
-    // Check for deactivate function with ConfigService comment
+    // Check for deactivate function
     const deactivateMatch = extensionCode.match(
-      /export\s+function\s+deactivate\(\s*\):[^{]*\{([^}]+)\}/s
+      /export\s+async\s+function\s+deactivate\(\s*\):\s*Promise<void>/,
     );
     expect(deactivateMatch).toBeTruthy();
 
-    const deactivateBody = deactivateMatch![1];
+    // Find the deactivate function body
+    const deactivateStart = extensionCode.indexOf(
+      "export async function deactivate",
+    );
+    expect(deactivateStart).toBeGreaterThan(-1);
+
+    // Get next 500 characters which should include the ConfigService comment
+    const deactivateSection = extensionCode.substring(
+      deactivateStart,
+      deactivateStart + 500,
+    );
+
     // Check for comment about ConfigService disposal
-    expect(deactivateBody).toMatch(/ConfigService.*disposal/i);
+    expect(deactivateSection).toMatch(/ConfigService.*disposal/i);
   });
 });
 
@@ -107,10 +118,10 @@ describe("Extension structure - Imports order (Task 3)", () => {
     });
 
     const configServiceIdx = imports.findIndex((line) =>
-      line.includes("config/ConfigService")
+      line.includes("config/ConfigService"),
     );
     const databaseClientIdx = imports.findIndex((line) =>
-      line.includes("database/client")
+      line.includes("database/client"),
     );
 
     expect(configServiceIdx).toBeGreaterThanOrEqual(0);
