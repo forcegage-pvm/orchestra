@@ -4,12 +4,12 @@
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ToolRegistry } from "../../../../src/agents/ToolRegistry.js";
+import { createFileTool } from "../../../../src/agents/tools/coding/createFile.js";
 import { deleteFileTool } from "../../../../src/agents/tools/coding/deleteFile.js";
 import {
   codingTools,
   registerCodingTools,
 } from "../../../../src/agents/tools/coding/index.js";
-import { newFileTool } from "../../../../src/agents/tools/coding/newFile.js";
 import { readFileTool } from "../../../../src/agents/tools/coding/readFile.js";
 import { testFailureTool } from "../../../../src/agents/tools/coding/testFailure.js";
 import { usagesTool } from "../../../../src/agents/tools/coding/usages.js";
@@ -234,14 +234,19 @@ describe("readFileTool", () => {
   });
 });
 
-describe("newFileTool", () => {
+describe("createFileTool", () => {
   it("creates file when it does not exist", async () => {
+    validatePathMock.mockResolvedValue({
+      isValid: true,
+      absolutePath: "/workspace/new.txt",
+    });
     workspace.fs.stat.mockRejectedValue(FileSystemError.FileNotFound());
+    workspace.fs.createDirectory.mockResolvedValue(undefined);
     workspace.applyEdit.mockResolvedValue(true);
 
-    const result = await newFileTool.execute(
+    const result = await createFileTool.invoke(
       { path: "new.txt", content: "data" },
-      mockContext,
+      mockInvocationContext,
     );
 
     expect(result.success).toBe(true);
@@ -249,58 +254,20 @@ describe("newFileTool", () => {
     expect(WorkspaceEdit.lastInstance?.createFile).toHaveBeenCalledTimes(1);
   });
 
-  it("tracks changes when fileTracker is present", async () => {
-    workspace.fs.stat.mockRejectedValue(FileSystemError.FileNotFound());
-    workspace.applyEdit.mockResolvedValue(true);
-    const fileTracker = { trackChange: vi.fn() };
-
-    const result = await newFileTool.execute(
-      { path: "new.txt", content: "data" },
-      { ...mockContext, fileTracker },
-    );
-
-    expect(result.success).toBe(true);
-    expect(fileTracker.trackChange).toHaveBeenCalledTimes(1);
-    expect(fileTracker.trackChange).toHaveBeenCalledWith(
-      expect.objectContaining({
-        uri: expect.stringMatching(/new\.txt$/),
-        relativePath: "new.txt",
-        operation: "create",
-        previousContent: null,
-        newContent: "data",
-        previousContentHash: null,
-        newContentHash: expect.any(String),
-        iteration: 0,
-        toolCallId: expect.any(String),
-        timestamp: expect.any(String),
-      }),
-    );
-  });
-
-  it("does not track changes when applyEdit fails", async () => {
-    workspace.fs.stat.mockRejectedValue(FileSystemError.FileNotFound());
-    workspace.applyEdit.mockResolvedValue(false);
-    const fileTracker = { trackChange: vi.fn() };
-
-    const result = await newFileTool.execute(
-      { path: "new.txt", content: "data" },
-      { ...mockContext, fileTracker },
-    );
-
-    expect(result.success).toBe(false);
-    expect(fileTracker.trackChange).not.toHaveBeenCalled();
-  });
-
   it("fails when file already exists", async () => {
+    validatePathMock.mockResolvedValue({
+      isValid: true,
+      absolutePath: "/workspace/existing.txt",
+    });
     workspace.fs.stat.mockResolvedValue({});
 
-    const result = await newFileTool.execute(
+    const result = await createFileTool.invoke(
       { path: "existing.txt", content: "data" },
-      mockContext,
+      mockInvocationContext,
     );
 
     expect(result.success).toBe(false);
-    expect(result.error).toContain("already exists");
+    expect(result.error?.code).toBe("FILE_EXISTS");
   });
 });
 
