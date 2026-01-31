@@ -119,13 +119,30 @@ const approveSprintTool: AgentTool = {
     properties: {
       conformance: {
         type: "string",
-        enum: ["PASS", "WARN", "FAIL"],
+        enum: ["PASS", "WARN"],
         description:
-          "Level of spec conformance: PASS (fully aligned), WARN (minor issues), FAIL (reject)",
+          "Level of spec conformance: PASS (fully aligned), WARN (minor issues)",
       },
       notes: {
         type: "string",
-        description: "Optional approval notes (min 10 characters if provided)",
+        description:
+          "Optional approval notes. Required if conformance is WARN to explain minor issues.",
+      },
+      spec_path: {
+        type: "string",
+        description:
+          "Optional: Path to the specification document that was reviewed",
+      },
+      spec_requirements: {
+        type: "array",
+        items: { type: "string" },
+        description:
+          "Optional: List of specification requirements that were verified",
+      },
+      recommendations: {
+        type: "array",
+        items: { type: "string" },
+        description: "Optional: Recommendations for the orchestrator",
       },
     },
     required: ["conformance"],
@@ -150,30 +167,68 @@ const rejectSprintTool: AgentTool = {
         items: {
           type: "object",
           properties: {
-            type: {
+            severity: {
               type: "string",
-              enum: [
-                "MISSING_COVERAGE",
-                "MISALIGNMENT",
-                "SCOPE_CREEP",
-                "OTHER",
-              ],
+              enum: ["BLOCKING", "MAJOR"],
+              description: "Severity of the issue",
             },
-            description: { type: "string" },
-            spec_reference: { type: "string" },
-            severity: { type: "string", enum: ["BLOCKING", "MAJOR", "MINOR"] },
+            issue: {
+              type: "string",
+              description: "Description of the issue",
+            },
+            spec_reference: {
+              type: "string",
+              description: "Optional: Reference to spec section violated",
+            },
+            handover_text: {
+              type: "string",
+              description: "Optional: Relevant text from handover",
+            },
+            spec_text: {
+              type: "string",
+              description: "Optional: Relevant text from specification",
+            },
+            analysis: {
+              type: "string",
+              description: "Optional: Analysis of the misalignment",
+            },
+            recommendation: {
+              type: "string",
+              description: "Optional: How to fix this specific issue",
+            },
           },
-          required: ["type", "description", "severity"],
+          required: ["severity", "issue"],
         },
-        description: "List of issues found",
+        description: "List of issues found (at least one required)",
+      },
+      conformance: {
+        type: "string",
+        enum: ["FAIL"],
+        description: "Must be FAIL when rejecting",
+      },
+      notes: {
+        type: "string",
+        description:
+          "Explanation of why the sprint configuration failed review (min 10 chars)",
+      },
+      spec_path: {
+        type: "string",
+        description:
+          "Optional: Path to the specification document that was reviewed",
+      },
+      spec_requirements: {
+        type: "array",
+        items: { type: "string" },
+        description:
+          "Optional: List of specification requirements that were violated",
       },
       recommendations: {
         type: "array",
         items: { type: "string" },
-        description: "Recommendations for fixing the issues",
+        description: "Optional: Recommendations for fixing the issues",
       },
     },
-    required: ["issues", "recommendations"],
+    required: ["issues", "conformance", "notes"],
   },
   invoke: async (
     input: unknown,
@@ -229,35 +284,59 @@ const rejectHandoverTool: AgentTool = {
         type: "number",
         description: "The task ID whose handover to reject",
       },
+      conformance: {
+        type: "string",
+        enum: ["FAIL"],
+        description:
+          "Assessment of handover conformance (must be FAIL for rejections)",
+      },
       issues: {
         type: "array",
         items: {
           type: "object",
           properties: {
-            type: {
+            severity: {
               type: "string",
-              enum: [
-                "MISSING_REQUIREMENT",
-                "DEFERRED_FUNCTIONALITY",
-                "SPEC_VIOLATION",
-                "OTHER",
-              ],
+              enum: ["BLOCKING", "MAJOR"],
+              description: "Severity of the issue",
             },
-            description: { type: "string" },
-            spec_reference: { type: "string" },
-            severity: { type: "string", enum: ["BLOCKING", "MAJOR", "MINOR"] },
+            issue: {
+              type: "string",
+              description: "Description of the issue",
+            },
+            spec_reference: {
+              type: "string",
+              description: "Optional: Reference to spec section violated",
+            },
+            handover_text: {
+              type: "string",
+              description: "Optional: Relevant text from handover",
+            },
+            spec_text: {
+              type: "string",
+              description: "Optional: Relevant text from specification",
+            },
+            analysis: {
+              type: "string",
+              description: "Optional: Analysis of the misalignment",
+            },
+            recommendation: {
+              type: "string",
+              description: "Optional: How to fix this specific issue",
+            },
           },
-          required: ["type", "description", "severity"],
+          required: ["severity", "issue"],
         },
-        description: "List of issues found",
+        description:
+          "List of issues found in the handover (at least one required)",
       },
       recommendations: {
-        type: "array",
-        items: { type: "string" },
-        description: "Recommendations for fixing the issues",
+        type: "string",
+        description:
+          "Specific recommendations for the orchestrator to address (min 20 chars)",
       },
     },
-    required: ["task_id", "issues", "recommendations"],
+    required: ["task_id", "conformance", "issues", "recommendations"],
   },
   invoke: async (
     input: unknown,
