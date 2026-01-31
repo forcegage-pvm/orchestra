@@ -47,12 +47,12 @@ function convertDiagnostic(diagnostic: vscode.Diagnostic): DiagnosticInfo {
     message: diagnostic.message,
     severity: mapSeverity(diagnostic.severity),
   };
-  
+
   // Only add source if it exists
   if (diagnostic.source) {
     info.source = diagnostic.source;
   }
-  
+
   return info;
 }
 
@@ -67,22 +67,19 @@ function generateSuggestions(diagnostics: DiagnosticInfo[]): string[] {
 
     // Common TypeScript/JavaScript errors
     if (msg.includes("expected") && msg.includes("}")) {
-      suggestions.push(
-        `Missing closing brace - add } at line ${diag.line}`,
-      );
+      suggestions.push(`Missing closing brace - add } at line ${diag.line}`);
     } else if (msg.includes("expected") && msg.includes(")")) {
       suggestions.push(
         `Missing closing parenthesis - add ) at line ${diag.line}`,
       );
     } else if (msg.includes("expected") && msg.includes("]")) {
-      suggestions.push(
-        `Missing closing bracket - add ] at line ${diag.line}`,
-      );
+      suggestions.push(`Missing closing bracket - add ] at line ${diag.line}`);
     } else if (msg.includes("expected") && msg.includes(";")) {
-      suggestions.push(
-        `Missing semicolon - add ; at line ${diag.line}`,
-      );
-    } else if (msg.includes("cannot find name") || msg.includes("is not defined")) {
+      suggestions.push(`Missing semicolon - add ; at line ${diag.line}`);
+    } else if (
+      msg.includes("cannot find name") ||
+      msg.includes("is not defined")
+    ) {
       suggestions.push(
         `Undefined variable or missing import at line ${diag.line}`,
       );
@@ -216,7 +213,7 @@ async function validateEdit(
  */
 function getLanguageId(filePath: string): string {
   const ext = filePath.split(".").pop()?.toLowerCase();
-  
+
   const languageMap: Record<string, string> = {
     ts: "typescript",
     tsx: "typescriptreact",
@@ -256,7 +253,7 @@ async function waitForDiagnostics(
     }
 
     const diagnostics = vscode.languages.getDiagnostics(document.uri);
-    
+
     // If we have diagnostics or enough time has passed, return them
     if (diagnostics.length > 0 || elapsed > 1000) {
       return diagnostics;

@@ -2,12 +2,12 @@
  * Tests for validateEdit tool
  */
 
-import { describe, it, expect, beforeEach, vi, afterEach } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { validateEditTool } from "../../../../src/agents/tools/coding/validateEdit.js";
 import type {
   ToolInvocationContext,
   ValidateEditInput,
 } from "../../../../src/agents/tools/types.js";
-import { validateEditTool } from "../../../../src/agents/tools/coding/validateEdit.js";
 
 const {
   workspace,
