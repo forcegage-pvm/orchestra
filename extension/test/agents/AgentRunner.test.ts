@@ -12,6 +12,7 @@ import { AgentError } from "../../src/agents/errors.js";
 import { loadImplementorTools } from "../../src/agents/toolLoaders.js";
 import { ToolRegistry } from "../../src/agents/ToolRegistry.js";
 import { codingTools } from "../../src/agents/tools/coding/index.js";
+import { filesystemTools } from "../../src/agents/tools/filesystem/index.js";
 import { orchestraImplementorTools } from "../../src/agents/tools/orchestra/index.js";
 import { systemTools } from "../../src/agents/tools/system/index.js";
 import type { AgentTool } from "../../src/agents/tools/types.js";
@@ -221,12 +222,17 @@ describe("AgentRunner", () => {
 
       const expectedCount =
         codingTools.length +
+        filesystemTools.length +
         orchestraImplementorTools.length +
         systemTools.length;
 
       expect(toolRegistry.names()).toHaveLength(expectedCount);
 
       for (const tool of codingTools) {
+        expect(toolRegistry.has(tool.name)).toBe(true);
+      }
+
+      for (const tool of filesystemTools) {
         expect(toolRegistry.has(tool.name)).toBe(true);
       }
 
