@@ -96,11 +96,18 @@ export const getProcessOutputTool: AgentTool<GetProcessOutputInput> = {
       );
     }
 
-    const output = manager.getProcessOutput(parsed.data.process_id, {
-      sinceLastRead: parsed.data.since_last_read,
-      maxLines: parsed.data.max_lines,
-      includeAnsi: parsed.data.include_ansi,
-    });
+    const options: GetProcessOutputOptions = {};
+    if (parsed.data.since_last_read !== undefined) {
+      options.sinceLastRead = parsed.data.since_last_read;
+    }
+    if (parsed.data.max_lines !== undefined) {
+      options.maxLines = parsed.data.max_lines;
+    }
+    if (parsed.data.include_ansi !== undefined) {
+      options.includeAnsi = parsed.data.include_ansi;
+    }
+
+    const output = manager.getProcessOutput(parsed.data.process_id, options);
 
     if (!output) {
       return buildToolResult(

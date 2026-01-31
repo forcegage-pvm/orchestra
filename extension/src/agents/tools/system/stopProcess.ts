@@ -75,11 +75,16 @@ export const stopProcessTool: AgentTool<StopProcessInput> = {
     }
 
     try {
+      const options: StopProcessOptions = {};
+      if (parsed.data.graceful_timeout_ms !== undefined) {
+        options.gracefulTimeoutMs = parsed.data.graceful_timeout_ms;
+      }
+      if (context.token !== undefined) {
+        options.token = context.token;
+      }
+
       const manager = ProcessManager.getInstance();
-      const result = await manager.stopProcess(parsed.data.process_id, {
-        gracefulTimeoutMs: parsed.data.graceful_timeout_ms,
-        token: context.token,
-      });
+      const result = await manager.stopProcess(parsed.data.process_id, options);
 
       if (!result) {
         return buildToolResult(

@@ -173,13 +173,19 @@ export class ProcessManager extends EventEmitter {
       process: child,
       buffer: outputBuffer,
       unreadBuffer,
-      readyPattern: options.readyPattern,
     };
+    if (options.readyPattern !== undefined) {
+      managed.readyPattern = options.readyPattern;
+    }
 
     this.processes.set(processId, managed);
 
     const cancelDisposable = options.token?.onCancellationRequested(() => {
-      void this.stopProcess(processId, { token: options.token });
+      const stopOptions: StopProcessOptions = {};
+      if (options.token !== undefined) {
+        stopOptions.token = options.token;
+      }
+      void this.stopProcess(processId, stopOptions);
     });
 
     child.stdout?.on("data", (data: Buffer) => {
@@ -361,6 +367,174 @@ export class ProcessManager extends EventEmitter {
       if (!child.killed) {
         child.kill();
       }
+    });
+  }
+
+  public async sendInput(
+    processId: string,
+    options: {
+      text: string;
+      pressEnter?: boolean;
+      specialKey?: "ctrl+c" | "ctrl+d" | "ctrl+z";
+      token?: vscode.CancellationToken;
+    },
+  ): Promise<{ bytesSent: number } | undefined> {
+    if (options.token?.isCancellationRequested) {
+      throw new Error("Operation cancelled.");
+    }
+
+    const managed = this.processes.get(processId);
+    if (!managed) {
+      return undefined;
+    }
+
+    const child = managed.process;
+    if (!child.stdin || child.stdin.destroyed) {
+      throw new Error("Process stdin is not available");
+    }
+
+    let textToSend = options.text;
+
+    // Handle special keys
+    if (options.specialKey) {
+      switch (options.specialKey) {
+        case "ctrl+c":
+          textToSend = "\x03"; // ETX (End of Text)
+          break;
+        case "ctrl+d":
+          textToSend = "\x04"; // EOT (End of Transmission)
+          break;
+        case "ctrl+z":
+          textToSend = "\x1a"; // SUB (Substitute)
+          break;
+      }
+    }
+
+    // Add newline if requested (default: true)
+    if (options.pressEnter !== false && !options.specialKey) {
+      textToSend += "\n";
+    }
+
+    return new Promise((resolve, reject) => {
+      const bytesSent = Buffer.byteLength(textToSend);
+
+      child.stdin!.write(textToSend, (error) => {
+        if (error) {
+          reject(error);
+        } else {
+          resolve({ bytesSent });
+        }
+      });
+    });
+  }
+
+  public async waitForPattern(
+    processId: string,
+    options: {
+      pattern: RegExp;
+      timeoutMs?: number;
+      token?: vscode.CancellationToken;
+    },
+  ): Promise<{
+    matched: boolean;
+    matchedLine?: string;
+    waitTimeMs: number;
+    timedOut: boolean;
+  }> {
+    const startTime = Date.now();
+    const timeoutMs = options.timeoutMs ?? this.config.default_timeout_ms;
+
+    const managed = this.processes.get(processId);
+    if (!managed) {
+      throw new Error("Process not found");
+    }
+
+    // Check if pattern already exists in buffer
+    const currentOutput = managed.buffer.getText();
+    const existingMatch = currentOutput.match(options.pattern);
+    if (existingMatch) {
+      const lines = currentOutput.split("\n");
+      const matchedLine = lines.find((line) => options.pattern.test(line));
+      return {
+        matched: true,
+        matchedLine,
+        waitTimeMs: Date.now() - startTime,
+        timedOut: false,
+      };
+    }
+
+    // Wait for pattern to appear in new output
+    return new Promise((resolve) => {
+      let timeoutHandle: NodeJS.Timeout | undefined;
+      let resolved = false;
+
+      const finish = (result: {
+        matched: boolean;
+        matchedLine?: string;
+        waitTimeMs: number;
+        timedOut: boolean;
+      }) => {
+        if (resolved) {
+          return;
+        }
+        resolved = true;
+
+        if (timeoutHandle) {
+          clearTimeout(timeoutHandle);
+        }
+        this.off("output", outputHandler);
+        this.off("exit", exitHandler);
+
+        resolve(result);
+      };
+
+      const outputHandler = (pid: string, data: string) => {
+        if (pid !== processId) {
+          return;
+        }
+
+        if (options.token?.isCancellationRequested) {
+          finish({
+            matched: false,
+            waitTimeMs: Date.now() - startTime,
+            timedOut: false,
+          });
+          return;
+        }
+
+        const lines = data.split("\n");
+        const matchedLine = lines.find((line) => options.pattern.test(line));
+
+        if (matchedLine) {
+          finish({
+            matched: true,
+            matchedLine,
+            waitTimeMs: Date.now() - startTime,
+            timedOut: false,
+          });
+        }
+      };
+
+      const exitHandler = (pid: string) => {
+        if (pid === processId) {
+          finish({
+            matched: false,
+            waitTimeMs: Date.now() - startTime,
+            timedOut: false,
+          });
+        }
+      };
+
+      this.on("output", outputHandler);
+      this.on("exit", exitHandler);
+
+      timeoutHandle = setTimeout(() => {
+        finish({
+          matched: false,
+          waitTimeMs: Date.now() - startTime,
+          timedOut: true,
+        });
+      }, timeoutMs);
     });
   }
 

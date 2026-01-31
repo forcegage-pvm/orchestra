@@ -139,6 +139,71 @@ export interface StopProcessResult {
   force_killed: boolean;
 }
 
+export const SendInputInputSchema = z.object({
+  process_id: z.string().min(1),
+  text: z.string(),
+  press_enter: z.boolean().optional(),
+  special_key: z.enum(["ctrl+c", "ctrl+d", "ctrl+z"]).optional(),
+});
+export type SendInputInput = z.output<typeof SendInputInputSchema>;
+
+export interface SendInputResult {
+  success: boolean;
+  process_id: string;
+  bytes_sent: number;
+  error?: string;
+}
+
+export const WaitForPatternInputSchema = z.object({
+  process_id: z.string().min(1),
+  pattern: z.string().min(1),
+  timeout_ms: z.number().int().nonnegative().optional(),
+});
+export type WaitForPatternInput = z.output<typeof WaitForPatternInputSchema>;
+
+export interface WaitForPatternResult {
+  success: boolean;
+  matched: boolean;
+  matched_line?: string;
+  wait_time_ms: number;
+  timed_out: boolean;
+}
+
+export const FindPortProcessInputSchema = z.object({
+  port: z.number().int().positive(),
+});
+export type FindPortProcessInput = z.output<typeof FindPortProcessInputSchema>;
+
+export interface FindPortProcessResult {
+  success: boolean;
+  in_use: boolean;
+  process_id?: string;
+  pid?: number;
+  command?: string;
+}
+
+export const ExecuteWithRetryInputSchema = z.object({
+  command: z.string().min(1),
+  cwd: z.string().optional(),
+  max_retries: z.number().int().positive().optional(),
+  retry_delay_ms: z.number().int().nonnegative().optional(),
+  success_exit_codes: z.array(z.number().int()).optional(),
+  success_pattern: z.string().optional(),
+  timeout_ms: z.number().int().nonnegative().optional(),
+});
+export type ExecuteWithRetryInput = z.output<
+  typeof ExecuteWithRetryInputSchema
+>;
+
+export interface ExecuteWithRetryResult {
+  success: boolean;
+  attempts: number;
+  final_exit_code: number;
+  stdout: string;
+  stderr: string;
+  total_duration_ms: number;
+}
+
 // ============================================================================
 // Infrastructure Types (Process + Matching)
 // ============================================================================

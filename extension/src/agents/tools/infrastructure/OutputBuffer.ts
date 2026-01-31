@@ -175,12 +175,14 @@ export class OutputBuffer {
 
     for (let index = this.lines.length - 1; index >= 0; index -= 1) {
       const line = this.lines[index];
-      const lineBytes = this.byteLengthWithNewline(line);
-      if (used + lineBytes > budget) {
-        break;
+      if (line !== undefined) {
+        const lineBytes = this.byteLengthWithNewline(line);
+        if (used + lineBytes > budget) {
+          break;
+        }
+        collected.push(line);
+        used += lineBytes;
       }
-      collected.push(line);
-      used += lineBytes;
     }
 
     collected.reverse();

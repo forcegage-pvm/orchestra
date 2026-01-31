@@ -5,6 +5,8 @@
  */
 
 import { ToolRegistry } from "../../ToolRegistry.js";
+import { executeWithRetryTool } from "./executeWithRetry.js";
+import { findPortProcessTool } from "./findPortProcess.js";
 import { getProblemsTool } from "./getProblems.js";
 import { getProcessOutputTool } from "./getProcessOutput.js";
 import { getTerminalOutputTool } from "./getTerminalOutput.js";
@@ -14,22 +16,20 @@ import { runCommandTool } from "./runCommand.js";
 import { runTaskTool } from "./runTask.js";
 import { runTerminalTool } from "./runTerminal.js";
 import { runTestsTool } from "./runTests.js";
+import { sendInputTool } from "./sendInput.js";
 import { startProcessTool } from "./startProcess.js";
 import { stopProcessTool } from "./stopProcess.js";
-
-// Placeholder structure for upcoming terminal tools:
-// - startProcess
-// - stopProcess
-// - getProcessOutput
-// - listProcesses
-// - sendInput
-// - waitForPattern
+import { waitForPatternTool } from "./waitForPattern.js";
 
 export const systemTools = [
   startProcessTool,
   stopProcessTool,
   getProcessOutputTool,
   listProcessesTool,
+  sendInputTool,
+  waitForPatternTool,
+  findPortProcessTool,
+  executeWithRetryTool,
   runCommandTool,
   runTerminalTool,
   getTerminalOutputTool,
@@ -44,6 +44,8 @@ export function registerSystemTools(registry: ToolRegistry): void {
 }
 
 export {
+  executeWithRetryTool,
+  findPortProcessTool,
   getProblemsTool,
   getProcessOutputTool,
   getTerminalOutputTool,
@@ -53,6 +55,8 @@ export {
   runTaskTool,
   runTerminalTool,
   runTestsTool,
+  sendInputTool,
   startProcessTool,
   stopProcessTool,
+  waitForPatternTool,
 };
