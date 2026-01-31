@@ -276,7 +276,7 @@ describe("ProcessManager", () => {
     it("builds node commands with proper escaping", () => {
       const script = "console.log('test')";
       const command = buildNodeCommand(script);
-      
+
       // Should include node executable path
       expect(command).toContain(process.execPath);
       // Should include -e flag for inline script execution
@@ -302,7 +302,7 @@ describe("ProcessManager", () => {
       // Mock spawn to verify env is passed correctly
       const { spawn: originalSpawn } = await import("node:child_process");
       const spawnSpy = vi.fn(originalSpawn);
-      
+
       vi.doMock("node:child_process", () => ({
         spawn: spawnSpy,
       }));
