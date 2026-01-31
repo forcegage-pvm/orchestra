@@ -346,6 +346,40 @@ export interface ValidateEditResult {
   warnings: DiagnosticInfo[];
 }
 
+export const BulkReplaceInputSchema = z.object({
+  pattern: z.string().min(1),
+  replacement: z.string(),
+  is_regex: z.boolean().optional(),
+  include_glob: z.string().optional(),
+  exclude_glob: z.string().optional(),
+  case_sensitive: z.boolean().optional(),
+  whole_word: z.boolean().optional(),
+  max_files: z.number().int().positive().optional(),
+  max_replacements: z.number().int().positive().optional(),
+  preview_only: z.boolean().optional(),
+});
+export type BulkReplaceInput = z.output<typeof BulkReplaceInputSchema>;
+
+export interface FileChangeInfo {
+  file_path: string;
+  replacements: number;
+  preview?: string;
+}
+
+export interface FileErrorInfo {
+  file_path: string;
+  error: string;
+}
+
+export interface BulkReplaceResult {
+  success: boolean;
+  files_scanned: number;
+  files_modified: number;
+  total_replacements: number;
+  changes: FileChangeInfo[];
+  errors: FileErrorInfo[];
+}
+
 // ============================================================================
 // Tool Invocation Context
 // ============================================================================

@@ -5,6 +5,7 @@
  */
 
 import { ToolRegistry } from "../../ToolRegistry.js";
+import { bulkReplaceTool } from "./bulkReplace.js";
 import { createDirectoryTool } from "./createDirectory.js";
 import { createFileTool } from "./createFile.js";
 import { deleteFileTool } from "./deleteFile.js";
@@ -19,9 +20,6 @@ import { readFileTool } from "./readFile.js";
 import { searchFilesTool } from "./searchFiles.js";
 import { smartReplaceTool } from "./smartReplace.js";
 import { validateEditTool } from "./validateEdit.js";
-
-// Placeholder structure for upcoming file editing tools:
-// - bulkReplace
 
 export const codingTools = [
   readFileTool,
@@ -38,6 +36,7 @@ export const codingTools = [
   insertAtLineTool,
   deleteSectionTool,
   validateEditTool,
+  bulkReplaceTool,
 ] as const;
 
 export function registerCodingTools(registry: ToolRegistry): void {
@@ -45,6 +44,7 @@ export function registerCodingTools(registry: ToolRegistry): void {
 }
 
 export {
+  bulkReplaceTool,
   createDirectoryTool,
   createFileTool,
   deleteFileTool,
