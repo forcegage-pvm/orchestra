@@ -29,6 +29,15 @@ function buildToolResult(partial: Partial<ToolResult>): ToolResult {
   };
 }
 
+/**
+ * Agent tool for waiting for patterns in process output
+ * Monitors process output for regex pattern match with timeout
+ * Respects CancellationToken for interruptibility
+ * @property name - Tool identifier: "wait_for_pattern"
+ * @property description - Human-readable tool description
+ * @property inputSchema - JSON Schema defining input parameters
+ * @property invoke - Execute the tool with validated input
+ */
 export const waitForPatternTool: AgentTool<WaitForPatternInput> = {
   name: TOOL_NAME,
   description:

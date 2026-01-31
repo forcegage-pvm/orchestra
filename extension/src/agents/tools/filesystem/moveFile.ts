@@ -198,6 +198,15 @@ async function moveFile(
   return buildToolResult(result);
 }
 
+/**
+ * Agent tool for moving files to new locations
+ * Renames or relocates files, creating parent directories as needed
+ * Supports overwrite mode for replacing existing destination files
+ * @property name - Tool identifier: "move_file"
+ * @property description - Human-readable tool description
+ * @property inputSchema - JSON Schema defining input parameters
+ * @property invoke - Execute the tool with validated input
+ */
 export const moveFileTool: AgentTool<MoveFileInput> = {
   name: TOOL_NAME,
   description:

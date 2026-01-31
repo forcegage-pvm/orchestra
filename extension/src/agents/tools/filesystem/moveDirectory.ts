@@ -242,6 +242,15 @@ async function moveDirectory(
   return buildToolResult(result);
 }
 
+/**
+ * Agent tool for moving directories recursively
+ * Relocates entire directory trees including all files and subdirectories
+ * Supports overwrite mode and reports counts of moved items
+ * @property name - Tool identifier: "move_directory"
+ * @property description - Human-readable tool description
+ * @property inputSchema - JSON Schema defining input parameters
+ * @property invoke - Execute the tool with validated input
+ */
 export const moveDirectoryTool: AgentTool<MoveDirectoryInput> = {
   name: TOOL_NAME,
   description:

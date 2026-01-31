@@ -269,6 +269,15 @@ async function deleteSection(
   };
 }
 
+/**
+ * Agent tool for deleting line ranges from files
+ * Removes specified line range and captures deleted content for undo
+ * Supports dry-run mode for previewing changes
+ * @property name - Tool identifier: "delete_section"
+ * @property description - Human-readable tool description
+ * @property inputSchema - JSON Schema defining input parameters
+ * @property invoke - Execute the tool with validated input
+ */
 export const deleteSectionTool: AgentTool<DeleteSectionInput> = {
   name: TOOL_NAME,
   description:

@@ -119,6 +119,16 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+/**
+ * Agent tool for executing commands with automatic retry logic
+ * Retries failed commands with configurable delays and success criteria
+ * Supports pattern matching and exit code validation
+ * Respects CancellationToken for interruptibility
+ * @property name - Tool identifier: "execute_with_retry"
+ * @property description - Human-readable tool description
+ * @property inputSchema - JSON Schema defining input parameters
+ * @property invoke - Execute the tool with validated input
+ */
 export const executeWithRetryTool: AgentTool<ExecuteWithRetryInput> = {
   name: TOOL_NAME,
   description:

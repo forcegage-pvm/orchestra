@@ -29,6 +29,15 @@ function buildToolResult(partial: Partial<ToolResult>): ToolResult {
   };
 }
 
+/**
+ * Agent tool for stopping background processes
+ * Gracefully stops a process with optional force kill after timeout
+ * Respects CancellationToken for interruptibility
+ * @property name - Tool identifier: "stop_process"
+ * @property description - Human-readable tool description
+ * @property inputSchema - JSON Schema defining input parameters
+ * @property invoke - Execute the tool with validated input
+ */
 export const stopProcessTool: AgentTool<StopProcessInput> = {
   name: TOOL_NAME,
   description: "Stop a background process by process id.",

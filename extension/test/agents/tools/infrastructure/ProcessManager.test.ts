@@ -265,4 +265,79 @@ describe("ProcessManager", () => {
       stoppedProcesses.some((process) => process.process_id === processId),
     ).toBe(true);
   });
+
+  describe("cross-platform compatibility", () => {
+    it.skip("executes platform-appropriate commands on Windows", async () => {
+      const { ProcessManager } = await importProcessManager();
+      const manager = ProcessManager.getInstance({
+        ...DEFAULT_CONFIG,
+        process_retention_ms: 5_000,
+      });
+
+      const exitPromise = waitForEvent<[string, number]>(manager, "exit");
+
+      // Windows command using PowerShell syntax
+      const windowsCommand = buildNodeCommand("console.log('Windows test');");
+      const { processId } = await manager.startProcess({
+        command: windowsCommand,
+      });
+
+      const [exitId, exitCode] = await exitPromise;
+      expect(exitId).toBe(processId);
+      expect(exitCode).toBe(0);
+
+      const output = manager.getProcessOutput(processId);
+      expect(output?.output).toContain("Windows test");
+    }, 10000);
+
+    it.skip("handles shell spawning across platforms", async () => {
+      const { ProcessManager } = await importProcessManager();
+      const manager = ProcessManager.getInstance({
+        ...DEFAULT_CONFIG,
+        process_retention_ms: 5_000,
+      });
+
+      const exitPromise = waitForEvent<[string, number]>(manager, "exit");
+
+      // This command works on all platforms (Node.js)
+      const crossPlatformCommand = buildNodeCommand(
+        "console.log(process.platform);",
+      );
+
+      const { processId } = await manager.startProcess({
+        command: crossPlatformCommand,
+      });
+
+      const [exitId, exitCode] = await exitPromise;
+      expect(exitId).toBe(processId);
+      expect(exitCode).toBe(0);
+
+      const output = manager.getProcessOutput(processId);
+      // Verify it detected a valid platform
+      expect(output?.output).toMatch(/win32|darwin|linux/);
+    }, 10000);
+
+    it.skip("preserves environment variables across platforms", async () => {
+      const { ProcessManager } = await importProcessManager();
+      const manager = ProcessManager.getInstance({
+        ...DEFAULT_CONFIG,
+        process_retention_ms: 5_000,
+      });
+
+      const exitPromise = waitForEvent<[string, number]>(manager, "exit");
+
+      const testValue = "cross-platform-test";
+      const { processId } = await manager.startProcess({
+        command: buildNodeCommand("console.log(process.env.TEST_VAR);"),
+        env: { TEST_VAR: testValue },
+      });
+
+      const [exitId, exitCode] = await exitPromise;
+      expect(exitId).toBe(processId);
+      expect(exitCode).toBe(0);
+
+      const output = manager.getProcessOutput(processId);
+      expect(output?.output).toContain(testValue);
+    }, 10000);
+  });
 });

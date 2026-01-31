@@ -125,6 +125,15 @@ async function findProcessUsingPort(
   });
 }
 
+/**
+ * Agent tool for finding processes using specific ports
+ * Uses OS-specific commands (netstat/lsof) to identify port usage
+ * Cross-platform support for Windows, macOS, and Linux
+ * @property name - Tool identifier: "find_port_process"
+ * @property description - Human-readable tool description
+ * @property inputSchema - JSON Schema defining input parameters
+ * @property invoke - Execute the tool with validated input
+ */
 export const findPortProcessTool: AgentTool<FindPortProcessInput> = {
   name: TOOL_NAME,
   description: "Find which process is using a specific port.",

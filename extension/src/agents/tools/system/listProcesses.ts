@@ -37,6 +37,15 @@ function buildToolResult(partial: Partial<ToolResult>): ToolResult {
   };
 }
 
+/**
+ * Agent tool for listing managed background processes
+ * Returns process info with optional status filtering
+ * Respects CancellationToken for interruptibility
+ * @property name - Tool identifier: "list_processes"
+ * @property description - Human-readable tool description
+ * @property inputSchema - JSON Schema defining input parameters
+ * @property invoke - Execute the tool with validated input
+ */
 export const listProcessesTool: AgentTool<ListProcessesInput> = {
   name: TOOL_NAME,
   description: "List background processes managed by the ProcessManager.",

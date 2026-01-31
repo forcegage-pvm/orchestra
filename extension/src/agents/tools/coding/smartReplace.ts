@@ -337,6 +337,15 @@ async function smartReplace(
   };
 }
 
+/**
+ * Agent tool for advanced text replacement with fuzzy matching
+ * Uses Levenshtein distance to find and replace text with tolerance for whitespace changes
+ * Supports exact, normalized, and fuzzy matching modes
+ * @property name - Tool identifier: "smart_replace"
+ * @property description - Human-readable tool description
+ * @property inputSchema - JSON Schema defining input parameters
+ * @property invoke - Execute the tool with validated input
+ */
 export const smartReplaceTool: AgentTool<SmartReplaceInput> = {
   name: TOOL_NAME,
   description:

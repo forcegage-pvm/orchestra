@@ -269,6 +269,15 @@ async function waitForDiagnostics(
   return vscode.languages.getDiagnostics(document.uri);
 }
 
+/**
+ * Agent tool for validating file edits before applying
+ * Leverages VS Code language services to check syntax and report errors/warnings
+ * Waits for diagnostics to populate for accurate validation
+ * @property name - Tool identifier: "validate_edit"
+ * @property description - Human-readable tool description
+ * @property inputSchema - JSON Schema defining input parameters
+ * @property invoke - Execute the tool with validated input
+ */
 export const validateEditTool: AgentTool<ValidateEditInput> = {
   name: TOOL_NAME,
   description:

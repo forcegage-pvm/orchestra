@@ -17,13 +17,34 @@ const DEFAULT_CONFIG: FuzzyMatcherConfig = {
   normalize_whitespace: true,
 };
 
+/**
+ * Fuzzy text matcher using Levenshtein distance for similarity scoring
+ * Supports exact, normalized whitespace, and fuzzy matching modes
+ */
 export class FuzzyMatcher {
   private readonly config: FuzzyMatcherConfig;
 
+  /**
+   * Create a new fuzzy matcher
+   * @param config - Matcher configuration
+   * @param config.threshold - Minimum similarity score (0.0-1.0, default: 0.85)
+   * @param config.search_radius - Lines to search around hint (default: 50)
+   * @param config.normalize_whitespace - Normalize whitespace before matching (default: true)
+   */
   public constructor(config: Partial<FuzzyMatcherConfig> = {}) {
     this.config = { ...DEFAULT_CONFIG, ...config };
   }
 
+  /**
+   * Find the best match for target text in an array of lines
+   * Attempts exact match first, then normalized whitespace, then fuzzy match
+   * @param lines - Array of lines to search
+   * @param target - Text to find
+   * @param options - Match options
+   * @param options.startLineHint - Line number to prioritize (1-indexed)
+   * @param options.token - Cancellation token
+   * @returns Match result with confidence score and location
+   */
   public match(
     lines: string[],
     target: string,
@@ -49,7 +70,9 @@ export class FuzzyMatcher {
       if (options.token?.isCancellationRequested) {
         return this.noMatch();
       }
-      const segment = lines.slice(startIndex, startIndex + windowSize).join("\n");
+      const segment = lines
+        .slice(startIndex, startIndex + windowSize)
+        .join("\n");
       if (segment === target) {
         return this.buildMatch("EXACT", 1, startIndex, segment, windowSize);
       }
@@ -74,12 +97,17 @@ export class FuzzyMatcher {
       if (options.token?.isCancellationRequested) {
         return this.noMatch();
       }
-      const segment = lines.slice(startIndex, startIndex + windowSize).join("\n");
+      const segment = lines
+        .slice(startIndex, startIndex + windowSize)
+        .join("\n");
       const comparisonTarget = this.config.normalize_whitespace
         ? this.normalizeWhitespace(segment)
         : segment;
       const distance = this.levenshtein(comparisonTarget, normalizedTarget);
-      const maxLength = Math.max(comparisonTarget.length, normalizedTarget.length);
+      const maxLength = Math.max(
+        comparisonTarget.length,
+        normalizedTarget.length,
+      );
       const similarity = maxLength === 0 ? 1 : 1 - distance / maxLength;
 
       if (similarity >= this.config.threshold) {
@@ -120,12 +148,12 @@ export class FuzzyMatcher {
       return Array.from({ length: maxStartIndex + 1 }, (_, index) => index);
     }
 
-    const hintIndex = Math.min(
-      maxStartIndex,
-      Math.max(0, startLineHint - 1),
-    );
+    const hintIndex = Math.min(maxStartIndex, Math.max(0, startLineHint - 1));
     const minIndex = Math.max(0, hintIndex - this.config.search_radius);
-    const maxIndex = Math.min(maxStartIndex, hintIndex + this.config.search_radius);
+    const maxIndex = Math.min(
+      maxStartIndex,
+      hintIndex + this.config.search_radius,
+    );
     const order: number[] = [];
 
     for (let offset = 0; offset <= this.config.search_radius; offset += 1) {

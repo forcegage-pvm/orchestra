@@ -253,6 +253,15 @@ async function insertAtLine(
   };
 }
 
+/**
+ * Agent tool for inserting content at specific line numbers
+ * Inserts content before a target line, optionally matching surrounding indentation
+ * Supports dry-run mode for previewing changes
+ * @property name - Tool identifier: "insert_at_line"
+ * @property description - Human-readable tool description
+ * @property inputSchema - JSON Schema defining input parameters
+ * @property invoke - Execute the tool with validated input
+ */
 export const insertAtLineTool: AgentTool<InsertAtLineInput> = {
   name: TOOL_NAME,
   description:

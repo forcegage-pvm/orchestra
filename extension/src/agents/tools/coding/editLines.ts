@@ -333,6 +333,15 @@ async function editLines(
   };
 }
 
+/**
+ * Agent tool for line-based file editing
+ * Replaces a range of lines with new content, optionally preserving indentation
+ * Supports dry-run mode for previewing changes
+ * @property name - Tool identifier: "edit_lines"
+ * @property description - Human-readable tool description
+ * @property inputSchema - JSON Schema defining input parameters
+ * @property invoke - Execute the tool with validated input
+ */
 export const editLinesTool: AgentTool<EditLinesInput> = {
   name: TOOL_NAME,
   description:

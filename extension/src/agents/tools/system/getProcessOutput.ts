@@ -29,6 +29,15 @@ function buildToolResult(partial: Partial<ToolResult>): ToolResult {
   };
 }
 
+/**
+ * Agent tool for retrieving background process output
+ * Fetches buffered stdout/stderr with optional line limits and ANSI stripping
+ * Respects CancellationToken for interruptibility
+ * @property name - Tool identifier: "get_process_output"
+ * @property description - Human-readable tool description
+ * @property inputSchema - JSON Schema defining input parameters
+ * @property invoke - Execute the tool with validated input
+ */
 export const getProcessOutputTool: AgentTool<GetProcessOutputInput> = {
   name: TOOL_NAME,
   description: "Retrieve buffered output for a background process.",

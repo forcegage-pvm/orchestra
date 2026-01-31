@@ -49,6 +49,15 @@ function stripAnsi(value: string): string {
   return value.replace(ANSI_PATTERN, "");
 }
 
+/**
+ * Agent tool for starting background processes
+ * Spawns a process, monitors its output, and optionally waits for a ready pattern
+ * Respects CancellationToken for interruptibility
+ * @property name - Tool identifier: "start_process"
+ * @property description - Human-readable tool description
+ * @property inputSchema - JSON Schema defining input parameters
+ * @property invoke - Execute the tool with validated input
+ */
 export const startProcessTool: AgentTool<StartProcessInput> = {
   name: TOOL_NAME,
   description:

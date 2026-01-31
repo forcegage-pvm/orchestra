@@ -53,6 +53,10 @@ const ANSI_PATTERN = /\x1B\[[0-9;]*[a-zA-Z]/g;
 const TRUNCATION_MESSAGE = "... output truncated ...";
 const HEAD_RATIO = 0.2;
 
+/**
+ * Singleton process manager for handling background processes
+ * Manages process lifecycle, output buffering, and cleanup
+ */
 export class ProcessManager extends EventEmitter {
   private static instance: ProcessManager | null = null;
 
@@ -64,6 +68,11 @@ export class ProcessManager extends EventEmitter {
     this.config = config;
   }
 
+  /**
+   * Get or create the singleton ProcessManager instance
+   * @param configOverrides - Optional configuration overrides
+   * @returns The ProcessManager singleton instance
+   */
   public static getInstance(
     configOverrides: Partial<ProcessManagerConfig> = {},
   ): ProcessManager {
@@ -82,14 +91,28 @@ export class ProcessManager extends EventEmitter {
     return ProcessManager.instance;
   }
 
+  /**
+   * Update configuration with partial overrides
+   * @param overrides - Configuration properties to override
+   */
   public updateConfig(overrides: Partial<ProcessManagerConfig>): void {
     this.config = { ...this.config, ...overrides };
   }
 
+  /**
+   * Get current configuration
+   * @returns Copy of current configuration
+   */
   public getConfig(): ProcessManagerConfig {
     return { ...this.config };
   }
 
+  /**
+   * Register event listener (typed overloads)
+   * @param event - Event name
+   * @param listener - Event handler callback
+   * @returns This instance for chaining
+   */
   public on(event: "output", listener: ProcessEvents["output"]): this;
   public on(event: "ready", listener: ProcessEvents["ready"]): this;
   public on(event: "exit", listener: ProcessEvents["exit"]): this;
@@ -98,6 +121,12 @@ export class ProcessManager extends EventEmitter {
     return super.on(event, listener);
   }
 
+  /**
+   * Unregister event listener (typed overloads)
+   * @param event - Event name
+   * @param listener - Event handler to remove
+   * @returns This instance for chaining
+   */
   public off(event: "output", listener: ProcessEvents["output"]): this;
   public off(event: "ready", listener: ProcessEvents["ready"]): this;
   public off(event: "exit", listener: ProcessEvents["exit"]): this;
@@ -106,6 +135,12 @@ export class ProcessManager extends EventEmitter {
     return super.off(event, listener);
   }
 
+  /**
+   * Emit event (typed overloads)
+   * @param event - Event name
+   * @param args - Event arguments
+   * @returns True if event had listeners
+   */
   public emit(
     event: "output",
     ...args: Parameters<ProcessEvents["output"]>
@@ -126,6 +161,17 @@ export class ProcessManager extends EventEmitter {
     return super.emit(event, ...args);
   }
 
+  /**
+   * Start a new background process
+   * @param options - Process start options
+   * @param options.command - Shell command to execute
+   * @param options.cwd - Working directory (defaults to process.cwd())
+   * @param options.env - Environment variables to set
+   * @param options.readyPattern - Optional regex to detect when process is ready
+   * @param options.token - Cancellation token
+   * @returns Promise resolving to process ID, info, and initial output
+   * @throws {Error} If cancellation was requested before starting
+   */
   public async startProcess(
     options: StartProcessOptions,
   ): Promise<{ processId: string; info: ProcessInfo; initialOutput: string }> {
@@ -252,10 +298,24 @@ export class ProcessManager extends EventEmitter {
     };
   }
 
+  /**
+   * Get information about a managed process
+   * @param processId - Process identifier
+   * @returns Process info or undefined if not found
+   */
   public getProcessInfo(processId: string): ProcessInfo | undefined {
     return this.processes.get(processId)?.info;
   }
 
+  /**
+   * Retrieve output from a managed process
+   * @param processId - Process identifier
+   * @param options - Output retrieval options
+   * @param options.sinceLastRead - If true, only return unread output
+   * @param options.maxLines - Maximum lines to return (truncates with head/tail)
+   * @param options.includeAnsi - If false, strip ANSI escape codes
+   * @returns Output details or undefined if process not found
+   */
   public getProcessOutput(
     processId: string,
     options: GetProcessOutputOptions = {},
@@ -311,6 +371,11 @@ export class ProcessManager extends EventEmitter {
     };
   }
 
+  /**
+   * List all managed processes, optionally filtered by status
+   * @param status - Optional status to filter by
+   * @returns Array of process info objects
+   */
   public listProcesses(status?: ProcessStatus): ProcessInfo[] {
     const infos = Array.from(this.processes.values()).map(({ info }) => ({
       ...info,
@@ -323,6 +388,15 @@ export class ProcessManager extends EventEmitter {
     return infos.filter((info) => info.status === status);
   }
 
+  /**
+   * Stop a managed process gracefully or forcefully
+   * @param processId - Process identifier to stop
+   * @param options - Stop options
+   * @param options.gracefulTimeoutMs - Time to wait before force kill
+   * @param options.token - Cancellation token
+   * @returns Promise resolving to exit code and force kill status, or undefined if not found
+   * @throws {Error} If cancellation was requested
+   */
   public async stopProcess(
     processId: string,
     options: StopProcessOptions = {},
@@ -370,6 +444,16 @@ export class ProcessManager extends EventEmitter {
     });
   }
 
+  /**
+   * Send input to a process's stdin
+   * @param processId - Target process identifier
+   * @param options - Input options
+   * @param options.text - Text to send
+   * @param options.pressEnter - If true, append newline
+   * @param options.specialKey - Optional special key sequence
+   * @param options.token - Cancellation token
+   * @returns Promise resolving to bytes sent, or undefined if not found
+   */
   public async sendInput(
     processId: string,
     options: {
@@ -428,6 +512,15 @@ export class ProcessManager extends EventEmitter {
     });
   }
 
+  /**
+   * Wait for a regex pattern to appear in process output
+   * @param processId - Process to monitor
+   * @param options - Wait options
+   * @param options.pattern - Regex pattern to match
+   * @param options.timeoutMs - Maximum wait time
+   * @param options.token - Cancellation token
+   * @returns Promise resolving to match result and timing
+   */
   public async waitForPattern(
     processId: string,
     options: {
@@ -538,6 +631,10 @@ export class ProcessManager extends EventEmitter {
     });
   }
 
+  /**
+   * Dispose of all managed processes and cleanup resources
+   * Stops all running processes forcefully
+   */
   public async dispose(): Promise<void> {
     const stopPromises: Array<Promise<unknown>> = [];
 

@@ -17,6 +17,10 @@ const DEFAULT_HEAD_RATIO = 0.2;
 const DEFAULT_TAIL_RATIO = 0.8;
 const DEFAULT_TRUNCATION_MESSAGE = "... output truncated ...";
 
+/**
+ * Ring buffer for managing process output with size limits and head/tail truncation
+ * Handles line-based buffering with automatic truncation when limits are exceeded
+ */
 export class OutputBuffer {
   private readonly maxLines: number | null;
   private readonly maxBytes: number;
@@ -28,6 +32,15 @@ export class OutputBuffer {
   private totalBytes = 0;
   private truncated = false;
 
+  /**
+   * Create a new output buffer
+   * @param options - Buffer configuration options
+   * @param options.maxLines - Maximum lines to retain (null for unlimited)
+   * @param options.maxBytes - Maximum bytes to retain (default: 10MB)
+   * @param options.headRatio - Proportion of head to keep when truncating (default: 0.2)
+   * @param options.tailRatio - Proportion of tail to keep when truncating (default: 0.8)
+   * @param options.truncationMessage - Message inserted when truncation occurs
+   */
   public constructor(options: OutputBufferOptions = {}) {
     this.maxLines =
       typeof options.maxLines === "number" && options.maxLines > 0
@@ -40,6 +53,11 @@ export class OutputBuffer {
       options.truncationMessage ?? DEFAULT_TRUNCATION_MESSAGE;
   }
 
+  /**
+   * Append a chunk of output to the buffer
+   * Handles partial lines and enforces size limits
+   * @param chunk - Output chunk to append
+   */
   public append(chunk: string): void {
     if (!chunk) {
       return;
@@ -69,6 +87,10 @@ export class OutputBuffer {
     }
   }
 
+  /**
+   * Get all buffered lines including any partial line remainder
+   * @returns Array of output lines
+   */
   public getLines(): string[] {
     if (!this.remainder) {
       return [...this.lines];
@@ -77,10 +99,17 @@ export class OutputBuffer {
     return [...this.lines, this.remainder];
   }
 
+  /**
+   * Get all buffered output as a single string
+   * @returns All lines joined with newlines
+   */
   public getText(): string {
     return this.getLines().join("\n");
   }
 
+  /**
+   * Clear all buffered output and reset state
+   */
   public clear(): void {
     this.lines.length = 0;
     this.remainder = "";
@@ -88,6 +117,10 @@ export class OutputBuffer {
     this.truncated = false;
   }
 
+  /**
+   * Get buffer statistics
+   * @returns Object containing line count, byte count, and truncation status
+   */
   public getStats(): { lines: number; bytes: number; truncated: boolean } {
     return {
       lines: this.lines.length + (this.remainder ? 1 : 0),

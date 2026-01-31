@@ -29,6 +29,15 @@ function buildToolResult(partial: Partial<ToolResult>): ToolResult {
   };
 }
 
+/**
+ * Agent tool for sending input to background processes
+ * Writes text or special key sequences to process stdin
+ * Respects CancellationToken for interruptibility
+ * @property name - Tool identifier: "send_input"
+ * @property description - Human-readable tool description
+ * @property inputSchema - JSON Schema defining input parameters
+ * @property invoke - Execute the tool with validated input
+ */
 export const sendInputTool: AgentTool<SendInputInput> = {
   name: TOOL_NAME,
   description: "Send text input or special keys to a background process.",

@@ -237,6 +237,15 @@ async function executeWithSubprocess(
   });
 }
 
+/**
+ * Agent tool for executing shell commands with output capture
+ * Attempts shell integration first, falls back to direct spawn
+ * Respects CancellationToken for interruptibility
+ * @property name - Tool identifier: "run_command"
+ * @property description - Human-readable tool description
+ * @property inputSchema - JSON Schema defining input parameters
+ * @property invoke - Execute the tool with validated input
+ */
 export const runCommandTool: AgentTool<RunCommandInput> = {
   name: TOOL_NAME,
   description:

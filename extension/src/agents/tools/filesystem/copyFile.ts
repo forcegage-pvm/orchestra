@@ -198,6 +198,15 @@ async function copyFile(
   return buildToolResult(result);
 }
 
+/**
+ * Agent tool for copying files to new locations
+ * Duplicates files while preserving the source, creating parent directories as needed
+ * Supports overwrite mode for replacing existing destination files
+ * @property name - Tool identifier: "copy_file"
+ * @property description - Human-readable tool description
+ * @property inputSchema - JSON Schema defining input parameters
+ * @property invoke - Execute the tool with validated input
+ */
 export const copyFileTool: AgentTool<CopyFileInput> = {
   name: TOOL_NAME,
   description:

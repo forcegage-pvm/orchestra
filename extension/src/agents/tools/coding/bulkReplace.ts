@@ -361,6 +361,15 @@ async function bulkReplace(
   }
 }
 
+/**
+ * Agent tool for bulk text replacement across multiple files
+ * Supports literal text or regex patterns with capture group substitution
+ * Includes glob-based file filtering and safety limits
+ * @property name - Tool identifier: "bulk_replace"
+ * @property description - Human-readable tool description
+ * @property inputSchema - JSON Schema defining input parameters
+ * @property invoke - Execute the tool with validated input
+ */
 export const bulkReplaceTool: AgentTool<BulkReplaceInput> = {
   name: TOOL_NAME,
   description:
