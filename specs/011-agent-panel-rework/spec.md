@@ -38,7 +38,7 @@ This specification defines a complete rework of the Agent Output Panel UI, trans
 | 10  | Auto-Scroll           | Smart (pause when user scrolls up)                     |
 | 11  | Session Selector      | Dropdown in header, grouped by role + task             |
 | 12  | Error Levels          | Error (red) + Warning (yellow)                         |
-| 13  | Icons                 | Per-tool icons (41 unique Lucide icons)                |
+| 13  | Icons                 | Per-tool icons (37 unique Lucide icons)                |
 | 14  | Thinking Display      | Inline streaming text + cursor animation               |
 | 15  | Duration Format       | Smart scaling (45ms → 2.3s → 2m 5s)                    |
 | 16  | Timestamp Format      | Time only (HH:MM:SS)                                   |
@@ -84,7 +84,7 @@ interface AgentSession {
   failedToolCalls: number;
   warningCount: number;
   filesModified: string[]; // Unique file paths
-  duration?: number; // Total ms when complete
+  durationMs?: number; // Total duration in milliseconds (set when complete)
 }
 
 type SessionStatus =
@@ -127,7 +127,26 @@ Task #12:
 **Resume Behavior (v1):**
 
 - Viewing past session = read-only event history
-- "Continue" = creates NEW session with summary context injection from previous sessions
+- "Continue" = creates NEW session with full context injection from previous session
+
+**Context Injection Format:**
+
+When continuing a session, the previous session's events are exported and attached
+as a JSON file to the new session's initial prompt:
+
+```typescript
+interface SessionContinuation {
+  previousSessionId: string;
+  previousEvents: AgentEvent[]; // Full event history
+  userMessage: string; // User's continuation prompt
+}
+```
+
+The continuation is sent as:
+
+1. System context: "Continuing from previous session {sessionId}"
+2. Attachment: `previous-session.json` containing all events
+3. User prompt: The message typed in the footer input bar
 
 **Future (v2):**
 
@@ -142,7 +161,7 @@ interface BaseEvent {
   id: string; // UUID for deduplication
   sessionId: string; // Parent session
   timestamp: string; // ISO timestamp
-  iteration: number; // Current iteration when emitted
+  iteration: number; // Iteration when event was emitted (snapshot of Session.iteration)
 }
 
 // ─────────────────────────────────────────────────────────────────
@@ -289,12 +308,20 @@ interface FileAttachment {
 
 ```typescript
 type ToolCategory =
-  | "coding" // File read/write/edit
-  | "search" // grep, find, search
+  | "coding" // File read/write/edit, search
+  | "filesystem" // Copy, move, delete
   | "system" // Terminal, process, tests
-  | "orchestra" // MCP/Orchestra tools
-  | "filesystem"; // Copy, move, delete
+  | "orchestra"; // MCP/Orchestra tools
 ```
+
+**Tool → Category Mapping:**
+
+| Category     | Tools                                                                                                                                                                                                                                                                    |
+| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `coding`     | `read_file`, `edit_file`, `edit_lines`, `create_file`, `create_directory`, `delete_file`, `insert_at_line`, `delete_section`, `smart_replace`, `bulk_replace`, `validate_edit`, `search_files`, `grep_search`, `list_directory`, `find_usages`                           |
+| `filesystem` | `copy_file`, `move_file`, `move_directory`                                                                                                                                                                                                                               |
+| `system`     | `run_terminal`, `run_command`, `run_task`, `run_tests`, `get_test_failures`, `get_problems`, `start_process`, `stop_process`, `get_process_output`, `list_processes`, `send_input`, `wait_for_pattern`, `find_port_process`, `get_terminal_output`, `execute_with_retry` |
+| `orchestra`  | `get_current_task`, `signal_completion`, `get_feedback`, `get_progress`, `escalate_task`                                                                                                                                                                                 |
 
 ### 1.6 Tool Call Aggregate
 
@@ -365,6 +392,7 @@ CREATE TABLE agent_sessions (
   failed_tool_calls INTEGER NOT NULL DEFAULT 0,
   warning_count INTEGER NOT NULL DEFAULT 0,
   files_modified JSON NOT NULL DEFAULT '[]',
+  duration_ms INTEGER,                    -- Total duration (set when session ends)
 
   FOREIGN KEY (task_id) REFERENCES tasks(id)
 );
@@ -442,7 +470,44 @@ WHERE id IN (
 | Virtual Scroll | **@tanstack/virtual**                 |
 | Build          | **Vite** (for webview bundle)         |
 
-### 3.2 Session Header
+### 3.2 Component Hierarchy
+
+```
+AgentPanel
+├── SessionHeader
+│   ├── RoleBadge                    # 🤖/👷/🔍 + role name
+│   ├── TaskSelector                 # Dropdown: task list
+│   ├── SessionSelector              # Dropdown: sessions for role+task
+│   ├── StatusIndicator              # Animated dot + status text
+│   ├── ProgressStats                # Iteration, duration, tool counts
+│   └── StopButton                   # Stop agent action
+├── TabBar                           # Timeline | Tools | Files | Errors
+├── TabContent
+│   ├── TimelineView
+│   │   ├── PromptCard               # User/system prompts
+│   │   ├── ThinkingCard             # Agent thinking (streaming)
+│   │   ├── ToolCallCard             # Grouped tool events
+│   │   │   ├── ToolCallHeader       # Icon, name, status, duration
+│   │   │   ├── ProgressMessages     # Stacked progress updates
+│   │   │   ├── FileOperations       # File badges (always visible)
+│   │   │   ├── StreamingOutput      # Capped output + expand
+│   │   │   └── ResultFooter         # Success/error message
+│   │   └── ErrorCard                # Standalone errors/warnings
+│   ├── ToolsView
+│   │   ├── ToolsFilter              # Category dropdown + text filter
+│   │   ├── ToolsSort                # Sort dropdown (time, duration, name)
+│   │   └── ToolsTable               # Virtual scrolled rows
+│   ├── FilesView
+│   │   ├── FileGroup                # Modified/Created/Read sections
+│   │   └── FileRow                  # Path, stats, actions
+│   └── ErrorsView
+│       ├── ErrorFilter              # Errors/Warnings toggle
+│       └── ErrorList                # Grouped by severity
+├── NewEventsIndicator               # "↓ N new events" (when scrolled up)
+└── FooterInput                      # Text input + Send button
+```
+
+### 3.3 Session Header
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -464,7 +529,7 @@ WHERE id IN (
 - Tool call summary (success/fail counts)
 - Stop button
 
-### 3.3 Tab Bar
+### 3.4 Tab Bar
 
 ```
 ┌────────────┬─────────────┬───────────────┬──────────────┐
@@ -472,7 +537,7 @@ WHERE id IN (
 └────────────┴─────────────┴───────────────┴──────────────┘
 ```
 
-### 3.4 Timeline View (Default)
+### 3.5 Timeline View (Default)
 
 Chronological list with grouped tool calls. Uses virtual scrolling.
 
@@ -496,7 +561,7 @@ Chronological list with grouped tool calls. Uses virtual scrolling.
 - "[+42 more lines] [Expand ↓]" button
 - Expanded view: scrollable area, capped at 500 lines
 
-### 3.5 Tools View
+### 3.6 Tools View
 
 Filterable/sortable table of all tool calls.
 
@@ -513,7 +578,7 @@ Filterable/sortable table of all tool calls.
 └────────┴──────────────┴──────────┴────────┴─────────────────────┘
 ```
 
-### 3.6 Files View
+### 3.7 Files View
 
 Files grouped by operation type.
 
@@ -531,7 +596,7 @@ Files grouped by operation type.
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-### 3.7 Errors View
+### 3.8 Errors View
 
 Errors and warnings with severity indicators.
 
@@ -551,6 +616,26 @@ Errors and warnings with severity indicators.
 │   Warning: Edited file has uncommitted changes                   │
 └─────────────────────────────────────────────────────────────────┘
 ```
+
+### 3.9 Loading & Empty States
+
+**Loading States:**
+
+| Context               | Display                                          |
+| --------------------- | ------------------------------------------------ |
+| Initial load          | Skeleton placeholders for header + 3 event cards |
+| Switching session     | Dim current content + spinner overlay            |
+| Fetching older events | "Loading..." at top of timeline                  |
+
+**Empty States:**
+
+| View     | Message                                        | Icon           |
+| -------- | ---------------------------------------------- | -------------- |
+| Timeline | "No events yet. Waiting for agent to start..." | `loader`       |
+| Tools    | "No tool calls recorded in this session"       | `wrench`       |
+| Files    | "No files modified in this session"            | `folder-open`  |
+| Errors   | "No errors or warnings — looking good! ✓"      | `check-circle` |
+| Filter   | "No events match '{filterText}'"               | `search-x`     |
 
 ---
 
@@ -584,6 +669,18 @@ All events with the same `toolCallId` are grouped into a single UI card:
 | normal  | Prompts, tool calls (collapsed), results, errors     |
 | verbose | All events, thinking expanded, full arguments        |
 | debug   | Everything + internal metadata, token counts, timing |
+
+**Persistence:** Global VS Code setting
+
+```json
+{
+  "orchestra.agentPanel.verbosity": "normal"
+}
+```
+
+- Default: `normal`
+- Changed via Settings UI or panel dropdown
+- Applies to all sessions immediately
 
 ### 4.4 Search/Filter
 
@@ -629,13 +726,13 @@ Right-click on events:
 
 ### 5.3 Keyboard Navigation
 
-| Key              | Action                        |
-| ---------------- | ----------------------------- |
-| ↑/↓              | Navigate between events       |
-| Enter            | Expand/collapse current event |
-| Ctrl+F / Cmd+F   | Focus filter input            |
-| Ctrl+S / Cmd+S   | Stop agent (when running)     |
-| Escape           | Clear filter, close panels    |
+| Key            | Action                        |
+| -------------- | ----------------------------- |
+| ↑/↓            | Navigate between events       |
+| Enter          | Expand/collapse current event |
+| Ctrl+F / Cmd+F | Focus filter input            |
+| Ctrl+S / Cmd+S | Stop agent (when running)     |
+| Escape         | Clear filter, close panels    |
 
 ---
 
@@ -680,13 +777,21 @@ function formatTimestamp(iso: string): string {
 
 ### 6.3 Thinking Display
 
-Agent thinking is displayed **inline** with streaming text animation:
+Agent thinking uses a **streaming → auto-collapse** pattern:
 
-- Blinking cursor animation while thinking is active
+**While thinking (live):**
+
 - Text streams in progressively (chunked from LLM)
-- Collapsed by default (show first 3 lines)
-- Expand button shows full thinking content
+- Blinking cursor animation at end of text
+- Full content visible during streaming
 - Monospace font (JetBrains Mono)
+
+**After thinking completes:**
+
+- Auto-collapses to first 3 lines
+- Shows "[+N more lines] [Expand ↓]" button
+- Click to expand full thinking content
+- Stays expanded until user collapses or new session
 
 ```css
 .thinking-cursor {
@@ -721,7 +826,7 @@ Interactive input bar at the bottom of the panel:
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│ [📎] Type a message to continue the session...        [Send →] │
+│ Type a message to continue the session...             [Send →] │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -731,69 +836,79 @@ Interactive input bar at the bottom of the panel:
 - Disabled when session is running (can't interrupt)
 - Enabled when session is paused/completed
 - Submit: Creates continuation with user prompt
-- Attachment button: Opens file picker for context files
 
 ---
 
 ## 7. Tool Icons
 
-Each tool has a unique Lucide icon for visual distinction:
+Each tool has a unique Lucide icon for visual distinction. Icons use the Iconify
+web component with Lucide icon set: `<iconify-icon icon="lucide:{name}">`.
 
-### 7.1 File Operations
+**Total tools: 37** (15 coding + 3 filesystem + 15 system + 5 orchestra)
 
-| Tool             | Icon | Lucide Name         |
-| ---------------- | ---- | ------------------- |
-| `read_file`      | 📖   | `file-text`         |
-| `edit_file`      | ✏️   | `file-edit`         |
-| `edit_lines`     | 📝   | `file-pen`          |
-| `create_file`    | ✨   | `file-plus`         |
-| `delete_file`    | 🗑️   | `file-minus`        |
-| `insert_at_line` | ➕   | `text-cursor-input` |
-| `delete_section` | ➖   | `scissors`          |
-| `smart_replace`  | 🔄   | `replace`           |
-| `move_file`      | 📦   | `file-symlink`      |
-| `copy_file`      | 📋   | `copy`              |
+### 7.1 Coding Tools (15)
 
-### 7.2 Search & Navigation
+| Tool               | Lucide Icon         | Description                |
+| ------------------ | ------------------- | -------------------------- |
+| `read_file`        | `file-text`         | Read file contents         |
+| `edit_file`        | `file-edit`         | Replace string in file     |
+| `edit_lines`       | `file-pen`          | Edit specific line range   |
+| `create_file`      | `file-plus`         | Create new file            |
+| `create_directory` | `folder-plus`       | Create directory           |
+| `delete_file`      | `file-minus`        | Delete file                |
+| `insert_at_line`   | `text-cursor-input` | Insert text at line        |
+| `delete_section`   | `scissors`          | Delete line range          |
+| `smart_replace`    | `replace`           | Context-aware replace      |
+| `bulk_replace`     | `replace-all`       | Multiple replacements      |
+| `validate_edit`    | `check-square`      | Validate edit before apply |
+| `search_files`     | `folder-search`     | Search files by pattern    |
+| `grep_search`      | `search`            | Text search in files       |
+| `list_directory`   | `folder-open`       | List directory contents    |
+| `find_usages`      | `link`              | Find symbol usages         |
 
-| Tool              | Icon | Lucide Name     |
-| ----------------- | ---- | --------------- |
-| `grep_search`     | 🔍   | `search`        |
-| `find_files`      | 📂   | `folder-search` |
-| `list_directory`  | 📁   | `folder-open`   |
-| `semantic_search` | 🧠   | `brain`         |
-| `get_references`  | 🔗   | `link`          |
-| `get_definitions` | 📍   | `map-pin`       |
+### 7.2 Filesystem Tools (3)
 
-### 7.3 Terminal & System
+| Tool             | Lucide Icon      | Description        |
+| ---------------- | ---------------- | ------------------ |
+| `copy_file`      | `copy`           | Copy file          |
+| `move_file`      | `file-symlink`   | Move/rename file   |
+| `move_directory` | `folder-symlink` | Move/rename folder |
 
-| Tool           | Icon | Lucide Name   |
-| -------------- | ---- | ------------- |
-| `run_terminal` | 💻   | `terminal`    |
-| `run_tests`    | 🧪   | `test-tube`   |
-| `run_build`    | 🔨   | `hammer`      |
-| `git_status`   | 🌿   | `git-branch`  |
-| `git_commit`   | 📌   | `git-commit`  |
-| `git_diff`     | 📊   | `git-compare` |
+### 7.3 System Tools (15)
 
-### 7.4 Orchestra Tools
+| Tool                  | Lucide Icon       | Description              |
+| --------------------- | ----------------- | ------------------------ |
+| `run_terminal`        | `terminal`        | Run command in terminal  |
+| `run_command`         | `terminal-square` | Run command and wait     |
+| `run_task`            | `play`            | Run VS Code task         |
+| `run_tests`           | `test-tube`       | Run test suite           |
+| `get_test_failures`   | `test-tube-2`     | Get test failure details |
+| `get_problems`        | `alert-circle`    | Get VS Code problems     |
+| `start_process`       | `play-circle`     | Start background process |
+| `stop_process`        | `stop-circle`     | Stop background process  |
+| `get_process_output`  | `scroll-text`     | Get process output       |
+| `list_processes`      | `list`            | List running processes   |
+| `send_input`          | `keyboard`        | Send input to process    |
+| `wait_for_pattern`    | `clock`           | Wait for output pattern  |
+| `find_port_process`   | `network`         | Find process by port     |
+| `get_terminal_output` | `square-terminal` | Get terminal output      |
+| `execute_with_retry`  | `repeat`          | Execute with retry logic |
 
-| Tool                  | Icon | Lucide Name      |
-| --------------------- | ---- | ---------------- |
-| `get_current_task`    | 📋   | `clipboard-list` |
-| `signal_completion`   | 🚩   | `flag`           |
-| `prepare_task`        | 📦   | `package`        |
-| `submit_verification` | ✅   | `check-circle`   |
-| `get_handover`        | 🤝   | `handshake`      |
-| `configure_sprint`    | ⚙️   | `settings`       |
-| `get_sprint_status`   | 📈   | `activity`       |
-| `escalate_task`       | 🚨   | `alert-triangle` |
+### 7.4 Orchestra Tools (5)
+
+| Tool                | Lucide Icon      | Description               |
+| ------------------- | ---------------- | ------------------------- |
+| `get_current_task`  | `clipboard-list` | Get current task handover |
+| `signal_completion` | `flag`           | Signal task completion    |
+| `get_feedback`      | `message-circle` | Get verification feedback |
+| `get_progress`      | `bar-chart`      | Get sprint progress       |
+| `escalate_task`     | `alert-triangle` | Escalate stuck task       |
 
 ### 7.5 Default / Unknown
 
-| Tool           | Icon | Lucide Name |
-| -------------- | ---- | ----------- |
-| (unknown tool) | 🔧   | `wrench`    |
+| Tool           | Lucide Icon |
+| -------------- | ----------- |
+| (unknown tool) | `wrench`    |
 
 ---
 
@@ -852,22 +967,28 @@ type WebviewMessage =
   | { type: "switch_session"; sessionId: string }
   | { type: "export_session"; sessionId: string }
   | { type: "set_verbosity"; level: VerbosityLevel }
-  | { type: "user_message"; text: string; attachments?: string[] };
+  | { type: "user_message"; text: string };
 ```
 
 ---
 
 ## 9. Performance Requirements
 
-| Metric                | Target         |
-| --------------------- | -------------- |
-| Event render latency  | < 16ms         |
-| Batch processing      | 50ms intervals |
-| Max events in memory  | 1,000          |
-| Max visible events    | 500            |
-| Streaming output cap  | 500 lines      |
-| Virtual scrolling     | Required       |
-| Bundle size (webview) | < 100KB gzip   |
+| Metric                  | Target         | Notes                                    |
+| ----------------------- | -------------- | ---------------------------------------- |
+| Event render latency    | < 16ms         | Single event to DOM                      |
+| Batch processing        | 50ms intervals | Debounce rapid events                    |
+| Max events in memory    | 1,000          | JS heap limit for SolidJS stores         |
+| Max DOM nodes (visible) | ~50            | Virtual scroll renders only visible rows |
+| Streaming output cap    | 500 lines      | Per tool call, not total                 |
+| Virtual scrolling       | Required       | @tanstack/virtual for all event lists    |
+| Bundle size (webview)   | < 100KB gzip   | SolidJS + Tailwind + Shiki (lazy)        |
+
+**Virtual Scrolling Clarification:**
+
+All 1,000 events are held in memory (SolidJS store), but only ~50 DOM nodes exist
+at any time. @tanstack/virtual dynamically creates/destroys DOM nodes as user scrolls,
+maintaining performance regardless of total event count.
 
 ---
 
