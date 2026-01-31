@@ -9,7 +9,7 @@ export interface AgentOutputItem {
   type: "prompt" | "thinking" | "tool_call" | "tool_result" | "unknown";
   timestamp: string;
   content:
-    | { text: string }
+    | { text: string; attachments?: Array<{ name: string; path: string }> }
     | { toolName: string; arguments: Record<string, unknown> }
     | { toolName: string; success: boolean; output: string; error?: string }
     | { rawType: string; rawOutput: string };
@@ -108,13 +108,28 @@ function renderDebugMeta(item: AgentOutputItem): string {
 }
 
 function renderPrompt(item: AgentOutputItem): string {
-  const content = item.content as { text: string };
+  const content = item.content as {
+    text: string;
+    attachments?: Array<{ name: string; path: string }>;
+  };
+  const attachmentsHtml =
+    content.attachments && content.attachments.length > 0
+      ? `
+      <div class="prompt-attachments">
+        <div class="attachments-header">📎 Context Files:</div>
+        <ul class="attachments-list">
+          ${content.attachments.map((a) => `<li class="attachment-item" title="${escapeHtml(a.path)}">${escapeHtml(a.name)}</li>`).join("")}
+        </ul>
+      </div>
+    `
+      : "";
   return `
     <div class="output-item output-prompt" data-id="${escapeHtml(item.id)}" id="output-${escapeHtml(item.id)}">
       <div class="output-meta">
         <span class="pill pill-prompt">Prompt</span>
         <span>${escapeHtml(item.timestamp)}</span>
       </div>
+      ${attachmentsHtml}
       <div class="prompt-text">${escapeHtml(content.text)}</div>
     </div>
   `;
@@ -315,6 +330,29 @@ function getScript(initialItemsJson: string): string {
         container.classList.add("output-prompt");
         pill.classList.add("pill-prompt");
         pill.textContent = "Prompt";
+
+        // Add attachments section if present
+        if (item.content.attachments && item.content.attachments.length > 0) {
+          const attachmentsDiv = document.createElement("div");
+          attachmentsDiv.classList.add("prompt-attachments");
+
+          const header = document.createElement("div");
+          header.classList.add("attachments-header");
+          header.textContent = "📎 Context Files:";
+          attachmentsDiv.appendChild(header);
+
+          const list = document.createElement("ul");
+          list.classList.add("attachments-list");
+          item.content.attachments.forEach(function(a) {
+            const li = document.createElement("li");
+            li.classList.add("attachment-item");
+            li.textContent = a.name;
+            li.title = a.path;
+            list.appendChild(li);
+          });
+          attachmentsDiv.appendChild(list);
+          container.appendChild(attachmentsDiv);
+        }
 
         const body = document.createElement("div");
         body.classList.add("prompt-text");

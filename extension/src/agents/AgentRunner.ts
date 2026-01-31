@@ -65,6 +65,8 @@ export interface AgentOutput {
   recoverable?: boolean;
   previousStatus?: string;
   newStatus?: string;
+  /** Attached context files (for prompt type) */
+  attachments?: Array<{ name: string; path: string }>;
 }
 
 /**
@@ -365,6 +367,10 @@ export class AgentRunner implements vscode.Disposable {
       timestamp: new Date().toISOString(),
       iteration: 0,
       text: options.prompt,
+      attachments: options.attachments?.map((a) => ({
+        name: a.name ?? a.path.split(/[\\/]/).pop() ?? "attachment",
+        path: a.path,
+      })),
     });
 
     // Emit state change

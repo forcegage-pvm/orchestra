@@ -46,7 +46,7 @@ export function convertAgentOutput(
         id: generateId(),
         type: "prompt",
         timestamp: output.timestamp,
-        content: { text: output.text ?? "" },
+        content: { text: output.text ?? "", attachments: output.attachments },
       },
     };
   }

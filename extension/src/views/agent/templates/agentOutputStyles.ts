@@ -237,6 +237,39 @@ export function getAgentOutputStyles(): string {
       border-color: var(--vscode-charts-red);
     }
 
+    .prompt-attachments {
+      margin-bottom: 8px;
+      padding: 8px 12px;
+      border-radius: 4px;
+      background: var(--vscode-editor-inactiveSelectionBackground);
+      border: 1px solid var(--vscode-panel-border);
+    }
+
+    .attachments-header {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--vscode-descriptionForeground);
+      margin-bottom: 4px;
+    }
+
+    .attachments-list {
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .attachment-item {
+      font-size: 12px;
+      font-family: var(--vscode-editor-font-family);
+      color: var(--vscode-textLink-foreground);
+      padding: 2px 0;
+      cursor: default;
+    }
+
+    .attachment-item:hover {
+      text-decoration: underline;
+    }
+
     .prompt-text {
       line-height: 1.5;
       font-size: 12px;
