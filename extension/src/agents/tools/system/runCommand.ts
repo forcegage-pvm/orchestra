@@ -27,6 +27,18 @@ const HEAD_RATIO = 0.2;
 const TAIL_RATIO = 0.8;
 const TRUNCATION_MESSAGE = "... output truncated ...";
 
+/**
+ * Get the workspace root directory.
+ * Falls back to process.cwd() only if no workspace is open.
+ */
+function getWorkspaceRoot(): string {
+  const folders = vscode.workspace.workspaceFolders;
+  if (folders && folders.length > 0) {
+    return folders[0].uri.fsPath;
+  }
+  return process.cwd();
+}
+
 interface CommandResult {
   success: boolean;
   exitCode: number;
@@ -71,7 +83,7 @@ async function executeWithShellIntegration(
 ): Promise<CommandResult | null> {
   const terminal = vscode.window.createTerminal({
     name: "Orchestra Command",
-    cwd: options.cwd,
+    cwd: options.cwd ?? getWorkspaceRoot(),
   });
 
   try {
@@ -152,7 +164,7 @@ async function executeWithSubprocess(
     }
 
     const child = spawn(command, {
-      cwd: options.cwd ?? process.cwd(),
+      cwd: options.cwd ?? getWorkspaceRoot(),
       env: {
         ...process.env,
         ...options.env,
