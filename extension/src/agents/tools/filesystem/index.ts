@@ -1,12 +1,9 @@
 /**
  * Filesystem tools index
  *
- * Placeholder barrel for future filesystem tool exports.
+ * Exports filesystem operation tools for AI coding agents.
  */
 
-// Future tools will be added here:
-// - moveFile
-// - copyFile
-// - copyDirectory
-
-export {};
+export { copyFileTool } from "./copyFile.js";
+export { moveDirectoryTool } from "./moveDirectory.js";
+export { moveFileTool } from "./moveFile.js";

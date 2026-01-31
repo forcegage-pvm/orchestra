@@ -381,6 +381,56 @@ export interface BulkReplaceResult {
 }
 
 // ============================================================================
+// Filesystem Tool Types
+// ============================================================================
+
+export const MoveFileInputSchema = z.object({
+  source_path: z.string().min(1),
+  destination_path: z.string().min(1),
+  overwrite: z.boolean().optional(),
+});
+export type MoveFileInput = z.output<typeof MoveFileInputSchema>;
+
+export interface MoveFileResult {
+  success: boolean;
+  old_path: string;
+  new_path: string;
+  directories_created?: boolean;
+  error?: string;
+}
+
+export const CopyFileInputSchema = z.object({
+  source_path: z.string().min(1),
+  destination_path: z.string().min(1),
+  overwrite: z.boolean().optional(),
+});
+export type CopyFileInput = z.output<typeof CopyFileInputSchema>;
+
+export interface CopyFileResult {
+  success: boolean;
+  source_path: string;
+  destination_path: string;
+  directories_created?: boolean;
+  error?: string;
+}
+
+export const MoveDirectoryInputSchema = z.object({
+  source_path: z.string().min(1),
+  destination_path: z.string().min(1),
+  overwrite: z.boolean().optional(),
+});
+export type MoveDirectoryInput = z.output<typeof MoveDirectoryInputSchema>;
+
+export interface MoveDirectoryResult {
+  success: boolean;
+  old_path: string;
+  new_path: string;
+  files_moved: number;
+  directories_moved: number;
+  error?: string;
+}
+
+// ============================================================================
 // Tool Invocation Context
 // ============================================================================
 
