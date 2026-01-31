@@ -1,0 +1,11 @@
+version: '1.0'
+sprintId: test-workflow-001
+sprintName: test-workflow-001
+goals: []
+architectureDecisions: []
+taskSummaries: []
+implementorPatterns: []
+compactionCount: 0
+lastCompactedAt: null
+createdAt: '2026-01-31T09:38:43.362Z'
+updatedAt: '2026-01-31T09:38:43.362Z'
