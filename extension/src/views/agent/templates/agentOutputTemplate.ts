@@ -4,14 +4,38 @@
 
 import { getAgentOutputStyles } from "./agentOutputStyles.js";
 
+/**
+ * File operation info for display
+ */
+export interface FileOperationInfo {
+  operation: "create" | "update" | "delete" | "move" | "copy" | "read";
+  path: string;
+  targetPath?: string;
+  size?: number;
+  linesChanged?: number;
+}
+
 export interface AgentOutputItem {
   id: string;
-  type: "prompt" | "thinking" | "tool_call" | "tool_result" | "unknown";
+  type:
+    | "prompt"
+    | "thinking"
+    | "tool_call"
+    | "tool_result"
+    | "tool_progress"
+    | "tool_output"
+    | "tool_file_operation"
+    | "tool_metadata"
+    | "unknown";
   timestamp: string;
   content:
     | { text: string; attachments?: Array<{ name: string; path: string }> }
     | { toolName: string; arguments: Record<string, unknown> }
     | { toolName: string; success: boolean; output: string; error?: string }
+    | { toolName: string; message: string; percent?: number } // tool_progress
+    | { toolName: string; chunk: string } // tool_output
+    | { toolName: string; fileOperation: FileOperationInfo } // tool_file_operation
+    | { toolName: string; metadata: Record<string, unknown> } // tool_metadata
     | { rawType: string; rawOutput: string };
   debug?: { tokenCount?: number; durationMs?: number };
 }
@@ -214,6 +238,115 @@ function renderToolResult(item: AgentOutputItem): string {
   `;
 }
 
+function renderToolProgress(item: AgentOutputItem): string {
+  const content = item.content as {
+    toolName: string;
+    message: string;
+    percent?: number;
+  };
+  const progressBar =
+    typeof content.percent === "number"
+      ? `<div class="progress-bar"><div class="progress-fill" style="width: ${content.percent}%"></div></div>`
+      : "";
+  const percentText =
+    typeof content.percent === "number" ? ` (${content.percent}%)` : "";
+
+  return `
+    <div class="output-item output-tool-progress" data-id="${escapeHtml(item.id)}" id="output-${escapeHtml(item.id)}">
+      <div class="output-meta">
+        <span class="pill pill-progress">⏳ Progress</span>
+        <span>${escapeHtml(item.timestamp)}</span>
+      </div>
+      <div class="progress-content">
+        <span class="tool-name">${escapeHtml(content.toolName)}</span>
+        <span class="progress-message">${escapeHtml(content.message)}${percentText}</span>
+        ${progressBar}
+      </div>
+    </div>
+  `;
+}
+
+function renderToolOutput(item: AgentOutputItem): string {
+  const content = item.content as {
+    toolName: string;
+    chunk: string;
+  };
+
+  return `
+    <div class="output-item output-tool-stream" data-id="${escapeHtml(item.id)}" id="output-${escapeHtml(item.id)}">
+      <div class="output-meta">
+        <span class="pill pill-stream">📤 Output</span>
+        <span>${escapeHtml(item.timestamp)}</span>
+      </div>
+      <div class="stream-content">
+        <span class="tool-name">${escapeHtml(content.toolName)}</span>
+        <pre class="stream-chunk">${escapeHtml(content.chunk)}</pre>
+      </div>
+    </div>
+  `;
+}
+
+function renderToolFileOperation(item: AgentOutputItem): string {
+  const content = item.content as {
+    toolName: string;
+    fileOperation: FileOperationInfo;
+  };
+  const op = content.fileOperation;
+  const opIcons: Record<string, string> = {
+    create: "📄",
+    update: "✏️",
+    delete: "🗑️",
+    move: "📁",
+    copy: "📋",
+    read: "👁️",
+  };
+  const icon = opIcons[op.operation] ?? "📄";
+  const targetInfo = op.targetPath ? ` → ${escapeHtml(op.targetPath)}` : "";
+  const sizeInfo =
+    typeof op.size === "number" ? ` (${formatBytes(op.size)})` : "";
+  const linesInfo =
+    typeof op.linesChanged === "number" ? ` [${op.linesChanged} lines]` : "";
+
+  return `
+    <div class="output-item output-file-operation" data-id="${escapeHtml(item.id)}" id="output-${escapeHtml(item.id)}">
+      <div class="output-meta">
+        <span class="pill pill-file-op">${icon} ${escapeHtml(op.operation.toUpperCase())}</span>
+        <span>${escapeHtml(item.timestamp)}</span>
+      </div>
+      <div class="file-op-content">
+        <span class="file-path">${escapeHtml(op.path)}${targetInfo}</span>
+        <span class="file-meta">${sizeInfo}${linesInfo}</span>
+      </div>
+    </div>
+  `;
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function renderToolMetadata(item: AgentOutputItem): string {
+  const content = item.content as {
+    toolName: string;
+    metadata: Record<string, unknown>;
+  };
+
+  return `
+    <div class="output-item output-tool-metadata" data-id="${escapeHtml(item.id)}" id="output-${escapeHtml(item.id)}">
+      <div class="output-meta">
+        <span class="pill pill-metadata">ℹ️ Info</span>
+        <span>${escapeHtml(item.timestamp)}</span>
+      </div>
+      <div class="metadata-content">
+        <span class="tool-name">${escapeHtml(content.toolName)}</span>
+        <pre class="metadata-json code-block">${highlightJson(content.metadata)}</pre>
+      </div>
+    </div>
+  `;
+}
+
 function renderOutputItem(item: AgentOutputItem): string {
   if (item.type === "prompt") {
     return renderPrompt(item);
@@ -226,6 +359,18 @@ function renderOutputItem(item: AgentOutputItem): string {
   }
   if (item.type === "tool_call") {
     return renderToolCall(item);
+  }
+  if (item.type === "tool_progress") {
+    return renderToolProgress(item);
+  }
+  if (item.type === "tool_output") {
+    return renderToolOutput(item);
+  }
+  if (item.type === "tool_file_operation") {
+    return renderToolFileOperation(item);
+  }
+  if (item.type === "tool_metadata") {
+    return renderToolMetadata(item);
   }
   return renderToolResult(item);
 }
@@ -403,6 +548,128 @@ function getScript(initialItemsJson: string): string {
         return container;
       }
 
+      if (item.type === "tool_progress") {
+        container.classList.add("output-tool-progress");
+        pill.classList.add("pill-progress");
+        pill.textContent = "⏳ Progress";
+
+        const progressContent = document.createElement("div");
+        progressContent.classList.add("progress-content");
+
+        const toolName = document.createElement("span");
+        toolName.classList.add("tool-name");
+        toolName.textContent = item.content.toolName;
+        progressContent.appendChild(toolName);
+
+        const message = document.createElement("span");
+        message.classList.add("progress-message");
+        const percentText = typeof item.content.percent === "number" ? " (" + item.content.percent + "%)" : "";
+        message.textContent = (item.content.message || "") + percentText;
+        progressContent.appendChild(message);
+
+        if (typeof item.content.percent === "number") {
+          const progressBar = document.createElement("div");
+          progressBar.classList.add("progress-bar");
+          const progressFill = document.createElement("div");
+          progressFill.classList.add("progress-fill");
+          progressFill.style.width = item.content.percent + "%";
+          progressBar.appendChild(progressFill);
+          progressContent.appendChild(progressBar);
+        }
+
+        container.appendChild(progressContent);
+        return container;
+      }
+
+      if (item.type === "tool_output") {
+        container.classList.add("output-tool-stream");
+        pill.classList.add("pill-stream");
+        pill.textContent = "📤 Output";
+
+        const streamContent = document.createElement("div");
+        streamContent.classList.add("stream-content");
+
+        const toolName = document.createElement("span");
+        toolName.classList.add("tool-name");
+        toolName.textContent = item.content.toolName;
+        streamContent.appendChild(toolName);
+
+        const chunk = document.createElement("pre");
+        chunk.classList.add("stream-chunk");
+        chunk.textContent = item.content.chunk || "";
+        streamContent.appendChild(chunk);
+
+        container.appendChild(streamContent);
+        return container;
+      }
+
+      if (item.type === "tool_file_operation") {
+        const op = item.content.fileOperation || {};
+        const opIcons = {
+          create: "📄",
+          update: "✏️",
+          delete: "🗑️",
+          move: "📁",
+          copy: "📋",
+          read: "👁️"
+        };
+        const icon = opIcons[op.operation] || "📄";
+
+        container.classList.add("output-file-operation");
+        pill.classList.add("pill-file-op");
+        pill.textContent = icon + " " + (op.operation || "FILE").toUpperCase();
+
+        const fileOpContent = document.createElement("div");
+        fileOpContent.classList.add("file-op-content");
+
+        const filePath = document.createElement("span");
+        filePath.classList.add("file-path");
+        let pathText = op.path || "";
+        if (op.targetPath) {
+          pathText += " → " + op.targetPath;
+        }
+        filePath.textContent = pathText;
+        fileOpContent.appendChild(filePath);
+
+        const fileMeta = document.createElement("span");
+        fileMeta.classList.add("file-meta");
+        let metaText = "";
+        if (typeof op.size === "number") {
+          metaText += " (" + formatBytes(op.size) + ")";
+        }
+        if (typeof op.linesChanged === "number") {
+          metaText += " [" + op.linesChanged + " lines]";
+        }
+        fileMeta.textContent = metaText;
+        fileOpContent.appendChild(fileMeta);
+
+        container.appendChild(fileOpContent);
+        return container;
+      }
+
+      if (item.type === "tool_metadata") {
+        container.classList.add("output-tool-metadata");
+        pill.classList.add("pill-metadata");
+        pill.textContent = "ℹ️ Info";
+
+        const metaContent = document.createElement("div");
+        metaContent.classList.add("metadata-content");
+
+        const toolName = document.createElement("span");
+        toolName.classList.add("tool-name");
+        toolName.textContent = item.content.toolName;
+        metaContent.appendChild(toolName);
+
+        const metaJson = document.createElement("pre");
+        metaJson.classList.add("metadata-json", "code-block");
+        metaJson.innerHTML = highlightJson(item.content.metadata || {});
+        metaContent.appendChild(metaJson);
+
+        container.appendChild(metaContent);
+        return container;
+      }
+
+      // Default: tool_result
       container.classList.add("output-tool-result");
       pill.classList.add("pill-tool-result");
       pill.textContent = item.content.success ? "Success" : "Error";
@@ -440,6 +707,12 @@ function getScript(initialItemsJson: string): string {
       container.appendChild(details);
 
       return container;
+    }
+
+    function formatBytes(bytes) {
+      if (bytes < 1024) return bytes + " B";
+      if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
+      return (bytes / (1024 * 1024)).toFixed(1) + " MB";
     }
 
     function addOutput(item) {

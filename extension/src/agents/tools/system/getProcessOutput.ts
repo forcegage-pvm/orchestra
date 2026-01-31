@@ -67,6 +67,12 @@ export const getProcessOutputTool: AgentTool<GetProcessOutputInput> = {
     input: GetProcessOutputInput,
     context: ToolInvocationContext,
   ): Promise<ToolResult> => {
+    const callId = crypto.randomUUID();
+    context.observer?.onProgress?.(
+      callId,
+      `Getting output from process ${input.process_id}`,
+    );
+
     if (context.token.isCancellationRequested) {
       return buildToolResult(
         errorResult(

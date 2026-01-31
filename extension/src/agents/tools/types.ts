@@ -915,13 +915,42 @@ export interface MoveDirectoryResult {
 // ============================================================================
 
 /**
+ * File operation types for observability
+ */
+export type FileOperationType =
+  | "create"
+  | "update"
+  | "delete"
+  | "move"
+  | "copy"
+  | "read";
+
+/**
+ * File operation event data
+ */
+export interface FileOperationEvent {
+  operation: FileOperationType;
+  path: string;
+  /** Target path for move/copy operations */
+  targetPath?: string;
+  /** Size in bytes if available */
+  size?: number;
+  /** Lines affected for edit operations */
+  linesChanged?: number;
+}
+
+/**
  * Observer for tool execution lifecycle events
  */
 export interface ToolObserver {
   /** Called to report progress during tool execution */
   onProgress?(callId: string, message: string, percent?: number): void;
-  /** Called when tool produces output chunks */
+  /** Called when tool produces output chunks (streaming) */
   onOutput?(callId: string, chunk: string): void;
+  /** Called when tool performs a file operation */
+  onFileOperation?(callId: string, event: FileOperationEvent): void;
+  /** Called to report structured metadata during execution */
+  onMetadata?(callId: string, key: string, value: unknown): void;
 }
 
 /**

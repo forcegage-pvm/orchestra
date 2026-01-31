@@ -53,6 +53,9 @@ async function searchFiles(
   input: SearchFilesInput,
   context: ToolInvocationContext,
 ): Promise<ToolResult> {
+  const callId = crypto.randomUUID();
+  context.observer?.onProgress?.(callId, `Searching files: ${input.query}`);
+
   try {
     const query = typeof input.query === "string" ? input.query.trim() : "";
     if (!query) {
@@ -92,6 +95,9 @@ async function searchFiles(
         break;
       }
     }
+
+    // Emit metadata with result count
+    context.observer?.onMetadata?.(callId, "fileCount", results.length);
 
     const result = successResult(TOOL_NAME, JSON.stringify(results, null, 2));
     return buildToolResult(result);

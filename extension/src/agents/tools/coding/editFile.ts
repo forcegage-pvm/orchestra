@@ -115,6 +115,11 @@ async function editFile(
   input: EditFileInput,
   context: ToolInvocationContext,
 ): Promise<ToolResult> {
+  const callId = crypto.randomUUID();
+
+  // Emit progress: starting
+  context.observer?.onProgress?.(callId, `Editing file: ${input.path}`);
+
   const validatedPath = await validatePath(input.path, context.workspaceRoot);
   if (!validatedPath.isValid) {
     return errorFromToolError(validatedPath.error);
@@ -204,6 +209,19 @@ async function editFile(
       ),
     );
   }
+
+  // Calculate lines changed
+  const oldLines = input.oldString.split("\n").length;
+  const newLines = input.newString.split("\n").length;
+  const linesChanged =
+    Math.abs(newLines - oldLines) + Math.min(oldLines, newLines);
+
+  // Emit file operation event
+  context.observer?.onFileOperation?.(callId, {
+    operation: "update",
+    path: input.path,
+    linesChanged,
+  });
 
   const result = successResult(TOOL_NAME, `Replaced text in ${input.path}.`);
 

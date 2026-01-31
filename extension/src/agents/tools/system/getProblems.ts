@@ -204,6 +204,9 @@ export const getProblemsTool: AgentTool<GetProblemsInput> = {
     input: GetProblemsInput,
     context: ToolInvocationContext,
   ): Promise<ToolResult> => {
+    const callId = crypto.randomUUID();
+    context.observer?.onProgress?.(callId, "Getting workspace problems");
+
     if (context.token.isCancellationRequested) {
       return buildToolResult(
         errorResult(

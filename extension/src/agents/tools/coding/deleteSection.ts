@@ -56,6 +56,12 @@ async function deleteSection(
   input: DeleteSectionInput,
   context: ToolInvocationContext,
 ): Promise<ToolResult> {
+  const callId = crypto.randomUUID();
+  context.observer?.onProgress?.(
+    callId,
+    `Deleting lines ${input.start_line}-${input.end_line} in ${input.file_path}`,
+  );
+
   const validatedPath = await validatePath(
     input.file_path,
     context.workspaceRoot,
@@ -67,7 +73,7 @@ async function deleteSection(
       error: validatedPath.error,
       metadata: {
         toolName: TOOL_NAME,
-        callId: context.callId,
+        callId: callId,
         durationMs: 0,
       },
     };
@@ -91,7 +97,7 @@ async function deleteSection(
       ),
       metadata: {
         toolName: TOOL_NAME,
-        callId: context.callId,
+        callId: callId,
         durationMs: 0,
       },
     };
@@ -119,7 +125,7 @@ async function deleteSection(
       ),
       metadata: {
         toolName: TOOL_NAME,
-        callId: context.callId,
+        callId: callId,
         durationMs: 0,
       },
     };
@@ -142,7 +148,7 @@ async function deleteSection(
       ),
       metadata: {
         toolName: TOOL_NAME,
-        callId: context.callId,
+        callId: callId,
         durationMs: 0,
       },
     };
@@ -168,7 +174,7 @@ async function deleteSection(
       ),
       metadata: {
         toolName: TOOL_NAME,
-        callId: context.callId,
+        callId: callId,
         durationMs: 0,
       },
     };
@@ -209,7 +215,7 @@ async function deleteSection(
       ],
       metadata: {
         toolName: TOOL_NAME,
-        callId: context.callId,
+        callId: callId,
         durationMs: 0,
       },
     };
@@ -247,11 +253,19 @@ async function deleteSection(
       ),
       metadata: {
         toolName: TOOL_NAME,
-        callId: context.callId,
+        callId: callId,
         durationMs: 0,
       },
     };
   }
+
+  // Emit file operation event
+  const linesDeleted = input.end_line - input.start_line + 1;
+  context.observer?.onFileOperation?.(callId, {
+    operation: "delete",
+    path: input.file_path,
+    linesChanged: linesDeleted,
+  });
 
   return {
     success: true,
@@ -263,7 +277,7 @@ async function deleteSection(
     ],
     metadata: {
       toolName: TOOL_NAME,
-      callId: context.callId,
+      callId: callId,
       durationMs: 0,
     },
   };
@@ -310,3 +324,4 @@ export const deleteSectionTool: AgentTool<DeleteSectionInput> = {
     context: ToolInvocationContext,
   ): Promise<ToolResult> => deleteSection(input, context),
 };
+

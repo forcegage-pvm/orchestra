@@ -188,21 +188,37 @@ export function mcpToToolResult(
 }
 
 /**
+ * Context type for MCP handler execution
+ */
+export interface McpHandlerContext {
+  workspaceRoot: string;
+  observer?: {
+    onProgress?: (callId: string, message: string, percent?: number) => void;
+    onOutput?: (callId: string, chunk: string) => void;
+    onMetadata?: (callId: string, key: string, value: unknown) => void;
+  };
+}
+
+/**
  * Execute an MCP handler and convert result to ToolResult
  *
- * @param workspaceRoot - The workspace root path
+ * @param context - The context including workspaceRoot and optional observer
+ * @param toolName - The name of the tool being executed
  * @param handler - The MCP handler function
  * @param input - The input to pass to the handler
  * @returns ToolResult with success/failure status
  */
 export async function executeMcpHandler(
-  context: { workspaceRoot: string },
+  context: McpHandlerContext,
   toolName: string,
   handler: (input: unknown) => Promise<McpResponse>,
   input: unknown,
 ): Promise<ToolResult> {
   const start = Date.now();
   const callId = randomUUID();
+
+  // Emit progress event
+  context.observer?.onProgress?.(callId, `Executing ${toolName}...`);
 
   try {
     const mcpResponse = await withWorkspaceContext(context.workspaceRoot, () =>
@@ -215,7 +231,13 @@ export async function executeMcpHandler(
       durationMs,
     };
 
-    return mcpToToolResult(mcpResponse, metadata);
+    const result = mcpToToolResult(mcpResponse, metadata);
+
+    // Emit metadata with result status
+    context.observer?.onMetadata?.(callId, "success", result.success);
+    context.observer?.onMetadata?.(callId, "durationMs", durationMs);
+
+    return result;
   } catch (error) {
     const durationMs = Math.max(0, Date.now() - start);
     const message = error instanceof Error ? error.message : "Unknown error";
@@ -224,6 +246,10 @@ export async function executeMcpHandler(
       message,
       DEFAULT_SUGGESTION,
     );
+
+    // Emit metadata for error
+    context.observer?.onMetadata?.(callId, "success", false);
+    context.observer?.onMetadata?.(callId, "error", message);
 
     return {
       success: false,

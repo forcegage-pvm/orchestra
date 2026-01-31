@@ -104,6 +104,12 @@ async function validateEdit(
   input: ValidateEditInput,
   context: ToolInvocationContext,
 ): Promise<ToolResult> {
+  const callId = crypto.randomUUID();
+  context.observer?.onProgress?.(
+    callId,
+    `Validating edit for: ${input.file_path}`,
+  );
+
   const startTime = Date.now();
 
   // Validate the file path
@@ -168,6 +174,11 @@ async function validateEdit(
     if (suggestions.length > 0) {
       contentValue.suggestions = suggestions;
     }
+
+    // Emit metadata with validation results
+    context.observer?.onMetadata?.(callId, "syntaxValid", syntax_valid);
+    context.observer?.onMetadata?.(callId, "errorCount", errors.length);
+    context.observer?.onMetadata?.(callId, "warningCount", warnings.length);
 
     return {
       success: true,

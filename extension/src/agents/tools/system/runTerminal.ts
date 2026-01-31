@@ -78,6 +78,12 @@ export const runTerminalTool: AgentTool<RunTerminalInput> = {
     input: RunTerminalInput,
     context: ToolInvocationContext,
   ): Promise<ToolResult> => {
+    const callId = crypto.randomUUID();
+    context.observer?.onProgress?.(
+      callId,
+      `Executing terminal command: ${input.command.substring(0, 50)}...`,
+    );
+
     if (context.token.isCancellationRequested) {
       return buildToolResult({
         success: false,
@@ -124,6 +130,10 @@ export const runTerminalTool: AgentTool<RunTerminalInput> = {
       }
 
       if (typeof result.exitCode === "number" && result.exitCode !== 0) {
+        // Emit output for failed command
+        context.observer?.onOutput?.(callId, result.output);
+        context.observer?.onMetadata?.(callId, "exitCode", result.exitCode);
+
         return buildToolResult({
           success: false,
           content: [{ type: "error", value: result.output }],
@@ -140,6 +150,10 @@ export const runTerminalTool: AgentTool<RunTerminalInput> = {
           },
         });
       }
+
+      // Emit output and metadata for successful command
+      context.observer?.onOutput?.(callId, result.output);
+      context.observer?.onMetadata?.(callId, "exitCode", result.exitCode ?? 0);
 
       const success = successResult(TOOL_NAME, result.output);
       return buildToolResult(success);

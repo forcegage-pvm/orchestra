@@ -50,6 +50,9 @@ async function createDirectory(
   input: CreateDirectoryInput,
   context: ToolInvocationContext,
 ): Promise<ToolResult> {
+  const callId = crypto.randomUUID();
+  context.observer?.onProgress?.(callId, `Creating directory: ${input.path}`);
+
   const validatedPath = await validatePath(input.path, context.workspaceRoot);
   if (!validatedPath.isValid) {
     return errorFromToolError(validatedPath.error);
@@ -71,6 +74,12 @@ async function createDirectory(
       ),
     );
   }
+
+  // Emit file operation event
+  context.observer?.onFileOperation?.(callId, {
+    operation: "create",
+    path: input.path,
+  });
 
   const result = successResult(
     TOOL_NAME,

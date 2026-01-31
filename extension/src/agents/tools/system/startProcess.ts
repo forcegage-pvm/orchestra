@@ -92,6 +92,12 @@ export const startProcessTool: AgentTool<StartProcessInput> = {
     input: StartProcessInput,
     context: ToolInvocationContext,
   ): Promise<ToolResult> => {
+    const callId = crypto.randomUUID();
+    context.observer?.onProgress?.(
+      callId,
+      `Starting process: ${input.command.substring(0, 50)}...`,
+    );
+
     if (context.token.isCancellationRequested) {
       return buildToolResult(
         errorResult(
@@ -170,6 +176,10 @@ export const startProcessTool: AgentTool<StartProcessInput> = {
         status: info.status,
         initial_output: stripAnsi(initialOutput),
       };
+
+      // Emit metadata with process info
+      context.observer?.onMetadata?.(callId, "processId", processId);
+      context.observer?.onMetadata?.(callId, "processStatus", info.status);
 
       return buildToolResult(
         successResult(TOOL_NAME, [

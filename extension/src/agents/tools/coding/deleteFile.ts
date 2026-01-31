@@ -56,6 +56,9 @@ async function deleteFile(
   input: DeleteFileInput,
   context: ToolInvocationContext,
 ): Promise<ToolResult> {
+  const callId = crypto.randomUUID();
+  context.observer?.onProgress?.(callId, `Deleting file: ${input.path}`);
+
   const validatedPath = await validatePath(input.path, context.workspaceRoot);
   if (!validatedPath.isValid) {
     return errorFromToolError(validatedPath.error);
@@ -116,6 +119,12 @@ async function deleteFile(
       ),
     );
   }
+
+  // Emit file operation event
+  context.observer?.onFileOperation?.(callId, {
+    operation: "delete",
+    path: input.path,
+  });
 
   const result = successResult(TOOL_NAME, `Deleted file at ${input.path}.`);
   return buildToolResult(result);

@@ -151,6 +151,12 @@ export const findPortProcessTool: AgentTool<FindPortProcessInput> = {
     input: FindPortProcessInput,
     context: ToolInvocationContext,
   ): Promise<ToolResult> => {
+    const callId = crypto.randomUUID();
+    context.observer?.onProgress?.(
+      callId,
+      `Finding process using port ${input.port}`,
+    );
+
     if (context.token.isCancellationRequested) {
       return buildToolResult(
         errorResult(

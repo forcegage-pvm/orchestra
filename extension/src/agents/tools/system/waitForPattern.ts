@@ -64,6 +64,12 @@ export const waitForPatternTool: AgentTool<WaitForPatternInput> = {
     input: WaitForPatternInput,
     context: ToolInvocationContext,
   ): Promise<ToolResult> => {
+    const callId = crypto.randomUUID();
+    context.observer?.onProgress?.(
+      callId,
+      `Waiting for pattern in process ${input.process_id}`,
+    );
+
     if (context.token.isCancellationRequested) {
       return buildToolResult(
         errorResult(
@@ -144,6 +150,10 @@ export const waitForPatternTool: AgentTool<WaitForPatternInput> = {
       if (result.matchedLine !== undefined) {
         output.matched_line = result.matchedLine;
       }
+
+      // Emit metadata with pattern match results
+      context.observer?.onMetadata?.(callId, "matched", result.matched);
+      context.observer?.onMetadata?.(callId, "waitTimeMs", result.waitTimeMs);
 
       return buildToolResult(
         successResult(TOOL_NAME, [

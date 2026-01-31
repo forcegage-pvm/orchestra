@@ -123,6 +123,9 @@ export const runTaskTool: AgentTool<RunTaskInput> = {
     input: RunTaskInput,
     context: ToolInvocationContext,
   ): Promise<ToolResult> => {
+    const callId = crypto.randomUUID();
+    context.observer?.onProgress?.(callId, `Running task: ${input.label}`);
+
     if (context.token.isCancellationRequested) {
       return buildToolResult(
         errorResult(
@@ -184,6 +187,12 @@ export const runTaskTool: AgentTool<RunTaskInput> = {
 
       if (exitCode !== undefined) {
         output.exitCode = exitCode;
+      }
+
+      // Emit metadata with task results
+      context.observer?.onMetadata?.(callId, "taskStatus", status);
+      if (exitCode !== undefined) {
+        context.observer?.onMetadata?.(callId, "exitCode", exitCode);
       }
 
       const warnings =

@@ -184,6 +184,12 @@ async function findUsages(
   input: FindUsagesInput,
   context: ToolInvocationContext,
 ): Promise<ToolResult> {
+  const callId = crypto.randomUUID();
+  context.observer?.onProgress?.(
+    callId,
+    `Finding usages of: ${input.symbolName}`,
+  );
+
   const symbolName = input.symbolName?.trim();
   if (!symbolName) {
     return buildToolResult(
@@ -282,6 +288,9 @@ async function findUsages(
     const normalized = locations.map((location) =>
       normalizeUsageLocation(context, location),
     );
+
+    // Emit metadata with usage count
+    context.observer?.onMetadata?.(callId, "usageCount", normalized.length);
 
     const result = successResult(
       TOOL_NAME,

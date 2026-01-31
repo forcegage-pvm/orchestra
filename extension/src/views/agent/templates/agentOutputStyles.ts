@@ -237,6 +237,142 @@ export function getAgentOutputStyles(): string {
       border-color: var(--vscode-charts-red);
     }
 
+    .pill-progress {
+      background: var(--vscode-inputValidation-infoBackground);
+      color: var(--vscode-foreground);
+      border: 1px solid var(--vscode-charts-blue);
+    }
+
+    .pill-stream {
+      background: var(--vscode-inputValidation-infoBackground);
+      color: var(--vscode-foreground);
+      border: 1px solid var(--vscode-charts-blue);
+    }
+
+    .pill-file-op {
+      background: var(--vscode-inputValidation-successBackground);
+      color: var(--vscode-foreground);
+      border: 1px solid var(--vscode-charts-green);
+    }
+
+    .pill-metadata {
+      background: var(--vscode-inputValidation-infoBackground);
+      color: var(--vscode-foreground);
+      border: 1px solid var(--vscode-charts-purple, #a855f7);
+    }
+
+    /* Progress output styles */
+    .output-tool-progress {
+      border-left-color: var(--vscode-charts-blue);
+    }
+
+    .progress-content {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .progress-content .tool-name {
+      font-weight: 600;
+      font-size: 12px;
+      color: var(--vscode-foreground);
+    }
+
+    .progress-content .progress-message {
+      font-size: 12px;
+      color: var(--vscode-descriptionForeground);
+    }
+
+    .progress-bar {
+      height: 4px;
+      background: var(--vscode-progressBar-background);
+      border-radius: 2px;
+      overflow: hidden;
+      margin-top: 4px;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: var(--vscode-charts-blue);
+      border-radius: 2px;
+      transition: width 0.2s ease;
+    }
+
+    /* Stream output styles */
+    .output-tool-stream {
+      border-left-color: var(--vscode-charts-blue);
+    }
+
+    .stream-content {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .stream-content .tool-name {
+      font-weight: 600;
+      font-size: 11px;
+      color: var(--vscode-descriptionForeground);
+    }
+
+    .stream-chunk {
+      margin: 0;
+      padding: 6px 8px;
+      background: var(--vscode-textCodeBlock-background);
+      border-radius: 4px;
+      font-family: var(--vscode-editor-font-family);
+      font-size: 11px;
+      white-space: pre-wrap;
+      word-break: break-all;
+      max-height: 200px;
+      overflow-y: auto;
+    }
+
+    /* File operation styles */
+    .output-file-operation {
+      border-left-color: var(--vscode-charts-green);
+    }
+
+    .file-op-content {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .file-op-content .file-path {
+      font-family: var(--vscode-editor-font-family);
+      font-size: 12px;
+      color: var(--vscode-textLink-foreground);
+    }
+
+    .file-op-content .file-meta {
+      font-size: 10px;
+      color: var(--vscode-descriptionForeground);
+    }
+
+    /* Metadata output styles */
+    .output-tool-metadata {
+      border-left-color: var(--vscode-charts-purple, #a855f7);
+    }
+
+    .metadata-content {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .metadata-content .tool-name {
+      font-weight: 600;
+      font-size: 11px;
+      color: var(--vscode-descriptionForeground);
+    }
+
+    .metadata-json {
+      margin: 0;
+      max-height: 150px;
+      overflow-y: auto;
+    }
+
     .prompt-attachments {
       margin-bottom: 8px;
       padding: 8px 12px;

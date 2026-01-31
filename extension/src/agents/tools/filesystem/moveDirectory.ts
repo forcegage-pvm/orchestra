@@ -86,6 +86,12 @@ async function moveDirectory(
   input: MoveDirectoryInput,
   context: ToolInvocationContext,
 ): Promise<ToolResult> {
+  const callId = crypto.randomUUID();
+  context.observer?.onProgress?.(
+    callId,
+    `Moving directory: ${input.source_path} → ${input.destination_path}`,
+  );
+
   // Validate source path
   const validatedSource = await validatePath(
     input.source_path,
@@ -227,6 +233,19 @@ async function moveDirectory(
     files_moved: counts.files,
     directories_moved: counts.directories,
   };
+
+  // Emit file operation event
+  context.observer?.onFileOperation?.(callId, {
+    operation: "move",
+    path: input.source_path,
+    targetPath: input.destination_path,
+  });
+  context.observer?.onMetadata?.(callId, "filesMoved", counts.files);
+  context.observer?.onMetadata?.(
+    callId,
+    "directoriesMoved",
+    counts.directories,
+  );
 
   const result = successResult(TOOL_NAME, [
     {

@@ -102,6 +102,12 @@ async function editLines(
   input: EditLinesInput,
   context: ToolInvocationContext,
 ): Promise<ToolResult> {
+  const callId = crypto.randomUUID();
+  context.observer?.onProgress?.(
+    callId,
+    `Editing lines ${input.start_line}-${input.end_line} in ${input.file_path}`,
+  );
+
   const validatedPath = await validatePath(
     input.file_path,
     context.workspaceRoot,
@@ -113,7 +119,7 @@ async function editLines(
       error: validatedPath.error,
       metadata: {
         toolName: TOOL_NAME,
-        callId: context.callId,
+        callId: callId,
         durationMs: 0,
       },
     };
@@ -137,7 +143,7 @@ async function editLines(
       ),
       metadata: {
         toolName: TOOL_NAME,
-        callId: context.callId,
+        callId: callId,
         durationMs: 0,
       },
     };
@@ -165,7 +171,7 @@ async function editLines(
       ),
       metadata: {
         toolName: TOOL_NAME,
-        callId: context.callId,
+        callId: callId,
         durationMs: 0,
       },
     };
@@ -188,7 +194,7 @@ async function editLines(
       ),
       metadata: {
         toolName: TOOL_NAME,
-        callId: context.callId,
+        callId: callId,
         durationMs: 0,
       },
     };
@@ -214,7 +220,7 @@ async function editLines(
       ),
       metadata: {
         toolName: TOOL_NAME,
-        callId: context.callId,
+        callId: callId,
         durationMs: 0,
       },
     };
@@ -276,7 +282,7 @@ async function editLines(
       ],
       metadata: {
         toolName: TOOL_NAME,
-        callId: context.callId,
+        callId: callId,
         durationMs: 0,
       },
     };
@@ -311,11 +317,19 @@ async function editLines(
       ),
       metadata: {
         toolName: TOOL_NAME,
-        callId: context.callId,
+        callId: callId,
         durationMs: 0,
       },
     };
   }
+
+  // Emit file operation event
+  const linesChanged = input.end_line - input.start_line + 1;
+  context.observer?.onFileOperation?.(callId, {
+    operation: "update",
+    path: input.file_path,
+    linesChanged,
+  });
 
   return {
     success: true,
@@ -327,7 +341,7 @@ async function editLines(
     ],
     metadata: {
       toolName: TOOL_NAME,
-      callId: context.callId,
+      callId: callId,
       durationMs: 0,
     },
   };
@@ -383,3 +397,4 @@ export const editLinesTool: AgentTool<EditLinesInput> = {
     context: ToolInvocationContext,
   ): Promise<ToolResult> => editLines(input, context),
 };
+

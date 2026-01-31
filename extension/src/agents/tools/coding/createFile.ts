@@ -58,6 +58,11 @@ async function createFile(
   input: CreateFileInput,
   context: ToolInvocationContext,
 ): Promise<ToolResult> {
+  const callId = crypto.randomUUID();
+
+  // Emit progress: starting
+  context.observer?.onProgress?.(callId, `Creating file: ${input.path}`);
+
   const validatedPath = await validatePath(input.path, context.workspaceRoot);
   if (!validatedPath.isValid) {
     return errorFromToolError(validatedPath.error);
@@ -107,11 +112,12 @@ async function createFile(
     );
   }
 
+  const contentBytes = Buffer.from(input.content ?? "");
   const edit = new vscode.WorkspaceEdit();
   edit.createFile(uri, {
     overwrite: false,
     ignoreIfExists: false,
-    contents: Buffer.from(input.content ?? ""),
+    contents: contentBytes,
   });
 
   const applied = await vscode.workspace.applyEdit(edit);
@@ -126,6 +132,13 @@ async function createFile(
       ),
     );
   }
+
+  // Emit file operation event
+  context.observer?.onFileOperation?.(callId, {
+    operation: "create",
+    path: input.path,
+    size: contentBytes.length,
+  });
 
   const result = successResult(TOOL_NAME, `Created file at ${input.path}.`);
   return buildToolResult(result);

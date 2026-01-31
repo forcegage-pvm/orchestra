@@ -60,6 +60,9 @@ async function grepSearchFiles(
   input: GrepSearchInput,
   context: ToolInvocationContext,
 ): Promise<ToolResult> {
+  const callId = crypto.randomUUID();
+  context.observer?.onProgress?.(callId, `Searching for: ${input.query}`);
+
   try {
     const query = typeof input.query === "string" ? input.query.trim() : "";
     if (!query) {
@@ -153,6 +156,10 @@ async function grepSearchFiles(
         break;
       }
     }
+
+    // Emit metadata with results
+    context.observer?.onMetadata?.(callId, "matchCount", matches.length);
+    context.observer?.onMetadata?.(callId, "filesSearched", files.length);
 
     const result = successResult(TOOL_NAME, JSON.stringify(matches, null, 2));
     return buildToolResult(result);

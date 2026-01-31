@@ -171,6 +171,12 @@ export const executeWithRetryTool: AgentTool<ExecuteWithRetryInput> = {
     input: ExecuteWithRetryInput,
     context: ToolInvocationContext,
   ): Promise<ToolResult> => {
+    const callId = crypto.randomUUID();
+    context.observer?.onProgress?.(
+      callId,
+      `Executing command with retry: ${input.command.substring(0, 50)}...`,
+    );
+
     if (context.token.isCancellationRequested) {
       return buildToolResult(
         errorResult(

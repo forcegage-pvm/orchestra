@@ -88,6 +88,9 @@ async function readFile(
   input: ReadFileInput,
   context: ToolInvocationContext,
 ): Promise<ToolResult> {
+  const callId = crypto.randomUUID();
+  context.observer?.onProgress?.(callId, `Reading file: ${input.path}`);
+
   const validatedPath = await validatePath(input.path, context.workspaceRoot);
   if (!validatedPath.isValid) {
     return errorFromToolError(validatedPath.error);
@@ -208,6 +211,13 @@ async function readFile(
       metadata: rangeMetadata,
     });
   }
+
+  // Emit file operation event
+  context.observer?.onFileOperation?.(callId, {
+    operation: "read",
+    path: input.path,
+    size: data.length,
+  });
 
   const partial = successResult(TOOL_NAME, text, warnings);
   const metadata = {

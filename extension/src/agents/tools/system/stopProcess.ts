@@ -59,6 +59,12 @@ export const stopProcessTool: AgentTool<StopProcessInput> = {
     input: StopProcessInput,
     context: ToolInvocationContext,
   ): Promise<ToolResult> => {
+    const callId = crypto.randomUUID();
+    context.observer?.onProgress?.(
+      callId,
+      `Stopping process ${input.process_id}`,
+    );
+
     if (context.token.isCancellationRequested) {
       return buildToolResult(
         errorResult(
@@ -115,6 +121,12 @@ export const stopProcessTool: AgentTool<StopProcessInput> = {
 
       if (result.exitCode !== undefined) {
         output.exit_code = result.exitCode;
+      }
+
+      // Emit metadata with stop result
+      context.observer?.onMetadata?.(callId, "forceKilled", result.forceKilled);
+      if (result.exitCode !== undefined) {
+        context.observer?.onMetadata?.(callId, "exitCode", result.exitCode);
       }
 
       return buildToolResult(

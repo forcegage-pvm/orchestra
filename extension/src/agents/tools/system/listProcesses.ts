@@ -63,6 +63,9 @@ export const listProcessesTool: AgentTool<ListProcessesInput> = {
     input: ListProcessesInput,
     context: ToolInvocationContext,
   ): Promise<ToolResult> => {
+    const callId = crypto.randomUUID();
+    context.observer?.onProgress?.(callId, "Listing background processes");
+
     if (context.token.isCancellationRequested) {
       return buildToolResult(
         errorResult(
@@ -89,6 +92,9 @@ export const listProcessesTool: AgentTool<ListProcessesInput> = {
 
     const manager = ProcessManager.getInstance();
     const processes: ProcessInfo[] = manager.listProcesses(parsed.data.status);
+
+    // Emit metadata with process count
+    context.observer?.onMetadata?.(callId, "processCount", processes.length);
 
     return buildToolResult(
       successResult(TOOL_NAME, [

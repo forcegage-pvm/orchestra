@@ -149,6 +149,10 @@ async function executeWithSubprocess(
     stdin?: string;
     env?: Record<string, string>;
     token: vscode.CancellationToken;
+    observer?: {
+      onOutput?: (callId: string, chunk: string) => void;
+      callId: string;
+    };
   },
 ): Promise<CommandResult> {
   const startTime = Date.now();
@@ -196,11 +200,21 @@ async function executeWithSubprocess(
     });
 
     child.stdout?.on("data", (chunk: Buffer) => {
-      stdoutBuffer.append(chunk.toString());
+      const text = chunk.toString();
+      stdoutBuffer.append(text);
+      // Stream output via observer
+      if (options.observer?.onOutput) {
+        options.observer.onOutput(options.observer.callId, text);
+      }
     });
 
     child.stderr?.on("data", (chunk: Buffer) => {
-      stderrBuffer.append(chunk.toString());
+      const text = chunk.toString();
+      stderrBuffer.append(text);
+      // Stream stderr via observer
+      if (options.observer?.onOutput) {
+        options.observer.onOutput(options.observer.callId, `[stderr] ${text}`);
+      }
     });
 
     if (options.stdin) {
@@ -292,6 +306,11 @@ export const runCommandTool: AgentTool<RunCommandInput> = {
     input: RunCommandInput,
     context: ToolInvocationContext,
   ): Promise<ToolResult> => {
+    const callId = crypto.randomUUID();
+
+    // Emit progress: starting
+    context.observer?.onProgress?.(callId, `Running: ${input.command}`);
+
     if (context.token.isCancellationRequested) {
       return {
         success: false,
@@ -313,6 +332,14 @@ export const runCommandTool: AgentTool<RunCommandInput> = {
     let result: CommandResult;
     let usedFallback = false;
 
+    // Create observer adapter for subprocess
+    const subprocessObserver = context.observer
+      ? {
+          onOutput: context.observer.onOutput?.bind(context.observer),
+          callId,
+        }
+      : undefined;
+
     // Try shell integration first
     try {
       const shellResult = await executeWithShellIntegration(input.command, {
@@ -330,6 +357,7 @@ export const runCommandTool: AgentTool<RunCommandInput> = {
           stdin: input.stdin,
           env: input.env,
           token: context.token,
+          observer: subprocessObserver,
         });
         result.warning =
           "Shell integration unavailable; used subprocess fallback.";
@@ -363,6 +391,7 @@ export const runCommandTool: AgentTool<RunCommandInput> = {
           stdin: input.stdin,
           env: input.env,
           token: context.token,
+          observer: subprocessObserver,
         });
         result.warning = "Shell integration failed; used subprocess fallback.";
       } catch (fallbackError) {
@@ -386,6 +415,13 @@ export const runCommandTool: AgentTool<RunCommandInput> = {
         };
       }
     }
+
+    // Emit completion progress
+    context.observer?.onProgress?.(
+      callId,
+      `Command completed (${result.durationMs}ms)`,
+      100,
+    );
 
     // Build result
     const resultData: RunCommandResult = {

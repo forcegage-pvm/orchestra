@@ -108,6 +108,12 @@ async function runTests(
   input: RunTestsInput,
   context: ToolInvocationContext,
 ): Promise<ToolResult> {
+  const callId = crypto.randomUUID();
+  context.observer?.onProgress?.(
+    callId,
+    `Running tests${input.label ? `: ${input.label}` : ""}`,
+  );
+
   if (context.token.isCancellationRequested) {
     return buildToolResult(
       errorResult(
@@ -177,6 +183,12 @@ async function runTests(
 
     if (exitCode !== undefined) {
       output.exitCode = exitCode;
+    }
+
+    // Emit metadata with test results
+    context.observer?.onMetadata?.(callId, "testStatus", status);
+    if (exitCode !== undefined) {
+      context.observer?.onMetadata?.(callId, "exitCode", exitCode);
     }
 
     const warnings =

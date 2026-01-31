@@ -98,6 +98,67 @@ export function convertAgentOutput(
     };
   }
 
+  if (output.type === "tool_progress") {
+    return {
+      type: "item",
+      item: {
+        id: generateId(),
+        type: "tool_progress",
+        timestamp: output.timestamp,
+        content: {
+          toolName: getToolName(output),
+          message: output.text ?? "",
+          percent: output.progressPercent,
+        },
+      },
+    };
+  }
+
+  if (output.type === "tool_output") {
+    return {
+      type: "item",
+      item: {
+        id: generateId(),
+        type: "tool_output",
+        timestamp: output.timestamp,
+        content: {
+          toolName: getToolName(output),
+          chunk: output.streamChunk ?? "",
+        },
+      },
+    };
+  }
+
+  if (output.type === "tool_file_operation" && output.fileOperation) {
+    return {
+      type: "item",
+      item: {
+        id: generateId(),
+        type: "tool_file_operation",
+        timestamp: output.timestamp,
+        content: {
+          toolName: getToolName(output),
+          fileOperation: output.fileOperation,
+        },
+      },
+    };
+  }
+
+  if (output.type === "tool_metadata" && output.metadata) {
+    return {
+      type: "item",
+      item: {
+        id: generateId(),
+        type: "tool_metadata",
+        timestamp: output.timestamp,
+        content: {
+          toolName: getToolName(output),
+          metadata: output.metadata,
+        },
+      },
+    };
+  }
+
   if (output.type === "error") {
     const content: {
       toolName: string;

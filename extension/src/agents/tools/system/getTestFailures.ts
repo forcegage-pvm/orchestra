@@ -96,6 +96,9 @@ export const getTestFailuresTool: AgentTool<GetTestFailuresInput> = {
     input: GetTestFailuresInput,
     context: ToolInvocationContext,
   ): Promise<ToolResult> => {
+    const callId = crypto.randomUUID();
+    context.observer?.onProgress?.(callId, "Getting test failures");
+
     if (context.token.isCancellationRequested) {
       return buildToolResult(
         errorResult(

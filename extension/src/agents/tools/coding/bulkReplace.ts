@@ -216,6 +216,12 @@ async function bulkReplace(
   input: BulkReplaceInput,
   context: ToolInvocationContext,
 ): Promise<ToolResult> {
+  const callId = crypto.randomUUID();
+  context.observer?.onProgress?.(
+    callId,
+    `Bulk replacing pattern: ${input.pattern}`,
+  );
+
   try {
     // Validate inputs
     const pattern = input.pattern?.trim();
@@ -305,6 +311,14 @@ async function bulkReplace(
 
       filesScanned++;
 
+      // Emit progress with percentage
+      const percent = Math.round((filesScanned / files.length) * 100);
+      context.observer?.onProgress?.(
+        callId,
+        `Processing file ${filesScanned}/${files.length}`,
+        percent,
+      );
+
       const result = await processFile(
         uri,
         regex,
@@ -341,6 +355,14 @@ async function bulkReplace(
       changes,
       errors,
     };
+
+    // Emit metadata with summary
+    context.observer?.onMetadata?.(callId, "filesModified", changes.length);
+    context.observer?.onMetadata?.(
+      callId,
+      "totalReplacements",
+      totalReplacements,
+    );
 
     return buildToolResult(
       successResult(TOOL_NAME, JSON.stringify(result, null, 2)),

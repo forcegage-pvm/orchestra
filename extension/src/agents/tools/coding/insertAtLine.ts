@@ -91,6 +91,12 @@ async function insertAtLine(
   input: InsertAtLineInput,
   context: ToolInvocationContext,
 ): Promise<ToolResult> {
+  const callId = crypto.randomUUID();
+  context.observer?.onProgress?.(
+    callId,
+    `Inserting at line ${input.line} in ${input.file_path}`,
+  );
+
   const validatedPath = await validatePath(
     input.file_path,
     context.workspaceRoot,
@@ -102,7 +108,7 @@ async function insertAtLine(
       error: validatedPath.error,
       metadata: {
         toolName: TOOL_NAME,
-        callId: context.callId,
+        callId: callId,
         durationMs: 0,
       },
     };
@@ -126,7 +132,7 @@ async function insertAtLine(
       ),
       metadata: {
         toolName: TOOL_NAME,
-        callId: context.callId,
+        callId: callId,
         durationMs: 0,
       },
     };
@@ -154,7 +160,7 @@ async function insertAtLine(
       ),
       metadata: {
         toolName: TOOL_NAME,
-        callId: context.callId,
+        callId: callId,
         durationMs: 0,
       },
     };
@@ -195,7 +201,7 @@ async function insertAtLine(
       ],
       metadata: {
         toolName: TOOL_NAME,
-        callId: context.callId,
+        callId: callId,
         durationMs: 0,
       },
     };
@@ -231,11 +237,19 @@ async function insertAtLine(
       ),
       metadata: {
         toolName: TOOL_NAME,
-        callId: context.callId,
+        callId: callId,
         durationMs: 0,
       },
     };
   }
+
+  // Emit file operation event
+  const linesInserted = contentToInsert.split("\n").length;
+  context.observer?.onFileOperation?.(callId, {
+    operation: "update",
+    path: input.file_path,
+    linesChanged: linesInserted,
+  });
 
   return {
     success: true,
@@ -247,7 +261,7 @@ async function insertAtLine(
     ],
     metadata: {
       toolName: TOOL_NAME,
-      callId: context.callId,
+      callId: callId,
       durationMs: 0,
     },
   };
@@ -299,3 +313,4 @@ export const insertAtLineTool: AgentTool<InsertAtLineInput> = {
     context: ToolInvocationContext,
   ): Promise<ToolResult> => insertAtLine(input, context),
 };
+

@@ -145,6 +145,12 @@ async function smartReplace(
   input: SmartReplaceInput,
   context: ToolInvocationContext,
 ): Promise<ToolResult> {
+  const callId = crypto.randomUUID();
+  context.observer?.onProgress?.(
+    callId,
+    `Smart replacing in ${input.file_path}`,
+  );
+
   const validatedPath = await validatePath(
     input.file_path,
     context.workspaceRoot,
@@ -156,7 +162,7 @@ async function smartReplace(
       error: validatedPath.error,
       metadata: {
         toolName: TOOL_NAME,
-        callId: context.callId,
+        callId: callId,
         durationMs: 0,
       },
     };
@@ -180,7 +186,7 @@ async function smartReplace(
       ),
       metadata: {
         toolName: TOOL_NAME,
-        callId: context.callId,
+        callId: callId,
         durationMs: 0,
       },
     };
@@ -206,7 +212,7 @@ async function smartReplace(
       ),
       metadata: {
         toolName: TOOL_NAME,
-        callId: context.callId,
+        callId: callId,
         durationMs: 0,
       },
     };
@@ -240,7 +246,7 @@ async function smartReplace(
       ),
       metadata: {
         toolName: TOOL_NAME,
-        callId: context.callId,
+        callId: callId,
         durationMs: 0,
       },
     };
@@ -280,7 +286,7 @@ async function smartReplace(
       ],
       metadata: {
         toolName: TOOL_NAME,
-        callId: context.callId,
+        callId: callId,
         durationMs: 0,
       },
     };
@@ -315,11 +321,21 @@ async function smartReplace(
       ),
       metadata: {
         toolName: TOOL_NAME,
-        callId: context.callId,
+        callId: callId,
         durationMs: 0,
       },
     };
   }
+
+  // Emit file operation event with match type metadata
+  const linesChanged = matchResult.end_line - matchResult.start_line + 1;
+  context.observer?.onFileOperation?.(callId, {
+    operation: "update",
+    path: input.file_path,
+    linesChanged,
+  });
+  context.observer?.onMetadata?.(callId, "matchType", matchResult.match_type);
+  context.observer?.onMetadata?.(callId, "similarity", matchResult.similarity);
 
   return {
     success: true,
@@ -331,7 +347,7 @@ async function smartReplace(
     ],
     metadata: {
       toolName: TOOL_NAME,
-      callId: context.callId,
+      callId: callId,
       durationMs: 0,
     },
   };
@@ -392,3 +408,4 @@ export const smartReplaceTool: AgentTool<SmartReplaceInput> = {
     context: ToolInvocationContext,
   ): Promise<ToolResult> => smartReplace(input, context),
 };
+

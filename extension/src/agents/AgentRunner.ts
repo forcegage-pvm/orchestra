@@ -43,12 +43,35 @@ export type AgentOutputType =
   | "thinking"
   | "tool_call"
   | "tool_result"
+  | "tool_progress"
+  | "tool_output"
+  | "tool_file_operation"
+  | "tool_metadata"
   | "error"
   | "status";
 
 /**
- * Agent output event
+ * File operation types for display
  */
+export type FileOperationType =
+  | "create"
+  | "update"
+  | "delete"
+  | "move"
+  | "copy"
+  | "read";
+
+/**
+ * File operation event for display
+ */
+export interface FileOperationInfo {
+  operation: FileOperationType;
+  path: string;
+  targetPath?: string;
+  size?: number;
+  linesChanged?: number;
+}
+
 export interface AgentOutput {
   type: AgentOutputType;
   timestamp: string;
@@ -60,6 +83,14 @@ export interface AgentOutput {
   toolResult?: string;
   toolSuccess?: boolean;
   toolDuration?: number;
+  /** Progress percentage (0-100) for tool_progress events */
+  progressPercent?: number;
+  /** Streaming output chunk for tool_output events */
+  streamChunk?: string;
+  /** File operation info for tool_file_operation events */
+  fileOperation?: FileOperationInfo;
+  /** Structured metadata emitted during tool execution */
+  metadata?: Record<string, unknown>;
   errorCode?: string;
   errorMessage?: string;
   recoverable?: boolean;
@@ -1024,7 +1055,58 @@ export class AgentRunner implements vscode.Disposable {
       return;
     }
 
-    const context: ToolInvocationContext = {
+    // Create observer that emits real-time events
+    const createObserver = (toolName: string, callId: string) => ({
+      onProgress: (id: string, message: string, percent?: number) => {
+        this.emitOutput({
+          type: "tool_progress",
+          timestamp: new Date().toISOString(),
+          iteration: this.session!.currentIteration,
+          toolName,
+          toolCallId: id,
+          text: message,
+          progressPercent: percent,
+        });
+      },
+      onOutput: (id: string, chunk: string) => {
+        this.emitOutput({
+          type: "tool_output",
+          timestamp: new Date().toISOString(),
+          iteration: this.session!.currentIteration,
+          toolName,
+          toolCallId: id,
+          streamChunk: chunk,
+        });
+      },
+      onFileOperation: (id: string, event: FileOperationEvent) => {
+        this.emitOutput({
+          type: "tool_file_operation",
+          timestamp: new Date().toISOString(),
+          iteration: this.session!.currentIteration,
+          toolName,
+          toolCallId: id,
+          fileOperation: {
+            operation: event.operation,
+            path: event.path,
+            targetPath: event.targetPath,
+            size: event.size,
+            linesChanged: event.linesChanged,
+          },
+        });
+      },
+      onMetadata: (id: string, key: string, value: unknown) => {
+        this.emitOutput({
+          type: "tool_metadata",
+          timestamp: new Date().toISOString(),
+          iteration: this.session!.currentIteration,
+          toolName,
+          toolCallId: id,
+          metadata: { [key]: value },
+        });
+      },
+    });
+
+    const baseContext: Omit<ToolInvocationContext, "observer"> = {
       workspaceRoot: vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? "",
       sessionId: this.session.id,
       token:
@@ -1038,6 +1120,12 @@ export class AgentRunner implements vscode.Disposable {
       }
 
       const startTime = Date.now();
+
+      // Create context with observer for this specific tool call
+      const context: ToolInvocationContext = {
+        ...baseContext,
+        observer: createObserver(toolCall.name, toolCall.callId),
+      };
 
       try {
         const result = await this.toolRegistry.execute(

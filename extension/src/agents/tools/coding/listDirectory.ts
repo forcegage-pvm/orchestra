@@ -56,6 +56,9 @@ async function listDirectoryContents(
   input: ListDirectoryInput,
   context: ToolInvocationContext,
 ): Promise<ToolResult> {
+  const callId = crypto.randomUUID();
+  context.observer?.onProgress?.(callId, `Listing directory: ${input.path}`);
+
   const validatedPath = await validatePath(input.path, context.workspaceRoot);
   if (!validatedPath.isValid) {
     return errorFromToolError(validatedPath.error);
@@ -83,6 +86,9 @@ async function listDirectoryContents(
       }
       return name;
     });
+
+    // Emit metadata with entry count
+    context.observer?.onMetadata?.(callId, "entries", entries.length);
 
     const result = successResult(TOOL_NAME, outputLines.join("\n"));
     return buildToolResult(result);

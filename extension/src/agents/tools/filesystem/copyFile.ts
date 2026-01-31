@@ -55,6 +55,12 @@ async function copyFile(
   input: CopyFileInput,
   context: ToolInvocationContext,
 ): Promise<ToolResult> {
+  const callId = crypto.randomUUID();
+  context.observer?.onProgress?.(
+    callId,
+    `Copying file: ${input.source_path} → ${input.destination_path}`,
+  );
+
   // Validate source path
   const validatedSource = await validatePath(
     input.source_path,
@@ -183,6 +189,13 @@ async function copyFile(
   if (directoriesCreated) {
     resultData.directories_created = true;
   }
+
+  // Emit file operation event
+  context.observer?.onFileOperation?.(callId, {
+    operation: "copy",
+    path: input.source_path,
+    targetPath: input.destination_path,
+  });
 
   const result = successResult(TOOL_NAME, [
     {

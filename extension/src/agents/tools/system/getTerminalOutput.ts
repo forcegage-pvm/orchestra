@@ -51,6 +51,12 @@ export const getTerminalOutputTool: AgentTool<GetTerminalOutputInput> = {
     input: GetTerminalOutputInput,
     _context: ToolInvocationContext,
   ): Promise<ToolResult> => {
+    const callId = crypto.randomUUID();
+    _context.observer?.onProgress?.(
+      callId,
+      `Getting terminal output: ${input.terminalId}`,
+    );
+
     const output = getBufferedOutput(input.terminalId);
 
     if (output === undefined) {
@@ -69,6 +75,9 @@ export const getTerminalOutputTool: AgentTool<GetTerminalOutputInput> = {
     if (input.clear) {
       clearBufferedOutput(input.terminalId);
     }
+
+    // Emit output event with terminal content
+    _context.observer?.onOutput?.(callId, output);
 
     const success = successResult(TOOL_NAME, output);
     return buildToolResult(success);
