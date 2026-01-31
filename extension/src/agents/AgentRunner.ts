@@ -82,6 +82,18 @@ export interface AgentState {
 }
 
 /**
+ * File attachment for agent context
+ */
+export interface FileAttachment {
+  /** Absolute path to the file */
+  path: string;
+  /** Optional display name (defaults to filename) */
+  name?: string;
+  /** Optional MIME type (defaults to text/plain) */
+  mimeType?: string;
+}
+
+/**
  * Options for starting an agent
  */
 export interface AgentStartOptions {
@@ -91,6 +103,8 @@ export interface AgentStartOptions {
   resumeSessionId?: string;
   maxIterations?: number;
   model?: string;
+  /** Optional file attachments to include with the initial prompt */
+  attachments?: FileAttachment[];
 }
 
 /**
@@ -324,8 +338,26 @@ export class AgentRunner implements vscode.Disposable {
     const envContext = this.buildEnvironmentContext();
     this.addUserMessage(envContext);
 
-    // Add initial user message with prompt
-    this.addUserMessage(options.prompt);
+    // Read and attach files if provided
+    let attachmentParts: vscode.LanguageModelDataPart[] = [];
+    if (options.attachments && options.attachments.length > 0) {
+      attachmentParts = await this.readAttachments(options.attachments);
+    }
+
+    // Add initial user message with prompt and attachments
+    if (attachmentParts.length > 0) {
+      // Create message with both prompt text and file attachments
+      const contentParts: Array<
+        vscode.LanguageModelTextPart | vscode.LanguageModelDataPart
+      > = [
+        new vscode.LanguageModelTextPart(options.prompt),
+        ...attachmentParts,
+      ];
+      this.addUserMessageWithParts(contentParts);
+    } else {
+      // No attachments - use simple text message
+      this.addUserMessage(options.prompt);
+    }
 
     // Emit prompt as first output so it's visible in the output panel
     this.emitOutput({
@@ -764,6 +796,47 @@ export class AgentRunner implements vscode.Disposable {
       allModels[0]!.id,
     );
     return allModels[0]!;
+  }
+
+  /**
+   * Read file attachments and create LanguageModelDataPart objects
+   *
+   * @param attachments - File attachments to read
+   * @returns Array of LanguageModelDataPart objects
+   */
+  private async readAttachments(
+    attachments: FileAttachment[],
+  ): Promise<vscode.LanguageModelDataPart[]> {
+    const parts: vscode.LanguageModelDataPart[] = [];
+
+    for (const attachment of attachments) {
+      try {
+        const uri = vscode.Uri.file(attachment.path);
+        const fileData = await vscode.workspace.fs.readFile(uri);
+        const content = Buffer.from(fileData).toString("utf8");
+        const fileName =
+          attachment.name ??
+          attachment.path.split(/[\\/]/).pop() ??
+          "attachment";
+        const mimeType = attachment.mimeType ?? "text/plain";
+
+        // Create a data part with the file content
+        // Prefix with filename for context
+        const contentWithHeader = `### File: ${fileName}\n\n${content}`;
+        parts.push(
+          vscode.LanguageModelDataPart.text(contentWithHeader, mimeType),
+        );
+      } catch (error) {
+        // Log error but continue with other attachments
+        const message =
+          error instanceof Error ? error.message : "Unknown error";
+        console.error(
+          `Failed to read attachment ${attachment.path}: ${message}`,
+        );
+      }
+    }
+
+    return parts;
   }
 
   /**
@@ -1443,6 +1516,43 @@ export class AgentRunner implements vscode.Disposable {
       id: crypto.randomUUID(),
       role: "user",
       content,
+      timestamp: new Date().toISOString(),
+      iteration: this.session.currentIteration,
+    };
+
+    this.session.addMessage(message);
+  }
+
+  /**
+   * Add a user message with mixed content parts (text + attachments)
+   *
+   * @param parts - Array of content parts (text, data, etc.)
+   */
+  private addUserMessageWithParts(
+    parts: Array<vscode.LanguageModelTextPart | vscode.LanguageModelDataPart>,
+  ): void {
+    if (!this.session) {
+      return;
+    }
+
+    // Convert LanguageModel parts to AgentMessage content format
+    const contentParts = parts.map((part) => {
+      if (part instanceof vscode.LanguageModelTextPart) {
+        return { type: "text" as const, value: part.value };
+      } else if (part instanceof vscode.LanguageModelDataPart) {
+        // For data parts, extract the text content
+        // The value property contains the actual text for text data parts
+        const decoder = new TextDecoder();
+        const textContent = decoder.decode(part.value);
+        return { type: "text" as const, value: textContent };
+      }
+      return { type: "text" as const, value: "[Unknown content type]" };
+    });
+
+    const message: AgentMessage = {
+      id: crypto.randomUUID(),
+      role: "user",
+      content: contentParts,
       timestamp: new Date().toISOString(),
       iteration: this.session.currentIteration,
     };

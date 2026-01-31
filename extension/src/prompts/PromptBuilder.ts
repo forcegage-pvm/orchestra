@@ -475,6 +475,86 @@ Provide detailed, actionable feedback for any issues found.`;
   }
 
   /**
+   * Build a HANDOVER_FIX prompt for the orchestrator
+   *
+   * Instructs the orchestrator to fix a rejected handover based on Controller feedback.
+   * The orchestrator should update the handover to address all issues and resubmit.
+   *
+   * @param context - The prompt context containing task, rejection feedback
+   * @returns A structured prompt string for the orchestrator
+   */
+  buildHandoverFixPrompt(
+    context: PromptContext & {
+      rejection?: {
+        issues: unknown;
+        recommendations: unknown;
+        revision_count: number;
+      };
+    },
+  ): string {
+    const { task, sprint, rejection } = context;
+
+    if (!rejection) {
+      throw new Error("rejection context required for buildHandoverFixPrompt");
+    }
+
+    const issuesText =
+      typeof rejection.issues === "string"
+        ? rejection.issues
+        : JSON.stringify(rejection.issues, null, 2);
+    const recommendationsText =
+      typeof rejection.recommendations === "string"
+        ? rejection.recommendations
+        : JSON.stringify(rejection.recommendations, null, 2);
+
+    return `As Orchestrator, fix the rejected handover for Task ${task.task_id}: "${task.title}".
+
+## Handover Rejection
+The Controller rejected your handover (revision ${rejection.revision_count + 1}). You must address ALL issues and resubmit.
+
+### Issues Found
+${issuesText}
+
+### Recommendations
+${recommendationsText}
+
+## Your Task
+Use your MCP tools to fix the handover and resubmit:
+
+1. \`get_handover\` with task_id=${task.task_id} - Review current handover details
+2. \`read_spec_file\` - Re-read the specification to ensure full alignment
+3. \`update_handover\` - Update the handover to address ALL issues:
+   - Fix missing or unclear acceptance criteria
+   - Clarify file operations and deliverables
+   - Add missing context or constraints
+   - Ensure spec alignment (no scope creep)
+4. \`resubmit_handover\` with task_id=${task.task_id} - Resubmit after fixing
+
+## Task Context
+- **Task ID**: ${task.task_id}
+- **Title**: ${task.title}
+- **Category**: ${task.category}
+- **Phase**: ${task.phase_id}
+- **Sprint**: ${sprint.title} (${sprint.sprint_id})
+- **Revision**: ${rejection.revision_count + 1}
+
+## CRITICAL Requirements
+- Address EVERY issue mentioned in the Controller feedback
+- Do NOT change the scope - stay aligned with the specification
+- Be more specific and measurable in acceptance criteria
+- Ensure file operations are clear and complete
+- Verify all deliverables are listed
+
+## Remember
+- The Controller is checking spec alignment, not feasibility
+- If scope seems wrong, the task breakdown may be incorrect
+- Acceptance criteria must be verifiable and measurable
+- Context files should help implementor understand the task
+
+After fixing, use \`resubmit_handover\` to send back for review.`;
+  }
+
+  /**
    * Build a CODE_REVIEW prompt for the controller
    *
    * Instructs the controller to use MCP tools (get_code_review_summary, get_latest_code_review,

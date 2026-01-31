@@ -257,6 +257,31 @@ export function getAllSprints(workspaceRoot: string): Sprint[] {
 }
 
 /**
+ * Get a sprint by its ID
+ *
+ * @param workspaceRoot Absolute path to workspace root
+ * @param sprintId Sprint ID to look up
+ * @returns Sprint object or null if not found
+ */
+export function getSprintById(
+  workspaceRoot: string,
+  sprintId: string,
+): Sprint | null {
+  const db = getDB(workspaceRoot);
+
+  const results = db
+    .select()
+    .from(schema.sprints as unknown as typeof schema.sprints)
+    .where(
+      eq(schema.sprints.id as unknown as typeof schema.sprints.id, sprintId),
+    )
+    .limit(1)
+    .all() as Sprint[];
+
+  return results[0] ?? null;
+}
+
+/**
  * Get the current in-progress task with its handover data
  *
  * The "current task" is the one with status in ['IMPLEMENT', 'GATE_CHECK', 'VERIFY']

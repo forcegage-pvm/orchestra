@@ -6,12 +6,13 @@
  * or inform that task is already complete.
  */
 
+import * as path from "path";
 import * as vscode from "vscode";
 import {
-  getCurrentSprint,
   getEscalation,
   getFeedback,
   getLatestHandoverReview,
+  getSprintById,
   getTaskById,
 } from "../database/queries.js";
 import { getAgentRunner, getContextFileResolver } from "../extension.js";
@@ -72,8 +73,11 @@ export async function handlePlayTask(
       break;
 
     case "PENDING_HANDOVER_REVIEW":
-    case "HANDOVER_REVIEW_FAILED":
       await invokeHandoverReview(workspaceRoot, taskId);
+      break;
+
+    case "HANDOVER_REVIEW_FAILED":
+      await invokeHandoverFix(workspaceRoot, taskId);
       break;
 
     case "IMPLEMENT":
@@ -122,16 +126,17 @@ async function invokePrepare(
   try {
     // Get task and sprint data from database
     const task = getTaskById(workspaceRoot, taskId);
-    const sprint = getCurrentSprint(workspaceRoot);
 
     if (!task) {
       vscode.window.showErrorMessage(`Task ${taskId} not found`);
       return;
     }
 
+    const sprint = getSprintById(workspaceRoot, task.sprint_id);
+
     if (!sprint) {
       vscode.window.showErrorMessage(
-        "No active sprint found. Cannot prepare task.",
+        `Sprint ${task.sprint_id} not found for task ${taskId}`,
       );
       return;
     }
@@ -169,11 +174,24 @@ async function invokePrepare(
     // Show output panel before starting
     showAgentOutputPanel();
 
+    // Get agent instruction path
+    const agentInstructionPath = path.join(
+      workspaceRoot,
+      ".github",
+      "agents",
+      "orchestra.orchestrator.agent.md",
+    );
+
     // Start orchestrator agent for task preparation
-    await agentRunner.start("orchestrator", {
+    const startOptions = {
       prompt,
       taskId,
       sprintId: sprint.id,
+    } as const;
+
+    await agentRunner.start("orchestrator", {
+      ...startOptions,
+      attachments: [{ path: agentInstructionPath }],
     });
 
     logger.info(`Started orchestrator agent to prepare task ${taskId}`, {
@@ -250,11 +268,24 @@ async function invokeImplement(
     // Show output panel before starting
     showAgentOutputPanel();
 
+    // Get agent instruction path
+    const agentInstructionPath = path.join(
+      workspaceRoot,
+      ".github",
+      "agents",
+      "orchestra.implementor.agent.md",
+    );
+
     // Invoke implementor agent for autonomous execution
-    await agentRunner.start("implementor", {
+    const startOptions = {
       prompt,
       taskId,
       sprintId: task.sprint_id,
+    } as const;
+
+    await agentRunner.start("implementor", {
+      ...startOptions,
+      attachments: [{ path: agentInstructionPath }],
     });
 
     logger.info(`Started implementor agent for task ${taskId}`, {
@@ -353,11 +384,24 @@ async function invokeRetry(
     // Show output panel before starting
     showAgentOutputPanel();
 
+    // Get agent instruction path
+    const agentInstructionPath = path.join(
+      workspaceRoot,
+      ".github",
+      "agents",
+      "orchestra.implementor.agent.md",
+    );
+
     // Start implementor agent for retry
-    await agentRunner.start("implementor", {
+    const startOptions = {
       prompt,
       taskId,
       sprintId: task.sprint_id,
+    } as const;
+
+    await agentRunner.start("implementor", {
+      ...startOptions,
+      attachments: [{ path: agentInstructionPath }],
     });
 
     logger.info(`Started implementor agent to retry task ${taskId}`, {
@@ -430,11 +474,24 @@ async function invokeVerify(
     // Show output panel before starting
     showAgentOutputPanel();
 
+    // Get agent instruction path
+    const agentInstructionPath = path.join(
+      workspaceRoot,
+      ".github",
+      "agents",
+      "orchestra.orchestrator.agent.md",
+    );
+
     // Start orchestrator agent for verification
-    await agentRunner.start("orchestrator", {
+    const startOptions = {
       prompt,
       taskId,
       sprintId: task.sprint_id,
+    } as const;
+
+    await agentRunner.start("orchestrator", {
+      ...startOptions,
+      attachments: [{ path: agentInstructionPath }],
     });
 
     logger.info(`Started orchestrator agent to verify task ${taskId}`, {
@@ -446,6 +503,117 @@ async function invokeVerify(
     const message = error instanceof Error ? error.message : "Unknown error";
     vscode.window.showErrorMessage(
       `Orchestra: Failed to invoke verification for task ${taskId} - ${message}`,
+    );
+  }
+}
+
+/**
+ * Invoke orchestrator to fix rejected handover
+ *
+ * Builds a prompt with rejection feedback and invokes orchestrator to address
+ * Controller feedback and resubmit the handover.
+ *
+ * @param workspaceRoot Absolute path to workspace root
+ * @param taskId Task ID (numeric primary key)
+ */
+async function invokeHandoverFix(
+  workspaceRoot: string,
+  taskId: number,
+): Promise<void> {
+  try {
+    const task = getTaskById(workspaceRoot, taskId);
+
+    if (!task) {
+      vscode.window.showErrorMessage(`Task ${taskId} not found`);
+      return;
+    }
+
+    const sprint = getSprintById(workspaceRoot, task.sprint_id);
+
+    if (!sprint) {
+      vscode.window.showErrorMessage(
+        `Sprint ${task.sprint_id} not found for task ${taskId}`,
+      );
+      return;
+    }
+
+    // Get rejection feedback
+    const rejection = getLatestHandoverReview(workspaceRoot, taskId);
+    if (!rejection) {
+      vscode.window.showErrorMessage(
+        `No rejection feedback found for task ${taskId}`,
+      );
+      return;
+    }
+
+    // Build prompt context
+    const context = {
+      task: {
+        task_id: task.task_id,
+        title: task.title,
+        description: task.description,
+        category: task.category,
+        phase_id: `phase-${task.phase_id}`,
+        status: task.status,
+      },
+      sprint: {
+        sprint_id: sprint.id,
+        title: sprint.name,
+      },
+      rejection: {
+        issues: rejection.issues,
+        recommendations: rejection.recommendations,
+        revision_count: rejection.revision_count || 0,
+      },
+    };
+
+    // Create instances
+    const logger = new OrchestraLogger();
+    const promptBuilder = new PromptBuilder();
+    const agentRunner = getAgentRunner();
+
+    if (agentRunner.getSession()?.status === "running") {
+      vscode.window.showErrorMessage(
+        "Orchestra: Agent is already running. Stop or pause the current agent first.",
+      );
+      return;
+    }
+
+    // Build the handover fix prompt
+    const prompt = promptBuilder.buildHandoverFixPrompt(context);
+
+    // Show output panel before starting
+    showAgentOutputPanel();
+
+    // Get agent instruction path
+    const agentInstructionPath = path.join(
+      workspaceRoot,
+      ".github",
+      "agents",
+      "orchestra.orchestrator.agent.md",
+    );
+
+    // Start orchestrator agent to fix handover
+    const startOptions = {
+      prompt,
+      taskId,
+      sprintId: sprint.id,
+    } as const;
+
+    await agentRunner.start("orchestrator", {
+      ...startOptions,
+      attachments: [{ path: agentInstructionPath }],
+    });
+
+    logger.info("Started orchestrator agent to fix handover", {
+      taskId,
+      taskTitle: task.title,
+      revisionCount: rejection.revision_count || 0,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    vscode.window.showErrorMessage(
+      `Orchestra: Failed to invoke orchestrator for handover fix - ${message}`,
     );
   }
 }
@@ -464,16 +632,17 @@ async function invokeHandoverReview(
 ): Promise<void> {
   try {
     const task = getTaskById(workspaceRoot, taskId);
-    const sprint = getCurrentSprint(workspaceRoot);
 
     if (!task) {
       vscode.window.showErrorMessage(`Task ${taskId} not found`);
       return;
     }
 
+    const sprint = getSprintById(workspaceRoot, task.sprint_id);
+
     if (!sprint) {
       vscode.window.showErrorMessage(
-        "No active sprint found. Cannot review handover.",
+        `Sprint ${task.sprint_id} not found for task ${taskId}`,
       );
       return;
     }
@@ -522,11 +691,24 @@ async function invokeHandoverReview(
     // Show output panel before starting
     showAgentOutputPanel();
 
+    // Get agent instruction path
+    const agentInstructionPath = path.join(
+      workspaceRoot,
+      ".github",
+      "agents",
+      "orchestra.controller.agent.md",
+    );
+
     // Start controller agent for handover review
-    await agentRunner.start("controller", {
+    const startOptions = {
       prompt,
       taskId,
       sprintId: sprint.id,
+    } as const;
+
+    await agentRunner.start("controller", {
+      ...startOptions,
+      attachments: [{ path: agentInstructionPath }],
     });
 
     logger.info("Started controller agent for handover review", {
@@ -608,11 +790,24 @@ Use your MCP tools to investigate and resolve this escalation.`;
     // Show output panel before starting
     showAgentOutputPanel();
 
+    // Get agent instruction path
+    const agentInstructionPath = path.join(
+      workspaceRoot,
+      ".github",
+      "agents",
+      "orchestra.orchestrator.agent.md",
+    );
+
     // Start orchestrator agent for escalation review
-    await agentRunner.start("orchestrator", {
+    const startOptions = {
       prompt,
       taskId,
       sprintId: task.sprint_id,
+    } as const;
+
+    await agentRunner.start("orchestrator", {
+      ...startOptions,
+      attachments: [{ path: agentInstructionPath }],
     });
 
     logger.info(
