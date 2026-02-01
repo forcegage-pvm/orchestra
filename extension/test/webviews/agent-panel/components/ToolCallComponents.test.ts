@@ -5,7 +5,7 @@
  * ToolCallHeader, and ToolCallCard components.
  */
 
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 import type {
   FileOperation,
   ToolCallAggregate,
@@ -181,7 +181,15 @@ describe("Tool Call Components", () => {
     });
 
     it("should cap at 5 lines for preview", () => {
-      const chunks = ["line 1\n", "line 2\n", "line 3\n", "line 4\n", "line 5\n", "line 6\n", "line 7\n"];
+      const chunks = [
+        "line 1\n",
+        "line 2\n",
+        "line 3\n",
+        "line 4\n",
+        "line 5\n",
+        "line 6\n",
+        "line 7\n",
+      ];
       const lines = chunks.join("").split("\n");
       const preview = lines.slice(-5);
       expect(preview.length).toBeLessThanOrEqual(5);
@@ -255,7 +263,7 @@ describe("Tool Call Components", () => {
 
   describe("ToolCallCard", () => {
     const createMockToolCall = (
-      overrides?: Partial<ToolCallAggregate>
+      overrides?: Partial<ToolCallAggregate>,
     ): ToolCallAggregate => ({
       toolCallId: "test-call-1",
       toolName: "read_file",
@@ -343,7 +351,9 @@ describe("Tool Call Components", () => {
 
       expect(toolCall.status).toBe("failed");
       expect(toolCall.error?.code).toBe("FILE_NOT_FOUND");
-      expect(toolCall.error?.suggestion).toBe("Check the file path and try again");
+      expect(toolCall.error?.suggestion).toBe(
+        "Check the file path and try again",
+      );
     });
 
     it("should handle pending tool call", () => {

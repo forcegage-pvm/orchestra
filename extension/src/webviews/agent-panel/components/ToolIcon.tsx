@@ -20,7 +20,7 @@ export interface ToolIconProps {
 
 /**
  * Tool name to Lucide icon mapping
- * 
+ *
  * Categories:
  * - CODING (15 tools): File and code manipulation tools
  * - FILESYSTEM (3 tools): File system operations

@@ -10,8 +10,8 @@
 
 import { Icon } from "@iconify-icon/solid";
 import { Show } from "solid-js";
-import { ToolIcon } from "./ToolIcon.js";
 import type { ToolCallAggregate } from "../../../agents/sessions/types.js";
+import { ToolIcon } from "./ToolIcon.js";
 
 export interface ToolCallHeaderProps {
   /** Tool call aggregate data */

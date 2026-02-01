@@ -10,10 +10,10 @@
 
 import { Icon } from "@iconify-icon/solid";
 import { createSignal, For, Show } from "solid-js";
-import { ToolCallHeader } from "./ToolCallHeader.js";
+import type { ToolCallAggregate } from "../../../agents/sessions/types.js";
 import { FileOperationBadge } from "./FileOperationBadge.js";
 import { StreamingOutput } from "./StreamingOutput.js";
-import type { ToolCallAggregate } from "../../../agents/sessions/types.js";
+import { ToolCallHeader } from "./ToolCallHeader.js";
 
 export interface ToolCallCardProps {
   /** Tool call aggregate data */
@@ -59,9 +59,7 @@ export function ToolCallCard(props: ToolCallCardProps) {
   };
 
   const hasBodyContent = () => {
-    return (
-      hasProgressMessages() || hasFileOperations() || hasOutput()
-    );
+    return hasProgressMessages() || hasFileOperations() || hasOutput();
   };
 
   const hasResult = () => {
@@ -81,9 +79,7 @@ export function ToolCallCard(props: ToolCallCardProps) {
             class="ml-3 text-gray-500 hover:text-gray-300 transition-colors"
           >
             <Icon
-              icon={
-                expanded() ? "lucide:chevron-up" : "lucide:chevron-down"
-              }
+              icon={expanded() ? "lucide:chevron-up" : "lucide:chevron-down"}
               class="w-4 h-4"
             />
           </button>

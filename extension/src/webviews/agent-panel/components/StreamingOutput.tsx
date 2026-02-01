@@ -117,7 +117,9 @@ export function StreamingOutput(props: StreamingOutputProps) {
         </Show>
       </div>
 
-      <pre class={`text-xs font-mono ${textColorClass()} whitespace-pre-wrap break-words`}>
+      <pre
+        class={`text-xs font-mono ${textColorClass()} whitespace-pre-wrap break-words`}
+      >
         {displayLines().join("\n")}
       </pre>
 
