@@ -6,6 +6,7 @@
  */
 
 import { describe, expect, it } from "vitest";
+import { updateAggregatesFromEvent } from "../../../src/agents/sessions/aggregateUpdater.js";
 import type {
   AgentEvent,
   ErrorEvent,
@@ -19,7 +20,6 @@ import type {
   ToolProgressEvent,
   ToolResultEvent,
 } from "../../../src/agents/sessions/types.js";
-import { updateAggregatesFromEvent } from "../../../src/agents/sessions/aggregateUpdater.js";
 
 describe("updateAggregatesFromEvent", () => {
   const SESSION_ID = "session-123";
@@ -281,10 +281,7 @@ describe("updateAggregatesFromEvent", () => {
         },
       };
 
-      const currentFiles = [
-        "/src/utils/helper.ts",
-        "/src/utils/other.ts",
-      ];
+      const currentFiles = ["/src/utils/helper.ts", "/src/utils/other.ts"];
 
       const update = updateAggregatesFromEvent(event, currentFiles);
 
@@ -368,7 +365,8 @@ describe("updateAggregatesFromEvent", () => {
           operation: {
             operation: opType,
             path: `/src/${opType}.ts`,
-            targetPath: opType === "move" || opType === "copy" ? "/dest.ts" : undefined,
+            targetPath:
+              opType === "move" || opType === "copy" ? "/dest.ts" : undefined,
             size: 100,
             linesChanged: undefined,
             linesInserted: undefined,

@@ -46,7 +46,7 @@ export interface AggregateUpdate {
  */
 export function updateAggregatesFromEvent(
   event: AgentEvent,
-  currentFilesModified: string[] = []
+  currentFilesModified: string[] = [],
 ): AggregateUpdate {
   const update: AggregateUpdate = {};
 
