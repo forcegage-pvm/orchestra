@@ -61,6 +61,7 @@ vi.mock("../../src/views/agent/AgentOutputPanel.js", () => ({
 // Mock database queries
 vi.mock("../../src/database/queries.js", () => ({
   getTaskById: vi.fn(),
+  getSprintById: vi.fn(),
   getCurrentSprint: vi.fn(),
   getFeedback: vi.fn(),
   getEscalation: vi.fn(),
@@ -130,8 +131,8 @@ describe("Play Workflow Integration Tests", () => {
 
     vi.mocked(extension.getConfigService).mockReturnValue(mockConfigService);
 
-    // Setup default sprint mock
-    vi.mocked(queries.getCurrentSprint).mockReturnValue({
+    // Setup default sprint mocks
+    const mockSprint = {
       id: "sprint-1",
       name: "Test Sprint",
       workflow_step: "prepare",
@@ -140,7 +141,9 @@ describe("Play Workflow Integration Tests", () => {
       created_at: "2025-01-01T00:00:00Z",
       updated_at: "2025-01-01T00:00:00Z",
       completed_at: null,
-    });
+    };
+    vi.mocked(queries.getCurrentSprint).mockReturnValue(mockSprint);
+    vi.mocked(queries.getSprintById).mockReturnValue(mockSprint);
   });
 
   describe("PENDING task routing", () => {
@@ -633,7 +636,10 @@ describe("Play Workflow Integration Tests", () => {
         mockWorkspaceRoot,
         mockTaskId,
       );
-      expect(queries.getCurrentSprint).toHaveBeenCalledWith(mockWorkspaceRoot);
+      expect(queries.getSprintById).toHaveBeenCalledWith(
+        mockWorkspaceRoot,
+        "sprint-1",
+      );
       expect(mockAgentRunner.start).toHaveBeenCalledWith(
         "orchestrator",
         expect.anything(),

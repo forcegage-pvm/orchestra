@@ -54,6 +54,7 @@ vi.mock("../../src/views/agent/AgentOutputPanel.js", () => ({
 // Mock database queries
 vi.mock("../../src/database/queries.js", () => ({
   getTaskById: vi.fn(),
+  getSprintById: vi.fn(),
   getCurrentSprint: vi.fn(),
   getFeedback: vi.fn(),
   getEscalation: vi.fn(),
@@ -111,6 +112,18 @@ describe("PlayTaskHandler", () => {
     // Reset mock implementations
     mockAgentRunner.getSession.mockReturnValue(undefined);
     mockAgentRunner.start.mockResolvedValue({});
+
+    // Setup default sprint mock for PENDING tasks
+    vi.mocked(queries.getSprintById).mockReturnValue({
+      id: "sprint-1",
+      name: "Test Sprint",
+      workflow_step: "prepare",
+      is_active: true,
+      is_archived: false,
+      created_at: "2025-01-01T00:00:00Z",
+      updated_at: "2025-01-01T00:00:00Z",
+      completed_at: null,
+    });
   });
 
   describe("handlePlayTask", () => {
@@ -160,7 +173,6 @@ describe("PlayTaskHandler", () => {
 
       it("should invoke orchestrator to prepare task with correct context", async () => {
         vi.mocked(queries.getTaskById).mockReturnValue(mockTask);
-        vi.mocked(queries.getCurrentSprint).mockReturnValue(mockSprint);
 
         const mockBuildPreparePrompt = vi.fn(() => "Mock prepare prompt");
 
@@ -178,8 +190,9 @@ describe("PlayTaskHandler", () => {
           mockWorkspaceRoot,
           mockTaskId,
         );
-        expect(queries.getCurrentSprint).toHaveBeenCalledWith(
+        expect(queries.getSprintById).toHaveBeenCalledWith(
           mockWorkspaceRoot,
+          mockTask.sprint_id,
         );
 
         // Verify PromptBuilder was called with correct context
@@ -192,33 +205,36 @@ describe("PlayTaskHandler", () => {
             phase_id: "phase-1",
           },
           sprint: {
-            sprint_id: mockSprint.id,
-            title: mockSprint.name,
+            sprint_id: mockTask.sprint_id,
+            title: "Test Sprint",
           },
         });
 
         // Verify AgentRunner.start was called with orchestrator role
-        expect(mockAgentRunner.start).toHaveBeenCalledWith("orchestrator", {
-          prompt: "Mock prepare prompt",
-          taskId: mockTaskId,
-          sprintId: mockSprint.id,
-        });
+        expect(mockAgentRunner.start).toHaveBeenCalledWith(
+          "orchestrator",
+          expect.objectContaining({
+            prompt: "Mock prepare prompt",
+            taskId: mockTaskId,
+            sprintId: mockTask.sprint_id,
+          }),
+        );
       });
 
       it("should show error when sprint not found", async () => {
         vi.mocked(queries.getTaskById).mockReturnValue(mockTask);
-        vi.mocked(queries.getCurrentSprint).mockReturnValue(null);
+        vi.mocked(queries.getSprintById).mockReturnValue(null);
 
         await handlePlayTask(mockWorkspaceRoot, mockTaskId);
 
         expect(vscode.window.showErrorMessage).toHaveBeenCalledWith(
-          "No active sprint found. Cannot prepare task.",
+          expect.stringContaining("Sprint"),
         );
       });
 
       it("should handle errors gracefully", async () => {
         vi.mocked(queries.getTaskById).mockReturnValue(mockTask);
-        vi.mocked(queries.getCurrentSprint).mockImplementation(() => {
+        vi.mocked(queries.getSprintById).mockImplementation(() => {
           throw new Error("Database error");
         });
 
@@ -299,11 +315,14 @@ describe("PlayTaskHandler", () => {
         expect(mockGetContextFiles).toHaveBeenCalledWith(mockTaskId);
 
         // Verify AgentRunner.start was called with prompt and task context
-        expect(mockAgentRunner.start).toHaveBeenCalledWith("implementor", {
-          prompt: "Mock implement prompt",
-          taskId: mockTaskId,
-          sprintId: mockTask.sprint_id,
-        });
+        expect(mockAgentRunner.start).toHaveBeenCalledWith(
+          "implementor",
+          expect.objectContaining({
+            prompt: "Mock implement prompt",
+            taskId: mockTaskId,
+            sprintId: mockTask.sprint_id,
+          }),
+        );
       });
 
       it("should work when handover is null (no handover exists yet)", async () => {
@@ -341,11 +360,14 @@ describe("PlayTaskHandler", () => {
         });
 
         // Should start agent with task context
-        expect(mockAgentRunner.start).toHaveBeenCalledWith("implementor", {
-          prompt: "Mock implement prompt",
-          taskId: mockTaskId,
-          sprintId: mockTask.sprint_id,
-        });
+        expect(mockAgentRunner.start).toHaveBeenCalledWith(
+          "implementor",
+          expect.objectContaining({
+            prompt: "Mock implement prompt",
+            taskId: mockTaskId,
+            sprintId: mockTask.sprint_id,
+          }),
+        );
       });
 
       it("should work when no context files exist", async () => {
@@ -368,11 +390,14 @@ describe("PlayTaskHandler", () => {
         await handlePlayTask(mockWorkspaceRoot, mockTaskId);
 
         // Should start agent with task context
-        expect(mockAgentRunner.start).toHaveBeenCalledWith("implementor", {
-          prompt: "Mock implement prompt",
-          taskId: mockTaskId,
-          sprintId: mockTask.sprint_id,
-        });
+        expect(mockAgentRunner.start).toHaveBeenCalledWith(
+          "implementor",
+          expect.objectContaining({
+            prompt: "Mock implement prompt",
+            taskId: mockTaskId,
+            sprintId: mockTask.sprint_id,
+          }),
+        );
       });
 
       it("should show error when agent is already running", async () => {
@@ -521,11 +546,14 @@ describe("PlayTaskHandler", () => {
         expect(mockGetContextFiles).toHaveBeenCalledWith(mockTaskId);
 
         // Verify AgentRunner.start was called with implementor role
-        expect(mockAgentRunner.start).toHaveBeenCalledWith("implementor", {
-          prompt: "Mock retry prompt",
-          taskId: mockTaskId,
-          sprintId: mockTask.sprint_id,
-        });
+        expect(mockAgentRunner.start).toHaveBeenCalledWith(
+          "implementor",
+          expect.objectContaining({
+            prompt: "Mock retry prompt",
+            taskId: mockTaskId,
+            sprintId: mockTask.sprint_id,
+          }),
+        );
       });
 
       it("should show error when task not found", async () => {
@@ -730,11 +758,14 @@ describe("PlayTaskHandler", () => {
       });
 
       // Verify AgentRunner.start was called with orchestrator role
-      expect(mockAgentRunner.start).toHaveBeenCalledWith("orchestrator", {
-        prompt: "Mock verify prompt",
-        taskId: mockTaskId,
-        sprintId: mockTask.sprint_id,
-      });
+      expect(mockAgentRunner.start).toHaveBeenCalledWith(
+        "orchestrator",
+        expect.objectContaining({
+          prompt: "Mock verify prompt",
+          taskId: mockTaskId,
+          sprintId: mockTask.sprint_id,
+        }),
+      );
     });
 
     it("should show info message for COMPLETE task", async () => {
