@@ -321,6 +321,11 @@
           "type": "webview"
         },
         {
+          "id": "orchestra.agentPanel",
+          "name": "Agent Panel",
+          "type": "webview"
+        },
+        {
           "id": "orchestra.sprintExplorer",
           "name": "Sprint Explorer",
           "type": "tree"

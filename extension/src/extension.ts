@@ -44,6 +44,7 @@ import { ContextFileResolver } from "./prompts/ContextFileResolver.js";
 import { PromptBuilder } from "./prompts/PromptBuilder.js";
 import { OrchestraLogger } from "./utils/logger.js";
 import { AgentOutputPanel } from "./views/agent/AgentOutputPanel.js";
+import { AgentPanelProvider } from "./views/agentPanelProvider.js";
 import { DashboardPanel } from "./views/dashboard/DashboardPanel.js";
 import { OrchestraViewDecorationProvider } from "./views/providers/ViewDecorationProvider.js";
 import { SprintSettingsPanel } from "./views/settings/SprintSettingsPanel.js";
@@ -876,6 +877,19 @@ export async function activate(
       ),
     );
     logger.info("Current Task WebviewView registered");
+
+    // 5c. Register Agent Panel WebviewView (Task 32)
+    const agentPanelProvider = new AgentPanelProvider(
+      context.extensionUri,
+      orchestraRoot,
+    );
+    context.subscriptions.push(
+      vscode.window.registerWebviewViewProvider(
+        "orchestra.agentPanel",
+        agentPanelProvider,
+      ),
+    );
+    logger.info("Agent Panel WebviewView registered");
 
     // 6. Register TreeView
     const treeProvider = new SprintTreeProvider(db, dbWatcher, context);
