@@ -8,6 +8,7 @@
  */
 
 import * as vscode from "vscode";
+import { getAgentRunner } from "../extension.js";
 import { OrchestraLogger } from "../utils/logger.js";
 import type {
   ExtensionMessage,
@@ -203,12 +204,19 @@ export class AgentPanelProvider implements vscode.WebviewViewProvider {
   private async _handleStopAgent(): Promise<void> {
     try {
       logger.info("Stop agent requested");
-      // Agent cancellation will be implemented in agent execution tasks
-      void vscode.window.showInformationMessage(
-        "Agent stop functionality not yet implemented",
-      );
+      const runner = getAgentRunner();
+      const session = runner.getSession();
+      
+      if (!session || (session.status !== "running" && session.status !== "paused")) {
+        void vscode.window.showWarningMessage("No agent is currently running");
+        return;
+      }
+
+      await runner.stop();
+      void vscode.window.showInformationMessage("Agent stopped successfully");
     } catch (error) {
       logger.error("Failed to stop agent", error);
+      void vscode.window.showErrorMessage(`Failed to stop agent: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
@@ -287,12 +295,23 @@ export class AgentPanelProvider implements vscode.WebviewViewProvider {
   private async _handleUserMessage(text: string): Promise<void> {
     try {
       logger.info(`User message: ${text.substring(0, 50)}...`);
-      // Route to AgentRunner - will be implemented in agent execution tasks
-      void vscode.window.showInformationMessage(
-        "Agent messaging not yet implemented",
-      );
+      const runner = getAgentRunner();
+      const session = runner.getSession();
+      
+      if (!session || session.status !== "running") {
+        void vscode.window.showWarningMessage(
+          "Cannot send message: no agent is currently running"
+        );
+        return;
+      }
+
+      await runner.redirect(text);
+      logger.debug("User message sent to agent successfully");
     } catch (error) {
       logger.error("Failed to handle user message", error);
+      void vscode.window.showErrorMessage(
+        `Failed to send message to agent: ${error instanceof Error ? error.message : String(error)}`
+      );
     }
   }
 
