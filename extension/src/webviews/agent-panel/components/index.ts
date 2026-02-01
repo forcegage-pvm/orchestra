@@ -53,3 +53,9 @@ export type { ToolsFilterProps } from "./ToolsFilter.js";
 
 export { ToolsTable } from "./ToolsTable.js";
 export type { ToolsTableProps } from "./ToolsTable.js";
+
+export { FileGroup } from "./FileGroup.js";
+export type { FileGroupProps } from "./FileGroup.js";
+
+export { FileRow } from "./FileRow.js";
+export type { FileRowProps } from "./FileRow.js";
