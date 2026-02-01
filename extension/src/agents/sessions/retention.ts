@@ -9,9 +9,9 @@
  * Specification: specs/011-agent-panel-rework/tasks.md T014
  */
 
+import { sql } from "drizzle-orm";
 import { OrchestraDB } from "../../database/client.js";
 import * as schema from "../../database/local-schema.js";
-import { sql } from "drizzle-orm";
 
 /**
  * Result of purging old sessions
@@ -43,7 +43,7 @@ export interface PurgeResult {
  */
 export function purgeOldSessions(
   workspaceRoot: string,
-  sprintId: string
+  sprintId: string,
 ): PurgeResult {
   const db = OrchestraDB.getDrizzleInstance(workspaceRoot);
 
@@ -79,10 +79,13 @@ export function purgeOldSessions(
     .from(schema.agentSessions)
     .innerJoin(
       schema.tasks,
-      sql`${schema.agentSessions.task_id} = ${schema.tasks.id}`
+      sql`${schema.agentSessions.task_id} = ${schema.tasks.id}`,
     )
     .where(
-      sql`${schema.tasks.sprint_id} = ${sprintId} AND ${schema.agentSessions.task_id} NOT IN (${sql.join(recentTaskIds.map((id) => sql`${id}`), sql`, `)})`
+      sql`${schema.tasks.sprint_id} = ${sprintId} AND ${schema.agentSessions.task_id} NOT IN (${sql.join(
+        recentTaskIds.map((id) => sql`${id}`),
+        sql`, `,
+      )})`,
     )
     .all();
 
@@ -98,7 +101,10 @@ export function purgeOldSessions(
     .select({ count: sql<number>`COUNT(*)` })
     .from(schema.sessionEvents)
     .where(
-      sql`${schema.sessionEvents.session_id} IN (${sql.join(sessionIdsToDelete.map((id) => sql`${id}`), sql`, `)})`
+      sql`${schema.sessionEvents.session_id} IN (${sql.join(
+        sessionIdsToDelete.map((id) => sql`${id}`),
+        sql`, `,
+      )})`,
     )
     .all();
 
@@ -108,7 +114,10 @@ export function purgeOldSessions(
   const deleteResult = db
     .delete(schema.agentSessions)
     .where(
-      sql`${schema.agentSessions.id} IN (${sql.join(sessionIdsToDelete.map((id) => sql`${id}`), sql`, `)})`
+      sql`${schema.agentSessions.id} IN (${sql.join(
+        sessionIdsToDelete.map((id) => sql`${id}`),
+        sql`, `,
+      )})`,
     )
     .run();
 

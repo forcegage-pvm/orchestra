@@ -14,10 +14,10 @@
  * will be skipped to avoid NODE_MODULE_VERSION mismatch errors.
  */
 
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 // Early detection of better-sqlite3 compatibility
 let Database: typeof import("better-sqlite3").default | null = null;
@@ -37,17 +37,13 @@ const canRunTests = moduleCompatible && Database !== null;
 
 // If module is not compatible, skip the entire file
 if (!moduleCompatible) {
-  describe.skip(
-    "Retention Policy (skipped: native module incompatible)",
-    () => {
-      it("skipped due to NODE_MODULE_VERSION mismatch", () => {});
-    }
-  );
+  describe.skip("Retention Policy (skipped: native module incompatible)", () => {
+    it("skipped due to NODE_MODULE_VERSION mismatch", () => {});
+  });
 } else {
   // Import dependencies only if module is compatible
-  const { purgeOldSessions } = await import(
-    "../../../src/agents/sessions/retention.js"
-  );
+  const { purgeOldSessions } =
+    await import("../../../src/agents/sessions/retention.js");
   const { OrchestraDB } = await import("../../../src/database/client.js");
 
   // Test fixtures
@@ -134,7 +130,7 @@ if (!moduleCompatible) {
     sprintId: string,
     numTasks: number,
     sessionsPerTask: number,
-    eventsPerSession: number
+    eventsPerSession: number,
   ): void {
     if (!canRunTests) return;
     const db = new Database!(testDbPath);
@@ -158,7 +154,7 @@ if (!moduleCompatible) {
         "[]",
         "PENDING",
         now,
-        now
+        now,
       );
       taskIds.push(result.lastInsertRowid as number);
     }
@@ -180,7 +176,7 @@ if (!moduleCompatible) {
           "implementor",
           "completed",
           now,
-          now
+          now,
         );
         sessionIds.push(sessionId);
       }
@@ -256,7 +252,7 @@ if (!moduleCompatible) {
     beforeEach(() => {
       // Create temporary directory for test database
       testWorkspaceRoot = fs.mkdtempSync(
-        path.join(os.tmpdir(), "orchestra-retention-test-")
+        path.join(os.tmpdir(), "orchestra-retention-test-"),
       );
 
       // Create .orchestra directory structure
