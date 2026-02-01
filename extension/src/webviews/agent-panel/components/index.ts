@@ -36,6 +36,12 @@ export type { ThinkingCardProps } from "./ThinkingCard.js";
 export { ErrorCard } from "./ErrorCard.js";
 export type { ErrorCardProps } from "./ErrorCard.js";
 
+export { NewEventsIndicator } from "./NewEventsIndicator.js";
+export type { NewEventsIndicatorProps } from "./NewEventsIndicator.js";
+
+export { FilterInput } from "./FilterInput.js";
+export type { FilterInputProps } from "./FilterInput.js";
+
 export { ToolIcon } from "./ToolIcon.js";
 export type { ToolIconProps } from "./ToolIcon.js";
 
