@@ -466,6 +466,7 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@iconify-icon/solid": "^2.1.0",
     "@tanstack/solid-virtual": "^3.13.18",
     "better-sqlite3": "^12.6.2",
     "drizzle-orm": "^0.37.0",
