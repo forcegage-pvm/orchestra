@@ -9,6 +9,7 @@
 
 import * as vscode from "vscode";
 import { getAgentRunner } from "../extension.js";
+import { highlightRange } from "../utils/fileHighlight.js";
 import { OrchestraLogger } from "../utils/logger.js";
 import type {
   ExtensionMessage,
@@ -163,7 +164,12 @@ export class AgentPanelProvider implements vscode.WebviewViewProvider {
         options.selection = new vscode.Range(startPos, endPos);
       }
 
-      await vscode.window.showTextDocument(document, options);
+      const editor = await vscode.window.showTextDocument(document, options);
+
+      // Apply temporary highlight if line positioning was provided
+      if (line !== undefined) {
+        highlightRange(editor, line, endLine);
+      }
     } catch (error) {
       logger.error(`Failed to open file: ${path}`, error);
       void vscode.window.showErrorMessage(`Failed to open file: ${path}`);
@@ -175,13 +181,11 @@ export class AgentPanelProvider implements vscode.WebviewViewProvider {
    */
   private async _handleOpenDiff(path: string): Promise<void> {
     try {
-      // Diff view implementation - placeholder for future enhancement
-      logger.info(`Open diff requested for: ${path}`);
-      void vscode.window.showInformationMessage(
-        `Diff view not yet implemented for: ${path}`,
-      );
+      const uri = vscode.Uri.file(path);
+      await vscode.commands.executeCommand("git.openChange", uri);
     } catch (error) {
       logger.error(`Failed to open diff for: ${path}`, error);
+      void vscode.window.showErrorMessage(`Failed to open diff for: ${path}`);
     }
   }
 
