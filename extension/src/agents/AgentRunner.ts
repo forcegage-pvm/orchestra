@@ -280,7 +280,9 @@ export class AgentRunner implements vscode.Disposable {
     configService?: ConfigService,
   ) {
     this.toolRegistry = toolRegistry;
-    this.configService = configService;
+    if (configService !== undefined) {
+      this.configService = configService;
+    }
 
     // Build context manager config with proper optional handling
     const contextConfig: {
@@ -431,7 +433,7 @@ export class AgentRunner implements vscode.Disposable {
       // If database session creation fails, log but continue
       // This allows AgentRunner to work in test scenarios without database
       console.warn("Failed to create database session:", error);
-      this.eventEmitter = undefined;
+      // eventEmitter remains undefined (already declared as optional property)
     }
 
     // Load role-specific tools unless skipToolLoading is set (for tests with custom tools)

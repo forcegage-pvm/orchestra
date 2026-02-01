@@ -8,10 +8,10 @@
  */
 
 import { randomUUID } from "crypto";
-import { and, desc, eq } from "drizzle-orm";
-import type { AgentEvent } from "./types.js";
+import { and, eq } from "drizzle-orm";
 import { OrchestraDB } from "../../database/client.js";
 import * as schema from "../../database/local-schema.js";
+import type { AgentEvent } from "./types.js";
 
 /**
  * Extract type-specific fields from an event for indexing
@@ -97,7 +97,7 @@ function mapRowToEvent(row: {
  */
 export function insertEvent(
   workspaceRoot: string,
-  event: AgentEvent
+  event: AgentEvent,
 ): AgentEvent {
   const db = OrchestraDB.getDrizzleInstance(workspaceRoot);
 
@@ -134,7 +134,7 @@ export function insertEvent(
  */
 export function insertEventBatch(
   workspaceRoot: string,
-  events: AgentEvent[]
+  events: AgentEvent[],
 ): AgentEvent[] {
   const db = OrchestraDB.getDrizzleInstance(workspaceRoot);
 
@@ -179,7 +179,7 @@ export function insertEventBatch(
  */
 export function getEventsForSession(
   workspaceRoot: string,
-  sessionId: string
+  sessionId: string,
 ): AgentEvent[] {
   const db = OrchestraDB.getDrizzleInstance(workspaceRoot);
 
@@ -204,7 +204,7 @@ export function getEventsForSession(
 export function getEventsByType(
   workspaceRoot: string,
   sessionId: string,
-  eventType: AgentEvent["type"]
+  eventType: AgentEvent["type"],
 ): AgentEvent[] {
   const db = OrchestraDB.getDrizzleInstance(workspaceRoot);
 
@@ -214,8 +214,8 @@ export function getEventsByType(
     .where(
       and(
         eq(schema.sessionEvents.session_id, sessionId),
-        eq(schema.sessionEvents.type, eventType)
-      )
+        eq(schema.sessionEvents.type, eventType),
+      ),
     )
     .orderBy(schema.sessionEvents.timestamp)
     .all();
@@ -234,7 +234,7 @@ export function getEventsByType(
 export function getToolEvents(
   workspaceRoot: string,
   sessionId: string,
-  toolCallId: string
+  toolCallId: string,
 ): AgentEvent[] {
   const db = OrchestraDB.getDrizzleInstance(workspaceRoot);
 
@@ -244,8 +244,8 @@ export function getToolEvents(
     .where(
       and(
         eq(schema.sessionEvents.session_id, sessionId),
-        eq(schema.sessionEvents.tool_call_id, toolCallId)
-      )
+        eq(schema.sessionEvents.tool_call_id, toolCallId),
+      ),
     )
     .orderBy(schema.sessionEvents.timestamp)
     .all();
@@ -262,7 +262,7 @@ export function getToolEvents(
  */
 export function deleteEventsForSession(
   workspaceRoot: string,
-  sessionId: string
+  sessionId: string,
 ): number {
   const db = OrchestraDB.getDrizzleInstance(workspaceRoot);
 

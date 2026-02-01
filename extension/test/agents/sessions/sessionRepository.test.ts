@@ -20,7 +20,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 // Early detection of better-sqlite3 compatibility
 // If module version mismatch, skip all tests in this file
-let Database: typeof import("better-sqlite3").default | null = null;
+let Database: any = null;
 let moduleCompatible = false;
 try {
   Database = (await import("better-sqlite3")).default;
@@ -126,7 +126,7 @@ if (!moduleCompatible) {
    */
   function insertTestTask(
     taskId: number,
-    sprintId: string = "sprint-001"
+    sprintId: string = "sprint-001",
   ): void {
     if (!canRunTests) return;
     const db = new Database!(testDbPath);
@@ -134,7 +134,7 @@ if (!moduleCompatible) {
 
     db.prepare(
       `INSERT INTO tasks (id, sprint_id, phase_id, task_id, title, description, category, status, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     ).run(
       taskId,
       sprintId,
@@ -145,7 +145,7 @@ if (!moduleCompatible) {
       "implementation",
       "PENDING",
       now,
-      now
+      now,
     );
 
     db.close();
@@ -158,7 +158,7 @@ if (!moduleCompatible) {
     beforeEach(() => {
       // Create temporary directory for test database
       testWorkspaceRoot = fs.mkdtempSync(
-        path.join(os.tmpdir(), "orchestra-session-repo-test-")
+        path.join(os.tmpdir(), "orchestra-session-repo-test-"),
       );
 
       // Create .orchestra directory structure
@@ -741,12 +741,12 @@ if (!moduleCompatible) {
         const implementorSessions = getSessionsForTaskAndRole(
           testWorkspaceRoot,
           1,
-          "implementor"
+          "implementor",
         );
         const orchestratorSessions = getSessionsForTaskAndRole(
           testWorkspaceRoot,
           1,
-          "orchestrator"
+          "orchestrator",
         );
 
         expect(implementorSessions).toHaveLength(1);
@@ -781,7 +781,7 @@ if (!moduleCompatible) {
         const controllerSessions = getSessionsForTaskAndRole(
           testWorkspaceRoot,
           1,
-          "controller"
+          "controller",
         );
 
         expect(controllerSessions).toEqual([]);
@@ -833,7 +833,7 @@ if (!moduleCompatible) {
         const sessions = getSessionsForTaskAndRole(
           testWorkspaceRoot,
           1,
-          "implementor"
+          "implementor",
         );
 
         expect(sessions[0].sessionId).toBe(session2.sessionId);
@@ -852,22 +852,8 @@ if (!moduleCompatible) {
             taskId: 1,
             taskTitle: undefined,
             sprintId: "sprint-001",
-            startedAt: new Date(
-              2026,
-              1,
-              1,
-              10 + i,
-              0,
-              0
-            ).toISOString(),
-            lastActivityAt: new Date(
-              2026,
-              1,
-              1,
-              10 + i,
-              0,
-              0
-            ).toISOString(),
+            startedAt: new Date(2026, 1, 1, 10 + i, 0, 0).toISOString(),
+            lastActivityAt: new Date(2026, 1, 1, 10 + i, 0, 0).toISOString(),
             endedAt: undefined,
             status: "running",
             statusMessage: undefined,
@@ -888,22 +874,8 @@ if (!moduleCompatible) {
             taskId: 2,
             taskTitle: undefined,
             sprintId: "sprint-001",
-            startedAt: new Date(
-              2026,
-              1,
-              1,
-              15 + i,
-              0,
-              0
-            ).toISOString(),
-            lastActivityAt: new Date(
-              2026,
-              1,
-              1,
-              15 + i,
-              0,
-              0
-            ).toISOString(),
+            startedAt: new Date(2026, 1, 1, 15 + i, 0, 0).toISOString(),
+            lastActivityAt: new Date(2026, 1, 1, 15 + i, 0, 0).toISOString(),
             endedAt: undefined,
             status: "running",
             statusMessage: undefined,
@@ -934,22 +906,8 @@ if (!moduleCompatible) {
             taskId: 1,
             taskTitle: undefined,
             sprintId: "sprint-001",
-            startedAt: new Date(
-              2026,
-              1,
-              1,
-              10 + i,
-              0,
-              0
-            ).toISOString(),
-            lastActivityAt: new Date(
-              2026,
-              1,
-              1,
-              10 + i,
-              0,
-              0
-            ).toISOString(),
+            startedAt: new Date(2026, 1, 1, 10 + i, 0, 0).toISOString(),
+            lastActivityAt: new Date(2026, 1, 1, 10 + i, 0, 0).toISOString(),
             endedAt: undefined,
             status: "running",
             statusMessage: undefined,
@@ -978,22 +936,8 @@ if (!moduleCompatible) {
             taskId: 1,
             taskTitle: undefined,
             sprintId: "sprint-001",
-            startedAt: new Date(
-              2026,
-              1,
-              1,
-              10 + i,
-              0,
-              0
-            ).toISOString(),
-            lastActivityAt: new Date(
-              2026,
-              1,
-              1,
-              10 + i,
-              0,
-              0
-            ).toISOString(),
+            startedAt: new Date(2026, 1, 1, 10 + i, 0, 0).toISOString(),
+            lastActivityAt: new Date(2026, 1, 1, 10 + i, 0, 0).toISOString(),
             endedAt: undefined,
             status: "running",
             statusMessage: undefined,

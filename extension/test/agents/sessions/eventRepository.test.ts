@@ -25,13 +25,13 @@
  * will be skipped to avoid NODE_MODULE_VERSION mismatch errors.
  */
 
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 // Early detection of better-sqlite3 compatibility
-let Database: typeof import("better-sqlite3").default | null = null;
+let Database: any = null;
 let moduleCompatible = false;
 try {
   Database = (await import("better-sqlite3")).default;
@@ -48,12 +48,9 @@ const canRunTests = moduleCompatible && Database !== null;
 
 // If module is not compatible, skip the entire file
 if (!moduleCompatible) {
-  describe.skip(
-    "Event Repository (skipped: native module incompatible)",
-    () => {
-      it("skipped due to NODE_MODULE_VERSION mismatch", () => {});
-    }
-  );
+  describe.skip("Event Repository (skipped: native module incompatible)", () => {
+    it("skipped due to NODE_MODULE_VERSION mismatch", () => {});
+  });
 } else {
   // Import dependencies only if module is compatible
   const {
@@ -65,7 +62,7 @@ if (!moduleCompatible) {
     deleteEventsForSession,
   } = await import("../../../src/agents/sessions/eventRepository.js");
   const { OrchestraDB } = await import("../../../src/database/client.js");
-  const type = await import("../../../src/agents/sessions/types.js");
+  const types = await import("../../../src/agents/sessions/types.js");
 
   // Test fixtures
   let testWorkspaceRoot: string;
@@ -139,7 +136,7 @@ if (!moduleCompatible) {
 
     db.prepare(
       `INSERT INTO agent_sessions (id, task_id, sprint_id, role, status, started_at, last_activity_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
     ).run(sessionId, 1, "sprint-001", "implementor", "running", now, now);
 
     db.close();
@@ -152,7 +149,7 @@ if (!moduleCompatible) {
     beforeEach(() => {
       // Create temporary directory for test database
       testWorkspaceRoot = fs.mkdtempSync(
-        path.join(os.tmpdir(), "orchestra-event-repo-test-")
+        path.join(os.tmpdir(), "orchestra-event-repo-test-"),
       );
 
       // Create .orchestra directory structure
@@ -177,7 +174,7 @@ if (!moduleCompatible) {
         const sessionId = "session-123";
         insertTestSession(sessionId);
 
-        const event: type.PromptEvent = {
+        const event: types.PromptEvent = {
           id: "",
           sessionId,
           timestamp: "2026-02-01T10:00:00Z",
@@ -201,7 +198,7 @@ if (!moduleCompatible) {
         insertTestSession(sessionId);
 
         const customId = "custom-event-id-123";
-        const event: type.ThinkingEvent = {
+        const event: types.ThinkingEvent = {
           id: customId,
           sessionId,
           timestamp: "2026-02-01T10:00:00Z",
@@ -220,7 +217,7 @@ if (!moduleCompatible) {
         const sessionId = "session-123";
         insertTestSession(sessionId);
 
-        const event: type.PromptEvent = {
+        const event: types.PromptEvent = {
           id: "prompt-1",
           sessionId,
           timestamp: "2026-02-01T10:00:00Z",
@@ -246,7 +243,7 @@ if (!moduleCompatible) {
         const sessionId = "session-123";
         insertTestSession(sessionId);
 
-        const event: type.ThinkingEvent = {
+        const event: types.ThinkingEvent = {
           id: "thinking-1",
           sessionId,
           timestamp: "2026-02-01T10:00:00Z",
@@ -266,7 +263,7 @@ if (!moduleCompatible) {
         const sessionId = "session-123";
         insertTestSession(sessionId);
 
-        const event: type.StatusChangeEvent = {
+        const event: types.StatusChangeEvent = {
           id: "status-1",
           sessionId,
           timestamp: "2026-02-01T10:00:00Z",
@@ -288,7 +285,7 @@ if (!moduleCompatible) {
         const sessionId = "session-123";
         insertTestSession(sessionId);
 
-        const event: type.ErrorEvent = {
+        const event: types.ErrorEvent = {
           id: "error-1",
           sessionId,
           timestamp: "2026-02-01T10:00:00Z",
@@ -320,7 +317,7 @@ if (!moduleCompatible) {
         const sessionId = "session-123";
         insertTestSession(sessionId);
 
-        const event: type.ToolCallEvent = {
+        const event: types.ToolCallEvent = {
           id: "event-1",
           sessionId,
           timestamp: "2026-02-01T10:00:00Z",
@@ -342,7 +339,7 @@ if (!moduleCompatible) {
         const db = new Database!(testDbPath);
         const row = db
           .prepare(
-            "SELECT tool_call_id, tool_name FROM session_events WHERE id = ?"
+            "SELECT tool_call_id, tool_name FROM session_events WHERE id = ?",
           )
           .get(inserted.id) as { tool_call_id: string; tool_name: string };
         expect(row.tool_call_id).toBe("tool-123");
@@ -354,7 +351,7 @@ if (!moduleCompatible) {
         const sessionId = "session-123";
         insertTestSession(sessionId);
 
-        const event: type.ToolProgressEvent = {
+        const event: types.ToolProgressEvent = {
           id: "event-1",
           sessionId,
           timestamp: "2026-02-01T10:00:00Z",
@@ -376,7 +373,7 @@ if (!moduleCompatible) {
         const sessionId = "session-123";
         insertTestSession(sessionId);
 
-        const event: type.ToolOutputEvent = {
+        const event: types.ToolOutputEvent = {
           id: "event-1",
           sessionId,
           timestamp: "2026-02-01T10:00:00Z",
@@ -399,7 +396,7 @@ if (!moduleCompatible) {
         const sessionId = "session-123";
         insertTestSession(sessionId);
 
-        const event: type.ToolFileOperationEvent = {
+        const event: types.ToolFileOperationEvent = {
           id: "event-1",
           sessionId,
           timestamp: "2026-02-01T10:00:00Z",
@@ -430,7 +427,7 @@ if (!moduleCompatible) {
         const sessionId = "session-123";
         insertTestSession(sessionId);
 
-        const event: type.ToolMetadataEvent = {
+        const event: types.ToolMetadataEvent = {
           id: "event-1",
           sessionId,
           timestamp: "2026-02-01T10:00:00Z",
@@ -453,7 +450,7 @@ if (!moduleCompatible) {
         const sessionId = "session-123";
         insertTestSession(sessionId);
 
-        const event: type.ToolResultEvent = {
+        const event: types.ToolResultEvent = {
           id: "event-1",
           sessionId,
           timestamp: "2026-02-01T10:00:00Z",
@@ -477,7 +474,7 @@ if (!moduleCompatible) {
         const db = new Database!(testDbPath);
         const row = db
           .prepare(
-            "SELECT success, duration_ms FROM session_events WHERE id = ?"
+            "SELECT success, duration_ms FROM session_events WHERE id = ?",
           )
           .get(inserted.id) as { success: number; duration_ms: number };
         expect(row.success).toBe(1); // SQLite stores boolean as integer
@@ -489,7 +486,7 @@ if (!moduleCompatible) {
         const sessionId = "session-123";
         insertTestSession(sessionId);
 
-        const event: type.ToolResultEvent = {
+        const event: types.ToolResultEvent = {
           id: "event-1",
           sessionId,
           timestamp: "2026-02-01T10:00:00Z",
@@ -521,7 +518,7 @@ if (!moduleCompatible) {
         const sessionId = "session-123";
         insertTestSession(sessionId);
 
-        const events: type.AgentEvent[] = [
+        const events: types.AgentEvent[] = [
           {
             id: "",
             sessionId,
@@ -568,7 +565,7 @@ if (!moduleCompatible) {
         const sessionId = "session-123";
         insertTestSession(sessionId);
 
-        const events: type.AgentEvent[] = [
+        const events: types.AgentEvent[] = [
           {
             id: "event-1",
             sessionId,
@@ -599,7 +596,7 @@ if (!moduleCompatible) {
         const sessionId = "session-123";
         insertTestSession(sessionId);
 
-        const events: type.AgentEvent[] = [
+        const events: types.AgentEvent[] = [
           {
             id: "1",
             sessionId,
@@ -744,19 +741,19 @@ if (!moduleCompatible) {
         insertTestSession(sessionId);
 
         // Generate 100 events
-        const events: type.AgentEvent[] = Array.from(
+        const events: types.AgentEvent[] = Array.from(
           { length: 100 },
           (_, i) => ({
             id: `event-${i}`,
             sessionId,
             timestamp: new Date(
-              Date.parse("2026-02-01T10:00:00Z") + i * 1000
+              Date.parse("2026-02-01T10:00:00Z") + i * 1000,
             ).toISOString(),
             iteration: i,
             type: "thinking",
             text: `Thinking ${i}`,
             tokenCount: 100,
-          })
+          }),
         );
 
         // Batch insert (should be faster)
@@ -779,7 +776,7 @@ if (!moduleCompatible) {
         const sessionId = "session-123";
         insertTestSession(sessionId);
 
-        const events: type.AgentEvent[] = [
+        const events: types.AgentEvent[] = [
           {
             id: "event-3",
             sessionId,
@@ -858,14 +855,14 @@ if (!moduleCompatible) {
 
         expect(retrieved).toHaveLength(1);
         expect(retrieved[0].sessionId).toBe(session1);
-        expect((retrieved[0] as type.PromptEvent).text).toBe("Session 1");
+        expect((retrieved[0] as types.PromptEvent).text).toBe("Session 1");
       });
 
       it("should deserialize complex payloads correctly", () => {
         const sessionId = "session-123";
         insertTestSession(sessionId);
 
-        const event: type.ErrorEvent = {
+        const event: types.ErrorEvent = {
           id: "error-1",
           sessionId,
           timestamp: "2026-02-01T10:00:00Z",
@@ -890,10 +887,13 @@ if (!moduleCompatible) {
         insertEvent(testWorkspaceRoot, event);
 
         const retrieved = getEventsForSession(testWorkspaceRoot, sessionId);
-        const errorEvent = retrieved[0] as type.ErrorEvent;
+        const errorEvent = retrieved[0] as types.ErrorEvent;
 
         expect(errorEvent.details).toEqual(event.details);
-        expect(errorEvent.details?.nested).toEqual({ deep: true, array: [1, 2, 3] });
+        expect(errorEvent.details?.nested).toEqual({
+          deep: true,
+          array: [1, 2, 3],
+        });
       });
     });
 
@@ -902,7 +902,7 @@ if (!moduleCompatible) {
         const sessionId = "session-123";
         insertTestSession(sessionId);
 
-        const events: type.AgentEvent[] = [
+        const events: types.AgentEvent[] = [
           {
             id: "1",
             sessionId,
@@ -947,7 +947,7 @@ if (!moduleCompatible) {
         const thinkingEvents = getEventsByType(
           testWorkspaceRoot,
           sessionId,
-          "thinking"
+          "thinking",
         );
 
         expect(thinkingEvents).toHaveLength(2);
@@ -972,7 +972,7 @@ if (!moduleCompatible) {
         const errorEvents = getEventsByType(
           testWorkspaceRoot,
           sessionId,
-          "error"
+          "error",
         );
 
         expect(errorEvents).toEqual([]);
@@ -983,7 +983,7 @@ if (!moduleCompatible) {
         insertTestSession(sessionId);
 
         // Insert one of each type
-        const events: type.AgentEvent[] = [
+        const events: types.AgentEvent[] = [
           {
             id: "1",
             sessionId,
@@ -1108,7 +1108,7 @@ if (!moduleCompatible) {
         const promptEvents = getEventsByType(
           testWorkspaceRoot,
           sessionId,
-          "prompt"
+          "prompt",
         );
         expect(promptEvents).toHaveLength(1);
         expect(promptEvents[0].type).toBe("prompt");
@@ -1116,63 +1116,63 @@ if (!moduleCompatible) {
         const thinkingEvents = getEventsByType(
           testWorkspaceRoot,
           sessionId,
-          "thinking"
+          "thinking",
         );
         expect(thinkingEvents).toHaveLength(1);
 
         const statusEvents = getEventsByType(
           testWorkspaceRoot,
           sessionId,
-          "status_change"
+          "status_change",
         );
         expect(statusEvents).toHaveLength(1);
 
         const errorEvents = getEventsByType(
           testWorkspaceRoot,
           sessionId,
-          "error"
+          "error",
         );
         expect(errorEvents).toHaveLength(1);
 
         const toolCallEvents = getEventsByType(
           testWorkspaceRoot,
           sessionId,
-          "tool_call"
+          "tool_call",
         );
         expect(toolCallEvents).toHaveLength(1);
 
         const progressEvents = getEventsByType(
           testWorkspaceRoot,
           sessionId,
-          "tool_progress"
+          "tool_progress",
         );
         expect(progressEvents).toHaveLength(1);
 
         const outputEvents = getEventsByType(
           testWorkspaceRoot,
           sessionId,
-          "tool_output"
+          "tool_output",
         );
         expect(outputEvents).toHaveLength(1);
 
         const fileOpEvents = getEventsByType(
           testWorkspaceRoot,
           sessionId,
-          "tool_file_operation"
+          "tool_file_operation",
         );
         expect(fileOpEvents).toHaveLength(1);
 
         const metadataEvents = getEventsByType(
           testWorkspaceRoot,
           sessionId,
-          "tool_metadata"
+          "tool_metadata",
         );
         expect(metadataEvents).toHaveLength(1);
 
         const resultEvents = getEventsByType(
           testWorkspaceRoot,
           sessionId,
-          "tool_result"
+          "tool_result",
         );
         expect(resultEvents).toHaveLength(1);
       });
@@ -1185,7 +1185,7 @@ if (!moduleCompatible) {
 
         const toolCallId = "tool-call-123";
 
-        const events: type.AgentEvent[] = [
+        const events: types.AgentEvent[] = [
           {
             id: "1",
             sessionId,
@@ -1239,7 +1239,7 @@ if (!moduleCompatible) {
         const toolEvents = getToolEvents(
           testWorkspaceRoot,
           sessionId,
-          toolCallId
+          toolCallId,
         );
 
         expect(toolEvents).toHaveLength(4);
@@ -1266,7 +1266,7 @@ if (!moduleCompatible) {
         const toolEvents = getToolEvents(
           testWorkspaceRoot,
           sessionId,
-          "non-existent"
+          "non-existent",
         );
 
         expect(toolEvents).toEqual([]);
@@ -1276,7 +1276,7 @@ if (!moduleCompatible) {
         const sessionId = "session-123";
         insertTestSession(sessionId);
 
-        const events: type.AgentEvent[] = [
+        const events: types.AgentEvent[] = [
           {
             id: "1",
             sessionId,
@@ -1316,15 +1316,19 @@ if (!moduleCompatible) {
 
         insertEventBatch(testWorkspaceRoot, events);
 
-        const tool1Events = getToolEvents(testWorkspaceRoot, sessionId, "tool-1");
+        const tool1Events = getToolEvents(
+          testWorkspaceRoot,
+          sessionId,
+          "tool-1",
+        );
 
         expect(tool1Events).toHaveLength(2);
-        expect(
-          (tool1Events[0] as type.ToolCallEvent).toolCallId
-        ).toBe("tool-1");
-        expect(
-          (tool1Events[1] as type.ToolResultEvent).toolCallId
-        ).toBe("tool-1");
+        expect((tool1Events[0] as types.ToolCallEvent).toolCallId).toBe(
+          "tool-1",
+        );
+        expect((tool1Events[1] as types.ToolResultEvent).toolCallId).toBe(
+          "tool-1",
+        );
       });
     });
 
@@ -1333,7 +1337,7 @@ if (!moduleCompatible) {
         const sessionId = "session-123";
         insertTestSession(sessionId);
 
-        const events: type.AgentEvent[] = [
+        const events: types.AgentEvent[] = [
           {
             id: "1",
             sessionId,
@@ -1363,7 +1367,7 @@ if (!moduleCompatible) {
         // Delete events
         const deletedCount = deleteEventsForSession(
           testWorkspaceRoot,
-          sessionId
+          sessionId,
         );
 
         expect(deletedCount).toBe(2);
@@ -1379,7 +1383,7 @@ if (!moduleCompatible) {
 
         const deletedCount = deleteEventsForSession(
           testWorkspaceRoot,
-          sessionId
+          sessionId,
         );
 
         expect(deletedCount).toBe(0);
@@ -1429,7 +1433,7 @@ if (!moduleCompatible) {
         const sessionId = "session-123";
         insertTestSession(sessionId);
 
-        const event: type.ThinkingEvent = {
+        const event: types.ThinkingEvent = {
           id: "1",
           sessionId,
           timestamp: "2026-02-01T10:00:00Z",
@@ -1448,7 +1452,7 @@ if (!moduleCompatible) {
         const sessionId = "session-123";
         insertTestSession(sessionId);
 
-        const event: type.PromptEvent = {
+        const event: types.PromptEvent = {
           id: "1",
           sessionId,
           timestamp: "2026-02-01T10:00:00Z",
@@ -1461,14 +1465,14 @@ if (!moduleCompatible) {
         const inserted = insertEvent(testWorkspaceRoot, event);
         const retrieved = getEventsForSession(testWorkspaceRoot, sessionId);
 
-        expect((retrieved[0] as type.PromptEvent).attachments).toEqual([]);
+        expect((retrieved[0] as types.PromptEvent).attachments).toEqual([]);
       });
 
       it("should handle very large iteration numbers", () => {
         const sessionId = "session-123";
         insertTestSession(sessionId);
 
-        const event: type.ThinkingEvent = {
+        const event: types.ThinkingEvent = {
           id: "1",
           sessionId,
           timestamp: "2026-02-01T10:00:00Z",
@@ -1487,9 +1491,10 @@ if (!moduleCompatible) {
         const sessionId = "session-123";
         insertTestSession(sessionId);
 
-        const specialText = 'Text with "quotes", \'apostrophes\', and \\backslashes\\';
+        const specialText =
+          "Text with \"quotes\", 'apostrophes', and \\backslashes\\";
 
-        const event: type.PromptEvent = {
+        const event: types.PromptEvent = {
           id: "1",
           sessionId,
           timestamp: "2026-02-01T10:00:00Z",
@@ -1502,7 +1507,7 @@ if (!moduleCompatible) {
         insertEvent(testWorkspaceRoot, event);
         const retrieved = getEventsForSession(testWorkspaceRoot, sessionId);
 
-        expect((retrieved[0] as type.PromptEvent).text).toBe(specialText);
+        expect((retrieved[0] as types.PromptEvent).text).toBe(specialText);
       });
     });
   });
