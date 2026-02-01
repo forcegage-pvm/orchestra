@@ -11,14 +11,28 @@ import { Icon } from "@iconify-icon/solid";
 import type { AgentSession } from "../../../agents/sessions/types.js";
 import { ProgressStats } from "./ProgressStats.js";
 import { RoleBadge } from "./RoleBadge.js";
+import { SessionSelector } from "./SessionSelector.js";
 import { StatusIndicator } from "./StatusIndicator.js";
+import { TaskSelector } from "./TaskSelector.js";
 
 export interface SessionHeaderProps {
   /** Current agent session (null when no active session) */
   session: AgentSession | null;
 
+  /** Available tasks for TaskSelector */
+  availableTasks?: Array<{ taskId: number; title: string }>;
+
+  /** Available sessions for SessionSelector */
+  availableSessions?: AgentSession[];
+
   /** Stop button click handler */
   onStop?: () => void;
+
+  /** Task change handler */
+  onTaskChange?: (taskId: number) => void;
+
+  /** Session change handler */
+  onSessionChange?: (sessionId: string) => void;
 }
 
 /**
@@ -62,13 +76,19 @@ export function SessionHeader(props: SessionHeaderProps) {
         <div class="flex items-center gap-4">
           {props.session && <RoleBadge role={props.session.role} />}
 
-          {/* Task selector placeholder */}
-          <div class="text-sm text-gray-500">
-            Task {props.session?.taskId ?? "-"} ▼
-          </div>
+          {/* Task selector */}
+          <TaskSelector
+            currentTaskId={props.session?.taskId}
+            availableTasks={props.availableTasks}
+            onTaskChange={props.onTaskChange}
+          />
 
-          {/* Session selector placeholder */}
-          <div class="text-sm text-gray-500">Session ▼</div>
+          {/* Session selector */}
+          <SessionSelector
+            currentSessionId={props.session?.sessionId}
+            availableSessions={props.availableSessions}
+            onSessionChange={props.onSessionChange}
+          />
         </div>
 
         {/* Stop button */}

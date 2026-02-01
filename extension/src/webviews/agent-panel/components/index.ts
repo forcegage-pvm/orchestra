@@ -19,6 +19,12 @@ export type { ProgressStatsProps } from "./ProgressStats.js";
 export { SessionHeader } from "./SessionHeader.js";
 export type { SessionHeaderProps } from "./SessionHeader.js";
 
+export { TaskSelector } from "./TaskSelector.js";
+export type { TaskSelectorProps } from "./TaskSelector.js";
+
+export { SessionSelector } from "./SessionSelector.js";
+export type { SessionSelectorProps } from "./SessionSelector.js";
+
 export { TabBar } from "./TabBar.js";
 
 export { PromptCard } from "./PromptCard.js";

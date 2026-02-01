@@ -8,6 +8,8 @@
  */
 
 import * as vscode from "vscode";
+import { getEventsForSession } from "../agents/sessions/eventRepository.js";
+import { getSession } from "../agents/sessions/sessionRepository.js";
 import { getAgentRunner } from "../extension.js";
 import { highlightRange } from "../utils/fileHighlight.js";
 import { OrchestraLogger } from "../utils/logger.js";
@@ -250,12 +252,40 @@ export class AgentPanelProvider implements vscode.WebviewViewProvider {
   private async _handleSwitchSession(sessionId: string): Promise<void> {
     try {
       logger.info(`Switch session requested: ${sessionId}`);
-      // Session switching will be implemented in session management tasks
-      void vscode.window.showInformationMessage(
-        `Session switching not yet implemented: ${sessionId}`,
-      );
+
+      // Get workspace root from current workspace folders
+      const workspaceFolders = vscode.workspace.workspaceFolders;
+      if (!workspaceFolders || workspaceFolders.length === 0) {
+        logger.error("No workspace folder found");
+        void vscode.window.showErrorMessage("No workspace folder found");
+        return;
+      }
+      const workspaceRoot = workspaceFolders[0].uri.fsPath;
+
+      // Fetch session from database
+      const session = getSession(workspaceRoot, sessionId);
+      if (!session) {
+        logger.error(`Session not found: ${sessionId}`);
+        void vscode.window.showErrorMessage(`Session not found: ${sessionId}`);
+        return;
+      }
+
+      // Fetch all events for this session
+      const events = getEventsForSession(workspaceRoot, sessionId);
+
+      // Post load_session message to webview
+      this.postMessage({
+        type: "load_session",
+        sessionId,
+        events,
+      });
+
+      logger.info(`Loaded session ${sessionId} with ${events.length} events`);
     } catch (error) {
       logger.error(`Failed to switch session: ${sessionId}`, error);
+      void vscode.window.showErrorMessage(
+        `Failed to switch session: ${error instanceof Error ? error.message : "Unknown error"}`,
+      );
     }
   }
 
