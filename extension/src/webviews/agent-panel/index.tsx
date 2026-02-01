@@ -1,8 +1,8 @@
-import { render } from "solid-js/web";
 import { createSignal } from "solid-js";
+import { render } from "solid-js/web";
 import { SessionHeader } from "./components/SessionHeader.js";
 import { initializeMessageHandler } from "./protocol/index.js";
-import { sessionStore } from "./stores/sessionStore.js";
+import { session } from "./stores/sessionStore.js";
 import "./styles.css";
 
 // Initialize message handler for Extension ↔ Webview communication
@@ -45,7 +45,7 @@ function App() {
   return (
     <div>
       <SessionHeader
-        session={sessionStore.currentSession()}
+        session={session}
         availableTasks={availableTasks()}
         availableSessions={availableSessions()}
         onStop={handleStop}
