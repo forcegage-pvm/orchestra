@@ -7,7 +7,6 @@
  * Specification: specs/011-agent-panel-rework/spec.md Section 8.1
  */
 
-import { createMemo } from "solid-js";
 import { createStore } from "solid-js/store";
 import type { AgentEvent } from "../../../agents/sessions/types.js";
 import { events } from "./sessionStore.js";
@@ -55,7 +54,7 @@ function getSearchableText(event: AgentEvent): string {
 
     case "error":
       parts.push(event.severity);
-      parts.push(event.code);
+      parts.push(event.code.replace(/_/g, " ")); // Normalize underscores for better searchability
       parts.push(event.message);
       if (event.suggestion) parts.push(event.suggestion);
       break;
@@ -113,7 +112,7 @@ function getSearchableText(event: AgentEvent): string {
  *
  * Case-insensitive search with instant filtering (no debounce).
  */
-export const filteredEvents = createMemo(() => {
+export function filteredEvents(): AgentEvent[] {
   const filterText = ui.filterText.toLowerCase().trim();
 
   // If no filter, return all events
@@ -126,7 +125,7 @@ export const filteredEvents = createMemo(() => {
     const searchableText = getSearchableText(event);
     return searchableText.includes(filterText);
   });
-});
+}
 
 /**
  * Highlight matches utility

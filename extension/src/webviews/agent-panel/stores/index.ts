@@ -19,3 +19,5 @@ export {
 export { setUi, ui } from "./uiStore.js";
 
 export type { TabId, UiState, VerbosityLevel } from "./uiStore.js";
+
+export { filteredEvents, highlightMatches } from "./eventsStore.js";
