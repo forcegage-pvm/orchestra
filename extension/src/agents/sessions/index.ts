@@ -6,3 +6,4 @@
 
 export * from "./types.js";
 export * from "./sessionRepository.js";
+export * from "./eventRepository.js";
