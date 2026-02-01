@@ -20,3 +20,12 @@ export { SessionHeader } from "./SessionHeader.js";
 export type { SessionHeaderProps } from "./SessionHeader.js";
 
 export { TabBar } from "./TabBar.js";
+
+export { PromptCard } from "./PromptCard.js";
+export type { PromptCardProps } from "./PromptCard.js";
+
+export { ThinkingCard } from "./ThinkingCard.js";
+export type { ThinkingCardProps } from "./ThinkingCard.js";
+
+export { ErrorCard } from "./ErrorCard.js";
+export type { ErrorCardProps } from "./ErrorCard.js";
