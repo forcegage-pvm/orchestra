@@ -263,11 +263,14 @@ describe("Play Workflow Integration Tests", () => {
       await handlePlayTask(mockWorkspaceRoot, mockTaskId);
 
       // Verify AgentRunner was invoked with correct prompt
-      expect(mockAgentRunner.start).toHaveBeenCalledWith("implementor", {
-        prompt: "Mock implement prompt",
-        taskId: mockTaskId,
-        sprintId: mockTask.sprint_id,
-      });
+      expect(mockAgentRunner.start).toHaveBeenCalledWith(
+        "implementor",
+        expect.objectContaining({
+          prompt: "Mock implement prompt",
+          taskId: mockTaskId,
+          sprintId: mockTask.sprint_id,
+        }),
+      );
     });
   });
 

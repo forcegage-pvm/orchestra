@@ -19,15 +19,15 @@ import { createEscalation } from "../database/mutations.js";
 import { AgentSession } from "./AgentSession.js";
 import { ContextManager } from "./ContextManager.js";
 import { AgentError, SessionError } from "./errors.js";
-import { createSession } from "./sessions/sessionRepository.js";
-import { SessionEventEmitter } from "./sessions/eventEmitter.js";
-import type { ToolCategory } from "./sessions/types.js";
 import { SprintMemory } from "./memory/SprintMemory.js";
 import {
   generateTaskSummary,
   type TaskSummaryInput,
 } from "./memory/TaskSummary.js";
 import type { TaskOutcome } from "./memory/types.js";
+import { SessionEventEmitter } from "./sessions/eventEmitter.js";
+import { createSession } from "./sessions/sessionRepository.js";
+import type { ToolCategory } from "./sessions/types.js";
 import { SessionStorage } from "./SessionStorage.js";
 import {
   loadControllerTools,
@@ -203,18 +203,34 @@ export class AgentRunner implements vscode.Disposable {
    */
   private getToolCategory(toolName: string): ToolCategory {
     // Orchestra MCP tools
-    if (toolName.startsWith("mcp_") || toolName.startsWith("get_current_task") || 
-        toolName.startsWith("signal_completion") || toolName.startsWith("get_feedback") || 
-        toolName.startsWith("get_progress") || toolName.startsWith("escalate_task")) {
+    if (
+      toolName.startsWith("mcp_") ||
+      toolName.startsWith("get_current_task") ||
+      toolName.startsWith("signal_completion") ||
+      toolName.startsWith("get_feedback") ||
+      toolName.startsWith("get_progress") ||
+      toolName.startsWith("escalate_task")
+    ) {
       return "orchestra";
     }
 
     // Coding tools (file read/write/edit)
     const codingTools = [
-      "read_file", "edit_file", "edit_lines", "create_file", "create_directory", 
-      "delete_file", "insert_at_line", "delete_section", "smart_replace", 
-      "bulk_replace", "validate_edit", "search_files", "grep_search", 
-      "list_directory", "find_usages"
+      "read_file",
+      "edit_file",
+      "edit_lines",
+      "create_file",
+      "create_directory",
+      "delete_file",
+      "insert_at_line",
+      "delete_section",
+      "smart_replace",
+      "bulk_replace",
+      "validate_edit",
+      "search_files",
+      "grep_search",
+      "list_directory",
+      "find_usages",
     ];
     if (codingTools.includes(toolName)) {
       return "coding";
@@ -228,10 +244,21 @@ export class AgentRunner implements vscode.Disposable {
 
     // System tools (terminal, processes, tests)
     const systemTools = [
-      "run_terminal", "run_command", "run_task", "run_tests", "get_test_failures",
-      "get_problems", "start_process", "stop_process", "get_process_output",
-      "list_processes", "send_input", "wait_for_pattern", "find_port_process",
-      "get_terminal_output", "execute_with_retry"
+      "run_terminal",
+      "run_command",
+      "run_task",
+      "run_tests",
+      "get_test_failures",
+      "get_problems",
+      "start_process",
+      "stop_process",
+      "get_process_output",
+      "list_processes",
+      "send_input",
+      "wait_for_pattern",
+      "find_port_process",
+      "get_terminal_output",
+      "execute_with_retry",
     ];
     if (systemTools.includes(toolName)) {
       return "system";
@@ -396,7 +423,10 @@ export class AgentRunner implements vscode.Disposable {
         filesModified: [],
         durationMs: undefined,
       });
-      this.eventEmitter = new SessionEventEmitter(workspaceRoot, dbSession.sessionId);
+      this.eventEmitter = new SessionEventEmitter(
+        workspaceRoot,
+        dbSession.sessionId,
+      );
     } catch (error) {
       // If database session creation fails, log but continue
       // This allows AgentRunner to work in test scenarios without database
@@ -481,6 +511,16 @@ export class AgentRunner implements vscode.Disposable {
         path: a.path,
       })),
     });
+
+    // Persist prompt event to database
+    this.eventEmitter?.emitPrompt(
+      options.prompt,
+      options.attachments?.map((a) => ({
+        path: a.path,
+        name: a.name ?? a.path.split(/[\\/]/).pop() ?? "attachment",
+        mimeType: a.mimeType,
+      })),
+    );
 
     // Emit state change
     this.emitStateChange();
@@ -830,7 +870,11 @@ export class AgentRunner implements vscode.Disposable {
         this.session.fail(
           `Maximum iterations (${this.session.maxIterations}) reached`,
         );
-        this.eventEmitter?.emitStatusChange(previousStatus, "failed", `Maximum iterations (${this.session.maxIterations}) reached`);
+        this.eventEmitter?.emitStatusChange(
+          previousStatus,
+          "failed",
+          `Maximum iterations (${this.session.maxIterations}) reached`,
+        );
         this.emitOutput({
           type: "error",
           timestamp: new Date().toISOString(),
@@ -1107,7 +1151,7 @@ export class AgentRunner implements vscode.Disposable {
             chunk.callId,
             chunk.name,
             this.getToolCategory(chunk.name),
-            chunk.input as Record<string, unknown>
+            chunk.input as Record<string, unknown>,
           );
         }
       }
@@ -1305,12 +1349,14 @@ export class AgentRunner implements vscode.Disposable {
           toolSuccess,
           resultMessage,
           durationMs,
-          toolSuccess ? undefined : {
-            code: "TOOL_EXECUTION_FAILED",
-            message: errorMessage ?? "Tool execution failed",
-            suggestion: undefined,
-            details: undefined,
-          }
+          toolSuccess
+            ? undefined
+            : {
+                code: "TOOL_EXECUTION_FAILED",
+                message: errorMessage ?? "Tool execution failed",
+                suggestion: undefined,
+                details: undefined,
+              },
         );
 
         if (toolSuccess) {
@@ -1371,14 +1417,14 @@ export class AgentRunner implements vscode.Disposable {
             message: errorMessage,
             suggestion: undefined,
             details: undefined,
-          }
+          },
         );
         this.eventEmitter?.emitError(
           "error",
           "TOOL_EXECUTION_FAILED",
           errorMessage,
           true,
-          { toolName: toolCall.name, toolCallId: toolCall.callId }
+          { toolName: toolCall.name, toolCallId: toolCall.callId },
         );
       }
     }
@@ -1909,7 +1955,8 @@ export class AgentRunner implements vscode.Disposable {
     }
 
     const errorMessage = error instanceof Error ? error.message : String(error);
-    const errorCode = error instanceof AgentError ? error.code : "UNKNOWN_ERROR";
+    const errorCode =
+      error instanceof AgentError ? error.code : "UNKNOWN_ERROR";
 
     const previousStatus = this.session.status;
     this.session.fail(errorMessage);
@@ -1923,12 +1970,7 @@ export class AgentRunner implements vscode.Disposable {
       errorMessage,
       recoverable: false,
     });
-    this.eventEmitter?.emitError(
-      "error",
-      errorCode,
-      errorMessage,
-      false
-    );
+    this.eventEmitter?.emitError("error", errorCode, errorMessage, false);
 
     this.emitStateChange();
   }
