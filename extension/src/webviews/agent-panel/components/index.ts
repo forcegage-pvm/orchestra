@@ -44,3 +44,6 @@ export type { ToolCallHeaderProps } from "./ToolCallHeader.js";
 
 export { ToolCallCard } from "./ToolCallCard.js";
 export type { ToolCallCardProps } from "./ToolCallCard.js";
+
+export { FooterInput } from "./FooterInput.js";
+export type { FooterInputProps } from "./FooterInput.js";
