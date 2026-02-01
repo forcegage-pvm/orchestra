@@ -7,9 +7,7 @@
  * Specification: specs/011-agent-panel-rework/spec.md Section 8.2
  */
 
-import { setSession } from "../stores/sessionStore.js";
-import { setEvents } from "../stores/sessionStore.js";
-import { setToolCalls } from "../stores/sessionStore.js";
+import { setEvents, setSession, setToolCalls } from "../stores/sessionStore.js";
 import { setUi } from "../stores/uiStore.js";
 import type { ExtensionMessage } from "./types.js";
 

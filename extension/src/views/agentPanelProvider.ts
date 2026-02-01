@@ -8,8 +8,11 @@
  */
 
 import * as vscode from "vscode";
-import type { ExtensionMessage, WebviewMessage } from "../webviews/agent-panel/protocol/index.js";
 import { OrchestraLogger } from "../utils/logger.js";
+import type {
+  ExtensionMessage,
+  WebviewMessage,
+} from "../webviews/agent-panel/protocol/index.js";
 
 const logger = new OrchestraLogger();
 
@@ -162,9 +165,7 @@ export class AgentPanelProvider implements vscode.WebviewViewProvider {
       await vscode.window.showTextDocument(document, options);
     } catch (error) {
       logger.error(`Failed to open file: ${path}`, error);
-      void vscode.window.showErrorMessage(
-        `Failed to open file: ${path}`,
-      );
+      void vscode.window.showErrorMessage(`Failed to open file: ${path}`);
     }
   }
 
@@ -267,8 +268,12 @@ export class AgentPanelProvider implements vscode.WebviewViewProvider {
       // Update workspace configuration
       await vscode.workspace
         .getConfiguration("orchestra")
-        .update("agentPanel.verbosity", level, vscode.ConfigurationTarget.Workspace);
-      
+        .update(
+          "agentPanel.verbosity",
+          level,
+          vscode.ConfigurationTarget.Workspace,
+        );
+
       // Echo back to webview
       this.postMessage({ type: "set_verbosity", level });
     } catch (error) {
@@ -300,7 +305,13 @@ export class AgentPanelProvider implements vscode.WebviewViewProvider {
     // In production, this would load from the Vite build output
     // For now, return a basic HTML structure that loads the bundled JS
     const scriptUri = webview.asWebviewUri(
-      vscode.Uri.joinPath(this._extensionUri, "out", "webviews", "agent-panel", "index.js"),
+      vscode.Uri.joinPath(
+        this._extensionUri,
+        "out",
+        "webviews",
+        "agent-panel",
+        "index.js",
+      ),
     );
 
     return `<!DOCTYPE html>
