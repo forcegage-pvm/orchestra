@@ -7,3 +7,4 @@
 export * from "./types.js";
 export * from "./sessionRepository.js";
 export * from "./eventRepository.js";
+export * from "./retention.js";
