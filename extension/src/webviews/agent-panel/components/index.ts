@@ -29,3 +29,18 @@ export type { ThinkingCardProps } from "./ThinkingCard.js";
 
 export { ErrorCard } from "./ErrorCard.js";
 export type { ErrorCardProps } from "./ErrorCard.js";
+
+export { ToolIcon } from "./ToolIcon.js";
+export type { ToolIconProps } from "./ToolIcon.js";
+
+export { FileOperationBadge } from "./FileOperationBadge.js";
+export type { FileOperationBadgeProps } from "./FileOperationBadge.js";
+
+export { StreamingOutput } from "./StreamingOutput.js";
+export type { StreamingOutputProps } from "./StreamingOutput.js";
+
+export { ToolCallHeader } from "./ToolCallHeader.js";
+export type { ToolCallHeaderProps } from "./ToolCallHeader.js";
+
+export { ToolCallCard } from "./ToolCallCard.js";
+export type { ToolCallCardProps } from "./ToolCallCard.js";
