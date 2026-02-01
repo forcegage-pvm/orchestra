@@ -10,25 +10,22 @@ import * as vscode from "vscode";
 import { highlightRange } from "../../src/utils/fileHighlight.js";
 
 // Hoist mock variables to top-level scope for vi.mock
-const {
-  mockDecorationType,
-  disposeSpy,
-  createTextEditorDecorationTypeSpy,
-} = vi.hoisted(() => {
-  const disposeSpy = vi.fn();
-  const mockDecorationType = {
-    dispose: disposeSpy,
-    key: "mock-decoration",
-  } as unknown as vscode.TextEditorDecorationType;
+const { mockDecorationType, disposeSpy, createTextEditorDecorationTypeSpy } =
+  vi.hoisted(() => {
+    const disposeSpy = vi.fn();
+    const mockDecorationType = {
+      dispose: disposeSpy,
+      key: "mock-decoration",
+    } as unknown as vscode.TextEditorDecorationType;
 
-  const createTextEditorDecorationTypeSpy = vi.fn(() => mockDecorationType);
+    const createTextEditorDecorationTypeSpy = vi.fn(() => mockDecorationType);
 
-  return {
-    mockDecorationType,
-    disposeSpy,
-    createTextEditorDecorationTypeSpy,
-  };
-});
+    return {
+      mockDecorationType,
+      disposeSpy,
+      createTextEditorDecorationTypeSpy,
+    };
+  });
 
 // Mock vscode module
 vi.mock("vscode", () => {

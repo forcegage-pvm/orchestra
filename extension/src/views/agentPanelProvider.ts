@@ -210,8 +210,11 @@ export class AgentPanelProvider implements vscode.WebviewViewProvider {
       logger.info("Stop agent requested");
       const runner = getAgentRunner();
       const session = runner.getSession();
-      
-      if (!session || (session.status !== "running" && session.status !== "paused")) {
+
+      if (
+        !session ||
+        (session.status !== "running" && session.status !== "paused")
+      ) {
         void vscode.window.showWarningMessage("No agent is currently running");
         return;
       }
@@ -220,7 +223,9 @@ export class AgentPanelProvider implements vscode.WebviewViewProvider {
       void vscode.window.showInformationMessage("Agent stopped successfully");
     } catch (error) {
       logger.error("Failed to stop agent", error);
-      void vscode.window.showErrorMessage(`Failed to stop agent: ${error instanceof Error ? error.message : String(error)}`);
+      void vscode.window.showErrorMessage(
+        `Failed to stop agent: ${error instanceof Error ? error.message : String(error)}`,
+      );
     }
   }
 
@@ -301,10 +306,10 @@ export class AgentPanelProvider implements vscode.WebviewViewProvider {
       logger.info(`User message: ${text.substring(0, 50)}...`);
       const runner = getAgentRunner();
       const session = runner.getSession();
-      
+
       if (!session || session.status !== "running") {
         void vscode.window.showWarningMessage(
-          "Cannot send message: no agent is currently running"
+          "Cannot send message: no agent is currently running",
         );
         return;
       }
@@ -314,7 +319,7 @@ export class AgentPanelProvider implements vscode.WebviewViewProvider {
     } catch (error) {
       logger.error("Failed to handle user message", error);
       void vscode.window.showErrorMessage(
-        `Failed to send message to agent: ${error instanceof Error ? error.message : String(error)}`
+        `Failed to send message to agent: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
   }

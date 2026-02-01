@@ -15,6 +15,9 @@ vi.mock("vscode", () => ({
   },
   Position: vi.fn((line: number, char: number) => ({ line, character: char })),
   Range: vi.fn((start, end) => ({ start, end })),
+  commands: {
+    executeCommand: vi.fn(),
+  },
   window: {
     showTextDocument: vi.fn(),
     showInformationMessage: vi.fn(),
@@ -291,6 +294,41 @@ describe("AgentPanelProvider", () => {
             preview: false,
             selection: expect.any(Object),
           }),
+        );
+      });
+    });
+
+    describe("open_diff", () => {
+      it("should open diff view using git.openChange command", async () => {
+        const message: WebviewMessage = {
+          type: "open_diff",
+          path: "/test/file.ts",
+        };
+        messageHandler?.(message);
+
+        await new Promise((resolve) => setTimeout(resolve, 0));
+
+        expect(vscode.commands.executeCommand).toHaveBeenCalledWith(
+          "git.openChange",
+          expect.objectContaining({ fsPath: "/test/file.ts" }),
+        );
+      });
+
+      it("should handle errors when opening diff fails", async () => {
+        vi.mocked(vscode.commands.executeCommand).mockRejectedValue(
+          new Error("Git not available"),
+        );
+
+        const message: WebviewMessage = {
+          type: "open_diff",
+          path: "/test/file.ts",
+        };
+        messageHandler?.(message);
+
+        await new Promise((resolve) => setTimeout(resolve, 0));
+
+        expect(vscode.window.showErrorMessage).toHaveBeenCalledWith(
+          expect.stringContaining("Failed to open diff"),
         );
       });
     });
