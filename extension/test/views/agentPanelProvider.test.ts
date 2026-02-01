@@ -389,6 +389,144 @@ describe("AgentPanelProvider", () => {
         expect(() => messageHandler?.(message)).not.toThrow();
       });
     });
+
+    describe("switch_session", () => {
+      // Mock the session and event repositories
+      let mockGetSession: any;
+      let mockGetEventsForSession: any;
+
+      beforeEach(async () => {
+        // Dynamic import mocking
+        const sessionRepoModule = await import(
+          "../../src/agents/sessions/sessionRepository.js"
+        );
+        const eventRepoModule = await import(
+          "../../src/agents/sessions/eventRepository.js"
+        );
+
+        mockGetSession = vi
+          .spyOn(sessionRepoModule, "getSession")
+          .mockReturnValue(undefined);
+        mockGetEventsForSession = vi
+          .spyOn(eventRepoModule, "getEventsForSession")
+          .mockReturnValue([]);
+
+        // Mock workspace folders
+        (vscode.workspace as any).workspaceFolders = [
+          { uri: { fsPath: "/test/workspace" } },
+        ];
+      });
+
+      it("should fetch session and events and post load_session message", async () => {
+        const mockSession = {
+          sessionId: "test-session-123",
+          role: "implementor" as const,
+          taskId: 42,
+          taskTitle: "Test Task",
+          sprintId: "sprint-001",
+          startedAt: "2026-02-01T00:00:00Z",
+          lastActivityAt: "2026-02-01T00:00:00Z",
+          status: "completed" as const,
+          iteration: 10,
+          maxIterations: 50,
+          toolCallCount: 25,
+          successfulToolCalls: 24,
+          failedToolCalls: 1,
+          warningCount: 2,
+          filesModified: ["file1.ts", "file2.ts"],
+        };
+
+        const mockEvents = [
+          {
+            id: "event-1",
+            sessionId: "test-session-123",
+            type: "tool_call" as const,
+            timestamp: "2026-02-01T00:00:00Z",
+            iteration: 1,
+            toolCallId: "call-1",
+            toolName: "read_file",
+            arguments: { path: "test.ts" },
+          },
+        ];
+
+        mockGetSession.mockReturnValue(mockSession);
+        mockGetEventsForSession.mockReturnValue(mockEvents);
+
+        const message: WebviewMessage = {
+          type: "switch_session",
+          sessionId: "test-session-123",
+        };
+        messageHandler?.(message);
+
+        await new Promise((resolve) => setTimeout(resolve, 0));
+
+        expect(mockGetSession).toHaveBeenCalledWith(
+          "/test/workspace",
+          "test-session-123",
+        );
+        expect(mockGetEventsForSession).toHaveBeenCalledWith(
+          "/test/workspace",
+          "test-session-123",
+        );
+        expect(mockWebview.postMessage).toHaveBeenCalledWith({
+          type: "load_session",
+          sessionId: "test-session-123",
+          events: mockEvents,
+        });
+      });
+
+      it("should show error when session not found", async () => {
+        mockGetSession.mockReturnValue(undefined);
+
+        const message: WebviewMessage = {
+          type: "switch_session",
+          sessionId: "nonexistent-session",
+        };
+        messageHandler?.(message);
+
+        await new Promise((resolve) => setTimeout(resolve, 0));
+
+        expect(vscode.window.showErrorMessage).toHaveBeenCalledWith(
+          expect.stringContaining("Session not found"),
+        );
+        expect(mockWebview.postMessage).not.toHaveBeenCalled();
+      });
+
+      it("should show error when no workspace folder", async () => {
+        (vscode.workspace as any).workspaceFolders = [];
+
+        const message: WebviewMessage = {
+          type: "switch_session",
+          sessionId: "test-session",
+        };
+        messageHandler?.(message);
+
+        await new Promise((resolve) => setTimeout(resolve, 0));
+
+        expect(vscode.window.showErrorMessage).toHaveBeenCalledWith(
+          "No workspace folder found",
+        );
+        expect(mockGetSession).not.toHaveBeenCalled();
+      });
+
+      it("should handle errors gracefully", async () => {
+        mockGetSession.mockImplementation(() => {
+          throw new Error("Database error");
+        });
+
+        const message: WebviewMessage = {
+          type: "switch_session",
+          sessionId: "test-session",
+        };
+        messageHandler?.(message);
+
+        await new Promise((resolve) => setTimeout(resolve, 0));
+
+        expect(vscode.window.showErrorMessage).toHaveBeenCalledWith(
+          expect.stringContaining("Failed to switch session"),
+        );
+      });
+    });
   });
 
   describe("postMessage", () => {
