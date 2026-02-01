@@ -21,13 +21,3 @@
     opacity: 0;
   }
 }
-
-/* FadeIn animation for new timeline events */
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}

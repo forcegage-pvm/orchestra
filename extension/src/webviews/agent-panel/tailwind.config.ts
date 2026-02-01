@@ -7,7 +7,7 @@ export default {
     extend: {
       colors: {
         zinc: {
-          900: "#18181b",
+          900: "#09090b",
         },
       },
       fontFamily: {
@@ -26,13 +26,13 @@ export default {
           "50%": { opacity: "0" },
         },
         fadeIn: {
-          from: { opacity: "0" },
-          to: { opacity: "1" },
+          from: { opacity: "0", transform: "translateY(4px)" },
+          to: { opacity: "1", transform: "translateY(0)" },
         },
       },
       animation: {
         blink: "blink 1s step-end infinite",
-        fadeIn: "fadeIn 0.3s ease-in",
+        fadeIn: "fadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1)",
       },
     },
   },
