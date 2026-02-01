@@ -391,3 +391,72 @@ export const specReviews = sqliteTable(
     ),
   })
 );
+
+/**
+ * Agent Sessions table - Agent execution sessions
+ *
+ * Stores session metadata for agent runs (orchestrator, implementor, controller).
+ * Maps to the AgentSession TypeScript interface from extension/src/agents/sessions/types.ts
+ */
+export const agentSessions = sqliteTable(
+  "agent_sessions",
+  {
+    id: text("id").primaryKey(), // UUID
+    task_id: integer("task_id")
+      .notNull()
+      .references(() => tasks.id),
+    sprint_id: text("sprint_id").notNull(),
+    role: text("role").notNull(), // 'orchestrator' | 'implementor' | 'controller'
+    status: text("status").notNull(), // SessionStatus enum
+    status_message: text("status_message"),
+    started_at: text("started_at").notNull(),
+    last_activity_at: text("last_activity_at").notNull(),
+    ended_at: text("ended_at"),
+    iteration: integer("iteration").notNull().default(0),
+    max_iterations: integer("max_iterations").notNull().default(50),
+    tool_call_count: integer("tool_call_count").notNull().default(0),
+    successful_tool_calls: integer("successful_tool_calls")
+      .notNull()
+      .default(0),
+    failed_tool_calls: integer("failed_tool_calls").notNull().default(0),
+    warning_count: integer("warning_count").notNull().default(0),
+    files_modified: text("files_modified", { mode: "json" })
+      .notNull()
+      .default("[]"),
+    duration_ms: integer("duration_ms"),
+  },
+  (sessions) => ({
+    taskIdx: index("idx_sessions_task").on(sessions.task_id),
+    roleIdx: index("idx_sessions_role").on(sessions.task_id, sessions.role),
+  })
+);
+
+/**
+ * Session Events table - Detailed event log for agent sessions
+ *
+ * Stores all events emitted during an agent session (tool calls, status changes, errors, etc.)
+ * Maps to the AgentEvent discriminated union from extension/src/agents/sessions/types.ts
+ */
+export const sessionEvents = sqliteTable(
+  "session_events",
+  {
+    id: text("id").primaryKey(), // UUID
+    session_id: text("session_id")
+      .notNull()
+      .references(() => agentSessions.id, { onDelete: "cascade" }),
+    type: text("type").notNull(), // Event type discriminator
+    timestamp: text("timestamp").notNull(),
+    iteration: integer("iteration").notNull(),
+    tool_call_id: text("tool_call_id"), // For tool-related events
+    tool_name: text("tool_name"), // For tool-related events
+    success: integer("success", { mode: "boolean" }), // For tool results
+    duration_ms: integer("duration_ms"), // For tool results
+    severity: text("severity"), // For error events
+    payload: text("payload", { mode: "json" }).notNull(), // Full event data
+  },
+  (events) => ({
+    sessionIdx: index("idx_events_session").on(events.session_id),
+    toolCallIdx: index("idx_events_tool_call").on(events.tool_call_id),
+    typeIdx: index("idx_events_type").on(events.session_id, events.type),
+  })
+);
