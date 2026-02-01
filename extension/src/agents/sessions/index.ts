@@ -4,6 +4,7 @@
  * Re-exports all types from types.ts for convenient importing.
  */
 
+export * from "./eventBatcher.js";
 export * from "./eventEmitter.js";
 export * from "./eventRepository.js";
 export * from "./retention.js";
