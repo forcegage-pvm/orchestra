@@ -9,4 +9,5 @@ export * from "./eventEmitter.js";
 export * from "./eventRepository.js";
 export * from "./retention.js";
 export * from "./sessionRepository.js";
+export * from "./toolCallAggregator.js";
 export * from "./types.js";
