@@ -21,6 +21,8 @@ export interface ToolCallHeaderProps {
 /**
  * Format duration in milliseconds to human-readable string
  *
+ * @param ms - Duration in milliseconds
+ * @returns Formatted duration string:
  * - < 1000ms: "123ms"
  * - < 60s: "12.3s"
  * - >= 60s: "2m 15s"
@@ -34,7 +36,10 @@ function formatDuration(ms: number): string {
 }
 
 /**
- * Format ISO timestamp to HH:MM:SS
+ * Format ISO timestamp to HH:MM:SS format
+ *
+ * @param iso - ISO 8601 timestamp string
+ * @returns Formatted time string in HH:MM:SS format (24-hour)
  */
 function formatTimestamp(iso: string): string {
   const d = new Date(iso);

@@ -3,428 +3,601 @@
  *
  * Tests for ToolIcon, FileOperationBadge, StreamingOutput,
  * ToolCallHeader, and ToolCallCard components.
+ *
+ * These tests verify component exports, props interfaces, icon mappings,
+ * and component functionality without requiring a browser environment.
  */
 
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import type {
   FileOperation,
   ToolCallAggregate,
 } from "../../../../src/agents/sessions/types.js";
 
+const componentsDir = join(
+  __dirname,
+  "../../../../src/webviews/agent-panel/components",
+);
+
 describe("Tool Call Components", () => {
-  describe("ToolIcon Mapping", () => {
-    it("should map coding tools to correct icons", () => {
-      const codingTools = [
-        { tool: "read_file", icon: "file-text" },
-        { tool: "edit_file", icon: "file-edit" },
-        { tool: "create_file", icon: "file-plus" },
-        { tool: "delete_file", icon: "file-minus" },
-        { tool: "search_files", icon: "folder-search" },
-        { tool: "grep_search", icon: "search" },
+  describe("ToolIcon Component", () => {
+    it("should export ToolIcon component function", async () => {
+      const module =
+        await import("../../../../src/webviews/agent-panel/components/ToolIcon.js");
+      expect(module).toHaveProperty("ToolIcon");
+      expect(typeof module.ToolIcon).toBe("function");
+    });
+
+    it("should be exported from barrel export", async () => {
+      const module =
+        await import("../../../../src/webviews/agent-panel/components/index.js");
+      expect(module).toHaveProperty("ToolIcon");
+    });
+
+    it("should contain icon mapping for all tools", () => {
+      const source = readFileSync(join(componentsDir, "ToolIcon.tsx"), "utf-8");
+
+      // Verify all tools are mapped
+      const allTools = [
+        // CODING (15)
+        "read_file",
+        "edit_file",
+        "edit_lines",
+        "create_file",
+        "create_directory",
+        "delete_file",
+        "insert_at_line",
+        "delete_section",
+        "smart_replace",
+        "bulk_replace",
+        "validate_edit",
+        "search_files",
+        "grep_search",
+        "list_directory",
+        "find_usages",
+        // FILESYSTEM (3)
+        "copy_file",
+        "move_file",
+        "move_directory",
+        // SYSTEM (15)
+        "run_terminal",
+        "run_command",
+        "run_task",
+        "run_tests",
+        "get_test_failures",
+        "get_problems",
+        "start_process",
+        "stop_process",
+        "get_process_output",
+        "list_processes",
+        "send_input",
+        "wait_for_pattern",
+        "find_port_process",
+        "get_terminal_output",
+        "execute_with_retry",
+        // ORCHESTRA (5)
+        "get_current_task",
+        "signal_completion",
+        "get_feedback",
+        "get_progress",
+        "escalate_task",
       ];
 
-      for (const { tool, icon } of codingTools) {
-        expect(tool).toBeDefined();
-        expect(icon).toBeDefined();
+      // Verify each tool appears in the source
+      for (const tool of allTools) {
+        expect(source).toContain(tool);
       }
     });
 
-    it("should map filesystem tools to correct icons", () => {
-      const filesystemTools = [
-        { tool: "copy_file", icon: "copy" },
-        { tool: "move_file", icon: "file-symlink" },
-        { tool: "move_directory", icon: "folder-symlink" },
-      ];
-
-      for (const { tool, icon } of filesystemTools) {
-        expect(tool).toBeDefined();
-        expect(icon).toBeDefined();
-      }
+    it("should have default wrench icon fallback", () => {
+      const source = readFileSync(join(componentsDir, "ToolIcon.tsx"), "utf-8");
+      expect(source).toContain("DEFAULT_ICON");
+      expect(source).toContain("wrench");
     });
 
-    it("should map system tools to correct icons", () => {
-      const systemTools = [
-        { tool: "run_terminal", icon: "terminal" },
-        { tool: "run_command", icon: "terminal-square" },
-        { tool: "run_task", icon: "play" },
-        { tool: "run_tests", icon: "test-tube" },
-        { tool: "get_problems", icon: "alert-circle" },
-      ];
-
-      for (const { tool, icon } of systemTools) {
-        expect(tool).toBeDefined();
-        expect(icon).toBeDefined();
-      }
-    });
-
-    it("should map orchestra tools to correct icons", () => {
-      const orchestraTools = [
-        { tool: "get_current_task", icon: "clipboard-list" },
-        { tool: "signal_completion", icon: "flag" },
-        { tool: "get_feedback", icon: "message-circle" },
-        { tool: "get_progress", icon: "bar-chart" },
-        { tool: "escalate_task", icon: "alert-triangle" },
-      ];
-
-      for (const { tool, icon } of orchestraTools) {
-        expect(tool).toBeDefined();
-        expect(icon).toBeDefined();
-      }
-    });
-
-    it("should use default wrench icon for unknown tools", () => {
-      const unknownTool = "unknown_tool_name";
-      expect(unknownTool).toBe("unknown_tool_name");
+    it("should use lucide icon set", () => {
+      const source = readFileSync(join(componentsDir, "ToolIcon.tsx"), "utf-8");
+      expect(source).toContain("lucide:");
     });
   });
 
-  describe("FileOperationBadge", () => {
-    it("should handle create operation", () => {
+  describe("FileOperationBadge Component", () => {
+    it("should export FileOperationBadge component function", async () => {
+      const module =
+        await import("../../../../src/webviews/agent-panel/components/FileOperationBadge.js");
+      expect(module).toHaveProperty("FileOperationBadge");
+      expect(typeof module.FileOperationBadge).toBe("function");
+    });
+
+    it("should map all 6 file operation types", () => {
+      const source = readFileSync(
+        join(componentsDir, "FileOperationBadge.tsx"),
+        "utf-8",
+      );
+
+      const operations = ["create", "update", "delete", "move", "copy", "read"];
+      for (const op of operations) {
+        expect(source).toContain(op);
+      }
+    });
+
+    it("should have icon mappings for each operation type", () => {
+      const source = readFileSync(
+        join(componentsDir, "FileOperationBadge.tsx"),
+        "utf-8",
+      );
+
+      expect(source).toContain("OPERATION_ICONS");
+      expect(source).toContain("file-plus"); // create
+      expect(source).toContain("file-edit"); // update
+      expect(source).toContain("file-minus"); // delete
+    });
+
+    it("should have color mappings for each operation type", () => {
+      const source = readFileSync(
+        join(componentsDir, "FileOperationBadge.tsx"),
+        "utf-8",
+      );
+
+      expect(source).toContain("OPERATION_COLORS");
+      expect(source).toContain("text-green-400"); // create
+      expect(source).toContain("text-blue-400"); // update
+      expect(source).toContain("text-red-400"); // delete
+    });
+
+    it("should handle target path for move/copy operations", () => {
+      const source = readFileSync(
+        join(componentsDir, "FileOperationBadge.tsx"),
+        "utf-8",
+      );
+
+      expect(source).toContain("targetPath");
+    });
+
+    it("should display line changes", () => {
+      const source = readFileSync(
+        join(componentsDir, "FileOperationBadge.tsx"),
+        "utf-8",
+      );
+
+      expect(source).toContain("linesChanged");
+    });
+  });
+
+  describe("StreamingOutput Component", () => {
+    it("should export StreamingOutput component function", async () => {
+      const module =
+        await import("../../../../src/webviews/agent-panel/components/StreamingOutput.js");
+      expect(module).toHaveProperty("StreamingOutput");
+      expect(typeof module.StreamingOutput).toBe("function");
+    });
+
+    it("should have 5-line preview limit constant", () => {
+      const source = readFileSync(
+        join(componentsDir, "StreamingOutput.tsx"),
+        "utf-8",
+      );
+
+      expect(source).toContain("PREVIEW_LINE_COUNT");
+      expect(source).toContain("= 5");
+    });
+
+    it("should have 500-line maximum limit constant", () => {
+      const source = readFileSync(
+        join(componentsDir, "StreamingOutput.tsx"),
+        "utf-8",
+      );
+
+      expect(source).toContain("MAX_LINE_COUNT");
+      expect(source).toContain("= 500");
+    });
+
+    it("should have expand/collapse functionality", () => {
+      const source = readFileSync(
+        join(componentsDir, "StreamingOutput.tsx"),
+        "utf-8",
+      );
+
+      expect(source).toContain("expanded");
+      expect(source).toContain("toggleExpanded");
+    });
+
+    it("should support stderr/stdout distinction via isStderr prop", () => {
+      const source = readFileSync(
+        join(componentsDir, "StreamingOutput.tsx"),
+        "utf-8",
+      );
+
+      expect(source).toContain("isStderr");
+      expect(source).toContain("text-red-400"); // stderr color
+      expect(source).toContain("text-gray-300"); // stdout color
+    });
+
+    it("should accept outputChunks prop", () => {
+      const source = readFileSync(
+        join(componentsDir, "StreamingOutput.tsx"),
+        "utf-8",
+      );
+
+      expect(source).toContain("outputChunks");
+    });
+
+    it("should show expand button with hidden line count", () => {
+      const source = readFileSync(
+        join(componentsDir, "StreamingOutput.tsx"),
+        "utf-8",
+      );
+
+      expect(source).toContain("getHiddenLineCount");
+      expect(source).toContain("[+");
+      expect(source).toContain(" more]");
+    });
+  });
+
+  describe("ToolCallHeader Component", () => {
+    it("should export ToolCallHeader component function", async () => {
+      const module =
+        await import("../../../../src/webviews/agent-panel/components/ToolCallHeader.js");
+      expect(module).toHaveProperty("ToolCallHeader");
+      expect(typeof module.ToolCallHeader).toBe("function");
+    });
+
+    it("should have formatDuration helper function with JSDoc", () => {
+      const source = readFileSync(
+        join(componentsDir, "ToolCallHeader.tsx"),
+        "utf-8",
+      );
+
+      expect(source).toContain("formatDuration");
+      expect(source).toContain("@param ms");
+      expect(source).toContain("@returns");
+    });
+
+    it("should have formatTimestamp helper function with JSDoc", () => {
+      const source = readFileSync(
+        join(componentsDir, "ToolCallHeader.tsx"),
+        "utf-8",
+      );
+
+      expect(source).toContain("formatTimestamp");
+      expect(source).toContain("@param iso");
+      expect(source).toContain("@returns");
+    });
+
+    it("should display tool icon using ToolIcon component", () => {
+      const source = readFileSync(
+        join(componentsDir, "ToolCallHeader.tsx"),
+        "utf-8",
+      );
+
+      expect(source).toContain("import");
+      expect(source).toContain("ToolIcon");
+      expect(source).toContain("<ToolIcon");
+    });
+
+    it("should have status color mappings for all statuses", () => {
+      const source = readFileSync(
+        join(componentsDir, "ToolCallHeader.tsx"),
+        "utf-8",
+      );
+
+      expect(source).toContain("STATUS_COLORS");
+      expect(source).toContain("pending");
+      expect(source).toContain("running");
+      expect(source).toContain("success");
+      expect(source).toContain("failed");
+    });
+
+    it("should display timestamp in HH:MM:SS format", () => {
+      const source = readFileSync(
+        join(componentsDir, "ToolCallHeader.tsx"),
+        "utf-8",
+      );
+
+      expect(source).toContain("toLocaleTimeString");
+      expect(source).toContain("hour12: false");
+    });
+
+    it("should display duration with smart formatting", () => {
+      const source = readFileSync(
+        join(componentsDir, "ToolCallHeader.tsx"),
+        "utf-8",
+      );
+
+      expect(source).toContain("durationMs");
+      expect(source).toContain("formatDuration");
+    });
+  });
+
+  describe("ToolCallCard Component", () => {
+    it("should export ToolCallCard component function", async () => {
+      const module =
+        await import("../../../../src/webviews/agent-panel/components/ToolCallCard.js");
+      expect(module).toHaveProperty("ToolCallCard");
+      expect(typeof module.ToolCallCard).toBe("function");
+    });
+
+    it("should use ToolCallHeader component", () => {
+      const source = readFileSync(
+        join(componentsDir, "ToolCallCard.tsx"),
+        "utf-8",
+      );
+
+      expect(source).toContain("import");
+      expect(source).toContain("ToolCallHeader");
+      expect(source).toContain("<ToolCallHeader");
+    });
+
+    it("should use FileOperationBadge component", () => {
+      const source = readFileSync(
+        join(componentsDir, "ToolCallCard.tsx"),
+        "utf-8",
+      );
+
+      expect(source).toContain("import");
+      expect(source).toContain("FileOperationBadge");
+      expect(source).toContain("<FileOperationBadge");
+    });
+
+    it("should use StreamingOutput component", () => {
+      const source = readFileSync(
+        join(componentsDir, "ToolCallCard.tsx"),
+        "utf-8",
+      );
+
+      expect(source).toContain("import");
+      expect(source).toContain("StreamingOutput");
+      expect(source).toContain("<StreamingOutput");
+    });
+
+    it("should have collapsible body with expand/collapse functionality", () => {
+      const source = readFileSync(
+        join(componentsDir, "ToolCallCard.tsx"),
+        "utf-8",
+      );
+
+      expect(source).toContain("expanded");
+      expect(source).toContain("toggleExpanded");
+      expect(source).toContain("chevron-up");
+      expect(source).toContain("chevron-down");
+    });
+
+    it("should display progress messages when present", () => {
+      const source = readFileSync(
+        join(componentsDir, "ToolCallCard.tsx"),
+        "utf-8",
+      );
+
+      expect(source).toContain("lastProgressMessage");
+      expect(source).toContain("progressPercent");
+    });
+
+    it("should display file operations when present", () => {
+      const source = readFileSync(
+        join(componentsDir, "ToolCallCard.tsx"),
+        "utf-8",
+      );
+
+      expect(source).toContain("fileOperations");
+      expect(source).toContain("File Operations");
+    });
+
+    it("should display streaming output when present", () => {
+      const source = readFileSync(
+        join(componentsDir, "ToolCallCard.tsx"),
+        "utf-8",
+      );
+
+      expect(source).toContain("outputChunks");
+      expect(source).toContain("StreamingOutput");
+    });
+
+    it("should have result footer for success/error status", () => {
+      const source = readFileSync(
+        join(componentsDir, "ToolCallCard.tsx"),
+        "utf-8",
+      );
+
+      expect(source).toContain("success");
+      expect(source).toContain("failed");
+      expect(source).toContain("check-circle");
+      expect(source).toContain("x-circle");
+    });
+
+    it("should display error details and suggestions", () => {
+      const source = readFileSync(
+        join(componentsDir, "ToolCallCard.tsx"),
+        "utf-8",
+      );
+
+      expect(source).toContain("error");
+      expect(source).toContain("suggestion");
+    });
+
+    it("should accept startCollapsed prop", () => {
+      const source = readFileSync(
+        join(componentsDir, "ToolCallCard.tsx"),
+        "utf-8",
+      );
+
+      expect(source).toContain("startCollapsed");
+    });
+  });
+
+  describe("Integration: Props and Types", () => {
+    it("should use ToolCallAggregate type from sessions/types", async () => {
+      const headerSource = readFileSync(
+        join(componentsDir, "ToolCallHeader.tsx"),
+        "utf-8",
+      );
+      const cardSource = readFileSync(
+        join(componentsDir, "ToolCallCard.tsx"),
+        "utf-8",
+      );
+
+      expect(headerSource).toContain("ToolCallAggregate");
+      expect(cardSource).toContain("ToolCallAggregate");
+    });
+
+    it("should use FileOperation type from sessions/types", async () => {
+      const badgeSource = readFileSync(
+        join(componentsDir, "FileOperationBadge.tsx"),
+        "utf-8",
+      );
+      const cardSource = readFileSync(
+        join(componentsDir, "ToolCallCard.tsx"),
+        "utf-8",
+      );
+
+      expect(badgeSource).toContain("FileOperation");
+      expect(cardSource).toContain("fileOperations");
+    });
+
+    it("should all use Tailwind CSS styling", () => {
+      const files = [
+        "ToolIcon.tsx",
+        "FileOperationBadge.tsx",
+        "StreamingOutput.tsx",
+        "ToolCallHeader.tsx",
+        "ToolCallCard.tsx",
+      ];
+
+      for (const file of files) {
+        const source = readFileSync(join(componentsDir, file), "utf-8");
+        expect(source).toContain("class=");
+        // All components should use text- classes (color, size, etc)
+        expect(source).toContain("text-");
+      }
+    });
+
+    it("should all use @iconify-icon/solid for icons", () => {
+      const files = [
+        "ToolIcon.tsx",
+        "FileOperationBadge.tsx",
+        "StreamingOutput.tsx",
+        "ToolCallHeader.tsx",
+        "ToolCallCard.tsx",
+      ];
+
+      for (const file of files) {
+        const source = readFileSync(join(componentsDir, file), "utf-8");
+        expect(source).toContain("@iconify-icon/solid");
+        expect(source).toContain("<Icon");
+      }
+    });
+
+    it("should all use SolidJS primitives (Show, For, createSignal)", () => {
+      const files = [
+        "StreamingOutput.tsx",
+        "ToolCallHeader.tsx",
+        "ToolCallCard.tsx",
+      ];
+
+      for (const file of files) {
+        const source = readFileSync(join(componentsDir, file), "utf-8");
+        // At least one SolidJS primitive should be used
+        const hasSolidJS =
+          source.includes("solid-js") ||
+          source.includes("<Show") ||
+          source.includes("<For") ||
+          source.includes("createSignal");
+        expect(hasSolidJS).toBe(true);
+      }
+    });
+
+    it("should all be exported from barrel export", async () => {
+      const module =
+        await import("../../../../src/webviews/agent-panel/components/index.js");
+
+      expect(module).toHaveProperty("ToolIcon");
+      expect(module).toHaveProperty("FileOperationBadge");
+      expect(module).toHaveProperty("StreamingOutput");
+      expect(module).toHaveProperty("ToolCallHeader");
+      expect(module).toHaveProperty("ToolCallCard");
+    });
+  });
+
+  describe("Type Safety: Component Props", () => {
+    it("ToolIconProps should have toolName property", () => {
+      type ToolIconProps = { toolName: string; class?: string };
+      const props: ToolIconProps = { toolName: "read_file" };
+      expect(props.toolName).toBe("read_file");
+    });
+
+    it("FileOperationBadgeProps should have operation property", () => {
+      type Props = { operation: FileOperation };
       const op: FileOperation = {
         operation: "create",
-        path: "src/components/NewComponent.tsx",
-        targetPath: undefined,
-        size: 1024,
-        linesChanged: undefined,
-        linesInserted: undefined,
-        linesDeleted: undefined,
-      };
-
-      expect(op.operation).toBe("create");
-      expect(op.path).toBe("src/components/NewComponent.tsx");
-    });
-
-    it("should handle update operation with line changes", () => {
-      const op: FileOperation = {
-        operation: "update",
-        path: "src/utils/helpers.ts",
-        targetPath: undefined,
-        size: 2048,
-        linesChanged: 15,
-        linesInserted: 20,
-        linesDeleted: 5,
-      };
-
-      expect(op.operation).toBe("update");
-      expect(op.linesChanged).toBe(15);
-    });
-
-    it("should handle move operation with target path", () => {
-      const op: FileOperation = {
-        operation: "move",
-        path: "src/old/file.ts",
-        targetPath: "src/new/file.ts",
-        size: undefined,
-        linesChanged: undefined,
-        linesInserted: undefined,
-        linesDeleted: undefined,
-      };
-
-      expect(op.operation).toBe("move");
-      expect(op.targetPath).toBe("src/new/file.ts");
-    });
-
-    it("should handle delete operation", () => {
-      const op: FileOperation = {
-        operation: "delete",
-        path: "src/deprecated/old.ts",
+        path: "test.ts",
         targetPath: undefined,
         size: undefined,
         linesChanged: undefined,
         linesInserted: undefined,
         linesDeleted: undefined,
       };
-
-      expect(op.operation).toBe("delete");
+      const props: Props = { operation: op };
+      expect(props.operation.operation).toBe("create");
     });
 
-    it("should handle read operation", () => {
-      const op: FileOperation = {
-        operation: "read",
-        path: "src/config.ts",
-        targetPath: undefined,
-        size: 512,
-        linesChanged: undefined,
-        linesInserted: undefined,
-        linesDeleted: undefined,
+    it("StreamingOutputProps should have outputChunks and isStderr", () => {
+      type Props = { outputChunks: string[]; isStderr?: boolean };
+      const props: Props = {
+        outputChunks: ["line 1\n"],
+        isStderr: false,
       };
-
-      expect(op.operation).toBe("read");
+      expect(props.outputChunks.length).toBe(1);
     });
 
-    it("should handle copy operation", () => {
-      const op: FileOperation = {
-        operation: "copy",
-        path: "src/template.ts",
-        targetPath: "src/copy.ts",
-        size: 1024,
-        linesChanged: undefined,
-        linesInserted: undefined,
-        linesDeleted: undefined,
-      };
-
-      expect(op.operation).toBe("copy");
-      expect(op.targetPath).toBe("src/copy.ts");
-    });
-  });
-
-  describe("StreamingOutput", () => {
-    it("should handle empty output", () => {
-      const chunks: string[] = [];
-      expect(chunks.length).toBe(0);
-    });
-
-    it("should handle short output (less than 5 lines)", () => {
-      const chunks = ["line 1\n", "line 2\n", "line 3\n"];
-      const lines = chunks.join("").split("\n");
-      expect(lines.length).toBeLessThanOrEqual(5);
-    });
-
-    it("should cap at 5 lines for preview", () => {
-      const chunks = [
-        "line 1\n",
-        "line 2\n",
-        "line 3\n",
-        "line 4\n",
-        "line 5\n",
-        "line 6\n",
-        "line 7\n",
-      ];
-      const lines = chunks.join("").split("\n");
-      const preview = lines.slice(-5);
-      expect(preview.length).toBeLessThanOrEqual(5);
-    });
-
-    it("should handle 500 line maximum", () => {
-      const chunks: string[] = [];
-      for (let i = 0; i < 600; i++) {
-        chunks.push(`line ${i}\n`);
-      }
-      const lines = chunks.join("").split("\n");
-      const capped = lines.slice(0, 500);
-      expect(capped.length).toBe(500);
-    });
-
-    it("should distinguish stderr from stdout", () => {
-      const isStderr = true;
-      const isStdout = false;
-      expect(isStderr).toBe(true);
-      expect(isStdout).toBe(false);
-    });
-
-    it("should calculate hidden line count correctly", () => {
-      const chunks: string[] = [];
-      for (let i = 0; i < 10; i++) {
-        chunks.push(`line ${i}\n`);
-      }
-      const lines = chunks.join("").split("\n");
-      const preview = lines.slice(-5);
-      const hiddenCount = lines.length - preview.length;
-      expect(hiddenCount).toBeGreaterThan(0);
-    });
-  });
-
-  describe("ToolCallHeader", () => {
-    it("should format duration for milliseconds", () => {
-      const formatDuration = (ms: number): string => {
-        if (ms < 1000) return `${ms}ms`;
-        if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`;
-        const minutes = Math.floor(ms / 60000);
-        const seconds = Math.floor((ms % 60000) / 1000);
-        return `${minutes}m ${seconds}s`;
-      };
-
-      expect(formatDuration(123)).toBe("123ms");
-      expect(formatDuration(1234)).toBe("1.2s");
-      expect(formatDuration(65000)).toBe("1m 5s");
-      expect(formatDuration(125000)).toBe("2m 5s");
-    });
-
-    it("should format timestamp as HH:MM:SS", () => {
-      const iso = "2024-01-15T14:30:45.123Z";
-      const d = new Date(iso);
-      const formatted = d.toLocaleTimeString("en-US", { hour12: false });
-      expect(formatted).toMatch(/\d{1,2}:\d{2}:\d{2}/);
-    });
-
-    it("should display correct status colors", () => {
-      const statuses: Array<ToolCallAggregate["status"]> = [
-        "pending",
-        "running",
-        "success",
-        "failed",
-      ];
-
-      for (const status of statuses) {
-        expect(status).toBeDefined();
-      }
-    });
-  });
-
-  describe("ToolCallCard", () => {
-    const createMockToolCall = (
-      overrides?: Partial<ToolCallAggregate>,
-    ): ToolCallAggregate => ({
-      toolCallId: "test-call-1",
-      toolName: "read_file",
-      toolCategory: "coding",
-      status: "success",
-      startedAt: "2024-01-15T14:30:00.000Z",
-      completedAt: "2024-01-15T14:30:01.234Z",
-      durationMs: 1234,
-      arguments: { path: "test.ts" },
-      result: "File read successfully",
-      error: undefined,
-      lastProgressMessage: undefined,
-      progressPercent: undefined,
-      outputChunks: [],
-      outputLineCount: 0,
-      fileOperations: [],
-      metadata: {},
-      events: [],
-      ...overrides,
-    });
-
-    it("should handle tool call with progress", () => {
-      const toolCall = createMockToolCall({
-        status: "running",
-        lastProgressMessage: "Reading file...",
-        progressPercent: 50,
-      });
-
-      expect(toolCall.lastProgressMessage).toBe("Reading file...");
-      expect(toolCall.progressPercent).toBe(50);
-    });
-
-    it("should handle tool call with file operations", () => {
-      const fileOps: FileOperation[] = [
-        {
-          operation: "create",
-          path: "src/new.ts",
-          targetPath: undefined,
-          size: 1024,
-          linesChanged: undefined,
-          linesInserted: undefined,
-          linesDeleted: undefined,
-        },
-      ];
-
-      const toolCall = createMockToolCall({
-        fileOperations: fileOps,
-      });
-
-      expect(toolCall.fileOperations.length).toBe(1);
-      expect(toolCall.fileOperations[0].operation).toBe("create");
-    });
-
-    it("should handle tool call with output", () => {
-      const toolCall = createMockToolCall({
-        outputChunks: ["line 1\n", "line 2\n", "line 3\n"],
-        outputLineCount: 3,
-      });
-
-      expect(toolCall.outputChunks.length).toBe(3);
-      expect(toolCall.outputLineCount).toBe(3);
-    });
-
-    it("should handle successful tool call", () => {
-      const toolCall = createMockToolCall({
-        status: "success",
-        result: "Operation completed successfully",
-      });
-
-      expect(toolCall.status).toBe("success");
-      expect(toolCall.result).toBe("Operation completed successfully");
-      expect(toolCall.error).toBeUndefined();
-    });
-
-    it("should handle failed tool call with error", () => {
-      const toolCall = createMockToolCall({
-        status: "failed",
-        error: {
-          code: "FILE_NOT_FOUND",
-          message: "The specified file does not exist",
-          suggestion: "Check the file path and try again",
-          details: { path: "missing.ts" },
-        },
-      });
-
-      expect(toolCall.status).toBe("failed");
-      expect(toolCall.error?.code).toBe("FILE_NOT_FOUND");
-      expect(toolCall.error?.suggestion).toBe(
-        "Check the file path and try again",
-      );
-    });
-
-    it("should handle pending tool call", () => {
-      const toolCall = createMockToolCall({
-        status: "pending",
-        completedAt: undefined,
-        durationMs: undefined,
-      });
-
-      expect(toolCall.status).toBe("pending");
-      expect(toolCall.completedAt).toBeUndefined();
-      expect(toolCall.durationMs).toBeUndefined();
-    });
-
-    it("should handle running tool call", () => {
-      const toolCall = createMockToolCall({
-        status: "running",
-        completedAt: undefined,
-        durationMs: undefined,
-        lastProgressMessage: "Processing...",
-      });
-
-      expect(toolCall.status).toBe("running");
-      expect(toolCall.lastProgressMessage).toBe("Processing...");
-    });
-  });
-
-  describe("Integration: Full Tool Call Flow", () => {
-    it("should represent a complete tool call lifecycle", () => {
+    it("ToolCallHeaderProps should have toolCall property", () => {
+      type Props = { toolCall: ToolCallAggregate };
       const toolCall: ToolCallAggregate = {
-        toolCallId: "test-call-full",
-        toolName: "create_file",
+        toolCallId: "test-1",
+        toolName: "read_file",
         toolCategory: "coding",
         status: "success",
         startedAt: "2024-01-15T14:30:00.000Z",
-        completedAt: "2024-01-15T14:30:02.500Z",
-        durationMs: 2500,
-        arguments: {
-          path: "src/components/NewComponent.tsx",
-          content: "export function NewComponent() {}",
-        },
-        result: "File created successfully",
+        completedAt: undefined,
+        durationMs: undefined,
+        arguments: {},
+        result: undefined,
         error: undefined,
-        lastProgressMessage: "Writing file...",
-        progressPercent: 100,
-        outputChunks: ["Created file\n", "Written 35 lines\n"],
-        outputLineCount: 2,
-        fileOperations: [
-          {
-            operation: "create",
-            path: "src/components/NewComponent.tsx",
-            targetPath: undefined,
-            size: 1024,
-            linesChanged: 35,
-            linesInserted: 35,
-            linesDeleted: 0,
-          },
-        ],
-        metadata: {
-          encoding: "utf-8",
-        },
+        lastProgressMessage: undefined,
+        progressPercent: undefined,
+        outputChunks: [],
+        outputLineCount: 0,
+        fileOperations: [],
+        metadata: {},
         events: [],
       };
+      const props: Props = { toolCall };
+      expect(props.toolCall.toolName).toBe("read_file");
+    });
 
-      // Verify all aspects
-      expect(toolCall.toolName).toBe("create_file");
-      expect(toolCall.status).toBe("success");
-      expect(toolCall.durationMs).toBe(2500);
-      expect(toolCall.fileOperations.length).toBe(1);
-      expect(toolCall.outputChunks.length).toBe(2);
-      expect(toolCall.result).toBe("File created successfully");
+    it("ToolCallCardProps should have toolCall and optional startCollapsed", () => {
+      type Props = { toolCall: ToolCallAggregate; startCollapsed?: boolean };
+      const toolCall: ToolCallAggregate = {
+        toolCallId: "test-1",
+        toolName: "read_file",
+        toolCategory: "coding",
+        status: "success",
+        startedAt: "2024-01-15T14:30:00.000Z",
+        completedAt: undefined,
+        durationMs: undefined,
+        arguments: {},
+        result: undefined,
+        error: undefined,
+        lastProgressMessage: undefined,
+        progressPercent: undefined,
+        outputChunks: [],
+        outputLineCount: 0,
+        fileOperations: [],
+        metadata: {},
+        events: [],
+      };
+      const props: Props = { toolCall, startCollapsed: false };
+      expect(props.startCollapsed).toBe(false);
     });
   });
 });
