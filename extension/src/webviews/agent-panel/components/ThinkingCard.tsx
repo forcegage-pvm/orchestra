@@ -55,6 +55,14 @@ export function ThinkingCard(props: ThinkingCardProps) {
     setExpanded(!expanded());
   };
 
+  // Get first 3 lines and remaining line count for collapsed view
+  const getCollapsedPreview = () => {
+    const lines = props.event.text.split("\n");
+    const previewLines = lines.slice(0, 3).join("\n");
+    const remainingLines = Math.max(0, lines.length - 3);
+    return { previewLines, remainingLines };
+  };
+
   return (
     <div class="bg-zinc-900 border border-gray-700 rounded-lg p-4">
       <div class="flex items-start gap-3">
@@ -68,9 +76,23 @@ export function ThinkingCard(props: ThinkingCardProps) {
             <Show when={shouldAutoCollapse()}>
               <button
                 onClick={toggleExpanded}
-                class="text-xs text-gray-500 hover:text-gray-300 transition-colors"
+                class="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-300 transition-colors"
               >
-                {isCollapsed() ? "Expand" : "Collapse"}
+                {isCollapsed() ? (
+                  <>
+                    <Show when={getCollapsedPreview().remainingLines > 0}>
+                      <span>
+                        +{getCollapsedPreview().remainingLines} more lines
+                      </span>
+                    </Show>
+                    <Icon icon="lucide:chevron-down" class="w-3 h-3" />
+                  </>
+                ) : (
+                  <>
+                    <span>Collapse</span>
+                    <Icon icon="lucide:chevron-up" class="w-3 h-3" />
+                  </>
+                )}
               </button>
             </Show>
           </div>
@@ -93,8 +115,8 @@ export function ThinkingCard(props: ThinkingCardProps) {
           </Show>
 
           <Show when={isCollapsed()}>
-            <div class="text-sm text-gray-600 italic">
-              Thinking... (click Expand to view)
+            <div class="text-sm text-gray-400 whitespace-pre-wrap break-words">
+              {getCollapsedPreview().previewLines}
             </div>
           </Show>
         </div>
