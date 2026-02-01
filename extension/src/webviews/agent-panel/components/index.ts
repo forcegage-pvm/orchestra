@@ -47,3 +47,9 @@ export type { ToolCallCardProps } from "./ToolCallCard.js";
 
 export { FooterInput } from "./FooterInput.js";
 export type { FooterInputProps } from "./FooterInput.js";
+
+export { ToolsFilter } from "./ToolsFilter.js";
+export type { ToolsFilterProps } from "./ToolsFilter.js";
+
+export { ToolsTable } from "./ToolsTable.js";
+export type { ToolsTableProps } from "./ToolsTable.js";

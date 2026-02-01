@@ -5,3 +5,4 @@
  */
 
 export { TimelineView } from "./TimelineView.js";
+export { ToolsView } from "./ToolsView.js";
