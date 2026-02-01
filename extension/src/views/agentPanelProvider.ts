@@ -9,6 +9,7 @@
 
 import * as vscode from "vscode";
 import { getEventsForSession } from "../agents/sessions/eventRepository.js";
+import { exportSession } from "../agents/sessions/exporter.js";
 import { getSession } from "../agents/sessions/sessionRepository.js";
 import { getAgentRunner } from "../extension.js";
 import { highlightRange } from "../utils/fileHighlight.js";
@@ -295,12 +296,57 @@ export class AgentPanelProvider implements vscode.WebviewViewProvider {
   private async _handleExportSession(sessionId: string): Promise<void> {
     try {
       logger.info(`Export session requested: ${sessionId}`);
-      // Session export will be implemented in export functionality tasks
-      void vscode.window.showInformationMessage(
-        `Session export not yet implemented: ${sessionId}`,
+
+      // Get workspace root from current workspace folders
+      const workspaceFolders = vscode.workspace.workspaceFolders;
+      if (!workspaceFolders || workspaceFolders.length === 0) {
+        void vscode.window.showErrorMessage("No workspace folder open");
+        return;
+      }
+      const workspaceRoot = workspaceFolders[0].uri.fsPath;
+
+      // Export session data
+      const exportData = exportSession(workspaceRoot, sessionId);
+
+      // Generate filename with timestamp
+      const timestamp = new Date()
+        .toISOString()
+        .replace(/[:.]/g, "")
+        .replace("T", "T")
+        .split(".")[0] + "Z";
+      const defaultFilename = `session-${sessionId}-${timestamp}.json`;
+
+      // Show save dialog
+      const saveUri = await vscode.window.showSaveDialog({
+        defaultUri: vscode.Uri.file(defaultFilename),
+        filters: {
+          JSON: ["json"],
+        },
+        title: "Export Session",
+      });
+
+      if (!saveUri) {
+        // User cancelled the save dialog
+        logger.debug("Export cancelled by user");
+        return;
+      }
+
+      // Write JSON to file with 2-space indentation
+      const jsonContent = JSON.stringify(exportData, null, 2);
+      await vscode.workspace.fs.writeFile(
+        saveUri,
+        Buffer.from(jsonContent, "utf-8"),
       );
+
+      void vscode.window.showInformationMessage(
+        `Session exported to ${saveUri.fsPath}`,
+      );
+      logger.info(`Session ${sessionId} exported to ${saveUri.fsPath}`);
     } catch (error) {
       logger.error(`Failed to export session: ${sessionId}`, error);
+      void vscode.window.showErrorMessage(
+        `Failed to export session: ${error instanceof Error ? error.message : "Unknown error"}`,
+      );
     }
   }
 
