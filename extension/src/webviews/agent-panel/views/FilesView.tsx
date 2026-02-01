@@ -77,6 +77,7 @@ export function FilesView() {
     // Group by operation type
     const modified = new Map<string, FileOperation>();
     const created = new Map<string, FileOperation>();
+    const deleted = new Map<string, FileOperation>();
     const read = new Map<string, FileOperation>();
 
     ops.forEach((op) => {
@@ -95,18 +96,24 @@ export function FilesView() {
             created.set(op.path, op);
           }
           break;
+        case "delete":
+          if (!deleted.has(op.path)) {
+            deleted.set(op.path, op);
+          }
+          break;
         case "read":
           if (!read.has(op.path)) {
             read.set(op.path, op);
           }
           break;
-        // Note: move, copy, delete operations are not included in the spec groups
+        // Note: move, copy operations are not displayed in separate groups
       }
     });
 
     return {
       modified: Array.from(modified.values()),
       created: Array.from(created.values()),
+      deleted: Array.from(deleted.values()),
       read: Array.from(read.values()),
     };
   });
@@ -119,6 +126,7 @@ export function FilesView() {
     return (
       groups.modified.length > 0 ||
       groups.created.length > 0 ||
+      groups.deleted.length > 0 ||
       groups.read.length > 0
     );
   });
@@ -143,6 +151,7 @@ export function FilesView() {
             each={[
               { type: "modified" as const, files: groupedFiles().modified },
               { type: "created" as const, files: groupedFiles().created },
+              { type: "deleted" as const, files: groupedFiles().deleted },
               { type: "read" as const, files: groupedFiles().read },
             ]}
           >

@@ -14,7 +14,7 @@ export interface FileRowProps {
   /** File operation to display */
   file: FileOperation;
   /** Operation type for display context */
-  operationType: "modified" | "created" | "read";
+  operationType: "modified" | "created" | "deleted" | "read";
 }
 
 /**
@@ -52,13 +52,10 @@ export function FileRow(props: FileRowProps) {
    * Handle file path click - open file in editor
    */
   const handleFileClick = () => {
-    window.postMessage(
-      {
-        type: "open_file",
-        path: props.file.path,
-      },
-      "*",
-    );
+    window.vscode.postMessage({
+      type: "open_file",
+      path: props.file.path,
+    });
   };
 
   /**
@@ -66,13 +63,10 @@ export function FileRow(props: FileRowProps) {
    */
   const handleDiffClick = (e: MouseEvent) => {
     e.stopPropagation(); // Prevent file click
-    window.postMessage(
-      {
-        type: "open_diff",
-        path: props.file.path,
-      },
-      "*",
-    );
+    window.vscode.postMessage({
+      type: "open_diff",
+      path: props.file.path,
+    });
   };
 
   /**

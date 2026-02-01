@@ -14,7 +14,7 @@ import { FileRow } from "./FileRow.js";
 
 export interface FileGroupProps {
   /** Operation type determining the group */
-  operationType: "modified" | "created" | "read";
+  operationType: "modified" | "created" | "deleted" | "read";
   /** Files in this group */
   files: FileOperation[];
 }
@@ -25,6 +25,7 @@ export interface FileGroupProps {
 const OPERATION_ICONS: Record<FileGroupProps["operationType"], string> = {
   modified: "file-edit",
   created: "sparkles",
+  deleted: "trash-2",
   read: "eye",
 };
 
@@ -34,6 +35,7 @@ const OPERATION_ICONS: Record<FileGroupProps["operationType"], string> = {
 const OPERATION_LABELS: Record<FileGroupProps["operationType"], string> = {
   modified: "Modified",
   created: "Created",
+  deleted: "Deleted",
   read: "Read",
 };
 
@@ -43,6 +45,7 @@ const OPERATION_LABELS: Record<FileGroupProps["operationType"], string> = {
 const OPERATION_COLORS: Record<FileGroupProps["operationType"], string> = {
   modified: "text-blue-400",
   created: "text-green-400",
+  deleted: "text-red-400",
   read: "text-gray-400",
 };
 
