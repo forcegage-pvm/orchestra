@@ -10,10 +10,10 @@
 import { createMemo } from "solid-js";
 import type { AgentEvent } from "../../../agents/sessions/types.js";
 import {
-  ErrorCard,
-  PromptCard,
-  ThinkingCard,
-  VirtualList,
+    ErrorCard,
+    PromptCard,
+    ThinkingCard,
+    VirtualList,
 } from "../components/index.js";
 import { events } from "../stores/index.js";
 
@@ -86,11 +86,7 @@ export function TimelineView() {
 
       case "thinking":
         return (
-          <ThinkingCard
-            event={event}
-            isStreaming={false}
-            autoCollapse={true}
-          />
+          <ThinkingCard event={event} isStreaming={false} autoCollapse={true} />
         );
 
       case "error":

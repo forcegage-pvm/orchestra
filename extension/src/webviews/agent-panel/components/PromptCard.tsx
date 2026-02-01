@@ -41,7 +41,9 @@ export function PromptCard(props: PromptCardProps) {
           </div>
 
           {/* File Attachments */}
-          <Show when={props.event.attachments && props.event.attachments.length > 0}>
+          <Show
+            when={props.event.attachments && props.event.attachments.length > 0}
+          >
             <div class="mt-3 pt-3 border-t border-gray-800">
               <div class="text-xs font-medium text-gray-500 mb-2">
                 Attachments ({props.event.attachments!.length})

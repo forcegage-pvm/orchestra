@@ -64,9 +64,7 @@ export function ErrorCard(props: ErrorCardProps) {
         />
         <div class="flex-1 min-w-0">
           <div class="flex items-center gap-2 mb-2">
-            <span
-              class={`text-sm font-medium ${severityConfig().labelColor}`}
-            >
+            <span class={`text-sm font-medium ${severityConfig().labelColor}`}>
               {severityConfig().label}
             </span>
             <Show when={props.event.code}>
@@ -76,9 +74,7 @@ export function ErrorCard(props: ErrorCardProps) {
             </Show>
           </div>
 
-          <div class="text-sm text-gray-300 mb-1">
-            {props.event.message}
-          </div>
+          <div class="text-sm text-gray-300 mb-1">{props.event.message}</div>
 
           {/* Optional suggestion for recovery */}
           <Show when={props.event.suggestion}>
