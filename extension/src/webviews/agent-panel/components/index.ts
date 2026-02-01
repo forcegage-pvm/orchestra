@@ -59,3 +59,6 @@ export type { FileGroupProps } from "./FileGroup.js";
 
 export { FileRow } from "./FileRow.js";
 export type { FileRowProps } from "./FileRow.js";
+
+export { ErrorItem } from "./ErrorItem.js";
+export type { ErrorItemProps } from "./ErrorItem.js";
