@@ -19,6 +19,9 @@ import { createEscalation } from "../database/mutations.js";
 import { AgentSession } from "./AgentSession.js";
 import { ContextManager } from "./ContextManager.js";
 import { AgentError, SessionError } from "./errors.js";
+import { createSession } from "./sessions/sessionRepository.js";
+import { SessionEventEmitter } from "./sessions/eventEmitter.js";
+import type { ToolCategory } from "./sessions/types.js";
 import { SprintMemory } from "./memory/SprintMemory.js";
 import {
   generateTaskSummary,
@@ -189,10 +192,54 @@ export class AgentRunner implements vscode.Disposable {
   // Event emitters
   private _onOutput = new vscode.EventEmitter<AgentOutput>();
   private _onStateChange = new vscode.EventEmitter<AgentState>();
+  private eventEmitter?: SessionEventEmitter;
 
   // Public event subscriptions
   readonly onOutput = this._onOutput.event;
   readonly onStateChange = this._onStateChange.event;
+
+  /**
+   * Map tool name to tool category for event emission
+   */
+  private getToolCategory(toolName: string): ToolCategory {
+    // Orchestra MCP tools
+    if (toolName.startsWith("mcp_") || toolName.startsWith("get_current_task") || 
+        toolName.startsWith("signal_completion") || toolName.startsWith("get_feedback") || 
+        toolName.startsWith("get_progress") || toolName.startsWith("escalate_task")) {
+      return "orchestra";
+    }
+
+    // Coding tools (file read/write/edit)
+    const codingTools = [
+      "read_file", "edit_file", "edit_lines", "create_file", "create_directory", 
+      "delete_file", "insert_at_line", "delete_section", "smart_replace", 
+      "bulk_replace", "validate_edit", "search_files", "grep_search", 
+      "list_directory", "find_usages"
+    ];
+    if (codingTools.includes(toolName)) {
+      return "coding";
+    }
+
+    // Filesystem tools (copy/move operations)
+    const filesystemTools = ["copy_file", "move_file", "move_directory"];
+    if (filesystemTools.includes(toolName)) {
+      return "filesystem";
+    }
+
+    // System tools (terminal, processes, tests)
+    const systemTools = [
+      "run_terminal", "run_command", "run_task", "run_tests", "get_test_failures",
+      "get_problems", "start_process", "stop_process", "get_process_output",
+      "list_processes", "send_input", "wait_for_pattern", "find_port_process",
+      "get_terminal_output", "execute_with_retry"
+    ];
+    if (systemTools.includes(toolName)) {
+      return "system";
+    }
+
+    // Default to coding for unknown tools
+    return "coding";
+  }
 
   /**
    * Create a new AgentRunner
@@ -326,6 +373,37 @@ export class AgentRunner implements vscode.Disposable {
       maxIterations,
     );
 
+    // Create database session and event emitter for persistence
+    const workspaceRoot =
+      vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? process.cwd();
+    try {
+      const dbSession = createSession(workspaceRoot, {
+        role: this.session.role,
+        taskId: options.taskId ?? 0,
+        taskTitle: undefined,
+        sprintId: this.session.sprintId,
+        status: "initializing",
+        startedAt: new Date().toISOString(),
+        lastActivityAt: new Date().toISOString(),
+        endedAt: undefined,
+        statusMessage: undefined,
+        iteration: 0,
+        maxIterations: maxIterations,
+        toolCallCount: 0,
+        successfulToolCalls: 0,
+        failedToolCalls: 0,
+        warningCount: 0,
+        filesModified: [],
+        durationMs: undefined,
+      });
+      this.eventEmitter = new SessionEventEmitter(workspaceRoot, dbSession.sessionId);
+    } catch (error) {
+      // If database session creation fails, log but continue
+      // This allows AgentRunner to work in test scenarios without database
+      console.warn("Failed to create database session:", error);
+      this.eventEmitter = undefined;
+    }
+
     // Load role-specific tools unless skipToolLoading is set (for tests with custom tools)
     // This ensures:
     // 1. Role separation - each role gets only its permitted tools
@@ -433,8 +511,10 @@ export class AgentRunner implements vscode.Disposable {
       );
     }
 
+    const previousStatus = this.session.status;
     this.isPaused = true;
     this.session.pause();
+    this.eventEmitter?.emitStatusChange(previousStatus, "paused");
     this.emitStateChange();
 
     // Wait for current step to complete
@@ -458,8 +538,10 @@ export class AgentRunner implements vscode.Disposable {
       );
     }
 
+    const previousStatus = this.session.status;
     this.isPaused = false;
     this.session.resume();
+    this.eventEmitter?.emitStatusChange(previousStatus, "running");
     this.emitStateChange();
 
     // Restart agent loop
@@ -552,8 +634,10 @@ export class AgentRunner implements vscode.Disposable {
       );
     }
 
+    const previousStatus = this.session.status;
     this.isStopped = true;
     this.session.stop();
+    this.eventEmitter?.emitStatusChange(previousStatus, "stopped");
 
     // Cancel any ongoing requests
     if (this.cancellationTokenSource) {
@@ -674,6 +758,9 @@ export class AgentRunner implements vscode.Disposable {
       const tools = this.toolRegistry.getToolDefinitions();
       console.error("[AgentRunner] Tools loaded:", tools.length);
 
+      // Emit status change to running
+      this.eventEmitter?.emitStatusChange("initializing", "running");
+
       // Main agent loop
       console.error(
         "[AgentRunner] Starting loop. maxIterations:",
@@ -690,6 +777,7 @@ export class AgentRunner implements vscode.Disposable {
       ) {
         // Increment iteration
         this.session.incrementIteration();
+        this.eventEmitter?.setIteration(this.session.currentIteration);
         console.error(
           "[AgentRunner] Loop iteration:",
           this.session.currentIteration,
@@ -725,7 +813,9 @@ export class AgentRunner implements vscode.Disposable {
 
         // If no tool calls, we're done
         if (!hadToolCalls) {
+          const previousStatus = this.session.status;
           this.session.complete();
+          this.eventEmitter?.emitStatusChange(previousStatus, "completed");
           this.emitStateChange();
           break;
         }
@@ -736,9 +826,11 @@ export class AgentRunner implements vscode.Disposable {
         this.session.currentIteration >= this.session.maxIterations &&
         this.session.status === "running"
       ) {
+        const previousStatus = this.session.status;
         this.session.fail(
           `Maximum iterations (${this.session.maxIterations}) reached`,
         );
+        this.eventEmitter?.emitStatusChange(previousStatus, "failed", `Maximum iterations (${this.session.maxIterations}) reached`);
         this.emitOutput({
           type: "error",
           timestamp: new Date().toISOString(),
@@ -1011,6 +1103,12 @@ export class AgentRunner implements vscode.Disposable {
             toolInput: chunk.input as Record<string, unknown>,
             toolCallId: chunk.callId,
           });
+          this.eventEmitter?.emitToolCall(
+            chunk.callId,
+            chunk.name,
+            this.getToolCategory(chunk.name),
+            chunk.input as Record<string, unknown>
+          );
         }
       }
 
@@ -1023,6 +1121,7 @@ export class AgentRunner implements vscode.Disposable {
           iteration: this.session.currentIteration,
           text: thinkingText,
         });
+        this.eventEmitter?.emitThinking(thinkingText);
       }
 
       // Execute tool calls
@@ -1067,8 +1166,9 @@ export class AgentRunner implements vscode.Disposable {
           text: message,
           progressPercent: percent,
         });
+        this.eventEmitter?.emitToolProgress(callId, toolName, message, percent);
       },
-      onOutput: (id: string, chunk: string) => {
+      onOutput: (id: string, chunk: string, isStderr?: boolean) => {
         this.emitOutput({
           type: "tool_output",
           timestamp: new Date().toISOString(),
@@ -1077,6 +1177,7 @@ export class AgentRunner implements vscode.Disposable {
           toolCallId: id,
           streamChunk: chunk,
         });
+        this.eventEmitter?.emitToolOutput(callId, toolName, chunk, isStderr);
       },
       onFileOperation: (id: string, event: FileOperationEvent) => {
         this.emitOutput({
@@ -1093,6 +1194,15 @@ export class AgentRunner implements vscode.Disposable {
             linesChanged: event.linesChanged,
           },
         });
+        this.eventEmitter?.emitToolFileOperation(callId, toolName, {
+          operation: event.operation,
+          path: event.path,
+          targetPath: event.targetPath,
+          size: event.size,
+          linesChanged: event.linesChanged,
+          linesInserted: event.linesInserted,
+          linesDeleted: event.linesDeleted,
+        });
       },
       onMetadata: (id: string, key: string, value: unknown) => {
         this.emitOutput({
@@ -1103,6 +1213,7 @@ export class AgentRunner implements vscode.Disposable {
           toolCallId: id,
           metadata: { [key]: value },
         });
+        this.eventEmitter?.emitToolMetadata(callId, toolName, key, value);
       },
     });
 
@@ -1188,6 +1299,19 @@ export class AgentRunner implements vscode.Disposable {
           toolSuccess,
           toolDuration: durationMs,
         });
+        this.eventEmitter?.emitToolResult(
+          toolCall.callId,
+          toolCall.name,
+          toolSuccess,
+          resultMessage,
+          durationMs,
+          toolSuccess ? undefined : {
+            code: "TOOL_EXECUTION_FAILED",
+            message: errorMessage ?? "Tool execution failed",
+            suggestion: undefined,
+            details: undefined,
+          }
+        );
 
         if (toolSuccess) {
           await this.handleTaskCompletion(toolCall.name, toolCall.input);
@@ -1236,6 +1360,26 @@ export class AgentRunner implements vscode.Disposable {
           errorMessage,
           recoverable: true,
         });
+        this.eventEmitter?.emitToolResult(
+          toolCall.callId,
+          toolCall.name,
+          false,
+          `Error: ${errorMessage}`,
+          durationMs,
+          {
+            code: "TOOL_EXECUTION_FAILED",
+            message: errorMessage,
+            suggestion: undefined,
+            details: undefined,
+          }
+        );
+        this.eventEmitter?.emitError(
+          "error",
+          "TOOL_EXECUTION_FAILED",
+          errorMessage,
+          true,
+          { toolName: toolCall.name, toolCallId: toolCall.callId }
+        );
       }
     }
   }
@@ -1765,17 +1909,26 @@ export class AgentRunner implements vscode.Disposable {
     }
 
     const errorMessage = error instanceof Error ? error.message : String(error);
+    const errorCode = error instanceof AgentError ? error.code : "UNKNOWN_ERROR";
 
+    const previousStatus = this.session.status;
     this.session.fail(errorMessage);
+    this.eventEmitter?.emitStatusChange(previousStatus, "failed", errorMessage);
 
     this.emitOutput({
       type: "error",
       timestamp: new Date().toISOString(),
       iteration: this.session.currentIteration,
-      errorCode: error instanceof AgentError ? error.code : "UNKNOWN_ERROR",
+      errorCode,
       errorMessage,
       recoverable: false,
     });
+    this.eventEmitter?.emitError(
+      "error",
+      errorCode,
+      errorMessage,
+      false
+    );
 
     this.emitStateChange();
   }
