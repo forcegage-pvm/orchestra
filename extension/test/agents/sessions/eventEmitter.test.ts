@@ -302,6 +302,21 @@ if (!moduleCompatible) {
         expect(events[0].type).toBe("thinking");
       });
 
+      it("should emit session_event payload on AgentEventBus", () => {
+        const eventBus = getAgentEventBus();
+        const emitSpy = vi.spyOn(eventBus, "emit");
+
+        const event = emitter.emitThinking("Stream this thought");
+
+        expect(emitSpy).toHaveBeenCalledTimes(1);
+        expect(emitSpy).toHaveBeenCalledWith({
+          type: "session_event",
+          event,
+        });
+
+        emitSpy.mockRestore();
+      });
+
       it("should create ThinkingEvent with token count", () => {
         const event = emitter.emitThinking("Planning implementation", 250);
 
@@ -397,6 +412,26 @@ if (!moduleCompatible) {
         expect(events).toHaveLength(1);
       });
 
+      it("should emit session_event payload on AgentEventBus", () => {
+        const eventBus = getAgentEventBus();
+        const emitSpy = vi.spyOn(eventBus, "emit");
+
+        const event = emitter.emitError(
+          "error",
+          "TEST_ERROR",
+          "Something went wrong",
+          false
+        );
+
+        expect(emitSpy).toHaveBeenCalledTimes(1);
+        expect(emitSpy).toHaveBeenCalledWith({
+          type: "session_event",
+          event,
+        });
+
+        emitSpy.mockRestore();
+      });
+
       it("should create ErrorEvent with details and suggestion", () => {
         const details = { path: "src/missing.ts", line: 42 };
         const event = emitter.emitError(
@@ -453,6 +488,26 @@ if (!moduleCompatible) {
         // Verify persistence
         const events = getEventsForSession(testWorkspaceRoot, sessionId);
         expect(events).toHaveLength(1);
+      });
+
+      it("should emit session_event payload on AgentEventBus", () => {
+        const eventBus = getAgentEventBus();
+        const emitSpy = vi.spyOn(eventBus, "emit");
+
+        const event = emitter.emitToolCall(
+          "tool-call-1",
+          "read_file",
+          "filesystem",
+          {}
+        );
+
+        expect(emitSpy).toHaveBeenCalledTimes(1);
+        expect(emitSpy).toHaveBeenCalledWith({
+          type: "session_event",
+          event,
+        });
+
+        emitSpy.mockRestore();
       });
 
       it("should handle all tool categories", () => {
@@ -524,6 +579,25 @@ if (!moduleCompatible) {
         expect(events).toHaveLength(1);
       });
 
+      it("should emit session_event payload on AgentEventBus", () => {
+        const eventBus = getAgentEventBus();
+        const emitSpy = vi.spyOn(eventBus, "emit");
+
+        const event = emitter.emitToolProgress(
+          "tool-1",
+          "build",
+          "Compiling TypeScript..."
+        );
+
+        expect(emitSpy).toHaveBeenCalledTimes(1);
+        expect(emitSpy).toHaveBeenCalledWith({
+          type: "session_event",
+          event,
+        });
+
+        emitSpy.mockRestore();
+      });
+
       it("should create ToolProgressEvent with percentage", () => {
         const event = emitter.emitToolProgress(
           "tool-1",
@@ -565,6 +639,25 @@ if (!moduleCompatible) {
         // Verify persistence
         const events = getEventsForSession(testWorkspaceRoot, sessionId);
         expect(events).toHaveLength(1);
+      });
+
+      it("should emit session_event payload on AgentEventBus", () => {
+        const eventBus = getAgentEventBus();
+        const emitSpy = vi.spyOn(eventBus, "emit");
+
+        const event = emitter.emitToolOutput(
+          "tool-1",
+          "run_command",
+          "Streaming output..."
+        );
+
+        expect(emitSpy).toHaveBeenCalledTimes(1);
+        expect(emitSpy).toHaveBeenCalledWith({
+          type: "session_event",
+          event,
+        });
+
+        emitSpy.mockRestore();
       });
 
       it("should mark stderr output", () => {
@@ -623,6 +716,34 @@ if (!moduleCompatible) {
         // Verify persistence
         const events = getEventsForSession(testWorkspaceRoot, sessionId);
         expect(events).toHaveLength(1);
+      });
+
+      it("should emit session_event payload on AgentEventBus", () => {
+        const eventBus = getAgentEventBus();
+        const emitSpy = vi.spyOn(eventBus, "emit");
+        const operation = {
+          operation: "create" as const,
+          path: "src/new-file.ts",
+          targetPath: undefined,
+          size: 1024,
+          linesChanged: undefined,
+          linesInserted: 42,
+          linesDeleted: undefined,
+        };
+
+        const event = emitter.emitToolFileOperation(
+          "tool-1",
+          "create_file",
+          operation
+        );
+
+        expect(emitSpy).toHaveBeenCalledTimes(1);
+        expect(emitSpy).toHaveBeenCalledWith({
+          type: "session_event",
+          event,
+        });
+
+        emitSpy.mockRestore();
       });
 
       it("should handle all operation types", () => {
@@ -690,6 +811,26 @@ if (!moduleCompatible) {
         // Verify persistence
         const events = getEventsForSession(testWorkspaceRoot, sessionId);
         expect(events).toHaveLength(1);
+      });
+
+      it("should emit session_event payload on AgentEventBus", () => {
+        const eventBus = getAgentEventBus();
+        const emitSpy = vi.spyOn(eventBus, "emit");
+
+        const event = emitter.emitToolMetadata(
+          "tool-1",
+          "analyze",
+          "complexity",
+          42
+        );
+
+        expect(emitSpy).toHaveBeenCalledTimes(1);
+        expect(emitSpy).toHaveBeenCalledWith({
+          type: "session_event",
+          event,
+        });
+
+        emitSpy.mockRestore();
       });
 
       it("should handle various metadata value types", () => {
