@@ -5,6 +5,30 @@
  */
 
 import { describe, expect, it, vi } from "vitest";
+
+vi.mock("vscode", () => ({
+  EventEmitter: class<T> {
+    private listeners = new Set<(payload: T) => void>();
+
+    event = (listener: (payload: T) => void) => {
+      this.listeners.add(listener);
+      return {
+        dispose: () => {
+          this.listeners.delete(listener);
+        },
+      };
+    };
+
+    fire(payload: T): void {
+      this.listeners.forEach((listener) => listener(payload));
+    }
+
+    dispose(): void {
+      this.listeners.clear();
+    }
+  },
+}));
+
 import { AgentEventBus } from "../../../src/agents/sessions/eventBus.js";
 import type { EventBusPayload } from "../../../src/agents/sessions/types.js";
 
