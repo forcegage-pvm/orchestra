@@ -48,7 +48,8 @@
 
 /* Pulse animation for active state indicators */
 @keyframes pulse {
-  0%, 100% {
+  0%,
+  100% {
     opacity: 1;
     transform: scale(1);
   }
