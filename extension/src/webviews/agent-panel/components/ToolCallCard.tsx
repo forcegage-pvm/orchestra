@@ -69,7 +69,7 @@ export function ToolCallCard(props: ToolCallCardProps) {
   };
 
   return (
-    <div class="bg-zinc-900 border border-gray-700 rounded-lg p-4">
+    <div class="bg-zinc-900 border border-gray-700 rounded-lg p-4 animate-fadeIn">
       {/* Header */}
       <div class="flex items-center justify-between mb-3">
         <ToolCallHeader toolCall={props.toolCall} />

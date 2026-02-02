@@ -55,7 +55,7 @@ export function ErrorCard(props: ErrorCardProps) {
 
   return (
     <div
-      class={`border rounded-lg p-4 ${severityConfig().borderColor} ${severityConfig().bgColor}`}
+      class={`border rounded-lg p-4 animate-fadeIn ${severityConfig().borderColor} ${severityConfig().bgColor}`}
     >
       <div class="flex items-start gap-3">
         <Icon

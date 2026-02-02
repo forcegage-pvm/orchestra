@@ -28,7 +28,7 @@ export interface PromptCardProps {
  */
 export function PromptCard(props: PromptCardProps) {
   return (
-    <div class="bg-zinc-900 border border-gray-700 rounded-lg p-4">
+    <div class="bg-zinc-900 border border-gray-700 rounded-lg p-4 animate-fadeIn">
       <div class="flex items-start gap-3">
         <Icon
           icon="lucide:message-square"
