@@ -14,6 +14,7 @@ import { RoleBadge } from "./RoleBadge.js";
 import { SessionSelector } from "./SessionSelector.js";
 import { StatusIndicator } from "./StatusIndicator.js";
 import { TaskSelector } from "./TaskSelector.js";
+import { VerbosityDropdown } from "./VerbosityDropdown.js";
 
 export interface SessionHeaderProps {
   /** Current agent session (null when no active session) */
@@ -89,6 +90,9 @@ export function SessionHeader(props: SessionHeaderProps) {
             availableSessions={props.availableSessions}
             onSessionChange={props.onSessionChange}
           />
+
+          {/* Verbosity selector */}
+          <VerbosityDropdown label="Verbosity" />
         </div>
 
         {/* Stop button */}

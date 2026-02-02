@@ -97,6 +97,17 @@
           ],
           "default": "normal",
           "description": "Verbosity level for agent output (minimal hides thinking, debug shows tokens/timing)"
+        },
+        "orchestra.agentPanel.verbosity": {
+          "type": "string",
+          "enum": [
+            "minimal",
+            "normal",
+            "verbose",
+            "debug"
+          ],
+          "default": "normal",
+          "description": "Verbosity level for the Agent Panel timeline (minimal hides thinking, debug shows full tool details)"
         }
       }
     },

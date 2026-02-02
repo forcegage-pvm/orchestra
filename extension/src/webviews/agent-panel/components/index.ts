@@ -25,6 +25,12 @@ export type { TaskSelectorProps } from "./TaskSelector.js";
 export { SessionSelector } from "./SessionSelector.js";
 export type { SessionSelectorProps } from "./SessionSelector.js";
 
+export { VerbosityDropdown } from "./VerbosityDropdown.js";
+export type {
+  VerbosityDropdownProps,
+  VerbosityOption,
+} from "./VerbosityDropdown.js";
+
 export { TabBar } from "./TabBar.js";
 
 export { PromptCard } from "./PromptCard.js";

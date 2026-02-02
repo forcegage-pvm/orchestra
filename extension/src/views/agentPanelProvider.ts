@@ -16,6 +16,7 @@ import { highlightRange } from "../utils/fileHighlight.js";
 import { OrchestraLogger } from "../utils/logger.js";
 import type {
   ExtensionMessage,
+  VerbosityLevel,
   WebviewMessage,
 } from "../webviews/agent-panel/protocol/index.js";
 
@@ -64,6 +65,18 @@ export class AgentPanelProvider implements vscode.WebviewViewProvider {
       }),
     );
 
+    // Sync verbosity when configuration changes
+    if (typeof vscode.workspace.onDidChangeConfiguration === "function") {
+      this._disposables.push(
+        vscode.workspace.onDidChangeConfiguration((event) => {
+          if (event.affectsConfiguration("orchestra.agentPanel.verbosity")) {
+            const level = this._getVerbositySetting();
+            this.postMessage({ type: "set_verbosity", level });
+          }
+        }),
+      );
+    }
+
     // Clean up when view is disposed
     this._disposables.push(
       webviewView.onDidDispose(() => {
@@ -96,6 +109,10 @@ export class AgentPanelProvider implements vscode.WebviewViewProvider {
       case "ready":
         logger.debug("Agent Panel webview ready");
         // Initialize webview state if needed
+        this.postMessage({
+          type: "set_verbosity",
+          level: this._getVerbositySetting(),
+        });
         break;
 
       case "open_file":
@@ -358,18 +375,16 @@ export class AgentPanelProvider implements vscode.WebviewViewProvider {
   /**
    * Set verbosity level
    */
-  private async _handleSetVerbosity(
-    level: "minimal" | "normal" | "verbose" | "debug",
-  ): Promise<void> {
+  private async _handleSetVerbosity(level: VerbosityLevel): Promise<void> {
     try {
       logger.debug(`Set verbosity requested: ${level}`);
-      // Update workspace configuration
+      // Update global configuration
       await vscode.workspace
         .getConfiguration("orchestra")
         .update(
           "agentPanel.verbosity",
           level,
-          vscode.ConfigurationTarget.Workspace,
+          vscode.ConfigurationTarget.Global,
         );
 
       // Echo back to webview
@@ -403,6 +418,25 @@ export class AgentPanelProvider implements vscode.WebviewViewProvider {
         `Failed to send message to agent: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
+  }
+
+  /**
+   * Get current verbosity setting with fallback
+   */
+  private _getVerbositySetting(): VerbosityLevel {
+    const config = vscode.workspace.getConfiguration("orchestra");
+    const level = config.get<VerbosityLevel>("agentPanel.verbosity");
+
+    if (
+      level === "minimal" ||
+      level === "normal" ||
+      level === "verbose" ||
+      level === "debug"
+    ) {
+      return level;
+    }
+
+    return "normal";
   }
 
   /**
