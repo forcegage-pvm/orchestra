@@ -8,10 +8,10 @@
  */
 
 import * as vscode from "vscode";
+import { getAgentEventBus } from "../agents/sessions/eventBus.js";
 import { getEventsForSession } from "../agents/sessions/eventRepository.js";
 import { exportSession } from "../agents/sessions/exporter.js";
 import { getSession } from "../agents/sessions/sessionRepository.js";
-import type { DatabaseWatcher } from "../database/watcher.js";
 import { getAgentRunner } from "../extension.js";
 import { highlightRange } from "../utils/fileHighlight.js";
 import { OrchestraLogger } from "../utils/logger.js";
@@ -37,13 +37,12 @@ export class AgentPanelProvider implements vscode.WebviewViewProvider {
   constructor(
     private readonly _extensionUri: vscode.Uri,
     private readonly _workspaceRoot: string,
-    private readonly _dbWatcher: DatabaseWatcher,
   ) {
-    // Listen for database changes and poll for new events
+    // Subscribe to EventBus for real-time session updates
     this._disposables.push(
-      this._dbWatcher.onDidChange(() => {
+      getAgentEventBus().onEvent((payload) => {
         logger.info(
-          "[AgentPanelProvider] Database change detected, polling for events",
+          `[AgentPanelProvider] EventBus payload received: ${payload.type}`,
         );
         this._pollForEvents();
       }),
