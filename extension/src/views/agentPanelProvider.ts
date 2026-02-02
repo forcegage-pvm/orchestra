@@ -45,7 +45,7 @@ export class AgentPanelProvider implements vscode.WebviewViewProvider {
         logger.info(
           `[AgentPanelProvider] EventBus payload received: ${payload.type}`,
         );
-        this._pollForEvents();
+        this._handleEventBusPayload(payload);
       }),
     );
   }
