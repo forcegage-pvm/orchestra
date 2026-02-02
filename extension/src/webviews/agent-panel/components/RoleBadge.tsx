@@ -44,6 +44,12 @@ export function RoleBadge(props: RoleBadgeProps) {
           icon: "lucide:search",
           label: "Controller",
         };
+      default:
+        // Fallback for unexpected role values
+        return {
+          icon: "lucide:help-circle",
+          label: props.role ?? "Unknown",
+        };
     }
   };
 

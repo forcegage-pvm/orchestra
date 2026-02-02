@@ -75,6 +75,9 @@ export function ToolsTable(props: ToolsTableProps) {
       case "pending":
       case "running":
         return { icon: "lucide:hourglass", color: "text-yellow-500" };
+      default:
+        // Fallback for unexpected status values
+        return { icon: "lucide:help-circle", color: "text-gray-400" };
     }
   };
 

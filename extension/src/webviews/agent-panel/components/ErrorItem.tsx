@@ -75,6 +75,15 @@ export function ErrorItem(props: ErrorItemProps) {
           bgColor: "bg-yellow-950/20",
           label: "Warning",
         };
+      default:
+        // Fallback for unexpected severity values
+        return {
+          icon: "lucide:help-circle",
+          iconColor: "text-gray-400",
+          borderColor: "border-gray-700",
+          bgColor: "bg-gray-900/20",
+          label: "Unknown",
+        };
     }
   };
 

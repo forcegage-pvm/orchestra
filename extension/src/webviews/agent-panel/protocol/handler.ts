@@ -7,7 +7,12 @@
  * Specification: specs/011-agent-panel-rework/spec.md Section 8.2
  */
 
-import { setEvents, setSession, setToolCalls } from "../stores/sessionStore.js";
+import {
+  addEvent,
+  clearEvents,
+  setSession,
+  setToolCalls,
+} from "../stores/sessionStore.js";
 import { setUi } from "../stores/uiStore.js";
 import type { ExtensionMessage } from "./types.js";
 
@@ -18,33 +23,40 @@ import type { ExtensionMessage } from "./types.js";
  * Uses exhaustive switch for type safety.
  */
 export function handleExtensionMessage(message: ExtensionMessage): void {
+  console.log("[Protocol] Received message:", message.type);
   switch (message.type) {
     case "session_update":
+      console.log("[Protocol] Session update:", message.session?.sessionId);
       setSession(message.session);
       break;
 
     case "session_list":
       // Session list handling will be added when session switching is implemented
-      // For now, just log it
       console.log("[Protocol] Received session list", message.sessions);
       break;
 
     case "event":
-      // Add single event to events store
-      setEvents(message.event.id, message.event);
+      // Add single event to events store using reactive addEvent
+      console.log(
+        "[Protocol] Single event:",
+        message.event.type,
+        message.event.id,
+      );
+      addEvent(message.event);
       break;
 
     case "events_batch":
       // Bulk add events for efficiency
+      console.log("[Protocol] Events batch:", message.events.length, "events");
       message.events.forEach((event) => {
-        setEvents(event.id, event);
+        addEvent(event);
       });
       break;
 
     case "clear":
       // Reset all stores to initial state
       setSession(null);
-      setEvents({});
+      clearEvents();
       setToolCalls({});
       break;
 
@@ -59,9 +71,9 @@ export function handleExtensionMessage(message: ExtensionMessage): void {
       setSession(null);
 
       // Clear and rebuild events
-      setEvents({});
+      clearEvents();
       message.events.forEach((event) => {
-        setEvents(event.id, event);
+        addEvent(event);
       });
       break;
 

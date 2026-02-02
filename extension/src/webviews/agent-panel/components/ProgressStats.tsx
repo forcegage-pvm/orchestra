@@ -86,7 +86,7 @@ export function ProgressStats(props: ProgressStatsProps) {
       </span>
 
       {/* Files modified count */}
-      <span>Files: {props.filesModified.length} modified</span>
+      <span>Files: {(props.filesModified ?? []).length} modified</span>
     </div>
   );
 }

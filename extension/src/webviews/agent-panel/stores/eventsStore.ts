@@ -9,7 +9,7 @@
 
 import { createStore } from "solid-js/store";
 import type { AgentEvent } from "../../../agents/sessions/types.js";
-import { events } from "./sessionStore.js";
+import { getEventsArray } from "./sessionStore.js";
 import { ui } from "./uiStore.js";
 
 /**
@@ -114,14 +114,15 @@ function getSearchableText(event: AgentEvent): string {
  */
 export function filteredEvents(): AgentEvent[] {
   const filterText = ui.filterText.toLowerCase().trim();
+  const allEvents = getEventsArray();
 
   // If no filter, return all events
   if (!filterText) {
-    return Object.values(events);
+    return allEvents;
   }
 
   // Filter events by searchable text
-  return Object.values(events).filter((event) => {
+  return allEvents.filter((event) => {
     const searchableText = getSearchableText(event);
     return searchableText.includes(filterText);
   });

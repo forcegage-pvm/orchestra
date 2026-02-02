@@ -47,7 +47,9 @@ export function VirtualList<T>(props: VirtualListProps<T>) {
   const [containerRef, setContainerRef] = createSignal<HTMLDivElement>();
 
   const virtualizer = createVirtualizer({
-    count: props.items.length,
+    get count() {
+      return props.items.length;
+    },
     getScrollElement: () => containerRef(),
     estimateSize: props.estimateSize,
     overscan: 5, // Render 5 extra items above/below viewport for smooth scrolling

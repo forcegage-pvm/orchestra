@@ -72,6 +72,14 @@ export function StatusIndicator(props: StatusIndicatorProps) {
           label: "Initializing",
           animate: false,
         };
+      default:
+        // Fallback for unexpected status values
+        return {
+          dotColor: "bg-gray-400",
+          textColor: "text-gray-400",
+          label: props.status ?? "Unknown",
+          animate: false,
+        };
     }
   };
 

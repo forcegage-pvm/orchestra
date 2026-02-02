@@ -8,8 +8,13 @@
  */
 
 export {
+  addEvent,
+  clearEvents,
+  eventKeys,
   events,
+  getEventsArray,
   session,
+  setEventKeys,
   setEvents,
   setSession,
   setToolCalls,

@@ -8,11 +8,19 @@
  */
 
 import * as vscode from "vscode";
+import type { AgentSession as AgentSessionClass } from "../agents/AgentSession.js";
 import { getAgentEventBus } from "../agents/sessions/eventBus.js";
 import { getEventsForSession } from "../agents/sessions/eventRepository.js";
 import { exportSession } from "../agents/sessions/exporter.js";
-import { getSession } from "../agents/sessions/sessionRepository.js";
-import type { EventBusPayload } from "../agents/sessions/types.js";
+import {
+  getSession,
+  getSessionsForTask,
+} from "../agents/sessions/sessionRepository.js";
+import type {
+  AgentSession,
+  AgentSessionInfo,
+  EventBusPayload,
+} from "../agents/sessions/types.js";
 import { getAgentRunner } from "../extension.js";
 import { highlightRange } from "../utils/fileHighlight.js";
 import { OrchestraLogger } from "../utils/logger.js";
@@ -23,6 +31,64 @@ import type {
 } from "../webviews/agent-panel/protocol/index.js";
 
 const logger = new OrchestraLogger();
+
+/**
+ * Convert AgentSession class instance to AgentSession interface
+ *
+ * The AgentRunner uses an AgentSession CLASS with field `id`,
+ * but the webview protocol expects the AgentSession INTERFACE with field `sessionId`.
+ * This helper bridges that gap.
+ */
+function sessionClassToInterface(session: AgentSessionClass): AgentSession {
+  return {
+    sessionId: session.id,
+    role: session.role,
+    taskId: session.taskId ?? 0,
+    taskTitle: undefined, // Not stored in the class
+    sprintId: session.sprintId,
+    startedAt: session.createdAt,
+    lastActivityAt: session.lastActivityAt,
+    endedAt: undefined, // Will be set when session ends
+    status: session.status,
+    statusMessage: undefined,
+    iteration: session.currentIteration,
+    maxIterations: session.maxIterations,
+    toolCallCount: session.toolCalls.length,
+    successfulToolCalls: session.toolCalls.filter((tc) => tc.success).length,
+    failedToolCalls: session.toolCalls.filter((tc) => !tc.success).length,
+    warningCount: 0,
+    filesModified: session.fileChanges.map((fc) => fc.path),
+    durationMs: undefined,
+  };
+}
+
+/**
+ * Convert AgentSessionInfo (from EventBus) to partial AgentSession interface
+ *
+ * AgentSessionInfo has minimal fields; we create a partial session for UI display.
+ */
+function sessionInfoToInterface(info: AgentSessionInfo): AgentSession {
+  return {
+    sessionId: info.id,
+    role: info.role,
+    taskId: info.taskId ?? 0,
+    taskTitle: info.taskTitle,
+    sprintId: "",
+    startedAt: info.startedAt,
+    lastActivityAt: info.startedAt,
+    endedAt: undefined,
+    status: info.status,
+    statusMessage: undefined,
+    iteration: 0,
+    maxIterations: 50,
+    toolCallCount: 0,
+    successfulToolCalls: 0,
+    failedToolCalls: 0,
+    warningCount: 0,
+    filesModified: [],
+    durationMs: undefined,
+  };
+}
 
 /**
  * Agent Panel WebviewView Provider
@@ -161,17 +227,16 @@ export class AgentPanelProvider implements vscode.WebviewViewProvider {
         logger.info(
           `[AgentPanelProvider] Sending session_update with ${events.length} events`,
         );
+        // Convert class to interface format
+        const sessionData = sessionClassToInterface(session);
         this.postMessage({
           type: "session_update",
-          session: {
-            id: session.id,
-            role: session.role,
-            status: session.status,
-            startedAt: session.startedAt,
-            endedAt: session.endedAt ?? undefined,
-            taskId: session.taskId ?? undefined,
-            taskTitle: session.taskTitle ?? undefined,
-          },
+          session: sessionData,
+        });
+        // Also send events batch
+        this.postMessage({
+          type: "events_batch",
+          sessionId: session.id,
           events,
         });
       } else {
@@ -202,10 +267,11 @@ export class AgentPanelProvider implements vscode.WebviewViewProvider {
     switch (payload.type) {
       case "session_start":
         this._currentSessionId = payload.session.id;
+        // Convert AgentSessionInfo to full AgentSession interface
+        const sessionData = sessionInfoToInterface(payload.session);
         this.postMessage({
           type: "session_update",
-          session: payload.session,
-          events: [],
+          session: sessionData,
         });
         break;
 
@@ -220,14 +286,19 @@ export class AgentPanelProvider implements vscode.WebviewViewProvider {
         break;
 
       case "session_end":
-        this.postMessage({
-          type: "session_update",
-          session: {
-            id: payload.sessionId,
-            status: payload.status,
-          },
-          events: [],
-        });
+        // For session end, we need to update the current session's status
+        // Get the full session from the runner if available
+        const runner = getAgentRunner();
+        const currentSession = runner.getSession();
+        if (currentSession && currentSession.id === payload.sessionId) {
+          const endedSession = sessionClassToInterface(currentSession);
+          endedSession.status = payload.status;
+          endedSession.endedAt = new Date().toISOString();
+          this.postMessage({
+            type: "session_update",
+            session: endedSession,
+          });
+        }
         break;
 
       default: {
@@ -244,11 +315,13 @@ export class AgentPanelProvider implements vscode.WebviewViewProvider {
     switch (message.type) {
       case "ready":
         logger.debug("Agent Panel webview ready");
-        // Initialize webview state if needed
+        // Initialize webview state
         this.postMessage({
           type: "set_verbosity",
           level: this._getVerbositySetting(),
         });
+        // Send current session state if there's an active session
+        this._pollForEvents();
         break;
 
       case "open_file":
@@ -273,6 +346,10 @@ export class AgentPanelProvider implements vscode.WebviewViewProvider {
 
       case "switch_session":
         void this._handleSwitchSession(message.sessionId);
+        break;
+
+      case "switch_task":
+        void this._handleSwitchTask(message.taskId);
         break;
 
       case "export_session":
@@ -450,6 +527,68 @@ export class AgentPanelProvider implements vscode.WebviewViewProvider {
   }
 
   /**
+   * Handle switch_task message - fetches sessions for a task and loads the most recent one
+   */
+  private async _handleSwitchTask(taskId: number): Promise<void> {
+    try {
+      logger.info(`Switch task requested: ${taskId}`);
+
+      // Get workspace root from current workspace folders
+      const workspaceFolders = vscode.workspace.workspaceFolders;
+      if (!workspaceFolders || workspaceFolders.length === 0) {
+        logger.error("No workspace folder found");
+        void vscode.window.showErrorMessage("No workspace folder found");
+        return;
+      }
+      const workspaceRoot = workspaceFolders[0].uri.fsPath;
+
+      // Fetch sessions for this task
+      const sessions = getSessionsForTask(workspaceRoot, taskId);
+
+      // Send session list to webview
+      this.postMessage({
+        type: "session_list",
+        sessions,
+      });
+
+      // If there are sessions, load the most recent one
+      if (sessions.length > 0) {
+        const mostRecentSession = sessions[0];
+        const events = getEventsForSession(
+          workspaceRoot,
+          mostRecentSession.sessionId,
+        );
+
+        // Post load_session message to webview
+        this.postMessage({
+          type: "load_session",
+          sessionId: mostRecentSession.sessionId,
+          events,
+        });
+
+        // Post session_update message to update the session header
+        this.postMessage({
+          type: "session_update",
+          session: mostRecentSession,
+        });
+
+        logger.info(
+          `Loaded most recent session for task ${taskId}: ${mostRecentSession.sessionId} with ${events.length} events`,
+        );
+      } else {
+        // No sessions for this task - clear the view
+        this.postMessage({ type: "clear" });
+        logger.info(`No sessions found for task ${taskId}`);
+      }
+    } catch (error) {
+      logger.error(`Failed to switch task: ${taskId}`, error);
+      void vscode.window.showErrorMessage(
+        `Failed to switch task: ${error instanceof Error ? error.message : "Unknown error"}`,
+      );
+    }
+  }
+
+  /**
    * Export session to JSON
    */
   private async _handleExportSession(sessionId: string): Promise<void> {
@@ -602,22 +741,21 @@ export class AgentPanelProvider implements vscode.WebviewViewProvider {
       ),
     );
 
+    // Debug: Log URIs to verify paths
+    logger.info(`[AgentPanel] Script URI: ${scriptUri.toString()}`);
+    logger.info(`[AgentPanel] Style URI: ${styleUri.toString()}`);
+
     return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${cspSource} 'unsafe-inline'; script-src ${cspSource};">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${cspSource} 'unsafe-inline'; script-src ${cspSource} 'unsafe-inline'; connect-src https://api.iconify.design https://api.unisvg.com https://api.simplesvg.com;">
   <link rel="stylesheet" href="${styleUri}">
   <title>Agent Panel</title>
 </head>
 <body>
   <div id="root"></div>
-  <script>
-    // Provide VS Code API to webview
-    const vscode = acquireVsCodeApi();
-    window.vscode = vscode;
-  </script>
   <script src="${scriptUri}"></script>
 </body>
 </html>`;

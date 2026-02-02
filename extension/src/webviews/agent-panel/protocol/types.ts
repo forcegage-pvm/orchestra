@@ -55,6 +55,7 @@ export interface EventMessage {
  */
 export interface EventsBatchMessage {
   type: "events_batch";
+  sessionId: string;
   events: AgentEvent[];
 }
 
@@ -155,6 +156,14 @@ export interface SwitchSessionMessage {
 }
 
 /**
+ * Switch to a different task and load its sessions
+ */
+export interface SwitchTaskMessage {
+  type: "switch_task";
+  taskId: number;
+}
+
+/**
  * Export session to JSON
  */
 export interface ExportSessionMessage {
@@ -189,6 +198,7 @@ export type WebviewMessage =
   | StopAgentMessage
   | ContinueSessionMessage
   | SwitchSessionMessage
+  | SwitchTaskMessage
   | ExportSessionMessage
   | SetVerbosityWebviewMessage
   | UserMessageMessage;

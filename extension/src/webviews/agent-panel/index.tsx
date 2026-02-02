@@ -7,14 +7,22 @@ import { events, session } from "./stores/sessionStore.js";
 import "./styles.css";
 import { TimelineView } from "./views/index.js";
 
-// Initialize message handler for Extension ↔ Webview communication
-initializeMessageHandler();
-
-// Get vscode API
+// Get VS Code API - must be called ONCE and stored globally for protocol handler
 declare const acquireVsCodeApi: () => {
   postMessage: (message: unknown) => void;
 };
 const vscode = acquireVsCodeApi();
+
+// Make vscode API available globally for protocol handler to use
+declare global {
+  interface Window {
+    vscode: typeof vscode;
+  }
+}
+window.vscode = vscode;
+
+// Initialize message handler AFTER setting window.vscode
+initializeMessageHandler();
 
 function App() {
   // Mock available tasks and sessions for now - will be populated via stores later
@@ -49,11 +57,10 @@ function App() {
   });
 
   const handleTaskChange = (taskId: number) => {
-    // For now, just post switch_session with a placeholder sessionId
-    // In full implementation, this would look up the most recent session for the task
+    // Send switch_task to extension which will fetch sessions for this task
     vscode.postMessage({
-      type: "switch_session",
-      sessionId: `session-for-task-${taskId}`,
+      type: "switch_task",
+      taskId,
     });
   };
 

@@ -799,12 +799,12 @@ export class AgentRunner implements vscode.Disposable {
     role: AgentRole,
     modelOverride?: string,
   ): Promise<void> {
-    console.error("[AgentRunner] runAgentLoop starting", {
+    console.log("[AgentRunner] runAgentLoop starting", {
       role,
       modelOverride,
     });
     if (!this.session) {
-      console.error("[AgentRunner] No session!");
+      console.log("[AgentRunner] No session!");
       throw new SessionError(
         "No session available for agent loop",
         "no-session",
@@ -813,13 +813,13 @@ export class AgentRunner implements vscode.Disposable {
 
     try {
       // Select language model
-      console.error("[AgentRunner] Selecting model...");
+      console.log("[AgentRunner] Selecting model...");
       const model = await this.selectModel(role, modelOverride);
-      console.error("[AgentRunner] Model selected:", model?.id);
+      console.log("[AgentRunner] Model selected:", model?.id);
 
       // Get tools
       const tools = this.toolRegistry.getToolDefinitions();
-      console.error("[AgentRunner] Tools loaded:", tools.length);
+      console.log("[AgentRunner] Tools loaded:", tools.length);
 
       // Emit status change to running
       this.eventEmitter?.emitStatusChange("initializing", "running");
@@ -859,7 +859,7 @@ export class AgentRunner implements vscode.Disposable {
 
         // Convert to vscode.lm format
         const chatMessages = this.convertToLMMessages(compactedMessages);
-        console.error("[AgentRunner] Sending request to LLM...");
+        console.log("[AgentRunner] Sending request to LLM...");
 
         // Send request to LLM
         const hadToolCalls = await this.sendRequest(
@@ -931,7 +931,7 @@ export class AgentRunner implements vscode.Disposable {
     role: AgentRole,
     modelOverride?: string,
   ): Promise<vscode.LanguageModelChat> {
-    console.error("[AgentRunner] selectModel", { role, modelOverride });
+    console.log("[AgentRunner] selectModel", { role, modelOverride });
     // Determine target model name
     const targetModel =
       modelOverride ??
@@ -941,7 +941,7 @@ export class AgentRunner implements vscode.Disposable {
           ? this.config.implementorModel
           : this.config.controllerModel);
 
-    console.error("[AgentRunner] targetModel:", targetModel);
+    console.log("[AgentRunner] targetModel:", targetModel);
 
     // Get all available models first
     const allModels = await vscode.lm.selectChatModels();
@@ -961,7 +961,7 @@ export class AgentRunner implements vscode.Disposable {
     // Try to find exact match by ID first
     const exactMatch = allModels.find((m) => m.id.includes(targetModel));
     if (exactMatch) {
-      console.error("[AgentRunner] Found exact match:", exactMatch.id);
+      console.log("[AgentRunner] Found exact match:", exactMatch.id);
       return exactMatch;
     }
 
@@ -982,7 +982,7 @@ export class AgentRunner implements vscode.Disposable {
             m.id.toLowerCase().includes(family),
         );
         if (familyMatch) {
-          console.error("[AgentRunner] Found family match:", familyMatch.id);
+          console.log("[AgentRunner] Found family match:", familyMatch.id);
           return familyMatch;
         }
       }
@@ -1126,15 +1126,15 @@ export class AgentRunner implements vscode.Disposable {
     token: vscode.CancellationToken,
   ): Promise<boolean> {
     if (!this.session) {
-      console.error("[AgentRunner] sendRequest: No session");
+      console.log("[AgentRunner] sendRequest: No session");
       return false;
     }
 
     try {
       // Send request
-      console.error("[AgentRunner] sendRequest: Calling model.sendRequest...");
+      console.log("[AgentRunner] sendRequest: Calling model.sendRequest...");
       const request = await model.sendRequest(messages, { tools }, token);
-      console.error("[AgentRunner] sendRequest: Got response, streaming...");
+      console.log("[AgentRunner] sendRequest: Got response, streaming...");
 
       let thinkingText = "";
       let hadToolCalls = false;
@@ -1974,7 +1974,7 @@ export class AgentRunner implements vscode.Disposable {
    * @param error - Error that occurred
    */
   private handleError(error: unknown): void {
-    console.error("[AgentRunner] handleError called:", error);
+    console.log("[AgentRunner] handleError called:", error);
     if (!this.session) {
       return;
     }
@@ -2010,3 +2010,5 @@ export class AgentRunner implements vscode.Disposable {
     this.eventEmitter.emitSessionEnd(status);
   }
 }
+
+

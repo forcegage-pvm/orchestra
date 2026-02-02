@@ -50,6 +50,16 @@ export function ErrorCard(props: ErrorCardProps) {
           label: "Warning",
           labelColor: "text-yellow-400",
         };
+      default:
+        // Fallback for unexpected severity values
+        return {
+          icon: "lucide:help-circle",
+          iconColor: "text-gray-400",
+          borderColor: "border-gray-700",
+          bgColor: "bg-gray-900/20",
+          label: "Unknown",
+          labelColor: "text-gray-400",
+        };
     }
   };
 

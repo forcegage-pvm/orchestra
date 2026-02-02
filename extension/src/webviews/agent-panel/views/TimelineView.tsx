@@ -8,17 +8,15 @@
  */
 
 import type { Accessor } from "solid-js";
-import { createMemo, Show } from "solid-js";
+import { createMemo, For, Show } from "solid-js";
 import type { AgentEvent } from "../../../agents/sessions/types.js";
 import {
     EmptyState,
     ErrorCard,
     PromptCard,
     ThinkingCard,
-    VirtualList,
 } from "../components/index.js";
-import { events } from "../stores/index.js";
-import { ui } from "../stores/uiStore.js";
+import { getEventsArray } from "../stores/index.js";
 
 export interface TimelineViewProps {
   /** Currently focused event index for keyboard navigation */
@@ -45,69 +43,19 @@ export interface TimelineViewProps {
 export function TimelineView(props: TimelineViewProps) {
   /**
    * Convert events record to sorted array by timestamp
+   * Uses getEventsArray() for proper SolidJS reactivity
    */
   const sortedEvents = createMemo(() => {
-    const eventArray = Object.values(events);
+    const eventArray = getEventsArray();
+    console.log(
+      "[TimelineView] sortedEvents recalculating, count:",
+      eventArray.length,
+    );
     return eventArray.sort(
       (a, b) =>
         new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime(),
     );
   });
-
-  /**
-   * Filter sorted events by filterText, matching against event text content
-   */
-  const filteredEvents = createMemo(() => {
-    const filterText = ui.filterText.toLowerCase();
-    if (!filterText) {
-      return sortedEvents();
-    }
-
-    return sortedEvents().filter((event) => {
-      // Check if event text contains the filter text
-      if (event.type === "prompt" && "text" in event) {
-        return event.text.toLowerCase().includes(filterText);
-      }
-      if (event.type === "thinking" && "text" in event) {
-        return event.text.toLowerCase().includes(filterText);
-      }
-      if (event.type === "error" && "message" in event) {
-        return event.message.toLowerCase().includes(filterText);
-      }
-      return false;
-    });
-  });
-
-  /**
-   * Estimate size for each event type (for VirtualList)
-   */
-  const estimateSize = (index: number): number => {
-    const event = sortedEvents()[index];
-    if (!event) return 80;
-
-    switch (event.type) {
-      case "prompt":
-        // Base height + variable text height estimate
-        return 80 + Math.min(event.text.length / 2, 200);
-      case "thinking":
-        // Collapsed: ~60px, expanded: ~200px (default to expanded)
-        return 200;
-      case "error":
-        return 100;
-      case "status_change":
-        return 60;
-      case "tool_call":
-      case "tool_progress":
-      case "tool_output":
-      case "tool_result":
-      case "tool_file_operation":
-      case "tool_metadata":
-        // Tool events will use ToolCallCard (future)
-        return 120;
-      default:
-        return 80;
-    }
-  };
 
   /**
    * Render appropriate card component based on event type
@@ -163,7 +111,7 @@ export function TimelineView(props: TimelineViewProps) {
   };
 
   return (
-    <div class="h-full">
+    <div class="h-full overflow-auto p-4 space-y-3">
       <Show
         when={sortedEvents().length > 0}
         fallback={
@@ -173,23 +121,9 @@ export function TimelineView(props: TimelineViewProps) {
           />
         }
       >
-        <Show
-          when={filteredEvents().length > 0}
-          fallback={
-            <EmptyState
-              icon="lucide:search-x"
-              message={`No events match "${ui.filterText}"`}
-            />
-          }
-        >
-          <VirtualList
-            items={filteredEvents()}
-            estimateSize={estimateSize}
-            renderItem={renderEvent}
-            height={600}
-            class="p-4 space-y-3"
-          />
-        </Show>
+        <For each={sortedEvents()}>
+          {(event, index) => renderEvent(event, index())}
+        </For>
       </Show>
     </div>
   );
