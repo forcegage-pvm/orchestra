@@ -5,6 +5,7 @@
  */
 
 export * from "./aggregateUpdater.js";
+export * from "./eventBus.js";
 export * from "./eventBatcher.js";
 export * from "./eventEmitter.js";
 export * from "./eventRepository.js";
