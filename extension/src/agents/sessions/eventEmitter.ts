@@ -87,6 +87,7 @@ export class SessionEventEmitter {
       attachments,
     };
     insertEvent(this.workspaceRoot, event);
+    getAgentEventBus().emit({ type: "session_event", event });
     return event;
   }
 
@@ -108,6 +109,7 @@ export class SessionEventEmitter {
       tokenCount,
     };
     insertEvent(this.workspaceRoot, event);
+    getAgentEventBus().emit({ type: "session_event", event });
     return event;
   }
 
@@ -135,6 +137,7 @@ export class SessionEventEmitter {
       message,
     };
     insertEvent(this.workspaceRoot, event);
+    getAgentEventBus().emit({ type: "session_event", event });
     return event;
   }
 
@@ -193,6 +196,7 @@ export class SessionEventEmitter {
       suggestion,
     };
     insertEvent(this.workspaceRoot, event);
+    getAgentEventBus().emit({ type: "session_event", event });
     return event;
   }
 
@@ -223,6 +227,7 @@ export class SessionEventEmitter {
       arguments: args,
     };
     insertEvent(this.workspaceRoot, event);
+    getAgentEventBus().emit({ type: "session_event", event });
     return event;
   }
 
@@ -253,6 +258,7 @@ export class SessionEventEmitter {
       percent,
     };
     insertEvent(this.workspaceRoot, event);
+    getAgentEventBus().emit({ type: "session_event", event });
     return event;
   }
 
@@ -283,6 +289,7 @@ export class SessionEventEmitter {
       isStderr,
     };
     insertEvent(this.workspaceRoot, event);
+    getAgentEventBus().emit({ type: "session_event", event });
     return event;
   }
 
@@ -310,6 +317,7 @@ export class SessionEventEmitter {
       operation,
     };
     insertEvent(this.workspaceRoot, event);
+    getAgentEventBus().emit({ type: "session_event", event });
     return event;
   }
 
@@ -340,6 +348,7 @@ export class SessionEventEmitter {
       value,
     };
     insertEvent(this.workspaceRoot, event);
+    getAgentEventBus().emit({ type: "session_event", event });
     return event;
   }
 
@@ -376,6 +385,7 @@ export class SessionEventEmitter {
       durationMs,
     };
     insertEvent(this.workspaceRoot, event);
+    getAgentEventBus().emit({ type: "session_event", event });
     return event;
   }
 }

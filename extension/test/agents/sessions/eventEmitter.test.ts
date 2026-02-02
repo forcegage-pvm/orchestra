@@ -255,6 +255,19 @@ if (!moduleCompatible) {
         expect(events[0].type).toBe("prompt");
       });
 
+      it("should emit session_event payload on AgentEventBus", () => {
+        const eventBus = getAgentEventBus();
+        const emitSpy = vi.spyOn(eventBus, "emit");
+
+        const event = emitter.emitPrompt("Stream this prompt");
+
+        expect(emitSpy).toHaveBeenCalledTimes(1);
+        expect(emitSpy).toHaveBeenCalledWith({
+          type: "session_event",
+          event,
+        });
+      });
+
       it("should create PromptEvent with attachments", () => {
         const attachments = [
           { path: "src/main.ts", name: "main.ts", mimeType: "text/typescript" },
@@ -322,6 +335,23 @@ if (!moduleCompatible) {
         // Verify persistence
         const events = getEventsForSession(testWorkspaceRoot, sessionId);
         expect(events).toHaveLength(1);
+      });
+
+      it("should emit session_event payload on AgentEventBus", () => {
+        const eventBus = getAgentEventBus();
+        const emitSpy = vi.spyOn(eventBus, "emit");
+
+        const event = emitter.emitStatusChange(
+          "initializing",
+          "running",
+          "Agent started"
+        );
+
+        expect(emitSpy).toHaveBeenCalledTimes(1);
+        expect(emitSpy).toHaveBeenCalledWith({
+          type: "session_event",
+          event,
+        });
       });
 
       it("should create StatusChangeEvent without message", () => {
@@ -698,6 +728,25 @@ if (!moduleCompatible) {
         // Verify persistence
         const events = getEventsForSession(testWorkspaceRoot, sessionId);
         expect(events).toHaveLength(1);
+      });
+
+      it("should emit session_event payload on AgentEventBus", () => {
+        const eventBus = getAgentEventBus();
+        const emitSpy = vi.spyOn(eventBus, "emit");
+
+        const event = emitter.emitToolResult(
+          "tool-1",
+          "read_file",
+          true,
+          "File contents here",
+          150
+        );
+
+        expect(emitSpy).toHaveBeenCalledTimes(1);
+        expect(emitSpy).toHaveBeenCalledWith({
+          type: "session_event",
+          event,
+        });
       });
 
       it("should create ToolResultEvent with error", () => {
