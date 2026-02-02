@@ -309,11 +309,12 @@ export class AgentPanelProvider implements vscode.WebviewViewProvider {
       const exportData = exportSession(workspaceRoot, sessionId);
 
       // Generate filename with timestamp
-      const timestamp = new Date()
-        .toISOString()
-        .replace(/[:.]/g, "")
-        .replace("T", "T")
-        .split(".")[0] + "Z";
+      const timestamp =
+        new Date()
+          .toISOString()
+          .replace(/[:.]/g, "")
+          .replace("T", "T")
+          .split(".")[0] + "Z";
       const defaultFilename = `session-${sessionId}-${timestamp}.json`;
 
       // Show save dialog
@@ -406,15 +407,24 @@ export class AgentPanelProvider implements vscode.WebviewViewProvider {
   private _getHtmlContent(webview: vscode.Webview): string {
     const cspSource = webview.cspSource;
 
-    // In production, this would load from the Vite build output
-    // For now, return a basic HTML structure that loads the bundled JS
+    // Load the bundled SolidJS webview from Vite build output
     const scriptUri = webview.asWebviewUri(
       vscode.Uri.joinPath(
         this._extensionUri,
-        "out",
+        "dist",
         "webviews",
         "agent-panel",
         "index.js",
+      ),
+    );
+
+    const styleUri = webview.asWebviewUri(
+      vscode.Uri.joinPath(
+        this._extensionUri,
+        "dist",
+        "webviews",
+        "agent-panel",
+        "index.css",
       ),
     );
 
@@ -424,6 +434,7 @@ export class AgentPanelProvider implements vscode.WebviewViewProvider {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${cspSource} 'unsafe-inline'; script-src ${cspSource};">
+  <link rel="stylesheet" href="${styleUri}">
   <title>Agent Panel</title>
 </head>
 <body>
