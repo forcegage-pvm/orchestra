@@ -27,7 +27,11 @@ import {
 import type { TaskOutcome } from "./memory/types.js";
 import { SessionEventEmitter } from "./sessions/eventEmitter.js";
 import { createSession } from "./sessions/sessionRepository.js";
-import type { AgentSessionInfo, SessionStatus, ToolCategory } from "./sessions/types.js";
+import type {
+  AgentSessionInfo,
+  SessionStatus,
+  ToolCategory,
+} from "./sessions/types.js";
 import { SessionStorage } from "./SessionStorage.js";
 import {
   loadControllerTools,

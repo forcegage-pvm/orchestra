@@ -135,9 +135,8 @@ vi.mock("vscode", () => ({
 const vscode = await import("vscode");
 const { AgentRunner } = await import("../../src/agents/AgentRunner.js");
 const { ToolRegistry } = await import("../../src/agents/ToolRegistry.js");
-const { sessionEventEmitterMocks } = await import(
-  "../../src/agents/sessions/eventEmitter.js"
-);
+const { sessionEventEmitterMocks } =
+  await import("../../src/agents/sessions/eventEmitter.js");
 
 const createNoToolCallModel = () => ({
   id: "model-1",
