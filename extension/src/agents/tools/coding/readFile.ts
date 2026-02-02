@@ -191,19 +191,33 @@ async function readFile(
       );
     }
 
-    if (startLine > totalLines || normalizedEndLine > totalLines) {
+    // Clamp startLine to valid range
+    if (startLine > totalLines) {
       return buildInvalidRangeResult(
-        `Line range exceeds file length of ${totalLines} lines.`,
-        "Choose line numbers within the file length.",
-        { startLine, endLine: normalizedEndLine, totalLines },
+        `startLine ${startLine} exceeds file length of ${totalLines} lines.`,
+        "Choose a startLine within the file length.",
+        { startLine, totalLines },
       );
     }
 
-    const rangeText = lines.slice(startLine - 1, normalizedEndLine).join("\n");
+    // Clamp endLine to file length (don't error, just cap it)
+    const clampedEndLine = Math.min(normalizedEndLine, totalLines);
+
+    const rangeText = lines.slice(startLine - 1, clampedEndLine).join("\n");
     const rangePartial = successResult(TOOL_NAME, rangeText, warnings);
+
+    // Add metadata about clamping if we clamped
+    const wasClipped = clampedEndLine < normalizedEndLine;
     const rangeMetadata = {
       ...rangePartial.metadata,
       ...(truncated ? { outputTruncated: true } : {}),
+      ...(wasClipped
+        ? {
+            endLineClipped: true,
+            originalEndLine: normalizedEndLine,
+            actualEndLine: clampedEndLine,
+          }
+        : {}),
     };
 
     return buildToolResult({

@@ -76,7 +76,7 @@ function App() {
   };
 
   return (
-    <div>
+    <div class="h-screen flex flex-col overflow-hidden">
       <SessionHeader
         session={session}
         availableTasks={availableTasks()}
@@ -85,7 +85,9 @@ function App() {
         onTaskChange={handleTaskChange}
         onSessionChange={handleSessionChange}
       />
-      <TimelineView focusedEventIndex={keyboardNav.focusedEventIndex} />
+      <div class="flex-1 min-h-0 overflow-hidden">
+        <TimelineView focusedEventIndex={keyboardNav.focusedEventIndex} />
+      </div>
     </div>
   );
 }

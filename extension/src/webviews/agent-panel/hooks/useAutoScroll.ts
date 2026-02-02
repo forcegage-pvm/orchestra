@@ -49,45 +49,17 @@ export interface UseAutoScrollReturn {
 }
 
 /**
- * useAutoScroll - Smart auto-scroll with pause detection
- *
- * Tracks scroll position and automatically scrolls to bottom when new events
- * arrive, unless the user has scrolled up. Shows new event count when paused.
- *
- * @example
- * ```tsx
- * const [containerRef, setContainerRef] = createSignal<HTMLElement>();
- * const autoScroll = useAutoScroll({
- *   containerRef,
- *   eventCount: () => events.length,
- * });
- *
- * return (
- *   <div ref={setContainerRef}>
- *     {autoScroll.isPaused() && (
- *       <NewEventsIndicator count={autoScroll.newEventCount()} />
- *     )}
- *   </div>
- * );
- * ```
+ * useAutoScroll - Simple auto-scroll that scrolls to bottom on new events
  */
 export function useAutoScroll(
   options: UseAutoScrollOptions,
 ): UseAutoScrollReturn {
   const { containerRef, eventCount, enabled = true } = options;
 
-  const [isNearBottom, setIsNearBottom] = createSignal(true);
   const [isPaused, setIsPaused] = createSignal(false);
   const [eventCountWhenPaused, setEventCountWhenPaused] = createSignal(0);
-
-  /**
-   * Calculate if scroll position is near bottom
-   */
-  const checkIfNearBottom = (container: HTMLElement): boolean => {
-    const { scrollTop, scrollHeight, clientHeight } = container;
-    const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
-    return distanceFromBottom <= NEAR_BOTTOM_THRESHOLD;
-  };
+  let lastScrollTop = 0;
+  let userScrolledUp = false;
 
   /**
    * Scroll to bottom of container
@@ -96,82 +68,91 @@ export function useAutoScroll(
     const container = containerRef();
     if (!container) return;
 
-    container.scrollTo({
-      top: container.scrollHeight,
-      behavior: "smooth",
-    });
+    console.log(
+      "[AutoScroll] scrollToBottom called, scrollHeight:",
+      container.scrollHeight,
+    );
+    container.scrollTop = container.scrollHeight;
   };
 
   /**
-   * Resume auto-scroll and reset counters
+   * Resume auto-scroll behavior
    */
   const resumeAutoScroll = () => {
+    console.log("[AutoScroll] resumeAutoScroll called");
+    userScrolledUp = false;
     setIsPaused(false);
     setEventCountWhenPaused(eventCount());
     scrollToBottom();
   };
 
   /**
-   * Handle scroll events to track position
+   * Check if near bottom
    */
-  const handleScroll = () => {
+  const isNearBottom = () => {
     const container = containerRef();
-    if (!container || !enabled) return;
-
-    const nearBottom = checkIfNearBottom(container);
-    setIsNearBottom(nearBottom);
-
-    // If user scrolled near bottom, consider it a manual resume
-    if (nearBottom && isPaused()) {
-      setIsPaused(false);
-      setEventCountWhenPaused(eventCount());
-    }
-    // If user scrolled up from bottom, pause auto-scroll
-    else if (!nearBottom && !isPaused()) {
-      setIsPaused(true);
-      setEventCountWhenPaused(eventCount());
-    }
+    if (!container) return true;
+    const distanceFromBottom =
+      container.scrollHeight - container.scrollTop - container.clientHeight;
+    return distanceFromBottom <= NEAR_BOTTOM_THRESHOLD;
   };
 
   /**
-   * Auto-scroll when new events arrive (if not paused)
+   * Handle scroll to detect user scrolling up
    */
-  createEffect(() => {
-    const count = eventCount(); // Track dependency
-    const paused = isPaused();
-    const nearBottom = isNearBottom();
+  const handleScroll = () => {
     const container = containerRef();
+    if (!container) return;
 
-    if (!enabled || !container) return;
+    const currentScrollTop = container.scrollTop;
 
-    // Auto-scroll if near bottom and not paused
-    if (nearBottom && !paused) {
-      // Use requestAnimationFrame to ensure DOM has updated
-      requestAnimationFrame(() => {
-        container.scrollTo({
-          top: container.scrollHeight,
-          behavior: "smooth",
-        });
-      });
+    // User scrolled up
+    if (currentScrollTop < lastScrollTop - 10) {
+      userScrolledUp = true;
+      setIsPaused(true);
+      if (eventCountWhenPaused() === 0) {
+        setEventCountWhenPaused(eventCount());
+      }
     }
-  });
+
+    // User scrolled to bottom manually
+    if (isNearBottom() && userScrolledUp) {
+      userScrolledUp = false;
+      setIsPaused(false);
+      setEventCountWhenPaused(eventCount());
+    }
+
+    lastScrollTop = currentScrollTop;
+  };
 
   /**
-   * Scroll to bottom on initial mount when container is ready
+   * Auto-scroll when new events arrive
    */
   createEffect(() => {
-    const container = containerRef();
     const count = eventCount();
+    const container = containerRef();
 
-    if (container && enabled && count > 0) {
-      // Initial scroll to bottom after content loads
-      requestAnimationFrame(() => {
-        container.scrollTo({
-          top: container.scrollHeight,
-          behavior: "instant",
-        });
-        setIsNearBottom(true);
-      });
+    console.log(
+      "[AutoScroll] Effect triggered, count:",
+      count,
+      "container:",
+      !!container,
+      "userScrolledUp:",
+      userScrolledUp,
+    );
+
+    if (!enabled || !container || count === 0) return;
+
+    // Always scroll unless user explicitly scrolled up
+    if (!userScrolledUp) {
+      // Use setTimeout to ensure DOM has rendered
+      setTimeout(() => {
+        console.log(
+          "[AutoScroll] Scrolling to bottom, scrollHeight:",
+          container.scrollHeight,
+        );
+        container.scrollTop = container.scrollHeight;
+      }, 50);
     }
   });
 
@@ -187,19 +168,6 @@ export function useAutoScroll(
     onCleanup(() => {
       container.removeEventListener("scroll", handleScroll);
     });
-  });
-
-  /**
-   * Initialize on mount
-   */
-  createEffect(() => {
-    const container = containerRef();
-    if (container && enabled) {
-      // Check initial scroll position
-      const nearBottom = checkIfNearBottom(container);
-      setIsNearBottom(nearBottom);
-      setEventCountWhenPaused(eventCount());
-    }
   });
 
   /**
