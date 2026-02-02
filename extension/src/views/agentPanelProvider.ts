@@ -12,6 +12,7 @@ import { getAgentEventBus } from "../agents/sessions/eventBus.js";
 import { getEventsForSession } from "../agents/sessions/eventRepository.js";
 import { exportSession } from "../agents/sessions/exporter.js";
 import { getSession } from "../agents/sessions/sessionRepository.js";
+import type { EventBusPayload } from "../agents/sessions/types.js";
 import { getAgentRunner } from "../extension.js";
 import { highlightRange } from "../utils/fileHighlight.js";
 import { OrchestraLogger } from "../utils/logger.js";
@@ -181,6 +182,52 @@ export class AgentPanelProvider implements vscode.WebviewViewProvider {
       }
     } catch (error) {
       logger.error("[AgentPanelProvider] Failed to poll for events", error);
+    }
+  }
+
+  /**
+   * Handle EventBus payloads
+   */
+  private _handleEventBusPayload(payload: EventBusPayload): void {
+    if (!this._view) {
+      return;
+    }
+
+    switch (payload.type) {
+      case "session_start":
+        this._currentSessionId = payload.session.id;
+        this.postMessage({
+          type: "session_update",
+          session: payload.session,
+          events: [],
+        });
+        break;
+
+      case "session_event":
+        if (payload.event.sessionId !== this._currentSessionId) {
+          return;
+        }
+        this.postMessage({
+          type: "event",
+          event: payload.event,
+        });
+        break;
+
+      case "session_end":
+        this.postMessage({
+          type: "session_update",
+          session: {
+            id: payload.sessionId,
+            status: payload.status,
+          },
+          events: [],
+        });
+        break;
+
+      default: {
+        const _exhaustive: never = payload;
+        logger.warn("Unknown EventBus payload:", _exhaustive);
+      }
     }
   }
 
