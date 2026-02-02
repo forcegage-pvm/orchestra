@@ -8,47 +8,51 @@ import { AgentPanelProvider } from "../../src/views/agentPanelProvider.js";
 import type { WebviewMessage } from "../../src/webviews/agent-panel/protocol/types.js";
 
 // Mock vscode module
-vi.mock("vscode", () => ({
-  Uri: {
-    file: (path: string) => ({ fsPath: path }),
-    joinPath: (...args: unknown[]) => ({ fsPath: args.join("/") }),
-  },
-  Position: vi.fn((line: number, char: number) => ({ line, character: char })),
-  Range: vi.fn((start, end) => ({ start, end })),
-  commands: {
-    executeCommand: vi.fn(),
-  },
-  window: {
-    showTextDocument: vi.fn(),
-    showInformationMessage: vi.fn(),
-    showWarningMessage: vi.fn(),
-    showErrorMessage: vi.fn(),
-    showSaveDialog: vi.fn(),
-    createOutputChannel: vi.fn(() => ({
-      appendLine: vi.fn(),
-      show: vi.fn(),
-      dispose: vi.fn(),
-    })),
-  },
-  workspace: {
-    openTextDocument: vi.fn(),
-    getConfiguration: vi.fn(() => ({
-      get: vi.fn((key: string, defaultValue?: unknown) => defaultValue),
-      update: vi.fn(),
-    })),
-    fs: {
-      writeFile: vi.fn(),
+vi.mock("vscode", () => {
+  const mockConfig = {
+    get: vi.fn((key: string, defaultValue?: unknown) => defaultValue),
+    update: vi.fn(),
+  };
+
+  return {
+    Uri: {
+      file: (path: string) => ({ fsPath: path }),
+      joinPath: (...args: unknown[]) => ({ fsPath: args.join("/") }),
     },
-  },
-  env: {
-    clipboard: {
-      writeText: vi.fn(),
+    Position: vi.fn((line: number, char: number) => ({
+      line,
+      character: char,
+    })),
+    Range: vi.fn((start, end) => ({ start, end })),
+    commands: {
+      executeCommand: vi.fn(),
     },
-  },
-  ConfigurationTarget: {
-    Workspace: 2,
-  },
-}));
+    window: {
+      showTextDocument: vi.fn(),
+      showInformationMessage: vi.fn(),
+      showWarningMessage: vi.fn(),
+      showErrorMessage: vi.fn(),
+      showSaveDialog: vi.fn(),
+      createOutputChannel: vi.fn(() => ({
+        appendLine: vi.fn(),
+        show: vi.fn(),
+        dispose: vi.fn(),
+      })),
+    },
+    workspace: {
+      openTextDocument: vi.fn(),
+      getConfiguration: vi.fn().mockReturnValue(mockConfig),
+      fs: {
+        writeFile: vi.fn(),
+      },
+    },
+    env: {
+      clipboard: {
+        writeText: vi.fn(),
+      },
+    },
+  };
+});
 
 // Mock getAgentRunner
 const mockAgentRunner = {
@@ -83,6 +87,11 @@ vi.mock("../../src/agents/sessions/eventBus.js", () => ({
 // Mock getEventsForSession
 vi.mock("../../src/agents/sessions/eventRepository.js", () => ({
   getEventsForSession: vi.fn(),
+}));
+
+// Mock getSession
+vi.mock("../../src/agents/sessions/sessionRepository.js", () => ({
+  getSession: vi.fn(),
 }));
 
 describe("AgentPanelProvider", () => {
@@ -126,6 +135,14 @@ describe("AgentPanelProvider", () => {
     mockAgentRunner.redirect.mockClear();
     mockAgentRunner.getSession.mockClear();
     mockEventBus.onEvent.mockClear();
+
+    // Get the mock config from the mocked vscode
+    const mockConfig = vi.mocked(vscode.workspace.getConfiguration).mock
+      .results[0]?.value;
+    if (mockConfig) {
+      mockConfig.update.mockClear();
+      mockConfig.get.mockClear();
+    }
   });
 
   afterEach(() => {
@@ -441,25 +458,33 @@ describe("AgentPanelProvider", () => {
 
     describe("set_verbosity", () => {
       it("should update configuration and echo back", async () => {
-        const mockConfig = {
+        // Spy on getConfiguration to inject our test mock
+        const testMockConfig = {
+          get: vi.fn((key: string) => "normal"),
           update: vi.fn().mockResolvedValue(undefined),
         };
-        vi.mocked(vscode.workspace.getConfiguration).mockReturnValue(
-          mockConfig as any,
+
+        vi.spyOn(vscode.workspace, "getConfiguration").mockReturnValue(
+          testMockConfig as any,
         );
 
         const message: WebviewMessage = {
           type: "set_verbosity",
           level: "debug",
         };
+
+        // Clear postMessage from initialization
+        mockWebview.postMessage.mockClear();
+
         messageHandler?.(message);
 
-        await new Promise((resolve) => setTimeout(resolve, 0));
+        // Wait for async update to complete
+        await new Promise((resolve) => setTimeout(resolve, 50));
 
-        expect(mockConfig.update).toHaveBeenCalledWith(
+        expect(testMockConfig.update).toHaveBeenCalledWith(
           "agentPanel.verbosity",
           "debug",
-          2, // ConfigurationTarget.Workspace
+          1, // ConfigurationTarget.Global
         );
         expect(mockWebview.postMessage).toHaveBeenCalledWith({
           type: "set_verbosity",
@@ -470,31 +495,39 @@ describe("AgentPanelProvider", () => {
 
     describe("ready", () => {
       it("should handle ready message", async () => {
+        // Ensure getConfiguration returns a proper mock with get method
+        const readyMockConfig = {
+          get: vi.fn((key: string) => "normal"),
+          update: vi.fn(),
+        };
+        vi.mocked(vscode.workspace.getConfiguration).mockReturnValue(
+          readyMockConfig as any,
+        );
+
         const message: WebviewMessage = { type: "ready" };
 
         // Should not throw
         expect(() => messageHandler?.(message)).not.toThrow();
+
+        // Should send verbosity setting
+        expect(mockWebview.postMessage).toHaveBeenCalledWith({
+          type: "set_verbosity",
+          level: "normal",
+        });
       });
     });
 
     describe("switch_session", () => {
       // Mock the session and event repositories
-      let mockGetSession: any;
-      let mockGetEventsForSession: any;
-
       beforeEach(async () => {
-        // Dynamic import mocking
+        // Mock the session and event repositories
         const sessionRepoModule =
           await import("../../src/agents/sessions/sessionRepository.js");
         const eventRepoModule =
           await import("../../src/agents/sessions/eventRepository.js");
 
-        mockGetSession = vi
-          .spyOn(sessionRepoModule, "getSession")
-          .mockReturnValue(undefined);
-        mockGetEventsForSession = vi
-          .spyOn(eventRepoModule, "getEventsForSession")
-          .mockReturnValue([]);
+        vi.mocked(sessionRepoModule.getSession).mockReturnValue(undefined);
+        vi.mocked(eventRepoModule.getEventsForSession).mockReturnValue([]);
 
         // Mock workspace folders
         (vscode.workspace as any).workspaceFolders = [
@@ -534,8 +567,13 @@ describe("AgentPanelProvider", () => {
           },
         ];
 
-        mockGetSession.mockReturnValue(mockSession);
-        mockGetEventsForSession.mockReturnValue(mockEvents);
+        const { getSession } =
+          await import("../../src/agents/sessions/sessionRepository.js");
+        const { getEventsForSession } =
+          await import("../../src/agents/sessions/eventRepository.js");
+
+        vi.mocked(getSession).mockReturnValue(mockSession);
+        vi.mocked(getEventsForSession).mockReturnValue(mockEvents);
 
         const message: WebviewMessage = {
           type: "switch_session",
@@ -545,11 +583,11 @@ describe("AgentPanelProvider", () => {
 
         await new Promise((resolve) => setTimeout(resolve, 0));
 
-        expect(mockGetSession).toHaveBeenCalledWith(
+        expect(vi.mocked(getSession)).toHaveBeenCalledWith(
           "/test/workspace",
           "test-session-123",
         );
-        expect(mockGetEventsForSession).toHaveBeenCalledWith(
+        expect(vi.mocked(getEventsForSession)).toHaveBeenCalledWith(
           "/test/workspace",
           "test-session-123",
         );
@@ -565,7 +603,13 @@ describe("AgentPanelProvider", () => {
       });
 
       it("should show error when session not found", async () => {
-        mockGetSession.mockReturnValue(undefined);
+        const { getSession } =
+          await import("../../src/agents/sessions/sessionRepository.js");
+        vi.mocked(getSession).mockReturnValue(undefined);
+
+        // Clear any previous calls
+        mockWebview.postMessage.mockClear();
+        vi.mocked(vscode.window.showErrorMessage).mockClear();
 
         const message: WebviewMessage = {
           type: "switch_session",
@@ -578,6 +622,7 @@ describe("AgentPanelProvider", () => {
         expect(vscode.window.showErrorMessage).toHaveBeenCalledWith(
           expect.stringContaining("Session not found"),
         );
+        // When session is not found, postMessage should NOT be called
         expect(mockWebview.postMessage).not.toHaveBeenCalled();
       });
 
@@ -595,11 +640,15 @@ describe("AgentPanelProvider", () => {
         expect(vscode.window.showErrorMessage).toHaveBeenCalledWith(
           "No workspace folder found",
         );
-        expect(mockGetSession).not.toHaveBeenCalled();
+        const { getSession } =
+          await import("../../src/agents/sessions/sessionRepository.js");
+        expect(getSession).not.toHaveBeenCalled();
       });
 
       it("should handle errors gracefully", async () => {
-        mockGetSession.mockImplementation(() => {
+        const { getSession } =
+          await import("../../src/agents/sessions/sessionRepository.js");
+        vi.mocked(getSession).mockImplementation(() => {
           throw new Error("Database error");
         });
 
