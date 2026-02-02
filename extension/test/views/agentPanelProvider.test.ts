@@ -71,6 +71,20 @@ vi.mock("../../src/utils/logger.js", () => ({
   })),
 }));
 
+// Mock getAgentEventBus
+const mockEventBus = {
+  onEvent: vi.fn(),
+};
+
+vi.mock("../../src/agents/sessions/eventBus.js", () => ({
+  getAgentEventBus: vi.fn(() => mockEventBus),
+}));
+
+// Mock getEventsForSession
+vi.mock("../../src/agents/sessions/eventRepository.js", () => ({
+  getEventsForSession: vi.fn(),
+}));
+
 describe("AgentPanelProvider", () => {
   let provider: AgentPanelProvider;
   let mockWebviewView: vscode.WebviewView;
@@ -111,6 +125,7 @@ describe("AgentPanelProvider", () => {
     mockAgentRunner.stop.mockClear();
     mockAgentRunner.redirect.mockClear();
     mockAgentRunner.getSession.mockClear();
+    mockEventBus.onEvent.mockClear();
   });
 
   afterEach(() => {
@@ -157,6 +172,64 @@ describe("AgentPanelProvider", () => {
 
       expect(mockWebview.onDidReceiveMessage).toHaveBeenCalled();
       expect(messageHandler).toBeDefined();
+    });
+
+    it("should load history when active session exists", async () => {
+      const mockSession = {
+        id: "session-1",
+        role: "orchestrator",
+        status: "running",
+        startedAt: "2023-01-01T00:00:00Z",
+        taskId: 1,
+        taskTitle: "Test task",
+      };
+      mockAgentRunner.getSession.mockReturnValue(mockSession);
+
+      const mockEvents = [
+        {
+          id: "event-1",
+          type: "prompt",
+          sessionId: "session-1",
+          timestamp: "2023-01-01T00:00:00Z",
+          iteration: 1,
+          text: "test prompt",
+          attachments: undefined,
+        },
+      ];
+
+      const { getEventsForSession } =
+        await import("../../src/agents/sessions/eventRepository.js");
+      getEventsForSession.mockReturnValue(mockEvents);
+
+      provider.resolveWebviewView(mockWebviewView, {} as any, {} as any);
+
+      expect(getEventsForSession).toHaveBeenCalledWith(
+        workspaceRoot,
+        "session-1",
+      );
+      expect(mockWebview.postMessage).toHaveBeenCalledWith({
+        type: "session_update",
+        session: {
+          id: "session-1",
+          role: "orchestrator",
+          status: "running",
+          startedAt: "2023-01-01T00:00:00Z",
+          taskId: 1,
+          taskTitle: "Test task",
+        },
+        events: mockEvents,
+      });
+    });
+
+    it("should not load history when no active session", async () => {
+      mockAgentRunner.getSession.mockReturnValue(null);
+
+      provider.resolveWebviewView(mockWebviewView, {} as any, {} as any);
+
+      const { getEventsForSession } =
+        await import("../../src/agents/sessions/eventRepository.js");
+      expect(getEventsForSession).not.toHaveBeenCalled();
+      expect(mockWebview.postMessage).not.toHaveBeenCalled();
     });
   });
 
@@ -804,6 +877,41 @@ describe("AgentPanelProvider", () => {
 
       // Should log warning (we can't easily test logger output)
       expect(mockWebview.postMessage).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("EventBus subscription", () => {
+    it("should handle session_start payload", () => {
+      provider = new AgentPanelProvider(mockExtensionUri, workspaceRoot);
+      provider.resolveWebviewView(mockWebviewView, {} as any, {} as any);
+
+      expect(mockEventBus.onEvent).toHaveBeenCalled();
+      const handler = mockEventBus.onEvent.mock.calls[0][0];
+
+      const payload: EventBusPayload = {
+        type: "session_start",
+        session: {
+          id: "session-2",
+          role: "implementor",
+          status: "running",
+          startedAt: "2023-01-01T00:00:00Z",
+          taskId: 2,
+        },
+      };
+
+      handler(payload);
+
+      expect(mockWebview.postMessage).toHaveBeenCalledWith({
+        type: "session_update",
+        session: {
+          id: "session-2",
+          role: "implementor",
+          status: "running",
+          startedAt: "2023-01-01T00:00:00Z",
+          taskId: 2,
+        },
+        events: [],
+      });
     });
   });
 });

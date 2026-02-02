@@ -95,10 +95,16 @@ export class AgentPanelProvider implements vscode.WebviewViewProvider {
       }),
     );
 
-    logger.info("[AgentPanelProvider] Webview resolved, starting initial poll");
+    logger.info(
+      "[AgentPanelProvider] Webview resolved, checking for active session",
+    );
 
-    // Initial event poll
-    this._pollForEvents();
+    // Initial event poll only if there's an active session
+    const runner = getAgentRunner();
+    const session = runner.getSession();
+    if (session) {
+      this._pollForEvents();
+    }
   }
 
   /**
