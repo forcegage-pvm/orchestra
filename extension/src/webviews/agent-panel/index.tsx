@@ -5,6 +5,7 @@ import { useKeyboardNav } from "./hooks/index.js";
 import { initializeMessageHandler } from "./protocol/index.js";
 import { events, session } from "./stores/sessionStore.js";
 import "./styles.css";
+import { TimelineView } from "./views/index.js";
 
 // Initialize message handler for Extension ↔ Webview communication
 initializeMessageHandler();
@@ -77,13 +78,7 @@ function App() {
         onTaskChange={handleTaskChange}
         onSessionChange={handleSessionChange}
       />
-      <div>
-        Agent Panel Content
-        {/* Keyboard Navigation State (for debugging/development) */}
-        <div class="text-xs text-gray-600 p-2">
-          Focused Event: {keyboardNav.focusedEventIndex()}
-        </div>
-      </div>
+      <TimelineView focusedEventIndex={keyboardNav.focusedEventIndex} />
     </div>
   );
 }

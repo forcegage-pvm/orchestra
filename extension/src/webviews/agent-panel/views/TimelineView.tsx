@@ -7,6 +7,7 @@
  * Specification: specs/011-agent-panel-rework/spec.md Section 3.5
  */
 
+import type { Accessor } from "solid-js";
 import { createMemo } from "solid-js";
 import type { AgentEvent } from "../../../agents/sessions/types.js";
 import {
@@ -17,6 +18,11 @@ import {
 } from "../components/index.js";
 import { events } from "../stores/index.js";
 
+export interface TimelineViewProps {
+  /** Currently focused event index for keyboard navigation */
+  focusedEventIndex: Accessor<number>;
+}
+
 /**
  * TimelineView - Chronological event timeline with virtual scrolling
  *
@@ -26,14 +32,15 @@ import { events } from "../stores/index.js";
  * - thinking → ThinkingCard
  * - error → ErrorCard
  *
- * Future: Will include tool_call → ToolCallCard mapping.
+ * Applies visual focus indicator (focused-event CSS class) to the event
+ * at focusedEventIndex for keyboard navigation.
  *
  * @example
  * ```tsx
- * <TimelineView />
+ * <TimelineView focusedEventIndex={keyboardNav.focusedEventIndex} />
  * ```
  */
-export function TimelineView() {
+export function TimelineView(props: TimelineViewProps) {
   /**
    * Convert events record to sorted array by timestamp
    */
@@ -78,19 +85,27 @@ export function TimelineView() {
 
   /**
    * Render appropriate card component based on event type
+   * Wraps each event in a div with conditional focused-event class
    */
-  const renderEvent = (event: AgentEvent, _index: number) => {
+  const renderEvent = (event: AgentEvent, index: number) => {
+    const isFocused = props.focusedEventIndex() === index;
+    const focusClass = isFocused ? "focused-event" : "";
+
+    let eventCard;
     switch (event.type) {
       case "prompt":
-        return <PromptCard event={event} />;
+        eventCard = <PromptCard event={event} />;
+        break;
 
       case "thinking":
-        return (
+        eventCard = (
           <ThinkingCard event={event} isStreaming={false} autoCollapse={true} />
         );
+        break;
 
       case "error":
-        return <ErrorCard event={event} />;
+        eventCard = <ErrorCard event={event} />;
+        break;
 
       // Future: Add tool_call → ToolCallCard mapping
       case "status_change":
@@ -101,21 +116,24 @@ export function TimelineView() {
       case "tool_file_operation":
       case "tool_metadata":
         // Placeholder for non-implemented event types
-        return (
+        eventCard = (
           <div class="bg-zinc-900 border border-gray-700 rounded-lg p-4">
             <div class="text-xs text-gray-600">
               Event type "{event.type}" not yet implemented
             </div>
           </div>
         );
+        break;
 
       default:
-        return (
+        eventCard = (
           <div class="bg-zinc-900 border border-gray-700 rounded-lg p-4">
             <div class="text-xs text-gray-600">Unknown event type</div>
           </div>
         );
     }
+
+    return <div class={focusClass}>{eventCard}</div>;
   };
 
   return (
