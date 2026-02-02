@@ -1,8 +1,9 @@
 import { createSignal } from "solid-js";
 import { render } from "solid-js/web";
 import { SessionHeader } from "./components/SessionHeader.js";
+import { useKeyboardNav } from "./hooks/index.js";
 import { initializeMessageHandler } from "./protocol/index.js";
-import { session } from "./stores/sessionStore.js";
+import { events, session } from "./stores/sessionStore.js";
 import "./styles.css";
 
 // Initialize message handler for Extension ↔ Webview communication
@@ -21,6 +22,30 @@ function App() {
     { taskId: 2, title: "Task 2" },
   ]);
   const [availableSessions] = createSignal([]);
+
+  // Track expanded event indices
+  const [expandedEvents, setExpandedEvents] = createSignal<Set<number>>(
+    new Set(),
+  );
+
+  // Get event count for keyboard navigation
+  const eventCount = () => Object.keys(events).length;
+
+  // Initialize keyboard navigation
+  const keyboardNav = useKeyboardNav({
+    eventCount,
+    onToggleExpand: (eventIndex: number) => {
+      setExpandedEvents((prev) => {
+        const next = new Set(prev);
+        if (next.has(eventIndex)) {
+          next.delete(eventIndex);
+        } else {
+          next.add(eventIndex);
+        }
+        return next;
+      });
+    },
+  });
 
   const handleTaskChange = (taskId: number) => {
     // For now, just post switch_session with a placeholder sessionId
@@ -52,7 +77,13 @@ function App() {
         onTaskChange={handleTaskChange}
         onSessionChange={handleSessionChange}
       />
-      <div>Agent Panel Content</div>
+      <div>
+        Agent Panel Content
+        {/* Keyboard Navigation State (for debugging/development) */}
+        <div class="text-xs text-gray-600 p-2">
+          Focused Event: {keyboardNav.focusedEventIndex()}
+        </div>
+      </div>
     </div>
   );
 }

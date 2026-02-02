@@ -9,3 +9,9 @@ export type {
   UseAutoScrollOptions,
   UseAutoScrollReturn,
 } from "./useAutoScroll.js";
+
+export { useKeyboardNav } from "./useKeyboardNav.js";
+export type {
+  UseKeyboardNavOptions,
+  UseKeyboardNavReturn,
+} from "./useKeyboardNav.js";

@@ -21,3 +21,8 @@
     opacity: 0;
   }
 }
+
+/* Focused event indicator for keyboard navigation */
+.focused-event {
+  @apply ring-2 ring-blue-500 ring-offset-2 ring-offset-zinc-950;
+}
