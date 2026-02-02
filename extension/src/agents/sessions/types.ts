@@ -63,6 +63,40 @@ export type SessionStatus =
 export type AgentRole = "orchestrator" | "implementor" | "controller";
 
 // ─────────────────────────────────────────────────────────────────
+// EventBus Payloads (Spec Addendum Section 1.1)
+// ─────────────────────────────────────────────────────────────────
+
+/**
+ * Minimal session info for event bus payloads
+ */
+export interface AgentSessionInfo {
+  id: string;
+  role: AgentRole;
+  status: SessionStatus;
+  startedAt: string; // ISO timestamp
+  taskId?: number;
+  taskTitle?: string;
+}
+
+/**
+ * Event bus payload union
+ */
+export type EventBusPayload =
+  | {
+      type: "session_start";
+      session: AgentSessionInfo;
+    }
+  | {
+      type: "session_end";
+      sessionId: string;
+      status: SessionStatus;
+    }
+  | {
+      type: "session_event";
+      event: AgentEvent;
+    };
+
+// ─────────────────────────────────────────────────────────────────
 // Session Continuation (Spec Section 1.2)
 // ─────────────────────────────────────────────────────────────────
 
