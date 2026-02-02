@@ -397,12 +397,10 @@ describe("AgentPanelProvider", () => {
 
       beforeEach(async () => {
         // Dynamic import mocking
-        const sessionRepoModule = await import(
-          "../../src/agents/sessions/sessionRepository.js"
-        );
-        const eventRepoModule = await import(
-          "../../src/agents/sessions/eventRepository.js"
-        );
+        const sessionRepoModule =
+          await import("../../src/agents/sessions/sessionRepository.js");
+        const eventRepoModule =
+          await import("../../src/agents/sessions/eventRepository.js");
 
         mockGetSession = vi
           .spyOn(sessionRepoModule, "getSession")
@@ -472,6 +470,10 @@ describe("AgentPanelProvider", () => {
           type: "load_session",
           sessionId: "test-session-123",
           events: mockEvents,
+        });
+        expect(mockWebview.postMessage).toHaveBeenCalledWith({
+          type: "session_update",
+          session: mockSession,
         });
       });
 

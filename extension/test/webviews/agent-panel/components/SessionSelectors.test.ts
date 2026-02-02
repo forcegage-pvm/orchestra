@@ -6,9 +6,9 @@
  */
 
 import { describe, expect, it, vi } from "vitest";
+import type { AgentSession } from "../../../../src/agents/sessions/types.js";
 import { SessionSelector } from "../../../../src/webviews/agent-panel/components/SessionSelector.js";
 import { TaskSelector } from "../../../../src/webviews/agent-panel/components/TaskSelector.js";
-import type { AgentSession } from "../../../../src/agents/sessions/types.js";
 
 describe("SessionSelectors", () => {
   describe("TaskSelector", () => {

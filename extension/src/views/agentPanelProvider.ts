@@ -281,6 +281,12 @@ export class AgentPanelProvider implements vscode.WebviewViewProvider {
         events,
       });
 
+      // Post session_update message to update the session header
+      this.postMessage({
+        type: "session_update",
+        session,
+      });
+
       logger.info(`Loaded session ${sessionId} with ${events.length} events`);
     } catch (error) {
       logger.error(`Failed to switch session: ${sessionId}`, error);
