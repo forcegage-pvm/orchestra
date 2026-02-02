@@ -8,12 +8,13 @@ import { AgentPanelProvider } from "../../src/views/agentPanelProvider.js";
 import type { WebviewMessage } from "../../src/webviews/agent-panel/protocol/types.js";
 
 // Mock vscode module
-vi.mock("vscode", () => {
-  const mockConfig = {
-    get: vi.fn((key: string, defaultValue?: unknown) => defaultValue),
-    update: vi.fn(),
-  };
+// Create a shared mockConfig that can be accessed in tests
+const sharedMockConfig = {
+  get: vi.fn((key: string, defaultValue?: unknown) => defaultValue),
+  update: vi.fn().mockResolvedValue(undefined),
+};
 
+vi.mock("vscode", () => {
   return {
     Uri: {
       file: (path: string) => ({ fsPath: path }),
@@ -24,6 +25,11 @@ vi.mock("vscode", () => {
       character: char,
     })),
     Range: vi.fn((start, end) => ({ start, end })),
+    ConfigurationTarget: {
+      Global: 1,
+      Workspace: 2,
+      WorkspaceFolder: 3,
+    },
     commands: {
       executeCommand: vi.fn(),
     },
@@ -41,7 +47,7 @@ vi.mock("vscode", () => {
     },
     workspace: {
       openTextDocument: vi.fn(),
-      getConfiguration: vi.fn().mockReturnValue(mockConfig),
+      getConfiguration: vi.fn(),
       fs: {
         writeFile: vi.fn(),
       },
@@ -106,6 +112,17 @@ describe("AgentPanelProvider", () => {
     workspaceRoot = "/test/workspace";
     mockExtensionUri = { fsPath: "/test/extension" } as vscode.Uri;
 
+    // Reset shared mock config and configure getConfiguration to return it
+    sharedMockConfig.get.mockReset();
+    sharedMockConfig.update.mockReset();
+    sharedMockConfig.get.mockImplementation(
+      (key: string, defaultValue?: unknown) => defaultValue,
+    );
+    sharedMockConfig.update.mockResolvedValue(undefined);
+    vi.mocked(vscode.workspace.getConfiguration).mockReturnValue(
+      sharedMockConfig as any,
+    );
+
     // Mock webview
     mockWebview = {
       html: "",
@@ -136,13 +153,14 @@ describe("AgentPanelProvider", () => {
     mockAgentRunner.getSession.mockClear();
     mockEventBus.onEvent.mockClear();
 
-    // Get the mock config from the mocked vscode
-    const mockConfig = vi.mocked(vscode.workspace.getConfiguration).mock
-      .results[0]?.value;
-    if (mockConfig) {
-      mockConfig.update.mockClear();
-      mockConfig.get.mockClear();
-    }
+    // Reset shared mock config again after clearAllMocks
+    sharedMockConfig.get.mockImplementation(
+      (key: string, defaultValue?: unknown) => defaultValue,
+    );
+    sharedMockConfig.update.mockResolvedValue(undefined);
+    vi.mocked(vscode.workspace.getConfiguration).mockReturnValue(
+      sharedMockConfig as any,
+    );
   });
 
   afterEach(() => {
@@ -458,15 +476,8 @@ describe("AgentPanelProvider", () => {
 
     describe("set_verbosity", () => {
       it("should update configuration and echo back", async () => {
-        // Spy on getConfiguration to inject our test mock
-        const testMockConfig = {
-          get: vi.fn((key: string) => "normal"),
-          update: vi.fn().mockResolvedValue(undefined),
-        };
-
-        vi.spyOn(vscode.workspace, "getConfiguration").mockReturnValue(
-          testMockConfig as any,
-        );
+        // Use the shared mock config
+        sharedMockConfig.update.mockClear();
 
         const message: WebviewMessage = {
           type: "set_verbosity",
@@ -481,7 +492,7 @@ describe("AgentPanelProvider", () => {
         // Wait for async update to complete
         await new Promise((resolve) => setTimeout(resolve, 50));
 
-        expect(testMockConfig.update).toHaveBeenCalledWith(
+        expect(sharedMockConfig.update).toHaveBeenCalledWith(
           "agentPanel.verbosity",
           "debug",
           1, // ConfigurationTarget.Global
@@ -495,14 +506,8 @@ describe("AgentPanelProvider", () => {
 
     describe("ready", () => {
       it("should handle ready message", async () => {
-        // Ensure getConfiguration returns a proper mock with get method
-        const readyMockConfig = {
-          get: vi.fn((key: string) => "normal"),
-          update: vi.fn(),
-        };
-        vi.mocked(vscode.workspace.getConfiguration).mockReturnValue(
-          readyMockConfig as any,
-        );
+        // Use sharedMockConfig which is already configured
+        sharedMockConfig.get.mockReturnValue("normal");
 
         const message: WebviewMessage = { type: "ready" };
 
