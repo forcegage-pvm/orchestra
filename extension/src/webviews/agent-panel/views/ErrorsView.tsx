@@ -14,7 +14,7 @@
 import { Icon } from "@iconify-icon/solid";
 import { createMemo, createSignal, For, Show } from "solid-js";
 import type { ErrorEvent } from "../../../agents/sessions/types.js";
-import { ErrorItem } from "../components/index.js";
+import { EmptyState, ErrorItem } from "../components/index.js";
 import { events, toolCalls } from "../stores/sessionStore.js";
 
 /**
@@ -163,13 +163,10 @@ export function ErrorsView() {
 
       {/* Empty State */}
       <Show when={filteredErrors().length === 0}>
-        <div class="flex flex-col items-center justify-center h-full text-gray-500">
-          <Icon
-            icon="lucide:check-circle"
-            class="w-12 h-12 mb-3 text-green-400"
-          />
-          <p class="text-sm">No errors or warnings — looking good! ✓</p>
-        </div>
+        <EmptyState
+          icon="lucide:check-circle"
+          message="No errors or warnings — looking good! ✓"
+        />
       </Show>
 
       {/* Error List */}

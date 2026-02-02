@@ -11,7 +11,7 @@
 import { Icon } from "@iconify-icon/solid";
 import { createMemo, For, Show } from "solid-js";
 import type { FileOperation } from "../../../agents/sessions/types.js";
-import { FileGroup } from "../components/index.js";
+import { EmptyState, FileGroup } from "../components/index.js";
 import { toolCalls } from "../stores/sessionStore.js";
 
 /**
@@ -135,13 +135,10 @@ export function FilesView() {
     <div class="flex flex-col h-full">
       {/* Empty State */}
       <Show when={!hasAnyFiles()}>
-        <div class="flex flex-col items-center justify-center h-full text-gray-500">
-          <Icon
-            icon="lucide:folder-open"
-            class="w-12 h-12 mb-3 text-gray-600"
-          />
-          <p class="text-sm">No files modified in this session</p>
-        </div>
+        <EmptyState
+          icon="lucide:folder-open"
+          message="No files modified in this session"
+        />
       </Show>
 
       {/* File Groups */}

@@ -8,9 +8,10 @@
  */
 
 import type { Accessor } from "solid-js";
-import { createMemo } from "solid-js";
+import { createMemo, Show } from "solid-js";
 import type { AgentEvent } from "../../../agents/sessions/types.js";
 import {
+    EmptyState,
     ErrorCard,
     PromptCard,
     ThinkingCard,
@@ -138,13 +139,23 @@ export function TimelineView(props: TimelineViewProps) {
 
   return (
     <div class="h-full">
-      <VirtualList
-        items={sortedEvents()}
-        estimateSize={estimateSize}
-        renderItem={renderEvent}
-        height={600}
-        class="p-4 space-y-3"
-      />
+      <Show
+        when={sortedEvents().length > 0}
+        fallback={
+          <EmptyState
+            icon="lucide:loader"
+            message="No events yet. Waiting for agent to start..."
+          />
+        }
+      >
+        <VirtualList
+          items={sortedEvents()}
+          estimateSize={estimateSize}
+          renderItem={renderEvent}
+          height={600}
+          class="p-4 space-y-3"
+        />
+      </Show>
     </div>
   );
 }

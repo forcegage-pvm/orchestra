@@ -9,12 +9,12 @@
  */
 
 import { Icon } from "@iconify-icon/solid";
-import { createMemo, createSignal } from "solid-js";
+import { createMemo, createSignal, Show } from "solid-js";
 import type {
     ToolCallAggregate,
     ToolCategory,
 } from "../../../agents/sessions/types.js";
-import { ToolsFilter, ToolsTable } from "../components/index.js";
+import { EmptyState, ToolsFilter, ToolsTable } from "../components/index.js";
 import { toolCalls } from "../stores/sessionStore.js";
 import { setUi } from "../stores/uiStore.js";
 
@@ -157,11 +157,21 @@ export function ToolsView() {
 
       {/* Tools Table */}
       <div class="flex-1 overflow-hidden">
-        <ToolsTable
-          toolCalls={filteredAndSortedTools()}
-          onRowClick={handleRowClick}
-          height={600} // Fixed height for virtual scrolling
-        />
+        <Show
+          when={filteredAndSortedTools().length > 0}
+          fallback={
+            <EmptyState
+              icon="lucide:wrench"
+              message="No tool calls recorded in this session"
+            />
+          }
+        >
+          <ToolsTable
+            toolCalls={filteredAndSortedTools()}
+            onRowClick={handleRowClick}
+            height={600} // Fixed height for virtual scrolling
+          />
+        </Show>
       </div>
     </div>
   );
