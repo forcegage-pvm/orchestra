@@ -23,6 +23,7 @@ vi.mock("vscode", () => ({
     showInformationMessage: vi.fn(),
     showWarningMessage: vi.fn(),
     showErrorMessage: vi.fn(),
+    showSaveDialog: vi.fn(),
     createOutputChannel: vi.fn(() => ({
       appendLine: vi.fn(),
       show: vi.fn(),
@@ -35,6 +36,9 @@ vi.mock("vscode", () => ({
       get: vi.fn((key: string, defaultValue?: unknown) => defaultValue),
       update: vi.fn(),
     })),
+    fs: {
+      writeFile: vi.fn(),
+    },
   },
   env: {
     clipboard: {
@@ -55,6 +59,16 @@ const mockAgentRunner = {
 
 vi.mock("../../src/extension.js", () => ({
   getAgentRunner: vi.fn(() => mockAgentRunner),
+}));
+
+// Mock OrchestraLogger to prevent logging delays
+vi.mock("../../src/utils/logger.js", () => ({
+  OrchestraLogger: vi.fn().mockImplementation(() => ({
+    debug: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+  })),
 }));
 
 describe("AgentPanelProvider", () => {
@@ -526,6 +540,229 @@ describe("AgentPanelProvider", () => {
 
         expect(vscode.window.showErrorMessage).toHaveBeenCalledWith(
           expect.stringContaining("Failed to switch session"),
+        );
+      });
+    });
+
+    describe("export_session", () => {
+      let mockExportSession: any;
+
+      beforeEach(async () => {
+        // Dynamic import mocking for exportSession
+        const exporterModule =
+          await import("../../src/agents/sessions/exporter.js");
+        mockExportSession = vi
+          .spyOn(exporterModule, "exportSession")
+          .mockReturnValue({
+            exportedAt: "2026-02-01T12:00:00.000Z",
+            version: "1.0",
+            session: {
+              sessionId: "test-session-123",
+              role: "implementor" as const,
+              taskId: 42,
+              taskTitle: "Test Task",
+              sprintId: "sprint-001",
+              startedAt: "2026-02-01T10:00:00Z",
+              lastActivityAt: "2026-02-01T10:30:00Z",
+              endedAt: "2026-02-01T10:30:00Z",
+              status: "completed" as const,
+              statusMessage: undefined,
+              iteration: 10,
+              maxIterations: 50,
+              toolCallCount: 5,
+              successfulToolCalls: 5,
+              failedToolCalls: 0,
+              warningCount: 0,
+              filesModified: ["file1.ts"],
+              durationMs: 1800000,
+            },
+            events: [],
+          });
+
+        // Mock workspace folders
+        (vscode.workspace as any).workspaceFolders = [
+          { uri: { fsPath: "/test/workspace" } },
+        ];
+
+        // Mock showSaveDialog and fs.writeFile with resolved values
+        vi.mocked(vscode.window.showSaveDialog).mockResolvedValue({
+          fsPath: "/test/export.json",
+        } as any);
+        vi.mocked(vscode.workspace.fs.writeFile).mockResolvedValue(undefined);
+
+        // Clear previous mock call history
+        vi.clearAllMocks();
+      });
+
+      it("should export session and save to file", async () => {
+        const message: WebviewMessage = {
+          type: "export_session",
+          sessionId: "test-session-123",
+        };
+        messageHandler?.(message);
+
+        // Wait for async handler with longer timeout
+        await new Promise((resolve) => setTimeout(resolve, 100));
+
+        // Verify exportSession was called
+        expect(mockExportSession).toHaveBeenCalledWith(
+          "/test/workspace",
+          "test-session-123",
+        );
+
+        // Verify save dialog was shown with correct filename format
+        // Format: session-{sessionId}-{timestamp}.json where timestamp is sanitized ISO
+        // Actual format: 2026-02-02T061729274Z (date hyphens kept, colons/dots removed)
+        expect(vscode.window.showSaveDialog).toHaveBeenCalledWith(
+          expect.objectContaining({
+            defaultUri: expect.objectContaining({
+              fsPath: expect.stringMatching(
+                /session-test-session-123-\d{4}-\d{2}-\d{2}T\d+Z\.json/,
+              ),
+            }),
+            filters: {
+              JSON: ["json"],
+            },
+            title: "Export Session",
+          }),
+        );
+
+        // Verify file was written
+        expect(vscode.workspace.fs.writeFile).toHaveBeenCalledWith(
+          expect.objectContaining({ fsPath: "/test/export.json" }),
+          expect.any(Buffer),
+        );
+
+        // Verify success message
+        expect(vscode.window.showInformationMessage).toHaveBeenCalledWith(
+          expect.stringContaining("Session exported to"),
+        );
+      });
+
+      it("should generate filename with sanitized timestamp", async () => {
+        // Mock specific timestamp
+        vi.useFakeTimers();
+        vi.setSystemTime(new Date("2026-02-01T14:35:42.123Z"));
+
+        const message: WebviewMessage = {
+          type: "export_session",
+          sessionId: "abc-123",
+        };
+        messageHandler?.(message);
+
+        // Advance timers to allow promises to resolve
+        await vi.runAllTimersAsync();
+
+        // Verify filename format: session-{sessionId}-{timestamp}.json
+        // Timestamp with colons and dots removed: 2026-02-01T143542123Z
+        expect(vscode.window.showSaveDialog).toHaveBeenCalledWith(
+          expect.objectContaining({
+            defaultUri: expect.objectContaining({
+              fsPath: "session-abc-123-2026-02-01T143542123Z.json",
+            }),
+          }),
+        );
+
+        vi.useRealTimers();
+      });
+
+      it("should write JSON with 2-space indentation", async () => {
+        const mockExportData = {
+          exportedAt: "2026-02-01T12:00:00.000Z",
+          version: "1.0",
+          session: { sessionId: "test" },
+          events: [{ type: "prompt" }],
+        };
+
+        mockExportSession.mockReturnValue(mockExportData);
+
+        const message: WebviewMessage = {
+          type: "export_session",
+          sessionId: "test-session",
+        };
+        messageHandler?.(message);
+
+        await new Promise((resolve) => setTimeout(resolve, 100));
+
+        // Verify JSON was formatted with 2-space indent
+        const writeCall = vi.mocked(vscode.workspace.fs.writeFile).mock
+          .calls[0];
+        const buffer = writeCall[1] as Buffer;
+        const jsonString = buffer.toString("utf-8");
+
+        expect(jsonString).toBe(JSON.stringify(mockExportData, null, 2));
+      });
+
+      it("should handle cancellation when user closes save dialog", async () => {
+        // Mock user cancelling dialog
+        vi.mocked(vscode.window.showSaveDialog).mockResolvedValue(undefined);
+
+        const message: WebviewMessage = {
+          type: "export_session",
+          sessionId: "test-session",
+        };
+        messageHandler?.(message);
+
+        await new Promise((resolve) => setTimeout(resolve, 100));
+
+        // Verify no file was written
+        expect(vscode.workspace.fs.writeFile).not.toHaveBeenCalled();
+
+        // Verify no error or success message
+        expect(vscode.window.showErrorMessage).not.toHaveBeenCalled();
+        expect(vscode.window.showInformationMessage).not.toHaveBeenCalled();
+      });
+
+      it("should show error when no workspace folder", async () => {
+        (vscode.workspace as any).workspaceFolders = [];
+
+        const message: WebviewMessage = {
+          type: "export_session",
+          sessionId: "test-session",
+        };
+        messageHandler?.(message);
+
+        await new Promise((resolve) => setTimeout(resolve, 100));
+
+        expect(vscode.window.showErrorMessage).toHaveBeenCalledWith(
+          "No workspace folder open",
+        );
+        expect(mockExportSession).not.toHaveBeenCalled();
+      });
+
+      it("should handle exportSession errors", async () => {
+        mockExportSession.mockImplementation(() => {
+          throw new Error("Session not found: test-session-999");
+        });
+
+        const message: WebviewMessage = {
+          type: "export_session",
+          sessionId: "test-session-999",
+        };
+        messageHandler?.(message);
+
+        await new Promise((resolve) => setTimeout(resolve, 100));
+
+        expect(vscode.window.showErrorMessage).toHaveBeenCalledWith(
+          "Failed to export session: Session not found: test-session-999",
+        );
+      });
+
+      it("should handle file write errors", async () => {
+        vi.mocked(vscode.workspace.fs.writeFile).mockRejectedValue(
+          new Error("Permission denied"),
+        );
+
+        const message: WebviewMessage = {
+          type: "export_session",
+          sessionId: "test-session",
+        };
+        messageHandler?.(message);
+
+        await new Promise((resolve) => setTimeout(resolve, 100));
+
+        expect(vscode.window.showErrorMessage).toHaveBeenCalledWith(
+          expect.stringContaining("Failed to export session"),
         );
       });
     });

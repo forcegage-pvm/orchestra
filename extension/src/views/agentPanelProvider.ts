@@ -314,14 +314,12 @@ export class AgentPanelProvider implements vscode.WebviewViewProvider {
       // Export session data
       const exportData = exportSession(workspaceRoot, sessionId);
 
-      // Generate filename with timestamp
-      const timestamp =
-        new Date()
-          .toISOString()
-          .replace(/[:.]/g, "")
-          .replace("T", "T")
-          .split(".")[0] + "Z";
-      const defaultFilename = `session-${sessionId}-${timestamp}.json`;
+      // Generate filename with timestamp (sanitize: remove colons and dots)
+      const isoTimestamp = new Date().toISOString(); // e.g., "2026-02-01T14:35:42.123Z"
+      const sanitized = isoTimestamp
+        .replace(/:/g, "") // Remove colons from time
+        .replace(/\./g, ""); // Remove millisecond separator and keep trailing Z
+      const defaultFilename = `session-${sessionId}-${sanitized}.json`;
 
       // Show save dialog
       const saveUri = await vscode.window.showSaveDialog({
