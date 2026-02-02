@@ -140,12 +140,38 @@ export function useAutoScroll(
     const count = eventCount(); // Track dependency
     const paused = isPaused();
     const nearBottom = isNearBottom();
+    const container = containerRef();
 
-    if (!enabled || !containerRef()) return;
+    if (!enabled || !container) return;
 
     // Auto-scroll if near bottom and not paused
     if (nearBottom && !paused) {
-      scrollToBottom();
+      // Use requestAnimationFrame to ensure DOM has updated
+      requestAnimationFrame(() => {
+        container.scrollTo({
+          top: container.scrollHeight,
+          behavior: "smooth",
+        });
+      });
+    }
+  });
+
+  /**
+   * Scroll to bottom on initial mount when container is ready
+   */
+  createEffect(() => {
+    const container = containerRef();
+    const count = eventCount();
+
+    if (container && enabled && count > 0) {
+      // Initial scroll to bottom after content loads
+      requestAnimationFrame(() => {
+        container.scrollTo({
+          top: container.scrollHeight,
+          behavior: "instant",
+        });
+        setIsNearBottom(true);
+      });
     }
   });
 

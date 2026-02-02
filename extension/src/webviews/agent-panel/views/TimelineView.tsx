@@ -3,13 +3,14 @@
  *
  * Main timeline view displaying chronological event stream.
  * Maps event types to appropriate card components for rendering.
+ * Includes smart auto-scroll that pauses when user scrolls up.
  *
- * Specification: specs/011-agent-panel-rework/spec.md Section 3.5
+ * Specification: specs/011-agent-panel-rework/spec.md Section 3.5, 4.2
  */
 
 import { Icon } from "@iconify-icon/solid";
 import type { Accessor } from "solid-js";
-import { createMemo, For, Show } from "solid-js";
+import { createMemo, createSignal, For, Show } from "solid-js";
 import type {
     AgentEvent,
     StatusChangeEvent,
@@ -23,10 +24,13 @@ import {
     EmptyState,
     ErrorCard,
     FileOperationBadge,
+    NewEventsIndicator,
     PromptCard,
+    StreamingOutput,
     ThinkingCard,
     ToolIcon,
 } from "../components/index.js";
+import { useAutoScroll } from "../hooks/index.js";
 import { getEventsArray } from "../stores/index.js";
 
 export interface TimelineViewProps {
@@ -196,9 +200,12 @@ function ToolMetadataCard(props: { event: ToolMetadataEvent }) {
 }
 
 /**
- * TimelineView - Chronological event timeline
+ * TimelineView - Chronological event timeline with smart auto-scroll
  */
 export function TimelineView(props: TimelineViewProps) {
+  // Container ref for scroll management
+  const [containerRef, setContainerRef] = createSignal<HTMLElement>();
+
   /**
    * Convert events record to sorted array by timestamp
    * Uses getEventsArray() for proper SolidJS reactivity
@@ -213,6 +220,13 @@ export function TimelineView(props: TimelineViewProps) {
       (a, b) =>
         new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime(),
     );
+  });
+
+  // Smart auto-scroll: pauses when user scrolls up, resumes at bottom
+  const autoScroll = useAutoScroll({
+    containerRef,
+    eventCount: () => sortedEvents().length,
+    enabled: true,
   });
 
   /**
@@ -263,12 +277,13 @@ export function TimelineView(props: TimelineViewProps) {
         break;
 
       case "tool_output":
-        // Tool output is typically streamed and shown inline with tool results
+        // Use StreamingOutput component for proper output display
         eventCard = (
           <div class="bg-zinc-900 border border-gray-700 rounded-lg p-2">
-            <pre class="text-xs text-gray-400 font-mono whitespace-pre-wrap">
-              {event.chunk}
-            </pre>
+            <StreamingOutput
+              outputChunks={[event.chunk]}
+              isStderr={event.stream === "stderr"}
+            />
           </div>
         );
         break;
@@ -285,20 +300,30 @@ export function TimelineView(props: TimelineViewProps) {
   };
 
   return (
-    <div class="h-full overflow-auto p-4 space-y-3">
-      <Show
-        when={sortedEvents().length > 0}
-        fallback={
-          <EmptyState
-            icon="lucide:loader"
-            message="No events yet. Waiting for agent to start..."
-          />
-        }
-      >
-        <For each={sortedEvents()}>
-          {(event, index) => renderEvent(event, index())}
-        </For>
-      </Show>
+    <div class="h-full relative">
+      {/* Scroll container */}
+      <div ref={setContainerRef} class="h-full overflow-auto p-4 space-y-3">
+        <Show
+          when={sortedEvents().length > 0}
+          fallback={
+            <EmptyState
+              icon="lucide:loader"
+              message="No events yet. Waiting for agent to start..."
+            />
+          }
+        >
+          <For each={sortedEvents()}>
+            {(event, index) => renderEvent(event, index())}
+          </For>
+        </Show>
+      </div>
+
+      {/* New events indicator - shown when auto-scroll is paused */}
+      <NewEventsIndicator
+        count={autoScroll.newEventCount()}
+        visible={autoScroll.isPaused()}
+        onScrollToBottom={() => autoScroll.resumeAutoScroll()}
+      />
     </div>
   );
 }

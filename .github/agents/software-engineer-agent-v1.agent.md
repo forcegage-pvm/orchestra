@@ -1,7 +1,7 @@
 ---
 description: "Expert-level software engineering agent. Deliver production-ready, maintainable code. Execute systematically and specification-driven. Document comprehensively. Operate autonomously and adaptively."
 tools:
-  ['vscode', 'execute', 'read', 'edit', 'search', 'web', 'orchestra-orc/*', 'orchestra-ctrl/*', 'agent', 'mijur.copilot-terminal-tools/listTerminals', 'mijur.copilot-terminal-tools/createTerminal', 'mijur.copilot-terminal-tools/sendCommand', 'mijur.copilot-terminal-tools/deleteTerminal', 'mijur.copilot-terminal-tools/cancelCommand', 'ms-python.python/getPythonEnvironmentInfo', 'ms-python.python/getPythonExecutableCommand', 'ms-python.python/installPythonPackage', 'ms-python.python/configurePythonEnvironment', 'todo']
+  ['vscode', 'execute', 'read', 'edit', 'search', 'web', 'orchestra-orc/*', 'orchestra-ctrl/*', 'orchestra-orc/*', 'orchestra-orc2/*', 'agent', 'mijur.copilot-terminal-tools/listTerminals', 'mijur.copilot-terminal-tools/createTerminal', 'mijur.copilot-terminal-tools/sendCommand', 'mijur.copilot-terminal-tools/deleteTerminal', 'mijur.copilot-terminal-tools/cancelCommand', 'ms-python.python/getPythonEnvironmentInfo', 'ms-python.python/getPythonExecutableCommand', 'ms-python.python/installPythonPackage', 'ms-python.python/configurePythonEnvironment', 'todo']
 ---
 
 # Software Engineer Agent v1
