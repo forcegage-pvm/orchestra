@@ -12,16 +12,48 @@
  * will be skipped to avoid NODE_MODULE_VERSION mismatch errors.
  */
 
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import fs from "fs";
 import os from "os";
 import path from "path";
+
+vi.mock("vscode", () => ({
+  EventEmitter: class<T> {
+    private listeners = new Set<(payload: T) => void>();
+
+    event = (listener: (payload: T) => void) => {
+      this.listeners.add(listener);
+      return {
+        dispose: () => {
+          this.listeners.delete(listener);
+        },
+      };
+    };
+
+    fire(payload: T): void {
+      this.listeners.forEach((listener) => listener(payload));
+    }
+
+    dispose(): void {
+      this.listeners.clear();
+    }
+  },
+}));
 
 // Early detection of better-sqlite3 compatibility
 let Database: typeof import("better-sqlite3").default | null = null;
 let moduleCompatible = false;
 try {
-  Database = (await import("better-sqlite3")).default;
+  const { loadBetterSqlite3 } = await import(
+    "../../../src/database/native-loader.js"
+  );
+  const loadedModule = loadBetterSqlite3() as unknown as {
+    default?: typeof import("better-sqlite3").default;
+  };
+  const loadedDatabase =
+    loadedModule.default ??
+    (loadedModule as unknown as typeof import("better-sqlite3").default);
+  Database = loadedDatabase;
   // Try to actually use it to confirm compatibility
   const testDb = new Database(":memory:");
   testDb.close();
@@ -45,6 +77,9 @@ if (!moduleCompatible) {
   // Import dependencies only if module is compatible
   const { SessionEventEmitter } = await import(
     "../../../src/agents/sessions/eventEmitter.js"
+  );
+  const { getAgentEventBus, disposeAgentEventBus } = await import(
+    "../../../src/agents/sessions/eventBus.js"
   );
   const { getEventsForSession } = await import(
     "../../../src/agents/sessions/eventRepository.js"
@@ -160,6 +195,8 @@ if (!moduleCompatible) {
     afterEach(() => {
       // Close database connection before cleanup
       OrchestraDB.close();
+
+      disposeAgentEventBus();
 
       // Clean up test workspace
       fs.rmSync(testWorkspaceRoot, { recursive: true, force: true });
@@ -690,6 +727,46 @@ if (!moduleCompatible) {
 
         const events = getEventsForSession(testWorkspaceRoot, sessionId);
         expect(events).toHaveLength(2);
+      });
+    });
+
+    describe("emitSessionStart", () => {
+      it("should emit session_start payload on AgentEventBus", () => {
+        const eventBus = getAgentEventBus();
+        const emitSpy = vi.spyOn(eventBus, "emit");
+
+        const session = {
+          id: sessionId,
+          role: "implementor" as const,
+          status: "running" as const,
+          startedAt: new Date().toISOString(),
+          taskId: 1,
+          taskTitle: "Test Task",
+        };
+
+        emitter.emitSessionStart(session);
+
+        expect(emitSpy).toHaveBeenCalledTimes(1);
+        expect(emitSpy).toHaveBeenCalledWith({
+          type: "session_start",
+          session,
+        });
+      });
+    });
+
+    describe("emitSessionEnd", () => {
+      it("should emit session_end payload on AgentEventBus", () => {
+        const eventBus = getAgentEventBus();
+        const emitSpy = vi.spyOn(eventBus, "emit");
+
+        emitter.emitSessionEnd("completed");
+
+        expect(emitSpy).toHaveBeenCalledTimes(1);
+        expect(emitSpy).toHaveBeenCalledWith({
+          type: "session_end",
+          sessionId,
+          status: "completed",
+        });
       });
     });
 

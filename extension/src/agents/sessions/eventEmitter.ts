@@ -10,6 +10,7 @@
 
 import { randomUUID } from "crypto";
 import type {
+  AgentSessionInfo,
   ErrorEvent,
   FileAttachment,
   FileOperation,
@@ -26,6 +27,7 @@ import type {
   ToolProgressEvent,
   ToolResultEvent,
 } from "./types.js";
+import { getAgentEventBus } from "./eventBus.js";
 import { insertEvent } from "./eventRepository.js";
 
 /**
@@ -134,6 +136,28 @@ export class SessionEventEmitter {
     };
     insertEvent(this.workspaceRoot, event);
     return event;
+  }
+
+  /**
+   * Emit a session start event to the AgentEventBus
+   *
+   * @param session Session info payload
+   */
+  emitSessionStart(session: AgentSessionInfo): void {
+    getAgentEventBus().emit({ type: "session_start", session });
+  }
+
+  /**
+   * Emit a session end event to the AgentEventBus
+   *
+   * @param status Final session status
+   */
+  emitSessionEnd(status: SessionStatus): void {
+    getAgentEventBus().emit({
+      type: "session_end",
+      sessionId: this.sessionId,
+      status,
+    });
   }
 
   /**
