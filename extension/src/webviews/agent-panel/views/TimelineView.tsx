@@ -18,6 +18,7 @@ import {
     VirtualList,
 } from "../components/index.js";
 import { events } from "../stores/index.js";
+import { ui } from "../stores/uiStore.js";
 
 export interface TimelineViewProps {
   /** Currently focused event index for keyboard navigation */
@@ -51,6 +52,30 @@ export function TimelineView(props: TimelineViewProps) {
       (a, b) =>
         new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime(),
     );
+  });
+
+  /**
+   * Filter sorted events by filterText, matching against event text content
+   */
+  const filteredEvents = createMemo(() => {
+    const filterText = ui.filterText.toLowerCase();
+    if (!filterText) {
+      return sortedEvents();
+    }
+
+    return sortedEvents().filter((event) => {
+      // Check if event text contains the filter text
+      if (event.type === "prompt" && "text" in event) {
+        return event.text.toLowerCase().includes(filterText);
+      }
+      if (event.type === "thinking" && "text" in event) {
+        return event.text.toLowerCase().includes(filterText);
+      }
+      if (event.type === "error" && "message" in event) {
+        return event.message.toLowerCase().includes(filterText);
+      }
+      return false;
+    });
   });
 
   /**
@@ -148,13 +173,23 @@ export function TimelineView(props: TimelineViewProps) {
           />
         }
       >
-        <VirtualList
-          items={sortedEvents()}
-          estimateSize={estimateSize}
-          renderItem={renderEvent}
-          height={600}
-          class="p-4 space-y-3"
-        />
+        <Show
+          when={filteredEvents().length > 0}
+          fallback={
+            <EmptyState
+              icon="lucide:search-x"
+              message={`No events match "${ui.filterText}"`}
+            />
+          }
+        >
+          <VirtualList
+            items={filteredEvents()}
+            estimateSize={estimateSize}
+            renderItem={renderEvent}
+            height={600}
+            class="p-4 space-y-3"
+          />
+        </Show>
       </Show>
     </div>
   );

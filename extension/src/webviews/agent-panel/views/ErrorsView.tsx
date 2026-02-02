@@ -74,7 +74,7 @@ export function ErrorsView() {
     // Sort chronologically (newest first)
     return errorEvents.sort(
       (a, b) =>
-        new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+        new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime(),
     );
   });
 
@@ -108,11 +108,16 @@ export function ErrorsView() {
     // For now, we can enhance this by looking at toolCalls store
     // to find which tool was executing when the error occurred
     const toolCallsArray = Object.values(toolCalls);
-    
+
     // Find tool call with matching session context
     const matchingTool = toolCallsArray.find(
-      (tc) => tc.error && tc.completedAt && 
-      Math.abs(new Date(tc.completedAt).getTime() - new Date(error.timestamp).getTime()) < 1000
+      (tc) =>
+        tc.error &&
+        tc.completedAt &&
+        Math.abs(
+          new Date(tc.completedAt).getTime() -
+            new Date(error.timestamp).getTime(),
+        ) < 1000,
     );
 
     return matchingTool?.toolName;
@@ -136,9 +141,7 @@ export function ErrorsView() {
             icon="lucide:alert-circle"
             class={`w-4 h-4 ${showErrors() ? "text-red-400" : "text-gray-500"}`}
           />
-          <span class="text-sm font-medium">
-            Errors ({errorCount()})
-          </span>
+          <span class="text-sm font-medium">Errors ({errorCount()})</span>
         </button>
 
         {/* Warnings Toggle */}
@@ -155,9 +158,7 @@ export function ErrorsView() {
             icon="lucide:alert-triangle"
             class={`w-4 h-4 ${showWarnings() ? "text-yellow-400" : "text-gray-500"}`}
           />
-          <span class="text-sm font-medium">
-            Warnings ({warningCount()})
-          </span>
+          <span class="text-sm font-medium">Warnings ({warningCount()})</span>
         </button>
       </div>
 

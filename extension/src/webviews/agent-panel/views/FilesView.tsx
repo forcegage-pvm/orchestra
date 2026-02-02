@@ -8,7 +8,6 @@
  * Specification: specs/011-agent-panel-rework/spec.md Section 3.7
  */
 
-import { Icon } from "@iconify-icon/solid";
 import { createMemo, For, Show } from "solid-js";
 import type { FileOperation } from "../../../agents/sessions/types.js";
 import { EmptyState, FileGroup } from "../components/index.js";
