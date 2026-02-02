@@ -27,7 +27,7 @@ import {
 import type { TaskOutcome } from "./memory/types.js";
 import { SessionEventEmitter } from "./sessions/eventEmitter.js";
 import { createSession } from "./sessions/sessionRepository.js";
-import type { ToolCategory } from "./sessions/types.js";
+import type { AgentSessionInfo, SessionStatus, ToolCategory } from "./sessions/types.js";
 import { SessionStorage } from "./SessionStorage.js";
 import {
   loadControllerTools,
@@ -188,6 +188,7 @@ export class AgentRunner implements vscode.Disposable {
   private consecutiveErrors = 0;
   private recentErrors: string[] = [];
   private hasEscalated = false;
+  private hasEmittedSessionEnd = false;
 
   // Event emitters
   private _onOutput = new vscode.EventEmitter<AgentOutput>();
@@ -372,6 +373,7 @@ export class AgentRunner implements vscode.Disposable {
     this.consecutiveErrors = 0;
     this.recentErrors = [];
     this.hasEscalated = false;
+    this.hasEmittedSessionEnd = false;
 
     // Check if model selection is required (no model configured for this role)
     if (!options.model && isModelSelectionRequired(role)) {
@@ -429,6 +431,19 @@ export class AgentRunner implements vscode.Disposable {
         workspaceRoot,
         dbSession.sessionId,
       );
+      const sessionInfo: AgentSessionInfo = {
+        id: dbSession.sessionId,
+        role: dbSession.role,
+        status: dbSession.status,
+        startedAt: dbSession.startedAt,
+      };
+      if (dbSession.taskId !== undefined) {
+        sessionInfo.taskId = dbSession.taskId;
+      }
+      if (dbSession.taskTitle !== undefined) {
+        sessionInfo.taskTitle = dbSession.taskTitle;
+      }
+      this.eventEmitter.emitSessionStart(sessionInfo);
     } catch (error) {
       // If database session creation fails, log but continue
       // This allows AgentRunner to work in test scenarios without database
@@ -628,6 +643,7 @@ export class AgentRunner implements vscode.Disposable {
     this.consecutiveErrors = 0;
     this.recentErrors = [];
     this.hasEscalated = false;
+    this.hasEmittedSessionEnd = false;
 
     if (this.session.status === "running") {
       this.session.stop();
@@ -680,6 +696,7 @@ export class AgentRunner implements vscode.Disposable {
     this.isStopped = true;
     this.session.stop();
     this.eventEmitter?.emitStatusChange(previousStatus, "stopped");
+    this.emitSessionEndOnce("cancelled");
 
     // Cancel any ongoing requests
     if (this.cancellationTokenSource) {
@@ -858,6 +875,7 @@ export class AgentRunner implements vscode.Disposable {
           const previousStatus = this.session.status;
           this.session.complete();
           this.eventEmitter?.emitStatusChange(previousStatus, "completed");
+          this.emitSessionEndOnce("completed");
           this.emitStateChange();
           break;
         }
@@ -877,6 +895,7 @@ export class AgentRunner implements vscode.Disposable {
           "failed",
           `Maximum iterations (${this.session.maxIterations}) reached`,
         );
+        this.emitSessionEndOnce("failed");
         this.emitOutput({
           type: "error",
           timestamp: new Date().toISOString(),
@@ -1973,7 +1992,17 @@ export class AgentRunner implements vscode.Disposable {
       recoverable: false,
     });
     this.eventEmitter?.emitError("error", errorCode, errorMessage, false);
+    this.emitSessionEndOnce("failed");
 
     this.emitStateChange();
+  }
+
+  private emitSessionEndOnce(status: SessionStatus): void {
+    if (!this.eventEmitter || this.hasEmittedSessionEnd) {
+      return;
+    }
+
+    this.hasEmittedSessionEnd = true;
+    this.eventEmitter.emitSessionEnd(status);
   }
 }
