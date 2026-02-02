@@ -11,6 +11,7 @@ import * as vscode from "vscode";
 import { getEventsForSession } from "../agents/sessions/eventRepository.js";
 import { exportSession } from "../agents/sessions/exporter.js";
 import { getSession } from "../agents/sessions/sessionRepository.js";
+import type { DatabaseWatcher } from "../database/watcher.js";
 import { getAgentRunner } from "../extension.js";
 import { highlightRange } from "../utils/fileHighlight.js";
 import { OrchestraLogger } from "../utils/logger.js";
@@ -31,12 +32,22 @@ const logger = new OrchestraLogger();
 export class AgentPanelProvider implements vscode.WebviewViewProvider {
   private _view: vscode.WebviewView | undefined;
   private readonly _disposables: vscode.Disposable[] = [];
+  private _currentSessionId: string | null = null;
 
   constructor(
     private readonly _extensionUri: vscode.Uri,
-    _workspaceRoot: string, // Future use - not stored
+    private readonly _workspaceRoot: string,
+    private readonly _dbWatcher: DatabaseWatcher,
   ) {
-    void _workspaceRoot; // Explicitly mark as intentionally unused
+    // Listen for database changes and poll for new events
+    this._disposables.push(
+      this._dbWatcher.onDidChange(() => {
+        logger.info(
+          "[AgentPanelProvider] Database change detected, polling for events",
+        );
+        this._pollForEvents();
+      }),
+    );
   }
 
   /**
@@ -84,7 +95,10 @@ export class AgentPanelProvider implements vscode.WebviewViewProvider {
       }),
     );
 
-    logger.debug("AgentPanelProvider resolved");
+    logger.info("[AgentPanelProvider] Webview resolved, starting initial poll");
+
+    // Initial event poll
+    this._pollForEvents();
   }
 
   /**
@@ -99,6 +113,76 @@ export class AgentPanelProvider implements vscode.WebviewViewProvider {
     }
 
     void this._view.webview.postMessage(message);
+  }
+
+  /**
+   * Poll for new events and send to webview
+   */
+  private _pollForEvents(): void {
+    if (!this._view) {
+      logger.info(
+        "[AgentPanelProvider] _pollForEvents called but view not initialized",
+      );
+      return;
+    }
+
+    try {
+      // Get current active session from AgentRunner
+      const runner = getAgentRunner();
+      const session = runner.getSession();
+
+      logger.info(
+        `[AgentPanelProvider] Polling for events. Session: ${session ? session.id : "none"}, Status: ${session ? session.status : "n/a"}`,
+      );
+
+      if (!session) {
+        // No active session
+        if (this._currentSessionId !== null) {
+          // Session ended, send session_end message
+          logger.debug("[AgentPanelProvider] Session ended");
+          this._currentSessionId = null;
+        }
+        return;
+      }
+
+      // Check if this is a new session
+      if (this._currentSessionId !== session.id) {
+        logger.info(`[AgentPanelProvider] New session detected: ${session.id}`);
+        this._currentSessionId = session.id;
+
+        // Send full session data for new session
+        const events = getEventsForSession(this._workspaceRoot, session.id);
+        logger.info(
+          `[AgentPanelProvider] Sending session_update with ${events.length} events`,
+        );
+        this.postMessage({
+          type: "session_update",
+          session: {
+            id: session.id,
+            role: session.role,
+            status: session.status,
+            startedAt: session.startedAt,
+            endedAt: session.endedAt ?? undefined,
+            taskId: session.taskId ?? undefined,
+            taskTitle: session.taskTitle ?? undefined,
+          },
+          events,
+        });
+      } else {
+        // Same session, send incremental events
+        const events = getEventsForSession(this._workspaceRoot, session.id);
+        logger.info(
+          `[AgentPanelProvider] Sending events_batch with ${events.length} events`,
+        );
+        this.postMessage({
+          type: "events_batch",
+          sessionId: session.id,
+          events,
+        });
+      }
+    } catch (error) {
+      logger.error("[AgentPanelProvider] Failed to poll for events", error);
+    }
   }
 
   /**

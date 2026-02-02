@@ -882,6 +882,7 @@ export async function activate(
     const agentPanelProvider = new AgentPanelProvider(
       context.extensionUri,
       orchestraRoot,
+      dbWatcher,
     );
     context.subscriptions.push(
       vscode.window.registerWebviewViewProvider(
