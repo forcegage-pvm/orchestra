@@ -9,6 +9,7 @@ import * as fs from "fs";
 import * as path from "path";
 import * as vscode from "vscode";
 import { AgentRunner, SessionStorage, ToolRegistry } from "./agents/index.js";
+import { disposeAgentEventBus } from "./agents/sessions/eventBus.js";
 import { ProcessManager } from "./agents/tools/infrastructure/ProcessManager.js";
 import { SessionManager } from "./chat/SessionManager.js";
 import { handleArchiveSprint } from "./commands/archiveSprint.js";
@@ -882,7 +883,6 @@ export async function activate(
     const agentPanelProvider = new AgentPanelProvider(
       context.extensionUri,
       orchestraRoot,
-      dbWatcher,
     );
     context.subscriptions.push(
       vscode.window.registerWebviewViewProvider(
@@ -1942,6 +1942,9 @@ export async function deactivate(): Promise<void> {
   agentStateSubscription?.dispose();
   agentStateSubscription = undefined;
   agentOutputPanel?.unbindRunner();
+
+  // Clean up EventBus singleton
+  disposeAgentEventBus();
 
   // Database watcher disposed via subscriptions
   dbWatcher = undefined;
