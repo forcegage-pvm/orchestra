@@ -155,6 +155,9 @@ export const executeWithRetryTool: AgentTool<ExecuteWithRetryInput> = {
       success_exit_codes: {
         type: "array",
         description: "Exit codes considered successful (default: [0])",
+        items: {
+          type: "number",
+        },
       },
       success_pattern: {
         type: "string",

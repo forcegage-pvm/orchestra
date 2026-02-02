@@ -18,28 +18,19 @@ import {
 import { getAgentRunner, getContextFileResolver } from "../extension.js";
 import { PromptBuilder } from "../prompts/PromptBuilder.js";
 import { OrchestraLogger } from "../utils/logger.js";
-import { AgentOutputPanel } from "../views/agent/AgentOutputPanel.js";
-
-// Track output panel subscription
-let agentStateSubscription: vscode.Disposable | undefined;
 
 /**
- * Show the agent output panel and bind it to the agent runner
+ * Show the new Agent Panel webview (Sprint 011)
+ * Opens the orchestra.agentPanel view in the sidebar
  */
-function showAgentOutputPanel(): void {
-  const runner = getAgentRunner();
-  const agentOutputPanel = AgentOutputPanel.createOrShow(
-    vscode.extensions.getExtension("forcegage.orchestra-extension")
-      ?.extensionUri ?? vscode.Uri.file(""),
+async function showAgentPanel(): Promise<void> {
+  // First, ensure the Orchestra sidebar is visible
+  await vscode.commands.executeCommand(
+    "workbench.view.extension.orchestra-explorer",
   );
-  agentOutputPanel.clear();
-  agentOutputPanel.updateStatus("Starting");
-  agentOutputPanel.bindToRunner(runner);
 
-  agentStateSubscription?.dispose();
-  agentStateSubscription = runner.onStateChange((state) => {
-    agentOutputPanel?.updateStatus(state.status);
-  });
+  // Then focus the Agent Panel view specifically
+  await vscode.commands.executeCommand("orchestra.agentPanel.focus");
 }
 
 /**
@@ -171,8 +162,8 @@ async function invokePrepare(
     // Build the prepare prompt
     const prompt = promptBuilder.buildPreparePrompt(context);
 
-    // Show output panel before starting
-    showAgentOutputPanel();
+    // Show Agent Panel before starting
+    await showAgentPanel();
 
     // Get agent instruction path
     const agentInstructionPath = path.join(
@@ -265,8 +256,8 @@ async function invokeImplement(
     // Build the implement prompt
     const prompt = promptBuilder.buildImplementPrompt(context);
 
-    // Show output panel before starting
-    showAgentOutputPanel();
+    // Show Agent Panel before starting
+    await showAgentPanel();
 
     // Get agent instruction path
     const agentInstructionPath = path.join(
@@ -381,8 +372,8 @@ async function invokeRetry(
     // Build the retry prompt
     const prompt = promptBuilder.buildRetryPrompt(context);
 
-    // Show output panel before starting
-    showAgentOutputPanel();
+    // Show Agent Panel before starting
+    await showAgentPanel();
 
     // Get agent instruction path
     const agentInstructionPath = path.join(
@@ -471,8 +462,8 @@ async function invokeVerify(
     // Build the verify prompt
     const prompt = promptBuilder.buildVerifyPrompt(context);
 
-    // Show output panel before starting
-    showAgentOutputPanel();
+    // Show Agent Panel before starting
+    await showAgentPanel();
 
     // Get agent instruction path
     const agentInstructionPath = path.join(
@@ -582,8 +573,8 @@ async function invokeHandoverFix(
     // Build the handover fix prompt
     const prompt = promptBuilder.buildHandoverFixPrompt(context);
 
-    // Show output panel before starting
-    showAgentOutputPanel();
+    // Show Agent Panel before starting
+    await showAgentPanel();
 
     // Get agent instruction path
     const agentInstructionPath = path.join(
@@ -688,8 +679,8 @@ async function invokeHandoverReview(
     // Build the handover review prompt
     const prompt = promptBuilder.buildHandoverReviewPrompt(context);
 
-    // Show output panel before starting
-    showAgentOutputPanel();
+    // Show Agent Panel before starting
+    await showAgentPanel();
 
     // Get agent instruction path
     const agentInstructionPath = path.join(
@@ -787,8 +778,8 @@ ${
 
 Use your MCP tools to investigate and resolve this escalation.`;
 
-    // Show output panel before starting
-    showAgentOutputPanel();
+    // Show Agent Panel before starting
+    await showAgentPanel();
 
     // Get agent instruction path
     const agentInstructionPath = path.join(
