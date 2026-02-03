@@ -12,6 +12,7 @@ import * as vscode from "vscode";
 import {
   getEscalation,
   getFeedback,
+  getLatestCodeReviewForTask,
   getLatestHandoverReview,
   getSprintById,
   getTaskById,
@@ -735,6 +736,192 @@ async function invokeHandoverReview(
     const message = error instanceof Error ? error.message : "Unknown error";
     vscode.window.showErrorMessage(
       `Orchestra: Failed to invoke controller for handover review - ${message}`,
+    );
+  }
+}
+
+/**
+ * Invoke controller to perform code review for a VERIFIED or PENDING_CODE_REVIEW task
+ *
+ * Builds a CODE_REVIEW prompt with task context and invokes the controller agent.
+ * The controller will review the implementation and approve, request changes, or reject.
+ *
+ * @param workspaceRoot Absolute path to workspace root
+ * @param taskId Task ID (numeric primary key)
+ */
+async function invokeCodeReview(
+  workspaceRoot: string,
+  taskId: number,
+): Promise<void> {
+  try {
+    const task = getTaskById(workspaceRoot, taskId);
+
+    if (!task) {
+      vscode.window.showErrorMessage(`Task ${taskId} not found`);
+      return;
+    }
+
+    const sprint = getSprintById(workspaceRoot, task.sprint_id);
+
+    if (!sprint) {
+      vscode.window.showErrorMessage(
+        `Sprint ${task.sprint_id} not found for task ${taskId}`,
+      );
+      return;
+    }
+
+    // Create instances
+    const logger = new OrchestraLogger();
+    const promptBuilder = new PromptBuilder();
+    const agentRunner = getAgentRunner();
+
+    if (agentRunner.getSession()?.status === "running") {
+      vscode.window.showErrorMessage(
+        "Orchestra: Agent is already running. Stop or pause the current agent first.",
+      );
+      return;
+    }
+
+    // Build the code review prompt
+    const prompt = promptBuilder.buildCodeReviewPrompt(
+      1, // Single pending review
+      sprint.id,
+      sprint.name,
+      { taskId: task.task_id, title: task.title, dbId: task.id },
+    );
+
+    // Show Agent Panel before starting
+    await showAgentPanel();
+
+    // Read agent instructions for system prompt
+    const systemPrompt = await readAgentInstructions(workspaceRoot, "controller");
+
+    // Start controller agent for code review
+    const startOptions = {
+      prompt,
+      taskId,
+      taskNumber: task.task_id,
+      sprintId: sprint.id,
+    } as const;
+
+    await agentRunner.start("controller", {
+      ...startOptions,
+      systemPrompt,
+    });
+
+    logger.info("Started controller agent for code review", {
+      taskId,
+      taskTitle: task.title,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    vscode.window.showErrorMessage(
+      `Orchestra: Failed to invoke controller for code review - ${message}`,
+    );
+  }
+}
+
+/**
+ * Invoke implementor to fix code review issues for a CODE_REVIEW_CHANGES_REQUESTED task
+ *
+ * Builds a CODE_REVIEW_FIX prompt with task and review context, then invokes
+ * the implementor agent to address the issues.
+ *
+ * @param workspaceRoot Absolute path to workspace root
+ * @param taskId Task ID (numeric primary key)
+ */
+async function invokeCodeReviewFix(
+  workspaceRoot: string,
+  taskId: number,
+): Promise<void> {
+  try {
+    const task = getTaskById(workspaceRoot, taskId);
+
+    if (!task) {
+      vscode.window.showErrorMessage(`Task ${taskId} not found`);
+      return;
+    }
+
+    const sprint = getSprintById(workspaceRoot, task.sprint_id);
+
+    if (!sprint) {
+      vscode.window.showErrorMessage(
+        `Sprint ${task.sprint_id} not found for task ${taskId}`,
+      );
+      return;
+    }
+
+    // Get the latest code review for context
+    const review = getLatestCodeReviewForTask(workspaceRoot, taskId);
+
+    if (!review) {
+      vscode.window.showErrorMessage(
+        `Orchestra: No code review found for task ${taskId}. Cannot fix.`,
+      );
+      return;
+    }
+
+    // Create instances
+    const logger = new OrchestraLogger();
+    const promptBuilder = new PromptBuilder();
+    const agentRunner = getAgentRunner();
+
+    if (agentRunner.getSession()?.status === "running") {
+      vscode.window.showErrorMessage(
+        "Orchestra: Agent is already running. Stop or pause the current agent first.",
+      );
+      return;
+    }
+
+    // Build the code review fix implementation prompt
+    const context = {
+      task: {
+        task_id: task.task_id,
+        title: task.title,
+        description: task.description,
+        category: task.category,
+        phase_id: `phase-${task.phase_id}`,
+      },
+      sprint: {
+        sprint_id: sprint.id,
+        title: sprint.name,
+      },
+    };
+
+    const prompt = promptBuilder.buildCodeReviewFixImplementPrompt(context, {
+      status: review.status,
+      summary: review.summary,
+      reviewId: review.review_id,
+    });
+
+    // Show Agent Panel before starting
+    await showAgentPanel();
+
+    // Read agent instructions for system prompt
+    const systemPrompt = await readAgentInstructions(workspaceRoot, "implementor");
+
+    // Start implementor agent to fix code review issues
+    const startOptions = {
+      prompt,
+      taskId,
+      taskNumber: task.task_id,
+      sprintId: sprint.id,
+    } as const;
+
+    await agentRunner.start("implementor", {
+      ...startOptions,
+      systemPrompt,
+    });
+
+    logger.info("Started implementor agent to fix code review issues", {
+      taskId,
+      taskTitle: task.title,
+      reviewStatus: review.status,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    vscode.window.showErrorMessage(
+      `Orchestra: Failed to invoke implementor for code review fix - ${message}`,
     );
   }
 }
