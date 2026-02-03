@@ -300,7 +300,12 @@ describe("Agent Type Definitions", () => {
     });
 
     it("should accept toolCall content part", () => {
-      const part = { type: "toolCall", toolCallId: "call-123" };
+      const part = {
+        type: "toolCall",
+        toolCallId: "call-123",
+        name: "test_tool",
+        input: { param: "value" },
+      };
       const result = MessageContentPartSchema.safeParse(part);
       expect(result.success).toBe(true);
     });

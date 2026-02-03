@@ -5,26 +5,38 @@
  */
 
 import { ToolRegistry } from "../../ToolRegistry.js";
+import { bulkReplaceTool } from "./bulkReplace.js";
+import { createDirectoryTool } from "./createDirectory.js";
+import { createFileTool } from "./createFile.js";
 import { deleteFileTool } from "./deleteFile.js";
-import { editTool } from "./edit.js";
+import { deleteSectionTool } from "./deleteSection.js";
+import { editFileTool } from "./editFile.js";
+import { editLinesTool } from "./editLines.js";
+import { findUsagesTool } from "./findUsages.js";
 import { grepSearchTool } from "./grepSearch.js";
+import { insertAtLineTool } from "./insertAtLine.js";
 import { listDirectoryTool } from "./listDirectory.js";
-import { newFileTool } from "./newFile.js";
 import { readFileTool } from "./readFile.js";
-import { searchTool } from "./search.js";
-import { testFailureTool } from "./testFailure.js";
-import { usagesTool } from "./usages.js";
+import { searchFilesTool } from "./searchFiles.js";
+import { smartReplaceTool } from "./smartReplace.js";
+import { validateEditTool } from "./validateEdit.js";
 
 export const codingTools = [
   readFileTool,
-  editTool,
-  newFileTool,
+  editFileTool,
+  createFileTool,
+  createDirectoryTool,
   deleteFileTool,
-  searchTool,
+  searchFilesTool,
   grepSearchTool,
   listDirectoryTool,
-  usagesTool,
-  testFailureTool,
+  findUsagesTool,
+  smartReplaceTool,
+  editLinesTool,
+  insertAtLineTool,
+  deleteSectionTool,
+  validateEditTool,
+  bulkReplaceTool,
 ] as const;
 
 export function registerCodingTools(registry: ToolRegistry): void {
@@ -32,13 +44,19 @@ export function registerCodingTools(registry: ToolRegistry): void {
 }
 
 export {
+  bulkReplaceTool,
+  createDirectoryTool,
+  createFileTool,
   deleteFileTool,
-  editTool,
+  deleteSectionTool,
+  editFileTool,
+  editLinesTool,
+  findUsagesTool,
   grepSearchTool,
+  insertAtLineTool,
   listDirectoryTool,
-  newFileTool,
   readFileTool,
-  searchTool,
-  testFailureTool,
-  usagesTool,
+  searchFilesTool,
+  smartReplaceTool,
+  validateEditTool,
 };

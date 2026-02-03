@@ -8,7 +8,14 @@
 import * as fs from "fs";
 import * as path from "path";
 import * as vscode from "vscode";
-import { AgentRunner, ToolRegistry } from "./agents/index.js";
+import { AgentRunner, SessionStorage, ToolRegistry } from "./agents/index.js";
+import { disposeAgentEventBus } from "./agents/sessions/eventBus.js";
+import { ProcessManager } from "./agents/tools/infrastructure/ProcessManager.js";
+import {
+  disposeWorkflowChain,
+  getWorkflowChain,
+  WorkflowChain,
+} from "./agents/WorkflowChain.js";
 import { SessionManager } from "./chat/SessionManager.js";
 import { handleArchiveSprint } from "./commands/archiveSprint.js";
 import {
@@ -16,11 +23,14 @@ import {
   handleForceComplete,
   handleMoveToGateCheck,
   handleMoveToImplement,
-  handleReopenTask,
 } from "./commands/deEscalation.js";
 import { handleFilterSprints } from "./commands/filterSprints.js";
 import { handlePlayTask } from "./commands/PlayTaskHandler.js";
+import { handleResumeAgent } from "./commands/resumeAgent.js";
 import { handleReviewSprint } from "./commands/ReviewSprintHandler.js";
+import { handleSelectModel } from "./commands/selectModel.js";
+import { handleSetVerbosity } from "./commands/setVerbosity.js";
+import { registerTestCommands } from "./commands/testAgentCommands.js";
 import { handleUnarchiveSprint } from "./commands/unarchiveSprint.js";
 import { ConfigService } from "./config/ConfigService.js";
 import { OrchestraDB } from "./database/client.js";
@@ -39,12 +49,13 @@ import { MCPServerManager } from "./mcp/ServerManager.js";
 import { ContextFileResolver } from "./prompts/ContextFileResolver.js";
 import { PromptBuilder } from "./prompts/PromptBuilder.js";
 import { OrchestraLogger } from "./utils/logger.js";
+import { AgentOutputPanel } from "./views/agent/AgentOutputPanel.js";
+import { AgentPanelProvider } from "./views/agentPanelProvider.js";
 import { DashboardPanel } from "./views/dashboard/DashboardPanel.js";
 import { OrchestraViewDecorationProvider } from "./views/providers/ViewDecorationProvider.js";
 import { SprintSettingsPanel } from "./views/settings/SprintSettingsPanel.js";
 import { StatusBarManager } from "./views/statusbar/StatusBarItem.js";
 import { TaskDetailPanel } from "./views/task/TaskDetailPanel.js";
-import { CodeReviewTreeProvider } from "./views/treeview/CodeReviewTreeProvider.js";
 import { SprintTreeProvider } from "./views/treeview/SprintTreeProvider.js";
 import { CodeReviewSummaryPanel } from "./views/webview/CodeReviewSummaryPanel.js";
 import { CurrentTaskViewProvider } from "./views/webview/CurrentTaskViewProvider.js";
@@ -60,6 +71,9 @@ let contextFileResolver: ContextFileResolver | undefined;
 let dbWatcher: DatabaseWatcher | undefined;
 let mcpManager: MCPServerManager | undefined;
 let agentRunner: AgentRunner | undefined;
+let agentOutputPanel: AgentOutputPanel | undefined;
+let agentStateSubscription: vscode.Disposable | undefined;
+let workflowChain: WorkflowChain | undefined;
 
 async function openAgentChat(
   participant:
@@ -130,8 +144,39 @@ export function getContextFileResolver(): ContextFileResolver {
 }
 
 /**
+ * Get the AgentRunner singleton
+ * @returns The AgentRunner instance (lazy-initialized)
+ */
+export function getAgentRunner(): AgentRunner {
+  if (!agentRunner) {
+    agentRunner = createAgentRunner();
+  }
+  return agentRunner;
+}
+
+function createAgentRunner(): AgentRunner {
+  const toolRegistry = new ToolRegistry();
+  return new AgentRunner(
+    toolRegistry,
+    {
+      orchestratorModel: getConfigService().getModelForRole("orchestrator"),
+      implementorModel: getConfigService().getModelForRole("implementor"),
+      controllerModel: getConfigService().getModelForRole("controller"),
+      maxIterations: 50,
+      maxContextTokens: 100000,
+    },
+    getConfigService(),
+  );
+}
+
+/**
  * Install MCP servers to .vscode/mcp.json
  * Merges with existing configuration, preserving other servers
+ *
+ * IMPORTANT: Skips overwrite if:
+ * 1. Running in extension development mode (F5 debug)
+ * 2. Existing config uses ${workspaceFolder} variables (dev workspace)
+ * 3. Existing config has a "dev" section (MCP dev mode)
  */
 async function installMcpServers(
   orchestraRoot: string,
@@ -156,6 +201,29 @@ async function installMcpServers(
     throw new Error(
       "Bundled MCP server not found. Extension may be corrupted.",
     );
+  }
+
+  // Check if we should skip updating mcp.json
+  if (fs.existsSync(mcpJsonPath)) {
+    try {
+      const content = fs.readFileSync(mcpJsonPath, "utf-8");
+
+      // Check for dev mode indicators:
+      // 1. ${workspaceFolder} variables indicate local dev setup
+      // 2. "dev" section indicates MCP dev mode
+      const hasWorkspaceFolderVar = content.includes("${workspaceFolder}");
+      const hasDevSection = content.includes('"dev"');
+
+      if (hasWorkspaceFolderVar || hasDevSection) {
+        // This is a development workspace - don't overwrite
+        logger.info(
+          "MCP config has dev markers - preserving local configuration",
+        );
+        return;
+      }
+    } catch {
+      // If we can't read the file, proceed with overwrite
+    }
   }
 
   // Read existing config or create new
@@ -572,6 +640,9 @@ export async function activate(
     }),
   );
 
+  // Register test commands (available even without workspace for debugging)
+  registerTestCommands(context);
+
   if (!orchestraRoot) {
     logger.warn("No .orchestra/ folder found in workspace");
 
@@ -592,6 +663,40 @@ export async function activate(
   }
 
   logger.info(`Orchestra workspace detected: ${orchestraRoot}`);
+
+  try {
+    const storage = SessionStorage.getInstance(orchestraRoot);
+    const recoverableSessions = await storage.getRecoverableSessions();
+    if (recoverableSessions.length > 0) {
+      const selection = await vscode.window.showInformationMessage(
+        "Resume interrupted session?",
+        "Resume",
+        "Dismiss",
+      );
+      if (selection === "Resume") {
+        await vscode.commands.executeCommand("orchestra.resumeAgent");
+      }
+    }
+
+    try {
+      const deletedCount = await storage.cleanupExpiredSessions();
+      if (deletedCount > 0) {
+        logger.info(`Cleaned up ${deletedCount} expired agent sessions.`);
+      }
+    } catch (error) {
+      logger.warn(
+        `Failed to cleanup expired sessions: ${
+          error instanceof Error ? error.message : "Unknown"
+        }`,
+      );
+    }
+  } catch (error) {
+    logger.warn(
+      `Failed to check recoverable sessions: ${
+        error instanceof Error ? error.message : "Unknown"
+      }`,
+    );
+  }
 
   // Register MCP server definition provider (provides servers dynamically to VS Code)
   // This eliminates the need for hardcoded paths in .vscode/mcp.json
@@ -779,6 +884,19 @@ export async function activate(
     );
     logger.info("Current Task WebviewView registered");
 
+    // 5c. Register Agent Panel WebviewView (Task 32)
+    const agentPanelProvider = new AgentPanelProvider(
+      context.extensionUri,
+      orchestraRoot,
+    );
+    context.subscriptions.push(
+      vscode.window.registerWebviewViewProvider(
+        "orchestra.agentPanel",
+        agentPanelProvider,
+      ),
+    );
+    logger.info("Agent Panel WebviewView registered");
+
     // 6. Register TreeView
     const treeProvider = new SprintTreeProvider(db, dbWatcher, context);
     const treeView = vscode.window.createTreeView("orchestra.sprintExplorer", {
@@ -788,20 +906,21 @@ export async function activate(
     context.subscriptions.push(treeView);
     logger.info("Sprint Explorer TreeView registered");
 
+    // TODO: Re-evaluate if Code Review and Workflow Controls views should be removed
     // 6a. Register Code Review TreeView
-    const codeReviewTreeProvider = new CodeReviewTreeProvider(
-      orchestraRoot,
-      dbWatcher,
-    );
-    const codeReviewTreeView = vscode.window.createTreeView(
-      "orchestra.codeReview",
-      {
-        treeDataProvider: codeReviewTreeProvider,
-        showCollapseAll: true,
-      },
-    );
-    context.subscriptions.push(codeReviewTreeView);
-    logger.info("Code Review TreeView registered");
+    // const codeReviewTreeProvider = new CodeReviewTreeProvider(
+    //   orchestraRoot,
+    //   dbWatcher,
+    // );
+    // const codeReviewTreeView = vscode.window.createTreeView(
+    //   "orchestra.codeReview",
+    //   {
+    //     treeDataProvider: codeReviewTreeProvider,
+    //     showCollapseAll: true,
+    //   },
+    // );
+    // context.subscriptions.push(codeReviewTreeView);
+    // logger.info("Code Review TreeView registered");
 
     // 6b. Register FileDecorationProvider for status-based styling (TD-016 DD-4)
     const decorationProvider = new OrchestraViewDecorationProvider();
@@ -826,7 +945,7 @@ export async function activate(
       }),
       vscode.commands.registerCommand("orchestra.refreshStatus", () => {
         treeProvider.refresh("manual");
-        codeReviewTreeProvider.refresh();
+        // codeReviewTreeProvider.refresh(); // Commented out - Code Review view hidden
         decorationProvider.refresh(); // Refresh file decorations (code review badges)
         statusBar.refresh();
         logger.info("Manual refresh triggered");
@@ -841,6 +960,38 @@ export async function activate(
           logger.error("Failed to filter sprints", error);
         });
       }),
+      vscode.commands.registerCommand("orchestra.setVerbosity", () => {
+        handleSetVerbosity().catch((error) => {
+          const message =
+            error instanceof Error ? error.message : "Unknown error";
+          vscode.window.showErrorMessage(
+            `Orchestra: Failed to set verbosity - ${message}`,
+          );
+          logger.error("Failed to set verbosity", error);
+        });
+      }),
+      vscode.commands.registerCommand(
+        "orchestra.selectModel",
+        async (role?: string): Promise<boolean> => {
+          const selectedRole =
+            role === "orchestrator" ||
+            role === "implementor" ||
+            role === "controller"
+              ? role
+              : undefined;
+          try {
+            return await handleSelectModel(selectedRole);
+          } catch (error) {
+            const message =
+              error instanceof Error ? error.message : "Unknown error";
+            vscode.window.showErrorMessage(
+              `Orchestra: Failed to select model - ${message}`,
+            );
+            logger.error("Failed to select model", error);
+            return false;
+          }
+        },
+      ),
       vscode.commands.registerCommand("orchestra.openSprintSettings", () => {
         SprintSettingsPanel.show(orchestraRoot, logger);
       }),
@@ -954,19 +1105,6 @@ export async function activate(
         async (element: { type: string; task?: { id: number } }) => {
           if (element?.task?.id) {
             await handleForceComplete(
-              orchestraRoot,
-              element.task.id,
-              treeProvider,
-              dbWatcher,
-            );
-          }
-        },
-      ),
-      vscode.commands.registerCommand(
-        "orchestra.reopenTask",
-        async (element: { type: string; task?: { id: number } }) => {
-          if (element?.task?.id) {
-            await handleReopenTask(
               orchestraRoot,
               element.task.id,
               treeProvider,
@@ -1597,7 +1735,7 @@ export async function activate(
       // Agent execution commands
       vscode.commands.registerCommand("orchestra.startAgent", async () => {
         try {
-          if (agentRunner) {
+          if (agentRunner?.getSession()?.status === "running") {
             vscode.window.showErrorMessage(
               "Orchestra: Agent is already running. Stop or pause the current agent first.",
             );
@@ -1628,20 +1766,23 @@ export async function activate(
             return; // User cancelled
           }
 
-          // Create ToolRegistry and AgentRunner
-          const toolRegistry = new ToolRegistry();
-          // TODO: Register tools here in future work
+          const runner = getAgentRunner();
 
-          agentRunner = new AgentRunner(toolRegistry, {
-            orchestratorModel: configService.getModelForRole("orchestrator"),
-            implementorModel: configService.getModelForRole("implementor"),
-            controllerModel: configService.getModelForRole("controller"),
-            maxIterations: 50,
-            maxContextTokens: 100000,
+          agentOutputPanel = AgentOutputPanel.createOrShow(
+            context.extensionUri,
+          );
+          agentOutputPanel.clear();
+          agentOutputPanel.updateStatus("Starting");
+          agentOutputPanel.bindToRunner(runner);
+
+          agentStateSubscription?.dispose();
+          agentStateSubscription = runner.onStateChange((state) => {
+            agentOutputPanel?.updateStatus(state.status);
           });
+          context.subscriptions.push(agentStateSubscription);
 
           // Start the agent
-          await agentRunner.start(
+          await runner.start(
             role.value as "orchestrator" | "implementor" | "controller",
             {
               prompt,
@@ -1697,6 +1838,10 @@ export async function activate(
           await agentRunner.stop();
           agentRunner.dispose();
           agentRunner = undefined;
+          agentStateSubscription?.dispose();
+          agentStateSubscription = undefined;
+          agentOutputPanel?.unbindRunner();
+          agentOutputPanel?.updateStatus("Stopped");
 
           vscode.window.showInformationMessage(
             "Orchestra: Agent stopped successfully",
@@ -1713,18 +1858,8 @@ export async function activate(
       }),
       vscode.commands.registerCommand("orchestra.resumeAgent", async () => {
         try {
-          if (!agentRunner) {
-            vscode.window.showErrorMessage(
-              "Orchestra: No agent to resume. Start a new agent first.",
-            );
-            return;
-          }
-
-          await agentRunner.resume();
-          vscode.window.showInformationMessage(
-            "Orchestra: Agent resumed successfully",
-          );
-          logger.info("Agent resumed");
+          await handleResumeAgent(orchestraRoot);
+          logger.info("Agent resume requested");
         } catch (error) {
           const message =
             error instanceof Error ? error.message : "Unknown error";
@@ -1780,6 +1915,12 @@ export async function activate(
       logger.info("MCP servers started");
     }
 
+    // Start WorkflowChain for automatic agent transitions
+    workflowChain = getWorkflowChain(orchestraRoot);
+    workflowChain.start();
+    context.subscriptions.push(workflowChain);
+    logger.info("WorkflowChain started - automatic agent transitions enabled");
+
     logger.info("Orchestra extension activated successfully");
     vscode.window.showInformationMessage("Orchestra: Extension activated");
   } catch (error) {
@@ -1796,7 +1937,7 @@ export async function activate(
  * Extension deactivation
  * Cleanup resources
  */
-export function deactivate(): void {
+export async function deactivate(): Promise<void> {
   logger?.info("Orchestra extension deactivating...");
 
   // ConfigService has no disposal required - it only provides access to workspace config
@@ -1807,6 +1948,19 @@ export function deactivate(): void {
     agentRunner.dispose();
     agentRunner = undefined;
   }
+
+  await ProcessManager.getInstance().dispose();
+
+  agentStateSubscription?.dispose();
+  agentStateSubscription = undefined;
+  agentOutputPanel?.unbindRunner();
+
+  // Clean up EventBus singleton
+  disposeAgentEventBus();
+
+  // Clean up WorkflowChain
+  disposeWorkflowChain();
+  workflowChain = undefined;
 
   // Database watcher disposed via subscriptions
   dbWatcher = undefined;

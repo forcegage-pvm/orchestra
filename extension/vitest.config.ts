@@ -12,6 +12,12 @@ export default defineConfig({
       "**/node_modules/**",
       "**/session-persistence.test.ts", // Requires Node.js better-sqlite3
     ],
+    coverage: {
+      provider: "v8",
+      reporter: ["text", "json-summary"],
+      reportsDirectory: "coverage",
+      include: ["src/agents/tools/**/*.ts"],
+    },
   },
   resolve: {
     alias: {

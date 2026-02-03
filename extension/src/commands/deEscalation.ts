@@ -31,10 +31,11 @@ export async function handleDeEscalateTask(
   workspaceRoot: string,
   taskId: number,
   treeProvider: SprintTreeProvider,
-  dbWatcher?: DatabaseWatcher,
+  dbWatcher?: DatabaseWatcher
 ): Promise<void> {
-  const { resolveEscalation, getEscalationDetails } =
-    await import("../database/mutations.js");
+  const { resolveEscalation, getEscalationDetails } = await import(
+    "../database/mutations.js"
+  );
 
   try {
     // Get escalation details to show to supervisor
@@ -42,7 +43,7 @@ export async function handleDeEscalateTask(
 
     if (!escalation) {
       vscode.window.showErrorMessage(
-        `Orchestra: No escalation record found for Task ${taskId}`,
+        `Orchestra: No escalation record found for Task ${taskId}`
       );
       return;
     }
@@ -121,15 +122,15 @@ export async function handleDeEscalateTask(
 
     treeProvider.refresh();
     vscode.window.showInformationMessage(
-      `Orchestra: Task ${taskId} de-escalated to ${targetStatus}`,
+      `Orchestra: Task ${taskId} de-escalated to ${targetStatus}`
     );
     logger.info(
-      `Task ${taskId} de-escalated to ${targetStatus} by human supervisor: ${notes}`,
+      `Task ${taskId} de-escalated to ${targetStatus} by human supervisor: ${notes}`
     );
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
     vscode.window.showErrorMessage(
-      `Orchestra: Failed to de-escalate task - ${message}`,
+      `Orchestra: Failed to de-escalate task - ${message}`
     );
     logger.error(`Failed to de-escalate task ${taskId}`, error);
   }
@@ -150,15 +151,16 @@ export async function handleMoveToGateCheck(
   workspaceRoot: string,
   taskId: number,
   treeProvider: SprintTreeProvider,
-  dbWatcher?: DatabaseWatcher,
+  dbWatcher?: DatabaseWatcher
 ): Promise<void> {
-  const { updateTaskStatus, createResolutionSignal } =
-    await import("../database/mutations.js");
+  const { updateTaskStatus, createResolutionSignal } = await import(
+    "../database/mutations.js"
+  );
 
   const confirm = await vscode.window.showWarningMessage(
     `Move Task ${taskId} to Gate Check? This will trigger re-verification with current criteria.`,
     { modal: true },
-    "Move to Gate Check",
+    "Move to Gate Check"
   );
 
   if (confirm !== "Move to Gate Check") {
@@ -171,7 +173,7 @@ export async function handleMoveToGateCheck(
       workspaceRoot,
       taskId,
       "Escalation resolved - moving to Gate Check for re-verification",
-      dbWatcher,
+      dbWatcher
     );
 
     // Update task status
@@ -180,18 +182,18 @@ export async function handleMoveToGateCheck(
       taskId,
       "GATE_CHECK",
       "Escalation resolved by human supervisor - re-verification requested",
-      dbWatcher,
+      dbWatcher
     );
 
     treeProvider.refresh();
     vscode.window.showInformationMessage(
-      `Orchestra: Task ${taskId} moved to Gate Check. Run verification via MCP.`,
+      `Orchestra: Task ${taskId} moved to Gate Check. Run verification via MCP.`
     );
     logger.info(`Task ${taskId} moved to GATE_CHECK by human supervisor`);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
     vscode.window.showErrorMessage(
-      `Orchestra: Failed to move task - ${message}`,
+      `Orchestra: Failed to move task - ${message}`
     );
     logger.error(`Failed to move task ${taskId} to GATE_CHECK`, error);
   }
@@ -212,14 +214,14 @@ export async function handleMoveToImplement(
   workspaceRoot: string,
   taskId: number,
   treeProvider: SprintTreeProvider,
-  dbWatcher?: DatabaseWatcher,
+  dbWatcher?: DatabaseWatcher
 ): Promise<void> {
   const { updateTaskStatus } = await import("../database/mutations.js");
 
   const confirm = await vscode.window.showWarningMessage(
     `Move Task ${taskId} back to Implement? The task will need to be re-implemented.`,
     { modal: true },
-    "Move to Implement",
+    "Move to Implement"
   );
 
   if (confirm !== "Move to Implement") {
@@ -232,18 +234,18 @@ export async function handleMoveToImplement(
       taskId,
       "IMPLEMENT",
       "Escalation resolved by human supervisor - re-implementation requested",
-      dbWatcher,
+      dbWatcher
     );
 
     treeProvider.refresh();
     vscode.window.showInformationMessage(
-      `Orchestra: Task ${taskId} moved to Implement. Ready for implementor.`,
+      `Orchestra: Task ${taskId} moved to Implement. Ready for implementor.`
     );
     logger.info(`Task ${taskId} moved to IMPLEMENT by human supervisor`);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
     vscode.window.showErrorMessage(
-      `Orchestra: Failed to move task - ${message}`,
+      `Orchestra: Failed to move task - ${message}`
     );
     logger.error(`Failed to move task ${taskId} to IMPLEMENT`, error);
   }
@@ -265,7 +267,7 @@ export async function handleForceComplete(
   workspaceRoot: string,
   taskId: number,
   treeProvider: SprintTreeProvider,
-  dbWatcher?: DatabaseWatcher,
+  dbWatcher?: DatabaseWatcher
 ): Promise<void> {
   const { updateTaskStatus } = await import("../database/mutations.js");
 
@@ -288,7 +290,7 @@ export async function handleForceComplete(
   const confirm = await vscode.window.showWarningMessage(
     `Force complete Task ${taskId}? This bypasses verification.`,
     { modal: true },
-    "Force Complete",
+    "Force Complete"
   );
 
   if (confirm !== "Force Complete") {
@@ -301,75 +303,21 @@ export async function handleForceComplete(
       taskId,
       "COMPLETE",
       `Force completed by human supervisor: ${justification}`,
-      dbWatcher,
+      dbWatcher
     );
 
     treeProvider.refresh();
     vscode.window.showInformationMessage(
-      `Orchestra: Task ${taskId} force-completed.`,
+      `Orchestra: Task ${taskId} force-completed.`
     );
     logger.info(
-      `Task ${taskId} force-completed by human supervisor: ${justification}`,
+      `Task ${taskId} force-completed by human supervisor: ${justification}`
     );
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
     vscode.window.showErrorMessage(
-      `Orchestra: Failed to complete task - ${message}`,
+      `Orchestra: Failed to complete task - ${message}`
     );
     logger.error(`Failed to force-complete task ${taskId}`, error);
-  }
-}
-
-/**
- * Handle reopening a task (reset to PENDING)
- *
- * Allows any task to be reset to PENDING status for re-processing.
- * This is useful during testing or when a task needs to be re-done.
- *
- * @param workspaceRoot Absolute path to workspace root
- * @param taskId Task ID (numeric primary key)
- * @param treeProvider Sprint tree provider for UI updates
- * @param dbWatcher Optional database watcher for change notification
- */
-export async function handleReopenTask(
-  workspaceRoot: string,
-  taskId: number,
-  treeProvider: SprintTreeProvider,
-  dbWatcher?: DatabaseWatcher,
-): Promise<void> {
-  const { updateTaskStatus } = await import("../database/mutations.js");
-
-  const confirm = await vscode.window.showWarningMessage(
-    `Reopen Task ${taskId}? The task status will be reset to PENDING.`,
-    { modal: true },
-    "Reopen Task",
-  );
-
-  if (confirm !== "Reopen Task") {
-    return;
-  }
-
-  try {
-    updateTaskStatus(
-      workspaceRoot,
-      taskId,
-      "PENDING",
-      "Task reopened by human supervisor - reset to PENDING for re-processing",
-      dbWatcher,
-    );
-
-    treeProvider.refresh();
-    vscode.window.showInformationMessage(
-      `Orchestra: Task ${taskId} reopened and reset to PENDING.`,
-    );
-    logger.info(
-      `Task ${taskId} reopened (reset to PENDING) by human supervisor`,
-    );
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown error";
-    vscode.window.showErrorMessage(
-      `Orchestra: Failed to reopen task - ${message}`,
-    );
-    logger.error(`Failed to reopen task ${taskId}`, error);
   }
 }

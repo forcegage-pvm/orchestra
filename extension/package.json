@@ -2,7 +2,7 @@
   "name": "orchestra-extension",
   "displayName": "Orchestra",
   "description": "AI agent task orchestration for VS Code",
-  "version": "0.8.1",
+  "version": "0.99.0-dev",
   "publisher": "forcegage",
   "repository": {
     "type": "git",
@@ -86,6 +86,28 @@
           "type": "string",
           "default": "orchestra.controller",
           "description": "Agent mode identifier for the Controller role"
+        },
+        "orchestra.agents.verbosity": {
+          "type": "string",
+          "enum": [
+            "minimal",
+            "normal",
+            "detailed",
+            "debug"
+          ],
+          "default": "normal",
+          "description": "Verbosity level for agent output (minimal hides thinking, debug shows tokens/timing)"
+        },
+        "orchestra.agentPanel.verbosity": {
+          "type": "string",
+          "enum": [
+            "minimal",
+            "normal",
+            "verbose",
+            "debug"
+          ],
+          "default": "normal",
+          "description": "Verbosity level for the Agent Panel timeline (minimal hides thinking, debug shows full tool details)"
         }
       }
     },
@@ -124,6 +146,16 @@
         "command": "orchestra.invokeImplementor",
         "title": "Orchestra: Invoke Implementor Agent",
         "icon": "$(tools)"
+      },
+      {
+        "command": "orchestra.setVerbosity",
+        "title": "Orchestra: Set Agent Verbosity",
+        "icon": "$(settings-gear)"
+      },
+      {
+        "command": "orchestra.selectModel",
+        "title": "Orchestra: Select Agent Model",
+        "icon": "$(symbol-misc)"
       },
       {
         "command": "orchestra.startTask",
@@ -169,11 +201,6 @@
         "command": "orchestra.forceComplete",
         "title": "Force Complete (Override)",
         "icon": "$(check-all)"
-      },
-      {
-        "command": "orchestra.reopenTask",
-        "title": "Reopen Task (Reset to Pending)",
-        "icon": "$(history)"
       },
       {
         "command": "orchestra.setActiveSprint",
@@ -264,6 +291,21 @@
         "command": "orchestra.implementCodeReviewFixTask",
         "title": "Orchestra: Implement Code Review Fixes",
         "icon": "$(play)"
+      },
+      {
+        "command": "orchestra.testBasicAgent",
+        "title": "Orchestra: Test Basic Agent (Dev)",
+        "icon": "$(beaker)"
+      },
+      {
+        "command": "orchestra.testDirectTools",
+        "title": "Orchestra: Test Direct Tools (Dev)",
+        "icon": "$(beaker)"
+      },
+      {
+        "command": "orchestra.testModelAvailability",
+        "title": "Orchestra: Test Model Availability (Dev)",
+        "icon": "$(beaker)"
       }
     ],
     "keybindings": [
@@ -290,20 +332,14 @@
           "type": "webview"
         },
         {
+          "id": "orchestra.agentPanel",
+          "name": "Agent Panel",
+          "type": "webview"
+        },
+        {
           "id": "orchestra.sprintExplorer",
           "name": "Sprint Explorer",
           "type": "tree"
-        },
-        {
-          "id": "orchestra.codeReview",
-          "name": "Code Review",
-          "type": "tree"
-        },
-        {
-          "id": "orchestra.workflowControls",
-          "name": "Workflow Controls",
-          "type": "webview",
-          "visibility": "collapsed"
         }
       ]
     },
@@ -399,11 +435,6 @@
           "group": "1_remediation@2"
         },
         {
-          "command": "orchestra.reopenTask",
-          "when": "view == orchestra.sprintExplorer && viewItem =~ /^task-/",
-          "group": "1_remediation@3"
-        },
-        {
           "command": "orchestra.forceComplete",
           "when": "view == orchestra.sprintExplorer && viewItem == task-escalated",
           "group": "2_override"
@@ -430,6 +461,8 @@
     "vscode:prepublish": "npm run build && npm run postbuild",
     "build": "node esbuild.config.js --production",
     "postbuild": "node scripts/copy-native-modules.js && node scripts/copy-mcp-server.js",
+    "build:webview": "vite build --config src/webviews/agent-panel/vite.config.ts",
+    "watch:webview": "vite build --watch --config src/webviews/agent-panel/vite.config.ts",
     "watch": "node esbuild.config.js --watch",
     "package": "npx @vscode/vsce package --no-yarn --out artifacts/",
     "typecheck": "tsc --noEmit",
@@ -438,8 +471,14 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@iconify-icon/solid": "^2.1.0",
+    "@tanstack/solid-virtual": "^3.13.18",
+    "ansi-to-html": "^0.7.2",
     "better-sqlite3": "^12.6.2",
     "drizzle-orm": "^0.37.0",
+    "js-yaml": "^4.1.0",
+    "marked": "^17.0.1",
+    "solid-js": "^1.9.3",
     "zod": "^3.25.76"
   },
   "bundledDependencies": [
@@ -450,14 +489,21 @@
   "devDependencies": {
     "@eslint/js": "^9.17.0",
     "@types/better-sqlite3": "^7.6.12",
+    "@types/js-yaml": "^4.0.9",
     "@types/node": "^20.x",
     "@types/vscode": "^1.95.0",
+    "@vitest/coverage-v8": "^2.1.8",
     "@vscode/test-electron": "^2.4.1",
+    "autoprefixer": "^10.4.20",
     "electron-rebuild": "^3.2.9",
     "esbuild": "^0.24.0",
     "eslint": "^9.17.0",
+    "postcss": "^8.4.49",
+    "tailwindcss": "^3.4.17",
     "typescript": "^5.7.2",
     "typescript-eslint": "^8.18.0",
+    "vite": "^6.0.7",
+    "vite-plugin-solid": "^2.10.2",
     "vitest": "^2.1.8"
   },
   "bundleDependencies": [

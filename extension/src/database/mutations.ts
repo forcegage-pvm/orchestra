@@ -173,6 +173,197 @@ export function createSignal(
 }
 
 /**
+ * Create a handover record for a task
+ *
+ * @param workspaceRoot Absolute path to workspace root
+ * @param taskId Numeric task ID
+ * @param input Handover payload
+ * @returns Handover ID
+ */
+export function createHandover(
+  workspaceRoot: string,
+  taskId: number,
+  input: {
+    priority: string;
+    context?: string;
+    contextFiles?: string[];
+    acceptanceCriteria: unknown[];
+    fileOperations: unknown[];
+    deliverables: unknown[];
+    testFile?: string | null;
+    testRequirements?: string | null;
+    constraints?: string | null;
+    referenceLinks?: string[] | null;
+  },
+): number {
+  const db = OrchestraDB.getInstance(workspaceRoot);
+  const now = new Date().toISOString();
+
+  const result = db
+    .prepare(
+      `
+    INSERT INTO handovers (
+      task_id,
+      priority,
+      context,
+      context_files,
+      acceptance_criteria,
+      file_operations,
+      deliverables,
+      test_file,
+      test_requirements,
+      constraints,
+      reference_links,
+      created_at,
+      updated_at
+    )
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `,
+    )
+    .run(
+      taskId,
+      input.priority,
+      input.context ?? null,
+      JSON.stringify(input.contextFiles ?? []),
+      JSON.stringify(input.acceptanceCriteria ?? []),
+      JSON.stringify(input.fileOperations ?? []),
+      JSON.stringify(input.deliverables ?? []),
+      input.testFile ?? null,
+      input.testRequirements ?? null,
+      input.constraints ?? null,
+      JSON.stringify(input.referenceLinks ?? []),
+      now,
+      now,
+    );
+
+  return Number(result.lastInsertRowid);
+}
+
+/**
+ * Create a verification judgment record
+ *
+ * @param workspaceRoot Absolute path to workspace root
+ * @param taskId Numeric task ID
+ * @param input Judgment payload
+ * @returns Judgment ID
+ */
+export function createVerificationJudgment(
+  workspaceRoot: string,
+  taskId: number,
+  input: {
+    judgment: "PASS" | "FAIL";
+    rationale: string;
+    failures?: unknown[];
+    manualReview?: boolean;
+    signalId?: string;
+  },
+): number {
+  const db = OrchestraDB.getInstance(workspaceRoot);
+  const now = new Date().toISOString();
+
+  const result = db
+    .prepare(
+      `
+    INSERT INTO verification_judgments (
+      task_id,
+      signal_id,
+      judgment,
+      rationale,
+      failures,
+      manual_review,
+      created_at,
+      updated_at
+    )
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  `,
+    )
+    .run(
+      taskId,
+      input.signalId ?? null,
+      input.judgment,
+      input.rationale,
+      JSON.stringify(input.failures ?? []),
+      input.manualReview ? 1 : 0,
+      now,
+      now,
+    );
+
+  return Number(result.lastInsertRowid);
+}
+
+/**
+ * Create feedback record for implementor retries
+ *
+ * @param workspaceRoot Absolute path to workspace root
+ * @param taskId Numeric task ID
+ * @param input Feedback payload
+ * @returns Feedback ID
+ */
+export function createFeedback(
+  workspaceRoot: string,
+  taskId: number,
+  input: {
+    issues: unknown[];
+    passedChecks: unknown[];
+    nextSteps: string;
+    additionalGuidance?: string | null;
+  },
+): number {
+  const db = OrchestraDB.getInstance(workspaceRoot);
+  const now = new Date().toISOString();
+
+  const task = db
+    .prepare(
+      `
+    SELECT id, retry_count, max_retries
+    FROM tasks
+    WHERE id = ?
+  `,
+    )
+    .get(taskId) as { id: number; retry_count: number; max_retries: number } | undefined;
+
+  if (!task) {
+    throw new Error(`Task ${taskId} not found`);
+  }
+
+  const attempt = task.retry_count + 1;
+  const canRetry = attempt < task.max_retries ? 1 : 0;
+
+  const result = db
+    .prepare(
+      `
+    INSERT INTO feedback (
+      task_id,
+      attempt,
+      max_attempts,
+      can_retry,
+      issues,
+      passed_checks,
+      next_steps,
+      additional_guidance,
+      created_at,
+      updated_at
+    )
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `,
+    )
+    .run(
+      task.id,
+      attempt,
+      task.max_retries,
+      canRetry,
+      JSON.stringify(input.issues ?? []),
+      JSON.stringify(input.passedChecks ?? []),
+      JSON.stringify(input.nextSteps),
+      input.additionalGuidance ?? null,
+      now,
+      now,
+    );
+
+  return Number(result.lastInsertRowid);
+}
+
+/**
  * Create an escalation record and update task status to ESCALATED
  *
  * @param workspaceRoot Absolute path to workspace root

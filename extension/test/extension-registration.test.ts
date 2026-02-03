@@ -37,12 +37,27 @@ function extractRegisteredCommands(code: string): string[] {
 
 describe("Extension registration - Command registration (Task 15)", () => {
   let extensionCode: string;
+  let allCommandCode: string;
   let packageJson: { contributes?: { commands?: Array<{ command: string }> } };
 
   beforeEach(() => {
     // Read the actual extension.ts file
     const extensionPath = path.join(__dirname, "..", "src", "extension.ts");
     extensionCode = fs.readFileSync(extensionPath, "utf-8");
+
+    // Also read command files that register commands
+    const testAgentCommandsPath = path.join(
+      __dirname,
+      "..",
+      "src",
+      "commands",
+      "testAgentCommands.ts",
+    );
+    let testAgentCode = "";
+    if (fs.existsSync(testAgentCommandsPath)) {
+      testAgentCode = fs.readFileSync(testAgentCommandsPath, "utf-8");
+    }
+    allCommandCode = extensionCode + testAgentCode;
 
     // Read package.json
     const packageJsonPath = path.join(__dirname, "..", "package.json");
@@ -58,7 +73,7 @@ describe("Extension registration - Command registration (Task 15)", () => {
   describe("TDD tests for command registration", () => {
     it("should have at least 5 registerCommand calls", () => {
       const registrations = extensionCode.match(
-        /vscode\.commands\.registerCommand\(/g
+        /vscode\.commands\.registerCommand\(/g,
       );
       expect(registrations).toBeTruthy();
       expect(registrations!.length).toBeGreaterThanOrEqual(5);
@@ -81,7 +96,7 @@ describe("Extension registration - Command registration (Task 15)", () => {
       // Check that commands are added to subscriptions
       expect(extensionCode).toContain("context.subscriptions.push(");
       expect(extensionCode).toMatch(
-        /context\.subscriptions\.push\([^)]*vscode\.commands\.registerCommand/
+        /context\.subscriptions\.push\([^)]*vscode\.commands\.registerCommand/,
       );
     });
   });
@@ -89,7 +104,7 @@ describe("Extension registration - Command registration (Task 15)", () => {
   describe("Consistency between package.json and extension.ts", () => {
     it("should register all commands declared in package.json", () => {
       const packageCommands = extractPackageJsonCommands(packageJson);
-      const registeredCommands = extractRegisteredCommands(extensionCode);
+      const registeredCommands = extractRegisteredCommands(allCommandCode);
 
       expect(packageCommands.length).toBeGreaterThan(0);
 
@@ -97,32 +112,32 @@ describe("Extension registration - Command registration (Task 15)", () => {
       for (const commandId of packageCommands) {
         expect(
           registeredCommands,
-          `Command ${commandId} from package.json should be registered in extension.ts`
+          `Command ${commandId} from package.json should be registered in extension.ts or command files`,
         ).toContain(commandId);
       }
     });
 
     it("should not register commands not in package.json", () => {
       const packageCommands = extractPackageJsonCommands(packageJson);
-      const registeredCommands = extractRegisteredCommands(extensionCode);
+      const registeredCommands = extractRegisteredCommands(allCommandCode);
 
       // Every registered orchestra.* command should be in package.json
       for (const commandId of registeredCommands) {
         expect(
           packageCommands,
-          `Registered command ${commandId} should be declared in package.json`
+          `Registered command ${commandId} should be declared in package.json`,
         ).toContain(commandId);
       }
     });
 
     it("should have all package.json commands registered (may have extras)", () => {
       const packageCommands = extractPackageJsonCommands(packageJson);
-      const registeredCommands = extractRegisteredCommands(extensionCode);
+      const registeredCommands = extractRegisteredCommands(allCommandCode);
 
       // Should have at least as many registered as in package.json
       // (Note: orchestra.initializeWorkspace may be registered multiple times for different modes)
       expect(registeredCommands.length).toBeGreaterThanOrEqual(
-        packageCommands.length
+        packageCommands.length,
       );
     });
   });
@@ -130,19 +145,19 @@ describe("Extension registration - Command registration (Task 15)", () => {
   describe("Specific command registrations", () => {
     it('should register "orchestra.openDashboard"', () => {
       expect(extensionCode).toContain(
-        'vscode.commands.registerCommand("orchestra.openDashboard"'
+        'vscode.commands.registerCommand("orchestra.openDashboard"',
       );
     });
 
     it('should register "orchestra.refreshStatus"', () => {
       expect(extensionCode).toContain(
-        'vscode.commands.registerCommand("orchestra.refreshStatus"'
+        'vscode.commands.registerCommand("orchestra.refreshStatus"',
       );
     });
 
     it('should register "orchestra.openSprintSettings"', () => {
       expect(extensionCode).toContain(
-        'vscode.commands.registerCommand("orchestra.openSprintSettings"'
+        'vscode.commands.registerCommand("orchestra.openSprintSettings"',
       );
     });
 
@@ -199,7 +214,7 @@ describe("Extension registration - Command registration (Task 15)", () => {
     it("should use proper registerCommand syntax", () => {
       // Should not have syntax errors in command registrations
       const commandBlocks = extensionCode.match(
-        /vscode\.commands\.registerCommand\([^)]+\)/g
+        /vscode\.commands\.registerCommand\([^)]+\)/g,
       );
       expect(commandBlocks).toBeTruthy();
       expect(commandBlocks!.length).toBeGreaterThan(0);
@@ -239,7 +254,7 @@ describe("Extension registration - CurrentTaskViewProvider (Task 7)", () => {
   describe("import statement", () => {
     it("should import CurrentTaskViewProvider from correct path", () => {
       expect(extensionCode).toContain(
-        'import { CurrentTaskViewProvider } from "./views/webview/CurrentTaskViewProvider.js"'
+        'import { CurrentTaskViewProvider } from "./views/webview/CurrentTaskViewProvider.js"',
       );
     });
   });
@@ -251,7 +266,7 @@ describe("Extension registration - CurrentTaskViewProvider (Task 7)", () => {
 
     it("should pass context.extensionUri as first parameter", () => {
       const instantiationMatch = extensionCode.match(
-        /new CurrentTaskViewProvider\(([\s\S]*?)\)/
+        /new CurrentTaskViewProvider\(([\s\S]*?)\)/,
       );
       expect(instantiationMatch).toBeTruthy();
       if (instantiationMatch) {
@@ -262,7 +277,7 @@ describe("Extension registration - CurrentTaskViewProvider (Task 7)", () => {
 
     it("should pass orchestraRoot as second parameter", () => {
       const instantiationMatch = extensionCode.match(
-        /new CurrentTaskViewProvider\(([\s\S]*?)\)/
+        /new CurrentTaskViewProvider\(([\s\S]*?)\)/,
       );
       expect(instantiationMatch).toBeTruthy();
       if (instantiationMatch) {
@@ -273,7 +288,7 @@ describe("Extension registration - CurrentTaskViewProvider (Task 7)", () => {
 
     it("should pass dbWatcher as third parameter", () => {
       const instantiationMatch = extensionCode.match(
-        /new CurrentTaskViewProvider\(([\s\S]*?)\)/
+        /new CurrentTaskViewProvider\(([\s\S]*?)\)/,
       );
       expect(instantiationMatch).toBeTruthy();
       if (instantiationMatch) {
@@ -286,13 +301,13 @@ describe("Extension registration - CurrentTaskViewProvider (Task 7)", () => {
   describe("webview view registration", () => {
     it("should register with vscode.window.registerWebviewViewProvider", () => {
       expect(extensionCode).toContain(
-        "vscode.window.registerWebviewViewProvider"
+        "vscode.window.registerWebviewViewProvider",
       );
     });
 
     it('should register with view ID "orchestra.currentTask"', () => {
       const registrationMatch = extensionCode.match(
-        /registerWebviewViewProvider\(([\s\S]*?)\)/
+        /registerWebviewViewProvider\(([\s\S]*?)\)/,
       );
       expect(registrationMatch).toBeTruthy();
       if (registrationMatch) {
@@ -303,7 +318,7 @@ describe("Extension registration - CurrentTaskViewProvider (Task 7)", () => {
 
     it("should pass currentTaskProvider as second parameter to registerWebviewViewProvider", () => {
       const registrationMatch = extensionCode.match(
-        /registerWebviewViewProvider\(([\s\S]*?)\)/
+        /registerWebviewViewProvider\(([\s\S]*?)\)/,
       );
       expect(registrationMatch).toBeTruthy();
       if (registrationMatch) {
@@ -317,7 +332,7 @@ describe("Extension registration - CurrentTaskViewProvider (Task 7)", () => {
     it("should add registration disposable to context.subscriptions", () => {
       // Check that the registration is wrapped in subscriptions.push
       const registrationBlock = extensionCode.match(
-        /context\.subscriptions\.push\(([\s\S]*?)registerWebviewViewProvider([\s\S]*?)\)/
+        /context\.subscriptions\.push\(([\s\S]*?)registerWebviewViewProvider([\s\S]*?)\)/,
       );
       expect(registrationBlock).toBeTruthy();
     });
@@ -325,7 +340,7 @@ describe("Extension registration - CurrentTaskViewProvider (Task 7)", () => {
     it("should log successful registration", () => {
       // Check for log statement after registration
       expect(extensionCode).toContain(
-        'logger.info("Current Task WebviewView registered")'
+        'logger.info("Current Task WebviewView registered")',
       );
     });
   });
@@ -334,7 +349,7 @@ describe("Extension registration - CurrentTaskViewProvider (Task 7)", () => {
     it("should register after DatabaseWatcher is created", () => {
       const watcherIndex = extensionCode.indexOf("new DatabaseWatcher(");
       const providerIndex = extensionCode.indexOf(
-        "new CurrentTaskViewProvider("
+        "new CurrentTaskViewProvider(",
       );
       expect(providerIndex).toBeGreaterThan(watcherIndex);
       expect(providerIndex).toBeGreaterThan(-1);
@@ -342,10 +357,10 @@ describe("Extension registration - CurrentTaskViewProvider (Task 7)", () => {
 
     it("should register before SprintTreeProvider", () => {
       const providerIndex = extensionCode.indexOf(
-        "new CurrentTaskViewProvider("
+        "new CurrentTaskViewProvider(",
       );
       const treeProviderIndex = extensionCode.indexOf(
-        "new SprintTreeProvider("
+        "new SprintTreeProvider(",
       );
       expect(providerIndex).toBeLessThan(treeProviderIndex);
       expect(providerIndex).toBeGreaterThan(-1);
@@ -356,7 +371,7 @@ describe("Extension registration - CurrentTaskViewProvider (Task 7)", () => {
     it("should use extensionUri from context (not extensionPath)", () => {
       // Ensure we're using the Uri, not a string path
       const instantiationMatch = extensionCode.match(
-        /new CurrentTaskViewProvider\(([\s\S]*?)\)/
+        /new CurrentTaskViewProvider\(([\s\S]*?)\)/,
       );
       expect(instantiationMatch).toBeTruthy();
       if (instantiationMatch) {
@@ -368,7 +383,7 @@ describe("Extension registration - CurrentTaskViewProvider (Task 7)", () => {
 
     it("should use orchestraRoot (workspace root string)", () => {
       const instantiationMatch = extensionCode.match(
-        /new CurrentTaskViewProvider\(([\s\S]*?)\)/
+        /new CurrentTaskViewProvider\(([\s\S]*?)\)/,
       );
       expect(instantiationMatch).toBeTruthy();
       if (instantiationMatch) {
@@ -379,7 +394,7 @@ describe("Extension registration - CurrentTaskViewProvider (Task 7)", () => {
 
     it("should use dbWatcher instance (not create new)", () => {
       const instantiationMatch = extensionCode.match(
-        /new CurrentTaskViewProvider\(([\s\S]*?)\)/
+        /new CurrentTaskViewProvider\(([\s\S]*?)\)/,
       );
       expect(instantiationMatch).toBeTruthy();
       if (instantiationMatch) {
@@ -414,7 +429,7 @@ describe("Extension registration - ContextFileResolver (Task 8)", () => {
   describe("import statement", () => {
     it("should import ContextFileResolver from prompts/ContextFileResolver.js", () => {
       expect(extensionCode).toContain(
-        'import { ContextFileResolver } from "./prompts/ContextFileResolver.js"'
+        'import { ContextFileResolver } from "./prompts/ContextFileResolver.js"',
       );
     });
   });
@@ -422,7 +437,7 @@ describe("Extension registration - ContextFileResolver (Task 8)", () => {
   describe("module-level variable", () => {
     it("should declare contextFileResolver variable with optional type", () => {
       expect(extensionCode).toMatch(
-        /let contextFileResolver:\s*ContextFileResolver\s*\|\s*undefined/
+        /let contextFileResolver:\s*ContextFileResolver\s*\|\s*undefined/,
       );
     });
   });
@@ -430,26 +445,26 @@ describe("Extension registration - ContextFileResolver (Task 8)", () => {
   describe("getContextFileResolver export function", () => {
     it("should export getContextFileResolver function", () => {
       expect(extensionCode).toContain(
-        "export function getContextFileResolver()"
+        "export function getContextFileResolver()",
       );
     });
 
     it("should return ContextFileResolver type", () => {
       expect(extensionCode).toMatch(
-        /export function getContextFileResolver\(\):\s*ContextFileResolver/
+        /export function getContextFileResolver\(\):\s*ContextFileResolver/,
       );
     });
 
     it("should throw error if not initialized", () => {
       expect(extensionCode).toContain("if (!contextFileResolver)");
       expect(extensionCode).toMatch(
-        /throw new Error\([^)]*"ContextFileResolver not initialized/s
+        /throw new Error\([^)]*"ContextFileResolver not initialized/s,
       );
     });
 
     it("should return contextFileResolver instance when initialized", () => {
       const functionMatch = extensionCode.match(
-        /export function getContextFileResolver\(\):[^{]+{([\s\S]*?)\n}/
+        /export function getContextFileResolver\(\):[^{]+{([\s\S]*?)\n}/,
       );
       expect(functionMatch).toBeTruthy();
       if (functionMatch) {
@@ -462,7 +477,7 @@ describe("Extension registration - ContextFileResolver (Task 8)", () => {
   describe("activation and instantiation", () => {
     it("should instantiate ContextFileResolver in activate function", () => {
       expect(extensionCode).toMatch(
-        /contextFileResolver\s*=\s*new ContextFileResolver\(/
+        /contextFileResolver\s*=\s*new ContextFileResolver\(/,
       );
     });
 
@@ -472,7 +487,7 @@ describe("Extension registration - ContextFileResolver (Task 8)", () => {
 
     it("should initialize after orchestraRoot is detected", () => {
       const orchestraRootIndex = extensionCode.indexOf(
-        "Orchestra workspace detected:"
+        "Orchestra workspace detected:",
       );
       const initIndex = extensionCode.indexOf("new ContextFileResolver(");
       expect(initIndex).toBeGreaterThan(orchestraRootIndex);
@@ -481,13 +496,13 @@ describe("Extension registration - ContextFileResolver (Task 8)", () => {
 
     it("should log initialization", () => {
       expect(extensionCode).toContain(
-        'logger.info("ContextFileResolver initialized")'
+        'logger.info("ContextFileResolver initialized")',
       );
     });
 
     it("should include Task 8 reference in comment", () => {
       const initMatch = extensionCode.match(
-        /\/\/.*ContextFileResolver.*Task 8/i
+        /\/\/.*ContextFileResolver.*Task 8/i,
       );
       expect(initMatch).toBeTruthy();
     });

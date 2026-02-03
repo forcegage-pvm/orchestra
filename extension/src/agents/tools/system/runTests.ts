@@ -1,230 +1,254 @@
 /**
- * runTests tool - Execute test commands and capture structured results
+ * runTests tool - Execute VS Code test tasks and capture structured results
  */
 
-import * as path from "path";
-import { exec, type ExecException, type ExecOptions } from "child_process";
-import { promisify } from "util";
-import type { AgentTool } from "../../ToolRegistry.js";
-import type { ToolContext, ToolResult } from "../../types.js";
+import * as vscode from "vscode";
 
-const execAsync = promisify(exec);
+import { ToolErrorCode } from "../errors.js";
+import type { AgentTool, ToolInvocationContext, ToolResult } from "../types.js";
+import { errorResult, successResult } from "../utils/resultBuilder.js";
 
 interface RunTestsInput {
-  command: string;
-  cwd?: string;
+  label?: string;
   timeoutMs?: number;
 }
 
-interface TestCounts {
-  passed?: number;
-  failed?: number;
-  skipped?: number;
-  total?: number;
-}
-
 interface RunTestsOutput {
-  command: string;
-  stdout: string;
-  stderr: string;
+  label: string;
+  status: "passed" | "failed" | "unknown";
   exitCode?: number;
-  status: "passed" | "failed";
-  testCounts?: TestCounts;
-  suiteCounts?: TestCounts;
-  cwd?: string;
 }
 
 const DEFAULT_TIMEOUT_MS = 60000;
+class TaskWaitError extends Error {
+  readonly code: "TIMEOUT" | "CANCELLED";
 
-function getAbsolutePath(workspaceRoot: string, filePath: string): string {
-  return path.isAbsolute(filePath)
-    ? filePath
-    : path.resolve(workspaceRoot, filePath);
+  constructor(code: "TIMEOUT" | "CANCELLED", message: string) {
+    super(message);
+    this.code = code;
+  }
 }
 
-function normalizeExitCode(error: ExecException | null | undefined):
-  | number
-  | undefined {
-  if (!error) {
-    return undefined;
-  }
-  const code = error.code;
-  if (typeof code === "number") {
-    return code;
-  }
-  if (typeof code === "string") {
-    const parsed = Number.parseInt(code, 10);
-    return Number.isNaN(parsed) ? undefined : parsed;
-  }
-  return undefined;
-}
-
-function buildExecOptions(
-  input: RunTestsInput,
-  context: ToolContext,
-): ExecOptions {
-  const options: ExecOptions = {
-    shell: process.platform === "win32" ? "cmd.exe" : "/bin/sh",
-    timeout: input.timeoutMs ?? DEFAULT_TIMEOUT_MS,
-    maxBuffer: 1024 * 1024,
+function buildToolResult(partial: Partial<ToolResult>): ToolResult {
+  return {
+    success: partial.success ?? false,
+    content: partial.content ?? [],
+    error: partial.error,
+    metadata: partial.metadata ?? {
+      toolName: "run_tests",
+      callId: "",
+      durationMs: 0,
+    },
   };
-
-  if (input.cwd) {
-    options.cwd = getAbsolutePath(context.workspaceRoot, input.cwd);
-  }
-
-  return options;
 }
 
-function parseCountsFromLine(line: string): TestCounts | undefined {
-  const matches = Array.from(
-    line.matchAll(/(\d+)\s+(failed|passed|skipped|total)/gi),
-  );
-
-  if (matches.length === 0) {
-    return undefined;
+function resolveTaskLabel(task: vscode.Task): string {
+  if (typeof task.name === "string") {
+    return task.name;
   }
-
-  const counts: TestCounts = {};
-  for (const match of matches) {
-    const value = Number.parseInt(match[1] ?? "", 10);
-    const label = match[2]?.toLowerCase();
-    if (!Number.isNaN(value) && label) {
-      if (label === "passed") counts.passed = value;
-      if (label === "failed") counts.failed = value;
-      if (label === "skipped") counts.skipped = value;
-      if (label === "total") counts.total = value;
-    }
+  if (typeof task.detail === "string") {
+    return task.detail;
   }
-
-  return counts;
+  return "";
 }
 
-function extractCounts(output: string): {
-  testCounts?: TestCounts;
-  suiteCounts?: TestCounts;
-} {
-  const lines = output.split(/\r?\n/);
-  let testCounts: TestCounts | undefined;
-  let suiteCounts: TestCounts | undefined;
-
-  for (const line of lines) {
-    if (line.trim().startsWith("Tests:")) {
-      testCounts = parseCountsFromLine(line);
-    }
-    if (line.trim().startsWith("Test Suites:")) {
-      suiteCounts = parseCountsFromLine(line);
-    }
-  }
-
-  const result: { testCounts?: TestCounts; suiteCounts?: TestCounts } = {};
-  if (testCounts) {
-    result.testCounts = testCounts;
-  }
-  if (suiteCounts) {
-    result.suiteCounts = suiteCounts;
-  }
-  return result;
+function findTaskByLabel(
+  tasks: vscode.Task[],
+  label: string,
+): vscode.Task | undefined {
+  return tasks.find((task) => resolveTaskLabel(task) === label);
 }
 
-function buildOutput(
-  input: RunTestsInput,
-  stdout: string,
-  stderr: string,
-  exitCode: number,
-  context: ToolContext,
-): RunTestsOutput {
-  const { testCounts, suiteCounts } = extractCounts(stdout);
-  const output: RunTestsOutput = {
-    command: input.command,
-    stdout,
-    stderr,
-    exitCode,
-    status: exitCode === 0 ? "passed" : "failed",
-  };
+function findTestTasks(tasks: vscode.Task[]): vscode.Task[] {
+  return tasks.filter((task) => task.group === vscode.TaskGroup.Test);
+}
 
-  if (testCounts) {
-    output.testCounts = testCounts;
-  }
+function waitForTaskCompletion(
+  execution: vscode.TaskExecution,
+  label: string,
+  timeoutMs: number,
+  token: vscode.CancellationToken,
+): Promise<{ exitCode?: number }> {
+  return new Promise((resolve, reject) => {
+    const listener = vscode.tasks.onDidEndTaskProcess((event) => {
+      if (event.execution === execution) {
+        cleanup();
+        const result: { exitCode?: number } = {};
+        if (event.exitCode !== undefined) {
+          result.exitCode = event.exitCode;
+        }
+        resolve(result);
+      }
+    });
 
-  if (suiteCounts) {
-    output.suiteCounts = suiteCounts;
-  }
+    const cancellationListener = token.onCancellationRequested(() => {
+      cleanup();
+      reject(new TaskWaitError("CANCELLED", "Test execution cancelled."));
+    });
 
-  if (input.cwd) {
-    output.cwd = getAbsolutePath(context.workspaceRoot, input.cwd);
-  }
+    const timeoutId = setTimeout(() => {
+      cleanup();
+      reject(
+        new TaskWaitError(
+          "TIMEOUT",
+          `Test task '${label}' timed out after ${timeoutMs}ms`,
+        ),
+      );
+    }, timeoutMs);
 
-  return output;
+    function cleanup(): void {
+      clearTimeout(timeoutId);
+      listener.dispose();
+      cancellationListener.dispose();
+    }
+  });
 }
 
 async function runTests(
   input: RunTestsInput,
-  context: ToolContext,
+  context: ToolInvocationContext,
 ): Promise<ToolResult> {
+  const callId = crypto.randomUUID();
+  context.observer?.onProgress?.(
+    callId,
+    `Running tests${input.label ? `: ${input.label}` : ""}`,
+  );
+
+  if (context.token.isCancellationRequested) {
+    return buildToolResult(
+      errorResult(
+        "run_tests",
+        ToolErrorCode.CANCELLED,
+        "Test execution cancelled.",
+        "Retry tests after cancellation is cleared.",
+      ),
+    );
+  }
+
   try {
-    const options = buildExecOptions(input, context);
-    const execResult = (await execAsync(input.command, options)) as
-      | { stdout?: string | Buffer; stderr?: string | Buffer }
-      | string
-      | Buffer;
-    const stdout =
-      typeof execResult === "string" || Buffer.isBuffer(execResult)
-        ? String(execResult)
-        : String(execResult.stdout ?? "");
-    const stderr =
-      typeof execResult === "string" || Buffer.isBuffer(execResult)
-        ? ""
-        : String(execResult.stderr ?? "");
-    const output = buildOutput(input, stdout, stderr, 0, context);
+    const tasks = await vscode.tasks.fetchTasks();
+    const task = input.label
+      ? findTaskByLabel(tasks, input.label)
+      : (() => {
+          const testTasks = findTestTasks(tasks);
+          return testTasks.length === 1 ? testTasks[0] : undefined;
+        })();
 
-    return {
-      success: true,
-      output: JSON.stringify(output, null, 2),
+    if (!task) {
+      return buildToolResult(
+        errorResult(
+          "run_tests",
+          input.label
+            ? ToolErrorCode.TASK_NOT_FOUND
+            : ToolErrorCode.INVALID_INPUT,
+          input.label
+            ? `Test task '${input.label}' not found.`
+            : "No unique test task found.",
+          input.label
+            ? "Verify the test task label in tasks.json."
+            : "Provide a task label or configure a single test task group.",
+          input.label ? { label: input.label } : undefined,
+        ),
+      );
+    }
+
+    const execution = await vscode.tasks.executeTask(task);
+    const label = input.label ?? resolveTaskLabel(task);
+    const { exitCode } = await waitForTaskCompletion(
+      execution,
+      label,
+      input.timeoutMs ?? DEFAULT_TIMEOUT_MS,
+      context.token,
+    );
+
+    const status: RunTestsOutput["status"] =
+      exitCode === 0 ? "passed" : exitCode === undefined ? "unknown" : "failed";
+
+    if (status === "failed") {
+      return buildToolResult(
+        errorResult(
+          "run_tests",
+          ToolErrorCode.TASK_FAILED,
+          `Test task '${label}' exited with code ${exitCode ?? "unknown"}.`,
+          "Review the test task output for details.",
+          { label, exitCode },
+        ),
+      );
+    }
+
+    const output: RunTestsOutput = {
+      label,
+      status,
     };
+
+    if (exitCode !== undefined) {
+      output.exitCode = exitCode;
+    }
+
+    // Emit metadata with test results
+    context.observer?.onMetadata?.(callId, "testStatus", status);
+    if (exitCode !== undefined) {
+      context.observer?.onMetadata?.(callId, "exitCode", exitCode);
+    }
+
+    const warnings =
+      status === "unknown"
+        ? ["Test task completed without reporting an exit code."]
+        : undefined;
+
+    return buildToolResult(
+      successResult(
+        "run_tests",
+        [{ type: "json", value: JSON.stringify(output, null, 2) }],
+        warnings,
+      ),
+    );
   } catch (error) {
-    const execError = error as ExecException & {
-      stdout?: string | Buffer;
-      stderr?: string | Buffer;
-    };
-    const stdout = execError.stdout ? String(execError.stdout) : "";
-    const stderr = execError.stderr ? String(execError.stderr) : "";
-    const exitCode = normalizeExitCode(execError) ?? 1;
-    const output = buildOutput(input, stdout, stderr, exitCode, context);
+    if (error instanceof TaskWaitError) {
+      return buildToolResult(
+        errorResult(
+          "run_tests",
+          error.code === "TIMEOUT"
+            ? ToolErrorCode.TIMEOUT
+            : ToolErrorCode.CANCELLED,
+          error.message,
+          error.code === "TIMEOUT"
+            ? "Increase the timeout or reduce test duration."
+            : "Retry tests after cancellation is cleared.",
+        ),
+      );
+    }
 
-    return {
-      success: false,
-      output: JSON.stringify(output, null, 2),
-      error: `Tests failed: ${execError.message}`,
-    };
+    const message = error instanceof Error ? error.message : "Unknown error";
+    return buildToolResult(
+      errorResult(
+        "run_tests",
+        ToolErrorCode.UNKNOWN,
+        message,
+        "Check the VS Code test task output and try again.",
+      ),
+    );
   }
 }
 
 export const runTestsTool: AgentTool = {
   name: "run_tests",
-  description: "Execute a test command and return structured results.",
+  description: "Execute a VS Code test task and return structured results.",
   inputSchema: {
     type: "object",
     properties: {
-      command: {
+      label: {
         type: "string",
-        description: "Test command to execute",
-      },
-      cwd: {
-        type: "string",
-        description: "Optional working directory (relative to workspace)",
+        description: "Optional test task label to execute",
       },
       timeoutMs: {
         type: "number",
         description: "Optional timeout in milliseconds (default 60000)",
       },
     },
-    required: ["command"],
   },
-  execute: async (
-    input: unknown,
-    context: ToolContext,
-  ): Promise<ToolResult> => {
-    return runTests(input as RunTestsInput, context);
-  },
+  invoke: async (
+    input: RunTestsInput,
+    context: ToolInvocationContext,
+  ): Promise<ToolResult> => runTests(input, context),
 };

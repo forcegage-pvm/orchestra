@@ -2,8 +2,8 @@
  * Unit tests for ContextManager token counting and compaction
  */
 
-import { describe, test, expect } from "vitest";
 import crypto from "crypto";
+import { describe, expect, test } from "vitest";
 import { ContextManager } from "../../src/agents/ContextManager.js";
 import type { AgentMessage } from "../../src/agents/types.js";
 
@@ -100,9 +100,7 @@ describe("ContextManager", () => {
       const message: AgentMessage = {
         id: crypto.randomUUID(),
         role: "assistant",
-        content: [
-          { type: "toolCall", toolCallId: crypto.randomUUID() },
-        ],
+        content: [{ type: "toolCall", toolCallId: crypto.randomUUID() }],
         timestamp: new Date().toISOString(),
         iteration: 1,
       };
@@ -181,7 +179,10 @@ describe("ContextManager", () => {
       const longMessage: AgentMessage = {
         id: crypto.randomUUID(),
         role: "user",
-        content: "This is a much longer message with significantly more content that should result in a higher token count when estimated by the ContextManager. ".repeat(10),
+        content:
+          "This is a much longer message with significantly more content that should result in a higher token count when estimated by the ContextManager. ".repeat(
+            10,
+          ),
         timestamp: new Date().toISOString(),
         iteration: 0,
       };
@@ -249,7 +250,10 @@ describe("ContextManager", () => {
         {
           id: crypto.randomUUID(),
           role: "user",
-          content: "This is a very long message that will definitely exceed the token limit of 10 tokens set in the configuration. ".repeat(100),
+          content:
+            "This is a very long message that will definitely exceed the token limit of 10 tokens set in the configuration. ".repeat(
+              100,
+            ),
           timestamp: new Date().toISOString(),
           iteration: 0,
         },
@@ -295,7 +299,7 @@ describe("ContextManager", () => {
       ];
 
       const tokens = manager.estimateTokens(messages);
-      
+
       // Verify we're at or very close to limit (accounting for overhead)
       expect(tokens).toBeGreaterThanOrEqual(95);
       expect(tokens).toBeLessThanOrEqual(110);
@@ -323,7 +327,10 @@ describe("ContextManager", () => {
     });
 
     test("should preserve system messages during compaction", () => {
-      const manager = new ContextManager({ maxContextTokens: 50, compactionThreshold: 2 });
+      const manager = new ContextManager({
+        maxContextTokens: 50,
+        compactionThreshold: 2,
+      });
 
       const messages: AgentMessage[] = [
         {
@@ -365,7 +372,10 @@ describe("ContextManager", () => {
     });
 
     test("should preserve recent messages based on compactionThreshold", () => {
-      const manager = new ContextManager({ maxContextTokens: 50, compactionThreshold: 2 });
+      const manager = new ContextManager({
+        maxContextTokens: 50,
+        compactionThreshold: 2,
+      });
 
       const messages: AgentMessage[] = [
         {
@@ -407,7 +417,10 @@ describe("ContextManager", () => {
     });
 
     test("should truncate long string content in older messages", () => {
-      const manager = new ContextManager({ maxContextTokens: 100, compactionThreshold: 1 });
+      const manager = new ContextManager({
+        maxContextTokens: 100,
+        compactionThreshold: 1,
+      });
 
       const longContent = "A".repeat(1000);
 
@@ -431,8 +444,9 @@ describe("ContextManager", () => {
       const compacted = manager.compact(messages);
 
       // Find the older message (if it's included)
-      const olderMessage = compacted.find((m) => 
-        typeof m.content === "string" && m.content.includes("[truncated]")
+      const olderMessage = compacted.find(
+        (m) =>
+          typeof m.content === "string" && m.content.includes("[truncated]"),
       );
 
       // If older message is included, it should be truncated
@@ -443,7 +457,10 @@ describe("ContextManager", () => {
     });
 
     test("should truncate tool result values in multi-part content", () => {
-      const manager = new ContextManager({ maxContextTokens: 100, compactionThreshold: 1 });
+      const manager = new ContextManager({
+        maxContextTokens: 100,
+        compactionThreshold: 1,
+      });
 
       const longResult = "B".repeat(500);
 
@@ -473,13 +490,16 @@ describe("ContextManager", () => {
       const compacted = manager.compact(messages);
 
       // Find the older message with tool result
-      const olderMessage = compacted.find((m) => 
-        Array.isArray(m.content) && 
-        m.content.some((part) => part.type === "toolResult")
+      const olderMessage = compacted.find(
+        (m) =>
+          Array.isArray(m.content) &&
+          m.content.some((part) => part.type === "toolResult"),
       );
 
       if (olderMessage && Array.isArray(olderMessage.content)) {
-        const toolResult = olderMessage.content.find((part) => part.type === "toolResult");
+        const toolResult = olderMessage.content.find(
+          (part) => part.type === "toolResult",
+        );
         if (toolResult && toolResult.type === "toolResult") {
           // If included, should be truncated
           if (toolResult.value.includes("[truncated]")) {
@@ -487,6 +507,76 @@ describe("ContextManager", () => {
           }
         }
       }
+    });
+
+    test("should compact and summarize after 20+ tool results", () => {
+      const manager = new ContextManager({
+        maxContextTokens: 800,
+        compactionThreshold: 2,
+      });
+
+      const systemMessage: AgentMessage = {
+        id: crypto.randomUUID(),
+        role: "system",
+        content: "System prompt",
+        timestamp: new Date().toISOString(),
+        iteration: 0,
+      };
+
+      const toolMessages: AgentMessage[] = Array.from(
+        { length: 25 },
+        (_, index) => ({
+          id: crypto.randomUUID(),
+          role: "assistant",
+          content: [
+            {
+              type: "toolResult",
+              toolCallId: crypto.randomUUID(),
+              value: `Tool output ${index}: ${"X".repeat(500)}`,
+            },
+          ],
+          timestamp: new Date().toISOString(),
+          iteration: index + 1,
+        }),
+      );
+
+      const recentMessages: AgentMessage[] = [
+        {
+          id: crypto.randomUUID(),
+          role: "user",
+          content: "Recent message 1",
+          timestamp: new Date().toISOString(),
+          iteration: 26,
+        },
+        {
+          id: crypto.randomUUID(),
+          role: "assistant",
+          content: "Recent message 2",
+          timestamp: new Date().toISOString(),
+          iteration: 27,
+        },
+      ];
+
+      const messages = [systemMessage, ...toolMessages, ...recentMessages];
+      const compacted = manager.compact(messages);
+
+      expect(compacted.length).toBeLessThan(messages.length);
+      expect(compacted.some((message) => message.role === "system")).toBe(true);
+
+      const lastTwo = compacted.slice(-2);
+      expect(lastTwo[0]?.content).toBe("Recent message 1");
+      expect(lastTwo[1]?.content).toBe("Recent message 2");
+
+      const truncatedToolResult = compacted
+        .flatMap((message) =>
+          Array.isArray(message.content) ? message.content : [],
+        )
+        .find(
+          (part) =>
+            part.type === "toolResult" && part.value.includes("[truncated]"),
+        );
+
+      expect(truncatedToolResult).toBeDefined();
     });
 
     test("should compact to custom target token count", () => {
@@ -509,7 +599,10 @@ describe("ContextManager", () => {
     });
 
     test("should handle very aggressive compaction when recent messages exceed target", () => {
-      const manager = new ContextManager({ maxContextTokens: 10, compactionThreshold: 2 });
+      const manager = new ContextManager({
+        maxContextTokens: 10,
+        compactionThreshold: 2,
+      });
 
       const messages: AgentMessage[] = [
         {
@@ -539,13 +632,16 @@ describe("ContextManager", () => {
 
       // Should keep system message and most recent message only
       expect(compacted.length).toBeGreaterThanOrEqual(2);
-      
+
       // System message should be present
       expect(compacted.some((m) => m.role === "system")).toBe(true);
     });
 
     test("should maintain message order after compaction", () => {
-      const manager = new ContextManager({ maxContextTokens: 100, compactionThreshold: 2 });
+      const manager = new ContextManager({
+        maxContextTokens: 100,
+        compactionThreshold: 2,
+      });
 
       const messages: AgentMessage[] = [
         {

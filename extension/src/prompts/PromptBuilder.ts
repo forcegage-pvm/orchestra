@@ -182,6 +182,13 @@ Use your MCP tools to implement this task:
 
     return `As Orchestrator, verify Task ${task.task_id}: "${task.title}".
 
+## Verification Reminders
+- Hidden verification criteria apply to this task.
+- The implementor is working against criteria they cannot see.
+- Validate Acceptance criteria, File operations, artifacts, and Build and test status.
+- Provide clear rationale for a PASS or FAIL judgment.
+- If verification fails, provide feedback with concrete guidance on required fixes.
+
 ## 🎯 CRITICAL: STUB HUNTER MODE ACTIVATED
 
 **Your PRIMARY objective is to PROVE this implementation is broken, incomplete, or a stub.**
@@ -468,6 +475,86 @@ Provide detailed, actionable feedback for any issues found.`;
   }
 
   /**
+   * Build a HANDOVER_FIX prompt for the orchestrator
+   *
+   * Instructs the orchestrator to fix a rejected handover based on Controller feedback.
+   * The orchestrator should update the handover to address all issues and resubmit.
+   *
+   * @param context - The prompt context containing task, rejection feedback
+   * @returns A structured prompt string for the orchestrator
+   */
+  buildHandoverFixPrompt(
+    context: PromptContext & {
+      rejection?: {
+        issues: unknown;
+        recommendations: unknown;
+        revision_count: number;
+      };
+    },
+  ): string {
+    const { task, sprint, rejection } = context;
+
+    if (!rejection) {
+      throw new Error("rejection context required for buildHandoverFixPrompt");
+    }
+
+    const issuesText =
+      typeof rejection.issues === "string"
+        ? rejection.issues
+        : JSON.stringify(rejection.issues, null, 2);
+    const recommendationsText =
+      typeof rejection.recommendations === "string"
+        ? rejection.recommendations
+        : JSON.stringify(rejection.recommendations, null, 2);
+
+    return `As Orchestrator, fix the rejected handover for Task ${task.task_id}: "${task.title}".
+
+## Handover Rejection
+The Controller rejected your handover (revision ${rejection.revision_count + 1}). You must address ALL issues and resubmit.
+
+### Issues Found
+${issuesText}
+
+### Recommendations
+${recommendationsText}
+
+## Your Task
+Use your MCP tools to fix the handover and resubmit:
+
+1. \`get_handover\` with task_id=${task.task_id} - Review current handover details
+2. \`read_spec_file\` - Re-read the specification to ensure full alignment
+3. \`update_handover\` - Update the handover to address ALL issues:
+   - Fix missing or unclear acceptance criteria
+   - Clarify file operations and deliverables
+   - Add missing context or constraints
+   - Ensure spec alignment (no scope creep)
+4. \`resubmit_handover\` with task_id=${task.task_id} - Resubmit after fixing
+
+## Task Context
+- **Task ID**: ${task.task_id}
+- **Title**: ${task.title}
+- **Category**: ${task.category}
+- **Phase**: ${task.phase_id}
+- **Sprint**: ${sprint.title} (${sprint.sprint_id})
+- **Revision**: ${rejection.revision_count + 1}
+
+## CRITICAL Requirements
+- Address EVERY issue mentioned in the Controller feedback
+- Do NOT change the scope - stay aligned with the specification
+- Be more specific and measurable in acceptance criteria
+- Ensure file operations are clear and complete
+- Verify all deliverables are listed
+
+## Remember
+- The Controller is checking spec alignment, not feasibility
+- If scope seems wrong, the task breakdown may be incorrect
+- Acceptance criteria must be verifiable and measurable
+- Context files should help implementor understand the task
+
+After fixing, use \`resubmit_handover\` to send back for review.`;
+  }
+
+  /**
    * Build a CODE_REVIEW prompt for the controller
    *
    * Instructs the controller to use MCP tools (get_code_review_summary, get_latest_code_review,
@@ -572,6 +659,60 @@ Begin by checking the code review summary, then process one pending review.`;
   }
 
   /**
+   * Build a CODE_REVIEW_RE_REVIEW prompt for the controller
+   *
+   * Instructs the controller to re-review a task after implementor has submitted fixes.
+   * The controller should focus on verifying that the previously reported issues have been addressed.
+   *
+   * @param sprintId - The sprint ID being worked on
+   * @param sprintTitle - The sprint title
+   * @param taskInfo - Task info for the re-review
+   * @param reviewId - The review ID being verified
+   * @returns A structured prompt string for the controller
+   */
+  buildCodeReviewReReviewPrompt(
+    sprintId: string,
+    sprintTitle: string,
+    taskInfo: { taskId: number; title: string; dbId: number },
+    reviewId: number,
+  ): string {
+    return `As Controller, re-review Task ${taskInfo.taskId}: "${taskInfo.title}" after the Implementor submitted fixes.
+
+## Context
+- **Sprint**: ${sprintTitle} (${sprintId})
+- **Task**: #${taskInfo.taskId} - ${taskInfo.title}
+- **Review ID**: ${reviewId}
+- **Status**: PENDING_VERIFICATION (fixes have been submitted)
+
+## Your Task
+The Implementor has addressed the issues from your previous review. Verify the fixes:
+
+1. \`get_code_review\` with task=${taskInfo.taskId} - Get review details including:
+   - Previously reported issues and their resolution status
+   - The fix summary provided by the implementor
+   - Files changed and tests run
+
+2. For each previously reported issue:
+   - Verify the fix addresses the original concern
+   - Check that no new issues were introduced
+   - Ensure tests cover the fixed code path
+
+3. Submit your decision using \`submit_code_review\` with \`verifying_fixes: true\`:
+   - decision: "APPROVED" - All issues have been properly addressed
+   - decision: "CHANGES_REQUESTED" - Some issues remain or new issues found (include issues array)
+   - decision: "REJECTED" - Fundamental problems remain (include issues array)
+
+## Re-Review Focus
+- **Issue Resolution**: Were the original issues properly fixed?
+- **Regression**: Did the fixes introduce new problems?
+- **Quality**: Is the fix implementation acceptable?
+- **Tests**: Were relevant tests added or updated?
+
+Note: This is a focused re-review - you don't need to do a full spec-first review.
+Focus on verifying the fixes for previously reported issues.`;
+  }
+
+  /**
    * Build a CODE_REVIEW_FIX prompt for the implementor
    *
    * Instructs the implementor to review open code review issues and submit fixes.
@@ -589,17 +730,18 @@ Begin by checking the code review summary, then process one pending review.`;
     return `As Implementor, resolve ${openIssueCount} open code review issue(s) for Sprint "${sprintTitle}" (${sprintId}).
 
 ## Your Task
-Use your MCP tools to find and fix open code review issues:
+Use the \`fix_code_review\` tool to find and fix open code review issues:
 
-1. \`get_open_code_review_issues\` - List all open issues for this sprint
+1. \`fix_code_review({ action: "GET_ISSUES" })\` - List all open issues with handover context
+
 2. For each issue:
-    - Open the referenced file/location
+    - Read the file/location and recommendation
     - Implement a fix that addresses the issue
     - Add or update tests if needed
+    - \`fix_code_review({ action: "RESOLVE_ISSUE", issue_id: N, fix_summary: "..." })\` - Mark resolved
 
-3. When an issue is fixed:
-    - \`resolve_code_review_issue\` to mark the issue resolved
-    - \`submit_code_review_fixes\` with summary, files changed, and tests run
+3. When all issues are fixed:
+    - \`fix_code_review({ action: "SUBMIT_FIXES", summary: "...", files_changed: [...], tests_run: [...] })\`
 
 ## Quality Standards
 - Fixes must directly address the issue description and rationale
@@ -675,15 +817,18 @@ This task has a code review status of **${review.status.replace(/_/g, " ")}**.${
     }
 
 ## Your Task
-Use your MCP tools to address the code review feedback:
+Use the \`fix_code_review\` tool to address the code review feedback:
 
 1. \`get_current_task\` - Review the updated fix handover${
       handoverPath ? `\n   - **Handover**: ${handoverPath}` : ""
     }
-2. \`get_open_code_review_issues\` - List open issues for this task
-3. Fix each issue and update tests as needed
-4. \`resolve_code_review_issue\` for each issue fixed
-5. \`submit_code_review_fixes\` with summary, files changed, and tests run
+2. \`fix_code_review({ action: "GET_ISSUES" })\` - List all open issues with handover context
+3. For each issue:
+   - Read the issue details (file, line, recommendation)
+   - Fix the code according to the recommendation
+   - Run relevant tests
+   - \`fix_code_review({ action: "RESOLVE_ISSUE", issue_id: N, fix_summary: "..." })\` - Mark resolved
+4. \`fix_code_review({ action: "SUBMIT_FIXES", summary: "...", files_changed: [...], tests_run: [...] })\` - Submit for re-review
 
 ## Task Details
 - **ID**: ${task.task_id}
@@ -693,7 +838,8 @@ Use your MCP tools to address the code review feedback:
 ## Remember
 - Keep changes scoped to the review feedback
 - Run relevant tests and report results
-- Resolve each issue explicitly in MCP tools`;
+- Resolve EACH issue explicitly before submitting
+- After SUBMIT_FIXES, Controller will re-review the code`;
   }
 
   /**

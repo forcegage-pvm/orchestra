@@ -71,9 +71,10 @@ export class SessionError extends AgentError {
   constructor(
     message: string,
     public readonly sessionId: string,
-    context?: Record<string, unknown>
+    context?: Record<string, unknown>,
+    code: string = "SESSION_ERROR"
   ) {
-    super(message, "SESSION_ERROR", {
+    super(message, code, {
       ...context,
       sessionId,
     });

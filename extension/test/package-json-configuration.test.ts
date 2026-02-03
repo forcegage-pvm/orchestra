@@ -96,12 +96,13 @@ describe("package.json configuration settings", () => {
     });
   });
 
-  describe("All four new settings", () => {
+  describe("All five new settings", () => {
     it("should have all model and agent configuration settings", () => {
       expect(properties["orchestra.models.orchestrator"]).toBeDefined();
       expect(properties["orchestra.models.implementor"]).toBeDefined();
       expect(properties["orchestra.agents.orchestrator"]).toBeDefined();
       expect(properties["orchestra.agents.implementor"]).toBeDefined();
+      expect(properties["orchestra.agents.verbosity"]).toBeDefined();
     });
 
     it("should have settings with proper structure", () => {
@@ -110,6 +111,7 @@ describe("package.json configuration settings", () => {
         "orchestra.models.implementor",
         "orchestra.agents.orchestrator",
         "orchestra.agents.implementor",
+        "orchestra.agents.verbosity",
       ] as const;
 
       newSettings.forEach((settingKey) => {
@@ -129,20 +131,24 @@ describe("package.json configuration settings", () => {
       expect(properties["orchestra.models.implementor"]?.default).toBeTruthy();
       expect(properties["orchestra.agents.orchestrator"]?.default).toBeTruthy();
       expect(properties["orchestra.agents.implementor"]?.default).toBeTruthy();
+      expect(properties["orchestra.agents.verbosity"]?.default).toBeTruthy();
     });
 
     it("should have settings with descriptive text longer than 10 characters", () => {
       expect(
-        properties["orchestra.models.orchestrator"]?.description.length
+        properties["orchestra.models.orchestrator"]?.description.length,
       ).toBeGreaterThan(10);
       expect(
-        properties["orchestra.models.implementor"]?.description.length
+        properties["orchestra.models.implementor"]?.description.length,
       ).toBeGreaterThan(10);
       expect(
-        properties["orchestra.agents.orchestrator"]?.description.length
+        properties["orchestra.agents.orchestrator"]?.description.length,
       ).toBeGreaterThan(10);
       expect(
-        properties["orchestra.agents.implementor"]?.description.length
+        properties["orchestra.agents.implementor"]?.description.length,
+      ).toBeGreaterThan(10);
+      expect(
+        properties["orchestra.agents.verbosity"]?.description.length,
       ).toBeGreaterThan(10);
     });
 
@@ -151,6 +157,17 @@ describe("package.json configuration settings", () => {
       expect(properties["orchestra.models.implementor"]).toBeDefined();
       expect(properties["orchestra.agents.orchestrator"]).toBeDefined();
       expect(properties["orchestra.agents.implementor"]).toBeDefined();
+      expect(properties["orchestra.agents.verbosity"]).toBeDefined();
+    });
+  });
+
+  describe("Verbosity configuration", () => {
+    it("should include the verbosity enum with four levels", () => {
+      const setting = properties["orchestra.agents.verbosity"];
+      expect(setting).toBeDefined();
+      expect(setting?.type).toBe("string");
+      expect(setting?.default).toBe("normal");
+      expect(setting?.enum).toEqual(["minimal", "normal", "detailed", "debug"]);
     });
   });
 });
