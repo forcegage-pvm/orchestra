@@ -255,7 +255,7 @@ export function TimelineView(props: TimelineViewProps) {
 
         {/* Ball-beat loading indicator - always in DOM, visibility controlled by CSS */}
         <div
-          class="flex justify-start px-3 py-3 transition-opacity duration-200"
+          class="flex justify-start px-8 py-3 transition-opacity duration-200"
           style={{
             opacity: isRunning() ? 1 : 0,
             "pointer-events": isRunning() ? "auto" : "none",
