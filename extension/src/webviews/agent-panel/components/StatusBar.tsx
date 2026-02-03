@@ -179,9 +179,9 @@ export function StatusBar() {
               <span class={`w-2 h-2 rounded-full ${statusConfig().dotColor}`} />
             }
           >
-            <Icon
-              icon="svg-spinners:8-dots-rotate"
-              class="w-4 h-4 text-green-400"
+            <span
+              class="w-4 h-4 rounded-full border-[3px] border-green-400 border-t-transparent animate-spin"
+              aria-hidden="true"
             />
           </Show>
           <span class="text-xs font-medium">
