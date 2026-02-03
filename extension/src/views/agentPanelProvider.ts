@@ -754,6 +754,10 @@ export class AgentPanelProvider implements vscode.WebviewViewProvider {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${cspSource} 'unsafe-inline'; script-src ${cspSource} 'unsafe-inline'; connect-src https://api.iconify.design https://api.unisvg.com https://api.simplesvg.com;">
   <link rel="stylesheet" href="${styleUri}">
+  <style>
+    html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; }
+    #root { width: 100%; height: 100%; }
+  </style>
   <title>Agent Panel</title>
 </head>
 <body>
