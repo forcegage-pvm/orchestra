@@ -96,14 +96,6 @@ export function TimelineView(props: TimelineViewProps) {
     const eventArray = getEventsArray();
     const toolCallsMap = toolCalls;
 
-    console.log(
-      "[TimelineView] Building timeline from",
-      eventArray.length,
-      "events and",
-      Object.keys(toolCallsMap).length,
-      "tool calls",
-    );
-
     const items: TimelineItem[] = [];
     const processedToolCalls = new Set<string>();
 

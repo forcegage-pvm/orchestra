@@ -60,6 +60,7 @@ export function useAutoScroll(
   const [eventCountWhenPaused, setEventCountWhenPaused] = createSignal(0);
   let lastScrollTop = 0;
   let userScrolledUp = false;
+  let lastEventCount = 0;
 
   /**
    * Scroll to bottom of container
@@ -68,10 +69,6 @@ export function useAutoScroll(
     const container = containerRef();
     if (!container) return;
 
-    console.log(
-      "[AutoScroll] scrollToBottom called, scrollHeight:",
-      container.scrollHeight,
-    );
     container.scrollTop = container.scrollHeight;
   };
 
@@ -79,7 +76,6 @@ export function useAutoScroll(
    * Resume auto-scroll behavior
    */
   const resumeAutoScroll = () => {
-    console.log("[AutoScroll] resumeAutoScroll called");
     userScrolledUp = false;
     setIsPaused(false);
     setEventCountWhenPaused(eventCount());
@@ -126,34 +122,24 @@ export function useAutoScroll(
   };
 
   /**
-   * Auto-scroll when new events arrive
+   * Auto-scroll when new events arrive (only when count actually increases)
    */
   createEffect(() => {
     const count = eventCount();
     const container = containerRef();
 
-    console.log(
-      "[AutoScroll] Effect triggered, count:",
-      count,
-      "container:",
-      !!container,
-      "userScrolledUp:",
-      userScrolledUp,
-    );
-
     if (!enabled || !container || count === 0) return;
 
-    // Always scroll unless user explicitly scrolled up
-    if (!userScrolledUp) {
-      // Use setTimeout to ensure DOM has rendered
-      setTimeout(() => {
-        console.log(
-          "[AutoScroll] Scrolling to bottom, scrollHeight:",
-          container.scrollHeight,
-        );
+    // Only scroll if count actually increased (new items added)
+    // This prevents jumping when existing tool calls are updated
+    if (count > lastEventCount && !userScrolledUp) {
+      // Use requestAnimationFrame for smoother scrolling
+      requestAnimationFrame(() => {
         container.scrollTop = container.scrollHeight;
-      }, 50);
+      });
     }
+
+    lastEventCount = count;
   });
 
   /**
