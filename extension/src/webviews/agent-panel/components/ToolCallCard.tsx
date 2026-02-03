@@ -154,8 +154,8 @@ export function ToolCallCard(props: ToolCallCardProps) {
         </Show>
       </div>
 
-      {/* Tab Row - Always visible */}
-      <div class="flex items-center gap-4 px-2 pb-1">
+      {/* Tab Row - Always visible, aligned with tool name */}
+      <div class="flex items-center gap-4 pl-7 pr-2 pb-1">
         {/* Input Tab */}
         <button
           onClick={() => toggleTab("input")}
