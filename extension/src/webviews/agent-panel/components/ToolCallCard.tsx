@@ -8,7 +8,7 @@
  */
 
 import { Icon } from "@iconify-icon/solid";
-import { createSignal, Show } from "solid-js";
+import { createEffect, createSignal, Show } from "solid-js";
 import type { ToolCallAggregate } from "../../../agents/sessions/types.js";
 import { JsonViewer } from "./JsonViewer.js";
 import { ToolIcon } from "./ToolIcon.js";
