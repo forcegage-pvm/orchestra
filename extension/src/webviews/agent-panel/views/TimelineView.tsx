@@ -226,7 +226,7 @@ export function TimelineView(props: TimelineViewProps) {
       {/* Scroll container - matching reference design */}
       <div
         ref={setContainerRef}
-        class="h-full overflow-y-auto px-2 pb-2 pt-1 space-y-0.5 scroll-smooth"
+        class="h-full overflow-y-auto px-2 pb-20 pt-1 space-y-0.5 scroll-smooth"
       >
         <Show
           when={timelineItems().length > 0}
