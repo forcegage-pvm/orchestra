@@ -172,45 +172,45 @@ export function FileActivityPanel() {
   // Use <Show> for reactive conditional rendering - do NOT use early return in SolidJS
   return (
     <Show when={hasFiles()}>
-      <div class="border-b border-zinc-800/50 bg-zinc-900/80 backdrop-blur-sm">
+      <div class="border-b border-gray-700 bg-zinc-900">
         {/* Header */}
         <button
-          class="w-full flex items-center gap-2 px-3 py-1.5 hover:bg-zinc-800/50 transition-colors cursor-pointer text-left"
+          class="w-full flex items-center gap-2 px-3 py-1 hover:bg-zinc-800 transition-colors cursor-pointer text-left"
           onClick={toggleCollapsed}
           aria-expanded={!isCollapsed()}
           aria-label="Toggle file activity panel"
         >
           <Icon
             icon={`lucide:chevron-${isCollapsed() ? "right" : "down"}`}
-            class="w-3 h-3 text-zinc-500"
+            class="w-3 h-3 text-gray-400"
           />
-          <Icon icon="lucide:files" class="w-3.5 h-3.5 text-zinc-400" />
-          <span class="text-[11px] font-medium text-zinc-300">
+          <Icon icon="lucide:files" class="w-3 h-3 text-gray-400" />
+          <span class="text-[11px] font-medium text-gray-200">
             Files Touched
           </span>
 
           {/* Summary badges */}
-          <div class="flex items-center gap-1.5 ml-auto">
+          <div class="flex items-center gap-1 ml-auto">
             <Show when={operationCounts().create > 0}>
-              <span class="flex items-center gap-0.5 text-[10px] text-green-400 bg-green-500/10 px-1.5 py-0.5 rounded">
+              <span class="flex items-center gap-0.5 text-[10px] text-green-400 bg-gray-800 px-1.5 py-0.5 rounded-full">
                 <Icon icon="lucide:plus" class="w-2.5 h-2.5" />
                 {operationCounts().create}
               </span>
             </Show>
             <Show when={operationCounts().update > 0}>
-              <span class="flex items-center gap-0.5 text-[10px] text-blue-400 bg-blue-500/10 px-1.5 py-0.5 rounded">
+              <span class="flex items-center gap-0.5 text-[10px] text-blue-400 bg-gray-800 px-1.5 py-0.5 rounded-full">
                 <Icon icon="lucide:edit-3" class="w-2.5 h-2.5" />
                 {operationCounts().update}
               </span>
             </Show>
             <Show when={operationCounts().delete > 0}>
-              <span class="flex items-center gap-0.5 text-[10px] text-red-400 bg-red-500/10 px-1.5 py-0.5 rounded">
+              <span class="flex items-center gap-0.5 text-[10px] text-red-400 bg-gray-800 px-1.5 py-0.5 rounded-full">
                 <Icon icon="lucide:trash-2" class="w-2.5 h-2.5" />
                 {operationCounts().delete}
               </span>
             </Show>
             <Show when={operationCounts().read > 0}>
-              <span class="flex items-center gap-0.5 text-[10px] text-zinc-500 bg-zinc-700/30 px-1.5 py-0.5 rounded">
+              <span class="flex items-center gap-0.5 text-[10px] text-gray-400 bg-gray-800 px-1.5 py-0.5 rounded-full">
                 <Icon icon="lucide:eye" class="w-2.5 h-2.5" />
                 {operationCounts().read}
               </span>
@@ -220,11 +220,11 @@ export function FileActivityPanel() {
 
         {/* File List */}
         <Show when={!isCollapsed()}>
-          <div class="max-h-32 overflow-y-auto border-t border-zinc-800/30">
+          <div class="max-h-32 overflow-y-auto bg-zinc-950">
             <For each={fileOperations()}>
               {(op) => (
                 <button
-                  class="w-full flex items-center gap-2 px-3 py-1 hover:bg-zinc-800/50 transition-colors cursor-pointer text-left group"
+                  class="w-full flex items-center gap-3 px-3 py-1 hover:bg-zinc-900 transition-colors cursor-pointer text-left border-t border-gray-800 first:border-t-0"
                   onClick={() => handleFileClick(op.path)}
                   title={op.path}
                 >
@@ -232,11 +232,11 @@ export function FileActivityPanel() {
                     icon={`lucide:${OPERATION_ICONS[op.operation]}`}
                     class={`w-3 h-3 flex-shrink-0 ${OPERATION_COLORS[op.operation]}`}
                   />
-                  <span class="text-[11px] font-mono text-zinc-400 truncate group-hover:text-zinc-200 transition-colors">
+                  <span class="flex-1 text-[11px] font-mono text-gray-300 hover:text-blue-400 transition-colors truncate">
                     {getFileName(op.path)}
                   </span>
                   <Show when={getDirectory(op.path)}>
-                    <span class="text-[10px] text-zinc-600 truncate flex-1 text-right">
+                    <span class="text-[10px] text-gray-500 truncate max-w-[50%] text-right">
                       {getDirectory(op.path)}
                     </span>
                   </Show>
@@ -246,14 +246,12 @@ export function FileActivityPanel() {
                       op.linesDeleted !== undefined
                     }
                   >
-                    <span class="text-[10px] text-zinc-600 flex-shrink-0">
+                    <span class="text-[10px] text-gray-500 flex-shrink-0 whitespace-nowrap">
                       <Show when={op.linesInserted !== undefined}>
-                        <span class="text-green-500/70">
-                          +{op.linesInserted}
-                        </span>
+                        <span class="text-green-500">+{op.linesInserted}</span>
                       </Show>
                       <Show when={op.linesDeleted !== undefined}>
-                        <span class="text-red-500/70 ml-1">
+                        <span class="text-red-500 ml-1">
                           -{op.linesDeleted}
                         </span>
                       </Show>

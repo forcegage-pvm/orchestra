@@ -22,7 +22,12 @@ import {
 
 const TOOL_NAME = "run_command";
 const DEFAULT_TIMEOUT_MS = 30_000;
-const ANSI_PATTERN = /\x1B\[[0-9;]*[a-zA-Z]/g;
+// Pattern for CSI sequences (e.g., [?25l, [0m)
+const CSI_PATTERN = /\x1B\[[0-9;]*[a-zA-Z]/g;
+// Pattern for OSC sequences (e.g., ]0;title, ]633;C) - these set terminal title/shell integration
+const OSC_PATTERN = /\x1B\][^\x07\x1B]*(?:\x07|\x1B\\)?/g;
+// Pattern for other escape sequences
+const OTHER_ESC_PATTERN = /\x1B[^[\]].?/g;
 const MAX_OUTPUT_LINES = 500;
 const HEAD_RATIO = 0.2;
 const TAIL_RATIO = 0.8;
@@ -51,7 +56,10 @@ interface CommandResult {
 }
 
 function stripAnsi(text: string): string {
-  return text.replace(ANSI_PATTERN, "");
+  return text
+    .replace(OSC_PATTERN, "")
+    .replace(CSI_PATTERN, "")
+    .replace(OTHER_ESC_PATTERN, "");
 }
 
 function truncateOutput(lines: string[]): {
@@ -501,6 +509,12 @@ export const runCommandTool: AgentTool<RunCommandInput> = {
     const isSuccess = result.success && !result.timedOut;
 
     // Build error object when command failed - include actual output for context
+    // Use up to 500 chars for better error visibility
+    const errorSnippet = result.stderr
+      ? result.stderr.slice(0, 500)
+      : result.stdout
+        ? result.stdout.slice(0, 500)
+        : "";
     const error = isSuccess
       ? undefined
       : createToolError(
@@ -509,7 +523,7 @@ export const runCommandTool: AgentTool<RunCommandInput> = {
             : ToolErrorCode.COMMAND_FAILED,
           result.timedOut
             ? `Command timed out after ${timeoutMs}ms`
-            : `Command failed with exit code ${result.exitCode}${result.stderr ? `: ${result.stderr.slice(0, 200)}` : result.stdout ? `: ${result.stdout.slice(0, 200)}` : ""}`,
+            : `Command failed with exit code ${result.exitCode}${errorSnippet ? `:\n${errorSnippet}` : ""}`,
           result.timedOut
             ? "Increase timeout or check for long-running process"
             : "Check command syntax and arguments",
