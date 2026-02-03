@@ -333,6 +333,66 @@ async function submitCodeReview(
     }
   }
 
+  // Calculate progress summary and find next eligible task
+  let nextTaskId: number | undefined;
+
+  if (taskStatus === "COMPLETE") {
+    const allTasks = await db
+      .select({ task_id: tasks.task_id, status: tasks.status })
+      .from(tasks)
+      .where(eq(tasks.sprint_id, sprint.id));
+
+    const totalTasks = allTasks.length;
+    const completed = allTasks.filter(
+      (t) => t.status === "COMPLETE" || t.status === "VERIFIED",
+    ).length;
+
+    // Find next task (PENDING with all dependencies complete)
+    const pendingTasks = await db
+      .select()
+      .from(tasks)
+      .where(and(eq(tasks.sprint_id, sprint.id), eq(tasks.status, "PENDING")));
+
+    const completedTaskIds = new Set(
+      allTasks
+        .filter((t) => t.status === "COMPLETE" || t.status === "VERIFIED")
+        .map((t) => t.task_id),
+    );
+
+    for (const pendingTask of pendingTasks) {
+      const dependencies = JSON.parse(pendingTask.dependencies) as number[];
+      const allDepsComplete = dependencies.every((depId) =>
+        completedTaskIds.has(depId),
+      );
+
+      if (allDepsComplete) {
+        nextTaskId = pendingTask.task_id;
+        break;
+      }
+    }
+
+    // Update sprint workflow_step if all tasks complete
+    if (completed === totalTasks) {
+      await db
+        .update(sprints)
+        .set({
+          workflow_step: "CLOSEOUT",
+          completed_at: completedAt,
+          updated_at: completedAt,
+        })
+        .where(eq(sprints.id, sprint.id));
+    } else if (sprint.workflow_step === "VERIFY") {
+      // Move back to SELECT_TASK if more work remains
+      await db
+        .update(sprints)
+        .set({
+          workflow_step: "SELECT_TASK",
+          updated_at: completedAt,
+        })
+        .where(eq(sprints.id, sprint.id));
+    }
+  }
+
   let nextAction = "";
   if (decisionStatus === "APPROVED") {
     nextAction = taskStatus
@@ -355,6 +415,7 @@ async function submitCodeReview(
     next_action: nextAction,
     task_status: taskStatus,
     auto_created: autoCreated ? true : undefined,
+    ...(nextTaskId !== undefined && { next_task_id: nextTaskId }),
   });
 
   return output;

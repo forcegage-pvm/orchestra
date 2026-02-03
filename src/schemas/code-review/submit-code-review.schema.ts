@@ -90,6 +90,7 @@ export const SubmitCodeReviewOutputSchema = z.object({
   next_action: z.string(),
   task_status: z.string().optional(),
   auto_created: z.boolean().optional(),
+  next_task_id: z.number().optional(),
 });
 
 export type SubmitCodeReviewOutput = z.output<
