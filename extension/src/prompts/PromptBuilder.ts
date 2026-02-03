@@ -676,17 +676,18 @@ Begin by checking the code review summary, then process one pending review.`;
     return `As Implementor, resolve ${openIssueCount} open code review issue(s) for Sprint "${sprintTitle}" (${sprintId}).
 
 ## Your Task
-Use your MCP tools to find and fix open code review issues:
+Use the \`fix_code_review\` tool to find and fix open code review issues:
 
-1. \`get_open_code_review_issues\` - List all open issues for this sprint
+1. \`fix_code_review({ action: "GET_ISSUES" })\` - List all open issues with handover context
+
 2. For each issue:
-    - Open the referenced file/location
+    - Read the file/location and recommendation
     - Implement a fix that addresses the issue
     - Add or update tests if needed
+    - \`fix_code_review({ action: "RESOLVE_ISSUE", issue_id: N, fix_summary: "..." })\` - Mark resolved
 
-3. When an issue is fixed:
-    - \`resolve_code_review_issue\` to mark the issue resolved
-    - \`submit_code_review_fixes\` with summary, files changed, and tests run
+3. When all issues are fixed:
+    - \`fix_code_review({ action: "SUBMIT_FIXES", summary: "...", files_changed: [...], tests_run: [...] })\`
 
 ## Quality Standards
 - Fixes must directly address the issue description and rationale
@@ -762,15 +763,18 @@ This task has a code review status of **${review.status.replace(/_/g, " ")}**.${
     }
 
 ## Your Task
-Use your MCP tools to address the code review feedback:
+Use the \`fix_code_review\` tool to address the code review feedback:
 
 1. \`get_current_task\` - Review the updated fix handover${
       handoverPath ? `\n   - **Handover**: ${handoverPath}` : ""
     }
-2. \`get_open_code_review_issues\` - List open issues for this task
-3. Fix each issue and update tests as needed
-4. \`resolve_code_review_issue\` for each issue fixed
-5. \`submit_code_review_fixes\` with summary, files changed, and tests run
+2. \`fix_code_review({ action: "GET_ISSUES" })\` - List all open issues with handover context
+3. For each issue:
+   - Read the issue details (file, line, recommendation)
+   - Fix the code according to the recommendation
+   - Run relevant tests
+   - \`fix_code_review({ action: "RESOLVE_ISSUE", issue_id: N, fix_summary: "..." })\` - Mark resolved
+4. \`fix_code_review({ action: "SUBMIT_FIXES", summary: "...", files_changed: [...], tests_run: [...] })\` - Submit for re-review
 
 ## Task Details
 - **ID**: ${task.task_id}
@@ -780,7 +784,8 @@ Use your MCP tools to address the code review feedback:
 ## Remember
 - Keep changes scoped to the review feedback
 - Run relevant tests and report results
-- Resolve each issue explicitly in MCP tools`;
+- Resolve EACH issue explicitly before submitting
+- After SUBMIT_FIXES, Controller will re-review the code`;
   }
 
   /**

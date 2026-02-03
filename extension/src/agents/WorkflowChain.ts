@@ -231,12 +231,15 @@ export class WorkflowChain implements vscode.Disposable {
     const codeReview = getLatestCodeReviewForTask(this.workspaceRoot, taskId);
     const hasPendingCodeReview =
       codeReview !== null && codeReview.status === "PENDING";
+    const hasPendingVerification =
+      codeReview !== null && codeReview.status === "PENDING_VERIFICATION";
 
     // Determine next action based on role and task status
     const nextAction = this.determineNextAction(
       role,
       task.status,
       hasPendingCodeReview,
+      hasPendingVerification,
     );
 
     if (!nextAction) {
@@ -280,6 +283,7 @@ export class WorkflowChain implements vscode.Disposable {
     completedRole: "orchestrator" | "implementor" | "controller",
     taskStatus: string,
     hasPendingCodeReview: boolean = false,
+    hasPendingVerification: boolean = false,
   ): { description: string } | null {
     // Orchestrator completed prepare_task → Controller reviews handover
     if (
@@ -342,6 +346,18 @@ export class WorkflowChain implements vscode.Disposable {
     ) {
       return {
         description: "Code review approved - task complete!",
+      };
+    }
+
+    // Implementor submitted code review fixes → Controller re-reviews
+    if (
+      completedRole === "implementor" &&
+      taskStatus === "CODE_REVIEW_CHANGES_REQUESTED" &&
+      hasPendingVerification
+    ) {
+      return {
+        description:
+          "Code review fixes submitted - invoking Controller for re-review...",
       };
     }
 

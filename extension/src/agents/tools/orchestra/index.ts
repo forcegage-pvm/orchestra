@@ -5,6 +5,7 @@
  * Uses MCP handlers via adapter for feature parity with MCP server.
  */
 
+import { handleFixCodeReview } from "../../../../../src/mcp-server/handlers/fix-code-review.js";
 import { handleGetCurrentTask } from "../../../../../src/mcp-server/handlers/get-current-task.js";
 import { handleGetFeedback } from "../../../../../src/mcp-server/handlers/get-feedback.js";
 import { handleGetProgress } from "../../../../../src/mcp-server/handlers/get-progress.js";
@@ -134,6 +135,58 @@ const getProgressTool: AgentTool = {
     executeMcpHandler(context, "get_progress", handleGetProgress, {}),
 };
 
+// ==================== fix_code_review ====================
+const fixCodeReviewTool: AgentTool = {
+  name: "fix_code_review",
+  description:
+    "Resolve code review issues and submit fixes for verification (implementor). Actions: GET_ISSUES, RESOLVE_ISSUE, SUBMIT_FIXES",
+  inputSchema: {
+    type: "object" as const,
+    properties: {
+      action: {
+        type: "string",
+        enum: ["GET_ISSUES", "RESOLVE_ISSUE", "SUBMIT_FIXES"],
+        description:
+          "Action to perform: GET_ISSUES (list open issues), RESOLVE_ISSUE (mark issue as fixed), SUBMIT_FIXES (submit all fixes for re-review)",
+      },
+      issue_id: {
+        type: "number",
+        description: "Issue ID to resolve (required for RESOLVE_ISSUE)",
+      },
+      fix_summary: {
+        type: "string",
+        description:
+          "Summary of how the issue was fixed (required for RESOLVE_ISSUE, min 10 chars)",
+      },
+      summary: {
+        type: "string",
+        description:
+          "Summary of all fixes made (required for SUBMIT_FIXES, min 10 chars)",
+      },
+      files_changed: {
+        type: "array",
+        items: { type: "string" },
+        description: "List of files changed (optional for SUBMIT_FIXES)",
+      },
+      tests_run: {
+        type: "array",
+        items: { type: "string" },
+        description: "List of tests run (optional for SUBMIT_FIXES)",
+      },
+      notes: {
+        type: "string",
+        description: "Optional notes (for SUBMIT_FIXES)",
+      },
+    },
+    required: ["action"],
+  },
+  invoke: async (
+    input: unknown,
+    context: ToolInvocationContext,
+  ): Promise<ToolResult> =>
+    executeMcpHandler(context, "fix_code_review", handleFixCodeReview, input),
+};
+
 // ==================== Registration ====================
 
 export const orchestraImplementorTools = [
@@ -142,6 +195,7 @@ export const orchestraImplementorTools = [
   getFeedbackTool,
   getProgressTool,
   escalateTaskTool,
+  fixCodeReviewTool,
 ] as const;
 
 export function registerOrchestraImplementorTools(
@@ -152,6 +206,7 @@ export function registerOrchestraImplementorTools(
 
 export {
   escalateTaskTool,
+  fixCodeReviewTool,
   getCurrentTaskTool,
   getFeedbackTool,
   getProgressTool,
