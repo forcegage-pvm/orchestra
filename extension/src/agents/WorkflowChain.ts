@@ -15,6 +15,7 @@ import * as vscode from "vscode";
 import { handlePlayTask } from "../commands/PlayTaskHandler.js";
 import {
   getLatestCodeReviewForTask,
+  getNextPendingTask,
   getTaskById,
 } from "../database/queries.js";
 import { getAgentRunner } from "../extension.js";

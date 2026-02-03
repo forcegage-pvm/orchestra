@@ -172,11 +172,16 @@ export function StatusBar() {
       {/* Center - Status indicator */}
       <div class="flex items-center gap-4">
         <div class={`flex items-center gap-1.5 ${statusConfig().color}`}>
-          {/* Animated dot for active states */}
-          <span
-            class={`w-1.5 h-1.5 rounded-full ${statusConfig().dotColor} ${isActive() ? "animate-pulse" : ""}`}
-          />
-          <span class="text-[10px] font-normal">
+          {/* Spinning loader for active states, static dot for inactive */}
+          <Show
+            when={isActive()}
+            fallback={
+              <span class={`w-2 h-2 rounded-full ${statusConfig().dotColor}`} />
+            }
+          >
+            <Icon icon="lucide:loader-2" class="w-4 h-4 animate-spin" />
+          </Show>
+          <span class="text-xs font-medium">
             {statusConfig().label.toLowerCase()}
           </span>
         </div>
