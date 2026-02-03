@@ -1,48 +1,41 @@
 import Database from "better-sqlite3";
+import * as fs from "fs";
+import * as path from "path";
+
+const SPRINT_ID = "test-workflow-001";
+
+const GREETER_STUB = `/**
+ * Greets a person by name.
+ */
+export function greet(name: string): string {
+  throw new Error("Not implemented");
+}
+`;
+
+const GREETER_TEST_STUB = `import { greet } from "./greeter.js";
+
+describe("greet", () => {
+  it.todo("should greet Alice");
+  it.todo("should greet Bob");
+  it.todo("should handle empty string");
+  it.todo("should handle whitespace");
+});
+`;
 
 const db = new Database(".orchestra/orchestra.db");
 
-// Reset sprint to PENDING_SPEC_REVIEW (spec reviewed state)
-db.prepare(
-  "UPDATE sprints SET status = 'PENDING_SPEC_REVIEW' WHERE id = 'test-workflow-001'",
-).run();
+db.prepare("UPDATE sprints SET status = 'ACTIVE' WHERE id = ?").run(SPRINT_ID);
+db.prepare("UPDATE tasks SET status = 'PENDING' WHERE sprint_id = ?").run(SPRINT_ID);
+db.prepare("DELETE FROM handovers WHERE task_id IN (SELECT id FROM tasks WHERE sprint_id = ?)").run(SPRINT_ID);
+db.prepare("DELETE FROM code_review_issues WHERE review_id IN (SELECT id FROM code_reviews WHERE task_id IN (SELECT id FROM tasks WHERE sprint_id = ?))").run(SPRINT_ID);
+db.prepare("DELETE FROM code_reviews WHERE task_id IN (SELECT id FROM tasks WHERE sprint_id = ?)").run(SPRINT_ID);
 
-// Reset tasks to PENDING
-db.prepare(
-  "UPDATE tasks SET status = 'PENDING' WHERE sprint_id = 'test-workflow-001'",
-).run();
-
-// Clear handovers
-db.prepare(
-  "DELETE FROM handovers WHERE task_id IN (SELECT id FROM tasks WHERE sprint_id = 'test-workflow-001')",
-).run();
-
-// Clear code reviews
-db.prepare(
-  "DELETE FROM code_reviews WHERE task_id IN (SELECT id FROM tasks WHERE sprint_id = 'test-workflow-001')",
-).run();
-
-// Clear code review issues
-db.prepare(
-  "DELETE FROM code_review_issues WHERE review_id IN (SELECT id FROM code_reviews WHERE task_id IN (SELECT id FROM tasks WHERE sprint_id = 'test-workflow-001'))",
-).run();
-
-console.log("Sprint and tasks reset successfully");
-console.log(
-  "Sprint:",
-  db
-    .prepare(
-      "SELECT id, name, status FROM sprints WHERE id = 'test-workflow-001'",
-    )
-    .get(),
-);
-console.log(
-  "Tasks:",
-  db
-    .prepare(
-      "SELECT id, title, status FROM tasks WHERE sprint_id = 'test-workflow-001'",
-    )
-    .all(),
-);
-
+const sprint = db.prepare("SELECT id, name, status FROM sprints WHERE id = ?").get(SPRINT_ID);
+const tasks = db.prepare("SELECT id, title, status FROM tasks WHERE sprint_id = ?").all(SPRINT_ID);
+console.log("Sprint:", sprint);
+console.log("Tasks:", tasks);
 db.close();
+
+fs.writeFileSync("testing/hello-greeter/greeter.ts", GREETER_STUB);
+fs.writeFileSync("testing/hello-greeter/greeter.test.ts", GREETER_TEST_STUB);
+console.log("Files reverted!");
