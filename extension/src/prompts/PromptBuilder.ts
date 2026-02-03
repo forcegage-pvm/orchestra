@@ -659,6 +659,60 @@ Begin by checking the code review summary, then process one pending review.`;
   }
 
   /**
+   * Build a CODE_REVIEW_RE_REVIEW prompt for the controller
+   *
+   * Instructs the controller to re-review a task after implementor has submitted fixes.
+   * The controller should focus on verifying that the previously reported issues have been addressed.
+   *
+   * @param sprintId - The sprint ID being worked on
+   * @param sprintTitle - The sprint title
+   * @param taskInfo - Task info for the re-review
+   * @param reviewId - The review ID being verified
+   * @returns A structured prompt string for the controller
+   */
+  buildCodeReviewReReviewPrompt(
+    sprintId: string,
+    sprintTitle: string,
+    taskInfo: { taskId: number; title: string; dbId: number },
+    reviewId: number,
+  ): string {
+    return `As Controller, re-review Task ${taskInfo.taskId}: "${taskInfo.title}" after the Implementor submitted fixes.
+
+## Context
+- **Sprint**: ${sprintTitle} (${sprintId})
+- **Task**: #${taskInfo.taskId} - ${taskInfo.title}
+- **Review ID**: ${reviewId}
+- **Status**: PENDING_VERIFICATION (fixes have been submitted)
+
+## Your Task
+The Implementor has addressed the issues from your previous review. Verify the fixes:
+
+1. \`get_code_review\` with task=${taskInfo.taskId} - Get review details including:
+   - Previously reported issues and their resolution status
+   - The fix summary provided by the implementor
+   - Files changed and tests run
+
+2. For each previously reported issue:
+   - Verify the fix addresses the original concern
+   - Check that no new issues were introduced
+   - Ensure tests cover the fixed code path
+
+3. Submit your decision using \`submit_code_review\` with \`verifying_fixes: true\`:
+   - decision: "APPROVED" - All issues have been properly addressed
+   - decision: "CHANGES_REQUESTED" - Some issues remain or new issues found (include issues array)
+   - decision: "REJECTED" - Fundamental problems remain (include issues array)
+
+## Re-Review Focus
+- **Issue Resolution**: Were the original issues properly fixed?
+- **Regression**: Did the fixes introduce new problems?
+- **Quality**: Is the fix implementation acceptable?
+- **Tests**: Were relevant tests added or updated?
+
+Note: This is a focused re-review - you don't need to do a full spec-first review.
+Focus on verifying the fixes for previously reported issues.`;
+  }
+
+  /**
    * Build a CODE_REVIEW_FIX prompt for the implementor
    *
    * Instructs the implementor to review open code review issues and submit fixes.

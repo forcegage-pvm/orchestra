@@ -114,8 +114,14 @@ export async function handlePlayTask(
     case "CODE_REVIEW_CHANGES_REQUESTED": {
       // Check if fixes have been submitted (review is PENDING_VERIFICATION)
       // If so, invoke controller for re-review; otherwise invoke implementor to fix
-      const codeReviewForFix = getLatestCodeReviewForTask(workspaceRoot, taskId);
-      if (codeReviewForFix && codeReviewForFix.status === "PENDING_VERIFICATION") {
+      const codeReviewForFix = getLatestCodeReviewForTask(
+        workspaceRoot,
+        taskId,
+      );
+      if (
+        codeReviewForFix &&
+        codeReviewForFix.status === "PENDING_VERIFICATION"
+      ) {
         await invokeCodeReview(workspaceRoot, taskId);
       } else {
         await invokeCodeReviewFix(workspaceRoot, taskId);
@@ -760,6 +766,8 @@ async function invokeHandoverReview(
  *
  * Builds a CODE_REVIEW prompt with task context and invokes the controller agent.
  * The controller will review the implementation and approve, request changes, or reject.
+ * If the review is in PENDING_VERIFICATION status (after implementor fixes), uses a
+ * re-review prompt instead.
  *
  * @param workspaceRoot Absolute path to workspace root
  * @param taskId Task ID (numeric primary key)
@@ -797,13 +805,28 @@ async function invokeCodeReview(
       return;
     }
 
-    // Build the code review prompt
-    const prompt = promptBuilder.buildCodeReviewPrompt(
-      1, // Single pending review
-      sprint.id,
-      sprint.name,
-      { taskId: task.task_id, title: task.title, dbId: task.id },
-    );
+    // Check if this is a re-review after fixes
+    const codeReview = getLatestCodeReviewForTask(workspaceRoot, taskId);
+    const isReReview =
+      codeReview && codeReview.status === "PENDING_VERIFICATION";
+
+    // Build the appropriate code review prompt
+    let prompt: string;
+    if (isReReview) {
+      prompt = promptBuilder.buildCodeReviewReReviewPrompt(
+        sprint.id,
+        sprint.name,
+        { taskId: task.task_id, title: task.title, dbId: task.id },
+        codeReview.review_id,
+      );
+    } else {
+      prompt = promptBuilder.buildCodeReviewPrompt(
+        1, // Single pending review
+        sprint.id,
+        sprint.name,
+        { taskId: task.task_id, title: task.title, dbId: task.id },
+      );
+    }
 
     // Show Agent Panel before starting
     await showAgentPanel();
@@ -830,6 +853,7 @@ async function invokeCodeReview(
     logger.info("Started controller agent for code review", {
       taskId,
       taskTitle: task.title,
+      isReReview,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
