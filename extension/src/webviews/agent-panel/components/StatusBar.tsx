@@ -179,7 +179,10 @@ export function StatusBar() {
               <span class={`w-2 h-2 rounded-full ${statusConfig().dotColor}`} />
             }
           >
-            <Icon icon="lucide:loader-2" class="w-4 h-4 animate-spin" />
+            <Icon
+              icon="svg-spinners:8-dots-rotate"
+              class="w-4 h-4 text-green-400"
+            />
           </Show>
           <span class="text-xs font-medium">
             {statusConfig().label.toLowerCase()}
