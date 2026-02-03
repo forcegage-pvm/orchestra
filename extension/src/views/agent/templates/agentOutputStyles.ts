@@ -74,6 +74,53 @@ export function getAgentOutputStyles(): string {
       100% { transform: rotate(360deg); }
     }
 
+    .loading-indicator {
+      display: none;
+      padding: 16px 0;
+      text-align: center;
+    }
+
+    body[data-agent-status="running"] .loading-indicator {
+      display: block;
+    }
+
+    .ball-beat {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .ball-beat .ball {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--vscode-badge-background);
+      animation: ball-beat 0.7s ease-in-out infinite;
+    }
+
+    .ball-beat .ball:nth-child(1) {
+      animation-delay: 0s;
+    }
+
+    .ball-beat .ball:nth-child(2) {
+      animation-delay: 0.15s;
+    }
+
+    .ball-beat .ball:nth-child(3) {
+      animation-delay: 0.3s;
+    }
+
+    @keyframes ball-beat {
+      0%, 60%, 100% {
+        transform: scale(1);
+        opacity: 1;
+      }
+      30% {
+        transform: scale(1.5);
+        opacity: 0.7;
+      }
+    }
+
     .header-controls {
       display: inline-flex;
       align-items: center;
