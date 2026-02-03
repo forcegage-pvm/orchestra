@@ -10,6 +10,11 @@ import * as path from "path";
 import * as vscode from "vscode";
 import { AgentRunner, SessionStorage, ToolRegistry } from "./agents/index.js";
 import { disposeAgentEventBus } from "./agents/sessions/eventBus.js";
+import {
+  disposeWorkflowChain,
+  getWorkflowChain,
+  WorkflowChain,
+} from "./agents/WorkflowChain.js";
 import { ProcessManager } from "./agents/tools/infrastructure/ProcessManager.js";
 import { SessionManager } from "./chat/SessionManager.js";
 import { handleArchiveSprint } from "./commands/archiveSprint.js";
@@ -69,6 +74,7 @@ let mcpManager: MCPServerManager | undefined;
 let agentRunner: AgentRunner | undefined;
 let agentOutputPanel: AgentOutputPanel | undefined;
 let agentStateSubscription: vscode.Disposable | undefined;
+let workflowChain: WorkflowChain | undefined;
 
 async function openAgentChat(
   participant:
@@ -1909,6 +1915,12 @@ export async function activate(
       logger.info("MCP servers started");
     }
 
+    // Start WorkflowChain for automatic agent transitions
+    workflowChain = getWorkflowChain(orchestraRoot);
+    workflowChain.start();
+    context.subscriptions.push(workflowChain);
+    logger.info("WorkflowChain started - automatic agent transitions enabled");
+
     logger.info("Orchestra extension activated successfully");
     vscode.window.showInformationMessage("Orchestra: Extension activated");
   } catch (error) {
@@ -1945,6 +1957,10 @@ export async function deactivate(): Promise<void> {
 
   // Clean up EventBus singleton
   disposeAgentEventBus();
+
+  // Clean up WorkflowChain
+  disposeWorkflowChain();
+  workflowChain = undefined;
 
   // Database watcher disposed via subscriptions
   dbWatcher = undefined;

@@ -11,14 +11,14 @@ import * as fs from "fs";
 import * as path from "path";
 import { SessionError } from "./errors.js";
 import {
-  AgentSessionSchema,
-  AgentRole,
-  AgentStatus,
   AgentMessage,
-  ToolCall,
-  FileChange,
+  AgentRole,
+  AgentSessionSchema,
+  AgentStatus,
   CheckpointReference,
+  FileChange,
   RecoveryInfo,
+  ToolCall,
 } from "./types.js";
 
 /**

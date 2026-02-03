@@ -708,6 +708,7 @@ async function invokeHandoverReview(
     const startOptions = {
       prompt,
       taskId,
+      taskNumber: task.task_id,
       sprintId: sprint.id,
     } as const;
 
