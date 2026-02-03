@@ -71,10 +71,10 @@ export function SessionHeader(props: SessionHeaderProps) {
   };
 
   return (
-    <div class="border-b border-gray-700 bg-zinc-900">
-      {/* Top row: Role, selectors, stop button */}
-      <div class="flex items-center justify-between px-4 py-3">
-        <div class="flex items-center gap-4">
+    <div class="flex-none h-12 border-b border-zinc-900/50 bg-[#09090b]/90 backdrop-blur-md">
+      {/* Single row: Role, selectors, verbosity, stop button */}
+      <div class="h-full flex items-center justify-between px-4">
+        <div class="flex items-center gap-3">
           {props.session && <RoleBadge role={props.session.role} />}
 
           {/* Task selector */}
@@ -93,38 +93,39 @@ export function SessionHeader(props: SessionHeaderProps) {
 
           {/* Verbosity selector */}
           <VerbosityDropdown label="Verbosity" />
+
+          {/* Status and Progress Stats inline */}
+          {props.session && (
+            <>
+              <div class="h-4 w-px bg-zinc-800 mx-1"></div>
+              <StatusIndicator status={props.session.status} />
+              <ProgressStats
+                iteration={props.session.iteration}
+                maxIterations={props.session.maxIterations}
+                durationMs={props.session.durationMs}
+                toolCallCount={props.session.toolCallCount}
+                successfulToolCalls={props.session.successfulToolCalls}
+                failedToolCalls={props.session.failedToolCalls}
+                filesModified={props.session.filesModified}
+              />
+            </>
+          )}
         </div>
 
         {/* Stop button */}
         <button
           onClick={props.onStop}
           disabled={!isRunning()}
-          class={`p-2 rounded ${
+          class={`p-2 rounded-md ${
             isRunning()
-              ? "hover:bg-gray-800 text-gray-400 hover:text-gray-200"
-              : "text-gray-600 cursor-not-allowed"
+              ? "hover:bg-zinc-800 text-zinc-400 hover:text-zinc-300"
+              : "text-zinc-600 cursor-not-allowed"
           } transition-colors`}
           title={isRunning() ? "Stop agent" : "Agent not running"}
         >
           <Icon icon="lucide:square" class="w-4 h-4" />
         </button>
       </div>
-
-      {/* Bottom row: Status and progress stats */}
-      {props.session && (
-        <div class="flex items-center gap-4 px-4 py-2 bg-gray-900/50">
-          <StatusIndicator status={props.session.status} />
-          <ProgressStats
-            iteration={props.session.iteration}
-            maxIterations={props.session.maxIterations}
-            durationMs={props.session.durationMs}
-            toolCallCount={props.session.toolCallCount}
-            successfulToolCalls={props.session.successfulToolCalls}
-            failedToolCalls={props.session.failedToolCalls}
-            filesModified={props.session.filesModified}
-          />
-        </div>
-      )}
     </div>
   );
 }

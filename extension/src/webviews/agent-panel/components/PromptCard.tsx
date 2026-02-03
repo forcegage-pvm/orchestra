@@ -28,15 +28,17 @@ export interface PromptCardProps {
  */
 export function PromptCard(props: PromptCardProps) {
   return (
-    <div class="bg-zinc-900 border border-gray-700 rounded-lg p-4 animate-fadeIn">
-      <div class="flex items-start gap-3">
+    <div class="group rounded-md bg-zinc-900/20 border border-zinc-900/50 fade-in">
+      <div class="px-3 py-2.5 flex gap-3">
         <Icon
           icon="lucide:message-square"
-          class="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5"
+          class="w-[14px] h-[14px] text-zinc-400 flex-shrink-0 mt-0.5"
         />
         <div class="flex-1 min-w-0">
-          <div class="text-sm font-medium text-gray-300 mb-2">Prompt</div>
-          <div class="text-sm text-gray-400 whitespace-pre-wrap break-words">
+          <div class="text-xs font-semibold text-zinc-300 mb-1.5 tracking-tight">
+            Prompt
+          </div>
+          <div class="text-[13px] text-zinc-400 whitespace-pre-wrap break-words leading-relaxed">
             {props.event.text}
           </div>
 
@@ -44,17 +46,17 @@ export function PromptCard(props: PromptCardProps) {
           <Show
             when={props.event.attachments && props.event.attachments.length > 0}
           >
-            <div class="mt-3 pt-3 border-t border-gray-800">
-              <div class="text-xs font-medium text-gray-500 mb-2">
+            <div class="mt-3 pt-3 border-t border-zinc-800/50">
+              <div class="text-[10px] font-medium text-zinc-500 uppercase tracking-wider mb-2">
                 Attachments ({props.event.attachments!.length})
               </div>
               <div class="space-y-1">
                 <For each={props.event.attachments}>
                   {(attachment) => (
-                    <div class="flex items-center gap-2 text-xs text-gray-500">
+                    <div class="flex items-center gap-2 text-[11px] text-zinc-500">
                       <Icon icon="lucide:paperclip" class="w-3 h-3" />
-                      <span class="truncate">{attachment.path}</span>
-                      <span class="text-gray-600">
+                      <span class="truncate font-mono">{attachment.path}</span>
+                      <span class="text-zinc-600">
                         ({attachment.size} bytes)
                       </span>
                     </div>

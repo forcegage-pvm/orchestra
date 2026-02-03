@@ -64,26 +64,26 @@ export function ThinkingCard(props: ThinkingCardProps) {
   };
 
   return (
-    <div class="bg-zinc-900 border border-gray-700 rounded-lg p-4 animate-fadeIn">
-      <div class="flex items-start gap-3">
+    <div class="group rounded-md hover:bg-zinc-900/40 transition-colors fade-in">
+      <div class="px-3 py-2 flex gap-3">
         <Icon
           icon="lucide:brain"
-          class="w-5 h-5 text-purple-400 flex-shrink-0 mt-0.5"
+          class="w-[14px] h-[14px] text-purple-400 flex-shrink-0 mt-0.5"
         />
         <div class="flex-1 min-w-0">
-          <div class="flex items-center justify-between mb-2">
-            <div class="text-sm font-medium text-gray-300">Thinking</div>
+          <div class="flex items-center justify-between mb-1.5">
+            <div class="text-xs font-semibold text-zinc-300 tracking-tight">
+              Thinking
+            </div>
             <Show when={shouldAutoCollapse()}>
               <button
                 onClick={toggleExpanded}
-                class="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-300 transition-colors"
+                class="flex items-center gap-1 text-[10px] text-zinc-500 hover:text-zinc-300 transition-colors"
               >
                 {isCollapsed() ? (
                   <>
                     <Show when={getCollapsedPreview().remainingLines > 0}>
-                      <span>
-                        +{getCollapsedPreview().remainingLines} more lines
-                      </span>
+                      <span>+{getCollapsedPreview().remainingLines} more</span>
                     </Show>
                     <Icon icon="lucide:chevron-down" class="w-3 h-3" />
                   </>
@@ -98,24 +98,24 @@ export function ThinkingCard(props: ThinkingCardProps) {
           </div>
 
           <Show when={!isCollapsed()}>
-            <div class="text-sm text-gray-400 whitespace-pre-wrap break-words">
+            <div class="text-[13px] text-zinc-400 whitespace-pre-wrap break-words leading-relaxed">
               {props.event.text}
               {/* Animated cursor during streaming */}
               <Show when={props.isStreaming}>
-                <span class="inline-block w-1 h-4 ml-1 bg-purple-400 animate-blink" />
+                <span class="inline-block w-0.5 h-4 ml-1 bg-purple-400 animate-blink" />
               </Show>
             </div>
 
             {/* Token count if available */}
             <Show when={props.event.tokenCount !== undefined}>
-              <div class="mt-2 text-xs text-gray-600">
+              <div class="mt-2 text-[10px] text-zinc-600">
                 {props.event.tokenCount} tokens
               </div>
             </Show>
           </Show>
 
           <Show when={isCollapsed()}>
-            <div class="text-sm text-gray-400 whitespace-pre-wrap break-words">
+            <div class="text-[13px] text-zinc-400 whitespace-pre-wrap break-words leading-relaxed">
               {getCollapsedPreview().previewLines}
             </div>
           </Show>

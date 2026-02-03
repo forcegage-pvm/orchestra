@@ -2,27 +2,61 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Scrollbar hiding utility */
+/* Base typography - matching reference design */
+@layer base {
+  body {
+    font-family:
+      "Inter",
+      system-ui,
+      -apple-system,
+      sans-serif;
+    font-size: 13px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  code,
+  pre {
+    font-family: "JetBrains Mono", "Menlo", "Monaco", "Courier New", monospace;
+  }
+}
+
+/* Utility layer - reference design utilities */
 @layer utilities {
+  /* Scrollbar hiding - reference design uses hidden scrollbars */
   .scrollbar-hide {
-    /* Firefox */
-    scrollbar-width: none;
-    /* WebKit */
+    scrollbar-width: none; /* Firefox */
     -webkit-overflow-scrolling: touch;
   }
   .scrollbar-hide::-webkit-scrollbar {
     display: none;
   }
+
+  /* Fade-in animation utility - matching reference (0.4s cubic-bezier) */
+  .fade-in {
+    animation: fadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    opacity: 0;
+    transform: translateY(4px);
+  }
+
+  /* Typing cursor for streaming text */
+  .typing-cursor::after {
+    content: "▋";
+    animation: blink 1s step-end infinite;
+    margin-left: 2px;
+    color: #6366f1;
+  }
 }
 
-/* Blink animation for thinking cursor */
+/* Animation keyframes */
 @keyframes blink {
   50% {
     opacity: 0;
   }
 }
 
-/* Fade-in animation for smooth entry (0.4s duration) */
+/* Fade-in animation - matching reference design timing */
 @keyframes fadeIn {
   from {
     opacity: 0;
@@ -34,7 +68,7 @@
   }
 }
 
-/* Expand/collapse animation for content transitions (0.2s duration) */
+/* Expand/collapse animation for content transitions */
 @keyframes expandCollapse {
   from {
     max-height: 0;
@@ -62,4 +96,13 @@
 /* Focused event indicator for keyboard navigation */
 .focused-event {
   @apply ring-2 ring-blue-500 ring-offset-2 ring-offset-zinc-950;
+}
+
+/* Remove list markers from details/summary */
+details > summary {
+  list-style: none;
+}
+
+details > summary::-webkit-details-marker {
+  display: none;
 }

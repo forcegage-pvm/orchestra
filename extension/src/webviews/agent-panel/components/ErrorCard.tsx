@@ -35,18 +35,18 @@ export function ErrorCard(props: ErrorCardProps) {
       case "error":
         return {
           icon: "lucide:alert-circle",
-          iconColor: "text-red-400",
-          borderColor: "border-red-900",
-          bgColor: "bg-red-950/20",
+          iconColor: "text-rose-500",
+          borderColor: "border-rose-500/10",
+          bgColor: "bg-rose-500/5",
           label: "Error",
-          labelColor: "text-red-400",
+          labelColor: "text-rose-400",
         };
       case "warning":
         return {
           icon: "lucide:alert-triangle",
           iconColor: "text-yellow-400",
-          borderColor: "border-yellow-900",
-          bgColor: "bg-yellow-950/20",
+          borderColor: "border-yellow-500/10",
+          bgColor: "bg-yellow-500/5",
           label: "Warning",
           labelColor: "text-yellow-400",
         };
@@ -54,47 +54,51 @@ export function ErrorCard(props: ErrorCardProps) {
         // Fallback for unexpected severity values
         return {
           icon: "lucide:help-circle",
-          iconColor: "text-gray-400",
-          borderColor: "border-gray-700",
-          bgColor: "bg-gray-900/20",
+          iconColor: "text-zinc-400",
+          borderColor: "border-zinc-900/50",
+          bgColor: "bg-zinc-900/20",
           label: "Unknown",
-          labelColor: "text-gray-400",
+          labelColor: "text-zinc-400",
         };
     }
   };
 
   return (
     <div
-      class={`border rounded-lg p-4 animate-fadeIn ${severityConfig().borderColor} ${severityConfig().bgColor}`}
+      class={`group rounded-md border hover:bg-zinc-900/40 transition-colors fade-in ${severityConfig().borderColor} ${severityConfig().bgColor}`}
     >
-      <div class="flex items-start gap-3">
+      <div class="px-3 py-2 flex gap-3">
         <Icon
           icon={severityConfig().icon}
-          class={`w-5 h-5 ${severityConfig().iconColor} flex-shrink-0 mt-0.5`}
+          class={`w-[14px] h-[14px] ${severityConfig().iconColor} flex-shrink-0 mt-0.5`}
         />
         <div class="flex-1 min-w-0">
-          <div class="flex items-center gap-2 mb-2">
-            <span class={`text-sm font-medium ${severityConfig().labelColor}`}>
+          <div class="flex items-center gap-2 mb-1.5">
+            <span
+              class={`text-[13px] font-semibold ${severityConfig().labelColor}`}
+            >
               {severityConfig().label}
             </span>
             <Show when={props.event.code}>
-              <span class="text-xs text-gray-500 font-mono">
+              <span class="text-[10px] text-zinc-500 font-mono">
                 [{props.event.code}]
               </span>
             </Show>
           </div>
 
-          <div class="text-sm text-gray-300 mb-1">{props.event.message}</div>
+          <div class="text-[13px] text-zinc-300 mb-1 leading-relaxed">
+            {props.event.message}
+          </div>
 
           {/* Optional suggestion for recovery */}
           <Show when={props.event.suggestion}>
-            <div class="mt-3 pt-3 border-t border-gray-800">
+            <div class="mt-2 pt-2 border-t border-zinc-800/50">
               <div class="flex items-start gap-2">
                 <Icon
                   icon="lucide:lightbulb"
-                  class="w-4 h-4 text-blue-400 flex-shrink-0 mt-0.5"
+                  class="w-3 h-3 text-blue-400 flex-shrink-0 mt-0.5"
                 />
-                <div class="text-sm text-blue-300">
+                <div class="text-[12px] text-blue-300">
                   {props.event.suggestion}
                 </div>
               </div>
@@ -103,7 +107,7 @@ export function ErrorCard(props: ErrorCardProps) {
 
           {/* Recoverable indicator */}
           <Show when={props.event.recoverable !== undefined}>
-            <div class="mt-2 text-xs text-gray-600">
+            <div class="mt-2 text-[10px] text-zinc-600">
               {props.event.recoverable ? "Recoverable" : "Non-recoverable"}
             </div>
           </Show>
