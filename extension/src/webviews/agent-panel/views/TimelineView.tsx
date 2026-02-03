@@ -27,7 +27,7 @@ import {
     ToolCallCard,
 } from "../components/index.js";
 import { useAutoScroll } from "../hooks/index.js";
-import { getEventsArray, toolCalls } from "../stores/index.js";
+import { getEventsArray, session, toolCalls } from "../stores/index.js";
 
 export interface TimelineViewProps {
   /** Currently focused event index for keyboard navigation */
@@ -160,6 +160,15 @@ export function TimelineView(props: TimelineViewProps) {
     enabled: true,
   });
 
+  // Check if agent is running
+  const isRunning = () => {
+    return (
+      session?.status === "running" ||
+      session?.status === "thinking" ||
+      session?.status === "waiting_for_tool"
+    );
+  };
+
   /**
    * Render appropriate card component based on timeline item type
    */
@@ -242,6 +251,17 @@ export function TimelineView(props: TimelineViewProps) {
           <Index each={timelineItems()}>
             {(item) => renderItem(item(), 0)}
           </Index>
+        </Show>
+
+        {/* Ball-beat loading indicator - shown when running */}
+        <Show when={isRunning()}>
+          <div class="flex justify-center py-6">
+            <div class="flex items-center gap-1.5">
+              <div class="w-2 h-2 rounded-full bg-green-400 animate-ballBeat1" />
+              <div class="w-2 h-2 rounded-full bg-green-400 animate-ballBeat2" />
+              <div class="w-2 h-2 rounded-full bg-green-400 animate-ballBeat3" />
+            </div>
+          </div>
         </Show>
       </div>
 

@@ -7,6 +7,7 @@
  * Specification: specs/011-agent-panel-rework/spec.md Section 3.2-3.3
  */
 
+import { Show } from "solid-js";
 import type { SessionStatus } from "../../../agents/sessions/types.js";
 
 export interface StatusIndicatorProps {
@@ -83,12 +84,25 @@ export function StatusIndicator(props: StatusIndicatorProps) {
     }
   };
 
+  const isAnimating = () => {
+    return props.status === "running" || props.status === "thinking";
+  };
+
   return (
     <div class="flex items-center gap-2">
-      <div
-        class={`w-2 h-2 rounded-full ${statusConfig().dotColor} ${statusConfig().animate ? "animate-blink" : ""}`}
-      />
-      <span class={`text-sm font-medium ${statusConfig().textColor}`}>
+      <Show
+        when={isAnimating()}
+        fallback={
+          <div class={`w-2.5 h-2.5 rounded-full ${statusConfig().dotColor}`} />
+        }
+      >
+        {/* Spinning ring when running/thinking */}
+        <div class="w-4 h-4 relative flex items-center justify-center">
+          <div class="w-3.5 h-3.5 border-2 border-green-400/30 rounded-full" />
+          <div class="absolute w-3.5 h-3.5 border-2 border-transparent border-t-green-400 rounded-full animate-spin" />
+        </div>
+      </Show>
+      <span class={`text-base font-semibold ${statusConfig().textColor}`}>
         {statusConfig().label}
       </span>
     </div>
