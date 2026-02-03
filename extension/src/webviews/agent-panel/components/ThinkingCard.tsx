@@ -40,17 +40,11 @@ export interface ThinkingCardProps {
  * ```
  */
 export function ThinkingCard(props: ThinkingCardProps) {
-  const [expanded, setExpanded] = createSignal(!props.autoCollapse);
+  // Always start expanded, but allow manual collapse
+  const [expanded, setExpanded] = createSignal(true);
 
-  // Auto-collapse when streaming ends if autoCollapse is enabled
-  const shouldAutoCollapse = () => {
-    return props.autoCollapse && !props.isStreaming;
-  };
-
-  // Determine if card should be collapsed
-  const isCollapsed = () => {
-    return shouldAutoCollapse() && !expanded();
-  };
+  // Card is collapsible (user can toggle), but always starts expanded
+  const isCollapsed = () => !expanded();
 
   const toggleExpanded = () => {
     setExpanded(!expanded());
@@ -76,26 +70,24 @@ export function ThinkingCard(props: ThinkingCardProps) {
             <div class="text-[10px] font-semibold text-zinc-300 tracking-tight">
               Thinking
             </div>
-            <Show when={shouldAutoCollapse()}>
-              <button
-                onClick={toggleExpanded}
-                class="flex items-center gap-1 text-[10px] text-zinc-500 hover:text-zinc-300 transition-colors"
-              >
-                {isCollapsed() ? (
-                  <>
-                    <Show when={getCollapsedPreview().remainingLines > 0}>
-                      <span>+{getCollapsedPreview().remainingLines} more</span>
-                    </Show>
-                    <Icon icon="lucide:chevron-down" class="w-3 h-3" />
-                  </>
-                ) : (
-                  <>
-                    <span>Collapse</span>
-                    <Icon icon="lucide:chevron-up" class="w-3 h-3" />
-                  </>
-                )}
-              </button>
-            </Show>
+            <button
+              onClick={toggleExpanded}
+              class="flex items-center gap-1 text-[10px] text-zinc-500 hover:text-zinc-300 transition-colors"
+            >
+              {isCollapsed() ? (
+                <>
+                  <Show when={getCollapsedPreview().remainingLines > 0}>
+                    <span>+{getCollapsedPreview().remainingLines} more</span>
+                  </Show>
+                  <Icon icon="lucide:chevron-down" class="w-3 h-3" />
+                </>
+              ) : (
+                <>
+                  <span>Collapse</span>
+                  <Icon icon="lucide:chevron-up" class="w-3 h-3" />
+                </>
+              )}
+            </button>
           </div>
 
           <Show when={!isCollapsed()}>
