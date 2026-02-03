@@ -63,7 +63,8 @@ export function ToolCallCard(props: ToolCallCardProps) {
   };
 
   const hasInput = () => {
-    return props.toolCall.input !== undefined && props.toolCall.input !== null;
+    const args = props.toolCall.arguments;
+    return args !== undefined && args !== null && Object.keys(args).length > 0;
   };
 
   const hasOutput = () => {
@@ -77,16 +78,9 @@ export function ToolCallCard(props: ToolCallCardProps) {
   };
 
   const getInputDisplay = () => {
-    const input = props.toolCall.input;
-    if (input === undefined || input === null) return null;
-    if (typeof input === "string") {
-      try {
-        return JSON.parse(input);
-      } catch {
-        return input;
-      }
-    }
-    return input;
+    const args = props.toolCall.arguments;
+    if (args === undefined || args === null) return null;
+    return args;
   };
 
   const getOutputDisplay = () => {
