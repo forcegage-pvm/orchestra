@@ -497,9 +497,28 @@ export const runCommandTool: AgentTool<RunCommandInput> = {
       content.push({ type: "text", value: `STDERR:\n${result.stderr}` });
     }
 
+    // Determine if this is a success or failure
+    const isSuccess = result.success && !result.timedOut;
+
+    // Build error object when command failed - include actual output for context
+    const error = isSuccess
+      ? undefined
+      : createToolError(
+          result.timedOut
+            ? ToolErrorCode.TIMEOUT
+            : ToolErrorCode.COMMAND_FAILED,
+          result.timedOut
+            ? `Command timed out after ${timeoutMs}ms`
+            : `Command failed with exit code ${result.exitCode}${result.stderr ? `: ${result.stderr.slice(0, 200)}` : result.stdout ? `: ${result.stdout.slice(0, 200)}` : ""}`,
+          result.timedOut
+            ? "Increase timeout or check for long-running process"
+            : "Check command syntax and arguments",
+        );
+
     return {
-      success: result.success && !result.timedOut,
+      success: isSuccess,
       content,
+      error,
       metadata: {
         toolName: TOOL_NAME,
         callId: "",
