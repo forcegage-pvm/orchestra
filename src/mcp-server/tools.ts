@@ -1090,10 +1090,10 @@ const TOOLS_WITH_ROLES: ToolWithRole[] = [
     },
   },
   {
-    role: "orchestrator",
+    role: "shared",
     name: "get_sprint_config",
     description:
-      "Get a sprint-specific configuration value with fallback to global config. If no sprint_id provided, uses active sprint.",
+      "Get a sprint-specific configuration value with fallback to global config. If no sprint_id provided, uses active sprint. Useful for debugging test configuration issues.",
     inputSchema: {
       type: "object",
       properties: {

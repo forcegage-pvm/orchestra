@@ -169,6 +169,8 @@ export interface RunCommandResult {
   duration_ms: number;
   timed_out: boolean;
   warning?: string;
+  /** Extracted error summary with diagnostics for failed commands */
+  error_summary?: string;
 }
 
 /**

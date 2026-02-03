@@ -10,6 +10,7 @@ import {
   codeReviewIssues,
   codeReviews,
   progress,
+  sprints,
   tasks,
 } from "../../db/schema.js";
 import {
@@ -297,6 +298,9 @@ async function submitCodeReview(
   }
 
   let taskStatus: string | undefined;
+  // Handle task completion for APPROVED decisions with task_gate policy
+  let completedAt: string | undefined;
+
   if (decisionStatus === "APPROVED") {
     const config = CodeReviewConfigSchema.parse(
       sprint.config ? JSON.parse(sprint.config) : {},
@@ -307,7 +311,7 @@ async function submitCodeReview(
       config.code_review_policy === "task_gate" &&
       task.status !== "COMPLETE"
     ) {
-      const completedAt = new Date().toISOString();
+      completedAt = new Date().toISOString();
 
       await db
         .update(tasks)
@@ -372,13 +376,14 @@ async function submitCodeReview(
     }
 
     // Update sprint workflow_step if all tasks complete
+    const now = completedAt ?? new Date().toISOString();
     if (completed === totalTasks) {
       await db
         .update(sprints)
         .set({
           workflow_step: "CLOSEOUT",
-          completed_at: completedAt,
-          updated_at: completedAt,
+          completed_at: now,
+          updated_at: now,
         })
         .where(eq(sprints.id, sprint.id));
     } else if (sprint.workflow_step === "VERIFY") {
@@ -387,7 +392,7 @@ async function submitCodeReview(
         .update(sprints)
         .set({
           workflow_step: "SELECT_TASK",
-          updated_at: completedAt,
+          updated_at: now,
         })
         .where(eq(sprints.id, sprint.id));
     }

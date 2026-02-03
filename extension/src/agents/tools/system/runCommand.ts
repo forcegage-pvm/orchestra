@@ -22,16 +22,178 @@ import {
 
 const TOOL_NAME = "run_command";
 const DEFAULT_TIMEOUT_MS = 30_000;
-// Pattern for CSI sequences (e.g., [?25l, [0m)
-const CSI_PATTERN = /\x1B\[[0-9;]*[a-zA-Z]/g;
+// Pattern for CSI sequences (e.g., [?25l, [0m, [?2004h for bracketed paste)
+// Includes private mode sequences with ? prefix and > prefix
+const CSI_PATTERN = /\x1B\[[?>=]?[0-9;]*[a-zA-Z]/g;
 // Pattern for OSC sequences (e.g., ]0;title, ]633;C) - these set terminal title/shell integration
 const OSC_PATTERN = /\x1B\][^\x07\x1B]*(?:\x07|\x1B\\)?/g;
-// Pattern for other escape sequences
+// Pattern for other escape sequences (single-char and 2-char sequences)
 const OTHER_ESC_PATTERN = /\x1B[^[\]].?/g;
 const MAX_OUTPUT_LINES = 500;
 const HEAD_RATIO = 0.2;
 const TAIL_RATIO = 0.8;
 const TRUNCATION_MESSAGE = "... output truncated ...";
+
+/**
+ * Diagnostic info extracted from test runner output
+ */
+interface TestRunnerDiagnostics {
+  isTestConfigIssue: boolean;
+  filter?: string;
+  includePatterns?: string[];
+  excludePatterns?: string[];
+  suggestion?: string;
+}
+
+/**
+ * Parse vitest/jest output to extract configuration diagnostics
+ * This helps users understand WHY tests weren't found
+ */
+function parseTestRunnerDiagnostics(output: string): TestRunnerDiagnostics {
+  const diagnostics: TestRunnerDiagnostics = { isTestConfigIssue: false };
+
+  // Check if this is a "no test files found" issue
+  if (!/no test files found/i.test(output)) {
+    return diagnostics;
+  }
+
+  diagnostics.isTestConfigIssue = true;
+
+  // Extract filter pattern (what the user tried to run)
+  const filterMatch = output.match(/filter:\s*(.+?)(?:\n|$)/i);
+  if (filterMatch) {
+    diagnostics.filter = filterMatch[1].trim();
+  }
+
+  // Extract include patterns (what vitest is configured to look for)
+  const includeMatch = output.match(/include:\s*(.+?)(?:\n|$)/i);
+  if (includeMatch) {
+    diagnostics.includePatterns = includeMatch[1]
+      .split(",")
+      .map((p) => p.trim());
+  }
+
+  // Extract exclude patterns
+  const excludeMatch = output.match(/exclude:\s*(.+?)(?:\n|$)/i);
+  if (excludeMatch) {
+    diagnostics.excludePatterns = excludeMatch[1]
+      .split(",")
+      .map((p) => p.trim());
+  }
+
+  // Build actionable suggestion
+  if (diagnostics.filter && diagnostics.includePatterns) {
+    diagnostics.suggestion = buildTestConfigSuggestion(
+      diagnostics.filter,
+      diagnostics.includePatterns,
+    );
+  }
+
+  return diagnostics;
+}
+
+/**
+ * Build an actionable suggestion for fixing test configuration
+ */
+function buildTestConfigSuggestion(
+  filter: string,
+  includePatterns: string[],
+): string {
+  const suggestions: string[] = [];
+
+  // Analyze mismatch
+  const filterDir = filter.split("/")[0];
+  const patternsMatchFilter = includePatterns.some(
+    (p) => filter.startsWith(p.replace("**/*", "")) || p.includes(filterDir),
+  );
+
+  if (!patternsMatchFilter) {
+    suggestions.push(
+      `\n\n📋 CONFIGURATION ISSUE DETECTED:`,
+      `The test file "${filter}" doesn't match any include pattern.`,
+      ``,
+      `Current include patterns: ${includePatterns.join(", ")}`,
+      `Requested test path: ${filter}`,
+      ``,
+      `🔧 TO FIX THIS:`,
+      `1. Update sprint test_file_pattern using: set_sprint_config`,
+      `   key: "test_file_pattern"`,
+      `   value: "${filterDir}/**/*.test.ts" (or appropriate pattern)`,
+      ``,
+      `2. Or update vitest.config.ts include array to add: "${filterDir}/**/*.test.ts"`,
+      ``,
+      `3. Verify with: get_sprint_config key="test_file_pattern"`,
+    );
+  }
+
+  return suggestions.join("\n");
+}
+
+/**
+ * Extract a meaningful error summary from command output
+ * Prioritizes actual error lines over test runner boilerplate
+ * Includes actionable diagnostics for configuration issues
+ */
+function extractErrorSummary(
+  stdout: string,
+  stderr: string,
+  maxChars: number = 800,
+): string {
+  // Priority 1: stderr usually has the actual error
+  if (stderr && stderr.trim()) {
+    return stderr.slice(0, maxChars);
+  }
+
+  // Check for test configuration issues and provide diagnostics
+  const diagnostics = parseTestRunnerDiagnostics(stdout);
+  if (diagnostics.isTestConfigIssue) {
+    let message = "No test files found.";
+    if (diagnostics.filter) {
+      message += `\nFilter: ${diagnostics.filter}`;
+    }
+    if (diagnostics.includePatterns) {
+      message += `\nConfigured patterns: ${diagnostics.includePatterns.join(", ")}`;
+    }
+    if (diagnostics.suggestion) {
+      message += diagnostics.suggestion;
+    }
+    return message.slice(0, maxChars);
+  }
+
+  // Priority 2: Look for common error patterns in stdout
+  const lines = stdout.split(/\r?\n/).filter((l) => l.trim());
+
+  // Common error indicators
+  const errorPatterns = [
+    /no test files found/i,
+    /error:/i,
+    /failed:/i,
+    /exception/i,
+    /cannot find/i,
+    /FAIL\s+/,
+    /AssertionError/i,
+    /TypeError/i,
+    /ReferenceError/i,
+    /SyntaxError/i,
+  ];
+
+  // Find lines that look like actual errors
+  const errorLines: string[] = [];
+  for (const line of lines) {
+    if (errorPatterns.some((p) => p.test(line))) {
+      errorLines.push(line.trim());
+    }
+  }
+
+  if (errorLines.length > 0) {
+    return errorLines.slice(0, 5).join("\n").slice(0, maxChars);
+  }
+
+  // Fallback: last few meaningful lines (skip empty/whitespace)
+  const meaningfulLines = lines.filter((l) => l.trim().length > 3);
+  const lastLines = meaningfulLines.slice(-5);
+  return lastLines.join("\n").slice(0, maxChars);
+}
 
 /**
  * Get the workspace root directory.
@@ -493,6 +655,19 @@ export const runCommandTool: AgentTool<RunCommandInput> = {
       resultData.warning = result.warning;
     }
 
+    // Determine if this is a success or failure
+    const isSuccess = result.success && !result.timedOut;
+
+    // Extract meaningful error summary when command failed
+    const errorSummary = isSuccess
+      ? undefined
+      : extractErrorSummary(result.stdout, result.stderr);
+
+    // Add error_summary to result data for agent consumption
+    if (errorSummary) {
+      resultData.error_summary = errorSummary;
+    }
+
     const content: Array<{ type: "text" | "json"; value: string }> = [
       { type: "json", value: JSON.stringify(resultData, null, 2) },
     ];
@@ -505,16 +680,7 @@ export const runCommandTool: AgentTool<RunCommandInput> = {
       content.push({ type: "text", value: `STDERR:\n${result.stderr}` });
     }
 
-    // Determine if this is a success or failure
-    const isSuccess = result.success && !result.timedOut;
-
-    // Build error object when command failed - include actual output for context
-    // Use up to 500 chars for better error visibility
-    const errorSnippet = result.stderr
-      ? result.stderr.slice(0, 500)
-      : result.stdout
-        ? result.stdout.slice(0, 500)
-        : "";
+    // Build error object when command failed
     const error = isSuccess
       ? undefined
       : createToolError(
@@ -523,7 +689,7 @@ export const runCommandTool: AgentTool<RunCommandInput> = {
             : ToolErrorCode.COMMAND_FAILED,
           result.timedOut
             ? `Command timed out after ${timeoutMs}ms`
-            : `Command failed with exit code ${result.exitCode}${errorSnippet ? `:\n${errorSnippet}` : ""}`,
+            : `Command failed with exit code ${result.exitCode}${errorSummary ? `:\n${errorSummary}` : ""}`,
           result.timedOut
             ? "Increase timeout or check for long-running process"
             : "Check command syntax and arguments",

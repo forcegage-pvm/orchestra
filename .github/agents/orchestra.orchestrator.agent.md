@@ -1360,6 +1360,45 @@ Structural checks use glob patterns to find files. Common mistakes:
 
 **Rule**: Paths must be files or glob patterns, never directories.
 
+### Troubleshooting "No Test Files Found"
+
+If tests fail with `No test files found, exiting with code 1`, this is a **configuration mismatch**, not a code problem.
+
+**What's happening:** The test runner (vitest/jest) has an `include` pattern that doesn't match the path you're trying to run.
+
+**Diagnostic output shows:**
+
+- **Filter**: The path/pattern being requested (from sprint's `test_file_pattern`)
+- **Include patterns**: What the test runner is configured to accept
+- If these don't overlap, no tests are found
+
+**How to fix:**
+
+1. **Check current sprint config:**
+
+   ```
+   get_sprint_config key="test_file_pattern"
+   ```
+
+2. **Update sprint config to match test location:**
+
+   ```
+   set_sprint_config key="test_file_pattern" value="testing/foo/**/*.test.ts"
+   ```
+
+3. **Common patterns:**
+   | Test Location | test_file_pattern value |
+   |---------------|-------------------------|
+   | `test/` | `test/**/*.test.ts` |
+   | `testing/foo/` | `testing/foo/**/*.test.ts` |
+   | `extension/test/` | `extension/test/**/*.test.ts` |
+
+4. **If the pattern is correct but still fails:**
+   - Check `vitest.config.ts` or `jest.config.js` for the `include` array
+   - Add your test directory pattern to the test runner config
+
+**Prevention:** When creating sprints, verify `test_file_pattern` matches where tests will actually be created.
+
 ### Pre-Configure Validation Checklist
 
 Before calling `configure_sprint`, verify:

@@ -355,6 +355,54 @@ After your red phase task is complete:
 | `TDD-RED FILE MISSING TASK-ID`     | File has TDD markers but no `// @orchestra-task: N` annotation | Add `// @orchestra-task: N` at top of file (replace N with task ID)             |
 | `SCAN_FAILED`                      | Error during automatic test scanning                           | Check test file syntax and marker format                                        |
 
+### Test Configuration Troubleshooting
+
+If tests fail with "No test files found", this is a **configuration problem**, not a code problem.
+
+#### Symptoms
+
+- `No test files found, exiting with code 1`
+- Tests exist but aren't discovered
+- Filter pattern doesn't match include patterns
+
+#### Diagnosis
+
+The error output includes diagnostic information:
+
+- **Filter**: The path/pattern you tried to run
+- **Include patterns**: What the test runner is configured to look for
+- **Mismatch**: The filter doesn't match any include pattern
+
+#### How to Fix
+
+1. **Check sprint test configuration** (you have read access):
+
+   ```
+   get_sprint_config key="test_file_pattern"
+   get_sprint_config key="test_command"
+   ```
+
+2. **If sprint config is wrong, escalate to Orchestrator**:
+   - You do NOT have access to `set_sprint_config` (orchestrator-only)
+   - Signal with `signal_completion` explaining the config issue
+   - Include the diagnostic output and what the correct pattern should be
+   - Orchestrator will fix the config and re-prepare the task
+
+3. **Common patterns by location**:
+   | Test Location | test_file_pattern | test_command |
+   |---------------|-------------------|--------------|
+   | `test/` | `test/**/*.test.ts` | `npm test` |
+   | `testing/foo/` | `testing/foo/**/*.test.ts` | `npx vitest run testing/foo/` |
+   | `extension/test/` | `extension/test/**/*.test.ts` | `npm test --prefix extension` |
+
+4. **If vitest.config.ts is the issue** (not sprint config):
+   - You CAN edit `vitest.config.ts` directly
+   - Check the `include` array and add your test directory pattern
+
+#### Root Cause
+
+Sprint configurations are set when the sprint is created. If you're working on tests in a different directory than originally configured, the Orchestrator needs to update the sprint settings.
+
 ## Handling Feedback
 
 If verification fails, you'll receive feedback explaining what needs to be fixed.

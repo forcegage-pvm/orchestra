@@ -7,8 +7,8 @@ import type * as vscode from "vscode";
 
 import { ToolErrorCode } from "../../../../src/agents/tools/errors.js";
 import type {
-  RunCommandInput,
-  ToolInvocationContext,
+    RunCommandInput,
+    ToolInvocationContext,
 } from "../../../../src/agents/tools/types.js";
 
 const buildNodeCommand = (script: string): string =>
@@ -353,6 +353,62 @@ describe("runCommand tool", () => {
 
       expect(parsed.stdout).toContain("Received:");
       expect(parsed.stdout).toContain("test input");
+    });
+  });
+
+  describe("Error Summary Diagnostics", () => {
+    it("extracts test configuration issue with actionable suggestions", async () => {
+      const { runCommandTool } =
+        await import("../../../../src/agents/tools/system/runCommand.js");
+
+      // Simulate vitest "no test files found" output
+      const vitestNoTestsOutput = `
+ RUN  v1.6.1 X:/project
+
+ filter:  testing/foo/
+ include: test/**/*.test.ts
+
+ No test files found, exiting with code 1
+`;
+
+      const input: RunCommandInput = {
+        command: buildNodeCommand(
+          `console.log(${JSON.stringify(vitestNoTestsOutput)}); process.exit(1);`,
+        ),
+      };
+
+      const result = await runCommandTool.invoke(input, createContext());
+
+      const jsonContent = result.content.find((c) => c.type === "json");
+      const parsed = JSON.parse(jsonContent!.value);
+
+      expect(parsed.success).toBe(false);
+      expect(parsed.error_summary).toBeDefined();
+      expect(parsed.error_summary).toContain("No test files found");
+      expect(parsed.error_summary).toContain("testing/foo/");
+      expect(parsed.error_summary).toContain("test/**/*.test.ts");
+      // Should include actionable suggestion
+      expect(parsed.error_summary).toContain("set_sprint_config");
+    });
+
+    it("provides clean error summary for standard errors", async () => {
+      const { runCommandTool } =
+        await import("../../../../src/agents/tools/system/runCommand.js");
+
+      const input: RunCommandInput = {
+        command: buildNodeCommand(`
+          console.error('Error: Cannot find module "missing-package"');
+          process.exit(1);
+        `),
+      };
+
+      const result = await runCommandTool.invoke(input, createContext());
+
+      const jsonContent = result.content.find((c) => c.type === "json");
+      const parsed = JSON.parse(jsonContent!.value);
+
+      expect(parsed.success).toBe(false);
+      expect(parsed.error_summary).toContain("Cannot find module");
     });
   });
 });
