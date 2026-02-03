@@ -7,14 +7,36 @@
  * Specification: specs/011-agent-panel-rework/spec.md Section 8.2
  */
 
+import { updateToolCallAggregate } from "../stores/aggregation.js";
 import {
   addEvent,
   clearEvents,
   setSession,
   setToolCalls,
+  toolCalls,
 } from "../stores/sessionStore.js";
 import { setUi } from "../stores/uiStore.js";
 import type { ExtensionMessage } from "./types.js";
+
+/**
+ * Check if an event is tool-related
+ */
+function isToolEvent(event: {
+  type: string;
+  toolCallId?: string;
+}): event is { type: string; toolCallId: string } {
+  return (
+    event.toolCallId !== undefined &&
+    [
+      "tool_call",
+      "tool_progress",
+      "tool_output",
+      "tool_file_operation",
+      "tool_metadata",
+      "tool_result",
+    ].includes(event.type)
+  );
+}
 
 /**
  * Handle incoming message from extension host
@@ -43,6 +65,18 @@ export function handleExtensionMessage(message: ExtensionMessage): void {
         message.event.id,
       );
       addEvent(message.event);
+
+      // Update tool call aggregate if this is a tool-related event
+      if (isToolEvent(message.event)) {
+        const existingAggregate = toolCalls[message.event.toolCallId];
+        const updatedAggregate = updateToolCallAggregate(
+          existingAggregate,
+          message.event,
+        );
+        if (updatedAggregate) {
+          setToolCalls(message.event.toolCallId, updatedAggregate);
+        }
+      }
       break;
 
     case "events_batch":
@@ -50,6 +84,18 @@ export function handleExtensionMessage(message: ExtensionMessage): void {
       console.log("[Protocol] Events batch:", message.events.length, "events");
       message.events.forEach((event) => {
         addEvent(event);
+
+        // Update tool call aggregate if this is a tool-related event
+        if (isToolEvent(event)) {
+          const existingAggregate = toolCalls[event.toolCallId];
+          const updatedAggregate = updateToolCallAggregate(
+            existingAggregate,
+            event,
+          );
+          if (updatedAggregate) {
+            setToolCalls(event.toolCallId, updatedAggregate);
+          }
+        }
       });
       break;
 

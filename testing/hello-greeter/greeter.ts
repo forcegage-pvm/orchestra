@@ -11,26 +11,24 @@
  * greet("Bob Smith");    // Returns: "Hello, Bob Smith!"
  * greet("");             // Returns: "Hello, stranger!"
  * greet("   ");          // Returns: "Hello, stranger!"
- * greet("  John  ");     // Returns: "Hello, John!" (trimmed)
+ * greet("  John  ");     // Returns: "Hello,   John  !" (original input preserved)
  * ```
  *
  * **Behavior:**
- * - The input name is trimmed of leading and trailing whitespace before processing.
- * - If the trimmed name is empty (zero-length string), returns "Hello, stranger!".
- * - If the trimmed name is non-empty, returns "Hello, {name}!" using the trimmed name.
- * - The inner content of the name is preserved as-is after trimming.
+ * - The input is trimmed to detect if it's empty or whitespace-only.
+ * - If the trimmed value is empty (zero-length string), returns "Hello, stranger!".
+ * - If the trimmed value is non-empty, returns "Hello, {name}!" using the **original** input parameter.
+ * - The original input is preserved exactly as provided, including any leading/trailing spaces.
  *
  * **Edge Cases:**
  * - Empty string "" → "Hello, stranger!"
  * - Whitespace-only "   " → "Hello, stranger!"
- * - Leading/trailing spaces "  Alice  " → "Hello, Alice!"
+ * - Leading/trailing spaces "  Alice  " → "Hello,   Alice  !" (spaces preserved)
  */
 export function greet(name: string): string {
-  const trimmedName = name.trim();
-  
-  if (trimmedName === "") {
+  if (name.trim() === "") {
     return "Hello, stranger!";
   }
   
-  return `Hello, ${trimmedName}!`;
+  return `Hello, ${name}!`;
 }

@@ -14,24 +14,18 @@ import { createMemo, createSignal, For, Show } from "solid-js";
 import type {
     AgentEvent,
     StatusChangeEvent,
-    ToolCallEvent,
-    ToolFileOperationEvent,
-    ToolMetadataEvent,
-    ToolProgressEvent,
-    ToolResultEvent,
+  ToolCallAggregate,
 } from "../../../agents/sessions/types.js";
 import {
-    EmptyState,
-    ErrorCard,
-    FileOperationBadge,
-    NewEventsIndicator,
-    PromptCard,
-    StreamingOutput,
-    ThinkingCard,
-    ToolIcon,
+  EmptyState,
+  ErrorCard,
+  NewEventsIndicator,
+  PromptCard,
+  ThinkingCard,
+  ToolCallCard,
 } from "../components/index.js";
 import { useAutoScroll } from "../hooks/index.js";
-import { getEventsArray } from "../stores/index.js";
+import { getEventsArray, toolCalls } from "../stores/index.js";
 
 export interface TimelineViewProps {
   /** Currently focused event index for keyboard navigation */
@@ -39,10 +33,11 @@ export interface TimelineViewProps {
 }
 
 /**
- * Format duration in milliseconds to human-readable string
+ * Timeline item can be either a regular event or an aggregated tool call
  */
-function formatDuration(ms: number): string {
-  if (ms < 1000) return `${ms}ms`;
+type TimelineItem =
+  | { type: "event"; event: AgentEvent; timestamp: string }
+  | { type: "toolCall"; toolCall: ToolCallAggregate; timestamp: string };
   if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`;
   const mins = Math.floor(ms / 60000);
   const secs = Math.floor((ms % 60000) / 1000);

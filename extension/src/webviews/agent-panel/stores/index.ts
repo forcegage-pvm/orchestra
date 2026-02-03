@@ -21,6 +21,8 @@ export {
   toolCalls,
 } from "./sessionStore.js";
 
+export { aggregateToolCalls, updateToolCallAggregate } from "./aggregation.js";
+
 export { setUi, ui } from "./uiStore.js";
 
 export type { TabId, UiState, VerbosityLevel } from "./uiStore.js";
