@@ -1,6 +1,15 @@
 /**
- * Greets a person by name.
+ * Greeter module that formats personalized hello messages.
+ * 
+ * @param name - The name to greet. Empty or whitespace-only strings are treated as "stranger".
+ * @returns A formatted greeting message.
  */
 export function greet(name: string): string {
-  throw new Error("Not implemented");
+  const trimmedName = name.trim();
+  
+  if (trimmedName === '') {
+    return 'Hello, stranger!';
+  }
+  
+  return `Hello, ${trimmedName}!`;
 }
