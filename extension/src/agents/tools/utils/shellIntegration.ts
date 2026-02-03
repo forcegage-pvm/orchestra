@@ -17,7 +17,7 @@ export interface ExecuteInTerminalResult {
   usedShellIntegration: boolean;
 }
 
-export type ShellExecutionErrorCode = "CANCELLED" | "TIMEOUT";
+export type ShellExecutionErrorCode = "CANCELLED" | "TIMEOUT" | "CWD_NOT_FOUND";
 
 export class ShellExecutionError extends Error {
   readonly code: ShellExecutionErrorCode;

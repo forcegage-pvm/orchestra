@@ -794,7 +794,10 @@ async function invokeCodeReview(
     await showAgentPanel();
 
     // Read agent instructions for system prompt
-    const systemPrompt = await readAgentInstructions(workspaceRoot, "controller");
+    const systemPrompt = await readAgentInstructions(
+      workspaceRoot,
+      "controller",
+    );
 
     // Start controller agent for code review
     const startOptions = {
@@ -898,7 +901,10 @@ async function invokeCodeReviewFix(
     await showAgentPanel();
 
     // Read agent instructions for system prompt
-    const systemPrompt = await readAgentInstructions(workspaceRoot, "implementor");
+    const systemPrompt = await readAgentInstructions(
+      workspaceRoot,
+      "implementor",
+    );
 
     // Start implementor agent to fix code review issues
     const startOptions = {

@@ -3,6 +3,7 @@
  */
 
 import { spawn } from "node:child_process";
+import * as fs from "node:fs";
 import * as vscode from "vscode";
 
 import { createToolError, ToolErrorCode } from "../errors.js";
@@ -81,9 +82,18 @@ async function executeWithShellIntegration(
     token: vscode.CancellationToken;
   },
 ): Promise<CommandResult | null> {
+  // Validate cwd exists before creating terminal
+  const resolvedCwd = options.cwd ?? getWorkspaceRoot();
+  if (!fs.existsSync(resolvedCwd)) {
+    throw new ShellExecutionError(
+      "CWD_NOT_FOUND",
+      `Working directory does not exist: ${resolvedCwd}`,
+    );
+  }
+
   const terminal = vscode.window.createTerminal({
     name: "Orchestra Command",
-    cwd: options.cwd ?? getWorkspaceRoot(),
+    cwd: resolvedCwd,
   });
 
   try {
@@ -167,6 +177,18 @@ async function executeWithSubprocess(
       return;
     }
 
+    // Validate cwd exists before spawning
+    const resolvedCwd = options.cwd ?? getWorkspaceRoot();
+    if (!fs.existsSync(resolvedCwd)) {
+      const error = new Error(
+        `Working directory does not exist: ${resolvedCwd}`,
+      );
+      (error as any).code = "ENOENT";
+      (error as any).path = resolvedCwd;
+      reject(error);
+      return;
+    }
+
     // Prepare environment - ensure PATH is preserved
     const childEnv = {
       ...process.env,
@@ -176,7 +198,7 @@ async function executeWithSubprocess(
     // On Windows, explicitly specify shell path using ComSpec
     // This avoids issues with Node.js trying to find cmd.exe
     const spawnOptions: any = {
-      cwd: options.cwd ?? getWorkspaceRoot(),
+      cwd: resolvedCwd,
       env: childEnv,
     };
 
@@ -238,11 +260,21 @@ async function executeWithSubprocess(
       child.stdin?.end();
     }
 
-    child.on("error", (error) => {
+    child.on("error", (error: NodeJS.ErrnoException) => {
       if (!resolved) {
         clearTimeout(timeoutHandle);
         cancelDisposable.dispose();
-        reject(error);
+        // Improve error message for ENOENT
+        if (error.code === "ENOENT") {
+          const betterError = new Error(
+            `Command failed: Working directory "${resolvedCwd}" does not exist or is inaccessible`,
+          );
+          (betterError as any).code = "ENOENT";
+          (betterError as any).originalError = error;
+          reject(betterError);
+        } else {
+          reject(error);
+        }
         resolved = true;
       }
     });
