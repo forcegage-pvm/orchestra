@@ -11,7 +11,7 @@
 import { Icon } from "@iconify-icon/solid";
 import { createMemo, createSignal, For, Show } from "solid-js";
 import type { FileOperation } from "../../../agents/sessions/types.js";
-import { toolCalls } from "../stores/sessionStore.js";
+import { toolCalls, toolCallKeys } from "../stores/sessionStore.js";
 
 /**
  * Operation type to icon mapping (matching FileOperationBadge pattern)
@@ -94,9 +94,14 @@ export function FileActivityPanel() {
       { operation: FileOperation; priority: number }
     >();
 
+    // Access toolCallKeys() to establish reactivity tracking
+    // This ensures the memo re-runs when new tool calls are added
+    const keys = toolCallKeys();
+
     // Collect all file operations from all tool calls
-    Object.values(toolCalls).forEach((toolCall) => {
-      if (toolCall.fileOperations && toolCall.fileOperations.length > 0) {
+    keys.forEach((toolCallId) => {
+      const toolCall = toolCalls[toolCallId];
+      if (toolCall?.fileOperations && toolCall.fileOperations.length > 0) {
         toolCall.fileOperations.forEach((op) => {
           const existing = operationsMap.get(op.path);
           const priority = OPERATION_PRIORITY[op.operation];
@@ -164,11 +169,7 @@ export function FileActivityPanel() {
     setIsCollapsed(!isCollapsed());
   };
 
-  // Don't render if no files
-  if (!hasFiles()) {
-    return null;
-  }
-
+  // Use <Show> for reactive conditional rendering - do NOT use early return in SolidJS
   return (
     <Show when={hasFiles()}>
       <div class="border-b border-zinc-800/50 bg-zinc-900/80 backdrop-blur-sm">

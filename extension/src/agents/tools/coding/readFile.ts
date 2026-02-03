@@ -220,6 +220,13 @@ async function readFile(
         : {}),
     };
 
+    // Emit file operation event for range reads too
+    context.observer?.onFileOperation?.(callId, {
+      operation: "read",
+      path: input.path,
+      size: data.length,
+    });
+
     return buildToolResult({
       ...rangePartial,
       metadata: rangeMetadata,
