@@ -53,7 +53,9 @@ export function ToolCallCard(props: ToolCallCardProps) {
   };
 
   const isRunning = () => {
-    return props.toolCall.status === "pending" || props.toolCall.status === "running";
+    return (
+      props.toolCall.status === "pending" || props.toolCall.status === "running"
+    );
   };
 
   const hasProgressMessages = () => {
@@ -85,18 +87,18 @@ export function ToolCallCard(props: ToolCallCardProps) {
   };
 
   return (
-    <div class="bg-zinc-900 border border-gray-700 rounded-lg p-4 animate-fadeIn">
+    <div class="bg-zinc-900/20 rounded px-2 py-1.5 animate-fadeIn">
       {/* Header */}
-      <div class="flex items-center justify-between mb-3">
+      <div class="flex items-center justify-between">
         <ToolCallHeader toolCall={props.toolCall} />
         <Show when={hasBodyContent()}>
           <button
             onClick={toggleExpanded}
-            class="ml-3 text-gray-500 hover:text-gray-300 transition-colors"
+            class="ml-2 text-gray-500 hover:text-gray-300 transition-colors"
           >
             <Icon
               icon={expanded() ? "lucide:chevron-up" : "lucide:chevron-down"}
-              class="w-4 h-4"
+              class="w-3 h-3"
             />
           </button>
         </Show>
@@ -104,23 +106,23 @@ export function ToolCallCard(props: ToolCallCardProps) {
 
       {/* Collapsible Body */}
       <Show when={expanded() && hasBodyContent()}>
-        <div class="border-t border-gray-700 pt-3 space-y-3">
+        <div class="border-t border-zinc-800/50 mt-1.5 pt-1.5 space-y-2">
           {/* Progress Messages */}
           <Show when={hasProgressMessages()}>
-            <div class="space-y-2">
-              <div class="text-xs text-gray-500 font-medium">Progress</div>
-              <div class="flex items-start gap-2">
+            <div class="space-y-1">
+              <div class="text-[10px] text-gray-500 font-medium">Progress</div>
+              <div class="flex items-start gap-1.5">
                 <Icon
                   icon="lucide:arrow-right"
-                  class="w-3 h-3 text-blue-400 flex-shrink-0 mt-0.5"
+                  class="w-2.5 h-2.5 text-blue-400 flex-shrink-0 mt-0.5"
                 />
-                <div class="text-sm text-gray-400">
+                <div class="text-xs text-gray-400">
                   {props.toolCall.lastProgressMessage}
                 </div>
               </div>
               <Show when={props.toolCall.progressPercent !== undefined}>
-                <div class="flex items-center gap-2">
-                  <div class="flex-1 h-1 bg-gray-800 rounded-full overflow-hidden">
+                <div class="flex items-center gap-1.5">
+                  <div class="flex-1 h-0.5 bg-gray-800 rounded-full overflow-hidden">
                     <div
                       class="h-full bg-blue-500 transition-all duration-300"
                       style={{
@@ -128,7 +130,7 @@ export function ToolCallCard(props: ToolCallCardProps) {
                       }}
                     />
                   </div>
-                  <div class="text-xs text-gray-500">
+                  <div class="text-[10px] text-gray-500">
                     {props.toolCall.progressPercent}%
                   </div>
                 </div>
@@ -138,8 +140,8 @@ export function ToolCallCard(props: ToolCallCardProps) {
 
           {/* File Operations */}
           <Show when={hasFileOperations()}>
-            <div class="space-y-2">
-              <div class="text-xs text-gray-500 font-medium">
+            <div class="space-y-1">
+              <div class="text-[10px] text-gray-500 font-medium">
                 File Operations
               </div>
               <div class="space-y-1">
@@ -152,8 +154,8 @@ export function ToolCallCard(props: ToolCallCardProps) {
 
           {/* Streaming Output */}
           <Show when={hasOutput()}>
-            <div class="space-y-2">
-              <div class="text-xs text-gray-500 font-medium">Output</div>
+            <div class="space-y-1">
+              <div class="text-[10px] text-gray-500 font-medium">Output</div>
               <StreamingOutput
                 outputChunks={props.toolCall.outputChunks}
                 isStderr={false}
@@ -165,16 +167,18 @@ export function ToolCallCard(props: ToolCallCardProps) {
 
       {/* Result Footer */}
       <Show when={hasResult()}>
-        <div class="border-t border-gray-700 mt-3 pt-3">
+        <div class="border-t border-zinc-800/50 mt-1.5 pt-1.5">
           <Show when={props.toolCall.status === "success"}>
-            <div class="flex items-start gap-2">
+            <div class="flex items-start gap-1.5">
               <Icon
                 icon="lucide:check-circle"
-                class="w-4 h-4 text-green-400 flex-shrink-0 mt-0.5"
+                class="w-3 h-3 text-green-400 flex-shrink-0 mt-0.5"
               />
               <div class="flex-1 min-w-0">
-                <div class="flex items-center justify-between mb-2">
-                  <div class="text-xs text-gray-500 font-medium">Result</div>
+                <div class="flex items-center justify-between mb-1">
+                  <div class="text-[10px] text-gray-500 font-medium">
+                    Result
+                  </div>
                   <Show when={props.toolCall.result}>
                     <button
                       onClick={toggleResultExpanded}
@@ -195,7 +199,7 @@ export function ToolCallCard(props: ToolCallCardProps) {
                   <Show
                     when={isJsonResult()}
                     fallback={
-                      <pre class="text-sm text-gray-400 break-words whitespace-pre-wrap bg-zinc-950 border border-zinc-800 rounded p-3 overflow-x-auto">
+                      <pre class="text-[11px] text-gray-400 break-words whitespace-pre-wrap bg-zinc-950 border border-zinc-800/50 rounded p-2 overflow-x-auto leading-tight">
                         {props.toolCall.result}
                       </pre>
                     }
@@ -204,32 +208,32 @@ export function ToolCallCard(props: ToolCallCardProps) {
                   </Show>
                 </Show>
                 <Show when={!resultExpanded() && props.toolCall.result}>
-                  <div class="text-xs text-gray-500 italic">
+                  <div class="text-[10px] text-gray-500 italic">
                     Click to expand result
                   </div>
                 </Show>
                 <Show when={!props.toolCall.result}>
-                  <div class="text-sm text-gray-400">Success</div>
+                  <div class="text-xs text-gray-400">Success</div>
                 </Show>
               </div>
             </div>
           </Show>
 
           <Show when={props.toolCall.status === "failed"}>
-            <div class="flex items-start gap-2">
+            <div class="flex items-start gap-1.5">
               <Icon
                 icon="lucide:x-circle"
-                class="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5"
+                class="w-3 h-3 text-red-400 flex-shrink-0 mt-0.5"
               />
               <div class="flex-1 min-w-0">
-                <div class="text-sm font-medium text-red-400 mb-1">
+                <div class="text-xs font-medium text-red-400 mb-0.5">
                   {props.toolCall.error?.code || "Error"}
                 </div>
-                <div class="text-sm text-gray-400 break-words">
+                <div class="text-xs text-gray-400 break-words">
                   {props.toolCall.error?.message || "Tool execution failed"}
                 </div>
                 <Show when={props.toolCall.error?.suggestion}>
-                  <div class="mt-2 text-sm text-yellow-400">
+                  <div class="mt-1 text-xs text-yellow-400">
                     💡 {props.toolCall.error!.suggestion}
                   </div>
                 </Show>

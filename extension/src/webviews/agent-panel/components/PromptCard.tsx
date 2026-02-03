@@ -29,34 +29,34 @@ export interface PromptCardProps {
  */
 export function PromptCard(props: PromptCardProps) {
   return (
-    <div class="group rounded-md bg-zinc-900/20 border border-zinc-900/50 fade-in">
-      <div class="px-3 py-2.5 flex gap-3">
+    <div class="group rounded bg-zinc-900/20 fade-in">
+      <div class="px-2 py-1.5 flex gap-1.5">
         <Icon
           icon="lucide:message-square"
-          class="w-[14px] h-[14px] text-zinc-400 flex-shrink-0 mt-0.5"
+          class="w-3 h-3 text-zinc-400 flex-shrink-0 mt-0.5"
         />
         <div class="flex-1 min-w-0">
-          <div class="text-xs font-semibold text-zinc-300 mb-1.5 tracking-tight">
+          <div class="text-[10px] font-semibold text-zinc-300 mb-1 tracking-tight">
             Prompt
           </div>
           <Markdown
             content={props.event.text}
-            class="text-[13px] text-zinc-400 leading-relaxed"
+            class="text-xs text-zinc-400 leading-snug"
           />
 
           {/* File Attachments */}
           <Show
             when={props.event.attachments && props.event.attachments.length > 0}
           >
-            <div class="mt-3 pt-3 border-t border-zinc-800/50">
-              <div class="text-[10px] font-medium text-zinc-500 uppercase tracking-wider mb-2">
+            <div class="mt-2 pt-2 border-t border-zinc-800/50">
+              <div class="text-[9px] font-medium text-zinc-500 uppercase tracking-wider mb-1.5">
                 Attachments ({props.event.attachments!.length})
               </div>
-              <div class="space-y-1">
+              <div class="space-y-0.5">
                 <For each={props.event.attachments}>
                   {(attachment) => (
-                    <div class="flex items-center gap-2 text-[11px] text-zinc-500">
-                      <Icon icon="lucide:paperclip" class="w-3 h-3" />
+                    <div class="flex items-center gap-1.5 text-[10px] text-zinc-500">
+                      <Icon icon="lucide:paperclip" class="w-2.5 h-2.5" />
                       <span class="truncate font-mono">{attachment.path}</span>
                       <span class="text-zinc-600">
                         ({attachment.size} bytes)

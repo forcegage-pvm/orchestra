@@ -109,36 +109,36 @@ details > summary::-webkit-details-marker {
 
 /* Markdown content styling */
 .markdown-content {
-  @apply text-zinc-400 leading-relaxed;
+  @apply text-zinc-400 leading-snug;
 }
 
 .markdown-content h1,
 .markdown-content h2,
 .markdown-content h3,
 .markdown-content h4 {
-  @apply text-zinc-300 font-semibold mt-4 mb-2;
+  @apply text-zinc-300 font-semibold mt-2 mb-1;
 }
 
 .markdown-content h1 {
-  @apply text-base;
+  @apply text-sm;
 }
 
 .markdown-content h2 {
-  @apply text-sm;
+  @apply text-xs;
 }
 
 .markdown-content h3,
 .markdown-content h4 {
-  @apply text-xs;
+  @apply text-[10px];
 }
 
 .markdown-content p {
-  @apply mb-3;
+  @apply mb-1.5;
 }
 
 .markdown-content ul,
 .markdown-content ol {
-  @apply ml-5 mb-3;
+  @apply ml-4 mb-1.5;
 }
 
 .markdown-content ul {
@@ -150,19 +150,19 @@ details > summary::-webkit-details-marker {
 }
 
 .markdown-content li {
-  @apply mb-1;
+  @apply mb-0.5;
 }
 
 .markdown-content code {
-  @apply bg-zinc-900 px-1.5 py-0.5 rounded text-xs font-mono text-zinc-300;
+  @apply bg-zinc-900 px-1 py-0.5 rounded text-[10px] font-mono text-zinc-300;
 }
 
 .markdown-content pre {
-  @apply bg-zinc-950 border border-zinc-800 rounded p-3 overflow-x-auto mb-3;
+  @apply bg-zinc-950 border border-zinc-800/50 rounded p-2 overflow-x-auto mb-1.5;
 }
 
 .markdown-content pre code {
-  @apply bg-transparent p-0;
+  @apply bg-transparent p-0 text-[10px];
 }
 
 .markdown-content strong {
@@ -174,7 +174,7 @@ details > summary::-webkit-details-marker {
 }
 
 .markdown-content blockquote {
-  @apply border-l-2 border-zinc-700 pl-3 italic text-zinc-500 mb-3;
+  @apply border-l-2 border-zinc-700 pl-2 italic text-zinc-500 mb-1.5;
 }
 
 .markdown-content a {
@@ -182,5 +182,5 @@ details > summary::-webkit-details-marker {
 }
 
 .markdown-content hr {
-  @apply border-zinc-800 my-4;
+  @apply border-zinc-800 my-2;
 }

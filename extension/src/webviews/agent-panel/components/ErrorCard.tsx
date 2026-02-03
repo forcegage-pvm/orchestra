@@ -65,40 +65,40 @@ export function ErrorCard(props: ErrorCardProps) {
 
   return (
     <div
-      class={`group rounded-md border hover:bg-zinc-900/40 transition-colors fade-in ${severityConfig().borderColor} ${severityConfig().bgColor}`}
+      class={`group rounded border hover:bg-zinc-900/40 transition-colors fade-in ${severityConfig().borderColor} ${severityConfig().bgColor}`}
     >
-      <div class="px-3 py-2 flex gap-3">
+      <div class="px-2 py-1.5 flex gap-1.5">
         <Icon
           icon={severityConfig().icon}
-          class={`w-[14px] h-[14px] ${severityConfig().iconColor} flex-shrink-0 mt-0.5`}
+          class={`w-3 h-3 ${severityConfig().iconColor} flex-shrink-0 mt-0.5`}
         />
         <div class="flex-1 min-w-0">
-          <div class="flex items-center gap-2 mb-1.5">
+          <div class="flex items-center gap-1.5 mb-1">
             <span
-              class={`text-[13px] font-semibold ${severityConfig().labelColor}`}
+              class={`text-[10px] font-semibold ${severityConfig().labelColor}`}
             >
               {severityConfig().label}
             </span>
             <Show when={props.event.code}>
-              <span class="text-[10px] text-zinc-500 font-mono">
+              <span class="text-[9px] text-zinc-500 font-mono">
                 [{props.event.code}]
               </span>
             </Show>
           </div>
 
-          <div class="text-[13px] text-zinc-300 mb-1 leading-relaxed">
+          <div class="text-xs text-zinc-300 mb-0.5 leading-snug">
             {props.event.message}
           </div>
 
           {/* Optional suggestion for recovery */}
           <Show when={props.event.suggestion}>
-            <div class="mt-2 pt-2 border-t border-zinc-800/50">
-              <div class="flex items-start gap-2">
+            <div class="mt-1.5 pt-1.5 border-t border-zinc-800/50">
+              <div class="flex items-start gap-1.5">
                 <Icon
                   icon="lucide:lightbulb"
-                  class="w-3 h-3 text-blue-400 flex-shrink-0 mt-0.5"
+                  class="w-2.5 h-2.5 text-blue-400 flex-shrink-0 mt-0.5"
                 />
-                <div class="text-[12px] text-blue-300">
+                <div class="text-[10px] text-blue-300 leading-snug">
                   {props.event.suggestion}
                 </div>
               </div>
@@ -107,7 +107,7 @@ export function ErrorCard(props: ErrorCardProps) {
 
           {/* Recoverable indicator */}
           <Show when={props.event.recoverable !== undefined}>
-            <div class="mt-2 text-[10px] text-zinc-600">
+            <div class="mt-1 text-[9px] text-zinc-600">
               {props.event.recoverable ? "Recoverable" : "Non-recoverable"}
             </div>
           </Show>

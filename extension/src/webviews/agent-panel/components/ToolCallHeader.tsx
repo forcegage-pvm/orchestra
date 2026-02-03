@@ -83,32 +83,32 @@ export function ToolCallHeader(props: ToolCallHeaderProps) {
 
   return (
     <div class="flex items-center justify-between">
-      <div class="flex items-center gap-3">
+      <div class="flex items-center gap-1.5">
         <ToolIcon
           toolName={props.toolCall.toolName}
-          class="w-5 h-5 text-gray-400"
+          class="w-3.5 h-3.5 text-gray-400"
         />
         <div class="flex flex-col">
-          <div class="text-sm font-medium text-gray-300">
+          <div class="text-xs font-medium text-gray-300 leading-tight">
             {props.toolCall.toolName}
           </div>
-          <div class="text-xs text-gray-500">
+          <div class="text-[10px] text-gray-500 leading-tight">
             {formatTimestamp(props.toolCall.startedAt)}
           </div>
         </div>
       </div>
 
-      <div class="flex items-center gap-3">
+      <div class="flex items-center gap-2">
         <Show when={props.toolCall.durationMs !== undefined}>
-          <div class="text-xs text-gray-500">
+          <div class="text-[10px] text-gray-500">
             {formatDuration(props.toolCall.durationMs!)}
           </div>
         </Show>
 
         <div
-          class={`flex items-center gap-1 px-2 py-1 rounded text-xs font-medium ${statusColorClass()}`}
+          class={`flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium ${statusColorClass()}`}
         >
-          <Icon icon={`lucide:${statusIcon()}`} class="w-3 h-3" />
+          <Icon icon={`lucide:${statusIcon()}`} class="w-2.5 h-2.5" />
           <span>{props.toolCall.status}</span>
         </div>
       </div>

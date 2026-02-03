@@ -48,11 +48,11 @@ export function JsonViewer(props: JsonViewerProps) {
   return (
     <div class={`json-viewer ${props.class || ""}`}>
       {isValidJson() ? (
-        <pre class="bg-zinc-950 border border-zinc-800 rounded p-3 overflow-x-auto text-xs font-mono text-zinc-300">
+        <pre class="bg-zinc-950 border border-zinc-800/50 rounded p-2 overflow-x-auto text-[10px] font-mono text-zinc-300 leading-tight">
           {formatted()}
         </pre>
       ) : (
-        <pre class="bg-zinc-950 border border-zinc-800 rounded p-3 overflow-x-auto text-xs font-mono text-zinc-400">
+        <pre class="bg-zinc-950 border border-zinc-800/50 rounded p-2 overflow-x-auto text-[10px] font-mono text-zinc-400 leading-tight">
           {String(props.data)}
         </pre>
       )}

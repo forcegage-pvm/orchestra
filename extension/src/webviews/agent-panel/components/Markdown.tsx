@@ -37,9 +37,6 @@ export function Markdown(props: MarkdownProps) {
   });
 
   return (
-    <div
-      class={`markdown-content ${props.class || ""}`}
-      innerHTML={html()}
-    />
+    <div class={`markdown-content ${props.class || ""}`} innerHTML={html()} />
   );
 }
