@@ -180,9 +180,18 @@ export function StatusBar() {
             }
           >
             <span
-              class="w-4 h-4 rounded-full border-[3px] border-green-400 border-t-transparent animate-spin"
+              class="line-spin-fade-loader text-green-400"
               aria-hidden="true"
-            />
+            >
+              <span></span>
+              <span></span>
+              <span></span>
+              <span></span>
+              <span></span>
+              <span></span>
+              <span></span>
+              <span></span>
+            </span>
           </Show>
           <span class="text-xs font-medium">
             {statusConfig().label.toLowerCase()}

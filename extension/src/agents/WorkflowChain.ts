@@ -223,7 +223,13 @@ export class WorkflowChain implements vscode.Disposable {
     );
 
     // Check for "lost agent" - session completed but task status unchanged
-    if (startInfo && task.status === startInfo.startingStatus) {
+    // Exception: controller completing code review where status remains COMPLETE is expected
+    const allowSameStatus = role === "controller" && task.status === "COMPLETE";
+    if (
+      startInfo &&
+      task.status === startInfo.startingStatus &&
+      !allowSameStatus
+    ) {
       await this.handleLostAgent(taskId, task.status, role, startInfo);
       return;
     }
