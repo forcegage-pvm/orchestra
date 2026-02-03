@@ -1,0 +1,22 @@
+version: '1.0'
+sprintId: test-workflow-001
+sprintName: test-workflow-001
+goals: []
+architectureDecisions: []
+taskSummaries:
+  - taskId: 340
+    title: Summary of 5 tasks
+    outcome: success
+    attemptCount: 25
+    description: '#340: Summary of 5 tasks | #340: Task 340 | #339: Task 339 | #339: Task 339 | #340: Task 340'
+    lessonsLearned: []
+    issuesEncountered: []
+    filesCreated: []
+    filesModified: []
+    filesDeleted: []
+    completedAt: '2026-02-03T16:13:21.508Z'
+implementorPatterns: []
+compactionCount: 6
+lastCompactedAt: '2026-02-03T16:13:21.519Z'
+createdAt: '2026-01-31T09:38:43.362Z'
+updatedAt: '2026-02-03T16:13:21.519Z'
