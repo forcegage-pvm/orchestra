@@ -111,9 +111,17 @@ export async function handlePlayTask(
       await invokeCodeReview(workspaceRoot, taskId);
       break;
 
-    case "CODE_REVIEW_CHANGES_REQUESTED":
-      await invokeCodeReviewFix(workspaceRoot, taskId);
+    case "CODE_REVIEW_CHANGES_REQUESTED": {
+      // Check if fixes have been submitted (review is PENDING_VERIFICATION)
+      // If so, invoke controller for re-review; otherwise invoke implementor to fix
+      const codeReviewForFix = getLatestCodeReviewForTask(workspaceRoot, taskId);
+      if (codeReviewForFix && codeReviewForFix.status === "PENDING_VERIFICATION") {
+        await invokeCodeReview(workspaceRoot, taskId);
+      } else {
+        await invokeCodeReviewFix(workspaceRoot, taskId);
+      }
       break;
+    }
 
     case "ESCALATED":
       await invokeEscalationReview(workspaceRoot, taskId);
