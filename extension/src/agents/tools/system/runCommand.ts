@@ -167,12 +167,23 @@ async function executeWithSubprocess(
       return;
     }
 
+    // Prepare environment - ensure PATH is preserved
+    const childEnv = {
+      ...process.env,
+      ...options.env,
+    };
+
+    // Ensure PATH exists (critical for shell: true on Windows)
+    if (!childEnv.PATH && !childEnv.Path) {
+      // Fallback to common Windows paths if PATH is missing
+      if (process.platform === "win32") {
+        childEnv.PATH = `C:\\Windows\\system32;C:\\Windows;${process.env.SystemRoot || "C:\\Windows"}\\System32\\Wbem`;
+      }
+    }
+
     const child = spawn(command, {
       cwd: options.cwd ?? getWorkspaceRoot(),
-      env: {
-        ...process.env,
-        ...options.env,
-      },
+      env: childEnv,
       shell: true,
     });
 
