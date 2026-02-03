@@ -29,6 +29,61 @@ export class ShellExecutionError extends Error {
   }
 }
 
+/**
+ * Default timeout for waiting for shell integration to initialize (ms)
+ */
+const SHELL_INTEGRATION_WAIT_MS = 5000;
+
+/**
+ * Wait for shell integration to become available on a terminal.
+ * Shell integration takes time to initialize after terminal creation.
+ *
+ * @param terminal - The terminal to wait for
+ * @param timeoutMs - Maximum time to wait (default: 5000ms)
+ * @returns The shell integration if available, undefined if timeout
+ */
+export async function waitForShellIntegration(
+  terminal: vscode.Terminal,
+  timeoutMs: number = SHELL_INTEGRATION_WAIT_MS,
+): Promise<vscode.TerminalShellIntegration | undefined> {
+  // Check if already available
+  if (terminal.shellIntegration) {
+    return terminal.shellIntegration;
+  }
+
+  return new Promise<vscode.TerminalShellIntegration | undefined>((resolve) => {
+    const startTime = Date.now();
+
+    // Listen for shell integration change event
+    const disposable = vscode.window.onDidChangeTerminalShellIntegration(
+      (event) => {
+        if (event.terminal === terminal && event.shellIntegration) {
+          disposable.dispose();
+          resolve(event.shellIntegration);
+        }
+      },
+    );
+
+    // Timeout fallback
+    const checkInterval = setInterval(() => {
+      // Check if it became available
+      if (terminal.shellIntegration) {
+        clearInterval(checkInterval);
+        disposable.dispose();
+        resolve(terminal.shellIntegration);
+        return;
+      }
+
+      // Check for timeout
+      if (Date.now() - startTime >= timeoutMs) {
+        clearInterval(checkInterval);
+        disposable.dispose();
+        resolve(undefined);
+      }
+    }, 100);
+  });
+}
+
 const terminalOutputBuffer = new Map<string, string>();
 
 function appendTerminalOutput(terminalId: string, chunk: string): void {
@@ -125,9 +180,12 @@ export async function executeInTerminal(
   }
 
   const terminalId = terminal.name;
-  const shellIntegration = terminal.shellIntegration;
+
+  // Wait for shell integration to initialize (up to 5 seconds)
+  const shellIntegration = await waitForShellIntegration(terminal);
 
   if (!shellIntegration?.executeCommand) {
+    // Shell integration not available after waiting
     terminal.sendText(command, true);
     return {
       output: "",
