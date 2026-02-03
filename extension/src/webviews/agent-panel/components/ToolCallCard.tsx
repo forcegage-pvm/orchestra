@@ -1,244 +1,218 @@
 /**
  * ToolCallCard Component
  *
- * Composite component displaying a complete tool call with all its data.
- * Includes collapsible body with progress messages, file operations,
- * streaming output, and result footer.
+ * Compact tool call display with input/output tabs.
+ * Shows status via icon only (spinner/check/x), duration on completion.
  *
  * Specification: specs/011-agent-panel-rework/spec.md Section 4.1
  */
 
 import { Icon } from "@iconify-icon/solid";
-import { createSignal, For, Show } from "solid-js";
+import { createSignal, Show } from "solid-js";
 import type { ToolCallAggregate } from "../../../agents/sessions/types.js";
-import { FileOperationBadge } from "./FileOperationBadge.js";
 import { JsonViewer } from "./JsonViewer.js";
-import { StreamingOutput } from "./StreamingOutput.js";
-import { ToolCallHeader } from "./ToolCallHeader.js";
+import { ToolIcon } from "./ToolIcon.js";
 
 export interface ToolCallCardProps {
   /** Tool call aggregate data */
   toolCall: ToolCallAggregate;
+}
 
-  /** Whether to start collapsed (default: false) */
-  startCollapsed?: boolean;
+/** Tab selection state */
+type TabSelection = "none" | "input" | "output";
+
+/**
+ * Format duration in milliseconds to human-readable string
+ */
+function formatDuration(ms: number): string {
+  if (ms < 1000) return `${ms}ms`;
+  if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`;
+  const minutes = Math.floor(ms / 60000);
+  const seconds = Math.floor((ms % 60000) / 1000);
+  return `${minutes}m ${seconds}s`;
 }
 
 /**
- * ToolCallCard - Composite tool call display with collapsible body
+ * ToolCallCard - Compact tool call display
  *
- * Displays a complete tool call with:
- * - Header: tool icon, name, timestamp, status, duration
- * - Collapsible Body:
- *   - Progress messages (if any)
- *   - File operations (if any)
- *   - Streaming output (if any)
- * - Result Footer: success/error status and output
- *
- * @example
- * ```tsx
- * <ToolCallCard toolCall={toolCallAggregate} startCollapsed={false} />
- * ```
+ * Layout:
+ * - Row 1: [ToolIcon] [ToolName] [StatusIcon] ... [Duration]
+ * - Row 2: [InputTab] [OutputTab]
+ * - Row 3: [Expandable Content Panel]
  */
 export function ToolCallCard(props: ToolCallCardProps) {
-  const [expanded, setExpanded] = createSignal(!props.startCollapsed);
-  const [resultExpanded, setResultExpanded] = createSignal(false);
+  const [selectedTab, setSelectedTab] = createSignal<TabSelection>("none");
 
-  const toggleExpanded = () => {
-    setExpanded(!expanded());
+  const isRunning = () =>
+    props.toolCall.status === "pending" || props.toolCall.status === "running";
+
+  const isSuccess = () => props.toolCall.status === "success";
+  const isFailed = () => props.toolCall.status === "failed";
+  const isCompleted = () => isSuccess() || isFailed();
+
+  const toggleTab = (tab: "input" | "output") => {
+    setSelectedTab((current) => (current === tab ? "none" : tab));
   };
 
-  const toggleResultExpanded = () => {
-    setResultExpanded(!resultExpanded());
-  };
-
-  const isRunning = () => {
-    return (
-      props.toolCall.status === "pending" || props.toolCall.status === "running"
-    );
-  };
-
-  const hasProgressMessages = () => {
-    return isRunning() && props.toolCall.lastProgressMessage !== undefined;
-  };
-
-  const hasFileOperations = () => {
-    return props.toolCall.fileOperations.length > 0;
+  const hasInput = () => {
+    return props.toolCall.input !== undefined && props.toolCall.input !== null;
   };
 
   const hasOutput = () => {
-    return props.toolCall.outputChunks.length > 0;
-  };
-
-  const hasBodyContent = () => {
-    return hasProgressMessages() || hasFileOperations() || hasOutput();
-  };
-
-  const hasResult = () => {
     return (
-      props.toolCall.status === "success" || props.toolCall.status === "failed"
+      props.toolCall.result !== undefined && props.toolCall.result !== null
     );
   };
 
-  const isJsonResult = () => {
-    if (!props.toolCall.result) return false;
-    const trimmed = props.toolCall.result.trim();
-    return trimmed.startsWith("{") || trimmed.startsWith("[");
+  const hasError = () => {
+    return props.toolCall.error !== undefined;
+  };
+
+  const getInputDisplay = () => {
+    const input = props.toolCall.input;
+    if (input === undefined || input === null) return null;
+    if (typeof input === "string") {
+      try {
+        return JSON.parse(input);
+      } catch {
+        return input;
+      }
+    }
+    return input;
+  };
+
+  const getOutputDisplay = () => {
+    // If failed, show error
+    if (isFailed() && props.toolCall.error) {
+      return {
+        error: true,
+        code: props.toolCall.error.code || "Error",
+        message: props.toolCall.error.message || "Tool execution failed",
+        suggestion: props.toolCall.error.suggestion,
+      };
+    }
+    // Otherwise show result
+    const result = props.toolCall.result;
+    if (result === undefined || result === null) return null;
+    if (typeof result === "string") {
+      try {
+        return JSON.parse(result);
+      } catch {
+        return result;
+      }
+    }
+    return result;
   };
 
   return (
-    <div class="rounded px-2 py-1.5 animate-fadeIn">
-      {/* Header */}
-      <div class="flex items-center justify-between">
-        <ToolCallHeader toolCall={props.toolCall} />
-        <Show when={hasBodyContent()}>
-          <button
-            onClick={toggleExpanded}
-            class="ml-2 text-gray-500 hover:text-gray-300 transition-colors"
-          >
-            <Icon
-              icon={expanded() ? "lucide:chevron-up" : "lucide:chevron-down"}
-              class="w-3 h-3"
-            />
-          </button>
+    <div class="rounded animate-fadeIn">
+      {/* Header Row */}
+      <div class="flex items-center gap-1.5 px-2 py-1">
+        {/* Tool Icon */}
+        <ToolIcon
+          toolName={props.toolCall.toolName}
+          class="w-3.5 h-3.5 text-cyan-500 flex-shrink-0"
+        />
+
+        {/* Tool Name */}
+        <span class="text-xs font-medium text-gray-200 flex-1">
+          {props.toolCall.toolName}
+        </span>
+
+        {/* Status Icon - Spinner / Check / X */}
+        <Show when={isRunning()}>
+          <Icon
+            icon="lucide:loader-2"
+            class="w-3.5 h-3.5 text-cyan-400 animate-spin flex-shrink-0"
+          />
+        </Show>
+        <Show when={isSuccess()}>
+          <Icon
+            icon="lucide:check"
+            class="w-3.5 h-3.5 text-green-400 flex-shrink-0"
+          />
+        </Show>
+        <Show when={isFailed()}>
+          <Icon
+            icon="lucide:x"
+            class="w-3.5 h-3.5 text-red-400 flex-shrink-0"
+          />
+        </Show>
+
+        {/* Duration - Only on completion */}
+        <Show when={isCompleted() && props.toolCall.durationMs !== undefined}>
+          <div class="flex items-center gap-0.5 text-[10px] text-gray-500 flex-shrink-0">
+            <Icon icon="lucide:clock" class="w-2.5 h-2.5" />
+            <span>{formatDuration(props.toolCall.durationMs!)}</span>
+          </div>
         </Show>
       </div>
 
-      {/* Collapsible Body */}
-      <Show when={expanded() && hasBodyContent()}>
-        <div class="border-t border-zinc-800/50 mt-1.5 pt-1.5 space-y-2">
-          {/* Progress Messages */}
-          <Show when={hasProgressMessages()}>
-            <div class="space-y-1">
-              <div class="text-[10px] text-gray-500 font-medium">Progress</div>
-              <div class="flex items-start gap-1.5">
-                <Icon
-                  icon="lucide:arrow-right"
-                  class="w-2.5 h-2.5 text-blue-400 flex-shrink-0 mt-0.5"
-                />
-                <div class="text-xs text-gray-400">
-                  {props.toolCall.lastProgressMessage}
-                </div>
-              </div>
-              <Show when={props.toolCall.progressPercent !== undefined}>
-                <div class="flex items-center gap-1.5">
-                  <div class="flex-1 h-0.5 bg-gray-800 rounded-full overflow-hidden">
-                    <div
-                      class="h-full bg-blue-500 transition-all duration-300"
-                      style={{
-                        width: `${props.toolCall.progressPercent}%`,
-                      }}
-                    />
-                  </div>
-                  <div class="text-[10px] text-gray-500">
-                    {props.toolCall.progressPercent}%
-                  </div>
-                </div>
-              </Show>
-            </div>
+      {/* Tab Row - Always visible */}
+      <div class="flex items-center gap-2 px-2 pb-1">
+        {/* Input Tab */}
+        <button
+          onClick={() => toggleTab("input")}
+          disabled={!hasInput()}
+          class={`flex items-center gap-0.5 text-[10px] transition-colors ${
+            !hasInput()
+              ? "text-gray-600 cursor-not-allowed"
+              : selectedTab() === "input"
+                ? "text-gray-300"
+                : "text-gray-500 hover:text-gray-400"
+          }`}
+        >
+          <Icon icon="lucide:log-in" class="w-2.5 h-2.5" />
+          <span>input</span>
+        </button>
+
+        {/* Output Tab */}
+        <button
+          onClick={() => toggleTab("output")}
+          disabled={!hasOutput() && !hasError()}
+          class={`flex items-center gap-0.5 text-[10px] transition-colors ${
+            !hasOutput() && !hasError()
+              ? "text-gray-600 cursor-not-allowed"
+              : selectedTab() === "output"
+                ? "text-gray-300"
+                : "text-gray-500 hover:text-gray-400"
+          }`}
+        >
+          <Icon icon="lucide:log-out" class="w-2.5 h-2.5" />
+          <span>output</span>
+        </button>
+      </div>
+
+      {/* Expandable Content Panel */}
+      <Show when={selectedTab() !== "none"}>
+        <div class="mx-2 mb-1.5 border-l-2 border-violet-500/60 pl-2">
+          {/* Input Panel */}
+          <Show when={selectedTab() === "input" && hasInput()}>
+            <JsonViewer data={getInputDisplay()} />
           </Show>
 
-          {/* File Operations */}
-          <Show when={hasFileOperations()}>
-            <div class="space-y-1">
-              <div class="text-[10px] text-gray-500 font-medium">
-                File Operations
-              </div>
-              <div class="space-y-1">
-                <For each={props.toolCall.fileOperations}>
-                  {(op) => <FileOperationBadge operation={op} />}
-                </For>
-              </div>
-            </div>
-          </Show>
-
-          {/* Streaming Output */}
-          <Show when={hasOutput()}>
-            <div class="space-y-1">
-              <div class="text-[10px] text-gray-500 font-medium">Output</div>
-              <StreamingOutput
-                outputChunks={props.toolCall.outputChunks}
-                isStderr={false}
-              />
-            </div>
-          </Show>
-        </div>
-      </Show>
-
-      {/* Result Footer */}
-      <Show when={hasResult()}>
-        <div class="border-t border-zinc-800/50 mt-1.5 pt-1.5">
-          <Show when={props.toolCall.status === "success"}>
-            <div class="flex items-start gap-1.5">
-              <Icon
-                icon="lucide:check-circle"
-                class="w-3 h-3 text-green-400 flex-shrink-0 mt-0.5"
-              />
-              <div class="flex-1 min-w-0">
-                <div class="flex items-center justify-between mb-1">
-                  <div class="text-[10px] text-gray-500 font-medium">
-                    Result
+          {/* Output Panel */}
+          <Show when={selectedTab() === "output"}>
+            <Show
+              when={!isFailed()}
+              fallback={
+                <div class="text-xs space-y-1 py-1">
+                  <div class="text-red-400 font-medium">
+                    {props.toolCall.error?.code || "Error"}
                   </div>
-                  <Show when={props.toolCall.result}>
-                    <button
-                      onClick={toggleResultExpanded}
-                      class="text-gray-500 hover:text-gray-300 transition-colors"
-                    >
-                      <Icon
-                        icon={
-                          resultExpanded()
-                            ? "lucide:chevron-up"
-                            : "lucide:chevron-down"
-                        }
-                        class="w-3 h-3"
-                      />
-                    </button>
+                  <div class="text-gray-400">
+                    {props.toolCall.error?.message || "Tool execution failed"}
+                  </div>
+                  <Show when={props.toolCall.error?.suggestion}>
+                    <div class="text-yellow-400 text-[10px]">
+                      💡 {props.toolCall.error!.suggestion}
+                    </div>
                   </Show>
                 </div>
-                <Show when={resultExpanded() && props.toolCall.result}>
-                  <Show
-                    when={isJsonResult()}
-                    fallback={
-                      <pre class="text-[11px] text-gray-400 break-words whitespace-pre-wrap border border-zinc-800/30 rounded p-2 overflow-x-auto leading-tight">
-                        {props.toolCall.result}
-                      </pre>
-                    }
-                  >
-                    <JsonViewer data={props.toolCall.result!} />
-                  </Show>
-                </Show>
-                <Show when={!resultExpanded() && props.toolCall.result}>
-                  <div class="text-[10px] text-gray-500 italic">
-                    Click to expand result
-                  </div>
-                </Show>
-                <Show when={!props.toolCall.result}>
-                  <div class="text-xs text-gray-400">Success</div>
-                </Show>
-              </div>
-            </div>
-          </Show>
-
-          <Show when={props.toolCall.status === "failed"}>
-            <div class="flex items-start gap-1.5">
-              <Icon
-                icon="lucide:x-circle"
-                class="w-3 h-3 text-red-400 flex-shrink-0 mt-0.5"
-              />
-              <div class="flex-1 min-w-0">
-                <div class="text-xs font-medium text-red-400 mb-0.5">
-                  {props.toolCall.error?.code || "Error"}
-                </div>
-                <div class="text-xs text-gray-400 break-words">
-                  {props.toolCall.error?.message || "Tool execution failed"}
-                </div>
-                <Show when={props.toolCall.error?.suggestion}>
-                  <div class="mt-1 text-xs text-yellow-400">
-                    💡 {props.toolCall.error!.suggestion}
-                  </div>
-                </Show>
-              </div>
-            </div>
+              }
+            >
+              <JsonViewer data={getOutputDisplay()} />
+            </Show>
           </Show>
         </div>
       </Show>
