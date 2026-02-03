@@ -243,7 +243,12 @@ export class WorkflowChain implements vscode.Disposable {
     );
 
     if (!nextAction) {
-      logger.info("[WorkflowChain] No next action for this state");
+      // No next action for current task - check if task is complete and there's a next task
+      if (task.status === "COMPLETE" && !hasPendingCodeReview) {
+        await this.handleTaskCompleteCheckNext(taskId);
+      } else {
+        logger.info("[WorkflowChain] No next action for this state");
+      }
       return;
     }
 
@@ -270,6 +275,56 @@ export class WorkflowChain implements vscode.Disposable {
       logger.error(`[WorkflowChain] Failed to invoke next agent: ${message}`);
       vscode.window.showErrorMessage(
         `Orchestra: Failed to continue workflow - ${message}`,
+      );
+    }
+  }
+
+  /**
+   * Handle when a task is complete - check for next pending task
+   */
+  private async handleTaskCompleteCheckNext(
+    completedTaskId: number,
+  ): Promise<void> {
+    logger.info(
+      `[WorkflowChain] Task ${completedTaskId} is complete, checking for next task...`,
+    );
+
+    // Get the next pending task
+    const nextTask = getNextPendingTask(this.workspaceRoot);
+
+    if (!nextTask) {
+      logger.info(
+        "[WorkflowChain] No more pending tasks - sprint may be complete!",
+      );
+      vscode.window.showInformationMessage(
+        `Orchestra: Task ${completedTaskId} complete! No more pending tasks in sprint.`,
+      );
+      return;
+    }
+
+    logger.info(
+      `[WorkflowChain] Next task found: ${nextTask.task_id} - ${nextTask.title}`,
+    );
+
+    // Small delay to allow UI to update
+    await this.delay(1500);
+
+    // Show notification about moving to next task
+    vscode.window.showInformationMessage(
+      `Orchestra: Task ${completedTaskId} complete! Moving to Task ${nextTask.task_id}: ${nextTask.title}...`,
+    );
+
+    // Invoke the next task
+    try {
+      await handlePlayTask(this.workspaceRoot, nextTask.task_id);
+      logger.info(
+        `[WorkflowChain] Successfully invoked next task ${nextTask.task_id}`,
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unknown error";
+      logger.error(`[WorkflowChain] Failed to invoke next task: ${message}`);
+      vscode.window.showErrorMessage(
+        `Orchestra: Failed to start next task - ${message}`,
       );
     }
   }
@@ -338,15 +393,14 @@ export class WorkflowChain implements vscode.Disposable {
       };
     }
 
-    // Controller approved code review → Task complete (no pending review)
+    // Controller approved code review → Task complete, check for next task
     if (
       completedRole === "controller" &&
       taskStatus === "COMPLETE" &&
       !hasPendingCodeReview
     ) {
-      return {
-        description: "Code review approved - task complete!",
-      };
+      // Return null here - we'll handle next task lookup separately
+      return null;
     }
 
     // Implementor submitted code review fixes → Controller re-reviews
