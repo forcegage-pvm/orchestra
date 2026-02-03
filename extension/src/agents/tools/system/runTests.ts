@@ -135,6 +135,9 @@ async function runTests(
         })();
 
     if (!task) {
+      const testTasks = findTestTasks(tasks);
+      const availableTaskLabels = testTasks.map((t) => resolveTaskLabel(t));
+
       return buildToolResult(
         errorResult(
           "run_tests",
@@ -142,11 +145,13 @@ async function runTests(
             ? ToolErrorCode.TASK_NOT_FOUND
             : ToolErrorCode.INVALID_INPUT,
           input.label
-            ? `Test task '${input.label}' not found.`
-            : "No unique test task found.",
+            ? `Test task '${input.label}' not found. This tool runs VS Code tasks from .vscode/tasks.json, NOT shell commands. To run 'npm test' directly, use run_command instead.`
+            : `No test task found in .vscode/tasks.json. Use run_command with command='npm test' to run tests directly.`,
           input.label
-            ? "Verify the test task label in tasks.json."
-            : "Provide a task label or configure a single test task group.",
+            ? availableTaskLabels.length > 0
+              ? `Available test tasks: ${availableTaskLabels.join(", ")}. Or use run_command for shell commands.`
+              : "No test tasks defined. Create a task with group='test' in .vscode/tasks.json, or use run_command."
+            : "Create a test task in .vscode/tasks.json with group='test', or use run_command.",
           input.label ? { label: input.label } : undefined,
         ),
       );
@@ -233,13 +238,15 @@ async function runTests(
 
 export const runTestsTool: AgentTool = {
   name: "run_tests",
-  description: "Execute a VS Code test task and return structured results.",
+  description:
+    "Execute a VS Code test task defined in .vscode/tasks.json with group='test'. NOT for running arbitrary npm/shell commands - use run_command for that. If no tasks.json exists or no test task is defined, this will fail with 'Test task not found'. To run tests directly, use: run_command with command='npm test' instead.",
   inputSchema: {
     type: "object",
     properties: {
       label: {
         type: "string",
-        description: "Optional test task label to execute",
+        description:
+          "The label of a test task from .vscode/tasks.json (e.g. 'Run Tests'). If omitted, runs the first task with group='test'. NOT a shell command.",
       },
       timeoutMs: {
         type: "number",
