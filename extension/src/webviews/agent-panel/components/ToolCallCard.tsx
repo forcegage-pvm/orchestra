@@ -115,11 +115,11 @@ export function ToolCallCard(props: ToolCallCardProps) {
         />
 
         {/* Tool Name */}
-        <span class="text-xs font-medium text-gray-200 flex-1">
+        <span class="text-xs text-gray-400">
           {props.toolCall.toolName}
         </span>
 
-        {/* Status Icon - Spinner / Check / X */}
+        {/* Status Icon - Spinner / Check / X (right after tool name) */}
         <Show when={isRunning()}>
           <Icon
             icon="lucide:loader-2"
@@ -139,6 +139,9 @@ export function ToolCallCard(props: ToolCallCardProps) {
           />
         </Show>
 
+        {/* Spacer */}
+        <div class="flex-1" />
+
         {/* Duration - Only on completion */}
         <Show when={isCompleted() && props.toolCall.durationMs !== undefined}>
           <div class="flex items-center gap-0.5 text-[10px] text-gray-500 flex-shrink-0">
@@ -149,7 +152,7 @@ export function ToolCallCard(props: ToolCallCardProps) {
       </div>
 
       {/* Tab Row - Always visible */}
-      <div class="flex items-center gap-2 px-2 pb-1">
+      <div class="flex items-center gap-4 px-2 pb-1">
         {/* Input Tab */}
         <button
           onClick={() => toggleTab("input")}
