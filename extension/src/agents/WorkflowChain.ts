@@ -185,6 +185,17 @@ export class WorkflowChain implements vscode.Disposable {
       };
     }
 
+    // Controller rejected handover → Orchestrator fixes handover
+    if (
+      completedRole === "controller" &&
+      taskStatus === "HANDOVER_REVIEW_FAILED"
+    ) {
+      return {
+        description:
+          "Handover rejected - invoking Orchestrator to fix issues...",
+      };
+    }
+
     // Controller approved handover → Implementor implements
     if (completedRole === "controller" && taskStatus === "IMPLEMENT") {
       return {
@@ -200,11 +211,29 @@ export class WorkflowChain implements vscode.Disposable {
       };
     }
 
-    // Orchestrator verified → (future: code review)
-    // For now, VERIFIED status doesn't chain further
+    // Orchestrator verified → Controller code review
     if (completedRole === "orchestrator" && taskStatus === "VERIFIED") {
       return {
-        description: "Verification passed - task complete!",
+        description:
+          "Verification passed - invoking Controller for code review...",
+      };
+    }
+
+    // Controller approved code review → Task complete
+    if (completedRole === "controller" && taskStatus === "COMPLETE") {
+      return {
+        description: "Code review approved - task complete!",
+      };
+    }
+
+    // Controller requested changes on code review → Implementor fixes
+    if (
+      completedRole === "controller" &&
+      taskStatus === "CODE_REVIEW_CHANGES_REQUESTED"
+    ) {
+      return {
+        description:
+          "Code review requested changes - invoking Implementor to fix issues...",
       };
     }
 

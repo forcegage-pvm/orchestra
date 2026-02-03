@@ -105,6 +105,15 @@ export async function handlePlayTask(
       await invokeVerify(workspaceRoot, taskId);
       break;
 
+    case "VERIFIED":
+    case "PENDING_CODE_REVIEW":
+      await invokeCodeReview(workspaceRoot, taskId);
+      break;
+
+    case "CODE_REVIEW_CHANGES_REQUESTED":
+      await invokeCodeReviewFix(workspaceRoot, taskId);
+      break;
+
     case "ESCALATED":
       await invokeEscalationReview(workspaceRoot, taskId);
       break;
