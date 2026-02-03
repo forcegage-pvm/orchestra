@@ -84,10 +84,7 @@ export function ToolCallHeader(props: ToolCallHeaderProps) {
   return (
     <div class="flex items-center justify-between">
       <div class="flex items-center gap-1.5">
-        <ToolIcon
-          toolName={props.toolCall.toolName}
-          class="w-3 h-3 mt-0.5"
-        />
+        <ToolIcon toolName={props.toolCall.toolName} class="w-3 h-3 mt-0.5" />
         <div class="flex flex-col">
           <div class="text-xs font-medium text-gray-300 leading-tight">
             {props.toolCall.toolName}

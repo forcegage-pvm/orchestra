@@ -24,17 +24,22 @@ export interface ToolIconProps {
 /**
  * Tool category type for color mapping
  */
-type ToolCategory = "coding" | "filesystem" | "system" | "orchestra" | "unknown";
+type ToolCategory =
+  | "coding"
+  | "filesystem"
+  | "system"
+  | "orchestra"
+  | "unknown";
 
 /**
  * Category-specific colors for tool icons
  */
 const CATEGORY_COLORS: Record<ToolCategory, string> = {
-  coding: "text-sky-400",      // Blue for file/code operations
+  coding: "text-sky-400", // Blue for file/code operations
   filesystem: "text-amber-400", // Amber for filesystem operations
-  system: "text-emerald-400",   // Green for system/process operations
+  system: "text-emerald-400", // Green for system/process operations
   orchestra: "text-violet-400", // Purple for Orchestra workflow tools
-  unknown: "text-gray-400",     // Gray for unknown tools
+  unknown: "text-gray-400", // Gray for unknown tools
 };
 
 /**
