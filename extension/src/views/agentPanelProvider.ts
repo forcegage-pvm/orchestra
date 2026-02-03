@@ -412,8 +412,8 @@ export class AgentPanelProvider implements vscode.WebviewViewProvider {
         highlightRange(editor, line, endLine);
       }
     } catch (error) {
-      logger.error(`Failed to open file: ${path}`, error);
-      void vscode.window.showErrorMessage(`Failed to open file: ${path}`);
+      logger.error(`Failed to open file: ${absolutePath}`, error);
+      void vscode.window.showErrorMessage(`Failed to open file: ${filePath}`);
     }
   }
 
