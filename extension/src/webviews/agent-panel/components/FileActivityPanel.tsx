@@ -11,7 +11,7 @@
 import { Icon } from "@iconify-icon/solid";
 import { createMemo, createSignal, For, Show } from "solid-js";
 import type { FileOperation } from "../../../agents/sessions/types.js";
-import { toolCalls, toolCallKeys } from "../stores/sessionStore.js";
+import { toolCallKeys, toolCalls } from "../stores/sessionStore.js";
 
 /**
  * Operation type to icon mapping (matching FileOperationBadge pattern)

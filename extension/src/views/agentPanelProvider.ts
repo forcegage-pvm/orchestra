@@ -7,6 +7,7 @@
  * Specification: specs/011-agent-panel-rework/spec.md Section 8.2
  */
 
+import * as path from "node:path";
 import * as vscode from "vscode";
 import type { AgentSession as AgentSessionClass } from "../agents/AgentSession.js";
 import { getAgentEventBus } from "../agents/sessions/eventBus.js";
@@ -377,12 +378,17 @@ export class AgentPanelProvider implements vscode.WebviewViewProvider {
    * Open file in editor with optional line positioning
    */
   private async _handleOpenFile(
-    path: string,
+    filePath: string,
     line?: number,
     endLine?: number,
   ): Promise<void> {
     try {
-      const uri = vscode.Uri.file(path);
+      // Resolve relative paths against workspace root
+      const absolutePath = path.isAbsolute(filePath)
+        ? filePath
+        : path.join(this._workspaceRoot, filePath);
+
+      const uri = vscode.Uri.file(absolutePath);
       const document = await vscode.workspace.openTextDocument(uri);
 
       const options: vscode.TextDocumentShowOptions = {

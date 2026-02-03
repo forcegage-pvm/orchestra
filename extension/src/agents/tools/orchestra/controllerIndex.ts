@@ -5,6 +5,8 @@
  * Controller has LIMITED tools: read-only + judgment (approve/reject).
  */
 
+import { randomUUID } from "node:crypto";
+
 import { handleApproveHandover } from "../../../../../src/mcp-server/handlers/approve-handover.js";
 import { handleApproveSprint } from "../../../../../src/mcp-server/handlers/approve-sprint.js";
 import { handleGetCodeReviewSummary } from "../../../../../src/mcp-server/handlers/get-code-review-summary.js";
@@ -108,8 +110,31 @@ const readSpecFileTool: AgentTool = {
   invoke: async (
     input: unknown,
     context: ToolInvocationContext,
-  ): Promise<ToolResult> =>
-    executeMcpHandler(context, "read_spec_file", handleReadSpecFile, input),
+  ): Promise<ToolResult> => {
+    const result = await executeMcpHandler(
+      context,
+      "read_spec_file",
+      handleReadSpecFile,
+      input,
+    );
+
+    // Emit file operation for the file activity panel
+    if (
+      result.success &&
+      input &&
+      typeof input === "object" &&
+      "path" in input
+    ) {
+      const callId = result.metadata?.callId ?? randomUUID();
+      const filePath = (input as { path: string }).path;
+      context.observer?.onFileOperation?.(callId, {
+        operation: "read",
+        path: filePath,
+      });
+    }
+
+    return result;
+  },
 };
 
 // ==================== approve_sprint (judgment) ====================
