@@ -7,12 +7,15 @@
 
 import { handleApproveHandover } from "../../../../../src/mcp-server/handlers/approve-handover.js";
 import { handleApproveSprint } from "../../../../../src/mcp-server/handlers/approve-sprint.js";
+import { handleGetCodeReviewSummary } from "../../../../../src/mcp-server/handlers/get-code-review-summary.js";
+import { handleGetCodeReview } from "../../../../../src/mcp-server/handlers/get-code-review.js";
 import { handleGetHandover } from "../../../../../src/mcp-server/handlers/get-handover.js";
 import { handleGetSprintStatus } from "../../../../../src/mcp-server/handlers/get-sprint-status.js";
 import { handleGetTask } from "../../../../../src/mcp-server/handlers/get-task.js";
 import { handleReadSpecFile } from "../../../../../src/mcp-server/handlers/read-spec-file.js";
 import { handleRejectHandover } from "../../../../../src/mcp-server/handlers/reject-handover.js";
 import { handleRejectSprint } from "../../../../../src/mcp-server/handlers/reject-sprint.js";
+import { handleSubmitCodeReview } from "../../../../../src/mcp-server/handlers/submit-code-review.js";
 import { ToolRegistry } from "../../ToolRegistry.js";
 import type { AgentTool, ToolInvocationContext, ToolResult } from "../types.js";
 import { executeMcpHandler } from "./mcpAdapter.js";
@@ -345,6 +348,173 @@ const rejectHandoverTool: AgentTool = {
     executeMcpHandler(context, "reject_handover", handleRejectHandover, input),
 };
 
+// ==================== get_code_review_summary (read-only) ====================
+const getCodeReviewSummaryTool: AgentTool = {
+  name: "get_code_review_summary",
+  description:
+    "Get sprint-level code review summary for UI panels and dashboards. Shows overall review status.",
+  inputSchema: {
+    type: "object" as const,
+    properties: {
+      sprint_id: {
+        type: "string",
+        description: "The sprint ID to get summary for",
+      },
+    },
+    required: ["sprint_id"],
+  },
+  invoke: async (
+    input: unknown,
+    context: ToolInvocationContext,
+  ): Promise<ToolResult> =>
+    executeMcpHandler(
+      context,
+      "get_code_review_summary",
+      handleGetCodeReviewSummary,
+      input,
+    ),
+};
+
+// ==================== get_code_review (read-only) ====================
+const getCodeReviewTool: AgentTool = {
+  name: "get_code_review",
+  description:
+    "Get the latest code review for a task or sprint-level review summary. Returns spec context (spec_path, spec_files[], spec_task_definitions[]).",
+  inputSchema: {
+    type: "object" as const,
+    properties: {
+      task: {
+        type: "number",
+        description: "The task ID to get code review for",
+      },
+      sprint_id: {
+        type: "string",
+        description: "The sprint ID (for sprint-level summary)",
+      },
+      include_issues: {
+        type: "boolean",
+        description: "Include review issues in response",
+      },
+      include_history: {
+        type: "boolean",
+        description: "Include review history in response",
+      },
+      handover_context: {
+        type: "boolean",
+        description: "Include handover context in response",
+      },
+    },
+    required: [],
+  },
+  invoke: async (
+    input: unknown,
+    context: ToolInvocationContext,
+  ): Promise<ToolResult> =>
+    executeMcpHandler(context, "get_code_review", handleGetCodeReview, input),
+};
+
+// ==================== submit_code_review (controller decision) ====================
+const submitCodeReviewTool: AgentTool = {
+  name: "submit_code_review",
+  description:
+    "Submit a code review decision with required artifacts for a sprint task. Decision can be APPROVED, CHANGES_REQUESTED, or REJECTED.",
+  inputSchema: {
+    type: "object" as const,
+    properties: {
+      task: {
+        type: "number",
+        description: "The task ID to review",
+      },
+      decision: {
+        type: "string",
+        description:
+          "Review decision: APPROVED, CHANGES_REQUESTED, or REJECTED",
+      },
+      summary: {
+        type: "string",
+        description: "Summary of the code review findings",
+      },
+      risk: {
+        type: "string",
+        description: "Risk level: LOW, MEDIUM, or HIGH",
+      },
+      files_reviewed: {
+        type: "array",
+        items: { type: "string" },
+        description: "List of files that were reviewed",
+      },
+      tests_run: {
+        type: "array",
+        items: { type: "string" },
+        description: "List of tests that were run (optional)",
+      },
+      commit_range: {
+        type: "string",
+        description: "Git commit range reviewed (optional)",
+      },
+      issues: {
+        type: "array",
+        items: {
+          type: "object",
+          properties: {
+            severity: {
+              type: "string",
+              description: "Issue severity: BLOCKING, MAJOR, MINOR, or INFO",
+            },
+            issue: {
+              type: "string",
+              description: "Description of the issue",
+            },
+            spec_ref: {
+              type: "string",
+              description: "Reference to specification (optional)",
+            },
+            file: {
+              type: "string",
+              description: "File where issue was found (optional)",
+            },
+            line: {
+              type: "number",
+              description: "Line number (optional)",
+            },
+            recommendation: {
+              type: "string",
+              description: "Recommendation to fix the issue (optional)",
+            },
+          },
+          required: ["severity", "issue"],
+        },
+        description: "List of issues found during review (optional)",
+      },
+      recommendations: {
+        type: "array",
+        items: { type: "string" },
+        description: "List of recommendations (optional)",
+      },
+      notes: {
+        type: "string",
+        description: "Additional notes (optional)",
+      },
+      verifying_fixes: {
+        type: "boolean",
+        description:
+          "Set to true when verifying fixes from a previous CHANGES_REQUESTED review",
+      },
+    },
+    required: ["task", "decision", "summary", "risk", "files_reviewed"],
+  },
+  invoke: async (
+    input: unknown,
+    context: ToolInvocationContext,
+  ): Promise<ToolResult> =>
+    executeMcpHandler(
+      context,
+      "submit_code_review",
+      handleSubmitCodeReview,
+      input,
+    ),
+};
+
 export const orchestraControllerTools = [
   getSprintStatusTool,
   getTaskTool,
@@ -354,6 +524,9 @@ export const orchestraControllerTools = [
   rejectSprintTool,
   approveHandoverTool,
   rejectHandoverTool,
+  getCodeReviewSummaryTool,
+  getCodeReviewTool,
+  submitCodeReviewTool,
 ] as const;
 
 export function registerOrchestraControllerTools(registry: ToolRegistry): void {
@@ -363,10 +536,13 @@ export function registerOrchestraControllerTools(registry: ToolRegistry): void {
 export {
   approveHandoverTool,
   approveSprintTool,
+  getCodeReviewSummaryTool,
+  getCodeReviewTool,
   getHandoverTool,
   getSprintStatusTool,
   getTaskTool,
   readSpecFileTool,
   rejectHandoverTool,
   rejectSprintTool,
+  submitCodeReviewTool,
 };
