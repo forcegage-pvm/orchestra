@@ -27,7 +27,7 @@ export default defineConfig({
         // Reduce overhead by reusing workers
         reuseWorkers: true,
         // Allow shared context for related tests to improve performance
-        isolate: false,
+        isolate: true,
       },
     },
     // Enable file-level parallelism
