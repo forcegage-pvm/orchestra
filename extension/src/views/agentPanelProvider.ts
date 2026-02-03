@@ -44,6 +44,7 @@ function sessionClassToInterface(session: AgentSessionClass): AgentSession {
     sessionId: session.id,
     role: session.role,
     taskId: session.taskId ?? 0,
+    taskNumber: session.taskNumber,
     taskTitle: undefined, // Not stored in the class
     sprintId: session.sprintId,
     startedAt: session.createdAt,
@@ -72,6 +73,7 @@ function sessionInfoToInterface(info: AgentSessionInfo): AgentSession {
     sessionId: info.id,
     role: info.role,
     taskId: info.taskId ?? 0,
+    taskNumber: info.taskNumber,
     taskTitle: info.taskTitle,
     sprintId: "",
     startedAt: info.startedAt,

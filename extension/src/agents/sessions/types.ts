@@ -76,6 +76,7 @@ export interface AgentSessionInfo {
   status: SessionStatus;
   startedAt: string; // ISO timestamp
   taskId?: number;
+  taskNumber?: number; // Sprint-scoped sequential task number (1, 2, 3...)
   taskTitle?: string;
 }
 

@@ -42,6 +42,7 @@ export class AgentSession {
   public readonly id: string;
   public readonly role: AgentRole;
   public taskId: number | null;
+  public taskNumber: number | undefined; // Sprint-scoped sequential task number (1, 2, 3...)
   public readonly sprintId: string;
 
   // Lifecycle

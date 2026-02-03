@@ -10,6 +10,7 @@
 import { Icon } from "@iconify-icon/solid";
 import { createSignal, Show } from "solid-js";
 import type { ThinkingEvent } from "../../../agents/sessions/types.js";
+import { Markdown } from "./Markdown.js";
 
 export interface ThinkingCardProps {
   /** Thinking event to display */
@@ -98,13 +99,14 @@ export function ThinkingCard(props: ThinkingCardProps) {
           </div>
 
           <Show when={!isCollapsed()}>
-            <div class="text-[13px] text-zinc-400 whitespace-pre-wrap break-words leading-relaxed">
-              {props.event.text}
-              {/* Animated cursor during streaming */}
-              <Show when={props.isStreaming}>
-                <span class="inline-block w-0.5 h-4 ml-1 bg-purple-400 animate-blink" />
-              </Show>
-            </div>
+            <Markdown
+              content={props.event.text}
+              class="text-[13px] text-zinc-400 leading-relaxed"
+            />
+            {/* Animated cursor during streaming */}
+            <Show when={props.isStreaming}>
+              <span class="inline-block w-0.5 h-4 ml-1 bg-purple-400 animate-blink" />
+            </Show>
 
             {/* Token count if available */}
             <Show when={props.event.tokenCount !== undefined}>
@@ -115,9 +117,10 @@ export function ThinkingCard(props: ThinkingCardProps) {
           </Show>
 
           <Show when={isCollapsed()}>
-            <div class="text-[13px] text-zinc-400 whitespace-pre-wrap break-words leading-relaxed">
-              {getCollapsedPreview().previewLines}
-            </div>
+            <Markdown
+              content={getCollapsedPreview().previewLines}
+              class="text-[13px] text-zinc-400 leading-relaxed"
+            />
           </Show>
         </div>
       </div>

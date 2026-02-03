@@ -416,6 +416,8 @@ export class AgentRunner implements vscode.Disposable {
       options.taskId ?? null,
       maxIterations,
     );
+    // Set taskNumber separately (sprint-scoped sequential number for display)
+    this.session.taskNumber = options.taskNumber;
 
     // Create database session and event emitter for persistence
     const workspaceRoot =
@@ -453,6 +455,9 @@ export class AgentRunner implements vscode.Disposable {
       };
       if (dbSession.taskId !== undefined) {
         sessionInfo.taskId = dbSession.taskId;
+      }
+      if (dbSession.taskNumber !== undefined) {
+        sessionInfo.taskNumber = dbSession.taskNumber;
       }
       if (dbSession.taskTitle !== undefined) {
         sessionInfo.taskTitle = dbSession.taskTitle;
