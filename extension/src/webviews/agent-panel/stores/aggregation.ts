@@ -53,6 +53,13 @@ export function aggregateToolCalls(
           metadata: {},
           outputChunks: [],
           outputLineCount: 0,
+          events: [event],
+          completedAt: undefined,
+          durationMs: undefined,
+          result: undefined,
+          error: undefined,
+          lastProgressMessage: undefined,
+          progressPercent: undefined,
         };
         break;
       }
@@ -66,6 +73,7 @@ export function aggregateToolCalls(
           if (progressEvent.percent !== undefined) {
             aggregate.progressPercent = progressEvent.percent;
           }
+          aggregate.events.push(event);
         }
         break;
       }
@@ -79,6 +87,7 @@ export function aggregateToolCalls(
           // Count lines in this chunk
           const lines = outputEvent.chunk.split("\n").length - 1;
           aggregate.outputLineCount += lines;
+          aggregate.events.push(event);
         }
         break;
       }
@@ -88,6 +97,7 @@ export function aggregateToolCalls(
         const aggregate = aggregates[fileOpEvent.toolCallId];
         if (aggregate) {
           aggregate.fileOperations.push(fileOpEvent.operation);
+          aggregate.events.push(event);
         }
         break;
       }
@@ -97,6 +107,7 @@ export function aggregateToolCalls(
         const aggregate = aggregates[metadataEvent.toolCallId];
         if (aggregate) {
           aggregate.metadata[metadataEvent.key] = metadataEvent.value;
+          aggregate.events.push(event);
         }
         break;
       }
@@ -112,6 +123,7 @@ export function aggregateToolCalls(
           if (resultEvent.error) {
             aggregate.error = resultEvent.error;
           }
+          aggregate.events.push(event);
         }
         break;
       }
@@ -153,6 +165,13 @@ export function updateToolCallAggregate(
         metadata: {},
         outputChunks: [],
         outputLineCount: 0,
+        events: [event],
+        completedAt: undefined,
+        durationMs: undefined,
+        result: undefined,
+        error: undefined,
+        lastProgressMessage: undefined,
+        progressPercent: undefined,
       };
     }
 
@@ -164,6 +183,7 @@ export function updateToolCallAggregate(
         status: "running",
         lastProgressMessage: progressEvent.message,
         progressPercent: progressEvent.percent,
+        events: [...aggregate.events, event],
       };
     }
 
@@ -176,6 +196,7 @@ export function updateToolCallAggregate(
         status: "running",
         outputChunks: [...aggregate.outputChunks, outputEvent.chunk],
         outputLineCount: aggregate.outputLineCount + lines,
+        events: [...aggregate.events, event],
       };
     }
 
@@ -185,6 +206,7 @@ export function updateToolCallAggregate(
       return {
         ...aggregate,
         fileOperations: [...aggregate.fileOperations, fileOpEvent.operation],
+        events: [...aggregate.events, event],
       };
     }
 
@@ -197,6 +219,7 @@ export function updateToolCallAggregate(
           ...aggregate.metadata,
           [metadataEvent.key]: metadataEvent.value,
         },
+        events: [...aggregate.events, event],
       };
     }
 
@@ -210,6 +233,7 @@ export function updateToolCallAggregate(
         durationMs: resultEvent.durationMs,
         result: resultEvent.output,
         error: resultEvent.error,
+        events: [...aggregate.events, event],
       };
     }
 
