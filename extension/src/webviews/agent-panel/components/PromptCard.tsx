@@ -9,6 +9,7 @@
 import { Icon } from "@iconify-icon/solid";
 import { For, Show } from "solid-js";
 import type { PromptEvent } from "../../../agents/sessions/types.js";
+import { Markdown } from "./Markdown.js";
 
 export interface PromptCardProps {
   /** Prompt event to display */
@@ -38,9 +39,10 @@ export function PromptCard(props: PromptCardProps) {
           <div class="text-xs font-semibold text-zinc-300 mb-1.5 tracking-tight">
             Prompt
           </div>
-          <div class="text-[13px] text-zinc-400 whitespace-pre-wrap break-words leading-relaxed">
-            {props.event.text}
-          </div>
+          <Markdown
+            content={props.event.text}
+            class="text-[13px] text-zinc-400 leading-relaxed"
+          />
 
           {/* File Attachments */}
           <Show

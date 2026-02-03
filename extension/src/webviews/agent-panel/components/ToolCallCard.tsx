@@ -12,6 +12,7 @@ import { Icon } from "@iconify-icon/solid";
 import { createSignal, For, Show } from "solid-js";
 import type { ToolCallAggregate } from "../../../agents/sessions/types.js";
 import { FileOperationBadge } from "./FileOperationBadge.js";
+import { JsonViewer } from "./JsonViewer.js";
 import { StreamingOutput } from "./StreamingOutput.js";
 import { ToolCallHeader } from "./ToolCallHeader.js";
 
@@ -41,13 +42,22 @@ export interface ToolCallCardProps {
  */
 export function ToolCallCard(props: ToolCallCardProps) {
   const [expanded, setExpanded] = createSignal(!props.startCollapsed);
+  const [resultExpanded, setResultExpanded] = createSignal(false);
 
   const toggleExpanded = () => {
     setExpanded(!expanded());
   };
 
+  const toggleResultExpanded = () => {
+    setResultExpanded(!resultExpanded());
+  };
+
+  const isRunning = () => {
+    return props.toolCall.status === "pending" || props.toolCall.status === "running";
+  };
+
   const hasProgressMessages = () => {
-    return props.toolCall.lastProgressMessage !== undefined;
+    return isRunning() && props.toolCall.lastProgressMessage !== undefined;
   };
 
   const hasFileOperations = () => {
@@ -66,6 +76,12 @@ export function ToolCallCard(props: ToolCallCardProps) {
     return (
       props.toolCall.status === "success" || props.toolCall.status === "failed"
     );
+  };
+
+  const isJsonResult = () => {
+    if (!props.toolCall.result) return false;
+    const trimmed = props.toolCall.result.trim();
+    return trimmed.startsWith("{") || trimmed.startsWith("[");
   };
 
   return (
@@ -157,9 +173,44 @@ export function ToolCallCard(props: ToolCallCardProps) {
                 class="w-4 h-4 text-green-400 flex-shrink-0 mt-0.5"
               />
               <div class="flex-1 min-w-0">
-                <div class="text-sm text-gray-400 break-words">
-                  {props.toolCall.result || "Success"}
+                <div class="flex items-center justify-between mb-2">
+                  <div class="text-xs text-gray-500 font-medium">Result</div>
+                  <Show when={props.toolCall.result}>
+                    <button
+                      onClick={toggleResultExpanded}
+                      class="text-gray-500 hover:text-gray-300 transition-colors"
+                    >
+                      <Icon
+                        icon={
+                          resultExpanded()
+                            ? "lucide:chevron-up"
+                            : "lucide:chevron-down"
+                        }
+                        class="w-3 h-3"
+                      />
+                    </button>
+                  </Show>
                 </div>
+                <Show when={resultExpanded() && props.toolCall.result}>
+                  <Show
+                    when={isJsonResult()}
+                    fallback={
+                      <pre class="text-sm text-gray-400 break-words whitespace-pre-wrap bg-zinc-950 border border-zinc-800 rounded p-3 overflow-x-auto">
+                        {props.toolCall.result}
+                      </pre>
+                    }
+                  >
+                    <JsonViewer data={props.toolCall.result!} />
+                  </Show>
+                </Show>
+                <Show when={!resultExpanded() && props.toolCall.result}>
+                  <div class="text-xs text-gray-500 italic">
+                    Click to expand result
+                  </div>
+                </Show>
+                <Show when={!props.toolCall.result}>
+                  <div class="text-sm text-gray-400">Success</div>
+                </Show>
               </div>
             </div>
           </Show>
