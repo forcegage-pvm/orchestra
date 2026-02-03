@@ -78,19 +78,44 @@ export interface UpdateTaskInput {
  * Checks if a value is a valid Priority enum value.
  */
 export function isValidPriority(value: unknown): value is Priority {
-  throw new Error("Not implemented");
+  return (
+    typeof value === "number" &&
+    Number.isInteger(value) &&
+    Object.values(Priority).includes(value)
+  );
 }
 
 /**
  * Checks if a value is a valid TaskStatus enum value.
  */
 export function isValidTaskStatus(value: unknown): value is TaskStatus {
-  throw new Error("Not implemented");
+  return typeof value === "string" && Object.values(TaskStatus).includes(value);
 }
 
 /**
  * Checks if a value is a valid Task object.
  */
 export function isTask(value: unknown): value is Task {
-  throw new Error("Not implemented");
+  if (typeof value !== "object" || value === null) {
+    return false;
+  }
+
+  const task = value as Task;
+
+  return (
+    typeof task.id === "string" &&
+    typeof task.title === "string" &&
+    typeof task.description === "string" &&
+    isValidPriority(task.priority) &&
+    isValidTaskStatus(task.status) &&
+    Array.isArray(task.tags) &&
+    task.tags.every((tag) => typeof tag === "string") &&
+    isValidDate(task.createdAt) &&
+    isValidDate(task.updatedAt) &&
+    (task.dueDate === null || isValidDate(task.dueDate))
+  );
+}
+
+function isValidDate(value: unknown): value is Date {
+  return value instanceof Date && !Number.isNaN(value.getTime());
 }
