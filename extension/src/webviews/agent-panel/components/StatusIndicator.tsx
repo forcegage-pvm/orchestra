@@ -7,6 +7,7 @@
  * Specification: specs/011-agent-panel-rework/spec.md Section 3.2-3.3
  */
 
+import { Icon } from "@iconify-icon/solid";
 import { Show } from "solid-js";
 import type { SessionStatus } from "../../../agents/sessions/types.js";
 
@@ -89,20 +90,20 @@ export function StatusIndicator(props: StatusIndicatorProps) {
   };
 
   return (
-    <div class="flex items-center gap-2">
+    <div class="flex items-center gap-1.5">
       <Show
         when={isAnimating()}
         fallback={
-          <div class={`w-2.5 h-2.5 rounded-full ${statusConfig().dotColor}`} />
+          <div class={`w-2 h-2 rounded-full ${statusConfig().dotColor}`} />
         }
       >
-        {/* Spinning ring when running/thinking */}
-        <div class="w-4 h-4 relative flex items-center justify-center">
-          <div class="w-3.5 h-3.5 border-2 border-green-400/30 rounded-full" />
-          <div class="absolute w-3.5 h-3.5 border-2 border-transparent border-t-green-400 rounded-full animate-spin" />
-        </div>
+        {/* Spinning loader icon when running/thinking - same as ToolCallCard */}
+        <Icon
+          icon="lucide:loader-2"
+          class="w-4 h-4 text-green-400 animate-spin"
+        />
       </Show>
-      <span class={`text-base font-semibold ${statusConfig().textColor}`}>
+      <span class={`text-sm font-medium ${statusConfig().textColor}`}>
         {statusConfig().label}
       </span>
     </div>
