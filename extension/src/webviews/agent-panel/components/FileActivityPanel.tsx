@@ -239,13 +239,22 @@ export function FileActivityPanel() {
                       {getDirectory(op.path)}
                     </span>
                   </Show>
-                  <Show when={op.linesInserted !== undefined || op.linesDeleted !== undefined}>
+                  <Show
+                    when={
+                      op.linesInserted !== undefined ||
+                      op.linesDeleted !== undefined
+                    }
+                  >
                     <span class="text-[10px] text-zinc-600 flex-shrink-0">
                       <Show when={op.linesInserted !== undefined}>
-                        <span class="text-green-500/70">+{op.linesInserted}</span>
+                        <span class="text-green-500/70">
+                          +{op.linesInserted}
+                        </span>
                       </Show>
                       <Show when={op.linesDeleted !== undefined}>
-                        <span class="text-red-500/70 ml-1">-{op.linesDeleted}</span>
+                        <span class="text-red-500/70 ml-1">
+                          -{op.linesDeleted}
+                        </span>
                       </Show>
                     </span>
                   </Show>
