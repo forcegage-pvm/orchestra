@@ -11,6 +11,7 @@ import { Icon } from "@iconify-icon/solid";
 import { createEffect, createSignal, Show } from "solid-js";
 import type { ToolCallAggregate } from "../../../agents/sessions/types.js";
 import { JsonViewer } from "./JsonViewer.js";
+import { TerminalOutput } from "./TerminalOutput.js";
 import { ToolIcon } from "./ToolIcon.js";
 
 export interface ToolCallCardProps {
@@ -104,6 +105,46 @@ export function ToolCallCard(props: ToolCallCardProps) {
       }
     }
     return result;
+  };
+
+  // Check if this is a command/terminal tool with stdout
+  const isCommandOutput = () => {
+    const toolName = props.toolCall.toolName;
+    return (
+      toolName === "run_command" ||
+      toolName === "run_terminal" ||
+      toolName === "run_tests"
+    );
+  };
+
+  // Get terminal output text (stdout from command result)
+  const getTerminalOutput = (): string | null => {
+    const result = props.toolCall.result;
+    if (!result) return null;
+
+    // Parse if string
+    let parsed = result;
+    if (typeof result === "string") {
+      try {
+        parsed = JSON.parse(result);
+      } catch {
+        return result; // If not JSON, treat the whole thing as output
+      }
+    }
+
+    // Look for stdout field (run_command format)
+    if (typeof parsed === "object" && parsed !== null) {
+      const obj = parsed as Record<string, unknown>;
+      if (typeof obj.stdout === "string") {
+        return obj.stdout;
+      }
+      // Also check for output field
+      if (typeof obj.output === "string") {
+        return obj.output;
+      }
+    }
+
+    return null;
   };
 
   return (
@@ -202,10 +243,7 @@ export function ToolCallCard(props: ToolCallCardProps) {
               when={!isFailed()}
               fallback={
                 <div class="text-xs space-y-1 py-1">
-                  <div class="text-red-400 font-medium">
-                    {props.toolCall.error?.code || "Error"}
-                  </div>
-                  <div class="text-gray-400">
+                  <div class="text-red-400">
                     {props.toolCall.error?.message || "Tool execution failed"}
                   </div>
                   <Show when={props.toolCall.error?.suggestion}>
@@ -216,7 +254,13 @@ export function ToolCallCard(props: ToolCallCardProps) {
                 </div>
               }
             >
-              <JsonViewer data={getOutputDisplay()} />
+              {/* Use TerminalOutput for command tools with stdout */}
+              <Show
+                when={isCommandOutput() && getTerminalOutput()}
+                fallback={<JsonViewer data={getOutputDisplay()} />}
+              >
+                <TerminalOutput output={getTerminalOutput()!} />
+              </Show>
             </Show>
           </Show>
         </div>
