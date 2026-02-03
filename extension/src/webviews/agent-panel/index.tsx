@@ -76,7 +76,7 @@ function App() {
   };
 
   return (
-    <div class="h-screen flex flex-col overflow-hidden bg-[#09090b] text-zinc-400 selection:bg-indigo-500/20 selection:text-indigo-200">
+    <div class="h-screen flex flex-col overflow-hidden text-zinc-400 selection:bg-indigo-500/20 selection:text-indigo-200">
       <SessionHeader
         session={session}
         availableTasks={availableTasks()}

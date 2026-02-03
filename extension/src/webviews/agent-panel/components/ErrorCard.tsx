@@ -56,7 +56,7 @@ export function ErrorCard(props: ErrorCardProps) {
           icon: "lucide:help-circle",
           iconColor: "text-zinc-400",
           borderColor: "border-zinc-900/50",
-          bgColor: "bg-zinc-900/20",
+          bgColor: "",
           label: "Unknown",
           labelColor: "text-zinc-400",
         };

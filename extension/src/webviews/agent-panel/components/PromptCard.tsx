@@ -29,7 +29,7 @@ export interface PromptCardProps {
  */
 export function PromptCard(props: PromptCardProps) {
   return (
-    <div class="group rounded bg-zinc-900/20 fade-in">
+    <div class="group rounded fade-in">
       <div class="px-2 py-1.5 flex gap-1.5">
         <Icon
           icon="lucide:message-square"

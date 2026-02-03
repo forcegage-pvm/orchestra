@@ -64,7 +64,7 @@ export function ThinkingCard(props: ThinkingCardProps) {
   };
 
   return (
-    <div class="group rounded hover:bg-zinc-900/40 transition-colors fade-in">
+    <div class="group rounded hover:bg-zinc-800/20 transition-colors fade-in">
       <div class="px-2 py-1.5 flex gap-1.5">
         <Icon
           icon="lucide:brain"

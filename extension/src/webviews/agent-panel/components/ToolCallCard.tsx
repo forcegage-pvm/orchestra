@@ -87,7 +87,7 @@ export function ToolCallCard(props: ToolCallCardProps) {
   };
 
   return (
-    <div class="bg-zinc-900/20 rounded px-2 py-1.5 animate-fadeIn">
+    <div class="rounded px-2 py-1.5 animate-fadeIn">
       {/* Header */}
       <div class="flex items-center justify-between">
         <ToolCallHeader toolCall={props.toolCall} />
@@ -199,7 +199,7 @@ export function ToolCallCard(props: ToolCallCardProps) {
                   <Show
                     when={isJsonResult()}
                     fallback={
-                      <pre class="text-[11px] text-gray-400 break-words whitespace-pre-wrap bg-zinc-950 border border-zinc-800/50 rounded p-2 overflow-x-auto leading-tight">
+                      <pre class="text-[11px] text-gray-400 break-words whitespace-pre-wrap border border-zinc-800/30 rounded p-2 overflow-x-auto leading-tight">
                         {props.toolCall.result}
                       </pre>
                     }
