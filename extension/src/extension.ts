@@ -10,12 +10,12 @@ import * as path from "path";
 import * as vscode from "vscode";
 import { AgentRunner, SessionStorage, ToolRegistry } from "./agents/index.js";
 import { disposeAgentEventBus } from "./agents/sessions/eventBus.js";
+import { ProcessManager } from "./agents/tools/infrastructure/ProcessManager.js";
 import {
   disposeWorkflowChain,
   getWorkflowChain,
   WorkflowChain,
 } from "./agents/WorkflowChain.js";
-import { ProcessManager } from "./agents/tools/infrastructure/ProcessManager.js";
 import { SessionManager } from "./chat/SessionManager.js";
 import { handleArchiveSprint } from "./commands/archiveSprint.js";
 import {
