@@ -173,19 +173,24 @@ async function executeWithSubprocess(
       ...options.env,
     };
 
-    // Ensure PATH exists (critical for shell: true on Windows)
-    if (!childEnv.PATH && !childEnv.Path) {
-      // Fallback to common Windows paths if PATH is missing
-      if (process.platform === "win32") {
-        childEnv.PATH = `C:\\Windows\\system32;C:\\Windows;${process.env.SystemRoot || "C:\\Windows"}\\System32\\Wbem`;
-      }
-    }
-
-    const child = spawn(command, {
+    // On Windows, explicitly specify shell path using ComSpec
+    // This avoids issues with Node.js trying to find cmd.exe
+    const spawnOptions: any = {
       cwd: options.cwd ?? getWorkspaceRoot(),
       env: childEnv,
-      shell: true,
-    });
+    };
+
+    if (process.platform === "win32") {
+      // Use ComSpec (which Windows sets to the command processor path)
+      // or fallback to explicit cmd.exe path
+      const shell = process.env.ComSpec || "C:\\Windows\\System32\\cmd.exe";
+      spawnOptions.shell = shell;
+      spawnOptions.windowsHide = true; // Hide console window
+    } else {
+      spawnOptions.shell = true;
+    }
+
+    const child = spawn(command, spawnOptions);
 
     let timedOut = false;
     let resolved = false;
