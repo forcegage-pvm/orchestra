@@ -10,6 +10,7 @@
 export {
   addEvent,
   clearEvents,
+  clearToolCalls,
   eventKeys,
   events,
   getEventsArray,
@@ -17,7 +18,9 @@ export {
   setEventKeys,
   setEvents,
   setSession,
+  setToolCall,
   setToolCalls,
+  toolCallKeys,
   toolCalls,
 } from "./sessionStore.js";
 

@@ -66,3 +66,30 @@ export function getEventsArray(): AgentEvent[] {
 export const [toolCalls, setToolCalls] = createStore<
   Record<string, ToolCallAggregate>
 >({});
+
+/**
+ * Tool call keys signal for reactivity tracking
+ */
+export const [toolCallKeys, setToolCallKeys] = createSignal<string[]>([]);
+
+/**
+ * Set or update a tool call aggregate
+ */
+export function setToolCall(
+  toolCallId: string,
+  aggregate: ToolCallAggregate,
+): void {
+  const isNew = !toolCalls[toolCallId];
+  setToolCalls(toolCallId, aggregate);
+  if (isNew) {
+    setToolCallKeys((prev) => [...prev, toolCallId]);
+  }
+}
+
+/**
+ * Clear all tool calls
+ */
+export function clearToolCalls(): void {
+  setToolCalls({});
+  setToolCallKeys([]);
+}

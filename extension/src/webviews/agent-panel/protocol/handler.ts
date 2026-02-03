@@ -11,8 +11,9 @@ import { updateToolCallAggregate } from "../stores/aggregation.js";
 import {
   addEvent,
   clearEvents,
+  clearToolCalls,
   setSession,
-  setToolCalls,
+  setToolCall,
   toolCalls,
 } from "../stores/sessionStore.js";
 import { setUi } from "../stores/uiStore.js";
@@ -74,7 +75,7 @@ export function handleExtensionMessage(message: ExtensionMessage): void {
           message.event,
         );
         if (updatedAggregate) {
-          setToolCalls(message.event.toolCallId, updatedAggregate);
+          setToolCall(message.event.toolCallId, updatedAggregate);
         }
       }
       break;
@@ -93,7 +94,7 @@ export function handleExtensionMessage(message: ExtensionMessage): void {
             event,
           );
           if (updatedAggregate) {
-            setToolCalls(event.toolCallId, updatedAggregate);
+            setToolCall(event.toolCallId, updatedAggregate);
           }
         }
       });
@@ -103,7 +104,7 @@ export function handleExtensionMessage(message: ExtensionMessage): void {
       // Reset all stores to initial state
       setSession(null);
       clearEvents();
-      setToolCalls({});
+      clearToolCalls();
       break;
 
     case "set_verbosity":

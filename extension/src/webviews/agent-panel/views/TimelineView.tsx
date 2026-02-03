@@ -12,7 +12,7 @@
 
 import { Icon } from "@iconify-icon/solid";
 import type { Accessor } from "solid-js";
-import { createMemo, createSignal, For, Show } from "solid-js";
+import { createMemo, createSignal, Index, Show } from "solid-js";
 import type {
     AgentEvent,
     StatusChangeEvent,
@@ -38,8 +38,13 @@ export interface TimelineViewProps {
  * Timeline item can be either a regular event or an aggregated tool call
  */
 type TimelineItem =
-  | { type: "event"; event: AgentEvent; timestamp: string }
-  | { type: "toolCall"; toolCall: ToolCallAggregate; timestamp: string };
+  | { type: "event"; event: AgentEvent; timestamp: string; id: string }
+  | {
+      type: "toolCall";
+      toolCall: ToolCallAggregate;
+      timestamp: string;
+      id: string;
+    };
 
 /**
  * StatusChangeCard - Displays session status transitions
@@ -122,6 +127,7 @@ export function TimelineView(props: TimelineViewProps) {
               type: "toolCall",
               toolCall: toolCallsMap[toolCallId],
               timestamp: toolCallsMap[toolCallId].startedAt,
+              id: `tool-${toolCallId}`,
             });
             processedToolCalls.add(toolCallId);
           }
@@ -134,6 +140,7 @@ export function TimelineView(props: TimelineViewProps) {
         type: "event",
         event,
         timestamp: event.timestamp,
+        id: `event-${event.type}-${event.timestamp}`,
       });
     }
 
@@ -230,9 +237,9 @@ export function TimelineView(props: TimelineViewProps) {
             />
           }
         >
-          <For each={timelineItems()}>
-            {(item, index) => renderItem(item, index())}
-          </For>
+          <Index each={timelineItems()}>
+            {(item) => renderItem(item(), 0)}
+          </Index>
         </Show>
       </div>
 
