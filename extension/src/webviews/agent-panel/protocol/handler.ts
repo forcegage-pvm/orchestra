@@ -7,11 +7,13 @@
  * Specification: specs/011-agent-panel-rework/spec.md Section 8.2
  */
 
+import type { StatusChangeEvent } from "../../../agents/sessions/types.js";
 import { updateToolCallAggregate } from "../stores/aggregation.js";
 import {
   addEvent,
   clearEvents,
   clearToolCalls,
+  session,
   setSession,
   setToolCall,
   toolCalls,
@@ -67,6 +69,17 @@ export function handleExtensionMessage(message: ExtensionMessage): void {
       );
       addEvent(message.event);
 
+      // Update session status from status_change events
+      if (message.event.type === "status_change") {
+        const statusEvent = message.event as StatusChangeEvent;
+        if (session) {
+          setSession("status", statusEvent.newStatus);
+          if (statusEvent.message) {
+            setSession("statusMessage", statusEvent.message);
+          }
+        }
+      }
+
       // Update tool call aggregate if this is a tool-related event
       if (isToolEvent(message.event)) {
         const existingAggregate = toolCalls[message.event.toolCallId];
@@ -85,6 +98,17 @@ export function handleExtensionMessage(message: ExtensionMessage): void {
       console.log("[Protocol] Events batch:", message.events.length, "events");
       message.events.forEach((event) => {
         addEvent(event);
+
+        // Update session status from status_change events
+        if (event.type === "status_change") {
+          const statusEvent = event as StatusChangeEvent;
+          if (session) {
+            setSession("status", statusEvent.newStatus);
+            if (statusEvent.message) {
+              setSession("statusMessage", statusEvent.message);
+            }
+          }
+        }
 
         // Update tool call aggregate if this is a tool-related event
         if (isToolEvent(event)) {

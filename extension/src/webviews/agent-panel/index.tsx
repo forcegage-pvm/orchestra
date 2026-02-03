@@ -1,9 +1,9 @@
 import { createSignal } from "solid-js";
 import { render } from "solid-js/web";
-import { SessionHeader } from "./components/SessionHeader.js";
+import { StatusBar } from "./components/StatusBar.js";
 import { useKeyboardNav } from "./hooks/index.js";
 import { initializeMessageHandler } from "./protocol/index.js";
-import { events, session } from "./stores/sessionStore.js";
+import { events } from "./stores/sessionStore.js";
 import "./styles.css";
 import { TimelineView } from "./views/index.js";
 
@@ -77,6 +77,7 @@ function App() {
 
   return (
     <div class="h-screen flex flex-col overflow-hidden text-zinc-400 selection:bg-indigo-500/20 selection:text-indigo-200">
+      <StatusBar />
       <div class="flex-1 min-h-0 overflow-hidden">
         <TimelineView focusedEventIndex={keyboardNav.focusedEventIndex} />
       </div>

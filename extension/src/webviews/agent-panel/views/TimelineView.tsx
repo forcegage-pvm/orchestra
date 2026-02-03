@@ -107,13 +107,15 @@ export function TimelineView(props: TimelineViewProps) {
     // First pass: add non-tool events and mark tool calls to process
     for (const event of eventArray) {
       // Skip tool-related events - they're aggregated in ToolCallCard
+      // Skip status_change events - they update the status bar
       if (
         event.type === "tool_call" ||
         event.type === "tool_progress" ||
         event.type === "tool_output" ||
         event.type === "tool_file_operation" ||
         event.type === "tool_metadata" ||
-        event.type === "tool_result"
+        event.type === "tool_result" ||
+        event.type === "status_change"
       ) {
         // For tool_call events, add the aggregate to timeline
         if (event.type === "tool_call") {

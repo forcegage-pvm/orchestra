@@ -6,6 +6,7 @@
  */
 
 import { handleCompleteTask } from "../../../../../src/mcp-server/handlers/complete-task.js";
+import { handleGetAmendments } from "../../../../../src/mcp-server/handlers/get-amendments.js";
 import { handleGetHandover } from "../../../../../src/mcp-server/handlers/get-handover.js";
 import { handleGetSignal } from "../../../../../src/mcp-server/handlers/get-signal.js";
 import { handleGetTaskHistory } from "../../../../../src/mcp-server/handlers/get-task-history.js";
@@ -311,11 +312,44 @@ const getTaskHistoryTool: AgentTool = {
     executeMcpHandler(context, "get_task_history", handleGetTaskHistory, input),
 };
 
+// ==================== get_amendments ====================
+const getAmendmentsTool: AgentTool = {
+  name: "get_amendments",
+  description:
+    "List all amendments made to tasks after initial configuration. Shows verification criteria changes, task metadata updates, and handover modifications with full before/after audit trail.",
+  inputSchema: {
+    type: "object" as const,
+    properties: {
+      task_id: {
+        type: "number",
+        description:
+          "Filter by task ID. If omitted, returns all amendments for the sprint.",
+      },
+      tool_name: {
+        type: "string",
+        description:
+          "Filter by tool name (e.g., 'update_verification', 'update_task', 'update_handover')",
+      },
+      amendment_type: {
+        type: "string",
+        enum: ["VERIFICATION", "TASK_METADATA", "HANDOVER"],
+        description: "Filter by amendment type",
+      },
+    },
+  },
+  invoke: async (
+    input: unknown,
+    context: ToolInvocationContext,
+  ): Promise<ToolResult> =>
+    executeMcpHandler(context, "get_amendments", handleGetAmendments, input),
+};
+
 export const orchestraOrchestratorTools = [
   getSprintStatusTool,
   getSignalTool,
   getTaskTool,
   getTasksTool,
+  getAmendmentsTool,
   prepareTaskTool,
   runVerificationChecksTool,
   submitVerificationJudgmentTool,
@@ -335,6 +369,7 @@ export function registerOrchestraOrchestratorTools(
 
 export {
   completeTaskTool,
+  getAmendmentsTool,
   getHandoverTool,
   getSignalTool,
   getSprintStatusTool,
