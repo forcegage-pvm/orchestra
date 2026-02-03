@@ -172,7 +172,7 @@ export function FileActivityPanel() {
   // Use <Show> for reactive conditional rendering - do NOT use early return in SolidJS
   return (
     <Show when={hasFiles()}>
-      <div class="border-b border-gray-700 bg-zinc-900">
+      <div class="bg-[#7728CC]/20">
         {/* Header */}
         <button
           class="w-full flex items-center gap-2 px-3 py-1 hover:bg-zinc-800 transition-colors cursor-pointer text-left"
@@ -220,11 +220,11 @@ export function FileActivityPanel() {
 
         {/* File List */}
         <Show when={!isCollapsed()}>
-          <div class="max-h-32 overflow-y-auto bg-zinc-950">
+          <div class="max-h-32 overflow-y-auto">
             <For each={fileOperations()}>
               {(op) => (
                 <button
-                  class="w-full flex items-center gap-3 px-3 py-1 hover:bg-zinc-900 transition-colors cursor-pointer text-left border-t border-gray-800 first:border-t-0"
+                  class="w-full flex items-center gap-3 px-3 py-0.5 hover:bg-white/10 transition-colors cursor-pointer text-left"
                   onClick={() => handleFileClick(op.path)}
                   title={op.path}
                 >
