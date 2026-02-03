@@ -119,11 +119,18 @@ export async function handlePlayTask(
       await invokeEscalationReview(workspaceRoot, taskId);
       break;
 
-    case "COMPLETE":
-      vscode.window.showInformationMessage(
-        `Task ${taskId}: ${task.title} is already complete`,
-      );
+    case "COMPLETE": {
+      // Check if there's a pending code review even though task is complete
+      const codeReview = getLatestCodeReviewForTask(workspaceRoot, taskId);
+      if (codeReview && codeReview.status === "PENDING") {
+        await invokeCodeReview(workspaceRoot, taskId);
+      } else {
+        vscode.window.showInformationMessage(
+          `Task ${taskId}: ${task.title} is already complete`,
+        );
+      }
       break;
+    }
 
     default:
       vscode.window.showWarningMessage(

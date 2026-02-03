@@ -13,7 +13,10 @@
 
 import * as vscode from "vscode";
 import { handlePlayTask } from "../commands/PlayTaskHandler.js";
-import { getTaskById } from "../database/queries.js";
+import {
+  getLatestCodeReviewForTask,
+  getTaskById,
+} from "../database/queries.js";
 import { getAgentRunner } from "../extension.js";
 import { OrchestraLogger } from "../utils/logger.js";
 import { getAgentEventBus } from "./sessions/eventBus.js";
@@ -131,8 +134,17 @@ export class WorkflowChain implements vscode.Disposable {
       `[WorkflowChain] Task ${taskId} status: ${task.status} (completed by ${role})`,
     );
 
+    // Check for pending code review (task might be COMPLETE but review pending)
+    const codeReview = getLatestCodeReviewForTask(this.workspaceRoot, taskId);
+    const hasPendingCodeReview =
+      codeReview !== null && codeReview.status === "PENDING";
+
     // Determine next action based on role and task status
-    const nextAction = this.determineNextAction(role, task.status);
+    const nextAction = this.determineNextAction(
+      role,
+      task.status,
+      hasPendingCodeReview,
+    );
 
     if (!nextAction) {
       logger.info("[WorkflowChain] No next action for this state");
@@ -174,6 +186,7 @@ export class WorkflowChain implements vscode.Disposable {
   private determineNextAction(
     completedRole: "orchestrator" | "implementor" | "controller",
     taskStatus: string,
+    hasPendingCodeReview: boolean = false,
   ): { description: string } | null {
     // Orchestrator completed prepare_task → Controller reviews handover
     if (
@@ -204,7 +217,11 @@ export class WorkflowChain implements vscode.Disposable {
     }
 
     // Implementor completed → Orchestrator verifies
-    if (completedRole === "implementor" && taskStatus === "VERIFY") {
+    // Task goes to GATE_CHECK after signal_completion, then may transition to VERIFY
+    if (
+      completedRole === "implementor" &&
+      (taskStatus === "VERIFY" || taskStatus === "GATE_CHECK")
+    ) {
       return {
         description:
           "Implementation complete - invoking Orchestrator for verification...",
@@ -212,15 +229,24 @@ export class WorkflowChain implements vscode.Disposable {
     }
 
     // Orchestrator verified → Controller code review
-    if (completedRole === "orchestrator" && taskStatus === "VERIFIED") {
+    // Task might be VERIFIED or COMPLETE with pending code review
+    if (
+      completedRole === "orchestrator" &&
+      (taskStatus === "VERIFIED" ||
+        (taskStatus === "COMPLETE" && hasPendingCodeReview))
+    ) {
       return {
         description:
           "Verification passed - invoking Controller for code review...",
       };
     }
 
-    // Controller approved code review → Task complete
-    if (completedRole === "controller" && taskStatus === "COMPLETE") {
+    // Controller approved code review → Task complete (no pending review)
+    if (
+      completedRole === "controller" &&
+      taskStatus === "COMPLETE" &&
+      !hasPendingCodeReview
+    ) {
       return {
         description: "Code review approved - task complete!",
       };
