@@ -7,7 +7,7 @@ export default defineConfig({
     globals: true,
     environment: "node",
     include: ["test/**/*.test.ts", "testing/**/*.test.ts"],
-    exclude: ["node_modules", "dist"],
+    exclude: ["node_modules", "dist", "testing/tdd-test-harness/**"],
     // Global setup - creates pre-migrated database template once
     globalSetup: ["./test/setup/global-setup.ts"],
     coverage: {

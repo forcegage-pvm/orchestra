@@ -41,13 +41,37 @@ export function getAgentOutputStyles(): string {
     }
 
     .status {
-      font-size: 11px;
-      padding: 2px 8px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 13px;
+      padding: 4px 10px;
       border-radius: 10px;
       background: var(--vscode-badge-background);
       color: var(--vscode-badge-foreground);
       text-transform: uppercase;
       letter-spacing: 0.4px;
+      font-weight: 500;
+    }
+
+    .status::before {
+      content: '';
+      display: none;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      border: 2px solid var(--vscode-badge-foreground);
+      border-top-color: transparent;
+      animation: spin 0.8s linear infinite;
+    }
+
+    body[data-agent-status="running"] .status::before {
+      display: block;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
     }
 
     .header-controls {
