@@ -18,7 +18,8 @@ export interface AgentSession {
   // Identity
   sessionId: string;
   role: AgentRole;
-  taskId: number;
+  taskId: number; // Internal DB primary key
+  taskNumber: number | undefined; // Sprint-scoped sequential task number (1, 2, 3...)
   taskTitle: string | undefined;
   sprintId: string;
 

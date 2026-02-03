@@ -139,6 +139,8 @@ export interface FileAttachment {
 export interface AgentStartOptions {
   prompt: string;
   taskId?: number;
+  /** Sprint-scoped sequential task number (1, 2, 3...) for display purposes */
+  taskNumber?: number;
   sprintId?: string;
   resumeSessionId?: string;
   maxIterations?: number;
@@ -422,6 +424,7 @@ export class AgentRunner implements vscode.Disposable {
       const dbSession = createSession(workspaceRoot, {
         role: this.session.role,
         taskId: options.taskId ?? 0,
+        taskNumber: options.taskNumber,
         taskTitle: undefined,
         sprintId: this.session.sprintId,
         status: "initializing",

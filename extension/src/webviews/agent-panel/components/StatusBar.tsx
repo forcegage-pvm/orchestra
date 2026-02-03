@@ -145,7 +145,7 @@ export function StatusBar() {
 
   return (
     <div class="flex items-center justify-between px-3 py-2 border-b border-zinc-800/30">
-      {/* Left side - Agent info and status */}
+      {/* Left side - Agent info */}
       <div class="flex items-center gap-3">
         {/* Agent role */}
         <div class="flex items-center gap-2">
@@ -161,24 +161,23 @@ export function StatusBar() {
           </span>
         </div>
 
-        {/* Task title */}
-        <Show when={session?.taskTitle}>
-          <span class="text-zinc-600">•</span>
-          <span class="text-xs text-zinc-500 truncate max-w-[200px]">
-            {session?.taskTitle}
+        {/* Task number badge */}
+        <Show when={session?.taskNumber}>
+          <span class="px-1.5 py-0.5 rounded text-[10px] font-medium bg-zinc-800/50 text-zinc-400 border border-zinc-700/50">
+            TASK-{session?.taskNumber}
           </span>
         </Show>
       </div>
 
       {/* Center - Status indicator */}
       <div class="flex items-center gap-4">
-        <div class={`flex items-center gap-2 ${statusConfig().color}`}>
+        <div class={`flex items-center gap-1.5 ${statusConfig().color}`}>
           {/* Animated dot for active states */}
           <span
-            class={`w-2 h-2 rounded-full ${statusConfig().dotColor} ${isActive() ? "animate-pulse" : ""}`}
+            class={`w-1.5 h-1.5 rounded-full ${statusConfig().dotColor} ${isActive() ? "animate-pulse" : ""}`}
           />
-          <span class="text-xs font-medium uppercase tracking-wide">
-            {statusConfig().label}
+          <span class="text-[10px] font-normal">
+            {statusConfig().label.toLowerCase()}
           </span>
         </div>
 

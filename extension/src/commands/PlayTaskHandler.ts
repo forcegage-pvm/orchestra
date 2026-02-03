@@ -196,6 +196,7 @@ async function invokePrepare(
     const startOptions = {
       prompt,
       taskId,
+      taskNumber: task.task_id,
       sprintId: sprint.id,
     } as const;
 
@@ -288,6 +289,7 @@ async function invokeImplement(
     const startOptions = {
       prompt,
       taskId,
+      taskNumber: task.task_id,
       sprintId: task.sprint_id,
     } as const;
 
@@ -402,6 +404,7 @@ async function invokeRetry(
     const startOptions = {
       prompt,
       taskId,
+      taskNumber: task.task_id,
       sprintId: task.sprint_id,
     } as const;
 
@@ -490,6 +493,7 @@ async function invokeVerify(
     const startOptions = {
       prompt,
       taskId,
+      taskNumber: task.task_id,
       sprintId: task.sprint_id,
     } as const;
 
@@ -599,6 +603,7 @@ async function invokeHandoverFix(
     const startOptions = {
       prompt,
       taskId,
+      taskNumber: task.task_id,
       sprintId: sprint.id,
     } as const;
 
@@ -800,6 +805,7 @@ Use your MCP tools to investigate and resolve this escalation.`;
     const startOptions = {
       prompt,
       taskId,
+      taskNumber: task.task_id,
       sprintId: task.sprint_id,
     } as const;
 
