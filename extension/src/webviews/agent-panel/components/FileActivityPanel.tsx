@@ -172,7 +172,7 @@ export function FileActivityPanel() {
   // Use <Show> for reactive conditional rendering - do NOT use early return in SolidJS
   return (
     <Show when={hasFiles()}>
-      <div class="bg-[#7728CC]/10">
+      <div class="bg-[#7728CC]/10 border-b border-[#7728CC]/40 shadow-md shadow-black/20">
         {/* Header */}
         <button
           class="w-full flex items-center gap-2 px-5 py-1 hover:bg-white/10 transition-colors cursor-pointer text-left"
