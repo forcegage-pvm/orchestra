@@ -1108,6 +1108,7 @@ export function generateAgentOutputHtml(
         </div>
         <div id="virtual-spacer-bottom"></div>
       </div>
+      ${emptyState}
       <div class="loading-indicator">
         <div class="ball-beat">
           <div class="ball"></div>
@@ -1115,7 +1116,6 @@ export function generateAgentOutputHtml(
           <div class="ball"></div>
         </div>
       </div>
-      ${emptyState}
     </main>
     <div class="redirect-bar">
       <input

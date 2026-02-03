@@ -76,12 +76,19 @@ export function getAgentOutputStyles(): string {
 
     .loading-indicator {
       display: none;
+      position: sticky;
+      bottom: 0;
       padding: 16px 0;
       text-align: center;
+      background: var(--vscode-editor-background);
+      border-top: 1px solid transparent;
+      margin-top: auto;
     }
 
     body[data-agent-status="running"] .loading-indicator {
-      display: block;
+      display: flex;
+      justify-content: center;
+      align-items: center;
     }
 
     .ball-beat {
