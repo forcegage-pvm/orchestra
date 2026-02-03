@@ -1,3 +1,0 @@
-# Spec Hash Test
-
-- item

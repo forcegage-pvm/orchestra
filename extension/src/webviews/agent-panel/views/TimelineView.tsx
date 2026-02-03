@@ -14,17 +14,17 @@ import { Icon } from "@iconify-icon/solid";
 import type { Accessor } from "solid-js";
 import { createMemo, createSignal, Index, Show } from "solid-js";
 import type {
-    AgentEvent,
-    StatusChangeEvent,
-    ToolCallAggregate,
+  AgentEvent,
+  StatusChangeEvent,
+  ToolCallAggregate,
 } from "../../../agents/sessions/types.js";
 import {
-    EmptyState,
-    ErrorCard,
-    NewEventsIndicator,
-    PromptCard,
-    ThinkingCard,
-    ToolCallCard,
+  EmptyState,
+  ErrorCard,
+  NewEventsIndicator,
+  PromptCard,
+  ThinkingCard,
+  ToolCallCard,
 } from "../components/index.js";
 import { useAutoScroll } from "../hooks/index.js";
 import { getEventsArray, session, toolCalls } from "../stores/index.js";
@@ -255,16 +255,16 @@ export function TimelineView(props: TimelineViewProps) {
 
         {/* Ball-beat loading indicator - always in DOM, visibility controlled by CSS */}
         <div
-          class="flex justify-center py-6 transition-opacity duration-200"
+          class="flex justify-start px-3 py-3 transition-opacity duration-200"
           style={{
             opacity: isRunning() ? 1 : 0,
             "pointer-events": isRunning() ? "auto" : "none",
           }}
         >
-          <div class="flex items-center gap-1.5">
-            <div class="w-2 h-2 rounded-full bg-green-400 animate-ballBeat1" />
-            <div class="w-2 h-2 rounded-full bg-green-400 animate-ballBeat2" />
-            <div class="w-2 h-2 rounded-full bg-green-400 animate-ballBeat3" />
+          <div class="flex items-center gap-1">
+            <div class="w-1.5 h-1.5 rounded-full bg-zinc-400 animate-ballBeat1" />
+            <div class="w-1.5 h-1.5 rounded-full bg-zinc-400 animate-ballBeat2" />
+            <div class="w-1.5 h-1.5 rounded-full bg-zinc-400 animate-ballBeat3" />
           </div>
         </div>
       </div>
