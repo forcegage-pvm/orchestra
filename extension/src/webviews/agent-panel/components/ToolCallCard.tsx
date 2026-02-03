@@ -41,7 +41,10 @@ function formatDuration(ms: number): string {
  * - Row 3: [Expandable Content Panel]
  */
 export function ToolCallCard(props: ToolCallCardProps) {
-  const [selectedTab, setSelectedTab] = createSignal<TabSelection>("none");
+  // Auto-expand output tab on failure
+  const initialTab = (): TabSelection =>
+    props.toolCall.status === "failed" ? "output" : "none";
+  const [selectedTab, setSelectedTab] = createSignal<TabSelection>(initialTab());
 
   const isRunning = () =>
     props.toolCall.status === "pending" || props.toolCall.status === "running";
