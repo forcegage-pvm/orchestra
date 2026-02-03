@@ -1,5 +1,6 @@
 import { createSignal } from "solid-js";
 import { render } from "solid-js/web";
+import { FileActivityPanel } from "./components/FileActivityPanel.js";
 import { StatusBar } from "./components/StatusBar.js";
 import { useKeyboardNav } from "./hooks/index.js";
 import { initializeMessageHandler } from "./protocol/index.js";
@@ -78,6 +79,7 @@ function App() {
   return (
     <div class="h-screen flex flex-col overflow-hidden text-zinc-400 selection:bg-indigo-500/20 selection:text-indigo-200">
       <StatusBar />
+      <FileActivityPanel />
       <div class="flex-1 min-h-0 overflow-hidden">
         <TimelineView focusedEventIndex={keyboardNav.focusedEventIndex} />
       </div>

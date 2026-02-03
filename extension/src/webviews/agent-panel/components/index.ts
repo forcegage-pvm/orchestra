@@ -56,6 +56,8 @@ export type { ToolIconProps } from "./ToolIcon.js";
 export { FileOperationBadge } from "./FileOperationBadge.js";
 export type { FileOperationBadgeProps } from "./FileOperationBadge.js";
 
+export { FileActivityPanel } from "./FileActivityPanel.js";
+
 export { StreamingOutput } from "./StreamingOutput.js";
 export type { StreamingOutputProps } from "./StreamingOutput.js";
 
