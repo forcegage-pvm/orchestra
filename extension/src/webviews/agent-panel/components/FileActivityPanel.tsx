@@ -172,18 +172,14 @@ export function FileActivityPanel() {
   // Use <Show> for reactive conditional rendering - do NOT use early return in SolidJS
   return (
     <Show when={hasFiles()}>
-      <div class="bg-[#7728CC]/20">
+      <div class="bg-[#7728CC]/10">
         {/* Header */}
         <button
-          class="w-full flex items-center gap-2 px-3 py-1 hover:bg-zinc-800 transition-colors cursor-pointer text-left"
+          class="w-full flex items-center gap-2 px-5 py-1 hover:bg-white/10 transition-colors cursor-pointer text-left"
           onClick={toggleCollapsed}
           aria-expanded={!isCollapsed()}
           aria-label="Toggle file activity panel"
         >
-          <Icon
-            icon={`lucide:chevron-${isCollapsed() ? "right" : "down"}`}
-            class="w-3 h-3 text-gray-400"
-          />
           <Icon icon="lucide:files" class="w-3 h-3 text-gray-400" />
           <span class="text-[11px] font-medium text-gray-200">
             Files Touched
@@ -192,30 +188,34 @@ export function FileActivityPanel() {
           {/* Summary badges */}
           <div class="flex items-center gap-1 ml-auto">
             <Show when={operationCounts().create > 0}>
-              <span class="flex items-center gap-0.5 text-[10px] text-green-400 bg-gray-800 px-1.5 py-0.5 rounded-full">
+              <span class="flex items-center gap-0.5 text-[11px] text-green-400 bg-gray-800 px-1.5 py-0.5 rounded-full">
                 <Icon icon="lucide:plus" class="w-2.5 h-2.5" />
                 {operationCounts().create}
               </span>
             </Show>
             <Show when={operationCounts().update > 0}>
-              <span class="flex items-center gap-0.5 text-[10px] text-blue-400 bg-gray-800 px-1.5 py-0.5 rounded-full">
+              <span class="flex items-center gap-0.5 text-[11px] text-blue-400 bg-gray-800 px-1.5 py-0.5 rounded-full">
                 <Icon icon="lucide:edit-3" class="w-2.5 h-2.5" />
                 {operationCounts().update}
               </span>
             </Show>
             <Show when={operationCounts().delete > 0}>
-              <span class="flex items-center gap-0.5 text-[10px] text-red-400 bg-gray-800 px-1.5 py-0.5 rounded-full">
+              <span class="flex items-center gap-0.5 text-[11px] text-red-400 bg-gray-800 px-1.5 py-0.5 rounded-full">
                 <Icon icon="lucide:trash-2" class="w-2.5 h-2.5" />
                 {operationCounts().delete}
               </span>
             </Show>
             <Show when={operationCounts().read > 0}>
-              <span class="flex items-center gap-0.5 text-[10px] text-gray-400 bg-gray-800 px-1.5 py-0.5 rounded-full">
+              <span class="flex items-center gap-0.5 text-[11px] text-gray-400 bg-gray-800 px-1.5 py-0.5 rounded-full">
                 <Icon icon="lucide:eye" class="w-2.5 h-2.5" />
                 {operationCounts().read}
               </span>
             </Show>
           </div>
+          <Icon
+            icon={`lucide:chevron-${isCollapsed() ? "down" : "up"}`}
+            class="w-3.5 h-3.5 text-gray-400 ml-2"
+          />
         </button>
 
         {/* File List */}
@@ -224,7 +224,7 @@ export function FileActivityPanel() {
             <For each={fileOperations()}>
               {(op) => (
                 <button
-                  class="w-full flex items-center gap-3 px-3 py-0.5 hover:bg-white/10 transition-colors cursor-pointer text-left"
+                  class="w-full flex items-center gap-3 px-5 py-0.5 hover:bg-white/10 transition-colors cursor-pointer text-left"
                   onClick={() => handleFileClick(op.path)}
                   title={op.path}
                 >
