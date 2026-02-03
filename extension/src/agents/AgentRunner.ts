@@ -145,6 +145,13 @@ export interface AgentStartOptions {
   model?: string;
   /** Optional file attachments to include with the initial prompt */
   attachments?: FileAttachment[];
+  /**
+   * Optional system prompt injected as the first user message.
+   * Since VS Code Language Model API doesn't support system messages,
+   * this content is prepended as the first user message to provide
+   * role-specific instructions to the agent.
+   */
+  systemPrompt?: string;
 }
 
 /**
@@ -495,6 +502,11 @@ export class AgentRunner implements vscode.Disposable {
 
     // Create cancellation token
     this.cancellationTokenSource = new vscode.CancellationTokenSource();
+
+    // Inject system prompt as first message if provided (hidden from UI)
+    if (options.systemPrompt) {
+      this.addSystemMessage(options.systemPrompt);
+    }
 
     // Inject environment context so agent knows its operating environment
     const envContext = this.buildEnvironmentContext();
@@ -1040,13 +1052,29 @@ export class AgentRunner implements vscode.Disposable {
   /**
    * Convert AgentMessage[] to LanguageModelChatMessage[]
    *
+   * VS Code LM API only supports User and Assistant roles.
+   * System messages are converted to User messages and prepended to the conversation.
+   *
    * @param messages - Agent messages to convert
    * @returns Array of language model chat messages
    */
   private convertToLMMessages(
     messages: AgentMessage[],
   ): LanguageModelChatMessage[] {
-    return messages.map((msg) => {
+    // Separate system messages from user/assistant messages
+    const systemMessages = messages.filter((msg) => msg.role === "system");
+    const conversationMessages = messages.filter(
+      (msg) => msg.role !== "system",
+    );
+
+    // Convert system messages to User messages (prepended to conversation)
+    const systemLMMessages = systemMessages.map((msg) => {
+      const content = typeof msg.content === "string" ? msg.content : "";
+      return vscode.LanguageModelChatMessage.User(content);
+    });
+
+    // Convert conversation messages
+    const conversationLMMessages = conversationMessages.map((msg) => {
       const role =
         msg.role === "user"
           ? vscode.LanguageModelChatMessageRole.User
@@ -1108,6 +1136,9 @@ export class AgentRunner implements vscode.Disposable {
         ? vscode.LanguageModelChatMessage.User(textContent)
         : vscode.LanguageModelChatMessage.Assistant(textContent);
     });
+
+    // Return system messages first, then conversation messages
+    return [...systemLMMessages, ...conversationLMMessages];
   }
 
   /**
@@ -1812,6 +1843,27 @@ export class AgentRunner implements vscode.Disposable {
   }
 
   /**
+   * Add system message to session (hidden from UI, used for instructions)
+   *
+   * @param content - System message content
+   */
+  private addSystemMessage(content: string): void {
+    if (!this.session) {
+      return;
+    }
+
+    const message: AgentMessage = {
+      id: crypto.randomUUID(),
+      role: "system",
+      content,
+      timestamp: new Date().toISOString(),
+      iteration: this.session.currentIteration,
+    };
+
+    this.session.addMessage(message);
+  }
+
+  /**
    * Add user message to session
    *
    * @param content - Message content
@@ -2010,5 +2062,3 @@ export class AgentRunner implements vscode.Disposable {
     this.eventEmitter.emitSessionEnd(status);
   }
 }
-
-

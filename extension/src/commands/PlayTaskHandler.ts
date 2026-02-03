@@ -6,6 +6,7 @@
  * or inform that task is already complete.
  */
 
+import * as fs from "fs/promises";
 import * as path from "path";
 import * as vscode from "vscode";
 import {
@@ -31,6 +32,26 @@ async function showAgentPanel(): Promise<void> {
 
   // Then focus the Agent Panel view specifically
   await vscode.commands.executeCommand("orchestra.agentPanel.focus");
+}
+
+/**
+ * Read agent instruction file content for system prompt
+ *
+ * @param workspaceRoot Workspace root path
+ * @param role Agent role (orchestrator, implementor, controller)
+ * @returns File content as string
+ */
+async function readAgentInstructions(
+  workspaceRoot: string,
+  role: "orchestrator" | "implementor" | "controller",
+): Promise<string> {
+  const agentInstructionPath = path.join(
+    workspaceRoot,
+    ".github",
+    "agents",
+    `orchestra.${role}.agent.md`,
+  );
+  return await fs.readFile(agentInstructionPath, "utf-8");
 }
 
 /**
@@ -165,12 +186,10 @@ async function invokePrepare(
     // Show Agent Panel before starting
     await showAgentPanel();
 
-    // Get agent instruction path
-    const agentInstructionPath = path.join(
+    // Read agent instructions for system prompt
+    const systemPrompt = await readAgentInstructions(
       workspaceRoot,
-      ".github",
-      "agents",
-      "orchestra.orchestrator.agent.md",
+      "orchestrator",
     );
 
     // Start orchestrator agent for task preparation
@@ -182,7 +201,7 @@ async function invokePrepare(
 
     await agentRunner.start("orchestrator", {
       ...startOptions,
-      attachments: [{ path: agentInstructionPath }],
+      systemPrompt,
     });
 
     logger.info(`Started orchestrator agent to prepare task ${taskId}`, {
@@ -259,12 +278,10 @@ async function invokeImplement(
     // Show Agent Panel before starting
     await showAgentPanel();
 
-    // Get agent instruction path
-    const agentInstructionPath = path.join(
+    // Read agent instructions for system prompt
+    const systemPrompt = await readAgentInstructions(
       workspaceRoot,
-      ".github",
-      "agents",
-      "orchestra.implementor.agent.md",
+      "implementor",
     );
 
     // Invoke implementor agent for autonomous execution
@@ -276,7 +293,7 @@ async function invokeImplement(
 
     await agentRunner.start("implementor", {
       ...startOptions,
-      attachments: [{ path: agentInstructionPath }],
+      systemPrompt,
     });
 
     logger.info(`Started implementor agent for task ${taskId}`, {
@@ -375,12 +392,10 @@ async function invokeRetry(
     // Show Agent Panel before starting
     await showAgentPanel();
 
-    // Get agent instruction path
-    const agentInstructionPath = path.join(
+    // Read agent instructions for system prompt
+    const systemPrompt = await readAgentInstructions(
       workspaceRoot,
-      ".github",
-      "agents",
-      "orchestra.implementor.agent.md",
+      "implementor",
     );
 
     // Start implementor agent for retry
@@ -392,7 +407,7 @@ async function invokeRetry(
 
     await agentRunner.start("implementor", {
       ...startOptions,
-      attachments: [{ path: agentInstructionPath }],
+      systemPrompt,
     });
 
     logger.info(`Started implementor agent to retry task ${taskId}`, {
@@ -465,12 +480,10 @@ async function invokeVerify(
     // Show Agent Panel before starting
     await showAgentPanel();
 
-    // Get agent instruction path
-    const agentInstructionPath = path.join(
+    // Read agent instructions for system prompt
+    const systemPrompt = await readAgentInstructions(
       workspaceRoot,
-      ".github",
-      "agents",
-      "orchestra.orchestrator.agent.md",
+      "orchestrator",
     );
 
     // Start orchestrator agent for verification
@@ -482,7 +495,7 @@ async function invokeVerify(
 
     await agentRunner.start("orchestrator", {
       ...startOptions,
-      attachments: [{ path: agentInstructionPath }],
+      systemPrompt,
     });
 
     logger.info(`Started orchestrator agent to verify task ${taskId}`, {
@@ -576,12 +589,10 @@ async function invokeHandoverFix(
     // Show Agent Panel before starting
     await showAgentPanel();
 
-    // Get agent instruction path
-    const agentInstructionPath = path.join(
+    // Read agent instructions for system prompt
+    const systemPrompt = await readAgentInstructions(
       workspaceRoot,
-      ".github",
-      "agents",
-      "orchestra.orchestrator.agent.md",
+      "orchestrator",
     );
 
     // Start orchestrator agent to fix handover
@@ -593,7 +604,7 @@ async function invokeHandoverFix(
 
     await agentRunner.start("orchestrator", {
       ...startOptions,
-      attachments: [{ path: agentInstructionPath }],
+      systemPrompt,
     });
 
     logger.info("Started orchestrator agent to fix handover", {
@@ -682,12 +693,10 @@ async function invokeHandoverReview(
     // Show Agent Panel before starting
     await showAgentPanel();
 
-    // Get agent instruction path
-    const agentInstructionPath = path.join(
+    // Read agent instructions for system prompt
+    const systemPrompt = await readAgentInstructions(
       workspaceRoot,
-      ".github",
-      "agents",
-      "orchestra.controller.agent.md",
+      "controller",
     );
 
     // Start controller agent for handover review
@@ -699,7 +708,7 @@ async function invokeHandoverReview(
 
     await agentRunner.start("controller", {
       ...startOptions,
-      attachments: [{ path: agentInstructionPath }],
+      systemPrompt,
     });
 
     logger.info("Started controller agent for handover review", {
@@ -781,12 +790,10 @@ Use your MCP tools to investigate and resolve this escalation.`;
     // Show Agent Panel before starting
     await showAgentPanel();
 
-    // Get agent instruction path
-    const agentInstructionPath = path.join(
+    // Read agent instructions for system prompt
+    const systemPrompt = await readAgentInstructions(
       workspaceRoot,
-      ".github",
-      "agents",
-      "orchestra.orchestrator.agent.md",
+      "orchestrator",
     );
 
     // Start orchestrator agent for escalation review
@@ -798,7 +805,7 @@ Use your MCP tools to investigate and resolve this escalation.`;
 
     await agentRunner.start("orchestrator", {
       ...startOptions,
-      attachments: [{ path: agentInstructionPath }],
+      systemPrompt,
     });
 
     logger.info(

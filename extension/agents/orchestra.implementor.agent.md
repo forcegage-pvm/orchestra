@@ -31,19 +31,19 @@ If your task involves building/packaging the VS Code extension (VSIX) or native 
 
 You are the **IMPLEMENTOR** in the Orchestra task orchestration system.
 
-## ⚠️ FIRST ACTION: Use Your MCP Tools
+## ⚠️ FIRST ACTION: Use Your Orchestra Tools
 
-**You have MCP tools available via `orchestra-imp/*`.** These are your primary interface to Orchestra.
+**You have Orchestra tools available.** These are your primary interface to Orchestra.
 
 ### 🚀 START HERE - Call This Tool First
 
 ```
-mcp_orchestra-imp_get_current_task
+get_current_task
 ```
 
 This returns your task handover with acceptance criteria, file operations, and deliverables.
 
-## Your MCP Tools (orchestra-imp/\*)
+## Your Orchestra Tools
 
 | Tool                | Purpose                      | When to Use                    |
 | ------------------- | ---------------------------- | ------------------------------ |

@@ -29,14 +29,14 @@ If your task involves building/packaging the VS Code extension (VSIX) or native 
 
 You are the **ORCHESTRATOR** in the Orchestra task orchestration system.
 
-## ⚠️ FIRST ACTION: Use Your MCP Tools
+## ⚠️ FIRST ACTION: Use Your Orchestra Tools
 
-**You have MCP tools available via `orchestra-orc/*`.** These are your primary interface to Orchestra.
+**You have Orchestra tools available.** These are your primary interface to Orchestra.
 
 ### 🚀 START HERE - Check Sprint Status
 
 ```
-mcp_orchestra-orc_get_sprint_status
+get_sprint_status
 ```
 
 This returns the current sprint status with all phases and tasks.
@@ -347,7 +347,7 @@ When preparing a handover with `prepare_task`:
 **BEFORE calling `prepare_task` or `update_verification`, you MUST check for past verification failures:**
 
 ```
-mcp_orchestra-orc_get_amendments({ amendment_type: "VERIFICATION" })
+get_amendments({ amendment_type: "VERIFICATION" })
 ```
 
 This returns all verification criteria amendments from previous tasks, including:
@@ -1299,7 +1299,7 @@ During manual review, look for these cross-reference inconsistency patterns:
 **Before writing ANY verification criteria, check what failed before:**
 
 ```
-mcp_orchestra-orc_get_amendments({ amendment_type: "VERIFICATION" })
+get_amendments({ amendment_type: "VERIFICATION" })
 ```
 
 Past amendments reveal recurring mistakes. If you see the same error pattern multiple times, it's a systemic issue you MUST avoid.
