@@ -52,21 +52,21 @@
   .line-spin-fade-loader {
     position: relative;
     display: inline-block;
-    width: 18px;
-    height: 18px;
+    width: 15.3px;
+    height: 15.3px;
     color: inherit;
   }
 
   .line-spin-fade-loader > span {
     position: absolute;
-    top: 3px;
-    left: 8px;
-    width: 3px;
-    height: 8px;
-    border-radius: 2px;
+    top: 2.55px;
+    left: 6.8px;
+    width: 2.55px;
+    height: 6.8px;
+    border-radius: 1.7px;
     background: currentColor;
     animation: lineSpinFade 1s linear infinite;
-    transform-origin: center 9px;
+    transform-origin: center 7.65px;
     opacity: 0.15;
   }
 
