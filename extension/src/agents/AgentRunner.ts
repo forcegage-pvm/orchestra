@@ -1783,7 +1783,7 @@ export class AgentRunner implements vscode.Disposable {
    * Handle consecutive tool failures and auto-escalate when needed
    */
   private async handleConsecutiveFailures(): Promise<boolean> {
-    if (this.consecutiveErrors < 3 || !this.session) {
+    if (this.consecutiveErrors < 5 || !this.session) {
       return false;
     }
 

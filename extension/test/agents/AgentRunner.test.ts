@@ -991,7 +991,7 @@ describe("AgentRunner", () => {
       retryRunner.dispose();
     });
 
-    test("should auto-escalate after three consecutive tool failures", async () => {
+    test("should auto-escalate after five consecutive tool failures", async () => {
       const failingRegistry = new ToolRegistry();
       const alwaysFailTool: AgentTool = {
         name: "always_fail",
@@ -1008,7 +1008,7 @@ describe("AgentRunner", () => {
 
       const failRunner = new AgentRunner(failingRegistry, {
         maxToolRetries: 0,
-        maxIterations: 5,
+        maxIterations: 7,
         skipToolLoading: true,
       });
 
@@ -1043,7 +1043,7 @@ describe("AgentRunner", () => {
       const session = failRunner.getSession();
       expect(session?.status).toBe("failed");
       expect(vi.mocked(createEscalation)).toHaveBeenCalled();
-      expect((failRunner as any).consecutiveErrors).toBeGreaterThanOrEqual(3);
+      expect((failRunner as any).consecutiveErrors).toBeGreaterThanOrEqual(5);
 
       failRunner.dispose();
     });
