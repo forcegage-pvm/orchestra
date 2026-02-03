@@ -56,7 +56,6 @@ import { OrchestraViewDecorationProvider } from "./views/providers/ViewDecoratio
 import { SprintSettingsPanel } from "./views/settings/SprintSettingsPanel.js";
 import { StatusBarManager } from "./views/statusbar/StatusBarItem.js";
 import { TaskDetailPanel } from "./views/task/TaskDetailPanel.js";
-import { CodeReviewTreeProvider } from "./views/treeview/CodeReviewTreeProvider.js";
 import { SprintTreeProvider } from "./views/treeview/SprintTreeProvider.js";
 import { CodeReviewSummaryPanel } from "./views/webview/CodeReviewSummaryPanel.js";
 import { CurrentTaskViewProvider } from "./views/webview/CurrentTaskViewProvider.js";
@@ -907,20 +906,21 @@ export async function activate(
     context.subscriptions.push(treeView);
     logger.info("Sprint Explorer TreeView registered");
 
+    // TODO: Re-evaluate if Code Review and Workflow Controls views should be removed
     // 6a. Register Code Review TreeView
-    const codeReviewTreeProvider = new CodeReviewTreeProvider(
-      orchestraRoot,
-      dbWatcher,
-    );
-    const codeReviewTreeView = vscode.window.createTreeView(
-      "orchestra.codeReview",
-      {
-        treeDataProvider: codeReviewTreeProvider,
-        showCollapseAll: true,
-      },
-    );
-    context.subscriptions.push(codeReviewTreeView);
-    logger.info("Code Review TreeView registered");
+    // const codeReviewTreeProvider = new CodeReviewTreeProvider(
+    //   orchestraRoot,
+    //   dbWatcher,
+    // );
+    // const codeReviewTreeView = vscode.window.createTreeView(
+    //   "orchestra.codeReview",
+    //   {
+    //     treeDataProvider: codeReviewTreeProvider,
+    //     showCollapseAll: true,
+    //   },
+    // );
+    // context.subscriptions.push(codeReviewTreeView);
+    // logger.info("Code Review TreeView registered");
 
     // 6b. Register FileDecorationProvider for status-based styling (TD-016 DD-4)
     const decorationProvider = new OrchestraViewDecorationProvider();
@@ -945,7 +945,7 @@ export async function activate(
       }),
       vscode.commands.registerCommand("orchestra.refreshStatus", () => {
         treeProvider.refresh("manual");
-        codeReviewTreeProvider.refresh();
+        // codeReviewTreeProvider.refresh(); // Commented out - Code Review view hidden
         decorationProvider.refresh(); // Refresh file decorations (code review badges)
         statusBar.refresh();
         logger.info("Manual refresh triggered");

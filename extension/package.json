@@ -340,17 +340,6 @@
           "id": "orchestra.sprintExplorer",
           "name": "Sprint Explorer",
           "type": "tree"
-        },
-        {
-          "id": "orchestra.codeReview",
-          "name": "Code Review",
-          "type": "tree"
-        },
-        {
-          "id": "orchestra.workflowControls",
-          "name": "Workflow Controls",
-          "type": "webview",
-          "visibility": "collapsed"
         }
       ]
     },
