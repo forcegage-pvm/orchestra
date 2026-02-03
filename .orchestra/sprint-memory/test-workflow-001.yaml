@@ -7,49 +7,16 @@ taskSummaries:
   - taskId: 340
     title: Summary of 5 tasks
     outcome: success
-    attemptCount: 21
-    description: '#340: Summary of 5 tasks | #340: Task 340 | #339: Task 339 | #340: Task 340 | #339: Task 339'
+    attemptCount: 25
+    description: '#340: Summary of 5 tasks | #340: Task 340 | #339: Task 339 | #339: Task 339 | #340: Task 340'
     lessonsLearned: []
     issuesEncountered: []
     filesCreated: []
     filesModified: []
     filesDeleted: []
-    completedAt: '2026-02-03T13:50:15.343Z'
-  - taskId: 340
-    title: Task 340
-    outcome: success
-    attemptCount: 1
-    description: Task completed.
-    lessonsLearned: []
-    issuesEncountered: []
-    filesCreated: []
-    filesModified: []
-    filesDeleted: []
-    completedAt: '2026-02-03T13:58:13.035Z'
-  - taskId: 339
-    title: Task 339
-    outcome: success
-    attemptCount: 1
-    description: Task completed.
-    lessonsLearned: []
-    issuesEncountered: []
-    filesCreated: []
-    filesModified: []
-    filesDeleted: []
-    completedAt: '2026-02-03T14:26:59.497Z'
-  - taskId: 339
-    title: Task 339
-    outcome: success
-    attemptCount: 1
-    description: Task completed.
-    lessonsLearned: []
-    issuesEncountered: []
-    filesCreated: []
-    filesModified: []
-    filesDeleted: []
-    completedAt: '2026-02-03T15:50:39.373Z'
+    completedAt: '2026-02-03T16:13:21.508Z'
 implementorPatterns: []
-compactionCount: 5
-lastCompactedAt: '2026-02-03T13:50:15.344Z'
+compactionCount: 6
+lastCompactedAt: '2026-02-03T16:13:21.519Z'
 createdAt: '2026-01-31T09:38:43.362Z'
-updatedAt: '2026-02-03T15:50:39.375Z'
+updatedAt: '2026-02-03T16:13:21.519Z'

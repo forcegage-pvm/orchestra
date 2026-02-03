@@ -160,14 +160,14 @@ async function editLines(
       content: [
         {
           type: "error",
-          value: `start_line ${input.start_line} is out of bounds`,
+          value: `start_line ${input.start_line} is out of bounds (file has ${totalLines} lines). Use read_file to check the current line count before editing.`,
         },
       ],
       error: createToolError(
         ToolErrorCode.INVALID_INPUT,
         `start_line ${input.start_line} is out of bounds`,
-        `Provide a line number between 1 and ${totalLines}`,
-        { start_line: input.start_line, valid_range: `1-${totalLines}` },
+        `File has ${totalLines} lines. Use read_file to get current content, then specify start_line between 1 and ${totalLines}.`,
+        { start_line: input.start_line, file_has_lines: totalLines },
       ),
       metadata: {
         toolName: TOOL_NAME,
@@ -183,14 +183,14 @@ async function editLines(
       content: [
         {
           type: "error",
-          value: `end_line ${input.end_line} is out of bounds`,
+          value: `end_line ${input.end_line} is out of bounds (file has ${totalLines} lines). Use read_file to check the current line count before editing.`,
         },
       ],
       error: createToolError(
         ToolErrorCode.INVALID_INPUT,
         `end_line ${input.end_line} is out of bounds`,
-        `Provide a line number between 1 and ${totalLines}`,
-        { end_line: input.end_line, valid_range: `1-${totalLines}` },
+        `File has ${totalLines} lines. Use read_file to get current content, then specify end_line between 1 and ${totalLines}. For small files, consider using create_file to rewrite the entire file instead.`,
+        { end_line: input.end_line, file_has_lines: totalLines },
       ),
       metadata: {
         toolName: TOOL_NAME,
@@ -359,7 +359,7 @@ async function editLines(
 export const editLinesTool: AgentTool<EditLinesInput> = {
   name: TOOL_NAME,
   description:
-    "Replace a range of lines with new content, optionally preserving surrounding indentation.",
+    "Replace a specific range of lines in a file with new content. Best for targeted edits to known line ranges. ALWAYS read the file first with read_file to determine the current line count and content. For small files (<50 lines), consider using create_file with the entire new content instead. For search-and-replace operations, use smart_replace instead.",
   inputSchema: {
     type: "object",
     properties: {
@@ -397,4 +397,3 @@ export const editLinesTool: AgentTool<EditLinesInput> = {
     context: ToolInvocationContext,
   ): Promise<ToolResult> => editLines(input, context),
 };
-
