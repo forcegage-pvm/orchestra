@@ -19,7 +19,6 @@ import {
 } from "../../src/db/schema.js";
 import { handlePrepareTask } from "../../src/mcp-server/handlers/prepare-task.js";
 import { cleanupTestDb, setupTestDb } from "../setup/db-cache.js";
-import { SPEC_NOTES } from "../setup/test-fixtures.js";
 
 describe("prepare_task TDD Red-Phase Verification Auto-Injection", () => {
   const testSprintId = "test-sprint-tdd-red";
@@ -125,7 +124,6 @@ describe("prepare_task TDD Red-Phase Verification Auto-Injection", () => {
       // Prepare task
       const result = await handlePrepareTask({
         task_id: 1,
-        spec_consultation_notes: SPEC_NOTES,
         priority: "P0",
         context:
           "Test task for TDD red-phase verification. This validates auto-injection of checks.",
@@ -224,7 +222,6 @@ describe("prepare_task TDD Red-Phase Verification Auto-Injection", () => {
       // Prepare task
       const result = await handlePrepareTask({
         task_id: 1,
-        spec_consultation_notes: SPEC_NOTES,
         priority: "P0",
         context:
           "Test task for TDD cleanup verification. Cleanup is the implementor's responsibility during the GREEN phase.",
@@ -321,7 +318,6 @@ describe("prepare_task TDD Red-Phase Verification Auto-Injection", () => {
       // Prepare task
       const result = await handlePrepareTask({
         task_id: 1,
-        spec_consultation_notes: SPEC_NOTES,
         priority: "P0",
         context:
           "Test task for Dart TDD red-phase verification. Uses flutter test commands.",
@@ -421,7 +417,6 @@ describe("prepare_task TDD Red-Phase Verification Auto-Injection", () => {
       // Prepare task
       const result = await handlePrepareTask({
         task_id: 1,
-        spec_consultation_notes: SPEC_NOTES,
         priority: "P0",
         context:
           "Test task for Dart cleanup verification. Cleanup is the implementor's responsibility during the GREEN phase.",
@@ -519,7 +514,6 @@ describe("prepare_task TDD Red-Phase Verification Auto-Injection", () => {
       // Prepare task
       const result = await handlePrepareTask({
         task_id: 1,
-        spec_consultation_notes: SPEC_NOTES,
         priority: "P0",
         context: "Test task using explicit sprint environment configuration.",
         acceptance_criteria: [
@@ -619,7 +613,6 @@ describe("prepare_task TDD Red-Phase Verification Auto-Injection", () => {
       // Without explicit sprint config, this would infer "test/**/*.test.ts"
       const result = await handlePrepareTask({
         task_id: 1,
-        spec_consultation_notes: SPEC_NOTES,
         priority: "P0",
         context:
           "Test that explicit sprint config overrides default pattern inference.",
@@ -701,7 +694,6 @@ describe("prepare_task TDD Red-Phase Verification Auto-Injection", () => {
       // Prepare task
       const result = await handlePrepareTask({
         task_id: 1,
-        spec_consultation_notes: SPEC_NOTES,
         priority: "P0",
         context:
           "Test task without sprint config - should fallback to defaults.",
@@ -787,7 +779,6 @@ describe("prepare_task TDD Red-Phase Verification Auto-Injection", () => {
       // Prepare task
       await handlePrepareTask({
         task_id: 1,
-        spec_consultation_notes: SPEC_NOTES,
         priority: "P0",
         context:
           "Test task for verifying unique check ID generation with existing checks.",

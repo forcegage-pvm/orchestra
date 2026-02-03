@@ -110,33 +110,13 @@ const TOOLS_WITH_ROLES: ToolWithRole[] = [
               task_id: { type: "number" },
               phase_id: { type: "string" },
               title: { type: "string" },
-              summary: {
-                type: "string",
-                maxLength: 150,
-                description:
-                  "Brief reference-only task summary (max 150 chars). Cannot contain requirement language (must/shall/ensure/validate/verify). Use spec_task_refs for detailed requirements.",
-              },
-              description: {
-                type: "string",
-                description:
-                  "DEPRECATED: Use 'summary' instead. Kept for backward compatibility.",
-              },
+              description: { type: "string" },
               category: {
                 type: "string",
                 enum: ["INFRASTRUCTURE", "INTEGRATION", "VISUAL", "REFACTOR"],
               },
               dependencies: { type: "array", items: { type: "number" } },
-              spec_task_refs: {
-                type: "array",
-                items: { type: "string" },
-                description:
-                  'Array of spec task references. Each element must be a single task ID (e.g., ["T001", "T002", "T003"]). Range notation like "T001-T005" is NOT allowed - expand to individual IDs.',
-              },
-              speckit_task_ref: {
-                type: "string",
-                description:
-                  "DEPRECATED: Use 'spec_task_refs' array instead. Kept for backward compatibility.",
-              },
+              speckit_task_ref: { type: "string" },
               tdd_red_phase: {
                 type: "boolean",
                 description:
@@ -158,6 +138,7 @@ const TOOLS_WITH_ROLES: ToolWithRole[] = [
               "task_id",
               "phase_id",
               "title",
+              "description",
               "category",
               "dependencies",
               "verification",
@@ -211,17 +192,7 @@ const TOOLS_WITH_ROLES: ToolWithRole[] = [
           description: "Phase ID this task belongs to",
         },
         title: { type: "string", description: "Task title" },
-        summary: {
-          type: "string",
-          maxLength: 150,
-          description:
-            "Brief reference-only task summary (max 150 chars). Cannot contain requirement language (must/shall/ensure/validate/verify).",
-        },
-        description: {
-          type: "string",
-          description:
-            "DEPRECATED: Use 'summary' instead. Kept for backward compatibility.",
-        },
+        description: { type: "string", description: "Task description" },
         category: {
           type: "string",
           enum: ["INFRASTRUCTURE", "INTEGRATION", "VISUAL", "REFACTOR"],
@@ -232,16 +203,9 @@ const TOOLS_WITH_ROLES: ToolWithRole[] = [
           items: { type: "number" },
           description: "Array of task IDs this task depends on",
         },
-        spec_task_refs: {
-          type: "array",
-          items: { type: "string" },
-          description:
-            'Array of spec task references. Each element must be a single task ID (e.g., ["T001", "T002"]). Range notation like "T001-T005" is NOT allowed.',
-        },
         speckit_task_ref: {
           type: "string",
-          description:
-            "DEPRECATED: Use 'spec_task_refs' array instead. Kept for backward compatibility.",
+          description: "Optional speckit task reference",
         },
         tdd_red_phase: {
           type: "boolean",
@@ -309,6 +273,7 @@ const TOOLS_WITH_ROLES: ToolWithRole[] = [
       required: [
         "phase_id",
         "title",
+        "description",
         "category",
         "dependencies",
         "verification",
@@ -350,57 +315,21 @@ const TOOLS_WITH_ROLES: ToolWithRole[] = [
     role: "orchestrator",
     name: "update_task",
     description:
-      "Update task metadata (title, summary, category, dependencies, status)",
+      "Update task metadata (title, description, category, dependencies)",
     inputSchema: {
       type: "object",
       properties: {
         task_id: { type: "number", description: "The task ID" },
         title: { type: "string" },
-        summary: {
-          type: "string",
-          maxLength: 150,
-          description:
-            "Brief reference-only task summary (max 150 chars). Cannot contain requirement language.",
-        },
-        description: {
-          type: "string",
-          description:
-            "DEPRECATED: Use 'summary' instead. Kept for backward compatibility.",
-        },
+        description: { type: "string" },
         category: {
           type: "string",
           enum: ["INFRASTRUCTURE", "INTEGRATION", "VISUAL", "REFACTOR"],
         },
         dependencies: { type: "array", items: { type: "number" } },
         phase_id: { type: "string" },
-        spec_task_refs: {
-          type: "array",
-          items: { type: "string" },
-          description:
-            "Array of spec task references. Each element must be a single task ID. Range notation NOT allowed.",
-        },
-        speckit_task_ref: {
-          type: "string",
-          description:
-            "DEPRECATED: Use 'spec_task_refs' array instead. Kept for backward compatibility.",
-        },
+        speckit_task_ref: { type: "string" },
         tdd_red_phase: { type: "boolean" },
-        status: {
-          type: "string",
-          enum: [
-            "PENDING",
-            "PREPARE",
-            "IMPLEMENT",
-            "GATE_CHECK",
-            "VERIFY",
-            "VERIFY_FAILED",
-            "RETRY",
-            "ESCALATED",
-            "COMPLETE",
-          ],
-          description:
-            "TESTING: Task status can be updated during testing phase",
-        },
         rationale: {
           type: "string",
           description:
@@ -533,17 +462,11 @@ const TOOLS_WITH_ROLES: ToolWithRole[] = [
     role: "orchestrator",
     name: "prepare_task",
     description:
-      "Create handover for implementor with acceptance criteria and file operations. REQUIRES spec_consultation_notes proving you read the specification.",
+      "Create handover for implementor with acceptance criteria and file operations",
     inputSchema: {
       type: "object",
       properties: {
         task_id: { type: "number", description: "The task ID to prepare" },
-        spec_consultation_notes: {
-          type: "string",
-          minLength: 200,
-          description:
-            "REQUIRED: Evidence that you read the specification (min 200 chars). Describe which spec sections you consulted, specific requirements you extracted, and how acceptance criteria trace to the spec. This prevents using task summary as the source of truth.",
-        },
         acceptance_criteria: {
           type: "array",
           items: {
@@ -603,7 +526,6 @@ const TOOLS_WITH_ROLES: ToolWithRole[] = [
       },
       required: [
         "task_id",
-        "spec_consultation_notes",
         "acceptance_criteria",
         "file_operations",
         "deliverables",

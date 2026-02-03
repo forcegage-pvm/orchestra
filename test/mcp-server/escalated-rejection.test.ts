@@ -14,7 +14,6 @@ import { phases, sprintSettings, sprints, tasks } from "../../src/db/schema.js";
 import { handlePrepareTask } from "../../src/mcp-server/handlers/prepare-task.js";
 import { handleUpdateHandover } from "../../src/mcp-server/handlers/update-handover.js";
 import { cleanupTestDb, setupTestDb } from "../setup/db-cache.js";
-import { SPEC_NOTES } from "../setup/test-fixtures.js";
 
 describe("TD-016: ESCALATED Status Rejection", () => {
   const testSprintId = "test-sprint-escalated-td016";
@@ -101,7 +100,6 @@ describe("TD-016: ESCALATED Status Rejection", () => {
     it("should reject prepare_task for ESCALATED tasks with clear error", async () => {
       const result = await handlePrepareTask({
         task_id: testTaskId,
-        spec_consultation_notes: SPEC_NOTES,
         acceptance_criteria: [
           {
             criterion: "Test criterion",
@@ -135,7 +133,6 @@ describe("TD-016: ESCALATED Status Rejection", () => {
       // Attempt to prepare the escalated task
       await handlePrepareTask({
         task_id: testTaskId,
-        spec_consultation_notes: SPEC_NOTES,
         acceptance_criteria: [{ criterion: "Test", verification: "Check" }],
         file_operations: [
           { operation: "CREATE", path: "test.ts", description: "Test" },
@@ -198,7 +195,6 @@ describe("TD-016: ESCALATED Status Rejection", () => {
     it("should provide actionable guidance in rejection message", async () => {
       const result = await handlePrepareTask({
         task_id: testTaskId,
-        spec_consultation_notes: SPEC_NOTES,
         acceptance_criteria: [{ criterion: "Test", verification: "Check" }],
         file_operations: [
           { operation: "CREATE", path: "test.ts", description: "Test" },
@@ -218,7 +214,6 @@ describe("TD-016: ESCALATED Status Rejection", () => {
     it("should include task ID in rejection error for traceability", async () => {
       const result = await handlePrepareTask({
         task_id: testTaskId,
-        spec_consultation_notes: SPEC_NOTES,
         acceptance_criteria: [{ criterion: "Test", verification: "Check" }],
         file_operations: [
           { operation: "CREATE", path: "test.ts", description: "Test" },

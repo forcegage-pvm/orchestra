@@ -5,7 +5,10 @@
  */
 
 import { and, desc, eq, inArray, ne } from "drizzle-orm";
-import { parseSpecTaskDefinitions } from "../../core/spec-task-parser.js";
+import {
+  parseSpecTaskDefinitions,
+  parseSpeckitTaskRefs,
+} from "../../core/spec-task-parser.js";
 import { getActiveSprint, getDb } from "../../db/index.js";
 import {
   codeReviewIssues,
@@ -31,25 +34,6 @@ type CodeReviewStatus =
   | "PENDING_VERIFICATION";
 
 type CodeReviewRisk = "LOW" | "MEDIUM" | "HIGH";
-
-/**
- * Parse spec_task_refs from JSON array or plain string (legacy format)
- * TD-032: Supports both new JSON array format and legacy string format
- */
-function parseSpecTaskRefs(value: string | null): string[] {
-  if (!value) return [];
-  try {
-    const parsed = JSON.parse(value);
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    // Legacy format: comma-separated string like "T001,T002" or single value "T010"
-    // Split by comma and trim whitespace
-    return value
-      .split(",")
-      .map((s) => s.trim())
-      .filter((s) => s.length > 0);
-  }
-}
 
 export async function handleGetCodeReview(input: unknown) {
   const startTime = performance.now();
@@ -188,7 +172,7 @@ async function getTaskReview(
 
   const history = includeHistory ? await getReviewHistory(review) : undefined;
 
-  const specTaskIds = parseSpecTaskRefs(task.speckit_task_ref); // TD-032: Map speckit_task_ref column
+  const specTaskIds = parseSpeckitTaskRefs(task.speckit_task_ref);
   const specPath = sprint.spec_path ?? null;
   const specFiles = parseJsonArray(sprint.spec_files);
   const specTaskDefinitions =

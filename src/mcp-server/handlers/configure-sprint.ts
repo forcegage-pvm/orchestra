@@ -220,20 +220,7 @@ async function configureSprint(input: ConfigureSprintInput): Promise<{
   // Type guard: After this check, TypeScript knows these are defined
   const sprint = input.sprint;
   const phasesData = input.phases;
-
-  // TD-032: Normalize tasks - use description field (keep backward compatibility)
-  // Accept both summary (preferred) and description (legacy) in input, store in description column
-  const tasksData = input.tasks.map((task) => ({
-    ...task,
-    // Use summary if provided, otherwise fall back to description (legacy)
-    description: task.summary ?? task.description ?? "Task summary",
-    // TD-032: Keep original format for backward compatibility
-    // If spec_task_refs (array) is provided, store as JSON array string
-    // If speckit_task_ref (string) is provided, store as-is for backward compatibility
-    speckit_task_ref: task.spec_task_refs?.length
-      ? JSON.stringify(task.spec_task_refs)
-      : (task.speckit_task_ref ?? null),
-  }));
+  const tasksData = input.tasks;
 
   let computedSpecHash: string | null = null;
   let specWarning: string | undefined;
@@ -362,10 +349,10 @@ async function configureSprint(input: ConfigureSprintInput): Promise<{
     phase_id: phaseIdMap.get(task.phase_id)!,
     task_id: task.task_id,
     title: task.title,
-    description: task.description, // TD-032: accepts summary in input, stores in description column
+    description: task.description,
     category: task.category,
     dependencies: JSON.stringify(task.dependencies),
-    speckit_task_ref: task.speckit_task_ref, // TD-032: Already processed - string or JSON array string
+    speckit_task_ref: task.speckit_task_ref || null,
     status: "PENDING",
     retry_count: 0,
     max_retries: 3,
