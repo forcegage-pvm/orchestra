@@ -151,10 +151,10 @@ export function ToolCallCard(props: ToolCallCardProps) {
     <div class="rounded animate-fadeIn">
       {/* Header Row */}
       <div class="flex items-center gap-1.5 px-2 py-1">
-        {/* Tool Icon - use leading-none to align with text baseline */}
+        {/* Tool Icon - slightly smaller with top padding for alignment */}
         <ToolIcon
           toolName={props.toolCall.toolName}
-          class="w-3.5 h-3.5 text-cyan-500 flex-shrink-0 self-center"
+          class="w-3 h-3 flex-shrink-0 mt-0.5"
         />
 
         {/* Tool Name */}

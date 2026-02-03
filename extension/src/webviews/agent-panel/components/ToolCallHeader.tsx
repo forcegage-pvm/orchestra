@@ -86,7 +86,7 @@ export function ToolCallHeader(props: ToolCallHeaderProps) {
       <div class="flex items-center gap-1.5">
         <ToolIcon
           toolName={props.toolCall.toolName}
-          class="w-3.5 h-3.5 text-gray-400"
+          class="w-3 h-3 mt-0.5"
         />
         <div class="flex flex-col">
           <div class="text-xs font-medium text-gray-300 leading-tight">
