@@ -57,9 +57,13 @@ async function listDirectoryContents(
   context: ToolInvocationContext,
 ): Promise<ToolResult> {
   const callId = crypto.randomUUID();
-  context.observer?.onProgress?.(callId, `Listing directory: ${input.path}`);
 
-  const validatedPath = await validatePath(input.path, context.workspaceRoot);
+  // Default to workspace root if path is not provided
+  const inputPath = input.path?.trim() || ".";
+
+  context.observer?.onProgress?.(callId, `Listing directory: ${inputPath}`);
+
+  const validatedPath = await validatePath(inputPath, context.workspaceRoot);
   if (!validatedPath.isValid) {
     return errorFromToolError(validatedPath.error);
   }
@@ -129,10 +133,11 @@ export const listDirectoryTool: AgentTool<ListDirectoryInput> = {
     properties: {
       path: {
         type: "string",
-        description: "Path to the directory relative to workspace root",
+        description:
+          "Path to the directory relative to workspace root. Defaults to '.' (workspace root) if not provided.",
       },
     },
-    required: ["path"],
+    required: [],
   },
   invoke: async (
     input: ListDirectoryInput,
