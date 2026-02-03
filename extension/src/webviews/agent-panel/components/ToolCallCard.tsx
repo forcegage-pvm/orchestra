@@ -111,14 +111,14 @@ export function ToolCallCard(props: ToolCallCardProps) {
     <div class="rounded animate-fadeIn">
       {/* Header Row */}
       <div class="flex items-center gap-1.5 px-2 py-1">
-        {/* Tool Icon */}
+        {/* Tool Icon - use leading-none to align with text baseline */}
         <ToolIcon
           toolName={props.toolCall.toolName}
-          class="w-3.5 h-3.5 text-cyan-500 flex-shrink-0"
+          class="w-3.5 h-3.5 text-cyan-500 flex-shrink-0 self-center"
         />
 
         {/* Tool Name */}
-        <span class="text-xs text-gray-400">
+        <span class="text-xs text-gray-400 leading-none">
           {props.toolCall.toolName}
         </span>
 
@@ -155,7 +155,7 @@ export function ToolCallCard(props: ToolCallCardProps) {
       </div>
 
       {/* Tab Row - Always visible, aligned with tool name */}
-      <div class="flex items-center gap-4 pl-7 pr-2 pb-1">
+      <div class="flex items-center gap-4 pl-7 pr-2 -mt-0.5 pb-1">
         {/* Input Tab */}
         <button
           onClick={() => toggleTab("input")}
