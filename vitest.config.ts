@@ -6,8 +6,8 @@ export default defineConfig({
   test: {
     globals: true,
     environment: "node",
-    include: ["test/**/*.test.ts"],
-    exclude: ["node_modules", "dist"],
+    include: ["test/**/*.test.ts", "testing/**/*.test.ts"],
+    exclude: ["node_modules", "dist", "testing/tdd-test-harness/**"],
     // Global setup - creates pre-migrated database template once
     globalSetup: ["./test/setup/global-setup.ts"],
     coverage: {
@@ -27,7 +27,7 @@ export default defineConfig({
         // Reduce overhead by reusing workers
         reuseWorkers: true,
         // Allow shared context for related tests to improve performance
-        isolate: false,
+        isolate: true,
       },
     },
     // Enable file-level parallelism

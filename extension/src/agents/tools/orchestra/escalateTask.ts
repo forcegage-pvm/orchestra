@@ -1,121 +1,44 @@
 /**
- * escalateTask tool - Escalate blocked task to human supervisor
+ * escalateTask tool - Wrapper around MCP handler for escalate_task
  */
 
-import type { AgentTool } from "../../ToolRegistry.js";
-import type { ToolContext, ToolResult } from "../../types.js";
-import { createEscalation } from "../../../database/mutations.js";
-import { getCurrentTask } from "../../../database/queries.js";
-
-interface EscalateTaskInput {
-  reason: string;
-  attempts_summary: string;
-  recommended_action?: string;
-  recommended_target_status?: string;
-  early_escalation_reason?: string;
-}
+import { handleEscalateTask } from "../../../../../src/mcp-server/handlers/escalate-task.js";
+import type { AgentTool, ToolInvocationContext, ToolResult } from "../types.js";
+import { executeMcpHandler } from "./mcpAdapter.js";
 
 export const escalateTaskTool: AgentTool = {
   name: "escalate_task",
-  description: "Escalate the current task to the human supervisor.",
+  description: "Escalate stuck task to human supervisor",
   inputSchema: {
-    type: "object",
+    type: "object" as const,
     properties: {
+      task_id: {
+        type: "number",
+        description: "The task ID to escalate",
+      },
       reason: {
         type: "string",
-        description: "Reason for escalation",
+        description: "Reason for escalation (min 10 chars)",
       },
       attempts_summary: {
         type: "string",
-        description: "Summary of attempts made",
+        description: "Summary of attempts made (min 10 chars)",
       },
       recommended_action: {
         type: "string",
-        description: "Optional recommended action for supervisor",
-      },
-      recommended_target_status: {
-        type: "string",
-        description: "Optional recommended target status",
+        description: "Optional recommended action",
       },
       early_escalation_reason: {
         type: "string",
-        description: "Required when retry_count is 0",
+        description:
+          "Required when retry_count=0. Justify why immediate escalation is needed (e.g., external blocker, access issue). Min 10 chars.",
       },
     },
-    required: ["reason", "attempts_summary"],
+    required: ["task_id", "reason", "attempts_summary"],
   },
-  execute: async (
+  invoke: async (
     input: unknown,
-    context: ToolContext,
-  ): Promise<ToolResult> => {
-    try {
-      const parsed = input as EscalateTaskInput;
-      const currentTask = getCurrentTask(context.workspaceRoot);
-
-      if (!currentTask) {
-        return {
-          success: false,
-          output: "",
-          error: "No current task found to escalate.",
-        };
-      }
-
-      if (
-        currentTask.retry_count === 0 &&
-        parsed.early_escalation_reason === undefined
-      ) {
-        return {
-          success: false,
-          output: "",
-          error: "Early escalation reason is required when retry_count is 0.",
-        };
-      }
-
-      const escalationInput: {
-        reason: string;
-        attemptsSummary: string;
-        recommendedAction?: string;
-        recommendedTargetStatus?: string;
-        earlyEscalationReason?: string;
-      } = {
-        reason: parsed.reason,
-        attemptsSummary: parsed.attempts_summary,
-      };
-
-      if (parsed.recommended_action !== undefined) {
-        escalationInput.recommendedAction = parsed.recommended_action;
-      }
-
-      if (parsed.recommended_target_status !== undefined) {
-        escalationInput.recommendedTargetStatus =
-          parsed.recommended_target_status;
-      }
-
-      if (parsed.early_escalation_reason !== undefined) {
-        escalationInput.earlyEscalationReason = parsed.early_escalation_reason;
-      }
-
-      const escalationId = createEscalation(
-        context.workspaceRoot,
-        currentTask.id,
-        escalationInput,
-      );
-
-      return {
-        success: true,
-        output: JSON.stringify({
-          escalation_id: escalationId,
-          task_id: currentTask.task_id,
-          status: "ESCALATED",
-        }),
-      };
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Unknown error";
-      return {
-        success: false,
-        output: "",
-        error: `Failed to escalate task: ${message}`,
-      };
-    }
-  },
+    context: ToolInvocationContext,
+  ): Promise<ToolResult> =>
+    executeMcpHandler(context, "escalate_task", handleEscalateTask, input),
 };

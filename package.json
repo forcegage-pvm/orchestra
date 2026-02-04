@@ -1,6 +1,6 @@
 {
   "name": "orchestra",
-  "version": "1.0.2",
+  "version": "1.0.1",
   "description": "AI Agent Task Orchestration - Aligned with Orchestra Bible v0.7.0",
   "type": "module",
   "main": "./dist/core/index.js",

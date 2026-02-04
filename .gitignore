@@ -9,6 +9,13 @@ coverage/
 tsup.config.bundled_*.mjs
 # Vitest cache
 .vitest-cache/
+# Dart/Flutter build artifacts
+.dart_tool/
+# Extension artifacts - track folder but ignore VSIX files
+extension/artifacts/*.vsix
+extension/.orchestra/
 
 # Orchestra workflow
 .orchestra/.signal
+# Deprecated file-based session storage (replaced by database)
+.orchestra/sessions/

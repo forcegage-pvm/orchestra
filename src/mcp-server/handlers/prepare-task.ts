@@ -399,7 +399,6 @@ async function prepareTask(
       .update(handovers)
       .set({
         priority: input.priority,
-        spec_consultation_notes: input.spec_consultation_notes, // TD-032: Evidence of spec reading
         context: input.context || null,
         context_files: input.context_files
           ? JSON.stringify(input.context_files)
@@ -423,7 +422,6 @@ async function prepareTask(
     await db.insert(handovers).values({
       task_id: task.id,
       priority: input.priority,
-      spec_consultation_notes: input.spec_consultation_notes, // TD-032: Evidence of spec reading
       context: input.context || null,
       context_files: input.context_files
         ? JSON.stringify(input.context_files)

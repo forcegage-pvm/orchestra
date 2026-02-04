@@ -12,30 +12,9 @@
 import { randomUUID } from "crypto";
 import type { LanguageModelChatTool } from "vscode";
 import { ToolExecutionError } from "./errors.js";
-import type { ToolContext, ToolInputSchema, ToolResult } from "./types.js";
+import type { ToolInvocationContext, ToolResult } from "./tools/types.js";
 
-/**
- * Tool definition for registration
- */
-export interface AgentTool {
-  /** Unique tool name */
-  name: string;
-
-  /** Human-readable description for LLM */
-  description: string;
-
-  /** JSON Schema for input parameters */
-  inputSchema: ToolInputSchema;
-
-  /**
-   * Execute the tool
-   *
-   * @param input - Parsed input from LLM
-   * @param context - Execution context
-   * @returns Tool result
-   */
-  execute(input: unknown, context: ToolContext): Promise<ToolResult>;
-}
+export type AgentTool = import("./tools/types.js").AgentTool;
 
 /**
  * Tool execution options
@@ -81,6 +60,14 @@ export class ToolRegistry {
   private tools: Map<string, AgentTool> = new Map();
 
   /**
+   * Clear all registered tools.
+   * Call this before loading a new set of role-specific tools.
+   */
+  clear(): void {
+    this.tools.clear();
+  }
+
+  /**
    * Register a tool
    *
    * @param tool - Tool to register
@@ -90,7 +77,7 @@ export class ToolRegistry {
     if (this.tools.has(tool.name)) {
       throw new ToolExecutionError(
         `Tool '${tool.name}' is already registered`,
-        tool.name
+        tool.name,
       );
     }
     this.tools.set(tool.name, tool);
@@ -183,8 +170,8 @@ export class ToolRegistry {
   async execute(
     name: string,
     input: unknown,
-    context: ToolContext,
-    options?: ToolExecutionOptions
+    context: ToolInvocationContext,
+    options?: ToolExecutionOptions,
   ): Promise<ToolExecutionResult> {
     const tool = this.tools.get(name);
     if (!tool) {
@@ -202,11 +189,21 @@ export class ToolRegistry {
     // Try execution with retries
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
       try {
-        const result = timeout
+        const rawResult = timeout
           ? await this.executeWithTimeout(tool, input, context, timeout)
-          : await tool.execute(input, context);
+          : await tool.invoke(input, context);
 
         const durationMs = Date.now() - startTime;
+        const result: ToolResult = {
+          ...rawResult,
+          metadata: {
+            ...rawResult.metadata,
+            toolName: tool.name,
+            callId: toolCallId,
+            durationMs,
+            retryCount,
+          },
+        };
 
         return {
           result,
@@ -242,7 +239,7 @@ export class ToolRegistry {
         durationMs,
         toolCallId,
         lastError: lastError?.message,
-      }
+      },
     );
   }
 
@@ -259,11 +256,11 @@ export class ToolRegistry {
   private async executeWithTimeout(
     tool: AgentTool,
     input: unknown,
-    context: ToolContext,
-    timeoutMs: number
+    context: ToolInvocationContext,
+    timeoutMs: number,
   ): Promise<ToolResult> {
     return Promise.race([
-      tool.execute(input, context),
+      tool.invoke(input, context),
       this.createTimeoutPromise(timeoutMs, tool.name),
     ]);
   }
@@ -277,14 +274,14 @@ export class ToolRegistry {
    */
   private createTimeoutPromise(
     timeoutMs: number,
-    toolName: string
+    toolName: string,
   ): Promise<never> {
     return new Promise((_, reject) => {
       setTimeout(() => {
         reject(
           new Error(
-            `Tool '${toolName}' execution timed out after ${timeoutMs}ms`
-          )
+            `Tool '${toolName}' execution timed out after ${timeoutMs}ms`,
+          ),
         );
       }, timeoutMs);
     });

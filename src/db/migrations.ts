@@ -931,26 +931,81 @@ const MIGRATIONS: Migration[] = [
       );
     },
   },
-  // TD-032: Spec-First Handover Enforcement
-  // Add spec_consultation_notes to handovers table to require spec evidence
   {
-    id: "20260129_001_td032_spec_first_enforcement",
+    id: "20260131_018_add_agent_session_tables",
     description:
-      "TD-032: Add spec_consultation_notes to handovers for spec-first enforcement",
+      "Add agent_sessions and session_events tables for Agent Panel UI Rework feature",
     up: async () => {
       const db = getDb();
 
-      // Check if handovers table has 'spec_consultation_notes' column
-      const handoverColumns = await db.all(sql`PRAGMA table_info(handovers)`);
-      const hasSpecConsultation = (handoverColumns as { name: string }[]).some(
-        (col) => col.name === "spec_consultation_notes",
+      // Check if agent_sessions table already exists (idempotent)
+      const sessionsTables = await db.all(
+        sql`SELECT name FROM sqlite_master WHERE type='table' AND name='agent_sessions'`,
+      );
+      if ((sessionsTables as { name: string }[]).length > 0) {
+        return; // Already exists
+      }
+
+      // Create agent_sessions table
+      await db.run(sql`
+        CREATE TABLE agent_sessions (
+          id TEXT PRIMARY KEY,
+          task_id INTEGER NOT NULL,
+          sprint_id TEXT NOT NULL,
+          role TEXT NOT NULL,
+          status TEXT NOT NULL,
+          status_message TEXT,
+          started_at TEXT NOT NULL,
+          last_activity_at TEXT NOT NULL,
+          ended_at TEXT,
+          iteration INTEGER NOT NULL DEFAULT 0,
+          max_iterations INTEGER NOT NULL DEFAULT 50,
+          tool_call_count INTEGER NOT NULL DEFAULT 0,
+          successful_tool_calls INTEGER NOT NULL DEFAULT 0,
+          failed_tool_calls INTEGER NOT NULL DEFAULT 0,
+          warning_count INTEGER NOT NULL DEFAULT 0,
+          files_modified JSON NOT NULL DEFAULT '[]',
+          duration_ms INTEGER,
+          FOREIGN KEY (task_id) REFERENCES tasks(id)
+        )
+      `);
+
+      // Create indexes for agent_sessions
+      await db.run(
+        sql`CREATE INDEX IF NOT EXISTS idx_sessions_task ON agent_sessions(task_id)`,
+      );
+      await db.run(
+        sql`CREATE INDEX IF NOT EXISTS idx_sessions_role ON agent_sessions(task_id, role)`,
       );
 
-      if (!hasSpecConsultation) {
-        await db.run(
-          sql`ALTER TABLE handovers ADD COLUMN spec_consultation_notes TEXT`,
-        );
-      }
+      // Create session_events table
+      await db.run(sql`
+        CREATE TABLE session_events (
+          id TEXT PRIMARY KEY,
+          session_id TEXT NOT NULL,
+          type TEXT NOT NULL,
+          timestamp TEXT NOT NULL,
+          iteration INTEGER NOT NULL,
+          tool_call_id TEXT,
+          tool_name TEXT,
+          success INTEGER,
+          duration_ms INTEGER,
+          severity TEXT,
+          payload JSON NOT NULL,
+          FOREIGN KEY (session_id) REFERENCES agent_sessions(id) ON DELETE CASCADE
+        )
+      `);
+
+      // Create indexes for session_events
+      await db.run(
+        sql`CREATE INDEX IF NOT EXISTS idx_events_session ON session_events(session_id)`,
+      );
+      await db.run(
+        sql`CREATE INDEX IF NOT EXISTS idx_events_tool_call ON session_events(tool_call_id)`,
+      );
+      await db.run(
+        sql`CREATE INDEX IF NOT EXISTS idx_events_type ON session_events(session_id, type)`,
+      );
     },
   },
 ];

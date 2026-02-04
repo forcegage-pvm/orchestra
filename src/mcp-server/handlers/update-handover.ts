@@ -40,7 +40,7 @@ export async function handleUpdateHandover(input: unknown) {
         taskId: validation.data.task_id,
       },
       { success: true, output },
-      durationMs,
+      durationMs
     );
 
     return {
@@ -58,7 +58,7 @@ export async function handleUpdateHandover(input: unknown) {
         taskId: validation.data.task_id,
       },
       { success: false, errorMessage: err.message },
-      durationMs,
+      durationMs
     );
 
     return {
@@ -74,7 +74,7 @@ export async function handleUpdateHandover(input: unknown) {
               },
             },
             null,
-            2,
+            2
           ),
         },
       ],
@@ -83,7 +83,7 @@ export async function handleUpdateHandover(input: unknown) {
 }
 
 async function updateHandover(
-  input: typeof UpdateHandoverInputSchema._output,
+  input: typeof UpdateHandoverInputSchema._output
 ): Promise<UpdateHandoverOutput> {
   const db = getDb();
 
@@ -99,7 +99,7 @@ async function updateHandover(
     .select()
     .from(tasks)
     .where(
-      and(eq(tasks.sprint_id, sprint.id), eq(tasks.task_id, input.task_id)),
+      and(eq(tasks.sprint_id, sprint.id), eq(tasks.task_id, input.task_id))
     )
     .limit(1);
 
@@ -111,7 +111,7 @@ async function updateHandover(
   if (task.status === "ESCALATED") {
     throw new Error(
       `Task ${input.task_id} is ESCALATED and cannot be modified. ` +
-        `Human supervisor must de-escalate the task first using VS Code.`,
+        `Human supervisor must de-escalate the task first using VS Code.`
     );
   }
 
@@ -135,7 +135,7 @@ async function updateHandover(
 
   if (input.acceptance_criteria !== undefined) {
     updateFields.acceptance_criteria = JSON.stringify(
-      input.acceptance_criteria,
+      input.acceptance_criteria
     );
     updatedFieldNames.push("acceptance_criteria");
   }
@@ -150,10 +150,6 @@ async function updateHandover(
   if (input.priority !== undefined) {
     updateFields.priority = input.priority;
     updatedFieldNames.push("priority");
-  }
-  if (input.spec_consultation_notes !== undefined) {
-    updateFields.spec_consultation_notes = input.spec_consultation_notes;
-    updatedFieldNames.push("spec_consultation_notes");
   }
   if (input.context !== undefined) {
     updateFields.context = input.context;
@@ -214,8 +210,8 @@ async function updateHandover(
       .where(
         and(
           eq(specReviews.task_id, task.id),
-          eq(specReviews.review_type, "AMENDMENT"),
-        ),
+          eq(specReviews.review_type, "AMENDMENT")
+        )
       );
     const previousAmendments = revisionCountResult[0]?.count ?? 0;
 
@@ -239,7 +235,7 @@ async function updateHandover(
         `Handover amended: ${updatedFieldNames.join(", ")}`,
       ]),
       notes: `Handover updated by orchestrator after rejection. Modified fields: ${updatedFieldNames.join(
-        ", ",
+        ", "
       )}`,
       reviewed_by: "orchestrator",
       reviewed_at: now,

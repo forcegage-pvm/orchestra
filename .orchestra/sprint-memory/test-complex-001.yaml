@@ -1,0 +1,22 @@
+version: '1.0'
+sprintId: test-complex-001
+sprintName: test-complex-001
+goals: []
+architectureDecisions: []
+taskSummaries:
+  - taskId: 497
+    title: Summary of 5 tasks
+    outcome: success
+    attemptCount: 13
+    description: '#496: Summary of 5 tasks | #494: Task 494 | #495: Task 495 | #496: Task 496 | #497: Task 497'
+    lessonsLearned: []
+    issuesEncountered: []
+    filesCreated: []
+    filesModified: []
+    filesDeleted: []
+    completedAt: '2026-02-04T10:25:19.654Z'
+implementorPatterns: []
+compactionCount: 3
+lastCompactedAt: '2026-02-04T10:25:19.655Z'
+createdAt: '2026-02-03T16:43:35.740Z'
+updatedAt: '2026-02-04T10:25:19.655Z'

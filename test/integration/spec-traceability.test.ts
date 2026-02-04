@@ -14,7 +14,6 @@ import { handleGetSprintStatus } from "../../src/mcp-server/handlers/get-sprint-
 import { handleGetTaskForReview } from "../../src/mcp-server/handlers/get-task-for-review.js";
 import { handleSubmitCodeReview } from "../../src/mcp-server/handlers/submit-code-review.js";
 import { cleanupTestDb, setupTestDb } from "../setup/db-cache.js";
-import { SPEC_NOTES } from "../setup/test-fixtures.js";
 
 const { codeReviewIssues, sprints, tasks } = schema;
 

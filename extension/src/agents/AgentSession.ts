@@ -11,14 +11,14 @@ import * as fs from "fs";
 import * as path from "path";
 import { SessionError } from "./errors.js";
 import {
-  AgentSessionSchema,
-  AgentRole,
-  AgentStatus,
   AgentMessage,
-  ToolCall,
-  FileChange,
+  AgentRole,
+  AgentSessionSchema,
+  AgentStatus,
   CheckpointReference,
+  FileChange,
   RecoveryInfo,
+  ToolCall,
 } from "./types.js";
 
 /**
@@ -42,6 +42,7 @@ export class AgentSession {
   public readonly id: string;
   public readonly role: AgentRole;
   public taskId: number | null;
+  public taskNumber: number | undefined; // Sprint-scoped sequential task number (1, 2, 3...)
   public readonly sprintId: string;
 
   // Lifecycle
@@ -78,7 +79,7 @@ export class AgentSession {
     role: AgentRole,
     sprintId: string,
     taskId: number | null = null,
-    maxIterations: number = 50
+    maxIterations: number = 50,
   ) {
     const now = new Date().toISOString();
 
@@ -150,7 +151,7 @@ export class AgentSession {
       throw new SessionError(
         `Maximum iterations (${this.maxIterations}) exceeded`,
         this.id,
-        { currentIteration: this.currentIteration }
+        { currentIteration: this.currentIteration },
       );
     }
 
@@ -168,7 +169,7 @@ export class AgentSession {
       throw new SessionError(
         `Cannot pause session with status: ${this.status}`,
         this.id,
-        { currentStatus: this.status }
+        { currentStatus: this.status },
       );
     }
 
@@ -178,12 +179,11 @@ export class AgentSession {
       canResume: true,
       resumeFromIteration: this.currentIteration,
       resumeFromToolCall:
-        this.toolCalls.length > 0 && lastToolCall
-          ? lastToolCall.id
-          : null,
+        this.toolCalls.length > 0 && lastToolCall ? lastToolCall.id : null,
       failureReason: null,
     };
     this.updateActivityTimestamp();
+    this.triggerAutoSave();
   }
 
   /**
@@ -196,7 +196,7 @@ export class AgentSession {
       throw new SessionError(
         `Cannot stop session with status: ${this.status}`,
         this.id,
-        { currentStatus: this.status }
+        { currentStatus: this.status },
       );
     }
 
@@ -206,9 +206,7 @@ export class AgentSession {
       canResume: true,
       resumeFromIteration: this.currentIteration,
       resumeFromToolCall:
-        this.toolCalls.length > 0 && lastToolCall
-          ? lastToolCall.id
-          : null,
+        this.toolCalls.length > 0 && lastToolCall ? lastToolCall.id : null,
       failureReason: null,
     };
     this.updateActivityTimestamp();
@@ -222,16 +220,14 @@ export class AgentSession {
       throw new SessionError(
         `Cannot resume session with status: ${this.status}`,
         this.id,
-        { currentStatus: this.status }
+        { currentStatus: this.status },
       );
     }
 
     if (!this.recoveryInfo.canResume) {
-      throw new SessionError(
-        "Session cannot be resumed",
-        this.id,
-        { failureReason: this.recoveryInfo.failureReason }
-      );
+      throw new SessionError("Session cannot be resumed", this.id, {
+        failureReason: this.recoveryInfo.failureReason,
+      });
     }
 
     this.status = "running";
@@ -246,7 +242,7 @@ export class AgentSession {
       throw new SessionError(
         `Cannot complete session with status: ${this.status}`,
         this.id,
-        { currentStatus: this.status }
+        { currentStatus: this.status },
       );
     }
 
@@ -270,7 +266,7 @@ export class AgentSession {
       throw new SessionError(
         `Cannot fail session with status: ${this.status}`,
         this.id,
-        { currentStatus: this.status }
+        { currentStatus: this.status },
       );
     }
 
@@ -343,11 +339,9 @@ export class AgentSession {
     const parseResult = AgentSessionSchema.safeParse(data);
 
     if (!parseResult.success) {
-      throw new SessionError(
-        "Invalid session data",
-        "unknown",
-        { errors: parseResult.error.errors }
-      );
+      throw new SessionError("Invalid session data", "unknown", {
+        errors: parseResult.error.errors,
+      });
     }
 
     const validated = parseResult.data;
@@ -357,7 +351,7 @@ export class AgentSession {
       validated.role,
       validated.sprintId,
       validated.taskId,
-      validated.maxIterations
+      validated.maxIterations,
     );
 
     // Override generated fields with loaded data
@@ -398,7 +392,7 @@ export class AgentSession {
         throw new SessionError(
           "Session data validation failed before save",
           this.id,
-          { errors: parseResult.error.errors }
+          { errors: parseResult.error.errors },
         );
       }
 
@@ -410,11 +404,9 @@ export class AgentSession {
         throw error;
       }
 
-      throw new SessionError(
-        `Failed to save session to ${filePath}`,
-        this.id,
-        { originalError: error instanceof Error ? error.message : String(error) }
-      );
+      throw new SessionError(`Failed to save session to ${filePath}`, this.id, {
+        originalError: error instanceof Error ? error.message : String(error),
+      });
     }
   }
 
@@ -441,7 +433,9 @@ export class AgentSession {
       throw new SessionError(
         `Failed to load session from ${filePath}`,
         "unknown",
-        { originalError: error instanceof Error ? error.message : String(error) }
+        {
+          originalError: error instanceof Error ? error.message : String(error),
+        },
       );
     }
   }

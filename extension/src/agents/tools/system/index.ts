@@ -5,22 +5,58 @@
  */
 
 import { ToolRegistry } from "../../ToolRegistry.js";
-import { fetchTool } from "./fetch.js";
-import { problemsTool } from "./problems.js";
-import { runCommandsTool } from "./runCommands.js";
-import { runTasksTool } from "./runTasks.js";
+import { executeWithRetryTool } from "./executeWithRetry.js";
+import { findPortProcessTool } from "./findPortProcess.js";
+import { getProblemsTool } from "./getProblems.js";
+import { getProcessOutputTool } from "./getProcessOutput.js";
+import { getTerminalOutputTool } from "./getTerminalOutput.js";
+import { getTestFailuresTool } from "./getTestFailures.js";
+import { listProcessesTool } from "./listProcesses.js";
+import { runCommandTool } from "./runCommand.js";
+import { runTaskTool } from "./runTask.js";
+import { runTerminalTool } from "./runTerminal.js";
 import { runTestsTool } from "./runTests.js";
+import { sendInputTool } from "./sendInput.js";
+import { startProcessTool } from "./startProcess.js";
+import { stopProcessTool } from "./stopProcess.js";
+import { waitForPatternTool } from "./waitForPattern.js";
 
 export const systemTools = [
-  runCommandsTool,
-  runTasksTool,
+  startProcessTool,
+  stopProcessTool,
+  getProcessOutputTool,
+  listProcessesTool,
+  sendInputTool,
+  waitForPatternTool,
+  findPortProcessTool,
+  executeWithRetryTool,
+  runCommandTool,
+  runTerminalTool,
+  getTerminalOutputTool,
+  runTaskTool,
   runTestsTool,
-  problemsTool,
-  fetchTool,
+  getTestFailuresTool,
+  getProblemsTool,
 ] as const;
 
 export function registerSystemTools(registry: ToolRegistry): void {
   registry.registerAll([...systemTools]);
 }
 
-export { fetchTool, problemsTool, runCommandsTool, runTasksTool, runTestsTool };
+export {
+  executeWithRetryTool,
+  findPortProcessTool,
+  getProblemsTool,
+  getProcessOutputTool,
+  getTerminalOutputTool,
+  getTestFailuresTool,
+  listProcessesTool,
+  runCommandTool,
+  runTaskTool,
+  runTerminalTool,
+  runTestsTool,
+  sendInputTool,
+  startProcessTool,
+  stopProcessTool,
+  waitForPatternTool,
+};

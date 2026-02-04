@@ -13,32 +13,71 @@
 
 import type { LanguageModelChatMessage, LanguageModelChatTool } from "vscode";
 import * as vscode from "vscode";
+import { isModelSelectionRequired } from "../commands/selectModel.js";
+import type { ConfigService } from "../config/ConfigService.js";
 import { createEscalation } from "../database/mutations.js";
 import { AgentSession } from "./AgentSession.js";
 import { ContextManager } from "./ContextManager.js";
 import { AgentError, SessionError } from "./errors.js";
-import { loadImplementorTools } from "./toolLoaders.js";
-import { ToolRegistry } from "./ToolRegistry.js";
+import { SprintMemory } from "./memory/SprintMemory.js";
+import {
+  generateTaskSummary,
+  type TaskSummaryInput,
+} from "./memory/TaskSummary.js";
+import type { TaskOutcome } from "./memory/types.js";
+import { SessionEventEmitter } from "./sessions/eventEmitter.js";
+import { createSession } from "./sessions/sessionRepository.js";
 import type {
-  AgentConfig,
-  AgentMessage,
-  AgentRole,
-  ToolContext,
-} from "./types.js";
+  AgentSessionInfo,
+  SessionStatus,
+  ToolCategory,
+} from "./sessions/types.js";
+import {
+  loadControllerTools,
+  loadImplementorTools,
+  loadOrchestratorTools,
+} from "./toolLoaders.js";
+import { ToolRegistry } from "./ToolRegistry.js";
+import type { ToolInvocationContext } from "./tools/types.js";
+import type { AgentConfig, AgentMessage, AgentRole } from "./types.js";
 
 /**
  * Output types emitted during agent execution
  */
 export type AgentOutputType =
+  | "prompt"
   | "thinking"
   | "tool_call"
   | "tool_result"
+  | "tool_progress"
+  | "tool_output"
+  | "tool_file_operation"
+  | "tool_metadata"
   | "error"
   | "status";
 
 /**
- * Agent output event
+ * File operation types for display
  */
+export type FileOperationType =
+  | "create"
+  | "update"
+  | "delete"
+  | "move"
+  | "copy"
+  | "read";
+
+/**
+ * File operation event for display
+ */
+export interface FileOperationInfo {
+  operation: FileOperationType;
+  path: string;
+  targetPath?: string;
+  size?: number;
+  linesChanged?: number;
+}
+
 export interface AgentOutput {
   type: AgentOutputType;
   timestamp: string;
@@ -50,11 +89,21 @@ export interface AgentOutput {
   toolResult?: string;
   toolSuccess?: boolean;
   toolDuration?: number;
+  /** Progress percentage (0-100) for tool_progress events */
+  progressPercent?: number;
+  /** Streaming output chunk for tool_output events */
+  streamChunk?: string;
+  /** File operation info for tool_file_operation events */
+  fileOperation?: FileOperationInfo;
+  /** Structured metadata emitted during tool execution */
+  metadata?: Record<string, unknown>;
   errorCode?: string;
   errorMessage?: string;
   recoverable?: boolean;
   previousStatus?: string;
   newStatus?: string;
+  /** Attached context files (for prompt type) */
+  attachments?: Array<{ name: string; path: string }>;
 }
 
 /**
@@ -72,15 +121,38 @@ export interface AgentState {
 }
 
 /**
+ * File attachment for agent context
+ */
+export interface FileAttachment {
+  /** Absolute path to the file */
+  path: string;
+  /** Optional display name (defaults to filename) */
+  name?: string;
+  /** Optional MIME type (defaults to text/plain) */
+  mimeType?: string;
+}
+
+/**
  * Options for starting an agent
  */
 export interface AgentStartOptions {
   prompt: string;
   taskId?: number;
+  /** Sprint-scoped sequential task number (1, 2, 3...) for display purposes */
+  taskNumber?: number;
   sprintId?: string;
   resumeSessionId?: string;
   maxIterations?: number;
   model?: string;
+  /** Optional file attachments to include with the initial prompt */
+  attachments?: FileAttachment[];
+  /**
+   * Optional system prompt injected as the first user message.
+   * Since VS Code Language Model API doesn't support system messages,
+   * this content is prepended as the first user message to provide
+   * role-specific instructions to the agent.
+   */
+  systemPrompt?: string;
 }
 
 /**
@@ -115,6 +187,8 @@ export class AgentRunner implements vscode.Disposable {
   private toolRegistry: ToolRegistry;
   private contextManager: ContextManager;
   private config: AgentConfig;
+  private configService?: ConfigService;
+  private lastLoadedToolsRole: AgentRole | undefined;
 
   // Execution control
   private isPaused = false;
@@ -126,14 +200,86 @@ export class AgentRunner implements vscode.Disposable {
   private consecutiveErrors = 0;
   private recentErrors: string[] = [];
   private hasEscalated = false;
+  private hasEmittedSessionEnd = false;
 
   // Event emitters
   private _onOutput = new vscode.EventEmitter<AgentOutput>();
   private _onStateChange = new vscode.EventEmitter<AgentState>();
+  private eventEmitter?: SessionEventEmitter;
 
   // Public event subscriptions
   readonly onOutput = this._onOutput.event;
   readonly onStateChange = this._onStateChange.event;
+
+  /**
+   * Map tool name to tool category for event emission
+   */
+  private getToolCategory(toolName: string): ToolCategory {
+    // Orchestra MCP tools
+    if (
+      toolName.startsWith("mcp_") ||
+      toolName.startsWith("get_current_task") ||
+      toolName.startsWith("signal_completion") ||
+      toolName.startsWith("get_feedback") ||
+      toolName.startsWith("get_progress") ||
+      toolName.startsWith("escalate_task")
+    ) {
+      return "orchestra";
+    }
+
+    // Coding tools (file read/write/edit)
+    const codingTools = [
+      "read_file",
+      "edit_file",
+      "edit_lines",
+      "create_file",
+      "create_directory",
+      "delete_file",
+      "insert_at_line",
+      "delete_section",
+      "smart_replace",
+      "bulk_replace",
+      "validate_edit",
+      "search_files",
+      "grep_search",
+      "list_directory",
+      "find_usages",
+    ];
+    if (codingTools.includes(toolName)) {
+      return "coding";
+    }
+
+    // Filesystem tools (copy/move operations)
+    const filesystemTools = ["copy_file", "move_file", "move_directory"];
+    if (filesystemTools.includes(toolName)) {
+      return "filesystem";
+    }
+
+    // System tools (terminal, processes, tests)
+    const systemTools = [
+      "run_terminal",
+      "run_command",
+      "run_task",
+      "run_tests",
+      "get_test_failures",
+      "get_problems",
+      "start_process",
+      "stop_process",
+      "get_process_output",
+      "list_processes",
+      "send_input",
+      "wait_for_pattern",
+      "find_port_process",
+      "get_terminal_output",
+      "execute_with_retry",
+    ];
+    if (systemTools.includes(toolName)) {
+      return "system";
+    }
+
+    // Default to coding for unknown tools
+    return "coding";
+  }
 
   /**
    * Create a new AgentRunner
@@ -141,8 +287,15 @@ export class AgentRunner implements vscode.Disposable {
    * @param toolRegistry - Tool registry for executing tool calls
    * @param config - Agent configuration (models, iterations, verbosity)
    */
-  constructor(toolRegistry: ToolRegistry, config?: Partial<AgentConfig>) {
+  constructor(
+    toolRegistry: ToolRegistry,
+    config?: Partial<AgentConfig>,
+    configService?: ConfigService,
+  ) {
     this.toolRegistry = toolRegistry;
+    if (configService !== undefined) {
+      this.configService = configService;
+    }
 
     // Build context manager config with proper optional handling
     const contextConfig: {
@@ -170,7 +323,38 @@ export class AgentRunner implements vscode.Disposable {
       compactionThreshold: config?.compactionThreshold ?? 5,
       maxContextTokens: config?.maxContextTokens ?? 100000,
       summarizeAfterToolCalls: config?.summarizeAfterToolCalls ?? 20,
+      skipToolLoading: config?.skipToolLoading ?? false,
     };
+  }
+
+  private getConfiguredModel(role: AgentRole): string {
+    if (this.configService) {
+      return this.configService.getModelForRole(role);
+    }
+
+    if (role === "orchestrator") {
+      return this.config.orchestratorModel;
+    }
+
+    if (role === "implementor") {
+      return this.config.implementorModel;
+    }
+
+    return this.config.controllerModel;
+  }
+
+  private applyConfiguredModel(role: AgentRole, model: string): void {
+    if (role === "orchestrator") {
+      this.config.orchestratorModel = model;
+      return;
+    }
+
+    if (role === "implementor") {
+      this.config.implementorModel = model;
+      return;
+    }
+
+    this.config.controllerModel = model;
   }
 
   /**
@@ -201,6 +385,26 @@ export class AgentRunner implements vscode.Disposable {
     this.consecutiveErrors = 0;
     this.recentErrors = [];
     this.hasEscalated = false;
+    this.hasEmittedSessionEnd = false;
+
+    // Check if model selection is required (no model configured for this role)
+    if (!options.model && isModelSelectionRequired(role)) {
+      // Show model selection - returns true if user selected, false if cancelled
+      const selected = await vscode.commands.executeCommand<boolean>(
+        "orchestra.selectModel",
+        role,
+      );
+      if (!selected) {
+        throw new AgentError(
+          "Model selection cancelled. Please select a model to continue.",
+          "MODEL_SELECTION_CANCELLED",
+        );
+      }
+    }
+
+    // Refresh config after potential model selection
+    const configuredModel = this.getConfiguredModel(role);
+    this.applyConfiguredModel(role, configuredModel);
 
     // Create new session
     const sprintId = options.sprintId ?? "default-sprint";
@@ -211,22 +415,159 @@ export class AgentRunner implements vscode.Disposable {
       options.taskId ?? null,
       maxIterations,
     );
+    // Set taskNumber separately (sprint-scoped sequential number for display)
+    this.session.taskNumber = options.taskNumber;
 
-    if (role === "implementor") {
-      loadImplementorTools(this.toolRegistry);
+    // Create database session and event emitter for persistence
+    const workspaceRoot =
+      vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? process.cwd();
+    try {
+      const dbSession = createSession(workspaceRoot, {
+        role: this.session.role,
+        taskId: options.taskId ?? 0,
+        taskNumber: options.taskNumber,
+        taskTitle: undefined,
+        sprintId: this.session.sprintId,
+        status: "initializing",
+        startedAt: new Date().toISOString(),
+        lastActivityAt: new Date().toISOString(),
+        endedAt: undefined,
+        statusMessage: undefined,
+        iteration: 0,
+        maxIterations: maxIterations,
+        toolCallCount: 0,
+        successfulToolCalls: 0,
+        failedToolCalls: 0,
+        warningCount: 0,
+        filesModified: [],
+        durationMs: undefined,
+      });
+      this.eventEmitter = new SessionEventEmitter(
+        workspaceRoot,
+        dbSession.sessionId,
+      );
+      const sessionInfo: AgentSessionInfo = {
+        id: dbSession.sessionId,
+        role: dbSession.role,
+        status: dbSession.status,
+        startedAt: dbSession.startedAt,
+      };
+      if (dbSession.taskId !== undefined) {
+        sessionInfo.taskId = dbSession.taskId;
+      }
+      if (dbSession.taskNumber !== undefined) {
+        sessionInfo.taskNumber = dbSession.taskNumber;
+      }
+      if (dbSession.taskTitle !== undefined) {
+        sessionInfo.taskTitle = dbSession.taskTitle;
+      }
+      this.eventEmitter.emitSessionStart(sessionInfo);
+    } catch (error) {
+      // If database session creation fails, log but continue
+      // This allows AgentRunner to work in test scenarios without database
+      console.warn("Failed to create database session:", error);
+      // eventEmitter remains undefined (already declared as optional property)
+    }
+
+    // Load role-specific tools unless skipToolLoading is set (for tests with custom tools)
+    // This ensures:
+    // 1. Role separation - each role gets only its permitted tools
+    // 2. Test compatibility - tests can inject custom tools and skip auto-loading
+    if (!this.config.skipToolLoading) {
+      const needsToolReload = this.lastLoadedToolsRole !== role;
+
+      if (needsToolReload) {
+        this.toolRegistry.clear();
+        this.lastLoadedToolsRole = role;
+      }
+
+      if (role === "implementor") {
+        if (needsToolReload) {
+          loadImplementorTools(this.toolRegistry);
+        }
+      } else if (role === "orchestrator") {
+        if (needsToolReload) {
+          loadOrchestratorTools(this.toolRegistry);
+        }
+      } else if (role === "controller") {
+        if (needsToolReload) {
+          loadControllerTools(this.toolRegistry);
+        }
+      }
+    }
+
+    // Orchestrator needs memory context regardless of tool loading
+    if (role === "orchestrator") {
+      const workspaceRoot =
+        vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? process.cwd();
+      const memoryStore = SprintMemory.getInstance(workspaceRoot);
+      const sprintName = options.sprintId ?? sprintId;
+      const memory = await memoryStore.getOrCreate(sprintId, sprintName);
+      const memoryContext = this.formatSprintMemoryContext(memory);
+      this.addUserMessage(memoryContext);
     }
 
     // Create cancellation token
     this.cancellationTokenSource = new vscode.CancellationTokenSource();
 
-    // Add initial user message with prompt
-    this.addUserMessage(options.prompt);
+    // Inject system prompt as first message if provided (hidden from UI)
+    if (options.systemPrompt) {
+      this.addSystemMessage(options.systemPrompt);
+    }
+
+    // Inject environment context so agent knows its operating environment
+    const envContext = this.buildEnvironmentContext();
+    this.addUserMessage(envContext);
+
+    // Read and attach files if provided
+    let attachmentParts: vscode.LanguageModelDataPart[] = [];
+    if (options.attachments && options.attachments.length > 0) {
+      attachmentParts = await this.readAttachments(options.attachments);
+    }
+
+    // Add initial user message with prompt and attachments
+    if (attachmentParts.length > 0) {
+      // Create message with both prompt text and file attachments
+      const contentParts: Array<
+        vscode.LanguageModelTextPart | vscode.LanguageModelDataPart
+      > = [
+        new vscode.LanguageModelTextPart(options.prompt),
+        ...attachmentParts,
+      ];
+      this.addUserMessageWithParts(contentParts);
+    } else {
+      // No attachments - use simple text message
+      this.addUserMessage(options.prompt);
+    }
+
+    // Emit prompt as first output so it's visible in the output panel
+    this.emitOutput({
+      type: "prompt",
+      timestamp: new Date().toISOString(),
+      iteration: 0,
+      text: options.prompt,
+      attachments: options.attachments?.map((a) => ({
+        name: a.name ?? a.path.split(/[\\/]/).pop() ?? "attachment",
+        path: a.path,
+      })),
+    });
+
+    // Persist prompt event to database
+    this.eventEmitter?.emitPrompt(
+      options.prompt,
+      options.attachments?.map((a) => ({
+        path: a.path,
+        name: a.name ?? a.path.split(/[\\/]/).pop() ?? "attachment",
+        mimeType: a.mimeType,
+      })),
+    );
 
     // Emit state change
     this.emitStateChange();
 
     // Start agent loop in background (don't await)
-    this.runningPromise = this.runAgentLoop(role, options.model).catch(
+    const modelOverride = options.model ?? configuredModel;
+    this.runningPromise = this.runAgentLoop(role, modelOverride).catch(
       (error) => {
         this.handleError(error);
       },
@@ -250,8 +591,10 @@ export class AgentRunner implements vscode.Disposable {
       );
     }
 
+    const previousStatus = this.session.status;
     this.isPaused = true;
     this.session.pause();
+    this.eventEmitter?.emitStatusChange(previousStatus, "paused");
     this.emitStateChange();
 
     // Wait for current step to complete
@@ -275,8 +618,10 @@ export class AgentRunner implements vscode.Disposable {
       );
     }
 
+    const previousStatus = this.session.status;
     this.isPaused = false;
     this.session.resume();
+    this.eventEmitter?.emitStatusChange(previousStatus, "running");
     this.emitStateChange();
 
     // Restart agent loop
@@ -284,6 +629,79 @@ export class AgentRunner implements vscode.Disposable {
     this.runningPromise = this.runAgentLoop(role).catch((error) => {
       this.handleError(error);
     });
+  }
+
+  /**
+   * Resume a session loaded from storage
+   *
+   * @deprecated File-based session storage is deprecated. Use database queries instead.
+   * This method is kept for reference but will be removed in a future version.
+   *
+   * @param sessionId - Session ID to resume
+   * @returns The resumed session
+   */
+  async resumeFromStorage(_sessionId: string): Promise<AgentSession> {
+    throw new AgentError(
+      "Resume from file storage is deprecated. Session resume functionality will be reimplemented using database queries.",
+      "FEATURE_DEPRECATED",
+    );
+
+    /* DEPRECATED CODE - Kept for reference
+    if (this.session && this.session.status === "running") {
+      throw new AgentError(
+        "Cannot resume: another agent session is already running",
+        "AGENT_ALREADY_RUNNING",
+      );
+    }
+
+    const workspaceRoot =
+      vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? process.cwd();
+    const storage = SessionStorage.getInstance(workspaceRoot);
+    const loaded = await storage.loadWithFallback(sessionId);
+
+    if (loaded.status === "completed" || loaded.status === "failed") {
+      throw new AgentError(
+        `Cannot resume session with status: ${loaded.status}`,
+        "SESSION_NOT_RECOVERABLE",
+      );
+    }
+
+    this.session = loaded;
+    this.isPaused = false;
+    this.isStopped = false;
+    this.consecutiveErrors = 0;
+    this.recentErrors = [];
+    this.hasEscalated = false;
+    this.hasEmittedSessionEnd = false;
+
+    if (this.session.status === "running") {
+      this.session.stop();
+    }
+
+    if (this.session.role === "implementor") {
+      loadImplementorTools(this.toolRegistry);
+    }
+
+    const message: AgentMessage = {
+      id: crypto.randomUUID(),
+      role: "system",
+      content: `[SYSTEM: Session was interrupted and is now resuming. You are at iteration ${this.session.currentIteration} of ${this.session.maxIterations}.]`,
+      timestamp: new Date().toISOString(),
+      iteration: this.session.currentIteration,
+    };
+    this.session.addMessage(message);
+
+    this.session.resume();
+    this.emitStateChange();
+
+    this.cancellationTokenSource = new vscode.CancellationTokenSource();
+    const role = this.session.role;
+    this.runningPromise = this.runAgentLoop(role).catch((error) => {
+      this.handleError(error);
+    });
+
+    return this.session;
+    */
   }
 
   /**
@@ -304,8 +722,11 @@ export class AgentRunner implements vscode.Disposable {
       );
     }
 
+    const previousStatus = this.session.status;
     this.isStopped = true;
     this.session.stop();
+    this.eventEmitter?.emitStatusChange(previousStatus, "stopped");
+    this.emitSessionEndOnce("cancelled");
 
     // Cancel any ongoing requests
     if (this.cancellationTokenSource) {
@@ -404,7 +825,12 @@ export class AgentRunner implements vscode.Disposable {
     role: AgentRole,
     modelOverride?: string,
   ): Promise<void> {
+    console.log("[AgentRunner] runAgentLoop starting", {
+      role,
+      modelOverride,
+    });
     if (!this.session) {
+      console.log("[AgentRunner] No session!");
       throw new SessionError(
         "No session available for agent loop",
         "no-session",
@@ -413,12 +839,26 @@ export class AgentRunner implements vscode.Disposable {
 
     try {
       // Select language model
+      console.log("[AgentRunner] Selecting model...");
       const model = await this.selectModel(role, modelOverride);
+      console.log("[AgentRunner] Model selected:", model?.id);
 
       // Get tools
       const tools = this.toolRegistry.getToolDefinitions();
+      console.log("[AgentRunner] Tools loaded:", tools.length);
+
+      // Emit status change to running
+      this.eventEmitter?.emitStatusChange("initializing", "running");
 
       // Main agent loop
+      console.error(
+        "[AgentRunner] Starting loop. maxIterations:",
+        this.session.maxIterations,
+        "isPaused:",
+        this.isPaused,
+        "isStopped:",
+        this.isStopped,
+      );
       while (
         this.session.currentIteration < this.session.maxIterations &&
         !this.isPaused &&
@@ -426,6 +866,11 @@ export class AgentRunner implements vscode.Disposable {
       ) {
         // Increment iteration
         this.session.incrementIteration();
+        this.eventEmitter?.setIteration(this.session.currentIteration);
+        console.error(
+          "[AgentRunner] Loop iteration:",
+          this.session.currentIteration,
+        );
 
         // Compact context if needed
         const compactedMessages = this.contextManager.isWithinLimit(
@@ -433,9 +878,14 @@ export class AgentRunner implements vscode.Disposable {
         )
           ? this.session.messages
           : this.contextManager.compact(this.session.messages);
+        console.error(
+          "[AgentRunner] Messages to send:",
+          compactedMessages.length,
+        );
 
         // Convert to vscode.lm format
         const chatMessages = this.convertToLMMessages(compactedMessages);
+        console.log("[AgentRunner] Sending request to LLM...");
 
         // Send request to LLM
         const hadToolCalls = await this.sendRequest(
@@ -452,7 +902,10 @@ export class AgentRunner implements vscode.Disposable {
 
         // If no tool calls, we're done
         if (!hadToolCalls) {
+          const previousStatus = this.session.status;
           this.session.complete();
+          this.eventEmitter?.emitStatusChange(previousStatus, "completed");
+          this.emitSessionEndOnce("completed");
           this.emitStateChange();
           break;
         }
@@ -463,9 +916,16 @@ export class AgentRunner implements vscode.Disposable {
         this.session.currentIteration >= this.session.maxIterations &&
         this.session.status === "running"
       ) {
+        const previousStatus = this.session.status;
         this.session.fail(
           `Maximum iterations (${this.session.maxIterations}) reached`,
         );
+        this.eventEmitter?.emitStatusChange(
+          previousStatus,
+          "failed",
+          `Maximum iterations (${this.session.maxIterations}) reached`,
+        );
+        this.emitSessionEndOnce("failed");
         this.emitOutput({
           type: "error",
           timestamp: new Date().toISOString(),
@@ -497,7 +957,8 @@ export class AgentRunner implements vscode.Disposable {
     role: AgentRole,
     modelOverride?: string,
   ): Promise<vscode.LanguageModelChat> {
-    // Determine model family
+    console.log("[AgentRunner] selectModel", { role, modelOverride });
+    // Determine target model name
     const targetModel =
       modelOverride ??
       (role === "orchestrator"
@@ -506,37 +967,107 @@ export class AgentRunner implements vscode.Disposable {
           ? this.config.implementorModel
           : this.config.controllerModel);
 
-    const family = targetModel.startsWith("claude") ? "claude" : undefined;
-    const familyModels = family
-      ? await vscode.lm.selectChatModels({ family })
-      : [];
+    console.log("[AgentRunner] targetModel:", targetModel);
 
-    const models =
-      familyModels.length > 0
-        ? familyModels
-        : await vscode.lm.selectChatModels();
+    // Get all available models first
+    const allModels = await vscode.lm.selectChatModels();
+    console.error(
+      "[AgentRunner] Available models:",
+      allModels.length,
+      allModels.map((m) => `${m.family}:${m.id}`).slice(0, 10),
+    );
 
-    if (models.length === 0) {
+    if (allModels.length === 0) {
       throw new AgentError(
-        family === "claude"
-          ? "No Claude language models available"
-          : "No language models available",
+        "No language models available. Please ensure you have Copilot or another LM provider enabled.",
         "NO_MODEL_AVAILABLE",
       );
     }
 
-    // Try to find exact match first
-    const exactMatch = models.find((m) => m.id.includes(targetModel));
+    // Try to find exact match by ID first
+    const exactMatch = allModels.find((m) => m.id.includes(targetModel));
     if (exactMatch) {
+      console.log("[AgentRunner] Found exact match:", exactMatch.id);
       return exactMatch;
     }
 
-    // Fallback to first available model (guaranteed to exist due to check above)
-    return models[0]!;
+    // Try to find by family (claude, anthropic, etc.)
+    const targetFamily = targetModel.startsWith("claude")
+      ? "claude"
+      : targetModel.startsWith("gpt")
+        ? "gpt"
+        : undefined;
+    if (targetFamily) {
+      // Try both the family name and "anthropic" for Claude models
+      const familyVariants =
+        targetFamily === "claude" ? ["claude", "anthropic"] : [targetFamily];
+      for (const family of familyVariants) {
+        const familyMatch = allModels.find(
+          (m) =>
+            m.family?.toLowerCase() === family ||
+            m.id.toLowerCase().includes(family),
+        );
+        if (familyMatch) {
+          console.log("[AgentRunner] Found family match:", familyMatch.id);
+          return familyMatch;
+        }
+      }
+    }
+
+    // Fallback to first available model
+    console.error(
+      "[AgentRunner] No match found, using first available:",
+      allModels[0]!.id,
+    );
+    return allModels[0]!;
+  }
+
+  /**
+   * Read file attachments and create LanguageModelDataPart objects
+   *
+   * @param attachments - File attachments to read
+   * @returns Array of LanguageModelDataPart objects
+   */
+  private async readAttachments(
+    attachments: FileAttachment[],
+  ): Promise<vscode.LanguageModelDataPart[]> {
+    const parts: vscode.LanguageModelDataPart[] = [];
+
+    for (const attachment of attachments) {
+      try {
+        const uri = vscode.Uri.file(attachment.path);
+        const fileData = await vscode.workspace.fs.readFile(uri);
+        const content = Buffer.from(fileData).toString("utf8");
+        const fileName =
+          attachment.name ??
+          attachment.path.split(/[\\/]/).pop() ??
+          "attachment";
+        const mimeType = attachment.mimeType ?? "text/plain";
+
+        // Create a data part with the file content
+        // Prefix with filename for context
+        const contentWithHeader = `### File: ${fileName}\n\n${content}`;
+        parts.push(
+          vscode.LanguageModelDataPart.text(contentWithHeader, mimeType),
+        );
+      } catch (error) {
+        // Log error but continue with other attachments
+        const message =
+          error instanceof Error ? error.message : "Unknown error";
+        console.error(
+          `Failed to read attachment ${attachment.path}: ${message}`,
+        );
+      }
+    }
+
+    return parts;
   }
 
   /**
    * Convert AgentMessage[] to LanguageModelChatMessage[]
+   *
+   * VS Code LM API only supports User and Assistant roles.
+   * System messages are converted to User messages and prepended to the conversation.
    *
    * @param messages - Agent messages to convert
    * @returns Array of language model chat messages
@@ -544,7 +1075,20 @@ export class AgentRunner implements vscode.Disposable {
   private convertToLMMessages(
     messages: AgentMessage[],
   ): LanguageModelChatMessage[] {
-    return messages.map((msg) => {
+    // Separate system messages from user/assistant messages
+    const systemMessages = messages.filter((msg) => msg.role === "system");
+    const conversationMessages = messages.filter(
+      (msg) => msg.role !== "system",
+    );
+
+    // Convert system messages to User messages (prepended to conversation)
+    const systemLMMessages = systemMessages.map((msg) => {
+      const content = typeof msg.content === "string" ? msg.content : "";
+      return vscode.LanguageModelChatMessage.User(content);
+    });
+
+    // Convert conversation messages
+    const conversationLMMessages = conversationMessages.map((msg) => {
       const role =
         msg.role === "user"
           ? vscode.LanguageModelChatMessageRole.User
@@ -552,20 +1096,34 @@ export class AgentRunner implements vscode.Disposable {
 
       // Handle string content
       if (typeof msg.content === "string") {
-        return vscode.LanguageModelChatMessage.User(msg.content);
+        return role === vscode.LanguageModelChatMessageRole.User
+          ? vscode.LanguageModelChatMessage.User(msg.content)
+          : vscode.LanguageModelChatMessage.Assistant(msg.content);
       }
 
-      // Handle array content (tool results, etc.)
+      // Handle array content (tool calls, tool results, etc.)
       const contentParts: Array<
-        vscode.LanguageModelTextPart | vscode.LanguageModelToolResultPart
+        | vscode.LanguageModelTextPart
+        | vscode.LanguageModelToolResultPart
+        | vscode.LanguageModelToolCallPart
       > = [];
       const textValues: string[] = [];
       let hasToolResult = false;
+      let hasToolCall = false;
 
       for (const part of msg.content) {
         if (part.type === "text") {
           textValues.push(part.value);
           contentParts.push(new vscode.LanguageModelTextPart(part.value));
+        } else if (part.type === "toolCall") {
+          hasToolCall = true;
+          contentParts.push(
+            new vscode.LanguageModelToolCallPart(
+              part.toolCallId,
+              part.name,
+              part.input,
+            ),
+          );
         } else if (part.type === "toolResult") {
           hasToolResult = true;
           contentParts.push(
@@ -578,14 +1136,23 @@ export class AgentRunner implements vscode.Disposable {
 
       const textContent = textValues.join("\n");
 
+      // Tool results are sent as User messages (required by API)
       if (hasToolResult) {
         return vscode.LanguageModelChatMessage.User(contentParts);
+      }
+
+      // Tool calls are sent as Assistant messages
+      if (hasToolCall) {
+        return vscode.LanguageModelChatMessage.Assistant(contentParts);
       }
 
       return role === vscode.LanguageModelChatMessageRole.User
         ? vscode.LanguageModelChatMessage.User(textContent)
         : vscode.LanguageModelChatMessage.Assistant(textContent);
     });
+
+    // Return system messages first, then conversation messages
+    return [...systemLMMessages, ...conversationLMMessages];
   }
 
   /**
@@ -604,12 +1171,15 @@ export class AgentRunner implements vscode.Disposable {
     token: vscode.CancellationToken,
   ): Promise<boolean> {
     if (!this.session) {
+      console.log("[AgentRunner] sendRequest: No session");
       return false;
     }
 
     try {
       // Send request
+      console.log("[AgentRunner] sendRequest: Calling model.sendRequest...");
       const request = await model.sendRequest(messages, { tools }, token);
+      console.log("[AgentRunner] sendRequest: Got response, streaming...");
 
       let thinkingText = "";
       let hadToolCalls = false;
@@ -618,6 +1188,10 @@ export class AgentRunner implements vscode.Disposable {
 
       // Stream response
       for await (const chunk of request.stream) {
+        console.error(
+          "[AgentRunner] sendRequest: Received chunk:",
+          chunk.constructor.name,
+        );
         // Check for pause/stop
         if (this.isPaused || this.isStopped) {
           break;
@@ -643,6 +1217,12 @@ export class AgentRunner implements vscode.Disposable {
             toolInput: chunk.input as Record<string, unknown>,
             toolCallId: chunk.callId,
           });
+          this.eventEmitter?.emitToolCall(
+            chunk.callId,
+            chunk.name,
+            this.getToolCategory(chunk.name),
+            chunk.input as Record<string, unknown>,
+          );
         }
       }
 
@@ -655,10 +1235,14 @@ export class AgentRunner implements vscode.Disposable {
           iteration: this.session.currentIteration,
           text: thinkingText,
         });
+        this.eventEmitter?.emitThinking(thinkingText);
       }
 
       // Execute tool calls
       if (hadToolCalls) {
+        // Add assistant message with tool calls BEFORE executing them
+        // This is required by the LLM API - tool results must follow tool calls
+        this.addAssistantToolCallMessage(toolCalls);
         await this.executeToolCalls(toolCalls);
       }
 
@@ -684,13 +1268,74 @@ export class AgentRunner implements vscode.Disposable {
       return;
     }
 
-    const context: ToolContext = {
+    // Create observer that emits real-time events
+    const createObserver = (toolName: string, callId: string) => ({
+      onProgress: (id: string, message: string, percent?: number) => {
+        this.emitOutput({
+          type: "tool_progress",
+          timestamp: new Date().toISOString(),
+          iteration: this.session!.currentIteration,
+          toolName,
+          toolCallId: id,
+          text: message,
+          progressPercent: percent,
+        });
+        this.eventEmitter?.emitToolProgress(callId, toolName, message, percent);
+      },
+      onOutput: (id: string, chunk: string, isStderr?: boolean) => {
+        this.emitOutput({
+          type: "tool_output",
+          timestamp: new Date().toISOString(),
+          iteration: this.session!.currentIteration,
+          toolName,
+          toolCallId: id,
+          streamChunk: chunk,
+        });
+        this.eventEmitter?.emitToolOutput(callId, toolName, chunk, isStderr);
+      },
+      onFileOperation: (id: string, event: FileOperationEvent) => {
+        this.emitOutput({
+          type: "tool_file_operation",
+          timestamp: new Date().toISOString(),
+          iteration: this.session!.currentIteration,
+          toolName,
+          toolCallId: id,
+          fileOperation: {
+            operation: event.operation,
+            path: event.path,
+            targetPath: event.targetPath,
+            size: event.size,
+            linesChanged: event.linesChanged,
+          },
+        });
+        this.eventEmitter?.emitToolFileOperation(callId, toolName, {
+          operation: event.operation,
+          path: event.path,
+          targetPath: event.targetPath,
+          size: event.size,
+          linesChanged: event.linesChanged,
+          linesInserted: event.linesInserted,
+          linesDeleted: event.linesDeleted,
+        });
+      },
+      onMetadata: (id: string, key: string, value: unknown) => {
+        this.emitOutput({
+          type: "tool_metadata",
+          timestamp: new Date().toISOString(),
+          iteration: this.session!.currentIteration,
+          toolName,
+          toolCallId: id,
+          metadata: { [key]: value },
+        });
+        this.eventEmitter?.emitToolMetadata(callId, toolName, key, value);
+      },
+    });
+
+    const baseContext: Omit<ToolInvocationContext, "observer"> = {
       workspaceRoot: vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? "",
       sessionId: this.session.id,
-      iteration: this.session.currentIteration,
-      cancellationToken: this.cancellationTokenSource?.token,
-      logger: console,
-      db: undefined,
+      token:
+        this.cancellationTokenSource?.token ?? vscode.CancellationToken.None,
     };
 
     for (const toolCall of toolCalls) {
@@ -701,6 +1346,12 @@ export class AgentRunner implements vscode.Disposable {
 
       const startTime = Date.now();
 
+      // Create context with observer for this specific tool call
+      const context: ToolInvocationContext = {
+        ...baseContext,
+        observer: createObserver(toolCall.name, toolCall.callId),
+      };
+
       try {
         const result = await this.toolRegistry.execute(
           toolCall.name,
@@ -709,8 +1360,12 @@ export class AgentRunner implements vscode.Disposable {
           { retries: this.config.maxToolRetries },
         );
 
-        const durationMs = Date.now() - startTime;
         const toolSuccess = result.result.success;
+        const durationMs = result.result.metadata.durationMs;
+        const contentText = result.result.content
+          .map((part) => part.value)
+          .join("\n");
+        const errorMessage = result.result.error?.message;
 
         // Record tool call in session
         this.session.recordToolCall({
@@ -730,9 +1385,7 @@ export class AgentRunner implements vscode.Disposable {
           this.resetToolFailureTracking();
         } else {
           this.recordToolFailure(
-            result.result.error ??
-              result.result.output ??
-              "Tool returned unsuccessful result",
+            errorMessage ?? contentText ?? "Tool returned unsuccessful result",
           );
           if (await this.handleConsecutiveFailures()) {
             return;
@@ -740,18 +1393,45 @@ export class AgentRunner implements vscode.Disposable {
         }
 
         // Add tool result to message history
-        this.addToolResultMessage(toolCall.callId, result.result.output);
+        // CRITICAL: If tool failed, include the error message so the LLM knows
+        const resultMessage = toolSuccess
+          ? contentText
+          : errorMessage
+            ? `Error: ${errorMessage}`
+            : contentText || "Tool execution failed";
+        this.addToolResultMessage(toolCall.callId, resultMessage);
 
         // Emit tool result
         this.emitOutput({
           type: "tool_result",
           timestamp: new Date().toISOString(),
           iteration: this.session.currentIteration,
+          toolName: toolCall.name,
+          toolInput: toolCall.input as Record<string, unknown>,
           toolCallId: toolCall.callId,
-          toolResult: result.result.output,
+          toolResult: resultMessage,
           toolSuccess,
           toolDuration: durationMs,
         });
+        this.eventEmitter?.emitToolResult(
+          toolCall.callId,
+          toolCall.name,
+          toolSuccess,
+          resultMessage,
+          durationMs,
+          toolSuccess
+            ? undefined
+            : {
+                code: "TOOL_EXECUTION_FAILED",
+                message: errorMessage ?? "Tool execution failed",
+                suggestion: undefined,
+                details: undefined,
+              },
+        );
+
+        if (toolSuccess) {
+          await this.handleTaskCompletion(toolCall.name, toolCall.input);
+        }
       } catch (error) {
         const durationMs = Date.now() - startTime;
         const errorMessage =
@@ -789,12 +1469,266 @@ export class AgentRunner implements vscode.Disposable {
           type: "error",
           timestamp: new Date().toISOString(),
           iteration: this.session.currentIteration,
+          toolName: toolCall.name,
+          toolInput: toolCall.input as Record<string, unknown>,
           toolCallId: toolCall.callId,
           errorCode: "TOOL_EXECUTION_FAILED",
           errorMessage,
           recoverable: true,
         });
+        this.eventEmitter?.emitToolResult(
+          toolCall.callId,
+          toolCall.name,
+          false,
+          `Error: ${errorMessage}`,
+          durationMs,
+          {
+            code: "TOOL_EXECUTION_FAILED",
+            message: errorMessage,
+            suggestion: undefined,
+            details: undefined,
+          },
+        );
+        this.eventEmitter?.emitError(
+          "error",
+          "TOOL_EXECUTION_FAILED",
+          errorMessage,
+          true,
+          { toolName: toolCall.name, toolCallId: toolCall.callId },
+        );
       }
+    }
+  }
+
+  private formatSprintMemoryContext(memory: {
+    sprintId: string;
+    sprintName: string;
+    goals: string[];
+    architectureDecisions: Array<{ title: string; decision: string }>;
+    taskSummaries: Array<{ taskId: number; title: string; outcome: string }>;
+    implementorPatterns: Array<{
+      pattern: string;
+      description: string;
+      example?: string;
+    }>;
+    compactionCount: number;
+    lastCompactedAt: string | null;
+  }): string {
+    const goals = memory.goals.length > 0 ? memory.goals.join("; ") : "None";
+    const decisions =
+      memory.architectureDecisions.length > 0
+        ? memory.architectureDecisions
+            .map((decision) => `${decision.title}: ${decision.decision}`)
+            .join(" | ")
+        : "None";
+    const summaries =
+      memory.taskSummaries.length > 0
+        ? memory.taskSummaries
+            .map(
+              (summary) =>
+                `#${summary.taskId} ${summary.title} (${summary.outcome})`,
+            )
+            .join(" | ")
+        : "None";
+    const patterns =
+      memory.implementorPatterns.length > 0
+        ? memory.implementorPatterns
+            .map((pattern) => {
+              const example = pattern.example
+                ? ` (example: ${pattern.example})`
+                : "";
+              return `${pattern.pattern}: ${pattern.description}${example}`;
+            })
+            .join(" | ")
+        : "None";
+
+    return [
+      "[SPRINT MEMORY CONTEXT]",
+      `Sprint: ${memory.sprintName} (${memory.sprintId})`,
+      `Goals: ${goals}`,
+      `Architecture decisions: ${decisions}`,
+      `Task summaries: ${summaries}`,
+      `Implementor patterns: ${patterns}`,
+      `Compaction count: ${memory.compactionCount}`,
+      `Last compacted at: ${memory.lastCompactedAt ?? "Never"}`,
+    ].join("\n");
+  }
+
+  /**
+   * Build environment context for the agent.
+   * Tells the agent about its operating environment (OS, shell, workspace).
+   */
+  private buildEnvironmentContext(): string {
+    const platform = process.platform;
+    const osName =
+      platform === "win32"
+        ? "Windows"
+        : platform === "darwin"
+          ? "macOS"
+          : "Linux";
+    const shell =
+      platform === "win32"
+        ? "cmd.exe (use Windows commands like 'type' instead of 'cat', 'dir' instead of 'ls')"
+        : "/bin/sh (Unix shell)";
+    const workspaceRoot =
+      vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? process.cwd();
+    const pathSeparator = platform === "win32" ? "\\" : "/";
+
+    const lines = [
+      "[ENVIRONMENT CONTEXT]",
+      `Operating System: ${osName} (${platform})`,
+      `Shell: ${shell}`,
+      `Path Separator: ${pathSeparator}`,
+      `Workspace Root: ${workspaceRoot}`,
+    ];
+
+    // Add Windows-specific guidance
+    if (platform === "win32") {
+      lines.push("");
+      lines.push("IMPORTANT: You are on Windows. Use Windows commands:");
+      lines.push("  - Use 'type' instead of 'cat'");
+      lines.push("  - Use 'dir' instead of 'ls'");
+      lines.push(
+        "  - Use backslashes in paths (though forward slashes often work)",
+      );
+      lines.push(
+        "  - Use 'findstr' instead of 'grep' (or use the grep_search tool)",
+      );
+      lines.push("  - Use 'where' instead of 'which'");
+      lines.push("");
+      lines.push(
+        "TIP: Prefer using read_file, list_directory, search, grep_search tools over shell commands for file operations - they are cross-platform.",
+      );
+    }
+
+    return lines.join("\n");
+  }
+
+  private async handleTaskCompletion(
+    toolName: string,
+    toolInput: unknown,
+  ): Promise<void> {
+    if (!this.session || this.session.role !== "orchestrator") {
+      return;
+    }
+
+    if (toolName !== "complete_task") {
+      return;
+    }
+
+    const input = toolInput as Record<string, unknown> | null;
+    const outcomeCandidates = ["success", "partial", "failed", "escalated"];
+    const outcome =
+      input &&
+      typeof input.outcome === "string" &&
+      outcomeCandidates.includes(input.outcome)
+        ? (input.outcome as TaskOutcome)
+        : "success";
+
+    const attemptCount =
+      input &&
+      typeof input.attemptCount === "number" &&
+      Number.isFinite(input.attemptCount) &&
+      input.attemptCount > 0
+        ? Math.floor(input.attemptCount)
+        : 1;
+
+    const title =
+      input && typeof input.title === "string"
+        ? input.title
+        : this.session.taskId !== null
+          ? `Task ${this.session.taskId}`
+          : "Task completed";
+
+    const description =
+      input && typeof input.description === "string"
+        ? input.description
+        : input && typeof input.summary === "string"
+          ? input.summary
+          : "Task completed.";
+
+    const lessonsLearned =
+      input && Array.isArray(input.lessonsLearned)
+        ? input.lessonsLearned.filter(
+            (lesson): lesson is string => typeof lesson === "string",
+          )
+        : [];
+
+    const issuesEncountered =
+      input && Array.isArray(input.issuesEncountered)
+        ? input.issuesEncountered.filter(
+            (issue): issue is string => typeof issue === "string",
+          )
+        : [];
+
+    const completedAt =
+      input && typeof input.completedAt === "string"
+        ? input.completedAt
+        : new Date().toISOString();
+
+    const summaryInput: TaskSummaryInput = {
+      title,
+      outcome,
+      attemptCount,
+      description,
+      lessonsLearned,
+      issuesEncountered,
+      completedAt,
+    };
+
+    const summary = generateTaskSummary(this.session, summaryInput);
+    const workspaceRoot =
+      vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? process.cwd();
+    const memoryStore = SprintMemory.getInstance(workspaceRoot);
+    await memoryStore.addTaskSummary(this.session.sprintId, summary);
+
+    const patterns =
+      input && Array.isArray(input.implementorPatterns)
+        ? input.implementorPatterns
+        : [];
+
+    for (const pattern of patterns) {
+      if (!pattern || typeof pattern !== "object") {
+        continue;
+      }
+
+      const patternRecord = pattern as Record<string, unknown>;
+      const patternType =
+        patternRecord.pattern === "positive" ||
+        patternRecord.pattern === "negative"
+          ? patternRecord.pattern
+          : null;
+      const descriptionText =
+        typeof patternRecord.description === "string"
+          ? patternRecord.description
+          : null;
+      if (!patternType || !descriptionText) {
+        continue;
+      }
+
+      const taskId =
+        typeof patternRecord.taskId === "number" && patternRecord.taskId > 0
+          ? Math.floor(patternRecord.taskId)
+          : (this.session.taskId ?? 1);
+
+      const example =
+        typeof patternRecord.example === "string"
+          ? patternRecord.example
+          : undefined;
+
+      const frequency =
+        typeof patternRecord.frequency === "number" &&
+        patternRecord.frequency > 0
+          ? Math.floor(patternRecord.frequency)
+          : undefined;
+
+      await memoryStore.addImplementorPattern(this.session.sprintId, {
+        pattern: patternType,
+        description: descriptionText,
+        taskId,
+        example,
+        frequency,
+      });
     }
   }
 
@@ -855,7 +1789,7 @@ export class AgentRunner implements vscode.Disposable {
    * Handle consecutive tool failures and auto-escalate when needed
    */
   private async handleConsecutiveFailures(): Promise<boolean> {
-    if (this.consecutiveErrors < 3 || !this.session) {
+    if (this.consecutiveErrors < 5 || !this.session) {
       return false;
     }
 
@@ -923,6 +1857,27 @@ export class AgentRunner implements vscode.Disposable {
   }
 
   /**
+   * Add system message to session (hidden from UI, used for instructions)
+   *
+   * @param content - System message content
+   */
+  private addSystemMessage(content: string): void {
+    if (!this.session) {
+      return;
+    }
+
+    const message: AgentMessage = {
+      id: crypto.randomUUID(),
+      role: "system",
+      content,
+      timestamp: new Date().toISOString(),
+      iteration: this.session.currentIteration,
+    };
+
+    this.session.addMessage(message);
+  }
+
+  /**
    * Add user message to session
    *
    * @param content - Message content
@@ -944,6 +1899,43 @@ export class AgentRunner implements vscode.Disposable {
   }
 
   /**
+   * Add a user message with mixed content parts (text + attachments)
+   *
+   * @param parts - Array of content parts (text, data, etc.)
+   */
+  private addUserMessageWithParts(
+    parts: Array<vscode.LanguageModelTextPart | vscode.LanguageModelDataPart>,
+  ): void {
+    if (!this.session) {
+      return;
+    }
+
+    // Convert LanguageModel parts to AgentMessage content format
+    const contentParts = parts.map((part) => {
+      if (part instanceof vscode.LanguageModelTextPart) {
+        return { type: "text" as const, value: part.value };
+      } else if (part instanceof vscode.LanguageModelDataPart) {
+        // For data parts, extract the text content
+        // The value property contains the actual text for text data parts
+        const decoder = new TextDecoder();
+        const textContent = decoder.decode(part.value);
+        return { type: "text" as const, value: textContent };
+      }
+      return { type: "text" as const, value: "[Unknown content type]" };
+    });
+
+    const message: AgentMessage = {
+      id: crypto.randomUUID(),
+      role: "user",
+      content: contentParts,
+      timestamp: new Date().toISOString(),
+      iteration: this.session.currentIteration,
+    };
+
+    this.session.addMessage(message);
+  }
+
+  /**
    * Add assistant message to session
    *
    * @param content - Message content
@@ -957,6 +1949,37 @@ export class AgentRunner implements vscode.Disposable {
       id: crypto.randomUUID(),
       role: "assistant",
       content,
+      timestamp: new Date().toISOString(),
+      iteration: this.session.currentIteration,
+    };
+
+    this.session.addMessage(message);
+  }
+
+  /**
+   * Add assistant message with tool calls to session
+   *
+   * This is required by the LLM API - tool results must be preceded by
+   * an assistant message that made the tool calls.
+   *
+   * @param toolCalls - Array of tool calls
+   */
+  private addAssistantToolCallMessage(
+    toolCalls: Array<{ name: string; input: unknown; callId: string }>,
+  ): void {
+    if (!this.session) {
+      return;
+    }
+
+    const message: AgentMessage = {
+      id: crypto.randomUUID(),
+      role: "assistant",
+      content: toolCalls.map((tc) => ({
+        type: "toolCall" as const,
+        toolCallId: tc.callId,
+        name: tc.name,
+        input: tc.input as Record<string, unknown>,
+      })),
       timestamp: new Date().toISOString(),
       iteration: this.session.currentIteration,
     };
@@ -1017,23 +2040,39 @@ export class AgentRunner implements vscode.Disposable {
    * @param error - Error that occurred
    */
   private handleError(error: unknown): void {
+    console.log("[AgentRunner] handleError called:", error);
     if (!this.session) {
       return;
     }
 
     const errorMessage = error instanceof Error ? error.message : String(error);
+    const errorCode =
+      error instanceof AgentError ? error.code : "UNKNOWN_ERROR";
 
+    const previousStatus = this.session.status;
     this.session.fail(errorMessage);
+    this.eventEmitter?.emitStatusChange(previousStatus, "failed", errorMessage);
 
     this.emitOutput({
       type: "error",
       timestamp: new Date().toISOString(),
       iteration: this.session.currentIteration,
-      errorCode: error instanceof AgentError ? error.code : "UNKNOWN_ERROR",
+      errorCode,
       errorMessage,
       recoverable: false,
     });
+    this.eventEmitter?.emitError("error", errorCode, errorMessage, false);
+    this.emitSessionEndOnce("failed");
 
     this.emitStateChange();
+  }
+
+  private emitSessionEndOnce(status: SessionStatus): void {
+    if (!this.eventEmitter || this.hasEmittedSessionEnd) {
+      return;
+    }
+
+    this.hasEmittedSessionEnd = true;
+    this.eventEmitter.emitSessionEnd(status);
   }
 }

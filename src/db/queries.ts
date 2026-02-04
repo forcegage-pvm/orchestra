@@ -5,7 +5,7 @@
  */
 
 import { and, desc, eq, ne } from "drizzle-orm";
-import { getDb } from "./connection.js";
+import { getDb, getRawDb } from "./connection.js";
 import { sprints } from "./schema.js";
 
 /**
@@ -14,9 +14,20 @@ import { sprints } from "./schema.js";
  * Returns the sprint with is_active = true.
  * Only one sprint should be active at a time.
  * Falls back to most recently created non-completed sprint if no active flag set.
+ *
+ * NOTE: Uses wal_checkpoint(PASSIVE) to ensure visibility of changes made by other
+ * processes (e.g., extension UI). This is critical for multi-process scenarios where
+ * the MCP server and VS Code extension both access the same database.
  */
 export async function getActiveSprint() {
   const db = getDb();
+
+  // Force WAL checkpoint to see changes from other processes (extension UI, other MCP servers)
+  // PASSIVE mode doesn't block writers and only checkpoints pages not in use
+  const rawDb = getRawDb();
+  if (rawDb) {
+    rawDb.pragma("wal_checkpoint(PASSIVE)");
+  }
 
   // First, try to get the explicitly active sprint
   const [activeSprint] = await db
@@ -36,8 +47,8 @@ export async function getActiveSprint() {
     .where(
       and(
         ne(sprints.workflow_step, "SPRINT_COMPLETE"),
-        ne(sprints.workflow_step, "CLOSEOUT")
-      )
+        ne(sprints.workflow_step, "CLOSEOUT"),
+      ),
     )
     .orderBy(desc(sprints.created_at))
     .limit(1);
@@ -48,9 +59,18 @@ export async function getActiveSprint() {
 /**
  * Get the most recent sprint regardless of status
  * (for status/progress queries that should work on completed sprints too)
+ *
+ * NOTE: Uses wal_checkpoint(PASSIVE) to ensure visibility of changes made by other
+ * processes (e.g., extension UI).
  */
 export async function getMostRecentSprint() {
   const db = getDb();
+
+  // Force WAL checkpoint to see changes from other processes
+  const rawDb = getRawDb();
+  if (rawDb) {
+    rawDb.pragma("wal_checkpoint(PASSIVE)");
+  }
 
   const [sprint] = await db
     .select()

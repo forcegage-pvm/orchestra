@@ -42,7 +42,7 @@ export async function handleGetTasks(input: unknown) {
         input: validation.data,
       },
       { success: true, output },
-      durationMs,
+      durationMs
     );
 
     return {
@@ -59,7 +59,7 @@ export async function handleGetTasks(input: unknown) {
         input: validation.data,
       },
       { success: false, errorMessage: err.message },
-      durationMs,
+      durationMs
     );
 
     return {
@@ -75,7 +75,7 @@ export async function handleGetTasks(input: unknown) {
               },
             },
             null,
-            2,
+            2
           ),
         },
       ],
@@ -84,7 +84,7 @@ export async function handleGetTasks(input: unknown) {
 }
 
 async function getTasks(
-  input: typeof GetTasksInputSchema._output | undefined,
+  input: typeof GetTasksInputSchema._output | undefined
 ): Promise<GetTasksOutput> {
   const db = getDb();
 
@@ -120,8 +120,8 @@ async function getTasks(
       .where(
         and(
           eq(phases.sprint_id, sprint.id),
-          eq(phases.phase_id, input.phase_id),
-        ),
+          eq(phases.phase_id, input.phase_id)
+        )
       );
 
     if (phaseResults.length === 0) {
@@ -191,7 +191,7 @@ async function getTasks(
         task_id: task.task_id,
         phase_id: phase?.phase_id || "UNKNOWN",
         title: task.title,
-        summary: task.description, // TD-032: Map description column to summary in API response
+        description: task.description,
         category: task.category as
           | "INFRASTRUCTURE"
           | "INTEGRATION"
@@ -208,7 +208,7 @@ async function getTasks(
           | "ESCALATED"
           | "COMPLETE",
         dependencies: JSON.parse(task.dependencies),
-        spec_task_refs: JSON.parse(task.speckit_task_ref || "[]"), // TD-032: Map speckit_task_ref column to spec_task_refs in API
+        speckit_task_ref: task.speckit_task_ref || undefined,
         created_at: task.created_at,
         updated_at: task.updated_at,
         completed_at: task.completed_at || undefined,
@@ -221,7 +221,7 @@ async function getTasks(
           quality_checks: quality.length > 0 ? quality : undefined,
         },
       };
-    }),
+    })
   );
 
   return {

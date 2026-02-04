@@ -418,4 +418,102 @@ describe("submit_code_review handler", () => {
       .where(eq(progress.task_id, task.id));
     expect(progressLogs.length).toBeGreaterThan(0);
   });
+
+  it("returns next_task_id when completing task with dependent tasks", async () => {
+    const db = getDb();
+    const now = new Date().toISOString();
+
+    const [sprint] = await db
+      .insert(sprints)
+      .values({
+        id: "sprint-002",
+        name: "Test Sprint with Dependencies",
+        workflow_step: "VERIFY",
+        is_active: true,
+        config: JSON.stringify({
+          code_review_enabled: true,
+          code_review_policy: "task_gate",
+        }),
+        created_at: now,
+        updated_at: now,
+      })
+      .returning();
+
+    const [phase] = await db
+      .insert(phases)
+      .values({
+        sprint_id: sprint.id,
+        phase_id: "phase-1",
+        phase_name: "Phase 1",
+        speckit_tasks: "[]",
+        order: 1,
+      })
+      .returning();
+
+    // Create task 1 (will be completed)
+    const [task1] = await db
+      .insert(tasks)
+      .values({
+        sprint_id: sprint.id,
+        phase_id: phase.id,
+        task_id: 1,
+        title: "Task 1",
+        description: "First task",
+        category: "INFRASTRUCTURE",
+        dependencies: "[]",
+        status: "VERIFIED",
+        tdd_red_phase: false,
+        created_at: now,
+        updated_at: now,
+      })
+      .returning();
+
+    // Create task 2 (depends on task 1, should be next)
+    await db.insert(tasks).values({
+      sprint_id: sprint.id,
+      phase_id: phase.id,
+      task_id: 2,
+      title: "Task 2",
+      description: "Second task",
+      category: "INFRASTRUCTURE",
+      dependencies: "[1]",
+      status: "PENDING",
+      tdd_red_phase: false,
+      created_at: now,
+      updated_at: now,
+    });
+
+    await db.insert(codeReviews).values({
+      sprint_id: sprint.id,
+      task_id: task1.id,
+      phase_id: phase.id,
+      review_scope: "TASK",
+      status: "PENDING",
+      summary: "Pending review",
+      risk: "LOW",
+      requested_by: "orchestrator",
+      requested_at: now,
+    });
+
+    const result = await handleSubmitCodeReview({
+      task: 1,
+      decision: "APPROVED",
+      summary:
+        "This summary is long enough to satisfy the minimum length requirement.",
+      risk: "LOW",
+      files_reviewed: ["src/index.ts"],
+    });
+
+    const response = JSON.parse(result.content[0].text);
+    expect(response.success).toBe(true);
+    expect(response.task_status).toBe("COMPLETE");
+    expect(response.next_task_id).toBe(2);
+
+    // Verify workflow_step was updated to SELECT_TASK
+    const [updatedSprint] = await db
+      .select()
+      .from(sprints)
+      .where(eq(sprints.id, sprint.id));
+    expect(updatedSprint.workflow_step).toBe("SELECT_TASK");
+  });
 });

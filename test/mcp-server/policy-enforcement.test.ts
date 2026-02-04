@@ -12,7 +12,6 @@ import {
 import { handleCompleteTask } from "../../src/mcp-server/handlers/complete-task.js";
 import { handlePrepareTask } from "../../src/mcp-server/handlers/prepare-task.js";
 import { cleanupTestDb, setupTestDb } from "../setup/db-cache.js";
-import { SPEC_NOTES } from "../setup/test-fixtures.js";
 
 describe("code review policy enforcement", () => {
   let tempDir: string;
@@ -259,7 +258,6 @@ describe("code review policy enforcement", () => {
 
     const blockedResult = await handlePrepareTask({
       task_id: pendingTask.task_id,
-      spec_consultation_notes: SPEC_NOTES,
       acceptance_criteria: [{ criterion: "Criteria", verification: "Manual" }],
       file_operations: [
         {
@@ -294,7 +292,6 @@ describe("code review policy enforcement", () => {
 
     const approvedResult = await handlePrepareTask({
       task_id: pendingTask.task_id,
-      spec_consultation_notes: SPEC_NOTES,
       acceptance_criteria: [{ criterion: "Criteria", verification: "Manual" }],
       file_operations: [
         {
@@ -355,7 +352,6 @@ describe("code review policy enforcement", () => {
 
     const result = await handlePrepareTask({
       task_id: 6,
-      spec_consultation_notes: SPEC_NOTES,
       acceptance_criteria: [{ criterion: "Criteria", verification: "Manual" }],
       file_operations: [
         {
@@ -432,7 +428,6 @@ describe("code review policy enforcement", () => {
 
     const result = await handlePrepareTask({
       task_id: 8,
-      spec_consultation_notes: SPEC_NOTES,
       acceptance_criteria: [{ criterion: "Criteria", verification: "Manual" }],
       file_operations: [
         {

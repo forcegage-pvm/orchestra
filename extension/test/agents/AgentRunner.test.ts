@@ -10,15 +10,33 @@ import { AgentRunner } from "../../src/agents/AgentRunner.js";
 import { AgentSession } from "../../src/agents/AgentSession.js";
 import { AgentError } from "../../src/agents/errors.js";
 import { loadImplementorTools } from "../../src/agents/toolLoaders.js";
-import { ToolRegistry, type AgentTool } from "../../src/agents/ToolRegistry.js";
+import { ToolRegistry } from "../../src/agents/ToolRegistry.js";
 import { codingTools } from "../../src/agents/tools/coding/index.js";
+import { filesystemTools } from "../../src/agents/tools/filesystem/index.js";
 import { orchestraImplementorTools } from "../../src/agents/tools/orchestra/index.js";
 import { systemTools } from "../../src/agents/tools/system/index.js";
+import type { AgentTool } from "../../src/agents/tools/types.js";
 import type { AgentConfig } from "../../src/agents/types.js";
 import { createEscalation } from "../../src/database/mutations.js";
 
 vi.mock("../../src/database/mutations.js", () => ({
   createEscalation: vi.fn(() => 1),
+}));
+
+const { loadSessionMock, getStorageMock } = vi.hoisted(() => {
+  const loadSessionMock = vi.fn();
+  const getStorageMock = vi.fn(() => ({
+    load: loadSessionMock,
+    loadWithFallback: loadSessionMock,
+  }));
+
+  return { loadSessionMock, getStorageMock };
+});
+
+vi.mock("../../src/agents/SessionStorage.js", () => ({
+  SessionStorage: {
+    getInstance: getStorageMock,
+  },
 }));
 
 // Mock vscode module
@@ -83,8 +101,17 @@ vi.mock("vscode", () => ({
   lm: {
     selectChatModels: vi.fn(),
   },
+  commands: {
+    executeCommand: vi.fn(),
+  },
   workspace: {
     workspaceFolders: [{ uri: { fsPath: "/test/workspace" } }],
+    getConfiguration: vi.fn(() => ({
+      inspect: vi.fn(() => ({
+        workspaceValue: "claude-opus-4.5",
+        globalValue: undefined,
+      })),
+    })),
   },
 }));
 
@@ -104,9 +131,14 @@ describe("AgentRunner", () => {
       },
       required: ["value"],
     },
-    execute: vi.fn(async () => ({
+    invoke: vi.fn(async () => ({
       success: true,
-      output: "Tool executed successfully",
+      content: [{ type: "text", value: "Tool executed successfully" }],
+      metadata: {
+        toolName: "test_tool",
+        callId: "test-call",
+        durationMs: 0,
+      },
     })),
   };
 
@@ -142,10 +174,12 @@ describe("AgentRunner", () => {
   beforeEach(() => {
     registry = new ToolRegistry();
     registry.register(mockTool);
-    runner = new AgentRunner(registry);
+    runner = new AgentRunner(registry, { skipToolLoading: true });
     resolveStream = undefined;
     vi.clearAllMocks();
     vi.mocked(createEscalation).mockClear();
+    loadSessionMock.mockReset();
+    getStorageMock.mockClear();
 
     // Mock language model - default to simple mock
     const mockModel = createSimpleMockModel();
@@ -188,12 +222,17 @@ describe("AgentRunner", () => {
 
       const expectedCount =
         codingTools.length +
+        filesystemTools.length +
         orchestraImplementorTools.length +
         systemTools.length;
 
       expect(toolRegistry.names()).toHaveLength(expectedCount);
 
       for (const tool of codingTools) {
+        expect(toolRegistry.has(tool.name)).toBe(true);
+      }
+
+      for (const tool of filesystemTools) {
         expect(toolRegistry.has(tool.name)).toBe(true);
       }
 
@@ -306,16 +345,18 @@ describe("AgentRunner", () => {
       });
 
       expect(session.messages.length).toBeGreaterThan(0);
-      expect(session.messages[0].role).toBe("user");
-      expect(session.messages[0].content).toBe("Initial prompt");
+      const initialMessage = session.messages.find(
+        (message) =>
+          message.role === "user" && message.content === "Initial prompt",
+      );
+      expect(initialMessage).toBeDefined();
     });
 
     test("should call vscode.lm.selectChatModels", async () => {
       await runner.start("orchestrator", { prompt: "Test" });
 
-      expect(vscode.lm.selectChatModels).toHaveBeenCalledWith({
-        family: "claude",
-      });
+      // Now fetches all models without family filter
+      expect(vscode.lm.selectChatModels).toHaveBeenCalled();
     });
 
     test("should emit state change on start", async () => {
@@ -434,6 +475,47 @@ describe("AgentRunner", () => {
 
       // Resolve new stream to complete
       if (resolveStream) resolveStream();
+    });
+  });
+
+  describe("resumeFromStorage", () => {
+    test("should load session and resume with system message", async () => {
+      vi.mocked(vscode.lm.selectChatModels).mockResolvedValue([
+        createHoldableMockModel() as any,
+      ]);
+
+      const session = new AgentSession("orchestrator", "sprint-012", null, 2);
+      session.status = "paused";
+      session.currentIteration = 1;
+
+      loadSessionMock.mockResolvedValue(session);
+
+      await runner.resumeFromStorage(session.id);
+
+      expect(loadSessionMock).toHaveBeenCalledWith(session.id);
+
+      const resumed = runner.getSession();
+      expect(resumed?.status).toBe("running");
+
+      const systemMessage = resumed?.messages.find(
+        (message) => message.role === "system",
+      );
+
+      expect(typeof systemMessage?.content).toBe("string");
+      expect(systemMessage?.content).toContain("Session was interrupted");
+      expect(systemMessage?.content).toContain("iteration 1");
+
+      if (resolveStream) resolveStream();
+    });
+
+    test("should reject non-recoverable session status", async () => {
+      const session = new AgentSession("implementor", "sprint-013", 1);
+      session.status = "completed";
+      loadSessionMock.mockResolvedValue(session);
+
+      await expect(runner.resumeFromStorage(session.id)).rejects.toThrow(
+        AgentError,
+      );
     });
   });
 
@@ -687,7 +769,10 @@ describe("AgentRunner", () => {
   describe("iteration limit enforcement", () => {
     test("should stop after reaching max iterations", async () => {
       // Create runner with low iteration limit
-      const limitedRunner = new AgentRunner(registry, { maxIterations: 2 });
+      const limitedRunner = new AgentRunner(registry, {
+        maxIterations: 2,
+        skipToolLoading: true,
+      });
 
       // Mock model that always returns thinking (no tool calls) in async generator format
       const mockModel = {
@@ -741,7 +826,10 @@ describe("AgentRunner", () => {
         toolCallModel as any,
       ]);
 
-      const limitedRunner = new AgentRunner(registry, { maxIterations: 1 });
+      const limitedRunner = new AgentRunner(registry, {
+        maxIterations: 1,
+        skipToolLoading: true,
+      });
       limitedRunner.onOutput((output) => outputs.push(output));
 
       await limitedRunner.start("orchestrator", {
@@ -798,7 +886,7 @@ describe("AgentRunner", () => {
       expect(toolCallOutput).toBeDefined();
       expect(toolCallOutput?.toolName).toBe("test_tool");
       expect(toolResultOutput).toBeDefined();
-      expect(mockTool.execute).toHaveBeenCalled();
+      expect(mockTool.invoke).toHaveBeenCalled();
     });
 
     test("should handle tool execution errors gracefully", async () => {
@@ -810,7 +898,7 @@ describe("AgentRunner", () => {
           type: "object",
           properties: {},
         },
-        execute: vi.fn(async () => {
+        invoke: vi.fn(async () => {
           throw new Error("Tool failed");
         }),
       };
@@ -855,13 +943,18 @@ describe("AgentRunner", () => {
           type: "object",
           properties: {},
         },
-        execute: vi
+        invoke: vi
           .fn()
           .mockRejectedValueOnce(new Error("Retry 1"))
           .mockRejectedValueOnce(new Error("Retry 2"))
           .mockResolvedValue({
             success: true,
-            output: "Recovered",
+            content: [{ type: "text", value: "Recovered" }],
+            metadata: {
+              toolName: "retry_tool",
+              callId: "test-call",
+              durationMs: 0,
+            },
           }),
       };
       retryRegistry.register(retryTool);
@@ -869,6 +962,7 @@ describe("AgentRunner", () => {
       const retryRunner = new AgentRunner(retryRegistry, {
         maxToolRetries: 2,
         maxIterations: 1,
+        skipToolLoading: true,
       });
 
       const mockModel = {
@@ -891,13 +985,13 @@ describe("AgentRunner", () => {
       await retryRunner.start("orchestrator", { prompt: "Test" });
       await new Promise((resolve) => setTimeout(resolve, 600));
 
-      expect(retryTool.execute).toHaveBeenCalledTimes(3);
+      expect(retryTool.invoke).toHaveBeenCalledTimes(3);
       expect((retryRunner as any).consecutiveErrors).toBe(0);
 
       retryRunner.dispose();
     });
 
-    test("should auto-escalate after three consecutive tool failures", async () => {
+    test("should auto-escalate after five consecutive tool failures", async () => {
       const failingRegistry = new ToolRegistry();
       const alwaysFailTool: AgentTool = {
         name: "always_fail",
@@ -906,7 +1000,7 @@ describe("AgentRunner", () => {
           type: "object",
           properties: {},
         },
-        execute: vi.fn(async () => {
+        invoke: vi.fn(async () => {
           throw new Error("Failure");
         }),
       };
@@ -914,7 +1008,8 @@ describe("AgentRunner", () => {
 
       const failRunner = new AgentRunner(failingRegistry, {
         maxToolRetries: 0,
-        maxIterations: 5,
+        maxIterations: 7,
+        skipToolLoading: true,
       });
 
       const mockModel = (() => {
@@ -948,13 +1043,71 @@ describe("AgentRunner", () => {
       const session = failRunner.getSession();
       expect(session?.status).toBe("failed");
       expect(vi.mocked(createEscalation)).toHaveBeenCalled();
-      expect((failRunner as any).consecutiveErrors).toBeGreaterThanOrEqual(3);
+      expect((failRunner as any).consecutiveErrors).toBeGreaterThanOrEqual(5);
 
       failRunner.dispose();
     });
   });
 
   describe("model selection", () => {
+    test("should get all models and find exact match", async () => {
+      const mockModel = { id: "claude-opus-4.5", family: "claude" };
+      vi.mocked(vscode.lm.selectChatModels).mockResolvedValueOnce([
+        mockModel as any,
+      ]);
+
+      await (runner as any).selectModel("orchestrator");
+
+      // Now fetches all models without family filter
+      expect(vscode.lm.selectChatModels).toHaveBeenCalledWith();
+    });
+
+    test("should return exact model match when available", async () => {
+      const exactModel = { id: "claude-opus-4.5", family: "claude" };
+      const otherModel = { id: "claude-sonnet-4.5", family: "claude" };
+
+      vi.mocked(vscode.lm.selectChatModels).mockResolvedValueOnce([
+        otherModel as any,
+        exactModel as any,
+      ]);
+
+      const selected = await (runner as any).selectModel("orchestrator");
+
+      expect(selected).toBe(exactModel);
+    });
+
+    test("should fall back to first available model when preferred not found", async () => {
+      const fallbackModel = { id: "claude-haiku-4" };
+      const otherModel = { id: "claude-sonnet-4.5" };
+
+      vi.mocked(vscode.lm.selectChatModels).mockResolvedValueOnce([
+        fallbackModel as any,
+        otherModel as any,
+      ]);
+
+      const selected = await (runner as any).selectModel("orchestrator");
+
+      expect(selected).toBe(fallbackModel);
+    });
+
+    test("should fallback to first available when Claude not found", async () => {
+      // If Claude not available but GPT is, use GPT as fallback
+      vi.mocked(vscode.lm.selectChatModels).mockResolvedValueOnce([
+        { id: "gpt-4", family: "gpt" } as any,
+      ]);
+
+      const selected = await (runner as any).selectModel("orchestrator");
+      expect(selected.id).toBe("gpt-4");
+    });
+
+    test("should throw general error when no models are available", async () => {
+      vi.mocked(vscode.lm.selectChatModels).mockResolvedValueOnce([]);
+
+      await expect((runner as any).selectModel("orchestrator")).rejects.toThrow(
+        "No language models available",
+      );
+    });
+
     test("should select orchestrator model for orchestrator role", async () => {
       await runner.start("orchestrator", { prompt: "Test" });
 
@@ -990,7 +1143,7 @@ describe("AgentRunner", () => {
       // The session should be in failed state
       expect(session.status).toBe("failed");
       expect(session.recoveryInfo.failureReason).toContain(
-        "No Claude language models available",
+        "No language models available",
       );
     });
   });
@@ -1024,5 +1177,325 @@ describe("AgentRunner", () => {
       const session = runner.getSession();
       expect(session?.status).toBe("stopped");
     });
+  });
+
+  describe("Event Pipeline Integration", () => {
+    // Early detection of better-sqlite3 compatibility
+    let Database: typeof import("better-sqlite3").default | null = null;
+    let moduleCompatible = false;
+
+    // Check module compatibility before running tests
+    beforeEach(async () => {
+      try {
+        Database = (await import("better-sqlite3")).default;
+        const testDb = new Database(":memory:");
+        testDb.close();
+        moduleCompatible = true;
+      } catch {
+        moduleCompatible = false;
+      }
+    });
+
+    const testIf = (condition: boolean) => (condition ? test : test.skip);
+
+    testIf(moduleCompatible)(
+      "should create database session on start",
+      async () => {
+        if (!Database) return;
+
+        // Setup temporary workspace with database
+        const fs = await import("fs");
+        const path = await import("path");
+        const os = await import("os");
+
+        const tempDir = fs.mkdtempSync(
+          path.join(os.tmpdir(), "orchestra-runner-test-"),
+        );
+        const orchestraDir = path.join(tempDir, ".orchestra");
+        fs.mkdirSync(orchestraDir, { recursive: true });
+        const dbPath = path.join(orchestraDir, "orchestra.db");
+
+        // Create minimal database schema
+        const db = new Database(dbPath);
+        db.exec(`
+        CREATE TABLE IF NOT EXISTS agent_sessions (
+          id TEXT PRIMARY KEY,
+          task_id INTEGER NOT NULL,
+          sprint_id TEXT NOT NULL,
+          role TEXT NOT NULL,
+          status TEXT NOT NULL,
+          status_message TEXT,
+          started_at TEXT NOT NULL,
+          last_activity_at TEXT NOT NULL,
+          ended_at TEXT,
+          iteration INTEGER NOT NULL DEFAULT 0,
+          max_iterations INTEGER NOT NULL DEFAULT 50,
+          tool_call_count INTEGER NOT NULL DEFAULT 0,
+          successful_tool_calls INTEGER NOT NULL DEFAULT 0,
+          failed_tool_calls INTEGER NOT NULL DEFAULT 0,
+          warning_count INTEGER NOT NULL DEFAULT 0,
+          files_modified JSON NOT NULL DEFAULT '[]',
+          duration_ms INTEGER
+        );
+
+        CREATE TABLE IF NOT EXISTS session_events (
+          id TEXT PRIMARY KEY,
+          session_id TEXT NOT NULL,
+          type TEXT NOT NULL,
+          timestamp TEXT NOT NULL,
+          iteration INTEGER NOT NULL,
+          tool_call_id TEXT,
+          tool_name TEXT,
+          success INTEGER,
+          duration_ms INTEGER,
+          severity TEXT,
+          payload JSON NOT NULL,
+          FOREIGN KEY (session_id) REFERENCES agent_sessions(id) ON DELETE CASCADE
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_events_session ON session_events(session_id);
+      `);
+        db.close();
+
+        // Mock workspace folders to use temp directory
+        vi.mocked(vscode.workspace.workspaceFolders).mockReturnValue([
+          { uri: { fsPath: tempDir } } as any,
+        ]);
+
+        try {
+          // Start agent
+          await runner.start("implementor", {
+            prompt: "Test prompt",
+            taskId: 1,
+            sprintId: "sprint-001",
+          });
+
+          // Wait a bit for session creation
+          await new Promise((resolve) => setTimeout(resolve, 100));
+
+          // Verify session was created in database
+          const dbCheck = new Database(dbPath);
+          const sessions = dbCheck
+            .prepare("SELECT * FROM agent_sessions")
+            .all();
+          expect(sessions.length).toBeGreaterThan(0);
+
+          const session = sessions[0] as any;
+          expect(session.role).toBe("implementor");
+          expect(session.sprint_id).toBe("sprint-001");
+          expect(session.status).toBe("initializing");
+
+          dbCheck.close();
+        } finally {
+          // Cleanup
+          const { OrchestraDB } = await import("../../src/database/client.js");
+          OrchestraDB.close();
+          fs.rmSync(tempDir, { recursive: true, force: true });
+        }
+      },
+    );
+
+    testIf(moduleCompatible)(
+      "should persist prompt event to database",
+      async () => {
+        if (!Database) return;
+
+        const fs = await import("fs");
+        const path = await import("path");
+        const os = await import("os");
+
+        const tempDir = fs.mkdtempSync(
+          path.join(os.tmpdir(), "orchestra-runner-test-"),
+        );
+        const orchestraDir = path.join(tempDir, ".orchestra");
+        fs.mkdirSync(orchestraDir, { recursive: true });
+        const dbPath = path.join(orchestraDir, "orchestra.db");
+
+        const db = new Database(dbPath);
+        db.exec(`
+        CREATE TABLE IF NOT EXISTS agent_sessions (
+          id TEXT PRIMARY KEY,
+          task_id INTEGER NOT NULL,
+          sprint_id TEXT NOT NULL,
+          role TEXT NOT NULL,
+          status TEXT NOT NULL,
+          status_message TEXT,
+          started_at TEXT NOT NULL,
+          last_activity_at TEXT NOT NULL,
+          ended_at TEXT,
+          iteration INTEGER NOT NULL DEFAULT 0,
+          max_iterations INTEGER NOT NULL DEFAULT 50,
+          tool_call_count INTEGER NOT NULL DEFAULT 0,
+          successful_tool_calls INTEGER NOT NULL DEFAULT 0,
+          failed_tool_calls INTEGER NOT NULL DEFAULT 0,
+          warning_count INTEGER NOT NULL DEFAULT 0,
+          files_modified JSON NOT NULL DEFAULT '[]',
+          duration_ms INTEGER
+        );
+
+        CREATE TABLE IF NOT EXISTS session_events (
+          id TEXT PRIMARY KEY,
+          session_id TEXT NOT NULL,
+          type TEXT NOT NULL,
+          timestamp TEXT NOT NULL,
+          iteration INTEGER NOT NULL,
+          tool_call_id TEXT,
+          tool_name TEXT,
+          success INTEGER,
+          duration_ms INTEGER,
+          severity TEXT,
+          payload JSON NOT NULL,
+          FOREIGN KEY (session_id) REFERENCES agent_sessions(id) ON DELETE CASCADE
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_events_session ON session_events(session_id);
+      `);
+        db.close();
+
+        vi.mocked(vscode.workspace.workspaceFolders).mockReturnValue([
+          { uri: { fsPath: tempDir } } as any,
+        ]);
+
+        try {
+          await runner.start("implementor", {
+            prompt: "Test implementation prompt",
+            taskId: 1,
+            sprintId: "sprint-001",
+          });
+
+          await new Promise((resolve) => setTimeout(resolve, 100));
+
+          const dbCheck = new Database(dbPath);
+          const events = dbCheck
+            .prepare("SELECT * FROM session_events WHERE type = 'prompt'")
+            .all();
+          expect(events.length).toBeGreaterThan(0);
+
+          const promptEvent = events[0] as any;
+          expect(promptEvent.type).toBe("prompt");
+          const payload = JSON.parse(promptEvent.payload);
+          expect(payload.text).toBe("Test implementation prompt");
+
+          dbCheck.close();
+        } finally {
+          const { OrchestraDB } = await import("../../src/database/client.js");
+          OrchestraDB.close();
+          fs.rmSync(tempDir, { recursive: true, force: true });
+        }
+      },
+    );
+
+    testIf(moduleCompatible)(
+      "should persist tool call events to database",
+      async () => {
+        if (!Database) return;
+
+        const fs = await import("fs");
+        const path = await import("path");
+        const os = await import("os");
+
+        const tempDir = fs.mkdtempSync(
+          path.join(os.tmpdir(), "orchestra-runner-test-"),
+        );
+        const orchestraDir = path.join(tempDir, ".orchestra");
+        fs.mkdirSync(orchestraDir, { recursive: true });
+        const dbPath = path.join(orchestraDir, "orchestra.db");
+
+        const db = new Database(dbPath);
+        db.exec(`
+        CREATE TABLE IF NOT EXISTS agent_sessions (
+          id TEXT PRIMARY KEY,
+          task_id INTEGER NOT NULL,
+          sprint_id TEXT NOT NULL,
+          role TEXT NOT NULL,
+          status TEXT NOT NULL,
+          status_message TEXT,
+          started_at TEXT NOT NULL,
+          last_activity_at TEXT NOT NULL,
+          ended_at TEXT,
+          iteration INTEGER NOT NULL DEFAULT 0,
+          max_iterations INTEGER NOT NULL DEFAULT 50,
+          tool_call_count INTEGER NOT NULL DEFAULT 0,
+          successful_tool_calls INTEGER NOT NULL DEFAULT 0,
+          failed_tool_calls INTEGER NOT NULL DEFAULT 0,
+          warning_count INTEGER NOT NULL DEFAULT 0,
+          files_modified JSON NOT NULL DEFAULT '[]',
+          duration_ms INTEGER
+        );
+
+        CREATE TABLE IF NOT EXISTS session_events (
+          id TEXT PRIMARY KEY,
+          session_id TEXT NOT NULL,
+          type TEXT NOT NULL,
+          timestamp TEXT NOT NULL,
+          iteration INTEGER NOT NULL,
+          tool_call_id TEXT,
+          tool_name TEXT,
+          success INTEGER,
+          duration_ms INTEGER,
+          severity TEXT,
+          payload JSON NOT NULL,
+          FOREIGN KEY (session_id) REFERENCES agent_sessions(id) ON DELETE CASCADE
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_events_session ON session_events(session_id);
+      `);
+        db.close();
+
+        vi.mocked(vscode.workspace.workspaceFolders).mockReturnValue([
+          { uri: { fsPath: tempDir } } as any,
+        ]);
+
+        // Mock LLM to return a tool call
+        const mockModelWithTool = {
+          id: "claude-sonnet-4.5",
+          sendRequest: vi.fn(() => ({
+            stream: (async function* () {
+              yield new vscode.LanguageModelTextPart("Let me use a tool");
+              yield new vscode.LanguageModelToolCallPart(
+                "test_tool",
+                { value: "test" },
+                "tool-call-1",
+              );
+            })(),
+          })),
+        };
+        vi.mocked(vscode.lm.selectChatModels).mockResolvedValue([
+          mockModelWithTool as any,
+        ]);
+
+        try {
+          await runner.start("implementor", {
+            prompt: "Test with tool",
+            taskId: 1,
+            sprintId: "sprint-001",
+          });
+
+          // Wait for tool execution
+          await new Promise((resolve) => setTimeout(resolve, 200));
+
+          const dbCheck = new Database(dbPath);
+          const toolCallEvents = dbCheck
+            .prepare("SELECT * FROM session_events WHERE type = 'tool_call'")
+            .all();
+          expect(toolCallEvents.length).toBeGreaterThan(0);
+
+          const toolEvent = toolCallEvents[0] as any;
+          expect(toolEvent.type).toBe("tool_call");
+          expect(toolEvent.tool_name).toBe("test_tool");
+
+          const toolResultEvents = dbCheck
+            .prepare("SELECT * FROM session_events WHERE type = 'tool_result'")
+            .all();
+          expect(toolResultEvents.length).toBeGreaterThan(0);
+
+          dbCheck.close();
+        } finally {
+          const { OrchestraDB } = await import("../../src/database/client.js");
+          OrchestraDB.close();
+          fs.rmSync(tempDir, { recursive: true, force: true });
+        }
+      },
+    );
   });
 });

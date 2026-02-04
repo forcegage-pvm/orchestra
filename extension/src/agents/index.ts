@@ -5,9 +5,13 @@
  * This provides a single import point for consumers of the agent system.
  */
 
-export * from "./types.js";
-export * from "./errors.js";
+export { AgentRunner } from "./AgentRunner.js";
 export { AgentSession } from "./AgentSession.js";
 export { ContextManager } from "./ContextManager.js";
-export { AgentRunner } from "./AgentRunner.js";
+export * from "./errors.js";
+export { FileChangeTracker } from "./FileChangeTracker.js";
+export * from "./memory/index.js";
+// SessionStorage is deprecated - file-based storage replaced by database
+// export { SessionStorage } from "./SessionStorage.js";
 export { ToolRegistry } from "./ToolRegistry.js";
+export * from "./types.js";

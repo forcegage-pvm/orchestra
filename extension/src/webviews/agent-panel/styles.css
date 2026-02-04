@@ -1,0 +1,260 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Base typography - matching reference design */
+@layer base {
+  body {
+    font-family:
+      "Inter",
+      system-ui,
+      -apple-system,
+      sans-serif;
+    font-size: 13px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  code,
+  pre {
+    font-family: "JetBrains Mono", "Menlo", "Monaco", "Courier New", monospace;
+  }
+}
+
+/* Utility layer - reference design utilities */
+@layer utilities {
+  /* Scrollbar hiding - reference design uses hidden scrollbars */
+  .scrollbar-hide {
+    scrollbar-width: none; /* Firefox */
+    -webkit-overflow-scrolling: touch;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Fade-in animation utility - matching reference (0.4s cubic-bezier) */
+  .fade-in {
+    animation: fadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    opacity: 0;
+    transform: translateY(4px);
+  }
+
+  /* Typing cursor for streaming text */
+  .typing-cursor::after {
+    content: "▋";
+    animation: blink 1s step-end infinite;
+    margin-left: 2px;
+    color: #6366f1;
+  }
+
+  /* Line spin fade loader (8-bar) */
+  .line-spin-fade-loader {
+    position: relative;
+    display: inline-block;
+    width: 15.3px;
+    height: 15.3px;
+    color: inherit;
+  }
+
+  .line-spin-fade-loader > span {
+    position: absolute;
+    top: 2.55px;
+    left: 6.8px;
+    width: 2.55px;
+    height: 6.8px;
+    border-radius: 1.7px;
+    background: currentColor;
+    animation: lineSpinFade 1s linear infinite;
+    transform-origin: center 7.65px;
+    opacity: 0.15;
+  }
+
+  .line-spin-fade-loader > span:nth-child(1) {
+    transform: rotate(0deg);
+    animation-delay: -0.875s;
+  }
+
+  .line-spin-fade-loader > span:nth-child(2) {
+    transform: rotate(45deg);
+    animation-delay: -0.75s;
+  }
+
+  .line-spin-fade-loader > span:nth-child(3) {
+    transform: rotate(90deg);
+    animation-delay: -0.625s;
+  }
+
+  .line-spin-fade-loader > span:nth-child(4) {
+    transform: rotate(135deg);
+    animation-delay: -0.5s;
+  }
+
+  .line-spin-fade-loader > span:nth-child(5) {
+    transform: rotate(180deg);
+    animation-delay: -0.375s;
+  }
+
+  .line-spin-fade-loader > span:nth-child(6) {
+    transform: rotate(225deg);
+    animation-delay: -0.25s;
+  }
+
+  .line-spin-fade-loader > span:nth-child(7) {
+    transform: rotate(270deg);
+    animation-delay: -0.125s;
+  }
+
+  .line-spin-fade-loader > span:nth-child(8) {
+    transform: rotate(315deg);
+    animation-delay: 0s;
+  }
+}
+
+/* Animation keyframes */
+@keyframes blink {
+  50% {
+    opacity: 0;
+  }
+}
+
+/* Fade-in animation - matching reference design timing */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Expand/collapse animation for content transitions */
+@keyframes expandCollapse {
+  from {
+    max-height: 0;
+    opacity: 0;
+  }
+  to {
+    max-height: 500px;
+    opacity: 1;
+  }
+}
+
+/* Pulse animation for active state indicators */
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.7;
+    transform: scale(1.05);
+  }
+}
+
+@keyframes lineSpinFade {
+  0% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.2;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+/* Focused event indicator for keyboard navigation */
+.focused-event {
+  @apply ring-2 ring-blue-500 ring-offset-2 ring-offset-zinc-950;
+}
+
+/* Remove list markers from details/summary */
+details > summary {
+  list-style: none;
+}
+
+details > summary::-webkit-details-marker {
+  display: none;
+}
+
+/* Markdown content styling */
+.markdown-content {
+  @apply text-zinc-400 leading-snug;
+}
+
+.markdown-content h1,
+.markdown-content h2,
+.markdown-content h3,
+.markdown-content h4 {
+  @apply text-zinc-300 font-semibold mt-2 mb-1;
+}
+
+.markdown-content h1 {
+  @apply text-sm;
+}
+
+.markdown-content h2 {
+  @apply text-xs;
+}
+
+.markdown-content h3,
+.markdown-content h4 {
+  @apply text-[10px];
+}
+
+.markdown-content p {
+  @apply mb-1.5;
+}
+
+.markdown-content ul,
+.markdown-content ol {
+  @apply ml-4 mb-1.5;
+}
+
+.markdown-content ul {
+  @apply list-disc;
+}
+
+.markdown-content ol {
+  @apply list-decimal;
+}
+
+.markdown-content li {
+  @apply mb-0.5;
+}
+
+.markdown-content code {
+  @apply px-1 py-0.5 rounded text-[10px] font-mono text-zinc-300 border border-zinc-800/30;
+}
+
+.markdown-content pre {
+  @apply border border-zinc-800/30 rounded p-2 overflow-x-auto mb-1.5;
+}
+
+.markdown-content pre code {
+  @apply p-0 text-[10px];
+}
+
+.markdown-content strong {
+  @apply text-zinc-200 font-semibold;
+}
+
+.markdown-content em {
+  @apply italic;
+}
+
+.markdown-content blockquote {
+  @apply border-l-2 border-zinc-700 pl-2 italic text-zinc-500 mb-1.5;
+}
+
+.markdown-content a {
+  @apply text-blue-400 hover:text-blue-300 underline;
+}
+
+.markdown-content hr {
+  @apply border-zinc-800 my-2;
+}

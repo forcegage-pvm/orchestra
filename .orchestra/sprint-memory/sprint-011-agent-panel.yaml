@@ -1,0 +1,11 @@
+version: '1.0'
+sprintId: sprint-011-agent-panel
+sprintName: sprint-011-agent-panel
+goals: []
+architectureDecisions: []
+taskSummaries: []
+implementorPatterns: []
+compactionCount: 0
+lastCompactedAt: null
+createdAt: '2026-01-31T12:57:58.140Z'
+updatedAt: '2026-01-31T12:57:58.140Z'

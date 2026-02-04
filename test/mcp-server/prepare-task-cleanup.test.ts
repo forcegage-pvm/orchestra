@@ -30,7 +30,6 @@ import {
 } from "../../src/db/schema.js";
 import { handlePrepareTask } from "../../src/mcp-server/handlers/prepare-task.js";
 import { cleanupTestDb, setupTestDb } from "../setup/db-cache.js";
-import { SPEC_NOTES } from "../setup/test-fixtures.js";
 
 describe.skip("prepare_task TDD Cleanup Integration", () => {
   const testSprintId = "test-sprint-cleanup";

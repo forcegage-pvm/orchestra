@@ -7,6 +7,7 @@
  */
 
 import * as vscode from "vscode";
+import type { VerbosityLevel } from "../agents/types.js";
 
 /**
  * Log level enumeration matching package.json configuration
@@ -42,4 +43,12 @@ export function getUpdateInterval(): number {
  */
 export function getLogLevel(): LogLevel {
   return getConfig().get<LogLevel>("logLevel", "info");
+}
+
+/**
+ * Get the verbosity level for agent output
+ * @returns VerbosityLevel - Default: "normal"
+ */
+export function getVerbosity(): VerbosityLevel {
+  return getConfig().get<VerbosityLevel>("agents.verbosity", "normal");
 }

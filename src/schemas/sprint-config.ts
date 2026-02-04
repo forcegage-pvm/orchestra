@@ -15,28 +15,6 @@ import {
 } from "./shared.js";
 
 // ============================================================================
-// Spec Task Reference Validation
-// ============================================================================
-
-/**
- * Schema for individual spec task references (e.g., "T001", "T002")
- * Rejects range notation (e.g., "T001-T005") which must be expanded to individual refs
- */
-export const SpecTaskRefSchema = z
-  .string()
-  .min(1, "Spec task reference cannot be empty")
-  .refine((val) => !val.includes("-"), {
-    message:
-      'Range notation not allowed (e.g., "T001-T005"). Use individual refs: ["T001", "T002", "T003", "T004", "T005"]',
-  });
-
-/**
- * Schema for array of spec task references
- * Each entry must be a valid task ID without range notation
- */
-export const SpecTaskRefsSchema = z.array(SpecTaskRefSchema);
-
-// ============================================================================
 // configure_sprint
 // ============================================================================
 
@@ -111,16 +89,9 @@ export const ConfigureSprintInputSchema = z
           task_id: z.number().int().positive("Task ID must be positive"),
           phase_id: z.string().min(1, "Phase ID is required"),
           title: z.string().min(1, "Title is required"),
-          // TD-032: summary is the new field, description is deprecated but accepted for backward compatibility
-          // Zod uses z.union to accept either, handler normalizes to summary
-          summary: z.string().optional(),
-          // Deprecated: use summary instead
-          description: z.string().optional(),
+          description: z.string().min(1, "Description is required"),
           category: TaskCategorySchema,
           dependencies: z.array(z.number().int().positive()),
-          // TD-032: spec_task_refs - array of individual task IDs, no range notation
-          spec_task_refs: SpecTaskRefsSchema.optional(),
-          // Deprecated: use spec_task_refs instead
           speckit_task_ref: z.string().optional(),
           tdd_red_phase: z.boolean().optional(),
           verification: VerificationCriteriaSchema,
@@ -343,15 +314,9 @@ export type ConfigureSprintOutput = z.output<
 export const AddTaskInputSchema = z.object({
   phase_id: z.string().min(1, "Phase ID is required"),
   title: z.string().min(1, "Title is required"),
-  // TD-032: summary is the new field, description is deprecated but accepted for backward compatibility
-  summary: z.string().optional(),
-  // Deprecated: use summary instead
-  description: z.string().optional(),
+  description: z.string().min(1, "Description is required"),
   category: TaskCategorySchema,
   dependencies: z.array(z.number().int().positive()),
-  // TD-032: spec_task_refs - array of individual task IDs, no range notation
-  spec_task_refs: SpecTaskRefsSchema.optional(),
-  // Deprecated: use spec_task_refs instead
   speckit_task_ref: z.string().optional(),
   tdd_red_phase: z.boolean().optional(),
   verification: VerificationCriteriaSchema,
@@ -373,19 +338,12 @@ export const UpdateTaskInputSchema = z
   .object({
     task_id: z.number().int().positive("Task ID must be positive"),
     title: z.string().min(1).optional(),
-    // TD-032: summary is the new field, description is deprecated but accepted for backward compatibility
-    summary: z.string().optional(),
-    // Deprecated: use summary instead
-    description: z.string().optional(),
+    description: z.string().min(1).optional(),
     category: TaskCategorySchema.optional(),
     dependencies: z.array(z.number().int().positive()).optional(),
     phase_id: z.string().min(1).optional(),
-    spec_task_refs: SpecTaskRefsSchema.optional(),
-    // Deprecated: use spec_task_refs instead
     speckit_task_ref: z.string().optional(),
     tdd_red_phase: z.boolean().optional(),
-    // TESTING: Allow status updates for any task during testing phase
-    status: TaskStatusSchema.optional(),
     rationale: z
       .string()
       .min(10, "Rationale must be at least 10 characters")
@@ -461,11 +419,11 @@ export const GetTaskOutputSchema = z.object({
   task_id: z.number().int().positive(),
   phase_id: z.string(),
   title: z.string(),
-  summary: z.string(),
+  description: z.string(),
   category: TaskCategorySchema,
   status: TaskStatusSchema,
   dependencies: z.array(z.number().int().positive()),
-  spec_task_refs: z.array(z.string()),
+  speckit_task_ref: z.string().optional(),
   created_at: z.string(), // ISO 8601
   updated_at: z.string(),
   completed_at: z.string().optional(),

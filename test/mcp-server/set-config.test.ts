@@ -7,17 +7,20 @@
 
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { getDb, resetDb } from "../../src/db/index.js";
+import { getDb } from "../../src/db/index.js";
 import { config } from "../../src/db/schema.js";
 import { handleSetConfig } from "../../src/mcp-server/handlers/set-config.js";
+import { cleanupTestDb, setupTestDb } from "../setup/db-cache.js";
 
 describe("Set Config Handler", () => {
+  let tempDir: string;
+
   beforeEach(async () => {
-    resetDb();
+    tempDir = await setupTestDb("set-config-");
   });
 
   afterEach(async () => {
-    resetDb();
+    await cleanupTestDb(tempDir);
   });
 
   describe("handleSetConfig", () => {

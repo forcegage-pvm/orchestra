@@ -5,7 +5,7 @@
  */
 
 import { eq } from "drizzle-orm";
-import { getDb, getMostRecentSprint } from "../../db/index.js";
+import { getActiveSprint, getDb } from "../../db/index.js";
 import {
   phases as phasesTable,
   tasks,
@@ -87,8 +87,8 @@ export async function handleGetSprintStatus(input: unknown) {
 async function getSprintStatus(): Promise<GetSprintStatusOutput> {
   const db = getDb();
 
-  // 1. Get most recent sprint (works on active or completed)
-  const sprint = await getMostRecentSprint();
+  // 1. Get active sprint (fallback handled in getActiveSprint)
+  const sprint = await getActiveSprint();
 
   if (!sprint) {
     throw new Error("No active sprint");

@@ -49,7 +49,7 @@ export async function handleGetCurrentTask(input: unknown) {
         taskId: output.task_id,
       },
       { success: true, output },
-      durationMs,
+      durationMs
     );
 
     return {
@@ -66,7 +66,7 @@ export async function handleGetCurrentTask(input: unknown) {
         input: validation.data,
       },
       { success: false, errorMessage: err.message },
-      durationMs,
+      durationMs
     );
 
     return {
@@ -82,7 +82,7 @@ export async function handleGetCurrentTask(input: unknown) {
               },
             },
             null,
-            2,
+            2
           ),
         },
       ],
@@ -109,8 +109,8 @@ async function getCurrentTask(): Promise<GetCurrentTaskOutput> {
     .where(
       and(
         eq(tasks.sprint_id, sprint.id),
-        inArray(tasks.status, ["IMPLEMENT", "VERIFY_FAILED"]),
-      ),
+        inArray(tasks.status, ["IMPLEMENT", "VERIFY_FAILED"])
+      )
     )
     .limit(1);
 
@@ -125,8 +125,8 @@ async function getCurrentTask(): Promise<GetCurrentTaskOutput> {
           inArray(tasks.status, [
             "PENDING_HANDOVER_REVIEW",
             "HANDOVER_REVIEW_FAILED",
-          ]),
-        ),
+          ])
+        )
       )
       .limit(1);
 
@@ -138,7 +138,7 @@ async function getCurrentTask(): Promise<GetCurrentTaskOutput> {
 
       throw new Error(
         `No task available for implementation. ${statusMessage} ` +
-          `(Task ${pendingReviewTask.task_id}: ${pendingReviewTask.title})`,
+          `(Task ${pendingReviewTask.task_id}: ${pendingReviewTask.title})`
       );
     }
 
@@ -171,7 +171,7 @@ async function getCurrentTask(): Promise<GetCurrentTaskOutput> {
       .where(eq(tasks.sprint_id, sprint.id));
 
     const depMap = new Map(
-      depTasks.map((t) => [t.task_id, { title: t.title, status: t.status }]),
+      depTasks.map((t) => [t.task_id, { title: t.title, status: t.status }])
     );
 
     for (const depId of dependencyIds) {
@@ -230,7 +230,8 @@ async function getCurrentTask(): Promise<GetCurrentTaskOutput> {
   if (tddRedPhase) {
     const workspacePath = resolveWorkspacePath();
     const languageFromFiles = detectLanguageFromFileOperations(fileOperations);
-    const language = languageFromFiles || detectProjectLanguage(workspacePath);
+    const language =
+      languageFromFiles || detectProjectLanguage(workspacePath);
     tddInstructions = generateTddInstructions(language);
   }
 
@@ -238,8 +239,7 @@ async function getCurrentTask(): Promise<GetCurrentTaskOutput> {
     task_id: task.task_id,
     title: task.title,
     priority: handover.priority as "P0" | "P1" | "P2" | "P3",
-    summary: task.description, // TD-032: Map description column to summary in API response
-    spec_consultation_notes: handover.spec_consultation_notes || undefined,
+    description: task.description,
     context: handover.context || undefined,
     context_files: contextFiles,
     acceptance_criteria: acceptanceCriteria,
@@ -281,7 +281,7 @@ function detectLanguageFromFileOperations(
  * @returns TDD instructions object or null for unknown languages
  */
 function generateTddInstructions(
-  language: ProjectLanguage,
+  language: ProjectLanguage
 ): GetCurrentTaskOutput["tdd_instructions"] {
   if (language === "dart") {
     return {
