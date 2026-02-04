@@ -4,52 +4,19 @@ sprintName: test-complex-001
 goals: []
 architectureDecisions: []
 taskSummaries:
-  - taskId: 496
+  - taskId: 497
     title: Summary of 5 tasks
     outcome: success
-    attemptCount: 9
-    description: '#495: Summary of 5 tasks | #494: Task 494 | #495: Task 495 | #496: Task 496 | #494: Task 494'
+    attemptCount: 13
+    description: '#496: Summary of 5 tasks | #494: Task 494 | #495: Task 495 | #496: Task 496 | #497: Task 497'
     lessonsLearned: []
     issuesEncountered: []
     filesCreated: []
     filesModified: []
     filesDeleted: []
-    completedAt: '2026-02-03T19:16:15.515Z'
-  - taskId: 494
-    title: Task 494
-    outcome: success
-    attemptCount: 1
-    description: Task completed.
-    lessonsLearned: []
-    issuesEncountered: []
-    filesCreated: []
-    filesModified: []
-    filesDeleted: []
-    completedAt: '2026-02-03T19:31:15.413Z'
-  - taskId: 495
-    title: Task 495
-    outcome: success
-    attemptCount: 1
-    description: Task completed.
-    lessonsLearned: []
-    issuesEncountered: []
-    filesCreated: []
-    filesModified: []
-    filesDeleted: []
-    completedAt: '2026-02-04T09:56:07.635Z'
-  - taskId: 496
-    title: Task 496
-    outcome: success
-    attemptCount: 1
-    description: Task completed.
-    lessonsLearned: []
-    issuesEncountered: []
-    filesCreated: []
-    filesModified: []
-    filesDeleted: []
-    completedAt: '2026-02-04T10:09:44.930Z'
+    completedAt: '2026-02-04T10:25:19.654Z'
 implementorPatterns: []
-compactionCount: 2
-lastCompactedAt: '2026-02-03T19:16:15.517Z'
+compactionCount: 3
+lastCompactedAt: '2026-02-04T10:25:19.655Z'
 createdAt: '2026-02-03T16:43:35.740Z'
-updatedAt: '2026-02-04T10:09:44.932Z'
+updatedAt: '2026-02-04T10:25:19.655Z'
