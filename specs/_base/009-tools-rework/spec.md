@@ -1127,15 +1127,21 @@ const runTaskTool: AgentTool<{
 
 ```typescript
 const getProblemsTool: AgentTool<{
-  filePath?: string;
+  filePaths?: string[];
   severity?: "error" | "warning" | "info" | "hint";
 }> = {
   name: "get-problems",
-  description: "Get diagnostics (errors, warnings) from the Problems panel.",
+  description:
+    "Get diagnostics (errors, warnings) from the Problems panel. Accepts an array of file paths to check multiple files at once. If no files are specified, returns problems for ALL files in the workspace.",
   inputSchema: {
     type: "object",
     properties: {
-      filePath: { type: "string", description: "Filter by file path" },
+      filePaths: {
+        type: "array",
+        items: { type: "string" },
+        description:
+          "Array of file paths to check for problems. Paths can be absolute or relative to workspace root. If omitted, returns problems for ALL files in the workspace. Example: ['src/index.ts', 'src/utils/helper.ts']",
+      },
       severity: {
         type: "string",
         description: "Filter by severity",
@@ -1147,10 +1153,17 @@ const getProblemsTool: AgentTool<{
   async invoke(input, context): Promise<ToolResult> {
     let diagnostics: [vscode.Uri, vscode.Diagnostic[]][];
 
-    if (input.filePath) {
-      const uri = vscode.Uri.file(input.filePath);
-      diagnostics = [[uri, vscode.languages.getDiagnostics(uri)]];
+    if (input.filePaths && input.filePaths.length > 0) {
+      // Check specific files
+      diagnostics = input.filePaths.map((filePath) => {
+        const uri = vscode.Uri.file(filePath);
+        return [uri, vscode.languages.getDiagnostics(uri)] as [
+          vscode.Uri,
+          vscode.Diagnostic[],
+        ];
+      });
     } else {
+      // Return all workspace diagnostics
       diagnostics = vscode.languages.getDiagnostics();
     }
 

@@ -1,25 +1,27 @@
 /**
  * StatusIndicator Component
  *
- * Displays session status with an animated dot and status text.
- * The dot pulses when status is 'running' or 'thinking'.
+ * Displays session status with a colored dot and optional status text.
+ * Compact mode shows only the dot, used when spinner is shown elsewhere.
  *
  * Specification: specs/011-agent-panel-rework/spec.md Section 3.2-3.3
  */
 
-import { Icon } from "@iconify-icon/solid";
 import { Show } from "solid-js";
 import type { SessionStatus } from "../../../agents/sessions/types.js";
 
 export interface StatusIndicatorProps {
   /** Current session status */
   status: SessionStatus;
+  /** Compact mode - only show colored dot, no text */
+  compact?: boolean;
 }
 
 /**
- * StatusIndicator - Shows session status with animated dot
+ * StatusIndicator - Shows session status with colored dot
  *
- * Displays a colored dot (animated when active) and status text.
+ * Displays a colored dot and status text.
+ * In compact mode (when spinner is shown on RoleBadge), only shows the dot.
  * Color coding:
  * - Green: running/thinking
  * - Yellow: paused/waiting_for_tool
@@ -29,8 +31,11 @@ export interface StatusIndicatorProps {
  *
  * @example
  * ```tsx
- * <StatusIndicator status="running" />
- * // Renders: ● Running (with pulsing green dot)
+ * <StatusIndicator status="running" compact={true} />
+ * // Renders: ● (green dot only)
+ *
+ * <StatusIndicator status="failed" />
+ * // Renders: ● Failed (red dot with text)
  * ```
  */
 export function StatusIndicator(props: StatusIndicatorProps) {
@@ -42,22 +47,19 @@ export function StatusIndicator(props: StatusIndicatorProps) {
           dotColor: "bg-green-400",
           textColor: "text-green-400",
           label: props.status === "running" ? "Running" : "Thinking",
-          animate: true,
         };
       case "paused":
       case "waiting_for_tool":
         return {
           dotColor: "bg-yellow-400",
           textColor: "text-yellow-400",
-          label: props.status === "paused" ? "Paused" : "Waiting for Tool",
-          animate: false,
+          label: props.status === "paused" ? "Paused" : "Waiting",
         };
       case "completed":
         return {
           dotColor: "bg-blue-400",
           textColor: "text-blue-400",
           label: "Completed",
-          animate: false,
         };
       case "failed":
       case "cancelled":
@@ -65,14 +67,12 @@ export function StatusIndicator(props: StatusIndicatorProps) {
           dotColor: "bg-red-400",
           textColor: "text-red-400",
           label: props.status === "failed" ? "Failed" : "Cancelled",
-          animate: false,
         };
       case "initializing":
         return {
           dotColor: "bg-gray-400",
           textColor: "text-gray-400",
           label: "Initializing",
-          animate: false,
         };
       default:
         // Fallback for unexpected status values
@@ -80,32 +80,25 @@ export function StatusIndicator(props: StatusIndicatorProps) {
           dotColor: "bg-gray-400",
           textColor: "text-gray-400",
           label: props.status ?? "Unknown",
-          animate: false,
         };
     }
   };
 
-  const isAnimating = () => {
+  const isActive = () => {
     return props.status === "running" || props.status === "thinking";
   };
 
   return (
-    <div class="flex items-center gap-1.5">
-      <Show
-        when={isAnimating()}
-        fallback={
-          <div class={`w-2 h-2 rounded-full ${statusConfig().dotColor}`} />
-        }
-      >
-        {/* Spinning loader icon when running/thinking - same as ToolCallCard */}
-        <Icon
-          icon="lucide:loader-2"
-          class="w-4 h-4 text-green-400 animate-spin"
-        />
+    <div class="flex items-center gap-1.5" title={statusConfig().label}>
+      <div
+        class={`w-2 h-2 rounded-full ${statusConfig().dotColor} ${isActive() ? "animate-pulse" : ""}`}
+      />
+      {/* Show text only in non-compact mode OR when not actively running */}
+      <Show when={!props.compact || !isActive()}>
+        <span class={`text-xs font-medium ${statusConfig().textColor}`}>
+          {statusConfig().label}
+        </span>
       </Show>
-      <span class={`text-sm font-medium ${statusConfig().textColor}`}>
-        {statusConfig().label}
-      </span>
     </div>
   );
 }

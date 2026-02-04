@@ -127,6 +127,29 @@ export function StatusBar() {
     );
   });
 
+  // Get workflow stage based on role
+  const workflowStage = createMemo(() => {
+    if (session?.statusMessage) {
+      // Extract first part before dash from workflow chain messages
+      const match = session.statusMessage.match(/^([^-]+)/);
+      if (match && match[1]) {
+        return match[1].trim();
+      }
+      return session.statusMessage;
+    }
+    // Default based on role
+    switch (session?.role) {
+      case "orchestrator":
+        return "Preparing handover";
+      case "implementor":
+        return "Implementing";
+      case "controller":
+        return "Reviewing";
+      default:
+        return "";
+    }
+  });
+
   const handleStop = () => {
     postMessage("stop_agent");
   };
@@ -145,9 +168,9 @@ export function StatusBar() {
 
   return (
     <div class="flex items-center justify-between px-3 py-2 border-b border-zinc-800/30">
-      {/* Left side - Agent info */}
+      {/* Left side - Agent info with spinner */}
       <div class="flex items-center gap-3">
-        {/* Agent role */}
+        {/* Agent role with spinner when active */}
         <div class="flex items-center gap-2">
           <Icon icon="lucide:bot" class="w-4 h-4 text-zinc-500" />
           <span class="text-xs font-medium text-zinc-300">
@@ -159,6 +182,13 @@ export function StatusBar() {
                   ? "Controller"
                   : "Agent"}
           </span>
+          {/* Spinner next to role name when active */}
+          <Show when={isActive()}>
+            <Icon
+              icon="lucide:loader-2"
+              class="w-3.5 h-3.5 text-green-400 animate-spin"
+            />
+          </Show>
         </div>
 
         {/* Task number badge */}
@@ -167,36 +197,25 @@ export function StatusBar() {
             TASK-{session?.taskNumber}
           </span>
         </Show>
+
+        {/* Workflow stage */}
+        <Show when={session && workflowStage()}>
+          <span class="text-[10px] text-zinc-500 italic">
+            {workflowStage()}
+          </span>
+        </Show>
       </div>
 
-      {/* Center - Status indicator */}
+      {/* Center - Compact status indicator (only when NOT running) */}
       <div class="flex items-center gap-4">
-        <div class={`flex items-center gap-1.5 ${statusConfig().color}`}>
-          {/* Spinning loader for active states, static dot for inactive */}
-          <Show
-            when={isActive()}
-            fallback={
-              <span class={`w-2 h-2 rounded-full ${statusConfig().dotColor}`} />
-            }
-          >
-            <span
-              class="line-spin-fade-loader text-green-400"
-              aria-hidden="true"
-            >
-              <span></span>
-              <span></span>
-              <span></span>
-              <span></span>
-              <span></span>
-              <span></span>
-              <span></span>
-              <span></span>
+        <Show when={!isActive()}>
+          <div class={`flex items-center gap-1.5 ${statusConfig().color}`}>
+            <span class={`w-2 h-2 rounded-full ${statusConfig().dotColor}`} />
+            <span class="text-xs font-medium">
+              {statusConfig().label.toLowerCase()}
             </span>
-          </Show>
-          <span class="text-xs font-medium">
-            {statusConfig().label.toLowerCase()}
-          </span>
-        </div>
+          </div>
+        </Show>
 
         {/* Iteration counter */}
         <Show when={session?.iteration && session?.maxIterations}>

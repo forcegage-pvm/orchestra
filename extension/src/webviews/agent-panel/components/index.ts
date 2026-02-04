@@ -21,6 +21,9 @@ export type { SessionHeaderProps } from "./SessionHeader.js";
 
 export { StatusBar } from "./StatusBar.js";
 
+export { WorkflowStage } from "./WorkflowStage.js";
+export type { WorkflowStageProps } from "./WorkflowStage.js";
+
 export { TaskSelector } from "./TaskSelector.js";
 export type { TaskSelectorProps } from "./TaskSelector.js";
 

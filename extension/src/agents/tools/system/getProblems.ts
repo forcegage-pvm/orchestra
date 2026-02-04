@@ -12,7 +12,12 @@ import { errorResult, successResult } from "../utils/resultBuilder.js";
 export type SeverityLabel = "error" | "warning" | "info" | "hint";
 
 export interface GetProblemsInput {
-  filePath?: string;
+  /**
+   * Optional array of file paths to check for problems.
+   * Can be absolute or relative to workspace root.
+   * If omitted, returns problems for ALL files in the workspace.
+   */
+  filePaths?: string[];
   severity?: SeverityLabel;
 }
 
@@ -185,18 +190,21 @@ function buildFileOutput(
 export const getProblemsTool: AgentTool<GetProblemsInput> = {
   name: TOOL_NAME,
   description:
-    "Retrieve VS Code diagnostic problems for the workspace, with optional file and severity filters.",
+    "Retrieve VS Code diagnostic problems (compile errors, lint warnings, etc.) for specific files or the entire workspace. Use this tool to check for errors after making code changes, or to validate that files compile correctly. Accepts an array of file paths to check multiple files at once.",
   inputSchema: {
     type: "object",
     properties: {
-      filePath: {
-        type: "string",
-        description: "Optional file path to filter diagnostics",
+      filePaths: {
+        type: "array",
+        items: { type: "string" },
+        description:
+          "Array of file paths to check for problems. Paths can be absolute or relative to workspace root. If omitted, returns problems for ALL files in the workspace. Example: ['src/index.ts', 'src/utils/helper.ts']",
       },
       severity: {
         type: "string",
         enum: ["error", "warning", "info", "hint"],
-        description: "Optional severity filter",
+        description:
+          "Optional severity filter. Use 'error' to only see compile errors, 'warning' for warnings, etc.",
       },
     },
   },
@@ -221,24 +229,25 @@ export const getProblemsTool: AgentTool<GetProblemsInput> = {
     const severityFilter = labelToSeverity(input.severity);
     const files: ProblemsFileOutput[] = [];
 
-    if (input.filePath) {
-      const absolutePath = getAbsolutePath(
-        context.workspaceRoot,
-        input.filePath,
-      );
-      const diagnostics = vscode.languages.getDiagnostics(
-        vscode.Uri.file(absolutePath),
-      );
-      const fileOutput = buildFileOutput(
-        context.workspaceRoot,
-        absolutePath,
-        diagnostics,
-        severityFilter,
-      );
-      if (fileOutput) {
-        files.push(fileOutput);
+    if (input.filePaths && input.filePaths.length > 0) {
+      // Check specific files
+      for (const filePath of input.filePaths) {
+        const absolutePath = getAbsolutePath(context.workspaceRoot, filePath);
+        const diagnostics = vscode.languages.getDiagnostics(
+          vscode.Uri.file(absolutePath),
+        );
+        const fileOutput = buildFileOutput(
+          context.workspaceRoot,
+          absolutePath,
+          diagnostics,
+          severityFilter,
+        );
+        if (fileOutput) {
+          files.push(fileOutput);
+        }
       }
     } else {
+      // Get all workspace diagnostics
       const diagnosticsEntries = vscode.languages.getDiagnostics();
       for (const [uri, diagnostics] of diagnosticsEntries) {
         const filePath = uri.fsPath;

@@ -17,23 +17,42 @@ describe("validateTitle", () => {
   });
 
   it("rejects empty titles", () => {
-    expect(() => validateTitle("")).toThrowError(
-      new ValidationError("Title is required", "title", "")
-    );
+    try {
+      validateTitle("");
+      throw new Error("Expected ValidationError");
+    } catch (e) {
+      expect(e).toBeInstanceOf(ValidationError);
+      expect(e.message).toBe("Title is required");
+      expect(e.field).toBe("title");
+      expect(e.value).toBe("");
+    }
   });
 
   it("rejects whitespace-only titles", () => {
-    expect(() => validateTitle("   ")).toThrowError(
-      new ValidationError("Title is required", "title", "   ")
-    );
+    const input = "   ";
+    try {
+      validateTitle(input);
+      throw new Error("Expected ValidationError");
+    } catch (e) {
+      expect(e).toBeInstanceOf(ValidationError);
+      expect(e.message).toBe("Title is required");
+      expect(e.field).toBe("title");
+      expect(e.value).toBe(input);
+    }
   });
 
   it("rejects titles longer than 100 characters", () => {
     const longTitle = "a".repeat(101);
 
-    expect(() => validateTitle(longTitle)).toThrowError(
-      new ValidationError("Title must be 100 characters or less", "title", longTitle)
-    );
+    try {
+      validateTitle(longTitle);
+      throw new Error("Expected ValidationError");
+    } catch (e) {
+      expect(e).toBeInstanceOf(ValidationError);
+      expect(e.message).toBe("Title must be 100 characters or less");
+      expect(e.field).toBe("title");
+      expect(e.value).toBe(longTitle);
+    }
   });
 
   it("accepts title at max length", () => {
@@ -63,13 +82,15 @@ describe("validateDescription", () => {
   it("rejects descriptions longer than 1000 characters", () => {
     const longDescription = "d".repeat(1001);
 
-    expect(() => validateDescription(longDescription)).toThrowError(
-      new ValidationError(
-        "Description must be at most 1000 characters.",
-        "description",
-        longDescription
-      )
-    );
+    try {
+      validateDescription(longDescription);
+      throw new Error("Expected ValidationError");
+    } catch (e) {
+      expect(e).toBeInstanceOf(ValidationError);
+      expect(e.message).toBe("Description must be at most 1000 characters.");
+      expect(e.field).toBe("description");
+      expect(e.value).toBe(longDescription);
+    }
   });
 });
 
@@ -90,23 +111,46 @@ describe("validateTags", () => {
   it("rejects tags longer than 30 characters", () => {
     const longTag = "t".repeat(31);
 
-    expect(() => validateTags([longTag])).toThrowError(
-      new ValidationError("Tags must be 30 characters or less", "tags", [longTag])
-    );
+    try {
+      validateTags([longTag]);
+      throw new Error("Expected ValidationError");
+    } catch (e) {
+      expect(e).toBeInstanceOf(ValidationError);
+      expect(e.message).toBe("Tags must be 30 characters or less");
+      expect(e.field).toBe("tags");
+      expect(e.value).toEqual([longTag]);
+    }
   });
 
   it("rejects empty tags after trimming", () => {
-    expect(() => validateTags(["  "])).toThrowError(
-      new ValidationError("Tags cannot be empty.", "tags", ["  "])
-    );
+    const tags = ["  "];
+    try {
+      validateTags(tags);
+      throw new Error("Expected ValidationError");
+    } catch (e) {
+      expect(e).toBeInstanceOf(ValidationError);
+      expect(e.message).toBe("Tags cannot be empty.");
+      expect(e.field).toBe("tags");
+      expect(e.value).toEqual(tags);
+    }
   });
 
   it("rejects more than 10 tags", () => {
     const tags = Array.from({ length: 11 }, (_, index) => `tag-${index + 1}`);
 
-    expect(() => validateTags(tags)).toThrowError(
-      new ValidationError("Maximum 10 tags allowed", "tags", tags)
-    );
+    try {
+      validateTags(tags);
+      throw new Error("Expected ValidationError");
+    } catch (e) {
+      expect(e).toBeInstanceOf(ValidationError);
+      expect(e.message).toBe("Maximum 10 tags allowed");
+      expect(e.field).toBe("tags");
+      expect(e.value).toEqual(tags);
+    }
+  });
+
+  it("is case-sensitive when deduping", () => {
+    expect(validateTags(["Tag", "tag"])).toEqual(["Tag", "tag"]);
   });
 });
 
@@ -115,28 +159,40 @@ describe("validateDueDate", () => {
     expect(validateDueDate(null)).toBeNull();
   });
 
-  it("accepts future due dates", () => {
-    const futureDate = new Date();
-    futureDate.setDate(futureDate.getDate() + 3);
+  it("accepts future due dates (deterministic)", () => {
+    // Use explicit fixed date: 2025-01-10
+    const futureDate = new Date("3000-01-10T00:00:00.000Z");
 
     expect(validateDueDate(futureDate)).toBe(futureDate);
   });
 
-  it("rejects past due dates", () => {
-    const pastDate = new Date();
-    pastDate.setDate(pastDate.getDate() - 1);
+  it("rejects past due dates (deterministic)", () => {
+    // Choose a date known to be in the past: 2000-01-01
+    const pastDate = new Date("2000-01-01T00:00:00.000Z");
 
-    expect(() => validateDueDate(pastDate)).toThrowError(
-      new ValidationError("Due date cannot be in the past", "dueDate", pastDate)
-    );
+    try {
+      validateDueDate(pastDate);
+      throw new Error("Expected ValidationError");
+    } catch (e) {
+      expect(e).toBeInstanceOf(ValidationError);
+      expect(e.message).toBe("Due date cannot be in the past");
+      expect(e.field).toBe("dueDate");
+      expect(e.value).toBe(pastDate);
+    }
   });
 
   it("rejects invalid dates", () => {
     const invalidDate = new Date("invalid");
 
-    expect(() => validateDueDate(invalidDate)).toThrowError(
-      new ValidationError("Invalid date", "dueDate", invalidDate)
-    );
+    try {
+      validateDueDate(invalidDate);
+      throw new Error("Expected ValidationError");
+    } catch (e) {
+      expect(e).toBeInstanceOf(ValidationError);
+      expect(e.message).toBe("Invalid date");
+      expect(e.field).toBe("dueDate");
+      expect(e.value).toBe(invalidDate);
+    }
   });
 });
 
@@ -145,6 +201,15 @@ describe("validateCreateInput", () => {
     const input = {
       title: "  Build prototype  ",
       tags: [" ui ", "ui", "backend"],
+      description: undefined,
+      priority: undefined,
+      dueDate: undefined,
+    } as unknown as {
+      title: string;
+      tags?: string[];
+      description?: string;
+      priority?: Priority;
+      dueDate?: Date | null;
     };
 
     expect(validateCreateInput(input)).toEqual({
@@ -156,15 +221,30 @@ describe("validateCreateInput", () => {
     });
   });
 
-  it("rejects invalid priority", () => {
-    const input = { title: "Task", priority: 9 } as unknown as {
+  it("validates all fields together and rejects invalid priority", () => {
+    const input = {
+      title: "Task",
+      description: "Desc",
+      priority: 9,
+      dueDate: new Date("2025-01-01T00:00:00.000Z"),
+      tags: ["a"],
+    } as unknown as {
       title: string;
-      priority: number;
+      description?: string;
+      priority?: number;
+      dueDate?: Date | null;
+      tags?: string[];
     };
 
-    expect(() => validateCreateInput(input)).toThrowError(
-      new ValidationError("Priority must be a valid value.", "priority", input)
-    );
+    try {
+      validateCreateInput(input as any);
+      throw new Error("Expected ValidationError");
+    } catch (e) {
+      expect(e).toBeInstanceOf(ValidationError);
+      expect(e.message).toBe("Priority must be a valid value.");
+      expect(e.field).toBe("priority");
+      expect(e.value).toBe(input);
+    }
   });
 });
 
@@ -173,7 +253,7 @@ describe("validateUpdateInput", () => {
     const input = {
       description: "Updated",
       status: TaskStatus.IN_PROGRESS,
-    };
+    } as const;
 
     expect(validateUpdateInput(input)).toEqual({
       description: "Updated",
@@ -188,8 +268,20 @@ describe("validateUpdateInput", () => {
   it("rejects invalid status", () => {
     const input = { status: "DONE" } as unknown as { status: TaskStatus };
 
-    expect(() => validateUpdateInput(input)).toThrowError(
-      new ValidationError("Status must be a valid value.", "status", input)
-    );
+    try {
+      validateUpdateInput(input);
+      throw new Error("Expected ValidationError");
+    } catch (e) {
+      expect(e).toBeInstanceOf(ValidationError);
+      expect(e.message).toBe("Status must be a valid value.");
+      expect(e.field).toBe("status");
+      expect(e.value).toBe(input);
+    }
+  });
+
+  it("validates provided dueDate deterministically", () => {
+    const input = { dueDate: new Date("3000-02-02T00:00:00.000Z") } as const;
+
+    expect(validateUpdateInput(input)).toEqual({ dueDate: input.dueDate });
   });
 });

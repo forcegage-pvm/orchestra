@@ -51,7 +51,7 @@ beforeEach(() => {
 });
 
 describe("getProblems", () => {
-  it("filters diagnostics by filePath and uses 1-based positions", async () => {
+  it("filters diagnostics by filePaths array and uses 1-based positions", async () => {
     const expectedPath = path.resolve(mockContext.workspaceRoot, "src/app.ts");
     const diagnostics = [
       {
@@ -76,7 +76,7 @@ describe("getProblems", () => {
     );
 
     const result = await getProblemsTool.invoke(
-      { filePath: "src/app.ts" },
+      { filePaths: ["src/app.ts"] },
       mockContext,
     );
 
@@ -87,6 +87,55 @@ describe("getProblems", () => {
     expect(output.files[0]?.diagnostics).toHaveLength(1);
     expect(output.files[0]?.diagnostics[0]?.line).toBe(1);
     expect(output.files[0]?.diagnostics[0]?.column).toBe(2);
+  });
+
+  it("checks multiple files when filePaths array has multiple entries", async () => {
+    const path1 = path.resolve(mockContext.workspaceRoot, "src/one.ts");
+    const path2 = path.resolve(mockContext.workspaceRoot, "src/two.ts");
+
+    languagesApi.getDiagnostics.mockImplementation(
+      (uri?: { fsPath: string }) => {
+        if (uri?.fsPath === path1) {
+          return [
+            {
+              severity: DiagnosticSeverity.Error,
+              message: "Error in file one",
+              range: {
+                start: { line: 0, character: 0 },
+                end: { line: 0, character: 5 },
+              },
+            },
+          ];
+        }
+        if (uri?.fsPath === path2) {
+          return [
+            {
+              severity: DiagnosticSeverity.Warning,
+              message: "Warning in file two",
+              range: {
+                start: { line: 1, character: 0 },
+                end: { line: 1, character: 10 },
+              },
+            },
+          ];
+        }
+        return [];
+      },
+    );
+
+    const result = await getProblemsTool.invoke(
+      { filePaths: ["src/one.ts", "src/two.ts"] },
+      mockContext,
+    );
+
+    expect(result.success).toBe(true);
+    const output = JSON.parse(result.content[0]?.value ?? "{}");
+    expect(output.files).toHaveLength(2);
+    expect(output.totalDiagnostics).toBe(2);
+    expect(output.files[0]?.diagnostics[0]?.message).toBe("Error in file one");
+    expect(output.files[1]?.diagnostics[0]?.message).toBe(
+      "Warning in file two",
+    );
   });
 
   it("filters diagnostics by severity", async () => {

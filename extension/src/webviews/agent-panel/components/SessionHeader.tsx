@@ -39,18 +39,20 @@ export interface SessionHeaderProps {
 /**
  * SessionHeader - Agent panel header with session info and controls
  *
- * Two-row layout:
- * Row 1: RoleBadge, Task selector (placeholder), Session selector (placeholder), Stop button
- * Row 2: StatusIndicator, ProgressStats
+ * Compact single-row layout:
+ * - RoleBadge with spinner (when running)
+ * - Task selector + WorkflowStage
+ * - Session selector
+ * - Verbosity dropdown
+ * - StatusIndicator (compact - just dot)
+ * - ProgressStats (compact)
+ * - Stop button
  *
  * Visual layout:
  * ```
- * ┌─────────────────────────────────────────────────────────────────┐
- * │ 🤖 Orchestrator │ Task N ▼ │ Session M/K ▼ │    [⏹]            │
- * ├─────────────────────────────────────────────────────────────────┤
- * │ ● Running   Iteration 5/50   Duration: 2m 34s                   │
- * │ Tools: 12 calls (11 ✓ 1 ✗)   Files: 4 modified                 │
- * └─────────────────────────────────────────────────────────────────┘
+ * ┌─────────────────────────────────────────────────────────────────────────────┐
+ * │ 🤖 Orchestrator ⟳ │ Task N ▼ (Preparing) │ Sess │ Verb │ ● │ Stats │ [⏹] │
+ * └─────────────────────────────────────────────────────────────────────────────┘
  * ```
  *
  * @example
@@ -72,17 +74,27 @@ export function SessionHeader(props: SessionHeaderProps) {
 
   return (
     <div class="flex-none h-12 border-b border-zinc-900/50 bg-[#09090b]/90 backdrop-blur-md">
-      {/* Single row: Role, selectors, verbosity, stop button */}
+      {/* Single row: Role with spinner, task + stage, selectors, status, stats, stop */}
       <div class="h-full flex items-center justify-between px-4">
         <div class="flex items-center gap-3">
-          {props.session && <RoleBadge role={props.session.role} />}
+          {props.session && (
+            <RoleBadge role={props.session.role} isActive={isRunning()} />
+          )}
 
-          {/* Task selector */}
-          <TaskSelector
-            currentTaskId={props.session?.taskId}
-            availableTasks={props.availableTasks}
-            onTaskChange={props.onTaskChange}
-          />
+          {/* Task selector with workflow stage */}
+          <div class="flex items-center gap-2">
+            <TaskSelector
+              currentTaskId={props.session?.taskId}
+              availableTasks={props.availableTasks}
+              onTaskChange={props.onTaskChange}
+            />
+            {props.session && (
+              <WorkflowStage
+                role={props.session.role}
+                statusMessage={props.session.statusMessage}
+              />
+            )}
+          </div>
 
           {/* Session selector */}
           <SessionSelector
@@ -94,11 +106,11 @@ export function SessionHeader(props: SessionHeaderProps) {
           {/* Verbosity selector */}
           <VerbosityDropdown label="Verbosity" />
 
-          {/* Status and Progress Stats inline */}
+          {/* Compact status and Progress Stats inline */}
           {props.session && (
             <>
               <div class="h-4 w-px bg-zinc-800 mx-1"></div>
-              <StatusIndicator status={props.session.status} />
+              <StatusIndicator status={props.session.status} compact={true} />
               <ProgressStats
                 iteration={props.session.iteration}
                 maxIterations={props.session.maxIterations}
