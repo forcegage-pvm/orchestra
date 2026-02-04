@@ -22,6 +22,18 @@ This specification defines comprehensive session management for Orchestra agents
 
 ---
 
+## Clarifications
+
+### Session 2026-02-04
+
+- Q: How should we handle message insertion failures that occur after the agent has already moved forward (async fire-and-forget writes)? → A: Buffered writes with failure recovery - Queue failed inserts for retry, log persistent failures
+- Q: When verification fails, who/what initiates the session continuation? → A: Existing workflow chain handles it - modify current workflow to call continueSession instead of spawning new session
+- Q: For messages with structured content (tool calls, attachments), should token counting include the entire serialized content or only what's sent to the LLM? → A: Count LLM-visible content with formatting (includes tool call/result wrappers)
+- Q: If a resumed session continues for many more iterations and triggers NEW compaction, should the old compaction markers be kept or replaced? → A: Keep old markers, add new ones (full compaction history)
+- Q: When continuing Session C (implementor), does it see any messages from Session A (orchestrator)? → A: **CRITICAL - NO!** Session A and Session C are SEPARATE AGENTS with SEPARATION BOUNDARIES. Session A resurrects Session C and injects only the new prompt/feedback. Session C continues from its own last state with zero visibility into Session A. This maintains the orchestrator/implementor trust boundary and hidden verification pattern.
+
+---
+
 ## User Scenarios & Testing _(mandatory)_
 
 ### User Story 1 - Resume Paused Orchestrator Session (Priority: P0)
@@ -49,10 +61,10 @@ As an orchestrator agent, when verification fails and I need to send feedback to
 
 **Independent Test**:
 
-1. Implementor completes Task 5 (session A)
-2. Orchestrator verifies and finds issues (session B)
-3. Orchestrator injects feedback into session A (continues as session A-continued)
-4. Implementor fixes issues with full context of original attempt
+1. Implementor completes Task 5 (session C)
+2. Orchestrator verifies and finds issues (session A - separate orchestrator session)
+3. Orchestrator resurrects session C and injects feedback prompt (session C continues)
+4. Implementor fixes issues with full context of its own original attempt (NO visibility into orchestrator session A)
 
 **Acceptance Scenarios**:
 
@@ -78,7 +90,7 @@ As a task workflow, I track multiple sessions across my lifecycle: preparation (
 2. **Given** Task 5 enters IMPLEMENT stage, **When** implementor works, **Then** new session tagged with `task_id=5, stage=IMPLEMENT, parent_session_id=<prepare_session>`
 3. **Given** Task 5 enters VERIFY stage, **When** orchestrator verifies, **Then** new session tagged with `task_id=5, stage=VERIFY`
 4. **Given** query "show all sessions for Task 5", **When** UI fetches, **Then** chronological list of PREPARE → IMPLEMENT → VERIFY → IMPLEMENT_FIX sessions
-5. **Given** IMPLEMENT session failed, **When** retry occurs, **Then** new session with `attempt=2` and `previous_session_id=<first_attempt>`
+5. **Given** IMPLEMENT session failed, **When** retry occurs, **Then** new session with `attempt=2` and `parent_session_id=<first_attempt>`
 
 ---
 
@@ -157,7 +169,7 @@ As a sprint manager, I can analyze token usage, conversation patterns, and agent
 #### Session Continuation (Reuse)
 
 - **FR-019**: Continue operation MUST accept `session_id` and `continuation_prompt`
-- **FR-020**: Continue operation MUST append user message with continuation prompt to existing session
+- **FR-020**: Continue operation MUST append user message with continuation prompt to new child session (created in FR-021)
 - **FR-021**: Continue operation MUST create new session record with `parent_session_id` pointing to original
 - **FR-022**: Continue operation MUST inherit iteration count from parent session
 - **FR-023**: Continue operation MUST preserve role (can't switch orchestrator to implementor)
@@ -197,7 +209,7 @@ As a sprint manager, I can analyze token usage, conversation patterns, and agent
 - **NFR-001**: Message insertion MUST NOT block agent execution (async write)
 - **NFR-002**: Message retrieval for resume MUST complete in <500ms for 100-message sessions
 - **NFR-003**: Session continuation MUST not duplicate message history (reference by parent_session_id)
-- **NFR-004**: Token counting MUST use cached values, not recalculate on every query
+- **NFR-004**: Token counting MUST use cached values stored in `token_count` column, not recalculate on every query (caching strategy: estimate once at insertion via ContextManager.estimateTokens(), sum pre-calculated values for aggregation queries)
 
 #### Data Integrity
 
@@ -279,9 +291,11 @@ As a sprint manager, I can analyze token usage, conversation patterns, and agent
 - ✅ Preserves original session as immutable record (audit trail)
 - ✅ Enables "undo continuation" (revert to parent state)
 - ✅ Tracks how many times a session was continued (failure loop detection)
-- ✅ Allows different agent roles to continue (orchestrator → implementor feedback)
-- ❌ Requires joining parent + child messages for full history
+- ✅ Tracks which orchestrator session triggered the continuation (lineage tracking)
+- ✅ NO message inheritance - maintains agent separation boundary
 - ❌ More database rows
+
+**CRITICAL**: `parent_session_id` is for TRACKING LINEAGE ONLY, not message inheritance. When Session A (orchestrator) continues Session C (implementor), Session C does NOT see Session A's messages. Session C simply resumes from its own last state with new prompt injected.
 
 **Alternative Considered**: Mutate original session, append messages
 
@@ -385,11 +399,41 @@ type SessionStage =
 - ✅ Immutable (token count doesn't change retroactively)
 - ❌ Slight overhead on message insert
 
-**Implementation**: Call `ContextManager.estimateTokens()` when creating message.
+**Implementation**: Call `ContextManager.estimateTokens()` when creating message. Token values cached in `token_count` column; no recalculation on query.
+
+**Caching Strategy**: Store estimated token count at message insertion time. Queries sum pre-calculated values from database, avoiding expensive re-tokenization. Acceptable margin of error (±10%) vs actual LLM usage.
 
 ---
 
-### DD-007: Ephemeral State Not Persisted
+### DD-007a: Context Compaction Marker Format
+
+**Decision**: Store context compaction events as special system messages with structured format.
+
+**Format**: `{ role: 'system', content: '<<COMPACTED: iterations X-Y, Z messages summarized>>' }`
+
+**Example**:
+
+```typescript
+// After ContextManager compacts iterations 1-10 (15 messages)
+{
+  role: 'system',
+  content: '<<COMPACTED: iterations 1-10, 15 messages summarized>>',
+  token_count: 0  // Marker only, no token cost
+}
+```
+
+**Rationale**:
+
+- ✅ Prevents re-compaction of already-compacted regions on resume
+- ✅ Visible in message history for debugging
+- ✅ Recognizable pattern for UI display ("N messages summarized")
+- ✅ Maintains chronological message sequence
+
+**Integration**: ContextManager checks for `<<COMPACTED:` prefix when determining compaction regions. Resume logic preserves these markers.
+
+---
+
+### DD-008: Ephemeral State Not Persisted
 
 **Decision**: ProcessManager processes, terminal state, and open file handles are NOT persisted or restored on resume.
 
@@ -412,7 +456,7 @@ type SessionStage =
 
 ---
 
-### DD-008: Session Stage to Task Status Mapping
+### DD-009: Session Stage to Task Status Mapping
 
 **Decision**: Session `stage` field maps to task workflow stages but is independent of task status.
 
@@ -1097,8 +1141,8 @@ Sprint is complete when:
 
 ```typescript
 // Original implementor session (Task 5)
-Session A {
-  id: 'session-abc',
+Session C {
+  id: 'session-ccc',
   role: 'implementor',
   task_id: 5,
   stage: 'IMPLEMENT',
@@ -1108,13 +1152,13 @@ Session A {
     { role: 'system', content: 'You are an implementor agent...' },
     { role: 'user', content: 'Implement user authentication' },
     { role: 'assistant', content: 'I will create auth.ts...' },
-    // ... 12 more messages
+    // ... 12 more messages (implementor's work)
   ]
 }
 
-// Orchestrator verification fails
-Session B {
-  id: 'session-def',
+// Orchestrator verification session (SEPARATE - different agent)
+Session A {
+  id: 'session-aaa',
   role: 'orchestrator',
   task_id: 5,
   stage: 'VERIFY',
@@ -1126,40 +1170,41 @@ Session B {
   ]
 }
 
-// Orchestrator continues Session A (implementor)
-Session C = continueSession(
-  sessionId: 'session-abc',
+// Orchestrator resurrects Session C (implementor) with feedback
+Session C_continued = continueSession(
+  sessionId: 'session-ccc',  // Resume implementor session
   prompt: 'Verification failed: Password hashing is missing. Please add bcrypt hashing.',
   stage: 'IMPLEMENT_FIX'
 )
 
-// Result: New session inheriting A's context
-Session C {
-  id: 'session-ghi',
-  role: 'implementor',              // Inherited from A
-  task_id: 5,                       // Inherited from A
-  stage: 'IMPLEMENT_FIX',           // New stage
-  parent_session_id: 'session-abc', // Link to A
-  attempt: 2,                       // Incremented
-  iteration: 16,                    // Continues from A's 15
+// Result: Session C continues with NEW PROMPT ONLY (NO Session A messages)
+Session C_continued {
+  id: 'session-ccc',            // SAME session ID - it's a continuation
+  role: 'implementor',          // Same role
+  task_id: 5,                   // Same task
+  stage: 'IMPLEMENT_FIX',       // Updated stage
+  parent_session_id: 'session-aaa', // Tracks which orchestrator session triggered this
+  attempt: 2,                   // Incremented
+  iteration: 16,                // Continues from 15
+  is_continued: true,
+  continued_at: '2026-02-04T10:30:00Z',
   messages: [
-    // All messages from Session A (15 messages)
-    // PLUS:
+    // ALL 15 ORIGINAL MESSAGES FROM SESSION C (implementor's work)
+    { role: 'system', content: 'You are an implementor agent...' },
+    { role: 'user', content: 'Implement user authentication' },
+    { role: 'assistant', content: 'I will create auth.ts...' },
+    // ... (12 more original implementor messages)
+    // PLUS NEW CONTINUATION PROMPT:
     {
       role: 'user',
       content: 'Verification failed: Password hashing is missing. Please add bcrypt hashing.',
       iteration: 16
     }
+    // NO MESSAGES FROM SESSION A (orchestrator) - SEPARATION MAINTAINED
   ]
 }
 
-// Session A updated
-Session A {
-  ...
-  is_continued: true,
-  continued_at: '2026-02-04T10:30:00Z',
-  continuation_count: 1
-}
+// Session A remains unchanged - it's a separate orchestrator session
 ```
 
 ---
