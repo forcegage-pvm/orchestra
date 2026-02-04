@@ -335,7 +335,7 @@ export class WorkflowChain implements vscode.Disposable {
     }
 
     logger.info(
-      `[WorkflowChain] Next task found: ${nextTask.task_id} - ${nextTask.title}`,
+      `[WorkflowChain] Next task found: ${nextTask.task_id} (id: ${nextTask.id}) - ${nextTask.title}`,
     );
 
     // Small delay to allow UI to update
@@ -346,11 +346,11 @@ export class WorkflowChain implements vscode.Disposable {
       `Orchestra: Task ${completedTaskId} complete! Moving to Task ${nextTask.task_id}: ${nextTask.title}...`,
     );
 
-    // Invoke the next task
+    // Invoke the next task using the internal database ID (not sprint-scoped task_id)
     try {
-      await handlePlayTask(this.workspaceRoot, nextTask.task_id);
+      await handlePlayTask(this.workspaceRoot, nextTask.id);
       logger.info(
-        `[WorkflowChain] Successfully invoked next task ${nextTask.task_id}`,
+        `[WorkflowChain] Successfully invoked next task ${nextTask.task_id} (id: ${nextTask.id})`,
       );
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unknown error";
