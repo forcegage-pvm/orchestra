@@ -1186,7 +1186,8 @@ export class AgentRunner implements vscode.Disposable {
       const toolCalls: Array<{ name: string; input: unknown; callId: string }> =
         [];
 
-      // Stream response
+      // Stream response - collect ALL chunks first before emitting events
+      // This is necessary because LLMs may send tool calls BEFORE their reasoning text
       for await (const chunk of request.stream) {
         console.error(
           "[AgentRunner] sendRequest: Received chunk:",
@@ -1201,45 +1202,57 @@ export class AgentRunner implements vscode.Disposable {
           // Accumulate thinking text
           thinkingText += chunk.value;
         } else if (chunk instanceof vscode.LanguageModelToolCallPart) {
-          // Tool call requested
+          // Collect tool call - DON'T emit yet
           hadToolCalls = true;
           toolCalls.push({
             name: chunk.name,
             input: chunk.input,
             callId: chunk.callId,
           });
-
-          this.emitOutput({
-            type: "tool_call",
-            timestamp: new Date().toISOString(),
-            iteration: this.session.currentIteration,
-            toolName: chunk.name,
-            toolInput: chunk.input as Record<string, unknown>,
-            toolCallId: chunk.callId,
-          });
-          this.eventEmitter?.emitToolCall(
-            chunk.callId,
-            chunk.name,
-            this.getToolCategory(chunk.name),
-            chunk.input as Record<string, unknown>,
-          );
         }
       }
 
-      // Emit thinking text if any
+      // NOW emit events in correct order: thinking FIRST, then tool calls
+      // This ensures proper sequencing regardless of stream order
+
+      // Step 1: Emit thinking text (if any)
       if (thinkingText.trim()) {
         this.addAssistantMessage(thinkingText);
+
+        // Path 1: Direct output event (for legacy listeners)
         this.emitOutput({
           type: "thinking",
           timestamp: new Date().toISOString(),
           iteration: this.session.currentIteration,
           text: thinkingText,
         });
+
+        // Path 2: Through eventEmitter/database/eventBus (for Agent Panel)
         this.eventEmitter?.emitThinking(thinkingText);
       }
 
-      // Execute tool calls
+      // Step 2: Emit tool calls (if any)
       if (hadToolCalls) {
+        for (const toolCall of toolCalls) {
+          // Path 1: Direct output event (for legacy listeners)
+          this.emitOutput({
+            type: "tool_call",
+            timestamp: new Date().toISOString(),
+            iteration: this.session.currentIteration,
+            toolName: toolCall.name,
+            toolInput: toolCall.input as Record<string, unknown>,
+            toolCallId: toolCall.callId,
+          });
+
+          // Path 2: Through eventEmitter/database/eventBus (for Agent Panel)
+          this.eventEmitter?.emitToolCall(
+            toolCall.callId,
+            toolCall.name,
+            this.getToolCategory(toolCall.name),
+            toolCall.input as Record<string, unknown>,
+          );
+        }
+
         // Add assistant message with tool calls BEFORE executing them
         // This is required by the LLM API - tool results must follow tool calls
         this.addAssistantToolCallMessage(toolCalls);
@@ -1789,7 +1802,7 @@ export class AgentRunner implements vscode.Disposable {
    * Handle consecutive tool failures and auto-escalate when needed
    */
   private async handleConsecutiveFailures(): Promise<boolean> {
-    if (this.consecutiveErrors < 5 || !this.session) {
+    if (this.consecutiveErrors < 8 || !this.session) {
       return false;
     }
 

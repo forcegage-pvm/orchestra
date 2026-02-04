@@ -33,12 +33,22 @@ export const [events, setEvents] = createStore<Record<string, AgentEvent>>({});
 export const [eventKeys, setEventKeys] = createSignal<string[]>([]);
 
 /**
- * Add a single event to the store and update the keys signal
+ * Add a single event to the store and update the keys signal.
+ * Deduplicates by event ID - if the event already exists, it updates the data
+ * but doesn't add a duplicate key to the keys array.
  */
 export function addEvent(event: AgentEvent): void {
+  // Check if this event already exists (prevents duplicates from EventBus + polling)
+  const existingKeys = eventKeys();
+  const isNewEvent = !existingKeys.includes(event.id);
+
+  // Always update the event data (in case of updates to existing event)
   setEvents(event.id, event);
-  // Update keys signal to trigger reactivity
-  setEventKeys((prev) => [...prev, event.id]);
+
+  // Only add to keys array if this is a new event
+  if (isNewEvent) {
+    setEventKeys((prev) => [...prev, event.id]);
+  }
 }
 
 /**

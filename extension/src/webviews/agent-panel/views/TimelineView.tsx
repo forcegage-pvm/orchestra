@@ -14,17 +14,17 @@ import { Icon } from "@iconify-icon/solid";
 import type { Accessor } from "solid-js";
 import { createMemo, createSignal, Index, Show } from "solid-js";
 import type {
-  AgentEvent,
-  StatusChangeEvent,
-  ToolCallAggregate,
+    AgentEvent,
+    StatusChangeEvent,
+    ToolCallAggregate,
 } from "../../../agents/sessions/types.js";
 import {
-  EmptyState,
-  ErrorCard,
-  NewEventsIndicator,
-  PromptCard,
-  ThinkingCard,
-  ToolCallCard,
+    EmptyState,
+    ErrorCard,
+    NewEventsIndicator,
+    PromptCard,
+    ThinkingCard,
+    ToolCallCard,
 } from "../components/index.js";
 import { useAutoScroll } from "../hooks/index.js";
 import { getEventsArray, session, toolCalls } from "../stores/index.js";
@@ -146,11 +146,10 @@ export function TimelineView(props: TimelineViewProps) {
       });
     }
 
-    // Sort by timestamp
-    return items.sort(
-      (a, b) =>
-        new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime(),
-    );
+    // Return items in insertion order (preserves correct event sequence)
+    // Don't sort by timestamp - events are already in correct order from the backend
+    // and timestamps can have millisecond collisions causing incorrect ordering
+    return items;
   });
 
   // Smart auto-scroll: pauses when user scrolls up, resumes at bottom
@@ -237,7 +236,7 @@ export function TimelineView(props: TimelineViewProps) {
       {/* Scroll container - matching reference design */}
       <div
         ref={setContainerRef}
-        class="h-full overflow-y-auto pb-20 pt-1 space-y-0.5 scroll-smooth"
+        class="h-full overflow-y-auto pb-20 pt-1 scroll-smooth"
       >
         <Show
           when={timelineItems().length > 0}

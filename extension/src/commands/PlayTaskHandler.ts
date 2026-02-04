@@ -38,9 +38,11 @@ async function showAgentPanel(): Promise<void> {
 /**
  * Read agent instruction file content for system prompt
  *
+ * Also includes copilot-instructions.md if it exists.
+ *
  * @param workspaceRoot Workspace root path
  * @param role Agent role (orchestrator, implementor, controller)
- * @returns File content as string
+ * @returns File content as string (agent-specific + copilot instructions if available)
  */
 async function readAgentInstructions(
   workspaceRoot: string,
@@ -52,7 +54,26 @@ async function readAgentInstructions(
     "agents",
     `orchestra.${role}.agent.md`,
   );
-  return await fs.readFile(agentInstructionPath, "utf-8");
+  const agentInstructions = await fs.readFile(agentInstructionPath, "utf-8");
+
+  // Also try to read copilot-instructions.md if it exists
+  const copilotInstructionsPath = path.join(
+    workspaceRoot,
+    ".github",
+    "copilot-instructions.md",
+  );
+
+  try {
+    const copilotInstructions = await fs.readFile(
+      copilotInstructionsPath,
+      "utf-8",
+    );
+    // Combine both instruction files
+    return `${agentInstructions}\n\n---\n\n${copilotInstructions}`;
+  } catch (error) {
+    // copilot-instructions.md doesn't exist or can't be read - just return agent instructions
+    return agentInstructions;
+  }
 }
 
 /**
