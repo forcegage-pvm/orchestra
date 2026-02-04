@@ -139,7 +139,6 @@ export class AgentSession {
   recordFileChange(fileChange: FileChange): void {
     this.fileChanges.push(fileChange);
     this.updateActivityTimestamp();
-    this.triggerAutoSave();
   }
 
   /**
@@ -158,7 +157,6 @@ export class AgentSession {
 
     this.currentIteration++;
     this.updateActivityTimestamp();
-    this.triggerAutoSave({ checkpoint: true });
   }
 
   /**
@@ -212,7 +210,6 @@ export class AgentSession {
       failureReason: null,
     };
     this.updateActivityTimestamp();
-    this.triggerAutoSave();
   }
 
   /**
@@ -235,7 +232,6 @@ export class AgentSession {
 
     this.status = "running";
     this.updateActivityTimestamp();
-    this.triggerAutoSave();
   }
 
   /**
@@ -258,7 +254,6 @@ export class AgentSession {
       failureReason: null,
     };
     this.updateActivityTimestamp();
-    this.triggerAutoSave();
   }
 
   /**
@@ -283,7 +278,6 @@ export class AgentSession {
       failureReason: reason,
     };
     this.updateActivityTimestamp();
-    this.triggerAutoSave();
   }
 
   /**
@@ -304,19 +298,6 @@ export class AgentSession {
     const now = new Date().toISOString();
     this.lastActivityAt = now;
     this.updatedAt = now;
-  }
-
-  /**
-   * Auto-save session state and optionally create iteration checkpoint
-   */
-  private triggerAutoSave(options: { checkpoint?: boolean } = {}): void {
-    void this.runAutoSave(options).catch(() => undefined);
-  }
-
-  private async runAutoSave(options: { checkpoint?: boolean }): Promise<void> {
-    const { SessionStorage } = await import("./SessionStorage.js");
-    const storage = SessionStorage.getInstance();
-    await storage.autoSave(this, options);
   }
 
   /**

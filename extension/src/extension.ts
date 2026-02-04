@@ -8,7 +8,7 @@
 import * as fs from "fs";
 import * as path from "path";
 import * as vscode from "vscode";
-import { AgentRunner, SessionStorage, ToolRegistry } from "./agents/index.js";
+import { AgentRunner, ToolRegistry } from "./agents/index.js";
 import { disposeAgentEventBus } from "./agents/sessions/eventBus.js";
 import { ProcessManager } from "./agents/tools/infrastructure/ProcessManager.js";
 import {

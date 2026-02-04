@@ -32,7 +32,6 @@ import type {
   SessionStatus,
   ToolCategory,
 } from "./sessions/types.js";
-import { SessionStorage } from "./SessionStorage.js";
 import {
   loadControllerTools,
   loadImplementorTools,
@@ -635,13 +634,19 @@ export class AgentRunner implements vscode.Disposable {
   /**
    * Resume a session loaded from storage
    *
-   * Loads the session from disk, injects a system resume message,
-   * and restarts the agent loop.
+   * @deprecated File-based session storage is deprecated. Use database queries instead.
+   * This method is kept for reference but will be removed in a future version.
    *
    * @param sessionId - Session ID to resume
    * @returns The resumed session
    */
-  async resumeFromStorage(sessionId: string): Promise<AgentSession> {
+  async resumeFromStorage(_sessionId: string): Promise<AgentSession> {
+    throw new AgentError(
+      "Resume from file storage is deprecated. Session resume functionality will be reimplemented using database queries.",
+      "FEATURE_DEPRECATED",
+    );
+
+    /* DEPRECATED CODE - Kept for reference
     if (this.session && this.session.status === "running") {
       throw new AgentError(
         "Cannot resume: another agent session is already running",
@@ -696,6 +701,7 @@ export class AgentRunner implements vscode.Disposable {
     });
 
     return this.session;
+    */
   }
 
   /**
