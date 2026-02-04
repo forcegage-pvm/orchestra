@@ -202,6 +202,10 @@ export class WorkflowChain implements vscode.Disposable {
     taskId: number | null,
     sessionId: string,
   ): Promise<void> {
+    logger.info(
+      `[WorkflowChain] handleCompletedSession called: role=${role}, taskId=${taskId}, sessionId=${sessionId}`,
+    );
+
     // Retrieve and clean up session tracking
     const startInfo = this.sessionStartStates.get(sessionId);
     this.sessionStartStates.delete(sessionId);
@@ -240,6 +244,16 @@ export class WorkflowChain implements vscode.Disposable {
       codeReview !== null && codeReview.status === "PENDING";
     const hasPendingVerification =
       codeReview !== null && codeReview.status === "PENDING_VERIFICATION";
+    const hasApprovedCodeReview =
+      codeReview !== null && codeReview.status === "APPROVED";
+    const hasChangesRequested =
+      codeReview !== null && codeReview.status === "CHANGES_REQUESTED";
+    const hasRejectedCodeReview =
+      codeReview !== null && codeReview.status === "REJECTED";
+
+    logger.info(
+      `[WorkflowChain] Code review status check: hasPending=${hasPendingCodeReview}, hasApproved=${hasApprovedCodeReview}, hasChangesRequested=${hasChangesRequested}, hasRejected=${hasRejectedCodeReview}, hasPendingVerification=${hasPendingVerification}`,
+    );
 
     // Determine next action based on role and task status
     const nextAction = this.determineNextAction(
@@ -247,14 +261,25 @@ export class WorkflowChain implements vscode.Disposable {
       task.status,
       hasPendingCodeReview,
       hasPendingVerification,
+      hasApprovedCodeReview,
+      hasChangesRequested,
+      hasRejectedCodeReview,
     );
 
     if (!nextAction) {
-      // No next action for current task - check if task is complete and there's a next task
-      if (task.status === "COMPLETE" && !hasPendingCodeReview) {
+      // No next action for current task - check if task is complete WITH approved code review
+      // Only move to next task when code review is explicitly APPROVED (or no code review exists)
+      const isReadyForNextTask =
+        task.status === "COMPLETE" &&
+        !hasPendingCodeReview &&
+        (hasApprovedCodeReview || codeReview === null);
+
+      if (isReadyForNextTask) {
         await this.handleTaskCompleteCheckNext(taskId);
       } else {
-        logger.info("[WorkflowChain] No next action for this state");
+        logger.info(
+          `[WorkflowChain] No next action for this state. Task status: ${task.status}, code review: ${codeReview?.status ?? "none"}`,
+        );
       }
       return;
     }
@@ -346,6 +371,9 @@ export class WorkflowChain implements vscode.Disposable {
     taskStatus: string,
     hasPendingCodeReview: boolean = false,
     hasPendingVerification: boolean = false,
+    hasApprovedCodeReview: boolean = false,
+    hasChangesRequested: boolean = false,
+    hasRejectedCodeReview: boolean = false,
   ): { description: string } | null {
     // Orchestrator completed prepare_task → Controller reviews handover
     if (
@@ -400,29 +428,38 @@ export class WorkflowChain implements vscode.Disposable {
       };
     }
 
+    // Controller requested changes on code review (task may still be COMPLETE)
+    // → Implementor fixes issues
+    if (
+      completedRole === "controller" &&
+      (hasChangesRequested || hasRejectedCodeReview)
+    ) {
+      return {
+        description:
+          "Code review requested changes - invoking Implementor to fix issues...",
+      };
+    }
+
     // Controller approved code review → Task complete, check for next task
+    // This returns null to let the caller handle next task lookup
     if (
       completedRole === "controller" &&
       taskStatus === "COMPLETE" &&
-      !hasPendingCodeReview
+      hasApprovedCodeReview
     ) {
       // Return null here - we'll handle next task lookup separately
       return null;
     }
 
     // Implementor submitted code review fixes → Controller re-reviews
-    if (
-      completedRole === "implementor" &&
-      taskStatus === "CODE_REVIEW_CHANGES_REQUESTED" &&
-      hasPendingVerification
-    ) {
+    if (completedRole === "implementor" && hasPendingVerification) {
       return {
         description:
           "Code review fixes submitted - invoking Controller for re-review...",
       };
     }
 
-    // Controller requested changes on code review → Implementor fixes
+    // Legacy: Handle task status CODE_REVIEW_CHANGES_REQUESTED if still used
     if (
       completedRole === "controller" &&
       taskStatus === "CODE_REVIEW_CHANGES_REQUESTED"
