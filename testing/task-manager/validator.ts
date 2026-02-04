@@ -12,15 +12,15 @@ import {
 } from "./types";
 import { ValidationError } from "./errors";
 
-const TITLE_REQUIRED_MESSAGE = "Title is required.";
-const TITLE_MAX_LENGTH_MESSAGE = "Title must be at most 100 characters.";
+const TITLE_REQUIRED_MESSAGE = "Title is required";
+const TITLE_MAX_LENGTH_MESSAGE = "Title must be 100 characters or less";
 const DESCRIPTION_MAX_LENGTH_MESSAGE =
   "Description must be at most 1000 characters.";
-const TAGS_MAX_COUNT_MESSAGE = "Tags must not exceed 10.";
+const TAGS_MAX_COUNT_MESSAGE = "Maximum 10 tags allowed";
 const TAG_EMPTY_MESSAGE = "Tags cannot be empty.";
-const TAG_MAX_LENGTH_MESSAGE = "Tags must be at most 30 characters.";
-const DUE_DATE_INVALID_MESSAGE = "Due date must be a valid date.";
-const DUE_DATE_PAST_MESSAGE = "Due date must be today or in the future.";
+const TAG_MAX_LENGTH_MESSAGE = "Tags must be 30 characters or less";
+const DUE_DATE_INVALID_MESSAGE = "Invalid date";
+const DUE_DATE_PAST_MESSAGE = "Due date cannot be in the past";
 const PRIORITY_INVALID_MESSAGE = "Priority must be a valid value.";
 const STATUS_INVALID_MESSAGE = "Status must be a valid value.";
 

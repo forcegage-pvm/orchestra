@@ -415,6 +415,14 @@ export class WorkflowChain implements vscode.Disposable {
       };
     }
 
+    // Orchestrator verification FAILED → Implementor retries with feedback
+    if (completedRole === "orchestrator" && taskStatus === "VERIFY_FAILED") {
+      return {
+        description:
+          "Verification failed - invoking Implementor to fix issues...",
+      };
+    }
+
     // Orchestrator verified → Controller code review
     // Task might be VERIFIED or COMPLETE with pending code review
     if (

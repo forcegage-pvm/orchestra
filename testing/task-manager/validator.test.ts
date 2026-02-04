@@ -18,13 +18,13 @@ describe("validateTitle", () => {
 
   it("rejects empty titles", () => {
     expect(() => validateTitle("")).toThrowError(
-      new ValidationError("Title is required.", "title", "")
+      new ValidationError("Title is required", "title", "")
     );
   });
 
   it("rejects whitespace-only titles", () => {
     expect(() => validateTitle("   ")).toThrowError(
-      new ValidationError("Title is required.", "title", "   ")
+      new ValidationError("Title is required", "title", "   ")
     );
   });
 
@@ -32,7 +32,7 @@ describe("validateTitle", () => {
     const longTitle = "a".repeat(101);
 
     expect(() => validateTitle(longTitle)).toThrowError(
-      new ValidationError("Title must be at most 100 characters.", "title", longTitle)
+      new ValidationError("Title must be 100 characters or less", "title", longTitle)
     );
   });
 
@@ -91,7 +91,7 @@ describe("validateTags", () => {
     const longTag = "t".repeat(31);
 
     expect(() => validateTags([longTag])).toThrowError(
-      new ValidationError("Tags must be at most 30 characters.", "tags", [longTag])
+      new ValidationError("Tags must be 30 characters or less", "tags", [longTag])
     );
   });
 
@@ -105,7 +105,7 @@ describe("validateTags", () => {
     const tags = Array.from({ length: 11 }, (_, index) => `tag-${index + 1}`);
 
     expect(() => validateTags(tags)).toThrowError(
-      new ValidationError("Tags must not exceed 10.", "tags", tags)
+      new ValidationError("Maximum 10 tags allowed", "tags", tags)
     );
   });
 });
@@ -127,7 +127,7 @@ describe("validateDueDate", () => {
     pastDate.setDate(pastDate.getDate() - 1);
 
     expect(() => validateDueDate(pastDate)).toThrowError(
-      new ValidationError("Due date must be today or in the future.", "dueDate", pastDate)
+      new ValidationError("Due date cannot be in the past", "dueDate", pastDate)
     );
   });
 
@@ -135,7 +135,7 @@ describe("validateDueDate", () => {
     const invalidDate = new Date("invalid");
 
     expect(() => validateDueDate(invalidDate)).toThrowError(
-      new ValidationError("Due date must be a valid date.", "dueDate", invalidDate)
+      new ValidationError("Invalid date", "dueDate", invalidDate)
     );
   });
 });
