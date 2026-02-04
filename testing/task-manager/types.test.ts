@@ -22,7 +22,9 @@ describe("isValidPriority", () => {
     expect(isValidPriority(4)).toBe(false);
   });
 
-  it("rejects non-numeric values", () => {
+  it("rejects non-integer and non-numeric values", () => {
+    expect(isValidPriority(1.5)).toBe(false);
+    expect(isValidPriority(Number.NaN)).toBe(false);
     expect(isValidPriority("HIGH")).toBe(false);
     expect(isValidPriority(null)).toBe(false);
     expect(isValidPriority(undefined)).toBe(false);
@@ -40,6 +42,7 @@ describe("isValidTaskStatus", () => {
   it("rejects invalid status values", () => {
     expect(isValidTaskStatus("DONE")).toBe(false);
     expect(isValidTaskStatus(0)).toBe(false);
+    expect(isValidTaskStatus({ status: "PENDING" })).toBe(false);
     expect(isValidTaskStatus(null)).toBe(false);
     expect(isValidTaskStatus(undefined)).toBe(false);
   });
@@ -71,8 +74,10 @@ describe("isTask", () => {
 
   it("rejects missing required fields", () => {
     const { id, ...rest } = buildTask();
+    const { title, ...missingTitle } = buildTask();
 
     expect(isTask(rest)).toBe(false);
+    expect(isTask(missingTitle)).toBe(false);
   });
 
   it("rejects invalid priority and status values", () => {
@@ -82,12 +87,19 @@ describe("isTask", () => {
 
   it("rejects invalid date values", () => {
     expect(isTask(buildTask({ createdAt: new Date("invalid") }))).toBe(false);
-    expect(isTask(buildTask({ updatedAt: "2029-12-31" as unknown as Date }))).toBe(false);
+    expect(
+      isTask(buildTask({ updatedAt: "2029-12-31" as unknown as Date }))
+    ).toBe(false);
     expect(isTask(buildTask({ dueDate: new Date("invalid") }))).toBe(false);
+    expect(
+      isTask(buildTask({ dueDate: "soon" as unknown as Date }))
+    ).toBe(false);
   });
 
   it("rejects invalid tag values", () => {
     expect(isTask(buildTask({ tags: "qa" as unknown as string[] }))).toBe(false);
-    expect(isTask(buildTask({ tags: ["qa", 42] as unknown as string[] }))).toBe(false);
+    expect(
+      isTask(buildTask({ tags: ["qa", 42] as unknown as string[] }))
+    ).toBe(false);
   });
 });
