@@ -22,7 +22,10 @@ import type {
   AgentSessionInfo,
   EventBusPayload,
 } from "../agents/sessions/types.js";
-import { getTaskById } from "../database/queries.js";
+import {
+  getLatestCodeReviewForTask,
+  getTaskById,
+} from "../database/queries.js";
 import { getAgentRunner } from "../extension.js";
 import { highlightRange } from "../utils/fileHighlight.js";
 import { OrchestraLogger } from "../utils/logger.js";
@@ -41,12 +44,18 @@ const logger = new OrchestraLogger();
  * but the webview protocol expects the AgentSession INTERFACE with field `sessionId`.
  * This helper bridges that gap.
  */
+/**
+ * Get a human-readable status message based on task state and agent role
+ *
+ * Maps task status + code review status to descriptive messages matching
+ * the workflow state machine (see docs/WORKFLOW_TRANSITIONS.md).
+ */
 function getStatusMessageFromTask(
   workspaceRoot: string,
   role: AgentSession["role"],
   taskId: number | undefined,
 ): string | undefined {
-  if (!taskId || role !== "orchestrator") {
+  if (!taskId) {
     return undefined;
   }
 
@@ -55,16 +64,77 @@ function getStatusMessageFromTask(
     return undefined;
   }
 
-  if (task.status === "VERIFY" || task.status === "GATE_CHECK") {
-    return "Verifying";
-  }
+  // Get code review status for code review-related states
+  const codeReview = getLatestCodeReviewForTask(workspaceRoot, taskId);
+  const codeReviewStatus = codeReview?.status;
 
-  if (
-    task.status === "PREPARE" ||
-    task.status === "PENDING_HANDOVER_REVIEW" ||
-    task.status === "HANDOVER_REVIEW_FAILED"
-  ) {
-    return "Preparing handover";
+  // Map task status + role to appropriate message
+  switch (task.status) {
+    case "PENDING":
+      if (role === "orchestrator") return "Preparing handover";
+      break;
+
+    case "PENDING_HANDOVER_REVIEW":
+      if (role === "controller") return "Reviewing handover";
+      if (role === "orchestrator") return "Awaiting handover review";
+      break;
+
+    case "HANDOVER_REVIEW_FAILED":
+      if (role === "orchestrator") return "Fixing handover";
+      break;
+
+    case "IMPLEMENT":
+      if (role === "implementor") return "Implementing";
+      break;
+
+    case "GATE_CHECK":
+    case "VERIFY":
+      if (role === "orchestrator") return "Verifying";
+      if (role === "implementor") return "Awaiting verification";
+      break;
+
+    case "VERIFY_FAILED":
+      if (role === "implementor") return "Fixing implementation";
+      if (role === "orchestrator") return "Verification failed";
+      break;
+
+    case "VERIFIED":
+      if (codeReviewStatus === "PENDING") {
+        if (role === "controller") return "Code reviewing";
+        return "Awaiting code review";
+      }
+      if (codeReviewStatus === "PENDING_VERIFICATION") {
+        if (role === "controller") return "Re-reviewing code";
+        return "Awaiting re-review";
+      }
+      break;
+
+    case "PENDING_CODE_REVIEW":
+      if (role === "controller") return "Code reviewing";
+      return "Awaiting code review";
+
+    case "CODE_REVIEW_CHANGES_REQUESTED":
+      if (codeReviewStatus === "PENDING_VERIFICATION") {
+        if (role === "controller") return "Re-reviewing code";
+        return "Awaiting re-review";
+      }
+      if (role === "implementor") return "Fixing code review issues";
+      break;
+
+    case "CODE_REVIEW_FAILED":
+      if (role === "implementor") return "Fixing code review issues";
+      break;
+
+    case "ESCALATED":
+      if (role === "orchestrator") return "Reviewing escalation";
+      return "Escalated";
+
+    case "COMPLETE":
+      if (codeReviewStatus === "PENDING") {
+        if (role === "controller") return "Code reviewing";
+        return "Awaiting code review";
+      }
+      return "Complete";
   }
 
   return undefined;

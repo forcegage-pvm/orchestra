@@ -11,6 +11,11 @@ import * as queries from "../../src/database/queries.js";
 import * as extension from "../../src/extension.js";
 import { PromptBuilder } from "../../src/prompts/PromptBuilder.js";
 
+// Mock fs/promises to allow readAgentInstructions to work
+vi.mock("fs/promises", () => ({
+  readFile: vi.fn().mockResolvedValue("Mock agent instructions"),
+}));
+
 // Mock VS Code API
 vi.mock("vscode", () => ({
   window: {
@@ -58,6 +63,8 @@ vi.mock("../../src/database/queries.js", () => ({
   getCurrentSprint: vi.fn(),
   getFeedback: vi.fn(),
   getEscalation: vi.fn(),
+  getLatestCodeReviewForTask: vi.fn(),
+  getLatestHandoverReview: vi.fn(),
 }));
 
 // Mock PromptBuilder

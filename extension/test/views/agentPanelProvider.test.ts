@@ -100,6 +100,12 @@ vi.mock("../../src/agents/sessions/sessionRepository.js", () => ({
   getSession: vi.fn(),
 }));
 
+// Mock database queries to prevent actual database access
+vi.mock("../../src/database/queries.js", () => ({
+  getTaskById: vi.fn(() => undefined),
+  getLatestCodeReviewForTask: vi.fn(() => undefined),
+}));
+
 describe("AgentPanelProvider", () => {
   let provider: AgentPanelProvider;
   let mockWebviewView: vscode.WebviewView;
