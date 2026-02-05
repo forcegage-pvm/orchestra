@@ -1,0 +1,2 @@
+# This file ensures the _partials directory exists in git
+# Git does not track empty directories

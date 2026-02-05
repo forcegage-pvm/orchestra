@@ -228,6 +228,19 @@ async function handleResolveIssue(
 
   writeSignal();
 
+  // Count remaining unresolved issues for this review
+  const remainingIssues = await db
+    .select()
+    .from(codeReviewIssues)
+    .where(
+      and(
+        eq(codeReviewIssues.review_id, result.review.id),
+        ne(codeReviewIssues.status, "RESOLVED"),
+      ),
+    );
+
+  const remainingCount = remainingIssues.length;
+
   const output = validateOutput(FixCodeReviewOutputSchema, {
     success: true,
     action: "RESOLVE_ISSUE",
@@ -236,6 +249,8 @@ async function handleResolveIssue(
     review_status: nextStatus,
     resolved_at: now,
     fix_summary: fixSummary,
+    remaining_issues: remainingCount,
+    next_steps: buildNextSteps(nextStatus, remainingCount),
   });
 
   return output;
@@ -406,23 +421,27 @@ function buildNextSteps(status: ReviewStatus, issueCount: number): string[] {
   switch (status) {
     case "CHANGES_REQUESTED":
       return [
-        "Resolve issues using action RESOLVE_ISSUE.",
-        "After resolving all issues, submit fixes with action SUBMIT_FIXES.",
+        `Resolve ${issueCount} issue(s) using fix_code_review({ action: "RESOLVE_ISSUE", issue_id: N, fix_summary: "..." }).`,
+        'After resolving ALL issues, call fix_code_review({ action: "SUBMIT_FIXES", summary: "...", files_changed: [...], tests_run: [...] }).',
       ];
     case "REJECTED":
       return [
-        "Address blocking issues and resolve them using action RESOLVE_ISSUE.",
-        "Submit fixes with action SUBMIT_FIXES once ready.",
+        `Address ${issueCount} blocking issue(s) using fix_code_review({ action: "RESOLVE_ISSUE", issue_id: N, fix_summary: "..." }).`,
+        'Submit fixes with fix_code_review({ action: "SUBMIT_FIXES", ... }) once ready.',
       ];
     case "FIXING_ISSUES":
       return issueCount > 0
         ? [
-            "Continue resolving issues using action RESOLVE_ISSUE.",
-            "When all issues are resolved, submit fixes with action SUBMIT_FIXES.",
+            `${issueCount} issue(s) remaining. Continue resolving using fix_code_review({ action: "RESOLVE_ISSUE", issue_id: N, fix_summary: "..." }).`,
+            'When all issues are resolved, call fix_code_review({ action: "SUBMIT_FIXES", summary: "...", files_changed: [...], tests_run: [...] }).',
           ]
-        : ["No open issues detected. Submit fixes with action SUBMIT_FIXES."];
+        : [
+            "✅ ALL ISSUES RESOLVED!",
+            '⚠️ You MUST now call fix_code_review({ action: "SUBMIT_FIXES", summary: "...", files_changed: [...], tests_run: [...] }) to submit for re-review.',
+            "The Controller will verify your fixes. Task will NOT progress until you call SUBMIT_FIXES.",
+          ];
     case "PENDING_VERIFICATION":
-      return ["Fixes submitted. Await verification."];
+      return ["Fixes submitted. Await Controller verification."];
     default:
       return ["Review status requires follow-up."];
   }
