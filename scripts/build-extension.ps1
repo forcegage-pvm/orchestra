@@ -47,6 +47,15 @@ $repoRootResolved = Resolve-Path $RepoRoot
 $extensionDir = Join-Path $repoRootResolved "extension"
 $extensionArtifacts = Join-Path $extensionDir "artifacts"
 
+if (-not $SkipVsixInstall) {
+  Write-Step "Uninstall VSIX"
+  
+  # Uninstall existing extension first to avoid "restart VS Code" error
+  $extensionId = "forcegage.orchestra-extension"
+  Write-Host "Uninstalling existing extension..." -ForegroundColor DarkGray
+  & code --uninstall-extension $extensionId 2>&1 | Out-Null
+}
+
 Write-Step "Validating prerequisites"
 Invoke-Step "code --version" $repoRootResolved
 
@@ -84,7 +93,28 @@ if (-not $vsix) {
 
 if (-not $SkipVsixInstall) {
   Write-Step "Install VSIX"
-  Invoke-Step "code --install-extension `"$($vsix.FullName)`" --force" $extensionDir
+  
+  
+  try {
+    $output = & code --install-extension "$($vsix.FullName)" --force 2>&1
+    if ($LASTEXITCODE -ne 0) {
+      $outputStr = $output -join "`n"
+      if ($outputStr -match "restart VS Code") {
+        Write-Host "`nVSIX built successfully but cannot auto-install:" -ForegroundColor Yellow
+        Write-Host "  The extension is currently active. Please restart VS Code then run:" -ForegroundColor Yellow
+        Write-Host "  code --install-extension `"$($vsix.FullName)`"" -ForegroundColor Cyan
+      }
+      else {
+        Write-Host "Installation failed: $outputStr" -ForegroundColor Red
+      }
+    }
+    else {
+      Write-Host "Extension installed successfully" -ForegroundColor Green
+    }
+  }
+  catch {
+    Write-Host "Installation failed: $_" -ForegroundColor Yellow
+  }
 }
 
 Write-Step "Done"
