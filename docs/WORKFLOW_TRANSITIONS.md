@@ -20,6 +20,9 @@ This document defines all possible state transitions in Orchestra's task workflo
 | **CODE_REVIEW_CHANGES_REQUESTED** | None                       | PENDING_VERIFICATION          | None                      | Implementor  | fix code review       | Implementor fixing code issues TASK-N    |
 | **VERIFIED**                      | PENDING_VERIFICATION       | COMPLETE                      | APPROVED                  | Controller   | re-review code        | Controller re-reviewing code TASK-N      |
 | **VERIFIED**                      | PENDING_VERIFICATION       | CODE_REVIEW_CHANGES_REQUESTED | None                      | Controller   | re-review code        | Controller re-reviewing code TASK-N      |
+| **COMPLETE**                      | CHANGES_REQUESTED          | COMPLETE                      | REJECTED                  | Implementor  | fix code review       | Implementor fixing code issues TASK-N    |
+| **COMPLETE**                      | CHANGES_REQUESTED          | COMPLETE                      | APPROVED                  | Controller   | code review           | Controller reviewing code TASK-N         |
+| **COMPLETE**                      | PENDING_VERIFICATION       | COMPLETE                      | APPROVED                  | Controller   | re-review code        | Controller re-reviewing code TASK-N      |
 | **COMPLETE**                      | APPROVED                   | **→ NEXT TASK: PENDING**      | None                      | Orchestrator | prepare handover      | Orchestrator preparing handover TASK-N+1 |
 
 ---

@@ -88,7 +88,7 @@ export class SessionManager {
       if (!workspaceRoot) {
         this.logger.error("No workspace folder found");
         vscode.window.showErrorMessage(
-          "Orchestra: No workspace folder is open."
+          "Orchestra: No workspace folder is open.",
         );
         return false;
       }
@@ -114,7 +114,7 @@ export class SessionManager {
       if (!tabResult) {
         // Tab not found even though label exists - prompt user to select
         this.logger.warn(
-          `Tab not found for ${role} label: ${label}, prompting user to select`
+          `Tab not found for ${role} label: ${label}, prompting user to select`,
         );
         const newLabel = await this.promptUserToSelectSession(role);
 
@@ -128,7 +128,7 @@ export class SessionManager {
         if (!newTabResult) {
           this.logger.error(`Tab still not found after user selection`);
           vscode.window.showErrorMessage(
-            "Orchestra: Could not find the selected chat tab."
+            "Orchestra: Could not find the selected chat tab.",
           );
           return false;
         }
@@ -136,14 +136,14 @@ export class SessionManager {
         // Focus the newly selected tab
         await vscode.commands.executeCommand(
           "workbench.action.openEditorAtIndex",
-          newTabResult.index
+          newTabResult.index,
         );
         this.logger.info(`Focused ${role} tab at index ${newTabResult.index}`);
       } else {
         // Step 4: Focus the tab
         await vscode.commands.executeCommand(
           "workbench.action.openEditorAtIndex",
-          tabResult.index
+          tabResult.index,
         );
         this.logger.info(`Focused ${role} tab at index ${tabResult.index}`);
       }
@@ -164,7 +164,7 @@ export class SessionManager {
       const message = error instanceof Error ? error.message : "Unknown error";
       this.logger.error(`Failed to initialize ${role} session`, error);
       vscode.window.showErrorMessage(
-        `Orchestra: Failed to initialize ${role} session - ${message}`
+        `Orchestra: Failed to initialize ${role} session - ${message}`,
       );
       return false;
     }
@@ -190,7 +190,7 @@ export class SessionManager {
    * ```
    */
   findTabByLabel(
-    label: string
+    label: string,
   ): { tab: vscode.Tab; index: number; tabGroup: vscode.TabGroup } | null {
     for (const tabGroup of vscode.window.tabGroups.all) {
       for (let index = 0; index < tabGroup.tabs.length; index++) {
@@ -289,7 +289,7 @@ export class SessionManager {
       const message = error instanceof Error ? error.message : "Unknown error";
       this.logger.error("Failed to invoke orchestrator session", error);
       vscode.window.showErrorMessage(
-        `Orchestra: Failed to invoke orchestrator - ${message}`
+        `Orchestra: Failed to invoke orchestrator - ${message}`,
       );
       throw error;
     }
@@ -337,7 +337,7 @@ export class SessionManager {
       const message = error instanceof Error ? error.message : "Unknown error";
       this.logger.error("Failed to invoke implementor session", error);
       vscode.window.showErrorMessage(
-        `Orchestra: Failed to invoke implementor - ${message}`
+        `Orchestra: Failed to invoke implementor - ${message}`,
       );
       throw error;
     }
@@ -360,14 +360,34 @@ export class SessionManager {
    */
   async invokeController(prompt: string, files: vscode.Uri[]): Promise<void> {
     try {
+      // Validate prompt is actually a string
+      if (typeof prompt !== "string") {
+        throw new Error(
+          `Invalid prompt type: expected string, got ${typeof prompt}`,
+        );
+      }
+
       const model = this._configService.getModelForRole("controller");
       const agentMode = this._configService.getAgentForRole("controller");
+
+      // Validate model and agentMode are strings
+      if (typeof model !== "string") {
+        throw new Error(
+          `Invalid model type: expected string, got ${typeof model}`,
+        );
+      }
+      if (typeof agentMode !== "string") {
+        throw new Error(
+          `Invalid agentMode type: expected string, got ${typeof agentMode}`,
+        );
+      }
 
       this.logger.info("Invoking controller session", {
         hasFiles: files.length > 0,
         fileCount: files.length,
         model,
         agentMode,
+        promptLength: prompt.length,
       });
 
       // Create a NEW chat editor tab for controller
@@ -376,6 +396,7 @@ export class SessionManager {
       await this.delay(200); // Wait for tab to be ready
 
       // Send prompt to the newly created tab (now focused)
+      // Use same pattern as invokeOrchestrator and invokeImplementor
       await vscode.commands.executeCommand("workbench.action.chat.open", {
         query: prompt,
         isPartialQuery: false,
@@ -389,7 +410,7 @@ export class SessionManager {
       const message = error instanceof Error ? error.message : "Unknown error";
       this.logger.error("Failed to invoke controller session", error);
       vscode.window.showErrorMessage(
-        `Orchestra: Failed to invoke controller - ${message}`
+        `Orchestra: Failed to invoke controller - ${message}`,
       );
       throw error;
     }
@@ -436,7 +457,7 @@ export class SessionManager {
    * ```
    */
   async promptUserToSelectSession(
-    role: "orchestrator" | "implementor"
+    role: "orchestrator" | "implementor",
   ): Promise<string | null> {
     try {
       this.logger.info(`Prompting user to select ${role} session`);
@@ -447,7 +468,7 @@ export class SessionManager {
           role.charAt(0).toUpperCase() + role.slice(1)
         } session not found. Please select from chat history.`,
         "Open Chat History",
-        "Cancel"
+        "Cancel",
       );
 
       if (initialChoice !== "Open Chat History") {
@@ -464,7 +485,7 @@ export class SessionManager {
       const confirmation = await vscode.window.showInformationMessage(
         `Click OK after selecting the ${role} session from the chat history.`,
         "OK",
-        "Cancel"
+        "Cancel",
       );
 
       if (confirmation !== "OK") {
@@ -478,7 +499,7 @@ export class SessionManager {
       if (!activeTab || !activeTab.label) {
         this.logger.warn(`No active tab found after ${role} session selection`);
         vscode.window.showWarningMessage(
-          "Orchestra: No chat tab is currently active. Please try again."
+          "Orchestra: No chat tab is currently active. Please try again.",
         );
         return null;
       }
@@ -492,7 +513,7 @@ export class SessionManager {
       if (!workspaceRoot) {
         this.logger.error("No workspace folder found");
         vscode.window.showErrorMessage(
-          "Orchestra: No workspace folder is open."
+          "Orchestra: No workspace folder is open.",
         );
         return null;
       }
@@ -506,7 +527,7 @@ export class SessionManager {
       const message = error instanceof Error ? error.message : "Unknown error";
       this.logger.error(`Failed to prompt user for ${role} session`, error);
       vscode.window.showErrorMessage(
-        `Orchestra: Failed to select session - ${message}`
+        `Orchestra: Failed to select session - ${message}`,
       );
       return null;
     }
@@ -548,7 +569,7 @@ export class SessionManager {
   async sendMessage(
     role: "orchestrator" | "implementor",
     message: string,
-    files: vscode.Uri[] = []
+    files: vscode.Uri[] = [],
   ): Promise<boolean> {
     try {
       this.logger.info(`Sending message to ${role}`, {
@@ -561,7 +582,7 @@ export class SessionManager {
       if (!workspaceRoot) {
         this.logger.error("No workspace folder found");
         vscode.window.showErrorMessage(
-          "Orchestra: No workspace folder is open."
+          "Orchestra: No workspace folder is open.",
         );
         return false;
       }
@@ -576,7 +597,7 @@ export class SessionManager {
       // Step 4: If tab NOT found (or no label), call initSession
       if (!tabResult) {
         this.logger.info(
-          `Tab not found for ${role}, initiating session initialization`
+          `Tab not found for ${role}, initiating session initialization`,
         );
         const initSuccess = await this.initSession(role);
 
@@ -593,10 +614,10 @@ export class SessionManager {
         // Step 7: If still no tab, show error and return false
         if (!tabResult) {
           this.logger.error(
-            `Tab still not found after initSession for ${role}`
+            `Tab still not found after initSession for ${role}`,
           );
           vscode.window.showErrorMessage(
-            `Orchestra: Failed to locate ${role} chat session. Please try again.`
+            `Orchestra: Failed to locate ${role} chat session. Please try again.`,
           );
           return false;
         }
@@ -606,7 +627,7 @@ export class SessionManager {
       this.logger.info(`Focusing ${role} tab at index ${tabResult.index}`);
       await vscode.commands.executeCommand(
         "workbench.action.openEditorAtIndex",
-        tabResult.index
+        tabResult.index,
       );
       await this.delay(200); // Wait for tab to be fully focused
 
@@ -637,7 +658,7 @@ export class SessionManager {
         error: errorMessage,
       });
       vscode.window.showErrorMessage(
-        `Orchestra: Failed to send message to ${role} - ${errorMessage}`
+        `Orchestra: Failed to send message to ${role} - ${errorMessage}`,
       );
       return false;
     }
@@ -683,7 +704,7 @@ export class SessionManager {
       if (!workspaceRoot) {
         this.logger.error("No workspace folder found");
         vscode.window.showErrorMessage(
-          "Orchestra: No workspace folder is open."
+          "Orchestra: No workspace folder is open.",
         );
         return false;
       }
@@ -698,7 +719,7 @@ export class SessionManager {
       // Step 4: If tab NOT found (or no label), call initSession
       if (!tabResult) {
         this.logger.info(
-          "Tab not found for implementor, initiating session initialization"
+          "Tab not found for implementor, initiating session initialization",
         );
         const initSuccess = await this.initSession("implementor");
 
@@ -717,10 +738,10 @@ export class SessionManager {
         // Step 7: If still no tab, show error and return false
         if (!tabResult) {
           this.logger.error(
-            "Tab still not found after initSession for implementor"
+            "Tab still not found after initSession for implementor",
           );
           vscode.window.showErrorMessage(
-            "Orchestra: Failed to locate implementor chat session. Please try again."
+            "Orchestra: Failed to locate implementor chat session. Please try again.",
           );
           return false;
         }
@@ -730,7 +751,7 @@ export class SessionManager {
       this.logger.info(`Focusing implementor tab at index ${tabResult.index}`);
       await vscode.commands.executeCommand(
         "workbench.action.openEditorAtIndex",
-        tabResult.index
+        tabResult.index,
       );
       await this.delay(200); // Wait for tab to be fully focused
 
@@ -753,7 +774,7 @@ export class SessionManager {
         error: errorMessage,
       });
       vscode.window.showErrorMessage(
-        `Orchestra: Failed to clear implementor context - ${errorMessage}`
+        `Orchestra: Failed to clear implementor context - ${errorMessage}`,
       );
       return false;
     }

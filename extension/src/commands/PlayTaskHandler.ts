@@ -17,11 +17,7 @@ import {
   getSprintById,
   getTaskById,
 } from "../database/queries.js";
-import {
-  getAgentRunner,
-  getContextFileResolver,
-  getSessionManager,
-} from "../extension.js";
+import { getAgentRunner, getContextFileResolver } from "../extension.js";
 import { PromptBuilder } from "../prompts/PromptBuilder.js";
 import { OrchestraLogger } from "../utils/logger.js";
 
@@ -164,10 +160,24 @@ export async function handlePlayTask(
       break;
 
     case "COMPLETE": {
-      // Check if there's a pending code review even though task is complete
+      // Check code review status - task may need further action
       const codeReview = getLatestCodeReviewForTask(workspaceRoot, taskId);
-      if (codeReview && codeReview.status === "PENDING") {
-        await invokeCodeReview(workspaceRoot, taskId);
+      if (codeReview) {
+        if (codeReview.status === "PENDING") {
+          // Initial code review needed
+          await invokeCodeReview(workspaceRoot, taskId);
+        } else if (codeReview.status === "CHANGES_REQUESTED") {
+          // Changes were requested - implementor needs to fix
+          await invokeCodeReviewFix(workspaceRoot, taskId);
+        } else if (codeReview.status === "PENDING_VERIFICATION") {
+          // Implementor submitted fixes - controller needs to re-review
+          await invokeCodeReview(workspaceRoot, taskId);
+        } else {
+          // APPROVED or other terminal status
+          vscode.window.showInformationMessage(
+            `Task ${taskId}: ${task.title} is already complete`,
+          );
+        }
       } else {
         vscode.window.showInformationMessage(
           `Task ${taskId}: ${task.title} is already complete`,
@@ -826,23 +836,68 @@ async function invokeCodeReview(
     // Create instances
     const logger = new OrchestraLogger();
     const promptBuilder = new PromptBuilder();
+    const agentRunner = getAgentRunner();
+
+    // Check if agent is already running
+    if (agentRunner.getSession()?.status === "running") {
+      vscode.window.showErrorMessage(
+        "Orchestra: Agent is already running. Stop or pause the current agent first.",
+      );
+      return;
+    }
+
+    // Validate task fields before building prompt
+    if (typeof task.task_id !== "number" || typeof task.title !== "string") {
+      vscode.window.showErrorMessage(
+        `Task ${taskId} has invalid fields: task_id=${typeof task.task_id}, title=${typeof task.title}`,
+      );
+      return;
+    }
+
+    // Check if this is a re-review (after implementor submitted fixes)
+    const codeReview = getLatestCodeReviewForTask(workspaceRoot, taskId);
+    const isReReview = codeReview?.status === "PENDING_VERIFICATION";
 
     // Use PromptBuilder for consistent prompt with WorkflowChain
-    const prompt = promptBuilder.buildCodeReviewPrompt(
-      1,
-      sprint.id,
-      sprint.name,
-      { taskId: task.task_id, title: task.title, dbId: task.id },
+    // Use re-review prompt if implementor has submitted fixes
+    const prompt = isReReview
+      ? promptBuilder.buildCodeReviewReReviewPrompt(1, sprint.id, sprint.name, {
+          taskId: task.task_id,
+          title: task.title,
+          dbId: task.id,
+        })
+      : promptBuilder.buildCodeReviewPrompt(1, sprint.id, sprint.name, {
+          taskId: task.task_id,
+          title: task.title,
+          dbId: task.id,
+        });
+
+    // Show Agent Panel before starting
+    await showAgentPanel();
+
+    // Read agent instructions for system prompt
+    const systemPrompt = await readAgentInstructions(
+      workspaceRoot,
+      "controller",
     );
 
-    // Use SessionManager.invokeController() - same as extension.ts code review invocation
-    const sm = getSessionManager();
-    await sm.invokeController(prompt, []);
+    // Start controller agent for code review using AgentRunner
+    const startOptions = {
+      prompt,
+      taskId,
+      taskNumber: task.task_id,
+      sprintId: sprint.id,
+    } as const;
+
+    await agentRunner.start("controller", {
+      ...startOptions,
+      systemPrompt,
+    });
 
     logger.info("Started controller agent for code review", {
       taskId,
       taskTitle: task.title,
-      isReReview: false,
+      isReReview,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";

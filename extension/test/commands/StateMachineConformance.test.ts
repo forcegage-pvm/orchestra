@@ -179,6 +179,33 @@ const STATE_MACHINE: StateTransition[] = [
       { taskStatus: "CODE_REVIEW_CHANGES_REQUESTED", codeReviewStatus: null },
     ],
   },
+
+  // COMPLETE+CHANGES_REQUESTED → Implementor fixes issues
+  {
+    from: { taskStatus: "COMPLETE", codeReviewStatus: "CHANGES_REQUESTED" },
+    action: {
+      agent: "implementor",
+      action: "fix code review",
+      promptMethod: "buildCodeReviewFixImplementPrompt",
+      description: "Implementor fixing code issues TASK-N",
+    },
+    to: [{ taskStatus: "COMPLETE", codeReviewStatus: "PENDING_VERIFICATION" }],
+  },
+
+  // COMPLETE+PENDING_VERIFICATION → Controller re-reviews
+  {
+    from: { taskStatus: "COMPLETE", codeReviewStatus: "PENDING_VERIFICATION" },
+    action: {
+      agent: "controller",
+      action: "re-review code",
+      promptMethod: "buildCodeReviewReReviewPrompt",
+      description: "Controller re-reviewing code TASK-N",
+    },
+    to: [
+      { taskStatus: "COMPLETE", codeReviewStatus: "APPROVED" },
+      { taskStatus: "COMPLETE", codeReviewStatus: "CHANGES_REQUESTED" },
+    ],
+  },
 ];
 
 // ============================================================================
@@ -397,12 +424,11 @@ describe("State Machine Conformance", () => {
         );
 
         const mockBuildPreparePrompt = vi.fn(() => "Mock prepare prompt");
-        vi.mocked(PromptBuilder).mockImplementation(
-          () =>
-            ({
-              buildPreparePrompt: mockBuildPreparePrompt,
-            }) as unknown as PromptBuilder,
-        );
+        vi.mocked(PromptBuilder).mockImplementation(function () {
+          return {
+            buildPreparePrompt: mockBuildPreparePrompt,
+          } as unknown as PromptBuilder;
+        });
 
         await handlePlayTask(mockWorkspaceRoot, mockTaskId);
 
@@ -425,12 +451,11 @@ describe("State Machine Conformance", () => {
         const mockBuildHandoverReviewPrompt = vi.fn(
           () => "Mock handover review prompt",
         );
-        vi.mocked(PromptBuilder).mockImplementation(
-          () =>
-            ({
-              buildHandoverReviewPrompt: mockBuildHandoverReviewPrompt,
-            }) as unknown as PromptBuilder,
-        );
+        vi.mocked(PromptBuilder).mockImplementation(function () {
+          return {
+            buildHandoverReviewPrompt: mockBuildHandoverReviewPrompt,
+          } as unknown as PromptBuilder;
+        });
 
         await handlePlayTask(mockWorkspaceRoot, mockTaskId);
 
@@ -456,12 +481,11 @@ describe("State Machine Conformance", () => {
         const mockBuildHandoverFixPrompt = vi.fn(
           () => "Mock handover fix prompt",
         );
-        vi.mocked(PromptBuilder).mockImplementation(
-          () =>
-            ({
-              buildHandoverFixPrompt: mockBuildHandoverFixPrompt,
-            }) as unknown as PromptBuilder,
-        );
+        vi.mocked(PromptBuilder).mockImplementation(function () {
+          return {
+            buildHandoverFixPrompt: mockBuildHandoverFixPrompt,
+          } as unknown as PromptBuilder;
+        });
 
         await handlePlayTask(mockWorkspaceRoot, mockTaskId);
 
@@ -482,12 +506,11 @@ describe("State Machine Conformance", () => {
         );
 
         const mockBuildImplementPrompt = vi.fn(() => "Mock implement prompt");
-        vi.mocked(PromptBuilder).mockImplementation(
-          () =>
-            ({
-              buildImplementPrompt: mockBuildImplementPrompt,
-            }) as unknown as PromptBuilder,
-        );
+        vi.mocked(PromptBuilder).mockImplementation(function () {
+          return {
+            buildImplementPrompt: mockBuildImplementPrompt,
+          } as unknown as PromptBuilder;
+        });
 
         await handlePlayTask(mockWorkspaceRoot, mockTaskId);
 
@@ -508,12 +531,11 @@ describe("State Machine Conformance", () => {
         );
 
         const mockBuildVerifyPrompt = vi.fn(() => "Mock verify prompt");
-        vi.mocked(PromptBuilder).mockImplementation(
-          () =>
-            ({
-              buildVerifyPrompt: mockBuildVerifyPrompt,
-            }) as unknown as PromptBuilder,
-        );
+        vi.mocked(PromptBuilder).mockImplementation(function () {
+          return {
+            buildVerifyPrompt: mockBuildVerifyPrompt,
+          } as unknown as PromptBuilder;
+        });
 
         await handlePlayTask(mockWorkspaceRoot, mockTaskId);
 
@@ -534,12 +556,11 @@ describe("State Machine Conformance", () => {
         );
 
         const mockBuildVerifyPrompt = vi.fn(() => "Mock verify prompt");
-        vi.mocked(PromptBuilder).mockImplementation(
-          () =>
-            ({
-              buildVerifyPrompt: mockBuildVerifyPrompt,
-            }) as unknown as PromptBuilder,
-        );
+        vi.mocked(PromptBuilder).mockImplementation(function () {
+          return {
+            buildVerifyPrompt: mockBuildVerifyPrompt,
+          } as unknown as PromptBuilder;
+        });
 
         await handlePlayTask(mockWorkspaceRoot, mockTaskId);
 
@@ -561,12 +582,11 @@ describe("State Machine Conformance", () => {
         vi.mocked(queries.getFeedback).mockReturnValue(createMockFeedback());
 
         const mockBuildRetryPrompt = vi.fn(() => "Mock retry prompt");
-        vi.mocked(PromptBuilder).mockImplementation(
-          () =>
-            ({
-              buildRetryPrompt: mockBuildRetryPrompt,
-            }) as unknown as PromptBuilder,
-        );
+        vi.mocked(PromptBuilder).mockImplementation(function () {
+          return {
+            buildRetryPrompt: mockBuildRetryPrompt,
+          } as unknown as PromptBuilder;
+        });
 
         await handlePlayTask(mockWorkspaceRoot, mockTaskId);
 
@@ -606,7 +626,7 @@ describe("State Machine Conformance", () => {
     });
 
     describe("Code Review Status → Agent Mapping", () => {
-      // Test: VERIFIED + PENDING code review → Controller via SessionManager
+      // Test: VERIFIED + PENDING code review → Controller via AgentRunner
       it("VERIFIED + PENDING code review → Controller (code review)", async () => {
         vi.mocked(queries.getTaskById).mockReturnValue(
           createMockTask("VERIFIED"),
@@ -618,24 +638,26 @@ describe("State Machine Conformance", () => {
         const mockBuildCodeReviewPrompt = vi.fn(
           () => "Mock code review prompt",
         );
-        vi.mocked(PromptBuilder).mockImplementation(
-          () =>
-            ({
-              buildCodeReviewPrompt: mockBuildCodeReviewPrompt,
-            }) as unknown as PromptBuilder,
-        );
+        vi.mocked(PromptBuilder).mockImplementation(function () {
+          return {
+            buildCodeReviewPrompt: mockBuildCodeReviewPrompt,
+          } as unknown as PromptBuilder;
+        });
 
         await handlePlayTask(mockWorkspaceRoot, mockTaskId);
 
-        // Controller is invoked via SessionManager.invokeController for code reviews
-        expect(mockInvokeController).toHaveBeenCalledWith(
-          "Mock code review prompt",
-          [],
+        // Controller is invoked via AgentRunner.start for code reviews
+        expect(mockAgentRunner.start).toHaveBeenCalledWith(
+          "controller",
+          expect.objectContaining({
+            prompt: "Mock code review prompt",
+            taskId: mockTaskId,
+          }),
         );
         expect(mockBuildCodeReviewPrompt).toHaveBeenCalled();
       });
 
-      // Test: PENDING_CODE_REVIEW → Controller via SessionManager
+      // Test: PENDING_CODE_REVIEW → Controller via AgentRunner
       it("PENDING_CODE_REVIEW → Controller (code review)", async () => {
         vi.mocked(queries.getTaskById).mockReturnValue(
           createMockTask("PENDING_CODE_REVIEW"),
@@ -647,18 +669,20 @@ describe("State Machine Conformance", () => {
         const mockBuildCodeReviewPrompt = vi.fn(
           () => "Mock code review prompt",
         );
-        vi.mocked(PromptBuilder).mockImplementation(
-          () =>
-            ({
-              buildCodeReviewPrompt: mockBuildCodeReviewPrompt,
-            }) as unknown as PromptBuilder,
-        );
+        vi.mocked(PromptBuilder).mockImplementation(function () {
+          return {
+            buildCodeReviewPrompt: mockBuildCodeReviewPrompt,
+          } as unknown as PromptBuilder;
+        });
 
         await handlePlayTask(mockWorkspaceRoot, mockTaskId);
 
-        expect(mockInvokeController).toHaveBeenCalledWith(
-          "Mock code review prompt",
-          [],
+        expect(mockAgentRunner.start).toHaveBeenCalledWith(
+          "controller",
+          expect.objectContaining({
+            prompt: "Mock code review prompt",
+            taskId: mockTaskId,
+          }),
         );
         expect(mockBuildCodeReviewPrompt).toHaveBeenCalled();
       });
@@ -675,13 +699,12 @@ describe("State Machine Conformance", () => {
         const mockBuildCodeReviewFixImplementPrompt = vi.fn(
           () => "Mock code review fix prompt",
         );
-        vi.mocked(PromptBuilder).mockImplementation(
-          () =>
-            ({
-              buildCodeReviewFixImplementPrompt:
-                mockBuildCodeReviewFixImplementPrompt,
-            }) as unknown as PromptBuilder,
-        );
+        vi.mocked(PromptBuilder).mockImplementation(function () {
+          return {
+            buildCodeReviewFixImplementPrompt:
+              mockBuildCodeReviewFixImplementPrompt,
+          } as unknown as PromptBuilder;
+        });
 
         await handlePlayTask(mockWorkspaceRoot, mockTaskId);
 
@@ -704,20 +727,25 @@ describe("State Machine Conformance", () => {
           createMockCodeReview("PENDING_VERIFICATION"),
         );
 
-        const mockBuildCodeReviewPrompt = vi.fn(
-          () => "Mock code review prompt",
+        const mockBuildCodeReviewReReviewPrompt = vi.fn(
+          () => "Mock code review re-review prompt",
         );
-        vi.mocked(PromptBuilder).mockImplementation(
-          () =>
-            ({
-              buildCodeReviewPrompt: mockBuildCodeReviewPrompt,
-            }) as unknown as PromptBuilder,
-        );
+        vi.mocked(PromptBuilder).mockImplementation(function () {
+          return {
+            buildCodeReviewReReviewPrompt: mockBuildCodeReviewReReviewPrompt,
+          } as unknown as PromptBuilder;
+        });
 
         await handlePlayTask(mockWorkspaceRoot, mockTaskId);
 
-        expect(mockInvokeController).toHaveBeenCalled();
-        expect(mockBuildCodeReviewPrompt).toHaveBeenCalled();
+        expect(mockAgentRunner.start).toHaveBeenCalledWith(
+          "controller",
+          expect.objectContaining({
+            prompt: "Mock code review re-review prompt",
+            taskId: mockTaskId,
+          }),
+        );
+        expect(mockBuildCodeReviewReReviewPrompt).toHaveBeenCalled();
       });
 
       // Test: CODE_REVIEW_FAILED → Implementor
@@ -732,13 +760,12 @@ describe("State Machine Conformance", () => {
         const mockBuildCodeReviewFixImplementPrompt = vi.fn(
           () => "Mock code review fix prompt",
         );
-        vi.mocked(PromptBuilder).mockImplementation(
-          () =>
-            ({
-              buildCodeReviewFixImplementPrompt:
-                mockBuildCodeReviewFixImplementPrompt,
-            }) as unknown as PromptBuilder,
-        );
+        vi.mocked(PromptBuilder).mockImplementation(function () {
+          return {
+            buildCodeReviewFixImplementPrompt:
+              mockBuildCodeReviewFixImplementPrompt,
+          } as unknown as PromptBuilder;
+        });
 
         await handlePlayTask(mockWorkspaceRoot, mockTaskId);
 
@@ -752,7 +779,7 @@ describe("State Machine Conformance", () => {
         expect(mockBuildCodeReviewFixImplementPrompt).toHaveBeenCalled();
       });
 
-      // Test: COMPLETE + PENDING code review → Controller
+      // Test: COMPLETE + PENDING code review → Controller via AgentRunner
       it("COMPLETE + PENDING code review → Controller (code review)", async () => {
         vi.mocked(queries.getTaskById).mockReturnValue(
           createMockTask("COMPLETE"),
@@ -764,16 +791,21 @@ describe("State Machine Conformance", () => {
         const mockBuildCodeReviewPrompt = vi.fn(
           () => "Mock code review prompt",
         );
-        vi.mocked(PromptBuilder).mockImplementation(
-          () =>
-            ({
-              buildCodeReviewPrompt: mockBuildCodeReviewPrompt,
-            }) as unknown as PromptBuilder,
-        );
+        vi.mocked(PromptBuilder).mockImplementation(function () {
+          return {
+            buildCodeReviewPrompt: mockBuildCodeReviewPrompt,
+          } as unknown as PromptBuilder;
+        });
 
         await handlePlayTask(mockWorkspaceRoot, mockTaskId);
 
-        expect(mockInvokeController).toHaveBeenCalled();
+        expect(mockAgentRunner.start).toHaveBeenCalledWith(
+          "controller",
+          expect.objectContaining({
+            prompt: "Mock code review prompt",
+            taskId: mockTaskId,
+          }),
+        );
         expect(mockBuildCodeReviewPrompt).toHaveBeenCalled();
       });
 
@@ -793,6 +825,67 @@ describe("State Machine Conformance", () => {
         );
         expect(mockAgentRunner.start).not.toHaveBeenCalled();
         expect(mockInvokeController).not.toHaveBeenCalled();
+      });
+
+      // Test: COMPLETE + CHANGES_REQUESTED → Implementor fixes
+      it("COMPLETE + CHANGES_REQUESTED → Implementor (fix code review)", async () => {
+        vi.mocked(queries.getTaskById).mockReturnValue(
+          createMockTask("COMPLETE"),
+        );
+        vi.mocked(queries.getLatestCodeReviewForTask).mockReturnValue(
+          createMockCodeReview("CHANGES_REQUESTED"),
+        );
+
+        const mockBuildCodeReviewFixImplementPrompt = vi.fn(
+          () => "Mock code review fix prompt",
+        );
+        vi.mocked(PromptBuilder).mockImplementation(function () {
+          return {
+            buildCodeReviewFixImplementPrompt:
+              mockBuildCodeReviewFixImplementPrompt,
+          } as unknown as PromptBuilder;
+        });
+
+        await handlePlayTask(mockWorkspaceRoot, mockTaskId);
+
+        expect(mockAgentRunner.start).toHaveBeenCalledWith(
+          "implementor",
+          expect.objectContaining({
+            prompt: "Mock code review fix prompt",
+            taskId: mockTaskId,
+          }),
+        );
+        expect(mockBuildCodeReviewFixImplementPrompt).toHaveBeenCalled();
+      });
+
+      // Test: COMPLETE + PENDING_VERIFICATION → Controller re-reviews via AgentRunner
+      it("COMPLETE + PENDING_VERIFICATION → Controller (re-review code)", async () => {
+        vi.mocked(queries.getTaskById).mockReturnValue(
+          createMockTask("COMPLETE"),
+        );
+        vi.mocked(queries.getLatestCodeReviewForTask).mockReturnValue(
+          createMockCodeReview("PENDING_VERIFICATION"),
+        );
+
+        const mockBuildCodeReviewReReviewPrompt = vi.fn(
+          () => "Mock code review re-review prompt",
+        );
+        vi.mocked(PromptBuilder).mockImplementation(function () {
+          return {
+            buildCodeReviewReReviewPrompt: mockBuildCodeReviewReReviewPrompt,
+          } as unknown as PromptBuilder;
+        });
+
+        await handlePlayTask(mockWorkspaceRoot, mockTaskId);
+
+        expect(mockAgentRunner.start).toHaveBeenCalledWith(
+          "controller",
+          expect.objectContaining({
+            prompt: "Mock code review re-review prompt",
+            taskId: mockTaskId,
+          }),
+        );
+        expect(mockBuildCodeReviewReReviewPrompt).toHaveBeenCalled();
       });
     });
 

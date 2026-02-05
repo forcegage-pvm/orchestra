@@ -573,19 +573,52 @@ After fixing, use \`resubmit_handover\` to send back for review.`;
     taskInfo?: { taskId: number; title: string; dbId: number },
   ): string {
     if (taskInfo !== undefined) {
-      // Single task review
-      return `As Controller, perform a code review for Task ${taskInfo.taskId}: "${taskInfo.title}" in Sprint "${sprintTitle}".
+      // Single task review - built with concatenation to avoid esbuild template literal issues
+      return this.buildSingleTaskCodeReviewPrompt(
+        sprintId,
+        sprintTitle,
+        taskInfo.taskId,
+        taskInfo.title,
+      );
+    }
 
-## Task Details
-- **Sprint**: ${sprintTitle} (${sprintId})
-- **Task**: #${taskInfo.taskId} - ${taskInfo.title}
+    // Bulk review - also use helper to avoid template literal issues
+    return this.buildBulkCodeReviewPrompt(pendingCount, sprintId, sprintTitle);
+  }
 
-## Your Task
-Use your MCP tools to review the implementation:
+  /**
+   * Build prompt for single-task code review
+   * Separated to avoid esbuild minification issues with large template literals
+   */
+  private buildSingleTaskCodeReviewPrompt(
+    sprintId: string,
+    sprintTitle: string,
+    taskId: number,
+    title: string,
+  ): string {
+    const header = [
+      "As Controller, perform a code review for Task " +
+        taskId +
+        ': "' +
+        title +
+        '" in Sprint "' +
+        sprintTitle +
+        '".',
+      "",
+      "## Task Details",
+      "- **Sprint**: " + sprintTitle + " (" + sprintId + ")",
+      "- **Task**: #" + taskId + " - " + title,
+      "",
+      "## Your Task",
+      "Use your MCP tools to review the implementation:",
+      "",
+      "1. `get_code_review` with task=" +
+        taskId +
+        " - Get the pending review AND spec context (spec_path, spec_files[], spec_task_definitions[])",
+      "",
+    ].join("\n");
 
-1. \`get_code_review\` with task=${taskInfo.taskId} - Get the pending review AND spec context (spec_path, spec_files[], spec_task_definitions[])
-
-## Mandatory Spec-First Protocol (9.1-9.4)
+    const specProtocol = `## Mandatory Spec-First Protocol (9.1-9.4)
 - Assume the implementation is WRONG until PROVEN correct
 - Read the spec FIRST using spec_path from \`get_code_review\`
 - If spec_files[] is not empty, also read those files using \`read_spec_file\` (e.g., tasks.md)
@@ -606,7 +639,7 @@ Use your MCP tools to review the implementation:
   - decision: "REJECTED" - If major issues/incorrect implementation (MUST include issues array)
 
 Minimal valid issues entry (REQUIRED for CHANGES_REQUESTED/REJECTED):
-\```json
+\`\`\`json
 {
   "issues": [
     {
@@ -616,7 +649,7 @@ Minimal valid issues entry (REQUIRED for CHANGES_REQUESTED/REJECTED):
     }
   ]
 }
-\```
+\`\`\`
 
 ## Review Standards
 - **Correctness**: Implementation matches spec requirements with evidence
@@ -629,96 +662,32 @@ Provide specific, actionable feedback for any issues found.
 IMPORTANT:
 - Any non-approval decision MUST include explicit issues in the issues array.
 - Any spec task without evidence = CHANGES_REQUESTED.
-
----
-
-# STUB HUNTER MODE (MANDATORY)
-
-You are a hostile reviewer. Assume the implementation is wrong until proven correct.
-
-## Mandatory Stub Hunt Protocol
-
-### Step 1: User Action Trace
-For each required feature:
-- Identify the user trigger
-- Trace the call graph to the real work
-- Confirm the final outcome is real (not a dialog or placeholder)
-
-Reject if you cannot trace from trigger to real work.
-
-### Step 2: Semantic Stub Detection
-For each core method, ask:
-1. What actually happens on call?
-2. Does it do real work or return defaults?
-3. Are there error dialogs in the success path?
-
-Red flags:
-- showErrorMessage/showWarningMessage in success path
-- return null/[]/{} without doing work
-- TODO/FIXME/not implemented strings
-
-### Step 3: API Integration Verification
-For each external integration:
-- Locate the real call site
-- Verify parameters are used
-- Verify response is handled
-- Trace the data flow to a real outcome
-
-### Step 4: Spec Requirement Interrogation
-For EACH spec requirement:
-- Evidence file + line range
-- Mechanism (how it works)
-- Proof (test or runtime path)
-
-### Step 5: Test Fraud Detection
-For each test:
-- What behavior does it claim to verify?
-- What do the assertions actually check?
-- Could empty/wrong implementation still pass?
-
-## Stub Hunt Report (Required)
-Include this section in your review notes:
-
-## STUB HUNT REPORT
-
-### User Action Traces
-- [ ] Feature A traced end-to-end
-- [ ] Feature B traced end-to-end
-
-### Semantic Stub Scan
-- [ ] No placeholders in success path
-- [ ] No default-return stubs
-- [ ] No TODO/FIXME/not implemented
-
-### API Integration
-- [ ] Calls verified with real parameters
-- [ ] Responses used and traced
-
-### Test Fraud Scan
-- [ ] Assertions verify behavior
-- [ ] Tests exercise real code paths
-
-### Stubs/Fraud Found
-- [list issues]
-
-### Verdict
-- HUNTED: Found N issues
-- CLEAN: No stubs detected after thorough hunt
-
-## DO NOT APPROVE if ANY are true
-1. Cannot trace feature to real behavior
-2. Success path shows error/warning
-3. Returns default values instead of doing work
-4. Tests pass without verifying behavior
-5. API responses ignored
-6. TODO/FIXME/not implemented found
-7. Mock/stub in production code
-8. Evidence requirements not satisfied
 `;
-    }
 
-    // Bulk review
-    return `As Controller, perform code reviews for ${pendingCount} pending task(s) in Sprint "${sprintTitle}" (${sprintId}).
+    const stubHunterMode = this.getStubHunterModeText();
+
+    return header + specProtocol + "\n---\n\n" + stubHunterMode;
+  }
+
+  /**
+   * Build prompt for bulk code review
+   * Separated to avoid esbuild minification issues with large template literals
+   */
+  private buildBulkCodeReviewPrompt(
+    pendingCount: number,
+    sprintId: string,
+    sprintTitle: string,
+  ): string {
+    const header =
+      "As Controller, perform code reviews for " +
+      pendingCount +
+      ' pending task(s) in Sprint "' +
+      sprintTitle +
+      '" (' +
+      sprintId +
+      ").";
+
+    const instructions = `
 
 ## Your Task
 You must review exactly **ONE** task in this session:
@@ -740,7 +709,7 @@ You must review exactly **ONE** task in this session:
 7. Submit decision using \`submit_code_review\` with decision: "APPROVED", "CHANGES_REQUESTED", or "REJECTED"
 
 Minimal valid issues entry (REQUIRED for CHANGES_REQUESTED/REJECTED):
-\```json
+\`\`\`json
 {
   "issues": [
     {
@@ -750,7 +719,7 @@ Minimal valid issues entry (REQUIRED for CHANGES_REQUESTED/REJECTED):
     }
   ]
 }
-\```
+\`\`\`
 
 ## Review Each Task For:
 - **Correctness**: Implementation matches spec requirements with evidence
@@ -768,10 +737,19 @@ Minimal valid issues entry (REQUIRED for CHANGES_REQUESTED/REJECTED):
 - Provide specific, actionable feedback for issues
 
 Begin by checking the code review summary, then process one pending review.
+`;
 
----
+    const stubHunterMode = this.getStubHunterModeText();
 
-# STUB HUNTER MODE (MANDATORY)
+    return header + instructions + "\n---\n\n" + stubHunterMode;
+  }
+
+  /**
+   * Get the STUB HUNTER MODE text as a separate method
+   * This avoids embedding it in the main template literals
+   */
+  private getStubHunterModeText(): string {
+    return `# STUB HUNTER MODE (MANDATORY)
 
 You are a hostile reviewer. Assume the implementation is wrong until proven correct.
 
