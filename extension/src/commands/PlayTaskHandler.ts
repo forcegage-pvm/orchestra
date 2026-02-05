@@ -17,7 +17,11 @@ import {
   getSprintById,
   getTaskById,
 } from "../database/queries.js";
-import { getAgentRunner, getContextFileResolver } from "../extension.js";
+import {
+  getAgentRunner,
+  getContextFileResolver,
+  getSessionManager,
+} from "../extension.js";
 import { PromptBuilder } from "../prompts/PromptBuilder.js";
 import { OrchestraLogger } from "../utils/logger.js";
 
@@ -822,64 +826,23 @@ async function invokeCodeReview(
     // Create instances
     const logger = new OrchestraLogger();
     const promptBuilder = new PromptBuilder();
-    const agentRunner = getAgentRunner();
 
-    if (agentRunner.getSession()?.status === "running") {
-      vscode.window.showErrorMessage(
-        "Orchestra: Agent is already running. Stop or pause the current agent first.",
-      );
-      return;
-    }
-
-    // Check if this is a re-review after fixes
-    const codeReview = getLatestCodeReviewForTask(workspaceRoot, taskId);
-    const isReReview =
-      codeReview && codeReview.status === "PENDING_VERIFICATION";
-
-    // Build the appropriate code review prompt
-    let prompt: string;
-    if (isReReview) {
-      prompt = promptBuilder.buildCodeReviewReReviewPrompt(
-        sprint.id,
-        sprint.name,
-        { taskId: task.task_id, title: task.title, dbId: task.id },
-        codeReview.review_id,
-      );
-    } else {
-      prompt = promptBuilder.buildCodeReviewPrompt(
-        1, // Single pending review
-        sprint.id,
-        sprint.name,
-        { taskId: task.task_id, title: task.title, dbId: task.id },
-      );
-    }
-
-    // Show Agent Panel before starting
-    await showAgentPanel();
-
-    // Read agent instructions for system prompt
-    const systemPrompt = await readAgentInstructions(
-      workspaceRoot,
-      "controller",
+    // Use PromptBuilder for consistent prompt with WorkflowChain
+    const prompt = promptBuilder.buildCodeReviewPrompt(
+      1,
+      sprint.id,
+      sprint.name,
+      { taskId: task.task_id, title: task.title, dbId: task.id },
     );
 
-    // Start controller agent for code review
-    const startOptions = {
-      prompt,
-      taskId,
-      taskNumber: task.task_id,
-      sprintId: sprint.id,
-    } as const;
-
-    await agentRunner.start("controller", {
-      ...startOptions,
-      systemPrompt,
-    });
+    // Use SessionManager.invokeController() - same as extension.ts code review invocation
+    const sm = getSessionManager();
+    await sm.invokeController(prompt, []);
 
     logger.info("Started controller agent for code review", {
       taskId,
       taskTitle: task.title,
-      isReReview,
+      isReReview: false,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
