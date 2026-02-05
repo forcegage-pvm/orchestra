@@ -3,17 +3,19 @@
  *
  * Manages core agent session data using SolidJS reactive stores.
  * Co-locates related data (session, events, toolCalls) for performance.
+ * Persists state to VS Code webview state for visibility restoration.
  *
  * Specification: specs/011-agent-panel-rework/spec.md Section 8.1
  */
 
 import { createSignal } from "solid-js";
-import { createStore } from "solid-js/store";
+import { createStore, unwrap } from "solid-js/store";
 import type {
-  AgentEvent,
-  AgentSession,
-  ToolCallAggregate,
+    AgentEvent,
+    AgentSession,
+    ToolCallAggregate,
 } from "../../../agents/sessions/types.js";
+import { restoreState, saveState } from "./persistence.js";
 
 /**
  * Current active agent session (null when no session)
@@ -33,6 +35,61 @@ export const [events, setEvents] = createStore<Record<string, AgentEvent>>({});
 export const [eventKeys, setEventKeys] = createSignal<string[]>([]);
 
 /**
+ * Tool call aggregates indexed by toolCallId
+ */
+export const [toolCalls, setToolCalls] = createStore<
+  Record<string, ToolCallAggregate>
+>({});
+
+/**
+ * Tool call keys signal for reactivity tracking
+ */
+export const [toolCallKeys, setToolCallKeys] = createSignal<string[]>([]);
+
+/**
+ * Persist current state to VS Code webview storage
+ * Call this after any state mutation to enable restoration
+ */
+export function persistState(): void {
+  saveState({
+    session: unwrap(session),
+    events: unwrap(events),
+    eventKeys: eventKeys(),
+    toolCalls: unwrap(toolCalls),
+    toolCallKeys: toolCallKeys(),
+  });
+}
+
+/**
+ * Restore state from VS Code webview storage
+ * Call this on webview initialization before sending 'ready'
+ * Returns true if state was restored
+ */
+export function tryRestoreState(): boolean {
+  const saved = restoreState();
+  if (saved) {
+    console.log("[SessionStore] Restoring persisted state");
+    if (saved.session) {
+      setSession(saved.session);
+    }
+    if (saved.events) {
+      setEvents(saved.events);
+    }
+    if (saved.eventKeys) {
+      setEventKeys(saved.eventKeys);
+    }
+    if (saved.toolCalls) {
+      setToolCalls(saved.toolCalls);
+    }
+    if (saved.toolCallKeys) {
+      setToolCallKeys(saved.toolCallKeys);
+    }
+    return true;
+  }
+  return false;
+}
+
+/**
  * Add a single event to the store and update the keys signal.
  * Deduplicates by event ID - if the event already exists, it updates the data
  * but doesn't add a duplicate key to the keys array.
@@ -49,6 +106,9 @@ export function addEvent(event: AgentEvent): void {
   if (isNewEvent) {
     setEventKeys((prev) => [...prev, event.id]);
   }
+
+  // Persist state for visibility restoration
+  persistState();
 }
 
 /**
@@ -57,6 +117,7 @@ export function addEvent(event: AgentEvent): void {
 export function clearEvents(): void {
   setEvents({});
   setEventKeys([]);
+  persistState();
 }
 
 /**
@@ -71,18 +132,6 @@ export function getEventsArray(): AgentEvent[] {
 }
 
 /**
- * Tool call aggregates indexed by toolCallId
- */
-export const [toolCalls, setToolCalls] = createStore<
-  Record<string, ToolCallAggregate>
->({});
-
-/**
- * Tool call keys signal for reactivity tracking
- */
-export const [toolCallKeys, setToolCallKeys] = createSignal<string[]>([]);
-
-/**
  * Set or update a tool call aggregate
  */
 export function setToolCall(
@@ -94,6 +143,7 @@ export function setToolCall(
   if (isNew) {
     setToolCallKeys((prev) => [...prev, toolCallId]);
   }
+  persistState();
 }
 
 /**
@@ -102,4 +152,5 @@ export function setToolCall(
 export function clearToolCalls(): void {
   setToolCalls({});
   setToolCallKeys([]);
+  persistState();
 }

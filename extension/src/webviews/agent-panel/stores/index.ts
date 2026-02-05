@@ -14,6 +14,7 @@ export {
   eventKeys,
   events,
   getEventsArray,
+  persistState,
   session,
   setEventKeys,
   setEvents,
@@ -22,6 +23,7 @@ export {
   setToolCalls,
   toolCallKeys,
   toolCalls,
+  tryRestoreState,
 } from "./sessionStore.js";
 
 export { aggregateToolCalls, updateToolCallAggregate } from "./aggregation.js";

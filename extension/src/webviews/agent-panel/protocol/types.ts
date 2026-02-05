@@ -140,6 +140,20 @@ export interface StopAgentMessage {
 }
 
 /**
+ * Pause currently running agent
+ */
+export interface PauseAgentMessage {
+  type: "pause_agent";
+}
+
+/**
+ * Resume a paused agent
+ */
+export interface ResumeAgentMessage {
+  type: "resume_agent";
+}
+
+/**
  * Continue a previous session
  */
 export interface ContinueSessionMessage {
@@ -196,6 +210,8 @@ export type WebviewMessage =
   | OpenDiffMessage
   | CopyTextMessage
   | StopAgentMessage
+  | PauseAgentMessage
+  | ResumeAgentMessage
   | ContinueSessionMessage
   | SwitchSessionMessage
   | SwitchTaskMessage
