@@ -1,11 +1,10 @@
 import { createSignal } from "solid-js";
 import { render } from "solid-js/web";
 import { FileActivityPanel } from "./components/FileActivityPanel.js";
-import { FooterInput } from "./components/FooterInput.js";
 import { StatusBar } from "./components/StatusBar.js";
 import { useKeyboardNav } from "./hooks/index.js";
 import { initializeMessageHandler } from "./protocol/index.js";
-import { events, session } from "./stores/sessionStore.js";
+import { events } from "./stores/sessionStore.js";
 import "./styles.css";
 import { TimelineView } from "./views/index.js";
 
@@ -88,7 +87,9 @@ function App() {
       <div class="flex-1 min-h-0 overflow-hidden">
         <TimelineView focusedEventIndex={keyboardNav.focusedEventIndex} />
       </div>
+      {/* FooterInput hidden for now - will be re-enabled when session continuation is fully implemented
       <FooterInput session={session} onSendMessage={handleSendMessage} />
+      */}
     </div>
   );
 }
