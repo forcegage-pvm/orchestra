@@ -1,0 +1,11 @@
+version: '1.0'
+sprintId: sprint-012-tpl
+sprintName: sprint-012-tpl
+goals: []
+architectureDecisions: []
+taskSummaries: []
+implementorPatterns: []
+compactionCount: 0
+lastCompactedAt: null
+createdAt: '2026-02-05T18:57:04.242Z'
+updatedAt: '2026-02-05T18:57:04.242Z'
