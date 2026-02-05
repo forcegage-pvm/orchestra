@@ -41,6 +41,15 @@ export async function handleSubmitCodeReview(input: unknown) {
           line: "optional - line number",
           recommendation: "optional - how to fix",
         },
+        minimal_valid_example: {
+          issues: [
+            {
+              severity: "MAJOR",
+              issue: "Describe the problem",
+              rationale: "Why this is a problem and needs fixing",
+            },
+          ],
+        },
         notes: [
           "For CHANGES_REQUESTED/REJECTED: 'issues' array is required",
           "Each issue MUST have: severity, issue, and rationale fields",

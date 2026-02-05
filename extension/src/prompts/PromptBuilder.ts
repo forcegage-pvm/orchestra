@@ -605,6 +605,19 @@ Use your MCP tools to review the implementation:
   - decision: "CHANGES_REQUESTED" - If any spec task lacks evidence or issues need fixing (MUST include issues array)
   - decision: "REJECTED" - If major issues/incorrect implementation (MUST include issues array)
 
+Minimal valid issues entry (REQUIRED for CHANGES_REQUESTED/REJECTED):
+\```json
+{
+  "issues": [
+    {
+      "severity": "MAJOR",
+      "issue": "Describe the problem",
+      "rationale": "Why this is a problem and needs fixing"
+    }
+  ]
+}
+\```
+
 ## Review Standards
 - **Correctness**: Implementation matches spec requirements with evidence
 - **Quality**: Code follows project patterns and best practices
@@ -639,6 +652,19 @@ You must review exactly **ONE** task in this session:
 5. Read the implementation files only AFTER completing the evidence requirements
 6. Verify the implementation quality and correctness using the evidence table
 7. Submit decision using \`submit_code_review\` with decision: "APPROVED", "CHANGES_REQUESTED", or "REJECTED"
+
+Minimal valid issues entry (REQUIRED for CHANGES_REQUESTED/REJECTED):
+\```json
+{
+  "issues": [
+    {
+      "severity": "MAJOR",
+      "issue": "Describe the problem",
+      "rationale": "Why this is a problem and needs fixing"
+    }
+  ]
+}
+\```
 
 ## Review Each Task For:
 - **Correctness**: Implementation matches spec requirements with evidence
@@ -701,6 +727,19 @@ The Implementor has addressed the issues from your previous review. Verify the f
    - decision: "APPROVED" - All issues have been properly addressed
    - decision: "CHANGES_REQUESTED" - Some issues remain or new issues found (include issues array)
    - decision: "REJECTED" - Fundamental problems remain (include issues array)
+
+Minimal valid issues entry (REQUIRED for CHANGES_REQUESTED/REJECTED):
+\```json
+{
+  "issues": [
+    {
+      "severity": "MAJOR",
+      "issue": "Describe the problem",
+      "rationale": "Why this is a problem and needs fixing"
+    }
+  ]
+}
+\```
 
 ## Re-Review Focus
 - **Issue Resolution**: Were the original issues properly fixed?

@@ -105,7 +105,7 @@ export const submitCodeReviewToolDef = {
   role: "controller" as const,
   name: "submit_code_review",
   description:
-    "Submit a code review decision with required artifacts for a sprint task.",
+    "Submit a code review decision with required artifacts for a sprint task. For CHANGES_REQUESTED/REJECTED you MUST include issues with severity, issue, and rationale.",
   inputSchema: {
     type: "object",
     properties: {
@@ -133,7 +133,8 @@ export const submitCodeReviewToolDef = {
       commit_range: { type: "string" },
       issues: {
         type: "array",
-        description: "Required for CHANGES_REQUESTED/REJECTED decisions",
+        description:
+          "Required for CHANGES_REQUESTED/REJECTED decisions. Each issue must include severity, issue, and rationale.",
         items: {
           type: "object",
           properties: {

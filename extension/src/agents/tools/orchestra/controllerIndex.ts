@@ -442,7 +442,7 @@ const getCodeReviewTool: AgentTool = {
 const submitCodeReviewTool: AgentTool = {
   name: "submit_code_review",
   description:
-    "Submit a code review decision with required artifacts for a sprint task. Decision can be APPROVED, CHANGES_REQUESTED, or REJECTED.",
+    "Submit a code review decision with required artifacts for a sprint task. Decision can be APPROVED, CHANGES_REQUESTED, or REJECTED. For CHANGES_REQUESTED/REJECTED you MUST include issues with severity, issue, and rationale.",
   inputSchema: {
     type: "object" as const,
     properties: {
@@ -484,11 +484,16 @@ const submitCodeReviewTool: AgentTool = {
           properties: {
             severity: {
               type: "string",
-              description: "Issue severity: BLOCKING, MAJOR, MINOR, or INFO",
+              description: "Issue severity: BLOCKING, MAJOR, or MINOR",
+              enum: ["BLOCKING", "MAJOR", "MINOR"],
             },
             issue: {
               type: "string",
               description: "Description of the issue",
+            },
+            rationale: {
+              type: "string",
+              description: "Why this is a problem (REQUIRED)",
             },
             spec_ref: {
               type: "string",
@@ -507,7 +512,7 @@ const submitCodeReviewTool: AgentTool = {
               description: "Recommendation to fix the issue (optional)",
             },
           },
-          required: ["severity", "issue"],
+          required: ["severity", "issue", "rationale"],
         },
         description: "List of issues found during review (optional)",
       },
