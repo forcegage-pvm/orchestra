@@ -338,71 +338,79 @@ function ensurePromptTemplates(
   const schemaDir = path.join(targetDir, "_schema");
   const sourceDir = path.join(context.extensionPath, "templates", "prompts");
 
-  // Create target directories if they don't exist
-  if (!fs.existsSync(targetDir)) {
-    fs.mkdirSync(targetDir, { recursive: true });
-    logger.info(`Created .orchestra/templates/prompts directory at ${targetDir}`);
-  }
-
-  if (!fs.existsSync(partialsDir)) {
-    fs.mkdirSync(partialsDir, { recursive: true });
-    logger.info(`Created _partials directory at ${partialsDir}`);
-  }
-
-  if (!fs.existsSync(schemaDir)) {
-    fs.mkdirSync(schemaDir, { recursive: true });
-    logger.info(`Created _schema directory at ${schemaDir}`);
-  }
-
-  // Check if source directory exists
-  if (!fs.existsSync(sourceDir)) {
-    logger.warn(`Prompt templates source directory not found: ${sourceDir}`);
-    return;
-  }
-
-  // Copy all .hbs files from source to target
-  const sourceFiles = fs.readdirSync(sourceDir);
-  for (const file of sourceFiles) {
-    const sourcePath = path.join(sourceDir, file);
-    const stat = fs.statSync(sourcePath);
-
-    if (stat.isFile() && file.endsWith(".hbs")) {
-      const targetPath = path.join(targetDir, file);
-      fs.copyFileSync(sourcePath, targetPath);
-      logger.info(`Synced prompt template: ${file}`);
+  try {
+    // Create target directories if they don't exist
+    if (!fs.existsSync(targetDir)) {
+      fs.mkdirSync(targetDir, { recursive: true });
+      logger.info(`Created .orchestra/templates/prompts directory at ${targetDir}`);
     }
-  }
 
-  // Copy _partials directory contents
-  const sourcePartialsDir = path.join(sourceDir, "_partials");
-  if (fs.existsSync(sourcePartialsDir)) {
-    const partialFiles = fs.readdirSync(sourcePartialsDir);
-    for (const file of partialFiles) {
-      const sourcePath = path.join(sourcePartialsDir, file);
+    if (!fs.existsSync(partialsDir)) {
+      fs.mkdirSync(partialsDir, { recursive: true });
+      logger.info(`Created _partials directory at ${partialsDir}`);
+    }
+
+    if (!fs.existsSync(schemaDir)) {
+      fs.mkdirSync(schemaDir, { recursive: true });
+      logger.info(`Created _schema directory at ${schemaDir}`);
+    }
+
+    // Check if source directory exists
+    if (!fs.existsSync(sourceDir)) {
+      logger.warn(`Prompt templates source directory not found: ${sourceDir}`);
+      return;
+    }
+
+    // Copy all .hbs files from source to target
+    const sourceFiles = fs.readdirSync(sourceDir);
+    for (const file of sourceFiles) {
+      const sourcePath = path.join(sourceDir, file);
       const stat = fs.statSync(sourcePath);
 
-      if (stat.isFile()) {
-        const targetPath = path.join(partialsDir, file);
+      if (stat.isFile() && file.endsWith(".hbs")) {
+        const targetPath = path.join(targetDir, file);
         fs.copyFileSync(sourcePath, targetPath);
-        logger.info(`Synced partial template: ${file}`);
+        logger.info(`Synced prompt template: ${file}`);
       }
     }
-  }
 
-  // Copy _schema directory contents
-  const sourceSchemaDir = path.join(sourceDir, "_schema");
-  if (fs.existsSync(sourceSchemaDir)) {
-    const schemaFiles = fs.readdirSync(sourceSchemaDir);
-    for (const file of schemaFiles) {
-      const sourcePath = path.join(sourceSchemaDir, file);
-      const stat = fs.statSync(sourcePath);
+    // Copy _partials directory contents
+    const sourcePartialsDir = path.join(sourceDir, "_partials");
+    if (fs.existsSync(sourcePartialsDir)) {
+      const partialFiles = fs.readdirSync(sourcePartialsDir);
+      for (const file of partialFiles) {
+        const sourcePath = path.join(sourcePartialsDir, file);
+        const stat = fs.statSync(sourcePath);
 
-      if (stat.isFile()) {
-        const targetPath = path.join(schemaDir, file);
-        fs.copyFileSync(sourcePath, targetPath);
-        logger.info(`Synced schema file: ${file}`);
+        if (stat.isFile()) {
+          const targetPath = path.join(partialsDir, file);
+          fs.copyFileSync(sourcePath, targetPath);
+          logger.info(`Synced partial template: ${file}`);
+        }
       }
     }
+
+    // Copy _schema directory contents
+    const sourceSchemaDir = path.join(sourceDir, "_schema");
+    if (fs.existsSync(sourceSchemaDir)) {
+      const schemaFiles = fs.readdirSync(sourceSchemaDir);
+      for (const file of schemaFiles) {
+        const sourcePath = path.join(sourceSchemaDir, file);
+        const stat = fs.statSync(sourcePath);
+
+        if (stat.isFile()) {
+          const targetPath = path.join(schemaDir, file);
+          fs.copyFileSync(sourcePath, targetPath);
+          logger.info(`Synced schema file: ${file}`);
+        }
+      }
+    }
+  } catch (err) {
+    const errorMessage = err instanceof Error ? err.message : String(err);
+    logger.error(`Failed to sync prompt templates: ${errorMessage}`);
+    vscode.window.showErrorMessage(
+      `Orchestra: Failed to sync prompt templates. ${errorMessage}`
+    );
   }
 }
 
