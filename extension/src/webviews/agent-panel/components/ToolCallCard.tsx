@@ -103,16 +103,22 @@ function buildSearchLabel(args: unknown, result: unknown): string | null {
   const query = extractStringValue(args, ["query"]);
   if (!query) return null;
   const includePattern = extractStringValue(args, ["includePattern"]);
-  const truncatedQuery = truncateText(query, 36);
-  const truncatedInclude = includePattern
-    ? truncateText(includePattern, 24)
+  const normalizedQuery = query.replace(/\s+/g, " ").trim();
+  const normalizedInclude = includePattern
+    ? includePattern.replace(/\s+/g, " ").trim()
+    : null;
+  const truncatedQuery = truncateText(normalizedQuery, 48);
+  const truncatedInclude = normalizedInclude
+    ? truncateText(normalizedInclude, 28)
     : null;
   const count = getSearchCount(result);
-  const countLabel = count !== null ? ` (${count})` : "";
+  const countValue = count ?? "?";
+  const matchLabel = count === 1 ? "match" : "matches";
+  const countLabel = ` - ${countValue} ${matchLabel}`;
   if (truncatedInclude) {
-    return `${truncatedQuery} / ${truncatedInclude}${countLabel}`;
+    return `"${truncatedQuery} / ${truncatedInclude}"${countLabel}`;
   }
-  return `${truncatedQuery}${countLabel}`;
+  return `"${truncatedQuery}"${countLabel}`;
 }
 
 /**
@@ -179,6 +185,8 @@ export function ToolCallCard(props: ToolCallCardProps) {
     }
     return null;
   };
+
+  const isGrepLabel = () => props.toolCall.toolName === "grep_search";
 
   const getInputDisplay = () => {
     const args = props.toolCall.arguments;
@@ -284,7 +292,13 @@ export function ToolCallCard(props: ToolCallCardProps) {
           {props.toolCall.toolName}
         </span>
         <Show when={toolDetailLabel()}>
-          <span class="text-xs text-gray-500 leading-none">
+          <span
+            class={`leading-none truncate max-w-[280px] ${
+              isGrepLabel()
+                ? "text-[10px] text-yellow-300/80"
+                : "text-xs text-gray-500"
+            }`}
+          >
             {toolDetailLabel()}
           </span>
         </Show>

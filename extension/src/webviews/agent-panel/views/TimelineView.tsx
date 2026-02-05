@@ -12,7 +12,7 @@
 
 import { Icon } from "@iconify-icon/solid";
 import type { Accessor } from "solid-js";
-import { createMemo, createSignal, Index, Show } from "solid-js";
+import { createEffect, createMemo, createSignal, Index, Show } from "solid-js";
 import type {
     AgentEvent,
     StatusChangeEvent,
@@ -28,6 +28,7 @@ import {
 } from "../components/index.js";
 import { useAutoScroll } from "../hooks/index.js";
 import { getEventsArray, session, toolCalls } from "../stores/index.js";
+import { setUi, ui } from "../stores/uiStore.js";
 
 export interface TimelineViewProps {
   /** Currently focused event index for keyboard navigation */
@@ -157,6 +158,20 @@ export function TimelineView(props: TimelineViewProps) {
     containerRef,
     eventCount: () => timelineItems().length,
     enabled: true,
+  });
+
+  createEffect(() => {
+    const container = containerRef();
+    if (!container || !ui.initialScrollPending) return;
+    if (timelineItems().length === 0) return;
+
+    const previousBehavior = container.style.scrollBehavior;
+    container.style.scrollBehavior = "auto";
+    container.scrollTop = container.scrollHeight;
+    requestAnimationFrame(() => {
+      container.style.scrollBehavior = previousBehavior;
+    });
+    setUi("initialScrollPending", false);
   });
 
   // Check if agent is running

@@ -10,7 +10,7 @@
 import { Icon } from "@iconify-icon/solid";
 import { createMemo, Show } from "solid-js";
 import type { SessionStatus } from "../../../agents/sessions/types.js";
-import { session } from "../stores/sessionStore.js";
+import { clearSessionHistory, session } from "../stores/sessionStore.js";
 
 interface StatusConfig {
   icon: string;
@@ -171,6 +171,10 @@ export function StatusBar() {
     postMessage("retry_agent");
   };
 
+  const handleClearHistory = () => {
+    clearSessionHistory();
+  };
+
   return (
     <div class="flex items-center justify-between px-3 py-2 border-b border-zinc-800/30">
       {/* Left side - Status icon, agent, action, task */}
@@ -240,6 +244,14 @@ export function StatusBar() {
 
       {/* Right side - Control buttons */}
       <div class="flex items-center gap-2">
+        {/* Clear history button */}
+        <button
+          onClick={handleClearHistory}
+          class="flex items-center justify-center w-7 h-7 rounded text-[11px] text-yellow-300/80 hover:text-yellow-200 hover:bg-yellow-900/20 transition-colors"
+          title="Clear session history"
+        >
+          <Icon icon="lucide:trash-2" class="w-3.5 h-3.5" />
+        </button>
         {/* Pause/Resume button */}
         <Show when={isActive() || isPaused()}>
           <button

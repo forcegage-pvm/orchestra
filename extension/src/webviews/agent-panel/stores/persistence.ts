@@ -23,6 +23,7 @@ interface PersistedState {
   eventKeys: string[];
   toolCalls: Record<string, ToolCallAggregate>;
   toolCallKeys: string[];
+  clearAfter: string | null;
 }
 
 /**

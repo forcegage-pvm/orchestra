@@ -417,6 +417,22 @@ export class AgentPanelProvider implements vscode.WebviewViewProvider {
             type: "session_update",
             session: endedSession,
           });
+        } else {
+          const storedSession = getSession(
+            this._workspaceRoot,
+            payload.sessionId,
+          );
+          if (storedSession) {
+            const endedSession = {
+              ...storedSession,
+              status: payload.status,
+              endedAt: new Date().toISOString(),
+            };
+            this.postMessage({
+              type: "session_update",
+              session: endedSession,
+            });
+          }
         }
         break;
 
@@ -587,7 +603,10 @@ export class AgentPanelProvider implements vscode.WebviewViewProvider {
 
       // Immediately update webview with stopped status
       // (EventBus path may not work if session is cleared)
-      const stoppedSession = sessionClassToInterface(session);
+      const stoppedSession = sessionClassToInterface(
+        this._workspaceRoot,
+        session,
+      );
       stoppedSession.status = "cancelled";
       stoppedSession.endedAt = new Date().toISOString();
       this.postMessage({
@@ -621,7 +640,10 @@ export class AgentPanelProvider implements vscode.WebviewViewProvider {
       await runner.pause();
 
       // Update webview with paused status
-      const pausedSession = sessionClassToInterface(session);
+      const pausedSession = sessionClassToInterface(
+        this._workspaceRoot,
+        session,
+      );
       pausedSession.status = "paused";
       this.postMessage({
         type: "session_update",
@@ -652,7 +674,10 @@ export class AgentPanelProvider implements vscode.WebviewViewProvider {
       await runner.resume();
 
       // Update webview with running status
-      const resumedSession = sessionClassToInterface(session);
+      const resumedSession = sessionClassToInterface(
+        this._workspaceRoot,
+        session,
+      );
       resumedSession.status = "running";
       this.postMessage({
         type: "session_update",

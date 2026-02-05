@@ -11,12 +11,14 @@ import type { StatusChangeEvent } from "../../../agents/sessions/types.js";
 import { updateToolCallAggregate } from "../stores/aggregation.js";
 import {
   addEvent,
+  clearAfter,
   clearEvents,
-  clearToolCalls,
+  clearSessionHistory,
   persistState,
   session,
   setSession,
   setToolCall,
+  syncSessionStatusFromEvents,
   toolCalls,
   tryRestoreState,
 } from "../stores/sessionStore.js";
@@ -43,6 +45,12 @@ function isToolEvent(event: {
   );
 }
 
+function shouldIncludeEvent(event: { timestamp: string }): boolean {
+  const cutoff = clearAfter();
+  if (!cutoff) return true;
+  return new Date(event.timestamp).getTime() >= new Date(cutoff).getTime();
+}
+
 /**
  * Handle incoming message from extension host
  *
@@ -56,6 +64,7 @@ export function handleExtensionMessage(message: ExtensionMessage): void {
       console.log("[Protocol] Session update:", message.session?.sessionId);
       setSession(message.session);
       persistState();
+      setUi("initialScrollPending", true);
       break;
 
     case "session_list":
@@ -70,6 +79,9 @@ export function handleExtensionMessage(message: ExtensionMessage): void {
         message.event.type,
         message.event.id,
       );
+      if (!shouldIncludeEvent(message.event)) {
+        break;
+      }
       addEvent(message.event);
 
       // Update session status from status_change events
@@ -100,6 +112,9 @@ export function handleExtensionMessage(message: ExtensionMessage): void {
       // Bulk add events for efficiency
       console.log("[Protocol] Events batch:", message.events.length, "events");
       message.events.forEach((event) => {
+        if (!shouldIncludeEvent(event)) {
+          return;
+        }
         addEvent(event);
 
         // Update session status from status_change events
@@ -129,9 +144,7 @@ export function handleExtensionMessage(message: ExtensionMessage): void {
 
     case "clear":
       // Reset all stores to initial state
-      setSession(null);
-      clearEvents();
-      clearToolCalls();
+      clearSessionHistory();
       break;
 
     case "set_verbosity":
@@ -144,9 +157,14 @@ export function handleExtensionMessage(message: ExtensionMessage): void {
       // Session will be updated via subsequent session_update message
       setSession(null);
 
+      setUi("initialScrollPending", true);
+
       // Clear and rebuild events
       clearEvents();
       message.events.forEach((event) => {
+        if (!shouldIncludeEvent(event)) {
+          return;
+        }
         addEvent(event);
       });
       break;
@@ -170,6 +188,7 @@ export function initializeMessageHandler(): void {
   const restored = tryRestoreState();
   if (restored) {
     console.log("[Protocol] Restored state from VS Code storage");
+    syncSessionStatusFromEvents();
   }
 
   // Use globalThis to access window in both browser and test environments
