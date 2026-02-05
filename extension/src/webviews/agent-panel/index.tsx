@@ -87,9 +87,7 @@ function App() {
       <div class="flex-1 min-h-0 overflow-hidden">
         <TimelineView focusedEventIndex={keyboardNav.focusedEventIndex} />
       </div>
-      {/* FooterInput hidden for now - will be re-enabled when session continuation is fully implemented
       <FooterInput session={session} onSendMessage={handleSendMessage} />
-      */}
     </div>
   );
 }

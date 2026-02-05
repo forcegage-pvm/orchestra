@@ -108,6 +108,7 @@ export const FixCodeReviewOutputSchema = z.discriminatedUnion("action", [
     validation_output: z.string().optional(),
     fixes_id: z.number().optional(),
     warning: z.string().optional(),
+    next_steps: z.array(z.string()).optional(),
   }),
 ]);
 

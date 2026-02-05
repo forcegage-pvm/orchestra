@@ -270,10 +270,7 @@ async function getCurrentTask(): Promise<GetCurrentTaskOutput> {
 /**
  * Build next_steps guidance for code review fix workflow states
  */
-function buildCodeReviewFixNextSteps(
-  status: string,
-  taskId: string,
-): string[] {
+function buildCodeReviewFixNextSteps(status: string, taskId: string): string[] {
   if (
     status === "CODE_REVIEW_CHANGES_REQUESTED" ||
     status === "CODE_REVIEW_FAILED"

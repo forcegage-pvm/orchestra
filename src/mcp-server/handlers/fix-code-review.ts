@@ -260,7 +260,7 @@ async function handleSubmitFixes(
   input: Extract<FixCodeReviewInput, { action: "SUBMIT_FIXES" }>,
 ): Promise<FixCodeReviewOutput> {
   const db = getDb();
-  const { review } = await getActiveReviewForFixes(["FIXING_ISSUES"]);
+  const { review, task } = await getActiveReviewForFixes(["FIXING_ISSUES"]);
 
   const testCommandSetting = await db
     .select()
@@ -306,6 +306,14 @@ async function handleSubmitFixes(
       review_status: review.status as ReviewStatus,
       validation_passed: false,
       ...(validationOutput ? { validation_output: validationOutput } : {}),
+      next_steps: [
+        "❌ Test validation FAILED - fixes cannot be submitted",
+        "1. Review the validation_output above to see what tests failed",
+        "2. Fix the failing tests in your code",
+        "3. Run tests locally to verify they pass",
+        `4. Call fix_code_review({ action: "SUBMIT_FIXES", ... }) again`,
+        "⚠️ Task will remain in CODE_REVIEW_CHANGES_REQUESTED until tests pass",
+      ],
     });
 
     return output;
@@ -330,6 +338,12 @@ async function handleSubmitFixes(
     .set({ status: "PENDING_VERIFICATION" })
     .where(eq(codeReviews.id, review.id));
 
+  // Update task status back to PENDING_CODE_REVIEW for re-review by orchestrator
+  await db
+    .update(tasks)
+    .set({ status: "PENDING_CODE_REVIEW", updated_at: now })
+    .where(eq(tasks.id, task.id));
+
   writeSignal();
 
   const output = validateOutput(FixCodeReviewOutputSchema, {
@@ -340,6 +354,12 @@ async function handleSubmitFixes(
     validation_passed: true,
     ...(fixRecord?.id ? { fixes_id: fixRecord.id } : {}),
     ...(warning ? { warning } : {}),
+    next_steps: [
+      "✅ Fixes submitted successfully - awaiting re-review",
+      "Task status: PENDING_CODE_REVIEW",
+      "The orchestrator will now re-review your fixes",
+      "No further action required from you until the review completes",
+    ],
   });
 
   return output;
