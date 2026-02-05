@@ -238,6 +238,11 @@
         "icon": "$(debug-continue)"
       },
       {
+        "command": "orchestra.clearAgentPanelHistory",
+        "title": "Orchestra: Clear Agent Panel History",
+        "icon": "$(trash)"
+      },
+      {
         "command": "orchestra.launchControllerForSprint",
         "title": "Review Sprint Configuration",
         "icon": "$(play)"
@@ -360,6 +365,11 @@
         {
           "command": "orchestra.refreshStatus",
           "when": "view == orchestra.sprintExplorer",
+          "group": "navigation"
+        },
+        {
+          "command": "orchestra.clearAgentPanelHistory",
+          "when": "view == orchestra.agentPanel",
           "group": "navigation"
         },
         {

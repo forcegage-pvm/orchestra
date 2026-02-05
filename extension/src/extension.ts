@@ -950,6 +950,12 @@ export async function activate(
         statusBar.refresh();
         logger.info("Manual refresh triggered");
       }),
+      vscode.commands.registerCommand(
+        "orchestra.clearAgentPanelHistory",
+        () => {
+          agentPanelProvider.postMessage({ type: "clear" });
+        },
+      ),
       vscode.commands.registerCommand("orchestra.filterSprints", () => {
         handleFilterSprints(treeProvider).catch((error) => {
           const message =
