@@ -22,6 +22,7 @@ import type {
   AgentSessionInfo,
   EventBusPayload,
 } from "../agents/sessions/types.js";
+import { getTaskById } from "../database/queries.js";
 import { getAgentRunner } from "../extension.js";
 import { highlightRange } from "../utils/fileHighlight.js";
 import { OrchestraLogger } from "../utils/logger.js";
@@ -40,7 +41,39 @@ const logger = new OrchestraLogger();
  * but the webview protocol expects the AgentSession INTERFACE with field `sessionId`.
  * This helper bridges that gap.
  */
-function sessionClassToInterface(session: AgentSessionClass): AgentSession {
+function getStatusMessageFromTask(
+  workspaceRoot: string,
+  role: AgentSession["role"],
+  taskId: number | undefined,
+): string | undefined {
+  if (!taskId || role !== "orchestrator") {
+    return undefined;
+  }
+
+  const task = getTaskById(workspaceRoot, taskId);
+  if (!task) {
+    return undefined;
+  }
+
+  if (task.status === "VERIFY" || task.status === "GATE_CHECK") {
+    return "Verifying";
+  }
+
+  if (
+    task.status === "PREPARE" ||
+    task.status === "PENDING_HANDOVER_REVIEW" ||
+    task.status === "HANDOVER_REVIEW_FAILED"
+  ) {
+    return "Preparing handover";
+  }
+
+  return undefined;
+}
+
+function sessionClassToInterface(
+  workspaceRoot: string,
+  session: AgentSessionClass,
+): AgentSession {
   return {
     sessionId: session.id,
     role: session.role,
@@ -52,7 +85,11 @@ function sessionClassToInterface(session: AgentSessionClass): AgentSession {
     lastActivityAt: session.lastActivityAt,
     endedAt: undefined, // Will be set when session ends
     status: session.status,
-    statusMessage: undefined,
+    statusMessage: getStatusMessageFromTask(
+      workspaceRoot,
+      session.role,
+      session.taskId ?? undefined,
+    ),
     iteration: session.currentIteration,
     maxIterations: session.maxIterations,
     toolCallCount: session.toolCalls.length,
@@ -69,7 +106,10 @@ function sessionClassToInterface(session: AgentSessionClass): AgentSession {
  *
  * AgentSessionInfo has minimal fields; we create a partial session for UI display.
  */
-function sessionInfoToInterface(info: AgentSessionInfo): AgentSession {
+function sessionInfoToInterface(
+  workspaceRoot: string,
+  info: AgentSessionInfo,
+): AgentSession {
   return {
     sessionId: info.id,
     role: info.role,
@@ -81,7 +121,11 @@ function sessionInfoToInterface(info: AgentSessionInfo): AgentSession {
     lastActivityAt: info.startedAt,
     endedAt: undefined,
     status: info.status,
-    statusMessage: undefined,
+    statusMessage: getStatusMessageFromTask(
+      workspaceRoot,
+      info.role,
+      info.taskId,
+    ),
     iteration: 0,
     maxIterations: 50,
     toolCallCount: 0,
@@ -235,7 +279,10 @@ export class AgentPanelProvider implements vscode.WebviewViewProvider {
           `[AgentPanelProvider] Sending session_update with ${events.length} events`,
         );
         // Convert class to interface format
-        const sessionData = sessionClassToInterface(session);
+        const sessionData = sessionClassToInterface(
+          this._workspaceRoot,
+          session,
+        );
         this.postMessage({
           type: "session_update",
           session: sessionData,
@@ -298,7 +345,7 @@ export class AgentPanelProvider implements vscode.WebviewViewProvider {
       this._currentSessionId = session.id;
 
       // Send full session data
-      const sessionData = sessionClassToInterface(session);
+      const sessionData = sessionClassToInterface(this._workspaceRoot, session);
       this.postMessage({
         type: "session_update",
         session: sessionData,
@@ -334,7 +381,10 @@ export class AgentPanelProvider implements vscode.WebviewViewProvider {
       case "session_start":
         this._currentSessionId = payload.session.id;
         // Convert AgentSessionInfo to full AgentSession interface
-        const sessionData = sessionInfoToInterface(payload.session);
+        const sessionData = sessionInfoToInterface(
+          this._workspaceRoot,
+          payload.session,
+        );
         this.postMessage({
           type: "session_update",
           session: sessionData,
@@ -357,7 +407,10 @@ export class AgentPanelProvider implements vscode.WebviewViewProvider {
         const runner = getAgentRunner();
         const currentSession = runner.getSession();
         if (currentSession && currentSession.id === payload.sessionId) {
-          const endedSession = sessionClassToInterface(currentSession);
+          const endedSession = sessionClassToInterface(
+            this._workspaceRoot,
+            currentSession,
+          );
           endedSession.status = payload.status;
           endedSession.endedAt = new Date().toISOString();
           this.postMessage({
