@@ -282,6 +282,116 @@ export class AgentRunner implements vscode.Disposable {
   }
 
   /**
+   * Detect chunk type using both instanceof and property-based detection.
+   * Property-based detection is needed as a fallback because class minification
+   * in production VS Code builds can break instanceof checks.
+   *
+   * @param chunk - The chunk object from the LLM response stream
+   * @param chunkAny - The chunk cast as Record<string, unknown> for property access
+   * @returns The detected chunk type: "TEXT", "TOOL_CALL", "DATA", or "UNKNOWN"
+   */
+  private detectChunkType(
+    chunk: unknown,
+    chunkAny: Record<string, unknown>,
+  ): "TEXT" | "TOOL_CALL" | "DATA" | "UNKNOWN" {
+    // First try instanceof checks (most reliable when they work)
+    if (chunk instanceof vscode.LanguageModelTextPart) {
+      return "TEXT";
+    }
+    if (chunk instanceof vscode.LanguageModelToolCallPart) {
+      return "TOOL_CALL";
+    }
+    if (chunk instanceof vscode.LanguageModelDataPart) {
+      return "DATA";
+    }
+
+    // Fallback to property-based detection for minified classes
+    // LanguageModelTextPart has: value (string)
+    // Also matches chunks with keys=[value,id,metadata] seen in logs
+    if (
+      "value" in chunkAny &&
+      typeof chunkAny.value === "string" &&
+      !("name" in chunkAny && "callId" in chunkAny)
+    ) {
+      return "TEXT";
+    }
+
+    // LanguageModelToolCallPart has: name, input, callId
+    if (
+      "name" in chunkAny &&
+      "callId" in chunkAny &&
+      "input" in chunkAny &&
+      typeof chunkAny.name === "string" &&
+      typeof chunkAny.callId === "string"
+    ) {
+      return "TOOL_CALL";
+    }
+
+    // LanguageModelDataPart has: mimeType, data (and sometimes audience)
+    // Matches chunks with keys=[mimeType,data,audience] seen in logs
+    if (
+      "mimeType" in chunkAny &&
+      "data" in chunkAny &&
+      typeof chunkAny.mimeType === "string"
+    ) {
+      return "DATA";
+    }
+
+    return "UNKNOWN";
+  }
+
+  /**
+   * Extract text content from a LanguageModelDataPart-like chunk.
+   * Handles text/* and application/json mimeTypes by decoding the data.
+   *
+   * @param chunkAny - The chunk as Record<string, unknown>
+   * @returns The extracted text content, or undefined if not extractable
+   */
+  private extractDataPartContent(
+    chunkAny: Record<string, unknown>,
+  ): string | undefined {
+    const mimeType = chunkAny.mimeType as string;
+    const data = chunkAny.data;
+
+    // Handle text-based mimeTypes
+    if (
+      mimeType.startsWith("text/") ||
+      mimeType === "application/json" ||
+      mimeType.includes("json")
+    ) {
+      try {
+        // Data could be Uint8Array, ArrayBuffer, or already a string
+        if (data instanceof Uint8Array) {
+          const decoder = new TextDecoder();
+          return decoder.decode(data);
+        }
+        if (data instanceof ArrayBuffer) {
+          const decoder = new TextDecoder();
+          return decoder.decode(new Uint8Array(data));
+        }
+        if (typeof data === "string") {
+          return data;
+        }
+        // If it's an object, try to stringify it
+        if (typeof data === "object" && data !== null) {
+          return JSON.stringify(data);
+        }
+      } catch (error) {
+        console.error(
+          `[AgentRunner] Failed to extract DATA part content: ${error}`,
+        );
+      }
+    }
+
+    // For binary mimeTypes like image/*, we can't extract text
+    // Log for debugging but don't extract
+    console.log(
+      `[AgentRunner] DATA part with mimeType=${mimeType} not extractable as text`,
+    );
+    return undefined;
+  }
+
+  /**
    * Create a new AgentRunner
    *
    * @param toolRegistry - Tool registry for executing tool calls
@@ -1190,13 +1300,11 @@ export class AgentRunner implements vscode.Disposable {
       // This is necessary because LLMs may send tool calls BEFORE their reasoning text
       let unknownChunkLogged = false;
       for await (const chunk of request.stream) {
-        // Use instanceof for reliable type detection (constructor.name may be minified)
-        const chunkType =
-          chunk instanceof vscode.LanguageModelTextPart
-            ? "TEXT"
-            : chunk instanceof vscode.LanguageModelToolCallPart
-              ? "TOOL_CALL"
-              : "UNKNOWN";
+        // Detect chunk type using both instanceof and property-based detection
+        // Property-based detection is needed as a fallback because minification
+        // can break instanceof checks in production VS Code builds
+        const chunkAny = chunk as Record<string, unknown>;
+        const chunkType = this.detectChunkType(chunk, chunkAny);
 
         // Log UNKNOWN chunk details once to understand what they are
         if (chunkType === "UNKNOWN" && !unknownChunkLogged) {
@@ -1204,17 +1312,22 @@ export class AgentRunner implements vscode.Disposable {
           const chunkKeys = Object.keys(chunk as object);
           const chunkProto = Object.getPrototypeOf(chunk);
           const protoName = chunkProto?.constructor?.name || "no-proto";
-          // Try to get any text-like property
-          const chunkAny = chunk as Record<string, unknown>;
           const hasValue = "value" in chunkAny;
           const hasText = "text" in chunkAny;
           const hasContent = "content" in chunkAny;
+          const hasMimeType = "mimeType" in chunkAny;
+          const hasData = "data" in chunkAny;
           console.error(
-            `[AgentRunner] UNKNOWN chunk details: keys=[${chunkKeys.join(",")}], proto=${protoName}, hasValue=${hasValue}, hasText=${hasText}, hasContent=${hasContent}`,
+            `[AgentRunner] UNKNOWN chunk details: keys=[${chunkKeys.join(",")}], proto=${protoName}, hasValue=${hasValue}, hasText=${hasText}, hasContent=${hasContent}, hasMimeType=${hasMimeType}, hasData=${hasData}`,
           );
           if (hasValue) {
             console.error(
               `[AgentRunner] UNKNOWN chunk value type: ${typeof chunkAny.value}, preview: ${String(chunkAny.value).substring(0, 100)}`,
+            );
+          }
+          if (hasMimeType) {
+            console.error(
+              `[AgentRunner] UNKNOWN chunk mimeType: ${chunkAny.mimeType}`,
             );
           }
         }
@@ -1228,24 +1341,47 @@ export class AgentRunner implements vscode.Disposable {
           break;
         }
 
-        if (chunk instanceof vscode.LanguageModelTextPart) {
-          // Accumulate thinking text
-          thinkingText += chunk.value;
+        // Handle chunk based on detected type
+        if (chunkType === "TEXT") {
+          // Accumulate thinking text from LanguageModelTextPart
+          const textValue =
+            chunk instanceof vscode.LanguageModelTextPart
+              ? chunk.value
+              : (chunkAny.value as string);
+          thinkingText += textValue;
           console.error(
             `[AgentRunner] sendRequest: Accumulated text length: ${thinkingText.length}`,
           );
-        } else if (chunk instanceof vscode.LanguageModelToolCallPart) {
+        } else if (chunkType === "TOOL_CALL") {
           // Collect tool call - DON'T emit yet
           hadToolCalls = true;
+          const toolCallChunk =
+            chunk instanceof vscode.LanguageModelToolCallPart
+              ? chunk
+              : {
+                  name: chunkAny.name as string,
+                  input: chunkAny.input as object,
+                  callId: chunkAny.callId as string,
+                };
           toolCalls.push({
-            name: chunk.name,
-            input: chunk.input,
-            callId: chunk.callId,
+            name: toolCallChunk.name,
+            input: toolCallChunk.input,
+            callId: toolCallChunk.callId,
           });
-          console.error(`[AgentRunner] sendRequest: Tool call: ${chunk.name}`);
+          console.error(
+            `[AgentRunner] sendRequest: Tool call: ${toolCallChunk.name}`,
+          );
+        } else if (chunkType === "DATA") {
+          // Handle LanguageModelDataPart - extract text content if applicable
+          const extracted = this.extractDataPartContent(chunkAny);
+          if (extracted) {
+            thinkingText += extracted;
+            console.error(
+              `[AgentRunner] sendRequest: Extracted DATA part content, accumulated length: ${thinkingText.length}`,
+            );
+          }
         } else {
-          // UNKNOWN chunk - try to extract any text content
-          const chunkAny = chunk as Record<string, unknown>;
+          // Truly unknown chunk - try to extract any text content as last resort
           if ("value" in chunkAny && typeof chunkAny.value === "string") {
             thinkingText += chunkAny.value;
             console.error(
