@@ -299,12 +299,7 @@
         },
         {
           "command": "orchestra.startTask",
-          "when": "view == orchestra.sprintExplorer && viewItem =~ /^task-(pending|implement)$/",
-          "group": "inline@1"
-        },
-        {
-          "command": "orchestra.playTask",
-          "when": "view == orchestra.sprintExplorer && viewItem =~ /^task-(pending|implement|verify|verify_failed|gate_check|escalated)$/",
+          "when": "view == orchestra.sprintExplorer && viewItem =~ /^task-(pending|implement|verify|verify_failed|gate_check|escalated|pending_handover_review|handover_review_failed|prepare|verified|pending_code_review|code_review_changes_requested|code_review_failed)$/",
           "group": "inline@1"
         },
         {
