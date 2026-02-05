@@ -867,13 +867,19 @@ export class AgentRunner implements vscode.Disposable {
       );
     }
 
+    // Add user message to conversation history for next LLM iteration
     this.addUserMessage(instruction);
+
+    // Emit prompt event so it's visible in the output panel (same as initial prompt)
     this.emitOutput({
-      type: "thinking",
+      type: "prompt",
       timestamp: new Date().toISOString(),
       iteration: this.session.currentIteration,
-      text: `[Redirected with new instruction: ${instruction}]`,
+      text: instruction,
     });
+
+    // Persist prompt event to database for history
+    this.eventEmitter?.emitPrompt(instruction);
   }
 
   /**
