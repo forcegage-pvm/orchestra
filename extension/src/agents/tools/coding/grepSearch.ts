@@ -24,6 +24,29 @@ interface GrepMatch {
 
 const TOOL_NAME = "grep_search";
 
+const BINARY_EXTENSIONS = new Set([
+  ".exe",
+  ".dll",
+  ".so",
+  ".dylib",
+  ".node",
+  ".zip",
+  ".gz",
+  ".tar",
+  ".7z",
+  ".png",
+  ".jpg",
+  ".jpeg",
+  ".gif",
+  ".bmp",
+  ".ico",
+  ".pdf",
+  ".woff",
+  ".woff2",
+  ".ttf",
+  ".otf",
+]);
+
 function normalizeMaxResults(value: number | undefined): number | undefined {
   if (value === undefined) {
     return undefined;
@@ -41,6 +64,11 @@ function toRelativePath(
   const normalizedRelative = relative.split(path.sep).join("/");
   const normalizedFsPath = fsPath.split(path.sep).join("/");
   return normalizedRelative.length > 0 ? normalizedRelative : normalizedFsPath;
+}
+
+function isLikelyBinaryPath(uri: vscode.Uri): boolean {
+  const ext = path.extname(uri.fsPath).toLowerCase();
+  return ext.length > 0 && BINARY_EXTENSIONS.has(ext);
 }
 
 function buildToolResult(partial: Partial<ToolResult>): ToolResult {
@@ -125,7 +153,17 @@ async function grepSearchFiles(
         );
       }
 
-      const document = await vscode.workspace.openTextDocument(uri);
+      if (isLikelyBinaryPath(uri)) {
+        continue;
+      }
+
+      let document: vscode.TextDocument;
+      try {
+        document = await vscode.workspace.openTextDocument(uri);
+      } catch {
+        // Skip files that cannot be opened as text (e.g., binaries)
+        continue;
+      }
       for (let lineIndex = 0; lineIndex < document.lineCount; lineIndex += 1) {
         if (context.token.isCancellationRequested) {
           return buildToolResult(

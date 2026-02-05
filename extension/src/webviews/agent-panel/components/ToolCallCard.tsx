@@ -108,7 +108,7 @@ function buildSearchLabel(args: unknown, result: unknown): string | null {
     ? truncateText(includePattern, 24)
     : null;
   const count = getSearchCount(result);
-  const countLabel = count !== null ? ` : ${count}` : "";
+  const countLabel = count !== null ? ` (${count})` : "";
   if (truncatedInclude) {
     return `${truncatedQuery} / ${truncatedInclude}${countLabel}`;
   }
@@ -162,7 +162,7 @@ export function ToolCallCard(props: ToolCallCardProps) {
 
   const toolDetailLabel = () => {
     const toolName = props.toolCall.toolName;
-    if (toolName === "read_file") {
+    if (toolName === "read_file" || toolName === "read_spec_file") {
       const filePath = extractFilePath(props.toolCall.arguments);
       return filePath ? getBaseName(filePath) : null;
     }
@@ -259,17 +259,7 @@ export function ToolCallCard(props: ToolCallCardProps) {
           class="w-3 h-3 flex-shrink-0 mt-0.5"
         />
 
-        {/* Tool Name */}
-        <span class="text-xs text-gray-400 leading-none">
-          {props.toolCall.toolName}
-        </span>
-        <Show when={toolDetailLabel()}>
-          <span class="text-xs text-gray-500 leading-none">
-            {toolDetailLabel()}
-          </span>
-        </Show>
-
-        {/* Status Icon - Spinner / Check / X (right after tool name) */}
+        {/* Status Icon - Spinner / Check / X (before tool name) */}
         <Show when={isRunning()}>
           <Icon
             icon="lucide:loader-2"
@@ -287,6 +277,16 @@ export function ToolCallCard(props: ToolCallCardProps) {
             icon="lucide:x"
             class="w-3.5 h-3.5 text-red-400 flex-shrink-0"
           />
+        </Show>
+
+        {/* Tool Name */}
+        <span class="text-xs text-gray-400 leading-none">
+          {props.toolCall.toolName}
+        </span>
+        <Show when={toolDetailLabel()}>
+          <span class="text-xs text-gray-500 leading-none">
+            {toolDetailLabel()}
+          </span>
         </Show>
 
         {/* Spacer */}
