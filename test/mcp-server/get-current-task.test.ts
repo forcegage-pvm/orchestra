@@ -389,7 +389,7 @@ describe("get_current_task handler", () => {
 
       expect(output.success).toBe(false);
       expect(output.error.message).toContain(
-        "No task in IMPLEMENT or VERIFY_FAILED state",
+        "No task in IMPLEMENT, VERIFY_FAILED, CODE_REVIEW_CHANGES_REQUESTED, or CODE_REVIEW_FAILED state",
       );
     });
   });
