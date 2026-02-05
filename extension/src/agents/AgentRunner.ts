@@ -1188,6 +1188,7 @@ export class AgentRunner implements vscode.Disposable {
 
       // Stream response - collect ALL chunks first before emitting events
       // This is necessary because LLMs may send tool calls BEFORE their reasoning text
+      let unknownChunkLogged = false;
       for await (const chunk of request.stream) {
         // Use instanceof for reliable type detection (constructor.name may be minified)
         const chunkType =
@@ -1196,6 +1197,28 @@ export class AgentRunner implements vscode.Disposable {
             : chunk instanceof vscode.LanguageModelToolCallPart
               ? "TOOL_CALL"
               : "UNKNOWN";
+
+        // Log UNKNOWN chunk details once to understand what they are
+        if (chunkType === "UNKNOWN" && !unknownChunkLogged) {
+          unknownChunkLogged = true;
+          const chunkKeys = Object.keys(chunk as object);
+          const chunkProto = Object.getPrototypeOf(chunk);
+          const protoName = chunkProto?.constructor?.name || "no-proto";
+          // Try to get any text-like property
+          const chunkAny = chunk as Record<string, unknown>;
+          const hasValue = "value" in chunkAny;
+          const hasText = "text" in chunkAny;
+          const hasContent = "content" in chunkAny;
+          console.error(
+            `[AgentRunner] UNKNOWN chunk details: keys=[${chunkKeys.join(",")}], proto=${protoName}, hasValue=${hasValue}, hasText=${hasText}, hasContent=${hasContent}`,
+          );
+          if (hasValue) {
+            console.error(
+              `[AgentRunner] UNKNOWN chunk value type: ${typeof chunkAny.value}, preview: ${String(chunkAny.value).substring(0, 100)}`,
+            );
+          }
+        }
+
         console.error(
           `[AgentRunner] sendRequest: Received chunk: ${chunkType}`,
         );
@@ -1220,6 +1243,15 @@ export class AgentRunner implements vscode.Disposable {
             callId: chunk.callId,
           });
           console.error(`[AgentRunner] sendRequest: Tool call: ${chunk.name}`);
+        } else {
+          // UNKNOWN chunk - try to extract any text content
+          const chunkAny = chunk as Record<string, unknown>;
+          if ("value" in chunkAny && typeof chunkAny.value === "string") {
+            thinkingText += chunkAny.value;
+            console.error(
+              `[AgentRunner] sendRequest: UNKNOWN chunk had text value, accumulated length: ${thinkingText.length}`,
+            );
+          }
         }
       }
 
