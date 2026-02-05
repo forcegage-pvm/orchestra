@@ -323,6 +323,90 @@ function ensureAgentFiles(
 }
 
 /**
+ * Ensure prompt templates are synced from extension bundle to workspace
+ * Always overwrites to ensure users have the latest template definitions
+ *
+ * Templates are copied from extension bundle at extension/templates/prompts/
+ * to workspace at .orchestra/templates/prompts/
+ */
+function ensurePromptTemplates(
+  context: vscode.ExtensionContext,
+  workspaceRoot: string,
+): void {
+  const targetDir = path.join(workspaceRoot, ".orchestra", "templates", "prompts");
+  const partialsDir = path.join(targetDir, "_partials");
+  const schemaDir = path.join(targetDir, "_schema");
+  const sourceDir = path.join(context.extensionPath, "templates", "prompts");
+
+  // Create target directories if they don't exist
+  if (!fs.existsSync(targetDir)) {
+    fs.mkdirSync(targetDir, { recursive: true });
+    logger.info(`Created .orchestra/templates/prompts directory at ${targetDir}`);
+  }
+
+  if (!fs.existsSync(partialsDir)) {
+    fs.mkdirSync(partialsDir, { recursive: true });
+    logger.info(`Created _partials directory at ${partialsDir}`);
+  }
+
+  if (!fs.existsSync(schemaDir)) {
+    fs.mkdirSync(schemaDir, { recursive: true });
+    logger.info(`Created _schema directory at ${schemaDir}`);
+  }
+
+  // Check if source directory exists
+  if (!fs.existsSync(sourceDir)) {
+    logger.warn(`Prompt templates source directory not found: ${sourceDir}`);
+    return;
+  }
+
+  // Copy all .hbs files from source to target
+  const sourceFiles = fs.readdirSync(sourceDir);
+  for (const file of sourceFiles) {
+    const sourcePath = path.join(sourceDir, file);
+    const stat = fs.statSync(sourcePath);
+
+    if (stat.isFile() && file.endsWith(".hbs")) {
+      const targetPath = path.join(targetDir, file);
+      fs.copyFileSync(sourcePath, targetPath);
+      logger.info(`Synced prompt template: ${file}`);
+    }
+  }
+
+  // Copy _partials directory contents
+  const sourcePartialsDir = path.join(sourceDir, "_partials");
+  if (fs.existsSync(sourcePartialsDir)) {
+    const partialFiles = fs.readdirSync(sourcePartialsDir);
+    for (const file of partialFiles) {
+      const sourcePath = path.join(sourcePartialsDir, file);
+      const stat = fs.statSync(sourcePath);
+
+      if (stat.isFile()) {
+        const targetPath = path.join(partialsDir, file);
+        fs.copyFileSync(sourcePath, targetPath);
+        logger.info(`Synced partial template: ${file}`);
+      }
+    }
+  }
+
+  // Copy _schema directory contents
+  const sourceSchemaDir = path.join(sourceDir, "_schema");
+  if (fs.existsSync(sourceSchemaDir)) {
+    const schemaFiles = fs.readdirSync(sourceSchemaDir);
+    for (const file of schemaFiles) {
+      const sourcePath = path.join(sourceSchemaDir, file);
+      const stat = fs.statSync(sourcePath);
+
+      if (stat.isFile()) {
+        const targetPath = path.join(schemaDir, file);
+        fs.copyFileSync(sourcePath, targetPath);
+        logger.info(`Synced schema file: ${file}`);
+      }
+    }
+  }
+}
+
+/**
  * Initialize Orchestra workspace
  * Creates .orchestra folder and empty database
  */
@@ -369,6 +453,10 @@ async function initializeWorkspace(
     // Sync agent instruction files from extension bundle
     ensureAgentFiles(context, workspaceRoot);
     logger.info("Synced .github/agents directory with agent instructions");
+
+    // Sync prompt templates from extension bundle
+    ensurePromptTemplates(context, workspaceRoot);
+    logger.info("Synced .orchestra/templates/prompts directory with prompt templates");
 
     // Automatically install MCP servers
     await installMcpServers(workspaceRoot, context.extensionPath);
@@ -721,6 +809,9 @@ export async function activate(
   if (workspaceFolders && workspaceFolders[0]) {
     const workspaceRoot = workspaceFolders[0].uri.fsPath;
     ensureAgentFiles(context, workspaceRoot);
+
+    // Sync prompt templates from extension bundle
+    ensurePromptTemplates(context, workspaceRoot);
 
     // Also ensure MCP servers are configured with latest extension path
     try {
