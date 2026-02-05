@@ -1189,10 +1189,17 @@ export class AgentRunner implements vscode.Disposable {
       // Stream response - collect ALL chunks first before emitting events
       // This is necessary because LLMs may send tool calls BEFORE their reasoning text
       for await (const chunk of request.stream) {
+        // Use instanceof for reliable type detection (constructor.name may be minified)
+        const chunkType =
+          chunk instanceof vscode.LanguageModelTextPart
+            ? "TEXT"
+            : chunk instanceof vscode.LanguageModelToolCallPart
+              ? "TOOL_CALL"
+              : "UNKNOWN";
         console.error(
-          "[AgentRunner] sendRequest: Received chunk:",
-          chunk.constructor.name,
+          `[AgentRunner] sendRequest: Received chunk: ${chunkType}`,
         );
+
         // Check for pause/stop
         if (this.isPaused || this.isStopped) {
           break;
@@ -1201,6 +1208,9 @@ export class AgentRunner implements vscode.Disposable {
         if (chunk instanceof vscode.LanguageModelTextPart) {
           // Accumulate thinking text
           thinkingText += chunk.value;
+          console.error(
+            `[AgentRunner] sendRequest: Accumulated text length: ${thinkingText.length}`,
+          );
         } else if (chunk instanceof vscode.LanguageModelToolCallPart) {
           // Collect tool call - DON'T emit yet
           hadToolCalls = true;
@@ -1209,11 +1219,19 @@ export class AgentRunner implements vscode.Disposable {
             input: chunk.input,
             callId: chunk.callId,
           });
+          console.error(
+            `[AgentRunner] sendRequest: Tool call: ${chunk.name}`,
+          );
         }
       }
 
       // NOW emit events in correct order: thinking FIRST, then tool calls
       // This ensures proper sequencing regardless of stream order
+
+      // Log accumulated text before trim check
+      console.error(
+        `[AgentRunner] sendRequest: Final thinkingText length: ${thinkingText.length}, trimmed length: ${thinkingText.trim().length}`,
+      );
 
       // Step 1: Emit thinking text (if any)
       if (thinkingText.trim()) {
