@@ -8,7 +8,7 @@
  */
 
 import { randomUUID } from "crypto";
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { OrchestraDB } from "../../database/client.js";
 import * as schema from "../../database/local-schema.js";
 import type { AgentEvent } from "./types.js";
@@ -171,11 +171,11 @@ export function insertEventBatch(
 }
 
 /**
- * Get all events for a session, ordered by timestamp
+ * Get all events for a session, ordered by insertion order
  *
  * @param workspaceRoot Workspace root directory
  * @param sessionId Session UUID
- * @returns Array of events ordered by timestamp ascending
+ * @returns Array of events ordered by insertion order (rowid)
  */
 export function getEventsForSession(
   workspaceRoot: string,
@@ -183,11 +183,12 @@ export function getEventsForSession(
 ): AgentEvent[] {
   const db = OrchestraDB.getDrizzleInstance(workspaceRoot);
 
+  // Order by rowid to preserve insertion order (not timestamp which can have collisions)
   const rows = db
     .select()
     .from(schema.sessionEvents)
     .where(eq(schema.sessionEvents.session_id, sessionId))
-    .orderBy(schema.sessionEvents.timestamp)
+    .orderBy(sql`rowid`)
     .all();
 
   return rows.map(mapRowToEvent);
@@ -199,7 +200,7 @@ export function getEventsForSession(
  * @param workspaceRoot Workspace root directory
  * @param sessionId Session UUID
  * @param eventType Event type discriminator
- * @returns Array of events matching type, ordered by timestamp ascending
+ * @returns Array of events matching type, ordered by insertion order (rowid)
  */
 export function getEventsByType(
   workspaceRoot: string,
@@ -208,6 +209,7 @@ export function getEventsByType(
 ): AgentEvent[] {
   const db = OrchestraDB.getDrizzleInstance(workspaceRoot);
 
+  // Order by rowid to preserve insertion order (not timestamp which can have collisions)
   const rows = db
     .select()
     .from(schema.sessionEvents)
@@ -217,7 +219,7 @@ export function getEventsByType(
         eq(schema.sessionEvents.type, eventType),
       ),
     )
-    .orderBy(schema.sessionEvents.timestamp)
+    .orderBy(sql`rowid`)
     .all();
 
   return rows.map(mapRowToEvent);
@@ -238,6 +240,7 @@ export function getToolEvents(
 ): AgentEvent[] {
   const db = OrchestraDB.getDrizzleInstance(workspaceRoot);
 
+  // Order by rowid to preserve insertion order (not timestamp which can have collisions)
   const rows = db
     .select()
     .from(schema.sessionEvents)
@@ -247,7 +250,7 @@ export function getToolEvents(
         eq(schema.sessionEvents.tool_call_id, toolCallId),
       ),
     )
-    .orderBy(schema.sessionEvents.timestamp)
+    .orderBy(sql`rowid`)
     .all();
 
   return rows.map(mapRowToEvent);

@@ -145,6 +145,10 @@ export class AgentPanelProvider implements vscode.WebviewViewProvider {
       }),
     );
 
+    // Note: For WebviewView, the webview context is destroyed when hidden.
+    // When it becomes visible again, the HTML/JS is re-executed and the webview
+    // will send a 'ready' message. We restore state in the 'ready' handler.
+
     // Sync verbosity when configuration changes
     if (typeof vscode.workspace.onDidChangeConfiguration === "function") {
       this._disposables.push(
@@ -260,6 +264,65 @@ export class AgentPanelProvider implements vscode.WebviewViewProvider {
   }
 
   /**
+   * Restore session state when view becomes visible again
+   *
+   * Unlike _pollForEvents which checks for new sessions, this method
+   * always sends the full session state to ensure the webview is in sync.
+   */
+  private _restoreSessionState(): void {
+    if (!this._view) {
+      return;
+    }
+
+    try {
+      // Send current verbosity setting
+      this.postMessage({
+        type: "set_verbosity",
+        level: this._getVerbositySetting(),
+      });
+
+      // Get current active session from AgentRunner
+      const runner = getAgentRunner();
+      const session = runner.getSession();
+
+      if (!session) {
+        logger.info("[AgentPanelProvider] No active session to restore");
+        return;
+      }
+
+      logger.info(
+        `[AgentPanelProvider] Restoring session state: ${session.id}, status: ${session.status}`,
+      );
+
+      // Update tracked session ID
+      this._currentSessionId = session.id;
+
+      // Send full session data
+      const sessionData = sessionClassToInterface(session);
+      this.postMessage({
+        type: "session_update",
+        session: sessionData,
+      });
+
+      // Send all events for the session
+      const events = getEventsForSession(this._workspaceRoot, session.id);
+      logger.info(
+        `[AgentPanelProvider] Restoring ${events.length} events for session`,
+      );
+      this.postMessage({
+        type: "events_batch",
+        sessionId: session.id,
+        events,
+      });
+    } catch (error) {
+      logger.error(
+        "[AgentPanelProvider] Failed to restore session state",
+        error,
+      );
+    }
+  }
+
+  /**
    * Handle EventBus payloads
    */
   private _handleEventBusPayload(payload: EventBusPayload): void {
@@ -318,13 +381,9 @@ export class AgentPanelProvider implements vscode.WebviewViewProvider {
     switch (message.type) {
       case "ready":
         logger.debug("Agent Panel webview ready");
-        // Initialize webview state
-        this.postMessage({
-          type: "set_verbosity",
-          level: this._getVerbositySetting(),
-        });
-        // Send current session state if there's an active session
-        this._pollForEvents();
+        // Initialize webview state - always restore full session state on ready
+        // This handles both first-time init and visibility restoration
+        this._restoreSessionState();
         break;
 
       case "open_file":
@@ -341,6 +400,14 @@ export class AgentPanelProvider implements vscode.WebviewViewProvider {
 
       case "stop_agent":
         void this._handleStopAgent();
+        break;
+
+      case "pause_agent":
+        void this._handlePauseAgent();
+        break;
+
+      case "resume_agent":
+        void this._handleResumeAgent();
         break;
 
       case "continue_session":
@@ -460,12 +527,88 @@ export class AgentPanelProvider implements vscode.WebviewViewProvider {
         return;
       }
 
+      // Store session info before stopping (stop() may clear it)
+      const _sessionId = session.id;
+
       await runner.stop();
+
+      // Immediately update webview with stopped status
+      // (EventBus path may not work if session is cleared)
+      const stoppedSession = sessionClassToInterface(session);
+      stoppedSession.status = "cancelled";
+      stoppedSession.endedAt = new Date().toISOString();
+      this.postMessage({
+        type: "session_update",
+        session: stoppedSession,
+      });
+
       void vscode.window.showInformationMessage("Agent stopped successfully");
     } catch (error) {
       logger.error("Failed to stop agent", error);
       void vscode.window.showErrorMessage(
         `Failed to stop agent: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  }
+
+  /**
+   * Pause currently running agent
+   */
+  private async _handlePauseAgent(): Promise<void> {
+    try {
+      logger.info("Pause agent requested");
+      const runner = getAgentRunner();
+      const session = runner.getSession();
+
+      if (!session || session.status !== "running") {
+        void vscode.window.showWarningMessage("No agent is currently running");
+        return;
+      }
+
+      await runner.pause();
+
+      // Update webview with paused status
+      const pausedSession = sessionClassToInterface(session);
+      pausedSession.status = "paused";
+      this.postMessage({
+        type: "session_update",
+        session: pausedSession,
+      });
+    } catch (error) {
+      logger.error("Failed to pause agent", error);
+      void vscode.window.showErrorMessage(
+        `Failed to pause agent: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  }
+
+  /**
+   * Resume a paused agent
+   */
+  private async _handleResumeAgent(): Promise<void> {
+    try {
+      logger.info("Resume agent requested");
+      const runner = getAgentRunner();
+      const session = runner.getSession();
+
+      if (!session || session.status !== "paused") {
+        void vscode.window.showWarningMessage("No paused agent to resume");
+        return;
+      }
+
+      await runner.resume();
+
+      // Update webview with running status
+      const resumedSession = sessionClassToInterface(session);
+      resumedSession.status = "running";
+      this.postMessage({
+        type: "session_update",
+        session: resumedSession,
+      });
+    } catch (error) {
+      logger.error("Failed to resume agent", error);
+      void vscode.window.showErrorMessage(
+        `Failed to resume agent: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
   }
@@ -686,14 +829,25 @@ export class AgentPanelProvider implements vscode.WebviewViewProvider {
       const runner = getAgentRunner();
       const session = runner.getSession();
 
-      if (!session || session.status !== "running") {
+      if (!session) {
         void vscode.window.showWarningMessage(
-          "Cannot send message: no agent is currently running",
+          "Cannot send message: no agent session exists",
         );
         return;
       }
 
-      await runner.redirect(text);
+      if (session.status === "failed") {
+        void vscode.window.showWarningMessage(
+          "Cannot continue a failed session. Please start a new session.",
+        );
+        return;
+      }
+
+      // Use continueWithMessage for both running and stopped sessions
+      // It internally handles the logic:
+      // - If running: uses redirect() to inject the message
+      // - If paused/completed/etc: resumes the session with the new message
+      await runner.continueWithMessage(text);
       logger.debug("User message sent to agent successfully");
     } catch (error) {
       logger.error("Failed to handle user message", error);

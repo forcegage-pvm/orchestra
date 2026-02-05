@@ -31,9 +31,9 @@ export interface FooterInputProps {
  *
  * **Behavior:**
  * - Disabled when no session is active
- * - Disabled when session is running (can't interrupt)
- * - Enabled when session is paused/completed
- * - Submit: Creates continuation with user prompt
+ * - Enabled during running: Allows injecting messages for next iteration
+ * - Enabled when session is paused/completed: Allows continuation
+ * - Submit: Injects message into conversation (agent sees it next iteration)
  * - Enter: Send message
  * - Shift+Enter: Insert newline
  *
@@ -54,9 +54,27 @@ export function FooterInput(props: FooterInputProps) {
   const isDisabled = () => {
     if (!props.session) return true; // No session active
 
-    // Session is running - can't interrupt
+    // Disabled when initializing or failed
+    const disabledStatuses = ["initializing", "failed"];
+    return disabledStatuses.includes(props.session.status);
+  };
+
+  /**
+   * Check if session is actively running (for placeholder text)
+   */
+  const isRunning = () => {
+    if (!props.session) return false;
     const runningStatuses = ["running", "thinking", "waiting_for_tool"];
     return runningStatuses.includes(props.session.status);
+  };
+
+  /**
+   * Check if session has stopped and can be continued
+   */
+  const isStopped = () => {
+    if (!props.session) return false;
+    const stoppedStatuses = ["completed", "paused", "cancelled"];
+    return stoppedStatuses.includes(props.session.status);
   };
 
   /**
@@ -65,9 +83,8 @@ export function FooterInput(props: FooterInputProps) {
   const isEnabled = () => {
     if (!props.session) return false;
 
-    // Enabled when session is paused or completed
-    const enabledStatuses = ["paused", "completed", "failed", "cancelled"];
-    return enabledStatuses.includes(props.session.status);
+    // Enabled when session exists and not initializing
+    return !isDisabled();
   };
 
   /**
@@ -75,8 +92,11 @@ export function FooterInput(props: FooterInputProps) {
    */
   const placeholderText = () => {
     if (!props.session) return "No active session";
-    if (isDisabled()) return "Agent is running...";
-    return "Type a message to continue the session...";
+    if (props.session.status === "failed")
+      return "Session failed - start a new session";
+    if (isRunning()) return "Inject a message to the agent...";
+    if (isStopped()) return "Continue the session with a message...";
+    return "Type a message...";
   };
 
   /**

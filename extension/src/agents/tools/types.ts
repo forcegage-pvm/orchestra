@@ -108,6 +108,14 @@ export const ToolMetadataSchema = z.object({
 export type ToolMetadata = z.output<typeof ToolMetadataSchema>;
 
 /**
+ * Signal that a tool can emit to control agent execution
+ * - "pause": Agent should pause and wait for user input
+ * - "stop": Agent should stop execution completely
+ */
+export const ToolSignalSchema = z.enum(["pause", "stop"]).optional();
+export type ToolSignal = z.output<typeof ToolSignalSchema>;
+
+/**
  * Schema for complete tool execution result
  */
 export const ToolResultSchema = z.object({
@@ -115,6 +123,7 @@ export const ToolResultSchema = z.object({
   content: z.array(ToolResultContentSchema),
   error: ToolErrorSchema.optional(),
   metadata: ToolMetadataSchema,
+  signal: ToolSignalSchema,
 });
 
 /**
@@ -123,6 +132,7 @@ export const ToolResultSchema = z.object({
  * @property content - Array of result content items
  * @property error - Error information if execution failed
  * @property metadata - Invocation metadata for tracking
+ * @property signal - Optional signal to control agent execution (pause/stop)
  */
 export type ToolResult = z.output<typeof ToolResultSchema>;
 

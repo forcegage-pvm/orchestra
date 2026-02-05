@@ -13,10 +13,12 @@ import {
   addEvent,
   clearEvents,
   clearToolCalls,
+  persistState,
   session,
   setSession,
   setToolCall,
   toolCalls,
+  tryRestoreState,
 } from "../stores/sessionStore.js";
 import { setUi } from "../stores/uiStore.js";
 import type { ExtensionMessage } from "./types.js";
@@ -53,6 +55,7 @@ export function handleExtensionMessage(message: ExtensionMessage): void {
     case "session_update":
       console.log("[Protocol] Session update:", message.session?.sessionId);
       setSession(message.session);
+      persistState();
       break;
 
     case "session_list":
@@ -162,6 +165,13 @@ export function handleExtensionMessage(message: ExtensionMessage): void {
  * from the extension host.
  */
 export function initializeMessageHandler(): void {
+  // Restore persisted state immediately (before 'ready' message)
+  // This ensures UI is populated before we notify the extension
+  const restored = tryRestoreState();
+  if (restored) {
+    console.log("[Protocol] Restored state from VS Code storage");
+  }
+
   // Use globalThis to access window in both browser and test environments
   globalThis.addEventListener("message", (event: MessageEvent) => {
     const message = event.data as ExtensionMessage;

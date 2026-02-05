@@ -478,6 +478,14 @@ export class WorkflowChain implements vscode.Disposable {
       };
     }
 
+    // Handle task status CODE_REVIEW_FAILED - controller rejected code review
+    if (completedRole === "controller" && taskStatus === "CODE_REVIEW_FAILED") {
+      return {
+        description:
+          "Code review failed - invoking Implementor to fix issues...",
+      };
+    }
+
     // No automatic chaining for other states
     return null;
   }

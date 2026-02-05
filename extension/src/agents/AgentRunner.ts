@@ -282,6 +282,116 @@ export class AgentRunner implements vscode.Disposable {
   }
 
   /**
+   * Detect chunk type using both instanceof and property-based detection.
+   * Property-based detection is needed as a fallback because class minification
+   * in production VS Code builds can break instanceof checks.
+   *
+   * @param chunk - The chunk object from the LLM response stream
+   * @param chunkAny - The chunk cast as Record<string, unknown> for property access
+   * @returns The detected chunk type: "TEXT", "TOOL_CALL", "DATA", or "UNKNOWN"
+   */
+  private detectChunkType(
+    chunk: unknown,
+    chunkAny: Record<string, unknown>,
+  ): "TEXT" | "TOOL_CALL" | "DATA" | "UNKNOWN" {
+    // First try instanceof checks (most reliable when they work)
+    if (chunk instanceof vscode.LanguageModelTextPart) {
+      return "TEXT";
+    }
+    if (chunk instanceof vscode.LanguageModelToolCallPart) {
+      return "TOOL_CALL";
+    }
+    if (chunk instanceof vscode.LanguageModelDataPart) {
+      return "DATA";
+    }
+
+    // Fallback to property-based detection for minified classes
+    // LanguageModelTextPart has: value (string)
+    // Also matches chunks with keys=[value,id,metadata] seen in logs
+    if (
+      "value" in chunkAny &&
+      typeof chunkAny.value === "string" &&
+      !("name" in chunkAny && "callId" in chunkAny)
+    ) {
+      return "TEXT";
+    }
+
+    // LanguageModelToolCallPart has: name, input, callId
+    if (
+      "name" in chunkAny &&
+      "callId" in chunkAny &&
+      "input" in chunkAny &&
+      typeof chunkAny.name === "string" &&
+      typeof chunkAny.callId === "string"
+    ) {
+      return "TOOL_CALL";
+    }
+
+    // LanguageModelDataPart has: mimeType, data (and sometimes audience)
+    // Matches chunks with keys=[mimeType,data,audience] seen in logs
+    if (
+      "mimeType" in chunkAny &&
+      "data" in chunkAny &&
+      typeof chunkAny.mimeType === "string"
+    ) {
+      return "DATA";
+    }
+
+    return "UNKNOWN";
+  }
+
+  /**
+   * Extract text content from a LanguageModelDataPart-like chunk.
+   * Handles text/* and application/json mimeTypes by decoding the data.
+   *
+   * @param chunkAny - The chunk as Record<string, unknown>
+   * @returns The extracted text content, or undefined if not extractable
+   */
+  private extractDataPartContent(
+    chunkAny: Record<string, unknown>,
+  ): string | undefined {
+    const mimeType = chunkAny.mimeType as string;
+    const data = chunkAny.data;
+
+    // Handle text-based mimeTypes
+    if (
+      mimeType.startsWith("text/") ||
+      mimeType === "application/json" ||
+      mimeType.includes("json")
+    ) {
+      try {
+        // Data could be Uint8Array, ArrayBuffer, or already a string
+        if (data instanceof Uint8Array) {
+          const decoder = new TextDecoder();
+          return decoder.decode(data);
+        }
+        if (data instanceof ArrayBuffer) {
+          const decoder = new TextDecoder();
+          return decoder.decode(new Uint8Array(data));
+        }
+        if (typeof data === "string") {
+          return data;
+        }
+        // If it's an object, try to stringify it
+        if (typeof data === "object" && data !== null) {
+          return JSON.stringify(data);
+        }
+      } catch (error) {
+        console.error(
+          `[AgentRunner] Failed to extract DATA part content: ${error}`,
+        );
+      }
+    }
+
+    // For binary mimeTypes like image/*, we can't extract text
+    // Log for debugging but don't extract
+    console.log(
+      `[AgentRunner] DATA part with mimeType=${mimeType} not extractable as text`,
+    );
+    return undefined;
+  }
+
+  /**
    * Create a new AgentRunner
    *
    * @param toolRegistry - Tool registry for executing tool calls
@@ -757,12 +867,77 @@ export class AgentRunner implements vscode.Disposable {
       );
     }
 
+    // Add user message to conversation history for next LLM iteration
     this.addUserMessage(instruction);
+
+    // Emit prompt event so it's visible in the output panel (same as initial prompt)
     this.emitOutput({
-      type: "thinking",
+      type: "prompt",
       timestamp: new Date().toISOString(),
       iteration: this.session.currentIteration,
-      text: `[Redirected with new instruction: ${instruction}]`,
+      text: instruction,
+    });
+
+    // Persist prompt event to database for history
+    this.eventEmitter?.emitPrompt(instruction);
+  }
+
+  /**
+   * Continue a stopped/completed/paused session with a new message
+   *
+   * This is used when the user sends a message to an agent that has stopped running.
+   * It resumes the agent loop with the new instruction.
+   *
+   * @param instruction - New instruction to continue with
+   * @throws AgentError if no session exists or session has failed
+   */
+  async continueWithMessage(instruction: string): Promise<void> {
+    if (!this.session) {
+      throw new AgentError("Cannot continue: no session exists", "NO_SESSION");
+    }
+
+    if (this.session.status === "failed") {
+      throw new AgentError(
+        "Cannot continue: session has failed. Start a new session.",
+        "SESSION_FAILED",
+      );
+    }
+
+    if (this.session.status === "running") {
+      // Session is still running, use redirect instead
+      await this.redirect(instruction);
+      return;
+    }
+
+    const previousStatus = this.session.status;
+
+    // Reset session state for continuation
+    this.isPaused = false;
+    this.isStopped = false;
+    this.session.resume();
+
+    // Add user message to conversation history
+    this.addUserMessage(instruction);
+
+    // Emit prompt event so it's visible in the output panel
+    this.emitOutput({
+      type: "prompt",
+      timestamp: new Date().toISOString(),
+      iteration: this.session.currentIteration,
+      text: instruction,
+    });
+
+    // Persist prompt event to database for history
+    this.eventEmitter?.emitPrompt(instruction);
+
+    // Emit status change to running
+    this.eventEmitter?.emitStatusChange(previousStatus, "running");
+    this.emitStateChange();
+
+    // Restart agent loop
+    const role = this.session.role;
+    this.runningPromise = this.runAgentLoop(role).catch((error) => {
+      this.handleError(error);
     });
   }
 
@@ -1186,60 +1361,147 @@ export class AgentRunner implements vscode.Disposable {
       const toolCalls: Array<{ name: string; input: unknown; callId: string }> =
         [];
 
-      // Stream response
+      // Stream response - collect ALL chunks first before emitting events
+      // This is necessary because LLMs may send tool calls BEFORE their reasoning text
+      let unknownChunkLogged = false;
       for await (const chunk of request.stream) {
+        // Detect chunk type using both instanceof and property-based detection
+        // Property-based detection is needed as a fallback because minification
+        // can break instanceof checks in production VS Code builds
+        const chunkAny = chunk as Record<string, unknown>;
+        const chunkType = this.detectChunkType(chunk, chunkAny);
+
+        // Log UNKNOWN chunk details once to understand what they are
+        if (chunkType === "UNKNOWN" && !unknownChunkLogged) {
+          unknownChunkLogged = true;
+          const chunkKeys = Object.keys(chunk as object);
+          const chunkProto = Object.getPrototypeOf(chunk);
+          const protoName = chunkProto?.constructor?.name || "no-proto";
+          const hasValue = "value" in chunkAny;
+          const hasText = "text" in chunkAny;
+          const hasContent = "content" in chunkAny;
+          const hasMimeType = "mimeType" in chunkAny;
+          const hasData = "data" in chunkAny;
+          console.error(
+            `[AgentRunner] UNKNOWN chunk details: keys=[${chunkKeys.join(",")}], proto=${protoName}, hasValue=${hasValue}, hasText=${hasText}, hasContent=${hasContent}, hasMimeType=${hasMimeType}, hasData=${hasData}`,
+          );
+          if (hasValue) {
+            console.error(
+              `[AgentRunner] UNKNOWN chunk value type: ${typeof chunkAny.value}, preview: ${String(chunkAny.value).substring(0, 100)}`,
+            );
+          }
+          if (hasMimeType) {
+            console.error(
+              `[AgentRunner] UNKNOWN chunk mimeType: ${chunkAny.mimeType}`,
+            );
+          }
+        }
+
         console.error(
-          "[AgentRunner] sendRequest: Received chunk:",
-          chunk.constructor.name,
+          `[AgentRunner] sendRequest: Received chunk: ${chunkType}`,
         );
+
         // Check for pause/stop
         if (this.isPaused || this.isStopped) {
           break;
         }
 
-        if (chunk instanceof vscode.LanguageModelTextPart) {
-          // Accumulate thinking text
-          thinkingText += chunk.value;
-        } else if (chunk instanceof vscode.LanguageModelToolCallPart) {
-          // Tool call requested
-          hadToolCalls = true;
-          toolCalls.push({
-            name: chunk.name,
-            input: chunk.input,
-            callId: chunk.callId,
-          });
-
-          this.emitOutput({
-            type: "tool_call",
-            timestamp: new Date().toISOString(),
-            iteration: this.session.currentIteration,
-            toolName: chunk.name,
-            toolInput: chunk.input as Record<string, unknown>,
-            toolCallId: chunk.callId,
-          });
-          this.eventEmitter?.emitToolCall(
-            chunk.callId,
-            chunk.name,
-            this.getToolCategory(chunk.name),
-            chunk.input as Record<string, unknown>,
+        // Handle chunk based on detected type
+        if (chunkType === "TEXT") {
+          // Accumulate thinking text from LanguageModelTextPart
+          const textValue =
+            chunk instanceof vscode.LanguageModelTextPart
+              ? chunk.value
+              : (chunkAny.value as string);
+          thinkingText += textValue;
+          console.error(
+            `[AgentRunner] sendRequest: Accumulated text length: ${thinkingText.length}`,
           );
+        } else if (chunkType === "TOOL_CALL") {
+          // Collect tool call - DON'T emit yet
+          hadToolCalls = true;
+          const toolCallChunk =
+            chunk instanceof vscode.LanguageModelToolCallPart
+              ? chunk
+              : {
+                  name: chunkAny.name as string,
+                  input: chunkAny.input as object,
+                  callId: chunkAny.callId as string,
+                };
+          toolCalls.push({
+            name: toolCallChunk.name,
+            input: toolCallChunk.input,
+            callId: toolCallChunk.callId,
+          });
+          console.error(
+            `[AgentRunner] sendRequest: Tool call: ${toolCallChunk.name}`,
+          );
+        } else if (chunkType === "DATA") {
+          // Handle LanguageModelDataPart - extract text content if applicable
+          const extracted = this.extractDataPartContent(chunkAny);
+          if (extracted) {
+            thinkingText += extracted;
+            console.error(
+              `[AgentRunner] sendRequest: Extracted DATA part content, accumulated length: ${thinkingText.length}`,
+            );
+          }
+        } else {
+          // Truly unknown chunk - try to extract any text content as last resort
+          if ("value" in chunkAny && typeof chunkAny.value === "string") {
+            thinkingText += chunkAny.value;
+            console.error(
+              `[AgentRunner] sendRequest: UNKNOWN chunk had text value, accumulated length: ${thinkingText.length}`,
+            );
+          }
         }
       }
 
-      // Emit thinking text if any
+      // NOW emit events in correct order: thinking FIRST, then tool calls
+      // This ensures proper sequencing regardless of stream order
+
+      // Log accumulated text before trim check
+      console.error(
+        `[AgentRunner] sendRequest: Final thinkingText length: ${thinkingText.length}, trimmed length: ${thinkingText.trim().length}`,
+      );
+
+      // Step 1: Emit thinking text (if any)
       if (thinkingText.trim()) {
         this.addAssistantMessage(thinkingText);
+
+        // Path 1: Direct output event (for legacy listeners)
         this.emitOutput({
           type: "thinking",
           timestamp: new Date().toISOString(),
           iteration: this.session.currentIteration,
           text: thinkingText,
         });
+
+        // Path 2: Through eventEmitter/database/eventBus (for Agent Panel)
         this.eventEmitter?.emitThinking(thinkingText);
       }
 
-      // Execute tool calls
+      // Step 2: Emit tool calls (if any)
       if (hadToolCalls) {
+        for (const toolCall of toolCalls) {
+          // Path 1: Direct output event (for legacy listeners)
+          this.emitOutput({
+            type: "tool_call",
+            timestamp: new Date().toISOString(),
+            iteration: this.session.currentIteration,
+            toolName: toolCall.name,
+            toolInput: toolCall.input as Record<string, unknown>,
+            toolCallId: toolCall.callId,
+          });
+
+          // Path 2: Through eventEmitter/database/eventBus (for Agent Panel)
+          this.eventEmitter?.emitToolCall(
+            toolCall.callId,
+            toolCall.name,
+            this.getToolCategory(toolCall.name),
+            toolCall.input as Record<string, unknown>,
+          );
+        }
+
         // Add assistant message with tool calls BEFORE executing them
         // This is required by the LLM API - tool results must follow tool calls
         this.addAssistantToolCallMessage(toolCalls);
@@ -1431,6 +1693,26 @@ export class AgentRunner implements vscode.Disposable {
 
         if (toolSuccess) {
           await this.handleTaskCompletion(toolCall.name, toolCall.input);
+        }
+
+        // Check for tool signal to pause or stop agent
+        const toolSignal = result.result.signal;
+        if (toolSignal === "pause") {
+          const previousStatus = this.session.status;
+          this.isPaused = true;
+          this.session.pause();
+          this.eventEmitter?.emitStatusChange(previousStatus, "paused");
+          this.emitStateChange();
+          // Exit tool execution loop - agent will wait for user input
+          return;
+        } else if (toolSignal === "stop") {
+          const previousStatus = this.session.status;
+          this.isStopped = true;
+          this.session.stop();
+          this.eventEmitter?.emitStatusChange(previousStatus, "stopped");
+          this.emitSessionEndOnce("cancelled");
+          this.emitStateChange();
+          return;
         }
       } catch (error) {
         const durationMs = Date.now() - startTime;
@@ -1789,7 +2071,7 @@ export class AgentRunner implements vscode.Disposable {
    * Handle consecutive tool failures and auto-escalate when needed
    */
   private async handleConsecutiveFailures(): Promise<boolean> {
-    if (this.consecutiveErrors < 5 || !this.session) {
+    if (this.consecutiveErrors < 8 || !this.session) {
       return false;
     }
 

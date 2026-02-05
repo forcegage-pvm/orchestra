@@ -27,11 +27,32 @@ export async function handleSubmitCodeReview(input: unknown) {
   const startTime = performance.now();
   const validation = validateInput(SubmitCodeReviewInputSchema, input);
   if (!validation.success) {
+    // Provide actionable error message with expected format
+    const errorWithHelp = {
+      ...validation.error,
+      help: {
+        message:
+          "submit_code_review validation failed. Check the issues array format.",
+        expected_issue_format: {
+          severity: "BLOCKING | MAJOR | MINOR",
+          issue: "Description of the issue (required)",
+          rationale: "Why this is a problem (REQUIRED)",
+          file: "optional - file path",
+          line: "optional - line number",
+          recommendation: "optional - how to fix",
+        },
+        notes: [
+          "For CHANGES_REQUESTED/REJECTED: 'issues' array is required",
+          "Each issue MUST have: severity, issue, and rationale fields",
+          "Summary must be at least 30 characters",
+        ],
+      },
+    };
     return {
       content: [
         {
           type: "text",
-          text: JSON.stringify(validation.error, null, 2),
+          text: JSON.stringify(errorWithHelp, null, 2),
         },
       ],
     };
@@ -278,6 +299,8 @@ async function submitCodeReview(
     sprintId: sprint.id,
   });
 
+  let taskStatus: string | undefined;
+
   if (decisionStatus === "CHANGES_REQUESTED" || decisionStatus === "REJECTED") {
     const issues = input.issues ?? [];
     if (issues.length > 0) {
@@ -295,9 +318,39 @@ async function submitCodeReview(
         })),
       );
     }
+
+    // Update task status based on review decision
+    const newTaskStatus =
+      decisionStatus === "REJECTED"
+        ? "CODE_REVIEW_FAILED"
+        : "CODE_REVIEW_CHANGES_REQUESTED";
+
+    await db
+      .update(tasks)
+      .set({
+        status: newTaskStatus,
+        updated_at: now,
+      })
+      .where(eq(tasks.id, task.id));
+
+    await db.insert(progress).values({
+      sprint_id: sprint.id,
+      task_id: task.id,
+      from_status: task.status,
+      to_status: newTaskStatus,
+      workflow_step: sprint.workflow_step,
+      triggered_by: "controller",
+      notes: `Code review ${decisionStatus.toLowerCase().replace("_", " ")}`,
+      changed_at: now,
+    });
+
+    // Set task status for output
+    taskStatus =
+      decisionStatus === "REJECTED"
+        ? "CODE_REVIEW_FAILED"
+        : "CODE_REVIEW_CHANGES_REQUESTED";
   }
 
-  let taskStatus: string | undefined;
   // Handle task completion for APPROVED decisions with task_gate policy
   let completedAt: string | undefined;
 

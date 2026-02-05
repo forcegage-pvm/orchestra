@@ -1495,28 +1495,48 @@ const TOOLS_WITH_ROLES: ToolWithRole[] = [
       type: "object",
       properties: {
         task: { type: "number" },
-        decision: { type: "string" },
-        summary: { type: "string" },
-        risk: { type: "string" },
-        files_reviewed: { type: "array", items: { type: "string" } },
+        decision: {
+          type: "string",
+          enum: ["APPROVED", "CHANGES_REQUESTED", "REJECTED"],
+          description: "Review decision",
+        },
+        summary: {
+          type: "string",
+          description: "Review summary (min 30 characters)",
+        },
+        risk: {
+          type: "string",
+          enum: ["LOW", "MEDIUM", "HIGH"],
+          description: "Risk assessment",
+        },
+        files_reviewed: {
+          type: "array",
+          items: { type: "string" },
+          description: "List of files reviewed",
+        },
         tests_run: { type: "array", items: { type: "string" } },
         commit_range: { type: "string" },
         issues: {
           type: "array",
+          description: "Required for CHANGES_REQUESTED/REJECTED decisions",
           items: {
             type: "object",
             properties: {
               severity: {
                 type: "string",
-                enum: ["BLOCKING", "MAJOR", "MINOR", "INFO"],
+                enum: ["BLOCKING", "MAJOR", "MINOR"],
               },
-              issue: { type: "string" },
+              issue: { type: "string", description: "Issue description" },
+              rationale: {
+                type: "string",
+                description: "Why this is an issue (REQUIRED)",
+              },
               spec_ref: { type: "string" },
               file: { type: "string" },
               line: { type: "number" },
               recommendation: { type: "string" },
             },
-            required: ["severity", "issue"],
+            required: ["severity", "issue", "rationale"],
           },
         },
         recommendations: { type: "array", items: { type: "string" } },

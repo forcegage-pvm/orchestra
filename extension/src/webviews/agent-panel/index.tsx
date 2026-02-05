@@ -76,6 +76,10 @@ function App() {
     vscode.postMessage({ type: "stop_agent" });
   };
 
+  const handleSendMessage = (text: string) => {
+    vscode.postMessage({ type: "user_message", text });
+  };
+
   return (
     <div class="h-screen flex flex-col overflow-hidden text-zinc-400 selection:bg-indigo-500/20 selection:text-indigo-200">
       <StatusBar />
@@ -83,6 +87,9 @@ function App() {
       <div class="flex-1 min-h-0 overflow-hidden">
         <TimelineView focusedEventIndex={keyboardNav.focusedEventIndex} />
       </div>
+      {/* FooterInput hidden for now - will be re-enabled when session continuation is fully implemented
+      <FooterInput session={session} onSendMessage={handleSendMessage} />
+      */}
     </div>
   );
 }

@@ -19,6 +19,7 @@ import { runTestsTool } from "./runTests.js";
 import { sendInputTool } from "./sendInput.js";
 import { startProcessTool } from "./startProcess.js";
 import { stopProcessTool } from "./stopProcess.js";
+import { waitForInputTool } from "./waitForInput.js";
 import { waitForPatternTool } from "./waitForPattern.js";
 
 export const systemTools = [
@@ -28,6 +29,7 @@ export const systemTools = [
   listProcessesTool,
   sendInputTool,
   waitForPatternTool,
+  waitForInputTool,
   findPortProcessTool,
   executeWithRetryTool,
   runCommandTool,
@@ -58,5 +60,6 @@ export {
   sendInputTool,
   startProcessTool,
   stopProcessTool,
+  waitForInputTool,
   waitForPatternTool,
 };

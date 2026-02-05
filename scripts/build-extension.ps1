@@ -68,7 +68,7 @@ Write-Step "Clear dist/node_modules"
 $distNodeModules = Join-Path $extensionDir "dist\node_modules"
 Remove-PathWithRetries $distNodeModules
 
-Write-Step "Build extension webviews"
+Write-Step "Build webview"
 Invoke-Step "npm run build:webview" $extensionDir
 
 Write-Step "Build extension"
