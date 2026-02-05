@@ -1219,9 +1219,7 @@ export class AgentRunner implements vscode.Disposable {
             input: chunk.input,
             callId: chunk.callId,
           });
-          console.error(
-            `[AgentRunner] sendRequest: Tool call: ${chunk.name}`,
-          );
+          console.error(`[AgentRunner] sendRequest: Tool call: ${chunk.name}`);
         }
       }
 
