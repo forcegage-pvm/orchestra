@@ -54,8 +54,8 @@ export function FooterInput(props: FooterInputProps) {
   const isDisabled = () => {
     if (!props.session) return true; // No session active
 
-    // Only disabled when initializing - allow input during running to inject messages
-    const disabledStatuses = ["initializing"];
+    // Disabled when initializing or failed
+    const disabledStatuses = ["initializing", "failed"];
     return disabledStatuses.includes(props.session.status);
   };
 
@@ -66,6 +66,15 @@ export function FooterInput(props: FooterInputProps) {
     if (!props.session) return false;
     const runningStatuses = ["running", "thinking", "waiting_for_tool"];
     return runningStatuses.includes(props.session.status);
+  };
+
+  /**
+   * Check if session has stopped and can be continued
+   */
+  const isStopped = () => {
+    if (!props.session) return false;
+    const stoppedStatuses = ["completed", "paused", "cancelled"];
+    return stoppedStatuses.includes(props.session.status);
   };
 
   /**
@@ -83,8 +92,11 @@ export function FooterInput(props: FooterInputProps) {
    */
   const placeholderText = () => {
     if (!props.session) return "No active session";
+    if (props.session.status === "failed")
+      return "Session failed - start a new session";
     if (isRunning()) return "Inject a message to the agent...";
-    return "Type a message to continue the session...";
+    if (isStopped()) return "Continue the session with a message...";
+    return "Type a message...";
   };
 
   /**

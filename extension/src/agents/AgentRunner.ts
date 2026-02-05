@@ -883,6 +883,65 @@ export class AgentRunner implements vscode.Disposable {
   }
 
   /**
+   * Continue a stopped/completed/paused session with a new message
+   *
+   * This is used when the user sends a message to an agent that has stopped running.
+   * It resumes the agent loop with the new instruction.
+   *
+   * @param instruction - New instruction to continue with
+   * @throws AgentError if no session exists or session has failed
+   */
+  async continueWithMessage(instruction: string): Promise<void> {
+    if (!this.session) {
+      throw new AgentError("Cannot continue: no session exists", "NO_SESSION");
+    }
+
+    if (this.session.status === "failed") {
+      throw new AgentError(
+        "Cannot continue: session has failed. Start a new session.",
+        "SESSION_FAILED",
+      );
+    }
+
+    if (this.session.status === "running") {
+      // Session is still running, use redirect instead
+      await this.redirect(instruction);
+      return;
+    }
+
+    const previousStatus = this.session.status;
+
+    // Reset session state for continuation
+    this.isPaused = false;
+    this.isStopped = false;
+    this.session.resume();
+
+    // Add user message to conversation history
+    this.addUserMessage(instruction);
+
+    // Emit prompt event so it's visible in the output panel
+    this.emitOutput({
+      type: "prompt",
+      timestamp: new Date().toISOString(),
+      iteration: this.session.currentIteration,
+      text: instruction,
+    });
+
+    // Persist prompt event to database for history
+    this.eventEmitter?.emitPrompt(instruction);
+
+    // Emit status change to running
+    this.eventEmitter?.emitStatusChange(previousStatus, "running");
+    this.emitStateChange();
+
+    // Restart agent loop
+    const role = this.session.role;
+    this.runningPromise = this.runAgentLoop(role).catch((error) => {
+      this.handleError(error);
+    });
+  }
+
+  /**
    * Get current session
    *
    * @returns Current session or undefined
@@ -1634,6 +1693,26 @@ export class AgentRunner implements vscode.Disposable {
 
         if (toolSuccess) {
           await this.handleTaskCompletion(toolCall.name, toolCall.input);
+        }
+
+        // Check for tool signal to pause or stop agent
+        const toolSignal = result.result.signal;
+        if (toolSignal === "pause") {
+          const previousStatus = this.session.status;
+          this.isPaused = true;
+          this.session.pause();
+          this.eventEmitter?.emitStatusChange(previousStatus, "paused");
+          this.emitStateChange();
+          // Exit tool execution loop - agent will wait for user input
+          return;
+        } else if (toolSignal === "stop") {
+          const previousStatus = this.session.status;
+          this.isStopped = true;
+          this.session.stop();
+          this.eventEmitter?.emitStatusChange(previousStatus, "stopped");
+          this.emitSessionEndOnce("cancelled");
+          this.emitStateChange();
+          return;
         }
       } catch (error) {
         const durationMs = Date.now() - startTime;

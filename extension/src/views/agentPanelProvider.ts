@@ -686,14 +686,25 @@ export class AgentPanelProvider implements vscode.WebviewViewProvider {
       const runner = getAgentRunner();
       const session = runner.getSession();
 
-      if (!session || session.status !== "running") {
+      if (!session) {
         void vscode.window.showWarningMessage(
-          "Cannot send message: no agent is currently running",
+          "Cannot send message: no agent session exists",
         );
         return;
       }
 
-      await runner.redirect(text);
+      if (session.status === "failed") {
+        void vscode.window.showWarningMessage(
+          "Cannot continue a failed session. Please start a new session.",
+        );
+        return;
+      }
+
+      // Use continueWithMessage for both running and stopped sessions
+      // It internally handles the logic:
+      // - If running: uses redirect() to inject the message
+      // - If paused/completed/etc: resumes the session with the new message
+      await runner.continueWithMessage(text);
       logger.debug("User message sent to agent successfully");
     } catch (error) {
       logger.error("Failed to handle user message", error);

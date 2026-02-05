@@ -183,7 +183,7 @@ export class AgentSession {
       failureReason: null,
     };
     this.updateActivityTimestamp();
-    this.triggerAutoSave();
+    // Note: Auto-save removed - session state is persisted via database
   }
 
   /**
