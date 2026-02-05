@@ -38,7 +38,7 @@ import {
   loadOrchestratorTools,
 } from "./toolLoaders.js";
 import { ToolRegistry } from "./ToolRegistry.js";
-import type { ToolInvocationContext } from "./tools/types.js";
+import type { FileOperationEvent, ToolInvocationContext } from "./tools/types.js";
 import type { AgentConfig, AgentMessage, AgentRole } from "./types.js";
 
 /**

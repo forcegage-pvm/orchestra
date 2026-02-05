@@ -879,7 +879,7 @@ The Implementor has addressed the issues from your previous review. Verify the f
    - decision: "REJECTED" - Fundamental problems remain (include issues array)
 
 Minimal valid issues entry (REQUIRED for CHANGES_REQUESTED/REJECTED):
-\```json
+\`\`\`json
 {
   "issues": [
     {
@@ -889,7 +889,7 @@ Minimal valid issues entry (REQUIRED for CHANGES_REQUESTED/REJECTED):
     }
   ]
 }
-\```
+\`\`\`
 
 ## Re-Review Focus
 - **Issue Resolution**: Were the original issues properly fixed?
