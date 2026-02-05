@@ -15,8 +15,10 @@ import { handleGetTasks } from "../../../../../src/mcp-server/handlers/get-tasks
 import { handleGetVerificationResults } from "../../../../../src/mcp-server/handlers/get-verification-results.js";
 import { handleResubmitHandover } from "../../../../../src/mcp-server/handlers/resubmit-handover.js";
 import { handleUpdateHandover } from "../../../../../src/mcp-server/handlers/update-handover.js";
+import { handleUpdateVerification } from "../../../../../src/mcp-server/handlers/update-verification.js";
 import { ToolRegistry } from "../../ToolRegistry.js";
 import type { AgentTool, ToolInvocationContext, ToolResult } from "../types.js";
+import { escalateTaskTool } from "./escalateTask.js";
 import { getSprintStatusTool } from "./getSprintStatus.js";
 import { executeMcpHandler } from "./mcpAdapter.js";
 import { prepareTaskTool } from "./prepareTask.js";
@@ -344,6 +346,96 @@ const getAmendmentsTool: AgentTool = {
     executeMcpHandler(context, "get_amendments", handleGetAmendments, input),
 };
 
+// ==================== update_verification ====================
+const updateVerificationTool: AgentTool = {
+  name: "update_verification",
+  description:
+    "Update verification criteria for a task. Allowed during CONFIGURE (initial setup), PREPARE (spec error corrections), and SPEC_REVIEW only when sprint status is SPEC_REVIEW_FAILED (Controller revisions). When called outside CONFIGURE, creates an amendment record with full audit trail.",
+  inputSchema: {
+    type: "object" as const,
+    properties: {
+      task_id: {
+        type: "number",
+        description: "The task ID to update verification for",
+      },
+      verification: {
+        type: "object",
+        description: "New verification criteria",
+        properties: {
+          structural_checks: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                description: { type: "string" },
+                severity: {
+                  type: "string",
+                  enum: ["BLOCKING", "MAJOR", "MINOR", "INFO"],
+                },
+                path: { type: "string" },
+                pattern: { type: "string" },
+                min_matches: { type: "number" },
+              },
+              required: ["description", "severity"],
+            },
+          },
+          behavioral_checks: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                description: { type: "string" },
+                severity: {
+                  type: "string",
+                  enum: ["BLOCKING", "MAJOR", "MINOR", "INFO"],
+                },
+                command: { type: "string" },
+                expect_exit_code: { type: "number" },
+                expect_output_contains: { type: "string" },
+              },
+              required: ["description", "severity"],
+            },
+          },
+          quality_checks: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                description: { type: "string" },
+                severity: {
+                  type: "string",
+                  enum: ["BLOCKING", "MAJOR", "MINOR", "INFO"],
+                },
+                path: { type: "string" },
+                pattern: { type: "string" },
+                min_matches: { type: "number" },
+                command: { type: "string" },
+              },
+              required: ["description", "severity"],
+            },
+          },
+        },
+      },
+      rationale: {
+        type: "string",
+        description:
+          "Required when updating during PREPARE phase. Explains why the verification criteria are being amended (min 10 chars).",
+      },
+    },
+    required: ["task_id", "verification"],
+  },
+  invoke: async (
+    input: unknown,
+    context: ToolInvocationContext,
+  ): Promise<ToolResult> =>
+    executeMcpHandler(
+      context,
+      "update_verification",
+      handleUpdateVerification,
+      input,
+    ),
+};
+
 export const orchestraOrchestratorTools = [
   getSprintStatusTool,
   getSignalTool,
@@ -359,6 +451,8 @@ export const orchestraOrchestratorTools = [
   getHandoverTool,
   updateHandoverTool,
   resubmitHandoverTool,
+  updateVerificationTool,
+  escalateTaskTool,
 ] as const;
 
 export function registerOrchestraOrchestratorTools(
@@ -369,6 +463,7 @@ export function registerOrchestraOrchestratorTools(
 
 export {
   completeTaskTool,
+  escalateTaskTool,
   getAmendmentsTool,
   getHandoverTool,
   getSignalTool,
@@ -382,4 +477,5 @@ export {
   runVerificationChecksTool,
   submitVerificationJudgmentTool,
   updateHandoverTool,
+  updateVerificationTool,
 };
