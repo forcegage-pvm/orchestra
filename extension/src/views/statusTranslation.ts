@@ -28,9 +28,16 @@ export interface StatusDisplay {
  * Complete mapping of task statuses to display properties
  *
  * Status Flow:
- * PENDING → IMPLEMENT → VERIFY → (VERIFY_FAILED → retry) → VERIFIED → COMPLETE
- *                              ↓
- *                         GATE_CHECK → ESCALATED
+ * PENDING → PREPARE → PENDING_HANDOVER_REVIEW → IMPLEMENT → VERIFY → (VERIFY_FAILED → retry)
+ *                   ↓                                              ↓
+ *           HANDOVER_REVIEW_FAILED                              VERIFIED/PENDING_CODE_REVIEW
+ *                                                                      ↓
+ *                                                              Code Review → (CHANGES_REQUESTED/FAILED → fix → re-review)
+ *                                                                      ↓
+ *                                                                  COMPLETE
+ *
+ * Gate/Escalation:
+ * GATE_CHECK → ESCALATED (requires human intervention)
  */
 export const STATUS_DISPLAY: Record<string, StatusDisplay> = {
   PENDING: {
@@ -93,7 +100,32 @@ export const STATUS_DISPLAY: Record<string, StatusDisplay> = {
     label: "Verified",
     icon: "check",
     color: new ThemeColor("charts.green"),
-    description: "verification passed - awaiting code review",
+    description: "Verification passed - awaiting code review",
+    actionLabel: "Start Code Review",
+  },
+
+  PENDING_CODE_REVIEW: {
+    label: "Pending Code Review",
+    icon: "code-review",
+    color: new ThemeColor("charts.yellow"),
+    description: "Implementation verified - awaiting code review",
+    actionLabel: "Review Code",
+  },
+
+  CODE_REVIEW_CHANGES_REQUESTED: {
+    label: "Changes Requested",
+    icon: "request-changes",
+    color: new ThemeColor("charts.orange"),
+    description: "Code review requested changes - requires fixes",
+    actionLabel: "Fix Issues",
+  },
+
+  CODE_REVIEW_FAILED: {
+    label: "Code Review Failed",
+    icon: "error",
+    color: new ThemeColor("charts.red"),
+    description: "Code review rejected - requires significant fixes",
+    actionLabel: "Fix Issues",
   },
 
   GATE_CHECK: {

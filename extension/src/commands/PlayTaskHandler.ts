@@ -150,6 +150,11 @@ export async function handlePlayTask(
       break;
     }
 
+    case "CODE_REVIEW_FAILED":
+      // Code review was rejected - implementor needs to fix issues
+      await invokeCodeReviewFix(workspaceRoot, taskId);
+      break;
+
     case "ESCALATED":
       await invokeEscalationReview(workspaceRoot, taskId);
       break;
