@@ -33,6 +33,88 @@ function formatDuration(ms: number): string {
   return `${minutes}m ${seconds}s`;
 }
 
+function getBaseName(filePath: string): string {
+  const normalized = filePath.replace(/\\/g, "/");
+  const parts = normalized.split("/");
+  return parts[parts.length - 1] || filePath;
+}
+
+function truncateText(text: string, maxLength: number): string {
+  if (text.length <= maxLength) return text;
+  return `${text.slice(0, Math.max(0, maxLength - 3))}...`;
+}
+
+function extractStringValue(args: unknown, keys: string[]): string | null {
+  if (!args || typeof args !== "object") return null;
+  const record = args as Record<string, unknown>;
+  for (const key of keys) {
+    const value = record[key];
+    if (typeof value === "string" && value.trim()) return value;
+  }
+  return null;
+}
+
+function extractFilePath(args: unknown): string | null {
+  if (!args || typeof args !== "object") return null;
+  const record = args as Record<string, unknown>;
+  const candidates = ["filePath", "path", "file", "file_path"];
+  for (const key of candidates) {
+    const value = record[key];
+    if (typeof value === "string" && value.trim()) return value;
+    if (Array.isArray(value) && typeof value[0] === "string") {
+      return value[0];
+    }
+  }
+  const filePaths = record.filePaths;
+  if (Array.isArray(filePaths) && typeof filePaths[0] === "string") {
+    return filePaths[0];
+  }
+  return null;
+}
+
+function getSearchCount(result: unknown): number | null {
+  if (result === undefined || result === null) return null;
+
+  let parsed: unknown = result;
+  if (typeof result === "string") {
+    const match = result.match(/(\d+)\s+matches?/i);
+    if (match) return Number(match[1]);
+    try {
+      parsed = JSON.parse(result);
+    } catch {
+      return null;
+    }
+  }
+
+  if (typeof parsed === "object" && parsed !== null) {
+    const record = parsed as Record<string, unknown>;
+    const directCount = record.totalMatches ?? record.count;
+    if (typeof directCount === "number") return directCount;
+    const matches = record.matches;
+    if (Array.isArray(matches)) return matches.length;
+    const results = record.results;
+    if (Array.isArray(results)) return results.length;
+  }
+
+  return null;
+}
+
+function buildSearchLabel(args: unknown, result: unknown): string | null {
+  const query = extractStringValue(args, ["query"]);
+  if (!query) return null;
+  const includePattern = extractStringValue(args, ["includePattern"]);
+  const truncatedQuery = truncateText(query, 36);
+  const truncatedInclude = includePattern
+    ? truncateText(includePattern, 24)
+    : null;
+  const count = getSearchCount(result);
+  const countLabel = count !== null ? ` : ${count}` : "";
+  if (truncatedInclude) {
+    return `${truncatedQuery} / ${truncatedInclude}${countLabel}`;
+  }
+  return `${truncatedQuery}${countLabel}`;
+}
+
 /**
  * ToolCallCard - Compact tool call display
  *
@@ -76,6 +158,26 @@ export function ToolCallCard(props: ToolCallCardProps) {
 
   const hasError = () => {
     return props.toolCall.error !== undefined;
+  };
+
+  const toolDetailLabel = () => {
+    const toolName = props.toolCall.toolName;
+    if (toolName === "read_file") {
+      const filePath = extractFilePath(props.toolCall.arguments);
+      return filePath ? getBaseName(filePath) : null;
+    }
+    if (toolName === "create_file" || toolName === "edit_file") {
+      const filePath = extractFilePath(props.toolCall.arguments);
+      return filePath ? getBaseName(filePath) : null;
+    }
+    if (toolName === "grep_search") {
+      return buildSearchLabel(props.toolCall.arguments, props.toolCall.result);
+    }
+    if (toolName === "run_command") {
+      const command = extractStringValue(props.toolCall.arguments, ["command"]);
+      return command ? truncateText(command, 40) : null;
+    }
+    return null;
   };
 
   const getInputDisplay = () => {
@@ -161,6 +263,11 @@ export function ToolCallCard(props: ToolCallCardProps) {
         <span class="text-xs text-gray-400 leading-none">
           {props.toolCall.toolName}
         </span>
+        <Show when={toolDetailLabel()}>
+          <span class="text-xs text-gray-500 leading-none">
+            {toolDetailLabel()}
+          </span>
+        </Show>
 
         {/* Status Icon - Spinner / Check / X (right after tool name) */}
         <Show when={isRunning()}>
