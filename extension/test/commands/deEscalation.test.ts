@@ -42,12 +42,12 @@ vi.mock("../../src/database/mutations.js", () => ({
 
 // Mock logger
 vi.mock("../../src/utils/logger.js", () => ({
-  OrchestraLogger: vi.fn().mockImplementation(() => ({
-    info: vi.fn(),
-    error: vi.fn(),
-    warn: vi.fn(),
-    debug: vi.fn(),
-  })),
+  OrchestraLogger: class {
+    info = vi.fn();
+    error = vi.fn();
+    warn = vi.fn();
+    debug = vi.fn();
+  },
 }));
 
 describe("deEscalation handlers", () => {

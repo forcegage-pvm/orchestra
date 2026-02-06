@@ -15,18 +15,29 @@ import { CodeReviewTreeProvider } from "../../../src/views/treeview/CodeReviewTr
 
 // Mock vscode module
 vi.mock("vscode", () => ({
-  TreeItem: vi.fn((label: string) => ({ label })),
+  TreeItem: class {
+    label: string;
+    iconPath?: any;
+    tooltip?: any;
+    command?: any;
+    contextValue?: string;
+    constructor(label: string) {
+      this.label = label;
+    }
+  },
   TreeItemCollapsibleState: {
     None: 0,
     Collapsed: 1,
     Expanded: 2,
   },
-  ThemeIcon: vi.fn((id: string) => ({ id })),
-  EventEmitter: vi.fn(() => ({
-    event: vi.fn(),
-    fire: vi.fn(),
-    dispose: vi.fn(),
-  })),
+  ThemeIcon: class {
+    constructor(public id: string) {}
+  },
+  EventEmitter: class {
+    event = vi.fn((callback: () => void) => ({ dispose: vi.fn() }));
+    fire = vi.fn();
+    dispose = vi.fn();
+  },
   Uri: {
     file: (path: string) => ({ fsPath: path }),
   },

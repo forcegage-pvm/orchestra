@@ -24,11 +24,11 @@ vi.mock("vscode", () => ({
     Two: 2,
     Three: 3,
   },
-  EventEmitter: vi.fn(() => ({
-    event: vi.fn(),
-    fire: vi.fn(),
-    dispose: vi.fn(),
-  })),
+  EventEmitter: class {
+    event = vi.fn((callback: () => void) => ({ dispose: vi.fn() }));
+    fire = vi.fn();
+    dispose = vi.fn();
+  },
   window: {
     createWebviewPanel: vi.fn(() => ({
       webview: {
@@ -430,7 +430,7 @@ describe("CodeReviewSummaryPanel", () => {
     it("should display review timestamp", () => {
       const mockPanel = vi.mocked(vscode.window.createWebviewPanel).mock
         .results[0]?.value;
-      expect(mockPanel?.webview.html).toMatch(/2026.*01.*18|jan.*18/i);
+      expect(mockPanel?.webview.html).toMatch(/1\/18\/2026|jan.*18|2026.*01.*18/i);
     });
 
     it("should display revision count", () => {
