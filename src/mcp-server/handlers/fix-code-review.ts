@@ -6,6 +6,10 @@
 
 import { and, desc, eq, inArray, ne } from "drizzle-orm";
 import { executeCommand } from "../../core/command-executor.js";
+import {
+  detectProjectType,
+  getExcludeTddRedCommand,
+} from "../../core/pre-signal-executor.js";
 import { resolveWorkspacePath } from "../../db/connection.js";
 import { getActiveSprint, getDb } from "../../db/index.js";
 import {
@@ -286,7 +290,17 @@ async function handleSubmitFixes(
     warning = "Validation skipped by request (skip_validation=true).";
   } else if (testCommand) {
     const workspacePath = resolveWorkspacePath();
-    const result = await executeCommand(testCommand, {
+
+    // For TDD-red phase tasks, we must EXCLUDE tdd-red tagged tests from validation.
+    // TDD-red tests are designed to fail (they're "red" tests waiting for implementation).
+    // We only want to verify that the implementor's fixes don't break non-TDD-red tests.
+    let effectiveTestCommand = testCommand;
+    if (task.tdd_red_phase) {
+      const projectType = detectProjectType(workspacePath);
+      effectiveTestCommand = getExcludeTddRedCommand(projectType, testCommand);
+    }
+
+    const result = await executeCommand(effectiveTestCommand, {
       cwd: workspacePath,
       timeout: 300000,
     });
@@ -299,8 +313,9 @@ async function handleSubmitFixes(
   }
 
   if (!validationPassed) {
+    // Use success: false when validation fails - this is clearer than success: true + validation_passed: false
     const output = validateOutput(FixCodeReviewOutputSchema, {
-      success: true,
+      success: false,
       action: "SUBMIT_FIXES",
       review_id: review.id,
       review_status: review.status as ReviewStatus,
