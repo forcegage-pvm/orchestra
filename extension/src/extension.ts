@@ -54,6 +54,7 @@ import { AgentOutputPanel } from "./views/agent/AgentOutputPanel.js";
 import { AgentPanelProvider } from "./views/agentPanelProvider.js";
 import { DashboardPanel } from "./views/dashboard/DashboardPanel.js";
 import { OrchestraViewDecorationProvider } from "./views/providers/ViewDecorationProvider.js";
+import { SprintSettingsPanel } from "./views/settings/SprintSettingsPanel.js";
 import { StatusBarManager } from "./views/statusbar/StatusBarItem.js";
 import { TaskDetailPanel } from "./views/task/TaskDetailPanel.js";
 import { SprintTreeProvider } from "./views/treeview/SprintTreeProvider.js";
@@ -1266,7 +1267,9 @@ export async function activate(
           codeReviewTreeProvider?.refresh();
 
           // Build prompt and invoke Controller agent
-          const promptBuilder = new PromptBuilder();
+          const promptBuilder = new PromptBuilder({
+            workspaceRoot: orchestraRoot,
+          });
           const prompt = promptBuilder.buildCodeReviewPrompt(
             totalPending,
             sprint.id,
@@ -1546,7 +1549,9 @@ export async function activate(
               ...(phaseId !== undefined ? { phase_id: phaseId } : {}),
             };
 
-            const promptBuilder = new PromptBuilder();
+            const promptBuilder = new PromptBuilder({
+              workspaceRoot: orchestraRoot,
+            });
             const prompt = promptBuilder.buildCodeReviewFixPreparePrompt(
               {
                 task: taskContext,
@@ -1634,7 +1639,9 @@ export async function activate(
               ...(phaseId !== undefined ? { phase_id: phaseId } : {}),
             };
 
-            const promptBuilder = new PromptBuilder();
+            const promptBuilder = new PromptBuilder({
+              workspaceRoot: orchestraRoot,
+            });
             const prompt = promptBuilder.buildCodeReviewFixImplementPrompt(
               {
                 task: taskContext,
@@ -1743,7 +1750,9 @@ export async function activate(
             codeReviewTreeProvider?.refresh();
 
             // Build prompt and invoke Controller agent
-            const promptBuilder = new PromptBuilder();
+            const promptBuilder = new PromptBuilder({
+              workspaceRoot: orchestraRoot,
+            });
             const prompt = promptBuilder.buildCodeReviewPrompt(
               1,
               sprint.id,
