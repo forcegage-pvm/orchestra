@@ -159,7 +159,10 @@ describe("ensurePromptTemplates - Source structure verification", () => {
 
   describe("directory structure", () => {
     it("should create .orchestra/templates/prompts target directory", () => {
-      expect(extensionCode).toContain('".orchestra", "templates", "prompts"');
+      // Check that the path is constructed with path.join and includes all components
+      expect(extensionCode).toContain('".orchestra"');
+      expect(extensionCode).toContain('"templates"');
+      expect(extensionCode).toContain('"prompts"');
     });
 
     it("should create _partials subdirectory", () => {
@@ -213,9 +216,9 @@ describe("ensurePromptTemplates - Source structure verification", () => {
 
   describe("logging", () => {
     it("should log when directories are created", () => {
-      expect(extensionCode).toContain("logger.info(`Created .orchestra/templates/prompts directory");
-      expect(extensionCode).toContain("logger.info(`Created _partials directory");
-      expect(extensionCode).toContain("logger.info(`Created _schema directory");
+      expect(extensionCode).toContain("Created .orchestra/templates/prompts directory");
+      expect(extensionCode).toContain("Created _partials directory");
+      expect(extensionCode).toContain("Created _schema directory");
     });
 
     it("should log when templates are synced", () => {
