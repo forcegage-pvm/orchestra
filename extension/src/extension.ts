@@ -55,7 +55,6 @@ import { AgentPanelProvider } from "./views/agentPanelProvider.js";
 import { DashboardPanel } from "./views/dashboard/DashboardPanel.js";
 import { OrchestraViewDecorationProvider } from "./views/providers/ViewDecorationProvider.js";
 import { StatusBarManager } from "./views/statusbar/StatusBarItem.js";
-import { CodeReviewTreeProvider } from "./views/treeview/CodeReviewTreeProvider.js";
 import { SprintTreeProvider } from "./views/treeview/SprintTreeProvider.js";
 import { CurrentTaskViewProvider } from "./views/webview/CurrentTaskViewProvider.js";
 import {

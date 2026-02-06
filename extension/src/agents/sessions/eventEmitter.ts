@@ -178,7 +178,7 @@ export class SessionEventEmitter {
   emitSessionStart(session: AgentSessionInfo): void {
     try {
       console.log(
-        `${DEBUG_TAG} session_start sessionId=${session.id} role=${session.role}`
+        `${DEBUG_TAG} session_start sessionId=${session.id} role=${session.role}`,
       );
       getAgentEventBus().emit({ type: "session_start", session });
     } catch (error) {
