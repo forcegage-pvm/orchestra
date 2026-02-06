@@ -203,6 +203,11 @@
         "icon": "$(check-all)"
       },
       {
+        "command": "orchestra.changeTaskStatus",
+        "title": "Change Task Status",
+        "icon": "$(edit)"
+      },
+      {
         "command": "orchestra.setActiveSprint",
         "title": "Set as Active Sprint",
         "icon": "$(star)"
@@ -458,6 +463,11 @@
           "command": "orchestra.implementCodeReviewFixTask",
           "when": "view == orchestra.sprintExplorer && viewItem =~ /^task-implement.*review-(changes_requested|rejected)$/",
           "group": "3_review@2"
+        },
+        {
+          "command": "orchestra.changeTaskStatus",
+          "when": "view == orchestra.sprintExplorer && viewItem =~ /^task-/",
+          "group": "9_admin"
         }
       ]
     }

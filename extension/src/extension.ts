@@ -18,6 +18,7 @@ import {
 } from "./agents/WorkflowChain.js";
 import { SessionManager } from "./chat/SessionManager.js";
 import { handleArchiveSprint } from "./commands/archiveSprint.js";
+import { handleChangeTaskStatus } from "./commands/changeTaskStatus.js";
 import {
   handleDeEscalateTask,
   handleForceComplete,
@@ -333,7 +334,12 @@ function ensurePromptTemplates(
   context: vscode.ExtensionContext,
   workspaceRoot: string,
 ): void {
-  const targetDir = path.join(workspaceRoot, ".orchestra", "templates", "prompts");
+  const targetDir = path.join(
+    workspaceRoot,
+    ".orchestra",
+    "templates",
+    "prompts",
+  );
   const partialsDir = path.join(targetDir, "_partials");
   const schemaDir = path.join(targetDir, "_schema");
   const sourceDir = path.join(context.extensionPath, "templates", "prompts");
@@ -342,7 +348,9 @@ function ensurePromptTemplates(
     // Create target directories if they don't exist
     if (!fs.existsSync(targetDir)) {
       fs.mkdirSync(targetDir, { recursive: true });
-      logger.info(`Created .orchestra/templates/prompts directory at ${targetDir}`);
+      logger.info(
+        `Created .orchestra/templates/prompts directory at ${targetDir}`,
+      );
     }
 
     if (!fs.existsSync(partialsDir)) {
@@ -409,7 +417,7 @@ function ensurePromptTemplates(
     const errorMessage = err instanceof Error ? err.message : String(err);
     logger.error(`Failed to sync prompt templates: ${errorMessage}`);
     vscode.window.showErrorMessage(
-      `Orchestra: Failed to sync prompt templates. ${errorMessage}`
+      `Orchestra: Failed to sync prompt templates. ${errorMessage}`,
     );
   }
 }
@@ -464,7 +472,9 @@ async function initializeWorkspace(
 
     // Sync prompt templates from extension bundle
     ensurePromptTemplates(context, workspaceRoot);
-    logger.info("Synced .orchestra/templates/prompts directory with prompt templates");
+    logger.info(
+      "Synced .orchestra/templates/prompts directory with prompt templates",
+    );
 
     // Automatically install MCP servers
     await installMcpServers(workspaceRoot, context.extensionPath);
@@ -1212,6 +1222,23 @@ export async function activate(
             await handleForceComplete(
               orchestraRoot,
               element.task.id,
+              treeProvider,
+              dbWatcher,
+            );
+          }
+        },
+      ),
+      vscode.commands.registerCommand(
+        "orchestra.changeTaskStatus",
+        async (element: {
+          type: string;
+          task?: { id: number; status?: string };
+        }) => {
+          if (element?.task?.id) {
+            await handleChangeTaskStatus(
+              orchestraRoot,
+              element.task.id,
+              element.task.status,
               treeProvider,
               dbWatcher,
             );
