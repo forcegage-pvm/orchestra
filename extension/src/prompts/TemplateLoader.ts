@@ -67,8 +67,7 @@ export class TemplateLoader {
    * @returns Rendered template output
    * @throws Error if template file is not found
    */
-  render(templateName: string, context: Record<string, unknown> = {}): string {
-    // Register partials on first render (lazy initialization)
+  render(templateName: string, context: Record<string, unknown> | object = {}): string {    // Register partials on first render (lazy initialization)
     if (!this.partialsRegistered) {
       this.registerPartials();
       this.partialsRegistered = true;

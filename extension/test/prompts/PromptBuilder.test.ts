@@ -7,7 +7,7 @@
 
 import { describe, expect, it, vi } from "vitest";
 import { PromptBuilder } from "../../src/prompts/PromptBuilder.js";
-import type { PromptContext } from "../../src/prompts/promptTypes.js";
+import type { PromptContext, SprintReviewContext } from "../../src/prompts/promptTypes.js";
 import type { TemplateLoader } from "../../src/prompts/TemplateLoader.js";
 
 const baseContext: PromptContext = {
@@ -71,5 +71,60 @@ describe("PromptBuilder", () => {
 
     expect(render).toHaveBeenCalledWith("retry", retryContext);
     expect(result).toBe("retry output");
+  });
+
+  it("should call TemplateLoader.render for sprint review prompt", () => {
+    const render = vi.fn().mockReturnValue("sprint review output");
+    const templateLoader = { render } as TemplateLoader;
+    const builder = new PromptBuilder({ templateLoader });
+
+    const sprintReviewContext: SprintReviewContext = {
+      sprint: {
+        sprint_id: "sprint-001",
+        title: "Sample Sprint",
+      },
+      reviewAttempt: 1,
+    };
+
+    const result = builder.buildSprintReviewPrompt(sprintReviewContext);
+
+    expect(render).toHaveBeenCalledWith("sprint-review", sprintReviewContext);
+    expect(result).toBe("sprint review output");
+  });
+
+  it("should call TemplateLoader.render for handover review prompt", () => {
+    const render = vi.fn().mockReturnValue("handover review output");
+    const templateLoader = { render } as TemplateLoader;
+    const builder = new PromptBuilder({ templateLoader });
+
+    const handoverReviewContext: PromptContext = {
+      ...baseContext,
+      reviewAttempt: 2,
+    };
+
+    const result = builder.buildHandoverReviewPrompt(handoverReviewContext);
+
+    expect(render).toHaveBeenCalledWith("handover-review", handoverReviewContext);
+    expect(result).toBe("handover review output");
+  });
+
+  it("should call TemplateLoader.render for handover fix prompt", () => {
+    const render = vi.fn().mockReturnValue("handover fix output");
+    const templateLoader = { render } as TemplateLoader;
+    const builder = new PromptBuilder({ templateLoader });
+
+    const handoverFixContext = {
+      ...baseContext,
+      rejection: {
+        issues: "Some issues found",
+        recommendations: "Fix things",
+        revision_count: 1,
+      },
+    };
+
+    const result = builder.buildHandoverFixPrompt(handoverFixContext);
+
+    expect(render).toHaveBeenCalledWith("handover-fix", handoverFixContext);
+    expect(result).toBe("handover fix output");
   });
 });

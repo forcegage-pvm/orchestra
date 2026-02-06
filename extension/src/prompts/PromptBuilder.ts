@@ -14,9 +14,6 @@ import {
   buildCodeReviewFixPromptText,
   buildCodeReviewPromptText,
   buildCodeReviewReReviewPromptText,
-  buildHandoverFixPromptText,
-  buildHandoverReviewPromptText,
-  buildSprintReviewPromptText,
 } from "./promptTextBuilders.js";
 
 export type {
@@ -46,8 +43,7 @@ export class PromptBuilder {
     const workspaceRoot = options.workspaceRoot ?? process.cwd();
     this.templateLoader =
       options.templateLoader ??
-      new TemplateLoader({ workspaceRoot, devMode: options.devMode });
-  }
+      new TemplateLoader(options.devMode !== undefined ? { workspaceRoot, devMode: options.devMode } : { workspaceRoot });  }
 
   /**
    * Build a PREPARE stage prompt for the orchestrator
@@ -81,16 +77,14 @@ export class PromptBuilder {
    * Build a SPRINT_REVIEW prompt for the controller
    */
   buildSprintReviewPrompt(context: SprintReviewContext): string {
-    return buildSprintReviewPromptText(context);
+    return this.templateLoader.render("sprint-review", context);
   }
-
   /**
    * Build a HANDOVER_REVIEW prompt for the controller
    */
   buildHandoverReviewPrompt(context: PromptContext): string {
-    return buildHandoverReviewPromptText(context);
+    return this.templateLoader.render("handover-review", context);
   }
-
   /**
    * Build a HANDOVER_FIX prompt for the orchestrator
    */
@@ -103,8 +97,7 @@ export class PromptBuilder {
       };
     },
   ): string {
-    return buildHandoverFixPromptText(context);
-  }
+    return this.templateLoader.render("handover-fix", context);  }
 
   /**
    * Build a CODE_REVIEW prompt for the controller
