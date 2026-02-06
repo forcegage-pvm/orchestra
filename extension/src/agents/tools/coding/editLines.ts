@@ -12,6 +12,11 @@ import type {
   ToolInvocationContext,
   ToolResult,
 } from "../types.js";
+import {
+  formatDiagnosticsSummary,
+  getDiagnosticsForFile,
+  type DiagnosticsResult,
+} from "../utils/diagnostics.js";
 import { validatePath } from "../utils/pathValidation.js";
 
 const TOOL_NAME = "edit_lines";
@@ -327,14 +332,38 @@ async function editLines(
     linesChanged,
   });
 
+  // If validate=true, check for diagnostics after edit
+  let diagnosticsResult: DiagnosticsResult | undefined;
+  let diagnosticsSummary: string | null = null;
+
+  if (input.validate) {
+    diagnosticsResult = await getDiagnosticsForFile(uri);
+    diagnosticsSummary = formatDiagnosticsSummary(diagnosticsResult);
+
+    // Add diagnostics info to result
+    if (diagnosticsResult.hasErrors) {
+      result.warning = `⚠️ ${diagnosticsResult.errorCount} error(s) detected after edit`;
+    } else if (diagnosticsResult.warningCount > 0) {
+      result.warning = `${diagnosticsResult.warningCount} warning(s) detected`;
+    }
+  }
+
+  // Build output content
+  const outputContent: { type: string; value: string }[] = [
+    {
+      type: "json",
+      value: JSON.stringify(result, null, 2),
+    },
+  ];
+
+  // Include diagnostics in output if available
+  if (diagnosticsSummary) {
+    outputContent.push({ type: "text", value: diagnosticsSummary });
+  }
+
   return {
     success: true,
-    content: [
-      {
-        type: "json",
-        value: JSON.stringify(result, null, 2),
-      },
-    ],
+    content: outputContent,
     metadata: {
       toolName: TOOL_NAME,
       callId: callId,
@@ -383,6 +412,12 @@ export const editLinesTool: AgentTool<EditLinesInput> = {
       dry_run: {
         type: "boolean",
         description: "Preview changes without applying (default: false)",
+        default: false,
+      },
+      validate: {
+        type: "boolean",
+        description:
+          "If true, check for TypeScript/ESLint errors after edit and include diagnostics in output. Adds ~500ms delay. Use for critical edits where you want immediate feedback on errors introduced.",
         default: false,
       },
     },

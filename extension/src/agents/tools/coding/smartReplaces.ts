@@ -17,6 +17,11 @@ import type {
   ToolInvocationContext,
   ToolResult,
 } from "../types.js";
+import {
+  formatDiagnosticsSummary,
+  getDiagnosticsForFile,
+  type DiagnosticsResult,
+} from "../utils/diagnostics.js";
 import { validatePath } from "../utils/pathValidation.js";
 
 const TOOL_NAME = "smart_replaces";
@@ -33,6 +38,8 @@ interface ReplacementSpec {
 interface SmartReplacesInput {
   replacements: ReplacementSpec[];
   dry_run?: boolean;
+  /** If true, check for TypeScript/ESLint errors after all edits are applied */
+  validate?: boolean;
 }
 
 interface SingleReplacementResult {
@@ -413,8 +420,52 @@ async function smartReplaces(
   const successCount = allResults.filter((r) => r.success).length;
   const failureCount = allResults.length - successCount;
 
+  // If validate=true and not dry_run, check for diagnostics after all edits
+  let diagnosticsResult: DiagnosticsResult | undefined;
+  let diagnosticsSummary: string | null = null;
+  let validationWarning: string | undefined;
+
+  if (input.validate && !dryRun && successCount > 0) {
+    // Gather diagnostics from all edited files
+    const editedFiles = Array.from(byFile.keys());
+    let totalErrors = 0;
+    let totalWarnings = 0;
+    const allDiagnostics: Array<{
+      file: string;
+      severity: string;
+      line: number;
+      message: string;
+    }> = [];
+
+    for (const filePath of editedFiles) {
+      const validatedPath = await validatePath(filePath, context.workspaceRoot);
+      if (validatedPath.isValid) {
+        const uri = vscode.Uri.file(validatedPath.absolutePath);
+        const fileDiagnostics = await getDiagnosticsForFile(uri);
+        totalErrors += fileDiagnostics.errorCount;
+        totalWarnings += fileDiagnostics.warningCount;
+        allDiagnostics.push(...fileDiagnostics.diagnostics);
+      }
+    }
+
+    diagnosticsResult = {
+      hasErrors: totalErrors > 0,
+      errorCount: totalErrors,
+      warningCount: totalWarnings,
+      diagnostics: allDiagnostics.slice(0, 20),
+    };
+
+    diagnosticsSummary = formatDiagnosticsSummary(diagnosticsResult);
+
+    if (totalErrors > 0) {
+      validationWarning = `⚠️ ${totalErrors} error(s) detected after edits`;
+    } else if (totalWarnings > 0) {
+      validationWarning = `${totalWarnings} warning(s) detected`;
+    }
+  }
+
   // Build output
-  const output = {
+  const output: Record<string, unknown> = {
     totalReplacements: allResults.length,
     successCount,
     failureCount,
@@ -422,14 +473,26 @@ async function smartReplaces(
     replacements: allResults,
   };
 
+  if (validationWarning) {
+    output.warning = validationWarning;
+  }
+
+  // Build output content
+  const outputContent: { type: string; value: string }[] = [
+    {
+      type: "json",
+      value: JSON.stringify(output, null, 2),
+    },
+  ];
+
+  // Include diagnostics in output if available
+  if (diagnosticsSummary) {
+    outputContent.push({ type: "text", value: diagnosticsSummary });
+  }
+
   return {
     success: failureCount === 0,
-    content: [
-      {
-        type: "json",
-        value: JSON.stringify(output, null, 2),
-      },
-    ],
+    content: outputContent,
     metadata: {
       toolName: TOOL_NAME,
       callId,
@@ -480,6 +543,11 @@ const smartReplacesInputSchema = {
     dry_run: {
       type: "boolean",
       description: "Preview all changes without applying (default: false)",
+    },
+    validate: {
+      type: "boolean",
+      description:
+        "If true, check for TypeScript/ESLint errors after all edits are applied and include diagnostics in output. Adds ~500ms delay per edited file. Use when you want immediate feedback on errors introduced.",
     },
   },
   required: ["replacements"],
