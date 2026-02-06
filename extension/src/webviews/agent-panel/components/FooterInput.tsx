@@ -127,8 +127,8 @@ export function FooterInput(props: FooterInputProps) {
   };
 
   return (
-    <div class="border-t border-gray-700 bg-zinc-900 p-4">
-      <div class="flex items-end gap-3">
+    <div class="border-t border-gray-800 bg-zinc-950 px-3 py-2">
+      <div class="flex items-center gap-2">
         {/* Text input area */}
         <textarea
           value={inputText()}
@@ -137,14 +137,14 @@ export function FooterInput(props: FooterInputProps) {
           disabled={isDisabled()}
           placeholder={placeholderText()}
           rows={1}
-          class={`flex-1 resize-none rounded-lg px-4 py-3 text-sm bg-gray-800 border ${
+          class={`flex-1 resize-none rounded px-3 py-2 text-sm bg-transparent border ${
             isDisabled()
-              ? "border-gray-700 text-gray-500 cursor-not-allowed"
-              : "border-gray-600 text-gray-200 focus:border-blue-500 focus:outline-none"
-          } placeholder-gray-500 transition-colors`}
+              ? "border-gray-800 text-gray-600 cursor-not-allowed"
+              : "border-gray-800 text-gray-300 focus:border-gray-700 focus:outline-none"
+          } placeholder-gray-600`}
           style={{
-            "max-height": "120px",
-            "min-height": "44px",
+            "max-height": "100px",
+            "min-height": "36px",
           }}
         />
 
@@ -152,24 +152,16 @@ export function FooterInput(props: FooterInputProps) {
         <button
           onClick={handleSend}
           disabled={isDisabled() || !inputText().trim()}
-          class={`px-4 py-3 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors ${
+          class={`p-2 rounded transition-opacity ${
             isDisabled() || !inputText().trim()
-              ? "bg-gray-800 text-gray-600 cursor-not-allowed"
-              : "bg-blue-600 text-white hover:bg-blue-700"
+              ? "text-gray-700 opacity-50 cursor-not-allowed"
+              : "text-blue-500 hover:text-blue-400 hover:bg-gray-900"
           }`}
-          title={isDisabled() ? "Agent is running" : "Send message (Enter)"}
+          title={isDisabled() ? "Agent is running" : "Send (Enter)"}
         >
-          <span>Send</span>
           <Icon icon="lucide:send" class="w-4 h-4" />
         </button>
       </div>
-
-      {/* Hint text */}
-      {isEnabled() && (
-        <div class="mt-2 text-xs text-gray-500">
-          Press Enter to send, Shift+Enter for new line
-        </div>
-      )}
     </div>
   );
 }

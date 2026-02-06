@@ -157,8 +157,8 @@ describe("FooterInput Component", () => {
       );
       expect(source).toContain("placeholderText");
       expect(source).toContain("No active session");
-      expect(source).toContain("Agent is running...");
-      expect(source).toContain("Type a message to continue the session...");
+      expect(source).toContain("Inject a message to the agent...");
+      expect(source).toContain("Continue the session with a message...");
     });
   });
 
@@ -271,8 +271,8 @@ describe("FooterInput Component", () => {
         "utf-8",
       );
       expect(source).toContain("cursor-not-allowed");
-      expect(source).toContain("text-gray-500");
       expect(source).toContain("text-gray-600");
+      expect(source).toContain("text-gray-700");
     });
 
     it("should have hover states for enabled button", () => {
@@ -280,7 +280,8 @@ describe("FooterInput Component", () => {
         join(componentsDir, "FooterInput.tsx"),
         "utf-8",
       );
-      expect(source).toContain("hover:bg-blue-700");
+      expect(source).toContain("hover:text-blue-400");
+      expect(source).toContain("hover:bg-gray-900");
     });
 
     it("should use resize-none for textarea", () => {
@@ -302,23 +303,14 @@ describe("FooterInput Component", () => {
   });
 
   describe("Hint Text", () => {
-    it("should show keyboard hint when enabled", () => {
+    it("should not show keyboard hint (simplified footer)", () => {
       const source = readFileSync(
         join(componentsDir, "FooterInput.tsx"),
         "utf-8",
       );
-      expect(source).toContain("Press Enter to send");
-      expect(source).toContain("Shift+Enter for new line");
-      expect(source).toContain("{isEnabled() &&");
-    });
-
-    it("should use text-xs text-gray-500 for hint", () => {
-      const source = readFileSync(
-        join(componentsDir, "FooterInput.tsx"),
-        "utf-8",
-      );
-      expect(source).toContain("text-xs");
-      expect(source).toContain("text-gray-500");
+      // Hint text removed for cleaner/simpler design
+      expect(source).not.toContain("Press Enter to send");
+      expect(source).not.toContain("Shift+Enter for new line");
     });
   });
 
@@ -346,8 +338,8 @@ describe("FooterInput Component", () => {
         join(componentsDir, "FooterInput.tsx"),
         "utf-8",
       );
-      expect(source).toContain("bg-gray-800"); // disabled
-      expect(source).toContain("bg-blue-600"); // enabled
+      expect(source).toContain("text-gray-700"); // disabled
+      expect(source).toContain("text-blue-500"); // enabled
     });
 
     it("should have title attribute for accessibility", () => {
@@ -357,7 +349,7 @@ describe("FooterInput Component", () => {
       );
       expect(source).toContain("title=");
       expect(source).toContain("Agent is running");
-      expect(source).toContain("Send message (Enter)");
+      expect(source).toContain("Send (Enter)");
     });
   });
 
@@ -388,7 +380,7 @@ describe("FooterInput Component", () => {
         "utf-8",
       );
       expect(source).toContain("Disabled when no session is active");
-      expect(source).toContain("Disabled when session is running");
+      expect(source).toContain("Enabled during running");
       expect(source).toContain("Enabled when session is paused/completed");
       expect(source).toContain("Enter: Send message");
       expect(source).toContain("Shift+Enter: Insert newline");
@@ -402,7 +394,7 @@ describe("FooterInput Component", () => {
         "utf-8",
       );
       expect(source).toContain("flex");
-      expect(source).toContain("items-end");
+      expect(source).toContain("items-center");
       expect(source).toContain("gap-");
     });
 
@@ -414,12 +406,13 @@ describe("FooterInput Component", () => {
       expect(source).toContain("flex-1");
     });
 
-    it("should have padding on container", () => {
+    it("should have compact padding on container", () => {
       const source = readFileSync(
         join(componentsDir, "FooterInput.tsx"),
         "utf-8",
       );
-      expect(source).toContain("p-4");
+      // Reduced padding for cleaner/simpler design
+      expect(source).toContain("px-3 py-2");
     });
   });
 });
