@@ -20,6 +20,7 @@ tools:
     "web/fetch",
     "orchestra-orc/*",
     "todo",
+    "system/waitForInput",
   ]
 ---
 
@@ -936,10 +937,11 @@ After submitting a FAIL judgment, determine next steps:
 
 1. Call `escalate_task` with reason explaining the spec error
 2. Call `update_verification` to fix the criteria (now allowed because ESCALATED)
-3. **STOP and report to human** - explain what you fixed and request de-escalation
-4. Wait for human to de-escalate the task
-5. After de-escalation, run verification again
-6. Submit judgment and complete
+3. **Call `wait_for_input`** to pause and wait for human de-escalation
+4. After human de-escalates (your session will resume), run verification again
+5. Submit judgment and complete
+
+⚠️ **CRITICAL**: After escalating, you MUST call `wait_for_input` to keep your session alive. Do NOT just stop - that ends your session and loses context. The `wait_for_input` tool pauses execution while keeping the session open, so when the human de-escalates you can continue seamlessly.
 
 ```json
 // Step 1: Escalate due to spec error
@@ -966,12 +968,13 @@ After submitting a FAIL judgment, determine next steps:
   }
 }
 
-// Step 3: STOP and report to human
-// "I've escalated Task 6 and corrected the verification criteria.
-//  The quality check was missing 'path' and 'pattern' properties.
-//  Please de-escalate the task so I can re-run verification."
+// Step 3: Call wait_for_input to pause and wait for human
+// Call: wait_for_input
+{
+  "message": "I've escalated Task 6 and corrected the verification criteria. The quality check was missing 'path' and 'pattern' properties. Please de-escalate the task so I can re-run verification."
+}
 
-// Step 4: Wait for human de-escalation (they run scripts/de-escalate.js)
+// Step 4: After human de-escalates (session resumes automatically)
 
 // Step 5: After de-escalation, run verification
 // Call: run_verification_checks with task_id: 6
@@ -982,9 +985,9 @@ After submitting a FAIL judgment, determine next steps:
 
 **Key distinction**: You CAN fix the spec after escalating, but you CANNOT de-escalate yourself or continue to completion without human intervention.
 
-## ⛔ CRITICAL: ESCALATED = FULL STOP (After Your Corrections)
+## ⛔ CRITICAL: ESCALATED = PAUSE (Use wait_for_input)
 
-**After escalating and making any allowed corrections, you MUST STOP.**
+**After escalating and making any allowed corrections, you MUST call `wait_for_input`.**
 
 ### What ESCALATED Means
 
@@ -1009,15 +1012,16 @@ After calling `escalate_task`:
 2. ✅ **Explain** what blocked progress
 3. ✅ **Fix spec errors** if that's why you escalated (call `update_verification`)
 4. ✅ **Request de-escalation** from human after fixing
-5. ✅ **Wait** for explicit human direction
-6. ❌ **DO NOT** attempt to de-escalate yourself
-7. ❌ **DO NOT** run verification checks while ESCALATED
-8. ❌ **DO NOT** submit judgments while ESCALATED
-9. ❌ **DO NOT** complete the task while ESCALATED
+5. ✅ **Call `wait_for_input`** to pause and keep session alive
+6. ❌ **DO NOT** just stop without calling `wait_for_input` (ends your session!)
+7. ❌ **DO NOT** attempt to de-escalate yourself
+8. ❌ **DO NOT** run verification checks while ESCALATED
+9. ❌ **DO NOT** submit judgments while ESCALATED
+10. ❌ **DO NOT** complete the task while ESCALATED
 
 ### Example: Correct Post-Escalation Behavior
 
-**Spec Error Escalation** (you can fix, then wait):
+**Spec Error Escalation** (you can fix, then pause):
 
 ```
 ✅ CORRECT:
@@ -1025,23 +1029,21 @@ After calling `escalate_task`:
 criteria. The quality check was missing required 'path' and 'pattern'
 properties.
 
-I've updated the verification criteria to fix this. Please de-escalate
-the task so I can re-run verification and complete it."
+I've updated the verification criteria to fix this."
 
-[STOP. Wait for human to de-escalate.]
+[Call wait_for_input: "Please de-escalate the task so I can re-run verification and complete it."]
 ```
 
-**Implementation Blocker Escalation** (nothing to fix, just wait):
+**Implementation Blocker Escalation** (nothing to fix, just pause):
 
 ```
 ✅ CORRECT:
 "I've escalated Task 3 because the implementor is blocked by a missing
 API endpoint that requires backend team involvement.
 
-This task requires Human Supervisor intervention. I cannot proceed
-until you provide direction."
+This task requires Human Supervisor intervention."
 
-[STOP. Wait for human response.]
+[Call wait_for_input: "I cannot proceed until you provide direction. Please de-escalate when ready."]
 
 ❌ INCORRECT:
 "I've escalated Task 3. Let me run the de-escalate script to fix this..."
@@ -1061,7 +1063,7 @@ until you provide direction."
 - You treat state as a bug, not a control mechanism
 - You ignore that "escalate" literally means "defer to higher authority"
 
-**The fix**: `ESCALATED` = STOP. Full stop.
+**The fix**: `ESCALATED` = call `wait_for_input` and pause. Do not end your session.
 
 No exceptions. No workarounds. No "but I can fix this quickly."
 
