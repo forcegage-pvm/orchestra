@@ -365,7 +365,8 @@ async function smartReplace(
 export const smartReplaceTool: AgentTool<SmartReplaceInput> = {
   name: TOOL_NAME,
   description:
-    "Replace text using exact, whitespace-normalized, or fuzzy matching with Levenshtein distance.",
+    "Replace text in a SINGLE location using exact, whitespace-normalized, or fuzzy matching. " +
+    "For multiple replacements, use smart_replaces instead for better efficiency.",
   inputSchema: {
     type: "object",
     properties: {
@@ -408,4 +409,3 @@ export const smartReplaceTool: AgentTool<SmartReplaceInput> = {
     context: ToolInvocationContext,
   ): Promise<ToolResult> => smartReplace(input, context),
 };
-

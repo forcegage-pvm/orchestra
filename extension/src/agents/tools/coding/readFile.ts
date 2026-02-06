@@ -254,7 +254,8 @@ async function readFile(
 
 export const readFileTool: AgentTool<ReadFileInput> = {
   name: TOOL_NAME,
-  description: "Read file contents.",
+  description:
+    "Read a SINGLE file. For reading multiple files, use read_files instead for better efficiency.",
   inputSchema: {
     type: "object",
     properties: {

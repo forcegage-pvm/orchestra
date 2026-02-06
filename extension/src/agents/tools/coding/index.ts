@@ -17,12 +17,15 @@ import { grepSearchTool } from "./grepSearch.js";
 import { insertAtLineTool } from "./insertAtLine.js";
 import { listDirectoryTool } from "./listDirectory.js";
 import { readFileTool } from "./readFile.js";
+import { readFilesTool } from "./readFiles.js";
 import { searchFilesTool } from "./searchFiles.js";
 import { smartReplaceTool } from "./smartReplace.js";
+import { smartReplacesTool } from "./smartReplaces.js";
 import { validateEditTool } from "./validateEdit.js";
 
 export const codingTools = [
   readFileTool,
+  readFilesTool,
   editFileTool,
   createFileTool,
   createDirectoryTool,
@@ -32,6 +35,7 @@ export const codingTools = [
   listDirectoryTool,
   findUsagesTool,
   smartReplaceTool,
+  smartReplacesTool,
   editLinesTool,
   insertAtLineTool,
   deleteSectionTool,
@@ -55,8 +59,10 @@ export {
   grepSearchTool,
   insertAtLineTool,
   listDirectoryTool,
+  readFilesTool,
   readFileTool,
   searchFilesTool,
+  smartReplacesTool,
   smartReplaceTool,
   validateEditTool,
 };
