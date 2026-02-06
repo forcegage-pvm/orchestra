@@ -197,6 +197,23 @@ export function initializeMessageHandler(): void {
     handleExtensionMessage(message);
   });
 
+  // Flush pending state before the page is hidden (prevents state loss)
+  globalThis.addEventListener("visibilitychange", () => {
+    if (document.hidden) {
+      // Import is inlined to avoid circular dependency
+      import("../stores/persistence.js").then(({ flushPendingState }) => {
+        flushPendingState();
+      });
+    }
+  });
+
+  // Also flush on beforeunload for extra safety
+  globalThis.addEventListener("beforeunload", () => {
+    import("../stores/persistence.js").then(({ flushPendingState }) => {
+      flushPendingState();
+    });
+  });
+
   // Notify extension that webview is ready
   // The vscode API is injected by VS Code at runtime via global.d.ts
   if (typeof window !== "undefined" && window.vscode) {

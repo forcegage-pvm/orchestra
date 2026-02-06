@@ -305,8 +305,29 @@ async function readFiles(
 
   const partial = successResult(TOOL_NAME, JSON.stringify(output, null, 2));
 
+  // If any files failed, include an error summary
+  if (failureCount > 0) {
+    const failedFiles = results.filter((r) => !r.success);
+    const errorSummary = failedFiles
+      .map((f) => `${f.path}: ${f.error?.message ?? "Unknown error"}`)
+      .join("; ");
+    return {
+      success: false,
+      content: partial.content ?? [],
+      error: {
+        code: ToolErrorCode.PARTIAL_FAILURE,
+        message: `${failureCount} of ${results.length} file(s) failed: ${errorSummary}`,
+      },
+      metadata: partial.metadata ?? {
+        toolName: TOOL_NAME,
+        callId,
+        durationMs: 0,
+      },
+    };
+  }
+
   return {
-    success: failureCount === 0,
+    success: true,
     content: partial.content ?? [],
     metadata: partial.metadata ?? {
       toolName: TOOL_NAME,

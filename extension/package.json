@@ -487,6 +487,7 @@
   },
   "dependencies": {
     "@iconify-icon/solid": "^2.1.0",
+    "@iconify-icons/lucide": "^1.2.135",
     "@tanstack/solid-virtual": "^3.13.18",
     "ansi-to-html": "^0.7.2",
     "better-sqlite3": "^12.6.2",

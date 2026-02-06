@@ -27,11 +27,54 @@ interface PersistedState {
 }
 
 /**
- * Save current state to VS Code's webview state storage
+ * Debounce timer for state persistence
+ */
+let persistTimer: ReturnType<typeof setTimeout> | undefined;
+
+/**
+ * Pending state to persist
+ */
+let pendingState: PersistedState | undefined;
+
+/**
+ * Debounce delay in milliseconds
+ * This significantly reduces CPU usage from excessive setState calls
+ */
+const PERSIST_DEBOUNCE_MS = 250;
+
+/**
+ * Save current state to VS Code's webview state storage (debounced)
+ *
+ * State is saved after a 250ms delay, coalescing multiple rapid updates
+ * into a single write. This prevents CPU spikes during heavy tool activity.
  */
 export function saveState(state: PersistedState): void {
-  if (typeof window !== "undefined" && window.vscode?.setState) {
-    window.vscode.setState(state);
+  pendingState = state;
+
+  if (persistTimer !== undefined) {
+    clearTimeout(persistTimer);
+  }
+
+  persistTimer = setTimeout(() => {
+    if (typeof window !== "undefined" && window.vscode?.setState && pendingState) {
+      window.vscode.setState(pendingState);
+      pendingState = undefined;
+    }
+    persistTimer = undefined;
+  }, PERSIST_DEBOUNCE_MS);
+}
+
+/**
+ * Flush pending state immediately (for visibility changes)
+ */
+export function flushPendingState(): void {
+  if (persistTimer !== undefined) {
+    clearTimeout(persistTimer);
+    persistTimer = undefined;
+  }
+  if (typeof window !== "undefined" && window.vscode?.setState && pendingState) {
+    window.vscode.setState(pendingState);
+    pendingState = undefined;
   }
 }
 

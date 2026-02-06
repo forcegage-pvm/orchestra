@@ -2,6 +2,8 @@
  * Mock for VS Code API
  */
 
+import { vi } from "vitest";
+
 export class ThemeColor {
   constructor(public id: string) {}
 }

@@ -4,10 +4,15 @@ import { FileActivityPanel } from "./components/FileActivityPanel.js";
 import { FooterInput } from "./components/FooterInput.js";
 import { StatusBar } from "./components/StatusBar.js";
 import { useKeyboardNav } from "./hooks/index.js";
+import { registerIcons } from "./iconRegistry.js";
 import { initializeMessageHandler } from "./protocol/index.js";
 import { events, session } from "./stores/sessionStore.js";
 import "./styles.css";
 import { TimelineView } from "./views/index.js";
+
+// Register all icons synchronously before rendering
+// This eliminates network requests to Iconify CDN
+registerIcons();
 
 // Get VS Code API - must be called ONCE and stored globally for protocol handler
 declare const acquireVsCodeApi: () => {
