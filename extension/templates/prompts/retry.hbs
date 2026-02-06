@@ -1,5 +1,7 @@
 As Implementor, your work on Task {{task.task_id}}: "{{task.title}}" did not pass verification. You must fix the issues and retry.
 
+{{>task-header tool_description="Get your task handover and feedback" tool_name="get_current_task" tool_return_description="Returns your task handover - then use get_feedback for failure details"}}
+
 ## Retry Attempt {{#if maxRetries}}{{retryCount}} of {{maxRetries}}{{else}}{{retryCount}}{{/if}}
 
 ## Your Task
