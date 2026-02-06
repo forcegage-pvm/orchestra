@@ -14,13 +14,17 @@ import type {
   ToolCallEvent,
   ToolOutputEvent,
 } from "../../../../src/agents/sessions/types.js";
-import { setEvents } from "../../../../src/webviews/agent-panel/stores/sessionStore.js";
+import {
+  setEventKeys,
+  setEvents,
+} from "../../../../src/webviews/agent-panel/stores/sessionStore.js";
 import { setUi } from "../../../../src/webviews/agent-panel/stores/uiStore.js";
 
 describe("eventsStore", () => {
   beforeEach(() => {
     // Clear stores before each test
     setEvents({});
+    setEventKeys([]);
     setUi("filterText", "");
   });
 
@@ -65,6 +69,7 @@ describe("eventsStore", () => {
       };
 
       setEvents(mockEvents);
+      setEventKeys(Object.keys(mockEvents));
       setUi("filterText", "");
 
       const filtered = filteredEvents();
@@ -101,6 +106,7 @@ describe("eventsStore", () => {
       };
 
       setEvents(mockEvents);
+      setEventKeys(Object.keys(mockEvents));
       setUi("filterText", "hello");
 
       const filtered = filteredEvents();
@@ -142,6 +148,7 @@ describe("eventsStore", () => {
       };
 
       setEvents(mockEvents);
+      setEventKeys(Object.keys(mockEvents));
       setUi("filterText", "read");
 
       const filtered = filteredEvents();
@@ -183,6 +190,7 @@ describe("eventsStore", () => {
       };
 
       setEvents(mockEvents);
+      setEventKeys(Object.keys(mockEvents));
       setUi("filterText", "test");
 
       const filtered = filteredEvents();
@@ -226,6 +234,7 @@ describe("eventsStore", () => {
       };
 
       setEvents(mockEvents);
+      setEventKeys(Object.keys(mockEvents));
       setUi("filterText", "created");
 
       const filtered = filteredEvents();
@@ -271,6 +280,7 @@ describe("eventsStore", () => {
       };
 
       setEvents(mockEvents);
+      setEventKeys(Object.keys(mockEvents));
       setUi("filterText", "not found");
 
       const filtered = filteredEvents();
@@ -299,6 +309,7 @@ describe("eventsStore", () => {
       };
 
       setEvents(mockEvents);
+      setEventKeys(Object.keys(mockEvents));
 
       // Test with lowercase
       setUi("filterText", "hello");

@@ -32,6 +32,21 @@ try {
   moduleCompatible = false;
 }
 
+// Additional check: try loading the native binary via the project's loader
+// This catches cases where the packaged native module (extension's node_modules)
+// was compiled for a different Node version than the test runtime.
+if (moduleCompatible) {
+  try {
+    const { loadBetterSqlite3 } =
+      await import("../../../src/database/native-loader.js");
+    const Better = loadBetterSqlite3();
+    const probe = new Better(":memory:");
+    probe.close();
+  } catch {
+    moduleCompatible = false;
+  }
+}
+
 // Module compatibility flag for conditional test execution
 const canRunTests = moduleCompatible && Database !== null;
 

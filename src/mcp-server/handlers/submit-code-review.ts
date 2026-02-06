@@ -366,7 +366,23 @@ async function submitCodeReview(
 
   if (decisionStatus === "APPROVED") {
     // Complete the task if it's in PENDING_CODE_REVIEW (waiting for this review to pass)
-    if (task.status === "PENDING_CODE_REVIEW") {
+    // or when the sprint policy is 'task_gate' and the task is currently VERIFIED.
+    const sprintConfig = (() => {
+      try {
+        return typeof sprint.config === "string" && sprint.config
+          ? JSON.parse(sprint.config)
+          : sprint.config || {};
+      } catch {
+        return {};
+      }
+    })();
+
+    const codeReviewPolicy = sprintConfig?.code_review_policy;
+
+    if (
+      task.status === "PENDING_CODE_REVIEW" ||
+      (codeReviewPolicy === "task_gate" && task.status === "VERIFIED")
+    ) {
       completedAt = new Date().toISOString();
 
       await db

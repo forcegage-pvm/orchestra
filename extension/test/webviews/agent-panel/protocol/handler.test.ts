@@ -3,10 +3,6 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import {
-  handleExtensionMessage,
-  initializeMessageHandler,
-} from "../../../../src/webviews/agent-panel/protocol/handler.js";
 import type { ExtensionMessage } from "../../../../src/webviews/agent-panel/protocol/types.js";
 
 // Mock store imports
@@ -14,19 +10,36 @@ vi.mock("../../../../src/webviews/agent-panel/stores/sessionStore.js", () => ({
   setSession: vi.fn(),
   setEvents: vi.fn(),
   setToolCalls: vi.fn(),
+  // New/auxiliary exports used by protocol handler
+  persistState: vi.fn(),
+  addEvent: vi.fn(),
+  clearAfter: vi.fn(() => null),
+  clearEvents: vi.fn(),
+  clearSessionHistory: vi.fn(),
+  setToolCall: vi.fn(),
+  tryRestoreState: vi.fn(() => false),
 }));
+
+// Import mocked stores
+import {
+  addEvent,
+  clearEvents,
+  clearSessionHistory,
+  setSession,
+} from "../../../../src/webviews/agent-panel/stores/sessionStore.js";
+import { setUi } from "../../../../src/webviews/agent-panel/stores/uiStore.js";
+
+// Import handler AFTER mocking dependent stores so imports are mocked
+import {
+  handleExtensionMessage,
+  initializeMessageHandler,
+} from "../../../../src/webviews/agent-panel/protocol/handler.js";
 
 vi.mock("../../../../src/webviews/agent-panel/stores/uiStore.js", () => ({
   setUi: vi.fn(),
 }));
 
 // Import mocked stores
-import {
-  setSession,
-  setEvents,
-  setToolCalls,
-} from "../../../../src/webviews/agent-panel/stores/sessionStore.js";
-import { setUi } from "../../../../src/webviews/agent-panel/stores/uiStore.js";
 
 describe("protocol/handler", () => {
   beforeEach(() => {
@@ -89,8 +102,8 @@ describe("protocol/handler", () => {
 
       handleExtensionMessage(message);
 
-      expect(setEvents).toHaveBeenCalledWith("event-1", mockEvent);
-      expect(setEvents).toHaveBeenCalledTimes(1);
+      expect(addEvent).toHaveBeenCalledWith(mockEvent);
+      expect(addEvent).toHaveBeenCalledTimes(1);
     });
 
     it("should handle events_batch messages", () => {
@@ -122,9 +135,9 @@ describe("protocol/handler", () => {
 
       handleExtensionMessage(message);
 
-      expect(setEvents).toHaveBeenCalledTimes(2);
-      expect(setEvents).toHaveBeenCalledWith("event-1", mockEvents[0]);
-      expect(setEvents).toHaveBeenCalledWith("event-2", mockEvents[1]);
+      expect(addEvent).toHaveBeenCalledTimes(2);
+      expect(addEvent).toHaveBeenCalledWith(mockEvents[0]);
+      expect(addEvent).toHaveBeenCalledWith(mockEvents[1]);
     });
 
     it("should handle clear messages", () => {
@@ -134,9 +147,7 @@ describe("protocol/handler", () => {
 
       handleExtensionMessage(message);
 
-      expect(setSession).toHaveBeenCalledWith(null);
-      expect(setEvents).toHaveBeenCalledWith({});
-      expect(setToolCalls).toHaveBeenCalledWith({});
+      expect(clearSessionHistory).toHaveBeenCalledTimes(1);
     });
 
     it("should handle set_verbosity messages", () => {
@@ -172,8 +183,8 @@ describe("protocol/handler", () => {
       handleExtensionMessage(message);
 
       expect(setSession).toHaveBeenCalledWith(null);
-      expect(setEvents).toHaveBeenCalledWith({});
-      expect(setEvents).toHaveBeenCalledWith("event-1", mockEvents[0]);
+      expect(clearEvents).toHaveBeenCalledTimes(1);
+      expect(addEvent).toHaveBeenCalledWith(mockEvents[0]);
     });
 
     it("should handle session_list messages", () => {
@@ -219,11 +230,14 @@ describe("protocol/handler", () => {
       messageListeners = [];
 
       // Mock globalThis.addEventListener
-      vi.stubGlobal("addEventListener", (type: string, listener: (event: MessageEvent) => void) => {
-        if (type === "message") {
-          messageListeners.push(listener);
-        }
-      });
+      vi.stubGlobal(
+        "addEventListener",
+        (type: string, listener: (event: MessageEvent) => void) => {
+          if (type === "message") {
+            messageListeners.push(listener);
+          }
+        },
+      );
 
       // Mock window.vscode
       vi.stubGlobal("window", {

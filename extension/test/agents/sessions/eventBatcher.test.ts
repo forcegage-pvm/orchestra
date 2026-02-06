@@ -12,6 +12,9 @@
  * will be skipped to avoid NODE_MODULE_VERSION mismatch errors.
  */
 
+import * as fs from "fs";
+import * as os from "os";
+import * as path from "path";
 import {
   afterEach,
   beforeEach,
@@ -21,9 +24,6 @@ import {
   vi,
   type MockInstance,
 } from "vitest";
-import * as fs from "fs";
-import * as os from "os";
-import * as path from "path";
 
 // Early detection of better-sqlite3 compatibility
 let Database: typeof import("better-sqlite3").default | null = null;
@@ -38,25 +38,35 @@ try {
   moduleCompatible = false;
 }
 
+// Additional check: try loading the native binary via the project's loader
+// This catches cases where the packaged native module (extension's node_modules)
+// was compiled for a different Node version than the test runtime.
+if (moduleCompatible) {
+  try {
+    const { loadBetterSqlite3 } =
+      await import("../../../src/database/native-loader.js");
+    const Better = loadBetterSqlite3();
+    const probe = new Better(":memory:");
+    probe.close();
+  } catch {
+    moduleCompatible = false;
+  }
+}
+
 // Module compatibility flag for conditional test execution
 const canRunTests = moduleCompatible && Database !== null;
 
 // If module is not compatible, skip the entire file
 if (!moduleCompatible) {
-  describe.skip(
-    "Event Batcher (skipped: native module incompatible)",
-    () => {
-      it("skipped due to NODE_MODULE_VERSION mismatch", () => {});
-    }
-  );
+  describe.skip("Event Batcher (skipped: native module incompatible)", () => {
+    it("skipped due to NODE_MODULE_VERSION mismatch", () => {});
+  });
 } else {
   // Import dependencies only if module is compatible
-  const { EventBatcher } = await import(
-    "../../../src/agents/sessions/eventBatcher.js"
-  );
-  const eventRepository = await import(
-    "../../../src/agents/sessions/eventRepository.js"
-  );
+  const { EventBatcher } =
+    await import("../../../src/agents/sessions/eventBatcher.js");
+  const eventRepository =
+    await import("../../../src/agents/sessions/eventRepository.js");
   const { OrchestraDB } = await import("../../../src/database/client.js");
   const type = await import("../../../src/agents/sessions/types.js");
 
@@ -133,7 +143,7 @@ if (!moduleCompatible) {
 
     db.prepare(
       `INSERT INTO agent_sessions (id, task_id, sprint_id, role, status, started_at, last_activity_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
     ).run(sessionId, 1, "sprint-001", "implementor", "running", now, now);
 
     db.close();
@@ -149,7 +159,7 @@ if (!moduleCompatible) {
 
       // Create temporary directory for test database
       testWorkspaceRoot = fs.mkdtempSync(
-        path.join(os.tmpdir(), "orchestra-batcher-test-")
+        path.join(os.tmpdir(), "orchestra-batcher-test-"),
       );
 
       // Create .orchestra directory structure
@@ -388,12 +398,12 @@ if (!moduleCompatible) {
         expect(insertEventBatchSpy).toHaveBeenNthCalledWith(
           1,
           testWorkspaceRoot,
-          [event1]
+          [event1],
         );
         expect(insertEventBatchSpy).toHaveBeenNthCalledWith(
           2,
           testWorkspaceRoot,
-          [event2]
+          [event2],
         );
       });
     });
@@ -593,7 +603,7 @@ if (!moduleCompatible) {
         expect(insertEventBatchSpy).toHaveBeenCalledTimes(1);
         expect(insertEventBatchSpy).toHaveBeenCalledWith(
           testWorkspaceRoot,
-          events
+          events,
         );
       });
 
@@ -634,12 +644,12 @@ if (!moduleCompatible) {
         expect(insertEventBatchSpy).toHaveBeenNthCalledWith(
           1,
           testWorkspaceRoot,
-          [event1]
+          [event1],
         );
         expect(insertEventBatchSpy).toHaveBeenNthCalledWith(
           2,
           testWorkspaceRoot,
-          [event2]
+          [event2],
         );
       });
     });

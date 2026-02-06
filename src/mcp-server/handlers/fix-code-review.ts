@@ -313,9 +313,12 @@ async function handleSubmitFixes(
   }
 
   if (!validationPassed) {
-    // Use success: false when validation fails - this is clearer than success: true + validation_passed: false
+    // When validation fails the action still completed (the request was handled),
+    // but validation_passed should be false so callers can act accordingly.
+    // Return success: true to indicate the handler ran successfully and produced
+    // a meaningful validation result (no fixes are recorded on failed validation).
     const output = validateOutput(FixCodeReviewOutputSchema, {
-      success: false,
+      success: true,
       action: "SUBMIT_FIXES",
       review_id: review.id,
       review_status: review.status as ReviewStatus,

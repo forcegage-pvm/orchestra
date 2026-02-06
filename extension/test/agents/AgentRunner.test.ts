@@ -479,33 +479,19 @@ describe("AgentRunner", () => {
   });
 
   describe("resumeFromStorage", () => {
-    test("should load session and resume with system message", async () => {
-      vi.mocked(vscode.lm.selectChatModels).mockResolvedValue([
-        createHoldableMockModel() as any,
-      ]);
-
+    test("should throw deprecation error for resumeFromStorage", async () => {
       const session = new AgentSession("orchestrator", "sprint-012", null, 2);
       session.status = "paused";
       session.currentIteration = 1;
 
       loadSessionMock.mockResolvedValue(session);
 
-      await runner.resumeFromStorage(session.id);
-
-      expect(loadSessionMock).toHaveBeenCalledWith(session.id);
-
-      const resumed = runner.getSession();
-      expect(resumed?.status).toBe("running");
-
-      const systemMessage = resumed?.messages.find(
-        (message) => message.role === "system",
+      await expect(runner.resumeFromStorage(session.id)).rejects.toThrow(
+        AgentError,
       );
-
-      expect(typeof systemMessage?.content).toBe("string");
-      expect(systemMessage?.content).toContain("Session was interrupted");
-      expect(systemMessage?.content).toContain("iteration 1");
-
-      if (resolveStream) resolveStream();
+      await expect(runner.resumeFromStorage(session.id)).rejects.toThrow(
+        "deprecated",
+      );
     });
 
     test("should reject non-recoverable session status", async () => {
@@ -607,7 +593,7 @@ describe("AgentRunner", () => {
       await expect(runner.redirect("Test")).rejects.toThrow("not running");
     });
 
-    test("should emit thinking output on redirect", async () => {
+    test("should emit prompt output on redirect", async () => {
       // Use holdable mock
       vi.mocked(vscode.lm.selectChatModels).mockResolvedValue([
         createHoldableMockModel() as any,
@@ -620,8 +606,8 @@ describe("AgentRunner", () => {
       await new Promise((resolve) => setTimeout(resolve, 10));
       await runner.redirect("New instruction");
 
-      const redirectOutput = outputs.find((o) =>
-        o.text?.includes("Redirected"),
+      const redirectOutput = outputs.find(
+        (o) => o.type === "prompt" && o.text?.includes("New instruction"),
       );
       expect(redirectOutput).toBeDefined();
 

@@ -266,7 +266,7 @@ describe("Tool Call Components", () => {
       expect(source).toContain("@returns");
     });
 
-    it("should display tool icon using ToolIcon component", () => {
+    it("should use ToolIcon component", async () => {
       const source = readFileSync(
         join(componentsDir, "ToolCallHeader.tsx"),
         "utf-8",
@@ -319,79 +319,82 @@ describe("Tool Call Components", () => {
       expect(typeof module.ToolCallCard).toBe("function");
     });
 
-    it("should use ToolCallHeader component", () => {
+    it("should use ToolIcon and lucide icons for status", () => {
+      const source = readFileSync(
+        join(componentsDir, "ToolCallCard.tsx"),
+        "utf-8",
+      );
+
+      expect(source).toContain("ToolIcon");
+      expect(source).toContain("Icon");
+      expect(source).toContain("lucide:");
+    });
+
+    it("should reference JsonViewer/TerminalOutput for rendering details", () => {
+      const source = readFileSync(
+        join(componentsDir, "ToolCallCard.tsx"),
+        "utf-8",
+      );
+
+      expect(source).toContain("JsonViewer");
+      expect(source).toContain("TerminalOutput");
+    });
+
+    it("should use TerminalOutput component", () => {
       const source = readFileSync(
         join(componentsDir, "ToolCallCard.tsx"),
         "utf-8",
       );
 
       expect(source).toContain("import");
-      expect(source).toContain("ToolCallHeader");
-      expect(source).toContain("<ToolCallHeader");
+      expect(source).toContain("TerminalOutput");
+      expect(source).toContain("<TerminalOutput");
     });
 
-    it("should use FileOperationBadge component", () => {
+    it("should have collapsible body with input/output tabs", () => {
       const source = readFileSync(
         join(componentsDir, "ToolCallCard.tsx"),
         "utf-8",
       );
 
-      expect(source).toContain("import");
-      expect(source).toContain("FileOperationBadge");
-      expect(source).toContain("<FileOperationBadge");
+      // Component now uses selectedTab/toggleTab for tab handling
+      expect(source).toContain("selectedTab");
+      expect(source).toContain("toggleTab");
+      expect(source).toContain("input");
+      expect(source).toContain("output");
     });
 
-    it("should use StreamingOutput component", () => {
+    it("should display status helper functions for progress/status", () => {
       const source = readFileSync(
         join(componentsDir, "ToolCallCard.tsx"),
         "utf-8",
       );
 
-      expect(source).toContain("import");
-      expect(source).toContain("StreamingOutput");
-      expect(source).toContain("<StreamingOutput");
+      // Component exposes helpers for status detection
+      expect(source).toContain("isRunning");
+      expect(source).toContain("isFailed");
     });
 
-    it("should have collapsible body with expand/collapse functionality", () => {
+    it("should display tool-call related information", () => {
       const source = readFileSync(
         join(componentsDir, "ToolCallCard.tsx"),
         "utf-8",
       );
 
-      expect(source).toContain("expanded");
-      expect(source).toContain("toggleExpanded");
-      expect(source).toContain("chevron-up");
-      expect(source).toContain("chevron-down");
+      // Ensure the component references toolCall details
+      expect(source).toContain("toolCall");
+      expect(source).toContain("ToolIcon");
     });
 
-    it("should display progress messages when present", () => {
+    it("should display streaming/terminal output when present", () => {
       const source = readFileSync(
         join(componentsDir, "ToolCallCard.tsx"),
         "utf-8",
       );
 
-      expect(source).toContain("lastProgressMessage");
-      expect(source).toContain("progressPercent");
-    });
-
-    it("should display file operations when present", () => {
-      const source = readFileSync(
-        join(componentsDir, "ToolCallCard.tsx"),
-        "utf-8",
-      );
-
-      expect(source).toContain("fileOperations");
-      expect(source).toContain("File Operations");
-    });
-
-    it("should display streaming output when present", () => {
-      const source = readFileSync(
-        join(componentsDir, "ToolCallCard.tsx"),
-        "utf-8",
-      );
-
-      expect(source).toContain("outputChunks");
-      expect(source).toContain("StreamingOutput");
+      // Component now uses TerminalOutput and helper getTerminalOutput
+      expect(source).toContain("TerminalOutput");
+      expect(source).toContain("getTerminalOutput");
     });
 
     it("should have result footer for success/error status", () => {
@@ -402,8 +405,9 @@ describe("Tool Call Components", () => {
 
       expect(source).toContain("success");
       expect(source).toContain("failed");
-      expect(source).toContain("check-circle");
-      expect(source).toContain("x-circle");
+      // Uses lucide icon set for status icons
+      expect(source).toContain("lucide:check");
+      expect(source).toContain("lucide:x");
     });
 
     it("should display error details and suggestions", () => {
@@ -416,13 +420,14 @@ describe("Tool Call Components", () => {
       expect(source).toContain("suggestion");
     });
 
-    it("should accept startCollapsed prop", () => {
+    it("should define ToolCallCardProps with a toolCall property", () => {
       const source = readFileSync(
         join(componentsDir, "ToolCallCard.tsx"),
         "utf-8",
       );
 
-      expect(source).toContain("startCollapsed");
+      expect(source).toContain("ToolCallCardProps");
+      expect(source).toContain("toolCall");
     });
   });
 
@@ -452,7 +457,8 @@ describe("Tool Call Components", () => {
       );
 
       expect(badgeSource).toContain("FileOperation");
-      expect(cardSource).toContain("fileOperations");
+      // ToolCallCard references toolCall fields for output; ensure it handles toolName
+      expect(cardSource).toContain("toolCall.toolName");
     });
 
     it("should all use Tailwind CSS styling", () => {
