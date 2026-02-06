@@ -490,8 +490,12 @@ async function smartReplaces(
     outputContent.push({ type: "text", value: diagnosticsSummary });
   }
 
+  // Partial success: if at least one replacement succeeded, report success
+  // The individual failures are in the replacements array for the agent to handle
+  const overallSuccess = successCount > 0;
+
   return {
-    success: failureCount === 0,
+    success: overallSuccess,
     content: outputContent,
     metadata: {
       toolName: TOOL_NAME,
