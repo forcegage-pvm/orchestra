@@ -38,7 +38,10 @@ import {
   loadOrchestratorTools,
 } from "./toolLoaders.js";
 import { ToolRegistry } from "./ToolRegistry.js";
-import type { FileOperationEvent, ToolInvocationContext } from "./tools/types.js";
+import type {
+  FileOperationEvent,
+  ToolInvocationContext,
+} from "./tools/types.js";
 import type { AgentConfig, AgentMessage, AgentRole } from "./types.js";
 
 /**
@@ -1397,10 +1400,6 @@ export class AgentRunner implements vscode.Disposable {
           }
         }
 
-        console.error(
-          `[AgentRunner] sendRequest: Received chunk: ${chunkType}`,
-        );
-
         // Check for pause/stop
         if (this.isPaused || this.isStopped) {
           break;
@@ -1414,9 +1413,6 @@ export class AgentRunner implements vscode.Disposable {
               ? chunk.value
               : (chunkAny.value as string);
           thinkingText += textValue;
-          console.error(
-            `[AgentRunner] sendRequest: Accumulated text length: ${thinkingText.length}`,
-          );
         } else if (chunkType === "TOOL_CALL") {
           // Collect tool call - DON'T emit yet
           hadToolCalls = true;
@@ -1433,36 +1429,22 @@ export class AgentRunner implements vscode.Disposable {
             input: toolCallChunk.input,
             callId: toolCallChunk.callId,
           });
-          console.error(
-            `[AgentRunner] sendRequest: Tool call: ${toolCallChunk.name}`,
-          );
         } else if (chunkType === "DATA") {
           // Handle LanguageModelDataPart - extract text content if applicable
           const extracted = this.extractDataPartContent(chunkAny);
           if (extracted) {
             thinkingText += extracted;
-            console.error(
-              `[AgentRunner] sendRequest: Extracted DATA part content, accumulated length: ${thinkingText.length}`,
-            );
           }
         } else {
           // Truly unknown chunk - try to extract any text content as last resort
           if ("value" in chunkAny && typeof chunkAny.value === "string") {
             thinkingText += chunkAny.value;
-            console.error(
-              `[AgentRunner] sendRequest: UNKNOWN chunk had text value, accumulated length: ${thinkingText.length}`,
-            );
           }
         }
       }
 
       // NOW emit events in correct order: thinking FIRST, then tool calls
       // This ensures proper sequencing regardless of stream order
-
-      // Log accumulated text before trim check
-      console.error(
-        `[AgentRunner] sendRequest: Final thinkingText length: ${thinkingText.length}, trimmed length: ${thinkingText.trim().length}`,
-      );
 
       // Step 1: Emit thinking text (if any)
       if (thinkingText.trim()) {
