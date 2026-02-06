@@ -51,8 +51,12 @@ import { ensurePromptTemplates } from "./prompts/ensurePromptTemplates.js";
 import { PromptBuilder } from "./prompts/PromptBuilder.js";
 import { OrchestraLogger } from "./utils/logger.js";
 import { AgentOutputPanel } from "./views/agent/AgentOutputPanel.js";
+import { AgentPanelProvider } from "./views/agentPanelProvider.js";
 import { DashboardPanel } from "./views/dashboard/DashboardPanel.js";
 import { OrchestraViewDecorationProvider } from "./views/providers/ViewDecorationProvider.js";
+import { StatusBarManager } from "./views/statusbar/StatusBarItem.js";
+import { CodeReviewTreeProvider } from "./views/treeview/CodeReviewTreeProvider.js";
+import { SprintTreeProvider } from "./views/treeview/SprintTreeProvider.js";
 import { CurrentTaskViewProvider } from "./views/webview/CurrentTaskViewProvider.js";
 import {
   findOrchestraRoot,
