@@ -121,7 +121,7 @@ export const AgentConfigSchema = z.object({
   controllerModel: z.string().default("claude-opus-4.5"),
 
   // Execution limits
-  maxIterations: z.number().int().positive().default(50),
+  maxIterations: z.number().int().positive().default(80),
   maxToolRetries: z.number().int().positive().default(3),
 
   // Output control

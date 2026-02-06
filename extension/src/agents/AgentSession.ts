@@ -73,13 +73,13 @@ export class AgentSession {
    * @param role - orchestrator or implementor
    * @param sprintId - Sprint identifier
    * @param taskId - Task ID (required for implementor, optional for orchestrator)
-   * @param maxIterations - Maximum iteration limit (default 50)
+   * @param maxIterations - Maximum iteration limit (default 80)
    */
   constructor(
     role: AgentRole,
     sprintId: string,
     taskId: number | null = null,
-    maxIterations: number = 50,
+    maxIterations: number = 80,
   ) {
     const now = new Date().toISOString();
 
