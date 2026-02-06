@@ -9,6 +9,8 @@
  */
 
 import { randomUUID } from "crypto";
+import { getAgentEventBus } from "./eventBus.js";
+import { insertEvent } from "./eventRepository.js";
 import type {
   AgentEvent,
   AgentSessionInfo,
@@ -28,8 +30,6 @@ import type {
   ToolProgressEvent,
   ToolResultEvent,
 } from "./types.js";
-import { getAgentEventBus } from "./eventBus.js";
-import { insertEvent } from "./eventRepository.js";
 
 /**
  * Debug tag for filtering in DevTools console.
@@ -66,7 +66,11 @@ export class SessionEventEmitter {
       console.log(`${DEBUG_TAG} persist:`, eventSummary);
       insertEvent(this.workspaceRoot, event);
     } catch (error) {
-      console.error(`${DEBUG_TAG} ERROR insertEvent failed:`, eventSummary, error);
+      console.error(
+        `${DEBUG_TAG} ERROR insertEvent failed:`,
+        eventSummary,
+        error,
+      );
       throw error;
     }
     try {
@@ -114,8 +118,7 @@ export class SessionEventEmitter {
       text,
       attachments,
     };
-    insertEvent(this.workspaceRoot, event);
-    getAgentEventBus().emit({ type: "session_event", event });
+    this.persistAndEmit(event);
     return event;
   }
 
@@ -136,8 +139,7 @@ export class SessionEventEmitter {
       text,
       tokenCount,
     };
-    insertEvent(this.workspaceRoot, event);
-    getAgentEventBus().emit({ type: "session_event", event });
+    this.persistAndEmit(event);
     return event;
   }
 
@@ -152,7 +154,7 @@ export class SessionEventEmitter {
   emitStatusChange(
     previousStatus: SessionStatus,
     newStatus: SessionStatus,
-    message?: string
+    message?: string,
   ): StatusChangeEvent {
     const event: StatusChangeEvent = {
       id: randomUUID(),
@@ -164,8 +166,7 @@ export class SessionEventEmitter {
       newStatus,
       message,
     };
-    insertEvent(this.workspaceRoot, event);
-    getAgentEventBus().emit({ type: "session_event", event });
+    this.persistAndEmit(event);
     return event;
   }
 
@@ -175,7 +176,18 @@ export class SessionEventEmitter {
    * @param session Session info payload
    */
   emitSessionStart(session: AgentSessionInfo): void {
-    getAgentEventBus().emit({ type: "session_start", session });
+    try {
+      console.log(
+        `${DEBUG_TAG} session_start sessionId=${session.id} role=${session.role}`
+      );
+      getAgentEventBus().emit({ type: "session_start", session });
+    } catch (error) {
+      console.error(
+        `${DEBUG_TAG} ERROR session_start failed sessionId=${session.id}`,
+        error,
+      );
+      throw error;
+    }
   }
 
   /**
@@ -184,11 +196,22 @@ export class SessionEventEmitter {
    * @param status Final session status
    */
   emitSessionEnd(status: SessionStatus): void {
-    getAgentEventBus().emit({
-      type: "session_end",
-      sessionId: this.sessionId,
-      status,
-    });
+    try {
+      console.log(
+        `${DEBUG_TAG} session_end sessionId=${this.sessionId.slice(0, 8)} status=${status}`,
+      );
+      getAgentEventBus().emit({
+        type: "session_end",
+        sessionId: this.sessionId,
+        status,
+      });
+    } catch (error) {
+      console.error(
+        `${DEBUG_TAG} ERROR session_end failed sessionId=${this.sessionId.slice(0, 8)}`,
+        error,
+      );
+      throw error;
+    }
   }
 
   /**
@@ -208,7 +231,7 @@ export class SessionEventEmitter {
     message: string,
     recoverable: boolean,
     details?: Record<string, unknown>,
-    suggestion?: string
+    suggestion?: string,
   ): ErrorEvent {
     const event: ErrorEvent = {
       id: randomUUID(),
@@ -223,8 +246,7 @@ export class SessionEventEmitter {
       details,
       suggestion,
     };
-    insertEvent(this.workspaceRoot, event);
-    getAgentEventBus().emit({ type: "session_event", event });
+    this.persistAndEmit(event);
     return event;
   }
 
@@ -241,7 +263,7 @@ export class SessionEventEmitter {
     toolCallId: string,
     toolName: string,
     toolCategory: ToolCategory,
-    args: Record<string, unknown>
+    args: Record<string, unknown>,
   ): ToolCallEvent {
     const event: ToolCallEvent = {
       id: randomUUID(),
@@ -254,8 +276,7 @@ export class SessionEventEmitter {
       toolCategory,
       arguments: args,
     };
-    insertEvent(this.workspaceRoot, event);
-    getAgentEventBus().emit({ type: "session_event", event });
+    this.persistAndEmit(event);
     return event;
   }
 
@@ -272,7 +293,7 @@ export class SessionEventEmitter {
     toolCallId: string,
     toolName: string,
     message: string,
-    percent?: number
+    percent?: number,
   ): ToolProgressEvent {
     const event: ToolProgressEvent = {
       id: randomUUID(),
@@ -285,8 +306,7 @@ export class SessionEventEmitter {
       message,
       percent,
     };
-    insertEvent(this.workspaceRoot, event);
-    getAgentEventBus().emit({ type: "session_event", event });
+    this.persistAndEmit(event);
     return event;
   }
 
@@ -303,7 +323,7 @@ export class SessionEventEmitter {
     toolCallId: string,
     toolName: string,
     chunk: string,
-    isStderr?: boolean
+    isStderr?: boolean,
   ): ToolOutputEvent {
     const event: ToolOutputEvent = {
       id: randomUUID(),
@@ -316,8 +336,7 @@ export class SessionEventEmitter {
       chunk,
       isStderr,
     };
-    insertEvent(this.workspaceRoot, event);
-    getAgentEventBus().emit({ type: "session_event", event });
+    this.persistAndEmit(event);
     return event;
   }
 
@@ -332,7 +351,7 @@ export class SessionEventEmitter {
   emitToolFileOperation(
     toolCallId: string,
     toolName: string,
-    operation: FileOperation
+    operation: FileOperation,
   ): ToolFileOperationEvent {
     const event: ToolFileOperationEvent = {
       id: randomUUID(),
@@ -344,8 +363,7 @@ export class SessionEventEmitter {
       toolName,
       operation,
     };
-    insertEvent(this.workspaceRoot, event);
-    getAgentEventBus().emit({ type: "session_event", event });
+    this.persistAndEmit(event);
     return event;
   }
 
@@ -362,7 +380,7 @@ export class SessionEventEmitter {
     toolCallId: string,
     toolName: string,
     key: string,
-    value: unknown
+    value: unknown,
   ): ToolMetadataEvent {
     const event: ToolMetadataEvent = {
       id: randomUUID(),
@@ -375,8 +393,7 @@ export class SessionEventEmitter {
       key,
       value,
     };
-    insertEvent(this.workspaceRoot, event);
-    getAgentEventBus().emit({ type: "session_event", event });
+    this.persistAndEmit(event);
     return event;
   }
 
@@ -397,7 +414,7 @@ export class SessionEventEmitter {
     success: boolean,
     output: string,
     durationMs: number,
-    error?: ToolError
+    error?: ToolError,
   ): ToolResultEvent {
     const event: ToolResultEvent = {
       id: randomUUID(),
@@ -412,8 +429,7 @@ export class SessionEventEmitter {
       error,
       durationMs,
     };
-    insertEvent(this.workspaceRoot, event);
-    getAgentEventBus().emit({ type: "session_event", event });
+    this.persistAndEmit(event);
     return event;
   }
 }

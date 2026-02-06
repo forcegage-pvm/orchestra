@@ -22,7 +22,7 @@ const DEBUG_TAG = "[ORCH-EVENT]";
 function formatPayloadForLog(payload: EventBusPayload): string {
   switch (payload.type) {
     case "session_start":
-      return `session_start sessionId=${payload.session.sessionId} role=${payload.session.role}`;
+      return `session_start sessionId=${payload.session.id} role=${payload.session.role}`;
     case "session_end":
       return `session_end sessionId=${payload.sessionId} status=${payload.status}`;
     case "session_event": {
@@ -51,8 +51,7 @@ export class AgentEventBus implements vscode.Disposable {
   /**
    * Subscribe to event bus payloads.
    */
-  public readonly onEvent: vscode.Event<EventBusPayload> =
-    this._onEvent.event;
+  public readonly onEvent: vscode.Event<EventBusPayload> = this._onEvent.event;
 
   /**
    * Emit an event bus payload.
@@ -68,7 +67,7 @@ export class AgentEventBus implements vscode.Disposable {
       console.error(
         `${DEBUG_TAG} ERROR during emit:`,
         formatPayloadForLog(payload),
-        error
+        error,
       );
       throw error;
     }
