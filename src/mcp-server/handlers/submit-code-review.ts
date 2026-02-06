@@ -18,7 +18,6 @@ import {
   SubmitCodeReviewOutputSchema,
   type SubmitCodeReviewOutput,
 } from "../../schemas/code-review/submit-code-review.schema.js";
-import { CodeReviewConfigSchema } from "../../schemas/config.js";
 import { validateInput, validateOutput } from "../../schemas/utils.js";
 import { writeSignal } from "../db-signal.js";
 import { logReviewTransition, logToolExecution } from "./audit-logging.js";
@@ -360,19 +359,14 @@ async function submitCodeReview(
         : "CODE_REVIEW_CHANGES_REQUESTED";
   }
 
-  // Handle task completion for APPROVED decisions with task_gate policy
+  // Handle task completion for APPROVED decisions
+  // When a code review is approved, the task should be marked COMPLETE if it was waiting for review.
+  // The policy determines WHEN reviews are triggered, not whether approval completes the task.
   let completedAt: string | undefined;
 
   if (decisionStatus === "APPROVED") {
-    const config = CodeReviewConfigSchema.parse(
-      sprint.config ? JSON.parse(sprint.config) : {},
-    );
-
-    if (
-      config.code_review_enabled &&
-      config.code_review_policy === "task_gate" &&
-      task.status !== "COMPLETE"
-    ) {
+    // Complete the task if it's in PENDING_CODE_REVIEW (waiting for this review to pass)
+    if (task.status === "PENDING_CODE_REVIEW") {
       completedAt = new Date().toISOString();
 
       await db
