@@ -288,15 +288,11 @@ async function editLines(
     };
   }
 
-  // Apply the edit
-  const startPosition = document.positionAt(
-    lines.slice(0, input.start_line - 1).join("\n").length +
-      (input.start_line > 1 ? 1 : 0),
-  );
-  const endPosition = document.positionAt(
-    lines.slice(0, input.end_line).join("\n").length +
-      (input.end_line > 0 ? 1 : 0),
-  );
+  // Apply the edit - use lineAt() to correctly handle CRLF line endings
+  const startLine = document.lineAt(input.start_line - 1);
+  const endLine = document.lineAt(input.end_line - 1);
+  const startPosition = startLine.range.start;
+  const endPosition = endLine.rangeIncludingLineBreak.end;
 
   const range = new vscode.Range(startPosition, endPosition);
   const edit = new vscode.WorkspaceEdit();

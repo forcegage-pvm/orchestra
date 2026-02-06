@@ -244,7 +244,9 @@ function truncateOutput(lines: string[]): {
   };
 }
 
-async function executeWithShellIntegration(
+// NOTE: Shell integration is kept but unused - subprocess is more reliable for output capture.
+// Shell integration often returns partial output without error indication.
+async function _executeWithShellIntegration(
   command: string,
   options: {
     cwd?: string;
@@ -548,7 +550,6 @@ export const runCommandTool: AgentTool<RunCommandInput> = {
 
     const timeoutMs = input.timeout_ms ?? DEFAULT_TIMEOUT_MS;
     let result: CommandResult;
-    let usedFallback = false;
 
     // Create observer adapter for subprocess
     const subprocessObserver = context.observer
@@ -558,30 +559,18 @@ export const runCommandTool: AgentTool<RunCommandInput> = {
         }
       : undefined;
 
-    // Try shell integration first
+    // Use subprocess directly for reliable output capture
+    // Shell integration is unreliable for programmatic output capture - it often
+    // returns partial output without any error indication
     try {
-      const shellResult = await executeWithShellIntegration(input.command, {
+      result = await executeWithSubprocess(input.command, {
         cwd: input.cwd,
         timeoutMs,
+        stdin: input.stdin,
+        env: input.env,
         token: context.token,
+        observer: subprocessObserver,
       });
-
-      if (shellResult === null) {
-        // Shell integration unavailable, use fallback
-        usedFallback = true;
-        result = await executeWithSubprocess(input.command, {
-          cwd: input.cwd,
-          timeoutMs,
-          stdin: input.stdin,
-          env: input.env,
-          token: context.token,
-          observer: subprocessObserver,
-        });
-        result.warning =
-          "Shell integration unavailable; used subprocess fallback.";
-      } else {
-        result = shellResult;
-      }
     } catch (error) {
       if (error instanceof ShellExecutionError && error.code === "CANCELLED") {
         return {
@@ -600,38 +589,21 @@ export const runCommandTool: AgentTool<RunCommandInput> = {
         };
       }
 
-      // Fallback on any error
-      usedFallback = true;
-      try {
-        result = await executeWithSubprocess(input.command, {
-          cwd: input.cwd,
-          timeoutMs,
-          stdin: input.stdin,
-          env: input.env,
-          token: context.token,
-          observer: subprocessObserver,
-        });
-        result.warning = "Shell integration failed; used subprocess fallback.";
-      } catch (fallbackError) {
-        const message =
-          fallbackError instanceof Error
-            ? fallbackError.message
-            : "Unknown error";
-        return {
-          success: false,
-          content: [{ type: "error", value: message }],
-          error: createToolError(
-            ToolErrorCode.COMMAND_FAILED,
-            message,
-            "Check the command and try again.",
-          ),
-          metadata: {
-            toolName: TOOL_NAME,
-            callId: "",
-            durationMs: 0,
-          },
-        };
-      }
+      const message = error instanceof Error ? error.message : "Unknown error";
+      return {
+        success: false,
+        content: [{ type: "error", value: message }],
+        error: createToolError(
+          ToolErrorCode.COMMAND_FAILED,
+          message,
+          "Check the command and try again.",
+        ),
+        metadata: {
+          toolName: TOOL_NAME,
+          callId: "",
+          durationMs: 0,
+        },
+      };
     }
 
     // Emit completion progress

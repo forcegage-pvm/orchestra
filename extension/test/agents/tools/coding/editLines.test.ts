@@ -90,11 +90,35 @@ describe("editLines", () => {
   });
 
   function mockDocument(content: string, filePath: string) {
+    const lines = content.split("\n");
+
     const doc = {
       getText: () => content,
       positionAt: (offset: number) => {
-        const lines = content.substring(0, offset).split("\n");
-        return new Position(lines.length - 1, lines[lines.length - 1].length);
+        const textBefore = content.substring(0, offset);
+        const linesBefore = textBefore.split("\n");
+        return new Position(
+          linesBefore.length - 1,
+          linesBefore[linesBefore.length - 1].length,
+        );
+      },
+      lineAt: (lineNumber: number) => {
+        const lineText = lines[lineNumber] || "";
+
+        return {
+          text: lineText,
+          lineNumber,
+          range: new Range(
+            new Position(lineNumber, 0),
+            new Position(lineNumber, lineText.length),
+          ),
+          rangeIncludingLineBreak: new Range(
+            new Position(lineNumber, 0),
+            lineNumber < lines.length - 1
+              ? new Position(lineNumber + 1, 0)
+              : new Position(lineNumber, lineText.length),
+          ),
+        };
       },
       uri: Uri.file(filePath),
     };

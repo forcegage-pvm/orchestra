@@ -252,15 +252,11 @@ async function applySingleReplacement(
     };
   }
 
-  // Apply the edit
-  const startPosition = document.positionAt(
-    lines.slice(0, matchResult.start_line - 1).join("\n").length +
-      (matchResult.start_line > 1 ? 1 : 0),
-  );
-  const endPosition = document.positionAt(
-    lines.slice(0, matchResult.end_line).join("\n").length +
-      (matchResult.end_line > 0 ? 1 : 0),
-  );
+  // Apply the edit - use lineAt() to correctly handle CRLF line endings
+  const startLine = document.lineAt(matchResult.start_line - 1);
+  const endLine = document.lineAt(matchResult.end_line - 1);
+  const startPosition = startLine.range.start;
+  const endPosition = endLine.rangeIncludingLineBreak.end;
 
   const range = new vscode.Range(startPosition, endPosition);
   const edit = new vscode.WorkspaceEdit();
