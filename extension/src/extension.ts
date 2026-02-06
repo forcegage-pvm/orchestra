@@ -47,15 +47,13 @@ import { ConfigGenerator } from "./mcp/ConfigGenerator.js";
 import { registerMcpServerProvider } from "./mcp/McpServerProvider.js";
 import { MCPServerManager } from "./mcp/ServerManager.js";
 import { ContextFileResolver } from "./prompts/ContextFileResolver.js";
+import { ensurePromptTemplates } from "./prompts/ensurePromptTemplates.js";
 import { PromptBuilder } from "./prompts/PromptBuilder.js";
-import {
-  ensurePromptTemplates as ensurePromptTemplatesCore,
-  type PromptTemplateOptions,
-} from "./prompts/ensurePromptTemplates.js";
 import { OrchestraLogger } from "./utils/logger.js";
 import { AgentOutputPanel } from "./views/agent/AgentOutputPanel.js";
 import { DashboardPanel } from "./views/dashboard/DashboardPanel.js";
-import { OrchestraViewDecorationProvider } from "./views/providers/ViewDecorationProvider.js";import {
+import { OrchestraViewDecorationProvider } from "./views/providers/ViewDecorationProvider.js";
+import {
   findOrchestraRoot,
   validateOrchestraWorkspace,
 } from "./workspace/detector.js";
@@ -317,7 +315,6 @@ function ensureAgentFiles(
     }
   }
 }
-
 
 /**
  * Initialize Orchestra workspace
