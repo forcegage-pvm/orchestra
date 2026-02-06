@@ -6,6 +6,7 @@
  */
 
 import { eq } from "drizzle-orm";
+import { execSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -19,6 +20,18 @@ import {
 } from "../../src/db/schema.js";
 import { handlePrepareTask } from "../../src/mcp-server/handlers/prepare-task.js";
 import { cleanupTestDb, setupTestDb } from "../setup/db-cache.js";
+
+/**
+ * Check if an executable is available in PATH
+ */
+function isExecutableAvailable(executable: string): boolean {
+  try {
+    execSync(`which ${executable}`, { stdio: "pipe" });
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 describe("prepare_task TDD Red-Phase Verification Auto-Injection", () => {
   const testSprintId = "test-sprint-tdd-red";
@@ -296,6 +309,12 @@ describe("prepare_task TDD Red-Phase Verification Auto-Injection", () => {
     });
 
     it("should inject Dart-specific red-phase checks when tdd_red_phase=true", async () => {
+      // Skip if flutter is not available
+      if (!isExecutableAvailable("flutter")) {
+        console.log("Skipping: flutter executable not found in PATH");
+        return;
+      }
+
       const db = getDb();
       const now = new Date().toISOString();
 
