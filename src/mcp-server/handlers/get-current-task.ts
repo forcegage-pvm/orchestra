@@ -242,7 +242,10 @@ async function getCurrentTask(): Promise<GetCurrentTaskOutput> {
   }
 
   // 8. Build next_steps for code review fix workflow
-  const next_steps = buildCodeReviewFixNextSteps(task.status, task.task_id);
+  const next_steps = buildCodeReviewFixNextSteps(
+    task.status,
+    String(task.task_id),
+  );
 
   return {
     task_id: task.task_id,
