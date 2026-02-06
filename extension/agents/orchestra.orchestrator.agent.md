@@ -20,7 +20,6 @@ tools:
     "web/fetch",
     "orchestra-orc/*",
     "todo",
-    "system/waitForInput",
   ]
 ---
 

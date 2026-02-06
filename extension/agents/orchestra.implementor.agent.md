@@ -22,7 +22,6 @@ tools:
     "web/fetch",
     "orchestra-imp/*",
     "todo",
-    "system/waitForInput",
   ]
 ---
 
