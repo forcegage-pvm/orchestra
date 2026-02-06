@@ -10,6 +10,7 @@
 
 import { randomUUID } from "crypto";
 import type {
+  AgentEvent,
   AgentSessionInfo,
   ErrorEvent,
   FileAttachment,
@@ -31,6 +32,12 @@ import { getAgentEventBus } from "./eventBus.js";
 import { insertEvent } from "./eventRepository.js";
 
 /**
+ * Debug tag for filtering in DevTools console.
+ * Filter with: [ORCH-EMIT] in browser console
+ */
+const DEBUG_TAG = "[ORCH-EMIT]";
+
+/**
  * SessionEventEmitter provides a high-level API for creating and persisting
  * session events. It handles boilerplate of ID generation, timestamps, and
  * iteration tracking.
@@ -48,6 +55,27 @@ export class SessionEventEmitter {
   private readonly workspaceRoot: string;
   private readonly sessionId: string;
   private currentIteration: number = 0;
+
+  /**
+   * Persist event to DB and emit to bus with error boundary.
+   * Logs and re-throws any errors for visibility.
+   */
+  private persistAndEmit(event: AgentEvent): void {
+    const eventSummary = `${event.type} id=${event.id.slice(0, 8)} iter=${this.currentIteration}`;
+    try {
+      console.log(`${DEBUG_TAG} persist:`, eventSummary);
+      insertEvent(this.workspaceRoot, event);
+    } catch (error) {
+      console.error(`${DEBUG_TAG} ERROR insertEvent failed:`, eventSummary, error);
+      throw error;
+    }
+    try {
+      getAgentEventBus().emit({ type: "session_event", event });
+    } catch (error) {
+      console.error(`${DEBUG_TAG} ERROR bus emit failed:`, eventSummary, error);
+      throw error;
+    }
+  }
 
   /**
    * Create a new SessionEventEmitter
