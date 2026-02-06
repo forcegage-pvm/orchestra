@@ -53,6 +53,7 @@ import { OrchestraLogger } from "./utils/logger.js";
 import { AgentOutputPanel } from "./views/agent/AgentOutputPanel.js";
 import { DashboardPanel } from "./views/dashboard/DashboardPanel.js";
 import { OrchestraViewDecorationProvider } from "./views/providers/ViewDecorationProvider.js";
+import { CurrentTaskViewProvider } from "./views/webview/CurrentTaskViewProvider.js";
 import {
   findOrchestraRoot,
   validateOrchestraWorkspace,
