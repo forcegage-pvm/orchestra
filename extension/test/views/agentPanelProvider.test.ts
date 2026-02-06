@@ -73,12 +73,12 @@ vi.mock("../../src/extension.js", () => ({
 
 // Mock OrchestraLogger to prevent logging delays
 vi.mock("../../src/utils/logger.js", () => ({
-  OrchestraLogger: vi.fn().mockImplementation(() => ({
-    debug: vi.fn(),
-    info: vi.fn(),
-    warn: vi.fn(),
-    error: vi.fn(),
-  })),
+  OrchestraLogger: class {
+    debug = vi.fn();
+    info = vi.fn();
+    warn = vi.fn();
+    error = vi.fn();
+  },
 }));
 
 // Mock getAgentEventBus

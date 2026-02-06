@@ -16,6 +16,16 @@ vi.mock("fs/promises", () => ({
   readFile: vi.fn().mockResolvedValue("Mock agent instructions"),
 }));
 
+// Mock logger
+vi.mock("../../src/utils/logger.js", () => ({
+  OrchestraLogger: class {
+    info = vi.fn();
+    error = vi.fn();
+    warn = vi.fn();
+    debug = vi.fn();
+  },
+}));
+
 // Mock VS Code API
 vi.mock("vscode", () => ({
   window: {
@@ -67,18 +77,46 @@ vi.mock("../../src/database/queries.js", () => ({
   getLatestHandoverReview: vi.fn(),
 }));
 
+// Use vi.hoisted to create mock functions that can be reconfigured per-test
+const mockPromptBuilderMethods = vi.hoisted(() => ({
+  buildPreparePrompt: vi.fn(() => "Mock prepare prompt"),
+  buildImplementPrompt: vi.fn(() => "Mock implement prompt"),
+  buildRetryPrompt: vi.fn(() => "Mock retry prompt"),
+  buildVerifyPrompt: vi.fn(() => "Mock verify prompt"),
+  buildHandoverFixPrompt: vi.fn(() => "Mock handover fix prompt"),
+  buildHandoverReviewPrompt: vi.fn(() => "Mock handover review prompt"),
+  buildCodeReviewPrompt: vi.fn(() => "Mock code review prompt"),
+  buildCodeReviewReReviewPrompt: vi.fn(
+    () => "Mock code review re-review prompt",
+  ),
+  buildCodeReviewFixImplementPrompt: vi.fn(
+    () => "Mock code review fix implement prompt",
+  ),
+}));
+
 // Mock PromptBuilder
 vi.mock("../../src/prompts/PromptBuilder.js", () => ({
-  PromptBuilder: vi.fn().mockImplementation(() => ({
-    buildPreparePrompt: vi.fn(() => "Mock prepare prompt"),
-  })),
+  PromptBuilder: class {
+    buildPreparePrompt = mockPromptBuilderMethods.buildPreparePrompt;
+    buildImplementPrompt = mockPromptBuilderMethods.buildImplementPrompt;
+    buildRetryPrompt = mockPromptBuilderMethods.buildRetryPrompt;
+    buildVerifyPrompt = mockPromptBuilderMethods.buildVerifyPrompt;
+    buildHandoverFixPrompt = mockPromptBuilderMethods.buildHandoverFixPrompt;
+    buildHandoverReviewPrompt =
+      mockPromptBuilderMethods.buildHandoverReviewPrompt;
+    buildCodeReviewPrompt = mockPromptBuilderMethods.buildCodeReviewPrompt;
+    buildCodeReviewReReviewPrompt =
+      mockPromptBuilderMethods.buildCodeReviewReReviewPrompt;
+    buildCodeReviewFixImplementPrompt =
+      mockPromptBuilderMethods.buildCodeReviewFixImplementPrompt;
+  },
 }));
 
 // Mock ContextFileResolver
 vi.mock("../../src/prompts/ContextFileResolver.js", () => ({
-  ContextFileResolver: vi.fn().mockImplementation(() => ({
-    getContextFiles: vi.fn(() => []),
-  })),
+  ContextFileResolver: class {
+    getContextFiles = vi.fn(() => []);
+  },
 }));
 
 // Use vi.hoisted to create mock functions that can be reconfigured per-test
@@ -181,15 +219,6 @@ describe("PlayTaskHandler", () => {
       it("should invoke orchestrator to prepare task with correct context", async () => {
         vi.mocked(queries.getTaskById).mockReturnValue(mockTask);
 
-        const mockBuildPreparePrompt = vi.fn(() => "Mock prepare prompt");
-
-        vi.mocked(PromptBuilder).mockImplementation(
-          () =>
-            ({
-              buildPreparePrompt: mockBuildPreparePrompt,
-            }) as unknown as PromptBuilder,
-        );
-
         await handlePlayTask(mockWorkspaceRoot, mockTaskId);
 
         // Verify task and sprint queries
@@ -203,19 +232,21 @@ describe("PlayTaskHandler", () => {
         );
 
         // Verify PromptBuilder was called with correct context
-        expect(mockBuildPreparePrompt).toHaveBeenCalledWith({
-          task: {
-            task_id: mockTask.task_id,
-            title: mockTask.title,
-            description: mockTask.description,
-            category: mockTask.category,
-            phase_id: "phase-1",
+        expect(mockPromptBuilderMethods.buildPreparePrompt).toHaveBeenCalledWith(
+          {
+            task: {
+              task_id: mockTask.task_id,
+              title: mockTask.title,
+              description: mockTask.description,
+              category: mockTask.category,
+              phase_id: "phase-1",
+            },
+            sprint: {
+              sprint_id: mockTask.sprint_id,
+              title: "Test Sprint",
+            },
           },
-          sprint: {
-            sprint_id: mockTask.sprint_id,
-            title: "Test Sprint",
-          },
-        });
+        );
 
         // Verify AgentRunner.start was called with orchestrator role
         expect(mockAgentRunner.start).toHaveBeenCalledWith(
@@ -278,18 +309,10 @@ describe("PlayTaskHandler", () => {
       it("should invoke implementor with correct context and files", async () => {
         vi.mocked(queries.getTaskById).mockReturnValue(mockTask);
 
-        const mockBuildImplementPrompt = vi.fn(() => "Mock implement prompt");
         const mockGetContextFiles = vi.fn(() => [
           { fsPath: "/workspace/src/file1.ts" },
           { fsPath: "/workspace/src/file2.ts" },
         ]);
-
-        vi.mocked(PromptBuilder).mockImplementation(
-          () =>
-            ({
-              buildImplementPrompt: mockBuildImplementPrompt,
-            }) as unknown as PromptBuilder,
-        );
 
         vi.mocked(extension.getContextFileResolver).mockReturnValue({
           getContextFiles: mockGetContextFiles,
@@ -304,7 +327,9 @@ describe("PlayTaskHandler", () => {
         );
 
         // Verify PromptBuilder was called with correct context (no handoverPath field exists)
-        expect(mockBuildImplementPrompt).toHaveBeenCalledWith({
+        expect(
+          mockPromptBuilderMethods.buildImplementPrompt,
+        ).toHaveBeenCalledWith({
           task: {
             task_id: mockTask.task_id,
             title: mockTask.title,
@@ -335,15 +360,7 @@ describe("PlayTaskHandler", () => {
       it("should work when handover is null (no handover exists yet)", async () => {
         vi.mocked(queries.getTaskById).mockReturnValue(mockTask);
 
-        const mockBuildImplementPrompt = vi.fn(() => "Mock implement prompt");
         const mockGetContextFiles = vi.fn(() => []);
-
-        vi.mocked(PromptBuilder).mockImplementation(
-          () =>
-            ({
-              buildImplementPrompt: mockBuildImplementPrompt,
-            }) as unknown as PromptBuilder,
-        );
 
         vi.mocked(extension.getContextFileResolver).mockReturnValue({
           getContextFiles: mockGetContextFiles,
@@ -352,7 +369,7 @@ describe("PlayTaskHandler", () => {
         await handlePlayTask(mockWorkspaceRoot, mockTaskId);
 
         // Verify PromptBuilder was called with context
-        expect(mockBuildImplementPrompt).toHaveBeenCalledWith({
+        expect(mockPromptBuilderMethods.buildImplementPrompt).toHaveBeenCalledWith({
           task: {
             task_id: mockTask.task_id,
             title: mockTask.title,
@@ -380,15 +397,7 @@ describe("PlayTaskHandler", () => {
       it("should work when no context files exist", async () => {
         vi.mocked(queries.getTaskById).mockReturnValue(mockTask);
 
-        const mockBuildImplementPrompt = vi.fn(() => "Mock implement prompt");
         const mockGetContextFiles = vi.fn(() => []); // No files
-
-        vi.mocked(PromptBuilder).mockImplementation(
-          () =>
-            ({
-              buildImplementPrompt: mockBuildImplementPrompt,
-            }) as unknown as PromptBuilder,
-        );
 
         vi.mocked(extension.getContextFileResolver).mockReturnValue({
           getContextFiles: mockGetContextFiles,
@@ -410,15 +419,7 @@ describe("PlayTaskHandler", () => {
       it("should show error when agent is already running", async () => {
         vi.mocked(queries.getTaskById).mockReturnValue(mockTask);
 
-        const mockBuildImplementPrompt = vi.fn(() => "Mock implement prompt");
         const mockGetContextFiles = vi.fn(() => []);
-
-        vi.mocked(PromptBuilder).mockImplementation(
-          () =>
-            ({
-              buildImplementPrompt: mockBuildImplementPrompt,
-            }) as unknown as PromptBuilder,
-        );
 
         vi.mocked(extension.getContextFileResolver).mockReturnValue({
           getContextFiles: mockGetContextFiles,
@@ -505,17 +506,9 @@ describe("PlayTaskHandler", () => {
         vi.mocked(queries.getTaskById).mockReturnValue(mockTask);
         vi.mocked(queries.getFeedback).mockReturnValue(mockFeedback);
 
-        const mockBuildRetryPrompt = vi.fn(() => "Mock retry prompt");
         const mockGetContextFiles = vi.fn(() => [
           { fsPath: "/workspace/src/file1.ts" },
         ]);
-
-        vi.mocked(PromptBuilder).mockImplementation(
-          () =>
-            ({
-              buildRetryPrompt: mockBuildRetryPrompt,
-            }) as unknown as PromptBuilder,
-        );
 
         vi.mocked(extension.getContextFileResolver).mockReturnValue({
           getContextFiles: mockGetContextFiles,
@@ -534,7 +527,7 @@ describe("PlayTaskHandler", () => {
         );
 
         // Verify PromptBuilder was called with retry context
-        expect(mockBuildRetryPrompt).toHaveBeenCalledWith({
+        expect(mockPromptBuilderMethods.buildRetryPrompt).toHaveBeenCalledWith({
           task: {
             task_id: mockTask.task_id,
             title: mockTask.title,
@@ -733,15 +726,6 @@ describe("PlayTaskHandler", () => {
 
       vi.mocked(queries.getTaskById).mockReturnValue(mockTask);
 
-      const mockBuildVerifyPrompt = vi.fn(() => "Mock verify prompt");
-
-      vi.mocked(PromptBuilder).mockImplementation(
-        () =>
-          ({
-            buildVerifyPrompt: mockBuildVerifyPrompt,
-          }) as unknown as PromptBuilder,
-      );
-
       await handlePlayTask(mockWorkspaceRoot, mockTaskId);
 
       expect(queries.getTaskById).toHaveBeenCalledWith(
@@ -750,7 +734,7 @@ describe("PlayTaskHandler", () => {
       );
 
       // Verify PromptBuilder was called with correct context
-      expect(mockBuildVerifyPrompt).toHaveBeenCalledWith({
+      expect(mockPromptBuilderMethods.buildVerifyPrompt).toHaveBeenCalledWith({
         task: {
           task_id: mockTask.task_id,
           title: mockTask.title,

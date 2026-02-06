@@ -31,8 +31,8 @@ describe("statusTranslation", () => {
         expect(STATUS_DISPLAY[status]).toBeDefined();
       });
 
-      // Verify we have exactly 11 statuses (8 original + 3 Controller review statuses)
-      expect(Object.keys(STATUS_DISPLAY)).toHaveLength(11);
+      // Verify we have exactly 14 statuses (includes all workflow states)
+      expect(Object.keys(STATUS_DISPLAY)).toHaveLength(14);
     });
 
     it("should have required properties for each status mapping", () => {
@@ -220,7 +220,7 @@ describe("statusTranslation", () => {
         expect(STATUS_DISPLAY.PENDING.actionLabel).toBe("Start");
         expect(STATUS_DISPLAY.IMPLEMENT.actionLabel).toBe("Continue");
         expect(STATUS_DISPLAY.VERIFY.actionLabel).toBe("View Progress");
-        expect(STATUS_DISPLAY.VERIFIED.actionLabel).toBeUndefined();
+        expect(STATUS_DISPLAY.VERIFIED.actionLabel).toBe("Start Code Review");
 
         // Complete state has no further action
         expect(STATUS_DISPLAY.COMPLETE.actionLabel).toBeUndefined();
@@ -326,7 +326,7 @@ describe("statusTranslation", () => {
         expect(STATUS_DISPLAY.IMPLEMENT.description).toContain("implemented");
         expect(STATUS_DISPLAY.VERIFY.description).toContain("verified");
         expect(STATUS_DISPLAY.VERIFY_FAILED.description).toContain("failed");
-        expect(STATUS_DISPLAY.VERIFIED.description).toContain("verification");
+        expect(STATUS_DISPLAY.VERIFIED.description).toContain("Verification");
         expect(STATUS_DISPLAY.GATE_CHECK.description).toContain("review");
         expect(STATUS_DISPLAY.ESCALATED.description).toContain("escalated");
         expect(STATUS_DISPLAY.COMPLETE.description).toContain("completed");

@@ -8,6 +8,7 @@ import type {
   ToolInvocationContext,
   ValidateEditInput,
 } from "../../../../src/agents/tools/types.js";
+import { validatePath } from "../../../../src/agents/tools/utils/pathValidation.js";
 
 const {
   workspace,
@@ -109,6 +110,13 @@ vi.mock("vscode", () => ({
   DiagnosticSeverity,
 }));
 
+// Mock pathValidation module
+vi.mock("../../../../src/agents/tools/utils/pathValidation.js", () => ({
+  validatePath: vi.fn(),
+}));
+
+const validatePathMock = vi.mocked(validatePath);
+
 describe("validateEdit", () => {
   let context: ToolInvocationContext;
   const workspaceRoot = "/workspace";
@@ -122,6 +130,12 @@ describe("validateEdit", () => {
 
     vi.clearAllMocks();
     diagnosticsMap.clear();
+    
+    // Mock validatePath to always succeed by default
+    validatePathMock.mockResolvedValue({
+      isValid: true,
+      absolutePath: "/workspace/test.ts",
+    });
   });
 
   afterEach(() => {
@@ -563,6 +577,17 @@ describe("validateEdit", () => {
 
   describe("Error Handling", () => {
     it("returns error when file path is outside workspace", async () => {
+      // Mock validatePath to fail for this test
+      validatePathMock.mockResolvedValueOnce({
+        isValid: false,
+        error: {
+          code: "PATH_TRAVERSAL",
+          message: "Path must resolve within the workspace",
+          suggestion: "Use a workspace-relative path.",
+          context: { inputPath: "../../outside/test.ts", workspaceRoot: "/workspace" },
+        },
+      });
+      
       const input: ValidateEditInput = {
         file_path: "../../outside/test.ts",
         new_content: "const x = 42;",

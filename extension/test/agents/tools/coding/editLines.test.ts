@@ -289,7 +289,8 @@ describe("editLines", () => {
       expect(result.success).toBe(false);
       expect(result.error).toBeDefined();
       expect(result.error?.code).toBe("INVALID_INPUT");
-      expect(result.error?.details?.valid_range).toBe("1-3");
+      expect(result.error?.details?.start_line).toBe(5);
+      expect(result.error?.details?.file_has_lines).toBe(3);
     });
 
     it("should return error when end_line is out of bounds", async () => {
@@ -309,7 +310,8 @@ describe("editLines", () => {
 
       expect(result.success).toBe(false);
       expect(result.error?.code).toBe("INVALID_INPUT");
-      expect(result.error?.details?.valid_range).toBe("1-3");
+      expect(result.error?.details?.end_line).toBe(10);
+      expect(result.error?.details?.file_has_lines).toBe(3);
     });
 
     it("should return error when start_line > end_line", async () => {

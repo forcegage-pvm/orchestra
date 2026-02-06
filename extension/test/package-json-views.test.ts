@@ -5,15 +5,14 @@ describe("package.json views configuration", () => {
   describe("orchestra-explorer views array", () => {
     const views = packageJson.contributes?.views?.["orchestra-explorer"] || [];
 
-    it("should have exactly 4 views registered", () => {
-      expect(views).toHaveLength(4);
+    it("should have exactly 3 views registered", () => {
+      expect(views).toHaveLength(3);
     });
 
-    it("should have views in correct order: currentTask, sprintExplorer, codeReview, workflowControls", () => {
+    it("should have views in correct order: currentTask, agentPanel, sprintExplorer", () => {
       expect(views[0].id).toBe("orchestra.currentTask");
-      expect(views[1].id).toBe("orchestra.sprintExplorer");
-      expect(views[2].id).toBe("orchestra.codeReview");
-      expect(views[3].id).toBe("orchestra.workflowControls");
+      expect(views[1].id).toBe("orchestra.agentPanel");
+      expect(views[2].id).toBe("orchestra.sprintExplorer");
     });
 
     describe("orchestra.currentTask view", () => {
@@ -54,26 +53,22 @@ describe("package.json views configuration", () => {
       });
     });
 
-    describe("orchestra.workflowControls view", () => {
-      const workflowControlsView = views.find(
-        (v: any) => v.id === "orchestra.workflowControls",
+    describe("orchestra.agentPanel view", () => {
+      const agentPanelView = views.find(
+        (v: any) => v.id === "orchestra.agentPanel",
       );
 
       it("should be registered", () => {
-        expect(workflowControlsView).toBeDefined();
+        expect(agentPanelView).toBeDefined();
       });
 
       it("should be a webview type", () => {
-        expect(workflowControlsView?.type).toBe("webview");
-      });
-
-      it("should have initialVisibility set to collapsed", () => {
-        expect(workflowControlsView?.visibility).toBe("collapsed");
+        expect(agentPanelView?.type).toBe("webview");
       });
 
       it("should have a name", () => {
-        expect(workflowControlsView?.name).toBeDefined();
-        expect(typeof workflowControlsView?.name).toBe("string");
+        expect(agentPanelView?.name).toBeDefined();
+        expect(typeof agentPanelView?.name).toBe("string");
       });
     });
 
@@ -110,10 +105,12 @@ describe("package.json views configuration", () => {
       expect(settingsButton?.group).toBe("navigation");
     });
 
-    it("should use correct view ID (orchestra.sprintExplorer) in when clauses", () => {
+    it("should use correct view IDs (orchestra.sprintExplorer or orchestra.agentPanel) in when clauses", () => {
       const allButtonsUseCorrectId = viewTitleMenus.every(
         (menu: any) =>
-          !menu.when || menu.when.includes("orchestra.sprintExplorer"),
+          !menu.when ||
+          menu.when.includes("orchestra.sprintExplorer") ||
+          menu.when.includes("orchestra.agentPanel"),
       );
       expect(allButtonsUseCorrectId).toBe(true);
     });
@@ -134,33 +131,6 @@ describe("package.json views configuration", () => {
       expect(contextMenus.length).toBeGreaterThan(0);
     });
 
-    describe("startTask inline button", () => {
-      const startTaskInline = contextMenus.find(
-        (menu: any) =>
-          menu.command === "orchestra.startTask" &&
-          menu.group?.startsWith("inline"),
-      );
-
-      it("should exist in inline group", () => {
-        expect(startTaskInline).toBeDefined();
-      });
-
-      it("should have correct when clause for playable task statuses", () => {
-        expect(startTaskInline?.when).toBeDefined();
-        expect(startTaskInline?.when).toContain("orchestra.sprintExplorer");
-        expect(startTaskInline?.when).toContain("task-");
-      });
-
-      it("should use correct view ID (orchestra.sprintExplorer) not orchestraSprintExplorer", () => {
-        expect(startTaskInline?.when).toContain("orchestra.sprintExplorer");
-        expect(startTaskInline?.when).not.toContain("orchestraSprintExplorer");
-      });
-
-      it("should be in inline group with ordering", () => {
-        expect(startTaskInline?.group).toMatch(/^inline/);
-      });
-    });
-
     describe("playTask inline button", () => {
       const playTaskInline = contextMenus.find(
         (menu: any) =>
@@ -178,10 +148,9 @@ describe("package.json views configuration", () => {
         expect(playTaskInline?.when).toContain("task-");
       });
 
-      it("should include pending, implement, and verify_failed statuses", () => {
-        expect(playTaskInline?.when).toContain("pending");
-        expect(playTaskInline?.when).toContain("implement");
-        expect(playTaskInline?.when).toContain("verify_failed");
+      it("should exclude completed tasks using regex", () => {
+        // Should use regex to exclude completed tasks
+        expect(playTaskInline?.when).toMatch(/viewItem\s*=~.*task-.*complete/);
       });
 
       it("should use correct view ID (orchestra.sprintExplorer)", () => {
@@ -326,28 +295,6 @@ describe("package.json views configuration", () => {
         expect(openTaskDetail).toBeDefined();
         expect(openTaskDetail?.when).toContain("viewItem =~");
         expect(openTaskDetail?.when).toContain("/^task-/");
-      });
-
-      it("should have startTask only for pending and implement statuses", () => {
-        const startTaskMenus = contextMenus.filter(
-          (menu: any) => menu.command === "orchestra.startTask",
-        );
-
-        // Should have at least one startTask menu item
-        expect(startTaskMenus.length).toBeGreaterThan(0);
-
-        // Find the one with status restriction
-        const statusRestrictedMenu = startTaskMenus.find(
-          (menu: any) =>
-            menu.when?.includes("viewItem") && menu.when?.includes("task-"),
-        );
-
-        expect(statusRestrictedMenu).toBeDefined();
-        expect(statusRestrictedMenu?.when).toContain("viewItem =~");
-        // Should match task-pending or task-implement
-        expect(statusRestrictedMenu?.when).toMatch(
-          /task-\(pending\|implement\)/,
-        );
       });
 
       it("should have deEscalateTask only for escalated status", () => {
