@@ -305,8 +305,8 @@ async function readFiles(
 
   const partial = successResult(TOOL_NAME, JSON.stringify(output, null, 2));
 
-  // If any files failed, include an error summary
-  if (failureCount > 0) {
+  // If ALL files failed, return overall failure
+  if (successCount === 0) {
     const failedFiles = results.filter((r) => !r.success);
     const errorSummary = failedFiles
       .map((f) => `${f.path}: ${f.error?.message ?? "Unknown error"}`)
@@ -316,7 +316,7 @@ async function readFiles(
       content: partial.content ?? [],
       error: {
         code: ToolErrorCode.PARTIAL_FAILURE,
-        message: `${failureCount} of ${results.length} file(s) failed: ${errorSummary}`,
+        message: `All ${results.length} file(s) failed: ${errorSummary}`,
       },
       metadata: partial.metadata ?? {
         toolName: TOOL_NAME,
@@ -325,6 +325,10 @@ async function readFiles(
       },
     };
   }
+
+  // If SOME files failed, return success with partial failure info in content
+  // The files array already contains error details for failed files
+  // This allows the LLM to see what succeeded and what failed without treating it as an error
 
   return {
     success: true,
