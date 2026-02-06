@@ -262,7 +262,7 @@ describe("FooterInput Component", () => {
         "utf-8",
       );
       expect(source).toContain("border-t");
-      expect(source).toContain("border-gray-700");
+      expect(source).toContain("border-gray-800");
     });
 
     it("should style disabled state differently", () => {
@@ -282,6 +282,8 @@ describe("FooterInput Component", () => {
       );
       expect(source).toContain("hover:text-blue-400");
       expect(source).toContain("hover:bg-gray-900");
+      expect(source).toContain("focus:border-blue-500");
+      expect(source).toContain("focus:ring-1");
     });
 
     it("should use resize-none for textarea", () => {
@@ -350,6 +352,7 @@ describe("FooterInput Component", () => {
       expect(source).toContain("title=");
       expect(source).toContain("Agent is running");
       expect(source).toContain("Send (Enter)");
+      expect(source).toContain("aria-label=");
     });
   });
 

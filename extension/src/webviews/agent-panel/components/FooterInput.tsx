@@ -140,7 +140,7 @@ export function FooterInput(props: FooterInputProps) {
           class={`flex-1 resize-none rounded px-3 py-2 text-sm bg-transparent border ${
             isDisabled()
               ? "border-gray-800 text-gray-600 cursor-not-allowed"
-              : "border-gray-800 text-gray-300 focus:border-gray-700 focus:outline-none"
+              : "border-gray-800 text-gray-300 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
           } placeholder-gray-600`}
           style={{
             "max-height": "100px",
@@ -158,6 +158,7 @@ export function FooterInput(props: FooterInputProps) {
               : "text-blue-500 hover:text-blue-400 hover:bg-gray-900"
           }`}
           title={isDisabled() ? "Agent is running" : "Send (Enter)"}
+          aria-label={isDisabled() ? "Agent is running" : "Send message"}
         >
           <Icon icon="lucide:send" class="w-4 h-4" />
         </button>
