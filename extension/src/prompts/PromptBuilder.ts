@@ -17,7 +17,6 @@ import {
   buildHandoverFixPromptText,
   buildHandoverReviewPromptText,
   buildSprintReviewPromptText,
-  buildVerifyPromptText,
 } from "./promptTextBuilders.js";
 
 export type {
@@ -68,7 +67,7 @@ export class PromptBuilder {
    * Build a VERIFY stage prompt for the orchestrator
    */
   buildVerifyPrompt(context: PromptContext): string {
-    return buildVerifyPromptText(context);
+    return this.templateLoader.render("verify", context);
   }
 
   /**

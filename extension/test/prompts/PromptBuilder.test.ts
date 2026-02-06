@@ -45,6 +45,17 @@ describe("PromptBuilder", () => {
     expect(result).toBe("implement output");
   });
 
+  it("should call TemplateLoader.render for verify prompt", () => {
+    const render = vi.fn().mockReturnValue("verify output");
+    const templateLoader = { render } as TemplateLoader;
+    const builder = new PromptBuilder({ templateLoader });
+
+    const result = builder.buildVerifyPrompt(baseContext);
+
+    expect(render).toHaveBeenCalledWith("verify", baseContext);
+    expect(result).toBe("verify output");
+  });
+
   it("should call TemplateLoader.render for retry prompt", () => {
     const render = vi.fn().mockReturnValue("retry output");
     const templateLoader = { render } as TemplateLoader;

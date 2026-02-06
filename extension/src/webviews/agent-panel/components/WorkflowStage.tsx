@@ -69,7 +69,5 @@ export function WorkflowStage(props: WorkflowStageProps) {
     return getDefaultStageDescription(props.role);
   };
 
-  return (
-    <span class="text-sm text-amber-400 font-medium">{stageLabel()}</span>
-  );
+  return <span class="text-sm text-amber-400 font-medium">{stageLabel()}</span>;
 }
