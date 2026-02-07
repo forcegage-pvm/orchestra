@@ -481,9 +481,8 @@ export const sessionMessages = sqliteTable(
     id: text("id").primaryKey(), // UUID
     session_id: text("session_id")
       .notNull()
-      .references(() => agentSessions.id, { onDelete: "cascade" }),
-    message_index: integer("message_index").notNull(), // Order within session
-    role: text("role").notNull(), // 'user' | 'assistant' | 'system'
+.references(() => agentSessions.id, { onDelete: "CASCADE" }), // REFERENCES agent_sessions(id) ON DELETE CASCADE
+    message_index: integer("message_index").notNull(), // Order within session    role: text("role").notNull(), // 'user' | 'assistant' | 'system'
     content: text("content", { mode: "json" }).notNull(), // Structured message payload
     token_count: integer("token_count"),
     timestamp: text("timestamp").notNull(),
