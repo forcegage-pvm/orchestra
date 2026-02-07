@@ -9,6 +9,42 @@
 
 ---
 
+## Post-Master-Merge Audit (2026-02-07)
+
+### Codebase Changes Since Spec Creation (2026-02-04)
+
+The following changes were merged from master and affect implementation details:
+
+1. **Migration system**: Extension uses JS migrations in `extension/src/database/migrations.ts` (array of `{id, description, up}` objects with IDs like `20260207_001_*`), NOT SQL files in `src/db/migrations/`. Session tables are extension-only.
+
+2. **Drizzle ORM**: Extension uses Drizzle ORM via `OrchestraDB.getDrizzleInstance()`. Schema in `extension/src/database/local-schema.ts`. New tables/columns must be added in both the Drizzle schema AND as a JS migration.
+
+3. **Template-based prompts (Sprint 010)**: `PromptBuilder` + `TemplateLoader` with Handlebars templates in `extension/templates/prompts/`. System prompt comes from `.github/agents/orchestra.{role}.agent.md` files via `readAgentInstructions()`. 13 main templates + 3 partials.
+
+4. **Dual AgentSession types**:
+   - `extension/src/agents/types.ts` → in-memory session class (AgentRunner internal)
+   - `extension/src/agents/sessions/types.ts` → database session interface (repository layer)
+   - New fields (stage, parent_session_id, etc.) go on the DATABASE type + schema
+
+5. **UI architecture**: Webview-based (`extension/src/views/agent/`), not SolidJS. Templates in `agentOutputTemplate.ts` / `changedFilesTemplate.ts`.
+
+6. **Existing continuation mechanisms**:
+   - `AgentRunner.continueWithMessage(instruction)` - resumes stopped/paused sessions
+   - `AgentRunner.redirect(instruction)` - injects into running sessions
+   - `WorkflowChain` auto-chains workflow stages
+   - `resumeFromStorage()` is DEPRECATED (throws error)
+
+7. **Session events**: `session_events` table already exists with full event stream. `sessionRepository.ts` uses Drizzle ORM patterns.
+
+### Spec Validity Assessment
+
+- **Core concepts VALID**: Message persistence, session resume, session continuation, stage tracking, lineage
+- **Architecture VALID**: Dual storage (events + messages), async persistence, agent separation
+- **Contracts NEED UPDATE**: File paths, ORM patterns, migration approach, UI technology
+- **Tasks UPDATED**: All file paths and implementation details corrected below
+
+---
+
 ## Format: `[ID] [P?] Description`
 
 - **[P]**: Can run in parallel (different files, no dependencies)
@@ -22,12 +58,11 @@
 
 **Blocking**: All subsequent phases depend on database schema
 
-- [ ] T001 Create migration 018-session-messages-table.sql in src/db/migrations/
-- [ ] T002 Create migration 019-session-stage-fields.sql in src/db/migrations/
-- [ ] T003 Register migrations in src/db/index.ts (update migrations array)
-- [ ] T003a [P] Verify graceful degradation for sessions without message history (test legacy session queries return empty messages array)
-- [ ] T004 Implement SessionMessageRepository in extension/src/agents/sessions/sessionMessageRepository.ts
-- [ ] T005 Add SessionStage and MessageContent types to extension/src/agents/types.ts
+- [ ] T001 Add session_messages table definition to extension/src/database/local-schema.ts (Drizzle schema) AND create migration `20260207_001_create_session_messages` in extension/src/database/migrations.ts
+- [ ] T002 Add stage/continuation columns to agent_sessions in extension/src/database/local-schema.ts AND create migration `20260207_002_add_session_stage_fields` in extension/src/database/migrations.ts (adds: stage, parent_session_id, attempt, is_continued, continued_at, continuation_count)
+- [ ] T003 [P] Verify graceful degradation for sessions without message history (test legacy session queries return empty messages array, existing sessionRepository functions still work)
+- [ ] T004 Implement SessionMessageRepository in extension/src/agents/sessions/sessionMessageRepository.ts (using Drizzle ORM patterns from existing sessionRepository.ts as reference — insertMessage, getSessionMessages, getSessionStats, deleteMessagesForSession)
+- [ ] T005 Add SessionStage type and extend AgentSession interface in extension/src/agents/sessions/types.ts (SessionStage enum, continuation fields matching new schema columns)
 - [ ] T006 [P] Write unit tests for SessionMessageRepository in extension/test/agents/sessionMessageRepository.test.ts
 
 **Checkpoint**: Database schema ready - can now capture and query messages
@@ -40,10 +75,10 @@
 
 **Dependencies**: Requires Phase 1 complete (repository functions available)
 
-- [ ] T007 Update AgentSession.addMessage() in extension/src/agents/AgentSession.ts to trigger async database insert
-- [ ] T008 Update AgentRunner to capture system messages in extension/src/agents/AgentRunner.ts (initial prompt, resume context)
-- [ ] T009 Integrate ContextManager.estimateTokens() in sessionMessageRepository.ts for token counting
-- [ ] T010 Add error logging for failed message inserts in AgentSession.ts (graceful degradation)
+- [ ] T007 Update AgentSession.addMessage() in extension/src/agents/AgentSession.ts to trigger async database insert via SessionMessageRepository (fire-and-forget with error logging, non-blocking)
+- [ ] T008 Update AgentRunner.start() in extension/src/agents/AgentRunner.ts to capture system messages (initial agent instructions from readAgentInstructions(), sprint memory context, environment context)
+- [ ] T009 Add single-message token estimation helper to SessionMessageRepository (wraps ContextManager.estimateTokens() for single messages, stores in token_count column)
+- [ ] T010 Add error logging for failed message inserts in AgentSession.ts (graceful degradation — catch errors, log via console.warn, never throw)
 - [ ] T011 [P] Write integration tests for message capture in extension/test/agents/messageCapture.test.ts
 
 **Checkpoint**: Messages automatically persisted during agent execution without blocking
@@ -56,11 +91,11 @@
 
 **Dependencies**: Requires Phase 2 complete (messages being captured)
 
-- [ ] T012 Implement reconstructSession() in extension/src/agents/AgentRunner.ts (load messages from database)
-- [ ] T013 Implement reconstructToolCalls() in extension/src/agents/AgentRunner.ts (query ToolResultEvent from events)
-- [ ] T014 Implement reconstructFileChanges() in extension/src/agents/AgentRunner.ts (query ToolFileOperationEvent)
-- [ ] T015 Implement resumeSession() public API in extension/src/agents/AgentRunner.ts
-- [ ] T016 Add resume context injection (system message: "Session resumed after pause")
+- [ ] T012 Implement reconstructSession() in extension/src/agents/AgentRunner.ts (load messages from session_messages via SessionMessageRepository, rebuild in-memory AgentSession state)
+- [ ] T013 Implement reconstructToolCalls() in extension/src/agents/AgentRunner.ts (query ToolResultEvent from session_events via existing eventRepository)
+- [ ] T014 Implement reconstructFileChanges() in extension/src/agents/AgentRunner.ts (query ToolFileOperationEvent from session_events via existing eventRepository)
+- [ ] T015 Replace deprecated resumeFromStorage() with new resumeSession() public API in extension/src/agents/AgentRunner.ts (uses reconstructSession + reconstructToolCalls + reconstructFileChanges, injects system resume message)
+- [ ] T016 Add resume context injection (system message: "Session resumed after pause. Background processes/terminals from previous session are no longer available.")
 - [ ] T017 [P] Write integration tests for session resume in extension/test/agents/sessionResume.test.ts
 
 **Checkpoint**: Paused orchestrator sessions can be resumed with full context
@@ -73,13 +108,13 @@
 
 **Dependencies**: Requires Phase 3 complete (resume capability working)
 
-- [ ] T018 Implement continueSession() in extension/src/agents/sessions/sessionRepository.ts (create new session with parent_session_id)
-- [ ] T019 Implement copyMessages() in extension/src/agents/sessions/sessionMessageRepository.ts (copy parent messages to child)
-- [ ] T020 Implement markSessionAsContinued() in extension/src/agents/sessions/sessionRepository.ts (update parent metadata)
-- [ ] T021 Implement getSessionChain() in extension/src/agents/sessions/sessionRepository.ts (recursive CTE query)
-- [ ] T022 Implement getLatestImplementorSession() in extension/src/agents/sessions/sessionRepository.ts
-- [ ] T023 Implement continueSessionExecution() in extension/src/agents/AgentRunner.ts (public API)
-- [ ] T024 Add validation for continuation depth limit (max 5 levels) in sessionRepository.ts
+- [ ] T018 Implement continueSession() in extension/src/agents/sessions/sessionRepository.ts (create new session record with parent_session_id, increment attempt, set stage, using Drizzle ORM)
+- [ ] T019 Implement copyMessages() in extension/src/agents/sessions/sessionMessageRepository.ts (copy parent messages to child session, preserving message_index order)
+- [ ] T020 Implement markSessionAsContinued() in extension/src/agents/sessions/sessionRepository.ts (set is_continued=true, increment continuation_count, set continued_at timestamp)
+- [ ] T021 Implement getSessionChain() in extension/src/agents/sessions/sessionRepository.ts (recursive CTE query via raw SQL on OrchestraDB.getInstance() for parent→child chain traversal)
+- [ ] T022 Implement getLatestImplementorSession() in extension/src/agents/sessions/sessionRepository.ts (find most recent implementor session for a given task, for continuation target)
+- [ ] T023 Implement continueSessionExecution() in extension/src/agents/AgentRunner.ts (public API: creates continued session, copies messages, injects continuation prompt, resumes agent loop — integrates with existing continueWithMessage pattern)
+- [ ] T024 Add validation for continuation depth limit (max 5 levels) in sessionRepository.ts (prevent infinite continuation chains)
 - [ ] T025 [P] Write integration tests for session continuation in extension/test/agents/sessionContinuation.test.ts
 
 **Checkpoint**: Implementor sessions can be continued with orchestrator feedback
@@ -92,12 +127,12 @@
 
 **Dependencies**: Requires Phase 4 complete (all session operations working)
 
-- [ ] T026 [P] Create MessageHistoryView component in extension/src/views/agentPanel/MessageHistoryView.tsx (SolidJS)
-- [ ] T027 [P] Create SessionChainView component in extension/src/views/agentPanel/SessionChainView.tsx (tree visualization)
-- [ ] T028 Add message history tab to Agent Panel in extension/src/views/agentPanel/AgentPanelView.tsx
-- [ ] T029 Implement message pagination for 100+ message sessions in MessageHistoryView.tsx
-- [ ] T030 Add conversation export (Markdown) in MessageHistoryView.tsx
-- [ ] T031 Implement getSessionStats() analytics queries in sessionMessageRepository.ts
+- [ ] T026 [P] Add message history view to Agent Panel webview in extension/src/views/agent/ (HTML template for displaying conversation messages, compatible with existing agentOutputTemplate.ts pattern)
+- [ ] T027 [P] Add session chain visualization to Agent Panel webview in extension/src/views/agent/ (tree-style parent→child session display)
+- [ ] T028 Integrate message history tab/toggle into existing AgentOutputPanel in extension/src/views/agent/AgentOutputPanel.ts
+- [ ] T029 Implement message pagination for 100+ message sessions (lazy loading with offset/limit)
+- [ ] T030 Add conversation export (Markdown format) functionality
+- [ ] T031 Implement getSessionStats() analytics queries in sessionMessageRepository.ts (token counts, message counts, timing per session)
 - [ ] T032 [P] Write UI component tests in extension/test/views/messageHistory.test.ts
 
 **Checkpoint**: Users can view conversation history and session chains in UI
@@ -110,10 +145,10 @@
 
 **Dependencies**: Requires Phase 5 complete (full feature ready)
 
-- [ ] T033 Update verification workflow to call continueSession() on failure in extension/src/agents/workflows/verificationWorkflow.ts
-- [ ] T034 Add session stage tracking to workflow commands (set stage=PREPARE, IMPLEMENT, VERIFY, etc.)
-- [ ] T035 Update task status transitions to create sessions with appropriate stage in extension/src/agents/workflows/taskWorkflow.ts
-- [ ] T036 Verify CASCADE DELETE works with retention policy (test with existing session cleanup logic in extension/src/agents/sessions/sessionRepository.ts)
+- [ ] T033 Update WorkflowChain in extension/src/agents/WorkflowChain.ts to use continueSessionExecution() on verification failure (instead of spawning new session via handlePlayTask, continue the existing implementor session)
+- [ ] T034 Add session stage tracking to PlayTaskHandler.ts (set stage=PREPARE, IMPLEMENT, VERIFY, IMPLEMENT_FIX, CODE_REVIEW when creating sessions via agentRunner.start())
+- [ ] T035 Update PlayTaskHandler.ts to create sessions with appropriate stage and pass parent_session_id for retry/fix flows
+- [ ] T036 Verify CASCADE DELETE works with retention policy (test with existing session cleanup logic in extension/src/agents/sessions/retention.ts — ensure session_messages are deleted when parent session purged)
 - [ ] T037 [P] Write end-to-end workflow tests in extension/test/integration/verifyFixWorkflow.test.ts
 - [ ] T038 Update documentation in docs/ with session management usage examples
 
@@ -141,7 +176,7 @@ Phase 6 (Workflow Integration) ← Must wait for UI ready
 
 ### Within-Phase Parallel Opportunities
 
-**Phase 1**: T001, T002, T006 can run in parallel after T003-T005 complete
+**Phase 1**: T003, T006 can run in parallel after T001-T002 and T004-T005 complete
 
 **Phase 2**: T011 can run in parallel with T007-T010
 
@@ -158,23 +193,72 @@ Phase 6 (Workflow Integration) ← Must wait for UI ready
 The minimum sequential path to completion:
 
 ```
-T001 → T002 → T003 → T004 → T005 → T007 → T008 → T012 → T015 → T018 → T023 → T026 → T033 → T038
+T001 → T002 → T004 → T005 → T007 → T008 → T012 → T015 → T018 → T023 → T026 → T028 → T033 → T038
 ```
 
-**Estimated**: ~38 tasks, critical path ~15 tasks
+**Estimated**: ~38 tasks, critical path ~14 tasks
 
 ---
 
-## Parallel Example: Phase 5 (UI Integration)
+## Key Implementation Notes
 
-```bash
-# Launch UI component development in parallel:
-Task: "Create MessageHistoryView component in extension/src/views/agentPanel/MessageHistoryView.tsx"
-Task: "Create SessionChainView component in extension/src/views/agentPanel/SessionChainView.tsx"
-Task: "Write UI component tests in extension/test/views/messageHistory.test.ts"
+### Migration Pattern (follow existing)
 
-# Once components ready, integrate:
-Task: "Add message history tab to Agent Panel in extension/src/views/agentPanel/AgentPanelView.tsx"
+```typescript
+// In extension/src/database/migrations.ts, add to MIGRATIONS array:
+{
+  id: "20260207_001_create_session_messages",
+  description: "Create session_messages table for LLM conversation persistence",
+  up: (db) => {
+    const tables = db.prepare(
+      `SELECT name FROM sqlite_master WHERE type='table' AND name='session_messages'`
+    ).all();
+    if (tables.length > 0) return;
+
+    db.exec(`CREATE TABLE session_messages (...)`);
+    db.exec(`CREATE INDEX ...`);
+  },
+},
+```
+
+### Drizzle Schema Pattern (follow existing)
+
+```typescript
+// In extension/src/database/local-schema.ts:
+export const sessionMessages = sqliteTable(
+  "session_messages",
+  {
+    id: text("id").primaryKey(),
+    session_id: text("session_id")
+      .notNull()
+      .references(() => agentSessions.id, { onDelete: "cascade" }),
+    message_index: integer("message_index").notNull(),
+    role: text("role").notNull(),
+    content: text("content", { mode: "json" }).notNull(),
+    token_count: integer("token_count"),
+    timestamp: text("timestamp").notNull(),
+    iteration: integer("iteration").notNull(),
+  },
+  (messages) => ({
+    sessionIdx: index("idx_messages_session").on(
+      messages.session_id,
+      messages.message_index,
+    ),
+  }),
+);
+```
+
+### Database Access Pattern (follow existing sessionRepository.ts)
+
+```typescript
+import { OrchestraDB } from "../../database/client.js";
+import * as schema from "../../database/local-schema.js";
+
+export function insertMessage(workspaceRoot: string, message: MessageInput): SessionMessage {
+  const db = OrchestraDB.getDrizzleInstance(workspaceRoot);
+  db.insert(schema.sessionMessages).values({...}).run();
+  // ...
+}
 ```
 
 ---
@@ -194,7 +278,7 @@ Task: "Add message history tab to Agent Panel in extension/src/views/agentPanel/
 
 After each phase:
 
-- Run relevant unit/integration tests
+- Run relevant unit/integration tests (`npm test` in extension/)
 - Manually test new capability (e.g., resume a session, continue a session)
 - Check database state (messages persisted, indexes working)
 - Verify performance (message insert <5ms, retrieval <500ms)
