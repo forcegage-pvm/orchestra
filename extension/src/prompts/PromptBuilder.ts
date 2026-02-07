@@ -167,6 +167,22 @@ const formattedStatus = (() => {
   }
 
   /**
+   * Build coding standards prompt for injection into all agents.
+   * Returns null if no coding-standards template exists (graceful degradation).
+   *
+   * This prompt provides project-specific coding conventions and architecture
+   * standards. It is injected as a hidden system message into every agent session.
+   */
+  buildCodingStandardsPrompt(): string | null {
+    try {
+      return this.templateLoader.render("coding-standards", {});
+    } catch {
+      // Template not found - coding standards not configured for this project
+      return null;
+    }
+  }
+
+  /**
    * Build a CODE_REVIEW_FIX_IMPLEMENT prompt for the implementor
    */
   buildCodeReviewFixImplementPrompt(
