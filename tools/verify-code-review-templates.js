@@ -12,8 +12,9 @@ Exit code: 0 on success (no diffs), 1 on difference or error
 
 import fs from 'fs';
 import path from 'path';
-import * as loaderMod from '../extension/src/prompts/TemplateLoader.js';
-const TemplateLoader = loaderMod.TemplateLoader;import * as builders from '../extension/src/prompts/promptTextBuilders.js';
+// Dynamically import TypeScript modules to avoid requiring compiled .js files
+let TemplateLoader;
+let builders;
 
 function normalize(s) {
   return s.replace(/\s+/g, ' ').trim();
@@ -24,19 +25,35 @@ function copyTemplates() {
   const src = path.join(workspaceRoot, 'templates', 'prompts');
   const dest = path.join(workspaceRoot, '.orchestra', 'templates', 'prompts');
   if (!fs.existsSync(dest)) fs.mkdirSync(dest, { recursive: true });
-  for (const file of fs.readdirSync(src)) {
-    const s = path.join(src, file);
-    const d = path.join(dest, file);
-    fs.copyFileSync(s, d);
+
+  function copyRecursiveSync(srcPath, destPath) {
+    const stat = fs.statSync(srcPath);
+    if (stat.isDirectory()) {
+      if (!fs.existsSync(destPath)) fs.mkdirSync(destPath, { recursive: true });
+      const entries = fs.readdirSync(srcPath);
+      for (const entry of entries) {
+        copyRecursiveSync(path.join(srcPath, entry), path.join(destPath, entry));
+      }
+    } else {
+      fs.copyFileSync(srcPath, destPath);
+    }
+  }
+
+  const items = fs.readdirSync(src);
+  for (const item of items) {
+    copyRecursiveSync(path.join(src, item), path.join(dest, item));
   }
 }
-
 async function run() {
   try {
     copyTemplates();
     const workspaceRoot = path.join(process.cwd(), 'extension');
-    const loader = new TemplateLoader({ workspaceRoot, devMode: true });
+    // Dynamically import TemplateLoader and builders
+    const loaderModule = await import('../extension/src/prompts/TemplateLoader.ts');
+    TemplateLoader = loaderModule.TemplateLoader ?? loaderModule.default ?? loaderModule;
+    builders = await import('../extension/src/prompts/promptTextBuilders.ts');
 
+    const loader = new TemplateLoader({ workspaceRoot, devMode: true });
     // Single task
     const sprint = { sprint_id: 's1', title: 'Sprint One' };
     const task = { task_id: 42, title: 'Implement feature X' };

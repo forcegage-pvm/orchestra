@@ -1,7 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { TemplateLoader } from "../../extension/src/prompts/TemplateLoader.js";
-import * as builders from "../../extension/src/prompts/promptTextBuilders.js";
-import * as path from "path";
+import { TemplateLoader } from "../../extension/src/prompts/TemplateLoader.ts";
+import * as builders from "../../extension/src/prompts/promptTextBuilders.ts";import * as path from "path";
 // These tests verify that the rendered templates match the original text builders
 
 describe("Code review template equivalence", () => {

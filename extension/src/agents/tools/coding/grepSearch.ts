@@ -138,9 +138,10 @@ async function grepSearchFiles(
 
     // -- Build ripgrep argument list --------------------------------------
     const args: string[] = [
-      "--json",              // Structured JSON-lines output
-      "--ignore-case",       // Case-insensitive (matches original behaviour)
-      "--max-filesize", "2M", // Skip files > 2 MB
+      "--json", // Structured JSON-lines output
+      "--ignore-case", // Case-insensitive (matches original behaviour)
+      "--max-filesize",
+      "2M", // Skip files > 2 MB
     ];
 
     // Pattern type
@@ -228,7 +229,10 @@ async function grepSearchFiles(
         // Drain any remaining buffer fragment
         if (buffer.trim() && matches.length < maxMatchResults) {
           try {
-            const msg = JSON.parse(buffer) as { type: string; data: RgMatchData };
+            const msg = JSON.parse(buffer) as {
+              type: string;
+              data: RgMatchData;
+            };
             if (msg.type === "match") {
               const data = msg.data;
               const filePath = data.path ? resolveText(data.path) : "<unknown>";
@@ -282,14 +286,11 @@ async function grepSearchFiles(
 
         const header = truncated
           ? `${matches.length} matches found (results capped at ${maxMatchResults}). Use includePattern or maxResults to narrow your search.\n`
-          : "";
+          : `${matches.length} matches found\n`;
 
         resolve(
           buildToolResult(
-            successResult(
-              TOOL_NAME,
-              header + JSON.stringify(matches, null, 2),
-            ),
+            successResult(TOOL_NAME, header + JSON.stringify(matches, null, 2)),
           ),
         );
       });
@@ -343,7 +344,7 @@ export const grepSearchTool: AgentTool<GrepSearchInput> = {
       includePattern: {
         type: "string",
         description:
-          "Search files matching this glob pattern. Will be applied to the relative path of files within the workspace. To search recursively inside a folder, use a proper glob pattern like \"src/folder/**\". Do not use | in includePattern.",
+          'Search files matching this glob pattern. Will be applied to the relative path of files within the workspace. To search recursively inside a folder, use a proper glob pattern like "src/folder/**". Do not use | in includePattern.',
       },
       maxResults: {
         type: "number",

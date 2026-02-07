@@ -45,18 +45,13 @@ async function main() {
 
   const buildersMod = await import('../extension/src/prompts/promptTextBuilders.ts');
   // Support both named and default exports
-  const bSingleFn = buildersMod.buildSingleTaskCodeReviewPromptText ?? buildersMod.default?.buildSingleTaskCodeReviewPromptText;
-  const bBulkFn = buildersMod.buildBulkCodeReviewPromptText ?? buildersMod.default?.buildBulkCodeReviewPromptText;
-  const bReFn = buildersMod.buildCodeReviewReReviewPromptText ?? buildersMod.default?.buildCodeReviewReReviewPromptText;
-
   // Single
   const sprint = { sprint_id: 's1', title: 'Sprint One' };
   const task = { task_id: 42, title: 'Implement feature X' };
   const tSingle = loader.render('code-review', { sprint, task });
 
-  console.log('buildersMod keys:', Object.keys(buildersMod));
-
-  const bSingle = bSingleFn('s1', 'Sprint One', 42, 'Implement feature X');
+  // Use exported router to obtain builder output for single task
+  const bSingle = builders.buildCodeReviewPromptText(0, 's1', 'Sprint One', { taskId: 42, title: 'Implement feature X', dbId: 101 });
   if (normalize(tSingle) !== normalize(bSingle)) {
     console.error('Single task output DIFFER:');
     console.error('TEMPLATE:\n', tSingle);
@@ -66,7 +61,7 @@ async function main() {
 
   // Bulk
   const tBulk = loader.render('code-review-bulk', { pendingCount: 5, sprint: { sprint_id: 's1', title: 'Sprint One' } });
-  const bBulk = builders.buildBulkCodeReviewPromptText(5, 's1', 'Sprint One');
+  const bBulk = builders.buildCodeReviewPromptText(5, 's1', 'Sprint One');
   if (normalize(tBulk) !== normalize(bBulk)) {
     console.error('Bulk output DIFFER:');
     console.error('TEMPLATE:\n', tBulk);
@@ -83,7 +78,6 @@ async function main() {
     console.error('\nBUILDER:\n', bRe);
     process.exit(2);
   }
-
   console.log('All templates match builders');
 }
 
