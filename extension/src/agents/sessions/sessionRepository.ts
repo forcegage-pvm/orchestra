@@ -28,6 +28,12 @@ function mapRowToSession(row: {
   ended_at: string | null;
   iteration: number;
   max_iterations: number;
+  stage?: string | null;
+  parent_session_id?: string | null;
+  attempt?: number | null;
+  is_continued?: number | null;
+  continued_at?: string | null;
+  continuation_count?: number | null;
   tool_call_count: number;
   successful_tool_calls: number;
   failed_tool_calls: number;
@@ -48,6 +54,15 @@ function mapRowToSession(row: {
     statusMessage: row.status_message ?? undefined,
     iteration: row.iteration,
     maxIterations: row.max_iterations,
+
+    // Continuation fields (may be null for legacy rows)
+    stage: (row.stage as AgentSession["stage"]) ?? undefined,
+    parentSessionId: row.parent_session_id ?? undefined,
+    attempt: row.attempt ?? 0,
+    isContinued: Boolean(row.is_continued ?? 0),
+    continuedAt: row.continued_at ?? undefined,
+    continuationCount: row.continuation_count ?? 0,
+
     toolCallCount: row.tool_call_count,
     successfulToolCalls: row.successful_tool_calls,
     failedToolCalls: row.failed_tool_calls,
@@ -58,7 +73,6 @@ function mapRowToSession(row: {
     durationMs: row.duration_ms ?? undefined,
   };
 }
-
 /**
  * Create a new agent session
  *
@@ -86,6 +100,15 @@ export function createSession(
     ended_at: session.endedAt ?? null,
     iteration: session.iteration,
     max_iterations: session.maxIterations,
+
+    // Continuation fields
+    stage: session.stage ?? null,
+    parent_session_id: session.parentSessionId ?? null,
+    attempt: session.attempt ?? 0,
+    is_continued: session.isContinued ? 1 : 0,
+    continued_at: session.continuedAt ?? null,
+    continuation_count: session.continuationCount ?? 0,
+
     tool_call_count: session.toolCallCount,
     successful_tool_calls: session.successfulToolCalls,
     failed_tool_calls: session.failedToolCalls,
@@ -93,7 +116,6 @@ export function createSession(
     files_modified: session.filesModified, // Drizzle will handle JSON serialization
     duration_ms: session.durationMs ?? null,
   };
-
   db.insert(schema.agentSessions).values(insertData).run();
 
   return {
@@ -194,6 +216,26 @@ export function updateSession(
   }
   if (updates.durationMs !== undefined) {
     updateData.duration_ms = updates.durationMs;
+  }
+
+  // Continuation fields
+  if ((updates as any).stage !== undefined) {
+    updateData.stage = (updates as any).stage;
+  }
+  if ((updates as any).parentSessionId !== undefined) {
+    updateData.parent_session_id = (updates as any).parentSessionId;
+  }
+  if ((updates as any).attempt !== undefined) {
+    updateData.attempt = (updates as any).attempt;
+  }
+  if ((updates as any).isContinued !== undefined) {
+    updateData.is_continued = (updates as any).isContinued ? 1 : 0;
+  }
+  if ((updates as any).continuedAt !== undefined) {
+    updateData.continued_at = (updates as any).continuedAt;
+  }
+  if ((updates as any).continuationCount !== undefined) {
+    updateData.continuation_count = (updates as any).continuationCount;
   }
 
   // Execute update

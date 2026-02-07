@@ -422,8 +422,81 @@ const MIGRATIONS: Migration[] = [
       );
     },
   },
-];
+  {
+    id: "20260207_001_create_session_messages",
+    description: "Create session_messages table for conversational message history",
+    up: (db) => {
+      // Check if table already exists (idempotent)
+      const tables = db
+        .prepare(
+          `SELECT name FROM sqlite_master WHERE type='table' AND name='session_messages'`
+        )
+        .all();
+      if (tables.length > 0) {
+        return;
+      }
 
+      db.exec(`
+        CREATE TABLE session_messages (
+          id TEXT PRIMARY KEY,
+          session_id TEXT NOT NULL REFERENCES agent_sessions(id) ON DELETE CASCADE,
+          message_index INTEGER NOT NULL,
+          role TEXT NOT NULL,
+          content TEXT NOT NULL,
+          token_count INTEGER,
+          timestamp TEXT NOT NULL,
+          iteration INTEGER NOT NULL DEFAULT 0
+        )
+      `);
+
+      db.exec(
+        `CREATE INDEX IF NOT EXISTS idx_messages_session ON session_messages(session_id)`
+      );
+      db.exec(
+        `CREATE INDEX IF NOT EXISTS idx_messages_session_message ON session_messages(session_id, message_index)`
+      );
+    },
+  },
+  {
+    id: "20260207_002_add_session_stage_fields",
+    description: "Add continuation and stage fields to agent_sessions table",
+    up: (db) => {
+      // Idempotent column checks
+      const columns = db.prepare(`PRAGMA table_info(agent_sessions)`).all() as {
+        name: string;
+      }[];
+
+      const hasStage = columns.some((col) => col.name === "stage");
+      const hasParentSession = columns.some((col) => col.name === "parent_session_id");
+      const hasAttempt = columns.some((col) => col.name === "attempt");
+      const hasIsContinued = columns.some((col) => col.name === "is_continued");
+      const hasContinuedAt = columns.some((col) => col.name === "continued_at");
+      const hasContinuationCount = columns.some((col) => col.name === "continuation_count");
+
+      if (!hasStage) {
+        db.exec(`ALTER TABLE agent_sessions ADD COLUMN stage TEXT`);
+      }
+      if (!hasParentSession) {
+        db.exec(`ALTER TABLE agent_sessions ADD COLUMN parent_session_id TEXT`);
+      }
+      if (!hasAttempt) {
+        db.exec(`ALTER TABLE agent_sessions ADD COLUMN attempt INTEGER NOT NULL DEFAULT 0`);
+      }
+      if (!hasIsContinued) {
+        db.exec(`ALTER TABLE agent_sessions ADD COLUMN is_continued INTEGER NOT NULL DEFAULT 0`);
+      }
+      if (!hasContinuedAt) {
+        db.exec(`ALTER TABLE agent_sessions ADD COLUMN continued_at TEXT`);
+      }
+      if (!hasContinuationCount) {
+        db.exec(`ALTER TABLE agent_sessions ADD COLUMN continuation_count INTEGER NOT NULL DEFAULT 0`);
+      }
+
+      // Index for parent session lookups
+      db.exec(`CREATE INDEX IF NOT EXISTS idx_sessions_parent ON agent_sessions(parent_session_id)`);
+    },
+  },
+];
 /**
  * Ensure the schema_migrations table exists
  */
