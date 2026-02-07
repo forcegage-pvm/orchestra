@@ -648,7 +648,7 @@ describe("AgentRunner", () => {
       expect(state?.role).toBe("orchestrator");
       expect(state?.status).toBe("running");
       expect(state?.iteration).toBeDefined();
-      expect(state?.maxIterations).toBe(80);
+      expect(state?.maxIterations).toBe(50);
       expect(state?.startedAt).toBeDefined();
       expect(state?.lastActivityAt).toBeDefined();
     });
