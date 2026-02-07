@@ -87,6 +87,8 @@ function getSearchCount(result: unknown): number | null {
   }
 
   if (typeof parsed === "object" && parsed !== null) {
+    // Direct array of matches (e.g. grep_search returns JSON array)
+    if (Array.isArray(parsed)) return parsed.length;
     const record = parsed as Record<string, unknown>;
     const directCount = record.totalMatches ?? record.count;
     if (typeof directCount === "number") return directCount;
@@ -99,7 +101,7 @@ function getSearchCount(result: unknown): number | null {
   return null;
 }
 
-function buildSearchLabel(args: unknown, result: unknown): string | null {
+function buildSearchQuery(args: unknown): string | null {
   const query = extractStringValue(args, ["query"]);
   if (!query) return null;
   const includePattern = extractStringValue(args, ["includePattern"]);
@@ -107,18 +109,17 @@ function buildSearchLabel(args: unknown, result: unknown): string | null {
   const normalizedInclude = includePattern
     ? includePattern.replace(/\s+/g, " ").trim()
     : null;
-  const truncatedQuery = truncateText(normalizedQuery, 48);
-  const truncatedInclude = normalizedInclude
-    ? truncateText(normalizedInclude, 28)
-    : null;
+  if (normalizedInclude) {
+    return `"${normalizedQuery}" in ${normalizedInclude}`;
+  }
+  return `"${normalizedQuery}"`;
+}
+
+function buildSearchCountLabel(result: unknown): string {
   const count = getSearchCount(result);
   const countValue = count ?? "?";
   const matchLabel = count === 1 ? "match" : "matches";
-  const countLabel = ` - ${countValue} ${matchLabel}`;
-  if (truncatedInclude) {
-    return `"${truncatedQuery} / ${truncatedInclude}"${countLabel}`;
-  }
-  return `"${truncatedQuery}"${countLabel}`;
+  return `${countValue} ${matchLabel}`;
 }
 
 /**
@@ -177,7 +178,7 @@ export function ToolCallCard(props: ToolCallCardProps) {
       return filePath ? getBaseName(filePath) : null;
     }
     if (toolName === "grep_search") {
-      return buildSearchLabel(props.toolCall.arguments, props.toolCall.result);
+      return buildSearchQuery(props.toolCall.arguments);
     }
     if (toolName === "run_command") {
       const command = extractStringValue(props.toolCall.arguments, ["command"]);
@@ -187,6 +188,11 @@ export function ToolCallCard(props: ToolCallCardProps) {
   };
 
   const isGrepLabel = () => props.toolCall.toolName === "grep_search";
+
+  const grepCountLabel = () => {
+    if (!isGrepLabel()) return "";
+    return buildSearchCountLabel(props.toolCall.result);
+  };
 
   const getInputDisplay = () => {
     const args = props.toolCall.arguments;
@@ -291,20 +297,27 @@ export function ToolCallCard(props: ToolCallCardProps) {
         <span class="text-xs text-gray-400 leading-none">
           {props.toolCall.toolName}
         </span>
-        <Show when={toolDetailLabel()}>
-          <span
-            class={`leading-none truncate max-w-[280px] ${
-              isGrepLabel()
-                ? "text-[10px] text-yellow-300/80"
-                : "text-xs text-gray-500"
-            }`}
-          >
+        {/* Non-grep detail label */}
+        <Show when={!isGrepLabel() && toolDetailLabel()}>
+          <span class="text-xs text-gray-500 leading-none truncate max-w-[280px]">
             {toolDetailLabel()}
           </span>
         </Show>
 
-        {/* Spacer */}
-        <div class="flex-1" />
+        {/* Grep search: query fills space (truncates), count never truncates */}
+        <Show when={isGrepLabel()}>
+          <span class="text-xs text-orange-400 leading-none truncate min-w-0 flex-1">
+            {toolDetailLabel() || ""}
+          </span>
+          <span class="text-xs text-orange-400/60 leading-none flex-shrink-0 whitespace-nowrap pl-2">
+            - {grepCountLabel()}
+          </span>
+        </Show>
+
+        {/* Spacer (not needed for grep — query is flex-1) */}
+        <Show when={!isGrepLabel()}>
+          <div class="flex-1" />
+        </Show>
 
         {/* Duration - Only on completion */}
         <Show when={isCompleted() && props.toolCall.durationMs !== undefined}>
