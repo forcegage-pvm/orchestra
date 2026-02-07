@@ -103,6 +103,100 @@ function highlightMaybeJson(value: string): string {
   }
 }
 
+/**
+ * Check if a string looks like JSON (starts with { or [)
+ */
+function isJsonString(value: string): boolean {
+  const trimmed = value.trim();
+  if (!trimmed) return false;
+  if (trimmed[0] === "{" || trimmed[0] === "[") {
+    try {
+      JSON.parse(trimmed);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+  return false;
+}
+
+/**
+ * Render plain text with markdown-like formatting to HTML.
+ * Supports: headers (##), bold (**), inline code (`), bullet lists (- ), newlines.
+ */
+function renderMarkdownText(value: string): string {
+  const lines = value.split("\n");
+  const htmlParts: string[] = [];
+  let inList = false;
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+
+    // Empty line - close list if open, add spacing
+    if (!trimmed) {
+      if (inList) {
+        htmlParts.push("</ul>");
+        inList = false;
+      }
+      htmlParts.push('<div class="md-spacer"></div>');
+      continue;
+    }
+
+    // Headers (## ... or # ...)
+    const headerMatch = trimmed.match(/^(#{1,3})\s+(.+)$/);
+    if (headerMatch) {
+      if (inList) { htmlParts.push("</ul>"); inList = false; }
+      const level = (headerMatch[1] ?? "#").length;
+      htmlParts.push(`<div class="md-h${level}">${formatInline(headerMatch[2] ?? "")}</div>`);
+      continue;
+    }
+
+    // Bullet list item (- ... or * ...)
+    const bulletMatch = trimmed.match(/^[-*]\s+(.+)$/);
+    if (bulletMatch) {
+      if (!inList) {
+        htmlParts.push('<ul class="md-list">');
+        inList = true;
+      }
+      htmlParts.push(`<li>${formatInline(bulletMatch[1] ?? "")}</li>`);
+      continue;
+    }
+
+    // Indented bullet list item (  - ...)
+    const indentedBulletMatch = trimmed.match(/^\s+[-*]\s+(.+)$/);
+    if (indentedBulletMatch) {
+      if (!inList) {
+        htmlParts.push('<ul class="md-list">');
+        inList = true;
+      }
+      htmlParts.push(`<li>${formatInline(indentedBulletMatch[1] ?? "")}</li>`);
+      continue;
+    }
+
+    // Regular text line
+    if (inList) { htmlParts.push("</ul>"); inList = false; }
+    htmlParts.push(`<p class="md-text">${formatInline(trimmed)}</p>`);
+  }
+
+  if (inList) {
+    htmlParts.push("</ul>");
+  }
+
+  return htmlParts.join("");
+}
+
+/**
+ * Format inline markdown: **bold**, `code`, \pattern → escaped
+ */
+function formatInline(text: string): string {
+  let result = escapeHtml(text);
+  // Bold: **text**
+  result = result.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  // Inline code: `text`
+  result = result.replace(/`([^`]+)`/g, '<code class="md-code">$1</code>');
+  return result;
+}
+
 function serializeForScript(value: unknown): string {
   return JSON.stringify(value).replace(/</g, "\\u003c");
 }
@@ -220,6 +314,11 @@ function renderToolResult(item: AgentOutputItem): string {
     ? `<pre class="tool-error code-block">${highlightMaybeJson(content.error)}</pre>`
     : "";
 
+  // Use markdown rendering for non-JSON text output
+  const outputHtml = isJsonString(content.output)
+    ? `<pre class="tool-output code-block">${highlightMaybeJson(content.output)}</pre>`
+    : `<div class="tool-output-markdown">${renderMarkdownText(content.output)}</div>`;
+
   return `
     <div class="output-item output-tool-result" data-id="${escapeHtml(item.id)}" id="output-${escapeHtml(item.id)}">
       <div class="output-meta">
@@ -230,7 +329,7 @@ function renderToolResult(item: AgentOutputItem): string {
       <details class="tool-result" ${content.success ? "" : "open"}>
         <summary>${escapeHtml(content.toolName)}</summary>
         <div class="tool-result-body">
-          <pre class="tool-output code-block">${highlightMaybeJson(content.output)}</pre>
+          ${outputHtml}
           ${errorBlock}
         </div>
       </details>
@@ -427,6 +526,54 @@ function getScript(initialItemsJson: string): string {
       } catch (error) {
         return highlightCode(value);
       }
+    }
+
+    function isJsonString(value) {
+      const trimmed = (value || "").trim();
+      if (!trimmed) return false;
+      if (trimmed[0] === "{" || trimmed[0] === "[") {
+        try { JSON.parse(trimmed); return true; } catch (e) { return false; }
+      }
+      return false;
+    }
+
+    function formatInline(text) {
+      var result = escapeHtml(text);
+      result = result.replace(/\\*\\*(.+?)\\*\\*/g, '<strong>' + '$1' + '</strong>');
+      var bt = String.fromCharCode(96);
+      var codeRe = new RegExp(bt + '([^' + bt + ']+)' + bt, 'g');
+      result = result.replace(codeRe, '<code class="md-code">' + '$1' + '</code>');
+      return result;
+    }
+
+    function renderMarkdownText(value) {
+      var lines = (value || "").split("\n");
+      var parts = [];
+      var inList = false;
+      for (var i = 0; i < lines.length; i++) {
+        var trimmed = lines[i].trim();
+        if (!trimmed) {
+          if (inList) { parts.push("</ul>"); inList = false; }
+          parts.push('<div class="md-spacer"></div>');
+          continue;
+        }
+        var headerMatch = trimmed.match(/^(#{1,3})\s+(.+)$/);
+        if (headerMatch) {
+          if (inList) { parts.push("</ul>"); inList = false; }
+          parts.push('<div class="md-h' + headerMatch[1].length + '">' + formatInline(headerMatch[2]) + '</div>');
+          continue;
+        }
+        var bulletMatch = trimmed.match(/^[-*]\s+(.+)$/);
+        if (bulletMatch) {
+          if (!inList) { parts.push('<ul class="md-list">'); inList = true; }
+          parts.push('<li>' + formatInline(bulletMatch[1]) + '</li>');
+          continue;
+        }
+        if (inList) { parts.push("</ul>"); inList = false; }
+        parts.push('<p class="md-text">' + formatInline(trimmed) + '</p>');
+      }
+      if (inList) { parts.push("</ul>"); }
+      return parts.join("");
     }
 
     function formatDebugInfo(debug) {
@@ -689,11 +836,18 @@ function getScript(initialItemsJson: string): string {
       const body = document.createElement("div");
       body.classList.add("tool-result-body");
 
-      const output = document.createElement("pre");
-      output.classList.add("tool-output", "code-block");
-      output.innerHTML = highlightMaybeJson(item.content.output);
-
-      body.appendChild(output);
+      // Use markdown rendering for non-JSON text output
+      if (isJsonString(item.content.output || "")) {
+        const output = document.createElement("pre");
+        output.classList.add("tool-output", "code-block");
+        output.innerHTML = highlightMaybeJson(item.content.output);
+        body.appendChild(output);
+      } else {
+        const output = document.createElement("div");
+        output.classList.add("tool-output-markdown");
+        output.innerHTML = renderMarkdownText(item.content.output || "");
+        body.appendChild(output);
+      }
 
       if (item.content.error) {
         const errorBlock = document.createElement("pre");

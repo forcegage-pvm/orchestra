@@ -105,7 +105,7 @@ export interface HandoverValidationResult {
  * @returns Validation result with violations list
  */
 export function validateHandoverContext(
-  context: string | undefined
+  context: string | undefined,
 ): HandoverValidationResult {
   const violations: string[] = [];
 
@@ -117,7 +117,7 @@ export function validateHandoverContext(
   for (const pattern of FORBIDDEN_PATTERNS.SPEC_REFERENCES) {
     if (pattern.test(context)) {
       violations.push(
-        `Context contains spec file reference matching pattern: ${pattern.source}`
+        `Context contains spec file reference matching pattern: ${pattern.source}`,
       );
     }
   }
@@ -126,7 +126,7 @@ export function validateHandoverContext(
   for (const pattern of FORBIDDEN_PATTERNS.TASK_REFERENCES) {
     if (pattern.test(context)) {
       violations.push(
-        `Context contains task reference matching pattern: ${pattern.source}`
+        `Context contains task reference matching pattern: ${pattern.source}`,
       );
     }
   }
@@ -135,7 +135,7 @@ export function validateHandoverContext(
   for (const pattern of FORBIDDEN_PATTERNS.SPRINT_REFERENCES) {
     if (pattern.test(context)) {
       violations.push(
-        `Context contains sprint structure reference matching pattern: ${pattern.source}`
+        `Context contains sprint structure reference matching pattern: ${pattern.source}`,
       );
     }
   }
@@ -160,7 +160,7 @@ export function validateHandoverContext(
  * @returns Validation result with violations list
  */
 export function validateContextFiles(
-  contextFiles: string[] | undefined
+  contextFiles: string[] | undefined,
 ): HandoverValidationResult {
   const violations: string[] = [];
 
@@ -172,7 +172,7 @@ export function validateContextFiles(
     for (const pattern of FORBIDDEN_PATTERNS.FORBIDDEN_PATHS) {
       if (pattern.test(file)) {
         violations.push(
-          `context_files contains forbidden path: ${file} (matches pattern: ${pattern.source})`
+          `context_files contains forbidden path: ${file} (matches pattern: ${pattern.source})`,
         );
       }
     }
@@ -196,7 +196,7 @@ export function validateContextFiles(
  */
 export function validateHandoverIsolation(
   context: string | undefined,
-  contextFiles: string[] | undefined
+  contextFiles: string[] | undefined,
 ): void {
   const contextResult = validateHandoverContext(context);
   const filesResult = validateContextFiles(contextFiles);
@@ -208,10 +208,13 @@ export function validateHandoverIsolation(
 
   if (allViolations.length > 0) {
     const errorMessage =
-      `Information isolation violation: Handover contains forbidden content.\n\n` +
-      `TRUST BOUNDARY: Implementor must NOT see spec files, task lists, sprint structure, or verification criteria.\n\n` +
-      `Violations:\n${allViolations.map((v) => `  - ${v}`).join("\n")}\n\n` +
-      `ACTION REQUIRED: Extract relevant content into the context field instead of referencing forbidden files.`;
+      `## Information Isolation Violation\n\n` +
+      `Handover contains forbidden content.\n\n` +
+      `**TRUST BOUNDARY**: Implementor must NOT see spec files, task lists, sprint structure, or verification criteria.\n\n` +
+      `### Violations\n\n` +
+      `${allViolations.map((v) => `- ${v}`).join("\n")}\n\n` +
+      `### Action Required\n\n` +
+      `Extract relevant content into the \`context\` field instead of referencing forbidden files.`;
 
     throw new Error(errorMessage);
   }

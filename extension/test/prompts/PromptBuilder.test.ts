@@ -184,4 +184,52 @@ describe("PromptBuilder", () => {
     });
     expect(result).toBe("re-review output");
   });
+
+  it("should call TemplateLoader.render for code review fix prompt (openIssueCount)", () => {
+    const render = vi.fn().mockReturnValue("code review fix output");
+    const templateLoader = { render } as TemplateLoader;
+    const builder = new PromptBuilder({ templateLoader });
+
+    const result = builder.buildCodeReviewFixPrompt(3, "sprint-002", "Sprint Two");
+
+    expect(render).toHaveBeenCalledWith("code-review-fix", {
+      openIssueCount: 3,
+      sprint: { sprint_id: "sprint-002", title: "Sprint Two" },
+    });
+    expect(result).toBe("code review fix output");
+  });
+
+  it("should format status and include summary for code review fix prepare prompt", () => {
+    const render = vi.fn().mockReturnValue("code review fix prepare output");
+    const templateLoader = { render } as TemplateLoader;
+    const builder = new PromptBuilder({ templateLoader });
+
+    const context: PromptContext = { ...baseContext } as any;
+    const review = { status: "CHANGES_REQUESTED", summary: "Please fix X" } as any;
+
+    const result = builder.buildCodeReviewFixPreparePrompt(context, review);
+
+    expect(render).toHaveBeenCalledWith("code-review-fix-prepare", expect.objectContaining({
+      ...context,
+      codeReview: { status: "CHANGES REQUESTED", summary: "Please fix X" },
+    }));
+    expect(result).toBe("code review fix prepare output");
+  });
+
+  it("should format status and omit summary when not provided for code review fix implement prompt", () => {
+    const render = vi.fn().mockReturnValue("code review fix implement output");
+    const templateLoader = { render } as TemplateLoader;
+    const builder = new PromptBuilder({ templateLoader });
+
+    const context: PromptContext = { ...baseContext } as any;
+    const review = { status: "APPROVED" } as any;
+
+    const result = builder.buildCodeReviewFixImplementPrompt(context, review);
+
+    expect(render).toHaveBeenCalledWith("code-review-fix-implement", expect.objectContaining({
+      ...context,
+      codeReview: { status: "APPROVED" },
+    }));
+    expect(result).toBe("code review fix implement output");
+  });
 });
