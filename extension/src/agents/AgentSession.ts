@@ -9,6 +9,7 @@
 
 import * as fs from "fs";
 import * as path from "path";
+import { insertMessage } from "./sessions/sessionMessageRepository.js";
 import { SessionError } from "./errors.js";
 import {
   AgentMessage,
@@ -67,6 +68,9 @@ export class AgentSession {
   // Recovery
   public recoveryInfo: RecoveryInfo;
 
+  // Persistence
+  private persistence?: { workspaceRoot: string; sessionId: string };
+
   /**
    * Create a new AgentSession
    *
@@ -112,6 +116,16 @@ export class AgentSession {
   }
 
   /**
+   * Enable persistence for this session
+   *
+   * @param workspaceRoot - Workspace root for database access
+   * @param sessionId - Database session ID
+   */
+  enablePersistence(workspaceRoot: string, sessionId: string): void {
+    this.persistence = { workspaceRoot, sessionId };
+  }
+
+  /**
    * Add a message to the conversation history
    *
    * @param message - The message to add
@@ -119,6 +133,66 @@ export class AgentSession {
   addMessage(message: AgentMessage): void {
     this.messages.push(message);
     this.updateActivityTimestamp();
+
+    // Fire-and-forget persistence if enabled
+    if (this.persistence) {
+      const { workspaceRoot, sessionId } = this.persistence;
+
+      // Wrap in Promise for non-blocking execution (fire-and-forget)
+      Promise.resolve()
+        .then(() => {
+          try {
+            const toolCallIds = this.extractToolCallIds(message.content);
+
+            insertMessage(workspaceRoot, {
+              session_id: sessionId,
+              role: message.role,
+              content: message.content,
+              iteration: message.iteration,
+              toolCallIds,
+            });
+          } catch (error) {
+            // Log warning but never throw - persistence failure shouldn't crash the agent
+            console.warn(
+              `[AgentSession] Failed to persist message: ${
+                error instanceof Error ? error.message : String(error)
+              }`,
+            );
+          }
+        })
+        .catch((error) => {
+          // Catch any async errors
+          console.warn(
+            `[AgentSession] Failed to persist message (async): ${
+              error instanceof Error ? error.message : String(error)
+            }`,
+          );
+        });
+    }
+  }
+
+  /**
+   * Extract tool call IDs from message content
+   */
+  private extractToolCallIds(content: unknown): string[] | undefined {
+    if (!Array.isArray(content)) {
+      return undefined;
+    }
+
+    const ids: string[] = [];
+    for (const part of content) {
+      if (
+        typeof part === "object" &&
+        part !== null &&
+        "type" in part &&
+        part.type === "toolCall" &&
+        "toolCallId" in part
+      ) {
+        ids.push(part.toolCallId as string);
+      }
+    }
+
+    return ids.length > 0 ? ids : undefined;
   }
 
   /**

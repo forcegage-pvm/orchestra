@@ -573,6 +573,10 @@ export class AgentRunner implements vscode.Disposable {
         filesModified: [],
         durationMs: undefined,
       });
+
+      // Enable persistence for message capture
+      this.session.enablePersistence(workspaceRoot, dbSession.sessionId);
+
       this.eventEmitter = new SessionEventEmitter(
         workspaceRoot,
         dbSession.sessionId,
