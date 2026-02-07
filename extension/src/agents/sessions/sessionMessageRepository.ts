@@ -8,12 +8,23 @@
  * - OrchestraDB.getDrizzleInstance(workspaceRoot) for DB access
  * - schema.* table references
  * - camelCase↔snake_case field mapping
+ *
+ * Content format supports AgentMessage types from agents/types.ts:
+ * - Plain string content
+ * - Structured MessageContentPart[] arrays (text, toolCall, toolResult)
+ * - toolCallIds array for linking assistant messages to tool calls (FR-003b)
+ *
+ * Token estimation uses injectable callback matching ContextManager.estimateTokens()
+ * heuristic (4 chars ≈ 1 token) per DD-007.
  */
 
 import { randomUUID } from "crypto";
 import { asc, eq, sql } from "drizzle-orm";
 import { OrchestraDB } from "../../database/client.js";
 import * as schema from "../../database/local-schema.js";
+import type {
+  MessageContentPart as AgentMessageContentPart,
+} from "../types.js";
 
 // ============================================================================
 // Types
@@ -25,12 +36,15 @@ import * as schema from "../../database/local-schema.js";
 export type MessageRole = "system" | "user" | "assistant";
 
 /**
- * Content part for structured messages (tool calls, attachments, results)
+ * Content part for structured messages - re-exports the canonical type
+ * from agents/types.ts for compatibility with AgentMessage format.
+ *
+ * Supports:
+ * - { type: "text", value: string }
+ * - { type: "toolCall", toolCallId: string, name: string, input: Record<string, unknown> }
+ * - { type: "toolResult", toolCallId: string, value: string }
  */
-export interface MessageContentPart {
-  type: "text" | "data" | "tool_call" | "tool_result";
-  value: string | object;
-}
+export type MessageContentPart = AgentMessageContentPart;
 
 /**
  * Message content - either plain text or structured parts array
@@ -49,6 +63,7 @@ export interface SessionMessage {
   token_count: number | null; // Estimated tokens
   timestamp: string; // ISO 8601
   iteration: number; // Agent iteration when message sent
+  toolCallIds?: string[]; // Tool call IDs linked to this message (FR-003b)
 }
 
 /**
@@ -60,6 +75,7 @@ export interface MessageInput {
   content: MessageContent;
   iteration: number;
   token_count?: number; // Optional - auto-calculated if not provided
+  toolCallIds?: string[]; // Tool call IDs for assistant messages (FR-003b)
 }
 
 /**
@@ -83,68 +99,113 @@ export interface MessagePaginationOptions {
   limit?: number; // Default: unlimited
 }
 
+/**
+ * Token estimator callback type.
+ * Accepts message content and returns estimated token count.
+ * Default implementation uses 4-chars-per-token heuristic matching
+ * ContextManager.estimateTokens().
+ */
+export type TokenEstimator = (content: MessageContent) => number;
+
 // ============================================================================
 // Internal Helpers
 // ============================================================================
 
 /**
- * Estimate token count for message content.
+ * Default token estimator matching ContextManager.estimateTokens() heuristic.
  *
  * Uses the heuristic: 4 characters ≈ 1 token for English text.
- * This matches the ContextManager.estimateTokens() approach.
+ * Accounts for message structure overhead per DD-007.
  *
  * @param content Message content (string or parts array)
- * @returns Estimated token count, or null if content is empty
+ * @returns Estimated token count
  */
-function estimateTokenCount(content: MessageContent): number | null {
+export function defaultTokenEstimator(content: MessageContent): number {
   let charCount = 0;
 
   if (typeof content === "string") {
     charCount = content.length;
   } else if (Array.isArray(content)) {
     for (const part of content) {
-      if (typeof part.value === "string") {
-        charCount += part.value.length;
-      } else {
-        charCount += JSON.stringify(part.value).length;
+      switch (part.type) {
+        case "text":
+          charCount += part.value.length;
+          break;
+        case "toolCall":
+          // Structure overhead + ID (matches ContextManager pattern)
+          charCount += 50 + part.toolCallId.length;
+          break;
+        case "toolResult":
+          // Structure + ID + result value (matches ContextManager pattern)
+          charCount += 50 + part.toolCallId.length + part.value.length;
+          break;
       }
-      // Type overhead
-      charCount += part.type.length + 10;
     }
   }
 
-  if (charCount === 0) {
-    return null;
-  }
-
-  // 4 characters ≈ 1 token + message structure overhead
-  return Math.ceil(charCount / 4) + 4;
+  // Convert characters to tokens (4 chars ≈ 1 token)
+  return Math.ceil(charCount / 4);
 }
 
 /**
  * Serialize message content for storage in database JSON column.
+ * Stores the content structure as JSON, with toolCallIds embedded if present.
  */
-function serializeContent(content: MessageContent): string {
+function serializeContent(content: MessageContent, toolCallIds?: string[]): string {
+  // If toolCallIds present, wrap content in an envelope
+  if (toolCallIds && toolCallIds.length > 0) {
+    return JSON.stringify({
+      __content: content,
+      __toolCallIds: toolCallIds,
+    });
+  }
   return JSON.stringify(content);
 }
 
 /**
  * Deserialize message content from database JSON column.
+ * Returns { content, toolCallIds } tuple.
  */
-function deserializeContent(json: unknown): MessageContent {
-  // Drizzle json mode may already parse the JSON
-  if (typeof json === "string") {
+function deserializeContent(json: unknown): { content: MessageContent; toolCallIds?: string[] } {
+  let parsed: unknown = json;
+
+  // If it's a string, parse it
+  if (typeof parsed === "string") {
     try {
-      return JSON.parse(json) as MessageContent;
+      parsed = JSON.parse(parsed);
     } catch {
-      return json;
+      return { content: parsed as string };
     }
   }
-  // Already parsed by Drizzle (array or string)
-  if (Array.isArray(json)) {
-    return json as MessageContentPart[];
+
+  // Check for envelope format with toolCallIds
+  if (
+    parsed !== null &&
+    typeof parsed === "object" &&
+    !Array.isArray(parsed) &&
+    "__content" in (parsed as Record<string, unknown>)
+  ) {
+    const envelope = parsed as { __content: MessageContent; __toolCallIds?: string[] };
+    const result: { content: MessageContent; toolCallIds?: string[] } = {
+      content: envelope.__content,
+    };
+    if (envelope.__toolCallIds && envelope.__toolCallIds.length > 0) {
+      result.toolCallIds = envelope.__toolCallIds;
+    }
+    return result;
   }
-  return String(json);
+
+  // Already parsed by Drizzle (array or string)
+  if (Array.isArray(parsed)) {
+    return { content: parsed as MessageContentPart[] };
+  }
+
+  // If it's a plain string value from JSON parse
+  if (typeof parsed === "string") {
+    return { content: parsed };
+  }
+
+  return { content: String(parsed) };
 }
 
 /**
@@ -160,16 +221,25 @@ function mapRowToMessage(row: {
   timestamp: string;
   iteration: number;
 }): SessionMessage {
-  return {
+  const { content, toolCallIds } = deserializeContent(row.content);
+
+  const message: SessionMessage = {
     id: row.id,
     session_id: row.session_id,
     message_index: row.message_index,
     role: row.role as MessageRole,
-    content: deserializeContent(row.content),
+    content,
     token_count: row.token_count,
     timestamp: row.timestamp,
     iteration: row.iteration,
   };
+
+  // Conditionally add toolCallIds (exactOptionalPropertyTypes compliance)
+  if (toolCallIds && toolCallIds.length > 0) {
+    message.toolCallIds = toolCallIds;
+  }
+
+  return message;
 }
 
 // ============================================================================
@@ -182,17 +252,21 @@ function mapRowToMessage(row: {
  * Automatically:
  * - Generates a UUID id
  * - Calculates the next message_index (MAX(message_index)+1 for session, or 0)
- * - Estimates token_count if not provided
- * - Stores content as JSON
+ *   ensuring monotonic, gap-free sequences per NFR-005
+ * - Estimates token_count if not provided (using tokenEstimator callback)
+ * - Stores content as JSON (supports string | MessageContentPart[])
+ * - Stores toolCallIds for linking assistant messages to tool calls (FR-003b)
  * - Sets timestamp to current ISO time
  *
  * @param workspaceRoot Workspace root directory
  * @param message Message data with session_id and content
+ * @param tokenEstimator Optional callback for token estimation (defaults to 4-chars-per-token heuristic)
  * @returns Created message with generated ID and message_index
  */
 export function insertMessage(
   workspaceRoot: string,
   message: MessageInput,
+  tokenEstimator: TokenEstimator = defaultTokenEstimator,
 ): SessionMessage {
   const db = OrchestraDB.getDrizzleInstance(workspaceRoot);
 
@@ -200,6 +274,7 @@ export function insertMessage(
   const timestamp = new Date().toISOString();
 
   // Calculate next message_index using SQL MAX
+  // This ensures monotonic, gap-free sequences within a session (NFR-005)
   const maxResult = db
     .select({ maxIndex: sql<number | null>`MAX(${schema.sessionMessages.message_index})` })
     .from(schema.sessionMessages)
@@ -212,9 +287,9 @@ export function insertMessage(
   // Estimate token count if not provided
   const tokenCount = message.token_count !== undefined
     ? message.token_count
-    : estimateTokenCount(message.content);
+    : tokenEstimator(message.content);
 
-  const serializedContent = serializeContent(message.content);
+  const serializedContent = serializeContent(message.content, message.toolCallIds);
 
   const insertData = {
     id,
@@ -229,7 +304,7 @@ export function insertMessage(
 
   db.insert(schema.sessionMessages).values(insertData).run();
 
-  return {
+  const result: SessionMessage = {
     id,
     session_id: message.session_id,
     message_index: messageIndex,
@@ -239,6 +314,13 @@ export function insertMessage(
     timestamp,
     iteration: message.iteration,
   };
+
+  // Conditionally add toolCallIds (exactOptionalPropertyTypes compliance)
+  if (message.toolCallIds && message.toolCallIds.length > 0) {
+    result.toolCallIds = message.toolCallIds;
+  }
+
+  return result;
 }
 
 /**
@@ -344,7 +426,8 @@ export function getSessionStats(
  * Delete all messages for a session.
  *
  * NOTE: This is typically handled automatically by CASCADE DELETE
- * when the parent session is deleted. Use this for programmatic cleanup.
+ * when the parent session is deleted. Use this for programmatic cleanup
+ * when messages need to be cleared without deleting the session (FR-004).
  *
  * @param workspaceRoot Workspace root directory
  * @param sessionId Session UUID
@@ -368,7 +451,9 @@ export function deleteMessagesForSession(
  * Copy all messages from one session to another.
  *
  * Used for session continuation — copies parent messages to child session
- * with new UUIDs but preserving message_index order and all other field values.
+ * with new UUIDs but preserving message_index order, content, role, token_count,
+ * iteration, and toolCallIds. Source (parent) session messages remain completely
+ * unmodified after copy (DD-002 immutability guarantee).
  *
  * @param workspaceRoot Workspace root directory
  * @param sourceSessionId Source session UUID
@@ -394,7 +479,8 @@ export function copyMessages(
     return 0;
   }
 
-  // Insert copies with new UUIDs and target session_id
+  // Insert copies with new UUIDs and target session_id in a transaction
+  // Content is kept as raw DB value (already serialized JSON) to preserve exact format
   db.transaction(() => {
     for (const msg of sourceMessages) {
       db.insert(schema.sessionMessages)

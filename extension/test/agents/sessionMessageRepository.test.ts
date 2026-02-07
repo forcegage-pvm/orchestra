@@ -5,7 +5,7 @@
  * Tests insertMessage, getSessionMessages, getSessionStats,
  * deleteMessagesForSession, and copyMessages.
  *
- * These tests use in-memory SQLite database to verify the functions work correctly
+ * These tests use file-based SQLite database to verify the functions work correctly
  * without requiring a full Orchestra workspace setup.
  *
  * Note: These tests require the Node.js-compiled better-sqlite3 module.
@@ -59,6 +59,7 @@ if (!moduleCompatible) {
     getSessionStats,
     deleteMessagesForSession,
     copyMessages,
+    defaultTokenEstimator,
   } = await import(
     "../../../src/agents/sessions/sessionMessageRepository.js"
   );
@@ -228,8 +229,11 @@ if (!moduleCompatible) {
       fs.rmSync(testWorkspaceRoot, { recursive: true, force: true });
     });
 
+    // =====================================================================
+    // insertMessage
+    // =====================================================================
     describe("insertMessage", () => {
-      it("should insert a message and return it with generated ID and message_index 0", () => {
+      it("should insert a message and return it with generated UUID and message_index 0", () => {
         insertTestTask(1);
         insertTestSession("session-1", 1);
 
@@ -242,15 +246,21 @@ if (!moduleCompatible) {
 
         expect(message.id).toBeDefined();
         expect(message.id.length).toBeGreaterThan(0);
+        // Verify UUID format
+        expect(message.id).toMatch(
+          /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/,
+        );
         expect(message.session_id).toBe("session-1");
         expect(message.message_index).toBe(0);
         expect(message.role).toBe("user");
         expect(message.content).toBe("Implement feature X");
         expect(message.iteration).toBe(1);
         expect(message.timestamp).toBeDefined();
+        // Verify ISO timestamp format
+        expect(() => new Date(message.timestamp)).not.toThrow();
       });
 
-      it("should auto-increment message_index for subsequent messages", () => {
+      it("should auto-increment message_index for subsequent messages (0-based, gap-free)", () => {
         insertTestTask(1);
         insertTestSession("session-1", 1);
 
@@ -278,19 +288,23 @@ if (!moduleCompatible) {
         expect(msg3.message_index).toBe(2);
       });
 
-      it("should auto-estimate token_count when not provided", () => {
+      it("should auto-estimate token_count when not provided using default estimator", () => {
         insertTestTask(1);
         insertTestSession("session-1", 1);
 
+        const content = "Hello world, this is a test message with enough characters to have some tokens";
         const message = insertMessage(testWorkspaceRoot, {
           session_id: "session-1",
           role: "user",
-          content: "Hello world, this is a test message with enough characters to have some tokens",
+          content,
           iteration: 1,
         });
 
         expect(message.token_count).toBeGreaterThan(0);
         expect(message.token_count).not.toBeNull();
+        // Verify it matches ContextManager's 4-chars-per-token heuristic
+        const expectedTokens = Math.ceil(content.length / 4);
+        expect(message.token_count).toBe(expectedTokens);
       });
 
       it("should use provided token_count when given", () => {
@@ -308,13 +322,56 @@ if (!moduleCompatible) {
         expect(message.token_count).toBe(42);
       });
 
-      it("should store structured content as JSON", () => {
+      it("should accept custom tokenEstimator callback", () => {
+        insertTestTask(1);
+        insertTestSession("session-1", 1);
+
+        const customEstimator = (_content: string | unknown[]) => 999;
+
+        const message = insertMessage(
+          testWorkspaceRoot,
+          {
+            session_id: "session-1",
+            role: "user",
+            content: "Test",
+            iteration: 1,
+          },
+          customEstimator,
+        );
+
+        expect(message.token_count).toBe(999);
+      });
+
+      it("should store plain string content and retrieve it correctly", () => {
+        insertTestTask(1);
+        insertTestSession("session-1", 1);
+
+        const message = insertMessage(testWorkspaceRoot, {
+          session_id: "session-1",
+          role: "user",
+          content: "Hello, I need help with a task",
+          iteration: 1,
+        });
+
+        expect(message.content).toBe("Hello, I need help with a task");
+
+        // Verify round-trip through database
+        const retrieved = getSessionMessages(testWorkspaceRoot, "session-1");
+        expect(retrieved[0].content).toBe("Hello, I need help with a task");
+      });
+
+      it("should store structured MessageContentPart[] with toolCall parts (DD-001a)", () => {
         insertTestTask(1);
         insertTestSession("session-1", 1);
 
         const structuredContent = [
-          { type: "text" as const, value: "Here is a response" },
-          { type: "tool_call" as const, value: { name: "read_file", args: { path: "test.ts" } } },
+          { type: "text" as const, value: "I'll read the file for you" },
+          {
+            type: "toolCall" as const,
+            toolCallId: "tc-001",
+            name: "read_file",
+            input: { path: "src/main.ts" },
+          },
         ];
 
         const message = insertMessage(testWorkspaceRoot, {
@@ -322,12 +379,82 @@ if (!moduleCompatible) {
           role: "assistant",
           content: structuredContent,
           iteration: 1,
+          toolCallIds: ["tc-001"],
         });
 
         expect(message.content).toEqual(structuredContent);
+        expect(message.toolCallIds).toEqual(["tc-001"]);
+
+        // Verify round-trip through database
+        const retrieved = getSessionMessages(testWorkspaceRoot, "session-1");
+        expect(retrieved[0].content).toEqual(structuredContent);
+        expect(retrieved[0].toolCallIds).toEqual(["tc-001"]);
       });
 
-      it("should generate unique IDs for each message", () => {
+      it("should store structured MessageContentPart[] with toolResult parts (DD-001a)", () => {
+        insertTestTask(1);
+        insertTestSession("session-1", 1);
+
+        const toolResultContent = [
+          {
+            type: "toolResult" as const,
+            toolCallId: "tc-001",
+            value: "File contents: export function main() {}",
+          },
+        ];
+
+        const message = insertMessage(testWorkspaceRoot, {
+          session_id: "session-1",
+          role: "user",
+          content: toolResultContent,
+          iteration: 1,
+        });
+
+        expect(message.content).toEqual(toolResultContent);
+
+        // Verify round-trip through database
+        const retrieved = getSessionMessages(testWorkspaceRoot, "session-1");
+        expect(retrieved[0].content).toEqual(toolResultContent);
+        // toolResult messages should not have toolCallIds
+        expect(retrieved[0].toolCallIds).toBeUndefined();
+      });
+
+      it("should store toolCallIds array for assistant messages with tool calls (FR-003b)", () => {
+        insertTestTask(1);
+        insertTestSession("session-1", 1);
+
+        const content = [
+          { type: "text" as const, value: "Let me help" },
+          {
+            type: "toolCall" as const,
+            toolCallId: "tc-100",
+            name: "read_file",
+            input: { path: "a.ts" },
+          },
+          {
+            type: "toolCall" as const,
+            toolCallId: "tc-101",
+            name: "write_file",
+            input: { path: "b.ts", content: "code" },
+          },
+        ];
+
+        const message = insertMessage(testWorkspaceRoot, {
+          session_id: "session-1",
+          role: "assistant",
+          content,
+          iteration: 1,
+          toolCallIds: ["tc-100", "tc-101"],
+        });
+
+        expect(message.toolCallIds).toEqual(["tc-100", "tc-101"]);
+
+        // Verify round-trip
+        const retrieved = getSessionMessages(testWorkspaceRoot, "session-1");
+        expect(retrieved[0].toolCallIds).toEqual(["tc-100", "tc-101"]);
+      });
+
+      it("should generate unique UUIDs for each message", () => {
         insertTestTask(1);
         insertTestSession("session-1", 1);
 
@@ -346,8 +473,28 @@ if (!moduleCompatible) {
 
         expect(msg1.id).not.toBe(msg2.id);
       });
+
+      it("should set ISO timestamp on creation", () => {
+        insertTestTask(1);
+        insertTestSession("session-1", 1);
+
+        const before = new Date().toISOString();
+        const message = insertMessage(testWorkspaceRoot, {
+          session_id: "session-1",
+          role: "user",
+          content: "Test",
+          iteration: 0,
+        });
+        const after = new Date().toISOString();
+
+        expect(message.timestamp >= before).toBe(true);
+        expect(message.timestamp <= after).toBe(true);
+      });
     });
 
+    // =====================================================================
+    // getSessionMessages
+    // =====================================================================
     describe("getSessionMessages", () => {
       it("should return messages ordered by message_index ascending", () => {
         insertTestTask(1);
@@ -399,7 +546,7 @@ if (!moduleCompatible) {
         expect(messages).toEqual([]);
       });
 
-      it("should support limit pagination", () => {
+      it("should support limit-only pagination", () => {
         insertTestTask(1);
         insertTestSession("session-1", 1);
 
@@ -420,7 +567,7 @@ if (!moduleCompatible) {
         expect(messages[2].message_index).toBe(2);
       });
 
-      it("should support offset pagination", () => {
+      it("should support offset-only pagination", () => {
         insertTestTask(1);
         insertTestSession("session-1", 1);
 
@@ -470,14 +617,15 @@ if (!moduleCompatible) {
         const structuredContent = [
           { type: "text" as const, value: "Response text" },
           {
-            type: "tool_result" as const,
-            value: { output: "file contents" },
+            type: "toolResult" as const,
+            toolCallId: "tc-42",
+            value: "file contents here",
           },
         ];
 
         insertMessage(testWorkspaceRoot, {
           session_id: "session-1",
-          role: "assistant",
+          role: "user",
           content: structuredContent,
           iteration: 1,
         });
@@ -511,8 +659,11 @@ if (!moduleCompatible) {
       });
     });
 
+    // =====================================================================
+    // getSessionStats
+    // =====================================================================
     describe("getSessionStats", () => {
-      it("should return correct aggregated statistics", () => {
+      it("should return correct aggregated statistics with mixed roles", () => {
         insertTestTask(1);
         insertTestSession("session-1", 1);
 
@@ -592,7 +743,6 @@ if (!moduleCompatible) {
         insertTestTask(1);
         insertTestSession("session-1", 1);
 
-        // Insert one message with explicit token count and one without
         insertMessage(testWorkspaceRoot, {
           session_id: "session-1",
           role: "user",
@@ -605,8 +755,37 @@ if (!moduleCompatible) {
         expect(stats.totalTokens).toBe(10);
         expect(stats.messageCount).toBe(1);
       });
+
+      it("should compute correct first and last timestamps", () => {
+        insertTestTask(1);
+        insertTestSession("session-1", 1);
+
+        // Insert messages - timestamps are auto-generated but sequential
+        const msg1 = insertMessage(testWorkspaceRoot, {
+          session_id: "session-1",
+          role: "user",
+          content: "First",
+          iteration: 0,
+          token_count: 5,
+        });
+
+        const msg2 = insertMessage(testWorkspaceRoot, {
+          session_id: "session-1",
+          role: "assistant",
+          content: "Last",
+          iteration: 1,
+          token_count: 5,
+        });
+
+        const stats = getSessionStats(testWorkspaceRoot, "session-1");
+        expect(stats.firstMessageTimestamp).toBe(msg1.timestamp);
+        expect(stats.lastMessageTimestamp).toBe(msg2.timestamp);
+      });
     });
 
+    // =====================================================================
+    // deleteMessagesForSession
+    // =====================================================================
     describe("deleteMessagesForSession", () => {
       it("should delete all messages for a session and return count", () => {
         insertTestTask(1);
@@ -652,7 +831,15 @@ if (!moduleCompatible) {
         expect(deletedCount).toBe(0);
       });
 
-      it("should not delete messages from other sessions", () => {
+      it("should return 0 for non-existent session", () => {
+        const deletedCount = deleteMessagesForSession(
+          testWorkspaceRoot,
+          "non-existent-session",
+        );
+        expect(deletedCount).toBe(0);
+      });
+
+      it("should not delete messages from other sessions (session isolation)", () => {
         insertTestTask(1);
         insertTestSession("session-1", 1);
         insertTestSession("session-2", 1);
@@ -677,9 +864,13 @@ if (!moduleCompatible) {
           "session-2",
         );
         expect(session2Messages).toHaveLength(1);
+        expect(session2Messages[0].content).toBe("Session 2 message");
       });
     });
 
+    // =====================================================================
+    // copyMessages
+    // =====================================================================
     describe("copyMessages", () => {
       it("should copy all messages from source to target session with new UUIDs", () => {
         insertTestTask(1);
@@ -773,7 +964,12 @@ if (!moduleCompatible) {
 
         const structuredContent = [
           { type: "text" as const, value: "Response text" },
-          { type: "tool_call" as const, value: { name: "write_file" } },
+          {
+            type: "toolCall" as const,
+            toolCallId: "tc-42",
+            name: "write_file",
+            input: { path: "out.ts", content: "code" },
+          },
         ];
 
         insertMessage(testWorkspaceRoot, {
@@ -781,6 +977,7 @@ if (!moduleCompatible) {
           role: "assistant",
           content: structuredContent,
           iteration: 1,
+          toolCallIds: ["tc-42"],
         });
 
         copyMessages(testWorkspaceRoot, "source-session", "target-session");
@@ -791,9 +988,31 @@ if (!moduleCompatible) {
         );
         expect(targetMessages).toHaveLength(1);
         expect(targetMessages[0].content).toEqual(structuredContent);
+        expect(targetMessages[0].toolCallIds).toEqual(["tc-42"]);
       });
 
-      it("should not modify source messages during copy", () => {
+      it("should preserve iteration field during copy", () => {
+        insertTestTask(1);
+        insertTestSession("source-session", 1);
+        insertTestSession("target-session", 1);
+
+        insertMessage(testWorkspaceRoot, {
+          session_id: "source-session",
+          role: "user",
+          content: "From iteration 5",
+          iteration: 5,
+        });
+
+        copyMessages(testWorkspaceRoot, "source-session", "target-session");
+
+        const targetMessages = getSessionMessages(
+          testWorkspaceRoot,
+          "target-session",
+        );
+        expect(targetMessages[0].iteration).toBe(5);
+      });
+
+      it("should NOT modify source messages after copy (DD-002 immutability)", () => {
         insertTestTask(1);
         insertTestSession("source-session", 1);
         insertTestSession("target-session", 1);
@@ -803,21 +1022,388 @@ if (!moduleCompatible) {
           role: "user",
           content: "Original message",
           iteration: 1,
+          token_count: 10,
+        });
+        insertMessage(testWorkspaceRoot, {
+          session_id: "source-session",
+          role: "assistant",
+          content: "Original response",
+          iteration: 1,
+          token_count: 15,
         });
 
-        copyMessages(testWorkspaceRoot, "source-session", "target-session");
-
-        const sourceMessages = getSessionMessages(
+        // Snapshot source state BEFORE copy
+        const sourceBeforeCopy = getSessionMessages(
           testWorkspaceRoot,
           "source-session",
         );
-        expect(sourceMessages).toHaveLength(1);
-        expect(sourceMessages[0].content).toBe("Original message");
+        const sourceIdsBefore = sourceBeforeCopy.map((m) => m.id);
+        const sourceContentBefore = sourceBeforeCopy.map((m) => m.content);
+        const sourceCountBefore = sourceBeforeCopy.length;
+
+        // Perform copy
+        copyMessages(testWorkspaceRoot, "source-session", "target-session");
+
+        // Verify source is EXACTLY unchanged after copy
+        const sourceAfterCopy = getSessionMessages(
+          testWorkspaceRoot,
+          "source-session",
+        );
+        expect(sourceAfterCopy).toHaveLength(sourceCountBefore);
+        expect(sourceAfterCopy.map((m) => m.id)).toEqual(sourceIdsBefore);
+        expect(sourceAfterCopy.map((m) => m.content)).toEqual(
+          sourceContentBefore,
+        );
+        // Deep equality check on all fields
+        for (let i = 0; i < sourceBeforeCopy.length; i++) {
+          expect(sourceAfterCopy[i]).toEqual(sourceBeforeCopy[i]);
+        }
       });
     });
 
+    // =====================================================================
+    // Content Format Scenarios (FR-003a, FR-003b, DD-001a)
+    // =====================================================================
+    describe("Content Format Scenarios", () => {
+      it("should handle plain string content correctly", () => {
+        insertTestTask(1);
+        insertTestSession("session-1", 1);
+
+        const msg = insertMessage(testWorkspaceRoot, {
+          session_id: "session-1",
+          role: "user",
+          content: "Simple plain text message",
+          iteration: 0,
+        });
+
+        expect(typeof msg.content).toBe("string");
+        expect(msg.content).toBe("Simple plain text message");
+
+        const retrieved = getSessionMessages(testWorkspaceRoot, "session-1");
+        expect(typeof retrieved[0].content).toBe("string");
+        expect(retrieved[0].content).toBe("Simple plain text message");
+      });
+
+      it("should handle structured MessageContentPart[] with toolCall parts (DD-001a)", () => {
+        insertTestTask(1);
+        insertTestSession("session-1", 1);
+
+        const content = [
+          { type: "text" as const, value: "I'll create that file" },
+          {
+            type: "toolCall" as const,
+            toolCallId: "toolu_01ABC",
+            name: "create_file",
+            input: { path: "src/new.ts", content: "export const x = 1;" },
+          },
+        ];
+
+        insertMessage(testWorkspaceRoot, {
+          session_id: "session-1",
+          role: "assistant",
+          content,
+          iteration: 1,
+          toolCallIds: ["toolu_01ABC"],
+        });
+
+        const retrieved = getSessionMessages(testWorkspaceRoot, "session-1");
+        expect(retrieved).toHaveLength(1);
+
+        const msg = retrieved[0];
+        expect(Array.isArray(msg.content)).toBe(true);
+        const parts = msg.content as typeof content;
+
+        // Verify text part
+        expect(parts[0].type).toBe("text");
+        expect(parts[0].value).toBe("I'll create that file");
+
+        // Verify toolCall part with exact format
+        expect(parts[1].type).toBe("toolCall");
+        expect(parts[1].toolCallId).toBe("toolu_01ABC");
+        expect((parts[1] as any).name).toBe("create_file");
+        expect((parts[1] as any).input).toEqual({
+          path: "src/new.ts",
+          content: "export const x = 1;",
+        });
+
+        // Verify toolCallIds
+        expect(msg.toolCallIds).toEqual(["toolu_01ABC"]);
+      });
+
+      it("should handle toolResult parts stored and retrieved with exact format preservation (DD-001a)", () => {
+        insertTestTask(1);
+        insertTestSession("session-1", 1);
+
+        const content = [
+          {
+            type: "toolResult" as const,
+            toolCallId: "toolu_01ABC",
+            value: "File created successfully at src/new.ts",
+          },
+        ];
+
+        insertMessage(testWorkspaceRoot, {
+          session_id: "session-1",
+          role: "user",
+          content,
+          iteration: 1,
+        });
+
+        const retrieved = getSessionMessages(testWorkspaceRoot, "session-1");
+        expect(retrieved).toHaveLength(1);
+
+        const msg = retrieved[0];
+        expect(Array.isArray(msg.content)).toBe(true);
+        const parts = msg.content as typeof content;
+
+        expect(parts[0].type).toBe("toolResult");
+        expect(parts[0].toolCallId).toBe("toolu_01ABC");
+        expect(parts[0].value).toBe(
+          "File created successfully at src/new.ts",
+        );
+      });
+
+      it("should handle multiple tool calls with toolCallIds array", () => {
+        insertTestTask(1);
+        insertTestSession("session-1", 1);
+
+        const content = [
+          { type: "text" as const, value: "Let me do both operations" },
+          {
+            type: "toolCall" as const,
+            toolCallId: "tc-a",
+            name: "read_file",
+            input: { path: "src/a.ts" },
+          },
+          {
+            type: "toolCall" as const,
+            toolCallId: "tc-b",
+            name: "read_file",
+            input: { path: "src/b.ts" },
+          },
+        ];
+
+        insertMessage(testWorkspaceRoot, {
+          session_id: "session-1",
+          role: "assistant",
+          content,
+          iteration: 3,
+          toolCallIds: ["tc-a", "tc-b"],
+        });
+
+        const retrieved = getSessionMessages(testWorkspaceRoot, "session-1");
+        expect(retrieved[0].toolCallIds).toEqual(["tc-a", "tc-b"]);
+        expect(Array.isArray(retrieved[0].content)).toBe(true);
+        expect((retrieved[0].content as any[]).length).toBe(3);
+      });
+    });
+
+    // =====================================================================
+    // Gap-Free Monotonic Message Index (NFR-005)
+    // =====================================================================
+    describe("Gap-Free Monotonic Message Index (NFR-005)", () => {
+      it("should produce indices 0-9 with no gaps when inserting 10 messages", () => {
+        insertTestTask(1);
+        insertTestSession("session-1", 1);
+
+        for (let i = 0; i < 10; i++) {
+          insertMessage(testWorkspaceRoot, {
+            session_id: "session-1",
+            role: i % 2 === 0 ? "user" : "assistant",
+            content: `Message ${i}`,
+            iteration: Math.floor(i / 2),
+          });
+        }
+
+        const messages = getSessionMessages(testWorkspaceRoot, "session-1");
+        expect(messages).toHaveLength(10);
+
+        for (let i = 0; i < 10; i++) {
+          expect(messages[i].message_index).toBe(i);
+        }
+      });
+
+      it("should restart indices at 0 after deleting all messages and re-inserting", () => {
+        insertTestTask(1);
+        insertTestSession("session-1", 1);
+
+        // Insert initial messages
+        for (let i = 0; i < 5; i++) {
+          insertMessage(testWorkspaceRoot, {
+            session_id: "session-1",
+            role: "user",
+            content: `Round 1 Message ${i}`,
+            iteration: i,
+          });
+        }
+
+        // Delete all
+        deleteMessagesForSession(testWorkspaceRoot, "session-1");
+
+        // Re-insert
+        for (let i = 0; i < 3; i++) {
+          insertMessage(testWorkspaceRoot, {
+            session_id: "session-1",
+            role: "user",
+            content: `Round 2 Message ${i}`,
+            iteration: i,
+          });
+        }
+
+        const messages = getSessionMessages(testWorkspaceRoot, "session-1");
+        expect(messages).toHaveLength(3);
+        expect(messages[0].message_index).toBe(0);
+        expect(messages[1].message_index).toBe(1);
+        expect(messages[2].message_index).toBe(2);
+      });
+
+      it("should produce sequential gap-free indices with concurrent-like inserts to same session", () => {
+        insertTestTask(1);
+        insertTestSession("session-1", 1);
+
+        // Simulate rapid sequential inserts (SQLite is serial for writes,
+        // so concurrent inserts to the same session always serialize)
+        const messageCount = 20;
+        for (let i = 0; i < messageCount; i++) {
+          insertMessage(testWorkspaceRoot, {
+            session_id: "session-1",
+            role: i % 3 === 0 ? "system" : i % 3 === 1 ? "user" : "assistant",
+            content: `Msg ${i}`,
+            iteration: i,
+          });
+        }
+
+        const messages = getSessionMessages(testWorkspaceRoot, "session-1");
+        expect(messages).toHaveLength(messageCount);
+
+        // Verify gap-free
+        for (let i = 0; i < messageCount; i++) {
+          expect(messages[i].message_index).toBe(i);
+        }
+      });
+
+      it("should maintain independent indices across sessions", () => {
+        insertTestTask(1);
+        insertTestSession("session-a", 1);
+        insertTestSession("session-b", 1);
+
+        // Insert interleaved messages to different sessions
+        insertMessage(testWorkspaceRoot, {
+          session_id: "session-a",
+          role: "user",
+          content: "A-0",
+          iteration: 0,
+        });
+        insertMessage(testWorkspaceRoot, {
+          session_id: "session-b",
+          role: "user",
+          content: "B-0",
+          iteration: 0,
+        });
+        insertMessage(testWorkspaceRoot, {
+          session_id: "session-a",
+          role: "assistant",
+          content: "A-1",
+          iteration: 1,
+        });
+        insertMessage(testWorkspaceRoot, {
+          session_id: "session-b",
+          role: "assistant",
+          content: "B-1",
+          iteration: 1,
+        });
+        insertMessage(testWorkspaceRoot, {
+          session_id: "session-a",
+          role: "user",
+          content: "A-2",
+          iteration: 2,
+        });
+
+        const messagesA = getSessionMessages(testWorkspaceRoot, "session-a");
+        const messagesB = getSessionMessages(testWorkspaceRoot, "session-b");
+
+        expect(messagesA).toHaveLength(3);
+        expect(messagesA[0].message_index).toBe(0);
+        expect(messagesA[1].message_index).toBe(1);
+        expect(messagesA[2].message_index).toBe(2);
+
+        expect(messagesB).toHaveLength(2);
+        expect(messagesB[0].message_index).toBe(0);
+        expect(messagesB[1].message_index).toBe(1);
+      });
+    });
+
+    // =====================================================================
+    // Token Estimation
+    // =====================================================================
+    describe("Token Estimation", () => {
+      it("should use default estimator matching ContextManager 4-chars-per-token heuristic", () => {
+        // Test the exported defaultTokenEstimator directly
+        expect(defaultTokenEstimator("")).toBe(0);
+        expect(defaultTokenEstimator("abcd")).toBe(1); // 4 chars = 1 token
+        expect(defaultTokenEstimator("abcde")).toBe(2); // 5 chars = ceil(5/4) = 2 tokens
+        expect(defaultTokenEstimator("Hello world")).toBe(3); // 11 chars = ceil(11/4) = 3 tokens
+      });
+
+      it("should estimate tokens for MessageContentPart[] matching ContextManager pattern", () => {
+        const parts = [
+          { type: "text" as const, value: "Hello world" },
+          {
+            type: "toolCall" as const,
+            toolCallId: "tc-001",
+            name: "read_file",
+            input: { path: "test.ts" },
+          },
+          {
+            type: "toolResult" as const,
+            toolCallId: "tc-001",
+            value: "file contents here",
+          },
+        ];
+
+        const tokens = defaultTokenEstimator(parts);
+        expect(tokens).toBeGreaterThan(0);
+        // text: 11 chars
+        // toolCall: 50 + 6 (tc-001) = 56 chars
+        // toolResult: 50 + 6 + 18 (value) = 74 chars
+        // total: 141 chars => ceil(141/4) = 36 tokens
+        expect(tokens).toBe(Math.ceil((11 + 56 + 74) / 4));
+      });
+
+      it("should support Phase 2 ContextManager wiring via tokenEstimator callback", () => {
+        insertTestTask(1);
+        insertTestSession("session-1", 1);
+
+        // Simulate ContextManager.estimateTokens()-like function
+        const contextManagerEstimator = (content: string | unknown[]) => {
+          if (typeof content === "string") {
+            return Math.ceil((content.length + 20) / 4); // role overhead
+          }
+          return 100; // simplified
+        };
+
+        const msg = insertMessage(
+          testWorkspaceRoot,
+          {
+            session_id: "session-1",
+            role: "user",
+            content: "Test message",
+            iteration: 0,
+          },
+          contextManagerEstimator,
+        );
+
+        expect(msg.token_count).toBe(
+          Math.ceil(("Test message".length + 20) / 4),
+        );
+      });
+    });
+
+    // =====================================================================
+    // Edge Cases
+    // =====================================================================
     describe("Edge Cases", () => {
-      it("should handle large number of messages", () => {
+      it("should handle large number of messages (100+)", () => {
         insertTestTask(1);
         insertTestSession("session-1", 1);
 
@@ -939,6 +1525,23 @@ if (!moduleCompatible) {
         OrchestraDB.close();
         messages = getSessionMessages(testWorkspaceRoot, "cascade-session");
         expect(messages).toHaveLength(0);
+      });
+
+      it("should handle messages without toolCallIds (undefined, not present)", () => {
+        insertTestTask(1);
+        insertTestSession("session-1", 1);
+
+        const msg = insertMessage(testWorkspaceRoot, {
+          session_id: "session-1",
+          role: "user",
+          content: "No tool calls here",
+          iteration: 0,
+        });
+
+        expect(msg.toolCallIds).toBeUndefined();
+
+        const retrieved = getSessionMessages(testWorkspaceRoot, "session-1");
+        expect(retrieved[0].toolCallIds).toBeUndefined();
       });
     });
   });
