@@ -39,6 +39,11 @@
   "[jsonc]": {
     "editor.defaultFormatter": "esbenp.prettier-vscode"
   },
+  "[handlebars]": {
+    "editor.formatOnSave": false,
+    "editor.defaultFormatter": null,
+    "editor.codeActionsOnSave": {}
+  },
 
   "chat.promptFilesRecommendations": {
     "speckit.constitution": true,
