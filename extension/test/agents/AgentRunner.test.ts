@@ -368,6 +368,34 @@ describe("AgentRunner", () => {
       expect(stateChanges.length).toBeGreaterThan(0);
       expect(stateChanges[0].status).toBe("running");
     });
+
+    test("should inject codingStandardsPrompt as system message when provided", async () => {
+      const session = await runner.start("orchestrator", {
+        prompt: "Test prompt",
+        codingStandardsPrompt: "Follow these coding standards: use strict TypeScript",
+      });
+
+      // Should find the coding standards in messages as a system-role message
+      const codingStandardsMsg = session.messages.find(
+        (message) =>
+          message.role === "system" &&
+          message.content === "Follow these coding standards: use strict TypeScript",
+      );
+      expect(codingStandardsMsg).toBeDefined();
+    });
+
+    test("should not inject coding standards message when not provided", async () => {
+      const session = await runner.start("orchestrator", {
+        prompt: "Test prompt",
+      });
+
+      // Should not have any system message with coding standards content
+      const systemMessages = session.messages.filter(
+        (message) => message.role === "system",
+      );
+      // No system messages should exist when neither systemPrompt nor codingStandardsPrompt provided
+      expect(systemMessages).toHaveLength(0);
+    });
   });
 
   describe("pause", () => {

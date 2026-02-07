@@ -230,4 +230,28 @@ describe("PromptBuilder", () => {
       codeReview: { status: "Approved" },    }));
     expect(result).toBe("code review fix implement output");
   });
+
+  it("should return rendered coding standards when template exists", () => {
+    const render = vi.fn().mockReturnValue("coding standards output");
+    const templateLoader = { render } as TemplateLoader;
+    const builder = new PromptBuilder({ templateLoader });
+
+    const result = builder.buildCodingStandardsPrompt();
+
+    expect(render).toHaveBeenCalledWith("coding-standards", {});
+    expect(result).toBe("coding standards output");
+  });
+
+  it("should return null when coding-standards template does not exist", () => {
+    const render = vi.fn().mockImplementation(() => {
+      throw new Error('Template not found: "coding-standards"');
+    });
+    const templateLoader = { render } as TemplateLoader;
+    const builder = new PromptBuilder({ templateLoader });
+
+    const result = builder.buildCodingStandardsPrompt();
+
+    expect(render).toHaveBeenCalledWith("coding-standards", {});
+    expect(result).toBeNull();
+  });
 });

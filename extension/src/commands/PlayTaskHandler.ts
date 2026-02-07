@@ -77,6 +77,19 @@ async function readAgentInstructions(
 }
 
 /**
+ * Build coding standards prompt for injection into agent sessions.
+ * Returns undefined if coding standards template is not configured.
+ *
+ * @param promptBuilder PromptBuilder instance to use for rendering
+ * @returns Rendered coding standards prompt, or undefined if not configured
+ */
+function buildCodingStandards(
+  promptBuilder: PromptBuilder,
+): string | undefined {
+  return promptBuilder.buildCodingStandardsPrompt() ?? undefined;
+}
+
+/**
  * Handle Play button click for a task
  *
  * Routes to appropriate action based on task status:
@@ -262,6 +275,9 @@ async function invokePrepare(
       "orchestrator",
     );
 
+    // Build coding standards for injection
+    const codingStandardsPrompt = buildCodingStandards(promptBuilder);
+
     // Start orchestrator agent for task preparation
     const startOptions = {
       prompt,
@@ -273,6 +289,7 @@ async function invokePrepare(
     await agentRunner.start("orchestrator", {
       ...startOptions,
       systemPrompt,
+      codingStandardsPrompt,
     });
 
     logger.info(`Started orchestrator agent to prepare task ${taskId}`, {
@@ -354,6 +371,9 @@ async function invokeImplement(
       "implementor",
     );
 
+    // Build coding standards for injection
+    const codingStandardsPrompt = buildCodingStandards(promptBuilder);
+
     // Invoke implementor agent for autonomous execution
     const startOptions = {
       prompt,
@@ -365,6 +385,7 @@ async function invokeImplement(
     await agentRunner.start("implementor", {
       ...startOptions,
       systemPrompt,
+      codingStandardsPrompt,
     });
 
     logger.info(`Started implementor agent for task ${taskId}`, {
@@ -468,6 +489,9 @@ async function invokeRetry(
       "implementor",
     );
 
+    // Build coding standards for injection
+    const codingStandardsPrompt = buildCodingStandards(promptBuilder);
+
     // Start implementor agent for retry
     const startOptions = {
       prompt,
@@ -479,6 +503,7 @@ async function invokeRetry(
     await agentRunner.start("implementor", {
       ...startOptions,
       systemPrompt,
+      codingStandardsPrompt,
     });
 
     logger.info(`Started implementor agent to retry task ${taskId}`, {
@@ -556,6 +581,9 @@ async function invokeVerify(
       "orchestrator",
     );
 
+    // Build coding standards for injection
+    const codingStandardsPrompt = buildCodingStandards(promptBuilder);
+
     // Start orchestrator agent for verification
     const startOptions = {
       prompt,
@@ -567,6 +595,7 @@ async function invokeVerify(
     await agentRunner.start("orchestrator", {
       ...startOptions,
       systemPrompt,
+      codingStandardsPrompt,
     });
 
     logger.info(`Started orchestrator agent to verify task ${taskId}`, {
@@ -665,6 +694,9 @@ async function invokeHandoverFix(
       "orchestrator",
     );
 
+    // Build coding standards for injection
+    const codingStandardsPrompt = buildCodingStandards(promptBuilder);
+
     // Start orchestrator agent to fix handover
     const startOptions = {
       prompt,
@@ -676,6 +708,7 @@ async function invokeHandoverFix(
     await agentRunner.start("orchestrator", {
       ...startOptions,
       systemPrompt,
+      codingStandardsPrompt,
     });
 
     logger.info("Started orchestrator agent to fix handover", {
@@ -769,6 +802,9 @@ async function invokeHandoverReview(
       "controller",
     );
 
+    // Build coding standards for injection
+    const codingStandardsPrompt = buildCodingStandards(promptBuilder);
+
     // Start controller agent for handover review
     const startOptions = {
       prompt,
@@ -780,6 +816,7 @@ async function invokeHandoverReview(
     await agentRunner.start("controller", {
       ...startOptions,
       systemPrompt,
+      codingStandardsPrompt,
     });
 
     logger.info("Started controller agent for handover review", {
@@ -874,6 +911,9 @@ async function invokeCodeReview(
       "controller",
     );
 
+    // Build coding standards for injection
+    const codingStandardsPrompt = buildCodingStandards(promptBuilder);
+
     // Start controller agent for code review using AgentRunner
     const startOptions = {
       prompt,
@@ -885,6 +925,7 @@ async function invokeCodeReview(
     await agentRunner.start("controller", {
       ...startOptions,
       systemPrompt,
+      codingStandardsPrompt,
     });
 
     logger.info("Started controller agent for code review", {
@@ -981,6 +1022,9 @@ async function invokeCodeReviewFix(
       "implementor",
     );
 
+    // Build coding standards for injection
+    const codingStandardsPrompt = buildCodingStandards(promptBuilder);
+
     // Start implementor agent to fix code review issues
     const startOptions = {
       prompt,
@@ -992,6 +1036,7 @@ async function invokeCodeReviewFix(
     await agentRunner.start("implementor", {
       ...startOptions,
       systemPrompt,
+      codingStandardsPrompt,
     });
 
     logger.info("Started implementor agent to fix code review issues", {
@@ -1040,6 +1085,7 @@ async function invokeEscalationReview(
 
     // Create instances
     const logger = new OrchestraLogger();
+    const promptBuilder = new PromptBuilder({ workspaceRoot });
     const agentRunner = getAgentRunner();
 
     if (agentRunner.getSession()?.status === "running") {
@@ -1079,6 +1125,9 @@ Use your MCP tools to investigate and resolve this escalation.`;
       "orchestrator",
     );
 
+    // Build coding standards for injection
+    const codingStandardsPrompt = buildCodingStandards(promptBuilder);
+
     // Start orchestrator agent for escalation review
     const startOptions = {
       prompt,
@@ -1090,6 +1139,7 @@ Use your MCP tools to investigate and resolve this escalation.`;
     await agentRunner.start("orchestrator", {
       ...startOptions,
       systemPrompt,
+      codingStandardsPrompt,
     });
 
     logger.info(

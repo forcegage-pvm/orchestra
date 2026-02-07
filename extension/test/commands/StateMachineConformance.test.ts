@@ -276,6 +276,9 @@ vi.mock("../../src/prompts/PromptBuilder.js", () => ({
     buildCodeReviewReReviewPrompt: vi.fn(
       () => "Mock code review re-review prompt",
     ),
+    buildCodingStandardsPrompt: vi.fn(
+      () => "Mock coding standards prompt",
+    ),
     buildCodeReviewFixImplementPrompt: vi.fn(
       () => "Mock code review fix prompt",
     ),
@@ -396,6 +399,21 @@ function createMockFeedback() {
   };
 }
 
+/**
+ * Helper to create a mock PromptBuilder with the required buildCodingStandardsPrompt
+ * method always present, plus any additional methods for the specific test.
+ */
+function mockPromptBuilderWith(
+  methods: Record<string, ReturnType<typeof vi.fn>>,
+): void {
+  vi.mocked(PromptBuilder).mockImplementation(function () {
+    return {
+      buildCodingStandardsPrompt: vi.fn(() => "Mock coding standards prompt"),
+      ...methods,
+    } as unknown as PromptBuilder;
+  });
+}
+
 // ============================================================================
 // TESTS
 // ============================================================================
@@ -424,11 +442,7 @@ describe("State Machine Conformance", () => {
         );
 
         const mockBuildPreparePrompt = vi.fn(() => "Mock prepare prompt");
-        vi.mocked(PromptBuilder).mockImplementation(function () {
-          return {
-            buildPreparePrompt: mockBuildPreparePrompt,
-          } as unknown as PromptBuilder;
-        });
+        mockPromptBuilderWith({ buildPreparePrompt: mockBuildPreparePrompt });
 
         await handlePlayTask(mockWorkspaceRoot, mockTaskId);
 
@@ -451,11 +465,7 @@ describe("State Machine Conformance", () => {
         const mockBuildHandoverReviewPrompt = vi.fn(
           () => "Mock handover review prompt",
         );
-        vi.mocked(PromptBuilder).mockImplementation(function () {
-          return {
-            buildHandoverReviewPrompt: mockBuildHandoverReviewPrompt,
-          } as unknown as PromptBuilder;
-        });
+        mockPromptBuilderWith({ buildHandoverReviewPrompt: mockBuildHandoverReviewPrompt });
 
         await handlePlayTask(mockWorkspaceRoot, mockTaskId);
 
@@ -481,11 +491,7 @@ describe("State Machine Conformance", () => {
         const mockBuildHandoverFixPrompt = vi.fn(
           () => "Mock handover fix prompt",
         );
-        vi.mocked(PromptBuilder).mockImplementation(function () {
-          return {
-            buildHandoverFixPrompt: mockBuildHandoverFixPrompt,
-          } as unknown as PromptBuilder;
-        });
+        mockPromptBuilderWith({ buildHandoverFixPrompt: mockBuildHandoverFixPrompt });
 
         await handlePlayTask(mockWorkspaceRoot, mockTaskId);
 
@@ -506,11 +512,7 @@ describe("State Machine Conformance", () => {
         );
 
         const mockBuildImplementPrompt = vi.fn(() => "Mock implement prompt");
-        vi.mocked(PromptBuilder).mockImplementation(function () {
-          return {
-            buildImplementPrompt: mockBuildImplementPrompt,
-          } as unknown as PromptBuilder;
-        });
+        mockPromptBuilderWith({ buildImplementPrompt: mockBuildImplementPrompt });
 
         await handlePlayTask(mockWorkspaceRoot, mockTaskId);
 
@@ -531,11 +533,7 @@ describe("State Machine Conformance", () => {
         );
 
         const mockBuildVerifyPrompt = vi.fn(() => "Mock verify prompt");
-        vi.mocked(PromptBuilder).mockImplementation(function () {
-          return {
-            buildVerifyPrompt: mockBuildVerifyPrompt,
-          } as unknown as PromptBuilder;
-        });
+        mockPromptBuilderWith({ buildVerifyPrompt: mockBuildVerifyPrompt });
 
         await handlePlayTask(mockWorkspaceRoot, mockTaskId);
 
@@ -556,11 +554,7 @@ describe("State Machine Conformance", () => {
         );
 
         const mockBuildVerifyPrompt = vi.fn(() => "Mock verify prompt");
-        vi.mocked(PromptBuilder).mockImplementation(function () {
-          return {
-            buildVerifyPrompt: mockBuildVerifyPrompt,
-          } as unknown as PromptBuilder;
-        });
+        mockPromptBuilderWith({ buildVerifyPrompt: mockBuildVerifyPrompt });
 
         await handlePlayTask(mockWorkspaceRoot, mockTaskId);
 
@@ -582,11 +576,7 @@ describe("State Machine Conformance", () => {
         vi.mocked(queries.getFeedback).mockReturnValue(createMockFeedback());
 
         const mockBuildRetryPrompt = vi.fn(() => "Mock retry prompt");
-        vi.mocked(PromptBuilder).mockImplementation(function () {
-          return {
-            buildRetryPrompt: mockBuildRetryPrompt,
-          } as unknown as PromptBuilder;
-        });
+        mockPromptBuilderWith({ buildRetryPrompt: mockBuildRetryPrompt });
 
         await handlePlayTask(mockWorkspaceRoot, mockTaskId);
 
@@ -638,11 +628,7 @@ describe("State Machine Conformance", () => {
         const mockBuildCodeReviewPrompt = vi.fn(
           () => "Mock code review prompt",
         );
-        vi.mocked(PromptBuilder).mockImplementation(function () {
-          return {
-            buildCodeReviewPrompt: mockBuildCodeReviewPrompt,
-          } as unknown as PromptBuilder;
-        });
+        mockPromptBuilderWith({ buildCodeReviewPrompt: mockBuildCodeReviewPrompt });
 
         await handlePlayTask(mockWorkspaceRoot, mockTaskId);
 
@@ -669,11 +655,7 @@ describe("State Machine Conformance", () => {
         const mockBuildCodeReviewPrompt = vi.fn(
           () => "Mock code review prompt",
         );
-        vi.mocked(PromptBuilder).mockImplementation(function () {
-          return {
-            buildCodeReviewPrompt: mockBuildCodeReviewPrompt,
-          } as unknown as PromptBuilder;
-        });
+        mockPromptBuilderWith({ buildCodeReviewPrompt: mockBuildCodeReviewPrompt });
 
         await handlePlayTask(mockWorkspaceRoot, mockTaskId);
 
@@ -699,12 +681,7 @@ describe("State Machine Conformance", () => {
         const mockBuildCodeReviewFixImplementPrompt = vi.fn(
           () => "Mock code review fix prompt",
         );
-        vi.mocked(PromptBuilder).mockImplementation(function () {
-          return {
-            buildCodeReviewFixImplementPrompt:
-              mockBuildCodeReviewFixImplementPrompt,
-          } as unknown as PromptBuilder;
-        });
+        mockPromptBuilderWith({ buildCodeReviewFixImplementPrompt: mockBuildCodeReviewFixImplementPrompt });
 
         await handlePlayTask(mockWorkspaceRoot, mockTaskId);
 
@@ -730,11 +707,7 @@ describe("State Machine Conformance", () => {
         const mockBuildCodeReviewReReviewPrompt = vi.fn(
           () => "Mock code review re-review prompt",
         );
-        vi.mocked(PromptBuilder).mockImplementation(function () {
-          return {
-            buildCodeReviewReReviewPrompt: mockBuildCodeReviewReReviewPrompt,
-          } as unknown as PromptBuilder;
-        });
+        mockPromptBuilderWith({ buildCodeReviewReReviewPrompt: mockBuildCodeReviewReReviewPrompt });
 
         await handlePlayTask(mockWorkspaceRoot, mockTaskId);
 
@@ -760,12 +733,7 @@ describe("State Machine Conformance", () => {
         const mockBuildCodeReviewFixImplementPrompt = vi.fn(
           () => "Mock code review fix prompt",
         );
-        vi.mocked(PromptBuilder).mockImplementation(function () {
-          return {
-            buildCodeReviewFixImplementPrompt:
-              mockBuildCodeReviewFixImplementPrompt,
-          } as unknown as PromptBuilder;
-        });
+        mockPromptBuilderWith({ buildCodeReviewFixImplementPrompt: mockBuildCodeReviewFixImplementPrompt });
 
         await handlePlayTask(mockWorkspaceRoot, mockTaskId);
 
@@ -791,11 +759,7 @@ describe("State Machine Conformance", () => {
         const mockBuildCodeReviewPrompt = vi.fn(
           () => "Mock code review prompt",
         );
-        vi.mocked(PromptBuilder).mockImplementation(function () {
-          return {
-            buildCodeReviewPrompt: mockBuildCodeReviewPrompt,
-          } as unknown as PromptBuilder;
-        });
+        mockPromptBuilderWith({ buildCodeReviewPrompt: mockBuildCodeReviewPrompt });
 
         await handlePlayTask(mockWorkspaceRoot, mockTaskId);
 
@@ -839,12 +803,7 @@ describe("State Machine Conformance", () => {
         const mockBuildCodeReviewFixImplementPrompt = vi.fn(
           () => "Mock code review fix prompt",
         );
-        vi.mocked(PromptBuilder).mockImplementation(function () {
-          return {
-            buildCodeReviewFixImplementPrompt:
-              mockBuildCodeReviewFixImplementPrompt,
-          } as unknown as PromptBuilder;
-        });
+        mockPromptBuilderWith({ buildCodeReviewFixImplementPrompt: mockBuildCodeReviewFixImplementPrompt });
 
         await handlePlayTask(mockWorkspaceRoot, mockTaskId);
 
@@ -870,11 +829,7 @@ describe("State Machine Conformance", () => {
         const mockBuildCodeReviewReReviewPrompt = vi.fn(
           () => "Mock code review re-review prompt",
         );
-        vi.mocked(PromptBuilder).mockImplementation(function () {
-          return {
-            buildCodeReviewReReviewPrompt: mockBuildCodeReviewReReviewPrompt,
-          } as unknown as PromptBuilder;
-        });
+        mockPromptBuilderWith({ buildCodeReviewReReviewPrompt: mockBuildCodeReviewReReviewPrompt });
 
         await handlePlayTask(mockWorkspaceRoot, mockTaskId);
 

@@ -989,4 +989,47 @@ describe("Prompt System Integration", () => {
       expect(retry).not.toContain("undefined");
     });
   });
+
+  describe("Coding standards template", () => {
+    it("should render coding-standards template without error", () => {
+      const result = builder.buildCodingStandardsPrompt();
+
+      expect(result).toBeTruthy();
+      expect(result).not.toBeNull();
+      expect(result!.length).toBeGreaterThan(0);
+      expect(result).toContain("Project Coding Standards");
+    });
+
+    it("should contain all expected sections in coding-standards template", () => {
+      const result = builder.buildCodingStandardsPrompt();
+
+      expect(result).toContain("## Architecture");
+      expect(result).toContain("## Coding Conventions");
+      expect(result).toContain("## Testing Standards");
+      expect(result).toContain("## Error Handling");
+    });
+
+    it("should return null when coding-standards template does not exist", () => {
+      // Use a workspace root that doesn't have the template
+      const invalidBuilder = new PromptBuilder({
+        workspaceRoot: "/nonexistent/path",
+      });
+
+      const result = invalidBuilder.buildCodingStandardsPrompt();
+
+      expect(result).toBeNull();
+    });
+
+    it("should include coding standards compliance in code-review template", () => {
+      const prompt = builder.buildCodeReviewPrompt(
+        1,
+        "003B",
+        "Sprint",
+        { taskId: 1, title: "Task", dbId: 1 },
+      );
+
+      expect(prompt).toContain("Coding Standards Compliance");
+      expect(prompt).toContain("coding standards");
+    });
+  });
 });

@@ -157,6 +157,12 @@ export interface AgentStartOptions {
    * role-specific instructions to the agent.
    */
   systemPrompt?: string;
+  /**
+   * Optional coding standards prompt injected as a hidden system message.
+   * Provides project-specific coding conventions and architecture standards
+   * to all agents. Not visible in UI output.
+   */
+  codingStandardsPrompt?: string;
 }
 
 /**
@@ -644,6 +650,11 @@ export class AgentRunner implements vscode.Disposable {
     // Inject system prompt as first message if provided (hidden from UI)
     if (options.systemPrompt) {
       this.addSystemMessage(options.systemPrompt);
+    }
+
+    // Inject coding standards as separate hidden message if provided
+    if (options.codingStandardsPrompt) {
+      this.addSystemMessage(options.codingStandardsPrompt);
     }
 
     // Inject environment context so agent knows its operating environment

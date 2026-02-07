@@ -92,6 +92,9 @@ const mockPromptBuilderMethods = vi.hoisted(() => ({
   buildCodeReviewFixImplementPrompt: vi.fn(
     () => "Mock code review fix implement prompt",
   ),
+  buildCodingStandardsPrompt: vi.fn(
+    () => "Mock coding standards prompt",
+  ),
 }));
 
 // Mock PromptBuilder
@@ -109,6 +112,8 @@ vi.mock("../../src/prompts/PromptBuilder.js", () => ({
       mockPromptBuilderMethods.buildCodeReviewReReviewPrompt;
     buildCodeReviewFixImplementPrompt =
       mockPromptBuilderMethods.buildCodeReviewFixImplementPrompt;
+    buildCodingStandardsPrompt =
+      mockPromptBuilderMethods.buildCodingStandardsPrompt;
   },
 }));
 
