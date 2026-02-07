@@ -827,10 +827,10 @@ if (!moduleCompatible) {
         const retrieved = getEventsForSession(testWorkspaceRoot, sessionId);
 
         expect(retrieved).toHaveLength(3);
-        // Should be ordered by timestamp ascending
-        expect(retrieved[0].id).toBe("event-1");
-        expect(retrieved[1].id).toBe("event-2");
-        expect(retrieved[2].id).toBe("event-3");
+        // Should be ordered by rowid (insertion order), not timestamp
+        expect(retrieved[0].id).toBe("event-3");
+        expect(retrieved[1].id).toBe("event-1");
+        expect(retrieved[2].id).toBe("event-2");
       });
 
       it("should return empty array for session with no events", () => {

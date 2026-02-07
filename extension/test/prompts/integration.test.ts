@@ -5,6 +5,7 @@
  * in a full workflow simulation (PREPARE → IMPLEMENT → VERIFY → RETRY).
  */
 
+import * as path from "path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import * as vscode from "vscode";
 import type { Handover } from "../../src/database/queries.js";
@@ -21,10 +22,22 @@ vi.mock("../../src/database/queries.js", () => ({
   getHandover: vi.fn(),
 }));
 
-// Mock fs for ContextFileResolver
-vi.mock("fs", () => ({
-  existsSync: vi.fn(),
+// Mock fs for ContextFileResolver (preserve real fs for TemplateLoader)
+const { realExistsSyncRef } = vi.hoisted(() => ({
+  realExistsSyncRef: { value: null as null | typeof import("fs").existsSync },
 }));
+
+vi.mock("fs", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("fs")>();
+  realExistsSyncRef.value = actual.existsSync;
+  return {
+    ...actual,
+    existsSync: vi.fn((...args: Parameters<typeof actual.existsSync>) => {
+      // Use real existsSync by default; tests override for specific paths
+      return actual.existsSync(...args);
+    }),
+  };
+});
 
 describe("Prompt System Integration", () => {
   let builder: PromptBuilder;
@@ -76,7 +89,9 @@ describe("Prompt System Integration", () => {
   };
 
   beforeEach(async () => {
-    builder = new PromptBuilder();
+    // Use project root where .orchestra/templates/prompts/ exists
+    const projectRoot = path.resolve(__dirname, "../../..");
+    builder = new PromptBuilder({ workspaceRoot: projectRoot });
     workspaceRoot =
       process.platform === "win32" ? "C:\\test\\workspace" : "/test/workspace";
 
@@ -91,8 +106,14 @@ describe("Prompt System Integration", () => {
     getHandoverMock.mockReset();
     existsSyncMock.mockReset();
 
-    // Default: all files exist
-    existsSyncMock.mockReturnValue(true);
+    // Default: use real existsSync (TemplateLoader needs real fs),
+    // but return true for test workspace paths (ContextFileResolver)
+    existsSyncMock.mockImplementation((p: string) => {
+      if (typeof p === "string" && p.includes("test" + path.sep + "workspace")) {
+        return true;
+      }
+      return realExistsSyncRef.value?.(p) ?? false;
+    });
   });
 
   describe("PromptBuilder generates all 4 stage prompts", () => {
@@ -109,7 +130,8 @@ describe("Prompt System Integration", () => {
       expect(prompt).toContain("Task 42");
       expect(prompt).toContain("Implement Authentication Service");
       expect(prompt).toContain("003B");
-      expect(prompt).toContain("Security & Auth Sprint");
+      // Handlebars HTML-escapes '&' to '&amp;' in double-brace expressions
+      expect(prompt).toContain("Security &amp; Auth Sprint");
     });
 
     it("should generate IMPLEMENT stage prompt with correct structure", () => {
