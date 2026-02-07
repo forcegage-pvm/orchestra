@@ -30,6 +30,18 @@ function makeMockToken(cancelled = false) {
   } as unknown as ToolInvocationContext["token"];
 }
 
+/**
+ * Parse the grep_search result content value, which now has a header line
+ * like "N matches found\n" followed by the JSON array.
+ */
+function parseGrepMatches<T = unknown>(raw: string | undefined): T[] {
+  if (!raw) return [];
+  // Strip the header line (e.g. "2 matches found\n") before JSON.parse
+  const jsonStart = raw.indexOf("[");
+  if (jsonStart === -1) return [];
+  return JSON.parse(raw.slice(jsonStart)) as T[];
+}
+
 // -- Suite ----------------------------------------------------------------
 
 describe("grepSearchTool", () => {
@@ -63,11 +75,11 @@ describe("grepSearchTool", () => {
     );
 
     expect(result.success).toBe(true);
-    const matches = JSON.parse(result.content[0]?.value ?? "[]") as Array<{
+    const matches = parseGrepMatches<{
       path: string;
       line: number;
       text: string;
-    }>;
+    }>(result.content[0]?.value);
     expect(matches).toHaveLength(2);
     // Both lines in app.ts contain "alpha"
     expect(matches[0]?.line).toBe(1);
@@ -81,11 +93,11 @@ describe("grepSearchTool", () => {
     );
 
     expect(result.success).toBe(true);
-    const matches = JSON.parse(result.content[0]?.value ?? "[]") as Array<{
+    const matches = parseGrepMatches<{
       path: string;
       line: number;
       text: string;
-    }>;
+    }>(result.content[0]?.value);
     expect(matches).toHaveLength(1);
     expect(matches[0]?.line).toBe(1);
   });
@@ -126,7 +138,7 @@ describe("grepSearchTool", () => {
     );
 
     expect(result.success).toBe(true);
-    const matches = JSON.parse(result.content[0]?.value ?? "[]") as unknown[];
+    const matches = parseGrepMatches(result.content[0]?.value);
     expect(matches).toHaveLength(0);
   });
 
@@ -140,9 +152,9 @@ describe("grepSearchTool", () => {
     );
 
     expect(result.success).toBe(true);
-    const matches = JSON.parse(result.content[0]?.value ?? "[]") as Array<{
-      path: string;
-    }>;
+    const matches = parseGrepMatches<{ path: string }>(
+      result.content[0]?.value,
+    );
     // Should only find matches in src/, not root.txt
     for (const m of matches) {
       expect(m.path).toMatch(/^src\//);

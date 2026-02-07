@@ -7,8 +7,8 @@ import type * as vscode from "vscode";
 
 import { ToolErrorCode } from "../../../../src/agents/tools/errors.js";
 import type {
-    RunCommandInput,
-    ToolInvocationContext,
+  RunCommandInput,
+  ToolInvocationContext,
 } from "../../../../src/agents/tools/types.js";
 
 const buildNodeCommand = (script: string): string =>
@@ -310,6 +310,104 @@ describe("runCommand tool", () => {
       const parsed = JSON.parse(jsonContent!.value);
 
       expect(parsed.stdout).toContain("test_value_123");
+    });
+
+    it("sanitizes Electron and VS Code env vars from subprocesses", async () => {
+      // Inject fake ELECTRON_* and VSCODE_* vars into process.env before import
+      // so the tool's env sanitization can strip them
+      process.env.ELECTRON_RUN_AS_NODE = "1";
+      process.env.ELECTRON_ENABLE_LOGGING = "1";
+      process.env.ELECTRON_NO_ASAR = "1";
+      process.env.VSCODE_PID = "99999";
+      process.env.VSCODE_IPC_HOOK = "/tmp/fake";
+      process.env.VSCODE_NLS_CONFIG = "{}";
+      process.env.VSCODE_CLI = "1";
+      process.env.GDK_PIXBUF_MODULE_FILE = "/fake/path";
+
+      try {
+        const { runCommandTool } =
+          await import("../../../../src/agents/tools/system/runCommand.js");
+
+        // Print all env vars matching ELECTRON_ or VSCODE_ (non-preserved) or GDK_PIXBUF_
+        const script =
+          "var keys = Object.keys(process.env).filter(function(k) { return /^(ELECTRON_|VSCODE_(PID|IPC_HOOK|NLS_CONFIG|CLI)|GDK_PIXBUF_)/.test(k); }); console.log(JSON.stringify(keys));";
+
+        const input: RunCommandInput = {
+          command: buildNodeCommand(script),
+        };
+
+        const result = await runCommandTool.invoke(input, createContext());
+        const jsonContent = result.content.find((c) => c.type === "json");
+        const parsed = JSON.parse(jsonContent!.value);
+
+        // The subprocess should have NONE of those vars
+        const leakedVars = JSON.parse(parsed.stdout.trim());
+        expect(leakedVars).toEqual([]);
+      } finally {
+        // Clean up injected vars
+        delete process.env.ELECTRON_RUN_AS_NODE;
+        delete process.env.ELECTRON_ENABLE_LOGGING;
+        delete process.env.ELECTRON_NO_ASAR;
+        delete process.env.VSCODE_PID;
+        delete process.env.VSCODE_IPC_HOOK;
+        delete process.env.VSCODE_NLS_CONFIG;
+        delete process.env.VSCODE_CLI;
+        delete process.env.GDK_PIXBUF_MODULE_FILE;
+      }
+    });
+
+    it("preserves VSCODE_PORTABLE and VSCODE_SHELL_LOGIN", async () => {
+      process.env.VSCODE_PORTABLE = "/portable/path";
+      process.env.VSCODE_SHELL_LOGIN = "1";
+      process.env.VSCODE_PID = "99999"; // should be removed
+
+      try {
+        const { runCommandTool } =
+          await import("../../../../src/agents/tools/system/runCommand.js");
+
+        const script =
+          "var r = { portable: process.env.VSCODE_PORTABLE || 'missing', shell_login: process.env.VSCODE_SHELL_LOGIN || 'missing', pid: process.env.VSCODE_PID || 'missing' }; console.log(JSON.stringify(r));";
+
+        const input: RunCommandInput = {
+          command: buildNodeCommand(script),
+        };
+
+        const result = await runCommandTool.invoke(input, createContext());
+        const jsonContent = result.content.find((c) => c.type === "json");
+        const parsed = JSON.parse(jsonContent!.value);
+        const envResult = JSON.parse(parsed.stdout.trim());
+
+        expect(envResult.portable).toBe("/portable/path");
+        expect(envResult.shell_login).toBe("1");
+        expect(envResult.pid).toBe("missing"); // Should be sanitized
+      } finally {
+        delete process.env.VSCODE_PORTABLE;
+        delete process.env.VSCODE_SHELL_LOGIN;
+        delete process.env.VSCODE_PID;
+      }
+    });
+
+    it("removes DEBUG env var from subprocesses", async () => {
+      process.env.DEBUG = "some-extension:*";
+
+      try {
+        const { runCommandTool } =
+          await import("../../../../src/agents/tools/system/runCommand.js");
+
+        const input: RunCommandInput = {
+          command: buildNodeCommand(
+            "console.log(process.env.DEBUG || 'not-set');",
+          ),
+        };
+
+        const result = await runCommandTool.invoke(input, createContext());
+        const jsonContent = result.content.find((c) => c.type === "json");
+        const parsed = JSON.parse(jsonContent!.value);
+
+        expect(parsed.stdout.trim()).toBe("not-set");
+      } finally {
+        delete process.env.DEBUG;
+      }
     });
   });
 

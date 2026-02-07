@@ -410,19 +410,57 @@ async function executeWithSubprocess(
 
     // Prepare environment - ensure the subprocess matches the user's terminal environment.
     //
-    // VS Code's extension host runs inside Electron, which modifies the environment:
-    // 1. ELECTRON_RUN_AS_NODE - makes the Electron binary behave as Node.js
-    // 2. PATH may have VS Code's bundled Node.js prepended, shadowing the user's system Node
+    // VS Code's extension host runs inside Electron, which injects many env vars that
+    // leak into subprocesses and cause subtle failures (EPERM errors, wrong Node.js version,
+    // module resolution failures, etc.).
     //
-    // This causes commands like `node script.js` to use a different (often older) Node.js
-    // than the user's interactive terminal, leading to mysterious module resolution failures.
+    // We replicate VS Code's own sanitizeProcessEnvironment() from
+    // src/vs/base/common/processes.ts, which the integrated terminal uses before spawning
+    // shells. This removes ALL ELECTRON_*, most VSCODE_*, SNAP*, and GDK_PIXBUF_* vars.
+    //
+    // See: https://github.com/microsoft/vscode/blob/main/src/vs/base/common/processes.ts
     const childEnv = {
       ...process.env,
       ...options.env,
     };
-    // Remove Electron-specific environment variables that interfere with Node.js
-    delete childEnv.ELECTRON_RUN_AS_NODE;
-    delete childEnv.ELECTRON_NO_ASAR;
+
+    // --- sanitizeProcessEnvironment (from VS Code source) ---
+    // Remove env vars injected by Electron/VS Code/Snap/GDK that interfere with subprocesses.
+    // Preserves only: VSCODE_PORTABLE, VSCODE_SHELL_LOGIN, VSCODE_ENV_REPLACE,
+    //                 VSCODE_ENV_APPEND, VSCODE_ENV_PREPEND
+    const keysToRemove = [
+      /^ELECTRON_.+$/,
+      /^VSCODE_(?!(PORTABLE|SHELL_LOGIN|ENV_REPLACE|ENV_APPEND|ENV_PREPEND)).+$/,
+      /^SNAP(|_.*)$/,
+      /^GDK_PIXBUF_.+$/,
+    ];
+    for (const key of Object.keys(childEnv)) {
+      for (const pattern of keysToRemove) {
+        if (pattern.test(key)) {
+          delete childEnv[key];
+          break;
+        }
+      }
+    }
+
+    // --- removeDangerousEnvVariables (from VS Code source) ---
+    // DEBUG can cause random crashes when set to invalid values by extensions.
+    // LD_PRELOAD can cause Native modules to fail on Linux.
+    delete childEnv["DEBUG"];
+    if (process.platform === "linux") {
+      delete childEnv["LD_PRELOAD"];
+    }
+
+    // --- Restore NODE_OPTIONS (from VS Code terminal env handling) ---
+    // VS Code saves the original NODE_OPTIONS as VSCODE_NODE_OPTIONS before overwriting it
+    // with its own flags (e.g., --require for extension host). Restore the original value
+    // so subprocesses use the user's NODE_OPTIONS, not VS Code's internal ones.
+    if ("VSCODE_NODE_OPTIONS" in process.env) {
+      childEnv["NODE_OPTIONS"] = process.env["VSCODE_NODE_OPTIONS"];
+    } else {
+      // If there was no original NODE_OPTIONS, remove VS Code's internal flags
+      delete childEnv["NODE_OPTIONS"];
+    }
 
     // Clean VS Code's internal node directory from PATH so the user's system node is found.
     // VS Code prepends paths like "C:\...\Microsoft VS Code\resources\app\bin" to PATH.
