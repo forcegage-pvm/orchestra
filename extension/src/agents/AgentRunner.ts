@@ -1085,7 +1085,7 @@ export class AgentRunner implements vscode.Disposable {
 
     return this.session;
     */
-  }
+
 
   /**
    * Stop the agent

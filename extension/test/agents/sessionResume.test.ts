@@ -3,6 +3,39 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi, test } from "vitest";
 
+// Mock VS Code API
+vi.mock("vscode", () => {
+  const EventEmitter = class {
+    event = () => {};
+    fire() {}
+    dispose() {}
+  };
+  return {
+    EventEmitter,
+    CancellationTokenSource: class {
+      token = { isCancellationRequested: false, onCancellationRequested: () => { return { dispose: () => {} } } };
+      cancel() {}
+      dispose() {}
+    },
+    workspace: {
+      workspaceFolders: [],
+      fs: {
+        readFile: vi.fn(),
+      },
+      onDidSaveTextDocument: () => { return { dispose: () => {} } },
+      onDidChangeTextDocument: () => { return { dispose: () => {} } },
+    },
+    Uri: {
+      file: (path: string) => ({ fsPath: path }),
+      parse: (path: string) => ({ fsPath: path }),
+    },
+    Range: class {},
+    Position: class {},
+    Diagnostic: class {},
+    DiagnosticSeverity: { Error: 0 },
+  };
+});
+
 // Native binary check (same pattern as other DB tests)
 let Database: any = null;
 let moduleCompatible = false;
@@ -44,6 +77,7 @@ if (!moduleCompatible) {
     "../../../src/agents/memory/SprintMemory.js",
   );
   const { OrchestraDB } = await import("../../../src/database/client.js");
+  const { drizzle } = await import("drizzle-orm/better-sqlite3");
 
   // Helpers
   let testWorkspaceRoot: string;
@@ -127,7 +161,8 @@ if (!moduleCompatible) {
         tool_call_id TEXT,
         tool_name TEXT,
         success INTEGER,
-        duration_ms INTEGER
+        duration_ms INTEGER,
+        severity TEXT
       )
     `);
 
@@ -157,12 +192,28 @@ if (!moduleCompatible) {
     db.close();
   }
 
-  beforeEach(() => {
+  beforeEach(async () => {
     testWorkspaceRoot = fs.mkdtempSync(path.join(os.tmpdir(), "orchestra-resume-test-"));
     const orchestraDir = path.join(testWorkspaceRoot, ".orchestra");
     fs.mkdirSync(orchestraDir, { recursive: true });
     testDbPath = path.join(orchestraDir, "orchestra.db");
     createTestDatabase(testDbPath);
+
+    // Mock OrchestraDB to use our compatible Database instance
+    // This bypasses the native module mismatch error in src/database/client.ts
+    const liveDb = new Database(testDbPath);
+    const drizzleInstance = drizzle(liveDb);
+
+    // Spy on OrchestraDB static methods to return our working instances
+    // We cast to any to bypass 'readonly' or private protections if needed, 
+    // though getDrizzleInstance is public static.
+    vi.spyOn(OrchestraDB, "getDrizzleInstance").mockReturnValue(drizzleInstance);
+    vi.spyOn(OrchestraDB, "getInstance").mockReturnValue(liveDb);
+    vi.spyOn(OrchestraDB, "close").mockImplementation(() => {
+      try {
+        if (liveDb.open) liveDb.close();
+      } catch (e) { console.error("Error closing mock DB", e); }
+    });
 
     // Mock workspace folder resolution
     vi.mocked((await import("vscode"))!.workspace).workspaceFolders = [
