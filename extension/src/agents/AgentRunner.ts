@@ -206,6 +206,12 @@ export class AgentRunner implements vscode.Disposable {
   private hasEscalated = false;
   private hasEmittedSessionEnd = false;
 
+  /**
+   * Context injected by WorkflowChain when re-invoking after a "lost agent"
+   * that completed without advancing task status. Consumed once on next start().
+   */
+  private pendingRetryContext: string | undefined;
+
   // Event emitters
   private _onOutput = new vscode.EventEmitter<AgentOutput>();
   private _onStateChange = new vscode.EventEmitter<AgentState>();
@@ -472,6 +478,17 @@ export class AgentRunner implements vscode.Disposable {
   }
 
   /**
+   * Set retry context to be injected into the next agent session.
+   *
+   * Called by WorkflowChain when re-invoking after a "lost agent" scenario
+   * where the previous session completed without advancing task status.
+   * The context is consumed once on the next start() call.
+   */
+  setRetryContext(context: string): void {
+    this.pendingRetryContext = context;
+  }
+
+  /**
    * Start a new agent session
    *
    * Creates a new session, selects appropriate model, and begins the agent loop.
@@ -632,6 +649,12 @@ export class AgentRunner implements vscode.Disposable {
     // Inject environment context so agent knows its operating environment
     const envContext = this.buildEnvironmentContext();
     this.addUserMessage(envContext);
+
+    // Inject retry context if this is a re-invocation after a "lost agent" scenario
+    if (this.pendingRetryContext) {
+      this.addUserMessage(this.pendingRetryContext);
+      this.pendingRetryContext = undefined; // Consume once
+    }
 
     // Read and attach files if provided
     let attachmentParts: vscode.LanguageModelDataPart[] = [];
@@ -1666,9 +1689,11 @@ export class AgentRunner implements vscode.Disposable {
               // Still add this result before exiting
               batchedResults.push({
                 toolCallId: toolCall.callId,
-                result: errorMessage
-                  ? `Error: ${errorMessage}`
-                  : contentText || "Tool execution failed",
+                result: this.buildToolErrorMessage(
+                  errorMessage,
+                  result.result.error?.suggestion,
+                  contentText,
+                ),
               });
               break;
             }
@@ -1677,9 +1702,11 @@ export class AgentRunner implements vscode.Disposable {
           // Collect tool result for batching
           const resultMessage = toolSuccess
             ? contentText
-            : errorMessage
-              ? `Error: ${errorMessage}`
-              : contentText || "Tool execution failed";
+            : this.buildToolErrorMessage(
+                errorMessage,
+                result.result.error?.suggestion,
+                contentText,
+              );
           batchedResults.push({
             toolCallId: toolCall.callId,
             result: resultMessage,
@@ -2095,6 +2122,46 @@ export class AgentRunner implements vscode.Disposable {
     if (this.recentErrors.length > 5) {
       this.recentErrors.shift();
     }
+  }
+
+  /**
+   * Build a comprehensive error message for the LLM when a tool fails.
+   *
+   * The LLM needs actionable details to know what went wrong and how to fix it.
+   * Previously only the bare error.message was sent (e.g. "Input validation failed"),
+   * which gave the LLM no information about WHAT was invalid, causing it to give up
+   * instead of retrying with corrected input.
+   */
+  private buildToolErrorMessage(
+    errorMessage: string | undefined,
+    suggestion: string | undefined,
+    contentText: string | undefined,
+  ): string {
+    if (!errorMessage) {
+      return contentText || "Tool execution failed";
+    }
+
+    const parts: string[] = [`Error: ${errorMessage}`];
+
+    if (suggestion) {
+      parts.push(`\nHow to fix:\n${suggestion}`);
+    }
+
+    // Include raw content only if it adds info beyond the error message
+    // (e.g. JSON with detailed validation issues)
+    if (
+      contentText &&
+      contentText !== errorMessage &&
+      !parts.includes(contentText)
+    ) {
+      parts.push(`\nFull error output:\n${contentText}`);
+    }
+
+    parts.push(
+      "\nYou MUST retry this tool call with corrected parameters. Do NOT give up.",
+    );
+
+    return parts.join("\n");
   }
 
   /**

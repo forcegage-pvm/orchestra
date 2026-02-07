@@ -47,14 +47,14 @@ describe("Code review fix templates", () => {
 
   it("renders code-review-fix-prepare with formatted status and optional summary", () => {
     const context = { workspace: { id: "w1" }, other: "value" } as any;
-    const review = { status: "CHANGES_REQUESTED", summary: "Please fix the thing" } as any;
+const review = { status: "CHANGES_REQUESTED", summary: "Please fix the thing" } as any;
     const output = builder.buildCodeReviewFixPreparePrompt(context, review);
+    console.log('DEBUG PREPARE OUTPUT:\n' + output);
     expect(output).toContain("Changes requested");
     expect(output).toContain("Please fix the thing");
   });
 
-  it("renders code-review-fix-implement with formatted status and no summary", () => {
-    const context = { workspace: { id: "w1" }, other: "value" } as any;
+  it("renders code-review-fix-implement with formatted status and no summary", () => {    const context = { workspace: { id: "w1" }, other: "value" } as any;
     const review = { status: "APPROVED" } as any;
     const output = builder.buildCodeReviewFixImplementPrompt(context, review);
     expect(output).toContain("Approved");

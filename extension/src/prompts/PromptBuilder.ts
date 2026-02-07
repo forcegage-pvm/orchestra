@@ -152,8 +152,10 @@ export class PromptBuilder {
     context: PromptContext,
     review: CodeReviewContext,
   ): string {
-    const formattedStatus = review.status.replace(/_/g, " ");
-    const codeReview = {
+const formattedStatus = (() => {
+      const withSpaces = review.status.replace(/_/g, " ").toLowerCase();
+      return withSpaces.charAt(0).toUpperCase() + withSpaces.slice(1);
+    })();    const codeReview = {
       status: formattedStatus,
       ...(review.summary ? { summary: review.summary } : {}),
     };
@@ -171,8 +173,10 @@ export class PromptBuilder {
     context: PromptContext,
     review: CodeReviewContext,
   ): string {
-    const formattedStatus = review.status.replace(/_/g, " ");
-    const codeReview = {
+const formattedStatus = (() => {
+      const withSpaces = review.status.replace(/_/g, " ").toLowerCase();
+      return withSpaces.charAt(0).toUpperCase() + withSpaces.slice(1);
+    })();    const codeReview = {
       status: formattedStatus,
       ...(review.summary ? { summary: review.summary } : {}),
     };

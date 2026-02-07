@@ -404,9 +404,7 @@ describe("handover-validation", () => {
       } catch (error) {
         const message = (error as Error).message;
         expect(message).toContain("Action Required");
-        expect(message).toContain(
-          "Extract relevant content into the",
-        );
+        expect(message).toContain("Extract relevant content into the");
       }
     });
   });

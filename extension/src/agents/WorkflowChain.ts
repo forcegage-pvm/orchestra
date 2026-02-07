@@ -558,8 +558,8 @@ export class WorkflowChain implements vscode.Disposable {
    */
   private async retryLostAgent(
     taskId: number,
-    _currentStatus: string,
-    _role: AgentRole,
+    currentStatus: string,
+    role: AgentRole,
     retryCount: number,
   ): Promise<void> {
     // Small delay before retry
@@ -569,6 +569,18 @@ export class WorkflowChain implements vscode.Disposable {
       // Pre-populate retry count for the next session
       // We need to track this for when the session starts
       this.pendingRetryCount.set(taskId, retryCount);
+
+      // Inject retry context so the new agent knows why it's being re-invoked
+      // and can learn from the previous session's failures
+      const runner = getAgentRunner();
+      const retryContext = this.buildRetryContext(
+        taskId,
+        currentStatus,
+        role,
+        retryCount,
+        runner,
+      );
+      runner.setRetryContext(retryContext);
 
       await handlePlayTask(this.workspaceRoot, taskId);
       logger.info(
@@ -586,6 +598,52 @@ export class WorkflowChain implements vscode.Disposable {
         this.pendingRetryCount.delete(taskId);
       }, 5000);
     }
+  }
+
+  /**
+   * Build context message for a retried agent so it knows what the previous
+   * session did wrong and can avoid repeating the same mistakes.
+   */
+  private buildRetryContext(
+    taskId: number,
+    currentStatus: string,
+    role: AgentRole,
+    retryCount: number,
+    runner: ReturnType<typeof getAgentRunner>,
+  ): string {
+    const parts: string[] = [
+      `⚠️ WORKFLOW RETRY (attempt ${retryCount + 1}): The previous ${role} agent session completed without advancing task ${taskId} from ${currentStatus} status.`,
+    ];
+
+    // Extract info from the previous session's failed tool calls
+    const session = runner.getSession();
+    if (session) {
+      const failedCalls = session.toolCalls.filter(
+        (tc) => tc.status === "error",
+      );
+      if (failedCalls.length > 0) {
+        const lastFailed = failedCalls[failedCalls.length - 1];
+        parts.push(
+          `\nThe previous session's last failed tool call was "${lastFailed.name}".`,
+        );
+        if (lastFailed.result?.error?.message) {
+          parts.push(
+            `Error: ${lastFailed.result.error.message}`,
+          );
+        }
+        if (lastFailed.result?.error?.suggestion) {
+          parts.push(
+            `Suggestion: ${lastFailed.result.error.suggestion}`,
+          );
+        }
+      }
+    }
+
+    parts.push(
+      "\nYou MUST complete the task by calling the required tool(s) with correct parameters. Do NOT stop without advancing the task status.",
+    );
+
+    return parts.join("\n");
   }
 
   /**

@@ -15,8 +15,11 @@ Use the `fix_code_review` tool to address the code review feedback:
    - Fix the code according to the recommendation
    - Run relevant tests
    - `fix_code_review({ action: "RESOLVE_ISSUE", issue_id: N, fix_summary: "..." })` - Mark resolved
+{{#if codeReview.summary}}
 4. `fix_code_review({ action: "SUBMIT_FIXES", summary: "...", files_changed: [...], tests_run: [...] })` - Submit for re-review
-
+{{else}}
+4. `fix_code_review({ action: "SUBMIT_FIXES", files_changed: [...], tests_run: [...] })` - Submit for re-review
+{{/if}}
 ## Task Details
 - **ID**: {{task.task_id}}
 - **Title**: {{task.title}}

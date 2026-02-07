@@ -397,7 +397,6 @@ describe("TemplateLoader", () => {
         "multi-partial",
         "{{> header}} - {{> sidebar}} - {{> footer}}"
       );
-
       const loader = new TemplateLoader({ workspaceRoot: tempDir });
       const result = loader.render("multi-partial");
 
@@ -421,8 +420,30 @@ describe("TemplateLoader", () => {
 
       expect(result).toBe("<ul><li>a: 1</li><li>b: 2</li></ul>");
     });
-  });
 
+    it("should re-register partials after clearCache() is called", () => {
+      // Initially register a partial
+      writePartial("dynamic", "OLD");
+      writeTemplate("uses-dynamic", "Start-{{> dynamic}}-End");
+
+      const loader = new TemplateLoader({ workspaceRoot: tempDir, devMode: false });
+
+      // First render picks up initial partial
+      expect(loader.render("uses-dynamic")).toBe("Start-OLD-End");
+
+      // Modify partial on disk
+      writePartial("dynamic", "NEW");
+
+      // Without clearing cache, partial should still be the old one because partials are cached
+      expect(loader.render("uses-dynamic")).toBe("Start-OLD-End");
+
+      // Clear cache which resets partialsRegistered flag
+      loader.clearCache();
+
+      // After clearing cache, partials should be re-scanned and pick up the new content
+      expect(loader.render("uses-dynamic")).toBe("Start-NEW-End");
+    });
+  });
   describe("json helper", () => {
     it("should serialize object as JSON with 2-space indent", () => {
       writeTemplate("json-test", "{{{json data}}}");
@@ -629,6 +650,32 @@ describe("TemplateLoader", () => {
     });
   });
 
+  describe("add helper", () => {
+    it("should add positive numbers", () => {
+      writeTemplate("add-pos", "{{add 2 3}}");
+
+      const loader = new TemplateLoader({ workspaceRoot: tempDir });
+      expect(loader.render("add-pos")).toBe("5");
+    });
+
+    it("should add negative numbers and zero", () => {
+      writeTemplate("add-neg", "{{add -2 -3}}");
+      writeTemplate("add-zero", "{{add 0 0}}");
+
+      const loader = new TemplateLoader({ workspaceRoot: tempDir });
+      expect(loader.render("add-neg")).toBe("-5");
+      expect(loader.render("add-zero")).toBe("0");
+    });
+
+    it("should coerce string numbers to numbers", () => {
+      writeTemplate("add-str", "{{add '2' '3'}}");
+      writeTemplate("add-vars", "{{add a b}}");
+
+      const loader = new TemplateLoader({ workspaceRoot: tempDir });
+      expect(loader.render("add-str")).toBe("5");
+      expect(loader.render("add-vars", { a: "4", b: "6" })).toBe("10");
+    });
+  });
   describe("missing template error", () => {
     it("should throw error when template file does not exist", () => {
       const loader = new TemplateLoader({ workspaceRoot: tempDir });
