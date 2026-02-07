@@ -959,7 +959,7 @@ const MIGRATIONS: Migration[] = [
           last_activity_at TEXT NOT NULL,
           ended_at TEXT,
           iteration INTEGER NOT NULL DEFAULT 0,
-          max_iterations INTEGER NOT NULL DEFAULT 50,
+          max_iterations INTEGER NOT NULL DEFAULT 80,
           tool_call_count INTEGER NOT NULL DEFAULT 0,
           successful_tool_calls INTEGER NOT NULL DEFAULT 0,
           failed_tool_calls INTEGER NOT NULL DEFAULT 0,

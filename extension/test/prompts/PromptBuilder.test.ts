@@ -127,4 +127,61 @@ describe("PromptBuilder", () => {
     expect(render).toHaveBeenCalledWith("handover-fix", handoverFixContext);
     expect(result).toBe("handover fix output");
   });
+
+  it("should call TemplateLoader.render for single task code review prompt", () => {
+    const render = vi.fn().mockReturnValue("code review output");
+    const templateLoader = { render } as TemplateLoader;
+    const builder = new PromptBuilder({ templateLoader });
+
+    const result = builder.buildCodeReviewPrompt(
+      1,
+      "sprint-001",
+      "Sample Sprint",
+      { taskId: 4, title: "Sample Task", dbId: 100 },
+    );
+
+    expect(render).toHaveBeenCalledWith("code-review", {
+      sprint: { sprint_id: "sprint-001", title: "Sample Sprint" },
+      task: { task_id: 4, title: "Sample Task" },
+    });
+    expect(result).toBe("code review output");
+  });
+
+  it("should call TemplateLoader.render for bulk code review prompt when no taskInfo", () => {
+    const render = vi.fn().mockReturnValue("bulk code review output");
+    const templateLoader = { render } as TemplateLoader;
+    const builder = new PromptBuilder({ templateLoader });
+
+    const result = builder.buildCodeReviewPrompt(
+      5,
+      "sprint-001",
+      "Sample Sprint",
+    );
+
+    expect(render).toHaveBeenCalledWith("code-review-bulk", {
+      pendingCount: 5,
+      sprint: { sprint_id: "sprint-001", title: "Sample Sprint" },
+    });
+    expect(result).toBe("bulk code review output");
+  });
+
+  it("should call TemplateLoader.render for code review re-review prompt", () => {
+    const render = vi.fn().mockReturnValue("re-review output");
+    const templateLoader = { render } as TemplateLoader;
+    const builder = new PromptBuilder({ templateLoader });
+
+    const result = builder.buildCodeReviewReReviewPrompt(
+      "sprint-001",
+      "Sample Sprint",
+      { taskId: 4, title: "Sample Task", dbId: 100 },
+      7,
+    );
+
+    expect(render).toHaveBeenCalledWith("code-review-re-review", {
+      sprint: { sprint_id: "sprint-001", title: "Sample Sprint" },
+      task: { task_id: 4, title: "Sample Task" },
+      codeReview: { reviewId: 7 },
+    });
+    expect(result).toBe("re-review output");
+  });
 });

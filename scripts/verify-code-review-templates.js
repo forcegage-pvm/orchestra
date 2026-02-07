@@ -1,12 +1,13 @@
 import path from 'path';
 import fs from 'fs';
-// builders will be dynamically imported to avoid ESM resolution issues
+
 function normalize(s) {
   return s.replace(/\s+/g, ' ').trim();
 }
+
 async function loadTemplateLoader() {
-  // Dynamically import to avoid ESM named export resolution issues
-const mod = await import('../extension/src/prompts/TemplateLoader.ts');  return mod.TemplateLoader ?? mod.default ?? mod;
+  const mod = await import('../extension/src/prompts/TemplateLoader.ts');
+  return mod.TemplateLoader ?? mod.default ?? mod;
 }
 
 function copyRecursiveSync(src, dest) {
@@ -35,50 +36,59 @@ async function main() {
   for (const file of files) {
     const src = path.join(templatesSrc, file);
     const dest = path.join(templatesDest, file);
-    // Copy files and directories recursively (partials are in a subdirectory)
     copyRecursiveSync(src, dest);
   }
 
   const TemplateLoader = await loadTemplateLoader();
-  const loaders = new TemplateLoader({ workspaceRoot, devMode: true });
-  const loader = loaders; // keep variable name from before
+  const loader = new TemplateLoader({ workspaceRoot, devMode: true });
 
-  const buildersMod = await import('../extension/src/prompts/promptTextBuilders.ts');
-  // Support both named and default exports
-  // Single
+  const builders = await import('../extension/src/prompts/promptTextBuilders.ts');
+
+  // Single task code review
   const sprint = { sprint_id: 's1', title: 'Sprint One' };
   const task = { task_id: 42, title: 'Implement feature X' };
   const tSingle = loader.render('code-review', { sprint, task });
-
-  // Use exported router to obtain builder output for single task
   const bSingle = builders.buildCodeReviewPromptText(0, 's1', 'Sprint One', { taskId: 42, title: 'Implement feature X', dbId: 101 });
+
+  let diffs = 0;
   if (normalize(tSingle) !== normalize(bSingle)) {
-    console.error('Single task output DIFFER:');
+    console.error('=== Single task output DIFFER ===');
     console.error('TEMPLATE:\n', tSingle);
     console.error('\nBUILDER:\n', bSingle);
-    process.exit(2);
+    diffs++;
+  } else {
+    console.log('✅ Single task code review: MATCH');
   }
 
-  // Bulk
+  // Bulk code review
   const tBulk = loader.render('code-review-bulk', { pendingCount: 5, sprint: { sprint_id: 's1', title: 'Sprint One' } });
   const bBulk = builders.buildCodeReviewPromptText(5, 's1', 'Sprint One');
   if (normalize(tBulk) !== normalize(bBulk)) {
-    console.error('Bulk output DIFFER:');
+    console.error('=== Bulk output DIFFER ===');
     console.error('TEMPLATE:\n', tBulk);
     console.error('\nBUILDER:\n', bBulk);
-    process.exit(2);
+    diffs++;
+  } else {
+    console.log('✅ Bulk code review: MATCH');
   }
 
   // Re-review
   const tRe = loader.render('code-review-re-review', { sprint: { sprint_id: 's1', title: 'Sprint One' }, task: { task_id: 42, title: 'Implement feature X' }, codeReview: { reviewId: 7 } });
   const bRe = builders.buildCodeReviewReReviewPromptText('s1', 'Sprint One', { taskId: 42, title: 'Implement feature X', dbId: 101 }, 7);
   if (normalize(tRe) !== normalize(bRe)) {
-    console.error('Re-review output DIFFER:');
+    console.error('=== Re-review output DIFFER ===');
     console.error('TEMPLATE:\n', tRe);
     console.error('\nBUILDER:\n', bRe);
+    diffs++;
+  } else {
+    console.log('✅ Re-review: MATCH');
+  }
+
+  if (diffs > 0) {
+    console.error(`\n❌ ${diffs} template(s) have differences`);
     process.exit(2);
   }
-  console.log('All templates match builders');
+  console.log('\n✅ All templates match builders (whitespace-normalized)');
 }
 
 main().catch((err) => { console.error(err); process.exit(1); });

@@ -197,7 +197,7 @@ function sessionInfoToInterface(
       info.taskId,
     ),
     iteration: 0,
-    maxIterations: 50,
+    maxIterations: 80,
     toolCallCount: 0,
     successfulToolCalls: 0,
     failedToolCalls: 0,

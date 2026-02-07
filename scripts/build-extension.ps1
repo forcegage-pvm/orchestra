@@ -63,6 +63,9 @@ if (-not $SkipInstall) {
   Write-Step "Install dependencies"
   Invoke-Step "npm install" $repoRootResolved
   Invoke-Step "npm install" $extensionDir
+
+  Write-Step "Rebuild better-sqlite3 for Node (native test runtime)"
+  Invoke-Step "npm rebuild better-sqlite3 --update-binary" $extensionDir
 }
 
 Write-Step "Build root artifacts"

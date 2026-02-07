@@ -38,6 +38,7 @@ import {
   loadOrchestratorTools,
 } from "./toolLoaders.js";
 import { ToolRegistry } from "./ToolRegistry.js";
+import { resetFailedCommandCache } from "./tools/system/runCommand.js";
 import type {
   FileOperationEvent,
   ToolInvocationContext,
@@ -430,7 +431,7 @@ export class AgentRunner implements vscode.Disposable {
       orchestratorModel: config?.orchestratorModel ?? "claude-opus-4.5",
       implementorModel: config?.implementorModel ?? "claude-sonnet-4.5",
       controllerModel: config?.controllerModel ?? "claude-opus-4.5",
-      maxIterations: config?.maxIterations ?? 50,
+      maxIterations: config?.maxIterations ?? 80,
       maxToolRetries: config?.maxToolRetries ?? 3,
       verbosity: config?.verbosity ?? "normal",
       compactionThreshold: config?.compactionThreshold ?? 5,
@@ -1617,6 +1618,12 @@ export class AgentRunner implements vscode.Disposable {
         };
 
         try {
+          // Clear run_command's failed-command cache before any non-run_command tool,
+          // since the tool may change files/state that would fix a previously-failing command.
+          if (toolCall.name !== "run_command") {
+            resetFailedCommandCache();
+          }
+
           const result = await this.toolRegistry.execute(
             toolCall.name,
             toolCall.input,

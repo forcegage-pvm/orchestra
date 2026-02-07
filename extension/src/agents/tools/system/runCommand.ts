@@ -26,12 +26,26 @@ const MAX_FAILED_COMMAND_CACHE = 10;
 
 /**
  * Cache of recently failed commands to prevent the agent from retrying
- * the exact same command repeatedly. Keyed by `command|cwd`.
+ * the exact same command in a tight loop. Keyed by `command|cwd`.
+ *
+ * IMPORTANT: This cache is cleared whenever any other tool executes,
+ * since that tool call may have changed files/state that would make
+ * the command succeed on retry. See AgentRunner.executeToolCalls().
  */
 const failedCommandCache = new Map<
   string,
   { errorSummary: string; exitCode: number; count: number }
 >();
+
+/**
+ * Reset the entire failed command cache.
+ * Called by AgentRunner when any non-run_command tool executes,
+ * since that tool may have changed files or state that would make
+ * a previously-failing command succeed.
+ */
+export function resetFailedCommandCache(): void {
+  failedCommandCache.clear();
+}
 
 function getCommandCacheKey(command: string, cwd: string): string {
   return `${command}|${cwd}`;
@@ -243,15 +257,33 @@ function extractErrorSummary(
 }
 
 /**
+ * Normalize Windows drive letter to uppercase.
+ *
+ * VS Code may return workspace paths with a lowercase drive letter (e.g. `x:\...`).
+ * Vitest/Vite internally resolves paths with uppercase drive letters. When the cwd
+ * has a lowercase drive letter, vitest's module graph can't match test suites to
+ * their files, causing "No test suite found in file" errors.
+ *
+ * Fixed in vitest 2.x (https://github.com/vitest-dev/vitest/pull/6779) but we
+ * normalize here to support older versions and avoid similar issues in other tools.
+ */
+function normalizeWindowsDriveLetter(p: string): string {
+  if (process.platform === "win32" && p.length >= 2 && p[1] === ":") {
+    return p[0].toUpperCase() + p.slice(1);
+  }
+  return p;
+}
+
+/**
  * Get the workspace root directory.
  * Falls back to process.cwd() only if no workspace is open.
  */
 function getWorkspaceRoot(): string {
   const folders = vscode.workspace.workspaceFolders;
   if (folders && folders.length > 0) {
-    return folders[0].uri.fsPath;
+    return normalizeWindowsDriveLetter(folders[0].uri.fsPath);
   }
-  return process.cwd();
+  return normalizeWindowsDriveLetter(process.cwd());
 }
 
 interface CommandResult {
@@ -302,7 +334,9 @@ async function _executeWithShellIntegration(
   },
 ): Promise<CommandResult | null> {
   // Validate cwd exists before creating terminal
-  const resolvedCwd = options.cwd ?? getWorkspaceRoot();
+  const resolvedCwd = normalizeWindowsDriveLetter(
+    options.cwd ?? getWorkspaceRoot(),
+  );
   if (!fs.existsSync(resolvedCwd)) {
     throw new ShellExecutionError(
       "CWD_NOT_FOUND",
@@ -397,7 +431,9 @@ async function executeWithSubprocess(
     }
 
     // Validate cwd exists before spawning
-    const resolvedCwd = options.cwd ?? getWorkspaceRoot();
+    const resolvedCwd = normalizeWindowsDriveLetter(
+      options.cwd ?? getWorkspaceRoot(),
+    );
     if (!fs.existsSync(resolvedCwd)) {
       const error = new Error(
         `Working directory does not exist: ${resolvedCwd}`,
@@ -630,6 +666,11 @@ export const runCommandTool: AgentTool<RunCommandInput> = {
         type: "object",
         description: "Environment variables",
       },
+      expect_failure: {
+        type: "boolean",
+        description:
+          "When true, a non-zero exit code is treated as success and will NOT be cached as a failed command. Use for TDD red-phase tests or any command where failure is the expected outcome. Full output is still returned.",
+      },
     },
     required: ["command"],
   },
@@ -660,8 +701,13 @@ export const runCommandTool: AgentTool<RunCommandInput> = {
     }
 
     // Check if this exact command recently failed - prevent retry loops
-    const resolvedCwd = input.cwd ?? getWorkspaceRoot();
-    const previousFailure = getFailedCommand(input.command, resolvedCwd);
+    // Skip duplicate check when expect_failure is set (TDD red-phase, etc.)
+    const resolvedCwd = normalizeWindowsDriveLetter(
+      input.cwd ?? getWorkspaceRoot(),
+    );
+    const previousFailure = input.expect_failure
+      ? undefined
+      : getFailedCommand(input.command, resolvedCwd);
     if (previousFailure) {
       const retryCount = previousFailure.count;
       return {
@@ -716,7 +762,7 @@ export const runCommandTool: AgentTool<RunCommandInput> = {
     // returns partial output without any error indication
     try {
       result = await executeWithSubprocess(input.command, {
-        cwd: input.cwd,
+        cwd: resolvedCwd,
         timeoutMs,
         stdin: input.stdin,
         env: input.env,
@@ -782,7 +828,13 @@ export const runCommandTool: AgentTool<RunCommandInput> = {
     }
 
     // Determine if this is a success or failure
-    const isSuccess = result.success && !result.timedOut;
+    // When expect_failure is set, treat non-zero exit as success (e.g., TDD red-phase)
+    const isSuccess =
+      (result.success && !result.timedOut) ||
+      (input.expect_failure === true && !result.timedOut);
+
+    // Update resultData.success to reflect expect_failure logic
+    resultData.success = isSuccess;
 
     // Track command result for duplicate detection
     if (isSuccess) {

@@ -523,22 +523,40 @@ describe("ContextManager", () => {
         iteration: 0,
       };
 
-      const toolMessages: AgentMessage[] = Array.from(
-        { length: 25 },
-        (_, index) => ({
-          id: crypto.randomUUID(),
-          role: "assistant",
-          content: [
-            {
-              type: "toolResult",
-              toolCallId: crypto.randomUUID(),
-              value: `Tool output ${index}: ${"X".repeat(500)}`,
-            },
-          ],
-          timestamp: new Date().toISOString(),
-          iteration: index + 1,
-        }),
-      );
+      // Create proper tool call/result PAIRS (not just orphaned results)
+      const toolMessages: AgentMessage[] = [];
+      for (let index = 0; index < 25; index++) {
+        const callId = crypto.randomUUID();
+        toolMessages.push(
+          {
+            id: crypto.randomUUID(),
+            role: "assistant",
+            content: [
+              {
+                type: "toolCall",
+                toolCallId: callId,
+                name: `tool_${index}`,
+                input: {},
+              },
+            ],
+            timestamp: new Date().toISOString(),
+            iteration: index + 1,
+          },
+          {
+            id: crypto.randomUUID(),
+            role: "assistant",
+            content: [
+              {
+                type: "toolResult",
+                toolCallId: callId,
+                value: `Tool output ${index}: ${"X".repeat(500)}`,
+              },
+            ],
+            timestamp: new Date().toISOString(),
+            iteration: index + 1,
+          },
+        );
+      }
 
       const recentMessages: AgentMessage[] = [
         {
@@ -1019,6 +1037,487 @@ describe("ContextManager", () => {
 
       // They must either both be present or both absent
       expect(hasToolCall).toBe(hasToolResult);
+    });
+  });
+
+  describe("aggressive compaction with tool pairs", () => {
+    test("should keep tool call/result pair in aggressive compaction instead of orphaning", () => {
+      // Very tight limits to force aggressive compaction
+      const manager = new ContextManager({
+        maxContextTokens: 30,
+        compactionThreshold: 3,
+      });
+
+      const callId = crypto.randomUUID();
+
+      const messages: AgentMessage[] = [
+        {
+          id: crypto.randomUUID(),
+          role: "system",
+          content: "System prompt",
+          timestamp: new Date().toISOString(),
+          iteration: 0,
+        },
+        // Pair: tool call + result
+        {
+          id: crypto.randomUUID(),
+          role: "assistant",
+          content: [
+            {
+              type: "toolCall",
+              toolCallId: callId,
+              name: "read_file",
+              input: { path: "/file" },
+            },
+          ],
+          timestamp: new Date().toISOString(),
+          iteration: 1,
+        },
+        {
+          id: crypto.randomUUID(),
+          role: "assistant",
+          content: [
+            {
+              type: "toolResult",
+              toolCallId: callId,
+              value: "file content " + "X".repeat(300),
+            },
+          ],
+          timestamp: new Date().toISOString(),
+          iteration: 1,
+        },
+      ];
+
+      const compacted = manager.compact(messages);
+
+      // Collect tool call and result IDs from compacted output
+      const toolCallIds = new Set<string>();
+      const toolResultIds = new Set<string>();
+
+      for (const msg of compacted) {
+        if (typeof msg.content === "string") continue;
+        for (const part of msg.content) {
+          if (part.type === "toolCall") toolCallIds.add(part.toolCallId);
+          if (part.type === "toolResult") toolResultIds.add(part.toolCallId);
+        }
+      }
+
+      // Every tool call must have a matching result and vice versa
+      for (const id of toolCallIds) {
+        expect(
+          toolResultIds.has(id),
+          `Tool call ${id} has no matching tool result after aggressive compaction`,
+        ).toBe(true);
+      }
+      for (const id of toolResultIds) {
+        expect(
+          toolCallIds.has(id),
+          `Tool result ${id} has no matching tool call after aggressive compaction`,
+        ).toBe(true);
+      }
+    });
+
+    test("should preserve tool pair when last message is toolResult in aggressive compaction", () => {
+      // This simulates the exact bug scenario: aggressive compaction previously
+      // kept only the last message (toolResult), dropping its matching toolCall
+      const manager = new ContextManager({
+        maxContextTokens: 20,
+        compactionThreshold: 2,
+      });
+
+      const callId1 = crypto.randomUUID();
+      const callId2 = crypto.randomUUID();
+
+      const messages: AgentMessage[] = [
+        {
+          id: crypto.randomUUID(),
+          role: "system",
+          content: "System",
+          timestamp: new Date().toISOString(),
+          iteration: 0,
+        },
+        // First pair
+        {
+          id: crypto.randomUUID(),
+          role: "assistant",
+          content: [
+            {
+              type: "toolCall",
+              toolCallId: callId1,
+              name: "grep",
+              input: { query: "x" },
+            },
+          ],
+          timestamp: new Date().toISOString(),
+          iteration: 1,
+        },
+        {
+          id: crypto.randomUUID(),
+          role: "assistant",
+          content: [
+            {
+              type: "toolResult",
+              toolCallId: callId1,
+              value: "result " + "A".repeat(200),
+            },
+          ],
+          timestamp: new Date().toISOString(),
+          iteration: 1,
+        },
+        // Second pair (most recent)
+        {
+          id: crypto.randomUUID(),
+          role: "assistant",
+          content: [
+            {
+              type: "toolCall",
+              toolCallId: callId2,
+              name: "read_file",
+              input: { path: "/b" },
+            },
+          ],
+          timestamp: new Date().toISOString(),
+          iteration: 2,
+        },
+        {
+          id: crypto.randomUUID(),
+          role: "assistant",
+          content: [
+            {
+              type: "toolResult",
+              toolCallId: callId2,
+              value: "result " + "B".repeat(200),
+            },
+          ],
+          timestamp: new Date().toISOString(),
+          iteration: 2,
+        },
+      ];
+
+      const compacted = manager.compact(messages);
+
+      // The compacted result should have callId2's toolCall AND toolResult
+      // (not just the toolResult orphaned without its toolCall)
+      const hasCall2 = compacted.some(
+        (m) =>
+          Array.isArray(m.content) &&
+          m.content.some(
+            (p) => p.type === "toolCall" && p.toolCallId === callId2,
+          ),
+      );
+      const hasResult2 = compacted.some(
+        (m) =>
+          Array.isArray(m.content) &&
+          m.content.some(
+            (p) => p.type === "toolResult" && p.toolCallId === callId2,
+          ),
+      );
+
+      expect(hasCall2).toBe(hasResult2);
+
+      // If callId1 is present, it must also be paired
+      const hasCall1 = compacted.some(
+        (m) =>
+          Array.isArray(m.content) &&
+          m.content.some(
+            (p) => p.type === "toolCall" && p.toolCallId === callId1,
+          ),
+      );
+      const hasResult1 = compacted.some(
+        (m) =>
+          Array.isArray(m.content) &&
+          m.content.some(
+            (p) => p.type === "toolResult" && p.toolCallId === callId1,
+          ),
+      );
+      expect(hasCall1).toBe(hasResult1);
+    });
+  });
+
+  describe("ensureToolPairIntegrity", () => {
+    test("should return unchanged messages when all tool pairs are complete", () => {
+      const manager = new ContextManager();
+      const callId = crypto.randomUUID();
+
+      const messages: AgentMessage[] = [
+        {
+          id: crypto.randomUUID(),
+          role: "assistant",
+          content: [
+            {
+              type: "toolCall",
+              toolCallId: callId,
+              name: "read_file",
+              input: {},
+            },
+          ],
+          timestamp: new Date().toISOString(),
+          iteration: 1,
+        },
+        {
+          id: crypto.randomUUID(),
+          role: "assistant",
+          content: [
+            {
+              type: "toolResult",
+              toolCallId: callId,
+              value: "result",
+            },
+          ],
+          timestamp: new Date().toISOString(),
+          iteration: 1,
+        },
+      ];
+
+      const result = manager.ensureToolPairIntegrity(messages);
+      expect(result).toEqual(messages);
+      expect(result.length).toBe(2);
+    });
+
+    test("should remove orphaned toolCall message when toolResult is missing", () => {
+      const manager = new ContextManager();
+      const callId = crypto.randomUUID();
+
+      const messages: AgentMessage[] = [
+        {
+          id: crypto.randomUUID(),
+          role: "user",
+          content: "Hello",
+          timestamp: new Date().toISOString(),
+          iteration: 0,
+        },
+        {
+          id: crypto.randomUUID(),
+          role: "assistant",
+          content: [
+            {
+              type: "toolCall",
+              toolCallId: callId,
+              name: "read_file",
+              input: {},
+            },
+          ],
+          timestamp: new Date().toISOString(),
+          iteration: 1,
+        },
+        // No matching toolResult!
+      ];
+
+      const result = manager.ensureToolPairIntegrity(messages);
+      expect(result.length).toBe(1); // Only the user message remains
+      expect(result[0]?.content).toBe("Hello");
+    });
+
+    test("should remove orphaned toolResult message when toolCall is missing", () => {
+      const manager = new ContextManager();
+      const callId = crypto.randomUUID();
+
+      const messages: AgentMessage[] = [
+        {
+          id: crypto.randomUUID(),
+          role: "user",
+          content: "Hello",
+          timestamp: new Date().toISOString(),
+          iteration: 0,
+        },
+        // No matching toolCall!
+        {
+          id: crypto.randomUUID(),
+          role: "assistant",
+          content: [
+            {
+              type: "toolResult",
+              toolCallId: callId,
+              value: "result",
+            },
+          ],
+          timestamp: new Date().toISOString(),
+          iteration: 1,
+        },
+      ];
+
+      const result = manager.ensureToolPairIntegrity(messages);
+      expect(result.length).toBe(1); // Only the user message remains
+      expect(result[0]?.content).toBe("Hello");
+    });
+
+    test("should keep text-only messages untouched", () => {
+      const manager = new ContextManager();
+
+      const messages: AgentMessage[] = [
+        {
+          id: crypto.randomUUID(),
+          role: "system",
+          content: "System prompt",
+          timestamp: new Date().toISOString(),
+          iteration: 0,
+        },
+        {
+          id: crypto.randomUUID(),
+          role: "user",
+          content: "User message",
+          timestamp: new Date().toISOString(),
+          iteration: 1,
+        },
+        {
+          id: crypto.randomUUID(),
+          role: "assistant",
+          content: "Response",
+          timestamp: new Date().toISOString(),
+          iteration: 1,
+        },
+      ];
+
+      const result = manager.ensureToolPairIntegrity(messages);
+      expect(result).toEqual(messages);
+    });
+
+    test("should handle mixed complete and orphaned tool pairs", () => {
+      const manager = new ContextManager();
+      const completeCallId = crypto.randomUUID();
+      const orphanedCallId = crypto.randomUUID();
+
+      const messages: AgentMessage[] = [
+        // Complete pair
+        {
+          id: crypto.randomUUID(),
+          role: "assistant",
+          content: [
+            {
+              type: "toolCall",
+              toolCallId: completeCallId,
+              name: "read_file",
+              input: {},
+            },
+          ],
+          timestamp: new Date().toISOString(),
+          iteration: 1,
+        },
+        {
+          id: crypto.randomUUID(),
+          role: "assistant",
+          content: [
+            {
+              type: "toolResult",
+              toolCallId: completeCallId,
+              value: "result",
+            },
+          ],
+          timestamp: new Date().toISOString(),
+          iteration: 1,
+        },
+        // Orphaned toolCall (no result)
+        {
+          id: crypto.randomUUID(),
+          role: "assistant",
+          content: [
+            {
+              type: "toolCall",
+              toolCallId: orphanedCallId,
+              name: "grep",
+              input: {},
+            },
+          ],
+          timestamp: new Date().toISOString(),
+          iteration: 2,
+        },
+      ];
+
+      const result = manager.ensureToolPairIntegrity(messages);
+
+      // Complete pair should be kept, orphaned call should be removed
+      expect(result.length).toBe(2);
+
+      const hasCompleteCall = result.some(
+        (m) =>
+          Array.isArray(m.content) &&
+          m.content.some(
+            (p) => p.type === "toolCall" && p.toolCallId === completeCallId,
+          ),
+      );
+      const hasCompleteResult = result.some(
+        (m) =>
+          Array.isArray(m.content) &&
+          m.content.some(
+            (p) => p.type === "toolResult" && p.toolCallId === completeCallId,
+          ),
+      );
+      const hasOrphanedCall = result.some(
+        (m) =>
+          Array.isArray(m.content) &&
+          m.content.some(
+            (p) => p.type === "toolCall" && p.toolCallId === orphanedCallId,
+          ),
+      );
+
+      expect(hasCompleteCall).toBe(true);
+      expect(hasCompleteResult).toBe(true);
+      expect(hasOrphanedCall).toBe(false);
+    });
+
+    test("should handle empty messages array", () => {
+      const manager = new ContextManager();
+      const result = manager.ensureToolPairIntegrity([]);
+      expect(result).toEqual([]);
+    });
+
+    test("should strip orphaned tool parts from mixed-content messages", () => {
+      const manager = new ContextManager();
+      const completeCallId = crypto.randomUUID();
+      const orphanedCallId = crypto.randomUUID();
+
+      // A message with both a complete tool call and an orphaned one
+      const messages: AgentMessage[] = [
+        {
+          id: crypto.randomUUID(),
+          role: "assistant",
+          content: [
+            {
+              type: "toolCall",
+              toolCallId: completeCallId,
+              name: "read_file",
+              input: {},
+            },
+            {
+              type: "toolCall",
+              toolCallId: orphanedCallId,
+              name: "grep",
+              input: {},
+            },
+          ],
+          timestamp: new Date().toISOString(),
+          iteration: 1,
+        },
+        {
+          id: crypto.randomUUID(),
+          role: "assistant",
+          content: [
+            {
+              type: "toolResult",
+              toolCallId: completeCallId,
+              value: "result",
+            },
+            // No result for orphanedCallId!
+          ],
+          timestamp: new Date().toISOString(),
+          iteration: 1,
+        },
+      ];
+
+      const result = manager.ensureToolPairIntegrity(messages);
+
+      // The orphaned toolCall should be stripped from the first message
+      expect(result.length).toBe(2);
+
+      const firstContent = result[0]!.content;
+      expect(Array.isArray(firstContent)).toBe(true);
+      if (Array.isArray(firstContent)) {
+        expect(firstContent.length).toBe(1);
+        expect(firstContent[0]!.type).toBe("toolCall");
+        if (firstContent[0]!.type === "toolCall") {
+          expect(firstContent[0]!.toolCallId).toBe(completeCallId);
+        }
+      }
     });
   });
 });

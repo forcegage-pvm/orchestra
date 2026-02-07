@@ -509,4 +509,144 @@ describe("runCommand tool", () => {
       expect(parsed.error_summary).toContain("Cannot find module");
     });
   });
+
+  describe("expect_failure flag", () => {
+    it("treats non-zero exit as success when expect_failure is true", async () => {
+      const { runCommandTool } =
+        await import("../../../../src/agents/tools/system/runCommand.js");
+
+      const input: RunCommandInput = {
+        command: buildNodeCommand(
+          "console.log('test failed as expected'); process.exit(1);",
+        ),
+        expect_failure: true,
+      };
+
+      const result = await runCommandTool.invoke(input, createContext());
+
+      expect(result.success).toBe(true);
+
+      const jsonContent = result.content.find((c) => c.type === "json");
+      const parsed = JSON.parse(jsonContent!.value);
+
+      // Exit code is still reported accurately
+      expect(parsed.exit_code).toBe(1);
+      // But success is true because failure was expected
+      expect(parsed.success).toBe(true);
+      // Output is still captured
+      expect(parsed.stdout).toContain("test failed as expected");
+    });
+
+    it("does not cache failure when expect_failure is true", async () => {
+      const { runCommandTool } =
+        await import("../../../../src/agents/tools/system/runCommand.js");
+
+      const failingCommand = buildNodeCommand("process.exit(1);");
+
+      // First call with expect_failure
+      const result1 = await runCommandTool.invoke(
+        { command: failingCommand, expect_failure: true },
+        createContext(),
+      );
+      expect(result1.success).toBe(true);
+
+      // Second call with same command should NOT be blocked
+      const result2 = await runCommandTool.invoke(
+        { command: failingCommand, expect_failure: true },
+        createContext(),
+      );
+      expect(result2.success).toBe(true);
+      // Should have actual exit code, not the "DUPLICATE COMMAND" error
+      const json2 = result2.content.find((c) => c.type === "json");
+      expect(json2).toBeDefined();
+      const parsed2 = JSON.parse(json2!.value);
+      expect(parsed2.exit_code).toBe(1);
+    });
+
+    it("bypasses duplicate detection for expect_failure commands", async () => {
+      const { runCommandTool } =
+        await import("../../../../src/agents/tools/system/runCommand.js");
+
+      const failingCommand = buildNodeCommand("process.exit(2);");
+
+      // First call WITHOUT expect_failure — should cache the failure
+      const result1 = await runCommandTool.invoke(
+        { command: failingCommand },
+        createContext(),
+      );
+      expect(result1.success).toBe(false);
+
+      // Second call WITH expect_failure — should bypass the cache and execute
+      const result2 = await runCommandTool.invoke(
+        { command: failingCommand, expect_failure: true },
+        createContext(),
+      );
+      expect(result2.success).toBe(true);
+      const json2 = result2.content.find((c) => c.type === "json");
+      const parsed2 = JSON.parse(json2!.value);
+      expect(parsed2.exit_code).toBe(2);
+    });
+
+    it("still reports timeout as failure even with expect_failure", async () => {
+      const { runCommandTool } =
+        await import("../../../../src/agents/tools/system/runCommand.js");
+
+      const input: RunCommandInput = {
+        command: buildNodeCommand("setTimeout(() => process.exit(1), 60000);"),
+        timeout_ms: 500,
+        expect_failure: true,
+      };
+
+      const result = await runCommandTool.invoke(input, createContext());
+
+      // Timeouts are always failures regardless of expect_failure
+      expect(result.success).toBe(false);
+      const jsonContent = result.content.find((c) => c.type === "json");
+      const parsed = JSON.parse(jsonContent!.value);
+      expect(parsed.timed_out).toBe(true);
+    });
+  });
+
+  describe("resetFailedCommandCache", () => {
+    it("allows retrying a failed command after cache reset", async () => {
+      const { runCommandTool, resetFailedCommandCache } =
+        await import("../../../../src/agents/tools/system/runCommand.js");
+
+      const failingCommand = buildNodeCommand("process.exit(1);");
+
+      // First call fails and gets cached
+      const result1 = await runCommandTool.invoke(
+        { command: failingCommand },
+        createContext(),
+      );
+      expect(result1.success).toBe(false);
+
+      // Second call would be blocked
+      const result2 = await runCommandTool.invoke(
+        { command: failingCommand },
+        createContext(),
+      );
+      expect(result2.success).toBe(false);
+      expect(
+        result2.content.some((c) =>
+          c.value.includes("DUPLICATE COMMAND DETECTED"),
+        ),
+      ).toBe(true);
+
+      // Reset cache (simulates another tool like write_file running in between)
+      resetFailedCommandCache();
+
+      // Third call should actually execute again (not blocked)
+      const result3 = await runCommandTool.invoke(
+        { command: failingCommand },
+        createContext(),
+      );
+      expect(result3.success).toBe(false);
+      // Should have real exit code, not duplicate error
+      const json3 = result3.content.find((c) => c.type === "json");
+      expect(json3).toBeDefined();
+      const parsed3 = JSON.parse(json3!.value);
+      expect(parsed3.exit_code).toBe(1);
+    });
+  });
 });

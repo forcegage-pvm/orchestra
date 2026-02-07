@@ -1,61 +1,81 @@
-import { describe, it, expect } from "vitest";
-import * as path from "path";
+import { describe, expect, it } from "vitest";
+import path from "path";
+import fs from "fs";
+
+function setupTemplates(): string {
+  const workspaceRoot = path.join(process.cwd(), "extension");
+  const src = path.join(workspaceRoot, "templates", "prompts");
+  const dest = path.join(workspaceRoot, ".orchestra", "templates", "prompts");
+
+  function copyRecursiveSync(srcPath: string, destPath: string): void {
+    const stat = fs.statSync(srcPath);
+    if (stat.isDirectory()) {
+      if (!fs.existsSync(destPath)) fs.mkdirSync(destPath, { recursive: true });
+      const entries = fs.readdirSync(srcPath);
+      for (const entry of entries) {
+        copyRecursiveSync(path.join(srcPath, entry), path.join(destPath, entry));
+      }
+    } else {
+      fs.copyFileSync(srcPath, destPath);
+    }
+  }
+
+  if (!fs.existsSync(dest)) {
+    fs.mkdirSync(dest, { recursive: true });
+  }
+  const items = fs.readdirSync(src);
+  for (const item of items) {
+    copyRecursiveSync(path.join(src, item), path.join(dest, item));
+  }
+  return workspaceRoot;
+}
 
 // Dynamic import test to surface module resolution errors
 describe("Dynamic code review template verification", () => {
-  it("should import TemplateLoader and builders and compare outputs", async () => {
-    const workspaceRoot = path.join(process.cwd(), "extension");
-
-    // Ensure .orchestra templates exist
-    const fs = require("fs");
-    const templatesSrc = path.join(workspaceRoot, "templates", "prompts");
-    const templatesDest = path.join(workspaceRoot, ".orchestra", "templates", "prompts");
-    if (!fs.existsSync(templatesDest)) fs.mkdirSync(templatesDest, { recursive: true });
-    const files = fs.readdirSync(templatesSrc);
-    for (const file of files) {
-      const src = path.join(templatesSrc, file);
-      const dest = path.join(templatesDest, file);
-      // Copy directories recursively (partials folder)
-      const stat = fs.statSync(src);
-      if (stat.isDirectory()) {
-        const entries = fs.readdirSync(src);
-        if (!fs.existsSync(dest)) fs.mkdirSync(dest, { recursive: true });
-        for (const e of entries) fs.copyFileSync(path.join(src, e), path.join(dest, e));
-      } else {
-        fs.copyFileSync(src, dest);
-      }
-    }
+  it("should import PromptBuilder and verify template-based code review prompts", async () => {
+    const workspaceRoot = setupTemplates();
 
     // Dynamic imports
-    const loaderMod = await import("../../extension/src/prompts/TemplateLoader.ts");
-    const builders = await import("../../extension/src/prompts/promptTextBuilders.ts");
-    const TemplateLoader = loaderMod.TemplateLoader ?? loaderMod.default ?? loaderMod;
-
-    const loader = new TemplateLoader({ workspaceRoot, devMode: true });
-
-    const sprint = { sprint_id: "s1", title: "Sprint One" } as any;
-    const task = { task_id: 42, title: "Implement feature X" } as any;
-
-    const templSingle = loader.render("code-review", { sprint, task });
-    const buildSingle = builders.buildSingleTaskCodeReviewPromptText(
-      sprint.sprint_id,
-      sprint.title,
-      task.task_id,
-      task.title,
+    const { PromptBuilder } = await import(
+      "../../extension/src/prompts/PromptBuilder.js"
+    );
+    const { TemplateLoader } = await import(
+      "../../extension/src/prompts/TemplateLoader.js"
     );
 
-    expect(templSingle.replace(/\s+/g, " ").trim()).toBe(buildSingle.replace(/\s+/g, " ").trim());
+    const builder = new PromptBuilder({
+      templateLoader: new TemplateLoader({ workspaceRoot, devMode: true }),
+    });
 
-    const pendingCount = 5;
-    const sprintId = "s1";
-    const sprintTitle = "Sprint One";
+    // PromptBuilder.buildCodeReviewPrompt with taskInfo dispatches to single-task template
+    const singleResult = builder.buildCodeReviewPrompt(
+      1,
+      "s1",
+      "Sprint One",
+      { taskId: 42, title: "Implement feature X", dbId: 101 },
+    );
+    expect(singleResult).toContain("Task 42");
+    expect(singleResult).toContain("Implement feature X");
+    expect(singleResult).toContain("s1");
 
-    const templBulk = loader.render("code-review-bulk", { pendingCount, sprint: { sprint_id: sprintId, title: sprintTitle } });
-    const buildBulk = builders.buildBulkCodeReviewPromptText(pendingCount, sprintId, sprintTitle);
-    expect(templBulk.replace(/\s+/g, " ").trim()).toBe(buildBulk.replace(/\s+/g, " ").trim());
+    // PromptBuilder.buildCodeReviewPrompt without taskInfo dispatches to bulk template
+    const bulkResult = builder.buildCodeReviewPrompt(
+      5,
+      "s1",
+      "Sprint One",
+    );
+    expect(bulkResult).toContain("5 pending task(s)");
+    expect(bulkResult).toContain("s1");
 
-    const templRe = loader.render("code-review-re-review", { sprint: { sprint_id: sprintId, title: sprintTitle }, task: { task_id: 42, title: task.title }, codeReview: { reviewId: 7 } });
-    const buildRe = builders.buildCodeReviewReReviewPromptText(sprintId, sprintTitle, { taskId: 42, title: task.title, dbId: 101 }, 7);
-    expect(templRe.replace(/\s+/g, " ").trim()).toBe(buildRe.replace(/\s+/g, " ").trim());
+    // Re-review builder
+    const reResult = builder.buildCodeReviewReReviewPrompt(
+      "s1",
+      "Sprint One",
+      { taskId: 42, title: "Implement feature X", dbId: 101 },
+      7,
+    );
+    expect(reResult).toContain("re-review");
+    expect(reResult).toContain("Task 42");
+    expect(reResult).toContain("Review ID");
   });
 });

@@ -162,7 +162,7 @@ function createAgentRunner(): AgentRunner {
       orchestratorModel: getConfigService().getModelForRole("orchestrator"),
       implementorModel: getConfigService().getModelForRole("implementor"),
       controllerModel: getConfigService().getModelForRole("controller"),
-      maxIterations: 50,
+      maxIterations: 80,
       maxContextTokens: 100000,
     },
     getConfigService(),
@@ -1827,7 +1827,7 @@ export async function activate(
             role.value as "orchestrator" | "implementor" | "controller",
             {
               prompt,
-              maxIterations: 50,
+              maxIterations: 80,
             },
           );
 

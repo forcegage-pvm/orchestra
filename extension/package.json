@@ -482,6 +482,9 @@
     "package": "npx @vscode/vsce package --no-yarn --out artifacts/",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src --ext ts",
+    "rebuild:native": "npm rebuild better-sqlite3 --update-binary || true",
+    "pretest": "npm run rebuild:native",
+    "postinstall": "npm run rebuild:native",
     "test": "vitest run",
     "test:watch": "vitest"
   },

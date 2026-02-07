@@ -149,6 +149,7 @@ export const RunCommandInputSchema = z.object({
   timeout_ms: z.number().int().nonnegative().optional(),
   stdin: z.string().optional(),
   env: z.record(z.string()).optional(),
+  expect_failure: z.boolean().optional(),
 });
 
 /**
@@ -158,6 +159,7 @@ export const RunCommandInputSchema = z.object({
  * @property timeout_ms - Optional command timeout in milliseconds
  * @property stdin - Optional standard input to pipe to the command
  * @property env - Optional environment variables to set
+ * @property expect_failure - When true, non-zero exit codes are treated as success (e.g., TDD red-phase tests that should fail)
  */
 export type RunCommandInput = z.output<typeof RunCommandInputSchema>;
 

@@ -179,14 +179,19 @@ export class ContextManager {
 
     // If still over limit, we need to be more aggressive
     if (this.estimateTokens(compacted) > target) {
-      // Keep only system messages and the most recent message
-      const lastRecent = recentMessages[recentMessages.length - 1];
-      if (lastRecent) {
-        compacted = [...systemMessages, lastRecent];
+      // Keep minimum messages from the end that preserve tool-pair integrity.
+      // Use findSafeRecentBoundary with threshold=1 to find the smallest safe
+      // suffix of recentMessages — this ensures we never orphan a tool_call
+      // without its tool_result (or vice versa), which would cause LLM API errors.
+      const safeTailStart = this.findSafeRecentBoundary(recentMessages, 1);
+      const safeTail = recentMessages.slice(safeTailStart);
+
+      if (safeTail.length > 0) {
+        compacted = [...systemMessages, ...safeTail];
       } else {
         compacted = systemMessages;
       }
-      return compacted;
+      return this.ensureToolPairIntegrity(compacted);
     }
 
     // Try to add summarized older messages (in tool-pair-safe groups)
@@ -211,7 +216,7 @@ export class ContextManager {
     // Add recent messages at the end
     result.push(...recentMessages);
 
-    return result;
+    return this.ensureToolPairIntegrity(result);
   }
 
   /**
@@ -297,6 +302,80 @@ export class ContextManager {
   private hasToolResults(message: AgentMessage): boolean {
     if (typeof message.content === "string") return false;
     return message.content.some((part) => part.type === "toolResult");
+  }
+
+  /**
+   * Ensure every tool_call has a matching tool_result and vice versa.
+   *
+   * This is a safety net to prevent LLM API errors like:
+   *   "tool_use ids were found without tool_result blocks immediately after"
+   *
+   * If orphaned tool_call or tool_result messages are found (e.g., from aggressive
+   * compaction), they are removed entirely. Messages with mixed content (both orphaned
+   * and non-orphaned parts) have only the orphaned parts stripped.
+   *
+   * @param messages - Messages to validate
+   * @returns Messages with orphaned tool parts removed
+   */
+  ensureToolPairIntegrity(messages: AgentMessage[]): AgentMessage[] {
+    // Collect all toolCall IDs and toolResult IDs
+    const toolCallIds = new Set<string>();
+    const toolResultIds = new Set<string>();
+
+    for (const msg of messages) {
+      if (typeof msg.content === "string") continue;
+      for (const part of msg.content) {
+        if (part.type === "toolCall") toolCallIds.add(part.toolCallId);
+        if (part.type === "toolResult") toolResultIds.add(part.toolCallId);
+      }
+    }
+
+    // Find orphaned IDs (tool_call without tool_result, or vice versa)
+    const orphanedCallIds = new Set(
+      [...toolCallIds].filter((id) => !toolResultIds.has(id)),
+    );
+    const orphanedResultIds = new Set(
+      [...toolResultIds].filter((id) => !toolCallIds.has(id)),
+    );
+
+    // If all pairs are complete, return as-is
+    if (orphanedCallIds.size === 0 && orphanedResultIds.size === 0) {
+      return messages;
+    }
+
+    // Filter out messages that consist entirely of orphaned tool parts.
+    // For messages with mixed content, strip only the orphaned parts.
+    return messages
+      .map((msg) => {
+        if (typeof msg.content === "string") return msg;
+
+        const filteredParts = msg.content.filter((part) => {
+          if (
+            part.type === "toolCall" &&
+            orphanedCallIds.has(part.toolCallId)
+          ) {
+            return false;
+          }
+          if (
+            part.type === "toolResult" &&
+            orphanedResultIds.has(part.toolCallId)
+          ) {
+            return false;
+          }
+          return true;
+        });
+
+        // If all parts were orphaned, remove the entire message
+        if (filteredParts.length === 0) return null;
+
+        // If some parts were removed, return message with remaining parts
+        if (filteredParts.length !== msg.content.length) {
+          return { ...msg, content: filteredParts };
+        }
+
+        return msg;
+      })
+      .filter((msg): msg is AgentMessage => msg !== null);
   }
 
   /**
