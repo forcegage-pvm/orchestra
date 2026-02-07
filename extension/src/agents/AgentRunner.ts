@@ -786,7 +786,249 @@ export class AgentRunner implements vscode.Disposable {
       "Resume from file storage is deprecated. Session resume functionality will be reimplemented using database queries.",
       "FEATURE_DEPRECATED",
     );
+  }
 
+  /**
+   * Reconstruct in-memory AgentSession messages from database rows
+   * Loads all messages via sessionMessageRepository.getSessionMessages()
+   */
+  private async reconstructSession(sessionId: string): Promise<void> {
+    if (!this.session) return;
+
+    const workspaceRoot =
+      vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? process.cwd();
+    const { getSessionMessages } = await import(
+      "./sessions/sessionMessageRepository.js",
+    );
+
+    const rows = getSessionMessages(workspaceRoot, sessionId);
+
+    const messages = rows.map((m) => {
+      const msg: AgentMessage = {
+        id: crypto.randomUUID(),
+        role: m.role as AgentMessage["role"],
+        content: m.content as AgentMessage["content"],
+        timestamp: m.timestamp,
+        iteration: m.iteration,
+      };
+      // Preserve toolCallIds if present
+      if ((m as any).toolCallIds) {
+        (msg as any).toolCallIds = (m as any).toolCallIds;
+      }
+      return msg;
+    });
+
+    // Replace messages in session (preserve order)
+    this.session.replaceMessages(messages);
+  }
+
+  /**
+   * Reconstruct tool call aggregates from tool_result events
+   */
+  private async reconstructToolCalls(sessionId: string): Promise<void> {
+    if (!this.session) return;
+
+    const workspaceRoot =
+      vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? process.cwd();
+    const { getEventsByType } = await import("./sessions/eventRepository.js");
+
+    const events = getEventsByType(workspaceRoot, sessionId, "tool_result");
+
+    for (const ev of events) {
+      const e = ev as unknown as import("./sessions/types.js").ToolResultEvent;
+      // Build ToolCall minimal record
+      const completedAt = e.timestamp;
+      const durationMs = e.durationMs ?? undefined;
+      const startedAt = durationMs
+        ? new Date(Date.parse(completedAt) - durationMs).toISOString()
+        : completedAt;
+
+      const toolCall = {
+        id: e.toolCallId,
+        name: e.toolName,
+        arguments: {},
+        result: e.output ?? undefined,
+        status: e.success ? ("success" as const) : ("error" as const),
+        startedAt,
+        completedAt,
+        durationMs,
+        iteration: e.iteration,
+        messageId: "",
+      } as import("./types.js").ToolCall;
+
+      this.session.recordToolCall(toolCall);
+    }
+  }
+
+  /**
+   * Reconstruct file changes from tool_file_operation events
+   */
+  private async reconstructFileChanges(sessionId: string): Promise<void> {
+    if (!this.session) return;
+
+    const workspaceRoot =
+      vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? process.cwd();
+    const { getEventsByType } = await import("./sessions/eventRepository.js");
+
+    const events = getEventsByType(
+      workspaceRoot,
+      sessionId,
+      "tool_file_operation",
+    );
+
+    for (const ev of events) {
+      const e = ev as unknown as import("./sessions/types.js").ToolFileOperationEvent;
+
+      // Map operation to FileChange.operation schema
+      let op: import("./types.js").FileOperation["operation"] = "modify";
+      switch (e.operation.operation) {
+        case "create":
+          op = "create";
+          break;
+        case "delete":
+          op = "delete";
+          break;
+        case "update":
+        case "move":
+        case "copy":
+        case "read":
+        default:
+          op = "modify";
+          break;
+      }
+
+      const fileChange: import("./types.js").FileChange = {
+        id: crypto.randomUUID(),
+        uri: e.operation.path,
+        relativePath: e.operation.path,
+        operation: op,
+        previousContent: null,
+        previousContentHash: null,
+        newContent: null,
+        newContentHash: null,
+        toolCallId: e.toolCallId,
+        timestamp: e.timestamp,
+        iteration: e.iteration,
+        undone: false,
+        undoneAt: null,
+      };
+
+      this.session.recordFileChange(fileChange);
+    }
+  }
+
+  /**
+   * Resume a session from the database
+   * @param sessionId - UUID of session to resume
+   */
+  async resumeSession(sessionId: string): Promise<AgentSession> {
+    if (this.session && this.session.status === "running") {
+      throw new AgentError(
+        "Agent is already running. Stop or pause before resuming a session.",
+        "AGENT_ALREADY_RUNNING",
+      );
+    }
+
+    const workspaceRoot =
+      vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? process.cwd();
+    const { getSession } = await import("./sessions/sessionRepository.js");
+
+    const dbSession = getSession(workspaceRoot, sessionId);
+    if (!dbSession) {
+      throw new SessionError("Session not found", sessionId, undefined, "NO_SESSION");
+    }
+
+    // FR-017: status validation
+    if (dbSession.status === "completed" || dbSession.status === "failed") {
+      throw new AgentError(
+        `Cannot resume session with status: ${dbSession.status}`,
+        "SESSION_NOT_RECOVERABLE",
+      );
+    }
+
+    // Create a fresh AgentSession based on DB metadata
+    const role = dbSession.role as import("./types.js").AgentRole;
+    const sprintId = dbSession.sprintId;
+    const taskId = dbSession.taskId ?? null;
+    const maxIterations = dbSession.maxIterations;
+
+    this.session = new AgentSession(role, sprintId, taskId, maxIterations);
+
+    // Restore iteration counter from DB
+    this.session.currentIteration = dbSession.iteration;
+
+    // Reflect DB status (paused/stopped)
+    if (dbSession.status === "paused") {
+      // constructor set to running, so pause now
+      this.session.pause();
+    } else if (dbSession.status === "stopped") {
+      this.session.stop();
+    }
+
+    // Reset internal runner flags
+    this.isPaused = false;
+    this.isStopped = false;
+    this.consecutiveErrors = 0;
+    this.recentErrors = [];
+    this.hasEscalated = false;
+    this.hasEmittedSessionEnd = false;
+
+    // Reconstruct messages from DB
+    await this.reconstructSession(sessionId);
+
+    // Create ContextManager immediately after messages reconstructed
+    const contextConfig: {
+      maxContextTokens?: number;
+      compactionThreshold?: number;
+      summarizeAfterToolCalls?: number;
+    } = {};
+    if (this.config.maxContextTokens !== undefined)
+      contextConfig.maxContextTokens = this.config.maxContextTokens;
+    if (this.config.compactionThreshold !== undefined)
+      contextConfig.compactionThreshold = this.config.compactionThreshold;
+    if (this.config.summarizeAfterToolCalls !== undefined)
+      contextConfig.summarizeAfterToolCalls = this.config.summarizeAfterToolCalls;
+
+    this.contextManager = new ContextManager(contextConfig);
+
+    // Reconstruct tool calls and file changes
+    await this.reconstructToolCalls(sessionId);
+    await this.reconstructFileChanges(sessionId);
+
+    // Inject system resume message (FR-016)
+    this.addSystemMessage(
+      "Session resumed after pause. Background processes/terminals from previous session are no longer available.",
+    );
+
+    // For orchestrator sessions, reload sprint memory (FR-018)
+    if (this.session.role === "orchestrator") {
+      const memoryStore = SprintMemory.getInstance(workspaceRoot);
+      const memory = await memoryStore.getOrCreate(this.session.sprintId, this.session.sprintId);
+      const memoryContext = this.formatSprintMemoryContext(memory);
+      this.addUserMessage(memoryContext);
+    }
+
+    // Enable persistence and create event emitter
+    this.session.enablePersistence(workspaceRoot, sessionId);
+    this.eventEmitter = new SessionEventEmitter(workspaceRoot, sessionId);
+
+    // Restart agent loop: set status to running and start loop
+    const previousStatus = this.session.status;
+    this.isPaused = false;
+    this.isStopped = false;
+    this.session.resume();
+    this.eventEmitter?.emitStatusChange(previousStatus, "running");
+    this.emitStateChange();
+
+    // Create cancellation token and start agent loop
+    this.cancellationTokenSource = new vscode.CancellationTokenSource();
+    const model = this.getConfiguredModel(this.session.role);
+    this.runningPromise = this.runAgentLoop(this.session.role, model).catch((error) => {
+      this.handleError(error);
+    });
+
+    return this.session;
+  }
     /* DEPRECATED CODE - Kept for reference
     if (this.session && this.session.status === "running") {
       throw new AgentError(
