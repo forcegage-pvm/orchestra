@@ -3,12 +3,10 @@
  *
  * Verifies that the migrated code-review templates (code-review.hbs,
  * code-review-bulk.hbs, code-review-re-review.hbs) produce correct output
- * equivalent to the original text builder functions that were removed from
- * promptTextBuilders.ts.
+ * equivalent to the original text builder functions that were removed.
  *
  * This serves as the mandatory equivalence verification per Task 7.
  */
-
 import * as path from "path";
 import { describe, expect, it } from "vitest";
 import { PromptBuilder } from "../../src/prompts/PromptBuilder.js";
