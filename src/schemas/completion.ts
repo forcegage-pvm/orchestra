@@ -77,6 +77,7 @@ export const EscalateTaskOutputSchema = SuccessResponseSchema.extend({
   status: z.literal("ESCALATED"),
   escalated_at: z.string(), // ISO 8601
   next_step: z.string(),
+  IMPORTANT: z.string().optional(), // Reminder to call wait_for_input
 });
 
 export type EscalateTaskOutput = z.output<typeof EscalateTaskOutputSchema>;

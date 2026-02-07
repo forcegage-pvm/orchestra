@@ -38,7 +38,10 @@ import {
   loadOrchestratorTools,
 } from "./toolLoaders.js";
 import { ToolRegistry } from "./ToolRegistry.js";
-import type { FileOperationEvent, ToolInvocationContext } from "./tools/types.js";
+import type {
+  FileOperationEvent,
+  ToolInvocationContext,
+} from "./tools/types.js";
 import type { AgentConfig, AgentMessage, AgentRole } from "./types.js";
 
 /**
@@ -1397,10 +1400,6 @@ export class AgentRunner implements vscode.Disposable {
           }
         }
 
-        console.error(
-          `[AgentRunner] sendRequest: Received chunk: ${chunkType}`,
-        );
-
         // Check for pause/stop
         if (this.isPaused || this.isStopped) {
           break;
@@ -1414,9 +1413,6 @@ export class AgentRunner implements vscode.Disposable {
               ? chunk.value
               : (chunkAny.value as string);
           thinkingText += textValue;
-          console.error(
-            `[AgentRunner] sendRequest: Accumulated text length: ${thinkingText.length}`,
-          );
         } else if (chunkType === "TOOL_CALL") {
           // Collect tool call - DON'T emit yet
           hadToolCalls = true;
@@ -1433,36 +1429,22 @@ export class AgentRunner implements vscode.Disposable {
             input: toolCallChunk.input,
             callId: toolCallChunk.callId,
           });
-          console.error(
-            `[AgentRunner] sendRequest: Tool call: ${toolCallChunk.name}`,
-          );
         } else if (chunkType === "DATA") {
           // Handle LanguageModelDataPart - extract text content if applicable
           const extracted = this.extractDataPartContent(chunkAny);
           if (extracted) {
             thinkingText += extracted;
-            console.error(
-              `[AgentRunner] sendRequest: Extracted DATA part content, accumulated length: ${thinkingText.length}`,
-            );
           }
         } else {
           // Truly unknown chunk - try to extract any text content as last resort
           if ("value" in chunkAny && typeof chunkAny.value === "string") {
             thinkingText += chunkAny.value;
-            console.error(
-              `[AgentRunner] sendRequest: UNKNOWN chunk had text value, accumulated length: ${thinkingText.length}`,
-            );
           }
         }
       }
 
       // NOW emit events in correct order: thinking FIRST, then tool calls
       // This ensures proper sequencing regardless of stream order
-
-      // Log accumulated text before trim check
-      console.error(
-        `[AgentRunner] sendRequest: Final thinkingText length: ${thinkingText.length}, trimmed length: ${thinkingText.trim().length}`,
-      );
 
       // Step 1: Emit thinking text (if any)
       if (thinkingText.trim()) {
@@ -1521,6 +1503,11 @@ export class AgentRunner implements vscode.Disposable {
   /**
    * Execute tool calls via ToolRegistry
    *
+   * CRITICAL: LLM APIs require that tool result counts match tool call counts.
+   * All tool results are collected and added as a single batched message at the end.
+   * If execution is interrupted (pause/stop/error), placeholder results are added
+   * for any remaining unexecuted tools to maintain the required parity.
+   *
    * @param toolCalls - Array of tool calls to execute
    */
   private async executeToolCalls(
@@ -1529,6 +1516,11 @@ export class AgentRunner implements vscode.Disposable {
     if (!this.session) {
       return;
     }
+
+    // Collect all results to batch at the end
+    const batchedResults: Array<{ toolCallId: string; result: string }> = [];
+    let shouldExit = false;
+    let exitReason: "pause" | "stop" | "failure" | null = null;
 
     // Create observer that emits real-time events
     const createObserver = (toolName: string, callId: string) => ({
@@ -1600,12 +1592,16 @@ export class AgentRunner implements vscode.Disposable {
         this.cancellationTokenSource?.token ?? vscode.CancellationToken.None,
     };
 
+    let processedCount = 0;
     for (const toolCall of toolCalls) {
-      // Check for pause/stop
+      // Check for pause/stop BEFORE processing
       if (this.isPaused || this.isStopped) {
+        shouldExit = true;
+        exitReason = this.isPaused ? "pause" : "stop";
         break;
       }
 
+      processedCount++;
       const startTime = Date.now();
 
       // Create context with observer for this specific tool call
@@ -1650,20 +1646,31 @@ export class AgentRunner implements vscode.Disposable {
             errorMessage ?? contentText ?? "Tool returned unsuccessful result",
           );
           if (await this.handleConsecutiveFailures()) {
-            return;
+            shouldExit = true;
+            exitReason = "failure";
+            // Still add this result before exiting
+            batchedResults.push({
+              toolCallId: toolCall.callId,
+              result: errorMessage
+                ? `Error: ${errorMessage}`
+                : contentText || "Tool execution failed",
+            });
+            break;
           }
         }
 
-        // Add tool result to message history
-        // CRITICAL: If tool failed, include the error message so the LLM knows
+        // Collect tool result for batching
         const resultMessage = toolSuccess
           ? contentText
           : errorMessage
             ? `Error: ${errorMessage}`
             : contentText || "Tool execution failed";
-        this.addToolResultMessage(toolCall.callId, resultMessage);
+        batchedResults.push({
+          toolCallId: toolCall.callId,
+          result: resultMessage,
+        });
 
-        // Emit tool result
+        // Emit tool result (events are still real-time)
         this.emitOutput({
           type: "tool_result",
           timestamp: new Date().toISOString(),
@@ -1703,8 +1710,9 @@ export class AgentRunner implements vscode.Disposable {
           this.session.pause();
           this.eventEmitter?.emitStatusChange(previousStatus, "paused");
           this.emitStateChange();
-          // Exit tool execution loop - agent will wait for user input
-          return;
+          shouldExit = true;
+          exitReason = "pause";
+          break;
         } else if (toolSignal === "stop") {
           const previousStatus = this.session.status;
           this.isStopped = true;
@@ -1712,7 +1720,9 @@ export class AgentRunner implements vscode.Disposable {
           this.eventEmitter?.emitStatusChange(previousStatus, "stopped");
           this.emitSessionEndOnce("cancelled");
           this.emitStateChange();
-          return;
+          shouldExit = true;
+          exitReason = "stop";
+          break;
         }
       } catch (error) {
         const durationMs = Date.now() - startTime;
@@ -1739,12 +1749,17 @@ export class AgentRunner implements vscode.Disposable {
 
         this.recordToolFailure(errorMessage);
 
-        if (await this.handleConsecutiveFailures()) {
-          return;
-        }
+        // Collect error result for batching
+        batchedResults.push({
+          toolCallId: toolCall.callId,
+          result: `Error: ${errorMessage}`,
+        });
 
-        // Add error to message history
-        this.addToolResultMessage(toolCall.callId, `Error: ${errorMessage}`);
+        if (await this.handleConsecutiveFailures()) {
+          shouldExit = true;
+          exitReason = "failure";
+          break;
+        }
 
         // Emit error
         this.emitOutput({
@@ -1779,6 +1794,31 @@ export class AgentRunner implements vscode.Disposable {
           { toolName: toolCall.name, toolCallId: toolCall.callId },
         );
       }
+    }
+
+    // CRITICAL: Add placeholder results for any unprocessed tool calls
+    // This ensures the number of tool results matches the number of tool calls
+    // which is required by some LLM APIs (especially Gemini)
+    if (shouldExit && processedCount < toolCalls.length) {
+      const unprocessedTools = toolCalls.slice(processedCount);
+      for (const toolCall of unprocessedTools) {
+        const reason =
+          exitReason === "pause"
+            ? "Agent paused before this tool could be executed"
+            : exitReason === "stop"
+              ? "Agent stopped before this tool could be executed"
+              : "Agent stopped due to consecutive failures before this tool could be executed";
+        batchedResults.push({
+          toolCallId: toolCall.callId,
+          result: `Skipped: ${reason}`,
+        });
+      }
+    }
+
+    // Add all results as a single batched message
+    // This is CRITICAL for LLM API compliance
+    if (batchedResults.length > 0) {
+      this.addBatchedToolResultsMessage(batchedResults);
     }
   }
 
@@ -2270,26 +2310,40 @@ export class AgentRunner implements vscode.Disposable {
   }
 
   /**
-   * Add tool result message to session
+   * Add tool result message to session (single result - legacy compatibility)
    *
    * @param toolCallId - Tool call ID
    * @param result - Tool result text
+   * @deprecated Use addBatchedToolResultsMessage for batched tool calls
    */
   private addToolResultMessage(toolCallId: string, result: string): void {
-    if (!this.session) {
+    this.addBatchedToolResultsMessage([{ toolCallId, result }]);
+  }
+
+  /**
+   * Add batched tool results as a single message to session
+   *
+   * CRITICAL: LLM APIs (especially Gemini) require that the number of tool result
+   * parts matches the number of tool call parts in the preceding assistant message.
+   * All tool results for a batch of tool calls MUST be in a single message.
+   *
+   * @param results - Array of tool results with their call IDs
+   */
+  private addBatchedToolResultsMessage(
+    results: Array<{ toolCallId: string; result: string }>,
+  ): void {
+    if (!this.session || results.length === 0) {
       return;
     }
 
     const message: AgentMessage = {
       id: crypto.randomUUID(),
       role: "assistant",
-      content: [
-        {
-          type: "toolResult",
-          toolCallId,
-          value: result,
-        },
-      ],
+      content: results.map((r) => ({
+        type: "toolResult" as const,
+        toolCallId: r.toolCallId,
+        value: r.result,
+      })),
       timestamp: new Date().toISOString(),
       iteration: this.session.currentIteration,
     };

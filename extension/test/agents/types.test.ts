@@ -250,7 +250,7 @@ describe("Agent Type Definitions", () => {
       const result = AgentConfigSchema.safeParse(config);
       expect(result.success).toBe(true);
       if (result.success) {
-        expect(result.data.maxIterations).toBe(50);
+        expect(result.data.maxIterations).toBe(80);
         expect(result.data.verbosity).toBe("normal");
       }
     });

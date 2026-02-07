@@ -241,8 +241,7 @@ async function invokePrepare(
 
     // Create instances
     const logger = new OrchestraLogger();
-    const promptBuilder = new PromptBuilder();
-    const agentRunner = getAgentRunner();
+    const promptBuilder = new PromptBuilder({ workspaceRoot });    const agentRunner = getAgentRunner();
 
     if (agentRunner.getSession()?.status === "running") {
       vscode.window.showErrorMessage(
@@ -328,8 +327,7 @@ async function invokeImplement(
 
     // Create instances
     const logger = new OrchestraLogger();
-    const promptBuilder = new PromptBuilder();
-    const agentRunner = getAgentRunner();
+    const promptBuilder = new PromptBuilder({ workspaceRoot });    const agentRunner = getAgentRunner();
 
     if (agentRunner.getSession()?.status === "running") {
       vscode.window.showErrorMessage(
@@ -443,8 +441,7 @@ async function invokeRetry(
 
     // Create instances
     const logger = new OrchestraLogger();
-    const promptBuilder = new PromptBuilder();
-    const agentRunner = getAgentRunner();
+    const promptBuilder = new PromptBuilder({ workspaceRoot });    const agentRunner = getAgentRunner();
 
     if (agentRunner.getSession()?.status === "running") {
       vscode.window.showErrorMessage(
@@ -538,8 +535,7 @@ async function invokeVerify(
 
     // Create instances
     const logger = new OrchestraLogger();
-    const promptBuilder = new PromptBuilder();
-    const agentRunner = getAgentRunner();
+    const promptBuilder = new PromptBuilder({ workspaceRoot });    const agentRunner = getAgentRunner();
 
     if (agentRunner.getSession()?.status === "running") {
       vscode.window.showErrorMessage(
@@ -648,8 +644,7 @@ async function invokeHandoverFix(
 
     // Create instances
     const logger = new OrchestraLogger();
-    const promptBuilder = new PromptBuilder();
-    const agentRunner = getAgentRunner();
+    const promptBuilder = new PromptBuilder({ workspaceRoot });    const agentRunner = getAgentRunner();
 
     if (agentRunner.getSession()?.status === "running") {
       vscode.window.showErrorMessage(
@@ -753,8 +748,7 @@ async function invokeHandoverReview(
 
     // Create instances
     const logger = new OrchestraLogger();
-    const promptBuilder = new PromptBuilder();
-    const agentRunner = getAgentRunner();
+    const promptBuilder = new PromptBuilder({ workspaceRoot });    const agentRunner = getAgentRunner();
 
     if (agentRunner.getSession()?.status === "running") {
       vscode.window.showErrorMessage(
@@ -835,8 +829,7 @@ async function invokeCodeReview(
 
     // Create instances
     const logger = new OrchestraLogger();
-    const promptBuilder = new PromptBuilder();
-    const agentRunner = getAgentRunner();
+    const promptBuilder = new PromptBuilder({ workspaceRoot });    const agentRunner = getAgentRunner();
 
     // Check if agent is already running
     if (agentRunner.getSession()?.status === "running") {
@@ -949,8 +942,7 @@ async function invokeCodeReviewFix(
 
     // Create instances
     const logger = new OrchestraLogger();
-    const promptBuilder = new PromptBuilder();
-    const agentRunner = getAgentRunner();
+    const promptBuilder = new PromptBuilder({ workspaceRoot });    const agentRunner = getAgentRunner();
 
     if (agentRunner.getSession()?.status === "running") {
       vscode.window.showErrorMessage(

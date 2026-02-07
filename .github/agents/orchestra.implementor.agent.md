@@ -511,7 +511,7 @@ After receiving feedback:
 
 ### When to Escalate
 
-If you're stuck and cannot make progress, call `escalate_task`:
+If you're stuck and cannot make progress, call `escalate_task` then `wait_for_input`:
 
 **Escalation Triggers**:
 
@@ -520,6 +520,8 @@ If you're stuck and cannot make progress, call `escalate_task`:
 - You're blocked by external dependency (missing API, unclear spec)
 - The acceptance criteria seem impossible to meet
 - You need architectural clarification
+
+**After Escalating**: Always call `wait_for_input` to pause while keeping your session alive. This allows you to continue seamlessly after the human de-escalates the task.
 
 ### Example: Escalating When Stuck
 
@@ -530,6 +532,11 @@ If you're stuck and cannot make progress, call `escalate_task`:
   "reason": "Error handling pattern in schema.ts referenced in feedback uses a DatabaseError class that doesn't exist in the codebase. Cannot implement the suggested fix without this dependency.",
   "attempts_summary": "Attempt 1: Implemented basic error handling but failed verification. Attempt 2: Reviewed feedback guidance referencing schema.ts but the referenced error class is not found.",
   "recommended_action": "Need clarification on where DatabaseError class should come from, or if it should be created as part of this task."
+}
+
+// Then call: wait_for_input
+{
+  "message": "I've escalated the task due to a blocking dependency. Please de-escalate when you've resolved the issue or provided guidance."
 }
 ```
 

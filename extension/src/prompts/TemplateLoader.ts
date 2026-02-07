@@ -67,8 +67,7 @@ export class TemplateLoader {
    * @returns Rendered template output
    * @throws Error if template file is not found
    */
-  render(templateName: string, context: Record<string, unknown> = {}): string {
-    // Register partials on first render (lazy initialization)
+  render(templateName: string, context: Record<string, unknown> | object = {}): string {    // Register partials on first render (lazy initialization)
     if (!this.partialsRegistered) {
       this.registerPartials();
       this.partialsRegistered = true;
@@ -156,6 +155,7 @@ export class TemplateLoader {
    * - json: Serialize value as pretty-printed JSON (2-space indent)
    * - if_eq: Conditional block if two values are strictly equal
    * - default: Return value if not null/undefined, otherwise return default
+   * - add: Add two numbers together (returns a + b)
    */
   private registerHelpers(): void {
     // json helper: JSON.stringify with 2-space indent
@@ -185,6 +185,14 @@ export class TemplateLoader {
       "default",
       (value: unknown, defaultValue: unknown) => {
         return value ?? defaultValue;
+      }
+    );
+
+    // add helper: add two numbers
+    this.handlebars.registerHelper(
+      "add",
+      (a: unknown, b: unknown) => {
+        return Number(a) + Number(b);
       }
     );
   }

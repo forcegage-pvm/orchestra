@@ -9,6 +9,7 @@
 
 import type { StatusChangeEvent } from "../../../agents/sessions/types.js";
 import { updateToolCallAggregate } from "../stores/aggregation.js";
+import { flushPendingState } from "../stores/persistence.js";
 import {
   addEvent,
   clearAfter,
@@ -200,18 +201,13 @@ export function initializeMessageHandler(): void {
   // Flush pending state before the page is hidden (prevents state loss)
   globalThis.addEventListener("visibilitychange", () => {
     if (document.hidden) {
-      // Import is inlined to avoid circular dependency
-      import("../stores/persistence.js").then(({ flushPendingState }) => {
-        flushPendingState();
-      });
+      flushPendingState();
     }
   });
 
   // Also flush on beforeunload for extra safety
   globalThis.addEventListener("beforeunload", () => {
-    import("../stores/persistence.js").then(({ flushPendingState }) => {
-      flushPendingState();
-    });
+    flushPendingState();
   });
 
   // Notify extension that webview is ready

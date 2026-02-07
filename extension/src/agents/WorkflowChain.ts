@@ -375,6 +375,13 @@ export class WorkflowChain implements vscode.Disposable {
     hasChangesRequested: boolean = false,
     hasRejectedCodeReview: boolean = false,
   ): { description: string } | null {
+    // Log all inputs for debugging workflow transitions
+    logger.info(
+      `[WorkflowChain] determineNextAction: role=${completedRole}, status=${taskStatus}` +
+        ` pendingCR=${hasPendingCodeReview}, pendingVerify=${hasPendingVerification}` +
+        ` approvedCR=${hasApprovedCodeReview}, changesReq=${hasChangesRequested}, rejectedCR=${hasRejectedCodeReview}`,
+    );
+
     // Orchestrator completed prepare_task → Controller reviews handover
     if (
       completedRole === "orchestrator" &&
