@@ -8,11 +8,6 @@ import type {
   PromptContext,
   SprintReviewContext,
 } from "./promptTypes.js";
-import {
-  buildCodeReviewFixImplementPromptText,
-  buildCodeReviewFixPreparePromptText,
-  buildCodeReviewFixPromptText,
-} from "./promptTextBuilders.js";
 export type {
   CodeReviewContext,
   PromptContext,
@@ -143,7 +138,11 @@ export class PromptBuilder {
     sprintId: string,
     sprintTitle: string,
   ): string {
-    return buildCodeReviewFixPromptText(openIssueCount, sprintId, sprintTitle);
+    const context = {
+      openIssueCount,
+      sprint: { sprint_id: sprintId, title: sprintTitle },
+    };
+    return this.templateLoader.render("code-review-fix", context);
   }
 
   /**
@@ -153,7 +152,16 @@ export class PromptBuilder {
     context: PromptContext,
     review: CodeReviewContext,
   ): string {
-    return buildCodeReviewFixPreparePromptText(context, review);
+    const formattedStatus = review.status.replace(/_/g, " ");
+    const codeReview = {
+      status: formattedStatus,
+      ...(review.summary ? { summary: review.summary } : {}),
+    };
+    const renderContext = {
+      ...context,
+      codeReview,
+    };
+    return this.templateLoader.render("code-review-fix-prepare", renderContext);
   }
 
   /**
@@ -163,6 +171,15 @@ export class PromptBuilder {
     context: PromptContext,
     review: CodeReviewContext,
   ): string {
-    return buildCodeReviewFixImplementPromptText(context, review);
+    const formattedStatus = review.status.replace(/_/g, " ");
+    const codeReview = {
+      status: formattedStatus,
+      ...(review.summary ? { summary: review.summary } : {}),
+    };
+    const renderContext = {
+      ...context,
+      codeReview,
+    };
+    return this.templateLoader.render("code-review-fix-implement", renderContext);
   }
 }
