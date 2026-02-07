@@ -160,4 +160,59 @@ describe("grepSearchTool", () => {
       expect(m.path).toMatch(/^src\//);
     }
   });
+
+  it("handles includePattern with exact file path (no wildcards)", async () => {
+    const result = await grepSearchTool.invoke(
+      { query: "alpha", includePattern: "src/app.ts" },
+      mockContext,
+    );
+
+    expect(result.success).toBe(true);
+    const matches = parseGrepMatches<{ path: string; line: number }>(
+      result.content[0]?.value,
+    );
+    expect(matches.length).toBeGreaterThanOrEqual(1);
+    for (const m of matches) {
+      expect(m.path).toBe("src/app.ts");
+    }
+  });
+
+  it("handles includePattern with directory prefix and glob suffix", async () => {
+    // Create a file outside src/ that should not be matched
+    fs.writeFileSync(path.join(tempDir, "root.ts"), "alpha root\n");
+
+    const result = await grepSearchTool.invoke(
+      { query: "alpha", includePattern: "src/**/*.ts" },
+      mockContext,
+    );
+
+    expect(result.success).toBe(true);
+    const matches = parseGrepMatches<{ path: string }>(
+      result.content[0]?.value,
+    );
+    expect(matches.length).toBeGreaterThanOrEqual(1);
+    for (const m of matches) {
+      expect(m.path).toMatch(/^src\//);
+      expect(m.path).toMatch(/\.ts$/);
+    }
+  });
+
+  it("handles includePattern targeting a nested file path", async () => {
+    // Create a nested directory with a file
+    const nestedDir = path.join(tempDir, "a", "b", "c");
+    fs.mkdirSync(nestedDir, { recursive: true });
+    fs.writeFileSync(path.join(nestedDir, "deep.ts"), "alpha deep\n");
+
+    const result = await grepSearchTool.invoke(
+      { query: "alpha", includePattern: "a/b/c/deep.ts" },
+      mockContext,
+    );
+
+    expect(result.success).toBe(true);
+    const matches = parseGrepMatches<{ path: string }>(
+      result.content[0]?.value,
+    );
+    expect(matches).toHaveLength(1);
+    expect(matches[0]?.path).toBe("a/b/c/deep.ts");
+  });
 });

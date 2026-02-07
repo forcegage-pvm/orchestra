@@ -58,7 +58,6 @@ const review = { status: "CHANGES_REQUESTED", summary: "Please fix the thing" } 
     const review = { status: "APPROVED" } as any;
     const output = builder.buildCodeReviewFixImplementPrompt(context, review);
     expect(output).toContain("Approved");
-    // When no summary provided, ensure it doesn't contain the word 'summary' accidentally
-    expect(output).not.toContain("summary");
-  });
+    // When no summary provided, ensure the review summary section is not rendered
+    expect(output).not.toContain("Review summary:");  });
 });

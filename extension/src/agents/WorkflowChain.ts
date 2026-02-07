@@ -627,14 +627,10 @@ export class WorkflowChain implements vscode.Disposable {
           `\nThe previous session's last failed tool call was "${lastFailed.name}".`,
         );
         if (lastFailed.result?.error?.message) {
-          parts.push(
-            `Error: ${lastFailed.result.error.message}`,
-          );
+          parts.push(`Error: ${lastFailed.result.error.message}`);
         }
         if (lastFailed.result?.error?.suggestion) {
-          parts.push(
-            `Suggestion: ${lastFailed.result.error.suggestion}`,
-          );
+          parts.push(`Suggestion: ${lastFailed.result.error.suggestion}`);
         }
       }
     }

@@ -80,6 +80,63 @@ function toRelativePath(workspaceRoot: string, filePath: string): string {
   return (rel.length > 0 ? rel : filePath).split(path.sep).join("/");
 }
 
+/**
+ * On Windows, ripgrep's `--glob` flag doesn't match paths with backslash
+ * separators when the glob contains forward-slash directory components
+ * (see BurntSushi/ripgrep#2001). Work around this by extracting literal
+ * directory prefixes from the pattern and resolving them as part of the
+ * search path, keeping only the non-directory glob portion for `--glob`.
+ *
+ * Returns the effective search path and an optional remaining glob.
+ */
+function resolveIncludePattern(
+  pattern: string,
+  workspaceRoot: string,
+): { searchPath: string; glob: string | undefined } {
+  const normalized = pattern.replace(/\\/g, "/");
+
+  // No path separators → use glob as-is (works on all platforms)
+  if (!normalized.includes("/")) {
+    return { searchPath: workspaceRoot, glob: normalized };
+  }
+
+  const hasGlobChars = /[*?[\]{}]/.test(normalized);
+
+  // No glob metacharacters → exact file/directory path
+  if (!hasGlobChars) {
+    return {
+      searchPath: path.resolve(workspaceRoot, normalized),
+      glob: undefined,
+    };
+  }
+
+  // Mixed: has both directory separators and glob characters.
+  // Split at the first path component containing a glob metacharacter;
+  // everything before it becomes the search root directory.
+  const parts = normalized.split("/");
+  const dirParts: string[] = [];
+  const globParts: string[] = [];
+  let foundGlob = false;
+
+  for (const part of parts) {
+    if (foundGlob || /[*?[\]{}]/.test(part)) {
+      foundGlob = true;
+      globParts.push(part);
+    } else {
+      dirParts.push(part);
+    }
+  }
+
+  const searchDir =
+    dirParts.length > 0
+      ? path.resolve(workspaceRoot, dirParts.join("/"))
+      : workspaceRoot;
+
+  const remainingGlob = globParts.length > 0 ? globParts.join("/") : undefined;
+
+  return { searchPath: searchDir, glob: remainingGlob };
+}
+
 function buildToolResult(partial: Partial<ToolResult>): ToolResult {
   return {
     success: partial.success ?? false,
@@ -149,9 +206,22 @@ async function grepSearchFiles(
       args.push("--fixed-strings"); // Literal substring match
     }
 
-    // Glob filter - ripgrep understands standard glob syntax (**/*.ts etc.)
+    // Glob filter — on Windows, ripgrep's --glob doesn't match paths with
+    // backslash separators when the pattern contains literal directory
+    // components (BurntSushi/ripgrep#2001).  We work around this by
+    // extracting the literal directory prefix into the search-root path
+    // and only passing the remaining (separator-free) glob to --glob.
+    let searchPath = context.workspaceRoot;
+
     if (input.includePattern && input.includePattern !== "**/*") {
-      args.push("--glob", input.includePattern);
+      const resolved = resolveIncludePattern(
+        input.includePattern,
+        context.workspaceRoot,
+      );
+      searchPath = resolved.searchPath;
+      if (resolved.glob && resolved.glob !== "**" && resolved.glob !== "**/*") {
+        args.push("--glob", resolved.glob);
+      }
     }
 
     // By default ripgrep respects .gitignore; opt-out when requested.
@@ -161,7 +231,7 @@ async function grepSearchFiles(
 
     // `--` prevents the query from being interpreted as a flag, then the
     // search pattern followed by the search root.
-    args.push("--", query, context.workspaceRoot);
+    args.push("--", query, searchPath);
 
     // -- Spawn ripgrep ----------------------------------------------------
     return await new Promise<ToolResult>((resolve) => {
