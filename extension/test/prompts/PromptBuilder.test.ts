@@ -211,8 +211,7 @@ describe("PromptBuilder", () => {
 
     expect(render).toHaveBeenCalledWith("code-review-fix-prepare", expect.objectContaining({
       ...context,
-      codeReview: { status: "CHANGES REQUESTED", summary: "Please fix X" },
-    }));
+      codeReview: { status: "Changes requested", summary: "Please fix X" },    }));
     expect(result).toBe("code review fix prepare output");
   });
 
@@ -228,8 +227,7 @@ describe("PromptBuilder", () => {
 
     expect(render).toHaveBeenCalledWith("code-review-fix-implement", expect.objectContaining({
       ...context,
-      codeReview: { status: "APPROVED" },
-    }));
+      codeReview: { status: "Approved" },    }));
     expect(result).toBe("code review fix implement output");
   });
 });

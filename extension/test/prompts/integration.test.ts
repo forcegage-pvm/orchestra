@@ -16,6 +16,7 @@ import {
   type Sprint,
   type Task,
 } from "../../src/prompts/PromptBuilder.js";
+import { TemplateLoader } from "../../src/prompts/TemplateLoader.js";
 
 // Mock database queries
 vi.mock("../../src/database/queries.js", () => ({
@@ -617,6 +618,375 @@ describe("Prompt System Integration", () => {
       expect(() => builder.buildImplementPrompt(context)).not.toThrow();
       expect(() => builder.buildVerifyPrompt(context)).not.toThrow();
       expect(() => builder.buildRetryPrompt(context)).not.toThrow();
+    });
+  });
+
+  describe("All 13 prompt template types render without error", () => {
+    it("should render prepare template with realistic context", () => {
+      const prompt = builder.buildPreparePrompt({
+        task: mockTask,
+        sprint: mockSprint,
+      });
+
+      expect(prompt).toBeTruthy();
+      expect(prompt.length).toBeGreaterThan(0);
+      expect(prompt).toContain("Task 42");
+      expect(prompt).toContain("Implement Authentication Service");
+    });
+
+    it("should render implement template with realistic context", () => {
+      const prompt = builder.buildImplementPrompt({
+        task: mockTask,
+        sprint: mockSprint,
+        handoverPath: ".orchestra/handover/task-42.md",
+      });
+
+      expect(prompt).toBeTruthy();
+      expect(prompt.length).toBeGreaterThan(0);
+      expect(prompt).toContain("Task 42");
+      expect(prompt).toContain(".orchestra/handover/task-42.md");
+    });
+
+    it("should render verify template with realistic context", () => {
+      const prompt = builder.buildVerifyPrompt({
+        task: mockTask,
+        sprint: mockSprint,
+      });
+
+      expect(prompt).toBeTruthy();
+      expect(prompt.length).toBeGreaterThan(0);
+      expect(prompt).toContain("Task 42");
+    });
+
+    it("should render retry template with realistic context", () => {
+      const prompt = builder.buildRetryPrompt({
+        task: mockTask,
+        sprint: mockSprint,
+        feedbackPath: ".orchestra/feedback/task-42-attempt-1.md",
+        retryCount: 1,
+        maxRetries: 3,
+      });
+
+      expect(prompt).toBeTruthy();
+      expect(prompt.length).toBeGreaterThan(0);
+      expect(prompt).toContain("Task 42");
+      expect(prompt).toContain("Retry Attempt 1");
+    });
+
+    it("should render sprint-review template with realistic context", () => {
+      const prompt = builder.buildSprintReviewPrompt({
+        sprint: mockSprint,
+        reviewAttempt: 1,
+      });
+
+      expect(prompt).toBeTruthy();
+      expect(prompt.length).toBeGreaterThan(0);
+      expect(prompt).toContain("003B");
+    });
+
+    it("should render handover-review template with realistic context", () => {
+      const prompt = builder.buildHandoverReviewPrompt({
+        task: mockTask,
+        sprint: mockSprint,
+        reviewAttempt: 1,
+      });
+
+      expect(prompt).toBeTruthy();
+      expect(prompt.length).toBeGreaterThan(0);
+      expect(prompt).toContain("Task 42");
+    });
+
+    it("should render handover-fix template with realistic context", () => {
+      const prompt = builder.buildHandoverFixPrompt({
+        task: mockTask,
+        sprint: mockSprint,
+        rejection: {
+          issues: ["Missing acceptance criteria for error handling"],
+          recommendations: ["Add specific error handling test cases"],
+          revision_count: 1,
+        },
+      });
+
+      expect(prompt).toBeTruthy();
+      expect(prompt.length).toBeGreaterThan(0);
+      expect(prompt).toContain("Task 42");
+      expect(prompt).toContain("Missing acceptance criteria");
+    });
+
+    it("should render code-review template with realistic context", () => {
+      const prompt = builder.buildCodeReviewPrompt(
+        1,
+        "003B",
+        "Security & Auth Sprint",
+        { taskId: 42, title: "Implement Authentication Service", dbId: 100 },
+      );
+
+      expect(prompt).toBeTruthy();
+      expect(prompt.length).toBeGreaterThan(0);
+      expect(prompt).toContain("42");
+      expect(prompt).toContain("Implement Authentication Service");
+    });
+
+    it("should render code-review-bulk template with realistic context", () => {
+      const prompt = builder.buildCodeReviewPrompt(
+        5,
+        "003B",
+        "Security & Auth Sprint",
+      );
+
+      expect(prompt).toBeTruthy();
+      expect(prompt.length).toBeGreaterThan(0);
+      expect(prompt).toContain("5");
+      expect(prompt).toContain("003B");
+    });
+
+    it("should render code-review-re-review template with realistic context", () => {
+      const prompt = builder.buildCodeReviewReReviewPrompt(
+        "003B",
+        "Security & Auth Sprint",
+        { taskId: 42, title: "Implement Authentication Service", dbId: 100 },
+        7,
+      );
+
+      expect(prompt).toBeTruthy();
+      expect(prompt.length).toBeGreaterThan(0);
+      expect(prompt).toContain("42");
+      expect(prompt).toContain("7");
+    });
+
+    it("should render code-review-fix template with realistic context", () => {
+      const prompt = builder.buildCodeReviewFixPrompt(
+        3,
+        "003B",
+        "Security & Auth Sprint",
+      );
+
+      expect(prompt).toBeTruthy();
+      expect(prompt.length).toBeGreaterThan(0);
+      expect(prompt).toContain("3");
+    });
+
+    it("should render code-review-fix-prepare template with realistic context", () => {
+      const prompt = builder.buildCodeReviewFixPreparePrompt(
+        {
+          task: mockTask,
+          sprint: mockSprint,
+        },
+        { status: "CHANGES_REQUESTED", summary: "Fix error handling" },
+      );
+
+      expect(prompt).toBeTruthy();
+      expect(prompt.length).toBeGreaterThan(0);
+      expect(prompt).toContain("Task 42");
+      expect(prompt).toContain("Fix error handling");
+    });
+
+    it("should render code-review-fix-implement template with realistic context", () => {
+      const prompt = builder.buildCodeReviewFixImplementPrompt(
+        {
+          task: mockTask,
+          sprint: mockSprint,
+          handoverPath: ".orchestra/handover/task-42.md",
+        },
+        { status: "CHANGES_REQUESTED", summary: "Fix error handling" },
+      );
+
+      expect(prompt).toBeTruthy();
+      expect(prompt.length).toBeGreaterThan(0);
+      expect(prompt).toContain("Task 42");
+      expect(prompt).toContain("Fix error handling");
+    });
+
+    it("should render all 13 template types without throwing", () => {
+      // Comprehensive test that ensures every prompt method works
+      const prompts: string[] = [];
+
+      // 1. prepare
+      prompts.push(builder.buildPreparePrompt({ task: mockTask, sprint: mockSprint }));
+      // 2. implement
+      prompts.push(builder.buildImplementPrompt({ task: mockTask, sprint: mockSprint }));
+      // 3. verify
+      prompts.push(builder.buildVerifyPrompt({ task: mockTask, sprint: mockSprint }));
+      // 4. retry
+      prompts.push(builder.buildRetryPrompt({ task: mockTask, sprint: mockSprint, retryCount: 1 }));
+      // 5. sprint-review
+      prompts.push(builder.buildSprintReviewPrompt({ sprint: mockSprint }));
+      // 6. handover-review
+      prompts.push(builder.buildHandoverReviewPrompt({ task: mockTask, sprint: mockSprint }));
+      // 7. handover-fix
+      prompts.push(builder.buildHandoverFixPrompt({
+        task: mockTask,
+        sprint: mockSprint,
+        rejection: { issues: [], recommendations: [], revision_count: 0 },
+      }));
+      // 8. code-review
+      prompts.push(builder.buildCodeReviewPrompt(1, "003B", "Sprint", { taskId: 1, title: "Task", dbId: 1 }));
+      // 9. code-review-bulk
+      prompts.push(builder.buildCodeReviewPrompt(3, "003B", "Sprint"));
+      // 10. code-review-re-review
+      prompts.push(builder.buildCodeReviewReReviewPrompt("003B", "Sprint", { taskId: 1, title: "Task", dbId: 1 }, 1));
+      // 11. code-review-fix
+      prompts.push(builder.buildCodeReviewFixPrompt(2, "003B", "Sprint"));
+      // 12. code-review-fix-prepare
+      prompts.push(builder.buildCodeReviewFixPreparePrompt(
+        { task: mockTask, sprint: mockSprint },
+        { status: "CHANGES_REQUESTED", summary: "Fix it" },
+      ));
+      // 13. code-review-fix-implement
+      prompts.push(builder.buildCodeReviewFixImplementPrompt(
+        { task: mockTask, sprint: mockSprint },
+        { status: "CHANGES_REQUESTED", summary: "Fix it" },
+      ));
+
+      expect(prompts).toHaveLength(13);
+      for (const prompt of prompts) {
+        expect(prompt).toBeTruthy();
+        expect(prompt.length).toBeGreaterThan(0);
+      }
+    });
+  });
+
+  describe("Partial inclusion works correctly", () => {
+    it("should render stub-hunter-mode partial content in verify template", () => {
+      const prompt = builder.buildVerifyPrompt({
+        task: mockTask,
+        sprint: mockSprint,
+      });
+
+      // The verify template uses {{>stub-hunter-mode}} which renders
+      // STUB HUNTER MODE content
+      expect(prompt).toContain("STUB HUNTER MODE");
+      expect(prompt).toContain("Stub Hunt");
+    });
+
+    it("should render task-header partial content in prepare template", () => {
+      const prompt = builder.buildPreparePrompt({
+        task: mockTask,
+        sprint: mockSprint,
+      });
+
+      // The prepare template uses {{>task-header}} with tool_description/tool_name
+      // The task-header partial outputs "## ⚠️ FIRST ACTION: Use Your Orchestra Tools"
+      expect(prompt).toContain("FIRST ACTION");
+      expect(prompt).toContain("Orchestra Tools");
+    });
+
+    it("should render spec-protocol partial content in code-review template", () => {
+      const prompt = builder.buildCodeReviewPrompt(
+        1,
+        "003B",
+        "Sprint",
+        { taskId: 1, title: "Task", dbId: 1 },
+      );
+
+      // code-review.hbs includes {{>spec-protocol protocol_variant="single"}}
+      expect(prompt).toContain("Mandatory Spec-First Protocol");
+      expect(prompt).toContain("evidence");
+    });
+
+    it("should render stub-hunter-mode partial in code-review template", () => {
+      const prompt = builder.buildCodeReviewPrompt(
+        1,
+        "003B",
+        "Sprint",
+        { taskId: 1, title: "Task", dbId: 1 },
+      );
+
+      // code-review.hbs includes {{>stub-hunter-mode stub_hunter_mode_variant="legacy"}}
+      expect(prompt).toContain("STUB HUNTER");
+      expect(prompt).toContain("Stub Hunt Protocol");
+    });
+
+    it("should render task-header partial content in verify template", () => {
+      const prompt = builder.buildVerifyPrompt({
+        task: mockTask,
+        sprint: mockSprint,
+      });
+
+      // verify.hbs includes {{>task-header}} with get_signal tool
+      expect(prompt).toContain("get_signal");
+      expect(prompt).toContain("FIRST ACTION");
+    });
+
+    it("should render task-header partial content in handover-review template", () => {
+      const prompt = builder.buildHandoverReviewPrompt({
+        task: mockTask,
+        sprint: mockSprint,
+        reviewAttempt: 1,
+      });
+
+      // handover-review.hbs includes {{>task-header}} with review_handover tool
+      expect(prompt).toContain("review_handover");
+      expect(prompt).toContain("FIRST ACTION");
+    });
+
+    it("should render spec-protocol partial content in sprint-review template", () => {
+      const prompt = builder.buildSprintReviewPrompt({
+        sprint: mockSprint,
+        reviewAttempt: 1,
+      });
+
+      // sprint-review.hbs includes {{>spec-protocol tool_alternatives=...}}
+      // which triggers the DB prohibition section
+      expect(prompt).toContain("Database Access STRICTLY PROHIBITED");
+    });
+
+    it("should not render stub-hunter-mode in code-review-re-review template", () => {
+      const prompt = builder.buildCodeReviewReReviewPrompt(
+        "003B",
+        "Sprint",
+        { taskId: 1, title: "Task", dbId: 1 },
+        1,
+      );
+
+      // Re-review is a focused review and should NOT include STUB HUNTER MODE
+      expect(prompt).not.toContain("STUB HUNTER MODE");
+    });
+  });
+
+  describe("Error cases handled gracefully", () => {
+    it("should throw descriptive error for missing template", () => {
+      const projectRoot = path.resolve(__dirname, "../../..");
+      const loader = new TemplateLoader({ workspaceRoot: projectRoot });
+
+      expect(() => loader.render("nonexistent-template")).toThrow(
+        /Template not found.*nonexistent-template/,
+      );
+    });
+
+    it("should handle template rendering with missing optional context fields", () => {
+      // Render all templates with minimal context - should not throw
+      const minContext: PromptContext = {
+        task: { task_id: 1, title: "Minimal", description: "Minimal" },
+        sprint: { sprint_id: "001", title: "Minimal" },
+      };
+
+      expect(() => builder.buildPreparePrompt(minContext)).not.toThrow();
+      expect(() => builder.buildImplementPrompt(minContext)).not.toThrow();
+      expect(() => builder.buildVerifyPrompt(minContext)).not.toThrow();
+      expect(() => builder.buildRetryPrompt(minContext)).not.toThrow();
+      expect(() => builder.buildHandoverReviewPrompt(minContext)).not.toThrow();
+      expect(() =>
+        builder.buildHandoverFixPrompt({
+          ...minContext,
+          rejection: { issues: [], recommendations: [], revision_count: 0 },
+        }),
+      ).not.toThrow();
+    });
+
+    it("should not output 'undefined' text in rendered prompts", () => {
+      const context: PromptContext = {
+        task: { task_id: 1, title: "Test", description: "Test" },
+        sprint: { sprint_id: "001", title: "Test" },
+        // handoverPath intentionally omitted
+        // feedbackPath intentionally omitted
+      };
+
+      const implement = builder.buildImplementPrompt(context);
+      const retry = builder.buildRetryPrompt(context);
+
+      expect(implement).not.toContain("undefined");
+      expect(retry).not.toContain("undefined");
     });
   });
 });
