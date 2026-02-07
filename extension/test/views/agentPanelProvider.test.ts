@@ -256,14 +256,15 @@ describe("AgentPanelProvider", () => {
 
       provider.resolveWebviewView(mockWebviewView, {} as any, {} as any);
 
+      // resolveWebviewView no longer calls _restoreSessionState() directly;
+      // it waits for the webview 'ready' message. Manually trigger it here.
+      mockWebview.postMessage.mockClear();
+      (provider as any)._restoreSessionState();
+
       expect(getEventsForSession).toHaveBeenCalledWith(
         workspaceRoot,
         "session-1",
       );
-
-      // Clear previous postMessage calls and explicitly restore session state to ensure a session_update is posted in test
-      mockWebview.postMessage.mockClear();
-      (provider as any)._restoreSessionState();
 
       // Be permissive about extra fields - ensure a session_update message was posted
       expect(mockWebview.postMessage).toHaveBeenCalled();

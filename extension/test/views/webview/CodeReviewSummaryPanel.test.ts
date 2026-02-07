@@ -31,12 +31,14 @@ vi.mock("vscode", () => ({
   },
   window: {
     createWebviewPanel: vi.fn(() => ({
+      visible: true,
       webview: {
         html: "",
         options: {},
         onDidReceiveMessage: vi.fn(),
         postMessage: vi.fn(),
         asWebviewUri: vi.fn((uri) => uri),
+        cspSource: "https://test.vscode-resource.vscode-cdn.net",
       },
       onDidDispose: vi.fn(),
       onDidChangeViewState: vi.fn(),
