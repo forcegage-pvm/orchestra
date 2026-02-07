@@ -2,60 +2,31 @@
 
 These are the coding standards for this project. All agents must adhere to these standards during implementation, review, and verification.
 
-{{!--
-  CUSTOMIZATION GUIDE:
-
-  This template is injected into ALL agent sessions (orchestrator, implementor, controller)
-  as a hidden system prompt. Customize the sections below to match your project's standards.
-
-  The controller agent will additionally review implementations against these standards
-  during code review.
-
-  To customize:
-  1. Edit this file at .orchestra/templates/prompts/coding-standards.hbs
-  2. Your changes are preserved across extension updates (never overwritten)
-  3. You can use Handlebars syntax if needed, but plain markdown works fine
-  4. Remove or add sections as needed for your project
---}}
-
 ## Architecture
 
-{{!-- Define your project's architectural patterns and constraints here --}}
-{{!-- Examples:
-- Use dependency injection for all service classes
-- Follow hexagonal architecture: domain logic must not depend on infrastructure
-- All database access goes through the repository pattern
-- API endpoints must use the controller → service → repository layering
---}}
+- Keep reusable, stateless logic in `src/core/` — extension and MCP entrypoints should stay thin
+- MCP tool handlers live in `src/mcp-server/handlers/` and are registered in `src/mcp-server/tools.ts`
+- Shared types come from Zod schemas; derive types with `z.output<typeof Schema>` (not `z.infer`)
+- SQLite is the persistence layer; all DB access goes through `src/db/`
 
 ## Coding Conventions
 
-{{!-- Define naming conventions, code style, and language-specific rules here --}}
-{{!-- Examples:
-- TypeScript strict mode required; no `any` types
-- Use PascalCase for types/interfaces, camelCase for variables/functions
-- Prefer `unknown` over `any` for untyped values
-- Use Zod schemas for runtime validation, not TypeScript enums
-- One responsibility per file
---}}
+- All imports must use `.js` extensions (ESM convention, even for `.ts` source files)
+- Use `camelCase` for variables and functions, `PascalCase` for types and classes
+- Prefix intentionally unused variables with `_` (enforced by ESLint)
+- Prefer `unknown` over `any` — but don't stress over it in test files
+- Keep functions short and focused; extract helpers when a function exceeds ~50 lines
+- **VERY SPECIFIC RULE (Canary 🐤):** Every new file must include the comment `// orchestra-managed` as the very first line. This exists solely to test that coding standards injection is working. If you see this rule being followed in generated code, the template system is active.
 
 ## Testing Standards
 
-{{!-- Define testing requirements and patterns here --}}
-{{!-- Examples:
-- All new features must include unit tests
-- Test files mirror source structure: src/foo.ts → test/foo.test.ts
-- Use Vitest with global test APIs (describe, it, expect)
-- Minimum 80% code coverage for new code
-- Tests must validate behavior, not just existence
---}}
+- Use Vitest — tests mirror source structure: `src/core/foo.ts` → `test/core/foo.test.ts`
+- Use the shared DB cache pattern (`setupTestDb` / `cleanupTestDb`) for any test touching the database
+- Tests should validate behaviour, not just assert that functions exist
+- Coverage is appreciated but not strictly enforced — focus on meaningful assertions
 
 ## Error Handling
 
-{{!-- Define error handling patterns here --}}
-{{!-- Examples:
-- Use custom error classes that extend Error
-- Never swallow errors silently in catch blocks
-- Log errors with structured context (not just error.message)
-- All async operations must have proper error handling
---}}
+- Use the `OrchestraError` class hierarchy with error codes and context where applicable
+- Don't swallow errors silently — at minimum log them
+- All async paths should have proper error handling (try/catch or `.catch()`)
