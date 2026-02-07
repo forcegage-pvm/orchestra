@@ -1357,8 +1357,184 @@ export class AgentRunner implements vscode.Disposable {
     return [...systemLMMessages, ...conversationLMMessages];
   }
 
+  // ============================================================================
+  // LLM Request Retry & Error Recovery
+  // ============================================================================
+
+  /**
+   * Maximum number of retry attempts for transient LLM errors
+   */
+  private static readonly LLM_MAX_RETRIES = 3;
+
+  /**
+   * Base delay in ms for exponential backoff (doubles each retry)
+   */
+  private static readonly LLM_RETRY_BASE_DELAY_MS = 2000;
+
+  /**
+   * Classify an LLM error to determine retry strategy.
+   *
+   * Categories:
+   * - "transient"  — Server errors (500), rate limits (429), network errors → retry with backoff
+   * - "malformed"  — Bad request due to message format (invalid_tool_call_format) → repair + retry
+   * - "cancelled"  — User/system cancellation → do not retry
+   * - "fatal"      — Auth errors, model not found, other 4xx → do not retry
+   */
+  private classifyLLMError(error: unknown): {
+    kind: "transient" | "malformed" | "cancelled" | "fatal";
+    message: string;
+  } {
+    if (!(error instanceof Error)) {
+      return { kind: "fatal", message: String(error) };
+    }
+
+    const msg = error.message;
+
+    // Cancellation
+    if (msg.includes("cancel") || msg.includes("abort")) {
+      return { kind: "cancelled", message: msg };
+    }
+
+    // Malformed request — tool call format issues (Gemini-specific)
+    if (
+      msg.includes("invalid_tool_call_format") ||
+      msg.includes("Tool name is required")
+    ) {
+      return { kind: "malformed", message: msg };
+    }
+
+    // Transient server errors
+    if (
+      msg.includes("Server error: 5") || // 500, 502, 503, etc.
+      msg.includes("502") ||
+      msg.includes("503") ||
+      msg.includes("504") ||
+      msg.includes("429") ||
+      msg.includes("rate limit") ||
+      msg.includes("Rate limit") ||
+      msg.includes("ECONNRESET") ||
+      msg.includes("ETIMEDOUT") ||
+      msg.includes("ENOTFOUND") ||
+      msg.includes("socket hang up") ||
+      msg.includes("network") ||
+      msg.includes("overloaded")
+    ) {
+      return { kind: "transient", message: msg };
+    }
+
+    // Default: treat unknown errors as fatal
+    return { kind: "fatal", message: msg };
+  }
+
+  /**
+   * Repair message history to fix known format issues.
+   *
+   * Specifically handles:
+   * - Tool call parts with missing/empty names (causes Gemini `invalid_tool_call_format`)
+   * - Empty assistant messages
+   *
+   * Returns repaired messages (or the originals if no repair was needed).
+   */
+  private repairMessageHistory(messages: AgentMessage[]): {
+    repaired: boolean;
+    messages: AgentMessage[];
+  } {
+    let repaired = false;
+
+    const repairedMessages = messages
+      .map((msg) => {
+        // Only repair assistant messages with array content (tool calls)
+        if (msg.role !== "assistant" || typeof msg.content === "string") {
+          return msg;
+        }
+
+        const repairedParts = msg.content.filter((part) => {
+          if (
+            part.type === "toolCall" &&
+            (!part.name || part.name.trim() === "")
+          ) {
+            console.warn(
+              `[AgentRunner] Removing malformed tool call (no name) from message history: callId=${part.toolCallId}`,
+            );
+            repaired = true;
+            return false;
+          }
+          return true;
+        });
+
+        // If all parts were removed, drop this message entirely
+        if (repairedParts.length === 0) {
+          repaired = true;
+          return null;
+        }
+
+        if (repairedParts.length !== msg.content.length) {
+          return { ...msg, content: repairedParts };
+        }
+
+        return msg;
+      })
+      .filter((msg): msg is AgentMessage => msg !== null);
+
+    // Also remove orphaned tool result messages whose tool call was removed
+    // (they'd cause "No tool call found for result" errors)
+    if (repaired) {
+      const validToolCallIds = new Set<string>();
+      for (const msg of repairedMessages) {
+        if (typeof msg.content !== "string") {
+          for (const part of msg.content) {
+            if (part.type === "toolCall") {
+              validToolCallIds.add(part.toolCallId);
+            }
+          }
+        }
+      }
+
+      const cleanedMessages = repairedMessages
+        .map((msg) => {
+          if (msg.role !== "assistant" || typeof msg.content === "string") {
+            return msg;
+          }
+
+          const cleanedParts = msg.content.filter((part) => {
+            if (
+              part.type === "toolResult" &&
+              !validToolCallIds.has(part.toolCallId)
+            ) {
+              console.warn(
+                `[AgentRunner] Removing orphaned tool result: callId=${part.toolCallId}`,
+              );
+              return false;
+            }
+            return true;
+          });
+
+          if (cleanedParts.length === 0) return null;
+          if (cleanedParts.length !== msg.content.length) {
+            return { ...msg, content: cleanedParts };
+          }
+          return msg;
+        })
+        .filter((msg): msg is AgentMessage => msg !== null);
+
+      return { repaired: true, messages: cleanedMessages };
+    }
+
+    return { repaired, messages: repairedMessages };
+  }
+
+  /**
+   * Sleep utility for LLM retry backoff
+   */
+  private llmSleep(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
   /**
    * Send request to language model and handle response
+   *
+   * Includes automatic retry with exponential backoff for transient errors (500, 429, network)
+   * and message history repair for malformed request errors (Gemini invalid_tool_call_format).
    *
    * @param model - Language model to use
    * @param messages - Chat messages
@@ -1377,9 +1553,120 @@ export class AgentRunner implements vscode.Disposable {
       return false;
     }
 
+    const maxRetries = AgentRunner.LLM_MAX_RETRIES;
+    let lastError: unknown;
+    let currentMessages = messages;
+
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        return await this.sendRequestOnce(model, currentMessages, tools, token);
+      } catch (error) {
+        lastError = error;
+        const classification = this.classifyLLMError(error);
+
+        // Cancellation — never retry
+        if (classification.kind === "cancelled") {
+          return false;
+        }
+
+        // Fatal — no point retrying
+        if (classification.kind === "fatal") {
+          console.error(
+            `[AgentRunner] Fatal LLM error (not retryable): ${classification.message}`,
+          );
+          throw error;
+        }
+
+        // No more retries left
+        if (attempt >= maxRetries) {
+          console.error(
+            `[AgentRunner] LLM error after ${maxRetries} retries: ${classification.message}`,
+          );
+          throw error;
+        }
+
+        // Malformed — try to repair message history before retrying
+        if (classification.kind === "malformed") {
+          console.warn(
+            `[AgentRunner] Malformed request error (attempt ${attempt + 1}/${maxRetries}): ${classification.message}`,
+          );
+
+          // Repair the in-memory session messages
+          if (this.session) {
+            const { repaired, messages: repairedMsgs } =
+              this.repairMessageHistory(this.session.messages);
+            if (repaired) {
+              console.warn(
+                `[AgentRunner] Repaired message history (removed malformed tool calls)`,
+              );
+              this.session.replaceMessages(repairedMsgs);
+              // Re-convert repaired messages for the next attempt
+              currentMessages = this.convertToLMMessages(repairedMsgs);
+            } else {
+              console.warn(
+                `[AgentRunner] Could not identify malformed messages to repair — retrying as-is`,
+              );
+            }
+          }
+
+          // Emit recoverable error notification
+          this.emitOutput({
+            type: "error",
+            timestamp: new Date().toISOString(),
+            iteration: this.session?.currentIteration ?? 0,
+            errorCode: "LLM_MALFORMED_REQUEST",
+            errorMessage: `Request format error (auto-repairing, attempt ${attempt + 1}/${maxRetries}): ${classification.message}`,
+            recoverable: true,
+          });
+        }
+
+        // Transient — backoff and retry
+        if (classification.kind === "transient") {
+          const delayMs =
+            AgentRunner.LLM_RETRY_BASE_DELAY_MS * Math.pow(2, attempt);
+          console.warn(
+            `[AgentRunner] Transient LLM error (attempt ${attempt + 1}/${maxRetries}), retrying in ${delayMs}ms: ${classification.message}`,
+          );
+
+          // Emit recoverable error notification
+          this.emitOutput({
+            type: "error",
+            timestamp: new Date().toISOString(),
+            iteration: this.session?.currentIteration ?? 0,
+            errorCode: "LLM_TRANSIENT_ERROR",
+            errorMessage: `Server error (retrying in ${Math.round(delayMs / 1000)}s, attempt ${attempt + 1}/${maxRetries}): ${classification.message}`,
+            recoverable: true,
+          });
+
+          await this.llmSleep(delayMs);
+        }
+      }
+    }
+
+    // Should not reach here, but just in case
+    throw lastError;
+  }
+
+  /**
+   * Single attempt to send a request to the language model.
+   * Separated from sendRequest() to enable retry logic.
+   */
+  private async sendRequestOnce(
+    model: vscode.LanguageModelChat,
+    messages: LanguageModelChatMessage[],
+    tools: LanguageModelChatTool[],
+    token: vscode.CancellationToken,
+  ): Promise<boolean> {
+    if (!this.session) {
+      console.log("[AgentRunner] sendRequestOnce: No session");
+      return false;
+    }
+
     try {
       // Send request
-      console.log("[AgentRunner] sendRequest: Calling model.sendRequest...");
+      console.log(
+        "[AgentRunner] sendRequestOnce: Calling model.sendRequest...",
+      );
       const request = await model.sendRequest(messages, { tools }, token);
       console.log("[AgentRunner] sendRequest: Got response, streaming...");
 
@@ -1516,10 +1803,7 @@ export class AgentRunner implements vscode.Disposable {
 
       return hadToolCalls;
     } catch (error) {
-      // Handle cancellation
-      if (error instanceof Error && error.message.includes("cancel")) {
-        return false;
-      }
+      // All error classification and retry is handled by sendRequest()
       throw error;
     }
   }

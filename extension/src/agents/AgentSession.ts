@@ -132,6 +132,19 @@ export class AgentSession {
   }
 
   /**
+   * Replace the entire message history.
+   *
+   * Used by AgentRunner's message repair logic to remove malformed
+   * tool calls that cause LLM API errors (e.g. Gemini invalid_tool_call_format).
+   *
+   * @param messages - The repaired message array
+   */
+  replaceMessages(messages: AgentMessage[]): void {
+    this.messages = messages;
+    this.updateActivityTimestamp();
+  }
+
+  /**
    * Record a file change for undo capability
    *
    * @param fileChange - The file change record
