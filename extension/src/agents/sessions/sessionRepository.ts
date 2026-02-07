@@ -31,7 +31,7 @@ function mapRowToSession(row: {
   stage?: string | null;
   parent_session_id?: string | null;
   attempt?: number | null;
-  is_continued?: number | null;
+  is_continued?: boolean | number | null;
   continued_at?: string | null;
   continuation_count?: number | null;
   tool_call_count: number;
@@ -41,10 +41,11 @@ function mapRowToSession(row: {
   files_modified: unknown;
   duration_ms: number | null;
 }): AgentSession {
-  return {
+  const session: AgentSession = {
     sessionId: row.id,
     role: row.role as AgentRole,
     taskId: row.task_id,
+    taskNumber: undefined, // Not stored in database; resolved at higher level
     taskTitle: undefined, // Not stored in database
     sprintId: row.sprint_id,
     startedAt: row.started_at,
@@ -54,15 +55,6 @@ function mapRowToSession(row: {
     statusMessage: row.status_message ?? undefined,
     iteration: row.iteration,
     maxIterations: row.max_iterations,
-
-    // Continuation fields (may be null for legacy rows)
-    stage: (row.stage as AgentSession["stage"]) ?? undefined,
-    parentSessionId: row.parent_session_id ?? undefined,
-    attempt: row.attempt ?? 0,
-    isContinued: Boolean(row.is_continued ?? 0),
-    continuedAt: row.continued_at ?? undefined,
-    continuationCount: row.continuation_count ?? 0,
-
     toolCallCount: row.tool_call_count,
     successfulToolCalls: row.successful_tool_calls,
     failedToolCalls: row.failed_tool_calls,
@@ -72,6 +64,25 @@ function mapRowToSession(row: {
       : [],
     durationMs: row.duration_ms ?? undefined,
   };
+
+  // Continuation fields — conditionally add optional properties to comply
+  // with exactOptionalPropertyTypes (assigning undefined is not allowed).
+  const stage = row.stage as AgentSession["stage"];
+  if (stage) {
+    session.stage = stage;
+  }
+  if (row.parent_session_id) {
+    session.parentSessionId = row.parent_session_id;
+  }
+  // These have defaults (0 / false) so always set them
+  session.attempt = row.attempt ?? 0;
+  session.isContinued = Boolean(row.is_continued ?? false);
+  if (row.continued_at) {
+    session.continuedAt = row.continued_at;
+  }
+  session.continuationCount = row.continuation_count ?? 0;
+
+  return session;
 }
 /**
  * Create a new agent session
@@ -105,7 +116,7 @@ export function createSession(
     stage: session.stage ?? null,
     parent_session_id: session.parentSessionId ?? null,
     attempt: session.attempt ?? 0,
-    is_continued: session.isContinued ? 1 : 0,
+    is_continued: session.isContinued ?? false,
     continued_at: session.continuedAt ?? null,
     continuation_count: session.continuationCount ?? 0,
 
@@ -229,7 +240,7 @@ export function updateSession(
     updateData.attempt = (updates as any).attempt;
   }
   if ((updates as any).isContinued !== undefined) {
-    updateData.is_continued = (updates as any).isContinued ? 1 : 0;
+    updateData.is_continued = Boolean((updates as any).isContinued);
   }
   if ((updates as any).continuedAt !== undefined) {
     updateData.continued_at = (updates as any).continuedAt;

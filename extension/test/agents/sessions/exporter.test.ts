@@ -105,6 +105,12 @@ if (!moduleCompatible) {
         successful_tool_calls INTEGER NOT NULL DEFAULT 0,
         failed_tool_calls INTEGER NOT NULL DEFAULT 0,
         warning_count INTEGER NOT NULL DEFAULT 0,
+        stage TEXT,
+        parent_session_id TEXT,
+        attempt INTEGER NOT NULL DEFAULT 0,
+        is_continued INTEGER NOT NULL DEFAULT 0,
+        continued_at TEXT,
+        continuation_count INTEGER NOT NULL DEFAULT 0,
         files_modified JSON NOT NULL DEFAULT '[]',
         duration_ms INTEGER,
         FOREIGN KEY (task_id) REFERENCES tasks(id)

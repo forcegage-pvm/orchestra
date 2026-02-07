@@ -11,6 +11,7 @@ export * from "./eventEmitter.js";
 export * from "./eventRepository.js";
 export * from "./exporter.js";
 export * from "./retention.js";
+export * from "./sessionMessageRepository.js";
 export * from "./sessionRepository.js";
 export * from "./toolCallAggregator.js";
 export * from "./types.js";
