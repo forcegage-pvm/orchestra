@@ -318,18 +318,13 @@ describe("ensurePromptTemplates - Behavior tests", () => {
       expect(fs.readFileSync(targetFile, "utf-8")).toBe("Original content");
     });
 
-    it("should overwrite existing files with new content", () => {
+    it("should preserve existing files and not overwrite user modifications", () => {
       setupSourceDirectory();
       writeSourceTemplate("test", "Version 1");
 
       runEnsurePromptTemplates();
 
-      // Modify source
-      writeSourceTemplate("test", "Version 2");
-
-      // Sync again
-      runEnsurePromptTemplates();
-
+      // User modifies the template in the workspace
       const targetFile = path.join(
         workspaceRoot,
         ".orchestra",
@@ -337,7 +332,16 @@ describe("ensurePromptTemplates - Behavior tests", () => {
         "prompts",
         "test.hbs",
       );
-      expect(fs.readFileSync(targetFile, "utf-8")).toBe("Version 2");
+      fs.writeFileSync(targetFile, "User customized content");
+
+      // Modify source (simulating extension update)
+      writeSourceTemplate("test", "Version 2");
+
+      // Sync again
+      runEnsurePromptTemplates();
+
+      // User's modification should be preserved, NOT overwritten
+      expect(fs.readFileSync(targetFile, "utf-8")).toBe("User customized content");
     });
 
     it("should not log directory creation on subsequent calls", () => {

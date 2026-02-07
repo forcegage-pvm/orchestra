@@ -18,8 +18,9 @@ export interface PromptTemplateOptions {
 }
 
 /**
- * Ensure prompt templates are synced from extension bundle to workspace
- * Always overwrites to ensure users have the latest template definitions
+ * Ensure prompt templates are synced from extension bundle to workspace.
+ * Only copies templates that do not already exist in the workspace,
+ * preserving any user modifications to existing templates.
  *
  * Templates are copied from extension bundle at extension/templates/prompts/
  * to workspace at .orchestra/templates/prompts/
@@ -89,7 +90,10 @@ export function ensurePromptTemplates(
     }
   };
 
-  const getStat = (targetPath: string, description: string): fs.Stats | null => {
+  const getStat = (
+    targetPath: string,
+    description: string,
+  ): fs.Stats | null => {
     try {
       return fs.statSync(targetPath);
     } catch (err) {
@@ -98,13 +102,22 @@ export function ensurePromptTemplates(
     }
   };
 
-  const copyFile = (
+  /**
+   * Copy a file from source to target only if target doesn't already exist.
+   * Preserves user modifications by never overwriting existing files.
+   */
+  const copyFileIfNew = (
     sourcePath: string,
     targetPath: string,
     logMessage: string,
+    skipMessage: string,
     errorContext: string,
   ): void => {
     try {
+      if (fs.existsSync(targetPath)) {
+        effectiveLogger.info(skipMessage);
+        return;
+      }
       fs.copyFileSync(sourcePath, targetPath);
       effectiveLogger.info(logMessage);
     } catch (err) {
@@ -150,10 +163,11 @@ export function ensurePromptTemplates(
 
       if (stat?.isFile() && file.endsWith(".hbs")) {
         const targetPath = path.join(targetDir, file);
-        copyFile(
+        copyFileIfNew(
           sourcePath,
           targetPath,
           `Synced prompt template: ${file}`,
+          `Skipped existing prompt template (preserving user modifications): ${file}`,
           `prompt template ${file}`,
         );
       }
@@ -165,7 +179,10 @@ export function ensurePromptTemplates(
       "prompt template partials directory",
     );
     if (partialsExists) {
-      const partialFiles = readDir(sourcePartialsDir, "prompt template partials");
+      const partialFiles = readDir(
+        sourcePartialsDir,
+        "prompt template partials",
+      );
       if (partialFiles) {
         for (const file of partialFiles) {
           const sourcePath = path.join(sourcePartialsDir, file);
@@ -173,10 +190,11 @@ export function ensurePromptTemplates(
 
           if (stat?.isFile()) {
             const targetPath = path.join(partialsDir, file);
-            copyFile(
+            copyFileIfNew(
               sourcePath,
               targetPath,
               `Synced partial template: ${file}`,
+              `Skipped existing partial template (preserving user modifications): ${file}`,
               `prompt partial ${file}`,
             );
           }
@@ -198,15 +216,39 @@ export function ensurePromptTemplates(
 
           if (stat?.isFile()) {
             const targetPath = path.join(schemaDir, file);
-            copyFile(
+            copyFileIfNew(
               sourcePath,
               targetPath,
               `Synced schema file: ${file}`,
+              `Skipped existing schema file (preserving user modifications): ${file}`,
               `prompt schema ${file}`,
             );
           }
         }
       }
+    }
+
+    // Copy README.md from templates/ root to .orchestra/templates/
+    const readmeSource = path.join(
+      context.extensionPath,
+      "templates",
+      "README.md",
+    );
+    const readmeTarget = path.join(
+      workspaceRoot,
+      ".orchestra",
+      "templates",
+      "README.md",
+    );
+    const readmeExists = checkExists(readmeSource, "templates README");
+    if (readmeExists) {
+      copyFileIfNew(
+        readmeSource,
+        readmeTarget,
+        "Synced templates README.md",
+        "Skipped existing templates README.md (preserving user modifications)",
+        "templates README.md",
+      );
     }
   };
 

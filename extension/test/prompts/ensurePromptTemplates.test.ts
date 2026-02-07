@@ -79,7 +79,7 @@ describe("ensurePromptTemplates - Template Sync", () => {
   });
 
   const createContext = (): ExtensionContext =>
-    ({ extensionPath } as ExtensionContext);
+    ({ extensionPath }) as ExtensionContext;
 
   const runSync = (): void => {
     ensurePromptTemplates(createContext(), workspaceRoot, {
@@ -300,6 +300,45 @@ describe("ensurePromptTemplates - Template Sync", () => {
         );
       }
     });
+
+    it("should preserve existing user-modified partials", () => {
+      setupFullSourceBundle();
+
+      // First sync
+      runSync();
+
+      const partialsDir = path.join(
+        workspaceRoot,
+        ".orchestra",
+        "templates",
+        "prompts",
+        "_partials",
+      );
+
+      // User modifies a partial
+      fs.writeFileSync(
+        path.join(partialsDir, "stub-hunter-mode.hbs"),
+        "User-customized stub-hunter-mode content",
+      );
+
+      loggerMock.info.mockClear();
+
+      // Sync again
+      runSync();
+
+      // User's modification should be preserved
+      expect(
+        fs.readFileSync(
+          path.join(partialsDir, "stub-hunter-mode.hbs"),
+          "utf-8",
+        ),
+      ).toBe("User-customized stub-hunter-mode content");
+
+      // Should log a skip message
+      expect(loggerMock.info).toHaveBeenCalledWith(
+        "Skipped existing partial template (preserving user modifications): stub-hunter-mode.hbs",
+      );
+    });
   });
 
   describe("_schema directory contents are synced", () => {
@@ -316,9 +355,9 @@ describe("ensurePromptTemplates - Template Sync", () => {
         "_schema",
       );
 
-      expect(
-        fs.existsSync(path.join(schemaDir, "context.schema.json")),
-      ).toBe(true);
+      expect(fs.existsSync(path.join(schemaDir, "context.schema.json"))).toBe(
+        true,
+      );
     });
 
     it("should preserve schema file content during copy", () => {
@@ -389,31 +428,102 @@ describe("ensurePromptTemplates - Template Sync", () => {
       expect(schemaFiles).toContain("context.schema.json");
     });
 
-    it("should overwrite existing templates to keep them up-to-date", () => {
+    it("should preserve existing user-modified templates and not overwrite them", () => {
       setupFullSourceBundle();
 
-      // First sync
+      // First sync - populates all templates
       runSync();
 
-      // Modify a template in the source
+      const targetDir = path.join(
+        workspaceRoot,
+        ".orchestra",
+        "templates",
+        "prompts",
+      );
+
+      // User modifies a template
+      const targetFile = path.join(targetDir, "prepare.hbs");
+      fs.writeFileSync(targetFile, "User-customized prepare content");
+
+      // Update the source (simulating an extension update)
       const sourceDir = path.join(extensionPath, "templates", "prompts");
       fs.writeFileSync(
         path.join(sourceDir, "prepare.hbs"),
         "Updated prepare content v2",
       );
 
+      // Reset logger so we can check new calls
+      loggerMock.info.mockClear();
+
       // Sync again
       runSync();
 
-      const targetFile = path.join(
+      // User's modification should be preserved, NOT overwritten
+      expect(fs.readFileSync(targetFile, "utf-8")).toBe(
+        "User-customized prepare content",
+      );
+    });
+
+    it("should log skip messages for existing templates", () => {
+      setupFullSourceBundle();
+
+      // First sync
+      runSync();
+      loggerMock.info.mockClear();
+
+      // Second sync - all templates already exist
+      runSync();
+
+      // Should log skip messages instead of sync messages
+      for (const template of ALL_TEMPLATES) {
+        expect(loggerMock.info).toHaveBeenCalledWith(
+          `Skipped existing prompt template (preserving user modifications): ${template}.hbs`,
+        );
+      }
+    });
+
+    it("should copy new templates that don't exist yet in workspace", () => {
+      setupFullSourceBundle();
+
+      // First sync
+      runSync();
+
+      const targetDir = path.join(
         workspaceRoot,
         ".orchestra",
         "templates",
         "prompts",
-        "prepare.hbs",
       );
-      expect(fs.readFileSync(targetFile, "utf-8")).toBe(
-        "Updated prepare content v2",
+
+      // Remove one template from workspace (simulating it being missing)
+      fs.unlinkSync(path.join(targetDir, "prepare.hbs"));
+
+      // Add a new template to source (simulating extension update with new template)
+      const sourceDir = path.join(extensionPath, "templates", "prompts");
+      fs.writeFileSync(
+        path.join(sourceDir, "new-template.hbs"),
+        "New template content",
+      );
+
+      loggerMock.info.mockClear();
+
+      // Sync again
+      runSync();
+
+      // The missing 'prepare.hbs' should be re-copied
+      expect(fs.existsSync(path.join(targetDir, "prepare.hbs"))).toBe(true);
+
+      // The new template should be copied
+      expect(fs.existsSync(path.join(targetDir, "new-template.hbs"))).toBe(
+        true,
+      );
+
+      // Existing templates should NOT have been re-synced (should show skip)
+      expect(loggerMock.info).toHaveBeenCalledWith(
+        "Synced prompt template: prepare.hbs",
+      );
+      expect(loggerMock.info).toHaveBeenCalledWith(
+        "Synced prompt template: new-template.hbs",
       );
     });
 
@@ -522,11 +632,89 @@ describe("ensurePromptTemplates - Template Sync", () => {
       }
 
       // Schema copied
+      expect(fs.existsSync(path.join(schemaDir, "context.schema.json"))).toBe(
+        true,
+      );
+
+      // README copied to .orchestra/templates/
+      const readmeTarget = path.join(
+        workspaceRoot,
+        ".orchestra",
+        "templates",
+        "README.md",
+      );
       expect(
-        fs.existsSync(path.join(schemaDir, "context.schema.json")),
+        fs.existsSync(readmeTarget),
+        "Real sync: missing README.md in .orchestra/templates/",
       ).toBe(true);
 
       // No errors
+      expect(loggerMock.error).not.toHaveBeenCalled();
+      expect(showErrorMessage).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("README.md sync", () => {
+    it("should copy README.md from templates/ root to .orchestra/templates/", () => {
+      setupFullSourceBundle();
+
+      // Add README to source templates directory
+      const readmeSource = path.join(extensionPath, "templates", "README.md");
+      fs.writeFileSync(readmeSource, "# Template README");
+
+      runSync();
+
+      const readmeTarget = path.join(
+        workspaceRoot,
+        ".orchestra",
+        "templates",
+        "README.md",
+      );
+      expect(fs.existsSync(readmeTarget)).toBe(true);
+      expect(fs.readFileSync(readmeTarget, "utf-8")).toBe("# Template README");
+    });
+
+    it("should preserve existing user-modified README.md", () => {
+      setupFullSourceBundle();
+
+      const readmeSource = path.join(extensionPath, "templates", "README.md");
+      fs.writeFileSync(readmeSource, "# Original README");
+
+      // First sync
+      runSync();
+
+      const readmeTarget = path.join(
+        workspaceRoot,
+        ".orchestra",
+        "templates",
+        "README.md",
+      );
+
+      // User modifies README
+      fs.writeFileSync(readmeTarget, "# User-customized README");
+
+      loggerMock.info.mockClear();
+
+      // Sync again
+      runSync();
+
+      // User modification preserved
+      expect(fs.readFileSync(readmeTarget, "utf-8")).toBe(
+        "# User-customized README",
+      );
+
+      // Skip message logged
+      expect(loggerMock.info).toHaveBeenCalledWith(
+        "Skipped existing templates README.md (preserving user modifications)",
+      );
+    });
+
+    it("should not error when README.md does not exist in bundle", () => {
+      setupFullSourceBundle();
+      // No README.md in source — should not error
+
+      runSync();
+
       expect(loggerMock.error).not.toHaveBeenCalled();
       expect(showErrorMessage).not.toHaveBeenCalled();
     });
