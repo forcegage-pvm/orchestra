@@ -73,6 +73,14 @@ Write-Step "Rebuild better-sqlite3 for Electron $ElectronVersion"
 $betterSqliteDir = Join-Path $extensionDir "node_modules\better-sqlite3"
 Invoke-Step "npx prebuild-install -r electron -t $ElectronVersion --force" $betterSqliteDir
 
+Write-Step "Verify @vscode/ripgrep binary"
+$rgBin = Join-Path $extensionDir "node_modules\@vscode\ripgrep\bin\rg*"
+$rgFiles = Get-ChildItem -Path $rgBin -ErrorAction SilentlyContinue
+if (-not $rgFiles) {
+  throw "ripgrep binary not found at $rgBin. Run 'npm install' in extension/ to download it."
+}
+Write-Host "Found ripgrep binary: $($rgFiles[0].Name) ($([math]::Round($rgFiles[0].Length / 1MB, 1)) MB)" -ForegroundColor Green
+
 Write-Step "Clear dist/node_modules"
 $distNodeModules = Join-Path $extensionDir "dist\node_modules"
 Remove-PathWithRetries $distNodeModules

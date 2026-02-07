@@ -900,6 +900,7 @@ export async function activate(
       vscode.window.registerWebviewViewProvider(
         "orchestra.agentPanel",
         agentPanelProvider,
+        { webviewOptions: { retainContextWhenHidden: true } },
       ),
     );
     logger.info("Agent Panel WebviewView registered");
@@ -934,8 +935,10 @@ export async function activate(
     context.subscriptions.push(
       vscode.window.registerFileDecorationProvider(decorationProvider),
     );
-    // Also refresh decorations when database changes
-    dbWatcher.onDidChange(() => decorationProvider.refresh());
+    // Also refresh decorations when database changes (store subscription)
+    context.subscriptions.push(
+      dbWatcher.onDidChange(() => decorationProvider.refresh()),
+    );
     logger.info("View decoration provider registered");
 
     // 6. Register Status Bar

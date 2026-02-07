@@ -103,8 +103,8 @@ export class DashboardPanel {
     this._panel = panel;
     this._extensionUri = extensionUri;
 
-    // Subscribe to database changes
-    this.dbWatcher.onDidChange(() => this.update());
+    // Subscribe to database changes (store in disposables for cleanup)
+    this._disposables.push(this.dbWatcher.onDidChange(() => this.update()));
 
     // Handle messages from the webview
     this._panel.webview.onDidReceiveMessage(
@@ -187,6 +187,11 @@ export class DashboardPanel {
    * Update dashboard content (called on DB change)
    */
   private update(): void {
+    // Guard: Don't update if panel is disposed
+    if (!this._panel || this._panel.visible === undefined) {
+      return;
+    }
+
     try {
       const data = this.fetchDashboardData();
       this._panel.webview.postMessage({ type: "update", data });

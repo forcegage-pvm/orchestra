@@ -1,8 +1,15 @@
 /**
  * grepSearch tool tests
+ *
+ * Uses real temp files on disk because the tool now spawns ripgrep (a real
+ * process) rather than reading files through the vscode API.
  */
 
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import * as fs from "fs";
+import * as os from "os";
+import * as path from "path";
+
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { grepSearchTool } from "../../../../src/agents/tools/coding/grepSearch.js";
 import { ToolErrorCode } from "../../../../src/agents/tools/errors.js";
@@ -11,60 +18,45 @@ import type {
   ToolResult,
 } from "../../../../src/agents/tools/types.js";
 
-const { workspace, Uri } = vi.hoisted(() => {
-  const workspace = {
-    findFiles: vi.fn(),
-    openTextDocument: vi.fn(),
-  };
+// -- Helpers --------------------------------------------------------------
 
-  class Uri {
-    static file(filePath: string): { fsPath: string; path: string } {
-      return { fsPath: filePath, path: filePath };
-    }
-  }
+/** Disposable no-op returned by onCancellationRequested */
+const noop = { dispose: () => {} };
 
+function makeMockToken(cancelled = false) {
   return {
-    workspace,
-    Uri,
-  };
-});
-
-vi.mock("vscode", () => ({
-  workspace,
-  Uri,
-}));
-
-function createDocument(content: string) {
-  const lines = content.split("\n");
-
-  const lineAt = (line: number) => {
-    const text = lines[line] ?? "";
-    return { text };
-  };
-
-  return {
-    lineCount: lines.length,
-    lineAt,
-  };
+    isCancellationRequested: cancelled,
+    onCancellationRequested: vi.fn().mockReturnValue(noop),
+  } as unknown as ToolInvocationContext["token"];
 }
 
-const mockContext: ToolInvocationContext = {
-  workspaceRoot: "/workspace",
-  sessionId: "session",
-  token: { isCancellationRequested: false } as ToolInvocationContext["token"],
-};
-
-beforeEach(() => {
-  vi.clearAllMocks();
-});
+// -- Suite ----------------------------------------------------------------
 
 describe("grepSearchTool", () => {
-  it("performs exact string matching", async () => {
-    workspace.findFiles.mockResolvedValue([Uri.file("/workspace/src/app.ts")]);
-    workspace.openTextDocument.mockResolvedValue(
-      createDocument("alpha\nbeta alpha"),
-    );
+  let tempDir: string;
+  let mockContext: ToolInvocationContext;
 
+  beforeEach(() => {
+    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "grep-test-"));
+
+    // Create test fixtures
+    const srcDir = path.join(tempDir, "src");
+    fs.mkdirSync(srcDir, { recursive: true });
+    fs.writeFileSync(path.join(srcDir, "app.ts"), "alpha\nbeta alpha\n");
+    fs.writeFileSync(path.join(srcDir, "numbers.ts"), "foo123\nbar\n");
+
+    mockContext = {
+      workspaceRoot: tempDir,
+      sessionId: "session",
+      token: makeMockToken(false),
+    };
+  });
+
+  afterEach(() => {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  });
+
+  it("performs exact string matching", async () => {
     const result = await grepSearchTool.invoke(
       { query: "alpha", isRegexp: false },
       mockContext,
@@ -77,14 +69,12 @@ describe("grepSearchTool", () => {
       text: string;
     }>;
     expect(matches).toHaveLength(2);
+    // Both lines in app.ts contain "alpha"
     expect(matches[0]?.line).toBe(1);
     expect(matches[1]?.line).toBe(2);
   });
 
   it("supports regex search", async () => {
-    workspace.findFiles.mockResolvedValue([Uri.file("/workspace/src/app.ts")]);
-    workspace.openTextDocument.mockResolvedValue(createDocument("foo123\nbar"));
-
     const result = await grepSearchTool.invoke(
       { query: "^foo\\d+", isRegexp: true },
       mockContext,
@@ -111,20 +101,51 @@ describe("grepSearchTool", () => {
   });
 
   it("returns CANCELLED when cancellation is requested", async () => {
-    workspace.findFiles.mockResolvedValue([Uri.file("/workspace/src/app.ts")]);
-    workspace.openTextDocument.mockResolvedValue(createDocument("alpha"));
+    // Simulate immediate cancellation: the token's onCancellationRequested
+    // callback fires synchronously and the flag is already set.
+    const cancelToken = makeMockToken(true);
+    // When the tool registers its listener, fire the callback immediately
+    cancelToken.onCancellationRequested = vi.fn((cb: () => void) => {
+      cb();
+      return noop;
+    }) as unknown as typeof cancelToken.onCancellationRequested;
 
     const result = (await grepSearchTool.invoke(
       { query: "alpha" },
-      {
-        ...mockContext,
-        token: {
-          isCancellationRequested: true,
-        } as ToolInvocationContext["token"],
-      },
+      { ...mockContext, token: cancelToken },
     )) as ToolResult;
 
     expect(result.success).toBe(false);
     expect(result.error?.code).toBe(ToolErrorCode.CANCELLED);
+  });
+
+  it("returns empty matches for non-existent pattern", async () => {
+    const result = await grepSearchTool.invoke(
+      { query: "zzz_nonexistent_zzz", isRegexp: false },
+      mockContext,
+    );
+
+    expect(result.success).toBe(true);
+    const matches = JSON.parse(result.content[0]?.value ?? "[]") as unknown[];
+    expect(matches).toHaveLength(0);
+  });
+
+  it("respects includePattern glob", async () => {
+    // Write a file outside src/
+    fs.writeFileSync(path.join(tempDir, "root.txt"), "alpha root\n");
+
+    const result = await grepSearchTool.invoke(
+      { query: "alpha", includePattern: "src/**" },
+      mockContext,
+    );
+
+    expect(result.success).toBe(true);
+    const matches = JSON.parse(result.content[0]?.value ?? "[]") as Array<{
+      path: string;
+    }>;
+    // Should only find matches in src/, not root.txt
+    for (const m of matches) {
+      expect(m.path).toMatch(/^src\//);
+    }
   });
 });

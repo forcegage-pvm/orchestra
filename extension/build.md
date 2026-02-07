@@ -4,12 +4,18 @@ This document describes the build process for the Orchestra VS Code extension, i
 
 ## Architecture Overview
 
-The extension uses `better-sqlite3`, a native Node.js module that requires platform-specific compilation. Because VS Code runs on Electron (not Node.js), and the MCP server spawns as a separate Node.js process, we need **two different compilations** of the native module:
+The extension uses two native/binary dependencies that require special handling:
+
+1. **`better-sqlite3`** — a Node.js native addon requiring platform-specific compilation. Because VS Code runs on Electron (not Node.js), and the MCP server spawns as a separate Node.js process, we need **two different compilations**.
+2. **`@vscode/ripgrep`** — ships a pre-built platform-specific ripgrep binary (not a Node.js addon). Used by the `grep_search` agent tool for fast workspace text search. No Electron rebuild needed — the binary runs as a standalone child process.
 
 | Component | Runtime | Binary Target | Location |
 |-----------|---------|---------------|----------|
 | Extension | VS Code (Electron 39) | MODULE_VERSION 140 | `node_modules/better-sqlite3/` |
 | MCP Server | Node.js (system) | MODULE_VERSION 136+ | `dist/mcp-server/node_modules/better-sqlite3/` |
+| ripgrep | Standalone process | Platform binary | `node_modules/@vscode/ripgrep/bin/rg(.exe)` |
+
+> **Note**: Because `@vscode/ripgrep` ships a platform-specific binary, the resulting VSIX is platform-specific. A VSIX built on Windows will only work on Windows, etc.
 
 ## Prerequisites
 
@@ -111,6 +117,7 @@ This produces `artifacts/orchestra-extension-X.Y.Z.vsix` containing:
 - MCP server bundle (`dist/mcp-server/index.js`)
 - Electron-compiled native module (`node_modules/better-sqlite3/`)
 - Node.js-compiled native module (`dist/mcp-server/node_modules/better-sqlite3/`)
+- ripgrep binary (`node_modules/@vscode/ripgrep/bin/rg` or `rg.exe`)
 
 ### Verify Before Packaging
 
@@ -127,16 +134,21 @@ Get-ChildItem dist\node_modules\better-sqlite3\build\Release\*.node | Select Nam
 
 ### What Gets Packaged
 
-The `.vscodeignore` controls what's included in the VSIX:
+The `bundledDependencies` array in `package.json` controls which `node_modules` are included in the VSIX:
 
-```ignore
-# Excluded
-node_modules/*
+```json
+"bundledDependencies": [
+  "@vscode/ripgrep",
+  "better-sqlite3",
+  "bindings",
+  "file-uri-to-path"
+]
+```
 
-# Included (native modules needed at runtime)
-!node_modules/better-sqlite3/**
-!node_modules/bindings/**
-!node_modules/file-uri-to-path/**
+These modules are kept external in the esbuild config (`esbuild.config.js`) so they resolve from `node_modules` at runtime rather than being inlined:
+
+```js
+external: ["vscode", "better-sqlite3", "drizzle-orm", "@vscode/ripgrep"]
 ```
 
 ## How It Works
@@ -181,6 +193,22 @@ node_modules/*
    - Uses Node.js-compiled binary
 
 ## Troubleshooting
+
+### ripgrep Binary Not Found
+
+```
+Failed to start ripgrep: spawn .../bin/rg ENOENT
+```
+
+**Cause**: The `@vscode/ripgrep` postinstall script failed to download the binary, or `node_modules` was cleaned without reinstalling.
+
+**Fix**:
+```bash
+cd extension
+npm install @vscode/ripgrep
+# Verify:
+ls node_modules/@vscode/ripgrep/bin/
+```
 
 ### MODULE_VERSION Mismatch Error
 
@@ -294,6 +322,23 @@ node scripts/copy-mcp-server.js
 | 11.x | Up to 35 | `GetIsolate` API removed in newer V8 |
 
 ## Updating Dependencies
+
+### Upgrading @vscode/ripgrep
+
+`@vscode/ripgrep` is straightforward — no Electron rebuild required:
+
+```bash
+cd extension
+npm install @vscode/ripgrep@latest
+# The postinstall script downloads the correct platform binary automatically
+```
+
+Verify the binary was downloaded:
+```powershell
+Get-ChildItem node_modules\@vscode\ripgrep\bin\
+```
+
+### Upgrading better-sqlite3
 
 When upgrading `better-sqlite3`:
 

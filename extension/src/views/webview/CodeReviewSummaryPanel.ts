@@ -113,6 +113,11 @@ export class CodeReviewSummaryPanel {
   }
 
   private _update(): void {
+    // Guard: Don't update if panel is disposed
+    if (!this._panel || this._panel.visible === undefined) {
+      return;
+    }
+
     const summary = getCodeReviewSummary(this._workspaceRoot);
     const issues = getOpenCodeReviewIssues(this._workspaceRoot);
     const history = getCodeReviewHistory(this._workspaceRoot);

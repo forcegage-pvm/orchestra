@@ -790,5 +790,235 @@ describe("ContextManager", () => {
 
       expect(manager.getMaxContextTokens()).toBe(1000000);
     });
+
+    test("should never split tool call/result pairs during compaction", () => {
+      // Use tight limits to force compaction
+      const manager = new ContextManager({
+        maxContextTokens: 200,
+        compactionThreshold: 3,
+      });
+
+      const callId1 = crypto.randomUUID();
+      const callId2 = crypto.randomUUID();
+      const callId3 = crypto.randomUUID();
+
+      const messages: AgentMessage[] = [
+        {
+          id: crypto.randomUUID(),
+          role: "system",
+          content: "System prompt",
+          timestamp: new Date().toISOString(),
+          iteration: 0,
+        },
+        // Pair 1: tool call + result
+        {
+          id: crypto.randomUUID(),
+          role: "assistant",
+          content: [
+            {
+              type: "toolCall",
+              toolCallId: callId1,
+              name: "read_file",
+              input: { path: "/some/file" },
+            },
+          ],
+          timestamp: new Date().toISOString(),
+          iteration: 1,
+        },
+        {
+          id: crypto.randomUUID(),
+          role: "assistant",
+          content: [
+            {
+              type: "toolResult",
+              toolCallId: callId1,
+              value: "file content here " + "X".repeat(200),
+            },
+          ],
+          timestamp: new Date().toISOString(),
+          iteration: 1,
+        },
+        // Pair 2: tool call + result
+        {
+          id: crypto.randomUUID(),
+          role: "assistant",
+          content: [
+            {
+              type: "toolCall",
+              toolCallId: callId2,
+              name: "grep_search",
+              input: { query: "something" },
+            },
+          ],
+          timestamp: new Date().toISOString(),
+          iteration: 2,
+        },
+        {
+          id: crypto.randomUUID(),
+          role: "assistant",
+          content: [
+            {
+              type: "toolResult",
+              toolCallId: callId2,
+              value: "grep results here " + "Y".repeat(200),
+            },
+          ],
+          timestamp: new Date().toISOString(),
+          iteration: 2,
+        },
+        // Pair 3: tool call + result (these should be in "recent")
+        {
+          id: crypto.randomUUID(),
+          role: "assistant",
+          content: [
+            {
+              type: "toolCall",
+              toolCallId: callId3,
+              name: "read_file",
+              input: { path: "/another/file" },
+            },
+          ],
+          timestamp: new Date().toISOString(),
+          iteration: 3,
+        },
+        {
+          id: crypto.randomUUID(),
+          role: "assistant",
+          content: [
+            {
+              type: "toolResult",
+              toolCallId: callId3,
+              value: "another file content",
+            },
+          ],
+          timestamp: new Date().toISOString(),
+          iteration: 3,
+        },
+        {
+          id: crypto.randomUUID(),
+          role: "user",
+          content: "Latest user message",
+          timestamp: new Date().toISOString(),
+          iteration: 4,
+        },
+      ];
+
+      const compacted = manager.compact(messages);
+
+      // Verify: every toolCall in the result has a matching toolResult
+      const toolCallIds = new Set<string>();
+      const toolResultIds = new Set<string>();
+
+      for (const msg of compacted) {
+        if (typeof msg.content === "string") continue;
+        for (const part of msg.content) {
+          if (part.type === "toolCall") {
+            toolCallIds.add(part.toolCallId);
+          } else if (part.type === "toolResult") {
+            toolResultIds.add(part.toolCallId);
+          }
+        }
+      }
+
+      // Every tool call must have a matching result
+      for (const id of toolCallIds) {
+        expect(
+          toolResultIds.has(id),
+          `Tool call ${id} has no matching tool result in compacted messages`,
+        ).toBe(true);
+      }
+
+      // Every tool result must have a matching call
+      for (const id of toolResultIds) {
+        expect(
+          toolCallIds.has(id),
+          `Tool result ${id} has no matching tool call in compacted messages`,
+        ).toBe(true);
+      }
+    });
+
+    test("should adjust recent boundary when it falls between tool call and result", () => {
+      const manager = new ContextManager({
+        maxContextTokens: 150,
+        compactionThreshold: 2,
+      });
+
+      const callId = crypto.randomUUID();
+
+      // Create a scenario where naive boundary (length - 2) would split a pair
+      const messages: AgentMessage[] = [
+        {
+          id: crypto.randomUUID(),
+          role: "system",
+          content: "System",
+          timestamp: new Date().toISOString(),
+          iteration: 0,
+        },
+        {
+          id: crypto.randomUUID(),
+          role: "user",
+          content: "Old message " + "Z".repeat(200),
+          timestamp: new Date().toISOString(),
+          iteration: 1,
+        },
+        // This tool call would be at the boundary (older side)
+        {
+          id: crypto.randomUUID(),
+          role: "assistant",
+          content: [
+            {
+              type: "toolCall",
+              toolCallId: callId,
+              name: "read_file",
+              input: { path: "/file" },
+            },
+          ],
+          timestamp: new Date().toISOString(),
+          iteration: 2,
+        },
+        // This tool result would be at the boundary (recent side)
+        {
+          id: crypto.randomUUID(),
+          role: "assistant",
+          content: [
+            {
+              type: "toolResult",
+              toolCallId: callId,
+              value: "content",
+            },
+          ],
+          timestamp: new Date().toISOString(),
+          iteration: 2,
+        },
+        {
+          id: crypto.randomUUID(),
+          role: "user",
+          content: "Latest message",
+          timestamp: new Date().toISOString(),
+          iteration: 3,
+        },
+      ];
+
+      const compacted = manager.compact(messages);
+
+      // If the tool call is present, its result must also be present
+      const hasToolCall = compacted.some(
+        (m) =>
+          Array.isArray(m.content) &&
+          m.content.some(
+            (p) => p.type === "toolCall" && p.toolCallId === callId,
+          ),
+      );
+      const hasToolResult = compacted.some(
+        (m) =>
+          Array.isArray(m.content) &&
+          m.content.some(
+            (p) => p.type === "toolResult" && p.toolCallId === callId,
+          ),
+      );
+
+      // They must either both be present or both absent
+      expect(hasToolCall).toBe(hasToolResult);
+    });
   });
 });

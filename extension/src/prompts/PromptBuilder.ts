@@ -12,10 +12,7 @@ import {
   buildCodeReviewFixImplementPromptText,
   buildCodeReviewFixPreparePromptText,
   buildCodeReviewFixPromptText,
-  buildCodeReviewPromptText,
-  buildCodeReviewReReviewPromptText,
 } from "./promptTextBuilders.js";
-
 export type {
   CodeReviewContext,
   PromptContext,
@@ -108,14 +105,19 @@ export class PromptBuilder {
     sprintTitle: string,
     taskInfo?: { taskId: number; title: string; dbId: number },
   ): string {
-    return buildCodeReviewPromptText(
-      pendingCount,
-      sprintId,
-      sprintTitle,
-      taskInfo,
-    );
-  }
+    if (taskInfo !== undefined) {
+      // Single task code review
+      const context = {
+        sprint: { sprint_id: sprintId, title: sprintTitle },
+        task: { task_id: taskInfo.taskId, title: taskInfo.title },
+      };
+      return this.templateLoader.render("code-review", context);
+    }
 
+    // Bulk code review
+    const context = { pendingCount, sprint: { sprint_id: sprintId, title: sprintTitle } };
+    return this.templateLoader.render("code-review-bulk", context);
+  }
   /**
    * Build a CODE_REVIEW_RE_REVIEW prompt for the controller
    */
@@ -125,14 +127,14 @@ export class PromptBuilder {
     taskInfo: { taskId: number; title: string; dbId: number },
     reviewId: number,
   ): string {
-    return buildCodeReviewReReviewPromptText(
-      sprintId,
-      sprintTitle,
-      taskInfo,
-      reviewId,
-    );
-  }
+    const context = {
+      sprint: { sprint_id: sprintId, title: sprintTitle },
+      task: { task_id: taskInfo.taskId, title: taskInfo.title },
+      codeReview: { reviewId },
+    };
 
+    return this.templateLoader.render("code-review-re-review", context);
+  }
   /**
    * Build a CODE_REVIEW_FIX prompt for the implementor
    */

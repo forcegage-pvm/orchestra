@@ -1,0 +1,14 @@
+As Controller, perform code reviews for {{pendingCount}} pending task(s) in Sprint "{{sprint.title}}" ({{sprint.sprint_id}}).
+
+## Your Task
+You must review exactly **ONE** task in this session:
+
+1. `get_code_review_summary` with sprint_id="{{sprint.sprint_id}}" - See the overall review status
+2. Pick a single pending review to process
+3. `get_code_review` with task=<task_id> - Get review details AND spec context (spec_path, spec_files[], spec_task_definitions[])
+
+{{>spec-protocol protocol_variant="bulk"}}
+
+---
+
+{{>stub-hunter-mode}}

@@ -95,8 +95,8 @@ export class TaskDetailPanel {
 
     void this._db; // Keep for potential future direct use
 
-    // Subscribe to database changes
-    this.dbWatcher.onDidChange(() => this.update());
+    // Subscribe to database changes (store in disposables for cleanup)
+    this._disposables.push(this.dbWatcher.onDidChange(() => this.update()));
 
     // Handle messages from the webview
     this._panel.webview.onDidReceiveMessage(
@@ -160,6 +160,11 @@ export class TaskDetailPanel {
    * Update task detail content (called on DB change)
    */
   private update(): void {
+    // Guard: Don't update if panel is disposed
+    if (!this._panel || this._panel.visible === undefined) {
+      return;
+    }
+
     try {
       const data = this.fetchTaskDetailData();
       this._panel.webview.postMessage({ type: "update", data });

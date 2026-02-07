@@ -27,6 +27,7 @@ export class CodeReviewTreeProvider implements vscode.TreeDataProvider<TreeEleme
   >();
   readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
 
+  private readonly dbSubscription: vscode.Disposable;
   private _summary: CodeReviewSummary | null = null;
   private _unreviewedCount: number = 0;
   private _approvedCompleteCount: number = 0;
@@ -35,8 +36,8 @@ export class CodeReviewTreeProvider implements vscode.TreeDataProvider<TreeEleme
     private readonly _workspaceRoot: string,
     private readonly _dbWatcher: DatabaseWatcher,
   ) {
-    // Subscribe to database changes
-    this._dbWatcher.onDidChange(() => this.refresh());
+    // Subscribe to database changes (store for cleanup)
+    this.dbSubscription = this._dbWatcher.onDidChange(() => this.refresh());
 
     // Load initial data
     this._loadData();
@@ -299,6 +300,7 @@ export class CodeReviewTreeProvider implements vscode.TreeDataProvider<TreeEleme
   }
 
   dispose(): void {
+    this.dbSubscription.dispose();
     this._onDidChangeTreeData.dispose();
   }
 }

@@ -22,6 +22,53 @@ import {
 
 const TOOL_NAME = "run_command";
 const DEFAULT_TIMEOUT_MS = 30_000;
+const MAX_FAILED_COMMAND_CACHE = 10;
+
+/**
+ * Cache of recently failed commands to prevent the agent from retrying
+ * the exact same command repeatedly. Keyed by `command|cwd`.
+ */
+const failedCommandCache = new Map<
+  string,
+  { errorSummary: string; exitCode: number; count: number }
+>();
+
+function getCommandCacheKey(command: string, cwd: string): string {
+  return `${command}|${cwd}`;
+}
+
+function recordFailedCommand(
+  command: string,
+  cwd: string,
+  errorSummary: string,
+  exitCode: number,
+): void {
+  const key = getCommandCacheKey(command, cwd);
+  const existing = failedCommandCache.get(key);
+  failedCommandCache.set(key, {
+    errorSummary,
+    exitCode,
+    count: (existing?.count ?? 0) + 1,
+  });
+  // Evict oldest entries if cache gets too large
+  if (failedCommandCache.size > MAX_FAILED_COMMAND_CACHE) {
+    const firstKey = failedCommandCache.keys().next().value;
+    if (firstKey !== undefined) {
+      failedCommandCache.delete(firstKey);
+    }
+  }
+}
+
+function clearFailedCommand(command: string, cwd: string): void {
+  failedCommandCache.delete(getCommandCacheKey(command, cwd));
+}
+
+function getFailedCommand(
+  command: string,
+  cwd: string,
+): { errorSummary: string; exitCode: number; count: number } | undefined {
+  return failedCommandCache.get(getCommandCacheKey(command, cwd));
+}
 // Pattern for CSI sequences (e.g., [?25l, [0m, [?2004h for bracketed paste)
 // Includes private mode sequences with ? prefix and > prefix
 const CSI_PATTERN = /\x1B\[[?>=]?[0-9;]*[a-zA-Z]/g;
@@ -361,11 +408,36 @@ async function executeWithSubprocess(
       return;
     }
 
-    // Prepare environment - ensure PATH is preserved
+    // Prepare environment - ensure the subprocess matches the user's terminal environment.
+    //
+    // VS Code's extension host runs inside Electron, which modifies the environment:
+    // 1. ELECTRON_RUN_AS_NODE - makes the Electron binary behave as Node.js
+    // 2. PATH may have VS Code's bundled Node.js prepended, shadowing the user's system Node
+    //
+    // This causes commands like `node script.js` to use a different (often older) Node.js
+    // than the user's interactive terminal, leading to mysterious module resolution failures.
     const childEnv = {
       ...process.env,
       ...options.env,
     };
+    // Remove Electron-specific environment variables that interfere with Node.js
+    delete childEnv.ELECTRON_RUN_AS_NODE;
+    delete childEnv.ELECTRON_NO_ASAR;
+
+    // Clean VS Code's internal node directory from PATH so the user's system node is found.
+    // VS Code prepends paths like "C:\...\Microsoft VS Code\resources\app\bin" to PATH.
+    if (childEnv.PATH || childEnv.Path) {
+      const pathKey = childEnv.PATH !== undefined ? "PATH" : "Path";
+      const separator = process.platform === "win32" ? ";" : ":";
+      const paths = (childEnv[pathKey] ?? "").split(separator);
+      const cleanedPaths = paths.filter(
+        (p) =>
+          !p.includes("Microsoft VS Code") &&
+          !p.includes("resources/app/") &&
+          !p.includes("resources\\app\\"),
+      );
+      childEnv[pathKey] = cleanedPaths.join(separator);
+    }
 
     // On Windows, explicitly specify shell path using ComSpec
     // This avoids issues with Node.js trying to find cmd.exe
@@ -505,7 +577,8 @@ export const runCommandTool: AgentTool<RunCommandInput> = {
       },
       cwd: {
         type: "string",
-        description: "Working directory for the command",
+        description:
+          "Working directory for the command. Defaults to the workspace root if not specified.",
       },
       timeout_ms: {
         type: "number",
@@ -539,6 +612,47 @@ export const runCommandTool: AgentTool<RunCommandInput> = {
           ToolErrorCode.CANCELLED,
           "Command cancelled.",
           "Retry the command after cancelling is cleared.",
+        ),
+        metadata: {
+          toolName: TOOL_NAME,
+          callId: "",
+          durationMs: 0,
+        },
+      };
+    }
+
+    // Check if this exact command recently failed - prevent retry loops
+    const resolvedCwd = input.cwd ?? getWorkspaceRoot();
+    const previousFailure = getFailedCommand(input.command, resolvedCwd);
+    if (previousFailure) {
+      const retryCount = previousFailure.count;
+      return {
+        success: false,
+        content: [
+          {
+            type: "text",
+            value: [
+              `⚠️ DUPLICATE COMMAND DETECTED (failed ${retryCount} time${retryCount > 1 ? "s" : ""} before)`,
+              ``,
+              `This exact command already failed with exit code ${previousFailure.exitCode}:`,
+              `  ${input.command}`,
+              `  cwd: ${resolvedCwd}`,
+              ``,
+              `Previous error:`,
+              previousFailure.errorSummary,
+              ``,
+              `DO NOT retry the same command. Instead:`,
+              `1. Analyze the error above and fix the root cause`,
+              `2. Try a different command or approach`,
+              `3. Check if the file/path exists before running`,
+              `4. If you need to run a modified version of this command, change the arguments`,
+            ].join("\n"),
+          },
+        ],
+        error: createToolError(
+          ToolErrorCode.COMMAND_FAILED,
+          `Command already failed ${retryCount} time(s) with exit code ${previousFailure.exitCode}. Do not retry the same command.`,
+          "Analyze the error and try a different approach instead of retrying.",
         ),
         metadata: {
           toolName: TOOL_NAME,
@@ -590,13 +704,15 @@ export const runCommandTool: AgentTool<RunCommandInput> = {
       }
 
       const message = error instanceof Error ? error.message : "Unknown error";
+      // Record this failure so we can detect retries
+      recordFailedCommand(input.command, resolvedCwd, message, -1);
       return {
         success: false,
         content: [{ type: "error", value: message }],
         error: createToolError(
           ToolErrorCode.COMMAND_FAILED,
           message,
-          "Check the command and try again.",
+          "Analyze the error and fix the root cause before trying a different command.",
         ),
         metadata: {
           toolName: TOOL_NAME,
@@ -630,10 +746,25 @@ export const runCommandTool: AgentTool<RunCommandInput> = {
     // Determine if this is a success or failure
     const isSuccess = result.success && !result.timedOut;
 
+    // Track command result for duplicate detection
+    if (isSuccess) {
+      clearFailedCommand(input.command, resolvedCwd);
+    }
+
     // Extract meaningful error summary when command failed
     const errorSummary = isSuccess
       ? undefined
       : extractErrorSummary(result.stdout, result.stderr);
+
+    // Record failure for duplicate detection
+    if (!isSuccess) {
+      recordFailedCommand(
+        input.command,
+        resolvedCwd,
+        (errorSummary ?? result.stderr) || result.stdout.slice(0, 500),
+        result.exitCode,
+      );
+    }
 
     // Add error_summary to result data for agent consumption
     if (errorSummary) {
@@ -664,7 +795,7 @@ export const runCommandTool: AgentTool<RunCommandInput> = {
             : `Command failed with exit code ${result.exitCode}${errorSummary ? `:\n${errorSummary}` : ""}`,
           result.timedOut
             ? "Increase timeout or check for long-running process"
-            : "Check command syntax and arguments",
+            : "Analyze the error output and fix the root cause. Do NOT retry the same command — it will be blocked.",
         );
 
     return {

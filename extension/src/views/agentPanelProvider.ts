@@ -259,9 +259,9 @@ export class AgentPanelProvider implements vscode.WebviewViewProvider {
       }),
     );
 
-    // Note: For WebviewView, the webview context is destroyed when hidden.
-    // When it becomes visible again, the HTML/JS is re-executed and the webview
-    // will send a 'ready' message. We restore state in the 'ready' handler.
+    // With retainContextWhenHidden: true, the webview stays alive when hidden.
+    // State restoration happens via the 'ready' message handler which is the
+    // only reliable path (it waits for webview JS to be initialized).
 
     // Sync verbosity when configuration changes
     if (typeof vscode.workspace.onDidChangeConfiguration === "function") {
@@ -283,15 +283,12 @@ export class AgentPanelProvider implements vscode.WebviewViewProvider {
     );
 
     logger.info(
-      "[AgentPanelProvider] Webview resolved, checking for active session",
+      "[AgentPanelProvider] Webview resolved, waiting for 'ready' message",
     );
 
-    // Initial event poll only if there's an active session
-    const runner = getAgentRunner();
-    const session = runner.getSession();
-    if (session) {
-      this._pollForEvents();
-    }
+    // Note: We do NOT call _restoreSessionState() here because the webview
+    // JS hasn't initialized yet. Messages sent now would be lost.
+    // Instead, we wait for the webview to send 'ready', then restore.
   }
 
   /**

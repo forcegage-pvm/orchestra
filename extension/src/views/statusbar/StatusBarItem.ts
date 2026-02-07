@@ -14,22 +14,23 @@ import { getStatusDisplay } from "../statusTranslation.js";
 
 export class StatusBarManager implements vscode.Disposable {
   private readonly statusBarItem: vscode.StatusBarItem;
+  private readonly dbSubscription: vscode.Disposable;
 
   constructor(
     private readonly _db: Database.Database,
-    private readonly dbWatcher: DatabaseWatcher
+    private readonly dbWatcher: DatabaseWatcher,
   ) {
     void this._db; // Keep for potential future direct use
 
     // Create status bar item
     this.statusBarItem = vscode.window.createStatusBarItem(
       vscode.StatusBarAlignment.Left,
-      100
+      100,
     );
     this.statusBarItem.command = "orchestra.openDashboard";
 
-    // Subscribe to database changes
-    this.dbWatcher.onDidChange(() => this.refresh());
+    // Subscribe to database changes (store for cleanup)
+    this.dbSubscription = this.dbWatcher.onDidChange(() => this.refresh());
 
     // Initial update
     this.refresh();
@@ -95,7 +96,7 @@ export class StatusBarManager implements vscode.Disposable {
           ? `Error: ${error.message}\nClick to open Dashboard`
           : "Error loading Orchestra data\nClick to open Dashboard";
       this.statusBarItem.backgroundColor = new vscode.ThemeColor(
-        "statusBarItem.errorBackground"
+        "statusBarItem.errorBackground",
       );
       this.statusBarItem.show();
     }
@@ -114,6 +115,7 @@ export class StatusBarManager implements vscode.Disposable {
    * Dispose status bar item
    */
   dispose(): void {
+    this.dbSubscription.dispose();
     this.statusBarItem.dispose();
   }
 }

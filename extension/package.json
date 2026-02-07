@@ -489,6 +489,7 @@
     "@iconify-icon/solid": "^2.1.0",
     "@iconify-icons/lucide": "^1.2.135",
     "@tanstack/solid-virtual": "^3.13.18",
+    "@vscode/ripgrep": "^1.17.0",
     "ansi-to-html": "^0.7.2",
     "better-sqlite3": "^12.6.2",
     "drizzle-orm": "^0.37.0",
@@ -499,6 +500,7 @@
     "zod": "^3.25.76"
   },
   "bundledDependencies": [
+    "@vscode/ripgrep",
     "better-sqlite3",
     "bindings",
     "file-uri-to-path"
