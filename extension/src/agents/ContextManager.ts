@@ -131,8 +131,12 @@ export class ContextManager {
    * Strategy:
    * 1. Always preserve system messages (role === "system")
    * 2. Preserve last N messages (based on compactionThreshold)
-   * 3. Summarize older tool results (truncate long outputs)
-   * 4. Remove very old messages if still over limit
+   * 3. Ensure tool call/result pairs are never split (LLM API requirement)
+   * 4. Summarize older tool results (truncate long outputs)
+   * 5. Remove very old messages if still over limit
+   *
+   * CRITICAL: LLM APIs require that every tool_call has a matching tool_result.
+   * The compaction boundary must never split a tool_call/tool_result pair.
    *
    * @param messages - Array of messages to compact
    * @param targetTokens - Target token count (defaults to 80% of maxContextTokens)
@@ -146,55 +150,64 @@ export class ContextManager {
       return messages;
     }
 
-    // Separate system messages, recent messages, and older messages
+    // Separate system messages from conversation messages
     const systemMessages: AgentMessage[] = [];
-    const recentMessages: AgentMessage[] = [];
-    const olderMessages: AgentMessage[] = [];
+    const conversationMessages: AgentMessage[] = [];
 
-    // Keep last compactionThreshold messages as "recent"
-    const recentStartIndex = Math.max(0, messages.length - this.compactionThreshold);
-
-    for (let i = 0; i < messages.length; i++) {
-      const message = messages[i];
-      if (!message) continue; // Skip undefined entries
-
+    for (const message of messages) {
+      if (!message) continue;
       if (message.role === "system") {
         systemMessages.push(message);
-      } else if (i >= recentStartIndex) {
-        recentMessages.push(message);
       } else {
-        olderMessages.push(message);
+        conversationMessages.push(message);
       }
     }
+
+    // Find a safe split point that doesn't break tool call/result pairs.
+    // We want to keep at least compactionThreshold messages as "recent",
+    // but we must expand the boundary if it falls between a pair.
+    const safeRecentStart = this.findSafeRecentBoundary(
+      conversationMessages,
+      this.compactionThreshold,
+    );
+
+    const olderMessages = conversationMessages.slice(0, safeRecentStart);
+    const recentMessages = conversationMessages.slice(safeRecentStart);
 
     // Start with system + recent
     let compacted = [...systemMessages, ...recentMessages];
 
     // If still over limit, we need to be more aggressive
     if (this.estimateTokens(compacted) > target) {
-      // Keep only system messages and the most recent message
-      const lastRecent = recentMessages[recentMessages.length - 1];
-      if (lastRecent) {
-        compacted = [...systemMessages, lastRecent];
+      // Keep minimum messages from the end that preserve tool-pair integrity.
+      // Use findSafeRecentBoundary with threshold=1 to find the smallest safe
+      // suffix of recentMessages — this ensures we never orphan a tool_call
+      // without its tool_result (or vice versa), which would cause LLM API errors.
+      const safeTailStart = this.findSafeRecentBoundary(recentMessages, 1);
+      const safeTail = recentMessages.slice(safeTailStart);
+
+      if (safeTail.length > 0) {
+        compacted = [...systemMessages, ...safeTail];
       } else {
         compacted = systemMessages;
       }
-      return compacted;
+      return this.ensureToolPairIntegrity(compacted);
     }
 
-    // Try to add summarized older messages
+    // Try to add summarized older messages (in tool-pair-safe groups)
     const summarizedOlder = this.summarizeMessages(olderMessages);
+    const olderGroups = this.groupToolPairs(summarizedOlder);
 
-    // Add summarized older messages one by one until we approach limit
+    // Add summarized older message groups until we approach limit
     const result = [...systemMessages];
     let currentTokens = this.estimateTokens(result);
 
-    for (const message of summarizedOlder) {
-      const messageTokens = this.estimateTokens([message]);
-      if (currentTokens + messageTokens <= target * 0.9) {
+    for (const group of olderGroups) {
+      const groupTokens = this.estimateTokens(group);
+      if (currentTokens + groupTokens <= target * 0.9) {
         // Leave 10% buffer
-        result.push(message);
-        currentTokens += messageTokens;
+        result.push(...group);
+        currentTokens += groupTokens;
       } else {
         break; // Stop adding if we'd exceed limit
       }
@@ -203,7 +216,166 @@ export class ContextManager {
     // Add recent messages at the end
     result.push(...recentMessages);
 
-    return result;
+    return this.ensureToolPairIntegrity(result);
+  }
+
+  /**
+   * Find a safe boundary index for splitting older/recent messages.
+   *
+   * The boundary must not fall between a tool_call message and its tool_result message.
+   * If the naive boundary (length - threshold) would split a pair, we move it earlier
+   * to include the full pair in the "recent" section.
+   *
+   * @param messages - Conversation messages (excluding system)
+   * @param threshold - Minimum number of recent messages to keep
+   * @returns Safe index where "recent" starts
+   */
+  private findSafeRecentBoundary(
+    messages: AgentMessage[],
+    threshold: number,
+  ): number {
+    let boundary = Math.max(0, messages.length - threshold);
+
+    // Walk backwards from boundary to ensure we don't split a tool pair.
+    // A tool_call message at boundary-1 (in "older") whose result is at boundary
+    // (in "recent") would be split. We need to include the tool_call in "recent".
+    while (boundary > 0) {
+      const msgAtBoundary = messages[boundary];
+      if (msgAtBoundary && this.hasToolResults(msgAtBoundary)) {
+        // This message has tool results. Check if the preceding message has
+        // the matching tool calls. If so, move boundary back to include it.
+        const prevMsg = messages[boundary - 1];
+        if (prevMsg && this.hasToolCalls(prevMsg)) {
+          boundary--;
+          continue;
+        }
+      }
+      break;
+    }
+
+    return boundary;
+  }
+
+  /**
+   * Group messages into tool-pair-safe groups for incremental addition.
+   *
+   * A tool_call message and the following tool_result message form one group.
+   * Other messages are individual groups. This ensures we never add a tool_call
+   * without its result (or vice versa) during the budget-limited older message loop.
+   *
+   * @param messages - Messages to group
+   * @returns Array of message groups (each group is 1-2 messages)
+   */
+  private groupToolPairs(messages: AgentMessage[]): AgentMessage[][] {
+    const groups: AgentMessage[][] = [];
+    let i = 0;
+
+    while (i < messages.length) {
+      const msg = messages[i]!;
+      if (this.hasToolCalls(msg)) {
+        // Check if next message has matching tool results
+        const next = messages[i + 1];
+        if (next && this.hasToolResults(next)) {
+          groups.push([msg, next]);
+          i += 2;
+          continue;
+        }
+      }
+      groups.push([msg]);
+      i++;
+    }
+
+    return groups;
+  }
+
+  /**
+   * Check if a message contains tool call content parts
+   */
+  private hasToolCalls(message: AgentMessage): boolean {
+    if (typeof message.content === "string") return false;
+    return message.content.some((part) => part.type === "toolCall");
+  }
+
+  /**
+   * Check if a message contains tool result content parts
+   */
+  private hasToolResults(message: AgentMessage): boolean {
+    if (typeof message.content === "string") return false;
+    return message.content.some((part) => part.type === "toolResult");
+  }
+
+  /**
+   * Ensure every tool_call has a matching tool_result and vice versa.
+   *
+   * This is a safety net to prevent LLM API errors like:
+   *   "tool_use ids were found without tool_result blocks immediately after"
+   *
+   * If orphaned tool_call or tool_result messages are found (e.g., from aggressive
+   * compaction), they are removed entirely. Messages with mixed content (both orphaned
+   * and non-orphaned parts) have only the orphaned parts stripped.
+   *
+   * @param messages - Messages to validate
+   * @returns Messages with orphaned tool parts removed
+   */
+  ensureToolPairIntegrity(messages: AgentMessage[]): AgentMessage[] {
+    // Collect all toolCall IDs and toolResult IDs
+    const toolCallIds = new Set<string>();
+    const toolResultIds = new Set<string>();
+
+    for (const msg of messages) {
+      if (typeof msg.content === "string") continue;
+      for (const part of msg.content) {
+        if (part.type === "toolCall") toolCallIds.add(part.toolCallId);
+        if (part.type === "toolResult") toolResultIds.add(part.toolCallId);
+      }
+    }
+
+    // Find orphaned IDs (tool_call without tool_result, or vice versa)
+    const orphanedCallIds = new Set(
+      [...toolCallIds].filter((id) => !toolResultIds.has(id)),
+    );
+    const orphanedResultIds = new Set(
+      [...toolResultIds].filter((id) => !toolCallIds.has(id)),
+    );
+
+    // If all pairs are complete, return as-is
+    if (orphanedCallIds.size === 0 && orphanedResultIds.size === 0) {
+      return messages;
+    }
+
+    // Filter out messages that consist entirely of orphaned tool parts.
+    // For messages with mixed content, strip only the orphaned parts.
+    return messages
+      .map((msg) => {
+        if (typeof msg.content === "string") return msg;
+
+        const filteredParts = msg.content.filter((part) => {
+          if (
+            part.type === "toolCall" &&
+            orphanedCallIds.has(part.toolCallId)
+          ) {
+            return false;
+          }
+          if (
+            part.type === "toolResult" &&
+            orphanedResultIds.has(part.toolCallId)
+          ) {
+            return false;
+          }
+          return true;
+        });
+
+        // If all parts were orphaned, remove the entire message
+        if (filteredParts.length === 0) return null;
+
+        // If some parts were removed, return message with remaining parts
+        if (filteredParts.length !== msg.content.length) {
+          return { ...msg, content: filteredParts };
+        }
+
+        return msg;
+      })
+      .filter((msg): msg is AgentMessage => msg !== null);
   }
 
   /**

@@ -22,6 +22,10 @@ import type {
   AgentSessionInfo,
   EventBusPayload,
 } from "../agents/sessions/types.js";
+import {
+  getLatestCodeReviewForTask,
+  getTaskById,
+} from "../database/queries.js";
 import { getAgentRunner } from "../extension.js";
 import { highlightRange } from "../utils/fileHighlight.js";
 import { OrchestraLogger } from "../utils/logger.js";
@@ -40,7 +44,106 @@ const logger = new OrchestraLogger();
  * but the webview protocol expects the AgentSession INTERFACE with field `sessionId`.
  * This helper bridges that gap.
  */
-function sessionClassToInterface(session: AgentSessionClass): AgentSession {
+/**
+ * Get a human-readable status message based on task state and agent role
+ *
+ * Maps task status + code review status to descriptive messages matching
+ * the workflow state machine (see docs/WORKFLOW_TRANSITIONS.md).
+ */
+function getStatusMessageFromTask(
+  workspaceRoot: string,
+  role: AgentSession["role"],
+  taskId: number | undefined,
+): string | undefined {
+  if (!taskId) {
+    return undefined;
+  }
+
+  const task = getTaskById(workspaceRoot, taskId);
+  if (!task) {
+    return undefined;
+  }
+
+  // Get code review status for code review-related states
+  const codeReview = getLatestCodeReviewForTask(workspaceRoot, taskId);
+  const codeReviewStatus = codeReview?.status;
+
+  // Map task status + role to appropriate message
+  switch (task.status) {
+    case "PENDING":
+      if (role === "orchestrator") return "Preparing handover";
+      break;
+
+    case "PENDING_HANDOVER_REVIEW":
+      if (role === "controller") return "Reviewing handover";
+      if (role === "orchestrator") return "Awaiting handover review";
+      break;
+
+    case "HANDOVER_REVIEW_FAILED":
+      if (role === "orchestrator") return "Fixing handover";
+      break;
+
+    case "IMPLEMENT":
+      if (role === "implementor") return "Implementing";
+      break;
+
+    case "GATE_CHECK":
+    case "VERIFY":
+      if (role === "orchestrator") return "Verifying";
+      if (role === "implementor") return "Awaiting verification";
+      break;
+
+    case "VERIFY_FAILED":
+      if (role === "implementor") return "Fixing implementation";
+      if (role === "orchestrator") return "Verification failed";
+      break;
+
+    case "VERIFIED":
+      if (codeReviewStatus === "PENDING") {
+        if (role === "controller") return "Code reviewing";
+        return "Awaiting code review";
+      }
+      if (codeReviewStatus === "PENDING_VERIFICATION") {
+        if (role === "controller") return "Re-reviewing code";
+        return "Awaiting re-review";
+      }
+      break;
+
+    case "PENDING_CODE_REVIEW":
+      if (role === "controller") return "Code reviewing";
+      return "Awaiting code review";
+
+    case "CODE_REVIEW_CHANGES_REQUESTED":
+      if (codeReviewStatus === "PENDING_VERIFICATION") {
+        if (role === "controller") return "Re-reviewing code";
+        return "Awaiting re-review";
+      }
+      if (role === "implementor") return "Fixing code review issues";
+      break;
+
+    case "CODE_REVIEW_FAILED":
+      if (role === "implementor") return "Fixing code review issues";
+      break;
+
+    case "ESCALATED":
+      if (role === "orchestrator") return "Reviewing escalation";
+      return "Escalated";
+
+    case "COMPLETE":
+      if (codeReviewStatus === "PENDING") {
+        if (role === "controller") return "Code reviewing";
+        return "Awaiting code review";
+      }
+      return "Complete";
+  }
+
+  return undefined;
+}
+
+function sessionClassToInterface(
+  workspaceRoot: string,
+  session: AgentSessionClass,
+): AgentSession {
   return {
     sessionId: session.id,
     role: session.role,
@@ -52,7 +155,11 @@ function sessionClassToInterface(session: AgentSessionClass): AgentSession {
     lastActivityAt: session.lastActivityAt,
     endedAt: undefined, // Will be set when session ends
     status: session.status,
-    statusMessage: undefined,
+    statusMessage: getStatusMessageFromTask(
+      workspaceRoot,
+      session.role,
+      session.taskId ?? undefined,
+    ),
     iteration: session.currentIteration,
     maxIterations: session.maxIterations,
     toolCallCount: session.toolCalls.length,
@@ -69,7 +176,10 @@ function sessionClassToInterface(session: AgentSessionClass): AgentSession {
  *
  * AgentSessionInfo has minimal fields; we create a partial session for UI display.
  */
-function sessionInfoToInterface(info: AgentSessionInfo): AgentSession {
+function sessionInfoToInterface(
+  workspaceRoot: string,
+  info: AgentSessionInfo,
+): AgentSession {
   return {
     sessionId: info.id,
     role: info.role,
@@ -81,9 +191,13 @@ function sessionInfoToInterface(info: AgentSessionInfo): AgentSession {
     lastActivityAt: info.startedAt,
     endedAt: undefined,
     status: info.status,
-    statusMessage: undefined,
+    statusMessage: getStatusMessageFromTask(
+      workspaceRoot,
+      info.role,
+      info.taskId,
+    ),
     iteration: 0,
-    maxIterations: 50,
+    maxIterations: 80,
     toolCallCount: 0,
     successfulToolCalls: 0,
     failedToolCalls: 0,
@@ -145,9 +259,9 @@ export class AgentPanelProvider implements vscode.WebviewViewProvider {
       }),
     );
 
-    // Note: For WebviewView, the webview context is destroyed when hidden.
-    // When it becomes visible again, the HTML/JS is re-executed and the webview
-    // will send a 'ready' message. We restore state in the 'ready' handler.
+    // With retainContextWhenHidden: true, the webview stays alive when hidden.
+    // State restoration happens via the 'ready' message handler which is the
+    // only reliable path (it waits for webview JS to be initialized).
 
     // Sync verbosity when configuration changes
     if (typeof vscode.workspace.onDidChangeConfiguration === "function") {
@@ -169,15 +283,12 @@ export class AgentPanelProvider implements vscode.WebviewViewProvider {
     );
 
     logger.info(
-      "[AgentPanelProvider] Webview resolved, checking for active session",
+      "[AgentPanelProvider] Webview resolved, waiting for 'ready' message",
     );
 
-    // Initial event poll only if there's an active session
-    const runner = getAgentRunner();
-    const session = runner.getSession();
-    if (session) {
-      this._pollForEvents();
-    }
+    // Note: We do NOT call _restoreSessionState() here because the webview
+    // JS hasn't initialized yet. Messages sent now would be lost.
+    // Instead, we wait for the webview to send 'ready', then restore.
   }
 
   /**
@@ -235,7 +346,10 @@ export class AgentPanelProvider implements vscode.WebviewViewProvider {
           `[AgentPanelProvider] Sending session_update with ${events.length} events`,
         );
         // Convert class to interface format
-        const sessionData = sessionClassToInterface(session);
+        const sessionData = sessionClassToInterface(
+          this._workspaceRoot,
+          session,
+        );
         this.postMessage({
           type: "session_update",
           session: sessionData,
@@ -298,7 +412,7 @@ export class AgentPanelProvider implements vscode.WebviewViewProvider {
       this._currentSessionId = session.id;
 
       // Send full session data
-      const sessionData = sessionClassToInterface(session);
+      const sessionData = sessionClassToInterface(this._workspaceRoot, session);
       this.postMessage({
         type: "session_update",
         session: sessionData,
@@ -334,7 +448,10 @@ export class AgentPanelProvider implements vscode.WebviewViewProvider {
       case "session_start":
         this._currentSessionId = payload.session.id;
         // Convert AgentSessionInfo to full AgentSession interface
-        const sessionData = sessionInfoToInterface(payload.session);
+        const sessionData = sessionInfoToInterface(
+          this._workspaceRoot,
+          payload.session,
+        );
         this.postMessage({
           type: "session_update",
           session: sessionData,
@@ -357,13 +474,32 @@ export class AgentPanelProvider implements vscode.WebviewViewProvider {
         const runner = getAgentRunner();
         const currentSession = runner.getSession();
         if (currentSession && currentSession.id === payload.sessionId) {
-          const endedSession = sessionClassToInterface(currentSession);
+          const endedSession = sessionClassToInterface(
+            this._workspaceRoot,
+            currentSession,
+          );
           endedSession.status = payload.status;
           endedSession.endedAt = new Date().toISOString();
           this.postMessage({
             type: "session_update",
             session: endedSession,
           });
+        } else {
+          const storedSession = getSession(
+            this._workspaceRoot,
+            payload.sessionId,
+          );
+          if (storedSession) {
+            const endedSession = {
+              ...storedSession,
+              status: payload.status,
+              endedAt: new Date().toISOString(),
+            };
+            this.postMessage({
+              type: "session_update",
+              session: endedSession,
+            });
+          }
         }
         break;
 
@@ -479,7 +615,9 @@ export class AgentPanelProvider implements vscode.WebviewViewProvider {
         highlightRange(editor, line, endLine);
       }
     } catch (error) {
-      logger.error(`Failed to open file: ${absolutePath}`, error);
+      // Use the original filePath parameter in error logging to avoid referencing
+      // a variable that may be out of scope if the error occurs before absolutePath
+      logger.error(`Failed to open file: ${filePath}`, error);
       void vscode.window.showErrorMessage(`Failed to open file: ${filePath}`);
     }
   }
@@ -534,7 +672,10 @@ export class AgentPanelProvider implements vscode.WebviewViewProvider {
 
       // Immediately update webview with stopped status
       // (EventBus path may not work if session is cleared)
-      const stoppedSession = sessionClassToInterface(session);
+      const stoppedSession = sessionClassToInterface(
+        this._workspaceRoot,
+        session,
+      );
       stoppedSession.status = "cancelled";
       stoppedSession.endedAt = new Date().toISOString();
       this.postMessage({
@@ -568,7 +709,10 @@ export class AgentPanelProvider implements vscode.WebviewViewProvider {
       await runner.pause();
 
       // Update webview with paused status
-      const pausedSession = sessionClassToInterface(session);
+      const pausedSession = sessionClassToInterface(
+        this._workspaceRoot,
+        session,
+      );
       pausedSession.status = "paused";
       this.postMessage({
         type: "session_update",
@@ -599,7 +743,10 @@ export class AgentPanelProvider implements vscode.WebviewViewProvider {
       await runner.resume();
 
       // Update webview with running status
-      const resumedSession = sessionClassToInterface(session);
+      const resumedSession = sessionClassToInterface(
+        this._workspaceRoot,
+        session,
+      );
       resumedSession.status = "running";
       this.postMessage({
         type: "session_update",
@@ -912,7 +1059,7 @@ export class AgentPanelProvider implements vscode.WebviewViewProvider {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${cspSource} 'unsafe-inline'; script-src ${cspSource} 'unsafe-inline'; connect-src https://api.iconify.design https://api.unisvg.com https://api.simplesvg.com;">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${cspSource} 'unsafe-inline'; script-src ${cspSource} 'unsafe-inline';">
   <link rel="stylesheet" href="${styleUri}">
   <style>
     html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; }

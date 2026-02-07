@@ -49,7 +49,7 @@ export async function handleGetCurrentTask(input: unknown) {
         taskId: output.task_id,
       },
       { success: true, output },
-      durationMs
+      durationMs,
     );
 
     return {
@@ -66,7 +66,7 @@ export async function handleGetCurrentTask(input: unknown) {
         input: validation.data,
       },
       { success: false, errorMessage: err.message },
-      durationMs
+      durationMs,
     );
 
     return {
@@ -82,7 +82,7 @@ export async function handleGetCurrentTask(input: unknown) {
               },
             },
             null,
-            2
+            2,
           ),
         },
       ],
@@ -100,7 +100,7 @@ async function getCurrentTask(): Promise<GetCurrentTaskOutput> {
     throw new Error("No active sprint");
   }
 
-  // 2. Find task in IMPLEMENT or VERIFY_FAILED state FOR THE ACTIVE SPRINT
+  // 2. Find task in IMPLEMENT, VERIFY_FAILED, or code review fix states FOR THE ACTIVE SPRINT
   // Note: Tasks in PENDING_HANDOVER_REVIEW or HANDOVER_REVIEW_FAILED are NOT visible
   // to implementors - they must wait for Controller approval
   const [task] = await db
@@ -109,8 +109,13 @@ async function getCurrentTask(): Promise<GetCurrentTaskOutput> {
     .where(
       and(
         eq(tasks.sprint_id, sprint.id),
-        inArray(tasks.status, ["IMPLEMENT", "VERIFY_FAILED"])
-      )
+        inArray(tasks.status, [
+          "IMPLEMENT",
+          "VERIFY_FAILED",
+          "CODE_REVIEW_CHANGES_REQUESTED",
+          "CODE_REVIEW_FAILED",
+        ]),
+      ),
     )
     .limit(1);
 
@@ -125,8 +130,8 @@ async function getCurrentTask(): Promise<GetCurrentTaskOutput> {
           inArray(tasks.status, [
             "PENDING_HANDOVER_REVIEW",
             "HANDOVER_REVIEW_FAILED",
-          ])
-        )
+          ]),
+        ),
       )
       .limit(1);
 
@@ -138,11 +143,13 @@ async function getCurrentTask(): Promise<GetCurrentTaskOutput> {
 
       throw new Error(
         `No task available for implementation. ${statusMessage} ` +
-          `(Task ${pendingReviewTask.task_id}: ${pendingReviewTask.title})`
+          `(Task ${pendingReviewTask.task_id}: ${pendingReviewTask.title})`,
       );
     }
 
-    throw new Error("No task in IMPLEMENT or VERIFY_FAILED state");
+    throw new Error(
+      "No task in IMPLEMENT, VERIFY_FAILED, CODE_REVIEW_CHANGES_REQUESTED, or CODE_REVIEW_FAILED state",
+    );
   }
 
   // 3. Get handover record
@@ -171,7 +178,7 @@ async function getCurrentTask(): Promise<GetCurrentTaskOutput> {
       .where(eq(tasks.sprint_id, sprint.id));
 
     const depMap = new Map(
-      depTasks.map((t) => [t.task_id, { title: t.title, status: t.status }])
+      depTasks.map((t) => [t.task_id, { title: t.title, status: t.status }]),
     );
 
     for (const depId of dependencyIds) {
@@ -230,10 +237,15 @@ async function getCurrentTask(): Promise<GetCurrentTaskOutput> {
   if (tddRedPhase) {
     const workspacePath = resolveWorkspacePath();
     const languageFromFiles = detectLanguageFromFileOperations(fileOperations);
-    const language =
-      languageFromFiles || detectProjectLanguage(workspacePath);
+    const language = languageFromFiles || detectProjectLanguage(workspacePath);
     tddInstructions = generateTddInstructions(language);
   }
+
+  // 8. Build next_steps for code review fix workflow
+  const next_steps = buildCodeReviewFixNextSteps(
+    task.status,
+    String(task.task_id),
+  );
 
   return {
     task_id: task.task_id,
@@ -253,7 +265,28 @@ async function getCurrentTask(): Promise<GetCurrentTaskOutput> {
     feedback: feedbackData,
     tdd_red_phase: tddRedPhase,
     tdd_instructions: tddInstructions,
+    status: task.status,
+    next_steps: next_steps.length > 0 ? next_steps : undefined,
   };
+}
+
+/**
+ * Build next_steps guidance for code review fix workflow states
+ */
+function buildCodeReviewFixNextSteps(status: string, taskId: string): string[] {
+  if (
+    status === "CODE_REVIEW_CHANGES_REQUESTED" ||
+    status === "CODE_REVIEW_FAILED"
+  ) {
+    return [
+      `📋 Task is in ${status} state - code review issues need to be addressed`,
+      `1. Call fix_code_review({ action: "GET_ISSUES", task_id: "${taskId}" }) to see open issues`,
+      `2. For each issue, fix the code and call fix_code_review({ action: "RESOLVE_ISSUE", ... })`,
+      `3. When ALL issues are resolved, call fix_code_review({ action: "SUBMIT_FIXES", task_id: "${taskId}", summary: "..." })`,
+      `⚠️ IMPORTANT: You MUST call SUBMIT_FIXES after resolving all issues to proceed`,
+    ];
+  }
+  return [];
 }
 
 function detectLanguageFromFileOperations(
@@ -281,7 +314,7 @@ function detectLanguageFromFileOperations(
  * @returns TDD instructions object or null for unknown languages
  */
 function generateTddInstructions(
-  language: ProjectLanguage
+  language: ProjectLanguage,
 ): GetCurrentTaskOutput["tdd_instructions"] {
   if (language === "dart") {
     return {

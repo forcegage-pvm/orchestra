@@ -31,6 +31,7 @@ describe("ToolErrorCode", () => {
       "CANCELLED",
       "INVALID_INPUT",
       "WORKSPACE_REQUIRED",
+      "PARTIAL_FAILURE",
       "UNKNOWN",
     ];
 

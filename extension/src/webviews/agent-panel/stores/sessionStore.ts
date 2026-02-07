@@ -11,9 +11,10 @@
 import { createSignal } from "solid-js";
 import { createStore, unwrap } from "solid-js/store";
 import type {
-    AgentEvent,
-    AgentSession,
-    ToolCallAggregate,
+  AgentEvent,
+  AgentSession,
+  StatusChangeEvent,
+  ToolCallAggregate,
 } from "../../../agents/sessions/types.js";
 import { restoreState, saveState } from "./persistence.js";
 
@@ -47,6 +48,11 @@ export const [toolCalls, setToolCalls] = createStore<
 export const [toolCallKeys, setToolCallKeys] = createSignal<string[]>([]);
 
 /**
+ * ISO timestamp after which events should be shown (used for clear history)
+ */
+export const [clearAfter, setClearAfter] = createSignal<string | null>(null);
+
+/**
  * Persist current state to VS Code webview storage
  * Call this after any state mutation to enable restoration
  */
@@ -57,6 +63,7 @@ export function persistState(): void {
     eventKeys: eventKeys(),
     toolCalls: unwrap(toolCalls),
     toolCallKeys: toolCallKeys(),
+    clearAfter: clearAfter(),
   });
 }
 
@@ -84,9 +91,69 @@ export function tryRestoreState(): boolean {
     if (saved.toolCallKeys) {
       setToolCallKeys(saved.toolCallKeys);
     }
+    if ("clearAfter" in saved) {
+      setClearAfter(saved.clearAfter ?? null);
+    }
     return true;
   }
   return false;
+}
+
+/**
+ * Clear session history while keeping the current session header.
+ */
+export function clearSessionHistory(): void {
+  setClearAfter(new Date().toISOString());
+  setEvents({});
+  setEventKeys([]);
+  setToolCalls({});
+  setToolCallKeys([]);
+  if (session) {
+    setSession("toolCallCount", 0);
+    setSession("successfulToolCalls", 0);
+    setSession("failedToolCalls", 0);
+    setSession("warningCount", 0);
+    setSession("filesModified", []);
+  }
+  persistState();
+}
+
+/**
+ * Sync session status from the latest status_change event.
+ * Used when restoring state without a fresh session_update.
+ */
+export function syncSessionStatusFromEvents(): void {
+  if (!session) return;
+
+  const keys = eventKeys();
+  let latest: StatusChangeEvent | undefined;
+
+  keys.forEach((key) => {
+    const event = events[key];
+    if (event?.type !== "status_change") return;
+    const statusEvent = event as StatusChangeEvent;
+    if (!latest) {
+      latest = statusEvent;
+      return;
+    }
+    const currentTime = new Date(statusEvent.timestamp).getTime();
+    const latestTime = new Date(latest.timestamp).getTime();
+    if (currentTime >= latestTime) {
+      latest = statusEvent;
+    }
+  });
+
+  if (!latest) return;
+
+  if (session.status !== latest.newStatus) {
+    setSession("status", latest.newStatus);
+  }
+
+  if (latest.message && session.statusMessage !== latest.message) {
+    setSession("statusMessage", latest.message);
+  }
+
+  persistState();
 }
 
 /**

@@ -23,6 +23,21 @@ try {
   moduleCompatible = false;
 }
 
+// Additional check: try loading the native binary via the project's loader
+// This catches cases where the packaged native module (extension's node_modules)
+// was compiled for a different Node version than the test runtime.
+if (moduleCompatible) {
+  try {
+    const { loadBetterSqlite3 } =
+      await import("../../../src/database/native-loader.js");
+    const Better = loadBetterSqlite3();
+    const probe = new Better(":memory:");
+    probe.close();
+  } catch {
+    moduleCompatible = false;
+  }
+}
+
 const canRunTests = moduleCompatible && Database !== null;
 
 if (!moduleCompatible) {
@@ -30,15 +45,12 @@ if (!moduleCompatible) {
     it("skipped due to NODE_MODULE_VERSION mismatch", () => {});
   });
 } else {
-  const { exportSession } = await import(
-    "../../../src/agents/sessions/exporter.js"
-  );
-  const { createSession } = await import(
-    "../../../src/agents/sessions/sessionRepository.js"
-  );
-  const { insertEventBatch } = await import(
-    "../../../src/agents/sessions/eventRepository.js"
-  );
+  const { exportSession } =
+    await import("../../../src/agents/sessions/exporter.js");
+  const { createSession } =
+    await import("../../../src/agents/sessions/sessionRepository.js");
+  const { insertEventBatch } =
+    await import("../../../src/agents/sessions/eventRepository.js");
   const { OrchestraDB } = await import("../../../src/database/client.js");
   const type = await import("../../../src/agents/sessions/types.js");
 
@@ -267,7 +279,10 @@ if (!moduleCompatible) {
       insertEventBatch(testWorkspaceRoot, events);
 
       // Export the session
-      const exportData = exportSession(testWorkspaceRoot, createdSession.sessionId);
+      const exportData = exportSession(
+        testWorkspaceRoot,
+        createdSession.sessionId,
+      );
 
       // Verify export structure
       expect(exportData).toMatchObject({
@@ -319,7 +334,10 @@ if (!moduleCompatible) {
       const createdSession = createSession(testWorkspaceRoot, session);
 
       // Export the session
-      const exportData = exportSession(testWorkspaceRoot, createdSession.sessionId);
+      const exportData = exportSession(
+        testWorkspaceRoot,
+        createdSession.sessionId,
+      );
 
       // Verify structure with empty events
       expect(exportData).toMatchObject({
@@ -372,7 +390,10 @@ if (!moduleCompatible) {
       const createdSession = createSession(testWorkspaceRoot, session);
 
       // Export and verify timestamp
-      const exportData = exportSession(testWorkspaceRoot, createdSession.sessionId);
+      const exportData = exportSession(
+        testWorkspaceRoot,
+        createdSession.sessionId,
+      );
 
       expect(exportData.exportedAt).toBe("2026-02-01T14:30:52.000Z");
     });
@@ -405,7 +426,10 @@ if (!moduleCompatible) {
       const createdSession = createSession(testWorkspaceRoot, session);
 
       // Export and verify version
-      const exportData = exportSession(testWorkspaceRoot, createdSession.sessionId);
+      const exportData = exportSession(
+        testWorkspaceRoot,
+        createdSession.sessionId,
+      );
 
       expect(exportData.version).toBe("1.0");
     });
@@ -438,7 +462,10 @@ if (!moduleCompatible) {
       const createdSession = createSession(testWorkspaceRoot, session);
 
       // Export and verify all fields are preserved
-      const exportData = exportSession(testWorkspaceRoot, createdSession.sessionId);
+      const exportData = exportSession(
+        testWorkspaceRoot,
+        createdSession.sessionId,
+      );
 
       expect(exportData.session).toMatchObject({
         sessionId: createdSession.sessionId,
@@ -523,7 +550,10 @@ if (!moduleCompatible) {
       insertEventBatch(testWorkspaceRoot, events);
 
       // Export and verify order is preserved
-      const exportData = exportSession(testWorkspaceRoot, createdSession.sessionId);
+      const exportData = exportSession(
+        testWorkspaceRoot,
+        createdSession.sessionId,
+      );
 
       expect(exportData.events).toHaveLength(3);
       expect(exportData.events[0]).toMatchObject({

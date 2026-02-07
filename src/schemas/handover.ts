@@ -94,11 +94,13 @@ export type GetCurrentTaskInput = z.output<typeof GetCurrentTaskInputSchema>;
 export const GetCurrentTaskOutputSchema = z.object({
   task_id: z.number().int().positive(),
   title: z.string(),
+  status: z.string().optional(), // Current task status (useful for code review fix mode)
   priority: PrioritySchema,
   description: z.string(),
   context: z.string().optional(), // Why this task exists, background, decisions
   context_files: z.array(z.string()).optional(), // File paths for reference
   acceptance_criteria: z.array(AcceptanceCriterionSchema),
+  next_steps: z.array(z.string()).optional(), // Workflow guidance (e.g., code review fix steps),
   dependencies: z.array(z.string()), // Human-readable: "Task 1: Title (COMPLETE)"
   file_operations: z.array(FileOperationSchema),
   deliverables: z.array(z.string()),

@@ -233,7 +233,10 @@ describe("ToolsView", () => {
   it("should compose ToolsFilter and ToolsTable", () => {
     const source = readFileSync(join(viewsDir, "ToolsView.tsx"), "utf-8");
 
-    expect(source).toContain("import { ToolsFilter, ToolsTable }");
+    // Check that ToolsFilter and ToolsTable are imported (from barrel export)
+    expect(source).toContain("ToolsFilter");
+    expect(source).toContain("ToolsTable");
+    // Check that components are used in the JSX
     expect(source).toContain("<ToolsFilter");
     expect(source).toContain("<ToolsTable");
   });

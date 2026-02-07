@@ -565,6 +565,77 @@ export function getAgentOutputStyles(): string {
       border-color: var(--vscode-charts-red);
     }
 
+    /* Markdown-rendered tool output */
+    .tool-output-markdown {
+      font-size: 12px;
+      padding: 10px 12px;
+      border-radius: 4px;
+      background: var(--vscode-textBlockQuote-background);
+      border: 1px solid var(--vscode-panel-border);
+      line-height: 1.6;
+      word-wrap: break-word;
+      overflow-wrap: break-word;
+    }
+
+    .tool-output-markdown .md-h1 {
+      font-size: 14px;
+      font-weight: 700;
+      margin: 4px 0 6px;
+      color: var(--vscode-foreground);
+    }
+
+    .tool-output-markdown .md-h2 {
+      font-size: 13px;
+      font-weight: 600;
+      margin: 4px 0 4px;
+      color: var(--vscode-foreground);
+    }
+
+    .tool-output-markdown .md-h3 {
+      font-size: 12px;
+      font-weight: 600;
+      margin: 2px 0;
+      color: var(--vscode-foreground);
+    }
+
+    .tool-output-markdown .md-text {
+      margin: 2px 0;
+    }
+
+    .tool-output-markdown .md-spacer {
+      height: 6px;
+    }
+
+    .tool-output-markdown .md-list {
+      margin: 4px 0;
+      padding-left: 20px;
+      list-style: disc;
+    }
+
+    .tool-output-markdown .md-list li {
+      margin: 2px 0;
+    }
+
+    .tool-output-markdown .md-code {
+      font-family: var(--vscode-editor-font-family);
+      font-size: 11px;
+      padding: 1px 4px;
+      border-radius: 3px;
+      background: var(--vscode-textCodeBlock-background);
+      border: 1px solid var(--vscode-panel-border);
+    }
+
+    .tool-output-markdown strong {
+      font-weight: 700;
+      color: var(--vscode-foreground);
+    }
+
+    /* Error-specific markdown styling */
+    .output-tool-result .pill-tool-result.error ~ details .tool-output-markdown {
+      border-color: var(--vscode-charts-red);
+      background: var(--vscode-inputValidation-errorBackground);
+    }
+
     details.tool-result {
       padding: 0;
       border: none;

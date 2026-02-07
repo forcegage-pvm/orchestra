@@ -51,8 +51,7 @@ export async function handleReviewSprint(
     };
 
     // Create instances
-    const promptBuilder = new PromptBuilder();
-    const sessionManager = getSessionManager();
+    const promptBuilder = new PromptBuilder({ workspaceRoot });    const sessionManager = getSessionManager();
 
     // Build the sprint review prompt
     const prompt = promptBuilder.buildSprintReviewPrompt(context);

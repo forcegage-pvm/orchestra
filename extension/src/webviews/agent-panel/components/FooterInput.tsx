@@ -127,9 +127,10 @@ export function FooterInput(props: FooterInputProps) {
   };
 
   return (
-    <div class="border-t border-gray-700 bg-zinc-900 p-4">
-      <div class="flex items-end gap-3">
-        {/* Text input area */}
+    <div class="bg-zinc-900/50 px-3 py-2">
+      {/* Input container - minimal styling */}
+      <div class="relative flex items-center">
+        {/* Text input area - clean, borderless look */}
         <textarea
           value={inputText()}
           onInput={(e) => setInputText(e.currentTarget.value)}
@@ -137,36 +138,33 @@ export function FooterInput(props: FooterInputProps) {
           disabled={isDisabled()}
           placeholder={placeholderText()}
           rows={1}
-          class={`flex-1 resize-none rounded-lg px-4 py-3 text-sm bg-gray-800 border ${
-            isDisabled()
-              ? "border-gray-700 text-gray-500 cursor-not-allowed"
-              : "border-gray-600 text-gray-200 focus:border-blue-500 focus:outline-none"
-          } placeholder-gray-500 transition-colors`}
+          class={`flex-1 resize-none bg-transparent px-1 py-2 text-sm ${
+            isDisabled() ? "text-zinc-600 cursor-not-allowed" : "text-zinc-300"
+          } placeholder-zinc-500 focus:outline-none`}
           style={{
-            "max-height": "120px",
-            "min-height": "44px",
+            "max-height": "100px",
+            "min-height": "36px",
           }}
         />
 
-        {/* Send button */}
+        {/* Send button - minimal icon only */}
         <button
           onClick={handleSend}
           disabled={isDisabled() || !inputText().trim()}
-          class={`px-4 py-3 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors ${
+          class={`ml-2 p-1.5 rounded transition-colors ${
             isDisabled() || !inputText().trim()
-              ? "bg-gray-800 text-gray-600 cursor-not-allowed"
-              : "bg-blue-600 text-white hover:bg-blue-700"
+              ? "text-zinc-600 cursor-not-allowed"
+              : "text-zinc-400 hover:text-zinc-200"
           }`}
-          title={isDisabled() ? "Agent is running" : "Send message (Enter)"}
+          title={isDisabled() ? "No active session" : "Send message (Enter)"}
         >
-          <span>Send</span>
           <Icon icon="lucide:send" class="w-4 h-4" />
         </button>
       </div>
 
-      {/* Hint text */}
+      {/* Hint text - subtle */}
       {isEnabled() && (
-        <div class="mt-2 text-xs text-gray-500">
+        <div class="text-[10px] text-zinc-600 mt-1">
           Press Enter to send, Shift+Enter for new line
         </div>
       )}

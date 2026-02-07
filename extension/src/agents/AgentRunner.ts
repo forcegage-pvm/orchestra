@@ -38,7 +38,11 @@ import {
   loadOrchestratorTools,
 } from "./toolLoaders.js";
 import { ToolRegistry } from "./ToolRegistry.js";
-import type { ToolInvocationContext } from "./tools/types.js";
+import { resetFailedCommandCache } from "./tools/system/runCommand.js";
+import type {
+  FileOperationEvent,
+  ToolInvocationContext,
+} from "./tools/types.js";
 import type { AgentConfig, AgentMessage, AgentRole } from "./types.js";
 
 /**
@@ -201,6 +205,12 @@ export class AgentRunner implements vscode.Disposable {
   private recentErrors: string[] = [];
   private hasEscalated = false;
   private hasEmittedSessionEnd = false;
+
+  /**
+   * Context injected by WorkflowChain when re-invoking after a "lost agent"
+   * that completed without advancing task status. Consumed once on next start().
+   */
+  private pendingRetryContext: string | undefined;
 
   // Event emitters
   private _onOutput = new vscode.EventEmitter<AgentOutput>();
@@ -427,7 +437,7 @@ export class AgentRunner implements vscode.Disposable {
       orchestratorModel: config?.orchestratorModel ?? "claude-opus-4.5",
       implementorModel: config?.implementorModel ?? "claude-sonnet-4.5",
       controllerModel: config?.controllerModel ?? "claude-opus-4.5",
-      maxIterations: config?.maxIterations ?? 50,
+      maxIterations: config?.maxIterations ?? 80,
       maxToolRetries: config?.maxToolRetries ?? 3,
       verbosity: config?.verbosity ?? "normal",
       compactionThreshold: config?.compactionThreshold ?? 5,
@@ -465,6 +475,17 @@ export class AgentRunner implements vscode.Disposable {
     }
 
     this.config.controllerModel = model;
+  }
+
+  /**
+   * Set retry context to be injected into the next agent session.
+   *
+   * Called by WorkflowChain when re-invoking after a "lost agent" scenario
+   * where the previous session completed without advancing task status.
+   * The context is consumed once on the next start() call.
+   */
+  setRetryContext(context: string): void {
+    this.pendingRetryContext = context;
   }
 
   /**
@@ -628,6 +649,12 @@ export class AgentRunner implements vscode.Disposable {
     // Inject environment context so agent knows its operating environment
     const envContext = this.buildEnvironmentContext();
     this.addUserMessage(envContext);
+
+    // Inject retry context if this is a re-invocation after a "lost agent" scenario
+    if (this.pendingRetryContext) {
+      this.addUserMessage(this.pendingRetryContext);
+      this.pendingRetryContext = undefined; // Consume once
+    }
 
     // Read and attach files if provided
     let attachmentParts: vscode.LanguageModelDataPart[] = [];
@@ -1397,10 +1424,6 @@ export class AgentRunner implements vscode.Disposable {
           }
         }
 
-        console.error(
-          `[AgentRunner] sendRequest: Received chunk: ${chunkType}`,
-        );
-
         // Check for pause/stop
         if (this.isPaused || this.isStopped) {
           break;
@@ -1414,9 +1437,6 @@ export class AgentRunner implements vscode.Disposable {
               ? chunk.value
               : (chunkAny.value as string);
           thinkingText += textValue;
-          console.error(
-            `[AgentRunner] sendRequest: Accumulated text length: ${thinkingText.length}`,
-          );
         } else if (chunkType === "TOOL_CALL") {
           // Collect tool call - DON'T emit yet
           hadToolCalls = true;
@@ -1433,36 +1453,22 @@ export class AgentRunner implements vscode.Disposable {
             input: toolCallChunk.input,
             callId: toolCallChunk.callId,
           });
-          console.error(
-            `[AgentRunner] sendRequest: Tool call: ${toolCallChunk.name}`,
-          );
         } else if (chunkType === "DATA") {
           // Handle LanguageModelDataPart - extract text content if applicable
           const extracted = this.extractDataPartContent(chunkAny);
           if (extracted) {
             thinkingText += extracted;
-            console.error(
-              `[AgentRunner] sendRequest: Extracted DATA part content, accumulated length: ${thinkingText.length}`,
-            );
           }
         } else {
           // Truly unknown chunk - try to extract any text content as last resort
           if ("value" in chunkAny && typeof chunkAny.value === "string") {
             thinkingText += chunkAny.value;
-            console.error(
-              `[AgentRunner] sendRequest: UNKNOWN chunk had text value, accumulated length: ${thinkingText.length}`,
-            );
           }
         }
       }
 
       // NOW emit events in correct order: thinking FIRST, then tool calls
       // This ensures proper sequencing regardless of stream order
-
-      // Log accumulated text before trim check
-      console.error(
-        `[AgentRunner] sendRequest: Final thinkingText length: ${thinkingText.length}, trimmed length: ${thinkingText.trim().length}`,
-      );
 
       // Step 1: Emit thinking text (if any)
       if (thinkingText.trim()) {
@@ -1521,6 +1527,11 @@ export class AgentRunner implements vscode.Disposable {
   /**
    * Execute tool calls via ToolRegistry
    *
+   * CRITICAL: LLM APIs require that tool result counts match tool call counts.
+   * All tool results are collected and added as a single batched message at the end.
+   * If execution is interrupted (pause/stop/error), placeholder results are added
+   * for any remaining unexecuted tools to maintain the required parity.
+   *
    * @param toolCalls - Array of tool calls to execute
    */
   private async executeToolCalls(
@@ -1529,6 +1540,11 @@ export class AgentRunner implements vscode.Disposable {
     if (!this.session) {
       return;
     }
+
+    // Collect all results to batch at the end
+    const batchedResults: Array<{ toolCallId: string; result: string }> = [];
+    let shouldExit = false;
+    let exitReason: "pause" | "stop" | "failure" | null = null;
 
     // Create observer that emits real-time events
     const createObserver = (toolName: string, callId: string) => ({
@@ -1600,184 +1616,260 @@ export class AgentRunner implements vscode.Disposable {
         this.cancellationTokenSource?.token ?? vscode.CancellationToken.None,
     };
 
-    for (const toolCall of toolCalls) {
-      // Check for pause/stop
-      if (this.isPaused || this.isStopped) {
-        break;
-      }
+    let processedCount = 0;
 
-      const startTime = Date.now();
+    // CRITICAL: Use try/finally to guarantee batched results are always added.
+    // If an unexpected exception occurs after addAssistantToolCallMessage was called
+    // but before results are added, the LLM API would reject the next request with
+    // "No tool output found for function call".
+    try {
+      for (const toolCall of toolCalls) {
+        // Check for pause/stop BEFORE processing
+        if (this.isPaused || this.isStopped) {
+          shouldExit = true;
+          exitReason = this.isPaused ? "pause" : "stop";
+          break;
+        }
 
-      // Create context with observer for this specific tool call
-      const context: ToolInvocationContext = {
-        ...baseContext,
-        observer: createObserver(toolCall.name, toolCall.callId),
-      };
+        processedCount++;
+        const startTime = Date.now();
 
-      try {
-        const result = await this.toolRegistry.execute(
-          toolCall.name,
-          toolCall.input,
-          context,
-          { retries: this.config.maxToolRetries },
-        );
+        // Create context with observer for this specific tool call
+        const context: ToolInvocationContext = {
+          ...baseContext,
+          observer: createObserver(toolCall.name, toolCall.callId),
+        };
 
-        const toolSuccess = result.result.success;
-        const durationMs = result.result.metadata.durationMs;
-        const contentText = result.result.content
-          .map((part) => part.value)
-          .join("\n");
-        const errorMessage = result.result.error?.message;
+        try {
+          // Clear run_command's failed-command cache before any non-run_command tool,
+          // since the tool may change files/state that would fix a previously-failing command.
+          if (toolCall.name !== "run_command") {
+            resetFailedCommandCache();
+          }
 
-        // Record tool call in session
-        this.session.recordToolCall({
-          id: toolCall.callId,
-          name: toolCall.name,
-          arguments: toolCall.input as Record<string, unknown>,
-          result: result.result,
-          status: toolSuccess ? "success" : "error",
-          startedAt: new Date(startTime).toISOString(),
-          completedAt: new Date().toISOString(),
-          durationMs,
-          iteration: this.session.currentIteration,
-          messageId: "", // Will be set when message is added
-        });
-
-        if (toolSuccess) {
-          this.resetToolFailureTracking();
-        } else {
-          this.recordToolFailure(
-            errorMessage ?? contentText ?? "Tool returned unsuccessful result",
+          const result = await this.toolRegistry.execute(
+            toolCall.name,
+            toolCall.input,
+            context,
+            { retries: this.config.maxToolRetries },
           );
+
+          const toolSuccess = result.result.success;
+          const durationMs = result.result.metadata.durationMs;
+          const contentText = result.result.content
+            .map((part) => part.value)
+            .join("\n");
+          const errorMessage = result.result.error?.message;
+
+          // Record tool call in session
+          this.session.recordToolCall({
+            id: toolCall.callId,
+            name: toolCall.name,
+            arguments: toolCall.input as Record<string, unknown>,
+            result: result.result,
+            status: toolSuccess ? "success" : "error",
+            startedAt: new Date(startTime).toISOString(),
+            completedAt: new Date().toISOString(),
+            durationMs,
+            iteration: this.session.currentIteration,
+            messageId: "", // Will be set when message is added
+          });
+
+          if (toolSuccess) {
+            this.resetToolFailureTracking();
+          } else {
+            this.recordToolFailure(
+              errorMessage ??
+                contentText ??
+                "Tool returned unsuccessful result",
+            );
+            if (await this.handleConsecutiveFailures()) {
+              shouldExit = true;
+              exitReason = "failure";
+              // Still add this result before exiting
+              batchedResults.push({
+                toolCallId: toolCall.callId,
+                result: this.buildToolErrorMessage(
+                  errorMessage,
+                  result.result.error?.suggestion,
+                  contentText,
+                ),
+              });
+              break;
+            }
+          }
+
+          // Collect tool result for batching
+          const resultMessage = toolSuccess
+            ? contentText
+            : this.buildToolErrorMessage(
+                errorMessage,
+                result.result.error?.suggestion,
+                contentText,
+              );
+          batchedResults.push({
+            toolCallId: toolCall.callId,
+            result: resultMessage,
+          });
+
+          // Emit tool result (events are still real-time)
+          this.emitOutput({
+            type: "tool_result",
+            timestamp: new Date().toISOString(),
+            iteration: this.session.currentIteration,
+            toolName: toolCall.name,
+            toolInput: toolCall.input as Record<string, unknown>,
+            toolCallId: toolCall.callId,
+            toolResult: resultMessage,
+            toolSuccess,
+            toolDuration: durationMs,
+          });
+          this.eventEmitter?.emitToolResult(
+            toolCall.callId,
+            toolCall.name,
+            toolSuccess,
+            resultMessage,
+            durationMs,
+            toolSuccess
+              ? undefined
+              : {
+                  code: "TOOL_EXECUTION_FAILED",
+                  message: errorMessage ?? "Tool execution failed",
+                  suggestion: undefined,
+                  details: undefined,
+                },
+          );
+
+          if (toolSuccess) {
+            await this.handleTaskCompletion(toolCall.name, toolCall.input);
+          }
+
+          // Check for tool signal to pause or stop agent
+          const toolSignal = result.result.signal;
+          if (toolSignal === "pause") {
+            const previousStatus = this.session.status;
+            this.isPaused = true;
+            this.session.pause();
+            this.eventEmitter?.emitStatusChange(previousStatus, "paused");
+            this.emitStateChange();
+            shouldExit = true;
+            exitReason = "pause";
+            break;
+          } else if (toolSignal === "stop") {
+            const previousStatus = this.session.status;
+            this.isStopped = true;
+            this.session.stop();
+            this.eventEmitter?.emitStatusChange(previousStatus, "stopped");
+            this.emitSessionEndOnce("cancelled");
+            this.emitStateChange();
+            shouldExit = true;
+            exitReason = "stop";
+            break;
+          }
+        } catch (error) {
+          const durationMs = Date.now() - startTime;
+          const errorMessage =
+            error instanceof Error ? error.message : String(error);
+
+          // Record failed tool call
+          this.session.recordToolCall({
+            id: toolCall.callId,
+            name: toolCall.name,
+            arguments: toolCall.input as Record<string, unknown>,
+            status: "error",
+            startedAt: new Date(startTime).toISOString(),
+            completedAt: new Date().toISOString(),
+            durationMs,
+            iteration: this.session.currentIteration,
+            messageId: "",
+            error: {
+              code: "TOOL_EXECUTION_FAILED",
+              message: errorMessage,
+              recoverable: true,
+            },
+          });
+
+          this.recordToolFailure(errorMessage);
+
+          // Collect error result for batching
+          batchedResults.push({
+            toolCallId: toolCall.callId,
+            result: `Error: ${errorMessage}`,
+          });
+
           if (await this.handleConsecutiveFailures()) {
-            return;
+            shouldExit = true;
+            exitReason = "failure";
+            break;
+          }
+
+          // Emit error
+          this.emitOutput({
+            type: "error",
+            timestamp: new Date().toISOString(),
+            iteration: this.session.currentIteration,
+            toolName: toolCall.name,
+            toolInput: toolCall.input as Record<string, unknown>,
+            toolCallId: toolCall.callId,
+            errorCode: "TOOL_EXECUTION_FAILED",
+            errorMessage,
+            recoverable: true,
+          });
+          this.eventEmitter?.emitToolResult(
+            toolCall.callId,
+            toolCall.name,
+            false,
+            `Error: ${errorMessage}`,
+            durationMs,
+            {
+              code: "TOOL_EXECUTION_FAILED",
+              message: errorMessage,
+              suggestion: undefined,
+              details: undefined,
+            },
+          );
+          this.eventEmitter?.emitError(
+            "error",
+            "TOOL_EXECUTION_FAILED",
+            errorMessage,
+            true,
+            { toolName: toolCall.name, toolCallId: toolCall.callId },
+          );
+        }
+      }
+    } finally {
+      // CRITICAL: This finally block guarantees tool results are always added
+      // to the message history, even if an unexpected exception occurs above.
+      // Without this, the next LLM request would fail with
+      // "No tool output found for function call".
+
+      // Add placeholder results for any unprocessed tool calls
+      // This ensures the number of tool results matches the number of tool calls
+      // which is required by LLM APIs (OpenAI, Gemini, etc.)
+      if (processedCount < toolCalls.length) {
+        const unprocessedTools = toolCalls.slice(processedCount);
+        for (const toolCall of unprocessedTools) {
+          // Only add placeholder if not already in batched results
+          if (!batchedResults.some((r) => r.toolCallId === toolCall.callId)) {
+            const reason = shouldExit
+              ? exitReason === "pause"
+                ? "Agent paused before this tool could be executed"
+                : exitReason === "stop"
+                  ? "Agent stopped before this tool could be executed"
+                  : "Agent stopped due to consecutive failures before this tool could be executed"
+              : "Agent interrupted before this tool could be executed";
+            batchedResults.push({
+              toolCallId: toolCall.callId,
+              result: `Skipped: ${reason}`,
+            });
           }
         }
+      }
 
-        // Add tool result to message history
-        // CRITICAL: If tool failed, include the error message so the LLM knows
-        const resultMessage = toolSuccess
-          ? contentText
-          : errorMessage
-            ? `Error: ${errorMessage}`
-            : contentText || "Tool execution failed";
-        this.addToolResultMessage(toolCall.callId, resultMessage);
-
-        // Emit tool result
-        this.emitOutput({
-          type: "tool_result",
-          timestamp: new Date().toISOString(),
-          iteration: this.session.currentIteration,
-          toolName: toolCall.name,
-          toolInput: toolCall.input as Record<string, unknown>,
-          toolCallId: toolCall.callId,
-          toolResult: resultMessage,
-          toolSuccess,
-          toolDuration: durationMs,
-        });
-        this.eventEmitter?.emitToolResult(
-          toolCall.callId,
-          toolCall.name,
-          toolSuccess,
-          resultMessage,
-          durationMs,
-          toolSuccess
-            ? undefined
-            : {
-                code: "TOOL_EXECUTION_FAILED",
-                message: errorMessage ?? "Tool execution failed",
-                suggestion: undefined,
-                details: undefined,
-              },
-        );
-
-        if (toolSuccess) {
-          await this.handleTaskCompletion(toolCall.name, toolCall.input);
-        }
-
-        // Check for tool signal to pause or stop agent
-        const toolSignal = result.result.signal;
-        if (toolSignal === "pause") {
-          const previousStatus = this.session.status;
-          this.isPaused = true;
-          this.session.pause();
-          this.eventEmitter?.emitStatusChange(previousStatus, "paused");
-          this.emitStateChange();
-          // Exit tool execution loop - agent will wait for user input
-          return;
-        } else if (toolSignal === "stop") {
-          const previousStatus = this.session.status;
-          this.isStopped = true;
-          this.session.stop();
-          this.eventEmitter?.emitStatusChange(previousStatus, "stopped");
-          this.emitSessionEndOnce("cancelled");
-          this.emitStateChange();
-          return;
-        }
-      } catch (error) {
-        const durationMs = Date.now() - startTime;
-        const errorMessage =
-          error instanceof Error ? error.message : String(error);
-
-        // Record failed tool call
-        this.session.recordToolCall({
-          id: toolCall.callId,
-          name: toolCall.name,
-          arguments: toolCall.input as Record<string, unknown>,
-          status: "error",
-          startedAt: new Date(startTime).toISOString(),
-          completedAt: new Date().toISOString(),
-          durationMs,
-          iteration: this.session.currentIteration,
-          messageId: "",
-          error: {
-            code: "TOOL_EXECUTION_FAILED",
-            message: errorMessage,
-            recoverable: true,
-          },
-        });
-
-        this.recordToolFailure(errorMessage);
-
-        if (await this.handleConsecutiveFailures()) {
-          return;
-        }
-
-        // Add error to message history
-        this.addToolResultMessage(toolCall.callId, `Error: ${errorMessage}`);
-
-        // Emit error
-        this.emitOutput({
-          type: "error",
-          timestamp: new Date().toISOString(),
-          iteration: this.session.currentIteration,
-          toolName: toolCall.name,
-          toolInput: toolCall.input as Record<string, unknown>,
-          toolCallId: toolCall.callId,
-          errorCode: "TOOL_EXECUTION_FAILED",
-          errorMessage,
-          recoverable: true,
-        });
-        this.eventEmitter?.emitToolResult(
-          toolCall.callId,
-          toolCall.name,
-          false,
-          `Error: ${errorMessage}`,
-          durationMs,
-          {
-            code: "TOOL_EXECUTION_FAILED",
-            message: errorMessage,
-            suggestion: undefined,
-            details: undefined,
-          },
-        );
-        this.eventEmitter?.emitError(
-          "error",
-          "TOOL_EXECUTION_FAILED",
-          errorMessage,
-          true,
-          { toolName: toolCall.name, toolCallId: toolCall.callId },
-        );
+      // Add all results as a single batched message
+      // This is CRITICAL for LLM API compliance
+      if (batchedResults.length > 0) {
+        this.addBatchedToolResultsMessage(batchedResults);
       }
     }
   }
@@ -2033,6 +2125,46 @@ export class AgentRunner implements vscode.Disposable {
   }
 
   /**
+   * Build a comprehensive error message for the LLM when a tool fails.
+   *
+   * The LLM needs actionable details to know what went wrong and how to fix it.
+   * Previously only the bare error.message was sent (e.g. "Input validation failed"),
+   * which gave the LLM no information about WHAT was invalid, causing it to give up
+   * instead of retrying with corrected input.
+   */
+  private buildToolErrorMessage(
+    errorMessage: string | undefined,
+    suggestion: string | undefined,
+    contentText: string | undefined,
+  ): string {
+    if (!errorMessage) {
+      return contentText || "Tool execution failed";
+    }
+
+    const parts: string[] = [`Error: ${errorMessage}`];
+
+    if (suggestion) {
+      parts.push(`\nHow to fix:\n${suggestion}`);
+    }
+
+    // Include raw content only if it adds info beyond the error message
+    // (e.g. JSON with detailed validation issues)
+    if (
+      contentText &&
+      contentText !== errorMessage &&
+      !parts.includes(contentText)
+    ) {
+      parts.push(`\nFull error output:\n${contentText}`);
+    }
+
+    parts.push(
+      "\nYou MUST retry this tool call with corrected parameters. Do NOT give up.",
+    );
+
+    return parts.join("\n");
+  }
+
+  /**
    * Reset consecutive tool failure tracking
    */
   private resetToolFailureTracking(): void {
@@ -2071,7 +2203,7 @@ export class AgentRunner implements vscode.Disposable {
    * Handle consecutive tool failures and auto-escalate when needed
    */
   private async handleConsecutiveFailures(): Promise<boolean> {
-    if (this.consecutiveErrors < 8 || !this.session) {
+    if (this.consecutiveErrors < 5 || !this.session) {
       return false;
     }
 
@@ -2270,26 +2402,40 @@ export class AgentRunner implements vscode.Disposable {
   }
 
   /**
-   * Add tool result message to session
+   * Add tool result message to session (single result - legacy compatibility)
    *
    * @param toolCallId - Tool call ID
    * @param result - Tool result text
+   * @deprecated Use addBatchedToolResultsMessage for batched tool calls
    */
   private addToolResultMessage(toolCallId: string, result: string): void {
-    if (!this.session) {
+    this.addBatchedToolResultsMessage([{ toolCallId, result }]);
+  }
+
+  /**
+   * Add batched tool results as a single message to session
+   *
+   * CRITICAL: LLM APIs (especially Gemini) require that the number of tool result
+   * parts matches the number of tool call parts in the preceding assistant message.
+   * All tool results for a batch of tool calls MUST be in a single message.
+   *
+   * @param results - Array of tool results with their call IDs
+   */
+  private addBatchedToolResultsMessage(
+    results: Array<{ toolCallId: string; result: string }>,
+  ): void {
+    if (!this.session || results.length === 0) {
       return;
     }
 
     const message: AgentMessage = {
       id: crypto.randomUUID(),
       role: "assistant",
-      content: [
-        {
-          type: "toolResult",
-          toolCallId,
-          value: result,
-        },
-      ],
+      content: results.map((r) => ({
+        type: "toolResult" as const,
+        toolCallId: r.toolCallId,
+        value: r.result,
+      })),
       timestamp: new Date().toISOString(),
       iteration: this.session.currentIteration,
     };

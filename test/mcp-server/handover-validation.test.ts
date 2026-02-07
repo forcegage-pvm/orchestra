@@ -341,7 +341,7 @@ describe("handover-validation", () => {
 
       expect(() => {
         validateHandoverIsolation(context, contextFiles);
-      }).toThrow(/Information isolation violation/);
+      }).toThrow(/Information Isolation Violation/);
     });
 
     it("should throw error for invalid context_files", () => {
@@ -351,7 +351,7 @@ describe("handover-validation", () => {
 
       expect(() => {
         validateHandoverIsolation(context, contextFiles);
-      }).toThrow(/Information isolation violation/);
+      }).toThrow(/Information Isolation Violation/);
     });
 
     it("should throw error with detailed violation list", () => {
@@ -365,9 +365,9 @@ describe("handover-validation", () => {
       } catch (error) {
         expect(error).toBeInstanceOf(Error);
         const message = (error as Error).message;
-        expect(message).toContain("Information isolation violation");
+        expect(message).toContain("Information Isolation Violation");
         expect(message).toContain("TRUST BOUNDARY");
-        expect(message).toContain("Violations:");
+        expect(message).toContain("Violations");
         expect(message).toContain("task reference");
         expect(message).toContain("tasks.md");
       }
@@ -403,10 +403,8 @@ describe("handover-validation", () => {
         expect(true).toBe(false);
       } catch (error) {
         const message = (error as Error).message;
-        expect(message).toContain("ACTION REQUIRED");
-        expect(message).toContain(
-          "Extract relevant content into the context field",
-        );
+        expect(message).toContain("Action Required");
+        expect(message).toContain("Extract relevant content into the");
       }
     });
   });

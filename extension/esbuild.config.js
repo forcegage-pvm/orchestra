@@ -13,7 +13,7 @@ const baseConfig = {
   minify: production,
   sourcemap: !production,
   logLevel: "info",
-  external: ["vscode", "better-sqlite3", "drizzle-orm"], // VS Code and native modules
+  external: ["vscode", "better-sqlite3", "drizzle-orm", "@vscode/ripgrep"], // VS Code and native modules
   platform: "node",
   target: "node20",
   format: "cjs",
@@ -55,7 +55,7 @@ async function main() {
       await esbuild.build(webviewConfig);
     } else {
       console.log(
-        "Webview source not found, skipping webview build (Task 10-13)"
+        "Webview source not found, skipping webview build (Task 10-13)",
       );
     }
     console.log("Build complete!");

@@ -6,6 +6,10 @@
 
 import { and, desc, eq, inArray, ne } from "drizzle-orm";
 import { executeCommand } from "../../core/command-executor.js";
+import {
+  detectProjectType,
+  getExcludeTddRedCommand,
+} from "../../core/pre-signal-executor.js";
 import { resolveWorkspacePath } from "../../db/connection.js";
 import { getActiveSprint, getDb } from "../../db/index.js";
 import {
@@ -228,6 +232,19 @@ async function handleResolveIssue(
 
   writeSignal();
 
+  // Count remaining unresolved issues for this review
+  const remainingIssues = await db
+    .select()
+    .from(codeReviewIssues)
+    .where(
+      and(
+        eq(codeReviewIssues.review_id, result.review.id),
+        ne(codeReviewIssues.status, "RESOLVED"),
+      ),
+    );
+
+  const remainingCount = remainingIssues.length;
+
   const output = validateOutput(FixCodeReviewOutputSchema, {
     success: true,
     action: "RESOLVE_ISSUE",
@@ -236,6 +253,8 @@ async function handleResolveIssue(
     review_status: nextStatus,
     resolved_at: now,
     fix_summary: fixSummary,
+    remaining_issues: remainingCount,
+    next_steps: buildNextSteps(nextStatus, remainingCount),
   });
 
   return output;
@@ -245,7 +264,7 @@ async function handleSubmitFixes(
   input: Extract<FixCodeReviewInput, { action: "SUBMIT_FIXES" }>,
 ): Promise<FixCodeReviewOutput> {
   const db = getDb();
-  const { review } = await getActiveReviewForFixes(["FIXING_ISSUES"]);
+  const { review, task } = await getActiveReviewForFixes(["FIXING_ISSUES"]);
 
   const testCommandSetting = await db
     .select()
@@ -271,7 +290,17 @@ async function handleSubmitFixes(
     warning = "Validation skipped by request (skip_validation=true).";
   } else if (testCommand) {
     const workspacePath = resolveWorkspacePath();
-    const result = await executeCommand(testCommand, {
+
+    // For TDD-red phase tasks, we must EXCLUDE tdd-red tagged tests from validation.
+    // TDD-red tests are designed to fail (they're "red" tests waiting for implementation).
+    // We only want to verify that the implementor's fixes don't break non-TDD-red tests.
+    let effectiveTestCommand = testCommand;
+    if (task.tdd_red_phase) {
+      const projectType = detectProjectType(workspacePath);
+      effectiveTestCommand = getExcludeTddRedCommand(projectType, testCommand);
+    }
+
+    const result = await executeCommand(effectiveTestCommand, {
       cwd: workspacePath,
       timeout: 300000,
     });
@@ -284,6 +313,10 @@ async function handleSubmitFixes(
   }
 
   if (!validationPassed) {
+    // When validation fails the action still completed (the request was handled),
+    // but validation_passed should be false so callers can act accordingly.
+    // Return success: true to indicate the handler ran successfully and produced
+    // a meaningful validation result (no fixes are recorded on failed validation).
     const output = validateOutput(FixCodeReviewOutputSchema, {
       success: true,
       action: "SUBMIT_FIXES",
@@ -291,6 +324,14 @@ async function handleSubmitFixes(
       review_status: review.status as ReviewStatus,
       validation_passed: false,
       ...(validationOutput ? { validation_output: validationOutput } : {}),
+      next_steps: [
+        "❌ Test validation FAILED - fixes cannot be submitted",
+        "1. Review the validation_output above to see what tests failed",
+        "2. Fix the failing tests in your code",
+        "3. Run tests locally to verify they pass",
+        `4. Call fix_code_review({ action: "SUBMIT_FIXES", ... }) again`,
+        "⚠️ Task will remain in CODE_REVIEW_CHANGES_REQUESTED until tests pass",
+      ],
     });
 
     return output;
@@ -315,6 +356,12 @@ async function handleSubmitFixes(
     .set({ status: "PENDING_VERIFICATION" })
     .where(eq(codeReviews.id, review.id));
 
+  // Update task status back to PENDING_CODE_REVIEW for re-review by orchestrator
+  await db
+    .update(tasks)
+    .set({ status: "PENDING_CODE_REVIEW", updated_at: now })
+    .where(eq(tasks.id, task.id));
+
   writeSignal();
 
   const output = validateOutput(FixCodeReviewOutputSchema, {
@@ -325,6 +372,12 @@ async function handleSubmitFixes(
     validation_passed: true,
     ...(fixRecord?.id ? { fixes_id: fixRecord.id } : {}),
     ...(warning ? { warning } : {}),
+    next_steps: [
+      "✅ Fixes submitted successfully - awaiting re-review",
+      "Task status: PENDING_CODE_REVIEW",
+      "The orchestrator will now re-review your fixes",
+      "No further action required from you until the review completes",
+    ],
   });
 
   return output;
@@ -406,23 +459,27 @@ function buildNextSteps(status: ReviewStatus, issueCount: number): string[] {
   switch (status) {
     case "CHANGES_REQUESTED":
       return [
-        "Resolve issues using action RESOLVE_ISSUE.",
-        "After resolving all issues, submit fixes with action SUBMIT_FIXES.",
+        `Resolve ${issueCount} issue(s) using fix_code_review({ action: "RESOLVE_ISSUE", issue_id: N, fix_summary: "..." }).`,
+        'After resolving ALL issues, call fix_code_review({ action: "SUBMIT_FIXES", summary: "...", files_changed: [...], tests_run: [...] }).',
       ];
     case "REJECTED":
       return [
-        "Address blocking issues and resolve them using action RESOLVE_ISSUE.",
-        "Submit fixes with action SUBMIT_FIXES once ready.",
+        `Address ${issueCount} blocking issue(s) using fix_code_review({ action: "RESOLVE_ISSUE", issue_id: N, fix_summary: "..." }).`,
+        'Submit fixes with fix_code_review({ action: "SUBMIT_FIXES", ... }) once ready.',
       ];
     case "FIXING_ISSUES":
       return issueCount > 0
         ? [
-            "Continue resolving issues using action RESOLVE_ISSUE.",
-            "When all issues are resolved, submit fixes with action SUBMIT_FIXES.",
+            `${issueCount} issue(s) remaining. Continue resolving using fix_code_review({ action: "RESOLVE_ISSUE", issue_id: N, fix_summary: "..." }).`,
+            'When all issues are resolved, call fix_code_review({ action: "SUBMIT_FIXES", summary: "...", files_changed: [...], tests_run: [...] }).',
           ]
-        : ["No open issues detected. Submit fixes with action SUBMIT_FIXES."];
+        : [
+            "✅ ALL ISSUES RESOLVED!",
+            '⚠️ You MUST now call fix_code_review({ action: "SUBMIT_FIXES", summary: "...", files_changed: [...], tests_run: [...] }) to submit for re-review.',
+            "The Controller will verify your fixes. Task will NOT progress until you call SUBMIT_FIXES.",
+          ];
     case "PENDING_VERIFICATION":
-      return ["Fixes submitted. Await verification."];
+      return ["Fixes submitted. Await Controller verification."];
     default:
       return ["Review status requires follow-up."];
   }

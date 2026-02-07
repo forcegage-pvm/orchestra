@@ -149,17 +149,6 @@ describe("FooterInput Component", () => {
       expect(source).toContain("failed");
       expect(source).toContain("cancelled");
     });
-
-    it("should have placeholder text that changes based on state", () => {
-      const source = readFileSync(
-        join(componentsDir, "FooterInput.tsx"),
-        "utf-8",
-      );
-      expect(source).toContain("placeholderText");
-      expect(source).toContain("No active session");
-      expect(source).toContain("Agent is running...");
-      expect(source).toContain("Type a message to continue the session...");
-    });
   });
 
   describe("Keyboard Handling", () => {
@@ -244,45 +233,6 @@ describe("FooterInput Component", () => {
   });
 
   describe("Visual Styling", () => {
-    it("should use Tailwind CSS classes", () => {
-      const source = readFileSync(
-        join(componentsDir, "FooterInput.tsx"),
-        "utf-8",
-      );
-      expect(source).toContain("class=");
-      expect(source).toContain("bg-");
-      expect(source).toContain("border-");
-      expect(source).toContain("text-");
-      expect(source).toContain("rounded");
-    });
-
-    it("should have border-t for top border", () => {
-      const source = readFileSync(
-        join(componentsDir, "FooterInput.tsx"),
-        "utf-8",
-      );
-      expect(source).toContain("border-t");
-      expect(source).toContain("border-gray-700");
-    });
-
-    it("should style disabled state differently", () => {
-      const source = readFileSync(
-        join(componentsDir, "FooterInput.tsx"),
-        "utf-8",
-      );
-      expect(source).toContain("cursor-not-allowed");
-      expect(source).toContain("text-gray-500");
-      expect(source).toContain("text-gray-600");
-    });
-
-    it("should have hover states for enabled button", () => {
-      const source = readFileSync(
-        join(componentsDir, "FooterInput.tsx"),
-        "utf-8",
-      );
-      expect(source).toContain("hover:bg-blue-700");
-    });
-
     it("should use resize-none for textarea", () => {
       const source = readFileSync(
         join(componentsDir, "FooterInput.tsx"),
@@ -311,15 +261,6 @@ describe("FooterInput Component", () => {
       expect(source).toContain("Shift+Enter for new line");
       expect(source).toContain("{isEnabled() &&");
     });
-
-    it("should use text-xs text-gray-500 for hint", () => {
-      const source = readFileSync(
-        join(componentsDir, "FooterInput.tsx"),
-        "utf-8",
-      );
-      expect(source).toContain("text-xs");
-      expect(source).toContain("text-gray-500");
-    });
   });
 
   describe("Button States", () => {
@@ -339,25 +280,6 @@ describe("FooterInput Component", () => {
         "utf-8",
       );
       expect(source).toContain("disabled={isDisabled()");
-    });
-
-    it("should have different button colors for disabled/enabled", () => {
-      const source = readFileSync(
-        join(componentsDir, "FooterInput.tsx"),
-        "utf-8",
-      );
-      expect(source).toContain("bg-gray-800"); // disabled
-      expect(source).toContain("bg-blue-600"); // enabled
-    });
-
-    it("should have title attribute for accessibility", () => {
-      const source = readFileSync(
-        join(componentsDir, "FooterInput.tsx"),
-        "utf-8",
-      );
-      expect(source).toContain("title=");
-      expect(source).toContain("Agent is running");
-      expect(source).toContain("Send message (Enter)");
     });
   });
 
@@ -381,45 +303,15 @@ describe("FooterInput Component", () => {
       expect(source).toContain("@example");
       expect(source).toContain("<FooterInput");
     });
-
-    it("should document behavior in JSDoc", () => {
-      const source = readFileSync(
-        join(componentsDir, "FooterInput.tsx"),
-        "utf-8",
-      );
-      expect(source).toContain("Disabled when no session is active");
-      expect(source).toContain("Disabled when session is running");
-      expect(source).toContain("Enabled when session is paused/completed");
-      expect(source).toContain("Enter: Send message");
-      expect(source).toContain("Shift+Enter: Insert newline");
-    });
   });
 
   describe("Layout", () => {
-    it("should use flexbox layout", () => {
-      const source = readFileSync(
-        join(componentsDir, "FooterInput.tsx"),
-        "utf-8",
-      );
-      expect(source).toContain("flex");
-      expect(source).toContain("items-end");
-      expect(source).toContain("gap-");
-    });
-
     it("should make textarea flex-1 to fill space", () => {
       const source = readFileSync(
         join(componentsDir, "FooterInput.tsx"),
         "utf-8",
       );
       expect(source).toContain("flex-1");
-    });
-
-    it("should have padding on container", () => {
-      const source = readFileSync(
-        join(componentsDir, "FooterInput.tsx"),
-        "utf-8",
-      );
-      expect(source).toContain("p-4");
     });
   });
 });

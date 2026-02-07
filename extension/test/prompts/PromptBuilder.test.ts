@@ -1,1595 +1,233 @@
 /**
  * Tests for PromptBuilder
  *
- * Verifies that PromptBuilder correctly generates structured prompts
- * for workflow stages with proper context and instructions.
+ * Verifies that PromptBuilder delegates template-based prompts
+ * to TemplateLoader.render with the correct template names.
  */
 
-import { describe, expect, it } from "vitest";
-import {
-  PromptBuilder,
-  type PromptContext,
-  type Sprint,
-  type Task,
-} from "../../src/prompts/PromptBuilder.js";
+import { describe, expect, it, vi } from "vitest";
+import { PromptBuilder } from "../../src/prompts/PromptBuilder.js";
+import type { PromptContext, SprintReviewContext } from "../../src/prompts/promptTypes.js";
+import type { TemplateLoader } from "../../src/prompts/TemplateLoader.js";
+
+const baseContext: PromptContext = {
+  task: {
+    task_id: 4,
+    title: "Sample Task",
+    description: "Sample description",
+  },
+  sprint: {
+    sprint_id: "sprint-001",
+    title: "Sample Sprint",
+  },
+};
 
 describe("PromptBuilder", () => {
-  describe("PromptContext interface", () => {
-    it("should accept valid context with all required properties", () => {
-      const task: Task = {
-        task_id: 1,
-        title: "Test Task",
-        description: "Test description",
-      };
+  it("should call TemplateLoader.render for prepare prompt", () => {
+    const render = vi.fn().mockReturnValue("prepare output");
+    const templateLoader = { render } as TemplateLoader;
+    const builder = new PromptBuilder({ templateLoader });
 
-      const sprint: Sprint = {
-        sprint_id: "001",
-        title: "Test Sprint",
-      };
+    const result = builder.buildPreparePrompt(baseContext);
 
-      const context: PromptContext = {
-        task,
-        sprint,
-      };
-
-      expect(context.task).toBe(task);
-      expect(context.sprint).toBe(sprint);
-    });
-
-    it("should accept context with optional properties", () => {
-      const task: Task = {
-        task_id: 2,
-        title: "Full Task",
-        category: "feature",
-        phase_id: "alpha",
-        description: "Full description",
-      };
-
-      const sprint: Sprint = {
-        sprint_id: "002",
-        title: "Full Sprint",
-      };
-
-      const context: PromptContext = {
-        task,
-        sprint,
-        handoverPath: "/path/to/handover.md",
-        feedbackPath: "/path/to/feedback.md",
-        retryCount: 2,
-      };
-
-      expect(context.handoverPath).toBe("/path/to/handover.md");
-      expect(context.feedbackPath).toBe("/path/to/feedback.md");
-      expect(context.retryCount).toBe(2);
-    });
-
-    it("should accept context with maxRetries property", () => {
-      const task: Task = {
-        task_id: 3,
-        title: "Retry Task",
-        description: "Task with retry limit",
-      };
-
-      const sprint: Sprint = {
-        sprint_id: "003",
-        title: "Retry Sprint",
-      };
-
-      const context: PromptContext = {
-        task,
-        sprint,
-        feedbackPath: "/path/to/feedback.md",
-        retryCount: 2,
-        maxRetries: 3,
-      };
-
-      expect(context.retryCount).toBe(2);
-      expect(context.maxRetries).toBe(3);
-    });
+    expect(render).toHaveBeenCalledWith("prepare", baseContext);
+    expect(result).toBe("prepare output");
   });
 
-  describe("buildPreparePrompt", () => {
-    it("should return a string prompt", () => {
-      const builder = new PromptBuilder();
-      const context: PromptContext = {
-        task: {
-          task_id: 1,
-          title: "Test Task",
-          description: "Test description",
-        },
-        sprint: {
-          sprint_id: "001",
-          title: "Test Sprint",
-        },
-      };
+  it("should call TemplateLoader.render for implement prompt", () => {
+    const render = vi.fn().mockReturnValue("implement output");
+    const templateLoader = { render } as TemplateLoader;
+    const builder = new PromptBuilder({ templateLoader });
 
-      const prompt = builder.buildPreparePrompt(context);
-      expect(typeof prompt).toBe("string");
-      expect(prompt.length).toBeGreaterThan(0);
-    });
+    const result = builder.buildImplementPrompt(baseContext);
 
-    it("should include task_id in the prompt", () => {
-      const builder = new PromptBuilder();
-      const context: PromptContext = {
-        task: {
-          task_id: 42,
-          title: "Test Task",
-          description: "Test description",
-        },
-        sprint: {
-          sprint_id: "001",
-          title: "Test Sprint",
-        },
-      };
-
-      const prompt = builder.buildPreparePrompt(context);
-      expect(prompt).toContain("42");
-    });
-
-    it("should include task title in the prompt", () => {
-      const builder = new PromptBuilder();
-      const context: PromptContext = {
-        task: {
-          task_id: 1,
-          title: "Implement Feature X",
-          description: "Test description",
-        },
-        sprint: {
-          sprint_id: "001",
-          title: "Test Sprint",
-        },
-      };
-
-      const prompt = builder.buildPreparePrompt(context);
-      expect(prompt).toContain("Implement Feature X");
-    });
-
-    it("should include task category when present", () => {
-      const builder = new PromptBuilder();
-      const context: PromptContext = {
-        task: {
-          task_id: 1,
-          title: "Test Task",
-          category: "bugfix",
-          description: "Test description",
-        },
-        sprint: {
-          sprint_id: "001",
-          title: "Test Sprint",
-        },
-      };
-
-      const prompt = builder.buildPreparePrompt(context);
-      expect(prompt).toContain("bugfix");
-      expect(prompt).toContain("Category");
-    });
-
-    it("should include task phase when present", () => {
-      const builder = new PromptBuilder();
-      const context: PromptContext = {
-        task: {
-          task_id: 1,
-          title: "Test Task",
-          phase_id: "beta",
-          description: "Test description",
-        },
-        sprint: {
-          sprint_id: "001",
-          title: "Test Sprint",
-        },
-      };
-
-      const prompt = builder.buildPreparePrompt(context);
-      expect(prompt).toContain("beta");
-      expect(prompt).toContain("Phase");
-    });
-
-    it("should include task description in the prompt", () => {
-      const builder = new PromptBuilder();
-      const context: PromptContext = {
-        task: {
-          task_id: 1,
-          title: "Test Task",
-          description:
-            "This is a detailed task description with specific requirements",
-        },
-        sprint: {
-          sprint_id: "001",
-          title: "Test Sprint",
-        },
-      };
-
-      const prompt = builder.buildPreparePrompt(context);
-      expect(prompt).toContain(
-        "This is a detailed task description with specific requirements"
-      );
-    });
-
-    it("should instruct to use get_task MCP tool", () => {
-      const builder = new PromptBuilder();
-      const context: PromptContext = {
-        task: {
-          task_id: 1,
-          title: "Test Task",
-          description: "Test description",
-        },
-        sprint: {
-          sprint_id: "001",
-          title: "Test Sprint",
-        },
-      };
-
-      const prompt = builder.buildPreparePrompt(context);
-      expect(prompt).toContain("get_task");
-    });
-
-    it("should instruct to use prepare_task MCP tool", () => {
-      const builder = new PromptBuilder();
-      const context: PromptContext = {
-        task: {
-          task_id: 1,
-          title: "Test Task",
-          description: "Test description",
-        },
-        sprint: {
-          sprint_id: "001",
-          title: "Test Sprint",
-        },
-      };
-
-      const prompt = builder.buildPreparePrompt(context);
-      expect(prompt).toContain("prepare_task");
-    });
-
-    it("should mention acceptance criteria in instructions", () => {
-      const builder = new PromptBuilder();
-      const context: PromptContext = {
-        task: {
-          task_id: 1,
-          title: "Test Task",
-          description: "Test description",
-        },
-        sprint: {
-          sprint_id: "001",
-          title: "Test Sprint",
-        },
-      };
-
-      const prompt = builder.buildPreparePrompt(context);
-      expect(prompt).toContain("acceptance criteria");
-    });
-
-    it("should mention file operations in instructions", () => {
-      const builder = new PromptBuilder();
-      const context: PromptContext = {
-        task: {
-          task_id: 1,
-          title: "Test Task",
-          description: "Test description",
-        },
-        sprint: {
-          sprint_id: "001",
-          title: "Test Sprint",
-        },
-      };
-
-      const prompt = builder.buildPreparePrompt(context);
-      expect(prompt).toContain("File operations");
-    });
-
-    it("should mention deliverables in instructions", () => {
-      const builder = new PromptBuilder();
-      const context: PromptContext = {
-        task: {
-          task_id: 1,
-          title: "Test Task",
-          description: "Test description",
-        },
-        sprint: {
-          sprint_id: "001",
-          title: "Test Sprint",
-        },
-      };
-
-      const prompt = builder.buildPreparePrompt(context);
-      expect(prompt).toContain("Deliverables");
-    });
-
-    it("should include sprint_id in the prompt", () => {
-      const builder = new PromptBuilder();
-      const context: PromptContext = {
-        task: {
-          task_id: 1,
-          title: "Test Task",
-          description: "Test description",
-        },
-        sprint: {
-          sprint_id: "003",
-          title: "Test Sprint",
-        },
-      };
-
-      const prompt = builder.buildPreparePrompt(context);
-      expect(prompt).toContain("003");
-    });
-
-    it("should include sprint title in the prompt", () => {
-      const builder = new PromptBuilder();
-      const context: PromptContext = {
-        task: {
-          task_id: 1,
-          title: "Test Task",
-          description: "Test description",
-        },
-        sprint: {
-          sprint_id: "001",
-          title: "Configuration Sprint",
-        },
-      };
-
-      const prompt = builder.buildPreparePrompt(context);
-      expect(prompt).toContain("Configuration Sprint");
-    });
-
-    it("should remind about hidden verification criteria", () => {
-      const builder = new PromptBuilder();
-      const context: PromptContext = {
-        task: {
-          task_id: 1,
-          title: "Test Task",
-          description: "Test description",
-        },
-        sprint: {
-          sprint_id: "001",
-          title: "Test Sprint",
-        },
-      };
-
-      const prompt = builder.buildPreparePrompt(context);
-      expect(prompt).toContain("verification criteria");
-      expect(prompt).toContain("implementor CANNOT see");
-    });
-
-    it("should remind about test requirements", () => {
-      const builder = new PromptBuilder();
-      const context: PromptContext = {
-        task: {
-          task_id: 1,
-          title: "Test Task",
-          description: "Test description",
-        },
-        sprint: {
-          sprint_id: "001",
-          title: "Test Sprint",
-        },
-      };
-
-      const prompt = builder.buildPreparePrompt(context);
-      expect(prompt).toContain("test requirements");
-    });
-
-    it("should handle tasks with all optional properties", () => {
-      const builder = new PromptBuilder();
-      const context: PromptContext = {
-        task: {
-          task_id: 99,
-          title: "Complex Task",
-          category: "refactoring",
-          phase_id: "production",
-          description: "A complex task with all properties set",
-        },
-        sprint: {
-          sprint_id: "005",
-          title: "Refactoring Sprint",
-        },
-        handoverPath: "/path/to/handover.md",
-        feedbackPath: "/path/to/feedback.md",
-        retryCount: 1,
-      };
-
-      const prompt = builder.buildPreparePrompt(context);
-      expect(prompt).toContain("99");
-      expect(prompt).toContain("Complex Task");
-      expect(prompt).toContain("refactoring");
-      expect(prompt).toContain("production");
-      expect(prompt).toContain("A complex task with all properties set");
-      expect(prompt).toContain("005");
-      expect(prompt).toContain("Refactoring Sprint");
-    });
+    expect(render).toHaveBeenCalledWith("implement", baseContext);
+    expect(result).toBe("implement output");
   });
 
-  describe("buildImplementPrompt", () => {
-    it("should return a string prompt", () => {
-      const builder = new PromptBuilder();
-      const context: PromptContext = {
-        task: {
-          task_id: 1,
-          title: "Test Task",
-          description: "Test description",
-        },
-        sprint: {
-          sprint_id: "001",
-          title: "Test Sprint",
-        },
-      };
+  it("should call TemplateLoader.render for verify prompt", () => {
+    const render = vi.fn().mockReturnValue("verify output");
+    const templateLoader = { render } as TemplateLoader;
+    const builder = new PromptBuilder({ templateLoader });
 
-      const prompt = builder.buildImplementPrompt(context);
-      expect(typeof prompt).toBe("string");
-      expect(prompt.length).toBeGreaterThan(0);
-    });
+    const result = builder.buildVerifyPrompt(baseContext);
 
-    it("should include task_id in the prompt", () => {
-      const builder = new PromptBuilder();
-      const context: PromptContext = {
-        task: {
-          task_id: 42,
-          title: "Test Task",
-          description: "Test description",
-        },
-        sprint: {
-          sprint_id: "001",
-          title: "Test Sprint",
-        },
-      };
-
-      const prompt = builder.buildImplementPrompt(context);
-      expect(prompt).toContain("42");
-    });
-
-    it("should include task title in the prompt", () => {
-      const builder = new PromptBuilder();
-      const context: PromptContext = {
-        task: {
-          task_id: 1,
-          title: "Implement Feature Y",
-          description: "Test description",
-        },
-        sprint: {
-          sprint_id: "001",
-          title: "Test Sprint",
-        },
-      };
-
-      const prompt = builder.buildImplementPrompt(context);
-      expect(prompt).toContain("Implement Feature Y");
-    });
-
-    it("should instruct to use get_current_task MCP tool", () => {
-      const builder = new PromptBuilder();
-      const context: PromptContext = {
-        task: {
-          task_id: 1,
-          title: "Test Task",
-          description: "Test description",
-        },
-        sprint: {
-          sprint_id: "001",
-          title: "Test Sprint",
-        },
-      };
-
-      const prompt = builder.buildImplementPrompt(context);
-      expect(prompt).toContain("get_current_task");
-    });
-
-    it("should instruct to use signal_completion MCP tool", () => {
-      const builder = new PromptBuilder();
-      const context: PromptContext = {
-        task: {
-          task_id: 1,
-          title: "Test Task",
-          description: "Test description",
-        },
-        sprint: {
-          sprint_id: "001",
-          title: "Test Sprint",
-        },
-      };
-
-      const prompt = builder.buildImplementPrompt(context);
-      expect(prompt).toContain("signal_completion");
-    });
-
-    it("should include handoverPath when provided", () => {
-      const builder = new PromptBuilder();
-      const context: PromptContext = {
-        task: {
-          task_id: 1,
-          title: "Test Task",
-          description: "Test description",
-        },
-        sprint: {
-          sprint_id: "001",
-          title: "Test Sprint",
-        },
-        handoverPath: "/path/to/task-handover.md",
-      };
-
-      const prompt = builder.buildImplementPrompt(context);
-      expect(prompt).toContain("/path/to/task-handover.md");
-      expect(prompt).toContain("Handover");
-    });
-
-    it("should not show handoverPath placeholder when not provided", () => {
-      const builder = new PromptBuilder();
-      const context: PromptContext = {
-        task: {
-          task_id: 1,
-          title: "Test Task",
-          description: "Test description",
-        },
-        sprint: {
-          sprint_id: "001",
-          title: "Test Sprint",
-        },
-      };
-
-      const prompt = builder.buildImplementPrompt(context);
-      expect(prompt).not.toContain("undefined");
-    });
-
-    it("should mention acceptance criteria in instructions", () => {
-      const builder = new PromptBuilder();
-      const context: PromptContext = {
-        task: {
-          task_id: 1,
-          title: "Test Task",
-          description: "Test description",
-        },
-        sprint: {
-          sprint_id: "001",
-          title: "Test Sprint",
-        },
-      };
-
-      const prompt = builder.buildImplementPrompt(context);
-      expect(prompt).toContain("acceptance criteria");
-      expect(prompt.toLowerCase()).toContain("acceptance criteria");
-    });
-
-    it("should mention file operations in instructions", () => {
-      const builder = new PromptBuilder();
-      const context: PromptContext = {
-        task: {
-          task_id: 1,
-          title: "Test Task",
-          description: "Test description",
-        },
-        sprint: {
-          sprint_id: "001",
-          title: "Test Sprint",
-        },
-      };
-
-      const prompt = builder.buildImplementPrompt(context);
-      expect(prompt).toContain("File operations");
-    });
-
-    it("should mention deliverables in instructions", () => {
-      const builder = new PromptBuilder();
-      const context: PromptContext = {
-        task: {
-          task_id: 1,
-          title: "Test Task",
-          description: "Test description",
-        },
-        sprint: {
-          sprint_id: "001",
-          title: "Test Sprint",
-        },
-      };
-
-      const prompt = builder.buildImplementPrompt(context);
-      expect(prompt).toContain("Deliverables");
-    });
-
-    it("should mention artifacts in signal_completion instructions", () => {
-      const builder = new PromptBuilder();
-      const context: PromptContext = {
-        task: {
-          task_id: 1,
-          title: "Test Task",
-          description: "Test description",
-        },
-        sprint: {
-          sprint_id: "001",
-          title: "Test Sprint",
-        },
-      };
-
-      const prompt = builder.buildImplementPrompt(context);
-      expect(prompt).toContain("artifacts");
-    });
-
-    it("should instruct to follow handover specifications", () => {
-      const builder = new PromptBuilder();
-      const context: PromptContext = {
-        task: {
-          task_id: 1,
-          title: "Test Task",
-          description: "Test description",
-        },
-        sprint: {
-          sprint_id: "001",
-          title: "Test Sprint",
-        },
-      };
-
-      const prompt = builder.buildImplementPrompt(context);
-      expect(prompt).toContain("Follow the handover");
-    });
-
-    it("should remind to test implementation", () => {
-      const builder = new PromptBuilder();
-      const context: PromptContext = {
-        task: {
-          task_id: 1,
-          title: "Test Task",
-          description: "Test description",
-        },
-        sprint: {
-          sprint_id: "001",
-          title: "Test Sprint",
-        },
-      };
-
-      const prompt = builder.buildImplementPrompt(context);
-      expect(prompt).toContain("Test your implementation");
-    });
-
-    it("should warn about hidden verification criteria", () => {
-      const builder = new PromptBuilder();
-      const context: PromptContext = {
-        task: {
-          task_id: 1,
-          title: "Test Task",
-          description: "Test description",
-        },
-        sprint: {
-          sprint_id: "001",
-          title: "Test Sprint",
-        },
-      };
-
-      const prompt = builder.buildImplementPrompt(context);
-      expect(prompt).toContain("verified against criteria you cannot see");
-    });
-
-    it("should instruct to signal only when all criteria are met", () => {
-      const builder = new PromptBuilder();
-      const context: PromptContext = {
-        task: {
-          task_id: 1,
-          title: "Test Task",
-          description: "Test description",
-        },
-        sprint: {
-          sprint_id: "001",
-          title: "Test Sprint",
-        },
-      };
-
-      const prompt = builder.buildImplementPrompt(context);
-      expect(prompt).toContain("ALL criteria are met");
-    });
-
-    it("should handle context with all optional properties", () => {
-      const builder = new PromptBuilder();
-      const context: PromptContext = {
-        task: {
-          task_id: 99,
-          title: "Complex Implementation Task",
-          category: "feature",
-          phase_id: "beta",
-          description: "A complex task with all properties",
-        },
-        sprint: {
-          sprint_id: "005",
-          title: "Feature Sprint",
-        },
-        handoverPath: ".orchestra/implementor/handovers/task-99-handover.md",
-        feedbackPath: ".orchestra/implementor/feedback/task-99-feedback.md",
-        retryCount: 2,
-      };
-
-      const prompt = builder.buildImplementPrompt(context);
-      expect(prompt).toContain("99");
-      expect(prompt).toContain("Complex Implementation Task");
-      expect(prompt).toContain(
-        ".orchestra/implementor/handovers/task-99-handover.md"
-      );
-    });
+    expect(render).toHaveBeenCalledWith("verify", baseContext);
+    expect(result).toBe("verify output");
   });
 
-  describe("buildVerifyPrompt", () => {
-    it("should return a string prompt", () => {
-      const builder = new PromptBuilder();
-      const context: PromptContext = {
-        task: {
-          task_id: 1,
-          title: "Test Task",
-          description: "Test description",
-        },
-        sprint: {
-          sprint_id: "001",
-          title: "Test Sprint",
-        },
-      };
+  it("should call TemplateLoader.render for retry prompt", () => {
+    const render = vi.fn().mockReturnValue("retry output");
+    const templateLoader = { render } as TemplateLoader;
+    const builder = new PromptBuilder({ templateLoader });
 
-      const prompt = builder.buildVerifyPrompt(context);
-      expect(typeof prompt).toBe("string");
-      expect(prompt.length).toBeGreaterThan(0);
-    });
+    const retryContext = {
+      ...baseContext,
+      retryCount: 2,
+      maxRetries: 3,
+    };
 
-    it("should include task_id in the prompt", () => {
-      const builder = new PromptBuilder();
-      const context: PromptContext = {
-        task: {
-          task_id: 42,
-          title: "Test Task",
-          description: "Test description",
-        },
-        sprint: {
-          sprint_id: "001",
-          title: "Test Sprint",
-        },
-      };
+    const result = builder.buildRetryPrompt(retryContext);
 
-      const prompt = builder.buildVerifyPrompt(context);
-      expect(prompt).toContain("42");
-    });
-
-    it("should include task title in the prompt", () => {
-      const builder = new PromptBuilder();
-      const context: PromptContext = {
-        task: {
-          task_id: 1,
-          title: "Verify Feature Z",
-          description: "Test description",
-        },
-        sprint: {
-          sprint_id: "001",
-          title: "Test Sprint",
-        },
-      };
-
-      const prompt = builder.buildVerifyPrompt(context);
-      expect(prompt).toContain("Verify Feature Z");
-    });
-
-    it("should instruct to use get_signal MCP tool", () => {
-      const builder = new PromptBuilder();
-      const context: PromptContext = {
-        task: {
-          task_id: 1,
-          title: "Test Task",
-          description: "Test description",
-        },
-        sprint: {
-          sprint_id: "001",
-          title: "Test Sprint",
-        },
-      };
-
-      const prompt = builder.buildVerifyPrompt(context);
-      expect(prompt).toContain("get_signal");
-    });
-
-    it("should explain get_signal retrieves completion signal", () => {
-      const builder = new PromptBuilder();
-      const context: PromptContext = {
-        task: {
-          task_id: 1,
-          title: "Test Task",
-          description: "Test description",
-        },
-        sprint: {
-          sprint_id: "001",
-          title: "Test Sprint",
-        },
-      };
-
-      const prompt = builder.buildVerifyPrompt(context);
-      expect(prompt).toContain("get_signal");
-      expect(prompt).toContain("completion signal");
-    });
-
-    it("should instruct to use run_verification_checks MCP tool", () => {
-      const builder = new PromptBuilder();
-      const context: PromptContext = {
-        task: {
-          task_id: 1,
-          title: "Test Task",
-          description: "Test description",
-        },
-        sprint: {
-          sprint_id: "001",
-          title: "Test Sprint",
-        },
-      };
-
-      const prompt = builder.buildVerifyPrompt(context);
-      expect(prompt).toContain("run_verification_checks");
-    });
-
-    it("should explain run_verification_checks executes automated checks", () => {
-      const builder = new PromptBuilder();
-      const context: PromptContext = {
-        task: {
-          task_id: 1,
-          title: "Test Task",
-          description: "Test description",
-        },
-        sprint: {
-          sprint_id: "001",
-          title: "Test Sprint",
-        },
-      };
-
-      const prompt = builder.buildVerifyPrompt(context);
-      expect(prompt).toContain("run_verification_checks");
-      expect(prompt).toContain("automated verification checks");
-    });
-
-    it("should instruct to use submit_verification_judgment MCP tool", () => {
-      const builder = new PromptBuilder();
-      const context: PromptContext = {
-        task: {
-          task_id: 1,
-          title: "Test Task",
-          description: "Test description",
-        },
-        sprint: {
-          sprint_id: "001",
-          title: "Test Sprint",
-        },
-      };
-
-      const prompt = builder.buildVerifyPrompt(context);
-      expect(prompt).toContain("submit_verification_judgment");
-    });
-
-    it("should explain submit_verification_judgment records PASS or FAIL", () => {
-      const builder = new PromptBuilder();
-      const context: PromptContext = {
-        task: {
-          task_id: 1,
-          title: "Test Task",
-          description: "Test description",
-        },
-        sprint: {
-          sprint_id: "001",
-          title: "Test Sprint",
-        },
-      };
-
-      const prompt = builder.buildVerifyPrompt(context);
-      expect(prompt).toContain("submit_verification_judgment");
-      expect(prompt).toContain("PASS or FAIL");
-    });
-
-    it("should mention hidden verification criteria", () => {
-      const builder = new PromptBuilder();
-      const context: PromptContext = {
-        task: {
-          task_id: 1,
-          title: "Test Task",
-          description: "Test description",
-        },
-        sprint: {
-          sprint_id: "001",
-          title: "Test Sprint",
-        },
-      };
-
-      const prompt = builder.buildVerifyPrompt(context);
-      expect(prompt).toContain("Hidden verification criteria");
-    });
-
-    it("should remind that implementor cannot see verification criteria", () => {
-      const builder = new PromptBuilder();
-      const context: PromptContext = {
-        task: {
-          task_id: 1,
-          title: "Test Task",
-          description: "Test description",
-        },
-        sprint: {
-          sprint_id: "001",
-          title: "Test Sprint",
-        },
-      };
-
-      const prompt = builder.buildVerifyPrompt(context);
-      expect(prompt).toContain("criteria they cannot see");
-    });
-
-    it("should mention artifacts in get_signal instructions", () => {
-      const builder = new PromptBuilder();
-      const context: PromptContext = {
-        task: {
-          task_id: 1,
-          title: "Test Task",
-          description: "Test description",
-        },
-        sprint: {
-          sprint_id: "001",
-          title: "Test Sprint",
-        },
-      };
-
-      const prompt = builder.buildVerifyPrompt(context);
-      expect(prompt).toContain("artifacts");
-    });
-
-    it("should mention build and test status", () => {
-      const builder = new PromptBuilder();
-      const context: PromptContext = {
-        task: {
-          task_id: 1,
-          title: "Test Task",
-          description: "Test description",
-        },
-        sprint: {
-          sprint_id: "001",
-          title: "Test Sprint",
-        },
-      };
-
-      const prompt = builder.buildVerifyPrompt(context);
-      expect(prompt).toContain("Build and test");
-    });
-
-    it("should mention file operations verification", () => {
-      const builder = new PromptBuilder();
-      const context: PromptContext = {
-        task: {
-          task_id: 1,
-          title: "Test Task",
-          description: "Test description",
-        },
-        sprint: {
-          sprint_id: "001",
-          title: "Test Sprint",
-        },
-      };
-
-      const prompt = builder.buildVerifyPrompt(context);
-      expect(prompt).toContain("File operations");
-    });
-
-    it("should instruct to provide clear rationale", () => {
-      const builder = new PromptBuilder();
-      const context: PromptContext = {
-        task: {
-          task_id: 1,
-          title: "Test Task",
-          description: "Test description",
-        },
-        sprint: {
-          sprint_id: "001",
-          title: "Test Sprint",
-        },
-      };
-
-      const prompt = builder.buildVerifyPrompt(context);
-      expect(prompt).toContain("rationale");
-    });
-
-    it("should mention providing feedback if verification fails", () => {
-      const builder = new PromptBuilder();
-      const context: PromptContext = {
-        task: {
-          task_id: 1,
-          title: "Test Task",
-          description: "Test description",
-        },
-        sprint: {
-          sprint_id: "001",
-          title: "Test Sprint",
-        },
-      };
-
-      const prompt = builder.buildVerifyPrompt(context);
-      expect(prompt).toContain("feedback");
-      expect(prompt).toContain("verification fails");
-    });
-
-    it("should mention acceptance criteria compliance", () => {
-      const builder = new PromptBuilder();
-      const context: PromptContext = {
-        task: {
-          task_id: 1,
-          title: "Test Task",
-          description: "Test description",
-        },
-        sprint: {
-          sprint_id: "001",
-          title: "Test Sprint",
-        },
-      };
-
-      const prompt = builder.buildVerifyPrompt(context);
-      expect(prompt).toContain("Acceptance criteria");
-    });
-
-    it("should handle context with all optional properties", () => {
-      const builder = new PromptBuilder();
-      const context: PromptContext = {
-        task: {
-          task_id: 99,
-          title: "Complex Verification Task",
-          category: "verification",
-          phase_id: "production",
-          description: "A complex verification task",
-        },
-        sprint: {
-          sprint_id: "005",
-          title: "Verification Sprint",
-        },
-        handoverPath: ".orchestra/implementor/handovers/task-99-handover.md",
-        feedbackPath: ".orchestra/implementor/feedback/task-99-feedback.md",
-        retryCount: 2,
-      };
-
-      const prompt = builder.buildVerifyPrompt(context);
-      expect(prompt).toContain("99");
-      expect(prompt).toContain("Complex Verification Task");
-    });
+    expect(render).toHaveBeenCalledWith("retry", retryContext);
+    expect(result).toBe("retry output");
   });
 
-  describe("buildRetryPrompt", () => {
-    it("should return a string prompt", () => {
-      const builder = new PromptBuilder();
-      const context: PromptContext = {
-        task: {
-          task_id: 1,
-          title: "Test Task",
-          description: "Test description",
-        },
-        sprint: {
-          sprint_id: "001",
-          title: "Test Sprint",
-        },
-        retryCount: 1,
-      };
+  it("should call TemplateLoader.render for sprint review prompt", () => {
+    const render = vi.fn().mockReturnValue("sprint review output");
+    const templateLoader = { render } as TemplateLoader;
+    const builder = new PromptBuilder({ templateLoader });
 
-      const prompt = builder.buildRetryPrompt(context);
-      expect(typeof prompt).toBe("string");
-      expect(prompt.length).toBeGreaterThan(0);
+    const sprintReviewContext: SprintReviewContext = {
+      sprint: {
+        sprint_id: "sprint-001",
+        title: "Sample Sprint",
+      },
+      reviewAttempt: 1,
+    };
+
+    const result = builder.buildSprintReviewPrompt(sprintReviewContext);
+
+    expect(render).toHaveBeenCalledWith("sprint-review", sprintReviewContext);
+    expect(result).toBe("sprint review output");
+  });
+
+  it("should call TemplateLoader.render for handover review prompt", () => {
+    const render = vi.fn().mockReturnValue("handover review output");
+    const templateLoader = { render } as TemplateLoader;
+    const builder = new PromptBuilder({ templateLoader });
+
+    const handoverReviewContext: PromptContext = {
+      ...baseContext,
+      reviewAttempt: 2,
+    };
+
+    const result = builder.buildHandoverReviewPrompt(handoverReviewContext);
+
+    expect(render).toHaveBeenCalledWith("handover-review", handoverReviewContext);
+    expect(result).toBe("handover review output");
+  });
+
+  it("should call TemplateLoader.render for handover fix prompt", () => {
+    const render = vi.fn().mockReturnValue("handover fix output");
+    const templateLoader = { render } as TemplateLoader;
+    const builder = new PromptBuilder({ templateLoader });
+
+    const handoverFixContext = {
+      ...baseContext,
+      rejection: {
+        issues: "Some issues found",
+        recommendations: "Fix things",
+        revision_count: 1,
+      },
+    };
+
+    const result = builder.buildHandoverFixPrompt(handoverFixContext);
+
+    expect(render).toHaveBeenCalledWith("handover-fix", handoverFixContext);
+    expect(result).toBe("handover fix output");
+  });
+
+  it("should call TemplateLoader.render for single task code review prompt", () => {
+    const render = vi.fn().mockReturnValue("code review output");
+    const templateLoader = { render } as TemplateLoader;
+    const builder = new PromptBuilder({ templateLoader });
+
+    const result = builder.buildCodeReviewPrompt(
+      1,
+      "sprint-001",
+      "Sample Sprint",
+      { taskId: 4, title: "Sample Task", dbId: 100 },
+    );
+
+    expect(render).toHaveBeenCalledWith("code-review", {
+      sprint: { sprint_id: "sprint-001", title: "Sample Sprint" },
+      task: { task_id: 4, title: "Sample Task" },
     });
+    expect(result).toBe("code review output");
+  });
 
-    it("should include task_id in the prompt", () => {
-      const builder = new PromptBuilder();
-      const context: PromptContext = {
-        task: {
-          task_id: 42,
-          title: "Test Task",
-          description: "Test description",
-        },
-        sprint: {
-          sprint_id: "001",
-          title: "Test Sprint",
-        },
-        retryCount: 1,
-      };
+  it("should call TemplateLoader.render for bulk code review prompt when no taskInfo", () => {
+    const render = vi.fn().mockReturnValue("bulk code review output");
+    const templateLoader = { render } as TemplateLoader;
+    const builder = new PromptBuilder({ templateLoader });
 
-      const prompt = builder.buildRetryPrompt(context);
-      expect(prompt).toContain("42");
+    const result = builder.buildCodeReviewPrompt(
+      5,
+      "sprint-001",
+      "Sample Sprint",
+    );
+
+    expect(render).toHaveBeenCalledWith("code-review-bulk", {
+      pendingCount: 5,
+      sprint: { sprint_id: "sprint-001", title: "Sample Sprint" },
     });
+    expect(result).toBe("bulk code review output");
+  });
 
-    it("should include task title in the prompt", () => {
-      const builder = new PromptBuilder();
-      const context: PromptContext = {
-        task: {
-          task_id: 1,
-          title: "Retry Feature Y",
-          description: "Test description",
-        },
-        sprint: {
-          sprint_id: "001",
-          title: "Test Sprint",
-        },
-        retryCount: 1,
-      };
+  it("should call TemplateLoader.render for code review re-review prompt", () => {
+    const render = vi.fn().mockReturnValue("re-review output");
+    const templateLoader = { render } as TemplateLoader;
+    const builder = new PromptBuilder({ templateLoader });
 
-      const prompt = builder.buildRetryPrompt(context);
-      expect(prompt).toContain("Retry Feature Y");
+    const result = builder.buildCodeReviewReReviewPrompt(
+      "sprint-001",
+      "Sample Sprint",
+      { taskId: 4, title: "Sample Task", dbId: 100 },
+      7,
+    );
+
+    expect(render).toHaveBeenCalledWith("code-review-re-review", {
+      sprint: { sprint_id: "sprint-001", title: "Sample Sprint" },
+      task: { task_id: 4, title: "Sample Task" },
+      codeReview: { reviewId: 7 },
     });
+    expect(result).toBe("re-review output");
+  });
 
-    it("should instruct to use get_current_task MCP tool", () => {
-      const builder = new PromptBuilder();
-      const context: PromptContext = {
-        task: {
-          task_id: 1,
-          title: "Test Task",
-          description: "Test description",
-        },
-        sprint: {
-          sprint_id: "001",
-          title: "Test Sprint",
-        },
-        retryCount: 1,
-      };
+  it("should call TemplateLoader.render for code review fix prompt (openIssueCount)", () => {
+    const render = vi.fn().mockReturnValue("code review fix output");
+    const templateLoader = { render } as TemplateLoader;
+    const builder = new PromptBuilder({ templateLoader });
 
-      const prompt = builder.buildRetryPrompt(context);
-      expect(prompt).toContain("get_current_task");
+    const result = builder.buildCodeReviewFixPrompt(3, "sprint-002", "Sprint Two");
+
+    expect(render).toHaveBeenCalledWith("code-review-fix", {
+      openIssueCount: 3,
+      sprint: { sprint_id: "sprint-002", title: "Sprint Two" },
     });
+    expect(result).toBe("code review fix output");
+  });
 
-    it("should explain get_current_task retrieves handover", () => {
-      const builder = new PromptBuilder();
-      const context: PromptContext = {
-        task: {
-          task_id: 1,
-          title: "Test Task",
-          description: "Test description",
-        },
-        sprint: {
-          sprint_id: "001",
-          title: "Test Sprint",
-        },
-        retryCount: 1,
-      };
+  it("should format status and include summary for code review fix prepare prompt", () => {
+    const render = vi.fn().mockReturnValue("code review fix prepare output");
+    const templateLoader = { render } as TemplateLoader;
+    const builder = new PromptBuilder({ templateLoader });
 
-      const prompt = builder.buildRetryPrompt(context);
-      expect(prompt).toContain("get_current_task");
-      expect(prompt).toContain("handover");
-    });
+    const context: PromptContext = { ...baseContext } as any;
+    const review = { status: "CHANGES_REQUESTED", summary: "Please fix X" } as any;
 
-    it("should instruct to use get_feedback MCP tool", () => {
-      const builder = new PromptBuilder();
-      const context: PromptContext = {
-        task: {
-          task_id: 1,
-          title: "Test Task",
-          description: "Test description",
-        },
-        sprint: {
-          sprint_id: "001",
-          title: "Test Sprint",
-        },
-        retryCount: 1,
-      };
+    const result = builder.buildCodeReviewFixPreparePrompt(context, review);
 
-      const prompt = builder.buildRetryPrompt(context);
-      expect(prompt).toContain("get_feedback");
-    });
+    expect(render).toHaveBeenCalledWith("code-review-fix-prepare", expect.objectContaining({
+      ...context,
+      codeReview: { status: "Changes requested", summary: "Please fix X" },    }));
+    expect(result).toBe("code review fix prepare output");
+  });
 
-    it("should explain get_feedback retrieves verification failure feedback", () => {
-      const builder = new PromptBuilder();
-      const context: PromptContext = {
-        task: {
-          task_id: 1,
-          title: "Test Task",
-          description: "Test description",
-        },
-        sprint: {
-          sprint_id: "001",
-          title: "Test Sprint",
-        },
-        retryCount: 1,
-      };
+  it("should format status and omit summary when not provided for code review fix implement prompt", () => {
+    const render = vi.fn().mockReturnValue("code review fix implement output");
+    const templateLoader = { render } as TemplateLoader;
+    const builder = new PromptBuilder({ templateLoader });
 
-      const prompt = builder.buildRetryPrompt(context);
-      expect(prompt).toContain("get_feedback");
-      expect(prompt).toContain("verification failure feedback");
-    });
+    const context: PromptContext = { ...baseContext } as any;
+    const review = { status: "APPROVED" } as any;
 
-    it("should instruct to use signal_completion MCP tool", () => {
-      const builder = new PromptBuilder();
-      const context: PromptContext = {
-        task: {
-          task_id: 1,
-          title: "Test Task",
-          description: "Test description",
-        },
-        sprint: {
-          sprint_id: "001",
-          title: "Test Sprint",
-        },
-        retryCount: 1,
-      };
+    const result = builder.buildCodeReviewFixImplementPrompt(context, review);
 
-      const prompt = builder.buildRetryPrompt(context);
-      expect(prompt).toContain("signal_completion");
-    });
-
-    it("should explain signal_completion for re-signaling after fixes", () => {
-      const builder = new PromptBuilder();
-      const context: PromptContext = {
-        task: {
-          task_id: 1,
-          title: "Test Task",
-          description: "Test description",
-        },
-        sprint: {
-          sprint_id: "001",
-          title: "Test Sprint",
-        },
-        retryCount: 1,
-      };
-
-      const prompt = builder.buildRetryPrompt(context);
-      expect(prompt).toContain("signal_completion");
-      expect(prompt).toContain("Re-signal");
-    });
-
-    it("should display retry count from context", () => {
-      const builder = new PromptBuilder();
-      const context: PromptContext = {
-        task: {
-          task_id: 1,
-          title: "Test Task",
-          description: "Test description",
-        },
-        sprint: {
-          sprint_id: "001",
-          title: "Test Sprint",
-        },
-        retryCount: 2,
-      };
-
-      const prompt = builder.buildRetryPrompt(context);
-      expect(prompt).toContain("Retry Attempt 2");
-    });
-
-    it("should default to retry count 1 if not provided", () => {
-      const builder = new PromptBuilder();
-      const context: PromptContext = {
-        task: {
-          task_id: 1,
-          title: "Test Task",
-          description: "Test description",
-        },
-        sprint: {
-          sprint_id: "001",
-          title: "Test Sprint",
-        },
-      };
-
-      const prompt = builder.buildRetryPrompt(context);
-      expect(prompt).toContain("Retry Attempt 1");
-    });
-
-    it("should emphasize reading feedback carefully", () => {
-      const builder = new PromptBuilder();
-      const context: PromptContext = {
-        task: {
-          task_id: 1,
-          title: "Test Task",
-          description: "Test description",
-        },
-        sprint: {
-          sprint_id: "001",
-          title: "Test Sprint",
-        },
-        retryCount: 1,
-      };
-
-      const prompt = builder.buildRetryPrompt(context);
-      expect(prompt).toContain("CAREFULLY");
-      expect(prompt).toContain("Read");
-    });
-
-    it("should emphasize addressing ALL feedback issues", () => {
-      const builder = new PromptBuilder();
-      const context: PromptContext = {
-        task: {
-          task_id: 1,
-          title: "Test Task",
-          description: "Test description",
-        },
-        sprint: {
-          sprint_id: "001",
-          title: "Test Sprint",
-        },
-        retryCount: 1,
-      };
-
-      const prompt = builder.buildRetryPrompt(context);
-      expect(prompt).toContain("ALL");
-      expect(prompt).toContain("address");
-    });
-
-    it("should include feedback path when provided", () => {
-      const builder = new PromptBuilder();
-      const context: PromptContext = {
-        task: {
-          task_id: 1,
-          title: "Test Task",
-          description: "Test description",
-        },
-        sprint: {
-          sprint_id: "001",
-          title: "Test Sprint",
-        },
-        feedbackPath: ".orchestra/implementor/feedback/task-1-feedback.md",
-        retryCount: 1,
-      };
-
-      const prompt = builder.buildRetryPrompt(context);
-      expect(prompt).toContain(
-        ".orchestra/implementor/feedback/task-1-feedback.md"
-      );
-      expect(prompt).toContain("Feedback");
-    });
-
-    it("should mention what went wrong in feedback description", () => {
-      const builder = new PromptBuilder();
-      const context: PromptContext = {
-        task: {
-          task_id: 1,
-          title: "Test Task",
-          description: "Test description",
-        },
-        sprint: {
-          sprint_id: "001",
-          title: "Test Sprint",
-        },
-        retryCount: 1,
-      };
-
-      const prompt = builder.buildRetryPrompt(context);
-      expect(prompt).toContain("What went wrong");
-    });
-
-    it("should mention what worked in feedback description", () => {
-      const builder = new PromptBuilder();
-      const context: PromptContext = {
-        task: {
-          task_id: 1,
-          title: "Test Task",
-          description: "Test description",
-        },
-        sprint: {
-          sprint_id: "001",
-          title: "Test Sprint",
-        },
-        retryCount: 1,
-      };
-
-      const prompt = builder.buildRetryPrompt(context);
-      expect(prompt).toContain("What worked");
-    });
-
-    it("should mention guidance on fixing issues", () => {
-      const builder = new PromptBuilder();
-      const context: PromptContext = {
-        task: {
-          task_id: 1,
-          title: "Test Task",
-          description: "Test description",
-        },
-        sprint: {
-          sprint_id: "001",
-          title: "Test Sprint",
-        },
-        retryCount: 1,
-      };
-
-      const prompt = builder.buildRetryPrompt(context);
-      expect(prompt).toContain("Guidance");
-      expect(prompt).toContain("fix");
-    });
-
-    it("should mention artifacts in signal_completion instructions", () => {
-      const builder = new PromptBuilder();
-      const context: PromptContext = {
-        task: {
-          task_id: 1,
-          title: "Test Task",
-          description: "Test description",
-        },
-        sprint: {
-          sprint_id: "001",
-          title: "Test Sprint",
-        },
-        retryCount: 1,
-      };
-
-      const prompt = builder.buildRetryPrompt(context);
-      expect(prompt).toContain("artifacts");
-    });
-
-    it("should mention summary of fixes applied", () => {
-      const builder = new PromptBuilder();
-      const context: PromptContext = {
-        task: {
-          task_id: 1,
-          title: "Test Task",
-          description: "Test description",
-        },
-        sprint: {
-          sprint_id: "001",
-          title: "Test Sprint",
-        },
-        retryCount: 1,
-      };
-
-      const prompt = builder.buildRetryPrompt(context);
-      expect(prompt).toContain("Summary");
-      expect(prompt).toContain("fixes");
-    });
-
-    it("should mention build and test status", () => {
-      const builder = new PromptBuilder();
-      const context: PromptContext = {
-        task: {
-          task_id: 1,
-          title: "Test Task",
-          description: "Test description",
-        },
-        sprint: {
-          sprint_id: "001",
-          title: "Test Sprint",
-        },
-        retryCount: 1,
-      };
-
-      const prompt = builder.buildRetryPrompt(context);
-      expect(prompt).toContain("Build and test status");
-    });
-
-    it("should remind that implementor cannot see verification criteria", () => {
-      const builder = new PromptBuilder();
-      const context: PromptContext = {
-        task: {
-          task_id: 1,
-          title: "Test Task",
-          description: "Test description",
-        },
-        sprint: {
-          sprint_id: "001",
-          title: "Test Sprint",
-        },
-        retryCount: 1,
-      };
-
-      const prompt = builder.buildRetryPrompt(context);
-      expect(prompt).toContain("criteria you cannot see");
-    });
-
-    it("should warn about incomplete fixes", () => {
-      const builder = new PromptBuilder();
-      const context: PromptContext = {
-        task: {
-          task_id: 1,
-          title: "Test Task",
-          description: "Test description",
-        },
-        sprint: {
-          sprint_id: "001",
-          title: "Test Sprint",
-        },
-        retryCount: 1,
-      };
-
-      const prompt = builder.buildRetryPrompt(context);
-      expect(prompt).toContain("Incomplete fixes");
-      expect(prompt).toContain("FAIL");
-    });
-
-    it("should instruct not to skip feedback items", () => {
-      const builder = new PromptBuilder();
-      const context: PromptContext = {
-        task: {
-          task_id: 1,
-          title: "Test Task",
-          description: "Test description",
-        },
-        sprint: {
-          sprint_id: "001",
-          title: "Test Sprint",
-        },
-        retryCount: 1,
-      };
-
-      const prompt = builder.buildRetryPrompt(context);
-      expect(prompt).toContain("Do not skip");
-    });
-
-    it("should mention acceptance criteria", () => {
-      const builder = new PromptBuilder();
-      const context: PromptContext = {
-        task: {
-          task_id: 1,
-          title: "Test Task",
-          description: "Test description",
-        },
-        sprint: {
-          sprint_id: "001",
-          title: "Test Sprint",
-        },
-        retryCount: 1,
-      };
-
-      const prompt = builder.buildRetryPrompt(context);
-      expect(prompt).toContain("Acceptance criteria");
-    });
-
-    it("should mention file operations", () => {
-      const builder = new PromptBuilder();
-      const context: PromptContext = {
-        task: {
-          task_id: 1,
-          title: "Test Task",
-          description: "Test description",
-        },
-        sprint: {
-          sprint_id: "001",
-          title: "Test Sprint",
-        },
-        retryCount: 1,
-      };
-
-      const prompt = builder.buildRetryPrompt(context);
-      expect(prompt).toContain("File operations");
-    });
-
-    it("should mention deliverables", () => {
-      const builder = new PromptBuilder();
-      const context: PromptContext = {
-        task: {
-          task_id: 1,
-          title: "Test Task",
-          description: "Test description",
-        },
-        sprint: {
-          sprint_id: "001",
-          title: "Test Sprint",
-        },
-        retryCount: 1,
-      };
-
-      const prompt = builder.buildRetryPrompt(context);
-      expect(prompt).toContain("Deliverables");
-    });
-
-    it("should mention context files", () => {
-      const builder = new PromptBuilder();
-      const context: PromptContext = {
-        task: {
-          task_id: 1,
-          title: "Test Task",
-          description: "Test description",
-        },
-        sprint: {
-          sprint_id: "001",
-          title: "Test Sprint",
-        },
-        retryCount: 1,
-      };
-
-      const prompt = builder.buildRetryPrompt(context);
-      expect(prompt).toContain("Context files");
-    });
-
-    it("should handle context with all optional properties", () => {
-      const builder = new PromptBuilder();
-      const context: PromptContext = {
-        task: {
-          task_id: 99,
-          title: "Complex Retry Task",
-          category: "bugfix",
-          phase_id: "production",
-          description: "A complex retry task",
-        },
-        sprint: {
-          sprint_id: "005",
-          title: "Retry Sprint",
-        },
-        handoverPath: ".orchestra/implementor/handovers/task-99-handover.md",
-        feedbackPath: ".orchestra/implementor/feedback/task-99-feedback.md",
-        retryCount: 3,
-      };
-
-      const prompt = builder.buildRetryPrompt(context);
-      expect(prompt).toContain("99");
-      expect(prompt).toContain("Complex Retry Task");
-      expect(prompt).toContain("Retry Attempt 3");
-      expect(prompt).toContain(
-        ".orchestra/implementor/feedback/task-99-feedback.md"
-      );
-    });
+    expect(render).toHaveBeenCalledWith("code-review-fix-implement", expect.objectContaining({
+      ...context,
+      codeReview: { status: "Approved" },    }));
+    expect(result).toBe("code review fix implement output");
   });
 });

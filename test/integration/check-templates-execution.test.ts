@@ -44,6 +44,7 @@ describe("check-templates behavioral command execution", () => {
       const checks = getTddRedChecks("typescript", {
         cdPrefix: "",
         testFilePattern: "test/**/*.test.ts",
+        testCommand: "npm test",
         taskId: 1,
         taskTitle: "Test",
       });
@@ -77,6 +78,7 @@ describe("check-templates behavioral command execution", () => {
       const checks = getTddRedChecks("typescript", {
         cdPrefix: "",
         testFilePattern: "test/**/*.test.ts",
+        testCommand: "npm test",
         taskId: 1,
         taskTitle: "Test",
       });

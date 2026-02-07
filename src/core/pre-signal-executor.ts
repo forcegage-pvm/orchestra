@@ -92,12 +92,18 @@ const DEFAULT_TIMEOUT = 300000;
 /**
  * Detected project type for auto-configuring commands
  */
-type ProjectType = "flutter" | "node" | "python" | "rust" | "go" | "unknown";
+export type ProjectType =
+  | "flutter"
+  | "node"
+  | "python"
+  | "rust"
+  | "go"
+  | "unknown";
 
 /**
  * Detect project type based on files present in workspace
  */
-function detectProjectType(workspacePath: string): ProjectType {
+export function detectProjectType(workspacePath: string): ProjectType {
   const exists = (file: string) =>
     fs.existsSync(path.join(workspacePath, file));
 
@@ -472,6 +478,46 @@ async function runTddRedPhaseTests(
   }
 
   return result;
+}
+
+/**
+ * Get test command that EXCLUDES tdd-red tests
+ *
+ * Used by fix_code_review.SUBMIT_FIXES for TDD-red phase tasks.
+ * We only need to verify non-TDD-red tests pass when validating code review fixes.
+ *
+ * @param projectType - Detected project type
+ * @param baseTestCommand - Base test command from sprint settings (e.g., "flutter test")
+ * @returns Command string that runs tests excluding tdd-red tagged tests
+ */
+export function getExcludeTddRedCommand(
+  projectType: ProjectType,
+  baseTestCommand?: string,
+): string {
+  switch (projectType) {
+    case "flutter":
+      return "flutter test --exclude-tags tdd-red";
+
+    case "node":
+      if (baseTestCommand) {
+        return `${baseTestCommand} --testNamePattern="^(?!.*\\[tdd-red\\])"`;
+      }
+      return 'npm test -- --testNamePattern="^(?!.*\\[tdd-red\\])"';
+
+    case "python":
+      return "pytest --ignore=tests/tdd_red";
+
+    case "rust":
+      return "cargo test --exclude tdd_red";
+
+    case "go":
+      return "go test $(go list ./... | grep -v tdd-red)";
+
+    case "unknown":
+    default:
+      // Fallback to Node.js pattern
+      return 'npm test -- --testNamePattern="^(?!.*\\[tdd-red\\])"';
+  }
 }
 
 /**

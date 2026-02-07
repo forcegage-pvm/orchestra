@@ -27,11 +27,11 @@ vi.mock("vscode", () => ({
     Right: 2,
   },
   ThemeColor: vi.fn((id: string) => ({ id })),
-  EventEmitter: vi.fn(() => ({
-    event: vi.fn((callback: () => void) => ({ dispose: vi.fn() })),
-    fire: vi.fn(),
-    dispose: vi.fn(),
-  })),
+  EventEmitter: class {
+    event = vi.fn((callback: () => void) => ({ dispose: vi.fn() }));
+    fire = vi.fn();
+    dispose = vi.fn();
+  },
 }));
 
 // Mock workspace detector

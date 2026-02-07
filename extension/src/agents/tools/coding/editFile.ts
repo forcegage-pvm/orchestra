@@ -11,6 +11,11 @@ import type {
   ToolInvocationContext,
   ToolResult,
 } from "../types.js";
+import {
+  formatDiagnosticsSummary,
+  getDiagnosticsForFile,
+  type DiagnosticsResult,
+} from "../utils/diagnostics.js";
 import { validatePath } from "../utils/pathValidation.js";
 import { successResult } from "../utils/resultBuilder.js";
 
@@ -18,6 +23,8 @@ interface EditFileInput {
   path: string;
   oldString: string;
   newString: string;
+  /** If true, wait for language server and return diagnostics (adds ~500ms delay) */
+  validate?: boolean;
 }
 
 const TOOL_NAME = "edit_file";
@@ -223,7 +230,36 @@ async function editFile(
     linesChanged,
   });
 
-  const result = successResult(TOOL_NAME, `Replaced text in ${input.path}.`);
+  // If validate=true, check for diagnostics after edit
+  let diagnosticsResult: DiagnosticsResult | undefined;
+  let diagnosticsSummary: string | null = null;
+
+  if (input.validate) {
+    diagnosticsResult = await getDiagnosticsForFile(uri);
+    diagnosticsSummary = formatDiagnosticsSummary(diagnosticsResult);
+  }
+
+  // Build success message
+  let message = `Replaced text in ${input.path}.`;
+  if (diagnosticsResult) {
+    if (diagnosticsResult.hasErrors) {
+      message += ` ⚠️ ${diagnosticsResult.errorCount} error(s) detected.`;
+    } else if (diagnosticsResult.warningCount > 0) {
+      message += ` ${diagnosticsResult.warningCount} warning(s) detected.`;
+    } else {
+      message += " ✅ No errors detected.";
+    }
+  }
+
+  const result = successResult(TOOL_NAME, message);
+
+  // Include diagnostics in output if available
+  if (diagnosticsSummary) {
+    result.content = [
+      ...(result.content ?? []),
+      { type: "text", value: diagnosticsSummary },
+    ];
+  }
 
   return buildToolResult(result);
 }
@@ -246,6 +282,12 @@ export const editFileTool: AgentTool<EditFileInput> = {
       newString: {
         type: "string",
         description: "Replacement text",
+      },
+      validate: {
+        type: "boolean",
+        description:
+          "If true, check for TypeScript/ESLint errors after edit and include diagnostics in output. Adds ~500ms delay. Use for critical edits where you want immediate feedback on errors introduced.",
+        default: false,
       },
     },
     required: ["path", "oldString", "newString"],

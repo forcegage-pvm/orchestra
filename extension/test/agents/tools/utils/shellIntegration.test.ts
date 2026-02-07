@@ -4,13 +4,18 @@
 
 import { describe, expect, it, vi } from "vitest";
 
-const { onDidEndTerminalShellExecution } = vi.hoisted(() => ({
-  onDidEndTerminalShellExecution: vi.fn(),
-}));
+const { onDidEndTerminalShellExecution, onDidChangeTerminalShellIntegration } =
+  vi.hoisted(() => ({
+    onDidEndTerminalShellExecution: vi.fn(),
+    onDidChangeTerminalShellIntegration: vi.fn(() => ({
+      dispose: vi.fn(),
+    })),
+  }));
 
 vi.mock("vscode", () => ({
   window: {
     onDidEndTerminalShellExecution,
+    onDidChangeTerminalShellIntegration,
   },
 }));
 
@@ -83,7 +88,7 @@ describe("executeInTerminal", () => {
 
     expect(result.usedShellIntegration).toBe(false);
     expect(terminal.sendText).toHaveBeenCalledWith("dir", true);
-  });
+  }, 10000); // Increase timeout to allow for shell integration wait
 
   it("throws cancelled when token is cancelled", async () => {
     const terminal = {

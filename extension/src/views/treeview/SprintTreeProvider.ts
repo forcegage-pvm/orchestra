@@ -77,8 +77,10 @@ export class SprintTreeProvider implements vscode.TreeDataProvider<TreeElement> 
       "active",
     );
 
-    // Subscribe to database changes
-    this._dbWatcher.onDidChange(() => this.refresh("signal"));
+    // Subscribe to database changes (store for cleanup)
+    this.dbSubscription = this._dbWatcher.onDidChange(() =>
+      this.refresh("signal"),
+    );
   }
 
   refresh(source: "manual" | "signal" | "unknown" = "unknown"): void {

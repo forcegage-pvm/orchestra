@@ -18,6 +18,7 @@ import {
 } from "./agents/WorkflowChain.js";
 import { SessionManager } from "./chat/SessionManager.js";
 import { handleArchiveSprint } from "./commands/archiveSprint.js";
+import { handleChangeTaskStatus } from "./commands/changeTaskStatus.js";
 import {
   handleDeEscalateTask,
   handleForceComplete,
@@ -40,13 +41,13 @@ import {
   getHandover,
   getLatestCodeReviewForTask,
   getOpenCodeReviewIssues,
-  getTaskById,
 } from "./database/queries.js";
 import { DatabaseWatcher } from "./database/watcher.js";
 import { ConfigGenerator } from "./mcp/ConfigGenerator.js";
 import { registerMcpServerProvider } from "./mcp/McpServerProvider.js";
 import { MCPServerManager } from "./mcp/ServerManager.js";
 import { ContextFileResolver } from "./prompts/ContextFileResolver.js";
+import { ensurePromptTemplates } from "./prompts/ensurePromptTemplates.js";
 import { PromptBuilder } from "./prompts/PromptBuilder.js";
 import { OrchestraLogger } from "./utils/logger.js";
 import { AgentOutputPanel } from "./views/agent/AgentOutputPanel.js";
@@ -57,7 +58,6 @@ import { SprintSettingsPanel } from "./views/settings/SprintSettingsPanel.js";
 import { StatusBarManager } from "./views/statusbar/StatusBarItem.js";
 import { TaskDetailPanel } from "./views/task/TaskDetailPanel.js";
 import { SprintTreeProvider } from "./views/treeview/SprintTreeProvider.js";
-import { CodeReviewSummaryPanel } from "./views/webview/CodeReviewSummaryPanel.js";
 import { CurrentTaskViewProvider } from "./views/webview/CurrentTaskViewProvider.js";
 import {
   findOrchestraRoot,
@@ -162,7 +162,7 @@ function createAgentRunner(): AgentRunner {
       orchestratorModel: getConfigService().getModelForRole("orchestrator"),
       implementorModel: getConfigService().getModelForRole("implementor"),
       controllerModel: getConfigService().getModelForRole("controller"),
-      maxIterations: 50,
+      maxIterations: 80,
       maxContextTokens: 100000,
     },
     getConfigService(),
@@ -370,6 +370,11 @@ async function initializeWorkspace(
     ensureAgentFiles(context, workspaceRoot);
     logger.info("Synced .github/agents directory with agent instructions");
 
+    // Sync prompt templates from extension bundle
+    ensurePromptTemplates(context, workspaceRoot, { logger });
+    logger.info(
+      "Synced .orchestra/templates/prompts directory with prompt templates",
+    );
     // Automatically install MCP servers
     await installMcpServers(workspaceRoot, context.extensionPath);
     logger.info("MCP servers installed to .vscode/mcp.json");
@@ -722,6 +727,8 @@ export async function activate(
     const workspaceRoot = workspaceFolders[0].uri.fsPath;
     ensureAgentFiles(context, workspaceRoot);
 
+    // Sync prompt templates from extension bundle
+    ensurePromptTemplates(context, workspaceRoot, { logger });
     // Also ensure MCP servers are configured with latest extension path
     try {
       await installMcpServers(orchestraRoot, context.extensionPath);
@@ -893,6 +900,7 @@ export async function activate(
       vscode.window.registerWebviewViewProvider(
         "orchestra.agentPanel",
         agentPanelProvider,
+        { webviewOptions: { retainContextWhenHidden: true } },
       ),
     );
     logger.info("Agent Panel WebviewView registered");
@@ -927,8 +935,10 @@ export async function activate(
     context.subscriptions.push(
       vscode.window.registerFileDecorationProvider(decorationProvider),
     );
-    // Also refresh decorations when database changes
-    dbWatcher.onDidChange(() => decorationProvider.refresh());
+    // Also refresh decorations when database changes (store subscription)
+    context.subscriptions.push(
+      dbWatcher.onDidChange(() => decorationProvider.refresh()),
+    );
     logger.info("View decoration provider registered");
 
     // 6. Register Status Bar
@@ -950,6 +960,12 @@ export async function activate(
         statusBar.refresh();
         logger.info("Manual refresh triggered");
       }),
+      vscode.commands.registerCommand(
+        "orchestra.clearAgentPanelHistory",
+        () => {
+          agentPanelProvider.postMessage({ type: "clear" });
+        },
+      ),
       vscode.commands.registerCommand("orchestra.filterSprints", () => {
         handleFilterSprints(treeProvider).catch((error) => {
           const message =
@@ -1114,6 +1130,23 @@ export async function activate(
         },
       ),
       vscode.commands.registerCommand(
+        "orchestra.changeTaskStatus",
+        async (element: {
+          type: string;
+          task?: { id: number; status?: string };
+        }) => {
+          if (element?.task?.id) {
+            await handleChangeTaskStatus(
+              orchestraRoot,
+              element.task.id,
+              element.task.status,
+              treeProvider,
+              dbWatcher,
+            );
+          }
+        },
+      ),
+      vscode.commands.registerCommand(
         "orchestra.setActiveSprint",
         async (element: {
           type: string;
@@ -1237,7 +1270,9 @@ export async function activate(
           codeReviewTreeProvider?.refresh();
 
           // Build prompt and invoke Controller agent
-          const promptBuilder = new PromptBuilder();
+          const promptBuilder = new PromptBuilder({
+            workspaceRoot: orchestraRoot,
+          });
           const prompt = promptBuilder.buildCodeReviewPrompt(
             totalPending,
             sprint.id,
@@ -1517,7 +1552,9 @@ export async function activate(
               ...(phaseId !== undefined ? { phase_id: phaseId } : {}),
             };
 
-            const promptBuilder = new PromptBuilder();
+            const promptBuilder = new PromptBuilder({
+              workspaceRoot: orchestraRoot,
+            });
             const prompt = promptBuilder.buildCodeReviewFixPreparePrompt(
               {
                 task: taskContext,
@@ -1605,7 +1642,9 @@ export async function activate(
               ...(phaseId !== undefined ? { phase_id: phaseId } : {}),
             };
 
-            const promptBuilder = new PromptBuilder();
+            const promptBuilder = new PromptBuilder({
+              workspaceRoot: orchestraRoot,
+            });
             const prompt = promptBuilder.buildCodeReviewFixImplementPrompt(
               {
                 task: taskContext,
@@ -1714,7 +1753,9 @@ export async function activate(
             codeReviewTreeProvider?.refresh();
 
             // Build prompt and invoke Controller agent
-            const promptBuilder = new PromptBuilder();
+            const promptBuilder = new PromptBuilder({
+              workspaceRoot: orchestraRoot,
+            });
             const prompt = promptBuilder.buildCodeReviewPrompt(
               1,
               sprint.id,
@@ -1786,7 +1827,7 @@ export async function activate(
             role.value as "orchestrator" | "implementor" | "controller",
             {
               prompt,
-              maxIterations: 50,
+              maxIterations: 80,
             },
           );
 

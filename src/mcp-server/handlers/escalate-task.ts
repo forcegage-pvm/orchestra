@@ -17,13 +17,13 @@ import {
   sprints,
   tasks,
 } from "../../db/schema.js";
-import { writeSignal } from "../db-signal.js";
 import {
   EscalateTaskInputSchema,
   type EscalateTaskInput,
   type EscalateTaskOutput,
 } from "../../schemas/completion.js";
 import { validateInput } from "../../schemas/utils.js";
+import { writeSignal } from "../db-signal.js";
 import { logSystemEvent, logToolExecution } from "./audit-logging.js";
 
 export async function handleEscalateTask(input: unknown) {
@@ -54,7 +54,7 @@ export async function handleEscalateTask(input: unknown) {
         taskId: validation.data.task_id,
       },
       { success: true, output },
-      durationMs
+      durationMs,
     );
 
     return {
@@ -73,7 +73,7 @@ export async function handleEscalateTask(input: unknown) {
         taskId: validation.data.task_id,
       },
       { success: false, errorMessage: err.message },
-      durationMs
+      durationMs,
     );
 
     return {
@@ -89,7 +89,7 @@ export async function handleEscalateTask(input: unknown) {
               },
             },
             null,
-            2
+            2,
           ),
         },
       ],
@@ -98,7 +98,7 @@ export async function handleEscalateTask(input: unknown) {
 }
 
 async function escalateTask(
-  input: EscalateTaskInput
+  input: EscalateTaskInput,
 ): Promise<EscalateTaskOutput> {
   const db = getDb();
 
@@ -114,7 +114,7 @@ async function escalateTask(
     .select()
     .from(tasks)
     .where(
-      and(eq(tasks.sprint_id, sprint.id), eq(tasks.task_id, input.task_id))
+      and(eq(tasks.sprint_id, sprint.id), eq(tasks.task_id, input.task_id)),
     )
     .limit(1);
 
@@ -125,7 +125,7 @@ async function escalateTask(
   // 3. Validate task can be escalated (any non-terminal state except COMPLETE)
   if (task.status === "COMPLETE") {
     throw new Error(
-      `Task ${input.task_id} is already COMPLETE and cannot be escalated`
+      `Task ${input.task_id} is already COMPLETE and cannot be escalated`,
     );
   }
 
@@ -135,7 +135,7 @@ async function escalateTask(
     throw new Error(
       `Early escalation detected: Task ${input.task_id} has 0 retry attempts. ` +
         `Either make at least one retry attempt, or provide 'early_escalation_reason' ` +
-        `explaining why immediate escalation is justified (e.g., external blocker, access issue, technical impossibility).`
+        `explaining why immediate escalation is justified (e.g., external blocker, access issue, technical impossibility).`,
     );
   }
 
@@ -244,5 +244,9 @@ async function escalateTask(
     status: "ESCALATED",
     escalated_at: now,
     next_step: "Human supervisor will review and provide guidance",
+    IMPORTANT:
+      "You MUST now call wait_for_input to pause your session and wait for the human to de-escalate. " +
+      "Do NOT end your turn or stop without calling wait_for_input, or your session will end and you will lose context. " +
+      "Example: wait_for_input({ message: 'I have escalated the task. Please de-escalate when ready.' })",
   };
 }

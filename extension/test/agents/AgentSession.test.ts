@@ -47,7 +47,7 @@ describe("AgentSession", () => {
       expect(session.taskId).toBeNull();
       expect(session.status).toBe("running");
       expect(session.currentIteration).toBe(0);
-      expect(session.maxIterations).toBe(50);
+      expect(session.maxIterations).toBe(80);
       expect(session.messages).toEqual([]);
       expect(session.toolCalls).toEqual([]);
       expect(session.fileChanges).toEqual([]);
@@ -457,7 +457,7 @@ describe("AgentSession", () => {
       expect(json.sprintId).toBe("sprint-001");
       expect(json.status).toBe("running");
       expect(json.currentIteration).toBe(0);
-      expect(json.maxIterations).toBe(50);
+      expect(json.maxIterations).toBe(80);
       expect(json.messages).toEqual([]);
       expect(json.toolCalls).toEqual([]);
       expect(json.fileChanges).toEqual([]);

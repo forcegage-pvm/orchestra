@@ -8,7 +8,8 @@ import { executeMcpHandler } from "./mcpAdapter.js";
 
 export const escalateTaskTool: AgentTool = {
   name: "escalate_task",
-  description: "Escalate stuck task to human supervisor",
+  description:
+    "Escalate stuck task to human supervisor. IMPORTANT: After calling this tool, you MUST call wait_for_input to pause your session and wait for the human to de-escalate. Do NOT end your turn without calling wait_for_input or your session will end.",
   inputSchema: {
     type: "object" as const,
     properties: {

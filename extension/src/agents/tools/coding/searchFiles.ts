@@ -117,13 +117,15 @@ async function searchFiles(
 
 export const searchFilesTool: AgentTool<SearchFilesInput> = {
   name: TOOL_NAME,
-  description: "Search for files by glob pattern.",
+  description:
+    "Search for files by glob pattern (path/name only). Use wildcards for partial matches, e.g. **/*vitest*.*",
   inputSchema: {
     type: "object",
     properties: {
       query: {
         type: "string",
-        description: "Glob pattern to search for (e.g. **/*.ts)",
+        description:
+          "Glob pattern to search for (e.g. **/*.ts or **/*vitest*.* for partial name matches)",
       },
       excludePattern: {
         type: "string",

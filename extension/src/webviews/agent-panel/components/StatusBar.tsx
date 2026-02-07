@@ -127,6 +127,11 @@ export function StatusBar() {
     );
   });
 
+  const formatActionText = (text: string): string => {
+    if (!text) return "";
+    return text.charAt(0).toLowerCase() + text.slice(1);
+  };
+
   // Get workflow stage based on role
   const workflowStage = createMemo(() => {
     if (session?.statusMessage) {
@@ -168,40 +173,46 @@ export function StatusBar() {
 
   return (
     <div class="flex items-center justify-between px-3 py-2 border-b border-zinc-800/30">
-      {/* Left side - Agent info with spinner */}
-      <div class="flex items-center gap-3">
-        {/* Agent role with spinner when active */}
-        <div class="flex items-center gap-2">
-          <Icon icon="lucide:bot" class="w-4 h-4 text-zinc-500" />
-          <span class="text-xs font-medium text-zinc-300">
-            {session?.role === "orchestrator"
-              ? "Orchestrator"
-              : session?.role === "implementor"
-                ? "Implementor"
-                : session?.role === "controller"
-                  ? "Controller"
-                  : "Agent"}
-          </span>
-          {/* Spinner next to role name when active */}
-          <Show when={isActive()}>
-            <Icon
-              icon="lucide:loader-2"
-              class="w-3.5 h-3.5 text-green-400 animate-spin"
+      {/* Left side - Status icon, agent, action, task */}
+      <div class="flex items-center gap-2">
+        {/* Spinner first (or status icon when idle) */}
+        <Show
+          when={isActive()}
+          fallback={
+            <span
+              class={`w-2 h-2 rounded-full ${statusConfig().dotColor}`}
+              aria-label={statusConfig().label}
             />
-          </Show>
-        </div>
+          }
+        >
+          <Icon
+            icon="lucide:loader-2"
+            class="w-3.5 h-3.5 text-green-400 animate-spin"
+          />
+        </Show>
+
+        {/* Agent role */}
+        <span class="text-xs font-medium text-zinc-300">
+          {session?.role === "orchestrator"
+            ? "Orchestrator"
+            : session?.role === "implementor"
+              ? "Implementor"
+              : session?.role === "controller"
+                ? "Controller"
+                : "Agent"}
+        </span>
+
+        {/* Workflow stage (action) */}
+        <Show when={session && workflowStage()}>
+          <span class="text-[10px] text-zinc-500 italic">
+            {formatActionText(workflowStage())}
+          </span>
+        </Show>
 
         {/* Task number badge */}
         <Show when={session?.taskNumber}>
           <span class="px-1.5 py-0.5 rounded text-[10px] font-medium bg-zinc-800/50 text-zinc-400 border border-zinc-700/50">
             TASK-{session?.taskNumber}
-          </span>
-        </Show>
-
-        {/* Workflow stage */}
-        <Show when={session && workflowStage()}>
-          <span class="text-[10px] text-zinc-500 italic">
-            {workflowStage()}
           </span>
         </Show>
       </div>

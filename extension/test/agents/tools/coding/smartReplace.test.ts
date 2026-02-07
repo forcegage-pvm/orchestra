@@ -94,13 +94,42 @@ describe("smartReplace", () => {
   });
 
   function mockDocument(content: string, filePath: string) {
+    const lines = content.split("\n");
+
     const doc = {
       getText: () => content,
       positionAt: (offset: number) => {
-        const lines = content.substring(0, offset).split("\n");
-        const line = lines.length - 1;
-        const character = lines[lines.length - 1].length;
+        const textBefore = content.substring(0, offset);
+        const linesBefore = textBefore.split("\n");
+        const line = linesBefore.length - 1;
+        const character = linesBefore[linesBefore.length - 1].length;
         return new Position(line, character);
+      },
+      lineAt: (lineNumber: number) => {
+        // Calculate start offset for this line
+        let startOffset = 0;
+        for (let i = 0; i < lineNumber; i++) {
+          startOffset += lines[i].length + 1; // +1 for newline
+        }
+        const lineText = lines[lineNumber] || "";
+        const endOffset = startOffset + lineText.length;
+        const lineBreakEndOffset =
+          lineNumber < lines.length - 1 ? endOffset + 1 : endOffset;
+
+        return {
+          text: lineText,
+          lineNumber,
+          range: new Range(
+            new Position(lineNumber, 0),
+            new Position(lineNumber, lineText.length),
+          ),
+          rangeIncludingLineBreak: new Range(
+            new Position(lineNumber, 0),
+            lineNumber < lines.length - 1
+              ? new Position(lineNumber + 1, 0)
+              : new Position(lineNumber, lineText.length),
+          ),
+        };
       },
     };
 

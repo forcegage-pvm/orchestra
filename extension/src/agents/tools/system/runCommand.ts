@@ -22,6 +22,67 @@ import {
 
 const TOOL_NAME = "run_command";
 const DEFAULT_TIMEOUT_MS = 30_000;
+const MAX_FAILED_COMMAND_CACHE = 10;
+
+/**
+ * Cache of recently failed commands to prevent the agent from retrying
+ * the exact same command in a tight loop. Keyed by `command|cwd`.
+ *
+ * IMPORTANT: This cache is cleared whenever any other tool executes,
+ * since that tool call may have changed files/state that would make
+ * the command succeed on retry. See AgentRunner.executeToolCalls().
+ */
+const failedCommandCache = new Map<
+  string,
+  { errorSummary: string; exitCode: number; count: number }
+>();
+
+/**
+ * Reset the entire failed command cache.
+ * Called by AgentRunner when any non-run_command tool executes,
+ * since that tool may have changed files or state that would make
+ * a previously-failing command succeed.
+ */
+export function resetFailedCommandCache(): void {
+  failedCommandCache.clear();
+}
+
+function getCommandCacheKey(command: string, cwd: string): string {
+  return `${command}|${cwd}`;
+}
+
+function recordFailedCommand(
+  command: string,
+  cwd: string,
+  errorSummary: string,
+  exitCode: number,
+): void {
+  const key = getCommandCacheKey(command, cwd);
+  const existing = failedCommandCache.get(key);
+  failedCommandCache.set(key, {
+    errorSummary,
+    exitCode,
+    count: (existing?.count ?? 0) + 1,
+  });
+  // Evict oldest entries if cache gets too large
+  if (failedCommandCache.size > MAX_FAILED_COMMAND_CACHE) {
+    const firstKey = failedCommandCache.keys().next().value;
+    if (firstKey !== undefined) {
+      failedCommandCache.delete(firstKey);
+    }
+  }
+}
+
+function clearFailedCommand(command: string, cwd: string): void {
+  failedCommandCache.delete(getCommandCacheKey(command, cwd));
+}
+
+function getFailedCommand(
+  command: string,
+  cwd: string,
+): { errorSummary: string; exitCode: number; count: number } | undefined {
+  return failedCommandCache.get(getCommandCacheKey(command, cwd));
+}
 // Pattern for CSI sequences (e.g., [?25l, [0m, [?2004h for bracketed paste)
 // Includes private mode sequences with ? prefix and > prefix
 const CSI_PATTERN = /\x1B\[[?>=]?[0-9;]*[a-zA-Z]/g;
@@ -196,15 +257,33 @@ function extractErrorSummary(
 }
 
 /**
+ * Normalize Windows drive letter to uppercase.
+ *
+ * VS Code may return workspace paths with a lowercase drive letter (e.g. `x:\...`).
+ * Vitest/Vite internally resolves paths with uppercase drive letters. When the cwd
+ * has a lowercase drive letter, vitest's module graph can't match test suites to
+ * their files, causing "No test suite found in file" errors.
+ *
+ * Fixed in vitest 2.x (https://github.com/vitest-dev/vitest/pull/6779) but we
+ * normalize here to support older versions and avoid similar issues in other tools.
+ */
+function normalizeWindowsDriveLetter(p: string): string {
+  if (process.platform === "win32" && p.length >= 2 && p[1] === ":") {
+    return p[0].toUpperCase() + p.slice(1);
+  }
+  return p;
+}
+
+/**
  * Get the workspace root directory.
  * Falls back to process.cwd() only if no workspace is open.
  */
 function getWorkspaceRoot(): string {
   const folders = vscode.workspace.workspaceFolders;
   if (folders && folders.length > 0) {
-    return folders[0].uri.fsPath;
+    return normalizeWindowsDriveLetter(folders[0].uri.fsPath);
   }
-  return process.cwd();
+  return normalizeWindowsDriveLetter(process.cwd());
 }
 
 interface CommandResult {
@@ -244,7 +323,9 @@ function truncateOutput(lines: string[]): {
   };
 }
 
-async function executeWithShellIntegration(
+// NOTE: Shell integration is kept but unused - subprocess is more reliable for output capture.
+// Shell integration often returns partial output without error indication.
+async function _executeWithShellIntegration(
   command: string,
   options: {
     cwd?: string;
@@ -253,7 +334,9 @@ async function executeWithShellIntegration(
   },
 ): Promise<CommandResult | null> {
   // Validate cwd exists before creating terminal
-  const resolvedCwd = options.cwd ?? getWorkspaceRoot();
+  const resolvedCwd = normalizeWindowsDriveLetter(
+    options.cwd ?? getWorkspaceRoot(),
+  );
   if (!fs.existsSync(resolvedCwd)) {
     throw new ShellExecutionError(
       "CWD_NOT_FOUND",
@@ -348,7 +431,9 @@ async function executeWithSubprocess(
     }
 
     // Validate cwd exists before spawning
-    const resolvedCwd = options.cwd ?? getWorkspaceRoot();
+    const resolvedCwd = normalizeWindowsDriveLetter(
+      options.cwd ?? getWorkspaceRoot(),
+    );
     if (!fs.existsSync(resolvedCwd)) {
       const error = new Error(
         `Working directory does not exist: ${resolvedCwd}`,
@@ -359,11 +444,74 @@ async function executeWithSubprocess(
       return;
     }
 
-    // Prepare environment - ensure PATH is preserved
+    // Prepare environment - ensure the subprocess matches the user's terminal environment.
+    //
+    // VS Code's extension host runs inside Electron, which injects many env vars that
+    // leak into subprocesses and cause subtle failures (EPERM errors, wrong Node.js version,
+    // module resolution failures, etc.).
+    //
+    // We replicate VS Code's own sanitizeProcessEnvironment() from
+    // src/vs/base/common/processes.ts, which the integrated terminal uses before spawning
+    // shells. This removes ALL ELECTRON_*, most VSCODE_*, SNAP*, and GDK_PIXBUF_* vars.
+    //
+    // See: https://github.com/microsoft/vscode/blob/main/src/vs/base/common/processes.ts
     const childEnv = {
       ...process.env,
       ...options.env,
     };
+
+    // --- sanitizeProcessEnvironment (from VS Code source) ---
+    // Remove env vars injected by Electron/VS Code/Snap/GDK that interfere with subprocesses.
+    // Preserves only: VSCODE_PORTABLE, VSCODE_SHELL_LOGIN, VSCODE_ENV_REPLACE,
+    //                 VSCODE_ENV_APPEND, VSCODE_ENV_PREPEND
+    const keysToRemove = [
+      /^ELECTRON_.+$/,
+      /^VSCODE_(?!(PORTABLE|SHELL_LOGIN|ENV_REPLACE|ENV_APPEND|ENV_PREPEND)).+$/,
+      /^SNAP(|_.*)$/,
+      /^GDK_PIXBUF_.+$/,
+    ];
+    for (const key of Object.keys(childEnv)) {
+      for (const pattern of keysToRemove) {
+        if (pattern.test(key)) {
+          delete childEnv[key];
+          break;
+        }
+      }
+    }
+
+    // --- removeDangerousEnvVariables (from VS Code source) ---
+    // DEBUG can cause random crashes when set to invalid values by extensions.
+    // LD_PRELOAD can cause Native modules to fail on Linux.
+    delete childEnv["DEBUG"];
+    if (process.platform === "linux") {
+      delete childEnv["LD_PRELOAD"];
+    }
+
+    // --- Restore NODE_OPTIONS (from VS Code terminal env handling) ---
+    // VS Code saves the original NODE_OPTIONS as VSCODE_NODE_OPTIONS before overwriting it
+    // with its own flags (e.g., --require for extension host). Restore the original value
+    // so subprocesses use the user's NODE_OPTIONS, not VS Code's internal ones.
+    if ("VSCODE_NODE_OPTIONS" in process.env) {
+      childEnv["NODE_OPTIONS"] = process.env["VSCODE_NODE_OPTIONS"];
+    } else {
+      // If there was no original NODE_OPTIONS, remove VS Code's internal flags
+      delete childEnv["NODE_OPTIONS"];
+    }
+
+    // Clean VS Code's internal node directory from PATH so the user's system node is found.
+    // VS Code prepends paths like "C:\...\Microsoft VS Code\resources\app\bin" to PATH.
+    if (childEnv.PATH || childEnv.Path) {
+      const pathKey = childEnv.PATH !== undefined ? "PATH" : "Path";
+      const separator = process.platform === "win32" ? ";" : ":";
+      const paths = (childEnv[pathKey] ?? "").split(separator);
+      const cleanedPaths = paths.filter(
+        (p) =>
+          !p.includes("Microsoft VS Code") &&
+          !p.includes("resources/app/") &&
+          !p.includes("resources\\app\\"),
+      );
+      childEnv[pathKey] = cleanedPaths.join(separator);
+    }
 
     // On Windows, explicitly specify shell path using ComSpec
     // This avoids issues with Node.js trying to find cmd.exe
@@ -503,7 +651,8 @@ export const runCommandTool: AgentTool<RunCommandInput> = {
       },
       cwd: {
         type: "string",
-        description: "Working directory for the command",
+        description:
+          "Working directory for the command. Defaults to the workspace root if not specified.",
       },
       timeout_ms: {
         type: "number",
@@ -516,6 +665,11 @@ export const runCommandTool: AgentTool<RunCommandInput> = {
       env: {
         type: "object",
         description: "Environment variables",
+      },
+      expect_failure: {
+        type: "boolean",
+        description:
+          "When true, a non-zero exit code is treated as success and will NOT be cached as a failed command. Use for TDD red-phase tests or any command where failure is the expected outcome. Full output is still returned.",
       },
     },
     required: ["command"],
@@ -546,9 +700,54 @@ export const runCommandTool: AgentTool<RunCommandInput> = {
       };
     }
 
+    // Check if this exact command recently failed - prevent retry loops
+    // Skip duplicate check when expect_failure is set (TDD red-phase, etc.)
+    const resolvedCwd = normalizeWindowsDriveLetter(
+      input.cwd ?? getWorkspaceRoot(),
+    );
+    const previousFailure = input.expect_failure
+      ? undefined
+      : getFailedCommand(input.command, resolvedCwd);
+    if (previousFailure) {
+      const retryCount = previousFailure.count;
+      return {
+        success: false,
+        content: [
+          {
+            type: "text",
+            value: [
+              `⚠️ DUPLICATE COMMAND DETECTED (failed ${retryCount} time${retryCount > 1 ? "s" : ""} before)`,
+              ``,
+              `This exact command already failed with exit code ${previousFailure.exitCode}:`,
+              `  ${input.command}`,
+              `  cwd: ${resolvedCwd}`,
+              ``,
+              `Previous error:`,
+              previousFailure.errorSummary,
+              ``,
+              `DO NOT retry the same command. Instead:`,
+              `1. Analyze the error above and fix the root cause`,
+              `2. Try a different command or approach`,
+              `3. Check if the file/path exists before running`,
+              `4. If you need to run a modified version of this command, change the arguments`,
+            ].join("\n"),
+          },
+        ],
+        error: createToolError(
+          ToolErrorCode.COMMAND_FAILED,
+          `Command already failed ${retryCount} time(s) with exit code ${previousFailure.exitCode}. Do not retry the same command.`,
+          "Analyze the error and try a different approach instead of retrying.",
+        ),
+        metadata: {
+          toolName: TOOL_NAME,
+          callId: "",
+          durationMs: 0,
+        },
+      };
+    }
+
     const timeoutMs = input.timeout_ms ?? DEFAULT_TIMEOUT_MS;
     let result: CommandResult;
-    let usedFallback = false;
 
     // Create observer adapter for subprocess
     const subprocessObserver = context.observer
@@ -558,30 +757,18 @@ export const runCommandTool: AgentTool<RunCommandInput> = {
         }
       : undefined;
 
-    // Try shell integration first
+    // Use subprocess directly for reliable output capture
+    // Shell integration is unreliable for programmatic output capture - it often
+    // returns partial output without any error indication
     try {
-      const shellResult = await executeWithShellIntegration(input.command, {
-        cwd: input.cwd,
+      result = await executeWithSubprocess(input.command, {
+        cwd: resolvedCwd,
         timeoutMs,
+        stdin: input.stdin,
+        env: input.env,
         token: context.token,
+        observer: subprocessObserver,
       });
-
-      if (shellResult === null) {
-        // Shell integration unavailable, use fallback
-        usedFallback = true;
-        result = await executeWithSubprocess(input.command, {
-          cwd: input.cwd,
-          timeoutMs,
-          stdin: input.stdin,
-          env: input.env,
-          token: context.token,
-          observer: subprocessObserver,
-        });
-        result.warning =
-          "Shell integration unavailable; used subprocess fallback.";
-      } else {
-        result = shellResult;
-      }
     } catch (error) {
       if (error instanceof ShellExecutionError && error.code === "CANCELLED") {
         return {
@@ -600,38 +787,23 @@ export const runCommandTool: AgentTool<RunCommandInput> = {
         };
       }
 
-      // Fallback on any error
-      usedFallback = true;
-      try {
-        result = await executeWithSubprocess(input.command, {
-          cwd: input.cwd,
-          timeoutMs,
-          stdin: input.stdin,
-          env: input.env,
-          token: context.token,
-          observer: subprocessObserver,
-        });
-        result.warning = "Shell integration failed; used subprocess fallback.";
-      } catch (fallbackError) {
-        const message =
-          fallbackError instanceof Error
-            ? fallbackError.message
-            : "Unknown error";
-        return {
-          success: false,
-          content: [{ type: "error", value: message }],
-          error: createToolError(
-            ToolErrorCode.COMMAND_FAILED,
-            message,
-            "Check the command and try again.",
-          ),
-          metadata: {
-            toolName: TOOL_NAME,
-            callId: "",
-            durationMs: 0,
-          },
-        };
-      }
+      const message = error instanceof Error ? error.message : "Unknown error";
+      // Record this failure so we can detect retries
+      recordFailedCommand(input.command, resolvedCwd, message, -1);
+      return {
+        success: false,
+        content: [{ type: "error", value: message }],
+        error: createToolError(
+          ToolErrorCode.COMMAND_FAILED,
+          message,
+          "Analyze the error and fix the root cause before trying a different command.",
+        ),
+        metadata: {
+          toolName: TOOL_NAME,
+          callId: "",
+          durationMs: 0,
+        },
+      };
     }
 
     // Emit completion progress
@@ -656,12 +828,33 @@ export const runCommandTool: AgentTool<RunCommandInput> = {
     }
 
     // Determine if this is a success or failure
-    const isSuccess = result.success && !result.timedOut;
+    // When expect_failure is set, treat non-zero exit as success (e.g., TDD red-phase)
+    const isSuccess =
+      (result.success && !result.timedOut) ||
+      (input.expect_failure === true && !result.timedOut);
+
+    // Update resultData.success to reflect expect_failure logic
+    resultData.success = isSuccess;
+
+    // Track command result for duplicate detection
+    if (isSuccess) {
+      clearFailedCommand(input.command, resolvedCwd);
+    }
 
     // Extract meaningful error summary when command failed
     const errorSummary = isSuccess
       ? undefined
       : extractErrorSummary(result.stdout, result.stderr);
+
+    // Record failure for duplicate detection
+    if (!isSuccess) {
+      recordFailedCommand(
+        input.command,
+        resolvedCwd,
+        (errorSummary ?? result.stderr) || result.stdout.slice(0, 500),
+        result.exitCode,
+      );
+    }
 
     // Add error_summary to result data for agent consumption
     if (errorSummary) {
@@ -692,7 +885,7 @@ export const runCommandTool: AgentTool<RunCommandInput> = {
             : `Command failed with exit code ${result.exitCode}${errorSummary ? `:\n${errorSummary}` : ""}`,
           result.timedOut
             ? "Increase timeout or check for long-running process"
-            : "Check command syntax and arguments",
+            : "Analyze the error output and fix the root cause. Do NOT retry the same command — it will be blocked.",
         );
 
     return {

@@ -41,17 +41,24 @@ function buildToolResult(partial: Partial<ToolResult>): ToolResult {
 export const waitForPatternTool: AgentTool<WaitForPatternInput> = {
   name: TOOL_NAME,
   description:
-    "Wait for a regex pattern to appear in a background process output.",
+    "Wait for a JavaScript regex pattern to appear in a background process output. " +
+    "Use this to detect when servers are ready, builds complete, or tests finish. " +
+    "IMPORTANT: Use JavaScript regex syntax, NOT glob patterns. " +
+    "Examples: 'Server.*port \\\\d+' (server ready), '(ready|listening|started)' (alternation), " +
+    "'\\\\d+ tests?.*passed' (test completion), 'BUILD (SUCCESS|FAILED)' (build status).",
   inputSchema: {
     type: "object",
     properties: {
       process_id: {
         type: "string",
-        description: "Process identifier to monitor",
+        description: "Process identifier from start_process to monitor",
       },
       pattern: {
         type: "string",
-        description: "Regex pattern to wait for",
+        description:
+          "JavaScript regular expression pattern (NOT glob pattern). " +
+          "Use \\\\d for digits, .* for any characters, (a|b) for alternation. " +
+          "Example: 'Server.*listening.*port \\\\d+' matches 'Server listening on port 3000'",
       },
       timeout_ms: {
         type: "number",
@@ -111,13 +118,18 @@ export const waitForPatternTool: AgentTool<WaitForPatternInput> = {
     let pattern: RegExp;
     try {
       pattern = new RegExp(parsed.data.pattern);
-    } catch {
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : "Unknown error";
       return buildToolResult(
         errorResult(
           TOOL_NAME,
           ToolErrorCode.INVALID_INPUT,
-          "Invalid regex pattern.",
-          "Provide a valid JavaScript regular expression string.",
+          `Invalid regex pattern: ${errorMessage}`,
+          "Use JavaScript regex syntax (NOT glob patterns). " +
+            "Common mistakes: '*(...)' is glob (use '.*' for any chars), " +
+            "unescaped special chars like '[' or '(' need escaping. " +
+            "Examples: 'Server.*port \\\\d+', '(ready|started)', '\\\\d+ tests?'",
           { pattern: parsed.data.pattern },
         ),
       );

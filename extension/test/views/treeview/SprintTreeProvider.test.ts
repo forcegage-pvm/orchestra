@@ -40,8 +40,15 @@ vi.mock("vscode", () => ({
     this.resourceUri = undefined;
     return this;
   }),
-  ThemeIcon: vi.fn((id: string, color?: any) => ({ id, color })),
-  ThemeColor: vi.fn((id: string) => ({ id })),
+  ThemeIcon: class {
+    constructor(
+      public id: string,
+      public color?: any,
+    ) {}
+  },
+  ThemeColor: class {
+    constructor(public id: string) {}
+  },
   MarkdownString: vi.fn(function (this: any, value?: string) {
     this.value = value || "";
     this.isTrusted = false;
@@ -52,11 +59,11 @@ vi.mock("vscode", () => ({
     });
     return this;
   }),
-  EventEmitter: vi.fn(() => ({
-    event: vi.fn(),
-    fire: vi.fn(),
-    dispose: vi.fn(),
-  })),
+  EventEmitter: class {
+    event = vi.fn((callback: () => void) => ({ dispose: vi.fn() }));
+    fire = vi.fn();
+    dispose = vi.fn();
+  },
   Uri: {
     parse: vi.fn((uri: string) => ({ toString: () => uri })),
   },

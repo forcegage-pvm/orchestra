@@ -18,7 +18,6 @@ import {
   SubmitCodeReviewOutputSchema,
   type SubmitCodeReviewOutput,
 } from "../../schemas/code-review/submit-code-review.schema.js";
-import { CodeReviewConfigSchema } from "../../schemas/config.js";
 import { validateInput, validateOutput } from "../../schemas/utils.js";
 import { writeSignal } from "../db-signal.js";
 import { logReviewTransition, logToolExecution } from "./audit-logging.js";
@@ -40,6 +39,15 @@ export async function handleSubmitCodeReview(input: unknown) {
           file: "optional - file path",
           line: "optional - line number",
           recommendation: "optional - how to fix",
+        },
+        minimal_valid_example: {
+          issues: [
+            {
+              severity: "MAJOR",
+              issue: "Describe the problem",
+              rationale: "Why this is a problem and needs fixing",
+            },
+          ],
         },
         notes: [
           "For CHANGES_REQUESTED/REJECTED: 'issues' array is required",
@@ -351,18 +359,29 @@ async function submitCodeReview(
         : "CODE_REVIEW_CHANGES_REQUESTED";
   }
 
-  // Handle task completion for APPROVED decisions with task_gate policy
+  // Handle task completion for APPROVED decisions
+  // When a code review is approved, the task should be marked COMPLETE if it was waiting for review.
+  // The policy determines WHEN reviews are triggered, not whether approval completes the task.
   let completedAt: string | undefined;
 
   if (decisionStatus === "APPROVED") {
-    const config = CodeReviewConfigSchema.parse(
-      sprint.config ? JSON.parse(sprint.config) : {},
-    );
+    // Complete the task if it's in PENDING_CODE_REVIEW (waiting for this review to pass)
+    // or when the sprint policy is 'task_gate' and the task is currently VERIFIED.
+    const sprintConfig = (() => {
+      try {
+        return typeof sprint.config === "string" && sprint.config
+          ? JSON.parse(sprint.config)
+          : sprint.config || {};
+      } catch {
+        return {};
+      }
+    })();
+
+    const codeReviewPolicy = sprintConfig?.code_review_policy;
 
     if (
-      config.code_review_enabled &&
-      config.code_review_policy === "task_gate" &&
-      task.status !== "COMPLETE"
+      task.status === "PENDING_CODE_REVIEW" ||
+      (codeReviewPolicy === "task_gate" && task.status === "VERIFIED")
     ) {
       completedAt = new Date().toISOString();
 

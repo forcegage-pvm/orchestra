@@ -17,7 +17,7 @@ import { errorResult, successResult } from "../utils/resultBuilder.js";
 
 interface FindUsagesInput {
   symbolName: string;
-  filePath?: string;
+  filePath: string;
   position?: string | { line: number; character: number };
 }
 
@@ -162,22 +162,17 @@ function normalizeUsageLocation(
 async function resolveDocument(
   input: FindUsagesInput,
   context: ToolInvocationContext,
-): Promise<vscode.TextDocument | undefined> {
-  if (input.filePath) {
-    const validatedPath = await validatePath(
-      input.filePath,
-      context.workspaceRoot,
-    );
-    if (!validatedPath.isValid) {
-      return undefined;
-    }
-
-    const uri = vscode.Uri.file(validatedPath.absolutePath);
-    return vscode.workspace.openTextDocument(uri);
+): Promise<vscode.TextDocument> {
+  const validatedPath = await validatePath(
+    input.filePath,
+    context.workspaceRoot,
+  );
+  if (!validatedPath.isValid) {
+    throw validatedPath.error;
   }
 
-  const activeEditor = vscode.window.activeTextEditor;
-  return activeEditor?.document;
+  const uri = vscode.Uri.file(validatedPath.absolutePath);
+  return vscode.workspace.openTextDocument(uri);
 }
 
 async function findUsages(
@@ -213,20 +208,29 @@ async function findUsages(
     );
   }
 
-  if (input.filePath) {
-    const validatedPath = await validatePath(
-      input.filePath,
-      context.workspaceRoot,
+  if (!input.filePath || !input.filePath.trim()) {
+    return buildToolResult(
+      errorResult(
+        TOOL_NAME,
+        ToolErrorCode.INVALID_INPUT,
+        "filePath is required for find_usages.",
+        "Provide the filePath to the file where the symbol is defined so the reference provider can resolve usages.",
+      ),
     );
-    if (!validatedPath.isValid) {
-      return errorFromToolError(validatedPath.error);
-    }
   }
 
-  let document: vscode.TextDocument | undefined;
+  let document: vscode.TextDocument;
   try {
     document = await resolveDocument(input, context);
   } catch (error) {
+    if (
+      error &&
+      typeof error === "object" &&
+      "code" in error &&
+      "message" in error
+    ) {
+      return errorFromToolError(error as ToolError);
+    }
     if (isFileNotFound(error)) {
       return buildToolResult(
         errorResult(
@@ -247,17 +251,6 @@ async function findUsages(
         `Failed to open file: ${message}`,
         "Check the file path and permissions before retrying.",
         { path: input.filePath },
-      ),
-    );
-  }
-
-  if (!document) {
-    return buildToolResult(
-      errorResult(
-        TOOL_NAME,
-        ToolErrorCode.INVALID_INPUT,
-        "No file provided and no active editor is available.",
-        "Provide filePath or open a file in the editor.",
       ),
     );
   }
@@ -313,7 +306,8 @@ async function findUsages(
 
 export const findUsagesTool: AgentTool<FindUsagesInput> = {
   name: TOOL_NAME,
-  description: "Find all usages of a symbol using VS Code references.",
+  description:
+    "Find all usages of a symbol using VS Code references. Requires filePath to locate the symbol definition.",
   inputSchema: {
     type: "object",
     properties: {
@@ -323,7 +317,7 @@ export const findUsagesTool: AgentTool<FindUsagesInput> = {
       },
       filePath: {
         type: "string",
-        description: "Optional path to file containing the symbol",
+        description: "Path to file containing the symbol definition",
       },
       position: {
         type: "string",
@@ -331,7 +325,7 @@ export const findUsagesTool: AgentTool<FindUsagesInput> = {
           'Optional 1-based position as JSON (e.g. {"line":1,"character":5}) or \'line:character\'',
       },
     },
-    required: ["symbolName"],
+    required: ["symbolName", "filePath"],
   },
   invoke: async (
     input: FindUsagesInput,

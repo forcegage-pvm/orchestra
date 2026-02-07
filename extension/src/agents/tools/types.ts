@@ -149,6 +149,7 @@ export const RunCommandInputSchema = z.object({
   timeout_ms: z.number().int().nonnegative().optional(),
   stdin: z.string().optional(),
   env: z.record(z.string()).optional(),
+  expect_failure: z.boolean().optional(),
 });
 
 /**
@@ -158,6 +159,7 @@ export const RunCommandInputSchema = z.object({
  * @property timeout_ms - Optional command timeout in milliseconds
  * @property stdin - Optional standard input to pipe to the command
  * @property env - Optional environment variables to set
+ * @property expect_failure - When true, non-zero exit codes are treated as success (e.g., TDD red-phase tests that should fail)
  */
 export type RunCommandInput = z.output<typeof RunCommandInputSchema>;
 
@@ -554,6 +556,8 @@ export const SmartReplaceInputSchema = z.object({
   occurrence: z.number().int().positive().optional(),
   fuzzy_threshold: z.number().min(0).max(1).optional(),
   dry_run: z.boolean().optional(),
+  /** If true, check for TypeScript/ESLint errors after edit (adds ~500ms delay) */
+  validate: z.boolean().optional(),
 });
 
 /**
@@ -565,6 +569,7 @@ export const SmartReplaceInputSchema = z.object({
  * @property occurrence - Which occurrence to replace (1-indexed)
  * @property fuzzy_threshold - Minimum similarity for fuzzy match (0.0-1.0)
  * @property dry_run - If true, preview changes without applying
+ * @property validate - If true, check for errors after edit (adds ~500ms delay)
  */
 export type SmartReplaceInput = z.output<typeof SmartReplaceInputSchema>;
 
@@ -597,6 +602,8 @@ export const EditLinesInputSchema = z.object({
   create_if_missing: z.boolean().optional(),
   preserve_indentation: z.boolean().optional(),
   dry_run: z.boolean().optional(),
+  /** If true, check for TypeScript/ESLint errors after edit (adds ~500ms delay) */
+  validate: z.boolean().optional(),
 });
 
 /**
@@ -608,6 +615,7 @@ export const EditLinesInputSchema = z.object({
  * @property create_if_missing - If true, create file if it doesn't exist
  * @property preserve_indentation - If true, match surrounding indentation
  * @property dry_run - If true, preview changes without applying
+ * @property validate - If true, check for errors after edit (adds ~500ms delay)
  */
 export type EditLinesInput = z.output<typeof EditLinesInputSchema>;
 

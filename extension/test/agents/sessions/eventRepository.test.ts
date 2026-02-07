@@ -43,6 +43,22 @@ try {
   moduleCompatible = false;
 }
 
+// Additional check: try loading the native binary via the project's loader
+// This catches cases where the packaged native module (extension's node_modules)
+// was compiled for a different Node version than the test runtime.
+if (moduleCompatible) {
+  try {
+    const { loadBetterSqlite3 } =
+      await import("../../../src/database/native-loader.js");
+    const Better = loadBetterSqlite3();
+    // Try creating an in-memory db with the project's loader
+    const probe = new Better(":memory:");
+    probe.close();
+  } catch {
+    moduleCompatible = false;
+  }
+}
+
 // Module compatibility flag for conditional test execution
 const canRunTests = moduleCompatible && Database !== null;
 
@@ -811,10 +827,10 @@ if (!moduleCompatible) {
         const retrieved = getEventsForSession(testWorkspaceRoot, sessionId);
 
         expect(retrieved).toHaveLength(3);
-        // Should be ordered by timestamp ascending
-        expect(retrieved[0].id).toBe("event-1");
-        expect(retrieved[1].id).toBe("event-2");
-        expect(retrieved[2].id).toBe("event-3");
+        // Should be ordered by rowid (insertion order), not timestamp
+        expect(retrieved[0].id).toBe("event-3");
+        expect(retrieved[1].id).toBe("event-1");
+        expect(retrieved[2].id).toBe("event-2");
       });
 
       it("should return empty array for session with no events", () => {

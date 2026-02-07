@@ -29,6 +29,7 @@ export interface UiState {
   verbosity: VerbosityLevel;
   autoScroll: boolean;
   scrollPositions: Record<string, number>;
+  initialScrollPending: boolean;
 }
 
 /**
@@ -41,4 +42,5 @@ export const [ui, setUi] = createStore<UiState>({
   verbosity: "normal",
   autoScroll: true,
   scrollPositions: {},
+  initialScrollPending: true,
 });

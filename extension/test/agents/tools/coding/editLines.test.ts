@@ -90,11 +90,35 @@ describe("editLines", () => {
   });
 
   function mockDocument(content: string, filePath: string) {
+    const lines = content.split("\n");
+
     const doc = {
       getText: () => content,
       positionAt: (offset: number) => {
-        const lines = content.substring(0, offset).split("\n");
-        return new Position(lines.length - 1, lines[lines.length - 1].length);
+        const textBefore = content.substring(0, offset);
+        const linesBefore = textBefore.split("\n");
+        return new Position(
+          linesBefore.length - 1,
+          linesBefore[linesBefore.length - 1].length,
+        );
+      },
+      lineAt: (lineNumber: number) => {
+        const lineText = lines[lineNumber] || "";
+
+        return {
+          text: lineText,
+          lineNumber,
+          range: new Range(
+            new Position(lineNumber, 0),
+            new Position(lineNumber, lineText.length),
+          ),
+          rangeIncludingLineBreak: new Range(
+            new Position(lineNumber, 0),
+            lineNumber < lines.length - 1
+              ? new Position(lineNumber + 1, 0)
+              : new Position(lineNumber, lineText.length),
+          ),
+        };
       },
       uri: Uri.file(filePath),
     };
@@ -289,7 +313,8 @@ describe("editLines", () => {
       expect(result.success).toBe(false);
       expect(result.error).toBeDefined();
       expect(result.error?.code).toBe("INVALID_INPUT");
-      expect(result.error?.details?.valid_range).toBe("1-3");
+      expect(result.error?.details?.start_line).toBe(5);
+      expect(result.error?.details?.file_has_lines).toBe(3);
     });
 
     it("should return error when end_line is out of bounds", async () => {
@@ -309,7 +334,8 @@ describe("editLines", () => {
 
       expect(result.success).toBe(false);
       expect(result.error?.code).toBe("INVALID_INPUT");
-      expect(result.error?.details?.valid_range).toBe("1-3");
+      expect(result.error?.details?.end_line).toBe(10);
+      expect(result.error?.details?.file_has_lines).toBe(3);
     });
 
     it("should return error when start_line > end_line", async () => {

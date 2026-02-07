@@ -160,10 +160,24 @@ export async function handlePlayTask(
       break;
 
     case "COMPLETE": {
-      // Check if there's a pending code review even though task is complete
+      // Check code review status - task may need further action
       const codeReview = getLatestCodeReviewForTask(workspaceRoot, taskId);
-      if (codeReview && codeReview.status === "PENDING") {
-        await invokeCodeReview(workspaceRoot, taskId);
+      if (codeReview) {
+        if (codeReview.status === "PENDING") {
+          // Initial code review needed
+          await invokeCodeReview(workspaceRoot, taskId);
+        } else if (codeReview.status === "CHANGES_REQUESTED") {
+          // Changes were requested - implementor needs to fix
+          await invokeCodeReviewFix(workspaceRoot, taskId);
+        } else if (codeReview.status === "PENDING_VERIFICATION") {
+          // Implementor submitted fixes - controller needs to re-review
+          await invokeCodeReview(workspaceRoot, taskId);
+        } else {
+          // APPROVED or other terminal status
+          vscode.window.showInformationMessage(
+            `Task ${taskId}: ${task.title} is already complete`,
+          );
+        }
       } else {
         vscode.window.showInformationMessage(
           `Task ${taskId}: ${task.title} is already complete`,
@@ -227,8 +241,7 @@ async function invokePrepare(
 
     // Create instances
     const logger = new OrchestraLogger();
-    const promptBuilder = new PromptBuilder();
-    const agentRunner = getAgentRunner();
+    const promptBuilder = new PromptBuilder({ workspaceRoot });    const agentRunner = getAgentRunner();
 
     if (agentRunner.getSession()?.status === "running") {
       vscode.window.showErrorMessage(
@@ -314,8 +327,7 @@ async function invokeImplement(
 
     // Create instances
     const logger = new OrchestraLogger();
-    const promptBuilder = new PromptBuilder();
-    const agentRunner = getAgentRunner();
+    const promptBuilder = new PromptBuilder({ workspaceRoot });    const agentRunner = getAgentRunner();
 
     if (agentRunner.getSession()?.status === "running") {
       vscode.window.showErrorMessage(
@@ -429,8 +441,7 @@ async function invokeRetry(
 
     // Create instances
     const logger = new OrchestraLogger();
-    const promptBuilder = new PromptBuilder();
-    const agentRunner = getAgentRunner();
+    const promptBuilder = new PromptBuilder({ workspaceRoot });    const agentRunner = getAgentRunner();
 
     if (agentRunner.getSession()?.status === "running") {
       vscode.window.showErrorMessage(
@@ -524,8 +535,7 @@ async function invokeVerify(
 
     // Create instances
     const logger = new OrchestraLogger();
-    const promptBuilder = new PromptBuilder();
-    const agentRunner = getAgentRunner();
+    const promptBuilder = new PromptBuilder({ workspaceRoot });    const agentRunner = getAgentRunner();
 
     if (agentRunner.getSession()?.status === "running") {
       vscode.window.showErrorMessage(
@@ -634,8 +644,7 @@ async function invokeHandoverFix(
 
     // Create instances
     const logger = new OrchestraLogger();
-    const promptBuilder = new PromptBuilder();
-    const agentRunner = getAgentRunner();
+    const promptBuilder = new PromptBuilder({ workspaceRoot });    const agentRunner = getAgentRunner();
 
     if (agentRunner.getSession()?.status === "running") {
       vscode.window.showErrorMessage(
@@ -739,8 +748,7 @@ async function invokeHandoverReview(
 
     // Create instances
     const logger = new OrchestraLogger();
-    const promptBuilder = new PromptBuilder();
-    const agentRunner = getAgentRunner();
+    const promptBuilder = new PromptBuilder({ workspaceRoot });    const agentRunner = getAgentRunner();
 
     if (agentRunner.getSession()?.status === "running") {
       vscode.window.showErrorMessage(
@@ -821,9 +829,9 @@ async function invokeCodeReview(
 
     // Create instances
     const logger = new OrchestraLogger();
-    const promptBuilder = new PromptBuilder();
-    const agentRunner = getAgentRunner();
+    const promptBuilder = new PromptBuilder({ workspaceRoot });    const agentRunner = getAgentRunner();
 
+    // Check if agent is already running
     if (agentRunner.getSession()?.status === "running") {
       vscode.window.showErrorMessage(
         "Orchestra: Agent is already running. Stop or pause the current agent first.",
@@ -831,28 +839,31 @@ async function invokeCodeReview(
       return;
     }
 
-    // Check if this is a re-review after fixes
-    const codeReview = getLatestCodeReviewForTask(workspaceRoot, taskId);
-    const isReReview =
-      codeReview && codeReview.status === "PENDING_VERIFICATION";
-
-    // Build the appropriate code review prompt
-    let prompt: string;
-    if (isReReview) {
-      prompt = promptBuilder.buildCodeReviewReReviewPrompt(
-        sprint.id,
-        sprint.name,
-        { taskId: task.task_id, title: task.title, dbId: task.id },
-        codeReview.review_id,
+    // Validate task fields before building prompt
+    if (typeof task.task_id !== "number" || typeof task.title !== "string") {
+      vscode.window.showErrorMessage(
+        `Task ${taskId} has invalid fields: task_id=${typeof task.task_id}, title=${typeof task.title}`,
       );
-    } else {
-      prompt = promptBuilder.buildCodeReviewPrompt(
-        1, // Single pending review
-        sprint.id,
-        sprint.name,
-        { taskId: task.task_id, title: task.title, dbId: task.id },
-      );
+      return;
     }
+
+    // Check if this is a re-review (after implementor submitted fixes)
+    const codeReview = getLatestCodeReviewForTask(workspaceRoot, taskId);
+    const isReReview = codeReview?.status === "PENDING_VERIFICATION";
+
+    // Use PromptBuilder for consistent prompt with WorkflowChain
+    // Use re-review prompt if implementor has submitted fixes
+    const prompt = isReReview
+      ? promptBuilder.buildCodeReviewReReviewPrompt(1, sprint.id, sprint.name, {
+          taskId: task.task_id,
+          title: task.title,
+          dbId: task.id,
+        })
+      : promptBuilder.buildCodeReviewPrompt(1, sprint.id, sprint.name, {
+          taskId: task.task_id,
+          title: task.title,
+          dbId: task.id,
+        });
 
     // Show Agent Panel before starting
     await showAgentPanel();
@@ -863,7 +874,7 @@ async function invokeCodeReview(
       "controller",
     );
 
-    // Start controller agent for code review
+    // Start controller agent for code review using AgentRunner
     const startOptions = {
       prompt,
       taskId,
@@ -931,8 +942,7 @@ async function invokeCodeReviewFix(
 
     // Create instances
     const logger = new OrchestraLogger();
-    const promptBuilder = new PromptBuilder();
-    const agentRunner = getAgentRunner();
+    const promptBuilder = new PromptBuilder({ workspaceRoot });    const agentRunner = getAgentRunner();
 
     if (agentRunner.getSession()?.status === "running") {
       vscode.window.showErrorMessage(

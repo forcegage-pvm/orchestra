@@ -33,6 +33,95 @@ function formatDuration(ms: number): string {
   return `${minutes}m ${seconds}s`;
 }
 
+function getBaseName(filePath: string): string {
+  const normalized = filePath.replace(/\\/g, "/");
+  const parts = normalized.split("/");
+  return parts[parts.length - 1] || filePath;
+}
+
+function truncateText(text: string, maxLength: number): string {
+  if (text.length <= maxLength) return text;
+  return `${text.slice(0, Math.max(0, maxLength - 3))}...`;
+}
+
+function extractStringValue(args: unknown, keys: string[]): string | null {
+  if (!args || typeof args !== "object") return null;
+  const record = args as Record<string, unknown>;
+  for (const key of keys) {
+    const value = record[key];
+    if (typeof value === "string" && value.trim()) return value;
+  }
+  return null;
+}
+
+function extractFilePath(args: unknown): string | null {
+  if (!args || typeof args !== "object") return null;
+  const record = args as Record<string, unknown>;
+  const candidates = ["filePath", "path", "file", "file_path"];
+  for (const key of candidates) {
+    const value = record[key];
+    if (typeof value === "string" && value.trim()) return value;
+    if (Array.isArray(value) && typeof value[0] === "string") {
+      return value[0];
+    }
+  }
+  const filePaths = record.filePaths;
+  if (Array.isArray(filePaths) && typeof filePaths[0] === "string") {
+    return filePaths[0];
+  }
+  return null;
+}
+
+function getSearchCount(result: unknown): number | null {
+  if (result === undefined || result === null) return null;
+
+  let parsed: unknown = result;
+  if (typeof result === "string") {
+    const match = result.match(/(\d+)\s+matches?/i);
+    if (match) return Number(match[1]);
+    try {
+      parsed = JSON.parse(result);
+    } catch {
+      return null;
+    }
+  }
+
+  if (typeof parsed === "object" && parsed !== null) {
+    // Direct array of matches (e.g. grep_search returns JSON array)
+    if (Array.isArray(parsed)) return parsed.length;
+    const record = parsed as Record<string, unknown>;
+    const directCount = record.totalMatches ?? record.count;
+    if (typeof directCount === "number") return directCount;
+    const matches = record.matches;
+    if (Array.isArray(matches)) return matches.length;
+    const results = record.results;
+    if (Array.isArray(results)) return results.length;
+  }
+
+  return null;
+}
+
+function buildSearchQuery(args: unknown): string | null {
+  const query = extractStringValue(args, ["query"]);
+  if (!query) return null;
+  const includePattern = extractStringValue(args, ["includePattern"]);
+  const normalizedQuery = query.replace(/\s+/g, " ").trim();
+  const normalizedInclude = includePattern
+    ? includePattern.replace(/\s+/g, " ").trim()
+    : null;
+  if (normalizedInclude) {
+    return `"${normalizedQuery}" in ${normalizedInclude}`;
+  }
+  return `"${normalizedQuery}"`;
+}
+
+function buildSearchCountLabel(result: unknown): string {
+  const count = getSearchCount(result);
+  const countValue = count ?? "?";
+  const matchLabel = count === 1 ? "match" : "matches";
+  return `${countValue} ${matchLabel}`;
+}
+
 /**
  * ToolCallCard - Compact tool call display
  *
@@ -76,6 +165,33 @@ export function ToolCallCard(props: ToolCallCardProps) {
 
   const hasError = () => {
     return props.toolCall.error !== undefined;
+  };
+
+  const toolDetailLabel = () => {
+    const toolName = props.toolCall.toolName;
+    if (toolName === "read_file" || toolName === "read_spec_file") {
+      const filePath = extractFilePath(props.toolCall.arguments);
+      return filePath ? getBaseName(filePath) : null;
+    }
+    if (toolName === "create_file" || toolName === "edit_file") {
+      const filePath = extractFilePath(props.toolCall.arguments);
+      return filePath ? getBaseName(filePath) : null;
+    }
+    if (toolName === "grep_search") {
+      return buildSearchQuery(props.toolCall.arguments);
+    }
+    if (toolName === "run_command") {
+      const command = extractStringValue(props.toolCall.arguments, ["command"]);
+      return command ? truncateText(command, 40) : null;
+    }
+    return null;
+  };
+
+  const isGrepLabel = () => props.toolCall.toolName === "grep_search";
+
+  const grepCountLabel = () => {
+    if (!isGrepLabel()) return "";
+    return buildSearchCountLabel(props.toolCall.result);
   };
 
   const getInputDisplay = () => {
@@ -157,12 +273,7 @@ export function ToolCallCard(props: ToolCallCardProps) {
           class="w-3 h-3 flex-shrink-0 mt-0.5"
         />
 
-        {/* Tool Name */}
-        <span class="text-xs text-gray-400 leading-none">
-          {props.toolCall.toolName}
-        </span>
-
-        {/* Status Icon - Spinner / Check / X (right after tool name) */}
+        {/* Status Icon - Spinner / Check / X (before tool name) */}
         <Show when={isRunning()}>
           <Icon
             icon="lucide:loader-2"
@@ -182,8 +293,31 @@ export function ToolCallCard(props: ToolCallCardProps) {
           />
         </Show>
 
-        {/* Spacer */}
-        <div class="flex-1" />
+        {/* Tool Name */}
+        <span class="text-xs text-gray-400 leading-none">
+          {props.toolCall.toolName}
+        </span>
+        {/* Non-grep detail label */}
+        <Show when={!isGrepLabel() && toolDetailLabel()}>
+          <span class="text-xs text-gray-500 leading-none truncate max-w-[280px]">
+            {toolDetailLabel()}
+          </span>
+        </Show>
+
+        {/* Grep search: query fills space (truncates), count never truncates */}
+        <Show when={isGrepLabel()}>
+          <span class="text-xs text-orange-400 leading-none truncate min-w-0 flex-1">
+            {toolDetailLabel() || ""}
+          </span>
+          <span class="text-xs text-orange-400/60 leading-none flex-shrink-0 whitespace-nowrap pl-2">
+            - {grepCountLabel()}
+          </span>
+        </Show>
+
+        {/* Spacer (not needed for grep — query is flex-1) */}
+        <Show when={!isGrepLabel()}>
+          <div class="flex-1" />
+        </Show>
 
         {/* Duration - Only on completion */}
         <Show when={isCompleted() && props.toolCall.durationMs !== undefined}>

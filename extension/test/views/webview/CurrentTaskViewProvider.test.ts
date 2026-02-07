@@ -13,12 +13,15 @@ vi.mock("vscode", () => ({
     file: (path: string) => ({ fsPath: path }),
     joinPath: (...args: unknown[]) => ({ fsPath: args.join("/") }),
   },
-  EventEmitter: vi.fn(() => ({
-    event: vi.fn(),
-    fire: vi.fn(),
-    dispose: vi.fn(),
-  })),
-  ThemeColor: vi.fn((color: string) => ({ id: color })),
+  EventEmitter: class EventEmitter<T> {
+    event = vi.fn();
+    fire = vi.fn();
+    dispose = vi.fn();
+    constructor() {}
+  },
+  ThemeColor: class ThemeColor {
+    constructor(public id: string) {}
+  },
   commands: {
     executeCommand: vi.fn(),
   },

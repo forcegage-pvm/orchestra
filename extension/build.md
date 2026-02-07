@@ -4,12 +4,18 @@ This document describes the build process for the Orchestra VS Code extension, i
 
 ## Architecture Overview
 
-The extension uses `better-sqlite3`, a native Node.js module that requires platform-specific compilation. Because VS Code runs on Electron (not Node.js), and the MCP server spawns as a separate Node.js process, we need **two different compilations** of the native module:
+The extension uses two native/binary dependencies that require special handling:
 
-| Component | Runtime | Binary Target | Location |
-|-----------|---------|---------------|----------|
-| Extension | VS Code (Electron 39) | MODULE_VERSION 140 | `node_modules/better-sqlite3/` |
-| MCP Server | Node.js (system) | MODULE_VERSION 136+ | `dist/mcp-server/node_modules/better-sqlite3/` |
+1. **`better-sqlite3`** — a Node.js native addon requiring platform-specific compilation. Because VS Code runs on Electron (not Node.js), and the MCP server spawns as a separate Node.js process, we need **two different compilations**.
+2. **`@vscode/ripgrep`** — ships a pre-built platform-specific ripgrep binary (not a Node.js addon). Used by the `grep_search` agent tool for fast workspace text search. No Electron rebuild needed — the binary runs as a standalone child process.
+
+| Component  | Runtime               | Binary Target       | Location                                       |
+| ---------- | --------------------- | ------------------- | ---------------------------------------------- |
+| Extension  | VS Code (Electron 39) | MODULE_VERSION 140  | `node_modules/better-sqlite3/`                 |
+| MCP Server | Node.js (system)      | MODULE_VERSION 136+ | `dist/mcp-server/node_modules/better-sqlite3/` |
+| ripgrep    | Standalone process    | Platform binary     | `node_modules/@vscode/ripgrep/bin/rg(.exe)`    |
+
+> **Note**: Because `@vscode/ripgrep` ships a platform-specific binary, the resulting VSIX is platform-specific. A VSIX built on Windows will only work on Windows, etc.
 
 ## Prerequisites
 
@@ -63,6 +69,7 @@ npm run build              # Builds extension + copies MCP server with native mo
 **Before every VSIX build**, you MUST ensure `better-sqlite3` is compiled for VS Code's Electron version. Failure to do this causes `NODE_MODULE_VERSION` mismatch errors at runtime.
 
 **Quick check for your VS Code version:**
+
 ```bash
 code --version  # e.g., 1.108.0
 ```
@@ -70,10 +77,10 @@ code --version  # e.g., 1.108.0
 Then find the Electron version at https://github.com/microsoft/vscode/blob/release/1.108/package.json (look for `devDependencies.electron`).
 
 | VS Code Version | Electron Version | NODE_MODULE_VERSION |
-|-----------------|------------------|---------------------|
-| 1.108.x | 39.2.7 | 140 |
-| 1.107.x | 39.2.3 | 140 |
-| 1.95.x | 32.x | 128 |
+| --------------- | ---------------- | ------------------- |
+| 1.108.x         | 39.2.7           | 140                 |
+| 1.107.x         | 39.2.3           | 140                 |
+| 1.95.x          | 32.x             | 128                 |
 
 ### Full Build Process
 
@@ -107,14 +114,17 @@ npm run package
 ```
 
 This produces `artifacts/orchestra-extension-X.Y.Z.vsix` containing:
+
 - Extension code (`dist/extension.js`)
 - MCP server bundle (`dist/mcp-server/index.js`)
 - Electron-compiled native module (`node_modules/better-sqlite3/`)
 - Node.js-compiled native module (`dist/mcp-server/node_modules/better-sqlite3/`)
+- ripgrep binary (`node_modules/@vscode/ripgrep/bin/rg` or `rg.exe`)
 
 ### Verify Before Packaging
 
 Always verify the native module version before packaging:
+
 ```powershell
 # Check node_modules has Electron binary (source for extension)
 Get-ChildItem node_modules\better-sqlite3\build\Release\*.node | Select Name, LastWriteTime, Length
@@ -127,16 +137,21 @@ Get-ChildItem dist\node_modules\better-sqlite3\build\Release\*.node | Select Nam
 
 ### What Gets Packaged
 
-The `.vscodeignore` controls what's included in the VSIX:
+The `bundledDependencies` array in `package.json` controls which `node_modules` are included in the VSIX:
 
-```ignore
-# Excluded
-node_modules/*
+```json
+"bundledDependencies": [
+  "@vscode/ripgrep",
+  "better-sqlite3",
+  "bindings",
+  "file-uri-to-path"
+]
+```
 
-# Included (native modules needed at runtime)
-!node_modules/better-sqlite3/**
-!node_modules/bindings/**
-!node_modules/file-uri-to-path/**
+These modules are kept external in the esbuild config (`esbuild.config.js`) so they resolve from `node_modules` at runtime rather than being inlined:
+
+```js
+external: ["vscode", "better-sqlite3", "drizzle-orm", "@vscode/ripgrep"];
 ```
 
 ## How It Works
@@ -182,6 +197,23 @@ node_modules/*
 
 ## Troubleshooting
 
+### ripgrep Binary Not Found
+
+```
+Failed to start ripgrep: spawn .../bin/rg ENOENT
+```
+
+**Cause**: The `@vscode/ripgrep` postinstall script failed to download the binary, or `node_modules` was cleaned without reinstalling.
+
+**Fix**:
+
+```bash
+cd extension
+npm install @vscode/ripgrep
+# Verify:
+ls node_modules/@vscode/ripgrep/bin/
+```
+
 ### MODULE_VERSION Mismatch Error
 
 ```
@@ -190,11 +222,13 @@ NODE_MODULE_VERSION 137. This version of Node.js requires NODE_MODULE_VERSION 14
 ```
 
 **Cause**: The native module in the VSIX was compiled for the wrong runtime. This happens when:
+
 1. `better-sqlite3` was installed with `npm install` (compiles for Node.js, not Electron)
 2. The `dist/node_modules` wasn't cleared before rebuild
 3. `@electron/rebuild` used a cached wrong binary
 
 **Fix - Complete rebuild sequence:**
+
 ```powershell
 cd extension
 
@@ -228,11 +262,13 @@ npx @vscode/vsce package --no-yarn
 If `@electron/rebuild` completes instantly but the `.node` file timestamp doesn't change, it's using a cached prebuilt binary instead of compiling from source.
 
 **Symptoms**:
+
 - `npx @electron/rebuild` says "Rebuild Complete" but the error persists
 - The `.node` file has an old timestamp after rebuild
 - MODULE_VERSION still mismatches
 
 **Better alternative - use prebuild-install directly:**
+
 ```bash
 cd extension/node_modules/better-sqlite3
 npx prebuild-install -r electron -t 39.2.7 --force --verbose
@@ -241,12 +277,14 @@ npx prebuild-install -r electron -t 39.2.7 --force --verbose
 This downloads the exact prebuilt binary for the specified Electron version.
 
 **If prebuilt not available - compile from source (requires Python + C++ build tools):**
+
 ```bash
 cd extension/node_modules/better-sqlite3
 npm run build-release -- --target=39.2.7 --arch=x64 --dist-url=https://electronjs.org/headers
 ```
 
 **Verify the fix**:
+
 ```powershell
 # Check the timestamp is fresh (should be today)
 Get-ChildItem "node_modules\better-sqlite3\build\Release\*.node" | Select-Object Name, LastWriteTime
@@ -259,9 +297,9 @@ Get-ChildItem "node_modules\better-sqlite3\build\Release\*.node" | Select-Object
 3. Look for `devDependencies.electron`
 
 | VS Code Version | Electron Version | MODULE_VERSION |
-|-----------------|------------------|----------------|
-| 1.107.x | 39.2.3 | 140 |
-| 1.95.x | 32.x | 128 |
+| --------------- | ---------------- | -------------- |
+| 1.107.x         | 39.2.3           | 140            |
+| 1.95.x          | 32.x             | 128            |
 
 ### File Lock Errors (Windows)
 
@@ -272,6 +310,7 @@ Error: EPERM: operation not permitted, unlink '...\better_sqlite3.node'
 **Cause**: File locked by VS Code, Dropbox, or antivirus.
 
 **Fix**:
+
 1. Close VS Code completely
 2. Pause Dropbox sync on the repository folder
 3. Retry the rebuild
@@ -281,6 +320,7 @@ Error: EPERM: operation not permitted, unlink '...\better_sqlite3.node'
 **Cause**: Node.js native module not copied to `dist/mcp-server/node_modules/`.
 
 **Fix**: Run the postbuild script:
+
 ```bash
 cd extension
 node scripts/copy-mcp-server.js
@@ -288,30 +328,50 @@ node scripts/copy-mcp-server.js
 
 ## Version Compatibility Matrix
 
-| better-sqlite3 | Electron Support | Notes |
-|----------------|------------------|-------|
-| 12.5.0+ | 39+ | Required for Electron 39's V8 API |
-| 11.x | Up to 35 | `GetIsolate` API removed in newer V8 |
+| better-sqlite3 | Electron Support | Notes                                |
+| -------------- | ---------------- | ------------------------------------ |
+| 12.5.0+        | 39+              | Required for Electron 39's V8 API    |
+| 11.x           | Up to 35         | `GetIsolate` API removed in newer V8 |
 
 ## Updating Dependencies
+
+### Upgrading @vscode/ripgrep
+
+`@vscode/ripgrep` is straightforward — no Electron rebuild required:
+
+```bash
+cd extension
+npm install @vscode/ripgrep@latest
+# The postinstall script downloads the correct platform binary automatically
+```
+
+Verify the binary was downloaded:
+
+```powershell
+Get-ChildItem node_modules\@vscode\ripgrep\bin\
+```
+
+### Upgrading better-sqlite3
 
 When upgrading `better-sqlite3`:
 
 1. Update in **both** `package.json` files:
+
    ```bash
    # Root
    npm install better-sqlite3@latest
-   
-   # Extension  
+
+   # Extension
    cd extension
    npm install better-sqlite3@latest
    ```
 
 2. Rebuild both native modules:
+
    ```bash
    # Root (for Node.js)
    npm rebuild better-sqlite3
-   
+
    # Extension (for Electron)
    cd extension
    npx @electron/rebuild -f -w better-sqlite3 -v 39.2.3

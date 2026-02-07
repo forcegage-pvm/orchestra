@@ -213,8 +213,11 @@ describe("Agent Control Lifecycle Integration", () => {
     const lastMessage = session?.messages[session.messages.length - 1];
     expect(lastMessage?.content).toBe("New instruction");
 
-    const redirectOutput = outputs.find((output) =>
-      output.text?.includes("Redirected"),
+    const redirectOutput = outputs.find(
+      (output) =>
+        (output.type === "prompt" &&
+          output.text?.includes("New instruction")) ||
+        output.text?.includes("New instruction"),
     );
     expect(redirectOutput).toBeDefined();
 

@@ -2,7 +2,7 @@
   "name": "orchestra-extension",
   "displayName": "Orchestra",
   "description": "AI agent task orchestration for VS Code",
-  "version": "0.99.1-dev",
+  "version": "1.0.0",
   "publisher": "forcegage",
   "repository": {
     "type": "git",
@@ -203,6 +203,11 @@
         "icon": "$(check-all)"
       },
       {
+        "command": "orchestra.changeTaskStatus",
+        "title": "Change Task Status",
+        "icon": "$(edit)"
+      },
+      {
         "command": "orchestra.setActiveSprint",
         "title": "Set as Active Sprint",
         "icon": "$(star)"
@@ -236,6 +241,11 @@
         "command": "orchestra.resumeAgent",
         "title": "Orchestra: Resume Agent",
         "icon": "$(debug-continue)"
+      },
+      {
+        "command": "orchestra.clearAgentPanelHistory",
+        "title": "Orchestra: Clear Agent Panel History",
+        "icon": "$(trash)"
       },
       {
         "command": "orchestra.launchControllerForSprint",
@@ -363,6 +373,11 @@
           "group": "navigation"
         },
         {
+          "command": "orchestra.clearAgentPanelHistory",
+          "when": "view == orchestra.agentPanel",
+          "group": "navigation"
+        },
+        {
           "command": "orchestra.filterSprints",
           "when": "view == orchestra.sprintExplorer",
           "group": "navigation"
@@ -406,13 +421,8 @@
         },
         {
           "command": "orchestra.playTask",
-          "when": "view == orchestra.sprintExplorer && viewItem =~ /^task-(pending|implement|verify|verify_failed|gate_check|escalated|pending_handover_review|handover_review_failed|prepare|verified|pending_code_review|code_review_changes_requested|code_review_failed)$/",
+          "when": "view == orchestra.sprintExplorer && viewItem =~ /^task-(?!complete$).+/",
           "group": "inline@1"
-        },
-        {
-          "command": "orchestra.startTask",
-          "when": "view == orchestra.sprintExplorer && viewItem =~ /^task-(pending|implement)$/",
-          "group": "inline@0"
         },
         {
           "command": "orchestra.deEscalateTask",
@@ -453,6 +463,11 @@
           "command": "orchestra.implementCodeReviewFixTask",
           "when": "view == orchestra.sprintExplorer && viewItem =~ /^task-implement.*review-(changes_requested|rejected)$/",
           "group": "3_review@2"
+        },
+        {
+          "command": "orchestra.changeTaskStatus",
+          "when": "view == orchestra.sprintExplorer && viewItem =~ /^task-/",
+          "group": "9_admin"
         }
       ]
     }
@@ -467,21 +482,28 @@
     "package": "npx @vscode/vsce package --no-yarn --out artifacts/",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src --ext ts",
+    "rebuild:native": "npm rebuild better-sqlite3 --update-binary || true",
+    "pretest": "npm run rebuild:native",
+    "postinstall": "npm run rebuild:native",
     "test": "vitest run",
     "test:watch": "vitest"
   },
   "dependencies": {
     "@iconify-icon/solid": "^2.1.0",
+    "@iconify-icons/lucide": "^1.2.135",
     "@tanstack/solid-virtual": "^3.13.18",
+    "@vscode/ripgrep": "^1.17.0",
     "ansi-to-html": "^0.7.2",
     "better-sqlite3": "^12.6.2",
     "drizzle-orm": "^0.37.0",
+    "handlebars": "^4.7.8",
     "js-yaml": "^4.1.0",
     "marked": "^17.0.1",
     "solid-js": "^1.9.3",
     "zod": "^3.25.76"
   },
   "bundledDependencies": [
+    "@vscode/ripgrep",
     "better-sqlite3",
     "bindings",
     "file-uri-to-path"
@@ -492,11 +514,11 @@
     "@types/js-yaml": "^4.0.9",
     "@types/node": "^20.x",
     "@types/vscode": "^1.95.0",
-    "@vitest/coverage-v8": "^2.1.8",
+    "@vitest/coverage-v8": "^4.0.18",
     "@vscode/test-electron": "^2.4.1",
     "autoprefixer": "^10.4.20",
-    "electron-rebuild": "^3.2.9",
-    "esbuild": "^0.24.0",
+    "electron-rebuild": "^2.0.3",
+    "esbuild": "^0.27.2",
     "eslint": "^9.17.0",
     "postcss": "^8.4.49",
     "tailwindcss": "^3.4.17",
@@ -504,7 +526,7 @@
     "typescript-eslint": "^8.18.0",
     "vite": "^6.0.7",
     "vite-plugin-solid": "^2.10.2",
-    "vitest": "^2.1.8"
+    "vitest": "^4.0.18"
   },
   "bundleDependencies": [
     "bindings",

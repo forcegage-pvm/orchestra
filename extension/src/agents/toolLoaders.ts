@@ -8,6 +8,7 @@ import {
   grepSearchTool,
   listDirectoryTool,
   readFileTool,
+  readFilesTool,
   registerCodingTools,
   searchFilesTool,
 } from "./tools/coding/index.js";
@@ -47,6 +48,7 @@ export function loadControllerTools(registry: ToolRegistry): void {
   // Controller gets read-only coding tools for file inspection
   registry.registerAll([
     readFileTool,
+    readFilesTool,
     listDirectoryTool,
     searchFilesTool,
     grepSearchTool,

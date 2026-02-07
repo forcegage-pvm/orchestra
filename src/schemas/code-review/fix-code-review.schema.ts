@@ -96,6 +96,8 @@ export const FixCodeReviewOutputSchema = z.discriminatedUnion("action", [
     review_status: CodeReviewStatusSchema,
     resolved_at: z.string(),
     fix_summary: z.string(),
+    remaining_issues: z.number(),
+    next_steps: z.array(z.string()),
   }),
   z.object({
     success: z.literal(true),
@@ -106,6 +108,7 @@ export const FixCodeReviewOutputSchema = z.discriminatedUnion("action", [
     validation_output: z.string().optional(),
     fixes_id: z.number().optional(),
     warning: z.string().optional(),
+    next_steps: z.array(z.string()).optional(),
   }),
 ]);
 

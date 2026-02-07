@@ -35,7 +35,7 @@ export const sprints = sqliteTable(
     isActiveIdx: index("is_active_idx").on(sprints.is_active),
     isArchivedIdx: index("is_archived_idx").on(sprints.is_archived),
     statusIdx: index("sprint_status_idx").on(sprints.status),
-  })
+  }),
 );
 
 /**
@@ -56,9 +56,9 @@ export const phases = sqliteTable(
   (phases) => ({
     sprintPhaseIdx: index("sprint_phase_idx").on(
       phases.sprint_id,
-      phases.phase_id
+      phases.phase_id,
     ),
-  })
+  }),
 );
 
 /**
@@ -91,7 +91,7 @@ export const tasks = sqliteTable(
     sprintTaskIdx: index("sprint_task_idx").on(tasks.sprint_id, tasks.task_id),
     statusIdx: index("status_idx").on(tasks.status),
     phaseIdx: index("phase_idx").on(tasks.phase_id),
-  })
+  }),
 );
 
 /**
@@ -113,7 +113,7 @@ export const verificationChecks = sqliteTable(
   },
   (checks) => ({
     taskCheckIdx: index("task_check_idx").on(checks.task_id),
-  })
+  }),
 );
 
 /**
@@ -142,7 +142,7 @@ export const handovers = sqliteTable(
   },
   (handovers) => ({
     taskHandoverIdx: index("task_handover_idx").on(handovers.task_id),
-  })
+  }),
 );
 
 /**
@@ -169,7 +169,7 @@ export const signals = sqliteTable(
   (signals) => ({
     taskSignalIdx: index("task_signal_idx").on(signals.task_id),
     signalIdIdx: index("signal_id_idx").on(signals.signal_id),
-  })
+  }),
 );
 
 /**
@@ -196,7 +196,7 @@ export const verificationResults = sqliteTable(
   (results) => ({
     taskResultIdx: index("task_result_idx").on(results.task_id),
     signalResultIdx: index("signal_result_idx").on(results.signal_id),
-  })
+  }),
 );
 
 /**
@@ -221,7 +221,7 @@ export const feedback = sqliteTable(
   },
   (feedback) => ({
     taskFeedbackIdx: index("task_feedback_idx").on(feedback.task_id),
-  })
+  }),
 );
 
 /**
@@ -249,7 +249,7 @@ export const progress = sqliteTable(
     taskProgressIdx: index("task_progress_idx").on(progress.task_id),
     timestampIdx: index("progress_timestamp_idx").on(progress.changed_at),
     triggeredByIdx: index("triggered_by_idx").on(progress.triggered_by),
-  })
+  }),
 );
 
 /**
@@ -283,9 +283,9 @@ export const escalations = sqliteTable(
     taskEscalationIdx: index("task_escalation_idx").on(escalations.task_id),
     activeEscalationIdx: index("active_escalation_idx").on(
       escalations.task_id,
-      escalations.resolved_at
+      escalations.resolved_at,
     ),
-  })
+  }),
 );
 
 /**
@@ -335,7 +335,7 @@ export const amendments = sqliteTable(
   },
   (amendments) => ({
     taskAmendmentIdx: index("task_amendment_idx").on(amendments.task_id),
-  })
+  }),
 );
 
 /**
@@ -387,9 +387,9 @@ export const specReviews = sqliteTable(
     taskIdx: index("spec_reviews_task_idx").on(reviews.task_id),
     typeIdx: index("spec_reviews_type_idx").on(reviews.review_type),
     reviewedAtIdx: index("spec_reviews_reviewed_at_idx").on(
-      reviews.reviewed_at
+      reviews.reviewed_at,
     ),
-  })
+  }),
 );
 
 /**
@@ -413,7 +413,7 @@ export const agentSessions = sqliteTable(
     last_activity_at: text("last_activity_at").notNull(),
     ended_at: text("ended_at"),
     iteration: integer("iteration").notNull().default(0),
-    max_iterations: integer("max_iterations").notNull().default(50),
+    max_iterations: integer("max_iterations").notNull().default(80),
     tool_call_count: integer("tool_call_count").notNull().default(0),
     successful_tool_calls: integer("successful_tool_calls")
       .notNull()
@@ -428,7 +428,7 @@ export const agentSessions = sqliteTable(
   (sessions) => ({
     taskIdx: index("idx_sessions_task").on(sessions.task_id),
     roleIdx: index("idx_sessions_role").on(sessions.task_id, sessions.role),
-  })
+  }),
 );
 
 /**
@@ -458,5 +458,5 @@ export const sessionEvents = sqliteTable(
     sessionIdx: index("idx_events_session").on(events.session_id),
     toolCallIdx: index("idx_events_tool_call").on(events.tool_call_id),
     typeIdx: index("idx_events_type").on(events.session_id, events.type),
-  })
+  }),
 );

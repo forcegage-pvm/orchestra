@@ -7,8 +7,8 @@ import type * as vscode from "vscode";
 
 import { ToolErrorCode } from "../../../../src/agents/tools/errors.js";
 import type {
-    RunCommandInput,
-    ToolInvocationContext,
+  RunCommandInput,
+  ToolInvocationContext,
 } from "../../../../src/agents/tools/types.js";
 
 const buildNodeCommand = (script: string): string =>
@@ -311,6 +311,104 @@ describe("runCommand tool", () => {
 
       expect(parsed.stdout).toContain("test_value_123");
     });
+
+    it("sanitizes Electron and VS Code env vars from subprocesses", async () => {
+      // Inject fake ELECTRON_* and VSCODE_* vars into process.env before import
+      // so the tool's env sanitization can strip them
+      process.env.ELECTRON_RUN_AS_NODE = "1";
+      process.env.ELECTRON_ENABLE_LOGGING = "1";
+      process.env.ELECTRON_NO_ASAR = "1";
+      process.env.VSCODE_PID = "99999";
+      process.env.VSCODE_IPC_HOOK = "/tmp/fake";
+      process.env.VSCODE_NLS_CONFIG = "{}";
+      process.env.VSCODE_CLI = "1";
+      process.env.GDK_PIXBUF_MODULE_FILE = "/fake/path";
+
+      try {
+        const { runCommandTool } =
+          await import("../../../../src/agents/tools/system/runCommand.js");
+
+        // Print all env vars matching ELECTRON_ or VSCODE_ (non-preserved) or GDK_PIXBUF_
+        const script =
+          "var keys = Object.keys(process.env).filter(function(k) { return /^(ELECTRON_|VSCODE_(PID|IPC_HOOK|NLS_CONFIG|CLI)|GDK_PIXBUF_)/.test(k); }); console.log(JSON.stringify(keys));";
+
+        const input: RunCommandInput = {
+          command: buildNodeCommand(script),
+        };
+
+        const result = await runCommandTool.invoke(input, createContext());
+        const jsonContent = result.content.find((c) => c.type === "json");
+        const parsed = JSON.parse(jsonContent!.value);
+
+        // The subprocess should have NONE of those vars
+        const leakedVars = JSON.parse(parsed.stdout.trim());
+        expect(leakedVars).toEqual([]);
+      } finally {
+        // Clean up injected vars
+        delete process.env.ELECTRON_RUN_AS_NODE;
+        delete process.env.ELECTRON_ENABLE_LOGGING;
+        delete process.env.ELECTRON_NO_ASAR;
+        delete process.env.VSCODE_PID;
+        delete process.env.VSCODE_IPC_HOOK;
+        delete process.env.VSCODE_NLS_CONFIG;
+        delete process.env.VSCODE_CLI;
+        delete process.env.GDK_PIXBUF_MODULE_FILE;
+      }
+    });
+
+    it("preserves VSCODE_PORTABLE and VSCODE_SHELL_LOGIN", async () => {
+      process.env.VSCODE_PORTABLE = "/portable/path";
+      process.env.VSCODE_SHELL_LOGIN = "1";
+      process.env.VSCODE_PID = "99999"; // should be removed
+
+      try {
+        const { runCommandTool } =
+          await import("../../../../src/agents/tools/system/runCommand.js");
+
+        const script =
+          "var r = { portable: process.env.VSCODE_PORTABLE || 'missing', shell_login: process.env.VSCODE_SHELL_LOGIN || 'missing', pid: process.env.VSCODE_PID || 'missing' }; console.log(JSON.stringify(r));";
+
+        const input: RunCommandInput = {
+          command: buildNodeCommand(script),
+        };
+
+        const result = await runCommandTool.invoke(input, createContext());
+        const jsonContent = result.content.find((c) => c.type === "json");
+        const parsed = JSON.parse(jsonContent!.value);
+        const envResult = JSON.parse(parsed.stdout.trim());
+
+        expect(envResult.portable).toBe("/portable/path");
+        expect(envResult.shell_login).toBe("1");
+        expect(envResult.pid).toBe("missing"); // Should be sanitized
+      } finally {
+        delete process.env.VSCODE_PORTABLE;
+        delete process.env.VSCODE_SHELL_LOGIN;
+        delete process.env.VSCODE_PID;
+      }
+    });
+
+    it("removes DEBUG env var from subprocesses", async () => {
+      process.env.DEBUG = "some-extension:*";
+
+      try {
+        const { runCommandTool } =
+          await import("../../../../src/agents/tools/system/runCommand.js");
+
+        const input: RunCommandInput = {
+          command: buildNodeCommand(
+            "console.log(process.env.DEBUG || 'not-set');",
+          ),
+        };
+
+        const result = await runCommandTool.invoke(input, createContext());
+        const jsonContent = result.content.find((c) => c.type === "json");
+        const parsed = JSON.parse(jsonContent!.value);
+
+        expect(parsed.stdout.trim()).toBe("not-set");
+      } finally {
+        delete process.env.DEBUG;
+      }
+    });
   });
 
   describe("Working Directory", () => {
@@ -409,6 +507,146 @@ describe("runCommand tool", () => {
 
       expect(parsed.success).toBe(false);
       expect(parsed.error_summary).toContain("Cannot find module");
+    });
+  });
+
+  describe("expect_failure flag", () => {
+    it("treats non-zero exit as success when expect_failure is true", async () => {
+      const { runCommandTool } =
+        await import("../../../../src/agents/tools/system/runCommand.js");
+
+      const input: RunCommandInput = {
+        command: buildNodeCommand(
+          "console.log('test failed as expected'); process.exit(1);",
+        ),
+        expect_failure: true,
+      };
+
+      const result = await runCommandTool.invoke(input, createContext());
+
+      expect(result.success).toBe(true);
+
+      const jsonContent = result.content.find((c) => c.type === "json");
+      const parsed = JSON.parse(jsonContent!.value);
+
+      // Exit code is still reported accurately
+      expect(parsed.exit_code).toBe(1);
+      // But success is true because failure was expected
+      expect(parsed.success).toBe(true);
+      // Output is still captured
+      expect(parsed.stdout).toContain("test failed as expected");
+    });
+
+    it("does not cache failure when expect_failure is true", async () => {
+      const { runCommandTool } =
+        await import("../../../../src/agents/tools/system/runCommand.js");
+
+      const failingCommand = buildNodeCommand("process.exit(1);");
+
+      // First call with expect_failure
+      const result1 = await runCommandTool.invoke(
+        { command: failingCommand, expect_failure: true },
+        createContext(),
+      );
+      expect(result1.success).toBe(true);
+
+      // Second call with same command should NOT be blocked
+      const result2 = await runCommandTool.invoke(
+        { command: failingCommand, expect_failure: true },
+        createContext(),
+      );
+      expect(result2.success).toBe(true);
+      // Should have actual exit code, not the "DUPLICATE COMMAND" error
+      const json2 = result2.content.find((c) => c.type === "json");
+      expect(json2).toBeDefined();
+      const parsed2 = JSON.parse(json2!.value);
+      expect(parsed2.exit_code).toBe(1);
+    });
+
+    it("bypasses duplicate detection for expect_failure commands", async () => {
+      const { runCommandTool } =
+        await import("../../../../src/agents/tools/system/runCommand.js");
+
+      const failingCommand = buildNodeCommand("process.exit(2);");
+
+      // First call WITHOUT expect_failure — should cache the failure
+      const result1 = await runCommandTool.invoke(
+        { command: failingCommand },
+        createContext(),
+      );
+      expect(result1.success).toBe(false);
+
+      // Second call WITH expect_failure — should bypass the cache and execute
+      const result2 = await runCommandTool.invoke(
+        { command: failingCommand, expect_failure: true },
+        createContext(),
+      );
+      expect(result2.success).toBe(true);
+      const json2 = result2.content.find((c) => c.type === "json");
+      const parsed2 = JSON.parse(json2!.value);
+      expect(parsed2.exit_code).toBe(2);
+    });
+
+    it("still reports timeout as failure even with expect_failure", async () => {
+      const { runCommandTool } =
+        await import("../../../../src/agents/tools/system/runCommand.js");
+
+      const input: RunCommandInput = {
+        command: buildNodeCommand("setTimeout(() => process.exit(1), 60000);"),
+        timeout_ms: 500,
+        expect_failure: true,
+      };
+
+      const result = await runCommandTool.invoke(input, createContext());
+
+      // Timeouts are always failures regardless of expect_failure
+      expect(result.success).toBe(false);
+      const jsonContent = result.content.find((c) => c.type === "json");
+      const parsed = JSON.parse(jsonContent!.value);
+      expect(parsed.timed_out).toBe(true);
+    });
+  });
+
+  describe("resetFailedCommandCache", () => {
+    it("allows retrying a failed command after cache reset", async () => {
+      const { runCommandTool, resetFailedCommandCache } =
+        await import("../../../../src/agents/tools/system/runCommand.js");
+
+      const failingCommand = buildNodeCommand("process.exit(1);");
+
+      // First call fails and gets cached
+      const result1 = await runCommandTool.invoke(
+        { command: failingCommand },
+        createContext(),
+      );
+      expect(result1.success).toBe(false);
+
+      // Second call would be blocked
+      const result2 = await runCommandTool.invoke(
+        { command: failingCommand },
+        createContext(),
+      );
+      expect(result2.success).toBe(false);
+      expect(
+        result2.content.some((c) =>
+          c.value.includes("DUPLICATE COMMAND DETECTED"),
+        ),
+      ).toBe(true);
+
+      // Reset cache (simulates another tool like write_file running in between)
+      resetFailedCommandCache();
+
+      // Third call should actually execute again (not blocked)
+      const result3 = await runCommandTool.invoke(
+        { command: failingCommand },
+        createContext(),
+      );
+      expect(result3.success).toBe(false);
+      // Should have real exit code, not duplicate error
+      const json3 = result3.content.find((c) => c.type === "json");
+      expect(json3).toBeDefined();
+      const parsed3 = JSON.parse(json3!.value);
+      expect(parsed3.exit_code).toBe(1);
     });
   });
 });

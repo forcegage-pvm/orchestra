@@ -396,7 +396,7 @@ export class SessionStorage {
         content.role,
         content.sprintId,
         content.taskId ?? null,
-        content.maxIterations ?? 50,
+        content.maxIterations ?? 80,
       );
 
       (session as { id: string }).id = content.sessionId;
