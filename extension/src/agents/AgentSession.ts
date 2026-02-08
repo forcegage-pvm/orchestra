@@ -144,13 +144,16 @@ export class AgentSession {
           try {
             const toolCallIds = this.extractToolCallIds(message.content);
 
-            insertMessage(workspaceRoot, {
+            const messageData: Parameters<typeof insertMessage>[1] = {
               session_id: sessionId,
               role: message.role,
               content: message.content,
               iteration: message.iteration,
-              toolCallIds,
-            });
+            };
+            if (toolCallIds !== undefined) {
+              messageData.toolCallIds = toolCallIds;
+            }
+            insertMessage(workspaceRoot, messageData);
           } catch (error) {
             // Log warning but never throw - persistence failure shouldn't crash the agent
             console.warn(

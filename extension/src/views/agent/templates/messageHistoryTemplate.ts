@@ -9,7 +9,6 @@
 import { getMessageHistoryStyles } from "./messageHistoryStyles.js";
 import type {
   SessionMessage,
-  MessageContent,
   MessageContentPart,
 } from "../../../agents/sessions/sessionMessageRepository.js";
 import type { SessionMessageStats } from "../../../agents/sessions/sessionMessageRepository.js";

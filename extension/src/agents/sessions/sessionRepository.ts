@@ -408,15 +408,21 @@ export function continueSession(
 
   // Create new session
   // Naming: Child of X
-  const newSessionData = {
+  const now = new Date().toISOString();
+  const newSessionData: Omit<AgentSession, "sessionId"> = {
     taskId: parentSession.taskId,
+    taskNumber: parentSession.taskNumber,
+    taskTitle: parentSession.taskTitle,
     sprintId: parentSession.sprintId,
     role: parentSession.role,
     status: "initializing" as const,
-    startedAt: new Date().toISOString(),
-    lastActivityAt: new Date().toISOString(),
+    statusMessage: undefined,
+    startedAt: now,
+    lastActivityAt: now,
+    endedAt: undefined,
     iteration: 0,
     maxIterations: maxIterations ?? parentSession.maxIterations,
+    durationMs: undefined,
 
     // Continuation fields
     stage: stage,

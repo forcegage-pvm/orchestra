@@ -859,11 +859,11 @@ async function invokeCodeReview(
     // Use PromptBuilder for consistent prompt with WorkflowChain
     // Use re-review prompt if implementor has submitted fixes
     const prompt = isReReview
-      ? promptBuilder.buildCodeReviewReReviewPrompt(1, sprint.id, sprint.name, {
+      ? promptBuilder.buildCodeReviewReReviewPrompt(sprint.id, sprint.name, {
           taskId: task.task_id,
           title: task.title,
           dbId: task.id,
-        })
+        }, codeReview!.review_id)
       : promptBuilder.buildCodeReviewPrompt(1, sprint.id, sprint.name, {
           taskId: task.task_id,
           title: task.title,
