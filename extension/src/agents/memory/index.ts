@@ -2,6 +2,16 @@
  * Memory module exports
  */
 
-export * from "./SprintMemory.js";
+export { SprintMemory } from "./SprintMemory.js";
 export * from "./TaskSummary.js";
-export * from "./types.js";
+export {
+  ArchitectureDecisionSchema,
+  type ArchitectureDecision,
+  ImplementorPatternSchema,
+  type ImplementorPattern,
+  TaskOutcomeSchema,
+  type TaskOutcome,
+  TaskSummarySchema,
+  type TaskSummary,
+  SprintMemorySchema,
+} from "./types.js";

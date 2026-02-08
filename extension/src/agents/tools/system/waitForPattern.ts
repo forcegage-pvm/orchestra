@@ -2,6 +2,8 @@
  * waitForPattern tool - Wait for a regex pattern to appear in process output
  */
 
+import type * as vscode from "vscode";
+
 import { ToolErrorCode } from "../errors.js";
 import { ProcessManager } from "../infrastructure/ProcessManager.js";
 import type {

@@ -11,6 +11,7 @@ import type {
   EditLinesResult,
   ToolInvocationContext,
   ToolResult,
+  ToolResultContent,
 } from "../types.js";
 import {
   applyAutoFixes,
@@ -32,7 +33,7 @@ function normalizeLineEndings(text: string): string {
 
 function detectIndentation(line: string): string {
   const match = line.match(/^(\s*)/);
-  return match ? match[1] : "";
+  return match?.[1] ?? "";
 }
 
 function applyPreserveIndentation(
@@ -246,7 +247,7 @@ async function editLines(
     // Try line before the range
     if (input.start_line > 1) {
       const prevLine = lines[input.start_line - 2];
-      if (prevLine.trim().length > 0) {
+      if (prevLine != null && prevLine.trim().length > 0) {
         referenceIndent = detectIndentation(prevLine);
       }
     }
@@ -254,7 +255,7 @@ async function editLines(
     // If no indent found, try line after the range
     if (referenceIndent === "" && input.end_line < totalLines) {
       const nextLine = lines[input.end_line];
-      if (nextLine.trim().length > 0) {
+      if (nextLine != null && nextLine.trim().length > 0) {
         referenceIndent = detectIndentation(nextLine);
       }
     }
@@ -363,7 +364,7 @@ async function editLines(
   }
 
   // Build output content
-  const outputContent: { type: string; value: string }[] = [
+  const outputContent: ToolResultContent[] = [
     {
       type: "json",
       value: JSON.stringify(result, null, 2),

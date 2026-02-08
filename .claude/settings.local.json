@@ -19,7 +19,9 @@
       "Bash(gh pr edit:*)",
       "Bash(gh pr list:*)",
       "Bash(git checkout:*)",
-      "Bash(npx tsc:*)"
+      "Bash(npx tsc:*)",
+      "Bash(npx eslint:*)",
+      "Bash(node:*)"
     ]
   }
 }

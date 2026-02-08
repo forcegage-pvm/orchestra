@@ -229,7 +229,7 @@ async function readFile(
 
     return buildToolResult({
       ...rangePartial,
-      metadata: rangeMetadata,
+      metadata: rangeMetadata as ToolResult["metadata"],
     });
   }
 
@@ -248,7 +248,7 @@ async function readFile(
 
   return buildToolResult({
     ...partial,
-    metadata,
+    metadata: metadata as ToolResult["metadata"],
   });
 }
 

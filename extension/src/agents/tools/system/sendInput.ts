@@ -2,6 +2,8 @@
  * sendInput tool - Send text input to a background process
  */
 
+import type * as vscode from "vscode";
+
 import { ToolErrorCode } from "../errors.js";
 import { ProcessManager } from "../infrastructure/ProcessManager.js";
 import type {

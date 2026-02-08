@@ -125,8 +125,8 @@ export const getTestFailuresTool: AgentTool<GetTestFailuresInput> = {
           file: uri.fsPath,
           message: entry.message,
           severity: formatSeverity(entry.severity),
-          source: entry.source,
-          code,
+          ...(entry.source != null ? { source: entry.source } : {}),
+          ...(code != null ? { code } : {}),
           range: {
             startLine: entry.range.start.line + 1,
             startCharacter: entry.range.start.character + 1,

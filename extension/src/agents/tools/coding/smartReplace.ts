@@ -12,6 +12,7 @@ import type {
   SmartReplaceInput,
   ToolInvocationContext,
   ToolResult,
+  ToolResultContent,
 } from "../types.js";
 import {
   applyAutoFixes,
@@ -148,7 +149,7 @@ function findNthOccurrence(
     matches.sort((a, b) => a.start_line - b.start_line);
   }
 
-  return matches[occurrence - 1];
+  return matches[occurrence - 1] ?? null;
 }
 
 async function smartReplace(
@@ -341,7 +342,7 @@ async function smartReplace(
     linesChanged,
   });
   context.observer?.onMetadata?.(callId, "matchType", matchResult.match_type);
-  context.observer?.onMetadata?.(callId, "similarity", matchResult.similarity);
+  context.observer?.onMetadata?.(callId, "similarity", matchResult.confidence);
 
   // Auto-fix if requested (runs BEFORE validate diagnostics)
   let autoFixResult: AutoFixResult | undefined;
@@ -369,7 +370,7 @@ async function smartReplace(
   }
 
   // Build output content
-  const outputContent: { type: string; value: string }[] = [
+  const outputContent: ToolResultContent[] = [
     {
       type: "json",
       value: JSON.stringify(result, null, 2),

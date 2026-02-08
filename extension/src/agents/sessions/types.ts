@@ -69,6 +69,7 @@ export type SessionStatus =
   | "waiting_for_tool"
   | "thinking"
   | "paused"
+  | "stopped"
   | "completed"
   | "failed"
   | "cancelled";

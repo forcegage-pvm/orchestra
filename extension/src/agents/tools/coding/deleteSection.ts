@@ -11,6 +11,7 @@ import type {
   DeleteSectionResult,
   ToolInvocationContext,
   ToolResult,
+  ToolResultContent,
 } from "../types.js";
 import {
   applyAutoFixes,
@@ -282,7 +283,7 @@ async function deleteSection(
   }
 
   // Build output content
-  const outputContent: { type: string; value: string }[] = [
+  const outputContent: ToolResultContent[] = [
     {
       type: "json",
       value: JSON.stringify(result, null, 2),

@@ -58,7 +58,7 @@ function formatJson(value: unknown): string {
 }
 
 const jsonTokenPattern =
-  /("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\\"])*"(?:\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+-]?\d+)?)/g;
+  /("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(?:\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+-]?\d+)?)/g;
 
 function highlightCode(value: string): string {
   let result = "";
@@ -493,7 +493,7 @@ function getScript(initialItemsJson: string): string {
         .replace(/&/g, "&amp;")
         .replace(/</g, "&lt;")
         .replace(/>/g, "&gt;")
-        .replace(/\"/g, "&quot;")
+        .replace(/"/g, "&quot;")
         .replace(/'/g, "&#039;");
     }
 
@@ -557,13 +557,13 @@ function getScript(initialItemsJson: string): string {
           parts.push('<div class="md-spacer"></div>');
           continue;
         }
-        var headerMatch = trimmed.match(/^(#{1,3})\s+(.+)$/);
+        var headerMatch = trimmed.match(/^(#{1,3})\\s+(.+)$/);
         if (headerMatch) {
           if (inList) { parts.push("</ul>"); inList = false; }
           parts.push('<div class="md-h' + headerMatch[1].length + '">' + formatInline(headerMatch[2]) + '</div>');
           continue;
         }
-        var bulletMatch = trimmed.match(/^[-*]\s+(.+)$/);
+        var bulletMatch = trimmed.match(/^[-*]\\s+(.+)$/);
         if (bulletMatch) {
           if (!inList) { parts.push('<ul class="md-list">'); inList = true; }
           parts.push('<li>' + formatInline(bulletMatch[1]) + '</li>');
@@ -888,7 +888,7 @@ function getScript(initialItemsJson: string): string {
       if (!status) {
         return "idle";
       }
-      return String(status).trim().toLowerCase().replace(/\s+/g, "-");
+      return String(status).trim().toLowerCase().replace(/\\s+/g, "-");
     }
 
     function updateStatus(status) {

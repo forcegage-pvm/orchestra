@@ -23,12 +23,12 @@ interface StartProcessOptions {
   token?: vscode.CancellationToken;
 }
 
-interface StopProcessOptions {
+export interface StopProcessOptions {
   gracefulTimeoutMs?: number;
   token?: vscode.CancellationToken;
 }
 
-interface GetProcessOutputOptions {
+export interface GetProcessOutputOptions {
   sinceLastRead?: boolean;
   maxLines?: number;
   includeAnsi?: boolean;
@@ -117,7 +117,10 @@ export class ProcessManager extends EventEmitter {
   public on(event: "ready", listener: ProcessEvents["ready"]): this;
   public on(event: "exit", listener: ProcessEvents["exit"]): this;
   public on(event: "error", listener: ProcessEvents["error"]): this;
-  public on(event: string, listener: (...args: unknown[]) => void): this {
+  public on(
+    event: keyof ProcessEvents,
+    listener: ProcessEvents[keyof ProcessEvents],
+  ): this {
     return super.on(event, listener);
   }
 
@@ -131,7 +134,10 @@ export class ProcessManager extends EventEmitter {
   public off(event: "ready", listener: ProcessEvents["ready"]): this;
   public off(event: "exit", listener: ProcessEvents["exit"]): this;
   public off(event: "error", listener: ProcessEvents["error"]): this;
-  public off(event: string, listener: (...args: unknown[]) => void): this {
+  public off(
+    event: keyof ProcessEvents,
+    listener: ProcessEvents[keyof ProcessEvents],
+  ): this {
     return super.off(event, listener);
   }
 
@@ -530,7 +536,7 @@ export class ProcessManager extends EventEmitter {
     },
   ): Promise<{
     matched: boolean;
-    matchedLine?: string;
+    matchedLine?: string | undefined;
     waitTimeMs: number;
     timedOut: boolean;
   }> {
@@ -563,7 +569,7 @@ export class ProcessManager extends EventEmitter {
 
       const finish = (result: {
         matched: boolean;
-        matchedLine?: string;
+        matchedLine?: string | undefined;
         waitTimeMs: number;
         timedOut: boolean;
       }) => {

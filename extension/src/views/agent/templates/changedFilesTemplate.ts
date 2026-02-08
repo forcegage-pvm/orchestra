@@ -91,7 +91,7 @@ function getScript(initialItemsJson: string): string {
         .replace(/&/g, "&amp;")
         .replace(/</g, "&lt;")
         .replace(/>/g, "&gt;")
-        .replace(/\"/g, "&quot;")
+        .replace(/"/g, "&quot;")
         .replace(/'/g, "&#039;");
     }
 
@@ -110,37 +110,37 @@ function getScript(initialItemsJson: string): string {
 
     function renderRow(item) {
       const statusPill = item.undone
-        ? "<span class=\"status-pill\">Undone</span>"
+        ? "<span class=\\"status-pill\\">Undone</span>"
         : "";
       const undoDisabled = item.undone ? "disabled" : "";
       const rowClass = item.undone ? "file-row undone" : "file-row";
       return (
-        "<div class=\"" + rowClass + "\" data-id=\"" +
+        "<div class=\\"" + rowClass + "\\" data-id=\\"" +
         escapeHtml(item.id) +
-        "\">" +
-        "<div class=\"file-info\">" +
-        "<div class=\"file-meta\">" +
-        "<span class=\"operation-badge operation-" +
+        "\\">" +
+        "<div class=\\"file-info\\">" +
+        "<div class=\\"file-meta\\">" +
+        "<span class=\\"operation-badge operation-" +
         escapeHtml(item.operation) +
-        "\">" +
+        "\\">" +
         escapeHtml(operationLabel(item.operation)) +
         "</span>" +
         statusPill +
         "</div>" +
-        "<div class=\"file-path\">" +
+        "<div class=\\"file-path\\">" +
         escapeHtml(item.relativePath) +
         "</div>" +
-        "<div class=\"file-meta\">" +
+        "<div class=\\"file-meta\\">" +
         escapeHtml(item.timestamp) +
         "</div>" +
         "</div>" +
-        "<div class=\"file-actions\">" +
-        "<button class=\"action-button diff\" type=\"button\" data-action=\"diff\" data-id=\"" +
+        "<div class=\\"file-actions\\">" +
+        "<button class=\\"action-button diff\\" type=\\"button\\" data-action=\\"diff\\" data-id=\\"" +
         escapeHtml(item.id) +
-        "\">Diff</button>" +
-        "<button class=\"action-button undo\" type=\"button\" data-action=\"undo\" data-id=\"" +
+        "\\">Diff</button>" +
+        "<button class=\\"action-button undo\\" type=\\"button\\" data-action=\\"undo\\" data-id=\\"" +
         escapeHtml(item.id) +
-        "\" " +
+        "\\" " +
         undoDisabled +
         ">Undo</button>" +
         "</div>" +
@@ -155,7 +155,7 @@ function getScript(initialItemsJson: string): string {
       }
 
       if (!state.items.length) {
-        list.innerHTML = "<div class=\"empty-state\">No file changes yet.</div>";
+        list.innerHTML = "<div class=\\"empty-state\\">No file changes yet.</div>";
         return;
       }
 

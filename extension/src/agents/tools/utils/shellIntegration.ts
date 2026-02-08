@@ -153,11 +153,12 @@ async function readExecutionOutput(
       throw new ShellExecutionError("CANCELLED", "Command cancelled");
     }
 
+    // Handle both string and object chunks (API compatibility)
     const text =
       typeof chunk === "string"
         ? chunk
-        : typeof chunk?.data === "string"
-          ? chunk.data
+        : typeof (chunk as { data?: string }).data === "string"
+          ? (chunk as { data: string }).data
           : "";
 
     if (text) {

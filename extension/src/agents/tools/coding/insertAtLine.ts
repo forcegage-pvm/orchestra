@@ -11,6 +11,7 @@ import type {
   InsertAtLineResult,
   ToolInvocationContext,
   ToolResult,
+  ToolResultContent,
 } from "../types.js";
 import {
   applyAutoFixes,
@@ -27,7 +28,7 @@ function normalizeLineEndings(text: string): string {
 
 function detectIndentation(line: string): string {
   const match = line.match(/^(\s*)/);
-  return match ? match[1] : "";
+  return match?.[1] ?? "";
 }
 
 function applyAutoIndent(content: string, referenceIndent: string): string {
@@ -176,7 +177,7 @@ async function insertAtLine(
   const autoIndent = input.auto_indent ?? true;
 
   if (autoIndent && input.line <= totalLines) {
-    const targetLine = lines[input.line - 1];
+    const targetLine = lines[input.line - 1] ?? "";
     const referenceIndent = detectIndentation(targetLine);
     contentToInsert = applyAutoIndent(input.content, referenceIndent);
   }
@@ -266,7 +267,7 @@ async function insertAtLine(
   }
 
   // Build output content
-  const outputContent: { type: string; value: string }[] = [
+  const outputContent: ToolResultContent[] = [
     {
       type: "json",
       value: JSON.stringify(result, null, 2),

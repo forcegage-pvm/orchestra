@@ -184,7 +184,7 @@ export interface AgentStartOptions {
    * Provides project-specific coding conventions and architecture standards
    * to all agents. Not visible in UI output.
    */
-  codingStandardsPrompt?: string;
+  codingStandardsPrompt?: string | undefined;
   /** Session stage for workflow tracking */
   stage?: SessionStage;
   /** Parent session ID for session continuation/lineage */

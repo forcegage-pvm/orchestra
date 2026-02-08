@@ -8,7 +8,7 @@ import type { ToolError, ToolResult, ToolResultContent } from "../types.js";
 export interface LegacyToolResult {
   success: boolean;
   output: string;
-  error?: string;
+  error?: string | undefined;
 }
 
 export function successResult(

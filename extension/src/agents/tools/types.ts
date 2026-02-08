@@ -23,6 +23,11 @@ export const ToolInputSchemaSchema = z.object({
       description: z.string().optional(),
       default: z.unknown().optional(),
       enum: z.array(z.string()).optional(),
+      items: z
+        .object({
+          type: z.string(),
+        })
+        .optional(),
     }),
   ),
   required: z.array(z.string()).optional(),
@@ -44,7 +49,6 @@ export type ToolInputSchema = z.output<typeof ToolInputSchemaSchema>;
  * Enumeration of tool error codes
  */
 export const ToolErrorCodeSchema = z.nativeEnum(ToolErrorCode);
-export type ToolErrorCode = z.output<typeof ToolErrorCodeSchema>;
 
 /**
  * Schema for structured tool errors

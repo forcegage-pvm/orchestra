@@ -124,7 +124,7 @@ function buildRegex(
  * Generate preview of changes for a file
  */
 function generatePreview(
-  originalContent: string,
+  _originalContent: string,
   modifiedContent: string,
   maxLength: number = MAX_PREVIEW_LENGTH,
 ): string {

@@ -16,6 +16,7 @@ import type {
   ToolInputSchema,
   ToolInvocationContext,
   ToolResult,
+  ToolResultContent,
 } from "../types.js";
 import {
   applyAutoFixes,
@@ -25,6 +26,7 @@ import {
   formatDiagnosticsSummary,
   getDiagnosticsForFile,
   type DiagnosticsResult,
+  type SimpleDiagnostic,
 } from "../utils/diagnostics.js";
 import { validatePath } from "../utils/pathValidation.js";
 
@@ -460,12 +462,7 @@ async function smartReplaces(
     const editedFiles = Array.from(byFile.keys());
     let totalErrors = 0;
     let totalWarnings = 0;
-    const allDiagnostics: Array<{
-      file: string;
-      severity: string;
-      line: number;
-      message: string;
-    }> = [];
+    const allDiagnostics: SimpleDiagnostic[] = [];
 
     for (const filePath of editedFiles) {
       const validatedPath = await validatePath(filePath, context.workspaceRoot);
@@ -479,6 +476,7 @@ async function smartReplaces(
     }
 
     diagnosticsResult = {
+      totalCount: totalErrors + totalWarnings,
       hasErrors: totalErrors > 0,
       errorCount: totalErrors,
       warningCount: totalWarnings,
@@ -508,7 +506,7 @@ async function smartReplaces(
   }
 
   // Build output content
-  const outputContent: { type: string; value: string }[] = [
+  const outputContent: ToolResultContent[] = [
     {
       type: "json",
       value: JSON.stringify(output, null, 2),

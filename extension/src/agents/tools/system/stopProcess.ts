@@ -3,7 +3,10 @@
  */
 
 import { ToolErrorCode } from "../errors.js";
-import { ProcessManager } from "../infrastructure/ProcessManager.js";
+import {
+  ProcessManager,
+  type StopProcessOptions,
+} from "../infrastructure/ProcessManager.js";
 import type {
   AgentTool,
   StopProcessInput,

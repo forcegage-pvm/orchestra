@@ -122,13 +122,13 @@ function parseTestRunnerDiagnostics(output: string): TestRunnerDiagnostics {
 
   // Extract filter pattern (what the user tried to run)
   const filterMatch = output.match(/filter:\s*(.+?)(?:\n|$)/i);
-  if (filterMatch) {
+  if (filterMatch?.[1]) {
     diagnostics.filter = filterMatch[1].trim();
   }
 
   // Extract include patterns (what vitest is configured to look for)
   const includeMatch = output.match(/include:\s*(.+?)(?:\n|$)/i);
-  if (includeMatch) {
+  if (includeMatch?.[1]) {
     diagnostics.includePatterns = includeMatch[1]
       .split(",")
       .map((p) => p.trim());
@@ -136,7 +136,7 @@ function parseTestRunnerDiagnostics(output: string): TestRunnerDiagnostics {
 
   // Extract exclude patterns
   const excludeMatch = output.match(/exclude:\s*(.+?)(?:\n|$)/i);
-  if (excludeMatch) {
+  if (excludeMatch?.[1]) {
     diagnostics.excludePatterns = excludeMatch[1]
       .split(",")
       .map((p) => p.trim());
@@ -163,7 +163,7 @@ function buildTestConfigSuggestion(
   const suggestions: string[] = [];
 
   // Analyze mismatch
-  const filterDir = filter.split("/")[0];
+  const filterDir = filter.split("/")[0] ?? "";
   const patternsMatchFilter = includePatterns.some(
     (p) => filter.startsWith(p.replace("**/*", "")) || p.includes(filterDir),
   );
@@ -269,7 +269,7 @@ function extractErrorSummary(
  */
 function normalizeWindowsDriveLetter(p: string): string {
   if (process.platform === "win32" && p.length >= 2 && p[1] === ":") {
-    return p[0].toUpperCase() + p.slice(1);
+    return (p[0] ?? "").toUpperCase() + p.slice(1);
   }
   return p;
 }
@@ -280,7 +280,7 @@ function normalizeWindowsDriveLetter(p: string): string {
  */
 function getWorkspaceRoot(): string {
   const folders = vscode.workspace.workspaceFolders;
-  if (folders && folders.length > 0) {
+  if (folders && folders.length > 0 && folders[0]) {
     return normalizeWindowsDriveLetter(folders[0].uri.fsPath);
   }
   return normalizeWindowsDriveLetter(process.cwd());
@@ -325,7 +325,7 @@ function truncateOutput(lines: string[]): {
 
 // NOTE: Shell integration is kept but unused - subprocess is more reliable for output capture.
 // Shell integration often returns partial output without error indication.
-async function _executeWithShellIntegration(
+export async function _executeWithShellIntegration(
   command: string,
   options: {
     cwd?: string;
@@ -752,7 +752,9 @@ export const runCommandTool: AgentTool<RunCommandInput> = {
     // Create observer adapter for subprocess
     const subprocessObserver = context.observer
       ? {
-          onOutput: context.observer.onOutput?.bind(context.observer),
+          ...(context.observer.onOutput
+            ? { onOutput: context.observer.onOutput.bind(context.observer) }
+            : {}),
           callId,
         }
       : undefined;
