@@ -546,6 +546,10 @@ export class AgentPanelProvider implements vscode.WebviewViewProvider {
         void this._handleResumeAgent();
         break;
 
+      case "retry_agent":
+        void this._handleRetryAgent();
+        break;
+
       case "continue_session":
         void this._handleContinueSession(message.sessionId);
         break;
@@ -756,6 +760,57 @@ export class AgentPanelProvider implements vscode.WebviewViewProvider {
       logger.error("Failed to resume agent", error);
       void vscode.window.showErrorMessage(
         `Failed to resume agent: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  }
+
+  /**
+   * Retry a failed/completed/cancelled agent session.
+   *
+   * Re-enters the agent loop using the existing conversation history,
+   * injecting a user message if the conversation ends with an assistant turn
+   * (required by the LLM API).
+   */
+  private async _handleRetryAgent(): Promise<void> {
+    try {
+      logger.info("Retry agent requested");
+      const runner = getAgentRunner();
+      const session = runner.getSession();
+
+      if (!session) {
+        void vscode.window.showWarningMessage("No agent session to retry");
+        return;
+      }
+
+      const retryableStatuses = new Set([
+        "failed",
+        "completed",
+        "stopped",
+        "cancelled",
+      ]);
+      if (!retryableStatuses.has(session.status)) {
+        void vscode.window.showWarningMessage(
+          `Cannot retry agent in '${session.status}' state. Only failed, completed, or cancelled sessions can be retried.`,
+        );
+        return;
+      }
+
+      await runner.retry();
+
+      // Update webview with running status
+      const retriedSession = sessionClassToInterface(
+        this._workspaceRoot,
+        session,
+      );
+      retriedSession.status = "running";
+      this.postMessage({
+        type: "session_update",
+        session: retriedSession,
+      });
+    } catch (error) {
+      logger.error("Failed to retry agent", error);
+      void vscode.window.showErrorMessage(
+        `Failed to retry agent: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
   }

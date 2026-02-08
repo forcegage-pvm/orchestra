@@ -14,6 +14,14 @@
 /**
  * Agent execution session model
  */
+export type SessionStage =
+  | "PREPARE"
+  | "IMPLEMENT"
+  | "VERIFY"
+  | "IMPLEMENT_FIX"
+  | "CODE_REVIEW"
+  | "GENERAL";
+
 export interface AgentSession {
   // Identity
   sessionId: string;
@@ -36,6 +44,14 @@ export interface AgentSession {
   iteration: number;
   maxIterations: number;
 
+  // Continuation / stage metadata
+  stage?: SessionStage;
+  parentSessionId?: string;
+  attempt?: number;
+  isContinued?: boolean;
+  continuedAt?: string | undefined;
+  continuationCount?: number;
+
   // Aggregates
   toolCallCount: number;
   successfulToolCalls: number;
@@ -44,7 +60,6 @@ export interface AgentSession {
   filesModified: string[];
   durationMs: number | undefined; // Total duration in milliseconds (set when complete)
 }
-
 /**
  * Session execution status
  */

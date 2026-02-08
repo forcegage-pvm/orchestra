@@ -10,6 +10,7 @@
 import * as fs from "fs";
 import * as path from "path";
 import { SessionError } from "./errors.js";
+import { insertMessage } from "./sessions/sessionMessageRepository.js";
 import {
   AgentMessage,
   AgentRole,
@@ -67,6 +68,9 @@ export class AgentSession {
   // Recovery
   public recoveryInfo: RecoveryInfo;
 
+  // Persistence
+  private persistence?: { workspaceRoot: string; sessionId: string };
+
   /**
    * Create a new AgentSession
    *
@@ -112,6 +116,16 @@ export class AgentSession {
   }
 
   /**
+   * Enable persistence for this session
+   *
+   * @param workspaceRoot - Workspace root for database access
+   * @param sessionId - Database session ID
+   */
+  enablePersistence(workspaceRoot: string, sessionId: string): void {
+    this.persistence = { workspaceRoot, sessionId };
+  }
+
+  /**
    * Add a message to the conversation history
    *
    * @param message - The message to add
@@ -119,6 +133,82 @@ export class AgentSession {
   addMessage(message: AgentMessage): void {
     this.messages.push(message);
     this.updateActivityTimestamp();
+
+    // Fire-and-forget persistence if enabled
+    if (this.persistence) {
+      const { workspaceRoot, sessionId } = this.persistence;
+
+      // Wrap in Promise for non-blocking execution (fire-and-forget)
+      Promise.resolve()
+        .then(() => {
+          try {
+            const toolCallIds = this.extractToolCallIds(message.content);
+
+            const messageData: Parameters<typeof insertMessage>[1] = {
+              session_id: sessionId,
+              role: message.role,
+              content: message.content,
+              iteration: message.iteration,
+            };
+            if (toolCallIds !== undefined) {
+              messageData.toolCallIds = toolCallIds;
+            }
+            insertMessage(workspaceRoot, messageData);
+          } catch (error) {
+            // Log warning but never throw - persistence failure shouldn't crash the agent
+            console.warn(
+              `[AgentSession] Failed to persist message: ${
+                error instanceof Error ? error.message : String(error)
+              }`,
+            );
+          }
+        })
+        .catch((error) => {
+          // Catch any async errors
+          console.warn(
+            `[AgentSession] Failed to persist message (async): ${
+              error instanceof Error ? error.message : String(error)
+            }`,
+          );
+        });
+    }
+  }
+
+  /**
+   * Replace the entire message history.
+   *
+   * Used by AgentRunner's message repair logic to remove malformed
+   * tool calls that cause LLM API errors (e.g. Gemini invalid_tool_call_format).
+   *
+   * @param messages - The repaired message array
+   */
+  replaceMessages(messages: AgentMessage[]): void {
+    this.messages = messages;
+    this.updateActivityTimestamp();
+  }
+
+  /**
+   * Extract tool call IDs from message content
+   */
+  private extractToolCallIds(content: unknown): string[] | undefined {
+    if (!Array.isArray(content)) {
+      return undefined;
+    }
+
+    const ids: string[] = [];
+    for (const part of content) {
+      if (
+        typeof part === "object" &&
+        part !== null &&
+        "type" in part &&
+        part.type === "toolCall" &&
+        "toolCallId" in part
+      ) {
+        ids.push(part.toolCallId as string);
+      }
+    }
+
+    return ids.length > 0 ? ids : undefined;
   }
 
   /**
@@ -244,6 +334,36 @@ export class AgentSession {
     }
 
     this.status = "running";
+    this.updateActivityTimestamp();
+  }
+
+  /**
+   * Retry from a terminal state (failed, completed, cancelled).
+   *
+   * Transitions the session back to "running" so that the agent loop
+   * can be re-entered with the existing conversation history.
+   */
+  retry(): void {
+    const retryableStatuses = new Set<AgentStatus>([
+      "failed",
+      "completed",
+      "stopped",
+    ]);
+    if (!retryableStatuses.has(this.status)) {
+      throw new SessionError(
+        `Cannot retry session with status: ${this.status}`,
+        this.id,
+        { currentStatus: this.status },
+      );
+    }
+
+    this.status = "running";
+    this.recoveryInfo = {
+      canResume: true,
+      resumeFromIteration: this.iteration,
+      resumeFromToolCall: null,
+      failureReason: null,
+    };
     this.updateActivityTimestamp();
   }
 

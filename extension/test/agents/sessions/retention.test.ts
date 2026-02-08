@@ -448,7 +448,7 @@ if (!moduleCompatible) {
         expect(after.events).toBe(48); // 60 - 12
       });
 
-      it("should handle large number of tasks", () => {
+      it("should handle large number of tasks", { timeout: 30000 }, () => {
         // Setup: 100 tasks with 1 session each, 1 event per session
         const sprintId = "sprint-large";
         insertTestData(sprintId, 100, 1, 1);

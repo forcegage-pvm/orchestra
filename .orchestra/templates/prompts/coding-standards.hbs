@@ -1,32 +1,333 @@
 # Project Coding Standards
 
-These are the coding standards for this project. All agents must adhere to these standards during implementation, review, and verification.
+These are the coding standards for the Orchestra project. All agents **must** adhere to these standards during implementation, review, and verification. The Controller agent uses these standards as the primary guide during code review.
 
-## Architecture
+{{!-- This template is injected into ALL agent sessions as a system prompt. --}}
 
-- Keep reusable, stateless logic in `src/core/` — extension and MCP entrypoints should stay thin
-- MCP tool handlers live in `src/mcp-server/handlers/` and are registered in `src/mcp-server/tools.ts`
-- Shared types come from Zod schemas; derive types with `z.output<typeof Schema>` (not `z.infer`)
-- SQLite is the persistence layer; all DB access goes through `src/db/`
+---
 
-## Coding Conventions
+## 1. Architecture
 
-- All imports must use `.js` extensions (ESM convention, even for `.ts` source files)
-- Use `camelCase` for variables and functions, `PascalCase` for types and classes
-- Prefix intentionally unused variables with `_` (enforced by ESLint)
-- Prefer `unknown` over `any` — but don't stress over it in test files
-- Keep functions short and focused; extract helpers when a function exceeds ~50 lines
-- **VERY SPECIFIC RULE (Canary 🐤):** Every new file must include the comment `// orchestra-managed` as the very first line. This exists solely to test that coding standards injection is working. If you see this rule being followed in generated code, the template system is active.
+### 1.1 Core-First Design
 
-## Testing Standards
+- **Reusable logic belongs in `src/core/`** — stateless, testable functions with no UI or transport dependencies.
+- MCP tool handlers (`src/mcp-server/handlers/`) and extension commands (`extension/src/commands/`) are thin wrappers that delegate to core modules.
+- Extension UI code (`extension/src/views/`, `extension/src/webviews/`) must not contain business logic.
 
-- Use Vitest — tests mirror source structure: `src/core/foo.ts` → `test/core/foo.test.ts`
-- Use the shared DB cache pattern (`setupTestDb` / `cleanupTestDb`) for any test touching the database
-- Tests should validate behaviour, not just assert that functions exist
-- Coverage is appreciated but not strictly enforced — focus on meaningful assertions
+### 1.2 Service Pattern
 
-## Error Handling
+- Each domain concept follows: `src/core/<service>.ts` (logic) + `src/mcp-server/handlers/<handler>.ts` (MCP surface).
+- One responsibility per file. If a file grows beyond ~300 lines, consider splitting.
 
-- Use the `OrchestraError` class hierarchy with error codes and context where applicable
-- Don't swallow errors silently — at minimum log them
-- All async paths should have proper error handling (try/catch or `.catch()`)
+### 1.3 Role Separation (Structural)
+
+- MCP tools are filtered by `--role=orchestrator|implementor|controller`. This is a security boundary, not a suggestion.
+- Implementor code must never import or reference verification criteria, hidden checks, or sprint-wide task lists.
+- Tool role assignments are defined in `src/mcp-server/tools.ts` — every new tool must specify its role.
+
+### 1.4 Database Layer
+
+- SQLite via `better-sqlite3`, schema and queries via Drizzle ORM.
+- Access the database through the `getDb()` singleton — never call `initializeDb()` directly in application code.
+- Migrations live in `src/db/migrations.ts` and run automatically on MCP server startup.
+- All schema changes require a new migration; never modify existing migrations.
+
+---
+
+## 2. TypeScript
+
+### 2.1 Strict Mode (Non-Negotiable)
+
+The project uses TypeScript strict mode with **all** additional strict flags enabled:
+
+- `strict: true`
+- `exactOptionalPropertyTypes: true` — you **cannot** assign `undefined` to optional properties.
+- `noUncheckedIndexedAccess: true` — indexed access returns `T | undefined`.
+- `noImplicitReturns: true`
+- `noFallthroughCasesInSwitch: true`
+- `noUnusedLocals: true`
+- `noUnusedParameters: true`
+
+Key implication of `exactOptionalPropertyTypes`:
+
+```typescript
+// WRONG — TypeScript error with exactOptionalPropertyTypes
+const opts: PrepareOptions = { task: undefined };
+
+// CORRECT — conditionally add properties
+const opts: PrepareOptions = {};
+if (task !== undefined) opts.task = task;
+
+// ALSO CORRECT — use spread
+const opts: PrepareOptions = {
+  ...(task !== undefined && { task }),
+};
+```
+
+### 2.2 No `any` (ESLint-Enforced)
+
+- `@typescript-eslint/no-explicit-any` is set to `error`.
+- Use `unknown` for untyped values, then narrow with type guards or Zod parsing.
+- If you truly need an escape hatch, document why with a comment and use `// eslint-disable-next-line` — never globally disable.
+
+### 2.3 Module System
+
+- **ESM only** — `"type": "module"` in `package.json`, `"module": "ESNext"` in tsconfig.
+- All imports **must** use `.js` extensions, even when importing `.ts` files:
+
+```typescript
+import { loadConfig } from "./config.js";      // Correct
+import { loadConfig } from "./config";          // WRONG — will fail at runtime
+import { loadConfig } from "./config.ts";       // WRONG — not valid ESM
+```
+
+### 2.4 Unused Variables
+
+- Prefix unused variables and parameters with `_` (e.g., `_unused`, `_ctx`).
+- Enforced by ESLint: `argsIgnorePattern: "^_"`, `varsIgnorePattern: "^_"`.
+
+### 2.5 Target & Runtime
+
+- TypeScript target: `ES2022`. Node.js runtime: `>=18.0.0`.
+- Use modern JS features (optional chaining, nullish coalescing, `Array.at()`, `Object.hasOwn()`, etc.).
+- Do not use Node.js APIs deprecated before v18.
+
+---
+
+## 3. Naming Conventions
+
+| Element | Convention | Example |
+|---------|-----------|---------|
+| Types / Interfaces | `PascalCase` | `Task`, `PrepareOptions`, `WorkflowStep` |
+| Zod schemas | `PascalCase` + `Schema` suffix | `TaskSchema`, `SprintStatusSchema` |
+| Constants | `UPPER_SNAKE_CASE` | `TOOLS_WITH_ROLES`, `MAX_RETRIES` |
+| Functions / variables | `camelCase` | `loadManifest`, `registerTools` |
+| File names | `kebab-case.ts` | `workflow-state.ts`, `code-review-gates.ts` |
+| Test files | Mirror source with `.test.ts` | `test/core/yaml.test.ts` |
+| Database tables | `snake_case` | `verification_checks`, `spec_reviews` |
+
+- **No TypeScript `enum`** — use `z.enum()` via Zod for runtime-validated enumerations.
+- Boolean variables/properties should read as assertions: `isValid`, `hasCompleted`, `shouldRetry`.
+
+---
+
+## 4. Zod & Type Inference
+
+Zod is the single source of truth for runtime validation. Follow these rules:
+
+- Define schemas with `z.object()`, `z.enum()`, `z.array()`, etc.
+- For schemas **without defaults**: use `z.infer<typeof Schema>` to derive the type.
+- For schemas **with defaults or transforms**: use `z.output<typeof Schema>` to get the type after defaults are applied (required by `exactOptionalPropertyTypes`).
+
+```typescript
+// Simple enum — z.infer is fine
+const TaskStatusSchema = z.enum(["PENDING", "IN_PROGRESS", "COMPLETE"]);
+type TaskStatus = z.infer<typeof TaskStatusSchema>;
+
+// Schema with defaults — MUST use z.output
+const TaskSchema = z.object({
+  id: z.number(),
+  title: z.string(),
+  retries: z.number().default(0),
+});
+type Task = z.output<typeof TaskSchema>;  // retries is `number`, not `number | undefined`
+```
+
+- Never use raw TypeScript interfaces for data that crosses trust/process boundaries — always validate with Zod.
+- Keep schemas co-located with their types in `src/core/types.ts` or `src/schemas/`.
+
+---
+
+## 5. Error Handling
+
+### 5.1 Error Hierarchy
+
+Use the `OrchestraError` class hierarchy defined in `src/core/errors.ts`:
+
+| Error Class | Code | When to Use |
+|-------------|------|-------------|
+| `OrchestraError` | (base) | Base class — don't throw directly unless no subclass fits |
+| `ConfigurationError` | `CONFIG_ERROR` | Invalid/missing configuration |
+| `ManifestError` | `MANIFEST_ERROR` | Manifest file operations |
+| `TaskError` | `TASK_ERROR` | Task lifecycle operations |
+| `FileError` | `FILE_ERROR` | File system operations |
+| `ValidationError` | `VALIDATION_ERROR` | Schema/data validation failures |
+| `GitError` | `GIT_ERROR` | Git operations |
+| `HandoverError` | `HANDOVER_ERROR` | Handover operations |
+
+### 5.2 Error Rules
+
+- Always include **structured context** (the 2nd/3rd constructor argument):
+
+```typescript
+throw new FileError("Template not found", { path: templatePath, templateName });
+throw new ValidationError("Invalid manifest", errors, { path: manifestPath });
+```
+
+- Use type guards (`isOrchestraError()`, `isValidationError()`) for narrowing in catch blocks.
+- Use `wrapError(error, code)` to convert unknown errors into `OrchestraError`.
+- **Never swallow errors silently** — at minimum, log and re-throw or return a failure result.
+- All errors have `toJSON()` for consistent serialization in CLI and MCP responses.
+
+### 5.3 Result Pattern
+
+Some modules use the `ScriptResult<T>` pattern for operations that can fail without throwing:
+
+```typescript
+interface ScriptResult<T> {
+  success: boolean;
+  data?: T;
+  error?: string;
+}
+```
+
+Prefer this pattern for operations where failure is an expected outcome (e.g., validation), not an exceptional condition.
+
+---
+
+## 6. Testing Standards
+
+### 6.1 Framework & Configuration
+
+- **Vitest** with global test APIs (`describe`, `it`, `expect`, `beforeEach`, `afterEach`).
+- Pool: threads (half available CPU cores). Timeouts: test 30s, hooks 10s.
+- `test/` for unit tests, `testing/` for integration tests.
+
+### 6.2 Structure
+
+- Test files **must** mirror source structure: `src/core/yaml.ts` → `test/core/yaml.test.ts`.
+- Each test file tests one module. Don't combine unrelated tests.
+
+### 6.3 Database Tests (Critical)
+
+Use the **shared database cache pattern** — migrations run once per test session:
+
+```typescript
+import { setupTestDb, cleanupTestDb } from "../setup/db-cache.js";
+
+let tempDir: string;
+
+beforeEach(async () => {
+  tempDir = await setupTestDb("my-test-");
+});
+
+afterEach(async () => {
+  await cleanupTestDb(tempDir);
+});
+
+it("should work with database", () => {
+  const db = getDb();
+  // ... test code
+});
+```
+
+**Never** use `initializeDb()`, `resetDb()`, or `runMigrationsV2()` directly in tests.
+
+### 6.4 Test Quality
+
+- Tests must validate **behavior**, not just existence or structure.
+- Test the happy path, error cases, and meaningful edge cases.
+- Mock external dependencies (console, file system, git) — don't mock the module under test.
+- Use factory functions for creating test fixtures (mock manifests, tasks, etc.).
+- Avoid snapshot tests unless testing serialized output formats.
+
+---
+
+## 7. File Organization & Imports
+
+### 7.1 Directory Ownership
+
+| Directory | Purpose |
+|-----------|---------|
+| `src/core/` | Stateless business logic (no IO dependencies) |
+| `src/mcp-server/handlers/` | MCP tool handlers (thin wrappers) |
+| `src/mcp-server/` | Server entrypoint, tool registration, role filtering |
+| `src/db/` | Database schema, migrations, queries (Drizzle ORM) |
+| `src/schemas/` | Shared Zod validation schemas |
+| `extension/src/` | VS Code extension code (commands, views, webviews) |
+| `test/` | Unit tests (mirrors `src/` structure) |
+| `testing/` | Integration tests |
+| `templates/` | Handlebars templates (`.hbs`) |
+
+### 7.2 Import Order
+
+Organize imports in this order, separated by blank lines:
+
+1. Node.js built-in modules (`node:fs`, `node:path`)
+2. External packages (`zod`, `drizzle-orm`, `@modelcontextprotocol/sdk`)
+3. Internal absolute imports (`../schemas/config.js`)
+4. Internal relative imports (`./errors.js`)
+
+### 7.3 Configuration & Data Files
+
+- **Config/data**: YAML with Zod schema validation (`readYaml(path, Schema)`).
+- **Templates**: Handlebars (`.hbs`) in `.orchestra/common/templates/` or `templates/`.
+- **Output formats**: Both YAML and Markdown supported via `TemplateFormat`.
+
+---
+
+## 8. Commit Messages
+
+Format: `type(scope): description`
+
+| Type | Usage |
+|------|-------|
+| `feat` | New feature or capability |
+| `fix` | Bug fix |
+| `refactor` | Code restructuring without behavior change |
+| `test` | Adding or updating tests |
+| `chore` | Build, dependency, or tooling changes |
+| `docs` | Documentation only |
+
+Examples:
+- `feat(orchestra): implement task 6 - Migrate sprint/handover review prompts`
+- `fix: add missing SprintSettingsPanel import`
+- `refactor(core): extract verification logic into separate module`
+- `test(db): add coverage for migration edge cases`
+
+---
+
+## 9. Code Style
+
+### 9.1 General Principles
+
+- Prefer **explicit over implicit** — named parameters, clear return types, descriptive variable names.
+- Prefer **composition over inheritance** — use functions and interfaces, not deep class hierarchies (the error hierarchy is the exception).
+- Prefer **immutability** — use `const`, `readonly`, and avoid mutating function arguments.
+- Keep functions small and focused. If a function exceeds ~40 lines, consider decomposing.
+
+### 9.2 Async/Await
+
+- Always use `async/await` over raw Promises. Never use `.then()` chains.
+- Every `await` must be in a try/catch or the function must propagate the error to a caller that handles it.
+- Do not use `void` to fire-and-forget async operations without error handling.
+
+### 9.3 Null & Undefined
+
+- Use `null` for intentional absence (e.g., database field, "no value").
+- Use `undefined` for optional parameters and missing properties.
+- Always handle the `null`/`undefined` case — never assume a value exists without checking (`noUncheckedIndexedAccess` enforces this for arrays/objects).
+- Use optional chaining (`?.`) and nullish coalescing (`??`) liberally.
+
+### 9.4 Comments & Documentation
+
+- Use JSDoc comments (`/** ... */`) for exported functions, classes, and types.
+- Add inline comments only when the **why** is non-obvious — don't comment the what.
+- Reference the Orchestra Bible version in module-level comments when relevant: `Aligned with Orchestra Bible v0.7.0`.
+
+### 9.5 Template Conventions
+
+- Handlebars templates use `.hbs` extension.
+- Register custom helpers in `src/core/templates.ts`.
+- Use standard Handlebars: `\{{#if}}`, `\{{#each}}`, `\{{#unless}}`.
+- Keep template logic minimal — compute values in the rendering context, not in template expressions.
+
+---
+
+## 10. Security & Trust Boundaries
+
+- **Verification criteria are hidden from the implementor.** Never expose them in handovers, error messages, or logs visible to the implementor role.
+- Validate all data crossing process/role boundaries with Zod schemas.
+- MCP tool inputs must be validated before use — don't trust raw input from any agent.
+- File paths from external input must be validated and constrained to the workspace (use `findOrchestraRoot()` and resolve relative to it).
+- `findOrchestraRoot()` can return `null` — always handle that case.

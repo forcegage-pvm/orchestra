@@ -19,6 +19,21 @@ vi.mock("fs/promises", () => ({
   readFile: vi.fn().mockResolvedValue("Mock agent instructions"),
 }));
 
+// Mock session repository (needed by invokeRetry and invokeCodeReviewFix)
+vi.mock("../../src/agents/sessions/sessionRepository.js", () => ({
+  getLatestImplementorSession: vi.fn(),
+}));
+
+// Mock logger
+vi.mock("../../src/utils/logger.js", () => ({
+  OrchestraLogger: class {
+    info = vi.fn();
+    error = vi.fn();
+    warn = vi.fn();
+    debug = vi.fn();
+  },
+}));
+
 // ============================================================================
 // STATE MACHINE DEFINITION
 // ============================================================================

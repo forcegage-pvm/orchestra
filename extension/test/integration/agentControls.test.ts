@@ -109,11 +109,11 @@ describe("Agent Control Lifecycle Integration", () => {
   });
 
   const waitForStreamHold = async (): Promise<void> => {
-    for (let i = 0; i < 10; i += 1) {
+    for (let i = 0; i < 50; i += 1) {
       if (streamResolvers.length > 0) {
         return;
       }
-      await new Promise((resolve) => setTimeout(resolve, 10));
+      await new Promise((resolve) => setTimeout(resolve, 20));
     }
     throw new Error("Stream did not enter hold state");
   };

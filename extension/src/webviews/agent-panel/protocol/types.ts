@@ -154,6 +154,13 @@ export interface ResumeAgentMessage {
 }
 
 /**
+ * Retry a failed/completed/cancelled agent session
+ */
+export interface RetryAgentMessage {
+  type: "retry_agent";
+}
+
+/**
  * Continue a previous session
  */
 export interface ContinueSessionMessage {
@@ -212,6 +219,7 @@ export type WebviewMessage =
   | StopAgentMessage
   | PauseAgentMessage
   | ResumeAgentMessage
+  | RetryAgentMessage
   | ContinueSessionMessage
   | SwitchSessionMessage
   | SwitchTaskMessage

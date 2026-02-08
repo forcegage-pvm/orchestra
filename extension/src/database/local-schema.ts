@@ -420,6 +420,17 @@ export const agentSessions = sqliteTable(
       .default(0),
     failed_tool_calls: integer("failed_tool_calls").notNull().default(0),
     warning_count: integer("warning_count").notNull().default(0),
+
+    // Continuation / stage metadata (nullable for legacy rows)
+    stage: text("stage"), // SessionStage: 'PREPARE'|'IMPLEMENT'|'VERIFY'|'IMPLEMENT_FIX'|'CODE_REVIEW'|'GENERAL'
+    parent_session_id: text("parent_session_id"),
+    attempt: integer("attempt").notNull().default(0),
+    is_continued: integer("is_continued", { mode: "boolean" })
+      .notNull()
+      .default(false),
+    continued_at: text("continued_at"),
+    continuation_count: integer("continuation_count").notNull().default(0),
+
     files_modified: text("files_modified", { mode: "json" })
       .notNull()
       .default("[]"),
@@ -428,9 +439,9 @@ export const agentSessions = sqliteTable(
   (sessions) => ({
     taskIdx: index("idx_sessions_task").on(sessions.task_id),
     roleIdx: index("idx_sessions_role").on(sessions.task_id, sessions.role),
+    parentSessionIdx: index("idx_sessions_parent").on(sessions.parent_session_id),
   }),
 );
-
 /**
  * Session Events table - Detailed event log for agent sessions
  *
@@ -458,5 +469,31 @@ export const sessionEvents = sqliteTable(
     sessionIdx: index("idx_events_session").on(events.session_id),
     toolCallIdx: index("idx_events_tool_call").on(events.tool_call_id),
     typeIdx: index("idx_events_type").on(events.session_id, events.type),
+  }),
+);
+
+/**
+ * Session Messages table - Conversational message history for sessions
+ */
+export const sessionMessages = sqliteTable(
+  "session_messages",
+  {
+    id: text("id").primaryKey(), // UUID
+    session_id: text("session_id")
+      .notNull()
+      .references(() => agentSessions.id, { onDelete: "cascade" }), // ON DELETE CASCADE
+    message_index: integer("message_index").notNull(), // Order within session
+    role: text("role").notNull(), // 'user' | 'assistant' | 'system'
+    content: text("content", { mode: "json" }).notNull(), // Structured message payload
+    token_count: integer("token_count"),
+    timestamp: text("timestamp").notNull(),
+    iteration: integer("iteration").notNull().default(0),
+  },
+  (messages) => ({
+    sessionIdx: index("idx_messages_session").on(messages.session_id),
+    sessionMessageIdx: index("idx_messages_session_message").on(
+      messages.session_id,
+      messages.message_index,
+    ),
   }),
 );

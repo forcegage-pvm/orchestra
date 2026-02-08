@@ -14,8 +14,14 @@ import {
   generateAgentOutputHtml,
   type AgentOutputItem,
 } from "./templates/agentOutputTemplate.js";
-
-export class AgentOutputPanel {
+import {
+  getSessionMessages,
+  getSessionStats,
+} from "../../agents/sessions/sessionMessageRepository.js";
+import { getSessionChain } from "../../agents/sessions/sessionRepository.js";
+import { generateMessageHistoryHtml } from "./templates/messageHistoryTemplate.js";
+import { generateSessionChainHtml } from "./templates/sessionChainTemplate.js";
+import { exportConversationMarkdown } from "./messageHistoryExporter.js";export class AgentOutputPanel {
   public static currentPanel: AgentOutputPanel | undefined;
   private readonly _panel: vscode.WebviewPanel;
   private _disposables: vscode.Disposable[] = [];
@@ -30,7 +36,16 @@ export class AgentOutputPanel {
   private _outputSubscription: { dispose(): void } | undefined;
   private _stateSubscription: vscode.Disposable | undefined;
   private _runner: AgentRunner | undefined;
-
+  
+  // Message history state
+  private _currentView: "event_stream" | "message_history" | "session_chain" =
+    "event_stream";
+  private _currentSessionId: string | undefined;
+  private _currentWorkspaceRoot: string | undefined;
+  private _messagesPagination = {
+    offset: 0,
+    limit: 50,
+  };
   private constructor(panel: vscode.WebviewPanel) {
     this._panel = panel;
 
@@ -48,13 +63,28 @@ export class AgentOutputPanel {
           this.flushPendingMessages();
           return;
         }
+        
+        // Handle message history messages
+        if (message?.type === "loadMoreMessages") {
+          void this.handleLoadMoreMessages(message.offset);
+          return;
+        }
+        
+        if (message?.type === "exportMarkdown") {
+          void this.handleExportMarkdown();
+          return;
+        }
+        
+        if (message?.type === "switchTab") {
+          void this.handleSwitchTab(message.tab);
+          return;
+        }
 
         void this.handleControlMessage(message);
       },
       null,
       this._disposables,
     );
-
     console.error("[AgentOutputPanel] Setting webview HTML...");
     this._panel.webview.html = this.getHtmlContent();
     console.error("[AgentOutputPanel] Webview HTML set");
@@ -157,6 +187,44 @@ export class AgentOutputPanel {
     this._runner = undefined;
   }
 
+  /**
+   * Show message history for a session
+   */
+  public showMessageHistory(
+    sessionId: string,
+    workspaceRoot: string,
+  ): void {
+    this._currentView = "message_history";
+    this._currentSessionId = sessionId;
+    this._currentWorkspaceRoot = workspaceRoot;
+    this._messagesPagination = { offset: 0, limit: 50 };
+    
+    this.renderMessageHistory();
+  }
+
+  /**
+   * Show session chain visualization for a session
+   */
+  public showSessionChain(
+    sessionId: string,
+    workspaceRoot: string,
+  ): void {
+    this._currentView = "session_chain";
+    this._currentSessionId = sessionId;
+    this._currentWorkspaceRoot = workspaceRoot;
+    
+    this.renderSessionChain();
+  }
+
+  /**
+   * Switch back to event stream view
+   */
+  public showEventStream(): void {
+    this._currentView = "event_stream";
+    this._currentSessionId = undefined;
+    this._currentWorkspaceRoot = undefined;
+    this._panel.webview.html = this.getHtmlContent();
+  }
   private mapStatus(status: string): string {
     switch (status) {
       case "running":
@@ -340,13 +408,16 @@ export class AgentOutputPanel {
   }
 
   private estimateTokenCount(output: AgentOutputItem): number | undefined {
-    const text = this.getTextForTokenCount(output);
-    if (!text) {
+    try {
+      const text = this.getTextForTokenCount(output);
+      if (!text) {
+        return undefined;
+      }
+      // Rough token estimate: ~4 chars per token
+      return Math.ceil(text.length / 4);
+    } catch {
       return undefined;
     }
-
-    const estimated = Math.ceil(text.length / 4);
-    return Math.max(1, estimated);
   }
 
   private getTextForTokenCount(output: AgentOutputItem): string {
@@ -373,6 +444,182 @@ export class AgentOutputPanel {
     return [content.output, content.error].filter(Boolean).join("\n");
   }
 
+  /**
+   * Render message history view
+   */
+  private renderMessageHistory(): void {
+    if (!this._currentSessionId || !this._currentWorkspaceRoot) {
+      return;
+    }
+
+    try {
+      const messages = getSessionMessages(
+        this._currentWorkspaceRoot,
+        this._currentSessionId,
+        {
+          offset: this._messagesPagination.offset,
+          limit: this._messagesPagination.limit,
+        },
+      );
+
+      const stats = getSessionStats(
+        this._currentWorkspaceRoot,
+        this._currentSessionId,
+      );
+
+      // Check if there are more messages beyond the current batch
+      const totalMessages = stats.messageCount;
+      const hasMore =
+        this._messagesPagination.offset + messages.length < totalMessages;
+
+      const nonce = this.getNonce();
+      const cspSource = this._panel.webview.cspSource;
+
+      this._panel.webview.html = generateMessageHistoryHtml(
+        messages,
+        stats,
+        hasMore,
+        cspSource,
+        nonce,
+      );
+    } catch (error) {
+      console.error("[AgentOutputPanel] Error rendering message history:", error);
+      vscode.window.showErrorMessage(
+        `Failed to load message history: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  }
+
+  /**
+   * Render session chain view
+   */
+  private renderSessionChain(): void {
+    if (!this._currentSessionId || !this._currentWorkspaceRoot) {
+      return;
+    }
+
+    try {
+      const chain = getSessionChain(
+        this._currentWorkspaceRoot,
+        this._currentSessionId,
+      );
+
+      const nonce = this.getNonce();
+      const cspSource = this._panel.webview.cspSource;
+
+      this._panel.webview.html = generateSessionChainHtml(
+        chain,
+        cspSource,
+        nonce,
+      );
+    } catch (error) {
+      console.error("[AgentOutputPanel] Error rendering session chain:", error);
+      vscode.window.showErrorMessage(
+        `Failed to load session chain: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  }
+
+  /**
+   * Handle 'Load More' pagination request
+   */
+  private async handleLoadMoreMessages(offset: number): Promise<void> {
+    if (!this._currentSessionId || !this._currentWorkspaceRoot) {
+      return;
+    }
+
+    try {
+      const messages = getSessionMessages(
+        this._currentWorkspaceRoot,
+        this._currentSessionId,
+        {
+          offset,
+          limit: this._messagesPagination.limit,
+        },
+      );
+
+      const stats = getSessionStats(
+        this._currentWorkspaceRoot,
+        this._currentSessionId,
+      );
+
+      const totalMessages = stats.messageCount;
+      const hasMore = offset + messages.length < totalMessages;
+
+      // Send the new messages to the webview
+      void this._panel.webview.postMessage({
+        type: "appendMessages",
+        messages,
+        hasMore,
+      });
+
+      // Update pagination offset
+      this._messagesPagination.offset = offset;
+    } catch (error) {
+      console.error("[AgentOutputPanel] Error loading more messages:", error);
+      vscode.window.showErrorMessage(
+        `Failed to load more messages: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  }
+
+  /**
+   * Handle Markdown export request
+   */
+  private async handleExportMarkdown(): Promise<void> {
+    if (!this._currentSessionId || !this._currentWorkspaceRoot) {
+      return;
+    }
+
+    try {
+      // Get all messages for the session (no pagination for export)
+      const messages = getSessionMessages(
+        this._currentWorkspaceRoot,
+        this._currentSessionId,
+      );
+
+      // Get session info if available (optional)
+      const { getSession } = await import("../../agents/sessions/sessionRepository.js");
+      const session = getSession(this._currentWorkspaceRoot, this._currentSessionId);
+
+      const markdown = exportConversationMarkdown(messages, session);
+
+      // Prompt user for save location
+      const uri = await vscode.window.showSaveDialog({
+        defaultUri: vscode.Uri.file(
+          `conversation-${this._currentSessionId.slice(0, 8)}.md`,
+        ),
+        filters: {
+          Markdown: ["md"],
+        },
+      });
+
+      if (uri) {
+        await vscode.workspace.fs.writeFile(
+          uri,
+          Buffer.from(markdown, "utf-8"),
+        );
+        void vscode.window.showInformationMessage(
+          `Conversation exported to ${uri.fsPath}`,
+        );
+      }
+    } catch (error) {
+      console.error("[AgentOutputPanel] Error exporting markdown:", error);
+      vscode.window.showErrorMessage(
+        `Failed to export conversation: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  }
+
+  /**
+   * Handle tab switch request
+   */
+  private async handleSwitchTab(tab: string): Promise<void> {
+    if (tab === "event_stream") {
+      this.showEventStream();
+    }
+    // Additional tab types can be handled here in the future
+  }
   /**
    * Dispose panel and cleanup
    */

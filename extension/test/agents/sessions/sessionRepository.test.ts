@@ -104,7 +104,10 @@ if (!moduleCompatible) {
       )
     `);
 
-    // Create agent_sessions table
+    // Enable foreign keys for CASCADE support
+    db.pragma("foreign_keys = ON");
+
+    // Create agent_sessions table (with continuation columns)
     db.exec(`
       CREATE TABLE IF NOT EXISTS agent_sessions (
         id TEXT PRIMARY KEY,
@@ -122,16 +125,43 @@ if (!moduleCompatible) {
         successful_tool_calls INTEGER NOT NULL DEFAULT 0,
         failed_tool_calls INTEGER NOT NULL DEFAULT 0,
         warning_count INTEGER NOT NULL DEFAULT 0,
+        stage TEXT,
+        parent_session_id TEXT,
+        attempt INTEGER NOT NULL DEFAULT 0,
+        is_continued INTEGER NOT NULL DEFAULT 0,
+        continued_at TEXT,
+        continuation_count INTEGER NOT NULL DEFAULT 0,
         files_modified JSON NOT NULL DEFAULT '[]',
         duration_ms INTEGER,
         FOREIGN KEY (task_id) REFERENCES tasks(id)
       )
     `);
 
-    // Create indexes
+    // Create agent_sessions indexes
     db.exec(`
       CREATE INDEX IF NOT EXISTS idx_sessions_task ON agent_sessions(task_id);
       CREATE INDEX IF NOT EXISTS idx_sessions_role ON agent_sessions(task_id, role);
+      CREATE INDEX IF NOT EXISTS idx_sessions_parent ON agent_sessions(parent_session_id);
+    `);
+
+    // Create session_messages table
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS session_messages (
+        id TEXT PRIMARY KEY,
+        session_id TEXT NOT NULL REFERENCES agent_sessions(id) ON DELETE CASCADE,
+        message_index INTEGER NOT NULL,
+        role TEXT NOT NULL,
+        content TEXT NOT NULL,
+        token_count INTEGER,
+        timestamp TEXT NOT NULL,
+        iteration INTEGER NOT NULL DEFAULT 0
+      )
+    `);
+
+    // Create session_messages indexes
+    db.exec(`
+      CREATE INDEX IF NOT EXISTS idx_messages_session ON session_messages(session_id);
+      CREATE INDEX IF NOT EXISTS idx_messages_session_message ON session_messages(session_id, message_index);
     `);
 
     db.close();
@@ -1202,6 +1232,129 @@ if (!moduleCompatible) {
         const retrieved = getSession(testWorkspaceRoot, session.sessionId);
         expect(retrieved?.toolCallCount).toBe(9999);
         expect(retrieved?.durationMs).toBe(86400000);
+      });
+    });
+
+    describe("Continuation Field Round-Trip", () => {
+      it("should create a session with all continuation fields and read them back correctly", () => {
+        insertTestTask(1);
+
+        const continuedAt = "2026-02-01T12:30:00Z";
+        const session = createSession(testWorkspaceRoot, {
+          role: "implementor",
+          taskId: 1,
+          taskTitle: undefined,
+          sprintId: "sprint-001",
+          startedAt: "2026-02-01T12:00:00Z",
+          lastActivityAt: "2026-02-01T12:30:00Z",
+          endedAt: undefined,
+          status: "running",
+          statusMessage: undefined,
+          iteration: 5,
+          maxIterations: 80,
+          stage: "IMPLEMENT",
+          parentSessionId: "parent-session-uuid-123",
+          attempt: 2,
+          isContinued: true,
+          continuedAt,
+          continuationCount: 3,
+          toolCallCount: 15,
+          successfulToolCalls: 14,
+          failedToolCalls: 1,
+          warningCount: 2,
+          filesModified: ["src/main.ts"],
+          durationMs: undefined,
+        });
+
+        const retrieved = getSession(testWorkspaceRoot, session.sessionId);
+
+        expect(retrieved).toBeDefined();
+        expect(retrieved?.stage).toBe("IMPLEMENT");
+        expect(retrieved?.parentSessionId).toBe("parent-session-uuid-123");
+        expect(retrieved?.attempt).toBe(2);
+        expect(retrieved?.isContinued).toBe(true);
+        expect(retrieved?.continuedAt).toBe(continuedAt);
+        expect(retrieved?.continuationCount).toBe(3);
+      });
+
+      it("should handle all SessionStage values", () => {
+        const stages = [
+          "PREPARE",
+          "IMPLEMENT",
+          "VERIFY",
+          "IMPLEMENT_FIX",
+          "CODE_REVIEW",
+          "GENERAL",
+        ] as const;
+
+        for (let i = 0; i < stages.length; i++) {
+          const taskId = 10 + i;
+          insertTestTask(taskId);
+
+          const session = createSession(testWorkspaceRoot, {
+            role: "orchestrator",
+            taskId,
+            taskTitle: undefined,
+            sprintId: "sprint-001",
+            startedAt: "2026-02-01T10:00:00Z",
+            lastActivityAt: "2026-02-01T10:00:00Z",
+            endedAt: undefined,
+            status: "running",
+            statusMessage: undefined,
+            iteration: 0,
+            maxIterations: 50,
+            stage: stages[i],
+            toolCallCount: 0,
+            successfulToolCalls: 0,
+            failedToolCalls: 0,
+            warningCount: 0,
+            filesModified: [],
+            durationMs: undefined,
+          });
+
+          const retrieved = getSession(testWorkspaceRoot, session.sessionId);
+          expect(retrieved?.stage).toBe(stages[i]);
+        }
+      });
+
+      it("should default continuation fields to safe values for legacy sessions (no continuation data)", () => {
+        insertTestTask(1);
+
+        const session = createSession(testWorkspaceRoot, {
+          role: "implementor",
+          taskId: 1,
+          taskTitle: undefined,
+          sprintId: "sprint-001",
+          startedAt: "2026-02-01T10:00:00Z",
+          lastActivityAt: "2026-02-01T10:00:00Z",
+          endedAt: undefined,
+          status: "running",
+          statusMessage: undefined,
+          iteration: 0,
+          maxIterations: 50,
+          toolCallCount: 0,
+          successfulToolCalls: 0,
+          failedToolCalls: 0,
+          warningCount: 0,
+          filesModified: [],
+          durationMs: undefined,
+        });
+
+        const retrieved = getSession(testWorkspaceRoot, session.sessionId);
+
+        expect(retrieved).toBeDefined();
+        // Stage should be undefined when not set
+        expect(retrieved?.stage).toBeUndefined();
+        // parentSessionId should be undefined when not set
+        expect(retrieved?.parentSessionId).toBeUndefined();
+        // attempt should default to 0
+        expect(retrieved?.attempt).toBe(0);
+        // isContinued should default to false
+        expect(retrieved?.isContinued).toBe(false);
+        // continuedAt should be undefined when not set
+        expect(retrieved?.continuedAt).toBeUndefined();
+        // continuationCount should default to 0
+        expect(retrieved?.continuationCount).toBe(0);
       });
     });
   });

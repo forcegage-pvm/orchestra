@@ -50,10 +50,27 @@ $extensionArtifacts = Join-Path $extensionDir "artifacts"
 if (-not $SkipVsixInstall) {
   Write-Step "Uninstall VSIX"
   
-  # Uninstall existing extension first to avoid "restart VS Code" error
+  # Uninstall existing extension - remove ALL installed versions
+  # code --uninstall-extension only removes the active version and can
+  # fail with "restart VS Code" if the extension is loaded. Instead,
+  # we also nuke the extension directory directly so a fresh install
+  # always succeeds regardless of version mismatch.
   $extensionId = "forcegage.orchestra-extension"
-  Write-Host "Uninstalling existing extension..." -ForegroundColor DarkGray
-  & code --uninstall-extension $extensionId 2>&1 | Out-Null
+  Write-Host "Uninstalling existing extension ($extensionId)..." -ForegroundColor DarkGray
+  try { & code --uninstall-extension $extensionId 2>&1 | Out-Null } catch { <# ignore - may not be installed #> }
+
+  # Remove extension directories for ALL versions from the VS Code extensions folder
+  $vsCodeExtDir = Join-Path $env:USERPROFILE ".vscode\extensions"
+  if (Test-Path $vsCodeExtDir) {
+    $installedDirs = Get-ChildItem -Path $vsCodeExtDir -Directory -Filter "$extensionId-*" -ErrorAction SilentlyContinue
+    foreach ($dir in $installedDirs) {
+      Write-Host "  Removing $($dir.Name)" -ForegroundColor DarkGray
+      Remove-PathWithRetries $dir.FullName
+    }
+    if (-not $installedDirs) {
+      Write-Host "  No installed versions found" -ForegroundColor DarkGray
+    }
+  }
 }
 
 Write-Step "Validating prerequisites"

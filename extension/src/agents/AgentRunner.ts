@@ -24,11 +24,20 @@ import {
   generateTaskSummary,
   type TaskSummaryInput,
 } from "./memory/TaskSummary.js";
-import type { TaskOutcome } from "./memory/types.js";
-import { SessionEventEmitter } from "./sessions/eventEmitter.js";
-import { createSession } from "./sessions/sessionRepository.js";
 import type {
+  SprintMemory as SprintMemoryRecord,
+  TaskOutcome,
+} from "./memory/types.js";
+import { SessionEventEmitter } from "./sessions/eventEmitter.js";
+import {
+  continueSession,
+  createSession,
+  getSession,
+} from "./sessions/sessionRepository.js";
+import type {
+  AgentSession as AgentSessionDB,
   AgentSessionInfo,
+  SessionStage,
   SessionStatus,
   ToolCategory,
 } from "./sessions/types.js";
@@ -137,6 +146,19 @@ export interface FileAttachment {
 }
 
 /**
+ * Options for continuing an existing session
+ */
+export interface ContinueSessionOptions {
+  /** ID of the parent session to continue from */
+  sessionId: string;
+  /** New instruction/prompt for the continued session */
+  continuationPrompt: string;
+  /** Stage for the new session */
+  stage: SessionStage;
+  /** Optional override for max iterations */
+  maxIterations?: number;
+}
+/**
  * Options for starting an agent
  */
 export interface AgentStartOptions {
@@ -163,8 +185,11 @@ export interface AgentStartOptions {
    * to all agents. Not visible in UI output.
    */
   codingStandardsPrompt?: string;
+  /** Session stage for workflow tracking */
+  stage?: SessionStage;
+  /** Parent session ID for session continuation/lineage */
+  parentSessionId?: string;
 }
-
 /**
  * AgentRunner - Executes autonomous agent loops
  *
@@ -559,7 +584,9 @@ export class AgentRunner implements vscode.Disposable {
     const workspaceRoot =
       vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? process.cwd();
     try {
-      const dbSession = createSession(workspaceRoot, {
+      const sessionData: Omit<AgentSessionDB, "sessionId"> & {
+        sessionId?: string;
+      } = {
         role: this.session.role,
         taskId: options.taskId ?? 0,
         taskNumber: options.taskNumber,
@@ -578,7 +605,15 @@ export class AgentRunner implements vscode.Disposable {
         warningCount: 0,
         filesModified: [],
         durationMs: undefined,
-      });
+        ...(options.stage && { stage: options.stage }),
+        ...(options.parentSessionId && {
+          parentSessionId: options.parentSessionId,
+        }),
+      };
+
+      const dbSession = createSession(workspaceRoot, sessionData); // Enable persistence for message capture
+      this.session.enablePersistence(workspaceRoot, dbSession.sessionId);
+
       this.eventEmitter = new SessionEventEmitter(
         workspaceRoot,
         dbSession.sessionId,
@@ -767,10 +802,31 @@ export class AgentRunner implements vscode.Disposable {
     }
 
     const previousStatus = this.session.status;
-    this.isPaused = false;
     this.session.resume();
+    this.isPaused = false;
     this.eventEmitter?.emitStatusChange(previousStatus, "running");
     this.emitStateChange();
+
+    // Repair message history (remove orphaned tool_results, etc.)
+    // This prevents Claude API errors like "unexpected tool_use_id in tool_result"
+    const { repaired, messages: repairedMsgs } = this.repairMessageHistory(
+      this.session.messages,
+    );
+    if (repaired) {
+      this.session.replaceMessages(repairedMsgs);
+      console.warn(
+        `[AgentRunner] Repaired message history on resume (removed orphaned tool calls/results)`,
+      );
+    }
+
+    // Ensure conversation ends with a user message (LLM API requirement).
+    // When paused mid-execution the last message is typically an assistant turn.
+    const lastMsg = this.session.messages[this.session.messages.length - 1];
+    if (!lastMsg || lastMsg.role !== "user") {
+      this.addUserMessage(
+        "Session has been resumed. Continue from where you left off.",
+      );
+    }
 
     // Restart agent loop
     const role = this.session.role;
@@ -780,21 +836,508 @@ export class AgentRunner implements vscode.Disposable {
   }
 
   /**
+   * Retry a failed, completed, or cancelled session.
+   *
+   * Re-enters the agent loop using the existing conversation history.
+   * Injects a user message if the conversation ends with an assistant turn
+   * (required by the LLM API which does not support assistant message prefill).
+   *
+   * @throws AgentError if no session or session is still running/paused
+   */
+  async retry(): Promise<void> {
+    if (!this.session) {
+      throw new AgentError("Cannot retry: no active session", "NO_SESSION");
+    }
+
+    const retryableStatuses = new Set(["failed", "completed", "stopped"]);
+    if (!retryableStatuses.has(this.session.status)) {
+      throw new AgentError(
+        `Cannot retry: session is in '${this.session.status}' state`,
+        "INVALID_STATE",
+      );
+    }
+
+    const previousStatus = this.session.status;
+    this.session.retry(); // transitions from terminal state back to "running"
+    this.isPaused = false;
+    this.isStopping = false;
+    this.eventEmitter?.emitStatusChange(previousStatus, "running");
+    this.emitStateChange();
+
+    // Repair message history (remove orphaned tool_results, etc.)
+    // This prevents Claude API errors like "unexpected tool_use_id in tool_result"
+    const { repaired: wasRepaired, messages: repairedRetryMsgs } =
+      this.repairMessageHistory(this.session.messages);
+    if (wasRepaired) {
+      this.session.replaceMessages(repairedRetryMsgs);
+      console.warn(
+        `[AgentRunner] Repaired message history on retry (removed orphaned tool calls/results)`,
+      );
+    }
+
+    // Ensure conversation ends with a user message (LLM API requirement).
+    // After a session ends the last message is typically an assistant turn.
+    const lastMsg = this.session.messages[this.session.messages.length - 1];
+    if (!lastMsg || lastMsg.role !== "user") {
+      this.addUserMessage(
+        "Session is being retried. Continue from where you left off.",
+      );
+    }
+
+    // Restart agent loop
+    const role = this.session.role;
+    this.runningPromise = this.runAgentLoop(role).catch((error) => {
+      this.handleError(error);
+    });
+  }
+
+  /**
+   * Continue an existing session by creating a child session with a new instruction
+   *
+   * Implements the Session Reuse pattern:
+   * 1. Creates new DB session linked to parent
+   * 2. Copies parent's message history
+   * 3. Appends continuation prompt
+   * 4. Starts execution in the new session
+   *
+   * @param options - Continuation options
+   * @returns The newly created child session
+   */
+  async continueSessionExecution(
+    options: ContinueSessionOptions,
+  ): Promise<AgentSession> {
+    if (this.session && this.session.status === "running") {
+      throw new AgentError(
+        "Agent is already running. Stop or pause before continuing a session.",
+        "AGENT_ALREADY_RUNNING",
+      );
+    }
+
+    const workspaceRoot =
+      vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? process.cwd();
+
+    // Validate parent session exists
+    const parentSession = getSession(workspaceRoot, options.sessionId);
+    if (!parentSession) {
+      throw new SessionError(
+        "Parent session not found",
+        options.sessionId,
+        undefined,
+        "NO_SESSION",
+      );
+    }
+
+    // Role validation: continuation must preserve role.
+    // The child session ALWAYS inherits the parent's role — role switching is forbidden.
+    // An orchestrator session cannot be continued as an implementor session (or vice versa).
+    const role = parentSession.role as import("./types.js").AgentRole;
+    const validRoles: import("./types.js").AgentRole[] = [
+      "orchestrator",
+      "implementor",
+      "controller",
+    ];
+    if (!validRoles.includes(role)) {
+      throw new AgentError(
+        `Cannot continue session: parent session has invalid role "${role}". Role switching is not permitted during continuation.`,
+        "ROLE_SWITCH_REJECTED",
+      );
+    }
+
+    // Create child session via sessionRepository.continueSession()
+    const childSession = continueSession(
+      workspaceRoot,
+      options.sessionId,
+      options.continuationPrompt,
+      options.stage,
+      options.maxIterations,
+    );
+
+    const childSessionId = childSession.sessionId;
+    const sprintId = childSession.sprintId;
+    const taskId = childSession.taskId ?? null;
+    const maxIterations = childSession.maxIterations;
+
+    // Create a fresh AgentSession for the child
+    this.session = new AgentSession(role, sprintId, taskId, maxIterations);
+
+    // Restore iteration counter from child session (should be 0 for new child)
+    this.session.currentIteration = childSession.iteration;
+
+    // Reset internal runner flags
+    this.isPaused = false;
+    this.isStopped = false;
+    this.consecutiveErrors = 0;
+    this.recentErrors = [];
+    this.hasEscalated = false;
+    this.hasEmittedSessionEnd = false;
+
+    // Reconstruct messages from DB (child includes parent messages + continuation prompt)
+    await this.reconstructSession(childSessionId);
+
+    // Create ContextManager immediately after messages reconstructed
+    const contextConfig: {
+      maxContextTokens?: number;
+      compactionThreshold?: number;
+      summarizeAfterToolCalls?: number;
+    } = {};
+    if (this.config.maxContextTokens !== undefined)
+      contextConfig.maxContextTokens = this.config.maxContextTokens;
+    if (this.config.compactionThreshold !== undefined)
+      contextConfig.compactionThreshold = this.config.compactionThreshold;
+    if (this.config.summarizeAfterToolCalls !== undefined)
+      contextConfig.summarizeAfterToolCalls =
+        this.config.summarizeAfterToolCalls;
+
+    this.contextManager = new ContextManager(contextConfig);
+
+    // Reconstruct tool calls and file changes from PARENT session
+    // (tool history belongs to the parent, not the child)
+    await this.reconstructToolCalls(options.sessionId);
+    await this.reconstructFileChanges(options.sessionId);
+
+    // Enable persistence and create event emitter for CHILD session
+    this.session.enablePersistence(workspaceRoot, childSessionId);
+    this.eventEmitter = new SessionEventEmitter(workspaceRoot, childSessionId);
+
+    // Load tools for the role
+    if (!this.config.skipToolLoading) {
+      const needsToolReload = this.lastLoadedToolsRole !== role;
+
+      if (needsToolReload) {
+        this.toolRegistry.clear();
+        this.lastLoadedToolsRole = role;
+      }
+
+      if (role === "implementor") {
+        if (needsToolReload) {
+          loadImplementorTools(this.toolRegistry);
+        }
+      } else if (role === "orchestrator") {
+        if (needsToolReload) {
+          loadOrchestratorTools(this.toolRegistry);
+        }
+      } else if (role === "controller") {
+        if (needsToolReload) {
+          loadControllerTools(this.toolRegistry);
+        }
+      }
+    }
+
+    // For orchestrator sessions, reload sprint memory
+    if (this.session.role === "orchestrator") {
+      const memoryStore = SprintMemory.getInstance(workspaceRoot);
+      const memory = await memoryStore.getOrCreate(
+        this.session.sprintId,
+        this.session.sprintId,
+      );
+      const memoryContext = this.formatSprintMemoryContext(memory);
+      this.addUserMessage(memoryContext);
+    }
+
+    // Ensure conversation ends with a user message (LLM API requirement)
+    const lastContinueMsg =
+      this.session.messages[this.session.messages.length - 1];
+    if (!lastContinueMsg || lastContinueMsg.role !== "user") {
+      this.addUserMessage(
+        "Session has been continued. Proceed with the instructions above.",
+      );
+    }
+
+    // Session is already in "running" state from AgentSession constructor.
+    // No state transition needed — just emit the state change and start the loop.
+    this.emitStateChange();
+
+    // Create cancellation token and start agent loop
+    this.cancellationTokenSource = new vscode.CancellationTokenSource();
+    const model = this.getConfiguredModel(this.session.role);
+    this.runningPromise = this.runAgentLoop(this.session.role, model).catch(
+      (error) => {
+        this.handleError(error);
+      },
+    );
+
+    return this.session;
+  }
+
+  /**
    * Resume a session loaded from storage
    *
    * @deprecated File-based session storage is deprecated. Use database queries instead.
    * This method is kept for reference but will be removed in a future version.
    *
    * @param sessionId - Session ID to resume
-   * @returns The resumed session
-   */
+   * @returns The resumed session   */
   async resumeFromStorage(_sessionId: string): Promise<AgentSession> {
     throw new AgentError(
       "Resume from file storage is deprecated. Session resume functionality will be reimplemented using database queries.",
       "FEATURE_DEPRECATED",
     );
+  }
 
-    /* DEPRECATED CODE - Kept for reference
+  /**
+   * Reconstruct in-memory AgentSession messages from database rows
+   * Loads all messages via sessionMessageRepository.getSessionMessages()
+   */
+  private async reconstructSession(sessionId: string): Promise<void> {
+    if (!this.session) return;
+
+    const workspaceRoot =
+      vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? process.cwd();
+    const { getSessionMessages } =
+      await import("./sessions/sessionMessageRepository.js");
+
+    const rows = getSessionMessages(workspaceRoot, sessionId);
+
+    const messages = rows.map((m) => {
+      const msg: AgentMessage = {
+        id: crypto.randomUUID(),
+        role: m.role as AgentMessage["role"],
+        content: m.content as AgentMessage["content"],
+        timestamp: m.timestamp,
+        iteration: m.iteration,
+      };
+      // Preserve toolCallIds if present
+      if ((m as any).toolCallIds) {
+        (msg as any).toolCallIds = (m as any).toolCallIds;
+      }
+      return msg;
+    });
+
+    // Replace messages in session (preserve order)
+    this.session.replaceMessages(messages);
+  }
+
+  /**
+   * Reconstruct tool call aggregates from tool_result events
+   */
+  private async reconstructToolCalls(sessionId: string): Promise<void> {
+    if (!this.session) return;
+
+    const workspaceRoot =
+      vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? process.cwd();
+    const { getEventsByType } = await import("./sessions/eventRepository.js");
+
+    const events = getEventsByType(workspaceRoot, sessionId, "tool_result");
+
+    for (const ev of events) {
+      const e = ev as unknown as import("./sessions/types.js").ToolResultEvent;
+      // Build ToolCall minimal record
+      const completedAt = e.timestamp;
+      const durationMs = e.durationMs ?? undefined;
+      const startedAt = durationMs
+        ? new Date(Date.parse(completedAt) - durationMs).toISOString()
+        : completedAt;
+
+      const toolCall = {
+        id: e.toolCallId,
+        name: e.toolName,
+        arguments: {},
+        result: e.output ?? undefined,
+        status: e.success ? ("success" as const) : ("error" as const),
+        startedAt,
+        completedAt,
+        durationMs,
+        iteration: e.iteration,
+        messageId: "",
+      } as import("./types.js").ToolCall;
+
+      this.session.recordToolCall(toolCall);
+    }
+  }
+
+  /**
+   * Reconstruct file changes from tool_file_operation events
+   */
+  private async reconstructFileChanges(sessionId: string): Promise<void> {
+    if (!this.session) return;
+
+    const workspaceRoot =
+      vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? process.cwd();
+    const { getEventsByType } = await import("./sessions/eventRepository.js");
+
+    const events = getEventsByType(
+      workspaceRoot,
+      sessionId,
+      "tool_file_operation",
+    );
+
+    for (const ev of events) {
+      const e =
+        ev as unknown as import("./sessions/types.js").ToolFileOperationEvent;
+
+      // Map operation to FileChange.operation schema
+      let op: import("./types.js").FileOperation = "modify";
+      switch (e.operation.operation) {
+        case "create":
+          op = "create";
+          break;
+        case "delete":
+          op = "delete";
+          break;
+        case "update":
+        case "move":
+        case "copy":
+        case "read":
+        default:
+          op = "modify";
+          break;
+      }
+
+      const fileChange: import("./types.js").FileChange = {
+        id: crypto.randomUUID(),
+        uri: e.operation.path,
+        relativePath: e.operation.path,
+        operation: op,
+        previousContent: null,
+        previousContentHash: null,
+        newContent: null,
+        newContentHash: null,
+        toolCallId: e.toolCallId,
+        timestamp: e.timestamp,
+        iteration: e.iteration,
+        undone: false,
+        undoneAt: null,
+      };
+
+      this.session.recordFileChange(fileChange);
+    }
+  }
+
+  /**
+   * Resume a session from the database
+   * @param sessionId - UUID of session to resume
+   */
+  async resumeSession(sessionId: string): Promise<AgentSession> {
+    if (this.session && this.session.status === "running") {
+      throw new AgentError(
+        "Agent is already running. Stop or pause before resuming a session.",
+        "AGENT_ALREADY_RUNNING",
+      );
+    }
+
+    const workspaceRoot =
+      vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? process.cwd();
+    const { getSession } = await import("./sessions/sessionRepository.js");
+
+    const dbSession = getSession(workspaceRoot, sessionId);
+    if (!dbSession) {
+      throw new SessionError(
+        "Session not found",
+        sessionId,
+        undefined,
+        "NO_SESSION",
+      );
+    }
+
+    // FR-017: status validation
+    if (dbSession.status === "completed" || dbSession.status === "failed") {
+      throw new AgentError(
+        `Cannot resume session with status: ${dbSession.status}`,
+        "SESSION_NOT_RECOVERABLE",
+      );
+    }
+
+    // Create a fresh AgentSession based on DB metadata
+    const role = dbSession.role as import("./types.js").AgentRole;
+    const sprintId = dbSession.sprintId;
+    const taskId = dbSession.taskId ?? null;
+    const maxIterations = dbSession.maxIterations;
+
+    this.session = new AgentSession(role, sprintId, taskId, maxIterations);
+
+    // Restore iteration counter from DB
+    this.session.currentIteration = dbSession.iteration;
+
+    // Reflect DB status (paused/stopped)
+    if (dbSession.status === "paused") {
+      // constructor set to running, so pause now
+      this.session.pause();
+    } else if (dbSession.status === "stopped") {
+      this.session.stop();
+    }
+
+    // Reset internal runner flags
+    this.isPaused = false;
+    this.isStopped = false;
+    this.consecutiveErrors = 0;
+    this.recentErrors = [];
+    this.hasEscalated = false;
+    this.hasEmittedSessionEnd = false;
+
+    // Reconstruct messages from DB
+    await this.reconstructSession(sessionId);
+
+    // Create ContextManager immediately after messages reconstructed
+    const contextConfig: {
+      maxContextTokens?: number;
+      compactionThreshold?: number;
+      summarizeAfterToolCalls?: number;
+    } = {};
+    if (this.config.maxContextTokens !== undefined)
+      contextConfig.maxContextTokens = this.config.maxContextTokens;
+    if (this.config.compactionThreshold !== undefined)
+      contextConfig.compactionThreshold = this.config.compactionThreshold;
+    if (this.config.summarizeAfterToolCalls !== undefined)
+      contextConfig.summarizeAfterToolCalls =
+        this.config.summarizeAfterToolCalls;
+
+    this.contextManager = new ContextManager(contextConfig);
+
+    // Reconstruct tool calls and file changes
+    await this.reconstructToolCalls(sessionId);
+    await this.reconstructFileChanges(sessionId);
+
+    // Inject system resume message (FR-016)
+    this.addSystemMessage(
+      "Session resumed after pause. Background processes/terminals from previous session are no longer available.",
+    );
+
+    // For orchestrator sessions, reload sprint memory (FR-018)
+    if (this.session.role === "orchestrator") {
+      const memoryStore = SprintMemory.getInstance(workspaceRoot);
+      const memory = await memoryStore.getOrCreate(
+        this.session.sprintId,
+        this.session.sprintId,
+      );
+      const memoryContext = this.formatSprintMemoryContext(memory);
+      this.addUserMessage(memoryContext);
+    }
+
+    // Ensure conversation ends with a user message.
+    // The LLM API rejects conversations ending with an assistant message.
+    // System messages are prepended (not appended), so after reconstruction
+    // the last conversational message may be an assistant turn.
+    const lastMsg = this.session.messages[this.session.messages.length - 1];
+    if (!lastMsg || lastMsg.role !== "user") {
+      this.addUserMessage(
+        "Session has been resumed. Continue from where you left off.",
+      );
+    }
+
+    // Enable persistence and create event emitter
+    this.session.enablePersistence(workspaceRoot, sessionId);
+    this.eventEmitter = new SessionEventEmitter(workspaceRoot, sessionId);
+
+    // Restart agent loop: set status to running and start loop
+    const previousStatus = this.session.status;
+    this.isPaused = false;
+    this.isStopped = false;
+    this.session.resume();
+    this.eventEmitter?.emitStatusChange(previousStatus, "running");
+    this.emitStateChange();
+
+    // Create cancellation token and start agent loop
+    this.cancellationTokenSource = new vscode.CancellationTokenSource();
+    const model = this.getConfiguredModel(this.session.role);
+    this.runningPromise = this.runAgentLoop(this.session.role, model).catch(
+      (error) => {
+        this.handleError(error);
+      },
+    );
+
+    return this.session;
+  }
+  /* DEPRECATED CODE - Kept for reference
     if (this.session && this.session.status === "running") {
       throw new AgentError(
         "Cannot resume: another agent session is already running",
@@ -850,7 +1393,6 @@ export class AgentRunner implements vscode.Disposable {
 
     return this.session;
     */
-  }
 
   /**
    * Stop the agent
@@ -1406,10 +1948,13 @@ export class AgentRunner implements vscode.Disposable {
       return { kind: "cancelled", message: msg };
     }
 
-    // Malformed request — tool call format issues (Gemini-specific)
+    // Malformed request — tool call/result format issues
     if (
       msg.includes("invalid_tool_call_format") ||
-      msg.includes("Tool name is required")
+      msg.includes("Tool name is required") ||
+      msg.includes("unexpected `tool_use_id`") ||
+      msg.includes("tool_result") ||
+      msg.includes("tool_use")
     ) {
       return { kind: "malformed", message: msg };
     }
@@ -1440,9 +1985,15 @@ export class AgentRunner implements vscode.Disposable {
   /**
    * Repair message history to fix known format issues.
    *
-   * Specifically handles:
-   * - Tool call parts with missing/empty names (causes Gemini `invalid_tool_call_format`)
-   * - Empty assistant messages
+   * Handles:
+   * - Tool call parts with missing/empty names (Gemini `invalid_tool_call_format`)
+   * - Orphaned tool_results whose tool_use is missing from the preceding assistant message
+   *   (Claude: "unexpected tool_use_id found in tool_result blocks")
+   * - Empty messages after part removal
+   *
+   * The Claude API requires that every `tool_result` in a user message references
+   * a `tool_use` in the *immediately preceding* assistant message. When sessions
+   * are retried/resumed after interruption, this invariant can be violated.
    *
    * Returns repaired messages (or the originals if no repair was needed).
    */
@@ -1452,9 +2003,9 @@ export class AgentRunner implements vscode.Disposable {
   } {
     let repaired = false;
 
-    const repairedMessages = messages
+    // Pass 1: Remove malformed tool calls (missing names)
+    const pass1 = messages
       .map((msg) => {
-        // Only repair assistant messages with array content (tool calls)
         if (msg.role !== "assistant" || typeof msg.content === "string") {
           return msg;
         }
@@ -1465,7 +2016,7 @@ export class AgentRunner implements vscode.Disposable {
             (!part.name || part.name.trim() === "")
           ) {
             console.warn(
-              `[AgentRunner] Removing malformed tool call (no name) from message history: callId=${part.toolCallId}`,
+              `[AgentRunner] Removing malformed tool call (no name): callId=${part.toolCallId}`,
             );
             repaired = true;
             return false;
@@ -1473,65 +2024,79 @@ export class AgentRunner implements vscode.Disposable {
           return true;
         });
 
-        // If all parts were removed, drop this message entirely
         if (repairedParts.length === 0) {
           repaired = true;
           return null;
         }
-
         if (repairedParts.length !== msg.content.length) {
           return { ...msg, content: repairedParts };
         }
-
         return msg;
       })
       .filter((msg): msg is AgentMessage => msg !== null);
 
-    // Also remove orphaned tool result messages whose tool call was removed
-    // (they'd cause "No tool call found for result" errors)
-    if (repaired) {
-      const validToolCallIds = new Set<string>();
-      for (const msg of repairedMessages) {
-        if (typeof msg.content !== "string") {
-          for (const part of msg.content) {
-            if (part.type === "toolCall") {
-              validToolCallIds.add(part.toolCallId);
-            }
+    // Pass 2: Ensure every tool_result references a tool_use in the
+    // immediately preceding assistant message (Claude API requirement).
+    // Walk message pairs and remove orphaned tool_results from user messages.
+    const pass2: AgentMessage[] = [];
+    for (let i = 0; i < pass1.length; i++) {
+      const msg = pass1[i];
+
+      // Only inspect user messages that have array content (tool results)
+      if (msg.role !== "user" || typeof msg.content === "string") {
+        pass2.push(msg);
+        continue;
+      }
+
+      const hasToolResults = msg.content.some((p) => p.type === "toolResult");
+      if (!hasToolResults) {
+        pass2.push(msg);
+        continue;
+      }
+
+      // Collect tool_use IDs from the immediately preceding assistant message
+      const prevMsg = pass2.length > 0 ? pass2[pass2.length - 1] : undefined;
+      const prevToolUseIds = new Set<string>();
+      if (
+        prevMsg &&
+        prevMsg.role === "assistant" &&
+        typeof prevMsg.content !== "string"
+      ) {
+        for (const part of prevMsg.content) {
+          if (part.type === "toolCall") {
+            prevToolUseIds.add(part.toolCallId);
           }
         }
       }
 
-      const cleanedMessages = repairedMessages
-        .map((msg) => {
-          if (msg.role !== "assistant" || typeof msg.content === "string") {
-            return msg;
-          }
+      // Filter out tool_results that don't match the preceding assistant's tool_uses
+      const cleanedParts = msg.content.filter((part) => {
+        if (
+          part.type === "toolResult" &&
+          !prevToolUseIds.has(part.toolCallId)
+        ) {
+          console.warn(
+            `[AgentRunner] Removing orphaned tool result (no matching tool_use in preceding message): callId=${part.toolCallId}`,
+          );
+          repaired = true;
+          return false;
+        }
+        return true;
+      });
 
-          const cleanedParts = msg.content.filter((part) => {
-            if (
-              part.type === "toolResult" &&
-              !validToolCallIds.has(part.toolCallId)
-            ) {
-              console.warn(
-                `[AgentRunner] Removing orphaned tool result: callId=${part.toolCallId}`,
-              );
-              return false;
-            }
-            return true;
-          });
-
-          if (cleanedParts.length === 0) return null;
-          if (cleanedParts.length !== msg.content.length) {
-            return { ...msg, content: cleanedParts };
-          }
-          return msg;
-        })
-        .filter((msg): msg is AgentMessage => msg !== null);
-
-      return { repaired: true, messages: cleanedMessages };
+      if (cleanedParts.length === 0) {
+        // Entire message was orphaned tool results — drop it
+        repaired = true;
+        continue;
+      }
+      if (cleanedParts.length !== msg.content.length) {
+        pass2.push({ ...msg, content: cleanedParts });
+      } else {
+        pass2.push(msg);
+      }
     }
 
-    return { repaired, messages: repairedMessages };
+    return { repaired, messages: pass2 };
   }
 
   /**
@@ -1814,7 +2379,7 @@ export class AgentRunner implements vscode.Disposable {
 
       return hadToolCalls;
     } catch (error) {
-      // All error classification and retry is handled by sendRequest()
+      // Let the retry logic in sendRequest() handle classification
       throw error;
     }
   }
@@ -2169,20 +2734,7 @@ export class AgentRunner implements vscode.Disposable {
     }
   }
 
-  private formatSprintMemoryContext(memory: {
-    sprintId: string;
-    sprintName: string;
-    goals: string[];
-    architectureDecisions: Array<{ title: string; decision: string }>;
-    taskSummaries: Array<{ taskId: number; title: string; outcome: string }>;
-    implementorPatterns: Array<{
-      pattern: string;
-      description: string;
-      example?: string;
-    }>;
-    compactionCount: number;
-    lastCompactedAt: string | null;
-  }): string {
+  private formatSprintMemoryContext(memory: SprintMemoryRecord): string {
     const goals = memory.goals.length > 0 ? memory.goals.join("; ") : "None";
     const decisions =
       memory.architectureDecisions.length > 0

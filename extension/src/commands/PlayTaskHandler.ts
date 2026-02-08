@@ -9,6 +9,7 @@
 import * as fs from "fs/promises";
 import * as path from "path";
 import * as vscode from "vscode";
+import { getLatestImplementorSession } from "../agents/sessions/sessionRepository.js";
 import {
   getEscalation,
   getFeedback,
@@ -20,7 +21,6 @@ import {
 import { getAgentRunner, getContextFileResolver } from "../extension.js";
 import { PromptBuilder } from "../prompts/PromptBuilder.js";
 import { OrchestraLogger } from "../utils/logger.js";
-
 /**
  * Show the new Agent Panel webview (Sprint 011)
  * Opens the orchestra.agentPanel view in the sidebar
@@ -254,7 +254,8 @@ async function invokePrepare(
 
     // Create instances
     const logger = new OrchestraLogger();
-    const promptBuilder = new PromptBuilder({ workspaceRoot });    const agentRunner = getAgentRunner();
+    const promptBuilder = new PromptBuilder({ workspaceRoot });
+    const agentRunner = getAgentRunner();
 
     if (agentRunner.getSession()?.status === "running") {
       vscode.window.showErrorMessage(
@@ -284,6 +285,7 @@ async function invokePrepare(
       taskId,
       taskNumber: task.task_id,
       sprintId: sprint.id,
+      stage: "PREPARE" as const,
     } as const;
 
     await agentRunner.start("orchestrator", {
@@ -291,7 +293,6 @@ async function invokePrepare(
       systemPrompt,
       codingStandardsPrompt,
     });
-
     logger.info(`Started orchestrator agent to prepare task ${taskId}`, {
       taskId,
       taskTitle: task.title,
@@ -344,7 +345,8 @@ async function invokeImplement(
 
     // Create instances
     const logger = new OrchestraLogger();
-    const promptBuilder = new PromptBuilder({ workspaceRoot });    const agentRunner = getAgentRunner();
+    const promptBuilder = new PromptBuilder({ workspaceRoot });
+    const agentRunner = getAgentRunner();
 
     if (agentRunner.getSession()?.status === "running") {
       vscode.window.showErrorMessage(
@@ -380,6 +382,7 @@ async function invokeImplement(
       taskId,
       taskNumber: task.task_id,
       sprintId: task.sprint_id,
+      stage: "IMPLEMENT" as const,
     } as const;
 
     await agentRunner.start("implementor", {
@@ -387,7 +390,6 @@ async function invokeImplement(
       systemPrompt,
       codingStandardsPrompt,
     });
-
     logger.info(`Started implementor agent for task ${taskId}`, {
       taskId,
       taskTitle: task.title,
@@ -462,7 +464,8 @@ async function invokeRetry(
 
     // Create instances
     const logger = new OrchestraLogger();
-    const promptBuilder = new PromptBuilder({ workspaceRoot });    const agentRunner = getAgentRunner();
+    const promptBuilder = new PromptBuilder({ workspaceRoot });
+    const agentRunner = getAgentRunner();
 
     if (agentRunner.getSession()?.status === "running") {
       vscode.window.showErrorMessage(
@@ -492,20 +495,26 @@ async function invokeRetry(
     // Build coding standards for injection
     const codingStandardsPrompt = buildCodingStandards(promptBuilder);
 
+    // Look up latest implementor session for session lineage
+    const latestSession = getLatestImplementorSession(workspaceRoot, taskId);
+
     // Start implementor agent for retry
     const startOptions = {
       prompt,
       taskId,
       taskNumber: task.task_id,
       sprintId: task.sprint_id,
+      stage: "IMPLEMENT_FIX" as const,
     } as const;
 
     await agentRunner.start("implementor", {
       ...startOptions,
       systemPrompt,
       codingStandardsPrompt,
+      ...(latestSession?.sessionId && {
+        parentSessionId: latestSession.sessionId,
+      }),
     });
-
     logger.info(`Started implementor agent to retry task ${taskId}`, {
       taskId,
       taskTitle: task.title,
@@ -560,7 +569,8 @@ async function invokeVerify(
 
     // Create instances
     const logger = new OrchestraLogger();
-    const promptBuilder = new PromptBuilder({ workspaceRoot });    const agentRunner = getAgentRunner();
+    const promptBuilder = new PromptBuilder({ workspaceRoot });
+    const agentRunner = getAgentRunner();
 
     if (agentRunner.getSession()?.status === "running") {
       vscode.window.showErrorMessage(
@@ -590,6 +600,7 @@ async function invokeVerify(
       taskId,
       taskNumber: task.task_id,
       sprintId: task.sprint_id,
+      stage: "VERIFY" as const,
     } as const;
 
     await agentRunner.start("orchestrator", {
@@ -597,7 +608,6 @@ async function invokeVerify(
       systemPrompt,
       codingStandardsPrompt,
     });
-
     logger.info(`Started orchestrator agent to verify task ${taskId}`, {
       taskId,
       taskTitle: task.title,
@@ -673,7 +683,8 @@ async function invokeHandoverFix(
 
     // Create instances
     const logger = new OrchestraLogger();
-    const promptBuilder = new PromptBuilder({ workspaceRoot });    const agentRunner = getAgentRunner();
+    const promptBuilder = new PromptBuilder({ workspaceRoot });
+    const agentRunner = getAgentRunner();
 
     if (agentRunner.getSession()?.status === "running") {
       vscode.window.showErrorMessage(
@@ -703,6 +714,7 @@ async function invokeHandoverFix(
       taskId,
       taskNumber: task.task_id,
       sprintId: sprint.id,
+      stage: "PREPARE" as const,
     } as const;
 
     await agentRunner.start("orchestrator", {
@@ -710,7 +722,6 @@ async function invokeHandoverFix(
       systemPrompt,
       codingStandardsPrompt,
     });
-
     logger.info("Started orchestrator agent to fix handover", {
       taskId,
       taskTitle: task.title,
@@ -781,7 +792,8 @@ async function invokeHandoverReview(
 
     // Create instances
     const logger = new OrchestraLogger();
-    const promptBuilder = new PromptBuilder({ workspaceRoot });    const agentRunner = getAgentRunner();
+    const promptBuilder = new PromptBuilder({ workspaceRoot });
+    const agentRunner = getAgentRunner();
 
     if (agentRunner.getSession()?.status === "running") {
       vscode.window.showErrorMessage(
@@ -811,6 +823,7 @@ async function invokeHandoverReview(
       taskId,
       taskNumber: task.task_id,
       sprintId: sprint.id,
+      stage: "CODE_REVIEW" as const,
     } as const;
 
     await agentRunner.start("controller", {
@@ -818,7 +831,6 @@ async function invokeHandoverReview(
       systemPrompt,
       codingStandardsPrompt,
     });
-
     logger.info("Started controller agent for handover review", {
       taskId,
       taskTitle: task.title,
@@ -866,7 +878,8 @@ async function invokeCodeReview(
 
     // Create instances
     const logger = new OrchestraLogger();
-    const promptBuilder = new PromptBuilder({ workspaceRoot });    const agentRunner = getAgentRunner();
+    const promptBuilder = new PromptBuilder({ workspaceRoot });
+    const agentRunner = getAgentRunner();
 
     // Check if agent is already running
     if (agentRunner.getSession()?.status === "running") {
@@ -891,11 +904,16 @@ async function invokeCodeReview(
     // Use PromptBuilder for consistent prompt with WorkflowChain
     // Use re-review prompt if implementor has submitted fixes
     const prompt = isReReview
-      ? promptBuilder.buildCodeReviewReReviewPrompt(1, sprint.id, sprint.name, {
-          taskId: task.task_id,
-          title: task.title,
-          dbId: task.id,
-        })
+      ? promptBuilder.buildCodeReviewReReviewPrompt(
+          sprint.id,
+          sprint.name,
+          {
+            taskId: task.task_id,
+            title: task.title,
+            dbId: task.id,
+          },
+          codeReview!.review_id,
+        )
       : promptBuilder.buildCodeReviewPrompt(1, sprint.id, sprint.name, {
           taskId: task.task_id,
           title: task.title,
@@ -920,6 +938,7 @@ async function invokeCodeReview(
       taskId,
       taskNumber: task.task_id,
       sprintId: sprint.id,
+      stage: "CODE_REVIEW" as const,
     } as const;
 
     await agentRunner.start("controller", {
@@ -927,7 +946,6 @@ async function invokeCodeReview(
       systemPrompt,
       codingStandardsPrompt,
     });
-
     logger.info("Started controller agent for code review", {
       taskId,
       taskTitle: task.title,
@@ -983,7 +1001,8 @@ async function invokeCodeReviewFix(
 
     // Create instances
     const logger = new OrchestraLogger();
-    const promptBuilder = new PromptBuilder({ workspaceRoot });    const agentRunner = getAgentRunner();
+    const promptBuilder = new PromptBuilder({ workspaceRoot });
+    const agentRunner = getAgentRunner();
 
     if (agentRunner.getSession()?.status === "running") {
       vscode.window.showErrorMessage(
@@ -1025,20 +1044,26 @@ async function invokeCodeReviewFix(
     // Build coding standards for injection
     const codingStandardsPrompt = buildCodingStandards(promptBuilder);
 
+    // Look up latest implementor session for session lineage
+    const latestSession = getLatestImplementorSession(workspaceRoot, taskId);
+
     // Start implementor agent to fix code review issues
     const startOptions = {
       prompt,
       taskId,
       taskNumber: task.task_id,
       sprintId: sprint.id,
+      stage: "IMPLEMENT_FIX" as const,
     } as const;
 
     await agentRunner.start("implementor", {
       ...startOptions,
       systemPrompt,
       codingStandardsPrompt,
+      ...(latestSession?.sessionId && {
+        parentSessionId: latestSession.sessionId,
+      }),
     });
-
     logger.info("Started implementor agent to fix code review issues", {
       taskId,
       taskTitle: task.title,
@@ -1134,6 +1159,7 @@ Use your MCP tools to investigate and resolve this escalation.`;
       taskId,
       taskNumber: task.task_id,
       sprintId: task.sprint_id,
+      stage: "VERIFY" as const,
     } as const;
 
     await agentRunner.start("orchestrator", {
@@ -1141,7 +1167,6 @@ Use your MCP tools to investigate and resolve this escalation.`;
       systemPrompt,
       codingStandardsPrompt,
     });
-
     logger.info(
       `Started orchestrator agent to review escalated task ${taskId}`,
       {

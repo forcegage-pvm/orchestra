@@ -21,8 +21,8 @@ import {
 import { getAgentRunner } from "../extension.js";
 import { OrchestraLogger } from "../utils/logger.js";
 import { getAgentEventBus } from "./sessions/eventBus.js";
+import { getLatestImplementorSession } from "./sessions/sessionRepository.js";
 import type { AgentRole, EventBusPayload } from "./sessions/types.js";
-
 const logger = new OrchestraLogger();
 
 /**
@@ -296,7 +296,63 @@ export class WorkflowChain implements vscode.Disposable {
       `Orchestra: ${nextAction.description}`,
     );
 
-    // Invoke the next agent via PlayTaskHandler
+    // Special case: continue_implementor transitions (VERIFY_FAILED or code review fixes)
+    // Use continueSessionExecution to preserve conversation context
+    if (nextAction.type === "continue_implementor") {
+      const runner = getAgentRunner();
+
+      // Look up the latest implementor session for this task
+      const latestSession = getLatestImplementorSession(
+        this.workspaceRoot,
+        taskId,
+      );
+
+      if (latestSession) {
+        logger.info(
+          `[WorkflowChain] Continuing implementor session ${latestSession.sessionId} with feedback`,
+        );
+
+        // Build feedback prompt from the action description
+        const isCodeReviewFix =
+          role === "controller" ||
+          task.status === "CODE_REVIEW_CHANGES_REQUESTED";
+        const continuationPrompt = isCodeReviewFix
+          ? `${nextAction.description}\n\nThe code review requested changes. Please review the issues via fix_code_review and address them.`
+          : `${nextAction.description}\n\nYour previous verification attempt failed. Please review the feedback via get_feedback and fix the issues.`;
+
+        try {
+          await runner.continueSessionExecution({
+            sessionId: latestSession.sessionId,
+            continuationPrompt,
+            stage: "IMPLEMENT_FIX",
+          });
+          logger.info(
+            `[WorkflowChain] Successfully continued implementor session for task ${taskId}`,
+          );
+        } catch (error) {
+          const message =
+            error instanceof Error ? error.message : "Unknown error";
+          logger.error(
+            `[WorkflowChain] Failed to continue implementor session: ${message}`,
+          );
+          // Fallback to handlePlayTask
+          logger.info(
+            `[WorkflowChain] Falling back to handlePlayTask for task ${taskId}`,
+          );
+          await handlePlayTask(this.workspaceRoot, taskId);
+        }
+        return;
+      } else {
+        logger.warn(
+          `[WorkflowChain] No implementor session found for task ${taskId}, falling back to handlePlayTask`,
+        );
+        // Fallback to handlePlayTask when no session found
+        await handlePlayTask(this.workspaceRoot, taskId);
+        return;
+      }
+    }
+
+    // Default: Invoke the next agent via PlayTaskHandler
     try {
       await handlePlayTask(this.workspaceRoot, taskId);
       logger.info(
@@ -374,7 +430,7 @@ export class WorkflowChain implements vscode.Disposable {
     hasApprovedCodeReview: boolean = false,
     hasChangesRequested: boolean = false,
     hasRejectedCodeReview: boolean = false,
-  ): { description: string } | null {
+  ): { description: string; type?: string } | null {
     // Log all inputs for debugging workflow transitions
     logger.info(
       `[WorkflowChain] determineNextAction: role=${completedRole}, status=${taskStatus}` +
@@ -427,9 +483,9 @@ export class WorkflowChain implements vscode.Disposable {
       return {
         description:
           "Verification failed - invoking Implementor to fix issues...",
+        type: "continue_implementor",
       };
     }
-
     // Orchestrator verified → Controller code review
     // Task might be VERIFIED or COMPLETE with pending code review
     if (
@@ -452,6 +508,7 @@ export class WorkflowChain implements vscode.Disposable {
       return {
         description:
           "Code review requested changes - invoking Implementor to fix issues...",
+        type: "continue_implementor",
       };
     }
 
@@ -622,15 +679,12 @@ export class WorkflowChain implements vscode.Disposable {
         (tc) => tc.status === "error",
       );
       if (failedCalls.length > 0) {
-        const lastFailed = failedCalls[failedCalls.length - 1];
+        const lastFailed = failedCalls[failedCalls.length - 1]!;
         parts.push(
           `\nThe previous session's last failed tool call was "${lastFailed.name}".`,
         );
-        if (lastFailed.result?.error?.message) {
-          parts.push(`Error: ${lastFailed.result.error.message}`);
-        }
-        if (lastFailed.result?.error?.suggestion) {
-          parts.push(`Suggestion: ${lastFailed.result.error.suggestion}`);
+        if (lastFailed.error?.message) {
+          parts.push(`Error: ${lastFailed.error.message}`);
         }
       }
     }
