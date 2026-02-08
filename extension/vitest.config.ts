@@ -5,13 +5,11 @@ export default defineConfig({
   test: {
     globals: true,
     environment: "node",
+    // Auto-rebuild better-sqlite3 if compiled for Electron (VSIX packaging)
+    // so that all DB-backed tests run without manual intervention.
+    globalSetup: ["test/setup/ensure-native-modules.ts"],
     include: ["test/**/*.test.ts"],
-    // Skip tests that require Node.js-compiled better-sqlite3
-    // when extension is packaged with Electron-compiled version
-    exclude: [
-      "**/node_modules/**",
-      "**/session-persistence.test.ts", // Requires Node.js better-sqlite3
-    ],
+    exclude: ["**/node_modules/**"],
     coverage: {
       provider: "v8",
       reporter: ["text", "json-summary"],

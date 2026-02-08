@@ -110,7 +110,10 @@ describe("Prompt System Integration", () => {
     // Default: use real existsSync (TemplateLoader needs real fs),
     // but return true for test workspace paths (ContextFileResolver)
     existsSyncMock.mockImplementation((p: string) => {
-      if (typeof p === "string" && p.includes("test" + path.sep + "workspace")) {
+      if (
+        typeof p === "string" &&
+        p.includes("test" + path.sep + "workspace")
+      ) {
         return true;
       }
       return realExistsSyncRef.value?.(p) ?? false;
@@ -802,41 +805,77 @@ describe("Prompt System Integration", () => {
       const prompts: string[] = [];
 
       // 1. prepare
-      prompts.push(builder.buildPreparePrompt({ task: mockTask, sprint: mockSprint }));
+      prompts.push(
+        builder.buildPreparePrompt({ task: mockTask, sprint: mockSprint }),
+      );
       // 2. implement
-      prompts.push(builder.buildImplementPrompt({ task: mockTask, sprint: mockSprint }));
+      prompts.push(
+        builder.buildImplementPrompt({ task: mockTask, sprint: mockSprint }),
+      );
       // 3. verify
-      prompts.push(builder.buildVerifyPrompt({ task: mockTask, sprint: mockSprint }));
+      prompts.push(
+        builder.buildVerifyPrompt({ task: mockTask, sprint: mockSprint }),
+      );
       // 4. retry
-      prompts.push(builder.buildRetryPrompt({ task: mockTask, sprint: mockSprint, retryCount: 1 }));
+      prompts.push(
+        builder.buildRetryPrompt({
+          task: mockTask,
+          sprint: mockSprint,
+          retryCount: 1,
+        }),
+      );
       // 5. sprint-review
       prompts.push(builder.buildSprintReviewPrompt({ sprint: mockSprint }));
       // 6. handover-review
-      prompts.push(builder.buildHandoverReviewPrompt({ task: mockTask, sprint: mockSprint }));
+      prompts.push(
+        builder.buildHandoverReviewPrompt({
+          task: mockTask,
+          sprint: mockSprint,
+        }),
+      );
       // 7. handover-fix
-      prompts.push(builder.buildHandoverFixPrompt({
-        task: mockTask,
-        sprint: mockSprint,
-        rejection: { issues: [], recommendations: [], revision_count: 0 },
-      }));
+      prompts.push(
+        builder.buildHandoverFixPrompt({
+          task: mockTask,
+          sprint: mockSprint,
+          rejection: { issues: [], recommendations: [], revision_count: 0 },
+        }),
+      );
       // 8. code-review
-      prompts.push(builder.buildCodeReviewPrompt(1, "003B", "Sprint", { taskId: 1, title: "Task", dbId: 1 }));
+      prompts.push(
+        builder.buildCodeReviewPrompt(1, "003B", "Sprint", {
+          taskId: 1,
+          title: "Task",
+          dbId: 1,
+        }),
+      );
       // 9. code-review-bulk
       prompts.push(builder.buildCodeReviewPrompt(3, "003B", "Sprint"));
       // 10. code-review-re-review
-      prompts.push(builder.buildCodeReviewReReviewPrompt("003B", "Sprint", { taskId: 1, title: "Task", dbId: 1 }, 1));
+      prompts.push(
+        builder.buildCodeReviewReReviewPrompt(
+          "003B",
+          "Sprint",
+          { taskId: 1, title: "Task", dbId: 1 },
+          1,
+        ),
+      );
       // 11. code-review-fix
       prompts.push(builder.buildCodeReviewFixPrompt(2, "003B", "Sprint"));
       // 12. code-review-fix-prepare
-      prompts.push(builder.buildCodeReviewFixPreparePrompt(
-        { task: mockTask, sprint: mockSprint },
-        { status: "CHANGES_REQUESTED", summary: "Fix it" },
-      ));
+      prompts.push(
+        builder.buildCodeReviewFixPreparePrompt(
+          { task: mockTask, sprint: mockSprint },
+          { status: "CHANGES_REQUESTED", summary: "Fix it" },
+        ),
+      );
       // 13. code-review-fix-implement
-      prompts.push(builder.buildCodeReviewFixImplementPrompt(
-        { task: mockTask, sprint: mockSprint },
-        { status: "CHANGES_REQUESTED", summary: "Fix it" },
-      ));
+      prompts.push(
+        builder.buildCodeReviewFixImplementPrompt(
+          { task: mockTask, sprint: mockSprint },
+          { status: "CHANGES_REQUESTED", summary: "Fix it" },
+        ),
+      );
 
       expect(prompts).toHaveLength(13);
       for (const prompt of prompts) {
@@ -872,12 +911,11 @@ describe("Prompt System Integration", () => {
     });
 
     it("should render spec-protocol partial content in code-review template", () => {
-      const prompt = builder.buildCodeReviewPrompt(
-        1,
-        "003B",
-        "Sprint",
-        { taskId: 1, title: "Task", dbId: 1 },
-      );
+      const prompt = builder.buildCodeReviewPrompt(1, "003B", "Sprint", {
+        taskId: 1,
+        title: "Task",
+        dbId: 1,
+      });
 
       // code-review.hbs includes {{>spec-protocol protocol_variant="single"}}
       expect(prompt).toContain("Mandatory Spec-First Protocol");
@@ -885,12 +923,11 @@ describe("Prompt System Integration", () => {
     });
 
     it("should render stub-hunter-mode partial in code-review template", () => {
-      const prompt = builder.buildCodeReviewPrompt(
-        1,
-        "003B",
-        "Sprint",
-        { taskId: 1, title: "Task", dbId: 1 },
-      );
+      const prompt = builder.buildCodeReviewPrompt(1, "003B", "Sprint", {
+        taskId: 1,
+        title: "Task",
+        dbId: 1,
+      });
 
       // code-review.hbs includes {{>stub-hunter-mode stub_hunter_mode_variant="legacy"}}
       expect(prompt).toContain("STUB HUNTER");
@@ -1003,10 +1040,11 @@ describe("Prompt System Integration", () => {
     it("should contain all expected sections in coding-standards template", () => {
       const result = builder.buildCodingStandardsPrompt();
 
-      expect(result).toContain("## Architecture");
-      expect(result).toContain("## Coding Conventions");
-      expect(result).toContain("## Testing Standards");
-      expect(result).toContain("## Error Handling");
+      // Numbered sections from the project's coding-standards.hbs
+      expect(result).toContain("## 1. Architecture");
+      expect(result).toContain("## 5. Error Handling");
+      expect(result).toContain("## 6. Testing Standards");
+      expect(result).toContain("## 9. Code Style");
     });
 
     it("should return null when coding-standards template does not exist", () => {
@@ -1021,12 +1059,11 @@ describe("Prompt System Integration", () => {
     });
 
     it("should include coding standards compliance in code-review template", () => {
-      const prompt = builder.buildCodeReviewPrompt(
-        1,
-        "003B",
-        "Sprint",
-        { taskId: 1, title: "Task", dbId: 1 },
-      );
+      const prompt = builder.buildCodeReviewPrompt(1, "003B", "Sprint", {
+        taskId: 1,
+        title: "Task",
+        dbId: 1,
+      });
 
       expect(prompt).toContain("Coding Standards Compliance");
       expect(prompt).toContain("coding standards");
