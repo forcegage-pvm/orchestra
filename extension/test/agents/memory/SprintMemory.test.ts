@@ -6,13 +6,13 @@ import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
-import { SprintMemory } from "../../src/agents/memory/SprintMemory.js";
+import { SprintMemory } from "../../../src/agents/memory/SprintMemory.js";
 import {
   ArchitectureDecisionSchema,
   SprintMemorySchema,
   TaskSummarySchema,
   type SprintMemory as SprintMemoryRecord,
-} from "../../src/agents/memory/types.js";
+} from "../../../src/agents/memory/types.js";
 
 const createMemoryRecord = (
   sprintId: string,

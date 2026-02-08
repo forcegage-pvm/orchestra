@@ -66,9 +66,9 @@ if (!moduleCompatible) {
     getSessionsForTaskAndRole,
     getRecentSessions,
     deleteSession,
-  } = await import("../../src/agents/sessions/sessionRepository.js");
+  } = await import("../../../src/agents/sessions/sessionRepository.js");
   const { OrchestraDB } = await import("../../../src/database/client.js");
-  const type = await import("../../src/agents/sessions/types.js");
+  const type = await import("../../../src/agents/sessions/types.js");
 
   // Test fixtures
   let testWorkspaceRoot: string;

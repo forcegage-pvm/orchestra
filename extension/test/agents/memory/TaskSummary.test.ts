@@ -3,11 +3,11 @@
  */
 
 import { expect, test } from "vitest";
-import { AgentSession } from "../../src/agents/AgentSession.js";
+import { AgentSession } from "../../../src/agents/AgentSession.js";
 import {
   TaskSummarySchema,
   generateTaskSummary,
-} from "../../src/agents/memory/index.js";
+} from "../../../src/agents/memory/index.js";
 
 const createFileChange = (params: {
   relativePath: string;

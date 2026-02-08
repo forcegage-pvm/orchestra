@@ -11,12 +11,12 @@ import * as path from "path";
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { grepSearchTool } from "../../../src/agents/tools/coding/grepSearch.js";
-import { ToolErrorCode } from "../../../src/agents/tools/errors.js";
+import { grepSearchTool } from "../../../../src/agents/tools/coding/grepSearch.js";
+import { ToolErrorCode } from "../../../../src/agents/tools/errors.js";
 import type {
   ToolInvocationContext,
   ToolResult,
-} from "../../../src/agents/tools/types.js";
+} from "../../../../src/agents/tools/types.js";
 
 // -- Helpers --------------------------------------------------------------
 

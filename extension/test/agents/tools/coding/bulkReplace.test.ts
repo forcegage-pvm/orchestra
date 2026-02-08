@@ -7,8 +7,8 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { bulkReplaceTool } from "../../../src/agents/tools/coding/bulkReplace.js";
-import type { ToolInvocationContext } from "../../../src/agents/tools/types.js";
+import { bulkReplaceTool } from "../../../../src/agents/tools/coding/bulkReplace.js";
+import type { ToolInvocationContext } from "../../../../src/agents/tools/types.js";
 
 const { workspace, Range, Position, WorkspaceEdit, Uri } = vi.hoisted(() => {
   const workspace = {

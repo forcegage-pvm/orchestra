@@ -4,16 +4,16 @@
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { findUsagesTool } from "../../../src/agents/tools/coding/findUsages.js";
+import { findUsagesTool } from "../../../../src/agents/tools/coding/findUsages.js";
 import {
   ToolErrorCode,
   createToolError,
-} from "../../../src/agents/tools/errors.js";
+} from "../../../../src/agents/tools/errors.js";
 import type {
   ToolInvocationContext,
   ToolResult,
-} from "../../../src/agents/tools/types.js";
-import { validatePath } from "../../../src/agents/tools/utils/pathValidation.js";
+} from "../../../../src/agents/tools/types.js";
+import { validatePath } from "../../../../src/agents/tools/utils/pathValidation.js";
 
 const {
   workspace,
@@ -101,7 +101,7 @@ vi.mock("vscode", () => ({
   Location,
 }));
 
-vi.mock("../../../src/agents/tools/utils/pathValidation.js", () => ({
+vi.mock("../../../../src/agents/tools/utils/pathValidation.js", () => ({
   validatePath: vi.fn(),
 }));
 
