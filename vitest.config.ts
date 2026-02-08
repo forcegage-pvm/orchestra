@@ -1,4 +1,5 @@
 import { cpus } from "os";
+import path from "path";
 import { defineConfig } from "vitest/config";
 
 export default defineConfig({
@@ -6,7 +7,11 @@ export default defineConfig({
   test: {
     globals: true,
     environment: "node",
-    include: ["test/**/*.test.ts", "testing/**/*.test.ts", "extension/test/**/*.test.ts"],
+    include: [
+      "test/**/*.test.ts",
+      "testing/**/*.test.ts",
+      "extension/test/**/*.test.ts",
+    ],
     exclude: ["node_modules", "dist", "testing/tdd-test-harness/**"],
     // Global setup - creates pre-migrated database template once
     globalSetup: ["./test/setup/global-setup.ts"],
@@ -43,6 +48,12 @@ export default defineConfig({
     shard: process.env.VITEST_SHARD || undefined,
     // Optimize for CI environments
     reporter: process.env.CI ? ["verbose", "github-actions"] : ["verbose"],
+  },
+  // Resolve aliases used in extension tests
+  resolve: {
+    alias: {
+      vscode: path.resolve(__dirname, "extension/test/__mocks__/vscode.ts"),
+    },
   },
   // Watch mode optimizations
   watch: {

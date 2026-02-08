@@ -2,7 +2,8 @@
  * Integration tests for AgentRunner session lifecycle events
  */
 
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { cleanupTestDb, setupTestDb } from "../../../test/setup/db-cache.js";
 
 const { createSessionMock, lastCreatedSessionRef } = vi.hoisted(() => {
   const lastCreatedSessionRef = { value: undefined as undefined | any };
@@ -162,8 +163,9 @@ const createHoldableModel = (resolveStreamRef: { value?: () => void }) => ({
 
 describe("AgentRunner integration", () => {
   let registry: InstanceType<typeof ToolRegistry>;
+  let __testWorkspaceDir: string | undefined;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     registry = new ToolRegistry();
     createSessionMock.mockClear();
     sessionEventEmitterMocks.emitSessionStart.mockClear();
@@ -181,9 +183,21 @@ describe("AgentRunner integration", () => {
     sessionEventEmitterMocks.setIteration.mockClear();
     lastCreatedSessionRef.value = undefined;
 
+    __testWorkspaceDir = await setupTestDb(
+      "extension-agentrunner-integration-",
+    );
+    process.env.ORCHESTRA_WORKSPACE = __testWorkspaceDir;
+    (vscode as any).workspace.workspaceFolders = [
+      { uri: { fsPath: __testWorkspaceDir } },
+    ];
+
     vi.mocked(vscode.lm.selectChatModels).mockResolvedValue([
       createNoToolCallModel() as any,
     ]);
+  });
+
+  afterEach(async () => {
+    if (__testWorkspaceDir) await cleanupTestDb(__testWorkspaceDir);
   });
 
   it("emits session_start on start", async () => {

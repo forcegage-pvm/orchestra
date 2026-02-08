@@ -4,8 +4,9 @@
  * Tests for agent execution loop, lifecycle management, and vscode.lm integration.
  */
 
-import { beforeEach, describe, expect, test, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import * as vscode from "vscode";
+import { cleanupTestDb, setupTestDb } from "../../../test/setup/db-cache.js";
 import { AgentRunner } from "../../src/agents/AgentRunner.js";
 import { AgentSession } from "../../src/agents/AgentSession.js";
 import { AgentError } from "../../src/agents/errors.js";
@@ -18,6 +19,8 @@ import { systemTools } from "../../src/agents/tools/system/index.js";
 import type { AgentTool } from "../../src/agents/tools/types.js";
 import type { AgentConfig } from "../../src/agents/types.js";
 import { createEscalation } from "../../src/database/mutations.js";
+
+let __testWorkspaceDir: string | undefined;
 
 vi.mock("../../src/database/mutations.js", () => ({
   createEscalation: vi.fn(() => 1),
@@ -171,7 +174,14 @@ describe("AgentRunner", () => {
     }),
   });
 
-  beforeEach(() => {
+  beforeEach(async () => {
+    // Setup isolated test DB workspace
+    __testWorkspaceDir = await setupTestDb("extension-agentrunner-unit-");
+    process.env.ORCHESTRA_WORKSPACE = __testWorkspaceDir;
+    (vscode as any).workspace.workspaceFolders = [
+      { uri: { fsPath: __testWorkspaceDir } },
+    ];
+
     registry = new ToolRegistry();
     registry.register(mockTool);
     runner = new AgentRunner(registry, { skipToolLoading: true });
@@ -185,6 +195,27 @@ describe("AgentRunner", () => {
     const mockModel = createSimpleMockModel();
 
     vi.mocked(vscode.lm.selectChatModels).mockResolvedValue([mockModel as any]);
+
+    // Ensure extension-specific migrations applied
+    try {
+      const { runExtensionMigrations } =
+        await import("../../src/database/migrations.js");
+      const { OrchestraDB } = await import("../../src/database/client.js");
+      const db = OrchestraDB.getInstance(__testWorkspaceDir!);
+      runExtensionMigrations(db);
+    } catch (err) {
+      console.warn(
+        "Warning: extension migrations failed during test setup:",
+        err,
+      );
+    }
+  });
+
+  afterEach(async () => {
+    if (__testWorkspaceDir) {
+      await cleanupTestDb(__testWorkspaceDir);
+      __testWorkspaceDir = undefined;
+    }
   });
 
   describe("constructor", () => {
@@ -372,14 +403,16 @@ describe("AgentRunner", () => {
     test("should inject codingStandardsPrompt as system message when provided", async () => {
       const session = await runner.start("orchestrator", {
         prompt: "Test prompt",
-        codingStandardsPrompt: "Follow these coding standards: use strict TypeScript",
+        codingStandardsPrompt:
+          "Follow these coding standards: use strict TypeScript",
       });
 
       // Should find the coding standards in messages as a system-role message
       const codingStandardsMsg = session.messages.find(
         (message) =>
           message.role === "system" &&
-          message.content === "Follow these coding standards: use strict TypeScript",
+          message.content ===
+            "Follow these coding standards: use strict TypeScript",
       );
       expect(codingStandardsMsg).toBeDefined();
     });
@@ -1268,6 +1301,20 @@ describe("AgentRunner", () => {
         );
 
         CREATE INDEX IF NOT EXISTS idx_events_session ON session_events(session_id);
+
+        -- Minimal parent tables required by FK constraints
+        CREATE TABLE IF NOT EXISTS tasks (
+          id INTEGER PRIMARY KEY,
+          title TEXT NOT NULL
+        );
+        INSERT INTO tasks (id, title) VALUES (1, 'Test Task');
+
+        CREATE TABLE IF NOT EXISTS sprints (
+          id TEXT PRIMARY KEY,
+          name TEXT NOT NULL
+        );
+        INSERT INTO sprints (id, name) VALUES ('sprint-001', 'Test Sprint');
+
       `);
         db.close();
 
@@ -1363,6 +1410,20 @@ describe("AgentRunner", () => {
         );
 
         CREATE INDEX IF NOT EXISTS idx_events_session ON session_events(session_id);
+
+        -- Minimal parent tables required by FK constraints
+        CREATE TABLE IF NOT EXISTS tasks (
+          id INTEGER PRIMARY KEY,
+          title TEXT NOT NULL
+        );
+        INSERT INTO tasks (id, title) VALUES (1, 'Test Task');
+
+        CREATE TABLE IF NOT EXISTS sprints (
+          id TEXT PRIMARY KEY,
+          name TEXT NOT NULL
+        );
+        INSERT INTO sprints (id, name) VALUES ('sprint-001', 'Test Sprint');
+
       `);
         db.close();
 
@@ -1453,6 +1514,20 @@ describe("AgentRunner", () => {
         );
 
         CREATE INDEX IF NOT EXISTS idx_events_session ON session_events(session_id);
+
+        -- Minimal parent tables required by FK constraints
+        CREATE TABLE IF NOT EXISTS tasks (
+          id INTEGER PRIMARY KEY,
+          title TEXT NOT NULL
+        );
+        INSERT INTO tasks (id, title) VALUES (1, 'Test Task');
+
+        CREATE TABLE IF NOT EXISTS sprints (
+          id TEXT PRIMARY KEY,
+          name TEXT NOT NULL
+        );
+        INSERT INTO sprints (id, name) VALUES ('sprint-001', 'Test Sprint');
+
       `);
         db.close();
 

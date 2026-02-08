@@ -8,9 +8,6 @@
 import Database from "better-sqlite3";
 import { sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/better-sqlite3";
-import { existsSync, unlinkSync } from "fs";
-import { tmpdir } from "os";
-import { join } from "path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   phases,
@@ -19,100 +16,29 @@ import {
   tddRedRegistry,
   tddTaskRelationships,
 } from "../../src/db/schema.js";
+import { cleanupTestDb, setupTestDb } from "../setup/db-cache.js";
 
 describe("TDD Schema Tables", () => {
   let db: ReturnType<typeof drizzle>;
   let sqlite: Database.Database;
-  const testDbPath = join(tmpdir(), `test-tdd-schema-${Date.now()}.db`);
+  let tempDir: string;
 
   beforeEach(async () => {
-    // Create a fresh database for each test
-    sqlite = new Database(testDbPath);
-    db = drizzle(sqlite);
+    // Use shared pre-migrated database for tests to avoid per-test migrations
+    // and to reuse the singleton DB connection via getDb()/getRawDb().
+    tempDir = await setupTestDb("tdd-schema-");
 
-    // Create tables directly using SQL (simplified for testing)
-    // In production, these come from migrations
-    sqlite.exec(`
-      CREATE TABLE sprints (
-        id TEXT PRIMARY KEY,
-        name TEXT NOT NULL,
-        status TEXT NOT NULL DEFAULT 'ACTIVE',
-        workflow_step TEXT NOT NULL,
-        config TEXT,
-        spec_path TEXT,
-        spec_files TEXT,
-        spec_version TEXT,
-        spec_hash TEXT,
-        is_active INTEGER NOT NULL DEFAULT 0,
-        is_archived INTEGER NOT NULL DEFAULT 0,
-        created_at TEXT NOT NULL,
-        updated_at TEXT NOT NULL,
-        completed_at TEXT
-      );
+    const { getDb, getRawDb } = await import("../../src/db/connection.js");
+    db = getDb();
+    sqlite = getRawDb()!;
 
-      CREATE TABLE phases (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        sprint_id TEXT NOT NULL REFERENCES sprints(id) ON DELETE CASCADE,
-        phase_id TEXT NOT NULL,
-        phase_name TEXT NOT NULL,
-        speckit_tasks TEXT,
-        "order" INTEGER NOT NULL
-      );
-
-      CREATE TABLE tasks (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        sprint_id TEXT NOT NULL REFERENCES sprints(id) ON DELETE CASCADE,
-        phase_id INTEGER NOT NULL REFERENCES phases(id) ON DELETE CASCADE,
-        task_id INTEGER NOT NULL,
-        title TEXT NOT NULL,
-        description TEXT NOT NULL,
-        category TEXT NOT NULL,
-        dependencies TEXT NOT NULL,
-        speckit_task_ref TEXT,
-        status TEXT NOT NULL,
-        retry_count INTEGER NOT NULL DEFAULT 0,
-        max_retries INTEGER NOT NULL DEFAULT 3,
-        tdd_red_phase INTEGER NOT NULL DEFAULT 0,
-        created_at TEXT NOT NULL,
-        updated_at TEXT NOT NULL,
-        completed_at TEXT
-      );
-
-      CREATE TABLE tdd_task_relationships (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        sprint_id TEXT NOT NULL REFERENCES sprints(id) ON DELETE CASCADE,
-        red_task_id INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
-        green_task_id INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
-        declared_at TEXT NOT NULL,
-        created_at TEXT NOT NULL,
-        completed_at TEXT
-      );
-      CREATE INDEX tdd_rel_sprint_idx ON tdd_task_relationships(sprint_id);
-      CREATE INDEX tdd_rel_red_task_idx ON tdd_task_relationships(red_task_id);
-      CREATE UNIQUE INDEX tdd_rel_unique_idx ON tdd_task_relationships(sprint_id, red_task_id, green_task_id);
-
-      CREATE TABLE tdd_red_registry (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        sprint_id TEXT NOT NULL REFERENCES sprints(id) ON DELETE CASCADE,
-        red_task_id INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
-        test_file TEXT NOT NULL,
-        test_count INTEGER DEFAULT 1,
-        created_at TEXT NOT NULL
-      );
-      CREATE INDEX tdd_reg_sprint_idx ON tdd_red_registry(sprint_id);
-      CREATE INDEX tdd_reg_red_task_idx ON tdd_red_registry(red_task_id);
-      CREATE UNIQUE INDEX tdd_reg_unique_test_idx ON tdd_red_registry(sprint_id, test_file);
-    `);
-
-    // Enable foreign key constraints
+    // Ensure tables exist (migrations should have created them)
     sqlite.pragma("foreign_keys = ON");
   });
 
-  afterEach(() => {
-    sqlite.close();
-    if (existsSync(testDbPath)) {
-      unlinkSync(testDbPath);
-    }
+  afterEach(async () => {
+    // Reset and cleanup the temporary test database
+    await cleanupTestDb(tempDir);
   });
 
   describe("tddTaskRelationships table", () => {

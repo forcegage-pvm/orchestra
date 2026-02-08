@@ -5,8 +5,12 @@
  * with a controllable mock language model stream.
  */
 
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as vscode from "vscode";
+import { cleanupTestDb, setupTestDb } from "../../../test/setup/db-cache.js";
+
+let __testWorkspaceDir: string | undefined;
+
 import {
   AgentRunner,
   type AgentOutput,
@@ -125,11 +129,43 @@ describe("Agent Control Lifecycle Integration", () => {
     }
   };
 
-  beforeEach(() => {
+  beforeEach(async () => {
+    // Prepare isolated test workspace and pre-migrated DB
+    __testWorkspaceDir = await setupTestDb("extension-agent-controls-");
+
+    // Make extension code read the test workspace as the active workspace
+    process.env.ORCHESTRA_WORKSPACE = __testWorkspaceDir;
+    (vscode as any).workspace.workspaceFolders = [
+      { uri: { fsPath: __testWorkspaceDir } },
+    ];
+
     registry = new ToolRegistry();
     runner = new AgentRunner(registry, { skipToolLoading: true });
     streamResolvers = [];
     vi.clearAllMocks();
+
+    // Ensure extension-specific migrations have been applied on the test DB
+    try {
+      const { runExtensionMigrations } =
+        await import("../../src/database/migrations.js");
+      const { OrchestraDB } = await import("../../src/database/client.js");
+      const db = OrchestraDB.getInstance(__testWorkspaceDir!);
+      runExtensionMigrations(db);
+    } catch (err) {
+      // Non-fatal in tests; log for debugging
+      // eslint-disable-next-line no-console
+      console.warn(
+        "Warning: extension migrations failed during test setup:",
+        err,
+      );
+    }
+  });
+
+  afterEach(async () => {
+    if (__testWorkspaceDir) {
+      await cleanupTestDb(__testWorkspaceDir);
+      __testWorkspaceDir = undefined;
+    }
   });
 
   it("should pause after current step completes", async () => {

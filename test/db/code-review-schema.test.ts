@@ -6,7 +6,7 @@
  */
 
 import Database from "better-sqlite3";
-import { existsSync, mkdtempSync, rmSync, unlinkSync } from "fs";
+import { existsSync, mkdtempSync, rmSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -16,6 +16,7 @@ import {
   runMigrationsV2,
 } from "../../src/db/migrations.js";
 import * as schema from "../../src/db/schema.js";
+import { cleanupTestDb, setupTestDb } from "../setup/db-cache.js";
 
 const REQUIRED_CODE_REVIEW_COLUMNS = [
   "id",
@@ -84,77 +85,19 @@ const CODE_REVIEW_FIX_INDEXES = ["code_review_fix_review_idx"];
 
 describe("Code review schema tables", () => {
   let sqlite: Database.Database;
-  const testDbPath = join(tmpdir(), `test-code-review-schema-${Date.now()}.db`);
+  let tempDir: string;
 
-  beforeEach(() => {
-    sqlite = new Database(testDbPath);
+  beforeEach(async () => {
+    // Use shared pre-migrated DB and singleton connection
+    tempDir = await setupTestDb("code-review-schema-");
+    const { getRawDb } = await import("../../src/db/connection.js");
+    sqlite = getRawDb()!;
     sqlite.pragma("foreign_keys = ON");
-    sqlite.exec(`
-      CREATE TABLE IF NOT EXISTS code_reviews (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        sprint_id TEXT NOT NULL,
-        task_id INTEGER NOT NULL,
-        phase_id INTEGER,
-        review_scope TEXT NOT NULL,
-        status TEXT NOT NULL,
-        summary TEXT NOT NULL,
-        risk TEXT NOT NULL,
-        commit_range TEXT,
-        files_reviewed TEXT,
-        tests_run TEXT,
-        issues TEXT,
-        recommendations TEXT,
-        notes TEXT,
-        requested_by TEXT NOT NULL,
-        requested_at TEXT NOT NULL,
-        reviewed_by TEXT,
-        reviewed_at TEXT,
-        revision_count INTEGER NOT NULL DEFAULT 0,
-        previous_review_id INTEGER
-      );
-      CREATE INDEX IF NOT EXISTS code_review_sprint_idx ON code_reviews(sprint_id);
-      CREATE INDEX IF NOT EXISTS code_review_task_idx ON code_reviews(task_id);
-      CREATE INDEX IF NOT EXISTS code_review_phase_idx ON code_reviews(phase_id);
-      CREATE INDEX IF NOT EXISTS code_review_status_idx ON code_reviews(status);
-      CREATE INDEX IF NOT EXISTS code_review_scope_idx ON code_reviews(review_scope);
-
-      CREATE TABLE IF NOT EXISTS code_review_issues (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        review_id INTEGER NOT NULL,
-        task_id INTEGER NOT NULL,
-        severity TEXT NOT NULL,
-        issue TEXT NOT NULL,
-        file TEXT,
-        line INTEGER,
-        rationale TEXT NOT NULL,
-        recommendation TEXT,
-        status TEXT NOT NULL DEFAULT 'OPEN',
-        resolved_by TEXT,
-        resolved_at TEXT
-      );
-      CREATE INDEX IF NOT EXISTS code_review_issue_review_idx ON code_review_issues(review_id);
-      CREATE INDEX IF NOT EXISTS code_review_issue_task_idx ON code_review_issues(task_id);
-      CREATE INDEX IF NOT EXISTS code_review_issue_status_idx ON code_review_issues(status);
-
-      CREATE TABLE IF NOT EXISTS code_review_fixes (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        review_id INTEGER NOT NULL,
-        summary TEXT NOT NULL,
-        files_changed TEXT NOT NULL,
-        tests_run TEXT NOT NULL,
-        notes TEXT,
-        submitted_by TEXT NOT NULL,
-        submitted_at TEXT NOT NULL
-      );
-      CREATE INDEX IF NOT EXISTS code_review_fix_review_idx ON code_review_fixes(review_id);
-    `);
   });
 
-  afterEach(() => {
-    sqlite.close();
-    if (existsSync(testDbPath)) {
-      unlinkSync(testDbPath);
-    }
+  afterEach(async () => {
+    // Reset and cleanup the temporary test database
+    await cleanupTestDb(tempDir);
   });
 
   const getColumnNames = (table: string): string[] => {

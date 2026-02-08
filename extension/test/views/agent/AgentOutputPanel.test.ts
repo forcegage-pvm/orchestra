@@ -404,9 +404,13 @@ describe("AgentOutputPanel", () => {
 
     const handler = vi.mocked(mockWebview.onDidReceiveMessage).mock
       .calls[0]?.[0];
-    handler?.({ type: "pause" });
 
-    await Promise.resolve();
+    // Make pause throw synchronously so the panel handles it immediately
+    runner.pause = vi.fn(() => {
+      throw new AgentError("Cannot pause", "AGENT_NOT_RUNNING");
+    });
+
+    handler?.({ type: "pause" });
 
     expect(vscode.window.showErrorMessage).toHaveBeenCalled();
   });

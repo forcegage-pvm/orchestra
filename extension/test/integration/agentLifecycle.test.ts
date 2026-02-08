@@ -6,6 +6,9 @@
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import * as vscode from "vscode";
+
+let __testWorkspaceDir: string | undefined;
+
 import {
   AgentRunner,
   type AgentOutput,
@@ -143,7 +146,7 @@ describe("Agent Lifecycle Integration", () => {
       runner.onStateChange(handler);
     });
 
-  beforeEach(() => {
+  beforeEach(async () => {
     executeMock = vi.fn(async () => ({
       result: {
         success: true,
@@ -169,6 +172,20 @@ describe("Agent Lifecycle Integration", () => {
 
     runner = new AgentRunner(registry, { skipToolLoading: true });
     vi.clearAllMocks();
+
+    // Ensure extension-specific migrations applied on test DB
+    try {
+      const { runExtensionMigrations } =
+        await import("../../src/database/migrations.js");
+      const { OrchestraDB } = await import("../../src/database/client.js");
+      const db = OrchestraDB.getInstance(__testWorkspaceDir!);
+      runExtensionMigrations(db);
+    } catch (err) {
+      console.warn(
+        "Warning: extension migrations failed during test setup:",
+        err,
+      );
+    }
   });
 
   it("should run full lifecycle with tool execution and completion", async () => {
