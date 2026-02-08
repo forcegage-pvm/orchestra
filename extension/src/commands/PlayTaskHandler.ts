@@ -20,7 +20,7 @@ import {
 import { getAgentRunner, getContextFileResolver } from "../extension.js";
 import { PromptBuilder } from "../prompts/PromptBuilder.js";
 import { OrchestraLogger } from "../utils/logger.js";
-
+import { getLatestImplementorSession } from "../agents/sessions/sessionRepository.js";
 /**
  * Show the new Agent Panel webview (Sprint 011)
  * Opens the orchestra.agentPanel view in the sidebar
@@ -268,13 +268,13 @@ async function invokePrepare(
       taskId,
       taskNumber: task.task_id,
       sprintId: sprint.id,
+      stage: "PREPARE" as const,
     } as const;
 
     await agentRunner.start("orchestrator", {
       ...startOptions,
       systemPrompt,
     });
-
     logger.info(`Started orchestrator agent to prepare task ${taskId}`, {
       taskId,
       taskTitle: task.title,
@@ -360,13 +360,13 @@ async function invokeImplement(
       taskId,
       taskNumber: task.task_id,
       sprintId: task.sprint_id,
+      stage: "IMPLEMENT" as const,
     } as const;
 
     await agentRunner.start("implementor", {
       ...startOptions,
       systemPrompt,
     });
-
     logger.info(`Started implementor agent for task ${taskId}`, {
       taskId,
       taskTitle: task.title,
@@ -468,20 +468,25 @@ async function invokeRetry(
       "implementor",
     );
 
+    // Look up latest implementor session for session lineage
+    const latestSession = getLatestImplementorSession(workspaceRoot, taskId);
+
     // Start implementor agent for retry
     const startOptions = {
       prompt,
       taskId,
       taskNumber: task.task_id,
       sprintId: task.sprint_id,
+      stage: "IMPLEMENT_FIX" as const,
     } as const;
 
     await agentRunner.start("implementor", {
       ...startOptions,
       systemPrompt,
-    });
-
-    logger.info(`Started implementor agent to retry task ${taskId}`, {
+      ...(latestSession?.sessionId && {
+        parentSessionId: latestSession.sessionId,
+      }),
+    });    logger.info(`Started implementor agent to retry task ${taskId}`, {
       taskId,
       taskTitle: task.title,
       retryCount: task.retry_count,
@@ -562,13 +567,13 @@ async function invokeVerify(
       taskId,
       taskNumber: task.task_id,
       sprintId: task.sprint_id,
+      stage: "VERIFY" as const,
     } as const;
 
     await agentRunner.start("orchestrator", {
       ...startOptions,
       systemPrompt,
     });
-
     logger.info(`Started orchestrator agent to verify task ${taskId}`, {
       taskId,
       taskTitle: task.title,
@@ -671,13 +676,13 @@ async function invokeHandoverFix(
       taskId,
       taskNumber: task.task_id,
       sprintId: sprint.id,
+      stage: "PREPARE" as const,
     } as const;
 
     await agentRunner.start("orchestrator", {
       ...startOptions,
       systemPrompt,
     });
-
     logger.info("Started orchestrator agent to fix handover", {
       taskId,
       taskTitle: task.title,
@@ -775,13 +780,13 @@ async function invokeHandoverReview(
       taskId,
       taskNumber: task.task_id,
       sprintId: sprint.id,
+      stage: "CODE_REVIEW" as const,
     } as const;
 
     await agentRunner.start("controller", {
       ...startOptions,
       systemPrompt,
     });
-
     logger.info("Started controller agent for handover review", {
       taskId,
       taskTitle: task.title,
@@ -880,13 +885,13 @@ async function invokeCodeReview(
       taskId,
       taskNumber: task.task_id,
       sprintId: sprint.id,
+      stage: "CODE_REVIEW" as const,
     } as const;
 
     await agentRunner.start("controller", {
       ...startOptions,
       systemPrompt,
     });
-
     logger.info("Started controller agent for code review", {
       taskId,
       taskTitle: task.title,
@@ -981,20 +986,25 @@ async function invokeCodeReviewFix(
       "implementor",
     );
 
+    // Look up latest implementor session for session lineage
+    const latestSession = getLatestImplementorSession(workspaceRoot, taskId);
+
     // Start implementor agent to fix code review issues
     const startOptions = {
       prompt,
       taskId,
       taskNumber: task.task_id,
       sprintId: sprint.id,
+      stage: "IMPLEMENT_FIX" as const,
     } as const;
 
     await agentRunner.start("implementor", {
       ...startOptions,
       systemPrompt,
-    });
-
-    logger.info("Started implementor agent to fix code review issues", {
+      ...(latestSession?.sessionId && {
+        parentSessionId: latestSession.sessionId,
+      }),
+    });    logger.info("Started implementor agent to fix code review issues", {
       taskId,
       taskTitle: task.title,
       reviewStatus: review.status,
@@ -1085,13 +1095,13 @@ Use your MCP tools to investigate and resolve this escalation.`;
       taskId,
       taskNumber: task.task_id,
       sprintId: task.sprint_id,
+      stage: "VERIFY" as const,
     } as const;
 
     await agentRunner.start("orchestrator", {
       ...startOptions,
       systemPrompt,
     });
-
     logger.info(
       `Started orchestrator agent to review escalated task ${taskId}`,
       {

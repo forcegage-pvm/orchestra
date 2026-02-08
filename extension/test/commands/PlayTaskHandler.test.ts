@@ -16,6 +16,11 @@ vi.mock("fs/promises", () => ({
   readFile: vi.fn().mockResolvedValue("Mock agent instructions"),
 }));
 
+// Mock session repository
+vi.mock("../../src/agents/sessions/sessionRepository.js", () => ({
+  getLatestImplementorSession: vi.fn(),
+}));
+
 // Mock logger
 vi.mock("../../src/utils/logger.js", () => ({
   OrchestraLogger: class {
@@ -820,6 +825,325 @@ describe("PlayTaskHandler", () => {
       );
       expect(vscode.window.showWarningMessage).toHaveBeenCalledWith(
         `Task ${mockTaskId} has unexpected status: UNKNOWN_STATUS`,
+      );
+    });
+  });
+
+  describe("Stage tracking for workflow automation", () => {
+    it("should set stage to PREPARE when invoking orchestrator for task preparation", async () => {
+      const mockTask = {
+        id: 123,
+        sprint_id: "sprint-1",
+        phase_id: 1,
+        task_id: 1,
+        title: "Implement feature",
+        description: "Feature description",
+        category: "feature" as const,
+        dependencies: "[]",
+        speckit_task_ref: null,
+        status: "PENDING",
+        created_at: "2025-01-01T00:00:00Z",
+        updated_at: "2025-01-01T00:00:00Z",
+        completed_at: null,
+        retry_count: 0,
+        max_retries: 3,
+      };
+
+      const mockSprint = {
+        id: "sprint-1",
+        name: "Test Sprint",
+        status: "ACTIVE",
+        workflow_step: "prepare",
+        is_active: true,
+        is_archived: false,
+        created_at: "2025-01-01T00:00:00Z",
+        updated_at: "2025-01-01T00:00:00Z",
+        completed_at: null,
+      };
+
+      vi.mocked(queries.getTaskById).mockReturnValue(mockTask);
+      vi.mocked(queries.getSprintById).mockReturnValue(mockSprint);
+      mockAgentRunner.getSession.mockReturnValue(undefined);
+
+      await handlePlayTask(mockWorkspaceRoot, 123);
+
+      expect(mockAgentRunner.start).toHaveBeenCalledWith(
+        "orchestrator",
+        expect.objectContaining({
+          stage: "PREPARE",
+        }),
+      );
+    });
+
+    it("should set stage to IMPLEMENT when invoking implementor for task execution", async () => {
+      const mockTask = {
+        id: 123,
+        sprint_id: "sprint-1",
+        phase_id: 1,
+        task_id: 1,
+        title: "Implement feature",
+        description: "Feature description",
+        category: "feature" as const,
+        dependencies: "[]",
+        speckit_task_ref: null,
+        status: "IMPLEMENT",
+        created_at: "2025-01-01T00:00:00Z",
+        updated_at: "2025-01-01T00:00:00Z",
+        completed_at: null,
+        retry_count: 0,
+        max_retries: 3,
+      };
+
+      vi.mocked(queries.getTaskById).mockReturnValue(mockTask);
+      mockAgentRunner.getSession.mockReturnValue(undefined);
+
+      await handlePlayTask(mockWorkspaceRoot, 123);
+
+      expect(mockAgentRunner.start).toHaveBeenCalledWith(
+        "implementor",
+        expect.objectContaining({
+          stage: "IMPLEMENT",
+        }),
+      );
+    });
+
+    it("should set stage to IMPLEMENT_FIX and pass parentSessionId when invoking retry", async () => {
+      const { getLatestImplementorSession } = await import(
+        "../../src/agents/sessions/sessionRepository.js"
+      );
+
+      const mockTask = {
+        id: 123,
+        sprint_id: "sprint-1",
+        phase_id: 1,
+        task_id: 1,
+        title: "Implement feature",
+        description: "Feature description",
+        category: "feature" as const,
+        dependencies: "[]",
+        speckit_task_ref: null,
+        status: "VERIFY_FAILED",
+        created_at: "2025-01-01T00:00:00Z",
+        updated_at: "2025-01-01T00:00:00Z",
+        completed_at: null,
+        retry_count: 1,
+        max_retries: 3,
+      };
+
+      const mockFeedback = {
+        id: 1,
+        task_id: 123,
+        attempt: 1,
+        max_attempts: 3,
+        can_retry: 1,
+        issues: "[]",
+        passed_checks: "[]",
+        next_steps: "Fix it",
+        additional_guidance: null,
+        created_at: "2025-01-01T01:00:00Z",
+        updated_at: "2025-01-01T01:00:00Z",
+      };
+
+      // Mock getLatestImplementorSession to return a session
+      vi.mocked(getLatestImplementorSession).mockReturnValue({
+        sessionId: "parent-session-123",
+        role: "implementor",
+        taskId: 123,
+        taskNumber: 1,
+        taskTitle: "Implement feature",
+        sprintId: "sprint-1",
+        status: "completed",
+        startedAt: "2025-01-01T00:00:00Z",
+        lastActivityAt: "2025-01-01T00:00:30Z",
+        endedAt: "2025-01-01T00:01:00Z",
+        statusMessage: undefined,
+        iteration: 5,
+        maxIterations: 80,
+        toolCallCount: 10,
+        successfulToolCalls: 9,
+        failedToolCalls: 1,
+        warningCount: 0,
+        filesModified: [],
+        durationMs: 60000,
+      });
+
+      vi.mocked(queries.getTaskById).mockReturnValue(mockTask);
+      vi.mocked(queries.getFeedback).mockReturnValue(mockFeedback);
+      mockAgentRunner.getSession.mockReturnValue(undefined);
+
+      await handlePlayTask(mockWorkspaceRoot, 123);
+
+      expect(mockAgentRunner.start).toHaveBeenCalledWith(
+        "implementor",
+        expect.objectContaining({
+          stage: "IMPLEMENT_FIX",
+          parentSessionId: "parent-session-123",
+        }),
+      );
+    });
+
+    it("should set stage to VERIFY when invoking orchestrator for verification", async () => {
+      const mockTask = {
+        id: 123,
+        sprint_id: "sprint-1",
+        phase_id: 1,
+        task_id: 1,
+        title: "Implement feature",
+        description: "Feature description",
+        category: "feature" as const,
+        dependencies: "[]",
+        speckit_task_ref: null,
+        status: "VERIFY",
+        created_at: "2025-01-01T00:00:00Z",
+        updated_at: "2025-01-01T00:00:00Z",
+        completed_at: null,
+        retry_count: 0,
+        max_retries: 3,
+      };
+
+      vi.mocked(queries.getTaskById).mockReturnValue(mockTask);
+      mockAgentRunner.getSession.mockReturnValue(undefined);
+
+      await handlePlayTask(mockWorkspaceRoot, 123);
+
+      expect(mockAgentRunner.start).toHaveBeenCalledWith(
+        "orchestrator",
+        expect.objectContaining({
+          stage: "VERIFY",
+        }),
+      );
+    });
+
+    it("should set stage to CODE_REVIEW when invoking controller for code review", async () => {
+      const mockTask = {
+        id: 123,
+        sprint_id: "sprint-1",
+        phase_id: 1,
+        task_id: 1,
+        title: "Implement feature",
+        description: "Feature description",
+        category: "feature" as const,
+        dependencies: "[]",
+        speckit_task_ref: null,
+        status: "VERIFIED",
+        created_at: "2025-01-01T00:00:00Z",
+        updated_at: "2025-01-01T00:00:00Z",
+        completed_at: null,
+        retry_count: 0,
+        max_retries: 3,
+      };
+
+      const mockSprint = {
+        id: "sprint-1",
+        name: "Test Sprint",
+        status: "ACTIVE",
+        workflow_step: "verify",
+        is_active: true,
+        is_archived: false,
+        created_at: "2025-01-01T00:00:00Z",
+        updated_at: "2025-01-01T00:00:00Z",
+        completed_at: null,
+      };
+
+      vi.mocked(queries.getTaskById).mockReturnValue(mockTask);
+      vi.mocked(queries.getSprintById).mockReturnValue(mockSprint);
+      vi.mocked(queries.getLatestCodeReviewForTask).mockReturnValue(null);
+      mockAgentRunner.getSession.mockReturnValue(undefined);
+
+      await handlePlayTask(mockWorkspaceRoot, 123);
+
+      expect(mockAgentRunner.start).toHaveBeenCalledWith(
+        "controller",
+        expect.objectContaining({
+          stage: "CODE_REVIEW",
+        }),
+      );
+    });
+
+    it("should set stage to IMPLEMENT_FIX and pass parentSessionId when invoking code review fix", async () => {
+      const { getLatestImplementorSession } = await import(
+        "../../src/agents/sessions/sessionRepository.js"
+      );
+
+      const mockTask = {
+        id: 123,
+        sprint_id: "sprint-1",
+        phase_id: 1,
+        task_id: 1,
+        title: "Implement feature",
+        description: "Feature description",
+        category: "feature" as const,
+        dependencies: "[]",
+        speckit_task_ref: null,
+        status: "CODE_REVIEW_CHANGES_REQUESTED",
+        created_at: "2025-01-01T00:00:00Z",
+        updated_at: "2025-01-01T00:00:00Z",
+        completed_at: null,
+        retry_count: 0,
+        max_retries: 3,
+      };
+
+      const mockSprint = {
+        id: "sprint-1",
+        name: "Test Sprint",
+        status: "ACTIVE",
+        workflow_step: "verify",
+        is_active: true,
+        is_archived: false,
+        created_at: "2025-01-01T00:00:00Z",
+        updated_at: "2025-01-01T00:00:00Z",
+        completed_at: null,
+      };
+
+      const mockReview = {
+        review_id: 456,
+        task_id: 123,
+        sprint_id: "sprint-1",
+        review_type: "CODE_REVIEW",
+        status: "CHANGES_REQUESTED",
+        summary: "Needs fixes",
+        reviewer_role: "controller",
+        created_at: "2025-01-01T00:02:00Z",
+      };
+
+      // Mock getLatestImplementorSession to return a session
+      vi.mocked(getLatestImplementorSession).mockReturnValue({
+        sessionId: "parent-session-456",
+        role: "implementor",
+        taskId: 123,
+        taskNumber: 1,
+        taskTitle: "Implement feature",
+        sprintId: "sprint-1",
+        status: "completed",
+        startedAt: "2025-01-01T00:00:00Z",
+        lastActivityAt: "2025-01-01T00:00:30Z",
+        endedAt: "2025-01-01T00:01:00Z",
+        statusMessage: undefined,
+        iteration: 5,
+        maxIterations: 80,
+        toolCallCount: 10,
+        successfulToolCalls: 9,
+        failedToolCalls: 1,
+        warningCount: 0,
+        filesModified: [],
+        durationMs: 60000,
+      });
+
+      vi.mocked(queries.getTaskById).mockReturnValue(mockTask);
+      vi.mocked(queries.getSprintById).mockReturnValue(mockSprint);
+      vi.mocked(queries.getLatestCodeReviewForTask).mockReturnValue(
+        mockReview,
+      );
+      mockAgentRunner.getSession.mockReturnValue(undefined);
+
+      await handlePlayTask(mockWorkspaceRoot, 123);
+
+      expect(mockAgentRunner.start).toHaveBeenCalledWith(
+        "implementor",
+        expect.objectContaining({
+          stage: "IMPLEMENT_FIX",
+          parentSessionId: "parent-session-456",
+        }),
       );
     });
   });

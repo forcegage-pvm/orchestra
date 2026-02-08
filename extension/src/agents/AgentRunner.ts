@@ -36,11 +36,11 @@ import {
 } from "./sessions/sessionRepository.js";
 import type {
   AgentSessionInfo,
+  AgentSession as AgentSessionDB,
   SessionStage,
   SessionStatus,
   ToolCategory,
-} from "./sessions/types.js";
-import {
+} from "./sessions/types.js";import {
   loadControllerTools,
   loadImplementorTools,
   loadOrchestratorTools,
@@ -178,8 +178,11 @@ export interface AgentStartOptions {
    * role-specific instructions to the agent.
    */
   systemPrompt?: string;
+  /** Session stage for workflow tracking */
+  stage?: SessionStage;
+  /** Parent session ID for session continuation/lineage */
+  parentSessionId?: string;
 }
-
 /**
  * AgentRunner - Executes autonomous agent loops
  *
@@ -574,8 +577,9 @@ export class AgentRunner implements vscode.Disposable {
     const workspaceRoot =
       vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? process.cwd();
     try {
-      const dbSession = createSession(workspaceRoot, {
-        role: this.session.role,
+      const sessionData: Omit<AgentSessionDB, "sessionId"> & {
+        sessionId?: string;
+      } = {        role: this.session.role,
         taskId: options.taskId ?? 0,
         taskNumber: options.taskNumber,
         taskTitle: undefined,
@@ -593,9 +597,13 @@ export class AgentRunner implements vscode.Disposable {
         warningCount: 0,
         filesModified: [],
         durationMs: undefined,
-      });
+        ...(options.stage && { stage: options.stage }),
+        ...(options.parentSessionId && {
+          parentSessionId: options.parentSessionId,
+        }),
+      };
 
-      // Enable persistence for message capture
+      const dbSession = createSession(workspaceRoot, sessionData);      // Enable persistence for message capture
       this.session.enablePersistence(workspaceRoot, dbSession.sessionId);
 
       this.eventEmitter = new SessionEventEmitter(
