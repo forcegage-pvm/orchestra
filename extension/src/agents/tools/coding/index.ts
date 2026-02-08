@@ -5,6 +5,7 @@
  */
 
 import { ToolRegistry } from "../../ToolRegistry.js";
+import { autoFixFileTool } from "./autoFixFile.js";
 import { bulkReplaceTool } from "./bulkReplace.js";
 import { createDirectoryTool } from "./createDirectory.js";
 import { createFileTool } from "./createFile.js";
@@ -41,6 +42,7 @@ export const codingTools = [
   deleteSectionTool,
   validateEditTool,
   bulkReplaceTool,
+  autoFixFileTool,
 ] as const;
 
 export function registerCodingTools(registry: ToolRegistry): void {
@@ -48,6 +50,7 @@ export function registerCodingTools(registry: ToolRegistry): void {
 }
 
 export {
+  autoFixFileTool,
   bulkReplaceTool,
   createDirectoryTool,
   createFileTool,

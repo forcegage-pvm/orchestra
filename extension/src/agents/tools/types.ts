@@ -558,6 +558,8 @@ export const SmartReplaceInputSchema = z.object({
   dry_run: z.boolean().optional(),
   /** If true, check for TypeScript/ESLint errors after edit (adds ~500ms delay) */
   validate: z.boolean().optional(),
+  /** If true, apply auto-fixes after edit (organize imports, fix lint errors, etc.). Adds ~300ms delay. */
+  autofix: z.boolean().optional(),
 });
 
 /**
@@ -604,6 +606,8 @@ export const EditLinesInputSchema = z.object({
   dry_run: z.boolean().optional(),
   /** If true, check for TypeScript/ESLint errors after edit (adds ~500ms delay) */
   validate: z.boolean().optional(),
+  /** If true, apply auto-fixes after edit (organize imports, fix lint errors, etc.). Adds ~300ms delay. */
+  autofix: z.boolean().optional(),
 });
 
 /**
@@ -646,6 +650,8 @@ export const InsertAtLineInputSchema = z.object({
   content: z.string(),
   auto_indent: z.boolean().optional(),
   dry_run: z.boolean().optional(),
+  /** If true, apply auto-fixes after insertion (organize imports, fix lint errors, etc.). Adds ~300ms delay. */
+  autofix: z.boolean().optional(),
 });
 
 /**
@@ -682,6 +688,8 @@ export const DeleteSectionInputSchema = z.object({
   start_line: z.number().int().positive(),
   end_line: z.number().int().positive(),
   dry_run: z.boolean().optional(),
+  /** If true, apply auto-fixes after deletion (organize imports, fix lint errors, etc.). Adds ~300ms delay. */
+  autofix: z.boolean().optional(),
 });
 
 /**

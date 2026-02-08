@@ -18,6 +18,10 @@ import type {
   ToolResult,
 } from "../types.js";
 import {
+  applyAutoFixes,
+  formatAutoFixSummary,
+} from "../utils/autofix.js";
+import {
   formatDiagnosticsSummary,
   getDiagnosticsForFile,
   type DiagnosticsResult,
@@ -40,6 +44,8 @@ interface SmartReplacesInput {
   dry_run?: boolean;
   /** If true, check for TypeScript/ESLint errors after all edits are applied */
   validate?: boolean;
+  /** If true, apply auto-fixes after all edits (organize imports, fix lint errors, etc.). Adds ~300ms delay per edited file. */
+  autofix?: boolean;
 }
 
 interface SingleReplacementResult {
@@ -420,6 +426,30 @@ async function smartReplaces(
   const successCount = allResults.filter((r) => r.success).length;
   const failureCount = allResults.length - successCount;
 
+  // Auto-fix if requested (runs BEFORE validate diagnostics, on all edited files)
+  let autoFixSummary: string | null = null;
+
+  if (input.autofix && !dryRun && successCount > 0) {
+    const editedFiles = Array.from(byFile.keys());
+    const autoFixParts: string[] = [];
+
+    for (const filePath of editedFiles) {
+      const validatedPath = await validatePath(filePath, context.workspaceRoot);
+      if (validatedPath.isValid) {
+        const fileUri = vscode.Uri.file(validatedPath.absolutePath);
+        const fixResult = await applyAutoFixes(fileUri);
+        const summary = formatAutoFixSummary(fixResult);
+        if (summary) {
+          autoFixParts.push(`[${filePath}]\n${summary}`);
+        }
+      }
+    }
+
+    if (autoFixParts.length > 0) {
+      autoFixSummary = autoFixParts.join("\n\n");
+    }
+  }
+
   // If validate=true and not dry_run, check for diagnostics after all edits
   let diagnosticsResult: DiagnosticsResult | undefined;
   let diagnosticsSummary: string | null = null;
@@ -484,6 +514,11 @@ async function smartReplaces(
       value: JSON.stringify(output, null, 2),
     },
   ];
+
+  // Include auto-fix summary in output if available
+  if (autoFixSummary) {
+    outputContent.push({ type: "text", value: autoFixSummary });
+  }
 
   // Include diagnostics in output if available
   if (diagnosticsSummary) {
@@ -552,6 +587,11 @@ const smartReplacesInputSchema = {
       type: "boolean",
       description:
         "If true, check for TypeScript/ESLint errors after all edits are applied and include diagnostics in output. Adds ~500ms delay per edited file. Use when you want immediate feedback on errors introduced.",
+    },
+    autofix: {
+      type: "boolean",
+      description:
+        "If true, apply auto-fixes to all edited files after replacements (organize imports, fix lint errors, etc.) using VS Code's code action providers. Adds ~300ms delay per edited file.",
     },
   },
   required: ["replacements"],
