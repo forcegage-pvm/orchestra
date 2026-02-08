@@ -364,7 +364,8 @@ export class WorkflowChain implements vscode.Disposable {
       vscode.window.showErrorMessage(
         `Orchestra: Failed to continue workflow - ${message}`,
       );
-    }  }
+    }
+  }
 
   /**
    * Handle when a task is complete - check for next pending task
@@ -429,7 +430,8 @@ export class WorkflowChain implements vscode.Disposable {
     hasApprovedCodeReview: boolean = false,
     hasChangesRequested: boolean = false,
     hasRejectedCodeReview: boolean = false,
-  ): { description: string; type?: string } | null {    // Log all inputs for debugging workflow transitions
+  ): { description: string; type?: string } | null {
+    // Log all inputs for debugging workflow transitions
     logger.info(
       `[WorkflowChain] determineNextAction: role=${completedRole}, status=${taskStatus}` +
         ` pendingCR=${hasPendingCodeReview}, pendingVerify=${hasPendingVerification}` +

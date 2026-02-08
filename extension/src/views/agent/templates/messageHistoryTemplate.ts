@@ -86,7 +86,8 @@ function renderStructuredContent(parts: MessageContentPart[]): string {
  */
 function renderMessage(message: SessionMessage): string {
   const roleClass = `role-${message.role}`;
-  const roleLabel = message.role.charAt(0).toUpperCase() + message.role.slice(1);
+  const roleLabel =
+    message.role.charAt(0).toUpperCase() + message.role.slice(1);
   const contentHtml =
     typeof message.content === "string"
       ? `<div class="message-text">${escapeHtml(message.content)}</div>`

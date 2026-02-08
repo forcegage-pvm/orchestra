@@ -9,10 +9,10 @@
 
 import { randomUUID } from "crypto";
 import { and, desc, eq, sql } from "drizzle-orm";
-import type { AgentRole, AgentSession, SessionStage } from "./types.js";
 import { OrchestraDB } from "../../database/client.js";
 import * as schema from "../../database/local-schema.js";
 import { copyMessages, insertMessage } from "./sessionMessageRepository.js";
+import type { AgentRole, AgentSession, SessionStage } from "./types.js";
 /**
  * Map database row to AgentSession interface
  */
@@ -93,7 +93,7 @@ function mapRowToSession(row: {
  */
 export function createSession(
   workspaceRoot: string,
-  session: Omit<AgentSession, "sessionId"> & { sessionId?: string }
+  session: Omit<AgentSession, "sessionId"> & { sessionId?: string },
 ): AgentSession {
   const db = OrchestraDB.getDrizzleInstance(workspaceRoot);
 
@@ -144,7 +144,7 @@ export function createSession(
  */
 export function getSession(
   workspaceRoot: string,
-  sessionId: string
+  sessionId: string,
 ): AgentSession | undefined {
   const db = OrchestraDB.getDrizzleInstance(workspaceRoot);
 
@@ -188,7 +188,7 @@ export function updateSession(
       | "endedAt"
       | "durationMs"
     >
-  >
+  >,
 ): AgentSession | undefined {
   const db = OrchestraDB.getDrizzleInstance(workspaceRoot);
 
@@ -268,7 +268,7 @@ export function updateSession(
  */
 export function getSessionsForTask(
   workspaceRoot: string,
-  taskId: number
+  taskId: number,
 ): AgentSession[] {
   const db = OrchestraDB.getDrizzleInstance(workspaceRoot);
 
@@ -293,7 +293,7 @@ export function getSessionsForTask(
 export function getSessionsForTaskAndRole(
   workspaceRoot: string,
   taskId: number,
-  role: AgentRole
+  role: AgentRole,
 ): AgentSession[] {
   const db = OrchestraDB.getDrizzleInstance(workspaceRoot);
 
@@ -303,8 +303,8 @@ export function getSessionsForTaskAndRole(
     .where(
       and(
         eq(schema.agentSessions.task_id, taskId),
-        eq(schema.agentSessions.role, role)
-      )
+        eq(schema.agentSessions.role, role),
+      ),
     )
     .orderBy(desc(schema.agentSessions.started_at))
     .all();
@@ -321,7 +321,7 @@ export function getSessionsForTaskAndRole(
  */
 export function getRecentSessions(
   workspaceRoot: string,
-  limit: number = 10
+  limit: number = 10,
 ): AgentSession[] {
   const db = OrchestraDB.getDrizzleInstance(workspaceRoot);
 
@@ -344,7 +344,7 @@ export function getRecentSessions(
  */
 export function deleteSession(
   workspaceRoot: string,
-  sessionId: string
+  sessionId: string,
 ): boolean {
   const db = OrchestraDB.getDrizzleInstance(workspaceRoot);
 
@@ -390,7 +390,7 @@ export function continueSession(
   sessionId: string,
   continuationPrompt: string,
   stage: SessionStage,
-  maxIterations?: number
+  maxIterations?: number,
 ): AgentSession {
   const parentSession = getSession(workspaceRoot, sessionId);
   if (!parentSession) {
@@ -403,7 +403,9 @@ export function continueSession(
   // MAX=5 means levels 1..5 allowed (indices 0..4).
   // So if child attempt (parent.attempt + 1) >= MAX (5) -> Error.
   if ((parentSession.attempt ?? 0) >= MAX_CONTINUATION_DEPTH - 1) {
-    throw new Error(`Maximum continuation depth of ${MAX_CONTINUATION_DEPTH} exceeded`);
+    throw new Error(
+      `Maximum continuation depth of ${MAX_CONTINUATION_DEPTH} exceeded`,
+    );
   }
 
   // Create new session
@@ -428,7 +430,7 @@ export function continueSession(
     stage: stage,
     parentSessionId: sessionId,
     attempt: (parentSession.attempt ?? 0) + 1,
-    isContinued: false, 
+    isContinued: false,
     continuationCount: 0,
 
     toolCallCount: 0,
@@ -448,7 +450,7 @@ export function continueSession(
     session_id: newSession.sessionId,
     role: "user",
     content: continuationPrompt,
-    iteration: 0
+    iteration: 0,
   });
 
   // Mark parent as continued
@@ -457,7 +459,7 @@ export function continueSession(
   // Return full session object (reload to get confirmed DB state)
   const created = getSession(workspaceRoot, newSession.sessionId);
   if (!created) {
-      throw new Error("Failed to retrieve created session");
+    throw new Error("Failed to retrieve created session");
   }
   return created;
 }
@@ -471,15 +473,15 @@ export function continueSession(
  */
 export function markSessionAsContinued(
   workspaceRoot: string,
-  sessionId: string
+  sessionId: string,
 ): void {
   const db = OrchestraDB.getDrizzleInstance(workspaceRoot);
-  
+
   db.update(schema.agentSessions)
     .set({
       is_continued: true,
       continued_at: new Date().toISOString(),
-      continuation_count: sql`${schema.agentSessions.continuation_count} + 1`
+      continuation_count: sql`${schema.agentSessions.continuation_count} + 1`,
     })
     .where(eq(schema.agentSessions.id, sessionId))
     .run();
@@ -494,11 +496,11 @@ export function markSessionAsContinued(
  * @returns Array of sessions in the chain, ordered by depth
  */
 export function getSessionChain(
-  workspaceRoot: string, 
-  sessionId: string
+  workspaceRoot: string,
+  sessionId: string,
 ): AgentSession[] {
-    const db = OrchestraDB.getInstance(workspaceRoot);
-    const sqlQuery = `
+  const db = OrchestraDB.getInstance(workspaceRoot);
+  const sqlQuery = `
         WITH RECURSIVE chain AS (
             SELECT *, 0 as depth FROM agent_sessions WHERE id = ?
             UNION ALL
@@ -509,10 +511,10 @@ export function getSessionChain(
         )
         SELECT * FROM chain ORDER BY depth ASC;
     `;
-    
-    // better-sqlite3 prepare/all
-    const rows = db.prepare(sqlQuery).all(sessionId) as any[];
-    return rows.map(mapRowToSession);
+
+  // better-sqlite3 prepare/all
+  const rows = db.prepare(sqlQuery).all(sessionId) as any[];
+  return rows.map(mapRowToSession);
 }
 
 /**
@@ -524,26 +526,27 @@ export function getSessionChain(
  * @returns Most recent implementor session or undefined
  */
 export function getLatestImplementorSession(
-    workspaceRoot: string,
-    taskId: number
+  workspaceRoot: string,
+  taskId: number,
 ): AgentSession | undefined {
-    const db = OrchestraDB.getDrizzleInstance(workspaceRoot);
-    
-    // Query: WHERE task_id = ? AND role = 'implementor' ORDER BY started_at DESC LIMIT 1
-    const rows = db.select()
-        .from(schema.agentSessions)
-        .where(
-            and(
-                eq(schema.agentSessions.task_id, taskId),
-                eq(schema.agentSessions.role, "implementor")
-            )
-        )
-        .orderBy(desc(schema.agentSessions.started_at))
-        .limit(1)
-        .all();
-        
-    const firstRow = rows[0];
-    if (!firstRow) return undefined;
-    
-    return mapRowToSession(firstRow);
+  const db = OrchestraDB.getDrizzleInstance(workspaceRoot);
+
+  // Query: WHERE task_id = ? AND role = 'implementor' ORDER BY started_at DESC LIMIT 1
+  const rows = db
+    .select()
+    .from(schema.agentSessions)
+    .where(
+      and(
+        eq(schema.agentSessions.task_id, taskId),
+        eq(schema.agentSessions.role, "implementor"),
+      ),
+    )
+    .orderBy(desc(schema.agentSessions.started_at))
+    .limit(1)
+    .all();
+
+  const firstRow = rows[0];
+  if (!firstRow) return undefined;
+
+  return mapRowToSession(firstRow);
 }

@@ -35,12 +35,13 @@ import {
   getSession,
 } from "./sessions/sessionRepository.js";
 import type {
-  AgentSessionInfo,
   AgentSession as AgentSessionDB,
+  AgentSessionInfo,
   SessionStage,
   SessionStatus,
   ToolCategory,
-} from "./sessions/types.js";import {
+} from "./sessions/types.js";
+import {
   loadControllerTools,
   loadImplementorTools,
   loadOrchestratorTools,
@@ -579,7 +580,8 @@ export class AgentRunner implements vscode.Disposable {
     try {
       const sessionData: Omit<AgentSessionDB, "sessionId"> & {
         sessionId?: string;
-      } = {        role: this.session.role,
+      } = {
+        role: this.session.role,
         taskId: options.taskId ?? 0,
         taskNumber: options.taskNumber,
         taskTitle: undefined,
@@ -603,7 +605,7 @@ export class AgentRunner implements vscode.Disposable {
         }),
       };
 
-      const dbSession = createSession(workspaceRoot, sessionData);      // Enable persistence for message capture
+      const dbSession = createSession(workspaceRoot, sessionData); // Enable persistence for message capture
       this.session.enablePersistence(workspaceRoot, dbSession.sessionId);
 
       this.eventEmitter = new SessionEventEmitter(
@@ -794,6 +796,15 @@ export class AgentRunner implements vscode.Disposable {
     this.eventEmitter?.emitStatusChange(previousStatus, "running");
     this.emitStateChange();
 
+    // Ensure conversation ends with a user message (LLM API requirement).
+    // When paused mid-execution the last message is typically an assistant turn.
+    const lastMsg = this.session.messages[this.session.messages.length - 1];
+    if (!lastMsg || lastMsg.role !== "user") {
+      this.addUserMessage(
+        "Session has been resumed. Continue from where you left off.",
+      );
+    }
+
     // Restart agent loop
     const role = this.session.role;
     this.runningPromise = this.runAgentLoop(role).catch((error) => {
@@ -942,6 +953,15 @@ export class AgentRunner implements vscode.Disposable {
       );
       const memoryContext = this.formatSprintMemoryContext(memory);
       this.addUserMessage(memoryContext);
+    }
+
+    // Ensure conversation ends with a user message (LLM API requirement)
+    const lastContinueMsg =
+      this.session.messages[this.session.messages.length - 1];
+    if (!lastContinueMsg || lastContinueMsg.role !== "user") {
+      this.addUserMessage(
+        "Session has been continued. Proceed with the instructions above.",
+      );
     }
 
     // Session is already in "running" state from AgentSession constructor.
@@ -1202,6 +1222,17 @@ export class AgentRunner implements vscode.Disposable {
       );
       const memoryContext = this.formatSprintMemoryContext(memory);
       this.addUserMessage(memoryContext);
+    }
+
+    // Ensure conversation ends with a user message.
+    // The LLM API rejects conversations ending with an assistant message.
+    // System messages are prepended (not appended), so after reconstruction
+    // the last conversational message may be an assistant turn.
+    const lastMsg = this.session.messages[this.session.messages.length - 1];
+    if (!lastMsg || lastMsg.role !== "user") {
+      this.addUserMessage(
+        "Session has been resumed. Continue from where you left off.",
+      );
     }
 
     // Enable persistence and create event emitter
