@@ -830,6 +830,118 @@ export class AgentRunner implements vscode.Disposable {
   }
 
   /**
+   * Resume a session from database after VS Code restart
+   *
+   * Loads a paused/stopped session from the database, reconstructs
+   * in-memory state, and resumes execution.
+   *
+   * @param sessionId - ID of the session to resume
+   * @throws SessionError if session not found
+   * @throws AgentError if session is not resumable (must be paused or stopped)
+   */
+  async resumeFromDatabase(sessionId: string): Promise<void> {
+    if (this.session && this.session.status === "running") {
+      throw new AgentError(
+        "Agent is already running. Stop or pause before resuming a session.",
+        "AGENT_ALREADY_RUNNING",
+      );
+    }
+
+    const workspaceRoot =
+      vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? process.cwd();
+
+    // Load session metadata from database
+    const dbSession = getSession(workspaceRoot, sessionId);
+    if (!dbSession) {
+      throw new SessionError(
+        "Session not found in database",
+        sessionId,
+        undefined,
+        "NO_SESSION",
+      );
+    }
+
+    // Validate session is resumable
+    if (dbSession.status !== "paused" && dbSession.status !== "stopped") {
+      throw new AgentError(
+        `Cannot resume session in '${dbSession.status}' state. Only paused or stopped sessions can be resumed.`,
+        "INVALID_STATE",
+      );
+    }
+
+    const role = dbSession.role as AgentRole;
+    const sprintId = dbSession.sprintId;
+    const taskId = dbSession.taskId ?? null;
+    const maxIterations = dbSession.maxIterations;
+
+    // Create a fresh AgentSession instance
+    this.session = new AgentSession(role, sprintId, taskId, maxIterations);
+
+    // Override the generated ID with the existing session ID
+    (this.session as { id: string }).id = sessionId;
+
+    // Restore counters from database
+    this.session.currentIteration = dbSession.iteration;
+
+    // Reset internal runner flags
+    this.isPaused = true; // Start as paused, then resume explicitly
+    this.isStopped = false;
+    this.consecutiveErrors = 0;
+    this.recentErrors = [];
+    this.hasEscalated = false;
+    this.hasEmittedSessionEnd = false;
+
+    // Reconstruct messages from database
+    await this.reconstructSession(sessionId);
+
+    // Set up ContextManager
+    const contextConfig: {
+      maxContextTokens?: number;
+      compactionThreshold?: number;
+      summarizeAfterToolCalls?: number;
+    } = {};
+    if (this.config.maxContextTokens !== undefined)
+      contextConfig.maxContextTokens = this.config.maxContextTokens;
+    if (this.config.compactionThreshold !== undefined)
+      contextConfig.compactionThreshold = this.config.compactionThreshold;
+    if (this.config.summarizeAfterToolCalls !== undefined)
+      contextConfig.summarizeAfterToolCalls =
+        this.config.summarizeAfterToolCalls;
+
+    this.contextManager = new ContextManager(contextConfig);
+
+    // Reconstruct tool calls and file changes
+    await this.reconstructToolCalls(sessionId);
+    await this.reconstructFileChanges(sessionId);
+
+    // Enable persistence and create event emitter
+    this.session.enablePersistence(workspaceRoot, sessionId);
+    this.eventEmitter = new SessionEventEmitter(workspaceRoot, sessionId);
+
+    // Load tools for the role
+    if (!this.config.skipToolLoading) {
+      const needsToolReload = this.lastLoadedToolsRole !== role;
+
+      if (needsToolReload) {
+        this.toolRegistry.clear();
+        if (role === "orchestrator") {
+          await loadOrchestratorTools(this.toolRegistry, workspaceRoot);
+        } else if (role === "implementor") {
+          await loadImplementorTools(this.toolRegistry, workspaceRoot);
+        } else if (role === "controller") {
+          await loadControllerTools(this.toolRegistry, workspaceRoot);
+        }
+        this.lastLoadedToolsRole = role;
+      }
+    }
+
+    // Now call resume() to start execution
+    // Note: isPaused is true, so this will work
+    this.session.status = "paused"; // Ensure status is correct for resume()
+    await this.resume();
+  }
+
+  /**
    * Retry a failed, completed, or cancelled session.
    *
    * Re-enters the agent loop using the existing conversation history.

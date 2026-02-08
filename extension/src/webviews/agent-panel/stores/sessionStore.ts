@@ -16,6 +16,7 @@ import type {
   StatusChangeEvent,
   ToolCallAggregate,
 } from "../../../agents/sessions/types.js";
+import { clearSearchableTextCache } from "./eventsStore.js";
 import { restoreState, saveState } from "./persistence.js";
 
 /**
@@ -105,6 +106,7 @@ export function clearSessionHistory(): void {
   setClearAfter(new Date().toISOString());
   setEvents({});
   setEventKeys([]);
+  clearSearchableTextCache();
   setToolCalls({});
   setToolCallKeys([]);
   if (session) {
@@ -183,6 +185,7 @@ export function addEvent(event: AgentEvent): void {
 export function clearEvents(): void {
   setEvents({});
   setEventKeys([]);
+  clearSearchableTextCache();
   persistState();
 }
 

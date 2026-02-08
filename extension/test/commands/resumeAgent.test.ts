@@ -4,14 +4,12 @@
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import * as vscode from "vscode";
-import { SessionStorage } from "../../src/agents/SessionStorage.js";
-import type { SessionMetadata } from "../../src/agents/types.js";
+import * as sessionRepository from "../../src/agents/sessions/sessionRepository.js";
 import {
   buildSessionQuickPickItems,
   handleResumeAgent,
 } from "../../src/commands/resumeAgent.js";
 import { getAgentRunner } from "../../src/extension.js";
-import * as sessionRepository from "../../src/agents/sessions/sessionRepository.js";
 
 vi.mock("vscode", () => ({
   window: {
@@ -130,15 +128,15 @@ describe("resumeAgent command", () => {
 
     vi.mocked(vscode.window.showQuickPick).mockResolvedValue(items[0]);
 
+    const mockResumeFromDatabase = vi.fn().mockResolvedValue(undefined);
     vi.mocked(getAgentRunner).mockReturnValue({
       getSession: vi.fn(() => undefined),
+      resumeFromDatabase: mockResumeFromDatabase,
     } as never);
 
     await handleResumeAgent(workspaceRoot);
 
-    // Resume functionality shows a warning message (not yet implemented)
-    expect(vscode.window.showWarningMessage).toHaveBeenCalledWith(
-      expect.stringContaining("Resume functionality is being reworked"),
-    );
+    // Resume from database is called with the selected session ID
+    expect(mockResumeFromDatabase).toHaveBeenCalledWith("session-2");
   });
 });

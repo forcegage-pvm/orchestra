@@ -21,9 +21,22 @@ export const [eventOperations, setEventOperations] = createStore<
 >({});
 
 /**
+ * Cache for pre-computed searchable text indexed by event ID
+ * This avoids recomputing searchable text on every filter change
+ */
+const searchableTextCache = new Map<string, string>();
+
+/**
  * Extract searchable text from an event for filtering
+ * Uses cache to avoid recomputation
  */
 function getSearchableText(event: AgentEvent): string {
+  // Check cache first
+  const cached = searchableTextCache.get(event.id);
+  if (cached !== undefined) {
+    return cached;
+  }
+
   const parts: string[] = [];
 
   // Common fields
@@ -97,11 +110,22 @@ function getSearchableText(event: AgentEvent): string {
       break;
   }
 
-  return parts.join(" ").toLowerCase();
+  const result = parts.join(" ").toLowerCase();
+  // Cache the result for future lookups
+  searchableTextCache.set(event.id, result);
+  return result;
 }
 
 /**
- * Filtered events derived signal
+ * Clear the searchable text cache
+ * Call this when clearing events or resetting session
+ */
+export function clearSearchableTextCache(): void {
+  searchableTextCache.clear();
+}
+
+/**
+ * Filtered events function
  *
  * Filters events based on uiStore.filterText. Searches across:
  * - Tool names
@@ -111,6 +135,7 @@ function getSearchableText(event: AgentEvent): string {
  * - Error messages
  *
  * Case-insensitive search with instant filtering (no debounce).
+ * Uses per-event searchable text caching for performance.
  */
 export function filteredEvents(): AgentEvent[] {
   const filterText = ui.filterText.toLowerCase().trim();
@@ -121,7 +146,7 @@ export function filteredEvents(): AgentEvent[] {
     return allEvents;
   }
 
-  // Filter events by searchable text
+  // Filter events by searchable text (cached per-event)
   return allEvents.filter((event) => {
     const searchableText = getSearchableText(event);
     return searchableText.includes(filterText);

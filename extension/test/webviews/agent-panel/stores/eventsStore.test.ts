@@ -14,6 +14,7 @@ import type {
   ToolCallEvent,
   ToolOutputEvent,
 } from "../../../../src/agents/sessions/types.js";
+import { clearSearchableTextCache } from "../../../../src/webviews/agent-panel/stores/eventsStore.js";
 import {
   setEventKeys,
   setEvents,
@@ -22,10 +23,11 @@ import { setUi } from "../../../../src/webviews/agent-panel/stores/uiStore.js";
 
 describe("eventsStore", () => {
   beforeEach(() => {
-    // Clear stores before each test
+    // Clear stores and cache before each test
     setEvents({});
     setEventKeys([]);
     setUi("filterText", "");
+    clearSearchableTextCache();
   });
 
   it("should export filteredEvents signal", async () => {

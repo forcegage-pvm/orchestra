@@ -86,9 +86,14 @@ export async function handleResumeAgent(workspaceRoot: string): Promise<void> {
     return;
   }
 
-  // TODO: Implement database-based resume functionality
-  // For now, inform user that resume is not yet implemented with new architecture
-  vscode.window.showWarningMessage(
-    `Orchestra: Resume functionality is being reworked to use database instead of file storage. This will be available in a future update.`,
-  );
+  try {
+    await runner.resumeFromDatabase(selected.sessionId);
+    vscode.window.showInformationMessage(
+      `Orchestra: Resumed session ${selected.label}`,
+    );
+  } catch (error) {
+    vscode.window.showErrorMessage(
+      `Orchestra: Failed to resume session - ${error instanceof Error ? error.message : String(error)}`,
+    );
+  }
 }

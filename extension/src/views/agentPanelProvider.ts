@@ -739,23 +739,35 @@ export class AgentPanelProvider implements vscode.WebviewViewProvider {
       const runner = getAgentRunner();
       const session = runner.getSession();
 
-      if (!session || session.status !== "paused") {
-        void vscode.window.showWarningMessage("No paused agent to resume");
+      // Case 1: Active in-memory session that is paused
+      if (session && session.status === "paused") {
+        await runner.resume();
+
+        // Update webview with running status
+        const resumedSession = sessionClassToInterface(
+          this._workspaceRoot,
+          session,
+        );
+        resumedSession.status = "running";
+        this.postMessage({
+          type: "session_update",
+          session: resumedSession,
+        });
         return;
       }
 
-      await runner.resume();
+      // Case 2: No in-memory session, but we have a displayed session ID
+      // This happens after VS Code restart when session is only in database
+      if (!session && this._currentSessionId) {
+        await runner.resumeFromDatabase(this._currentSessionId);
+        void vscode.window.showInformationMessage(
+          "Orchestra: Session resumed from database",
+        );
+        return;
+      }
 
-      // Update webview with running status
-      const resumedSession = sessionClassToInterface(
-        this._workspaceRoot,
-        session,
-      );
-      resumedSession.status = "running";
-      this.postMessage({
-        type: "session_update",
-        session: resumedSession,
-      });
+      // No session to resume
+      void vscode.window.showWarningMessage("No paused agent to resume");
     } catch (error) {
       logger.error("Failed to resume agent", error);
       void vscode.window.showErrorMessage(

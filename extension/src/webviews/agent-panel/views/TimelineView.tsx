@@ -90,14 +90,14 @@ export function TimelineView(props: TimelineViewProps) {
   // Avoids O(n²) complexity when adding events to long sessions
   let cachedItems: TimelineItem[] = [];
   let lastEventCount = 0;
-  let lastToolCallCount = 0;
-  const processedToolCalls = new Set<string>();
+  const lastProcessedToolCallIds = new Set<string>();
 
   /**
    * Build timeline items by merging non-tool events with tool call aggregates
    *
-   * OPTIMIZATION: Uses incremental processing to avoid re-iterating all events.
-   * Only processes new events since last computation, appending to cached results.
+   * OPTIMIZATION: Uses incremental processing for regular events only.
+   * Tool calls are processed separately since their aggregate data may arrive
+   * after the initial tool_call event (via tool_progress, tool_result, etc).
    *
    * Timeline should show:
    * 1. prompt events
@@ -112,30 +112,21 @@ export function TimelineView(props: TimelineViewProps) {
     const eventArray = getEventsArray();
     const toolCallsMap = toolCalls;
     const currentEventCount = eventArray.length;
-    const currentToolCallCount = Object.keys(toolCallsMap).length;
-
-    // Fast path: if nothing changed, return cached items
-    if (
-      currentEventCount === lastEventCount &&
-      currentToolCallCount === lastToolCallCount
-    ) {
-      return cachedItems;
-    }
+    const toolCallIds = Object.keys(toolCallsMap);
 
     // If session was reset (fewer events than before), clear cache
     if (currentEventCount < lastEventCount) {
       cachedItems = [];
       lastEventCount = 0;
-      processedToolCalls.clear();
+      lastProcessedToolCallIds.clear();
     }
 
-    // Only process new events (incremental update)
-    const startIndex = lastEventCount;
-    for (let i = startIndex; i < currentEventCount; i++) {
+    // Process new regular events (incremental)
+    for (let i = lastEventCount; i < currentEventCount; i++) {
       const event = eventArray[i];
       if (!event) continue;
 
-      // Skip tool-related events - they're aggregated in ToolCallCard
+      // Skip tool-related events entirely - they're aggregated in ToolCallCard
       // Skip status_change events - they update the status bar
       if (
         event.type === "tool_call" ||
@@ -146,24 +137,6 @@ export function TimelineView(props: TimelineViewProps) {
         event.type === "tool_result" ||
         event.type === "status_change"
       ) {
-        // For tool_call events, add the aggregate to timeline
-        if (event.type === "tool_call") {
-          const toolCallId = (event as unknown as { toolCallId: string })
-            .toolCallId;
-          if (
-            toolCallId &&
-            toolCallsMap[toolCallId] &&
-            !processedToolCalls.has(toolCallId)
-          ) {
-            cachedItems.push({
-              type: "toolCall",
-              toolCall: toolCallsMap[toolCallId],
-              timestamp: toolCallsMap[toolCallId].startedAt,
-              id: `tool-${toolCallId}`,
-            });
-            processedToolCalls.add(toolCallId);
-          }
-        }
         continue;
       }
 
@@ -175,13 +148,34 @@ export function TimelineView(props: TimelineViewProps) {
         id: `event-${event.type}-${event.timestamp}`,
       });
     }
-
-    // Update tracking state
     lastEventCount = currentEventCount;
-    lastToolCallCount = currentToolCallCount;
+
+    // Process tool calls separately - check for any new tool calls in the map
+    // This handles the timing issue where toolCallsMap is populated after events
+    for (const toolCallId of toolCallIds) {
+      if (!lastProcessedToolCallIds.has(toolCallId)) {
+        const toolCall = toolCallsMap[toolCallId];
+        if (toolCall) {
+          cachedItems.push({
+            type: "toolCall",
+            toolCall,
+            timestamp: toolCall.startedAt,
+            id: `tool-${toolCallId}`,
+          });
+          lastProcessedToolCallIds.add(toolCallId);
+        }
+      }
+    }
+
+    // Sort by timestamp to maintain chronological order
+    // (needed because tool calls may be added out of order)
+    cachedItems.sort((a, b) => {
+      const timeA = new Date(a.timestamp).getTime();
+      const timeB = new Date(b.timestamp).getTime();
+      return timeA - timeB;
+    });
 
     // Return a new array reference to trigger SolidJS reactivity
-    // but only when items actually changed
     return [...cachedItems];
   });
 
