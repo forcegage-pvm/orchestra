@@ -21,13 +21,7 @@
 
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import {
-  closeDb,
-  getDbPath,
-  initializeDb,
-  resolveWorkspacePath,
-  runMigrationsV2,
-} from "../db/index.js";
+import { closeDb, initializeDb, runMigrationsV2 } from "../db/index.js";
 import { registerTools, type ServerRole } from "./tools.js";
 
 /**
@@ -60,22 +54,11 @@ async function main() {
   // Parse role from CLI
   const role = parseRole();
 
-  // Log workspace path for debugging (to stderr so it doesn't interfere with MCP protocol)
-  const workspacePath = resolveWorkspacePath();
-  console.error(`[orchestra-mcp] Workspace: ${workspacePath}`);
-  console.error(`[orchestra-mcp] Role: ${role}`);
-
   // Initialize database in the workspace
   await initializeDb();
 
   // Run any pending migrations
-  const migrations = await runMigrationsV2();
-  if (migrations.applied > 0) {
-    console.error(`[orchestra-mcp] Applied ${migrations.applied} migration(s)`);
-  }
-
-  // Log resolved database path
-  console.error(`[orchestra-mcp] Database: ${getDbPath()}`);
+  await runMigrationsV2();
 
   // Create MCP server with role-specific name
   const serverName =

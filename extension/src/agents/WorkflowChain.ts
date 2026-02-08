@@ -19,11 +19,11 @@ import {
   getTaskById,
 } from "../database/queries.js";
 import { getAgentRunner } from "../extension.js";
-import { OrchestraLogger } from "../utils/logger.js";
+import { getLogger } from "../utils/logger.js";
 import { getAgentEventBus } from "./sessions/eventBus.js";
 import { getLatestImplementorSession } from "./sessions/sessionRepository.js";
 import type { AgentRole, EventBusPayload } from "./sessions/types.js";
-const logger = new OrchestraLogger();
+const logger = getLogger();
 
 /**
  * Tracking data for a session's starting state

@@ -10,7 +10,7 @@ import type { Sprint } from "../database/queries.js";
 import { getLatestSprintReview } from "../database/queries.js";
 import { getSessionManager } from "../extension.js";
 import { PromptBuilder } from "../prompts/PromptBuilder.js";
-import { OrchestraLogger } from "../utils/logger.js";
+import { getLogger } from "../utils/logger.js";
 
 /**
  * Handle launching the Controller agent for sprint configuration review
@@ -22,7 +22,7 @@ export async function handleReviewSprint(
   workspaceRoot: string,
   sprint: Sprint,
 ): Promise<void> {
-  const logger = new OrchestraLogger();
+  const logger = getLogger();
 
   try {
     logger.info("Launching controller for sprint review", {
@@ -51,7 +51,8 @@ export async function handleReviewSprint(
     };
 
     // Create instances
-    const promptBuilder = new PromptBuilder({ workspaceRoot });    const sessionManager = getSessionManager();
+    const promptBuilder = new PromptBuilder({ workspaceRoot });
+    const sessionManager = getSessionManager();
 
     // Build the sprint review prompt
     const prompt = promptBuilder.buildSprintReviewPrompt(context);

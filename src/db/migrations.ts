@@ -1069,16 +1069,11 @@ export async function runMigrationsV2(): Promise<{
   const appliedMigrations: string[] = [];
 
   for (const migration of pendingMigrations) {
-    console.log(`[migration] Applying: ${migration.id}`);
-    console.log(`           ${migration.description}`);
-
     try {
       await migration.up();
       await recordMigration(migration);
       appliedMigrations.push(migration.id);
-      console.log(`[migration] ✓ Applied: ${migration.id}`);
     } catch (error) {
-      console.error(`[migration] ✗ Failed: ${migration.id}`, error);
       throw error;
     }
   }

@@ -4,8 +4,12 @@
  * Creates and manages a VS Code output channel, applies a configurable
  * log level, and formats entries with a timestamp and optional context.
  *
+ * PERFORMANCE: Uses singleton pattern to avoid creating multiple OutputChannels.
+ * Use getLogger() instead of new OrchestraLogger() for shared instance.
+ *
  * @example
- * const logger = new OrchestraLogger();
+ * import { getLogger } from "./utils/logger.js";
+ * const logger = getLogger();
  * logger.info("Extension activated", { version: "1.0.0" });
  */
 
@@ -19,6 +23,42 @@ import * as vscode from "vscode";
  * configured level.
  */
 export type LogLevel = "debug" | "info" | "warn" | "error";
+
+/**
+ * Singleton logger instance for shared access across the extension.
+ * Lazily initialized on first getLogger() call.
+ */
+let sharedLoggerInstance: OrchestraLogger | null = null;
+
+/**
+ * Get the shared OrchestraLogger instance.
+ *
+ * This is the preferred way to access the logger. Uses singleton pattern
+ * to avoid creating multiple VS Code OutputChannels.
+ *
+ * @returns The shared OrchestraLogger instance
+ * @example
+ * import { getLogger } from "./utils/logger.js";
+ * const logger = getLogger();
+ * logger.info("Task completed", { taskId: 5 });
+ */
+export function getLogger(): OrchestraLogger {
+  if (!sharedLoggerInstance) {
+    sharedLoggerInstance = new OrchestraLogger();
+  }
+  return sharedLoggerInstance;
+}
+
+/**
+ * Reset the shared logger instance.
+ * Only use for testing or extension deactivation.
+ */
+export function resetLogger(): void {
+  if (sharedLoggerInstance) {
+    sharedLoggerInstance.dispose();
+    sharedLoggerInstance = null;
+  }
+}
 
 /**
  * Logger for writing structured messages to the Orchestra output channel.

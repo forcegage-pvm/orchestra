@@ -12,10 +12,10 @@
 
 import * as vscode from "vscode";
 import type { DatabaseWatcher } from "../database/watcher.js";
-import { OrchestraLogger } from "../utils/logger.js";
+import { getLogger } from "../utils/logger.js";
 import type { SprintTreeProvider } from "../views/treeview/SprintTreeProvider.js";
 
-const logger = new OrchestraLogger();
+const logger = getLogger();
 
 /**
  * All possible task statuses (from TaskStatusSchema in src/core/types.ts)

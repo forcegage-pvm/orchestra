@@ -24,15 +24,24 @@ vi.mock("../../src/agents/sessions/sessionRepository.js", () => ({
   getLatestImplementorSession: vi.fn(),
 }));
 
-// Mock logger
-vi.mock("../../src/utils/logger.js", () => ({
-  OrchestraLogger: class {
-    info = vi.fn();
-    error = vi.fn();
-    warn = vi.fn();
-    debug = vi.fn();
-  },
-}));
+// Mock logger - must export class and getLogger factory
+vi.mock("../../src/utils/logger.js", () => {
+  const mockLogger = {
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+    debug: vi.fn(),
+  };
+  return {
+    OrchestraLogger: class {
+      info = vi.fn();
+      error = vi.fn();
+      warn = vi.fn();
+      debug = vi.fn();
+    },
+    getLogger: () => mockLogger,
+  };
+});
 
 // ============================================================================
 // STATE MACHINE DEFINITION
@@ -291,9 +300,7 @@ vi.mock("../../src/prompts/PromptBuilder.js", () => ({
     buildCodeReviewReReviewPrompt: vi.fn(
       () => "Mock code review re-review prompt",
     ),
-    buildCodingStandardsPrompt: vi.fn(
-      () => "Mock coding standards prompt",
-    ),
+    buildCodingStandardsPrompt: vi.fn(() => "Mock coding standards prompt"),
     buildCodeReviewFixImplementPrompt: vi.fn(
       () => "Mock code review fix prompt",
     ),
@@ -480,7 +487,9 @@ describe("State Machine Conformance", () => {
         const mockBuildHandoverReviewPrompt = vi.fn(
           () => "Mock handover review prompt",
         );
-        mockPromptBuilderWith({ buildHandoverReviewPrompt: mockBuildHandoverReviewPrompt });
+        mockPromptBuilderWith({
+          buildHandoverReviewPrompt: mockBuildHandoverReviewPrompt,
+        });
 
         await handlePlayTask(mockWorkspaceRoot, mockTaskId);
 
@@ -506,7 +515,9 @@ describe("State Machine Conformance", () => {
         const mockBuildHandoverFixPrompt = vi.fn(
           () => "Mock handover fix prompt",
         );
-        mockPromptBuilderWith({ buildHandoverFixPrompt: mockBuildHandoverFixPrompt });
+        mockPromptBuilderWith({
+          buildHandoverFixPrompt: mockBuildHandoverFixPrompt,
+        });
 
         await handlePlayTask(mockWorkspaceRoot, mockTaskId);
 
@@ -527,7 +538,9 @@ describe("State Machine Conformance", () => {
         );
 
         const mockBuildImplementPrompt = vi.fn(() => "Mock implement prompt");
-        mockPromptBuilderWith({ buildImplementPrompt: mockBuildImplementPrompt });
+        mockPromptBuilderWith({
+          buildImplementPrompt: mockBuildImplementPrompt,
+        });
 
         await handlePlayTask(mockWorkspaceRoot, mockTaskId);
 
@@ -643,7 +656,9 @@ describe("State Machine Conformance", () => {
         const mockBuildCodeReviewPrompt = vi.fn(
           () => "Mock code review prompt",
         );
-        mockPromptBuilderWith({ buildCodeReviewPrompt: mockBuildCodeReviewPrompt });
+        mockPromptBuilderWith({
+          buildCodeReviewPrompt: mockBuildCodeReviewPrompt,
+        });
 
         await handlePlayTask(mockWorkspaceRoot, mockTaskId);
 
@@ -670,7 +685,9 @@ describe("State Machine Conformance", () => {
         const mockBuildCodeReviewPrompt = vi.fn(
           () => "Mock code review prompt",
         );
-        mockPromptBuilderWith({ buildCodeReviewPrompt: mockBuildCodeReviewPrompt });
+        mockPromptBuilderWith({
+          buildCodeReviewPrompt: mockBuildCodeReviewPrompt,
+        });
 
         await handlePlayTask(mockWorkspaceRoot, mockTaskId);
 
@@ -696,7 +713,10 @@ describe("State Machine Conformance", () => {
         const mockBuildCodeReviewFixImplementPrompt = vi.fn(
           () => "Mock code review fix prompt",
         );
-        mockPromptBuilderWith({ buildCodeReviewFixImplementPrompt: mockBuildCodeReviewFixImplementPrompt });
+        mockPromptBuilderWith({
+          buildCodeReviewFixImplementPrompt:
+            mockBuildCodeReviewFixImplementPrompt,
+        });
 
         await handlePlayTask(mockWorkspaceRoot, mockTaskId);
 
@@ -722,7 +742,9 @@ describe("State Machine Conformance", () => {
         const mockBuildCodeReviewReReviewPrompt = vi.fn(
           () => "Mock code review re-review prompt",
         );
-        mockPromptBuilderWith({ buildCodeReviewReReviewPrompt: mockBuildCodeReviewReReviewPrompt });
+        mockPromptBuilderWith({
+          buildCodeReviewReReviewPrompt: mockBuildCodeReviewReReviewPrompt,
+        });
 
         await handlePlayTask(mockWorkspaceRoot, mockTaskId);
 
@@ -748,7 +770,10 @@ describe("State Machine Conformance", () => {
         const mockBuildCodeReviewFixImplementPrompt = vi.fn(
           () => "Mock code review fix prompt",
         );
-        mockPromptBuilderWith({ buildCodeReviewFixImplementPrompt: mockBuildCodeReviewFixImplementPrompt });
+        mockPromptBuilderWith({
+          buildCodeReviewFixImplementPrompt:
+            mockBuildCodeReviewFixImplementPrompt,
+        });
 
         await handlePlayTask(mockWorkspaceRoot, mockTaskId);
 
@@ -774,7 +799,9 @@ describe("State Machine Conformance", () => {
         const mockBuildCodeReviewPrompt = vi.fn(
           () => "Mock code review prompt",
         );
-        mockPromptBuilderWith({ buildCodeReviewPrompt: mockBuildCodeReviewPrompt });
+        mockPromptBuilderWith({
+          buildCodeReviewPrompt: mockBuildCodeReviewPrompt,
+        });
 
         await handlePlayTask(mockWorkspaceRoot, mockTaskId);
 
@@ -818,7 +845,10 @@ describe("State Machine Conformance", () => {
         const mockBuildCodeReviewFixImplementPrompt = vi.fn(
           () => "Mock code review fix prompt",
         );
-        mockPromptBuilderWith({ buildCodeReviewFixImplementPrompt: mockBuildCodeReviewFixImplementPrompt });
+        mockPromptBuilderWith({
+          buildCodeReviewFixImplementPrompt:
+            mockBuildCodeReviewFixImplementPrompt,
+        });
 
         await handlePlayTask(mockWorkspaceRoot, mockTaskId);
 
@@ -844,7 +874,9 @@ describe("State Machine Conformance", () => {
         const mockBuildCodeReviewReReviewPrompt = vi.fn(
           () => "Mock code review re-review prompt",
         );
-        mockPromptBuilderWith({ buildCodeReviewReReviewPrompt: mockBuildCodeReviewReReviewPrompt });
+        mockPromptBuilderWith({
+          buildCodeReviewReReviewPrompt: mockBuildCodeReviewReReviewPrompt,
+        });
 
         await handlePlayTask(mockWorkspaceRoot, mockTaskId);
 

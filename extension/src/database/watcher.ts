@@ -50,12 +50,10 @@ export class DatabaseWatcher implements vscode.Disposable {
       vscode.workspace.createFileSystemWatcher(signalPattern);
 
     // Register change handler for signal file
-    this.signalWatcher.onDidChange((uri) => {
-      console.log(`[Orchestra] Signal file changed: ${uri.fsPath}`);
+    this.signalWatcher.onDidChange((_uri) => {
       this.handleChange("signal");
     });
-    this.signalWatcher.onDidCreate((uri) => {
-      console.log(`[Orchestra] Signal file created: ${uri.fsPath}`);
+    this.signalWatcher.onDidCreate((_uri) => {
       this.handleChange("signal");
     });
 
@@ -64,9 +62,6 @@ export class DatabaseWatcher implements vscode.Disposable {
 
     // Start polling as fallback (reduced frequency since signal file is primary)
     this.startPolling();
-    console.log(
-      "[Orchestra] Database watcher initialized (signal file + 10s polling fallback)",
-    );
   }
 
   /**
@@ -101,9 +96,6 @@ export class DatabaseWatcher implements vscode.Disposable {
     this.pollTimer = setInterval(() => {
       const currentMtime = this.getLatestMtime();
       if (currentMtime > this.lastMtime) {
-        console.log(
-          "[Orchestra] Fallback poll detected database change (signal may have been missed)",
-        );
         this.lastMtime = currentMtime;
         this.handleChange("poll");
       }
@@ -113,7 +105,7 @@ export class DatabaseWatcher implements vscode.Disposable {
   /**
    * Handle database change (debounced)
    */
-  private handleChange(source: "signal" | "poll" | "manual" = "signal"): void {
+  private handleChange(_source: "signal" | "poll" | "manual" = "signal"): void {
     // Clear existing timer
     if (this.debounceTimer) {
       clearTimeout(this.debounceTimer);
@@ -122,13 +114,8 @@ export class DatabaseWatcher implements vscode.Disposable {
     // Update mtime to prevent duplicate triggers
     this.updateLastMtime();
 
-    console.log(
-      `[Orchestra] Scheduling database change event (source: ${source})`,
-    );
-
     // Set new timer
     this.debounceTimer = setTimeout(() => {
-      console.log("[Orchestra] Firing database change event (debounced)");
       this.emitter.fire();
       this.debounceTimer = undefined;
     }, this.debounceDelay);

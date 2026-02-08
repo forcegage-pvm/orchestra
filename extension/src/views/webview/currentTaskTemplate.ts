@@ -568,16 +568,11 @@ function getScript(): string {
   return `
     (function() {
       try {
-        console.log('[CurrentTask Webview] Script starting...');
-        
         const vscode = acquireVsCodeApi();
-        
-        console.log('[CurrentTask Webview] Script loaded');
     
     // Handle messages from extension
     window.addEventListener('message', event => {
       const message = event.data;
-      console.log('[CurrentTask Webview] Message received:', message.command, message.data ? 'Task ' + message.data.task_id + ' (' + message.data.status + ')' : 'null');
       switch (message.command) {
         case 'update':
           updateContent(message.data);
@@ -980,26 +975,20 @@ function getScript(): string {
     }
     
     function updateContent(data) {
-      console.log('[CurrentTask Webview] updateContent called with:', data ? 'Task ' + data.task_id + ' (' + data.status + ')' : 'null');
       const content = document.getElementById('content');
       if (!content) {
-        console.error('[CurrentTask Webview] Content element not found!');
         return;
       }
       try {
         if (!data) {
-          console.log('[CurrentTask Webview] Rendering no-task placeholder');
           content.innerHTML = renderNoTask();
         } else if (data.type === 'sprint-review') {
-          console.log('[CurrentTask Webview] Rendering sprint review card');
           content.innerHTML = renderSprintReviewCard(data);
         } else {
-          console.log('[CurrentTask Webview] Rendering task card');
           content.innerHTML = renderTaskCard(data);
         }
-        console.log('[CurrentTask Webview] Content updated successfully');
       } catch (error) {
-        console.error('[CurrentTask Webview] Error updating content:', error);
+        // Silently handle errors
       }
     }
     
@@ -1018,7 +1007,6 @@ function getScript(): string {
     }
     
     function playTask(taskId) {
-      console.log('[CurrentTask Webview] playTask called with taskId:', taskId);
       vscode.postMessage({
         command: 'playTask',
         taskId: taskId
@@ -1091,10 +1079,8 @@ function getScript(): string {
     window.forceComplete = forceComplete;
     window.refresh = refresh;
     
-    console.log('[CurrentTask Webview] All functions registered globally');
-    
       } catch (error) {
-        console.error('[CurrentTask Webview] Script initialization error:', error);
+        // Silently handle initialization errors
       }
     })();
   `;

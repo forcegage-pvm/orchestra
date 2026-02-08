@@ -40,15 +40,24 @@ vi.mock("../../src/database/mutations.js", () => ({
   createResolutionSignal: mockCreateResolutionSignal,
 }));
 
-// Mock logger
-vi.mock("../../src/utils/logger.js", () => ({
-  OrchestraLogger: class {
-    info = vi.fn();
-    error = vi.fn();
-    warn = vi.fn();
-    debug = vi.fn();
-  },
-}));
+// Mock logger - must export class and getLogger factory
+vi.mock("../../src/utils/logger.js", () => {
+  const mockLogger = {
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+    debug: vi.fn(),
+  };
+  return {
+    OrchestraLogger: class {
+      info = vi.fn();
+      error = vi.fn();
+      warn = vi.fn();
+      debug = vi.fn();
+    },
+    getLogger: () => mockLogger,
+  };
+});
 
 describe("deEscalation handlers", () => {
   const mockWorkspaceRoot = "/test/workspace";
@@ -89,11 +98,11 @@ describe("deEscalation handlers", () => {
         mockWorkspaceRoot,
         mockTaskId,
         mockTreeProvider,
-        mockDbWatcher
+        mockDbWatcher,
       );
 
       expect(vscode.window.showErrorMessage).toHaveBeenCalledWith(
-        `Orchestra: No escalation record found for Task ${mockTaskId}`
+        `Orchestra: No escalation record found for Task ${mockTaskId}`,
       );
       expect(mockResolveEscalation).not.toHaveBeenCalled();
     });
@@ -114,7 +123,7 @@ describe("deEscalation handlers", () => {
         mockWorkspaceRoot,
         mockTaskId,
         mockTreeProvider,
-        mockDbWatcher
+        mockDbWatcher,
       );
 
       expect(mockResolveEscalation).not.toHaveBeenCalled();
@@ -144,7 +153,7 @@ describe("deEscalation handlers", () => {
         mockWorkspaceRoot,
         mockTaskId,
         mockTreeProvider,
-        mockDbWatcher
+        mockDbWatcher,
       );
 
       expect(mockResolveEscalation).not.toHaveBeenCalled();
@@ -167,14 +176,14 @@ describe("deEscalation handlers", () => {
       });
 
       vi.mocked(vscode.window.showInputBox).mockResolvedValue(
-        "Fixed verification criteria"
+        "Fixed verification criteria",
       );
 
       await handleDeEscalateTask(
         mockWorkspaceRoot,
         mockTaskId,
         mockTreeProvider,
-        mockDbWatcher
+        mockDbWatcher,
       );
 
       expect(mockResolveEscalation).toHaveBeenCalledWith(
@@ -182,11 +191,11 @@ describe("deEscalation handlers", () => {
         mockTaskId,
         "VERIFY_FAILED",
         "Fixed verification criteria",
-        mockDbWatcher
+        mockDbWatcher,
       );
       expect(mockTreeProvider.refresh).toHaveBeenCalled();
       expect(vscode.window.showInformationMessage).toHaveBeenCalledWith(
-        `Orchestra: Task ${mockTaskId} de-escalated to VERIFY_FAILED`
+        `Orchestra: Task ${mockTaskId} de-escalated to VERIFY_FAILED`,
       );
     });
 
@@ -206,14 +215,14 @@ describe("deEscalation handlers", () => {
       });
 
       vi.mocked(vscode.window.showInputBox).mockResolvedValue(
-        "Requirements changed significantly"
+        "Requirements changed significantly",
       );
 
       await handleDeEscalateTask(
         mockWorkspaceRoot,
         mockTaskId,
         mockTreeProvider,
-        mockDbWatcher
+        mockDbWatcher,
       );
 
       expect(mockResolveEscalation).toHaveBeenCalledWith(
@@ -221,7 +230,7 @@ describe("deEscalation handlers", () => {
         mockTaskId,
         "PENDING",
         "Requirements changed significantly",
-        mockDbWatcher
+        mockDbWatcher,
       );
       expect(mockTreeProvider.refresh).toHaveBeenCalled();
     });
@@ -242,14 +251,14 @@ describe("deEscalation handlers", () => {
       });
 
       vi.mocked(vscode.window.showInputBox).mockResolvedValue(
-        "Verification spec fixed"
+        "Verification spec fixed",
       );
 
       await handleDeEscalateTask(
         mockWorkspaceRoot,
         mockTaskId,
         mockTreeProvider,
-        mockDbWatcher
+        mockDbWatcher,
       );
 
       expect(mockResolveEscalation).toHaveBeenCalledWith(
@@ -257,7 +266,7 @@ describe("deEscalation handlers", () => {
         mockTaskId,
         "GATE_CHECK",
         "Verification spec fixed",
-        mockDbWatcher
+        mockDbWatcher,
       );
       expect(mockTreeProvider.refresh).toHaveBeenCalled();
     });
@@ -271,11 +280,11 @@ describe("deEscalation handlers", () => {
         mockWorkspaceRoot,
         mockTaskId,
         mockTreeProvider,
-        mockDbWatcher
+        mockDbWatcher,
       );
 
       expect(vscode.window.showErrorMessage).toHaveBeenCalledWith(
-        "Orchestra: Failed to de-escalate task - Database error"
+        "Orchestra: Failed to de-escalate task - Database error",
       );
     });
   });
@@ -288,7 +297,7 @@ describe("deEscalation handlers", () => {
         mockWorkspaceRoot,
         mockTaskId,
         mockTreeProvider,
-        mockDbWatcher
+        mockDbWatcher,
       );
 
       expect(mockCreateResolutionSignal).not.toHaveBeenCalled();
@@ -297,38 +306,38 @@ describe("deEscalation handlers", () => {
 
     it("should successfully move task to GATE_CHECK", async () => {
       vi.mocked(vscode.window.showWarningMessage).mockResolvedValue(
-        "Move to Gate Check" as never
+        "Move to Gate Check" as never,
       );
 
       await handleMoveToGateCheck(
         mockWorkspaceRoot,
         mockTaskId,
         mockTreeProvider,
-        mockDbWatcher
+        mockDbWatcher,
       );
 
       expect(mockCreateResolutionSignal).toHaveBeenCalledWith(
         mockWorkspaceRoot,
         mockTaskId,
         "Escalation resolved - moving to Gate Check for re-verification",
-        mockDbWatcher
+        mockDbWatcher,
       );
       expect(mockUpdateTaskStatus).toHaveBeenCalledWith(
         mockWorkspaceRoot,
         mockTaskId,
         "GATE_CHECK",
         "Escalation resolved by human supervisor - re-verification requested",
-        mockDbWatcher
+        mockDbWatcher,
       );
       expect(mockTreeProvider.refresh).toHaveBeenCalled();
       expect(vscode.window.showInformationMessage).toHaveBeenCalledWith(
-        `Orchestra: Task ${mockTaskId} moved to Gate Check. Run verification via MCP.`
+        `Orchestra: Task ${mockTaskId} moved to Gate Check. Run verification via MCP.`,
       );
     });
 
     it("should handle errors gracefully", async () => {
       vi.mocked(vscode.window.showWarningMessage).mockResolvedValue(
-        "Move to Gate Check" as never
+        "Move to Gate Check" as never,
       );
       mockCreateResolutionSignal.mockImplementation(() => {
         throw new Error("Database error");
@@ -338,11 +347,11 @@ describe("deEscalation handlers", () => {
         mockWorkspaceRoot,
         mockTaskId,
         mockTreeProvider,
-        mockDbWatcher
+        mockDbWatcher,
       );
 
       expect(vscode.window.showErrorMessage).toHaveBeenCalledWith(
-        "Orchestra: Failed to move task - Database error"
+        "Orchestra: Failed to move task - Database error",
       );
     });
   });
@@ -355,7 +364,7 @@ describe("deEscalation handlers", () => {
         mockWorkspaceRoot,
         mockTaskId,
         mockTreeProvider,
-        mockDbWatcher
+        mockDbWatcher,
       );
 
       expect(mockUpdateTaskStatus).not.toHaveBeenCalled();
@@ -363,14 +372,14 @@ describe("deEscalation handlers", () => {
 
     it("should successfully move task to IMPLEMENT", async () => {
       vi.mocked(vscode.window.showWarningMessage).mockResolvedValue(
-        "Move to Implement" as never
+        "Move to Implement" as never,
       );
 
       await handleMoveToImplement(
         mockWorkspaceRoot,
         mockTaskId,
         mockTreeProvider,
-        mockDbWatcher
+        mockDbWatcher,
       );
 
       expect(mockUpdateTaskStatus).toHaveBeenCalledWith(
@@ -378,17 +387,17 @@ describe("deEscalation handlers", () => {
         mockTaskId,
         "IMPLEMENT",
         "Escalation resolved by human supervisor - re-implementation requested",
-        mockDbWatcher
+        mockDbWatcher,
       );
       expect(mockTreeProvider.refresh).toHaveBeenCalled();
       expect(vscode.window.showInformationMessage).toHaveBeenCalledWith(
-        `Orchestra: Task ${mockTaskId} moved to Implement. Ready for implementor.`
+        `Orchestra: Task ${mockTaskId} moved to Implement. Ready for implementor.`,
       );
     });
 
     it("should handle errors gracefully", async () => {
       vi.mocked(vscode.window.showWarningMessage).mockResolvedValue(
-        "Move to Implement" as never
+        "Move to Implement" as never,
       );
       mockUpdateTaskStatus.mockImplementation(() => {
         throw new Error("Database error");
@@ -398,11 +407,11 @@ describe("deEscalation handlers", () => {
         mockWorkspaceRoot,
         mockTaskId,
         mockTreeProvider,
-        mockDbWatcher
+        mockDbWatcher,
       );
 
       expect(vscode.window.showErrorMessage).toHaveBeenCalledWith(
-        "Orchestra: Failed to move task - Database error"
+        "Orchestra: Failed to move task - Database error",
       );
     });
   });
@@ -415,7 +424,7 @@ describe("deEscalation handlers", () => {
         mockWorkspaceRoot,
         mockTaskId,
         mockTreeProvider,
-        mockDbWatcher
+        mockDbWatcher,
       );
 
       expect(mockUpdateTaskStatus).not.toHaveBeenCalled();
@@ -423,7 +432,7 @@ describe("deEscalation handlers", () => {
 
     it("should handle user cancelling confirmation", async () => {
       vi.mocked(vscode.window.showInputBox).mockResolvedValue(
-        "Verification criteria were incorrect and implementation is actually valid"
+        "Verification criteria were incorrect and implementation is actually valid",
       );
       vi.mocked(vscode.window.showWarningMessage).mockResolvedValue(undefined);
 
@@ -431,7 +440,7 @@ describe("deEscalation handlers", () => {
         mockWorkspaceRoot,
         mockTaskId,
         mockTreeProvider,
-        mockDbWatcher
+        mockDbWatcher,
       );
 
       expect(mockUpdateTaskStatus).not.toHaveBeenCalled();
@@ -442,14 +451,14 @@ describe("deEscalation handlers", () => {
         "Verification criteria were incorrect and implementation is actually valid";
       vi.mocked(vscode.window.showInputBox).mockResolvedValue(justification);
       vi.mocked(vscode.window.showWarningMessage).mockResolvedValue(
-        "Force Complete" as never
+        "Force Complete" as never,
       );
 
       await handleForceComplete(
         mockWorkspaceRoot,
         mockTaskId,
         mockTreeProvider,
-        mockDbWatcher
+        mockDbWatcher,
       );
 
       expect(mockUpdateTaskStatus).toHaveBeenCalledWith(
@@ -457,20 +466,20 @@ describe("deEscalation handlers", () => {
         mockTaskId,
         "COMPLETE",
         `Force completed by human supervisor: ${justification}`,
-        mockDbWatcher
+        mockDbWatcher,
       );
       expect(mockTreeProvider.refresh).toHaveBeenCalled();
       expect(vscode.window.showInformationMessage).toHaveBeenCalledWith(
-        `Orchestra: Task ${mockTaskId} force-completed.`
+        `Orchestra: Task ${mockTaskId} force-completed.`,
       );
     });
 
     it("should handle errors gracefully", async () => {
       vi.mocked(vscode.window.showInputBox).mockResolvedValue(
-        "Verification criteria were incorrect and implementation is actually valid"
+        "Verification criteria were incorrect and implementation is actually valid",
       );
       vi.mocked(vscode.window.showWarningMessage).mockResolvedValue(
-        "Force Complete" as never
+        "Force Complete" as never,
       );
       mockUpdateTaskStatus.mockImplementation(() => {
         throw new Error("Database error");
@@ -480,11 +489,11 @@ describe("deEscalation handlers", () => {
         mockWorkspaceRoot,
         mockTaskId,
         mockTreeProvider,
-        mockDbWatcher
+        mockDbWatcher,
       );
 
       expect(vscode.window.showErrorMessage).toHaveBeenCalledWith(
-        "Orchestra: Failed to complete task - Database error"
+        "Orchestra: Failed to complete task - Database error",
       );
     });
 
@@ -499,19 +508,19 @@ describe("deEscalation handlers", () => {
             expect(mockValidateInput("")).toBeTruthy(); // Should return error
             expect(
               mockValidateInput(
-                "This is a sufficiently long justification text"
-              )
+                "This is a sufficiently long justification text",
+              ),
             ).toBeNull(); // Should pass
           }
           return undefined; // User cancelled
-        }
+        },
       );
 
       await handleForceComplete(
         mockWorkspaceRoot,
         mockTaskId,
         mockTreeProvider,
-        mockDbWatcher
+        mockDbWatcher,
       );
 
       expect(mockUpdateTaskStatus).not.toHaveBeenCalled();
@@ -521,14 +530,14 @@ describe("deEscalation handlers", () => {
   describe("integration - dbWatcher parameter", () => {
     it("should work without dbWatcher (optional parameter)", async () => {
       vi.mocked(vscode.window.showWarningMessage).mockResolvedValue(
-        "Move to Implement" as never
+        "Move to Implement" as never,
       );
 
       // Call without dbWatcher
       await handleMoveToImplement(
         mockWorkspaceRoot,
         mockTaskId,
-        mockTreeProvider
+        mockTreeProvider,
       );
 
       expect(mockUpdateTaskStatus).toHaveBeenCalledWith(
@@ -536,21 +545,21 @@ describe("deEscalation handlers", () => {
         mockTaskId,
         "IMPLEMENT",
         "Escalation resolved by human supervisor - re-implementation requested",
-        undefined
+        undefined,
       );
       expect(mockTreeProvider.refresh).toHaveBeenCalled();
     });
 
     it("should pass dbWatcher when provided", async () => {
       vi.mocked(vscode.window.showWarningMessage).mockResolvedValue(
-        "Move to Implement" as never
+        "Move to Implement" as never,
       );
 
       await handleMoveToImplement(
         mockWorkspaceRoot,
         mockTaskId,
         mockTreeProvider,
-        mockDbWatcher
+        mockDbWatcher,
       );
 
       expect(mockUpdateTaskStatus).toHaveBeenCalledWith(
@@ -558,7 +567,7 @@ describe("deEscalation handlers", () => {
         mockTaskId,
         "IMPLEMENT",
         "Escalation resolved by human supervisor - re-implementation requested",
-        mockDbWatcher
+        mockDbWatcher,
       );
     });
   });

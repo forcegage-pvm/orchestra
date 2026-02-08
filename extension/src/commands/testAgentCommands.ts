@@ -11,9 +11,9 @@ import { editFileTool } from "../agents/tools/coding/editFile.js";
 import { listDirectoryTool } from "../agents/tools/coding/listDirectory.js";
 import { readFileTool } from "../agents/tools/coding/readFile.js";
 import { getAgentRunner } from "../extension.js";
-import { OrchestraLogger } from "../utils/logger.js";
+import { getLogger } from "../utils/logger.js";
 
-const logger = new OrchestraLogger();
+const logger = getLogger();
 
 /**
  * Find the first available language model and return its ID

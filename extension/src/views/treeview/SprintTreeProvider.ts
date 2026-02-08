@@ -19,7 +19,7 @@ import {
   type Task,
 } from "../../database/queries.js";
 import type { DatabaseWatcher } from "../../database/watcher.js";
-import { OrchestraLogger } from "../../utils/logger.js";
+import { getLogger, type OrchestraLogger } from "../../utils/logger.js";
 import { findOrchestraRoot } from "../../workspace/detector.js";
 import { createTaskDecorationUri } from "../providers/ViewDecorationProvider.js";
 import { getStatusDisplay } from "../statusTranslation.js";
@@ -63,6 +63,12 @@ export class SprintTreeProvider implements vscode.TreeDataProvider<TreeElement> 
   private _filter: SprintFilter;
   private readonly _logger: OrchestraLogger;
 
+  // PERFORMANCE: Cache for sprint/phase/task data
+  // Avoids repeated synchronous DB queries during tree operations
+  private _sprintsCache: Sprint[] | null = null;
+  private _phasesCache: Map<string, Phase[]> = new Map();
+  private _tasksCache: Map<string, Task[]> = new Map();
+
   constructor(
     private readonly _db: Database.Database,
     private readonly _dbWatcher: DatabaseWatcher,
@@ -70,7 +76,7 @@ export class SprintTreeProvider implements vscode.TreeDataProvider<TreeElement> 
   ) {
     void this._db; // Keep for potential future direct use
 
-    this._logger = new OrchestraLogger();
+    this._logger = getLogger();
 
     this._filter = this._context.workspaceState.get<SprintFilter>(
       "orchestra.sprintFilter",
@@ -84,9 +90,12 @@ export class SprintTreeProvider implements vscode.TreeDataProvider<TreeElement> 
   }
 
   refresh(source: "manual" | "signal" | "unknown" = "unknown"): void {
-    // Invalidate cached code review status so refresh reflects latest reviews
+    // Clear all caches on refresh
     this._codeReviewStatusByTaskId = new Map();
     this._codeReviewStatusSprintId = null;
+    this._sprintsCache = null;
+    this._phasesCache.clear();
+    this._tasksCache.clear();
 
     const sourceLabel =
       source === "manual"
@@ -99,6 +108,39 @@ export class SprintTreeProvider implements vscode.TreeDataProvider<TreeElement> 
     );
 
     this._onDidChangeTreeData.fire();
+  }
+
+  /**
+   * Get all sprints with caching
+   */
+  private _getCachedSprints(workspaceRoot: string): Sprint[] {
+    if (this._sprintsCache === null) {
+      this._sprintsCache = getAllSprints(workspaceRoot);
+    }
+    return this._sprintsCache;
+  }
+
+  /**
+   * Get phases for a sprint with caching
+   */
+  private _getCachedPhases(workspaceRoot: string, sprintId: string): Phase[] {
+    if (!this._phasesCache.has(sprintId)) {
+      this._phasesCache.set(sprintId, getPhases(workspaceRoot, sprintId));
+    }
+    return this._phasesCache.get(sprintId) ?? [];
+  }
+
+  /**
+   * Get tasks for a sprint with caching
+   */
+  private _getCachedTasks(workspaceRoot: string, sprintId: string): Task[] {
+    if (!this._tasksCache.has(sprintId)) {
+      this._tasksCache.set(
+        sprintId,
+        getTasksForSprint(workspaceRoot, sprintId),
+      );
+    }
+    return this._tasksCache.get(sprintId) ?? [];
   }
 
   getTreeItem(element: TreeElement): vscode.TreeItem {
@@ -124,9 +166,9 @@ export class SprintTreeProvider implements vscode.TreeDataProvider<TreeElement> 
         return [this._createMessageItem("No Orchestra workspace", "info")];
       }
 
-      // Root level: return all sprints
+      // Root level: return all sprints (cached)
       if (!element) {
-        const sprints = getAllSprints(workspaceRoot);
+        const sprints = this._getCachedSprints(workspaceRoot);
         const filteredSprints =
           this._filter === "all"
             ? sprints
@@ -141,11 +183,11 @@ export class SprintTreeProvider implements vscode.TreeDataProvider<TreeElement> 
         return filteredSprints.map((sprint) => ({ type: "sprint", sprint }));
       }
 
-      // Sprint level: return phases
+      // Sprint level: return phases (cached)
       if (element.type === "sprint") {
         this._ensureCodeReviewStatusMap(workspaceRoot, element.sprint.id);
-        const phases = getPhases(workspaceRoot, element.sprint.id);
-        const allTasks = getTasksForSprint(workspaceRoot, element.sprint.id);
+        const phases = this._getCachedPhases(workspaceRoot, element.sprint.id);
+        const allTasks = this._getCachedTasks(workspaceRoot, element.sprint.id);
         return phases.map((phase) => ({
           type: "phase",
           phase,
@@ -154,10 +196,10 @@ export class SprintTreeProvider implements vscode.TreeDataProvider<TreeElement> 
         }));
       }
 
-      // Phase level: return tasks for this phase
+      // Phase level: return tasks for this phase (cached)
       if (element.type === "phase") {
         this._ensureCodeReviewStatusMap(workspaceRoot, element.sprintId);
-        const allTasks = getTasksForSprint(workspaceRoot, element.sprintId);
+        const allTasks = this._getCachedTasks(workspaceRoot, element.sprintId);
         // Filter tasks that belong to this phase
         const phaseTasks = allTasks.filter(
           (task) => task.phase_id === element.phase.id,

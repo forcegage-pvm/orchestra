@@ -22,7 +22,7 @@ import {
   type Task,
 } from "../../database/queries.js";
 import type { DatabaseWatcher } from "../../database/watcher.js";
-import { OrchestraLogger } from "../../utils/logger.js";
+import { getLogger } from "../../utils/logger.js";
 import { getStatusDisplay } from "../statusTranslation.js";
 import {
   generateCurrentTaskHtml,
@@ -30,7 +30,7 @@ import {
   type TaskData,
 } from "./currentTaskTemplate.js";
 
-const logger = new OrchestraLogger();
+const logger = getLogger();
 
 /**
  * Current Task WebviewView Provider

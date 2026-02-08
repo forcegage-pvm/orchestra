@@ -20,7 +20,7 @@ import {
 } from "../database/queries.js";
 import { getAgentRunner, getContextFileResolver } from "../extension.js";
 import { PromptBuilder } from "../prompts/PromptBuilder.js";
-import { OrchestraLogger } from "../utils/logger.js";
+import { getLogger } from "../utils/logger.js";
 /**
  * Show the new Agent Panel webview (Sprint 011)
  * Opens the orchestra.agentPanel view in the sidebar
@@ -253,7 +253,7 @@ async function invokePrepare(
     };
 
     // Create instances
-    const logger = new OrchestraLogger();
+    const logger = getLogger();
     const promptBuilder = new PromptBuilder({ workspaceRoot });
     const agentRunner = getAgentRunner();
 
@@ -344,7 +344,7 @@ async function invokeImplement(
     };
 
     // Create instances
-    const logger = new OrchestraLogger();
+    const logger = getLogger();
     const promptBuilder = new PromptBuilder({ workspaceRoot });
     const agentRunner = getAgentRunner();
 
@@ -463,7 +463,7 @@ async function invokeRetry(
     };
 
     // Create instances
-    const logger = new OrchestraLogger();
+    const logger = getLogger();
     const promptBuilder = new PromptBuilder({ workspaceRoot });
     const agentRunner = getAgentRunner();
 
@@ -568,7 +568,7 @@ async function invokeVerify(
     };
 
     // Create instances
-    const logger = new OrchestraLogger();
+    const logger = getLogger();
     const promptBuilder = new PromptBuilder({ workspaceRoot });
     const agentRunner = getAgentRunner();
 
@@ -682,7 +682,7 @@ async function invokeHandoverFix(
     };
 
     // Create instances
-    const logger = new OrchestraLogger();
+    const logger = getLogger();
     const promptBuilder = new PromptBuilder({ workspaceRoot });
     const agentRunner = getAgentRunner();
 
@@ -791,7 +791,7 @@ async function invokeHandoverReview(
     };
 
     // Create instances
-    const logger = new OrchestraLogger();
+    const logger = getLogger();
     const promptBuilder = new PromptBuilder({ workspaceRoot });
     const agentRunner = getAgentRunner();
 
@@ -877,7 +877,7 @@ async function invokeCodeReview(
     }
 
     // Create instances
-    const logger = new OrchestraLogger();
+    const logger = getLogger();
     const promptBuilder = new PromptBuilder({ workspaceRoot });
     const agentRunner = getAgentRunner();
 
@@ -1000,7 +1000,7 @@ async function invokeCodeReviewFix(
     }
 
     // Create instances
-    const logger = new OrchestraLogger();
+    const logger = getLogger();
     const promptBuilder = new PromptBuilder({ workspaceRoot });
     const agentRunner = getAgentRunner();
 
@@ -1109,7 +1109,7 @@ async function invokeEscalationReview(
     }
 
     // Create instances
-    const logger = new OrchestraLogger();
+    const logger = getLogger();
     const promptBuilder = new PromptBuilder({ workspaceRoot });
     const agentRunner = getAgentRunner();
 

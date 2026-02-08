@@ -20,15 +20,24 @@ vi.mock("vscode", () => ({
   workspace: {},
 }));
 
-// Mock logger
-vi.mock("../../src/utils/logger.js", () => ({
-  OrchestraLogger: class {
-    info = vi.fn();
-    warn = vi.fn();
-    error = vi.fn();
-    debug = vi.fn();
-  },
-}));
+// Mock logger - must export class and getLogger factory
+vi.mock("../../src/utils/logger.js", () => {
+  const mockLogger = {
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+    debug: vi.fn(),
+  };
+  return {
+    OrchestraLogger: class {
+      info = vi.fn();
+      warn = vi.fn();
+      error = vi.fn();
+      debug = vi.fn();
+    },
+    getLogger: () => mockLogger,
+  };
+});
 
 // Mock database queries
 vi.mock("../../src/database/queries.js", () => ({

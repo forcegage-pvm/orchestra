@@ -75,7 +75,6 @@ export function persistState(): void {
 export function tryRestoreState(): boolean {
   const saved = restoreState();
   if (saved) {
-    console.log("[SessionStore] Restoring persisted state");
     if (saved.session) {
       setSession(saved.session);
     }

@@ -49,7 +49,7 @@ import { MCPServerManager } from "./mcp/ServerManager.js";
 import { ContextFileResolver } from "./prompts/ContextFileResolver.js";
 import { ensurePromptTemplates } from "./prompts/ensurePromptTemplates.js";
 import { PromptBuilder } from "./prompts/PromptBuilder.js";
-import { OrchestraLogger } from "./utils/logger.js";
+import { getLogger, type OrchestraLogger } from "./utils/logger.js";
 import { AgentOutputPanel } from "./views/agent/AgentOutputPanel.js";
 import { AgentPanelProvider } from "./views/agentPanelProvider.js";
 import { DashboardPanel } from "./views/dashboard/DashboardPanel.js";
@@ -534,7 +534,7 @@ async function handleSetActiveSprint(
 export async function activate(
   context: vscode.ExtensionContext,
 ): Promise<void> {
-  logger = new OrchestraLogger();
+  logger = getLogger();
 
   // Log version prominently on activation
   const extensionVersion = context.extension.packageJSON.version || "0.0.0";

@@ -28,14 +28,14 @@ import {
 } from "../database/queries.js";
 import { getAgentRunner } from "../extension.js";
 import { highlightRange } from "../utils/fileHighlight.js";
-import { OrchestraLogger } from "../utils/logger.js";
+import { getLogger } from "../utils/logger.js";
 import type {
   ExtensionMessage,
   VerbosityLevel,
   WebviewMessage,
 } from "../webviews/agent-panel/protocol/index.js";
 
-const logger = new OrchestraLogger();
+const logger = getLogger();
 
 /**
  * Convert AgentSession class instance to AgentSession interface

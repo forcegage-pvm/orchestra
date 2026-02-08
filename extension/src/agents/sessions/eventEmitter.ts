@@ -33,12 +33,6 @@ import type {
 } from "./types.js";
 
 /**
- * Debug tag for filtering in DevTools console.
- * Filter with: [ORCH-EMIT] in browser console
- */
-const DEBUG_TAG = "[ORCH-EMIT]";
-
-/**
  * SessionEventEmitter provides a high-level API for creating and persisting
  * session events. It handles boilerplate of ID generation, timestamps, and
  * iteration tracking.
@@ -58,28 +52,11 @@ export class SessionEventEmitter {
   private currentIteration: number = 0;
 
   /**
-   * Persist event to DB and emit to bus with error boundary.
-   * Logs and re-throws any errors for visibility.
+   * Persist event to DB and emit to bus.
    */
   private persistAndEmit(event: AgentEvent): void {
-    const eventSummary = `${event.type} id=${event.id.slice(0, 8)} iter=${this.currentIteration}`;
-    try {
-      console.log(`${DEBUG_TAG} persist:`, eventSummary);
-      insertEvent(this.workspaceRoot, event);
-    } catch (error) {
-      console.error(
-        `${DEBUG_TAG} ERROR insertEvent failed:`,
-        eventSummary,
-        error,
-      );
-      throw error;
-    }
-    try {
-      getAgentEventBus().emit({ type: "session_event", event });
-    } catch (error) {
-      console.error(`${DEBUG_TAG} ERROR bus emit failed:`, eventSummary, error);
-      throw error;
-    }
+    insertEvent(this.workspaceRoot, event);
+    getAgentEventBus().emit({ type: "session_event", event });
   }
 
   /**
@@ -177,18 +154,7 @@ export class SessionEventEmitter {
    * @param session Session info payload
    */
   emitSessionStart(session: AgentSessionInfo): void {
-    try {
-      console.log(
-        `${DEBUG_TAG} session_start sessionId=${session.id} role=${session.role}`,
-      );
-      getAgentEventBus().emit({ type: "session_start", session });
-    } catch (error) {
-      console.error(
-        `${DEBUG_TAG} ERROR session_start failed sessionId=${session.id}`,
-        error,
-      );
-      throw error;
-    }
+    getAgentEventBus().emit({ type: "session_start", session });
   }
 
   /**
@@ -197,43 +163,27 @@ export class SessionEventEmitter {
    * @param status Final session status
    */
   emitSessionEnd(status: SessionStatus): void {
+    // Finalize session in database: update status, endedAt, durationMs
+    // This is critical for WorkflowChain transitions — without it, DB sessions
+    // remain in "initializing" status and getLatestImplementorSession() may
+    // return stale/incorrect sessions during workflow chaining.
     try {
-      console.log(
-        `${DEBUG_TAG} session_end sessionId=${this.sessionId.slice(0, 8)} status=${status}`,
-      );
-
-      // Finalize session in database: update status, endedAt, durationMs
-      // This is critical for WorkflowChain transitions — without it, DB sessions
-      // remain in "initializing" status and getLatestImplementorSession() may
-      // return stale/incorrect sessions during workflow chaining.
-      try {
-        const endedAt = new Date().toISOString();
-        updateSession(this.workspaceRoot, this.sessionId, {
-          status,
-          endedAt,
-          lastActivityAt: endedAt,
-        });
-      } catch (dbError) {
-        // Log but don't block the session_end event — persistence failure
-        // should not prevent workflow transitions
-        console.warn(
-          `${DEBUG_TAG} WARNING: Failed to finalize session in DB: sessionId=${this.sessionId.slice(0, 8)}`,
-          dbError,
-        );
-      }
-
-      getAgentEventBus().emit({
-        type: "session_end",
-        sessionId: this.sessionId,
+      const endedAt = new Date().toISOString();
+      updateSession(this.workspaceRoot, this.sessionId, {
         status,
+        endedAt,
+        lastActivityAt: endedAt,
       });
-    } catch (error) {
-      console.error(
-        `${DEBUG_TAG} ERROR session_end failed sessionId=${this.sessionId.slice(0, 8)}`,
-        error,
-      );
-      throw error;
+    } catch (_dbError) {
+      // Log but don't block the session_end event — persistence failure
+      // should not prevent workflow transitions
     }
+
+    getAgentEventBus().emit({
+      type: "session_end",
+      sessionId: this.sessionId,
+      status,
+    });
   }
 
   /**

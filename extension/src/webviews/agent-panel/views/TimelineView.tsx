@@ -14,17 +14,17 @@ import { Icon } from "@iconify-icon/solid";
 import type { Accessor } from "solid-js";
 import { createEffect, createMemo, createSignal, Index, Show } from "solid-js";
 import type {
-    AgentEvent,
-    StatusChangeEvent,
-    ToolCallAggregate,
+  AgentEvent,
+  StatusChangeEvent,
+  ToolCallAggregate,
 } from "../../../agents/sessions/types.js";
 import {
-    EmptyState,
-    ErrorCard,
-    NewEventsIndicator,
-    PromptCard,
-    ThinkingCard,
-    ToolCallCard,
+  EmptyState,
+  ErrorCard,
+  NewEventsIndicator,
+  PromptCard,
+  ThinkingCard,
+  ToolCallCard,
 } from "../components/index.js";
 import { useAutoScroll } from "../hooks/index.js";
 import { getEventsArray, session, toolCalls } from "../stores/index.js";
@@ -86,8 +86,18 @@ export function TimelineView(props: TimelineViewProps) {
   // Container ref for scroll management
   const [containerRef, setContainerRef] = createSignal<HTMLElement>();
 
+  // PERFORMANCE: Cache for incremental timeline processing
+  // Avoids O(n²) complexity when adding events to long sessions
+  let cachedItems: TimelineItem[] = [];
+  let lastEventCount = 0;
+  let lastToolCallCount = 0;
+  const processedToolCalls = new Set<string>();
+
   /**
    * Build timeline items by merging non-tool events with tool call aggregates
+   *
+   * OPTIMIZATION: Uses incremental processing to avoid re-iterating all events.
+   * Only processes new events since last computation, appending to cached results.
    *
    * Timeline should show:
    * 1. prompt events
@@ -101,12 +111,30 @@ export function TimelineView(props: TimelineViewProps) {
   const timelineItems = createMemo(() => {
     const eventArray = getEventsArray();
     const toolCallsMap = toolCalls;
+    const currentEventCount = eventArray.length;
+    const currentToolCallCount = Object.keys(toolCallsMap).length;
 
-    const items: TimelineItem[] = [];
-    const processedToolCalls = new Set<string>();
+    // Fast path: if nothing changed, return cached items
+    if (
+      currentEventCount === lastEventCount &&
+      currentToolCallCount === lastToolCallCount
+    ) {
+      return cachedItems;
+    }
 
-    // First pass: add non-tool events and mark tool calls to process
-    for (const event of eventArray) {
+    // If session was reset (fewer events than before), clear cache
+    if (currentEventCount < lastEventCount) {
+      cachedItems = [];
+      lastEventCount = 0;
+      processedToolCalls.clear();
+    }
+
+    // Only process new events (incremental update)
+    const startIndex = lastEventCount;
+    for (let i = startIndex; i < currentEventCount; i++) {
+      const event = eventArray[i];
+      if (!event) continue;
+
       // Skip tool-related events - they're aggregated in ToolCallCard
       // Skip status_change events - they update the status bar
       if (
@@ -120,13 +148,14 @@ export function TimelineView(props: TimelineViewProps) {
       ) {
         // For tool_call events, add the aggregate to timeline
         if (event.type === "tool_call") {
-          const toolCallId = (event as any).toolCallId;
+          const toolCallId = (event as unknown as { toolCallId: string })
+            .toolCallId;
           if (
             toolCallId &&
             toolCallsMap[toolCallId] &&
             !processedToolCalls.has(toolCallId)
           ) {
-            items.push({
+            cachedItems.push({
               type: "toolCall",
               toolCall: toolCallsMap[toolCallId],
               timestamp: toolCallsMap[toolCallId].startedAt,
@@ -139,7 +168,7 @@ export function TimelineView(props: TimelineViewProps) {
       }
 
       // Add non-tool events
-      items.push({
+      cachedItems.push({
         type: "event",
         event,
         timestamp: event.timestamp,
@@ -147,10 +176,13 @@ export function TimelineView(props: TimelineViewProps) {
       });
     }
 
-    // Return items in insertion order (preserves correct event sequence)
-    // Don't sort by timestamp - events are already in correct order from the backend
-    // and timestamps can have millisecond collisions causing incorrect ordering
-    return items;
+    // Update tracking state
+    lastEventCount = currentEventCount;
+    lastToolCallCount = currentToolCallCount;
+
+    // Return a new array reference to trigger SolidJS reactivity
+    // but only when items actually changed
+    return [...cachedItems];
   });
 
   // Smart auto-scroll: pauses when user scrolls up, resumes at bottom

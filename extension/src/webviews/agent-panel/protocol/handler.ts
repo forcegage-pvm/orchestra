@@ -59,10 +59,8 @@ function shouldIncludeEvent(event: { timestamp: string }): boolean {
  * Uses exhaustive switch for type safety.
  */
 export function handleExtensionMessage(message: ExtensionMessage): void {
-  console.log("[Protocol] Received message:", message.type);
   switch (message.type) {
     case "session_update":
-      console.log("[Protocol] Session update:", message.session?.sessionId);
       setSession(message.session);
       persistState();
       setUi("initialScrollPending", true);
@@ -70,16 +68,10 @@ export function handleExtensionMessage(message: ExtensionMessage): void {
 
     case "session_list":
       // Session list handling will be added when session switching is implemented
-      console.log("[Protocol] Received session list", message.sessions);
       break;
 
     case "event":
       // Add single event to events store using reactive addEvent
-      console.log(
-        "[Protocol] Single event:",
-        message.event.type,
-        message.event.id,
-      );
       if (!shouldIncludeEvent(message.event)) {
         break;
       }
@@ -111,7 +103,6 @@ export function handleExtensionMessage(message: ExtensionMessage): void {
 
     case "events_batch":
       // Bulk add events for efficiency
-      console.log("[Protocol] Events batch:", message.events.length, "events");
       message.events.forEach((event) => {
         if (!shouldIncludeEvent(event)) {
           return;
@@ -173,7 +164,7 @@ export function handleExtensionMessage(message: ExtensionMessage): void {
     default:
       // Exhaustive check - TypeScript will error if we missed a case
       const _exhaustive: never = message;
-      console.warn("[Protocol] Unknown message type:", _exhaustive);
+      void _exhaustive;
   }
 }
 
@@ -188,7 +179,6 @@ export function initializeMessageHandler(): void {
   // This ensures UI is populated before we notify the extension
   const restored = tryRestoreState();
   if (restored) {
-    console.log("[Protocol] Restored state from VS Code storage");
     syncSessionStatusFromEvents();
   }
 

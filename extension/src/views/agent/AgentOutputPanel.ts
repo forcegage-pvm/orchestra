@@ -7,21 +7,22 @@
 import * as vscode from "vscode";
 import type { AgentRunner } from "../../agents/AgentRunner.js";
 import { AgentError } from "../../agents/errors.js";
-import type { VerbosityLevel } from "../../agents/types.js";
-import { getVerbosity } from "../../config/settings.js";
-import { bindAgentOutput } from "./agentOutputConverter.js";
-import {
-  generateAgentOutputHtml,
-  type AgentOutputItem,
-} from "./templates/agentOutputTemplate.js";
 import {
   getSessionMessages,
   getSessionStats,
 } from "../../agents/sessions/sessionMessageRepository.js";
 import { getSessionChain } from "../../agents/sessions/sessionRepository.js";
+import type { VerbosityLevel } from "../../agents/types.js";
+import { getVerbosity } from "../../config/settings.js";
+import { bindAgentOutput } from "./agentOutputConverter.js";
+import { exportConversationMarkdown } from "./messageHistoryExporter.js";
+import {
+  generateAgentOutputHtml,
+  type AgentOutputItem,
+} from "./templates/agentOutputTemplate.js";
 import { generateMessageHistoryHtml } from "./templates/messageHistoryTemplate.js";
 import { generateSessionChainHtml } from "./templates/sessionChainTemplate.js";
-import { exportConversationMarkdown } from "./messageHistoryExporter.js";export class AgentOutputPanel {
+export class AgentOutputPanel {
   public static currentPanel: AgentOutputPanel | undefined;
   private readonly _panel: vscode.WebviewPanel;
   private _disposables: vscode.Disposable[] = [];
@@ -36,7 +37,7 @@ import { exportConversationMarkdown } from "./messageHistoryExporter.js";export 
   private _outputSubscription: { dispose(): void } | undefined;
   private _stateSubscription: vscode.Disposable | undefined;
   private _runner: AgentRunner | undefined;
-  
+
   // Message history state
   private _currentView: "event_stream" | "message_history" | "session_chain" =
     "event_stream";
@@ -53,28 +54,23 @@ import { exportConversationMarkdown } from "./messageHistoryExporter.js";export 
 
     this._panel.webview.onDidReceiveMessage(
       (message) => {
-        console.error("[AgentOutputPanel] Received message:", message?.type);
         if (message?.type === "ready") {
-          console.error(
-            "[AgentOutputPanel] Webview ready, flushing pending messages:",
-            this._pendingMessages.length,
-          );
           this._ready = true;
           this.flushPendingMessages();
           return;
         }
-        
+
         // Handle message history messages
         if (message?.type === "loadMoreMessages") {
           void this.handleLoadMoreMessages(message.offset);
           return;
         }
-        
+
         if (message?.type === "exportMarkdown") {
           void this.handleExportMarkdown();
           return;
         }
-        
+
         if (message?.type === "switchTab") {
           void this.handleSwitchTab(message.tab);
           return;
@@ -85,9 +81,7 @@ import { exportConversationMarkdown } from "./messageHistoryExporter.js";export 
       null,
       this._disposables,
     );
-    console.error("[AgentOutputPanel] Setting webview HTML...");
     this._panel.webview.html = this.getHtmlContent();
-    console.error("[AgentOutputPanel] Webview HTML set");
   }
 
   /**
@@ -117,16 +111,9 @@ import { exportConversationMarkdown } from "./messageHistoryExporter.js";export 
    * Add output item to panel
    */
   public addOutput(output: AgentOutputItem): void {
-    console.error(
-      "[AgentOutputPanel] addOutput called:",
-      output.type,
-      "_ready:",
-      this._ready,
-    );
     const verbosity = getVerbosity();
     const preparedOutput = this.applyVerbosity(output, verbosity);
     if (!preparedOutput) {
-      console.error("[AgentOutputPanel] Output filtered by verbosity");
       return;
     }
 
@@ -190,29 +177,23 @@ import { exportConversationMarkdown } from "./messageHistoryExporter.js";export 
   /**
    * Show message history for a session
    */
-  public showMessageHistory(
-    sessionId: string,
-    workspaceRoot: string,
-  ): void {
+  public showMessageHistory(sessionId: string, workspaceRoot: string): void {
     this._currentView = "message_history";
     this._currentSessionId = sessionId;
     this._currentWorkspaceRoot = workspaceRoot;
     this._messagesPagination = { offset: 0, limit: 50 };
-    
+
     this.renderMessageHistory();
   }
 
   /**
    * Show session chain visualization for a session
    */
-  public showSessionChain(
-    sessionId: string,
-    workspaceRoot: string,
-  ): void {
+  public showSessionChain(sessionId: string, workspaceRoot: string): void {
     this._currentView = "session_chain";
     this._currentSessionId = sessionId;
     this._currentWorkspaceRoot = workspaceRoot;
-    
+
     this.renderSessionChain();
   }
 
@@ -483,7 +464,10 @@ import { exportConversationMarkdown } from "./messageHistoryExporter.js";export 
         nonce,
       );
     } catch (error) {
-      console.error("[AgentOutputPanel] Error rendering message history:", error);
+      console.error(
+        "[AgentOutputPanel] Error rendering message history:",
+        error,
+      );
       vscode.window.showErrorMessage(
         `Failed to load message history: ${error instanceof Error ? error.message : String(error)}`,
       );
@@ -579,8 +563,12 @@ import { exportConversationMarkdown } from "./messageHistoryExporter.js";export 
       );
 
       // Get session info if available (optional)
-      const { getSession } = await import("../../agents/sessions/sessionRepository.js");
-      const session = getSession(this._currentWorkspaceRoot, this._currentSessionId);
+      const { getSession } =
+        await import("../../agents/sessions/sessionRepository.js");
+      const session = getSession(
+        this._currentWorkspaceRoot,
+        this._currentSessionId,
+      );
 
       const markdown = exportConversationMarkdown(messages, session);
 

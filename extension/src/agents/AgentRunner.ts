@@ -417,18 +417,12 @@ export class AgentRunner implements vscode.Disposable {
         if (typeof data === "object" && data !== null) {
           return JSON.stringify(data);
         }
-      } catch (error) {
-        console.error(
-          `[AgentRunner] Failed to extract DATA part content: ${error}`,
-        );
+      } catch (_error) {
+        // Failed to extract DATA part content
       }
     }
 
     // For binary mimeTypes like image/*, we can't extract text
-    // Log for debugging but don't extract
-    console.log(
-      `[AgentRunner] DATA part with mimeType=${mimeType} not extractable as text`,
-    );
     return undefined;
   }
 
@@ -1580,12 +1574,7 @@ export class AgentRunner implements vscode.Disposable {
     role: AgentRole,
     modelOverride?: string,
   ): Promise<void> {
-    console.log("[AgentRunner] runAgentLoop starting", {
-      role,
-      modelOverride,
-    });
     if (!this.session) {
-      console.log("[AgentRunner] No session!");
       throw new SessionError(
         "No session available for agent loop",
         "no-session",
@@ -1594,26 +1583,15 @@ export class AgentRunner implements vscode.Disposable {
 
     try {
       // Select language model
-      console.log("[AgentRunner] Selecting model...");
       const model = await this.selectModel(role, modelOverride);
-      console.log("[AgentRunner] Model selected:", model?.id);
 
       // Get tools
       const tools = this.toolRegistry.getToolDefinitions();
-      console.log("[AgentRunner] Tools loaded:", tools.length);
 
       // Emit status change to running
       this.eventEmitter?.emitStatusChange("initializing", "running");
 
       // Main agent loop
-      console.error(
-        "[AgentRunner] Starting loop. maxIterations:",
-        this.session.maxIterations,
-        "isPaused:",
-        this.isPaused,
-        "isStopped:",
-        this.isStopped,
-      );
       while (
         this.session.currentIteration < this.session.maxIterations &&
         !this.isPaused &&
@@ -1622,10 +1600,6 @@ export class AgentRunner implements vscode.Disposable {
         // Increment iteration
         this.session.incrementIteration();
         this.eventEmitter?.setIteration(this.session.currentIteration);
-        console.error(
-          "[AgentRunner] Loop iteration:",
-          this.session.currentIteration,
-        );
 
         // Compact context if needed
         const compactedMessages = this.contextManager.isWithinLimit(
@@ -1633,14 +1607,9 @@ export class AgentRunner implements vscode.Disposable {
         )
           ? this.session.messages
           : this.contextManager.compact(this.session.messages);
-        console.error(
-          "[AgentRunner] Messages to send:",
-          compactedMessages.length,
-        );
 
         // Convert to vscode.lm format
         const chatMessages = this.convertToLMMessages(compactedMessages);
-        console.log("[AgentRunner] Sending request to LLM...");
 
         // Send request to LLM
         const hadToolCalls = await this.sendRequest(
@@ -1712,7 +1681,6 @@ export class AgentRunner implements vscode.Disposable {
     role: AgentRole,
     modelOverride?: string,
   ): Promise<vscode.LanguageModelChat> {
-    console.log("[AgentRunner] selectModel", { role, modelOverride });
     // Determine target model name
     const targetModel =
       modelOverride ??
@@ -1722,15 +1690,8 @@ export class AgentRunner implements vscode.Disposable {
           ? this.config.implementorModel
           : this.config.controllerModel);
 
-    console.log("[AgentRunner] targetModel:", targetModel);
-
     // Get all available models first
     const allModels = await vscode.lm.selectChatModels();
-    console.error(
-      "[AgentRunner] Available models:",
-      allModels.length,
-      allModels.map((m) => `${m.family}:${m.id}`).slice(0, 10),
-    );
 
     if (allModels.length === 0) {
       throw new AgentError(
@@ -1742,7 +1703,6 @@ export class AgentRunner implements vscode.Disposable {
     // Try to find exact match by ID first
     const exactMatch = allModels.find((m) => m.id.includes(targetModel));
     if (exactMatch) {
-      console.log("[AgentRunner] Found exact match:", exactMatch.id);
       return exactMatch;
     }
 
@@ -1763,17 +1723,12 @@ export class AgentRunner implements vscode.Disposable {
             m.id.toLowerCase().includes(family),
         );
         if (familyMatch) {
-          console.log("[AgentRunner] Found family match:", familyMatch.id);
           return familyMatch;
         }
       }
     }
 
     // Fallback to first available model
-    console.error(
-      "[AgentRunner] No match found, using first available:",
-      allModels[0]!.id,
-    );
     return allModels[0]!;
   }
 
@@ -2125,7 +2080,6 @@ export class AgentRunner implements vscode.Disposable {
     token: vscode.CancellationToken,
   ): Promise<boolean> {
     if (!this.session) {
-      console.log("[AgentRunner] sendRequest: No session");
       return false;
     }
 
@@ -2147,41 +2101,24 @@ export class AgentRunner implements vscode.Disposable {
 
         // Fatal — no point retrying
         if (classification.kind === "fatal") {
-          console.error(
-            `[AgentRunner] Fatal LLM error (not retryable): ${classification.message}`,
-          );
           throw error;
         }
 
         // No more retries left
         if (attempt >= maxRetries) {
-          console.error(
-            `[AgentRunner] LLM error after ${maxRetries} retries: ${classification.message}`,
-          );
           throw error;
         }
 
         // Malformed — try to repair message history before retrying
         if (classification.kind === "malformed") {
-          console.warn(
-            `[AgentRunner] Malformed request error (attempt ${attempt + 1}/${maxRetries}): ${classification.message}`,
-          );
-
           // Repair the in-memory session messages
           if (this.session) {
             const { repaired, messages: repairedMsgs } =
               this.repairMessageHistory(this.session.messages);
             if (repaired) {
-              console.warn(
-                `[AgentRunner] Repaired message history (removed malformed tool calls)`,
-              );
               this.session.replaceMessages(repairedMsgs);
               // Re-convert repaired messages for the next attempt
               currentMessages = this.convertToLMMessages(repairedMsgs);
-            } else {
-              console.warn(
-                `[AgentRunner] Could not identify malformed messages to repair — retrying as-is`,
-              );
             }
           }
 
@@ -2200,9 +2137,6 @@ export class AgentRunner implements vscode.Disposable {
         if (classification.kind === "transient") {
           const delayMs =
             AgentRunner.LLM_RETRY_BASE_DELAY_MS * Math.pow(2, attempt);
-          console.warn(
-            `[AgentRunner] Transient LLM error (attempt ${attempt + 1}/${maxRetries}), retrying in ${delayMs}ms: ${classification.message}`,
-          );
 
           // Emit recoverable error notification
           this.emitOutput({
@@ -2234,17 +2168,12 @@ export class AgentRunner implements vscode.Disposable {
     token: vscode.CancellationToken,
   ): Promise<boolean> {
     if (!this.session) {
-      console.log("[AgentRunner] sendRequestOnce: No session");
       return false;
     }
 
     try {
       // Send request
-      console.log(
-        "[AgentRunner] sendRequestOnce: Calling model.sendRequest...",
-      );
       const request = await model.sendRequest(messages, { tools }, token);
-      console.log("[AgentRunner] sendRequest: Got response, streaming...");
 
       let thinkingText = "";
       let hadToolCalls = false;
@@ -3315,7 +3244,6 @@ export class AgentRunner implements vscode.Disposable {
    * @param error - Error that occurred
    */
   private handleError(error: unknown): void {
-    console.log("[AgentRunner] handleError called:", error);
     if (!this.session) {
       return;
     }

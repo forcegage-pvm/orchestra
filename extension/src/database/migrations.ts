@@ -31,7 +31,7 @@ const MIGRATIONS: Migration[] = [
       // Check if table already exists (idempotent)
       const tables = db
         .prepare(
-          `SELECT name FROM sqlite_master WHERE type='table' AND name='amendments'`
+          `SELECT name FROM sqlite_master WHERE type='table' AND name='amendments'`,
         )
         .all();
       if (tables.length > 0) {
@@ -56,16 +56,16 @@ const MIGRATIONS: Migration[] = [
       `);
 
       db.exec(
-        `CREATE INDEX IF NOT EXISTS sprint_amendment_idx ON amendments(sprint_id)`
+        `CREATE INDEX IF NOT EXISTS sprint_amendment_idx ON amendments(sprint_id)`,
       );
       db.exec(
-        `CREATE INDEX IF NOT EXISTS task_amendment_idx ON amendments(task_id)`
+        `CREATE INDEX IF NOT EXISTS task_amendment_idx ON amendments(task_id)`,
       );
       db.exec(
-        `CREATE INDEX IF NOT EXISTS tool_amendment_idx ON amendments(tool_name)`
+        `CREATE INDEX IF NOT EXISTS tool_amendment_idx ON amendments(tool_name)`,
       );
       db.exec(
-        `CREATE INDEX IF NOT EXISTS amendment_timestamp_idx ON amendments(amended_at)`
+        `CREATE INDEX IF NOT EXISTS amendment_timestamp_idx ON amendments(amended_at)`,
       );
     },
   },
@@ -104,7 +104,7 @@ const MIGRATIONS: Migration[] = [
 
       // Add column with default false
       db.exec(
-        `ALTER TABLE sprints ADD COLUMN is_active INTEGER NOT NULL DEFAULT 0`
+        `ALTER TABLE sprints ADD COLUMN is_active INTEGER NOT NULL DEFAULT 0`,
       );
 
       // Create index for fast lookups
@@ -131,7 +131,7 @@ const MIGRATIONS: Migration[] = [
       // Check if table already exists (idempotent)
       const tables = db
         .prepare(
-          `SELECT name FROM sqlite_master WHERE type='table' AND name='escalations'`
+          `SELECT name FROM sqlite_master WHERE type='table' AND name='escalations'`,
         )
         .all();
       if (tables.length > 0) {
@@ -160,10 +160,10 @@ const MIGRATIONS: Migration[] = [
       `);
 
       db.exec(
-        `CREATE INDEX IF NOT EXISTS task_escalation_idx ON escalations(task_id)`
+        `CREATE INDEX IF NOT EXISTS task_escalation_idx ON escalations(task_id)`,
       );
       db.exec(
-        `CREATE INDEX IF NOT EXISTS active_escalation_idx ON escalations(task_id, resolved_at)`
+        `CREATE INDEX IF NOT EXISTS active_escalation_idx ON escalations(task_id, resolved_at)`,
       );
     },
   },
@@ -175,7 +175,7 @@ const MIGRATIONS: Migration[] = [
       // Check if table already exists (idempotent)
       const tables = db
         .prepare(
-          `SELECT name FROM sqlite_master WHERE type='table' AND name='chat_sessions'`
+          `SELECT name FROM sqlite_master WHERE type='table' AND name='chat_sessions'`,
         )
         .all();
       if (tables.length > 0) {
@@ -193,7 +193,7 @@ const MIGRATIONS: Migration[] = [
       `);
 
       db.exec(
-        `CREATE INDEX IF NOT EXISTS chat_session_role_idx ON chat_sessions(role)`
+        `CREATE INDEX IF NOT EXISTS chat_session_role_idx ON chat_sessions(role)`,
       );
     },
   },
@@ -207,7 +207,7 @@ const MIGRATIONS: Migration[] = [
         name: string;
       }[];
       const hasTddRedPhase = columns.some(
-        (col) => col.name === "tdd_red_phase"
+        (col) => col.name === "tdd_red_phase",
       );
 
       if (hasTddRedPhase) {
@@ -216,7 +216,7 @@ const MIGRATIONS: Migration[] = [
 
       // Add column with default false
       db.exec(
-        `ALTER TABLE tasks ADD COLUMN tdd_red_phase INTEGER NOT NULL DEFAULT 0`
+        `ALTER TABLE tasks ADD COLUMN tdd_red_phase INTEGER NOT NULL DEFAULT 0`,
       );
     },
   },
@@ -228,7 +228,7 @@ const MIGRATIONS: Migration[] = [
       // Check if tdd_task_relationships table already exists (idempotent)
       const relationshipsTable = db
         .prepare(
-          `SELECT name FROM sqlite_master WHERE type='table' AND name='tdd_task_relationships'`
+          `SELECT name FROM sqlite_master WHERE type='table' AND name='tdd_task_relationships'`,
         )
         .all();
       if (relationshipsTable.length === 0) {
@@ -244,20 +244,20 @@ const MIGRATIONS: Migration[] = [
         `);
 
         db.exec(
-          `CREATE INDEX IF NOT EXISTS tdd_rel_sprint_idx ON tdd_task_relationships(sprint_id)`
+          `CREATE INDEX IF NOT EXISTS tdd_rel_sprint_idx ON tdd_task_relationships(sprint_id)`,
         );
         db.exec(
-          `CREATE INDEX IF NOT EXISTS tdd_rel_red_task_idx ON tdd_task_relationships(red_task_id)`
+          `CREATE INDEX IF NOT EXISTS tdd_rel_red_task_idx ON tdd_task_relationships(red_task_id)`,
         );
         db.exec(
-          `CREATE UNIQUE INDEX IF NOT EXISTS tdd_rel_unique_idx ON tdd_task_relationships(sprint_id, red_task_id, green_task_id)`
+          `CREATE UNIQUE INDEX IF NOT EXISTS tdd_rel_unique_idx ON tdd_task_relationships(sprint_id, red_task_id, green_task_id)`,
         );
       }
 
       // Check if tdd_red_registry table already exists (idempotent)
       const registryTable = db
         .prepare(
-          `SELECT name FROM sqlite_master WHERE type='table' AND name='tdd_red_registry'`
+          `SELECT name FROM sqlite_master WHERE type='table' AND name='tdd_red_registry'`,
         )
         .all();
       if (registryTable.length === 0) {
@@ -279,19 +279,19 @@ const MIGRATIONS: Migration[] = [
         `);
 
         db.exec(
-          `CREATE INDEX IF NOT EXISTS tdd_reg_sprint_idx ON tdd_red_registry(sprint_id)`
+          `CREATE INDEX IF NOT EXISTS tdd_reg_sprint_idx ON tdd_red_registry(sprint_id)`,
         );
         db.exec(
-          `CREATE INDEX IF NOT EXISTS tdd_reg_red_task_idx ON tdd_red_registry(red_task_id)`
+          `CREATE INDEX IF NOT EXISTS tdd_reg_red_task_idx ON tdd_red_registry(red_task_id)`,
         );
         db.exec(
-          `CREATE INDEX IF NOT EXISTS tdd_reg_green_task_idx ON tdd_red_registry(green_task_id)`
+          `CREATE INDEX IF NOT EXISTS tdd_reg_green_task_idx ON tdd_red_registry(green_task_id)`,
         );
         db.exec(
-          `CREATE INDEX IF NOT EXISTS tdd_reg_status_idx ON tdd_red_registry(status)`
+          `CREATE INDEX IF NOT EXISTS tdd_reg_status_idx ON tdd_red_registry(status)`,
         );
         db.exec(
-          `CREATE UNIQUE INDEX IF NOT EXISTS tdd_reg_unique_test_idx ON tdd_red_registry(sprint_id, test_identifier)`
+          `CREATE UNIQUE INDEX IF NOT EXISTS tdd_reg_unique_test_idx ON tdd_red_registry(sprint_id, test_identifier)`,
         );
       }
     },
@@ -313,7 +313,7 @@ const MIGRATIONS: Migration[] = [
       }
 
       db.exec(
-        `ALTER TABLE tdd_task_relationships ADD COLUMN completed_at TEXT`
+        `ALTER TABLE tdd_task_relationships ADD COLUMN completed_at TEXT`,
       );
     },
   },
@@ -358,13 +358,13 @@ const MIGRATIONS: Migration[] = [
 
       // Recreate indexes
       db.exec(
-        `CREATE INDEX IF NOT EXISTS tdd_reg_sprint_idx ON tdd_red_registry(sprint_id)`
+        `CREATE INDEX IF NOT EXISTS tdd_reg_sprint_idx ON tdd_red_registry(sprint_id)`,
       );
       db.exec(
-        `CREATE INDEX IF NOT EXISTS tdd_reg_red_task_idx ON tdd_red_registry(red_task_id)`
+        `CREATE INDEX IF NOT EXISTS tdd_reg_red_task_idx ON tdd_red_registry(red_task_id)`,
       );
       db.exec(
-        `CREATE UNIQUE INDEX IF NOT EXISTS tdd_reg_unique_test_idx ON tdd_red_registry(sprint_id, test_identifier)`
+        `CREATE UNIQUE INDEX IF NOT EXISTS tdd_reg_unique_test_idx ON tdd_red_registry(sprint_id, test_identifier)`,
       );
     },
   },
@@ -390,19 +390,20 @@ const MIGRATIONS: Migration[] = [
 
       // Recreate indexes with test_file as unique constraint
       db.exec(
-        `CREATE INDEX IF NOT EXISTS tdd_reg_sprint_idx ON tdd_red_registry(sprint_id)`
+        `CREATE INDEX IF NOT EXISTS tdd_reg_sprint_idx ON tdd_red_registry(sprint_id)`,
       );
       db.exec(
-        `CREATE INDEX IF NOT EXISTS tdd_reg_red_task_idx ON tdd_red_registry(red_task_id)`
+        `CREATE INDEX IF NOT EXISTS tdd_reg_red_task_idx ON tdd_red_registry(red_task_id)`,
       );
       db.exec(
-        `CREATE UNIQUE INDEX IF NOT EXISTS tdd_reg_unique_test_idx ON tdd_red_registry(sprint_id, test_file)`
+        `CREATE UNIQUE INDEX IF NOT EXISTS tdd_reg_unique_test_idx ON tdd_red_registry(sprint_id, test_file)`,
       );
     },
   },
   {
     id: "20260124_001_add_is_archived",
-    description: "Add is_archived column to sprints table for archive filtering",
+    description:
+      "Add is_archived column to sprints table for archive filtering",
     up: (db) => {
       // Check if column already exists (idempotent)
       const columns = db.prepare(`PRAGMA table_info(sprints)`).all() as {
@@ -415,21 +416,22 @@ const MIGRATIONS: Migration[] = [
       }
 
       db.exec(
-        `ALTER TABLE sprints ADD COLUMN is_archived INTEGER NOT NULL DEFAULT 0`
+        `ALTER TABLE sprints ADD COLUMN is_archived INTEGER NOT NULL DEFAULT 0`,
       );
       db.exec(
-        `CREATE INDEX IF NOT EXISTS is_archived_idx ON sprints(is_archived)`
+        `CREATE INDEX IF NOT EXISTS is_archived_idx ON sprints(is_archived)`,
       );
     },
   },
   {
     id: "20260207_001_create_session_messages",
-    description: "Create session_messages table for conversational message history",
+    description:
+      "Create session_messages table for conversational message history",
     up: (db) => {
       // Check if table already exists (idempotent)
       const tables = db
         .prepare(
-          `SELECT name FROM sqlite_master WHERE type='table' AND name='session_messages'`
+          `SELECT name FROM sqlite_master WHERE type='table' AND name='session_messages'`,
         )
         .all();
       if (tables.length > 0) {
@@ -450,10 +452,10 @@ const MIGRATIONS: Migration[] = [
       `);
 
       db.exec(
-        `CREATE INDEX IF NOT EXISTS idx_messages_session ON session_messages(session_id)`
+        `CREATE INDEX IF NOT EXISTS idx_messages_session ON session_messages(session_id)`,
       );
       db.exec(
-        `CREATE INDEX IF NOT EXISTS idx_messages_session_message ON session_messages(session_id, message_index)`
+        `CREATE INDEX IF NOT EXISTS idx_messages_session_message ON session_messages(session_id, message_index)`,
       );
     },
   },
@@ -467,11 +469,15 @@ const MIGRATIONS: Migration[] = [
       }[];
 
       const hasStage = columns.some((col) => col.name === "stage");
-      const hasParentSession = columns.some((col) => col.name === "parent_session_id");
+      const hasParentSession = columns.some(
+        (col) => col.name === "parent_session_id",
+      );
       const hasAttempt = columns.some((col) => col.name === "attempt");
       const hasIsContinued = columns.some((col) => col.name === "is_continued");
       const hasContinuedAt = columns.some((col) => col.name === "continued_at");
-      const hasContinuationCount = columns.some((col) => col.name === "continuation_count");
+      const hasContinuationCount = columns.some(
+        (col) => col.name === "continuation_count",
+      );
 
       if (!hasStage) {
         db.exec(`ALTER TABLE agent_sessions ADD COLUMN stage TEXT`);
@@ -480,20 +486,28 @@ const MIGRATIONS: Migration[] = [
         db.exec(`ALTER TABLE agent_sessions ADD COLUMN parent_session_id TEXT`);
       }
       if (!hasAttempt) {
-        db.exec(`ALTER TABLE agent_sessions ADD COLUMN attempt INTEGER NOT NULL DEFAULT 0`);
+        db.exec(
+          `ALTER TABLE agent_sessions ADD COLUMN attempt INTEGER NOT NULL DEFAULT 0`,
+        );
       }
       if (!hasIsContinued) {
-        db.exec(`ALTER TABLE agent_sessions ADD COLUMN is_continued INTEGER NOT NULL DEFAULT 0`);
+        db.exec(
+          `ALTER TABLE agent_sessions ADD COLUMN is_continued INTEGER NOT NULL DEFAULT 0`,
+        );
       }
       if (!hasContinuedAt) {
         db.exec(`ALTER TABLE agent_sessions ADD COLUMN continued_at TEXT`);
       }
       if (!hasContinuationCount) {
-        db.exec(`ALTER TABLE agent_sessions ADD COLUMN continuation_count INTEGER NOT NULL DEFAULT 0`);
+        db.exec(
+          `ALTER TABLE agent_sessions ADD COLUMN continuation_count INTEGER NOT NULL DEFAULT 0`,
+        );
       }
 
       // Index for parent session lookups
-      db.exec(`CREATE INDEX IF NOT EXISTS idx_sessions_parent ON agent_sessions(parent_session_id)`);
+      db.exec(
+        `CREATE INDEX IF NOT EXISTS idx_sessions_parent ON agent_sessions(parent_session_id)`,
+      );
     },
   },
 ];
@@ -531,7 +545,7 @@ function getAppliedMigrations(db: Database.Database): Set<string> {
 function recordMigration(db: Database.Database, migration: Migration): void {
   const now = new Date().toISOString();
   db.prepare(
-    `INSERT INTO schema_migrations (id, description, applied_at) VALUES (?, ?, ?)`
+    `INSERT INTO schema_migrations (id, description, applied_at) VALUES (?, ?, ?)`,
   ).run(migration.id, migration.description, now);
 }
 
@@ -552,15 +566,11 @@ export function runExtensionMigrations(db: Database.Database): {
   const appliedMigrations: string[] = [];
 
   for (const migration of pendingMigrations) {
-    console.log(`[orchestra-ext] Applying migration: ${migration.id}`);
-
     try {
       migration.up(db);
       recordMigration(db, migration);
       appliedMigrations.push(migration.id);
-      console.log(`[orchestra-ext] ✓ Applied: ${migration.id}`);
     } catch (error) {
-      console.error(`[orchestra-ext] ✗ Failed: ${migration.id}`, error);
       throw error;
     }
   }

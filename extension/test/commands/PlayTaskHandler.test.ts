@@ -9,7 +9,6 @@ import * as vscode from "vscode";
 import { handlePlayTask } from "../../src/commands/PlayTaskHandler.js";
 import * as queries from "../../src/database/queries.js";
 import * as extension from "../../src/extension.js";
-import { PromptBuilder } from "../../src/prompts/PromptBuilder.js";
 
 // Mock fs/promises to allow readAgentInstructions to work
 vi.mock("fs/promises", () => ({
@@ -21,15 +20,24 @@ vi.mock("../../src/agents/sessions/sessionRepository.js", () => ({
   getLatestImplementorSession: vi.fn(),
 }));
 
-// Mock logger
-vi.mock("../../src/utils/logger.js", () => ({
-  OrchestraLogger: class {
-    info = vi.fn();
-    error = vi.fn();
-    warn = vi.fn();
-    debug = vi.fn();
-  },
-}));
+// Mock logger - must export class and getLogger factory
+vi.mock("../../src/utils/logger.js", () => {
+  const mockLogger = {
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+    debug: vi.fn(),
+  };
+  return {
+    OrchestraLogger: class {
+      info = vi.fn();
+      error = vi.fn();
+      warn = vi.fn();
+      debug = vi.fn();
+    },
+    getLogger: () => mockLogger,
+  };
+});
 
 // Mock VS Code API
 vi.mock("vscode", () => ({
@@ -97,9 +105,7 @@ const mockPromptBuilderMethods = vi.hoisted(() => ({
   buildCodeReviewFixImplementPrompt: vi.fn(
     () => "Mock code review fix implement prompt",
   ),
-  buildCodingStandardsPrompt: vi.fn(
-    () => "Mock coding standards prompt",
-  ),
+  buildCodingStandardsPrompt: vi.fn(() => "Mock coding standards prompt"),
 }));
 
 // Mock PromptBuilder
@@ -242,21 +248,21 @@ describe("PlayTaskHandler", () => {
         );
 
         // Verify PromptBuilder was called with correct context
-        expect(mockPromptBuilderMethods.buildPreparePrompt).toHaveBeenCalledWith(
-          {
-            task: {
-              task_id: mockTask.task_id,
-              title: mockTask.title,
-              description: mockTask.description,
-              category: mockTask.category,
-              phase_id: "phase-1",
-            },
-            sprint: {
-              sprint_id: mockTask.sprint_id,
-              title: "Test Sprint",
-            },
+        expect(
+          mockPromptBuilderMethods.buildPreparePrompt,
+        ).toHaveBeenCalledWith({
+          task: {
+            task_id: mockTask.task_id,
+            title: mockTask.title,
+            description: mockTask.description,
+            category: mockTask.category,
+            phase_id: "phase-1",
           },
-        );
+          sprint: {
+            sprint_id: mockTask.sprint_id,
+            title: "Test Sprint",
+          },
+        });
 
         // Verify AgentRunner.start was called with orchestrator role
         expect(mockAgentRunner.start).toHaveBeenCalledWith(
@@ -379,7 +385,9 @@ describe("PlayTaskHandler", () => {
         await handlePlayTask(mockWorkspaceRoot, mockTaskId);
 
         // Verify PromptBuilder was called with context
-        expect(mockPromptBuilderMethods.buildImplementPrompt).toHaveBeenCalledWith({
+        expect(
+          mockPromptBuilderMethods.buildImplementPrompt,
+        ).toHaveBeenCalledWith({
           task: {
             task_id: mockTask.task_id,
             title: mockTask.title,
@@ -913,9 +921,8 @@ describe("PlayTaskHandler", () => {
     });
 
     it("should set stage to IMPLEMENT_FIX and pass parentSessionId when invoking retry", async () => {
-      const { getLatestImplementorSession } = await import(
-        "../../src/agents/sessions/sessionRepository.js"
-      );
+      const { getLatestImplementorSession } =
+        await import("../../src/agents/sessions/sessionRepository.js");
 
       const mockTask = {
         id: 123,
@@ -1066,9 +1073,8 @@ describe("PlayTaskHandler", () => {
     });
 
     it("should set stage to IMPLEMENT_FIX and pass parentSessionId when invoking code review fix", async () => {
-      const { getLatestImplementorSession } = await import(
-        "../../src/agents/sessions/sessionRepository.js"
-      );
+      const { getLatestImplementorSession } =
+        await import("../../src/agents/sessions/sessionRepository.js");
 
       const mockTask = {
         id: 123,
@@ -1136,9 +1142,7 @@ describe("PlayTaskHandler", () => {
 
       vi.mocked(queries.getTaskById).mockReturnValue(mockTask);
       vi.mocked(queries.getSprintById).mockReturnValue(mockSprint);
-      vi.mocked(queries.getLatestCodeReviewForTask).mockReturnValue(
-        mockReview,
-      );
+      vi.mocked(queries.getLatestCodeReviewForTask).mockReturnValue(mockReview);
       mockAgentRunner.getSession.mockReturnValue(undefined);
 
       await handlePlayTask(mockWorkspaceRoot, 123);

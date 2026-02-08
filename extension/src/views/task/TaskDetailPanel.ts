@@ -31,9 +31,9 @@ import {
   type VerificationResult,
 } from "../../database/queries.js";
 import type { DatabaseWatcher } from "../../database/watcher.js";
-import { OrchestraLogger } from "../../utils/logger.js";
+import { getLogger } from "../../utils/logger.js";
 
-const logger = new OrchestraLogger();
+const logger = getLogger();
 
 /**
  * Format timestamp to human-readable relative time

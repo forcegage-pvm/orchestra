@@ -1629,10 +1629,6 @@ export function isToolAvailableForRole(
 export function registerTools(server: Server, role: ServerRole = "full"): void {
   const availableTools = getToolsForRole(role);
 
-  console.error(
-    `[orchestra-mcp] Registering ${availableTools.length} tools for role: ${role}`,
-  );
-
   // List tools handler - returns only role-appropriate tools
   server.setRequestHandler(ListToolsRequestSchema, async () => {
     return { tools: availableTools };
@@ -1669,9 +1665,6 @@ export function registerTools(server: Server, role: ServerRole = "full"): void {
     }
 
     try {
-      console.error(`[MCP] Tool called: ${toolName} (role: ${role})`);
-      console.error(`[MCP] Arguments:`, JSON.stringify(args, null, 2));
-
       // Route to appropriate handler
       switch (toolName) {
         // Sprint Config (7 tools)
@@ -1913,7 +1906,6 @@ export function registerTools(server: Server, role: ServerRole = "full"): void {
           };
       }
     } catch (error) {
-      console.error(`[MCP] Tool handler error for ${toolName}:`, error);
       return {
         content: [
           {

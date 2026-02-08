@@ -6,7 +6,6 @@
  */
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import * as vscode from "vscode";
 
 // Mock vscode
 vi.mock("vscode", () => ({
@@ -18,15 +17,24 @@ vi.mock("vscode", () => ({
   workspace: {},
 }));
 
-// Mock logger - must export a class since it's used as `new OrchestraLogger()`
-vi.mock("../../src/utils/logger.js", () => ({
-  OrchestraLogger: class {
-    info = vi.fn();
-    warn = vi.fn();
-    error = vi.fn();
-    debug = vi.fn();
-  },
-}));
+// Mock logger - must export class and getLogger factory
+vi.mock("../../src/utils/logger.js", () => {
+  const mockLogger = {
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+    debug: vi.fn(),
+  };
+  return {
+    OrchestraLogger: class {
+      info = vi.fn();
+      warn = vi.fn();
+      error = vi.fn();
+      debug = vi.fn();
+    },
+    getLogger: () => mockLogger,
+  };
+});
 
 // Mock database queries
 vi.mock("../../src/database/queries.js", () => ({
@@ -63,10 +71,10 @@ vi.mock("../../src/agents/sessions/sessionRepository.js", () => ({
   getLatestImplementorSession: vi.fn(),
 }));
 
+import { getLatestImplementorSession } from "../../src/agents/sessions/sessionRepository.js";
 import { WorkflowChain } from "../../src/agents/WorkflowChain.js";
 import { handlePlayTask } from "../../src/commands/PlayTaskHandler.js";
 import * as queries from "../../src/database/queries.js";
-import { getLatestImplementorSession } from "../../src/agents/sessions/sessionRepository.js";
 
 describe("WorkflowChain", () => {
   let workflowChain: WorkflowChain;
@@ -77,7 +85,9 @@ describe("WorkflowChain", () => {
     mockContinueSessionExecution.mockResolvedValue({});
     workflowChain = new WorkflowChain(mockWorkspaceRoot);
     // Stub the delay method so tests don't wait
-    (workflowChain as Record<string, unknown>)["delay"] = vi.fn().mockResolvedValue(undefined);
+    (workflowChain as Record<string, unknown>)["delay"] = vi
+      .fn()
+      .mockResolvedValue(undefined);
   });
 
   describe("Session continuation on VERIFY_FAILED", () => {
@@ -139,11 +149,9 @@ describe("WorkflowChain", () => {
 
       // Call private handleCompletedSession directly
       await (
-        (workflowChain as Record<string, unknown>)["handleCompletedSession"] as (
-          role: string,
-          taskId: number,
-          sessionId: string,
-        ) => Promise<void>
+        (workflowChain as Record<string, unknown>)[
+          "handleCompletedSession"
+        ] as (role: string, taskId: number, sessionId: string) => Promise<void>
       ).call(workflowChain, "orchestrator", 42, "orch-session-123");
 
       expect(mockContinueSessionExecution).toHaveBeenCalledWith(
@@ -194,11 +202,9 @@ describe("WorkflowChain", () => {
       ]);
 
       await (
-        (workflowChain as Record<string, unknown>)["handleCompletedSession"] as (
-          role: string,
-          taskId: number,
-          sessionId: string,
-        ) => Promise<void>
+        (workflowChain as Record<string, unknown>)[
+          "handleCompletedSession"
+        ] as (role: string, taskId: number, sessionId: string) => Promise<void>
       ).call(workflowChain, "orchestrator", 42, "orch-session-456");
 
       expect(mockContinueSessionExecution).not.toHaveBeenCalled();
@@ -265,11 +271,9 @@ describe("WorkflowChain", () => {
       ]);
 
       await (
-        (workflowChain as Record<string, unknown>)["handleCompletedSession"] as (
-          role: string,
-          taskId: number,
-          sessionId: string,
-        ) => Promise<void>
+        (workflowChain as Record<string, unknown>)[
+          "handleCompletedSession"
+        ] as (role: string, taskId: number, sessionId: string) => Promise<void>
       ).call(workflowChain, "orchestrator", 42, "orch-session-789");
 
       expect(mockContinueSessionExecution).toHaveBeenCalled();
@@ -344,11 +348,9 @@ describe("WorkflowChain", () => {
       ]);
 
       await (
-        (workflowChain as Record<string, unknown>)["handleCompletedSession"] as (
-          role: string,
-          taskId: number,
-          sessionId: string,
-        ) => Promise<void>
+        (workflowChain as Record<string, unknown>)[
+          "handleCompletedSession"
+        ] as (role: string, taskId: number, sessionId: string) => Promise<void>
       ).call(workflowChain, "controller", 42, "ctrl-session-123");
 
       expect(mockContinueSessionExecution).toHaveBeenCalledWith(
@@ -408,11 +410,9 @@ describe("WorkflowChain", () => {
       ]);
 
       await (
-        (workflowChain as Record<string, unknown>)["handleCompletedSession"] as (
-          role: string,
-          taskId: number,
-          sessionId: string,
-        ) => Promise<void>
+        (workflowChain as Record<string, unknown>)[
+          "handleCompletedSession"
+        ] as (role: string, taskId: number, sessionId: string) => Promise<void>
       ).call(workflowChain, "controller", 42, "ctrl-session-456");
 
       expect(mockContinueSessionExecution).not.toHaveBeenCalled();
@@ -469,7 +469,7 @@ describe("WorkflowChain", () => {
         false, // hasPendingCodeReview
         false, // hasPendingVerification
         false, // hasApprovedCodeReview
-        true,  // hasChangesRequested
+        true, // hasChangesRequested
         false, // hasRejectedCodeReview
       );
 
