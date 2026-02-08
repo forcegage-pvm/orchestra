@@ -89,9 +89,11 @@ export function isValidPriority(value: unknown): value is Priority {
  * Checks if a value is a valid TaskStatus enum value.
  */
 export function isValidTaskStatus(value: unknown): value is TaskStatus {
-  return typeof value === "string" && Object.values(TaskStatus).includes(value);
+  return (
+    typeof value === "string" &&
+    Object.values(TaskStatus).includes(value as TaskStatus)
+  );
 }
-
 /**
  * Checks if a value is a valid Task object.
  */

@@ -325,6 +325,36 @@ export class AgentSession {
   }
 
   /**
+   * Retry from a terminal state (failed, completed, cancelled).
+   *
+   * Transitions the session back to "running" so that the agent loop
+   * can be re-entered with the existing conversation history.
+   */
+  retry(): void {
+    const retryableStatuses = new Set<AgentStatus>([
+      "failed",
+      "completed",
+      "stopped",
+    ]);
+    if (!retryableStatuses.has(this.status)) {
+      throw new SessionError(
+        `Cannot retry session with status: ${this.status}`,
+        this.id,
+        { currentStatus: this.status },
+      );
+    }
+
+    this.status = "running";
+    this.recoveryInfo = {
+      canResume: true,
+      resumeFromIteration: this.iteration,
+      resumeFromToolCall: null,
+      failureReason: null,
+    };
+    this.updateActivityTimestamp();
+  }
+
+  /**
    * Mark session as completed successfully
    */
   complete(): void {

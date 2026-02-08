@@ -796,12 +796,80 @@ export class AgentRunner implements vscode.Disposable {
     this.eventEmitter?.emitStatusChange(previousStatus, "running");
     this.emitStateChange();
 
+    // Repair message history (remove orphaned tool_results, etc.)
+    // This prevents Claude API errors like "unexpected tool_use_id in tool_result"
+    const { repaired, messages: repairedMsgs } = this.repairMessageHistory(
+      this.session.messages,
+    );
+    if (repaired) {
+      this.session.replaceMessages(repairedMsgs);
+      console.warn(
+        `[AgentRunner] Repaired message history on resume (removed orphaned tool calls/results)`,
+      );
+    }
+
     // Ensure conversation ends with a user message (LLM API requirement).
     // When paused mid-execution the last message is typically an assistant turn.
     const lastMsg = this.session.messages[this.session.messages.length - 1];
     if (!lastMsg || lastMsg.role !== "user") {
       this.addUserMessage(
         "Session has been resumed. Continue from where you left off.",
+      );
+    }
+
+    // Restart agent loop
+    const role = this.session.role;
+    this.runningPromise = this.runAgentLoop(role).catch((error) => {
+      this.handleError(error);
+    });
+  }
+
+  /**
+   * Retry a failed, completed, or cancelled session.
+   *
+   * Re-enters the agent loop using the existing conversation history.
+   * Injects a user message if the conversation ends with an assistant turn
+   * (required by the LLM API which does not support assistant message prefill).
+   *
+   * @throws AgentError if no session or session is still running/paused
+   */
+  async retry(): Promise<void> {
+    if (!this.session) {
+      throw new AgentError("Cannot retry: no active session", "NO_SESSION");
+    }
+
+    const retryableStatuses = new Set(["failed", "completed", "stopped"]);
+    if (!retryableStatuses.has(this.session.status)) {
+      throw new AgentError(
+        `Cannot retry: session is in '${this.session.status}' state`,
+        "INVALID_STATE",
+      );
+    }
+
+    const previousStatus = this.session.status;
+    this.session.retry(); // transitions from terminal state back to "running"
+    this.isPaused = false;
+    this.isStopping = false;
+    this.eventEmitter?.emitStatusChange(previousStatus, "running");
+    this.emitStateChange();
+
+    // Repair message history (remove orphaned tool_results, etc.)
+    // This prevents Claude API errors like "unexpected tool_use_id in tool_result"
+    const { repaired: wasRepaired, messages: repairedRetryMsgs } =
+      this.repairMessageHistory(this.session.messages);
+    if (wasRepaired) {
+      this.session.replaceMessages(repairedRetryMsgs);
+      console.warn(
+        `[AgentRunner] Repaired message history on retry (removed orphaned tool calls/results)`,
+      );
+    }
+
+    // Ensure conversation ends with a user message (LLM API requirement).
+    // After a session ends the last message is typically an assistant turn.
+    const lastMsg = this.session.messages[this.session.messages.length - 1];
+    if (!lastMsg || lastMsg.role !== "user") {
+      this.addUserMessage(
+        "Session is being retried. Continue from where you left off.",
       );
     }
 
@@ -1869,10 +1937,13 @@ export class AgentRunner implements vscode.Disposable {
       return { kind: "cancelled", message: msg };
     }
 
-    // Malformed request — tool call format issues (Gemini-specific)
+    // Malformed request — tool call/result format issues
     if (
       msg.includes("invalid_tool_call_format") ||
-      msg.includes("Tool name is required")
+      msg.includes("Tool name is required") ||
+      msg.includes("unexpected `tool_use_id`") ||
+      msg.includes("tool_result") ||
+      msg.includes("tool_use")
     ) {
       return { kind: "malformed", message: msg };
     }
@@ -1903,9 +1974,15 @@ export class AgentRunner implements vscode.Disposable {
   /**
    * Repair message history to fix known format issues.
    *
-   * Specifically handles:
-   * - Tool call parts with missing/empty names (causes Gemini `invalid_tool_call_format`)
-   * - Empty assistant messages
+   * Handles:
+   * - Tool call parts with missing/empty names (Gemini `invalid_tool_call_format`)
+   * - Orphaned tool_results whose tool_use is missing from the preceding assistant message
+   *   (Claude: "unexpected tool_use_id found in tool_result blocks")
+   * - Empty messages after part removal
+   *
+   * The Claude API requires that every `tool_result` in a user message references
+   * a `tool_use` in the *immediately preceding* assistant message. When sessions
+   * are retried/resumed after interruption, this invariant can be violated.
    *
    * Returns repaired messages (or the originals if no repair was needed).
    */
@@ -1915,9 +1992,9 @@ export class AgentRunner implements vscode.Disposable {
   } {
     let repaired = false;
 
-    const repairedMessages = messages
+    // Pass 1: Remove malformed tool calls (missing names)
+    const pass1 = messages
       .map((msg) => {
-        // Only repair assistant messages with array content (tool calls)
         if (msg.role !== "assistant" || typeof msg.content === "string") {
           return msg;
         }
@@ -1928,7 +2005,7 @@ export class AgentRunner implements vscode.Disposable {
             (!part.name || part.name.trim() === "")
           ) {
             console.warn(
-              `[AgentRunner] Removing malformed tool call (no name) from message history: callId=${part.toolCallId}`,
+              `[AgentRunner] Removing malformed tool call (no name): callId=${part.toolCallId}`,
             );
             repaired = true;
             return false;
@@ -1936,65 +2013,79 @@ export class AgentRunner implements vscode.Disposable {
           return true;
         });
 
-        // If all parts were removed, drop this message entirely
         if (repairedParts.length === 0) {
           repaired = true;
           return null;
         }
-
         if (repairedParts.length !== msg.content.length) {
           return { ...msg, content: repairedParts };
         }
-
         return msg;
       })
       .filter((msg): msg is AgentMessage => msg !== null);
 
-    // Also remove orphaned tool result messages whose tool call was removed
-    // (they'd cause "No tool call found for result" errors)
-    if (repaired) {
-      const validToolCallIds = new Set<string>();
-      for (const msg of repairedMessages) {
-        if (typeof msg.content !== "string") {
-          for (const part of msg.content) {
-            if (part.type === "toolCall") {
-              validToolCallIds.add(part.toolCallId);
-            }
+    // Pass 2: Ensure every tool_result references a tool_use in the
+    // immediately preceding assistant message (Claude API requirement).
+    // Walk message pairs and remove orphaned tool_results from user messages.
+    const pass2: AgentMessage[] = [];
+    for (let i = 0; i < pass1.length; i++) {
+      const msg = pass1[i];
+
+      // Only inspect user messages that have array content (tool results)
+      if (msg.role !== "user" || typeof msg.content === "string") {
+        pass2.push(msg);
+        continue;
+      }
+
+      const hasToolResults = msg.content.some((p) => p.type === "toolResult");
+      if (!hasToolResults) {
+        pass2.push(msg);
+        continue;
+      }
+
+      // Collect tool_use IDs from the immediately preceding assistant message
+      const prevMsg = pass2.length > 0 ? pass2[pass2.length - 1] : undefined;
+      const prevToolUseIds = new Set<string>();
+      if (
+        prevMsg &&
+        prevMsg.role === "assistant" &&
+        typeof prevMsg.content !== "string"
+      ) {
+        for (const part of prevMsg.content) {
+          if (part.type === "toolCall") {
+            prevToolUseIds.add(part.toolCallId);
           }
         }
       }
 
-      const cleanedMessages = repairedMessages
-        .map((msg) => {
-          if (msg.role !== "assistant" || typeof msg.content === "string") {
-            return msg;
-          }
+      // Filter out tool_results that don't match the preceding assistant's tool_uses
+      const cleanedParts = msg.content.filter((part) => {
+        if (
+          part.type === "toolResult" &&
+          !prevToolUseIds.has(part.toolCallId)
+        ) {
+          console.warn(
+            `[AgentRunner] Removing orphaned tool result (no matching tool_use in preceding message): callId=${part.toolCallId}`,
+          );
+          repaired = true;
+          return false;
+        }
+        return true;
+      });
 
-          const cleanedParts = msg.content.filter((part) => {
-            if (
-              part.type === "toolResult" &&
-              !validToolCallIds.has(part.toolCallId)
-            ) {
-              console.warn(
-                `[AgentRunner] Removing orphaned tool result: callId=${part.toolCallId}`,
-              );
-              return false;
-            }
-            return true;
-          });
-
-          if (cleanedParts.length === 0) return null;
-          if (cleanedParts.length !== msg.content.length) {
-            return { ...msg, content: cleanedParts };
-          }
-          return msg;
-        })
-        .filter((msg): msg is AgentMessage => msg !== null);
-
-      return { repaired: true, messages: cleanedMessages };
+      if (cleanedParts.length === 0) {
+        // Entire message was orphaned tool results — drop it
+        repaired = true;
+        continue;
+      }
+      if (cleanedParts.length !== msg.content.length) {
+        pass2.push({ ...msg, content: cleanedParts });
+      } else {
+        pass2.push(msg);
+      }
     }
 
-    return { repaired, messages: repairedMessages };
+    return { repaired, messages: pass2 };
   }
 
   /**
