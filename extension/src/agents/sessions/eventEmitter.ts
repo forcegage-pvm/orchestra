@@ -11,6 +11,7 @@
 import { randomUUID } from "crypto";
 import { getAgentEventBus } from "./eventBus.js";
 import { insertEvent } from "./eventRepository.js";
+import { updateSession } from "./sessionRepository.js";
 import type {
   AgentEvent,
   AgentSessionInfo,
@@ -200,6 +201,27 @@ export class SessionEventEmitter {
       console.log(
         `${DEBUG_TAG} session_end sessionId=${this.sessionId.slice(0, 8)} status=${status}`,
       );
+
+      // Finalize session in database: update status, endedAt, durationMs
+      // This is critical for WorkflowChain transitions — without it, DB sessions
+      // remain in "initializing" status and getLatestImplementorSession() may
+      // return stale/incorrect sessions during workflow chaining.
+      try {
+        const endedAt = new Date().toISOString();
+        updateSession(this.workspaceRoot, this.sessionId, {
+          status,
+          endedAt,
+          lastActivityAt: endedAt,
+        });
+      } catch (dbError) {
+        // Log but don't block the session_end event — persistence failure
+        // should not prevent workflow transitions
+        console.warn(
+          `${DEBUG_TAG} WARNING: Failed to finalize session in DB: sessionId=${this.sessionId.slice(0, 8)}`,
+          dbError,
+        );
+      }
+
       getAgentEventBus().emit({
         type: "session_end",
         sessionId: this.sessionId,
