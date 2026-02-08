@@ -10,15 +10,36 @@ import { events, session } from "./stores/sessionStore.js";
 import "./styles.css";
 import { TimelineView } from "./views/index.js";
 
+console.log("[AgentPanel] Module loading started");
+const moduleLoadStart = performance.now();
+
 // Register all icons synchronously before rendering
 // This eliminates network requests to Iconify CDN
-registerIcons();
+console.log("[AgentPanel] Registering icons");
+const iconStart = performance.now();
+try {
+  registerIcons();
+  console.log(
+    `[AgentPanel] Icons registered (${(performance.now() - iconStart).toFixed(2)}ms)`,
+  );
+} catch (iconError) {
+  console.error("[AgentPanel] Failed to register icons:", iconError);
+}
 
 // Get VS Code API - must be called ONCE and stored globally for protocol handler
 declare const acquireVsCodeApi: () => {
   postMessage: (message: unknown) => void;
 };
-const vscode = acquireVsCodeApi();
+
+let vscode;
+try {
+  console.log("[AgentPanel] Acquiring VS Code API");
+  vscode = acquireVsCodeApi();
+  console.log("[AgentPanel] VS Code API acquired successfully");
+} catch (vsCodeError) {
+  console.error("[AgentPanel] Failed to acquire VS Code API:", vsCodeError);
+  throw vsCodeError;
+}
 
 // Make vscode API available globally for protocol handler to use
 declare global {
@@ -29,7 +50,17 @@ declare global {
 window.vscode = vscode;
 
 // Initialize message handler AFTER setting window.vscode
-initializeMessageHandler();
+console.log("[AgentPanel] Initializing message handler");
+try {
+  initializeMessageHandler();
+  console.log("[AgentPanel] Message handler initialized successfully");
+} catch (handlerError) {
+  console.error(
+    "[AgentPanel] Failed to initialize message handler:",
+    handlerError,
+  );
+  throw handlerError;
+}
 
 function App() {
   // Mock available tasks and sessions for now - will be populated via stores later
@@ -98,4 +129,12 @@ function App() {
   );
 }
 
+console.log("[AgentPanel] Starting render");
+const renderStart = performance.now();
 render(() => <App />, document.getElementById("root")!);
+const renderTime = performance.now() - renderStart;
+const totalTime = performance.now() - moduleLoadStart;
+console.log(`[AgentPanel] Render complete (${renderTime.toFixed(2)}ms)`);
+console.log(
+  `[AgentPanel] Total module initialization: ${totalTime.toFixed(2)}ms`,
+);

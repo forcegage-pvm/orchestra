@@ -1,19 +1,76 @@
+# Source files (bundled into dist/extension.js)
 .vscode/**
 .vscode-test/**
 src/**
 scripts/**
+test/**
+
+# Build artifacts and config
 .gitignore
 .yarnrc
 vsc-extension-quickstart.md
 **/tsconfig.json
 **/.eslintrc.json
+eslint.config.js
+vitest.config.ts
+esbuild.config.js
 **/*.map
 **/*.ts
 !dist/**
 !agents/**
 !resources/**
-# Dev dependencies are excluded automatically by vsce when bundledDependencies is used
-# Only production dependencies (better-sqlite3, drizzle-orm) will be included
+
+# Exclude root node_modules (extension is bundled)
+node_modules/**
+
+# Exclude unused drizzle-orm drivers from dist (we only use sqlite)
+dist/node_modules/drizzle-orm/pg-core/**
+dist/node_modules/drizzle-orm/mysql-core/**
+dist/node_modules/drizzle-orm/singlestore-core/**
+dist/node_modules/drizzle-orm/libsql/**
+dist/node_modules/drizzle-orm/prisma/**
+dist/node_modules/drizzle-orm/planetscale-serverless/**
+dist/node_modules/drizzle-orm/neon-serverless/**
+dist/node_modules/drizzle-orm/neon-http/**
+dist/node_modules/drizzle-orm/vercel-postgres/**
+dist/node_modules/drizzle-orm/tidb-serverless/**
+dist/node_modules/drizzle-orm/xata-http/**
+dist/node_modules/drizzle-orm/aws-data-api/**
+dist/node_modules/drizzle-orm/d1/**
+dist/node_modules/drizzle-orm/op-sqlite/**
+dist/node_modules/drizzle-orm/expo-sqlite/**
+dist/node_modules/drizzle-orm/bun-sqlite/**
+dist/node_modules/drizzle-orm/pglite/**
+dist/node_modules/drizzle-orm/gel/**
+dist/mcp-server/node_modules/drizzle-orm/pg-core/**
+dist/mcp-server/node_modules/drizzle-orm/mysql-core/**
+dist/mcp-server/node_modules/drizzle-orm/singlestore-core/**
+dist/mcp-server/node_modules/drizzle-orm/libsql/**
+dist/mcp-server/node_modules/drizzle-orm/prisma/**
+dist/mcp-server/node_modules/drizzle-orm/planetscale-serverless/**
+dist/mcp-server/node_modules/drizzle-orm/neon-serverless/**
+dist/mcp-server/node_modules/drizzle-orm/neon-http/**
+dist/mcp-server/node_modules/drizzle-orm/vercel-postgres/**
+dist/mcp-server/node_modules/drizzle-orm/tidb-serverless/**
+dist/mcp-server/node_modules/drizzle-orm/xata-http/**
+dist/mcp-server/node_modules/drizzle-orm/aws-data-api/**
+dist/mcp-server/node_modules/drizzle-orm/d1/**
+dist/mcp-server/node_modules/drizzle-orm/op-sqlite/**
+dist/mcp-server/node_modules/drizzle-orm/expo-sqlite/**
+dist/mcp-server/node_modules/drizzle-orm/bun-sqlite/**
+dist/mcp-server/node_modules/drizzle-orm/pglite/**
+dist/mcp-server/node_modules/drizzle-orm/gel/**
+
+# Exclude better-sqlite3 build artifacts (keep only the .node binary)
+dist/node_modules/better-sqlite3/deps/**
+dist/node_modules/better-sqlite3/src/**
+dist/node_modules/better-sqlite3/binding.gyp
+dist/mcp-server/node_modules/better-sqlite3/deps/**
+dist/mcp-server/node_modules/better-sqlite3/src/**
+dist/mcp-server/node_modules/better-sqlite3/binding.gyp
+
+# Test and dev outputs
+coverage/**
 .DS_Store
 *.vsix
 vsix-contents/**

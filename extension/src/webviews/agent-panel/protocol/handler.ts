@@ -59,8 +59,15 @@ function shouldIncludeEvent(event: { timestamp: string }): boolean {
  * Uses exhaustive switch for type safety.
  */
 export function handleExtensionMessage(message: ExtensionMessage): void {
+  console.log(`[AgentPanel] Received message:`, message.type);
+
   switch (message.type) {
     case "session_update":
+      console.log(
+        `[AgentPanel] Session update:`,
+        message.session?.sessionId,
+        message.session?.status,
+      );
       setSession(message.session);
       persistState();
       setUi("initialScrollPending", true);
@@ -75,6 +82,7 @@ export function handleExtensionMessage(message: ExtensionMessage): void {
       if (!shouldIncludeEvent(message.event)) {
         break;
       }
+      console.log(`[AgentPanel] Adding single event:`, message.event.type);
       addEvent(message.event);
 
       // Update session status from status_change events
@@ -103,6 +111,14 @@ export function handleExtensionMessage(message: ExtensionMessage): void {
 
     case "events_batch":
       // Bulk add events for efficiency
+      console.log(
+        `[AgentPanel] Received events batch: ${message.events.length} events for session ${message.sessionId}`,
+      );
+      const addedCount = message.events.filter((ev) =>
+        shouldIncludeEvent(ev),
+      ).length;
+      console.log(`[AgentPanel] Adding ${addedCount} events after filtering`);
+
       message.events.forEach((event) => {
         if (!shouldIncludeEvent(event)) {
           return;
@@ -136,7 +152,9 @@ export function handleExtensionMessage(message: ExtensionMessage): void {
 
     case "clear":
       // Reset all stores to initial state
+      console.log("[AgentPanel] Clearing session history");
       clearSessionHistory();
+      console.log("[AgentPanel] Session history cleared");
       break;
 
     case "set_verbosity":
@@ -175,11 +193,14 @@ export function handleExtensionMessage(message: ExtensionMessage): void {
  * from the extension host.
  */
 export function initializeMessageHandler(): void {
-  // Restore persisted state immediately (before 'ready' message)
-  // This ensures UI is populated before we notify the extension
-  const restored = tryRestoreState();
-  if (restored) {
-    syncSessionStatusFromEvents();
+  console.log("[AgentPanel] initializeMessageHandler() called");
+  const initStart = performance.now();
+
+  // Notify extension that webview is ready FIRST (before any potentially slow operations)
+  // This allows the extension to start sending data immediately
+  if (typeof window !== "undefined" && window.vscode) {
+    console.log("[AgentPanel] Sending ready message");
+    window.vscode.postMessage({ type: "ready" });
   }
 
   // Use globalThis to access window in both browser and test environments
@@ -200,9 +221,25 @@ export function initializeMessageHandler(): void {
     flushPendingState();
   });
 
-  // Notify extension that webview is ready
-  // The vscode API is injected by VS Code at runtime via global.d.ts
-  if (typeof window !== "undefined" && window.vscode) {
-    window.vscode.postMessage({ type: "ready" });
+  // Restore persisted state asynchronously (after sending ready)
+  // The extension will send fresh data anyway, but this provides immediate UI feedback
+  try {
+    console.log("[AgentPanel] Attempting to restore persisted state");
+    const restoreStart = performance.now();
+    const restored = tryRestoreState();
+    const restoreTime = performance.now() - restoreStart;
+    console.log(
+      `[AgentPanel] State restoration ${restored ? "succeeded" : "skipped"} (${restoreTime.toFixed(2)}ms)`,
+    );
+    if (restored) {
+      syncSessionStatusFromEvents();
+    }
+  } catch (error) {
+    console.error("[AgentPanel] Failed to restore state:", error);
   }
+
+  const initTime = performance.now() - initStart;
+  console.log(
+    `[AgentPanel] Initialization complete (${initTime.toFixed(2)}ms)`,
+  );
 }

@@ -21,6 +21,7 @@ const { createSessionMock, lastCreatedSessionRef } = vi.hoisted(() => {
 
 vi.mock("../../src/agents/sessions/sessionRepository.js", () => ({
   createSession: createSessionMock,
+  updateSession: vi.fn(),
 }));
 
 vi.mock("../../src/agents/sessions/eventEmitter.js", () => {

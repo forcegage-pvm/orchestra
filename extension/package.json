@@ -473,7 +473,7 @@
     }
   },
   "scripts": {
-    "vscode:prepublish": "npm run build && npm run postbuild",
+    "vscode:prepublish": "npm run build && npm run build:webview && npm run postbuild",
     "build": "node esbuild.config.js --production",
     "postbuild": "node scripts/copy-native-modules.js && node scripts/copy-mcp-server.js",
     "build:webview": "vite build --config src/webviews/agent-panel/vite.config.ts",

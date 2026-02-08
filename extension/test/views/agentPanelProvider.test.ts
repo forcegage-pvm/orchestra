@@ -99,9 +99,10 @@ vi.mock("../../src/agents/sessions/eventBus.js", () => ({
   getAgentEventBus: vi.fn(() => mockEventBus),
 }));
 
-// Mock getEventsForSession
+// Mock eventRepository functions
 vi.mock("../../src/agents/sessions/eventRepository.js", () => ({
   getEventsForSession: vi.fn(),
+  deleteEventsForSession: vi.fn(() => 0),
 }));
 
 // Mock getSession
@@ -189,6 +190,16 @@ describe("AgentPanelProvider", () => {
     vi.clearAllMocks();
   });
 
+  /**
+   * Helper function to simulate webview sending "ready" message
+   * This flushes buffered messages and enables immediate postMessage
+   */
+  const simulateWebviewReady = () => {
+    if (messageHandler) {
+      messageHandler({ type: "ready" });
+    }
+  };
+
   describe("class structure", () => {
     it("should exist and be constructible", () => {
       expect(provider).toBeDefined();
@@ -265,10 +276,9 @@ describe("AgentPanelProvider", () => {
 
       provider.resolveWebviewView(mockWebviewView, {} as any, {} as any);
 
-      // resolveWebviewView no longer calls _restoreSessionState() directly;
-      // it waits for the webview 'ready' message. Manually trigger it here.
+      // Simulate webview becoming ready (required for message buffering)
       mockWebview.postMessage.mockClear();
-      (provider as any)._restoreSessionState();
+      simulateWebviewReady();
 
       expect(getEventsForSession).toHaveBeenCalledWith(
         workspaceRoot,
@@ -532,6 +542,10 @@ describe("AgentPanelProvider", () => {
 
     describe("set_verbosity", () => {
       it("should update configuration and echo back", async () => {
+        // Initialize webview
+        provider.resolveWebviewView(mockWebviewView, {} as any, {} as any);
+        simulateWebviewReady();
+
         // Use the shared mock config
         sharedMockConfig.update.mockClear();
 
@@ -597,6 +611,11 @@ describe("AgentPanelProvider", () => {
       });
 
       it("should fetch session and events and post load_session message", async () => {
+        // Initialize webview
+        provider.resolveWebviewView(mockWebviewView, {} as any, {} as any);
+        simulateWebviewReady();
+        mockWebview.postMessage.mockClear();
+
         const mockSession = {
           sessionId: "test-session-123",
           role: "implementor" as const,
@@ -954,6 +973,8 @@ describe("AgentPanelProvider", () => {
   describe("postMessage", () => {
     it("should send message to webview", () => {
       provider.resolveWebviewView(mockWebviewView, {} as any, {} as any);
+      simulateWebviewReady();
+      mockWebview.postMessage.mockClear();
 
       provider.postMessage({
         type: "session_update",
@@ -990,10 +1011,66 @@ describe("AgentPanelProvider", () => {
     });
   });
 
+  describe("clearPanel", () => {
+    it("should delete events from database and post clear message", async () => {
+      const { deleteEventsForSession } =
+        await import("../../src/agents/sessions/eventRepository.js");
+
+      provider = new AgentPanelProvider(mockExtensionUri, workspaceRoot);
+      provider.resolveWebviewView(mockWebviewView, {} as any, {} as any);
+      simulateWebviewReady();
+
+      // Simulate session being tracked by handling a session_start event
+      const handler = mockEventBus.onEvent.mock.calls[0][0];
+      handler({
+        type: "session_start",
+        session: {
+          id: "test-session-123",
+          role: "implementor",
+          status: "running",
+          startedAt: "2023-01-01T00:00:00Z",
+          taskId: 1,
+        },
+      });
+
+      mockWebview.postMessage.mockClear();
+      vi.mocked(deleteEventsForSession).mockReturnValue(5);
+
+      provider.clearPanel();
+
+      expect(deleteEventsForSession).toHaveBeenCalledWith(
+        workspaceRoot,
+        "test-session-123",
+      );
+      expect(mockWebview.postMessage).toHaveBeenCalledWith({ type: "clear" });
+    });
+
+    it("should not call deleteEventsForSession if no session tracked", async () => {
+      const { deleteEventsForSession } =
+        await import("../../src/agents/sessions/eventRepository.js");
+      vi.mocked(deleteEventsForSession).mockClear();
+
+      // Ensure getSession returns undefined (no active session)
+      mockAgentRunner.getSession.mockReturnValue(undefined);
+
+      provider = new AgentPanelProvider(mockExtensionUri, workspaceRoot);
+      provider.resolveWebviewView(mockWebviewView, {} as any, {} as any);
+      simulateWebviewReady();
+
+      mockWebview.postMessage.mockClear();
+
+      provider.clearPanel();
+
+      expect(deleteEventsForSession).not.toHaveBeenCalled();
+      expect(mockWebview.postMessage).toHaveBeenCalledWith({ type: "clear" });
+    });
+  });
+
   describe("EventBus subscription", () => {
     it("should handle session_start payload", () => {
       provider = new AgentPanelProvider(mockExtensionUri, workspaceRoot);
       provider.resolveWebviewView(mockWebviewView, {} as any, {} as any);
+      simulateWebviewReady();
 
       expect(mockEventBus.onEvent).toHaveBeenCalled();
       const handler = mockEventBus.onEvent.mock.calls[0][0];

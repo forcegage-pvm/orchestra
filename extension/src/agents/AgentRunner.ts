@@ -33,6 +33,7 @@ import {
   continueSession,
   createSession,
   getSession,
+  updateSession,
 } from "./sessions/sessionRepository.js";
 import type {
   AgentSession as AgentSessionDB,
@@ -773,6 +774,18 @@ export class AgentRunner implements vscode.Disposable {
     this.session.pause();
     this.eventEmitter?.emitStatusChange(previousStatus, "paused");
     this.emitStateChange();
+
+    // Persist paused status to database for cross-reload resume
+    const workspaceRoot =
+      vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? process.cwd();
+    try {
+      updateSession(workspaceRoot, this.session.id, {
+        status: "paused",
+        lastActivityAt: new Date().toISOString(),
+      });
+    } catch (error) {
+      console.warn("Failed to persist paused status:", error);
+    }
 
     // Wait for current step to complete
     if (this.runningPromise) {
@@ -1523,6 +1536,20 @@ export class AgentRunner implements vscode.Disposable {
     this.session.stop();
     this.eventEmitter?.emitStatusChange(previousStatus, "stopped");
     this.emitSessionEndOnce("cancelled");
+
+    // Persist stopped status to database for cross-reload resume
+    // Note: We persist "stopped" (resumable) rather than emitting session_end
+    // with "cancelled" (terminal). This allows the session to be resumed later.
+    const workspaceRoot =
+      vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? process.cwd();
+    try {
+      updateSession(workspaceRoot, this.session.id, {
+        status: "stopped",
+        lastActivityAt: new Date().toISOString(),
+      });
+    } catch (error) {
+      console.warn("Failed to persist stopped status:", error);
+    }
 
     // Cancel any ongoing requests
     if (this.cancellationTokenSource) {

@@ -963,7 +963,7 @@ export async function activate(
       vscode.commands.registerCommand(
         "orchestra.clearAgentPanelHistory",
         () => {
-          agentPanelProvider.postMessage({ type: "clear" });
+          agentPanelProvider.clearPanel();
         },
       ),
       vscode.commands.registerCommand("orchestra.filterSprints", () => {

@@ -27,7 +27,12 @@ import {
   ToolCallCard,
 } from "../components/index.js";
 import { useAutoScroll } from "../hooks/index.js";
-import { getEventsArray, session, toolCalls } from "../stores/index.js";
+import {
+  getEventsArray,
+  session,
+  toolCallKeys,
+  toolCalls,
+} from "../stores/index.js";
 import { setUi, ui } from "../stores/uiStore.js";
 
 export interface TimelineViewProps {
@@ -110,9 +115,10 @@ export function TimelineView(props: TimelineViewProps) {
    */
   const timelineItems = createMemo(() => {
     const eventArray = getEventsArray();
-    const toolCallsMap = toolCalls;
+    // Access toolCallKeys signal for reactivity when tool calls are cleared
+    const toolCallKeysList = toolCallKeys();
     const currentEventCount = eventArray.length;
-    const toolCallIds = Object.keys(toolCallsMap);
+    const toolCallIds = toolCallKeysList;
 
     // If session was reset (fewer events than before), clear cache
     if (currentEventCount < lastEventCount) {
@@ -151,10 +157,10 @@ export function TimelineView(props: TimelineViewProps) {
     lastEventCount = currentEventCount;
 
     // Process tool calls separately - check for any new tool calls in the map
-    // This handles the timing issue where toolCallsMap is populated after events
+    // This handles the timing issue where toolCalls store is populated after events
     for (const toolCallId of toolCallIds) {
       if (!lastProcessedToolCallIds.has(toolCallId)) {
-        const toolCall = toolCallsMap[toolCallId];
+        const toolCall = toolCalls[toolCallId];
         if (toolCall) {
           cachedItems.push({
             type: "toolCall",

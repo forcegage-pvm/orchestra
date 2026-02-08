@@ -11,9 +11,13 @@ import * as path from "node:path";
 import * as vscode from "vscode";
 import type { AgentSession as AgentSessionClass } from "../agents/AgentSession.js";
 import { getAgentEventBus } from "../agents/sessions/eventBus.js";
-import { getEventsForSession } from "../agents/sessions/eventRepository.js";
+import {
+  deleteEventsForSession,
+  getEventsForSession,
+} from "../agents/sessions/eventRepository.js";
 import { exportSession } from "../agents/sessions/exporter.js";
 import {
+  getRecentSessions,
   getSession,
   getSessionsForTask,
 } from "../agents/sessions/sessionRepository.js";
@@ -217,6 +221,8 @@ export class AgentPanelProvider implements vscode.WebviewViewProvider {
   private _view: vscode.WebviewView | undefined;
   private readonly _disposables: vscode.Disposable[] = [];
   private _currentSessionId: string | null = null;
+  private _isWebviewReady = false;
+  private _pendingMessages: ExtensionMessage[] = [];
 
   constructor(
     private readonly _extensionUri: vscode.Uri,
@@ -279,6 +285,8 @@ export class AgentPanelProvider implements vscode.WebviewViewProvider {
     this._disposables.push(
       webviewView.onDidDispose(() => {
         this._view = undefined;
+        this._isWebviewReady = false;
+        this._pendingMessages = [];
       }),
     );
 
@@ -295,6 +303,7 @@ export class AgentPanelProvider implements vscode.WebviewViewProvider {
    * Send message to webview
    *
    * Public method for other components to send ExtensionMessages to the webview.
+   * If webview isn't ready yet, messages are buffered and sent after "ready" message is received.
    */
   public postMessage(message: ExtensionMessage): void {
     if (!this._view) {
@@ -302,7 +311,52 @@ export class AgentPanelProvider implements vscode.WebviewViewProvider {
       return;
     }
 
+    // Buffer messages until webview sends "ready" signal
+    if (!this._isWebviewReady) {
+      logger.debug(`[AgentPanelProvider] Buffering message: ${message.type}`);
+      this._pendingMessages.push(message);
+      return;
+    }
+
     void this._view.webview.postMessage(message);
+  }
+
+  /**
+   * Clear the agent panel and delete session events from database
+   *
+   * This completely clears the panel state:
+   * 1. Deletes all events for the current session from the database
+   * 2. Clears internal session tracking
+   * 3. Notifies the webview to clear its state
+   */
+  public clearPanel(): void {
+    logger.info("[AgentPanelProvider] Clearing agent panel");
+
+    // Delete events from database if we have a current session
+    if (this._currentSessionId) {
+      try {
+        const deletedCount = deleteEventsForSession(
+          this._workspaceRoot,
+          this._currentSessionId,
+        );
+        logger.info(
+          `[AgentPanelProvider] Deleted ${deletedCount} events for session ${this._currentSessionId}`,
+        );
+      } catch (error) {
+        logger.error(
+          "[AgentPanelProvider] Failed to delete session events",
+          error,
+        );
+      }
+    }
+
+    // Clear internal tracking
+    this._currentSessionId = null;
+
+    // Notify webview to clear its state
+    this.postMessage({ type: "clear" });
+
+    logger.info("[AgentPanelProvider] Agent panel cleared");
   }
 
   /**
@@ -395,39 +449,79 @@ export class AgentPanelProvider implements vscode.WebviewViewProvider {
         level: this._getVerbositySetting(),
       });
 
-      // Get current active session from AgentRunner
+      // Get current active session from AgentRunner (for live sessions)
       const runner = getAgentRunner();
-      const session = runner.getSession();
+      const activeSession = runner.getSession();
 
-      if (!session) {
-        logger.info("[AgentPanelProvider] No active session to restore");
+      if (activeSession) {
+        logger.info(
+          `[AgentPanelProvider] Restoring active session: ${activeSession.id}, status: ${activeSession.status}`,
+        );
+
+        // Update tracked session ID
+        this._currentSessionId = activeSession.id;
+
+        // Send full session data
+        const sessionData = sessionClassToInterface(
+          this._workspaceRoot,
+          activeSession,
+        );
+        this.postMessage({
+          type: "session_update",
+          session: sessionData,
+        });
+
+        // Send all events for the session
+        const events = getEventsForSession(
+          this._workspaceRoot,
+          activeSession.id,
+        );
+        logger.info(
+          `[AgentPanelProvider] Restoring ${events.length} events for active session`,
+        );
+        this.postMessage({
+          type: "events_batch",
+          sessionId: activeSession.id,
+          events,
+        });
         return;
       }
 
-      logger.info(
-        `[AgentPanelProvider] Restoring session state: ${session.id}, status: ${session.status}`,
-      );
+      // No active session - try to load most recent session from database
+      // This handles VS Code reload where in-memory state is lost
+      const recentSessions = getRecentSessions(this._workspaceRoot, 1);
+      if (recentSessions.length > 0) {
+        const dbSession = recentSessions[0];
+        logger.info(
+          `[AgentPanelProvider] Restoring recent session from DB: ${dbSession.sessionId}, status: ${dbSession.status}`,
+        );
 
-      // Update tracked session ID
-      this._currentSessionId = session.id;
+        // Update tracked session ID
+        this._currentSessionId = dbSession.sessionId;
 
-      // Send full session data
-      const sessionData = sessionClassToInterface(this._workspaceRoot, session);
-      this.postMessage({
-        type: "session_update",
-        session: sessionData,
-      });
+        // Send session data (already in interface format from DB)
+        this.postMessage({
+          type: "session_update",
+          session: dbSession,
+        });
 
-      // Send all events for the session
-      const events = getEventsForSession(this._workspaceRoot, session.id);
-      logger.info(
-        `[AgentPanelProvider] Restoring ${events.length} events for session`,
-      );
-      this.postMessage({
-        type: "events_batch",
-        sessionId: session.id,
-        events,
-      });
+        // Send all events for the session
+        const events = getEventsForSession(
+          this._workspaceRoot,
+          dbSession.sessionId,
+        );
+        logger.info(
+          `[AgentPanelProvider] Restoring ${events.length} events from DB`,
+        );
+        this.postMessage({
+          type: "events_batch",
+          sessionId: dbSession.sessionId,
+          events,
+        });
+        return;
+      }
+
+      logger.info("[AgentPanelProvider] No session to restore");
     } catch (error) {
       logger.error(
         "[AgentPanelProvider] Failed to restore session state",
@@ -516,10 +610,33 @@ export class AgentPanelProvider implements vscode.WebviewViewProvider {
   private _handleMessage(message: WebviewMessage): void {
     switch (message.type) {
       case "ready":
+        logger.info(
+          "[AgentPanelProvider] Received 'ready' message from webview",
+        );
         logger.debug("Agent Panel webview ready");
+
+        // Mark webview as ready
+        this._isWebviewReady = true;
+
         // Initialize webview state - always restore full session state on ready
         // This handles both first-time init and visibility restoration
+        const restoreStart = Date.now();
         this._restoreSessionState();
+        const restoreTime = Date.now() - restoreStart;
+        logger.info(
+          `[AgentPanelProvider] Session state restored (${restoreTime}ms)`,
+        );
+
+        // Flush any buffered messages that arrived before "ready"
+        if (this._pendingMessages.length > 0) {
+          logger.info(
+            `[AgentPanelProvider] Flushing ${this._pendingMessages.length} buffered messages`,
+          );
+          for (const msg of this._pendingMessages) {
+            void this._view?.webview.postMessage(msg);
+          }
+          this._pendingMessages = [];
+        }
         break;
 
       case "open_file":
@@ -1107,36 +1224,67 @@ export class AgentPanelProvider implements vscode.WebviewViewProvider {
       ),
     );
 
-    const styleUri = webview.asWebviewUri(
-      vscode.Uri.joinPath(
-        this._extensionUri,
-        "dist",
-        "webviews",
-        "agent-panel",
-        "index.css",
-      ),
-    );
-
-    // Debug: Log URIs to verify paths
     logger.info(`[AgentPanel] Script URI: ${scriptUri.toString()}`);
-    logger.info(`[AgentPanel] Style URI: ${styleUri.toString()}`);
 
     return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${cspSource} 'unsafe-inline'; script-src ${cspSource} 'unsafe-inline';">
-  <link rel="stylesheet" href="${styleUri}">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src ${cspSource} 'unsafe-inline';">
   <style>
     html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; }
     #root { width: 100%; height: 100%; padding-left: 5px; padding-right: 5px; box-sizing: border-box; }
+    .loading-container { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; gap: 12px; }
+    .loading-spinner { width: 24px; height: 24px; border: 2px solid rgba(255,255,255,0.1); border-top-color: #3b82f6; border-radius: 50%; animation: spin 0.8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .loading-text { color: #71717a; font-size: 12px; font-family: system-ui, -apple-system, sans-serif; }
+    .error-container { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; gap: 12px; padding: 20px; }
+    .error-text { color: #ef4444; font-size: 12px; font-family: system-ui, -apple-system, sans-serif; text-align: center; }
+    .error-detail { color: #71717a; font-size: 11px; font-family: monospace; margin-top: 8px; white-space: pre-wrap; max-height: 200px; overflow-y: auto; }
   </style>
   <title>Agent Panel</title>
 </head>
 <body>
-  <div id="root"></div>
+  <div id="root">
+    <div class="loading-container">
+      <div class="loading-spinner"></div>
+      <div class="loading-text">Loading agent panel...</div>
+    </div>
+  </div>
+  <script>
+    // Track load status for diagnostics
+    window.agentPanelLoadStatus = 'initializing';
+    window.agentPanelErrors = [];
+    
+    // Capture console errors
+    var originalError = console.error;
+    console.error = function() {
+      window.agentPanelErrors.push(Array.prototype.join.call(arguments, ' '));
+      originalError.apply(console, arguments);
+    };
+    
+    // Show error if JavaScript doesn't load within 10 seconds
+    var loadTimeout = setTimeout(function() {
+      if (window.agentPanelLoadStatus !== 'loaded') {
+        var root = document.getElementById('root');
+        var errors = window.agentPanelErrors.length > 0 
+          ? window.agentPanelErrors.slice(-5).join('\\n')
+          : 'No errors logged';
+        if (root) {
+          root.innerHTML = '<div class="error-container"><div class="error-text">Failed to load Agent Panel</div><div class="error-detail">Status: ' + window.agentPanelLoadStatus + '\\n\\nErrors:\\n' + errors + '</div></div>';
+        }
+      }
+    }, 10000);
+    
+    console.log('[AgentPanel] Preload script ready');
+  </script>
   <script src="${scriptUri}"></script>
+  <script>
+    window.agentPanelLoadStatus = 'loaded';
+    clearTimeout(loadTimeout);
+    console.log('[AgentPanel] Main script loaded successfully');
+  </script>
 </body>
 </html>`;
   }

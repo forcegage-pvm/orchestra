@@ -17,10 +17,21 @@ const TARGET_NODE_MODULES = path.join(EXTENSION_ROOT, "dist", "node_modules");
 
 // Native modules and dependencies needed by the extension itself (Electron runtime)
 const NATIVE_MODULES = [
+  "@vscode/ripgrep", // Platform-specific ripgrep binary for grep_search tool
   "better-sqlite3",
   "bindings",
   "file-uri-to-path",
-  "drizzle-orm",
+];
+
+// Drizzle-orm subdirectories we actually use (SQLite only)
+// Note: pg-core is required by sql/sql.cjs for PgEnumColumn type reference
+const DRIZZLE_NEEDED_DIRS = [
+  "better-sqlite3",
+  "pg-core", // Required by sql/sql.cjs (imports pg-core/columns/enum.cjs)
+  "query-builders",
+  "sql",
+  "sqlite-core",
+  "sqlite-proxy",
 ];
 
 /**
@@ -46,7 +57,7 @@ function removeWithRetry(targetPath, maxRetries = 5, delayMs = 500) {
           // Wait before retry
           const waitMs = delayMs * attempt;
           console.log(
-            `   ⏳ File locked, retrying in ${waitMs}ms (attempt ${attempt}/${maxRetries})...`
+            `   ⏳ File locked, retrying in ${waitMs}ms (attempt ${attempt}/${maxRetries})...`,
           );
           const start = Date.now();
           while (Date.now() - start < waitMs) {
@@ -90,13 +101,47 @@ function copyNativeModules() {
     }
   }
 
+  // Selectively copy only needed parts of drizzle-orm (skip unused DB drivers)
+  const drizzleSource = path.join(SOURCE_NODE_MODULES, "drizzle-orm");
+  const drizzleTarget = path.join(TARGET_NODE_MODULES, "drizzle-orm");
+
+  if (fs.existsSync(drizzleSource)) {
+    // Remove existing target if it exists
+    if (fs.existsSync(drizzleTarget)) {
+      removeWithRetry(drizzleTarget);
+    }
+
+    fs.mkdirSync(drizzleTarget, { recursive: true });
+
+    // Copy root files (index.js, package.json, etc.)
+    const rootFiles = fs.readdirSync(drizzleSource);
+    for (const item of rootFiles) {
+      const sourcePath = path.join(drizzleSource, item);
+      const targetPath = path.join(drizzleTarget, item);
+      const stat = fs.statSync(sourcePath);
+
+      if (stat.isFile()) {
+        fs.copyFileSync(sourcePath, targetPath);
+      } else if (stat.isDirectory() && DRIZZLE_NEEDED_DIRS.includes(item)) {
+        // Only copy needed subdirectories
+        fs.cpSync(sourcePath, targetPath, { recursive: true });
+      }
+    }
+    console.log(
+      `   ✓ drizzle-orm (sqlite-only: ${DRIZZLE_NEEDED_DIRS.length} dirs)`,
+    );
+  } else {
+    console.error(`   ✗ drizzle-orm not found at ${drizzleSource}`);
+    process.exit(1);
+  }
+
   // Verify better-sqlite3 native module exists
   const nativeModulePath = path.join(
     TARGET_NODE_MODULES,
     "better-sqlite3",
     "build",
     "Release",
-    "better_sqlite3.node"
+    "better_sqlite3.node",
   );
 
   if (fs.existsSync(nativeModulePath)) {
@@ -106,7 +151,7 @@ function copyNativeModules() {
     console.error("❌ Error: better-sqlite3 native module not found!");
     console.error("   Expected at:", nativeModulePath);
     console.error(
-      "   Run 'npm install' or 'npm run rebuild' to compile native modules"
+      "   Run 'npm install' or 'npm run rebuild' to compile native modules",
     );
     process.exit(1);
   }
