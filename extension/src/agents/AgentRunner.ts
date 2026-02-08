@@ -30,7 +30,6 @@ import {
   continueSession,
   createSession,
   getSession,
-  getSessionMessages,
 } from "./sessions/sessionRepository.js";import type {
   AgentSessionInfo,
   SessionStatus,
@@ -797,76 +796,159 @@ export class AgentRunner implements vscode.Disposable {
     * 3. Appends continuation prompt
     * 4. Starts execution in the new session
     *
-    * @param options - Continuation options
+   * @param options - Continuation options
     * @returns The newly created child session
     */
-   async continueSessionExecution(     options: ContinueSessionOptions,
+   async continueSessionExecution(
+     options: ContinueSessionOptions
    ): Promise<AgentSession> {
-     const workspaceRoot = getWorkspaceRoot();
-     if (!workspaceRoot) {
-       throw new AgentError("No active workspace found");
-     }
-
      if (this.session && this.session.status === "running") {
        throw new AgentError(
-         "Cannot continue session while agent is running. Please stop or pause first.",
+         "Agent is already running. Stop or pause before continuing a session.",
+         "AGENT_ALREADY_RUNNING"
        );
      }
 
-     // 2. Get parent session
+     const workspaceRoot =
+       vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? process.cwd();
+
+     // Validate parent session exists
      const parentSession = getSession(workspaceRoot, options.sessionId);
      if (!parentSession) {
        throw new SessionError(
-         `Parent session ${options.sessionId} not found`,
+         "Parent session not found",
          options.sessionId,
+         undefined,
+         "NO_SESSION"
        );
      }
 
-     // 3. Create Child Session in DB (implements Session Reuse logic)
-     const childSession = continueSession(workspaceRoot, {
-       parentSessionId: options.sessionId,
-       continuationPrompt: options.continuationPrompt,
-       stage: options.stage,
-       maxIterations: options.maxIterations,
-     });
+     // Role validation: continuation must preserve role.
+     // The child session ALWAYS inherits the parent's role — role switching is forbidden.
+     // An orchestrator session cannot be continued as an implementor session (or vice versa).
+     const role = parentSession.role as import("./types.js").AgentRole;
+     const validRoles: import("./types.js").AgentRole[] = ["orchestrator", "implementor", "controller"];
+     if (!validRoles.includes(role)) {
+       throw new AgentError(
+         `Cannot continue session: parent session has invalid role "${role}". Role switching is not permitted during continuation.`,
+         "ROLE_SWITCH_REJECTED"
+       );
+     }
 
-     this.cancellationTokenSource = new vscode.CancellationTokenSource();     
-     // 4. Load into AgentRunner (similar to createSession logic)
-     // But we need to load TOOLS based on inherited role
-      this.session = childSession;
-     
-     // Ensure we load the right model for the role
-     this.toolRegistry.clear();
-     
-     const { loadControllerTools, loadImplementorTools, loadOrchestratorTools } =
-         await import("./toolLoaders.js");
-         
-     const role = this.session.role;
-     if (role === "implementor") {
-         loadImplementorTools(this.toolRegistry);
-     } else if (role === "orchestrator") {
-         loadOrchestratorTools(this.toolRegistry);
-      } else if (role === "controller") {
-         loadControllerTools(this.toolRegistry);
+     // Create child session via sessionRepository.continueSession()
+     const childSession = continueSession(
+       workspaceRoot,
+       options.sessionId,
+       options.continuationPrompt,
+       options.stage,
+       options.maxIterations
+     );
+
+     const childSessionId = childSession.sessionId;
+     const sprintId = childSession.sprintId;
+     const taskId = childSession.taskId ?? null;
+     const maxIterations = childSession.maxIterations;
+
+     // Create a fresh AgentSession for the child
+     this.session = new AgentSession(role, sprintId, taskId, maxIterations);
+
+     // Restore iteration counter from child session (should be 0 for new child)
+     this.session.currentIteration = childSession.iteration;
+
+     // Reset internal runner flags
+     this.isPaused = false;
+     this.isStopped = false;
+     this.consecutiveErrors = 0;
+     this.recentErrors = [];
+     this.hasEscalated = false;
+     this.hasEmittedSessionEnd = false;
+
+     // Reconstruct messages from DB (child includes parent messages + continuation prompt)
+     await this.reconstructSession(childSessionId);
+
+     // Create ContextManager immediately after messages reconstructed
+     const contextConfig: {
+       maxContextTokens?: number;
+       compactionThreshold?: number;
+       summarizeAfterToolCalls?: number;
+     } = {};
+     if (this.config.maxContextTokens !== undefined)
+       contextConfig.maxContextTokens = this.config.maxContextTokens;
+     if (this.config.compactionThreshold !== undefined)
+       contextConfig.compactionThreshold = this.config.compactionThreshold;
+     if (this.config.summarizeAfterToolCalls !== undefined)
+       contextConfig.summarizeAfterToolCalls = this.config.summarizeAfterToolCalls;
+
+     this.contextManager = new ContextManager(contextConfig);
+
+     // Reconstruct tool calls and file changes from PARENT session
+     // (tool history belongs to the parent, not the child)
+     await this.reconstructToolCalls(options.sessionId);
+     await this.reconstructFileChanges(options.sessionId);
+
+     // Enable persistence and create event emitter for CHILD session
+     this.session.enablePersistence(workspaceRoot, childSessionId);
+     this.eventEmitter = new SessionEventEmitter(workspaceRoot, childSessionId);
+
+     // Load tools for the role
+     if (!this.config.skipToolLoading) {
+       const needsToolReload = this.lastLoadedToolsRole !== role;
+
+       if (needsToolReload) {
+         this.toolRegistry.clear();
+         this.lastLoadedToolsRole = role;
+       }
+
+       if (role === "implementor") {
+         if (needsToolReload) {
+           loadImplementorTools(this.toolRegistry);
+         }
+       } else if (role === "orchestrator") {
+         if (needsToolReload) {
+           loadOrchestratorTools(this.toolRegistry);
+         }
+       } else if (role === "controller") {
+         if (needsToolReload) {
+           loadControllerTools(this.toolRegistry);
+         }
+       }
+     }
+
+     // For orchestrator sessions, reload sprint memory
+     if (this.session.role === "orchestrator") {
+       const memoryStore = SprintMemory.getInstance(workspaceRoot);
+       const memory = await memoryStore.getOrCreate(
+         this.session.sprintId,
+         this.session.sprintId
+       );
+       const memoryContext = this.formatSprintMemoryContext(memory);
+       this.addUserMessage(memoryContext);
+     }
+
+     // Session is already in "running" state from AgentSession constructor.
+     // No state transition needed — just emit the state change and start the loop.
+     this.emitStateChange();
+
+     // Create cancellation token and start agent loop
+     this.cancellationTokenSource = new vscode.CancellationTokenSource();
+     const model = this.getConfiguredModel(this.session.role);
+     this.runningPromise = this.runAgentLoop(this.session.role, model).catch(
+       (error) => {
+         this.handleError(error);
       }
+    );
 
-      // 5. Start Execution
-     const model = this.getConfiguredModel(role);
-     
-     this.runningPromise = this.runAgentLoop(role, model).catch((error) => {
-        this.handleError(error);
-     });
+    return this.session;
+  }
 
-     return this.session;
-   }  /**
+  /**
    * Resume a session loaded from storage
    *
    * @deprecated File-based session storage is deprecated. Use database queries instead.
    * This method is kept for reference but will be removed in a future version.
    *
    * @param sessionId - Session ID to resume
-   * @returns The resumed session
-   */
+   * @returns The resumed session   */
   async resumeFromStorage(_sessionId: string): Promise<AgentSession> {
     throw new AgentError(
       "Resume from file storage is deprecated. Session resume functionality will be reimplemented using database queries.",

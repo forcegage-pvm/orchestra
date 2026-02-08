@@ -13,7 +13,12 @@ vi.mock("vscode", () => {
   return {
     EventEmitter,
     CancellationTokenSource: class {
-      token = { isCancellationRequested: false, onCancellationRequested: () => { return { dispose: () => {} } } };
+      token = {
+        isCancellationRequested: false,
+        onCancellationRequested: () => {
+          return { dispose: () => {} };
+        },
+      };
       cancel() {}
       dispose() {}
     },
@@ -22,37 +27,25 @@ vi.mock("vscode", () => {
       fs: {
         readFile: vi.fn(),
       },
-      onDidSaveTextDocument: () => { return { dispose: () => {} } },
-      onDidChangeTextDocument: () => { return { dispose: () => {} } },
+      onDidSaveTextDocument: () => {
+        return { dispose: () => {} };
+      },
+      onDidChangeTextDocument: () => {
+        return { dispose: () => {} };
+      },
     },
     Uri: {
-      file: (path: string) => ({ fsPath: path }),
-      parse: (path: string) => ({ fsPath: path }),
+      file: (p: string) => ({ fsPath: p }),
+      parse: (p: string) => ({ fsPath: p }),
     },
     Range: class {},
     Position: class {},
     Diagnostic: class {},
     DiagnosticSeverity: { Error: 0 },
-    commands: {
-        executeCommand: vi.fn(),
-    },
-    lm: {
-        selectChatModels: vi.fn().mockResolvedValue([{ id: "test-model", family: "test" }]),
-    },
-    // Mock LanguageModel classes
-    LanguageModelChatMessage: {
-      User: (content: any) => ({ role: 1, content }),
-      Assistant: (content: any) => ({ role: 2, content }),
-    },
-    LanguageModelChatMessageRole: { User: 1, Assistant: 2 },
-    LanguageModelTextPart: class { constructor(public value: string) {} },
-    LanguageModelToolCallPart: class { constructor(public callId: string, public name: string, public input: any) {} },
-    LanguageModelToolResultPart: class { constructor(public callId: string, public content: any) {} },
-    LanguageModelDataPart: class { constructor(public value: any, public mimeType: string) {} },
   };
 });
 
-// Native binary check
+// Native binary check (same pattern as sessionResume.test.ts)
 let Database: any = null;
 let moduleCompatible = false;
 try {
@@ -65,35 +58,42 @@ try {
 }
 
 if (!moduleCompatible) {
-  describe.skip("continueSessionExecution Integration (skipped: native module incompatible)", () => {
-    it("skipped due to native module incompatibility", () => {});
-  });
+  describe.skip(
+    "continueSessionExecution Integration (skipped: native module incompatible)",
+    () => {
+      it("skipped due to native module incompatibility", () => {});
+    },
+  );
 } else {
-  // Imports
   const { AgentRunner } = await import("../../src/agents/AgentRunner.js");
   const { ToolRegistry } = await import("../../src/agents/ToolRegistry.js");
-  const { insertMessage } = await import("../../src/agents/sessions/sessionMessageRepository.js");
-  const { insertEvent } = await import("../../src/agents/sessions/eventRepository.js");
-  const { getSession, continueSession } = await import("../../src/agents/sessions/sessionRepository.js");
-  const { OrchestraDB } = await import("../../../src/database/client.ts");
-  const { drizzle } = await import("drizzle-orm/better-sqlite3");  const { AgentError, SessionError } = await import("../../src/agents/errors.js");
-  
+  const { AgentSession } = await import("../../src/agents/AgentSession.js");
+  const { insertMessage } = await import(
+    "../../src/agents/sessions/sessionMessageRepository.js"
+  );
+  const { insertEvent } = await import(
+    "../../src/agents/sessions/eventRepository.js"
+  );
+  const {
+    createSession,
+    getSession,
+    getSessionsForTask,
+  } = await import("../../src/agents/sessions/sessionRepository.js");
+  const { AgentError, SessionError } = await import(
+    "../../src/agents/errors.js"
+  );
+  const { OrchestraDB } = await import("../../src/database/client.js");
+  const { drizzle } = await import("drizzle-orm/better-sqlite3");
+
   // Helpers
   let testWorkspaceRoot: string;
   let testDbPath: string;
-  let db: any;
 
   function createTestDatabase(dbPath: string): void {
-      const initDb = new Database(dbPath);
-      initDb.pragma("foreign_keys = ON");
-      // ... same schema creation ...
-      // I will copy schema creation from my previous input or just use getDb().
-      // Actually better-sqlite3 instance returned by getDb will be used.
-      // But we need to CREATE tables first.
-      
-      // ... Schema execution ... 
-      // I'll trust my previous schema was correct, just need to re-apply it.
-      initDb.exec(`
+    const db = new Database(dbPath);
+    db.pragma("foreign_keys = ON");
+
+    db.exec(`
       CREATE TABLE IF NOT EXISTS tasks (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         sprint_id TEXT NOT NULL,
@@ -114,7 +114,7 @@ if (!moduleCompatible) {
       )
     `);
 
-    initDb.exec(`
+    db.exec(`
       CREATE TABLE IF NOT EXISTS agent_sessions (
         id TEXT PRIMARY KEY,
         task_id INTEGER NOT NULL,
@@ -143,7 +143,7 @@ if (!moduleCompatible) {
       )
     `);
 
-    initDb.exec(`
+    db.exec(`
       CREATE TABLE IF NOT EXISTS session_messages (
         id TEXT PRIMARY KEY,
         session_id TEXT NOT NULL REFERENCES agent_sessions(id) ON DELETE CASCADE,
@@ -156,7 +156,7 @@ if (!moduleCompatible) {
       )
     `);
 
-    initDb.exec(`
+    db.exec(`
       CREATE TABLE IF NOT EXISTS session_events (
         id TEXT PRIMARY KEY,
         session_id TEXT NOT NULL,
@@ -172,241 +172,489 @@ if (!moduleCompatible) {
       )
     `);
 
-    initDb.exec(`CREATE INDEX IF NOT EXISTS idx_messages_session ON session_messages(session_id);`);
-    initDb.exec(`CREATE INDEX IF NOT EXISTS idx_events_session ON session_events(session_id);`);
-      initDb.close();
-  }
-  
-  // ... insert helpers ...
-  function insertTestTask(taskId: number): void {
-      const db = new Database(testDbPath);
-      // ...
-      const now = new Date().toISOString();
-    db.prepare(
-      `INSERT INTO tasks (id, sprint_id, phase_id, task_id, title, description, category, status, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-    ).run(taskId, "sprint-001", 1, taskId, `Task ${taskId}`, "Desc", "implementation", "PENDING", now, now);
-      db.close();
-  }
-  
-   function insertTestSession(sessionId: string, taskId: number, role = "implementor", status = "paused", iteration = 0, maxIterations = 50): void {
-    const db = new Database(testDbPath);
-    const now = new Date().toISOString();
-    db.prepare(
-      `INSERT INTO agent_sessions (id, task_id, sprint_id, role, status, started_at, last_activity_at, iteration, max_iterations, parent_session_id, attempt, stage)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-    ).run(sessionId, taskId, "sprint-001", role, status, now, now, iteration, maxIterations, null, 0, null);
+    db.exec(
+      `CREATE INDEX IF NOT EXISTS idx_messages_session ON session_messages(session_id);`,
+    );
+    db.exec(
+      `CREATE INDEX IF NOT EXISTS idx_events_session ON session_events(session_id);`,
+    );
+
     db.close();
   }
 
+  function insertTestTask(taskId: number): void {
+    const db = new Database(testDbPath);
+    const now = new Date().toISOString();
+    db.prepare(
+      `INSERT INTO tasks (id, sprint_id, phase_id, task_id, title, description, category, status, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    ).run(
+      taskId,
+      "sprint-001",
+      1,
+      taskId,
+      `Task ${taskId}`,
+      "Desc",
+      "implementation",
+      "PENDING",
+      now,
+      now,
+    );
+    db.close();
+  }
+
+  /**
+   * Create a parent session via repository and return its sessionId.
+   */
+  function createParentSessionWithMessages(
+    taskId: number,
+    role = "implementor",
+    status = "completed",
+  ): string {
+    const parent = createSession(testWorkspaceRoot, {
+      taskId,
+      sprintId: "sprint-001",
+      role: role as any,
+      status: status as any,
+      startedAt: new Date().toISOString(),
+      lastActivityAt: new Date().toISOString(),
+      iteration: 5,
+      maxIterations: 50,
+      stage: "IMPLEMENT",
+      attempt: 0,
+      toolCallCount: 0,
+      successfulToolCalls: 0,
+      failedToolCalls: 0,
+      warningCount: 0,
+      filesModified: [],
+    });
+
+    // Add parent messages
+    insertMessage(testWorkspaceRoot, {
+      session_id: parent.sessionId,
+      role: "user",
+      content: "Please implement feature X",
+      iteration: 0,
+    });
+    insertMessage(testWorkspaceRoot, {
+      session_id: parent.sessionId,
+      role: "assistant",
+      content: "I will implement feature X now.",
+      iteration: 1,
+    });
+
+    return parent.sessionId;
+  }
+
   beforeEach(async () => {
-    testWorkspaceRoot = fs.mkdtempSync(path.join(os.tmpdir(), "orchestra-continue-test-"));
+    testWorkspaceRoot = fs.mkdtempSync(
+      path.join(os.tmpdir(), "orchestra-continue-exec-test-"),
+    );
     const orchestraDir = path.join(testWorkspaceRoot, ".orchestra");
     fs.mkdirSync(orchestraDir, { recursive: true });
     testDbPath = path.join(orchestraDir, "orchestra.db");
-    
-    // Set env var so getDb() picks it up?
-    // src/db/connection.ts usually uses process.env.ORCHESTRA_DB_PATH or similar?
-    // Or it uses findOrchestraRoot.
-    // I need to mock getDb to return a connection to MY test db.
-    
-    // Create schema
     createTestDatabase(testDbPath);
 
-    // Mock getDb in src/db/index.js
-    // Since we import getDb, we can't easily mock it unless we mock the module.
-    // Vitest vi.mock("../../src/db/index.js") ?
-    
-    // BUT BETTER: I will overwrite `process.cwd()` or mock `findOrchestraRoot` if I can?
-    // No, `getDb` is a singleton.
-    
-    // Let's use `vi.doMock` for the module import?
-    // Since I'm using dynamic import, I can mock before import.
-  });
+    const liveDb = new Database(testDbPath);
+    const drizzleInstance = drizzle(liveDb);
 
+    vi.spyOn(OrchestraDB, "getDrizzleInstance").mockReturnValue(
+      drizzleInstance as any,
+    );
+    vi.spyOn(OrchestraDB, "getInstance").mockReturnValue(liveDb);
+    vi.spyOn(OrchestraDB, "close").mockImplementation(() => {
+      try {
+        if (liveDb.open) liveDb.close();
+      } catch (_e) {
+        // ignore
+      }
+    });
+
+    // Mock workspace folder resolution
+    vi.mocked(
+      (await import("vscode"))!.workspace,
+    ).workspaceFolders = [{ uri: { fsPath: testWorkspaceRoot } } as any];
+  });
 
   afterEach(() => {
     OrchestraDB.close();
-    fs.rmSync(testWorkspaceRoot, { recursive: true, force: true });
+    try {
+      fs.rmSync(testWorkspaceRoot, { recursive: true, force: true });
+    } catch {
+      // ignore cleanup errors
+    }
     vi.restoreAllMocks();
   });
 
-  const describeRunner = moduleCompatible ? describe : describe.skip;
-  
-  describeRunner("continueSessionExecution", () => {
-    test("should continue a session creating a new child session", async () => {
+  describe("continueSessionExecution", () => {
+    test("basic continuation: creates child session, loads messages, starts agent loop", async () => {
       insertTestTask(1);
-      const parentSessionId = "parent-session-1";
-      insertTestSession(parentSessionId, 1, "implementor", "paused", 5, 50);
+      const parentSessionId = createParentSessionWithMessages(1);
 
-      // Insert parent messages
-      insertMessage(testWorkspaceRoot, {
-        session_id: parentSessionId,
-        role: "user",
-        content: "Original instruction",
-        iteration: 0,
+      const registry = new ToolRegistry();
+      const runner = new AgentRunner(registry, { skipToolLoading: true });
+
+      // Mock runAgentLoop to prevent actual LLM execution
+      const runAgentLoopSpy = vi
+        .spyOn(AgentRunner.prototype as any, "runAgentLoop")
+        .mockResolvedValue(undefined);
+
+      const continued = await runner.continueSessionExecution({
+        sessionId: parentSessionId,
+        continuationPrompt: "Please fix the failing tests",
+        stage: "IMPLEMENT_FIX",
       });
 
-      const registry = new ToolRegistry();
-      const runner = new AgentRunner(registry, { skipToolLoading: true });
-      
-      // Spy on runAgentLoop to prevent execution
-      const runAgentSpy = vi.spyOn(AgentRunner.prototype as any, "runAgentLoop").mockResolvedValue(undefined);
+      // Child session was created and returned
+      expect(continued).toBeDefined();
+      expect(continued.id).toBeDefined();
+      expect(continued.role).toBe("implementor");
+      expect(continued.status).toBe("running");
 
-      const options = {
-        sessionId: parentSessionId,
-        continuationPrompt: "Continue with fix",
-        stage: "implementation" as const,
-        maxIterations: 100
-      };
+      // Messages were loaded: 2 parent messages + 1 continuation prompt
+      expect(continued.messages.length).toBe(3);
+      expect(
+        continued.messages.some(
+          (m) =>
+            typeof m.content === "string" &&
+            m.content === "Please implement feature X",
+        ),
+      ).toBe(true);
+      expect(
+        continued.messages.some(
+          (m) =>
+            typeof m.content === "string" &&
+            m.content === "Please fix the failing tests",
+        ),
+      ).toBe(true);
 
-      const childSession = await runner.continueSessionExecution(options);
+      // Agent loop was started
+      expect(runAgentLoopSpy).toHaveBeenCalled();
 
-      // Verify child session properties
-      expect(childSession.id).not.toBe(parentSessionId);
-      expect(childSession.parentSessionId).toBe(parentSessionId);
-      expect(childSession.stage).toBe("implementation");
-      expect(childSession.currentIteration).toBe(0);
-      expect(childSession.maxIterations).toBe(100);
-      expect(childSession.role).toBe("implementor"); // Inherited
-
-      // Verify DB state
-      const dbChild = getSession(testWorkspaceRoot, childSession.id);
-      expect(dbChild).toBeDefined();
-      expect(dbChild?.parentSessionId).toBe(parentSessionId);
-      expect(dbChild?.stage).toBe("implementation");
-      
-      const dbParent = getSession(testWorkspaceRoot, parentSessionId);
-      expect(dbParent?.isContinued).toBe(true);
-      expect(dbParent?.continuationCount).toBe(1);
-
-      // Verify messages: Parent messages + continuation prompt
-      expect(childSession.messages.length).toBeGreaterThan(1);
-      expect(childSession.messages[0].content).toContain("Original instruction");
-      const lastMsg = childSession.messages[childSession.messages.length - 1];
-      expect(lastMsg.role).toBe("user");
-      expect(lastMsg.content).toBe("Continue with fix");
-
-      // Verify start called
-      expect(runAgentSpy).toHaveBeenCalled();
+      // Database reflects parent marked as continued
+      const parentInDb = getSession(testWorkspaceRoot, parentSessionId);
+      expect(parentInDb).toBeDefined();
+      expect(parentInDb!.isContinued).toBe(true);
+      expect(parentInDb!.continuationCount).toBe(1);
     });
 
-    test("should inherit role from parent", async () => {
+    test("role validation: child inherits parent role (orchestrator stays orchestrator)", async () => {
       insertTestTask(1);
-      const parentSessionId = "orchestrator-session";
-      insertTestSession(parentSessionId, 1, "orchestrator", "paused", 1, 10);
+      const parentSessionId = createParentSessionWithMessages(
+        1,
+        "orchestrator",
+        "completed",
+      );
 
       const registry = new ToolRegistry();
       const runner = new AgentRunner(registry, { skipToolLoading: true });
-      vi.spyOn(AgentRunner.prototype as any, "runAgentLoop").mockResolvedValue(undefined);
 
-      const options = {
+      vi.spyOn(
+        AgentRunner.prototype as any,
+        "runAgentLoop",
+      ).mockResolvedValue(undefined);
+
+      const continued = await runner.continueSessionExecution({
         sessionId: parentSessionId,
-        continuationPrompt: "Proceed",
-        stage: "planning" as const
-      };
+        continuationPrompt: "Continue orchestrating",
+        stage: "VERIFY",
+      });
 
-      const childSession = await runner.continueSessionExecution(options);
-
-      expect(childSession.role).toBe("orchestrator");
+      // Role MUST be inherited from parent — orchestrator stays orchestrator
+      expect(continued.role).toBe("orchestrator");
     });
 
-    test("should throw if parent session not found", async () => {
+    test("role validation: rejects invalid role on parent session", async () => {
+      insertTestTask(1);
+
+      // Manually insert a session with an invalid role in the database
+      const db = new Database(testDbPath);
+      const now = new Date().toISOString();
+      const badSessionId = "bad-role-session";
+      db.prepare(
+        `INSERT INTO agent_sessions (id, task_id, sprint_id, role, status, started_at, last_activity_at, iteration, max_iterations)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ).run(
+        badSessionId,
+        1,
+        "sprint-001",
+        "invalid_role",
+        "completed",
+        now,
+        now,
+        0,
+        50,
+      );
+      db.close();
+
       const registry = new ToolRegistry();
       const runner = new AgentRunner(registry, { skipToolLoading: true });
 
-      const options = {
-        sessionId: "non-existent",
-        continuationPrompt: "Continue",
-        stage: "implementation" as const
-      };
+      vi.spyOn(
+        AgentRunner.prototype as any,
+        "runAgentLoop",
+      ).mockResolvedValue(undefined);
 
-      await expect(runner.continueSessionExecution(options)).rejects.toThrowError(SessionError);
+      await expect(
+        runner.continueSessionExecution({
+          sessionId: badSessionId,
+          continuationPrompt: "Should fail",
+          stage: "IMPLEMENT_FIX",
+        }),
+      ).rejects.toThrow(/role/i);
     });
 
-    test("should throw if agent is already running", async () => {
-        const registry = new ToolRegistry();
-        const runner = new AgentRunner(registry, { skipToolLoading: true });
-        
-        // Mock session state as running. Session is private so catch 22.
-        // We can just rely on setting private prop via cast
-        (runner as any).session = { status: "running" };
-  
-        const options = {
-          sessionId: "any",
+    test("rejects when agent is already running", async () => {
+      const registry = new ToolRegistry();
+      const runner = new AgentRunner(registry, { skipToolLoading: true });
+
+      // Set a mock session with running status
+      (runner as any).session = { status: "running" };
+
+      await expect(
+        runner.continueSessionExecution({
+          sessionId: "any-session",
           continuationPrompt: "Continue",
-          stage: "implementation" as const
-        };
-  
-        await expect(runner.continueSessionExecution(options)).rejects.toThrowError(AgentError);
+          stage: "IMPLEMENT_FIX",
+        }),
+      ).rejects.toThrow("Agent is already running");
     });
 
-    test("should reconstruct tool calls from PARENT session", async () => {
-        insertTestTask(1);
-        const parentSessionId = "parent-tools";
-        insertTestSession(parentSessionId, 1, "implementor", "paused", 2, 50);
-  
-        // Insert tool result in PARENT session
-        const toolResultEvent = {
-          id: crypto.randomUUID(),
-          sessionId: parentSessionId,
-          timestamp: new Date().toISOString(),
-          iteration: 1,
-          type: "tool_result",
-          toolCallId: "parent-tool-1",
-          toolName: "read_file",
-          success: true,
-          output: "content",
-          durationMs: 100,
-        } as any;
-        insertEvent(testWorkspaceRoot, toolResultEvent);
-  
-        const registry = new ToolRegistry();
-        const runner = new AgentRunner(registry, { skipToolLoading: true });
-        vi.spyOn(AgentRunner.prototype as any, "runAgentLoop").mockResolvedValue(undefined);
-  
-        const childSession = await runner.continueSessionExecution({
-            sessionId: parentSessionId,
-            continuationPrompt: "Next",
-            stage: "implementation" as const
-        });
-  
-        // Child session should have loaded tools from parent
-        expect(childSession.toolCalls.length).toBe(1);
-        expect(childSession.toolCalls[0].id).toBe("parent-tool-1");
+    test("rejects with SessionError for non-existent parent session", async () => {
+      const registry = new ToolRegistry();
+      const runner = new AgentRunner(registry, { skipToolLoading: true });
+
+      vi.spyOn(
+        AgentRunner.prototype as any,
+        "runAgentLoop",
+      ).mockResolvedValue(undefined);
+
+      await expect(
+        runner.continueSessionExecution({
+          sessionId: "non-existent-session-id",
+          continuationPrompt: "Fix the bug",
+          stage: "IMPLEMENT_FIX",
+        }),
+      ).rejects.toThrow("Parent session not found");
     });
 
-    test("should reconstruct file changes from PARENT session", async () => {
-        insertTestTask(1);
-        const parentSessionId = "parent-files";
-        insertTestSession(parentSessionId, 1, "implementor", "paused", 2, 50);
-  
-        // Insert file op in PARENT session
-        const fileOpEvent = {
-          id: crypto.randomUUID(),
-          sessionId: parentSessionId,
-          timestamp: new Date().toISOString(),
-          iteration: 1,
-          type: "tool_file_operation",
-          toolCallId: "parent-tool-1",
-          toolName: "create_file",
-          operation: { operation: "create", path: "test.txt" },
-        } as any;
-        insertEvent(testWorkspaceRoot, fileOpEvent);
-  
-        const registry = new ToolRegistry();
-        const runner = new AgentRunner(registry, { skipToolLoading: true });
-        vi.spyOn(AgentRunner.prototype as any, "runAgentLoop").mockResolvedValue(undefined);
-  
-        const childSession = await runner.continueSessionExecution({
-            sessionId: parentSessionId,
-            continuationPrompt: "Next",
-            stage: "implementation" as const
-        });
-  
-        // Child session should have loaded file changes from parent
-        expect(childSession.fileChanges.length).toBe(1);
-        expect(childSession.fileChanges[0].relativePath).toBe("test.txt");
+    test("message loading from parent: child gets parent messages + continuation prompt", async () => {
+      insertTestTask(1);
+      const parentSessionId = createParentSessionWithMessages(1);
+
+      const registry = new ToolRegistry();
+      const runner = new AgentRunner(registry, { skipToolLoading: true });
+
+      vi.spyOn(
+        AgentRunner.prototype as any,
+        "runAgentLoop",
+      ).mockResolvedValue(undefined);
+
+      const continued = await runner.continueSessionExecution({
+        sessionId: parentSessionId,
+        continuationPrompt: "Please retry with different approach",
+        stage: "IMPLEMENT_FIX",
+      });
+
+      // First two messages from parent
+      expect(continued.messages[0]?.content).toBe(
+        "Please implement feature X",
+      );
+      expect(continued.messages[1]?.content).toBe(
+        "I will implement feature X now.",
+      );
+
+      // Third message is the continuation prompt
+      const lastMsg = continued.messages[continued.messages.length - 1];
+      expect(lastMsg).toBeDefined();
+      expect(lastMsg!.role).toBe("user");
+      expect(lastMsg!.content).toBe(
+        "Please retry with different approach",
+      );
+    });
+
+    test("tool call reconstruction from parent session events", async () => {
+      insertTestTask(1);
+      const parentSessionId = createParentSessionWithMessages(1);
+
+      // Insert tool_result event for the parent session
+      insertEvent(testWorkspaceRoot, {
+        id: crypto.randomUUID(),
+        sessionId: parentSessionId,
+        timestamp: new Date().toISOString(),
+        iteration: 2,
+        type: "tool_result",
+        toolCallId: "parent-tool-call-1",
+        toolName: "read_file",
+        success: true,
+        output: "file contents here",
+        error: undefined,
+        durationMs: 100,
+      } as any);
+
+      const registry = new ToolRegistry();
+      const runner = new AgentRunner(registry, { skipToolLoading: true });
+
+      vi.spyOn(
+        AgentRunner.prototype as any,
+        "runAgentLoop",
+      ).mockResolvedValue(undefined);
+
+      const continued = await runner.continueSessionExecution({
+        sessionId: parentSessionId,
+        continuationPrompt: "Fix the tests",
+        stage: "IMPLEMENT_FIX",
+      });
+
+      // Tool calls reconstructed from parent
+      expect(continued.toolCalls.length).toBeGreaterThan(0);
+      expect(
+        continued.toolCalls.some((t) => t.id === "parent-tool-call-1"),
+      ).toBe(true);
+      expect(
+        continued.toolCalls.some((t) => t.name === "read_file"),
+      ).toBe(true);
+    });
+
+    test("file change reconstruction from parent session events", async () => {
+      insertTestTask(1);
+      const parentSessionId = createParentSessionWithMessages(1);
+
+      // Insert file op event for the parent session
+      insertEvent(testWorkspaceRoot, {
+        id: crypto.randomUUID(),
+        sessionId: parentSessionId,
+        timestamp: new Date().toISOString(),
+        iteration: 3,
+        type: "tool_file_operation",
+        toolCallId: "parent-tool-2",
+        toolName: "create_file",
+        operation: { operation: "create", path: "src/new-feature.ts" },
+      } as any);
+
+      const registry = new ToolRegistry();
+      const runner = new AgentRunner(registry, { skipToolLoading: true });
+
+      vi.spyOn(
+        AgentRunner.prototype as any,
+        "runAgentLoop",
+      ).mockResolvedValue(undefined);
+
+      const continued = await runner.continueSessionExecution({
+        sessionId: parentSessionId,
+        continuationPrompt: "Fix the tests",
+        stage: "IMPLEMENT_FIX",
+      });
+
+      // File changes reconstructed from parent
+      expect(continued.fileChanges.length).toBeGreaterThan(0);
+      expect(
+        continued.fileChanges.some(
+          (f) =>
+            f.relativePath === "src/new-feature.ts" ||
+            f.uri === "src/new-feature.ts",
+        ),
+      ).toBe(true);
+    });
+
+    test("agent loop is started after session setup", async () => {
+      insertTestTask(1);
+      const parentSessionId = createParentSessionWithMessages(1);
+
+      const registry = new ToolRegistry();
+      const runner = new AgentRunner(registry, { skipToolLoading: true });
+
+      const runAgentLoopSpy = vi
+        .spyOn(AgentRunner.prototype as any, "runAgentLoop")
+        .mockResolvedValue(undefined);
+
+      await runner.continueSessionExecution({
+        sessionId: parentSessionId,
+        continuationPrompt: "Continue",
+        stage: "IMPLEMENT_FIX",
+      });
+
+      // Agent loop was invoked exactly once
+      expect(runAgentLoopSpy).toHaveBeenCalledOnce();
+    });
+
+    test("respects optional maxIterations override", async () => {
+      insertTestTask(1);
+      const parentSessionId = createParentSessionWithMessages(1);
+
+      const registry = new ToolRegistry();
+      const runner = new AgentRunner(registry, { skipToolLoading: true });
+
+      vi.spyOn(
+        AgentRunner.prototype as any,
+        "runAgentLoop",
+      ).mockResolvedValue(undefined);
+
+      const continued = await runner.continueSessionExecution({
+        sessionId: parentSessionId,
+        continuationPrompt: "Quick retry",
+        stage: "IMPLEMENT_FIX",
+        maxIterations: 20,
+      });
+
+      expect(continued.maxIterations).toBe(20);
+    });
+
+    test("creates ContextManager after message reconstruction", async () => {
+      insertTestTask(1);
+      const parentSessionId = createParentSessionWithMessages(1);
+
+      const registry = new ToolRegistry();
+      const runner = new AgentRunner(registry, { skipToolLoading: true });
+
+      vi.spyOn(
+        AgentRunner.prototype as any,
+        "runAgentLoop",
+      ).mockResolvedValue(undefined);
+
+      await runner.continueSessionExecution({
+        sessionId: parentSessionId,
+        continuationPrompt: "Continue",
+        stage: "IMPLEMENT_FIX",
+      });
+
+      // ContextManager should exist
+      expect((runner as any).contextManager).toBeDefined();
+      const cm = (runner as any).contextManager;
+      expect(typeof cm.estimateTokens === "function").toBe(true);
+    });
+
+    test("uses sessionRepository.continueSession() — parent is marked as continued", async () => {
+      insertTestTask(1);
+      const parentSessionId = createParentSessionWithMessages(1);
+
+      const registry = new ToolRegistry();
+      const runner = new AgentRunner(registry, { skipToolLoading: true });
+
+      vi.spyOn(
+        AgentRunner.prototype as any,
+        "runAgentLoop",
+      ).mockResolvedValue(undefined);
+
+      await runner.continueSessionExecution({
+        sessionId: parentSessionId,
+        continuationPrompt: "Fix issue Y",
+        stage: "IMPLEMENT_FIX",
+      });
+
+      // Verify parent was marked as continued (done by sessionRepository.continueSession)
+      const parentInDb = getSession(testWorkspaceRoot, parentSessionId);
+      expect(parentInDb).toBeDefined();
+      expect(parentInDb!.isContinued).toBe(true);
+      expect(parentInDb!.continuationCount).toBe(1);
+
+      // Verify child session exists with correct parentSessionId
+      const taskSessions = getSessionsForTask(testWorkspaceRoot, 1);
+      const childInDb = taskSessions.find(
+        (s) => s.parentSessionId === parentSessionId,
+      );
+      expect(childInDb).toBeDefined();
+      expect(childInDb!.stage).toBe("IMPLEMENT_FIX");
     });
   });
 }

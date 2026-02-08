@@ -76,8 +76,7 @@ if (!moduleCompatible) {
   const { SprintMemory } = await import(
     "../../src/agents/memory/SprintMemory.js",
   );
-  const { OrchestraDB } = await import("../../../src/database/client.js");
-  const { drizzle } = await import("drizzle-orm/better-sqlite3");
+  const { OrchestraDB } = await import("../../src/database/client.js");  const { drizzle } = await import("drizzle-orm/better-sqlite3");
 
   // Helpers
   let testWorkspaceRoot: string;

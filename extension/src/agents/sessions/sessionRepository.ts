@@ -382,13 +382,15 @@ export const MAX_CONTINUATION_DEPTH = 5;
  * @param sessionId Parent session ID to continue
  * @param continuationPrompt User prompt for the new session
  * @param stage Stage for the new session
+ * @param maxIterations Optional override for max iterations
  * @returns The newly created child session
  */
 export function continueSession(
   workspaceRoot: string,
   sessionId: string,
   continuationPrompt: string,
-  stage: SessionStage
+  stage: SessionStage,
+  maxIterations?: number
 ): AgentSession {
   const parentSession = getSession(workspaceRoot, sessionId);
   if (!parentSession) {
@@ -414,8 +416,8 @@ export function continueSession(
     startedAt: new Date().toISOString(),
     lastActivityAt: new Date().toISOString(),
     iteration: 0,
-    maxIterations: parentSession.maxIterations,
-    
+    maxIterations: maxIterations ?? parentSession.maxIterations,
+
     // Continuation fields
     stage: stage,
     parentSessionId: sessionId,
