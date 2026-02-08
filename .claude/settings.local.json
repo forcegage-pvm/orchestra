@@ -18,7 +18,8 @@
       "Bash(node -e:*)",
       "Bash(gh pr edit:*)",
       "Bash(gh pr list:*)",
-      "Bash(git checkout:*)"
+      "Bash(git checkout:*)",
+      "Bash(npx tsc:*)"
     ]
   }
 }

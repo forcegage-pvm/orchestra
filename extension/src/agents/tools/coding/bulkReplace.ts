@@ -7,6 +7,7 @@ import * as vscode from "vscode";
 
 import { ToolErrorCode } from "../errors.js";
 import type { AgentTool, ToolInvocationContext, ToolResult } from "../types.js";
+import { applyAutoFixes, formatAutoFixSummary } from "../utils/autofix.js";
 import { errorResult, successResult } from "../utils/resultBuilder.js";
 
 interface BulkReplaceInput {
@@ -20,6 +21,8 @@ interface BulkReplaceInput {
   max_files?: number;
   max_replacements?: number;
   preview_only?: boolean;
+  /** If true, apply auto-fixes after all replacements (organize imports, fix lint errors, etc.). Adds ~300ms delay per modified file. */
+  autofix?: boolean;
 }
 
 interface FileChangeInfo {
@@ -364,9 +367,39 @@ async function bulkReplace(
       totalReplacements,
     );
 
-    return buildToolResult(
-      successResult(TOOL_NAME, JSON.stringify(result, null, 2)),
-    );
+    // Auto-fix if requested (runs on all modified files)
+    let autoFixSummary: string | null = null;
+
+    if (input.autofix && !previewOnly && changes.length > 0) {
+      const autoFixParts: string[] = [];
+
+      for (const change of changes) {
+        if (change.replacements > 0) {
+          const changePath = path.resolve(context.workspaceRoot, change.file_path);
+          const changeUri = vscode.Uri.file(changePath);
+          const fixResult = await applyAutoFixes(changeUri);
+          const summary = formatAutoFixSummary(fixResult);
+          if (summary) {
+            autoFixParts.push(`[${change.file_path}]\n${summary}`);
+          }
+        }
+      }
+
+      if (autoFixParts.length > 0) {
+        autoFixSummary = autoFixParts.join("\n\n");
+      }
+    }
+
+    const toolResult = successResult(TOOL_NAME, JSON.stringify(result, null, 2));
+
+    if (autoFixSummary) {
+      toolResult.content = [
+        ...(toolResult.content ?? []),
+        { type: "text", value: autoFixSummary },
+      ];
+    }
+
+    return buildToolResult(toolResult);
   } catch (error) {
     const message =
       error instanceof Error
@@ -443,6 +476,12 @@ export const bulkReplaceTool: AgentTool<BulkReplaceInput> = {
       preview_only: {
         type: "boolean",
         description: "Preview changes without applying (default: false)",
+        default: false,
+      },
+      autofix: {
+        type: "boolean",
+        description:
+          "If true, apply auto-fixes to all modified files after replacements (organize imports, fix lint errors, etc.) using VS Code's code action providers. Adds ~300ms delay per modified file.",
         default: false,
       },
     },

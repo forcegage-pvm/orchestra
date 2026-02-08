@@ -6,6 +6,11 @@ import * as path from "path";
 import * as vscode from "vscode";
 
 import { ToolErrorCode } from "../errors.js";
+import {
+  applyAutoFixes,
+  formatAutoFixSummary,
+  type AutoFixResult,
+} from "../utils/autofix.js";
 import type {
   AgentTool,
   ToolError,
@@ -18,6 +23,8 @@ import { errorResult, successResult } from "../utils/resultBuilder.js";
 interface CreateFileInput {
   path: string;
   content?: string;
+  /** If true, apply auto-fixes after creation (organize imports, fix lint errors, etc.). Adds ~300ms delay. */
+  autofix?: boolean;
 }
 
 const TOOL_NAME = "create_file";
@@ -140,7 +147,25 @@ async function createFile(
     size: contentBytes.length,
   });
 
+  // Auto-fix if requested
+  let autoFixResult: AutoFixResult | undefined;
+  let autoFixSummary: string | null = null;
+
+  if (input.autofix) {
+    autoFixResult = await applyAutoFixes(uri);
+    autoFixSummary = formatAutoFixSummary(autoFixResult);
+  }
+
   const result = successResult(TOOL_NAME, `Created file at ${input.path}.`);
+
+  // Include auto-fix summary in output if available
+  if (autoFixSummary) {
+    result.content = [
+      ...(result.content ?? []),
+      { type: "text", value: autoFixSummary },
+    ];
+  }
+
   return buildToolResult(result);
 }
 
@@ -157,6 +182,12 @@ export const createFileTool: AgentTool<CreateFileInput> = {
       content: {
         type: "string",
         description: "Optional file content",
+      },
+      autofix: {
+        type: "boolean",
+        description:
+          "If true, apply auto-fixes after creation (organize imports, fix lint errors, etc.) using VS Code's code action providers. Adds ~300ms delay.",
+        default: false,
       },
     },
     required: ["path"],

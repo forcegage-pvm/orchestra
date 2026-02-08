@@ -14,6 +14,11 @@ import type {
   ToolResult,
 } from "../types.js";
 import {
+  applyAutoFixes,
+  formatAutoFixSummary,
+  type AutoFixResult,
+} from "../utils/autofix.js";
+import {
   formatDiagnosticsSummary,
   getDiagnosticsForFile,
   type DiagnosticsResult,
@@ -338,6 +343,15 @@ async function smartReplace(
   context.observer?.onMetadata?.(callId, "matchType", matchResult.match_type);
   context.observer?.onMetadata?.(callId, "similarity", matchResult.similarity);
 
+  // Auto-fix if requested (runs BEFORE validate diagnostics)
+  let autoFixResult: AutoFixResult | undefined;
+  let autoFixSummary: string | null = null;
+
+  if (input.autofix) {
+    autoFixResult = await applyAutoFixes(uri);
+    autoFixSummary = formatAutoFixSummary(autoFixResult);
+  }
+
   // If validate=true, check for diagnostics after edit
   let diagnosticsResult: DiagnosticsResult | undefined;
   let diagnosticsSummary: string | null = null;
@@ -361,6 +375,11 @@ async function smartReplace(
       value: JSON.stringify(result, null, 2),
     },
   ];
+
+  // Include auto-fix summary in output if available
+  if (autoFixSummary) {
+    outputContent.push({ type: "text", value: autoFixSummary });
+  }
 
   // Include diagnostics in output if available
   if (diagnosticsSummary) {
@@ -430,6 +449,12 @@ export const smartReplaceTool: AgentTool<SmartReplaceInput> = {
         type: "boolean",
         description:
           "If true, check for TypeScript/ESLint errors after edit and include diagnostics in output. Adds ~500ms delay. Use for critical edits where you want immediate feedback on errors introduced.",
+        default: false,
+      },
+      autofix: {
+        type: "boolean",
+        description:
+          "If true, apply auto-fixes after the edit (organize imports, fix lint errors, etc.) using VS Code's code action providers. Adds ~300ms delay.",
         default: false,
       },
     },

@@ -12,6 +12,11 @@ import type {
   ToolInvocationContext,
   ToolResult,
 } from "../types.js";
+import {
+  applyAutoFixes,
+  formatAutoFixSummary,
+  type AutoFixResult,
+} from "../utils/autofix.js";
 import { validatePath } from "../utils/pathValidation.js";
 
 const TOOL_NAME = "delete_section";
@@ -267,14 +272,31 @@ async function deleteSection(
     linesChanged: linesDeleted,
   });
 
+  // Auto-fix if requested
+  let autoFixResult: AutoFixResult | undefined;
+  let autoFixSummary: string | null = null;
+
+  if (input.autofix) {
+    autoFixResult = await applyAutoFixes(uri);
+    autoFixSummary = formatAutoFixSummary(autoFixResult);
+  }
+
+  // Build output content
+  const outputContent: { type: string; value: string }[] = [
+    {
+      type: "json",
+      value: JSON.stringify(result, null, 2),
+    },
+  ];
+
+  // Include auto-fix summary in output if available
+  if (autoFixSummary) {
+    outputContent.push({ type: "text", value: autoFixSummary });
+  }
+
   return {
     success: true,
-    content: [
-      {
-        type: "json",
-        value: JSON.stringify(result, null, 2),
-      },
-    ],
+    content: outputContent,
     metadata: {
       toolName: TOOL_NAME,
       callId: callId,
@@ -314,6 +336,12 @@ export const deleteSectionTool: AgentTool<DeleteSectionInput> = {
       dry_run: {
         type: "boolean",
         description: "Preview changes without applying (default: false)",
+        default: false,
+      },
+      autofix: {
+        type: "boolean",
+        description:
+          "If true, apply auto-fixes after the deletion (organize imports, fix lint errors, etc.) using VS Code's code action providers. Adds ~300ms delay.",
         default: false,
       },
     },
