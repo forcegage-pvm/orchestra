@@ -76,13 +76,13 @@ if (!moduleCompatible) {
 } else {
   // Import dependencies only if module is compatible
   const { SessionEventEmitter } = await import(
-    "../../../src/agents/sessions/eventEmitter.js"
+    "../../src/agents/sessions/eventEmitter.js"
   );
   const { getAgentEventBus, disposeAgentEventBus } = await import(
-    "../../../src/agents/sessions/eventBus.js"
+    "../../src/agents/sessions/eventBus.js"
   );
   const { getEventsForSession } = await import(
-    "../../../src/agents/sessions/eventRepository.js"
+    "../../src/agents/sessions/eventRepository.js"
   );
   const { OrchestraDB } = await import("../../../src/database/client.js");
 

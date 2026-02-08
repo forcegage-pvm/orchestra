@@ -97,16 +97,16 @@ vi.mock("vscode", () => {
   };
 });
 
-vi.mock("../../../src/agents/toolLoaders.js", () => ({
+vi.mock("../../src/agents/toolLoaders.js", () => ({
   loadImplementorTools: vi.fn(),
   loadOrchestratorTools: vi.fn(),
 }));
 
 import * as vscode from "vscode";
-import { AgentRunner } from "../../../src/agents/AgentRunner.js";
-import { AgentSession } from "../../../src/agents/AgentSession.js";
-import { SprintMemory } from "../../../src/agents/memory/SprintMemory.js";
-import type { ToolRegistry } from "../../../src/agents/ToolRegistry.js";
+import { AgentRunner } from "../../src/agents/AgentRunner.js";
+import { AgentSession } from "../../src/agents/AgentSession.js";
+import { SprintMemory } from "../../src/agents/memory/SprintMemory.js";
+import type { ToolRegistry } from "../../src/agents/ToolRegistry.js";
 
 const createFileChange = (params: {
   relativePath: string;

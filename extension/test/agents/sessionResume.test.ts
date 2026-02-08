@@ -53,28 +53,28 @@ if (!moduleCompatible) {
     it("skipped due to native module incompatibility", () => {});
   });
 } else {
-  const { AgentRunner } = await import("../../../src/agents/AgentRunner.js");
-  const { ToolRegistry } = await import("../../../src/agents/ToolRegistry.js");
-  const { AgentSession } = await import("../../../src/agents/AgentSession.js");
+  const { AgentRunner } = await import("../../src/agents/AgentRunner.js");
+  const { ToolRegistry } = await import("../../src/agents/ToolRegistry.js");
+  const { AgentSession } = await import("../../src/agents/AgentSession.js");
   const { insertMessage, getSessionMessages } = await import(
-    "../../../src/agents/sessions/sessionMessageRepository.js",
+    "../../src/agents/sessions/sessionMessageRepository.js",
   );
   const { insertEvent } = await import(
-    "../../../src/agents/sessions/eventRepository.js",
+    "../../src/agents/sessions/eventRepository.js",
   );
   const { insertEventBatch } = await import(
-    "../../../src/agents/sessions/eventRepository.js",
+    "../../src/agents/sessions/eventRepository.js",
   );
   const { getSession } = await import(
-    "../../../src/agents/sessions/sessionRepository.js",
+    "../../src/agents/sessions/sessionRepository.js",
   );
-  const { AgentError } = await import("../../../src/agents/errors.js");
-  const { SessionError } = await import("../../../src/agents/errors.js");
+  const { AgentError } = await import("../../src/agents/errors.js");
+  const { SessionError } = await import("../../src/agents/errors.js");
   const { SessionEventEmitter } = await import(
-    "../../../src/agents/sessions/eventEmitter.js",
+    "../../src/agents/sessions/eventEmitter.js",
   );
   const { SprintMemory } = await import(
-    "../../../src/agents/memory/SprintMemory.js",
+    "../../src/agents/memory/SprintMemory.js",
   );
   const { OrchestraDB } = await import("../../../src/database/client.js");
   const { drizzle } = await import("drizzle-orm/better-sqlite3");

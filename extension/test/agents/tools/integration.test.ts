@@ -4,16 +4,16 @@
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { editFileTool } from "../../../src/agents/tools/coding/editFile.js";
-import { readFileTool } from "../../../src/agents/tools/coding/readFile.js";
-import { getTerminalOutputTool } from "../../../src/agents/tools/system/getTerminalOutput.js";
-import { runTerminalTool } from "../../../src/agents/tools/system/runTerminal.js";
-import type { ToolInvocationContext } from "../../../src/agents/tools/types.js";
-import { validatePath } from "../../../src/agents/tools/utils/pathValidation.js";
+import { editFileTool } from "../../src/agents/tools/coding/editFile.js";
+import { readFileTool } from "../../src/agents/tools/coding/readFile.js";
+import { getTerminalOutputTool } from "../../src/agents/tools/system/getTerminalOutput.js";
+import { runTerminalTool } from "../../src/agents/tools/system/runTerminal.js";
+import type { ToolInvocationContext } from "../../src/agents/tools/types.js";
+import { validatePath } from "../../src/agents/tools/utils/pathValidation.js";
 import {
   clearBufferedOutput,
   setBufferedOutput,
-} from "../../../src/agents/tools/utils/shellIntegration.js";
+} from "../../src/agents/tools/utils/shellIntegration.js";
 
 const {
   workspace,
@@ -121,14 +121,14 @@ vi.mock("vscode", () => ({
   FileSystemError,
 }));
 
-vi.mock("../../../src/agents/tools/utils/pathValidation.js", () => ({
+vi.mock("../../src/agents/tools/utils/pathValidation.js", () => ({
   validatePath: vi.fn(),
 }));
 
-vi.mock("../../../src/agents/tools/utils/shellIntegration.js", async () => {
+vi.mock("../../src/agents/tools/utils/shellIntegration.js", async () => {
   const actual = await vi.importActual<
-    typeof import("../../../src/agents/tools/utils/shellIntegration.js")
-  >("../../../src/agents/tools/utils/shellIntegration.js");
+    typeof import("../../src/agents/tools/utils/shellIntegration.js")
+  >("../../src/agents/tools/utils/shellIntegration.js");
 
   return {
     ...actual,

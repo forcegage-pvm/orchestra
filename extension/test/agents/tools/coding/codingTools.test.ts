@@ -4,11 +4,11 @@
 
 import { describe, expect, it } from "vitest";
 
-import { ToolRegistry } from "../../../../src/agents/ToolRegistry.js";
+import { ToolRegistry } from "../../../src/agents/ToolRegistry.js";
 import {
   codingTools,
   registerCodingTools,
-} from "../../../../src/agents/tools/coding/index.js";
+} from "../../../src/agents/tools/coding/index.js";
 
 describe("registerCodingTools", () => {
   it("registers all coding tools", () => {

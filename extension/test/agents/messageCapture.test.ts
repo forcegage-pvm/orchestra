@@ -39,9 +39,9 @@ if (!moduleCompatible) {
     },
   );
 } else {
-  const { AgentSession } = await import("../../../src/agents/AgentSession.js");
+  const { AgentSession } = await import("../../src/agents/AgentSession.js");
   const { getSessionMessages } = await import(
-    "../../../src/agents/sessions/sessionMessageRepository.js"
+    "../../src/agents/sessions/sessionMessageRepository.js"
   );
   const { OrchestraDB } = await import("../../../src/database/client.js");
 

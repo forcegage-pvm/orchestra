@@ -4,9 +4,9 @@
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { createDirectoryTool } from "../../../../src/agents/tools/coding/createDirectory.js";
-import type { ToolInvocationContext } from "../../../../src/agents/tools/types.js";
-import { validatePath } from "../../../../src/agents/tools/utils/pathValidation.js";
+import { createDirectoryTool } from "../../../src/agents/tools/coding/createDirectory.js";
+import type { ToolInvocationContext } from "../../../src/agents/tools/types.js";
+import { validatePath } from "../../../src/agents/tools/utils/pathValidation.js";
 
 const { workspace, Uri } = vi.hoisted(() => {
   const workspace = {
@@ -37,7 +37,7 @@ vi.mock("vscode", () => ({
   Uri,
 }));
 
-vi.mock("../../../../src/agents/tools/utils/pathValidation.js", () => ({
+vi.mock("../../../src/agents/tools/utils/pathValidation.js", () => ({
   validatePath: vi.fn(),
 }));
 

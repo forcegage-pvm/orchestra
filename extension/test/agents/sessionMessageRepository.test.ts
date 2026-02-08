@@ -61,7 +61,7 @@ if (!moduleCompatible) {
     copyMessages,
     defaultTokenEstimator,
   } = await import(
-    "../../../src/agents/sessions/sessionMessageRepository.js"
+    "../../src/agents/sessions/sessionMessageRepository.js"
   );
   const { OrchestraDB } = await import("../../../src/database/client.js");
 

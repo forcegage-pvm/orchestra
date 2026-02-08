@@ -26,11 +26,16 @@ import {
 } from "./memory/TaskSummary.js";
 import type { TaskOutcome } from "./memory/types.js";
 import { SessionEventEmitter } from "./sessions/eventEmitter.js";
-import { createSession } from "./sessions/sessionRepository.js";
-import type {
+import {
+  continueSession,
+  createSession,
+  getSession,
+  getSessionMessages,
+} from "./sessions/sessionRepository.js";import type {
   AgentSessionInfo,
   SessionStatus,
   ToolCategory,
+  SessionStage,
 } from "./sessions/types.js";
 import {
   loadControllerTools,
@@ -136,6 +141,19 @@ export interface FileAttachment {
   mimeType?: string;
 }
 
+/**
+ * Options for continuing an existing session
+ */
+export interface ContinueSessionOptions {
+  /** ID of the parent session to continue from */
+  sessionId: string;
+  /** New instruction/prompt for the continued session */
+  continuationPrompt: string;
+  /** Stage for the new session */
+  stage: SessionStage;
+  /** Optional override for max iterations */
+  maxIterations?: number;
+}
 /**
  * Options for starting an agent
  */
@@ -760,9 +778,7 @@ export class AgentRunner implements vscode.Disposable {
     }
 
     const previousStatus = this.session.status;
-    this.isPaused = false;
-    this.session.resume();
-    this.eventEmitter?.emitStatusChange(previousStatus, "running");
+    this.session.resume();    this.eventEmitter?.emitStatusChange(previousStatus, "running");
     this.emitStateChange();
 
     // Restart agent loop
@@ -773,6 +789,76 @@ export class AgentRunner implements vscode.Disposable {
   }
 
   /**
+    * Continue an existing session by creating a child session with a new instruction
+    *
+    * Implements the Session Reuse pattern:
+    * 1. Creates new DB session linked to parent
+    * 2. Copies parent's message history
+    * 3. Appends continuation prompt
+    * 4. Starts execution in the new session
+    *
+    * @param options - Continuation options
+    * @returns The newly created child session
+    */
+   async continueSessionExecution(     options: ContinueSessionOptions,
+   ): Promise<AgentSession> {
+     const workspaceRoot = getWorkspaceRoot();
+     if (!workspaceRoot) {
+       throw new AgentError("No active workspace found");
+     }
+
+     if (this.session && this.session.status === "running") {
+       throw new AgentError(
+         "Cannot continue session while agent is running. Please stop or pause first.",
+       );
+     }
+
+     // 2. Get parent session
+     const parentSession = getSession(workspaceRoot, options.sessionId);
+     if (!parentSession) {
+       throw new SessionError(
+         `Parent session ${options.sessionId} not found`,
+         options.sessionId,
+       );
+     }
+
+     // 3. Create Child Session in DB (implements Session Reuse logic)
+     const childSession = continueSession(workspaceRoot, {
+       parentSessionId: options.sessionId,
+       continuationPrompt: options.continuationPrompt,
+       stage: options.stage,
+       maxIterations: options.maxIterations,
+     });
+
+     this.cancellationTokenSource = new vscode.CancellationTokenSource();     
+     // 4. Load into AgentRunner (similar to createSession logic)
+     // But we need to load TOOLS based on inherited role
+      this.session = childSession;
+     
+     // Ensure we load the right model for the role
+     this.toolRegistry.clear();
+     
+     const { loadControllerTools, loadImplementorTools, loadOrchestratorTools } =
+         await import("./toolLoaders.js");
+         
+     const role = this.session.role;
+     if (role === "implementor") {
+         loadImplementorTools(this.toolRegistry);
+     } else if (role === "orchestrator") {
+         loadOrchestratorTools(this.toolRegistry);
+      } else if (role === "controller") {
+         loadControllerTools(this.toolRegistry);
+      }
+
+      // 5. Start Execution
+     const model = this.getConfiguredModel(role);
+     
+     this.runningPromise = this.runAgentLoop(role, model).catch((error) => {
+        this.handleError(error);
+     });
+
+     return this.session;
+   }  /**
    * Resume a session loaded from storage
    *
    * @deprecated File-based session storage is deprecated. Use database queries instead.

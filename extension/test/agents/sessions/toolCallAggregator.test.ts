@@ -6,7 +6,7 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { aggregateToolCall } from "../../../src/agents/sessions/toolCallAggregator.js";
+import { aggregateToolCall } from "../../src/agents/sessions/toolCallAggregator.js";
 import type {
   AgentEvent,
   ErrorEvent,
@@ -19,7 +19,7 @@ import type {
   ToolOutputEvent,
   ToolProgressEvent,
   ToolResultEvent,
-} from "../../../src/agents/sessions/types.js";
+} from "../../src/agents/sessions/types.js";
 
 describe("aggregateToolCall", () => {
   const SESSION_ID = "session-123";

@@ -58,7 +58,7 @@ if (!moduleCompatible) {
 } else {
   // Import dependencies only if module is compatible
   const { purgeOldSessions } =
-    await import("../../../src/agents/sessions/retention.js");
+    await import("../../src/agents/sessions/retention.js");
   const { OrchestraDB } = await import("../../../src/database/client.js");
 
   // Test fixtures

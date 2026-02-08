@@ -7,8 +7,8 @@ import os from "os";
 import path from "path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { editLinesTool } from "../../../../src/agents/tools/coding/editLines.js";
-import type { ToolInvocationContext } from "../../../../src/agents/tools/types.js";
+import { editLinesTool } from "../../../src/agents/tools/coding/editLines.js";
+import type { ToolInvocationContext } from "../../../src/agents/tools/types.js";
 
 const { workspace, Range, Position, WorkspaceEdit, Uri } = vi.hoisted(() => {
   const workspace = {

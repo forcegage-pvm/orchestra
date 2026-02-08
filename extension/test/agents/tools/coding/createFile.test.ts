@@ -4,13 +4,13 @@
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { createFileTool } from "../../../../src/agents/tools/coding/createFile.js";
-import { ToolErrorCode } from "../../../../src/agents/tools/errors.js";
+import { createFileTool } from "../../../src/agents/tools/coding/createFile.js";
+import { ToolErrorCode } from "../../../src/agents/tools/errors.js";
 import type {
   ToolInvocationContext,
   ToolResult,
-} from "../../../../src/agents/tools/types.js";
-import { validatePath } from "../../../../src/agents/tools/utils/pathValidation.js";
+} from "../../../src/agents/tools/types.js";
+import { validatePath } from "../../../src/agents/tools/utils/pathValidation.js";
 
 const { workspace, WorkspaceEdit, Uri, FileSystemError } = vi.hoisted(() => {
   const workspace = {
@@ -73,7 +73,7 @@ vi.mock("vscode", () => ({
   FileSystemError,
 }));
 
-vi.mock("../../../../src/agents/tools/utils/pathValidation.js", () => ({
+vi.mock("../../../src/agents/tools/utils/pathValidation.js", () => ({
   validatePath: vi.fn(),
 }));
 
