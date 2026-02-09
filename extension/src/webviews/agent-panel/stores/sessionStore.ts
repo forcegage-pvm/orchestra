@@ -9,7 +9,7 @@
  */
 
 import { createSignal } from "solid-js";
-import { createStore, unwrap } from "solid-js/store";
+import { createStore, reconcile, unwrap } from "solid-js/store";
 import type {
   AgentEvent,
   AgentSession,
@@ -20,9 +20,32 @@ import { clearSearchableTextCache } from "./eventsStore.js";
 import { restoreState, saveState } from "./persistence.js";
 
 /**
- * Current active agent session (null when no session)
+ * Current active agent session.
+ *
+ * NOTE: createStore(null) internally creates a Proxy wrapping {}, NOT literal null.
+ * SolidJS uses (store || {}) so the store is always an object.
+ * Use reconcile() for full-object replacement (setSession does shallow merge by default).
+ * Use resetSession() to clear session data (setSession(null) would be a no-op).
  */
 export const [session, setSession] = createStore<AgentSession | null>(null);
+
+/**
+ * Replace the entire session with a new session object.
+ * Uses reconcile() for a full diff-based replacement instead of shallow merge.
+ * This ensures properties removed in the new session are properly cleaned up.
+ */
+export function replaceSession(newSession: AgentSession): void {
+  setSession(reconcile(newSession));
+}
+
+/**
+ * Reset session to empty state.
+ * setSession(null) is a no-op in SolidJS (null == undefined short-circuits),
+ * so we use reconcile with an empty object to clear all properties.
+ */
+export function resetSession(): void {
+  setSession(reconcile({} as AgentSession));
+}
 
 /**
  * All session events indexed by event ID
@@ -77,7 +100,7 @@ export function tryRestoreState(): boolean {
   const saved = restoreState();
   if (saved) {
     if (saved.session) {
-      setSession(saved.session);
+      replaceSession(saved.session);
     }
     if (saved.events) {
       setEvents(saved.events);

@@ -16,6 +16,8 @@ import {
   clearEvents,
   clearSessionHistory,
   persistState,
+  replaceSession,
+  resetSession,
   session,
   setSession,
   setToolCall,
@@ -68,7 +70,9 @@ export function handleExtensionMessage(message: ExtensionMessage): void {
         message.session?.sessionId,
         message.session?.status,
       );
-      setSession(message.session);
+      // Use replaceSession for full diff-based replacement (not shallow merge)
+      // This ensures a clean transition from empty store to full session object
+      replaceSession(message.session);
       persistState();
       setUi("initialScrollPending", true);
       break;
@@ -165,7 +169,7 @@ export function handleExtensionMessage(message: ExtensionMessage): void {
     case "load_session":
       // Replace entire session state
       // Session will be updated via subsequent session_update message
-      setSession(null);
+      resetSession();
 
       setUi("initialScrollPending", true);
 

@@ -7,7 +7,10 @@ import type { ExtensionMessage } from "../../../../src/webviews/agent-panel/prot
 
 // Mock store imports
 vi.mock("../../../../src/webviews/agent-panel/stores/sessionStore.js", () => ({
+  session: undefined,
   setSession: vi.fn(),
+  replaceSession: vi.fn(),
+  resetSession: vi.fn(),
   setEvents: vi.fn(),
   setToolCalls: vi.fn(),
   // New/auxiliary exports used by protocol handler
@@ -18,6 +21,8 @@ vi.mock("../../../../src/webviews/agent-panel/stores/sessionStore.js", () => ({
   clearSessionHistory: vi.fn(),
   setToolCall: vi.fn(),
   tryRestoreState: vi.fn(() => false),
+  syncSessionStatusFromEvents: vi.fn(),
+  toolCalls: {},
 }));
 
 // Import mocked stores
@@ -25,7 +30,8 @@ import {
   addEvent,
   clearEvents,
   clearSessionHistory,
-  setSession,
+  replaceSession,
+  resetSession,
 } from "../../../../src/webviews/agent-panel/stores/sessionStore.js";
 import { setUi } from "../../../../src/webviews/agent-panel/stores/uiStore.js";
 
@@ -80,8 +86,8 @@ describe("protocol/handler", () => {
 
       handleExtensionMessage(message);
 
-      expect(setSession).toHaveBeenCalledWith(mockSession);
-      expect(setSession).toHaveBeenCalledTimes(1);
+      expect(replaceSession).toHaveBeenCalledWith(mockSession);
+      expect(replaceSession).toHaveBeenCalledTimes(1);
     });
 
     it("should handle event messages", () => {
@@ -182,7 +188,7 @@ describe("protocol/handler", () => {
 
       handleExtensionMessage(message);
 
-      expect(setSession).toHaveBeenCalledWith(null);
+      expect(resetSession).toHaveBeenCalledTimes(1);
       expect(clearEvents).toHaveBeenCalledTimes(1);
       expect(addEvent).toHaveBeenCalledWith(mockEvents[0]);
     });
@@ -295,7 +301,7 @@ describe("protocol/handler", () => {
       const messageEvent = new MessageEvent("message", { data: message });
       messageListeners[0](messageEvent);
 
-      expect(setSession).toHaveBeenCalledWith(mockSession);
+      expect(replaceSession).toHaveBeenCalledWith(mockSession);
     });
   });
 });

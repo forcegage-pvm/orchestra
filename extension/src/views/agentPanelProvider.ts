@@ -7,6 +7,7 @@
  * Specification: specs/011-agent-panel-rework/spec.md Section 8.2
  */
 
+import * as fs from "node:fs";
 import * as path from "node:path";
 import * as vscode from "vscode";
 import type { AgentSession as AgentSessionClass } from "../agents/AgentSession.js";
@@ -1213,25 +1214,47 @@ export class AgentPanelProvider implements vscode.WebviewViewProvider {
   private _getHtmlContent(webview: vscode.Webview): string {
     const cspSource = webview.cspSource;
 
-    // Load the bundled SolidJS webview from Vite build output
-    const scriptUri = webview.asWebviewUri(
-      vscode.Uri.joinPath(
-        this._extensionUri,
-        "dist",
-        "webviews",
-        "agent-panel",
-        "index.js",
-      ),
-    );
+    // Read the bundled SolidJS webview script directly from disk
+    // This avoids the VS Code resource proxy (file+.vscode-resource.vscode-cdn.net)
+    // which can take 60+ seconds to serve the file, blocking all rendering.
+    const scriptPath = vscode.Uri.joinPath(
+      this._extensionUri,
+      "dist",
+      "webviews",
+      "agent-panel",
+      "index.js",
+    ).fsPath;
 
-    logger.info(`[AgentPanel] Script URI: ${scriptUri.toString()}`);
+    let scriptContent: string;
+    try {
+      scriptContent = fs.readFileSync(scriptPath, "utf-8");
+      // Escape </script> tags in the content to prevent breaking the inline script block
+      scriptContent = scriptContent.replace(/<\/script>/gi, "<\\/script>");
+      logger.info(
+        `[AgentPanel] Loaded inline script (${(scriptContent.length / 1024).toFixed(1)} KB)`,
+      );
+    } catch (err) {
+      logger.error(`[AgentPanel] Failed to read script from disk: ${err}`);
+      // Fallback to external script URI if disk read fails
+      const fallbackUri = webview.asWebviewUri(
+        vscode.Uri.joinPath(
+          this._extensionUri,
+          "dist",
+          "webviews",
+          "agent-panel",
+          "index.js",
+        ),
+      );
+      scriptContent = "";
+      return this._getFallbackHtml(cspSource, fallbackUri.toString());
+    }
 
     return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src ${cspSource} 'unsafe-inline';">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline';">
   <style>
     html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; }
     #root { width: 100%; height: 100%; padding-left: 5px; padding-right: 5px; box-sizing: border-box; }
@@ -1279,12 +1302,44 @@ export class AgentPanelProvider implements vscode.WebviewViewProvider {
     
     console.log('[AgentPanel] Preload script ready');
   </script>
-  <script src="${scriptUri}"></script>
+  <script>${scriptContent}</script>
   <script>
     window.agentPanelLoadStatus = 'loaded';
     clearTimeout(loadTimeout);
     console.log('[AgentPanel] Main script loaded successfully');
   </script>
+</body>
+</html>`;
+  }
+
+  /**
+   * Generate fallback HTML that uses external script URI (if disk read fails)
+   */
+  private _getFallbackHtml(cspSource: string, scriptUri: string): string {
+    return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src ${cspSource} 'unsafe-inline';">
+  <style>
+    html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; }
+    #root { width: 100%; height: 100%; padding-left: 5px; padding-right: 5px; box-sizing: border-box; }
+    .loading-container { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; gap: 12px; }
+    .loading-spinner { width: 24px; height: 24px; border: 2px solid rgba(255,255,255,0.1); border-top-color: #3b82f6; border-radius: 50%; animation: spin 0.8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .loading-text { color: #71717a; font-size: 12px; font-family: system-ui, -apple-system, sans-serif; }
+  </style>
+  <title>Agent Panel</title>
+</head>
+<body>
+  <div id="root">
+    <div class="loading-container">
+      <div class="loading-spinner"></div>
+      <div class="loading-text">Loading agent panel...</div>
+    </div>
+  </div>
+  <script src="${scriptUri}"></script>
 </body>
 </html>`;
   }

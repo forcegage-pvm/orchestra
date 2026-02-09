@@ -131,7 +131,12 @@ function App() {
 
 console.log("[AgentPanel] Starting render");
 const renderStart = performance.now();
-render(() => <App />, document.getElementById("root")!);
+// Clear the loading spinner - SolidJS render() APPENDS to the container,
+// it does NOT replace existing children. Without this, the loading-container
+// div stays in the DOM at 100% height, pushing the app off-screen.
+const rootEl = document.getElementById("root")!;
+rootEl.innerHTML = "";
+render(() => <App />, rootEl);
 const renderTime = performance.now() - renderStart;
 const totalTime = performance.now() - moduleLoadStart;
 console.log(`[AgentPanel] Render complete (${renderTime.toFixed(2)}ms)`);
