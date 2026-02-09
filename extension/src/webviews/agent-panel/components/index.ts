@@ -92,3 +92,6 @@ export { LoadingState } from "./LoadingState.js";
 
 export { EmptyState } from "./EmptyState.js";
 export type { EmptyStateProps } from "./EmptyState.js";
+
+export { OutputToolbar } from "./OutputToolbar.js";
+export type { OutputToolbarProps } from "./OutputToolbar.js";
