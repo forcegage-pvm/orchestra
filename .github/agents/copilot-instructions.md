@@ -15,6 +15,8 @@ Auto-generated from all feature plans. Last updated: 2025-12-04
 - N/A (tools operate on workspace files) (009-tools-rework)
 - TypeScript 5.x (ES2022 target, ESM modules) + VS Code Extension API (^1.95.0), child_process (Node.js), vitest (010-tool-enhance)
 - N/A (stateless tools, in-memory process tracking only) (010-tool-enhance)
+- TypeScript 5.x (ESM, strict mode with `exactOptionalPropertyTypes`) + Vitest (test runner), `vscode` API (extension host), `better-sqlite3` (DB), `crypto` (fingerprinting) (013-test-runner-tools)
+- In-memory `Map<string, TestResultCache>` for result caching; existing `sprint_settings` DB table for per-sprint test config (013-test-runner-tools)
 
 - TypeScript 5.x, Node.js 20+, Electron 39.x (VS Code engine) + vscode.lm API, VS Code Webview API, VS Code Workspace Edit API, better-sqlite3 (existing) (002-custom-agents)
 - SQLite via better-sqlite3 (existing Orchestra DB) + JSON files for session state (002-custom-agents)
@@ -37,9 +39,9 @@ npm test; npm run lint
 TypeScript 5.4+ (ESM modules, strict mode with `exactOptionalPropertyTypes`): Follow standard conventions
 
 ## Recent Changes
+- 013-test-runner-tools: Added TypeScript 5.x (ESM, strict mode with `exactOptionalPropertyTypes`) + Vitest (test runner), `vscode` API (extension host), `better-sqlite3` (DB), `crypto` (fingerprinting)
 - 010-tool-enhance: Added TypeScript 5.x (ES2022 target, ESM modules) + VS Code Extension API (^1.95.0), child_process (Node.js), vitest
 - 009-tools-rework: Added TypeScript 5.x (strict mode, exactOptionalPropertyTypes) + VS Code API (workspace.fs, WorkspaceEdit, Terminal.shellIntegration, tasks, languages.getDiagnostics), Zod
-- 008-sprint-management: Added TypeScript 5.x (ESM with `exactOptionalPropertyTypes: true`) + Drizzle ORM, better-sqlite3, VS Code Extension API (TreeDataProvider, WebviewViewProvider, FileSystemWatcher)
 
 
 

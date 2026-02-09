@@ -160,7 +160,7 @@ As a project maintainer, all test execution by AI agents is channeled through th
 
 - **FR-001**: System MUST provide scoped test execution with the following scope types: by specific file, by name pattern, by test suite/tier, by related files (change-based), by red-phase, by previously failed tests, and full suite.
 - **FR-002**: System MUST return compressed, structured test results including pass/fail counts, duration, and actionable failure details (test name, file, line, error message, expected/actual values).
-- **FR-003**: System MUST automatically detect the test framework from workspace configuration files when the framework is not explicitly specified.
+- **FR-003**: System MUST detect the presence and configuration of Vitest from workspace configuration files (e.g., `vitest.config.ts`) when the framework is not explicitly specified in the test configuration.
 - **FR-004**: System MUST support a TDD red-phase directory where tests are expected to fail, with inverted assertion logic that treats failures as correct and passes as problems.
 - **FR-005**: System MUST exclude red-phase tests from all non-red test runs (suite, related, file outside red directory, all).
 - **FR-006**: System MUST support promoting passing red-phase tests into standard test tier directories, with the destination inferred from subdirectory structure within the red directory.
@@ -177,7 +177,7 @@ As a project maintainer, all test execution by AI agents is channeled through th
 - **FR-017**: System MUST provide retrieval of previous test results without re-execution, supporting multiple output formats (summary, failures only, full list, structured data) and filtering by status or name pattern.
 - **FR-018**: System MUST provide test suite discovery at multiple detail levels: suite tier summary, file listing, and individual test names.
 - **FR-019**: System MUST intercept and block direct test execution commands issued through terminal tools, providing an instructive redirect to the proper test runner tool.
-- **FR-020**: System MUST allow configurable timeout per test run, with appropriate defaults based on scope (shorter for scoped runs, longer for full suite).
+- **FR-020**: System MUST allow configurable timeout per test run, with appropriate defaults based on scope (e.g., 30 seconds for scoped runs, 300 seconds for full suite).
 - **FR-021**: System MUST allow configurable maximum failure detail lines per test to control output verbosity.
 - **FR-022**: System MUST support a tiered test organization: red (TDD), smoke, unit, integration, and end-to-end, each with distinct expected characteristics.
 - **FR-023**: System MUST support re-running only previously failed tests without re-running passing tests.
@@ -189,7 +189,7 @@ As a project maintainer, all test execution by AI agents is channeled through th
 ### Key Entities
 
 - **Test Run**: An execution request characterized by scope, target, framework, working directory, and optional parameters. Produces a result with pass/fail counts, structured failures, and caching metadata.
-- **Test Tier**: A classification level for tests (red, smoke, unit, integration, e2e) that determines when tests are run, expected duration, and pass criteria (normal or inverted for red).
+- **Test Tier**: A classification level for tests (red, smoke, unit, integration, e2e) that determines when tests are run, expected duration, and pass criteria (normal or inverted for red). Note: "tier" is the canonical term for this classification; "suite" in tool names (e.g., `list_test_suites`) refers to the collection of tiers/test files for user familiarity.
 - **Red-Phase Test**: A test written before implementation that is expected to fail. Lives in the red directory, excluded from standard runs, eligible for promotion once passing.
 - **Test Result Cache Entry**: A stored result from a previous test run, keyed by a fingerprint of all relevant source files, used to skip redundant re-execution.
 - **Fingerprint**: A content-based hash of test files, their transitive source dependencies, and configuration files. Changes to any fingerprinted file invalidate the corresponding cache entry.
