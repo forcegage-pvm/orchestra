@@ -27,27 +27,24 @@ try {
 }
 
 // Get VS Code API - must be called ONCE and stored globally for protocol handler
-declare const acquireVsCodeApi: () => {
-  postMessage: (message: unknown) => void;
-};
-
-let vscode;
-try {
-  console.log("[AgentPanel] Acquiring VS Code API");
-  vscode = acquireVsCodeApi();
-  console.log("[AgentPanel] VS Code API acquired successfully");
-} catch (vsCodeError) {
-  console.error("[AgentPanel] Failed to acquire VS Code API:", vsCodeError);
-  throw vsCodeError;
-}
-
-// Make vscode API available globally for protocol handler to use
+// VS Code API is acquired by the preload script and set on window.vscode
+// Do NOT call acquireVsCodeApi() again — it can only be called once
 declare global {
   interface Window {
-    vscode: typeof vscode;
+    vscode: { postMessage: (message: unknown) => void };
+    _agentPanelMessageQueue?: unknown[];
+    _agentPanelHandlerReady?: boolean;
   }
 }
-window.vscode = vscode;
+
+if (!window.vscode) {
+  // Fallback for test environments
+  const acquireVsCodeApi: () => { postMessage: (message: unknown) => void } = (
+    globalThis as any
+  ).acquireVsCodeApi;
+  window.vscode = acquireVsCodeApi();
+}
+const vscode = window.vscode;
 
 // Initialize message handler AFTER setting window.vscode
 console.log("[AgentPanel] Initializing message handler");

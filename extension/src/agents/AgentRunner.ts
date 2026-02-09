@@ -582,6 +582,7 @@ export class AgentRunner implements vscode.Disposable {
       const sessionData: Omit<AgentSessionDB, "sessionId"> & {
         sessionId?: string;
       } = {
+        sessionId: this.session.id,
         role: this.session.role,
         taskId: options.taskId ?? 0,
         taskNumber: options.taskNumber,
@@ -947,6 +948,9 @@ export class AgentRunner implements vscode.Disposable {
         this.lastLoadedToolsRole = role;
       }
     }
+
+    // Create cancellation token for the new execution loop
+    this.cancellationTokenSource = new vscode.CancellationTokenSource();
 
     // Now call resume() to start execution
     // Note: isPaused is true, so this will work

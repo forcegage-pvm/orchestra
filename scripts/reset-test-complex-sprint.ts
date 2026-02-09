@@ -128,19 +128,18 @@ function resetDatabase(): void {
       `Code reviews cleared: ${reviewsDelete.changes} row(s) deleted`,
     );
 
-    // Clear agent sessions and events
-    const eventsDelete = db
-      .prepare(
-        "DELETE FROM session_events WHERE session_id IN (SELECT session_id FROM agent_sessions WHERE sprint_id = ?)",
-      )
-      .run(SPRINT_ID);
+    // Clear ALL agent sessions, messages, and events (not just sprint-scoped)
+    const messagesDelete = db.prepare("DELETE FROM session_messages").run();
+    console.log(
+      `Session messages cleared: ${messagesDelete.changes} row(s) deleted`,
+    );
+
+    const eventsDelete = db.prepare("DELETE FROM session_events").run();
     console.log(
       `Session events cleared: ${eventsDelete.changes} row(s) deleted`,
     );
 
-    const sessionsDelete = db
-      .prepare("DELETE FROM agent_sessions WHERE sprint_id = ?")
-      .run(SPRINT_ID);
+    const sessionsDelete = db.prepare("DELETE FROM agent_sessions").run();
     console.log(
       `Agent sessions cleared: ${sessionsDelete.changes} row(s) deleted`,
     );

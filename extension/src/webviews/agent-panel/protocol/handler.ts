@@ -200,18 +200,29 @@ export function initializeMessageHandler(): void {
   console.log("[AgentPanel] initializeMessageHandler() called");
   const initStart = performance.now();
 
-  // Notify extension that webview is ready FIRST (before any potentially slow operations)
-  // This allows the extension to start sending data immediately
-  if (typeof window !== "undefined" && window.vscode) {
-    console.log("[AgentPanel] Sending ready message");
-    window.vscode.postMessage({ type: "ready" });
-  }
-
-  // Use globalThis to access window in both browser and test environments
+  // 'ready' was already sent by the preload script — don't send it again.
+  // Register the real message handler now.
   globalThis.addEventListener("message", (event: MessageEvent) => {
     const message = event.data as ExtensionMessage;
     handleExtensionMessage(message);
   });
+
+  // Signal to the preload early-handler that we've taken over
+  if (typeof window !== "undefined") {
+    (window as any)._agentPanelHandlerReady = true;
+  }
+
+  // Process any messages that were buffered by the preload script
+  const queue = (window as any)?._agentPanelMessageQueue as
+    | unknown[]
+    | undefined;
+  if (queue && queue.length > 0) {
+    console.log(`[AgentPanel] Processing ${queue.length} buffered messages`);
+    for (const msg of queue) {
+      handleExtensionMessage(msg as ExtensionMessage);
+    }
+    queue.length = 0; // Clear the queue
+  }
 
   // Flush pending state before the page is hidden (prevents state loss)
   globalThis.addEventListener("visibilitychange", () => {

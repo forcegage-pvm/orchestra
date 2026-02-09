@@ -1279,6 +1279,7 @@ export class AgentPanelProvider implements vscode.WebviewViewProvider {
     // Track load status for diagnostics
     window.agentPanelLoadStatus = 'initializing';
     window.agentPanelErrors = [];
+    window._agentPanelMessageQueue = [];
     
     // Capture console errors
     var originalError = console.error;
@@ -1286,6 +1287,24 @@ export class AgentPanelProvider implements vscode.WebviewViewProvider {
       window.agentPanelErrors.push(Array.prototype.join.call(arguments, ' '));
       originalError.apply(console, arguments);
     };
+    
+    // Acquire VS Code API eagerly so we can send ready immediately
+    var _vscodeApi = acquireVsCodeApi();
+    window.vscode = _vscodeApi;
+    
+    // Send timing diagnostic and ready signal immediately
+    // This fires before the main 208KB bundle even starts parsing
+    _vscodeApi.postMessage({ type: 'ready' });
+    
+    // Buffer messages from the extension until the main bundle's handler takes over
+    window.addEventListener('message', function _earlyHandler(event) {
+      if (window._agentPanelHandlerReady) {
+        // Main handler has taken over — remove early handler
+        window.removeEventListener('message', _earlyHandler);
+        return;
+      }
+      window._agentPanelMessageQueue.push(event.data);
+    });
     
     // Show error if JavaScript doesn't load within 10 seconds
     var loadTimeout = setTimeout(function() {

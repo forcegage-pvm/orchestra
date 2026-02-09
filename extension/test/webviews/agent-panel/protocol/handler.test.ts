@@ -263,10 +263,10 @@ describe("protocol/handler", () => {
       expect(messageListeners).toHaveLength(1);
     });
 
-    it("should send ready message on initialization", () => {
+    it("should NOT send ready message (preload sends it)", () => {
       initializeMessageHandler();
 
-      expect(mockPostMessage).toHaveBeenCalledWith({ type: "ready" });
+      expect(mockPostMessage).not.toHaveBeenCalledWith({ type: "ready" });
     });
 
     it("should handle incoming messages via listener", () => {

@@ -214,7 +214,7 @@ describe("AgentRunner integration", () => {
     const payload =
       sessionEventEmitterMocks.emitSessionStart.mock.calls[0]?.[0];
     expect(payload).toBeDefined();
-    expect(payload.id).toBe("session-123");
+    expect(payload.id).toBe(lastCreatedSessionRef.value?.sessionId);
     expect(payload.role).toBe("orchestrator");
     expect(payload.status).toBe("initializing");
     expect(payload.startedAt).toBe(lastCreatedSessionRef.value?.startedAt);
