@@ -3,6 +3,7 @@
  *
  * Renders terminal output with ANSI color code support.
  * Converts ANSI escape sequences to styled HTML.
+ * Supports max-height constraints with scrollable overflow.
  */
 
 import AnsiToHtml from "ansi-to-html";
@@ -14,6 +15,12 @@ export interface TerminalOutputProps {
 
   /** Optional CSS class */
   class?: string;
+
+  /** Max height in pixels. Adds overflow-y-auto when set. */
+  maxHeight?: number;
+
+  /** Callback to expose the scrollable pre element ref externally */
+  onScrollRef?: (el: HTMLPreElement) => void;
 }
 
 // Configure the ANSI to HTML converter
@@ -78,10 +85,17 @@ export function TerminalOutput(props: TerminalOutputProps) {
     return ansiConverter.toHtml(cleaned);
   });
 
+  const scrollStyle = () =>
+    props.maxHeight
+      ? { "max-height": `${props.maxHeight}px`, "overflow-y": "auto" as const }
+      : undefined;
+
   return (
     <div class={`terminal-output ${props.class || ""}`}>
       <pre
-        class="border border-zinc-800/30 rounded p-2 overflow-x-auto text-[10px] font-mono leading-tight bg-zinc-900/50 whitespace-pre-wrap break-words"
+        ref={(el) => props.onScrollRef?.(el)}
+        class="border border-zinc-800/30 rounded p-2 overflow-x-auto text-[10px] font-mono leading-tight bg-zinc-900/50 whitespace-pre-wrap break-words output-scroll"
+        style={scrollStyle()}
         innerHTML={html()}
       />
     </div>

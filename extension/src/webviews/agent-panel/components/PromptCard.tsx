@@ -2,12 +2,13 @@
  * PromptCard Component
  *
  * Displays user or system prompt events with text content and optional file attachments.
+ * Collapsed by default with a 4-line preview; expandable to see full content.
  *
  * Specification: specs/011-agent-panel-rework/spec.md Section 3.2, 3.5
  */
 
 import { Icon } from "@iconify-icon/solid";
-import { For, Show } from "solid-js";
+import { createSignal, For, Show } from "solid-js";
 import type { PromptEvent } from "../../../agents/sessions/types.js";
 import { Markdown } from "./Markdown.js";
 
@@ -19,8 +20,8 @@ export interface PromptCardProps {
 /**
  * PromptCard - Displays user or system prompt with text and attachments
  *
- * Shows prompt icon, text content, and optional file attachments list.
- * Distinguishes between user and system prompts visually.
+ * Shows prompt icon, text content (collapsed by default with 4-line preview),
+ * and optional file attachments list. Attachments always visible.
  *
  * @example
  * ```tsx
@@ -28,6 +29,17 @@ export interface PromptCardProps {
  * ```
  */
 export function PromptCard(props: PromptCardProps) {
+  const [expanded, setExpanded] = createSignal(false);
+  const isCollapsed = () => !expanded();
+  const toggleExpanded = () => setExpanded(!expanded());
+
+  const getCollapsedPreview = () => {
+    const lines = props.event.text.split("\n");
+    const previewLines = lines.slice(0, 4).join("\n");
+    const remainingLines = Math.max(0, lines.length - 4);
+    return { previewLines, remainingLines };
+  };
+
   return (
     <div class="group rounded fade-in">
       <div class="px-2 py-1.5 flex gap-1.5">
@@ -36,15 +48,42 @@ export function PromptCard(props: PromptCardProps) {
           class="w-3 h-3 text-zinc-400 flex-shrink-0 mt-0.5"
         />
         <div class="flex-1 min-w-0">
-          <div class="text-[10px] font-semibold text-zinc-300 mb-1 tracking-tight">
-            Prompt
+          <div class="flex items-center justify-end mb-0.5">
+            <button
+              onClick={toggleExpanded}
+              class="flex items-center gap-1 text-[10px] text-zinc-500 hover:text-zinc-300 transition-colors"
+            >
+              {isCollapsed() ? (
+                <>
+                  <Show when={getCollapsedPreview().remainingLines > 0}>
+                    <span>+{getCollapsedPreview().remainingLines} more</span>
+                  </Show>
+                  <Icon icon="lucide:chevron-down" class="w-3 h-3" />
+                </>
+              ) : (
+                <>
+                  <span>Collapse</span>
+                  <Icon icon="lucide:chevron-up" class="w-3 h-3" />
+                </>
+              )}
+            </button>
           </div>
-          <Markdown
-            content={props.event.text}
-            class="text-xs text-zinc-400 leading-snug"
-          />
 
-          {/* File Attachments */}
+          <Show when={!isCollapsed()}>
+            <Markdown
+              content={props.event.text}
+              class="text-xs text-zinc-400 leading-snug"
+            />
+          </Show>
+
+          <Show when={isCollapsed()}>
+            <Markdown
+              content={getCollapsedPreview().previewLines}
+              class="text-xs text-zinc-400 leading-snug"
+            />
+          </Show>
+
+          {/* File Attachments - always visible */}
           <Show
             when={props.event.attachments && props.event.attachments.length > 0}
           >

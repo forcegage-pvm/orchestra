@@ -11,6 +11,7 @@ import { Icon } from "@iconify-icon/solid";
 import { createEffect, createSignal, Show } from "solid-js";
 import type { ToolCallAggregate } from "../../../agents/sessions/types.js";
 import { JsonViewer } from "./JsonViewer.js";
+import { OutputToolbar } from "./OutputToolbar.js";
 import { TerminalOutput } from "./TerminalOutput.js";
 import { ToolIcon } from "./ToolIcon.js";
 
@@ -133,6 +134,9 @@ function buildSearchCountLabel(result: unknown): string {
 export function ToolCallCard(props: ToolCallCardProps) {
   // Start with no tab selected
   const [selectedTab, setSelectedTab] = createSignal<TabSelection>("none");
+  const [outputScrollRef, setOutputScrollRef] = createSignal<
+    HTMLElement | undefined
+  >();
 
   // Auto-expand output tab when status changes to failed
   createEffect(() => {
@@ -263,6 +267,19 @@ export function ToolCallCard(props: ToolCallCardProps) {
     return null;
   };
 
+  const getOutputCopyText = (): string => {
+    const terminalText = getTerminalOutput();
+    if (isCommandOutput() && terminalText) return terminalText;
+    const output = getOutputDisplay();
+    if (output === null || output === undefined) return "";
+    if (typeof output === "string") return output;
+    try {
+      return JSON.stringify(output, null, 2);
+    } catch {
+      return String(output);
+    }
+  };
+
   return (
     <div class="rounded animate-fadeIn">
       {/* Header Row */}
@@ -368,7 +385,7 @@ export function ToolCallCard(props: ToolCallCardProps) {
         <div class="mx-2 mb-1.5 border-l-2 border-violet-500/60 pl-2">
           {/* Input Panel */}
           <Show when={selectedTab() === "input" && hasInput()}>
-            <JsonViewer data={getInputDisplay()} />
+            <JsonViewer data={getInputDisplay()} maxHeight={300} />
           </Show>
 
           {/* Output Panel */}
@@ -382,18 +399,33 @@ export function ToolCallCard(props: ToolCallCardProps) {
                   </div>
                   <Show when={props.toolCall.error?.suggestion}>
                     <div class="text-yellow-400 text-[10px]">
-                      💡 {props.toolCall.error!.suggestion}
+                      {props.toolCall.error!.suggestion}
                     </div>
                   </Show>
                 </div>
               }
             >
+              {/* Toolbar for output content */}
+              <OutputToolbar
+                scrollContainerRef={outputScrollRef}
+                copyText={getOutputCopyText}
+              />
               {/* Use TerminalOutput for command tools with stdout */}
               <Show
                 when={isCommandOutput() && getTerminalOutput()}
-                fallback={<JsonViewer data={getOutputDisplay()} />}
+                fallback={
+                  <JsonViewer
+                    data={getOutputDisplay()}
+                    maxHeight={300}
+                    onScrollRef={setOutputScrollRef}
+                  />
+                }
               >
-                <TerminalOutput output={getTerminalOutput()!} />
+                <TerminalOutput
+                  output={getTerminalOutput()!}
+                  maxHeight={300}
+                  onScrollRef={setOutputScrollRef}
+                />
               </Show>
             </Show>
           </Show>

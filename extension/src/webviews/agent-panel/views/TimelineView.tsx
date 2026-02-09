@@ -230,7 +230,7 @@ export function TimelineView(props: TimelineViewProps) {
     if (item.type === "toolCall") {
       // Render aggregated tool call card
       itemCard = (
-        <ToolCallCard toolCall={item.toolCall} startCollapsed={false} />
+        <ToolCallCard toolCall={item.toolCall} />
       );
     } else {
       // Render regular event
