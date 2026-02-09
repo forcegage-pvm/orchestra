@@ -33,11 +33,16 @@ describe("ToolErrorCode", () => {
       "WORKSPACE_REQUIRED",
       "PARTIAL_FAILURE",
       "UNKNOWN",
+      "TEST_RUN_IN_PROGRESS",
+      "TIER_NOT_CONFIGURED",
+      "CONFIG_NOT_FOUND",
+      "PROMOTION_BLOCKED",
+      "NO_CHANGES_DETECTED",
+      "TEST_COMMAND_BLOCKED",
     ];
 
     expect(Object.values(ToolErrorCode)).toEqual(expected);
   });
-
   it("validates error codes with schema", () => {
     const allCodes = Object.values(ToolErrorCode);
     for (const code of allCodes) {
