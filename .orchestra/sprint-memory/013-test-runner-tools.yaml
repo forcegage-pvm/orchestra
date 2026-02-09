@@ -1,0 +1,11 @@
+version: '1.0'
+sprintId: 013-test-runner-tools
+sprintName: 013-test-runner-tools
+goals: []
+architectureDecisions: []
+taskSummaries: []
+implementorPatterns: []
+compactionCount: 0
+lastCompactedAt: null
+createdAt: '2026-02-09T09:02:26.402Z'
+updatedAt: '2026-02-09T09:02:26.402Z'
