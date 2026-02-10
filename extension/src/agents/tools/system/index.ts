@@ -15,12 +15,14 @@ import { listProcessesTool } from "./listProcesses.js";
 import { runCommandTool } from "./runCommand.js";
 import { runTaskTool } from "./runTask.js";
 import { runTerminalTool } from "./runTerminal.js";
-import { runTestsTool } from "./runTests.js";
 import { sendInputTool } from "./sendInput.js";
 import { startProcessTool } from "./startProcess.js";
 import { stopProcessTool } from "./stopProcess.js";
 import { waitForInputTool } from "./waitForInput.js";
 import { waitForPatternTool } from "./waitForPattern.js";
+
+// Note: run_tests tool is now provided by testing/index.ts (registerTestingTools)
+// The old VS Code task-based runTestsTool is no longer registered here
 
 export const systemTools = [
   startProcessTool,
@@ -36,7 +38,6 @@ export const systemTools = [
   runTerminalTool,
   getTerminalOutputTool,
   runTaskTool,
-  runTestsTool,
   getTestFailuresTool,
   getProblemsTool,
 ] as const;
@@ -56,7 +57,6 @@ export {
   runCommandTool,
   runTaskTool,
   runTerminalTool,
-  runTestsTool,
   sendInputTool,
   startProcessTool,
   stopProcessTool,

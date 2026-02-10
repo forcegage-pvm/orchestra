@@ -16,6 +16,7 @@ import { codingTools } from "../../src/agents/tools/coding/index.js";
 import { filesystemTools } from "../../src/agents/tools/filesystem/index.js";
 import { orchestraImplementorTools } from "../../src/agents/tools/orchestra/index.js";
 import { systemTools } from "../../src/agents/tools/system/index.js";
+import { testingTools } from "../../src/agents/tools/testing/index.js";
 import type { AgentTool } from "../../src/agents/tools/types.js";
 import type { AgentConfig } from "../../src/agents/types.js";
 import { createEscalation } from "../../src/database/mutations.js";
@@ -257,7 +258,8 @@ describe("AgentRunner", () => {
         codingTools.length +
         filesystemTools.length +
         orchestraImplementorTools.length +
-        systemTools.length;
+        systemTools.length +
+        testingTools.length;
 
       expect(toolRegistry.names()).toHaveLength(expectedCount);
 
@@ -274,6 +276,10 @@ describe("AgentRunner", () => {
       }
 
       for (const tool of systemTools) {
+        expect(toolRegistry.has(tool.name)).toBe(true);
+      }
+
+      for (const tool of testingTools) {
         expect(toolRegistry.has(tool.name)).toBe(true);
       }
     });

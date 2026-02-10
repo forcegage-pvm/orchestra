@@ -1,0 +1,36 @@
+{
+  "framework": "vitest",
+  "tiers": [
+    {
+      "name": "unit",
+      "path": "test/**/*.test.ts",
+      "timeout": 30000
+    },
+    {
+      "name": "extension-unit",
+      "path": "extension/test/**/*.test.ts",
+      "timeout": 30000
+    },
+    {
+      "name": "integration",
+      "path": "test/integration/**/*.test.ts",
+      "timeout": 60000
+    },
+    {
+      "name": "extension-integration",
+      "path": "extension/test/integration/**/*.test.ts",
+      "timeout": 60000
+    }
+  ],
+  "workingDir": ".",
+  "defaultTimeout": 30000,
+  "maxFailureLines": 20,
+  "configFingerprint": [
+    "vitest.config.*",
+    "tsconfig.json",
+    ".agent-test-config.json"
+  ],
+  "promotion": {
+    "dryRun": true
+  }
+}

@@ -17,6 +17,7 @@ import { registerOrchestraControllerTools } from "./tools/orchestra/controllerIn
 import { registerOrchestraImplementorTools } from "./tools/orchestra/index.js";
 import { registerOrchestraOrchestratorTools } from "./tools/orchestra/orchestratorIndex.js";
 import { registerSystemTools } from "./tools/system/index.js";
+import { registerTestingTools } from "./tools/testing/index.js";
 
 /**
  * Register all tools available to the implementor role.
@@ -26,6 +27,7 @@ export function loadImplementorTools(registry: ToolRegistry): void {
   registerFilesystemTools(registry);
   registerOrchestraImplementorTools(registry);
   registerSystemTools(registry);
+  registerTestingTools(registry);
 }
 
 /**
@@ -36,6 +38,7 @@ export function loadOrchestratorTools(registry: ToolRegistry): void {
   registerFilesystemTools(registry);
   registerOrchestraOrchestratorTools(registry);
   registerSystemTools(registry);
+  registerTestingTools(registry);
 }
 
 /**
@@ -56,4 +59,6 @@ export function loadControllerTools(registry: ToolRegistry): void {
   ]);
   // Controller gets ONLY controller-specific Orchestra tools (approve/reject)
   registerOrchestraControllerTools(registry);
+  // Controller gets testing tools for running scoped tests
+  registerTestingTools(registry);
 }
