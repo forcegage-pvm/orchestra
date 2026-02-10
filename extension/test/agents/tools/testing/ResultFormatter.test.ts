@@ -693,4 +693,98 @@ describe("ResultFormatter", () => {
       expect(redPhase.promotionTargets[0].tier).toBe("integration");
     });
   });
+
+  describe("generateSelectionMetadata()", () => {
+    it("should generate TestSelectionInfo for each test file", () => {
+      const testFiles = ["test/unit/yaml.test.ts", "test/unit/config.test.ts"];
+      const changedFiles = ["src/core/yaml.ts", "src/core/config.ts"];
+
+      const selections = formatter.generateSelectionMetadata(testFiles, changedFiles);
+
+      expect(selections).toHaveLength(2);
+      expect(selections[0].file).toBe("test/unit/yaml.test.ts");
+      expect(selections[1].file).toBe("test/unit/config.test.ts");
+    });
+
+    it("should identify direct matches by file name", () => {
+      const testFiles = ["test/unit/yaml.test.ts"];
+      const changedFiles = ["src/core/yaml.ts"];
+
+      const selections = formatter.generateSelectionMetadata(testFiles, changedFiles);
+
+      expect(selections).toHaveLength(1);
+      expect(selections[0].reason).toBe("direct-match");
+      expect(selections[0].triggeredBy).toBe("src/core/yaml.ts");
+      expect(selections[0].depth).toBe(0);
+    });
+
+    it("should identify transitive matches when no direct match found", () => {
+      const testFiles = ["test/unit/some-other.test.ts"];
+      const changedFiles = ["src/core/yaml.ts"];
+
+      const selections = formatter.generateSelectionMetadata(testFiles, changedFiles);
+
+      expect(selections).toHaveLength(1);
+      expect(selections[0].reason).toBe("transitive-import");
+      expect(selections[0].depth).toBe(1);
+    });
+
+    it("should handle empty test files array", () => {
+      const testFiles: string[] = [];
+      const changedFiles = ["src/core/yaml.ts"];
+
+      const selections = formatter.generateSelectionMetadata(testFiles, changedFiles);
+
+      expect(selections).toHaveLength(0);
+    });
+
+    it("should return 'unknown' triggeredBy when no changed files", () => {
+      const testFiles = ["test/unit/yaml.test.ts"];
+      const changedFiles: string[] = [];
+
+      const selections = formatter.generateSelectionMetadata(testFiles, changedFiles);
+
+      expect(selections).toHaveLength(1);
+      expect(selections[0].triggeredBy).toBe("unknown");
+    });
+  });
+
+  describe("formatSelectionMetadata()", () => {
+    it("should format selection metadata per contracts/run-tests.md", () => {
+      const selections = [
+        { file: "test/unit/yaml.test.ts", reason: "direct-match" as const, triggeredBy: "src/core/yaml.ts", depth: 0 },
+        { file: "test/unit/config.test.ts", reason: "transitive-import" as const, triggeredBy: "src/core/yaml.ts", depth: 1 },
+      ];
+      const changedFiles = ["src/core/yaml.ts"];
+
+      const output = formatter.formatSelectionMetadata(selections, changedFiles);
+
+      expect(output).toContain("Selected 2 test file(s) from 1 changed source file(s)");
+      expect(output).toContain("src/core/yaml.ts →");
+      expect(output).toContain("test/unit/yaml.test.ts (direct, depth=0)");
+      expect(output).toContain("test/unit/config.test.ts (transitive, depth=1)");
+    });
+
+    it("should group selections by triggeredBy source file", () => {
+      const selections = [
+        { file: "test/unit/yaml.test.ts", reason: "direct-match" as const, triggeredBy: "src/core/yaml.ts", depth: 0 },
+        { file: "test/unit/templates.test.ts", reason: "direct-match" as const, triggeredBy: "src/core/templates.ts", depth: 0 },
+      ];
+      const changedFiles = ["src/core/yaml.ts", "src/core/templates.ts"];
+
+      const output = formatter.formatSelectionMetadata(selections, changedFiles);
+
+      expect(output).toContain("src/core/yaml.ts →");
+      expect(output).toContain("src/core/templates.ts →");
+    });
+
+    it("should return empty string for empty selections", () => {
+      const selections: never[] = [];
+      const changedFiles = ["src/core/yaml.ts"];
+
+      const output = formatter.formatSelectionMetadata(selections, changedFiles);
+
+      expect(output).toBe("");
+    });
+  });
 });

@@ -291,9 +291,12 @@ async function runTests(
       {
         getLastFailedTests: (dir: string) => testResultStore.getLastFailedTests(dir),
         workingDir,
+        // Related scope options
+        changeSource: validatedInput.change_source,
+        commitRange: validatedInput.commit_range,
+        fileList: validatedInput.file_list,
       },
     );
-
     // Check for error (ToolError has 'code' property)
     if ("code" in scopeResult) {
       return buildToolResult(
@@ -308,13 +311,17 @@ async function runTests(
     }
 
     // 6. Handle empty scope (no tests found)
-    if (scopeResult.files.length === 0 && !scopeResult.pattern) {
+    // For related scope, check relatedFiles instead of files
+    const hasFilesToRun = scopeResult.files.length > 0 || 
+      scopeResult.pattern || 
+      (scopeResult.relatedFiles && scopeResult.relatedFiles.length > 0);
+    
+    if (!hasFilesToRun) {
       const message = scopeResult.message ?? "No tests found for the specified scope.";
       return buildToolResult(
         successResult(TOOL_NAME, `No tests to run. ${message}`, configWarnings),
       );
     }
-
     // 7. Compute fingerprint for cache lookup
     // For pattern-only scopes (pattern, failed), we use an empty fingerprint since
     // there are no resolved files - but we still want to check/use cache keyed by scope+target+workingDir
@@ -329,12 +336,18 @@ async function runTests(
       scopeFingerprint = fingerprintResult.hash;
       fingerprintFileCount = fingerprintResult.fileCount;
       fingerprintedFiles = fingerprintResult.files;
+    } else if (scopeResult.relatedFiles && scopeResult.relatedFiles.length > 0) {
+      // For related scope, fingerprint the changed source files
+      const resolvedFiles = await resolveGlobPatterns(scopeResult.relatedFiles, workingDir);
+      const fingerprintResult = await fingerprintComputer.compute(resolvedFiles);
+      scopeFingerprint = fingerprintResult.hash;
+      fingerprintFileCount = fingerprintResult.fileCount;
+      fingerprintedFiles = fingerprintResult.files;
     } else if (scopeResult.pattern) {
       // For pattern-only scopes, fingerprint is based on the pattern itself
       // This provides some caching for repeated pattern runs
       scopeFingerprint = scopeResult.pattern;
     }
-
     // 8. Build cache key
     const cacheKey: CacheKey = {
       scope: validatedInput.scope,
@@ -382,8 +395,11 @@ async function runTests(
     if (scopeResult.pattern !== undefined) {
       executeOptions.pattern = scopeResult.pattern;
     }
+    // Add relatedFiles for related scope (vitest --related flag)
+    if (scopeResult.relatedFiles && scopeResult.relatedFiles.length > 0) {
+      executeOptions.relatedFiles = scopeResult.relatedFiles;
+    }
     const vitestResult = await runner.execute(executeOptions);
-
     // Check for error (ToolError has 'code' property)
     if ("code" in vitestResult) {
       return buildToolResult(
@@ -431,9 +447,15 @@ async function runTests(
       setLastRedPhaseResult(result);
     }
 
+    // 15b. Handle related scope: generate selection metadata
+    if (validatedInput.scope === "related" && scopeResult.relatedFiles) {
+      // Extract unique test files from test results
+      const testFiles = [...new Set(result.tests.map((t) => t.file))];
+      result.selections = formatter.generateSelectionMetadata(testFiles, scopeResult.relatedFiles);
+    }
+
     // 16. Build output string
     let output = `✓ run_tests [scope=${validatedInput.scope}${validatedInput.target ? `, target=${validatedInput.target}` : ""}]\n\n${result.summary}`;
-
     // For red-phase runs, add inverted interpretation to output
     if (validatedInput.scope === "red" && result.redPhase) {
       const rp = result.redPhase;
@@ -451,8 +473,15 @@ async function runTests(
       }
     }
 
-    if (result.failed > 0 && validatedInput.scope !== "red") {
-      // For non-red scopes, show failure details
+    // For related scope, add selection metadata to output
+    if (validatedInput.scope === "related" && result.selections && scopeResult.relatedFiles) {
+      const selectionOutput = formatter.formatSelectionMetadata(result.selections, scopeResult.relatedFiles);
+      if (selectionOutput) {
+        output += `\n\n${selectionOutput}`;
+      }
+    }
+
+    if (result.failed > 0 && validatedInput.scope !== "red") {      // For non-red scopes, show failure details
       const failureDetails = formatter.formatFailures(
         result.tests,
         maxFailureLines,
@@ -500,7 +529,7 @@ async function runTests(
  */
 export const runTestsTool: AgentTool<RunTestsInput> = {
   name: TOOL_NAME,
-  description: `Execute scoped test runs using the testing pipeline. Supports scopes: 'file' (specific test file), 'pattern' (test name regex), 'suite' (tier from .agent-test-config.json), 'failed' (re-run previous failures), 'all' (all non-red tiers). Implements fingerprint-based caching - identical test runs return cached results instantly. Use force=true to bypass cache. Requires .agent-test-config.json in workspace root. Returns token-efficient summary with pass/fail counts and failure details.`,
+  description: `Execute scoped test runs using the testing pipeline. Supports scopes: 'file' (specific test file), 'pattern' (test name regex), 'suite' (tier from .agent-test-config.json), 'related' (tests affected by changed files), 'red' (TDD red-phase tests), 'failed' (re-run previous failures), 'all' (all non-red tiers). For 'related' scope, use change_source to specify how to detect changes: 'working-tree' (git diff), 'commit-range' (with commit_range param), or 'file-list' (with file_list param). Implements fingerprint-based caching - identical test runs return cached results instantly. Use force=true to bypass cache. Requires .agent-test-config.json in workspace root. Returns token-efficient summary with pass/fail counts and failure details.`,
   inputSchema: runTestsInputSchema,
   invoke: runTests,
 };

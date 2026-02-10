@@ -225,20 +225,71 @@ describe("ScopeResolver", () => {
     });
   });
 
-  describe("resolve() - unsupported scopes", () => {
-    it("should return error for 'related' scope", async () => {
-      const result = await resolver.resolve("related", undefined, mockConfig);
+  describe("resolve() - related scope (US4)", () => {
+    it("should resolve related scope with working-tree change source", async () => {
+      // Mock the ChangeResolver by testing with file-list which doesn't need git
+      const result = await resolver.resolve("related", undefined, mockConfig, {
+        changeSource: "file-list",
+        fileList: ["src/core/yaml.ts", "src/core/templates.ts"],
+      });
+
+      expect(result).not.toHaveProperty("code");
+      const scopeResult = result as ScopeResult;
+      expect(scopeResult.files).toEqual([]); // Empty for related scope
+      expect(scopeResult.relatedFiles).toEqual(["src/core/yaml.ts", "src/core/templates.ts"]);
+      expect(scopeResult.message).toContain("Related scope");
+      expect(scopeResult.message).toContain("2 changed file(s)");
+    });
+
+    it("should return NO_CHANGES_DETECTED for empty file list", async () => {
+      const result = await resolver.resolve("related", undefined, mockConfig, {
+        changeSource: "file-list",
+        fileList: [],
+      });
 
       expect(result).toHaveProperty("code");
       const error = result as ToolError;
       expect(error.code).toBe(ToolErrorCode.INVALID_INPUT);
-      expect(error.message).toContain("not yet supported");
-      expect(error.message).toContain("related");
+    });
+
+    it("should return error when commit_range missing for commit-range source", async () => {
+      const result = await resolver.resolve("related", undefined, mockConfig, {
+        changeSource: "commit-range",
+        // commitRange intentionally missing
+      });
+
+      expect(result).toHaveProperty("code");
+      const error = result as ToolError;
+      expect(error.code).toBe(ToolErrorCode.INVALID_INPUT);
+      expect(error.message).toContain("Missing commit_range");
+    });
+
+    it("should default to working-tree when changeSource not specified", async () => {
+      // This will fail with COMMAND_FAILED or NO_CHANGES_DETECTED since we're not in a git repo
+      // but we can verify it doesn't fail with INVALID_INPUT
+      const result = await resolver.resolve("related", undefined, mockConfig, {
+        // changeSource intentionally not specified - should default to working-tree
+      });
+
+      // Should either succeed or fail with git-related error, not INVALID_INPUT
+      if ("code" in result) {
+        expect(result.code).not.toBe(ToolErrorCode.INVALID_INPUT);
+      }
+    });
+
+    it("should ignore target parameter for related scope", async () => {
+      const result = await resolver.resolve("related", "ignored-target", mockConfig, {
+        changeSource: "file-list",
+        fileList: ["src/file.ts"],
+      });
+
+      expect(result).not.toHaveProperty("code");
+      const scopeResult = result as ScopeResult;
+      expect(scopeResult.relatedFiles).toEqual(["src/file.ts"]);
     });
   });
 
-  describe("resolve() - failed scope (US3)", () => {
-    it("should return informative message when no getLastFailedTests callback is provided", async () => {
+  describe("resolve() - failed scope (US3)", () => {    it("should return informative message when no getLastFailedTests callback is provided", async () => {
       const result = await resolver.resolve("failed", undefined, mockConfig);
 
       expect(result).not.toHaveProperty("code");

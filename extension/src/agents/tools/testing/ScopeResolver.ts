@@ -9,9 +9,9 @@ import * as path from "path";
 
 import { createToolError, ToolErrorCode } from "../errors.js";
 import type { ToolError } from "../types.js";
+import { ChangeResolver } from "./ChangeResolver.js";
 import type { TestConfig } from "./TestConfigLoader.js";
-import type { TestScope } from "./types.js";
-
+import type { ChangeSource, TestScope } from "./types.js";
 /**
  * Callback type for retrieving last failed tests from TestResultStore.
  * @param workingDir The working directory to query for failed tests
@@ -27,8 +27,13 @@ export interface ResolveOptions {
   getLastFailedTests?: GetLastFailedTestsFn;
   /** Working directory for 'failed' scope lookups */
   workingDir?: string;
+  /** Change detection source for 'related' scope (default: 'working-tree') */
+  changeSource?: ChangeSource;
+  /** Required for 'commit-range' change source */
+  commitRange?: string;
+  /** Required for 'file-list' change source */
+  fileList?: string[];
 }
-
 /**
  * Result of scope resolution
  */
@@ -39,19 +44,21 @@ export interface ScopeResult {
   pattern?: string;
   /** Explanatory message (e.g., for empty results) */
   message?: string;
+  /** Related source files that triggered test selection (for 'related' scope) */
+  relatedFiles?: string[];
 }
-
 /**
- * Resolves test scopes (file, pattern, suite, all) to file lists or patterns.
+ * Resolves test scopes (file, pattern, suite, all, related, red, failed) to file lists or patterns.
  *
  * Scope behaviors:
  * - file: returns the single target file path
  * - pattern: returns empty files array with pattern string (pass-through to vitest -t)
  * - suite: looks up tier name in config and returns tier glob pattern
  * - all: returns all non-inverted tier glob patterns
- * - related/red/failed: not yet supported (returns error)
- */
-export class ScopeResolver {
+ * - related: detects changed files and returns them for vitest --related flag
+ * - red: returns inverted tier for TDD red-phase testing
+ * - failed: returns pattern of previously failed tests
+ */export class ScopeResolver {
   private workspaceRoot: string;
 
   constructor(workspaceRoot: string) {
@@ -92,13 +99,7 @@ export class ScopeResolver {
         return this.resolveFailed(options);
 
       case "related":
-        return createToolError(
-          ToolErrorCode.INVALID_INPUT,
-          `Scope 'related' is not yet supported.`,
-          `The 'related' scope will be implemented in a future task. Currently supported scopes: file, pattern, suite, all, red, failed.`,
-          { scope, supportedScopes: ["file", "pattern", "suite", "all", "red", "failed"] },
-        );
-
+        return this.resolveRelated(options);
       default: {
         // TypeScript exhaustiveness check - should never reach here
         const _exhaustive: never = scope;
@@ -228,8 +229,38 @@ export class ScopeResolver {
   }
 
   /**
-   * Resolve 'red' scope - returns the inverted tier's glob pattern.
-   * If no inverted tier exists in config, returns empty result with explanatory message.
+   * Resolve 'related' scope - detects changed files and returns them for vitest --related flag.
+   * Uses ChangeResolver to detect changes from working tree, commit range, or explicit file list.
+   * 
+   * @param options Resolve options containing changeSource, commitRange, and fileList
+   * @returns ScopeResult with relatedFiles for vitest --related flag
+   */
+  private resolveRelated(options?: ResolveOptions): ScopeResult | ToolError {
+    const changeSource = options?.changeSource ?? "working-tree";
+    
+    const changeResolver = new ChangeResolver(this.workspaceRoot);
+    const changeResult = changeResolver.resolve(
+      changeSource,
+      options?.commitRange,
+      options?.fileList,
+    );
+
+    // Check for error (ToolError has 'code' property)
+    if ("code" in changeResult) {
+      return changeResult;
+    }
+
+    const changedFiles = changeResult.files;
+
+    return {
+      files: [], // Empty for related scope - vitest uses --related flag instead
+      relatedFiles: changedFiles,
+      message: `Related scope: ${changedFiles.length} changed file(s) detected via ${changeSource}`,
+    };
+  }
+
+  /**
+   * Resolve 'red' scope - returns the inverted tier's glob pattern.   * If no inverted tier exists in config, returns empty result with explanatory message.
    */
   private resolveRed(config: TestConfig): ScopeResult {
     // Find the tier with inverted=true (the red tier)

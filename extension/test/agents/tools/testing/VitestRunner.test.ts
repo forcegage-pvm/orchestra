@@ -86,8 +86,39 @@ describe("VitestRunner", () => {
       expect(command[projectIndex + 1]).toBe("my-project");
     });
 
-    it("should append file paths at the end", () => {
+    it("should add --related flag when relatedFiles are provided (US4)", () => {
       const options: VitestRunOptions = {
+        files: [],
+        relatedFiles: ["src/core/yaml.ts", "src/core/templates.ts"],
+        workingDir: "/workspace",
+      };
+
+      const command = runner.buildCommand(options);
+
+      expect(command).toContain("--related");
+      const relatedIndex = command.indexOf("--related");
+      expect(command[relatedIndex + 1]).toBe("src/core/yaml.ts");
+      expect(command[relatedIndex + 2]).toBe("src/core/templates.ts");
+      // Files should NOT be appended when using --related
+      expect(command).not.toContain("test/**/*.test.ts");
+    });
+
+    it("should omit files when using relatedFiles (US4)", () => {
+      const options: VitestRunOptions = {
+        files: ["test/**/*.test.ts"], // These should be ignored
+        relatedFiles: ["src/file.ts"],
+        workingDir: "/workspace",
+      };
+
+      const command = runner.buildCommand(options);
+
+      // --related should be present
+      expect(command).toContain("--related");
+      // files array should not be appended (vitest handles test discovery via --related)
+      expect(command).not.toContain("test/**/*.test.ts");
+    });
+
+    it("should append file paths at the end", () => {      const options: VitestRunOptions = {
         files: ["test/unit/**/*.test.ts", "test/integration/**/*.test.ts"],
         workingDir: "/workspace",
       };

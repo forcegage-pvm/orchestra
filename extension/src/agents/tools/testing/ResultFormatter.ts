@@ -11,8 +11,8 @@ import type {
   TestFailureDetail,
   TestOutcome,
   TestScope,
-} from "./types.js";
-import type { TestConfig } from "./TestConfigLoader.js";
+  TestSelectionInfo,
+} from "./types.js";import type { TestConfig } from "./TestConfigLoader.js";
 
 /**
  * Formatting options
@@ -347,8 +347,146 @@ export class ResultFormatter {
   }
 
   /**
-   * Parse and validate Vitest JSON output structure.
+   * Generate TestSelectionInfo[] metadata for related scope runs.
+   * Creates entries for each test file selected during a related-scope run.
+   * 
+   * Since Vitest's --related flag handles transitive dependency resolution internally,
+   * we approximate the relationship based on file naming conventions and the changed files.
+   * 
+   * @param testFiles Array of test file paths that were selected
+   * @param changedFiles Array of source files that triggered the selection
+   * @returns Array of TestSelectionInfo entries
    */
+  generateSelectionMetadata(
+    testFiles: string[],
+    changedFiles: string[],
+  ): TestSelectionInfo[] {
+    const selections: TestSelectionInfo[] = [];
+
+    for (const testFile of testFiles) {
+      // Try to match test file to a source file
+      const matchResult = this.findMatchingSourceFile(testFile, changedFiles);
+
+      selections.push({
+        file: testFile,
+        reason: matchResult.reason,
+        triggeredBy: matchResult.triggeredBy,
+        depth: matchResult.depth,
+      });
+    }
+
+    return selections;
+  }
+
+  /**
+   * Format selection metadata for output.
+   * Produces output per contracts/run-tests.md 'Related Scope with Selection Metadata' section.
+   * 
+   * @param selections Array of TestSelectionInfo entries
+   * @param changedFiles Array of changed source files
+   * @returns Formatted string for output
+   */
+  formatSelectionMetadata(
+    selections: TestSelectionInfo[],
+    changedFiles: string[],
+  ): string {
+    if (selections.length === 0) {
+      return "";
+    }
+
+    const lines: string[] = [];
+    lines.push(`Selected ${selections.length} test file(s) from ${changedFiles.length} changed source file(s):`);
+
+    // Group selections by triggeredBy source file
+    const bySource = new Map<string, TestSelectionInfo[]>();
+    for (const selection of selections) {
+      const existing = bySource.get(selection.triggeredBy) || [];
+      existing.push(selection);
+      bySource.set(selection.triggeredBy, existing);
+    }
+
+    // Format per source file
+    const entries = Array.from(bySource.entries());
+    for (const [sourceFile, fileSelections] of entries) {
+      lines.push(`  ${sourceFile} →`);
+      for (const sel of fileSelections) {
+        const reasonLabel = sel.reason === "direct-match" ? "direct" : "transitive";
+        lines.push(`    ${sel.file} (${reasonLabel}, depth=${sel.depth})`);
+      }
+    }
+    return lines.join("\n");
+  }
+
+  /**
+   * Find the source file that most likely triggered a test file selection.
+   * Uses naming conventions to infer relationships.
+   * 
+   * @param testFile Test file path
+   * @param changedFiles Array of changed source files
+   * @returns Match result with reason, triggeredBy, and depth
+   */
+  private findMatchingSourceFile(
+    testFile: string,
+    changedFiles: string[],
+  ): { reason: "direct-match" | "transitive-import"; triggeredBy: string; depth: number } {
+    // Extract the base name of the test file (without .test.ts/.spec.ts)
+    const testBaseName = this.extractTestBaseName(testFile);
+
+    // Try to find a direct match by name
+    for (const sourceFile of changedFiles) {
+      const sourceBaseName = this.extractSourceBaseName(sourceFile);
+      if (testBaseName.toLowerCase() === sourceBaseName.toLowerCase()) {
+        return {
+          reason: "direct-match",
+          triggeredBy: sourceFile,
+          depth: 0,
+        };
+      }
+    }
+
+    // Try to find a match where test file name contains source file name
+    for (const sourceFile of changedFiles) {
+      const sourceBaseName = this.extractSourceBaseName(sourceFile);
+      if (testBaseName.toLowerCase().includes(sourceBaseName.toLowerCase())) {
+        return {
+          reason: "direct-match",
+          triggeredBy: sourceFile,
+          depth: 0,
+        };
+      }
+    }
+
+    // No direct match found - assume transitive import from first changed file
+    // Vitest's --related handles the actual dependency resolution
+    return {
+      reason: "transitive-import",
+      triggeredBy: changedFiles[0] || "unknown",
+      depth: 1,
+    };
+  }
+
+  /**
+   * Extract base name from a test file path.
+   * E.g., "test/unit/yaml.test.ts" → "yaml"
+   */
+  private extractTestBaseName(testFile: string): string {
+    const fileName = testFile.split("/").pop() || testFile;
+    return fileName
+      .replace(/\.test\.(ts|js|tsx|jsx)$/, "")
+      .replace(/\.spec\.(ts|js|tsx|jsx)$/, "");
+  }
+
+  /**
+   * Extract base name from a source file path.
+   * E.g., "src/core/yaml.ts" → "yaml"
+   */
+  private extractSourceBaseName(sourceFile: string): string {
+    const fileName = sourceFile.split("/").pop() || sourceFile;
+    return fileName.replace(/\.(ts|js|tsx|jsx)$/, "");
+  }
+
+  /**
+   * Parse and validate Vitest JSON output structure.   */
   private parseVitestJson(vitestJson: unknown): VitestJsonOutput {
     // Basic validation - ensure it's an object
     if (typeof vitestJson !== "object" || vitestJson === null) {

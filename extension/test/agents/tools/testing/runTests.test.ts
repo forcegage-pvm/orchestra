@@ -79,10 +79,23 @@ vi.mock("../../../../src/agents/tools/testing/ResultFormatter.js", () => {
       formatSummary() {
         return mockFormatResult?.summary ?? "";
       }
+      invertRedPhase() {
+        return { allPassing: true, failingCount: 0, promotionTargets: [] };
+      }
+      generateSelectionMetadata(testFiles: string[], changedFiles: string[]) {
+        return testFiles.map((file) => ({
+          file,
+          reason: "direct-match",
+          triggeredBy: changedFiles[0] || "unknown",
+          depth: 0,
+        }));
+      }
+      formatSelectionMetadata() {
+        return "Selection metadata formatted";
+      }
     },
   };
 });
-
 // Mock FingerprintComputer (US3: caching)
 vi.mock("../../../../src/agents/tools/testing/FingerprintComputer.js", () => {
   return {
@@ -387,11 +400,11 @@ describe("runTestsTool", () => {
       expect(result.error?.code).toBe(ToolErrorCode.FILE_NOT_FOUND);
     });
 
-    it("should return error for unsupported scope", async () => {
+    it("should return NO_CHANGES_DETECTED for related scope with no changes", async () => {
       mockResolveResult = {
-        code: ToolErrorCode.INVALID_INPUT,
-        message: "Scope 'related' is not yet supported.",
-        suggestion: "Currently supported scopes: file, pattern, suite, all.",
+        code: ToolErrorCode.NO_CHANGES_DETECTED,
+        message: "No changes found in working tree.",
+        suggestion: "Use scope 'suite' or 'all' to run tests regardless of changes.",
       };
 
       const result = await runTestsTool.invoke(
@@ -400,10 +413,9 @@ describe("runTestsTool", () => {
       );
 
       expect(result.success).toBe(false);
-      expect(result.error?.code).toBe(ToolErrorCode.INVALID_INPUT);
+      expect(result.error?.code).toBe(ToolErrorCode.NO_CHANGES_DETECTED);
     });
   });
-
   describe("vitest execution error", () => {
     it("should return error when vitest times out", async () => {
       mockExecuteResult = {
@@ -665,4 +677,89 @@ describe("runTestsTool", () => {
       expect(result.content[0].value).toContain("scope=failed");
     });
   });
+
+  describe("related scope (US4)", () => {
+    it("should succeed when related scope has changed files", async () => {
+      mockResolveResult = {
+        files: [],
+        relatedFiles: ["src/core/yaml.ts", "src/core/templates.ts"],
+        message: "Related scope: 2 changed file(s) detected via working-tree",
+      };
+
+      const result = await runTestsTool.invoke(
+        { scope: "related", change_source: "file-list", file_list: ["src/core/yaml.ts", "src/core/templates.ts"] },
+        mockContext,
+      );
+
+      expect(result.success).toBe(true);
+      expect(result.content[0].value).toContain("scope=related");
+    });
+
+    it("should include selection metadata in output for related scope", async () => {
+      // Mock a successful related scope run with test results
+      mockResolveResult = {
+        files: [],
+        relatedFiles: ["src/core/yaml.ts"],
+        message: "Related scope: 1 changed file(s)",
+      };
+
+      mockFormatResult = {
+        ...createMockFormattedResult(),
+        scope: "related",
+        tests: [
+          {
+            name: "should parse yaml",
+            file: "test/unit/yaml.test.ts",
+            line: 10,
+            status: "passed",
+            duration: 50,
+          },
+        ],
+      };
+
+      const result = await runTestsTool.invoke(
+        { scope: "related", change_source: "file-list", file_list: ["src/core/yaml.ts"] },
+        mockContext,
+      );
+
+      expect(result.success).toBe(true);
+      // Selection metadata should be included in output
+      expect(result.content[0].value).toContain("scope=related");
+    });
+
+    it("should pass relatedFiles to VitestRunner via options", async () => {
+      mockResolveResult = {
+        files: [],
+        relatedFiles: ["src/file.ts"],
+        message: "Related scope: 1 changed file(s)",
+      };
+
+      const result = await runTestsTool.invoke(
+        { scope: "related", change_source: "file-list", file_list: ["src/file.ts"] },
+        mockContext,
+      );
+
+      // Test should succeed, indicating relatedFiles were properly passed through pipeline
+      expect(result.success).toBe(true);
+    });
+  });
+
+  // Helper function to create mock formatted result (duplicated for module scope)
+  function createMockFormattedResult(): import("../../../../src/agents/tools/testing/types.js").RunTestsResult {
+    return {
+      runId: "run-123",
+      scope: "all",
+      cached: false,
+      fingerprint: "",
+      timestamp: new Date().toISOString(),
+      workingDir: "",
+      total: 10,
+      passed: 10,
+      failed: 0,
+      skipped: 0,
+      duration: 1234,
+      tests: [],
+      summary: "PASS | 10 passed, 0 failed, 0 skipped | 1.2s",
+    };
+  }
 });

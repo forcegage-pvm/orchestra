@@ -26,8 +26,9 @@ export interface VitestRunOptions {
   timeout?: number;
   /** Vitest project name */
   project?: string;
+  /** Related source files for --related flag (transitive regression detection) */
+  relatedFiles?: string[];
 }
-
 /**
  * Result of vitest execution
  */
@@ -56,7 +57,15 @@ export class VitestRunner {
     // JSON reporter with output file (always)
     const jsonOutputPath = this.getTempOutputPath();
     args.push("--reporter=json");
-    args.push(`--outputFile=${jsonOutputPath}`);    // Optional: test name pattern
+    args.push(`--outputFile=${jsonOutputPath}`);
+
+    // Related files for transitive regression (--related flag)
+    // Must be before other options per vitest CLI behavior
+    if (options.relatedFiles && options.relatedFiles.length > 0) {
+      args.push("--related", ...options.relatedFiles);
+    }
+
+    // Optional: test name pattern
     if (options.pattern) {
       args.push("-t", options.pattern);
     }
@@ -71,12 +80,13 @@ export class VitestRunner {
       args.push("--project", options.project);
     }
 
-    // File paths/globs (at the end)
-    args.push(...options.files);
+    // File paths/globs (at the end) - only if not using --related
+    if (!options.relatedFiles || options.relatedFiles.length === 0) {
+      args.push(...options.files);
+    }
 
     return args;
   }
-
   /**
    * Execute vitest with the given options.
    * @param options Run configuration
