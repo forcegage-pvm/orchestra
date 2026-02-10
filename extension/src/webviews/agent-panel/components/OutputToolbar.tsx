@@ -29,30 +29,33 @@ export function OutputToolbar(props: OutputToolbarProps) {
   };
 
   const handleCopy = async () => {
+    const text = props.copyText();
+    if (!text) return;
     try {
-      await window.navigator.clipboard.writeText(props.copyText());
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      await window.navigator.clipboard.writeText(text);
     } catch {
-      // Clipboard API may fail in some webview contexts
+      // Clipboard API fails in VS Code webviews — fall back to postMessage
+      window.vscode.postMessage({ type: "copy_text", text });
     }
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   };
 
   return (
-    <div class="flex items-center justify-end gap-1 mb-1">
+    <div class="flex items-center justify-end gap-1.5 mb-1">
       <button
         onClick={scrollToTop}
         class="p-0.5 text-zinc-500 hover:text-zinc-300 transition-colors rounded"
         title="Scroll to top"
       >
-        <Icon icon="lucide:chevron-up" class="w-3 h-3" />
+        <Icon icon="lucide:chevron-up" class="w-3.5 h-3.5" />
       </button>
       <button
         onClick={scrollToBottom}
         class="p-0.5 text-zinc-500 hover:text-zinc-300 transition-colors rounded"
         title="Scroll to bottom"
       >
-        <Icon icon="lucide:chevron-down" class="w-3 h-3" />
+        <Icon icon="lucide:chevron-down" class="w-3.5 h-3.5" />
       </button>
       <button
         onClick={() => void handleCopy()}
@@ -60,8 +63,8 @@ export function OutputToolbar(props: OutputToolbarProps) {
         title={copied() ? "Copied!" : "Copy to clipboard"}
       >
         <Icon
-          icon={copied() ? "lucide:check" : "lucide:clipboard"}
-          class="w-3 h-3"
+          icon={copied() ? "lucide:check" : "lucide:copy"}
+          class="w-3.5 h-3.5"
         />
       </button>
     </div>

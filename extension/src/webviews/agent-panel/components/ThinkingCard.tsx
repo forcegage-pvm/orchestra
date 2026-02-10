@@ -62,51 +62,62 @@ export function ThinkingCard(props: ThinkingCardProps) {
     wasStreaming = streaming;
   });
 
-  // Get first 4 lines and remaining line count for collapsed view
-  const getCollapsedPreview = () => {
+  // Split text into first line (shown in header) and remaining lines
+  const getFirstLine = () => {
     const lines = props.event.text.split("\n");
-    const previewLines = lines.slice(0, 4).join("\n");
-    const remainingLines = Math.max(0, lines.length - 4);
-    return { previewLines, remainingLines };
+    return lines[0] || "";
+  };
+
+  const getRemainingText = () => {
+    const lines = props.event.text.split("\n");
+    if (lines.length <= 1) return "";
+    return lines.slice(1).join("\n");
+  };
+
+  const getRemainingLineCount = () => {
+    const lines = props.event.text.split("\n");
+    return Math.max(0, lines.length - 1);
   };
 
   return (
     <div class="group rounded hover:bg-zinc-800/20 transition-colors fade-in">
-      {/* Header row: icon + "Thinking" + expand/collapse on same line */}
+      {/* Header row: icon + first line of thinking text + expand/collapse */}
       <div class="px-2 py-1.5 flex items-center gap-1.5">
         <Icon
           icon="lucide:brain"
           class="w-3 h-3 text-purple-400 flex-shrink-0"
         />
-        <div class="text-[10px] font-semibold text-zinc-300 tracking-tight">
-          Thinking
-        </div>
-        <div class="flex-1" />
-        <button
-          onClick={toggleExpanded}
-          class="flex items-center gap-1 text-[10px] text-zinc-500 hover:text-zinc-300 transition-colors flex-shrink-0"
-        >
-          {isCollapsed() ? (
-            <>
-              <Show when={getCollapsedPreview().remainingLines > 0}>
-                <span>+{getCollapsedPreview().remainingLines} more</span>
-              </Show>
-              <Icon icon="lucide:chevron-down" class="w-3 h-3" />
-            </>
-          ) : (
-            <>
-              <span>Collapse</span>
-              <Icon icon="lucide:chevron-up" class="w-3 h-3" />
-            </>
-          )}
-        </button>
+        <span class="text-[13px] text-zinc-400 truncate min-w-0 flex-1">
+          {getFirstLine()}
+          <Show when={props.isStreaming && getRemainingLineCount() === 0}>
+            <span class="inline-block w-0.5 h-3.5 ml-1 bg-purple-400 animate-blink align-middle" />
+          </Show>
+        </span>
+        <Show when={getRemainingLineCount() > 0}>
+          <button
+            onClick={toggleExpanded}
+            class="flex items-center gap-1 text-[10px] text-zinc-500 hover:text-zinc-300 transition-colors flex-shrink-0"
+          >
+            {isCollapsed() ? (
+              <>
+                <span>+{getRemainingLineCount()} more</span>
+                <Icon icon="lucide:chevron-down" class="w-3 h-3" />
+              </>
+            ) : (
+              <>
+                <span>Collapse</span>
+                <Icon icon="lucide:chevron-up" class="w-3 h-3" />
+              </>
+            )}
+          </button>
+        </Show>
       </div>
 
-      {/* Expanded content */}
-      <Show when={!isCollapsed()}>
+      {/* Expanded: remaining lines below the first line */}
+      <Show when={!isCollapsed() && getRemainingLineCount() > 0}>
         <div class="px-2 pb-1.5 pl-7">
           <Markdown
-            content={props.event.text}
+            content={getRemainingText()}
             class="text-[13px] text-zinc-400 leading-relaxed"
           />
           {/* Animated cursor during streaming */}
@@ -120,16 +131,6 @@ export function ThinkingCard(props: ThinkingCardProps) {
               {props.event.tokenCount} tokens
             </div>
           </Show>
-        </div>
-      </Show>
-
-      {/* Collapsed preview */}
-      <Show when={isCollapsed()}>
-        <div class="px-2 pb-1.5 pl-7">
-          <Markdown
-            content={getCollapsedPreview().previewLines}
-            class="text-[13px] text-zinc-400 leading-relaxed"
-          />
         </div>
       </Show>
     </div>
