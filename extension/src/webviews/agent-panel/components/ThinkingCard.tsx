@@ -9,7 +9,8 @@
  */
 
 import { Icon } from "@iconify-icon/solid";
-import { createEffect, createSignal, Show } from "solid-js";
+import { marked } from "marked";
+import { createEffect, createMemo, createSignal, Show } from "solid-js";
 import type { ThinkingEvent } from "../../../agents/sessions/types.js";
 import { Markdown } from "./Markdown.js";
 
@@ -79,6 +80,17 @@ export function ThinkingCard(props: ThinkingCardProps) {
     return Math.max(0, lines.length - 1);
   };
 
+  // Render first line as inline markdown (no wrapping <p> tags)
+  const firstLineHtml = createMemo(() => {
+    const line = getFirstLine();
+    if (!line) return "";
+    try {
+      return marked.parseInline(line, { gfm: true }) as string;
+    } catch {
+      return line;
+    }
+  });
+
   return (
     <div class="group rounded hover:bg-zinc-800/20 transition-colors fade-in">
       {/* Header row: icon + first line of thinking text + expand/collapse */}
@@ -87,12 +99,13 @@ export function ThinkingCard(props: ThinkingCardProps) {
           icon="lucide:brain"
           class="w-3 h-3 text-purple-400 flex-shrink-0"
         />
-        <span class="text-[13px] text-zinc-400 truncate min-w-0 flex-1">
-          {getFirstLine()}
-          <Show when={props.isStreaming && getRemainingLineCount() === 0}>
-            <span class="inline-block w-0.5 h-3.5 ml-1 bg-purple-400 animate-blink align-middle" />
-          </Show>
-        </span>
+        <span
+          class="text-[13px] text-zinc-400 truncate min-w-0 flex-1 markdown-content"
+          innerHTML={firstLineHtml()}
+        />
+        <Show when={props.isStreaming && getRemainingLineCount() === 0}>
+          <span class="inline-block w-0.5 h-3.5 ml-1 bg-purple-400 animate-blink flex-shrink-0" />
+        </Show>
         <Show when={getRemainingLineCount() > 0}>
           <button
             onClick={toggleExpanded}
