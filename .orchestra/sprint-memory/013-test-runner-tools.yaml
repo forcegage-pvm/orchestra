@@ -4,52 +4,19 @@ sprintName: 013-test-runner-tools
 goals: []
 architectureDecisions: []
 taskSummaries:
-  - taskId: 521
-    title: Task 521
+  - taskId: 525
+    title: Summary of 5 tasks
     outcome: success
-    attemptCount: 1
-    description: Task completed.
+    attemptCount: 5
+    description: '#521: Task 521 | #522: Task 522 | #523: Task 523 | #524: Task 524 | #525: Task 525'
     lessonsLearned: []
     issuesEncountered: []
     filesCreated: []
     filesModified: []
     filesDeleted: []
-    completedAt: '2026-02-09T09:28:57.466Z'
-  - taskId: 522
-    title: Task 522
-    outcome: success
-    attemptCount: 1
-    description: Task completed.
-    lessonsLearned: []
-    issuesEncountered: []
-    filesCreated: []
-    filesModified: []
-    filesDeleted: []
-    completedAt: '2026-02-09T09:49:04.174Z'
-  - taskId: 523
-    title: Task 523
-    outcome: success
-    attemptCount: 1
-    description: Task completed.
-    lessonsLearned: []
-    issuesEncountered: []
-    filesCreated: []
-    filesModified: []
-    filesDeleted: []
-    completedAt: '2026-02-10T17:32:28.121Z'
-  - taskId: 524
-    title: Task 524
-    outcome: success
-    attemptCount: 1
-    description: Task completed.
-    lessonsLearned: []
-    issuesEncountered: []
-    filesCreated: []
-    filesModified: []
-    filesDeleted: []
-    completedAt: '2026-02-10T19:02:10.909Z'
+    completedAt: '2026-02-10T19:32:43.229Z'
 implementorPatterns: []
-compactionCount: 0
-lastCompactedAt: null
+compactionCount: 1
+lastCompactedAt: '2026-02-10T19:32:43.231Z'
 createdAt: '2026-02-09T09:02:26.402Z'
-updatedAt: '2026-02-10T19:02:10.910Z'
+updatedAt: '2026-02-10T19:32:43.231Z'
