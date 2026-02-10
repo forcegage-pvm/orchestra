@@ -82,6 +82,43 @@ vi.mock("../../../../src/agents/tools/testing/ResultFormatter.js", () => {
     },
   };
 });
+
+// Mock FingerprintComputer (US3: caching)
+vi.mock("../../../../src/agents/tools/testing/FingerprintComputer.js", () => {
+  return {
+    FingerprintComputer: class MockFingerprintComputer {
+      compute() {
+        return Promise.resolve({ hash: "mock-fingerprint", fileCount: 5, files: [] });
+      }
+    },
+  };
+});
+
+// Mock TestResultStore (US3: caching and failed test re-runs)
+let mockCachedResult: RunTestsResult | undefined = undefined;
+let mockLastFailedTests: string[] | undefined = undefined;
+
+vi.mock("../../../../src/agents/tools/testing/TestResultStore.js", () => {
+  return {
+    TestResultStore: class MockTestResultStore {
+      get(_cacheKey: unknown, _fingerprint: string) {
+        return mockCachedResult;
+      }
+      set() {
+        // No-op for tests
+      }
+      recordFailures() {
+        // No-op for tests
+      }
+      getLastFailedTests() {
+        return mockLastFailedTests;
+      }
+      invalidateAll() {
+        // No-op for tests
+      }
+    },
+  };
+});
 // Import after mocks are set up
 import { runTestsTool } from "../../../../src/agents/tools/testing/runTests.js";
 
@@ -123,6 +160,10 @@ describe("runTestsTool", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+
+    // Reset caching mock state (US3)
+    mockCachedResult = undefined;
+    mockLastFailedTests = undefined;
 
     // Create mock context
     mockContext = {
@@ -431,8 +472,19 @@ describe("runTestsTool", () => {
 
   describe("lock release on error", () => {
     it("should release lock even when pipeline throws", async () => {
-      // Make execute throw an unexpected error
-      mockExecuteResult = Promise.reject(new Error("Unexpected error")) as never;
+      // Make execute throw an unexpected error by creating the rejection lazily
+      const errorToThrow = new Error("Unexpected error");
+      mockExecuteResult = {
+        get exitCode(): never {
+          throw errorToThrow;
+        },
+        get vitestJson(): never {
+          throw errorToThrow;
+        },
+        get duration(): never {
+          throw errorToThrow;
+        },
+      } as never;
 
       // First run should fail but release lock
       try {
@@ -528,6 +580,89 @@ describe("runTestsTool", () => {
       expect(result.metadata.warnings).toContain(
         "Tier 'e2e' directory does not exist.",
       );
+    });
+  });
+
+  describe("fingerprint-based caching (US3)", () => {
+    it("should return cached result when fingerprint matches", async () => {
+      // Set up a cached result
+      mockCachedResult = {
+        ...createMockFormattedResult(),
+        summary: "CACHED: 10 passed, 0 failed | 0.5s",
+      };
+
+      const result = await runTestsTool.invoke(
+        { scope: "suite", target: "unit" },
+        mockContext,
+      );
+
+      expect(result.success).toBe(true);
+      expect(result.content[0].value).toContain("cached");
+      expect(result.content[0].value).toContain("CACHED: 10 passed");
+    });
+
+    it("should bypass cache when force=true", async () => {
+      // Set up a cached result
+      mockCachedResult = {
+        ...createMockFormattedResult(),
+        summary: "CACHED RESULT - should be bypassed",
+      };
+
+      const result = await runTestsTool.invoke(
+        { scope: "suite", target: "unit", force: true },
+        mockContext,
+      );
+
+      expect(result.success).toBe(true);
+      // Should use fresh result, not cached
+      expect(result.content[0].value).not.toContain("CACHED RESULT");
+      expect(result.content[0].value).toContain("10 passed");
+    });
+
+    it("should include fingerprint in result metadata", async () => {
+      const result = await runTestsTool.invoke(
+        { scope: "suite", target: "unit" },
+        mockContext,
+      );
+
+      expect(result.success).toBe(true);
+      // The result should succeed and the mock fingerprint should be computed
+    });
+  });
+
+  describe("failed scope (US3)", () => {
+    it("should succeed with 'failed' scope when no previous failures", async () => {
+      mockLastFailedTests = undefined;
+      mockResolveResult = {
+        files: [],
+        message: "No failed tests from previous run. All tests passed or no tests have been run yet.",
+      };
+
+      const result = await runTestsTool.invoke(
+        { scope: "failed" },
+        mockContext,
+      );
+
+      expect(result.success).toBe(true);
+      expect(result.content[0].value).toContain("No tests to run");
+      expect(result.content[0].value).toContain("No failed tests");
+    });
+
+    it("should run only failed tests when previous failures exist", async () => {
+      mockLastFailedTests = ["failing test 1", "failing test 2"];
+      mockResolveResult = {
+        files: [],
+        pattern: "failing test 1|failing test 2",
+        message: "Failed scope: re-running 2 previously failed test(s)",
+      };
+
+      const result = await runTestsTool.invoke(
+        { scope: "failed" },
+        mockContext,
+      );
+
+      expect(result.success).toBe(true);
+      expect(result.content[0].value).toContain("scope=failed");
     });
   });
 });

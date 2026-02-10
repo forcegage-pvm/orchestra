@@ -11,6 +11,24 @@ import { createToolError, ToolErrorCode } from "../errors.js";
 import type { ToolError } from "../types.js";
 import type { TestConfig } from "./TestConfigLoader.js";
 import type { TestScope } from "./types.js";
+
+/**
+ * Callback type for retrieving last failed tests from TestResultStore.
+ * @param workingDir The working directory to query for failed tests
+ * @returns Array of failed test names, or undefined if none recorded
+ */
+export type GetLastFailedTestsFn = (workingDir: string) => string[] | undefined;
+
+/**
+ * Options for scope resolution
+ */
+export interface ResolveOptions {
+  /** Callback to retrieve last failed tests (required for 'failed' scope) */
+  getLastFailedTests?: GetLastFailedTestsFn;
+  /** Working directory for 'failed' scope lookups */
+  workingDir?: string;
+}
+
 /**
  * Result of scope resolution
  */
@@ -45,12 +63,14 @@ export class ScopeResolver {
    * @param scope Test scope type
    * @param target Optional target (meaning depends on scope)
    * @param config Test configuration with tier definitions
+   * @param options Optional resolve options (getLastFailedTests callback for 'failed' scope)
    * @returns ScopeResult or ToolError for unsupported/invalid scopes
    */
   async resolve(
     scope: TestScope,
     target: string | undefined,
     config: TestConfig,
+    options?: ResolveOptions,
   ): Promise<ScopeResult | ToolError> {
     switch (scope) {
       case "file":
@@ -68,13 +88,15 @@ export class ScopeResolver {
       case "red":
         return this.resolveRed(config);
 
-      case "related":
       case "failed":
+        return this.resolveFailed(options);
+
+      case "related":
         return createToolError(
           ToolErrorCode.INVALID_INPUT,
-          `Scope '${scope}' is not yet supported.`,
-          `The '${scope}' scope will be implemented in a future task. Currently supported scopes: file, pattern, suite, all, red.`,
-          { scope, supportedScopes: ["file", "pattern", "suite", "all", "red"] },
+          `Scope 'related' is not yet supported.`,
+          `The 'related' scope will be implemented in a future task. Currently supported scopes: file, pattern, suite, all, red, failed.`,
+          { scope, supportedScopes: ["file", "pattern", "suite", "all", "red", "failed"] },
         );
 
       default: {
@@ -83,7 +105,7 @@ export class ScopeResolver {
         return createToolError(
           ToolErrorCode.INVALID_INPUT,
           `Unknown scope: ${String(_exhaustive)}`,
-          "Use one of the supported scopes: file, pattern, suite, all.",
+          "Use one of the supported scopes: file, pattern, suite, all, failed.",
           { scope: _exhaustive },
         );
       }
@@ -225,5 +247,52 @@ export class ScopeResolver {
       files: [redTier.path],
       message: `Red scope: tier '${redTier.name}' → ${redTier.path}`,
     };
+  }
+
+  /**
+   * Resolve 'failed' scope - returns a pattern for re-running previously failed tests.
+   * Queries TestResultStore.getLastFailedTests() to get failed test names from the last run.
+   * Constructs a vitest -t pattern from the failed test names (regex-escaped and joined with `|`).
+   * 
+   * @param options Resolve options containing getLastFailedTests callback and workingDir
+   * @returns ScopeResult with pattern (for vitest -t), or informative message if no failures
+   */
+  private resolveFailed(options?: ResolveOptions): ScopeResult {
+    // Check if getLastFailedTests callback is provided
+    if (!options?.getLastFailedTests || !options?.workingDir) {
+      return {
+        files: [],
+        message: "No previous test run recorded. Run tests first before using 'failed' scope.",
+      };
+    }
+
+    // Query for last failed tests
+    const failedTests = options.getLastFailedTests(options.workingDir);
+
+    if (!failedTests || failedTests.length === 0) {
+      return {
+        files: [],
+        message: "No failed tests from previous run. All tests passed or no tests have been run yet.",
+      };
+    }
+
+    // Escape regex special characters in test names and join with |
+    const escapedNames = failedTests.map((name) => this.escapeRegex(name));
+    const pattern = escapedNames.join("|");
+
+    return {
+      files: [],
+      pattern,
+      message: `Failed scope: re-running ${failedTests.length} previously failed test(s)`,
+    };
+  }
+
+  /**
+   * Escape special regex characters in a string.
+   * @param str String to escape
+   * @returns Escaped string safe for use in regex
+   */
+  private escapeRegex(str: string): string {
+    return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   }
 }

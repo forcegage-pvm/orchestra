@@ -8,7 +8,7 @@ import { ToolErrorCode } from "../../../../src/agents/tools/errors.js";
 import type { ToolError } from "../../../../src/agents/tools/types.js";
 import type { TestConfig } from "../../../../src/agents/tools/testing/TestConfigLoader.js";
 import { ScopeResolver } from "../../../../src/agents/tools/testing/ScopeResolver.js";
-import type { ScopeResult } from "../../../../src/agents/tools/testing/ScopeResolver.js";
+import type { ScopeResult, ResolveOptions } from "../../../../src/agents/tools/testing/ScopeResolver.js";
 
 // Mock fs/promises module
 vi.mock("fs/promises", () => ({
@@ -235,15 +235,110 @@ describe("ScopeResolver", () => {
       expect(error.message).toContain("not yet supported");
       expect(error.message).toContain("related");
     });
+  });
 
-    it("should return error for 'failed' scope", async () => {
+  describe("resolve() - failed scope (US3)", () => {
+    it("should return informative message when no getLastFailedTests callback is provided", async () => {
       const result = await resolver.resolve("failed", undefined, mockConfig);
 
-      expect(result).toHaveProperty("code");
-      const error = result as ToolError;
-      expect(error.code).toBe(ToolErrorCode.INVALID_INPUT);
-      expect(error.message).toContain("not yet supported");
-      expect(error.message).toContain("failed");
+      expect(result).not.toHaveProperty("code");
+      const scopeResult = result as ScopeResult;
+      expect(scopeResult.files).toEqual([]);
+      expect(scopeResult.pattern).toBeUndefined();
+      expect(scopeResult.message).toContain("No previous test run recorded");
+    });
+
+    it("should return informative message when no workingDir is provided", async () => {
+      const result = await resolver.resolve("failed", undefined, mockConfig, {
+        getLastFailedTests: () => ["test1"],
+        // workingDir intentionally omitted
+      });
+
+      expect(result).not.toHaveProperty("code");
+      const scopeResult = result as ScopeResult;
+      expect(scopeResult.files).toEqual([]);
+      expect(scopeResult.message).toContain("No previous test run recorded");
+    });
+
+    it("should return informative message when no previous failures exist", async () => {
+      const result = await resolver.resolve("failed", undefined, mockConfig, {
+        getLastFailedTests: () => undefined,
+        workingDir: "/mock/workspace",
+      });
+
+      expect(result).not.toHaveProperty("code");
+      const scopeResult = result as ScopeResult;
+      expect(scopeResult.files).toEqual([]);
+      expect(scopeResult.message).toContain("No failed tests");
+    });
+
+    it("should return informative message when failures array is empty", async () => {
+      const result = await resolver.resolve("failed", undefined, mockConfig, {
+        getLastFailedTests: () => [],
+        workingDir: "/mock/workspace",
+      });
+
+      expect(result).not.toHaveProperty("code");
+      const scopeResult = result as ScopeResult;
+      expect(scopeResult.files).toEqual([]);
+      expect(scopeResult.message).toContain("No failed tests");
+    });
+
+    it("should return pattern with single failed test name", async () => {
+      const result = await resolver.resolve("failed", undefined, mockConfig, {
+        getLastFailedTests: () => ["should handle errors correctly"],
+        workingDir: "/mock/workspace",
+      });
+
+      expect(result).not.toHaveProperty("code");
+      const scopeResult = result as ScopeResult;
+      expect(scopeResult.files).toEqual([]);
+      expect(scopeResult.pattern).toBe("should handle errors correctly");
+      expect(scopeResult.message).toContain("1 previously failed test");
+    });
+
+    it("should return pattern joining multiple failed test names with |", async () => {
+      const result = await resolver.resolve("failed", undefined, mockConfig, {
+        getLastFailedTests: () => ["test one", "test two", "test three"],
+        workingDir: "/mock/workspace",
+      });
+
+      expect(result).not.toHaveProperty("code");
+      const scopeResult = result as ScopeResult;
+      expect(scopeResult.files).toEqual([]);
+      expect(scopeResult.pattern).toBe("test one|test two|test three");
+      expect(scopeResult.message).toContain("3 previously failed test");
+    });
+
+    it("should escape regex special characters in test names", async () => {
+      const result = await resolver.resolve("failed", undefined, mockConfig, {
+        getLastFailedTests: () => [
+          "should handle (errors) correctly",
+          "test with [brackets]",
+          "test.*with.dots",
+        ],
+        workingDir: "/mock/workspace",
+      });
+
+      expect(result).not.toHaveProperty("code");
+      const scopeResult = result as ScopeResult;
+      expect(scopeResult.files).toEqual([]);
+      // Verify regex special chars are escaped
+      expect(scopeResult.pattern).toContain("\\(errors\\)");
+      expect(scopeResult.pattern).toContain("\\[brackets\\]");
+      expect(scopeResult.pattern).toContain("\\.\\*with\\.dots");
+    });
+
+    it("should ignore target parameter for failed scope", async () => {
+      const result = await resolver.resolve("failed", "ignored-target", mockConfig, {
+        getLastFailedTests: () => ["test name"],
+        workingDir: "/mock/workspace",
+      });
+
+      expect(result).not.toHaveProperty("code");
+      const scopeResult = result as ScopeResult;
+      // Target is ignored for failed scope
+      expect(scopeResult.pattern).toBe("test name");
     });
   });
 
