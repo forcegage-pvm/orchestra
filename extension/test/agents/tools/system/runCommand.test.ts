@@ -649,4 +649,68 @@ describe("runCommand tool", () => {
       expect(parsed3.exit_code).toBe(1);
     });
   });
+
+  describe("Test Command Interception", () => {
+    it("blocks 'npm test' with TEST_COMMAND_BLOCKED error", async () => {
+      const { runCommandTool } =
+        await import("../../../../src/agents/tools/system/runCommand.js");
+
+      const input: RunCommandInput = {
+        command: "npm test",
+      };
+
+      const result = await runCommandTool.invoke(input, createContext());
+
+      expect(result.success).toBe(false);
+      expect(result.error?.code).toBe(ToolErrorCode.TEST_COMMAND_BLOCKED);
+      expect(result.error?.message).toContain("TEST_COMMAND_BLOCKED");
+      expect(result.error?.suggestion).toContain("run_tests tool");
+    });
+
+    it("blocks 'npx vitest run' with TEST_COMMAND_BLOCKED error", async () => {
+      const { runCommandTool } =
+        await import("../../../../src/agents/tools/system/runCommand.js");
+
+      const input: RunCommandInput = {
+        command: "npx vitest run",
+      };
+
+      const result = await runCommandTool.invoke(input, createContext());
+
+      expect(result.success).toBe(false);
+      expect(result.error?.code).toBe(ToolErrorCode.TEST_COMMAND_BLOCKED);
+      expect(result.error?.message).toContain("TEST_COMMAND_BLOCKED");
+    });
+
+    it("allows non-test commands like 'echo hello' to pass through", async () => {
+      const { runCommandTool } =
+        await import("../../../../src/agents/tools/system/runCommand.js");
+
+      const input: RunCommandInput = {
+        command: buildNodeCommand("console.log('hello');"),
+      };
+
+      const result = await runCommandTool.invoke(input, createContext());
+
+      expect(result.success).toBe(true);
+      const jsonContent = result.content.find((c) => c.type === "json");
+      const parsed = JSON.parse(jsonContent!.value);
+      expect(parsed.stdout).toContain("hello");
+    });
+
+    it("blocks 'npm test -- --coverage' (test command with arguments)", async () => {
+      const { runCommandTool } =
+        await import("../../../../src/agents/tools/system/runCommand.js");
+
+      const input: RunCommandInput = {
+        command: "npm test -- --coverage",
+      };
+
+      const result = await runCommandTool.invoke(input, createContext());
+
+      expect(result.success).toBe(false);
+      expect(result.error?.code).toBe(ToolErrorCode.TEST_COMMAND_BLOCKED);
+      expect(result.error?.message).toContain("TEST_COMMAND_BLOCKED");
+    });
+  });
 });

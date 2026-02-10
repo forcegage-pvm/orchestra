@@ -1,5 +1,9 @@
 /**
  * runTests tool - Execute VS Code test tasks and capture structured results
+ *
+ * @deprecated This module has been replaced by extension/src/agents/tools/testing/runTests.ts
+ * which is registered via registerTestingTools(). This file is kept for reference only
+ * and is no longer registered in the tool registry.
  */
 
 import * as vscode from "vscode";
@@ -236,6 +240,10 @@ async function runTests(
   }
 }
 
+/**
+ * @deprecated Use registerTestingTools() from extension/src/agents/tools/testing/index.ts instead.
+ * This tool is no longer registered and is kept for reference only.
+ */
 export const runTestsTool: AgentTool = {
   name: "run_tests",
   description:
