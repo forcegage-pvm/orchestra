@@ -71,13 +71,15 @@ export function handleExtensionMessage(message: ExtensionMessage): void {
         message.session?.sessionId,
         message.session?.status,
       );
-      // If this is a new session (different sessionId), clear stale data
+      // If this is a different session, clear stale data from previous session.
+      // Also clear if currentSessionId is undefined but events exist (happens when
+      // state was restored from persistence but session object was reset/empty).
       const currentSessionId = session?.sessionId;
-      const isNewSession =
-        currentSessionId && currentSessionId !== message.session.sessionId;
-      if (isNewSession) {
+      const isDifferentSession =
+        currentSessionId !== message.session.sessionId;
+      if (isDifferentSession) {
         console.log(
-          `[AgentPanel] New session detected (${currentSessionId} -> ${message.session.sessionId}), clearing stale data`,
+          `[AgentPanel] New session detected (${currentSessionId ?? "none"} -> ${message.session.sessionId}), clearing stale data`,
         );
         clearEvents();
         clearToolCalls();
