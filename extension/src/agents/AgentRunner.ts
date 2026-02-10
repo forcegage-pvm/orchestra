@@ -1130,6 +1130,7 @@ export class AgentRunner implements vscode.Disposable {
       role,
       status: "running",
       startedAt: new Date().toISOString(),
+      parentSessionId: options.sessionId,
     };
     if (taskId !== null) {
       childSessionInfo.taskId = taskId;

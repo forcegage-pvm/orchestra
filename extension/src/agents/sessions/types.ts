@@ -93,6 +93,7 @@ export interface AgentSessionInfo {
   taskId?: number;
   taskNumber?: number; // Sprint-scoped sequential task number (1, 2, 3...)
   taskTitle?: string;
+  parentSessionId?: string; // For child sessions created via continueSessionExecution
 }
 
 /**

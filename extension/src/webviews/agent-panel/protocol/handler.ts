@@ -75,8 +75,7 @@ export function handleExtensionMessage(message: ExtensionMessage): void {
       // Also clear if currentSessionId is undefined but events exist (happens when
       // state was restored from persistence but session object was reset/empty).
       const currentSessionId = session?.sessionId;
-      const isDifferentSession =
-        currentSessionId !== message.session.sessionId;
+      const isDifferentSession = currentSessionId !== message.session.sessionId;
       if (isDifferentSession) {
         console.log(
           `[AgentPanel] New session detected (${currentSessionId ?? "none"} -> ${message.session.sessionId}), clearing stale data`,
@@ -227,18 +226,6 @@ export function initializeMessageHandler(): void {
     (window as any)._agentPanelHandlerReady = true;
   }
 
-  // Process any messages that were buffered by the preload script
-  const queue = (window as any)?._agentPanelMessageQueue as
-    | unknown[]
-    | undefined;
-  if (queue && queue.length > 0) {
-    console.log(`[AgentPanel] Processing ${queue.length} buffered messages`);
-    for (const msg of queue) {
-      handleExtensionMessage(msg as ExtensionMessage);
-    }
-    queue.length = 0; // Clear the queue
-  }
-
   // Flush pending state before the page is hidden (prevents state loss)
   globalThis.addEventListener("visibilitychange", () => {
     if (document.hidden) {
@@ -251,21 +238,57 @@ export function initializeMessageHandler(): void {
     flushPendingState();
   });
 
-  // Restore persisted state asynchronously (after sending ready)
-  // The extension will send fresh data anyway, but this provides immediate UI feedback
-  try {
-    console.log("[AgentPanel] Attempting to restore persisted state");
-    const restoreStart = performance.now();
-    const restored = tryRestoreState();
-    const restoreTime = performance.now() - restoreStart;
-    console.log(
-      `[AgentPanel] State restoration ${restored ? "succeeded" : "skipped"} (${restoreTime.toFixed(2)}ms)`,
-    );
-    if (restored) {
-      syncSessionStatusFromEvents();
+  // Check for buffered messages from the preload script
+  const queue = (window as any)?._agentPanelMessageQueue as
+    | unknown[]
+    | undefined;
+  const hasBufferedMessages = queue !== undefined && queue.length > 0;
+
+  // Restore persisted state BEFORE processing buffered messages.
+  // This provides immediate UI feedback while the extension's authoritative
+  // state (via _restoreSessionState) arrives in the buffer. The buffered
+  // messages will then overwrite any stale persisted data with fresh state.
+  //
+  // CRITICAL: This order matters! Previously tryRestoreState() ran AFTER
+  // buffer processing, which caused stale persisted state (from getState())
+  // to overwrite the fresh authoritative state sent by the extension.
+  // Since persistState() is debounced (250ms), the fresh state hadn't been
+  // written to setState() yet, so getState() returned old data.
+  if (!hasBufferedMessages) {
+    // No buffered messages — cold start or first load.
+    // Persisted state is the only available data source.
+    try {
+      console.log(
+        "[AgentPanel] No buffered messages, restoring persisted state",
+      );
+      const restoreStart = performance.now();
+      const restored = tryRestoreState();
+      const restoreTime = performance.now() - restoreStart;
+      console.log(
+        `[AgentPanel] State restoration ${restored ? "succeeded" : "skipped"} (${restoreTime.toFixed(2)}ms)`,
+      );
+      if (restored) {
+        syncSessionStatusFromEvents();
+      }
+    } catch (error) {
+      console.error("[AgentPanel] Failed to restore state:", error);
     }
-  } catch (error) {
-    console.error("[AgentPanel] Failed to restore state:", error);
+  } else {
+    console.log(
+      `[AgentPanel] ${queue.length} buffered messages available, skipping persisted state restore (extension data is authoritative)`,
+    );
+  }
+
+  // Process buffered messages from the preload script.
+  // These come from _restoreSessionState() and contain the authoritative
+  // session + events data from the extension host (AgentRunner/DB).
+  // They will overwrite any stale persisted state restored above.
+  if (hasBufferedMessages && queue) {
+    console.log(`[AgentPanel] Processing ${queue.length} buffered messages`);
+    for (const msg of queue) {
+      handleExtensionMessage(msg as ExtensionMessage);
+    }
+    queue.length = 0; // Clear the queue
   }
 
   const initTime = performance.now() - initStart;

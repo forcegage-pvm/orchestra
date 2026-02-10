@@ -18,11 +18,13 @@ vi.mock("../../../../src/webviews/agent-panel/stores/sessionStore.js", () => ({
   addEvent: vi.fn(),
   clearAfter: vi.fn(() => null),
   clearEvents: vi.fn(),
+  clearToolCalls: vi.fn(),
   clearSessionHistory: vi.fn(),
   setToolCall: vi.fn(),
+  toolCalls: {},
+  toolCallKeys: vi.fn(() => []),
   tryRestoreState: vi.fn(() => false),
   syncSessionStatusFromEvents: vi.fn(),
-  toolCalls: {},
 }));
 
 // Import mocked stores

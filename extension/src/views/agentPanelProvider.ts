@@ -23,6 +23,7 @@ import {
   getSessionsForTask,
 } from "../agents/sessions/sessionRepository.js";
 import type {
+  AgentEvent,
   AgentSession,
   AgentSessionInfo,
   EventBusPayload,
@@ -499,18 +500,31 @@ export class AgentPanelProvider implements vscode.WebviewViewProvider {
           session: sessionData,
         });
 
-        // Send all events for the session
-        const events = getEventsForSession(
+        // For child sessions, include parent chain events for continuity
+        const dbSessionInfo = getSession(this._workspaceRoot, activeSession.id);
+        let parentChainEvents: AgentEvent[] = [];
+        if (dbSessionInfo?.parentSessionId) {
+          parentChainEvents = this._getSessionChainEvents(
+            dbSessionInfo.parentSessionId,
+          );
+          logger.info(
+            `[AgentPanelProvider] Including ${parentChainEvents.length} parent chain events`,
+          );
+        }
+
+        // Send all events for the session (parent chain + own events)
+        const ownEvents = getEventsForSession(
           this._workspaceRoot,
           activeSession.id,
         );
+        const allEvents = [...parentChainEvents, ...ownEvents];
         logger.info(
-          `[AgentPanelProvider] Restoring ${events.length} events for active session`,
+          `[AgentPanelProvider] Restoring ${allEvents.length} events for active session (${ownEvents.length} own + ${parentChainEvents.length} parent)`,
         );
         this.postMessage({
           type: "events_batch",
           sessionId: activeSession.id,
-          events,
+          events: allEvents,
         });
         return;
       }
@@ -533,18 +547,30 @@ export class AgentPanelProvider implements vscode.WebviewViewProvider {
           session: dbSession,
         });
 
-        // Send all events for the session
-        const events = getEventsForSession(
+        // For child sessions, include parent chain events for continuity
+        let parentChainEvents: AgentEvent[] = [];
+        if (dbSession.parentSessionId) {
+          parentChainEvents = this._getSessionChainEvents(
+            dbSession.parentSessionId,
+          );
+          logger.info(
+            `[AgentPanelProvider] Including ${parentChainEvents.length} parent chain events from DB restore`,
+          );
+        }
+
+        // Send all events for the session (parent chain + own events)
+        const ownEvents = getEventsForSession(
           this._workspaceRoot,
           dbSession.sessionId,
         );
+        const allEvents = [...parentChainEvents, ...ownEvents];
         logger.info(
-          `[AgentPanelProvider] Restoring ${events.length} events from DB`,
+          `[AgentPanelProvider] Restoring ${allEvents.length} events from DB (${ownEvents.length} own + ${parentChainEvents.length} parent)`,
         );
         this.postMessage({
           type: "events_batch",
           sessionId: dbSession.sessionId,
-          events,
+          events: allEvents,
         });
         return;
       }
@@ -583,6 +609,26 @@ export class AgentPanelProvider implements vscode.WebviewViewProvider {
           type: "session_update",
           session: sessionData,
         });
+
+        // For child sessions (created via continueSessionExecution), send parent
+        // session events so the timeline shows continuous work history.
+        // Without this, events from before the continuation (e.g., the full
+        // implementation work) would disappear when the child session starts.
+        if (payload.session.parentSessionId) {
+          const parentEvents = this._getSessionChainEvents(
+            payload.session.parentSessionId,
+          );
+          if (parentEvents.length > 0) {
+            logger.info(
+              `[AgentPanelProvider] Sending ${parentEvents.length} parent chain events for child session`,
+            );
+            this.postMessage({
+              type: "events_batch",
+              sessionId: payload.session.id,
+              events: parentEvents,
+            });
+          }
+        }
         break;
 
       case "session_event":
@@ -1223,6 +1269,43 @@ export class AgentPanelProvider implements vscode.WebviewViewProvider {
         `Failed to send message to agent: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
+  }
+
+  /**
+   * Collect events from the full parent session chain.
+   *
+   * Walks up the parentSessionId chain and collects events from all
+   * ancestor sessions, returning them in chronological order.
+   * This gives child sessions (from continueSessionExecution) a
+   * continuous timeline showing the full work history.
+   *
+   * Limits traversal to MAX_PARENT_CHAIN_DEPTH to prevent infinite loops.
+   */
+  private _getSessionChainEvents(parentSessionId: string): AgentEvent[] {
+    const MAX_PARENT_CHAIN_DEPTH = 10;
+    const allEvents: AgentEvent[] = [];
+    const visitedIds = new Set<string>();
+    let currentParentId: string | undefined = parentSessionId;
+
+    for (
+      let depth = 0;
+      depth < MAX_PARENT_CHAIN_DEPTH && currentParentId;
+      depth++
+    ) {
+      if (visitedIds.has(currentParentId)) {
+        break; // Prevent cycles
+      }
+      visitedIds.add(currentParentId);
+
+      const events = getEventsForSession(this._workspaceRoot, currentParentId);
+      allEvents.unshift(...events); // Prepend older events
+
+      // Walk up the chain
+      const parentSession = getSession(this._workspaceRoot, currentParentId);
+      currentParentId = parentSession?.parentSessionId ?? undefined;
+    }
+
+    return allEvents;
   }
 
   /**
