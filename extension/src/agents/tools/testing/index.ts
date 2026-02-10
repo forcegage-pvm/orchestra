@@ -6,12 +6,13 @@
  */
 
 import type { ToolRegistry } from "../../ToolRegistry.js";
+import { promoteTestsTool } from "./promoteTests.js";
 import { runTestsTool } from "./runTests.js";
 
 /**
  * All testing tools available for registration.
  */
-export const testingTools = [runTestsTool] as const;
+export const testingTools = [runTestsTool, promoteTestsTool] as const;
 
 /**
  * Register all testing tools with the given registry.
@@ -22,7 +23,7 @@ export function registerTestingTools(registry: ToolRegistry): void {
 }
 
 // Export individual tools for direct access
-export { runTestsTool };
+export { runTestsTool, promoteTestsTool };
 
 // Re-export types for convenience
 export type {
@@ -31,6 +32,10 @@ export type {
   TestScope,
   TestOutcome,
   TestFailureDetail,
+  PromoteTestsInput,
+  PromoteTestsResult,
+  PromotionTarget,
+  RedPhaseResult,
 } from "./types.js";
 
 // Re-export pipeline modules for advanced usage

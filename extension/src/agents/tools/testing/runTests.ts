@@ -7,8 +7,6 @@
  * Aligned with specs/013-test-runner-tools/data-model.md
  */
 
-import * as path from "node:path";
-
 import { ToolErrorCode } from "../errors.js";
 import type {
   AgentTool,
@@ -17,6 +15,7 @@ import type {
   ToolResult,
 } from "../types.js";
 import { errorResult, successResult } from "../utils/resultBuilder.js";
+import { setLastRedPhaseResult } from "./promoteTests.js";
 import { ResultFormatter } from "./ResultFormatter.js";
 import { ScopeResolver } from "./ScopeResolver.js";
 import { TestConfigLoader } from "./TestConfigLoader.js";
@@ -267,15 +266,53 @@ async function runTests(
       result.target = validatedInput.target;
     }
 
-    // 9. Build output string
+    // 9. Handle red-phase scope: invert interpretation and attach redPhase result
+    if (validatedInput.scope === "red") {
+      result.redPhase = formatter.invertRedPhase(result, config);
+      // Store result for promote_tests to use
+      setLastRedPhaseResult(result);
+    }
+
+    // 10. Build output string
     let output = `✓ run_tests [scope=${validatedInput.scope}${validatedInput.target ? `, target=${validatedInput.target}` : ""}]\n\n${result.summary}`;
 
-    if (result.failed > 0) {
+    // For red-phase runs, add inverted interpretation to output
+    if (validatedInput.scope === "red" && result.redPhase) {
+      const rp = result.redPhase;
+      output += `\n\nRed-Phase Interpretation:`;
+      output += `\n  Correctly failing: ${rp.correctlyFailing}`;
+      output += `\n  Unexpectedly passing: ${rp.unexpectedlyPassing}`;
+      output += `\n  Ready for promotion: ${rp.readyForPromotion ? "Yes" : "No"}`;
+      
+      if (rp.promotionTargets.length > 0) {
+        output += `\n\nPromotion Targets:`;
+        for (const target of rp.promotionTargets) {
+          const status = target.eligible ? "✓ eligible" : "✗ not eligible";
+          output += `\n  ${target.source} → ${target.destination} [${target.tier}] (${status})`;
+        }
+      }
+    }
+
+    if (result.failed > 0 && validatedInput.scope !== "red") {
+      // For non-red scopes, show failure details
       const failureDetails = formatter.formatFailures(
         result.tests,
         maxFailureLines,
       );
       output += `\n\n${failureDetails}`;
+    } else if (result.failed > 0 && validatedInput.scope === "red") {
+      // For red scope, failures are expected - show them as "correctly failing"
+      output += `\n\nCorrectly Failing Tests (TDD Red Phase):`;
+      const failedTests = result.tests.filter((t) => t.status === "failed");
+      for (const test of failedTests.slice(0, 10)) {
+        output += `\n  ✓ ${test.name}`;
+        if (test.failure) {
+          output += ` — ${test.failure.message.slice(0, 60)}${test.failure.message.length > 60 ? "..." : ""}`;
+        }
+      }
+      if (failedTests.length > 10) {
+        output += `\n  ... and ${failedTests.length - 10} more`;
+      }
     }
 
     // Combine config warnings with any other warnings

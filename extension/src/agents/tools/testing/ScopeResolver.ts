@@ -65,14 +65,16 @@ export class ScopeResolver {
       case "all":
         return this.resolveAll(config);
 
-      case "related":
       case "red":
+        return this.resolveRed(config);
+
+      case "related":
       case "failed":
         return createToolError(
           ToolErrorCode.INVALID_INPUT,
           `Scope '${scope}' is not yet supported.`,
-          `The '${scope}' scope will be implemented in a future task. Currently supported scopes: file, pattern, suite, all.`,
-          { scope, supportedScopes: ["file", "pattern", "suite", "all"] },
+          `The '${scope}' scope will be implemented in a future task. Currently supported scopes: file, pattern, suite, all, red.`,
+          { scope, supportedScopes: ["file", "pattern", "suite", "all", "red"] },
         );
 
       default: {
@@ -200,6 +202,28 @@ export class ScopeResolver {
     return {
       files,
       message: `All scope: ${nonInvertedTiers.length} tier(s) → ${files.join(", ")}`,
+    };
+  }
+
+  /**
+   * Resolve 'red' scope - returns the inverted tier's glob pattern.
+   * If no inverted tier exists in config, returns empty result with explanatory message.
+   */
+  private resolveRed(config: TestConfig): ScopeResult {
+    // Find the tier with inverted=true (the red tier)
+    const redTier = config.tiers.find((t) => t.inverted === true);
+
+    if (!redTier) {
+      return {
+        files: [],
+        message:
+          "No red-phase tier configured. Add a tier with 'inverted: true' in .agent-test-config.json to enable TDD red-phase testing.",
+      };
+    }
+
+    return {
+      files: [redTier.path],
+      message: `Red scope: tier '${redTier.name}' → ${redTier.path}`,
     };
   }
 }

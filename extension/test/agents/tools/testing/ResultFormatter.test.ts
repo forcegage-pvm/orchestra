@@ -492,4 +492,205 @@ describe("ResultFormatter", () => {
       }
     });
   });
+
+  describe("invertRedPhase()", () => {
+    // Helper to create a mock test config with red tier
+    function createMockConfig() {
+      return {
+        framework: "vitest" as const,
+        tiers: [
+          { name: "unit", path: "test/unit/**/*.test.ts" },
+          { name: "integration", path: "test/integration/**/*.test.ts" },
+          { name: "red", path: "test/red/**/*.test.ts", inverted: true as const },
+        ],
+        defaultTimeout: 30000,
+        maxFailureLines: 20,
+        configFingerprint: ["vitest.config.*"],
+        promotion: { dryRun: true },
+      };
+    }
+
+    // Helper to create a mock RunTestsResult
+    function createMockResult(overrides: Partial<RunTestsResult> = {}): RunTestsResult {
+      return {
+        runId: "test-run",
+        scope: "red",
+        cached: false,
+        fingerprint: "",
+        timestamp: new Date().toISOString(),
+        workingDir: "/workspace",
+        total: 0,
+        passed: 0,
+        failed: 0,
+        skipped: 0,
+        duration: 1000,
+        tests: [],
+        summary: "",
+        ...overrides,
+      };
+    }
+
+    it("should correctly invert pass/fail interpretation", () => {
+      const config = createMockConfig();
+      const result = createMockResult({
+        total: 5,
+        passed: 2,
+        failed: 3,
+        tests: [
+          { name: "test1", file: "test/red/unit/foo.test.ts", line: 10, status: "passed", duration: 10 },
+          { name: "test2", file: "test/red/unit/foo.test.ts", line: 20, status: "passed", duration: 10 },
+          { name: "test3", file: "test/red/unit/foo.test.ts", line: 30, status: "failed", duration: 10 },
+          { name: "test4", file: "test/red/unit/bar.test.ts", line: 10, status: "failed", duration: 10 },
+          { name: "test5", file: "test/red/unit/bar.test.ts", line: 20, status: "failed", duration: 10 },
+        ],
+      });
+
+      const redPhase = formatter.invertRedPhase(result, config);
+
+      expect(redPhase.correctlyFailing).toBe(3);
+      expect(redPhase.unexpectedlyPassing).toBe(2);
+    });
+
+    it("should set readyForPromotion=true when all tests pass", () => {
+      const config = createMockConfig();
+      const result = createMockResult({
+        total: 3,
+        passed: 3,
+        failed: 0,
+        tests: [
+          { name: "test1", file: "test/red/unit/feature.test.ts", line: 10, status: "passed", duration: 10 },
+          { name: "test2", file: "test/red/unit/feature.test.ts", line: 20, status: "passed", duration: 10 },
+          { name: "test3", file: "test/red/unit/feature.test.ts", line: 30, status: "passed", duration: 10 },
+        ],
+      });
+
+      const redPhase = formatter.invertRedPhase(result, config);
+
+      expect(redPhase.readyForPromotion).toBe(true);
+    });
+
+    it("should set readyForPromotion=false when any tests fail", () => {
+      const config = createMockConfig();
+      const result = createMockResult({
+        total: 3,
+        passed: 2,
+        failed: 1,
+        tests: [
+          { name: "test1", file: "test/red/unit/feature.test.ts", line: 10, status: "passed", duration: 10 },
+          { name: "test2", file: "test/red/unit/feature.test.ts", line: 20, status: "passed", duration: 10 },
+          { name: "test3", file: "test/red/unit/feature.test.ts", line: 30, status: "failed", duration: 10 },
+        ],
+      });
+
+      const redPhase = formatter.invertRedPhase(result, config);
+
+      expect(redPhase.readyForPromotion).toBe(false);
+    });
+
+    it("should set readyForPromotion=false when no tests exist", () => {
+      const config = createMockConfig();
+      const result = createMockResult({
+        total: 0,
+        passed: 0,
+        failed: 0,
+        tests: [],
+      });
+
+      const redPhase = formatter.invertRedPhase(result, config);
+
+      expect(redPhase.readyForPromotion).toBe(false);
+    });
+
+    it("should generate PromotionTarget[] with correct source, destination, tier", () => {
+      const config = createMockConfig();
+      const result = createMockResult({
+        total: 2,
+        passed: 2,
+        failed: 0,
+        tests: [
+          { name: "test1", file: "test/red/unit/feature.test.ts", line: 10, status: "passed", duration: 10 },
+          { name: "test2", file: "test/red/integration/api.test.ts", line: 10, status: "passed", duration: 10 },
+        ],
+      });
+
+      const redPhase = formatter.invertRedPhase(result, config);
+
+      expect(redPhase.promotionTargets).toHaveLength(2);
+
+      const unitTarget = redPhase.promotionTargets.find((t) => t.tier === "unit");
+      expect(unitTarget).toBeDefined();
+      expect(unitTarget!.source).toBe("test/red/unit/feature.test.ts");
+      expect(unitTarget!.destination).toBe("test/unit/feature.test.ts");
+      expect(unitTarget!.eligible).toBe(true);
+
+      const integrationTarget = redPhase.promotionTargets.find((t) => t.tier === "integration");
+      expect(integrationTarget).toBeDefined();
+      expect(integrationTarget!.source).toBe("test/red/integration/api.test.ts");
+      expect(integrationTarget!.destination).toBe("test/integration/api.test.ts");
+      expect(integrationTarget!.eligible).toBe(true);
+    });
+
+    it("should set eligible=false for files with failing tests", () => {
+      const config = createMockConfig();
+      const result = createMockResult({
+        total: 4,
+        passed: 2,
+        failed: 2,
+        tests: [
+          { name: "test1", file: "test/red/unit/passing.test.ts", line: 10, status: "passed", duration: 10 },
+          { name: "test2", file: "test/red/unit/passing.test.ts", line: 20, status: "passed", duration: 10 },
+          { name: "test3", file: "test/red/unit/failing.test.ts", line: 10, status: "passed", duration: 10 },
+          { name: "test4", file: "test/red/unit/failing.test.ts", line: 20, status: "failed", duration: 10 },
+        ],
+      });
+
+      const redPhase = formatter.invertRedPhase(result, config);
+
+      const passingTarget = redPhase.promotionTargets.find((t) => t.source.includes("passing"));
+      expect(passingTarget?.eligible).toBe(true);
+
+      const failingTarget = redPhase.promotionTargets.find((t) => t.source.includes("failing"));
+      expect(failingTarget?.eligible).toBe(false);
+    });
+
+    it("should return empty promotionTargets when no red tier configured", () => {
+      const configWithoutRed = {
+        ...createMockConfig(),
+        tiers: [
+          { name: "unit", path: "test/unit/**/*.test.ts" },
+        ],
+      };
+      const result = createMockResult({
+        total: 1,
+        passed: 1,
+        failed: 0,
+        tests: [
+          { name: "test1", file: "test/unit/foo.test.ts", line: 10, status: "passed", duration: 10 },
+        ],
+      });
+
+      const redPhase = formatter.invertRedPhase(result, configWithoutRed);
+
+      expect(redPhase.promotionTargets).toEqual([]);
+    });
+
+    it("should handle nested subdirectories in red tier", () => {
+      const config = createMockConfig();
+      const result = createMockResult({
+        total: 1,
+        passed: 1,
+        failed: 0,
+        tests: [
+          { name: "test1", file: "test/red/integration/api/users.test.ts", line: 10, status: "passed", duration: 10 },
+        ],
+      });
+
+      const redPhase = formatter.invertRedPhase(result, config);
+
+      expect(redPhase.promotionTargets).toHaveLength(1);
+      expect(redPhase.promotionTargets[0].source).toBe("test/red/integration/api/users.test.ts");
+      expect(redPhase.promotionTargets[0].destination).toBe("test/integration/api/users.test.ts");
+      expect(redPhase.promotionTargets[0].tier).toBe("integration");
+    });
+  });
 });

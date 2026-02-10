@@ -5,11 +5,14 @@
  */
 
 import type {
+  PromotionTarget,
+  RedPhaseResult,
   RunTestsResult,
   TestFailureDetail,
   TestOutcome,
   TestScope,
 } from "./types.js";
+import type { TestConfig } from "./TestConfigLoader.js";
 
 /**
  * Formatting options
@@ -179,6 +182,168 @@ export class ResultFormatter {
     });
 
     return formatted.join("\n\n");
+  }
+
+  /**
+   * Invert red-phase test results: failures become "correctly failing" (expected),
+   * passes become "unexpectedly passing" (problem since implementation is complete).
+   * 
+   * When all tests pass, readyForPromotion=true indicates the implementation is complete
+   * and tests can be promoted from the red directory to standard tiers.
+   * 
+   * @param result The normal RunTestsResult from a red-phase test run
+   * @param config Test configuration with tier definitions
+   * @returns RedPhaseResult with inverted interpretation and promotion targets
+   */
+  invertRedPhase(result: RunTestsResult, config: TestConfig): RedPhaseResult {
+    // In red-phase interpretation:
+    // - "passed" tests are "unexpectedly passing" (problem - they should fail until implemented)
+    // - "failed" tests are "correctly failing" (expected in TDD red phase)
+    const correctlyFailing = result.failed;
+    const unexpectedlyPassing = result.passed;
+
+    // Ready for promotion when ALL tests pass (unexpectedlyPassing = all tests)
+    // This means the implementation is complete
+    const readyForPromotion = result.failed === 0 && result.total > 0;
+
+    // Generate promotion targets for each unique test file
+    const promotionTargets = this.generatePromotionTargets(result.tests, config);
+
+    return {
+      correctlyFailing,
+      unexpectedlyPassing,
+      readyForPromotion,
+      promotionTargets,
+    };
+  }
+
+  /**
+   * Generate promotion targets for red-phase test files.
+   * Infers destination tier and path from subdirectory structure within the red directory.
+   * 
+   * Example: test/red/unit/foo.test.ts → test/unit/foo.test.ts (tier: unit)
+   * 
+   * @param tests Array of test outcomes from the run
+   * @param config Test configuration with tier definitions
+   * @returns Array of PromotionTarget entries
+   */
+  private generatePromotionTargets(
+    tests: TestOutcome[],
+    config: TestConfig,
+  ): PromotionTarget[] {
+    // Find the red tier to get its path prefix
+    const redTier = config.tiers.find((t) => t.inverted === true);
+    if (!redTier) {
+      return [];
+    }
+
+    // Extract the base directory from the red tier path (e.g., "test/red/**/*.test.ts" → "test/red")
+    const redBasePath = this.extractDirectoryFromGlob(redTier.path);
+
+    // Group tests by file and determine pass/fail status per file
+    const fileStatus = new Map<string, { passing: number; failing: number }>();
+    for (const test of tests) {
+      const status = fileStatus.get(test.file) || { passing: 0, failing: 0 };
+      if (test.status === "passed") {
+        status.passing++;
+      } else if (test.status === "failed") {
+        status.failing++;
+      }
+      fileStatus.set(test.file, status);
+    }
+
+    const targets: PromotionTarget[] = [];
+    const processedFiles = new Set<string>();
+
+    for (const test of tests) {
+      if (processedFiles.has(test.file)) {
+        continue;
+      }
+      processedFiles.add(test.file);
+
+      const source = test.file;
+
+      // Check if file is in red directory
+      if (!source.startsWith(redBasePath)) {
+        continue;
+      }
+
+      // Extract the path after the red directory
+      // e.g., "test/red/unit/foo.test.ts" with redBasePath "test/red/" → "unit/foo.test.ts"
+      const relativePath = source.slice(redBasePath.length);
+
+      // Infer tier from the first subdirectory
+      // e.g., "unit/foo.test.ts" → tier="unit", rest="foo.test.ts"
+      const firstSlash = relativePath.indexOf("/");
+      if (firstSlash === -1) {
+        // File is directly in red directory without tier subdirectory, skip
+        continue;
+      }
+
+      const inferredTierName = relativePath.slice(0, firstSlash);
+      const restPath = relativePath.slice(firstSlash + 1);
+
+      // Find the declared tier with this name
+      const targetTier = config.tiers.find(
+        (t) => t.name === inferredTierName && !t.inverted,
+      );
+      if (!targetTier) {
+        // No matching tier found, but we still report the target with inferred values
+        const destination = `test/${inferredTierName}/${restPath}`;
+        const status = fileStatus.get(source);
+        const eligible = status?.failing === 0 && (status?.passing ?? 0) > 0;
+
+        targets.push({
+          source,
+          destination,
+          tier: inferredTierName,
+          eligible,
+        });
+        continue;
+      }
+
+      // Build destination from target tier's base path
+      const targetBasePath = this.extractDirectoryFromGlob(targetTier.path);
+      const destination = `${targetBasePath}${restPath}`;
+
+      const status = fileStatus.get(source);
+      // Eligible only if ALL tests in the file are passing
+      const eligible = status?.failing === 0 && (status?.passing ?? 0) > 0;
+
+      targets.push({
+        source,
+        destination,
+        tier: inferredTierName,
+        eligible,
+      });
+    }
+
+    return targets;
+  }
+
+  /**
+   * Extract directory path from a glob pattern.
+   * @param globPattern Glob pattern string
+   * @returns Directory path (with trailing slash if valid)
+   */
+  private extractDirectoryFromGlob(globPattern: string): string {
+    // Find the first occurrence of a glob wildcard (* or ?)
+    const wildcardIndex = globPattern.search(/[*?]/);
+    if (wildcardIndex === -1) {
+      // No wildcard - return as-is
+      return globPattern.endsWith("/") ? globPattern : `${globPattern}/`;
+    }
+
+    // Extract everything before the wildcard
+    const beforeWildcard = globPattern.substring(0, wildcardIndex);
+
+    // Find the last directory separator before the wildcard
+    const lastSlash = beforeWildcard.lastIndexOf("/");
+    if (lastSlash === -1) {
+      return "";
+    }
+
+    return beforeWildcard.substring(0, lastSlash + 1);
   }
 
   /**

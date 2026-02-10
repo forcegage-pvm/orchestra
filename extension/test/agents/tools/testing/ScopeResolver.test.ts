@@ -187,6 +187,44 @@ describe("ScopeResolver", () => {
     });
   });
 
+  describe("resolve() - red scope", () => {
+    it("should resolve to inverted tier's glob pattern", async () => {
+      const result = await resolver.resolve("red", undefined, mockConfig);
+
+      expect(result).not.toHaveProperty("code");
+      const scopeResult = result as ScopeResult;
+      expect(scopeResult.files).toEqual(["test/red/**/*.test.ts"]);
+      expect(scopeResult.message).toContain("Red scope");
+      expect(scopeResult.message).toContain("red");
+    });
+
+    it("should return empty result when no inverted tier exists", async () => {
+      const configWithoutRed: TestConfig = {
+        ...mockConfig,
+        tiers: [
+          { name: "unit", path: "test/unit/**/*.test.ts" },
+          { name: "integration", path: "test/integration/**/*.test.ts" },
+        ],
+      };
+
+      const result = await resolver.resolve("red", undefined, configWithoutRed);
+
+      expect(result).not.toHaveProperty("code");
+      const scopeResult = result as ScopeResult;
+      expect(scopeResult.files).toEqual([]);
+      expect(scopeResult.message).toContain("No red-phase tier configured");
+    });
+
+    it("should ignore target parameter for red scope", async () => {
+      const result = await resolver.resolve("red", "ignored-target", mockConfig);
+
+      expect(result).not.toHaveProperty("code");
+      const scopeResult = result as ScopeResult;
+      // Target is ignored for red scope
+      expect(scopeResult.files).toEqual(["test/red/**/*.test.ts"]);
+    });
+  });
+
   describe("resolve() - unsupported scopes", () => {
     it("should return error for 'related' scope", async () => {
       const result = await resolver.resolve("related", undefined, mockConfig);
@@ -196,16 +234,6 @@ describe("ScopeResolver", () => {
       expect(error.code).toBe(ToolErrorCode.INVALID_INPUT);
       expect(error.message).toContain("not yet supported");
       expect(error.message).toContain("related");
-    });
-
-    it("should return error for 'red' scope", async () => {
-      const result = await resolver.resolve("red", undefined, mockConfig);
-
-      expect(result).toHaveProperty("code");
-      const error = result as ToolError;
-      expect(error.code).toBe(ToolErrorCode.INVALID_INPUT);
-      expect(error.message).toContain("not yet supported");
-      expect(error.message).toContain("red");
     });
 
     it("should return error for 'failed' scope", async () => {
