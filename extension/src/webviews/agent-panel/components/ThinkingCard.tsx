@@ -9,8 +9,7 @@
  */
 
 import { Icon } from "@iconify-icon/solid";
-import { marked } from "marked";
-import { createEffect, createMemo, createSignal, Show } from "solid-js";
+import { createEffect, createSignal, Show } from "solid-js";
 import type { ThinkingEvent } from "../../../agents/sessions/types.js";
 import { Markdown } from "./Markdown.js";
 
@@ -63,57 +62,66 @@ export function ThinkingCard(props: ThinkingCardProps) {
     wasStreaming = streaming;
   });
 
-  // Split text into first line (shown in header) and remaining lines
-  const getFirstLine = () => {
+  const PREVIEW_LINES = 2;
+
+  // Get preview text (first N lines) for collapsed state
+  const getPreviewText = () => {
     const lines = props.event.text.split("\n");
-    return lines[0] || "";
+    return lines.slice(0, PREVIEW_LINES).join("\n");
   };
 
-  const getRemainingText = () => {
+  // Count lines beyond the preview
+  const getExtraLineCount = () => {
     const lines = props.event.text.split("\n");
-    if (lines.length <= 1) return "";
-    return lines.slice(1).join("\n");
+    return Math.max(0, lines.length - PREVIEW_LINES);
   };
-
-  const getRemainingLineCount = () => {
-    const lines = props.event.text.split("\n");
-    return Math.max(0, lines.length - 1);
-  };
-
-  // Render first line as inline markdown (no wrapping <p> tags)
-  const firstLineHtml = createMemo(() => {
-    const line = getFirstLine();
-    if (!line) return "";
-    try {
-      return marked.parseInline(line, { gfm: true }) as string;
-    } catch {
-      return line;
-    }
-  });
 
   return (
     <div class="group rounded hover:bg-zinc-800/20 transition-colors fade-in">
-      {/* Header row: icon + first line of thinking text + expand/collapse */}
-      <div class="px-2 py-1.5 flex items-center gap-1.5">
+      {/* Header row: icon + expand/collapse button */}
+      <div class="px-2 pt-1.5 flex items-start gap-1.5">
         <Icon
           icon="lucide:brain"
-          class="w-3 h-3 text-purple-400 flex-shrink-0"
+          class="w-3 h-3 text-purple-400 flex-shrink-0 mt-0.5"
         />
-        <span
-          class="text-[13px] text-zinc-400 truncate min-w-0 flex-1 markdown-content"
-          innerHTML={firstLineHtml()}
-        />
-        <Show when={props.isStreaming && getRemainingLineCount() === 0}>
-          <span class="inline-block w-0.5 h-3.5 ml-1 bg-purple-400 animate-blink flex-shrink-0" />
-        </Show>
-        <Show when={getRemainingLineCount() > 0}>
+        <div class="flex-1 min-w-0">
+          {/* Collapsed: show preview lines as markdown */}
+          <Show when={isCollapsed()}>
+            <Markdown
+              content={getPreviewText()}
+              class="text-[13px] text-zinc-400 leading-relaxed"
+            />
+          </Show>
+
+          {/* Expanded: show full text as markdown */}
+          <Show when={!isCollapsed()}>
+            <Markdown
+              content={props.event.text}
+              class="text-[13px] text-zinc-400 leading-relaxed"
+            />
+            {/* Animated cursor during streaming */}
+            <Show when={props.isStreaming}>
+              <span class="inline-block w-0.5 h-4 ml-1 bg-purple-400 animate-blink" />
+            </Show>
+
+            {/* Token count if available */}
+            <Show when={props.event.tokenCount !== undefined}>
+              <div class="mt-2 text-[10px] text-zinc-600">
+                {props.event.tokenCount} tokens
+              </div>
+            </Show>
+          </Show>
+        </div>
+
+        {/* Expand/collapse button */}
+        <Show when={getExtraLineCount() > 0}>
           <button
             onClick={toggleExpanded}
-            class="flex items-center gap-1 text-[10px] text-zinc-500 hover:text-zinc-300 transition-colors flex-shrink-0"
+            class="flex items-center gap-1 text-[10px] text-zinc-500 hover:text-zinc-300 transition-colors flex-shrink-0 mt-0.5"
           >
             {isCollapsed() ? (
               <>
-                <span>+{getRemainingLineCount()} more</span>
+                <span>+{getExtraLineCount()} more</span>
                 <Icon icon="lucide:chevron-down" class="w-3 h-3" />
               </>
             ) : (
@@ -124,28 +132,11 @@ export function ThinkingCard(props: ThinkingCardProps) {
             )}
           </button>
         </Show>
+        <Show when={props.isStreaming && getExtraLineCount() === 0}>
+          <span class="inline-block w-0.5 h-3.5 mt-1 bg-purple-400 animate-blink flex-shrink-0" />
+        </Show>
       </div>
-
-      {/* Expanded: remaining lines below the first line */}
-      <Show when={!isCollapsed() && getRemainingLineCount() > 0}>
-        <div class="px-2 pb-1.5 pl-7">
-          <Markdown
-            content={getRemainingText()}
-            class="text-[13px] text-zinc-400 leading-relaxed"
-          />
-          {/* Animated cursor during streaming */}
-          <Show when={props.isStreaming}>
-            <span class="inline-block w-0.5 h-4 ml-1 bg-purple-400 animate-blink" />
-          </Show>
-
-          {/* Token count if available */}
-          <Show when={props.event.tokenCount !== undefined}>
-            <div class="mt-2 text-[10px] text-zinc-600">
-              {props.event.tokenCount} tokens
-            </div>
-          </Show>
-        </div>
-      </Show>
+      <div class="h-1" />
     </div>
   );
 }

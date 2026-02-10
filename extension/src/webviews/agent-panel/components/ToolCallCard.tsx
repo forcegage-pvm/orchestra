@@ -268,6 +268,14 @@ export function ToolCallCard(props: ToolCallCardProps) {
   };
 
   const getOutputCopyText = (): string => {
+    // Error content
+    if (isFailed() && props.toolCall.error) {
+      let text = props.toolCall.error.message || "Tool execution failed";
+      if (props.toolCall.error.suggestion) {
+        text += `\n${props.toolCall.error.suggestion}`;
+      }
+      return text;
+    }
     const terminalText = getTerminalOutput();
     if (isCommandOutput() && terminalText) return terminalText;
     const output = getOutputDisplay();
@@ -390,10 +398,18 @@ export function ToolCallCard(props: ToolCallCardProps) {
 
           {/* Output Panel */}
           <Show when={selectedTab() === "output"}>
+            {/* Toolbar for all output content (success + error) */}
+            <OutputToolbar
+              scrollContainerRef={outputScrollRef}
+              copyText={getOutputCopyText}
+            />
             <Show
               when={!isFailed()}
               fallback={
-                <div class="text-xs space-y-1 py-1 max-h-48 overflow-y-auto">
+                <div
+                  ref={(el) => setOutputScrollRef(el as unknown as HTMLPreElement)}
+                  class="text-xs space-y-1 py-1 max-h-[300px] overflow-y-auto output-scroll"
+                >
                   <div class="text-red-400 whitespace-pre-wrap break-words">
                     {props.toolCall.error?.message || "Tool execution failed"}
                   </div>
@@ -405,11 +421,6 @@ export function ToolCallCard(props: ToolCallCardProps) {
                 </div>
               }
             >
-              {/* Toolbar for output content */}
-              <OutputToolbar
-                scrollContainerRef={outputScrollRef}
-                copyText={getOutputCopyText}
-              />
               {/* Use TerminalOutput for command tools with stdout */}
               <Show
                 when={isCommandOutput() && getTerminalOutput()}
