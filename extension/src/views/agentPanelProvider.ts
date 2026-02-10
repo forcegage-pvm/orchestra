@@ -224,6 +224,8 @@ export class AgentPanelProvider implements vscode.WebviewViewProvider {
   private _currentSessionId: string | null = null;
   private _isWebviewReady = false;
   private _pendingMessages: ExtensionMessage[] = [];
+  /** Buffer for EventBus payloads received before webview is initialized */
+  private _preWebviewEventQueue: EventBusPayload[] = [];
 
   constructor(
     private readonly _extensionUri: vscode.Uri,
@@ -235,6 +237,16 @@ export class AgentPanelProvider implements vscode.WebviewViewProvider {
         logger.info(
           `[AgentPanelProvider] EventBus payload received: ${payload.type}`,
         );
+
+        // If webview not initialized yet, buffer events for later replay
+        if (!this._view) {
+          logger.debug(
+            `[AgentPanelProvider] Buffering pre-webview event: ${payload.type}`,
+          );
+          this._preWebviewEventQueue.push(payload);
+          return;
+        }
+
         this._handleEventBusPayload(payload);
       }),
     );
@@ -294,6 +306,21 @@ export class AgentPanelProvider implements vscode.WebviewViewProvider {
     logger.info(
       "[AgentPanelProvider] Webview resolved, waiting for 'ready' message",
     );
+
+    // Process any EventBus events that arrived before the webview was initialized.
+    // These were buffered because this._view was undefined when they arrived.
+    // Now that the view exists, replay them so the panel reflects any sessions
+    // that started while the panel was closed.
+    if (this._preWebviewEventQueue.length > 0) {
+      logger.info(
+        `[AgentPanelProvider] Processing ${this._preWebviewEventQueue.length} buffered pre-webview events`,
+      );
+      const queuedEvents = this._preWebviewEventQueue;
+      this._preWebviewEventQueue = [];
+      for (const payload of queuedEvents) {
+        this._handleEventBusPayload(payload);
+      }
+    }
 
     // Note: We do NOT call _restoreSessionState() here because the webview
     // JS hasn't initialized yet. Messages sent now would be lost.
@@ -533,15 +560,20 @@ export class AgentPanelProvider implements vscode.WebviewViewProvider {
 
   /**
    * Handle EventBus payloads
+   *
+   * Always tracks _currentSessionId regardless of webview state, so that
+   * _restoreSessionState() can pick up the correct session when the webview
+   * initializes. Only sends messages to webview when _view exists.
    */
   private _handleEventBusPayload(payload: EventBusPayload): void {
-    if (!this._view) {
-      return;
-    }
-
     switch (payload.type) {
       case "session_start":
+        // Always track the current session ID, even if webview isn't ready.
+        // This ensures _restoreSessionState() loads the right session.
         this._currentSessionId = payload.session.id;
+
+        if (!this._view) return;
+
         // Convert AgentSessionInfo to full AgentSession interface
         const sessionData = sessionInfoToInterface(
           this._workspaceRoot,
@@ -557,6 +589,8 @@ export class AgentPanelProvider implements vscode.WebviewViewProvider {
         if (payload.event.sessionId !== this._currentSessionId) {
           return;
         }
+        if (!this._view) return;
+
         this.postMessage({
           type: "event",
           event: payload.event,
@@ -564,6 +598,8 @@ export class AgentPanelProvider implements vscode.WebviewViewProvider {
         break;
 
       case "session_end":
+        if (!this._view) return;
+
         // For session end, we need to update the current session's status
         // Get the full session from the runner if available
         const runner = getAgentRunner();
@@ -619,6 +655,17 @@ export class AgentPanelProvider implements vscode.WebviewViewProvider {
         // Mark webview as ready
         this._isWebviewReady = true;
 
+        // Discard buffered messages — _restoreSessionState() below will load
+        // the authoritative state from AgentRunner/DB. Flushing stale buffered
+        // messages (e.g., old session_update or events from a previous session)
+        // AFTER restore would overwrite the correct state and cause mangled UI.
+        if (this._pendingMessages.length > 0) {
+          logger.info(
+            `[AgentPanelProvider] Discarding ${this._pendingMessages.length} buffered messages (restore will provide authoritative state)`,
+          );
+          this._pendingMessages = [];
+        }
+
         // Initialize webview state - always restore full session state on ready
         // This handles both first-time init and visibility restoration
         const restoreStart = Date.now();
@@ -627,17 +674,6 @@ export class AgentPanelProvider implements vscode.WebviewViewProvider {
         logger.info(
           `[AgentPanelProvider] Session state restored (${restoreTime}ms)`,
         );
-
-        // Flush any buffered messages that arrived before "ready"
-        if (this._pendingMessages.length > 0) {
-          logger.info(
-            `[AgentPanelProvider] Flushing ${this._pendingMessages.length} buffered messages`,
-          );
-          for (const msg of this._pendingMessages) {
-            void this._view?.webview.postMessage(msg);
-          }
-          this._pendingMessages = [];
-        }
         break;
 
       case "open_file":

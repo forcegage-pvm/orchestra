@@ -1122,6 +1122,26 @@ export class AgentRunner implements vscode.Disposable {
     this.session.enablePersistence(workspaceRoot, childSessionId);
     this.eventEmitter = new SessionEventEmitter(workspaceRoot, childSessionId);
 
+    // Emit session_start for the child session so the AgentPanel and WorkflowChain
+    // are notified. Without this, the panel won't display the new session and
+    // WorkflowChain won't track the child session's starting state.
+    const childSessionInfo: AgentSessionInfo = {
+      id: childSessionId,
+      role,
+      status: "running",
+      startedAt: new Date().toISOString(),
+    };
+    if (taskId !== null) {
+      childSessionInfo.taskId = taskId;
+    }
+    if (childSession.taskNumber !== undefined) {
+      childSessionInfo.taskNumber = childSession.taskNumber;
+    }
+    if (childSession.taskTitle !== undefined) {
+      childSessionInfo.taskTitle = childSession.taskTitle;
+    }
+    this.eventEmitter.emitSessionStart(childSessionInfo);
+
     // Load tools for the role
     if (!this.config.skipToolLoading) {
       const needsToolReload = this.lastLoadedToolsRole !== role;
