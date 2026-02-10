@@ -72,59 +72,66 @@ export function ThinkingCard(props: ThinkingCardProps) {
 
   return (
     <div class="group rounded hover:bg-zinc-800/20 transition-colors fade-in">
-      <div class="px-2 py-1.5 flex gap-1.5">
+      {/* Header row: icon + "Thinking" + expand/collapse on same line */}
+      <div class="px-2 py-1.5 flex items-center gap-1.5">
         <Icon
           icon="lucide:brain"
-          class="w-3 h-3 text-purple-400 flex-shrink-0 mt-0.5"
+          class="w-3 h-3 text-purple-400 flex-shrink-0"
         />
-        <div class="flex-1 min-w-0">
-          <div class="flex items-center justify-end mb-0.5">
-            <button
-              onClick={toggleExpanded}
-              class="flex items-center gap-1 text-[10px] text-zinc-500 hover:text-zinc-300 transition-colors"
-            >
-              {isCollapsed() ? (
-                <>
-                  <Show when={getCollapsedPreview().remainingLines > 0}>
-                    <span>+{getCollapsedPreview().remainingLines} more</span>
-                  </Show>
-                  <Icon icon="lucide:chevron-down" class="w-3 h-3" />
-                </>
-              ) : (
-                <>
-                  <span>Collapse</span>
-                  <Icon icon="lucide:chevron-up" class="w-3 h-3" />
-                </>
-              )}
-            </button>
-          </div>
+        <div class="text-[10px] font-semibold text-zinc-300 tracking-tight">
+          Thinking
+        </div>
+        <div class="flex-1" />
+        <button
+          onClick={toggleExpanded}
+          class="flex items-center gap-1 text-[10px] text-zinc-500 hover:text-zinc-300 transition-colors flex-shrink-0"
+        >
+          {isCollapsed() ? (
+            <>
+              <Show when={getCollapsedPreview().remainingLines > 0}>
+                <span>+{getCollapsedPreview().remainingLines} more</span>
+              </Show>
+              <Icon icon="lucide:chevron-down" class="w-3 h-3" />
+            </>
+          ) : (
+            <>
+              <span>Collapse</span>
+              <Icon icon="lucide:chevron-up" class="w-3 h-3" />
+            </>
+          )}
+        </button>
+      </div>
 
-          <Show when={!isCollapsed()}>
-            <Markdown
-              content={props.event.text}
-              class="text-[13px] text-zinc-400 leading-relaxed"
-            />
-            {/* Animated cursor during streaming */}
-            <Show when={props.isStreaming}>
-              <span class="inline-block w-0.5 h-4 ml-1 bg-purple-400 animate-blink" />
-            </Show>
-
-            {/* Token count if available */}
-            <Show when={props.event.tokenCount !== undefined}>
-              <div class="mt-2 text-[10px] text-zinc-600">
-                {props.event.tokenCount} tokens
-              </div>
-            </Show>
+      {/* Expanded content */}
+      <Show when={!isCollapsed()}>
+        <div class="px-2 pb-1.5 pl-7">
+          <Markdown
+            content={props.event.text}
+            class="text-[13px] text-zinc-400 leading-relaxed"
+          />
+          {/* Animated cursor during streaming */}
+          <Show when={props.isStreaming}>
+            <span class="inline-block w-0.5 h-4 ml-1 bg-purple-400 animate-blink" />
           </Show>
 
-          <Show when={isCollapsed()}>
-            <Markdown
-              content={getCollapsedPreview().previewLines}
-              class="text-[13px] text-zinc-400 leading-relaxed"
-            />
+          {/* Token count if available */}
+          <Show when={props.event.tokenCount !== undefined}>
+            <div class="mt-2 text-[10px] text-zinc-600">
+              {props.event.tokenCount} tokens
+            </div>
           </Show>
         </div>
-      </div>
+      </Show>
+
+      {/* Collapsed preview */}
+      <Show when={isCollapsed()}>
+        <div class="px-2 pb-1.5 pl-7">
+          <Markdown
+            content={getCollapsedPreview().previewLines}
+            class="text-[13px] text-zinc-400 leading-relaxed"
+          />
+        </div>
+      </Show>
     </div>
   );
 }

@@ -351,7 +351,7 @@ export function ToolCallCard(props: ToolCallCardProps) {
         <button
           onClick={() => toggleTab("input")}
           disabled={!hasInput()}
-          class={`flex items-center gap-0.5 text-[10px] transition-colors ${
+          class={`flex items-center gap-1 text-[11px] transition-colors ${
             !hasInput()
               ? "text-gray-600 cursor-not-allowed"
               : selectedTab() === "input"
@@ -359,7 +359,7 @@ export function ToolCallCard(props: ToolCallCardProps) {
                 : "text-gray-500 hover:text-gray-400"
           }`}
         >
-          <Icon icon="lucide:log-in" class="w-2.5 h-2.5" />
+          <Icon icon="lucide:log-in" class="w-3.5 h-3.5" />
           <span>input</span>
         </button>
 
@@ -367,7 +367,7 @@ export function ToolCallCard(props: ToolCallCardProps) {
         <button
           onClick={() => toggleTab("output")}
           disabled={!hasOutput() && !hasError()}
-          class={`flex items-center gap-0.5 text-[10px] transition-colors ${
+          class={`flex items-center gap-1 text-[11px] transition-colors ${
             !hasOutput() && !hasError()
               ? "text-gray-600 cursor-not-allowed"
               : selectedTab() === "output"
@@ -375,7 +375,7 @@ export function ToolCallCard(props: ToolCallCardProps) {
                 : "text-gray-500 hover:text-gray-400"
           }`}
         >
-          <Icon icon="lucide:log-out" class="w-2.5 h-2.5" />
+          <Icon icon="lucide:log-out" class="w-3.5 h-3.5" />
           <span>output</span>
         </button>
       </div>
@@ -393,8 +393,8 @@ export function ToolCallCard(props: ToolCallCardProps) {
             <Show
               when={!isFailed()}
               fallback={
-                <div class="text-xs space-y-1 py-1">
-                  <div class="text-red-400">
+                <div class="text-xs space-y-1 py-1 max-h-48 overflow-y-auto">
+                  <div class="text-red-400 whitespace-pre-wrap break-words">
                     {props.toolCall.error?.message || "Tool execution failed"}
                   </div>
                   <Show when={props.toolCall.error?.suggestion}>
