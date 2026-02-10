@@ -7,6 +7,8 @@
  * Aligned with specs/013-test-runner-tools/data-model.md
  */
 
+import * as path from "node:path";
+
 import { ToolErrorCode } from "../errors.js";
 import type {
   AgentTool,
@@ -231,12 +233,16 @@ async function runTests(
 
     // 7. Execute vitest
     const runner = new VitestRunner();
-    const vitestResult = await runner.execute({
+    const executeOptions: Parameters<typeof runner.execute>[0] = {
       files: scopeResult.files,
-      pattern: scopeResult.pattern,
       workingDir,
       timeout,
-    });
+    };
+    // Only add pattern if defined (exactOptionalPropertyTypes compliance)
+    if (scopeResult.pattern !== undefined) {
+      executeOptions.pattern = scopeResult.pattern;
+    }
+    const vitestResult = await runner.execute(executeOptions);
 
     // Check for error (ToolError has 'code' property)
     if ("code" in vitestResult) {

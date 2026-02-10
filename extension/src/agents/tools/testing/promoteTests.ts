@@ -19,7 +19,6 @@ import type {
   ToolResult,
 } from "../types.js";
 import { errorResult, successResult } from "../utils/resultBuilder.js";
-import { ResultFormatter } from "./ResultFormatter.js";
 import type { TestConfig, TestTier } from "./TestConfigLoader.js";
 import { TestConfigLoader } from "./TestConfigLoader.js";
 import type {
@@ -261,12 +260,6 @@ async function promoteTests(
 
   // 4. Get last red-phase test results to check pass/fail status
   const lastResult = getLastRedPhaseResult();
-  const formatter = new ResultFormatter();
-
-  // Optionally compute redPhaseInfo for future detailed output
-  if (lastResult && lastResult.scope === "red") {
-    // Could use formatter.invertRedPhase(lastResult, config) for detailed analysis
-  }
 
   // Build a map of file paths to their test status
   const fileTestStatus = new Map<string, { passing: number; failing: number }>();
