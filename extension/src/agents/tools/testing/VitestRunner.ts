@@ -48,17 +48,15 @@ export class VitestRunner {
   /**
    * Build vitest CLI command arguments.
    * @param options Run configuration
-   * @returns Array of command arguments for spawn
+   * @returns Array of command arguments for spawn (includes --outputFile=<temppath>)
    */
   buildCommand(options: VitestRunOptions): string[] {
     const args: string[] = ["vitest", "run"];
 
     // JSON reporter with output file (always)
-    const outputFile = this.getTempOutputPath();
+    const jsonOutputPath = this.getTempOutputPath();
     args.push("--reporter=json");
-    args.push(`--outputFile=${outputFile}`);
-
-    // Optional: test name pattern
+    args.push(`--outputFile=${jsonOutputPath}`);    // Optional: test name pattern
     if (options.pattern) {
       args.push("-t", options.pattern);
     }
@@ -85,13 +83,15 @@ export class VitestRunner {
    * @returns VitestRunResult with exit code, parsed JSON, and duration
    */
   async execute(options: VitestRunOptions): Promise<VitestRunResult | ToolError> {
-    const outputFile = this.getTempOutputPath();
     const startTime = Date.now();
 
-    try {
-      // Build command arguments
-      const args = this.buildCommand(options);
+    // Build command arguments first - buildCommand generates the temp output path
+    const args = this.buildCommand(options);
 
+    // Extract the outputFile path from the built args
+    const outputFile = this.extractOutputFilePath(args);
+
+    try {
       // Spawn vitest process via npx
       const exitCode = await this.spawnProcess(args, options.workingDir, options.timeout);
 
@@ -114,6 +114,18 @@ export class VitestRunner {
     }
   }
 
+  /**
+   * Extract the output file path from the built command arguments.
+   * @param args Command arguments array
+   * @returns The output file path
+   */
+  private extractOutputFilePath(args: string[]): string {
+    const outputArg = args.find((arg) => arg.startsWith("--outputFile="));
+    if (!outputArg) {
+      throw new Error("Internal error: outputFile not found in command args");
+    }
+    return outputArg.substring("--outputFile=".length);
+  }
   /**
    * Spawn the vitest process and wait for completion.
    * @param args Command arguments
