@@ -15,6 +15,7 @@ import {
   clearAfter,
   clearEvents,
   clearSessionHistory,
+  clearToolCalls,
   persistState,
   replaceSession,
   resetSession,
@@ -64,18 +65,30 @@ export function handleExtensionMessage(message: ExtensionMessage): void {
   console.log(`[AgentPanel] Received message:`, message.type);
 
   switch (message.type) {
-    case "session_update":
+    case "session_update": {
       console.log(
         `[AgentPanel] Session update:`,
         message.session?.sessionId,
         message.session?.status,
       );
+      // If this is a new session (different sessionId), clear stale data
+      const currentSessionId = session?.sessionId;
+      const isNewSession =
+        currentSessionId && currentSessionId !== message.session.sessionId;
+      if (isNewSession) {
+        console.log(
+          `[AgentPanel] New session detected (${currentSessionId} -> ${message.session.sessionId}), clearing stale data`,
+        );
+        clearEvents();
+        clearToolCalls();
+      }
       // Use replaceSession for full diff-based replacement (not shallow merge)
       // This ensures a clean transition from empty store to full session object
       replaceSession(message.session);
       persistState();
       setUi("initialScrollPending", true);
       break;
+    }
 
     case "session_list":
       // Session list handling will be added when session switching is implemented
