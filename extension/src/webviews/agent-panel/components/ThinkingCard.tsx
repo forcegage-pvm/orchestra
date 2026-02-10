@@ -27,7 +27,7 @@ export interface ThinkingCardProps {
 /**
  * ThinkingCard - Displays agent thinking with streaming text and cursor
  *
- * Shows brain icon, thinking text with optional streaming cursor animation,
+ * Shows thinking text with optional streaming cursor animation
  * and collapse/expand functionality. Starts collapsed, auto-expands during
  * streaming, and auto-collapses when streaming completes.
  *
@@ -78,12 +78,8 @@ export function ThinkingCard(props: ThinkingCardProps) {
 
   return (
     <div class="group rounded hover:bg-zinc-800/20 transition-colors fade-in">
-      {/* Header row: icon + expand/collapse button */}
+      {/* Header row: text + expand/collapse button */}
       <div class="px-2 pt-1.5 flex items-start gap-1.5">
-        <Icon
-          icon="lucide:brain"
-          class="w-3 h-3 text-purple-400 flex-shrink-0 mt-0.5"
-        />
         <div class="flex-1 min-w-0">
           {/* Collapsed: show preview lines as markdown */}
           <Show when={isCollapsed()}>
