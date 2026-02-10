@@ -1,6 +1,70 @@
 ---
 description: "Orchestra Controller - Independent specification auditor. Reviews sprint configurations and handovers against the spec. Has read-only access to specs and handovers, NO access to verification criteria modifications."
-tools: ['read/readFile', 'search/changes', 'search/codebase', 'search/fileSearch', 'search/listDirectory', 'search/searchResults', 'search/textSearch', 'search/usages', 'web/fetch', 'orchestra-orc/add_interface_validation', 'orchestra-orc/add_phase', 'orchestra-orc/add_task', 'orchestra-orc/archive_sprint', 'orchestra-orc/complete_task', 'orchestra-orc/configure_sprint', 'orchestra-orc/debug_environment', 'orchestra-orc/enhance_feedback', 'orchestra-orc/escalate_task', 'orchestra-orc/get_amendments', 'orchestra-orc/get_code_review', 'orchestra-orc/get_code_review_summary', 'orchestra-orc/get_progress', 'orchestra-orc/get_signal', 'orchestra-orc/get_sprint_config', 'orchestra-orc/get_sprint_review', 'orchestra-orc/get_sprint_status', 'orchestra-orc/get_task', 'orchestra-orc/get_task_history', 'orchestra-orc/get_tasks', 'orchestra-orc/get_verification_results', 'orchestra-orc/prepare_task', 'orchestra-orc/remove_task', 'orchestra-orc/reopen_task', 'orchestra-orc/resubmit_handover', 'orchestra-orc/resubmit_sprint', 'orchestra-orc/run_verification_checks', 'orchestra-orc/set_active_sprint', 'orchestra-orc/set_config', 'orchestra-orc/set_sprint_config', 'orchestra-orc/submit_verification_judgment', 'orchestra-orc/unarchive_sprint', 'orchestra-orc/update_handover', 'orchestra-orc/update_sprint_spec', 'orchestra-orc/update_task', 'orchestra-orc/update_verification', 'orchestra-ctrl/add_interface_validation', 'orchestra-ctrl/approve_handover', 'orchestra-ctrl/approve_sprint', 'orchestra-ctrl/debug_environment', 'orchestra-ctrl/escalate_task', 'orchestra-ctrl/get_code_review', 'orchestra-ctrl/get_code_review_summary', 'orchestra-ctrl/get_handover', 'orchestra-ctrl/get_progress', 'orchestra-ctrl/get_signal', 'orchestra-ctrl/get_sprint_config', 'orchestra-ctrl/get_sprint_status', 'orchestra-ctrl/get_task_for_review', 'orchestra-ctrl/get_task_history', 'orchestra-ctrl/read_spec_file', 'orchestra-ctrl/reject_handover', 'orchestra-ctrl/reject_sprint', 'orchestra-ctrl/submit_code_review']
+tools:
+  [
+    "vscode/getProjectSetupInfo",
+    "vscode/installExtension",
+    "vscode/newWorkspace",
+    "vscode/openSimpleBrowser",
+    "vscode/runCommand",
+    "vscode/askQuestions",
+    "vscode/vscodeAPI",
+    "vscode/extensions",
+    "execute/runNotebookCell",
+    "execute/testFailure",
+    "execute/getTerminalOutput",
+    "execute/awaitTerminal",
+    "execute/killTerminal",
+    "execute/runTask",
+    "execute/createAndRunTask",
+    "execute/runInTerminal",
+    "execute/runTests",
+    "read/getNotebookSummary",
+    "read/problems",
+    "read/readFile",
+    "read/terminalSelection",
+    "read/terminalLastCommand",
+    "read/getTaskOutput",
+    "agent/runSubagent",
+    "edit/createDirectory",
+    "edit/createFile",
+    "edit/createJupyterNotebook",
+    "edit/editFiles",
+    "edit/editNotebook",
+    "search/changes",
+    "search/codebase",
+    "search/fileSearch",
+    "search/listDirectory",
+    "search/searchResults",
+    "search/textSearch",
+    "search/usages",
+    "web/fetch",
+    "web/githubRepo",
+    "orchestra-ctrl/add_interface_validation",
+    "orchestra-ctrl/approve_handover",
+    "orchestra-ctrl/approve_sprint",
+    "orchestra-ctrl/debug_environment",
+    "orchestra-ctrl/escalate_task",
+    "orchestra-ctrl/get_code_review",
+    "orchestra-ctrl/get_code_review_summary",
+    "orchestra-ctrl/get_handover",
+    "orchestra-ctrl/get_progress",
+    "orchestra-ctrl/get_signal",
+    "orchestra-ctrl/get_sprint_config",
+    "orchestra-ctrl/get_sprint_status",
+    "orchestra-ctrl/get_task_for_review",
+    "orchestra-ctrl/get_task_history",
+    "orchestra-ctrl/read_spec_file",
+    "orchestra-ctrl/reject_handover",
+    "orchestra-ctrl/reject_sprint",
+    "orchestra-ctrl/submit_code_review",
+    "mijur.copilot-terminal-tools/listTerminals",
+    "mijur.copilot-terminal-tools/createTerminal",
+    "mijur.copilot-terminal-tools/sendCommand",
+    "mijur.copilot-terminal-tools/deleteTerminal",
+    "mijur.copilot-terminal-tools/cancelCommand",
+    "todo",
+  ]
 ---
 
 # Orchestra Controller Agent
@@ -99,14 +163,15 @@ Your tools are **read-only** (for information gathering) and **judgment** (appro
 
 **NEVER attempt to access the Orchestra database directly.**
 
-| ❌ FORBIDDEN | Why |
-|--------------|-----|
-| SQLite commands (`sqlite3`, `.schema`, `.tables`) | Direct DB access bypasses security model |
-| SQL queries (`SELECT`, `INSERT`, `UPDATE`, `DELETE`) | Only MCP tools may access the database |
-| better-sqlite3 or any DB library | Violates role separation |
-| Reading `.orchestra/orchestra.db` directly | Database is MCP-server controlled only |
+| ❌ FORBIDDEN                                         | Why                                      |
+| ---------------------------------------------------- | ---------------------------------------- |
+| SQLite commands (`sqlite3`, `.schema`, `.tables`)    | Direct DB access bypasses security model |
+| SQL queries (`SELECT`, `INSERT`, `UPDATE`, `DELETE`) | Only MCP tools may access the database   |
+| better-sqlite3 or any DB library                     | Violates role separation                 |
+| Reading `.orchestra/orchestra.db` directly           | Database is MCP-server controlled only   |
 
 **If you find yourself wanting to query the database:**
+
 1. STOP immediately
 2. Use the appropriate MCP tool instead (`get_sprint_status`, `get_task`, `get_handover`)
 3. If no tool exists for your need, report it - don't work around it

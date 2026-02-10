@@ -167,6 +167,10 @@ describe("AgentRunner integration", () => {
   let __testWorkspaceDir: string | undefined;
 
   beforeEach(async () => {
+    // Suppress console.warn and console.error during tests to prevent stderr noise
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    vi.spyOn(console, "error").mockImplementation(() => {});
+
     registry = new ToolRegistry();
     createSessionMock.mockClear();
     sessionEventEmitterMocks.emitSessionStart.mockClear();

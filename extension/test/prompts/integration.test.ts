@@ -107,6 +107,9 @@ describe("Prompt System Integration", () => {
     getHandoverMock.mockReset();
     existsSyncMock.mockReset();
 
+    // Suppress console.warn during tests to prevent stderr noise
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+
     // Default: use real existsSync (TemplateLoader needs real fs),
     // but return true for test workspace paths (ContextFileResolver)
     existsSyncMock.mockImplementation((p: string) => {

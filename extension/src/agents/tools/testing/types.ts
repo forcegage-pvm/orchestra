@@ -393,7 +393,7 @@ export interface CacheKey {
  */
 export class ExecutionLock {
   private running = false;
-  private currentScope?: string;
+  private currentScope?: string | undefined;
 
   /**
    * Attempt to acquire the lock.

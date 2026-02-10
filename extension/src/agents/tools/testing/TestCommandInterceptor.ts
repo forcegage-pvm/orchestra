@@ -41,7 +41,7 @@ export class TestCommandInterceptor {
    * @param cmd Command that was intercepted (currently unused, reserved for future context)
    * @returns Formatted redirect message
    */
-  static getRedirectMessage(cmd: string): string {
+  static getRedirectMessage(_cmd: string): string {
     return (
       "\u2717 run_command: TEST_COMMAND_BLOCKED\n\n" +
       "Direct test execution is blocked. Use the test runner tools for:\n" +

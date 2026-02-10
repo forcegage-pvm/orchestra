@@ -191,9 +191,11 @@ describe("AgentRunner", () => {
     loadSessionMock.mockReset();
     getStorageMock.mockClear();
 
+    // Suppress console.warn during tests to prevent stderr noise
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    
     // Mock language model - default to simple mock
     const mockModel = createSimpleMockModel();
-
     vi.mocked(vscode.lm.selectChatModels).mockResolvedValue([mockModel as any]);
 
     // Ensure extension-specific migrations applied

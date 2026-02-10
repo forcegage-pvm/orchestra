@@ -28,9 +28,11 @@ describe("ContextFileResolver", () => {
   let existsSyncMock: ReturnType<typeof vi.fn>;
 
   beforeEach(async () => {
+    // Suppress console.warn during tests to prevent stderr noise
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+
     // Set workspace root for tests (use Windows-style path for tests on Windows)
     workspaceRoot = process.platform === "win32" ? "C:\\test\\workspace" : "/test/workspace";
-
     // Get the mock function
     const queries = await import("../../src/database/queries.js");
     getHandoverMock = queries.getHandover as ReturnType<typeof vi.fn>;
