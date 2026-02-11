@@ -39,6 +39,10 @@ export interface VitestRunResult {
   vitestJson: unknown;
   /** Execution duration in ms */
   duration: number;
+  /** Captured stdout (for debugging) */
+  stdout?: string;
+  /** Captured stderr (for debugging/errors) */
+  stderr?: string;
 }
 
 /**
@@ -92,7 +96,9 @@ export class VitestRunner {
    * @param options Run configuration
    * @returns VitestRunResult with exit code, parsed JSON, and duration
    */
-  async execute(options: VitestRunOptions): Promise<VitestRunResult | ToolError> {
+  async execute(
+    options: VitestRunOptions,
+  ): Promise<VitestRunResult | ToolError> {
     const startTime = Date.now();
 
     // Build command arguments first - buildCommand generates the temp output path
@@ -101,12 +107,43 @@ export class VitestRunner {
     // Extract the outputFile path from the built args
     const outputFile = this.extractOutputFilePath(args);
 
+    // DEBUG: Log command being executed
+    // eslint-disable-next-line no-console
+    console.log(
+      `[VitestRunner] Executing: npx ${args.join(" ")}\n  cwd: ${options.workingDir}`,
+    );
+
     try {
       // Spawn vitest process via npx
-      const exitCode = await this.spawnProcess(args, options.workingDir, options.timeout);
+      const { exitCode, stdout, stderr } = await this.spawnProcess(
+        args,
+        options.workingDir,
+        options.timeout,
+      );
+
+      // DEBUG: Log captured output
+      if (stderr) {
+        // eslint-disable-next-line no-console
+        console.warn(`[VitestRunner] stderr:\n${stderr}`);
+      }
 
       // Read and parse JSON output file
-      const vitestJson = await this.readJsonOutput(outputFile);
+      let vitestJson: unknown;
+      try {
+        vitestJson = await this.readJsonOutput(outputFile);
+      } catch (error) {
+        // If JSON output file is missing, include stderr in error
+        if (
+          error instanceof Error &&
+          error.message.includes("JSON output file not found")
+        ) {
+          const stderrPreview = stderr
+            ? `\n\nStderr:\n${stderr.slice(0, 500)}`
+            : "";
+          throw new Error(`${error.message}${stderrPreview}`);
+        }
+        throw error;
+      }
 
       const duration = Date.now() - startTime;
 
@@ -114,6 +151,8 @@ export class VitestRunner {
         exitCode,
         vitestJson,
         duration,
+        stdout,
+        stderr,
       };
     } catch (error) {
       const duration = Date.now() - startTime;
@@ -125,29 +164,17 @@ export class VitestRunner {
   }
 
   /**
-   * Extract the output file path from the built command arguments.
-   * @param args Command arguments array
-   * @returns The output file path
-   */
-  private extractOutputFilePath(args: string[]): string {
-    const outputArg = args.find((arg) => arg.startsWith("--outputFile="));
-    if (!outputArg) {
-      throw new Error("Internal error: outputFile not found in command args");
-    }
-    return outputArg.substring("--outputFile=".length);
-  }
-  /**
    * Spawn the vitest process and wait for completion.
    * @param args Command arguments
    * @param cwd Working directory
    * @param timeout Optional timeout in ms
-   * @returns Exit code
+   * @returns Exit code, stdout, and stderr
    */
   private spawnProcess(
     args: string[],
     cwd: string,
     timeout?: number,
-  ): Promise<number> {
+  ): Promise<{ exitCode: number; stdout: string; stderr: string }> {
     return new Promise((resolve, reject) => {
       // Use AbortController for timeout handling
       const controller = new AbortController();
@@ -170,6 +197,18 @@ export class VitestRunner {
         stdio: ["ignore", "pipe", "pipe"],
       });
 
+      // Capture stdout and stderr
+      const stdoutChunks: Buffer[] = [];
+      const stderrChunks: Buffer[] = [];
+
+      child.stdout?.on("data", (chunk: Buffer) => {
+        stdoutChunks.push(chunk);
+      });
+
+      child.stderr?.on("data", (chunk: Buffer) => {
+        stderrChunks.push(chunk);
+      });
+
       // Handle spawn errors (ENOENT, etc.)
       child.on("error", (error) => {
         if (timeoutId) clearTimeout(timeoutId);
@@ -179,7 +218,10 @@ export class VitestRunner {
       // Handle process exit
       child.on("exit", (code) => {
         if (timeoutId) clearTimeout(timeoutId);
-        resolve(code ?? 1); // Treat null exit code as failure
+        const exitCode = code ?? 1;
+        const stdout = Buffer.concat(stdoutChunks).toString("utf-8");
+        const stderr = Buffer.concat(stderrChunks).toString("utf-8");
+        resolve({ exitCode, stdout, stderr });
       });
     });
   }
@@ -194,7 +236,11 @@ export class VitestRunner {
       const content = await readFile(filePath, "utf-8");
       return JSON.parse(content);
     } catch (error) {
-      if (error instanceof Error && "code" in error && error.code === "ENOENT") {
+      if (
+        error instanceof Error &&
+        "code" in error &&
+        error.code === "ENOENT"
+      ) {
         throw new Error(`JSON output file not found: ${filePath}`);
       }
       throw new Error(

@@ -7,42 +7,51 @@ System prompts in Orchestra go through several transformations before reaching t
 ## The System Prompt Journey
 
 ### 1. Injection (PlayTaskHandler.ts)
+
 ```typescript
-const systemPrompt = await readAgentInstructions(workspaceRoot, role, promptBuilder);
+const systemPrompt = await readAgentInstructions(
+  workspaceRoot,
+  role,
+  promptBuilder,
+);
 // Injects as role: "system" into AgentSession
 ```
 
 ### 2. Storage (AgentSession)
+
 ```typescript
 const message: AgentMessage = {
   id: crypto.randomUUID(),
-  role: "system",  // ✅ Stored as system
+  role: "system", // ✅ Stored as system
   content: systemPrompt,
   timestamp: new Date().toISOString(),
-  iteration: 0
+  iteration: 0,
 };
 ```
 
 ### 3. Context Compaction (ContextManager.compact())
+
 ```typescript
 // System messages are ALWAYS preserved, never removed
-const systemMessages = messages.filter(msg => msg.role === "system");
-const compacted = [...systemMessages, ...recentMessages];  // ✅ Always first
+const systemMessages = messages.filter((msg) => msg.role === "system");
+const compacted = [...systemMessages, ...recentMessages]; // ✅ Always first
 ```
 
 ### 4. Conversion to VS Code LM API (convertToLMMessages())
+
 ```typescript
 // VS Code LM API has no "system" role, so we convert to "User"
-const systemLMMessages = systemMessages.map(msg => 
-  vscode.LanguageModelChatMessage.User(msg.content)  // ⚠️ System → User
+const systemLMMessages = systemMessages.map(
+  (msg) => vscode.LanguageModelChatMessage.User(msg.content), // ⚠️ System → User
 );
 
-return [...systemLMMessages, ...conversationMessages];  // ✅ Prepended
+return [...systemLMMessages, ...conversationMessages]; // ✅ Prepended
 ```
 
 ### 5. Sent to LLM (sendRequestOnce())
+
 ```typescript
-await model.sendRequest(messages, { tools }, token);  // ✅ First messages are system prompts
+await model.sendRequest(messages, { tools }, token); // ✅ First messages are system prompts
 ```
 
 ## How to Verify in DevTools Console
@@ -50,11 +59,13 @@ await model.sendRequest(messages, { tools }, token);  // ✅ First messages are 
 ### Step 1: Open DevTools
 
 **In Extension Development Host (when testing):**
+
 1. Press `Ctrl + Shift + P`
 2. Run: `Developer: Toggle Developer Tools`
 3. Go to **Console** tab
 
 **In Regular VS Code (production extension):**
+
 1. `Help` → `Toggle Developer Tools`
 2. Go to **Console** tab
 
@@ -88,12 +99,14 @@ This project follows these conventions:
 ### Step 4: Verify System Prompts Are First
 
 **What to check:**
+
 - ✅ System message count matches (2 = main prompt + coding standards)
 - ✅ System prompts are converted to User role (this is CORRECT - VS Code LM API limitation)
 - ✅ System prompts appear FIRST in the messages array
 - ✅ Content preview shows template content (not YAML frontmatter)
 
 **Red flags:**
+
 - ❌ Zero system messages logged
 - ❌ System prompt content shows YAML frontmatter (`chatagent:...`)
 - ❌ System prompts appear late in message array
@@ -104,6 +117,7 @@ This project follows these conventions:
 I've added two console.log groups to AgentRunner:
 
 ### 1. System Message Conversion (line ~2001)
+
 ```typescript
 console.log(`Converting ${systemMessages.length} system messages to User role`);
 systemMessages.forEach((msg, i) => {
@@ -112,10 +126,12 @@ systemMessages.forEach((msg, i) => {
 ```
 
 Shows:
+
 - How many system messages exist
 - First 150 chars of each (verify template content, not .agent.md)
 
 ### 2. Final Message Array (line ~2382)
+
 ```typescript
 console.group(`Sending ${messages.length} messages to LLM`);
 messages.forEach((msg, i) => {
@@ -125,6 +141,7 @@ console.groupEnd();
 ```
 
 Shows:
+
 - Total message count sent to LLM
 - Role of each message (should start with USER, USER for system prompts)
 - First 100 chars of content
@@ -153,6 +170,7 @@ This project uses:
 ```
 
 **Key indicators:**
+
 - ✅ 2 system messages converted
 - ✅ First message shows "TEST EXECUTION POLICY" near start (not line 138)
 - ✅ No YAML frontmatter (`chatagent:`, `tools:`, etc.)
@@ -176,6 +194,7 @@ chatagent:
 ```
 
 **Red flags:**
+
 - ❌ System 1 starts with YAML frontmatter (`---`, `chatagent:`)
 - ❌ Tool names show as `execute/runTests` (VS Code Chat IDs, not AgentTool names)
 - ❌ Message is 852 lines (old .agent.md) not 361 lines (template)
@@ -200,6 +219,7 @@ You can also query the AgentSession object in console:
 **Cause:** DevTools opened for wrong window
 
 **Solution:**
+
 - Make sure DevTools is for Extension Development Host (when testing)
 - Or main VS Code window (when using installed extension)
 
@@ -208,6 +228,7 @@ You can also query the AgentSession object in console:
 **Cause:** Coding standards template missing or failed to render
 
 **Solution:**
+
 - Check `extension/dist/templates/prompts/coding-standards.hbs` exists
 - Rebuild extension: `cd extension && npm run build`
 
@@ -216,6 +237,7 @@ You can also query the AgentSession object in console:
 **Cause:** Template failed to load, fell back to `.agent.md` file
 
 **Solution:**
+
 1. Verify templates copied: `ls extension/dist/templates/prompts/`
 2. Check for `system-implementor.hbs`, `system-orchestrator.hbs`, `system-controller.hbs`
 3. Rebuild if missing: `cd extension && npm run build`
@@ -243,6 +265,7 @@ You can also query the AgentSession object in console:
 ## Why "User Role" for System Prompts is OK
 
 VS Code Language Model API limitation:
+
 - API only supports `User` and `Assistant` roles
 - No `System` role exists in VS Code LM API
 - Solution: Convert system → User and prepend
