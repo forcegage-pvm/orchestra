@@ -67,11 +67,21 @@ You have powerful built-in tools for navigating and reading code. **Always prefe
 
 ### System & Execution
 
-| Tool           | Purpose                       | When to Use                                                                    |
-| -------------- | ----------------------------- | ------------------------------------------------------------------------------ |
-| `run_command`  | Run a shell command           | Build, test, lint commands. **Not for searching** — use `grep_search` instead. |
-| `run_tests`    | Run test suite                | Execute tests with proper framework integration.                               |
-| `get_problems` | Get compiler/lint diagnostics | Check for TypeScript, ESLint errors.                                           |
+| Tool           | Purpose                       | When to Use                                                                               |
+| -------------- | ----------------------------- | ----------------------------------------------------------------------------------------- |
+| `run_command`  | Run a shell command           | Build, lint commands. **Not for searching or testing** — use `grep_search` / `run_tests`. |
+| `get_problems` | Get compiler/lint diagnostics | Check for TypeScript, ESLint errors.                                                      |
+
+### Testing Tools
+
+| Tool               | Purpose                             | When to Use                                              |
+| ------------------ | ----------------------------------- | -------------------------------------------------------- |
+| `run_tests`        | Run tests by scope/tier             | Execute tests with proper framework integration.         |
+| `get_test_results` | Query results from last test run    | Check failures, get structured results for verification. |
+| `list_test_suites` | List available test suites/tiers    | Discover test structure and tier configuration.          |
+| `promote_tests`    | Move tests between tier directories | Reorganize test files after TDD green phase.             |
+
+> **Testing tools vs verification checks**: The testing tools above are for YOUR exploratory testing. Verification criteria `command` fields (in `behavioral_checks`) still use raw shell commands (e.g., `npm test -- -t "pattern"`) because `run_verification_checks` executes those directly via the shell. When writing **handover content** for implementors, reference `run_tests` — not raw shell commands.
 
 **⚠️ Anti-pattern**: Do NOT use `run_command` with `findstr`, `grep`, `find`, or `cat` to search or read files. Use `grep_search`, `search_files`, and `read_file` instead — they are faster, cross-platform, and return structured results.
 
@@ -521,6 +531,17 @@ This returns all verification criteria amendments from previous tasks, including
 | Python       | `pytest`       | `tests/**/*.py`       | `src`           |
 | Rust         | `cargo test`   | `tests/**/*.rs`       | `src`           |
 
+### Agent Testing Infrastructure
+
+The workspace includes `.agent-test-config.json` which configures the testing tools available to all agents. This is separate from the sprint `environment` field:
+
+- **Sprint `environment`**: Configures `run_verification_checks` behavioral commands (shell-level, used by orchestrator verification)
+- **`.agent-test-config.json`**: Configures `run_tests` / `get_test_results` / `list_test_suites` (agent-level, used by implementor during development)
+
+The config defines **test tiers** (e.g., `smoke`, `unit`, `integration`, `extension-unit`) with glob patterns and timeouts. When an implementor calls `run_tests({ scope: "suite", target: "unit" })`, it resolves the `"unit"` tier from this config.
+
+**You don't need to edit `.agent-test-config.json`**, but when writing handover instructions, reference tiers by name (e.g., "run the unit tests" → implementor uses `run_tests({ scope: "suite", target: "unit" })`).
+
 ### ⚠️ REQUIRED: Specification Traceability
 
 **Every sprint MUST specify its specification source.** The `spec_path` field is REQUIRED in `configure_sprint`.
@@ -671,15 +692,19 @@ Red Task (tdd_red_phase: true):
    DO NOT implement the feature. Tests should FAIL.
    Keep the markers AND task annotation in place.
 
-   Verify locally:
-   - Dart: flutter test --tags tdd-red (should FAIL)
-   - Dart: flutter test --exclude-tags tdd-red (should PASS)
-   - TS: npm test -- --testNamePattern=\"\\[tdd-red\\]\" (should FAIL)"
+   Verify locally using the run_tests tool:
+   - run_tests({ scope: 'red' })  → should FAIL (tests are red)
+   - run_tests({ scope: 'suite', target: 'unit' })  → should PASS (existing tests unaffected)
+
+   DO NOT run tests via terminal commands."
 
 Green Task (depends on red task):
   "Implement the feature to make tests pass.
    Remove the [tdd-red] markers and // @orchestra-task: N annotation.
-   All tests should now PASS."
+   Verify:
+   - run_tests({ scope: 'red' })  → should now PASS
+   - run_tests({ scope: 'related' })  → should PASS
+   Then run promote_tests() if test files need tier reclassification."
 ```
 
 ### complete_task Gate Check for TDD

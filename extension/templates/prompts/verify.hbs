@@ -17,6 +17,8 @@ As Orchestrator, verify Task {{task.task_id}}: "{{task.title}}".
 ### 2. Run Automated Checks
 `run_verification_checks` - Execute automated verification checks
 
+After checks complete, use `get_test_results({ format: "failures" })` to inspect any test failures in detail.
+
 ### 3. 🔍 Mandatory: Stub Hunt Protocol
 
 {{>stub-hunter-mode}}

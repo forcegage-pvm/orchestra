@@ -44,10 +44,14 @@ These are the coding standards for this project. All agents must adhere to these
 {{!-- Define testing requirements and patterns here --}}
 {{!-- Examples:
 - All new features must include unit tests
-- Test files mirror source structure: src/foo.ts → test/foo.test.ts
+- Test files mirror source structure: src/foo.ts → test/unit/foo.test.ts
 - Use Vitest with global test APIs (describe, it, expect)
 - Minimum 80% code coverage for new code
 - Tests must validate behavior, not just existence
+- Tests are organized into tiered directories (smoke, unit, integration)
+  configured in .agent-test-config.json
+- Agents MUST use run_tests / get_test_results (never npm test directly)
+- Use promote_tests to move tests between tier directories
 --}}
 
 ## Error Handling
