@@ -42,7 +42,13 @@ describe("Extension registration - Command registration (Task 15)", () => {
 
   beforeEach(() => {
     // Read the actual extension.ts file
-    const extensionPath = path.join(__dirname, "..", "..", "src", "extension.ts");
+    const extensionPath = path.join(
+      __dirname,
+      "..",
+      "..",
+      "src",
+      "extension.ts",
+    );
     extensionCode = fs.readFileSync(extensionPath, "utf-8");
 
     // Also read command files that register commands
@@ -244,7 +250,13 @@ describe("Extension registration - CurrentTaskViewProvider (Task 7)", () => {
 
   beforeEach(() => {
     // Read the actual extension.ts file
-    const extensionPath = path.join(__dirname, "..", "..", "src", "extension.ts");
+    const extensionPath = path.join(
+      __dirname,
+      "..",
+      "..",
+      "src",
+      "extension.ts",
+    );
     extensionCode = fs.readFileSync(extensionPath, "utf-8");
   });
 
@@ -423,7 +435,13 @@ describe("Extension registration - ContextFileResolver (Task 8)", () => {
   let extensionCode: string;
 
   beforeEach(() => {
-    const extensionPath = path.join(__dirname, "..", "..", "src", "extension.ts");
+    const extensionPath = path.join(
+      __dirname,
+      "..",
+      "..",
+      "src",
+      "extension.ts",
+    );
     extensionCode = fs.readFileSync(extensionPath, "utf-8");
   });
 

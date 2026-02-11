@@ -106,17 +106,17 @@ describe("Agent Directory Structure", () => {
         expect(fs.existsSync(dir), `${desc} directory should exist`).toBe(true);
         expect(
           fs.statSync(dir).isDirectory(),
-          `${desc} should be a directory`
+          `${desc} should be a directory`,
         ).toBe(true);
 
         const gitkeepPath = path.join(dir, ".gitkeep");
         expect(
           fs.existsSync(gitkeepPath),
-          `${desc} .gitkeep should exist`
+          `${desc} .gitkeep should exist`,
         ).toBe(true);
         expect(
           fs.statSync(gitkeepPath).isFile(),
-          `${desc} .gitkeep should be a file`
+          `${desc} .gitkeep should be a file`,
         ).toBe(true);
       }
     });

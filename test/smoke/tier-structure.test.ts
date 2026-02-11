@@ -7,10 +7,9 @@
  * - Test file counts are non-zero for expected tiers
  */
 
-import * as fs from "fs/promises";
+import { glob } from "glob";
 import * as path from "path";
 import { describe, expect, it } from "vitest";
-import { glob } from "glob";
 
 const ROOT = path.resolve(__dirname, "../..");
 
@@ -78,9 +77,12 @@ describe("Smoke: tier directory naming convention", () => {
 
     for (const dir of TIER_DIRS) {
       // Expected pattern: (extension/)?test/(unit|integration|smoke)
-      const valid = /^(extension\/)?test\/(unit|integration|smoke|e2e|red)$/.test(dir);
+      const valid =
+        /^(extension\/)?test\/(unit|integration|smoke|e2e|red)$/.test(dir);
       if (!valid) {
-        violations.push(`"${dir}" does not match {package}/test/{tier} convention`);
+        violations.push(
+          `"${dir}" does not match {package}/test/{tier} convention`,
+        );
       }
     }
 

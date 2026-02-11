@@ -186,9 +186,7 @@ describe("Smoke: vitest config covers all tiers", () => {
       if (!tierDir) continue;
       const covered = includes.some((inc) => {
         const incDir = extractDirFromGlob(inc);
-        return (
-          incDir && (relativePath === inc || tierDir.startsWith(incDir))
-        );
+        return incDir && (relativePath === inc || tierDir.startsWith(incDir));
       });
       if (!covered) {
         uncovered.push(`tier "${tier.name}" (${tier.path})`);

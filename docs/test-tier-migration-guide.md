@@ -10,10 +10,10 @@ Before setting up tiered tests, ensure you have:
 - **Git** initialized in your workspace (required for `git mv`, change detection, and promotion history)
 - **A supported test framework**:
 
-| Platform          | Framework       | Config File              | Test File Pattern    |
-| ----------------- | --------------- | ------------------------ | -------------------- |
-| TypeScript / Node | Vitest          | `vitest.config.ts`       | `*.test.ts`          |
-| Dart / Flutter    | `dart test`     | `dart_test.yaml`         | `*_test.dart`        |
+| Platform          | Framework   | Config File        | Test File Pattern |
+| ----------------- | ----------- | ------------------ | ----------------- |
+| TypeScript / Node | Vitest      | `vitest.config.ts` | `*.test.ts`       |
+| Dart / Flutter    | `dart test` | `dart_test.yaml`   | `*_test.dart`     |
 
 > **Note**: Orchestra currently provides full tool support for Vitest. Dart/Flutter tool support is planned. However, the **directory structure, tier configuration, and workflow** are identical across platforms. Set up your Dart/Flutter project with the same tiered structure now, and it will work seamlessly when Dart tool support ships.
 
@@ -46,14 +46,14 @@ Quick tests that verify basic wiring, structure, and configuration without execu
 
 **Common smoke test categories:**
 
-| Category                        | What It Validates                          | TS Example                                              | Dart Example                                       |
-| ------------------------------- | ------------------------------------------ | ------------------------------------------------------- | -------------------------------------------------- |
-| **Manifest validation**         | Config files have correct structure        | `package.json` has required VS Code contribution points | `pubspec.yaml` has correct dependencies            |
-| **Registration/wiring checks**  | Source code references match declarations  | Commands registered in source match `package.json`      | Routes registered in source match config           |
-| **Filesystem structure checks** | Required directories and files exist       | Agent scaffolding directories have `.gitkeep` files     | `lib/` structure matches expected module layout    |
-| **Schema validation**           | Schema definitions accept/reject correctly | MCP tool `inputSchema` fields are valid JSON Schema     | API request/response schemas match OpenAPI spec    |
-| **Convention enforcement**      | Source files follow required patterns      | All handler files include audit logging calls           | All repository classes extend `BaseRepository`     |
-| **Static content validation**   | Documentation/config has required sections | Agent markdown prompts contain required headings        | README has required badges and sections            |
+| Category                        | What It Validates                          | TS Example                                              | Dart Example                                    |
+| ------------------------------- | ------------------------------------------ | ------------------------------------------------------- | ----------------------------------------------- |
+| **Manifest validation**         | Config files have correct structure        | `package.json` has required VS Code contribution points | `pubspec.yaml` has correct dependencies         |
+| **Registration/wiring checks**  | Source code references match declarations  | Commands registered in source match `package.json`      | Routes registered in source match config        |
+| **Filesystem structure checks** | Required directories and files exist       | Agent scaffolding directories have `.gitkeep` files     | `lib/` structure matches expected module layout |
+| **Schema validation**           | Schema definitions accept/reject correctly | MCP tool `inputSchema` fields are valid JSON Schema     | API request/response schemas match OpenAPI spec |
+| **Convention enforcement**      | Source files follow required patterns      | All handler files include audit logging calls           | All repository classes extend `BaseRepository`  |
+| **Static content validation**   | Documentation/config has required sections | Agent markdown prompts contain required headings        | README has required badges and sections         |
 
 **How to identify smoke test candidates in an existing codebase:**
 
@@ -347,27 +347,27 @@ The `.agent-test-config.json` file is the single source of truth for Orchestra's
 
 ### Schema
 
-| Field              | Type         | Required | Default                                              | Description                                                                                               |
-| ------------------ | ------------ | -------- | ---------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
-| `framework`        | `string`     | Yes      | `"vitest"`                                           | Test framework. Currently `"vitest"` is fully supported. `"dart_test"` is planned.                        |
-| `tiers`            | `array`      | Yes      | —                                                    | One or more tier definitions (see below). At least one tier must be declared.                              |
-| `workingDir`       | `string`     | No       | `"."`                                                | Working directory for test execution, relative to workspace root.                                         |
-| `defaultTimeout`   | `number`     | No       | `30000`                                              | Default timeout in milliseconds for test runs. Overridable per tier and per invocation.                   |
-| `maxFailureLines`  | `number`     | No       | `20`                                                 | Maximum lines of failure detail shown per failing test. Controls output verbosity.                        |
-| `configFingerprint`| `string[]`   | No       | `["vitest.config.*", "tsconfig.json", ".agent-test-config.json"]` | Glob patterns for config files included in the fingerprint cache. Changes to these files invalidate all cached results. |
-| `projects`         | `string[]`   | No       | —                                                    | Vitest project names for multi-project workspaces. Omit for single-project setups.                        |
-| `promotion`        | `object`     | No       | `{ "dryRun": true }`                                 | Promotion defaults. `dryRun: true` means promotion previews changes without moving files.                 |
+| Field               | Type       | Required | Default                                                           | Description                                                                                                             |
+| ------------------- | ---------- | -------- | ----------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `framework`         | `string`   | Yes      | `"vitest"`                                                        | Test framework. Currently `"vitest"` is fully supported. `"dart_test"` is planned.                                      |
+| `tiers`             | `array`    | Yes      | —                                                                 | One or more tier definitions (see below). At least one tier must be declared.                                           |
+| `workingDir`        | `string`   | No       | `"."`                                                             | Working directory for test execution, relative to workspace root.                                                       |
+| `defaultTimeout`    | `number`   | No       | `30000`                                                           | Default timeout in milliseconds for test runs. Overridable per tier and per invocation.                                 |
+| `maxFailureLines`   | `number`   | No       | `20`                                                              | Maximum lines of failure detail shown per failing test. Controls output verbosity.                                      |
+| `configFingerprint` | `string[]` | No       | `["vitest.config.*", "tsconfig.json", ".agent-test-config.json"]` | Glob patterns for config files included in the fingerprint cache. Changes to these files invalidate all cached results. |
+| `projects`          | `string[]` | No       | —                                                                 | Vitest project names for multi-project workspaces. Omit for single-project setups.                                      |
+| `promotion`         | `object`   | No       | `{ "dryRun": true }`                                              | Promotion defaults. `dryRun: true` means promotion previews changes without moving files.                               |
 
 ### Tier Definition
 
 Each entry in the `tiers` array defines one test tier:
 
-| Field     | Type      | Required | Default         | Description                                                                           |
-| --------- | --------- | -------- | --------------- | ------------------------------------------------------------------------------------- |
-| `name`    | `string`  | Yes      | —               | Tier name used in tool invocations (e.g., `"unit"`, `"smoke"`, `"extension-unit"`).   |
-| `path`    | `string`  | Yes      | —               | Glob pattern for test files, relative to workspace root.                              |
-| `timeout` | `number`  | No       | `defaultTimeout`| Timeout override in ms for tests in this tier.                                        |
-| `inverted`| `boolean` | No       | `false`         | If `true`, failing tests are "correct" (red-phase TDD). Only use for `red` tier.      |
+| Field      | Type      | Required | Default          | Description                                                                         |
+| ---------- | --------- | -------- | ---------------- | ----------------------------------------------------------------------------------- |
+| `name`     | `string`  | Yes      | —                | Tier name used in tool invocations (e.g., `"unit"`, `"smoke"`, `"extension-unit"`). |
+| `path`     | `string`  | Yes      | —                | Glob pattern for test files, relative to workspace root.                            |
+| `timeout`  | `number`  | No       | `defaultTimeout` | Timeout override in ms for tests in this tier.                                      |
+| `inverted` | `boolean` | No       | `false`          | If `true`, failing tests are "correct" (red-phase TDD). Only use for `red` tier.    |
 
 ### Tier Naming Rules
 
@@ -526,7 +526,14 @@ const extensionPath = path.join(__dirname, "..", "..", "src", "extension.ts");
 //                                        ^^    ^^  resolved to extension/
 
 // After (test is in extension/test/unit/commands/)
-const extensionPath = path.join(__dirname, "..", "..", "..", "src", "extension.ts");
+const extensionPath = path.join(
+  __dirname,
+  "..",
+  "..",
+  "..",
+  "src",
+  "extension.ts",
+);
 //                                        ^^    ^^    ^^  needs 3 levels now
 ```
 
@@ -626,12 +633,20 @@ Create `.agent-test-config.json` in your workspace root. See [Configuration Refe
   "tiers": [
     { "name": "smoke", "path": "test/smoke/**/*.test.ts", "timeout": 10000 },
     { "name": "unit", "path": "test/unit/**/*.test.ts", "timeout": 30000 },
-    { "name": "integration", "path": "test/integration/**/*.test.ts", "timeout": 60000 }
+    {
+      "name": "integration",
+      "path": "test/integration/**/*.test.ts",
+      "timeout": 60000
+    }
   ],
   "workingDir": ".",
   "defaultTimeout": 30000,
   "maxFailureLines": 20,
-  "configFingerprint": ["vitest.config.*", "tsconfig.json", ".agent-test-config.json"],
+  "configFingerprint": [
+    "vitest.config.*",
+    "tsconfig.json",
+    ".agent-test-config.json"
+  ],
   "promotion": { "dryRun": true }
 }
 ```
@@ -644,12 +659,20 @@ Create `.agent-test-config.json` in your workspace root. See [Configuration Refe
   "tiers": [
     { "name": "smoke", "path": "test/smoke/**/*_test.dart", "timeout": 10000 },
     { "name": "unit", "path": "test/unit/**/*_test.dart", "timeout": 30000 },
-    { "name": "integration", "path": "test/integration/**/*_test.dart", "timeout": 60000 }
+    {
+      "name": "integration",
+      "path": "test/integration/**/*_test.dart",
+      "timeout": 60000
+    }
   ],
   "workingDir": ".",
   "defaultTimeout": 30000,
   "maxFailureLines": 20,
-  "configFingerprint": ["pubspec.yaml", "dart_test.yaml", ".agent-test-config.json"],
+  "configFingerprint": [
+    "pubspec.yaml",
+    "dart_test.yaml",
+    ".agent-test-config.json"
+  ],
   "promotion": { "dryRun": true }
 }
 ```
@@ -720,14 +743,14 @@ You don't invoke these directly — Orchestra's agents use them automatically wh
 
 When a project has multiple test roots (e.g., a root `test/` and an `extension/test/`), each root needs **its own set of tier entries** with a namespace prefix. Use the convention `{package}-{tier}`:
 
-| Tier Entry              | Package   | Tier        | Glob Path                                    |
-| ----------------------- | --------- | ----------- | -------------------------------------------- |
-| `unit`                  | root      | unit        | `test/unit/**/*.test.ts`                     |
-| `extension-unit`        | extension | unit        | `extension/test/unit/**/*.test.ts`           |
-| `smoke`                 | root      | smoke       | `test/smoke/**/*.test.ts`                    |
-| `extension-smoke`       | extension | smoke       | `extension/test/smoke/**/*.test.ts`          |
-| `integration`           | root      | integration | `test/integration/**/*.test.ts`              |
-| `extension-integration` | extension | integration | `extension/test/integration/**/*.test.ts`    |
+| Tier Entry              | Package   | Tier        | Glob Path                                 |
+| ----------------------- | --------- | ----------- | ----------------------------------------- |
+| `unit`                  | root      | unit        | `test/unit/**/*.test.ts`                  |
+| `extension-unit`        | extension | unit        | `extension/test/unit/**/*.test.ts`        |
+| `smoke`                 | root      | smoke       | `test/smoke/**/*.test.ts`                 |
+| `extension-smoke`       | extension | smoke       | `extension/test/smoke/**/*.test.ts`       |
+| `integration`           | root      | integration | `test/integration/**/*.test.ts`           |
+| `extension-integration` | extension | integration | `extension/test/integration/**/*.test.ts` |
 
 **Why separate entries?** Different packages may have different test runner configs, module aliases, or test infrastructure. Scoping tiers per-package lets you:
 
@@ -754,7 +777,7 @@ For single-package projects, use plain tier names (`unit`, `integration`, `smoke
 
 ## What Good Tests Look Like in Each Tier
 
-This section shows the *character* of tests that belong in each tier. Use these as templates when creating new tests.
+This section shows the _character_ of tests that belong in each tier. Use these as templates when creating new tests.
 
 ### Smoke Test Examples
 
@@ -919,7 +942,7 @@ void main() {
 Orchestra supports a TDD workflow using a dedicated `red` tier. The flow is:
 
 1. **Write a failing test** → place it in `test/red/` (or `test/tdd/`)
-2. **Run the red tier** — Orchestra verifies the test *fails* (inverted assertion)
+2. **Run the red tier** — Orchestra verifies the test _fails_ (inverted assertion)
 3. **Write the implementation** — make the test pass
 4. **Promote the test** — move it from `red` to the appropriate tier (`unit`, `integration`, etc.)
 
@@ -981,7 +1004,7 @@ dart test --tags tdd-red
 }
 ```
 
-The `inverted: true` flag tells Orchestra that failing tests in this tier are *expected*. A test that passes in the red tier indicates the test doesn't actually validate new behavior (it passed before implementation).
+The `inverted: true` flag tells Orchestra that failing tests in this tier are _expected_. A test that passes in the red tier indicates the test doesn't actually validate new behavior (it passed before implementation).
 
 ---
 
@@ -1126,7 +1149,11 @@ Fix each occurrence by adding the appropriate number of `..` segments.
 If tests timeout after migration, increase the tier's timeout:
 
 ```json
-{ "name": "integration", "path": "test/integration/**/*.test.ts", "timeout": 120000 }
+{
+  "name": "integration",
+  "path": "test/integration/**/*.test.ts",
+  "timeout": 120000
+}
 ```
 
 ### Configuration Not Recognized
@@ -1218,26 +1245,26 @@ During migration, we identified 13 test files currently in `unit/` that fit the 
 
 **Extension package:**
 
-| File                                             | New Tier        | What It Validates                            | Smoke Category       |
-| ------------------------------------------------ | --------------- |----------------------------------------------| -------------------- |
-| `package-json-configuration.test.ts`             | extension-smoke | VS Code settings in `package.json`           | Manifest validation  |
-| `package-json-views.test.ts`                     | extension-smoke | Views, menus, keybindings in `package.json`  | Manifest validation  |
-| `extension-registration.test.ts`                 | extension-smoke | Command registration (package.json ↔ source) | Wiring check         |
-| `extension-config-service.test.ts`               | extension-smoke | ConfigService import/instantiation in source | Wiring check         |
-| `commands/AgentCommandHandler.test.ts`           | extension-smoke | Agent command registration                   | Wiring check         |
-| `agents/directory-structure.test.ts`             | extension-smoke | Agent directory scaffold exists              | Filesystem structure |
-| `prompts/ensurePromptTemplates.test.ts`          | extension-smoke | Real extension bundle has templates          | Filesystem structure |
+| File                                    | New Tier        | What It Validates                            | Smoke Category       |
+| --------------------------------------- | --------------- | -------------------------------------------- | -------------------- |
+| `package-json-configuration.test.ts`    | extension-smoke | VS Code settings in `package.json`           | Manifest validation  |
+| `package-json-views.test.ts`            | extension-smoke | Views, menus, keybindings in `package.json`  | Manifest validation  |
+| `extension-registration.test.ts`        | extension-smoke | Command registration (package.json ↔ source) | Wiring check         |
+| `extension-config-service.test.ts`      | extension-smoke | ConfigService import/instantiation in source | Wiring check         |
+| `commands/AgentCommandHandler.test.ts`  | extension-smoke | Agent command registration                   | Wiring check         |
+| `agents/directory-structure.test.ts`    | extension-smoke | Agent directory scaffold exists              | Filesystem structure |
+| `prompts/ensurePromptTemplates.test.ts` | extension-smoke | Real extension bundle has templates          | Filesystem structure |
 
 **Root package:**
 
-| File                                                  | New Tier | What It Validates                           | Smoke Category         |
-| ----------------------------------------------------- | -------- | ------------------------------------------- | ---------------------- |
-| `mcp-server/role-filtering.test.ts`                   | smoke    | Tool-to-role assignment and access control  | Registration check     |
-| `mcp-server/tool-schema-validation.test.ts`           | smoke    | MCP tool `inputSchema` definitions          | Schema validation      |
-| `mcp-server/audit-logging-coverage.test.ts`           | smoke    | All handlers have audit logging             | Convention enforcement |
-| `interface-validations-config.test.ts`                | smoke    | Interface validations YAML structure        | Config validation      |
-| `agents/orchestrator-agent-interface-validation.test.ts` | smoke | Orchestrator agent.md required sections     | Content validation     |
-| `agents/controller-agent-interface-validation.test.ts`   | smoke | Controller agent.md required sections       | Content validation     |
+| File                                                     | New Tier | What It Validates                          | Smoke Category         |
+| -------------------------------------------------------- | -------- | ------------------------------------------ | ---------------------- |
+| `mcp-server/role-filtering.test.ts`                      | smoke    | Tool-to-role assignment and access control | Registration check     |
+| `mcp-server/tool-schema-validation.test.ts`              | smoke    | MCP tool `inputSchema` definitions         | Schema validation      |
+| `mcp-server/audit-logging-coverage.test.ts`              | smoke    | All handlers have audit logging            | Convention enforcement |
+| `interface-validations-config.test.ts`                   | smoke    | Interface validations YAML structure       | Config validation      |
+| `agents/orchestrator-agent-interface-validation.test.ts` | smoke    | Orchestrator agent.md required sections    | Content validation     |
+| `agents/controller-agent-interface-validation.test.ts`   | smoke    | Controller agent.md required sections      | Content validation     |
 
 > These files will be moved to `test/smoke/` and `extension/test/smoke/` in a future pass. The `.agent-test-config.json` already has `smoke` and `extension-smoke` tier entries defined.
 

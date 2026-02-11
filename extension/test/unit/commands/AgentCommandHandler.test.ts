@@ -44,12 +44,24 @@ describe("Agent Command Registration (Task 5)", () => {
 
   beforeEach(() => {
     // Read the actual extension.ts file
-    const extensionPath = path.join(__dirname, "..", "..", "..", "src", "extension.ts"
+    const extensionPath = path.join(
+      __dirname,
+      "..",
+      "..",
+      "..",
+      "src",
+      "extension.ts",
     );
     extensionCode = fs.readFileSync(extensionPath, "utf-8");
 
     // Read package.json
-    const packageJsonPath = path.join(__dirname, "..", "..", "..", "package.json");
+    const packageJsonPath = path.join(
+      __dirname,
+      "..",
+      "..",
+      "..",
+      "package.json",
+    );
     packageJson = JSON.parse(fs.readFileSync(packageJsonPath, "utf-8")) as {
       contributes?: { commands?: Array<{ command: string }> };
     };
@@ -146,7 +158,7 @@ describe("Agent Command Registration (Task 5)", () => {
     it("should use try-catch blocks in command handlers", () => {
       // Check for try-catch pattern in agent command handlers
       const startAgentSection = extensionCode.match(
-        /registerCommand\(\s*["']orchestra\.startAgent["']/
+        /registerCommand\(\s*["']orchestra\.startAgent["']/,
       );
       expect(startAgentSection).toBeTruthy();
 
