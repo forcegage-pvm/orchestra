@@ -20,6 +20,7 @@ Orchestra supports five standard test tiers, each serving a specific purpose in 
 Tests in the TDD red phase that are expected to fail. These tests define new behavior before the implementation exists.
 
 **Characteristics:**
+
 - Run in isolation from other tiers
 - Expected to fail (failure is success for this tier)
 - Promote to other tiers once implementation passes
@@ -30,6 +31,7 @@ Tests in the TDD red phase that are expected to fail. These tests define new beh
 Quick tests that verify basic wiring, structure, and configuration without executing application logic. Smoke tests are your first line of defense — they catch broken builds, missing files, and misconfigured registrations before slower tests even start.
 
 **Characteristics:**
+
 - Execute in under 5 seconds total
 - No mocks, no database, no runtime dependencies
 - Validate structure and wiring, not behavior
@@ -38,18 +40,19 @@ Quick tests that verify basic wiring, structure, and configuration without execu
 
 **Common smoke test categories:**
 
-| Category | What It Validates | Example |
-|----------|-------------------|---------|
-| **Manifest validation** | Config files have correct structure | `package.json` has required VS Code contribution points |
-| **Registration/wiring checks** | Source code references match declarations | Commands registered in `extension.ts` match `package.json` |
-| **Filesystem structure checks** | Required directories and files exist | Agent scaffolding directories have `.gitkeep` files |
-| **Schema validation** | Schema definitions accept/reject correctly | MCP tool `inputSchema` fields are valid JSON Schema |
-| **Convention enforcement** | Source files follow required patterns | All handler files include audit logging calls |
-| **Static content validation** | Documentation/config has required sections | Agent markdown prompts contain required headings |
+| Category                        | What It Validates                          | Example                                                    |
+| ------------------------------- | ------------------------------------------ | ---------------------------------------------------------- |
+| **Manifest validation**         | Config files have correct structure        | `package.json` has required VS Code contribution points    |
+| **Registration/wiring checks**  | Source code references match declarations  | Commands registered in `extension.ts` match `package.json` |
+| **Filesystem structure checks** | Required directories and files exist       | Agent scaffolding directories have `.gitkeep` files        |
+| **Schema validation**           | Schema definitions accept/reject correctly | MCP tool `inputSchema` fields are valid JSON Schema        |
+| **Convention enforcement**      | Source files follow required patterns      | All handler files include audit logging calls              |
+| **Static content validation**   | Documentation/config has required sections | Agent markdown prompts contain required headings           |
 
 **How to identify smoke test candidates in an existing codebase:**
 
 A test belongs in `smoke/` if it meets **all** of these criteria:
+
 1. **No mocks** — doesn't call `vi.mock()`, `vi.fn()`, or equivalent
 2. **No database** — doesn't import `setupTestDb`, `getDb`, or similar
 3. **No runtime execution** — doesn't instantiate classes or call functions that perform work
@@ -63,6 +66,7 @@ A test belongs in `smoke/` if it meets **all** of these criteria:
 Tests for individual functions, classes, or modules in complete isolation.
 
 **Characteristics:**
+
 - Mock all external dependencies
 - Fast execution (typically < 100ms per test)
 - High coverage of edge cases
@@ -73,6 +77,7 @@ Tests for individual functions, classes, or modules in complete isolation.
 Tests that verify multiple modules working together correctly.
 
 **Characteristics:**
+
 - May use real file system or databases
 - Test module interfaces and contracts
 - Slower than unit tests but faster than e2e
@@ -83,6 +88,7 @@ Tests that verify multiple modules working together correctly.
 Full system tests that verify complete user workflows.
 
 **Characteristics:**
+
 - Test the entire application stack
 - May require external services
 - Longest execution time
@@ -103,6 +109,7 @@ find . -name "*.test.ts" -o -name "*.spec.ts"
 ```
 
 Identify:
+
 - Where tests currently live (flat, nested, scattered)
 - What types of tests you have (unit, integration, e2e)
 - Any existing organizational patterns
@@ -205,6 +212,10 @@ Create `.agent-test-config.json` in your workspace root:
 }
 ```
 
+> **Tip for multi-package projects**: If you have separate vitest configs (e.g., `extension/vitest.config.ts`), add them explicitly to `configFingerprint` so cache invalidation captures changes to both configs.
+
+````
+
 ### Step 5: Update Import Paths
 
 After moving files one level deeper (e.g., `test/foo.test.ts` → `test/unit/foo.test.ts`), every relative path in those files needs one more `../` added. This affects **three categories** of path references:
@@ -217,7 +228,7 @@ import { helper } from "../src/utils/helper.js";
 
 // After (when test is in test/unit/)
 import { helper } from "../../src/utils/helper.js";
-```
+````
 
 #### Category 2: Dynamic Imports, Mocks, and Module References
 
@@ -245,7 +256,14 @@ const extensionPath = path.join(__dirname, "..", "..", "src", "extension.ts");
 //                                        ^^    ^^  resolved to extension/
 
 // After (test is in extension/test/unit/commands/)
-const extensionPath = path.join(__dirname, "..", "..", "..", "src", "extension.ts");
+const extensionPath = path.join(
+  __dirname,
+  "..",
+  "..",
+  "..",
+  "src",
+  "extension.ts",
+);
 //                                        ^^    ^^    ^^  needs 3 levels now
 ```
 
@@ -364,6 +382,7 @@ Here's a complete example based on the Orchestra project's own configuration:
   "maxFailureLines": 20,
   "configFingerprint": [
     "vitest.config.*",
+    "extension/vitest.config.ts",
     "tsconfig.json",
     ".agent-test-config.json"
   ],
@@ -377,14 +396,15 @@ Here's a complete example based on the Orchestra project's own configuration:
 
 When a project has multiple test roots (e.g., a root `test/` and an `extension/test/`), each root needs **its own set of tier entries** with a namespace prefix. Orchestra uses the convention `{package}-{tier}`:
 
-| Tier Entry | Package | Tier | Glob Path |
-|-----------|---------|------|-----------|
-| `unit` | root | unit | `test/unit/**/*.test.ts` |
-| `extension-unit` | extension | unit | `extension/test/unit/**/*.test.ts` |
-| `smoke` | root | smoke | `test/smoke/**/*.test.ts` |
+| Tier Entry        | Package   | Tier  | Glob Path                           |
+| ----------------- | --------- | ----- | ----------------------------------- |
+| `unit`            | root      | unit  | `test/unit/**/*.test.ts`            |
+| `extension-unit`  | extension | unit  | `extension/test/unit/**/*.test.ts`  |
+| `smoke`           | root      | smoke | `test/smoke/**/*.test.ts`           |
 | `extension-smoke` | extension | smoke | `extension/test/smoke/**/*.test.ts` |
 
 **Why separate entries?** Different packages may have different vitest configs, module aliases, or test infrastructure. Scoping tiers per-package lets you:
+
 - Run `run_tests --tier=extension-unit` to test only the VS Code extension
 - Run `run_tests --tier=unit` to test only the MCP server core
 - Set different timeouts per package (extension integration tests may be slower)
@@ -405,6 +425,7 @@ Rather than migrating all tests at once, break the migration into manageable bat
 4. **Train team members** gradually on the new structure
 
 For each batch, follow the classify-move-verify cycle:
+
 - **Classify**: Review each test and determine its appropriate tier
 - **Move**: Relocate the test file to the new tier directory
 - **Verify**: Run both the moved tests and any related tests to ensure nothing broke
@@ -441,21 +462,22 @@ Large migrations often fail because they interrupt daily development. Apply thes
 
 Here's a realistic timeline for migrating a 3,500-test codebase with a team of 4-5 developers:
 
-| Week | Focus | Tests Migrated | Cumulative |
-|------|-------|----------------|------------|
-| 1 | Setup tier structure, migrate first 100 unit tests | 100 | 100 |
-| 2 | Continue unit tests (batch 2) | 300 | 400 |
-| 3 | Complete unit test migration | 500 | 900 |
-| 4 | Begin integration tests | 200 | 1,100 |
-| 5 | Complete integration tests | 300 | 1,400 |
-| 6 | E2E tests (usually smallest count) | 100 | 1,500 |
-| 7 | Extract/create smoke tests, red tier setup | 50 | 1,550 |
-| 8 | Remaining tests, edge cases, cleanup | 450 | 2,000 |
-| 9-10 | Final verification, documentation, legacy cleanup | 1,500 | 3,500 |
+| Week | Focus                                              | Tests Migrated | Cumulative |
+| ---- | -------------------------------------------------- | -------------- | ---------- |
+| 1    | Setup tier structure, migrate first 100 unit tests | 100            | 100        |
+| 2    | Continue unit tests (batch 2)                      | 300            | 400        |
+| 3    | Complete unit test migration                       | 500            | 900        |
+| 4    | Begin integration tests                            | 200            | 1,100      |
+| 5    | Complete integration tests                         | 300            | 1,400      |
+| 6    | E2E tests (usually smallest count)                 | 100            | 1,500      |
+| 7    | Extract/create smoke tests, red tier setup         | 50             | 1,550      |
+| 8    | Remaining tests, edge cases, cleanup               | 450            | 2,000      |
+| 9-10 | Final verification, documentation, legacy cleanup  | 1,500          | 3,500      |
 
 Allow buffer time (weeks 9-10) for edge cases like tests that don't fit cleanly into tiers, tests with complex shared fixtures, or tests that fail after migration due to path-dependent behavior.
 
 **Key success metrics:**
+
 - All tests continue passing throughout migration
 - No more than 10% of CI builds red due to migration activities
 - Team can run tiered tests within 2 weeks of starting
@@ -586,6 +608,7 @@ npx vitest run --no-cache
 Tests that use `path.join(__dirname, "..", "src", ...)` or `readFileSync()` with relative paths will fail with `ENOENT: no such file or directory` after moving. These are **not** import errors — they're runtime filesystem access.
 
 Search for affected files:
+
 ```bash
 grep -rn "readFileSync\|readdirSync\|existsSync" test/unit/ | grep -v node_modules
 grep -rn "__dirname" test/unit/ | grep "path\.\(join\|resolve\)"
@@ -634,8 +657,8 @@ Orchestra migrated its own test suite using this guide. This section documents w
 
 ### Scope
 
-- **241 test files** total: 93 in `test/` (MCP server/core), 148 in `extension/test/` (VS Code extension)
-- **1,326 test suites**, **3,609 individual tests**
+- **245 test files** total: 94 in `test/` (MCP server/core), 151 in `extension/test/` (VS Code extension)
+- **247 test suites**, **3,564+ individual tests**
 - Two vitest configs: root `vitest.config.ts` and `extension/vitest.config.ts`
 
 ### Approach
@@ -645,6 +668,7 @@ Orchestra migrated its own test suite using this guide. This section documents w
 2. **`git mv` for all moves** — Preserves file history. No files were copied-and-deleted.
 
 3. **Bulk import fix script** — A PowerShell script using regex to add one `../` to all relative path string literals targeting known directories (`src/`, `setup/`, `fixtures/`). The regex matched any string literal context (imports, `vi.mock()`, `path.join()`, `readFileSync()`):
+
    ```
    Pattern: (['"])(\.\./(?:\.\./)*?)(src/|setup/|fixtures/|extension/)
    Replace: $1../$2$3
@@ -677,6 +701,7 @@ We used the `.integration.test.ts` naming convention to identify integration tes
 ### Per-Package Tier Decision
 
 We chose separate namespace tiers (`unit` / `extension-unit`, `integration` / `extension-integration`) rather than a single flat namespace because:
+
 - The root package and extension package have different vitest configs with different module aliases
 - Running `--tier=extension-unit` scopes to just the VS Code extension, useful during extension development
 - Timeouts can differ between packages
@@ -687,26 +712,26 @@ During migration, we identified 13 test files currently in `unit/` that fit the 
 
 **Extension package:**
 
-| File | What It Validates | Smoke Category |
-|------|-------------------|----------------|
-| `extension/test/unit/package-json-configuration.test.ts` | VS Code settings in `package.json` | Manifest validation |
-| `extension/test/unit/package-json-views.test.ts` | Views, menus, keybindings in `package.json` | Manifest validation |
-| `extension/test/unit/extension-registration.test.ts` | Command registration (package.json ↔ extension.ts) | Wiring check |
-| `extension/test/unit/extension-config-service.test.ts` | ConfigService import/instantiation in source | Wiring check |
-| `extension/test/unit/commands/AgentCommandHandler.test.ts` | Agent command registration | Wiring check |
-| `extension/test/unit/agents/directory-structure.test.ts` | Agent directory scaffold exists | Filesystem structure |
-| `extension/test/unit/prompts/ensurePromptTemplates.test.ts` _(sync-from-bundle tests only)_ | Real extension bundle has templates | Filesystem structure |
+| File                                                                                        | What It Validates                                  | Smoke Category       |
+| ------------------------------------------------------------------------------------------- | -------------------------------------------------- | -------------------- |
+| `extension/test/unit/package-json-configuration.test.ts`                                    | VS Code settings in `package.json`                 | Manifest validation  |
+| `extension/test/unit/package-json-views.test.ts`                                            | Views, menus, keybindings in `package.json`        | Manifest validation  |
+| `extension/test/unit/extension-registration.test.ts`                                        | Command registration (package.json ↔ extension.ts) | Wiring check         |
+| `extension/test/unit/extension-config-service.test.ts`                                      | ConfigService import/instantiation in source       | Wiring check         |
+| `extension/test/unit/commands/AgentCommandHandler.test.ts`                                  | Agent command registration                         | Wiring check         |
+| `extension/test/unit/agents/directory-structure.test.ts`                                    | Agent directory scaffold exists                    | Filesystem structure |
+| `extension/test/unit/prompts/ensurePromptTemplates.test.ts` _(sync-from-bundle tests only)_ | Real extension bundle has templates                | Filesystem structure |
 
 **Root package:**
 
-| File | What It Validates | Smoke Category |
-|------|-------------------|----------------|
-| `test/unit/mcp-server/role-filtering.test.ts` | Tool-to-role assignment and access control | Registration check |
-| `test/unit/mcp-server/tool-schema-validation.test.ts` | MCP tool `inputSchema` definitions | Schema validation |
-| `test/unit/mcp-server/audit-logging-coverage.test.ts` | All handlers have audit logging | Convention enforcement |
-| `test/unit/interface-validations-config.test.ts` | `.orchestra/interface-validations.yaml` structure | Config validation |
-| `test/unit/agents/orchestrator-agent-interface-validation.test.ts` | Orchestrator agent.md required sections | Content validation |
-| `test/unit/agents/controller-agent-interface-validation.test.ts` | Controller agent.md required sections | Content validation |
+| File                                                               | What It Validates                                 | Smoke Category         |
+| ------------------------------------------------------------------ | ------------------------------------------------- | ---------------------- |
+| `test/unit/mcp-server/role-filtering.test.ts`                      | Tool-to-role assignment and access control        | Registration check     |
+| `test/unit/mcp-server/tool-schema-validation.test.ts`              | MCP tool `inputSchema` definitions                | Schema validation      |
+| `test/unit/mcp-server/audit-logging-coverage.test.ts`              | All handlers have audit logging                   | Convention enforcement |
+| `test/unit/interface-validations-config.test.ts`                   | `.orchestra/interface-validations.yaml` structure | Config validation      |
+| `test/unit/agents/orchestrator-agent-interface-validation.test.ts` | Orchestrator agent.md required sections           | Content validation     |
+| `test/unit/agents/controller-agent-interface-validation.test.ts`   | Controller agent.md required sections             | Content validation     |
 
 > These files will be moved to `test/smoke/` and `extension/test/smoke/` in a future pass. The `.agent-test-config.json` already has `smoke` and `extension-smoke` tier entries defined with the target paths.
 

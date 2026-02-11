@@ -37,6 +37,7 @@
   "maxFailureLines": 20,
   "configFingerprint": [
     "vitest.config.*",
+    "extension/vitest.config.ts",
     "tsconfig.json",
     ".agent-test-config.json"
   ],
