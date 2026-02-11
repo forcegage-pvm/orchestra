@@ -23,7 +23,7 @@
 
 ## Phase 1: Foundation
 
-### T001: Implement String Utility Functions
+### T001 - Implement String Utility Functions
 
 **Phase:** foundation  
 **Category:** INFRASTRUCTURE  
@@ -56,7 +56,7 @@
 
 ---
 
-### T002: Create Export Smoke Test (TDD Red)
+### T002 - Create Export Smoke Test (TDD Red)
 
 **Phase:** foundation  
 **Category:** INTEGRATION  
@@ -86,7 +86,7 @@
 
 ## Phase 2: Testing
 
-### T003: Implement Functions (TDD Green for T002)
+### T003 - Implement Functions (TDD Green for T002)
 
 **Phase:** testing  
 **Category:** INFRASTRUCTURE  
@@ -108,7 +108,7 @@
 
 ---
 
-### T004: Create Unit Tests
+### T004 - Create Unit Tests
 
 **Phase:** testing  
 **Category:** INTEGRATION  
@@ -134,7 +134,7 @@
 
 ---
 
-### T005: Create Test Config Sanity Test
+### T005 - Create Test Config Sanity Test
 
 **Phase:** testing  
 **Category:** INTEGRATION  
@@ -162,7 +162,7 @@
 
 ## Phase 3: Validation
 
-### T006: Cross-Tier Test Discovery Validation
+### T006 - Cross-Tier Test Discovery Validation
 
 **Phase:** validation  
 **Category:** INTEGRATION  
@@ -181,7 +181,7 @@
 
 ---
 
-### T007: Full Test Run and Results Validation
+### T007 - Full Test Run and Results Validation
 
 **Phase:** validation  
 **Category:** INTEGRATION  
@@ -218,8 +218,8 @@ T005 (Config Sanity Test) ──────────────┘──> T
 
 ## TDD Relationships
 
-| Red Phase Task | Green Phase Task |
-|---------------|-----------------|
+| Red Phase Task     | Green Phase Task         |
+| ------------------ | ------------------------ |
 | T002 (Smoke Tests) | T003 (Verify Smoke Pass) |
 
 ## Verification Commands
