@@ -1,15 +1,21 @@
-# Test Tier Migration Guide
+# Test Tier Setup & Migration Guide
 
-This guide provides step-by-step instructions for restructuring existing flat or non-tiered test suites into the tiered directory structure required by Orchestra's intelligent test runner tools.
+This guide is the definitive reference for structuring tests in any project that uses Orchestra's intelligent test runner tools. It covers both **new project setup** (greenfield) and **migration of existing test suites** into the tiered directory structure that Orchestra requires.
 
-## Overview
+## Prerequisites
 
-Orchestra's testing tools require tests to be organized into **tiers** declared in a `.agent-test-config.json` configuration file at your workspace root. This tiered approach enables:
+Before setting up tiered tests, ensure you have:
 
-- **Scoped test execution**: Run only the tests relevant to your current work
-- **TDD red-phase isolation**: Mark failing tests during test-driven development
-- **Intelligent caching**: Skip tests that haven't been affected by code changes
-- **Transitive regression detection**: Identify tests affected by dependency changes
+- **Orchestra extension** installed in VS Code (provides the agent tools that run tests)
+- **Git** initialized in your workspace (required for `git mv`, change detection, and promotion history)
+- **A supported test framework**:
+
+| Platform          | Framework       | Config File              | Test File Pattern    |
+| ----------------- | --------------- | ------------------------ | -------------------- |
+| TypeScript / Node | Vitest          | `vitest.config.ts`       | `*.test.ts`          |
+| Dart / Flutter    | `dart test`     | `dart_test.yaml`         | `*_test.dart`        |
+
+> **Note**: Orchestra currently provides full tool support for Vitest. Dart/Flutter tool support is planned. However, the **directory structure, tier configuration, and workflow** are identical across platforms. Set up your Dart/Flutter project with the same tiered structure now, and it will work seamlessly when Dart tool support ships.
 
 ## Understanding the Five Test Tiers
 
@@ -40,26 +46,26 @@ Quick tests that verify basic wiring, structure, and configuration without execu
 
 **Common smoke test categories:**
 
-| Category                        | What It Validates                          | Example                                                    |
-| ------------------------------- | ------------------------------------------ | ---------------------------------------------------------- |
-| **Manifest validation**         | Config files have correct structure        | `package.json` has required VS Code contribution points    |
-| **Registration/wiring checks**  | Source code references match declarations  | Commands registered in `extension.ts` match `package.json` |
-| **Filesystem structure checks** | Required directories and files exist       | Agent scaffolding directories have `.gitkeep` files        |
-| **Schema validation**           | Schema definitions accept/reject correctly | MCP tool `inputSchema` fields are valid JSON Schema        |
-| **Convention enforcement**      | Source files follow required patterns      | All handler files include audit logging calls              |
-| **Static content validation**   | Documentation/config has required sections | Agent markdown prompts contain required headings           |
+| Category                        | What It Validates                          | TS Example                                              | Dart Example                                       |
+| ------------------------------- | ------------------------------------------ | ------------------------------------------------------- | -------------------------------------------------- |
+| **Manifest validation**         | Config files have correct structure        | `package.json` has required VS Code contribution points | `pubspec.yaml` has correct dependencies            |
+| **Registration/wiring checks**  | Source code references match declarations  | Commands registered in source match `package.json`      | Routes registered in source match config           |
+| **Filesystem structure checks** | Required directories and files exist       | Agent scaffolding directories have `.gitkeep` files     | `lib/` structure matches expected module layout    |
+| **Schema validation**           | Schema definitions accept/reject correctly | MCP tool `inputSchema` fields are valid JSON Schema     | API request/response schemas match OpenAPI spec    |
+| **Convention enforcement**      | Source files follow required patterns      | All handler files include audit logging calls           | All repository classes extend `BaseRepository`     |
+| **Static content validation**   | Documentation/config has required sections | Agent markdown prompts contain required headings        | README has required badges and sections            |
 
 **How to identify smoke test candidates in an existing codebase:**
 
 A test belongs in `smoke/` if it meets **all** of these criteria:
 
-1. **No mocks** — doesn't call `vi.mock()`, `vi.fn()`, or equivalent
-2. **No database** — doesn't import `setupTestDb`, `getDb`, or similar
-3. **No runtime execution** — doesn't instantiate classes or call functions that perform work
+1. **No mocks** — doesn't use test doubles, stubs, or mock frameworks
+2. **No database** — doesn't connect to or set up any database
+3. **No runtime execution** — doesn't instantiate classes or call functions that perform application work
 4. **Pure validation** — reads files, parses configs, or checks existence; then asserts structure
 5. **Sub-second** — individual test completes in < 1 second
 
-> **Warning**: Smoke tests should NOT test logic or behavior. A test that mocks dependencies and asserts return values is a unit test, even if it's fast. A test that reads `package.json` and checks it has the right keys is a smoke test.
+> **Warning**: Smoke tests should NOT test logic or behavior. A test that mocks dependencies and asserts return values is a unit test, even if it's fast. A test that reads a config file and checks it has the right keys is a smoke test.
 
 ### 3. `unit` — Isolated Unit Tests
 
@@ -94,84 +100,49 @@ Full system tests that verify complete user workflows.
 - Longest execution time
 - Highest confidence for user-facing functionality
 
-## Step-by-Step Migration Instructions
+---
 
-### Step 1: Audit Your Current Test Structure
+## Quick Start: New Project
 
-Before migrating, understand what you have:
+If you're starting a new project (no existing tests to migrate), follow this section. If you have existing tests to restructure, skip to [Migrating Existing Tests](#migrating-existing-tests).
 
-```bash
-# Count tests by directory
-find . -name "*.test.ts" -o -name "*.spec.ts" | wc -l
+### TypeScript / Vitest
 
-# List test file locations
-find . -name "*.test.ts" -o -name "*.spec.ts"
-```
-
-Identify:
-
-- Where tests currently live (flat, nested, scattered)
-- What types of tests you have (unit, integration, e2e)
-- Any existing organizational patterns
-
-### Step 2: Create the Tiered Directory Structure
-
-Create directories for each tier you plan to use:
-
-```bash
-# From your workspace root
-mkdir -p test/unit
-mkdir -p test/integration
-mkdir -p test/e2e
-mkdir -p test/smoke
-```
-
-For projects with separate packages (monorepos):
-
-```bash
-# Example: extension package
-mkdir -p extension/test/unit
-mkdir -p extension/test/integration
-mkdir -p extension/test/e2e
-```
-
-### Step 3: Classify and Move Test Files
-
-Move each test file to its appropriate tier. Use this decision tree to classify:
+**1. Create the directory structure:**
 
 ```
-For each test file, ask in order:
-
-1. Is it a TDD test expected to fail?                    → red
-2. Does it validate structure/wiring WITHOUT mocks?       → smoke
-   - Reads config/manifest files and checks keys?         → smoke
-   - Reads source code as text and pattern-matches?       → smoke
-   - Checks filesystem structure (dirs/files exist)?      → smoke
-   - Validates schema definitions with sample data?       → smoke
-   - Checks that source files follow a convention?        → smoke
-3. Does it test multiple modules working together?        → integration
-   - Uses real database or file system?                   → integration
-   - Tests cross-module workflows?                        → integration
-   - Has ".integration.test.ts" naming?                   → integration
-4. Does it test a complete user workflow end-to-end?      → e2e
-5. Everything else (mocked dependencies, fast, isolated)  → unit
+your-project/
+├── src/                        # Source code
+├── test/
+│   ├── smoke/                  # Fast wiring/structure checks
+│   ├── unit/                   # Isolated unit tests
+│   ├── integration/            # Cross-module tests
+│   └── setup/                  # Test infrastructure (helpers, fixtures)
+├── vitest.config.ts
+└── .agent-test-config.json
 ```
 
-> **Tip**: In VS Code extension projects, tests that read `package.json` to validate contribution points, or read `extension.ts` as a string to check import patterns, are smoke tests — not unit tests. They test wiring, not logic.
+**2. Configure Vitest** (`vitest.config.ts`):
 
-```bash
-# Example moves
-git mv test/utils.test.ts test/unit/utils.test.ts
-git mv test/database.test.ts test/integration/database.test.ts
-git mv test/user-flow.test.ts test/e2e/user-flow.test.ts
-git mv test/package-json-views.test.ts test/smoke/package-json-views.test.ts
+```typescript
+import { defineConfig } from "vitest/config";
+
+export default defineConfig({
+  test: {
+    globals: true,
+    environment: "node",
+    include: [
+      "test/smoke/**/*.test.ts",
+      "test/unit/**/*.test.ts",
+      "test/integration/**/*.test.ts",
+    ],
+    exclude: ["**/node_modules/**"],
+    testTimeout: 30000,
+  },
+});
 ```
 
-> **Prefer `git mv` over plain `mv`** to preserve file history in version control.
-
-### Step 4: Create the Configuration File
-
-Create `.agent-test-config.json` in your workspace root:
+**3. Configure Orchestra** (`.agent-test-config.json`):
 
 ```json
 {
@@ -191,11 +162,6 @@ Create `.agent-test-config.json` in your workspace root:
       "name": "integration",
       "path": "test/integration/**/*.test.ts",
       "timeout": 60000
-    },
-    {
-      "name": "e2e",
-      "path": "test/e2e/**/*.test.ts",
-      "timeout": 120000
     }
   ],
   "workingDir": ".",
@@ -212,13 +178,317 @@ Create `.agent-test-config.json` in your workspace root:
 }
 ```
 
-> **Tip for multi-package projects**: If you have separate vitest configs (e.g., `extension/vitest.config.ts`), add them explicitly to `configFingerprint` so cache invalidation captures changes to both configs.
+**4. Write your first smoke test** (`test/smoke/project-structure.test.ts`):
 
-````
+```typescript
+import * as fs from "fs/promises";
+import * as path from "path";
+import { describe, expect, it } from "vitest";
 
-### Step 5: Update Import Paths
+const ROOT = path.resolve(__dirname, "../..");
 
-After moving files one level deeper (e.g., `test/foo.test.ts` → `test/unit/foo.test.ts`), every relative path in those files needs one more `../` added. This affects **three categories** of path references:
+describe("Smoke: project structure", () => {
+  it("package.json should exist and have a name", async () => {
+    const raw = await fs.readFile(path.join(ROOT, "package.json"), "utf8");
+    const pkg = JSON.parse(raw);
+    expect(pkg.name).toBeTruthy();
+  });
+
+  it("src/ directory should exist", async () => {
+    const stat = await fs.stat(path.join(ROOT, "src"));
+    expect(stat.isDirectory()).toBe(true);
+  });
+});
+```
+
+**5. Write your first unit test** (`test/unit/example.test.ts`):
+
+```typescript
+import { describe, expect, it } from "vitest";
+
+// Import the module under test
+import { add } from "../../src/math.js";
+
+describe("add()", () => {
+  it("should return the sum of two numbers", () => {
+    expect(add(2, 3)).toBe(5);
+  });
+
+  it("should handle negative numbers", () => {
+    expect(add(-1, 1)).toBe(0);
+  });
+});
+```
+
+**6. Verify:**
+
+```bash
+npx vitest run test/smoke/     # Smoke tests only
+npx vitest run test/unit/      # Unit tests only
+npx vitest run                 # All tests
+```
+
+### Dart / Flutter
+
+**1. Create the directory structure:**
+
+```
+your-project/
+├── lib/                        # Source code
+├── test/
+│   ├── smoke/                  # Fast wiring/structure checks
+│   ├── unit/                   # Isolated unit tests
+│   ├── integration/            # Cross-module tests
+│   └── helpers/                # Test infrastructure
+├── dart_test.yaml              # (optional) Dart test configuration
+├── pubspec.yaml
+└── .agent-test-config.json
+```
+
+**2. Configure Dart test** (`dart_test.yaml`, optional):
+
+```yaml
+# Tag-based test filtering for TDD workflow
+tags:
+  tdd-red:
+    # Tests expected to fail during red phase
+```
+
+**3. Configure Orchestra** (`.agent-test-config.json`):
+
+```json
+{
+  "framework": "dart_test",
+  "tiers": [
+    {
+      "name": "smoke",
+      "path": "test/smoke/**/*_test.dart",
+      "timeout": 10000
+    },
+    {
+      "name": "unit",
+      "path": "test/unit/**/*_test.dart",
+      "timeout": 30000
+    },
+    {
+      "name": "integration",
+      "path": "test/integration/**/*_test.dart",
+      "timeout": 60000
+    }
+  ],
+  "workingDir": ".",
+  "defaultTimeout": 30000,
+  "maxFailureLines": 20,
+  "configFingerprint": [
+    "pubspec.yaml",
+    "dart_test.yaml",
+    ".agent-test-config.json"
+  ],
+  "promotion": {
+    "dryRun": true
+  }
+}
+```
+
+**4. Write your first smoke test** (`test/smoke/project_structure_test.dart`):
+
+```dart
+import 'dart:io';
+import 'package:test/test.dart';
+
+void main() {
+  group('Smoke: project structure', () {
+    test('pubspec.yaml should exist and have a name', () {
+      final file = File('pubspec.yaml');
+      expect(file.existsSync(), isTrue);
+      final content = file.readAsStringSync();
+      expect(content, contains('name:'));
+    });
+
+    test('lib/ directory should exist', () {
+      expect(Directory('lib').existsSync(), isTrue);
+    });
+  });
+}
+```
+
+**5. Write your first unit test** (`test/unit/math_test.dart`):
+
+```dart
+import 'package:test/test.dart';
+import 'package:your_project/math.dart';
+
+void main() {
+  group('add()', () {
+    test('should return the sum of two numbers', () {
+      expect(add(2, 3), equals(5));
+    });
+
+    test('should handle negative numbers', () {
+      expect(add(-1, 1), equals(0));
+    });
+  });
+}
+```
+
+**6. Verify:**
+
+```bash
+dart test test/smoke/         # Smoke tests only
+dart test test/unit/          # Unit tests only
+dart test                     # All tests
+```
+
+---
+
+## Configuration Reference
+
+The `.agent-test-config.json` file is the single source of truth for Orchestra's test runner tools. It must live at the workspace root.
+
+### Schema
+
+| Field              | Type         | Required | Default                                              | Description                                                                                               |
+| ------------------ | ------------ | -------- | ---------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| `framework`        | `string`     | Yes      | `"vitest"`                                           | Test framework. Currently `"vitest"` is fully supported. `"dart_test"` is planned.                        |
+| `tiers`            | `array`      | Yes      | —                                                    | One or more tier definitions (see below). At least one tier must be declared.                              |
+| `workingDir`       | `string`     | No       | `"."`                                                | Working directory for test execution, relative to workspace root.                                         |
+| `defaultTimeout`   | `number`     | No       | `30000`                                              | Default timeout in milliseconds for test runs. Overridable per tier and per invocation.                   |
+| `maxFailureLines`  | `number`     | No       | `20`                                                 | Maximum lines of failure detail shown per failing test. Controls output verbosity.                        |
+| `configFingerprint`| `string[]`   | No       | `["vitest.config.*", "tsconfig.json", ".agent-test-config.json"]` | Glob patterns for config files included in the fingerprint cache. Changes to these files invalidate all cached results. |
+| `projects`         | `string[]`   | No       | —                                                    | Vitest project names for multi-project workspaces. Omit for single-project setups.                        |
+| `promotion`        | `object`     | No       | `{ "dryRun": true }`                                 | Promotion defaults. `dryRun: true` means promotion previews changes without moving files.                 |
+
+### Tier Definition
+
+Each entry in the `tiers` array defines one test tier:
+
+| Field     | Type      | Required | Default         | Description                                                                           |
+| --------- | --------- | -------- | --------------- | ------------------------------------------------------------------------------------- |
+| `name`    | `string`  | Yes      | —               | Tier name used in tool invocations (e.g., `"unit"`, `"smoke"`, `"extension-unit"`).   |
+| `path`    | `string`  | Yes      | —               | Glob pattern for test files, relative to workspace root.                              |
+| `timeout` | `number`  | No       | `defaultTimeout`| Timeout override in ms for tests in this tier.                                        |
+| `inverted`| `boolean` | No       | `false`         | If `true`, failing tests are "correct" (red-phase TDD). Only use for `red` tier.      |
+
+### Tier Naming Rules
+
+- Standard names: `red`, `smoke`, `unit`, `integration`, `e2e`
+- For multi-package projects, prefix with package name: `extension-unit`, `extension-smoke`, etc.
+- Custom names are allowed (e.g., `acceptance`, `performance`) — add them to `tiers` and create the matching directory
+- Tier names must be unique within the config file
+
+### Config Fingerprint
+
+The `configFingerprint` array tells Orchestra which config files to monitor for cache invalidation. Include:
+
+- **Test runner config**: `vitest.config.*` for TS, `dart_test.yaml` for Dart
+- **Compiler/build config**: `tsconfig.json` for TS, `pubspec.yaml` for Dart
+- **This file**: Always include `".agent-test-config.json"`
+- **Additional runner configs**: If you have per-package vitest configs (e.g., `extension/vitest.config.ts`), add them explicitly — the glob `vitest.config.*` only matches the workspace root
+
+---
+
+## Migrating Existing Tests
+
+If you already have tests that need to be restructured into tiers, follow these steps. If you're starting fresh, see [Quick Start: New Project](#quick-start-new-project).
+
+### Step 1: Audit Your Current Test Structure
+
+Before migrating, understand what you have.
+
+**TypeScript:**
+
+```bash
+# macOS / Linux
+find . -name "*.test.ts" -not -path "*/node_modules/*" | wc -l
+find . -name "*.test.ts" -not -path "*/node_modules/*"
+
+# Windows (PowerShell)
+(Get-ChildItem -Recurse -Filter *.test.ts -Exclude node_modules).Count
+Get-ChildItem -Recurse -Filter *.test.ts -Exclude node_modules | Select-Object FullName
+```
+
+**Dart:**
+
+```bash
+# macOS / Linux
+find . -name "*_test.dart" -not -path "*/.dart_tool/*" | wc -l
+
+# Windows (PowerShell)
+(Get-ChildItem -Recurse -Filter *_test.dart -Exclude .dart_tool).Count
+```
+
+Identify:
+
+- Where tests currently live (flat, nested, scattered)
+- What types of tests you have (unit, integration, e2e)
+- Any existing organizational patterns
+- Which tests use mocks vs. which validate structure (smoke candidates)
+
+### Step 2: Create the Tiered Directory Structure
+
+Create directories for each tier you plan to use:
+
+```bash
+# macOS / Linux
+mkdir -p test/unit test/integration test/smoke
+
+# Windows (PowerShell)
+New-Item -ItemType Directory -Force -Path test/unit, test/integration, test/smoke
+```
+
+For projects with separate packages (monorepos):
+
+```bash
+# Example: extension package
+mkdir -p extension/test/unit extension/test/integration extension/test/smoke
+
+# Windows (PowerShell)
+New-Item -ItemType Directory -Force -Path extension/test/unit, extension/test/integration, extension/test/smoke
+```
+
+### Step 3: Classify and Move Test Files
+
+Use this decision tree to classify each test file:
+
+```
+For each test file, ask in order:
+
+1. Is it a TDD test expected to fail?                    → red
+2. Does it validate structure/wiring WITHOUT mocks?       → smoke
+   - Reads config/manifest files and checks keys?         → smoke
+   - Reads source code as text and pattern-matches?       → smoke
+   - Checks filesystem structure (dirs/files exist)?      → smoke
+   - Validates schema definitions with sample data?       → smoke
+   - Checks that source files follow a convention?        → smoke
+3. Does it test multiple modules working together?        → integration
+   - Uses real database or file system?                   → integration
+   - Tests cross-module workflows?                        → integration
+   - Has ".integration.test.ts" / "_integration_test.dart"? → integration
+4. Does it test a complete user workflow end-to-end?      → e2e
+5. Everything else (mocked dependencies, fast, isolated)  → unit
+```
+
+Move files using `git mv` to preserve history:
+
+```bash
+# TypeScript examples
+git mv test/utils.test.ts test/unit/utils.test.ts
+git mv test/database.test.ts test/integration/database.test.ts
+git mv test/package-json-views.test.ts test/smoke/package-json-views.test.ts
+
+# Dart examples
+git mv test/utils_test.dart test/unit/utils_test.dart
+git mv test/database_test.dart test/integration/database_test.dart
+git mv test/pubspec_check_test.dart test/smoke/pubspec_check_test.dart
+```
+
+> **Prefer `git mv` over plain `mv`/`Move-Item`** to preserve file history in version control.
+
+> **Preserve domain subdirectories.** If tests are organized by domain (e.g., `test/core/`, `test/commands/`), maintain that structure inside the tier: `test/unit/core/`, `test/unit/commands/`.
+
+### Step 4: Update Import Paths (TypeScript)
+
+After moving files one level deeper (e.g., `test/foo.test.ts` → `test/unit/foo.test.ts`), every relative path needs one more `../` added. This affects **three categories** of path references:
 
 #### Category 1: Static Imports
 
@@ -228,7 +498,7 @@ import { helper } from "../src/utils/helper.js";
 
 // After (when test is in test/unit/)
 import { helper } from "../../src/utils/helper.js";
-````
+```
 
 #### Category 2: Dynamic Imports, Mocks, and Module References
 
@@ -256,14 +526,7 @@ const extensionPath = path.join(__dirname, "..", "..", "src", "extension.ts");
 //                                        ^^    ^^  resolved to extension/
 
 // After (test is in extension/test/unit/commands/)
-const extensionPath = path.join(
-  __dirname,
-  "..",
-  "..",
-  "..",
-  "src",
-  "extension.ts",
-);
+const extensionPath = path.join(__dirname, "..", "..", "..", "src", "extension.ts");
 //                                        ^^    ^^    ^^  needs 3 levels now
 ```
 
@@ -286,18 +549,21 @@ Pattern: (['"])(\.\./(?:\.\./)*?)(src/|setup/|fixtures/)
 Replace: $1../$2$3
 ```
 
-Category 3 requires manual inspection of each file. Search for these patterns to find files that need manual fixes:
+Category 3 requires manual inspection. Search for affected files:
 
 ```bash
-# Find tests using runtime path resolution
+# macOS / Linux
 grep -rn "__dirname" test/unit/ extension/test/unit/
 grep -rn "readFileSync\|readdirSync\|existsSync" test/unit/ extension/test/unit/
-grep -rn "path\.resolve\|path\.join" test/unit/ extension/test/unit/ | grep "__dirname"
+
+# Windows (PowerShell)
+Select-String -Recurse -Pattern "__dirname" -Path test/unit/, extension/test/unit/
+Select-String -Recurse -Pattern "readFileSync|readdirSync|existsSync" -Path test/unit/, extension/test/unit/
 ```
 
 #### Alternative: Path Aliases
 
-For new projects, consider `tsconfig.json` path aliases to avoid brittle relative imports entirely:
+For new TypeScript projects, consider `tsconfig.json` path aliases to avoid brittle relative imports entirely:
 
 ```json
 {
@@ -317,239 +583,453 @@ import { helper } from "@src/utils/helper.js";
 
 > **Caveat**: Path aliases don't help with Category 3 (`__dirname`-based file access). Tests that read source files as text will always need manual path fixes when moved.
 
-### Step 6: Verify the Migration
+### Step 4b: Update Import Paths (Dart)
 
-Run tests through the new tier structure:
+Dart's import system is simpler — package imports (`import 'package:...'`) are unaffected by file moves. Only **relative imports** need updating:
 
-```bash
-# Using Orchestra tools
-run_tests --tier=unit
-run_tests --tier=integration
-run_tests --tier=e2e
+```dart
+// Before (test was in test/)
+import '../lib/src/utils/helper.dart';
 
-# Or using npm/vitest directly
-npm test -- --run test/unit/
-npm test -- --run test/integration/
+// After (test is in test/unit/)
+import '../../lib/src/utils/helper.dart';
 ```
 
-Use `list_test_suites` to verify discovery:
+Dart relative path fixes are the same concept as TypeScript — add one more `../` per level of nesting added.
+
+**Dart-specific search for affected files:**
 
 ```bash
-list_test_suites --tier=unit --detail=summary
+# macOS / Linux
+grep -rn "import '\.\." test/unit/
+
+# Windows (PowerShell)
+Select-String -Recurse -Pattern "import '\.\." -Path test/unit/
 ```
 
-## Example Configuration
+> **Dart best practice**: Prefer `package:` imports over relative imports. Package imports are immune to file moves:
+>
+> ```dart
+> // Immune to directory moves
+> import 'package:your_project/src/utils/helper.dart';
+> ```
 
-Here's a complete example based on the Orchestra project's own configuration:
+### Step 5: Create the Configuration File
+
+Create `.agent-test-config.json` in your workspace root. See [Configuration Reference](#configuration-reference) for the full schema.
+
+**TypeScript / Vitest:**
 
 ```json
 {
   "framework": "vitest",
   "tiers": [
-    {
-      "name": "smoke",
-      "path": "test/smoke/**/*.test.ts",
-      "timeout": 10000
-    },
-    {
-      "name": "extension-smoke",
-      "path": "extension/test/smoke/**/*.test.ts",
-      "timeout": 10000
-    },
-    {
-      "name": "unit",
-      "path": "test/unit/**/*.test.ts",
-      "timeout": 30000
-    },
-    {
-      "name": "extension-unit",
-      "path": "extension/test/unit/**/*.test.ts",
-      "timeout": 30000
-    },
-    {
-      "name": "integration",
-      "path": "test/integration/**/*.test.ts",
-      "timeout": 60000
-    },
-    {
-      "name": "extension-integration",
-      "path": "extension/test/integration/**/*.test.ts",
-      "timeout": 60000
-    }
+    { "name": "smoke", "path": "test/smoke/**/*.test.ts", "timeout": 10000 },
+    { "name": "unit", "path": "test/unit/**/*.test.ts", "timeout": 30000 },
+    { "name": "integration", "path": "test/integration/**/*.test.ts", "timeout": 60000 }
   ],
   "workingDir": ".",
   "defaultTimeout": 30000,
   "maxFailureLines": 20,
-  "configFingerprint": [
-    "vitest.config.*",
-    "extension/vitest.config.ts",
-    "tsconfig.json",
-    ".agent-test-config.json"
-  ],
-  "promotion": {
-    "dryRun": true
-  }
+  "configFingerprint": ["vitest.config.*", "tsconfig.json", ".agent-test-config.json"],
+  "promotion": { "dryRun": true }
 }
 ```
 
-### Per-Package Tier Naming Convention
+**Dart / Flutter:**
 
-When a project has multiple test roots (e.g., a root `test/` and an `extension/test/`), each root needs **its own set of tier entries** with a namespace prefix. Orchestra uses the convention `{package}-{tier}`:
+```json
+{
+  "framework": "dart_test",
+  "tiers": [
+    { "name": "smoke", "path": "test/smoke/**/*_test.dart", "timeout": 10000 },
+    { "name": "unit", "path": "test/unit/**/*_test.dart", "timeout": 30000 },
+    { "name": "integration", "path": "test/integration/**/*_test.dart", "timeout": 60000 }
+  ],
+  "workingDir": ".",
+  "defaultTimeout": 30000,
+  "maxFailureLines": 20,
+  "configFingerprint": ["pubspec.yaml", "dart_test.yaml", ".agent-test-config.json"],
+  "promotion": { "dryRun": true }
+}
+```
 
-| Tier Entry        | Package   | Tier  | Glob Path                           |
-| ----------------- | --------- | ----- | ----------------------------------- |
-| `unit`            | root      | unit  | `test/unit/**/*.test.ts`            |
-| `extension-unit`  | extension | unit  | `extension/test/unit/**/*.test.ts`  |
-| `smoke`           | root      | smoke | `test/smoke/**/*.test.ts`           |
-| `extension-smoke` | extension | smoke | `extension/test/smoke/**/*.test.ts` |
+> **Important**: Match the `path` glob patterns to your platform's test file naming convention: `**/*.test.ts` for TypeScript, `**/*_test.dart` for Dart.
 
-**Why separate entries?** Different packages may have different vitest configs, module aliases, or test infrastructure. Scoping tiers per-package lets you:
+Also update your test runner configuration to include the new tier directories:
 
-- Run `run_tests --tier=extension-unit` to test only the VS Code extension
-- Run `run_tests --tier=unit` to test only the MCP server core
-- Set different timeouts per package (extension integration tests may be slower)
+**Vitest** — ensure `vitest.config.ts` `include` array covers all tier directories:
+
+```typescript
+include: [
+  "test/smoke/**/*.test.ts",
+  "test/unit/**/*.test.ts",
+  "test/integration/**/*.test.ts",
+],
+```
+
+**Dart** — `dart test` discovers tests in `test/` recursively by default, so no additional configuration is needed unless you're using `dart_test.yaml` to exclude specific directories.
+
+### Step 6: Verify the Migration
+
+Run tests through the new tier structure to confirm everything works:
+
+**TypeScript / Vitest:**
+
+```bash
+# Run each tier individually
+npx vitest run test/smoke/ --no-cache
+npx vitest run test/unit/ --no-cache
+npx vitest run test/integration/ --no-cache
+
+# Run everything
+npx vitest run --no-cache
+```
+
+**Dart / Flutter:**
+
+```bash
+# Run each tier individually
+dart test test/smoke/
+dart test test/unit/
+dart test test/integration/
+
+# Run everything
+dart test
+```
+
+> **Always use `--no-cache` on first verification** to ensure you're not seeing stale cached results from before the migration.
+
+**Using Orchestra agent tools** — once configured, the AI agent uses the tools with JSON input. For example, the agent invokes `run_tests` with:
+
+```json
+{ "scope": "suite", "target": "unit" }
+```
+
+And `list_test_suites` with:
+
+```json
+{ "detail": "suites" }
+```
+
+You don't invoke these directly — Orchestra's agents use them automatically when running tests on your behalf.
+
+---
+
+## Per-Package / Monorepo Convention
+
+When a project has multiple test roots (e.g., a root `test/` and an `extension/test/`), each root needs **its own set of tier entries** with a namespace prefix. Use the convention `{package}-{tier}`:
+
+| Tier Entry              | Package   | Tier        | Glob Path                                    |
+| ----------------------- | --------- | ----------- | -------------------------------------------- |
+| `unit`                  | root      | unit        | `test/unit/**/*.test.ts`                     |
+| `extension-unit`        | extension | unit        | `extension/test/unit/**/*.test.ts`           |
+| `smoke`                 | root      | smoke       | `test/smoke/**/*.test.ts`                    |
+| `extension-smoke`       | extension | smoke       | `extension/test/smoke/**/*.test.ts`          |
+| `integration`           | root      | integration | `test/integration/**/*.test.ts`              |
+| `extension-integration` | extension | integration | `extension/test/integration/**/*.test.ts`    |
+
+**Why separate entries?** Different packages may have different test runner configs, module aliases, or test infrastructure. Scoping tiers per-package lets you:
+
+- Run only one package's tests (e.g., `scope: "suite", target: "extension-unit"`)
+- Set different timeouts per package
+- Track test results per package independently
+
+**Config fingerprint for monorepos**: If you have separate test runner configs per package (e.g., `extension/vitest.config.ts`), add them explicitly to `configFingerprint`:
+
+```json
+"configFingerprint": [
+  "vitest.config.*",
+  "extension/vitest.config.ts",
+  "tsconfig.json",
+  ".agent-test-config.json"
+]
+```
+
+The glob `vitest.config.*` only matches at the workspace root — nested configs need explicit entries.
 
 For single-package projects, use plain tier names (`unit`, `integration`, `smoke`).
 
+---
+
+## What Good Tests Look Like in Each Tier
+
+This section shows the *character* of tests that belong in each tier. Use these as templates when creating new tests.
+
+### Smoke Test Examples
+
+Smoke tests read files and check structure. They never instantiate application code.
+
+**TypeScript:**
+
+```typescript
+import * as fs from "fs/promises";
+import * as path from "path";
+import { describe, expect, it } from "vitest";
+
+const ROOT = path.resolve(__dirname, "../..");
+
+describe("Smoke: config structure", () => {
+  it("tsconfig.json should have strict mode enabled", async () => {
+    const raw = await fs.readFile(path.join(ROOT, "tsconfig.json"), "utf8");
+    const config = JSON.parse(raw);
+    expect(config.compilerOptions.strict).toBe(true);
+  });
+});
+```
+
+**Dart:**
+
+```dart
+import 'dart:io';
+import 'package:test/test.dart';
+
+void main() {
+  group('Smoke: config structure', () {
+    test('analysis_options.yaml should exist', () {
+      expect(File('analysis_options.yaml').existsSync(), isTrue);
+    });
+
+    test('pubspec.yaml should declare test dependency', () {
+      final content = File('pubspec.yaml').readAsStringSync();
+      expect(content, contains('test:'));
+    });
+  });
+}
+```
+
+### Unit Test Examples
+
+Unit tests mock dependencies and test isolated behavior.
+
+**TypeScript:**
+
+```typescript
+import { describe, expect, it, vi } from "vitest";
+import { UserService } from "../../src/services/user-service.js";
+
+vi.mock("../../src/database/user-repo.js", () => ({
+  UserRepo: vi.fn().mockImplementation(() => ({
+    findById: vi.fn().mockResolvedValue({ id: 1, name: "Alice" }),
+  })),
+}));
+
+describe("UserService", () => {
+  it("should return user by id", async () => {
+    const service = new UserService();
+    const user = await service.getUser(1);
+    expect(user.name).toBe("Alice");
+  });
+});
+```
+
+**Dart:**
+
+```dart
+import 'package:mockito/mockito.dart';
+import 'package:test/test.dart';
+import 'package:your_project/services/user_service.dart';
+import 'package:your_project/repositories/user_repo.dart';
+
+class MockUserRepo extends Mock implements UserRepo {}
+
+void main() {
+  group('UserService', () {
+    test('should return user by id', () async {
+      final repo = MockUserRepo();
+      when(repo.findById(1)).thenAnswer((_) async => User(id: 1, name: 'Alice'));
+      final service = UserService(repo);
+      final user = await service.getUser(1);
+      expect(user.name, equals('Alice'));
+    });
+  });
+}
+```
+
+### Integration Test Examples
+
+Integration tests use real dependencies and test cross-module behavior.
+
+**TypeScript:**
+
+```typescript
+import * as fs from "fs/promises";
+import * as os from "os";
+import * as path from "path";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { ConfigLoader } from "../../src/config/loader.js";
+
+describe("ConfigLoader integration", () => {
+  let tempDir: string;
+
+  beforeEach(async () => {
+    tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "test-"));
+  });
+
+  afterEach(async () => {
+    await fs.rm(tempDir, { recursive: true });
+  });
+
+  it("should load config from disk", async () => {
+    await fs.writeFile(
+      path.join(tempDir, "config.json"),
+      JSON.stringify({ name: "test" }),
+    );
+    const loader = new ConfigLoader(tempDir);
+    const config = await loader.load();
+    expect(config.name).toBe("test");
+  });
+});
+```
+
+**Dart:**
+
+```dart
+import 'dart:io';
+import 'package:test/test.dart';
+import 'package:your_project/config/loader.dart';
+
+void main() {
+  group('ConfigLoader integration', () {
+    late Directory tempDir;
+
+    setUp(() {
+      tempDir = Directory.systemTemp.createTempSync('test-');
+    });
+
+    tearDown(() {
+      tempDir.deleteSync(recursive: true);
+    });
+
+    test('should load config from disk', () async {
+      File('${tempDir.path}/config.json')
+          .writeAsStringSync('{"name": "test"}');
+      final loader = ConfigLoader(tempDir.path);
+      final config = await loader.load();
+      expect(config.name, equals('test'));
+    });
+  });
+}
+```
+
+---
+
+## TDD Red/Green Workflow
+
+Orchestra supports a TDD workflow using a dedicated `red` tier. The flow is:
+
+1. **Write a failing test** → place it in `test/red/` (or `test/tdd/`)
+2. **Run the red tier** — Orchestra verifies the test *fails* (inverted assertion)
+3. **Write the implementation** — make the test pass
+4. **Promote the test** — move it from `red` to the appropriate tier (`unit`, `integration`, etc.)
+
+### TypeScript Red-Phase Test
+
+```typescript
+// test/red/new-feature.test.ts
+import { describe, expect, it } from "vitest";
+import { newFeature } from "../../src/features/new-feature.js";
+
+describe("[tdd-red] newFeature", () => {
+  it("should return processed data", () => {
+    // This test is expected to FAIL — the function doesn't exist yet
+    const result = newFeature("input");
+    expect(result).toBe("processed: input");
+  });
+});
+```
+
+### Dart Red-Phase Test
+
+Dart uses `@Tags` annotations for TDD filtering:
+
+```dart
+// test/red/new_feature_test.dart
+@Tags(['tdd-red'])
+import 'package:test/test.dart';
+import 'package:your_project/features/new_feature.dart';
+
+void main() {
+  group('newFeature', () {
+    test('should return processed data', () {
+      // This test is expected to FAIL — the function doesn't exist yet
+      final result = newFeature('input');
+      expect(result, equals('processed: input'));
+    });
+  });
+}
+```
+
+Run red-phase tests:
+
+```bash
+# TypeScript
+npx vitest run test/red/
+
+# Dart (using tags)
+dart test --tags tdd-red
+```
+
+### Red Tier Configuration
+
+```json
+{
+  "name": "red",
+  "path": "test/red/**/*.test.ts",
+  "timeout": 10000,
+  "inverted": true
+}
+```
+
+The `inverted: true` flag tells Orchestra that failing tests in this tier are *expected*. A test that passes in the red tier indicates the test doesn't actually validate new behavior (it passed before implementation).
+
+---
+
 ## Migrating Large Test Suites (3,000+ Tests)
 
-Large codebases require a strategic, incremental approach to migration. Attempting to migrate thousands of tests at once will disrupt development workflows and introduce significant risk. This section provides concrete strategies for managing large-scale migrations.
+Large codebases require a strategic, incremental approach. Attempting to migrate thousands of tests at once will disrupt development workflows.
 
-### Incremental Batch Migration Approach
+### Incremental Batch Migration
 
-Rather than migrating all tests at once, break the migration into manageable batches of 100-200 tests per phase. This allows you to:
+Break the migration into batches of 100–200 tests per phase. For each batch, follow the classify-move-verify cycle:
 
-1. **Validate the tier structure** with a small subset before committing to the full migration
-2. **Identify classification challenges** early (tests that don't fit cleanly into tiers)
-3. **Keep the test suite running** throughout the migration period
-4. **Train team members** gradually on the new structure
+1. **Classify**: Review each test and determine its appropriate tier
+2. **Move**: Relocate the test file to the new tier directory using `git mv`
+3. **Verify**: Run both the moved tests and any related tests to ensure nothing broke
 
-For each batch, follow the classify-move-verify cycle:
+### Recommended Tier Order
 
-- **Classify**: Review each test and determine its appropriate tier
-- **Move**: Relocate the test file to the new tier directory
-- **Verify**: Run both the moved tests and any related tests to ensure nothing broke
+Start with the easiest-to-classify tier and expand:
 
-### Starting with One Tier and Expanding Gradually
-
-Start your migration with the **unit tier** because these tests are typically the most numerous, easiest to classify, and fastest to validate. Unit tests have clear boundaries (testing single modules with mocked dependencies) and low risk of disruption.
-
-Begin by identifying 50-100 clear-cut unit tests—those that mock all dependencies and test single functions or classes. Move these first, validate the configuration works, then proceed to:
-
-1. **Unit tests** (Weeks 1-3): Start here. Highest volume, lowest risk.
-2. **Integration tests** (Weeks 4-5): More complex classification, requires understanding module boundaries.
+1. **Unit tests** (Weeks 1–3): Highest volume, lowest risk. Clear boundaries.
+2. **Integration tests** (Weeks 4–5): More complex classification, requires understanding module boundaries.
 3. **E2E tests** (Week 6): Usually the smallest count, highest complexity.
 4. **Smoke tests** (Week 7): Extract from unit/integration tests or create new ones.
-5. **Red tier cleanup** (Ongoing): Address any TDD tests as they arise.
+5. **Red tier** (Ongoing): Address TDD tests as they arise.
 
-This phased approach means your CI/CD pipeline continues working throughout the migration. Tests not yet migrated remain in their original locations and continue running normally.
+### Strategies for Minimizing Disruption
 
-### Strategies for Minimizing Workflow Disruption
+- **Run parallel configurations**: Keep your existing test config active alongside the tiered structure until migration is complete
+- **Migrate during low-activity periods**: Schedule batches at the end of sprints
+- **Track progress**: Maintain a spreadsheet or issue tracking migration status per file
+- **Create temporary aliases**: Map old test commands to new tier-based commands during transition
 
-Large migrations often fail because they interrupt daily development. Apply these strategies to maintain productivity:
-
-**Run parallel test configurations**: Keep your existing test configuration active alongside the new tiered structure. Use a `legacy_tests` configuration that points to unmigrated tests. This allows `npm test` to continue working while you incrementally move tests to tiers.
-
-**Migrate during low-activity periods**: Schedule migration batches at the end of sprints or during dedicated tech-debt sprints. Avoid migrating during active feature development on the same modules.
-
-**Create a migration tracking document**: Maintain a spreadsheet or issue tracking the migration status of each test file. Include columns for: current location, target tier, migration status, and any blockers.
-
-**Communicate changes**: Notify the team when migrating tests they frequently run. Update documentation and README files to reflect the new structure.
-
-**Establish temporary aliases**: If teams have memorized test commands, create shell aliases or npm scripts that map old commands to new tier-based commands during the transition.
-
-### Example Timeline for 3,000+ Test Suite
-
-Here's a realistic timeline for migrating a 3,500-test codebase with a team of 4-5 developers:
+### Example Timeline (3,500 tests, 4–5 developers)
 
 | Week | Focus                                              | Tests Migrated | Cumulative |
 | ---- | -------------------------------------------------- | -------------- | ---------- |
 | 1    | Setup tier structure, migrate first 100 unit tests | 100            | 100        |
-| 2    | Continue unit tests (batch 2)                      | 300            | 400        |
-| 3    | Complete unit test migration                       | 500            | 900        |
-| 4    | Begin integration tests                            | 200            | 1,100      |
-| 5    | Complete integration tests                         | 300            | 1,400      |
-| 6    | E2E tests (usually smallest count)                 | 100            | 1,500      |
-| 7    | Extract/create smoke tests, red tier setup         | 50             | 1,550      |
-| 8    | Remaining tests, edge cases, cleanup               | 450            | 2,000      |
-| 9-10 | Final verification, documentation, legacy cleanup  | 1,500          | 3,500      |
+| 2–3  | Continue unit tests                                | 800            | 900        |
+| 4–5  | Integration tests                                  | 500            | 1,400      |
+| 6    | E2E tests                                          | 100            | 1,500      |
+| 7    | Extract/create smoke tests                         | 50             | 1,550      |
+| 8–10 | Remaining tests, edge cases, legacy cleanup        | 1,950          | 3,500      |
 
-Allow buffer time (weeks 9-10) for edge cases like tests that don't fit cleanly into tiers, tests with complex shared fixtures, or tests that fail after migration due to path-dependent behavior.
-
-**Key success metrics:**
-
-- All tests continue passing throughout migration
-- No more than 10% of CI builds red due to migration activities
-- Team can run tiered tests within 2 weeks of starting
-- Full migration complete within one quarter
-
-## Using Orchestra Testing Tools After Migration
-
-Once your tests are organized into tiers, you can leverage the full power of Orchestra's testing tools:
-
-### `run_tests` — Scoped Test Execution
-
-Run tests by tier, file pattern, or specific test names:
-
-```bash
-# Run all unit tests
-run_tests --tier=unit
-
-# Run tests matching a pattern
-run_tests --tier=unit --pattern="**/utils/*.test.ts"
-
-# Run only failed tests from last run
-run_tests --tier=unit --only=failed
-
-# Force bypass cache
-run_tests --tier=unit --force
-```
-
-### `list_test_suites` — Test Discovery
-
-Discover what tests exist and their status:
-
-```bash
-# List all tiers with counts
-list_test_suites
-
-# Get detailed info for a tier
-list_test_suites --tier=unit --detail=full
-
-# List only failed tests
-list_test_suites --tier=unit --status=failed
-```
-
-### `get_test_results` — Result Retrieval
-
-Retrieve detailed test results and failure information:
-
-```bash
-# Get results for a specific tier
-get_test_results --tier=unit
-
-# Get results for a specific test file
-get_test_results --file="test/unit/utils.test.ts"
-
-# Get recent failure details
-get_test_results --tier=unit --only=failed
-```
-
-### `promote_tests` — TDD Test Promotion
-
-Move tests from the red tier to their target tier after implementation:
-
-```bash
-# Promote passing tests from red to unit
-promote_tests --from=red --to=unit --pattern="**/new-feature.test.ts"
-
-# Dry run to preview what would be promoted
-promote_tests --from=red --to=unit --dry-run
-```
+---
 
 ## Configuration-Driven Tier Validation
 
-Orchestra validates that only declared tiers are available. If you attempt to run tests for an undeclared tier, you'll receive an error:
+Orchestra validates that only declared tiers are available. If the agent requests a test run for an undeclared tier, it receives a clear error:
 
 ```
 Error: Tier "acceptance" is not configured.
@@ -568,64 +1048,85 @@ To add this tier, update .agent-test-config.json:
 }
 ```
 
-This explicit configuration prevents typos and ensures all team members use consistent tier names.
+This explicit configuration prevents typos and ensures consistent tier names across all team members and agents.
 
-## Troubleshooting Common Issues
+---
+
+## Troubleshooting
 
 ### Tests Not Discovered
 
-If `list_test_suites` doesn't find your tests:
+If Orchestra's tools don't find your tests:
 
-1. Verify the `path` glob pattern matches your file locations
-2. Check that file extensions match (`.test.ts` vs `.spec.ts`)
-3. Ensure the `workingDir` is correct for your project structure
-4. Verify your `vitest.config.ts` `include` patterns also cover the new tier directories
+1. Verify the `path` glob in `.agent-test-config.json` matches your file locations and naming convention (`*.test.ts` for TS, `*_test.dart` for Dart)
+2. Ensure the tier directory actually exists on disk
+3. Check that `workingDir` is correct for your project structure
+4. **TypeScript**: Verify your `vitest.config.ts` `include` patterns also cover the new tier directories — the Orchestra config and vitest config must agree
+5. **Dart**: Verify your files are inside `test/` (Dart's default discovery root)
 
-### Import Path Errors After Moving
+### Import Path Errors After Moving (TypeScript)
 
 The most common post-migration error is `Failed to load url ... Does the file exist?`. This means a relative import wasn't updated after the file moved deeper.
 
 **Diagnosis**: The error message shows the resolved path — count the `../` segments to determine if one is missing.
 
-**Quick fix**: Add one more `../` to the failing import. If many files are affected, use the regex bulk-fix approach from Step 5.
+**Quick fix**: Add one more `../` to the failing import. If many files are affected, use the regex bulk-fix approach from [Step 4](#step-4-update-import-paths-typescript).
 
-**Prevention**: After moving files, run `grep -rn "from \"\.\." test/unit/` to audit all relative imports before running tests.
+**Prevention**: After moving files, audit all relative imports before running tests:
+
+```bash
+# macOS / Linux
+grep -rn "from \"\.\." test/unit/
+
+# Windows (PowerShell)
+Select-String -Recurse -Pattern 'from "\.\.' -Path test/unit/
+```
+
+### Import Path Errors After Moving (Dart)
+
+If you see `Can't load ... URI` errors:
+
+- Check relative imports (`import '../...'`) — add one more `../` per level of nesting
+- Switch to `package:` imports to avoid the problem entirely
 
 ### Stale Test Results / Cache Issues
 
 Test runners may cache file resolutions. If you've fixed imports but tests still fail with old error messages:
 
 ```bash
-# Clear vitest cache
-rm -rf node_modules/.vitest
-
-# Run without cache
+# TypeScript / Vitest
+rm -rf node_modules/.vitest          # macOS / Linux
+Remove-Item -Recurse .vitest-cache   # Windows (PowerShell)
 npx vitest run --no-cache
+
+# Dart
+dart test --no-color  # Dart test has no explicit cache, but a clean run helps
 ```
 
 ### Runtime Path Resolution Failures (ENOENT)
 
-Tests that use `path.join(__dirname, "..", "src", ...)` or `readFileSync()` with relative paths will fail with `ENOENT: no such file or directory` after moving. These are **not** import errors — they're runtime filesystem access.
+Tests that use `path.join(__dirname, "..", "src", ...)` (TypeScript) or `File('../lib/...')` (Dart) with relative paths will fail with `ENOENT` / `FileSystemException` after moving. These are **not** import errors — they're runtime filesystem access.
 
 Search for affected files:
 
 ```bash
-grep -rn "readFileSync\|readdirSync\|existsSync" test/unit/ | grep -v node_modules
-grep -rn "__dirname" test/unit/ | grep "path\.\(join\|resolve\)"
+# TypeScript
+grep -rn "__dirname" test/unit/ | grep "path\.\(join\|resolve\)"          # macOS / Linux
+Select-String -Recurse -Pattern "__dirname" -Path test/unit/               # PowerShell
+
+# Dart
+grep -rn "File(" test/unit/ | grep "\.\."                                 # macOS / Linux
+Select-String -Recurse -Pattern "File\(" -Path test/unit/                  # PowerShell
 ```
 
 Fix each occurrence by adding the appropriate number of `..` segments.
 
 ### Timeout Issues
 
-If tests timeout, increase the tier's timeout value:
+If tests timeout after migration, increase the tier's timeout:
 
 ```json
-{
-  "name": "e2e",
-  "path": "test/e2e/**/*.test.ts",
-  "timeout": 300000
-}
+{ "name": "integration", "path": "test/integration/**/*.test.ts", "timeout": 120000 }
 ```
 
 ### Configuration Not Recognized
@@ -633,25 +1134,30 @@ If tests timeout, increase the tier's timeout value:
 Ensure `.agent-test-config.json` is at workspace root and has valid JSON syntax:
 
 ```bash
-# Validate JSON syntax
-cat .agent-test-config.json | jq .
+# macOS / Linux
+cat .agent-test-config.json | python3 -m json.tool
+
+# Windows (PowerShell)
+Get-Content .agent-test-config.json | ConvertFrom-Json
 ```
 
-### Encoding Issues with Automated Fix Scripts
+### Encoding Issues with Automated Fix Scripts (Windows)
 
-PowerShell's `Set-Content` writes UTF-16 by default when piping strings. This can cause vitest to misread files. Always specify encoding:
+PowerShell's `Set-Content` can write UTF-16 by default, causing test runners to misread files. Always specify encoding:
 
 ```powershell
-# ❌ WRONG — may write UTF-16 BOM
+# WRONG — may write UTF-16 BOM
 $content | Set-Content $file -NoNewline
 
-# ✅ CORRECT — preserves UTF-8
+# CORRECT — preserves UTF-8
 [System.IO.File]::WriteAllText($file, $content)
 # or
 $content | Set-Content $file -NoNewline -Encoding utf8
 ```
 
-## Case Study: Orchestra's Own Migration
+---
+
+## Appendix A: Case Study — Orchestra's Own Migration
 
 Orchestra migrated its own test suite using this guide. This section documents what happened, what worked, and what caught us off guard.
 
@@ -663,90 +1169,90 @@ Orchestra migrated its own test suite using this guide. This section documents w
 
 ### Approach
 
-1. **Direct classification** — We knew our test base well enough to classify tests in bulk rather than using `_unmigrated/` parking directories. All root tests went to `test/unit/` (no root integration tests existed). Extension tests were split: 5 files with `.integration.test.ts` naming went to `extension/test/integration/`, everything else to `extension/test/unit/`.
+1. **Direct classification** — We knew our test base well enough to classify in bulk. All root tests went to `test/unit/` (no root integration tests existed). Extension tests were split: 5 files with `.integration.test.ts` naming went to `extension/test/integration/`, everything else to `extension/test/unit/`.
 
 2. **`git mv` for all moves** — Preserves file history. No files were copied-and-deleted.
 
-3. **Bulk import fix script** — A PowerShell script using regex to add one `../` to all relative path string literals targeting known directories (`src/`, `setup/`, `fixtures/`). The regex matched any string literal context (imports, `vi.mock()`, `path.join()`, `readFileSync()`):
+3. **Bulk import fix script** — A PowerShell script using regex to add one `../` to all relative path string literals targeting known directories (`src/`, `setup/`, `fixtures/`):
 
    ```
    Pattern: (['"])(\.\./(?:\.\./)*?)(src/|setup/|fixtures/|extension/)
    Replace: $1../$2$3
    ```
 
-4. **Manual fix pass** — After the bulk script, 14 files still failed due to `path.join(__dirname, "..", ...)` and `path.resolve(__dirname, "../../..")` patterns where the `..` segments were separate string arguments (not part of a `../` chain in a single string). These required manual inspection.
+4. **Manual fix pass** — After the bulk script, 14 files still failed due to `path.join(__dirname, "..", ...)` patterns where the `..` segments were separate string arguments. These required manual inspection.
 
 ### Gotchas and Lessons Learned
 
 **1. `__dirname`-relative paths are the silent killer.**
-The bulk regex fixer caught `"../../src/foo.js"` in all contexts. But `path.join(__dirname, "..", "..", "src", "extension.ts")` has each `..` as a _separate string argument_ — invisible to any single-string regex. These only surface as `ENOENT` errors at runtime.
+The bulk regex fixer catches `"../../src/foo.js"` in all contexts. But `path.join(__dirname, "..", "..", "src", "extension.ts")` has each `..` as a _separate string argument_ — invisible to any single-string regex. These only surface as `ENOENT` errors at runtime.
 
 _Mitigation_: After running a bulk fixer, search for `__dirname` in all moved files and verify every `path.join`/`path.resolve` chain manually.
 
 **2. PowerShell `Set-Content` encoding traps.**
-PowerShell's `Set-Content` can silently change file encoding to UTF-16, causing vitest to misread files even though they look correct in an editor. Use `[System.IO.File]::WriteAllText()` or explicitly pass `-Encoding utf8`.
+PowerShell's `Set-Content` can silently change file encoding to UTF-16, causing vitest to misread files. Use `[System.IO.File]::WriteAllText()` or explicitly pass `-Encoding utf8`.
 
 **3. Vitest caching hides fixes.**
-After fixing import paths, vitest sometimes serves stale cached results from before the fix. Run with `--no-cache` and delete `node_modules/.vitest/` when debugging post-migration failures.
+After fixing import paths, vitest sometimes serves stale cached results from before the fix. Run with `--no-cache` and delete the vitest cache directory when debugging.
 
 **4. Double-fixing is easy.**
-If a bulk import fixer already processed a file, and you then manually add another `../`, the path goes too deep. Keep careful track of which files were/weren't processed by automated tools. Use `git diff` to review changes before running tests.
+If a bulk import fixer already processed a file, and you then manually add another `../`, the path goes too deep. Use `git diff` to review changes before running tests.
 
 **5. Multi-line `path.join()` is harder to regex.**
-When `path.join(__dirname, "..", "src", ...)` is spread across multiple lines with each argument on its own line, even sophisticated regexes fail. These always require manual or AST-based fixes.
+When `path.join(__dirname, "..", "src", ...)` is spread across multiple lines, even sophisticated regexes fail. These always require manual or AST-based fixes.
 
 **6. Integration test identification.**
-We used the `.integration.test.ts` naming convention to identify integration tests. If your project doesn't have a naming convention, look for: tests that import database setup helpers, tests that create real temp directories, and tests with `beforeAll`/`afterAll` that start/stop services.
+We used the `.integration.test.ts` naming convention. If your project doesn't have a naming convention, look for: tests that import database setup helpers, tests that create real temp directories, and tests with `beforeAll`/`afterAll` that start/stop services.
 
 ### Per-Package Tier Decision
 
-We chose separate namespace tiers (`unit` / `extension-unit`, `integration` / `extension-integration`) rather than a single flat namespace because:
+We chose separate namespace tiers (`unit` / `extension-unit`) rather than flat because:
 
 - The root package and extension package have different vitest configs with different module aliases
-- Running `--tier=extension-unit` scopes to just the VS Code extension, useful during extension development
+- Running `extension-unit` scopes to just the VS Code extension
 - Timeouts can differ between packages
 
 ### Smoke Test Candidates (Pending Extraction)
 
-During migration, we identified 13 test files currently in `unit/` that fit the smoke tier definition. These are pending extraction to `test/smoke/` and `extension/test/smoke/`:
+During migration, we identified 13 test files currently in `unit/` that fit the smoke tier definition. These are pending extraction to `smoke/` and `extension/test/smoke/`:
 
 **Extension package:**
 
-| File                                                                                        | What It Validates                                  | Smoke Category       |
-| ------------------------------------------------------------------------------------------- | -------------------------------------------------- | -------------------- |
-| `extension/test/unit/package-json-configuration.test.ts`                                    | VS Code settings in `package.json`                 | Manifest validation  |
-| `extension/test/unit/package-json-views.test.ts`                                            | Views, menus, keybindings in `package.json`        | Manifest validation  |
-| `extension/test/unit/extension-registration.test.ts`                                        | Command registration (package.json ↔ extension.ts) | Wiring check         |
-| `extension/test/unit/extension-config-service.test.ts`                                      | ConfigService import/instantiation in source       | Wiring check         |
-| `extension/test/unit/commands/AgentCommandHandler.test.ts`                                  | Agent command registration                         | Wiring check         |
-| `extension/test/unit/agents/directory-structure.test.ts`                                    | Agent directory scaffold exists                    | Filesystem structure |
-| `extension/test/unit/prompts/ensurePromptTemplates.test.ts` _(sync-from-bundle tests only)_ | Real extension bundle has templates                | Filesystem structure |
+| File                                             | New Tier        | What It Validates                            | Smoke Category       |
+| ------------------------------------------------ | --------------- |----------------------------------------------| -------------------- |
+| `package-json-configuration.test.ts`             | extension-smoke | VS Code settings in `package.json`           | Manifest validation  |
+| `package-json-views.test.ts`                     | extension-smoke | Views, menus, keybindings in `package.json`  | Manifest validation  |
+| `extension-registration.test.ts`                 | extension-smoke | Command registration (package.json ↔ source) | Wiring check         |
+| `extension-config-service.test.ts`               | extension-smoke | ConfigService import/instantiation in source | Wiring check         |
+| `commands/AgentCommandHandler.test.ts`           | extension-smoke | Agent command registration                   | Wiring check         |
+| `agents/directory-structure.test.ts`             | extension-smoke | Agent directory scaffold exists              | Filesystem structure |
+| `prompts/ensurePromptTemplates.test.ts`          | extension-smoke | Real extension bundle has templates          | Filesystem structure |
 
 **Root package:**
 
-| File                                                               | What It Validates                                 | Smoke Category         |
-| ------------------------------------------------------------------ | ------------------------------------------------- | ---------------------- |
-| `test/unit/mcp-server/role-filtering.test.ts`                      | Tool-to-role assignment and access control        | Registration check     |
-| `test/unit/mcp-server/tool-schema-validation.test.ts`              | MCP tool `inputSchema` definitions                | Schema validation      |
-| `test/unit/mcp-server/audit-logging-coverage.test.ts`              | All handlers have audit logging                   | Convention enforcement |
-| `test/unit/interface-validations-config.test.ts`                   | `.orchestra/interface-validations.yaml` structure | Config validation      |
-| `test/unit/agents/orchestrator-agent-interface-validation.test.ts` | Orchestrator agent.md required sections           | Content validation     |
-| `test/unit/agents/controller-agent-interface-validation.test.ts`   | Controller agent.md required sections             | Content validation     |
+| File                                                  | New Tier | What It Validates                           | Smoke Category         |
+| ----------------------------------------------------- | -------- | ------------------------------------------- | ---------------------- |
+| `mcp-server/role-filtering.test.ts`                   | smoke    | Tool-to-role assignment and access control  | Registration check     |
+| `mcp-server/tool-schema-validation.test.ts`           | smoke    | MCP tool `inputSchema` definitions          | Schema validation      |
+| `mcp-server/audit-logging-coverage.test.ts`           | smoke    | All handlers have audit logging             | Convention enforcement |
+| `interface-validations-config.test.ts`                | smoke    | Interface validations YAML structure        | Config validation      |
+| `agents/orchestrator-agent-interface-validation.test.ts` | smoke | Orchestrator agent.md required sections     | Content validation     |
+| `agents/controller-agent-interface-validation.test.ts`   | smoke | Controller agent.md required sections       | Content validation     |
 
-> These files will be moved to `test/smoke/` and `extension/test/smoke/` in a future pass. The `.agent-test-config.json` already has `smoke` and `extension-smoke` tier entries defined with the target paths.
+> These files will be moved to `test/smoke/` and `extension/test/smoke/` in a future pass. The `.agent-test-config.json` already has `smoke` and `extension-smoke` tier entries defined.
+
+---
 
 ## Summary
 
-Migrating to a tiered test structure enables Orchestra's intelligent test runner to optimize your testing workflow. Follow this guide to:
+Setting up tiered tests enables Orchestra's intelligent test runner to optimize your testing workflow. Whether starting fresh or migrating:
 
-1. **Audit** your current test structure
-2. **Create** tiered directories (including `smoke/` from the start)
-3. **Classify and move** tests to appropriate tiers — use the decision tree, not just speed
-4. **Fix paths** across all three categories: static imports, mock/dynamic imports, and runtime `__dirname` paths
-5. **Configure** `.agent-test-config.json` with per-package tier entries
+1. **Create** tiered directories: `test/smoke/`, `test/unit/`, `test/integration/` (and per-package variants for monorepos)
+2. **Configure** `.agent-test-config.json` with your tiers, framework, and config fingerprint files
+3. **Align** your test runner config (`vitest.config.ts` includes or `dart_test.yaml`) with the tier directories
+4. **Write or move** tests to appropriate tiers — use the decision tree, not just test speed
+5. **Fix paths** after migration: static imports, mock/dynamic imports, and runtime `__dirname`/`File()` paths
 6. **Verify** with `--no-cache` to avoid stale results
-7. **Use** Orchestra tools for scoped, cached, intelligent test execution
+7. **Don't skip smoke tests** — they're your fastest feedback loop
 
-**Key takeaway**: Don't skip the smoke tier. Tests that validate wiring, structure, and configuration are your fastest feedback loop. Extract them early and run them on every change.
-
-For large codebases (3,000+ tests), take an incremental approach: start with unit tests, migrate in batches, and maintain parallel configurations during transition. See the Orchestra case study above for real-world lessons learned.
+**Key takeaway**: The directory structure and configuration are platform-agnostic. Whether you're writing TypeScript with Vitest or Dart with `dart test`, the tier model, decision tree, and `.agent-test-config.json` format are identical. Set up the structure correctly once, and Orchestra's agents handle the rest.
