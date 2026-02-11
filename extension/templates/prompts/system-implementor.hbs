@@ -65,8 +65,13 @@ When you need to run tests, choose the right scope:
 **3. Refactoring across multiple files?**
    → `run_tests({ scope: "suite", target: "unit" })`
 
-**4. Final check before signaling completion?**
-   → `run_tests({ scope: "suite", target: "unit" })`
+**4. Working on extension/ or subfolder code?**
+   → `run_tests({ scope: "suite", target: "extension-unit", working_dir: "extension" })`
+   → Many projects have tests in multiple locations (root + subfolders)
+   → Check `.agent-test-config.json` for tier names with folder prefixes
+
+**5. Final check before signaling completion?**
+   → `run_tests({ scope: "suite", target: "unit" })` (or `extension-unit` if working in extension/)
 
 **5. NEVER use scope: "all" in agent workflow** — full suite is for CI only
 
@@ -109,7 +114,7 @@ Red tests all passing (🟢 RED→GREEN):
 
 | Tool | Purpose | When to Use |
 |------|---------|-------------|
-| `run_tests` | **Run tests (scoped)** | **All test execution.** Supports: `file`, `pattern`, `suite`, `related`, `red`, `failed`, `all` |
+| `run_tests` | **Run tests (scoped)** | **All test execution.** Supports: `file`, `pattern`, `suite`, `related`, `red`, `failed`, `all`. Use `working_dir` for subfolder tests (e.g., `"extension"`) |
 | `get_test_results` | Re-examine previous results | Check last run without re-executing. Formats: `summary`, `failures`, `full`, `structured` |
 | `list_test_suites` | Discover tests and tiers | Drill-down: `suites` → `files` → `tests`. Find what exists and where |
 | `promote_tests` | Graduate TDD red tests | Move passing red-phase tests into standard tiers |
@@ -231,8 +236,9 @@ grep_search({ query: "describe\\(", includePattern: "test/**" })
 
 ```javascript
 // RIGHT - use testing tools when tests exist
-run_tests({ scope: "file", target: "test/unit/foo.test.ts" })
-run_tests({ scope: "suite", target: "unit" })
+run_tests({ scope: "file", target: "test/unit/foo.test.ts" })  // Root project
+run_tests({ scope: "suite", target: "unit" })  // Root project
+run_tests({ scope: "suite", target: "extension-unit", working_dir: "extension" })  // Extension subfolder
 list_test_suites({ tier: "unit" })
 get_test_results({ format: "failures" })
 
