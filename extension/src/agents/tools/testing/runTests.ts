@@ -23,8 +23,8 @@ import { FingerprintComputer } from "./FingerprintComputer.js";
 import { setLastRedPhaseResult } from "./promoteTests.js";
 import { ResultFormatter } from "./ResultFormatter.js";
 import { ScopeResolver } from "./ScopeResolver.js";
+import { sharedResultStore } from "./sharedStore.js";
 import { TestConfigLoader } from "./TestConfigLoader.js";
-import { TestResultStore } from "./TestResultStore.js";
 import type { CacheKey, RunTestsInput, RunTestsResult, TestScope } from "./types.js";
 import { ExecutionLock, RunTestsInputSchema } from "./types.js";
 import { VitestRunner } from "./VitestRunner.js";
@@ -34,9 +34,11 @@ const TOOL_NAME = "run_tests";
 // Module-level execution lock singleton (FR-026: reject concurrent runs)
 const executionLock = new ExecutionLock();
 
-// Module-level singletons for caching (US3: fingerprint-based result caching)
+// Module-level singleton for fingerprint computation
 const fingerprintComputer = new FingerprintComputer();
-const testResultStore = new TestResultStore();
+
+// Use shared result store for cross-tool access
+const testResultStore = sharedResultStore;
 
 // Track last config fingerprint for invalidation
 let lastConfigFingerprint: string | undefined;

@@ -103,4 +103,44 @@ export class TestResultStore {
     this.cache.clear();
     this.lastFailedTests.clear();
   }
+
+  /**
+   * Get the most recently cached result across all cache entries.
+   * @returns The most recent RunTestsResult, or undefined if cache is empty
+   */
+  getLatest(): RunTestsResult | undefined {
+    let latestEntry: CacheEntry | undefined;
+    let latestTime = 0;
+
+    for (const entry of this.cache.values()) {
+      if (entry.cachedAt > latestTime) {
+        latestTime = entry.cachedAt;
+        latestEntry = entry;
+      }
+    }
+
+    return latestEntry?.result;
+  }
+
+  /**
+   * Get a cached result by its run ID.
+   * @param runId The run ID to search for
+   * @returns The matching RunTestsResult, or undefined if not found
+   */
+  getByRunId(runId: string): RunTestsResult | undefined {
+    for (const entry of this.cache.values()) {
+      if (entry.result.runId === runId) {
+        return entry.result;
+      }
+    }
+    return undefined;
+  }
+
+  /**
+   * Check if the store has any cached results.
+   * @returns true if cache is non-empty
+   */
+  hasResults(): boolean {
+    return this.cache.size > 0;
+  }
 }

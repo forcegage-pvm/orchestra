@@ -173,6 +173,108 @@ describe("TestResultStore", () => {
     });
   });
 
+  describe("getLatest()", () => {
+    it("should return undefined for empty cache", () => {
+      expect(store.getLatest()).toBeUndefined();
+    });
+
+    it("should return the most recently cached result", async () => {
+      const key1: CacheKey = {
+        scope: "file",
+        target: "test/example1.test.ts",
+        workingDir: "/workspace",
+      };
+      const key2: CacheKey = {
+        scope: "file",
+        target: "test/example2.test.ts",
+        workingDir: "/workspace",
+      };
+
+      const result1 = { ...mockResult, runId: "run-older" };
+      const result2 = { ...mockResult, runId: "run-newer" };
+
+      store.set(key1, "abc123", result1, []);
+      // Add slight delay to ensure different timestamps
+      await new Promise((resolve) => setTimeout(resolve, 10));
+      store.set(key2, "def456", result2, []);
+
+      const latest = store.getLatest();
+      expect(latest?.runId).toBe("run-newer");
+    });
+  });
+
+  describe("getByRunId()", () => {
+    it("should return undefined for non-existent run ID", () => {
+      expect(store.getByRunId("non-existent")).toBeUndefined();
+    });
+
+    it("should return result matching the run ID", () => {
+      const key: CacheKey = {
+        scope: "file",
+        target: "test/example.test.ts",
+        workingDir: "/workspace",
+      };
+
+      store.set(key, "abc123", mockResult, []);
+
+      const result = store.getByRunId("test-run-1");
+      expect(result).toEqual(mockResult);
+    });
+
+    it("should find run ID across multiple cache entries", () => {
+      const key1: CacheKey = {
+        scope: "file",
+        target: "test/example1.test.ts",
+        workingDir: "/workspace",
+      };
+      const key2: CacheKey = {
+        scope: "file",
+        target: "test/example2.test.ts",
+        workingDir: "/workspace",
+      };
+
+      const result1 = { ...mockResult, runId: "run-1" };
+      const result2 = { ...mockResult, runId: "run-2" };
+
+      store.set(key1, "abc123", result1, []);
+      store.set(key2, "def456", result2, []);
+
+      expect(store.getByRunId("run-1")).toEqual(result1);
+      expect(store.getByRunId("run-2")).toEqual(result2);
+    });
+  });
+
+  describe("hasResults()", () => {
+    it("should return false for empty cache", () => {
+      expect(store.hasResults()).toBe(false);
+    });
+
+    it("should return true when cache has entries", () => {
+      const key: CacheKey = {
+        scope: "file",
+        target: "test/example.test.ts",
+        workingDir: "/workspace",
+      };
+
+      store.set(key, "abc123", mockResult, []);
+
+      expect(store.hasResults()).toBe(true);
+    });
+
+    it("should return false after clear()", () => {
+      const key: CacheKey = {
+        scope: "file",
+        target: "test/example.test.ts",
+        workingDir: "/workspace",
+      };
+
+      store.set(key, "abc123", mockResult, []);
+      store.clear();
+
+      expect(store.hasResults()).toBe(false);
+    });
+  });
+
   describe("computeKey() consistency", () => {
     it("should produce consistent keys for same inputs", () => {
       const key1: CacheKey = {
