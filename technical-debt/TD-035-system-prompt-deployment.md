@@ -3,6 +3,7 @@
 ## Problem Reported
 
 Implementor agent created manual verification script (`verify-string-utils.js`) instead of using test tools, despite:
+
 - Test tools being registered for all roles
 - System prompt template emphasizing TEST EXECUTION POLICY
 - Anti-patterns section explicitly forbidding temp scripts
@@ -13,15 +14,17 @@ Implementor agent created manual verification script (`verify-string-utils.js`) 
 
 **Symptom:** System prompt templates (`.hbs` files) created but not copied to `dist/` during build.
 
-**Impact:** 
+**Impact:**
+
 - Templates failed to load at runtime
 - Fell back to original 852-line `.agent.md` files with VS Code Chat frontmatter
 - TEST EXECUTION POLICY buried at line 138 (attention dilution)
 - Tool names showed as `execute/runTests` instead of `run_tests` (frontmatter confusion)
 
 **Fix:**
+
 1. Created `extension/scripts/copy-templates.js` to copy templates during build
-2. Updated `extension/package.json` postbuild script: 
+2. Updated `extension/package.json` postbuild script:
    ```json
    "postbuild": "... && node scripts/copy-templates.js"
    ```
@@ -32,11 +35,13 @@ Implementor agent created manual verification script (`verify-string-utils.js`) 
 **Symptom:** Agent on Task T001 (Implement string utilities) with verification criteria but NO test files yet.
 
 **Scenario:**
+
 - T001: Implement 4 functions (no tests exist)
 - T002: Create smoke tests (TDD red)
 - T003: Verify tests pass (TDD green)
 
 **Agent's Dilemma:**
+
 - ❌ No test files to run with `run_tests`
 - ❌ Policy forbids temp scripts
 - ❌ Policy forbids `run_command` for testing
@@ -46,17 +51,11 @@ Implementor agent created manual verification script (`verify-string-utils.js`) 
 **Fix:** Updated `system-implementor.hbs` template (lines 148-165):
 
 ```handlebars
-**IF test files exist for your code:**
-- Run appropriate test scope using run_tests
-- Verify all acceptance criteria met
-
-**IF no test files exist yet:**
-- DO NOT create temporary verification scripts
-- Signal completion based on acceptance criteria
-- Trust orchestrator's hidden verification
-- Later tasks will create proper tests
-
-**NEVER do manual ad-hoc verification**
+**IF test files exist for your code:** - Run appropriate test scope using
+run_tests - Verify all acceptance criteria met **IF no test files exist yet:** -
+DO NOT create temporary verification scripts - Signal completion based on
+acceptance criteria - Trust orchestrator's hidden verification - Later tasks
+will create proper tests **NEVER do manual ad-hoc verification**
 ```
 
 Also enhanced anti-patterns section (lines 207-235) with explicit examples of forbidden verification scripts.
@@ -64,6 +63,7 @@ Also enhanced anti-patterns section (lines 207-235) with explicit examples of fo
 ## Solution Verification
 
 ### Templates Now Working
+
 - ✅ `system-implementor.hbs` — 361 lines, TEST EXECUTION POLICY at top
 - ✅ `system-orchestrator.hbs` — Focused on verification/spec review
 - ✅ `system-controller.hbs` — Spec auditor protocol
@@ -72,6 +72,7 @@ Also enhanced anti-patterns section (lines 207-235) with explicit examples of fo
 - ✅ Falls back to `.agent.md` if template missing (backward compat)
 
 ### Workflow Guidance Added
+
 - ✅ "No tests exist yet" scenario explicitly addressed
 - ✅ Anti-patterns show exact forbidden script names (`verify-string-utils.js`)
 - ✅ Clear policy: Use `run_tests` OR signal without verification (no middle ground)
@@ -79,6 +80,7 @@ Also enhanced anti-patterns section (lines 207-235) with explicit examples of fo
 ## Expected Behavior Now
 
 When implementor agent launches on T001:
+
 1. **System prompt renders from template** (not .agent.md)
 2. **TEST EXECUTION POLICY prominent** (lines 8-65)
 3. **Sees guidance**: "If no tests exist, signal without manual verification"
@@ -89,9 +91,11 @@ When implementor agent launches on T001:
 ## Files Changed
 
 ### New Files
+
 - `extension/scripts/copy-templates.js` — Template copy script
 
 ### Modified Files
+
 - `extension/package.json` — Added copy-templates to postbuild
 - `extension/templates/prompts/system-implementor.hbs` — Added "no tests" guidance
 - `extension/src/prompts/promptTypes.ts` — Added SystemPromptContext interface
@@ -99,6 +103,7 @@ When implementor agent launches on T001:
 - `extension/src/commands/PlayTaskHandler.ts` — Updated readAgentInstructions() to use templates
 
 ### Build Verification
+
 ```
 cd extension
 npm run build

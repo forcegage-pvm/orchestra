@@ -1996,6 +1996,22 @@ export class AgentRunner implements vscode.Disposable {
       (msg) => msg.role !== "system",
     );
 
+    // DEBUG: Log system message count and preview
+    if (systemMessages.length > 0) {
+      // eslint-disable-next-line no-console
+      console.log(
+        `[AgentRunner] Converting ${systemMessages.length} system messages to User role (VS Code LM API limitation)`,
+      );
+      systemMessages.forEach((msg, i) => {
+        const preview =
+          typeof msg.content === "string" ? msg.content.slice(0, 150) : "";
+        // eslint-disable-next-line no-console
+        console.log(
+          `  System ${i + 1}: ${preview}${preview.length === 150 ? "..." : ""}`,
+        );
+      });
+    }
+
     // Convert system messages to User messages (prepended to conversation)
     const systemLMMessages = systemMessages.map((msg) => {
       const content = typeof msg.content === "string" ? msg.content : "";
@@ -2375,6 +2391,22 @@ export class AgentRunner implements vscode.Disposable {
     if (!this.session) {
       return false;
     }
+
+    // DEBUG: Log messages being sent to LLM (visible in DevTools Console)
+    // eslint-disable-next-line no-console
+    console.group(`[AgentRunner] Sending ${messages.length} messages to LLM`);
+    messages.forEach((msg, i) => {
+      const preview =
+        typeof msg.content === "string"
+          ? msg.content.slice(0, 100)
+          : `[${(msg.content as Array<{ type?: string }>).map((p) => p.type).join(", ")}]`;
+      // eslint-disable-next-line no-console
+      console.log(
+        `${i + 1}. ${msg.role === 1 ? "USER" : "ASSISTANT"}: ${preview}${preview.length === 100 ? "..." : ""}`,
+      );
+    });
+    // eslint-disable-next-line no-console
+    console.groupEnd();
 
     try {
       // Send request
