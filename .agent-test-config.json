@@ -3,12 +3,12 @@
   "tiers": [
     {
       "name": "unit",
-      "path": "test/**/*.test.ts",
+      "path": "test/unit/**/*.test.ts",
       "timeout": 30000
     },
     {
       "name": "extension-unit",
-      "path": "extension/test/**/*.test.ts",
+      "path": "extension/test/unit/**/*.test.ts",
       "timeout": 30000
     },
     {

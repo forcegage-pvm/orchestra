@@ -8,9 +8,11 @@ export default defineConfig({
     globals: true,
     environment: "node",
     include: [
-      "test/**/*.test.ts",
+      "test/unit/**/*.test.ts",
+      "test/integration/**/*.test.ts",
       "testing/**/*.test.ts",
-      "extension/test/**/*.test.ts",
+      "extension/test/unit/**/*.test.ts",
+      "extension/test/integration/**/*.test.ts",
     ],
     exclude: ["node_modules", "dist", "testing/tdd-test-harness/**"],
     // Global setup - creates pre-migrated database template once
