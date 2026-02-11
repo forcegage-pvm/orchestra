@@ -41,8 +41,8 @@ export interface ThinkingCardProps {
  * ```
  */
 export function ThinkingCard(props: ThinkingCardProps) {
-  // Start collapsed by default
-  const [expanded, setExpanded] = createSignal(false);
+  // Start expanded by default, auto-collapse after 2s when streaming ends
+  const [expanded, setExpanded] = createSignal(true);
 
   const isCollapsed = () => !expanded();
 
@@ -50,14 +50,25 @@ export function ThinkingCard(props: ThinkingCardProps) {
     setExpanded(!expanded());
   };
 
-  // Auto-expand when streaming starts, auto-collapse when it ends
+  // Auto-expand when streaming starts, auto-collapse 2s after streaming ends
   let wasStreaming = false;
+  let collapseTimer: ReturnType<typeof setTimeout> | null = null;
   createEffect(() => {
     const streaming = props.isStreaming ?? false;
     if (streaming && !wasStreaming) {
+      // Clear any pending collapse timer when streaming resumes
+      if (collapseTimer) {
+        clearTimeout(collapseTimer);
+        collapseTimer = null;
+      }
       setExpanded(true);
-    } else if (!streaming && wasStreaming) {
-      setExpanded(false);
+    } else if (!streaming && wasStreaming && props.autoCollapse) {
+      // Schedule auto-collapse 2 seconds after streaming ends
+      if (collapseTimer) clearTimeout(collapseTimer);
+      collapseTimer = setTimeout(() => {
+        setExpanded(false);
+        collapseTimer = null;
+      }, 2000);
     }
     wasStreaming = streaming;
   });

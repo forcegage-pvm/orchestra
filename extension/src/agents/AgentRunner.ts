@@ -678,23 +678,65 @@ export class AgentRunner implements vscode.Disposable {
     // Create cancellation token
     this.cancellationTokenSource = new vscode.CancellationTokenSource();
 
-    // Inject system prompt as first message if provided (hidden from UI)
+    // Inject system prompt as first message if provided
+    // Now visible in UI (previously hidden) so user can see agent instructions
     if (options.systemPrompt) {
       this.addSystemMessage(options.systemPrompt);
+      // Emit to UI so it's visible in the agent panel
+      this.emitOutput({
+        type: "prompt",
+        timestamp: new Date().toISOString(),
+        iteration: 0,
+        text: `[System Prompt]\n\n${options.systemPrompt}`,
+      });
+      // Persist to database
+      this.eventEmitter?.emitPrompt(
+        `[System Prompt]\n\n${options.systemPrompt}`,
+      );
     }
 
-    // Inject coding standards as separate hidden message if provided
+    // Inject coding standards as separate message if provided
+    // Now visible in UI (previously hidden) so user can see coding standards
     if (options.codingStandardsPrompt) {
       this.addSystemMessage(options.codingStandardsPrompt);
+      // Emit to UI so it's visible in the agent panel
+      this.emitOutput({
+        type: "prompt",
+        timestamp: new Date().toISOString(),
+        iteration: 0,
+        text: `[Coding Standards]\n\n${options.codingStandardsPrompt}`,
+      });
+      // Persist to database
+      this.eventEmitter?.emitPrompt(
+        `[Coding Standards]\n\n${options.codingStandardsPrompt}`,
+      );
     }
 
     // Inject environment context so agent knows its operating environment
     const envContext = this.buildEnvironmentContext();
     this.addUserMessage(envContext);
+    // Emit environment context to UI
+    this.emitOutput({
+      type: "prompt",
+      timestamp: new Date().toISOString(),
+      iteration: 0,
+      text: `[Environment Context]\n\n${envContext}`,
+    });
+    this.eventEmitter?.emitPrompt(`[Environment Context]\n\n${envContext}`);
 
     // Inject retry context if this is a re-invocation after a "lost agent" scenario
     if (this.pendingRetryContext) {
       this.addUserMessage(this.pendingRetryContext);
+      // Emit retry context to UI
+      this.emitOutput({
+        type: "prompt",
+        timestamp: new Date().toISOString(),
+        iteration: 0,
+        text: `[Retry Context]\n\n${this.pendingRetryContext}`,
+      });
+      this.eventEmitter?.emitPrompt(
+        `[Retry Context]\n\n${this.pendingRetryContext}`,
+      );
       this.pendingRetryContext = undefined; // Consume once
     }
 

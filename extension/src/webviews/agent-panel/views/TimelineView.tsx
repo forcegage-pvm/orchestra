@@ -25,6 +25,7 @@ import {
   ErrorCard,
   NewEventsIndicator,
   PromptCard,
+  SystemPromptCard,
   ThinkingCard,
   ToolCallCard,
 } from "../components/index.js";
@@ -312,7 +313,11 @@ export function TimelineView(props: TimelineViewProps) {
       if (item.stage !== undefined) {
         boundaryProps.stage = item.stage;
       }
-      return <SessionBoundaryCard {...boundaryProps} />;
+      return (
+        <div class="pl-4">
+          <SessionBoundaryCard {...boundaryProps} />
+        </div>
+      );
     }
 
     const isFocused = props.focusedEventIndex() === index;
@@ -330,9 +335,19 @@ export function TimelineView(props: TimelineViewProps) {
       // Render regular event
       const event = item.event;
       switch (event.type) {
-        case "prompt":
-          itemCard = <PromptCard event={event} />;
+        case "prompt": {
+          // Detect system prompts by prefix pattern [Type]\n\n
+          const systemPromptMatch = event.text.match(
+            /^\[(System Prompt|Coding Standards|Environment Context|Retry Context)\]\n\n/,
+          );
+          if (systemPromptMatch) {
+            const typeLabel = systemPromptMatch[1];
+            itemCard = <SystemPromptCard event={event} typeLabel={typeLabel} />;
+          } else {
+            itemCard = <PromptCard event={event} />;
+          }
           break;
+        }
 
         case "thinking":
           itemCard = (
@@ -366,7 +381,10 @@ export function TimelineView(props: TimelineViewProps) {
     }
 
     return (
-      <div class={focusClass} style={{ "animation-delay": animationDelay }}>
+      <div
+        class={`pl-4 ${focusClass}`}
+        style={{ "animation-delay": animationDelay }}
+      >
         {itemCard}
       </div>
     );

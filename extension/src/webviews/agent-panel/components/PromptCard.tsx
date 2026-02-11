@@ -9,7 +9,7 @@
 
 import { Icon } from "@iconify-icon/solid";
 import { marked } from "marked";
-import { createMemo, createSignal, For, Show } from "solid-js";
+import { createMemo, createSignal, For, onMount, Show } from "solid-js";
 import type { PromptEvent } from "../../../agents/sessions/types.js";
 import { Markdown } from "./Markdown.js";
 
@@ -30,9 +30,18 @@ export interface PromptCardProps {
  * ```
  */
 export function PromptCard(props: PromptCardProps) {
-  const [expanded, setExpanded] = createSignal(false);
+  // Start expanded, auto-collapse after 2s
+  const [expanded, setExpanded] = createSignal(true);
   const isCollapsed = () => !expanded();
   const toggleExpanded = () => setExpanded(!expanded());
+
+  // Auto-collapse after 2 seconds on mount
+  onMount(() => {
+    const timer = setTimeout(() => {
+      setExpanded(false);
+    }, 2000);
+    return () => clearTimeout(timer);
+  });
 
   // Split text into first line (shown in header) and remaining lines
   const getFirstLine = () => {
@@ -118,9 +127,7 @@ export function PromptCard(props: PromptCardProps) {
                 <div class="flex items-center gap-1.5 text-[10px] text-zinc-500">
                   <Icon icon="lucide:paperclip" class="w-2.5 h-2.5" />
                   <span class="truncate font-mono">{attachment.path}</span>
-                  <span class="text-zinc-600">
-                    ({attachment.size} bytes)
-                  </span>
+                  <span class="text-zinc-600">({attachment.size} bytes)</span>
                 </div>
               )}
             </For>
