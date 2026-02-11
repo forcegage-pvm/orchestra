@@ -8,7 +8,7 @@ export default defineConfig({
     // Auto-rebuild better-sqlite3 if compiled for Electron (VSIX packaging)
     // so that all DB-backed tests run without manual intervention.
     globalSetup: ["test/setup/ensure-native-modules.ts"],
-    include: ["test/unit/**/*.test.ts", "test/integration/**/*.test.ts"],
+    include: ["test/smoke/**/*.test.ts", "test/unit/**/*.test.ts", "test/integration/**/*.test.ts"],
     exclude: ["**/node_modules/**"],
     coverage: {
       provider: "v8",
