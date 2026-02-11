@@ -102,12 +102,15 @@ vi.mock("../../src/agents/sessions/eventBus.js", () => ({
 // Mock eventRepository functions
 vi.mock("../../src/agents/sessions/eventRepository.js", () => ({
   getEventsForSession: vi.fn(),
+  getEventsForTaskSessions: vi.fn(),
   deleteEventsForSession: vi.fn(() => 0),
 }));
 
-// Mock getSession
+// Mock getSession and getSessionsForTask
 vi.mock("../../src/agents/sessions/sessionRepository.js", () => ({
   getSession: vi.fn(),
+  getSessionsForTask: vi.fn(() => []),
+  getRecentSessions: vi.fn(() => []),
 }));
 
 // Mock database queries to prevent actual database access
@@ -270,9 +273,16 @@ describe("AgentPanelProvider", () => {
         },
       ];
 
-      const { getEventsForSession } =
+      // Mock task-scoped event loading (new behavior)
+      const { getSessionsForTask } =
+        await import("../../src/agents/sessions/sessionRepository.js");
+      getSessionsForTask.mockReturnValue([
+        { sessionId: "session-1", taskId: 1 },
+      ]);
+
+      const { getEventsForTaskSessions } =
         await import("../../src/agents/sessions/eventRepository.js");
-      getEventsForSession.mockReturnValue(mockEvents);
+      getEventsForTaskSessions.mockReturnValue(mockEvents);
 
       provider.resolveWebviewView(mockWebviewView, {} as any, {} as any);
 
@@ -280,10 +290,11 @@ describe("AgentPanelProvider", () => {
       mockWebview.postMessage.mockClear();
       simulateWebviewReady();
 
-      expect(getEventsForSession).toHaveBeenCalledWith(
-        workspaceRoot,
+      // Should load all sessions for the task and their events
+      expect(getSessionsForTask).toHaveBeenCalledWith(workspaceRoot, 1);
+      expect(getEventsForTaskSessions).toHaveBeenCalledWith(workspaceRoot, [
         "session-1",
-      );
+      ]);
 
       // Be permissive about extra fields - ensure a session_update message was posted
       expect(mockWebview.postMessage).toHaveBeenCalled();

@@ -7,7 +7,10 @@
  * Specification: specs/011-agent-panel-rework/spec.md Section 8.2
  */
 
-import type { StatusChangeEvent } from "../../../agents/sessions/types.js";
+import type {
+  SessionStage,
+  StatusChangeEvent,
+} from "../../../agents/sessions/types.js";
 import { updateToolCallAggregate } from "../stores/aggregation.js";
 import { flushPendingState } from "../stores/persistence.js";
 import {
@@ -21,6 +24,7 @@ import {
   resetSession,
   session,
   setSession,
+  setSessionMetas,
   setToolCall,
   syncSessionStatusFromEvents,
   toolCalls,
@@ -71,15 +75,17 @@ export function handleExtensionMessage(message: ExtensionMessage): void {
         message.session?.sessionId,
         message.session?.status,
       );
-      // If this is a different session, clear stale data from previous session.
-      // Also clear if currentSessionId is undefined but events exist (happens when
-      // state was restored from persistence but session object was reset/empty).
-      const currentSessionId = session?.sessionId;
-      const isDifferentSession =
-        currentSessionId !== message.session.sessionId;
-      if (isDifferentSession) {
+      // Only clear events when the TASK changes, not when the session changes.
+      // Within a task's workflow chain (prepare → controller → implement → verify),
+      // events accumulate across all sessions to show full task history.
+      const currentTaskId = session?.taskId;
+      const isDifferentTask =
+        currentTaskId !== undefined &&
+        currentTaskId !== 0 &&
+        message.session.taskId !== currentTaskId;
+      if (isDifferentTask) {
         console.log(
-          `[AgentPanel] New session detected (${currentSessionId ?? "none"} -> ${message.session.sessionId}), clearing stale data`,
+          `[AgentPanel] New task detected (task ${currentTaskId} -> ${message.session.taskId}), clearing stale data`,
         );
         clearEvents();
         clearToolCalls();
@@ -87,6 +93,17 @@ export function handleExtensionMessage(message: ExtensionMessage): void {
       // Use replaceSession for full diff-based replacement (not shallow merge)
       // This ensures a clean transition from empty store to full session object
       replaceSession(message.session);
+
+      // Track session metadata for boundary rendering in timeline
+      // Use conditional property to comply with exactOptionalPropertyTypes
+      const _meta: { role: string; stage?: SessionStage } = {
+        role: message.session.role,
+      };
+      if (message.session.stage !== undefined) {
+        _meta.stage = message.session.stage;
+      }
+      setSessionMetas(message.session.sessionId, _meta);
+
       persistState();
       setUi("initialScrollPending", true);
       break;

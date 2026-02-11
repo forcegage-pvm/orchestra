@@ -15,6 +15,7 @@ import { getAgentEventBus } from "../agents/sessions/eventBus.js";
 import {
   deleteEventsForSession,
   getEventsForSession,
+  getEventsForTaskSessions,
 } from "../agents/sessions/eventRepository.js";
 import { exportSession } from "../agents/sessions/exporter.js";
 import {
@@ -222,6 +223,10 @@ export class AgentPanelProvider implements vscode.WebviewViewProvider {
   private _view: vscode.WebviewView | undefined;
   private readonly _disposables: vscode.Disposable[] = [];
   private _currentSessionId: string | null = null;
+  /** Current task ID for task-scoped event accumulation */
+  private _currentTaskId: number | null = null;
+  /** All session IDs belonging to the current task (for event filtering) */
+  private _taskSessionIds: Set<string> = new Set();
   private _isWebviewReady = false;
   private _pendingMessages: ExtensionMessage[] = [];
   /** Buffer for EventBus payloads received before webview is initialized */
@@ -380,6 +385,8 @@ export class AgentPanelProvider implements vscode.WebviewViewProvider {
 
     // Clear internal tracking
     this._currentSessionId = null;
+    this._currentTaskId = null;
+    this._taskSessionIds = new Set();
 
     // Notify webview to clear its state
     this.postMessage({ type: "clear" });
@@ -413,6 +420,7 @@ export class AgentPanelProvider implements vscode.WebviewViewProvider {
           // Session ended, send session_end message
           logger.debug("[AgentPanelProvider] Session ended");
           this._currentSessionId = null;
+          // Note: don't clear _currentTaskId here - the task may continue with another session
         }
         return;
       }
@@ -421,6 +429,14 @@ export class AgentPanelProvider implements vscode.WebviewViewProvider {
       if (this._currentSessionId !== session.id) {
         logger.info(`[AgentPanelProvider] New session detected: ${session.id}`);
         this._currentSessionId = session.id;
+
+        // Track task and session association
+        const taskId = session.taskId ?? 0;
+        if (taskId !== this._currentTaskId) {
+          this._currentTaskId = taskId;
+          this._taskSessionIds = new Set();
+        }
+        this._taskSessionIds.add(session.id);
 
         // Send full session data for new session
         const events = getEventsForSession(this._workspaceRoot, session.id);
@@ -462,8 +478,9 @@ export class AgentPanelProvider implements vscode.WebviewViewProvider {
   /**
    * Restore session state when view becomes visible again
    *
-   * Unlike _pollForEvents which checks for new sessions, this method
-   * always sends the full session state to ensure the webview is in sync.
+   * Loads ALL events for ALL sessions of the current task to show the
+   * complete workflow chain (prepare → controller → implement → verify → ...).
+   * Events accumulate across sessions and are only cleared on task change.
    */
   private _restoreSessionState(): void {
     if (!this._view) {
@@ -486,10 +503,12 @@ export class AgentPanelProvider implements vscode.WebviewViewProvider {
           `[AgentPanelProvider] Restoring active session: ${activeSession.id}, status: ${activeSession.status}`,
         );
 
-        // Update tracked session ID
+        // Update tracked session and task IDs
         this._currentSessionId = activeSession.id;
+        const taskId = activeSession.taskId ?? 0;
+        this._currentTaskId = taskId;
 
-        // Send full session data
+        // Send full session data (current session)
         const sessionData = sessionClassToInterface(
           this._workspaceRoot,
           activeSession,
@@ -499,13 +518,22 @@ export class AgentPanelProvider implements vscode.WebviewViewProvider {
           session: sessionData,
         });
 
-        // Send all events for the session
-        const events = getEventsForSession(
-          this._workspaceRoot,
-          activeSession.id,
-        );
+        // Load ALL events for ALL sessions of this task (full workflow chain)
+        const taskSessions = taskId
+          ? getSessionsForTask(this._workspaceRoot, taskId)
+          : [];
+        const taskSessionIds = taskSessions.map((s) => s.sessionId);
+
+        // Track all session IDs for this task
+        this._taskSessionIds = new Set(taskSessionIds);
+        this._taskSessionIds.add(activeSession.id);
+
+        const events =
+          taskSessionIds.length > 0
+            ? getEventsForTaskSessions(this._workspaceRoot, taskSessionIds)
+            : getEventsForSession(this._workspaceRoot, activeSession.id);
         logger.info(
-          `[AgentPanelProvider] Restoring ${events.length} events for active session`,
+          `[AgentPanelProvider] Restoring ${events.length} events across ${taskSessionIds.length} sessions for task ${taskId}`,
         );
         this.postMessage({
           type: "events_batch",
@@ -524,8 +552,10 @@ export class AgentPanelProvider implements vscode.WebviewViewProvider {
           `[AgentPanelProvider] Restoring recent session from DB: ${dbSession.sessionId}, status: ${dbSession.status}`,
         );
 
-        // Update tracked session ID
+        // Update tracked session and task IDs
         this._currentSessionId = dbSession.sessionId;
+        const taskId = dbSession.taskId;
+        this._currentTaskId = taskId;
 
         // Send session data (already in interface format from DB)
         this.postMessage({
@@ -533,13 +563,22 @@ export class AgentPanelProvider implements vscode.WebviewViewProvider {
           session: dbSession,
         });
 
-        // Send all events for the session
-        const events = getEventsForSession(
-          this._workspaceRoot,
-          dbSession.sessionId,
-        );
+        // Load ALL events for ALL sessions of this task (full workflow chain)
+        const taskSessions = taskId
+          ? getSessionsForTask(this._workspaceRoot, taskId)
+          : [];
+        const taskSessionIds = taskSessions.map((s) => s.sessionId);
+
+        // Track all session IDs for this task
+        this._taskSessionIds = new Set(taskSessionIds);
+        this._taskSessionIds.add(dbSession.sessionId);
+
+        const events =
+          taskSessionIds.length > 0
+            ? getEventsForTaskSessions(this._workspaceRoot, taskSessionIds)
+            : getEventsForSession(this._workspaceRoot, dbSession.sessionId);
         logger.info(
-          `[AgentPanelProvider] Restoring ${events.length} events from DB`,
+          `[AgentPanelProvider] Restoring ${events.length} events across ${taskSessionIds.length} sessions from DB for task ${taskId}`,
         );
         this.postMessage({
           type: "events_batch",
@@ -567,10 +606,20 @@ export class AgentPanelProvider implements vscode.WebviewViewProvider {
    */
   private _handleEventBusPayload(payload: EventBusPayload): void {
     switch (payload.type) {
-      case "session_start":
-        // Always track the current session ID, even if webview isn't ready.
+      case "session_start": {
+        // Always track the current session ID and task, even if webview isn't ready.
         // This ensures _restoreSessionState() loads the right session.
         this._currentSessionId = payload.session.id;
+        const newTaskId = payload.session.taskId ?? null;
+
+        // If the task changed, reset the task session tracking
+        if (newTaskId !== null && newTaskId !== this._currentTaskId) {
+          this._currentTaskId = newTaskId;
+          this._taskSessionIds = new Set();
+        }
+
+        // Track this session as belonging to the current task
+        this._taskSessionIds.add(payload.session.id);
 
         if (!this._view) return;
 
@@ -584,9 +633,15 @@ export class AgentPanelProvider implements vscode.WebviewViewProvider {
           session: sessionData,
         });
         break;
+      }
 
       case "session_event":
-        if (payload.event.sessionId !== this._currentSessionId) {
+        // Accept events from any session belonging to the current task.
+        // This ensures events from previous workflow chain sessions are not dropped.
+        if (
+          !this._taskSessionIds.has(payload.event.sessionId) &&
+          payload.event.sessionId !== this._currentSessionId
+        ) {
           return;
         }
         if (!this._view) return;
