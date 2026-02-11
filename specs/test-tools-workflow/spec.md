@@ -51,10 +51,10 @@ A small, self-contained utility module with pure functions. Deliberately simple 
 - Returns empty string for empty/whitespace-only input
 
 ```typescript
-slugify("Hello World!")     // "hello-world"
-slugify("  Foo  BAR  baz") // "foo-bar-baz"
-slugify("---test---")      // "test"
-slugify("")                // ""
+slugify("Hello World!"); // "hello-world"
+slugify("  Foo  BAR  baz"); // "foo-bar-baz"
+slugify("---test---"); // "test"
+slugify(""); // ""
 ```
 
 #### `truncate(input: string, maxLength: number, ellipsis?: string): string`
@@ -66,10 +66,10 @@ slugify("")                // ""
 - If maxLength is 0, returns empty string
 
 ```typescript
-truncate("Hello World", 5)         // "He..."
-truncate("Hello World", 5, "…")    // "Hell…"
-truncate("Hi", 10)                 // "Hi"
-truncate("Hello", 0)               // ""
+truncate("Hello World", 5); // "He..."
+truncate("Hello World", 5, "…"); // "Hell…"
+truncate("Hi", 10); // "Hi"
+truncate("Hello", 0); // ""
 ```
 
 #### `capitalize(input: string): string`
@@ -80,10 +80,10 @@ truncate("Hello", 0)               // ""
 - Returns empty string for empty input
 
 ```typescript
-capitalize("hello world")   // "Hello World"
-capitalize("HELLO WORLD")   // "Hello World"
-capitalize("  foo  bar  ")  // "  Foo  Bar  "
-capitalize("")              // ""
+capitalize("hello world"); // "Hello World"
+capitalize("HELLO WORLD"); // "Hello World"
+capitalize("  foo  bar  "); // "  Foo  Bar  "
+capitalize(""); // ""
 ```
 
 #### `countWords(input: string): number`
@@ -93,10 +93,10 @@ capitalize("")              // ""
 - Treats any consecutive whitespace as a single delimiter
 
 ```typescript
-countWords("hello world")     // 2
-countWords("  foo  bar  baz") // 3
-countWords("")                // 0
-countWords("   ")             // 0
+countWords("hello world"); // 2
+countWords("  foo  bar  baz"); // 3
+countWords(""); // 0
+countWords("   "); // 0
 ```
 
 ---
@@ -106,6 +106,7 @@ countWords("   ")             // 0
 **File:** `test/smoke/string-utils-exports.test.ts`
 
 Minimal smoke tests that verify:
+
 - The module can be imported without errors
 - All 4 functions are exported and are of type `function`
 - Basic sanity call on each returns expected type (string/number)
@@ -119,6 +120,7 @@ This validates the module is wired up correctly without deep behavioral testing.
 **File:** `test/unit/core/string-utils.test.ts`
 
 Comprehensive behavioral tests for all 4 functions:
+
 - `slugify`: normal input, special chars, unicode, empty, whitespace, consecutive hyphens
 - `truncate`: shorter than max, exact max, longer, custom ellipsis, zero maxLength, error on invalid maxLength
 - `capitalize`: single word, multi-word, all-caps, empty, leading/trailing spaces
@@ -131,6 +133,7 @@ Comprehensive behavioral tests for all 4 functions:
 **File:** `extension/test/unit/agents/tools/testing/test-tools-sanity.test.ts`
 
 Tests that validate the testing infrastructure itself:
+
 - `.agent-test-config.json` can be loaded and parsed
 - It contains the expected tier names (smoke, unit, extension-unit, etc.)
 - Each tier has a valid `path` glob and `timeout` number
@@ -142,10 +145,10 @@ This is an extension-unit test because it validates the testing tool infrastruct
 
 ## Test Tier Placement
 
-| Test File | Tier | Config Match |
-|-----------|------|-------------|
-| `test/smoke/string-utils-exports.test.ts` | `smoke` | `test/smoke/**/*.test.ts` |
-| `test/unit/core/string-utils.test.ts` | `unit` | `test/unit/**/*.test.ts` |
+| Test File                                                            | Tier             | Config Match                       |
+| -------------------------------------------------------------------- | ---------------- | ---------------------------------- |
+| `test/smoke/string-utils-exports.test.ts`                            | `smoke`          | `test/smoke/**/*.test.ts`          |
+| `test/unit/core/string-utils.test.ts`                                | `unit`           | `test/unit/**/*.test.ts`           |
 | `extension/test/unit/agents/tools/testing/test-tools-sanity.test.ts` | `extension-unit` | `extension/test/unit/**/*.test.ts` |
 
 This placement lets the agent use `run_tests` with different tier arguments and see the tests appear in the correct scopes via `list_test_suites`.
@@ -154,16 +157,16 @@ This placement lets the agent use `run_tests` with different tier arguments and 
 
 ## Testing Tool Validation Matrix
 
-| Tool | Exercise Point |
-|------|---------------|
-| `run_tests --tier smoke` | Runs smoke tests including `string-utils-exports.test.ts` |
-| `run_tests --tier unit` | Runs unit tests including `string-utils.test.ts` |
-| `run_tests --tier extension-unit` | Runs extension-unit tests including `test-tools-sanity.test.ts` |
-| `run_tests --scope test/unit/core/string-utils.test.ts` | Runs single file |
-| `get_test_results` | Returns pass/fail for most recent run |
-| `list_test_suites --tier smoke` | Should list `string-utils-exports.test.ts` |
-| `list_test_suites --tier unit` | Should list `string-utils.test.ts` |
-| `promote_tests` | Can move test between tiers |
+| Tool                                                    | Exercise Point                                                  |
+| ------------------------------------------------------- | --------------------------------------------------------------- |
+| `run_tests --tier smoke`                                | Runs smoke tests including `string-utils-exports.test.ts`       |
+| `run_tests --tier unit`                                 | Runs unit tests including `string-utils.test.ts`                |
+| `run_tests --tier extension-unit`                       | Runs extension-unit tests including `test-tools-sanity.test.ts` |
+| `run_tests --scope test/unit/core/string-utils.test.ts` | Runs single file                                                |
+| `get_test_results`                                      | Returns pass/fail for most recent run                           |
+| `list_test_suites --tier smoke`                         | Should list `string-utils-exports.test.ts`                      |
+| `list_test_suites --tier unit`                          | Should list `string-utils.test.ts`                              |
+| `promote_tests`                                         | Can move test between tiers                                     |
 
 ---
 

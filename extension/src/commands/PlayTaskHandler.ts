@@ -38,23 +38,59 @@ async function showAgentPanel(): Promise<void> {
 /**
  * Read agent instruction file content for system prompt
  *
+ * Tries to render from system-{role}.hbs template first. If template
+ * doesn't exist, falls back to reading raw .agent.md file for backward
+ * compatibility.
+ *
  * Also includes copilot-instructions.md if it exists.
  *
  * @param workspaceRoot Workspace root path
  * @param role Agent role (orchestrator, implementor, controller)
- * @returns File content as string (agent-specific + copilot instructions if available)
+ * @param promptBuilder PromptBuilder instance for template rendering
+ * @returns System prompt string
  */
 async function readAgentInstructions(
   workspaceRoot: string,
   role: "orchestrator" | "implementor" | "controller",
+  promptBuilder: PromptBuilder,
 ): Promise<string> {
-  const agentInstructionPath = path.join(
+  // Try to render from template first
+  const platform = process.platform;
+  const osName =
+    platform === "win32"
+      ? "Windows"
+      : platform === "darwin"
+        ? "macOS"
+        : "Linux";
+  const shell = platform === "win32" ? "cmd.exe" : "/bin/sh";
+  const pathSeparator = platform === "win32" ? "\\" : "/";
+
+  const systemPromptContext = {
+    role,
     workspaceRoot,
-    ".github",
-    "agents",
-    `orchestra.${role}.agent.md`,
-  );
-  const agentInstructions = await fs.readFile(agentInstructionPath, "utf-8");
+    platform,
+    osName,
+    shell,
+    pathSeparator,
+  };
+
+  const templatePrompt = promptBuilder.renderSystemPrompt(systemPromptContext);
+
+  let agentInstructions: string;
+
+  if (templatePrompt !== null) {
+    // Use rendered template
+    agentInstructions = templatePrompt;
+  } else {
+    // Fall back to raw .agent.md file
+    const agentInstructionPath = path.join(
+      workspaceRoot,
+      ".github",
+      "agents",
+      `orchestra.${role}.agent.md`,
+    );
+    agentInstructions = await fs.readFile(agentInstructionPath, "utf-8");
+  }
 
   // Also try to read copilot-instructions.md if it exists
   const copilotInstructionsPath = path.join(
@@ -274,6 +310,7 @@ async function invokePrepare(
     const systemPrompt = await readAgentInstructions(
       workspaceRoot,
       "orchestrator",
+      promptBuilder,
     );
 
     // Build coding standards for injection
@@ -371,6 +408,7 @@ async function invokeImplement(
     const systemPrompt = await readAgentInstructions(
       workspaceRoot,
       "implementor",
+      promptBuilder,
     );
 
     // Build coding standards for injection
@@ -490,6 +528,7 @@ async function invokeRetry(
     const systemPrompt = await readAgentInstructions(
       workspaceRoot,
       "implementor",
+      promptBuilder,
     );
 
     // Build coding standards for injection
@@ -589,6 +628,7 @@ async function invokeVerify(
     const systemPrompt = await readAgentInstructions(
       workspaceRoot,
       "orchestrator",
+      promptBuilder,
     );
 
     // Build coding standards for injection
@@ -703,6 +743,7 @@ async function invokeHandoverFix(
     const systemPrompt = await readAgentInstructions(
       workspaceRoot,
       "orchestrator",
+      promptBuilder,
     );
 
     // Build coding standards for injection
@@ -812,6 +853,7 @@ async function invokeHandoverReview(
     const systemPrompt = await readAgentInstructions(
       workspaceRoot,
       "controller",
+      promptBuilder,
     );
 
     // Build coding standards for injection
@@ -927,6 +969,7 @@ async function invokeCodeReview(
     const systemPrompt = await readAgentInstructions(
       workspaceRoot,
       "controller",
+      promptBuilder,
     );
 
     // Build coding standards for injection
@@ -1039,6 +1082,7 @@ async function invokeCodeReviewFix(
     const systemPrompt = await readAgentInstructions(
       workspaceRoot,
       "implementor",
+      promptBuilder,
     );
 
     // Build coding standards for injection
@@ -1148,6 +1192,7 @@ Use your MCP tools to investigate and resolve this escalation.`;
     const systemPrompt = await readAgentInstructions(
       workspaceRoot,
       "orchestrator",
+      promptBuilder,
     );
 
     // Build coding standards for injection
