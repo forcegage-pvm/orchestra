@@ -126,6 +126,7 @@ async function updateVerification(
     "RETRY",
     "ESCALATED",
     "SPEC_REVIEW",
+    "HANDOVER_REVIEW",
   ];
   if (!allowedStates.includes(sprint.workflow_step)) {
     throw new Error(
@@ -161,6 +162,7 @@ async function updateVerification(
   // - CONFIGURE: always allowed (initial setup)
   // - PREPARE: always allowed (spec refinement before handover)
   // - SELECT_TASK + PENDING task: allowed (strengthening criteria before preparation)
+  // - HANDOVER_REVIEW + PENDING task: allowed (fixing criteria before handover approval)
   // - Other states: only allowed if task is ESCALATED (human supervisor correction)
   const isSpecReviewFailed =
     sprint.workflow_step === "SPEC_REVIEW" &&
@@ -174,7 +176,15 @@ async function updateVerification(
   const isPendingDuringSelectTask =
     sprint.workflow_step === "SELECT_TASK" && task.status === "PENDING";
 
-  if (!isInAllowedSprintState && !isPendingDuringSelectTask) {
+  // Also allow updating PENDING tasks during HANDOVER_REVIEW (fixing criteria before approval)
+  const isPendingDuringHandoverReview =
+    sprint.workflow_step === "HANDOVER_REVIEW" && task.status === "PENDING";
+
+  if (
+    !isInAllowedSprintState &&
+    !isPendingDuringSelectTask &&
+    !isPendingDuringHandoverReview
+  ) {
     if (task.status !== "ESCALATED") {
       throw new Error(
         `Task ${input.task_id} is in ${task.status} state. ` +
