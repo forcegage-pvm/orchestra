@@ -2,6 +2,16 @@
   "framework": "vitest",
   "tiers": [
     {
+      "name": "smoke",
+      "path": "test/smoke/**/*.test.ts",
+      "timeout": 10000
+    },
+    {
+      "name": "extension-smoke",
+      "path": "extension/test/smoke/**/*.test.ts",
+      "timeout": 10000
+    },
+    {
       "name": "unit",
       "path": "test/unit/**/*.test.ts",
       "timeout": 30000
