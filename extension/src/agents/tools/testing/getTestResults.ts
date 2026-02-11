@@ -296,9 +296,8 @@ async function getTestResults(
       output = formatStructured(result, filteredTests);
       break;
     default: {
-      // Should never happen due to Zod validation, but handle defensively
-      const _exhaustive: never = format;
-      output = formatSummary(result);
+      // Should never happen due to Zod validation - exhaustiveness check
+      output = ((_x: never): string => formatSummary(result))(format);
     }
   }
 

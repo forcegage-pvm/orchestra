@@ -23,8 +23,6 @@ import { errorResult, successResult } from "../utils/resultBuilder.js";
 import type { TestTier } from "./TestConfigLoader.js";import { TestConfigLoader } from "./TestConfigLoader.js";
 import type {
   ListTestSuitesInput,
-  ListTestSuitesResult,
-  SuiteDetailLevel,
   TestEntry,
   TestFileEntry,
   TierSummary,
@@ -196,11 +194,6 @@ async function parseTestFile(filePath: string): Promise<TestEntry[]> {
       if (testMatch) {
         const testName = testMatch[2];
         if (testName !== undefined) {
-          // Build full name from describe context (used for debugging)
-          const _fullName = describeStack.length > 0
-            ? `${describeStack.join(" > ")} > ${testName}`
-            : testName;
-
           entries.push({            name: `it "${testName}"`,
             line: lineNum,
           });
@@ -384,7 +377,6 @@ async function listTestSuites(
   const config = configResult.config;
 
   // 2. Process based on detail level
-  let _result: ListTestSuitesResult;
   let output: string;
   switch (detail) {
     case "suites": {
@@ -394,12 +386,6 @@ async function listTestSuites(
         const summary = await getTierSummary(tierConfig, context.workspaceRoot);
         tiers.push(summary);
       }
-
-      _result = {
-        detail: "suites" as SuiteDetailLevel,
-        tiers,
-        summary: `${tiers.length} tier(s) configured`,
-      };
 
       output = formatSuitesOutput(tiers);
       break;
@@ -437,13 +423,6 @@ async function listTestSuites(
       const pattern = extractFilePattern(tierConfig.path);
       const absoluteDir = path.join(context.workspaceRoot, dirPath);
       const files = await findTestFiles(absoluteDir, pattern, context.workspaceRoot);
-
-      _result = {
-        detail: "files" as SuiteDetailLevel,
-        files,
-        context: tier,
-        summary: `${files.length} file(s) in tier "${tier}"`,
-      };
 
       output = formatFilesOutput(tier, files);
       break;
@@ -508,21 +487,13 @@ async function listTestSuites(
       // Parse the file to get test names
       const tests = await parseTestFile(absolutePath);
 
-      _result = {
-        detail: "tests" as SuiteDetailLevel,
-        tests,
-        context: file,
-        summary: `${tests.length} entries in "${file}"`,
-      };
-
       output = formatTestsOutput(file, tests);
       break;
     }
 
     default: {
-      // Should never happen due to Zod validation
-      const _exhaustive: never = detail;
-      output = "Invalid detail level";
+      // Should never happen due to Zod validation - exhaustiveness check
+      output = ((_x: never): string => `Invalid detail level: ${_x}`)(detail);
     }  }
 
   return buildToolResult(successResult(TOOL_NAME, output));

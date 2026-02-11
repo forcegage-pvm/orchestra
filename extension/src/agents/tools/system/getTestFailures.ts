@@ -121,19 +121,24 @@ export const getTestFailuresTool: AgentTool<GetTestFailuresInput> = {
         }
 
         const code = normalizeCode(entry.code);
-        failures.push({
+        const failureEntry: TestFailureEntry = {
           file: uri.fsPath,
           message: entry.message,
           severity: formatSeverity(entry.severity),
-          source: entry.source,
-          code,
           range: {
             startLine: entry.range.start.line + 1,
             startCharacter: entry.range.start.character + 1,
             endLine: entry.range.end.line + 1,
             endCharacter: entry.range.end.character + 1,
           },
-        });
+        };
+        if (entry.source !== undefined) {
+          failureEntry.source = entry.source;
+        }
+        if (code !== undefined) {
+          failureEntry.code = code;
+        }
+        failures.push(failureEntry);
 
         if (failures.length >= maxItems) {
           break;

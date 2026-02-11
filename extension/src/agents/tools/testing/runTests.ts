@@ -22,7 +22,7 @@ import { errorResult, successResult } from "../utils/resultBuilder.js";
 import { FingerprintComputer } from "./FingerprintComputer.js";
 import { setLastRedPhaseResult } from "./promoteTests.js";
 import { ResultFormatter } from "./ResultFormatter.js";
-import { ScopeResolver } from "./ScopeResolver.js";
+import { ScopeResolver, type ResolveOptions } from "./ScopeResolver.js";
 import { sharedResultStore } from "./sharedStore.js";
 import { TestConfigLoader } from "./TestConfigLoader.js";
 import type { CacheKey, RunTestsInput, RunTestsResult, TestScope } from "./types.js";
@@ -286,18 +286,25 @@ async function runTests(
 
     // 5. Resolve scope to file list or pattern
     const resolver = new ScopeResolver(context.workspaceRoot);
+    const resolveOptions: ResolveOptions = {
+      getLastFailedTests: (dir: string) => testResultStore.getLastFailedTests(dir),
+      workingDir,
+    };
+    // Add related scope options only if defined (exactOptionalPropertyTypes)
+    if (validatedInput.change_source !== undefined) {
+      resolveOptions.changeSource = validatedInput.change_source;
+    }
+    if (validatedInput.commit_range !== undefined) {
+      resolveOptions.commitRange = validatedInput.commit_range;
+    }
+    if (validatedInput.file_list !== undefined) {
+      resolveOptions.fileList = validatedInput.file_list;
+    }
     const scopeResult = await resolver.resolve(
       validatedInput.scope,
       validatedInput.target,
       config,
-      {
-        getLastFailedTests: (dir: string) => testResultStore.getLastFailedTests(dir),
-        workingDir,
-        // Related scope options
-        changeSource: validatedInput.change_source,
-        commitRange: validatedInput.commit_range,
-        fileList: validatedInput.file_list,
-      },
+      resolveOptions,
     );
     // Check for error (ToolError has 'code' property)
     if ("code" in scopeResult) {
