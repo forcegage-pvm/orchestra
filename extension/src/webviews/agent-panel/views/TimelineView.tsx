@@ -15,6 +15,8 @@ import type { Accessor } from "solid-js";
 import { createEffect, createMemo, createSignal, Index, Show } from "solid-js";
 import type {
   AgentEvent,
+  AgentRole,
+  SessionStage,
   StatusChangeEvent,
   ToolCallAggregate,
 } from "../../../agents/sessions/types.js";
@@ -27,9 +29,11 @@ import {
   ToolCallCard,
 } from "../components/index.js";
 import { useAutoScroll } from "../hooks/index.js";
+import type { SessionMeta } from "../stores/index.js";
 import {
   getEventsArray,
   session,
+  sessionMetas,
   toolCallKeys,
   toolCalls,
 } from "../stores/index.js";
@@ -41,13 +45,28 @@ export interface TimelineViewProps {
 }
 
 /**
- * Timeline item can be either a regular event or an aggregated tool call
+ * Timeline item can be a regular event, an aggregated tool call, or a session boundary
  */
 type TimelineItem =
-  | { type: "event"; event: AgentEvent; timestamp: string; id: string }
+  | {
+      type: "event";
+      event: AgentEvent;
+      timestamp: string;
+      id: string;
+      sessionId: string;
+    }
   | {
       type: "toolCall";
       toolCall: ToolCallAggregate;
+      timestamp: string;
+      id: string;
+      sessionId: string;
+    }
+  | {
+      type: "sessionBoundary";
+      role: AgentRole;
+      stage?: SessionStage;
+      sessionId: string;
       timestamp: string;
       id: string;
     };
@@ -76,6 +95,39 @@ function StatusChangeCard(props: { event: StatusChangeEvent }) {
           <span class="text-[11px] text-zinc-500">— {props.event.message}</span>
         </Show>
       </div>
+    </div>
+  );
+}
+
+/**
+ * Role color mapping for session boundary badges
+ */
+const roleColors: Record<string, string> = {
+  orchestrator: "text-purple-400 border-purple-400/30 bg-purple-400/10",
+  implementor: "text-green-400 border-green-400/30 bg-green-400/10",
+  controller: "text-amber-400 border-amber-400/30 bg-amber-400/10",
+};
+
+/**
+ * SessionBoundaryCard - Visual separator between sessions in the task workflow chain
+ */
+function SessionBoundaryCard(props: { role: AgentRole; stage?: SessionStage }) {
+  const colorClass = () =>
+    roleColors[props.role] ?? "text-zinc-400 border-zinc-400/30 bg-zinc-400/10";
+  const label = () => {
+    const roleName = props.role.charAt(0).toUpperCase() + props.role.slice(1);
+    return props.stage ? `${roleName} — ${props.stage}` : roleName;
+  };
+
+  return (
+    <div class="flex items-center gap-3 px-3 py-2 my-1">
+      <div class="flex-1 h-px bg-zinc-700/60" />
+      <span
+        class={`text-[11px] font-medium px-2 py-0.5 rounded-full border ${colorClass()}`}
+      >
+        {label()}
+      </span>
+      <div class="flex-1 h-px bg-zinc-700/60" />
     </div>
   );
 }
@@ -110,6 +162,7 @@ export function TimelineView(props: TimelineViewProps) {
    * 3. ToolCallCard (replaces individual tool_call/tool_progress/tool_output/tool_result events)
    * 4. error events
    * 5. status_change events
+   * 6. sessionBoundary markers (inserted between sessions in a workflow chain)
    *
    * Tool-related events are filtered out since they're shown within ToolCallCard
    */
@@ -117,6 +170,8 @@ export function TimelineView(props: TimelineViewProps) {
     const eventArray = getEventsArray();
     // Access toolCallKeys signal for reactivity when tool calls are cleared
     const toolCallKeysList = toolCallKeys();
+    // Access sessionMetas for reactivity when session metadata changes
+    const _metas = sessionMetas;
     const currentEventCount = eventArray.length;
     const toolCallIds = toolCallKeysList;
 
@@ -146,12 +201,13 @@ export function TimelineView(props: TimelineViewProps) {
         continue;
       }
 
-      // Add non-tool events
+      // Add non-tool events with sessionId for boundary detection
       cachedItems.push({
         type: "event",
         event,
         timestamp: event.timestamp,
         id: `event-${event.type}-${event.timestamp}`,
+        sessionId: event.sessionId,
       });
     }
     lastEventCount = currentEventCount;
@@ -162,11 +218,14 @@ export function TimelineView(props: TimelineViewProps) {
       if (!lastProcessedToolCallIds.has(toolCallId)) {
         const toolCall = toolCalls[toolCallId];
         if (toolCall) {
+          // Get sessionId from the first event in the tool call
+          const toolSessionId = toolCall.events[0]?.sessionId ?? "";
           cachedItems.push({
             type: "toolCall",
             toolCall,
             timestamp: toolCall.startedAt,
             id: `tool-${toolCallId}`,
+            sessionId: toolSessionId,
           });
           lastProcessedToolCallIds.add(toolCallId);
         }
@@ -181,8 +240,34 @@ export function TimelineView(props: TimelineViewProps) {
       return timeA - timeB;
     });
 
-    // Return a new array reference to trigger SolidJS reactivity
-    return [...cachedItems];
+    // Insert session boundary markers where sessionId transitions occur.
+    // This shows visual separators between different sessions in the
+    // task's workflow chain (e.g., prepare → controller → implement → verify).
+    const withBoundaries: TimelineItem[] = [];
+    let prevSessionId: string | undefined;
+    for (const item of cachedItems) {
+      if (item.type === "sessionBoundary") continue; // Skip any existing boundaries (shouldn't happen)
+      const sid = item.sessionId;
+      if (sid && prevSessionId && sid !== prevSessionId) {
+        // Session transition detected - insert boundary marker
+        const meta: SessionMeta | undefined = _metas[sid];
+        const boundary: TimelineItem = {
+          type: "sessionBoundary",
+          role: (meta?.role ?? "orchestrator") as AgentRole,
+          sessionId: sid,
+          timestamp: item.timestamp,
+          id: `boundary-${sid}`,
+        };
+        if (meta?.stage !== undefined) {
+          boundary.stage = meta.stage;
+        }
+        withBoundaries.push(boundary);
+      }
+      prevSessionId = sid;
+      withBoundaries.push(item);
+    }
+
+    return withBoundaries;
   });
 
   // Smart auto-scroll: pauses when user scrolls up, resumes at bottom
@@ -219,6 +304,17 @@ export function TimelineView(props: TimelineViewProps) {
    * Render appropriate card component based on timeline item type
    */
   const renderItem = (item: TimelineItem, index: number) => {
+    // Session boundaries are rendered without focus/animation styling
+    if (item.type === "sessionBoundary") {
+      const boundaryProps: { role: AgentRole; stage?: SessionStage } = {
+        role: item.role,
+      };
+      if (item.stage !== undefined) {
+        boundaryProps.stage = item.stage;
+      }
+      return <SessionBoundaryCard {...boundaryProps} />;
+    }
+
     const isFocused = props.focusedEventIndex() === index;
     const focusClass = isFocused ? "focused-event ring-2 ring-blue-500" : "";
 
@@ -229,9 +325,7 @@ export function TimelineView(props: TimelineViewProps) {
 
     if (item.type === "toolCall") {
       // Render aggregated tool call card
-      itemCard = (
-        <ToolCallCard toolCall={item.toolCall} startCollapsed={false} />
-      );
+      itemCard = <ToolCallCard toolCall={item.toolCall} />;
     } else {
       // Render regular event
       const event = item.event;
@@ -295,7 +389,7 @@ export function TimelineView(props: TimelineViewProps) {
           }
         >
           <Index each={timelineItems()}>
-            {(item) => renderItem(item(), 0)}
+            {(item: Accessor<TimelineItem>) => renderItem(item(), 0)}
           </Index>
         </Show>
 

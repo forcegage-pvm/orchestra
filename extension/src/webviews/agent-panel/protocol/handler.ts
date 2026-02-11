@@ -7,7 +7,10 @@
  * Specification: specs/011-agent-panel-rework/spec.md Section 8.2
  */
 
-import type { StatusChangeEvent } from "../../../agents/sessions/types.js";
+import type {
+  SessionStage,
+  StatusChangeEvent,
+} from "../../../agents/sessions/types.js";
 import { updateToolCallAggregate } from "../stores/aggregation.js";
 import { flushPendingState } from "../stores/persistence.js";
 import {
@@ -15,11 +18,13 @@ import {
   clearAfter,
   clearEvents,
   clearSessionHistory,
+  clearToolCalls,
   persistState,
   replaceSession,
   resetSession,
   session,
   setSession,
+  setSessionMetas,
   setToolCall,
   syncSessionStatusFromEvents,
   toolCalls,
@@ -64,18 +69,45 @@ export function handleExtensionMessage(message: ExtensionMessage): void {
   console.log(`[AgentPanel] Received message:`, message.type);
 
   switch (message.type) {
-    case "session_update":
+    case "session_update": {
       console.log(
         `[AgentPanel] Session update:`,
         message.session?.sessionId,
         message.session?.status,
       );
+      // Only clear events when the TASK changes, not when the session changes.
+      // Within a task's workflow chain (prepare → controller → implement → verify),
+      // events accumulate across all sessions to show full task history.
+      const currentTaskId = session?.taskId;
+      const isDifferentTask =
+        currentTaskId !== undefined &&
+        currentTaskId !== 0 &&
+        message.session.taskId !== currentTaskId;
+      if (isDifferentTask) {
+        console.log(
+          `[AgentPanel] New task detected (task ${currentTaskId} -> ${message.session.taskId}), clearing stale data`,
+        );
+        clearEvents();
+        clearToolCalls();
+      }
       // Use replaceSession for full diff-based replacement (not shallow merge)
       // This ensures a clean transition from empty store to full session object
       replaceSession(message.session);
+
+      // Track session metadata for boundary rendering in timeline
+      // Use conditional property to comply with exactOptionalPropertyTypes
+      const _meta: { role: string; stage?: SessionStage } = {
+        role: message.session.role,
+      };
+      if (message.session.stage !== undefined) {
+        _meta.stage = message.session.stage;
+      }
+      setSessionMetas(message.session.sessionId, _meta);
+
       persistState();
       setUi("initialScrollPending", true);
       break;
+    }
 
     case "session_list":
       // Session list handling will be added when session switching is implemented

@@ -13,6 +13,7 @@ import { createStore, reconcile, unwrap } from "solid-js/store";
 import type {
   AgentEvent,
   AgentSession,
+  SessionStage,
   StatusChangeEvent,
   ToolCallAggregate,
 } from "../../../agents/sessions/types.js";
@@ -28,6 +29,18 @@ import { restoreState, saveState } from "./persistence.js";
  * Use resetSession() to clear session data (setSession(null) would be a no-op).
  */
 export const [session, setSession] = createStore<AgentSession | null>(null);
+
+/**
+ * Session metadata map - tracks role and stage for each session in the current task.
+ * Used by TimelineView to render session boundary markers with role/stage labels.
+ */
+export interface SessionMeta {
+  role: string;
+  stage?: SessionStage;
+}
+export const [sessionMetas, setSessionMetas] = createStore<
+  Record<string, SessionMeta>
+>({});
 
 /**
  * Replace the entire session with a new session object.
@@ -209,6 +222,7 @@ export function clearEvents(): void {
   setEvents({});
   setEventKeys([]);
   clearSearchableTextCache();
+  setSessionMetas({});
   persistState();
 }
 

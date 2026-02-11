@@ -11,6 +11,8 @@ import { Icon } from "@iconify-icon/solid";
 import { createEffect, createSignal, Show } from "solid-js";
 import type { ToolCallAggregate } from "../../../agents/sessions/types.js";
 import { JsonViewer } from "./JsonViewer.js";
+import { Markdown } from "./Markdown.js";
+import { OutputToolbar } from "./OutputToolbar.js";
 import { TerminalOutput } from "./TerminalOutput.js";
 import { ToolIcon } from "./ToolIcon.js";
 
@@ -133,6 +135,9 @@ function buildSearchCountLabel(result: unknown): string {
 export function ToolCallCard(props: ToolCallCardProps) {
   // Start with no tab selected
   const [selectedTab, setSelectedTab] = createSignal<TabSelection>("none");
+  const [outputScrollRef, setOutputScrollRef] = createSignal<
+    HTMLElement | undefined
+  >();
 
   // Auto-expand output tab when status changes to failed
   createEffect(() => {
@@ -223,6 +228,23 @@ export function ToolCallCard(props: ToolCallCardProps) {
     return result;
   };
 
+  // Check if output is a plain string (should render as markdown)
+  const isStringOutput = () => {
+    if (isFailed()) return false;
+    const result = props.toolCall.result;
+    if (result === undefined || result === null) return false;
+    if (typeof result === "string") {
+      // Try parsing as JSON - if it parses, it's structured data, not markdown
+      try {
+        JSON.parse(result);
+        return false;
+      } catch {
+        return true; // Plain string, render as markdown
+      }
+    }
+    return false;
+  };
+
   // Check if this is a command/terminal tool with stdout
   const isCommandOutput = () => {
     const toolName = props.toolCall.toolName;
@@ -261,6 +283,27 @@ export function ToolCallCard(props: ToolCallCardProps) {
     }
 
     return null;
+  };
+
+  const getOutputCopyText = (): string => {
+    // Error content
+    if (isFailed() && props.toolCall.error) {
+      let text = props.toolCall.error.message || "Tool execution failed";
+      if (props.toolCall.error.suggestion) {
+        text += `\n${props.toolCall.error.suggestion}`;
+      }
+      return text;
+    }
+    const terminalText = getTerminalOutput();
+    if (isCommandOutput() && terminalText) return terminalText;
+    const output = getOutputDisplay();
+    if (output === null || output === undefined) return "";
+    if (typeof output === "string") return output;
+    try {
+      return JSON.stringify(output, null, 2);
+    } catch {
+      return String(output);
+    }
   };
 
   return (
@@ -334,7 +377,7 @@ export function ToolCallCard(props: ToolCallCardProps) {
         <button
           onClick={() => toggleTab("input")}
           disabled={!hasInput()}
-          class={`flex items-center gap-0.5 text-[10px] transition-colors ${
+          class={`flex items-center gap-1 text-[11px] transition-colors ${
             !hasInput()
               ? "text-gray-600 cursor-not-allowed"
               : selectedTab() === "input"
@@ -342,7 +385,7 @@ export function ToolCallCard(props: ToolCallCardProps) {
                 : "text-gray-500 hover:text-gray-400"
           }`}
         >
-          <Icon icon="lucide:log-in" class="w-2.5 h-2.5" />
+          <Icon icon="lucide:log-in" class="w-3.5 h-3.5" />
           <span>input</span>
         </button>
 
@@ -350,7 +393,7 @@ export function ToolCallCard(props: ToolCallCardProps) {
         <button
           onClick={() => toggleTab("output")}
           disabled={!hasOutput() && !hasError()}
-          class={`flex items-center gap-0.5 text-[10px] transition-colors ${
+          class={`flex items-center gap-1 text-[11px] transition-colors ${
             !hasOutput() && !hasError()
               ? "text-gray-600 cursor-not-allowed"
               : selectedTab() === "output"
@@ -358,7 +401,7 @@ export function ToolCallCard(props: ToolCallCardProps) {
                 : "text-gray-500 hover:text-gray-400"
           }`}
         >
-          <Icon icon="lucide:log-out" class="w-2.5 h-2.5" />
+          <Icon icon="lucide:log-out" class="w-3.5 h-3.5" />
           <span>output</span>
         </button>
       </div>
@@ -368,22 +411,32 @@ export function ToolCallCard(props: ToolCallCardProps) {
         <div class="mx-2 mb-1.5 border-l-2 border-violet-500/60 pl-2">
           {/* Input Panel */}
           <Show when={selectedTab() === "input" && hasInput()}>
-            <JsonViewer data={getInputDisplay()} />
+            <JsonViewer data={getInputDisplay()} maxHeight={300} />
           </Show>
 
           {/* Output Panel */}
           <Show when={selectedTab() === "output"}>
+            {/* Toolbar for all output content (success + error) */}
+            <OutputToolbar
+              scrollContainerRef={outputScrollRef}
+              copyText={getOutputCopyText}
+            />
             <Show
               when={!isFailed()}
               fallback={
-                <div class="text-xs space-y-1 py-1">
-                  <div class="text-red-400">
-                    {props.toolCall.error?.message || "Tool execution failed"}
-                  </div>
+                <div
+                  ref={(el) => setOutputScrollRef(el as unknown as HTMLPreElement)}
+                  class="text-xs space-y-1 py-1 max-h-[300px] overflow-y-auto output-scroll"
+                >
+                  <Markdown
+                    content={props.toolCall.error?.message || "Tool execution failed"}
+                    class="text-red-400"
+                  />
                   <Show when={props.toolCall.error?.suggestion}>
-                    <div class="text-yellow-400 text-[10px]">
-                      💡 {props.toolCall.error!.suggestion}
-                    </div>
+                    <Markdown
+                      content={props.toolCall.error!.suggestion!}
+                      class="text-yellow-400 text-[10px]"
+                    />
                   </Show>
                 </div>
               }
@@ -391,9 +444,35 @@ export function ToolCallCard(props: ToolCallCardProps) {
               {/* Use TerminalOutput for command tools with stdout */}
               <Show
                 when={isCommandOutput() && getTerminalOutput()}
-                fallback={<JsonViewer data={getOutputDisplay()} />}
+                fallback={
+                  /* Plain string results render as markdown */
+                  <Show
+                    when={isStringOutput()}
+                    fallback={
+                      <JsonViewer
+                        data={getOutputDisplay()}
+                        maxHeight={300}
+                        onScrollRef={setOutputScrollRef}
+                      />
+                    }
+                  >
+                    <div
+                      ref={(el) => setOutputScrollRef(el as unknown as HTMLPreElement)}
+                      class="text-xs py-1 max-h-[300px] overflow-y-auto output-scroll"
+                    >
+                      <Markdown
+                        content={props.toolCall.result as string}
+                        class="text-zinc-300"
+                      />
+                    </div>
+                  </Show>
+                }
               >
-                <TerminalOutput output={getTerminalOutput()!} />
+                <TerminalOutput
+                  output={getTerminalOutput()!}
+                  maxHeight={300}
+                  onScrollRef={setOutputScrollRef}
+                />
               </Show>
             </Show>
           </Show>

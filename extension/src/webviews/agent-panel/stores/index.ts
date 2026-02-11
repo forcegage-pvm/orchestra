@@ -16,6 +16,7 @@ export {
   getEventsArray,
   persistState,
   session,
+  sessionMetas,
   setEventKeys,
   setEvents,
   setSession,
@@ -25,6 +26,8 @@ export {
   toolCalls,
   tryRestoreState,
 } from "./sessionStore.js";
+
+export type { SessionMeta } from "./sessionStore.js";
 
 export { aggregateToolCalls, updateToolCallAggregate } from "./aggregation.js";
 
