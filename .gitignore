@@ -17,7 +17,8 @@ extension/.orchestra/
 
 # Orchestra workflow
 .orchestra/.signal
-# SQLite transient journal files (WAL mode) - never commit these
+# SQLite database files - never commit (causes lock conflicts)
+.orchestra/*.db
 .orchestra/*.db-wal
 .orchestra/*.db-shm
 .orchestra/*.db-journal
