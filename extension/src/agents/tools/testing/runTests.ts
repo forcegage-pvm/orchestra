@@ -14,8 +14,8 @@ import * as path from "node:path";
 import { ToolErrorCode } from "../errors.js";
 import type {
   AgentTool,
-  ToolInvocationContext,
   ToolInputSchema,
+  ToolInvocationContext,
   ToolResult,
 } from "../types.js";
 import { errorResult, successResult } from "../utils/resultBuilder.js";
@@ -25,7 +25,12 @@ import { ResultFormatter } from "./ResultFormatter.js";
 import { ScopeResolver, type ResolveOptions } from "./ScopeResolver.js";
 import { sharedResultStore } from "./sharedStore.js";
 import { TestConfigLoader } from "./TestConfigLoader.js";
-import type { CacheKey, RunTestsInput, RunTestsResult, TestScope } from "./types.js";
+import type {
+  CacheKey,
+  RunTestsInput,
+  RunTestsResult,
+  TestScope,
+} from "./types.js";
 import { ExecutionLock, RunTestsInputSchema } from "./types.js";
 import { VitestRunner } from "./VitestRunner.js";
 
@@ -60,6 +65,19 @@ function buildToolResult(partial: Partial<ToolResult>): ToolResult {
 }
 
 /**
+ * Normalize Windows path to have uppercase drive letter.
+ * Vitest has issues with lowercase drive letters (e.g., x: vs X:).
+ * @param p Path to normalize
+ * @returns Path with uppercase drive letter on Windows, unchanged on other platforms
+ */
+function normalizeWindowsPath(p: string): string {
+  if (process.platform === "win32" && p.length >= 2 && p[1] === ":") {
+    return p[0].toUpperCase() + p.slice(1);
+  }
+  return p;
+}
+
+/**
  * Resolve working directory from input, config, or workspace root.
  * @param workspaceRoot Absolute workspace root path
  * @param inputWorkingDir Optional working_dir from input
@@ -72,10 +90,13 @@ function resolveWorkingDir(
   configWorkingDir: string | undefined,
 ): string {
   const relativePath = inputWorkingDir ?? configWorkingDir;
+  let resolved: string;
   if (relativePath) {
-    return path.resolve(workspaceRoot, relativePath);
+    resolved = path.resolve(workspaceRoot, relativePath);
+  } else {
+    resolved = workspaceRoot;
   }
-  return workspaceRoot;
+  return normalizeWindowsPath(resolved);
 }
 
 /**
@@ -97,10 +118,13 @@ async function resolveGlobPatterns(
       // Extract directory and pattern from the glob
       const lastSlash = pattern.lastIndexOf("/");
       const dir = lastSlash >= 0 ? pattern.slice(0, lastSlash) : ".";
-      const filePattern = lastSlash >= 0 ? pattern.slice(lastSlash + 1) : pattern;
+      const filePattern =
+        lastSlash >= 0 ? pattern.slice(lastSlash + 1) : pattern;
 
       // Convert glob wildcard to regex
-      const regexPattern = filePattern.replace(/\./g, "\\.").replace(/\*/g, ".*");
+      const regexPattern = filePattern
+        .replace(/\./g, "\\.")
+        .replace(/\*/g, ".*");
       const regex = new RegExp(`^${regexPattern}$`);
 
       const dirPath = path.resolve(workspaceRoot, dir);
@@ -144,11 +168,15 @@ async function checkConfigInvalidation(
   const configFiles = await resolveGlobPatterns(configPatterns, workspaceRoot);
 
   // Compute fingerprint of config files
-  const configFingerprintResult = await fingerprintComputer.compute(configFiles);
+  const configFingerprintResult =
+    await fingerprintComputer.compute(configFiles);
   const currentConfigFingerprint = configFingerprintResult.hash;
 
   // Check if config has changed since last run
-  if (lastConfigFingerprint !== undefined && lastConfigFingerprint !== currentConfigFingerprint) {
+  if (
+    lastConfigFingerprint !== undefined &&
+    lastConfigFingerprint !== currentConfigFingerprint
+  ) {
     // Config changed - invalidate all cached results
     testResultStore.invalidateAll();
   }
@@ -210,7 +238,8 @@ const runTestsInputSchema: ToolInputSchema = {
     },
     max_failure_lines: {
       type: "number",
-      description: "Maximum failure detail lines per test (default: from config)",
+      description:
+        "Maximum failure detail lines per test (default: from config)",
     },
   },
   required: ["scope"],
@@ -275,7 +304,10 @@ async function runTests(
 
   try {
     // 3. Check config fingerprint and invalidate cache if config changed
-    await checkConfigInvalidation(config.configFingerprint, context.workspaceRoot);
+    await checkConfigInvalidation(
+      config.configFingerprint,
+      context.workspaceRoot,
+    );
 
     // 4. Resolve working directory early (needed for 'failed' scope and cache key)
     const workingDir = resolveWorkingDir(
@@ -287,7 +319,8 @@ async function runTests(
     // 5. Resolve scope to file list or pattern
     const resolver = new ScopeResolver(context.workspaceRoot);
     const resolveOptions: ResolveOptions = {
-      getLastFailedTests: (dir: string) => testResultStore.getLastFailedTests(dir),
+      getLastFailedTests: (dir: string) =>
+        testResultStore.getLastFailedTests(dir),
       workingDir,
     };
     // Add related scope options only if defined (exactOptionalPropertyTypes)
@@ -321,12 +354,14 @@ async function runTests(
 
     // 6. Handle empty scope (no tests found)
     // For related scope, check relatedFiles instead of files
-    const hasFilesToRun = scopeResult.files.length > 0 || 
-      scopeResult.pattern || 
+    const hasFilesToRun =
+      scopeResult.files.length > 0 ||
+      scopeResult.pattern ||
       (scopeResult.relatedFiles && scopeResult.relatedFiles.length > 0);
-    
+
     if (!hasFilesToRun) {
-      const message = scopeResult.message ?? "No tests found for the specified scope.";
+      const message =
+        scopeResult.message ?? "No tests found for the specified scope.";
       return buildToolResult(
         successResult(TOOL_NAME, `No tests to run. ${message}`, configWarnings),
       );
@@ -340,15 +375,26 @@ async function runTests(
 
     if (scopeResult.files.length > 0) {
       // Resolve glob patterns to actual file paths for fingerprinting
-      const resolvedFiles = await resolveGlobPatterns(scopeResult.files, workingDir);
-      const fingerprintResult = await fingerprintComputer.compute(resolvedFiles);
+      const resolvedFiles = await resolveGlobPatterns(
+        scopeResult.files,
+        workingDir,
+      );
+      const fingerprintResult =
+        await fingerprintComputer.compute(resolvedFiles);
       scopeFingerprint = fingerprintResult.hash;
       fingerprintFileCount = fingerprintResult.fileCount;
       fingerprintedFiles = fingerprintResult.files;
-    } else if (scopeResult.relatedFiles && scopeResult.relatedFiles.length > 0) {
+    } else if (
+      scopeResult.relatedFiles &&
+      scopeResult.relatedFiles.length > 0
+    ) {
       // For related scope, fingerprint the changed source files
-      const resolvedFiles = await resolveGlobPatterns(scopeResult.relatedFiles, workingDir);
-      const fingerprintResult = await fingerprintComputer.compute(resolvedFiles);
+      const resolvedFiles = await resolveGlobPatterns(
+        scopeResult.relatedFiles,
+        workingDir,
+      );
+      const fingerprintResult =
+        await fingerprintComputer.compute(resolvedFiles);
       scopeFingerprint = fingerprintResult.hash;
       fingerprintFileCount = fingerprintResult.fileCount;
       fingerprintedFiles = fingerprintResult.files;
@@ -440,7 +486,12 @@ async function runTests(
 
     // 13. Store result in cache
     if (scopeFingerprint) {
-      testResultStore.set(cacheKey, scopeFingerprint, result, fingerprintedFiles);
+      testResultStore.set(
+        cacheKey,
+        scopeFingerprint,
+        result,
+        fingerprintedFiles,
+      );
     }
 
     // 14. Record failures for 'failed' scope re-runs
@@ -450,7 +501,15 @@ async function runTests(
     testResultStore.recordFailures(workingDir, failedTestNames);
 
     // 15. Handle red-phase scope: invert interpretation and attach redPhase result
-    if (validatedInput.scope === "red") {
+    // Check for scope === "red" OR (scope === "suite" AND target tier has inverted: true)
+    const isInvertedRun =
+      validatedInput.scope === "red" ||
+      (validatedInput.scope === "suite" &&
+        validatedInput.target !== undefined &&
+        config.tiers.find((t) => t.name === validatedInput.target)?.inverted ===
+          true);
+
+    if (isInvertedRun) {
       result.redPhase = formatter.invertRedPhase(result, config);
       // Store result for promote_tests to use
       setLastRedPhaseResult(result);
@@ -460,43 +519,55 @@ async function runTests(
     if (validatedInput.scope === "related" && scopeResult.relatedFiles) {
       // Extract unique test files from test results
       const testFiles = [...new Set(result.tests.map((t) => t.file))];
-      result.selections = formatter.generateSelectionMetadata(testFiles, scopeResult.relatedFiles);
+      result.selections = formatter.generateSelectionMetadata(
+        testFiles,
+        scopeResult.relatedFiles,
+      );
     }
 
     // 16. Build output string
     let output = `✓ run_tests [scope=${validatedInput.scope}${validatedInput.target ? `, target=${validatedInput.target}` : ""}]\n\n${result.summary}`;
+
     // For red-phase runs, add inverted interpretation to output
-    if (validatedInput.scope === "red" && result.redPhase) {
+    if (isInvertedRun && result.redPhase) {
       const rp = result.redPhase;
-      output += `\n\nRed-Phase Interpretation:`;
-      output += `\n  Correctly failing: ${rp.correctlyFailing}`;
-      output += `\n  Unexpectedly passing: ${rp.unexpectedlyPassing}`;
-      output += `\n  Ready for promotion: ${rp.readyForPromotion ? "Yes" : "No"}`;
-      
+      output += `\n\nRed-Phase Status:`;
+      output += `\n  Failing tests: ${rp.failing} (awaiting implementation)`;
+      output += `\n  Passing tests: ${rp.passing}`;
+      output += `\n  Files: ${rp.filesEligible}/${rp.totalFiles} ready for promotion`;
+
       if (rp.promotionTargets.length > 0) {
         output += `\n\nPromotion Targets:`;
         for (const target of rp.promotionTargets) {
-          const status = target.eligible ? "✓ eligible" : "✗ not eligible";
+          const status = target.eligible ? "✓ eligible" : "✗ has failing tests";
           output += `\n  ${target.source} → ${target.destination} [${target.tier}] (${status})`;
         }
       }
     }
 
     // For related scope, add selection metadata to output
-    if (validatedInput.scope === "related" && result.selections && scopeResult.relatedFiles) {
-      const selectionOutput = formatter.formatSelectionMetadata(result.selections, scopeResult.relatedFiles);
+    if (
+      validatedInput.scope === "related" &&
+      result.selections &&
+      scopeResult.relatedFiles
+    ) {
+      const selectionOutput = formatter.formatSelectionMetadata(
+        result.selections,
+        scopeResult.relatedFiles,
+      );
       if (selectionOutput) {
         output += `\n\n${selectionOutput}`;
       }
     }
 
-    if (result.failed > 0 && validatedInput.scope !== "red") {      // For non-red scopes, show failure details
+    if (result.failed > 0 && !isInvertedRun) {
+      // For non-red scopes, show failure details
       const failureDetails = formatter.formatFailures(
         result.tests,
         maxFailureLines,
       );
       output += `\n\n${failureDetails}`;
-    } else if (result.failed > 0 && validatedInput.scope === "red") {
+    } else if (result.failed > 0 && isInvertedRun) {
       // For red scope, failures are expected - show them as "correctly failing"
       output += `\n\nCorrectly Failing Tests (TDD Red Phase):`;
       const failedTests = result.tests.filter((t) => t.status === "failed");
@@ -512,8 +583,7 @@ async function runTests(
     }
 
     // Combine config warnings with any other warnings
-    const warnings =
-      configWarnings.length > 0 ? configWarnings : undefined;
+    const warnings = configWarnings.length > 0 ? configWarnings : undefined;
 
     return buildToolResult(successResult(TOOL_NAME, output, warnings));
   } finally {

@@ -10,20 +10,12 @@ import { events, session } from "./stores/sessionStore.js";
 import "./styles.css";
 import { TimelineView } from "./views/index.js";
 
-console.log("[AgentPanel] Module loading started");
-const moduleLoadStart = performance.now();
-
 // Register all icons synchronously before rendering
 // This eliminates network requests to Iconify CDN
-console.log("[AgentPanel] Registering icons");
-const iconStart = performance.now();
 try {
   registerIcons();
-  console.log(
-    `[AgentPanel] Icons registered (${(performance.now() - iconStart).toFixed(2)}ms)`,
-  );
-} catch (iconError) {
-  console.error("[AgentPanel] Failed to register icons:", iconError);
+} catch (_iconError) {
+  // Icon registration failed - UI will use fallback icons
 }
 
 // Get VS Code API - must be called ONCE and stored globally for protocol handler
@@ -47,17 +39,7 @@ if (!window.vscode) {
 const vscode = window.vscode;
 
 // Initialize message handler AFTER setting window.vscode
-console.log("[AgentPanel] Initializing message handler");
-try {
-  initializeMessageHandler();
-  console.log("[AgentPanel] Message handler initialized successfully");
-} catch (handlerError) {
-  console.error(
-    "[AgentPanel] Failed to initialize message handler:",
-    handlerError,
-  );
-  throw handlerError;
-}
+initializeMessageHandler();
 
 function App() {
   // Mock available tasks and sessions for now - will be populated via stores later
@@ -126,17 +108,9 @@ function App() {
   );
 }
 
-console.log("[AgentPanel] Starting render");
-const renderStart = performance.now();
 // Clear the loading spinner - SolidJS render() APPENDS to the container,
 // it does NOT replace existing children. Without this, the loading-container
 // div stays in the DOM at 100% height, pushing the app off-screen.
 const rootEl = document.getElementById("root")!;
 rootEl.innerHTML = "";
 render(() => <App />, rootEl);
-const renderTime = performance.now() - renderStart;
-const totalTime = performance.now() - moduleLoadStart;
-console.log(`[AgentPanel] Render complete (${renderTime.toFixed(2)}ms)`);
-console.log(
-  `[AgentPanel] Total module initialization: ${totalTime.toFixed(2)}ms`,
-);

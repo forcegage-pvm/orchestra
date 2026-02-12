@@ -2396,13 +2396,19 @@ export class AgentRunner implements vscode.Disposable {
     // eslint-disable-next-line no-console
     console.group(`[AgentRunner] Sending ${messages.length} messages to LLM`);
     messages.forEach((msg, i) => {
-      const preview =
-        typeof msg.content === "string"
-          ? msg.content.slice(0, 100)
-          : `[${(msg.content as Array<{ type?: string }>).map((p) => p.type).join(", ")}]`;
+      let preview: string;
+      if (typeof msg.content === "string") {
+        preview = msg.content.slice(0, 150);
+      } else {
+        // Content is an array of parts - extract text from each part
+        const texts = (msg.content as Array<{ text?: string; value?: string }>)
+          .map((p) => p.text || p.value || "[no text]")
+          .join(" ");
+        preview = texts.slice(0, 150);
+      }
       // eslint-disable-next-line no-console
       console.log(
-        `${i + 1}. ${msg.role === 1 ? "USER" : "ASSISTANT"}: ${preview}${preview.length === 100 ? "..." : ""}`,
+        `${i + 1}. ${msg.role === 1 ? "USER" : "ASSISTANT"}: ${preview}${preview.length === 150 ? "..." : ""}`,
       );
     });
     // eslint-disable-next-line no-console

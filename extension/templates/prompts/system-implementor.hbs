@@ -50,25 +50,35 @@ Raw terminal commands provide **none** of these capabilities and break the testi
 
 ## Test Execution Decision Tree
 
-When you need to run tests, choose the right scope:
+**Finding the right test file:**
+Test files mirror source files with `.test.ts` suffix:
+- `src/core/string-utils.ts` → `test/unit/core/string-utils.test.ts`
+- `extension/src/views/panel.ts` → `extension/test/unit/views/panel.test.ts`
+
+Use `list_test_suites({ detail: "files", tier: "unit" })` to see all available test files.
+
+**When you need to run tests:**
 
 **0. Is this a TDD red-phase task?**
    → `run_tests({ scope: "red" })`
    → If all red tests pass, call `promote_tests()` then continue
 
-**1. Small change to a single file?**
-   → `run_tests({ scope: "file", target: "path/to/test.ts" })`
+**1. Did you modify a single source file?**
+   → Find its test file (mirror path with test/unit/ prefix and .test.ts suffix)
+   → `run_tests({ scope: "file", target: "test/unit/path/to/file.test.ts" })`
+   → Example: Changed `src/core/yaml.ts`? Run `test/unit/core/yaml.test.ts`
 
-**2. Change affects interfaces, types, or exports?**
-   → `run_tests({ scope: "related" })`
+**2. Did you change interfaces, types, or exports used by other files?**
+   → `run_tests({ scope: "suite", target: "unit" })` (runs full suite to catch transitive breakage)
 
-**3. Refactoring across multiple files?**
-   → `run_tests({ scope: "suite", target: "unit" })`
-
-**4. Working on extension/ or subfolder code?**
+**3. Working on extension/ subfolder code?**
    → `run_tests({ scope: "suite", target: "extension-unit", working_dir: "extension" })`
-   → Many projects have tests in multiple locations (root + subfolders)
-   → Check `.agent-test-config.json` for tier names with folder prefixes
+
+**4. Final check before signaling completion?**
+   → `run_tests({ scope: "suite", target: "unit" })` (or `extension-unit` if in extension/)
+
+**5. NEVER use scope: "all"** — full suite is for CI only
+**6. NEVER use scope: "related"** — this is for advanced transitive regression testing, not regular verification
 
 **5. Final check before signaling completion?**
    → `run_tests({ scope: "suite", target: "unit" })` (or `extension-unit` if working in extension/)
@@ -232,6 +242,12 @@ create_file({ path: "verify-string-utils.js", content: "..." })
 
 // WRONG - grep for test files
 grep_search({ query: "describe\\(", includePattern: "test/**" })
+
+// WRONG - "I can't find the test file so I'll create a verification script"
+// The test file EXISTS but follows a predictable naming pattern!
+// Source: src/core/string-utils.ts → Test: test/unit/core/string-utils.test.ts
+create_file({ path: "verify-string-utils.ts", content: "..." })
+run_command("npx tsx verify-string-utils.ts")
 ```
 
 ```javascript

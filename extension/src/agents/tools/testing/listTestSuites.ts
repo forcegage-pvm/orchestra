@@ -15,12 +15,13 @@ import * as path from "node:path";
 import { ToolErrorCode } from "../errors.js";
 import type {
   AgentTool,
-  ToolInvocationContext,
   ToolInputSchema,
+  ToolInvocationContext,
   ToolResult,
 } from "../types.js";
 import { errorResult, successResult } from "../utils/resultBuilder.js";
-import type { TestTier } from "./TestConfigLoader.js";import { TestConfigLoader } from "./TestConfigLoader.js";
+import type { TestTier } from "./TestConfigLoader.js";
+import { TestConfigLoader } from "./TestConfigLoader.js";
 import type {
   ListTestSuitesInput,
   TestEntry,
@@ -54,9 +55,7 @@ function buildToolResult(partial: Partial<ToolResult>): ToolResult {
 function extractDirectoryFromGlob(globPattern: string): string {
   const wildcardIndex = globPattern.search(/[*?]/);
   if (wildcardIndex === -1) {
-    return globPattern.endsWith("/")
-      ? globPattern.slice(0, -1)
-      : globPattern;
+    return globPattern.endsWith("/") ? globPattern.slice(0, -1) : globPattern;
   }
 
   const beforeWildcard = globPattern.substring(0, wildcardIndex);
@@ -75,12 +74,11 @@ function extractDirectoryFromGlob(globPattern: string): string {
 function extractFilePattern(globPattern: string): RegExp {
   // Extract the file matching part (after last **/)
   const lastSlash = globPattern.lastIndexOf("/");
-  const filePattern = lastSlash >= 0 ? globPattern.slice(lastSlash + 1) : globPattern;
+  const filePattern =
+    lastSlash >= 0 ? globPattern.slice(lastSlash + 1) : globPattern;
 
   // Convert glob to regex: *.test.ts → .*\.test\.ts$
-  const regexPattern = filePattern
-    .replace(/\./g, "\\.")
-    .replace(/\*/g, ".*");
+  const regexPattern = filePattern.replace(/\./g, "\\.").replace(/\*/g, ".*");
 
   return new RegExp(`${regexPattern}$`);
 }
@@ -103,11 +101,17 @@ async function findTestFiles(
 
       if (item.isDirectory()) {
         // Recurse into subdirectories
-        const subEntries = await findTestFiles(itemPath, pattern, workspaceRoot);
+        const subEntries = await findTestFiles(
+          itemPath,
+          pattern,
+          workspaceRoot,
+        );
         entries.push(...subEntries);
       } else if (item.isFile() && pattern.test(item.name)) {
         // This is a test file
-        const relativePath = path.relative(workspaceRoot, itemPath).replace(/\\/g, "/");
+        const relativePath = path
+          .relative(workspaceRoot, itemPath)
+          .replace(/\\/g, "/");
         const stats = await stat(itemPath);
         const testCount = await countTestsInFile(itemPath);
 
@@ -160,16 +164,20 @@ async function parseTestFile(filePath: string): Promise<TestEntry[]> {
 
     // Track current describe context for building full names
     const describeStack: string[] = [];
-    const indentStack: number[] = [];    for (let i = 0; i < lines.length; i++) {
+    const indentStack: number[] = [];
+    for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
       if (!line) continue;
-      
+
       const lineNum = i + 1;
       const indent = line.search(/\S/);
       if (indent === -1) continue;
 
       // Pop describe contexts when we dedent
-      while (indentStack.length > 0 && indent <= indentStack[indentStack.length - 1]!) {
+      while (
+        indentStack.length > 0 &&
+        indent <= indentStack[indentStack.length - 1]!
+      ) {
         indentStack.pop();
         describeStack.pop();
       }
@@ -194,9 +202,7 @@ async function parseTestFile(filePath: string): Promise<TestEntry[]> {
       if (testMatch) {
         const testName = testMatch[2];
         if (testName !== undefined) {
-          entries.push({            name: `it "${testName}"`,
-            line: lineNum,
-          });
+          entries.push({ name: `it "${testName}"`, line: lineNum });
         }
       }
     }
@@ -250,18 +256,20 @@ function formatSuitesOutput(tiers: TierSummary[]): string {
 
     const fileCountStr = `${tier.fileCount} file${tier.fileCount !== 1 ? "s" : ""}`;
     const testCountStr = `~${tier.testCount} test${tier.testCount !== 1 ? "s" : ""}`;
-    
+
     // Build flags
     const flags: string[] = [];
     if (tier.inverted) {
       flags.push("inverted assertions");
     }
-    
+
     const flagStr = flags.length > 0 ? ` (${flags.join(", ")})` : "";
 
     // Pad name to align columns
     const paddedName = tier.name.padEnd(12);
-    lines.push(`  ${paddedName} ${fileCountStr.padEnd(10)} ${testCountStr.padEnd(14)}${flagStr}`);
+    lines.push(
+      `  ${paddedName} ${fileCountStr.padEnd(10)} ${testCountStr.padEnd(14)}${flagStr}`,
+    );
   }
 
   lines.push("");
@@ -275,10 +283,7 @@ function formatSuitesOutput(tiers: TierSummary[]): string {
 /**
  * Format files listing output.
  */
-function formatFilesOutput(
-  tierName: string,
-  files: TestFileEntry[],
-): string {
+function formatFilesOutput(tierName: string, files: TestFileEntry[]): string {
   const lines: string[] = [];
   lines.push(`✓ list_test_suites [detail=files, tier=${tierName}]`);
   lines.push("");
@@ -290,15 +295,10 @@ function formatFilesOutput(
 
   lines.push(`Files in "${tierName}" tier (${files.length} files):`);
 
-  // Show first 20 files, then ellipsis
-  const displayFiles = files.slice(0, 20);
-  for (const file of displayFiles) {
+  // Show all files (no truncation - agents need full visibility)
+  for (const file of files) {
     const testCountStr = `${file.testCount} test${file.testCount !== 1 ? "s" : ""}`;
     lines.push(`  ${file.path.padEnd(50)} ${testCountStr}`);
-  }
-
-  if (files.length > 20) {
-    lines.push(`  ... (${files.length - 20} more)`);
   }
 
   const totalTests = files.reduce((sum, f) => sum + f.testCount, 0);
@@ -311,10 +311,7 @@ function formatFilesOutput(
 /**
  * Format tests listing output.
  */
-function formatTestsOutput(
-  filePath: string,
-  tests: TestEntry[],
-): string {
+function formatTestsOutput(filePath: string, tests: TestEntry[]): string {
   const lines: string[] = [];
   lines.push(`✓ list_test_suites [detail=tests, file=${filePath}]`);
   lines.push("");
@@ -422,7 +419,11 @@ async function listTestSuites(
       const dirPath = extractDirectoryFromGlob(tierConfig.path);
       const pattern = extractFilePattern(tierConfig.path);
       const absoluteDir = path.join(context.workspaceRoot, dirPath);
-      const files = await findTestFiles(absoluteDir, pattern, context.workspaceRoot);
+      const files = await findTestFiles(
+        absoluteDir,
+        pattern,
+        context.workspaceRoot,
+      );
 
       output = formatFilesOutput(tier, files);
       break;
@@ -494,7 +495,8 @@ async function listTestSuites(
     default: {
       // Should never happen due to Zod validation - exhaustiveness check
       output = ((_x: never): string => `Invalid detail level: ${_x}`)(detail);
-    }  }
+    }
+  }
 
   return buildToolResult(successResult(TOOL_NAME, output));
 }

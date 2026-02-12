@@ -171,9 +171,24 @@ describe("ResultFormatter", () => {
           {
             name: "test/feature.test.ts",
             assertionResults: [
-              { fullName: "test 1", status: "passed", duration: 10, location: { line: 5 } },
-              { fullName: "test 2", status: "skipped", duration: 0, location: { line: 10 } },
-              { fullName: "test 3", status: "pending", duration: 0, location: { line: 15 } },
+              {
+                fullName: "test 1",
+                status: "passed",
+                duration: 10,
+                location: { line: 5 },
+              },
+              {
+                fullName: "test 2",
+                status: "skipped",
+                duration: 0,
+                location: { line: 10 },
+              },
+              {
+                fullName: "test 3",
+                status: "pending",
+                duration: 0,
+                location: { line: 15 },
+              },
             ],
           },
         ],
@@ -288,7 +303,10 @@ describe("ResultFormatter", () => {
             message: "Expected X got Y",
             expected: "{ valid: true }",
             actual: "{ valid: false }",
-            stack: ["at Object.test (test.ts:42:5)", "at processTicksAndRejections"],
+            stack: [
+              "at Object.test (test.ts:42:5)",
+              "at processTicksAndRejections",
+            ],
           },
         },
       ];
@@ -501,7 +519,11 @@ describe("ResultFormatter", () => {
         tiers: [
           { name: "unit", path: "test/unit/**/*.test.ts" },
           { name: "integration", path: "test/integration/**/*.test.ts" },
-          { name: "red", path: "test/red/**/*.test.ts", inverted: true as const },
+          {
+            name: "red",
+            path: "test/red/**/*.test.ts",
+            inverted: true as const,
+          },
         ],
         defaultTimeout: 30000,
         maxFailureLines: 20,
@@ -511,7 +533,9 @@ describe("ResultFormatter", () => {
     }
 
     // Helper to create a mock RunTestsResult
-    function createMockResult(overrides: Partial<RunTestsResult> = {}): RunTestsResult {
+    function createMockResult(
+      overrides: Partial<RunTestsResult> = {},
+    ): RunTestsResult {
       return {
         runId: "test-run",
         scope: "red",
@@ -530,64 +554,133 @@ describe("ResultFormatter", () => {
       };
     }
 
-    it("should correctly invert pass/fail interpretation", () => {
+    it("should correctly report pass/fail counts", () => {
       const config = createMockConfig();
       const result = createMockResult({
         total: 5,
         passed: 2,
         failed: 3,
         tests: [
-          { name: "test1", file: "test/red/unit/foo.test.ts", line: 10, status: "passed", duration: 10 },
-          { name: "test2", file: "test/red/unit/foo.test.ts", line: 20, status: "passed", duration: 10 },
-          { name: "test3", file: "test/red/unit/foo.test.ts", line: 30, status: "failed", duration: 10 },
-          { name: "test4", file: "test/red/unit/bar.test.ts", line: 10, status: "failed", duration: 10 },
-          { name: "test5", file: "test/red/unit/bar.test.ts", line: 20, status: "failed", duration: 10 },
+          {
+            name: "test1",
+            file: "test/red/unit/foo.test.ts",
+            line: 10,
+            status: "passed",
+            duration: 10,
+          },
+          {
+            name: "test2",
+            file: "test/red/unit/foo.test.ts",
+            line: 20,
+            status: "passed",
+            duration: 10,
+          },
+          {
+            name: "test3",
+            file: "test/red/unit/foo.test.ts",
+            line: 30,
+            status: "failed",
+            duration: 10,
+          },
+          {
+            name: "test4",
+            file: "test/red/unit/bar.test.ts",
+            line: 10,
+            status: "failed",
+            duration: 10,
+          },
+          {
+            name: "test5",
+            file: "test/red/unit/bar.test.ts",
+            line: 20,
+            status: "failed",
+            duration: 10,
+          },
         ],
       });
 
       const redPhase = formatter.invertRedPhase(result, config);
 
-      expect(redPhase.correctlyFailing).toBe(3);
-      expect(redPhase.unexpectedlyPassing).toBe(2);
+      expect(redPhase.failing).toBe(3);
+      expect(redPhase.passing).toBe(2);
     });
 
-    it("should set readyForPromotion=true when all tests pass", () => {
+    it("should report all files eligible when all tests pass", () => {
       const config = createMockConfig();
       const result = createMockResult({
         total: 3,
         passed: 3,
         failed: 0,
         tests: [
-          { name: "test1", file: "test/red/unit/feature.test.ts", line: 10, status: "passed", duration: 10 },
-          { name: "test2", file: "test/red/unit/feature.test.ts", line: 20, status: "passed", duration: 10 },
-          { name: "test3", file: "test/red/unit/feature.test.ts", line: 30, status: "passed", duration: 10 },
+          {
+            name: "test1",
+            file: "test/red/unit/feature.test.ts",
+            line: 10,
+            status: "passed",
+            duration: 10,
+          },
+          {
+            name: "test2",
+            file: "test/red/unit/feature.test.ts",
+            line: 20,
+            status: "passed",
+            duration: 10,
+          },
+          {
+            name: "test3",
+            file: "test/red/unit/feature.test.ts",
+            line: 30,
+            status: "passed",
+            duration: 10,
+          },
         ],
       });
 
       const redPhase = formatter.invertRedPhase(result, config);
 
-      expect(redPhase.readyForPromotion).toBe(true);
+      expect(redPhase.filesEligible).toBe(1);
+      expect(redPhase.filesInRedPhase).toBe(0);
+      expect(redPhase.totalFiles).toBe(1);
     });
 
-    it("should set readyForPromotion=false when any tests fail", () => {
+    it("should report files in red phase when tests fail", () => {
       const config = createMockConfig();
       const result = createMockResult({
         total: 3,
         passed: 2,
         failed: 1,
         tests: [
-          { name: "test1", file: "test/red/unit/feature.test.ts", line: 10, status: "passed", duration: 10 },
-          { name: "test2", file: "test/red/unit/feature.test.ts", line: 20, status: "passed", duration: 10 },
-          { name: "test3", file: "test/red/unit/feature.test.ts", line: 30, status: "failed", duration: 10 },
+          {
+            name: "test1",
+            file: "test/red/unit/feature.test.ts",
+            line: 10,
+            status: "passed",
+            duration: 10,
+          },
+          {
+            name: "test2",
+            file: "test/red/unit/feature.test.ts",
+            line: 20,
+            status: "passed",
+            duration: 10,
+          },
+          {
+            name: "test3",
+            file: "test/red/unit/feature.test.ts",
+            line: 30,
+            status: "failed",
+            duration: 10,
+          },
         ],
       });
 
       const redPhase = formatter.invertRedPhase(result, config);
 
-      expect(redPhase.readyForPromotion).toBe(false);
+      expect(redPhase.filesEligible).toBe(0);
+      expect(redPhase.filesInRedPhase).toBe(1);
     });
 
-    it("should set readyForPromotion=false when no tests exist", () => {
+    it("should report zero files when no tests exist", () => {
       const config = createMockConfig();
       const result = createMockResult({
         total: 0,
@@ -598,7 +691,8 @@ describe("ResultFormatter", () => {
 
       const redPhase = formatter.invertRedPhase(result, config);
 
-      expect(redPhase.readyForPromotion).toBe(false);
+      expect(redPhase.totalFiles).toBe(0);
+      expect(redPhase.filesEligible).toBe(0);
     });
 
     it("should generate PromotionTarget[] with correct source, destination, tier", () => {
@@ -608,8 +702,20 @@ describe("ResultFormatter", () => {
         passed: 2,
         failed: 0,
         tests: [
-          { name: "test1", file: "test/red/unit/feature.test.ts", line: 10, status: "passed", duration: 10 },
-          { name: "test2", file: "test/red/integration/api.test.ts", line: 10, status: "passed", duration: 10 },
+          {
+            name: "test1",
+            file: "test/red/unit/feature.test.ts",
+            line: 10,
+            status: "passed",
+            duration: 10,
+          },
+          {
+            name: "test2",
+            file: "test/red/integration/api.test.ts",
+            line: 10,
+            status: "passed",
+            duration: 10,
+          },
         ],
       });
 
@@ -617,16 +723,24 @@ describe("ResultFormatter", () => {
 
       expect(redPhase.promotionTargets).toHaveLength(2);
 
-      const unitTarget = redPhase.promotionTargets.find((t) => t.tier === "unit");
+      const unitTarget = redPhase.promotionTargets.find(
+        (t) => t.tier === "unit",
+      );
       expect(unitTarget).toBeDefined();
       expect(unitTarget!.source).toBe("test/red/unit/feature.test.ts");
       expect(unitTarget!.destination).toBe("test/unit/feature.test.ts");
       expect(unitTarget!.eligible).toBe(true);
 
-      const integrationTarget = redPhase.promotionTargets.find((t) => t.tier === "integration");
+      const integrationTarget = redPhase.promotionTargets.find(
+        (t) => t.tier === "integration",
+      );
       expect(integrationTarget).toBeDefined();
-      expect(integrationTarget!.source).toBe("test/red/integration/api.test.ts");
-      expect(integrationTarget!.destination).toBe("test/integration/api.test.ts");
+      expect(integrationTarget!.source).toBe(
+        "test/red/integration/api.test.ts",
+      );
+      expect(integrationTarget!.destination).toBe(
+        "test/integration/api.test.ts",
+      );
       expect(integrationTarget!.eligible).toBe(true);
     });
 
@@ -637,35 +751,67 @@ describe("ResultFormatter", () => {
         passed: 2,
         failed: 2,
         tests: [
-          { name: "test1", file: "test/red/unit/passing.test.ts", line: 10, status: "passed", duration: 10 },
-          { name: "test2", file: "test/red/unit/passing.test.ts", line: 20, status: "passed", duration: 10 },
-          { name: "test3", file: "test/red/unit/failing.test.ts", line: 10, status: "passed", duration: 10 },
-          { name: "test4", file: "test/red/unit/failing.test.ts", line: 20, status: "failed", duration: 10 },
+          {
+            name: "test1",
+            file: "test/red/unit/passing.test.ts",
+            line: 10,
+            status: "passed",
+            duration: 10,
+          },
+          {
+            name: "test2",
+            file: "test/red/unit/passing.test.ts",
+            line: 20,
+            status: "passed",
+            duration: 10,
+          },
+          {
+            name: "test3",
+            file: "test/red/unit/failing.test.ts",
+            line: 10,
+            status: "passed",
+            duration: 10,
+          },
+          {
+            name: "test4",
+            file: "test/red/unit/failing.test.ts",
+            line: 20,
+            status: "failed",
+            duration: 10,
+          },
         ],
       });
 
       const redPhase = formatter.invertRedPhase(result, config);
 
-      const passingTarget = redPhase.promotionTargets.find((t) => t.source.includes("passing"));
+      const passingTarget = redPhase.promotionTargets.find((t) =>
+        t.source.includes("passing"),
+      );
       expect(passingTarget?.eligible).toBe(true);
 
-      const failingTarget = redPhase.promotionTargets.find((t) => t.source.includes("failing"));
+      const failingTarget = redPhase.promotionTargets.find((t) =>
+        t.source.includes("failing"),
+      );
       expect(failingTarget?.eligible).toBe(false);
     });
 
     it("should return empty promotionTargets when no red tier configured", () => {
       const configWithoutRed = {
         ...createMockConfig(),
-        tiers: [
-          { name: "unit", path: "test/unit/**/*.test.ts" },
-        ],
+        tiers: [{ name: "unit", path: "test/unit/**/*.test.ts" }],
       };
       const result = createMockResult({
         total: 1,
         passed: 1,
         failed: 0,
         tests: [
-          { name: "test1", file: "test/unit/foo.test.ts", line: 10, status: "passed", duration: 10 },
+          {
+            name: "test1",
+            file: "test/unit/foo.test.ts",
+            line: 10,
+            status: "passed",
+            duration: 10,
+          },
         ],
       });
 
@@ -681,15 +827,25 @@ describe("ResultFormatter", () => {
         passed: 1,
         failed: 0,
         tests: [
-          { name: "test1", file: "test/red/integration/api/users.test.ts", line: 10, status: "passed", duration: 10 },
+          {
+            name: "test1",
+            file: "test/red/integration/api/users.test.ts",
+            line: 10,
+            status: "passed",
+            duration: 10,
+          },
         ],
       });
 
       const redPhase = formatter.invertRedPhase(result, config);
 
       expect(redPhase.promotionTargets).toHaveLength(1);
-      expect(redPhase.promotionTargets[0].source).toBe("test/red/integration/api/users.test.ts");
-      expect(redPhase.promotionTargets[0].destination).toBe("test/integration/api/users.test.ts");
+      expect(redPhase.promotionTargets[0].source).toBe(
+        "test/red/integration/api/users.test.ts",
+      );
+      expect(redPhase.promotionTargets[0].destination).toBe(
+        "test/integration/api/users.test.ts",
+      );
       expect(redPhase.promotionTargets[0].tier).toBe("integration");
     });
   });
@@ -699,7 +855,10 @@ describe("ResultFormatter", () => {
       const testFiles = ["test/unit/yaml.test.ts", "test/unit/config.test.ts"];
       const changedFiles = ["src/core/yaml.ts", "src/core/config.ts"];
 
-      const selections = formatter.generateSelectionMetadata(testFiles, changedFiles);
+      const selections = formatter.generateSelectionMetadata(
+        testFiles,
+        changedFiles,
+      );
 
       expect(selections).toHaveLength(2);
       expect(selections[0].file).toBe("test/unit/yaml.test.ts");
@@ -710,7 +869,10 @@ describe("ResultFormatter", () => {
       const testFiles = ["test/unit/yaml.test.ts"];
       const changedFiles = ["src/core/yaml.ts"];
 
-      const selections = formatter.generateSelectionMetadata(testFiles, changedFiles);
+      const selections = formatter.generateSelectionMetadata(
+        testFiles,
+        changedFiles,
+      );
 
       expect(selections).toHaveLength(1);
       expect(selections[0].reason).toBe("direct-match");
@@ -722,7 +884,10 @@ describe("ResultFormatter", () => {
       const testFiles = ["test/unit/some-other.test.ts"];
       const changedFiles = ["src/core/yaml.ts"];
 
-      const selections = formatter.generateSelectionMetadata(testFiles, changedFiles);
+      const selections = formatter.generateSelectionMetadata(
+        testFiles,
+        changedFiles,
+      );
 
       expect(selections).toHaveLength(1);
       expect(selections[0].reason).toBe("transitive-import");
@@ -733,7 +898,10 @@ describe("ResultFormatter", () => {
       const testFiles: string[] = [];
       const changedFiles = ["src/core/yaml.ts"];
 
-      const selections = formatter.generateSelectionMetadata(testFiles, changedFiles);
+      const selections = formatter.generateSelectionMetadata(
+        testFiles,
+        changedFiles,
+      );
 
       expect(selections).toHaveLength(0);
     });
@@ -742,7 +910,10 @@ describe("ResultFormatter", () => {
       const testFiles = ["test/unit/yaml.test.ts"];
       const changedFiles: string[] = [];
 
-      const selections = formatter.generateSelectionMetadata(testFiles, changedFiles);
+      const selections = formatter.generateSelectionMetadata(
+        testFiles,
+        changedFiles,
+      );
 
       expect(selections).toHaveLength(1);
       expect(selections[0].triggeredBy).toBe("unknown");
@@ -752,27 +923,57 @@ describe("ResultFormatter", () => {
   describe("formatSelectionMetadata()", () => {
     it("should format selection metadata per contracts/run-tests.md", () => {
       const selections = [
-        { file: "test/unit/yaml.test.ts", reason: "direct-match" as const, triggeredBy: "src/core/yaml.ts", depth: 0 },
-        { file: "test/unit/config.test.ts", reason: "transitive-import" as const, triggeredBy: "src/core/yaml.ts", depth: 1 },
+        {
+          file: "test/unit/yaml.test.ts",
+          reason: "direct-match" as const,
+          triggeredBy: "src/core/yaml.ts",
+          depth: 0,
+        },
+        {
+          file: "test/unit/config.test.ts",
+          reason: "transitive-import" as const,
+          triggeredBy: "src/core/yaml.ts",
+          depth: 1,
+        },
       ];
       const changedFiles = ["src/core/yaml.ts"];
 
-      const output = formatter.formatSelectionMetadata(selections, changedFiles);
+      const output = formatter.formatSelectionMetadata(
+        selections,
+        changedFiles,
+      );
 
-      expect(output).toContain("Selected 2 test file(s) from 1 changed source file(s)");
+      expect(output).toContain(
+        "Selected 2 test file(s) from 1 changed source file(s)",
+      );
       expect(output).toContain("src/core/yaml.ts →");
       expect(output).toContain("test/unit/yaml.test.ts (direct, depth=0)");
-      expect(output).toContain("test/unit/config.test.ts (transitive, depth=1)");
+      expect(output).toContain(
+        "test/unit/config.test.ts (transitive, depth=1)",
+      );
     });
 
     it("should group selections by triggeredBy source file", () => {
       const selections = [
-        { file: "test/unit/yaml.test.ts", reason: "direct-match" as const, triggeredBy: "src/core/yaml.ts", depth: 0 },
-        { file: "test/unit/templates.test.ts", reason: "direct-match" as const, triggeredBy: "src/core/templates.ts", depth: 0 },
+        {
+          file: "test/unit/yaml.test.ts",
+          reason: "direct-match" as const,
+          triggeredBy: "src/core/yaml.ts",
+          depth: 0,
+        },
+        {
+          file: "test/unit/templates.test.ts",
+          reason: "direct-match" as const,
+          triggeredBy: "src/core/templates.ts",
+          depth: 0,
+        },
       ];
       const changedFiles = ["src/core/yaml.ts", "src/core/templates.ts"];
 
-      const output = formatter.formatSelectionMetadata(selections, changedFiles);
+      const output = formatter.formatSelectionMetadata(
+        selections,
+        changedFiles,
+      );
 
       expect(output).toContain("src/core/yaml.ts →");
       expect(output).toContain("src/core/templates.ts →");
@@ -782,7 +983,10 @@ describe("ResultFormatter", () => {
       const selections: never[] = [];
       const changedFiles = ["src/core/yaml.ts"];
 
-      const output = formatter.formatSelectionMetadata(selections, changedFiles);
+      const output = formatter.formatSelectionMetadata(
+        selections,
+        changedFiles,
+      );
 
       expect(output).toBe("");
     });

@@ -4,6 +4,7 @@
  * Aligned with specs/013-test-runner-tools/data-model.md §3.4
  */
 
+import type { TestConfig } from "./TestConfigLoader.js";
 import type {
   PromotionTarget,
   RedPhaseResult,
@@ -12,7 +13,7 @@ import type {
   TestOutcome,
   TestScope,
   TestSelectionInfo,
-} from "./types.js";import type { TestConfig } from "./TestConfigLoader.js";
+} from "./types.js";
 
 /**
  * Formatting options
@@ -185,34 +186,42 @@ export class ResultFormatter {
   }
 
   /**
-   * Invert red-phase test results: failures become "correctly failing" (expected),
-   * passes become "unexpectedly passing" (problem since implementation is complete).
-   * 
-   * When all tests pass, readyForPromotion=true indicates the implementation is complete
-   * and tests can be promoted from the red directory to standard tiers.
-   * 
+   * Generate red-phase TDD interpretation of test results.
+   *
+   * In TDD red-phase:
+   * - Failing tests are correct (awaiting implementation)
+   * - Passing tests are neutral (setup/validation tests like export checks)
+   * - Key metric is per-FILE status: files with ALL tests passing are eligible for promotion
+   *
    * @param result The normal RunTestsResult from a red-phase test run
    * @param config Test configuration with tier definitions
-   * @returns RedPhaseResult with inverted interpretation and promotion targets
+   * @returns RedPhaseResult with file-level status and promotion targets
    */
   invertRedPhase(result: RunTestsResult, config: TestConfig): RedPhaseResult {
-    // In red-phase interpretation:
-    // - "passed" tests are "unexpectedly passing" (problem - they should fail until implemented)
-    // - "failed" tests are "correctly failing" (expected in TDD red phase)
-    const correctlyFailing = result.failed;
-    const unexpectedlyPassing = result.passed;
-
-    // Ready for promotion when ALL tests pass (unexpectedlyPassing = all tests)
-    // This means the implementation is complete
-    const readyForPromotion = result.failed === 0 && result.total > 0;
+    // In red-phase TDD:
+    // - "failed" tests are correct (awaiting implementation)
+    // - "passed" tests are fine (setup/validation tests, neutral)
+    // Key metric: per-FILE status, not per-test
+    const failing = result.failed;
+    const passing = result.passed;
 
     // Generate promotion targets for each unique test file
-    const promotionTargets = this.generatePromotionTargets(result.tests, config);
+    const promotionTargets = this.generatePromotionTargets(
+      result.tests,
+      config,
+    );
+
+    // Count files by status
+    const filesEligible = promotionTargets.filter((t) => t.eligible).length;
+    const filesInRedPhase = promotionTargets.filter((t) => !t.eligible).length;
+    const totalFiles = promotionTargets.length;
 
     return {
-      correctlyFailing,
-      unexpectedlyPassing,
-      readyForPromotion,
+      failing,
+      passing,
+      filesInRedPhase,
+      filesEligible,
+      totalFiles,
       promotionTargets,
     };
   }
@@ -220,9 +229,9 @@ export class ResultFormatter {
   /**
    * Generate promotion targets for red-phase test files.
    * Infers destination tier and path from subdirectory structure within the red directory.
-   * 
+   *
    * Example: test/red/unit/foo.test.ts → test/unit/foo.test.ts (tier: unit)
-   * 
+   *
    * @param tests Array of test outcomes from the run
    * @param config Test configuration with tier definitions
    * @returns Array of PromotionTarget entries
@@ -237,31 +246,39 @@ export class ResultFormatter {
       return [];
     }
 
-    // Extract the base directory from the red tier path (e.g., "test/red/**/*.test.ts" → "test/red")
+    // Extract the base directory from the red tier path (e.g., "test/red/**/*.test.ts" → "test/red/")
     const redBasePath = this.extractDirectoryFromGlob(redTier.path);
 
     // Group tests by file and determine pass/fail status per file
+    // Normalize paths to forward slashes for cross-platform compatibility
     const fileStatus = new Map<string, { passing: number; failing: number }>();
     for (const test of tests) {
-      const status = fileStatus.get(test.file) || { passing: 0, failing: 0 };
+      const normalizedFile = test.file.replace(/\\/g, "/");
+      const status = fileStatus.get(normalizedFile) || {
+        passing: 0,
+        failing: 0,
+      };
       if (test.status === "passed") {
         status.passing++;
       } else if (test.status === "failed") {
         status.failing++;
       }
-      fileStatus.set(test.file, status);
+      fileStatus.set(normalizedFile, status);
     }
 
     const targets: PromotionTarget[] = [];
     const processedFiles = new Set<string>();
 
     for (const test of tests) {
-      if (processedFiles.has(test.file)) {
+      // Normalize path to forward slashes
+      const normalizedFile = test.file.replace(/\\/g, "/");
+
+      if (processedFiles.has(normalizedFile)) {
         continue;
       }
-      processedFiles.add(test.file);
+      processedFiles.add(normalizedFile);
 
-      const source = test.file;
+      const source = normalizedFile;
 
       // Check if file is in red directory
       if (!source.startsWith(redBasePath)) {
@@ -349,10 +366,10 @@ export class ResultFormatter {
   /**
    * Generate TestSelectionInfo[] metadata for related scope runs.
    * Creates entries for each test file selected during a related-scope run.
-   * 
+   *
    * Since Vitest's --related flag handles transitive dependency resolution internally,
    * we approximate the relationship based on file naming conventions and the changed files.
-   * 
+   *
    * @param testFiles Array of test file paths that were selected
    * @param changedFiles Array of source files that triggered the selection
    * @returns Array of TestSelectionInfo entries
@@ -381,7 +398,7 @@ export class ResultFormatter {
   /**
    * Format selection metadata for output.
    * Produces output per contracts/run-tests.md 'Related Scope with Selection Metadata' section.
-   * 
+   *
    * @param selections Array of TestSelectionInfo entries
    * @param changedFiles Array of changed source files
    * @returns Formatted string for output
@@ -395,7 +412,9 @@ export class ResultFormatter {
     }
 
     const lines: string[] = [];
-    lines.push(`Selected ${selections.length} test file(s) from ${changedFiles.length} changed source file(s):`);
+    lines.push(
+      `Selected ${selections.length} test file(s) from ${changedFiles.length} changed source file(s):`,
+    );
 
     // Group selections by triggeredBy source file
     const bySource = new Map<string, TestSelectionInfo[]>();
@@ -410,7 +429,8 @@ export class ResultFormatter {
     for (const [sourceFile, fileSelections] of entries) {
       lines.push(`  ${sourceFile} →`);
       for (const sel of fileSelections) {
-        const reasonLabel = sel.reason === "direct-match" ? "direct" : "transitive";
+        const reasonLabel =
+          sel.reason === "direct-match" ? "direct" : "transitive";
         lines.push(`    ${sel.file} (${reasonLabel}, depth=${sel.depth})`);
       }
     }
@@ -420,7 +440,7 @@ export class ResultFormatter {
   /**
    * Find the source file that most likely triggered a test file selection.
    * Uses naming conventions to infer relationships.
-   * 
+   *
    * @param testFile Test file path
    * @param changedFiles Array of changed source files
    * @returns Match result with reason, triggeredBy, and depth
@@ -428,7 +448,11 @@ export class ResultFormatter {
   private findMatchingSourceFile(
     testFile: string,
     changedFiles: string[],
-  ): { reason: "direct-match" | "transitive-import"; triggeredBy: string; depth: number } {
+  ): {
+    reason: "direct-match" | "transitive-import";
+    triggeredBy: string;
+    depth: number;
+  } {
     // Extract the base name of the test file (without .test.ts/.spec.ts)
     const testBaseName = this.extractTestBaseName(testFile);
 

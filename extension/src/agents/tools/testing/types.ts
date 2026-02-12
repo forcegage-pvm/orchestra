@@ -233,12 +233,16 @@ export interface RunTestsResult {
  * Red-phase specific result interpretation
  */
 export interface RedPhaseResult {
-  /** Tests that correctly failed (expected behavior) */
-  correctlyFailing: number;
-  /** Tests that unexpectedly passed (problem) */
-  unexpectedlyPassing: number;
-  /** Promotion readiness: all tests passing = ready */
-  readyForPromotion: boolean;
+  /** Tests that failed - correct in TDD red-phase (awaiting implementation) */
+  failing: number;
+  /** Tests that passed (setup/validation tests, neutral) */
+  passing: number;
+  /** Number of test files with at least one failing test (still in red phase) */
+  filesInRedPhase: number;
+  /** Number of test files with all tests passing (ready to promote) */
+  filesEligible: number;
+  /** Total number of test files */
+  totalFiles: number;
   /** Promotion targets: where each file would go */
   promotionTargets: PromotionTarget[];
 }

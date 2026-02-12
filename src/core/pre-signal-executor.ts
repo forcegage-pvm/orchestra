@@ -90,6 +90,26 @@ const DEFAULT_TEST_COMMAND =
 const DEFAULT_TIMEOUT = 300000;
 
 /**
+ * Ensure npm/yarn/pnpm test commands include `--` before test runner flags.
+ * This is required because npm doesn't forward flags to scripts without `--`.
+ *
+ * @param baseCommand - The base test command (e.g., "npm test", "npm test -- --run")
+ * @param flag - The flag to append (e.g., '--testNamePattern="..."')
+ * @returns Command with proper `--` separator
+ */
+function appendTestRunnerFlag(baseCommand: string, flag: string): string {
+  // Check if it's a package manager test command that needs `--` separator
+  const needsSeparator = /^(npm|yarn|pnpm)\s+test(?:\s|$)/.test(baseCommand);
+
+  if (needsSeparator && !baseCommand.includes(" -- ")) {
+    // Insert `--` before the flag
+    return `${baseCommand} -- ${flag}`;
+  }
+
+  return `${baseCommand} ${flag}`;
+}
+
+/**
  * Detected project type for auto-configuring commands
  */
 export type ProjectType =
@@ -500,7 +520,10 @@ export function getExcludeTddRedCommand(
 
     case "node":
       if (baseTestCommand) {
-        return `${baseTestCommand} --testNamePattern="^(?!.*\\[tdd-red\\])"`;
+        return appendTestRunnerFlag(
+          baseTestCommand,
+          '--testNamePattern="^(?!.*\\[tdd-red\\])"',
+        );
       }
       return 'npm test -- --testNamePattern="^(?!.*\\[tdd-red\\])"';
 
@@ -546,10 +569,16 @@ function getTddCommands(
       // If custom command provided, use it as base
       if (customTestCommand) {
         return {
-          tagged: `${customTestCommand} --testNamePattern="\\[tdd-red\\]"`,
+          tagged: appendTestRunnerFlag(
+            customTestCommand,
+            '--testNamePattern="\\[tdd-red\\]"',
+          ),
           // Use negative lookahead to exclude tests with [tdd-red] in their name
           // This correctly filters by test NAME, not directory path
-          nonTagged: `${customTestCommand} --testNamePattern="^(?!.*\\[tdd-red\\])"`,
+          nonTagged: appendTestRunnerFlag(
+            customTestCommand,
+            '--testNamePattern="^(?!.*\\[tdd-red\\])"',
+          ),
         };
       }
       return {

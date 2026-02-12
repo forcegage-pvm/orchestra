@@ -5,10 +5,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ToolErrorCode } from "../../../../../src/agents/tools/errors.js";
-import type { ToolError } from "../../../../../src/agents/tools/types.js";
-import type { TestConfig } from "../../../../../src/agents/tools/testing/TestConfigLoader.js";
+import type { ScopeResult } from "../../../../../src/agents/tools/testing/ScopeResolver.js";
 import { ScopeResolver } from "../../../../../src/agents/tools/testing/ScopeResolver.js";
-import type { ScopeResult, ResolveOptions } from "../../../../../src/agents/tools/testing/ScopeResolver.js";
+import type { TestConfig } from "../../../../../src/agents/tools/testing/TestConfigLoader.js";
+import type { ToolError } from "../../../../../src/agents/tools/types.js";
 
 // Mock fs/promises module
 vi.mock("fs/promises", () => ({
@@ -46,10 +46,7 @@ describe("ScopeResolver", () => {
     vi.mocked(stat).mockImplementation(async (filePath: any) => {
       const path = String(filePath);
       // Mock that specific test files exist
-      if (
-        path.includes("example.test.ts") ||
-        path.includes("valid.test.ts")
-      ) {
+      if (path.includes("example.test.ts") || path.includes("valid.test.ts")) {
         return { isFile: () => true } as any;
       }
       // Mock directories
@@ -64,7 +61,11 @@ describe("ScopeResolver", () => {
   });
   describe("resolve() - file scope", () => {
     it("should return the single target file path if it exists", async () => {
-      const result = await resolver.resolve("file", "test/example.test.ts", mockConfig);
+      const result = await resolver.resolve(
+        "file",
+        "test/example.test.ts",
+        mockConfig,
+      );
 
       expect(result).not.toHaveProperty("code"); // Not an error
       const scopeResult = result as ScopeResult;
@@ -73,7 +74,11 @@ describe("ScopeResolver", () => {
     });
 
     it("should return error when file does not exist", async () => {
-      const result = await resolver.resolve("file", "test/missing.test.ts", mockConfig);
+      const result = await resolver.resolve(
+        "file",
+        "test/missing.test.ts",
+        mockConfig,
+      );
 
       expect(result).toHaveProperty("code");
       const error = result as ToolError;
@@ -82,7 +87,11 @@ describe("ScopeResolver", () => {
     });
 
     it("should return error when path is a directory, not a file", async () => {
-      const result = await resolver.resolve("file", "test/directory", mockConfig);
+      const result = await resolver.resolve(
+        "file",
+        "test/directory",
+        mockConfig,
+      );
 
       expect(result).toHaveProperty("code");
       const error = result as ToolError;
@@ -102,7 +111,11 @@ describe("ScopeResolver", () => {
 
   describe("resolve() - pattern scope", () => {
     it("should return empty files array with pattern string", async () => {
-      const result = await resolver.resolve("pattern", "should handle auth", mockConfig);
+      const result = await resolver.resolve(
+        "pattern",
+        "should handle auth",
+        mockConfig,
+      );
 
       expect(result).not.toHaveProperty("code");
       const scopeResult = result as ScopeResult;
@@ -123,18 +136,23 @@ describe("ScopeResolver", () => {
   });
 
   describe("resolve() - suite scope", () => {
-    it("should resolve tier name to file glob in files array", async () => {
+    it("should resolve tier name to directory in files array", async () => {
       const result = await resolver.resolve("suite", "unit", mockConfig);
 
       expect(result).not.toHaveProperty("code");
       const scopeResult = result as ScopeResult;
-      expect(scopeResult.files).toEqual(["test/unit/**/*.test.ts"]);
+      // Vitest works better with directories than globs as positional args
+      expect(scopeResult.files).toEqual(["test/unit"]);
       expect(scopeResult.message).toContain("Suite scope");
       expect(scopeResult.message).toContain("unit");
     });
 
     it("should return TIER_NOT_CONFIGURED error for undeclared tier", async () => {
-      const result = await resolver.resolve("suite", "unknown-tier", mockConfig);
+      const result = await resolver.resolve(
+        "suite",
+        "unknown-tier",
+        mockConfig,
+      );
 
       expect(result).toHaveProperty("code");
       const error = result as ToolError;
@@ -157,18 +175,19 @@ describe("ScopeResolver", () => {
   });
 
   describe("resolve() - all scope", () => {
-    it("should return all non-inverted tier paths in files array", async () => {
+    it("should return all non-inverted tier directories in files array", async () => {
       const result = await resolver.resolve("all", undefined, mockConfig);
 
       expect(result).not.toHaveProperty("code");
       const scopeResult = result as ScopeResult;
+      // Vitest works better with directories than globs
       expect(scopeResult.files).toEqual([
-        "test/unit/**/*.test.ts",
-        "test/integration/**/*.test.ts",
-        "test/e2e/**/*.test.ts",
+        "test/unit",
+        "test/integration",
+        "test/e2e",
       ]);
       // Should NOT include red tier (inverted: true)
-      expect(scopeResult.files).not.toContain("test/red/**/*.test.ts");
+      expect(scopeResult.files).not.toContain("test/red");
       expect(scopeResult.message).toContain("All scope");
     });
 
@@ -188,12 +207,13 @@ describe("ScopeResolver", () => {
   });
 
   describe("resolve() - red scope", () => {
-    it("should resolve to inverted tier's glob pattern", async () => {
+    it("should resolve to inverted tier's directory", async () => {
       const result = await resolver.resolve("red", undefined, mockConfig);
 
       expect(result).not.toHaveProperty("code");
       const scopeResult = result as ScopeResult;
-      expect(scopeResult.files).toEqual(["test/red/**/*.test.ts"]);
+      // Vitest works better with directories than globs
+      expect(scopeResult.files).toEqual(["test/red"]);
       expect(scopeResult.message).toContain("Red scope");
       expect(scopeResult.message).toContain("red");
     });
@@ -216,12 +236,16 @@ describe("ScopeResolver", () => {
     });
 
     it("should ignore target parameter for red scope", async () => {
-      const result = await resolver.resolve("red", "ignored-target", mockConfig);
+      const result = await resolver.resolve(
+        "red",
+        "ignored-target",
+        mockConfig,
+      );
 
       expect(result).not.toHaveProperty("code");
       const scopeResult = result as ScopeResult;
       // Target is ignored for red scope
-      expect(scopeResult.files).toEqual(["test/red/**/*.test.ts"]);
+      expect(scopeResult.files).toEqual(["test/red"]);
     });
   });
 
@@ -236,7 +260,10 @@ describe("ScopeResolver", () => {
       expect(result).not.toHaveProperty("code");
       const scopeResult = result as ScopeResult;
       expect(scopeResult.files).toEqual([]); // Empty for related scope
-      expect(scopeResult.relatedFiles).toEqual(["src/core/yaml.ts", "src/core/templates.ts"]);
+      expect(scopeResult.relatedFiles).toEqual([
+        "src/core/yaml.ts",
+        "src/core/templates.ts",
+      ]);
       expect(scopeResult.message).toContain("Related scope");
       expect(scopeResult.message).toContain("2 changed file(s)");
     });
@@ -278,10 +305,15 @@ describe("ScopeResolver", () => {
     });
 
     it("should ignore target parameter for related scope", async () => {
-      const result = await resolver.resolve("related", "ignored-target", mockConfig, {
-        changeSource: "file-list",
-        fileList: ["src/file.ts"],
-      });
+      const result = await resolver.resolve(
+        "related",
+        "ignored-target",
+        mockConfig,
+        {
+          changeSource: "file-list",
+          fileList: ["src/file.ts"],
+        },
+      );
 
       expect(result).not.toHaveProperty("code");
       const scopeResult = result as ScopeResult;
@@ -289,7 +321,8 @@ describe("ScopeResolver", () => {
     });
   });
 
-  describe("resolve() - failed scope (US3)", () => {    it("should return informative message when no getLastFailedTests callback is provided", async () => {
+  describe("resolve() - failed scope (US3)", () => {
+    it("should return informative message when no getLastFailedTests callback is provided", async () => {
       const result = await resolver.resolve("failed", undefined, mockConfig);
 
       expect(result).not.toHaveProperty("code");
@@ -381,10 +414,15 @@ describe("ScopeResolver", () => {
     });
 
     it("should ignore target parameter for failed scope", async () => {
-      const result = await resolver.resolve("failed", "ignored-target", mockConfig, {
-        getLastFailedTests: () => ["test name"],
-        workingDir: "/mock/workspace",
-      });
+      const result = await resolver.resolve(
+        "failed",
+        "ignored-target",
+        mockConfig,
+        {
+          getLastFailedTests: () => ["test name"],
+          workingDir: "/mock/workspace",
+        },
+      );
 
       expect(result).not.toHaveProperty("code");
       const scopeResult = result as ScopeResult;
@@ -399,7 +437,7 @@ describe("ScopeResolver", () => {
 
       expect(result).not.toHaveProperty("code");
       const scopeResult = result as ScopeResult;
-      
+
       // Verify interface properties
       expect(scopeResult).toHaveProperty("files");
       expect(Array.isArray(scopeResult.files)).toBe(true);

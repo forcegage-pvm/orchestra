@@ -58,7 +58,7 @@ export interface ScopeResult {
  * - related: detects changed files and returns them for vitest --related flag
  * - red: returns inverted tier for TDD red-phase testing
  * - failed: returns pattern of previously failed tests
- */export class ScopeResolver {
+ */ export class ScopeResolver {
   private workspaceRoot: string;
 
   constructor(workspaceRoot: string) {
@@ -196,18 +196,25 @@ export interface ScopeResult {
         ToolErrorCode.TIER_NOT_CONFIGURED,
         `Tier '${target}' is not configured.`,
         `Available tiers: ${availableTiers}. Check your .agent-test-config.json.`,
-        { requestedTier: target, availableTiers: config.tiers.map((t) => t.name) },
+        {
+          requestedTier: target,
+          availableTiers: config.tiers.map((t) => t.name),
+        },
       );
     }
 
+    // Extract directory from glob pattern - vitest works with directories
+    // e.g., "test/unit/**/*.test.ts" -> "test/unit"
+    const tierDir = tier.path.replace(/\/\*\*\/.*$/, "").replace(/\*.*$/, "");
+
     return {
-      files: [tier.path],
-      message: `Suite scope: tier '${tier.name}' → ${tier.path}`,
+      files: [tierDir],
+      message: `Suite scope: tier '${tier.name}' → ${tierDir}`,
     };
   }
 
   /**
-   * Resolve 'all' scope - returns all non-inverted tier glob patterns.
+   * Resolve 'all' scope - returns all non-inverted tier directories.
    * Excludes red-phase tiers (inverted=true).
    */
   private resolveAll(config: TestConfig): ScopeResult {
@@ -220,24 +227,27 @@ export interface ScopeResult {
       };
     }
 
-    const files = nonInvertedTiers.map((t) => t.path);
+    // Extract directories from glob patterns - vitest works with directories
+    const dirs = nonInvertedTiers.map((t) =>
+      t.path.replace(/\/\*\*\/.*$/, "").replace(/\*.*$/, ""),
+    );
 
     return {
-      files,
-      message: `All scope: ${nonInvertedTiers.length} tier(s) → ${files.join(", ")}`,
+      files: dirs,
+      message: `All scope: ${nonInvertedTiers.length} tier(s) → ${dirs.join(", ")}`,
     };
   }
 
   /**
    * Resolve 'related' scope - detects changed files and returns them for vitest --related flag.
    * Uses ChangeResolver to detect changes from working tree, commit range, or explicit file list.
-   * 
+   *
    * @param options Resolve options containing changeSource, commitRange, and fileList
    * @returns ScopeResult with relatedFiles for vitest --related flag
    */
   private resolveRelated(options?: ResolveOptions): ScopeResult | ToolError {
     const changeSource = options?.changeSource ?? "working-tree";
-    
+
     const changeResolver = new ChangeResolver(this.workspaceRoot);
     const changeResult = changeResolver.resolve(
       changeSource,
@@ -260,7 +270,8 @@ export interface ScopeResult {
   }
 
   /**
-   * Resolve 'red' scope - returns the inverted tier's glob pattern.   * If no inverted tier exists in config, returns empty result with explanatory message.
+   * Resolve 'red' scope - returns the inverted tier's directory.
+   * If no inverted tier exists in config, returns empty result with explanatory message.
    */
   private resolveRed(config: TestConfig): ScopeResult {
     // Find the tier with inverted=true (the red tier)
@@ -274,9 +285,12 @@ export interface ScopeResult {
       };
     }
 
+    // Extract directory from glob pattern - vitest works with directories
+    const redDir = redTier.path.replace(/\/\*\*\/.*$/, "").replace(/\*.*$/, "");
+
     return {
-      files: [redTier.path],
-      message: `Red scope: tier '${redTier.name}' → ${redTier.path}`,
+      files: [redDir],
+      message: `Red scope: tier '${redTier.name}' → ${redDir}`,
     };
   }
 
@@ -284,7 +298,7 @@ export interface ScopeResult {
    * Resolve 'failed' scope - returns a pattern for re-running previously failed tests.
    * Queries TestResultStore.getLastFailedTests() to get failed test names from the last run.
    * Constructs a vitest -t pattern from the failed test names (regex-escaped and joined with `|`).
-   * 
+   *
    * @param options Resolve options containing getLastFailedTests callback and workingDir
    * @returns ScopeResult with pattern (for vitest -t), or informative message if no failures
    */
@@ -293,7 +307,8 @@ export interface ScopeResult {
     if (!options?.getLastFailedTests || !options?.workingDir) {
       return {
         files: [],
-        message: "No previous test run recorded. Run tests first before using 'failed' scope.",
+        message:
+          "No previous test run recorded. Run tests first before using 'failed' scope.",
       };
     }
 
@@ -303,7 +318,8 @@ export interface ScopeResult {
     if (!failedTests || failedTests.length === 0) {
       return {
         files: [],
-        message: "No failed tests from previous run. All tests passed or no tests have been run yet.",
+        message:
+          "No failed tests from previous run. All tests passed or no tests have been run yet.",
       };
     }
 

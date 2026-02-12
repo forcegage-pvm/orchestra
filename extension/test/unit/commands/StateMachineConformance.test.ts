@@ -253,7 +253,7 @@ vi.mock("vscode", () => ({
     })),
   },
   commands: {
-    executeCommand: vi.fn(),
+    executeCommand: vi.fn().mockResolvedValue(undefined),
   },
   extensions: {
     getExtension: vi.fn(() => ({
@@ -304,6 +304,7 @@ vi.mock("../../../src/prompts/PromptBuilder.js", () => ({
     buildCodeReviewFixImplementPrompt: vi.fn(
       () => "Mock code review fix prompt",
     ),
+    renderSystemPrompt: vi.fn(() => null),
   })),
 }));
 
@@ -431,6 +432,7 @@ function mockPromptBuilderWith(
   vi.mocked(PromptBuilder).mockImplementation(function () {
     return {
       buildCodingStandardsPrompt: vi.fn(() => "Mock coding standards prompt"),
+      renderSystemPrompt: vi.fn(() => null),
       ...methods,
     } as unknown as PromptBuilder;
   });

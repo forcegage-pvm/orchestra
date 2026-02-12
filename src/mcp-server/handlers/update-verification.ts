@@ -176,19 +176,20 @@ async function updateVerification(
   const isPendingDuringSelectTask =
     sprint.workflow_step === "SELECT_TASK" && task.status === "PENDING";
 
-  // Also allow updating PENDING tasks during HANDOVER_REVIEW (fixing criteria before approval)
-  const isPendingDuringHandoverReview =
-    sprint.workflow_step === "HANDOVER_REVIEW" && task.status === "PENDING";
+  // Also allow updating PENDING or HANDOVER_REVIEW_FAILED tasks during HANDOVER_REVIEW (fixing criteria before approval)
+  const isHandoverReviewFixable =
+    sprint.workflow_step === "HANDOVER_REVIEW" &&
+    (task.status === "PENDING" || task.status === "HANDOVER_REVIEW_FAILED");
 
   if (
     !isInAllowedSprintState &&
     !isPendingDuringSelectTask &&
-    !isPendingDuringHandoverReview
+    !isHandoverReviewFixable
   ) {
     if (task.status !== "ESCALATED") {
       throw new Error(
         `Task ${input.task_id} is in ${task.status} state. ` +
-          `During ${sprint.workflow_step} phase, verification criteria can only be updated for PENDING or ESCALATED tasks. ` +
+          `During ${sprint.workflow_step} phase, verification criteria can only be updated for PENDING, HANDOVER_REVIEW_FAILED, or ESCALATED tasks. ` +
           "Escalate the task first if spec corrections are needed.",
       );
     }

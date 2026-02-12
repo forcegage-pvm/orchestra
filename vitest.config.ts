@@ -11,6 +11,7 @@ export default defineConfig({
       "test/smoke/**/*.test.ts",
       "test/unit/**/*.test.ts",
       "test/integration/**/*.test.ts",
+      "test/red/**/*.test.ts",
       "testing/**/*.test.ts",
       "extension/test/unit/**/*.test.ts",
       "extension/test/integration/**/*.test.ts",

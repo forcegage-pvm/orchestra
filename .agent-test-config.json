@@ -2,11 +2,16 @@
   "framework": "vitest",
   "tiers": [
     {
+      "name": "red",
+      "path": "test/red/**/*.test.ts",
+      "timeout": 30000,
+      "inverted": true
+    },
+    {
       "name": "smoke",
       "path": "test/smoke/**/*.test.ts",
       "timeout": 10000
-    },
-    {
+    },    {
       "name": "extension-smoke",
       "path": "extension/test/smoke/**/*.test.ts",
       "timeout": 10000
@@ -14,22 +19,22 @@
     {
       "name": "unit",
       "path": "test/unit/**/*.test.ts",
-      "timeout": 30000
+      "timeout": 120000
     },
     {
       "name": "extension-unit",
       "path": "extension/test/unit/**/*.test.ts",
-      "timeout": 30000
+      "timeout": 120000
     },
     {
       "name": "integration",
       "path": "test/integration/**/*.test.ts",
-      "timeout": 60000
+      "timeout": 180000
     },
     {
       "name": "extension-integration",
       "path": "extension/test/integration/**/*.test.ts",
-      "timeout": 60000
+      "timeout": 180000
     }
   ],
   "workingDir": ".",

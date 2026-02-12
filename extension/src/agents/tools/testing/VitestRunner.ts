@@ -63,6 +63,10 @@ export class VitestRunner {
     args.push("--reporter=json");
     args.push(`--outputFile=${jsonOutputPath}`);
 
+    // Use single-fork mode to ensure JSON output works reliably on large test sets.
+    // The default parallel mode has issues with JSON reporter on 200+ test files.
+    args.push("--pool=forks", "--poolOptions.forks.singleFork");
+
     // Related files for transitive regression (--related flag)
     // Must be before other options per vitest CLI behavior
     if (options.relatedFiles && options.relatedFiles.length > 0) {
@@ -107,12 +111,6 @@ export class VitestRunner {
     // Extract the outputFile path from the built args
     const outputFile = this.extractOutputFilePath(args);
 
-    // DEBUG: Log command being executed
-    // eslint-disable-next-line no-console
-    console.log(
-      `[VitestRunner] Executing: npx ${args.join(" ")}\n  cwd: ${options.workingDir}`,
-    );
-
     try {
       // Spawn vitest process via npx
       const { exitCode, stdout, stderr } = await this.spawnProcess(
@@ -120,12 +118,6 @@ export class VitestRunner {
         options.workingDir,
         options.timeout,
       );
-
-      // DEBUG: Log captured output
-      if (stderr) {
-        // eslint-disable-next-line no-console
-        console.warn(`[VitestRunner] stderr:\n${stderr}`);
-      }
 
       // Read and parse JSON output file
       let vitestJson: unknown;
@@ -190,11 +182,13 @@ export class VitestRunner {
       }
 
       // Spawn process with npx to resolve vitest from node_modules
+      // Explicitly inherit environment and ensure PATH is available
       const child = spawn("npx", args, {
         cwd,
         signal,
         shell: process.platform === "win32", // Use shell on Windows
         stdio: ["ignore", "pipe", "pipe"],
+        env: { ...process.env }, // Explicitly pass environment
       });
 
       // Capture stdout and stderr
@@ -269,6 +263,19 @@ export class VitestRunner {
     const tmpDir = os.tmpdir();
     const fileName = `vitest-output-${Date.now()}-${Math.random().toString(36).slice(2, 9)}.json`;
     return path.join(tmpDir, fileName);
+  }
+
+  /**
+   * Extract the output file path from command arguments.
+   * @param args Command arguments array
+   * @returns The output file path
+   */
+  private extractOutputFilePath(args: string[]): string {
+    const outputFileArg = args.find((arg) => arg.startsWith("--outputFile="));
+    if (!outputFileArg) {
+      throw new Error("No --outputFile argument found in command");
+    }
+    return outputFileArg.split("=")[1];
   }
 
   /**

@@ -305,7 +305,10 @@ async function handleSubmitFixes(
       timeout: 300000,
     });
 
-    validationPassed = result.success ?? result.exitCode === 0;
+    // Use exit code as the authoritative success indicator.
+    // Test frameworks consistently return 0 on pass, non-zero on failure.
+    // Ignore stderr warnings (like Node deprecation warnings) when exit code is 0.
+    validationPassed = result.exitCode === 0;
     if (!validationPassed) {
       validationOutput =
         result.stderr?.trim() || result.stdout?.trim() || result.error;
