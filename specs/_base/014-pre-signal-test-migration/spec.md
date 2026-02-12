@@ -11,6 +11,23 @@
 
 Migrate Orchestra's **pre-signal test verification** to use the extension test runner tools (`run_tests`), replacing direct command execution with `--testNamePattern` filtering. This unifies HOW all tests are executed during `signal_completion`.
 
+### Prerequisites
+
+- **Spec 013 (Test Runner Tools)**: Must be implemented first. This spec defines `run_tests`, `promote_tests`, and the tier-based test configuration that spec 014 integrates into pre-signal verification.
+- **Branch dependency**: 014 implementation requires 013 branch to be merged to master.
+
+### Relationship to Spec 003 (TDD Red-Green)
+
+Spec 003 proposed a **status-based registry** (`REGISTERED → VALIDATED → PENDING_GREEN → GREEN`) that was never implemented. The actual `tdd_red_registry` table in `src/db/schema.ts` has NO status column.
+
+**This spec (014) is authoritative for TDD registry design:**
+
+- Registry remains file-based: `(sprint_id, red_task_id, test_file, test_count)`
+- No status column needed — file location (`test/red/` vs `test/unit/`) indicates phase
+- Promotion = file move, not status update
+
+Spec 003's status-based design may be revisited in a future spec if per-test tracking is needed.
+
 ### Problem Statement
 
 Orchestra currently executes tests two different ways:
@@ -169,6 +186,28 @@ GREEN PHASE (Task 4 signal):
 4. **Cleaner TDD promotion workflow**: File move instead of content editing
 5. **Language agnostic**: Same directory structure for TypeScript, Dart, Python
 6. **Configuration-driven**: `.agent-test-config.json` controls all test execution
+
+### Architectural Decision: Pre-Signal Integration
+
+How does `pre-signal-executor.ts` (MCP server) use `run_tests` (extension)?
+
+| Option | Approach                                      | Pros             | Cons                                 |
+| ------ | --------------------------------------------- | ---------------- | ------------------------------------ |
+| **A**  | MCP server calls extension via MCP protocol   | Clean separation | Circular dependency, complex         |
+| **B**  | Pre-signal imports shared code from extension | Direct, simple   | Coupling between src/ and extension/ |
+| **C**  | Reimplement test execution in pre-signal      | No coupling      | Code duplication                     |
+
+**Decision: Option B (Shared Code)**
+
+Extract core test execution logic into a shared module that both pre-signal executor and extension tools can import:
+
+- `VitestRunner` → Move to `src/core/vitest-runner.ts` or keep in extension with explicit export
+- `TestConfigLoader` → Shared config parsing
+- `ScopeResolver` → Shared tier resolution
+
+Pre-signal executor calls the same underlying code, just without the MCP tool wrapper.
+
+**Fallback behavior**: If `.agent-test-config.json` doesn't exist, pre-signal falls back to direct `npm test` execution (current behavior).
 
 ## Non-Goals (MVP)
 
@@ -414,6 +453,48 @@ Scenario: TDD instructions adapt to project structure
   And example paths match project's test directory structure
 ```
 
+### User Story 6 - Green Phase Verification (Priority: P1)
+
+**As a** pre-signal checker  
+**I want to** verify that a green task's linked red tests now pass  
+**So that** the TDD cycle is properly completed
+
+**Why P1**: Completes the TDD enforcement loop. Without this, red tests could remain failing forever.
+
+**Independent Test**: Create red task with failing tests, complete it with green_task_id, then signal green task and verify it checks the linked tests.
+
+**Acceptance Scenarios:**
+
+```gherkin
+Scenario: Green task verifies linked red tests pass
+  Given Task 3 was a red-phase task (tdd_red_phase=true)
+  And Task 3 registered files in test/red/unit/widget.test.ts
+  And Task 4 is the linked green task (via tdd_task_relationships)
+  And the tests in widget.test.ts now all PASS
+  When implementor calls signal_completion for Task 4
+  Then pre-signal loads registry WHERE red_task_id = 3
+  And pre-signal runs ONLY those specific test files
+  And verification PASSES (tests expected to pass in green phase)
+  And tdd_task_relationships.completed_at is set
+
+Scenario: Green task fails if linked tests still failing
+  Given Task 4 is a green task linked to red Task 3
+  And test/red/unit/widget.test.ts still has failing tests
+  When implementor calls signal_completion for Task 4
+  Then pre-signal runs widget.test.ts
+  And verification FAILS with message:
+    "Linked red-phase tests still failing:
+     - test/red/unit/widget.test.ts: 2 failed
+     Action: Implement functionality to make tests pass."
+  And signal is BLOCKED
+
+Scenario: Non-TDD task skips green verification
+  Given Task 10 is NOT linked as a green task in tdd_task_relationships
+  When implementor calls signal_completion for Task 10
+  Then pre-signal runs normal test verification (scope=all)
+  And NO green-phase specific checks are performed
+```
+
 ---
 
 ## Edge Cases
@@ -483,6 +564,16 @@ Task linking is **REQUIRED** and cannot be removed. The registry needs to know w
 - **Expected**: Each package has own red tier, scoped by working directory
 - **Config**: Per-package `.agent-test-config.json` or root config with package paths
 
+### E8: Missing `.agent-test-config.json`
+
+- **Condition**: Workspace has no test configuration file
+- **Expected Behavior**:
+  - Pre-signal FALLS BACK to direct command execution (`npm test`)
+  - Warning logged: "No .agent-test-config.json found, using legacy test execution"
+  - TDD verification uses legacy `--testNamePattern` approach
+- **Rationale**: Graceful degradation for projects not yet migrated
+- **Agent tools**: `run_tests` returns error asking user to create config file
+
 ---
 
 ## Requirements
@@ -546,6 +637,16 @@ Task linking is **REQUIRED** and cannot be removed. The registry needs to know w
 | FR-028 | Scanner SHALL extract task ID from file comment, associate with file path | Registry needs (task_id, file)  |
 | FR-029 | Green phase verification SHALL load registry by linked red_task_id        | Verify correct task's tests     |
 
+### Green Phase Verification
+
+| ID     | Requirement                                                                          | Rationale                       |
+| ------ | ------------------------------------------------------------------------------------ | ------------------------------- |
+| FR-034 | Pre-signal SHALL detect if current task is a green task via `tdd_task_relationships` | Automatic green detection       |
+| FR-035 | Green task pre-signal SHALL run ONLY the linked red_task_id's test files             | Scope to correct tests          |
+| FR-036 | Green task pre-signal SHALL PASS if all linked tests PASS                            | Expected outcome                |
+| FR-037 | Green task pre-signal SHALL FAIL if any linked test FAILS                            | Block incomplete implementation |
+| FR-038 | On green phase success, `tdd_task_relationships.completed_at` SHALL be set           | Audit trail                     |
+
 ### Cleanup and Deprecation
 
 | ID     | Requirement                                                               | Rationale      |
@@ -567,7 +668,7 @@ Task linking is **REQUIRED** and cannot be removed. The registry needs to know w
 | TDD marker scanner  | `src/core/tdd-marker-scanner.ts`                   | Regex content scan              | Path-based check                  |
 | Scan orchestrator   | `src/core/tdd-scan-on-signal.ts`                   | Call marker scanner             | Directory listing                 |
 | Task handover       | `src/mcp-server/handlers/get-current-task.ts`      | Tag-based instructions          | Directory-based instructions      |
-| Signal handler      | `src/mcp-server/handlers/signal-completion.ts`     | Tag-based errors                | Directory-based errors            |
+| Signal handlers     | `src/mcp-server/handlers/*.ts` (multiple)          | Tag-based errors                | Directory-based errors            |
 | TDD cleanup         | `src/core/tdd-cleanup.ts`                          | Remove tags from content        | Move files                        |
 | TDD validation      | `src/core/tdd-validation.ts`                       | Check marker presence           | Check path presence               |
 | Exclusion resolver  | `src/core/tdd-exclusion-resolver.ts`               | Pattern exclusion               | Directory exclusion               |
@@ -594,11 +695,11 @@ Task linking is **REQUIRED** and cannot be removed. The registry needs to know w
 
 ### Components to KEEP (corrected)
 
-| Component               | File                             | Why Keep                             |
-| ----------------------- | -------------------------------- | ------------------------------------ |
-| Task annotation parsing | `src/core/tdd-marker-scanner.ts` | `// @orchestra-task: N` still needed |
-| Registry population     | `src/core/tdd-scan-on-signal.ts` | Still associates files with tasks    |
-| Green phase lookup      | signal-completion.ts             | Loads registry by red_task_id        |
+| Component               | File                                | Why Keep                             |
+| ----------------------- | ----------------------------------- | ------------------------------------ |
+| Task annotation parsing | `src/core/tdd-marker-scanner.ts`    | `// @orchestra-task: N` still needed |
+| Registry population     | `src/core/tdd-scan-on-signal.ts`    | Still associates files with tasks    |
+| Green phase lookup      | `src/mcp-server/handlers/*.ts`      | Loads registry by red_task_id        |
 
 ---
 
@@ -622,8 +723,8 @@ Task linking is **REQUIRED** and cannot be removed. The registry needs to know w
 1. All current Orchestra users can adopt directory structure (breaking change acceptable)
 2. `test/red/` naming convention is universally acceptable
 3. File-level granularity is sufficient (no per-test tracking needed)
-4. Git integration can provide task-to-file linking (replacing `// @orchestra-task`)
-5. Extension test runner tools are stable and can be called from pre-signal
+4. Task linking via `// @orchestra-task: N` comment is preserved (git integration NOT used for task linking)
+5. Extension test runner tools are stable and can be called from pre-signal via shared code
 
 ---
 
@@ -678,13 +779,14 @@ Task linking is **REQUIRED** and cannot be removed. The registry needs to know w
 ```
 Phase 1 - Core Test Execution
 [ ] src/core/pre-signal-executor.ts
-    [ ] Add runAllTests() using run_tests scope=all OR underlying code
-    [ ] Add runRedTierTests() using run_tests scope=red OR underlying code
+    [ ] Add runAllTests() using shared code from extension/src/agents/tools/testing/
+    [ ] Add runRedTierTests() using shared code with inverted interpretation
     [ ] Remove getTddCommands() with testNamePattern
-    [ ] Remove runCommandWithOutput() for test execution
+    [ ] Update test execution to use executeCommand() from command-executor.ts
     [ ] Update TDD verification logic for inverted interpretation
-[ ] src/mcp-server/handlers/signal-completion.ts
-    [ ] Update TDD failure messages
+    [ ] Add fallback to legacy execution if .agent-test-config.json missing
+[ ] src/mcp-server/handlers/ (multiple files)
+    [ ] Update TDD failure messages in relevant handlers
     [ ] Reference test/red/ instead of [tdd-red] tags
 
 Phase 2 - TDD Scanner Update
