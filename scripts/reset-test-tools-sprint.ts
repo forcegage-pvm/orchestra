@@ -10,10 +10,16 @@
  * Usage: npx tsx scripts/reset-test-tools-sprint.ts
  */
 
-import Database from "better-sqlite3";
+// Use namespace import for compatibility with both tsc and tsx
+import * as BetterSqlite3 from "better-sqlite3";
 import { execSync } from "child_process";
 import * as fs from "fs";
 import * as path from "path";
+
+// Handle both ESM default export and CommonJS export
+const Database =
+  (BetterSqlite3 as unknown as { default: typeof BetterSqlite3 }).default ??
+  BetterSqlite3;
 
 const SPRINT_ID = "test-tools-001";
 

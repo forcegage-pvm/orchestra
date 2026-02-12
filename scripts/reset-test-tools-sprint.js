@@ -10,11 +10,15 @@
  *
  * Usage: npx tsx scripts/reset-test-tools-sprint.ts
  */
+var _a;
 Object.defineProperty(exports, "__esModule", { value: true });
-var Database = require("better-sqlite3");
+// Use namespace import for compatibility with both tsc and tsx
+var BetterSqlite3 = require("better-sqlite3");
 var child_process_1 = require("child_process");
 var fs = require("fs");
 var path = require("path");
+// Handle both ESM default export and CommonJS export
+var Database = (_a = BetterSqlite3.default) !== null && _a !== void 0 ? _a : BetterSqlite3;
 var SPRINT_ID = "test-tools-001";
 // Files that should exist as stubs (will be restored from git)
 var FILES_TO_RESTORE = [
