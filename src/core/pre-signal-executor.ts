@@ -202,9 +202,6 @@ function getDefaultCommands(projectType: ProjectType): {
 export async function runPreSignalChecks(
   config: PreSignalConfig,
 ): Promise<PreSignalResult> {
-  console.error(
-    `[SIGNAL-DIAG] runPreSignalChecks ENTRY: workspacePath=${config.workspacePath}, tddRedPhase=${config.tddRedPhase}, greenPhase=${config.greenPhase}, skipBuild=${config.skipBuild}, skipTest=${config.skipTest}`,
-  );
   const timeout = config.timeout ?? DEFAULT_TIMEOUT;
   const execOptions = {
     cwd: config.workspacePath,
@@ -214,9 +211,6 @@ export async function runPreSignalChecks(
   // Auto-detect project type if no commands specified
   const projectType = detectProjectType(config.workspacePath);
   const defaults = getDefaultCommands(projectType);
-  console.error(
-    `[SIGNAL-DIAG] runPreSignalChecks: projectType=${projectType}, defaults=${JSON.stringify(defaults)}`,
-  );
 
   // Run build check
   const buildResult = await runCheck(
@@ -486,16 +480,10 @@ async function runTddRedPhaseTests(
   }
 
   // Run the "red" tier via runTestsCore
-  console.error(
-    `[SIGNAL-DIAG] runTddRedPhaseTests: calling runTestsCore with tier=red, workspacePath=${workspacePath}`,
-  );
   const result = await runTestsCore({
     tier: "red",
     workspacePath,
   });
-  console.error(
-    `[SIGNAL-DIAG] runTddRedPhaseTests RESULT: total=${result.total}, passed=${result.passed}, failed=${result.failed}, timedOut=${result.timedOut}, output=${result.output ?? "none"}`,
-  );
 
   // No tests found — fail with descriptive message
   // Include upstream diagnostic info so we can see WHY there are no tests
@@ -605,10 +593,6 @@ export async function runGreenPhaseVerification(
     }
   }
 
-  console.error(
-    `[SIGNAL-DIAG] runGreenPhaseVerification: linkedFiles=${JSON.stringify(linkedFiles)}, resolvedFiles=${JSON.stringify(resolvedFiles)}, workspacePath=${workspacePath}`,
-  );
-
   if (resolvedFiles.length === 0) {
     return {
       passed: false,
@@ -624,10 +608,6 @@ export async function runGreenPhaseVerification(
     workspacePath,
     files: resolvedFiles,
   });
-
-  console.error(
-    `[SIGNAL-DIAG] runGreenPhaseVerification RESULT: total=${result.total}, passed=${result.passed}, failed=${result.failed}, output=${result.output ?? "none"}`,
-  );
 
   if (result.failed === 0 && result.total > 0) {
     // All tests passed — green phase verification succeeds (FR-029)

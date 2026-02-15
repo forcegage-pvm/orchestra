@@ -108,21 +108,12 @@ export class VitestRunner {
     options: VitestRunOptions,
   ): Promise<VitestRunResult | ToolError> {
     const startTime = Date.now();
-    console.error(
-      `[SIGNAL-DIAG] VitestRunner.execute ENTRY: files=${JSON.stringify(options.files)}, workingDir=${options.workingDir}, timeout=${options.timeout}, pattern=${options.pattern}`,
-    );
 
     // Build command arguments first - buildCommand generates the temp output path
     const args = this.buildCommand(options);
-    console.error(
-      `[SIGNAL-DIAG] VitestRunner.execute ARGS: npx ${args.join(" ")}`,
-    );
 
     // Extract the outputFile path from the built args
     const outputFile = this.extractOutputFilePath(args);
-    console.error(
-      `[SIGNAL-DIAG] VitestRunner.execute OUTPUT FILE: ${outputFile}`,
-    );
 
     try {
       // Spawn vitest process via npx
@@ -131,30 +122,12 @@ export class VitestRunner {
         options.workingDir,
         options.timeout,
       );
-      console.error(
-        `[SIGNAL-DIAG] VitestRunner.execute SPAWN DONE: exitCode=${exitCode}, stdoutLen=${stdout.length}, stderrLen=${stderr.length}`,
-      );
 
       // Read and parse JSON output file
       let vitestJson: unknown;
       try {
         vitestJson = await this.readJsonOutput(outputFile);
-        const jsonType = typeof vitestJson;
-        const jsonKeys =
-          jsonType === "object" && vitestJson
-            ? Object.keys(vitestJson as Record<string, unknown>).join(",")
-            : "N/A";
-        const numTotal =
-          jsonType === "object" && vitestJson
-            ? (vitestJson as Record<string, unknown>).numTotalTests
-            : "N/A";
-        console.error(
-          `[SIGNAL-DIAG] VitestRunner.execute JSON READ OK: type=${jsonType}, keys=[${jsonKeys}], numTotalTests=${numTotal}`,
-        );
       } catch (error) {
-        console.error(
-          `[SIGNAL-DIAG] VitestRunner.execute JSON READ FAILED: ${error instanceof Error ? error.message : String(error)}`,
-        );
         // If JSON output file is missing, include stderr in error
         if (
           error instanceof Error &&
@@ -269,9 +242,6 @@ export class VitestRunner {
   private async readJsonOutput(filePath: string): Promise<unknown> {
     try {
       const content = await readFile(filePath, "utf-8");
-      console.error(
-        `[SIGNAL-DIAG] VitestRunner.readJsonOutput: path=${filePath}, size=${content.length}bytes, preview=${content.slice(0, 300).replace(/\n/g, "\\n")}`,
-      );
       return JSON.parse(content);
     } catch (error) {
       if (

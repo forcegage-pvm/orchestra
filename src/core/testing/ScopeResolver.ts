@@ -391,16 +391,10 @@ export interface ScopeResult {
     config: TestConfig,
     options?: ResolveOptions,
   ): Promise<ScopeResult> {
-    console.error(
-      `[SIGNAL-DIAG] ScopeResolver.resolveRed ENTRY: hasOptions=${!!options}, workingDir=${options?.workingDir ?? "NONE"}`,
-    );
     // Find the tier with inverted=true (the red tier)
     const redTier = config.tiers.find((t) => t.inverted === true);
 
     if (!redTier) {
-      console.error(
-        `[SIGNAL-DIAG] ScopeResolver.resolveRed: NO red tier found in config`,
-      );
       return {
         files: [],
         message:
@@ -410,9 +404,6 @@ export interface ScopeResult {
 
     // Extract directory from glob pattern - vitest works with directories
     const redDir = redTier.path.replace(/\/\*\*\/.*$/, "").replace(/\*.*$/, "");
-    console.error(
-      `[SIGNAL-DIAG] ScopeResolver.resolveRed: redTier=${redTier.name}, path=${redTier.path}, redDir=${redDir}`,
-    );
 
     // When workingDir is provided, check if the directory actually contains
     // test files. If empty or missing, return early so vitest isn't invoked on
@@ -420,24 +411,14 @@ export interface ScopeResult {
     if (options?.workingDir) {
       const absDir = path.resolve(options.workingDir, redDir);
       const hasTests = await this.dirHasTestFiles(absDir);
-      console.error(
-        `[SIGNAL-DIAG] ScopeResolver.resolveRed: dirCheck absDir=${absDir}, hasTests=${hasTests}`,
-      );
       if (!hasTests) {
         return {
           files: [],
           message: `No red-phase test files found in '${redDir}'. Write failing tests there before running red scope.`,
         };
       }
-    } else {
-      console.error(
-        `[SIGNAL-DIAG] ScopeResolver.resolveRed: SKIPPING dir check (no workingDir in options)`,
-      );
     }
 
-    console.error(
-      `[SIGNAL-DIAG] ScopeResolver.resolveRed RETURNING: files=[${redDir}]`,
-    );
     return {
       files: [redDir],
       message: `Red scope: tier '${redTier.name}' → ${redDir}`,

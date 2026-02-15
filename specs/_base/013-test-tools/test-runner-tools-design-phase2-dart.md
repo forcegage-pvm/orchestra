@@ -1782,7 +1782,7 @@ A bug at step 1 (wrong property access) may manifest at step 4 ("No test results
 **Mitigation**:
 
 1. Strong typing at each boundary (no `unknown` in public APIs)
-2. Diagnostic logging at transformation points (already present in VitestRunner via `[SIGNAL-DIAG]` logs)
+2. Diagnostic logging at transformation points when debugging
 3. Unit tests that verify full data flow, not just individual functions
 
 ---
