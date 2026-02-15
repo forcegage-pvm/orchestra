@@ -2404,13 +2404,23 @@ export class AgentRunner implements vscode.Disposable {
           const delayMs =
             AgentRunner.LLM_RETRY_BASE_DELAY_MS * Math.pow(2, attempt);
 
+          // Use specific error code for garbled output vs generic server errors
+          const isGarbled =
+            classification.message.includes("garbled_tool_call");
+          const errorCode = isGarbled
+            ? "LLM_GARBLED_OUTPUT"
+            : "LLM_TRANSIENT_ERROR";
+          const errorDesc = isGarbled
+            ? `LLM produced garbled output (retrying in ${Math.round(delayMs / 1000)}s, attempt ${attempt + 1}/${maxRetries})`
+            : `Server error (retrying in ${Math.round(delayMs / 1000)}s, attempt ${attempt + 1}/${maxRetries}): ${classification.message}`;
+
           // Emit recoverable error notification
           this.emitOutput({
             type: "error",
             timestamp: new Date().toISOString(),
             iteration: this.session?.currentIteration ?? 0,
-            errorCode: "LLM_TRANSIENT_ERROR",
-            errorMessage: `Server error (retrying in ${Math.round(delayMs / 1000)}s, attempt ${attempt + 1}/${maxRetries}): ${classification.message}`,
+            errorCode,
+            errorMessage: errorDesc,
             recoverable: true,
           });
 
@@ -2596,8 +2606,10 @@ export class AgentRunner implements vscode.Disposable {
           recoverable: true,
         });
 
-        throw new Error(
+        throw new AgentError(
           "garbled_tool_call: LLM output contains corrupt tool call fragments instead of structured tool calls",
+          "LLM_GARBLED_OUTPUT",
+          { preview: thinkingText.substring(0, 500) },
         );
       }
 
