@@ -1,16 +1,16 @@
-/**
- * DartRelatedResolver Unit Tests
- *
- * Tests for the Dart file-to-test mapping with three strategies:
- * 1. Naming convention (lib/src/X.dart → test/**/X_test.dart)
- * 2. Import graph (transitive dependents via DartImportGraph)
- * 3. Directory fallback (same directory tests)
- *
- * @see specs/015-dart-flutter-test-runner/tasks.md - T024
- * @see specs/_base/013-test-tools/test-runner-tools-design-phase2-dart.md Part 5
- */
+//
+// DartRelatedResolver Unit Tests
+//
+// Tests for the Dart file-to-test mapping with three strategies:
+// 1. Naming convention (lib/src/X.dart -> test/<glob>/X_test.dart)
+// 2. Import graph (transitive dependents via DartImportGraph)
+// 3. Directory fallback (same directory tests)
+//
+// @see specs/015-dart-flutter-test-runner/tasks.md - T024
+// @see specs/_base/013-test-tools/test-runner-tools-design-phase2-dart.md Part 5
+//
 
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, it } from "vitest";
 
 // TODO: Import once DartRelatedResolver is implemented
 // import { DartRelatedResolver } from "../../../../src/core/testing/DartRelatedResolver.js";
@@ -20,12 +20,10 @@ describe("DartRelatedResolver", () => {
   describe("resolve() - three-strategy mapper", () => {
     describe("Strategy 1: Naming convention", () => {
       it.todo(
-        "should map lib/src/services/auth.dart → test/**/auth_test.dart",
+        "should map lib/src/services/auth.dart to test/**/auth_test.dart",
       );
 
-      it.todo(
-        "should map lib/src/models/user.dart → test/**/user_test.dart",
-      );
+      it.todo("should map lib/src/models/user.dart to test/**/user_test.dart");
 
       it.todo("should handle nested lib paths correctly");
 
@@ -35,17 +33,11 @@ describe("DartRelatedResolver", () => {
     });
 
     describe("Strategy 2: Import graph (transitive dependents)", () => {
-      it.todo(
-        "should find test files that import the changed source file",
-      );
+      it.todo("should find test files that import the changed source file");
 
-      it.todo(
-        "should find test files that transitively import (depth 2)",
-      );
+      it.todo("should find test files that transitively import (depth 2)");
 
-      it.todo(
-        "should find test files that transitively import (depth 3)",
-      );
+      it.todo("should find test files that transitively import (depth 3)");
 
       it.todo("should stop at depth 3 limit");
 
