@@ -19,6 +19,10 @@ Auto-generated from all feature plans. Last updated: 2025-12-04
 - In-memory `Map<string, TestResultCache>` for result caching; existing `sprint_settings` DB table for per-sprint test config (013-test-runner-tools)
 - TypeScript 5.x (ES2022 target, ESM modules) + VS Code Extension APIs, MCP Protocol, Vitest, better-sqlite3 (014-pre-signal-test-migration)
 - SQLite (via better-sqlite3) - `tdd_red_registry`, `tdd_task_relationships` tables (014-pre-signal-test-migration)
+- [e.g., Python 3.11, Swift 5.9, Rust 1.75 or NEEDS CLARIFICATION] + [e.g., FastAPI, UIKit, LLVM or NEEDS CLARIFICATION] (015-dart-flutter-test-runner)
+- [if applicable, e.g., PostgreSQL, CoreData, files or N/A] (015-dart-flutter-test-runner)
+- TypeScript 5.4+ (strict mode, ES2022 target, ESM) + Zod (validation), Node.js child_process (spawn), better-sqlite3 (DB via Drizzle ORM) (015-dart-flutter-test-runner)
+- SQLite (existing — no new tables for this feature) (015-dart-flutter-test-runner)
 
 - TypeScript 5.x, Node.js 20+, Electron 39.x (VS Code engine) + vscode.lm API, VS Code Webview API, VS Code Workspace Edit API, better-sqlite3 (existing) (002-custom-agents)
 - SQLite via better-sqlite3 (existing Orchestra DB) + JSON files for session state (002-custom-agents)
@@ -41,9 +45,9 @@ npm test; npm run lint
 TypeScript 5.4+ (ESM modules, strict mode with `exactOptionalPropertyTypes`): Follow standard conventions
 
 ## Recent Changes
+- 015-dart-flutter-test-runner: Added TypeScript 5.4+ (strict mode, ES2022 target, ESM) + Zod (validation), Node.js child_process (spawn), better-sqlite3 (DB via Drizzle ORM)
+- 015-dart-flutter-test-runner: Added [e.g., Python 3.11, Swift 5.9, Rust 1.75 or NEEDS CLARIFICATION] + [e.g., FastAPI, UIKit, LLVM or NEEDS CLARIFICATION]
 - 014-pre-signal-test-migration: Added TypeScript 5.x (ES2022 target, ESM modules) + VS Code Extension APIs, MCP Protocol, Vitest, better-sqlite3
-- 013-test-runner-tools: Added TypeScript 5.x (ESM, strict mode with `exactOptionalPropertyTypes`) + Vitest (test runner), `vscode` API (extension host), `better-sqlite3` (DB), `crypto` (fingerprinting)
-- 010-tool-enhance: Added TypeScript 5.x (ES2022 target, ESM modules) + VS Code Extension API (^1.95.0), child_process (Node.js), vitest
 
 
 

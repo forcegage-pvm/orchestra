@@ -110,8 +110,9 @@ When a project lacks an `.agent-test-config.json` file, the system automatically
 - What if the import graph is circular (A imports B, B imports A)? The transitive dependency walker MUST handle cycles without infinite recursion by tracking visited files.
 - What happens when a test file uses a red-phase tag but resides outside `test/red/`? Directory-based detection takes precedence; the tag is ignored by the pipeline.
 - How does the system handle Windows paths where structured output URLs use lowercase drive letters? Drive letter normalization MUST uppercase consistently.
-- What if the Dart project manifest exists but is malformed or unreadable? Framework detection MUST fall back gracefully rather than throwing.
+- What if the Dart project manifest exists but is malformed or unreadable? Framework detection MUST return a clear error directing the user to create an explicit `.agent-test-config.json` rather than throwing an opaque parse failure (consistent with the dual-marker handling in EC-8).
 - What if the system lacks both `ripgrep` and `grep`? Transitive dependency analysis MUST gracefully degrade (disable import-graph strategy) rather than failing the entire test run.
+- What happens when a workspace contains both `pubspec.yaml` and `vitest.config.ts`? Auto-detection MUST fail with a clear error requiring explicit `.agent-test-config.json` rather than silently picking one framework.
 
 ## Requirements _(mandatory)_
 
@@ -121,25 +122,26 @@ When a project lacks an `.agent-test-config.json` file, the system automatically
 - **FR-002**: System MUST support executing Dart tests and Flutter tests via their respective CLI tools with structured output enabled, parsing the output into normalized test results.
 - **FR-003**: System MUST filter non-structured lines (engine logs, progress indicators) from test command output before attempting to parse test events.
 - **FR-004**: System MUST support the `framework` field in `.agent-test-config.json` accepting values `"vitest"`, `"dart"`, and `"flutter"`, defaulting to `"vitest"` when unspecified.
-- **FR-005**: System MUST support Dart-specific configuration options for skipping package resolution and specifying additional tags to always exclude.
-- **FR-006**: System MUST auto-detect the project framework from workspace files (Dart/Flutter manifests, Vitest config files) when no explicit configuration exists.
+- **FR-005**: System MUST support Dart-specific configuration options for skipping package resolution (`dartNoPub`) and specifying additional tags to always exclude (`dartExcludeTags`). For Flutter projects, `--no-pub` MUST be applied by default to reduce execution time; the `dartNoPub` option additionally enables `--no-pub` for pure Dart projects when explicitly set.
+- **FR-006**: System MUST auto-detect the project framework from workspace files (Dart/Flutter manifests, Vitest config files) when no explicit configuration exists. If both Dart/Flutter and Vitest markers are found in the same workspace, the system MUST fail with an error directing the user to create an explicit `.agent-test-config.json`.
 - **FR-007**: System MUST distinguish between pure Dart and Flutter projects by inspecting the project manifest content for Flutter-specific dependencies.
 - **FR-008**: System MUST use the shared test pipeline for all framework execution — both the extension tools and the pre-signal verification adapter MUST dispatch through the same runner interface.
 - **FR-009**: System MUST enforce that test verification criteria for Dart projects use the declarative test verification format, rejecting shell commands containing Dart/Flutter test invocations in behavioral checks.
 - **FR-010**: System MUST map changed Dart source files to related test files using three strategies in priority order: naming convention, import graph analysis, and same-directory fallback.
-- **FR-011**: System MUST build and cache a reverse import graph for Dart projects to support transitive dependency analysis, invalidating the cache when file modification times change.
+- **FR-011**: System MUST build and cache a reverse import graph for Dart projects to support transitive dependency analysis, with a maximum walk depth of 3 levels. The cache MUST be invalidated when file modification times change.
 - **FR-012**: System MUST use directory-based TDD detection (`test/red/`) as the primary mechanism for identifying red-phase tests, with tag annotations as a complementary safety net.
 - **FR-013**: System MUST normalize file paths in test output on Windows, uppercasing drive letters to prevent path-matching failures.
 - **FR-014**: System MUST extract expected/actual values from Dart assertion error messages and compress stack traces by removing framework-internal frames.
 - **FR-015**: System MUST handle partial output from timed-out test runs, extracting whatever test results were emitted before the timeout.
-- **FR-016**: System MUST exclude precompilation cache directories from fingerprint computation to avoid false cache invalidation.
-- **FR-017**: System MUST support configuration to skip package resolution for Flutter test commands to reduce execution time.
-- **FR-018**: System MUST continue to block direct invocation of Dart and Flutter test commands through the test command interceptor, directing agents to use the `run_tests` tool instead.
+- **FR-016**: System MUST ensure precompilation cache directories (`.dart_tool/`) are excluded from file discovery before fingerprint computation and import graph traversal, to avoid false cache invalidation. _(Note: `FingerprintComputer` itself is a pure hashing utility — exclusion is enforced by callers that resolve file paths, per research R-10.)_
+- **FR-017**: _(Covered by FR-005)_ System MUST support configuration to skip package resolution for Flutter test commands to reduce execution time. See FR-005 for the unified Dart-specific configuration requirement.
+- **FR-018**: System MUST block direct invocation of Dart and Flutter test commands through the test command interceptor, directing agents to use the `run_tests` tool instead. Additionally, `dart test` MUST be added to the verification-time shell command validator (`containsShellTestCommand`) alongside the existing `flutter test` pattern.
+- **FR-019**: All test mocks for `TestRunner` implementations MUST explicitly implement the `TestRunner` interface (e.g., `class MockRunner implements TestRunner`) so that TypeScript catches interface drift at compile time. This prevents mocks from diverging when runner method signatures change. _(Design doc Lesson 7.)_
 
 ### Key Entities
 
 - **TestRunner**: Framework-agnostic interface defining execution and command-building methods, identified by a framework property. Implemented by each supported framework's runner.
-- **NormalizedTestOutcome**: Standardized test result containing name, file path, line number, status (passed/failed/skipped), duration, and optional failure details (message, expected/actual, compressed stack trace). Framework-independent.
+- **NormalizedTestOutcome**: Standardized test result containing name, file path, line number, status (passed/failed/skipped), duration, and optional failure details (message, expected/actual, compressed stack trace). Framework-independent. _(Note: structurally equivalent to the existing `TestOutcome` in `types.ts` — no runtime mapping is required between them. See research R-13.)_
 - **TestRunOutput**: Wrapper around normalized outcomes plus exit code, duration, and optional raw output. Common return type from all runners.
 - **DartRelatedResolver**: Maps changed Dart source files to related test files via three strategies (naming convention, import graph, directory fallback).
 - **DartImportGraph**: Reverse dependency graph that maps each Dart file to the files that import it, enabling transitive dependency analysis. Cached by file modification fingerprint.
@@ -153,19 +155,27 @@ When a project lacks an `.agent-test-config.json` file, the system automatically
 - **SC-002**: All existing Vitest-based test execution, formatting, and pre-signal verification continues to produce identical results after the runner abstraction is introduced — zero regressions.
 - **SC-003**: Pre-signal verification for Dart projects completes successfully using declarative test verification criteria, with the system correctly evaluating "all_pass" and "any_fail" expectations.
 - **SC-004**: The "related" scope for Dart projects discovers at least the directly-corresponding test file (naming convention match) for any changed source file that follows standard Dart naming conventions.
-- **SC-005**: Transitive dependency analysis correctly identifies test files that indirectly depend on a changed source file through import chains of depth 2 or more.
+- **SC-005**: Transitive dependency analysis correctly identifies test files that indirectly depend on a changed source file through import chains up to depth 3.
 - **SC-006**: Engine log noise in test output does not cause parse failures — all valid test events are captured even when intermixed with non-structured output.
-- **SC-007**: Dart test failure details include compressed, actionable information (expected/actual values, project-relevant stack frames) rather than raw verbose framework output.
+- **SC-007**: Dart test failure details include compressed, actionable information (expected/actual values, project-relevant stack frames) rather than raw verbose framework output. Result summaries include a framework identifier (e.g., `PASS (flutter)`, `FAIL (dart)`).
 - **SC-008**: Framework auto-detection correctly identifies Dart, Flutter, and Vitest projects from workspace files when no explicit configuration exists.
 - **SC-009**: TDD red-phase tests in `test/red/` are automatically excluded from standard tier runs and correctly evaluated with inverted expectations when the red tier is explicitly targeted.
 - **SC-010**: The import graph cache is only rebuilt when source files change (based on modification time fingerprinting), avoiding redundant scans on repeated test runs.
 
+## Clarifications
+
+### Session 2025-02-15
+
+- Q: What is the minimum supported Dart SDK version for the runner? → A: Dart 3.0+ / Flutter 3.10+ (covers stable NDJSON format, --tags, --exclude-tags)
+- Q: Should the transitive import graph walk have a maximum depth limit? → A: Depth limit of 3 (balances coverage vs. explosion in large projects)
+- Q: How should the system handle a workspace containing both Dart and Vitest project markers? → A: Fail with error requiring explicit `.agent-test-config.json` when both are detected
+
 ## Assumptions
 
-- Dart SDK and/or Flutter SDK are installed and available on the system PATH when a Dart/Flutter project is configured. The system does not manage SDK installation.
-- Dart's structured test reporter format is stable across Dart SDK versions 3.x and Flutter 3.x. The parser targets the documented event types (start, suite, testStart, testDone, error, done).
+- Dart SDK 3.0+ and/or Flutter SDK 3.10+ are installed and available on the system PATH when a Dart/Flutter project is configured. The system does not manage SDK installation. Older SDK versions (Dart 2.x, Flutter < 3.10) are not supported.
+- Dart's structured test reporter format (`--reporter=json`) is stable across supported SDK versions (Dart 3.0+, Flutter 3.10+). The parser targets the documented event types (start, suite, testStart, testDone, error, done).
 - Projects follow standard Dart test file naming conventions (`*_test.dart`) and directory structure (`lib/`, `test/`).
 - The project manifest file is valid when present — the system reads it to distinguish Dart from Flutter but does not validate its full schema.
 - Windows and Unix/macOS are both supported platforms. Path normalization handles drive letter casing and separator differences.
-- The existing test command interceptor already blocks Dart and Flutter test command invocations — no additional interception patterns are needed.
+- The existing test command interceptor does NOT currently block Dart or Flutter test command invocations — patterns for `dart test` and `flutter test` must be added (confirmed by research R-8). The verification-time validator (`containsShellTestCommand`) is also missing `dart test` (though `flutter test` is present).
 - `ripgrep` availability is preferred but not required for import graph building — the system falls back gracefully or disables transitive analysis if not available.
