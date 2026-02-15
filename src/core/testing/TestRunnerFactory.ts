@@ -1,3 +1,4 @@
+import { DartRunner } from "./DartRunner.js";
 import { VitestRunner } from "./VitestRunner.js";
 import type { TestFramework, TestRunner } from "./TestRunner.js";
 
@@ -14,8 +15,9 @@ export class TestRunnerFactory {
       case "vitest":
         return new VitestRunner();
       case "dart":
+        return new DartRunner("dart");
       case "flutter":
-        throw new Error(`Unsupported test framework: ${framework}`);
+        return new DartRunner("flutter");
       default:
         return assertNever(framework);
     }

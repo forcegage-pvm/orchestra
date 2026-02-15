@@ -51,10 +51,14 @@ export const TestConfigSchema = z.object({
       "pubspec.yaml",
       "dart_test.yaml",
       ".agent-test-config.json",
-    ]),  /** Vitest project names to use when executing (for multi-project workspaces) */
+    ]),
+  /** Vitest project names to use when executing (for multi-project workspaces) */
   projects: z.array(z.string()).optional(),
-  /** Promotion defaults */
-  promotion: z
+  /** Dart-specific: apply --no-pub flag for pure Dart projects (Flutter gets it by default) */
+  dartNoPub: z.boolean().optional(),
+  /** Dart-specific: tags to always exclude from test runs */
+  dartExcludeTags: z.array(z.string()).optional(),
+  /** Promotion defaults */  promotion: z
     .object({
       /** Default: dry-run mode (true = show what would happen, false = actually move) */
       dryRun: z.boolean().default(true),

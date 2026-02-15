@@ -47,8 +47,18 @@ export { TestRunnerFactory } from "./TestRunnerFactory.js";
 // Test execution
 export { VitestRunner } from "./VitestRunner.js";
 export type { VitestRunOptions, VitestRunResult } from "./VitestRunner.js";
-// Result formatting
-export { ResultFormatter } from "./ResultFormatter.js";
+
+// Dart/Flutter test execution
+export { DartRunner } from "./DartRunner.js";
+export {
+  extractJsonEvents,
+  eventsToOutcomes,
+  fileUrlToPath,
+  extractExpectedActual,
+  compressStackTrace,
+} from "./DartRunner.js";
+
+// Result formattingexport { ResultFormatter } from "./ResultFormatter.js";
 export type { FormatOptions } from "./ResultFormatter.js";
 
 // Fingerprinting
