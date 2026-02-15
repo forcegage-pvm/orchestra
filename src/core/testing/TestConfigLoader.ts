@@ -33,9 +33,8 @@ export type TestTier = z.output<typeof TestTierSchema>;
  * Root configuration file schema for .agent-test-config.json
  */
 export const TestConfigSchema = z.object({
-  /** Test framework — currently only "vitest" supported */
-  framework: z.literal("vitest").default("vitest"),
-  /** Active tiers declared by the user */
+  /** Test framework */
+  framework: z.enum(["vitest", "dart", "flutter"]).default("vitest"),  /** Active tiers declared by the user */
   tiers: z.array(TestTierSchema).min(1),
   /** Default working directory for test execution (relative to workspace root) */
   workingDir: z.string().optional(),
@@ -46,8 +45,13 @@ export const TestConfigSchema = z.object({
   /** Glob patterns for config files to include in fingerprints */
   configFingerprint: z
     .array(z.string())
-    .default(["vitest.config.*", "tsconfig.json", ".agent-test-config.json"]),
-  /** Vitest project names to use when executing (for multi-project workspaces) */
+.default([
+      "vitest.config.*",
+      "tsconfig.json",
+      "pubspec.yaml",
+      "dart_test.yaml",
+      ".agent-test-config.json",
+    ]),  /** Vitest project names to use when executing (for multi-project workspaces) */
   projects: z.array(z.string()).optional(),
   /** Promotion defaults */
   promotion: z

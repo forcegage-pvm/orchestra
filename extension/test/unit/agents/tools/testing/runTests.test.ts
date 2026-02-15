@@ -57,7 +57,12 @@ vi.mock("../../../../../../src/core/testing/ScopeResolver.js", () => {
 vi.mock("../../../../../../src/core/testing/VitestRunner.js", () => {
   return {
     VitestRunner: class MockVitestRunner {
+      readonly framework = "vitest" as const;
       execute() {
+        // After TestRunner refactor, errors are thrown, not returned
+        if (mockExecuteResult && "code" in mockExecuteResult) {
+          return Promise.reject(mockExecuteResult);
+        }
         return Promise.resolve(mockExecuteResult);
       }
       buildCommand() {
@@ -66,7 +71,6 @@ vi.mock("../../../../../../src/core/testing/VitestRunner.js", () => {
     },
   };
 });
-
 vi.mock("../../../../../../src/core/testing/ResultFormatter.js", () => {
   return {
     ResultFormatter: class MockResultFormatter {
@@ -201,16 +205,9 @@ describe("runTestsTool", () => {
 
     mockExecuteResult = {
       exitCode: 0,
-      vitestJson: {
-        numTotalTests: 10,
-        numPassedTests: 10,
-        numFailedTests: 0,
-        numPendingTests: 0,
-        testResults: [],
-      },
+      tests: [],
       duration: 1234,
     };
-
     mockFormatResult = createMockFormattedResult();
     mockFormatFailures = "No failures.";
   });
@@ -280,10 +277,9 @@ describe("runTestsTool", () => {
       mockExecuteResult = new Promise((resolve) => {
         resolveExecute = () => resolve({
           exitCode: 0,
-          vitestJson: { numTotalTests: 10, numPassedTests: 10, numFailedTests: 0, numPendingTests: 0, testResults: [] },
+          tests: [],
           duration: 1234,
-        });
-      }) as never;
+        });      }) as never;
 
       // Start first run (will hang on vitest execution)
       const firstRun = runTestsTool.invoke(
@@ -490,14 +486,13 @@ describe("runTestsTool", () => {
         get exitCode(): never {
           throw errorToThrow;
         },
-        get vitestJson(): never {
+        get tests(): never {
           throw errorToThrow;
         },
         get duration(): never {
           throw errorToThrow;
         },
       } as never;
-
       // First run should fail but release lock
       try {
         await runTestsTool.invoke({ scope: "suite", target: "unit" }, mockContext);
@@ -508,10 +503,9 @@ describe("runTestsTool", () => {
       // Reset the mock to succeed
       mockExecuteResult = {
         exitCode: 0,
-        vitestJson: { numTotalTests: 10, numPassedTests: 10, numFailedTests: 0, numPendingTests: 0, testResults: [] },
+        tests: [],
         duration: 1234,
       };
-
       // Second run should succeed (lock was released)
       const secondResult = await runTestsTool.invoke(
         { scope: "suite", target: "unit" },

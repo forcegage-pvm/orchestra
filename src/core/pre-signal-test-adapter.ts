@@ -16,8 +16,7 @@
 import { ResultFormatter } from "./testing/ResultFormatter.js";
 import { ScopeResolver } from "./testing/ScopeResolver.js";
 import { TestConfigLoader } from "./testing/TestConfigLoader.js";
-import { VitestRunner } from "./testing/VitestRunner.js";
-
+import { TestRunnerFactory } from "./testing/TestRunnerFactory.js";
 /**
  * Normalize Windows drive letter to uppercase.
  * Vitest has issues with lowercase drive letters (e.g., x: vs X:).
@@ -151,46 +150,45 @@ export async function runTestsCore(
   const timeout =
     tierConfig?.timeout ?? config.defaultTimeout ?? defaultTimeout;
 
-  // Execute vitest via the shared runner
-  const runner = new VitestRunner();
-  const vitestResult = await runner.execute({
-    files: scopeResult.files,
-    workingDir: workspacePath,
-    timeout,
-  });
-
-  // Check for error
-  if ("code" in vitestResult) {
+  // Execute tests via the runner factory
+  const runner = TestRunnerFactory.create(config.framework);
+  let runOutput;
+  try {
+    runOutput = await runner.execute({
+      files: scopeResult.files,
+      workingDir: workspacePath,
+      timeout,
+    });
+  } catch (error) {
+    const toolError = error as { code?: string; message?: string };
     return {
       tier,
       passed: 0,
       failed: 0,
       total: 0,
       duration_ms: 0,
-      output: `Vitest error: ${vitestResult.message}`,
-      timedOut: vitestResult.code === "TIMEOUT",
+      output: `Runner error: ${toolError.message ?? String(error)}`,
+      timedOut: toolError.code === "TIMEOUT",
     };
   }
 
   // Format results
   const formatter = new ResultFormatter();
-  const formatted = formatter.format(vitestResult.vitestJson, {
+  const formatted = formatter.format(runOutput.tests, {
     maxFailureLines: config.maxFailureLines,
+    framework: runner.framework,
   });
-
   const result: TestRunResult = {
     tier,
     passed: formatted.passed,
     failed: formatted.failed,
     total: formatted.total,
-    duration_ms: vitestResult.duration,
-  };
+    duration_ms: runOutput.duration,  };
 
   // ALWAYS set output when total is 0 — helps diagnose "no tests found" issues
   if (formatted.total === 0) {
     result.output =
-      `Vitest returned 0 tests. exitCode=${vitestResult.exitCode}, ` +
-      `files=${JSON.stringify(scopeResult.files)}, workingDir=${workspacePath}`;
+      `Runner returned 0 tests. exitCode=${runOutput.exitCode}, ` +      `files=${JSON.stringify(scopeResult.files)}, workingDir=${workspacePath}`;
   } else if (formatted.failed > 0) {
     result.output = formatter.formatFailures(
       formatted.tests,
@@ -210,37 +208,38 @@ async function runFiles(
   workspacePath: string,
   timeout: number,
 ): Promise<TestRunResult> {
-  const runner = new VitestRunner();
-  const vitestResult = await runner.execute({
-    files,
-    workingDir: workspacePath,
-    timeout,
-  });
-
-  if ("code" in vitestResult) {
+  const runner = TestRunnerFactory.create("vitest");
+  let runOutput;
+  try {
+    runOutput = await runner.execute({
+      files,
+      workingDir: workspacePath,
+      timeout,
+    });
+  } catch (error) {
+    const toolError = error as { code?: string; message?: string };
     return {
       tier,
       passed: 0,
       failed: 0,
       total: 0,
       duration_ms: 0,
-      output: `Vitest error: ${vitestResult.message}`,
-      timedOut: vitestResult.code === "TIMEOUT",
+      output: `Runner error: ${toolError.message ?? String(error)}`,
+      timedOut: toolError.code === "TIMEOUT",
     };
   }
 
   const formatter = new ResultFormatter();
-  const formatted = formatter.format(vitestResult.vitestJson, {
+  const formatted = formatter.format(runOutput.tests, {
     maxFailureLines: 20,
+    framework: runner.framework,
   });
-
   const result: TestRunResult = {
     tier,
     passed: formatted.passed,
     failed: formatted.failed,
     total: formatted.total,
-    duration_ms: vitestResult.duration,
-  };
+    duration_ms: runOutput.duration,  };
 
   if (formatted.failed > 0) {
     result.output = formatter.formatFailures(formatted.tests, 20);

@@ -28,8 +28,7 @@ import {
   ExecutionLock,
   RunTestsInputSchema,
 } from "../../../../../src/core/testing/types.js";
-import { VitestRunner } from "../../../../../src/core/testing/VitestRunner.js";
-import { ToolErrorCode } from "../errors.js";
+import { TestRunnerFactory } from "../../../../../src/core/testing/TestRunnerFactory.js";import { ToolErrorCode } from "../errors.js";
 import type {
   AgentTool,
   ToolInputSchema,
@@ -445,43 +444,48 @@ async function runTests(
       timeout = config.defaultTimeout;
     }
 
-    // 11. Execute vitest
-    const runner = new VitestRunner();
+    // 11. Execute tests
+    const runner = TestRunnerFactory.create(config.framework);
     const executeOptions: Parameters<typeof runner.execute>[0] = {
       files: scopeResult.files,
       workingDir,
       timeout,
     };
-    // Only add pattern if defined (exactOptionalPropertyTypes compliance)
     if (scopeResult.pattern !== undefined) {
       executeOptions.pattern = scopeResult.pattern;
     }
-    // Add relatedFiles for related scope (vitest --related flag)
     if (scopeResult.relatedFiles && scopeResult.relatedFiles.length > 0) {
       executeOptions.relatedFiles = scopeResult.relatedFiles;
     }
-    const vitestResult = await runner.execute(executeOptions);
-    // Check for error (ToolError has 'code' property)
-    if ("code" in vitestResult) {
+
+    let runOutput;
+    try {
+      runOutput = await runner.execute(executeOptions);
+    } catch (error) {
+      const toolError = error as {
+        code?: ToolErrorCode;
+        message?: string;
+        suggestion?: string;
+        details?: Record<string, unknown>;
+      };
       return buildToolResult(
         errorResult(
           TOOL_NAME,
-          vitestResult.code,
-          vitestResult.message,
-          vitestResult.suggestion,
-          vitestResult.details,
+          toolError.code ?? ToolErrorCode.UNKNOWN,
+          toolError.message ?? "Test execution failed",
+          toolError.suggestion,
+          toolError.details,
         ),
       );
     }
 
     // 12. Format results
     const formatter = new ResultFormatter();
-    const maxFailureLines =
-      validatedInput.max_failure_lines ?? config.maxFailureLines;
-    const result: RunTestsResult = formatter.format(vitestResult.vitestJson, {
+    const maxFailureLines =      validatedInput.max_failure_lines ?? config.maxFailureLines;
+    const result: RunTestsResult = formatter.format(runOutput.tests, {
       maxFailureLines,
+      framework: runner.framework,
     });
-
     // Override fields not known by ResultFormatter
     result.scope = validatedInput.scope as TestScope;
     result.workingDir = workingDir;

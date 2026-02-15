@@ -77,9 +77,10 @@ describe("TestConfigLoader", () => {
         expect(result.config.configFingerprint).toEqual([
           "vitest.config.*",
           "tsconfig.json",
+          "pubspec.yaml",
+          "dart_test.yaml",
           ".agent-test-config.json",
-        ]);
-        expect(result.config.promotion).toEqual({ dryRun: true });
+        ]);        expect(result.config.promotion).toEqual({ dryRun: true });
       }
     });
 

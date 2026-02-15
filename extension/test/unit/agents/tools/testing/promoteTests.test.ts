@@ -78,10 +78,9 @@ let mockLoadResult: Awaited<
 // Control variable for VitestRunner mock results
 let mockVitestResult: {
   exitCode: number;
-  vitestJson: unknown;
+  tests: unknown[];
   duration: number;
 };
-
 // Mock TestConfigLoader
 vi.mock("../../../../../../src/core/testing/TestConfigLoader.js", () => {
   return {
@@ -108,14 +107,28 @@ vi.mock("../../../../../../src/core/testing/VitestRunner.js", () => {
 vi.mock("../../../../../../src/core/testing/ResultFormatter.js", () => {
   return {
     ResultFormatter: class MockResultFormatter {
-      format(vitestJson: unknown) {
-        // Code passes vitestResult.vitestJson directly, so just return it
-        return vitestJson;
+      format(tests: unknown[], _options: unknown) {
+        // Return a RunTestsResult-like object from the tests array
+        const testArray = Array.isArray(tests) ? tests : [];
+        return {
+          runId: "mock-run",
+          scope: "red",
+          cached: false,
+          fingerprint: "",
+          timestamp: new Date().toISOString(),
+          workingDir: "",
+          total: testArray.length,
+          passed: testArray.filter((t: any) => t.status === "passed").length,
+          failed: testArray.filter((t: any) => t.status === "failed").length,
+          skipped: testArray.filter((t: any) => t.status === "skipped").length,
+          duration: 100,
+          tests: testArray,
+          summary: "",
+        };
       }
     },
   };
 });
-
 // Import after mocks
 import {
   registerTestingTools,
@@ -184,11 +197,10 @@ describe("promoteTestsTool", () => {
   function setupMockTestResults(result: RunTestsResult): void {
     mockVitestResult = {
       exitCode: result.failed > 0 ? 1 : 0,
-      vitestJson: result,
+      tests: result.tests,
       duration: result.duration,
     };
   }
-
   /**
    * Add a file to the mock filesystem.
    * Handles path resolution properly for cross-platform testing.
@@ -223,10 +235,9 @@ describe("promoteTestsTool", () => {
     // Default empty test results - tests should override as needed
     mockVitestResult = {
       exitCode: 0,
-      vitestJson: createMockResult({ tests: [] }),
+      tests: [],
       duration: 100,
-    };
-  });
+    };  });
 
   afterEach(() => {
     vi.restoreAllMocks();

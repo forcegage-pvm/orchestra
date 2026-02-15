@@ -1,7 +1,5 @@
 /**
- * VitestRunner - Vitest test execution via CLI
- * Builds vitest commands with JSON reporter and executes via child_process.spawn
- * Aligned with specs/013-test-runner-tools/data-model.md §3.3
+ * VitestRunner - Vitest test execution via CLI.
  */
 
 import { spawn } from "node:child_process";
@@ -10,184 +8,233 @@ import * as os from "node:os";
 import * as path from "node:path";
 
 import { createToolError, ToolErrorCode, type ToolError } from "./errors.js";
+import type {
+  NormalizedTestOutcome,
+  TestRunOptions,
+  TestRunOutput,
+  TestRunner,
+} from "./TestRunner.js";
+
+interface VitestJsonOutput {
+  numTotalTests?: number;
+  numPassedTests?: number;
+  numFailedTests?: number;
+  numPendingTests?: number;
+  testResults?: VitestTestResult[];
+}
+
+interface VitestTestResult {
+  name: string;
+  status?: string;
+  assertionResults?: VitestAssertion[];
+  startTime?: number;
+  endTime?: number;
+}
+
+interface VitestAssertion {
+  fullName?: string;
+  status?: string;
+  duration?: number;
+  failureMessages?: string[];
+  location?: {
+    line?: number;
+    column?: number;
+  };
+}
 
 /**
- * Options for running vitest
+ * @deprecated Use TestRunOptions from TestRunner.ts.
  */
-export interface VitestRunOptions {
-  /** File paths/globs to run */
-  files: string[];
-  /** Test name pattern for -t flag */
-  pattern?: string;
-  /** Absolute working directory */
-  workingDir: string;
-  /** Timeout in ms */
-  timeout?: number;
-  /** Vitest project name */
-  project?: string;
-  /** Related source files for --related flag (transitive regression detection) */
-  relatedFiles?: string[];
-}
+export type VitestRunOptions = TestRunOptions;
+
 /**
- * Result of vitest execution
+ * @deprecated Use TestRunOutput from TestRunner.ts.
  */
-export interface VitestRunResult {
-  /** Process exit code */
-  exitCode: number;
-  /** Parsed Vitest JSON reporter output */
-  vitestJson: unknown;
-  /** Execution duration in ms */
-  duration: number;
-  /** Captured stdout (for debugging) */
-  stdout?: string;
-  /** Captured stderr (for debugging/errors) */
-  stderr?: string;
-}
+export type VitestRunResult = TestRunOutput;
 
 /**
  * Vitest CLI executor using child_process.spawn.
- * Uses --reporter=json --outputFile=<tempfile> for structured output capture.
  */
-export class VitestRunner {
-  /**
-   * Build vitest CLI command arguments.
-   * @param options Run configuration
-   * @returns Array of command arguments for spawn (includes --outputFile=<temppath>)
-   */
-  buildCommand(options: VitestRunOptions): string[] {
-    // Vitest uses `vitest related <files>` subcommand (not `vitest run --related`).
-    // See: https://vitest.dev/guide/cli.html#vitest-related
-    // Both subcommands need `--run` to disable watch mode, but `vitest run`
-    // already implies single-run.  `vitest related` does NOT — without `--run`
-    // it enters watch mode and never exits, causing process timeouts.
+export class VitestRunner implements TestRunner {
+  readonly framework = "vitest" as const;
+
+  buildCommand(options: TestRunOptions): string[] {
     const useRelated =
       options.relatedFiles !== undefined && options.relatedFiles.length > 0;
     const args: string[] = ["vitest", useRelated ? "related" : "run"];
 
-    // `vitest related` defaults to watch mode — force single-run exit
     if (useRelated) {
       args.push("--run");
     }
 
-    // JSON reporter with output file (always)
     const jsonOutputPath = this.getTempOutputPath();
     args.push("--reporter=json");
     args.push(`--outputFile=${jsonOutputPath}`);
 
-    // Optional: test name pattern
     if (options.pattern) {
       args.push("-t", options.pattern);
     }
 
-    // Optional: test timeout
     if (options.timeout !== undefined) {
       args.push("--testTimeout", String(options.timeout));
     }
 
-    // Optional: vitest project
-    if (options.project) {
-      args.push("--project", options.project);
-    }
-
-    // Positional args: related source files or test file paths/globs
-    if (useRelated) {
-      // `vitest related <source-files>` — vitest discovers tests via module graph
-      args.push(...options.relatedFiles!);
-    } else {
-      args.push(...options.files);
+    if (useRelated && options.relatedFiles) {
+      args.push(...options.relatedFiles);
+    } else {      args.push(...options.files);
     }
 
     return args;
   }
-  /**
-   * Execute vitest with the given options.
-   * @param options Run configuration
-   * @returns VitestRunResult with exit code, parsed JSON, and duration
-   */
-  async execute(
-    options: VitestRunOptions,
-  ): Promise<VitestRunResult | ToolError> {
+
+  async execute(options: TestRunOptions): Promise<TestRunOutput> {
     const startTime = Date.now();
-
-    // Build command arguments first - buildCommand generates the temp output path
     const args = this.buildCommand(options);
-
-    // Extract the outputFile path from the built args
     const outputFile = this.extractOutputFilePath(args);
 
     try {
-      // Spawn vitest process via npx
       const { exitCode, stdout, stderr } = await this.spawnProcess(
         args,
         options.workingDir,
         options.timeout,
       );
 
-      // Read and parse JSON output file
-      let vitestJson: unknown;
-      try {
-        vitestJson = await this.readJsonOutput(outputFile);
-      } catch (error) {
-        // If JSON output file is missing, include stderr in error
-        if (
-          error instanceof Error &&
-          error.message.includes("JSON output file not found")
-        ) {
-          const stderrPreview = stderr
-            ? `\n\nStderr:\n${stderr.slice(0, 500)}`
-            : "";
-          throw new Error(`${error.message}${stderrPreview}`);
-        }
-        throw error;
+      const vitestJson = await this.readJsonOutput(outputFile, stderr);
+      const tests = this.parseVitestJson(vitestJson);
+      const duration = Date.now() - startTime;
+      const frameworkDuration = this.calculateDuration(vitestJson.testResults ?? []);
+      const rawOutput = [stdout, stderr].filter((entry) => entry.length > 0).join("\n");
+
+      const output: TestRunOutput = {
+        exitCode,
+        duration,
+        tests,
+      };
+      if (frameworkDuration > 0) {
+        output.frameworkDuration = frameworkDuration;
+      }
+      if (rawOutput.length > 0) {
+        output.rawOutput = rawOutput;
       }
 
-      const duration = Date.now() - startTime;
-
-      return {
-        exitCode,
-        vitestJson,
-        duration,
-        stdout,
-        stderr,
-      };
+      return output;
     } catch (error) {
-      const duration = Date.now() - startTime;
-      return this.handleError(error, duration);
+      throw this.handleError(error, Date.now() - startTime);
     } finally {
-      // Clean up temp file
       await this.cleanupTempFile(outputFile);
     }
   }
 
-  /**
-   * Spawn the vitest process and wait for completion.
-   * @param args Command arguments
-   * @param cwd Working directory
-   * @param timeout Optional timeout in ms
-   * @returns Exit code, stdout, and stderr
-   */
+  private parseVitestJson(vitestJson: VitestJsonOutput): NormalizedTestOutcome[] {
+    return this.convertTestResults(vitestJson.testResults ?? []);
+  }
+
+  private convertTestResults(
+    testResults: VitestTestResult[],
+  ): NormalizedTestOutcome[] {
+    const outcomes: NormalizedTestOutcome[] = [];
+
+    for (const testResult of testResults) {
+      const assertions = testResult.assertionResults ?? [];
+
+      for (const assertion of assertions) {
+        const outcome: NormalizedTestOutcome = {
+          name: assertion.fullName ?? "unknown test",
+          file: testResult.name,
+          status: this.normalizeStatus(assertion.status),
+        };
+
+        if (assertion.location?.line !== undefined) {
+          outcome.line = assertion.location.line;
+        }
+        if (assertion.duration !== undefined) {
+          outcome.duration = assertion.duration;
+        }
+
+        if (outcome.status === "failed" && assertion.failureMessages) {
+          const failureDetails = this.extractFailureDetails(assertion.failureMessages);
+          if (failureDetails !== undefined) {
+            outcome.failure = failureDetails;
+          }
+        }
+        outcomes.push(outcome);
+      }
+    }
+
+    return outcomes;
+  }
+
+  private normalizeStatus(status: string | undefined): "passed" | "failed" | "skipped" {
+    switch (status) {
+      case "passed":
+        return "passed";
+      case "failed":
+        return "failed";
+      case "skipped":
+      case "pending":
+      case "todo":
+        return "skipped";
+      default:
+        return "failed";
+    }
+  }
+
+  private calculateDuration(testResults: VitestTestResult[]): number {
+    let totalDuration = 0;
+
+    for (const testResult of testResults) {
+      if (testResult.startTime !== undefined && testResult.endTime !== undefined) {
+        totalDuration += testResult.endTime - testResult.startTime;
+      }
+    }
+
+    return totalDuration;
+  }
+
+  private extractFailureDetails(
+    failureMessages: string[],
+  ): NormalizedTestOutcome["failure"] {
+    const fullMessage = failureMessages.join("\n");
+    const expectedMatch = fullMessage.match(/Expected:?\s*(.+?)(?:\n|$)/);
+    const actualMatch = fullMessage.match(/Actual:?\s*(.+?)(?:\n|$)/);
+    const stackLines = fullMessage
+      .split("\n")
+      .filter((line) => line.trim().startsWith("at "))
+      .slice(0, 5);
+
+    const failure: NonNullable<NormalizedTestOutcome["failure"]> = {
+      message: fullMessage.split("\n")[0] || "Test failed",
+      stack: stackLines,
+    };
+
+    const expected = expectedMatch?.[1]?.trim();
+    if (expected !== undefined) {
+      failure.expected = expected;
+    }
+
+    const actual = actualMatch?.[1]?.trim();
+    if (actual !== undefined) {
+      failure.actual = actual;
+    }
+
+    return failure;
+  }
+
   private spawnProcess(
     args: string[],
     cwd: string,
     timeout?: number,
   ): Promise<{ exitCode: number; stdout: string; stderr: string }> {
     return new Promise((resolve, reject) => {
-      // Track whether the promise has been settled to prevent double resolution.
-      // This avoids a race between timeout kill and process exit/error events.
       let settled = false;
 
-      // Spawn process with npx to resolve vitest from node_modules
-      // Explicitly inherit environment and ensure PATH is available
       const child = spawn("npx", args, {
         cwd,
-        shell: process.platform === "win32", // Use shell on Windows
+        shell: process.platform === "win32",
         stdio: ["ignore", "pipe", "pipe"],
-        env: { ...process.env }, // Explicitly pass environment
+        env: { ...process.env },
       });
 
-      // Set up timeout if provided — kill process manually instead of using
-      // AbortController to avoid the race condition where AbortError fires
-      // before our timeout rejection, producing an unhelpful error message.
       let timeoutId: NodeJS.Timeout | undefined;
       if (timeout) {
         timeoutId = setTimeout(() => {
@@ -199,7 +246,6 @@ export class VitestRunner {
         }, timeout);
       }
 
-      // Capture stdout and stderr
       const stdoutChunks: Buffer[] = [];
       const stderrChunks: Buffer[] = [];
 
@@ -211,7 +257,6 @@ export class VitestRunner {
         stderrChunks.push(chunk);
       });
 
-      // Handle spawn errors (ENOENT, etc.)
       child.on("error", (error) => {
         if (timeoutId) clearTimeout(timeoutId);
         if (!settled) {
@@ -220,36 +265,39 @@ export class VitestRunner {
         }
       });
 
-      // Handle process exit
       child.on("exit", (code) => {
         if (timeoutId) clearTimeout(timeoutId);
         if (!settled) {
           settled = true;
-          const exitCode = code ?? 1;
-          const stdout = Buffer.concat(stdoutChunks).toString("utf-8");
-          const stderr = Buffer.concat(stderrChunks).toString("utf-8");
-          resolve({ exitCode, stdout, stderr });
+          resolve({
+            exitCode: code ?? 1,
+            stdout: Buffer.concat(stdoutChunks).toString("utf-8"),
+            stderr: Buffer.concat(stderrChunks).toString("utf-8"),
+          });
         }
       });
     });
   }
 
-  /**
-   * Read and parse the JSON output file.
-   * @param filePath Path to JSON output file
-   * @returns Parsed JSON data
-   */
-  private async readJsonOutput(filePath: string): Promise<unknown> {
+  private async readJsonOutput(
+    filePath: string,
+    stderr: string,
+  ): Promise<VitestJsonOutput> {
     try {
       const content = await readFile(filePath, "utf-8");
-      return JSON.parse(content);
+      const parsed: unknown = JSON.parse(content);
+      if (typeof parsed !== "object" || parsed === null) {
+        throw new Error("Vitest JSON output is not an object");
+      }
+      return parsed as VitestJsonOutput;
     } catch (error) {
       if (
         error instanceof Error &&
         "code" in error &&
         error.code === "ENOENT"
       ) {
-        throw new Error(`JSON output file not found: ${filePath}`);
+        const stderrPreview = stderr ? `\n\nStderr:\n${stderr.slice(0, 500)}` : "";
+        throw new Error(`JSON output file not found: ${filePath}${stderrPreview}`);
       }
       throw new Error(
         `Failed to parse JSON output: ${error instanceof Error ? error.message : "unknown error"}`,
@@ -257,54 +305,37 @@ export class VitestRunner {
     }
   }
 
-  /**
-   * Clean up temporary JSON output file.
-   * @param filePath Path to temp file
-   */
   private async cleanupTempFile(filePath: string): Promise<void> {
     try {
       await unlink(filePath);
     } catch {
-      // Ignore cleanup errors - temp files will be cleaned by OS eventually
+      // ignore
     }
   }
 
-  /**
-   * Generate a unique temporary file path for JSON output.
-   * @returns Absolute path to temp file
-   */
   private getTempOutputPath(): string {
-    const tmpDir = os.tmpdir();
-    const fileName = `vitest-output-${Date.now()}-${Math.random().toString(36).slice(2, 9)}.json`;
-    return path.join(tmpDir, fileName);
+    return path.join(
+      os.tmpdir(),
+      `vitest-output-${Date.now()}-${Math.random().toString(36).slice(2, 9)}.json`,
+    );
   }
 
-  /**
-   * Extract the output file path from command arguments.
-   * @param args Command arguments array
-   * @returns The output file path
-   */
   private extractOutputFilePath(args: string[]): string {
     const outputFileArg = args.find((arg) => arg.startsWith("--outputFile="));
     if (!outputFileArg) {
       throw new Error("No --outputFile argument found in command");
     }
+
     const filePath = outputFileArg.split("=")[1];
     if (!filePath) {
       throw new Error("--outputFile argument has no value");
     }
+
     return filePath;
   }
 
-  /**
-   * Convert execution errors into ToolError objects.
-   * @param error The error that occurred
-   * @param duration Execution duration before error
-   * @returns ToolError with appropriate code and message
-   */
   private handleError(error: unknown, duration: number): ToolError {
     if (error instanceof Error) {
-      // Timeout error
       if (error.message.includes("timed out")) {
         return createToolError(
           ToolErrorCode.TIMEOUT,
@@ -314,7 +345,6 @@ export class VitestRunner {
         );
       }
 
-      // Spawn error (command not found, etc.)
       if ("code" in error && error.code === "ENOENT") {
         return createToolError(
           ToolErrorCode.COMMAND_FAILED,
@@ -324,7 +354,6 @@ export class VitestRunner {
         );
       }
 
-      // JSON output file errors
       if (error.message.includes("JSON output file not found")) {
         return createToolError(
           ToolErrorCode.FILE_NOT_FOUND,
@@ -343,7 +372,6 @@ export class VitestRunner {
         );
       }
 
-      // Generic error
       return createToolError(
         ToolErrorCode.UNKNOWN,
         `Vitest execution failed: ${error.message}`,
@@ -352,7 +380,6 @@ export class VitestRunner {
       );
     }
 
-    // Unknown error type
     return createToolError(
       ToolErrorCode.UNKNOWN,
       "Unknown error during vitest execution",

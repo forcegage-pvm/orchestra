@@ -32,10 +32,21 @@ export type {
 export { ChangeResolver } from "./ChangeResolver.js";
 export type { ChangeResult } from "./ChangeResolver.js";
 
+// Runner abstraction
+export type {
+  NormalizedTestOutcome,
+  TestFramework,
+  TestRunOptions,
+  TestRunOutput,
+  TestRunner,
+} from "./TestRunner.js";
+
+// Runner factory
+export { TestRunnerFactory } from "./TestRunnerFactory.js";
+
 // Test execution
 export { VitestRunner } from "./VitestRunner.js";
 export type { VitestRunOptions, VitestRunResult } from "./VitestRunner.js";
-
 // Result formatting
 export { ResultFormatter } from "./ResultFormatter.js";
 export type { FormatOptions } from "./ResultFormatter.js";

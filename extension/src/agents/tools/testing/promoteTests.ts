@@ -25,8 +25,7 @@ import type {
   RunTestsResult,
 } from "../../../../../src/core/testing/types.js";
 import { PromoteTestsInputSchema } from "../../../../../src/core/testing/types.js";
-import { VitestRunner } from "../../../../../src/core/testing/VitestRunner.js";
-import { ToolErrorCode } from "../errors.js";
+import { TestRunnerFactory } from "../../../../../src/core/testing/TestRunnerFactory.js";import { ToolErrorCode } from "../errors.js";
 import type {
   AgentTool,
   ToolInputSchema,
@@ -334,35 +333,21 @@ async function promoteTests(
 
   // 4. Run fresh tests for the specified files (ALWAYS - never use cached results)
   //    This ensures we don't have stale data from previous run_tests calls.
-  const runner = new VitestRunner();
-  const formatter = new ResultFormatter();
+  const runner = TestRunnerFactory.create(config.framework);  const formatter = new ResultFormatter();
 
   let testRunResult: RunTestsResult;
   try {
-    const vitestResult = await runner.execute({
+    const runOutput = await runner.execute({
       files: validatedInput.files,
       workingDir: context.workspaceRoot,
       timeout: config.defaultTimeout,
     });
 
-    // Check if execute returned an error
-    if ("code" in vitestResult) {
-      return buildToolResult(
-        errorResult(
-          TOOL_NAME,
-          vitestResult.code,
-          vitestResult.message,
-          vitestResult.suggestion,
-        ),
-      );
-    }
-
-    testRunResult = formatter.format(vitestResult.vitestJson, {
-      scope: "file",
-      workingDir: context.workspaceRoot,
+    testRunResult = formatter.format(runOutput.tests, {
+      maxFailureLines: config.maxFailureLines,
+      framework: runner.framework,
     });
-  } catch (err) {
-    return buildToolResult(
+  } catch (err) {    return buildToolResult(
       errorResult(
         TOOL_NAME,
         ToolErrorCode.TEST_EXECUTION_ERROR,

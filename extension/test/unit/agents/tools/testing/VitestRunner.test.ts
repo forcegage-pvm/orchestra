@@ -1,5 +1,9 @@
 /**
  * VitestRunner unit tests
+ *
+ * Updated to match the refactored TestRunner interface.
+ * VitestRunner.execute() now returns TestRunOutput (not VitestRunResult | ToolError).
+ * Errors are thrown instead of returned as ToolError.
  */
 
 import { spawn } from "node:child_process";
@@ -9,10 +13,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   VitestRunner,
   type VitestRunOptions,
-  type VitestRunResult,
 } from "../../../../../../src/core/testing/VitestRunner.js";
-import { ToolErrorCode } from "../../../../../src/agents/tools/errors.js";
-import type { ToolError } from "../../../../../src/agents/tools/types.js";
+import type { TestRunOutput } from "../../../../../../src/core/testing/TestRunner.js";
 
 // Mock child_process.spawn
 vi.mock("node:child_process");
@@ -70,20 +72,6 @@ describe("VitestRunner", () => {
       expect(command).toContain("--testTimeout");
       const timeoutIndex = command.indexOf("--testTimeout");
       expect(command[timeoutIndex + 1]).toBe("60000");
-    });
-
-    it("should add --project flag when project is provided", () => {
-      const options: VitestRunOptions = {
-        files: ["test/**/*.test.ts"],
-        project: "my-project",
-        workingDir: "/workspace",
-      };
-
-      const command = runner.buildCommand(options);
-
-      expect(command).toContain("--project");
-      const projectIndex = command.indexOf("--project");
-      expect(command[projectIndex + 1]).toBe("my-project");
     });
 
     it("should use 'vitest related' subcommand when relatedFiles are provided (US4)", () => {
@@ -156,12 +144,11 @@ describe("VitestRunner", () => {
       ]);
     });
 
-    it("should build command with all flags combined", () => {
+    it("should build command with pattern and timeout combined", () => {
       const options: VitestRunOptions = {
         files: ["test/**/*.test.ts"],
         pattern: "auth tests",
         timeout: 45000,
-        project: "api",
         workingDir: "/workspace",
       };
 
@@ -174,14 +161,12 @@ describe("VitestRunner", () => {
       expect(command).toContain("auth tests");
       expect(command).toContain("--testTimeout");
       expect(command).toContain("45000");
-      expect(command).toContain("--project");
-      expect(command).toContain("api");
       expect(command).toContain("test/**/*.test.ts");
     });
   });
 
   describe("execute()", () => {
-    it("should spawn vitest process and return result on success", async () => {
+    it("should spawn vitest process and return TestRunOutput on success", async () => {
       const mockVitestJson = {
         numTotalTests: 10,
         numPassedTests: 10,
@@ -197,6 +182,8 @@ describe("VitestRunner", () => {
           }
           return mockChild;
         }),
+        stdout: { on: vi.fn() },
+        stderr: { on: vi.fn() },
       };
       vi.mocked(spawn).mockReturnValue(mockChild as any);
 
@@ -213,11 +200,10 @@ describe("VitestRunner", () => {
 
       const result = await runner.execute(options);
 
-      expect(result).not.toHaveProperty("code"); // Not an error
-      const vitestResult = result as VitestRunResult;
-      expect(vitestResult.exitCode).toBe(0);
-      expect(vitestResult.vitestJson).toEqual(mockVitestJson);
-      expect(vitestResult.duration).toBeGreaterThanOrEqual(0);
+      // Result should be TestRunOutput
+      expect(result.exitCode).toBe(0);
+      expect(result.duration).toBeGreaterThanOrEqual(0);
+      expect(Array.isArray(result.tests)).toBe(true);
     });
 
     it("should return non-zero exit code for failed tests", async () => {
@@ -235,6 +221,8 @@ describe("VitestRunner", () => {
           }
           return mockChild;
         }),
+        stdout: { on: vi.fn() },
+        stderr: { on: vi.fn() },
       };
       vi.mocked(spawn).mockReturnValue(mockChild as any);
 
@@ -248,12 +236,10 @@ describe("VitestRunner", () => {
 
       const result = await runner.execute(options);
 
-      expect(result).not.toHaveProperty("code");
-      const vitestResult = result as VitestRunResult;
-      expect(vitestResult.exitCode).toBe(1);
+      expect(result.exitCode).toBe(1);
     });
 
-    it("should return timeout error when process times out", async () => {
+    it("should throw on timeout", async () => {
       const mockChild = {
         on: vi.fn((event, _callback) => {
           // Never call exit callback to simulate hang
@@ -273,15 +259,10 @@ describe("VitestRunner", () => {
         timeout: 100, // Very short timeout for test
       };
 
-      const result = await runner.execute(options);
-
-      expect(result).toHaveProperty("code");
-      const error = result as ToolError;
-      expect(error.code).toBe(ToolErrorCode.TIMEOUT);
-      expect(error.message).toContain("timed out");
+      await expect(runner.execute(options)).rejects.toThrow(/timed out/);
     });
 
-    it("should return error when spawn fails (ENOENT)", async () => {
+    it("should throw on spawn failure (ENOENT)", async () => {
       const mockChild = {
         on: vi.fn((event, callback) => {
           if (event === "error") {
@@ -291,6 +272,8 @@ describe("VitestRunner", () => {
           }
           return mockChild;
         }),
+        stdout: { on: vi.fn() },
+        stderr: { on: vi.fn() },
       };
       vi.mocked(spawn).mockReturnValue(mockChild as any);
 
@@ -301,15 +284,10 @@ describe("VitestRunner", () => {
         workingDir: "/workspace",
       };
 
-      const result = await runner.execute(options);
-
-      expect(result).toHaveProperty("code");
-      const error = result as ToolError;
-      expect(error.code).toBe(ToolErrorCode.COMMAND_FAILED);
-      expect(error.message).toContain("vitest");
+      await expect(runner.execute(options)).rejects.toThrow(/vitest/i);
     });
 
-    it("should return error when JSON output file is missing", async () => {
+    it("should throw when JSON output file is missing", async () => {
       const mockChild = {
         on: vi.fn((event, callback) => {
           if (event === "exit") {
@@ -317,6 +295,8 @@ describe("VitestRunner", () => {
           }
           return mockChild;
         }),
+        stdout: { on: vi.fn() },
+        stderr: { on: vi.fn() },
       };
       vi.mocked(spawn).mockReturnValue(mockChild as any);
 
@@ -332,15 +312,12 @@ describe("VitestRunner", () => {
         workingDir: "/workspace",
       };
 
-      const result = await runner.execute(options);
-
-      expect(result).toHaveProperty("code");
-      const error = result as ToolError;
-      expect(error.code).toBe(ToolErrorCode.FILE_NOT_FOUND);
-      expect(error.message).toContain("output file not found");
+      await expect(runner.execute(options)).rejects.toThrow(
+        /output file not found/i,
+      );
     });
 
-    it("should return error when JSON output is corrupt", async () => {
+    it("should throw when JSON output is corrupt", async () => {
       const mockChild = {
         on: vi.fn((event, callback) => {
           if (event === "exit") {
@@ -348,6 +325,8 @@ describe("VitestRunner", () => {
           }
           return mockChild;
         }),
+        stdout: { on: vi.fn() },
+        stderr: { on: vi.fn() },
       };
       vi.mocked(spawn).mockReturnValue(mockChild as any);
 
@@ -361,16 +340,13 @@ describe("VitestRunner", () => {
         workingDir: "/workspace",
       };
 
-      const result = await runner.execute(options);
-
-      expect(result).toHaveProperty("code");
-      const error = result as ToolError;
-      expect(error.code).toBe(ToolErrorCode.INVALID_INPUT);
-      expect(error.message).toContain("Failed to parse JSON");
+      await expect(runner.execute(options)).rejects.toThrow(
+        /Failed to parse JSON/i,
+      );
     });
 
     it("should clean up temp file after successful execution", async () => {
-      const mockVitestJson = { numTotalTests: 5, numPassedTests: 5 };
+      const mockVitestJson = { numTotalTests: 5, numPassedTests: 5, testResults: [] };
 
       const mockChild = {
         on: vi.fn((event, callback) => {
@@ -379,6 +355,8 @@ describe("VitestRunner", () => {
           }
           return mockChild;
         }),
+        stdout: { on: vi.fn() },
+        stderr: { on: vi.fn() },
       };
       vi.mocked(spawn).mockReturnValue(mockChild as any);
 
@@ -404,6 +382,8 @@ describe("VitestRunner", () => {
           }
           return mockChild;
         }),
+        stdout: { on: vi.fn() },
+        stderr: { on: vi.fn() },
       };
       vi.mocked(spawn).mockReturnValue(mockChild as any);
 
@@ -414,7 +394,11 @@ describe("VitestRunner", () => {
         workingDir: "/workspace",
       };
 
-      await runner.execute(options);
+      try {
+        await runner.execute(options);
+      } catch {
+        // Expected to throw
+      }
 
       // Verify cleanup still happens
       expect(unlink).toHaveBeenCalled();
@@ -422,7 +406,7 @@ describe("VitestRunner", () => {
   });
 
   describe("interface conformance", () => {
-    it("should return VitestRunResult with correct structure", async () => {
+    it("should return TestRunOutput with correct structure", async () => {
       const mockVitestJson = {
         numTotalTests: 3,
         numPassedTests: 3,
@@ -436,6 +420,8 @@ describe("VitestRunner", () => {
           }
           return mockChild;
         }),
+        stdout: { on: vi.fn() },
+        stderr: { on: vi.fn() },
       };
       vi.mocked(spawn).mockReturnValue(mockChild as any);
 
@@ -447,17 +433,19 @@ describe("VitestRunner", () => {
         workingDir: "/workspace",
       };
 
-      const result = await runner.execute(options);
+      const result: TestRunOutput = await runner.execute(options);
 
-      expect(result).not.toHaveProperty("code");
-      const vitestResult = result as VitestRunResult;
+      // Verify TestRunOutput interface
+      expect(result).toHaveProperty("exitCode");
+      expect(result).toHaveProperty("duration");
+      expect(result).toHaveProperty("tests");
+      expect(typeof result.exitCode).toBe("number");
+      expect(typeof result.duration).toBe("number");
+      expect(Array.isArray(result.tests)).toBe(true);
+    });
 
-      // Verify VitestRunResult interface
-      expect(vitestResult).toHaveProperty("exitCode");
-      expect(vitestResult).toHaveProperty("vitestJson");
-      expect(vitestResult).toHaveProperty("duration");
-      expect(typeof vitestResult.exitCode).toBe("number");
-      expect(typeof vitestResult.duration).toBe("number");
+    it("should have framework property set to vitest", () => {
+      expect(runner.framework).toBe("vitest");
     });
   });
 });

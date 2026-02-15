@@ -1,5 +1,9 @@
 /**
  * ResultFormatter unit tests
+ *
+ * Updated to use NormalizedTestOutcome[] inputs (post-refactor).
+ * format() now accepts framework-agnostic NormalizedTestOutcome[] instead
+ * of raw Vitest JSON.
  */
 
 import { beforeEach, describe, expect, it } from "vitest";
@@ -8,6 +12,7 @@ import {
   ResultFormatter,
   type FormatOptions,
 } from "../../../../../../src/core/testing/ResultFormatter.js";
+import type { NormalizedTestOutcome } from "../../../../../../src/core/testing/TestRunner.js";
 import type {
   RunTestsResult,
   TestOutcome,
@@ -19,42 +24,35 @@ describe("ResultFormatter", () => {
 
   beforeEach(() => {
     formatter = new ResultFormatter();
-    defaultOptions = { maxFailureLines: 20 };
+    defaultOptions = { maxFailureLines: 20, framework: "vitest" };
   });
 
   describe("format()", () => {
-    it("should transform Vitest JSON to RunTestsResult with correct structure", () => {
-      const vitestJson = {
-        numTotalTests: 10,
-        numPassedTests: 8,
-        numFailedTests: 2,
-        numPendingTests: 0,
-        testResults: [
-          {
-            name: "test/example.test.ts",
-            status: "passed",
-            assertionResults: [
-              {
-                fullName: "should add numbers",
-                status: "passed",
-                duration: 42,
-                location: { line: 10, column: 5 },
-              },
-              {
-                fullName: "should subtract numbers",
-                status: "failed",
-                duration: 35,
-                location: { line: 15, column: 5 },
-                failureMessages: [
-                  "Expected: 5\nActual: 3\nError: Values do not match",
-                ],
-              },
-            ],
+    it("should transform NormalizedTestOutcome[] to RunTestsResult with correct structure", () => {
+      const tests: NormalizedTestOutcome[] = [
+        {
+          name: "should add numbers",
+          file: "test/example.test.ts",
+          line: 10,
+          status: "passed",
+          duration: 42,
+        },
+        {
+          name: "should subtract numbers",
+          file: "test/example.test.ts",
+          line: 15,
+          status: "failed",
+          duration: 35,
+          failure: {
+            message: "Values do not match",
+            expected: "5",
+            actual: "3",
+            stack: [],
           },
-        ],
-      };
+        },
+      ];
 
-      const result = formatter.format(vitestJson, defaultOptions);
+      const result = formatter.format(tests, defaultOptions);
 
       // Verify RunTestsResult interface conformance
       expect(result).toHaveProperty("runId");
@@ -72,9 +70,9 @@ describe("ResultFormatter", () => {
       expect(result).toHaveProperty("summary");
 
       // Verify counts
-      expect(result.total).toBe(10);
-      expect(result.passed).toBe(8);
-      expect(result.failed).toBe(2);
+      expect(result.total).toBe(2);
+      expect(result.passed).toBe(1);
+      expect(result.failed).toBe(1);
       expect(result.skipped).toBe(0);
 
       // Verify tests array
@@ -82,34 +80,29 @@ describe("ResultFormatter", () => {
       expect(result.tests.length).toBe(2);
     });
 
-    it("should correctly map Vitest assertion results to TestOutcome", () => {
-      const vitestJson = {
-        numTotalTests: 2,
-        numPassedTests: 1,
-        numFailedTests: 1,
-        testResults: [
-          {
-            name: "test/auth.test.ts",
-            assertionResults: [
-              {
-                fullName: "AuthService > should validate token",
-                status: "passed",
-                duration: 25,
-                location: { line: 42, column: 3 },
-              },
-              {
-                fullName: "AuthService > should reject invalid token",
-                status: "failed",
-                duration: 30,
-                location: { line: 50, column: 3 },
-                failureMessages: ["Token validation failed"],
-              },
-            ],
+    it("should correctly map NormalizedTestOutcome to TestOutcome", () => {
+      const tests: NormalizedTestOutcome[] = [
+        {
+          name: "AuthService > should validate token",
+          file: "test/auth.test.ts",
+          line: 42,
+          status: "passed",
+          duration: 25,
+        },
+        {
+          name: "AuthService > should reject invalid token",
+          file: "test/auth.test.ts",
+          line: 50,
+          status: "failed",
+          duration: 30,
+          failure: {
+            message: "Token validation failed",
+            stack: [],
           },
-        ],
-      };
+        },
+      ];
 
-      const result = formatter.format(vitestJson, defaultOptions);
+      const result = formatter.format(tests, defaultOptions);
 
       const [passedTest, failedTest] = result.tests;
 
@@ -131,28 +124,23 @@ describe("ResultFormatter", () => {
     });
 
     it("should extract failure details with expected/actual values", () => {
-      const vitestJson = {
-        numTotalTests: 1,
-        numFailedTests: 1,
-        testResults: [
-          {
-            name: "test/math.test.ts",
-            assertionResults: [
-              {
-                fullName: "should calculate correctly",
-                status: "failed",
-                duration: 10,
-                location: { line: 20 },
-                failureMessages: [
-                  "AssertionError\nExpected: { valid: true }\nActual: { valid: false }\nat Object.test (math.test.ts:20:5)",
-                ],
-              },
-            ],
+      const tests: NormalizedTestOutcome[] = [
+        {
+          name: "should calculate correctly",
+          file: "test/math.test.ts",
+          line: 20,
+          status: "failed",
+          duration: 10,
+          failure: {
+            message: "AssertionError",
+            expected: "{ valid: true }",
+            actual: "{ valid: false }",
+            stack: ["at Object.test (math.test.ts:20:5)"],
           },
-        ],
-      };
+        },
+      ];
 
-      const result = formatter.format(vitestJson, defaultOptions);
+      const result = formatter.format(tests, defaultOptions);
       const failedTest = result.tests[0];
 
       expect(failedTest.failure).toBeDefined();
@@ -162,47 +150,41 @@ describe("ResultFormatter", () => {
       expect(Array.isArray(failedTest.failure!.stack)).toBe(true);
     });
 
-    it("should handle skipped/pending tests", () => {
-      const vitestJson = {
-        numTotalTests: 3,
-        numPassedTests: 1,
-        numPendingTests: 2,
-        testResults: [
-          {
-            name: "test/feature.test.ts",
-            assertionResults: [
-              {
-                fullName: "test 1",
-                status: "passed",
-                duration: 10,
-                location: { line: 5 },
-              },
-              {
-                fullName: "test 2",
-                status: "skipped",
-                duration: 0,
-                location: { line: 10 },
-              },
-              {
-                fullName: "test 3",
-                status: "pending",
-                duration: 0,
-                location: { line: 15 },
-              },
-            ],
-          },
-        ],
-      };
+    it("should handle skipped tests", () => {
+      const tests: NormalizedTestOutcome[] = [
+        {
+          name: "test 1",
+          file: "test/feature.test.ts",
+          line: 5,
+          status: "passed",
+          duration: 10,
+        },
+        {
+          name: "test 2",
+          file: "test/feature.test.ts",
+          line: 10,
+          status: "skipped",
+          duration: 0,
+        },
+        {
+          name: "test 3",
+          file: "test/feature.test.ts",
+          line: 15,
+          status: "skipped",
+          duration: 0,
+        },
+      ];
 
-      const result = formatter.format(vitestJson, defaultOptions);
+      const result = formatter.format(tests, defaultOptions);
 
       expect(result.tests[0].status).toBe("passed");
       expect(result.tests[1].status).toBe("skipped");
-      expect(result.tests[2].status).toBe("skipped"); // pending -> skipped
+      expect(result.tests[2].status).toBe("skipped");
     });
 
-    it("should handle missing or malformed Vitest JSON gracefully", () => {
-      const result = formatter.format(null, defaultOptions);
+    it("should handle empty test array gracefully", () => {
+      const tests: NormalizedTestOutcome[] = [];
+      const result = formatter.format(tests, defaultOptions);
 
       expect(result.total).toBe(0);
       expect(result.passed).toBe(0);
@@ -213,7 +195,7 @@ describe("ResultFormatter", () => {
   });
 
   describe("formatSummary()", () => {
-    it("should produce PASS summary for passing runs", () => {
+    it("should produce PASS summary with framework label for passing runs", () => {
       const result: RunTestsResult = {
         runId: "test-run",
         scope: "all",
@@ -230,16 +212,16 @@ describe("ResultFormatter", () => {
         summary: "",
       };
 
-      const summary = formatter.formatSummary(result);
+      const summary = formatter.formatSummary(result, "vitest");
 
-      expect(summary).toMatch(/^PASS \|/);
+      expect(summary).toMatch(/^PASS \(vitest\) \|/);
       expect(summary).toContain("12 passed");
       expect(summary).toContain("0 failed");
       expect(summary).toContain("0 skipped");
       expect(summary).toContain("1.2s"); // 1234ms -> 1.2s
     });
 
-    it("should produce FAIL summary for failing runs", () => {
+    it("should produce FAIL summary with framework label for failing runs", () => {
       const result: RunTestsResult = {
         runId: "test-run",
         scope: "all",
@@ -256,9 +238,9 @@ describe("ResultFormatter", () => {
         summary: "",
       };
 
-      const summary = formatter.formatSummary(result);
+      const summary = formatter.formatSummary(result, "vitest");
 
-      expect(summary).toMatch(/^FAIL \|/);
+      expect(summary).toMatch(/^FAIL \(vitest\) \|/);
       expect(summary).toContain("45 passed");
       expect(summary).toContain("3 failed");
       expect(summary).toContain("2 skipped");
@@ -282,10 +264,10 @@ describe("ResultFormatter", () => {
         summary: "",
       };
 
-      const summary = formatter.formatSummary(result);
+      const summary = formatter.formatSummary(result, "vitest");
 
-      // Verify summary is compact (roughly 50-100 chars = ~15-25 tokens)
-      expect(summary.length).toBeLessThan(100);
+      // Verify summary is compact
+      expect(summary.length).toBeLessThan(120);
       expect(summary.length).toBeGreaterThan(30);
     });
   });
@@ -403,14 +385,8 @@ describe("ResultFormatter", () => {
 
   describe("types.ts interface conformance", () => {
     it("should return RunTestsResult that satisfies types.ts interface", () => {
-      const vitestJson = {
-        numTotalTests: 5,
-        numPassedTests: 5,
-        numFailedTests: 0,
-        testResults: [],
-      };
-
-      const result = formatter.format(vitestJson, defaultOptions);
+      const tests: NormalizedTestOutcome[] = [];
+      const result = formatter.format(tests, defaultOptions);
 
       // All required RunTestsResult properties
       expect(typeof result.runId).toBe("string");
@@ -433,27 +409,21 @@ describe("ResultFormatter", () => {
     });
 
     it("should return TestOutcome[] that satisfies types.ts interface", () => {
-      const vitestJson = {
-        numTotalTests: 1,
-        numPassedTests: 0,
-        numFailedTests: 1,
-        testResults: [
-          {
-            name: "test.ts",
-            assertionResults: [
-              {
-                fullName: "test name",
-                status: "failed",
-                duration: 100,
-                location: { line: 42 },
-                failureMessages: ["error"],
-              },
-            ],
+      const tests: NormalizedTestOutcome[] = [
+        {
+          name: "test name",
+          file: "test.ts",
+          line: 42,
+          status: "failed",
+          duration: 100,
+          failure: {
+            message: "error",
+            stack: [],
           },
-        ],
-      };
+        },
+      ];
 
-      const result = formatter.format(vitestJson, defaultOptions);
+      const result = formatter.format(tests, defaultOptions);
       const testOutcome = result.tests[0];
 
       // All required TestOutcome properties
@@ -473,28 +443,23 @@ describe("ResultFormatter", () => {
     });
 
     it("should return TestFailureDetail that satisfies types.ts interface", () => {
-      const vitestJson = {
-        numTotalTests: 1,
-        numFailedTests: 1,
-        testResults: [
-          {
-            name: "test.ts",
-            assertionResults: [
-              {
-                fullName: "failed test",
-                status: "failed",
-                duration: 50,
-                location: { line: 10 },
-                failureMessages: [
-                  "Error message\nExpected: foo\nActual: bar\nat test.ts:10",
-                ],
-              },
-            ],
+      const tests: NormalizedTestOutcome[] = [
+        {
+          name: "failed test",
+          file: "test.ts",
+          line: 10,
+          status: "failed",
+          duration: 50,
+          failure: {
+            message: "Error message",
+            expected: "foo",
+            actual: "bar",
+            stack: ["at test.ts:10"],
           },
-        ],
-      };
+        },
+      ];
 
-      const result = formatter.format(vitestJson, defaultOptions);
+      const result = formatter.format(tests, defaultOptions);
       const failure = result.tests[0].failure;
 
       expect(failure).toBeDefined();
