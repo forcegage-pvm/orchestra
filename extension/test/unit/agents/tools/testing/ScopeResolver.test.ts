@@ -107,6 +107,40 @@ describe("ScopeResolver", () => {
       expect(error.code).toBe(ToolErrorCode.INVALID_INPUT);
       expect(error.message).toContain("Missing target");
     });
+
+    it("should rebase file path to be relative to workingDir when provided", async () => {
+      // Simulate: workspace root is /mock/workspace, agent provides
+      // "extension/test/example.test.ts" as a workspace-relative path,
+      // with workingDir "extension/"
+      // The default beforeEach mock already makes any path containing
+      // "example.test.ts" pass the stat check.
+
+      const result = await resolver.resolve(
+        "file",
+        "extension/test/example.test.ts",
+        mockConfig,
+        { workingDir: "extension" },
+      );
+
+      expect(result).not.toHaveProperty("code");
+      const scopeResult = result as ScopeResult;
+      // Path should be rebased relative to workingDir, not workspace root
+      expect(scopeResult.files).toEqual(["test/example.test.ts"]);
+      expect(scopeResult.message).toContain("File scope");
+    });
+
+    it("should NOT rebase when workingDir matches workspaceRoot", async () => {
+      const result = await resolver.resolve(
+        "file",
+        "test/example.test.ts",
+        mockConfig,
+        { workingDir: "." },
+      );
+
+      expect(result).not.toHaveProperty("code");
+      const scopeResult = result as ScopeResult;
+      expect(scopeResult.files).toEqual(["test/example.test.ts"]);
+    });
   });
 
   describe("resolve() - pattern scope", () => {

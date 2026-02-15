@@ -17,7 +17,7 @@ import { ResultFormatter } from "./testing/ResultFormatter.js";
 import { ScopeResolver } from "./testing/ScopeResolver.js";
 import { TestConfigLoader } from "./testing/TestConfigLoader.js";
 import { TestRunnerFactory } from "./testing/TestRunnerFactory.js";
-/**
+import type { TestFramework } from "./testing/TestRunner.js";/**
  * Normalize Windows drive letter to uppercase.
  * Vitest has issues with lowercase drive letters (e.g., x: vs X:).
  * Matches the normalizeWindowsPath in extension/src/agents/tools/testing/runTests.ts
@@ -105,8 +105,8 @@ export async function runTestsCore(
       tier,
       workspacePath,
       config.defaultTimeout ?? defaultTimeout,
-    );
-  }
+      config.framework,
+    );  }
 
   // Resolve tier to file paths using ScopeResolver
   const resolver = new ScopeResolver(workspacePath);
@@ -207,9 +207,9 @@ async function runFiles(
   tier: string,
   workspacePath: string,
   timeout: number,
+  framework: TestFramework = "vitest",
 ): Promise<TestRunResult> {
-  const runner = TestRunnerFactory.create("vitest");
-  let runOutput;
+  const runner = TestRunnerFactory.create(framework);  let runOutput;
   try {
     runOutput = await runner.execute({
       files,

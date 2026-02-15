@@ -80,7 +80,7 @@ export interface ScopeResult {
   ): Promise<ScopeResult | ToolError> {
     switch (scope) {
       case "file":
-        return this.resolveFile(target);
+        return this.resolveFile(target, options?.workingDir);
 
       case "pattern":
         return this.resolvePattern(target);
@@ -114,9 +114,13 @@ export interface ScopeResult {
 
   /**
    * Resolve 'file' scope - returns the single target file path if it exists.
+   * When workingDir is provided and differs from workspaceRoot, the returned
+   * path is rebased to be relative to workingDir so runners (vitest) spawned
+   * from that directory can find the file.
    */
   private async resolveFile(
     target: string | undefined,
+    workingDir?: string,
   ): Promise<ScopeResult | ToolError> {
     if (!target) {
       return createToolError(
@@ -126,7 +130,7 @@ export interface ScopeResult {
       );
     }
 
-    // Check if file exists
+    // Check if file exists (always resolve against workspaceRoot for validation)
     const filePath = path.resolve(this.workspaceRoot, target);
     try {
       const stat = await fs.stat(filePath);
@@ -147,8 +151,20 @@ export interface ScopeResult {
       );
     }
 
+    // When workingDir differs from workspaceRoot, rebase the path so it's
+    // relative to workingDir (the directory the test runner will spawn from).
+    let resolvedTarget = target;
+    if (workingDir) {
+      const absoluteWorkingDir = path.resolve(this.workspaceRoot, workingDir);
+      if (path.resolve(this.workspaceRoot) !== absoluteWorkingDir) {
+        resolvedTarget = path
+          .relative(absoluteWorkingDir, filePath)
+          .replace(/\\/g, "/");
+      }
+    }
+
     return {
-      files: [target],
+      files: [resolvedTarget],
       message: `File scope: ${target}`,
     };
   }
