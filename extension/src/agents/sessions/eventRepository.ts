@@ -8,7 +8,7 @@
  */
 
 import { randomUUID } from "crypto";
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import { OrchestraDB } from "../../database/client.js";
 import * as schema from "../../database/local-schema.js";
 import type { AgentEvent } from "./types.js";
@@ -188,6 +188,35 @@ export function getEventsForSession(
     .select()
     .from(schema.sessionEvents)
     .where(eq(schema.sessionEvents.session_id, sessionId))
+    .orderBy(sql`rowid`)
+    .all();
+
+  return rows.map(mapRowToEvent);
+}
+
+/**
+ * Get all events for multiple sessions (task-scoped), ordered by insertion order
+ *
+ * Used to load the complete event history for a task's workflow chain
+ * (prepare → controller → implement → verify → ...).
+ *
+ * @param workspaceRoot Workspace root directory
+ * @param sessionIds Array of session UUIDs belonging to the same task
+ * @returns Array of events ordered by insertion order (rowid) across all sessions
+ */
+export function getEventsForTaskSessions(
+  workspaceRoot: string,
+  sessionIds: string[],
+): AgentEvent[] {
+  if (sessionIds.length === 0) return [];
+
+  const db = OrchestraDB.getDrizzleInstance(workspaceRoot);
+
+  // Order by rowid to preserve insertion order across all sessions
+  const rows = db
+    .select()
+    .from(schema.sessionEvents)
+    .where(inArray(schema.sessionEvents.session_id, sessionIds))
     .orderBy(sql`rowid`)
     .all();
 

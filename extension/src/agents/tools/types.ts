@@ -41,10 +41,12 @@ export type ToolInputSchema = z.output<typeof ToolInputSchemaSchema>;
 // ============================================================================
 
 /**
- * Enumeration of tool error codes
+ * Zod schema for tool error codes (wraps the ToolErrorCode enum from errors.ts)
  */
 export const ToolErrorCodeSchema = z.nativeEnum(ToolErrorCode);
-export type ToolErrorCode = z.output<typeof ToolErrorCodeSchema>;
+
+// Re-export the ToolErrorCode enum type from errors.ts for convenience
+export { ToolErrorCode } from "./errors.js";
 
 /**
  * Schema for structured tool errors

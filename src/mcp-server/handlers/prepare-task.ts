@@ -5,7 +5,7 @@
  * Updates sprint workflow_step to IMPLEMENT if coming from SELECT_TASK.
  */
 
-import { and, eq, inArray, isNull } from "drizzle-orm";
+import { and, eq, inArray, isNull, not } from "drizzle-orm";
 import {
   detectLanguageFromEnv,
   getTddRedChecks,
@@ -18,6 +18,7 @@ import { validateVerificationPatterns } from "../../core/pattern-validator.js";
 import {
   cleanupTddRedMarkers,
   detectProjectLanguage,
+  type CleanupOptions,
 } from "../../core/tdd-cleanup.js";
 import {
   mapToRunnerFlags,
@@ -40,6 +41,7 @@ import {
   sprintSettings,
   tasks,
   tddRedRegistry,
+  tddTaskRelationships,
   verificationChecks,
 } from "../../db/schema.js";
 import { CodeReviewConfigSchema } from "../../schemas/config.js";
@@ -48,6 +50,7 @@ import {
   type PrepareTaskOutput,
 } from "../../schemas/handover.js";
 import { validateInput } from "../../schemas/utils.js";
+import { containsShellTestCommand } from "../../schemas/verification.js";
 import { writeSignal } from "../db-signal.js";
 import { logToolExecution } from "./audit-logging.js";
 import { validateHandoverIsolation } from "./handover-validation.js";
@@ -134,15 +137,49 @@ async function prepareTask(
 ): Promise<PrepareTaskOutput> {
   const db = getDb();
 
-  // 0. Clean up TDD red-phase markers from previous tasks
+  // 0. Clean up TDD red-phase markers from completed tasks only
   const workspaceRoot = resolveWorkspacePath();
-  const cleanupResult = await cleanupTddRedMarkers(workspaceRoot);
+
+  // Query for completed red-phase tasks (green phase completed) to scope cleanup
+  const completedRelationships = await db
+    .select({ red_task_id: tddTaskRelationships.red_task_id })
+    .from(tddTaskRelationships)
+    .where(
+      // Only relationships where green phase has completed (completed_at IS NOT NULL)
+      not(isNull(tddTaskRelationships.completed_at)),
+    );
+
+  // Also include red-phase tasks that are themselves COMPLETE
+  const completedRedTasks = await db
+    .select({ id: tasks.id })
+    .from(tasks)
+    .where(
+      and(
+        eq(tasks.tdd_red_phase, true),
+        inArray(tasks.status, ["COMPLETE", "VERIFIED"]),
+      ),
+    );
+
+  // Build set of task IDs safe to promote
+  const completedTaskIds = new Set<number>();
+  for (const row of completedRelationships) {
+    completedTaskIds.add(row.red_task_id);
+  }
+  for (const row of completedRedTasks) {
+    completedTaskIds.add(row.id);
+  }
+
+  const cleanupOptions: CleanupOptions = { completedTaskIds };
+  const cleanupResult = await cleanupTddRedMarkers(
+    workspaceRoot,
+    cleanupOptions,
+  );
 
   // Auto-commit cleanup if files were cleaned
   if (cleanupResult.cleaned) {
     await autoCommitIfEnabled({
       toolName: "prepare_task",
-      commitMessage: "chore(orchestra): cleanup tdd-red markers",
+      commitMessage: "chore(orchestra): cleanup red-phase test markers",
       sprintId: null, // No specific sprint context for cleanup
       taskInternalId: null, // No specific task context for cleanup
       cwd: workspaceRoot,
@@ -310,27 +347,11 @@ async function prepareTask(
     }
   }
 
-  // 4. Check dependencies are complete
-  const dependencies = JSON.parse(task.dependencies) as number[];
-  if (dependencies.length > 0) {
-    const depTasks = await db
-      .select({ task_id: tasks.task_id, status: tasks.status })
-      .from(tasks)
-      .where(eq(tasks.sprint_id, sprint.id));
-
-    const depMap = new Map(depTasks.map((t) => [t.task_id, t.status]));
-    const incompleteDeps = dependencies.filter(
-      (depId) => depMap.get(depId) !== "COMPLETE",
-    );
-
-    if (incompleteDeps.length > 0) {
-      throw new Error(
-        `Task ${
-          input.task_id
-        } has incomplete dependencies: ${incompleteDeps.join(", ")}`,
-      );
-    }
-  }
+  // 4. Dependencies gate IMPLEMENTATION, not preparation.
+  // The orchestrator must be free to prepare tasks in any order — preparation
+  // is just writing handovers and setting verification criteria. Dependency
+  // ordering is enforced when tasks move to implementation phase
+  // (get_current_task / signal_completion).
 
   // 4b. Validate information isolation boundary (trust boundary)
   // This THROWS ERROR if context or context_files contain forbidden content
@@ -338,9 +359,156 @@ async function prepareTask(
 
   const now = new Date().toISOString();
 
+  // FR-039: Reject test execution commands in behavioral_checks
+  // Orchestrators must use declarative test_verification instead.
+  const behavioralChecksInput = input.verification?.behavioral_checks;
+  if (behavioralChecksInput) {
+    for (const check of behavioralChecksInput) {
+      if (containsShellTestCommand(check.command)) {
+        throw new Error(
+          "Use test_verification format instead of behavioral_checks for test execution",
+        );
+      }
+    }
+  }
+
+  // Persist verification criteria from handover input when provided.
+  // This allows declarative test_verification checks to be created during prepare_task.
+  if (input.verification) {
+    const existingChecks = await db
+      .select({
+        id: verificationChecks.id,
+        check_id: verificationChecks.check_id,
+      })
+      .from(verificationChecks)
+      .where(eq(verificationChecks.task_id, task.id));
+
+    const generatedPrefixes = [
+      "struct-input-",
+      "behav-input-",
+      "qual-input-",
+      "test-verification-",
+    ];
+
+    const generatedCheckIds = existingChecks
+      .filter((check) =>
+        generatedPrefixes.some((prefix) => check.check_id.startsWith(prefix)),
+      )
+      .map((check) => check.id);
+
+    if (generatedCheckIds.length > 0) {
+      await db
+        .delete(verificationChecks)
+        .where(inArray(verificationChecks.id, generatedCheckIds));
+    }
+
+    const structuralChecks = input.verification.structural_checks ?? [];
+    const behavioralChecks = input.verification.behavioral_checks ?? [];
+    const qualityChecks = input.verification.quality_checks ?? [];
+    const testVerificationChecks = input.verification.test_verification ?? [];
+
+    const inputChecks = [
+      ...structuralChecks.map((check, idx) => {
+        const {
+          description: _description,
+          severity: _severity,
+          ...checkConfig
+        } = check;
+        return {
+          task_id: task.id,
+          check_id: `struct-input-${idx}`,
+          check_type: "structural" as const,
+          description: check.description,
+          severity: check.severity,
+          check_config: JSON.stringify(checkConfig),
+          created_at: now,
+        };
+      }),
+      ...behavioralChecks.map((check, idx) => {
+        const {
+          description: _description,
+          severity: _severity,
+          ...checkConfig
+        } = check;
+        return {
+          task_id: task.id,
+          check_id: `behav-input-${idx}`,
+          check_type: "behavioral" as const,
+          description: check.description,
+          severity: check.severity,
+          check_config: JSON.stringify(checkConfig),
+          created_at: now,
+        };
+      }),
+      ...qualityChecks.map((check, idx) => {
+        const {
+          description: _description,
+          severity: _severity,
+          ...checkConfig
+        } = check;
+        return {
+          task_id: task.id,
+          check_id: `qual-input-${idx}`,
+          check_type: "quality" as const,
+          description: check.description,
+          severity: check.severity,
+          check_config: JSON.stringify(checkConfig),
+          created_at: now,
+        };
+      }),
+      ...testVerificationChecks.map((check, idx) => ({
+        task_id: task.id,
+        check_id: `test-verification-${idx}`,
+        check_type: "test_verification" as const,
+        description: `Run ${check.tier} tests (${check.expect})`,
+        severity: "BLOCKING" as const,
+        check_config: JSON.stringify(check),
+        created_at: now,
+      })),
+    ];
+
+    if (inputChecks.length > 0) {
+      await db.insert(verificationChecks).values(inputChecks);
+    }
+  }
+
   // 5. Check TDD requirements BEFORE creating handover
   // This ensures test requirements are communicated to implementor when TDD is enabled
   // Only inject TDD checks for tasks with tdd_red_phase=true (explicit TDD workflow)
+
+  // Clean up any previously auto-injected TDD checks before re-injecting.
+  // This ensures stale checks from failed prepare_task attempts are removed,
+  // preventing old broken patterns from persisting across retries.
+  const existingTddAutoChecks = await db
+    .select({
+      id: verificationChecks.id,
+      check_id: verificationChecks.check_id,
+    })
+    .from(verificationChecks)
+    .where(eq(verificationChecks.task_id, task.id));
+
+  const tddAutoCheckPrefixes = [
+    "struct-tdd-",
+    "behav-tdd-red-",
+    "struct-tdd-red-",
+  ];
+  const staleTddCheckIds = existingTddAutoChecks
+    .filter((check) =>
+      tddAutoCheckPrefixes.some((prefix) => check.check_id.startsWith(prefix)),
+    )
+    .map((check) => check.id);
+
+  if (staleTddCheckIds.length > 0) {
+    await db
+      .delete(verificationChecks)
+      .where(inArray(verificationChecks.id, staleTddCheckIds));
+    if (!isTestEnv) {
+      console.error(
+        `[TDD] Cleaned up ${staleTddCheckIds.length} stale auto-injected TDD checks for task ${input.task_id}`,
+      );
+    }
+  }
+
   const tddInjectionResult = await injectTestVerificationIfRequired(
     db,
     task.id,
@@ -518,7 +686,7 @@ async function prepareTask(
       );
     }
   }
-  // Note: Cleanup of tdd-red markers is the implementor's responsibility during
+  // Note: Cleanup of red-phase test files is the implementor's responsibility during
   // the GREEN phase. The orchestrator should add explicit cleanup verification
   // criteria to GREEN phase tasks when preparing them.
 
@@ -540,12 +708,12 @@ async function prepareTask(
 
   const behavioral_checks = allChecks
     .filter((c) => c.check_type === "behavioral")
+    .filter((c) => !c.check_id.includes("tdd-red")) // Exclude TDD auto-injected checks from test-command rejection
     .map((c) => ({
       ...JSON.parse(c.check_config as string),
       description: c.description,
       severity: c.severity,
     }));
-
   const quality_checks = allChecks
     .filter((c) => c.check_type === "quality")
     .map((c) => ({
@@ -949,7 +1117,14 @@ async function injectTestVerificationIfRequired(
       op.path.startsWith("extension/"),
     );
     if (hasExtensionFiles && globalTestPattern.startsWith("test/")) {
+      // Task targets extension/ but global pattern is root-level → adapt to extension/
       testFilePattern = globalTestPattern.replace(/^test\//, "extension/test/");
+    } else if (
+      !hasExtensionFiles &&
+      globalTestPattern.startsWith("extension/")
+    ) {
+      // Task targets root but global pattern is extension-level → adapt to root
+      testFilePattern = globalTestPattern.replace(/^extension\//, "");
     } else {
       testFilePattern = globalTestPattern;
     }
@@ -1044,7 +1219,7 @@ interface SprintEnvironment {
  * When a task is marked as tdd_red_phase=true, it requires:
  * 1. Tagged tests MUST fail (exit code 1)
  * 2. Non-tagged tests MUST pass (exit code 0)
- * 3. At least one tdd-red marker exists
+ * 3. At least one red-phase test file exists in test/red/
  *
  * Sprint 007 Addition: Non-red checks now include file-level exclusions to prevent
  * test runner load/import failures when red-phase files have unresolved dependencies.

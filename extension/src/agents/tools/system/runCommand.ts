@@ -6,6 +6,7 @@ import { spawn } from "node:child_process";
 import * as fs from "node:fs";
 import * as vscode from "vscode";
 
+import { TestCommandInterceptor } from "../../../../../src/core/testing/TestCommandInterceptor.js";
 import { createToolError, ToolErrorCode } from "../errors.js";
 import { OutputBuffer } from "../infrastructure/OutputBuffer.js";
 import type {
@@ -691,6 +692,29 @@ export const runCommandTool: AgentTool<RunCommandInput> = {
           ToolErrorCode.CANCELLED,
           "Command cancelled.",
           "Retry the command after cancelling is cleared.",
+        ),
+        metadata: {
+          toolName: TOOL_NAME,
+          callId: "",
+          durationMs: 0,
+        },
+      };
+    }
+
+    // Test command interception - block direct test execution
+    if (input.command && TestCommandInterceptor.isTestCommand(input.command)) {
+      return {
+        success: false,
+        content: [
+          {
+            type: "error",
+            value: TestCommandInterceptor.getRedirectMessage(input.command),
+          },
+        ],
+        error: createToolError(
+          ToolErrorCode.TEST_COMMAND_BLOCKED,
+          TestCommandInterceptor.getRedirectMessage(input.command),
+          "Use run_tests tool instead of direct terminal test commands.",
         ),
         metadata: {
           toolName: TOOL_NAME,

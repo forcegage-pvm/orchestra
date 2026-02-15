@@ -41,6 +41,9 @@ export { TabBar } from "./TabBar.js";
 export { PromptCard } from "./PromptCard.js";
 export type { PromptCardProps } from "./PromptCard.js";
 
+export { SystemPromptCard } from "./SystemPromptCard.js";
+export type { SystemPromptCardProps } from "./SystemPromptCard.js";
+
 export { ThinkingCard } from "./ThinkingCard.js";
 export type { ThinkingCardProps } from "./ThinkingCard.js";
 

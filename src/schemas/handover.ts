@@ -8,11 +8,15 @@ import { z } from "zod";
 import { SuccessResponseSchema } from "./errors.js";
 import {
   AcceptanceCriterionSchema,
+  BehavioralCheckSchema,
   FeedbackIssueSchema,
   FileOperationSchema,
   PrioritySchema,
+  QualityCheckSchema,
   ReferenceSchema,
+  StructuralCheckSchema,
 } from "./shared.js";
+import { TestVerificationCriteriaSchema } from "./verification.js";
 
 // ============================================================================
 // prepare_task
@@ -52,6 +56,14 @@ export const PrepareTaskInputSchema = z.object({
   test_requirements: z.string().optional(),
   constraints: z.array(z.string().min(1)).optional(),
   references: z.array(ReferenceSchema).optional(),
+  verification: z
+    .object({
+      structural_checks: z.array(StructuralCheckSchema).optional(),
+      behavioral_checks: z.array(BehavioralCheckSchema).optional(),
+      quality_checks: z.array(QualityCheckSchema).optional(),
+      test_verification: z.array(TestVerificationCriteriaSchema).optional(),
+    })
+    .optional(),
 });
 
 export type PrepareTaskInput = z.output<typeof PrepareTaskInputSchema>;

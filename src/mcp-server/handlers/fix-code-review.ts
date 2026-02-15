@@ -291,9 +291,9 @@ async function handleSubmitFixes(
   } else if (testCommand) {
     const workspacePath = resolveWorkspacePath();
 
-    // For TDD-red phase tasks, we must EXCLUDE tdd-red tagged tests from validation.
-    // TDD-red tests are designed to fail (they're "red" tests waiting for implementation).
-    // We only want to verify that the implementor's fixes don't break non-TDD-red tests.
+    // For TDD red-phase tasks, we must EXCLUDE red-phase tests from validation.
+    // Red-phase tests are designed to fail (they're tests in test/red/ waiting for implementation).
+    // We only want to verify that the implementor's fixes don't break non-red-phase tests.
     let effectiveTestCommand = testCommand;
     if (task.tdd_red_phase) {
       const projectType = detectProjectType(workspacePath);
@@ -305,7 +305,10 @@ async function handleSubmitFixes(
       timeout: 300000,
     });
 
-    validationPassed = result.success ?? result.exitCode === 0;
+    // Use exit code as the authoritative success indicator.
+    // Test frameworks consistently return 0 on pass, non-zero on failure.
+    // Ignore stderr warnings (like Node deprecation warnings) when exit code is 0.
+    validationPassed = result.exitCode === 0;
     if (!validationPassed) {
       validationOutput =
         result.stderr?.trim() || result.stdout?.trim() || result.error;

@@ -202,7 +202,7 @@ describe("check-templates behavioral command execution", () => {
       }
     });
 
-    it("Dart pattern should use simplified @Tags matching", () => {
+    it("Dart pattern should validate test function presence in red directory", () => {
       const checks = getTddRedChecks("dart", {
         cdPrefix: "",
         testFilePattern: "test/**/*.dart",
@@ -211,18 +211,19 @@ describe("check-templates behavioral command execution", () => {
       });
 
       const markerCheck = checks.find((c) =>
-        c.description.includes("Red-phase marker"),
+        c.description.includes("Red-phase test files present"),
       );
 
-      // Should use simplified pattern without complex bracket escaping
-      expect(markerCheck!.check_config.pattern).toBe(
-        "@Tags.*tdd-red|tags:.*tdd-red",
-      );
+      // Should use test/group function detection pattern for directory-based approach
+      expect(markerCheck!.check_config.pattern).toBe("(?:test|group)\\s*\\(");
+      expect(markerCheck!.check_config.path).toBe("test/red/**/*_test.dart");
 
-      // Should still match the real syntax
+      // Should match real Dart test function calls
       const pattern = new RegExp(markerCheck!.check_config.pattern!, "gms");
-      expect("@Tags(['tdd-red'])".match(pattern)).toBeTruthy();
-      expect("tags: ['tdd-red']".match(pattern)).toBeTruthy();
+      expect("test('should work', () {})".match(pattern)).toBeTruthy();
+      expect("group('feature', () {})".match(pattern)).toBeTruthy();
+      // Should not match non-test content
+      expect("class Foo {}".match(pattern)).toBeNull();
     });
   });
 });

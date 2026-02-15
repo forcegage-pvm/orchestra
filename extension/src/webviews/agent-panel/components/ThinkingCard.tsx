@@ -27,7 +27,7 @@ export interface ThinkingCardProps {
 /**
  * ThinkingCard - Displays agent thinking with streaming text and cursor
  *
- * Shows brain icon, thinking text with optional streaming cursor animation,
+ * Shows thinking text with optional streaming cursor animation
  * and collapse/expand functionality. Starts collapsed, auto-expands during
  * streaming, and auto-collapses when streaming completes.
  *
@@ -41,8 +41,8 @@ export interface ThinkingCardProps {
  * ```
  */
 export function ThinkingCard(props: ThinkingCardProps) {
-  // Start collapsed by default
-  const [expanded, setExpanded] = createSignal(false);
+  // Start expanded by default, auto-collapse after 2s when streaming ends
+  const [expanded, setExpanded] = createSignal(true);
 
   const isCollapsed = () => !expanded();
 
@@ -50,57 +50,85 @@ export function ThinkingCard(props: ThinkingCardProps) {
     setExpanded(!expanded());
   };
 
-  // Auto-expand when streaming starts, auto-collapse when it ends
+  // Auto-expand when streaming starts, auto-collapse 2s after streaming ends
   let wasStreaming = false;
+  let collapseTimer: ReturnType<typeof setTimeout> | null = null;
   createEffect(() => {
     const streaming = props.isStreaming ?? false;
     if (streaming && !wasStreaming) {
+      // Clear any pending collapse timer when streaming resumes
+      if (collapseTimer) {
+        clearTimeout(collapseTimer);
+        collapseTimer = null;
+      }
       setExpanded(true);
-    } else if (!streaming && wasStreaming) {
-      setExpanded(false);
+    } else if (!streaming && wasStreaming && props.autoCollapse) {
+      // Schedule auto-collapse 2 seconds after streaming ends
+      if (collapseTimer) clearTimeout(collapseTimer);
+      collapseTimer = setTimeout(() => {
+        setExpanded(false);
+        collapseTimer = null;
+      }, 2000);
     }
     wasStreaming = streaming;
   });
 
-  // Split text into first line (shown in header) and remaining lines
-  const getFirstLine = () => {
+  const PREVIEW_LINES = 2;
+
+  // Get preview text (first N lines) for collapsed state
+  const getPreviewText = () => {
     const lines = props.event.text.split("\n");
-    return lines[0] || "";
+    return lines.slice(0, PREVIEW_LINES).join("\n");
   };
 
-  const getRemainingText = () => {
+  // Count lines beyond the preview
+  const getExtraLineCount = () => {
     const lines = props.event.text.split("\n");
-    if (lines.length <= 1) return "";
-    return lines.slice(1).join("\n");
-  };
-
-  const getRemainingLineCount = () => {
-    const lines = props.event.text.split("\n");
-    return Math.max(0, lines.length - 1);
+    return Math.max(0, lines.length - PREVIEW_LINES);
   };
 
   return (
     <div class="group rounded hover:bg-zinc-800/20 transition-colors fade-in">
-      {/* Header row: icon + first line of thinking text + expand/collapse */}
-      <div class="px-2 py-1.5 flex items-center gap-1.5">
-        <Icon
-          icon="lucide:brain"
-          class="w-3 h-3 text-purple-400 flex-shrink-0"
-        />
-        <span class="text-[13px] text-zinc-400 truncate min-w-0 flex-1">
-          {getFirstLine()}
-          <Show when={props.isStreaming && getRemainingLineCount() === 0}>
-            <span class="inline-block w-0.5 h-3.5 ml-1 bg-purple-400 animate-blink align-middle" />
+      {/* Header row: text + expand/collapse button */}
+      <div class="px-2 pt-1.5 flex items-start gap-1.5">
+        <div class="flex-1 min-w-0">
+          {/* Collapsed: show preview lines as markdown */}
+          <Show when={isCollapsed()}>
+            <Markdown
+              content={getPreviewText()}
+              class="text-[13px] text-zinc-400 leading-relaxed"
+            />
           </Show>
-        </span>
-        <Show when={getRemainingLineCount() > 0}>
+
+          {/* Expanded: show full text as markdown */}
+          <Show when={!isCollapsed()}>
+            <Markdown
+              content={props.event.text}
+              class="text-[13px] text-zinc-400 leading-relaxed"
+            />
+            {/* Animated cursor during streaming */}
+            <Show when={props.isStreaming}>
+              <span class="inline-block w-0.5 h-4 ml-1 bg-purple-400 animate-blink" />
+            </Show>
+
+            {/* Token count if available */}
+            <Show when={props.event.tokenCount !== undefined}>
+              <div class="mt-2 text-[10px] text-zinc-600">
+                {props.event.tokenCount} tokens
+              </div>
+            </Show>
+          </Show>
+        </div>
+
+        {/* Expand/collapse button */}
+        <Show when={getExtraLineCount() > 0}>
           <button
             onClick={toggleExpanded}
-            class="flex items-center gap-1 text-[10px] text-zinc-500 hover:text-zinc-300 transition-colors flex-shrink-0"
+            class="flex items-center gap-1 text-[10px] text-zinc-500 hover:text-zinc-300 transition-colors flex-shrink-0 mt-0.5"
           >
             {isCollapsed() ? (
               <>
-                <span>+{getRemainingLineCount()} more</span>
+                <span>+{getExtraLineCount()} more</span>
                 <Icon icon="lucide:chevron-down" class="w-3 h-3" />
               </>
             ) : (
@@ -111,28 +139,11 @@ export function ThinkingCard(props: ThinkingCardProps) {
             )}
           </button>
         </Show>
+        <Show when={props.isStreaming && getExtraLineCount() === 0}>
+          <span class="inline-block w-0.5 h-3.5 mt-1 bg-purple-400 animate-blink flex-shrink-0" />
+        </Show>
       </div>
-
-      {/* Expanded: remaining lines below the first line */}
-      <Show when={!isCollapsed() && getRemainingLineCount() > 0}>
-        <div class="px-2 pb-1.5 pl-7">
-          <Markdown
-            content={getRemainingText()}
-            class="text-[13px] text-zinc-400 leading-relaxed"
-          />
-          {/* Animated cursor during streaming */}
-          <Show when={props.isStreaming}>
-            <span class="inline-block w-0.5 h-4 ml-1 bg-purple-400 animate-blink" />
-          </Show>
-
-          {/* Token count if available */}
-          <Show when={props.event.tokenCount !== undefined}>
-            <div class="mt-2 text-[10px] text-zinc-600">
-              {props.event.tokenCount} tokens
-            </div>
-          </Show>
-        </div>
-      </Show>
+      <div class="h-1" />
     </div>
   );
 }

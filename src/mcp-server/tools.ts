@@ -343,7 +343,13 @@ const TOOLS_WITH_ROLES: ToolWithRole[] = [
     role: "orchestrator",
     name: "update_verification",
     description:
-      "Update verification criteria for a task. Allowed during CONFIGURE (initial setup), PREPARE (spec error corrections), and SPEC_REVIEW only when sprint status is SPEC_REVIEW_FAILED (Controller revisions). When called outside CONFIGURE, creates an amendment record with full audit trail.",
+      "Replace ALL verification checks for a task with new criteria. " +
+      "Supports 4 check types: structural_checks (file existence/content patterns via glob paths + regex), " +
+      "behavioral_checks (shell commands with expected exit codes/output — NOT for running tests), " +
+      "quality_checks (code quality via commands or file pattern matching), and " +
+      "test_verification (declarative test execution — specify tier + expected outcome instead of shell commands). " +
+      "Allowed during CONFIGURE (initial setup), PREPARE (spec error corrections), and SPEC_REVIEW only when sprint status is SPEC_REVIEW_FAILED. " +
+      "When called outside CONFIGURE, creates an amendment record with full audit trail.",
     inputSchema: {
       type: "object",
       properties: {
@@ -353,58 +359,151 @@ const TOOLS_WITH_ROLES: ToolWithRole[] = [
         },
         verification: {
           type: "object",
-          description: "New verification criteria",
+          description:
+            "New verification criteria. Must contain at least one check across any of the 4 check types. " +
+            "IMPORTANT: Do NOT put test execution commands (npm test, vitest, jest, pytest, etc.) in behavioral_checks — " +
+            "use test_verification instead.",
           properties: {
             structural_checks: {
               type: "array",
+              description:
+                "Verify file existence and content patterns. Each check uses a glob path to find files and an optional regex pattern to match content within them. " +
+                "Use for: ensuring files exist, checking exports, verifying imports, confirming configuration entries.",
               items: {
                 type: "object",
                 properties: {
-                  description: { type: "string" },
+                  description: {
+                    type: "string",
+                    description: "Human-readable description of what this check verifies",
+                  },
                   severity: {
                     type: "string",
                     enum: ["BLOCKING", "MAJOR", "MINOR", "INFO"],
+                    description: "BLOCKING = must pass for verification to succeed, MAJOR/MINOR/INFO = advisory",
                   },
-                  path: { type: "string" },
-                  pattern: { type: "string" },
-                  min_matches: { type: "number" },
+                  path: {
+                    type: "string",
+                    description:
+                      "Glob pattern or file path to check. Must contain glob characters (*?[]{}) or end with a file extension. " +
+                      "Examples: 'src/handlers/*.ts', 'src/core/utils.ts', 'test/**/*.test.ts'. " +
+                      "Bare directory paths like 'src/handlers' are rejected.",
+                  },
+                  pattern: {
+                    type: "string",
+                    description: "Optional regex pattern to search for within matched files. Example: 'export (function|class) \\w+'",
+                  },
+                  min_matches: {
+                    type: "number",
+                    description: "Minimum number of files that must match the path (and pattern if given). Default: 1",
+                  },
                 },
-                required: ["description", "severity"],
+                required: ["description", "severity", "path"],
               },
             },
             behavioral_checks: {
               type: "array",
+              description:
+                "Run shell commands and verify exit codes/output. Use for: checking CLI behavior, verifying build succeeds, running linters. " +
+                "DO NOT use for running tests (npm test, vitest, jest, pytest, etc.) — use test_verification instead. " +
+                "Commands must be cross-platform compatible (no bash && operator — use ; instead).",
               items: {
                 type: "object",
                 properties: {
-                  description: { type: "string" },
+                  description: {
+                    type: "string",
+                    description: "Human-readable description of what this check verifies",
+                  },
                   severity: {
                     type: "string",
                     enum: ["BLOCKING", "MAJOR", "MINOR", "INFO"],
+                    description: "BLOCKING = must pass for verification to succeed, MAJOR/MINOR/INFO = advisory",
                   },
-                  command: { type: "string" },
-                  expect_exit_code: { type: "number" },
-                  expect_output_contains: { type: "string" },
+                  command: {
+                    type: "string",
+                    description:
+                      "Shell command to execute. Must NOT contain test runners (npm test, vitest, jest, mocha, pytest, cargo test, go test, etc.). " +
+                      "Use test_verification for test execution. Must be cross-platform (use ; not && for chaining). " +
+                      "Examples: 'npm run lint', 'npx tsc --noEmit', 'node -e \"require('./dist/index.js')\"'",
+                  },
+                  expect_exit_code: {
+                    type: "number",
+                    description: "Expected process exit code. Default: 0 (success). Use non-zero to verify a command fails as expected.",
+                  },
+                  expect_output_contains: {
+                    type: "string",
+                    description: "String that must appear in command stdout/stderr for the check to pass",
+                  },
                 },
-                required: ["description", "severity"],
+                required: ["description", "severity", "command"],
               },
             },
             quality_checks: {
               type: "array",
+              description:
+                "Check code quality via commands or file content patterns. Must have EITHER a 'command' OR both 'path' and 'pattern'. " +
+                "Use for: checking code coverage thresholds, verifying no TODO comments, ensuring consistent naming.",
               items: {
                 type: "object",
                 properties: {
-                  description: { type: "string" },
+                  description: {
+                    type: "string",
+                    description: "Human-readable description of what this check verifies",
+                  },
                   severity: {
                     type: "string",
                     enum: ["BLOCKING", "MAJOR", "MINOR", "INFO"],
+                    description: "BLOCKING = must pass for verification to succeed, MAJOR/MINOR/INFO = advisory",
                   },
-                  path: { type: "string" },
-                  pattern: { type: "string" },
-                  min_matches: { type: "number" },
-                  command: { type: "string" },
+                  command: {
+                    type: "string",
+                    description: "Shell command to run for quality checking (alternative to path+pattern). Example: 'npx tsc --noEmit'",
+                  },
+                  path: {
+                    type: "string",
+                    description: "Glob path to files to check (used with 'pattern'). Example: 'src/**/*.ts'",
+                  },
+                  pattern: {
+                    type: "string",
+                    description: "Regex pattern to search for in matched files (used with 'path'). Example: '// TODO'",
+                  },
+                  min_matches: {
+                    type: "number",
+                    description: "Minimum number of pattern matches required",
+                  },
                 },
                 required: ["description", "severity"],
+              },
+            },
+            test_verification: {
+              type: "array",
+              description:
+                "Declarative test execution checks. Use INSTEAD of behavioral_checks for running tests. " +
+                "Specify which test tier to run and the expected outcome — the system runs the tests internally via the extension test runner. " +
+                "Example: [{ \"tier\": \"unit\", \"expect\": \"all_pass\" }] to verify all unit tests pass. " +
+                "For TDD red-phase tasks, use { \"tier\": \"unit\", \"expect\": \"any_fail\" } to verify tests fail before implementation.",
+              items: {
+                type: "object",
+                properties: {
+                  tier: {
+                    type: "string",
+                    description:
+                      "Test tier name. Must match a tier configured in .agent-test-config.json. " +
+                      "Common tiers: 'smoke', 'unit', 'integration', 'extension-smoke', 'extension-unit', 'extension-integration'",
+                  },
+                  expect: {
+                    type: "string",
+                    enum: ["all_pass", "any_fail", "min_pass_count"],
+                    description:
+                      "Expected test outcome. 'all_pass' = every test must pass. " +
+                      "'any_fail' = at least one test must fail (TDD red phase — proves tests are meaningful before implementation). " +
+                      "'min_pass_count' = at least min_pass_count tests must pass (requires min_pass_count field).",
+                  },
+                  min_pass_count: {
+                    type: "number",
+                    description: "Required when expect='min_pass_count'. The minimum number of tests that must pass.",
+                  },
+                },
+                required: ["tier", "expect"],
               },
             },
           },
@@ -412,7 +511,7 @@ const TOOLS_WITH_ROLES: ToolWithRole[] = [
         rationale: {
           type: "string",
           description:
-            "Required when updating during PREPARE phase. Explains why the verification criteria are being amended (min 10 chars).",
+            "Required when updating outside CONFIGURE phase (min 10 chars). Explains why the verification criteria are being amended.",
         },
       },
       required: ["task_id", "verification"],
@@ -462,7 +561,9 @@ const TOOLS_WITH_ROLES: ToolWithRole[] = [
     role: "orchestrator",
     name: "prepare_task",
     description:
-      "Create handover for implementor with acceptance criteria and file operations",
+      "Create handover for implementor with acceptance criteria and file operations. " +
+      "Optionally includes verification checks (structural, behavioral, quality, test_verification). " +
+      "For test execution, use test_verification instead of behavioral_checks.",
     inputSchema: {
       type: "object",
       properties: {
@@ -522,6 +623,75 @@ const TOOLS_WITH_ROLES: ToolWithRole[] = [
           type: "boolean",
           description:
             "Enable TDD red-phase verification: verify tests FAIL before implementation to prove tests are meaningful",
+        },
+        verification: {
+          type: "object",
+          description:
+            "Optional verification checks to attach during preparation. Same structure as update_verification. " +
+            "IMPORTANT: Do NOT put test execution commands in behavioral_checks — use test_verification instead.",
+          properties: {
+            structural_checks: {
+              type: "array",
+              description: "Verify file existence and content patterns via glob paths + regex.",
+              items: {
+                type: "object",
+                properties: {
+                  description: { type: "string" },
+                  severity: { type: "string", enum: ["BLOCKING", "MAJOR", "MINOR", "INFO"] },
+                  path: { type: "string", description: "Glob pattern or file path (must contain glob chars or file extension)" },
+                  pattern: { type: "string", description: "Optional regex to match within files" },
+                  min_matches: { type: "number" },
+                },
+                required: ["description", "severity", "path"],
+              },
+            },
+            behavioral_checks: {
+              type: "array",
+              description: "Run shell commands and verify exit codes/output. NOT for test execution — use test_verification.",
+              items: {
+                type: "object",
+                properties: {
+                  description: { type: "string" },
+                  severity: { type: "string", enum: ["BLOCKING", "MAJOR", "MINOR", "INFO"] },
+                  command: { type: "string", description: "Shell command (no test runners — use test_verification)" },
+                  expect_exit_code: { type: "number" },
+                  expect_output_contains: { type: "string" },
+                },
+                required: ["description", "severity", "command"],
+              },
+            },
+            quality_checks: {
+              type: "array",
+              description: "Code quality checks via command or file pattern matching.",
+              items: {
+                type: "object",
+                properties: {
+                  description: { type: "string" },
+                  severity: { type: "string", enum: ["BLOCKING", "MAJOR", "MINOR", "INFO"] },
+                  command: { type: "string" },
+                  path: { type: "string" },
+                  pattern: { type: "string" },
+                  min_matches: { type: "number" },
+                },
+                required: ["description", "severity"],
+              },
+            },
+            test_verification: {
+              type: "array",
+              description:
+                "Declarative test execution. Specify tier + expected outcome instead of shell commands. " +
+                "Example: [{ \"tier\": \"unit\", \"expect\": \"all_pass\" }]",
+              items: {
+                type: "object",
+                properties: {
+                  tier: { type: "string", description: "Test tier (e.g. 'unit', 'smoke', 'integration')" },
+                  expect: { type: "string", enum: ["all_pass", "any_fail", "min_pass_count"], description: "Expected outcome" },
+                  min_pass_count: { type: "number", description: "Required when expect='min_pass_count'" },
+                },
+                required: ["tier", "expect"],
+              },
+            },
+          },
         },
       },
       required: [

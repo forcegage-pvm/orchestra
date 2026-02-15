@@ -615,9 +615,9 @@ tdd:
     dart_green_command: "flutter test --exclude-tags tdd-red"
 
     # TypeScript project settings
-    typescript_directory: "test/tdd-red"
-    typescript_red_command: "npm test -- test/tdd-red"
-    typescript_green_command: "npm test -- --testPathIgnorePatterns=tdd-red"
+    typescript_directory: "test/red"
+    typescript_red_command: "npm test -- test/red"
+    typescript_green_command: "npm test -- --exclude test/red"
 ```
 
 ### Sprint-Level Configuration
@@ -663,7 +663,7 @@ tdd:
 1. Verify `tdd_red_phase: true` is set on task
 2. Check test has correct marker:
    - Dart: `@Tags(['tdd-red'])`
-   - TypeScript: File in `test/tdd-red/`
+   - TypeScript: File in `test/red/`
 3. Verify handover includes TDD instructions
 4. Run dual verification locally:
    ```bash
@@ -694,7 +694,7 @@ Orchestrator runs cleanup automatically during `prepare_task`. If markers persis
 1. Check git status - should see cleanup commit
 2. Manually remove markers if needed:
    - Dart: Search for `@Tags(['tdd-red'])` and remove
-   - TypeScript: Move files from `test/tdd-red/` to `test/unit/`
+   - TypeScript: Move files from `test/red/` to `test/unit/`
 3. Commit cleanup: `git commit -m "chore: remove stale tdd-red markers"`
 
 ---

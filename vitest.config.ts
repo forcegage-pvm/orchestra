@@ -8,9 +8,14 @@ export default defineConfig({
     globals: true,
     environment: "node",
     include: [
-      "test/**/*.test.ts",
+      "test/smoke/**/*.test.ts",
+      "test/unit/**/*.test.ts",
+      "test/integration/**/*.test.ts",
+      "test/red/**/*.test.ts",
       "testing/**/*.test.ts",
-      "extension/test/**/*.test.ts",
+      "extension/test/unit/**/*.test.ts",
+      "extension/test/integration/**/*.test.ts",
+      "extension/test/smoke/**/*.test.ts",
     ],
     exclude: ["node_modules", "dist", "testing/tdd-test-harness/**"],
     // Global setup - creates pre-migrated database template once
@@ -23,10 +28,11 @@ export default defineConfig({
     },
     testTimeout: 30000,
     hookTimeout: 10000,
-    // Optimize parallel execution with threads for lower overhead
-    pool: "threads",
+    // Use forks pool to avoid better-sqlite3 native module segfault
+    // during thread cleanup on Node.js v24 + Windows
+    pool: "forks",
     poolOptions: {
-      threads: {
+      forks: {
         // Dynamically scale workers based on CPU cores (half available cores)
         maxWorkers: Math.max(1, Math.floor(cpus().length / 2)),
         // Reduce overhead by reusing workers

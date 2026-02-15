@@ -14,6 +14,11 @@ import {
   type CheckConfig,
   type CheckResult,
 } from "../../core/check-executor.js";
+import {
+  runTestsCore,
+  type RunTestsCoreInput,
+  type TestRunResult,
+} from "../../core/pre-signal-test-adapter.js";
 import { getActiveSprint, getDb } from "../../db/index.js";
 import {
   config,
@@ -26,8 +31,96 @@ import { validateInput } from "../../schemas/utils.js";
 import {
   RunVerificationChecksInputSchema,
   type RunVerificationChecksOutput,
+  type TestExpectation,
 } from "../../schemas/verification.js";
 import { logToolExecution } from "./audit-logging.js";
+
+type VerificationResultType =
+  | "structural"
+  | "behavioral"
+  | "quality"
+  | "test_verification";
+
+interface TestVerificationCheckConfig {
+  tier: string;
+  expect: TestExpectation;
+  min_pass_count?: number;
+}
+
+function parseTestVerificationCheckConfig(
+  rawConfig: string,
+): TestVerificationCheckConfig {
+  const parsed = JSON.parse(rawConfig) as Record<string, unknown>;
+
+  if (typeof parsed.tier !== "string" || parsed.tier.length === 0) {
+    throw new Error("Invalid test_verification check: tier is required");
+  }
+
+  const expectValue = parsed.expect;
+  if (
+    expectValue !== "all_pass" &&
+    expectValue !== "any_fail" &&
+    expectValue !== "min_pass_count"
+  ) {
+    throw new Error("Invalid test_verification check: expect is required");
+  }
+
+  const config: TestVerificationCheckConfig = {
+    tier: parsed.tier,
+    expect: expectValue,
+  };
+
+  if (typeof parsed.min_pass_count === "number") {
+    config.min_pass_count = parsed.min_pass_count;
+  }
+
+  return config;
+}
+
+function evaluateTestVerificationExpectation(
+  testResult: TestRunResult,
+  checkConfig: TestVerificationCheckConfig,
+): { passed: boolean; message: string } {
+  switch (checkConfig.expect) {
+    case "all_pass": {
+      const passed = testResult.failed === 0;
+      return {
+        passed,
+        message: passed
+          ? `All tests passed for tier '${testResult.tier}'`
+          : `Expected all tests to pass for tier '${testResult.tier}', but ${testResult.failed} failed`,
+      };
+    }
+
+    case "any_fail": {
+      const passed = testResult.failed > 0;
+      return {
+        passed,
+        message: passed
+          ? `Expected failures observed for tier '${testResult.tier}'`
+          : `Expected at least one failure for tier '${testResult.tier}', but none failed`,
+      };
+    }
+
+    case "min_pass_count": {
+      const minPassCount = checkConfig.min_pass_count ?? 0;
+      const passed = testResult.passed >= minPassCount;
+      return {
+        passed,
+        message: passed
+          ? `Tier '${testResult.tier}' met min_pass_count (${testResult.passed}/${minPassCount})`
+          : `Tier '${testResult.tier}' failed min_pass_count (${testResult.passed}/${minPassCount})`,
+      };
+    }
+
+    default: {
+      const _exhaustiveCheck: never = checkConfig.expect;
+      throw new Error(
+        `Unknown test_verification expect value: ${_exhaustiveCheck}`,
+      );
+    }
+  }
+}
 
 export async function handleRunVerificationChecks(input: unknown) {
   const startTime = performance.now();
@@ -43,7 +136,7 @@ export async function handleRunVerificationChecks(input: unknown) {
               error: validation.error,
             },
             null,
-            2
+            2,
           ),
         },
       ],
@@ -69,7 +162,7 @@ export async function handleRunVerificationChecks(input: unknown) {
         taskId: validation.data.task_id,
       },
       { success: true, output },
-      durationMs
+      durationMs,
     );
 
     return {
@@ -87,7 +180,7 @@ export async function handleRunVerificationChecks(input: unknown) {
         taskId: validation.data.task_id,
       },
       { success: false, errorMessage: err.message },
-      durationMs
+      durationMs,
     );
 
     return {
@@ -103,7 +196,7 @@ export async function handleRunVerificationChecks(input: unknown) {
               },
             },
             null,
-            2
+            2,
           ),
         },
       ],
@@ -112,7 +205,7 @@ export async function handleRunVerificationChecks(input: unknown) {
 }
 
 async function runVerificationChecks(
-  input: typeof RunVerificationChecksInputSchema._output
+  input: typeof RunVerificationChecksInputSchema._output,
 ): Promise<RunVerificationChecksOutput> {
   const db = getDb();
   const startTime = Date.now();
@@ -152,7 +245,7 @@ async function runVerificationChecks(
     .select()
     .from(tasks)
     .where(
-      and(eq(tasks.sprint_id, sprint.id), eq(tasks.task_id, input.task_id))
+      and(eq(tasks.sprint_id, sprint.id), eq(tasks.task_id, input.task_id)),
     )
     .limit(1);
 
@@ -233,15 +326,26 @@ async function runVerificationChecks(
 
   // 7. Execute checks
   const workspacePath = process.env.ORCHESTRA_WORKSPACE || process.cwd();
+  const [sprintTestCommand] = await db
+    .select({ value: config.value })
+    .from(config)
+    .where(eq(config.key, "test_command"))
+    .limit(1);
+
   const results: Array<{
     check_id: string;
-    type: "structural" | "behavioral" | "quality";
+    type: VerificationResultType;
     description: string;
     severity: "BLOCKING" | "MAJOR" | "MINOR" | "INFO";
     passed: boolean;
     message: string;
     output?: string;
     duration_ms: number;
+    test_verification_result?: {
+      tier: string;
+      passed: number;
+      failed: number;
+    };
   }> = [];
 
   const severityBreakdown = {
@@ -253,20 +357,62 @@ async function runVerificationChecks(
 
   for (const check of checks) {
     let checkResult: CheckResult;
-    // Parse check_config and merge with type from check_type column
-    const parsedConfig = JSON.parse(check.check_config);
-    const checkConfig: CheckConfig = {
-      type: check.check_type as "structural" | "behavioral" | "quality",
-      ...parsedConfig,
-    };
+    let testVerificationResult:
+      | {
+          tier: string;
+          passed: number;
+          failed: number;
+        }
+      | undefined;
 
     try {
-      checkResult = await executeCheck(checkConfig, workspacePath);
+      if (check.check_type === "test_verification") {
+        const parsedConfig = parseTestVerificationCheckConfig(
+          check.check_config,
+        );
+        const runTestsCoreInput: RunTestsCoreInput = {
+          tier: parsedConfig.tier,
+          workspacePath,
+        };
+        if (sprintTestCommand?.value) {
+          runTestsCoreInput.fallbackCommand = sprintTestCommand.value;
+        }
+        const testResult = await runTestsCore(runTestsCoreInput);
+        const expectationResult = evaluateTestVerificationExpectation(
+          testResult,
+          parsedConfig,
+        );
+
+        testVerificationResult = {
+          tier: testResult.tier,
+          passed: testResult.passed,
+          failed: testResult.failed,
+        };
+
+        const testCheckResult: CheckResult = {
+          passed: expectationResult.passed,
+          message: expectationResult.message,
+          duration_ms: testResult.duration_ms,
+        };
+
+        if (testResult.output) {
+          testCheckResult.output = testResult.output;
+        }
+
+        checkResult = testCheckResult;
+      } else {
+        const parsedConfig = JSON.parse(check.check_config);
+        const checkConfig: CheckConfig = {
+          type: check.check_type as "structural" | "behavioral" | "quality",
+          ...parsedConfig,
+        };
+
+        checkResult = await executeCheck(checkConfig, workspacePath);
+      }
     } catch (error) {
       if (!input.continue_on_error) {
         throw error;
       }
-      // Create error result
       checkResult = {
         passed: false,
         message: `Check error: ${
@@ -287,37 +433,44 @@ async function runVerificationChecks(
       severityBreakdown[severity].failed++;
     }
 
-    // Truncate output to 10KB max
     const outputTruncated =
       checkResult.output && checkResult.output.length > 10240
         ? checkResult.output.slice(0, 10240) + "... (truncated)"
         : checkResult.output;
 
-    // Build result object conditionally to satisfy exactOptionalPropertyTypes
     const result: {
       check_id: string;
-      type: "structural" | "behavioral" | "quality";
+      type: VerificationResultType;
       description: string;
       severity: "BLOCKING" | "MAJOR" | "MINOR" | "INFO";
       passed: boolean;
       message: string;
       output?: string;
       duration_ms: number;
+      test_verification_result?: {
+        tier: string;
+        passed: number;
+        failed: number;
+      };
     } = {
       check_id: check.check_id,
-      type: check.check_type as "structural" | "behavioral" | "quality",
+      type: check.check_type as VerificationResultType,
       description: check.description,
       severity: check.severity as "BLOCKING" | "MAJOR" | "MINOR" | "INFO",
       passed: checkResult.passed,
       message: checkResult.message,
       duration_ms: checkResult.duration_ms,
     };
+
     if (outputTruncated) {
       result.output = outputTruncated;
     }
+    if (testVerificationResult) {
+      result.test_verification_result = testVerificationResult;
+    }
+
     results.push(result);
 
-    // Store result in database
     await db.insert(verificationResults).values({
       task_id: task.id,
       check_id: check.id,
@@ -328,7 +481,6 @@ async function runVerificationChecks(
       run_at: timestamp,
     });
   }
-
   // 8. Compute overall pass/fail based on severity rules
   // BLOCKING or MAJOR failures = overall failure
   // MINOR and INFO failures = warning only

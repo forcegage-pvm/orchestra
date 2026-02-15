@@ -16,6 +16,7 @@ import {
 } from "../../core/artifact-validator.js";
 import { autoCommitIfEnabled, generateCommitMessage } from "../../core/git.js";
 import {
+  loadLinkedRedTaskFiles,
   runPreSignalChecks,
   type PreSignalConfig,
 } from "../../core/pre-signal-executor.js";
@@ -33,6 +34,7 @@ import {
   sprints,
   tasks,
   tddRedRegistry,
+  tddTaskRelationships,
 } from "../../db/schema.js";
 import {
   SignalCompletionInputSchema,
@@ -181,11 +183,39 @@ async function signalCompletion(
 
   // 5. Run pre-signal checks (GAP-01: actually execute commands)
   const preSignalConfig = await getPreSignalConfig();
+  console.error(
+    `[SIGNAL-DIAG] getPreSignalConfig returned: workspacePath=${preSignalConfig.workspacePath}, skipBuild=${preSignalConfig.skipBuild}, skipTest=${preSignalConfig.skipTest}, skipLint=${preSignalConfig.skipLint}`,
+  );
   // Pass tdd_red_phase from task to executor (Task 19)
   if (task.tdd_red_phase) {
     preSignalConfig.tddRedPhase = true;
     preSignalConfig.taskId = task.task_id;
   }
+  console.error(
+    `[SIGNAL-DIAG] signalCompletion: task.tdd_red_phase=${task.tdd_red_phase}, config.tddRedPhase=${preSignalConfig.tddRedPhase}, taskId=${preSignalConfig.taskId}`,
+  );
+
+  // FR-027: Detect if current task is a green task by querying tdd_task_relationships
+  // Uses the task's internal DB id (task.id), not the user-facing task_id
+  const greenRelationships = await db
+    .select()
+    .from(tddTaskRelationships)
+    .where(eq(tddTaskRelationships.green_task_id, task.id));
+
+  if (greenRelationships.length > 0) {
+    // This is a green task - load linked red task test files
+    const allLinkedFiles: string[] = [];
+    for (const rel of greenRelationships) {
+      const files = await loadLinkedRedTaskFiles(rel.red_task_id);
+      allLinkedFiles.push(...files);
+    }
+
+    preSignalConfig.greenPhase = true;
+    preSignalConfig.linkedRedTaskFiles = allLinkedFiles;
+    preSignalConfig.greenPhaseSprintId = sprint.id;
+    preSignalConfig.greenPhaseTaskId = task.id;
+  }
+
   const preSignalChecks = await runPreSignalChecks(preSignalConfig);
 
   // 5b. Validate artifacts exist (VER-003)
@@ -336,14 +366,14 @@ async function signalCompletion(
     }
   }
 
-  // 6c. Check for files with tdd-red markers but missing // @orchestra-task: N
+  // 6c. Check for files in test/red/ but missing // @orchestra-task: N
   if (
     scanResult.filesWithoutTaskId &&
     scanResult.filesWithoutTaskId.length > 0
   ) {
     throw new Error(
-      `TDD-RED FILE MISSING TASK-ID:\n\n` +
-        `The following files have @Tags(['tdd-red']) or [tdd-red] markers\n` +
+      `TDD RED-PHASE FILE MISSING TASK-ID:\n\n` +
+        `The following files are in the test/red/ directory\n` +
         `but are missing the task-ID annotation:\n\n` +
         scanResult.filesWithoutTaskId.map((f) => `  - ${f}`).join("\n") +
         `\n\nAdd at the top of each file:\n` +
@@ -360,26 +390,28 @@ async function signalCompletion(
     if (!taskMarkers || taskMarkers.length === 0) {
       throw new Error(
         `TDD RED-PHASE WORKFLOW VIOLATION:\n\n` +
-          `Task ${task.task_id} has tdd_red_phase=true but no TDD markers were found.\n\n` +
-          `REQUIRED FORMAT (per DESIGN.md):\n` +
-          `  1. Add test runner filtering tag (NO task ID in tag):\n` +
-          `     TypeScript: [tdd-red] in test/describe name\n` +
-          `     Dart: @Tags(['tdd-red']) or tags: ['tdd-red']\n\n` +
-          `  2. Add task linking comment at TOP of file:\n` +
+          `Task ${task.task_id} has tdd_red_phase=true but no TDD test files were found.\n\n` +
+          `REQUIRED STEPS:\n` +
+          `  1. Create test files under the test/red/ directory:\n` +
+          `     TypeScript: test/red/{tier}/your-feature.test.ts\n` +
+          `     Dart: test/red/{tier}/your_feature_test.dart\n\n` +
+          `  2. Add task linking comment at TOP of each file:\n` +
           `     // @orchestra-task: ${task.task_id}\n\n` +
           `EXAMPLE (TypeScript):\n` +
           `  // @orchestra-task: ${task.task_id}\n` +
-          `  describe('[tdd-red] Feature', () => {\n` +
-          `    it('[tdd-red] should work', () => { ... });\n` +
+          `  // File: test/red/unit/feature.test.ts\n` +
+          `  describe('Feature', () => {\n` +
+          `    it('should work', () => { ... });\n` +
           `  });\n\n` +
           `EXAMPLE (Dart):\n` +
           `  // @orchestra-task: ${task.task_id}\n` +
-          `  @Tags(['tdd-red'])\n` +
-          `  library;\n` +
-          `  void main() { ... }\n\n` +
+          `  // File: test/red/unit/feature_test.dart\n` +
+          `  void main() {\n` +
+          `    test('should work', () => { ... });\n` +
+          `  }\n\n` +
           `Red and green phases MUST be separate tasks:\n` +
-          `- Red task: Write failing tests, KEEP markers, signal completion\n` +
-          `- Green task: Implement feature, remove markers, signal completion`,
+          `- Red task: Write failing tests under test/red/, signal completion\n` +
+          `- Green task: Implement feature, promote tests out of test/red/, signal completion`,
       );
     }
   }

@@ -428,6 +428,62 @@ export class AgentRunner implements vscode.Disposable {
   }
 
   /**
+   * Detect garbled LLM output where tool calls are embedded as corrupt text
+   * instead of structured LanguageModelToolCallPart chunks.
+   *
+   * This happens when the LLM provider's structured output pipeline breaks,
+   * producing garbled text with mixed scripts (Latin, CJK, Armenian, Cyrillic)
+   * and embedded tool call syntax like `to=functions.run_tests`.
+   *
+   * @param text - The accumulated thinking text from the LLM response stream
+   * @returns true if the text contains garbled tool call patterns
+   */
+  private detectGarbledToolCall(text: string): boolean {
+    if (!text || text.length < 20) {
+      return false;
+    }
+
+    // Pattern 1: OpenAI-style tool call syntax embedded in text
+    // e.g. "to=functions.run_tests" or "to=functions.promote_tests"
+    const hasToolCallSyntax = /to=functions\.[a-z_]+/.test(text);
+
+    // Pattern 2: JSON-like payload adjacent to non-Latin script blocks
+    // e.g. "մեկնաբանություն 大发彩票网json {\"scope\":\"red\"}"
+    const hasJsonAfterMixedScript =
+      /[\u0400-\u04FF\u0530-\u058F\u4E00-\u9FFF].{0,30}json\s*[{\[]/.test(text);
+
+    // Pattern 3: "assistant" keyword fused with surrounding text (no spaces)
+    // e.g. "numerusformassistant" — the LLM tried to emit an assistant/tool boundary
+    const hasFusedAssistantKeyword = /[a-z]{3,}assistant\s+to=functions/.test(
+      text,
+    );
+
+    // Pattern 4: Mixed-script soup — non-Latin characters from 3+ different
+    // Unicode blocks within a short span, indicating token corruption
+    const hasCJK = /[\u4E00-\u9FFF\u3400-\u4DBF]/.test(text);
+    const hasArmenian = /[\u0530-\u058F]/.test(text);
+    const hasCyrillic = /[\u0400-\u04FF]/.test(text);
+    const hasGeorgian = /[\u10A0-\u10FF]/.test(text);
+    const hasArabic = /[\u0600-\u06FF]/.test(text);
+    const nonLatinScriptCount =
+      (hasCJK ? 1 : 0) +
+      (hasArmenian ? 1 : 0) +
+      (hasCyrillic ? 1 : 0) +
+      (hasGeorgian ? 1 : 0) +
+      (hasArabic ? 1 : 0);
+    // Mixed scripts alone aren't enough — also require some tool-call signal
+    const hasMixedScriptWithToolSignal =
+      nonLatinScriptCount >= 2 && /functions\.|json\s*[{\[]|to=/.test(text);
+
+    return (
+      hasToolCallSyntax ||
+      hasJsonAfterMixedScript ||
+      hasFusedAssistantKeyword ||
+      hasMixedScriptWithToolSignal
+    );
+  }
+
+  /**
    * Create a new AgentRunner
    *
    * @param toolRegistry - Tool registry for executing tool calls
@@ -678,23 +734,65 @@ export class AgentRunner implements vscode.Disposable {
     // Create cancellation token
     this.cancellationTokenSource = new vscode.CancellationTokenSource();
 
-    // Inject system prompt as first message if provided (hidden from UI)
+    // Inject system prompt as first message if provided
+    // Now visible in UI (previously hidden) so user can see agent instructions
     if (options.systemPrompt) {
       this.addSystemMessage(options.systemPrompt);
+      // Emit to UI so it's visible in the agent panel
+      this.emitOutput({
+        type: "prompt",
+        timestamp: new Date().toISOString(),
+        iteration: 0,
+        text: `[System Prompt]\n\n${options.systemPrompt}`,
+      });
+      // Persist to database
+      this.eventEmitter?.emitPrompt(
+        `[System Prompt]\n\n${options.systemPrompt}`,
+      );
     }
 
-    // Inject coding standards as separate hidden message if provided
+    // Inject coding standards as separate message if provided
+    // Now visible in UI (previously hidden) so user can see coding standards
     if (options.codingStandardsPrompt) {
       this.addSystemMessage(options.codingStandardsPrompt);
+      // Emit to UI so it's visible in the agent panel
+      this.emitOutput({
+        type: "prompt",
+        timestamp: new Date().toISOString(),
+        iteration: 0,
+        text: `[Coding Standards]\n\n${options.codingStandardsPrompt}`,
+      });
+      // Persist to database
+      this.eventEmitter?.emitPrompt(
+        `[Coding Standards]\n\n${options.codingStandardsPrompt}`,
+      );
     }
 
     // Inject environment context so agent knows its operating environment
     const envContext = this.buildEnvironmentContext();
     this.addUserMessage(envContext);
+    // Emit environment context to UI
+    this.emitOutput({
+      type: "prompt",
+      timestamp: new Date().toISOString(),
+      iteration: 0,
+      text: `[Environment Context]\n\n${envContext}`,
+    });
+    this.eventEmitter?.emitPrompt(`[Environment Context]\n\n${envContext}`);
 
     // Inject retry context if this is a re-invocation after a "lost agent" scenario
     if (this.pendingRetryContext) {
       this.addUserMessage(this.pendingRetryContext);
+      // Emit retry context to UI
+      this.emitOutput({
+        type: "prompt",
+        timestamp: new Date().toISOString(),
+        iteration: 0,
+        text: `[Retry Context]\n\n${this.pendingRetryContext}`,
+      });
+      this.eventEmitter?.emitPrompt(
+        `[Retry Context]\n\n${this.pendingRetryContext}`,
+      );
       this.pendingRetryContext = undefined; // Consume once
     }
 
@@ -1121,6 +1219,26 @@ export class AgentRunner implements vscode.Disposable {
     // Enable persistence and create event emitter for CHILD session
     this.session.enablePersistence(workspaceRoot, childSessionId);
     this.eventEmitter = new SessionEventEmitter(workspaceRoot, childSessionId);
+
+    // Emit session_start for the child session so the AgentPanel and WorkflowChain
+    // are notified. Without this, the panel won't display the new session and
+    // WorkflowChain won't track the child session's starting state.
+    const childSessionInfo: AgentSessionInfo = {
+      id: childSessionId,
+      role,
+      status: "running",
+      startedAt: new Date().toISOString(),
+    };
+    if (taskId !== null) {
+      childSessionInfo.taskId = taskId;
+    }
+    if (childSession.taskNumber !== undefined) {
+      childSessionInfo.taskNumber = childSession.taskNumber;
+    }
+    if (childSession.taskTitle !== undefined) {
+      childSessionInfo.taskTitle = childSession.taskTitle;
+    }
+    this.eventEmitter.emitSessionStart(childSessionInfo);
 
     // Load tools for the role
     if (!this.config.skipToolLoading) {
@@ -2057,6 +2175,11 @@ export class AgentRunner implements vscode.Disposable {
       return { kind: "malformed", message: msg };
     }
 
+    // Garbled tool call — LLM produced corrupt text instead of structured tool calls
+    if (msg.includes("garbled_tool_call")) {
+      return { kind: "transient", message: msg };
+    }
+
     // Transient server errors
     if (
       msg.includes("Server error: 5") || // 500, 502, 503, etc.
@@ -2447,6 +2570,35 @@ export class AgentRunner implements vscode.Disposable {
         // This is required by the LLM API - tool results must follow tool calls
         this.addAssistantToolCallMessage(toolCalls);
         await this.executeToolCalls(toolCalls);
+      }
+
+      // Detect garbled tool calls in text-only responses.
+      // When the LLM produces corrupt output, tool calls appear as garbled text
+      // instead of structured LanguageModelToolCallPart chunks. Treating this
+      // as a transient error allows sendRequest() to retry with backoff.
+      if (
+        !hadToolCalls &&
+        thinkingText &&
+        this.detectGarbledToolCall(thinkingText)
+      ) {
+        const preview = thinkingText.substring(0, 200).replace(/\n/g, " ");
+        console.error(
+          `[AgentRunner] Garbled tool call detected in text output: ${preview}`,
+        );
+
+        // Emit a recoverable error so the Agent Panel shows what happened
+        this.emitOutput({
+          type: "error",
+          timestamp: new Date().toISOString(),
+          iteration: this.session.currentIteration,
+          errorCode: "LLM_GARBLED_OUTPUT",
+          errorMessage: `LLM produced garbled output with embedded tool call fragments. Retrying...`,
+          recoverable: true,
+        });
+
+        throw new Error(
+          "garbled_tool_call: LLM output contains corrupt tool call fragments instead of structured tool calls",
+        );
       }
 
       return hadToolCalls;

@@ -28,6 +28,9 @@ export async function withWorkspaceContext<T>(
   const originalWorkspace = process.env.ORCHESTRA_WORKSPACE;
   try {
     process.env.ORCHESTRA_WORKSPACE = workspaceRoot;
+    console.error(
+      `[SIGNAL-DIAG] withWorkspaceContext: workspaceRoot=${workspaceRoot}, ORCHESTRA_WORKSPACE=${process.env.ORCHESTRA_WORKSPACE}`,
+    );
     return await fn();
   } finally {
     if (originalWorkspace === undefined) {

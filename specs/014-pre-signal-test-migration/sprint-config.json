@@ -1,0 +1,657 @@
+{
+  "sprint": {
+    "id": "014-pre-signal-migration",
+    "name": "Pre-Signal Test Verification Migration"
+  },
+  "environment": {
+    "test_command": "npm test",
+    "test_file_pattern": "test/**/*.test.ts",
+    "source_base_dir": "src"
+  },
+  "phases": [
+    {
+      "phase_id": "phase-1-setup",
+      "phase_name": "Setup: Verification Schema",
+      "speckit_tasks": ["T001", "T002"]
+    },
+    {
+      "phase_id": "phase-2-foundation",
+      "phase_name": "Foundational: Path-Based TDD Infrastructure",
+      "speckit_tasks": ["T003", "T004", "T005", "T006", "T007"]
+    },
+    {
+      "phase_id": "phase-3-declarative",
+      "phase_name": "US7: Declarative Verification Criteria",
+      "speckit_tasks": ["T008", "T009", "T010", "T040", "T041"]
+    },
+    {
+      "phase_id": "phase-4-normal-verify",
+      "phase_name": "US3: Normal Test Verification",
+      "speckit_tasks": ["T011", "T012", "T013", "T014"]
+    },
+    {
+      "phase_id": "phase-5-tdd-presignal",
+      "phase_name": "US4: TDD Pre-Signal Verification",
+      "speckit_tasks": ["T015", "T016", "T017", "T018"]
+    },
+    {
+      "phase_id": "phase-6-tdd-workflow",
+      "phase_name": "US1+US2: TDD Red Test + Promotion",
+      "speckit_tasks": ["T019", "T020", "T021", "T022", "T023"]
+    },
+    {
+      "phase_id": "phase-7-green-phase",
+      "phase_name": "US5: Green Phase Verification",
+      "speckit_tasks": ["T024", "T025", "T026", "T027"]
+    },
+    {
+      "phase_id": "phase-8-handover",
+      "phase_name": "US6: Handover Instructions",
+      "speckit_tasks": ["T028", "T029", "T030", "T031"]
+    },
+    {
+      "phase_id": "phase-9-polish",
+      "phase_name": "Polish & Cross-Cutting Concerns",
+      "speckit_tasks": [
+        "T032",
+        "T033",
+        "T034",
+        "T035",
+        "T036",
+        "T037",
+        "T038",
+        "T039"
+      ]
+    }
+  ],
+  "tasks": [
+    {
+      "task_id": 1,
+      "phase_id": "phase-1-setup",
+      "title": "Create TestVerificationCriteria schema and exports",
+      "description": "Create the declarative test verification schema in src/schemas/verification.ts. Add TestVerificationCriteriaSchema (tier + expect + optional min_pass_count), TestExpectationSchema (all_pass | any_fail | min_pass_count), SHELL_COMMAND_PATTERNS array listing blocked patterns (npm test, npx vitest, npx jest, flutter test, pytest, cargo test), and containsShellTestCommand() utility function. Export all new types from src/schemas/index.ts. Per FR-035, FR-036.",
+      "category": "INFRASTRUCTURE",
+      "dependencies": [],
+      "speckit_task_ref": "T001,T002",
+      "verification": {
+        "structural_checks": [
+          {
+            "description": "TestVerificationCriteriaSchema defined in verification.ts",
+            "path": "src/schemas/verification.ts",
+            "pattern": "TestVerificationCriteriaSchema",
+            "severity": "BLOCKING",
+            "min_matches": 1
+          },
+          {
+            "description": "TestExpectationSchema defined in verification.ts",
+            "path": "src/schemas/verification.ts",
+            "pattern": "TestExpectationSchema",
+            "severity": "BLOCKING",
+            "min_matches": 1
+          },
+          {
+            "description": "Verification schemas exported from index.ts",
+            "path": "src/schemas/index.ts",
+            "pattern": "TestVerificationCriteria",
+            "severity": "BLOCKING",
+            "min_matches": 1
+          }
+        ],
+        "quality_checks": [
+          {
+            "description": "SHELL_COMMAND_PATTERNS defined for test command rejection",
+            "path": "src/schemas/verification.ts",
+            "pattern": "SHELL_COMMAND_PATTERNS",
+            "severity": "MAJOR",
+            "min_matches": 1
+          },
+          {
+            "description": "Schema uses Zod validation patterns",
+            "path": "src/schemas/verification.ts",
+            "pattern": "z\\.(object|enum|string|array)",
+            "severity": "MAJOR",
+            "min_matches": 2
+          },
+          {
+            "description": "All three expectation types defined (all_pass, any_fail, min_pass_count)",
+            "path": "src/schemas/verification.ts",
+            "pattern": "all_pass|any_fail|min_pass_count",
+            "severity": "MAJOR",
+            "min_matches": 3
+          },
+          {
+            "description": "containsShellTestCommand utility function exists",
+            "path": "src/schemas/verification.ts",
+            "pattern": "containsShellTestCommand",
+            "severity": "MAJOR",
+            "min_matches": 1
+          }
+        ],
+        "behavioral_checks": [
+          {
+            "description": "TypeScript compilation succeeds",
+            "command": "npm run typecheck",
+            "expect_exit_code": 0,
+            "severity": "BLOCKING"
+          }
+        ]
+      }
+    },
+    {
+      "task_id": 2,
+      "phase_id": "phase-2-foundation",
+      "title": "Core path-based TDD infrastructure migration",
+      "description": "Migrate all TDD detection from content tag scanning ([tdd-red]) to path-based detection (test/red/). (1) Update tdd-marker-scanner.ts: replace content tag patterns with path-based detection using test/red/ directory, per FR-006, FR-009. (2) Update tdd-scan-on-signal.ts: use directory listing (readdir) instead of glob+content scan for registry population, per FR-023. (3) Add test command rejection patterns to pattern-validator.ts, per FR-039. (4) Update tdd-validation.ts for path-based validation, per FR-007. (5) Update tdd-exclusion-resolver.ts for directory-based exclusion of test/red/ from normal scopes, per FR-014.",
+      "category": "INFRASTRUCTURE",
+      "dependencies": [1],
+      "speckit_task_ref": "T003,T004,T005,T006,T007",
+      "verification": {
+        "structural_checks": [
+          {
+            "description": "tdd-marker-scanner.ts has path-based detection for test/red/",
+            "path": "src/core/tdd-marker-scanner.ts",
+            "pattern": "test/red|test[/\\\\]red",
+            "severity": "BLOCKING",
+            "min_matches": 1
+          },
+          {
+            "description": "pattern-validator.ts has test command rejection patterns",
+            "path": "src/core/pattern-validator.ts",
+            "pattern": "npm.test|npx.vitest|pytest|cargo.test|flutter.test",
+            "severity": "BLOCKING",
+            "min_matches": 2
+          }
+        ],
+        "quality_checks": [
+          {
+            "description": "tdd-scan-on-signal.ts uses directory listing approach",
+            "path": "src/core/tdd-scan-on-signal.ts",
+            "pattern": "readdir|readdirSync|readDir|listDir|directory",
+            "severity": "MAJOR",
+            "min_matches": 1
+          },
+          {
+            "description": "tdd-exclusion-resolver.ts handles directory-based exclusion",
+            "path": "src/core/tdd-exclusion-resolver.ts",
+            "pattern": "test/red|test[/\\\\]red|exclude.*red|red.*exclude",
+            "severity": "MAJOR",
+            "min_matches": 1
+          },
+          {
+            "description": "tdd-validation.ts uses path-based validation",
+            "path": "src/core/tdd-validation.ts",
+            "pattern": "test/red|path.*based|file.*path|directory",
+            "severity": "MAJOR",
+            "min_matches": 1
+          }
+        ],
+        "behavioral_checks": [
+          {
+            "description": "TypeScript compilation succeeds",
+            "command": "npm run typecheck",
+            "expect_exit_code": 0,
+            "severity": "BLOCKING"
+          }
+        ]
+      }
+    },
+    {
+      "task_id": 3,
+      "phase_id": "phase-3-declarative",
+      "title": "Declarative test_verification in prepare/verify handlers",
+      "description": "Implement declarative test_verification format in MCP handlers. (1) Update prepare-task.ts: validate test_verification schema from handover input; reject behavioral_checks containing test execution patterns (npm test, npx vitest, etc.) with error 'Use test_verification format instead of behavioral_checks for test execution', per FR-039. (2) Update run-verification-checks.ts: when processing test_verification blocks, call runTestsCore() internally instead of shelling out, per FR-037, FR-038. (3) Return structured result { tier, passed, failed } instead of terminal output, per FR-040.",
+      "category": "INTEGRATION",
+      "dependencies": [1, 2],
+      "speckit_task_ref": "T008,T009,T010",
+      "verification": {
+        "structural_checks": [
+          {
+            "description": "prepare-task.ts references test_verification schema",
+            "path": "src/mcp-server/handlers/prepare-task.ts",
+            "pattern": "test_verification|TestVerificationCriteria",
+            "severity": "BLOCKING",
+            "min_matches": 1
+          },
+          {
+            "description": "run-verification-checks.ts processes test_verification",
+            "path": "src/mcp-server/handlers/run-verification-checks.ts",
+            "pattern": "test_verification|TestVerificationCriteria",
+            "severity": "BLOCKING",
+            "min_matches": 1
+          }
+        ],
+        "quality_checks": [
+          {
+            "description": "prepare-task.ts rejects behavioral_checks with test commands",
+            "path": "src/mcp-server/handlers/prepare-task.ts",
+            "pattern": "SHELL_COMMAND_PATTERNS|containsShellTestCommand|reject.*test.*command|test_verification.*format",
+            "severity": "MAJOR",
+            "min_matches": 1
+          },
+          {
+            "description": "run-verification-checks.ts calls test runner internally",
+            "path": "src/mcp-server/handlers/run-verification-checks.ts",
+            "pattern": "runTestsCore|runTests|run_tests",
+            "severity": "MAJOR",
+            "min_matches": 1
+          },
+          {
+            "description": "Rejection message text per FR-039",
+            "path": "src/mcp-server/handlers/prepare-task.ts",
+            "pattern": "Use test_verification format",
+            "severity": "MAJOR",
+            "min_matches": 1
+          }
+        ],
+        "behavioral_checks": [
+          {
+            "description": "TypeScript compilation succeeds",
+            "command": "npm run typecheck",
+            "expect_exit_code": 0,
+            "severity": "BLOCKING"
+          }
+        ]
+      }
+    },
+    {
+      "task_id": 4,
+      "phase_id": "phase-3-declarative",
+      "title": "Controller enforcement for test command rejection",
+      "description": "Update the Controller handover review flow to scan behavioral_checks for direct test execution commands during handover review, per FR-041. The Controller MUST reject handover if behavioral_checks contains test execution commands with the message: 'Use test_verification format instead of behavioral_checks for test execution', per FR-042. Add validation logic to handover-validation.ts (or the appropriate handler in the Controller review flow). Create integration test at test/integration/controller-test-command-rejection.test.ts verifying SC-012. Covers FR-041, FR-042, SC-012.",
+      "category": "INTEGRATION",
+      "dependencies": [3],
+      "speckit_task_ref": "T040,T041",
+      "verification": {
+        "structural_checks": [
+          {
+            "description": "Handover validation scans for test command patterns",
+            "path": "src/mcp-server/handlers/*.ts",
+            "pattern": "containsShellTestCommand|SHELL_COMMAND_PATTERNS|behavioral_checks.*test.*command",
+            "severity": "BLOCKING",
+            "min_matches": 1
+          },
+          {
+            "description": "Integration test for controller rejection exists",
+            "path": "test/integration/controller-test-command-rejection.test.ts",
+            "pattern": "describe|test|it",
+            "severity": "BLOCKING",
+            "min_matches": 1
+          }
+        ],
+        "quality_checks": [
+          {
+            "description": "Rejection message matches FR-042 specification",
+            "path": "src/mcp-server/handlers/*.ts",
+            "pattern": "Use test_verification format",
+            "severity": "MAJOR",
+            "min_matches": 1
+          }
+        ],
+        "behavioral_checks": [
+          {
+            "description": "Controller rejection integration test passes",
+            "command": "npm test -- test/integration/controller-test-command-rejection.test.ts",
+            "expect_exit_code": 0,
+            "severity": "BLOCKING"
+          }
+        ]
+      }
+    },
+    {
+      "task_id": 5,
+      "phase_id": "phase-4-normal-verify",
+      "title": "Pre-signal executor: normal test verification via run_tests",
+      "description": "Migrate pre-signal-executor.ts from shell commands to run_tests for normal test verification. (1) Replace getTddCommands()/shell execution with runTestsCore() call using scope=all, per FR-001. (2) Scope=all must execute all non-red tiers from .agent-test-config.json, per FR-002. (3) Fail if any test fails, per FR-003. (4) Pass with warning 'No tests found' if no tests configured, per FR-004. (5) On failure, output minimal message: 'Tests failed. Run \\'run_tests scope=all\\' for detailed diagnostics.', per FR-005. Excludes test/red/ from normal scope, per FR-014.",
+      "category": "INTEGRATION",
+      "dependencies": [2, 3],
+      "speckit_task_ref": "T011,T012,T013,T014",
+      "verification": {
+        "structural_checks": [
+          {
+            "description": "pre-signal-executor.ts uses runTestsCore or equivalent",
+            "path": "src/core/pre-signal-executor.ts",
+            "pattern": "runTestsCore|runTests|run_tests",
+            "severity": "BLOCKING",
+            "min_matches": 1
+          }
+        ],
+        "quality_checks": [
+          {
+            "description": "FR-005 minimal failure message present",
+            "path": "src/core/pre-signal-executor.ts",
+            "pattern": "Tests failed.*run_tests|Tests failed.*detailed diagnostics",
+            "severity": "MAJOR",
+            "min_matches": 1
+          },
+          {
+            "description": "FR-004 no-tests warning present",
+            "path": "src/core/pre-signal-executor.ts",
+            "pattern": "No tests found",
+            "severity": "MAJOR",
+            "min_matches": 1
+          },
+          {
+            "description": "scope=all used for normal verification",
+            "path": "src/core/pre-signal-executor.ts",
+            "pattern": "scope.*all|all.*scope",
+            "severity": "MAJOR",
+            "min_matches": 1
+          }
+        ],
+        "behavioral_checks": [
+          {
+            "description": "TypeScript compilation succeeds",
+            "command": "npm run typecheck",
+            "expect_exit_code": 0,
+            "severity": "BLOCKING"
+          }
+        ]
+      }
+    },
+    {
+      "task_id": 6,
+      "phase_id": "phase-5-tdd-presignal",
+      "title": "Pre-signal executor: TDD red-phase verification via scope=red",
+      "description": "Update TDD red-phase pre-signal verification to use run_tests scope=red. (1) Update runTddRedPhaseTests() to call runTestsCore with scope=red instead of shell commands, per FR-010. (2) Implement inverted logic: pass if tests fail (failures expected in red phase), fail if ALL tests pass (signals promotion needed), per FR-011, FR-012. (3) If tdd_red_phase=true but test/red/ is empty, fail with 'Task requires TDD red-phase tests but none found', per FR-013. (4) Enforce tier-configured timeouts from .agent-test-config.json, per FR-014a.",
+      "category": "INTEGRATION",
+      "dependencies": [5],
+      "speckit_task_ref": "T015,T016,T017,T018",
+      "verification": {
+        "structural_checks": [
+          {
+            "description": "Red-phase verification uses scope=red",
+            "path": "src/core/pre-signal-executor.ts",
+            "pattern": "scope.*red|red.*scope",
+            "severity": "BLOCKING",
+            "min_matches": 1
+          }
+        ],
+        "quality_checks": [
+          {
+            "description": "Inverted logic present (pass when tests fail)",
+            "path": "src/core/pre-signal-executor.ts",
+            "pattern": "inverted|failures.*expected|fail.*promotion|promotion.*needed",
+            "severity": "MAJOR",
+            "min_matches": 1
+          },
+          {
+            "description": "Empty red directory check per FR-013",
+            "path": "src/core/pre-signal-executor.ts",
+            "pattern": "red-phase tests but none found|no.*red.*tests|empty.*red",
+            "severity": "MAJOR",
+            "min_matches": 1
+          },
+          {
+            "description": "Tier timeout enforcement",
+            "path": "src/core/pre-signal-executor.ts",
+            "pattern": "timeout",
+            "severity": "MINOR",
+            "min_matches": 1
+          }
+        ],
+        "behavioral_checks": [
+          {
+            "description": "TypeScript compilation succeeds",
+            "command": "npm run typecheck",
+            "expect_exit_code": 0,
+            "severity": "BLOCKING"
+          }
+        ]
+      }
+    },
+    {
+      "task_id": 7,
+      "phase_id": "phase-6-tdd-workflow",
+      "title": "Directory-based TDD promotion workflow",
+      "description": "Update TDD cleanup and promotion to use file move instead of content tag removal. (1) Update tdd-cleanup.ts: replace tag stripping with file rename/move from test/red/{tier}/ to test/{tier}/, per FR-016, FR-034. (2) Preserve subdirectory structure during promotion, per FR-017. (3) Remove // @orchestra-task: N comment from file content during promotion, per FR-018a. (4) Add destination conflict check: fail if target file exists, per FR-018. (5) Implement fail-fast for multi-file promotion (stop on first failure, already-promoted files remain), per FR-018b. (6) Update extractOrchestraTaskId() in tdd-marker-scanner.ts to read task ID from file content for task linking, per FR-024, FR-025.",
+      "category": "INTEGRATION",
+      "dependencies": [6],
+      "speckit_task_ref": "T019,T020,T021,T022,T023",
+      "verification": {
+        "structural_checks": [
+          {
+            "description": "tdd-cleanup.ts has file move/rename logic",
+            "path": "src/core/tdd-cleanup.ts",
+            "pattern": "rename|move|copyFile|fs\\.rename",
+            "severity": "BLOCKING",
+            "min_matches": 1
+          }
+        ],
+        "quality_checks": [
+          {
+            "description": "@orchestra-task comment removal during promotion",
+            "path": "src/core/tdd-cleanup.ts",
+            "pattern": "orchestra-task|@orchestra-task.*remove|strip.*comment|remove.*comment",
+            "severity": "MAJOR",
+            "min_matches": 1
+          },
+          {
+            "description": "Destination conflict check",
+            "path": "src/core/tdd-cleanup.ts",
+            "pattern": "conflict|exists.*destination|destination.*exists|already exists",
+            "severity": "MAJOR",
+            "min_matches": 1
+          },
+          {
+            "description": "Fail-fast behavior for multi-file promotion",
+            "path": "src/core/tdd-cleanup.ts",
+            "pattern": "fail.fast|stop.*first|break|abort",
+            "severity": "MAJOR",
+            "min_matches": 1
+          },
+          {
+            "description": "Task ID extraction preserved in tdd-marker-scanner.ts",
+            "path": "src/core/tdd-marker-scanner.ts",
+            "pattern": "extractOrchestraTaskId|orchestra-task",
+            "severity": "MAJOR",
+            "min_matches": 1
+          }
+        ],
+        "behavioral_checks": [
+          {
+            "description": "TypeScript compilation succeeds",
+            "command": "npm run typecheck",
+            "expect_exit_code": 0,
+            "severity": "BLOCKING"
+          }
+        ]
+      }
+    },
+    {
+      "task_id": 8,
+      "phase_id": "phase-7-green-phase",
+      "title": "Green phase verification implementation",
+      "description": "Implement green task verification that checks linked red-phase tests pass. (1) Update signal-completion.ts to detect if current task is a green task via tdd_task_relationships lookup, per FR-027. (2) Add loadLinkedRedTaskFiles() to pre-signal-executor.ts to load tdd_red_registry entries by linked red_task_id, per FR-026. (3) Add runGreenPhaseVerification() that runs ONLY the linked red task's test files, per FR-028. (4) Pass if all linked tests pass, per FR-029. (5) Fail if any linked test fails with message 'Linked red-phase tests still failing', per FR-030. (6) On success, set tdd_task_relationships.completed_at, per FR-031.",
+      "category": "INTEGRATION",
+      "dependencies": [7],
+      "speckit_task_ref": "T024,T025,T026,T027",
+      "verification": {
+        "structural_checks": [
+          {
+            "description": "signal-completion.ts detects green task via tdd_task_relationships",
+            "path": "src/mcp-server/handlers/signal-completion.ts",
+            "pattern": "green.*task|tdd_task_relationships|green.*phase",
+            "severity": "BLOCKING",
+            "min_matches": 1
+          },
+          {
+            "description": "pre-signal-executor.ts has linked red task file loading",
+            "path": "src/core/pre-signal-executor.ts",
+            "pattern": "loadLinkedRedTaskFiles|linkedRedTask|greenPhase|GreenPhase|green.*verification",
+            "severity": "BLOCKING",
+            "min_matches": 1
+          }
+        ],
+        "quality_checks": [
+          {
+            "description": "completed_at update on green phase success",
+            "path": "src/core/pre-signal-executor.ts",
+            "pattern": "completed_at|completedAt",
+            "severity": "MAJOR",
+            "min_matches": 1
+          },
+          {
+            "description": "Failure message for linked tests still failing",
+            "path": "src/core/pre-signal-executor.ts",
+            "pattern": "red-phase tests still failing|linked.*test.*fail",
+            "severity": "MAJOR",
+            "min_matches": 1
+          }
+        ],
+        "behavioral_checks": [
+          {
+            "description": "TypeScript compilation succeeds",
+            "command": "npm run typecheck",
+            "expect_exit_code": 0,
+            "severity": "BLOCKING"
+          }
+        ]
+      }
+    },
+    {
+      "task_id": 9,
+      "phase_id": "phase-8-handover",
+      "title": "Update TDD instructions in handover and agent docs",
+      "description": "Update all TDD instructions from tag-based ([tdd-red]) to directory-based (test/red/). (1) Update get-current-task.ts: TDD instructions must specify directory-based approach (test/red/{tier}/), per FR-019. (2) Include example file path like test/red/unit/feature.test.ts, per FR-021. (3) Remove ALL [tdd-red] tag references from extension/agents/orchestra.implementor.agent.md, per FR-020. (4) Remove ALL [tdd-red] tag references from extension/agents/orchestra.orchestrator.agent.md, per FR-020. Instructions must NOT mention [tdd-red] tags anywhere.",
+      "category": "INTEGRATION",
+      "dependencies": [8],
+      "speckit_task_ref": "T028,T029,T030,T031",
+      "verification": {
+        "structural_checks": [
+          {
+            "description": "get-current-task.ts has directory-based TDD instructions",
+            "path": "src/mcp-server/handlers/get-current-task.ts",
+            "pattern": "test/red/",
+            "severity": "BLOCKING",
+            "min_matches": 1
+          }
+        ],
+        "quality_checks": [
+          {
+            "description": "Example file path with tier present in handover",
+            "path": "src/mcp-server/handlers/get-current-task.ts",
+            "pattern": "test/red/unit|test/red/.*tier|test/red/\\{tier\\}",
+            "severity": "MAJOR",
+            "min_matches": 1
+          }
+        ],
+        "behavioral_checks": [
+          {
+            "description": "No [tdd-red] mentions in implementor agent docs",
+            "command": "$m = @(Select-String -Path 'extension/agents/orchestra.implementor.agent.md' -Pattern '[tdd-red]' -SimpleMatch); if ($m.Count -gt 0) { Write-Output 'FOUND'; exit 1 } else { Write-Output 'CLEAN'; exit 0 }",
+            "expect_exit_code": 0,
+            "expect_output_contains": "CLEAN",
+            "severity": "BLOCKING"
+          },
+          {
+            "description": "No [tdd-red] mentions in orchestrator agent docs",
+            "command": "$m = @(Select-String -Path 'extension/agents/orchestra.orchestrator.agent.md' -Pattern '[tdd-red]' -SimpleMatch); if ($m.Count -gt 0) { Write-Output 'FOUND'; exit 1 } else { Write-Output 'CLEAN'; exit 0 }",
+            "expect_exit_code": 0,
+            "expect_output_contains": "CLEAN",
+            "severity": "BLOCKING"
+          },
+          {
+            "description": "TypeScript compilation succeeds",
+            "command": "npm run typecheck",
+            "expect_exit_code": 0,
+            "severity": "BLOCKING"
+          }
+        ]
+      }
+    },
+    {
+      "task_id": 10,
+      "phase_id": "phase-9-polish",
+      "title": "Remove deprecated patterns and verify clean codebase",
+      "description": "Final cleanup: remove all deprecated TDD patterns. (1) Remove all --testNamePattern TDD commands from pre-signal-executor.ts, per FR-033. (2) Remove remaining content tag scanning code from tdd-marker-scanner.ts, per FR-032. (3) Remove TAG_PATTERNS constants from any remaining files. (4) Verify SC-002: zero --testNamePattern occurrences in source. (5) Verify SC-003: zero [tdd-red] tag scanning references in core source.",
+      "category": "REFACTOR",
+      "dependencies": [9],
+      "speckit_task_ref": "T032,T033,T034,T036,T037",
+      "verification": {
+        "behavioral_checks": [
+          {
+            "description": "SC-002: Zero --testNamePattern in source code",
+            "command": "$m = @(Get-ChildItem -Path 'src' -Recurse -Include '*.ts' | Select-String -Pattern 'testNamePattern'); if ($m.Count -gt 0) { Write-Output ('FOUND: ' + $m.Count + ' occurrences'); exit 1 } else { Write-Output 'CLEAN: zero occurrences'; exit 0 }",
+            "expect_exit_code": 0,
+            "expect_output_contains": "CLEAN",
+            "severity": "BLOCKING"
+          },
+          {
+            "description": "SC-003: Zero [tdd-red] tag scanning code in core",
+            "command": "$m = @(Get-ChildItem -Path 'src/core' -Recurse -Include '*.ts' | Select-String -Pattern '\\[tdd-red\\]'); if ($m.Count -gt 0) { Write-Output ('FOUND: ' + $m.Count + ' occurrences'); exit 1 } else { Write-Output 'CLEAN: zero occurrences'; exit 0 }",
+            "expect_exit_code": 0,
+            "expect_output_contains": "CLEAN",
+            "severity": "BLOCKING"
+          },
+          {
+            "description": "No TAG_PATTERNS constant in core source",
+            "command": "$m = @(Get-ChildItem -Path 'src/core' -Recurse -Include '*.ts' | Select-String -Pattern 'TAG_PATTERNS'); if ($m.Count -gt 0) { Write-Output ('FOUND: ' + $m.Count + ' occurrences'); exit 1 } else { Write-Output 'CLEAN: zero occurrences'; exit 0 }",
+            "expect_exit_code": 0,
+            "expect_output_contains": "CLEAN",
+            "severity": "MAJOR"
+          },
+          {
+            "description": "TypeScript compilation succeeds after removals",
+            "command": "npm run typecheck",
+            "expect_exit_code": 0,
+            "severity": "BLOCKING"
+          }
+        ]
+      }
+    },
+    {
+      "task_id": 11,
+      "phase_id": "phase-9-polish",
+      "title": "Integration test and unit test updates",
+      "description": "Create and update test suites for the migration. (1) Create test/integration/pre-signal-verification.test.ts: end-to-end integration test for the pre-signal verification flow (SC-001). (2) Update test/unit/core/tdd-marker-scanner.test.ts: replace content-tag assertions with path-based assertions. (3) Update test/unit/core/pre-signal-executor.test.ts: replace shell command assertions with tool-based verification assertions. Tests must verify: SC-004 (run_tests scope=red works), SC-006 (fails when no red tests exist), SC-007 (passes when red tests fail as expected), SC-008 (fails when all red tests pass).",
+      "category": "INTEGRATION",
+      "dependencies": [10],
+      "speckit_task_ref": "T035,T038,T039",
+      "verification": {
+        "structural_checks": [
+          {
+            "description": "Integration test file for pre-signal verification exists",
+            "path": "test/integration/pre-signal-verification.test.ts",
+            "pattern": "describe|test|it",
+            "severity": "BLOCKING",
+            "min_matches": 1
+          },
+          {
+            "description": "tdd-marker-scanner test file uses path-based assertions",
+            "path": "test/unit/core/tdd-marker-scanner.test.ts",
+            "pattern": "test/red|path.*based|directory",
+            "severity": "MAJOR",
+            "min_matches": 1
+          },
+          {
+            "description": "pre-signal-executor test file uses tool-based assertions",
+            "path": "test/unit/core/pre-signal-executor.test.ts",
+            "pattern": "runTestsCore|run_tests|scope.*all|scope.*red",
+            "severity": "MAJOR",
+            "min_matches": 1
+          }
+        ],
+        "behavioral_checks": [
+          {
+            "description": "Pre-signal integration test passes",
+            "command": "npm test -- test/integration/pre-signal-verification.test.ts",
+            "expect_exit_code": 0,
+            "severity": "BLOCKING"
+          },
+          {
+            "description": "TDD marker scanner unit tests pass",
+            "command": "npm test -- test/unit/core/tdd-marker-scanner.test.ts",
+            "expect_exit_code": 0,
+            "severity": "BLOCKING"
+          },
+          {
+            "description": "Pre-signal executor unit tests pass",
+            "command": "npm test -- test/unit/core/pre-signal-executor.test.ts",
+            "expect_exit_code": 0,
+            "severity": "BLOCKING"
+          }
+        ]
+      }
+    }
+  ]
+}

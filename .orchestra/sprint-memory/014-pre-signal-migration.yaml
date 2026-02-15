@@ -1,0 +1,55 @@
+version: '1.0'
+sprintId: 014-pre-signal-migration
+sprintName: 014-pre-signal-migration
+goals: []
+architectureDecisions: []
+taskSummaries:
+  - taskId: 535
+    title: Summary of 5 tasks
+    outcome: success
+    attemptCount: 9
+    description: '#531: Summary of 5 tasks | #532: Task 532 | #533: Task 533 | #534: Task 534 | #535: Task 535'
+    lessonsLearned: []
+    issuesEncountered: []
+    filesCreated: []
+    filesModified: []
+    filesDeleted: []
+    completedAt: '2026-02-14T09:06:59.352Z'
+  - taskId: 536
+    title: Task 536
+    outcome: success
+    attemptCount: 1
+    description: Task completed.
+    lessonsLearned: []
+    issuesEncountered: []
+    filesCreated: []
+    filesModified: []
+    filesDeleted: []
+    completedAt: '2026-02-14T09:17:07.091Z'
+  - taskId: 537
+    title: Task 537
+    outcome: success
+    attemptCount: 1
+    description: Task completed.
+    lessonsLearned: []
+    issuesEncountered: []
+    filesCreated: []
+    filesModified: []
+    filesDeleted: []
+    completedAt: '2026-02-14T09:33:56.582Z'
+  - taskId: 538
+    title: Task 538
+    outcome: success
+    attemptCount: 1
+    description: Task completed.
+    lessonsLearned: []
+    issuesEncountered: []
+    filesCreated: []
+    filesModified: []
+    filesDeleted: []
+    completedAt: '2026-02-14T09:46:19.615Z'
+implementorPatterns: []
+compactionCount: 2
+lastCompactedAt: '2026-02-14T09:06:59.353Z'
+createdAt: '2026-02-13T07:11:35.639Z'
+updatedAt: '2026-02-14T09:46:19.617Z'

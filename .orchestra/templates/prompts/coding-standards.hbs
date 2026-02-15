@@ -191,14 +191,36 @@ Prefer this pattern for operations where failure is an expected outcome (e.g., v
 
 - **Vitest** with global test APIs (`describe`, `it`, `expect`, `beforeEach`, `afterEach`).
 - Pool: threads (half available CPU cores). Timeouts: test 30s, hooks 10s.
-- `test/` for unit tests, `testing/` for integration tests.
+- Tests are organized into **tiered directories** configured in `.agent-test-config.json`:
 
-### 6.2 Structure
+| Tier | Directory | Timeout | Purpose |
+|------|-----------|---------|---------|
+| `smoke` | `test/smoke/` | 10s | Fast sanity checks |
+| `unit` | `test/unit/` | 30s | Standard unit tests |
+| `integration` | `test/integration/` | 60s | Cross-module tests |
+| `extension-smoke` | `extension/test/smoke/` | 10s | Extension sanity checks |
+| `extension-unit` | `extension/test/unit/` | 30s | Extension unit tests |
+| `extension-integration` | `extension/test/integration/` | 60s | Extension integration tests |
 
-- Test files **must** mirror source structure: `src/core/yaml.ts` → `test/core/yaml.test.ts`.
+### 6.2 Agent Test Execution (MANDATORY)
+
+Agents **must** use the testing tools — never run test commands directly in the terminal:
+
+| Tool | Purpose |
+|------|---------|
+| `run_tests` | Run tests by scope/tier (e.g., `run_tests({ scope: "suite", target: "unit" })`) |
+| `get_test_results` | Query results from last run (e.g., `get_test_results({ format: "failures" })`) |
+| `list_test_suites` | List available test suites/tiers |
+| `promote_tests` | Move tests between tier directories (e.g., after TDD green phase) |
+
+**Prohibited**: `npm test`, `npx vitest`, or any direct terminal test execution by agents.
+
+### 6.3 Structure
+
+- Test files **must** mirror source structure: `src/core/yaml.ts` → `test/unit/core/yaml.test.ts`.
 - Each test file tests one module. Don't combine unrelated tests.
 
-### 6.3 Database Tests (Critical)
+### 6.4 Database Tests (Critical)
 
 Use the **shared database cache pattern** — migrations run once per test session:
 
@@ -223,7 +245,7 @@ it("should work with database", () => {
 
 **Never** use `initializeDb()`, `resetDb()`, or `runMigrationsV2()` directly in tests.
 
-### 6.4 Test Quality
+### 6.5 Test Quality
 
 - Tests must validate **behavior**, not just existence or structure.
 - Test the happy path, error cases, and meaningful edge cases.
@@ -245,8 +267,9 @@ it("should work with database", () => {
 | `src/db/` | Database schema, migrations, queries (Drizzle ORM) |
 | `src/schemas/` | Shared Zod validation schemas |
 | `extension/src/` | VS Code extension code (commands, views, webviews) |
-| `test/` | Unit tests (mirrors `src/` structure) |
-| `testing/` | Integration tests |
+| `test/{smoke,unit,integration}/` | Tiered test directories (see §6.1) |
+| `extension/test/{smoke,unit,integration}/` | Extension tiered tests |
+| `testing/` | Legacy integration tests |
 | `templates/` | Handlebars templates (`.hbs`) |
 
 ### 7.2 Import Order

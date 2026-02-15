@@ -113,10 +113,31 @@ describe("My Test Suite", () => {
 ### Test Commands
 
 ```bash
-npm test              # Single run
-npm run test:watch    # Watch mode
-npm run test:coverage # With coverage
+npm test              # Single run (CI/manual only)
+npm run test:watch    # Watch mode (CI/manual only)
+npm run test:coverage # With coverage (CI/manual only)
 ```
+
+> **Agent workflow**: Agents must use `run_tests` / `get_test_results` / `list_test_suites` / `promote_tests` instead of running test commands directly in the terminal. See `.agent-test-config.json` for tier configuration.
+
+### Agent Testing Infrastructure
+
+The extension registers four testing tools for all agent roles:
+
+| Tool               | Purpose                             |
+| ------------------ | ----------------------------------- |
+| `run_tests`        | Run tests by scope/tier             |
+| `get_test_results` | Query results from last test run    |
+| `list_test_suites` | List available test suites/tiers    |
+| `promote_tests`    | Move tests between tier directories |
+
+Test tiers are configured in `.agent-test-config.json`:
+
+- `smoke` / `extension-smoke` — fast sanity checks (10s timeout)
+- `unit` / `extension-unit` — standard unit tests (30s timeout)
+- `integration` / `extension-integration` — cross-module tests (60s timeout)
+
+Tests live in tiered directories: `test/{smoke,unit,integration}/` and `extension/test/{smoke,unit,integration}/`.
 
 ## File Formats
 

@@ -2,7 +2,7 @@
   "name": "orchestra-extension",
   "displayName": "Orchestra",
   "description": "AI agent task orchestration for VS Code",
-  "version": "1.0.3",
+  "version": "1.0.5",
   "publisher": "forcegage",
   "repository": {
     "type": "git",
@@ -475,7 +475,7 @@
   "scripts": {
     "vscode:prepublish": "npm run build && npm run build:webview && npm run postbuild",
     "build": "node esbuild.config.js --production",
-    "postbuild": "node scripts/copy-native-modules.js && node scripts/copy-mcp-server.js",
+    "postbuild": "node scripts/copy-native-modules.js && node scripts/copy-mcp-server.js && node scripts/copy-templates.js",
     "build:webview": "vite build --config src/webviews/agent-panel/vite.config.ts",
     "watch:webview": "vite build --watch --config src/webviews/agent-panel/vite.config.ts",
     "watch": "node esbuild.config.js --watch",

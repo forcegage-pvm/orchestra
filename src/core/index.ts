@@ -177,12 +177,13 @@ export {
   type RegisterTestResult,
 } from "./tdd-registry.js";
 
-// TDD Marker Scanner (scans test files for TDD red markers)
+// TDD Marker Scanner (path-based red-phase detection)
 export {
+  extractOrchestraTaskId,
+  isRedPhaseTestPath,
   scanForTddRedMarkers,
   type TddRedMarker,
 } from "./tdd-marker-scanner.js";
-
 // TDD Red Phase Validation (bidirectional validation before signal)
 export {
   validateTddRedPhase,

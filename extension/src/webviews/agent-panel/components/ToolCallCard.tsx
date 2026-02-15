@@ -11,6 +11,7 @@ import { Icon } from "@iconify-icon/solid";
 import { createEffect, createSignal, Show } from "solid-js";
 import type { ToolCallAggregate } from "../../../agents/sessions/types.js";
 import { JsonViewer } from "./JsonViewer.js";
+import { Markdown } from "./Markdown.js";
 import { OutputToolbar } from "./OutputToolbar.js";
 import { TerminalOutput } from "./TerminalOutput.js";
 import { ToolIcon } from "./ToolIcon.js";
@@ -227,6 +228,23 @@ export function ToolCallCard(props: ToolCallCardProps) {
     return result;
   };
 
+  // Check if output is a plain string (should render as markdown)
+  const isStringOutput = () => {
+    if (isFailed()) return false;
+    const result = props.toolCall.result;
+    if (result === undefined || result === null) return false;
+    if (typeof result === "string") {
+      // Try parsing as JSON - if it parses, it's structured data, not markdown
+      try {
+        JSON.parse(result);
+        return false;
+      } catch {
+        return true; // Plain string, render as markdown
+      }
+    }
+    return false;
+  };
+
   // Check if this is a command/terminal tool with stdout
   const isCommandOutput = () => {
     const toolName = props.toolCall.toolName;
@@ -268,6 +286,14 @@ export function ToolCallCard(props: ToolCallCardProps) {
   };
 
   const getOutputCopyText = (): string => {
+    // Error content
+    if (isFailed() && props.toolCall.error) {
+      let text = props.toolCall.error.message || "Tool execution failed";
+      if (props.toolCall.error.suggestion) {
+        text += `\n${props.toolCall.error.suggestion}`;
+      }
+      return text;
+    }
     const terminalText = getTerminalOutput();
     if (isCommandOutput() && terminalText) return terminalText;
     const output = getOutputDisplay();
@@ -390,35 +416,56 @@ export function ToolCallCard(props: ToolCallCardProps) {
 
           {/* Output Panel */}
           <Show when={selectedTab() === "output"}>
+            {/* Toolbar for all output content (success + error) */}
+            <OutputToolbar
+              scrollContainerRef={outputScrollRef}
+              copyText={getOutputCopyText}
+            />
             <Show
               when={!isFailed()}
               fallback={
-                <div class="text-xs space-y-1 py-1 max-h-48 overflow-y-auto">
-                  <div class="text-red-400 whitespace-pre-wrap break-words">
-                    {props.toolCall.error?.message || "Tool execution failed"}
-                  </div>
+                <div
+                  ref={(el) => setOutputScrollRef(el as unknown as HTMLPreElement)}
+                  class="text-xs space-y-1 py-1 max-h-[300px] overflow-y-auto output-scroll"
+                >
+                  <Markdown
+                    content={props.toolCall.error?.message || "Tool execution failed"}
+                    class="text-red-400"
+                  />
                   <Show when={props.toolCall.error?.suggestion}>
-                    <div class="text-yellow-400 text-[10px]">
-                      {props.toolCall.error!.suggestion}
-                    </div>
+                    <Markdown
+                      content={props.toolCall.error!.suggestion!}
+                      class="text-yellow-400 text-[10px]"
+                    />
                   </Show>
                 </div>
               }
             >
-              {/* Toolbar for output content */}
-              <OutputToolbar
-                scrollContainerRef={outputScrollRef}
-                copyText={getOutputCopyText}
-              />
               {/* Use TerminalOutput for command tools with stdout */}
               <Show
                 when={isCommandOutput() && getTerminalOutput()}
                 fallback={
-                  <JsonViewer
-                    data={getOutputDisplay()}
-                    maxHeight={300}
-                    onScrollRef={setOutputScrollRef}
-                  />
+                  /* Plain string results render as markdown */
+                  <Show
+                    when={isStringOutput()}
+                    fallback={
+                      <JsonViewer
+                        data={getOutputDisplay()}
+                        maxHeight={300}
+                        onScrollRef={setOutputScrollRef}
+                      />
+                    }
+                  >
+                    <div
+                      ref={(el) => setOutputScrollRef(el as unknown as HTMLPreElement)}
+                      class="text-xs py-1 max-h-[300px] overflow-y-auto output-scroll"
+                    >
+                      <Markdown
+                        content={props.toolCall.result as string}
+                        class="text-zinc-300"
+                      />
+                    </div>
+                  </Show>
                 }
               >
                 <TerminalOutput

@@ -36,7 +36,7 @@ export const GetVerificationResultsOutputSchema = z.object({
       passed: z.boolean(),
       output: z.string().optional(),
       duration_ms: z.number().int().nonnegative(),
-    })
+    }),
   ),
   summary: z.object({
     total_checks: z.number().int().nonnegative(),
@@ -68,19 +68,19 @@ const ManualReviewEvidenceSchema = z.object({
   files_reviewed: z
     .array(z.string().min(1))
     .describe(
-      "File paths you actually read and reviewed. For PASS, must review at least one file."
+      "File paths you actually read and reviewed. For PASS, must review at least one file.",
     ),
   observations: z
     .string()
     .min(
       100,
-      "Observations must be at least 100 characters - describe what you actually saw in the code or why files are missing"
+      "Observations must be at least 100 characters - describe what you actually saw in the code or why files are missing",
     ),
   quality_assessment: z
     .string()
     .min(
       50,
-      "Quality assessment must be at least 50 characters - evaluate code quality, patterns, potential issues"
+      "Quality assessment must be at least 50 characters - evaluate code quality, patterns, potential issues",
     ),
 });
 
@@ -92,7 +92,7 @@ export const SubmitVerificationJudgmentInputSchema = z
       .string()
       .min(
         50,
-        "Rationale must be at least 50 characters - explain your judgment decision"
+        "Rationale must be at least 50 characters - explain your judgment decision",
       ),
     /**
      * REQUIRED: Evidence that orchestrator actually reviewed the implementation.
@@ -116,7 +116,7 @@ export const SubmitVerificationJudgmentInputSchema = z
     {
       message: "failures array is required when judgment is FAIL",
       path: ["failures"],
-    }
+    },
   )
   .refine(
     (data) => {
@@ -133,7 +133,7 @@ export const SubmitVerificationJudgmentInputSchema = z
       message:
         "PASS judgment requires reviewing at least one file - cannot rubber-stamp without evidence",
       path: ["manual_review", "files_reviewed"],
-    }
+    },
   );
 
 export type SubmitVerificationJudgmentInput = z.output<
@@ -212,15 +212,22 @@ export type RunVerificationChecksInput = z.output<
   typeof RunVerificationChecksInputSchema
 >;
 
+export const TestVerificationResultSchema = z.object({
+  tier: z.string(),
+  passed: z.number().int().nonnegative(),
+  failed: z.number().int().nonnegative(),
+});
+
 export const CheckResultSchema = z.object({
   check_id: z.string(),
-  type: z.enum(["structural", "behavioral", "quality"]),
+  type: z.enum(["structural", "behavioral", "quality", "test_verification"]),
   description: z.string(),
   severity: SeveritySchema,
   passed: z.boolean(),
   message: z.string(),
   output: z.string().optional(),
   duration_ms: z.number().int().nonnegative(),
+  test_verification_result: TestVerificationResultSchema.optional(),
 });
 
 export const SeverityBreakdownSchema = z.object({
@@ -256,7 +263,7 @@ export const RunVerificationChecksOutputSchema = z.object({
         type: z.string(),
         description: z.string(),
         severity: SeveritySchema,
-      })
+      }),
     )
     .optional(),
   // Error case
@@ -271,3 +278,58 @@ export const RunVerificationChecksOutputSchema = z.object({
 export type RunVerificationChecksOutput = z.output<
   typeof RunVerificationChecksOutputSchema
 >;
+
+// ============================================================================
+// Declarative Test Verification (FR-035, FR-036)
+// Re-exported from shared.ts to avoid circular dependency (shared <-> verification).
+// Canonical definitions live in shared.ts.
+// ============================================================================
+
+export {
+  TestExpectationSchema,
+  TestVerificationCriteriaSchema,
+  type TestExpectation,
+  type TestVerificationCriteria,
+} from "./shared.js";
+
+// ============================================================================
+// Shell Test Command Detection (FR-039)
+// ============================================================================
+
+/**
+ * Blocked shell test command patterns (regex).
+ * These patterns are used to detect and reject direct test command usage
+ * in behavioral_checks. Per FR-039, prepare_task MUST reject behavioral_checks
+ * containing these patterns.
+ *
+ * Uses case-insensitive regex with word boundaries for robust matching.
+ * Covers: npm/yarn/pnpm test, npx vitest/jest/mocha, standalone jest/mocha,
+ * flutter test, pytest, cargo test, go test, and test filter flags
+ * (--testNamePattern, --testPathPattern). */
+export const SHELL_COMMAND_PATTERNS: readonly RegExp[] = [
+  /\bnpm\s+test\b/i,
+  /\byarn\s+test\b/i,
+  /\bpnpm\s+test\b/i,
+  /\bnpx\s+vitest\b/i,
+  /\bnpx\s+jest\b/i,
+  /\bnpx\s+mocha\b/i,
+  /\bjest\b/i,
+  /\bmocha\b/i,
+  /\bflutter\s+test\b/i,
+  /\bpytest\b/i,
+  /\bcargo\s+test\b/i,
+  /\bgo\s+test\b/i,
+  /--testNamePattern/i,
+  /--testPathPattern/i,
+] as const;
+/**
+ * Checks whether a given command string contains any blocked shell test command pattern.
+ * Used by prepare_task validation and Controller review to detect and block
+ * direct test command usage in behavioral_checks.
+ *
+ * @param command - The command string to check
+ * @returns true if the command contains a blocked test command pattern
+ */
+export function containsShellTestCommand(command: string): boolean {
+  return SHELL_COMMAND_PATTERNS.some((pattern) => pattern.test(command));
+}

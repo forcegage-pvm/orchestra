@@ -58,55 +58,10 @@ export const TDD_RED_CHECKS: LanguageCheckSet = {
   dart: [
     {
       check_type: "behavioral",
-      description: '[TDD RED] Tagged tests must fail for "{{TASK_TITLE}}"',
-      severity: "BLOCKING",
-      check_config: {
-        command: "{{CD_PREFIX}}{{TEST_COMMAND}} --tags tdd-red",
-        expect_exit_code: 1,
-        success_message: "Tagged tests failed as expected (red phase)",
-        failure_message: "Tagged tests must fail in red phase",
-      },
-    },
-    {
-      check_type: "behavioral",
-      description: '[TDD RED] Non-tagged tests must pass for "{{TASK_TITLE}}"',
-      severity: "BLOCKING",
-      check_config: {
-        command: "{{CD_PREFIX}}{{TEST_COMMAND}} --exclude-tags tdd-red",
-        expect_exit_code: 0,
-        success_message: "Non-tagged tests passed (no regressions)",
-        failure_message: "Non-tagged tests failed - regressions detected",
-      },
-    },
-    {
-      check_type: "structural",
-      description: '[TDD RED] Task-ID annotation present for "{{TASK_TITLE}}"',
-      severity: "BLOCKING",
-      check_config: {
-        path: "{{TEST_FILE_PATTERN}}",
-        pattern: "//\\s*@orchestra-task:\\s*{{TASK_ID}}",
-        min_matches: 1,
-      },
-    },
-    {
-      check_type: "structural",
-      description: '[TDD RED] Red-phase marker present for "{{TASK_TITLE}}"',
-      severity: "BLOCKING",
-      check_config: {
-        path: "{{TEST_FILE_PATTERN}}",
-        pattern: "@Tags.*tdd-red|tags:.*tdd-red",
-        min_matches: 1,
-      },
-    },
-  ],
-
-  typescript: [
-    {
-      check_type: "behavioral",
       description: '[TDD RED] Red-phase tests must fail for "{{TASK_TITLE}}"',
       severity: "BLOCKING",
       check_config: {
-        command: '{{CD_PREFIX}}{{TEST_COMMAND}} -- -t "\\[tdd-red\\]"',
+        command: "{{CD_PREFIX}}{{TEST_COMMAND}} test/red/",
         expect_exit_code: 1,
         success_message: "Red-phase tests failed as expected",
         failure_message: "Red-phase tests must fail",
@@ -117,7 +72,7 @@ export const TDD_RED_CHECKS: LanguageCheckSet = {
       description: '[TDD RED] Non-red tests must pass for "{{TASK_TITLE}}"',
       severity: "BLOCKING",
       check_config: {
-        command: '{{CD_PREFIX}}{{TEST_COMMAND}} -- -t "^(?!.*\\[tdd-red\\])"',
+        command: "{{CD_PREFIX}}{{TEST_COMMAND}} --exclude test/red/",
         expect_exit_code: 0,
         success_message: "Non-red tests passed (no regressions)",
         failure_message: "Non-red tests failed - regressions detected",
@@ -136,11 +91,57 @@ export const TDD_RED_CHECKS: LanguageCheckSet = {
     {
       check_type: "structural",
       description:
-        '[TDD RED] Red-phase test marker present for "{{TASK_TITLE}}"',
+        '[TDD RED] Red-phase test files present for "{{TASK_TITLE}}"',
+      severity: "BLOCKING",
+      check_config: {
+        path: "test/red/**/*_test.dart",
+        pattern: "(?:test|group)\\s*\\(",
+        min_matches: 1,
+      },
+    },
+  ],
+
+  typescript: [
+    {
+      check_type: "behavioral",
+      description: '[TDD RED] Red-phase tests must fail for "{{TASK_TITLE}}"',
+      severity: "BLOCKING",
+      check_config: {
+        command: '{{CD_PREFIX}}{{TEST_COMMAND}} -- "test/red/**"',
+        expect_exit_code: 1,
+        success_message: "Red-phase tests failed as expected",
+        failure_message: "Red-phase tests must fail",
+      },
+    },
+    {
+      check_type: "behavioral",
+      description: '[TDD RED] Non-red tests must pass for "{{TASK_TITLE}}"',
+      severity: "BLOCKING",
+      check_config: {
+        command: '{{CD_PREFIX}}{{TEST_COMMAND}} -- --exclude "test/red/**"',
+        expect_exit_code: 0,
+        success_message: "Non-red tests passed (no regressions)",
+        failure_message: "Non-red tests failed - regressions detected",
+      },
+    },
+    {
+      check_type: "structural",
+      description: '[TDD RED] Task-ID annotation present for "{{TASK_TITLE}}"',
       severity: "BLOCKING",
       check_config: {
         path: "{{TEST_FILE_PATTERN}}",
-        pattern: "\\[tdd-red\\]",
+        pattern: "//\\s*@orchestra-task:\\s*{{TASK_ID}}",
+        min_matches: 1,
+      },
+    },
+    {
+      check_type: "structural",
+      description:
+        '[TDD RED] Red-phase test files present for "{{TASK_TITLE}}"',
+      severity: "BLOCKING",
+      check_config: {
+        path: "test/red/**/*.test.ts",
+        pattern: "(?:describe|it|test)\\s*\\(",
         min_matches: 1,
       },
     },

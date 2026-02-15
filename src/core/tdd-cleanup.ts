@@ -2,9 +2,10 @@
  * TDD Cleanup Utilities
  *
  * Functions to clean up TDD red-phase markers from previous tasks.
- * Supports Dart and TypeScript projects.
+ * For both TypeScript and Dart projects: promotes test files from test/red/{tier}/
+ * to test/{tier}/ by physically moving files out of the red directory,
+ * removing // @orchestra-task: N comments during promotion.
  */
-
 import { glob } from "glob";
 import * as fs from "node:fs";
 import * as path from "node:path";
@@ -45,28 +46,62 @@ export function detectProjectLanguage(workspaceRoot: string): ProjectLanguage {
 }
 
 /**
+ * Options for task-aware cleanup filtering.
+ *
+ * When provided, only files belonging to completed tasks are promoted.
+ * Files with no @orchestra-task annotation are always promoted (legacy behavior).
+ */
+export interface CleanupOptions {
+  /**
+   * Set of task IDs whose red-phase files are safe to promote.
+   * If undefined, ALL files are promoted (legacy behavior).
+   * If provided (even empty), only files matching these IDs are promoted.
+   */
+  completedTaskIds?: Set<number>;
+}
+
+/**
+ * Extract the @orchestra-task ID from file content.
+ *
+ * @param content - File content to scan
+ * @returns The task ID number if found, undefined otherwise
+ */
+export function extractOrchestraTaskId(content: string): number | undefined {
+  const match = /^[ \t]*(?:\/\/|#)\s*@orchestra-task:\s*(\d+)/m.exec(content);
+  if (match?.[1] !== undefined) {
+    return parseInt(match[1], 10);
+  }
+  return undefined;
+}
+
+/**
  * Clean up TDD red-phase markers from the workspace.
  *
- * For Dart projects:
- * - Removes @Tags(['tdd-red']) annotations from test files
+ * For all supported languages (TypeScript, Dart):
+ * - Moves test files from test/red/{tier}/ to test/{tier}/
+ * - Removes // @orchestra-task: N comments during promotion
+ * - Fails on destination conflicts (fail-fast)
  *
- * For TypeScript projects:
- * - Moves files from test/tdd-red/ to test/unit/
+ * When options.completedTaskIds is provided, only promotes files whose
+ * @orchestra-task annotation matches a completed task ID. Files belonging
+ * to active (non-completed) tasks are left in test/red/.
  *
  * @param workspaceRoot - Root directory of the workspace
- * @returns CleanupResult with cleaned status and list of modified files
+ * @param options - Optional filtering options for task-aware cleanup
+ * @returns CleanupResult with cleaned status and list of promoted files
  */
 export async function cleanupTddRedMarkers(
-  workspaceRoot: string
+  workspaceRoot: string,
+  options?: CleanupOptions,
 ): Promise<CleanupResult> {
   const language = detectProjectLanguage(workspaceRoot);
 
   if (language === "dart") {
-    return await cleanupDartMarkers(workspaceRoot);
+    return await cleanupDartMarkers(workspaceRoot, options);
   }
 
   if (language === "typescript") {
-    return await cleanupTypeScriptMarkers(workspaceRoot);
+    return await cleanupTypeScriptMarkers(workspaceRoot, options);
   }
 
   // Unknown language - no cleanup needed
@@ -74,70 +109,190 @@ export async function cleanupTddRedMarkers(
 }
 
 /**
- * Clean up Dart TDD markers by removing @Tags(['tdd-red-task-N']) annotations
+ * Clean up Dart TDD markers by moving files from test/red/{tier}/ to test/{tier}/.
+ *
+ * This mirrors the TypeScript cleanup approach: finds .dart test files under test/red/,
+ * computes their promoted destination by removing the "red/" segment, removes
+ * // @orchestra-task: N comments, and moves them to the destination.
  */
 async function cleanupDartMarkers(
-  workspaceRoot: string
+  workspaceRoot: string,
+  options?: CleanupOptions,
 ): Promise<CleanupResult> {
-  // Find all Dart test files
-  const files = await glob("test/**/*.dart", {
-    cwd: workspaceRoot,
-    absolute: false,
-  });
+  const redDir = path.join(workspaceRoot, "test", "red");
 
-  const markedFiles: string[] = [];
-
-  for (const file of files) {
-    const filePath = path.join(workspaceRoot, file);
-    const content = fs.readFileSync(filePath, "utf-8");
-
-    // Check if file contains tdd-red tag (single-token format: tdd-red-task-N)
-    const tddPattern =
-      /@Tags\s*\(\s*\[\s*['"]tdd-red-task-\d+['"]\s*\]\s*\)\s*/g;
-    const inlinePattern = /,\s*tags:\s*\[\s*['"]tdd-red-task-\d+['"]\s*\]\s*/g;
-
-    if (tddPattern.test(content) || inlinePattern.test(content)) {
-      // Remove the tag annotation (with optional whitespace after)
-      let cleaned = content.replace(tddPattern, "");
-      cleaned = cleaned.replace(inlinePattern, "");
-      fs.writeFileSync(filePath, cleaned, "utf-8");
-      // Normalize path to use forward slashes for cross-platform consistency
-      markedFiles.push(file.replace(/\\/g, "/"));
-    }
+  // Check if test/red/ directory exists
+  if (!fs.existsSync(redDir) || !fs.statSync(redDir).isDirectory()) {
+    return { cleaned: false, files: [] };
   }
 
-  return { cleaned: markedFiles.length > 0, files: markedFiles };
+  // Find all Dart test files under test/red/ and sort for deterministic ordering
+  const files = (
+    await glob("test/red/**/*_test.dart", {
+      cwd: workspaceRoot,
+      absolute: false,
+    })
+  ).sort();
+
+  if (files.length === 0) {
+    return { cleaned: false, files: [] };
+  }
+
+  const promotedFiles: string[] = [];
+
+  for (const file of files) {
+    // Normalize to forward slashes for cross-platform consistency
+    const normalizedFile = file.replace(/\\/g, "/");
+    const srcAbsolute = path.join(workspaceRoot, normalizedFile);
+
+    // Task-aware filtering: only promote files from completed tasks
+    if (options?.completedTaskIds !== undefined) {
+      const content = fs.readFileSync(srcAbsolute, "utf-8");
+      const taskId = extractOrchestraTaskId(content);
+      if (taskId !== undefined && !options.completedTaskIds.has(taskId)) {
+        // File belongs to an active (non-completed) task — skip
+        continue;
+      }
+      // Files without annotation are always eligible for promotion (legacy)
+    }
+
+    // Compute destination: remove the "red/" segment
+    // test/red/unit/foo_test.dart -> test/unit/foo_test.dart
+    const destRelative = normalizedFile.replace(/^test\/red\//, "test/");
+    const destAbsolute = path.join(workspaceRoot, destRelative);
+
+    // Conflict check: fail-fast if destination already exists
+    if (fs.existsSync(destAbsolute)) {
+      throw new Error(
+        `Promotion conflict: destination file already exists: ${destRelative} ` +
+          `(source: ${normalizedFile}). ` +
+          `${promotedFiles.length} file(s) were already promoted before this conflict.`,
+      );
+    }
+
+    // Create destination directory recursively if needed
+    const destDir = path.dirname(destAbsolute);
+    if (!fs.existsSync(destDir)) {
+      fs.mkdirSync(destDir, { recursive: true });
+    }
+
+    // Read source content and strip @orchestra-task comment
+    const content = fs.readFileSync(srcAbsolute, "utf-8");
+    const cleanedContent = removeOrchestraTaskComment(content);
+
+    // Write cleaned content to destination
+    fs.writeFileSync(destAbsolute, cleanedContent, "utf-8");
+
+    // Remove source file
+    fs.unlinkSync(srcAbsolute);
+
+    promotedFiles.push(destRelative);
+  }
+
+  return { cleaned: promotedFiles.length > 0, files: promotedFiles };
+}
+/** Pattern matching // @orchestra-task: N or # @orchestra-task: N lines */
+const ORCHESTRA_TASK_LINE_PATTERN =
+  /^[ \t]*(?:\/\/|#)\s*@orchestra-task:\s*\d+\s*$/;
+
+/**
+ * Remove // @orchestra-task: N (or # @orchestra-task: N) comment lines from file content.
+ *
+ * @param content - File content
+ * @returns Content with orchestra-task annotation lines removed
+ */
+export function removeOrchestraTaskComment(content: string): string {
+  const lines = content.split("\n");
+  const filtered = lines.filter(
+    (line) => !ORCHESTRA_TASK_LINE_PATTERN.test(line.replace(/\r$/, "")),
+  );
+  return filtered.join("\n");
 }
 
 /**
- * Clean up TypeScript TDD markers by removing [tdd-red-task-N] from test names
+ * Clean up TypeScript TDD markers by moving files from test/red/{tier}/ to test/{tier}/.
+ *
+ * Directory-based file-move promotion workflow:
+ * 1. Find all test files under test/red/
+ * 2. For each file, compute destination by removing the "red/" segment
+ * 3. Check for destination conflicts (fail-fast on first conflict)
+ * 4. Remove // @orchestra-task: N comment from content during move
+ * 5. Move file to destination, creating directories as needed
  */
 async function cleanupTypeScriptMarkers(
-  workspaceRoot: string
+  workspaceRoot: string,
+  options?: CleanupOptions,
 ): Promise<CleanupResult> {
-  // Find all TypeScript test files
-  const files = await glob("test/**/*.test.ts", {
-    cwd: workspaceRoot,
-    absolute: false,
-  });
+  const redDir = path.join(workspaceRoot, "test", "red");
 
-  const cleanedFiles: string[] = [];
-
-  for (const file of files) {
-    const filePath = path.join(workspaceRoot, file);
-    const content = fs.readFileSync(filePath, "utf-8");
-
-    // Check if file contains [tdd-red-task-N] marker
-    const markerPattern = /\[tdd-red-task-\d+\]\s*/g;
-
-    if (markerPattern.test(content)) {
-      // Remove the marker from test/describe names
-      const cleaned = content.replace(markerPattern, "");
-      fs.writeFileSync(filePath, cleaned, "utf-8");
-      // Normalize path to use forward slashes for cross-platform consistency
-      cleanedFiles.push(file.replace(/\\/g, "/"));
-    }
+  // Check if test/red/ directory exists
+  if (!fs.existsSync(redDir) || !fs.statSync(redDir).isDirectory()) {
+    return { cleaned: false, files: [] };
   }
 
-  return { cleaned: cleanedFiles.length > 0, files: cleanedFiles };
+  // Find all test files under test/red/ and sort for deterministic ordering
+  const files = (
+    await glob("test/red/**/*.test.ts", {
+      cwd: workspaceRoot,
+      absolute: false,
+    })
+  ).sort();
+
+  if (files.length === 0) {
+    return { cleaned: false, files: [] };
+  }
+
+  const promotedFiles: string[] = [];
+
+  for (const file of files) {
+    // Normalize to forward slashes for cross-platform consistency
+    const normalizedFile = file.replace(/\\/g, "/");
+    const srcAbsolute = path.join(workspaceRoot, normalizedFile);
+
+    // Task-aware filtering: only promote files from completed tasks
+    if (options?.completedTaskIds !== undefined) {
+      const content = fs.readFileSync(srcAbsolute, "utf-8");
+      const taskId = extractOrchestraTaskId(content);
+      if (taskId !== undefined && !options.completedTaskIds.has(taskId)) {
+        // File belongs to an active (non-completed) task — skip
+        continue;
+      }
+      // Files without annotation are always eligible for promotion (legacy)
+    }
+
+    // Compute destination: remove the "red/" segment
+    // test/red/unit/foo.test.ts -> test/unit/foo.test.ts
+    // test/red/integration/api/users.test.ts -> test/integration/api/users.test.ts
+    const destRelative = normalizedFile.replace(/^test\/red\//, "test/");
+    const destAbsolute = path.join(workspaceRoot, destRelative);
+
+    // Conflict check: fail-fast if destination already exists
+    if (fs.existsSync(destAbsolute)) {
+      throw new Error(
+        `Promotion conflict: destination file already exists: ${destRelative} ` +
+          `(source: ${normalizedFile}). ` +
+          `${promotedFiles.length} file(s) were already promoted before this conflict.`,
+      );
+    }
+
+    // Create destination directory recursively if needed
+    const destDir = path.dirname(destAbsolute);
+    if (!fs.existsSync(destDir)) {
+      fs.mkdirSync(destDir, { recursive: true });
+    }
+
+    // Read source content and strip @orchestra-task comment
+    const content = fs.readFileSync(srcAbsolute, "utf-8");
+    const cleanedContent = removeOrchestraTaskComment(content);
+
+    // Write cleaned content to destination
+    fs.writeFileSync(destAbsolute, cleanedContent, "utf-8");
+
+    // Remove source file
+    fs.unlinkSync(srcAbsolute);
+
+    promotedFiles.push(destRelative);
+  }
+
+  return { cleaned: promotedFiles.length > 0, files: promotedFiles };
 }

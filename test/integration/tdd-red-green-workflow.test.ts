@@ -635,6 +635,14 @@ describe('Feature', () => {
         description: "Test without marker",
       });
 
+      // Mock pre-signal checks since we're testing TDD validation messaging, not test execution
+      vi.spyOn(preSignalExecutor, "runPreSignalChecks").mockResolvedValue({
+        build: { passed: true, output: "", duration_ms: 0 },
+        test: { passed: true, output: "", duration_ms: 0 },
+        lint: { passed: true, output: "", duration_ms: 0 },
+        allPassed: true,
+      });
+
       // Try to signal completion (should fail with actionable error)
       const signalResponse = await handleSignalCompletion({
         task_id: 1,

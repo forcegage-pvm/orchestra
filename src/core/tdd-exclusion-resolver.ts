@@ -11,7 +11,7 @@
  * Sources for exclusions:
  * 1. tdd_red_registry entries (files discovered during scan-on-signal)
  * 2. file_operations CREATE paths (test files being created in current task)
- * 3. Fallback convention: test/tdd-red/** if no explicit inputs exist
+ * 3. Fallback convention: test/red/** if no explicit inputs exist
  *
  * Runner mappings:
  * - Vitest: --exclude path1 --exclude path2 (or comma-separated)
@@ -61,7 +61,7 @@ export interface ExclusionResult {
  * Collects test files from three sources (in priority order):
  * 1. tdd_red_registry entries for the sprint
  * 2. CREATE file_operations that look like test files
- * 3. Fallback to test/tdd-red/** convention if no explicit inputs
+ * 3. Fallback to test/red/** convention if no explicit inputs
  *
  * @param sprintId - Sprint ID to look up registry entries
  * @param fileOperations - File operations from current task handover
@@ -100,9 +100,9 @@ export function resolveExclusions(
   result.sources.fileOperations = createTestFiles;
   result.files.push(...createTestFiles);
 
-  // 3. Fallback to test/tdd-red/** convention if no explicit inputs
+  // 3. Fallback to test/red/** convention if no explicit inputs
   if (result.files.length === 0) {
-    const fallbackPattern = "test/tdd-red/**";
+    const fallbackPattern = "test/red/**";
     result.sources.fallback = [fallbackPattern];
     result.files.push(fallbackPattern);
   }

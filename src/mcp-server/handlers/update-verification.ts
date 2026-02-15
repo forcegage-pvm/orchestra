@@ -126,6 +126,7 @@ async function updateVerification(
     "RETRY",
     "ESCALATED",
     "SPEC_REVIEW",
+    "HANDOVER_REVIEW",
   ];
   if (!allowedStates.includes(sprint.workflow_step)) {
     throw new Error(
@@ -158,31 +159,35 @@ async function updateVerification(
   }
 
   // 3. Validate state-based permission
-  // - CONFIGURE: always allowed (initial setup)
-  // - PREPARE: always allowed (spec refinement before handover)
-  // - SELECT_TASK + PENDING task: allowed (strengthening criteria before preparation)
-  // - Other states: only allowed if task is ESCALATED (human supervisor correction)
-  const isSpecReviewFailed =
-    sprint.workflow_step === "SPEC_REVIEW" &&
-    sprint.status === "SPEC_REVIEW_FAILED";
+  // Use a BLOCKLIST approach: only block verification updates for tasks that are
+  // actively being worked on or already completed. Everything else is fair game
+  // for the orchestrator to fix criteria.
 
-  const allowedSprintStates = ["CONFIGURE", "PREPARE"];
-  const isInAllowedSprintState =
-    allowedSprintStates.includes(sprint.workflow_step) || isSpecReviewFailed;
+  // Tasks in these states should NOT have their verification modified
+  // (the implementor is actively working, or the task is done)
+  const blockedTaskStates = new Set([
+    "COMPLETE",
+    "IN_PROGRESS",
+    "IMPLEMENTING",
+    "GATE_CHECK",
+    "VERIFYING",
+    "CODE_REVIEW",
+  ]);
 
-  // Also allow updating PENDING tasks during SELECT_TASK (pre-preparation strengthening)
-  const isPendingDuringSelectTask =
-    sprint.workflow_step === "SELECT_TASK" && task.status === "PENDING";
+  const isTaskBlocked = blockedTaskStates.has(task.status);
 
-  if (!isInAllowedSprintState && !isPendingDuringSelectTask) {
+  if (isTaskBlocked) {
     if (task.status !== "ESCALATED") {
       throw new Error(
         `Task ${input.task_id} is in ${task.status} state. ` +
-          `During ${sprint.workflow_step} phase, verification criteria can only be updated for PENDING or ESCALATED tasks. ` +
+          `Verification criteria cannot be updated while the task is actively being worked on or completed. ` +
           "Escalate the task first if spec corrections are needed.",
       );
     }
-    // Require rationale for ESCALATED task updates
+  }
+
+  // ESCALATED tasks require rationale
+  if (task.status === "ESCALATED") {
     if (!input.rationale || input.rationale.length < 10) {
       throw new Error(
         "Rationale is required when updating verification for ESCALATED tasks (min 10 chars). " +
@@ -404,6 +409,7 @@ async function updateVerification(
   const structural = input.verification.structural_checks || [];
   // behavioral already declared above for validation
   const quality = input.verification.quality_checks || [];
+  const testVerification = input.verification.test_verification || [];
 
   // Extract config from check objects (everything except description/severity)
   const extractConfig = (check: Record<string, unknown>): string => {
@@ -437,6 +443,15 @@ async function updateVerification(
       description: check.description,
       severity: check.severity,
       check_config: extractConfig(check as unknown as Record<string, unknown>),
+      created_at: now,
+    })),
+    ...testVerification.map((check, idx) => ({
+      task_id: task.id,
+      check_id: `test-verification-${idx}`,
+      check_type: "test_verification" as const,
+      description: `Run ${check.tier} tests (${check.expect})`,
+      severity: "BLOCKING" as const,
+      check_config: JSON.stringify(check),
       created_at: now,
     })),
   ];
@@ -534,9 +549,9 @@ async function updateVerification(
   // 8. Log progress with amendment note if applicable
   const progressNote = isAmendment
     ? `AMENDMENT: Updated verification checks during ${sprint.workflow_step}: ` +
-      `${totalChecks} total (${structural.length} structural, ${behavioral.length} behavioral, ${quality.length} quality). ` +
+      `${totalChecks} total (${structural.length} structural, ${behavioral.length} behavioral, ${quality.length} quality, ${testVerification.length} test_verification). ` +
       `Amendment ID: ${amendmentId}`
-    : `Updated verification checks: ${totalChecks} total (${structural.length} structural, ${behavioral.length} behavioral, ${quality.length} quality)`;
+    : `Updated verification checks: ${totalChecks} total (${structural.length} structural, ${behavioral.length} behavioral, ${quality.length} quality, ${testVerification.length} test_verification)`;
 
   await db.insert(progress).values({
     sprint_id: sprint.id,
