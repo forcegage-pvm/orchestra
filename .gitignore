@@ -17,8 +17,7 @@ extension/.orchestra/
 
 # Orchestra workflow
 .orchestra/.signal
-# SQLite database files - never commit (causes lock conflicts)
-.orchestra/*.db
+# SQLite WAL/SHM/journal sidecar files - transient, never commit
 .orchestra/*.db-wal
 .orchestra/*.db-shm
 .orchestra/*.db-journal
