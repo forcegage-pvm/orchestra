@@ -79,9 +79,6 @@ export async function runTestsCore(
   const { tier } = input;
   // FIX: Normalize Windows drive letter to match what run_tests does
   const workspacePath = normalizeWindowsPath(input.workspacePath);
-  console.error(
-    `[SIGNAL-DIAG] runTestsCore ENTRY: tier=${tier}, rawWorkspacePath=${input.workspacePath}, normalizedWorkspacePath=${workspacePath}`,
-  );
   const defaultTimeout = input.fallbackTimeoutMs ?? 300_000; // 5 min default for pre-signal
 
   // Load config
@@ -90,9 +87,6 @@ export async function runTestsCore(
 
   if (!configResult.success) {
     // No config or invalid config — return zero-result with error output
-    console.error(
-      `[SIGNAL-DIAG] runTestsCore CONFIG FAILED: tier=${tier}, workspacePath=${workspacePath}, error=${configResult.error.message}`,
-    );
     return {
       tier,
       passed: 0,
@@ -104,9 +98,6 @@ export async function runTestsCore(
   }
 
   const config = configResult.config;
-  console.error(
-    `[SIGNAL-DIAG] runTestsCore CONFIG OK: tiers=${JSON.stringify(config.tiers.map((t) => ({ name: t.name, path: t.path, inverted: t.inverted })))}, defaultTimeout=${config.defaultTimeout}`,
-  );
 
   // If specific files are provided (green phase), run them directly
   if (input.files && input.files.length > 0) {
@@ -131,15 +122,9 @@ export async function runTestsCore(
   const scopeResult = await resolver.resolve(scope, target, config, {
     workingDir: workspacePath,
   });
-  console.error(
-    `[SIGNAL-DIAG] runTestsCore SCOPE RESULT: scope=${scope}, target=${target}, files=${JSON.stringify("files" in scopeResult ? scopeResult.files : [])}, pattern=${"pattern" in scopeResult ? scopeResult.pattern : "none"}, message=${"message" in scopeResult ? scopeResult.message : "none"}, hasErrorCode=${"code" in scopeResult}`,
-  );
 
   // Check for error
   if ("code" in scopeResult) {
-    console.error(
-      `[SIGNAL-DIAG] runTestsCore SCOPE ERROR: tier=${tier}, code=${(scopeResult as { code: string }).code}, message=${scopeResult.message}`,
-    );
     return {
       tier,
       passed: 0,
@@ -152,9 +137,6 @@ export async function runTestsCore(
 
   // If no files to run, return empty result
   if (scopeResult.files.length === 0 && !scopeResult.pattern) {
-    console.error(
-      `[SIGNAL-DIAG] runTestsCore NO FILES: tier=${tier}, message=${scopeResult.message ?? "no message"}`,
-    );
     return {
       tier,
       passed: 0,
@@ -170,9 +152,6 @@ export async function runTestsCore(
     tierConfig?.timeout ?? config.defaultTimeout ?? defaultTimeout;
 
   // Execute vitest via the shared runner
-  console.error(
-    `[SIGNAL-DIAG] runTestsCore VITEST EXEC: files=${JSON.stringify(scopeResult.files)}, workingDir=${workspacePath}, timeout=${timeout}`,
-  );
   const runner = new VitestRunner();
   const vitestResult = await runner.execute({
     files: scopeResult.files,
@@ -182,9 +161,6 @@ export async function runTestsCore(
 
   // Check for error
   if ("code" in vitestResult) {
-    console.error(
-      `[SIGNAL-DIAG] runTestsCore VITEST ERROR: tier=${tier}, code=${vitestResult.code}, message=${vitestResult.message}`,
-    );
     return {
       tier,
       passed: 0,
@@ -194,33 +170,6 @@ export async function runTestsCore(
       output: `Vitest error: ${vitestResult.message}`,
       timedOut: vitestResult.code === "TIMEOUT",
     };
-  }
-
-  // Log raw vitest output for debugging
-  const jsonPreview =
-    typeof vitestResult.vitestJson === "object" && vitestResult.vitestJson
-      ? JSON.stringify({
-          numTotalTests: (vitestResult.vitestJson as Record<string, unknown>)
-            .numTotalTests,
-          numPassedTests: (vitestResult.vitestJson as Record<string, unknown>)
-            .numPassedTests,
-          numFailedTests: (vitestResult.vitestJson as Record<string, unknown>)
-            .numFailedTests,
-          success: (vitestResult.vitestJson as Record<string, unknown>).success,
-        })
-      : String(vitestResult.vitestJson);
-  console.error(
-    `[SIGNAL-DIAG] runTestsCore VITEST JSON: tier=${tier}, ${jsonPreview}, exitCode=${vitestResult.exitCode}, duration=${vitestResult.duration}ms`,
-  );
-  if (vitestResult.stderr) {
-    console.error(
-      `[SIGNAL-DIAG] runTestsCore VITEST STDERR (500ch): ${vitestResult.stderr.slice(0, 500)}`,
-    );
-  }
-  if (vitestResult.stdout) {
-    console.error(
-      `[SIGNAL-DIAG] runTestsCore VITEST STDOUT (500ch): ${vitestResult.stdout.slice(0, 500)}`,
-    );
   }
 
   // Format results

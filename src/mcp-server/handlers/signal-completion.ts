@@ -183,17 +183,11 @@ async function signalCompletion(
 
   // 5. Run pre-signal checks (GAP-01: actually execute commands)
   const preSignalConfig = await getPreSignalConfig();
-  console.error(
-    `[SIGNAL-DIAG] getPreSignalConfig returned: workspacePath=${preSignalConfig.workspacePath}, skipBuild=${preSignalConfig.skipBuild}, skipTest=${preSignalConfig.skipTest}, skipLint=${preSignalConfig.skipLint}`,
-  );
   // Pass tdd_red_phase from task to executor (Task 19)
   if (task.tdd_red_phase) {
     preSignalConfig.tddRedPhase = true;
     preSignalConfig.taskId = task.task_id;
   }
-  console.error(
-    `[SIGNAL-DIAG] signalCompletion: task.tdd_red_phase=${task.tdd_red_phase}, config.tddRedPhase=${preSignalConfig.tddRedPhase}, taskId=${preSignalConfig.taskId}`,
-  );
 
   // FR-027: Detect if current task is a green task by querying tdd_task_relationships
   // Uses the task's internal DB id (task.id), not the user-facing task_id
