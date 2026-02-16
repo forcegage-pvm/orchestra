@@ -27,22 +27,25 @@ const mockSpawnResult = {
   success: true,
   error: undefined as string | undefined,
 };
-vi.mock("node:child_process", () => ({
-  spawn: vi.fn(() => {
-    const emitter = {
-      stderr: {
-        on: (_event: string, _callback: (data: Buffer) => void) => {},
-      },
-      on: (event: string, callback: (result: unknown) => void) => {
-        if (event === "exit") {
-          setTimeout(() => callback(mockSpawnResult.success ? 0 : 1), 0);
-        }
-      },
-    };
-    return emitter;
-  }),
-}));
-
+vi.mock("node:child_process", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("node:child_process")>();
+  return {
+    ...actual,
+    spawn: vi.fn(() => {
+      const emitter = {
+        stderr: {
+          on: (_event: string, _callback: (data: Buffer) => void) => {},
+        },
+        on: (event: string, callback: (result: unknown) => void) => {
+          if (event === "exit") {
+            setTimeout(() => callback(mockSpawnResult.success ? 0 : 1), 0);
+          }
+        },
+      };
+      return emitter;
+    }),
+  };
+});
 // Mock fs/promises - normalize all paths for cross-platform compatibility
 const mockFileSystem = new Map<string, boolean>();
 function normalizePath(p: string): string {
@@ -53,6 +56,9 @@ function normalizePath(p: string): string {
     .replace(/^[A-Z]:/, "")
     .toLowerCase();
 }
+
+// Mock file content store for readFile/writeFile
+const mockFileContent = new Map<string, string>();
 
 vi.mock("node:fs/promises", () => ({
   stat: vi.fn(async (filePath: string) => {
@@ -66,8 +72,12 @@ vi.mock("node:fs/promises", () => ({
     return { isFile: () => true };
   }),
   access: vi.fn(async () => undefined),
+  readFile: vi.fn(async (filePath: string) => {
+    const normalizedPath = normalizePath(filePath);
+    return mockFileContent.get(normalizedPath) ?? "";
+  }),
+  writeFile: vi.fn(async () => undefined),
 }));
-
 // Control variables for module mocks
 let mockLoadResult: Awaited<
   ReturnType<
@@ -96,6 +106,7 @@ vi.mock("../../../../../../src/core/testing/TestConfigLoader.js", () => {
 vi.mock("../../../../../../src/core/testing/VitestRunner.js", () => {
   return {
     VitestRunner: class MockVitestRunner {
+      framework = "vitest";
       execute() {
         return Promise.resolve(mockVitestResult);
       }
@@ -103,6 +114,20 @@ vi.mock("../../../../../../src/core/testing/VitestRunner.js", () => {
   };
 });
 
+// Mock DartRunner - returns controllable test results (same as VitestRunner mock)
+vi.mock("../../../../../../src/core/testing/DartRunner.js", () => {
+  return {
+    DartRunner: class MockDartRunner {
+      framework: string;
+      constructor(fw: string) {
+        this.framework = fw;
+      }
+      execute() {
+        return Promise.resolve(mockVitestResult);
+      }
+    },
+  };
+});
 // Mock ResultFormatter - formats the mock vitest results
 vi.mock("../../../../../../src/core/testing/ResultFormatter.js", () => {
   return {
@@ -205,18 +230,20 @@ describe("promoteTestsTool", () => {
    * Add a file to the mock filesystem.
    * Handles path resolution properly for cross-platform testing.
    */
-  function addMockFile(relativePath: string, exists = true): void {
+  function addMockFile(relativePath: string, exists = true, content?: string): void {
     // Build the full path and normalize for consistent lookup
     const fullPath = path.resolve(MOCK_WORKSPACE, relativePath);
     const normalizedPath = normalizePath(fullPath);
     mockFileSystem.set(normalizedPath, exists);
+    if (content !== undefined) {
+      mockFileContent.set(normalizedPath, content);
+    }
   }
-
   beforeEach(() => {
     vi.clearAllMocks();
     mockFileSystem.clear();
-    mockSpawnResult.success = true;
-    mockSpawnResult.error = undefined;
+    mockFileContent.clear();
+    mockSpawnResult.success = true;    mockSpawnResult.error = undefined;
 
     mockContext = {
       workspaceRoot: MOCK_WORKSPACE,
@@ -587,6 +614,148 @@ describe("promoteTestsTool", () => {
 
       expect(result.success).toBe(false);
       expect(result.error?.code).toBe(ToolErrorCode.INVALID_INPUT);
+    });
+  });
+
+  describe("Dart _test.dart file support", () => {
+    beforeEach(() => {
+      // Configure with a red tier that also matches _test.dart files
+      mockConfig = {
+        framework: "dart" as never,
+        tiers: [
+          { name: "unit", path: "test/unit/**/*_test.dart" },
+          { name: "integration", path: "test/integration/**/*_test.dart" },
+          { name: "red", path: "test/red/**/*_test.dart", inverted: true },
+        ],
+        defaultTimeout: 30000,
+        maxFailureLines: 20,
+        configFingerprint: [],
+        promotion: { dryRun: true },
+      };
+
+      mockLoadResult = {
+        success: true,
+        config: mockConfig,
+        warnings: [],
+      };
+    });
+
+    it("should infer correct destination for _test.dart files in dry-run", async () => {
+      addMockFile("test/red/unit/widget_test.dart", true);
+
+      setupMockTestResults(
+        createMockResult({
+          scope: "red",
+          total: 1,
+          passed: 1,
+          failed: 0,
+          tests: [
+            {
+              name: "widget test",
+              file: "test/red/unit/widget_test.dart",
+              line: 5,
+              status: "passed",
+              duration: 10,
+            },
+          ],
+        }),
+      );
+
+      const result = await promoteTestsTool.invoke(
+        { files: ["test/red/unit/widget_test.dart"] },
+        mockContext,
+      );
+
+      expect(result.success).toBe(true);
+      expect(result.content[0].value).toContain("DRY RUN");
+      expect(result.content[0].value).toContain("test/red/unit/widget_test.dart");
+      expect(result.content[0].value).toContain("test/unit/widget_test.dart");
+    });
+
+    it("should handle nested Dart test files across tiers", async () => {
+      addMockFile("test/red/integration/api/users_test.dart", true);
+
+      setupMockTestResults(
+        createMockResult({
+          scope: "red",
+          total: 2,
+          passed: 2,
+          failed: 0,
+          tests: [
+            {
+              name: "users GET test",
+              file: "test/red/integration/api/users_test.dart",
+              line: 10,
+              status: "passed",
+              duration: 20,
+            },
+            {
+              name: "users POST test",
+              file: "test/red/integration/api/users_test.dart",
+              line: 20,
+              status: "passed",
+              duration: 15,
+            },
+          ],
+        }),
+      );
+
+      const result = await promoteTestsTool.invoke(
+        { files: ["test/red/integration/api/users_test.dart"] },
+        mockContext,
+      );
+
+      expect(result.success).toBe(true);
+      expect(result.content[0].value).toContain("test/integration/api/users_test.dart");
+    });
+
+    it("should block promotion when Dart tests are still failing", async () => {
+      addMockFile("test/red/unit/failing_test.dart", true);
+
+      setupMockTestResults(
+        createMockResult({
+          scope: "red",
+          total: 2,
+          passed: 1,
+          failed: 1,
+          tests: [
+            {
+              name: "passing test",
+              file: "test/red/unit/failing_test.dart",
+              line: 5,
+              status: "passed",
+              duration: 10,
+            },
+            {
+              name: "failing test",
+              file: "test/red/unit/failing_test.dart",
+              line: 15,
+              status: "failed",
+              duration: 10,
+            },
+          ],
+        }),
+      );
+
+      const result = await promoteTestsTool.invoke(
+        { files: ["test/red/unit/failing_test.dart"] },
+        mockContext,
+      );
+
+      expect(result.success).toBe(true);
+      expect(result.content[0].value).toContain("Blocked");
+      expect(result.content[0].value).toContain("still failing");
+    });
+
+    it("should reject Dart file not in red directory", async () => {
+      const result = await promoteTestsTool.invoke(
+        { files: ["test/unit/widget_test.dart"] },
+        mockContext,
+      );
+
+      expect(result.success).toBe(false);
+      expect(result.error?.code).toBe(ToolErrorCode.INVALID_INPUT);
+      expect(result.error?.message).toContain("not in the red-phase directory");
     });
   });
 });

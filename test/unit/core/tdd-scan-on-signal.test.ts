@@ -247,5 +247,116 @@ describe('Widget', () => {
         expect(result.testsByTask.has(3)).toBe(true);
       });
     });
+
+    describe("Dart _test.dart file support", () => {
+      it("should discover _test.dart files in test/red/", async () => {
+        const redDir = path.join(tempDir, "test", "red");
+        await fs.mkdir(redDir, { recursive: true });
+
+        const content = `// @orchestra-task: 10\nimport 'package:flutter_test/flutter_test.dart';\n\nvoid main() {\n  test('widget initializes', () {\n    expect(true, isTrue);\n  });\n}\n`;
+        await fs.writeFile(path.join(redDir, "widget_test.dart"), content);
+
+        const result = await scanForTddMarkers(tempDir);
+
+        expect(result.testsByTask.has(10)).toBe(true);
+        const task10Files = result.testsByTask.get(10)!;
+        expect(task10Files).toHaveLength(1);
+        expect(task10Files[0].test_file).toBe("test/red/widget_test.dart");
+      });
+
+      it("should discover .test.dart files in test/red/", async () => {
+        const redDir = path.join(tempDir, "test", "red");
+        await fs.mkdir(redDir, { recursive: true });
+
+        await fs.writeFile(
+          path.join(redDir, "feature.test.dart"),
+          `// @orchestra-task: 11\nvoid main() { test('feature', () {}); }`,
+        );
+
+        const result = await scanForTddMarkers(tempDir);
+
+        expect(result.testsByTask.has(11)).toBe(true);
+        const task11Files = result.testsByTask.get(11)!;
+        expect(task11Files).toHaveLength(1);
+        expect(task11Files[0].test_file).toBe("test/red/feature.test.dart");
+      });
+
+      it("should discover Dart test files in nested directories under test/red/", async () => {
+        const nestedDir = path.join(tempDir, "test", "red", "unit", "widgets");
+        await fs.mkdir(nestedDir, { recursive: true });
+
+        await fs.writeFile(
+          path.join(nestedDir, "button_test.dart"),
+          `// @orchestra-task: 12\nvoid main() { test('button renders', () {}); }`,
+        );
+
+        const result = await scanForTddMarkers(tempDir);
+
+        expect(result.testsByTask.has(12)).toBe(true);
+        const task12Files = result.testsByTask.get(12)!;
+        expect(task12Files[0].test_file).toBe(
+          "test/red/unit/widgets/button_test.dart",
+        );
+      });
+
+      it("should handle mixed TypeScript and Dart test files", async () => {
+        const redDir = path.join(tempDir, "test", "red");
+        await fs.mkdir(redDir, { recursive: true });
+
+        // TypeScript test
+        await fs.writeFile(
+          path.join(redDir, "feature.test.ts"),
+          `// @orchestra-task: 20\nit('ts test', () => {});`,
+        );
+        // Dart test
+        await fs.writeFile(
+          path.join(redDir, "widget_test.dart"),
+          `// @orchestra-task: 21\nvoid main() { test('dart test', () {}); }`,
+        );
+
+        const result = await scanForTddMarkers(tempDir);
+
+        expect(result.testsByTask.size).toBe(2);
+        expect(result.testsByTask.has(20)).toBe(true);
+        expect(result.testsByTask.has(21)).toBe(true);
+        expect(result.totalFiles).toBe(2);
+      });
+
+      it("should report Dart files missing // @orchestra-task: N", async () => {
+        const redDir = path.join(tempDir, "test", "red");
+        await fs.mkdir(redDir, { recursive: true });
+
+        await fs.writeFile(
+          path.join(redDir, "no_task_test.dart"),
+          `void main() { test('no task', () {}); }`,
+        );
+
+        const result = await scanForTddMarkers(tempDir);
+
+        expect(result.filesWithoutTaskId).toHaveLength(1);
+        expect(result.filesWithoutTaskId[0]).toBe("test/red/no_task_test.dart");
+      });
+
+      it("should skip non-test Dart files (no _test.dart suffix)", async () => {
+        const redDir = path.join(tempDir, "test", "red");
+        await fs.mkdir(redDir, { recursive: true });
+
+        // Test file (should be found)
+        await fs.writeFile(
+          path.join(redDir, "widget_test.dart"),
+          `// @orchestra-task: 30\nvoid main() {}`,
+        );
+        // Helper file (should be skipped - no _test.dart suffix)
+        await fs.writeFile(
+          path.join(redDir, "test_helper.dart"),
+          `// @orchestra-task: 30\nclass TestHelper {}`,
+        );
+
+        const result = await scanForTddMarkers(tempDir);
+
+        expect(result.totalFiles).toBe(1);
+        expect(result.testsByTask.has(30)).toBe(true);
+      });
+    });
   });
 });
