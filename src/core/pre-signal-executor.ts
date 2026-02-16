@@ -148,8 +148,7 @@ function getDefaultCommands(projectType: ProjectType): {
         build: "flutter analyze",
         // Exclude red-phase tests from normal runs via Flutter's tag system
         // Red-phase tests are only run explicitly via runTddRedPhaseTests
-        test: "flutter test --exclude-tags tdd-red",
-        lint: "dart format .",
+test: "flutter test --exclude-tags red",        lint: "dart format .",
       };
     case "python":
       return {
@@ -674,8 +673,7 @@ async function setGreenPhaseCompleted(
 ): string {
   switch (projectType) {
     case "flutter":
-      return "flutter test --exclude-tags tdd-red";
-
+return "flutter test --exclude-tags red";
     case "node":
       // Use vitest --exclude flag to skip test/red/ directory
       if (baseTestCommand) {
