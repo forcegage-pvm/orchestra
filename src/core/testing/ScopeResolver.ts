@@ -8,10 +8,10 @@ import * as fs from "fs/promises";
 import * as path from "path";
 
 import { ChangeResolver } from "./ChangeResolver.js";
+import { DartRelatedResolver } from "./DartRelatedResolver.js";
 import { createToolError, ToolErrorCode, type ToolError } from "./errors.js";
 import type { TestConfig } from "./TestConfigLoader.js";
-import type { ChangeSource, TestScope } from "./types.js";
-/**
+import type { ChangeSource, TestScope } from "./types.js"; /**
  * Callback type for retrieving last failed tests from TestResultStore.
  * @param workingDir The working directory to query for failed tests
  * @returns Array of failed test names, or undefined if none recorded
@@ -43,8 +43,15 @@ export interface ScopeResult {
   pattern?: string;
   /** Explanatory message (e.g., for empty results) */
   message?: string;
-  /** Related source files that triggered test selection (for 'related' scope) */
+  /** Related source files that triggered test selection (for 'related' scope with vitest) */
   relatedFiles?: string[];
+  /** Selection metadata explaining why each test was included (for Dart 'related' scope) */
+  selections?: Array<{
+    file: string;
+    reason: "naming-convention" | "transitive-import" | "same-directory";
+    triggeredBy: string;
+    depth: number;
+  }>;
 }
 /**
  * Resolves test scopes (file, pattern, suite, all, related, red, failed) to file lists or patterns.
@@ -257,18 +264,21 @@ export interface ScopeResult {
    * Resolve 'related' scope - detects changed files and returns them for vitest --related flag.
    * Uses ChangeResolver to detect changes from working tree, commit range, or explicit file list.
    *
-   * Filters out files belonging to sub-projects (e.g. extension/) that have their own vitest
-   * config, since passing them to the root vitest wastes time scanning an unrelated module graph.
-   * Reports excluded files in the message so the agent knows to run them separately.
+   * For Dart/Flutter projects, dispatches to DartRelatedResolver which maps changed source files
+   * to test files using naming conventions, import graph analysis, and directory fallback.
+   * Returns test file paths directly in files[] (Dart has no --related flag).
+   *
+   * For Vitest projects, filters out files belonging to sub-projects and returns relatedFiles
+   * for the --related flag.
    *
    * @param config Test configuration (used to derive project directory prefixes)
    * @param options Resolve options containing changeSource, commitRange, and fileList
-   * @returns ScopeResult with relatedFiles for vitest --related flag
+   * @returns ScopeResult with relatedFiles for vitest --related flag, or files[] for Dart
    */
-  private resolveRelated(
+  private async resolveRelated(
     config: TestConfig,
     options?: ResolveOptions,
-  ): ScopeResult | ToolError {
+  ): Promise<ScopeResult | ToolError> {
     const changeSource = options?.changeSource ?? "working-tree";
 
     const changeResolver = new ChangeResolver(this.workspaceRoot);
@@ -285,6 +295,31 @@ export interface ScopeResult {
 
     const allChangedFiles = changeResult.files;
 
+    // Dart/Flutter: dispatch to DartRelatedResolver
+    if (config.framework === "dart" || config.framework === "flutter") {
+      const dartResolver = new DartRelatedResolver(this.workspaceRoot);
+      const relatedTests = await dartResolver.resolve(allChangedFiles);
+
+      if (relatedTests.length === 0) {
+        return {
+          files: [],
+          message: `Related scope: ${allChangedFiles.length} changed file(s) detected via ${changeSource}, but no related Dart test files found.`,
+        };
+      }
+
+      return {
+        files: relatedTests.map((r) => r.testFile),
+        selections: relatedTests.map((r) => ({
+          file: r.testFile,
+          reason: r.reason,
+          triggeredBy: r.triggeredBy,
+          depth: r.depth,
+        })),
+        message: `Related scope: ${allChangedFiles.length} changed file(s) → ${relatedTests.length} related Dart test file(s)`,
+      };
+    }
+
+    // Vitest path: filter files and return relatedFiles for --related flag
     // Filter files to root project only — exclude files under sub-project directories
     // that have their own vitest config (e.g. extension/).
     const subProjectPrefixes = this.detectSubProjectPrefixes(config);
@@ -324,7 +359,6 @@ export interface ScopeResult {
       message: messageParts.join("\n"),
     };
   }
-
   /**
    * Detect sub-project directory prefixes from config tier paths.
    * A sub-project is identified by tier paths that share a common directory prefix
@@ -442,13 +476,18 @@ export interface ScopeResult {
   }
 
   /**
-   * Check whether a directory contains any .test.ts / .test.js files (recursively).
+   * Check whether a directory contains any test files (recursively).
+   * Recognizes both JS/TS test files (.test.[jt]sx?) and Dart test files (_test.dart).
    */
   private async dirHasTestFiles(dir: string): Promise<boolean> {
     try {
       const entries = await fs.readdir(dir, { withFileTypes: true });
       for (const entry of entries) {
-        if (entry.isFile() && /\.test\.[jt]sx?$/.test(entry.name)) {
+        if (
+          entry.isFile() &&
+          (/\.test\.[jt]sx?$/.test(entry.name) ||
+            entry.name.endsWith("_test.dart"))
+        ) {
           return true;
         }
         if (entry.isDirectory()) {
@@ -463,7 +502,6 @@ export interface ScopeResult {
     }
     return false;
   }
-
   /**
    * Resolve 'failed' scope - returns a pattern for re-running previously failed tests.
    * Queries TestResultStore.getLastFailedTests() to get failed test names from the last run.

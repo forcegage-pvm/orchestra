@@ -14,9 +14,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type * as vscode from "vscode";
 
+import type {
+  RunTestsResult,
+  TestConfig,
+} from "../../../../../../src/core/testing/types.js";
 import { ToolErrorCode } from "../../../../../src/agents/tools/errors.js";
 import type { ToolInvocationContext } from "../../../../../src/agents/tools/types.js";
-import type { RunTestsResult, TestConfig } from "../../../../../../src/core/testing/types.js";
 
 /** Create a mock CancellationToken */
 function createMockToken(cancelled = false): vscode.CancellationToken {
@@ -27,9 +30,21 @@ function createMockToken(cancelled = false): vscode.CancellationToken {
 }
 
 // Setup mock implementations that will be controlled by test vars
-let mockLoadResult: Awaited<ReturnType<typeof import("../../../../../../src/core/testing/TestConfigLoader.js").TestConfigLoader.prototype.load>>;
-let mockResolveResult: Awaited<ReturnType<typeof import("../../../../../../src/core/testing/ScopeResolver.js").ScopeResolver.prototype.resolve>>;
-let mockExecuteResult: Awaited<ReturnType<typeof import("../../../../../../src/core/testing/VitestRunner.js").VitestRunner.prototype.execute>>;
+let mockLoadResult: Awaited<
+  ReturnType<
+    typeof import("../../../../../../src/core/testing/TestConfigLoader.js").TestConfigLoader.prototype.load
+  >
+>;
+let mockResolveResult: Awaited<
+  ReturnType<
+    typeof import("../../../../../../src/core/testing/ScopeResolver.js").ScopeResolver.prototype.resolve
+  >
+>;
+let mockExecuteResult: Awaited<
+  ReturnType<
+    typeof import("../../../../../../src/core/testing/VitestRunner.js").VitestRunner.prototype.execute
+  >
+>;
 let mockFormatResult: RunTestsResult;
 let mockFormatFailures: string;
 
@@ -105,7 +120,11 @@ vi.mock("../../../../../../src/core/testing/FingerprintComputer.js", () => {
   return {
     FingerprintComputer: class MockFingerprintComputer {
       compute() {
-        return Promise.resolve({ hash: "mock-fingerprint", fileCount: 5, files: [] });
+        return Promise.resolve({
+          hash: "mock-fingerprint",
+          fileCount: 5,
+          files: [],
+        });
       }
     },
   };
@@ -275,11 +294,13 @@ describe("runTestsTool", () => {
       // Make execute hang
       let resolveExecute: (() => void) | undefined;
       mockExecuteResult = new Promise((resolve) => {
-        resolveExecute = () => resolve({
-          exitCode: 0,
-          tests: [],
-          duration: 1234,
-        });      }) as never;
+        resolveExecute = () =>
+          resolve({
+            exitCode: 0,
+            tests: [],
+            duration: 1234,
+          });
+      }) as never;
 
       // Start first run (will hang on vitest execution)
       const firstRun = runTestsTool.invoke(
@@ -400,7 +421,8 @@ describe("runTestsTool", () => {
       mockResolveResult = {
         code: ToolErrorCode.NO_CHANGES_DETECTED,
         message: "No changes found in working tree.",
-        suggestion: "Use scope 'suite' or 'all' to run tests regardless of changes.",
+        suggestion:
+          "Use scope 'suite' or 'all' to run tests regardless of changes.",
       };
 
       const result = await runTestsTool.invoke(
@@ -443,6 +465,86 @@ describe("runTestsTool", () => {
 
       expect(result.success).toBe(false);
       expect(result.error?.code).toBe(ToolErrorCode.COMMAND_FAILED);
+    });
+  });
+
+  describe("collection/transform failure detection", () => {
+    it("should return COLLECTION_FAILED when exitCode != 0 and 0 tests collected", async () => {
+      // Simulate esbuild transform error: vitest exits 1 but JSON reports 0 tests
+      mockExecuteResult = {
+        exitCode: 1,
+        tests: [],
+        duration: 500,
+        rawOutput:
+          'ERROR: Expected ";" but found ")"\n  test/broken.test.ts:5:62',
+      };
+
+      const result = await runTestsTool.invoke(
+        { scope: "file", target: "test/unit/broken.test.ts" },
+        mockContext,
+      );
+
+      expect(result.success).toBe(false);
+      expect(result.error?.code).toBe(ToolErrorCode.COLLECTION_FAILED);
+      expect(result.error?.message).toContain("collection failed");
+      expect(result.error?.message).toContain("0 tests");
+    });
+
+    it("should include raw output in error details for diagnosis", async () => {
+      const rawError =
+        'Transform failed with 1 error:\ntest/broken.test.ts:5:62: ERROR: Expected ";" but found ")"';
+      mockExecuteResult = {
+        exitCode: 1,
+        tests: [],
+        duration: 300,
+        rawOutput: rawError,
+      };
+
+      const result = await runTestsTool.invoke(
+        { scope: "file", target: "test/unit/broken.test.ts" },
+        mockContext,
+      );
+
+      expect(result.success).toBe(false);
+      expect(result.error?.code).toBe(ToolErrorCode.COLLECTION_FAILED);
+      expect(result.error?.details).toHaveProperty("output");
+      expect(result.error?.details?.output).toContain("Transform failed");
+    });
+
+    it("should NOT flag collection failure when exitCode != 0 but tests were collected", async () => {
+      // Normal test failure: vitest exits 1 because a test failed, but tests were collected
+      mockExecuteResult = {
+        exitCode: 1,
+        tests: [
+          { name: "should work", file: "test/a.test.ts", status: "failed" },
+        ],
+        duration: 800,
+      };
+
+      const result = await runTestsTool.invoke(
+        { scope: "file", target: "test/unit/a.test.ts" },
+        mockContext,
+      );
+
+      // Should succeed (tool-level success, test-level failure is normal)
+      expect(result.success).toBe(true);
+    });
+
+    it("should NOT flag collection failure when exitCode is 0 and 0 tests", async () => {
+      // Edge case: vitest exits 0 with no tests (e.g., all tests skipped via .skip)
+      mockExecuteResult = {
+        exitCode: 0,
+        tests: [],
+        duration: 200,
+      };
+
+      const result = await runTestsTool.invoke(
+        { scope: "suite", target: "unit" },
+        mockContext,
+      );
+
+      // Should succeed — 0 tests with exit 0 is fine (handled by formatter)
+      expect(result.success).toBe(true);
     });
   });
 
@@ -495,7 +597,10 @@ describe("runTestsTool", () => {
       } as never;
       // First run should fail but release lock
       try {
-        await runTestsTool.invoke({ scope: "suite", target: "unit" }, mockContext);
+        await runTestsTool.invoke(
+          { scope: "suite", target: "unit" },
+          mockContext,
+        );
       } catch {
         // Ignore the error
       }
@@ -641,7 +746,8 @@ describe("runTestsTool", () => {
       mockLastFailedTests = undefined;
       mockResolveResult = {
         files: [],
-        message: "No failed tests from previous run. All tests passed or no tests have been run yet.",
+        message:
+          "No failed tests from previous run. All tests passed or no tests have been run yet.",
       };
 
       const result = await runTestsTool.invoke(
@@ -681,7 +787,11 @@ describe("runTestsTool", () => {
       };
 
       const result = await runTestsTool.invoke(
-        { scope: "related", change_source: "file-list", file_list: ["src/core/yaml.ts", "src/core/templates.ts"] },
+        {
+          scope: "related",
+          change_source: "file-list",
+          file_list: ["src/core/yaml.ts", "src/core/templates.ts"],
+        },
         mockContext,
       );
 
@@ -712,7 +822,11 @@ describe("runTestsTool", () => {
       };
 
       const result = await runTestsTool.invoke(
-        { scope: "related", change_source: "file-list", file_list: ["src/core/yaml.ts"] },
+        {
+          scope: "related",
+          change_source: "file-list",
+          file_list: ["src/core/yaml.ts"],
+        },
         mockContext,
       );
 
@@ -729,7 +843,11 @@ describe("runTestsTool", () => {
       };
 
       const result = await runTestsTool.invoke(
-        { scope: "related", change_source: "file-list", file_list: ["src/file.ts"] },
+        {
+          scope: "related",
+          change_source: "file-list",
+          file_list: ["src/file.ts"],
+        },
         mockContext,
       );
 

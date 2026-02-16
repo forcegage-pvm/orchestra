@@ -58,6 +58,12 @@ export {
   compressStackTrace,
 } from "./DartRunner.js";
 
+// Dart related file resolution
+export { DartRelatedResolver } from "./DartRelatedResolver.js";
+export type { RelatedTestFile } from "./DartRelatedResolver.js";
+
+// Dart import graph
+export { DartImportGraph } from "./DartImportGraph.js";
 // Result formattingexport { ResultFormatter } from "./ResultFormatter.js";
 export type { FormatOptions } from "./ResultFormatter.js";
 

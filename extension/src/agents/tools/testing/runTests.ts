@@ -18,6 +18,7 @@ import {
   type ResolveOptions,
 } from "../../../../../src/core/testing/ScopeResolver.js";
 import { TestConfigLoader } from "../../../../../src/core/testing/TestConfigLoader.js";
+import { TestRunnerFactory } from "../../../../../src/core/testing/TestRunnerFactory.js";
 import type {
   CacheKey,
   RunTestsInput,
@@ -28,7 +29,7 @@ import {
   ExecutionLock,
   RunTestsInputSchema,
 } from "../../../../../src/core/testing/types.js";
-import { TestRunnerFactory } from "../../../../../src/core/testing/TestRunnerFactory.js";import { ToolErrorCode } from "../errors.js";
+import { ToolErrorCode } from "../errors.js";
 import type {
   AgentTool,
   ToolInputSchema,
@@ -479,9 +480,35 @@ async function runTests(
       );
     }
 
+    // 11b. Detect collection/transform failures:
+    // When vitest exits non-zero but reports 0 tests, it means the test file(s)
+    // failed to compile or collect (e.g., esbuild transform error, missing imports).
+    // This MUST be surfaced as an error — otherwise agents see "PASS | 0 passed"
+    // and think everything is fine.
+    if (runOutput.exitCode !== 0 && runOutput.tests.length === 0) {
+      const rawPreview = runOutput.rawOutput
+        ? runOutput.rawOutput.slice(0, 1500)
+        : "No output captured.";
+      return buildToolResult(
+        errorResult(
+          TOOL_NAME,
+          ToolErrorCode.COLLECTION_FAILED,
+          `Test collection failed — vitest exited with code ${runOutput.exitCode} but reported 0 tests. ` +
+            `This usually means the test file(s) failed to compile (e.g., syntax error, missing import, esbuild transform error).`,
+          "Check the error output below and fix the test file. Common causes: syntax errors, missing modules, glob patterns in block comments (/**/).",
+          {
+            exitCode: runOutput.exitCode,
+            files: scopeResult.files,
+            output: rawPreview,
+          },
+        ),
+      );
+    }
+
     // 12. Format results
     const formatter = new ResultFormatter();
-    const maxFailureLines =      validatedInput.max_failure_lines ?? config.maxFailureLines;
+    const maxFailureLines =
+      validatedInput.max_failure_lines ?? config.maxFailureLines;
     const result: RunTestsResult = formatter.format(runOutput.tests, {
       maxFailureLines,
       framework: runner.framework,

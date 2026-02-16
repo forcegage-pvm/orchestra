@@ -39,6 +39,7 @@ describe("ToolErrorCode", () => {
       "PROMOTION_BLOCKED",
       "NO_CHANGES_DETECTED",
       "TEST_COMMAND_BLOCKED",
+      "COLLECTION_FAILED",
     ];
 
     expect(Object.values(ToolErrorCode)).toEqual(expected);
