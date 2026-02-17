@@ -5,13 +5,12 @@
 
 /**
  * Static utility for identifying test commands and providing redirect guidance.
- * Blocks 9 common test command patterns and directs agents to use
+ * Blocks 11 common test command patterns and directs agents to use
  * structured test runner tools instead.
- */
-export class TestCommandInterceptor {
+ */export class TestCommandInterceptor {
   /**
    * Blocked test command patterns.
-   * All 9 patterns from the contract specification.
+   * All 11 patterns: 9 original + dart test + flutter test.
    */
   private static readonly BLOCKED_PATTERNS = [
     /^npm\s+test/,
@@ -23,8 +22,9 @@ export class TestCommandInterceptor {
     /^yarn\s+test/,
     /^yarn\s+run\s+test/,
     /^node_modules\/\.bin\/vitest/,
+    /^dart\s+test/,
+    /^flutter\s+test/,
   ];
-
   /**
    * Check if command is a blocked test command.
    * @param cmd Command string to check

@@ -157,11 +157,11 @@ async function parseTestFile(filePath: string): Promise<TestEntry[]> {
     const content = await readFile(filePath, "utf-8");
     const lines = content.split("\n");
 
-    // Patterns to match: describe("...", it("...", test("...
+    // Patterns to match: describe("...", group("...", it("...", test("...
     // Handle both single and double quotes, and template literals
-    const describePattern = /\b(describe)\s*\(\s*["'`]([^"'`]+)["'`]/;
+    // 'group' is the Dart equivalent of 'describe' for grouping tests
+    const describePattern = /\b(describe|group)\s*\(\s*["'`]([^"'`]+)["'`]/;
     const testPattern = /\b(it|test)\s*\(\s*["'`]([^"'`]+)["'`]/;
-
     // Track current describe context for building full names
     const describeStack: string[] = [];
     const indentStack: number[] = [];
@@ -182,16 +182,16 @@ async function parseTestFile(filePath: string): Promise<TestEntry[]> {
         describeStack.pop();
       }
 
-      // Check for describe block
+      // Check for describe/group block
       const describeMatch = describePattern.exec(line);
       if (describeMatch) {
+        const keyword = describeMatch[1] ?? "describe";
         const describeName = describeMatch[2];
         if (describeName !== undefined) {
           entries.push({
-            name: `describe "${describeName}"`,
+            name: `${keyword} "${describeName}"`,
             line: lineNum,
-          });
-          describeStack.push(describeName);
+          });          describeStack.push(describeName);
           indentStack.push(indent);
         }
         continue;

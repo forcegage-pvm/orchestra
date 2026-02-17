@@ -1,8 +1,7 @@
 /**
  * runTests tool - Execute scoped test runs via the testing pipeline
  *
- * Wires the pipeline: TestConfigLoader → ScopeResolver → VitestRunner → ResultFormatter
- * Implements execution locking (FR-026), timeout handling, fingerprint caching (US3),
+ * Wires the pipeline: TestConfigLoader → ScopeResolver → TestRunner → ResultFormatter * Implements execution locking (FR-026), timeout handling, fingerprint caching (US3),
  * and proper result formatting.
  *
  * Aligned with specs/013-test-runner-tools/data-model.md
@@ -493,18 +492,18 @@ async function runTests(
         errorResult(
           TOOL_NAME,
           ToolErrorCode.COLLECTION_FAILED,
-          `Test collection failed — vitest exited with code ${runOutput.exitCode} but reported 0 tests. ` +
-            `This usually means the test file(s) failed to compile (e.g., syntax error, missing import, esbuild transform error).`,
-          "Check the error output below and fix the test file. Common causes: syntax errors, missing modules, glob patterns in block comments (/**/).",
+          `Test collection failed — test runner (${runner.framework}) exited with code ${runOutput.exitCode} but reported 0 tests. ` +
+            `This usually means the test file(s) failed to compile or collect (e.g., syntax error, missing import, transform error).`,
+          "Check the error output below and fix the test file. Common causes: syntax errors, missing modules, compilation failures.",
           {
             exitCode: runOutput.exitCode,
+            framework: runner.framework,
             files: scopeResult.files,
             output: rawPreview,
           },
         ),
       );
     }
-
     // 12. Format results
     const formatter = new ResultFormatter();
     const maxFailureLines =
