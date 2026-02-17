@@ -107,16 +107,12 @@ describe("TestCommandInterceptor", () => {
     it("should handle leading whitespace", () => {
       expect(TestCommandInterceptor.isTestCommand("  npm test")).toBe(true);
       expect(TestCommandInterceptor.isTestCommand("\tnpx vitest")).toBe(true);
-      expect(TestCommandInterceptor.isTestCommand("  npm install")).toBe(
-        false,
-      );
+      expect(TestCommandInterceptor.isTestCommand("  npm install")).toBe(false);
     });
 
     it("should handle trailing whitespace", () => {
       expect(TestCommandInterceptor.isTestCommand("npm test  ")).toBe(true);
-      expect(TestCommandInterceptor.isTestCommand("npm install  ")).toBe(
-        false,
-      );
+      expect(TestCommandInterceptor.isTestCommand("npm install  ")).toBe(false);
     });
 
     it("should block 'cd <path> && flutter test ...'", () => {
@@ -145,9 +141,7 @@ describe("TestCommandInterceptor", () => {
 
     it("should not block 'cd <path> && npm run build'", () => {
       expect(
-        TestCommandInterceptor.isTestCommand(
-          "cd /workspace && npm run build",
-        ),
+        TestCommandInterceptor.isTestCommand("cd /workspace && npm run build"),
       ).toBe(false);
     });
   });
@@ -194,9 +188,7 @@ describe("TestCommandInterceptor", () => {
     it("should return consistent message format", () => {
       const message1 = TestCommandInterceptor.getRedirectMessage("npm test");
       const message2 = TestCommandInterceptor.getRedirectMessage("yarn test");
-      const message3 = TestCommandInterceptor.getRedirectMessage(
-        "npx vitest",
-      );
+      const message3 = TestCommandInterceptor.getRedirectMessage("npx vitest");
 
       // Message format should be consistent regardless of command
       expect(message1).toBe(message2);
