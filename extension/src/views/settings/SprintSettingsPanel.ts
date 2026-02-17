@@ -21,6 +21,7 @@ interface SprintSettings {
   orchestratorModel: string;
   implementorModel: string;
   controllerModel: string;
+  maxIterations: number;
 }
 
 export class SprintSettingsPanel {
@@ -169,6 +170,10 @@ export class SprintSettingsPanel {
           configMap.get("models.implementor") || defaultModels.implementor,
         controllerModel:
           configMap.get("models.controller") || defaultModels.controller,
+        maxIterations: parseInt(
+          configMap.get("agent.max_iterations") || "80",
+          10,
+        ),
       };
 
       const availableModels = await this._getAvailableModels();
@@ -257,6 +262,11 @@ export class SprintSettingsPanel {
           key: "models.controller",
           value: settings.controllerModel,
           description: "AI model for controller role",
+        },
+        {
+          key: "agent.max_iterations",
+          value: settings.maxIterations.toString(),
+          description: "Maximum agent loop iterations",
         },
         {
           key: "tools.prepare_task.auto_commit",
@@ -384,6 +394,7 @@ export class SprintSettingsPanel {
       font-weight: 500;
     }
     input[type="text"],
+    input[type="number"],
     textarea,
     select {
       width: 100%;
@@ -394,6 +405,7 @@ export class SprintSettingsPanel {
       box-sizing: border-box;
     }
     input[type="text"]:focus,
+    input[type="number"]:focus,
     textarea:focus,
     select:focus {
       outline: 1px solid var(--vscode-focusBorder);
@@ -510,6 +522,14 @@ export class SprintSettingsPanel {
     <select id="controllerModel"></select>
     <div class="help-text">Model used for controller prompts (review and verification)</div>
   </div>
+
+  <h2>Agent Execution</h2>
+
+  <div class="form-group">
+    <label for="maxIterations">Maximum agent loop iterations</label>
+    <input type="number" id="maxIterations" min="10" max="500" step="10" value="80">
+    <div class="help-text">Maximum number of tool calls/iterations per agent run (default: 80)</div>
+  </div>
   
   <h2>Git Automation</h2>
   
@@ -542,6 +562,7 @@ export class SprintSettingsPanel {
     const orchestratorModel = document.getElementById('orchestratorModel');
     const implementorModel = document.getElementById('implementorModel');
     const controllerModel = document.getElementById('controllerModel');
+    const maxIterations = document.getElementById('maxIterations');
     const saveButton = document.getElementById('saveButton');
     const cancelButton = document.getElementById('cancelButton');
     const messageDiv = document.getElementById('message');
@@ -575,6 +596,7 @@ export class SprintSettingsPanel {
       preSignalBuildCommand.value = settings.preSignalBuildCommand;
       preSignalTestCommand.value = settings.preSignalTestCommand;
       autoCommit.checked = settings.autoCommit;
+      maxIterations.value = settings.maxIterations.toString();
       populateModelSelect(orchestratorModel, availableModels, settings.orchestratorModel);
       populateModelSelect(implementorModel, availableModels, settings.implementorModel);
       populateModelSelect(controllerModel, availableModels, settings.controllerModel);
@@ -616,6 +638,7 @@ export class SprintSettingsPanel {
         orchestratorModel: orchestratorModel.value,
         implementorModel: implementorModel.value,
         controllerModel: controllerModel.value,
+        maxIterations: parseInt(maxIterations.value, 10) || 80,
       };
       
       vscode.postMessage({ type: 'save', settings });
