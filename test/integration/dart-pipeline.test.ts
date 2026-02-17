@@ -171,7 +171,9 @@ describe("integration: Dart pipeline", () => {
 
         // Filtered result should have fewer tests than total
         expect(filteredResult.tests.length).toBeGreaterThan(0);
-        expect(filteredResult.tests.length).toBeLessThan(allResult.tests.length);
+        expect(filteredResult.tests.length).toBeLessThan(
+          allResult.tests.length,
+        );
       },
     );
   });
@@ -204,9 +206,7 @@ describe("integration: Dart pipeline", () => {
 
         const dartConfig = {
           framework: "dart",
-          tiers: [
-            { name: "unit", path: "test/**/*_test.dart" },
-          ],
+          tiers: [{ name: "unit", path: "test/**/*_test.dart" }],
           defaultTimeout: 60000,
           maxFailureLines: 20,
         };
@@ -247,10 +247,7 @@ describe("integration: Dart pipeline", () => {
         };
 
         // Write config to the harness directory temporarily
-        const configPath = path.join(
-          DART_HARNESS,
-          ".agent-test-config.json",
-        );
+        const configPath = path.join(DART_HARNESS, ".agent-test-config.json");
         const hadConfig = fs.existsSync(configPath);
         let originalConfig: string | undefined;
         if (hadConfig) {
@@ -258,10 +255,7 @@ describe("integration: Dart pipeline", () => {
         }
 
         try {
-          fs.writeFileSync(
-            configPath,
-            JSON.stringify(configContent, null, 2),
-          );
+          fs.writeFileSync(configPath, JSON.stringify(configContent, null, 2));
 
           // 2. Load config
           const loader = new TestConfigLoader(DART_HARNESS);
@@ -323,9 +317,55 @@ describe("integration: Dart framework detection (US6)", () => {
     },
   );
 
-  it.todo("should detect 'flutter' framework when flutter dependency exists");
+  it.skipIf(!dartAvailable)(
+    "should detect 'flutter' framework when flutter dependency exists",
+    async () => {
+      // Create a temp directory with a Flutter pubspec.yaml
+      const tmpDir = fs.mkdtempSync(
+        path.join(os.tmpdir(), "dart-detect-flutter-"),
+      );
+      try {
+        fs.writeFileSync(
+          path.join(tmpDir, "pubspec.yaml"),
+          [
+            "name: my_flutter_app",
+            "dependencies:",
+            "  flutter:",
+            "    sdk: flutter",
+          ].join("\n"),
+        );
 
-  it.todo(
+        const detected = await TestRunnerFactory.detect(tmpDir);
+        expect(detected).toBe("flutter");
+      } finally {
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+      }
+    },
+  );
+
+  it.skipIf(!dartAvailable)(
     "should fail with clear error when both pubspec.yaml and vitest.config.ts exist",
+    async () => {
+      // Create a temp directory with both Dart and Vitest markers
+      const tmpDir = fs.mkdtempSync(
+        path.join(os.tmpdir(), "dart-detect-dual-"),
+      );
+      try {
+        fs.writeFileSync(
+          path.join(tmpDir, "pubspec.yaml"),
+          "name: my_dart_app\n",
+        );
+        fs.writeFileSync(
+          path.join(tmpDir, "vitest.config.ts"),
+          "export default {}\n",
+        );
+
+        await expect(TestRunnerFactory.detect(tmpDir)).rejects.toMatchObject({
+          code: "INVALID_INPUT",
+        });
+      } finally {
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+      }
+    },
   );
 });

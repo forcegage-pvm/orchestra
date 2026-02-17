@@ -270,6 +270,52 @@ describe("ResultFormatter", () => {
       expect(summary.length).toBeLessThan(120);
       expect(summary.length).toBeGreaterThan(30);
     });
+
+    it("should produce PASS summary with 'dart' framework label", () => {
+      const result: RunTestsResult = {
+        runId: "test-run",
+        scope: "all",
+        cached: false,
+        fingerprint: "abc123",
+        timestamp: "2024-01-01T00:00:00Z",
+        workingDir: "/workspace",
+        total: 8,
+        passed: 8,
+        failed: 0,
+        skipped: 0,
+        duration: 2000,
+        tests: [],
+        summary: "",
+      };
+
+      const summary = formatter.formatSummary(result, "dart");
+
+      expect(summary).toMatch(/^PASS \(dart\) \|/);
+      expect(summary).toContain("8 passed");
+    });
+
+    it("should produce FAIL summary with 'flutter' framework label", () => {
+      const result: RunTestsResult = {
+        runId: "test-run",
+        scope: "all",
+        cached: false,
+        fingerprint: "abc123",
+        timestamp: "2024-01-01T00:00:00Z",
+        workingDir: "/workspace",
+        total: 10,
+        passed: 7,
+        failed: 2,
+        skipped: 1,
+        duration: 3500,
+        tests: [],
+        summary: "",
+      };
+
+      const summary = formatter.formatSummary(result, "flutter");
+
+      expect(summary).toMatch(/^FAIL \(flutter\) \|/);
+      expect(summary).toContain("2 failed");
+    });
   });
 
   describe("formatFailures()", () => {

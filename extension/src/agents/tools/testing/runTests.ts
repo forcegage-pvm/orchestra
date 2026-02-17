@@ -451,6 +451,9 @@ async function runTests(
       workingDir,
       timeout,
     };
+    if (config.dartNoPub === true) {
+      executeOptions.dartNoPub = true;
+    }
     if (scopeResult.pattern !== undefined) {
       executeOptions.pattern = scopeResult.pattern;
     }
@@ -484,7 +487,8 @@ async function runTests(
     // failed to compile or collect (e.g., transform error, missing imports).
     // This MUST be surfaced as an error — otherwise agents see "PASS | 0 passed"
     // and think everything is fine.
-    if (runOutput.exitCode !== 0 && runOutput.tests.length === 0) {      const rawPreview = runOutput.rawOutput
+    if (runOutput.exitCode !== 0 && runOutput.tests.length === 0) {
+      const rawPreview = runOutput.rawOutput
         ? runOutput.rawOutput.slice(0, 1500)
         : "No output captured.";
       return buildToolResult(
@@ -523,7 +527,8 @@ async function runTests(
     // Test runners may report absolute paths (e.g., "X:/repo/test/red/smoke/foo.test.ts")
     // but downstream consumers (promote_tests, generatePromotionTargets) expect
     // workspace-relative paths (e.g., "test/red/smoke/foo.test.ts").
-    const wsRootNorm =      context.workspaceRoot.replace(/\\/g, "/").replace(/\/$/, "") + "/";
+    const wsRootNorm =
+      context.workspaceRoot.replace(/\\/g, "/").replace(/\/$/, "") + "/";
     const wsRootLower = wsRootNorm.toLowerCase();
     for (const test of result.tests) {
       const normalized = test.file.replace(/\\/g, "/");

@@ -14,9 +14,9 @@ import { spawn } from "node:child_process";
 import { createToolError, ToolErrorCode, type ToolError } from "./errors.js";
 import type {
   NormalizedTestOutcome,
+  TestRunner,
   TestRunOptions,
   TestRunOutput,
-  TestRunner,
 } from "./TestRunner.js";
 
 // ============================================================================
@@ -144,8 +144,11 @@ export class DartRunner implements TestRunner {
   buildCommand(options: TestRunOptions): string[] {
     const args: string[] = [this.framework, "test", "--reporter=json"];
 
-    // Flutter applies --no-pub by default
-    if (this.framework === "flutter") {
+    // Flutter applies --no-pub by default; pure Dart gets it when dartNoPub is set
+    if (
+      this.framework === "flutter" ||
+      (this.framework === "dart" && options.dartNoPub === true)
+    ) {
       args.push("--no-pub");
     }
 
@@ -570,7 +573,9 @@ function compressFailureMessage(
   const { expected, actual } = extractExpectedActual(fullError);
 
   // Get first meaningful line as message
-  const message = fullError.split("\n").filter((l) => l.trim().length > 0)[0] ?? "Test failed";
+  const message =
+    fullError.split("\n").filter((l) => l.trim().length > 0)[0] ??
+    "Test failed";
 
   // Compress stack trace
   const stack = compressStackTrace(fullStack);
@@ -640,8 +645,13 @@ export function compressStackTrace(stackTrace: string): string[] {
 
   const filtered = lines.filter((line) => {
     // Filter out test framework and SDK frames
-    if (line.startsWith("package:test/") || line.startsWith("package:test ")) return false;
-    if (line.startsWith("package:test_api/") || line.startsWith("package:test_api ")) return false;
+    if (line.startsWith("package:test/") || line.startsWith("package:test "))
+      return false;
+    if (
+      line.startsWith("package:test_api/") ||
+      line.startsWith("package:test_api ")
+    )
+      return false;
     if (line.startsWith("dart:")) return false;
     if (line.startsWith("package:matcher")) return false;
     return true;

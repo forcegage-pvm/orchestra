@@ -21,14 +21,14 @@ import {
   extractJsonEvents,
   fileUrlToPath,
 } from "../../../../src/core/testing/DartRunner.js";
-import { TestRunnerFactory } from "../../../../src/core/testing/TestRunnerFactory.js";
 import type {
   NormalizedTestOutcome,
   TestFramework,
+  TestRunner,
   TestRunOptions,
   TestRunOutput,
-  TestRunner,
 } from "../../../../src/core/testing/TestRunner.js";
+import { TestRunnerFactory } from "../../../../src/core/testing/TestRunnerFactory.js";
 
 // ============================================================================
 // FR-019: Mock runners MUST implement TestRunner explicitly
@@ -199,6 +199,29 @@ describe("DartRunner", () => {
       const command = runner.buildCommand(options);
       expect(command).toEqual(["dart", "test", "--reporter=json"]);
     });
+
+    it("should include --no-pub for pure Dart when dartNoPub is true", () => {
+      const runner = new DartRunner("dart");
+      const options: TestRunOptions = {
+        files: ["test/foo_test.dart"],
+        workingDir: "/workspace",
+        dartNoPub: true,
+      };
+      const command = runner.buildCommand(options);
+      expect(command[0]).toBe("dart");
+      expect(command).toContain("--no-pub");
+    });
+
+    it("should NOT include --no-pub for pure Dart when dartNoPub is not set", () => {
+      const runner = new DartRunner("dart");
+      const options: TestRunOptions = {
+        files: ["test/foo_test.dart"],
+        workingDir: "/workspace",
+      };
+      const command = runner.buildCommand(options);
+      expect(command[0]).toBe("dart");
+      expect(command).not.toContain("--no-pub");
+    });
   });
 
   describe("extractJsonEvents()", () => {
@@ -236,7 +259,7 @@ describe("DartRunner", () => {
       // Engine log text should NOT appear as events
       const eventStrings = JSON.stringify(events);
       expect(eventStrings).not.toContain("Flutter 3.19.0");
-      expect(eventStrings).not.toContain("Running \"flutter test\"");
+      expect(eventStrings).not.toContain('Running "flutter test"');
     });
 
     it("should handle empty suite fixture", () => {

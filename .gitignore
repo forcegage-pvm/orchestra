@@ -11,8 +11,6 @@ tsup.config.bundled_*.mjs
 .vitest-cache/
 # Dart/Flutter build artifacts
 .dart_tool/
-# Extension artifacts - track folder but ignore VSIX files
-extension/artifacts/*.vsix
 extension/.orchestra/
 
 # Orchestra workflow

@@ -16,12 +16,12 @@
 import { ResultFormatter } from "./testing/ResultFormatter.js";
 import { ScopeResolver } from "./testing/ScopeResolver.js";
 import { TestConfigLoader } from "./testing/TestConfigLoader.js";
-import { TestRunnerFactory } from "./testing/TestRunnerFactory.js";
-import type { TestFramework } from "./testing/TestRunner.js";/**
+import type { TestFramework } from "./testing/TestRunner.js"; /**
  * Normalize Windows drive letter to uppercase.
  * Vitest has issues with lowercase drive letters (e.g., x: vs X:).
  * Matches the normalizeWindowsPath in extension/src/agents/tools/testing/runTests.ts
  */
+import { TestRunnerFactory } from "./testing/TestRunnerFactory.js";
 function normalizeWindowsPath(p: string): string {
   const driveLetter = p.charAt(0);
   const driveSeparator = p.charAt(1);
@@ -106,7 +106,8 @@ export async function runTestsCore(
       workspacePath,
       config.defaultTimeout ?? defaultTimeout,
       config.framework,
-    );  }
+    );
+  }
 
   // Resolve tier to file paths using ScopeResolver
   const resolver = new ScopeResolver(workspacePath);
@@ -158,6 +159,7 @@ export async function runTestsCore(
       files: scopeResult.files,
       workingDir: workspacePath,
       timeout,
+      ...(config.dartNoPub === true ? { dartNoPub: true } : {}),
     });
   } catch (error) {
     const toolError = error as { code?: string; message?: string };
@@ -183,12 +185,14 @@ export async function runTestsCore(
     passed: formatted.passed,
     failed: formatted.failed,
     total: formatted.total,
-    duration_ms: runOutput.duration,  };
+    duration_ms: runOutput.duration,
+  };
 
   // ALWAYS set output when total is 0 — helps diagnose "no tests found" issues
   if (formatted.total === 0) {
     result.output =
-      `Runner returned 0 tests. exitCode=${runOutput.exitCode}, ` +      `files=${JSON.stringify(scopeResult.files)}, workingDir=${workspacePath}`;
+      `Runner returned 0 tests. exitCode=${runOutput.exitCode}, ` +
+      `files=${JSON.stringify(scopeResult.files)}, workingDir=${workspacePath}`;
   } else if (formatted.failed > 0) {
     result.output = formatter.formatFailures(
       formatted.tests,
@@ -209,7 +213,8 @@ async function runFiles(
   timeout: number,
   framework: TestFramework = "vitest",
 ): Promise<TestRunResult> {
-  const runner = TestRunnerFactory.create(framework);  let runOutput;
+  const runner = TestRunnerFactory.create(framework);
+  let runOutput;
   try {
     runOutput = await runner.execute({
       files,
@@ -239,7 +244,8 @@ async function runFiles(
     passed: formatted.passed,
     failed: formatted.failed,
     total: formatted.total,
-    duration_ms: runOutput.duration,  };
+    duration_ms: runOutput.duration,
+  };
 
   if (formatted.failed > 0) {
     result.output = formatter.formatFailures(formatted.tests, 20);

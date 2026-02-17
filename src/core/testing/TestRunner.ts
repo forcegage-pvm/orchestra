@@ -35,6 +35,8 @@ export interface TestRunOptions {
   relatedFiles?: string[];
   excludeTags?: string[];
   includeTags?: string[];
+  /** Dart-specific: apply --no-pub for pure Dart projects (Flutter gets it by default). */
+  dartNoPub?: boolean;
 }
 
 /**
