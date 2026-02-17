@@ -138,21 +138,6 @@ export class ConfigService {
   }
 
   /**
-   * Get the configured maximum iterations for agent runs
-   * Reads from DB config table (key: agent.max_iterations), falls back to 80
-   */
-  getMaxIterations(): number {
-    const dbValue = this.getDbConfigValue("agent.max_iterations");
-    if (dbValue) {
-      const parsed = parseInt(dbValue, 10);
-      if (!isNaN(parsed) && parsed > 0) {
-        return parsed;
-      }
-    }
-    return 80;
-  }
-
-  /**
    * Register a callback to be invoked when Orchestra configuration changes
    * @param callback - Function to call with the new configuration
    * @returns Disposable that can be used to unregister the callback
