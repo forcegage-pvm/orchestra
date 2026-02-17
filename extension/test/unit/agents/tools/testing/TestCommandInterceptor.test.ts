@@ -45,6 +45,25 @@ describe("TestCommandInterceptor", () => {
       ).toBe(true);
     });
 
+    it("should return true for 'dart test'", () => {
+      expect(TestCommandInterceptor.isTestCommand("dart test")).toBe(true);
+    });
+
+    it("should return true for 'dart test' with arguments", () => {
+      expect(
+        TestCommandInterceptor.isTestCommand("dart test --reporter=json"),
+      ).toBe(true);
+    });
+
+    it("should return true for 'flutter test'", () => {
+      expect(TestCommandInterceptor.isTestCommand("flutter test")).toBe(true);
+    });
+
+    it("should return true for 'flutter test' with arguments", () => {
+      expect(
+        TestCommandInterceptor.isTestCommand("flutter test --no-pub"),
+      ).toBe(true);
+    });
     it("should return true for test commands with arguments", () => {
       expect(
         TestCommandInterceptor.isTestCommand("npm test -- --coverage"),

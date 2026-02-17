@@ -211,6 +211,13 @@ describe("containsShellTestCommand", () => {
     expect(containsShellTestCommand("flutter test")).toBe(true);
   });
 
+  it("should detect 'dart test'", () => {
+    expect(containsShellTestCommand("dart test")).toBe(true);
+  });
+
+  it("should detect 'dart test' with arguments", () => {
+    expect(containsShellTestCommand("dart test -- --reporter=json")).toBe(true);
+  });
   it("should detect 'pytest'", () => {
     expect(containsShellTestCommand("pytest")).toBe(true);
   });

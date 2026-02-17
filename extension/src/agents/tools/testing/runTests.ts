@@ -480,12 +480,11 @@ async function runTests(
     }
 
     // 11b. Detect collection/transform failures:
-    // When vitest exits non-zero but reports 0 tests, it means the test file(s)
-    // failed to compile or collect (e.g., esbuild transform error, missing imports).
+    // When the test runner exits non-zero but reports 0 tests, it means the test file(s)
+    // failed to compile or collect (e.g., transform error, missing imports).
     // This MUST be surfaced as an error — otherwise agents see "PASS | 0 passed"
     // and think everything is fine.
-    if (runOutput.exitCode !== 0 && runOutput.tests.length === 0) {
-      const rawPreview = runOutput.rawOutput
+    if (runOutput.exitCode !== 0 && runOutput.tests.length === 0) {      const rawPreview = runOutput.rawOutput
         ? runOutput.rawOutput.slice(0, 1500)
         : "No output captured.";
       return buildToolResult(
@@ -521,11 +520,10 @@ async function runTests(
     }
 
     // Normalize test file paths to workspace-relative with forward slashes.
-    // Vitest JSON reports absolute paths (e.g., "X:/repo/test/red/smoke/foo.test.ts")
+    // Test runners may report absolute paths (e.g., "X:/repo/test/red/smoke/foo.test.ts")
     // but downstream consumers (promote_tests, generatePromotionTargets) expect
     // workspace-relative paths (e.g., "test/red/smoke/foo.test.ts").
-    const wsRootNorm =
-      context.workspaceRoot.replace(/\\/g, "/").replace(/\/$/, "") + "/";
+    const wsRootNorm =      context.workspaceRoot.replace(/\\/g, "/").replace(/\/$/, "") + "/";
     const wsRootLower = wsRootNorm.toLowerCase();
     for (const test of result.tests) {
       const normalized = test.file.replace(/\\/g, "/");
@@ -651,8 +649,7 @@ async function runTests(
  * 3. Check config fingerprint for cache invalidation
  * 4. Resolve scope to file list or pattern
  * 5. Compute fingerprint and check cache (skip if force=true)
- * 6. Execute vitest with JSON output (or return cached result)
- * 7. Format results into token-efficient summary
+ * 6. Execute test runner with JSON output (or return cached result) * 7. Format results into token-efficient summary
  * 8. Store result in cache and record failures
  * 9. Release lock and return result
  */

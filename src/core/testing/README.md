@@ -340,3 +340,128 @@ The pipeline supports TDD red-phase testing through inverted tiers:
 - **Failing tests** = awaiting implementation (correct in red phase)
 - **Passing tests** = implementation complete (eligible for promotion)
 - **Per-file status** determines promotion eligibility
+
+## CLI Differences: `dart test` vs `flutter test`
+
+While both commands use the same underlying test framework and NDJSON reporter,
+there are important CLI and behavioral differences:
+
+| Feature | `dart test` | `flutter test` |
+|---------|-------------|----------------|
+| **Runner command** | `dart test` | `flutter test` |
+| **`--no-pub` flag** | Not supported — will cause an error | Auto-applied by DartRunner to skip `pub get` overhead |
+| **`--reporter=json`** | Supported (Dart 3.0+) | Supported (Flutter 3.10+) |
+| **`--exclude-tags`** | `--exclude-tags=red,slow` | `--exclude-tags=red,slow` |
+| **`--tags`** | `--tags=unit` | `--tags=unit` |
+| **`--name` filter** | `--name="test pattern"` | `--name="test pattern"` |
+| **Test file pattern** | `*_test.dart` | `*_test.dart` |
+| **Config file** | `dart_test.yaml` | `dart_test.yaml` (same) |
+| **Engine log output** | Clean JSON only | May include Flutter engine logs (non-JSON lines, filtered by DartRunner) |
+
+### Key differences to remember:
+- **`--no-pub` is Flutter-only**: The DartRunner automatically appends `--no-pub` when
+  `framework === "flutter"` but omits it for `"dart"`. The `dartNoPub` config option
+  in `.agent-test-config.json` is primarily for Flutter projects. Attempting to pass
+  `--no-pub` to `dart test` will cause a command-line error.
+- **Flutter engine noise**: `flutter test --reporter=json` may emit non-JSON diagnostic
+  lines from the Flutter engine. The DartRunner's `extractJsonEvents()` method handles
+  this by filtering non-JSON lines before parsing.
+- **Pure Dart projects** should use `"framework": "dart"` in `.agent-test-config.json`.
+  Flutter projects (those with `sdk: flutter` in `pubspec.yaml`) should use `"framework": "flutter"`.
+
+## Minimum SDK Version Requirements
+
+The DartRunner requires:
+
+- **Dart SDK ≥ 3.0.0** — for `--reporter=json` flag support. Older Dart versions
+  do not support the JSON reporter and will fail with an unrecognized flag error.
+- **Flutter SDK ≥ 3.10.0** — for `--reporter=json` flag support. Earlier Flutter
+  versions used a different reporter output format.
+
+### Version-specific flag restrictions:
+| Flag | Minimum Dart | Minimum Flutter | Notes |
+|------|-------------|-----------------|-------|
+| `--reporter=json` | 3.0 | 3.10 | Required for NDJSON output parsing |
+| `--exclude-tags` | 3.0 | 3.10 | Used to exclude red/slow tags |
+| `--tags` | 3.0 | 3.10 | Used to include specific tag groups |
+| `--file-reporter` | 3.0 | 3.10 | Alternative to stdout JSON |
+| `--no-pub` | N/A | 3.10 | Flutter-only; skip `pub get` |
+
+If you encounter unrecognized-flag errors at runtime, verify that your project
+meets the minimum SDK requirements above.
+
+## Recommended `dart_test.yaml` Template
+
+Dart's test runner reads configuration from `dart_test.yaml` at the project root.
+This is where you define **test tags** used for filtering by scope, TDD workflow,
+and CI pipelines.
+
+### Recommended template with tag definitions:
+
+```yaml
+# dart_test.yaml — Test runner configuration for Dart/Flutter projects
+# Place this file in the project root alongside pubspec.yaml.
+
+tags:
+  # TDD red-phase tests: failing tests awaiting implementation.
+  # Excluded from normal runs; run explicitly with --tags=red.
+  red:
+    # Mark tests with @Tags(['red']) in the test file.
+
+  # Smoke tests: fast sanity checks that validate core functionality.
+  # Run first in CI for quick feedback.
+  smoke:
+    # Mark tests with @Tags(['smoke']) in the test file.
+
+  # End-to-end tests: full integration tests that may be slow.
+  # Typically excluded from local development runs.
+  e2e:
+    # Mark tests with @Tags(['e2e']) in the test file.
+
+  # Slow tests: tests that take longer than usual.
+  # Excluded from default runs to keep feedback fast.
+  slow:
+    # Mark tests with @Tags(['slow']) in the test file.
+```
+
+### Using tags in test files:
+
+```dart
+@Tags(['smoke'])
+import 'package:test/test.dart';
+
+void main() {
+  test('basic health check', () {
+    expect(1 + 1, equals(2));
+  });
+}
+```
+
+### Using tags with the pipeline:
+
+```bash
+# Run only smoke-tagged tests
+dart test --tags=smoke
+
+# Exclude red and slow tests from CI
+dart test --exclude-tags=red,slow
+
+# Run only e2e tests
+dart test --tags=e2e
+```
+
+In `.agent-test-config.json`, use `dartExcludeTags` to automatically exclude
+tags from normal pipeline runs:
+
+```json
+{
+  "framework": "dart",
+  "dartExcludeTags": ["red", "slow"],
+  "tiers": [
+    { "name": "smoke", "path": "test/smoke/**/*_test.dart" },
+    { "name": "unit", "path": "test/unit/**/*_test.dart" },
+    { "name": "e2e", "path": "test/e2e/**/*_test.dart", "timeout": 120000 },
+    { "name": "red", "path": "test/red/**/*_test.dart", "inverted": true }
+  ]
+}
+```
