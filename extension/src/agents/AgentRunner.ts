@@ -621,7 +621,13 @@ export class AgentRunner implements vscode.Disposable {
 
     // Create new session
     const sprintId = options.sprintId ?? "default-sprint";
-    const maxIterations = options.maxIterations ?? this.config.maxIterations;
+    // Re-read maxIterations from ConfigService at start time so setting changes
+    // take effect without restarting the extension
+    const configuredMaxIterations = this.configService?.getMaxIterations();
+    const maxIterations =
+      options.maxIterations ??
+      configuredMaxIterations ??
+      this.config.maxIterations;
     this.session = new AgentSession(
       role,
       sprintId,

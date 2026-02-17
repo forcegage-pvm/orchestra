@@ -156,16 +156,17 @@ export function getAgentRunner(): AgentRunner {
 
 function createAgentRunner(): AgentRunner {
   const toolRegistry = new ToolRegistry();
+  const configSvc = getConfigService();
   return new AgentRunner(
     toolRegistry,
     {
-      orchestratorModel: getConfigService().getModelForRole("orchestrator"),
-      implementorModel: getConfigService().getModelForRole("implementor"),
-      controllerModel: getConfigService().getModelForRole("controller"),
-      maxIterations: 80,
+      orchestratorModel: configSvc.getModelForRole("orchestrator"),
+      implementorModel: configSvc.getModelForRole("implementor"),
+      controllerModel: configSvc.getModelForRole("controller"),
+      maxIterations: configSvc.getMaxIterations(),
       maxContextTokens: 100000,
     },
-    getConfigService(),
+    configSvc,
   );
 }
 
@@ -1827,7 +1828,6 @@ export async function activate(
             role.value as "orchestrator" | "implementor" | "controller",
             {
               prompt,
-              maxIterations: 80,
             },
           );
 
