@@ -274,7 +274,10 @@ describe("Pre-Signal Executor", () => {
 
       expect(result.test.passed).toBe(false);
       expect(result.test.output).toContain(
-        "Tests failed. Run 'run_tests scope=all' for detailed diagnostics.",
+        "Tests failed in tier(s): unit (2 failed)",
+      );
+      expect(result.test.output).toContain(
+        "Run 'run_tests' with scope=suite and target=<tier> for detailed diagnostics.",
       );
       expect(result.allPassed).toBe(false);
     });
@@ -620,7 +623,10 @@ describe("Pre-Signal Executor", () => {
 
       expect(result.test.passed).toBe(false);
       expect(result.test.output).toContain(
-        "Tests failed. Run 'run_tests scope=all' for detailed diagnostics.",
+        "Tests failed in tier(s): smoke (1 failed)",
+      );
+      expect(result.test.output).toContain(
+        "Run 'run_tests' with scope=suite and target=<tier> for detailed diagnostics.",
       );
     });
 
@@ -653,9 +659,12 @@ describe("Pre-Signal Executor", () => {
 
       const result = await runPreSignalChecks(config);
 
-      // FR-005: Output should be exactly the minimal diagnostic message
-      expect(result.test.output).toBe(
-        "Tests failed. Run 'run_tests scope=all' for detailed diagnostics.",
+      // FR-005: Output should contain per-tier diagnostic message
+      expect(result.test.output).toContain(
+        "Tests failed in tier(s): smoke (1 failed)",
+      );
+      expect(result.test.output).toContain(
+        "Run 'run_tests' with scope=suite and target=<tier> for detailed diagnostics.",
       );
     });
 

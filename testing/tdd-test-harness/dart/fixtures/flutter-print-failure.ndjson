@@ -1,0 +1,15 @@
+{"protocolVersion":"0.1.1","runnerVersion":"1.29.0","pid":55555,"type":"start","time":0}
+{"suite":{"id":0,"platform":"vm","path":"test/integration/widgets/braven_chart_plus_interaction_test.dart"},"type":"suite","time":0}
+{"test":{"id":1,"name":"loading test/integration/widgets/braven_chart_plus_interaction_test.dart","suiteID":0,"groupIDs":[],"metadata":{"skip":false,"skipReason":null},"line":null,"column":null,"url":null},"type":"testStart","time":3}
+{"count":1,"time":20,"type":"allSuites"}
+{"testID":1,"result":"success","skipped":false,"hidden":true,"type":"testDone","time":1200}
+{"group":{"id":2,"suiteID":0,"parentID":null,"name":"","metadata":{"skip":false,"skipReason":null},"testCount":2,"line":null,"column":null,"url":null},"type":"group","time":1201}
+{"group":{"id":3,"suiteID":0,"parentID":2,"name":"BravenChartPlus Interaction & Config","metadata":{"skip":false,"skipReason":null},"testCount":2,"line":10,"column":3,"url":"file:///x:/repositories/braven_charts/test/integration/widgets/braven_chart_plus_interaction_test.dart"},"type":"group","time":1202}
+{"test":{"id":4,"name":"BravenChartPlus Interaction & Config onPointHover callback is wired","suiteID":0,"groupIDs":[2,3],"metadata":{"skip":false,"skipReason":null},"line":56,"column":5,"url":"file:///x:/repositories/braven_charts/test/integration/widgets/braven_chart_plus_interaction_test.dart"},"type":"testStart","time":1203}
+{"testID":4,"messageType":"print","message":"Expected: not null\n  Actual: <null>\n","type":"print","time":1250}
+{"testID":4,"messageType":"print","message":"package:matcher                                expect\ntest/integration/widgets/braven_chart_plus_interaction_test.dart 72:7  main.<fn>.<fn>\n","type":"print","time":1251}
+{"testID":4,"error":"Test failed. See exception logs above.","stackTrace":"","isFailure":true,"type":"error","time":1252}
+{"testID":4,"result":"failure","skipped":false,"hidden":false,"type":"testDone","time":1253}
+{"test":{"id":5,"name":"BravenChartPlus Interaction & Config chart renders with custom colors","suiteID":0,"groupIDs":[2,3],"metadata":{"skip":false,"skipReason":null},"line":80,"column":5,"url":"file:///x:/repositories/braven_charts/test/integration/widgets/braven_chart_plus_interaction_test.dart"},"type":"testStart","time":1254}
+{"testID":5,"result":"success","skipped":false,"hidden":false,"type":"testDone","time":1300}
+{"success":false,"type":"done","time":1310}

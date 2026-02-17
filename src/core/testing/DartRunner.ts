@@ -425,6 +425,7 @@ export function eventsToOutcomes(
     number,
     { result: string; hidden: boolean; skipped: boolean }
   >();
+  const testPrints = new Map<number, string[]>();
 
   for (const event of events) {
     switch (event.type) {
@@ -448,6 +449,12 @@ export function eventsToOutcomes(
           isFailure: event.isFailure,
         });
         testErrors.set(event.testID, existing);
+        break;
+      }
+      case "print": {
+        const existing = testPrints.get(event.testID) ?? [];
+        existing.push(event.message);
+        testPrints.set(event.testID, existing);
         break;
       }
       case "testDone":
@@ -519,7 +526,8 @@ export function eventsToOutcomes(
     // Process errors for failed tests
     const errors = testErrors.get(testId);
     if (status === "failed" && errors && errors.length > 0) {
-      const failure = compressFailureMessage(errors);
+      const prints = testPrints.get(testId) ?? [];
+      const failure = compressFailureMessage(errors, prints);
       outcome.failure = failure;
     }
 
@@ -562,22 +570,54 @@ export function fileUrlToPath(url: string): string {
 /**
  * Compress failure details from Dart error events.
  * Extracts expected/actual values and compresses stack traces.
+ *
+ * Flutter widget tests often emit assertion details via print events,
+ * with the error event containing only "Test failed. See exception logs above."
+ * When the error text is generic, we fall back to print messages for details.
  */
 function compressFailureMessage(
   errors: { error: string; stackTrace: string; isFailure: boolean }[],
+  prints: string[] = [],
 ): NonNullable<NormalizedTestOutcome["failure"]> {
   const fullError = errors.map((e) => e.error).join("\n");
   const fullStack = errors.map((e) => e.stackTrace).join("\n");
 
   // Extract expected/actual from Dart assertion format
-  const { expected, actual } = extractExpectedActual(fullError);
+  let { expected, actual } = extractExpectedActual(fullError);
+
+  // Check if the error text is a generic/opaque message
+  const isGenericError =
+    fullError.includes("See exception logs above") ||
+    fullError.includes("See logs above");
+
+  // If no expected/actual found in error text and we have print messages,
+  // try extracting from prints (Flutter widget tests put details there)
+  const printText = prints.join("\n");
+  if (expected === undefined && actual === undefined && printText.length > 0) {
+    const fromPrints = extractExpectedActual(printText);
+    expected = fromPrints.expected;
+    actual = fromPrints.actual;
+  }
 
   // Get first meaningful line as message
-  const message =
-    fullError.split("\n").filter((l) => l.trim().length > 0)[0] ??
-    "Test failed";
+  let message: string;
+  if (isGenericError && printText.length > 0) {
+    // Use the first meaningful line from print messages instead of the generic error
+    message =
+      printText
+        .split("\n")
+        .map((l) => l.trim())
+        .filter((l) => l.length > 0 && !l.startsWith("package:"))[0] ??
+      fullError.split("\n").filter((l) => l.trim().length > 0)[0] ??
+      "Test failed";
+  } else {
+    message =
+      fullError.split("\n").filter((l) => l.trim().length > 0)[0] ??
+      "Test failed";
+  }
 
-  // Compress stack trace
+  // Compress stack trace — include print lines as supplementary context
+  // when the error is generic and stack trace is sparse
   const stack = compressStackTrace(fullStack);
 
   const failure: NonNullable<NormalizedTestOutcome["failure"]> = {

@@ -22,6 +22,7 @@ import type {
   CacheKey,
   RunTestsInput,
   RunTestsResult,
+  TestOutcome,
   TestScope,
 } from "../../../../../src/core/testing/types.js";
 import {
@@ -487,25 +488,84 @@ async function runTests(
     // failed to compile or collect (e.g., transform error, missing imports).
     // This MUST be surfaced as an error — otherwise agents see "PASS | 0 passed"
     // and think everything is fine.
+    //
+    // EXCEPTION: For red-phase (inverted) runs, compilation failure with 0 tests is
+    // normal TDD behavior — the test files import source that doesn't exist yet.
+    // In that case, treat ALL tests as "failing" (red) rather than erroring out.
+    const isRedScope =
+      validatedInput.scope === "red" ||
+      (validatedInput.scope === "suite" &&
+        validatedInput.target !== undefined &&
+        config.tiers.find((t) => t.name === validatedInput.target)?.inverted ===
+          true);
+
     if (runOutput.exitCode !== 0 && runOutput.tests.length === 0) {
-      const rawPreview = runOutput.rawOutput
-        ? runOutput.rawOutput.slice(0, 1500)
-        : "No output captured.";
-      return buildToolResult(
-        errorResult(
-          TOOL_NAME,
-          ToolErrorCode.COLLECTION_FAILED,
-          `Test collection failed — test runner (${runner.framework}) exited with code ${runOutput.exitCode} but reported 0 tests. ` +
-            `This usually means the test file(s) failed to compile or collect (e.g., syntax error, missing import, transform error).`,
-          "Check the error output below and fix the test file. Common causes: syntax errors, missing modules, compilation failures.",
-          {
-            exitCode: runOutput.exitCode,
-            framework: runner.framework,
-            files: scopeResult.files,
-            output: rawPreview,
+      if (isRedScope) {
+        // Red-phase: compilation failures are expected (source doesn't exist yet).
+        // Synthesize a result showing all files as "failing" so the red-phase
+        // formatter can report them correctly.
+        const rawPreview = runOutput.rawOutput
+          ? runOutput.rawOutput.slice(0, 1500)
+          : "No output captured.";
+        const compileErrorMatch = rawPreview.match(/Error:.*$/m);
+        const errorSummary = compileErrorMatch
+          ? compileErrorMatch[0].slice(0, 120)
+          : "Compilation error (source files not yet implemented)";
+
+        // Build synthetic test outcomes — one per resolved file
+        const resolvedFiles = await resolveGlobPatterns(
+          scopeResult.files,
+          workingDir,
+        );
+        const syntheticTests: TestOutcome[] = resolvedFiles.map((file) => ({
+          name: `[compile error] ${path.basename(file)}`,
+          file,
+          status: "failed" as const,
+          duration: 0,
+          failure: {
+            message: errorSummary,
+            stack: "",
           },
-        ),
-      );
+        }));
+
+        // If we couldn't resolve individual files, create at least one entry
+        if (syntheticTests.length === 0) {
+          for (const f of scopeResult.files) {
+            syntheticTests.push({
+              name: `[compile error] ${f}`,
+              file: f,
+              status: "failed" as const,
+              duration: 0,
+              failure: {
+                message: errorSummary,
+                stack: "",
+              },
+            });
+          }
+        }
+
+        // Inject synthetic tests into runOutput so downstream formatting works
+        runOutput.tests = syntheticTests;
+      } else {
+        const rawPreview = runOutput.rawOutput
+          ? runOutput.rawOutput.slice(0, 1500)
+          : "No output captured.";
+        return buildToolResult(
+          errorResult(
+            TOOL_NAME,
+            ToolErrorCode.COLLECTION_FAILED,
+            `Test collection failed — test runner (${runner.framework}) exited with code ${runOutput.exitCode} but reported 0 tests. ` +
+              `This usually means the test file(s) failed to compile or collect (e.g., syntax error, missing import, transform error).`,
+            "Check the error output below and fix the test file. Common causes: syntax errors, missing modules, compilation failures.",
+            {
+              exitCode: runOutput.exitCode,
+              framework: runner.framework,
+              files: scopeResult.files,
+              output: rawPreview,
+            },
+          ),
+        );
+      }
     }
     // 12. Format results
     const formatter = new ResultFormatter();
@@ -554,15 +614,8 @@ async function runTests(
     testResultStore.recordFailures(workingDir, failedTestNames);
 
     // 15. Handle red-phase scope: invert interpretation and attach redPhase result
-    // Check for scope === "red" OR (scope === "suite" AND target tier has inverted: true)
-    const isInvertedRun =
-      validatedInput.scope === "red" ||
-      (validatedInput.scope === "suite" &&
-        validatedInput.target !== undefined &&
-        config.tiers.find((t) => t.name === validatedInput.target)?.inverted ===
-          true);
-
-    if (isInvertedRun) {
+    // Reuse isRedScope computed in step 11b (same logic)
+    if (isRedScope) {
       result.redPhase = formatter.invertRedPhase(result, config);
       // Store result for promote_tests to use
       setLastRedPhaseResult(result);
@@ -582,7 +635,7 @@ async function runTests(
     let output = `✓ run_tests [scope=${validatedInput.scope}${validatedInput.target ? `, target=${validatedInput.target}` : ""}]\n\n${result.summary}`;
 
     // For red-phase runs, add inverted interpretation to output
-    if (isInvertedRun && result.redPhase) {
+    if (isRedScope && result.redPhase) {
       const rp = result.redPhase;
       output += `\n\nRed-Phase Status:`;
       output += `\n  Failing tests: ${rp.failing} (awaiting implementation)`;
@@ -613,14 +666,14 @@ async function runTests(
       }
     }
 
-    if (result.failed > 0 && !isInvertedRun) {
+    if (result.failed > 0 && !isRedScope) {
       // For non-red scopes, show failure details
       const failureDetails = formatter.formatFailures(
         result.tests,
         maxFailureLines,
       );
       output += `\n\n${failureDetails}`;
-    } else if (result.failed > 0 && isInvertedRun) {
+    } else if (result.failed > 0 && isRedScope) {
       // For red scope, failures are expected - show them as "correctly failing"
       output += `\n\nCorrectly Failing Tests (TDD Red Phase):`;
       const failedTests = result.tests.filter((t) => t.status === "failed");

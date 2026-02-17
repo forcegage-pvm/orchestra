@@ -295,7 +295,7 @@ class MyHelper {
       "rust",
     ];
 
-    it("all languages should produce exactly 4 checks", () => {
+    it("all languages should produce exactly 3 checks", () => {
       for (const lang of languages) {
         const checks = getTddRedChecks(lang, {
           cdPrefix: "",
@@ -304,11 +304,11 @@ class MyHelper {
           taskTitle: "Test",
           testCommand: "npm test",
         });
-        expect(checks.length, `${lang} should have 4 checks`).toBe(4);
+        expect(checks.length, `${lang} should have 3 checks`).toBe(3);
       }
     });
 
-    it("all languages should have 2 behavioral + 2 structural checks", () => {
+    it("all languages should have 1 test_verification + 2 structural checks", () => {
       for (const lang of languages) {
         const checks = getTddRedChecks(lang, {
           cdPrefix: "",
@@ -318,25 +318,17 @@ class MyHelper {
           testCommand: "npm test",
         });
 
-        const behavioral = checks.filter((c) => c.check_type === "behavioral");
+        const testVer = checks.filter(
+          (c) => c.check_type === "test_verification",
+        );
         const structural = checks.filter((c) => c.check_type === "structural");
 
-        expect(behavioral.length, `${lang} behavioral`).toBe(2);
+        expect(testVer.length, `${lang} test_verification`).toBe(1);
         expect(structural.length, `${lang} structural`).toBe(2);
       }
     });
 
-    it("behavioral checks should have correct exit codes", () => {
-      const expectedExitCodes: Record<
-        SupportedLanguage,
-        { fail: number; pass: number }
-      > = {
-        dart: { fail: 1, pass: 0 },
-        typescript: { fail: 1, pass: 0 },
-        python: { fail: 1, pass: 0 },
-        rust: { fail: 101, pass: 0 }, // Rust uses 101 for test failures
-      };
-
+    it("test_verification checks should have correct tier and expect config", () => {
       for (const lang of languages) {
         const checks = getTddRedChecks(lang, {
           cdPrefix: "",
@@ -346,19 +338,15 @@ class MyHelper {
           testCommand: "npm test",
         });
 
-        const behavioral = checks.filter((c) => c.check_type === "behavioral");
+        const testVer = checks.filter(
+          (c) => c.check_type === "test_verification",
+        );
 
-        // First behavioral check: tests must FAIL
-        expect(
-          behavioral[0].check_config.expect_exit_code,
-          `${lang} fail check`,
-        ).toBe(expectedExitCodes[lang].fail);
-
-        // Second behavioral check: non-tagged tests must PASS
-        expect(
-          behavioral[1].check_config.expect_exit_code,
-          `${lang} pass check`,
-        ).toBe(expectedExitCodes[lang].pass);
+        // test_verification check: red tier tests must fail
+        expect(testVer[0].check_config.tier, `${lang} tier`).toBe("red");
+        expect(testVer[0].check_config.expect, `${lang} expect`).toBe(
+          "any_fail",
+        );
       }
     });
 
@@ -383,202 +371,93 @@ class MyHelper {
     });
   });
 
-  describe("cdPrefix handling", () => {
-    it("should correctly prepend cd prefix to commands", () => {
-      const checksWithPrefix = getTddRedChecks("dart", {
-        cdPrefix: "cd packages/app; ",
-        testFilePattern: "test/**/*.dart",
-        taskId: 1,
-        taskTitle: "Test",
-        testCommand: "flutter test",
-      });
+  describe("test_verification check format consistency", () => {
+    it("all languages should use declarative test_verification with red tier", () => {
+      const languages: SupportedLanguage[] = [
+        "dart",
+        "typescript",
+        "python",
+        "rust",
+      ];
 
-      const behavioral = checksWithPrefix.filter(
-        (c) => c.check_type === "behavioral",
-      );
+      for (const lang of languages) {
+        const checks = getTddRedChecks(lang, {
+          cdPrefix: "",
+          testFilePattern: "test/**/*",
+          taskId: 1,
+          taskTitle: "Feature Test",
+          testCommand: "npm test",
+        });
 
-      for (const check of behavioral) {
-        expect(check.check_config.command).toMatch(/^cd packages\/app; /);
+        const testVerChecks = checks.filter(
+          (c) => c.check_type === "test_verification",
+        );
+        expect(
+          testVerChecks.length,
+          `${lang} should have 1 test_verification check`,
+        ).toBe(1);
+
+        // All test_verification checks should use the "red" tier with "any_fail" expectation.
+        // The runTestsCore() pipeline handles tier resolution via ScopeResolver — no shell commands needed.
+        expect(testVerChecks[0].check_config.tier).toBe("red");
+        expect(testVerChecks[0].check_config.expect).toBe("any_fail");
+        expect(testVerChecks[0].check_config.success_message).toBeDefined();
+        expect(testVerChecks[0].check_config.failure_message).toBeDefined();
       }
     });
 
-    it("should have no prefix when cdPrefix is empty", () => {
-      const checksNoPrefix = getTddRedChecks("dart", {
-        cdPrefix: "",
-        testFilePattern: "test/**/*.dart",
-        taskId: 1,
-        taskTitle: "Test",
-        testCommand: "flutter test",
-      });
+    it("no language should produce behavioral checks", () => {
+      const languages: SupportedLanguage[] = [
+        "dart",
+        "typescript",
+        "python",
+        "rust",
+      ];
 
-      const behavioral = checksNoPrefix.filter(
-        (c) => c.check_type === "behavioral",
-      );
+      for (const lang of languages) {
+        const checks = getTddRedChecks(lang, {
+          cdPrefix: "cd packages/app; ",
+          testFilePattern: "test/**/*",
+          taskId: 1,
+          taskTitle: "Feature Test",
+          testCommand: "npm test",
+        });
 
-      for (const check of behavioral) {
-        expect(check.check_config.command).not.toMatch(/^cd /);
+        const behavioral = checks.filter((c) => c.check_type === "behavioral");
+        expect(
+          behavioral.length,
+          `${lang} should not produce behavioral checks`,
+        ).toBe(0);
       }
     });
-  });
 
-  describe("environment-driven testCommand substitution", () => {
-    it("should add Dart/Flutter directory filters to base command", () => {
-      const checks = getTddRedChecks("dart", {
-        cdPrefix: "",
-        testFilePattern: "test/**/*.dart",
-        taskId: 1,
-        taskTitle: "Feature Test",
-        testCommand: "flutter test",
-      });
+    it("test_verification checks should not contain shell commands", () => {
+      const languages: SupportedLanguage[] = [
+        "dart",
+        "typescript",
+        "python",
+        "rust",
+      ];
 
-      const behavioral = checks.filter((c) => c.check_type === "behavioral");
-      expect(behavioral.length).toBe(2);
+      for (const lang of languages) {
+        const checks = getTddRedChecks(lang, {
+          cdPrefix: "cd packages/app; ",
+          testFilePattern: "test/**/*",
+          taskId: 1,
+          taskTitle: "Feature Test",
+          testCommand: "flutter test",
+        });
 
-      // Red-phase tests must fail - runs test/red/ directory
-      const redCheck = behavioral.find((c) =>
-        c.description.includes("Red-phase tests must fail"),
-      );
-      expect(redCheck!.check_config.command).toBe("flutter test test/red/");
+        const testVerChecks = checks.filter(
+          (c) => c.check_type === "test_verification",
+        );
 
-      // Non-red tests must pass - excludes test/red/ directory
-      const nonRedCheck = behavioral.find((c) =>
-        c.description.includes("Non-red tests must pass"),
-      );
-      expect(nonRedCheck!.check_config.command).toBe(
-        "flutter test --exclude test/red/",
-      );
-    });
-
-    it("should add TypeScript/Vitest directory filters to base command", () => {
-      const checks = getTddRedChecks("typescript", {
-        cdPrefix: "",
-        testFilePattern: "test/**/*.test.ts",
-        taskId: 1,
-        taskTitle: "Feature Test",
-        testCommand: "npm test",
-      });
-
-      const behavioral = checks.filter((c) => c.check_type === "behavioral");
-      expect(behavioral.length).toBe(2);
-
-      // Red-phase tests must fail - runs only test/red/** files
-      const redCheck = behavioral.find((c) =>
-        c.description.includes("Red-phase tests must fail"),
-      );
-      expect(redCheck!.check_config.command).toBe('npm test -- "test/red/**"');
-
-      // Non-red tests must pass - excludes test/red/** files
-      const nonRedCheck = behavioral.find((c) =>
-        c.description.includes("Non-red tests must pass"),
-      );
-      expect(nonRedCheck!.check_config.command).toBe(
-        'npm test -- --exclude "test/red/**"',
-      );
-    });
-
-    it("should add Python/Pytest marker filters to base command", () => {
-      const checks = getTddRedChecks("python", {
-        cdPrefix: "",
-        testFilePattern: "test/**/*.py",
-        taskId: 1,
-        taskTitle: "Feature Test",
-        testCommand: "pytest",
-      });
-
-      const behavioral = checks.filter((c) => c.check_type === "behavioral");
-      expect(behavioral.length).toBe(2);
-
-      // Tagged tests must fail - runs only tdd_red marked tests
-      const taggedCheck = behavioral.find((c) =>
-        c.description.includes("Tagged tests must fail"),
-      );
-      expect(taggedCheck!.check_config.command).toBe("pytest -m tdd_red");
-
-      // Non-tagged tests must pass - excludes tdd_red marked tests
-      const nonTaggedCheck = behavioral.find((c) =>
-        c.description.includes("Non-tagged tests must pass"),
-      );
-      expect(nonTaggedCheck!.check_config.command).toBe(
-        'pytest -m "not tdd_red"',
-      );
-    });
-
-    it("should add Rust/Cargo test name filters to base command", () => {
-      const checks = getTddRedChecks("rust", {
-        cdPrefix: "",
-        testFilePattern: "tests/**/*.rs",
-        taskId: 1,
-        taskTitle: "Feature Test",
-        testCommand: "cargo test",
-      });
-
-      const behavioral = checks.filter((c) => c.check_type === "behavioral");
-      expect(behavioral.length).toBe(2);
-
-      // Tagged tests must fail - runs only tdd_red_ prefixed tests
-      const taggedCheck = behavioral.find((c) =>
-        c.description.includes("Tagged tests must fail"),
-      );
-      expect(taggedCheck!.check_config.command).toBe("cargo test tdd_red_");
-
-      // Non-tagged tests must pass - skips tdd_red_ prefixed tests
-      const nonTaggedCheck = behavioral.find((c) =>
-        c.description.includes("Non-tagged tests must pass"),
-      );
-      expect(nonTaggedCheck!.check_config.command).toBe(
-        "cargo test --skip tdd_red_",
-      );
-    });
-
-    it("should preserve custom test command flags while adding scope filters", () => {
-      const checks = getTddRedChecks("typescript", {
-        cdPrefix: "",
-        testFilePattern: "test/**/*.test.ts",
-        taskId: 1,
-        taskTitle: "Feature Test",
-        testCommand: "npm run test:ci -- --run --reporter=verbose",
-      });
-
-      const behavioral = checks.filter((c) => c.check_type === "behavioral");
-      expect(behavioral.length).toBe(2);
-
-      // Both checks should contain the original flags plus the directory scope filter
-      const redCheck = behavioral.find((c) =>
-        c.description.includes("Red-phase tests must fail"),
-      );
-      expect(redCheck!.check_config.command).toContain(
-        "npm run test:ci -- --run --reporter=verbose",
-      );
-      expect(redCheck!.check_config.command).toContain('"test/red/**"');
-    });
-
-    it("should combine cdPrefix with base testCommand and scope filters", () => {
-      const checks = getTddRedChecks("dart", {
-        cdPrefix: "cd packages/app; ",
-        testFilePattern: "test/**/*.dart",
-        taskId: 1,
-        taskTitle: "Feature Test",
-        testCommand: "flutter test",
-      });
-
-      const behavioral = checks.filter((c) => c.check_type === "behavioral");
-      expect(behavioral.length).toBe(2);
-
-      // Red-phase tests check should have cdPrefix + base command + directory
-      const redCheck = behavioral.find((c) =>
-        c.description.includes("Red-phase tests must fail"),
-      );
-      expect(redCheck!.check_config.command).toBe(
-        "cd packages/app; flutter test test/red/",
-      );
-
-      // Non-red tests check should have cdPrefix + base command + exclude directory
-      const nonRedCheck = behavioral.find((c) =>
-        c.description.includes("Non-red tests must pass"),
-      );
-      expect(nonRedCheck!.check_config.command).toBe(
-        "cd packages/app; flutter test --exclude test/red/",
-      );
+        for (const check of testVerChecks) {
+          // test_verification checks are declarative — no commands or exit codes
+          expect(check.check_config.command).toBeUndefined();
+          expect(check.check_config.expect_exit_code).toBeUndefined();
+        }
+      }
     });
   });
 });

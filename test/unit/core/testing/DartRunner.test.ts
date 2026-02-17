@@ -451,6 +451,43 @@ describe("DartRunner", () => {
         }
       }
     });
+
+    it("should extract expected/actual from print events when error is generic", () => {
+      // Flutter widget tests emit assertion details via print events,
+      // with the error event containing only "Test failed. See exception logs above."
+      const raw = loadFixture("flutter-print-failure.ndjson");
+      const events = extractJsonEvents(raw);
+      const outcomes = eventsToOutcomes(events);
+
+      // Should have 2 outcomes: 1 failed, 1 passed
+      expect(outcomes).toHaveLength(2);
+      const failed = outcomes.find((o) => o.status === "failed");
+      expect(failed).toBeDefined();
+      expect(failed?.failure).toBeDefined();
+
+      // expected/actual should be extracted from print messages, not the generic error
+      expect(failed?.failure?.expected).toBe("not null");
+      expect(failed?.failure?.actual).toBe("<null>");
+
+      // message should NOT be the generic "Test failed. See exception logs above."
+      expect(failed?.failure?.message).not.toContain(
+        "See exception logs above",
+      );
+      // It should use the first meaningful line from print messages
+      expect(failed?.failure?.message).toBe("Expected: not null");
+    });
+
+    it("should still work with direct error events (non-print pattern)", () => {
+      // Existing pattern where assertion details are in the error event directly
+      const raw = loadFixture("failing-tests.ndjson");
+      const events = extractJsonEvents(raw);
+      const outcomes = eventsToOutcomes(events);
+
+      const first = outcomes[0];
+      expect(first?.failure?.expected).toBe("false");
+      expect(first?.failure?.actual).toBe("<true>");
+      expect(first?.failure?.message).toBe("Expected: false");
+    });
   });
 
   describe("fileUrlToPath()", () => {

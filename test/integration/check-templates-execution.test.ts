@@ -1,46 +1,28 @@
 /**
- * End-to-end tests for check-templates behavioral commands.
+ * End-to-end tests for check-templates verification format.
  *
- * These tests actually EXECUTE the behavioral check commands against
- * the test harnesses to verify they produce the expected exit codes.
+ * These tests validate that check templates produce correct test_verification
+ * configs (declarative format executed via runTestsCore) and structural patterns
+ * that work against real test harnesses.
  *
- * This is the ultimate validation that the check templates work correctly.
+ * TDD red-phase checks no longer use behavioral shell commands. Instead they
+ * use test_verification format with { tier: "red", expect: "any_fail" } which
+ * is resolved by the ScopeResolver and executed by runTestsCore().
  */
 
-import { execSync } from "child_process";
 import * as fs from "fs";
 import * as path from "path";
-import { beforeAll, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import { getTddRedChecks } from "../../src/core/check-templates.js";
 
 const HARNESS_ROOT = path.join(process.cwd(), "testing", "tdd-test-harness");
 
-describe("check-templates behavioral command execution", () => {
-  describe("TypeScript harness command execution", () => {
+describe("check-templates test_verification format validation", () => {
+  describe("TypeScript harness structural validation", () => {
     const tsHarness = path.join(HARNESS_ROOT, "typescript");
-    let harnessReady = false;
+    const tsTestDir = path.join(tsHarness, "test");
 
-    beforeAll(async () => {
-      // Check if harness exists and has node_modules
-      if (fs.existsSync(path.join(tsHarness, "node_modules"))) {
-        harnessReady = true;
-      } else if (fs.existsSync(path.join(tsHarness, "package.json"))) {
-        // Try to install
-        try {
-          execSync("npm install", { cwd: tsHarness, stdio: "pipe" });
-          harnessReady = true;
-        } catch {
-          console.warn("Could not install TypeScript harness dependencies");
-        }
-      }
-    });
-
-    it("should execute test command and get correct exit code for tdd-red tests", () => {
-      if (!harnessReady) {
-        console.log("Skipping: TypeScript harness not ready");
-        return;
-      }
-
+    it("should produce test_verification check for red tier (not behavioral command)", () => {
       const checks = getTddRedChecks("typescript", {
         cdPrefix: "",
         testFilePattern: "test/**/*.test.ts",
@@ -49,29 +31,24 @@ describe("check-templates behavioral command execution", () => {
         taskTitle: "Test",
       });
 
-      // Get the "tagged tests must fail" check
-      const failCheck = checks.find((c) => c.description.includes("must fail"));
-      expect(failCheck).toBeDefined();
-      expect(failCheck!.check_config.command).toBeDefined();
+      // Get the red-phase test_verification check
+      const redCheck = checks.find(
+        (c) =>
+          c.check_type === "test_verification" &&
+          c.description.includes("must fail"),
+      );
+      expect(redCheck).toBeDefined();
+      expect(redCheck!.check_config.tier).toBe("red");
+      expect(redCheck!.check_config.expect).toBe("any_fail");
 
-      // Execute command and expect exit code 1 (tests fail)
-      try {
-        execSync(failCheck!.check_config.command!, {
-          cwd: tsHarness,
-          stdio: "pipe",
-        });
-        // If we get here, tests passed (exit 0) - that's wrong!
-        expect.fail("Expected tdd-red tests to fail with exit code 1");
-      } catch (error: unknown) {
-        // Expect exit code 1 (test failures)
-        const exitCode = (error as { status?: number }).status;
-        expect(exitCode).toBe(1);
-      }
+      // Should NOT have command or exit_code (those are behavioral properties)
+      expect(redCheck!.check_config.command).toBeUndefined();
+      expect(redCheck!.check_config.expect_exit_code).toBeUndefined();
     });
 
-    it("should execute non-red test command correctly", () => {
-      if (!harnessReady) {
-        console.log("Skipping: TypeScript harness not ready");
+    it("should produce structural checks that match real test files", () => {
+      if (!fs.existsSync(tsTestDir)) {
+        console.log("Skipping: TypeScript harness not found");
         return;
       }
 
@@ -79,36 +56,31 @@ describe("check-templates behavioral command execution", () => {
         cdPrefix: "",
         testFilePattern: "test/**/*.test.ts",
         testCommand: "npm test",
-        taskId: 1,
+        taskId: 3,
         taskTitle: "Test",
       });
 
-      // Get the "non-red tests must pass" check
-      const passCheck = checks.find((c) => c.description.includes("must pass"));
-      expect(passCheck).toBeDefined();
-      expect(passCheck!.check_config.command).toBeDefined();
+      // Task-ID annotation should match files with @orchestra-task: 3
+      const taskIdCheck = checks.find((c) =>
+        c.description.includes("Task-ID annotation"),
+      );
+      expect(taskIdCheck).toBeDefined();
+      expect(taskIdCheck!.check_type).toBe("structural");
 
-      // Note: This will fail if category3 (regression) is included
-      // We're just testing that the command executes - the expected behavior
-      // depends on which test files are present
-      try {
-        execSync(passCheck!.check_config.command!, {
-          cwd: tsHarness,
-          stdio: "pipe",
-        });
-        // If we get here, tests passed (exit 0)
-        // This is expected if only category4 (normal passing) files exist
-      } catch (error: unknown) {
-        // Tests failed - this happens if category3 (regression) exists
-        const exitCode = (error as { status?: number }).status;
-        // Just verify we got an exit code
-        expect(typeof exitCode).toBe("number");
+      const pattern = new RegExp(taskIdCheck!.check_config.pattern!, "gms");
+      const category1Path = path.join(
+        tsTestDir,
+        "category1_tdd_red_failing.test.ts",
+      );
+      if (fs.existsSync(category1Path)) {
+        const content = fs.readFileSync(category1Path, "utf-8");
+        expect(content.match(pattern)).toBeTruthy();
       }
     });
   });
 
-  describe("Command format validation", () => {
-    it("TypeScript commands should use correct vitest/jest syntax", () => {
+  describe("test_verification format validation per language", () => {
+    it("TypeScript checks should use test_verification with red tier", () => {
       const checks = getTddRedChecks("typescript", {
         cdPrefix: "",
         testFilePattern: "test/**/*.test.ts",
@@ -117,14 +89,18 @@ describe("check-templates behavioral command execution", () => {
         testCommand: "npm test",
       });
 
+      const testVer = checks.filter(
+        (c) => c.check_type === "test_verification",
+      );
       const behavioral = checks.filter((c) => c.check_type === "behavioral");
 
-      // Commands should contain base test command (filtering added dynamically in Task 5)
-      expect(behavioral[0].check_config.command).toContain("npm test");
-      expect(behavioral.length).toBe(2);
+      expect(testVer.length).toBe(1);
+      expect(behavioral.length).toBe(0);
+      expect(testVer[0].check_config.tier).toBe("red");
+      expect(testVer[0].check_config.expect).toBe("any_fail");
     });
 
-    it("Dart commands should use correct flutter test syntax", () => {
+    it("Dart checks should use test_verification with red tier", () => {
       const checks = getTddRedChecks("dart", {
         cdPrefix: "",
         testFilePattern: "test/**/*.dart",
@@ -133,14 +109,18 @@ describe("check-templates behavioral command execution", () => {
         testCommand: "flutter test",
       });
 
+      const testVer = checks.filter(
+        (c) => c.check_type === "test_verification",
+      );
       const behavioral = checks.filter((c) => c.check_type === "behavioral");
 
-      // Commands should contain base test command (filtering added dynamically in Task 5)
-      expect(behavioral[0].check_config.command).toContain("flutter test");
-      expect(behavioral.length).toBe(2);
+      expect(testVer.length).toBe(1);
+      expect(behavioral.length).toBe(0);
+      expect(testVer[0].check_config.tier).toBe("red");
+      expect(testVer[0].check_config.expect).toBe("any_fail");
     });
 
-    it("Python commands should use correct pytest syntax", () => {
+    it("Python checks should use test_verification with red tier", () => {
       const checks = getTddRedChecks("python", {
         cdPrefix: "",
         testFilePattern: "tests/**/*.py",
@@ -149,14 +129,17 @@ describe("check-templates behavioral command execution", () => {
         testCommand: "pytest",
       });
 
+      const testVer = checks.filter(
+        (c) => c.check_type === "test_verification",
+      );
       const behavioral = checks.filter((c) => c.check_type === "behavioral");
 
-      // Commands should contain base test command (filtering added dynamically in Task 5)
-      expect(behavioral[0].check_config.command).toContain("pytest");
-      expect(behavioral.length).toBe(2);
+      expect(testVer.length).toBe(1);
+      expect(behavioral.length).toBe(0);
+      expect(testVer[0].check_config.tier).toBe("red");
     });
 
-    it("Rust commands should use correct cargo test syntax", () => {
+    it("Rust checks should use test_verification with red tier", () => {
       const checks = getTddRedChecks("rust", {
         cdPrefix: "",
         testFilePattern: "tests/**/*.rs",
@@ -165,17 +148,19 @@ describe("check-templates behavioral command execution", () => {
         testCommand: "cargo test",
       });
 
+      const testVer = checks.filter(
+        (c) => c.check_type === "test_verification",
+      );
       const behavioral = checks.filter((c) => c.check_type === "behavioral");
 
-      // Commands should contain base test command (filtering added dynamically in Task 5)
-      expect(behavioral[0].check_config.command).toContain("cargo test");
-      expect(behavioral.length).toBe(2);
+      expect(testVer.length).toBe(1);
+      expect(behavioral.length).toBe(0);
+      expect(testVer[0].check_config.tier).toBe("red");
     });
   });
 
   describe("Pattern escaping validation", () => {
     it("should not have problematic bracket escaping", () => {
-      // This was the original bug - complex bracket escaping broke regex
       const languages = ["dart", "typescript", "python", "rust"] as const;
 
       for (const lang of languages) {
@@ -189,11 +174,7 @@ describe("check-templates behavioral command execution", () => {
 
         for (const check of checks) {
           if (check.check_config.pattern) {
-            // Should not have the problematic pattern that caused
-            // "Unterminated character class" errors
             expect(check.check_config.pattern).not.toMatch(/\\\[.*'\\\]/);
-
-            // All patterns should compile without error
             expect(() => {
               new RegExp(check.check_config.pattern!, "gms");
             }).not.toThrow();
@@ -214,15 +195,12 @@ describe("check-templates behavioral command execution", () => {
         c.description.includes("Red-phase test files present"),
       );
 
-      // Should use test/group function detection pattern for directory-based approach
       expect(markerCheck!.check_config.pattern).toBe("(?:test|group)\\s*\\(");
       expect(markerCheck!.check_config.path).toBe("test/red/**/*_test.dart");
 
-      // Should match real Dart test function calls
       const pattern = new RegExp(markerCheck!.check_config.pattern!, "gms");
       expect("test('should work', () {})".match(pattern)).toBeTruthy();
       expect("group('feature', () {})".match(pattern)).toBeTruthy();
-      // Should not match non-test content
       expect("class Foo {}".match(pattern)).toBeNull();
     });
   });

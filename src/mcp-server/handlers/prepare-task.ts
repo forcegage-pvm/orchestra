@@ -6,6 +6,8 @@
  */
 
 import { and, eq, inArray, isNull, not } from "drizzle-orm";
+import * as fs from "node:fs";
+import * as path from "node:path";
 import {
   detectLanguageFromEnv,
   getTddRedChecks,
@@ -20,12 +22,7 @@ import {
   detectProjectLanguage,
   type CleanupOptions,
 } from "../../core/tdd-cleanup.js";
-import {
-  mapToRunnerFlags,
-  resolveExclusions,
-  type FileOperation,
-  type TddRegistryEntry,
-} from "../../core/tdd-exclusion-resolver.js";
+import { TestConfigSchema } from "../../core/testing/TestConfigLoader.js";
 import {
   getActiveSprint,
   getDb,
@@ -40,7 +37,6 @@ import {
   sprints,
   sprintSettings,
   tasks,
-  tddRedRegistry,
   tddTaskRelationships,
   verificationChecks,
 } from "../../db/schema.js";
@@ -619,11 +615,11 @@ async function prepareTask(
     .from(verificationChecks)
     .where(eq(verificationChecks.task_id, task.id));
 
-  let behavCheckCount = existingChecks.filter((c) =>
-    c.check_id.startsWith("behav-"),
-  ).length;
   let structCheckCount = existingChecks.filter((c) =>
     c.check_id.startsWith("struct-"),
+  ).length;
+  let testVerCheckCount = existingChecks.filter((c) =>
+    c.check_id.startsWith("test-verification-tdd-"),
   ).length;
 
   const documentationExtensions = new Set([
@@ -643,30 +639,26 @@ async function prepareTask(
 
   if (tddRedPhase && !isDocumentationOnlyTask) {
     // Generate and insert red-phase checks
-    // Use sprint environment config (explicit) or fall back to file_operations inference
-
-    // Query tdd_red_registry for existing red-phase test files
-    const registryEntries = await db
-      .select()
-      .from(tddRedRegistry)
-      .where(eq(tddRedRegistry.sprint_id, sprint.id));
+    // Uses test_verification format (executed via runTestsCore) instead of
+    // raw shell commands. The shared testing pipeline handles tier resolution,
+    // runner selection, and result formatting.
 
     const redPhaseChecks = generateTddRedPhaseChecks(
       workspaceRoot,
       task.title,
       input.task_id,
-      sprint.id,
       sprintEnv,
       input.file_operations,
-      registryEntries,
     );
 
     for (const check of redPhaseChecks) {
       const checkIdPrefix =
-        check.check_type === "behavioral" ? "behav" : "struct";
+        check.check_type === "test_verification"
+          ? "test-verification"
+          : "struct";
       const checkIdNumber =
-        check.check_type === "behavioral"
-          ? behavCheckCount++
+        check.check_type === "test_verification"
+          ? testVerCheckCount++
           : structCheckCount++;
 
       await db.insert(verificationChecks).values({
@@ -708,7 +700,6 @@ async function prepareTask(
 
   const behavioral_checks = allChecks
     .filter((c) => c.check_type === "behavioral")
-    .filter((c) => !c.check_id.includes("tdd-red")) // Exclude TDD auto-injected checks from test-command rejection
     .map((c) => ({
       ...JSON.parse(c.check_config as string),
       description: c.description,
@@ -1211,42 +1202,40 @@ interface SprintEnvironment {
 }
 
 /**
- * Generate TDD red-phase verification checks using predefined templates.
+ * Generate TDD red-phase verification checks.
  *
- * This uses the check-templates system to ensure patterns/commands are
- * correct and tested, eliminating agent improvisation errors.
- *
- * When a task is marked as tdd_red_phase=true, it requires:
- * 1. Tagged tests MUST fail (exit code 1)
- * 2. Non-tagged tests MUST pass (exit code 0)
+ * Produces checks that enforce:
+ * 1. Red-phase tier tests MUST fail (test_verification with expect: "any_fail")
+ * 2. Non-inverted tier tests MUST pass (test_verification with expect: "all_pass")
  * 3. At least one red-phase test file exists in test/red/
  *
- * Sprint 007 Addition: Non-red checks now include file-level exclusions to prevent
- * test runner load/import failures when red-phase files have unresolved dependencies.
+ * Uses the declarative test_verification format executed via runTestsCore()
+ * instead of raw shell commands. The shared testing pipeline handles runner
+ * selection, tier resolution, and result formatting.
+ *
+ * If .agent-test-config.json is present, non-inverted tier checks are
+ * generated dynamically from the configured tiers. Otherwise, only the
+ * template checks (red tier + structural) are returned.
  *
  * @param workspaceRoot - Root directory of the workspace
  * @param taskTitle - Task title for check descriptions
  * @param taskId - Task ID for annotation pattern
- * @param sprintId - Sprint ID for registry lookup
  * @param sprintEnv - Sprint environment configuration (explicit, preferred)
  * @param fileOperations - File operations from handover (fallback inference)
- * @param registryEntries - TDD registry entries for exclusion resolution
  * @returns Array of verification check configs
  */
 function generateTddRedPhaseChecks(
   workspaceRoot: string,
   taskTitle: string,
   taskId: number,
-  sprintId: string,
   sprintEnv: SprintEnvironment,
   fileOperations?: Array<{
     operation: string;
     path: string;
     description: string;
   }>,
-  registryEntries?: TddRegistryEntry[],
 ): Array<{
-  check_type: "behavioral" | "structural";
+  check_type: "test_verification" | "structural";
   description: string;
   severity: "BLOCKING" | "MAJOR" | "MINOR";
   check_config: Record<string, unknown>;
@@ -1294,22 +1283,19 @@ function generateTddRedPhaseChecks(
     if (language === "dart") {
       testCommand = testCommand || "flutter test";
       testFilePattern = testFilePattern || `${subdirPrefix}test/**/*.dart`;
-      // Only override sourceBaseDir if it wasn't explicitly configured
       if (subdirPrefix && !sprintEnv.source_base_dir) {
         sourceBaseDir = subdirPrefix.replace(/\/$/, "");
       }
     } else {
-      // TypeScript/JavaScript default
       testCommand = testCommand || "npm test";
       testFilePattern = testFilePattern || `${subdirPrefix}test/**/*.test.ts`;
-      // Only override sourceBaseDir if it wasn't explicitly configured
       if (subdirPrefix && !sprintEnv.source_base_dir) {
         sourceBaseDir = subdirPrefix.replace(/\/$/, "");
       }
     }
   }
 
-  // Normalize sourceBaseDir to cd prefix
+  // Normalize sourceBaseDir to cd prefix (still used for structural check path resolution)
   const cdPrefix =
     sourceBaseDir && sourceBaseDir !== "." ? `cd ${sourceBaseDir}; ` : "";
 
@@ -1317,7 +1303,7 @@ function generateTddRedPhaseChecks(
   const language: SupportedLanguage =
     detectLanguageFromEnv(testCommand, testFilePattern) || "typescript";
 
-  // Get checks from predefined templates
+  // Get checks from predefined templates (test_verification + structural)
   const templateChecks = getTddRedChecks(language, {
     cdPrefix,
     testFilePattern: testFilePattern || "test/**/*",
@@ -1326,59 +1312,51 @@ function generateTddRedPhaseChecks(
     testCommand: testCommand || "npm test",
   });
 
-  // Sprint 007: Resolve exclusions for non-red TDD check
-  // This prevents test runner failures when red-phase files have unresolved dependencies
-  const normalizedFileOps: FileOperation[] = (fileOperations || []).map(
-    (op) => ({
-      operation: op.operation as "CREATE" | "UPDATE" | "DELETE",
-      path: op.path,
-      description: op.description,
-    }),
-  );
+  // Convert template checks to the expected return type
+  const checks: Array<{
+    check_type: "test_verification" | "structural";
+    description: string;
+    severity: "BLOCKING" | "MAJOR" | "MINOR";
+    check_config: Record<string, unknown>;
+  }> = templateChecks.map((check) => ({
+    check_type: check.check_type as "test_verification" | "structural",
+    description: check.description,
+    severity: check.severity as "BLOCKING" | "MAJOR" | "MINOR",
+    check_config: check.check_config as Record<string, unknown>,
+  }));
 
-  const exclusionResult = resolveExclusions(
-    sprintId,
-    normalizedFileOps,
-    registryEntries,
-  );
-
-  // Generate runner-specific exclusion flags
-  const exclusionFlags = mapToRunnerFlags(
-    exclusionResult.files,
-    testCommand || "npm test",
-    workspaceRoot,
-  );
-
-  // Convert to expected return type and inject exclusion flags into non-red check
-  return templateChecks.map((check) => {
-    // Find the non-red behavioral check and add exclusion flags
-    const isNonRedBehavioralCheck =
-      check.check_type === "behavioral" &&
-      (check.description.includes("Non-tagged tests must pass") ||
-        check.description.includes("Non-red tests must pass"));
-
-    if (isNonRedBehavioralCheck && exclusionFlags) {
-      const modifiedConfig = { ...check.check_config };
-      if (
-        modifiedConfig.command &&
-        typeof modifiedConfig.command === "string"
-      ) {
-        modifiedConfig.command =
-          `${modifiedConfig.command} ${exclusionFlags}`.trim();
-      }
-      return {
-        check_type: check.check_type as "behavioral" | "structural",
-        description: check.description,
-        severity: check.severity as "BLOCKING" | "MAJOR" | "MINOR",
-        check_config: modifiedConfig as Record<string, unknown>,
-      };
+  // Dynamically generate "non-red tiers must pass" checks from .agent-test-config.json
+  // This replaces the old behavioral shell command that ran the test runner directly.
+  // ScopeResolver handles tier isolation — red tier files won't leak into non-red tiers.
+  try {
+    const configPath = path.join(workspaceRoot, ".agent-test-config.json");
+    const configContent = fs.readFileSync(configPath, "utf8");
+    const testConfig = TestConfigSchema.parse(JSON.parse(configContent));
+    const nonInvertedTiers = testConfig.tiers.filter((t) => !t.inverted);
+    for (const tier of nonInvertedTiers) {
+      checks.push({
+        check_type: "test_verification",
+        description: `[TDD RED] Non-red ${tier.name} tests must pass for "${taskTitle}"`,
+        severity: "BLOCKING",
+        check_config: {
+          tier: tier.name,
+          expect: "all_pass",
+          success_message: `${tier.name} tier tests passed (non-red tests healthy)`,
+          failure_message: `${tier.name} tier tests must pass — only red-phase tests should fail`,
+        },
+      });
     }
+  } catch {
+    // No test config found — skip non-red tier checks.
+    // The red tier check from the template is still applied.
+    if (!isTestEnv) {
+      console.error(
+        `[TDD RED] No .agent-test-config.json found at ${workspaceRoot} — ` +
+          `skipping non-red tier checks for task ${taskId}. ` +
+          `Only the red tier (any_fail) and structural checks will be injected.`,
+      );
+    }
+  }
 
-    return {
-      check_type: check.check_type as "behavioral" | "structural",
-      description: check.description,
-      severity: check.severity as "BLOCKING" | "MAJOR" | "MINOR",
-      check_config: check.check_config as Record<string, unknown>,
-    };
-  });
+  return checks;
 }

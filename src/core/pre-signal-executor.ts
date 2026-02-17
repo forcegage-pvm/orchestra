@@ -148,7 +148,8 @@ function getDefaultCommands(projectType: ProjectType): {
         build: "flutter analyze",
         // Exclude red-phase tests from normal runs via Flutter's tag system
         // Red-phase tests are only run explicitly via runTddRedPhaseTests
-test: "flutter test --exclude-tags red",        lint: "dart format .",
+        test: "flutter test --exclude-tags red",
+        lint: "dart format .",
       };
     case "python":
       return {
@@ -175,6 +176,75 @@ test: "flutter test --exclude-tags red",        lint: "dart format .",
         test: DEFAULT_TEST_COMMAND,
       };
   }
+}
+
+/**
+ * Get non-red test directory/file paths relative to workspace.
+ *
+ * Enumerates test/ subdirectories and top-level .dart files, excluding test/red/.
+ * Used by both `flutter analyze` and `flutter test` to avoid compiling red-phase
+ * test files that intentionally import non-existent source.
+ */
+function getNonRedTestDirs(workspacePath: string): string[] {
+  const testDir = path.join(workspacePath, "test");
+  if (!fs.existsSync(testDir)) {
+    return [];
+  }
+
+  const dirs: string[] = [];
+  try {
+    const entries = fs.readdirSync(testDir, { withFileTypes: true });
+    for (const entry of entries) {
+      if (entry.isDirectory() && entry.name !== "red") {
+        dirs.push(`test/${entry.name}/`);
+      }
+    }
+    // Also include any top-level test files (e.g., test/widget_test.dart)
+    const topLevelFiles = entries.filter(
+      (e) => e.isFile() && e.name.endsWith(".dart"),
+    );
+    for (const file of topLevelFiles) {
+      dirs.push(`test/${file.name}`);
+    }
+  } catch {
+    return [];
+  }
+
+  return dirs;
+}
+
+/**
+ * Build a `flutter analyze` command that excludes test/red/ directories.
+ *
+ * Instead of analyzing the entire workspace and filtering output after the fact,
+ * this constructs a command with explicit directory paths: `lib/`, `bin/`, and
+ * each test/ subdirectory that isn't a red-phase tier.
+ *
+ * Falls back to plain `flutter analyze` if no explicit paths can be determined.
+ */
+function buildFlutterAnalyzeWithoutRed(workspacePath: string): string {
+  const dirs: string[] = [];
+
+  // Always include lib/ if it exists
+  const libDir = path.join(workspacePath, "lib");
+  if (fs.existsSync(libDir)) {
+    dirs.push("lib/");
+  }
+
+  // Include bin/ if it exists
+  const binDir = path.join(workspacePath, "bin");
+  if (fs.existsSync(binDir)) {
+    dirs.push("bin/");
+  }
+
+  // Include non-red test directories
+  dirs.push(...getNonRedTestDirs(workspacePath));
+
+  if (dirs.length === 0) {
+    return "flutter analyze";
+  }
+
+  return `flutter analyze ${dirs.join(" ")}`;
 }
 
 /**
@@ -212,8 +282,22 @@ export async function runPreSignalChecks(
   const defaults = getDefaultCommands(projectType);
 
   // Run build check
+  // For TDD red-phase in Flutter/Dart projects, `flutter analyze` scans ALL files
+  // including test/red/ which intentionally imports non-existent source.
+  // Instead of post-filtering output, run flutter analyze with explicit paths
+  // that exclude test/red/ directories.
+  let buildCommand = config.buildCommand ?? defaults.build;
+  if (
+    config.tddRedPhase &&
+    projectType === "flutter" &&
+    !config.skipBuild &&
+    !config.buildCommand
+  ) {
+    buildCommand = buildFlutterAnalyzeWithoutRed(config.workspacePath);
+  }
+
   const buildResult = await runCheck(
-    config.buildCommand ?? defaults.build,
+    buildCommand,
     execOptions,
     config.skipBuild,
   );
@@ -388,9 +472,21 @@ async function runNormalTestsViaTiers(
       .join(", ");
     checkResult.output = `Test execution timed out for tier(s): ${timedOutTiers}`;
   } else if (!passed) {
-    // FR-005: Minimal failure output with exact message
-    checkResult.output =
-      "Tests failed. Run 'run_tests scope=all' for detailed diagnostics.";
+    // FR-005: Failure output with per-tier details
+    const failedTiers = tierResults
+      .filter((tr) => tr.failed > 0)
+      .map((tr) => {
+        const detail = tr.output ? `: ${tr.output.slice(0, 200)}` : "";
+        return `${tr.tier} (${tr.failed} failed)${detail}`;
+      });
+    if (failedTiers.length > 0) {
+      checkResult.output =
+        `Tests failed in tier(s): ${failedTiers.join("; ")}. ` +
+        `Run 'run_tests' with scope=suite and target=<tier> for detailed diagnostics.`;
+    } else {
+      checkResult.output =
+        "Tests failed. Run 'run_tests' with scope=suite for detailed diagnostics.";
+    }
   }
 
   return checkResult;
@@ -666,14 +762,28 @@ async function setGreenPhaseCompleted(
  *
  * @param projectType - Detected project type
  * @param baseTestCommand - Base test command from sprint settings (e.g., "flutter test")
+ * @param workspacePath - Workspace root (needed for Flutter to enumerate test dirs)
  * @returns Command string that runs tests excluding TDD red-phase tests
  */ export function getExcludeTddRedCommand(
   projectType: ProjectType,
   baseTestCommand?: string,
+  workspacePath?: string,
 ): string {
   switch (projectType) {
-    case "flutter":
-return "flutter test --exclude-tags red";
+    case "flutter": {
+      // --exclude-tags only prevents execution, not compilation.
+      // Flutter still compiles ALL test files in the test/ tree.
+      // If test/red/ files import non-existent source, compilation fails.
+      // Instead, pass explicit non-red test directories so Flutter never sees test/red/.
+      if (workspacePath) {
+        const testDirs = getNonRedTestDirs(workspacePath);
+        if (testDirs.length > 0) {
+          return `flutter test ${testDirs.join(" ")}`;
+        }
+      }
+      // Fallback if no workspace or no dirs found
+      return "flutter test --exclude-tags red";
+    }
     case "node":
       // Use vitest --exclude flag to skip test/red/ directory
       if (baseTestCommand) {

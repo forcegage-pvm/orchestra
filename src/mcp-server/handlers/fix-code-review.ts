@@ -297,7 +297,11 @@ async function handleSubmitFixes(
     let effectiveTestCommand = testCommand;
     if (task.tdd_red_phase) {
       const projectType = detectProjectType(workspacePath);
-      effectiveTestCommand = getExcludeTddRedCommand(projectType, testCommand);
+      effectiveTestCommand = getExcludeTddRedCommand(
+        projectType,
+        testCommand,
+        workspacePath,
+      );
     }
 
     const result = await executeCommand(effectiveTestCommand, {

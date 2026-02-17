@@ -163,34 +163,22 @@ describe("prepare_task TDD Red-Phase Verification Auto-Injection", () => {
         .from(verificationChecks)
         .where(eq(verificationChecks.task_id, 1));
 
-      // Should have 4 checks: 2 behavioral + 2 structural (task-ID + marker)
-      expect(checks).toHaveLength(4);
+      // Should have 3 checks: 1 test_verification + 2 structural (task-ID + marker)
+      expect(checks).toHaveLength(3);
 
-      // Check 1: Red tests must fail
+      // Check 1: Red-phase tests must fail (test_verification)
       const redFailCheck = checks.find(
         (c) =>
-          c.check_type === "behavioral" &&
+          c.check_type === "test_verification" &&
           c.description.includes("Red-phase tests must fail"),
       );
       expect(redFailCheck).toBeDefined();
       expect(redFailCheck!.severity).toBe("BLOCKING");
       const redFailConfig = JSON.parse(redFailCheck!.check_config);
-      // Templates now use directory-based filtering
-      expect(redFailConfig.command).toBe('npm test -- "test/red/**"');
-      expect(redFailConfig.expect_exit_code).toBe(1);
+      expect(redFailConfig.tier).toBe("red");
+      expect(redFailConfig.expect).toBe("any_fail");
 
-      // Check 2: Non-red tests must pass
-      const greenPassCheck = checks.find(
-        (c) =>
-          c.check_type === "behavioral" &&
-          c.description.includes("Non-red tests must pass"),
-      );
-      expect(greenPassCheck).toBeDefined();
-      expect(greenPassCheck!.severity).toBe("BLOCKING");
-      const greenPassConfig = JSON.parse(greenPassCheck!.check_config);
-      expect(greenPassConfig.expect_exit_code).toBe(0);
-
-      // Check 3: Structural check for task-ID annotation
+      // Check 2: Structural check for task-ID annotation
       const taskIdCheck = checks.find(
         (c) =>
           c.check_type === "structural" &&
@@ -564,13 +552,14 @@ describe("prepare_task TDD Red-Phase Verification Auto-Injection", () => {
       );
       expect(tddChecks.length).toBeGreaterThan(0);
 
-      // Verify check uses the configured test command
-      const behavioralCheck = tddChecks.find(
-        (c) => c.check_type === "behavioral",
+      // Verify check uses test_verification format (not behavioral commands)
+      const testVerCheck = tddChecks.find(
+        (c) => c.check_type === "test_verification",
       );
-      expect(behavioralCheck).toBeDefined();
-      const config = JSON.parse(behavioralCheck!.check_config as string);
-      expect(config.command).toContain("npm test");
+      expect(testVerCheck).toBeDefined();
+      const config = JSON.parse(testVerCheck!.check_config as string);
+      expect(config.tier).toBe("red");
+      expect(config.expect).toBe("any_fail");
     });
 
     it("should prioritize sprint config over file_operations inference", async () => {
@@ -652,19 +641,21 @@ describe("prepare_task TDD Red-Phase Verification Auto-Injection", () => {
       const resultObj = JSON.parse(result.content[0].text);
       expect(resultObj.success).toBe(true);
 
-      // Verify checks use sprint config, NOT inferred from file extensions
+      // Verify checks use test_verification format (not behavioral commands)
       const checks = await db
         .select()
         .from(verificationChecks)
         .where(eq(verificationChecks.task_id, 1));
 
-      const behavioralCheck = checks.find((c) => c.check_type === "behavioral");
-      expect(behavioralCheck).toBeDefined();
-      const config = JSON.parse(behavioralCheck!.check_config as string);
+      const testVerCheck = checks.find(
+        (c) => c.check_type === "test_verification",
+      );
+      expect(testVerCheck).toBeDefined();
+      const config = JSON.parse(testVerCheck!.check_config as string);
 
-      // Should use custom command from sprint config
-      // NOT default "npm test"
-      expect(config.command).toContain("--testPathPattern=custom");
+      // Should use test_verification with tier/expect (not raw shell commands)
+      expect(config.tier).toBe("red");
+      expect(config.expect).toBe("any_fail");
 
       // Verify structural check uses configured test file pattern
       const structuralChecks = checks.filter(
@@ -828,7 +819,9 @@ describe("prepare_task TDD Red-Phase Verification Auto-Injection", () => {
       const tddChecks = checks.filter((c) => c.check_id.includes("tdd-red"));
       expect(tddChecks.length).toBeGreaterThan(0);
       tddChecks.forEach((check) => {
-        expect(check.check_id).toMatch(/^(behav|struct)-tdd-red-\d+$/);
+        expect(check.check_id).toMatch(
+          /^(test-verification|struct)-tdd-red-\d+$/,
+        );
       });
     });
   });

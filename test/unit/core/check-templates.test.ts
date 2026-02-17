@@ -28,7 +28,7 @@ describe("check-templates", () => {
       }
     });
 
-    it("should have 4 checks per language (2 behavioral + 2 structural)", () => {
+    it("should have 3 checks per language (1 test_verification + 2 structural)", () => {
       const languages: SupportedLanguage[] = [
         "dart",
         "typescript",
@@ -37,12 +37,14 @@ describe("check-templates", () => {
       ];
       for (const lang of languages) {
         const checks = TDD_RED_CHECKS[lang]!;
-        expect(checks.length).toBe(4);
+        expect(checks.length).toBe(3);
 
-        const behavioral = checks.filter((c) => c.check_type === "behavioral");
+        const testVerification = checks.filter(
+          (c) => c.check_type === "test_verification",
+        );
         const structural = checks.filter((c) => c.check_type === "structural");
 
-        expect(behavioral.length).toBe(2);
+        expect(testVerification.length).toBe(1);
         expect(structural.length).toBe(2);
       }
     });
@@ -73,10 +75,10 @@ describe("check-templates", () => {
           // All descriptions should have TASK_TITLE placeholder
           expect(check.description).toContain("{{TASK_TITLE}}");
 
-          // Behavioral checks should have CD_PREFIX and TEST_COMMAND in command
-          if (check.check_type === "behavioral") {
-            expect(check.check_config.command).toContain("{{CD_PREFIX}}");
-            expect(check.check_config.command).toContain("{{TEST_COMMAND}}");
+          // test_verification checks should have tier and expect (no commands/placeholders)
+          if (check.check_type === "test_verification") {
+            expect(check.check_config.tier).toBeDefined();
+            expect(check.check_config.expect).toBeDefined();
           }
 
           // Structural checks should have TEST_FILE_PATTERN in path (except red-phase file checks which use hardcoded paths)
@@ -140,18 +142,19 @@ describe("check-templates", () => {
       expect(taskIdCheck!.check_config.pattern).toContain("42");
     });
 
-    it("should prepend cd prefix when provided", () => {
-      const checksWithPrefix = getTddRedChecks("dart", {
+    it("should produce test_verification checks with correct tier config", () => {
+      const checks = getTddRedChecks("dart", {
         ...testContext,
         cdPrefix: "cd subdir; ",
         testCommand: "flutter test",
       });
 
-      const behavioralCheck = checksWithPrefix.find(
-        (c) => c.check_type === "behavioral",
+      const testVerCheck = checks.find(
+        (c) => c.check_type === "test_verification",
       );
-      expect(behavioralCheck!.check_config.command).toMatch(/^cd subdir; /);
-      expect(behavioralCheck!.check_config.command).toContain("flutter test");
+      expect(testVerCheck).toBeDefined();
+      expect(testVerCheck!.check_config.tier).toBe("red");
+      expect(testVerCheck!.check_config.expect).toBe("any_fail");
     });
 
     it("should produce valid regex patterns", () => {
@@ -233,8 +236,8 @@ describe("check-templates", () => {
     });
   });
 
-  describe("TEST_COMMAND substitution", () => {
-    it("should substitute TEST_COMMAND in all behavioral checks", () => {
+  describe("test_verification check structure", () => {
+    it("should produce test_verification checks with tier and expect for all languages", () => {
       const languages: SupportedLanguage[] = [
         "dart",
         "typescript",
@@ -251,19 +254,19 @@ describe("check-templates", () => {
           testCommand: "custom-test-runner",
         });
 
-        const behavioralChecks = checks.filter(
-          (c) => c.check_type === "behavioral",
+        const testVerChecks = checks.filter(
+          (c) => c.check_type === "test_verification",
         );
-        expect(behavioralChecks.length).toBe(2);
+        expect(testVerChecks.length).toBe(1);
 
-        for (const check of behavioralChecks) {
-          expect(check.check_config.command).toContain("custom-test-runner");
-          expect(check.check_config.command).not.toContain("{{TEST_COMMAND}}");
+        for (const check of testVerChecks) {
+          expect(check.check_config.tier).toBe("red");
+          expect(check.check_config.expect).toBe("any_fail");
         }
       }
     });
 
-    it("should not leave TEST_COMMAND placeholder in any behavioral check", () => {
+    it("should not have any behavioral checks in templates", () => {
       const checks = getTddRedChecks("typescript", {
         cdPrefix: "",
         testFilePattern: "test/**/*.test.ts",
@@ -272,80 +275,51 @@ describe("check-templates", () => {
         testCommand: "npm test",
       });
 
-      for (const check of checks) {
-        if (check.check_config.command) {
-          expect(check.check_config.command).not.toContain("{{TEST_COMMAND}}");
-        }
-      }
-    });
-
-    it("should use exact testCommand value without modification", () => {
-      const testCommand = "pnpm vitest --coverage --reporter=json";
-      const checks = getTddRedChecks("typescript", {
-        cdPrefix: "",
-        testFilePattern: "test/**/*.test.ts",
-        taskId: 1,
-        taskTitle: "Test",
-        testCommand,
-      });
-
       const behavioralChecks = checks.filter(
         (c) => c.check_type === "behavioral",
       );
-      for (const check of behavioralChecks) {
-        expect(check.check_config.command).toContain(testCommand);
-      }
+      expect(behavioralChecks.length).toBe(0);
     });
 
-    it("should handle testCommand with special characters", () => {
-      const checks = getTddRedChecks("dart", {
-        cdPrefix: "",
-        testFilePattern: "test/**/*.dart",
-        taskId: 1,
-        taskTitle: "Test",
-        testCommand: "flutter test --coverage --reporter=json",
-      });
+    it("should have success and failure messages on test_verification checks", () => {
+      const languages: SupportedLanguage[] = [
+        "dart",
+        "typescript",
+        "python",
+        "rust",
+      ];
 
-      const behavioralChecks = checks.filter(
-        (c) => c.check_type === "behavioral",
-      );
-      expect(behavioralChecks.length).toBeGreaterThan(0);
-      for (const check of behavioralChecks) {
-        expect(check.check_config.command).toContain(
-          "flutter test --coverage --reporter=json",
+      for (const lang of languages) {
+        const checks = getTddRedChecks(lang, {
+          cdPrefix: "",
+          testFilePattern: "test/**/*",
+          taskId: 1,
+          taskTitle: "Test",
+          testCommand: "npm test",
+        });
+
+        const testVerCheck = checks.find(
+          (c) => c.check_type === "test_verification",
         );
-        expect(check.check_config.command).toBeDefined();
+        expect(testVerCheck!.check_config.success_message).toBeDefined();
+        expect(testVerCheck!.check_config.failure_message).toBeDefined();
       }
     });
 
-    it("should combine CD_PREFIX and TEST_COMMAND correctly with scope flags", () => {
+    it("should replace TASK_TITLE in test_verification descriptions", () => {
       const checks = getTddRedChecks("python", {
         cdPrefix: "cd backend; ",
         testFilePattern: "tests/**/*.py",
         taskId: 1,
-        taskTitle: "Test",
+        taskTitle: "My Feature",
         testCommand: "pytest -v",
       });
 
-      const behavioralChecks = checks.filter(
-        (c) => c.check_type === "behavioral",
+      const testVerCheck = checks.find(
+        (c) => c.check_type === "test_verification",
       );
-
-      // First check: tagged tests must fail (runs only tdd_red marked tests)
-      const taggedCheck = behavioralChecks.find((c) =>
-        c.description.includes("Tagged tests must fail"),
-      );
-      expect(taggedCheck!.check_config.command).toBe(
-        "cd backend; pytest -v -m tdd_red",
-      );
-
-      // Second check: non-tagged tests must pass (excludes tdd_red marked tests)
-      const nonTaggedCheck = behavioralChecks.find((c) =>
-        c.description.includes("Non-tagged tests must pass"),
-      );
-      expect(nonTaggedCheck!.check_config.command).toBe(
-        'cd backend; pytest -v -m "not tdd_red"',
-      );
+      expect(testVerCheck!.description).toContain("My Feature");
+      expect(testVerCheck!.description).not.toContain("{{TASK_TITLE}}");
     });
   });
 

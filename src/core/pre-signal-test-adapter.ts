@@ -176,6 +176,34 @@ export async function runTestsCore(
 
   // Format results
   const formatter = new ResultFormatter();
+
+  // Handle compilation failures for inverted (red) tiers:
+  // In TDD red-phase, test files import source that doesn't exist yet, so
+  // Flutter/Dart exits non-zero with 0 tests collected. This is expected —
+  // synthesize "failed" test entries so downstream inverted logic sees them
+  // as correctly failing tests (rather than "none found").
+  if (isInverted && runOutput.exitCode !== 0 && runOutput.tests.length === 0) {
+    const rawPreview = runOutput.rawOutput?.slice(0, 500) ?? "";
+    const compileErrorMatch = rawPreview.match(/Error:.*$/m);
+    const errorSummary = compileErrorMatch
+      ? compileErrorMatch[0].slice(0, 120)
+      : "Compilation error (source files not yet implemented)";
+
+    // Synthesize one failed test per resolved file
+    for (const f of scopeResult.files) {
+      runOutput.tests.push({
+        name: `[compile error] ${f}`,
+        file: f,
+        status: "failed" as const,
+        duration: 0,
+        failure: {
+          message: errorSummary,
+          stack: "",
+        },
+      });
+    }
+  }
+
   const formatted = formatter.format(runOutput.tests, {
     maxFailureLines: config.maxFailureLines,
     framework: runner.framework,
