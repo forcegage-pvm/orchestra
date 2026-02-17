@@ -266,7 +266,7 @@ export class SprintSettingsPanel {
         {
           key: "agent.max_iterations",
           value: settings.maxIterations.toString(),
-          description: "Maximum iterations per agent run",
+          description: "Maximum agent loop iterations",
         },
         {
           key: "tools.prepare_task.auto_commit",
@@ -527,7 +527,7 @@ export class SprintSettingsPanel {
 
   <div class="form-group">
     <label for="maxIterations">Maximum agent loop iterations</label>
-    <input type="number" id="maxIterations" min="1" max="500" placeholder="80">
+    <input type="number" id="maxIterations" min="10" max="500" step="10" value="80">
     <div class="help-text">Maximum number of tool calls/iterations per agent run (default: 80)</div>
   </div>
   
@@ -563,6 +563,7 @@ export class SprintSettingsPanel {
     const orchestratorModel = document.getElementById('orchestratorModel');
     const implementorModel = document.getElementById('implementorModel');
     const controllerModel = document.getElementById('controllerModel');
+    const maxIterations = document.getElementById('maxIterations');
     const saveButton = document.getElementById('saveButton');
     const cancelButton = document.getElementById('cancelButton');
     const messageDiv = document.getElementById('message');
@@ -639,6 +640,7 @@ export class SprintSettingsPanel {
         orchestratorModel: orchestratorModel.value,
         implementorModel: implementorModel.value,
         controllerModel: controllerModel.value,
+        maxIterations: parseInt(maxIterations.value, 10) || 80,
       };
       
       vscode.postMessage({ type: 'save', settings });

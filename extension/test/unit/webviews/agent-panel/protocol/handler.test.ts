@@ -10,34 +10,32 @@ const { mockSessionRef } = vi.hoisted(() => ({
   mockSessionRef: { value: undefined as Record<string, unknown> | undefined },
 }));
 
-// Mutable session ref for testing task-based clearing logic
-const { mockSessionRef } = vi.hoisted(() => ({
-  mockSessionRef: { value: undefined as Record<string, unknown> | undefined },
-}));
-
 // Mock store imports
-vi.mock("../../../../src/webviews/agent-panel/stores/sessionStore.js", () => ({
-  get session() {
-    return mockSessionRef.value;
-  },
-  setSession: vi.fn(),
-  replaceSession: vi.fn(),
-  resetSession: vi.fn(),
-  setEvents: vi.fn(),
-  setToolCalls: vi.fn(),
-  // New/auxiliary exports used by protocol handler
-  persistState: vi.fn(),
-  addEvent: vi.fn(),
-  clearAfter: vi.fn(() => null),
-  clearEvents: vi.fn(),
-  clearSessionHistory: vi.fn(),
-  clearToolCalls: vi.fn(),
-  setToolCall: vi.fn(),
-  setSessionMetas: vi.fn(),
-  tryRestoreState: vi.fn(() => false),
-  syncSessionStatusFromEvents: vi.fn(),
-  toolCalls: {},
-}));
+vi.mock(
+  "../../../../../src/webviews/agent-panel/stores/sessionStore.js",
+  () => ({
+    get session() {
+      return mockSessionRef.value;
+    },
+    setSession: vi.fn(),
+    replaceSession: vi.fn(),
+    resetSession: vi.fn(),
+    setEvents: vi.fn(),
+    setToolCalls: vi.fn(),
+    // New/auxiliary exports used by protocol handler
+    persistState: vi.fn(),
+    addEvent: vi.fn(),
+    clearAfter: vi.fn(() => null),
+    clearEvents: vi.fn(),
+    clearSessionHistory: vi.fn(),
+    clearToolCalls: vi.fn(),
+    setToolCall: vi.fn(),
+    setSessionMetas: vi.fn(),
+    tryRestoreState: vi.fn(() => false),
+    syncSessionStatusFromEvents: vi.fn(),
+    toolCalls: {},
+  }),
+);
 
 // Import mocked stores
 import {
@@ -48,8 +46,8 @@ import {
   replaceSession,
   resetSession,
   setSessionMetas,
-} from "../../../../src/webviews/agent-panel/stores/sessionStore.js";
-import { setUi } from "../../../../src/webviews/agent-panel/stores/uiStore.js";
+} from "../../../../../src/webviews/agent-panel/stores/sessionStore.js";
+import { setUi } from "../../../../../src/webviews/agent-panel/stores/uiStore.js";
 
 // Import handler AFTER mocking dependent stores so imports are mocked
 import {

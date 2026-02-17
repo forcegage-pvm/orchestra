@@ -103,6 +103,22 @@ export class ConfigService {
   }
 
   /**
+   * Get the maximum agent loop iterations
+   * @returns The maximum number of iterations (default: 80)
+   */
+  getMaxIterations(): number {
+    const dbValue = this.getDbConfigValue("agent.max_iterations");
+    if (dbValue) {
+      const parsed = parseInt(dbValue, 10);
+      if (!isNaN(parsed) && parsed > 0) {
+        return parsed;
+      }
+    }
+    const config = this.getWorkspaceConfig();
+    return config.get<number>("agent.maxIterations", 80);
+  }
+
+  /**
    * Get the complete Orchestra configuration
    * @returns OrchestraConfig object with models and agents for all roles
    */

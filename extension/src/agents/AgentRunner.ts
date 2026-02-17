@@ -514,12 +514,20 @@ export class AgentRunner implements vscode.Disposable {
 
     this.contextManager = new ContextManager(contextConfig);
 
+    // Determine maxIterations from config, configService, or default
+    let maxIterations = 80;
+    if (config?.maxIterations !== undefined) {
+      maxIterations = config.maxIterations;
+    } else if (configService) {
+      maxIterations = configService.getMaxIterations();
+    }
+
     // Apply defaults from AgentConfigSchema
     this.config = {
       orchestratorModel: config?.orchestratorModel ?? "claude-opus-4.5",
       implementorModel: config?.implementorModel ?? "claude-sonnet-4.5",
       controllerModel: config?.controllerModel ?? "claude-opus-4.5",
-      maxIterations: config?.maxIterations ?? 80,
+      maxIterations,
       maxToolRetries: config?.maxToolRetries ?? 3,
       verbosity: config?.verbosity ?? "normal",
       compactionThreshold: config?.compactionThreshold ?? 5,

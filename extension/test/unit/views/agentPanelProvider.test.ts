@@ -107,7 +107,7 @@ vi.mock("../../../src/agents/sessions/eventRepository.js", () => ({
 }));
 
 // Mock getSession and getSessionsForTask
-vi.mock("../../src/agents/sessions/sessionRepository.js", () => ({
+vi.mock("../../../src/agents/sessions/sessionRepository.js", () => ({
   getSession: vi.fn(),
   getSessionsForTask: vi.fn(() => []),
   getRecentSessions: vi.fn(() => []),
@@ -275,13 +275,13 @@ describe("AgentPanelProvider", () => {
 
       // Mock task-scoped event loading (new behavior)
       const { getSessionsForTask } =
-        await import("../../src/agents/sessions/sessionRepository.js");
+        await import("../../../src/agents/sessions/sessionRepository.js");
       getSessionsForTask.mockReturnValue([
         { sessionId: "session-1", taskId: 1 },
       ]);
 
       const { getEventsForTaskSessions } =
-        await import("../../src/agents/sessions/eventRepository.js");
+        await import("../../../src/agents/sessions/eventRepository.js");
       getEventsForTaskSessions.mockReturnValue(mockEvents);
 
       provider.resolveWebviewView(mockWebviewView, {} as any, {} as any);

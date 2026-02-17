@@ -30,13 +30,29 @@ function Remove-PathWithRetries($path, $retries = 5, $delayMs = 500) {
   for ($i = 1; $i -le $retries; $i++) {
     try {
       if (Test-Path $path) {
+        # Clear read-only attributes which can cause Remove-Item to fail even with -Force
+        Get-ChildItem -Path $path -Recurse -Force -ErrorAction SilentlyContinue | ForEach-Object {
+          if ($_.Attributes -match "ReadOnly") {
+            $_.Attributes = "Normal"
+          }
+        }
         Remove-Item -LiteralPath $path -Recurse -Force
       }
       return
     }
     catch {
       if ($i -eq $retries) {
-        throw
+        # Last attempt: try renaming to a temp name then deleting (works better with locked files)
+        $tempPath = "$path.deleting.$([guid]::NewGuid().ToString('N').Substring(0,8))"
+        try {
+          Rename-Item -LiteralPath $path -NewName (Split-Path $tempPath -Leaf) -Force
+          Remove-Item -LiteralPath $tempPath -Recurse -Force -ErrorAction SilentlyContinue
+          return
+        }
+        catch {
+          # If rename also fails, file is truly locked by another process
+          throw "Cannot remove '$path': file is locked. Please close VS Code and try again."
+        }
       }
       Start-Sleep -Milliseconds ($delayMs * $i)
     }
