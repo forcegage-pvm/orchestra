@@ -221,6 +221,20 @@ The testing tools are configured via `.agent-test-config.json` in the workspace 
 
 When you use `run_tests({ scope: "suite", target: "unit" })`, it resolves `"unit"` to the glob path defined in this config.
 
+### Test Tier Reference Guide
+
+For comprehensive guidance on test tier structure, classification rules, migration from flat test layouts, import path fixes, and monorepo conventions, refer to:
+
+`.orchestra/templates/prompts/_docs/test-tier-migration-guide.md`
+
+This guide covers:
+
+- The 5 standard test tiers (red, smoke, unit, integration, e2e) and when to use each
+- How to classify tests using the decision tree (smoke vs unit vs integration)
+- Setting up `.agent-test-config.json` for new or existing projects
+- Fixing import paths after moving test files between directories
+- Per-package tier naming for monorepos (e.g., `extension-unit`, `extension-smoke`)
+
 ---
 
 ## Role Identity
@@ -391,26 +405,28 @@ Some tasks have `tdd_red_phase: true` in their handover. These are **TDD red pha
 ### When Working on a Red Phase Task
 
 1. **Write failing tests** that define expected behavior
-2. **Mark tests with TDD markers** using the **TWO-PART SYSTEM**:
+2. **Place test files in the `test/red/{tier}/` directory** using the **TWO-PART SYSTEM**:
 
    TDD markers have TWO separate concerns:
    - **Task linking**: `// @orchestra-task: N` at file top - associates tests with task ID
-   - **Test filtering**: `[tdd-red]` or `@Tags(['tdd-red'])` - allows running just TDD tests
+   - **Test isolation**: Place the test file in `test/red/{tier}/` directory (e.g., `test/red/unit/`) - isolates red-phase tests from the standard suite
+
+   **⛔ CRITICAL: DO NOT place test files directly in `test/{tier}/`** — Red-phase tests placed outside `test/red/` will fail verification and corrupt the TDD workflow. The `test/red/` directory is the ONLY valid location for red-phase tests.
 
    **TypeScript/Vitest:**
 
    ```typescript
    // @orchestra-task: 3
+   // File: test/red/unit/feature.test.ts
 
-   // Use [tdd-red] in test or describe name (no task ID in the marker!)
-   describe("[tdd-red] Feature", () => {
+   describe("Feature", () => {
      it("should validate user input", () => {
        expect(validateInput("")).toBe(false);
      });
    });
 
-   // Or at test level:
-   it("[tdd-red] should validate user input", () => {
+   // Multiple tests in one file:
+   it("should reject empty strings", () => {
      expect(validateInput("")).toBe(false);
    });
    ```
@@ -419,27 +435,27 @@ Some tasks have `tdd_red_phase: true` in their handover. These are **TDD red pha
 
    ```dart
    // @orchestra-task: 3
-   @Tags(['tdd-red'])
-   library;
+   // File: test/red/unit/feature_test.dart
+
+   import 'package:flutter_test/flutter_test.dart';
 
    void main() {
      test('should validate user input', () {
        expect(validateInput(''), false);
      });
-   }
 
-   // Or inline tags (still need // @orchestra-task: N at file top):
-   test('should validate user input', () {
-     expect(validateInput(''), false);
-   }, tags: ['tdd-red']);
+     test('should reject empty strings', () {
+       expect(validateInput(''), false);
+     });
+   }
    ```
 
    **⚠️ OLD FORMAT NO LONGER SUPPORTED:**
-   - ❌ `@Tags(['tdd-red-task-N'])` (single-token with embedded task ID)
-   - ❌ `[tdd-red-task-N]` (single-token with embedded task ID)
-   - ❌ `tags: ['tdd-red', 'task-N']` (two tokens for one concept)
-   - ❌ `test/tdd-red/` directories
+   - ❌ Tag-based markers in test/describe names (e.g., `describe("[tag] ...")`)
+   - ❌ Dart `@Tags()` annotations for TDD filtering
+   - ❌ Inline `tags:` parameters for TDD filtering
    - ❌ `it.skip`, `test.skip`, `xit` (skip markers)
+   - ❌ Any test name manipulation for TDD — use `test/red/{tier}/` directories instead
 
 3. **Verify locally before signaling:**
 
@@ -458,7 +474,7 @@ Some tasks have `tdd_red_phase: true` in their handover. These are **TDD red pha
    **TDD Red-Green-Promote Workflow:**
 
    ```
-   1. RED: Write failing tests first
+   1. RED: Write failing tests in test/red/{tier}/
       → run_tests({ scope: "red" })
       → VERIFY: All tests correctly failing
       → If any pass unexpectedly: rewrite to be more specific
@@ -471,6 +487,7 @@ Some tasks have `tdd_red_phase: true` in their handover. These are **TDD red pha
    3. PROMOTE: Graduate tests into standard suite
       → promote_tests({ files: [...] })  — dry-run first (default)
       → promote_tests({ files: [...], dry_run: false })  — apply
+      → Moves files from test/red/{tier}/ to test/{tier}/
       → run_tests({ scope: "related" })  — verify no regressions
 
    4. REFACTOR: Clean up with safety net
@@ -478,38 +495,38 @@ Some tasks have `tdd_red_phase: true` in their handover. These are **TDD red pha
       → run_tests({ scope: "related" }) after each refactoring step
    ```
 
-4. **Signal completion** as normal - the system will automatically scan for TDD markers
+4. **Signal completion** as normal - the system will automatically scan for TDD test files
 
 ### Automatic TDD Test Registration (Scan-on-Signal)
 
 When you call `signal_completion` (for ANY task, not just TDD tasks), Orchestra automatically:
 
-1. **Scans entire workspace** for TDD markers (`@Tags(['tdd-red'])` or `[tdd-red]`) with `// @orchestra-task: N` annotations
+1. **Scans `test/red/` directories** for test files with `// @orchestra-task: N` annotations
 2. **Deletes all existing registry entries** for the sprint (fresh snapshot)
-3. **Repopulates registry** with all markers found, grouped by task ID from annotations
-4. **Validates markers** (for `tdd_red_phase: true` tasks only) - ensures markers AND task annotation exist for your task ID
+3. **Repopulates registry** with all test files found, grouped by task ID from annotations
+4. **Validates** (for `tdd_red_phase: true` tasks only) - ensures test files in `test/red/` AND task annotation exist for your task ID
 
 The registry is a **transitory snapshot** - it reflects what's currently in the codebase, not accumulated state.
 
-You don't need to manually register tests - just add the markers WITH the task annotation and signal completion.
+You don't need to manually register tests - just place files in `test/red/{tier}/` WITH the `// @orchestra-task: N` annotation and signal completion.
 
 ### What Happens Next
 
 After your red phase task is complete:
 
-- Registry entries exist for your task's markers (file-level tracking with test count)
+- Registry entries exist for your task's test files (file-level tracking with test count)
 - Orchestrator must call `complete_task` with `green_task_id` to assign the green phase
-- Green phase implementor implements the feature to make tests pass, then removes markers AND annotation
+- Green phase implementor implements the feature to make tests pass, then uses `promote_tests()` to move files from `test/red/{tier}/` to `test/{tier}/` and removes the `// @orchestra-task: N` annotation
 - **Gate check**: No task can be completed until ALL registry entries have `green_task_id` assigned
 - Sprint cannot close until all TDD relationships have `completed_at` set
 
 ### Red Phase Errors
 
-| Error                              | Meaning                                                        | Fix                                                                             |
-| ---------------------------------- | -------------------------------------------------------------- | ------------------------------------------------------------------------------- |
-| `TDD RED-PHASE WORKFLOW VIOLATION` | Task has `tdd_red_phase: true` but no markers found            | Add `// @orchestra-task: N` AND `[tdd-red]` (TS) or `@Tags(['tdd-red'])` (Dart) |
-| `TDD-RED FILE MISSING TASK-ID`     | File has TDD markers but no `// @orchestra-task: N` annotation | Add `// @orchestra-task: N` at top of file (replace N with task ID)             |
-| `SCAN_FAILED`                      | Error during automatic test scanning                           | Check test file syntax and marker format                                        |
+| Error                              | Meaning                                                             | Fix                                                                               |
+| ---------------------------------- | ------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| `TDD RED-PHASE WORKFLOW VIOLATION` | Task has `tdd_red_phase: true` but no test files found in test/red/ | Add `// @orchestra-task: N` at file top AND place test file in `test/red/{tier}/` |
+| `TDD-RED FILE MISSING TASK-ID`     | File in test/red/ has no `// @orchestra-task: N` annotation         | Add `// @orchestra-task: N` at top of file (replace N with task ID)               |
+| `SCAN_FAILED`                      | Error during automatic test scanning                                | Check test file syntax and directory structure                                    |
 
 ### Test Configuration Troubleshooting
 
