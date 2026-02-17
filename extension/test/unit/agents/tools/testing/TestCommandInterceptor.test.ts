@@ -118,6 +118,38 @@ describe("TestCommandInterceptor", () => {
         false,
       );
     });
+
+    it("should block 'cd <path> && flutter test ...'", () => {
+      expect(
+        TestCommandInterceptor.isTestCommand(
+          "cd x:\\repositories\\braven_charts && flutter test test/red/unit/foo_test.dart",
+        ),
+      ).toBe(true);
+    });
+
+    it("should block 'cd <path> && npm test'", () => {
+      expect(
+        TestCommandInterceptor.isTestCommand(
+          "cd /home/user/project && npm test",
+        ),
+      ).toBe(true);
+    });
+
+    it("should block 'cd <path> ; dart test'", () => {
+      expect(
+        TestCommandInterceptor.isTestCommand(
+          "cd /workspace ; dart test --reporter=json",
+        ),
+      ).toBe(true);
+    });
+
+    it("should not block 'cd <path> && npm run build'", () => {
+      expect(
+        TestCommandInterceptor.isTestCommand(
+          "cd /workspace && npm run build",
+        ),
+      ).toBe(false);
+    });
   });
 
   describe("getRedirectMessage()", () => {

@@ -7,7 +7,7 @@
  * Static utility for identifying test commands and providing redirect guidance.
  * Blocks 11 common test command patterns and directs agents to use
  * structured test runner tools instead.
- */export class TestCommandInterceptor {
+ */ export class TestCommandInterceptor {
   /**
    * Blocked test command patterns.
    * All 11 patterns: 9 original + dart test + flutter test.
@@ -27,12 +27,23 @@
   ];
   /**
    * Check if command is a blocked test command.
+   * Handles commands prefixed with `cd <path> &&` or `cd <path> ;` which
+   * agents commonly use to set the working directory before running tests.
    * @param cmd Command string to check
    * @returns true if command matches any blocked pattern
    */
   static isTestCommand(cmd: string): boolean {
     const trimmedCmd = cmd.trim();
-    return this.BLOCKED_PATTERNS.some((pattern) => pattern.test(trimmedCmd));
+    // Check the raw command first
+    if (this.BLOCKED_PATTERNS.some((pattern) => pattern.test(trimmedCmd))) {
+      return true;
+    }
+    // Also check after stripping `cd <path> &&` or `cd <path> ;` prefix
+    const afterCd = trimmedCmd.replace(/^cd\s+[^&;]+(?:&&|;)\s*/i, "");
+    if (afterCd !== trimmedCmd) {
+      return this.BLOCKED_PATTERNS.some((pattern) => pattern.test(afterCd));
+    }
+    return false;
   }
 
   /**
@@ -45,10 +56,10 @@
     return (
       "\u2717 run_command: TEST_COMMAND_BLOCKED\n\n" +
       "Direct test execution is blocked. Use the test runner tools for:\n" +
-      "  \u2022 Scoped execution:     run_tests with scope=\"file\", \"pattern\", \"suite\", \"related\"\n" +
-      "  \u2022 TDD red-phase:        run_tests with scope=\"red\"\n" +
-      "  \u2022 Re-run failures:      run_tests with scope=\"failed\"\n" +
-      "  \u2022 Full suite:           run_tests with scope=\"all\"\n" +
+      '  \u2022 Scoped execution:     run_tests with scope="file", "pattern", "suite", "related"\n' +
+      '  \u2022 TDD red-phase:        run_tests with scope="red"\n' +
+      '  \u2022 Re-run failures:      run_tests with scope="failed"\n' +
+      '  \u2022 Full suite:           run_tests with scope="all"\n' +
       "  \u2022 View past results:    get_test_results\n" +
       "  \u2022 Discover tests:       list_test_suites\n\n" +
       "These tools provide caching, compressed output, and red-phase isolation\n" +
