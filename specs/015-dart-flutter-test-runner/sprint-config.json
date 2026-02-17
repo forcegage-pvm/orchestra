@@ -1,0 +1,227 @@
+{
+  "sprint": {
+    "id": "sprint-015",
+    "name": "Dart/Flutter Test Runner Backend"
+  },
+  "spec_path": "specs/015-dart-flutter-test-runner/spec.md",
+  "environment": {
+    "test_command": "npm test",
+    "test_file_pattern": "test/**/*.test.ts",
+    "source_base_dir": "src"
+  },
+  "phases": [
+    {
+      "phase_id": "abstraction",
+      "phase_name": "Runner Abstraction & Vitest Refactor",
+      "speckit_tasks": [
+        "T001",
+        "T002",
+        "T003",
+        "T004",
+        "T005",
+        "T006",
+        "T007",
+        "T008",
+        "T009",
+        "T010",
+        "T011"
+      ]
+    },
+    {
+      "phase_id": "dart-core",
+      "phase_name": "DartRunner Core (MVP)",
+      "speckit_tasks": ["T012", "T013", "T014", "T015", "T016", "T017", "T018"]
+    },
+    {
+      "phase_id": "integration",
+      "phase_name": "Pipeline Integration",
+      "speckit_tasks": [
+        "T019",
+        "T020",
+        "T021",
+        "T022",
+        "T023",
+        "T024",
+        "T025",
+        "T026",
+        "T027",
+        "T028",
+        "T029",
+        "T030",
+        "T031",
+        "T032",
+        "T033",
+        "T034"
+      ]
+    },
+    {
+      "phase_id": "polish",
+      "phase_name": "Polish & Regression",
+      "speckit_tasks": ["T035", "T036", "T037", "T038", "T039", "T040", "T041"]
+    }
+  ],
+  "tasks": [
+    {
+      "task_id": 1,
+      "phase_id": "abstraction",
+      "title": "Runner Abstraction & Vitest Refactor (US2)",
+      "description": "Create the TestRunner interface, TestRunnerFactory skeleton, and refactor VitestRunner behind the new abstraction. This phase establishes the framework-agnostic pipeline without introducing any Dart code.\n\nCovers spec tasks: T001-T011\nDelivers: User Story 2 (Vitest regression safety)\n\nKey deliverables:\n1. TestRunner interface + types (TestFramework, TestRunOptions, TestRunOutput, NormalizedTestOutcome) in src/core/testing/TestRunner.ts\n2. TestRunnerFactory skeleton with static create() method in src/core/testing/TestRunnerFactory.ts\n3. Refactor VitestRunner to implement TestRunner interface, absorb Vitest JSON parsing (parseVitestJson, convertTestResults, normalizeStatus, calculateDuration) from ResultFormatter — src/core/testing/VitestRunner.ts\n4. Update ResultFormatter.format() to accept NormalizedTestOutcome[] instead of unknown vitestJson, removing Vitest-specific parsing methods. Summary output must include framework identifier (e.g., 'PASS (flutter)', 'FAIL (dart)') — src/core/testing/ResultFormatter.ts\n5. Expand TestConfigSchema framework field to z.enum(['vitest', 'dart', 'flutter']) and add pubspec.yaml/dart_test.yaml to configFingerprint defaults — src/core/testing/TestConfigLoader.ts\n6. Update pre-signal-test-adapter to use TestRunnerFactory.create(config.framework) instead of direct VitestRunner instantiation — src/core/pre-signal-test-adapter.ts\n7. Wire VitestRunner into TestRunnerFactory.create() for 'vitest' framework — src/core/testing/TestRunnerFactory.ts\n8. Update barrel exports for all new/modified modules — src/core/testing/index.ts\n9. Create VitestRunner interface compliance and regression tests. All mocks MUST implement TestRunner interface explicitly (per FR-019/Lesson 7) — test/unit/core/testing/VitestRunner.test.ts\n10. Run full existing test suite (npm test) to verify zero Vitest regressions\n\nReference contracts: specs/015-dart-flutter-test-runner/contracts/test-runner-interface.md\nReference data model: specs/015-dart-flutter-test-runner/data-model.md\n\nCheckpoint: Vitest works exactly as before through the new TestRunner abstraction. No Dart code yet.",
+      "category": "REFACTOR",
+      "dependencies": [],
+      "speckit_task_ref": "T001-T011",
+      "verification": {
+        "success_criteria": [
+          "TestRunner interface exported from src/core/testing/TestRunner.ts with framework, execute(), and buildCommand() members",
+          "TestRunnerFactory.create('vitest') returns a VitestRunner instance",
+          "VitestRunner implements TestRunner interface (class VitestRunner implements TestRunner)",
+          "ResultFormatter.format() accepts NormalizedTestOutcome[] — no Vitest-specific parsing methods remain in ResultFormatter",
+          "ResultFormatter summary output includes framework identifier (e.g., 'PASS (vitest)')",
+          "TestConfigSchema framework field accepts 'vitest', 'dart', 'flutter'",
+          "pre-signal-test-adapter uses TestRunnerFactory.create() instead of direct VitestRunner instantiation",
+          "Barrel exports include TestRunner, TestRunnerFactory, TestFramework, TestRunOptions, TestRunOutput, NormalizedTestOutcome",
+          "VitestRunner regression tests pass — all mocks implement TestRunner interface explicitly",
+          "Full existing test suite (npm test) passes with zero regressions"
+        ],
+        "test_strategy": "Unit tests for VitestRunner interface compliance in test/unit/core/testing/VitestRunner.test.ts. Full regression via npm test."
+      }
+    },
+    {
+      "task_id": 2,
+      "phase_id": "dart-core",
+      "title": "DartRunner Implementation (US1 - MVP)",
+      "description": "Implement the DartRunner class — the core Dart/Flutter test execution engine. Agents can execute Dart/Flutter tests through the Orchestra run_tests tool and receive structured results identical in format to Vitest.\n\nCovers spec tasks: T012-T018\nDelivers: User Story 1 (Run Dart/Flutter Tests Through Orchestra Pipeline)\n\nKey deliverables:\n1. DartRunner class with buildCommand() generating dart test/flutter test CLI args and execute() with process spawning. Flutter projects apply --no-pub by default; pure Dart projects only when dartNoPub is explicitly set (per FR-005) — src/core/testing/DartRunner.ts\n2. NDJSON parser (extractJsonEvents line filtering, eventsToOutcomes correlating testStart/testDone/error events) — src/core/testing/DartRunner.ts\n3. Dart failure compression, expected/actual extraction from assertion errors, and stack trace compression (max 5 project-relevant frames) — src/core/testing/DartRunner.ts\n4. Flutter engine log filtering in extractJsonEvents and file:// URL to path conversion with Windows drive letter normalization (FR-013) — src/core/testing/DartRunner.ts\n5. Add dartNoPub (z.boolean().optional()) and dartExcludeTags (z.array(z.string()).optional()) fields to TestConfigSchema — src/core/testing/TestConfigLoader.ts\n6. Wire DartRunner into TestRunnerFactory.create() for 'dart' and 'flutter' frameworks — src/core/testing/TestRunnerFactory.ts\n7. Create DartRunner unit tests using fixtures from testing/tdd-test-harness/dart/fixtures/ (passing-tests.ndjson, failing-tests.ndjson, mixed-results.ndjson, empty-suite.ndjson, flutter-with-noise.ndjson, partial-timeout.ndjson). All mocks MUST implement TestRunner interface explicitly (per FR-019/Lesson 7) — test/unit/core/testing/DartRunner.test.ts\n\nTest coverage must include: NDJSON parsing, failure compression, command construction, Flutter log filtering, partial timeout output, missing dart/flutter executable error, and empty test suite (zero events → pass status).\n\nCheckpoint: run_tests scope=suite target=unit works for a Dart/Flutter project.",
+      "category": "INFRASTRUCTURE",
+      "dependencies": [1],
+      "speckit_task_ref": "T012-T018",
+      "verification": {
+        "success_criteria": [
+          "DartRunner class exists in src/core/testing/DartRunner.ts implementing TestRunner interface",
+          "DartRunner.buildCommand() generates correct CLI args for both dart test and flutter test",
+          "Flutter projects apply --no-pub by default in buildCommand()",
+          "Pure Dart projects only apply --no-pub when dartNoPub config is explicitly set",
+          "NDJSON parser correctly filters non-JSON lines (engine logs, progress) and parses valid test events",
+          "eventsToOutcomes correctly correlates testStart/testDone/error events into NormalizedTestOutcome[]",
+          "Failure compression extracts expected/actual values from Dart assertion error messages",
+          "Stack trace compression retains max 5 project-relevant frames, removing framework-internal frames",
+          "file:// URLs correctly converted to paths with uppercase drive letters on Windows (FR-013)",
+          "Empty test suite (zero events) returns pass status with zero counts, not error",
+          "Partial timeout output captures whatever results were emitted before timeout (FR-015)",
+          "Missing dart/flutter executable returns clear ToolError, not opaque spawn failure",
+          "TestRunnerFactory.create('dart') and create('flutter') return DartRunner instances",
+          "dartNoPub and dartExcludeTags fields accepted in TestConfigSchema",
+          "All DartRunner unit tests pass using NDJSON fixtures"
+        ],
+        "test_strategy": "Unit tests in test/unit/core/testing/DartRunner.test.ts using NDJSON fixtures from testing/tdd-test-harness/dart/fixtures/. Covers parsing, command construction, failure compression, log filtering, edge cases."
+      }
+    },
+    {
+      "task_id": 3,
+      "phase_id": "integration",
+      "title": "Dart Related Resolver & Import Graph (US4)",
+      "description": "Implement the Dart-specific related file resolver so that scope=related discovers affected test files from changed source files using naming conventions, import graph analysis, and directory fallback.\n\nCovers spec tasks: T019-T025\nDelivers: User Story 4 (Find Related Dart Tests from Changed Source Files)\n\nKey deliverables:\n1. DartRelatedResolver with three-strategy mapper — src/core/testing/DartRelatedResolver.ts:\n   - Strategy 1: Naming convention (lib/src/X.dart → test/**/X_test.dart)\n   - Strategy 2: Import graph via DartImportGraph.resolveTransitiveDependents() for depth-3 transitive resolution (NOT direct grep)\n   - Strategy 3: Same-directory fallback (run all tests in corresponding test directory)\n2. DartImportGraph reverse dependency builder using Dart import statement parsing — src/core/testing/DartImportGraph.ts\n3. mtime-based cache invalidation, depth-3 transitive walk limit with cycle detection, and .dart_tool/ exclusion — src/core/testing/DartImportGraph.ts\n4. Windows-compatible mtime fingerprinting (no Unix find) and optional ripgrep acceleration with graceful fallback when ripgrep unavailable — src/core/testing/DartImportGraph.ts\n5. Update ScopeResolver.resolveRelated() to check config.framework and dispatch to DartRelatedResolver for Dart/Flutter, and add *_test.dart to dirHasTestFiles() — src/core/testing/ScopeResolver.ts\n6. DartRelatedResolver unit tests — test/unit/core/testing/DartRelatedResolver.test.ts (test skeleton exists with .todo() stubs)\n7. DartImportGraph unit tests — test/unit/core/testing/DartImportGraph.test.ts (test skeleton exists with .todo() stubs)\n\nAll mocks MUST implement relevant interfaces explicitly (per FR-019/Lesson 7).\n\nCheckpoint: run_tests scope=related finds all transitively-affected Dart tests up to depth 3.",
+      "category": "INFRASTRUCTURE",
+      "dependencies": [2],
+      "speckit_task_ref": "T019-T025",
+      "verification": {
+        "success_criteria": [
+          "DartRelatedResolver exists in src/core/testing/DartRelatedResolver.ts with three-strategy mapper",
+          "Strategy 1 (naming): lib/src/X.dart maps to test/**/X_test.dart",
+          "Strategy 2 (import graph): uses DartImportGraph.resolveTransitiveDependents() — NOT direct grep",
+          "Strategy 3 (directory fallback): runs all tests in corresponding test directory when no direct matches found",
+          "DartImportGraph builds reverse dependency map from Dart import statement parsing",
+          "Import graph cache invalidated when file modification times change (mtime fingerprint)",
+          "Transitive walk limited to depth 3 with cycle detection (no infinite recursion)",
+          ".dart_tool/ directories excluded from file discovery and import graph traversal (FR-016)",
+          "Windows-compatible mtime fingerprinting (no Unix find command)",
+          "Graceful fallback when ripgrep unavailable (disable import-graph strategy instead of failing)",
+          "ScopeResolver dispatches to DartRelatedResolver for Dart/Flutter frameworks",
+          "dirHasTestFiles() recognizes *_test.dart files",
+          "All unit tests pass for both DartRelatedResolver and DartImportGraph"
+        ],
+        "test_strategy": "Unit tests in test/unit/core/testing/DartRelatedResolver.test.ts and test/unit/core/testing/DartImportGraph.test.ts. Test skeletons exist with .todo() stubs to be replaced with real assertions."
+      }
+    },
+    {
+      "task_id": 4,
+      "phase_id": "integration",
+      "title": "Pre-Signal Verification for Dart (US3)",
+      "description": "Update the pre-signal verification pipeline so that Dart project tasks are verified through the shared test pipeline using the DartRunner, not separate shell commands.\n\nCovers spec tasks: T026-T028\nDelivers: User Story 3 (Pre-Signal Verification for Dart Projects)\n\nKey deliverables:\n1. Update pre-signal executor Flutter fallback from --exclude-tags tdd-red to --exclude-tags red in both getDefaultCommands() and getExcludeTddRedCommand() — src/core/pre-signal-executor.ts\n2. Create pre-signal adapter integration test verifying DartRunner dispatch and result normalization — test/integration/dart-pipeline.test.ts\n3. Create end-to-end Dart pipeline integration test (config load → scope resolve → DartRunner execute → ResultFormatter format → verify expectations) — test/integration/dart-pipeline.test.ts (same file)\n\nCheckpoint: Full Dart pipeline works from signal_completion through pre-signal to results.",
+      "category": "INTEGRATION",
+      "dependencies": [2],
+      "speckit_task_ref": "T026-T028",
+      "verification": {
+        "success_criteria": [
+          "pre-signal-executor.ts uses --exclude-tags red (not tdd-red) in getDefaultCommands() and getExcludeTddRedCommand()",
+          "Pre-signal adapter dispatches to DartRunner for Dart/Flutter projects through TestRunnerFactory",
+          "Results from DartRunner are correctly normalized and fed to the pre-signal evaluation pipeline",
+          "Integration test verifies DartRunner dispatch and result normalization end-to-end",
+          "Pipeline test covers: config load → scope resolve → DartRunner execute → ResultFormatter format → expectation evaluation",
+          "Dart project without .agent-test-config.json falls back to legacy shell commands (not crash)"
+        ],
+        "test_strategy": "Integration tests in test/integration/dart-pipeline.test.ts covering adapter dispatch and end-to-end pipeline flow."
+      }
+    },
+    {
+      "task_id": 5,
+      "phase_id": "integration",
+      "title": "TDD Red-Phase Workflow for Dart (US5)",
+      "description": "Verify and fix TDD red-phase workflow compatibility for Dart projects. Tests in test/red/ must be excluded from standard runs, evaluated with inverted expectations, and promotable to target tiers.\n\nCovers spec tasks: T029-T031\nDelivers: User Story 5 (TDD Red-Phase Workflow for Dart Projects)\n\nKey deliverables:\n1. Verify tdd-cleanup.ts cleanupDartMarkers() handles directory-based _test.dart layout — codebase already supports _test.dart glob in test/red/**/ (confirmed by analysis). Fix if issues found.\n2. Verify tdd-scan-on-signal.ts isTestFile() identifies _test.dart and .test.dart patterns correctly (confirmed by analysis). Fix if issues found.\n3. Verify and fix promoteTests tool for _test.dart file naming convention and red-phase annotation cleanup.\n\nNote: These are primarily verification tasks — the existing codebase likely already supports _test.dart patterns. The task is to confirm and fix any gaps.\n\nCheckpoint: TDD red-phase workflow works for Dart: red tier tests excluded from standard runs, inverted expectations work, promotion cleans up markers.",
+      "category": "INTEGRATION",
+      "dependencies": [2],
+      "speckit_task_ref": "T029-T031",
+      "verification": {
+        "success_criteria": [
+          "cleanupDartMarkers() in tdd-cleanup.ts correctly handles _test.dart files in test/red/**/ directories",
+          "isTestFile() in tdd-scan-on-signal.ts correctly identifies both _test.dart and .test.dart patterns",
+          "promoteTests tool correctly handles _test.dart file naming when promoting from test/red/{tier}/ to test/{tier}/",
+          "Red-phase annotation cleanup works for Dart test files (// @orchestra-task: N removed)",
+          "Standard test tier runs exclude test/red/ directory for Dart projects",
+          "Red tier runs with inverted expectations correctly evaluate Dart test failures as success"
+        ],
+        "test_strategy": "Verification of existing code paths with targeted fixes. Manual review of tdd-cleanup.ts, tdd-scan-on-signal.ts, and promoteTests handler. Run existing TDD-related tests to confirm no regressions."
+      }
+    },
+    {
+      "task_id": 6,
+      "phase_id": "integration",
+      "title": "Auto Framework Detection (US6)",
+      "description": "Implement automatic framework detection so projects without .agent-test-config.json are correctly identified as Dart, Flutter, or Vitest based on workspace file markers.\n\nCovers spec tasks: T032-T034\nDelivers: User Story 6 (Automatic Framework Detection)\n\nKey deliverables:\n1. Implement TestRunnerFactory.detect() checking pubspec.yaml content (Flutter deps → 'flutter', Dart only → 'dart') and vitest.config.* (→ 'vitest') — src/core/testing/TestRunnerFactory.ts\n2. Add dual-framework conflict detection — error with ToolErrorCode.INVALID_INPUT when both pubspec.yaml and vitest.config.* are present — src/core/testing/TestRunnerFactory.ts\n3. Handle malformed/unreadable manifest: return clear error directing user to create explicit .agent-test-config.json (not opaque parse failure)\n4. Create TestRunnerFactory detection unit tests (Dart detection, Flutter detection, Vitest detection, dual-marker error, malformed manifest fallback). All mocks MUST implement TestRunner interface explicitly (per FR-019/Lesson 7) — test/unit/core/testing/TestRunnerFactory.test.ts\n\nCheckpoint: Auto-detection works for all three frameworks. Dual-marker workspaces fail with clear error.",
+      "category": "INFRASTRUCTURE",
+      "dependencies": [2],
+      "speckit_task_ref": "T032-T034",
+      "verification": {
+        "success_criteria": [
+          "TestRunnerFactory.detect() exists and correctly identifies Dart, Flutter, and Vitest projects",
+          "pubspec.yaml with Flutter dependencies detected as 'flutter' framework",
+          "pubspec.yaml without Flutter dependencies detected as 'dart' framework",
+          "vitest.config.* files detected as 'vitest' framework",
+          "Dual-marker workspace (both pubspec.yaml and vitest.config.*) returns ToolErrorCode.INVALID_INPUT error",
+          "Malformed/unreadable manifest returns clear error directing to explicit .agent-test-config.json",
+          "All TestRunnerFactory detection unit tests pass"
+        ],
+        "test_strategy": "Unit tests in test/unit/core/testing/TestRunnerFactory.test.ts covering all detection scenarios, conflict detection, and error handling."
+      }
+    },
+    {
+      "task_id": 7,
+      "phase_id": "polish",
+      "title": "Polish, Cross-Cutting & Regression",
+      "description": "Edge case hardening, documentation, cross-cutting verification, and full regression validation across both Vitest and Dart/Flutter frameworks.\n\nCovers spec tasks: T035-T041\n\nKey deliverables:\n1. Add 'dart test' and 'flutter test' patterns to TestCommandInterceptor.BLOCKED_PATTERNS — src/core/testing/TestCommandInterceptor.ts (FR-018)\n2. Add /\\bdart\\s+test\\b/i pattern to SHELL_COMMAND_PATTERNS in src/schemas/verification.ts (containsShellTestCommand validator — flutter test already present, dart test missing per FR-009/FR-018)\n3. Create or update inline documentation covering runner abstraction, DartRunner usage, configuration, known CLI differences between dart test and flutter test (--no-pub is Flutter-only), version-specific flag restrictions for Dart 3.0+/Flutter 3.10+, and recommended dart_test.yaml template with tag definitions — src/core/testing/README.md\n4. Verify listTestSuites.ts discovers _test.dart files in Dart project tier directories\n5. Verify extension runTests.ts tool works end-to-end with Dart configuration\n6. Run full regression suite: npm test (root) + extension tests to verify zero regressions across both frameworks\n7. Run quickstart.md validation walkthrough to confirm all phase checkpoints pass (specs/015-dart-flutter-test-runner/quickstart.md)\n\nCheckpoint: All tools work for both Vitest and Dart/Flutter. Zero regressions. Complete documentation.",
+      "category": "INTEGRATION",
+      "dependencies": [3, 4, 5, 6],
+      "speckit_task_ref": "T035-T041",
+      "verification": {
+        "success_criteria": [
+          "TestCommandInterceptor.BLOCKED_PATTERNS includes 'dart test' and 'flutter test' patterns",
+          "containsShellTestCommand() in verification.ts matches /\\bdart\\s+test\\b/i pattern",
+          "README.md documents runner abstraction, DartRunner usage, CLI differences, version restrictions, dart_test.yaml template",
+          "listTestSuites.ts discovers _test.dart files in Dart project tier directories",
+          "Extension runTests.ts works end-to-end with Dart configuration",
+          "Full regression suite passes: npm test (root) with zero regressions",
+          "Quickstart.md validation walkthrough confirms all phase checkpoints pass"
+        ],
+        "test_strategy": "Full regression suite (npm test at root). Manual verification of listTestSuites and extension runTests. Quickstart walkthrough validation."
+      }
+    }
+  ]
+}

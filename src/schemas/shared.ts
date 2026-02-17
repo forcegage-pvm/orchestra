@@ -418,6 +418,64 @@ export const CrossReferenceCheckSchema = z.object({
 
 export type CrossReferenceCheck = z.output<typeof CrossReferenceCheckSchema>;
 
+// ============================================================================
+// Declarative Test Verification (FR-035, FR-036)
+// Defined here (not in verification.ts) to avoid circular imports:
+// shared.ts <-> verification.ts both need each other's schemas.
+// ============================================================================
+
+/**
+ * Test expectation enum for declarative test verification.
+ * Defines how test results should be evaluated:
+ * - all_pass: All tests in the tier must pass
+ * - any_fail: At least one test must fail (TDD red phase)
+ * - min_pass_count: A minimum number of tests must pass
+ */
+export const TestExpectationSchema = z.enum([
+  "all_pass",
+  "any_fail",
+  "min_pass_count",
+]);
+
+export type TestExpectation = z.output<typeof TestExpectationSchema>;
+
+/**
+ * Declarative test verification criteria schema.
+ * Replaces shell-command-based test execution in behavioral_checks.
+ *
+ * The Orchestrator specifies { tier, expect } and the verification executor
+ * calls the extension test runner tools internally.
+ */
+export const TestVerificationCriteriaSchema = z
+  .object({
+    /** Test tier to run (e.g., "unit", "smoke", "integration") */
+    tier: z.string().min(1, "Tier is required"),
+    /** Expected outcome of the test run */
+    expect: TestExpectationSchema,
+    /** Minimum number of tests that must pass (required when expect is 'min_pass_count') */
+    min_pass_count: z.number().int().positive().optional(),
+  })
+  .refine(
+    (data) => {
+      // min_pass_count is required when expect is 'min_pass_count'
+      if (
+        data.expect === "min_pass_count" &&
+        data.min_pass_count === undefined
+      ) {
+        return false;
+      }
+      return true;
+    },
+    {
+      message: "min_pass_count is required when expect is 'min_pass_count'",
+      path: ["min_pass_count"],
+    },
+  );
+
+export type TestVerificationCriteria = z.output<
+  typeof TestVerificationCriteriaSchema
+>;
+
 /**
  * Complete verification criteria
  */
@@ -427,6 +485,7 @@ export const VerificationCriteriaSchema = z
     behavioral_checks: z.array(BehavioralCheckSchema).optional(),
     quality_checks: z.array(QualityCheckSchema).optional(),
     cross_reference_checks: z.array(CrossReferenceCheckSchema).optional(),
+    test_verification: z.array(TestVerificationCriteriaSchema).optional(),
   })
   .refine(
     (data) => {
@@ -434,7 +493,9 @@ export const VerificationCriteriaSchema = z
         (data.structural_checks && data.structural_checks.length > 0) ||
         (data.behavioral_checks && data.behavioral_checks.length > 0) ||
         (data.quality_checks && data.quality_checks.length > 0) ||
-        (data.cross_reference_checks && data.cross_reference_checks.length > 0);
+        (data.cross_reference_checks &&
+          data.cross_reference_checks.length > 0) ||
+        (data.test_verification && data.test_verification.length > 0);
       return hasChecks;
     },
     { message: "At least one verification check is required" },

@@ -7,9 +7,16 @@
  * Per GAP-01: Pre-signal checks must execute real commands, not trust claims.
  */
 
+import { eq } from "drizzle-orm";
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { getDb } from "../db/index.js";
+import { tddRedRegistry, tddTaskRelationships } from "../db/schema.js";
 import { executeCommand, ExecuteResult } from "./command-executor.js";
+import {
+  runAllNonInvertedTiers,
+  runTestsCore,
+} from "./pre-signal-test-adapter.js";
 import { validateTddRedPhase } from "./tdd-validation.js";
 
 /**
@@ -36,6 +43,14 @@ export interface PreSignalConfig {
   tddRedPhase?: boolean;
   /** Task ID for TDD validation (required when tddRedPhase=true) */
   taskId?: number;
+  /** Enable green-phase verification mode (runs only linked red task test files) */
+  greenPhase?: boolean;
+  /** Linked red task file paths (populated when greenPhase=true) */
+  linkedRedTaskFiles?: string[];
+  /** Sprint ID for updating tdd_task_relationships (required when greenPhase=true) */
+  greenPhaseSprintId?: string;
+  /** Internal task ID of the green task (required when greenPhase=true) */
+  greenPhaseTaskId?: number;
 }
 
 /**
@@ -82,10 +97,8 @@ export interface PreSignalResult {
 /** Default build command */
 const DEFAULT_BUILD_COMMAND = "npm run build";
 
-/** Default test command - excludes tdd-red tests using negative lookahead on test name pattern */
-const DEFAULT_TEST_COMMAND =
-  'npm test -- --testNamePattern="^(?!.*\\[tdd-red\\])"';
-
+/** Default test command */
+const DEFAULT_TEST_COMMAND = "npm test";
 /** Default timeout (5 minutes) */
 const DEFAULT_TIMEOUT = 300000;
 
@@ -133,9 +146,9 @@ function getDefaultCommands(projectType: ProjectType): {
     case "flutter":
       return {
         build: "flutter analyze",
-        // Always exclude tdd-red tests from normal test runs
-        // TDD red-phase tests are only run explicitly via runTddRedPhaseTests
-        test: "flutter test --exclude-tags tdd-red",
+        // Exclude red-phase tests from normal runs via Flutter's tag system
+        // Red-phase tests are only run explicitly via runTddRedPhaseTests
+        test: "flutter test --exclude-tags red",
         lint: "dart format .",
       };
     case "python":
@@ -163,6 +176,75 @@ function getDefaultCommands(projectType: ProjectType): {
         test: DEFAULT_TEST_COMMAND,
       };
   }
+}
+
+/**
+ * Get non-red test directory/file paths relative to workspace.
+ *
+ * Enumerates test/ subdirectories and top-level .dart files, excluding test/red/.
+ * Used by both `flutter analyze` and `flutter test` to avoid compiling red-phase
+ * test files that intentionally import non-existent source.
+ */
+function getNonRedTestDirs(workspacePath: string): string[] {
+  const testDir = path.join(workspacePath, "test");
+  if (!fs.existsSync(testDir)) {
+    return [];
+  }
+
+  const dirs: string[] = [];
+  try {
+    const entries = fs.readdirSync(testDir, { withFileTypes: true });
+    for (const entry of entries) {
+      if (entry.isDirectory() && entry.name !== "red") {
+        dirs.push(`test/${entry.name}/`);
+      }
+    }
+    // Also include any top-level test files (e.g., test/widget_test.dart)
+    const topLevelFiles = entries.filter(
+      (e) => e.isFile() && e.name.endsWith(".dart"),
+    );
+    for (const file of topLevelFiles) {
+      dirs.push(`test/${file.name}`);
+    }
+  } catch {
+    return [];
+  }
+
+  return dirs;
+}
+
+/**
+ * Build a `flutter analyze` command that excludes test/red/ directories.
+ *
+ * Instead of analyzing the entire workspace and filtering output after the fact,
+ * this constructs a command with explicit directory paths: `lib/`, `bin/`, and
+ * each test/ subdirectory that isn't a red-phase tier.
+ *
+ * Falls back to plain `flutter analyze` if no explicit paths can be determined.
+ */
+function buildFlutterAnalyzeWithoutRed(workspacePath: string): string {
+  const dirs: string[] = [];
+
+  // Always include lib/ if it exists
+  const libDir = path.join(workspacePath, "lib");
+  if (fs.existsSync(libDir)) {
+    dirs.push("lib/");
+  }
+
+  // Include bin/ if it exists
+  const binDir = path.join(workspacePath, "bin");
+  if (fs.existsSync(binDir)) {
+    dirs.push("bin/");
+  }
+
+  // Include non-red test directories
+  dirs.push(...getNonRedTestDirs(workspacePath));
+
+  if (dirs.length === 0) {
+    return "flutter analyze";
+  }
+
+  return `flutter analyze ${dirs.join(" ")}`;
 }
 
 /**
@@ -200,29 +282,77 @@ export async function runPreSignalChecks(
   const defaults = getDefaultCommands(projectType);
 
   // Run build check
+  // For TDD red-phase in Flutter/Dart projects, `flutter analyze` scans ALL files
+  // including test/red/ which intentionally imports non-existent source.
+  // Instead of post-filtering output, run flutter analyze with explicit paths
+  // that exclude test/red/ directories.
+  let buildCommand = config.buildCommand ?? defaults.build;
+  if (
+    config.tddRedPhase &&
+    projectType === "flutter" &&
+    !config.skipBuild &&
+    !config.buildCommand
+  ) {
+    buildCommand = buildFlutterAnalyzeWithoutRed(config.workspacePath);
+  }
+
   const buildResult = await runCheck(
-    config.buildCommand ?? defaults.build,
+    buildCommand,
     execOptions,
     config.skipBuild,
   );
 
-  // Run test check - use dual-command mode ONLY for TDD red-phase tasks
-  // For tdd_red_phase=true: Use TDD verification (tagged tests must FAIL)
-  // For tdd_red_phase=false: Use normal test mode (all tests must PASS)
+  // Run test check - mode depends on task type:
+  // - greenPhase=true: Run only linked red task test files (green phase verification)
+  // - tdd_red_phase=true: Use TDD verification (red tests must FAIL)
+  // - Otherwise: Use normal test mode (all tests must PASS)
   let testResult: PreSignalCheckResult;
-  if (config.tddRedPhase) {
-    // TDD red-phase: Ensure tagged tests FAIL and non-tagged tests PASS
-    testResult = await runTddRedPhaseTests(
-      projectType,
-      config.testCommand,
-      execOptions,
+  if (
+    config.greenPhase &&
+    config.linkedRedTaskFiles &&
+    config.linkedRedTaskFiles.length > 0
+  ) {
+    // Green-phase: Run ONLY linked red task test files
+    testResult = await runGreenPhaseVerification(
+      config.workspacePath,
+      config.linkedRedTaskFiles,
       config.skipTest,
     );
+  } else if (config.tddRedPhase) {
+    // TDD red-phase: Run red tier via runTestsCore with inverted logic
+    const redResult = await runTddRedPhaseTests(
+      config.workspacePath,
+      config.skipTest,
+    );
+    // Also verify non-red tests still pass (no regressions from red-phase work)
+    if (redResult.passed && !config.skipTest) {
+      const nonRedResult = await runNormalTestsViaTiers(
+        config.workspacePath,
+        config.skipTest,
+      );
+      if (!nonRedResult.passed) {
+        testResult = {
+          passed: false,
+          duration_ms: redResult.duration_ms + nonRedResult.duration_ms,
+          output: `Red-phase tests correct (failing as expected), but non-red tests have regressions: ${nonRedResult.output ?? "Tests failed"}`,
+        };
+        if (nonRedResult.timedOut) {
+          testResult.timedOut = true;
+        }
+      } else {
+        // Both passed
+        testResult = {
+          passed: true,
+          duration_ms: redResult.duration_ms + nonRedResult.duration_ms,
+        };
+      }
+    } else {
+      testResult = redResult;
+    }
   } else {
-    // Normal mode: Just run all tests, they should all pass
-    testResult = await runCheck(
-      config.testCommand ?? defaults.test,
-      execOptions,
+    // Normal mode: Run all non-red tiers via runTestsCore
+    testResult = await runNormalTestsViaTiers(
+      config.workspacePath,
       config.skipTest,
     );
   }
@@ -262,7 +392,104 @@ export async function runPreSignalChecks(
     result.tddValidation = tddValidation;
   }
 
+  // FR-031: On green phase verification success, update tdd_task_relationships.completed_at
+  if (
+    allPassed &&
+    config.greenPhase &&
+    config.greenPhaseTaskId !== undefined &&
+    config.greenPhaseSprintId !== undefined
+  ) {
+    await setGreenPhaseCompleted(
+      config.greenPhaseSprintId,
+      config.greenPhaseTaskId,
+    );
+  }
+
   return result;
+}
+
+/**
+ * Run normal test verification using runAllNonInvertedTiers (FR-001: scope=all).
+ *
+ * Delegates to the shared runAllNonInvertedTiers helper which reads
+ * .agent-test-config.json, filters out inverted tiers, and runs each tier
+ * via runTestsCore. Aggregates results into a single PreSignalCheckResult.
+ *
+ * @param workspacePath - Workspace root path
+ * @param skip - Whether to skip test execution
+ * @returns Aggregated test check result
+ */
+async function runNormalTestsViaTiers(
+  workspacePath: string,
+  skip?: boolean,
+): Promise<PreSignalCheckResult> {
+  // Skip if requested
+  if (skip) {
+    return {
+      passed: true,
+      duration_ms: 0,
+      skipped: true,
+    };
+  }
+
+  // FR-001: Use shared runAllNonInvertedTiers (equivalent to run_tests scope=all)
+  const tierResults = await runAllNonInvertedTiers(workspacePath);
+
+  // No tiers configured — pass with warning
+  if (tierResults.length === 0) {
+    return {
+      passed: true,
+      duration_ms: 0,
+      output: "No tests found",
+    };
+  }
+
+  // Aggregate results
+  let totalFailed = 0;
+  let totalDuration = 0;
+  let anyTimedOut = false;
+
+  for (const tr of tierResults) {
+    totalFailed += tr.failed;
+    totalDuration += tr.duration_ms;
+    if (tr.timedOut) {
+      anyTimedOut = true;
+    }
+  }
+
+  const passed = totalFailed === 0 && !anyTimedOut;
+
+  const checkResult: PreSignalCheckResult = {
+    passed,
+    duration_ms: totalDuration,
+  };
+
+  if (anyTimedOut) {
+    checkResult.timedOut = true;
+    const timedOutTiers = tierResults
+      .filter((tr) => tr.timedOut)
+      .map((tr) => tr.tier)
+      .join(", ");
+    checkResult.output = `Test execution timed out for tier(s): ${timedOutTiers}`;
+  } else if (!passed) {
+    // FR-005: Failure output with per-tier details
+    const failedTiers = tierResults
+      .filter((tr) => tr.failed > 0)
+      .map((tr) => {
+        const detail = tr.output ? `: ${tr.output.slice(0, 200)}` : "";
+        return `${tr.tier} (${tr.failed} failed)${detail}`;
+      });
+    if (failedTiers.length > 0) {
+      checkResult.output =
+        `Tests failed in tier(s): ${failedTiers.join("; ")}. ` +
+        `Run 'run_tests' with scope=suite and target=<tier> for detailed diagnostics.`;
+    } else {
+      checkResult.output =
+        "Tests failed. Run 'run_tests' with scope=suite for detailed diagnostics.";
+    }
+  }
+
+  return checkResult;
 }
 
 /**
@@ -322,82 +549,20 @@ function mapExecuteResult(result: ExecuteResult): PreSignalCheckResult {
 }
 
 /**
- * Check if test output indicates no tests were found
+ * Run TDD red-phase tests using runTestsCore with inverted logic.
  *
- * This handles the case where tagged tests don't exist (which is OK).
- * Different test frameworks have different output for "no tests found".
+ * Runs the "red" tier from .agent-test-config.json via runTestsCore.
+ * Applies inverted result interpretation:
+ * - If tests have failures (failed > 0) → PASS (failures expected in red phase)
+ * - If ALL tests pass (failed === 0, total > 0) → FAIL (tests should be promoted)
+ * - If no tests found (total === 0) → FAIL (red-phase task requires tests)
  *
- * @param result - Execution result from running tests
- * @param projectType - Project type for framework-specific detection
- * @returns true if the output indicates no tests were found
- */
-function isNoTestsFoundOutput(
-  result: ExecuteResult,
-  projectType: ProjectType,
-): boolean {
-  const output = (result.stdout || "") + (result.stderr || "");
-  const outputLower = output.toLowerCase();
-
-  switch (projectType) {
-    case "flutter":
-      // Flutter: "No tests ran" or "0 tests passed"
-      return (
-        outputLower.includes("no tests ran") ||
-        outputLower.includes("no test files found") ||
-        /0 tests? passed/i.test(output) ||
-        /all tests passed.*0 tests/i.test(output)
-      );
-
-    case "node":
-      // Jest/Vitest: "No tests found" or similar
-      // Also handle Vitest pattern where ALL tests are skipped (none matched the filter)
-      // e.g., "Tests  490 skipped (490)" means no tests matched the pattern
-      // Note: Vitest output has leading whitespace before "Tests" so we use \s* prefix
-      return (
-        outputLower.includes("no tests found") ||
-        outputLower.includes("no test files found") ||
-        outputLower.includes("no tests to run") ||
-        /tests?:\s*0\s*(passed|total)/i.test(output) ||
-        // Vitest: "Tests  X skipped (X)" with 0 passed - check for skipped without passed
-        // The key pattern: if we see "X skipped" but no "X passed", no tests actually ran
-        (outputLower.includes("skipped") && !outputLower.includes("passed"))
-      );
-
-    case "python":
-      // Pytest: "no tests ran" or "collected 0 items"
-      return (
-        outputLower.includes("no tests ran") ||
-        outputLower.includes("collected 0 items")
-      );
-
-    default:
-      // Generic check for common patterns
-      return (
-        outputLower.includes("no tests") || outputLower.includes("0 tests")
-      );
-  }
-}
-
-/**
- * Run TDD red-phase tests with dual-command execution
- *
- * Executes two test commands:
- * 1. Tagged tests (expect FAILURE - exit code 1, OR no tests found)
- * 2. Non-tagged tests (expect SUCCESS - exit code 0)
- *
- * The key invariant: tdd-red tagged tests must FAIL if they exist.
- * If they pass, verification fails (tag should be removed or test is wrong).
- *
- * @param projectType - Detected project type (determines commands)
- * @param customTestCommand - Optional custom test command (overrides defaults)
- * @param options - Execution options (cwd, timeout)
+ * @param workspacePath - Workspace root path
  * @param skip - Whether to skip test execution
- * @returns Test check result (passed only if both commands match expectations)
+ * @returns Test check result with inverted logic applied
  */
 async function runTddRedPhaseTests(
-  projectType: ProjectType,
-  customTestCommand: string | undefined,
-  options: { cwd: string; timeout: number },
+  workspacePath: string,
   skip?: boolean,
 ): Promise<PreSignalCheckResult> {
   // Skip if requested
@@ -409,101 +574,229 @@ async function runTddRedPhaseTests(
     };
   }
 
-  // Get TDD-specific commands for the project type
-  const tddCommands = getTddCommands(projectType, customTestCommand);
+  // Run the "red" tier via runTestsCore
+  const result = await runTestsCore({
+    tier: "red",
+    workspacePath,
+  });
 
-  // Run tagged tests (expect FAILURE or no tests found)
-  const taggedResult = await executeCommand(tddCommands.tagged, options);
-
-  // Run non-tagged tests (expect SUCCESS)
-  const nonTaggedResult = await executeCommand(tddCommands.nonTagged, options);
-
-  // Validate results match expectations
-  // Tagged tests: MUST fail OR have no tests (exit 0 with "no tests" output is OK)
-  // The key rule: if tdd-red tests PASS (with actual tests), that's a verification failure
-  const taggedTestsPassed =
-    taggedResult.success && !isNoTestsFoundOutput(taggedResult, projectType);
-  const taggedExpectation = !taggedTestsPassed; // Expect failure OR no tests
-
-  const nonTaggedExpectation = nonTaggedResult.success; // Expect success (exit code 0)
-
-  const passed = taggedExpectation && nonTaggedExpectation;
-  const totalDuration = taggedResult.duration + nonTaggedResult.duration;
-
-  // Build output message on failure
-  let output: string | undefined;
-  if (!passed) {
-    const messages: string[] = [];
-
-    if (!taggedExpectation) {
-      messages.push(
-        `TDD verification failed: Tests tagged with 'tdd-red' PASSED but should FAIL.\n` +
-          `This indicates either:\n` +
-          `  - The test was implemented but the tdd-red tag wasn't removed\n` +
-          `  - The test was written incorrectly (passes when it shouldn't)\n` +
-          `Action: Remove the tdd-red tag from tests that pass, or fix the test.\n` +
-          `Command: ${tddCommands.tagged}\n` +
-          `Output: ${
-            taggedResult.stdout || taggedResult.stderr || "(no output)"
-          }`,
-      );
-    }
-
-    if (!nonTaggedExpectation) {
-      messages.push(
-        `Test verification failed: Non-tagged tests FAILED but should PASS.\n` +
-          `Action: Fix the failing tests or add tdd-red tag if creating RED phase tests.\n` +
-          `Command: ${tddCommands.nonTagged}\n` +
-          `Output: ${
-            nonTaggedResult.stderr || nonTaggedResult.stdout || "(no output)"
-          }`,
-      );
-    }
-
-    output = messages.join("\n\n");
+  // No tests found — fail with descriptive message
+  // Include upstream diagnostic info so we can see WHY there are no tests
+  if (result.total === 0) {
+    const diagnostic = result.output
+      ? ` (reason: ${result.output})`
+      : ` (workspacePath: ${workspacePath})`;
+    return {
+      passed: false,
+      duration_ms: result.duration_ms,
+      output: `Task requires TDD red-phase tests but none found${diagnostic}`,
+    };
   }
 
-  // Build result object conditionally to comply with exactOptionalPropertyTypes
-  const result: PreSignalCheckResult = {
-    passed,
-    duration_ms: totalDuration,
+  // All tests pass — fail (tests need promotion out of red)
+  if (result.failed === 0 && result.total > 0) {
+    const checkResult: PreSignalCheckResult = {
+      passed: false,
+      duration_ms: result.duration_ms,
+      output: "All red-phase tests pass. Promote tests from test/red/.",
+    };
+    return checkResult;
+  }
+
+  // Tests have failures — PASS (expected in red phase)
+  return {
+    passed: true,
+    duration_ms: result.duration_ms,
   };
-
-  if (output !== undefined) {
-    result.output = output;
-  }
-
-  if (taggedResult.timedOut || nonTaggedResult.timedOut) {
-    result.timedOut = true;
-  }
-
-  return result;
 }
 
 /**
- * Get test command that EXCLUDES tdd-red tests
+ * Load test file paths linked to a red task from the tdd_red_registry.
+ *
+ * Queries the tdd_red_registry for all test files associated with the given
+ * red_task_id (internal DB id). Returns an array of relative file paths.
+ *
+ * Per FR-026: This function loads test file paths from tdd_red_registry
+ * for the linked red_task_id.
+ *
+ * @param redTaskId - Internal DB id of the red-phase task
+ * @returns Array of relative test file paths
+ */
+export async function loadLinkedRedTaskFiles(
+  redTaskId: number,
+): Promise<string[]> {
+  const db = getDb();
+
+  const entries = await db
+    .select({ test_file: tddRedRegistry.test_file })
+    .from(tddRedRegistry)
+    .where(eq(tddRedRegistry.red_task_id, redTaskId));
+
+  return entries.map((e) => e.test_file);
+}
+
+/**
+ * Run green-phase verification by executing ONLY the linked red task's test files.
+ *
+ * Per FR-028: Runs ONLY the linked red task's test files, not entire tiers.
+ * Per FR-029: Pass if all linked tests pass (exit code 0).
+ * Per FR-030: Fail with 'Linked red-phase tests still failing' if any test fails.
+ *
+ * Test files may have been promoted from test/red/{tier}/ to test/{tier}/,
+ * so both locations are checked.
+ *
+ * @param workspacePath - Workspace root path
+ * @param linkedFiles - Array of relative test file paths from the red registry
+ * @param skip - Whether to skip test execution
+ * @returns PreSignalCheckResult with pass/fail and appropriate message
+ */
+export async function runGreenPhaseVerification(
+  workspacePath: string,
+  linkedFiles: string[],
+  skip?: boolean,
+): Promise<PreSignalCheckResult> {
+  if (skip) {
+    return {
+      passed: true,
+      duration_ms: 0,
+      skipped: true,
+    };
+  }
+
+  if (linkedFiles.length === 0) {
+    return {
+      passed: false,
+      duration_ms: 0,
+      output: "No linked red-phase test files found for green verification",
+    };
+  }
+
+  // Resolve actual file paths - check both original and promoted locations
+  const resolvedFiles: string[] = [];
+  for (const file of linkedFiles) {
+    const absolutePath = path.join(workspacePath, file);
+    if (fs.existsSync(absolutePath)) {
+      resolvedFiles.push(file);
+    } else {
+      // Check if promoted from test/red/{tier}/ to test/{tier}/
+      const promotedPath = file.replace(/test\/red\//, "test/");
+      const promotedAbsolute = path.join(workspacePath, promotedPath);
+      if (fs.existsSync(promotedAbsolute)) {
+        resolvedFiles.push(promotedPath);
+      }
+      // If neither exists, the file is missing — it will cause test failure
+    }
+  }
+
+  if (resolvedFiles.length === 0) {
+    return {
+      passed: false,
+      duration_ms: 0,
+      output:
+        "Linked red-phase tests still failing: no test files found at expected paths",
+    };
+  }
+
+  // Run tests via runTestsCore with specific file paths (FR-037, SC-003)
+  const result = await runTestsCore({
+    tier: "green",
+    workspacePath,
+    files: resolvedFiles,
+  });
+
+  if (result.failed === 0 && result.total > 0) {
+    // All tests passed — green phase verification succeeds (FR-029)
+    return {
+      passed: true,
+      duration_ms: result.duration_ms,
+    };
+  }
+
+  // Handle total === 0 separately — Vitest found no tests, not a test failure
+  if (result.total === 0) {
+    return {
+      passed: false,
+      duration_ms: result.duration_ms,
+      output: `Linked red-phase tests still failing: Vitest collected 0 tests for files: ${resolvedFiles.join(", ")}${result.output ? ` (${result.output})` : ""}`,
+    };
+  }
+
+  // Tests failed — green phase verification fails (FR-030)
+  return {
+    passed: false,
+    duration_ms: result.duration_ms,
+    output: `Linked red-phase tests still failing${result.output ? `: ${result.output}` : ""}`,
+  };
+}
+
+/**
+ * Update tdd_task_relationships.completed_at on green phase success.
+ *
+ * Per FR-031: On successful green phase verification, set completed_at
+ * to the current timestamp for the relationship row matching the green task.
+ *
+ * @param sprintId - Sprint ID
+ * @param greenTaskId - Internal DB id of the green task
+ */
+async function setGreenPhaseCompleted(
+  _sprintId: string,
+  greenTaskId: number,
+): Promise<void> {
+  const db = getDb();
+  const now = new Date().toISOString();
+
+  await db
+    .update(tddTaskRelationships)
+    .set({ completed_at: now })
+    .where(eq(tddTaskRelationships.green_task_id, greenTaskId));
+}
+
+/**
+ * Get test command that EXCLUDES TDD red-phase tests.
+ *
+ * Uses directory-based exclusion (test/red/) for Node.js/vitest projects
+ * and tag-based exclusion for other ecosystems (Flutter, Python, etc.).
  *
  * Used by fix_code_review.SUBMIT_FIXES for TDD-red phase tasks.
  * We only need to verify non-TDD-red tests pass when validating code review fixes.
  *
  * @param projectType - Detected project type
  * @param baseTestCommand - Base test command from sprint settings (e.g., "flutter test")
- * @returns Command string that runs tests excluding tdd-red tagged tests
- */
-export function getExcludeTddRedCommand(
+ * @param workspacePath - Workspace root (needed for Flutter to enumerate test dirs)
+ * @returns Command string that runs tests excluding TDD red-phase tests
+ */ export function getExcludeTddRedCommand(
   projectType: ProjectType,
   baseTestCommand?: string,
+  workspacePath?: string,
 ): string {
   switch (projectType) {
-    case "flutter":
-      return "flutter test --exclude-tags tdd-red";
-
-    case "node":
-      if (baseTestCommand) {
-        return `${baseTestCommand} --testNamePattern="^(?!.*\\[tdd-red\\])"`;
+    case "flutter": {
+      // --exclude-tags only prevents execution, not compilation.
+      // Flutter still compiles ALL test files in the test/ tree.
+      // If test/red/ files import non-existent source, compilation fails.
+      // Instead, pass explicit non-red test directories so Flutter never sees test/red/.
+      if (workspacePath) {
+        const testDirs = getNonRedTestDirs(workspacePath);
+        if (testDirs.length > 0) {
+          return `flutter test ${testDirs.join(" ")}`;
+        }
       }
-      return 'npm test -- --testNamePattern="^(?!.*\\[tdd-red\\])"';
-
+      // Fallback if no workspace or no dirs found
+      return "flutter test --exclude-tags red";
+    }
+    case "node":
+      // Use vitest --exclude flag to skip test/red/ directory
+      if (baseTestCommand) {
+        // Ensure `--` separator exists for npm/yarn/pnpm before vitest flags
+        const needsSeparator = /^(npm|yarn|pnpm)\s+test(?:\s|$)/.test(
+          baseTestCommand,
+        );
+        if (needsSeparator && !baseTestCommand.includes(" -- ")) {
+          return `${baseTestCommand} -- --exclude "test/red/**"`;
+        }
+        return `${baseTestCommand} --exclude "test/red/**"`;
+      }
+      return 'npm test -- --exclude "test/red/**"';
     case "python":
       return "pytest --ignore=tests/tdd_red";
 
@@ -515,75 +808,7 @@ export function getExcludeTddRedCommand(
 
     case "unknown":
     default:
-      // Fallback to Node.js pattern
-      return 'npm test -- --testNamePattern="^(?!.*\\[tdd-red\\])"';
-  }
-}
-
-/**
- * Get TDD-specific test commands for a project type
- *
- * Returns commands for:
- * - Tagged tests (run TDD red-phase tests only)
- * - Non-tagged tests (run all tests except TDD red-phase)
- *
- * @param projectType - Detected project type
- * @param customTestCommand - Optional custom base test command
- * @returns Object with tagged and nonTagged command strings
- */
-function getTddCommands(
-  projectType: ProjectType,
-  customTestCommand?: string,
-): { tagged: string; nonTagged: string } {
-  switch (projectType) {
-    case "flutter":
-      return {
-        tagged: "flutter test --tags tdd-red",
-        nonTagged: "flutter test --exclude-tags tdd-red",
-      };
-
-    case "node":
-      // If custom command provided, use it as base
-      if (customTestCommand) {
-        return {
-          tagged: `${customTestCommand} --testNamePattern="\\[tdd-red\\]"`,
-          // Use negative lookahead to exclude tests with [tdd-red] in their name
-          // This correctly filters by test NAME, not directory path
-          nonTagged: `${customTestCommand} --testNamePattern="^(?!.*\\[tdd-red\\])"`,
-        };
-      }
-      return {
-        tagged: 'npm test -- --testNamePattern="\\[tdd-red\\]"',
-        // Use negative lookahead to exclude tests with [tdd-red] in their name
-        // This correctly filters by test NAME, not directory path
-        nonTagged: 'npm test -- --testNamePattern="^(?!.*\\[tdd-red\\])"',
-      };
-
-    case "python":
-      return {
-        tagged: "pytest tests/tdd_red",
-        nonTagged: "pytest --ignore=tests/tdd_red",
-      };
-
-    case "rust":
-      return {
-        tagged: "cargo test tdd_red",
-        nonTagged: "cargo test --exclude tdd_red",
-      };
-
-    case "go":
-      return {
-        tagged: "go test ./tdd-red/...",
-        nonTagged: "go test $(go list ./... | grep -v tdd-red)",
-      };
-
-    case "unknown":
-    default:
-      // Fallback to Node.js pattern (Vitest compatible)
-      return {
-        tagged: 'npm test -- --testNamePattern="\\[tdd-red\\]"',
-        // Use negative lookahead to exclude tests with [tdd-red] in their name
-        nonTagged: 'npm test -- --testNamePattern="^(?!.*\\[tdd-red\\])"',
-      };
+      // Fallback to Node.js pattern with directory-based exclusion
+      return 'npm test -- --exclude "test/red/**"';
   }
 }

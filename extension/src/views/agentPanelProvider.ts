@@ -18,7 +18,9 @@ import {
   getEventsForTaskSessions,
 } from "../agents/sessions/eventRepository.js";
 import { exportSession } from "../agents/sessions/exporter.js";
+import { deleteMessagesForSession } from "../agents/sessions/sessionMessageRepository.js";
 import {
+  deleteSession,
   getRecentSessions,
   getSession,
   getSessionsForTask,
@@ -355,29 +357,53 @@ export class AgentPanelProvider implements vscode.WebviewViewProvider {
   }
 
   /**
-   * Clear the agent panel and delete session events from database
+   * Clear the agent panel and delete all session data from database
    *
    * This completely clears the panel state:
-   * 1. Deletes all events for the current session from the database
-   * 2. Clears internal session tracking
-   * 3. Notifies the webview to clear its state
+   * 1. Deletes all events/messages/sessions for ALL sessions of the current task
+   * 2. Clears internal session tracking and buffered messages
+   * 3. Notifies the webview to fully clear (events, session header, file list)
    */
   public clearPanel(): void {
     logger.info("[AgentPanelProvider] Clearing agent panel");
 
-    // Delete events from database if we have a current session
+    // Collect all session IDs to delete (current + all task sessions)
+    const sessionIdsToDelete = new Set<string>(this._taskSessionIds);
     if (this._currentSessionId) {
+      sessionIdsToDelete.add(this._currentSessionId);
+    }
+
+    // Delete events, messages, and session records from database for ALL task sessions
+    for (const sessionId of sessionIdsToDelete) {
       try {
-        const deletedCount = deleteEventsForSession(
+        const deletedEvents = deleteEventsForSession(
           this._workspaceRoot,
-          this._currentSessionId,
+          sessionId,
         );
         logger.info(
-          `[AgentPanelProvider] Deleted ${deletedCount} events for session ${this._currentSessionId}`,
+          `[AgentPanelProvider] Deleted ${deletedEvents} events for session ${sessionId}`,
         );
       } catch (error) {
         logger.error(
-          "[AgentPanelProvider] Failed to delete session events",
+          `[AgentPanelProvider] Failed to delete events for session ${sessionId}`,
+          error,
+        );
+      }
+
+      try {
+        deleteMessagesForSession(this._workspaceRoot, sessionId);
+      } catch (error) {
+        logger.error(
+          `[AgentPanelProvider] Failed to delete messages for session ${sessionId}`,
+          error,
+        );
+      }
+
+      try {
+        deleteSession(this._workspaceRoot, sessionId);
+      } catch (error) {
+        logger.error(
+          `[AgentPanelProvider] Failed to delete session record ${sessionId}`,
           error,
         );
       }
@@ -388,7 +414,11 @@ export class AgentPanelProvider implements vscode.WebviewViewProvider {
     this._currentTaskId = null;
     this._taskSessionIds = new Set();
 
-    // Notify webview to clear its state
+    // Clear any buffered messages/events that would re-populate the panel
+    this._pendingMessages = [];
+    this._preWebviewEventQueue = [];
+
+    // Notify webview to fully clear its state (events, session header, file list, tool calls)
     this.postMessage({ type: "clear" });
 
     logger.info("[AgentPanelProvider] Agent panel cleared");
@@ -1250,7 +1280,25 @@ export class AgentPanelProvider implements vscode.WebviewViewProvider {
     try {
       logger.info(`User message: ${text.substring(0, 50)}...`);
       const runner = getAgentRunner();
-      const session = runner.getSession();
+      let session = runner.getSession();
+
+      // No in-memory session — try to restore from database (e.g. after VS Code restart)
+      if (!session && this._currentSessionId) {
+        logger.info(
+          `No in-memory session, restoring from database: ${this._currentSessionId}`,
+        );
+        await runner.resumeFromDatabase(this._currentSessionId);
+        session = runner.getSession();
+
+        if (session) {
+          // Session is now running after resumeFromDatabase.
+          // continueWithMessage → redirect() will inject the user's message
+          // into the running loop's next iteration.
+          await runner.continueWithMessage(text);
+          logger.debug("User message injected into resumed-from-DB session");
+          return;
+        }
+      }
 
       if (!session) {
         void vscode.window.showWarningMessage(

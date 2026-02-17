@@ -1,11 +1,14 @@
 /**
  * TDD Red Phase Bidirectional Validation
  *
- * Validates consistency between registered tests and codebase markers
+ * Validates consistency between registered tests and the test/red/ directory
  * before allowing signal_completion on TDD red-phase tasks.
  *
+ * Uses path-based detection: a file is a red-phase test if it resides
+ * under `test/red/`. Content scanning is no longer used for detection.
+ *
  * Implements FR-004 and FR-005:
- * - Bidirectional cross-check: registered↔marked
+ * - Bidirectional cross-check: registered↔path-based
  * - Verify registered tests are FAILING
  * - Transition REGISTERED → VALIDATED on success
  */
@@ -14,10 +17,7 @@ import { spawn } from "child_process";
 import * as fs from "fs/promises";
 import * as path from "path";
 import type { TddRegistryEntry } from "../schemas/tdd-registry.js";
-import {
-  scanForTddRedMarkers,
-  type TddRedMarker,
-} from "./tdd-marker-scanner.js";
+import { isRedPhaseTestPath } from "./tdd-marker-scanner.js";
 import { getTestsByTask } from "./tdd-registry.js";
 
 /**
@@ -55,8 +55,8 @@ export interface ValidateTddRedPhaseOptions {
  * Validate TDD red phase task before signal_completion
  *
  * Performs bidirectional validation:
- * 1. FORWARD: Every registered test has a marker in codebase
- * 2. REVERSE: Every marker in codebase is registered
+ * 1. FORWARD: Every registered test file exists under test/red/
+ * 2. REVERSE: Every file in test/red/ is registered (scoped to registered files)
  * 3. EXECUTION: All registered tests are FAILING (exit code non-zero)
  *
  * On success, transitions all REGISTERED entries to VALIDATED.
@@ -65,7 +65,7 @@ export interface ValidateTddRedPhaseOptions {
  * @returns Validation result with success status and any errors
  */
 export async function validateTddRedPhase(
-  options: ValidateTddRedPhaseOptions
+  options: ValidateTddRedPhaseOptions,
 ): Promise<ValidationResult> {
   const { taskId, workspaceRoot } = options;
   const errors: ValidationError[] = [];
@@ -81,42 +81,45 @@ export async function validateTddRedPhase(
     };
   }
 
-  // Group registered tests by file
-  const registeredByFile = groupTestsByFile(registeredTests);
-
-  // Scan workspace for all markers
-  const markersByFile = await scanWorkspaceForMarkers(
-    workspaceRoot,
-    registeredByFile
-  );
-
-  // 1. FORWARD CHECK: Every registered test file has markers
+  // 1. FORWARD CHECK: Every registered test file exists under test/red/
   for (const test of registeredTests) {
-    const fileName = test.test_file;
-    const markersInFile = markersByFile.get(fileName) || [];
+    const testFilePath = path.join(workspaceRoot, test.test_file);
 
-    const hasMarker = markersInFile.length > 0;
-
-    if (!hasMarker) {
+    // Check if the registered file is under test/red/ (path-based)
+    if (!isRedPhaseTestPath(test.test_file)) {
       errors.push({
         type: "MISSING_MARKER",
-        message: `Registered test file has no tdd-red markers in codebase`,
+        message: `Registered test file is not in test/red/ directory`,
         testIdentifier: test.test_file,
-        details: `Test file ${test.test_file} is registered but has no tdd-red markers.\n\nAdd a single-token marker:\n  TypeScript: [tdd-red-task-N] in test/describe name\n  Dart file-level: @Tags(['tdd-red-task-N'])\n  Dart inline: tags: ['tdd-red-task-N'] in test() call`,
+        details: `Test file ${test.test_file} is registered but is not located in the test/red/ directory.\n\nMove the file to test/red/ to mark it as a red-phase test.`,
+      });
+      continue;
+    }
+
+    // Check if the file actually exists
+    try {
+      await fs.access(testFilePath);
+    } catch {
+      errors.push({
+        type: "MISSING_MARKER",
+        message: `Registered test file does not exist`,
+        testIdentifier: test.test_file,
+        details: `Test file ${test.test_file} is registered but does not exist on disk.`,
       });
     }
   }
 
-  // 2. REVERSE CHECK: Every marker file is registered
+  // 2. REVERSE CHECK: Scan test/red/ for files that aren't registered
   const registeredFiles = new Set(registeredTests.map((t) => t.test_file));
+  const redDirFiles = await scanWorkspaceForMarkers(workspaceRoot);
 
-  for (const [fileName, markers] of markersByFile) {
-    if (markers.length > 0 && !registeredFiles.has(fileName)) {
+  for (const filePath of redDirFiles) {
+    if (!registeredFiles.has(filePath)) {
       errors.push({
         type: "MISSING_REGISTRATION",
-        message: `Test file has tdd-red markers but is NOT registered`,
-        testIdentifier: fileName,
-        details: `Test file ${fileName} has ${markers.length} marker(s) but was not registered. Call register_tdd_red_test for this file.`,
+        message: `Test file in test/red/ is NOT registered`,
+        testIdentifier: filePath,
+        details: `Test file ${filePath} is in test/red/ but was not registered. Call register_tdd_red_test for this file.`,
       });
     }
   }
@@ -126,7 +129,7 @@ export async function validateTddRedPhase(
   if (errors.length === 0) {
     const executionErrors = await verifyTestsAreFailing(
       workspaceRoot,
-      registeredTests
+      registeredTests,
     );
     errors.push(...executionErrors);
   }
@@ -151,7 +154,7 @@ export async function validateTddRedPhase(
  * Group registry entries by file name
  */
 function groupTestsByFile(
-  tests: TddRegistryEntry[]
+  tests: TddRegistryEntry[],
 ): Map<string, TddRegistryEntry[]> {
   const grouped = new Map<string, TddRegistryEntry[]>();
 
@@ -166,85 +169,41 @@ function groupTestsByFile(
 }
 
 /**
- * Scan workspace for TDD red markers in relevant test files
+ * Scan workspace for red-phase test files by listing the red directory.
+ * Returns relative file paths of all test files found.
+ *
+ * @param workspaceRoot - Workspace root directory
+ * @param redDirRelative - Relative path to red directory (default: "test/red")
  */
 async function scanWorkspaceForMarkers(
   workspaceRoot: string,
-  registeredByFile: Map<string, TddRegistryEntry[]>
-): Promise<Map<string, TddRedMarker[]>> {
-  const markersByFile = new Map<string, TddRedMarker[]>();
+  redDirRelative?: string,
+): Promise<string[]> {
+  const redDir = path.join(
+    workspaceRoot,
+    redDirRelative ?? path.join("test", "red"),
+  );
+  const foundFiles: string[] = [];
 
-  // Scan only files that have registered tests
-  for (const fileName of registeredByFile.keys()) {
-    const testFilePath = await findTestFile(workspaceRoot, fileName);
-
-    if (testFilePath) {
-      try {
-        const markers = await scanForTddRedMarkers(testFilePath);
-        markersByFile.set(fileName, markers);
-      } catch {
-        // File might not exist or be readable - will be caught by forward check
-        markersByFile.set(fileName, []);
-      }
-    } else {
-      // File not found - will be caught by forward check
-      markersByFile.set(fileName, []);
-    }
+  try {
+    await fs.access(redDir);
+  } catch {
+    // test/red/ doesn't exist
+    return foundFiles;
   }
 
-  return markersByFile;
+  await listFilesRecursively(redDir, workspaceRoot, foundFiles);
+  return foundFiles;
 }
 
 /**
- * Find test file in workspace by name
- * Searches recursively in common test directories: test/, tests/, __tests__, src/
+ * Recursively list files in a directory and add their relative paths to results.
  */
-async function findTestFile(
-  workspaceRoot: string,
-  fileName: string
-): Promise<string | null> {
-  // First try direct paths (fast path)
-  const directPaths = [
-    path.join(workspaceRoot, "test", fileName),
-    path.join(workspaceRoot, "tests", fileName),
-    path.join(workspaceRoot, "__tests__", fileName),
-    path.join(workspaceRoot, "src", fileName),
-    path.join(workspaceRoot, fileName),
-  ];
-
-  for (const testPath of directPaths) {
-    try {
-      await fs.access(testPath);
-      return testPath;
-    } catch {
-      // File doesn't exist at this path, try next
-    }
-  }
-
-  // If not found directly, search recursively in test directories
-  const searchDirs = ["test", "tests", "__tests__", "src"];
-
-  for (const dir of searchDirs) {
-    const dirPath = path.join(workspaceRoot, dir);
-    try {
-      await fs.access(dirPath);
-      const found = await findFileRecursively(dirPath, fileName);
-      if (found) return found;
-    } catch {
-      // Directory doesn't exist, skip
-    }
-  }
-
-  return null;
-}
-
-/**
- * Recursively search for a file by name in a directory
- */
-async function findFileRecursively(
+async function listFilesRecursively(
   dirPath: string,
-  fileName: string
-): Promise<string | null> {
+  workspaceRoot: string,
+  results: string[],
+): Promise<void> {
   try {
     const entries = await fs.readdir(dirPath, { withFileTypes: true });
 
@@ -252,21 +211,20 @@ async function findFileRecursively(
       const fullPath = path.join(dirPath, entry.name);
 
       if (entry.isDirectory()) {
-        // Skip node_modules and hidden directories
         if (entry.name === "node_modules" || entry.name.startsWith(".")) {
           continue;
         }
-        const found = await findFileRecursively(fullPath, fileName);
-        if (found) return found;
-      } else if (entry.name === fileName) {
-        return fullPath;
+        await listFilesRecursively(fullPath, workspaceRoot, results);
+      } else {
+        const relativePath = path
+          .relative(workspaceRoot, fullPath)
+          .replace(/\\/g, "/");
+        results.push(relativePath);
       }
     }
   } catch {
     // Cannot read directory
   }
-
-  return null;
 }
 
 /**
@@ -275,7 +233,7 @@ async function findFileRecursively(
  */
 async function verifyTestsAreFailing(
   workspaceRoot: string,
-  registeredTests: TddRegistryEntry[]
+  registeredTests: TddRegistryEntry[],
 ): Promise<ValidationError[]> {
   const errors: ValidationError[] = [];
 
@@ -283,9 +241,12 @@ async function verifyTestsAreFailing(
   const testsByFile = groupTestsByFile(registeredTests);
 
   for (const [fileName, tests] of testsByFile) {
-    const testFilePath = await findTestFile(workspaceRoot, fileName);
+    const testFilePath = path.join(workspaceRoot, fileName);
 
-    if (!testFilePath) {
+    // Check if file exists
+    try {
+      await fs.access(testFilePath);
+    } catch {
       errors.push({
         type: "TEST_EXECUTION_ERROR",
         message: `Cannot verify test file: file not found`,
@@ -331,17 +292,16 @@ async function verifyTestsAreFailing(
  */
 function runVitest(
   workspaceRoot: string,
-  testFilePath: string
+  testFilePath: string,
 ): Promise<number | null> {
   return new Promise((resolve) => {
     const vitestProcess = spawn(
-      "npx",
-      ["vitest", "run", "--reporter=json", testFilePath],
+      process.execPath,
+      ["./node_modules/.bin/vitest", "run", "--reporter=json", testFilePath],
       {
         cwd: workspaceRoot,
-        shell: true,
-        stdio: "pipe", // Suppress output
-      }
+        stdio: "pipe",
+      },
     );
 
     vitestProcess.on("close", (code) => {

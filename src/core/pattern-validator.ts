@@ -8,7 +8,7 @@
 import { glob } from "glob";
 import fs from "node:fs";
 import path from "node:path";
-
+import { containsShellTestCommand } from "../schemas/verification.js";
 // ============================================================================
 // Types
 // ============================================================================
@@ -373,6 +373,7 @@ async function validateQualityChecks(
 
 /**
  * Validate behavioral check commands for cross-platform compatibility
+ * and test command rejection (FR-039).
  */
 function validateBehavioralChecks(
   checks: Array<BehavioralCheckConfig & { description: string }>,
@@ -385,6 +386,20 @@ function validateBehavioralChecks(
     if (!check) continue;
 
     const checkId = `behav-${idx}`;
+
+    // FR-039: Reject behavioral_checks that contain test execution commands
+    // These should use test_verification format instead
+    if (containsShellTestCommand(check.command)) {
+      errors.push(
+        `${checkId}: Command contains a test execution command which is NOT allowed in behavioral_checks. ` +
+          `Use the 'test_verification' array instead. Each entry takes { tier, expect } where: ` +
+          `tier = test tier name (e.g. "unit", "smoke", "integration" — must match a tier in .agent-test-config.json), ` +
+          `expect = "all_pass" | "any_fail" | "min_pass_count". ` +
+          `Example: { "test_verification": [{ "tier": "unit", "expect": "all_pass" }] }. ` +
+          `Both update_verification and prepare_task accept test_verification. ` +
+          `Rejected command: ${check.command.substring(0, 80)}${check.command.length > 80 ? "..." : ""}`,
+      );
+    }
 
     // Check for bash-only && operator (fails on PowerShell/Windows)
     if (check.command.includes(" && ")) {
@@ -417,7 +432,6 @@ function validateBehavioralChecks(
 
   return { warnings, errors };
 }
-
 /**
  * Validate that verification check paths align with handover file_operations.
  * Catches mismatches where verification expects files in a different directory

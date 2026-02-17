@@ -7,12 +7,14 @@ import type {
   CodeReviewContext,
   PromptContext,
   SprintReviewContext,
+  SystemPromptContext,
 } from "./promptTypes.js";
 export type {
   CodeReviewContext,
   PromptContext,
   Sprint,
   SprintReviewContext,
+  SystemPromptContext,
   Task,
 } from "./promptTypes.js";
 
@@ -35,7 +37,12 @@ export class PromptBuilder {
     const workspaceRoot = options.workspaceRoot ?? process.cwd();
     this.templateLoader =
       options.templateLoader ??
-      new TemplateLoader(options.devMode !== undefined ? { workspaceRoot, devMode: options.devMode } : { workspaceRoot });  }
+      new TemplateLoader(
+        options.devMode !== undefined
+          ? { workspaceRoot, devMode: options.devMode }
+          : { workspaceRoot },
+      );
+  }
 
   /**
    * Build a PREPARE stage prompt for the orchestrator
@@ -89,7 +96,8 @@ export class PromptBuilder {
       };
     },
   ): string {
-    return this.templateLoader.render("handover-fix", context);  }
+    return this.templateLoader.render("handover-fix", context);
+  }
 
   /**
    * Build a CODE_REVIEW prompt for the controller
@@ -110,7 +118,10 @@ export class PromptBuilder {
     }
 
     // Bulk code review
-    const context = { pendingCount, sprint: { sprint_id: sprintId, title: sprintTitle } };
+    const context = {
+      pendingCount,
+      sprint: { sprint_id: sprintId, title: sprintTitle },
+    };
     return this.templateLoader.render("code-review-bulk", context);
   }
   /**
@@ -152,10 +163,11 @@ export class PromptBuilder {
     context: PromptContext,
     review: CodeReviewContext,
   ): string {
-const formattedStatus = (() => {
+    const formattedStatus = (() => {
       const withSpaces = review.status.replace(/_/g, " ").toLowerCase();
       return withSpaces.charAt(0).toUpperCase() + withSpaces.slice(1);
-    })();    const codeReview = {
+    })();
+    const codeReview = {
       status: formattedStatus,
       ...(review.summary ? { summary: review.summary } : {}),
     };
@@ -164,6 +176,27 @@ const formattedStatus = (() => {
       codeReview,
     };
     return this.templateLoader.render("code-review-fix-prepare", renderContext);
+  }
+
+  /**
+   * Build system prompt for agent from role-specific template
+   *
+   * Renders system-{role}.hbs template with context about available tools,
+   * workspace, and platform information. Provides focused, attention-optimized
+   * system prompts instead of raw .agent.md files.
+   *
+   * @param context - System prompt context with role, tools, and environment info
+   * @returns Rendered system prompt or null if template doesn't exist
+   */
+  renderSystemPrompt(context: SystemPromptContext): string | null {
+    const templateName = `system-${context.role}`;
+
+    try {
+      return this.templateLoader.render(templateName, context);
+    } catch {
+      // Template not found - fall back to .agent.md file
+      return null;
+    }
   }
 
   /**
@@ -189,10 +222,11 @@ const formattedStatus = (() => {
     context: PromptContext,
     review: CodeReviewContext,
   ): string {
-const formattedStatus = (() => {
+    const formattedStatus = (() => {
       const withSpaces = review.status.replace(/_/g, " ").toLowerCase();
       return withSpaces.charAt(0).toUpperCase() + withSpaces.slice(1);
-    })();    const codeReview = {
+    })();
+    const codeReview = {
       status: formattedStatus,
       ...(review.summary ? { summary: review.summary } : {}),
     };
@@ -200,6 +234,9 @@ const formattedStatus = (() => {
       ...context,
       codeReview,
     };
-    return this.templateLoader.render("code-review-fix-implement", renderContext);
+    return this.templateLoader.render(
+      "code-review-fix-implement",
+      renderContext,
+    );
   }
 }

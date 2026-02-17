@@ -15,9 +15,11 @@ import {
   specReviews,
   sprints,
   tasks,
+  verificationChecks,
 } from "../../db/schema.js";
 import { ConformanceSchema } from "../../schemas/shared.js";
 import { validateInput } from "../../schemas/utils.js";
+import { containsShellTestCommand } from "../../schemas/verification.js";
 import { writeSignal } from "../db-signal.js";
 import { logToolExecution } from "./audit-logging.js";
 
@@ -29,7 +31,7 @@ const ApproveHandoverInputSchema = z.object({
     .positive()
     .describe("The task ID whose handover to approve"),
   conformance: ConformanceSchema.describe(
-    "Assessment of handover conformance to specifications"
+    "Assessment of handover conformance to specifications",
   ),
   notes: z
     .string()
@@ -66,7 +68,7 @@ export async function handleApproveHandover(input: unknown) {
         taskId: data.task_id,
       },
       { success: true, output },
-      durationMs
+      durationMs,
     );
 
     return {
@@ -88,7 +90,7 @@ export async function handleApproveHandover(input: unknown) {
         taskId: validatedData.task_id,
       },
       { success: false, errorMessage: err.message },
-      durationMs
+      durationMs,
     );
 
     return {
@@ -104,7 +106,7 @@ export async function handleApproveHandover(input: unknown) {
               },
             },
             null,
-            2
+            2,
           ),
         },
       ],
@@ -113,7 +115,7 @@ export async function handleApproveHandover(input: unknown) {
 }
 
 async function approveHandover(
-  input: z.output<typeof ApproveHandoverInputSchema>
+  input: z.output<typeof ApproveHandoverInputSchema>,
 ): Promise<{
   success: boolean;
   task_id: number;
@@ -133,7 +135,7 @@ async function approveHandover(
     .select()
     .from(tasks)
     .where(
-      and(eq(tasks.sprint_id, sprint.id), eq(tasks.task_id, input.task_id))
+      and(eq(tasks.sprint_id, sprint.id), eq(tasks.task_id, input.task_id)),
     )
     .limit(1);
 
@@ -145,7 +147,7 @@ async function approveHandover(
   if (task.status !== "PENDING_HANDOVER_REVIEW") {
     throw new Error(
       `Task ${input.task_id} is in ${task.status} state, not PENDING_HANDOVER_REVIEW. ` +
-        `Only tasks pending handover review can be approved.`
+        `Only tasks pending handover review can be approved.`,
     );
   }
 
@@ -159,8 +161,42 @@ async function approveHandover(
   if (!handover) {
     throw new Error(
       `No handover found for task ${input.task_id}. ` +
-        `Task must be prepared before it can be approved.`
+        `Task must be prepared before it can be approved.`,
     );
+  }
+
+  // 4b. Scan behavioral checks for shell test commands (FR-041, FR-042)
+  // TDD auto-injected checks now use test_verification format (not behavioral),
+  // so all behavioral checks with test commands are from the orchestrator.
+  const behavioralChecks = await db
+    .select()
+    .from(verificationChecks)
+    .where(
+      and(
+        eq(verificationChecks.task_id, task.id),
+        eq(verificationChecks.check_type, "behavioral"),
+      ),
+    );
+
+  for (const check of behavioralChecks) {
+    try {
+      const config = JSON.parse(check.check_config) as { command?: string };
+      if (config.command && containsShellTestCommand(config.command)) {
+        throw new Error(
+          "Use test_verification format instead of behavioral_checks for test execution",
+        );
+      }
+    } catch (e) {
+      // Re-throw if it's our specific rejection error
+      if (
+        e instanceof Error &&
+        e.message ===
+          "Use test_verification format instead of behavioral_checks for test execution"
+      ) {
+        throw e;
+      }
+      // Otherwise ignore JSON parse errors - malformed config shouldn't block approval
+    }
   }
 
   const now = new Date().toISOString();
@@ -190,8 +226,8 @@ async function approveHandover(
     .where(
       and(
         eq(specReviews.task_id, task.id),
-        eq(specReviews.review_type, "HANDOVER")
-      )
+        eq(specReviews.review_type, "HANDOVER"),
+      ),
     );
   const previousReviewCount = revisionCountResult[0]?.count ?? 0;
 
@@ -202,8 +238,8 @@ async function approveHandover(
     .where(
       and(
         eq(specReviews.task_id, task.id),
-        eq(specReviews.review_type, "HANDOVER")
-      )
+        eq(specReviews.review_type, "HANDOVER"),
+      ),
     )
     .orderBy(sql`reviewed_at DESC`)
     .limit(1);

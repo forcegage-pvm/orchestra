@@ -310,6 +310,9 @@ function detectLanguageFromFileOperations(
 /**
  * Generate TDD instructions based on project language
  *
+ * Uses directory-based approach: test files are placed in test/red/{tier}/
+ * instead of using tag-based markers in test names.
+ *
  * @param language - Detected project language ("dart", "typescript", or "unknown")
  * @returns TDD instructions object or null for unknown languages
  */
@@ -319,48 +322,52 @@ function generateTddInstructions(
   if (language === "dart") {
     return {
       tagging_mechanism:
-        "Use @Tags(['tdd-red']) annotation (file-level) OR inline tags: ['tdd-red'] parameter. Add // @orchestra-task: N at top of file.",
-      red_test_command: "flutter test --tags tdd-red",
-      green_test_command: "flutter test --exclude-tags tdd-red",
+        "Place test files in the test/red/{tier}/ directory (e.g., test/red/unit/). Add // @orchestra-task: N at top of file to link to the task.",
+      red_test_command: 'run_tests({ scope: "red" })',
+      green_test_command:
+        'run_tests({ scope: "suite", target: "unit" })',
       expected_behavior:
-        "The tagged test MUST fail (exit code 1). All other tests MUST pass (exit code 0).",
+        "Red-phase tests in test/red/{tier}/ MUST fail (assertion failures). All other tests MUST pass.",
       cleanup_instruction:
-        "When implementing the GREEN phase: remove the @Tags(['tdd-red']) annotation or inline tags parameter AFTER making the test pass.",
+        "When implementing the GREEN phase: use promote_tests() to move test files from test/red/{tier}/ to test/{tier}/ AFTER making the tests pass. Remove the // @orchestra-task: N annotation.",
       example: `// @orchestra-task: N  // <-- Replace N with task ID (links file to task)
-import 'package:flutter_test/flutter_test.dart';
+// File: test/red/unit/feature_test.dart
 
-@Tags(['tdd-red'])  // <-- Test runner filter tag (remove in GREEN phase)
-library;
+import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   test('feature should work', () {
     expect(actualValue, expectedValue);
   });
-}
 
-// Alternative: Inline tags parameter (single test)
-test('feature should work', () {
-  expect(actualValue, expectedValue);
-}, tags: ['tdd-red']);  // <-- Remove in GREEN phase`,
+  test('feature should handle edge case', () {
+    expect(edgeCaseResult, expectedEdgeCase);
+  });
+}`,
     };
   }
 
   if (language === "typescript") {
     return {
       tagging_mechanism:
-        "Add [tdd-red] prefix to test or describe name. Add // @orchestra-task: N at top of file.",
-      red_test_command: 'npm test -- --testNamePattern="\\[tdd-red\\]"',
+        "Place test files in the test/red/{tier}/ directory (e.g., test/red/unit/). Add // @orchestra-task: N at top of file to link to the task.",
+      red_test_command: 'run_tests({ scope: "red" })',
       green_test_command:
-        'npm test -- --testNamePattern="^(?!.*\\[tdd-red\\])"',
+        'run_tests({ scope: "suite", target: "unit" })',
       expected_behavior:
-        "Tests with [tdd-red] in name MUST fail (exit code 1). All other tests MUST pass (exit code 0).",
+        "Red-phase tests in test/red/{tier}/ MUST fail (assertion failures). All other tests MUST pass.",
       cleanup_instruction:
-        "When implementing the GREEN phase: remove [tdd-red] from test/describe name AFTER making the test pass.",
+        "When implementing the GREEN phase: use promote_tests() to move test files from test/red/{tier}/ to test/{tier}/ AFTER making the tests pass. Remove the // @orchestra-task: N annotation.",
       example: `// @orchestra-task: N  // <-- Replace N with task ID (links file to task)
+// File: test/red/unit/feature.test.ts
 
-describe('[tdd-red] Feature module', () => {  // <-- Remove [tdd-red] in GREEN phase
-  it('[tdd-red] should calculate total correctly', () => {
+describe('Feature module', () => {
+  it('should calculate total correctly', () => {
     expect(calculateTotal([1, 2, 3])).toBe(6);
+  });
+
+  it('should handle empty input', () => {
+    expect(calculateTotal([])).toBe(0);
   });
 });`,
     };

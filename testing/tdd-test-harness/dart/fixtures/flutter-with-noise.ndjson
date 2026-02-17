@@ -1,0 +1,21 @@
+Flutter 3.19.0 • channel stable • https://github.com/flutter/flutter.git
+Framework • revision 1234abcd (2 weeks ago) • 2025-02-01 10:00:00 -0800
+Engine • revision abcd1234
+Tools • Dart 3.0.0 • DevTools 2.31.0
+{"protocolVersion":"0.1.1","runnerVersion":"1.29.0","pid":11111,"type":"start","time":0}
+00:00 +0: loading lib/main.dart
+{"suite":{"id":0,"platform":"vm","path":"test/widget_test.dart"},"type":"suite","time":0}
+Running "flutter test" in my_flutter_app...
+{"test":{"id":1,"name":"loading test/widget_test.dart","suiteID":0,"groupIDs":[],"metadata":{"skip":false,"skipReason":null},"line":null,"column":null,"url":null},"type":"testStart","time":2}
+{"count":1,"time":8,"type":"allSuites"}
+00:01 +1: Counter increments smoke test
+{"testID":1,"result":"success","skipped":false,"hidden":true,"type":"testDone","time":500}
+{"group":{"id":2,"suiteID":0,"parentID":null,"name":"","metadata":{"skip":false,"skipReason":null},"testCount":2,"line":null,"column":null,"url":null},"type":"group","time":502}
+{"group":{"id":3,"suiteID":0,"parentID":2,"name":"Counter widget","metadata":{"skip":false,"skipReason":null},"testCount":2,"line":10,"column":3,"url":"file:///X:/my_flutter_app/test/widget_test.dart"},"type":"group","time":502}
+{"test":{"id":4,"name":"Counter widget increments","suiteID":0,"groupIDs":[2,3],"metadata":{"skip":false,"skipReason":null},"line":11,"column":5,"url":"file:///X:/my_flutter_app/test/widget_test.dart"},"type":"testStart","time":503}
+00:02 +2: Counter widget increments
+{"testID":4,"result":"success","skipped":false,"hidden":false,"type":"testDone","time":600}
+{"test":{"id":5,"name":"Counter widget decrements","suiteID":0,"groupIDs":[2,3],"metadata":{"skip":false,"skipReason":null},"line":15,"column":5,"url":"file:///X:/my_flutter_app/test/widget_test.dart"},"type":"testStart","time":601}
+{"testID":5,"result":"success","skipped":false,"hidden":false,"type":"testDone","time":650}
+00:03 +3: All tests passed!
+{"success":true,"type":"done","time":660}

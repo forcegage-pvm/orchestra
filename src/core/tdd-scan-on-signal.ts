@@ -1,17 +1,27 @@
 /**
  * TDD Scan-on-Signal
  *
- * Scans workspace for ALL TDD red markers and returns them grouped by task ID.
- * Used during signal_completion to maintain a complete snapshot of TDD markers.
+ * Scans workspace for TDD red-phase test files using directory listing.
+ * Files under `test/red/` are detected as red-phase tests.
+ * Task IDs are extracted from `// @orchestra-task: N` comments.
  *
- * Per DESIGN.md - TWO SEPARATE CONCERNS:
- * 1. Test runner filtering: @Tags(['tdd-red']) or [tdd-red] - NO task ID in tag
- * 2. Task linking: // @orchestra-task: N - file-level comment
+ * Uses `fs.readdir` (recursive) instead of glob+content scanning.
  */
 
-import { glob } from "glob";
+import * as fs from "fs/promises";
 import * as path from "path";
-import { scanTddFile, type TddRedMarker } from "./tdd-marker-scanner.js";
+import {
+  extractOrchestraTaskId,
+  type TddRedMarker,
+} from "./tdd-marker-scanner.js";
+
+/**
+ * Options for TDD marker scanning
+ */
+export interface TddScanOptions {
+  /** Override the red directory path relative to workspace root (default: "test/red") */
+  redDirRelative?: string;
+}
 
 /**
  * File-level test tracking for a single task
@@ -36,74 +46,65 @@ export interface TddScanResult {
 }
 
 /**
- * Scan workspace for ALL TDD red markers
+ * Scan workspace for TDD red-phase test files using directory listing.
  *
  * This function:
- * 1. Finds all test files in the workspace
- * 2. Scans each file for TDD red markers (@Tags(['tdd-red']) or [tdd-red])
- * 3. Extracts task ID from // @orchestra-task: N comment
- * 4. Groups results by task ID with file-level aggregation
+ * 1. Lists all files in the `test/red/` directory recursively using `fs.readdir`
+ * 2. Extracts task ID from `// @orchestra-task: N` comment in each file
+ * 3. Groups results by task ID with file-level aggregation
  *
  * @param workspaceRoot - Absolute path to workspace root
  * @returns Scan result with all markers grouped by task ID
  */
 export async function scanForTddMarkers(
   workspaceRoot: string,
+  options?: TddScanOptions,
 ): Promise<TddScanResult> {
   // Map: taskId -> Map: testFile -> testCount
   const taskFileMap = new Map<number, Map<string, number>>();
   let totalTests = 0;
   const filesWithoutTaskId: string[] = [];
 
-  // Find all test files in workspace
-  const testFilePatterns = [
-    "test/**/*.test.ts",
-    "test/**/*.test.js",
-    "**/*.test.ts",
-    "**/*.test.js",
-    "test/**/*_test.dart",
-    "**/*_test.dart",
-  ];
+  const redDirRelative = options?.redDirRelative ?? path.join("test", "red");
+  const redDir = path.join(workspaceRoot, redDirRelative);
 
-  const testFiles = new Set<string>();
-  for (const pattern of testFilePatterns) {
-    const matches = await glob(pattern, {
-      cwd: workspaceRoot,
-      absolute: false,
-      ignore: [
-        "**/node_modules/**",
-        "**/.dart_tool/**",
-        "**/build/**",
-        "**/testing/**", // Test harness files - not real TDD tests
-        "**/fixtures/**", // Test fixtures
-        "**/.orchestra/**", // Orchestra internal files
-        "**/test/**/tdd-*.test.ts", // TDD scanner's own tests (contain markers as test data)
-        "**/test/**/tdd-*_test.dart", // TDD scanner's Dart tests
-      ],
-    });
-    matches.forEach((file) => testFiles.add(file));
+  // Check if test/red/ directory exists
+  let redDirExists = false;
+  try {
+    const stat = await fs.stat(redDir);
+    redDirExists = stat.isDirectory();
+  } catch {
+    // Directory doesn't exist
   }
 
-  // Scan each test file for TDD markers
-  for (const testFile of testFiles) {
-    const absolutePath = path.join(workspaceRoot, testFile);
-    const normalizedFile = testFile.replace(/\\/g, "/");
+  if (!redDirExists) {
+    return {
+      testsByTask: new Map(),
+      totalFiles: 0,
+      totalTests: 0,
+      filesWithoutTaskId: [],
+    };
+  }
+
+  // List all files under test/red/ recursively
+  const testFiles = await listTestFilesRecursively(redDir);
+
+  // Process each test file
+  for (const absolutePath of testFiles) {
+    const relativePath = path.relative(workspaceRoot, absolutePath);
+    const normalizedFile = relativePath.replace(/\\/g, "/");
 
     try {
-      const scanResult = await scanTddFile(absolutePath);
+      const content = await fs.readFile(absolutePath, "utf-8");
+      const lines = content.split("\n");
 
-      // Skip files with no TDD markers
-      if (scanResult.markers.length === 0) {
-        continue;
-      }
+      // Extract task ID from // @orchestra-task: N comment
+      const taskId = extractOrchestraTaskId(lines);
 
-      // Check for missing task ID
-      if (scanResult.taskId === null) {
+      if (taskId === null) {
         filesWithoutTaskId.push(normalizedFile);
         continue;
       }
-
-      const taskId = scanResult.taskId;
 
       // Get or create task entry
       if (!taskFileMap.has(taskId)) {
@@ -111,10 +112,9 @@ export async function scanForTddMarkers(
       }
       const fileMap = taskFileMap.get(taskId)!;
 
-      // Add test count for this file
-      const testCount = scanResult.markers.length;
-      fileMap.set(normalizedFile, testCount);
-      totalTests += testCount;
+      // Each file in test/red/ counts as 1 test entry
+      fileMap.set(normalizedFile, 1);
+      totalTests += 1;
     } catch {
       // Skip files that can't be read
       continue;
@@ -140,6 +140,56 @@ export async function scanForTddMarkers(
     totalTests,
     filesWithoutTaskId,
   };
+}
+
+/**
+ * Recursively list test files under a directory.
+ * Filters for common test file extensions (.test.ts, .test.js, _test.dart, etc.)
+ *
+ * @param dirPath - Absolute path to directory
+ * @returns Array of absolute paths to test files
+ */
+async function listTestFilesRecursively(dirPath: string): Promise<string[]> {
+  const testFiles: string[] = [];
+
+  try {
+    const entries = await fs.readdir(dirPath, { withFileTypes: true });
+
+    for (const entry of entries) {
+      const fullPath = path.join(dirPath, entry.name);
+
+      if (entry.isDirectory()) {
+        // Skip node_modules and hidden directories
+        if (entry.name === "node_modules" || entry.name.startsWith(".")) {
+          continue;
+        }
+        const nested = await listTestFilesRecursively(fullPath);
+        testFiles.push(...nested);
+      } else if (isTestFile(entry.name)) {
+        testFiles.push(fullPath);
+      }
+    }
+  } catch {
+    // Cannot read directory
+  }
+
+  return testFiles;
+}
+
+/**
+ * Check if a filename looks like a test file.
+ */
+function isTestFile(filename: string): boolean {
+  return (
+    filename.endsWith(".test.ts") ||
+    filename.endsWith(".test.js") ||
+    filename.endsWith("_test.dart") ||
+    filename.endsWith(".test.dart") ||
+    filename.endsWith("_test.py") ||
+    filename.endsWith(".test.py") ||
+    filename.endsWith("_test.rs") ||
+    filename.endsWith("_test.go")
+  );
 }
 
 // Re-export for backward compatibility

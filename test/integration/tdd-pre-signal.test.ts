@@ -166,12 +166,12 @@ describe('Feature', () => {
       expect(result.allPassed).toBe(true);
     });
 
-    it("should fail when registered test has no marker", async () => {
-      // Create test directory
-      const testDir = path.join(tempDir, "test");
-      await fs.mkdir(testDir);
+    it("should fail when registered test is NOT in test/red/", async () => {
+      // Create test directory (NOT test/red/)
+      const testDir = path.join(tempDir, "test", "unit");
+      await fs.mkdir(testDir, { recursive: true });
 
-      // Create test file WITHOUT marker
+      // Create test file outside test/red/
       const testContent = `
 import { describe, it, expect } from 'vitest';
 
@@ -183,13 +183,12 @@ describe('Feature', () => {
 `;
       await fs.writeFile(path.join(testDir, "feature.test.ts"), testContent);
 
-      // Register a test file without a marker
+      // Register a test file that's NOT in test/red/
       await registerTest({
         taskId,
-        testFile: "test/feature.test.ts",
+        testFile: "test/unit/feature.test.ts",
         testCount: 1,
       });
-
       // Run pre-signal checks
       const config: PreSignalConfig = {
         workspacePath: tempDir,
@@ -210,21 +209,20 @@ describe('Feature', () => {
       expect(result.allPassed).toBe(false);
     });
 
-    it("should pass when file is registered and has markers (file-level tracking)", async () => {
-      // With file-level tracking, we no longer check individual test registration
-      // The check is: does the registered FILE have markers? If yes, pass.
+    it("should pass when file is registered and is in test/red/ (path-based)", async () => {
+      // Path-based detection: file must be under test/red/
 
-      // Create test directory
-      const testDir = path.join(tempDir, "test");
-      await fs.mkdir(testDir);
+      // Create test/red/ directory
+      const testDir = path.join(tempDir, "test", "red");
+      await fs.mkdir(testDir, { recursive: true });
 
-      // Create test file with task-id annotation + [tdd-red] marker
+      // Create test file in test/red/ with task-id annotation
       const testContent = `
 // @orchestra-task: ${taskId}
 import { describe, it, expect } from 'vitest';
 
-describe('[tdd-red] Feature', () => {
-  it('[tdd-red] test with marker', () => {
+describe('Feature', () => {
+  it('test in red dir', () => {
     expect(true).toBe(false);
   });
 });
@@ -234,10 +232,9 @@ describe('[tdd-red] Feature', () => {
       // Register the file
       await registerTest({
         taskId,
-        testFile: "test/feature.test.ts",
+        testFile: "test/red/feature.test.ts",
         testCount: 1,
       });
-
       // Run pre-signal checks
       const config: PreSignalConfig = {
         workspacePath: tempDir,
@@ -250,29 +247,28 @@ describe('[tdd-red] Feature', () => {
 
       const result = await runPreSignalChecks(config);
 
-      // TDD validation should PASS because file is registered and has markers
-      // (Previously this tested individual test registration vs markers, but with
-      // file-level tracking, we just check if registered files have markers)
+      // TDD validation should PASS because file is registered and is in test/red/
       expect(result.tddValidation).toBeDefined();
       expect(result.tddValidation?.success).toBe(true);
       expect(result.allPassed).toBe(true);
     });
 
-    it("should pass when all tests are registered and have markers", async () => {
-      // Create test directory
-      const testDir = path.join(tempDir, "test");
-      await fs.mkdir(testDir);
+    it("should pass when all tests are registered and in test/red/", async () => {
+      // Create test/red/ directory
+      const testDir = path.join(tempDir, "test", "red");
+      await fs.mkdir(testDir, { recursive: true });
 
-      // Create test file with markers - will fail validation due to exit code 0
+      // Create test file in test/red/ with multiple tests
       const testContent = `
+// @orchestra-task: ${taskId}
 import { describe, it, expect } from 'vitest';
 
 describe('Feature', () => {
-  it.skip('test one', () => {
+  it('test one', () => {
     expect(true).toBe(false);
   });
 
-  it.skip('test two', () => {
+  it('test two', () => {
     expect(1).toBe(2);
   });
 });
@@ -282,15 +278,14 @@ describe('Feature', () => {
       // Register the test file (file-level with 2 tests)
       await registerTest({
         taskId,
-        testFile: "test/feature.test.ts",
+        testFile: "test/red/feature.test.ts",
         testCount: 2,
       });
 
-      // Run pre-signal checks
       const config: PreSignalConfig = {
         workspacePath: tempDir,
         tddRedPhase: true,
-        taskId,
+        taskId: taskId,
         skipBuild: true,
         skipTest: true,
         skipLint: true,
@@ -298,10 +293,10 @@ describe('Feature', () => {
 
       const result = await runPreSignalChecks(config);
 
-      // TDD validation fails (skipped tests return exit 0 = "passing")
+      // TDD validation should pass because file is registered and in test/red/
       expect(result.tddValidation).toBeDefined();
-      expect(result.tddValidation?.success).toBe(false);
-      expect(result.allPassed).toBe(false);
+      expect(result.tddValidation?.success).toBe(true);
+      expect(result.allPassed).toBe(true);
     });
   });
 

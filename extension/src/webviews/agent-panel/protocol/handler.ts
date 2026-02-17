@@ -66,8 +66,6 @@ function shouldIncludeEvent(event: { timestamp: string }): boolean {
  * Uses exhaustive switch for type safety.
  */
 export function handleExtensionMessage(message: ExtensionMessage): void {
-  console.log(`[AgentPanel] Received message:`, message.type);
-
   switch (message.type) {
     case "session_update": {
       console.log(
@@ -118,7 +116,6 @@ export function handleExtensionMessage(message: ExtensionMessage): void {
       if (!shouldIncludeEvent(message.event)) {
         break;
       }
-      console.log(`[AgentPanel] Adding single event:`, message.event.type);
       addEvent(message.event);
 
       // Update session status from status_change events
@@ -147,13 +144,6 @@ export function handleExtensionMessage(message: ExtensionMessage): void {
 
     case "events_batch":
       // Bulk add events for efficiency
-      console.log(
-        `[AgentPanel] Received events batch: ${message.events.length} events for session ${message.sessionId}`,
-      );
-      const addedCount = message.events.filter((ev) =>
-        shouldIncludeEvent(ev),
-      ).length;
-      console.log(`[AgentPanel] Adding ${addedCount} events after filtering`);
 
       message.events.forEach((event) => {
         if (!shouldIncludeEvent(event)) {
@@ -188,9 +178,7 @@ export function handleExtensionMessage(message: ExtensionMessage): void {
 
     case "clear":
       // Reset all stores to initial state
-      console.log("[AgentPanel] Clearing session history");
       clearSessionHistory();
-      console.log("[AgentPanel] Session history cleared");
       break;
 
     case "set_verbosity":
@@ -229,9 +217,6 @@ export function handleExtensionMessage(message: ExtensionMessage): void {
  * from the extension host.
  */
 export function initializeMessageHandler(): void {
-  console.log("[AgentPanel] initializeMessageHandler() called");
-  const initStart = performance.now();
-
   // 'ready' was already sent by the preload script — don't send it again.
   // Register the real message handler now.
   globalThis.addEventListener("message", (event: MessageEvent) => {
@@ -249,7 +234,6 @@ export function initializeMessageHandler(): void {
     | unknown[]
     | undefined;
   if (queue && queue.length > 0) {
-    console.log(`[AgentPanel] Processing ${queue.length} buffered messages`);
     for (const msg of queue) {
       handleExtensionMessage(msg as ExtensionMessage);
     }
@@ -271,22 +255,11 @@ export function initializeMessageHandler(): void {
   // Restore persisted state asynchronously (after sending ready)
   // The extension will send fresh data anyway, but this provides immediate UI feedback
   try {
-    console.log("[AgentPanel] Attempting to restore persisted state");
-    const restoreStart = performance.now();
     const restored = tryRestoreState();
-    const restoreTime = performance.now() - restoreStart;
-    console.log(
-      `[AgentPanel] State restoration ${restored ? "succeeded" : "skipped"} (${restoreTime.toFixed(2)}ms)`,
-    );
     if (restored) {
       syncSessionStatusFromEvents();
     }
-  } catch (error) {
-    console.error("[AgentPanel] Failed to restore state:", error);
+  } catch (_error) {
+    // State restoration failed - extension will send fresh data
   }
-
-  const initTime = performance.now() - initStart;
-  console.log(
-    `[AgentPanel] Initialization complete (${initTime.toFixed(2)}ms)`,
-  );
 }

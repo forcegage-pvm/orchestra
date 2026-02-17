@@ -67,3 +67,29 @@ export interface CodeReviewContext {
   summary?: string | null;
   reviewId?: number;
 }
+
+/**
+ * Context for generating system prompts
+ */
+export interface SystemPromptContext {
+  /** Agent role */
+  role: "implementor" | "orchestrator" | "controller";
+
+  /** Available tool names from ToolRegistry */
+  tools?: string[];
+
+  /** Workspace root path */
+  workspaceRoot: string;
+
+  /** Platform information */
+  platform: string;
+
+  /** OS name (Windows, macOS, Linux) */
+  osName: string;
+
+  /** Shell name */
+  shell: string;
+
+  /** Path separator */
+  pathSeparator: string;
+}

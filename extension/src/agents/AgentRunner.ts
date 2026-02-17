@@ -428,6 +428,62 @@ export class AgentRunner implements vscode.Disposable {
   }
 
   /**
+   * Detect garbled LLM output where tool calls are embedded as corrupt text
+   * instead of structured LanguageModelToolCallPart chunks.
+   *
+   * This happens when the LLM provider's structured output pipeline breaks,
+   * producing garbled text with mixed scripts (Latin, CJK, Armenian, Cyrillic)
+   * and embedded tool call syntax like `to=functions.run_tests`.
+   *
+   * @param text - The accumulated thinking text from the LLM response stream
+   * @returns true if the text contains garbled tool call patterns
+   */
+  private detectGarbledToolCall(text: string): boolean {
+    if (!text || text.length < 20) {
+      return false;
+    }
+
+    // Pattern 1: OpenAI-style tool call syntax embedded in text
+    // e.g. "to=functions.run_tests" or "to=functions.promote_tests"
+    const hasToolCallSyntax = /to=functions\.[a-z_]+/.test(text);
+
+    // Pattern 2: JSON-like payload adjacent to non-Latin script blocks
+    // e.g. "մեկնաբանություն 大发彩票网json {\"scope\":\"red\"}"
+    const hasJsonAfterMixedScript =
+      /[\u0400-\u04FF\u0530-\u058F\u4E00-\u9FFF].{0,30}json\s*[{\[]/.test(text);
+
+    // Pattern 3: "assistant" keyword fused with surrounding text (no spaces)
+    // e.g. "numerusformassistant" — the LLM tried to emit an assistant/tool boundary
+    const hasFusedAssistantKeyword = /[a-z]{3,}assistant\s+to=functions/.test(
+      text,
+    );
+
+    // Pattern 4: Mixed-script soup — non-Latin characters from 3+ different
+    // Unicode blocks within a short span, indicating token corruption
+    const hasCJK = /[\u4E00-\u9FFF\u3400-\u4DBF]/.test(text);
+    const hasArmenian = /[\u0530-\u058F]/.test(text);
+    const hasCyrillic = /[\u0400-\u04FF]/.test(text);
+    const hasGeorgian = /[\u10A0-\u10FF]/.test(text);
+    const hasArabic = /[\u0600-\u06FF]/.test(text);
+    const nonLatinScriptCount =
+      (hasCJK ? 1 : 0) +
+      (hasArmenian ? 1 : 0) +
+      (hasCyrillic ? 1 : 0) +
+      (hasGeorgian ? 1 : 0) +
+      (hasArabic ? 1 : 0);
+    // Mixed scripts alone aren't enough — also require some tool-call signal
+    const hasMixedScriptWithToolSignal =
+      nonLatinScriptCount >= 2 && /functions\.|json\s*[{\[]|to=/.test(text);
+
+    return (
+      hasToolCallSyntax ||
+      hasJsonAfterMixedScript ||
+      hasFusedAssistantKeyword ||
+      hasMixedScriptWithToolSignal
+    );
+  }
+
+  /**
    * Create a new AgentRunner
    *
    * @param toolRegistry - Tool registry for executing tool calls
@@ -2119,6 +2175,11 @@ export class AgentRunner implements vscode.Disposable {
       return { kind: "malformed", message: msg };
     }
 
+    // Garbled tool call — LLM produced corrupt text instead of structured tool calls
+    if (msg.includes("garbled_tool_call")) {
+      return { kind: "transient", message: msg };
+    }
+
     // Transient server errors
     if (
       msg.includes("Server error: 5") || // 500, 502, 503, etc.
@@ -2343,13 +2404,23 @@ export class AgentRunner implements vscode.Disposable {
           const delayMs =
             AgentRunner.LLM_RETRY_BASE_DELAY_MS * Math.pow(2, attempt);
 
+          // Use specific error code for garbled output vs generic server errors
+          const isGarbled =
+            classification.message.includes("garbled_tool_call");
+          const errorCode = isGarbled
+            ? "LLM_GARBLED_OUTPUT"
+            : "LLM_TRANSIENT_ERROR";
+          const errorDesc = isGarbled
+            ? `LLM produced garbled output (retrying in ${Math.round(delayMs / 1000)}s, attempt ${attempt + 1}/${maxRetries})`
+            : `Server error (retrying in ${Math.round(delayMs / 1000)}s, attempt ${attempt + 1}/${maxRetries}): ${classification.message}`;
+
           // Emit recoverable error notification
           this.emitOutput({
             type: "error",
             timestamp: new Date().toISOString(),
             iteration: this.session?.currentIteration ?? 0,
-            errorCode: "LLM_TRANSIENT_ERROR",
-            errorMessage: `Server error (retrying in ${Math.round(delayMs / 1000)}s, attempt ${attempt + 1}/${maxRetries}): ${classification.message}`,
+            errorCode,
+            errorMessage: errorDesc,
             recoverable: true,
           });
 
@@ -2509,6 +2580,37 @@ export class AgentRunner implements vscode.Disposable {
         // This is required by the LLM API - tool results must follow tool calls
         this.addAssistantToolCallMessage(toolCalls);
         await this.executeToolCalls(toolCalls);
+      }
+
+      // Detect garbled tool calls in text-only responses.
+      // When the LLM produces corrupt output, tool calls appear as garbled text
+      // instead of structured LanguageModelToolCallPart chunks. Treating this
+      // as a transient error allows sendRequest() to retry with backoff.
+      if (
+        !hadToolCalls &&
+        thinkingText &&
+        this.detectGarbledToolCall(thinkingText)
+      ) {
+        const preview = thinkingText.substring(0, 200).replace(/\n/g, " ");
+        console.error(
+          `[AgentRunner] Garbled tool call detected in text output: ${preview}`,
+        );
+
+        // Emit a recoverable error so the Agent Panel shows what happened
+        this.emitOutput({
+          type: "error",
+          timestamp: new Date().toISOString(),
+          iteration: this.session.currentIteration,
+          errorCode: "LLM_GARBLED_OUTPUT",
+          errorMessage: `LLM produced garbled output with embedded tool call fragments. Retrying...`,
+          recoverable: true,
+        });
+
+        throw new AgentError(
+          "garbled_tool_call: LLM output contains corrupt tool call fragments instead of structured tool calls",
+          "LLM_GARBLED_OUTPUT",
+          { preview: thinkingText.substring(0, 500) },
+        );
       }
 
       return hadToolCalls;

@@ -1,1 +1,2 @@
+# Orchestra SQLite database - track via Git LFS
 .orchestra/*.db filter=lfs diff=lfs merge=lfs -text

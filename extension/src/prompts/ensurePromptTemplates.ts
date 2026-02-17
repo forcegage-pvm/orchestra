@@ -38,6 +38,7 @@ export function ensurePromptTemplates(
   );
   const partialsDir = path.join(targetDir, "_partials");
   const schemaDir = path.join(targetDir, "_schema");
+  const docsDir = path.join(targetDir, "_docs");
   const sourceDir = path.join(context.extensionPath, "templates", "prompts");
   const effectiveLogger: PromptTemplateLogger = options.logger ?? {
     info: () => undefined,
@@ -104,7 +105,7 @@ export function ensurePromptTemplates(
 
   /**
    * Copy a file from source to target only if target doesn't already exist.
-   * Preserves user modifications by never overwriting existing files.
+   * Used for user-customizable files like coding-standards.hbs.
    */
   const copyFileIfNew = (
     sourcePath: string,
@@ -125,6 +126,30 @@ export function ensurePromptTemplates(
     }
   };
 
+  /**
+   * Copy a file from source to target, always overwriting if exists.
+   * Used for system templates that should stay in sync with the extension.
+   */
+  const copyFileAlways = (
+    sourcePath: string,
+    targetPath: string,
+    logMessage: string,
+    errorContext: string,
+  ): void => {
+    try {
+      fs.copyFileSync(sourcePath, targetPath);
+      effectiveLogger.info(logMessage);
+    } catch (err) {
+      handleError(`Failed to copy ${errorContext}`, err);
+    }
+  };
+
+  /**
+   * Files that should preserve user modifications (not overwritten).
+   * All other templates are synced from extension on every activation.
+   */
+  const USER_CUSTOMIZABLE_FILES = new Set(["coding-standards.hbs"]);
+
   const runSync = (): void => {
     if (!ensureDir(targetDir, ".orchestra/templates/prompts")) {
       return;
@@ -135,6 +160,10 @@ export function ensurePromptTemplates(
     }
 
     if (!ensureDir(schemaDir, "_schema")) {
+      return;
+    }
+
+    if (!ensureDir(docsDir, "_docs")) {
       return;
     }
 
@@ -163,13 +192,25 @@ export function ensurePromptTemplates(
 
       if (stat?.isFile() && file.endsWith(".hbs")) {
         const targetPath = path.join(targetDir, file);
-        copyFileIfNew(
-          sourcePath,
-          targetPath,
-          `Synced prompt template: ${file}`,
-          `Skipped existing prompt template (preserving user modifications): ${file}`,
-          `prompt template ${file}`,
-        );
+
+        // User-customizable files are only copied if they don't exist
+        // All other templates are always synced from extension
+        if (USER_CUSTOMIZABLE_FILES.has(file)) {
+          copyFileIfNew(
+            sourcePath,
+            targetPath,
+            `Synced prompt template: ${file}`,
+            `Skipped existing prompt template (preserving user modifications): ${file}`,
+            `prompt template ${file}`,
+          );
+        } else {
+          copyFileAlways(
+            sourcePath,
+            targetPath,
+            `Synced prompt template: ${file}`,
+            `prompt template ${file}`,
+          );
+        }
       }
     }
 
@@ -190,11 +231,10 @@ export function ensurePromptTemplates(
 
           if (stat?.isFile()) {
             const targetPath = path.join(partialsDir, file);
-            copyFileIfNew(
+            copyFileAlways(
               sourcePath,
               targetPath,
               `Synced partial template: ${file}`,
-              `Skipped existing partial template (preserving user modifications): ${file}`,
               `prompt partial ${file}`,
             );
           }
@@ -216,12 +256,37 @@ export function ensurePromptTemplates(
 
           if (stat?.isFile()) {
             const targetPath = path.join(schemaDir, file);
-            copyFileIfNew(
+            copyFileAlways(
               sourcePath,
               targetPath,
               `Synced schema file: ${file}`,
-              `Skipped existing schema file (preserving user modifications): ${file}`,
               `prompt schema ${file}`,
+            );
+          }
+        }
+      }
+    }
+
+    // Sync _docs subdirectory (reference documentation for agents/users)
+    const sourceDocsDir = path.join(sourceDir, "_docs");
+    const docsExists = checkExists(
+      sourceDocsDir,
+      "prompt template docs directory",
+    );
+    if (docsExists) {
+      const docsFiles = readDir(sourceDocsDir, "prompt template docs");
+      if (docsFiles) {
+        for (const file of docsFiles) {
+          const sourcePath = path.join(sourceDocsDir, file);
+          const stat = getStat(sourcePath, `prompt doc ${file}`);
+
+          if (stat?.isFile()) {
+            const targetPath = path.join(docsDir, file);
+            copyFileAlways(
+              sourcePath,
+              targetPath,
+              `Synced doc file: ${file}`,
+              `prompt doc ${file}`,
             );
           }
         }
@@ -242,11 +307,10 @@ export function ensurePromptTemplates(
     );
     const readmeExists = checkExists(readmeSource, "templates README");
     if (readmeExists) {
-      copyFileIfNew(
+      copyFileAlways(
         readmeSource,
         readmeTarget,
         "Synced templates README.md",
-        "Skipped existing templates README.md (preserving user modifications)",
         "templates README.md",
       );
     }

@@ -136,7 +136,8 @@ export function tryRestoreState(): boolean {
 }
 
 /**
- * Clear session history while keeping the current session header.
+ * Clear ALL session history — events, tool calls, session header, and file list.
+ * Used by the "Clear Agent Panel" button for a complete reset.
  */
 export function clearSessionHistory(): void {
   setClearAfter(new Date().toISOString());
@@ -145,13 +146,9 @@ export function clearSessionHistory(): void {
   clearSearchableTextCache();
   setToolCalls({});
   setToolCallKeys([]);
-  if (session) {
-    setSession("toolCallCount", 0);
-    setSession("successfulToolCalls", 0);
-    setSession("failedToolCalls", 0);
-    setSession("warningCount", 0);
-    setSession("filesModified", []);
-  }
+  // Fully reset session header (not just counters) so the panel is truly empty
+  resetSession();
+  setSessionMetas(reconcile({}));
   persistState();
 }
 

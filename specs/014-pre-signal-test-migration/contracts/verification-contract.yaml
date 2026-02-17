@@ -1,0 +1,241 @@
+# Test Verification API Contract
+#
+# This file defines the YAML structure for test verification criteria
+# used in task handover configuration.
+
+openapi: "3.1.0"
+info:
+  title: Test Verification Contract
+  version: "1.0.0"
+  description: |
+    Declarative test verification criteria for Orchestra task handover.
+    Replaces shell-based `behavioral_checks` with type-safe verification.
+
+components:
+  schemas:
+    # =========================================================================
+    # Core Types
+    # =========================================================================
+
+    TestExpectation:
+      type: string
+      description: Expected outcome for test verification
+      enum:
+        - all_pass # Every test in tier must pass
+        - any_fail # At least one test must fail (TDD red-phase)
+        - min_pass_count # At least N tests must pass
+
+    TestVerificationCriteria:
+      type: object
+      description: Single test verification criterion
+      required:
+        - tier
+        - expect
+      properties:
+        tier:
+          type: string
+          description: Test tier name (must exist in .agent-test-config.json)
+          minLength: 1
+          examples:
+            - smoke
+            - unit
+            - integration
+            - red
+        expect:
+          $ref: "#/components/schemas/TestExpectation"
+        min_pass_count:
+          type: integer
+          description: Required when expect="min_pass_count"
+          minimum: 1
+
+    TestVerificationArray:
+      type: array
+      description: Array of verification criteria for a task
+      items:
+        $ref: "#/components/schemas/TestVerificationCriteria"
+      minItems: 1
+
+    # =========================================================================
+    # Configuration Types
+    # =========================================================================
+
+    TestTier:
+      type: object
+      description: Test tier configuration
+      required:
+        - name
+        - path
+      properties:
+        name:
+          type: string
+          description: Unique tier identifier
+          minLength: 1
+        path:
+          type: string
+          description: Glob pattern for test files
+          minLength: 1
+        timeout:
+          type: integer
+          description: Tier-specific timeout (ms)
+          minimum: 1
+        inverted:
+          type: boolean
+          description: If true, failures are expected (TDD red-phase)
+          default: false
+
+    TestConfig:
+      type: object
+      description: Complete test configuration (.agent-test-config.json)
+      required:
+        - framework
+        - tiers
+      properties:
+        framework:
+          type: string
+          const: vitest
+          description: Test framework (currently only vitest)
+        tiers:
+          type: array
+          items:
+            $ref: "#/components/schemas/TestTier"
+          minItems: 1
+        workingDir:
+          type: string
+          description: Working directory relative to workspace root
+        defaultTimeout:
+          type: integer
+          description: Default timeout (ms)
+          default: 30000
+          minimum: 1
+        maxFailureLines:
+          type: integer
+          description: Max lines of failure output per test
+          default: 20
+          minimum: 1
+        promotion:
+          type: object
+          properties:
+            dryRun:
+              type: boolean
+              default: true
+
+# =============================================================================
+# Example Usage
+# =============================================================================
+
+examples:
+  # ---------------------------------------------------------------------------
+  # Task Handover with Test Verification
+  # ---------------------------------------------------------------------------
+
+  basic_verification:
+    summary: Basic verification requiring all unit tests pass
+    value:
+      test_verification:
+        - tier: unit
+          expect: all_pass
+
+  multi_tier_verification:
+    summary: Multiple tiers with different expectations
+    value:
+      test_verification:
+        - tier: smoke
+          expect: all_pass
+        - tier: unit
+          expect: all_pass
+        - tier: integration
+          expect: all_pass
+
+  tdd_red_phase:
+    summary: TDD red-phase with expected failures
+    value:
+      test_verification:
+        - tier: red
+          expect: any_fail
+        - tier: unit
+          expect: all_pass
+
+  min_pass_count:
+    summary: At least N tests must pass
+    value:
+      test_verification:
+        - tier: unit
+          expect: min_pass_count
+          min_pass_count: 5
+
+  # ---------------------------------------------------------------------------
+  # Test Configuration Examples
+  # ---------------------------------------------------------------------------
+
+  config_basic:
+    summary: Basic test configuration
+    value:
+      framework: vitest
+      defaultTimeout: 30000
+      tiers:
+        - name: smoke
+          path: test/smoke/**/*.test.ts
+          timeout: 10000
+        - name: unit
+          path: test/unit/**/*.test.ts
+          timeout: 120000
+
+  config_with_red_tier:
+    summary: Configuration with TDD red-phase tier
+    value:
+      framework: vitest
+      defaultTimeout: 30000
+      tiers:
+        - name: red
+          path: test/red/**/*.test.ts
+          timeout: 30000
+          inverted: true
+        - name: smoke
+          path: test/smoke/**/*.test.ts
+          timeout: 10000
+        - name: unit
+          path: test/unit/**/*.test.ts
+          timeout: 120000
+        - name: integration
+          path: test/integration/**/*.test.ts
+          timeout: 300000
+      promotion:
+        dryRun: true
+
+# =============================================================================
+# Migration from behavioral_checks
+# =============================================================================
+
+x-migration:
+  deprecated_format:
+    description: |
+      The following format is DEPRECATED and will be rejected:
+    example:
+      behavioral_checks:
+        - command: "npm test -- --testNamePattern='feature'"
+          expected_output: "passed"
+
+  replacement_format:
+    description: |
+      Replace with declarative test_verification:
+    example:
+      test_verification:
+        - tier: unit
+          expect: all_pass
+
+  rejection_patterns:
+    description: |
+      These patterns in verification criteria will cause validation failure:
+    patterns:
+      - npm test
+      - npx vitest
+      - yarn test
+      - pnpm test
+      - jest
+      - mocha
+      - pytest
+      - cargo test
+      - go test
+      - flutter test
+      - --testNamePattern
+      - --testPathPattern

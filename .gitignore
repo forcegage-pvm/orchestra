@@ -11,13 +11,11 @@ tsup.config.bundled_*.mjs
 .vitest-cache/
 # Dart/Flutter build artifacts
 .dart_tool/
-# Extension artifacts - track folder but ignore VSIX files
-extension/artifacts/*.vsix
 extension/.orchestra/
 
 # Orchestra workflow
 .orchestra/.signal
-# SQLite transient journal files (WAL mode) - never commit these
+# SQLite WAL/SHM/journal sidecar files - transient, never commit
 .orchestra/*.db-wal
 .orchestra/*.db-shm
 .orchestra/*.db-journal
