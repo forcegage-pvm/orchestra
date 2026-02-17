@@ -25,7 +25,6 @@ import {
   ErrorCard,
   NewEventsIndicator,
   PromptCard,
-  SystemPromptCard,
   ThinkingCard,
   ToolCallCard,
 } from "../components/index.js";
@@ -335,19 +334,9 @@ export function TimelineView(props: TimelineViewProps) {
       // Render regular event
       const event = item.event;
       switch (event.type) {
-        case "prompt": {
-          // Detect system prompts by prefix pattern [Type]\n\n
-          const systemPromptMatch = event.text.match(
-            /^\[(System Prompt|Coding Standards|Environment Context|Retry Context)\]\n\n/,
-          );
-          if (systemPromptMatch) {
-            const typeLabel = systemPromptMatch[1];
-            itemCard = <SystemPromptCard event={event} typeLabel={typeLabel} />;
-          } else {
-            itemCard = <PromptCard event={event} />;
-          }
+        case "prompt":
+          itemCard = <PromptCard event={event} />;
           break;
-        }
 
         case "thinking":
           itemCard = (

@@ -9,7 +9,7 @@
 
 import { Icon } from "@iconify-icon/solid";
 import { marked } from "marked";
-import { createMemo, createSignal, For, onMount, Show } from "solid-js";
+import { createMemo, createSignal, For, Show } from "solid-js";
 import type { PromptEvent } from "../../../agents/sessions/types.js";
 import { Markdown } from "./Markdown.js";
 
@@ -30,18 +30,10 @@ export interface PromptCardProps {
  * ```
  */
 export function PromptCard(props: PromptCardProps) {
-  // Start expanded, auto-collapse after 2s
-  const [expanded, setExpanded] = createSignal(true);
+  // Start collapsed by default
+  const [expanded, setExpanded] = createSignal(false);
   const isCollapsed = () => !expanded();
   const toggleExpanded = () => setExpanded(!expanded());
-
-  // Auto-collapse after 2 seconds on mount
-  onMount(() => {
-    const timer = setTimeout(() => {
-      setExpanded(false);
-    }, 2000);
-    return () => clearTimeout(timer);
-  });
 
   // Split text into first line (shown in header) and remaining lines
   const getFirstLine = () => {
