@@ -63,6 +63,7 @@ import {
   findOrchestraRoot,
   validateOrchestraWorkspace,
 } from "./workspace/detector.js";
+import type { DartMcpClient as DartMcpClientType } from "./agents/tools/intelligence/DartMcpClient.js";
 
 let logger: OrchestraLogger;
 let configService: ConfigService;
@@ -74,6 +75,7 @@ let agentRunner: AgentRunner | undefined;
 let agentOutputPanel: AgentOutputPanel | undefined;
 let agentStateSubscription: vscode.Disposable | undefined;
 let workflowChain: WorkflowChain | undefined;
+let dartMcpClient: DartMcpClientType | undefined;
 
 async function openAgentChat(
   participant:
@@ -648,6 +650,48 @@ export async function activate(
 
   // Register test commands (available even without workspace for debugging)
   registerTestCommands(context);
+
+  // Initialize Dart MCP client for dart_analyze / dart_resolve_symbol tools.
+  // Done here (before the orchestraRoot guard) so intelligence tools are available
+  // in all workspace modes. Runs in background — does not block activation.
+  {
+    const dartCfg = vscode.workspace.getConfiguration("orchestra");
+    if (dartCfg.get<boolean>("dartMcp.enabled", true)) {
+      void (async () => {
+        try {
+          const { DartMcpClient, setGlobalDartMcpClient } = await import(
+            "./agents/tools/intelligence/DartMcpClient.js"
+          );
+          const dartExecutable = dartCfg.get<string>("dartSdkPath", "dart");
+          const wsRoot =
+            vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ??
+            process.cwd();
+          dartMcpClient = new DartMcpClient(dartExecutable, wsRoot, logger);
+          setGlobalDartMcpClient(dartMcpClient);
+          context.subscriptions.push({
+            dispose: () => {
+              dartMcpClient?.dispose();
+              dartMcpClient = undefined;
+              // Clear singleton so tools report unavailable after deactivation
+              void import(
+                "./agents/tools/intelligence/DartMcpClient.js"
+              ).then(({ setGlobalDartMcpClient: clear }) =>
+                clear(undefined),
+              );
+            },
+          });
+          logger.info("DartMcpClient initialized");
+          await dartMcpClient.connect();
+        } catch (err) {
+          logger.warn(
+            `DartMcpClient: background connect failed: ${
+              err instanceof Error ? err.message : String(err)
+            }`,
+          );
+        }
+      })();
+    }
+  }
 
   if (!orchestraRoot) {
     logger.warn("No .orchestra/ folder found in workspace");
@@ -2008,6 +2052,9 @@ export async function deactivate(): Promise<void> {
 
   // MCP servers disposed via subscriptions
   mcpManager = undefined;
+
+  // Dart MCP client disposed via subscriptions; clear module var
+  dartMcpClient = undefined;
 
   // Close database connection
   OrchestraDB.close();
