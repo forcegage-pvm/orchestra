@@ -170,10 +170,13 @@ export class SprintSettingsPanel {
           configMap.get("models.implementor") || defaultModels.implementor,
         controllerModel:
           configMap.get("models.controller") || defaultModels.controller,
-        maxIterations: parseInt(
-          configMap.get("agent.max_iterations") || "80",
-          10,
-        ),
+        maxIterations: (() => {
+          const parsed = Number.parseInt(
+            configMap.get("agent.max_iterations") || "80",
+            10,
+          );
+          return Number.isFinite(parsed) && parsed > 0 ? parsed : 80;
+        })(),
       };
 
       const availableModels = await this._getAvailableModels();
@@ -265,7 +268,7 @@ export class SprintSettingsPanel {
         },
         {
           key: "agent.max_iterations",
-          value: settings.maxIterations.toString(),
+          value: (settings.maxIterations ?? 80).toString(),
           description: "Maximum agent loop iterations",
         },
         {
@@ -563,7 +566,6 @@ export class SprintSettingsPanel {
     const orchestratorModel = document.getElementById('orchestratorModel');
     const implementorModel = document.getElementById('implementorModel');
     const controllerModel = document.getElementById('controllerModel');
-    const maxIterations = document.getElementById('maxIterations');
     const saveButton = document.getElementById('saveButton');
     const cancelButton = document.getElementById('cancelButton');
     const messageDiv = document.getElementById('message');
@@ -597,7 +599,8 @@ export class SprintSettingsPanel {
       preSignalBuildCommand.value = settings.preSignalBuildCommand;
       preSignalTestCommand.value = settings.preSignalTestCommand;
       autoCommit.checked = settings.autoCommit;
-      maxIterations.value = settings.maxIterations.toString();
+      const parsedMaxIterations = Number.parseInt(String(settings.maxIterations), 10);
+      maxIterations.value = (Number.isFinite(parsedMaxIterations) && parsedMaxIterations > 0 ? parsedMaxIterations : 80).toString();
       populateModelSelect(orchestratorModel, availableModels, settings.orchestratorModel);
       populateModelSelect(implementorModel, availableModels, settings.implementorModel);
       populateModelSelect(controllerModel, availableModels, settings.controllerModel);
@@ -640,7 +643,6 @@ export class SprintSettingsPanel {
         orchestratorModel: orchestratorModel.value,
         implementorModel: implementorModel.value,
         controllerModel: controllerModel.value,
-        maxIterations: parseInt(maxIterations.value, 10) || 80,
       };
       
       vscode.postMessage({ type: 'save', settings });

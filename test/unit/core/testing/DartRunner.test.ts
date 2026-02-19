@@ -408,6 +408,73 @@ describe("DartRunner", () => {
       expect(passed.length).toBeGreaterThan(0);
       expect(failed.length).toBeGreaterThan(0);
     });
+
+    it("should prefer suite path over shared URL for file attribution", () => {
+      const events = [
+        {
+          type: "suite",
+          time: 0,
+          suite: { id: 1, platform: "vm", path: "test/red/unit/a_test.dart" },
+        },
+        {
+          type: "suite",
+          time: 0,
+          suite: { id: 2, platform: "vm", path: "test/red/unit/b_test.dart" },
+        },
+        {
+          type: "testStart",
+          time: 1,
+          test: {
+            id: 11,
+            name: "a passes",
+            suiteID: 1,
+            groupIDs: [],
+            metadata: { skip: false, skipReason: null },
+            line: 10,
+            column: 1,
+            url: "file:///tmp/shared_entrypoint.dart",
+          },
+        },
+        {
+          type: "testStart",
+          time: 1,
+          test: {
+            id: 12,
+            name: "b passes",
+            suiteID: 2,
+            groupIDs: [],
+            metadata: { skip: false, skipReason: null },
+            line: 12,
+            column: 1,
+            url: "file:///tmp/shared_entrypoint.dart",
+          },
+        },
+        {
+          type: "testDone",
+          time: 2,
+          testID: 11,
+          result: "success",
+          skipped: false,
+          hidden: false,
+        },
+        {
+          type: "testDone",
+          time: 2,
+          testID: 12,
+          result: "success",
+          skipped: false,
+          hidden: false,
+        },
+      ] as any;
+
+      const outcomes = eventsToOutcomes(events);
+      expect(outcomes).toHaveLength(2);
+
+      const files = new Set(outcomes.map((o) => o.file));
+      expect(files).toEqual(
+        new Set(["test/red/unit/a_test.dart", "test/red/unit/b_test.dart"]),
+      );
+    });
   });
 
   describe("failure compression", () => {

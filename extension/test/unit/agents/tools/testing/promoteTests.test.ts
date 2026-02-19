@@ -230,7 +230,11 @@ describe("promoteTestsTool", () => {
    * Add a file to the mock filesystem.
    * Handles path resolution properly for cross-platform testing.
    */
-  function addMockFile(relativePath: string, exists = true, content?: string): void {
+  function addMockFile(
+    relativePath: string,
+    exists = true,
+    content?: string,
+  ): void {
     // Build the full path and normalize for consistent lookup
     const fullPath = path.resolve(MOCK_WORKSPACE, relativePath);
     const normalizedPath = normalizePath(fullPath);
@@ -243,7 +247,8 @@ describe("promoteTestsTool", () => {
     vi.clearAllMocks();
     mockFileSystem.clear();
     mockFileContent.clear();
-    mockSpawnResult.success = true;    mockSpawnResult.error = undefined;
+    mockSpawnResult.success = true;
+    mockSpawnResult.error = undefined;
 
     mockContext = {
       workspaceRoot: MOCK_WORKSPACE,
@@ -264,7 +269,8 @@ describe("promoteTestsTool", () => {
       exitCode: 0,
       tests: [],
       duration: 100,
-    };  });
+    };
+  });
 
   afterEach(() => {
     vi.restoreAllMocks();
@@ -284,6 +290,7 @@ describe("promoteTestsTool", () => {
     it("should have inputSchema with required files property", () => {
       expect(promoteTestsTool.inputSchema.type).toBe("object");
       expect(promoteTestsTool.inputSchema.properties).toHaveProperty("files");
+      expect(promoteTestsTool.inputSchema.properties).toHaveProperty("force");
       expect(promoteTestsTool.inputSchema.required).toContain("files");
     });
   });
@@ -458,6 +465,55 @@ describe("promoteTestsTool", () => {
       expect(result.success).toBe(false);
       expect(result.content[0].value).toContain("Promotion conflict");
       expect(result.content[0].value).toContain("already exists");
+    });
+
+    it("should overwrite destination when force=true", async () => {
+      addMockFile("test/red/unit/feature.test.ts", true);
+      addMockFile("test/unit/feature.test.ts", true);
+
+      setupMockTestResults(
+        createMockResult({
+          scope: "red",
+          total: 1,
+          passed: 1,
+          failed: 0,
+          tests: [
+            {
+              name: "test1",
+              file: "test/red/unit/feature.test.ts",
+              line: 10,
+              status: "passed",
+              duration: 10,
+            },
+          ],
+        }),
+      );
+
+      const result = await promoteTestsTool.invoke(
+        {
+          files: ["test/red/unit/feature.test.ts"],
+          dry_run: false,
+          force: true,
+        },
+        mockContext,
+      );
+
+      expect(result.success).toBe(true);
+      expect(result.content[0].value).toContain("Promoted 1 file(s)");
+      expect(result.content[0].value).toContain("force=true");
+
+      const childProcessModule = await import("node:child_process");
+      const mockedSpawn = vi.mocked(childProcessModule.spawn);
+      expect(mockedSpawn).toHaveBeenCalledWith(
+        "git",
+        [
+          "mv",
+          "-f",
+          "test/red/unit/feature.test.ts",
+          "test/unit/feature.test.ts",
+        ],
+        expect.objectContaining({ cwd: MOCK_WORKSPACE }),
+      );
     });
 
     it("should block promotion when tests are still failing", async () => {
@@ -668,7 +724,9 @@ describe("promoteTestsTool", () => {
 
       expect(result.success).toBe(true);
       expect(result.content[0].value).toContain("DRY RUN");
-      expect(result.content[0].value).toContain("test/red/unit/widget_test.dart");
+      expect(result.content[0].value).toContain(
+        "test/red/unit/widget_test.dart",
+      );
       expect(result.content[0].value).toContain("test/unit/widget_test.dart");
     });
 
@@ -706,7 +764,9 @@ describe("promoteTestsTool", () => {
       );
 
       expect(result.success).toBe(true);
-      expect(result.content[0].value).toContain("test/integration/api/users_test.dart");
+      expect(result.content[0].value).toContain(
+        "test/integration/api/users_test.dart",
+      );
     });
 
     it("should block promotion when Dart tests are still failing", async () => {

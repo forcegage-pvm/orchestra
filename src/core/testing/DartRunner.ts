@@ -487,13 +487,12 @@ export function eventsToOutcomes(
     const suite = suites.get(startInfo.suiteID);
     const rawFilePath = suite?.path ?? "";
 
-    // Convert file:// URL to path if url is present, otherwise use suite path
-    let filePath: string;
-    if (startInfo.url) {
-      filePath = fileUrlToPath(startInfo.url);
-    } else {
-      filePath = rawFilePath;
-    }
+    // Prefer suite path (per-file test source) over test URL.
+    // Flutter may emit shared/generated URLs across multiple test files,
+    // which collapses file attribution if URL is preferred.
+    // Fall back to URL only when suite path is unavailable.
+    const filePath =
+      rawFilePath || (startInfo.url ? fileUrlToPath(startInfo.url) : "");
 
     // Determine status
     let status: "passed" | "failed" | "skipped";

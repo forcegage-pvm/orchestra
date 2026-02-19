@@ -162,11 +162,20 @@ async function updateVerification(
   // - CONFIGURE: always allowed (initial setup)
   // - PREPARE: always allowed (spec refinement before handover)
   // - SELECT_TASK + PENDING task: allowed (strengthening criteria before preparation)
-  // - HANDOVER_REVIEW + PENDING task: allowed (fixing criteria before handover approval)
+  // - HANDOVER_REVIEW + PENDING/PENDING_HANDOVER_REVIEW task: allowed
+  //   (fixing criteria before handover approval)
   // - Other states: only allowed if task is ESCALATED (human supervisor correction)
   const isSpecReviewFailed =
     sprint.workflow_step === "SPEC_REVIEW" &&
     sprint.status === "SPEC_REVIEW_FAILED";
+
+  const isInAllowedSprintState =
+    sprint.workflow_step === "CONFIGURE" ||
+    sprint.workflow_step === "PREPARE" ||
+    isSpecReviewFailed;
+
+  const isPendingDuringSelectTask =
+    sprint.workflow_step === "SELECT_TASK" && task.status === "PENDING";
 
   // Tasks in these states should NOT have their verification modified
   // (the implementor is actively working, or the task is done)
@@ -181,9 +190,20 @@ async function updateVerification(
 
   const isTaskBlocked = blockedTaskStates.has(task.status);
 
-  // Also allow updating PENDING tasks during HANDOVER_REVIEW (fixing criteria before approval)
+  if (isTaskBlocked) {
+    throw new Error(
+      `Task ${input.task_id} is in ${task.status} state. ` +
+        `Verification criteria cannot be updated while the task is actively being worked on or completed. ` +
+        "Escalate the task first if spec corrections are needed.",
+    );
+  }
+
+  // Also allow updating tasks during HANDOVER_REVIEW before handover approval.
+  // Depending on when update_verification is called, task may still be PENDING
+  // or already transitioned to PENDING_HANDOVER_REVIEW.
   const isPendingDuringHandoverReview =
-    sprint.workflow_step === "HANDOVER_REVIEW" && task.status === "PENDING";
+    sprint.workflow_step === "HANDOVER_REVIEW" &&
+    (task.status === "PENDING" || task.status === "PENDING_HANDOVER_REVIEW");
 
   if (
     !isInAllowedSprintState &&

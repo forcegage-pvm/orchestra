@@ -9,6 +9,7 @@
 
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
+import { fileURLToPath } from "node:url";
 
 import { FingerprintComputer } from "../../../../../src/core/testing/FingerprintComputer.js";
 import { ResultFormatter } from "../../../../../src/core/testing/ResultFormatter.js";
@@ -81,6 +82,29 @@ function normalizeWindowsPath(p: string): string {
     return p[0].toUpperCase() + p.slice(1);
   }
   return p;
+}
+
+function normalizeTestFilePath(
+  testFilePath: string,
+  workspaceRoot: string,
+): string {
+  let normalized = testFilePath.replace(/\\/g, "/");
+
+  if (normalized.startsWith("file:///")) {
+    try {
+      normalized = fileURLToPath(normalized).replace(/\\/g, "/");
+    } catch {
+      // Keep original string if URL parsing fails
+    }
+  }
+
+  const wsRootNorm = workspaceRoot.replace(/\\/g, "/").replace(/\/$/, "");
+  const wsRootLower = `${wsRootNorm}/`.toLowerCase();
+  if (normalized.toLowerCase().startsWith(wsRootLower)) {
+    normalized = normalized.slice(wsRootLower.length);
+  }
+
+  return normalized.replace(/^\.\//, "");
 }
 
 /**
@@ -587,14 +611,8 @@ async function runTests(
     // Test runners may report absolute paths (e.g., "X:/repo/test/red/smoke/foo.test.ts")
     // but downstream consumers (promote_tests, generatePromotionTargets) expect
     // workspace-relative paths (e.g., "test/red/smoke/foo.test.ts").
-    const wsRootNorm =
-      context.workspaceRoot.replace(/\\/g, "/").replace(/\/$/, "") + "/";
-    const wsRootLower = wsRootNorm.toLowerCase();
     for (const test of result.tests) {
-      const normalized = test.file.replace(/\\/g, "/");
-      if (normalized.toLowerCase().startsWith(wsRootLower)) {
-        test.file = normalized.slice(wsRootNorm.length);
-      }
+      test.file = normalizeTestFilePath(test.file, context.workspaceRoot);
     }
 
     // 13. Store result in cache

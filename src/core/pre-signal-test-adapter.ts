@@ -198,7 +198,7 @@ export async function runTestsCore(
         duration: 0,
         failure: {
           message: errorSummary,
-          stack: "",
+          stack: [],
         },
       });
     }

@@ -133,6 +133,8 @@ export const PromoteTestsInputSchema = z.object({
   ),
   /** Dry-run: show what would happen without making changes (default: true from config) */
   dry_run: z.boolean().optional(),
+  /** Force overwrite destination file if it already exists */
+  force: z.boolean().optional(),
 });
 
 export type PromoteTestsInput = z.output<typeof PromoteTestsInputSchema>;

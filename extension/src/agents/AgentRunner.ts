@@ -15,7 +15,11 @@ import type { LanguageModelChatMessage, LanguageModelChatTool } from "vscode";
 import * as vscode from "vscode";
 import { isModelSelectionRequired } from "../commands/selectModel.js";
 import type { ConfigService } from "../config/ConfigService.js";
-import { createEscalation } from "../database/mutations.js";
+import {
+  createEscalation,
+  getEscalationDetails,
+  resolveEscalation,
+} from "../database/mutations.js";
 import { AgentSession } from "./AgentSession.js";
 import { ContextManager } from "./ContextManager.js";
 import { AgentError, SessionError } from "./errors.js";
@@ -2857,6 +2861,19 @@ export class AgentRunner implements vscode.Disposable {
           // Check for tool signal to pause or stop agent
           const toolSignal = result.result.signal;
           if (toolSignal === "pause") {
+            // Auto-de-escalation: if the pause was triggered by wait_for_input
+            // after an escalate_task call, automatically resolve the escalation
+            // and resume the agent without requiring human intervention.
+            const autoResumed = await this.tryAutoDeescalate(
+              toolCall.name,
+              toolCall.input as Record<string, unknown>,
+            );
+            if (autoResumed) {
+              // Don't pause – the loop will continue on the next iteration
+              // with the injected de-escalation message already in history.
+              break; // break inner tool-call loop to re-enter outer while loop
+            }
+
             const previousStatus = this.session.status;
             this.isPaused = true;
             this.session.pause();
@@ -3073,6 +3090,105 @@ export class AgentRunner implements vscode.Disposable {
     }
 
     return lines.join("\n");
+  }
+
+  /**
+   * Attempt to automatically de-escalate a task when wait_for_input is called
+   * after an escalate_task invocation.
+   *
+   * When the orchestrator escalates a task purely to gain permission to call
+   * update_verification (the common "fix verification path" pattern), there is no
+   * real need for a human to intervene.  This method detects that pattern and
+   * resolves the escalation automatically, then injects a system message so the
+   * agent knows it can proceed.
+   *
+   * @param toolName  The name of the tool whose result just signalled "pause"
+   * @param _toolInput  The input supplied to that tool (unused but available)
+   * @returns true if the auto-de-escalation was performed (caller must NOT pause)
+   */
+  private async tryAutoDeescalate(
+    toolName: string,
+    _toolInput: Record<string, unknown>,
+  ): Promise<boolean> {
+    // Only intercept wait_for_input pauses
+    if (toolName !== "wait_for_input") {
+      return false;
+    }
+
+    if (!this.session) {
+      return false;
+    }
+
+    const workspaceRoot =
+      vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? process.cwd();
+
+    // Look for the most recent unresolved escalation using the session's taskId.
+    // If there is no taskId we fall back to checking via task status below.
+    const taskId = this.session.taskId;
+    if (taskId === null || taskId === undefined) {
+      return false;
+    }
+
+    let escalation: ReturnType<typeof getEscalationDetails>;
+    try {
+      escalation = getEscalationDetails(workspaceRoot, taskId);
+    } catch {
+      return false;
+    }
+
+    if (!escalation) {
+      return false;
+    }
+
+    // Determine target status: use whatever the agent recommended, defaulting to PENDING
+    const rawTarget = escalation.recommended_target_status;
+    const allowedStatuses = [
+      "PENDING",
+      "VERIFY_FAILED",
+      "GATE_CHECK",
+      "IMPLEMENT",
+    ] as const;
+    type AllowedStatus = (typeof allowedStatuses)[number];
+    const targetStatus: AllowedStatus = (
+      allowedStatuses as readonly string[]
+    ).includes(rawTarget)
+      ? (rawTarget as AllowedStatus)
+      : "PENDING";
+
+    try {
+      resolveEscalation(
+        workspaceRoot,
+        taskId,
+        targetStatus,
+        "Auto-de-escalated by Orchestra: no human intervention required for this escalation pattern.",
+      );
+    } catch (err) {
+      // resolveEscalation throws if the task is not ESCALATED - that's fine, just fall through
+      console.warn("[AgentRunner] Auto-de-escalation failed:", err);
+      return false;
+    }
+
+    // Inject a system message so the agent knows it can continue
+    const resumeMessage =
+      `[SYSTEM: Your escalation of task ${taskId} has been automatically resolved. ` +
+      `The task has been de-escalated to ${targetStatus}. ` +
+      `No human intervention was required. You may now proceed with your work.` +
+      `]`;
+
+    this.addUserMessage(resumeMessage);
+
+    this.emitOutput({
+      type: "status",
+      timestamp: new Date().toISOString(),
+      iteration: this.session.currentIteration,
+      message: `Auto-de-escalated task ${taskId} → ${targetStatus}`,
+    });
+
+    console.info(
+      `[AgentRunner] Auto-de-escalated task ${taskId} to ${targetStatus}`,
+    );
+
+    return true;
   }
 
   private async handleTaskCompletion(

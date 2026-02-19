@@ -10,6 +10,7 @@
 import { spawn } from "node:child_process";
 import { access, readFile, stat, writeFile } from "node:fs/promises";
 import * as path from "node:path";
+import { fileURLToPath } from "node:url";
 
 import { ResultFormatter } from "../../../../../src/core/testing/ResultFormatter.js";
 import type {
@@ -17,6 +18,7 @@ import type {
   TestTier,
 } from "../../../../../src/core/testing/TestConfigLoader.js";
 import { TestConfigLoader } from "../../../../../src/core/testing/TestConfigLoader.js";
+import { TestRunnerFactory } from "../../../../../src/core/testing/TestRunnerFactory.js";
 import type {
   PromoteTestsInput,
   PromoteTestsResult,
@@ -25,7 +27,7 @@ import type {
   RunTestsResult,
 } from "../../../../../src/core/testing/types.js";
 import { PromoteTestsInputSchema } from "../../../../../src/core/testing/types.js";
-import { TestRunnerFactory } from "../../../../../src/core/testing/TestRunnerFactory.js";import { ToolErrorCode } from "../errors.js";
+import { ToolErrorCode } from "../errors.js";
 import type {
   AgentTool,
   ToolInputSchema,
@@ -129,6 +131,29 @@ function extractDirectoryFromGlob(globPattern: string): string {
   return beforeWildcard.substring(0, lastSlash + 1);
 }
 
+function normalizeToWorkspaceRelative(
+  inputPath: string,
+  workspaceRoot: string,
+): string {
+  let normalized = inputPath.replace(/\\/g, "/");
+
+  if (normalized.startsWith("file:///")) {
+    try {
+      normalized = fileURLToPath(normalized).replace(/\\/g, "/");
+    } catch {
+      // Keep original string if URL parsing fails
+    }
+  }
+
+  const wsRootNorm = workspaceRoot.replace(/\\/g, "/").replace(/\/$/, "");
+  const wsRootLower = `${wsRootNorm}/`.toLowerCase();
+  if (normalized.toLowerCase().startsWith(wsRootLower)) {
+    normalized = normalized.slice(wsRootLower.length);
+  }
+
+  return normalized.replace(/^\.\//, "");
+}
+
 /**
  * Infer the destination path and tier for a red-phase test file.
  */
@@ -188,9 +213,14 @@ async function executeGitMv(
   source: string,
   destination: string,
   workspaceRoot: string,
+  force = false,
 ): Promise<{ success: boolean; error?: string }> {
   return new Promise((resolve) => {
-    const child = spawn("git", ["mv", source, destination], {
+    const args = force
+      ? ["mv", "-f", source, destination]
+      : ["mv", source, destination];
+
+    const child = spawn("git", args, {
       cwd: workspaceRoot,
       shell: process.platform === "win32",
       stdio: ["ignore", "pipe", "pipe"],
@@ -330,10 +360,12 @@ async function promoteTests(
 
   // 3. Determine dry_run mode (default from config)
   const dryRun = validatedInput.dry_run ?? config.promotion.dryRun;
+  const force = validatedInput.force ?? false;
 
   // 4. Run fresh tests for the specified files (ALWAYS - never use cached results)
   //    This ensures we don't have stale data from previous run_tests calls.
-  const runner = TestRunnerFactory.create(config.framework);  const formatter = new ResultFormatter();
+  const runner = TestRunnerFactory.create(config.framework);
+  const formatter = new ResultFormatter();
 
   let testRunResult: RunTestsResult;
   try {
@@ -347,7 +379,8 @@ async function promoteTests(
       maxFailureLines: config.maxFailureLines,
       framework: runner.framework,
     });
-  } catch (err) {    return buildToolResult(
+  } catch (err) {
+    return buildToolResult(
       errorResult(
         TOOL_NAME,
         ToolErrorCode.TEST_EXECUTION_ERROR,
@@ -364,17 +397,15 @@ async function promoteTests(
   const wsRootNorm = context.workspaceRoot
     .replace(/\\/g, "/")
     .replace(/\/$/, "");
-  const wsRootLower = (wsRootNorm + "/").toLowerCase();
   const fileTestStatus = new Map<
     string,
     { passing: number; failing: number }
   >();
   for (const test of testRunResult.tests) {
-    let normalizedFile = test.file.replace(/\\/g, "/");
-    // Strip workspace root prefix to get workspace-relative path (case-insensitive for Windows drive letters)
-    if (normalizedFile.toLowerCase().startsWith(wsRootLower)) {
-      normalizedFile = normalizedFile.slice(wsRootLower.length);
-    }
+    const normalizedFile = normalizeToWorkspaceRelative(
+      test.file,
+      context.workspaceRoot,
+    );
     const status = fileTestStatus.get(normalizedFile) || {
       passing: 0,
       failing: 0,
@@ -397,10 +428,10 @@ async function promoteTests(
     // Normalize input path: convert backslashes to forward slashes,
     // and strip workspace root prefix to get workspace-relative form.
     // Agents may pass absolute paths, backslash paths, or relative paths.
-    let normalizedPath = filePath.replace(/\\/g, "/");
-    if (normalizedPath.toLowerCase().startsWith(wsRootLower)) {
-      normalizedPath = normalizedPath.slice(wsRootLower.length);
-    }
+    const normalizedPath = normalizeToWorkspaceRelative(
+      filePath,
+      context.workspaceRoot,
+    );
     const absolutePath = path.resolve(context.workspaceRoot, normalizedPath);
 
     // Check if file is in red directory
@@ -446,47 +477,77 @@ async function promoteTests(
     const destination = destInfo.destination;
     const tier = destInfo.tier;
 
-    // Check test status
+    // Check test status from aggregated run; if missing, verify file directly.
+    let passingCount = 0;
+    let failingCount = 0;
+
     const testStatus = fileTestStatus.get(normalizedPath);
-    if (!testStatus) {
-      // No test results available - we can't verify status
-      // For safety, block promotion without test verification
-      blocked.push({
-        source: filePath,
-        destination,
-        reason: "file-missing", // Use file-missing to indicate pre-condition not met (no test data)
-        message: `No test results found for "${filePath}". Run tests with scope "red" first to verify test status.`,
-      });
-      continue;
+    if (testStatus) {
+      passingCount = testStatus.passing;
+      failingCount = testStatus.failing;
+    } else {
+      try {
+        const singleRunOutput = await runner.execute({
+          files: [normalizedPath],
+          workingDir: context.workspaceRoot,
+          timeout: config.defaultTimeout,
+        });
+
+        const singleResult = formatter.format(singleRunOutput.tests, {
+          maxFailureLines: config.maxFailureLines,
+          framework: runner.framework,
+        });
+
+        passingCount = singleResult.passed;
+        failingCount = singleResult.failed;
+
+        if (singleResult.total === 0) {
+          blocked.push({
+            source: filePath,
+            destination,
+            reason: "file-missing",
+            message: `No test results found for "${filePath}" (including direct file verification). Ensure this file contains discoverable tests for ${runner.framework}.`,
+          });
+          continue;
+        }
+      } catch {
+        blocked.push({
+          source: filePath,
+          destination,
+          reason: "file-missing",
+          message: `No test results found for "${filePath}". Run tests with scope "red" first to verify test status.`,
+        });
+        continue;
+      }
     }
 
-    if (testStatus.failing > 0) {
+    if (failingCount > 0) {
       blocked.push({
         source: filePath,
         destination,
         reason: "still-failing",
-        message: `${testStatus.failing} of ${testStatus.passing + testStatus.failing} tests still failing. Cannot promote until all tests pass.`,
+        message: `${failingCount} of ${passingCount + failingCount} tests still failing. Cannot promote until all tests pass.`,
       });
       continue;
     }
 
     // Check if destination exists — fail-fast on conflict (FR-018b)
     const destAbsolutePath = path.resolve(context.workspaceRoot, destination);
-    if (await fileExists(destAbsolutePath)) {
+    if ((await fileExists(destAbsolutePath)) && !force) {
       return buildToolResult(
         errorResult(
           TOOL_NAME,
           ToolErrorCode.INVALID_INPUT,
           `Promotion conflict: destination already exists: ${destination} (source: ${filePath}). ` +
             `${promoted.length} file(s) were already promoted before this conflict.`,
-          "Resolve the conflict manually before promoting.",
+          "Resolve the conflict manually before promoting, or re-run with force=true to overwrite.",
           { source: filePath, destination, alreadyPromoted: promoted.length },
         ),
       );
     }
 
     // Ready to promote
-    const testCount = testStatus.passing;
+    const testCount = passingCount;
 
     if (dryRun) {
       // Dry run - just record what would happen
@@ -503,6 +564,7 @@ async function promoteTests(
         filePath,
         destination,
         context.workspaceRoot,
+        force,
       );
       if (mvResult.success) {
         // Strip // @orchestra-task: N annotation from promoted file (FR-018a)
@@ -600,7 +662,7 @@ async function promoteTests(
   }
 
   // 9. Build output string
-  const output = formatPromoteOutput(result);
+  const output = formatPromoteOutput(result, force);
 
   return buildToolResult(successResult(TOOL_NAME, output));
 }
@@ -642,10 +704,13 @@ function buildSummary(
 /**
  * Format the promote_tests output string.
  */
-function formatPromoteOutput(result: PromoteTestsResult): string {
+function formatPromoteOutput(
+  result: PromoteTestsResult,
+  force: boolean,
+): string {
   const lines: string[] = [];
 
-  lines.push(`✓ promote_tests [dry_run=${result.dryRun}]`);
+  lines.push(`✓ promote_tests [dry_run=${result.dryRun}, force=${force}]`);
   lines.push("");
 
   if (result.dryRun) {
@@ -706,6 +771,11 @@ const promoteTestsInputSchema = {
       description:
         "Preview mode — show what would happen without making changes. Default: true (from config).",
     },
+    force: {
+      type: "boolean",
+      description:
+        "When true, allows overwriting an existing destination file during promotion (uses git mv -f). Default: false.",
+    },
   },
   required: ["files"],
 } as ToolInputSchema;
@@ -723,7 +793,8 @@ export const promoteTestsTool: AgentTool<PromoteTestsInput> = {
     "Promote passing TDD red-phase tests into standard test tier directories. " +
     "Dry-run by default — shows what would be moved without making changes. " +
     "Uses 'git mv' to preserve version control history. " +
-    "Blocks promotion of tests that are still failing.",
+    "Blocks promotion of tests that are still failing. " +
+    "Set force=true to overwrite an existing destination file.",
   inputSchema: promoteTestsInputSchema,
   invoke: promoteTests,
 };
