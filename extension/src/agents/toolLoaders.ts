@@ -13,6 +13,7 @@ import {
   searchFilesTool,
 } from "./tools/coding/index.js";
 import { registerFilesystemTools } from "./tools/filesystem/index.js";
+import { registerIntelligenceTools } from "./tools/intelligence/index.js";
 import { registerOrchestraControllerTools } from "./tools/orchestra/controllerIndex.js";
 import { registerOrchestraImplementorTools } from "./tools/orchestra/index.js";
 import { registerOrchestraOrchestratorTools } from "./tools/orchestra/orchestratorIndex.js";
@@ -28,6 +29,7 @@ export function loadImplementorTools(registry: ToolRegistry): void {
   registerOrchestraImplementorTools(registry);
   registerSystemTools(registry);
   registerTestingTools(registry);
+  registerIntelligenceTools(registry);
 }
 
 /**
@@ -39,6 +41,7 @@ export function loadOrchestratorTools(registry: ToolRegistry): void {
   registerOrchestraOrchestratorTools(registry);
   registerSystemTools(registry);
   registerTestingTools(registry);
+  registerIntelligenceTools(registry);
 }
 
 /**
@@ -61,4 +64,6 @@ export function loadControllerTools(registry: ToolRegistry): void {
   registerOrchestraControllerTools(registry);
   // Controller gets testing tools for running scoped tests
   registerTestingTools(registry);
+  // Controller gets intelligence tools for Dart analysis during code review
+  registerIntelligenceTools(registry);
 }

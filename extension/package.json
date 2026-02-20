@@ -108,6 +108,16 @@
           ],
           "default": "normal",
           "description": "Verbosity level for the Agent Panel timeline (minimal hides thinking, debug shows full tool details)"
+        },
+        "orchestra.dartSdkPath": {
+          "type": "string",
+          "default": "dart",
+          "description": "Path to the Dart SDK executable. Defaults to 'dart' (must be in PATH). Used by dart_analyze and dart_run_tests intelligence tools."
+        },
+        "orchestra.dartMcp.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable Dart MCP server integration for dart_analyze and dart_resolve_symbol tools. Requires Dart SDK 3.9+. Disable if dart is not installed or you want to suppress the connection attempt."
         }
       }
     },
@@ -489,6 +499,7 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
     "@iconify-icon/solid": "^2.1.0",
     "@iconify-icons/lucide": "^1.2.135",
     "@tanstack/solid-virtual": "^3.13.18",
